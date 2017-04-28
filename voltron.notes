@@ -1,0 +1,58 @@
+voltron:
+top level 
+input - 
+	RA, DEC, error radius
+optional input - 
+	dither file
+    detect line file
+	2D spectra file(s) (e.g. from which to take hetdex cutouts)
+	name of output file (and type?)
+	
+	
+needs configuration file:
+	where to search for hetdex cutouts (path)
+		-- this would need to look in fits headers for RA,Dec in range of error radius
+		
+
+output:
+	file (pdf or html?) with information on 
+	* the passed in target (RA,Dec, error radius) ? Name, Field (etc from FITS header)
+	* detect information? (Chi2, S/N, etc)
+	* other TBD information (from analysis of FITS file(s))
+	
+	for each bid object in catalog(s): sort by probability of match
+	* catalog name
+	* object name (or catalog ID)
+	* object RA,Dec
+	* distance from target RA,DEC
+	* probability that is a match for target (TBD - based on angular distance and other factors)
+	* computed object info (rest-frame EW, if LAE, if OII, etc)
+	* photo-Z or other Z measure(s)
+	* fluxes in band-passes
+	* SED
+	* imaging 
+	
+
+
+
+
+Catalog (interface) class:
+needs configuration file:
+
+	name of catalog
+	location of catalog (e.g. local path or URL)
+	info on how to query
+	what info (fields) are available (photZ, SED, etc)
+	RA, DEC ranges covered by catalog (todo: need way to specify the area covered so can query if target RA,DEC is in catalog)
+	
+	
+	
+
+Coord (class): (does astropy already have this?)
+store RA,DEC in, say decimal degrees
+accept RA,DEC in any format
+return RA,DEC in any format
+
+
+
+
