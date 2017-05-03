@@ -3,7 +3,7 @@
 
 import pandas as pd
 import global_config
-from astropy.coordinates import Angle
+#from astropy.coordinates import Angle
 
 
 
@@ -12,6 +12,16 @@ log.setLevel(global_config.logging.DEBUG)
 
 #base class for catalogs (essentially an interface class)
 #all Catalogs classes must implement:
+
+
+def get_catalog_list():
+    #build list of all catalogs below
+    cats = list()
+    cats.append(CANDELS_EGS_Stefanon_2016())
+    cats.append(dummy_cat())
+
+    return cats
+
 
 class Catalog:
 
@@ -60,9 +70,11 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
     CatalogLocation = "/home/dustin/code/python/voltron/data/EGS/photometry/CANDELS.EGS.F160W.v1_1.photom.cat"
     Name = "CANDELS_EGS_Stefanon_2016"
 
-
     def __init__(self):
+        super(CANDELS_EGS_Stefanon_2016, self).__init__()
+
         self.dataframe_of_bid_targets = None
+        self.num_targets = 0
         self.read_catalog()
 
     @classmethod
@@ -121,6 +133,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         '''ra and dec in decimal degress. error in arcsec.
         returns a pandas dataframe'''
         self.dataframe_of_bid_targets = None
+        self.num_targets = 0
 
         e = float(error)/3600.0
         ra_min = float(ra - e)
@@ -135,7 +148,42 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             log.error(self.Name + " Exception in build_list_of_bid_targets")
 
         if self.dataframe_of_bid_targets is not None:
+            self.num_targets = self.dataframe_of_bid_targets.iloc[:, 0].count()
             log.debug(self.Name + " searching for objects in [%f - %f, %f - %f] " %(ra_min,ra_max,dec_min,dec_max) +
-                  ". Found = %d" % (self.dataframe_of_bid_targets['RA'].count()))
+                  ". Found = %d" % (self.num_targets ))
 
-        return self.dataframe_of_bid_targets
+        return self.num_targets, self.dataframe_of_bid_targets
+
+
+
+class dummy_cat(Catalog):
+#RA,Dec in decimal degrees
+
+    #class variables
+    CatalogLocation = "nowhere"
+    Name = "Dummy Cat"
+
+
+    def __init__(self):
+        super(dummy_cat, self).__init__()
+        self.dataframe_of_bid_targets = None
+        self.read_catalog()
+
+    @classmethod
+    def read_catalog(cls):
+        pass
+
+    @classmethod
+    def coordinate_range(cls,echo=False):
+        if echo:
+            msg = "RA (%f, %f)" % (cls.RA_min, cls.RA_max) + "Dec(%f, %f)" % (cls.Dec_min, cls.Dec_max)
+            print( msg )
+        log.debug(cls.Name + " Simple Coordinate Box: " + msg )
+        return (cls.RA_min, cls.RA_max, cls.Dec_min, cls.Dec_max)
+
+    def build_list_of_bid_targets(self,ra,dec,error):
+       return 0,None
+
+
+
+
