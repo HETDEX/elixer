@@ -36,6 +36,9 @@ output:
 
 
 
+
+//maybe need a catalog base class then implement a child for each catalog
+//catalogs may be too different to bother with a data-driven config (it might be simpler to just implement child Catalogs)
 Catalog (interface) class:
 needs configuration file:
 
@@ -45,8 +48,16 @@ needs configuration file:
 	what info (fields) are available (photZ, SED, etc)
 	RA, DEC ranges covered by catalog (todo: need way to specify the area covered so can query if target RA,DEC is in catalog)
 	
-	
-	
+on instantiation, load the catalog into a Pandas frame, but do not load large files (i.e. images, pdfs ... load references or  paths to them if nedded)
+is_in_cat()?
+    check that the target RA,Dec is in range of catalog RA,Dec (maybe, for now, gross rectangle minRA,minDec to maxRa,maxDec)
+
+
+
+CatalogLibrary
+//list or set wrapper of all catalogs
+can query with RA,Dec ... returns catalogs that could match, etc.
+
 
 Coord (class): (does astropy already have this?)
 store RA,DEC in, say decimal degrees

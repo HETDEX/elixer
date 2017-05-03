@@ -1,0 +1,842 @@
+The CANDELS-EGS Multi-wavelength catalog
+Stefanon et al., 2016
+ReadMe -
+* Data:
+- u* CFHT/MegaCam (CFHTLS; Gwyn et al., 2012)
+- g’ CFHT/MegaCam (CFHTLS; Gwyn et al., 2012)
+- r’ CFHT/MegaCam (CFHTLS; Gwyn et al., 2012)
+- i’ CFHT/MegaCam (CFHTLS; Gwyn et al., 2012)
+- z’ CFHT/MegaCam (CFHTLS; Gwyn et al., 2012)
+- F606W HST/ACS (CANDELS; Koekemoer et al. 2011)
+- F814W HST/ACS (CANDELS; Koekemoer et al. 2011)
+- F125W HST/WFC3 (CANDELS; Koekemoer et al. 2011)
+- F140W HST/WFC3 (3D-HST; Skelton et al., 2014)
+- F160W HST/WFC3 (CANDELS; Koekemoer et al. 2011)
+- J1 Mayall/NEWFIRM (NMBS; Whitaker et al., 2011)
+- J2 Mayall/NEWFIRM (NMBS; Whitaker et al., 2011)
+- J3 Mayall/NEWFIRM (NMBS; Whitaker et al., 2011)
+- H1 Mayall/NEWFIRM (NMBS; Whitaker et al., 2011)
+- H2 Mayall/NEWFIRM (NMBS; Whitaker et al., 2011)
+- K Mayall/NEWFIRM (NMBS; Whitaker et al., 2011)
+- J CFHT/WIRCAM (WIRDS; Bielby et al., 2012)
+- H CFHT/WIRCAM (WIRDS; Bielby et al., 2012)
+- Ks CFHT/WIRCAM (WIRDS; Bielby et al., 2012)
+- 3.6μm Spitzer/IRAC (SCANDELS; Asby et al., 2015)
+- 4.5μm Spitzer/IRAC (SCANDELS; Asby et al., 2015)
+- 5.8μm Spitzer/IRAC (Barmby et al., 2008)
+- 8.0μm Spitzer/IRAC (Barmby et al., 2008)* Column description:
+********************************* Photometry ***************************************
+Content of CANDELS.EGS.F160W.v1_1.photom.cat
+# 1 ID
+# 2 IAU_designation
+# 3 RA
+# 4 DEC
+# 5 RA_Lotz2008
+# 6 DEC_Lotz2008
+# 7 FLAGS
+# 8 CLASS_STAR
+# 9 CFHT_u_FLUX
+# 10 CFHT_u_FLUXERR
+# 11 CFHT_g_FLUX
+# 12 CFHT_g_FLUXERR
+# 13 CFHT_r_FLUX
+# 14 CFHT_r_FLUXERR
+# 15 CFHT_i_FLUX
+# 16 CFHT_i_FLUXERR
+# 17 CFHT_z_FLUX
+# 18 CFHT_z_FLUXERR
+# 19 ACS_F606W_FLUX
+# 20 ACS_F606W_FLUXERR
+# 21 ACS_F814W_FLUX
+# 22 ACS_F814W_FLUXERR
+# 23 WFC3_F125W_FLUX
+# 24 WFC3_F125W_FLUXERR
+# 25 WFC3_F140W_FLUX
+# 26 WFC3_F140W_FLUXERR
+# 27 WFC3_F160W_FLUX
+# 28 WFC3_F160W_FLUXERR
+# 29 WIRCAM_J_FLUX
+# 30 WIRCAM_J_FLUXERR
+# 31 WIRCAM_H_FLUX
+# 32 WIRCAM_H_FLUXERR
+# 33 WIRCAM_K_FLUX
+# 34 WIRCAM_K_FLUXERR
+# 35 NEWFIRM_J1_FLUX
+# 36 NEWFIRM_J1_FLUXERR
+# 37 NEWFIRM_J2_FLUX
+# 38 NEWFIRM_J2_FLUXERR
+# 39 NEWFIRM_J3_FLUX
+# 40 NEWFIRM_J3_FLUXERR
+# 41 NEWFIRM_H1_FLUX
+# 42 NEWFIRM_H1_FLUXERR
+# 43 NEWFIRM_H2_FLUX
+# 44 NEWFIRM_H2_FLUXERR
+# 45 NEWFIRM_K_FLUX
+# 46 NEWFIRM_K_FLUXERR
+# 47 IRAC_CH1_FLUX
+# 48 IRAC_CH1_FLUXERR
+# 49 IRAC_CH2_FLUX
+Identification number of the source (1)
+Right Ascension (J2000) (1)
+Declination (J2000) (1)
+Right Ascension in AEGIS ACS astrometric system
+Declination in AEGIS ACS astrometric system
+Flags (2)
+Class_star SExtractor parameter (1)
+Flux density (in μJy) in the u*-band (CFHT/MegaCam) (3)
+Flux uncertainty (in μJy) in the u*-band (CFHT/MegaCam) (3)
+Flux density (in μJy) in the g'-band (CFHT/MegaCam) (3)
+Flux uncertainty (in μJy) in the g'-band (CFHT/MegaCam) (3)
+Flux density (in μJy) in the r'-band (CFHT/MegaCam) (3)
+Flux uncertainty (in μJy) in the r'-band (CFHT/MegaCam) (3)
+Flux density (in μJy) in the i'-band (CFHT/MegaCam) (3)
+Flux uncertainty (in μJy) in the i'-band (CFHT/MegaCam) (3)
+Flux density (in μJy) in the z'-band (CFHT/MegaCam) (3)
+Flux uncertainty (in μJy) in the z'-band (CFHT/MegaCam) (3)
+Flux density (in μJy) in the F606W-band (HST/ACS) (3)
+Flux uncertainty (in μJy) in the F606W-band (HST/ACS) (3)
+Flux density (in μJy) in the F814W-band (HST/ACS) (3)
+Flux uncertainty (in μJy) in the F814W-band (HST/ACS) (3)
+Flux density (in μJy) in the F125W-band (HST/WFC3) (3)
+Flux uncertainty (in μJy) in the F125W-band (HST/WFC3) (3)
+Flux density (in μJy) in the F140W-band (HST/WFC3) (3)
+Flux uncertainty (in μJy) in the F140W-band (HST/WFC3) (3)
+Flux density (in μJy) in the F160W-band (HST/WFC3) (3)
+Flux uncertainty (in μJy) in the F160W-band (HST/WFC3) (3)
+Flux density (in μJy) in the J-band (CFHT/WIRCam) (3)
+Flux uncertainty (in μJy) in the J-band (CFHT/WIRCam) (3)
+Flux density (in μJy) in the H-band (CFHT/WIRCam) (3)
+Flux uncertainty (in μJy) in the H-band (CFHT/WIRCam) (3)
+Flux density (in μJy) in the Ks-band (CFHT/WIRCam) (3)
+Flux uncertainty (in μJy) in the Ks-band (CFHT/WIRCam) (3)
+Flux density (in μJy) in the J1-band (Mayall/NEWFIRM) (3)
+Flux uncertainty (in μJy) in the J1-band (Mayall/NEWFIRM) (3)
+Flux density (in μJy) in the J2-band (Mayall/NEWFIRM) (3)
+Flux uncertainty (in μJy) in the J2-band (Mayall/NEWFIRM) (3)
+Flux density (in μJy) in the J3-band (Mayall/NEWFIRM) (3)
+Flux uncertainty (in μJy) in the J3-band (Mayall/NEWFIRM) (3)
+Flux density (in μJy) in the H1-band (Mayall/NEWFIRM) (3)
+Flux uncertainty (in μJy) in the H1-band (Mayall/NEWFIRM) (3)
+Flux density (in μJy) in the H2-band (Mayall/NEWFIRM) (3)
+Flux uncertainty (in μJy) in the H2-band (Mayall/NEWFIRM) (3)
+Flux density (in μJy) in the K-band (Mayall/NEWFIRM) (3)
+Flux uncertainty (in μJy) in the K-band (Mayall/NEWFIRM) (3)
+Flux density (in μJy) in the 3.6μm-band (Spitzer/IRAC) (3)
+Flux uncertainty (in μJy) in the 3.6μm-band (Spitzer/IRAC) (3)
+Flux density (in μJy) in the 4.5μm-band (Spitzer/IRAC) (3)# 50 IRAC_CH2_FLUXERR
+# 51 IRAC_CH3_FLUX
+# 52 IRAC_CH3_FLUXERR
+# 53 IRAC_CH4_FLUX
+# 54 IRAC_CH4_FLUXERR
+# 55 ACS_F606W_V08_FLUX
+# 56 ACS_F606W_V08_FLUXERR
+# 57 ACS_F814W_V08_FLUX
+# 58 ACS_F814W_V08_FLUXERR
+# 59 WFC3_F125W_V08_FLUX
+# 60 WFC3_F125W_V08_FLUXERR
+# 61 WFC3_F160W_V08_FLUX
+# 62 WFC3_F160W_V08_FLUXERR
+# 63 IRAC_CH3_V08_FLUX
+# 64 IRAC_CH3_V08_FLUXERR
+# 65 IRAC_CH4_V08_FLUX
+# 66 IRAC_CH4_V08_FLUXERR
+# 67 DEEP_SPEC_Z
+Flux uncertainty (in μJy) in the 4.5μm-band (Spitzer/IRAC) (3)
+Flux density (in μJy) in the 5.8μm-band (Spitzer/IRAC) (3)
+Flux uncertainty (in μJy) in the 5.8μm-band (Spitzer/IRAC) (3)
+Flux density (in μJy) in the 8.0μm-band (Spitzer/IRAC) (3)
+Flux uncertainty (in μJy) in the 8.0μm-band (Spitzer/IRAC) (3)
+Flux density (in μJy) in the F606W-band from CANDELS mosaics v0.8 (3)
+Flux uncertainty (in μJy) in the F606W-band from CANDELS mosaics v0.8 (3)
+Flux density (in μJy) in the F814W-band from CANDELS mosaics v0.8 (3)
+Flux uncertainty (in μJy) in the F814W-band from CANDELS mosaics v0.8 (3)
+Flux density (in μJy) in the F125W-band from CANDELS mosaics v0.8 (3)
+Flux uncertainty (in μJy) in the F125W-band from CANDELS mosaics v0.8 (3)
+Flux density (in μJy) in the F160W-band from CANDELS mosaics v0.8 (3)
+Flux uncertainty (in μJy) in the F160W-band from CANDELS mosaics v0.8 (3)
+Flux density (in μJy) in the 5.8μm-band (Spitzer/IRAC) version v0.8 (4)
+Flux uncertainty (in μJy) in the 5.8μm-band (Spitzer/IRAC) version v0.8 (4)
+Flux density (in μJy) in the 8.0μm-band (Spitzer/IRAC) version v0.8 (4)
+Flux uncertainty (in μJy) in the 8.0μm-band (Spitzer/IRAC) version v0.8 (4)
+Spectroscopic redshift if available ('-99' otherwise)
+********************** Limiting magnitudes & Covariance Indexes *****************************
+Content of CANDELS.EGS.F160W.v1_2.limcov.cat
+# 1 ID
+# 2 Limiting_Magnitude_UCFHTLS
+# 3 Limiting_Magnitude_GCFHTLS
+# 4 Limiting_Magnitude_RCFHTLS
+# 5 Limiting_Magnitude_ICFHTLS
+# 6 Limiting_Magnitude_ZCFHTLS
+# 7 Limiting_Magnitude_F606W
+# 8 Limiting_Magnitude_F814W
+# 9 Limiting_Magnitude_F125W
+# 10 Limiting_Magnitude_F140W
+# 11 Limiting_Magnitude_F160W
+# 12 Limiting_Magnitude_WIRCAMJ
+# 13 Limiting_Magnitude_WIRCAMH
+# 14 Limiting_Magnitude_WIRCAMK
+# 15 Limiting_Magnitude_NMBSJ1
+# 16 Limiting_Magnitude_NMBSJ2
+# 17 Limiting_Magnitude_NMBSJ3
+# 18 Limiting_Magnitude_NMBSH1
+# 19 Limiting_Magnitude_NMBSH2
+# 20 Limiting_Magnitude_NMBSK
+# 21 Limiting_Magnitude_CH1
+# 22 Limiting_Magnitude_CH2
+# 23 Limiting_Magnitude_CH3
+# 24 Limiting_Magnitude_CH4
+# 25 Limiting_Magnitude_F606W_v08
+# 26 Limiting_Magnitude_F814W_v08
+# 27 Limiting_Magnitude_F125W_v08
+# 28 Limiting_Magnitude_F160W_v08
+# 29 Weight_UCFHTLS
+# 30 Weight_GCFHTLS
+# 31 Weight_RCFHTLS
+# 32 Weight_ICFHTLS
+# 33 Weight_ZCFHTLS
+Unique identification number of the source
+Limiting magnitude at the source position in CFHTLS u* (AB) (5)
+Limiting magnitude at the source position in CFHTLS g’ (AB) (5)
+Limiting magnitude at the source position in CFHTLS r’ (AB) (5)
+Limiting magnitude at the source position in CFHTLS i’ (AB) (5)
+Limiting magnitude at the source position in CFHTLS z’ (AB) (5)
+Limiting magnitude at the source position in F606W (AB) (5)
+Limiting magnitude at the source position in F814W (AB) (5)
+Limiting magnitude at the source position in F125W (AB) (5)
+Limiting magnitude at the source position in F140W (AB) (5)
+Limiting magnitude at the source position in F160W (AB) (5)
+Limiting magnitude at the source position in WIRCAMJ (AB) (5)
+Limiting magnitude at the source position in WIRCAMH (AB) (5)
+Limiting magnitude at the source position in WIRCAMK (AB) (5)
+Limiting magnitude at the source position in NMBSJ1 (AB) (5)
+Limiting magnitude at the source position in NMBSJ2 (AB) (5)
+Limiting magnitude at the source position in NMBSJ3 (AB) (5)
+Limiting magnitude at the source position in NMBSH1 (AB) (5)
+Limiting magnitude at the source position in NMBSH2 (AB) (5)
+Limiting magnitude at the source position in NMBSK (AB) (5)
+Limiting magnitude at the source position in IRAC 3.6μm(AB) (5)
+Limiting magnitude at the source position in IRAC 4.5μm(AB) (5)
+Limiting magnitude at the source position in IRAC 5.8μm(AB) (5)
+Limiting magnitude at the source position in IRAC 8.0μm(AB) (5)
+Limiting magnitude at the source position in F606W ACS AEGIS data only (AB) (5)
+Limiting magnitude at the source position in F814W ACS AEGIS data only (AB) (5)
+Limiting magnitude at the source position in F125W epoch 1 only(AB) (5)
+Limiting magnitude at the source position in F160W epoch 1 only (AB) (5)
+Weight at the source position in CFHTLS u* (6)
+Weight at the source position in CFHTLS g’ (6)
+Weight at the source position in CFHTLS r’ (6)
+Weight at the source position in CFHTLS i’ (6)
+Weight at the source position in CFHTLS z’ (6)# 34 Weight_F606W
+# 35 Weight_F814W
+# 36 Weight_F125W
+# 37 Weight_F140W
+# 38 Weight_F160W
+# 39 Weight_WIRCAMJ
+# 40 Weight_WIRCAMH
+# 41 Weight_WIRCAMK
+# 42 Weight_NMBSJ1
+# 43 Weight_NMBSJ2
+# 44 Weight_NMBSJ3
+# 45 Weight_NMBSH1
+# 46 Weight_NMBSH2
+# 47 Weight_NMBSK
+# 48 Weight_CH1
+# 49 Weight_CH2
+# 50 Weight_CH3
+# 51 Weight_CH4
+# 52 Weight_F606W_08
+# 53 Weight_F814W_08
+# 54 Weight_F125W_08
+# 55 Weight_F160W_08
+# 56 Covariance_UCFHTLS
+# 57 Covariance_GCFHTLS
+# 58 Covariance_RCFHTLS
+# 59 Covariance_ICFHTLS
+# 60 Covariance_ZCFHTLS
+# 61 Covariance_WIRCAMJ
+# 62 Covariance_WIRCAMH
+# 63 Covariance_WIRCAMK
+# 64 Covariance_NMBSJ1
+# 65 Covariance_NMBSJ2
+# 66 Covariance_NMBSJ3
+# 67 Covariance_NMBSH1
+# 68 Covariance_NMBSH2
+# 69 Covariance_NMBSK
+# 70 Covariance_CH1
+# 71 Covariance_CH2
+# 72 Covariance_CH3
+# 73 Covariance_CH4
+Weight at the source position in F606W (6)
+Weight at the source position in F814W (6)
+Weight at the source position in F125W (6)
+Weight at the source position in F140W (6)
+Weight at the source position in F160W (6)
+Weight at the source position in WIRCAMJ (6)
+Weight at the source position in WIRCAMH (6)
+Weight at the source position in WIRCAMK (6)
+Weight at the source position in NMBSJ1 (6)
+Weight at the source position in NMBSJ2 (6)
+Weight at the source position in NMBSJ3 (6)
+Weight at the source position in NMBSH1 (6)
+Weight at the source position in NMBSH2 (6)
+Weight at the source position in NMBSK (6)
+Weight at the source position in IRAC 3.6μm (6)
+Weight at the source position in IRAC 4.5μm (6)
+Weight at the source position in IRAC 5.8μm (6)
+Weight at the source position in IRAC 8.0μm (6)
+Weight at the source position in F606W acs aegis data only (6)
+Weight at the source position in F814W acs aegis data only (6)
+Weight at the source position in F125W epoch 1 only(AB) (6)
+Weight at the source position in F160W epoch 1 only (AB) (6)
+Maximum covariance index in CFHTLS u*
+Maximum covariance index in CFHTLS g’
+Maximum covariance index in CFHTLS r’
+Maximum covariance index in CFHTLS i’
+Maximum covariance index in CFHTLS z’
+Maximum covariance index in WIRCAM J
+Maximum covariance index in WIRCAM H
+Maximum covariance index in WIRCAM K
+Maximum covariance index in NMBS J1
+Maximum covariance index in NMBS J2
+Maximum covariance index in NMBS J3
+Maximum covariance index in NMBS H1
+Maximum covariance index in NMBS H2
+Maximum covariance index in NMBS K
+Maximum covariance index in IRAC 3.6μm
+Maximum covariance index in IRAC 4.5μm
+Maximum covariance index in IRAC 5.8μm
+Maximum covariance index in IRAC 8.0μm
+***************** SExtractor parameters derived from the CANDELS HST data ******************
+Content of CANDELS.EGS.F160W.v1_3.sext1.cat
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+1 ID
+2 FLUX_MAX_F606W
+3 FLUX_MAX_F814W
+4 FLUX_MAX_F125W
+5 FLUX_MAX_F140W
+6 FLUX_MAX_F160W
+7 FLUX_ISO_F606W
+8 FLUXERR_ISO_F606W
+9 FLUX_ISO_F814W
+10 FLUXERR_ISO_F814W
+11 FLUX_ISO_F125W
+Unique identification number of the source
+Peak flux above background F606W (μJy)
+Peak flux above background F814W (μJy)
+Peak flux above background F125W (μJy)
+Peak flux above background F140W (μJy)
+Peak flux above background F160W (μJy)
+Isophotal flux F606W (uJy)
+Isophotal flux uncertainty F606W (uJy)
+Isophotal flux F814W (uJy)
+Isophotal flux uncertainty F814W (uJy)
+Isophotal flux F125W (uJy)#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+12 FLUXERR_ISO_F125W
+13 FLUX_ISO_F140W
+14 FLUXERR_ISO_F140W
+15 FLUX_ISO_F160W
+16 FLUXERR_ISO_F160W
+17 FLUX_ISOCOR_F606W
+18 FLUXERR_ISOCOR_F606W
+19 FLUX_ISOCOR_F814W
+20 FLUXERR_ISOCOR_F814W
+21 FLUX_ISOCOR_F125W
+22 FLUXERR_ISOCOR_F125W
+23 FLUX_ISOCOR_F140W
+24 FLUXERR_ISOCOR_F140W
+25 FLUX_ISOCOR_F160W
+26 FLUXERR_ISOCOR_F160W
+27 FLUX_AUTO_F606W
+28 FLUXERR_AUTO_F606W
+29 FLUX_AUTO_F814W
+30 FLUXERR_AUTO_F814W
+31 FLUX_AUTO_F125W
+32 FLUXERR_AUTO_F125W
+33 FLUX_AUTO_F140W
+34 FLUXERR_AUTO_F140W
+35 FLUX_AUTO_F160W
+36 FLUXERR_AUTO_F160W
+37 FLUX_PETRO_F606W
+38 FLUXERR_PETRO_F606W
+39 FLUX_PETRO_F814W
+40 FLUXERR_PETRO_F814W
+41 FLUX_PETRO_F125W
+42 FLUXERR_PETRO_F125W
+43 FLUX_PETRO_F140W
+44 FLUXERR_PETRO_F140W
+45 FLUX_PETRO_F160W
+46 FLUXERR_PETRO_F160W
+47 FLUX_BEST_F606W
+48 FLUXERR_BEST_F606W
+49 FLUX_BEST_F814W
+50 FLUXERR_BEST_F814W
+51 FLUX_BEST_F125W
+52 FLUXERR_BEST_F125W
+53 FLUX_BEST_F140W
+54 FLUXERR_BEST_F140W
+55 FLUX_BEST_F160W
+56 FLUXERR_BEST_F160W
+57 FLUX_APER_1_F606W
+58 FLUXERR_APER_1_F606W
+59 FLUX_APER_1_F814W
+60 FLUXERR_APER_1_F814W
+61 FLUX_APER_1_F125W
+62 FLUXERR_APER_1_F125W
+63 FLUX_APER_1_F140W
+64 FLUXERR_APER_1_F140W
+65 FLUX_APER_1_F160W
+66 FLUXERR_APER_1_F160W
+67 FLUX_APER_2_F606W
+Isophotal flux uncertainty F125W (uJy)
+Isophotal flux F140W (uJy)
+Isophotal flux uncertainty F140W (uJy)
+Isophotal flux F160W (uJy)
+Isophotal flux uncertainty F160W (uJy)
+Isophotal-corrected flux F606W (uJy)
+Isophotal-corrected flux uncertainty F606W (uJy)
+Isophotal-corrected flux F814W (uJy)
+Isophotal-corrected flux uncertainty F814W (uJy)
+Isophotal-corrected flux F125W (uJy)
+Isophotal-corrected flux uncertainty F125W (uJy)
+Isophotal-corrected flux F140W (uJy)
+Isophotal-corrected flux uncertainty F140W (uJy)
+Isophotal-corrected flux F160W (uJy)
+Isophotal-corrected flux uncertainty F160W (uJy)
+Flux within a Kron-like aperture F606W (uJy)
+Flux uncertainty within a Kron-like aperture F606W (uJy)
+Flux within a Kron-like aperture F814W (uJy)
+Flux uncertainty within a Kron-like aperture F814W (uJy)
+Flux within a Kron-like aperture F125W (uJy)
+Flux uncertainty within a Kron-like aperture F125W (uJy)
+Flux within a Kron-like aperture F140W (uJy)
+Flux uncertainty within a Kron-like aperture F140W (uJy)
+Flux within a Kron-like aperture F160W (uJy)
+Flux uncertainty within a Kron-like aperture F160W (uJy)
+Flux within a Petrosian-like aperture F606W (uJy)
+Flux uncertainty within a Petrosian-like aperture F606W (uJy)
+Flux within a Petrosian-like aperture F814W (uJy)
+Flux uncertainty within a Petrosian-like aperture F814W (uJy)
+Flux within a Petrosian-like aperture F125W (uJy)
+Flux uncertainty within a Petrosian-like aperture F125W (uJy)
+Flux within a Petrosian-like aperture F140W (uJy)
+Flux uncertainty within a Petrosian-like aperture F140W (uJy)
+Flux within a Petrosian-like aperture F160W (uJy)
+Flux uncertainty within a Petrosian-like aperture F160W (uJy)
+Best of FLUX_AUTO and FLUX_ISOCOR F606W (uJy)
+Flux unc. for Best of FLUX_AUTO and FLUX_ISOCOR F606W (uJy)
+Best of FLUX_AUTO and FLUX_ISOCOR F814W (uJy)
+Flux unc. for Best of FLUX_AUTO and FLUX_ISOCOR F814W (uJy)
+Best of FLUX_AUTO and FLUX_ISOCOR F125W (uJy)
+Flux unc. for Best of FLUX_AUTO and FLUX_ISOCOR F125W (uJy)
+Best of FLUX_AUTO and FLUX_ISOCOR F140W (uJy)
+Flux unc. for Best of FLUX_AUTO and FLUX_ISOCOR F140W (uJy)
+Best of FLUX_AUTO and FLUX_ISOCOR F160W (uJy)
+Flux unc. for Best of FLUX_AUTO and FLUX_ISOCOR F160W (uJy)
+Flux within circular aperture of diam. 0.088'' - F606W (uJy)
+Flux unc. within circular aperture of diam. 0.088'' - F606W (uJy)
+Flux within circular aperture of diam. 0.088'' - F814W (uJy)
+Flux unc. within circular aperture of diam. 0.088'' - F814W (uJy)
+Flux within circular aperture of diam. 0.088'' - F125W (uJy)
+Flux unc. within circular aperture of diam. 0.088'' - F125W (uJy)
+Flux within circular aperture of diam. 0.088'' - F140W (uJy)
+Flux unc. within circular aperture of diam. 0.088'' - F140W (uJy)
+Flux within circular aperture of diam. 0.088'' - F160W (uJy)
+Flux unc. within circular aperture of diam. 0.088'' - F160W (uJy)
+Flux within circular aperture of diam. 0.125'' - F606W (uJy)# 68 FLUXERR_APER_2_F606W
+# 69 FLUX_APER_2_F814W
+# 70 FLUXERR_APER_2_F814W
+# 71 FLUX_APER_2_F125W
+# 72 FLUXERR_APER_2_F125W
+# 73 FLUX_APER_2_F140W
+# 74 FLUXERR_APER_2_F140W
+# 75 FLUX_APER_2_F160W
+# 76 FLUXERR_APER_2_F160W
+# 77 FLUX_APER_3_F606W
+# 78 FLUXERR_APER_3_F606W
+# 79 FLUX_APER_3_F814W
+# 80 FLUXERR_APER_3_F814W
+# 81 FLUX_APER_3_F125W
+# 82 FLUXERR_APER_3_F125W
+# 83 FLUX_APER_3_F140W
+# 84 FLUXERR_APER_3_F140W
+# 85 FLUX_APER_3_F160W
+# 86 FLUXERR_APER_3_F160W
+# 87 FLUX_APER_4_F606W
+# 88 FLUXERR_APER_4_F606W
+# 89 FLUX_APER_4_F814W
+# 90 FLUXERR_APER_4_F814W
+# 91 FLUX_APER_4_F125W
+# 92 FLUXERR_APER_4_F125W
+# 93 FLUX_APER_4_F140W
+# 94 FLUXERR_APER_4_F140W
+# 95 FLUX_APER_4_F160W
+# 96 FLUXERR_APER_4_F160W
+# 97 FLUX_APER_5_F606W
+# 98 FLUXERR_APER_5_F606W
+# 99 FLUX_APER_5_F814W
+# 100 FLUXERR_APER_5_F814W
+# 101 FLUX_APER_5_F125W
+# 102 FLUXERR_APER_5_F125W
+# 103 FLUX_APER_5_F140W
+# 104 FLUXERR_APER_5_F140W
+# 105 FLUX_APER_5_F160W
+# 106 FLUXERR_APER_5_F160W
+# 107 FLUX_APER_6_F606W
+# 108 FLUXERR_APER_6_F606W
+# 109 FLUX_APER_6_F814W
+# 110 FLUXERR_APER_6_F814W
+# 111 FLUX_APER_6_F125W
+# 112 FLUXERR_APER_6_F125W
+# 113 FLUX_APER_6_F140W
+# 114 FLUXERR_APER_6_F140W
+# 115 FLUX_APER_6_F160W
+# 116 FLUXERR_APER_6_F160W
+# 117 FLUX_APER_7_F606W
+# 118 FLUXERR_APER_7_F606W
+# 119 FLUX_APER_7_F814W
+# 120 FLUXERR_APER_7_F814W
+# 121 FLUX_APER_7_F125W
+# 122 FLUXERR_APER_7_F125W
+# 123 FLUX_APER_7_F140W
+Flux unc. within circular aperture of diam. 0.125'' - F606W (uJy)
+Flux within circular aperture of diam. 0.125'' - F814W (uJy)
+Flux unc. within circular aperture of diam. 0.125'' - F814W (uJy)
+Flux within circular aperture of diam. 0.125'' - F125W (uJy)
+Flux unc. within circular aperture of diam. 0.125'' - F125W (uJy)
+Flux within circular aperture of diam. 0.125'' - F140W (uJy)
+Flux unc. within circular aperture of diam. 0.125'' - F140W (uJy)
+Flux within circular aperture of diam. 0.125'' - F160W (uJy)
+Flux unc. within circular aperture of diam. 0.125'' - F160W (uJy)
+Flux within circular aperture of diam. 0.176'' - F606W (uJy)
+Flux unc. within circular aperture of diam. 0.176'' - F606W (uJy)
+Flux within circular aperture of diam. 0.176'' - F814W (uJy)
+Flux unc. within circular aperture of diam. 0.176'' - F814W (uJy)
+Flux within circular aperture of diam. 0.176'' - F125W (uJy)
+Flux unc. within circular aperture of diam. 0.176'' - F125W (uJy)
+Flux within circular aperture of diam. 0.176'' - F140W (uJy)
+Flux unc. within circular aperture of diam. 0.176'' - F140W (uJy)
+Flux within circular aperture of diam. 0.176'' - F160W (uJy)
+Flux unc. within circular aperture of diam. 0.176'' - F160W (uJy)
+Flux within circular aperture of diam. 0.25'' - F606W (uJy)
+Flux unc. within circular aperture of diam. 0.25'' - F606W (uJy)
+Flux within circular aperture of diam. 0.25'' - F814W (uJy)
+Flux unc. within circular aperture of diam. 0.25'' - F814W (uJy)
+Flux within circular aperture of diam. 0.25'' - F125W (uJy)
+Flux unc. within circular aperture of diam. 0.25'' - F125W (uJy)
+Flux within circular aperture of diam. 0.25'' - F140W (uJy)
+Flux unc. within circular aperture of diam. 0.25'' - F140W (uJy)
+Flux within circular aperture of diam. 0.25'' - F160W (uJy)
+Flux unc. within circular aperture of diam. 0.25'' - F160W (uJy)
+Flux within circular aperture of diam. 0.35'' - F606W (uJy)
+Flux unc. within circular aperture of diam. 0.35'' - F606W (uJy)
+Flux within circular aperture of diam. 0.35'' - F814W (uJy)
+Flux unc. within circular aperture of diam. 0.35'' - F814W (uJy)
+Flux within circular aperture of diam. 0.35'' - F125W (uJy)
+Flux unc. within circular aperture of diam. 0.35'' - F125W (uJy)
+Flux within circular aperture of diam. 0.35'' - F140W (uJy)
+Flux unc. within circular aperture of diam. 0.35'' - F140W (uJy)
+Flux within circular aperture of diam. 0.35'' - F160W (uJy)
+Flux unc. within circular aperture of diam. 0.35'' - F160W (uJy)
+Flux within circular aperture of diam. 0.5'' - F606W (uJy)
+Flux unc. within circular aperture of diam. 0.5'' - F606W (uJy)
+Flux within circular aperture of diam. 0.5'' - F814W (uJy)
+Flux unc. within circular aperture of diam. 0.5'' - F814W (uJy)
+Flux within circular aperture of diam. 0.5'' - F125W (uJy)
+Flux unc. within circular aperture of diam. 0.5'' - F125W (uJy)
+Flux within circular aperture of diam. 0.5'' - F140W (uJy)
+Flux unc. within circular aperture of diam. 0.5'' - F140W (uJy)
+Flux within circular aperture of diam. 0.5'' - F160W (uJy)
+Flux unc. within circular aperture of diam. 0.5'' - F160W (uJy)
+Flux within circular aperture of diam. 0.71'' - F606W (uJy)
+Flux unc. within circular aperture of diam. 0.71'' - F606W (uJy)
+Flux within circular aperture of diam. 0.71'' - F814W (uJy)
+Flux unc. within circular aperture of diam. 0.71'' - F814W (uJy)
+Flux within circular aperture of diam. 0.71'' - F125W (uJy)
+Flux unc. within circular aperture of diam. 0.71'' - F125W (uJy)
+Flux within circular aperture of diam. 0.71'' - F140W (uJy)# 124 FLUXERR_APER_7_F140W
+# 125 FLUX_APER_7_F160W
+# 126 FLUXERR_APER_7_F160W
+# 127 FLUX_APER_8_F606W
+# 128 FLUXERR_APER_8_F606W
+# 129 FLUX_APER_8_F814W
+# 130 FLUXERR_APER_8_F814W
+# 131 FLUX_APER_8_F125W
+# 132 FLUXERR_APER_8_F125W
+# 133 FLUX_APER_8_F140W
+# 134 FLUXERR_APER_8_F140W
+# 135 FLUX_APER_8_F160W
+# 136 FLUXERR_APER_8_F160W
+# 137 FLUX_APER_9_F606W
+# 138 FLUXERR_APER_9_F606W
+# 139 FLUX_APER_9_F814W
+# 140 FLUXERR_APER_9_F814W
+# 141 FLUX_APER_9_F125W
+# 142 FLUXERR_APER_9_F125W
+# 143 FLUX_APER_9_F140W
+# 144 FLUXERR_APER_9_F140W
+# 145 FLUX_APER_9_F160W
+# 146 FLUXERR_APER_9_F160W
+# 147 FLUX_APER_10_F606W
+# 148 FLUXERR_APER_10_F606W
+# 149 FLUX_APER_10_F814W
+# 150 FLUXERR_APER_10_F814W
+# 151 FLUX_APER_10_F125W
+# 152 FLUXERR_APER_10_F125W
+# 153 FLUX_APER_10_F140W
+# 154 FLUXERR_APER_10_F140W
+# 155 FLUX_APER_10_F160W
+# 156 FLUXERR_APER_10_F160W
+# 157 FLUX_APER_11_F606W
+# 158 FLUXERR_APER_11_F606W
+# 159 FLUX_APER_11_F814W
+# 160 FLUXERR_APER_11_F814W
+# 161 FLUX_APER_11_F125W
+# 162 FLUXERR_APER_11_F125W
+# 163 FLUX_APER_11_F140W
+# 164 FLUXERR_APER_11_F140W
+# 165 FLUX_APER_11_F160W
+# 166 FLUXERR_APER_11_F160W
+Flux unc. within circular aperture of diam. 0.71'' - F140W (uJy)
+Flux within circular aperture of diam. 0.71'' - F160W (uJy)
+Flux unc. within circular aperture of diam. 0.71'' - F160W (uJy)
+Flux within circular aperture of diam. 1.0'' - F606W (uJy)
+Flux unc. within circular aperture of diam. 1.0'' - F606W (uJy)
+Flux within circular aperture of diam. 1.0'' - F814W (uJy)
+Flux unc. within circular aperture of diam. 1.0'' - F814W (uJy)
+Flux within circular aperture of diam. 1.0'' - F125W (uJy)
+Flux unc. within circular aperture of diam. 1.0'' - F125W (uJy)
+Flux within circular aperture of diam. 1.0'' - F140W (uJy)
+Flux unc. within circular aperture of diam. 1.0'' - F140W (uJy)
+Flux within circular aperture of diam. 1.0'' - F160W (uJy)
+Flux unc. within circular aperture of diam. 1.0'' - F160W (uJy)
+Flux within circular aperture of diam. 1.414'' - F606W (uJy)
+Flux unc. within circular aperture of diam. 1.414'' - F606W (uJy)
+Flux within circular aperture of diam. 1.414'' - F814W (uJy)
+Flux unc. within circular aperture of diam. 1.414'' - F814W (uJy)
+Flux within circular aperture of diam. 1.414'' - F125W (uJy)
+Flux unc. within circular aperture of diam. 1.414'' - F125W (uJy)
+Flux within circular aperture of diam. 1.414'' - F140W (uJy)
+Flux unc. within circular aperture of diam. 1.414'' - F140W (uJy)
+Flux within circular aperture of diam. 1.414'' - F160W (uJy)
+Flux unc. within circular aperture of diam. 1.414'' - F160W (uJy)
+Flux within circular aperture of diam. 2.0'' - F606W (uJy)
+Flux unc. within circular aperture of diam. 2.0'' - F606W (uJy)
+Flux within circular aperture of diam. 2.0'' - F814W (uJy)
+Flux unc. within circular aperture of diam. 2.0'' - F814W (uJy)
+Flux within circular aperture of diam. 2.0'' - F125W (uJy)
+Flux unc. within circular aperture of diam. 2.0'' - F125W (uJy)
+Flux within circular aperture of diam. 2.0'' - F140W (uJy)
+Flux unc. within circular aperture of diam. 2.0'' - F140W (uJy)
+Flux within circular aperture of diam. 2.0'' - F160W (uJy)
+Flux unc. within circular aperture of diam. 2.0'' - F160W (uJy)
+Flux within circular aperture of diam. 2.828'' - F606W (uJy)
+Flux unc. within circular aperture of diam. 2.828'' - F606W (uJy)
+Flux within circular aperture of diam. 2.828'' - F814W (uJy)
+Flux unc. within circular aperture of diam. 2.828'' - F814W (uJy)
+Flux within circular aperture of diam. 2.828'' - F125W (uJy)
+Flux unc. within circular aperture of diam. 2.828'' - F125W (uJy)
+Flux within circular aperture of diam. 2.828'' - F140W (uJy)
+Flux unc. within circular aperture of diam. 2.828'' - F140W (uJy)
+Flux within circular aperture of diam. 2.828'' - F160W (uJy)
+Flux unc. within circular aperture of diam. 2.828'' - F160W (uJy)
+Content of CANDELS.EGS.F160W.v1_4.sext2.cat
+#
+#
+#
+#
+#
+#
+#
+1 ID
+2 X_IMAGE
+3 Y_IMAGE
+4 XPEAK_IMAGE
+5 YPEAK_IMAGE
+6 XMIN_IMAGE
+7 YMIN_IMAGE
+Unique identification number of the source
+Object position along x [pixel]
+Object position along y [pixel]
+x-coordinate of the brightest pixel [pixel]
+y-coordinate of the brightest pixel [pixel]
+Minimum x-coordinate among detected pixels [pixel]
+Minimum y-coordinate among detected pixels [pixel]# 8 XMAX_IMAGE
+# 9 YMAX_IMAGE
+# 10 X2_IMAGE
+# 11 Y2_IMAGE
+# 12 XY_IMAGE
+# 13 CXX_IMAGE
+# 14 CYY_IMAGE
+# 15 CXY_IMAGE
+# 16 A_IMAGE
+# 17 B_IMAGE
+# 18 ERRA_IMAGE
+# 19 ERRB_IMAGE
+# 20 THETA_IMAGE
+# 21 ERRTHETA_IMAGE
+# 22 ISOAREAF_IMAGE
+# 23 ISOAREA_IMAGE_F606W
+# 24 ISOAREA_IMAGE_F814W
+# 25 ISOAREA_IMAGE_F125W
+# 26 ISOAREA_IMAGE_F140W
+# 27 ISOAREA_IMAGE_F160W
+# 28 BACKGROUND_F606W
+# 29 BACKGROUND_F814W
+# 30 BACKGROUND_F125W
+# 31 BACKGROUND_F140W
+# 32 BACKGROUND_F160W
+# 33 FLUX_RADIUS_1_F606W
+# 34 FLUX_RADIUS_1_F814W
+# 35 FLUX_RADIUS_1_F125W
+# 36 FLUX_RADIUS_1_F140W
+# 37 FLUX_RADIUS_1_F160W
+# 38 FLUX_RADIUS_2_F606W
+# 39 FLUX_RADIUS_2_F814W
+# 40 FLUX_RADIUS_2_F125W
+# 41 FLUX_RADIUS_2_F140W
+# 42 FLUX_RADIUS_2_F160W
+# 43 FLUX_RADIUS_3_F606W
+# 44 FLUX_RADIUS_3_F814W
+# 45 FLUX_RADIUS_3_F125W
+# 46 FLUX_RADIUS_3_F140W
+# 47 FLUX_RADIUS_3_F160W
+# 48 FWHM_IMAGE_F606W
+# 49 FWHM_IMAGE_F814W
+# 50 FWHM_IMAGE_F125W
+# 51 FWHM_IMAGE_F140W
+# 52 FWHM_IMAGE_F160W
+# 53 KRON_RADIUS
+# 54 PETRO_RADIUS
+Maximum x-coordinate among detected pixels [pixel]
+Maximum y-coordinate among detected pixels [pixel]
+Variance along x [pixel^2]
+Variance along y [pixel^2]
+Covariance between x and y [pixel^2]
+Cxx object ellipse parameter [pixel^(-2)]
+Cyy object ellipse parameter [pixel^(-2)]
+Cxy object ellipse parameter [pixel^(-2)]
+Profile RMS along major axis [pixel]
+Profile RMS along minor axis [pixel]
+RMS position error along major axis [pixel]
+RMS position error along minor axis [pixel]
+Position angle (CCW/x) [deg]
+Error ellipse position angle (CCW/x) [deg]
+Isophotal area (filtered) above Detection threshold [pixel^2]
+Isophotal area above Analysis threshold [pixel^2] of F606W
+Isophotal area above Analysis threshold [pixel^2] of F814W
+Isophotal area above Analysis threshold [pixel^2] of F125W
+Isophotal area above Analysis threshold [pixel^2] of F140W
+Isophotal area above Analysis threshold [pixel^2] of F160W
+Background at centroid position [count] of F606W
+Background at centroid position [count] of F814W
+Background at centroid position [count] of F125W
+Background at centroid position [count] of F140W
+Background at centroid position [count] of F160W
+20% Fraction-of-light radii [pixel] of F606W
+20% Fraction-of-light radii [pixel] of F814W
+20% Fraction-of-light radii [pixel] of F125W
+20% Fraction-of-light radii [pixel] of F140W
+20% Fraction-of-light radii [pixel] of F160W
+50% Fraction-of-light radii [pixel] of F606W
+50% Fraction-of-light radii [pixel] of F814W
+50% Fraction-of-light radii [pixel] of F125W
+50% Fraction-of-light radii [pixel] of F140W
+50% Fraction-of-light radii [pixel] of F160W
+80% Fraction-of-light radii [pixel] of F606W
+80% Fraction-of-light radii [pixel] of F814W
+80% Fraction-of-light radii [pixel] of F125W
+80% Fraction-of-light radii [pixel] of F140W
+80% Fraction-of-light radii [pixel] of F160W
+FWHM assuming a gaussian core [pixel] of F606W
+FWHM assuming a gaussian core [pixel] of F814W
+FWHM assuming a gaussian core [pixel] of F125W
+FWHM assuming a gaussian core [pixel] of F140W
+FWHM assuming a gaussian core [pixel] of F160W
+Kron apertures in units of A or B
+Petrosian apertures in units of A or B
+*************************************************************************************** Notes:
+(1) From the F160W-detected Extractor catalog
+(2) The flag map was constructed based on the F160W image. The following conventions apply:
+‘0’: non-contaminated source
+‘1’: Sources detected on star spikes, halos and the bright stars producing them
+‘2’: Sources detected at the image borders or in regions of low S/N (teardrops)
+‘3’: Sources affected by both ‘1’ and ‘2’
+(3) The photometry was not corrected for Galactic dust extinction. Values of −99 indicate the source has no data. For
+HST bands, a value of -99 may also indicate bad values in the mosaic at the position of the source.
+(4) The Spitzer/IRAC 5.8um photometry has been improved after photometric redshift and stellar mass computations.
+Here we report the former version of photometry, adopted for the measurement of photometric redshifts and stellar
+population parameters.
+(5) Limiting Magnitudes:
+- For ground-based and HST data, the limiting magnitudes of a source were derived from the median value of the rms
+within the source segmentation aperture, reported to an area of one square arcsec (at a 1σ level). The original
+SExtractor segmentation map was used for the HST data. For the ground-based data, we made use of the dilated
+segmentation map since the photometry in these bands was derived from a dilated segmentation area.
+- The limiting magnitude for the Spitzer/IRAC bands was derived from the rms value at the position of the source
+reported to an area of one square arcsec.
+(6) Weights were computed as the median of the values from the corresponding weight map within the F160W
+segmentation map for HST bands and the dilated segmentation map for Spitzer/IRAC and ground-based data.
