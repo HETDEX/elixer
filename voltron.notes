@@ -1,3 +1,28 @@
+
+==========================
+
+Hi Dustin,
+
+Ive uploaded all of the files I think you should need for the EGS to:
+/work/03564/stevenf/maverick/EGS/
+
+- In the images directory, you can see all of the HST images (the extension drz are the science frames).
+
+- In the photometry directory is the multi wavelength catalog.
+For now, Id suggest plotting the five HST bands (F606W, F814W, F125W, F140W, F160W),
+along with the CFHT u-band, and the IRAC Ch1 and Ch2 (3.6 and 4.5um) fluxes.
+
+- In the photoz directory, there is a catalog with one line per object.
+I would use the z_best column for now (the z_best_type tells you if its photoz or specz or grism;
+spec-z's are included where possible).  The zPDF subdirectory includes the photo-z.
+Id say plot the photo-z for every object, but where there is a spec-z, find a way to indicate that in the plot.
+
+Let me know what questions you have, thanks.
+
+- Steve
+
+===========================
+
 voltron:
 top level 
 input - 
