@@ -3,8 +3,10 @@
 
 import pandas as pd
 import global_config
+import science_image
 #from astropy.coordinates import Angle
-
+import matplotlib.pyplot as plt
+#from astropy.io import ascii #note: this works, but pandas is much faster
 
 
 log = global_config.logging.getLogger('Cat_logger')
@@ -18,7 +20,7 @@ def get_catalog_list():
     #build list of all catalogs below
     cats = list()
     cats.append(CANDELS_EGS_Stefanon_2016())
-    cats.append(dummy_cat())
+   # cats.append(dummy_cat())
 
     return cats
 
@@ -28,6 +30,7 @@ class Catalog:
     CatalogLocation = None
     Name = "Generic Catalog (Base)"
     df = None  # pandas dataframe ... all instances share the same frame
+    #tbl = None # astropy.io.table
     RA_min = None
     RA_max = None
     Dec_min = None
@@ -46,18 +49,31 @@ class Catalog:
         return (self.Name)
 
     @classmethod
-    def position_in_cat(cls, ra, dec):  # error assumed to be small and this is approximate anyway
-        '''Simple check for ra and dec within a rectangle defined by the min/max of RA,DEC for the catalog.
+    def position_in_cat(cls, ra, dec, error = 0.0):  # error assumed to be small and this is approximate anyway
+        """Simple check for ra and dec within a rectangle defined by the min/max of RA,DEC for the catalog.
         RA and Dec in decimal degrees.
-        '''
+        """
         if cls.ok:
             try:
-                result = (ra >= cls.RA_min) and (ra <= cls.RA_max) and (dec >= cls.Dec_min) and (dec <= cls.Dec_max)
+                result = (ra >= (cls.RA_min - error)) and (ra <= (cls.RA_max + error))\
+                         and (dec >= (cls.Dec_min - error)) and (dec <= (cls.Dec_max + error))
             except:
                 result = False
         else:
             result = False
         return result
+
+    @classmethod
+    def get_dict(cls,id,cols):
+        """returns a (nested) dictionary of desired cols for a single row from the full dataframe
+            form {col_name : {id : value}}
+        """
+        try:
+            bid_dict = cls.df.loc[id,cols].to_dict()
+        except:
+            log.error("Exception attempting to build dictionary for id %d" %id)
+            return None
+        return bid_dict
 
 
 #specific implementation of The CANDELS-EGS Multi-wavelength catalog Stefanon et al., 2016
@@ -83,11 +99,21 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
     #class variables
     CatalogLocation = "/home/dustin/code/python/voltron/data/EGS/photometry/CANDELS.EGS.F160W.v1_1.photom.cat"
     Name = "CANDELS_EGS_Stefanon_2016"
+    BidCols = ["ID","IAU_designation","RA","DEC",
+               "CFHT_U_FLUX","CFHT_U_FLUXERR",
+               "IRAC_CH1_FLUX","IRAC_CH1_FLUXERR","IRAC_CH2_FLUX","IRAC_CH2_FLUXERR",
+               "ACS_F606W_FLUX","ACS_F606W_FLUXERR","ACS_F606W_V08_FLUX","ACS_F606W_V08_FLUXERR",
+               "ACS_F814W_FLUX","ACS_F814W_FLUXERR","ACS_F814W_V08_FLUX","ACS_F814W_V08_FLUXERR",
+               "WFC3_F125W_FLUX","WFC3_F125W_FLUXERR","WFC3_F125W_V08_FLUX","WFC3_F125W_V08_FLUXERR",
+               "WFC3_F140W_FLUX","WFC3_F140W_FLUXERR",
+               "WC3_F160W_FLUX","WFC3_F160W_FLUXERR","WFC3_F160W_V08_FLUX","WFC3_F160W_V08_FLUXERR",
+               "DEEP_SPEC_Z"]
 
     def __init__(self):
-        super(CANDELS_EGS_Stefanon_2016, self).__init__()
+      #  super(CANDELS_EGS_Stefanon_2016, self).__init__()
 
         self.dataframe_of_bid_targets = None
+        #self.table_of_bid_targets = None
         self.num_targets = 0
         self.read_catalog()
 
@@ -134,6 +160,57 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         cls.RA_max = cls.df['RA'].max()
         cls.Dec_min = cls.df['DEC'].min()
         cls.Dec_max = cls.df['DEC'].max()
+        log.debug(cls.Name + " Coordinate Range: RA: %f to %f , Dec: %f to %f" % (cls.RA_min,cls.RA_max,
+                                                                                  cls.Dec_min,cls.Dec_max ))
+
+
+    # @classmethod
+    # def read_catalog_ascii(cls):
+    #     if cls.tbl is not None:
+    #         log.debug("Already built table")
+    #         return
+    #
+    #     log.debug("Building " + cls.Name + " table ...")
+    #
+    #     try:
+    #         cls.tbl = ascii.read(cls.CatalogLocation)
+    #     except:
+    #         log.error(cls.Name + " Exception attempting to build astropy.io.table")
+    #         cls.status = -1
+    #         return
+    #
+    #     cls.status = 0
+    #
+    #     cls.RA_min = cls.tbl['RA'].min()
+    #     cls.RA_max = cls.tbl['RA'].max()
+    #     cls.Dec_min = cls.tbl['DEC'].min()
+    #     cls.Dec_max = cls.tbl['DEC'].max()
+
+    # def build_list_of_bid_targets_ascii(self,ra,dec,error):
+    #     '''ra and dec in decimal degress. error in arcsec.
+    #     returns a pandas dataframe'''
+    #     self.dataframe_of_bid_targets = None
+    #     self.num_targets = 0
+    #
+    #     ra_min = float(ra - error)
+    #     ra_max = float(ra + error)
+    #     dec_min = float(dec - error)
+    #     dec_max = float(dec + error)
+    #
+    #     try:
+    #         self.table_of_bid_targets = self.tbl[(self.tbl['RA'] > ra_min) & (self.tbl['RA'] < ra_max) &
+    #                                             (self.tbl['DEC'] > dec_min) & (self.tbl['DEC'] < dec_max)]
+    #     except:
+    #         log.error(self.Name + " Exception in build_list_of_bid_targets")
+    #
+    #     if self.table_of_bid_targets is not None:
+    #         self.num_targets = self.table_of_bid_targets.__len__()
+    #         log.debug(self.Name + " searching for objects in [%f - %f, %f - %f] " %(ra_min,ra_max,dec_min,dec_max) +
+    #               ". Found = %d" % (self.num_targets ))
+    #
+    #     return self.num_targets, self.table_of_bid_targets
+
+
 
     @classmethod
     def coordinate_range(cls,echo=False):
@@ -149,11 +226,10 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         self.dataframe_of_bid_targets = None
         self.num_targets = 0
 
-        e = float(error)/3600.0
-        ra_min = float(ra - e)
-        ra_max = float(ra + e)
-        dec_min = float(dec - e)
-        dec_max = float(dec + e)
+        ra_min = float(ra - error)
+        ra_max = float(ra + error)
+        dec_min = float(dec - error)
+        dec_max = float(dec + error)
 
         try:
             self.dataframe_of_bid_targets = self.df[(self.df['RA'] > ra_min) & (self.df['RA'] < ra_max) &
@@ -175,6 +251,50 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
     #   give back a numpy 2D array in this case (here selected the first 2 records, but will want to do this
     #   for one record at a time
 
+    def get_bid_dict(self,id,cols):
+        """returns a (nested) dictionary of desired cols for a single row from the full bid dataframe
+        form {col_name : {id : value}} where id is 1-based
+        """
+        try:
+            bid_dict = self.dataframe_of_bid_targets.loc[id,cols].to_dict()
+            log.debug(str(bid_dict))
+        except:
+            log.error("Exception attempting to build dictionary for %s : id %d" % (self.name, id))
+            return None
+        return bid_dict
+
+
+
+
+    #todo: need to figure automatically good vmin, vmax
+    #need to calculate pixel size?
+    #for testing only
+    def display_all_bid_images(self):
+        ras = self.dataframe_of_bid_targets.loc[:,['RA']].values[0]
+        decs = self.dataframe_of_bid_targets.loc[:,['DEC']].values[0]
+
+        #ras = self.table_of_bid_targets['RA']
+        #decs = self.table_of_bid_targets['DEC']
+
+        for r,d in zip(ras,decs):
+            self.display_bid_image(r,d,2,8)
+
+
+    def display_bid_image(self,ra,dec,error,window):
+        sci = science_image.science_image()
+        #sci.image_location = "/home/dustin/code/python/voltron/data/EGS/images/egs_all_wfc3_ir_f105w_060mas_v1.5_drz.fits"
+        sci.image_location = "/home/dustin/code/python/voltron/data/EGS/images/egs_all_acs_wfc_f606w_060mas_v1.1_drz.fits"
+        sci.load_image(wcs_manual=True)
+        cutout = sci.get_cutout(ra, dec, error, window=100)
+
+        plt.imshow(cutout.data, origin='lower', interpolation='nearest', cmap=plt.get_cmap('gray') ,vmin=-0.02, vmax=0.04)
+        plt.show()
+
+#######################################
+#end class CANDELS_EGS_Stefanon_2016
+#######################################
+
+
 
 class dummy_cat(Catalog):
 #RA,Dec in decimal degrees
@@ -185,7 +305,7 @@ class dummy_cat(Catalog):
 
 
     def __init__(self):
-        super(dummy_cat, self).__init__()
+    #    super(dummy_cat, self).__init__()
         self.dataframe_of_bid_targets = None
         self.read_catalog()
 

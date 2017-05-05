@@ -48,6 +48,10 @@ def parse_commandline():
     else:
         args.dec = float(args.dec)
 
+    if args.error < 0:
+        print("Invalid error. Must be non-negative.")
+        exit(0)
+
     if not args.force:
         i = input("Looking for targets +/- %f\" from RA=%f DEC=%f\nProceed (y/n ENTER=YES)?"
                       % (args.error, args.ra, args.dec))
@@ -57,6 +61,10 @@ def parse_commandline():
             exit(0)
         else:
             print()
+
+
+    #convert error to decimal degrees for consistency
+    args.error = float(args.error)/3600.0
 
     return args
 
@@ -70,7 +78,7 @@ def main():
 
     num_hits = 0
     for c in cats:
-        if c.position_in_cat(ra=args.ra,dec=args.dec):
+        if c.position_in_cat(ra=args.ra,dec=args.dec,error=args.error):
             hits,_ = c.build_list_of_bid_targets(ra=args.ra,dec=args.dec,error=args.error)
             num_hits += hits
             if hits > 0:
@@ -88,6 +96,12 @@ def main():
             exit(0)
     else:
         print ("%d possible matches found. Building report..." % num_hits)
+
+
+
+    #for test
+    cats[0].display_all_bid_images()
+
 
 
     exit(0)
