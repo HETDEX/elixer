@@ -4,6 +4,7 @@
 import pandas as pd
 import global_config
 import science_image
+import math
 #from astropy.coordinates import Angle
 import matplotlib.pyplot as plt
 #from astropy.io import ascii #note: this works, but pandas is much faster
@@ -108,6 +109,37 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                "WFC3_F140W_FLUX","WFC3_F140W_FLUXERR",
                "WC3_F160W_FLUX","WFC3_F160W_FLUXERR","WFC3_F160W_V08_FLUX","WFC3_F160W_V08_FLUXERR",
                "DEEP_SPEC_Z"]
+    Images = [  {'path':"/home/dustin/code/python/voltron/data/EGS/images/",
+                 'name':'egs_all_acs_wfc_f606w_060mas_v1.1_drz.fits',
+                 'filter':'f606w',
+                 'instrument':'ACS WFC'
+                },
+                {'path':"/home/dustin/code/python/voltron/data/EGS/images/",
+                 'name':'egs_all_acs_wfc_f814w_060mas_v1.1_drz.fits',
+                 'filter':'f814w',
+                 'instrument':'ACS WFC'
+                },
+                {'path':"/home/dustin/code/python/voltron/data/EGS/images/",
+                 'name':'egs_all_wfc3_ir_f105w_060mas_v1.5_drz.fits',
+                 'filter':'f105w',
+                 'instrument':'WFC3'
+                },
+                {'path':"/home/dustin/code/python/voltron/data/EGS/images/",
+                 'name':'egs_all_wfc3_ir_f125w_060mas_v1.1_drz.fits',
+                 'filter':'f125w',
+                 'instrument':'WFC3'
+                },
+                {'path':"/home/dustin/code/python/voltron/data/EGS/images/",
+                 'name':'egs_all_wfc3_ir_f140w_060mas_v1.1_drz.fits',
+                 'filter':'f140w',
+                 'instrument':'WFC3'
+                },
+                {'path': "/home/dustin/code/python/voltron/data/EGS/images/",
+                 'name': 'egs_all_wfc3_ir_f160w_060mas_v1.1_drz.fits',
+                 'filter': 'f160w',
+                 'instrument': 'WFC3'
+                }
+               ]
 
     def __init__(self):
       #  super(CANDELS_EGS_Stefanon_2016, self).__init__()
@@ -266,8 +298,9 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
 
 
-    #todo: need to figure automatically good vmin, vmax
-    #todo: need to calculate pixel size (so can set a good window )
+#########################################
+## testing
+#########################################
     #for testing only
     def display_all_bid_images(self,error):
         ras = self.dataframe_of_bid_targets.loc[:,['RA']].values
@@ -282,16 +315,32 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
 
     def display_bid_image(self,ra,dec,error,window=100):
-        sci = science_image.science_image()
-        #sci.image_location = "/home/dustin/code/python/voltron/data/EGS/images/egs_all_wfc3_ir_f105w_060mas_v1.5_drz.fits"
-        sci.image_location = "/home/dustin/code/python/voltron/data/EGS/images/egs_all_acs_wfc_f606w_060mas_v1.1_drz.fits"
-        sci.load_image(wcs_manual=True)
-        cutout = sci.get_cutout(ra, dec, error) #, window=8) #8 arcsec
 
-        if cutout is not None:
-            plt.imshow(cutout.data, origin='lower', interpolation='nearest', cmap=plt.get_cmap('gray'),
-                       vmin=sci.vmin, vmax=sci.vmax)
-            plt.show()
+        num  = len(self.Images)
+        rows = math.trunc(math.sqrt(num))
+        cols = int(math.ceil(float(num)/rows))
+
+
+        index = 0
+        for i in self.Images: # i is a dictionary
+            index+= 1
+            sci = science_image.science_image()
+            sci.image_location = i['path']+i['name']
+
+            sci.load_image(wcs_manual=True)
+            cutout = sci.get_cutout(ra, dec, error, window=8) #8 arcsec
+            ext = int(sci.window / 2)
+
+            if cutout is not None:
+                plt.subplot(rows,cols,index)
+                #plt.axis('equal')
+                plt.imshow(cutout.data, origin='lower', interpolation='nearest', cmap=plt.get_cmap('gray'),
+                           vmin=sci.vmin, vmax=sci.vmax, extent= [-ext,ext,-ext,ext])
+               # plt.xticks(plt.axes.get_yticklabels()())
+                plt.title(i['instrument']+" "+i['filter'])
+
+        plt.tight_layout(0.1)
+        plt.show()
 
 #######################################
 #end class CANDELS_EGS_Stefanon_2016

@@ -46,6 +46,7 @@ class science_image():
         self.vmin = None
         self.vmax = None
         self.pixel_size = None
+        self.window = None
 
     def load_image(self,wcs_manual=False):
         if self.image_location is None:
@@ -115,6 +116,7 @@ class science_image():
         #window is the size of the entire coutout
         #return a new science_image
 
+        self.window = None
         if (error is None or error == 0) and (window is None or window == 0):
             log.info("inavlid error box and window box")
             return None
@@ -122,14 +124,16 @@ class science_image():
         if window is None or window < error:
             window = max(2*error,5) #should be at least 5 arcsecs
 
+        self.window = window
+
         if not (self.contains_position(ra,dec)):
             log.info("science image does not contain requested position: RA=%f , Dec=%f" %(ra,dec))
             return None
 
         try:
             position = SkyCoord(ra, dec, unit="deg", frame='fk5')
-            window = window / self.pixel_size
-            cutout = Cutout2D(self.fits[0].data, position, (window, window), wcs=self.wcs,copy=True)
+            pix_window = window / self.pixel_size #now in pixels
+            cutout = Cutout2D(self.fits[0].data, position, (pix_window, pix_window), wcs=self.wcs,copy=True)
             self.get_vrange(cutout.data)
         except:
             log.info("Exception in science_image::get_cutout:", exc_info=True)
