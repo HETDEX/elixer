@@ -99,7 +99,7 @@ def main():
 
 
     #for test
-    cats[0].display_all_bid_images(args.error)
+    cats[0].display_all_bid_images(args.ra, args.dec,args.error)
 
 
 

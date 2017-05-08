@@ -4,6 +4,7 @@
 import pandas as pd
 import global_config
 import science_image
+import numpy as np
 import math
 #from astropy.coordinates import Angle
 import matplotlib.pyplot as plt
@@ -252,6 +253,14 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         log.debug(cls.Name + " Simple Coordinate Box: " + msg )
         return (cls.RA_min, cls.RA_max, cls.Dec_min, cls.Dec_max)
 
+
+    def sort_bid_targets_by_likelihood(self,ra,dec):
+        #right now, just by euclidean distance (ra,dec are of target)
+        self.dataframe_of_bid_targets['distance'] = np.sqrt((self.dataframe_of_bid_targets['RA'] - ra)**2 +
+                                                            (self.dataframe_of_bid_targets['DEC'] - dec)**2)
+
+        self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.sort('distance', ascending=True)
+
     def build_list_of_bid_targets(self,ra,dec,error):
         '''ra and dec in decimal degress. error in arcsec.
         returns a pandas dataframe'''
@@ -271,6 +280,8 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
         if self.dataframe_of_bid_targets is not None:
             self.num_targets = self.dataframe_of_bid_targets.iloc[:, 0].count()
+            self.sort_bid_targets_by_likelihood(ra,dec)
+
             log.debug(self.Name + " searching for objects in [%f - %f, %f - %f] " %(ra_min,ra_max,dec_min,dec_max) +
                   ". Found = %d" % (self.num_targets ))
 
@@ -302,13 +313,11 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 ## testing
 #########################################
     #for testing only
-    def display_all_bid_images(self,error):
+    def display_all_bid_images(self,target_ra, target_dec, error):
         ras = self.dataframe_of_bid_targets.loc[:,['RA']].values
         decs = self.dataframe_of_bid_targets.loc[:,['DEC']].values
+        #dist = self.dataframe_of_bid_targets.loc[:,['distance']].values
         #get back an array of arrays ([[value],[value],...[value]] )
-
-        #ras = self.table_of_bid_targets['RA']
-        #decs = self.table_of_bid_targets['DEC']
 
         for r,d in zip(ras,decs):
             self.display_bid_image(r[0],d[0],error,100)
