@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 log = global_config.logging.getLogger('Cat_logger')
 log.setLevel(global_config.logging.DEBUG)
 
+pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
+
 #base class for catalogs (essentially an interface class)
 #all Catalogs classes must implement:
 
@@ -109,36 +111,49 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                "WFC3_F125W_FLUX","WFC3_F125W_FLUXERR","WFC3_F125W_V08_FLUX","WFC3_F125W_V08_FLUXERR",
                "WFC3_F140W_FLUX","WFC3_F140W_FLUXERR",
                "WC3_F160W_FLUX","WFC3_F160W_FLUXERR","WFC3_F160W_V08_FLUX","WFC3_F160W_V08_FLUXERR",
-               "DEEP_SPEC_Z"]
+               "DEEP_SPEC_Z"]  #NOTE: there are no F105W values
+
     Images = [  {'path':"/home/dustin/code/python/voltron/data/EGS/images/",
                  'name':'egs_all_acs_wfc_f606w_060mas_v1.1_drz.fits',
                  'filter':'f606w',
-                 'instrument':'ACS WFC'
+                 'instrument':'ACS WFC',
+                 'cols':["ACS_F606W_FLUX","ACS_F606W_FLUXERR","ACS_F606W_V08_FLUX","ACS_F606W_V08_FLUXERR"],
+                 'labels':["Flux","Err","V08 Flux", "V08 Err"]
                 },
                 {'path':"/home/dustin/code/python/voltron/data/EGS/images/",
                  'name':'egs_all_acs_wfc_f814w_060mas_v1.1_drz.fits',
                  'filter':'f814w',
-                 'instrument':'ACS WFC'
+                 'instrument':'ACS WFC',
+                 'cols':["ACS_F814W_FLUX","ACS_F814W_FLUXERR","ACS_F814W_V08_FLUX","ACS_F814W_V08_FLUXERR"],
+                 'labels':["Flux","Err","V08 Flux","V08 Err"]
                 },
                 {'path':"/home/dustin/code/python/voltron/data/EGS/images/",
                  'name':'egs_all_wfc3_ir_f105w_060mas_v1.5_drz.fits',
                  'filter':'f105w',
-                 'instrument':'WFC3'
+                 'instrument':'WFC3',
+                 'cols':[],
+                 'labels':[]
                 },
                 {'path':"/home/dustin/code/python/voltron/data/EGS/images/",
                  'name':'egs_all_wfc3_ir_f125w_060mas_v1.1_drz.fits',
                  'filter':'f125w',
-                 'instrument':'WFC3'
+                 'instrument':'WFC3',
+                 'cols':["WFC3_F125W_FLUX","WFC3_F125W_FLUXERR","WFC3_F125W_V08_FLUX","WFC3_F125W_V08_FLUXERR"],
+                 'labels':["Flux","Err","V08 Flux","V08 Err"]
                 },
                 {'path':"/home/dustin/code/python/voltron/data/EGS/images/",
                  'name':'egs_all_wfc3_ir_f140w_060mas_v1.1_drz.fits',
                  'filter':'f140w',
-                 'instrument':'WFC3'
+                 'instrument':'WFC3',
+                 'cols':["WFC3_F140W_FLUX","WFC3_F140W_FLUXERR"],
+                 'labels':["Flux","Err"]
                 },
                 {'path': "/home/dustin/code/python/voltron/data/EGS/images/",
                  'name': 'egs_all_wfc3_ir_f160w_060mas_v1.1_drz.fits',
                  'filter': 'f160w',
-                 'instrument': 'WFC3'
+                 'instrument': 'WFC3',
+                 'cols':["WFC3_F160W_FLUX","WFC3_F160W_FLUXERR","WFC3_F160W_V08_FLUX","WFC3_F160W_V08_FLUXERR"],
+                 'labels':["Flux","Err","V08 Flux","V08 Err"]
                 }
                ]
 
@@ -258,8 +273,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         #right now, just by euclidean distance (ra,dec are of target)
         self.dataframe_of_bid_targets['distance'] = np.sqrt((self.dataframe_of_bid_targets['RA'] - ra)**2 +
                                                             (self.dataframe_of_bid_targets['DEC'] - dec)**2)
-
-        self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.sort('distance', ascending=True)
+        self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.sort_values(by='distance', ascending=True)
 
     def build_list_of_bid_targets(self,ra,dec,error):
         '''ra and dec in decimal degress. error in arcsec.
@@ -320,17 +334,25 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         #get back an array of arrays ([[value],[value],...[value]] )
 
         for r,d in zip(ras,decs):
-            self.display_bid_image(r[0],d[0],error,100)
+            df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
+                                                   (self.dataframe_of_bid_targets['DEC'] == d[0])]
+            self.display_bid_image(r[0],d[0],error,100,df)
 
 
-    def display_bid_image(self,ra,dec,error,window=100):
+    def display_bid_image(self,ra,dec,error,window=100,df=None):
 
-        num  = len(self.Images)
-        rows = math.trunc(math.sqrt(num))
-        cols = int(math.ceil(float(num)/rows))
+        #num  = len(self.Images)
+        #rows = math.trunc(math.sqrt(num))
+        #cols = int(math.ceil(float(num)/rows))
 
+        rows = 1
+        cols = len(self.Images)
+
+        fig_sz_x = cols*3
+        fig_sz_y = rows*5
 
         index = 0
+        plt.figure(figsize=(fig_sz_x,fig_sz_y))
         for i in self.Images: # i is a dictionary
             index+= 1
             sci = science_image.science_image()
@@ -345,10 +367,19 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 #plt.axis('equal')
                 plt.imshow(cutout.data, origin='lower', interpolation='nearest', cmap=plt.get_cmap('gray'),
                            vmin=sci.vmin, vmax=sci.vmax, extent= [-ext,ext,-ext,ext])
-               # plt.xticks(plt.axes.get_yticklabels()())
                 plt.title(i['instrument']+" "+i['filter'])
+                #todo: iterate over all fields for this image and print values
+                if df is not None:
+                   # print(len(df))
+                   # print(df)
+                    s = ""
+                    for f,l in zip(i['cols'],i['labels']):
+                        #print (f)
+                        v = df[f].values[0]
+                        s = s + l + " = " + str(v) + "\n"
+                    plt.xlabel(s,multialignment='left')
 
-        plt.tight_layout(0.1)
+        plt.tight_layout()
         plt.show()
 
 #######################################
