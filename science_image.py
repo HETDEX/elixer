@@ -1,5 +1,5 @@
 #science image (usually very large) FITS file
-
+#represents overall large image: provides small cutouts for display
 
 #needs:
 # image location/filename
@@ -14,6 +14,9 @@
 # get cutout (takes ra,dec,error) returns cutout_image (the cutout is just another science image)
 
 import global_config
+import numpy as np
+from astropy.stats import biweight_midvariance, biweight_location
+from astropy.visualization import ZScaleInterval
 import astropy.io.fits as fits
 from astropy.coordinates import SkyCoord
 from astropy.coordinates import match_coordinates_sky
@@ -40,8 +43,9 @@ class science_image():
         self.dec_center = 0.0
         self.fits = None # fits handle
         self.wcs = None
-        self.vmin = None,
+        self.vmin = None
         self.vmax = None
+        self.pixel_size = None
 
     def load_image(self,wcs_manual=False):
         if self.image_location is None:
@@ -65,9 +69,13 @@ class science_image():
             try:
                 self.wcs = WCS(self.image_location)
             except:
-                log.error("Unable to use WCS constructor. Will attempt to build manually.")
+                log.error("Unable to use WCS constructor. Will attempt to build manually.", exc_info=True)
                 self.build_wcs_manually()
 
+        try:
+            self.pixel_size = np.sqrt(self.wcs.wcs.cd[0, 0] ** 2 + self.wcs.wcs.cd[0, 1] ** 2) * 3600.0  # arcsec/pixel
+        except:
+            log.error("Unable to build pixel size", exc_info=True)
 
     def build_wcs_manually(self):
         self.wcs = WCS(naxis=self.fits[0].header['NAXIS'])
@@ -81,11 +89,27 @@ class science_image():
         self.wcs._naxis2 = self.fits[0].header['NAXIS2']
 
     def contains_position(self,ra,dec):
-        position = SkyCoord(ra, dec, unit="deg", frame='fk5')
-
+        try:
+            cutout = Cutout2D(self.fits[0].data, SkyCoord(ra, dec, unit="deg", frame='fk5'), (1, 1), wcs=self.wcs, copy=True)
+        except:
+            log.debug("position (%f, %f) is not in image." % (ra,dec), exc_info=True)
+            return False
         return True
 
-    def get_cutout(self,ra,dec,error,window):
+
+    def get_vrange(self,vals):
+        self.vmin = None
+        self.vmax = None
+
+        try:
+            zscale = ZScaleInterval(contrast=0.25,krej=2.5) #nsamples=len(vals)
+            self.vmin, self.vmax = zscale.get_limits(values=vals )
+        except:
+            log.info("Exception in science_image::get_vrange:",exc_info =True)
+
+        return self.vmin,self.vmax
+
+    def get_cutout(self,ra,dec,error,window=None):
         '''ra,dec in decimal degrees. error and window in arcsecs'''
         #error is central box (+/- from ra,dec)
         #window is the size of the entire coutout
@@ -96,15 +120,19 @@ class science_image():
             return None
 
         if window is None or window < error:
-            window = 2*error
+            window = max(2*error,5) #should be at least 5 arcsecs
 
-        #todo: check ra,dec are in this image
         if not (self.contains_position(ra,dec)):
             log.info("science image does not contain requested position: RA=%f , Dec=%f" %(ra,dec))
             return None
 
-        position = SkyCoord(ra, dec, unit="deg", frame='fk5')
-        #cutout = Cutout2D(data1, position, (100, 100), wcs=wcs)
-        cutout = Cutout2D(self.fits[0].data, position, (window, window), wcs=self.wcs,copy=True)
+        try:
+            position = SkyCoord(ra, dec, unit="deg", frame='fk5')
+            window = window / self.pixel_size
+            cutout = Cutout2D(self.fits[0].data, position, (window, window), wcs=self.wcs,copy=True)
+            self.get_vrange(cutout.data)
+        except:
+            log.info("Exception in science_image::get_cutout:", exc_info=True)
+            return None
 
         return cutout

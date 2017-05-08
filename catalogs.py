@@ -267,28 +267,31 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
 
     #todo: need to figure automatically good vmin, vmax
-    #need to calculate pixel size?
+    #todo: need to calculate pixel size (so can set a good window )
     #for testing only
-    def display_all_bid_images(self):
-        ras = self.dataframe_of_bid_targets.loc[:,['RA']].values[0]
-        decs = self.dataframe_of_bid_targets.loc[:,['DEC']].values[0]
+    def display_all_bid_images(self,error):
+        ras = self.dataframe_of_bid_targets.loc[:,['RA']].values
+        decs = self.dataframe_of_bid_targets.loc[:,['DEC']].values
+        #get back an array of arrays ([[value],[value],...[value]] )
 
         #ras = self.table_of_bid_targets['RA']
         #decs = self.table_of_bid_targets['DEC']
 
         for r,d in zip(ras,decs):
-            self.display_bid_image(r,d,2,8)
+            self.display_bid_image(r[0],d[0],error,100)
 
 
-    def display_bid_image(self,ra,dec,error,window):
+    def display_bid_image(self,ra,dec,error,window=100):
         sci = science_image.science_image()
         #sci.image_location = "/home/dustin/code/python/voltron/data/EGS/images/egs_all_wfc3_ir_f105w_060mas_v1.5_drz.fits"
         sci.image_location = "/home/dustin/code/python/voltron/data/EGS/images/egs_all_acs_wfc_f606w_060mas_v1.1_drz.fits"
         sci.load_image(wcs_manual=True)
-        cutout = sci.get_cutout(ra, dec, error, window=100)
+        cutout = sci.get_cutout(ra, dec, error) #, window=8) #8 arcsec
 
-        plt.imshow(cutout.data, origin='lower', interpolation='nearest', cmap=plt.get_cmap('gray') ,vmin=-0.02, vmax=0.04)
-        plt.show()
+        if cutout is not None:
+            plt.imshow(cutout.data, origin='lower', interpolation='nearest', cmap=plt.get_cmap('gray'),
+                       vmin=sci.vmin, vmax=sci.vmax)
+            plt.show()
 
 #######################################
 #end class CANDELS_EGS_Stefanon_2016

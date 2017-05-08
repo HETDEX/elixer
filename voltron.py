@@ -62,10 +62,6 @@ def parse_commandline():
         else:
             print()
 
-
-    #convert error to decimal degrees for consistency
-    args.error = float(args.error)/3600.0
-
     return args
 
 
@@ -76,10 +72,13 @@ def main():
 
     cats = catalogs.get_catalog_list()
 
+    #convert error to decimal degrees for consistency
+    error_in_deg = float(args.error)/3600.0
+
     num_hits = 0
     for c in cats:
-        if c.position_in_cat(ra=args.ra,dec=args.dec,error=args.error):
-            hits,_ = c.build_list_of_bid_targets(ra=args.ra,dec=args.dec,error=args.error)
+        if c.position_in_cat(ra=args.ra,dec=args.dec,error=error_in_deg):
+            hits,_ = c.build_list_of_bid_targets(ra=args.ra,dec=args.dec,error=error_in_deg)
             num_hits += hits
             if hits > 0:
                 print ("%d hits in %s" %(hits,c.name))
@@ -100,7 +99,7 @@ def main():
 
 
     #for test
-    cats[0].display_all_bid_images()
+    cats[0].display_all_bid_images(args.error)
 
 
 
