@@ -31,10 +31,10 @@ def get_catalog_list():
 
 
 class Catalog:
-
-    CatalogLocation = None
+    MainCatalog = None
     Name = "Generic Catalog (Base)"
     df = None  # pandas dataframe ... all instances share the same frame
+    df_photoz = None
     #tbl = None # astropy.io.table
     RA_min = None
     RA_max = None
@@ -102,31 +102,31 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 # 63 IRAC_CH3_V08_FLUX # 64 IRAC_CH3_V08_FLUXERR # 65 IRAC_CH4_V08_FLUX # 66 IRAC_CH4_V08_FLUXERR # 67 DEEP_SPEC_Z
 
     #class variables
-    CatalogLocation = "/home/dustin/code/python/voltron/data/EGS/photometry/CANDELS.EGS.F160W.v1_1.photom.cat"
+    MainCatalog = "/home/dustin/code/python/voltron/data/EGS/photometry/CANDELS.EGS.F160W.v1_1.photom.cat"
     Name = "CANDELS_EGS_Stefanon_2016"
     BidCols = ["ID","IAU_designation","RA","DEC",
                "CFHT_U_FLUX","CFHT_U_FLUXERR",
                "IRAC_CH1_FLUX","IRAC_CH1_FLUXERR","IRAC_CH2_FLUX","IRAC_CH2_FLUXERR",
-               "ACS_F606W_FLUX","ACS_F606W_FLUXERR","ACS_F606W_V08_FLUX","ACS_F606W_V08_FLUXERR",
-               "ACS_F814W_FLUX","ACS_F814W_FLUXERR","ACS_F814W_V08_FLUX","ACS_F814W_V08_FLUXERR",
-               "WFC3_F125W_FLUX","WFC3_F125W_FLUXERR","WFC3_F125W_V08_FLUX","WFC3_F125W_V08_FLUXERR",
+               "ACS_F606W_FLUX","ACS_F606W_FLUXERR",
+               "ACS_F814W_FLUX","ACS_F814W_FLUXERR",
+               "WFC3_F125W_FLUX","WFC3_F125W_FLUXERR",
                "WFC3_F140W_FLUX","WFC3_F140W_FLUXERR",
-               "WC3_F160W_FLUX","WFC3_F160W_FLUXERR","WFC3_F160W_V08_FLUX","WFC3_F160W_V08_FLUXERR",
+               "WC3_F160W_FLUX","WFC3_F160W_FLUXERR",
                "DEEP_SPEC_Z"]  #NOTE: there are no F105W values
 
     Images = [  {'path':"/home/dustin/code/python/voltron/data/EGS/images/",
                  'name':'egs_all_acs_wfc_f606w_060mas_v1.1_drz.fits',
                  'filter':'f606w',
                  'instrument':'ACS WFC',
-                 'cols':["ACS_F606W_FLUX","ACS_F606W_FLUXERR","ACS_F606W_V08_FLUX","ACS_F606W_V08_FLUXERR"],
-                 'labels':["Flux","Err","V08 Flux", "V08 Err"]
+                 'cols':["ACS_F606W_FLUX","ACS_F606W_FLUXERR"],
+                 'labels':["Flux","Err"]
                 },
                 {'path':"/home/dustin/code/python/voltron/data/EGS/images/",
                  'name':'egs_all_acs_wfc_f814w_060mas_v1.1_drz.fits',
                  'filter':'f814w',
                  'instrument':'ACS WFC',
-                 'cols':["ACS_F814W_FLUX","ACS_F814W_FLUXERR","ACS_F814W_V08_FLUX","ACS_F814W_V08_FLUXERR"],
-                 'labels':["Flux","Err","V08 Flux","V08 Err"]
+                 'cols':["ACS_F814W_FLUX","ACS_F814W_FLUXERR"],
+                 'labels':["Flux","Err"]
                 },
                 {'path':"/home/dustin/code/python/voltron/data/EGS/images/",
                  'name':'egs_all_wfc3_ir_f105w_060mas_v1.5_drz.fits',
@@ -139,8 +139,8 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                  'name':'egs_all_wfc3_ir_f125w_060mas_v1.1_drz.fits',
                  'filter':'f125w',
                  'instrument':'WFC3',
-                 'cols':["WFC3_F125W_FLUX","WFC3_F125W_FLUXERR","WFC3_F125W_V08_FLUX","WFC3_F125W_V08_FLUXERR"],
-                 'labels':["Flux","Err","V08 Flux","V08 Err"]
+                 'cols':["WFC3_F125W_FLUX","WFC3_F125W_FLUXERR"],
+                 'labels':["Flux","Err"]
                 },
                 {'path':"/home/dustin/code/python/voltron/data/EGS/images/",
                  'name':'egs_all_wfc3_ir_f140w_060mas_v1.1_drz.fits',
@@ -153,15 +153,19 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                  'name': 'egs_all_wfc3_ir_f160w_060mas_v1.1_drz.fits',
                  'filter': 'f160w',
                  'instrument': 'WFC3',
-                 'cols':["WFC3_F160W_FLUX","WFC3_F160W_FLUXERR","WFC3_F160W_V08_FLUX","WFC3_F160W_V08_FLUXERR"],
-                 'labels':["Flux","Err","V08 Flux","V08 Err"]
+                 'cols':["WFC3_F160W_FLUX","WFC3_F160W_FLUXERR"],
+                 'labels':["Flux","Err"]
                 }
                ]
+
+    PhotoZCatalog = "/home/dustin/code/python/voltron/data/EGS/photoz/zcat_EGS_v2.0.cat"
+    SupportFilesLocation = "/home/dustin/code/python/voltron/data/EGS/photoz/zPDF/"
 
     def __init__(self):
       #  super(CANDELS_EGS_Stefanon_2016, self).__init__()
 
         self.dataframe_of_bid_targets = None
+        self.dataframe_of_photoz = None
         #self.table_of_bid_targets = None
         self.num_targets = 0
         self.read_catalog()
@@ -178,9 +182,9 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         header = []
         skip = 0
         try:
-            f = open(cls.CatalogLocation, mode='r')
+            f = open(cls.MainCatalog, mode='r')
         except:
-            log.error(cls.Name + " Exception attempting to open catalog file: " + cls.CatalogLocation)
+            log.error(cls.Name + " Exception attempting to open catalog file: " + cls.MainCatalog)
             cls.status = -1
             return
 
@@ -196,7 +200,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         f.close()
 
         try:
-            cls.df = pd.read_csv(cls.CatalogLocation, names=header,
+            cls.df = pd.read_csv(cls.MainCatalog, names=header,
                 delim_whitespace=True, header=None, index_col=0, skiprows=skip)
         except:
             log.error(cls.Name + " Exception attempting to build pandas dataframe")
@@ -222,7 +226,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
     #     log.debug("Building " + cls.Name + " table ...")
     #
     #     try:
-    #         cls.tbl = ascii.read(cls.CatalogLocation)
+    #         cls.tbl = ascii.read(cls.MainCatalog)
     #     except:
     #         log.error(cls.Name + " Exception attempting to build astropy.io.table")
     #         cls.status = -1
@@ -329,11 +333,14 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 #########################################
     #for testing only
     def display_all_bid_images(self,target_ra, target_dec, error):
-        ras = self.dataframe_of_bid_targets.loc[:,['RA']].values
-        decs = self.dataframe_of_bid_targets.loc[:,['DEC']].values
-        #dist = self.dataframe_of_bid_targets.loc[:,['distance']].values
-        #get back an array of arrays ([[value],[value],...[value]] )
 
+        #display the exact (target) location
+        self.display_bid_image(target_ra,target_dec,error)
+
+        ras = self.dataframe_of_bid_targets.loc[:, ['RA']].values
+        decs = self.dataframe_of_bid_targets.loc[:, ['DEC']].values
+
+        #display each bid target
         for r,d in zip(ras,decs):
             df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                    (self.dataframe_of_bid_targets['DEC'] == d[0])]
@@ -352,12 +359,16 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         fig_sz_x = cols*3
         fig_sz_y = rows*5
 
+
+        #todo: plot a 0,0 '+' or small circle?
+
         index = 0
         plt.figure(figsize=(fig_sz_x,fig_sz_y))
         font = FontProperties()
         font.set_family('monospace')
+
         for i in self.Images: # i is a dictionary
-            index+= 1
+            index+= 1 #for subplot ... is 1 based
             sci = science_image.science_image()
             sci.image_location = i['path']+i['name']
 
@@ -365,12 +376,22 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             cutout = sci.get_cutout(ra, dec, error, window=8) #8 arcsec
             ext = int(sci.window / 2)
 
+
+            #df should have exactly one entry, so need just the column values
+            if df is not None:
+                plt.suptitle("%s\nRA=%f    Dec=%f\nSeparation=%f\""
+                              % (df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
+                                 df['distance'].values[0]*3600))
+            else:
+                plt.suptitle("RA=%f    Dec=%f" %(ra,dec))
+
             if cutout is not None:
                 plt.subplot(rows,cols,index)
                 #plt.axis('equal')
-                plt.imshow(cutout.data, origin='lower', interpolation='nearest', cmap=plt.get_cmap('gray'),
+                plt.imshow(cutout.data, origin='lower', interpolation='nearest', cmap=plt.get_cmap('gray_r'),
                            vmin=sci.vmin, vmax=sci.vmax, extent= [-ext,ext,-ext,ext])
                 plt.title(i['instrument']+" "+i['filter'])
+
                 #todo: iterate over all fields for this image and print values
                 if df is not None:
                     # print(len(df))
@@ -396,7 +417,7 @@ class dummy_cat(Catalog):
 #RA,Dec in decimal degrees
 
     #class variables
-    CatalogLocation = "nowhere"
+    MainCatalog = "nowhere"
     Name = "Dummy Cat"
 
 
