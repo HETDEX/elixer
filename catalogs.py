@@ -8,6 +8,7 @@ import numpy as np
 import math
 #from astropy.coordinates import Angle
 import matplotlib.pyplot as plt
+from matplotlib.font_manager import FontProperties
 #from astropy.io import ascii #note: this works, but pandas is much faster
 
 
@@ -353,6 +354,8 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
         index = 0
         plt.figure(figsize=(fig_sz_x,fig_sz_y))
+        font = FontProperties()
+        font.set_family('monospace')
         for i in self.Images: # i is a dictionary
             index+= 1
             sci = science_image.science_image()
@@ -370,14 +373,15 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 plt.title(i['instrument']+" "+i['filter'])
                 #todo: iterate over all fields for this image and print values
                 if df is not None:
-                   # print(len(df))
-                   # print(df)
+                    # print(len(df))
+                    # print(df)
                     s = ""
                     for f,l in zip(i['cols'],i['labels']):
                         #print (f)
                         v = df[f].values[0]
-                        s = s + l + " = " + str(v) + "\n"
-                    plt.xlabel(s,multialignment='left')
+                        s = s + "%-8s = %.5f\n" %(l,v)
+
+                    plt.xlabel(s,multialignment='left',fontproperties=font)
 
         plt.tight_layout()
         plt.show()
