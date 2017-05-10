@@ -31,7 +31,7 @@ log.setLevel(global_config.logging.DEBUG)
 
 class science_image():
 
-    def __init__(self, wcs_manual=False):
+    def __init__(self, wcs_manual=False, image_location=None):
         self.image_location = None
         self.image_name = None
         self.catalog_name = None
@@ -47,6 +47,15 @@ class science_image():
         self.vmax = None
         self.pixel_size = None
         self.window = None
+
+        self.image_buffer = None
+
+        if image_location is not None:
+            self.image_location = image_location
+            self.load_image(wcs_manual=wcs_manual)
+
+    def get_pixel_size(self):
+        return self.pixel_size
 
     def load_image(self,wcs_manual=False):
         if self.image_location is None:
@@ -140,3 +149,13 @@ class science_image():
             return None
 
         return cutout
+
+    def get_pixel_position(self,ra,dec,cutout):
+        x,y = None,None
+        try:
+            position = SkyCoord(ra, dec, unit="deg", frame='fk5')
+            x,y = skycoord_to_pixel(position, wcs=cutout.wcs)
+        except:
+            log.info("Exception in science_image:get_pixel_position:", exc_info=True)
+
+        return x,y

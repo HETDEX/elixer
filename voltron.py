@@ -78,7 +78,7 @@ def main():
     num_hits = 0
     for c in cats:
         if c.position_in_cat(ra=args.ra,dec=args.dec,error=error_in_deg):
-            hits,_ = c.build_list_of_bid_targets(ra=args.ra,dec=args.dec,error=error_in_deg)
+            hits,_,_ = c.build_list_of_bid_targets(ra=args.ra,dec=args.dec,error=error_in_deg)
             num_hits += hits
             if hits > 0:
                 print ("%d hits in %s" %(hits,c.name))
