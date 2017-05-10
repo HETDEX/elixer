@@ -257,16 +257,16 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
 
     @classmethod
-    def read_catalog(cls,catalog,name):
+    def read_catalog(cls,catalog_loc,name):
 
         log.debug("Building " + name + " dataframe...")
         idx = []
         header = []
         skip = 0
         try:
-            f = open(catalog, mode='r')
+            f = open(catalog_loc, mode='r')
         except:
-            log.error(name + " Exception attempting to open catalog file: " + catalog, exc_info=True)
+            log.error(name + " Exception attempting to open catalog file: " + catalog_loc, exc_info=True)
             return None
 
 
@@ -274,7 +274,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         while '#' in line:
             skip += 1
             toks = line.split()
-            if toks[1].isdigit():   #format:   # <id number> <column name>
+            if (len(toks) > 2) and toks[1].isdigit():   #format:   # <id number> <column name>
                 idx.append(toks[1])
                 header.append(toks[2])
             line = f.readline()
@@ -282,7 +282,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         f.close()
 
         try:
-            df = pd.read_csv(catalog, names=header,
+            df = pd.read_csv(catalog_loc, names=header,
                 delim_whitespace=True, header=None, index_col=None, skiprows=skip)
         except:
             log.error(name + " Exception attempting to build pandas dataframe",exc_info=True)
@@ -412,14 +412,22 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         '''Builds the figure (page) the exact target location. Contains just the filter images ...
         
         Returns the matplotlib figure. Due to limitations of matplotlib pdf generation, each figure = 1 page'''
-        rows = 1
+        rows = 2
         cols = len(self.CatalogImages)
 
         fig_sz_x = cols * 3
-        fig_sz_y = rows * 5
+        fig_sz_y = rows * 3
 
-        index = 0
+        index = cols
         fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
+
+
+        title = "Target Location\nRA = %f    Dec = %f" % (ra, dec)
+        plt.subplot(rows, cols, 1)
+        plt.text(0, 0, title, size=20, ha='left',va='bottom')
+        plt.gca().set_frame_on(False)
+        plt.gca().axis('off')
+
         font = FontProperties()
         font.set_family('monospace')
 
@@ -430,8 +438,6 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             # sci.load_image(wcs_manual=True)
             cutout = sci.get_cutout(ra, dec, error, window=8)  # 8 arcsec
             ext = int(sci.window / 2)
-
-            plt.suptitle("Target Location\nRA = %f    Dec = %f" % (ra, dec))
 
             if cutout is not None:
                 plt.subplot(rows, cols, index)
@@ -462,16 +468,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         #rows = math.trunc(math.sqrt(num))
         #cols = int(math.ceil(float(num)/rows))
 
-        rows = 1
-        cols = len(self.CatalogImages)
-
-        fig_sz_x = cols*3
-        fig_sz_y = rows*5
-
-        index = 0
-        fig = plt.figure(figsize=(fig_sz_x,fig_sz_y))
-        font = FontProperties()
-        font.set_family('monospace')
+        #todo: might need to use gridspec
 
         photoz_file = None
         z_best = None
@@ -479,13 +476,47 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         z_spec = None
         z_spec_ref = None
 
+        rows = 2
+        cols = len(self.CatalogImages)
+
         if df_photoz is not None:
             photoz_file = df_photoz['file'].values[0]
             z_best = df_photoz['z_best'].values[0]
             z_best_type = df_photoz['z_best_type'].values[0] #s = spectral , p = photometric?
             z_spec = df_photoz['z_spec'].values[0]
             z_spec_ref = df_photoz['z_spec_ref'].values[0]
+            rows = rows + 1
 
+        fig_sz_x = cols*3
+        fig_sz_y = rows*3
+
+        index = cols
+        fig = plt.figure(figsize=(fig_sz_x,fig_sz_y))
+
+        if df is not None:
+            title = "%s\nRA = %f    Dec = %f\nSeparation = %f\"" \
+                    % (df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
+                       df['distance'].values[0] * 3600)
+            z = df['DEEP_SPEC_Z'].values[0]
+            if z >= 0.0:
+                title = title + "\nDEEP SPEC Z = %f" % z
+            elif z_best_type is not None:
+                if (z_best_type.lower() == 'p'):
+                    title = title + "\nPhoto Z = %f" % z_best
+                elif (z_best_type.lower() == 's'):
+                    title = title + "\nSpec Z = %f" % z_best
+        else:
+            title = "RA=%f    Dec=%f" % (ra, dec)
+
+
+        plt.subplot(rows,cols,1)
+        plt.text(0,0,title,size=20,ha='left',va='bottom')
+        plt.gca().set_frame_on(False)
+        plt.gca().axis('off')
+
+
+        font = FontProperties()
+        font.set_family('monospace')
 
         #iterate over all filter images
         for i in self.CatalogImages: # i is a dictionary
@@ -497,21 +528,22 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             ext = int(sci.window / 2)
 
             #df should have exactly one entry, so need just the column values
-            if df is not None:
-                title = "%s\nRA = %f    Dec = %f\nSeparation = %f\""  \
-                               % (df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
-                                 df['distance'].values[0]*3600)
-                z = df['DEEP_SPEC_Z'].values[0]
-                if z >= 0.0:
-                    title = title + "\nDEEP SPEC Z = %f" %z
-                elif z_best_type is not None:
-                    if (z_best_type.lower() == 'p'):
-                        title = title + "\nPhoto Z = %f" % z_best
-                    elif (z_best_type.lower() == 's'):
-                        title = title + "\nSpec Z = %f" % z_best
-                plt.suptitle(title)
-            else:
-                plt.suptitle("RA=%f    Dec=%f" %(ra,dec))
+            if (0):
+                if df is not None:
+                    title = "%s\nRA = %f    Dec = %f\nSeparation = %f\""  \
+                                   % (df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
+                                     df['distance'].values[0]*3600)
+                    z = df['DEEP_SPEC_Z'].values[0]
+                    if z >= 0.0:
+                        title = title + "\nDEEP SPEC Z = %f" %z
+                    elif z_best_type is not None:
+                        if (z_best_type.lower() == 'p'):
+                            title = title + "\nPhoto Z = %f" % z_best
+                        elif (z_best_type.lower() == 's'):
+                            title = title + "\nSpec Z = %f" % z_best
+                    plt.suptitle(title)
+                else:
+                    plt.suptitle("RA=%f    Dec=%f" %(ra,dec))
 
             if cutout is not None:
                 plt.subplot(rows,cols,index)
@@ -538,10 +570,26 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
 
         #todo: add photo_z plot (new line)
+        index = index + 1
         # if the z_best_type is 'p' call it photo-Z, if s call it 'spec-Z'
         # alwasy read in file for "file" and plot column 1 (z as x) vs column 9 (pseudo-probability)
         #get 'file'
         # z_best  # 6 z_best_type # 7 z_spec # 8 z_spec_ref
+        if df_photoz is not None:
+            z_cat = self.read_catalog(self.SupportFilesLocation+photoz_file,"z_cat")
+            if z_cat is not None:
+                x = z_cat['z'].values
+                y = z_cat['mFDa4'].values
+                #y = y/y.max()
+                plt.subplot(rows, cols, index)
+                plt.plot(x,y)
+                plt.title("Z PDF")
+                #plt.xticks(np.arange(0.0, 10.1, 1.0))
+                plt.gca().yaxis.set_visible(False)
+                plt.xlabel("Z")
+                #plt.axis('equal')
+
+
 
 
         #complete the entry
