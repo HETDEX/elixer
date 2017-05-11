@@ -1,6 +1,8 @@
+from __future__ import print_function
 import catalogs
 import argparse
 from astropy.coordinates import Angle
+from matplotlib.backends.backend_pdf import PdfPages
 
 #todo: parse line
 #if ra, dec have ":" and "h" or "d" (hours or degrees for ra (hours implied?), degrees for dec)
@@ -21,10 +23,12 @@ def parse_commandline():
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument('-f', '--force', help='Do not prompt for confirmation.', required=False,
                         action='store_true', default=False)
-    parser.add_argument('-r', '--ra', help='Target RA as decimal degrees or h:m:s.as (end with \'h\') '
-                                           'or d:m:s.as (end with \'d\')', required=True)
-    parser.add_argument('-d', '--dec', help='Target Dec (as decimal degrees or d:m:s.as (end with \'d\')'
-                        , required=True)
+    parser.add_argument('-r', '--ra', help='Target RA as decimal degrees or h:m:s.as (end with \'h\')'
+                                           'or d:m:s.as (end with \'d\') '
+                                           'Examples: --ra 214.963542  or --ra 14:19:51.250h or --ra 214:57:48.7512d'
+                                            , required=True)
+    parser.add_argument('-d', '--dec', help='Target Dec (as decimal degrees or d:m:s.as (end with \'d\') '
+                                            'Examples: --dec 52.921167    or  --dec 52:55:16.20d', required=True)
     parser.add_argument('-e', '--error', help="Error (+/-) in RA and Dec in arcsecs.", required=True, type=float)
     parser.add_argument('-n','--name', help="PDF report filename",required=True)
 
@@ -54,7 +58,7 @@ def parse_commandline():
         exit(0)
 
     if not args.force:
-        i = input("Looking for targets +/- %f\" from RA=%f DEC=%f\nProceed (y/n ENTER=YES)?"
+        i = raw_input("Looking for targets +/- %f\" from RA=%f DEC=%f\nProceed (y/n ENTER=YES)?"
                       % (args.error, args.ra, args.dec))
 
         if len(i) > 0 and i.upper() !=  "Y":
@@ -89,19 +93,32 @@ def main():
         exit(0)
 
     if not args.force:
-        i = input("%d total possible matches found.\nProceed (y/n ENTER=YES)?" % num_hits)
+        i = raw_input("%d total possible matches found.\nProceed (y/n ENTER=YES)?" % num_hits)
 
         if len(i) > 0 and i.upper() !=  "Y":
             print ("Cancelled.")
             exit(0)
+        else:
+            print()
     else:
         print ("%d possible matches found. Building report..." % num_hits)
 
 
-
     #for test
-    cats[0].display_all_bid_images(args.ra, args.dec,args.error,args.name)
+    reports = []
+    for c in cats:
+        r = c.build_bid_target_reports(args.ra, args.dec,args.error)
+        if r is not None:
+            reports = reports + r
 
+    print("Finalizing report ...")
+    pdf = PdfPages(args.name)
+    rows = len(reports)
+
+    for r in range(rows):
+        pdf.savefig(reports[r])
+    pdf.close()
+    print("File written: " + args.name)
 
 
     exit(0)

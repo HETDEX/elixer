@@ -1,5 +1,23 @@
+from __future__ import print_function
 #keep it simple for now. Put base class and all children in here.
 #Later, create a proper package
+
+#PATHS MUST END WITH /
+
+CANDELS_EGS_Stefanon_2016_BASE_PATH = "/home/dustin/code/python/voltron/data/EGS/"
+CANDELS_EGS_Stefanon_2016_CAT = CANDELS_EGS_Stefanon_2016_BASE_PATH+"/photometry/CANDELS.EGS.F160W.v1_1.photom.cat"
+CANDELS_EGS_Stefanon_2016_IMAGES_PATH = CANDELS_EGS_Stefanon_2016_BASE_PATH + "images/"
+CANDELS_EGS_Stefanon_2016_PHOTOZ_CAT = CANDELS_EGS_Stefanon_2016_BASE_PATH + "photoz/zcat_EGS_v2.0.cat"
+CANDELS_EGS_Stefanon_2016_PHOTOZ_ZPDF_PATH = CANDELS_EGS_Stefanon_2016_BASE_PATH + "photoz/zPDF/"
+
+#CANDELS_EGS_Stefanon_2016_CAT = "/work/03564/stevenf/maverick/EGS/photometry/CANDELS.EGS.F160W.v1_1.photom.cat"
+#CANDELS_EGS_Stefanon_2016_IMAGES_PATH = "/work/03564/stevenf/maverick/EGS/images/"
+#CANDELS_EGS_Stefanon_2016_PHOTOZ_CAT = "/work/03564/stevenf/maverick/EGS/photoz/zcat_EGS_v2.0.cat"
+#CANDELS_EGS_Stefanon_2016_PHOTOZ_ZPDF_PATH = "/work/03564/stevenf/maverick/EGS/photoz/zPDF/"
+
+
+import matplotlib
+matplotlib.use('agg')
 
 import pandas as pd
 import global_config
@@ -26,9 +44,25 @@ def get_catalog_list():
     #build list of all catalogs below
     cats = list()
     cats.append(CANDELS_EGS_Stefanon_2016())
-   # cats.append(dummy_cat())
 
+  #  cats.append(CANDELS_EGS_Stefanon_2016())
+  #  cats[1].Name = "Duplicate CANDELS"
     return cats
+
+# class Pdf:
+#
+#     def create_pdf(self, name, pages):
+#         # figure out how to merge all self.pages (as buffers or figures?) into one
+#         # figure with subplots
+#
+#         pdf = PdfPages(name)
+#         rows = len(pages)
+#
+#         for r in range(rows):
+#             pdf.savefig(pages[r])
+#
+#         pdf.close()
+#
 
 __metaclass__ = type
 class Catalog:
@@ -87,27 +121,10 @@ class Catalog:
         elif len(self.pages) > 0:
             del self.pages[:]
 
-    def add_bid_entry(self,entry):
+    def add_bid_entry(self, entry):
         if self.pages is None:
             self.clear_pages()
         self.pages.append(entry)
-
-
-    def create_pdf(self,name):
-
-        #figure out how to merge all self.pages (as buffers or figures?) into one
-        #figure with subplots
-
-        pdf = PdfPages(name)
-        rows = len(self.pages)
-
-        for r in range(rows):
-            pdf.savefig(self.pages[r])
-
-        #plt.show()
-        pdf.close()
-
-
 
 
 #specific implementation of The CANDELS-EGS Multi-wavelength catalog Stefanon et al., 2016
@@ -131,7 +148,8 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 # 63 IRAC_CH3_V08_FLUX # 64 IRAC_CH3_V08_FLUXERR # 65 IRAC_CH4_V08_FLUX # 66 IRAC_CH4_V08_FLUXERR # 67 DEEP_SPEC_Z
 
     #class variables
-    MainCatalog = "/home/dustin/code/python/voltron/data/EGS/photometry/CANDELS.EGS.F160W.v1_1.photom.cat"
+    #MainCatalog = "/home/dustin/code/python/voltron/data/EGS/photometry/CANDELS.EGS.F160W.v1_1.photom.cat"
+    MainCatalog = CANDELS_EGS_Stefanon_2016_CAT
     Name = "CANDELS_EGS_Stefanon_2016"
     WCS_Manual = True
     BidCols = ["ID","IAU_designation","RA","DEC",
@@ -145,42 +163,42 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                "DEEP_SPEC_Z"]  #NOTE: there are no F105W values
 
     CatalogImages = [
-                {'path':"/home/dustin/code/python/voltron/data/EGS/images/",
+                {'path':CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
                  'name':'egs_all_acs_wfc_f606w_060mas_v1.1_drz.fits',
                  'filter':'f606w',
                  'instrument':'ACS WFC',
                  'cols':["ACS_F606W_FLUX","ACS_F606W_FLUXERR"],
                  'labels':["Flux","Err"]
                 },
-                {'path':"/home/dustin/code/python/voltron/data/EGS/images/",
+                {'path':CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
                  'name':'egs_all_acs_wfc_f814w_060mas_v1.1_drz.fits',
                  'filter':'f814w',
                  'instrument':'ACS WFC',
                  'cols':["ACS_F814W_FLUX","ACS_F814W_FLUXERR"],
                  'labels':["Flux","Err"]
                 },
-                {'path':"/home/dustin/code/python/voltron/data/EGS/images/",
+                {'path':CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
                  'name':'egs_all_wfc3_ir_f105w_060mas_v1.5_drz.fits',
                  'filter':'f105w',
                  'instrument':'WFC3',
                  'cols':[],
                  'labels':[]
                 },
-                {'path':"/home/dustin/code/python/voltron/data/EGS/images/",
+                {'path':CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
                  'name':'egs_all_wfc3_ir_f125w_060mas_v1.1_drz.fits',
                  'filter':'f125w',
                  'instrument':'WFC3',
                  'cols':["WFC3_F125W_FLUX","WFC3_F125W_FLUXERR"],
                  'labels':["Flux","Err"]
                 },
-                {'path':"/home/dustin/code/python/voltron/data/EGS/images/",
+                {'path':CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
                  'name':'egs_all_wfc3_ir_f140w_060mas_v1.1_drz.fits',
                  'filter':'f140w',
                  'instrument':'WFC3',
                  'cols':["WFC3_F140W_FLUX","WFC3_F140W_FLUXERR"],
                  'labels':["Flux","Err"]
                 },
-                {'path': "/home/dustin/code/python/voltron/data/EGS/images/",
+                {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
                  'name': 'egs_all_wfc3_ir_f160w_060mas_v1.1_drz.fits',
                  'filter': 'f160w',
                  'instrument': 'WFC3',
@@ -201,8 +219,8 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 # 48 Wiklind_z683_low  # 49 Wiklind_z683_high # 50 Wiklind_z954_low # 51 Wiklind_z954_high # 52 Wuyts_z_peak
 # 53 Wuyts_z_weight  # 54 Wuyts_z683_low # 55 Wuyts_z683_high # 56 Wuyts_z954_low # 57 Wuyts_z954_high
 
-    PhotoZCatalog = "/home/dustin/code/python/voltron/data/EGS/photoz/zcat_EGS_v2.0.cat"
-    SupportFilesLocation = "/home/dustin/code/python/voltron/data/EGS/photoz/zPDF/"
+    PhotoZCatalog = CANDELS_EGS_Stefanon_2016_PHOTOZ_CAT #"/home/dustin/code/python/voltron/data/EGS/photoz/zcat_EGS_v2.0.cat"
+    SupportFilesLocation = CANDELS_EGS_Stefanon_2016_PHOTOZ_ZPDF_PATH #"/home/dustin/code/python/voltron/data/EGS/photoz/zPDF/"
 
     def __init__(self):
         super(CANDELS_EGS_Stefanon_2016, self).__init__()
@@ -364,9 +382,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 ## testing
 #########################################
     #for testing only
-    def display_all_bid_images(self,target_ra, target_dec, error,outfile):
-
-        self.clear_pages()
+    def build_bid_target_reports(self,target_ra, target_dec, error):
 
         #display the exact (target) location
         entry = self.build_exact_target_location_figure(target_ra,target_dec,error)
@@ -402,14 +418,12 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 log.error("Exception attempting to find object in dataframe_of_bid_targets",exc_info=True)
                 df_photoz = None
 
-            print("Building report for bid target %d" %number)
+            print("Building report for bid target %d in %s" % (number,self.Name))
             entry = self.build_bid_target_figure(r[0],d[0],error=error,df=df,df_photoz=df_photoz,
                                                  target_ra=target_ra,target_dec=target_dec)
             self.add_bid_entry(entry)
 
-        print("Finalizing report ...")
-        self.create_pdf(outfile)
-
+        return self.pages
 
     def build_exact_target_location_figure(self, ra, dec, error):
         '''Builds the figure (page) the exact target location. Contains just the filter images ...
@@ -653,7 +667,6 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                                                   angle=0.0, color='yellow', fill=False))
 
         #complete the entry
-       # plt.tight_layout()
         plt.close()
         return fig
 
