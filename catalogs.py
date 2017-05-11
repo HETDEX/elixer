@@ -5,9 +5,7 @@ import pandas as pd
 import global_config
 import science_image
 import numpy as np
-import io
-from PIL import Image
-#from astropy.coordinates import Angle
+import copy
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 from matplotlib.backends.backend_pdf import PdfPages
@@ -217,6 +215,8 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         self.read_main_catalog()
         self.read_photoz_catalog()
 
+        self.master_cutout= None
+
 
     @classmethod
     def read_main_catalog(cls):
@@ -418,21 +418,28 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         fig_sz_x = cols * 3
         fig_sz_y = rows * 3
 
-        index = cols
         fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
 
+        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.5)
+        #reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based
 
-        title = "Target Location\nRA = %f    Dec = %f" % (ra, dec)
-        plt.subplot(rows, cols, 1)
-        plt.text(0, 0, title, size=20, ha='left',va='bottom')
+        title = "Target Location\n\nRA = %f    Dec = %f\n\n" % (ra, dec)
+        #ax = plt.subplot(rows, cols, 1)
+        plt.subplot(gs[0,0])
+        plt.text(0, 0.5, title, size=16, ha='left',va='bottom')
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
         font = FontProperties()
         font.set_family('monospace')
 
+        if self.master_cutout is not None:
+            del(self.master_cutout)
+            self.master_cutout = None
+
+        index = -1
         for i in self.CatalogImages:  # i is a dictionary
-            index += 1  # for subplot ... is 1 based
+            index += 1
             sci = science_image.science_image(wcs_manual=self.WCS_Manual, image_location=i['path'] + i['name'])
 
             # sci.load_image(wcs_manual=True)
@@ -440,7 +447,13 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             ext = int(sci.window / 2)
 
             if cutout is not None:
-                plt.subplot(rows, cols, index)
+                if self.master_cutout is None:
+                    self.master_cutout = copy.deepcopy(cutout)
+                else:
+                    self.master_cutout.data = np.add(self.master_cutout.data, cutout.data)
+
+                #plt.subplot(rows, cols, index)
+                plt.subplot(gs[rows-1, index])
                 # plt.axis('equal')
                 plt.imshow(cutout.data, origin='lower', interpolation='nearest', cmap=plt.get_cmap('gray_r'),
                            vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
@@ -450,9 +463,15 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 plt.gca().add_patch(plt.Circle((0., 0.), radius=0.5,color='yellow',fill=False))
                 #plt.show()
 
+        plt.subplot( gs[0, cols-1])
+        vmin,vmax = science_image.science_image().get_vrange(self.master_cutout.data)
+        plt.imshow(self.master_cutout.data, origin='lower', interpolation='nearest', cmap=plt.get_cmap('gray_r'),
+                   vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+        plt.title("Master Cutout -- Stacked")
+        plt.gca().add_patch(plt.Circle((0., 0.), radius=0.5, color='yellow', fill=False))
 
         # complete the entry
-        plt.tight_layout()
+       # plt.tight_layout()
         plt.close()
         return fig
 
@@ -485,16 +504,17 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             z_best_type = df_photoz['z_best_type'].values[0] #s = spectral , p = photometric?
             z_spec = df_photoz['z_spec'].values[0]
             z_spec_ref = df_photoz['z_spec_ref'].values[0]
-            rows = rows + 1
+            #rows = rows + 1
 
         fig_sz_x = cols*3
         fig_sz_y = rows*3
 
-        index = cols
+        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.5)
+
         fig = plt.figure(figsize=(fig_sz_x,fig_sz_y))
 
         if df is not None:
-            title = "%s\nRA = %f    Dec = %f\nSeparation = %f\"" \
+            title = "%s\n\nRA = %f    Dec = %f\nSeparation = %f\"" \
                     % (df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
                        df['distance'].values[0] * 3600)
             z = df['DEEP_SPEC_Z'].values[0]
@@ -509,15 +529,16 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             title = "RA=%f    Dec=%f" % (ra, dec)
 
 
-        plt.subplot(rows,cols,1)
-        plt.text(0,0,title,size=20,ha='left',va='bottom')
+        #plt.subplot(rows,cols,1)
+        plt.subplot(gs[0, 0])
+        plt.text(0,0.50,title,size=16,ha='left',va='bottom')
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
-
 
         font = FontProperties()
         font.set_family('monospace')
 
+        index = -1
         #iterate over all filter images
         for i in self.CatalogImages: # i is a dictionary
             index+= 1 #for subplot ... is 1 based
@@ -546,7 +567,8 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                     plt.suptitle("RA=%f    Dec=%f" %(ra,dec))
 
             if cutout is not None:
-                plt.subplot(rows,cols,index)
+                #plt.subplot(rows,cols,index)
+                plt.subplot(gs[1, index])
                 #plt.axis('equal')
                 plt.imshow(cutout.data, origin='lower', interpolation='nearest', cmap=plt.get_cmap('gray_r'),
                            vmin=sci.vmin, vmax=sci.vmax, extent= [-ext,ext,-ext,ext])
@@ -570,7 +592,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
 
         #todo: add photo_z plot (new line)
-        index = index + 1
+        #index = index + 1
         # if the z_best_type is 'p' call it photo-Z, if s call it 'spec-Z'
         # alwasy read in file for "file" and plot column 1 (z as x) vs column 9 (pseudo-probability)
         #get 'file'
@@ -581,7 +603,8 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 x = z_cat['z'].values
                 y = z_cat['mFDa4'].values
                 #y = y/y.max()
-                plt.subplot(rows, cols, index)
+                #plt.subplot(rows, cols, index)
+                plt.subplot(gs[0, 3])
                 plt.plot(x,y)
                 plt.title("Z PDF")
                 #plt.xticks(np.arange(0.0, 10.1, 1.0))
@@ -590,10 +613,16 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 #plt.axis('equal')
 
 
-
+        plt.subplot(gs[0, cols - 1])
+        vmin, vmax = science_image.science_image().get_vrange(self.master_cutout.data)
+        plt.imshow(self.master_cutout.data, origin='lower', interpolation='nearest',
+                   cmap=plt.get_cmap('gray_r'),
+                   vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+        plt.title("Master Cutout -- Stacked")
+        plt.gca().add_patch(plt.Circle((0., 0.), radius=0.5, color='yellow', fill=False))
 
         #complete the entry
-        plt.tight_layout()
+       # plt.tight_layout()
         plt.close()
         return fig
 
