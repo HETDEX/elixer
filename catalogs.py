@@ -4,16 +4,14 @@ from __future__ import print_function
 
 #PATHS MUST END WITH /
 
+#CANDELS_EGS_Stefanon_2016_BASE_PATH = "/work/03564/stevenf/maverick/EGS/"
 CANDELS_EGS_Stefanon_2016_BASE_PATH = "/home/dustin/code/python/voltron/data/EGS/"
 CANDELS_EGS_Stefanon_2016_CAT = CANDELS_EGS_Stefanon_2016_BASE_PATH+"/photometry/CANDELS.EGS.F160W.v1_1.photom.cat"
 CANDELS_EGS_Stefanon_2016_IMAGES_PATH = CANDELS_EGS_Stefanon_2016_BASE_PATH + "images/"
 CANDELS_EGS_Stefanon_2016_PHOTOZ_CAT = CANDELS_EGS_Stefanon_2016_BASE_PATH + "photoz/zcat_EGS_v2.0.cat"
 CANDELS_EGS_Stefanon_2016_PHOTOZ_ZPDF_PATH = CANDELS_EGS_Stefanon_2016_BASE_PATH + "photoz/zPDF/"
 
-#CANDELS_EGS_Stefanon_2016_CAT = "/work/03564/stevenf/maverick/EGS/photometry/CANDELS.EGS.F160W.v1_1.photom.cat"
-#CANDELS_EGS_Stefanon_2016_IMAGES_PATH = "/work/03564/stevenf/maverick/EGS/images/"
-#CANDELS_EGS_Stefanon_2016_PHOTOZ_CAT = "/work/03564/stevenf/maverick/EGS/photoz/zcat_EGS_v2.0.cat"
-#CANDELS_EGS_Stefanon_2016_PHOTOZ_ZPDF_PATH = "/work/03564/stevenf/maverick/EGS/photoz/zPDF/"
+
 
 
 import matplotlib
@@ -26,7 +24,6 @@ import numpy as np
 import copy
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
-from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.gridspec as gridspec
 #from astropy.io import ascii #note: this works, but pandas is much faster
 
@@ -49,20 +46,7 @@ def get_catalog_list():
   #  cats[1].Name = "Duplicate CANDELS"
     return cats
 
-# class Pdf:
-#
-#     def create_pdf(self, name, pages):
-#         # figure out how to merge all self.pages (as buffers or figures?) into one
-#         # figure with subplots
-#
-#         pdf = PdfPages(name)
-#         rows = len(pages)
-#
-#         for r in range(rows):
-#             pdf.savefig(pages[r])
-#
-#         pdf.close()
-#
+
 
 __metaclass__ = type
 class Catalog:
@@ -148,7 +132,6 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 # 63 IRAC_CH3_V08_FLUX # 64 IRAC_CH3_V08_FLUXERR # 65 IRAC_CH4_V08_FLUX # 66 IRAC_CH4_V08_FLUXERR # 67 DEEP_SPEC_Z
 
     #class variables
-    #MainCatalog = "/home/dustin/code/python/voltron/data/EGS/photometry/CANDELS.EGS.F160W.v1_1.photom.cat"
     MainCatalog = CANDELS_EGS_Stefanon_2016_CAT
     Name = "CANDELS_EGS_Stefanon_2016"
     WCS_Manual = True
@@ -219,8 +202,8 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 # 48 Wiklind_z683_low  # 49 Wiklind_z683_high # 50 Wiklind_z954_low # 51 Wiklind_z954_high # 52 Wuyts_z_peak
 # 53 Wuyts_z_weight  # 54 Wuyts_z683_low # 55 Wuyts_z683_high # 56 Wuyts_z954_low # 57 Wuyts_z954_high
 
-    PhotoZCatalog = CANDELS_EGS_Stefanon_2016_PHOTOZ_CAT #"/home/dustin/code/python/voltron/data/EGS/photoz/zcat_EGS_v2.0.cat"
-    SupportFilesLocation = CANDELS_EGS_Stefanon_2016_PHOTOZ_ZPDF_PATH #"/home/dustin/code/python/voltron/data/EGS/photoz/zPDF/"
+    PhotoZCatalog = CANDELS_EGS_Stefanon_2016_PHOTOZ_CAT
+    SupportFilesLocation = CANDELS_EGS_Stefanon_2016_PHOTOZ_ZPDF_PATH
 
     def __init__(self):
         super(CANDELS_EGS_Stefanon_2016, self).__init__()
@@ -357,12 +340,6 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         return self.num_targets, self.dataframe_of_bid_targets, self.dataframe_of_bid_targets_photoz
 
 
-
-    #todo: select columns for each matching record
-    #i.e.n = egs.df.loc[0:2,['ACS_F606W_FLUX','ACS_F606W_V08_FLUX']].values
-    #   give back a numpy 2D array in this case (here selected the first 2 records, but will want to do this
-    #   for one record at a time
-
     def get_bid_dict(self,id,cols):
         """returns a (nested) dictionary of desired cols for a single row from the full bid dataframe
         form {col_name : {id : value}} where id is 1-based
@@ -375,13 +352,8 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             return None
         return bid_dict
 
-
-
-
-#########################################
-## testing
-#########################################
-    #for testing only
+    #todo: refactor and move most of this to the base class
+    #column names are catalog specific, but could map catalog specific names to generic ones and produce a dictionary?
     def build_bid_target_reports(self,target_ra, target_dec, error):
 
         #display the exact (target) location
@@ -495,7 +467,6 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 angle=0.0, color='red', fill=False ))
 
         # complete the entry
-       # plt.tight_layout()
         plt.close()
         return fig
 
@@ -507,18 +478,14 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         
         Returns the matplotlib figure. Due to limitations of matplotlib pdf generateion, each figure = 1 page'''
 
-        #num  = len(self.CatalogImages)
-        #rows = math.trunc(math.sqrt(num))
-        #cols = int(math.ceil(float(num)/rows))
-
         # note: error is essentially a radius, but this is done as a box, with the 0,0 position in lower-left
         # not the middle, so need the total length of each side to be twice translated error or 2*2*errorS
         window = error * 2
         photoz_file = None
         z_best = None
         z_best_type = None  # s = spectral , p = photometric?
-        z_spec = None
-        z_spec_ref = None
+        #z_spec = None
+        #z_spec_ref = None
 
         rows = 2
         cols = len(self.CatalogImages)
@@ -527,8 +494,8 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             photoz_file = df_photoz['file'].values[0]
             z_best = df_photoz['z_best'].values[0]
             z_best_type = df_photoz['z_best_type'].values[0] #s = spectral , p = photometric?
-            z_spec = df_photoz['z_spec'].values[0]
-            z_spec_ref = df_photoz['z_spec_ref'].values[0]
+            #z_spec = df_photoz['z_spec'].values[0]
+            #z_spec_ref = df_photoz['z_spec_ref'].values[0]
             #rows = rows + 1
 
         fig_sz_x = cols*3
@@ -666,7 +633,6 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 plt.gca().add_patch(plt.Rectangle((x, y), width=error * 2, height=error * 2,
                                                   angle=0.0, color='yellow', fill=False))
 
-        #complete the entry
         plt.close()
         return fig
 

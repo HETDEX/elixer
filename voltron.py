@@ -3,6 +3,10 @@ import catalogs
 import argparse
 from astropy.coordinates import Angle
 from matplotlib.backends.backend_pdf import PdfPages
+import sys
+from distutils.version import LooseVersion
+
+
 
 #todo: parse line
 #if ra, dec have ":" and "h" or "d" (hours or degrees for ra (hours implied?), degrees for dec)
@@ -14,7 +18,14 @@ from matplotlib.backends.backend_pdf import PdfPages
 #print confirmation line ("looking for targets at RA=(decimal degrees) Dec=  +/- (arcsecs). Proceed?
 #if yes, find number of targets
 #print xxx targets found, proceed with plots?
+VERSION = sys.version.split()[0]
 
+def get_input(prompt):
+    if LooseVersion(VERSION) >= LooseVersion('3.0'):
+        i = input(prompt)
+    else:
+        i = raw_input(prompt)
+    return i
 
 
 def parse_commandline():
@@ -31,6 +42,9 @@ def parse_commandline():
                                             'Examples: --dec 52.921167    or  --dec 52:55:16.20d', required=True)
     parser.add_argument('-e', '--error', help="Error (+/-) in RA and Dec in arcsecs.", required=True, type=float)
     parser.add_argument('-n','--name', help="PDF report filename",required=True)
+
+    parser.add_argument('--dither', help="HETDEX Dither file", required=False)
+    parser.add_argument('--line', help="HETDEX (Cure) detect line file", required=False)
 
 
     args = parser.parse_args()
@@ -58,7 +72,8 @@ def parse_commandline():
         exit(0)
 
     if not args.force:
-        i = raw_input("Looking for targets +/- %f\" from RA=%f DEC=%f\nProceed (y/n ENTER=YES)?"
+
+        i = get_input("Looking for targets +/- %f\" from RA=%f DEC=%f\nProceed (y/n ENTER=YES)?"
                       % (args.error, args.ra, args.dec))
 
         if len(i) > 0 and i.upper() !=  "Y":
@@ -93,7 +108,7 @@ def main():
         exit(0)
 
     if not args.force:
-        i = raw_input("%d total possible matches found.\nProceed (y/n ENTER=YES)?" % num_hits)
+        i = get_input("%d total possible matches found.\nProceed (y/n ENTER=YES)?" % num_hits)
 
         if len(i) > 0 and i.upper() !=  "Y":
             print ("Cancelled.")
@@ -104,8 +119,13 @@ def main():
         print ("%d possible matches found. Building report..." % num_hits)
 
 
-    #for test
+
     reports = []
+
+    #first, if hetdex info provided, build the hetdex part of the report
+    #todo: hetedex part
+
+    #next, build reports for each catalog
     for c in cats:
         r = c.build_bid_target_reports(args.ra, args.dec,args.error)
         if r is not None:
