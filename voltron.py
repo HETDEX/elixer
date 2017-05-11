@@ -26,6 +26,7 @@ def parse_commandline():
     parser.add_argument('-d', '--dec', help='Target Dec (as decimal degrees or d:m:s.as (end with \'d\')'
                         , required=True)
     parser.add_argument('-e', '--error', help="Error (+/-) in RA and Dec in arcsecs.", required=True, type=float)
+    parser.add_argument('-n','--name', help="PDF report filename",required=True)
 
 
     args = parser.parse_args()
@@ -99,7 +100,7 @@ def main():
 
 
     #for test
-    cats[0].display_all_bid_images(args.ra, args.dec,args.error)
+    cats[0].display_all_bid_images(args.ra, args.dec,args.error,args.name)
 
 
 

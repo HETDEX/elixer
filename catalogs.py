@@ -364,7 +364,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 ## testing
 #########################################
     #for testing only
-    def display_all_bid_images(self,target_ra, target_dec, error):
+    def display_all_bid_images(self,target_ra, target_dec, error,outfile):
 
         self.clear_pages()
 
@@ -377,9 +377,10 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         ras = self.dataframe_of_bid_targets.loc[:, ['RA']].values
         decs = self.dataframe_of_bid_targets.loc[:, ['DEC']].values
 
-
+        number = 0
         #display each bid target
         for r,d in zip(ras,decs):
+            number+=1
             try:
                 df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                    (self.dataframe_of_bid_targets['DEC'] == d[0])]
@@ -401,17 +402,23 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 log.error("Exception attempting to find object in dataframe_of_bid_targets",exc_info=True)
                 df_photoz = None
 
-            entry = self.build_bid_target_figure(r[0],d[0],error=error,window=100,df=df,df_photoz=df_photoz,
+            print("Building report for bid target %d" %number)
+            entry = self.build_bid_target_figure(r[0],d[0],error=error,df=df,df_photoz=df_photoz,
                                                  target_ra=target_ra,target_dec=target_dec)
             self.add_bid_entry(entry)
 
-        self.create_pdf("test.pdf")
+        print("Finalizing report ...")
+        self.create_pdf(outfile)
 
 
-    def build_exact_target_location_figure(self, ra, dec, error, window=100):
+    def build_exact_target_location_figure(self, ra, dec, error):
         '''Builds the figure (page) the exact target location. Contains just the filter images ...
         
         Returns the matplotlib figure. Due to limitations of matplotlib pdf generation, each figure = 1 page'''
+
+        # note: error is essentially a radius, but this is done as a box, with the 0,0 position in lower-left
+        #not the middle, so need the total length of each side to be twice translated error or 2*2*errorS
+        window = error*4
         rows = 2
         cols = len(self.CatalogImages)
 
@@ -443,10 +450,10 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             sci = science_image.science_image(wcs_manual=self.WCS_Manual, image_location=i['path'] + i['name'])
 
             # sci.load_image(wcs_manual=True)
-            cutout = sci.get_cutout(ra, dec, error, window=8)  # 8 arcsec
-            ext = int(sci.window / 2)
+            cutout = sci.get_cutout(ra, dec, error, window=window)  # 8 arcsec
+            ext = int(sci.window / 2) #extent is from the 0,0 center, so window/2
 
-            if cutout is not None:
+            if cutout is not None: #construct master cutout
                 if self.master_cutout is None:
                     self.master_cutout = copy.deepcopy(cutout)
                 else:
@@ -459,16 +466,19 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                            vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
                 plt.title(i['instrument'] + " " + i['filter'])
 
-                #radius effectively in arcsecs
-                plt.gca().add_patch(plt.Circle((0., 0.), radius=0.5,color='yellow',fill=False))
-                #plt.show()
+                plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
+                                                  angle=0.0, color='red', fill=False))
 
+
+        #plot the master cutout
         plt.subplot( gs[0, cols-1])
         vmin,vmax = science_image.science_image().get_vrange(self.master_cutout.data)
         plt.imshow(self.master_cutout.data, origin='lower', interpolation='nearest', cmap=plt.get_cmap('gray_r'),
                    vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
         plt.title("Master Cutout -- Stacked")
-        plt.gca().add_patch(plt.Circle((0., 0.), radius=0.5, color='yellow', fill=False))
+        plt.plot(0,0, "r+")
+        plt.gca().add_patch(plt.Rectangle( (-error,-error), width=error*2, height=error*2,
+                angle=0.0, color='red', fill=False ))
 
         # complete the entry
        # plt.tight_layout()
@@ -477,7 +487,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
 
 
-    def build_bid_target_figure(self,ra,dec,error,window=100,df=None,df_photoz=None,target_ra=None,target_dec=None):
+    def build_bid_target_figure(self,ra,dec,error,df=None,df_photoz=None,target_ra=None,target_dec=None):
         '''Builds the entry (e.g. like a row) for one bid target. Includes the target info (name, loc, Z, etc),
         photometry images, Z_PDF, etc
         
@@ -487,8 +497,9 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         #rows = math.trunc(math.sqrt(num))
         #cols = int(math.ceil(float(num)/rows))
 
-        #todo: might need to use gridspec
-
+        # note: error is essentially a radius, but this is done as a box, with the 0,0 position in lower-left
+        # not the middle, so need the total length of each side to be twice translated error or 2*2*errorS
+        window = error * 2
         photoz_file = None
         z_best = None
         z_best_type = None  # s = spectral , p = photometric?
@@ -545,7 +556,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             sci = science_image.science_image(wcs_manual= self.WCS_Manual,image_location=i['path']+i['name'])
 
             #sci.load_image(wcs_manual=True)
-            cutout = sci.get_cutout(ra, dec, error, window=8) #8 arcsec
+            cutout = sci.get_cutout(ra, dec, error, window=window) #8 arcsec
             ext = int(sci.window / 2)
 
             #df should have exactly one entry, so need just the column values
@@ -579,6 +590,8 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                     px, py = sci.get_pixel_position(target_ra, target_dec, cutout)
                     x,y = sci.get_pixel_position(ra, dec, cutout)
                     plt.plot((px-x)*sci.get_pixel_size(),(py-y)*sci.get_pixel_size(),"r+")
+                    plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
+                                                  angle=0.0, color='yellow', fill=False,linewidth=5.0,zorder=1))
 
                 #iterate over all fields for this image and print values
                 if df is not None:
@@ -591,8 +604,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                     plt.xlabel(s,multialignment='left',fontproperties=font)
 
 
-        #todo: add photo_z plot (new line)
-        #index = index + 1
+        #add photo_z plot
         # if the z_best_type is 'p' call it photo-Z, if s call it 'spec-Z'
         # alwasy read in file for "file" and plot column 1 (z as x) vs column 9 (pseudo-probability)
         #get 'file'
@@ -613,13 +625,32 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 #plt.axis('equal')
 
 
-        plt.subplot(gs[0, cols - 1])
-        vmin, vmax = science_image.science_image().get_vrange(self.master_cutout.data)
-        plt.imshow(self.master_cutout.data, origin='lower', interpolation='nearest',
-                   cmap=plt.get_cmap('gray_r'),
-                   vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
-        plt.title("Master Cutout -- Stacked")
-        plt.gca().add_patch(plt.Circle((0., 0.), radius=0.5, color='yellow', fill=False))
+        #master cutout (0,0 is the observered (exact) target RA, DEC)
+        if self.master_cutout.data is not None:
+            window=error*4
+            ext = error*2
+            plt.subplot(gs[0, cols - 1])
+            vmin, vmax = science_image.science_image().get_vrange(self.master_cutout.data)
+            plt.imshow(self.master_cutout.data, origin='lower', interpolation='nearest',
+                       cmap=plt.get_cmap('gray_r'),
+                       vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+            plt.title("Master Cutout -- Stacked")
+
+            #mark the bid target location on the master cutout
+            if  (target_ra is not None) and (target_dec is not None):
+                px, py = sci.get_pixel_position(target_ra, target_dec, self.master_cutout)
+                x, y   = sci.get_pixel_position(ra, dec, self.master_cutout)
+                plt.plot(0, 0, "r+")
+
+                plt.gca().add_patch(plt.Circle(((x-px) * sci.get_pixel_size(), (y-py) * sci.get_pixel_size())
+                                               , radius=0.5, color='yellow', fill=False))
+                plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
+                                                  angle=0.0, color='red', fill=False))
+
+                x = (x-px) * sci.get_pixel_size() - error
+                y = (y-py) * sci.get_pixel_size() - error
+                plt.gca().add_patch(plt.Rectangle((x, y), width=error * 2, height=error * 2,
+                                                  angle=0.0, color='yellow', fill=False))
 
         #complete the entry
        # plt.tight_layout()
