@@ -1,24 +1,14 @@
 from __future__ import print_function
 import catalogs
 import argparse
+import global_config
 from astropy.coordinates import Angle
 from matplotlib.backends.backend_pdf import PdfPages
-import sys
 from distutils.version import LooseVersion
+import sys
 
-
-
-#todo: parse line
-#if ra, dec have ":" and "h" or "d" (hours or degrees for ra (hours implied?), degrees for dec)
-#    use astropy to convert to decimal degrees
-
-#add parameter -f (force) to not prompt for confirmations
-
-
-#print confirmation line ("looking for targets at RA=(decimal degrees) Dec=  +/- (arcsecs). Proceed?
-#if yes, find number of targets
-#print xxx targets found, proceed with plots?
 VERSION = sys.version.split()[0]
+
 
 def get_input(prompt):
     if LooseVersion(VERSION) >= LooseVersion('3.0'):

@@ -3,7 +3,6 @@ import logging
 
 #catalogs are defined at top of catalogs.py
 
-
 LOG_FILENAME = "voltron.log"
 LOG_LEVEL = logging.DEBUG
 

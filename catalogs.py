@@ -2,14 +2,15 @@ from __future__ import print_function
 #keep it simple for now. Put base class and all children in here.
 #Later, create a proper package
 
-#PATHS MUST END WITH /
+import os.path as op
 
-#CANDELS_EGS_Stefanon_2016_BASE_PATH = "/work/03564/stevenf/maverick/EGS/"
-CANDELS_EGS_Stefanon_2016_BASE_PATH = "/home/dustin/code/python/voltron/data/EGS/"
-CANDELS_EGS_Stefanon_2016_CAT = CANDELS_EGS_Stefanon_2016_BASE_PATH+"/photometry/CANDELS.EGS.F160W.v1_1.photom.cat"
-CANDELS_EGS_Stefanon_2016_IMAGES_PATH = CANDELS_EGS_Stefanon_2016_BASE_PATH + "images/"
-CANDELS_EGS_Stefanon_2016_PHOTOZ_CAT = CANDELS_EGS_Stefanon_2016_BASE_PATH + "photoz/zcat_EGS_v2.0.cat"
-CANDELS_EGS_Stefanon_2016_PHOTOZ_ZPDF_PATH = CANDELS_EGS_Stefanon_2016_BASE_PATH + "photoz/zPDF/"
+#CANDELS_EGS_Stefanon_2016_BASE_PATH = "/work/03564/stevenf/maverick/EGS"
+CANDELS_EGS_Stefanon_2016_BASE_PATH = "/home/dustin/code/python/voltron/data/EGS"
+CANDELS_EGS_Stefanon_2016_CAT = op.join(CANDELS_EGS_Stefanon_2016_BASE_PATH,
+                                        "photometry/CANDELS.EGS.F160W.v1_1.photom.cat")
+CANDELS_EGS_Stefanon_2016_IMAGES_PATH = op.join(CANDELS_EGS_Stefanon_2016_BASE_PATH, "images")
+CANDELS_EGS_Stefanon_2016_PHOTOZ_CAT = op.join(CANDELS_EGS_Stefanon_2016_BASE_PATH , "photoz/zcat_EGS_v2.0.cat")
+CANDELS_EGS_Stefanon_2016_PHOTOZ_ZPDF_PATH = op.join(CANDELS_EGS_Stefanon_2016_BASE_PATH, "photoz/zPDF/")
 
 
 
@@ -321,12 +322,12 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         dec_max = float(dec + error)
 
         try:
-            self.dataframe_of_bid_targets = self.df[(self.df['RA'] > ra_min) & (self.df['RA'] < ra_max) &
-                                                (self.df['DEC'] > dec_min) & (self.df['DEC'] < dec_max)]
+            self.dataframe_of_bid_targets = self.df[(self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max) &
+                                                (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)]
 
+            #ID matches between both catalogs
             self.dataframe_of_bid_targets_photoz = \
-                self.df_photoz[(self.df_photoz['RA'] > ra_min) & (self.df_photoz['RA'] < ra_max) &
-                               (self.df_photoz['DEC'] > dec_min) & (self.df_photoz['DEC'] < dec_max)]
+                self.df_photoz[(self.df_photoz['ID'].isin(self.dataframe_of_bid_targets['ID']))]
         except:
             log.error(self.Name + " Exception in build_list_of_bid_targets",exc_info=True)
 
@@ -433,7 +434,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         index = -1
         for i in self.CatalogImages:  # i is a dictionary
             index += 1
-            sci = science_image.science_image(wcs_manual=self.WCS_Manual, image_location=i['path'] + i['name'])
+            sci = science_image.science_image(wcs_manual=self.WCS_Manual, image_location=op.join(i['path'],i['name']))
 
             # sci.load_image(wcs_manual=True)
             cutout = sci.get_cutout(ra, dec, error, window=window)  # 8 arcsec
@@ -534,7 +535,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         #iterate over all filter images
         for i in self.CatalogImages: # i is a dictionary
             index+= 1 #for subplot ... is 1 based
-            sci = science_image.science_image(wcs_manual= self.WCS_Manual,image_location=i['path']+i['name'])
+            sci = science_image.science_image(wcs_manual= self.WCS_Manual,image_location=op.join(i['path'],i['name']))
 
             #sci.load_image(wcs_manual=True)
             cutout = sci.get_cutout(ra, dec, error, window=window) #8 arcsec
@@ -591,7 +592,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         #get 'file'
         # z_best  # 6 z_best_type # 7 z_spec # 8 z_spec_ref
         if df_photoz is not None:
-            z_cat = self.read_catalog(self.SupportFilesLocation+photoz_file,"z_cat")
+            z_cat = self.read_catalog(op.join(self.SupportFilesLocation,photoz_file),"z_cat")
             if z_cat is not None:
                 x = z_cat['z'].values
                 y = z_cat['mFDa4'].values
