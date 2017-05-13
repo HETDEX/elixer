@@ -11,7 +11,7 @@ from matplotlib.font_manager import FontProperties
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.gridspec as gridspec
 
-
+import glob
 from pyhetdex.cure.distortion import Distortion
 import pyhetdex.tools.files.file_tools as ft
 from pyhetdex.het.ifu_centers import IFUCenter
@@ -21,7 +21,78 @@ from pyhetdex.coordinates.tangent_projection import TangentPlane as TP
 log = global_config.logging.getLogger('Cat_logger')
 log.setLevel(global_config.logging.DEBUG)
 
+VIRUS_CONFIG = "/work/03946/hetdex/maverick/virus_config"
+FPLANE_LOC = "/work/03946/hetdex/maverick/virus_config/fplane"
 
+
+def find_fplane(date): #date as yyyymmdd string
+    """Locate the fplane file to use based on the observation date
+
+        Parameters
+        ----------
+            date : string
+                observation date as YYYYMMDD
+
+        Returns
+        -------
+            fully qualified filename of fplane file
+    """
+    #todo: validate date
+
+    filepath = FPLANE_LOC
+    if filepath[-1] != "/":
+        filepath += "/"
+    files = glob.glob(filepath + "fplane*.txt")
+
+    if len(files) > 0:
+        target_file = filepath + "fplane" + date + ".txt"
+
+        if target_file in files: #exact match for date, use this one
+            fplane = target_file
+        else:                   #find nearest earlier date
+            files.append(target_file)
+            files = sorted(files)
+            #sanity check the index
+            i = files.index(target_file)-1
+            if i < 0: #there is no valid fplane
+                print("Warning! No valid fplane file found for the given date. Will use oldest available.")
+                i = 0
+            fplane = files[i]
+    else:
+        print ("Error. No fplane files found.")
+
+    return fplane
+
+def build_fplane_dicts(fqfn):
+    """Build the dictionaries maping IFUSLOTID, SPECID and IFUID
+
+        Parameters
+        ----------
+        fqfn : string
+            fully qualified file name of the fplane file to use
+
+        Returns
+        -------
+            ifuslotid to specid, ifuid dictionary
+            specid to ifuid dictionary
+        """
+    # IFUSLOT X_FP   Y_FP   SPECID SPECSLOT IFUID IFUROT PLATESC
+    if fqfn is None:
+        print("Error! Cannot build fplane dictionaries. No fplane file.")
+        return {},{}
+
+    ifuslot, specid, ifuid = np.loadtxt(fqfn, comments='#', usecols=(0, 3, 5), dtype = int, unpack=True)
+    ifuslot_dict = {}
+    cam_ifu_dict = {}
+    cam_ifuslot_dict = {}
+
+    for i in range(len(ifuslot)):
+        if (ifuid[i] < 900) and (specid[i] < 900):
+            ifuslot_dict[str("%03d" % ifuslot[i])] = [str("%03d" % specid[i]),str("%03d" % ifuid[i])]
+            cam_ifu_dict[str("%03d" % specid[i])] = str("%03d" % ifuid[i])
+            cam_ifuslot_dict[str("%03d" % specid[i])] = str("%03d" % ifuslot[i])
+
+    return ifuslot_dict, cam_ifu_dict, cam_ifuslot_dict
 
 
 class DetectLine:
@@ -64,14 +135,39 @@ class Dither():
             log.error("Unable to read dither file: %s :" %dither_file, exc_info=True)
 
 
-class HETDEX_Fits:
-    '''HETDEX fits file ... 2D spectra, expected to be science file'''
+class HetdexFits:
+    '''A single HETDEX fits file ... 2D spectra, expected to be science file'''
 
     #needs open with basic validation
     #
 
     def __init__(self):
+        self.filename = None
+
+    def cleanup(self):
+        #todo: close fits handles, etc
         pass
+
+
+
+class HetdexIfuObs:
+    '''Basically, a container for all the fits, dither, etc that make up one observation for one IFU'''
+    def __init__(self):
+        self.specid = None
+        self.ifuslotid = None
+        #self.ifuid = None # I think can omit this ... don't want to confuse with ifuslotid
+        #todo: needs  list of fits
+        #todo: needs fplane
+        #todo: needs dither
+        #todo:
+
+
+#an object (detection) should only be in one IFU, so this is not necessary
+#class HetdexFullObs:
+#    '''Container for all HetdexIfuObs ... that is, all IFUs data for one observation'''
+#    def __init__(self):
+#        self.date_ymd = None #date string as yyyymmdd
+
 
 class HETDEX:
 

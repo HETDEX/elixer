@@ -54,9 +54,6 @@ class science_image():
             self.image_location = image_location
             self.load_image(wcs_manual=wcs_manual)
 
-    def get_pixel_size(self):
-        return self.pixel_size
-
     def load_image(self,wcs_manual=False):
         if self.image_location is None:
             return -1
@@ -155,7 +152,10 @@ class science_image():
         try:
             position = SkyCoord(ra, dec, unit="deg", frame='fk5')
             x,y = skycoord_to_pixel(position, wcs=cutout.wcs)
+            x = x*self.pixel_size
+            y = y*self.pixel_size
         except:
             log.info("Exception in science_image:get_pixel_position:", exc_info=True)
 
         return x,y
+

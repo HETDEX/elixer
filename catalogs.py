@@ -571,9 +571,11 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 if cutout and (target_ra is not None) and (target_dec is not None):
                     px, py = sci.get_pixel_position(target_ra, target_dec, cutout)
                     x,y = sci.get_pixel_position(ra, dec, cutout)
-                    plt.plot((px-x)*sci.get_pixel_size(),(py-y)*sci.get_pixel_size(),"r+")
+                    plt.plot((px-x),(py-y),"r+")
                     plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
                                                   angle=0.0, color='yellow', fill=False,linewidth=5.0,zorder=1))
+                    # set the diameter of the cirle to half the error (radius error/4)
+                    plt.gca().add_patch(plt.Circle((0,0), radius=error / 4.0, color='yellow', fill=False))
 
                 #iterate over all fields for this image and print values
                 if df is not None:
@@ -624,13 +626,14 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 x, y   = sci.get_pixel_position(ra, dec, self.master_cutout)
                 plt.plot(0, 0, "r+")
 
-                plt.gca().add_patch(plt.Circle(((x-px) * sci.get_pixel_size(), (y-py) * sci.get_pixel_size())
-                                               , radius=0.5, color='yellow', fill=False))
+                #set the diameter of the cirle to half the error (radius error/4)
+                plt.gca().add_patch(plt.Circle(((x-px), (y-py))
+                                               , radius=error/4.0, color='yellow', fill=False))
                 plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
                                                   angle=0.0, color='red', fill=False))
 
-                x = (x-px) * sci.get_pixel_size() - error
-                y = (y-py) * sci.get_pixel_size() - error
+                x = (x-px)  - error
+                y = (y-py)  - error
                 plt.gca().add_patch(plt.Rectangle((x, y), width=error * 2, height=error * 2,
                                                   angle=0.0, color='yellow', fill=False))
 

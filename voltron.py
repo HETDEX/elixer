@@ -18,16 +18,24 @@ def get_input(prompt):
     return i
 
 
+
+#todo: alternate use: provide dither file, detect_line.dat file and specify sigma and chi2 limits or a
+#todo: list of detect IDs for which to run a catalog match. Would then not need an explicit RA/DEC, but
+#todo: would still need an error
+
 def parse_commandline():
     desc = "Search multiple catalogs for possible object(s) at specified coordinates."
 
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument('-f', '--force', help='Do not prompt for confirmation.', required=False,
                         action='store_true', default=False)
+
+    #todo: change to optional when dither is supported
     parser.add_argument('-r', '--ra', help='Target RA as decimal degrees or h:m:s.as (end with \'h\')'
                                            'or d:m:s.as (end with \'d\') '
                                            'Examples: --ra 214.963542  or --ra 14:19:51.250h or --ra 214:57:48.7512d'
                                             , required=True)
+    # todo: change to optional when dither is supported
     parser.add_argument('-d', '--dec', help='Target Dec (as decimal degrees or d:m:s.as (end with \'d\') '
                                             'Examples: --dec 52.921167    or  --dec 52:55:16.20d', required=True)
     parser.add_argument('-e', '--error', help="Error (+/-) in RA and Dec in arcsecs.", required=True, type=float)
@@ -35,7 +43,11 @@ def parse_commandline():
 
     parser.add_argument('--dither', help="HETDEX Dither file", required=False)
     parser.add_argument('--line', help="HETDEX (Cure) detect line file", required=False)
-
+    parser.add_argument('--id', help="ID or list of IDs from detect line file for which to search", required=False)
+    parser.add_argument('--sigma', help="Minimum sigma threshold to meet in selecting detections", required=False,
+                        type=float,default=0.0)
+    parser.add_argument('--chi2', help="Maximum chi2 threshold to meet in selecting detections", required=False,
+                        type=float,default=1e9)
 
     args = parser.parse_args()
 
