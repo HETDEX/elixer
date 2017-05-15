@@ -308,18 +308,20 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.sort_values(by='distance', ascending=True)
 
     def build_list_of_bid_targets(self,ra,dec,error):
-        '''ra and dec in decimal degress. error in arcsec.
+        '''ra and dec in decimal degrees. error in arcsec.
         returns a pandas dataframe'''
+
+        error_in_deg = float(error) / 3600.0
 
         #todo: explicity delete dataframes if they exist (these are copies of the master dataframes)
         self.dataframe_of_bid_targets = None
         self.dataframe_of_bid_targets_photoz = None
         self.num_targets = 0
 
-        ra_min = float(ra - error)
-        ra_max = float(ra + error)
-        dec_min = float(dec - error)
-        dec_max = float(dec + error)
+        ra_min = float(ra - error_in_deg)
+        ra_max = float(ra + error_in_deg)
+        dec_min = float(dec - error_in_deg)
+        dec_max = float(dec + error_in_deg)
 
         try:
             self.dataframe_of_bid_targets = self.df[(self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max) &
@@ -359,16 +361,18 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
     #todo: refactor and move most of this to the base class
     #column names are catalog specific, but could map catalog specific names to generic ones and produce a dictionary?
-    def build_bid_target_reports(self,target_ra, target_dec, error, section_title=""):
+    def build_bid_target_reports(self,target_ra, target_dec, error, section_title="",base_count=0):
 
+        self.clear_pages()
+        self.build_list_of_bid_targets(target_ra,target_dec,error)
+
+        ras = self.dataframe_of_bid_targets.loc[:, ['RA']].values
+        decs = self.dataframe_of_bid_targets.loc[:, ['DEC']].values
         #display the exact (target) location
         entry = self.build_exact_target_location_figure(target_ra,target_dec,error,section_title=section_title)
 
         if entry is not None:
             self.add_bid_entry(entry)
-
-        ras = self.dataframe_of_bid_targets.loc[:, ['RA']].values
-        decs = self.dataframe_of_bid_targets.loc[:, ['DEC']].values
 
         number = 0
         #display each bid target
@@ -395,9 +399,10 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 log.error("Exception attempting to find object in dataframe_of_bid_targets",exc_info=True)
                 df_photoz = None
 
-            print("Building report for bid target %d in %s" % (number,self.Name))
+            print("Building report for bid target %d in %s" % (base_count + number,self.Name))
             entry = self.build_bid_target_figure(r[0],d[0],error=error,df=df,df_photoz=df_photoz,
-                                                 target_ra=target_ra,target_dec=target_dec,section_title=section_title)
+                                                 target_ra=target_ra,target_dec=target_dec,section_title=section_title,
+                                                 bid_number=number)
             self.add_bid_entry(entry)
 
         return self.pages
@@ -423,9 +428,10 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.5)
         #reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based
 
-        title = section_title + "\nTarget Location\n\nRA = %f    Dec = %f\n\n" % (ra, dec)
+        title = section_title + "\nTarget Location\nPossible Matches=%d (within %f\")\nRA = %f    Dec = %f\n\n" \
+            % (len(self.dataframe_of_bid_targets),error,ra, dec)
         plt.subplot(gs[0,0])
-        plt.text(0, 0.5, title, size=16, ha='left',va='bottom')
+        plt.text(0, 0.3, title, size=16, ha='left',va='bottom')
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
@@ -476,7 +482,8 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
 
 
-    def build_bid_target_figure(self,ra,dec,error,df=None,df_photoz=None,target_ra=None,target_dec=None,section_title=""):
+    def build_bid_target_figure(self,ra,dec,error,df=None,df_photoz=None,target_ra=None,target_dec=None,
+                                section_title="",bid_number = 1):
         '''Builds the entry (e.g. like a row) for one bid target. Includes the target info (name, loc, Z, etc),
         photometry images, Z_PDF, etc
         
@@ -510,8 +517,8 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         fig = plt.figure(figsize=(fig_sz_x,fig_sz_y))
 
         if df is not None:
-            title = "%s\n%s\n\nRA = %f    Dec = %f\nSeparation = %f\"" \
-                    % (section_title, df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
+            title = "%s\nPossible Match #%d\n%s\n\nRA = %f    Dec = %f\nSeparation = %f\"" \
+                    % (section_title, bid_number,df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
                        df['distance'].values[0] * 3600)
             z = df['DEEP_SPEC_Z'].values[0]
             if z >= 0.0:
@@ -525,7 +532,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             title = "%s\nRA=%f    Dec=%f" % (section_title,ra, dec)
 
         plt.subplot(gs[0, 0])
-        plt.text(0,0.50,title,size=16,ha='left',va='bottom')
+        plt.text(0,0.20,title,size=16,ha='left',va='bottom')
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 

@@ -131,17 +131,18 @@ def build_hd(args):
 
     return False
 
-def build_pages (ra,dec,error,cats,pages,idstring):
+def build_pages (ra,dec,error,cats,pages,idstring,base_count = 0):
     # next, build reports for each catalog
     #todo: build a section header for THIS ra + dec
     #include RA, DEC, ENUMERATION (i.e. Report ID#1, 2, 3 ...)
     section_title = "Inspection ID: " + idstring
     for c in cats:
-        r = c.build_bid_target_reports(ra, dec, error,section_title=section_title)
+        r = c.build_bid_target_reports(ra, dec, error,section_title=section_title,base_count=base_count)
         if r is not None:
             pages = pages + r
+            base_count += len(r)-1 #1st page is the target page
 
-    return pages
+    return pages, base_count
 
 
 def build_report(pages,report_name):
@@ -163,7 +164,7 @@ def confirm(hits,force):
         return False
 
     if not force:
-        i = get_input("%d total possible matches found.\nProceed (y/n ENTER=YES)?" % hits)
+        i = get_input("\n%d total possible matches found.\nProceed (y/n ENTER=YES)?" % hits)
 
         if len(i) > 0 and i.upper() != "Y":
             print("Cancelled.")
@@ -181,9 +182,6 @@ def main():
 
     cats = catalogs.get_catalog_list()
 
-    #convert error to decimal degrees for consistency
-    error_in_deg = float(args.error)/3600.0
-
     pages = []
     hd = None
 
@@ -192,43 +190,46 @@ def main():
     if build_hd(args):
         hd = hetdex.HETDEX(args)
 
-    if hd.status != 0:
-        #fatal
-        print("Fatal error. Cannot build HETDEX working object.")
-        exit (-1)
+    if hd is not None:
+        if hd.status != 0:
+            #fatal
+            print("Fatal error. Cannot build HETDEX working object.")
+            exit (-1)
 
-    # todo: iterate over all emission line detections
-    if (hd is not None) and (len(hd.emis_list) > 0):
-        #todo: first see if there are any possible matches anywhere
-        num_hits = 0
-        for e in hd.emis_list:
-            ra = e.ra
-            dec = e.dec
-            print ("Checking RA=%f, Dec=%f" % (ra,dec))
-            for c in cats:
-                if c.position_in_cat(ra=ra, dec=dec, error=error_in_deg):
-                    hits, _, _ = c.build_list_of_bid_targets(ra=ra, dec=dec, error=error_in_deg)
-                    num_hits += hits
-                    if hits > 0:
+
+        #todo: create page(s) for HETDEX data (2D cutouts, 1D spectra, etc)
+
+        #iterate over all emission line detections
+        if len(hd.emis_list) > 0:
+            print()
+            #first see if there are any possible matches anywhere
+            num_hits = 0
+            for e in hd.emis_list:
+                ra = e.ra
+                dec = e.dec
+                for c in cats:
+                    if c.position_in_cat(ra=ra, dec=dec, error=args.error):
+                        hits, _, _ = c.build_list_of_bid_targets(ra=ra, dec=dec, error=args.error)
+                        num_hits += hits
                         print("%d hits in %s for Detect ID %d" % (hits, c.name, e.id))
 
-        if not confirm(num_hits,args.force):
-            exit(0)
+            if not confirm(num_hits,args.force):
+                exit(0)
 
-        section_id = 0
-        total = len(hd.emis_list)
-        for e in hd.emis_list:
-            section_id += 1
-            id = "# " + str(section_id) + " of " + str(total) + ": Detect ID# " + str(e.id)
-            ra = e.ra
-            dec = e.dec
-            pages = build_pages(ra, dec, args.error, cats, pages, idstring=id)
-
+            section_id = 0
+            total = len(hd.emis_list)
+            count = 0
+            for e in hd.emis_list:
+                section_id += 1
+                id = "# " + str(section_id) + " of " + str(total) + "  (Detect ID#" + str(e.id) + ")"
+                ra = e.ra
+                dec = e.dec
+                pages,count = build_pages(ra, dec, args.error, cats, pages, idstring=id,base_count=count)
     else:
         num_hits = 0
         for c in cats:
-            if c.position_in_cat(ra=args.ra,dec=args.dec,error=error_in_deg):
-                hits,_,_ = c.build_list_of_bid_targets(ra=args.ra,dec=args.dec,error=error_in_deg)
+            if c.position_in_cat(ra=args.ra,dec=args.dec,error=args.error):
+                hits,_,_ = c.build_list_of_bid_targets(ra=args.ra,dec=args.dec,error=args.error)
                 num_hits += hits
                 if hits > 0:
                     print ("%d hits in %s" %(hits,c.name))
@@ -236,7 +237,7 @@ def main():
         if not confirm(num_hits,args.force):
             exit(0)
 
-        pages = build_pages(args.ra, args.dec, args.error, cats, pages, idstring="# 1 of 1")
+        pages,_ = build_pages(args.ra, args.dec, args.error, cats, pages, idstring="# 1 of 1")
 
 
 
