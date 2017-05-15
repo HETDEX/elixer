@@ -3,6 +3,12 @@ import logging
 
 #catalogs are defined at top of catalogs.py
 
+#CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
+#CANDELS_EGS_Stefanon_2016_BASE_PATH = "/work/03564/stevenf/maverick/EGS"
+
+CONFIG_BASEDIR = "/home/dustin/code/python/voltron/data/config/"
+CANDELS_EGS_Stefanon_2016_BASE_PATH = "/home/dustin/code/python/voltron/data/EGS"
+
 LOG_FILENAME = "voltron.log"
 LOG_LEVEL = logging.DEBUG
 

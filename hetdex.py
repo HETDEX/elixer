@@ -3,6 +3,8 @@ import matplotlib
 matplotlib.use('agg')
 
 import global_config
+from astropy.io import fits as pyfits
+from astropy.coordinates import Angle
 import science_image
 import numpy as np
 import copy
@@ -17,12 +19,14 @@ import pyhetdex.tools.files.file_tools as ft
 from pyhetdex.het.ifu_centers import IFUCenter
 from pyhetdex.het.fplane import FPlane
 from pyhetdex.coordinates.tangent_projection import TangentPlane as TP
+import os.path as op
 
 log = global_config.logging.getLogger('Cat_logger')
 log.setLevel(global_config.logging.DEBUG)
 
-VIRUS_CONFIG = "/work/03946/hetdex/maverick/virus_config"
-FPLANE_LOC = "/work/03946/hetdex/maverick/virus_config/fplane"
+CONFIG_BASEDIR = global_config.CONFIG_BASEDIR
+VIRUS_CONFIG = op.join(CONFIG_BASEDIR,"virus_config")
+FPLANE_LOC = op.join(CONFIG_BASEDIR,"virus_config/fplane")
 
 
 def find_fplane(date): #date as yyyymmdd string
@@ -55,11 +59,11 @@ def find_fplane(date): #date as yyyymmdd string
             #sanity check the index
             i = files.index(target_file)-1
             if i < 0: #there is no valid fplane
-                print("Warning! No valid fplane file found for the given date. Will use oldest available.")
+                log.info("Warning! No valid fplane file found for the given date. Will use oldest available.", exc_info=True)
                 i = 0
             fplane = files[i]
     else:
-        print ("Error. No fplane files found.")
+        log.error("Error. No fplane files found.", exc_info = True)
 
     return fplane
 
@@ -78,7 +82,7 @@ def build_fplane_dicts(fqfn):
         """
     # IFUSLOT X_FP   Y_FP   SPECID SPECSLOT IFUID IFUROT PLATESC
     if fqfn is None:
-        print("Error! Cannot build fplane dictionaries. No fplane file.")
+        log.error("Error! Cannot build fplane dictionaries. No fplane file.", exc_info=True)
         return {},{}
 
     ifuslot, specid, ifuid = np.loadtxt(fqfn, comments='#', usecols=(0, 3, 5), dtype = int, unpack=True)
@@ -110,9 +114,14 @@ class Dither():
     # needs open and parse (need to find the FITS files associated with it
     # need RA,DEC of fiber centers (get from pyhetdex)
     def __init__(self, dither_file):
-        self.basename, self.deformer = None, None
-        self.dx, self.dy = None,None
-        self.seeing, self.norm, self.airmass = None,None,None
+        self.basename = []
+        self.deformer = []
+        self.dx = []
+        self.dy = []
+        self.seeing = []
+        self.norm = []
+        self.airmass = []
+
         self.read_dither(dither_file)
 
     def read_dither(self, dither_file):
@@ -124,15 +133,49 @@ class Dither():
                         _bn, _d, _x, _y, _seeing, _norm, _airmass = l.split()
                     except ValueError:  # skip empty or incomplete lines
                         pass
-                    self.basename = _bn
-                    self.deformer = _d
-                    self.dx = float(_x)
-                    self.dy = float(_y)
-                    self.seeing = float(_seeing)
-                    self.norm = float(_norm)
-                    self.airmass = float(_airmass)
+                    self.basename.append(_bn)
+                    self.deformer.append(_d)
+                    self.dx.append(float(_x))
+                    self.dy.append(float(_y))
+                    self.seeing.append(float(_seeing))
+                    self.norm.append(float(_norm))
+                    self.airmass.append(float(_airmass))
         except:
             log.error("Unable to read dither file: %s :" %dither_file, exc_info=True)
+
+
+
+class EmisDet:
+    '''mostly a container for an emission line detection from detect_line.dat file'''
+    #  0    1   2   3   4   5   6           7       8        9     10    11    12     13      14      15  16
+    #  NR  ID   XS  XS  l   z   dataflux    modflux fluxfrac sigma chi2  chi2s chi2w  gammq   gammq_s eqw cont
+
+    def __init__(self,tokens):
+        #skip NR (0)
+        self.id = int(tokens[1])
+        self.x = float(tokens[2])
+        self.y = float(tokens[3])
+        self.w = float(tokens[4])
+        self.la_z = float(tokens[5])
+        self.dataflux = float(tokens[6])
+        self.modflux = float(tokens[7])
+        self.fluxfrac = float(tokens[8])
+        self.sigma = float(tokens[9])
+        self.chi2 = float(tokens[10])
+        self.chi2s = float(tokens[11])
+        self.chi2w = float(tokens[12])
+        self.gammq = float(tokens[13])
+        self.gammq_s = float(tokens[14])
+        self.eqw = float(tokens[15])
+        self.cont = float(tokens[16])
+
+        self.ra = None  # calculated value
+        self.dec = None  # calculated value
+        self.nearest_fiber = None
+
+    #todo: calculate the ra and dec from the sky x,y position (and astrometry)
+    def calc_ra_dec(self):
+        pass
 
 
 class HetdexFits:
@@ -141,8 +184,63 @@ class HetdexFits:
     #needs open with basic validation
     #
 
-    def __init__(self):
-        self.filename = None
+    def __init__(self,fn):
+        self.filename = fn
+
+        self.tel_ra = None
+        self.tel_dec = None
+        self.parangle = None
+        self.data = None
+        self.ifuslot = None
+        self.side = None
+        self.specid = None
+        self.obs_date = None
+        self.obs_ymd = None
+        self.mjd = None
+        self.obsid = None
+        self.imagetype = None
+        self.exptime = None
+        self.dettemp = None
+
+        self.read_fits()
+
+    def read_fits(self):
+
+        try:
+            f = pyfits.open(self.filename)
+        except:
+            log.error("could not open file " + self.filename, exc_info=True)
+            return None
+
+        self.data = np.array(f[0].data)
+
+        try:
+            self.tel_ra = float(Angle(f[0].header['TELRA']+"h").degree) #header is in hour::mm:ss.arcsec
+            self.tel_dec = float(Angle(f[0].header['TELDEC']+"d").degree) #header is in deg:hh:mm:ss.arcsec
+        except:
+            log.error("Cannot translate RA and/or Dec from FITS format to degrees in " + self.filename, exc_info=True)
+
+        self.parangle = f[0].header['PARANGLE']
+        self.ifuslot = str(f[0].header['IFUSLOT']).zfill(3)
+        self.side = f[0].header['CCDPOS']
+        self.specid = f[0].header['SPECID']
+
+        self.obs_date = f[0].header['DATE-OBS']
+
+        if '-' in self.obs_date: #expected format is YYYY-MM-DD
+            self.obs_ymd = self.obs_date.replace('-','')
+        self.mjd = f[0].header['MJD']
+        self.obsid = f[0].header['OBSID']
+        self.imagetype = f[0].header['IMAGETYP']
+        self.exptime = f[0].header['EXPTIME']
+        self.dettemp = f[0].header['DETTEMP']
+
+        try:
+            f.close()
+        except:
+            log.error("could not close file " + self.filename, exc_info=True)
+
+        return
 
     def cleanup(self):
         #todo: close fits handles, etc
@@ -174,5 +272,127 @@ class HETDEX:
     #needs dither file, detect_line file, 2D fits files (i.e. 6 for 3 dither positions)
     #needs find fplane file (from observation date in fits files? or should it be passed in?)
 
-    def __init__(self):
-        pass
+    def __init__(self,args):
+        if args is None:
+            log.error("Cannot construct HETDEX object. No arguments provided.")
+            return None
+
+        self.ymd = None
+        self.target_ra = args.ra
+        self.target_dec = args.dec
+        self.target_err = args.error
+
+        self.tel_ra = None
+        self.tel_dec = None
+        self.parangle = None
+        self.ifu_slot_id = None
+
+        self.dither_fn = args.dither
+        self.detectline_fn = args.line
+        self.sigma = args.sigma
+        self.chi2 = args.chi2
+        self.emis_det_id = args.id #might be a list?
+        self.dither = None #Dither() obj
+        self.fplane_fn = None
+        self.fplane = None
+        #not sure will need these ... right now looking at only one IFU
+        self.ifuslot_dict = None
+        self.cam_ifu_dict = None
+        self.cam_ifuslot_dict = None
+
+        self.emis_list = [] #list of qualified emission line detections
+
+        self.sci_fits_path = args.path
+        self.sci_fits = []
+        self.status = 0
+
+        if self.dither_fn is not None:
+            self.dither = Dither(self.dither_fn)
+        else:
+            #are we done? must have a dither file?
+            log.error("Cannot construct HETDEX object. No dither file provided.")
+            return None
+
+        #open and read the fits files specified in the dither file (will need the exposure date)
+        if not self.build_fits_list():
+            #fatal problem
+            self.status = -1
+            return
+
+
+        #build fplane (find the correct file from the exposure date collected above)
+        #for possible future use (could specify fplane_fn on commandline)
+        if self.fplane_fn is None:
+            self.fplane_fn = find_fplane(self.ymd)
+
+        if self.fplane_fn is not None:
+            self.fplane = FPlane(self.fplane_fn)
+            self.ifuslot_dict, self.cam_ifu_dict, self.cam_ifuslot_dict = build_fplane_dicts(self.fplane_fn)
+
+
+        #read the detect line file if specified. Build a list of targets based on sigma and chi2 cuts
+        if self.detectline_fn is not None: #this is optional
+            self.read_detectline()
+
+        #calculate the RA and DEC of each emission line object
+        #remember, we are only using a single IFU per call, so all emissions belong to the same IFU
+        rot = 360 - (90+1.8+self.parangle)
+        tp = TP(self.tel_ra, self.tel_dec, 360. - (90 + 1.3 + rot))
+        #wants the slot id as a 0 padded string ie. '073' instead of the int (73)
+        ifux = self.fplane.by_ifuslot(self.ifu_slot_id).x
+        ifuy = self.fplane.by_ifuslot(self.ifu_slot_id).y
+
+        for e in self.emis_list:
+            e.ra, e.dec = tp.xy2raDec(e.x + ifuy, e.y + ifux)
+
+
+    def build_fits_list(self):
+        #read in all fits
+        #get the key fits header values
+
+        #only one dither object, but has array of (3) for each value
+        for b in self.dither.basename:
+            ext = ['_L.fits','_R.fits']
+            for e in ext:
+                fn = b + e
+                if (self.sci_fits_path is not None):
+                    fn = op.join(self.sci_fits_path, op.basename(fn))
+
+                self.sci_fits.append(HetdexFits(fn))
+
+        #all should have the same observation date in the headers so just use first
+        if len(self.sci_fits) > 0:
+            self.ymd = self.sci_fits[0].obs_ymd
+            self.tel_ra = self.sci_fits[0].tel_ra
+            self.tel_dec = self.sci_fits[0].tel_dec
+            self.parangle = self.sci_fits[0].parangle
+            self.ifu_slot_id = self.sci_fits[0].ifuslot
+
+        if (self.tel_dec is None) or (self.tel_ra is None):
+            log.error("Fatal. Cannot determine RA and DEC from FITS.", exc_info=True)
+            return False
+        return True
+
+
+    def read_detectline(self):
+        #open and read file, line at a time. Build up list of emission line objects
+
+        if len(self.emis_list) > 0:
+            del self.emis_list[:]
+        try:
+            with open(self.detectline_fn, 'r') as f:
+                f = ft.skip_comments(f)
+                for l in f:
+                    toks = l.split()
+                    e = EmisDet(toks)
+                    if self.emis_det_id is not None:
+                        if str(e.id) in self.emis_det_id:
+                            self.emis_list.append(e)
+                    else:
+                        if (e.sigma >= self.sigma) and (e.chi2 <= self.chi2):
+                            self.emis_list.append(e)
+        except:
+            log.error("Cannot emission line objects.", exc_info=True)
+
+        return
+#end HETDEX class
