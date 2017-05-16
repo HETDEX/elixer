@@ -2,18 +2,16 @@ from __future__ import print_function
 #keep it simple for now. Put base class and all children in here.
 #Later, create a proper package
 
-import global_config
+import global_config as G
 import os.path as op
 
 #CANDELS_EGS_Stefanon_2016_BASE_PATH = "/work/03564/stevenf/maverick/EGS"
-CANDELS_EGS_Stefanon_2016_BASE_PATH = global_config.CANDELS_EGS_Stefanon_2016_BASE_PATH
+CANDELS_EGS_Stefanon_2016_BASE_PATH = G.CANDELS_EGS_Stefanon_2016_BASE_PATH
 CANDELS_EGS_Stefanon_2016_CAT = op.join(CANDELS_EGS_Stefanon_2016_BASE_PATH,
                                         "photometry/CANDELS.EGS.F160W.v1_1.photom.cat")
 CANDELS_EGS_Stefanon_2016_IMAGES_PATH = op.join(CANDELS_EGS_Stefanon_2016_BASE_PATH, "images")
 CANDELS_EGS_Stefanon_2016_PHOTOZ_CAT = op.join(CANDELS_EGS_Stefanon_2016_BASE_PATH , "photoz/zcat_EGS_v2.0.cat")
 CANDELS_EGS_Stefanon_2016_PHOTOZ_ZPDF_PATH = op.join(CANDELS_EGS_Stefanon_2016_BASE_PATH, "photoz/zPDF/")
-
-
 
 
 import matplotlib
@@ -29,8 +27,8 @@ import matplotlib.gridspec as gridspec
 #from astropy.io import ascii #note: this works, but pandas is much faster
 
 
-log = global_config.logging.getLogger('Cat_logger')
-log.setLevel(global_config.logging.DEBUG)
+log = G.logging.getLogger('Cat_logger')
+log.setLevel(G.logging.DEBUG)
 
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
@@ -286,7 +284,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 cls.Dec_min = cls.df['DEC'].min()
                 cls.Dec_max = cls.df['DEC'].max()
 
-                log.debug(cls.Name + " Coordinate Range: RA: %f to %f , Dec: %f to %f" % (cls.RA_min, cls.RA_max,
+                log.debug(cls.Name + " Coordinate Range: RA: %g to %g , Dec: %g to %g" % (cls.RA_min, cls.RA_max,
                                                                                           cls.Dec_min, cls.Dec_max))
             except:
                 print("Failed")
@@ -347,7 +345,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
     @classmethod
     def coordinate_range(cls,echo=False):
         if echo:
-            msg = "RA (%f, %f)" % (cls.RA_min, cls.RA_max) + "Dec(%f, %f)" % (cls.Dec_min, cls.Dec_max)
+            msg = "RA (%g, %g)" % (cls.RA_min, cls.RA_max) + "Dec(%g, %g)" % (cls.Dec_min, cls.Dec_max)
             print( msg )
         log.debug(cls.Name + " Simple Coordinate Box: " + msg )
         return (cls.RA_min, cls.RA_max, cls.Dec_min, cls.Dec_max)
@@ -389,7 +387,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             self.num_targets = self.dataframe_of_bid_targets.iloc[:, 0].count()
             self.sort_bid_targets_by_likelihood(ra,dec)
 
-            log.debug(self.Name + " searching for objects in [%f - %f, %f - %f] " %(ra_min,ra_max,dec_min,dec_max) +
+            log.debug(self.Name + " searching for objects in [%g - %g, %g - %g] " %(ra_min,ra_max,dec_min,dec_max) +
                   ". Found = %d" % (self.num_targets ))
 
         return self.num_targets, self.dataframe_of_bid_targets, self.dataframe_of_bid_targets_photoz
@@ -413,7 +411,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
     #todo: refactor and move most of this to the base class
     #column names are catalog specific, but could map catalog specific names to generic ones and produce a dictionary?
-    def build_bid_target_reports(self,target_ra, target_dec, error, num_hits=0,section_title="",base_count=0,la_z=0):
+    def build_bid_target_reports(self,target_ra, target_dec, error, num_hits=0,section_title="",base_count=0,target_w=0):
 
         self.clear_pages()
         self.build_list_of_bid_targets(target_ra,target_dec,error)
@@ -422,7 +420,8 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         decs = self.dataframe_of_bid_targets.loc[:, ['DEC']].values
 
         #display the exact (target) location
-        entry = self.build_exact_target_location_figure(target_ra,target_dec,error,section_title=section_title)
+        entry = self.build_exact_target_location_figure(target_ra,target_dec,error,section_title=section_title,
+                                                        target_w=target_w)
 
         if entry is not None:
             self.add_bid_entry(entry)
@@ -446,7 +445,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 df_photoz = self.dataframe_of_bid_targets_photoz.loc[self.dataframe_of_bid_targets_photoz['ID'] == idnum ]
 
                 if len(df_photoz) == 0:
-                    log.debug("No conterpart found in photoz catalog; RA=%f , Dec =%f" %(r[0],d[0] ))
+                    log.debug("No conterpart found in photoz catalog; RA=%g , Dec =%g" %(r[0],d[0] ))
                     df_photoz = None
             except:
                 log.error("Exception attempting to find object in dataframe_of_bid_targets",exc_info=True)
@@ -455,14 +454,14 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             print("Building report for bid target %d in %s" % (base_count + number,self.Name))
             entry = self.build_bid_target_figure(r[0],d[0],error=error,df=df,df_photoz=df_photoz,
                                                  target_ra=target_ra,target_dec=target_dec,section_title=section_title,
-                                                 bid_number=number,la_z=la_z)
+                                                 bid_number=number,target_w=target_w)
             self.add_bid_entry(entry)
 
         return self.pages
 
 
 
-    def build_exact_target_location_figure(self, ra, dec, error,section_title=""):
+    def build_exact_target_location_figure(self, ra, dec, error,section_title="",target_w=0):
         '''Builds the figure (page) the exact target location. Contains just the filter images ...
         
         Returns the matplotlib figure. Due to limitations of matplotlib pdf generation, each figure = 1 page'''
@@ -485,8 +484,12 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         font.set_family('monospace')
         font.set_size(14)
 
-        title = section_title + "\nTarget Location\nPossible Matches=%d (within %g\")\nRA = %f    Dec = %f\n\n" \
+        title = section_title + "\nTarget Location\nPossible Matches=%d (within %g\")\nRA = %g    Dec = %g\n" \
             % (len(self.dataframe_of_bid_targets),error,ra, dec)
+        if target_w > 0:
+            title = title + "Wavelength = %g (a)\n" % target_w
+        else:
+            title = title + "\n"
         plt.subplot(gs[0,0])
         plt.text(0, 0.3, title,ha='left',va='bottom',fontproperties=font)
         plt.gca().set_frame_on(False)
@@ -505,7 +508,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
             # sci.load_image(wcs_manual=True)
             cutout = sci.get_cutout(ra, dec, error, window=window)
-            ext = int(sci.window / 2) #extent is from the 0,0 center, so window/2
+            ext = sci.window / 2. #extent is from the 0,0 center, so window/2
 
             if cutout is not None: #construct master cutout
                 if self.master_cutout is None:
@@ -539,7 +542,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
 
     def build_bid_target_figure(self,ra,dec,error,df=None,df_photoz=None,target_ra=None,target_dec=None,
-                                section_title="",bid_number = 1,la_z = 0):
+                                section_title="",bid_number = 1,target_w = 0):
         '''Builds the entry (e.g. like a row) for one bid target. Includes the target info (name, loc, Z, etc),
         photometry images, Z_PDF, etc
         
@@ -547,7 +550,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
         # note: error is essentially a radius, but this is done as a box, with the 0,0 position in lower-left
         # not the middle, so need the total length of each side to be twice translated error or 2*2*errorS
-        window = error * 2
+        window = error * 2.
         photoz_file = None
         z_best = None
         z_best_type = None  # s = spectral , p = photometric?
@@ -577,21 +580,27 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         fig = plt.figure(figsize=(fig_sz_x,fig_sz_y))
 
         if df is not None:
-            title = "%s\nPossible Match #%d\n%s\n\nRA = %f    Dec = %f\nSeparation = %f\"" \
+            title = "%s\nPossible Match #%d\n%s\n\nRA = %g    Dec = %g\nSeparation = %g\"" \
                     % (section_title, bid_number,df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
                        df['distance'].values[0] * 3600)
             z = df['DEEP_SPEC_Z'].values[0]
             if z >= 0.0:
-                title = title + "\nDEEP SPEC Z = %f" % z
+                title = title + "\nDEEP SPEC Z = %g" % z
             elif z_best_type is not None:
                 if (z_best_type.lower() == 'p'):
-                    title = title + "\nPhoto Z = %f (blue)" % z_best
+                    title = title + "\nPhoto Z = %g (blue)" % z_best
                 elif (z_best_type.lower() == 's'):
-                    title = title + "\nSpec Z  = %f (blue)" % z_best
-            if la_z > 0:
-                title = title + "\nLyA Z   = %f (red)" % la_z
+                    title = title + "\nSpec Z  = %g (blue)" % z_best
+            if target_w > 0:
+                la_z = target_w / G.LyA_rest - 1.0
+                oii_z = target_w / G.OII_rest - 1.0
+                title = title + "\nLyA Z   = %g (red)" % la_z
+                if (oii_z > 0):
+                    title = title + "\nOII Z   = %g (green)" % oii_z
+                else:
+                    title = title + "\nOII Z   = N/A"
         else:
-            title = "%s\nRA=%f    Dec=%f" % (section_title,ra, dec)
+            title = "%s\nRA=%g    Dec=%g" % (section_title,ra, dec)
 
         plt.subplot(gs[0, 0])
         plt.text(0,0.20,title,ha='left',va='bottom',fontproperties=font)
@@ -604,28 +613,29 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             index+= 1 #for subplot ... is 1 based
             sci = science_image.science_image(wcs_manual= self.WCS_Manual,image_location=op.join(i['path'],i['name']))
             cutout = sci.get_cutout(ra, dec, error, window=window)
-            ext = int(sci.window / 2)
+            ext = sci.window / 2.
 
             #df should have exactly one entry, so need just the column values
             if (0):
                 if df is not None:
-                    title = "%s\n%s\nRA = %f    Dec = %f\nSeparation = %f\""  \
+                    title = "%s\n%s\nRA = %g    Dec = %g\nSeparation = %g\""  \
                                    % (section_title, df['IAU_designation'].values[0], df['RA'].values[0],
                                       df['DEC'].values[0], df['distance'].values[0]*3600)
                     z = df['DEEP_SPEC_Z'].values[0]
                     if z >= 0.0:
-                        title = title + "\nDEEP SPEC Z = %f" %z
+                        title = title + "\nDEEP SPEC Z = %g" %z
                     elif z_best_type is not None:
                         if (z_best_type.lower() == 'p'):
-                            title = title + "\nPhoto Z = %f" % z_best
+                            title = title + "\nPhoto Z = %g" % z_best
                         elif (z_best_type.lower() == 's'):
-                            title = title + "\nSpec Z = %f" % z_best
+                            title = title + "\nSpec Z = %g" % z_best
                     plt.suptitle(title)
                 else:
-                    plt.suptitle("RA=%f    Dec=%f" %(ra,dec))
+                    plt.suptitle("RA=%g    Dec=%g" %(ra,dec))
 
             if cutout is not None:
                 plt.subplot(gs[1, index])
+
                 plt.imshow(cutout.data, origin='lower', interpolation='nearest', cmap=plt.get_cmap('gray_r'),
                            vmin=sci.vmin, vmax=sci.vmax, extent= [-ext,ext,-ext,ext])
                 plt.title(i['instrument']+" "+i['filter'])
@@ -635,7 +645,8 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                     px, py = sci.get_pixel_position(target_ra, target_dec, cutout)
                     x,y = sci.get_pixel_position(ra, dec, cutout)
                     plt.plot((px-x),(py-y),"r+")
-                    plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
+
+                    plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2., height=error * 2.,
                                                   angle=0.0, color='yellow', fill=False,linewidth=5.0,zorder=1))
                     # set the diameter of the cirle to half the error (radius error/4)
                     plt.gca().add_patch(plt.Circle((0,0), radius=error / 4.0, color='yellow', fill=False))
@@ -664,8 +675,12 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 y = z_cat['mFDa4'].values
                 plt.subplot(gs[0, 3])
                 plt.plot(x,y)
-                if la_z > 0:
+                if target_w > 0:
+                    la_z = target_w / G.LyA_rest - 1.0
+                    oii_z = target_w / G.OII_rest - 1.0
                     plt.axvline(x=la_z,color='r', linestyle='--')
+                    if (oii_z > 0):
+                        plt.axvline(x=oii_z, color='g', linestyle='--')
                 plt.title("Z PDF")
                 plt.gca().yaxis.set_visible(False)
                 plt.xlabel("Z")
@@ -675,7 +690,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         #master cutout (0,0 is the observered (exact) target RA, DEC)
         if self.master_cutout.data is not None:
             #window=error*4
-            ext = error*2
+            ext = error*2.
             plt.subplot(gs[0, cols - 1])
             vmin, vmax = science_image.science_image().get_vrange(self.master_cutout.data)
             plt.imshow(self.master_cutout.data, origin='lower', interpolation='nearest',

@@ -152,6 +152,8 @@ class EmisDet:
     #  0    1   2   3   4   5   6           7       8        9     10    11    12     13      14      15  16
     #  NR  ID   XS  XS  l   z   dataflux    modflux fluxfrac sigma chi2  chi2s chi2w  gammq   gammq_s eqw cont
 
+    # todo: expand emission objects with the data needed for cutouts and spectra
+
     def __init__(self,tokens):
         #skip NR (0)
         self.id = int(tokens[1])
@@ -175,9 +177,6 @@ class EmisDet:
         self.dec = None  # calculated value
         self.nearest_fiber = None
 
-    #todo: calculate the ra and dec from the sky x,y position (and astrometry)
-    def calc_ra_dec(self):
-        pass
 
 
 class HetdexFits:
@@ -298,6 +297,13 @@ class HETDEX:
         self.dither = None #Dither() obj
         self.fplane_fn = None
         self.fplane = None
+
+
+        self.rot = None
+        self.ifux = None
+        self.ifuy = None
+        self.tangentplane = None
+
         #not sure will need these ... right now looking at only one IFU
         self.ifuslot_dict = None
         self.cam_ifu_dict = None
@@ -388,14 +394,16 @@ class HETDEX:
 
         #calculate the RA and DEC of each emission line object
         #remember, we are only using a single IFU per call, so all emissions belong to the same IFU
-        rot = 360 - (90+1.8+self.parangle)
-        tp = TP(self.tel_ra, self.tel_dec, 360. - (90 + 1.3 + rot))
+        self.rot = 360 - (90+1.8+self.parangle)
+        self.tangentplane = TP(self.tel_ra, self.tel_dec, 360. - (90 + 1.3 + self.rot))
         #wants the slot id as a 0 padded string ie. '073' instead of the int (73)
-        ifux = self.fplane.by_ifuslot(self.ifu_slot_id).x
-        ifuy = self.fplane.by_ifuslot(self.ifu_slot_id).y
+        self.ifux = self.fplane.by_ifuslot(self.ifu_slot_id).x
+        self.ifuy = self.fplane.by_ifuslot(self.ifu_slot_id).y
 
-        for e in self.emis_list:
-            e.ra, e.dec = tp.xy2raDec(e.x + ifuy, e.y + ifux)
+        #todo: expand emission objects with the data needed for cutouts and spectra
+        for e in self.emis_list: #yes this right: x + ifuy, y + ifux
+            e.ra, e.dec = self.tangentplane.xy2raDec(e.x + self.ifuy, e.y + self.ifux)
+            log.info("Emission Detection #%d RA=%g , Dec=%g" % (e.id,e.ra,e.dec))
 
 
     def build_fits_list(self):

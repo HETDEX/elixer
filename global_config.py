@@ -14,3 +14,6 @@ LOG_LEVEL = logging.DEBUG
 
 logging.basicConfig(filename=LOG_FILENAME,level=LOG_LEVEL,filemode='w')
 #.debug(), .info(), .warning(), .error(), .critical()
+
+LyA_rest = 1216. #A 1215.668 and 1215.674
+OII_rest = 3727.

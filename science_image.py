@@ -24,6 +24,7 @@ from astropy.nddata import Cutout2D
 from astropy.wcs import WCS
 from astropy.wcs.utils import skycoord_to_pixel
 from astropy import units as u
+import math
 
 
 log = global_config.logging.getLogger('sciimg_logger')
@@ -128,7 +129,7 @@ class science_image():
             return None
 
         if window is None or window < error:
-            window = max(2*error,5) #should be at least 5 arcsecs
+            window = float(max(2.0*error,5.0)) #should be at least 5 arcsecs
 
         self.window = window
 
@@ -138,7 +139,7 @@ class science_image():
 
         try:
             position = SkyCoord(ra, dec, unit="deg", frame='fk5')
-            pix_window = window / self.pixel_size #now in pixels
+            pix_window = window / self.pixel_size  # now in pixels
             cutout = Cutout2D(self.fits[0].data, position, (pix_window, pix_window), wcs=self.wcs,copy=True)
             self.get_vrange(cutout.data)
         except:

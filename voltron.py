@@ -148,10 +148,11 @@ def build_hetdex_section(detect_id = 0,pages=None):
     return pages
 
 
-def build_pages (ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,la_z=0):
+def build_pages (ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,target_w=0):
     section_title = "Inspection ID: " + idstring
     for c in cats:
-        r = c.build_bid_target_reports(ra, dec, error,num_hits=num_hits,section_title=section_title,base_count=base_count,la_z=la_z)
+        r = c.build_bid_target_reports(ra, dec, error,num_hits=num_hits,section_title=section_title,
+                                       base_count=base_count,target_w=target_w)
         if r is not None:
             pages = pages + r
             base_count += len(r)-1 #1st page is the target page
@@ -173,9 +174,9 @@ def build_report(pages,report_name):
 
 
 def confirm(hits,force):
-    if hits == 0:
-        print("No possible matches found. Exiting")
-        return False
+    #if hits == 0:
+    #    print("No possible matches found. Exiting")
+    #    return False
 
     if not force:
         i = get_input("\n%d total possible matches found.\nProceed (y/n ENTER=YES)?" % hits)
@@ -236,8 +237,8 @@ def main():
                 ra = e.ra
                 dec = e.dec
                 pages = build_hetdex_section(e.id,pages)
-                pages,count = build_pages(ra, dec, args.error, cats, pages,num_hits=num_hits, idstring=id,base_count=count,
-                                          la_z=e.la_z)
+                pages,count = build_pages(ra, dec, args.error, cats, pages,num_hits=num_hits, idstring=id,
+                                          base_count=count,target_w=e.w)
     else:
         num_hits = 0
         for c in cats:
