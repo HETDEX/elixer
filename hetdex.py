@@ -3,9 +3,9 @@ import matplotlib
 matplotlib.use('agg')
 
 import global_config
+import science_image
 from astropy.io import fits as pyfits
 from astropy.coordinates import Angle
-import science_image
 import numpy as np
 import copy
 import matplotlib.pyplot as plt
@@ -27,6 +27,8 @@ log.setLevel(global_config.logging.DEBUG)
 CONFIG_BASEDIR = global_config.CONFIG_BASEDIR
 VIRUS_CONFIG = op.join(CONFIG_BASEDIR,"virus_config")
 FPLANE_LOC = op.join(CONFIG_BASEDIR,"virus_config/fplane")
+IFUCEN_LOC = op.join(CONFIG_BASEDIR,"virus_config/IFUcen_files")
+DIST_LOC = op.join(CONFIG_BASEDIR,"virus_config/DeformerDefaults")
 
 
 def find_fplane(date): #date as yyyymmdd string
@@ -223,7 +225,7 @@ class HetdexFits:
         self.parangle = f[0].header['PARANGLE']
         self.ifuslot = str(f[0].header['IFUSLOT']).zfill(3)
         self.side = f[0].header['CCDPOS']
-        self.specid = f[0].header['SPECID']
+        self.specid = str(f[0].header['SPECID']).zfill(3)
 
         self.obs_date = f[0].header['DATE-OBS']
 
@@ -286,6 +288,7 @@ class HETDEX:
         self.tel_dec = None
         self.parangle = None
         self.ifu_slot_id = None
+        self.specid = None
 
         self.dither_fn = args.dither
         self.detectline_fn = args.line
@@ -300,12 +303,18 @@ class HETDEX:
         self.cam_ifu_dict = None
         self.cam_ifuslot_dict = None
 
+        self.ifu_ctr = None
+        self.dist = {}
+
         self.emis_list = [] #list of qualified emission line detections
 
         self.sci_fits_path = args.path
         self.sci_fits = []
         self.status = 0
 
+
+        #parse the dither file
+        #use to build fits list
         if self.dither_fn is not None:
             self.dither = Dither(self.dither_fn)
         else:
@@ -313,11 +322,54 @@ class HETDEX:
             log.error("Cannot construct HETDEX object. No dither file provided.")
             return None
 
-        #open and read the fits files specified in the dither file (will need the exposure date)
+        #open and read the fits files specified in the dither file
+        #need the exposure date, IFUSLOTID, SPECID, etc from the FITS files
         if not self.build_fits_list():
             #fatal problem
             self.status = -1
             return
+
+        #get ifu centers
+        if args.ifu is not None:
+            try:
+                self.ifu_ctr = IFUCenter(args.ifu)
+            except:
+                log.error("Unable to open IFUcen file: %s" %(args.ifu), exc_info=True)
+        else:
+            ifu_fn  = op.join(IFUCEN_LOC,"IFUcen_VIFU"+self.ifu_slot_id+".txt")
+            log.info("No IFUcen file provided. Look for CAM specific file %s" % (ifu_fn))
+            try:
+                self.ifu_ctr = IFUCenter(ifu_fn)
+            except:
+                ifu_fn = op.join(IFUCEN_LOC, "IFUcen_HETDEX.txt")
+                log.info("Unable to open CAM Specific IFUcen file. Look for generic IFUcen file.")
+                try:
+                    self.ifu_ctr = IFUCenter(ifu_fn)
+                except:
+                    log.error("Unable to open IFUcen file.",exc_info=True)
+
+        #get distortion info
+        if args.dist is not None:
+            try:
+                self.dist['L'] = Distortion(args.dist + '_L.dist')
+                self.dist['R'] = Distortion(args.dist + '_R.dist')
+            except:
+                log.error("Unable to open Distortion files: %s" % (args.dist), exc_info=True)
+        else:
+            dist_base = op.join(DIST_LOC, "mastertrace_twi_" + self.specid)
+            log.info("No distortion file base provided. Look for CAM specific file %s" % (dist_base))
+            try:
+                self.dist['L'] = Distortion(dist_base + '_L.dist')
+                self.dist['R'] = Distortion(dist_base + '_R.dist')
+            except:
+                ifu_fn = op.join(IFUCEN_LOC, "IFUcen_HETDEX.txt")
+                log.info("Unable to open CAM Specific twi dist files. Look for generic dist files.")
+                dist_base = op.join(DIST_LOC, "mastertrace_" + self.specid)
+                try:
+                    self.dist['L'] = Distortion(dist_base + '_L.dist')
+                    self.dist['R'] = Distortion(dist_base + '_R.dist')
+                except:
+                    log.error("Unable to open distortion files.", exc_info=True)
 
 
         #build fplane (find the correct file from the exposure date collected above)
@@ -367,6 +419,7 @@ class HETDEX:
             self.tel_dec = self.sci_fits[0].tel_dec
             self.parangle = self.sci_fits[0].parangle
             self.ifu_slot_id = self.sci_fits[0].ifuslot
+            self.specid = self.sci_fits[0].specid
 
         if (self.tel_dec is None) or (self.tel_ra is None):
             log.error("Fatal. Cannot determine RA and DEC from FITS.", exc_info=True)

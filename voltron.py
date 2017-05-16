@@ -45,6 +45,9 @@ def parse_commandline():
     parser.add_argument('--dither', help="HETDEX Dither file", required=False)
     parser.add_argument('--path', help="Override path to science fits in dither file", required=False)
     parser.add_argument('--line', help="HETDEX (Cure) detect line file", required=False)
+    parser.add_argument('--ifu', help="HETDEX IFU file", required=False)
+    parser.add_argument('--dist', help="HETDEX Distortion file base (i.e. do not include trailing _L.dist or _R.dist)",
+                        required=False)
     parser.add_argument('--id', help="ID or list of IDs from detect line file for which to search", required=False)
     parser.add_argument('--sigma', help="Minimum sigma threshold to meet in selecting detections", required=False,
                         type=float,default=0.0)
@@ -109,6 +112,13 @@ def valid_parameters(args):
                   "--sigma, --chi2)")
             return False
         else:
+            if (args.ifu is None):
+                print("Warning. IFU file not provided. Report might not contain spectra cutouts. Will search for IFU file "
+                      "in the config directory.")
+            if (args.dist is None):
+                print("Warning. Distortion file (base) not provided. Report might not contain spectra cutouts. "
+                      "Will search for Distortion files in the config directory.")
+
             return True
     else: #chi2 and sigma have default values, so don't use here
         if (args.dither is None) and (args.line is None) and (args.id is None):# and (args.chi2 is None) and (args.sigma is None)
@@ -131,13 +141,17 @@ def build_hd(args):
 
     return False
 
-def build_pages (ra,dec,error,cats,pages,idstring,base_count = 0):
-    # next, build reports for each catalog
-    #todo: build a section header for THIS ra + dec
-    #include RA, DEC, ENUMERATION (i.e. Report ID#1, 2, 3 ...)
+# todo: create page(s) for HETDEX data (2D cutouts, 1D spectra, etc)
+def build_hetdex_section(detect_id = 0,pages=None):
+    #detection ids are unique (for the single detect_line.dat file we are using)
+
+    return pages
+
+
+def build_pages (ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,la_z=0):
     section_title = "Inspection ID: " + idstring
     for c in cats:
-        r = c.build_bid_target_reports(ra, dec, error,section_title=section_title,base_count=base_count)
+        r = c.build_bid_target_reports(ra, dec, error,num_hits=num_hits,section_title=section_title,base_count=base_count,la_z=la_z)
         if r is not None:
             pages = pages + r
             base_count += len(r)-1 #1st page is the target page
@@ -196,9 +210,6 @@ def main():
             print("Fatal error. Cannot build HETDEX working object.")
             exit (-1)
 
-
-        #todo: create page(s) for HETDEX data (2D cutouts, 1D spectra, etc)
-
         #iterate over all emission line detections
         if len(hd.emis_list) > 0:
             print()
@@ -221,10 +232,12 @@ def main():
             count = 0
             for e in hd.emis_list:
                 section_id += 1
-                id = "# " + str(section_id) + " of " + str(total) + "  (Detect ID#" + str(e.id) + ")"
+                id = "#" + str(section_id) + " of " + str(total) + "  (Detect ID#" + str(e.id) + ")"
                 ra = e.ra
                 dec = e.dec
-                pages,count = build_pages(ra, dec, args.error, cats, pages, idstring=id,base_count=count)
+                pages = build_hetdex_section(e.id,pages)
+                pages,count = build_pages(ra, dec, args.error, cats, pages,num_hits=num_hits, idstring=id,base_count=count,
+                                          la_z=e.la_z)
     else:
         num_hits = 0
         for c in cats:

@@ -48,6 +48,58 @@ def get_catalog_list():
     return cats
 
 
+#todo: future ... see if can reorganize and use this as a wrapper and maintain only one Figure per report
+class Page:
+    def __init__(self,num_entries):
+        self.num_entries = num_entries
+        self.rows_per_entry = 0
+        self.cols_per_entry = 0
+        self.grid = None
+        self.current_entry = 0
+        self.current_row = 0
+        self.current_col = 0
+        self.figure = None
+
+
+    @property
+    def col(self):
+        return self.current_col
+    @property
+    def row(self):
+        return self.current_row
+
+    @property
+    def entry(self):
+        return self.current_entry
+
+    @property
+    def gs(self):
+        return self.grid
+
+    @property
+    def fig(self):
+        return self.figure
+
+    def build_grid(self,rows,cols):
+        self.grid = gridspec.GridSpec(self.num_entries * rows, cols, wspace=0.25, hspace=0.5)
+        self.rows_per_entry = rows
+        self.cols_per_entry = cols
+        self.figure = plt.figure(figsize=(self.num_entries*rows*3,cols*3))
+
+    def next_col(self):
+        if (self.current_col == self.cols_per_entry):
+            self.current_col = 0
+            self.current_row += 1
+        else:
+            self.current_col += 1
+
+    def next_row(self):
+        self.current_row += 1
+
+    def next_entry(self):
+        self.current_entry +=1
+        self.current_row +=1
+        self.current_col = 0
 
 __metaclass__ = type
 class Catalog:
@@ -361,13 +413,14 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
     #todo: refactor and move most of this to the base class
     #column names are catalog specific, but could map catalog specific names to generic ones and produce a dictionary?
-    def build_bid_target_reports(self,target_ra, target_dec, error, section_title="",base_count=0):
+    def build_bid_target_reports(self,target_ra, target_dec, error, num_hits=0,section_title="",base_count=0,la_z=0):
 
         self.clear_pages()
         self.build_list_of_bid_targets(target_ra,target_dec,error)
 
         ras = self.dataframe_of_bid_targets.loc[:, ['RA']].values
         decs = self.dataframe_of_bid_targets.loc[:, ['DEC']].values
+
         #display the exact (target) location
         entry = self.build_exact_target_location_figure(target_ra,target_dec,error,section_title=section_title)
 
@@ -402,7 +455,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             print("Building report for bid target %d in %s" % (base_count + number,self.Name))
             entry = self.build_bid_target_figure(r[0],d[0],error=error,df=df,df_photoz=df_photoz,
                                                  target_ra=target_ra,target_dec=target_dec,section_title=section_title,
-                                                 bid_number=number)
+                                                 bid_number=number,la_z=la_z)
             self.add_bid_entry(entry)
 
         return self.pages
@@ -428,15 +481,18 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.5)
         #reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based
 
-        title = section_title + "\nTarget Location\nPossible Matches=%d (within %f\")\nRA = %f    Dec = %f\n\n" \
+        font = FontProperties()
+        font.set_family('monospace')
+        font.set_size(14)
+
+        title = section_title + "\nTarget Location\nPossible Matches=%d (within %g\")\nRA = %f    Dec = %f\n\n" \
             % (len(self.dataframe_of_bid_targets),error,ra, dec)
         plt.subplot(gs[0,0])
-        plt.text(0, 0.3, title, size=16, ha='left',va='bottom')
+        plt.text(0, 0.3, title,ha='left',va='bottom',fontproperties=font)
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
-        font = FontProperties()
-        font.set_family('monospace')
+
 
         if self.master_cutout is not None:
             del(self.master_cutout)
@@ -483,7 +539,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
 
     def build_bid_target_figure(self,ra,dec,error,df=None,df_photoz=None,target_ra=None,target_dec=None,
-                                section_title="",bid_number = 1):
+                                section_title="",bid_number = 1,la_z = 0):
         '''Builds the entry (e.g. like a row) for one bid target. Includes the target info (name, loc, Z, etc),
         photometry images, Z_PDF, etc
         
@@ -514,6 +570,10 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
         gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.5)
 
+        font = FontProperties()
+        font.set_family('monospace')
+        font.set_size(14)
+
         fig = plt.figure(figsize=(fig_sz_x,fig_sz_y))
 
         if df is not None:
@@ -525,19 +585,18 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 title = title + "\nDEEP SPEC Z = %f" % z
             elif z_best_type is not None:
                 if (z_best_type.lower() == 'p'):
-                    title = title + "\nPhoto Z = %f" % z_best
+                    title = title + "\nPhoto Z = %f (blue)" % z_best
                 elif (z_best_type.lower() == 's'):
-                    title = title + "\nSpec Z = %f" % z_best
+                    title = title + "\nSpec Z  = %f (blue)" % z_best
+            if la_z > 0:
+                title = title + "\nLyA Z   = %f (red)" % la_z
         else:
             title = "%s\nRA=%f    Dec=%f" % (section_title,ra, dec)
 
         plt.subplot(gs[0, 0])
-        plt.text(0,0.20,title,size=16,ha='left',va='bottom')
+        plt.text(0,0.20,title,ha='left',va='bottom',fontproperties=font)
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
-
-        font = FontProperties()
-        font.set_family('monospace')
 
         index = -1
         #iterate over all filter images
@@ -582,6 +641,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                     plt.gca().add_patch(plt.Circle((0,0), radius=error / 4.0, color='yellow', fill=False))
 
                 #iterate over all filters for this image and print values
+                font.set_size(10)
                 if df is not None:
                     s = ""
                     for f,l in zip(i['cols'],i['labels']):
@@ -604,6 +664,8 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 y = z_cat['mFDa4'].values
                 plt.subplot(gs[0, 3])
                 plt.plot(x,y)
+                if la_z > 0:
+                    plt.axvline(x=la_z,color='r', linestyle='--')
                 plt.title("Z PDF")
                 plt.gca().yaxis.set_visible(False)
                 plt.xlabel("Z")
