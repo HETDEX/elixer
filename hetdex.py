@@ -2,16 +2,19 @@
 import matplotlib
 matplotlib.use('agg')
 
+import matplotlib.pyplot as plt
+from matplotlib.font_manager import FontProperties
+import matplotlib.gridspec as gridspec
+import numpy as np
+
 import global_config
-import science_image
 from astropy.io import fits as pyfits
 from astropy.coordinates import Angle
-import numpy as np
-import matplotlib.pyplot as plt
+from astropy.stats import biweight_midvariance
+from astropy.modeling.models import Moffat2D, Gaussian2D
+from photutils import CircularAperture, aperture_photometry
 from scipy.ndimage.filters import gaussian_filter
-from matplotlib.font_manager import FontProperties
-from matplotlib.backends.backend_pdf import PdfPages
-import matplotlib.gridspec as gridspec
+
 
 import glob
 from pyhetdex.cure.distortion import Distortion
@@ -41,6 +44,31 @@ contrast1 = 0.9  # convolved image
 contrast2 = 0.5  # regular image
 res = [3, 9]
 ww = xw * 1.9  # wavelength width
+
+
+#lifted from Greg Z. make_visualization_detect.py
+def get_w_as_r(seeing, gridsize, rstep, rmax, profile_name='moffat'):
+    fradius = 0.75  # VIRUS
+    if profile_name == 'moffat':
+        alpha = 2.5  # hard coded in Cure
+        gamma = seeing / 2.0 / np.sqrt(np.power(2.0, (1.0 / alpha)) - 1.0)
+        profile = Moffat2D(alpha=alpha, gamma=gamma)
+    else:
+        sigma = seeing / 2.3548
+        profile = Gaussian2D(x_stddev=sigma, y_stddev=sigma)
+    x = np.linspace(-1 * (rmax + fradius + 0.5), (rmax + fradius + 0.5), gridsize)
+    X, Y = np.meshgrid(x, x)
+    Z = profile(X.ravel(), Y.ravel()).reshape(X.shape)
+    Z /= np.sum(Z.ravel() * (x[1] - x[0]) ** 2)
+    nstep = int(rmax / rstep) + 1
+    r = np.linspace(0, rmax, nstep)
+    xloc = np.interp(r, x, np.arange(len(x)))
+    yloc = np.interp(np.zeros((nstep,)), x, np.arange(len(x)))
+    positions = [xloc, yloc]
+    apertures = CircularAperture(positions, r=fradius)
+    phot_table = aperture_photometry(Z, apertures)
+    return r, np.array(phot_table['aperture_sum'])
+
 
 def find_fplane(date): #date as yyyymmdd string
     """Locate the fplane file to use based on the observation date
@@ -565,6 +593,12 @@ class HETDEX:
         if datakeep is not None:
             if datakeep['xi']:
                 fig = self.build_2d_image(datakeep)
+                if fig is not None:
+                    pages.append(fig)
+
+                fig = self.build_spec_image(datakeep, detectid, dwave=1.0)
+                if fig is not None:
+                    pages.append(fig)
 
         if fig is not None:
             pages.append(fig)
@@ -699,6 +733,7 @@ class HETDEX:
         return datakeep
 
 
+    #2d specta cutouts (one per fiber)
     def build_2d_image(self,datakeep):
         cmap = plt.get_cmap('gray_r')
         norm = plt.Normalize()
@@ -817,8 +852,53 @@ class HETDEX:
 
         #fig.savefig(outfile, dpi=150)
         #plt.close(fig)
-        plt.show()
+        #plt.show()
 
         return fig
 
-        #end HETDEX class
+    def build_spec_image(self,datakeep, detectid, dwave=1.0):
+
+        e = self.get_emission_detect(detectid)
+        if e is None:
+            log.error("Could not identify correct emission to plot. Detect ID = %d" % detectid)
+            return None
+
+        norm = plt.Normalize()
+        colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
+
+        N = len(datakeep['xi'])
+        rm = 0.2
+        fig = plt.figure(figsize=(5, 3))
+        r, w = get_w_as_r(1.5, 500, 0.05, 6.)
+        specplot = plt.axes([0.1, 0.1, 0.8, 0.8])
+        bigwave = np.arange(e.w - ww, e.w + ww + dwave, dwave)
+        F = np.zeros(bigwave.shape)
+        mn = 100.0
+        mx = 0.0
+        W = 0.0
+        ind = sorted(range(len(datakeep['d'])), key=lambda k: datakeep['d'][k],
+                     reverse=True)
+        for i in range(N):
+            specplot.step(datakeep['specwave'][ind[i]], datakeep['spec'][ind[i]],
+                          where='mid', color=colors[i, 0:3], alpha=0.5)
+            w1 = np.interp(datakeep['d'][ind[i]], r, w)
+            F += (np.interp(bigwave, datakeep['specwave'][ind[i]],
+                            datakeep['spec'][ind[i]]) * w1)  # *(2.0 -datakeep['d'][ind[i]])
+            W += w1
+            mn = np.min([mn, np.min(datakeep['spec'][ind[i]])])
+            mx = np.max([mx, np.max(datakeep['spec'][ind[i]])])
+        F /= W
+        specplot.step(bigwave, F, c='b', where='mid', lw=2)
+        ran = mx - mn
+        specplot.errorbar(e.w - .8 * ww, mn + ran * (1 + rm) * 0.85,
+                          yerr=biweight_midvariance(np.array(datakeep['spec'][:])),
+                          fmt='o', marker='o', ms=4, mec='k', ecolor=[0.7, 0.7, 0.7],
+                          mew=1, elinewidth=3, mfc=[0.7, 0.7, 0.7])
+        specplot.plot([e.w, e.w], [mn - ran * rm, mn + ran * (1 + rm)], ls='--', c=[0.3, 0.3, 0.3])
+        specplot.axis([e.w - ww, e.w + ww, mn - ran * rm, mn + ran * (1 + rm)])
+        #fig.savefig(outfile, dpi=150)
+        #plt.close(fig)
+        return fig
+
+
+#end HETDEX class
