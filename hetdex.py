@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 import matplotlib.gridspec as gridspec
 import numpy as np
+import io
+from PIL import Image
 
 import global_config
 from astropy.io import fits as pyfits
@@ -588,21 +590,55 @@ class HETDEX:
 
 
     def build_hetdex_data_page(self,pages,detectid):
-        datakeep = self.build_hetdex_data_dict(detectid)
-        fig = None
+
+        e = self.get_emission_detect(detectid)
+        if e is None:
+            log.error("Could not identify correct emission to plot. Detect ID = %d" % detectid)
+            return None
+
+        #todo: match this up with the catalog sizes
+        fig_sz_x = 18
+        fig_sz_y = 6
+
+        fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
+        plt.gca().axis('off')
+        # 2x2 grid (but for sizing, make more fine)
+        gs = gridspec.GridSpec(9, 10)#, wspace=0.25, hspace=0.5)
+
+        font = FontProperties()
+        font.set_family('monospace')
+        font.set_size(14)
+
+        title = "Emission Line Detection ID #%d\nRA = %g    Dec = %g\nWavelength=%g\n"\
+                 "Sigma=%g   Chi2=%g"\
+                 % (e.id,e.ra, e.dec,e.w, e.sigma,e.chi2)
+
+        plt.subplot(gs[0:3, 0:3])
+        plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
+        plt.gca().set_frame_on(False)
+        plt.gca().axis('off')
+
+        datakeep = self.build_hetdex_data_dict(e)
         if datakeep is not None:
             if datakeep['xi']:
-                fig = self.build_2d_image(datakeep)
-                if fig is not None:
-                    pages.append(fig)
+                plt.subplot(gs[3:,0:5])
+                plt.gca().axis('off')
+                buf = self.build_2d_image(datakeep)
+                buf.seek(0)
+                im = Image.open(buf)
+                plt.imshow(im,interpolation='none')
 
-                fig = self.build_spec_image(datakeep, detectid, dwave=1.0)
-                if fig is not None:
-                    pages.append(fig)
 
-        if fig is not None:
-            pages.append(fig)
 
+                plt.subplot(gs[3:,5:])
+                plt.gca().axis('off')
+                buf = self.build_spec_image(datakeep,e.w, dwave=1.0)
+                buf.seek(0)
+                im = Image.open(buf)
+                plt.imshow(im,interpolation='none')
+
+        plt.close()
+        pages.append(fig)
         return pages
 
 
@@ -641,15 +677,11 @@ class HETDEX:
         return dd
 
 
-    def build_hetdex_data_dict(self,detectid):
+    def build_hetdex_data_dict(self,e):#e is the emission detection to use
         #basically cloned from Greg Z. make_visualization_detect.py; adjusted a bit for this code base
         datakeep = self.clean_data_dict()
 
-        #get the correct emssion
-        e = self.get_emission_detect(detectid)
-
         if e is None:
-            log.error("Could not identify correct emission to plot. Detect ID = %d" %detectid)
             return None
 
         for side in SIDE:  # 'L' and 'R'
@@ -735,6 +767,7 @@ class HETDEX:
 
     #2d specta cutouts (one per fiber)
     def build_2d_image(self,datakeep):
+
         cmap = plt.get_cmap('gray_r')
         norm = plt.Normalize()
         colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
@@ -850,28 +883,23 @@ class HETDEX:
                              transform=cosplot.transAxes, fontsize=8, color='b',
                              verticalalignment='bottom', horizontalalignment='center')
 
-        #fig.savefig(outfile, dpi=150)
-        #plt.close(fig)
-        #plt.show()
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=300)
 
-        return fig
+        plt.close(fig)
+        return buf
 
-    def build_spec_image(self,datakeep, detectid, dwave=1.0):
+    def build_spec_image(self,datakeep,cwave, dwave=1.0):
 
-        e = self.get_emission_detect(detectid)
-        if e is None:
-            log.error("Could not identify correct emission to plot. Detect ID = %d" % detectid)
-            return None
-
+        fig = plt.figure(figsize=(5, 3))
         norm = plt.Normalize()
         colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
 
         N = len(datakeep['xi'])
         rm = 0.2
-        fig = plt.figure(figsize=(5, 3))
         r, w = get_w_as_r(1.5, 500, 0.05, 6.)
         specplot = plt.axes([0.1, 0.1, 0.8, 0.8])
-        bigwave = np.arange(e.w - ww, e.w + ww + dwave, dwave)
+        bigwave = np.arange(cwave - ww, cwave + ww + dwave, dwave)
         F = np.zeros(bigwave.shape)
         mn = 100.0
         mx = 0.0
@@ -890,15 +918,18 @@ class HETDEX:
         F /= W
         specplot.step(bigwave, F, c='b', where='mid', lw=2)
         ran = mx - mn
-        specplot.errorbar(e.w - .8 * ww, mn + ran * (1 + rm) * 0.85,
+        specplot.errorbar(cwave - .8 * ww, mn + ran * (1 + rm) * 0.85,
                           yerr=biweight_midvariance(np.array(datakeep['spec'][:])),
                           fmt='o', marker='o', ms=4, mec='k', ecolor=[0.7, 0.7, 0.7],
                           mew=1, elinewidth=3, mfc=[0.7, 0.7, 0.7])
-        specplot.plot([e.w, e.w], [mn - ran * rm, mn + ran * (1 + rm)], ls='--', c=[0.3, 0.3, 0.3])
-        specplot.axis([e.w - ww, e.w + ww, mn - ran * rm, mn + ran * (1 + rm)])
-        #fig.savefig(outfile, dpi=150)
-        #plt.close(fig)
-        return fig
+        specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='--', c=[0.3, 0.3, 0.3])
+        specplot.axis([cwave - ww, cwave + ww, mn - ran * rm, mn + ran * (1 + rm)])
+
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=300)
+
+        plt.close(fig)
+        return buf
 
 
 #end HETDEX class
