@@ -142,8 +142,9 @@ def build_hd(args):
     return False
 
 # todo: create page(s) for HETDEX data (2D cutouts, 1D spectra, etc)
-def build_hetdex_section(detect_id = 0,pages=None):
+def build_hetdex_section(hetdex, detect_id = 0,pages=None):
     #detection ids are unique (for the single detect_line.dat file we are using)
+    pages = hetdex.build_hetdex_data_page(pages,detect_id)
 
     return pages
 
@@ -228,6 +229,7 @@ def main():
             if not confirm(num_hits,args.force):
                 exit(0)
 
+            #now build the report for each emission detection
             section_id = 0
             total = len(hd.emis_list)
             count = 0
@@ -236,7 +238,8 @@ def main():
                 id = "#" + str(section_id) + " of " + str(total) + "  (Detect ID#" + str(e.id) + ")"
                 ra = e.ra
                 dec = e.dec
-                pages = build_hetdex_section(e.id,pages)
+                pages = build_hetdex_section(hd,e.id,pages) #this is the fiber, spectra cutouts for this detect
+                #this is the catalog info for the detect
                 pages,count = build_pages(ra, dec, args.error, cats, pages,num_hits=num_hits, idstring=id,
                                           base_count=count,target_w=e.w)
     else:

@@ -7,8 +7,8 @@ import science_image
 from astropy.io import fits as pyfits
 from astropy.coordinates import Angle
 import numpy as np
-import copy
 import matplotlib.pyplot as plt
+from scipy.ndimage.filters import gaussian_filter
 from matplotlib.font_manager import FontProperties
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.gridspec as gridspec
@@ -29,7 +29,18 @@ VIRUS_CONFIG = op.join(CONFIG_BASEDIR,"virus_config")
 FPLANE_LOC = op.join(CONFIG_BASEDIR,"virus_config/fplane")
 IFUCEN_LOC = op.join(CONFIG_BASEDIR,"virus_config/IFUcen_files")
 DIST_LOC = op.join(CONFIG_BASEDIR,"virus_config/DeformerDefaults")
+PIXFLT_LOC = op.join(CONFIG_BASEDIR,"virus_config/PixelFlats/20161223")
 
+SIDE = ["L", "R"]
+
+#lifted from Greg Z.
+dist_thresh = 2.  # Fiber Distance (arcsecs)
+xw = 24  # image width in x-dir
+yw = 10  # image width in y-dir
+contrast1 = 0.9  # convolved image
+contrast2 = 0.5  # regular image
+res = [3, 9]
+ww = xw * 1.9  # wavelength width
 
 def find_fplane(date): #date as yyyymmdd string
     """Locate the fplane file to use based on the observation date
@@ -185,13 +196,14 @@ class HetdexFits:
     #needs open with basic validation
     #
 
-    def __init__(self,fn):
+    def __init__(self,fn,e_fn,fe_fn,dither_index=-1):
         self.filename = fn
+        self.err_filename = e_fn
+        self.fe_filename = fe_fn
 
         self.tel_ra = None
         self.tel_dec = None
         self.parangle = None
-        self.data = None
         self.ifuslot = None
         self.side = None
         self.specid = None
@@ -203,7 +215,16 @@ class HetdexFits:
         self.exptime = None
         self.dettemp = None
 
+        self.data = None
+        self.err_data = None
+        self.fe_data = None
+        self.fe_crval1 = None
+        self.fe_cdelt1 = None
+
+        self.dither_index = dither_index
         self.read_fits()
+        self.read_efits()
+        self.read_fefits()
 
     def read_fits(self):
 
@@ -214,6 +235,8 @@ class HetdexFits:
             return None
 
         self.data = np.array(f[0].data)
+        #clean up any NaNs
+        self.data[np.isnan(self.data)] = 0.0
 
         try:
             self.tel_ra = float(Angle(f[0].header['TELRA']+"h").degree) #header is in hour::mm:ss.arcsec
@@ -243,22 +266,66 @@ class HetdexFits:
 
         return
 
+    def read_efits(self):
+
+        try:
+            f = pyfits.open(self.err_filename)
+        except:
+            log.error("could not open file " + self.err_filename, exc_info=True)
+            return None
+
+        self.err_data = np.array(f[0].data)
+        # clean up any NaNs
+        self.err_data[np.isnan(self.err_data)] = 0.0
+
+        try:
+            f.close()
+        except:
+            log.error("could not close file " + self.err_filename, exc_info=True)
+
+        return
+
+    def read_fefits(self):
+
+        try:
+            f = pyfits.open(self.fe_filename)
+        except:
+            log.error("could not open file " + self.fe_filename, exc_info=True)
+            return None
+
+        try:
+            self.fe_data = np.array(f[0].data)
+            # clean up any NaNs
+            self.fe_data[np.isnan(self.fe_data)] = 0.0
+            self.fe_crval1 = f[0].header['CRVAL1']
+            self.fe_cdelt1 = f[0].header['CDELT1']
+        except:
+            log.error("could not read values or data from file " + self.fe_filename, exc_info=True)
+
+        try:
+            f.close()
+        except:
+            log.error("could not close file " + self.fe_filename, exc_info=True)
+
+        return
+
+
     def cleanup(self):
         #todo: close fits handles, etc
         pass
 
 
 
-class HetdexIfuObs:
-    '''Basically, a container for all the fits, dither, etc that make up one observation for one IFU'''
-    def __init__(self):
-        self.specid = None
-        self.ifuslotid = None
-        #self.ifuid = None # I think can omit this ... don't want to confuse with ifuslotid
-        #todo: needs  list of fits
-        #todo: needs fplane
-        #todo: needs dither
-        #todo:
+#class HetdexIfuObs:
+#    '''Basically, a container for all the fits, dither, etc that make up one observation for one IFU'''
+#    def __init__(self):
+#        self.specid = None
+#        self.ifuslotid = None
+#        #self.ifuid = None # I think can omit this ... don't want to confuse with ifuslotid
+#        #needs  list of fits
+#        #needs fplane
+#        #needs dither
+#        #
 
 
 #an object (detection) should only be in one IFU, so this is not necessary
@@ -318,7 +385,6 @@ class HETDEX:
         self.sci_fits = []
         self.status = 0
 
-
         #parse the dither file
         #use to build fits list
         if self.dither_fn is not None:
@@ -336,47 +402,10 @@ class HETDEX:
             return
 
         #get ifu centers
-        if args.ifu is not None:
-            try:
-                self.ifu_ctr = IFUCenter(args.ifu)
-            except:
-                log.error("Unable to open IFUcen file: %s" %(args.ifu), exc_info=True)
-        else:
-            ifu_fn  = op.join(IFUCEN_LOC,"IFUcen_VIFU"+self.ifu_slot_id+".txt")
-            log.info("No IFUcen file provided. Look for CAM specific file %s" % (ifu_fn))
-            try:
-                self.ifu_ctr = IFUCenter(ifu_fn)
-            except:
-                ifu_fn = op.join(IFUCEN_LOC, "IFUcen_HETDEX.txt")
-                log.info("Unable to open CAM Specific IFUcen file. Look for generic IFUcen file.")
-                try:
-                    self.ifu_ctr = IFUCenter(ifu_fn)
-                except:
-                    log.error("Unable to open IFUcen file.",exc_info=True)
+        self.get_ifu_centers(args)
 
         #get distortion info
-        if args.dist is not None:
-            try:
-                self.dist['L'] = Distortion(args.dist + '_L.dist')
-                self.dist['R'] = Distortion(args.dist + '_R.dist')
-            except:
-                log.error("Unable to open Distortion files: %s" % (args.dist), exc_info=True)
-        else:
-            dist_base = op.join(DIST_LOC, "mastertrace_twi_" + self.specid)
-            log.info("No distortion file base provided. Look for CAM specific file %s" % (dist_base))
-            try:
-                self.dist['L'] = Distortion(dist_base + '_L.dist')
-                self.dist['R'] = Distortion(dist_base + '_R.dist')
-            except:
-                ifu_fn = op.join(IFUCEN_LOC, "IFUcen_HETDEX.txt")
-                log.info("Unable to open CAM Specific twi dist files. Look for generic dist files.")
-                dist_base = op.join(DIST_LOC, "mastertrace_" + self.specid)
-                try:
-                    self.dist['L'] = Distortion(dist_base + '_L.dist')
-                    self.dist['R'] = Distortion(dist_base + '_R.dist')
-                except:
-                    log.error("Unable to open distortion files.", exc_info=True)
-
+        self.get_distortion(args)
 
         #build fplane (find the correct file from the exposure date collected above)
         #for possible future use (could specify fplane_fn on commandline)
@@ -405,20 +434,79 @@ class HETDEX:
             e.ra, e.dec = self.tangentplane.xy2raDec(e.x + self.ifuy, e.y + self.ifux)
             log.info("Emission Detection #%d RA=%g , Dec=%g" % (e.id,e.ra,e.dec))
 
+    #end HETDEX::__init__()
+
+
+    def get_ifu_centers(self,args):
+        if args.ifu is not None:
+            try:
+                self.ifu_ctr = IFUCenter(args.ifu)
+            except:
+                log.error("Unable to open IFUcen file: %s" % (args.ifu), exc_info=True)
+        else:
+            ifu_fn = op.join(IFUCEN_LOC, "IFUcen_VIFU" + self.ifu_slot_id + ".txt")
+            log.info("No IFUcen file provided. Look for CAM specific file %s" % (ifu_fn))
+            try:
+                self.ifu_ctr = IFUCenter(ifu_fn)
+            except:
+                ifu_fn = op.join(IFUCEN_LOC, "IFUcen_HETDEX.txt")
+                log.info("Unable to open CAM Specific IFUcen file. Look for generic IFUcen file.")
+                try:
+                    self.ifu_ctr = IFUCenter(ifu_fn)
+                except:
+                    log.error("Unable to open IFUcen file.", exc_info=True)
+
+        if self.ifu_ctr is not None:
+            #need this to be numpy array later
+            for s in SIDE:
+                self.ifu_ctr.xifu[s] = np.array(self.ifu_ctr.xifu[s])
+                self.ifu_ctr.yifu[s] = np.array(self.ifu_ctr.yifu[s])
+
+
+    def get_distortion(self,args):
+        if args.dist is not None:
+            try:
+                self.dist['L'] = Distortion(args.dist + '_L.dist')
+                self.dist['R'] = Distortion(args.dist + '_R.dist')
+            except:
+                log.error("Unable to open Distortion files: %s" % (args.dist), exc_info=True)
+        else:
+            dist_base = op.join(DIST_LOC, "mastertrace_twi_" + self.specid)
+            log.info("No distortion file base provided. Look for CAM specific file %s" % (dist_base))
+            try:
+                self.dist['L'] = Distortion(dist_base + '_L.dist')
+                self.dist['R'] = Distortion(dist_base + '_R.dist')
+            except:
+                ifu_fn = op.join(IFUCEN_LOC, "IFUcen_HETDEX.txt")
+                log.info("Unable to open CAM Specific twi dist files. Look for generic dist files.")
+                dist_base = op.join(DIST_LOC, "mastertrace_" + self.specid)
+                try:
+                    self.dist['L'] = Distortion(dist_base + '_L.dist')
+                    self.dist['R'] = Distortion(dist_base + '_R.dist')
+                except:
+                    log.error("Unable to open distortion files.", exc_info=True)
+
 
     def build_fits_list(self):
         #read in all fits
         #get the key fits header values
 
         #only one dither object, but has array of (3) for each value
+        #these are in "dither" order
+        dit_idx = 0
         for b in self.dither.basename:
             ext = ['_L.fits','_R.fits']
             for e in ext:
                 fn = b + e
+                e_fn = op.join(op.dirname(b), "e." + op.basename(b)) + e
+                fe_fn = op.join(op.dirname(b), "Fe" + op.basename(b)) + e
                 if (self.sci_fits_path is not None):
                     fn = op.join(self.sci_fits_path, op.basename(fn))
+                    e_fn = op.join(self.sci_fits_path, op.basename(e_fn))
+                    fe_fn = op.join(self.sci_fits_path, op.basename(fe_fn))
 
-                self.sci_fits.append(HetdexFits(fn))
+                self.sci_fits.append(HetdexFits(fn,e_fn,fe_fn,dit_idx))
+            dit_idx += 1
 
         #all should have the same observation date in the headers so just use first
         if len(self.sci_fits) > 0:
@@ -456,4 +544,281 @@ class HETDEX:
             log.error("Cannot emission line objects.", exc_info=True)
 
         return
-#end HETDEX class
+
+
+    def get_sci_fits(self,dither,side):
+        for s in self.sci_fits:
+            if ((s.dither_index == dither) and (s.side == side)):
+                return s
+        return None
+
+    def get_emission_detect(self,detectid):
+        for e in self.emis_list:
+            if e.id == detectid:
+                return e
+        return None
+
+
+    def build_hetdex_data_page(self,pages,detectid):
+        datakeep = self.build_hetdex_data_dict(detectid)
+        fig = None
+        if datakeep is not None:
+            if datakeep['xi']:
+                fig = self.build_2d_image(datakeep)
+
+        if fig is not None:
+            pages.append(fig)
+
+        return pages
+
+
+    def clean_data_dict(self,datadict=None):
+        if datadict is not None:
+            dd = datadict
+            for k in dd.keys():
+                del dd[k][:]
+        else:
+            dd = {}
+            dd['dit'] = []
+            dd['side'] = []
+            dd['fib'] = []
+            dd['xi'] = []
+            dd['yi'] = []
+            dd['xl'] = []
+            dd['yl'] = []
+            dd['xh'] = []
+            dd['yh'] = []
+            dd['sn'] = []
+            dd['d'] = []
+            dd['dx'] = []
+            dd['dy'] = []
+            dd['im'] = []
+            dd['vmin1'] = []
+            dd['vmax1'] = []
+            dd['vmin2'] = []
+            dd['vmax2'] = []
+            dd['err'] = []
+            dd['pix'] = []
+            dd['spec'] = []
+            dd['specwave'] = []
+            dd['cos'] = []
+            dd['ra'] = []
+            dd['dec'] = []
+        return dd
+
+
+    def build_hetdex_data_dict(self,detectid):
+        #basically cloned from Greg Z. make_visualization_detect.py; adjusted a bit for this code base
+        datakeep = self.clean_data_dict()
+
+        #get the correct emssion
+        e = self.get_emission_detect(detectid)
+
+        if e is None:
+            log.error("Could not identify correct emission to plot. Detect ID = %d" %detectid)
+            return None
+
+        for side in SIDE:  # 'L' and 'R'
+            for dither in range(len(self.dither.dx)):  # so, dither is 0,1,2
+                dx = e.x - self.ifu_ctr.xifu[side] - self.dither.dx[dither]  # IFU is my self.ifu_ctr
+                dy = e.y - self.ifu_ctr.yifu[side] - self.dither.dy[dither]
+
+                d = np.sqrt(dx ** 2 + dy ** 2)
+
+                # all locations (fiber array index) within dist_thresh of the x,y sky coords of the detection
+                locations = np.where(d < dist_thresh)[0]
+
+                #this is for one side of one dither of one ifu
+                for loc in locations:
+                    datakeep['dit'].append(dither + 1)
+                    datakeep['side'].append(side)
+
+                    f0 = self.dist[side].get_reference_f(loc + 1)
+                    xi = self.dist[side].map_wf_x(e.w, f0)
+                    yi = self.dist[side].map_wf_y(e.w, f0)
+                    datakeep['fib'].append(self.dist[side].map_xy_fibernum(xi, yi))
+                    xfiber = self.ifu_ctr.xifu[side][loc] + self.dither.dx[dither]
+                    yfiber = self.ifu_ctr.yifu[side][loc] + self.dither.dy[dither]
+                    xfiber += self.ifuy #yes this is correct xfiber gets ifuy
+                    yfiber += self.ifux
+                    ra, dec = self.tangentplane.xy2raDec(xfiber, yfiber)
+                    datakeep['ra'].append(ra)
+                    datakeep['dec'].append(dec)
+                    xl = int(np.round(xi - xw))
+                    xh = int(np.round(xi + xw))
+                    yl = int(np.round(yi - yw))
+                    yh = int(np.round(yi + yw))
+                    datakeep['xi'].append(xi)
+                    datakeep['yi'].append(yi)
+                    datakeep['xl'].append(xl)
+                    datakeep['yl'].append(yl)
+                    datakeep['xh'].append(xh)
+                    datakeep['yh'].append(yh)
+                    datakeep['d'].append(d[loc])
+                    datakeep['sn'].append(e.sigma)
+
+                    sci = self.get_sci_fits(dither,side)
+                    if sci is not None:
+                        datakeep['im'].append(sci.data[yl:yh,xl:xh])
+
+                        # this is probably for the 1d spectra
+                        I = sci.data.ravel()
+                        s_ind = np.argsort(I)
+                        len_s = len(s_ind)
+                        s_rank = np.arange(len_s)
+                        p = np.polyfit(s_rank - len_s / 2, I[s_ind], 1)
+
+                        z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast1
+                        z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast1
+
+                        datakeep['vmin1'].append(z1)
+                        datakeep['vmax1'].append(z2)
+                        z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast2
+                        z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast2
+                        datakeep['vmin2'].append(z1)
+                        datakeep['vmax2'].append(z2)
+
+                        datakeep['err'].append(sci.err_data[yl:yh, xl:xh])
+
+                    pix_fn = op.join(PIXFLT_LOC,'pixelflat_cam%s_%s.fits' % (sci.specid, side))
+                    if op.exists(pix_fn):
+                        datakeep['pix'].append(pyfits.open(pix_fn)[0].data[yl:yh,xl:xh])
+
+                    #cosmic removed (but will assume that is the original data)
+                    #datakeep['cos'].append(fits.open(cos_fn)[0].data[yl:yh, xl:xh])
+
+                    #fiber extracted
+                    if len(sci.fe_data) > 0 and (sci.fe_crval1 is not None) and (sci.fe_cdelt1 is not None):
+                        nfib, xlen = sci.fe_data.shape
+                        wave = np.arange(xlen)*sci.fe_cdelt1 + sci.fe_crval1
+                        Fe_indl = np.searchsorted(wave,e.w-ww,side='left')
+                        Fe_indh = np.searchsorted(wave,e.w+ww,side='right')
+                        datakeep['spec'].append(sci.fe_data[loc,Fe_indl:(Fe_indh+1)])
+                        datakeep['specwave'].append(wave[Fe_indl:(Fe_indh+1)])
+
+        return datakeep
+
+
+    def build_2d_image(self,datakeep):
+        cmap = plt.get_cmap('gray_r')
+        norm = plt.Normalize()
+        colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
+        num = len(datakeep['xi'])
+        bordbuff = 0.01
+        borderxl = 0.05
+        borderxr = 0.15
+        borderyb = 0.05
+        borderyt = 0.15
+        dx = (1. - borderxl - borderxr) / 3.
+        dy = (1. - borderyb - borderyt) / num
+        dx1 = (1. - borderxl - borderxr) / 3.
+        dy1 = (1. - borderyb - borderyt - num * bordbuff) / num
+        Y = (yw / dy) / (xw / dx) * 5.
+
+        fig = plt.figure(figsize=(5, Y), frameon=False)
+
+        ind = sorted(range(len(datakeep['d'])), key=lambda k: datakeep['d'][k],
+                     reverse=True)
+        for i in range(num):
+            borplot = plt.axes([borderxl + 0. * dx, borderyb + i * dy, 3 * dx, dy])
+            implot = plt.axes([borderxl + 2. * dx - bordbuff / 3., borderyb + i * dy + bordbuff / 2., dx1, dy1])
+            errplot = plt.axes(
+                [borderxl + 1. * dx + 1 * bordbuff / 3., borderyb + i * dy + bordbuff / 2., dx1, dy1])
+            cosplot = plt.axes([borderxl + 0. * dx + bordbuff / 2., borderyb + i * dy + bordbuff / 2., dx1, dy1])
+            autoAxis = borplot.axis()
+            rec = plt.Rectangle((autoAxis[0] + bordbuff / 2., autoAxis[2] + bordbuff / 2.),
+                                (autoAxis[1] - autoAxis[0]) * (1. - bordbuff),
+                                (autoAxis[3] - autoAxis[2]) * (1. - bordbuff), fill=False, lw=3,
+                                color=colors[i, 0:3], zorder=1)
+            rec = borplot.add_patch(rec)
+            borplot.set_xticks([])
+            borplot.set_yticks([])
+            borplot.axis('off')
+            ext = list(np.hstack([datakeep['xl'][ind[i]], datakeep['xh'][ind[i]],
+                                  datakeep['yl'][ind[i]], datakeep['yh'][ind[i]]]))
+            GF = gaussian_filter(datakeep['im'][ind[i]], (2, 1))
+            implot.imshow(GF,
+                          origin="lower", cmap=cmap,
+                          interpolation="nearest", vmin=datakeep['vmin1'][ind[i]],
+                          vmax=datakeep['vmax1'][ind[i]],
+                          extent=ext)
+            implot.scatter(datakeep['xi'][ind[i]], datakeep['yi'][ind[i]],
+                           marker='.', c='r', edgecolor='r', s=10)
+            implot.set_xticks([])
+            implot.set_yticks([])
+            implot.axis(ext)
+            implot.axis('off')
+            errplot.imshow(datakeep['pix'][ind[i]],
+                           origin="lower", cmap=plt.get_cmap('gray'),
+                           interpolation="nearest", vmin=0.9, vmax=1.1,
+                           extent=ext)
+            errplot.scatter(datakeep['xi'][ind[i]], datakeep['yi'][ind[i]],
+                            marker='.', c='r', edgecolor='r', s=10)
+            errplot.set_xticks([])
+            errplot.set_yticks([])
+            errplot.axis(ext)
+            errplot.axis('off')
+
+            #a = datakeep['cos'][ind[i]]
+            a = datakeep['im'][ind[i]] #was the cosmic removed, but will assume that to be the case
+            a = np.ma.masked_where(a == 0, a)
+            cmap1 = cmap
+            cmap1.set_bad(color=[0.2, 1.0, 0.23])
+            cosplot.imshow(a,
+                           origin="lower", cmap=cmap1,
+                           interpolation="nearest", vmin=datakeep['vmin2'][ind[i]],
+                           vmax=datakeep['vmax2'][ind[i]],
+                           extent=ext)
+            cosplot.scatter(datakeep['xi'][ind[i]], datakeep['yi'][ind[i]],
+                            marker='.', c='r', edgecolor='r', s=10)
+            cosplot.set_xticks([])
+            cosplot.set_yticks([])
+            cosplot.axis(ext)
+            cosplot.axis('off')
+
+            xi = datakeep['xi'][ind[i]]
+            yi = datakeep['yi'][ind[i]]
+            xl = int(np.round(xi - ext[0] - res[0] / 2.))
+            xh = int(np.round(xi - ext[0] + res[0] / 2.))
+            yl = int(np.round(yi - ext[2] - res[0] / 2.))
+            yh = int(np.round(yi - ext[2] + res[0] / 2.))
+            S = np.where(datakeep['err'][ind[i]][yl:yh, xl:xh] < 0, 0., datakeep['im'][ind[i]][yl:yh, xl:xh]).sum()
+            N = np.sqrt(np.where(datakeep['err'][ind[i]][yl:yh, xl:xh] < 0, 0.,
+                                 datakeep['err'][ind[i]][yl:yh, xl:xh] ** 2).sum())
+            sn = S / N
+
+            implot.text(0.9, .75, num - i,
+                        transform=implot.transAxes, fontsize=6, color=colors[i, 0:3],
+                        verticalalignment='bottom', horizontalalignment='left')
+
+            implot.text(1.10, .75, 'S/N = %0.2f' % (sn),
+                        transform=implot.transAxes, fontsize=6, color='r',
+                        verticalalignment='bottom', horizontalalignment='left')
+            implot.text(1.10, .55, 'D(") = %0.2f' % (datakeep['d'][ind[i]]),
+                        transform=implot.transAxes, fontsize=6, color='r',
+                        verticalalignment='bottom', horizontalalignment='left')
+            implot.text(1.10, .35, 'X,Y = %d,%d' % (datakeep['xi'][ind[i]], datakeep['yi'][ind[i]]),
+                        transform=implot.transAxes, fontsize=6, color='b',
+                        verticalalignment='bottom', horizontalalignment='left')
+            implot.text(1.10, .15, 'D,S,F = %d,%s,%d' % (datakeep['dit'][ind[i]], datakeep['side'][ind[i]],
+                                                         datakeep['fib'][ind[i]]),
+                        transform=implot.transAxes, fontsize=6, color='b',
+                        verticalalignment='bottom', horizontalalignment='left')
+            if i == (N - 1):
+                implot.text(0.5, .85, 'Image',
+                            transform=implot.transAxes, fontsize=8, color='b',
+                            verticalalignment='bottom', horizontalalignment='center')
+                errplot.text(0.5, .85, 'Error',
+                             transform=errplot.transAxes, fontsize=8, color='b',
+                             verticalalignment='bottom', horizontalalignment='center')
+                cosplot.text(0.5, .85, 'Mask',
+                             transform=cosplot.transAxes, fontsize=8, color='b',
+                             verticalalignment='bottom', horizontalalignment='center')
+
+        #fig.savefig(outfile, dpi=150)
+        #plt.close(fig)
+        plt.show()
+
+        return fig
+
+        #end HETDEX class
