@@ -596,6 +596,7 @@ class HETDEX:
             log.error("Could not identify correct emission to plot. Detect ID = %d" % detectid)
             return None
 
+        print ("Bulding HETDEX header for Detect ID #%d" %detectid)
         #todo: match this up with the catalog sizes
         fig_sz_x = 18
         fig_sz_y = 6
@@ -614,12 +615,15 @@ class HETDEX:
             sci_files += "  " + op.basename(s) + "*.fits\n"
 
         title = "Emission Line Detect ID #%d\n"\
+                "ObsDate %s  IFU %s  CAM %s\n" \
                 "Science file(s):\n%s"\
-                "RA=%g  Dec=%g  Wave=%g $\AA$\n"\
-                "Sky (x,y)=(%g,%g)\n" \
-                "EW=%g  Cont=%g\n" \
-                 "Sigma=%g   Chi2=%g"\
-                 % (e.id, sci_files, e.ra,e.dec,e.w,e.x,e.y,e.eqw,e.cont, e.sigma,e.chi2)
+                "RA,Dec (%g,%g) \n"\
+                "Sky X,Y (%g,%g)\n" \
+                "$\lambda$ = %g $\AA$\n" \
+                "Eqw = %g  Cont = %g\n" \
+                "Sigma = %g  Chi2 = %g"\
+                 % (e.id,self.ymd, self.ifu_slot_id,self.specid,sci_files, e.ra, e.dec, e.x, e.y,e.w,
+                    e.eqw,e.cont, e.sigma,e.chi2)
 
         plt.subplot(gs[0, 0])
         plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
@@ -635,8 +639,6 @@ class HETDEX:
                 buf.seek(0)
                 im = Image.open(buf)
                 plt.imshow(im,interpolation='none')
-
-
 
                 plt.subplot(gs[0,2:])
                 plt.gca().axis('off')
