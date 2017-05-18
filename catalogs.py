@@ -353,6 +353,8 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
     def sort_bid_targets_by_likelihood(self,ra,dec):
         #right now, just by euclidean distance (ra,dec are of target)
+        #todo: if radial separation is greater than the error, remove this bid target?
+        #  remember we are looking in a box (error x error) so radial can be greater than errro (i.e. in a corner)
         self.dataframe_of_bid_targets['distance'] = np.sqrt((self.dataframe_of_bid_targets['RA'] - ra)**2 +
                                                             (self.dataframe_of_bid_targets['DEC'] - dec)**2)
         self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.sort_values(by='distance', ascending=True)

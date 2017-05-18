@@ -162,6 +162,9 @@ def build_pages (ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,t
 
 
 def build_report(pages,report_name):
+    if (pages is None) or (len(pages) == 0):
+        return
+
     print("Finalizing report ...")
     pdf = PdfPages(report_name)
     rows = len(pages)
@@ -242,6 +245,8 @@ def main():
                 #this is the catalog info for the detect
                 pages,count = build_pages(ra, dec, args.error, cats, pages,num_hits=num_hits, idstring=id,
                                           base_count=count,target_w=e.w)
+        else:
+            print("\nNo emission detections meet minimum criteria. Exiting.\n")
     else:
         num_hits = 0
         for c in cats:
@@ -255,12 +260,6 @@ def main():
             exit(0)
 
         pages,_ = build_pages(args.ra, args.dec, args.error, cats, pages, idstring="# 1 of 1")
-
-
-
-
-
-
 
     build_report(pages,args.name)
 
