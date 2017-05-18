@@ -484,10 +484,10 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         font.set_family('monospace')
         font.set_size(14)
 
-        title = section_title + "\nTarget Location\nPossible Matches=%d (within %g\")\nRA = %g    Dec = %g\n" \
-            % (len(self.dataframe_of_bid_targets),error,ra, dec)
+        title = "Catalog: %s\n" %self.Name + section_title + "\nTarget Location\nPossible Matches=%d (within %g\")\n" \
+                "RA = %g    Dec = %g\n" % (len(self.dataframe_of_bid_targets),error,ra, dec)
         if target_w > 0:
-            title = title + "Wavelength = %g (a)\n" % target_w
+            title = title + "Wavelength = %g $\AA$\n" % target_w
         else:
             title = title + "\n"
         plt.subplot(gs[0,0])

@@ -224,7 +224,7 @@ def main():
                     if c.position_in_cat(ra=ra, dec=dec, error=args.error):
                         hits, _, _ = c.build_list_of_bid_targets(ra=ra, dec=dec, error=args.error)
                         num_hits += hits
-                        print("%d hits in %s for Detect ID %d" % (hits, c.name, e.id))
+                        print("%d hits in %s for Detect ID #%d" % (hits, c.name, e.id))
 
             if not confirm(num_hits,args.force):
                 exit(0)
@@ -235,7 +235,7 @@ def main():
             count = 0
             for e in hd.emis_list:
                 section_id += 1
-                id = "#" + str(section_id) + " of " + str(total) + "  (Detect ID#" + str(e.id) + ")"
+                id = "#" + str(section_id) + " of " + str(total) + "  (Detect ID #" + str(e.id) + ")"
                 ra = e.ra
                 dec = e.dec
                 pages = build_hetdex_section(hd,e.id,pages) #this is the fiber, spectra cutouts for this detect

@@ -462,7 +462,7 @@ class HETDEX:
         #todo: expand emission objects with the data needed for cutouts and spectra
         for e in self.emis_list: #yes this right: x + ifuy, y + ifux
             e.ra, e.dec = self.tangentplane.xy2raDec(e.x + self.ifuy, e.y + self.ifux)
-            log.info("Emission Detection #%d RA=%g , Dec=%g" % (e.id,e.ra,e.dec))
+            log.info("Emission Detect ID #%d RA=%g , Dec=%g" % (e.id,e.ra,e.dec))
 
     #end HETDEX::__init__()
 
@@ -571,7 +571,7 @@ class HETDEX:
                         if (e.sigma >= self.sigma) and (e.chi2 <= self.chi2):
                             self.emis_list.append(e)
         except:
-            log.error("Cannot emission line objects.", exc_info=True)
+            log.error("Cannot read emission line objects.", exc_info=True)
 
         return
 
@@ -603,17 +603,25 @@ class HETDEX:
         fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
         plt.gca().axis('off')
         # 2x2 grid (but for sizing, make more fine)
-        gs = gridspec.GridSpec(9, 10)#, wspace=0.25, hspace=0.5)
+        gs = gridspec.GridSpec(1, 3)#, wspace=0.25, hspace=0.5)
 
         font = FontProperties()
         font.set_family('monospace')
         font.set_size(14)
 
-        title = "Emission Line Detection ID #%d\nRA = %g    Dec = %g\nWavelength=%g\n"\
-                 "Sigma=%g   Chi2=%g"\
-                 % (e.id,e.ra, e.dec,e.w, e.sigma,e.chi2)
+        sci_files = ""
+        for s in self.dither.basename:
+            sci_files += "  " + op.basename(s) + "*.fits\n"
 
-        plt.subplot(gs[0:3, 0:3])
+        title = "Emission Line Detect ID #%d\n"\
+                "Science file(s):\n%s"\
+                "RA=%g  Dec=%g  Wave=%g $\AA$\n"\
+                "Sky (x,y)=(%g,%g)\n" \
+                "EW=%g  Cont=%g\n" \
+                 "Sigma=%g   Chi2=%g"\
+                 % (e.id, sci_files, e.ra,e.dec,e.w,e.x,e.y,e.eqw,e.cont, e.sigma,e.chi2)
+
+        plt.subplot(gs[0, 0])
         plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
@@ -621,7 +629,7 @@ class HETDEX:
         datakeep = self.build_hetdex_data_dict(e)
         if datakeep is not None:
             if datakeep['xi']:
-                plt.subplot(gs[3:,0:5])
+                plt.subplot(gs[0,1])
                 plt.gca().axis('off')
                 buf = self.build_2d_image(datakeep)
                 buf.seek(0)
@@ -630,7 +638,7 @@ class HETDEX:
 
 
 
-                plt.subplot(gs[3:,5:])
+                plt.subplot(gs[0,2:])
                 plt.gca().axis('off')
                 buf = self.build_spec_image(datakeep,e.w, dwave=1.0)
                 buf.seek(0)
