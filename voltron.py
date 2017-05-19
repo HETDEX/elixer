@@ -149,11 +149,12 @@ def build_hetdex_section(hetdex, detect_id = 0,pages=None):
     return pages
 
 
-def build_pages (ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,target_w=0):
+def build_pages (ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,target_w=0,fiber_locs=None):
+
     section_title = "Inspection ID: " + idstring
     for c in cats:
         r = c.build_bid_target_reports(ra, dec, error,num_hits=num_hits,section_title=section_title,
-                                       base_count=base_count,target_w=target_w)
+                                       base_count=base_count,target_w=target_w,fiber_locs=fiber_locs)
         if r is not None:
             pages = pages + r
             base_count += len(r)-1 #1st page is the target page
@@ -244,7 +245,7 @@ def main():
                 pages = build_hetdex_section(hd,e.id,pages) #this is the fiber, spectra cutouts for this detect
                 #this is the catalog info for the detect
                 pages,count = build_pages(ra, dec, args.error, cats, pages,num_hits=num_hits, idstring=id,
-                                          base_count=count,target_w=e.w)
+                                          base_count=count,target_w=e.w,fiber_locs=e.fiber_locs)
         else:
             print("\nNo emission detections meet minimum criteria. Exiting.\n")
     else:

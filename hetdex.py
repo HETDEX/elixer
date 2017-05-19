@@ -14,6 +14,7 @@ from astropy.io import fits as pyfits
 from astropy.coordinates import Angle
 from astropy.stats import biweight_midvariance
 from astropy.modeling.models import Moffat2D, Gaussian2D
+from astropy.visualization import ZScaleInterval
 from photutils import CircularAperture, aperture_photometry
 from scipy.ndimage.filters import gaussian_filter
 
@@ -217,6 +218,7 @@ class EmisDet:
         self.ra = None  # calculated value
         self.dec = None  # calculated value
         self.nearest_fiber = None
+        self.fiber_locs = None #built later, tuples of Ra,Dec of fiber centers
 
 
 
@@ -632,25 +634,40 @@ class HETDEX:
 
         datakeep = self.build_hetdex_data_dict(e)
         if datakeep is not None:
+
+            #update emission with the ra, dec of all fibers
+            e.fiber_locs = list(zip(datakeep['ra'],datakeep['dec']))
+
             if datakeep['xi']:
                 plt.subplot(gs[0,1])
                 plt.gca().axis('off')
                 buf = self.build_2d_image(datakeep)
                 buf.seek(0)
                 im = Image.open(buf)
-                plt.imshow(im,interpolation='none')
+                plt.imshow(im,interpolation='none') #needs to be 'none' else get blurring
 
                 plt.subplot(gs[0,2:])
                 plt.gca().axis('off')
                 buf = self.build_spec_image(datakeep,e.w, dwave=1.0)
                 buf.seek(0)
                 im = Image.open(buf)
-                plt.imshow(im,interpolation='none')
+                plt.imshow(im,interpolation='none')#needs to be 'none' else get blurring
 
         plt.close()
         pages.append(fig)
         return pages
 
+    def get_vrange(self,vals):
+        vmin = None
+        vmax = None
+
+        try:
+            zscale = ZScaleInterval(contrast=0.25,krej=2.5) #nsamples=len(vals)
+            vmin,vmax = zscale.get_limits(values=vals )
+        except:
+            log.info("Exception in science_image::get_vrange:",exc_info =True)
+
+        return vmin, vmax
 
     def clean_data_dict(self,datadict=None):
         if datadict is not None:
@@ -747,10 +764,13 @@ class HETDEX:
                         z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast1
                         z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast1
 
+                        #z1,z2 = self.get_vrange(sci.data[yl:yh,xl:xh])
                         datakeep['vmin1'].append(z1)
                         datakeep['vmax1'].append(z2)
+
                         z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast2
                         z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast2
+
                         datakeep['vmin2'].append(z1)
                         datakeep['vmax2'].append(z2)
 
@@ -799,10 +819,10 @@ class HETDEX:
                      reverse=True)
         for i in range(num):
             borplot = plt.axes([borderxl + 0. * dx, borderyb + i * dy, 3 * dx, dy])
-            implot = plt.axes([borderxl + 2. * dx - bordbuff / 3., borderyb + i * dy + bordbuff / 2., dx1, dy1])
+            smplot = plt.axes([borderxl + 2. * dx - bordbuff / 3., borderyb + i * dy + bordbuff / 2., dx1, dy1])
             errplot = plt.axes(
                 [borderxl + 1. * dx + 1 * bordbuff / 3., borderyb + i * dy + bordbuff / 2., dx1, dy1])
-            cosplot = plt.axes([borderxl + 0. * dx + bordbuff / 2., borderyb + i * dy + bordbuff / 2., dx1, dy1])
+            imgplot = plt.axes([borderxl + 0. * dx + bordbuff / 2., borderyb + i * dy + bordbuff / 2., dx1, dy1])
             autoAxis = borplot.axis()
             rec = plt.Rectangle((autoAxis[0] + bordbuff / 2., autoAxis[2] + bordbuff / 2.),
                                 (autoAxis[1] - autoAxis[0]) * (1. - bordbuff),
@@ -815,23 +835,25 @@ class HETDEX:
             ext = list(np.hstack([datakeep['xl'][ind[i]], datakeep['xh'][ind[i]],
                                   datakeep['yl'][ind[i]], datakeep['yh'][ind[i]]]))
             GF = gaussian_filter(datakeep['im'][ind[i]], (2, 1))
-            implot.imshow(GF,
+            smplot.imshow(GF,
                           origin="lower", cmap=cmap,
-                          interpolation="nearest", vmin=datakeep['vmin1'][ind[i]],
+                          interpolation="none", vmin=datakeep['vmin1'][ind[i]],
                           vmax=datakeep['vmax1'][ind[i]],
                           extent=ext)
-            implot.scatter(datakeep['xi'][ind[i]], datakeep['yi'][ind[i]],
-                           marker='.', c='r', edgecolor='r', s=10)
-            implot.set_xticks([])
-            implot.set_yticks([])
-            implot.axis(ext)
-            implot.axis('off')
+            #smplot.scatter(datakeep['xi'][ind[i]], datakeep['yi'][ind[i]],
+            #               marker='.', c='g', edgecolor='g', s=10)
+            smplot.set_xticks([])
+            smplot.set_yticks([])
+            smplot.axis(ext)
+            smplot.axis('off')
+
+
             errplot.imshow(datakeep['pix'][ind[i]],
                            origin="lower", cmap=plt.get_cmap('gray'),
-                           interpolation="nearest", vmin=0.9, vmax=1.1,
+                           interpolation="none", vmin=0.9, vmax=1.1,
                            extent=ext)
-            errplot.scatter(datakeep['xi'][ind[i]], datakeep['yi'][ind[i]],
-                            marker='.', c='r', edgecolor='r', s=10)
+            #errplot.scatter(datakeep['xi'][ind[i]], datakeep['yi'][ind[i]],
+            #                marker='.', c='r', edgecolor='r', s=10)
             errplot.set_xticks([])
             errplot.set_yticks([])
             errplot.axis(ext)
@@ -842,17 +864,17 @@ class HETDEX:
             a = np.ma.masked_where(a == 0, a)
             cmap1 = cmap
             cmap1.set_bad(color=[0.2, 1.0, 0.23])
-            cosplot.imshow(a,
+            imgplot.imshow(a,
                            origin="lower", cmap=cmap1,
-                           interpolation="nearest", vmin=datakeep['vmin2'][ind[i]],
+                           interpolation="none", vmin=datakeep['vmin2'][ind[i]],
                            vmax=datakeep['vmax2'][ind[i]],
                            extent=ext)
-            cosplot.scatter(datakeep['xi'][ind[i]], datakeep['yi'][ind[i]],
-                            marker='.', c='r', edgecolor='r', s=10)
-            cosplot.set_xticks([])
-            cosplot.set_yticks([])
-            cosplot.axis(ext)
-            cosplot.axis('off')
+            #imgplot.scatter(datakeep['xi'][ind[i]], datakeep['yi'][ind[i]],
+            #                marker='.', c='b', edgecolor='b', s=10)
+            imgplot.set_xticks([])
+            imgplot.set_yticks([])
+            imgplot.axis(ext)
+            imgplot.axis('off')
 
             xi = datakeep['xi'][ind[i]]
             yi = datakeep['yi'][ind[i]]
@@ -865,35 +887,36 @@ class HETDEX:
                                  datakeep['err'][ind[i]][yl:yh, xl:xh] ** 2).sum())
             sn = S / N
 
-            implot.text(0.9, .75, num - i,
-                        transform=implot.transAxes, fontsize=6, color=colors[i, 0:3],
+            imgplot.text(-0.2, .5, num - i,
+                        transform=imgplot.transAxes, fontsize=6, color='k', #colors[i, 0:3],
                         verticalalignment='bottom', horizontalalignment='left')
 
-            implot.text(1.10, .75, 'S/N = %0.2f' % (sn),
-                        transform=implot.transAxes, fontsize=6, color='r',
+            smplot.text(1.10, .75, 'S/N = %0.2f' % (sn),
+                        transform=smplot.transAxes, fontsize=6, color='r',
                         verticalalignment='bottom', horizontalalignment='left')
-            implot.text(1.10, .55, 'D(") = %0.2f' % (datakeep['d'][ind[i]]),
-                        transform=implot.transAxes, fontsize=6, color='r',
+            smplot.text(1.10, .55, 'D(") = %0.2f' % (datakeep['d'][ind[i]]),
+                        transform=smplot.transAxes, fontsize=6, color='r',
                         verticalalignment='bottom', horizontalalignment='left')
-            implot.text(1.10, .35, 'X,Y = %d,%d' % (datakeep['xi'][ind[i]], datakeep['yi'][ind[i]]),
-                        transform=implot.transAxes, fontsize=6, color='b',
+            smplot.text(1.10, .35, 'X,Y = %d,%d' % (datakeep['xi'][ind[i]], datakeep['yi'][ind[i]]),
+                        transform=smplot.transAxes, fontsize=6, color='b',
                         verticalalignment='bottom', horizontalalignment='left')
-            implot.text(1.10, .15, 'D,S,F = %d,%s,%d' % (datakeep['dit'][ind[i]], datakeep['side'][ind[i]],
+            smplot.text(1.10, .15, 'D,S,F = %d,%s,%d' % (datakeep['dit'][ind[i]], datakeep['side'][ind[i]],
                                                          datakeep['fib'][ind[i]]),
-                        transform=implot.transAxes, fontsize=6, color='b',
+                        transform=smplot.transAxes, fontsize=6, color='b',
                         verticalalignment='bottom', horizontalalignment='left')
-            if i == (N - 1):
-                implot.text(0.5, .85, 'Image',
-                            transform=implot.transAxes, fontsize=8, color='b',
-                            verticalalignment='bottom', horizontalalignment='center')
-                errplot.text(0.5, .85, 'Error',
-                             transform=errplot.transAxes, fontsize=8, color='b',
-                             verticalalignment='bottom', horizontalalignment='center')
-                cosplot.text(0.5, .85, 'Mask',
-                             transform=cosplot.transAxes, fontsize=8, color='b',
-                             verticalalignment='bottom', horizontalalignment='center')
+            if i == (num - 1):
+                smplot.text(0.5, 1.3, 'Smoothed',
+                            transform=smplot.transAxes, fontsize=8, color='k',
+                            verticalalignment='top', horizontalalignment='center')
+                errplot.text(0.5, 1.3, 'Error',
+                             transform=errplot.transAxes, fontsize=8, color='k',
+                             verticalalignment='top', horizontalalignment='center')
+                imgplot.text(0.5, 1.3, 'Image',
+                             transform=imgplot.transAxes, fontsize=8, color='k',
+                             verticalalignment='top', horizontalalignment='center')
 
         buf = io.BytesIO()
+       # plt.tight_layout()#pad=0.1, w_pad=0.5, h_pad=1.0)
         plt.savefig(buf, format='png', dpi=300)
 
         plt.close(fig)

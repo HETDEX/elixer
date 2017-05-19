@@ -409,11 +409,10 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
 
 
-
-
     #todo: refactor and move most of this to the base class
     #column names are catalog specific, but could map catalog specific names to generic ones and produce a dictionary?
-    def build_bid_target_reports(self,target_ra, target_dec, error, num_hits=0,section_title="",base_count=0,target_w=0):
+    def build_bid_target_reports(self,target_ra, target_dec, error, num_hits=0,section_title="",base_count=0,
+                                 target_w=0,fiber_locs=None):
 
         self.clear_pages()
         self.build_list_of_bid_targets(target_ra,target_dec,error)
@@ -423,7 +422,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
         #display the exact (target) location
         entry = self.build_exact_target_location_figure(target_ra,target_dec,error,section_title=section_title,
-                                                        target_w=target_w)
+                                                        target_w=target_w,fiber_locs=fiber_locs)
 
         if entry is not None:
             self.add_bid_entry(entry)
@@ -463,7 +462,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
 
 
-    def build_exact_target_location_figure(self, ra, dec, error,section_title="",target_w=0):
+    def build_exact_target_location_figure(self, ra, dec, error,section_title="",target_w=0,fiber_locs=None):
         '''Builds the figure (page) the exact target location. Contains just the filter images ...
         
         Returns the matplotlib figure. Due to limitations of matplotlib pdf generation, each figure = 1 page'''
@@ -471,6 +470,11 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         # note: error is essentially a radius, but this is done as a box, with the 0,0 position in lower-left
         #not the middle, so need the total length of each side to be twice translated error or 2*2*errorS
         window = error*4
+
+        #set a minimum window size?
+        #if window < 8:
+        #    window = 8
+
         rows = 2
         cols = len(self.CatalogImages)
 
@@ -519,7 +523,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                     self.master_cutout.data = np.add(self.master_cutout.data, cutout.data)
 
                 plt.subplot(gs[rows-1, index])
-                plt.imshow(cutout.data, origin='lower', interpolation='nearest', cmap=plt.get_cmap('gray_r'),
+                plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                            vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
                 plt.title(i['instrument'] + " " + i['filter'])
 
@@ -530,12 +534,56 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         #plot the master cutout
         plt.subplot( gs[0, cols-1])
         vmin,vmax = science_image.science_image().get_vrange(self.master_cutout.data)
-        plt.imshow(self.master_cutout.data, origin='lower', interpolation='nearest', cmap=plt.get_cmap('gray_r'),
+        plt.imshow(self.master_cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                    vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
         plt.title("Master Cutout -- Stacked")
         plt.plot(0,0, "r+")
         plt.gca().add_patch(plt.Rectangle( (-error,-error), width=error*2, height=error*2,
                 angle=0.0, color='red', fill=False ))
+
+
+        # plot the fiber cutout
+
+        if (fiber_locs is not None) and (len(fiber_locs) > 0):
+            norm = plt.Normalize()
+            colors = plt.cm.hsv(norm(np.arange(len(fiber_locs) + 2)))
+
+            plt.subplot(gs[0, cols - 2])
+
+            plt.title("Fiber Positions")
+            plt.plot(0, 0, "r+")
+
+            xmin = float('inf')
+            xmax = float('-inf')
+            ymin = float('inf')
+            ymax = float('-inf')
+
+            x, y = sci.get_position(ra, dec, self.master_cutout) #zero position
+            plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
+                                              angle=0.0, color='red', fill=False))
+
+            i = -1
+            for r,d in fiber_locs:
+                i += 1
+                px, py = sci.get_position(r, d, self.master_cutout)
+
+                xmin = min(xmin,px-x)
+                xmax = max(xmax,px-x)
+                ymin = min(ymin,py-y)
+                ymax = max(ymax,py-y)
+
+                plt.gca().add_patch(plt.Circle(((px-x), (py-y)), radius=G.Fiber_Radius, color=colors[i,0:3], fill=False))
+
+
+            ext = max(abs(-xmin-2*G.Fiber_Radius),abs(xmax+2*G.Fiber_Radius),
+                      abs(-ymin-2*G.Fiber_Radius),abs(ymax+2*G.Fiber_Radius),2.0)
+
+            #need a new cutout since we rescalled the ext (and window) size
+            cutout = sci.get_cutout(ra, dec, error, window=ext*2)
+            vmin, vmax = science_image.science_image().get_vrange(cutout.data)
+
+            plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
+                   vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
 
         # complete the entry
         plt.close()
@@ -638,14 +686,16 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             if cutout is not None:
                 plt.subplot(gs[1, index])
 
-                plt.imshow(cutout.data, origin='lower', interpolation='nearest', cmap=plt.get_cmap('gray_r'),
+                plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                            vmin=sci.vmin, vmax=sci.vmax, extent= [-ext,ext,-ext,ext])
                 plt.title(i['instrument']+" "+i['filter'])
 
                 #add (+) to mark location of Target RA,DEC
+                #we are centered on ra,dec and target_ra, target_dec belong to the HETDEX detect
                 if cutout and (target_ra is not None) and (target_dec is not None):
-                    px, py = sci.get_pixel_position(target_ra, target_dec, cutout)
-                    x,y = sci.get_pixel_position(ra, dec, cutout)
+                    px, py = sci.get_position(target_ra, target_dec, cutout)
+                    x,y = sci.get_position(ra, dec, cutout)
+
                     plt.plot((px-x),(py-y),"r+")
 
                     plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2., height=error * 2.,
@@ -695,15 +745,15 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             ext = error*2.
             plt.subplot(gs[0, cols - 1])
             vmin, vmax = science_image.science_image().get_vrange(self.master_cutout.data)
-            plt.imshow(self.master_cutout.data, origin='lower', interpolation='nearest',
+            plt.imshow(self.master_cutout.data, origin='lower', interpolation='none',
                        cmap=plt.get_cmap('gray_r'),
                        vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
             plt.title("Master Cutout -- Stacked")
 
             #mark the bid target location on the master cutout
             if  (target_ra is not None) and (target_dec is not None):
-                px, py = sci.get_pixel_position(target_ra, target_dec, self.master_cutout)
-                x, y   = sci.get_pixel_position(ra, dec, self.master_cutout)
+                px, py = sci.get_position(target_ra, target_dec, self.master_cutout)
+                x, y   = sci.get_position(ra, dec, self.master_cutout)
                 plt.plot(0, 0, "r+")
 
                 #set the diameter of the cirle to half the error (radius error/4)

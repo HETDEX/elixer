@@ -82,6 +82,7 @@ class science_image():
 
         try:
             self.pixel_size = np.sqrt(self.wcs.wcs.cd[0, 0] ** 2 + self.wcs.wcs.cd[0, 1] ** 2) * 3600.0  # arcsec/pixel
+            log.debug("Pixel Size = %g asec/pixel" %self.pixel_size)
         except:
             log.error("Unable to build pixel size", exc_info=True)
 
@@ -104,6 +105,8 @@ class science_image():
             return False
         return True
 
+    def calc_pixel_size(self,wcs):
+        return np.sqrt(self.wcs.wcs.cd[0, 0] ** 2 + self.wcs.wcs.cd[0, 1] ** 2) * 3600.0
 
     def get_vrange(self,vals):
         self.vmin = None
@@ -148,7 +151,9 @@ class science_image():
 
         return cutout
 
-    def get_pixel_position(self,ra,dec,cutout):
+    def get_position(self,ra,dec,cutout):
+        #this is not strictly a pixel x and y but is a meta position based on the wcs
+        #remember pixel (0,0) is not necessarily x=0,y=0 from this call
         x,y = None,None
         try:
             position = SkyCoord(ra, dec, unit="deg", frame='fk5')
@@ -156,7 +161,7 @@ class science_image():
             x = x*self.pixel_size
             y = y*self.pixel_size
         except:
-            log.info("Exception in science_image:get_pixel_position:", exc_info=True)
+            log.info("Exception in science_image:get_position:", exc_info=True)
 
         return x,y
 
