@@ -189,31 +189,75 @@ class Dither():
 
 
 
-class EmisDet:
-    '''mostly a container for an emission line detection from detect_line.dat file'''
+class DetObj:
+    '''mostly a container for an emission line or continuum detection from detect_line.dat or detect_cont.dat file'''
     #  0    1   2   3   4   5   6           7       8        9     10    11    12     13      14      15  16
     #  NR  ID   XS  XS  l   z   dataflux    modflux fluxfrac sigma chi2  chi2s chi2w  gammq   gammq_s eqw cont
 
-    # todo: expand emission objects with the data needed for cutouts and spectra
+    #cont
+    # 0    1  2     3       4       5  6   7   8     9  10    11   12  13   14   15   16
+    # ID  icx icy  <sigma> fwhm_xy  a  b   pa  ir1  ka  kb   xmin xmax ymin ymax zmin zmax
 
-    def __init__(self,tokens):
+
+    def __init__(self,tokens,emission=True):
         #skip NR (0)
-        self.id = int(tokens[1])
-        self.x = float(tokens[2])
-        self.y = float(tokens[3])
-        self.w = float(tokens[4])
-        self.la_z = float(tokens[5])
-        self.dataflux = float(tokens[6])
-        self.modflux = float(tokens[7])
-        self.fluxfrac = float(tokens[8])
-        self.sigma = float(tokens[9])
-        self.chi2 = float(tokens[10])
-        self.chi2s = float(tokens[11])
-        self.chi2w = float(tokens[12])
-        self.gammq = float(tokens[13])
-        self.gammq_s = float(tokens[14])
-        self.eqw = float(tokens[15])
-        self.cont = float(tokens[16])
+        self.type = 'unk'
+        self.id = None
+        self.x = None
+        self.y = None
+        self.w = 0.0
+        self.la_z = 0.0
+        self.dataflux = 0.0
+        self.modflux = 0.0
+        self.fluxfrac = 0.0
+        self.sigma = 0.0
+        self.chi2 = 0.0
+        self.chi2s = 0.0
+        self.chi2w = 0.0
+        self.gammq = 0.0
+        self.gammq_s = 0.0
+        self.eqw = 0.0
+        self.cont = -9999
+
+        if emission:
+            self.type = 'emis'
+            self.id = int(tokens[1])
+            self.x = float(tokens[2])
+            self.y = float(tokens[3])
+            self.w = float(tokens[4])
+            self.la_z = float(tokens[5])
+            self.dataflux = float(tokens[6])
+            self.modflux = float(tokens[7])
+            self.fluxfrac = float(tokens[8])
+            self.sigma = float(tokens[9])
+            self.chi2 = float(tokens[10])
+            self.chi2s = float(tokens[11])
+            self.chi2w = float(tokens[12])
+            self.gammq = float(tokens[13])
+            self.gammq_s = float(tokens[14])
+            self.eqw = float(tokens[15])
+            self.cont = float(tokens[16])
+        else:
+            self.type = 'cont'
+            self.id = int(tokens[0])
+            self.x = float(tokens[1])
+            self.y = float(tokens[2])
+            self.sigma = float(tokens[3])
+            self.fwhm = float(tokens[4])
+            self.a = float(tokens[5])
+            self.b = float(tokens[6])
+            self.pa = float(tokens[7])
+            self.ir1 = float(tokens[8])
+            self.ka = float(tokens[9])
+            self.kb = float(tokens[10])
+            self.xmin = float(tokens[11])
+            self.xmax = float(tokens[12])
+            self.ymin = float(tokens[13])
+            self.ymax = float(tokens[14])
+            self.zmin = float(tokens[15])
+            self.zmax = float(tokens[16])
+
+
 
         self.ra = None  # calculated value
         self.dec = None  # calculated value
@@ -461,7 +505,6 @@ class HETDEX:
         self.ifux = self.fplane.by_ifuslot(self.ifu_slot_id).x
         self.ifuy = self.fplane.by_ifuslot(self.ifu_slot_id).y
 
-        #todo: expand emission objects with the data needed for cutouts and spectra
         for e in self.emis_list: #yes this right: x + ifuy, y + ifux
             e.ra, e.dec = self.tangentplane.xy2raDec(e.x + self.ifuy, e.y + self.ifux)
             log.info("Emission Detect ID #%d RA=%g , Dec=%g" % (e.id,e.ra,e.dec))
@@ -556,6 +599,35 @@ class HETDEX:
 
 
     def read_detectline(self):
+        #emission line or continuum line
+        #todo: determine which (should be more robust)
+
+        if '_cont.dat' in self.detectline_fn:
+            self.read_contline()
+        else:
+            self.read_emisline()
+
+
+    def read_contline(self):
+        # open and read file, line at a time. Build up list of continuum objects
+        #this is a "cheat" use emis_list for emissions or continuum detections
+        if len(self.emis_list) > 0:
+            del self.emis_list[:]
+        try:
+            with open(self.detectline_fn, 'r') as f:
+                f = ft.skip_comments(f)
+                for l in f:
+                    toks = l.split()
+                    e = DetObj(toks,emission=False)
+                    if self.emis_det_id is not None:
+                        if str(e.id) in self.emis_det_id:
+                            self.emis_list.append(e)
+                    else:
+                        self.emis_list.append(e)
+        except:
+            log.error("Cannot read continuum objects.", exc_info=True)
+
+    def read_emisline(self):
         #open and read file, line at a time. Build up list of emission line objects
 
         if len(self.emis_list) > 0:
@@ -565,7 +637,7 @@ class HETDEX:
                 f = ft.skip_comments(f)
                 for l in f:
                     toks = l.split()
-                    e = EmisDet(toks)
+                    e = DetObj(toks,emission=True)
                     if self.emis_det_id is not None:
                         if str(e.id) in self.emis_det_id:
                             self.emis_list.append(e)
@@ -616,7 +688,13 @@ class HETDEX:
         for s in self.dither.basename:
             sci_files += "  " + op.basename(s) + "*.fits\n"
 
-        title = "Emission Line Detect ID #%d\n"\
+        title = ""
+        if e.type == 'emis':
+            title += "Emission Line Detect ID #"
+        else:
+            title += "Continuum Detect ID#"
+
+        title +="%d\n"\
                 "ObsDate %s  IFU %s  CAM %s\n" \
                 "Science file(s):\n%s"\
                 "RA,Dec (%g,%g) \n"\
@@ -705,6 +783,9 @@ class HETDEX:
 
 
     def build_hetdex_data_dict(self,e):#e is the emission detection to use
+        if e.type != 'emis':
+            return None
+
         #basically cloned from Greg Z. make_visualization_detect.py; adjusted a bit for this code base
         datakeep = self.clean_data_dict()
 
