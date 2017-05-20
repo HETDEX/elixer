@@ -442,9 +442,9 @@ class HETDEX:
         self.fplane = None
 
 
-        self.rot = None
-        self.ifux = None
-        self.ifuy = None
+        self.rot = None #calculated from PARANGLE in FITS header
+        self.ifux = None #offset (in arcsecs) to the (0",0") position of IFU (read from fplane file)
+        self.ifuy = None #offset (in arcsecs) to the (0",0") position of IFU (read from fplane file)
         self.tangentplane = None
 
         #not sure will need these ... right now looking at only one IFU
@@ -501,13 +501,17 @@ class HETDEX:
         #remember, we are only using a single IFU per call, so all emissions belong to the same IFU
 
         #if ra and dec were passed in, use them instead of tel_ra and tel_dec
+
+        #note: rot = 360-(90 + 1.8 + PARANGLE) so, PARANGLE = 360 -(90+1.8+rot)
+        #the 1.8 constant is under some investigation (have also seen 1.3)
+
         if (args.ra is not None) and (args.dec is not None) and (args.rot is not None):
-            self.tangentplane = TP(args.ra, args.dec, args.rot) #360. - (90 + 1.3 + args.rot))
+            self.tangentplane = TP(args.ra, args.dec, args.rot)
             log.debug("Calculating object RA, DEC from commandline RA=%g , DEC=%g , ROT=%g" \
                       % (args.ra, args.dec, args.rot))
         else:
             self.rot = 360. - (90. + 1.8 + self.parangle)
-            self.tangentplane = TP(self.tel_ra, self.tel_dec, self.rot) # 360. - (90 + 1.3 + self.rot))
+            self.tangentplane = TP(self.tel_ra, self.tel_dec, self.rot)
             log.debug("Calculating object RA, DEC from: TELRA=%g , TELDEC=%g , PARANGLE=%g , ROT=%g" \
                   % (self.tel_ra, self.tel_dec, self.parangle, self.rot))
 
