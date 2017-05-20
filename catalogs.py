@@ -531,6 +531,12 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                                                   angle=0.0, color='red', fill=False))
 
 
+        if self.master_cutout is None:
+            #cannot continue
+            print("No catalog image available in %s" %self.Name)
+            return None
+
+
         #plot the master cutout
         plt.subplot( gs[0, cols-1])
         vmin,vmax = science_image.science_image().get_vrange(self.master_cutout.data)

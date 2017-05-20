@@ -499,8 +499,18 @@ class HETDEX:
 
         #calculate the RA and DEC of each emission line object
         #remember, we are only using a single IFU per call, so all emissions belong to the same IFU
-        self.rot = 360 - (90+1.8+self.parangle)
-        self.tangentplane = TP(self.tel_ra, self.tel_dec, 360. - (90 + 1.3 + self.rot))
+
+        #if ra and dec were passed in, use them instead of tel_ra and tel_dec
+        if (args.ra is not None) and (args.dec is not None) and (args.rot is not None):
+            self.tangentplane = TP(args.ra, args.dec, args.rot) #360. - (90 + 1.3 + args.rot))
+            log.debug("Calculating object RA, DEC from commandline RA=%g , DEC=%g , ROT=%g" \
+                      % (args.ra, args.dec, args.rot))
+        else:
+            self.rot = 360. - (90. + 1.8 + self.parangle)
+            self.tangentplane = TP(self.tel_ra, self.tel_dec, self.rot) # 360. - (90 + 1.3 + self.rot))
+            log.debug("Calculating object RA, DEC from: TELRA=%g , TELDEC=%g , PARANGLE=%g , ROT=%g" \
+                  % (self.tel_ra, self.tel_dec, self.parangle, self.rot))
+
         #wants the slot id as a 0 padded string ie. '073' instead of the int (73)
         self.ifux = self.fplane.by_ifuslot(self.ifu_slot_id).x
         self.ifuy = self.fplane.by_ifuslot(self.ifu_slot_id).y

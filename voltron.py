@@ -39,6 +39,7 @@ def parse_commandline():
     # todo: change to optional when dither is supported
     parser.add_argument('-d', '--dec', help='Target Dec (as decimal degrees or d:m:s.as (end with \'d\') '
                                             'Examples: --dec 52.921167    or  --dec 52:55:16.20d', required=False)
+    parser.add_argument('--rot',help="Rotation (as decimal degrees)",required=False,type=float)
     parser.add_argument('-e', '--error', help="Error (+/-) in RA and Dec in arcsecs.", required=True, type=float)
     parser.add_argument('-n','--name', help="PDF report filename",required=True)
 
@@ -121,6 +122,9 @@ def valid_parameters(args):
 
             return True
     else: #chi2 and sigma have default values, so don't use here
+
+        return True
+
         if (args.dither is None) and (args.line is None) and (args.id is None):# and (args.chi2 is None) and (args.sigma is None)
             return True
         else:
