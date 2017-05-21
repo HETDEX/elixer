@@ -15,7 +15,6 @@
 
 import global_config
 import numpy as np
-from astropy.stats import biweight_midvariance, biweight_location
 from astropy.visualization import ZScaleInterval
 import astropy.io.fits as fits
 from astropy.coordinates import SkyCoord
@@ -23,8 +22,6 @@ from astropy.coordinates import match_coordinates_sky
 from astropy.nddata import Cutout2D
 from astropy.wcs import WCS
 from astropy.wcs.utils import skycoord_to_pixel
-from astropy import units as u
-import math
 
 
 log = global_config.logging.getLogger('sciimg_logger')
@@ -81,7 +78,7 @@ class science_image():
                 self.build_wcs_manually()
 
         try:
-            self.pixel_size = np.sqrt(self.wcs.wcs.cd[0, 0] ** 2 + self.wcs.wcs.cd[0, 1] ** 2) * 3600.0  # arcsec/pixel
+            self.pixel_size = self.calc_pixel_size(self.wcs)#np.sqrt(self.wcs.wcs.cd[0, 0] ** 2 + self.wcs.wcs.cd[0, 1] ** 2) * 3600.0  # arcsec/pixel
             log.debug("Pixel Size = %g asec/pixel" %self.pixel_size)
         except:
             log.error("Unable to build pixel size", exc_info=True)
@@ -99,14 +96,15 @@ class science_image():
 
     def contains_position(self,ra,dec):
         try:
-            cutout = Cutout2D(self.fits[0].data, SkyCoord(ra, dec, unit="deg", frame='fk5'), (1, 1), wcs=self.wcs, copy=True)
+            cutout = Cutout2D(self.fits[0].data, SkyCoord(ra, dec, unit="deg", frame='fk5'), (1, 1),
+                              wcs=self.wcs, copy=True)
         except:
-            log.debug("position (%f, %f) is not in image." % (ra,dec), exc_info=True)
+            log.debug("position (%f, %f) is not in image." % (ra,dec), exc_info=False)
             return False
         return True
 
     def calc_pixel_size(self,wcs):
-        return np.sqrt(self.wcs.wcs.cd[0, 0] ** 2 + self.wcs.wcs.cd[0, 1] ** 2) * 3600.0
+        return np.sqrt(wcs.wcs.cd[0, 0] ** 2 + wcs.wcs.cd[0, 1] ** 2) * 3600.0
 
     def get_vrange(self,vals):
         self.vmin = None
@@ -120,11 +118,11 @@ class science_image():
 
         return self.vmin,self.vmax
 
-    def get_cutout(self,ra,dec,error,window=None):
+    def get_cutout(self,ra,dec,error,window=None,image=None):
         '''ra,dec in decimal degrees. error and window in arcsecs'''
         #error is central box (+/- from ra,dec)
         #window is the size of the entire coutout
-        #return a new science_image
+        #return a cutout
 
         self.window = None
         if (error is None or error == 0) and (window is None or window == 0):
@@ -136,14 +134,29 @@ class science_image():
 
         self.window = window
 
-        if not (self.contains_position(ra,dec)):
-            log.info("science image does not contain requested position: RA=%f , Dec=%f" %(ra,dec))
-            return None
+        data = None
+        pix_size = None
+        wcs = None
+        if image is None:
+            if self.fits is not None:
+                data = self.fits[0].data
+                pix_size = self.pixel_size
+                wcs = self.wcs
+                if not (self.contains_position(ra,dec)):
+                    log.info("science image does not contain requested position: RA=%f , Dec=%f" %(ra,dec))
+                    return None
+            else:
+                log.error("No fits or passed image from which to make cutout.")
+                return None
+        else:
+            data = image.data
+            pix_size = self.calc_pixel_size(image.wcs)
+            wcs = image.wcs
 
         try:
             position = SkyCoord(ra, dec, unit="deg", frame='fk5')
-            pix_window = window / self.pixel_size  # now in pixels
-            cutout = Cutout2D(self.fits[0].data, position, (pix_window, pix_window), wcs=self.wcs,copy=True)
+            pix_window = window / pix_size  # now in pixels
+            cutout = Cutout2D(data, position, (pix_window, pix_window), wcs=wcs,copy=True)
             self.get_vrange(cutout.data)
         except:
             log.info("Exception in science_image::get_cutout:", exc_info=True)
@@ -156,10 +169,11 @@ class science_image():
         #remember pixel (0,0) is not necessarily x=0,y=0 from this call
         x,y = None,None
         try:
+            pix_size = self.calc_pixel_size(cutout.wcs)
             position = SkyCoord(ra, dec, unit="deg", frame='fk5')
             x,y = skycoord_to_pixel(position, wcs=cutout.wcs)
-            x = x*self.pixel_size
-            y = y*self.pixel_size
+            x = x*pix_size
+            y = y*pix_size
         except:
             log.info("Exception in science_image:get_position:", exc_info=True)
 

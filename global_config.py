@@ -1,5 +1,6 @@
 from __future__ import print_function
 import logging
+import gc
 
 #catalogs are defined at top of catalogs.py
 

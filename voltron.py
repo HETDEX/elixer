@@ -2,12 +2,11 @@ from __future__ import print_function
 import catalogs
 import argparse
 import hetdex
-import global_config
+import global_config as G
 from astropy.coordinates import Angle
 from matplotlib.backends.backend_pdf import PdfPages
 from distutils.version import LooseVersion
 import sys
-
 VERSION = sys.version.split()[0]
 
 
@@ -19,27 +18,21 @@ def get_input(prompt):
     return i
 
 
-
-#todo: alternate use: provide dither file, detect_line.dat file and specify sigma and chi2 limits or a
-#todo: list of detect IDs for which to run a catalog match. Would then not need an explicit RA/DEC, but
-#todo: would still need an error
-
 def parse_commandline():
-    desc = "Search multiple catalogs for possible object(s) at specified coordinates."
+    desc = "Search multiple catalogs for possible object matches.\n\nNote: if (--ra), (--dec), (--rot) supplied in " \
+           "addition to (--dither),(--line), the supplied RA, Dec, and rotation will be used instead of the " \
+           "TELERA, TELEDEC, and PARANGLE from the science FITS files."
 
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument('-f', '--force', help='Do not prompt for confirmation.', required=False,
                         action='store_true', default=False)
-
-    #todo: change to optional when dither is supported
-    parser.add_argument('-r', '--ra', help='Target RA as decimal degrees or h:m:s.as (end with \'h\')'
+    parser.add_argument('--ra', help='Target RA as decimal degrees or h:m:s.as (end with \'h\')'
                                            'or d:m:s.as (end with \'d\') '
                                            'Examples: --ra 214.963542  or --ra 14:19:51.250h or --ra 214:57:48.7512d'
                                             , required=False)
-    # todo: change to optional when dither is supported
-    parser.add_argument('-d', '--dec', help='Target Dec (as decimal degrees or d:m:s.as (end with \'d\') '
+    parser.add_argument('--dec', help='Target Dec (as decimal degrees or d:m:s.as (end with \'d\') '
                                             'Examples: --dec 52.921167    or  --dec 52:55:16.20d', required=False)
-    parser.add_argument('--rot',help="Rotation (as decimal degrees)",required=False,type=float)
+    parser.add_argument('--rot',help="Rotation (as decimal degrees). NOT THE PARANGLE.",required=False,type=float)
     parser.add_argument('-e', '--error', help="Error (+/-) in RA and Dec in arcsecs.", required=True, type=float)
     parser.add_argument('-n','--name', help="PDF report filename",required=True)
 
@@ -125,17 +118,12 @@ def valid_parameters(args):
 
         return True
 
-        if (args.dither is None) and (args.line is None) and (args.id is None):# and (args.chi2 is None) and (args.sigma is None)
-            return True
-        else:
-            print("Confusing parameters. Pass either (--ra and --dec) or detect parameters (--dither, --line, --id, "
-                  "--sigma, --chi2)")
-            return False
-
-        #we have an  RA and Dec
-    #error is already checked as required by argsparse
-
-
+        #if (args.dither is None) and (args.line is None) and (args.id is None):# and (args.chi2 is None) and (args.sigma is None)
+        #    return True
+        #else:
+        #    print("Confusing parameters. Pass either (--ra and --dec) or detect parameters (--dither, --line, --id, "
+        #          "--sigma, --chi2)")
+        #    return False
 
 
 def build_hd(args):
@@ -145,7 +133,7 @@ def build_hd(args):
 
     return False
 
-# todo: create page(s) for HETDEX data (2D cutouts, 1D spectra, etc)
+
 def build_hetdex_section(hetdex, detect_id = 0,pages=None):
     #detection ids are unique (for the single detect_line.dat file we are using)
     pages = hetdex.build_hetdex_data_page(pages,detect_id)
@@ -201,7 +189,8 @@ def confirm(hits,force):
     return True
 
 def main():
-
+    G.gc.enable()
+    #G.gc.set_debug(G.gc.DEBUG_LEAK)
     args = parse_commandline()
 
     cats = catalogs.get_catalog_list()
@@ -250,6 +239,7 @@ def main():
                 #this is the catalog info for the detect
                 pages,count = build_pages(ra, dec, args.error, cats, pages,num_hits=num_hits, idstring=id,
                                           base_count=count,target_w=e.w,fiber_locs=e.fiber_locs)
+                G.gc.collect()
         else:
             print("\nNo emission detections meet minimum criteria. Exiting.\n")
     else:

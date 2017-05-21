@@ -202,42 +202,48 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                  'filter':'f606w',
                  'instrument':'ACS WFC',
                  'cols':["ACS_F606W_FLUX","ACS_F606W_FLUXERR"],
-                 'labels':["Flux","Err"]
+                 'labels':["Flux","Err"],
+                 'image':None
                 },
                 {'path':CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
                  'name':'egs_all_acs_wfc_f814w_060mas_v1.1_drz.fits',
                  'filter':'f814w',
                  'instrument':'ACS WFC',
                  'cols':["ACS_F814W_FLUX","ACS_F814W_FLUXERR"],
-                 'labels':["Flux","Err"]
+                 'labels':["Flux","Err"],
+                 'image':None
                 },
                 {'path':CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
                  'name':'egs_all_wfc3_ir_f105w_060mas_v1.5_drz.fits',
                  'filter':'f105w',
                  'instrument':'WFC3',
                  'cols':[],
-                 'labels':[]
+                 'labels':[],
+                 'image':None
                 },
                 {'path':CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
                  'name':'egs_all_wfc3_ir_f125w_060mas_v1.1_drz.fits',
                  'filter':'f125w',
                  'instrument':'WFC3',
                  'cols':["WFC3_F125W_FLUX","WFC3_F125W_FLUXERR"],
-                 'labels':["Flux","Err"]
+                 'labels':["Flux","Err"],
+                 'image':None
                 },
                 {'path':CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
                  'name':'egs_all_wfc3_ir_f140w_060mas_v1.1_drz.fits',
                  'filter':'f140w',
                  'instrument':'WFC3',
                  'cols':["WFC3_F140W_FLUX","WFC3_F140W_FLUXERR"],
-                 'labels':["Flux","Err"]
+                 'labels':["Flux","Err"],
+                 'image':None
                 },
                 {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
                  'name': 'egs_all_wfc3_ir_f160w_060mas_v1.1_drz.fits',
                  'filter': 'f160w',
                  'instrument': 'WFC3',
                  'cols':["WFC3_F160W_FLUX","WFC3_F160W_FLUXERR"],
-                 'labels':["Flux","Err"]
+                 'labels':["Flux","Err"],
+                 'image':None
                 }
                ]
 
@@ -266,8 +272,16 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
         self.read_main_catalog()
         self.read_photoz_catalog()
+        #self.build_catalog_images() #will just build on demand
 
         self.master_cutout= None
+
+
+    #todo: is this more efficient? garbage collection does not seem to be running
+    #so building as needed does not seem to help memory
+    def build_catalog_images(self):
+        for i in self.CatalogImages:  # i is a dictionary
+            i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual, image_location=op.join(i['path'],i['name']))
 
 
     @classmethod
@@ -507,18 +521,24 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             del(self.master_cutout)
             self.master_cutout = None
 
+
         index = -1
         for i in self.CatalogImages:  # i is a dictionary
             index += 1
-            sci = science_image.science_image(wcs_manual=self.WCS_Manual, image_location=op.join(i['path'],i['name']))
+
+            if i['image'] is None:
+                i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
+                                                         image_location=op.join(i['path'], i['name']))
+            sci = i['image']
 
             # sci.load_image(wcs_manual=True)
             cutout = sci.get_cutout(ra, dec, error, window=window)
             ext = sci.window / 2. #extent is from the 0,0 center, so window/2
 
             if cutout is not None: #construct master cutout
+                #todo: restore copy? want to be sure the stacking is only to the master cutout
                 if self.master_cutout is None:
-                    self.master_cutout = copy.deepcopy(cutout)
+                    self.master_cutout = cutout #copy.deepcopy(cutout)
                 else:
                     self.master_cutout.data = np.add(self.master_cutout.data, cutout.data)
 
@@ -530,7 +550,6 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
                                                   angle=0.0, color='red', fill=False))
 
-
         if self.master_cutout is None:
             #cannot continue
             print("No catalog image available in %s" %self.Name)
@@ -538,8 +557,9 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
 
         #plot the master cutout
+        empty_sci = science_image.science_image()
         plt.subplot( gs[0, cols-1])
-        vmin,vmax = science_image.science_image().get_vrange(self.master_cutout.data)
+        vmin,vmax = empty_sci.get_vrange(self.master_cutout.data)
         plt.imshow(self.master_cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                    vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
         plt.title("Master Cutout -- Stacked")
@@ -549,7 +569,6 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
 
         # plot the fiber cutout
-
         if (fiber_locs is not None) and (len(fiber_locs) > 0):
             norm = plt.Normalize()
             colors = plt.cm.hsv(norm(np.arange(len(fiber_locs) + 2)))
@@ -564,14 +583,14 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             ymin = float('inf')
             ymax = float('-inf')
 
-            x, y = sci.get_position(ra, dec, self.master_cutout) #zero position
+            x, y = empty_sci.get_position(ra, dec, self.master_cutout) #zero position
             plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
                                               angle=0.0, color='red', fill=False))
 
             i = -1
             for r,d in fiber_locs:
                 i += 1
-                px, py = sci.get_position(r, d, self.master_cutout)
+                px, py = empty_sci.get_position(r, d, self.master_cutout)
 
                 xmin = min(xmin,px-x)
                 xmax = max(xmax,px-x)
@@ -585,8 +604,8 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                       abs(-ymin-2*G.Fiber_Radius),abs(ymax+2*G.Fiber_Radius),2.0)
 
             #need a new cutout since we rescalled the ext (and window) size
-            cutout = sci.get_cutout(ra, dec, error, window=ext*2)
-            vmin, vmax = science_image.science_image().get_vrange(cutout.data)
+            cutout = empty_sci.get_cutout(ra, dec, error, window=ext*2,image=self.master_cutout)
+            vmin, vmax = empty_sci.get_vrange(cutout.data)
 
             plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                    vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
@@ -667,27 +686,13 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         #iterate over all filter images
         for i in self.CatalogImages: # i is a dictionary
             index+= 1 #for subplot ... is 1 based
-            sci = science_image.science_image(wcs_manual= self.WCS_Manual,image_location=op.join(i['path'],i['name']))
+            if i['image'] is None:
+                i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
+                                                         image_location=op.join(i['path'], i['name']))
+            sci = i['image']
+
             cutout = sci.get_cutout(ra, dec, error, window=window)
             ext = sci.window / 2.
-
-            #df should have exactly one entry, so need just the column values
-            if (0):
-                if df is not None:
-                    title = "%s\n%s\nRA = %g    Dec = %g\nSeparation = %g\""  \
-                                   % (section_title, df['IAU_designation'].values[0], df['RA'].values[0],
-                                      df['DEC'].values[0], df['distance'].values[0]*3600)
-                    z = df['DEEP_SPEC_Z'].values[0]
-                    if z >= 0.0:
-                        title = title + "\nDEEP SPEC Z = %g" %z
-                    elif z_best_type is not None:
-                        if (z_best_type.lower() == 'p'):
-                            title = title + "\nPhoto Z = %g" % z_best
-                        elif (z_best_type.lower() == 's'):
-                            title = title + "\nSpec Z = %g" % z_best
-                    plt.suptitle(title)
-                else:
-                    plt.suptitle("RA=%g    Dec=%g" %(ra,dec))
 
             if cutout is not None:
                 plt.subplot(gs[1, index])
@@ -743,14 +748,13 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 plt.gca().yaxis.set_visible(False)
                 plt.xlabel("Z")
 
-
-
+        empty_sci = science_image.science_image()
         #master cutout (0,0 is the observered (exact) target RA, DEC)
-        if self.master_cutout.data is not None:
+        if self.master_cutout is not None:
             #window=error*4
             ext = error*2.
             plt.subplot(gs[0, cols - 1])
-            vmin, vmax = science_image.science_image().get_vrange(self.master_cutout.data)
+            vmin, vmax = empty_sci.get_vrange(self.master_cutout.data)
             plt.imshow(self.master_cutout.data, origin='lower', interpolation='none',
                        cmap=plt.get_cmap('gray_r'),
                        vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
@@ -758,8 +762,8 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
             #mark the bid target location on the master cutout
             if  (target_ra is not None) and (target_dec is not None):
-                px, py = sci.get_position(target_ra, target_dec, self.master_cutout)
-                x, y   = sci.get_position(ra, dec, self.master_cutout)
+                px, py = empty_sci.get_position(target_ra, target_dec, self.master_cutout)
+                x, y   = empty_sci.get_position(ra, dec, self.master_cutout)
                 plt.plot(0, 0, "r+")
 
                 #set the diameter of the cirle to half the error (radius error/4)
