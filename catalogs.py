@@ -502,7 +502,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
         font = FontProperties()
         font.set_family('monospace')
-        font.set_size(14)
+        font.set_size(12)
 
         title = "Catalog: %s\n" %self.Name + section_title + "\nTarget Location\nPossible Matches=%d (within %g\")\n" \
                 "RA = %g    Dec = %g\n" % (len(self.dataframe_of_bid_targets),error,ra, dec)
@@ -536,9 +536,10 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             ext = sci.window / 2. #extent is from the 0,0 center, so window/2
 
             if cutout is not None: #construct master cutout
-                #todo: restore copy? want to be sure the stacking is only to the master cutout
+                #master cutout needs a copy of the data since it is going to be modified  (stacked)
+                #repeat the cutout call, but get a copy
                 if self.master_cutout is None:
-                    self.master_cutout = cutout #copy.deepcopy(cutout)
+                    self.master_cutout = sci.get_cutout(ra, dec, error, window=window,copy=True)
                 else:
                     self.master_cutout.data = np.add(self.master_cutout.data, cutout.data)
 
@@ -549,6 +550,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
                 plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
                                                   angle=0.0, color='red', fill=False))
+
 
         if self.master_cutout is None:
             #cannot continue
@@ -562,7 +564,11 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         vmin,vmax = empty_sci.get_vrange(self.master_cutout.data)
         plt.imshow(self.master_cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                    vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
-        plt.title("Master Cutout -- Stacked")
+        plt.title("Master Cutout (Stacked)")
+        plt.xlabel("arcsecs")
+        # only show this lable if there is not going to be an adjacent fiber plot
+        if (fiber_locs is None) or (len(fiber_locs) == 0):
+            plt.ylabel("arcsecs")
         plt.plot(0,0, "r+")
         plt.gca().add_patch(plt.Rectangle( (-error,-error), width=error*2, height=error*2,
                 angle=0.0, color='red', fill=False ))
@@ -576,6 +582,9 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             plt.subplot(gs[0, cols - 2])
 
             plt.title("Fiber Positions")
+            plt.xlabel("arcsecs")
+            plt.ylabel("arcsecs")
+
             plt.plot(0, 0, "r+")
 
             xmin = float('inf')
@@ -650,7 +659,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
         font = FontProperties()
         font.set_family('monospace')
-        font.set_size(14)
+        font.set_size(12)
 
         fig = plt.figure(figsize=(fig_sz_x,fig_sz_y))
 
@@ -758,7 +767,9 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             plt.imshow(self.master_cutout.data, origin='lower', interpolation='none',
                        cmap=plt.get_cmap('gray_r'),
                        vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
-            plt.title("Master Cutout -- Stacked")
+            plt.title("Master Cutout (Stacked)")
+            plt.xlabel("arcsecs")
+            plt.ylabel("arcsecs")
 
             #mark the bid target location on the master cutout
             if  (target_ra is not None) and (target_dec is not None):

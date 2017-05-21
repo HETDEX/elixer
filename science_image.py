@@ -118,7 +118,7 @@ class science_image():
 
         return self.vmin,self.vmax
 
-    def get_cutout(self,ra,dec,error,window=None,image=None):
+    def get_cutout(self,ra,dec,error,window=None,image=None,copy=False):
         '''ra,dec in decimal degrees. error and window in arcsecs'''
         #error is central box (+/- from ra,dec)
         #window is the size of the entire coutout
@@ -134,14 +134,26 @@ class science_image():
 
         self.window = window
 
-        data = None
-        pix_size = None
-        wcs = None
+        #data = None
+        #pix_size = None
+        #wcs = None
         if image is None:
             if self.fits is not None:
-                data = self.fits[0].data
-                pix_size = self.pixel_size
-                wcs = self.wcs
+                #need to keep memory use down ... the statements below (esp. data = self.fit[0].data)
+                #cause a copy into memory ... want to avoid it so, leave the code fragmented a bit as is
+               # data = self.fits[0].data
+               # pix_size = self.pixel_size
+               # wcs = self.wcs
+
+                try:
+                    position = SkyCoord(ra, dec, unit="deg", frame='fk5')
+                    pix_window = window / self.pixel_size  # now in pixels
+                    cutout = Cutout2D(self.fits[0].data, position, (pix_window, pix_window), wcs=self.wcs, copy=copy)
+                    self.get_vrange(cutout.data)
+                except:
+                    log.info("Exception in science_image::get_cutout:", exc_info=True)
+                    return None
+
                 if not (self.contains_position(ra,dec)):
                     log.info("science image does not contain requested position: RA=%f , Dec=%f" %(ra,dec))
                     return None
@@ -149,18 +161,17 @@ class science_image():
                 log.error("No fits or passed image from which to make cutout.")
                 return None
         else:
-            data = image.data
-            pix_size = self.calc_pixel_size(image.wcs)
-            wcs = image.wcs
-
-        try:
-            position = SkyCoord(ra, dec, unit="deg", frame='fk5')
-            pix_window = window / pix_size  # now in pixels
-            cutout = Cutout2D(data, position, (pix_window, pix_window), wcs=wcs,copy=True)
-            self.get_vrange(cutout.data)
-        except:
-            log.info("Exception in science_image::get_cutout:", exc_info=True)
-            return None
+            #data = image.data
+            #pix_size = self.calc_pixel_size(image.wcs)
+            #wcs = image.wcs
+            try:
+                position = SkyCoord(ra, dec, unit="deg", frame='fk5')
+                pix_window = window / self.calc_pixel_size(image.wcs)  # now in pixels
+                cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=image.wcs, copy=copy)
+                self.get_vrange(cutout.data)
+            except:
+                log.info("Exception in science_image::get_cutout:", exc_info=True)
+                return None
 
         return cutout
 

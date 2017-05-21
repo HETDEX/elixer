@@ -505,10 +505,15 @@ class HETDEX:
         #note: rot = 360-(90 + 1.8 + PARANGLE) so, PARANGLE = 360 -(90+1.8+rot)
         #the 1.8 constant is under some investigation (have also seen 1.3)
 
-        if (args.ra is not None) and (args.dec is not None) and (args.rot is not None):
-            self.tangentplane = TP(args.ra, args.dec, args.rot)
+        if (args.ra is not None) and (args.dec is not None):
+            if (args.rot is not None):
+                rot = args.rot
+            else:
+                rot = 360. - (90. + 1.8 + self.parangle)
+
+            self.tangentplane = TP(args.ra, args.dec, rot)
             log.debug("Calculating object RA, DEC from commandline RA=%g , DEC=%g , ROT=%g" \
-                      % (args.ra, args.dec, args.rot))
+                      % (args.ra, args.dec, rot))
         else:
             self.rot = 360. - (90. + 1.8 + self.parangle)
             self.tangentplane = TP(self.tel_ra, self.tel_dec, self.rot)
@@ -696,7 +701,7 @@ class HETDEX:
 
         font = FontProperties()
         font.set_family('monospace')
-        font.set_size(14)
+        font.set_size(12)
 
         sci_files = ""
         for s in self.dither.basename:
@@ -714,10 +719,12 @@ class HETDEX:
                 "RA,Dec (%g,%g) \n"\
                 "Sky X,Y (%g,%g)\n" \
                 "$\lambda$ = %g $\AA$\n" \
+                "ModFlux = %g  DatFlux = %g\n" \
+                "FluxFrac = %g\n" \
                 "Eqw = %g  Cont = %g\n" \
                 "Sigma = %g  Chi2 = %g"\
                  % (e.id,self.ymd, self.ifu_slot_id,self.specid,sci_files, e.ra, e.dec, e.x, e.y,e.w,
-                    e.eqw,e.cont, e.sigma,e.chi2)
+                    e.modflux,e.dataflux,e.fluxfrac, e.eqw,e.cont, e.sigma,e.chi2)
 
         plt.subplot(gs[0, 0])
         plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
