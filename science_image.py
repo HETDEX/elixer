@@ -18,7 +18,7 @@ import numpy as np
 from astropy.visualization import ZScaleInterval
 import astropy.io.fits as fits
 from astropy.coordinates import SkyCoord
-from astropy.coordinates import match_coordinates_sky
+#from astropy.coordinates import match_coordinates_sky
 from astropy.nddata import Cutout2D
 from astropy.wcs import WCS
 from astropy.wcs.utils import skycoord_to_pixel
@@ -48,12 +48,12 @@ class science_image():
 
         self.image_buffer = None
 
-        if image_location is not None:
+        if (image_location is not None) and (len(image_location) > 0):
             self.image_location = image_location
             self.load_image(wcs_manual=wcs_manual)
 
     def load_image(self,wcs_manual=False):
-        if self.image_location is None:
+        if (self.image_location is None) or (len(self.image_location) == 0):
             return -1
 
         if self.fits is not None:
@@ -152,11 +152,11 @@ class science_image():
                     cutout = Cutout2D(self.fits[0].data, position, (pix_window, pix_window), wcs=self.wcs, copy=copy)
                     self.get_vrange(cutout.data)
                 except:
-                    log.info("Exception in science_image::get_cutout:", exc_info=True)
+                    log.error("Exception in science_image::get_cutout (%s):" %self.image_location, exc_info=True)
                     return None
 
                 if not (self.contains_position(ra,dec)):
-                    log.info("science image does not contain requested position: RA=%f , Dec=%f" %(ra,dec))
+                    log.info("science image (%s) does not contain requested position: RA=%f , Dec=%f" %(ra,dec))
                     return None
             else:
                 log.error("No fits or passed image from which to make cutout.")
@@ -171,7 +171,7 @@ class science_image():
                 cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=image.wcs, copy=copy)
                 self.get_vrange(cutout.data)
             except:
-                log.info("Exception in science_image::get_cutout:", exc_info=True)
+                log.error("Exception in science_image::get_cutout ():" , exc_info=True)
                 return None
 
         return cutout
