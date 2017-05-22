@@ -592,21 +592,23 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             ymin = float('inf')
             ymax = float('-inf')
 
-            x, y = empty_sci.get_position(ra, dec, self.master_cutout) #zero position
+            x, y = empty_sci.get_position(ra, dec, self.master_cutout) #zero (absolute) position
+
             plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
                                               angle=0.0, color='red', fill=False))
 
             for r,d,c,i in fiber_locs:
                 #print("+++++ Cutout RA,DEC,ID,COLOR", r,d,i,c)
-                px, py = empty_sci.get_position(r, d, self.master_cutout)
+                #fiber absolute position ... need relative position to plot (so fiber - zero pos)
+                fx, fy = empty_sci.get_position(r, d, self.master_cutout)
 
-                xmin = min(xmin,px-x)
-                xmax = max(xmax,px-x)
-                ymin = min(ymin,py-y)
-                ymax = max(ymax,py-y)
+                xmin = min(xmin,fx-x)
+                xmax = max(xmax,fx-x)
+                ymin = min(ymin,fy-y)
+                ymax = max(ymax,fy-y)
 
-                plt.gca().add_patch(plt.Circle(((px - x), (py - y)), radius=G.Fiber_Radius, color=c, fill=False))
-                plt.text((px - x), (py - y), str(i), ha='center', va='center', fontsize='x-small', color=c)
+                plt.gca().add_patch(plt.Circle(((fx - x), (fy - y)), radius=G.Fiber_Radius, color=c, fill=False))
+                plt.text((fx - x), (fy - y), str(i), ha='center', va='center', fontsize='x-small', color=c)
 
 
             ext = max(abs(-xmin-2*G.Fiber_Radius),abs(xmax+2*G.Fiber_Radius),
@@ -801,6 +803,17 @@ class dummy_cat(Catalog):
     #class variables
     MainCatalog = "nowhere"
     Name = "Dummy Cat"
+
+
+    CatalogImages = [
+    {'path': "/home/dustin/code/python/voltron/data/isak",
+     'name': 'groth.fits',
+     'filter': 'isak',
+     'instrument': 'Isak',
+     'cols': [],
+     'labels': [],
+     'image': None
+     }]
 
 
     def __init__(self):

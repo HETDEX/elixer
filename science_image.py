@@ -182,8 +182,8 @@ class science_image():
         x,y = None,None
         try:
             pix_size = self.calc_pixel_size(cutout.wcs)
-            position = SkyCoord(ra, dec, unit="deg", frame='fk5')
-            x,y = skycoord_to_pixel(position, wcs=cutout.wcs)
+            position = SkyCoord(ra, dec, unit="deg", frame='fk5') #,obstime="2017-05-02T08:39:48")
+            x,y = skycoord_to_pixel(position, wcs=cutout.wcs,mode='all')
             x = x*pix_size
             y = y*pix_size
         except:

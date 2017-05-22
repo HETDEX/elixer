@@ -323,7 +323,7 @@ class HetdexFits:
                     c = pyfits.open(cosmic)
         except:
             log.error("could not open file " + cosmic, exc_info=True)
-            return None
+            c = None
 
         if c is not None:
             self.data = np.array(c[0].data)
@@ -378,16 +378,18 @@ class HetdexFits:
         c = None
         try:
             if use_cosmic_cleaned:
+                #for simplicity, using self.filename instead of self.err_filename
+                #since will assume err_filename = "e." + self.filename
                 base = op.basename(self.filename)
                 if base[0] != 'c':
-                    path = op.dirname(self.filename)
+                    path = op.dirname(self.err_filename)
 
-                    cosmic = op.join(path, "c" + base)
+                    cosmic = op.join(path, "e.c" + base)
                     log.info("Attempting to open cosmic cleaned version of file: " + cosmic)
                     c = pyfits.open(cosmic)
         except:
             log.error("could not open file " + cosmic, exc_info=True)
-            return None
+            c = None
 
         if c is not None:
             self.err_data = np.array(c[0].data)
@@ -909,7 +911,7 @@ class HETDEX:
                     datakeep['yl'].append(yl)
                     datakeep['xh'].append(xh)
                     datakeep['yh'].append(yh)
-                    datakeep['d'].append(d[loc])
+                    datakeep['d'].append(d[loc]) #distance (in arcsec) of fiber center from object center
                     datakeep['sn'].append(e.sigma)
 
                     sci = self.get_sci_fits(dither,side)
@@ -977,8 +979,10 @@ class HETDEX:
 
         fig = plt.figure(figsize=(5, Y), frameon=False)
 
-        ind = sorted(range(len(datakeep['d'])), key=lambda k: datakeep['d'][k],
-                     reverse=True)
+        #ind = sorted(range(len(datakeep['d'])), key=lambda k: datakeep['d'][k],reverse=True)
+        # keep in dither order instead, but need to count backward for compatibility
+        ind = list(range(len(datakeep['d']) - 1, -1, -1))
+
         for i in range(num):
             borplot = plt.axes([borderxl + 0. * dx, borderyb + i * dy, 3 * dx, dy])
             smplot = plt.axes([borderxl + 2. * dx - bordbuff / 3., borderyb + i * dy + bordbuff / 2., dx1, dy1])
@@ -1005,6 +1009,7 @@ class HETDEX:
                           interpolation="none", vmin=datakeep['vmin1'][ind[i]],
                           vmax=datakeep['vmax1'][ind[i]],
                           extent=ext)
+            # plot the center point
             #smplot.scatter(datakeep['xi'][ind[i]], datakeep['yi'][ind[i]],
             #               marker='.', c='g', edgecolor='g', s=10)
             smplot.set_xticks([])
@@ -1017,6 +1022,7 @@ class HETDEX:
                            origin="lower", cmap=plt.get_cmap('gray'),
                            interpolation="none", vmin=0.9, vmax=1.1,
                            extent=ext)
+            # plot the center point
             #errplot.scatter(datakeep['xi'][ind[i]], datakeep['yi'][ind[i]],
             #                marker='.', c='r', edgecolor='r', s=10)
             errplot.set_xticks([])
@@ -1025,17 +1031,22 @@ class HETDEX:
             errplot.axis('off')
 
             #a = datakeep['cos'][ind[i]]
-            a = datakeep['im'][ind[i]] #was the cosmic removed, but will assume that to be the case
-            a = np.ma.masked_where(a == 0, a)
-            cmap1 = cmap
-            cmap1.set_bad(color=[0.2, 1.0, 0.23])
+            #todo: only use if the cosmic removed error file was used
+            a = datakeep['im'][ind[i]] #im can be the cosmic removed version, depends on G.PreferCosmicCleaned
+            if (G.PreferCosmicCleaned):
+                a = np.ma.masked_where(a == 0, a)
+                cmap1 = cmap
+                cmap1.set_bad(color=[0.2, 1.0, 0.23])
+            else:
+                cmap1 = cmap
             imgplot.imshow(a,
                            origin="lower", cmap=cmap1,
                            interpolation="none", vmin=datakeep['vmin2'][ind[i]],
                            vmax=datakeep['vmax2'][ind[i]],
                            extent=ext)
+            #plot the center point
             #imgplot.scatter(datakeep['xi'][ind[i]], datakeep['yi'][ind[i]],
-            #                marker='.', c='b', edgecolor='b', s=10)
+            #               marker='.', c='b', edgecolor='b', s=10)
             imgplot.set_xticks([])
             imgplot.set_yticks([])
             imgplot.axis(ext)
@@ -1062,6 +1073,7 @@ class HETDEX:
             smplot.text(1.10, .75, 'S/N = %0.2f' % (sn),
                         transform=smplot.transAxes, fontsize=6, color='r',
                         verticalalignment='bottom', horizontalalignment='left')
+            #distance (in arcsec) of fiber center from object center
             smplot.text(1.10, .55, 'D(") = %0.2f' % (datakeep['d'][ind[i]]),
                         transform=smplot.transAxes, fontsize=6, color='r',
                         verticalalignment='bottom', horizontalalignment='left')
@@ -1105,8 +1117,10 @@ class HETDEX:
         mn = 100.0
         mx = 0.0
         W = 0.0
-        ind = sorted(range(len(datakeep['d'])), key=lambda k: datakeep['d'][k],
-                     reverse=True)
+        #ind = sorted(range(len(datakeep['d'])), key=lambda k: datakeep['d'][k],reverse=True)
+        # keep in dither order instead, but need to count backward for compatibility
+        ind = range(len(datakeep['d']) - 1, -1, -1)
+
         for i in range(N):
             specplot.step(datakeep['specwave'][ind[i]], datakeep['spec'][ind[i]],
                           where='mid', color=colors[i, 0:3], alpha=0.5)
