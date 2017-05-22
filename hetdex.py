@@ -1,4 +1,5 @@
 
+import global_config as G
 import matplotlib
 matplotlib.use('agg')
 
@@ -298,11 +299,11 @@ class HetdexFits:
         self.fe_cdelt1 = None
 
         self.dither_index = dither_index
-        self.read_fits()
-        self.read_efits()
+        self.read_fits(use_cosmic_cleaned=G.PreferCosmicCleaned)
+        self.read_efits(use_cosmic_cleaned=G.PreferCosmicCleaned)
         self.read_fefits()
 
-    def read_fits(self):
+    def read_fits(self,use_cosmic_cleaned=False):
 
         try:
             f = pyfits.open(self.filename)
@@ -310,7 +311,24 @@ class HetdexFits:
             log.error("could not open file " + self.filename, exc_info=True)
             return None
 
-        self.data = np.array(f[0].data)
+        c = None
+        try:
+            if use_cosmic_cleaned:
+                base = op.basename(self.filename)
+                if base[0] != 'c':
+                    path = op.dirname(self.filename)
+
+                    cosmic = op.join(path,"c"+base)
+                    log.info("Attempting to open cosmic cleaned version of file: " + cosmic)
+                    c = pyfits.open(cosmic)
+        except:
+            log.error("could not open file " + cosmic, exc_info=True)
+            return None
+
+        if c is not None:
+            self.data = np.array(c[0].data)
+        else:
+            self.data = np.array(f[0].data)
         #clean up any NaNs
         self.data[np.isnan(self.data)] = 0.0
 
@@ -340,9 +358,16 @@ class HetdexFits:
         except:
             log.error("could not close file " + self.filename, exc_info=True)
 
+        if c is not None:
+            try:
+                c.close()
+            except:
+                log.error("could not close file cosmic file version of " + self.filename, exc_info=True)
+
+
         return
 
-    def read_efits(self):
+    def read_efits(self,use_cosmic_cleaned=False):
 
         try:
             f = pyfits.open(self.err_filename)
@@ -350,7 +375,25 @@ class HetdexFits:
             log.error("could not open file " + self.err_filename, exc_info=True)
             return None
 
-        self.err_data = np.array(f[0].data)
+        c = None
+        try:
+            if use_cosmic_cleaned:
+                base = op.basename(self.filename)
+                if base[0] != 'c':
+                    path = op.dirname(self.filename)
+
+                    cosmic = op.join(path, "c" + base)
+                    log.info("Attempting to open cosmic cleaned version of file: " + cosmic)
+                    c = pyfits.open(cosmic)
+        except:
+            log.error("could not open file " + cosmic, exc_info=True)
+            return None
+
+        if c is not None:
+            self.err_data = np.array(c[0].data)
+        else:
+            self.err_data = np.array(f[0].data)
+
         # clean up any NaNs
         self.err_data[np.isnan(self.err_data)] = 0.0
 
@@ -358,6 +401,12 @@ class HetdexFits:
             f.close()
         except:
             log.error("could not close file " + self.err_filename, exc_info=True)
+
+        if c is not None:
+            try:
+                c.close()
+            except:
+                log.error("could not close file cosmic file version of " + self.filename, exc_info=True)
 
         return
 
@@ -939,6 +988,7 @@ class HETDEX:
             autoAxis = borplot.axis()
             datakeep['color'][i] = colors[i, 0:3]
             datakeep['index'][i] = num -i
+
             rec = plt.Rectangle((autoAxis[0] + bordbuff / 2., autoAxis[2] + bordbuff / 2.),
                                 (autoAxis[1] - autoAxis[0]) * (1. - bordbuff),
                                 (autoAxis[3] - autoAxis[2]) * (1. - bordbuff), fill=False, lw=3,

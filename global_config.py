@@ -20,3 +20,4 @@ LyA_rest = 1216. #A 1215.668 and 1215.674
 OII_rest = 3727.
 
 Fiber_Radius = 0.75 #arcsec
+PreferCosmicCleaned = True #use cosmic cleaned FITS data if available (note: assumes filename is 'c' + filename)
