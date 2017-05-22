@@ -79,7 +79,7 @@ class science_image():
 
         try:
             self.pixel_size = self.calc_pixel_size(self.wcs)#np.sqrt(self.wcs.wcs.cd[0, 0] ** 2 + self.wcs.wcs.cd[0, 1] ** 2) * 3600.0  # arcsec/pixel
-            log.debug("Pixel Size = %g asec/pixel" %self.pixel_size)
+            log.debug("Pixel Size = %f asec/pixel" %self.pixel_size)
         except:
             log.error("Unable to build pixel size", exc_info=True)
 
@@ -147,7 +147,8 @@ class science_image():
 
                 try:
                     position = SkyCoord(ra, dec, unit="deg", frame='fk5')
-                    pix_window = window / self.pixel_size  # now in pixels
+                    pix_window = int(np.ceil(window / self.pixel_size))  # now in pixels
+                    log.debug("Collecting cutout size = %d square at RA,Dec = (%f,%f)" %(pix_window,ra,dec))
                     cutout = Cutout2D(self.fits[0].data, position, (pix_window, pix_window), wcs=self.wcs, copy=copy)
                     self.get_vrange(cutout.data)
                 except:

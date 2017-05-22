@@ -436,7 +436,10 @@ class HETDEX:
         self.detectline_fn = args.line
         self.sigma = args.sigma
         self.chi2 = args.chi2
-        self.emis_det_id = args.id #might be a list?
+        if args.id is not None:
+            self.emis_det_id = args.id.split(",") #might be a list?
+        else:
+            self.emis_det_id = None
         self.dither = None #Dither() obj
         self.fplane_fn = None
         self.fplane = None
@@ -512,12 +515,12 @@ class HETDEX:
                 rot = 360. - (90. + 1.8 + self.parangle)
 
             self.tangentplane = TP(args.ra, args.dec, rot)
-            log.debug("Calculating object RA, DEC from commandline RA=%g , DEC=%g , ROT=%g" \
+            log.debug("Calculating object RA, DEC from commandline RA=%f , DEC=%f , ROT=%f" \
                       % (args.ra, args.dec, rot))
         else:
             self.rot = 360. - (90. + 1.8 + self.parangle)
             self.tangentplane = TP(self.tel_ra, self.tel_dec, self.rot)
-            log.debug("Calculating object RA, DEC from: TELRA=%g , TELDEC=%g , PARANGLE=%g , ROT=%g" \
+            log.debug("Calculating object RA, DEC from: TELRA=%f , TELDEC=%f , PARANGLE=%f , ROT=%f" \
                   % (self.tel_ra, self.tel_dec, self.parangle, self.rot))
 
         #wants the slot id as a 0 padded string ie. '073' instead of the int (73)
@@ -526,7 +529,7 @@ class HETDEX:
 
         for e in self.emis_list: #yes this right: x + ifuy, y + ifux
             e.ra, e.dec = self.tangentplane.xy2raDec(e.x + self.ifuy, e.y + self.ifux)
-            log.info("Emission Detect ID #%d RA=%g , Dec=%g" % (e.id,e.ra,e.dec))
+            log.info("Emission Detect ID #%d RA=%f , Dec=%f" % (e.id,e.ra,e.dec))
 
     #end HETDEX::__init__()
 
@@ -716,8 +719,8 @@ class HETDEX:
         title +="%d\n"\
                 "ObsDate %s  IFU %s  CAM %s\n" \
                 "Science file(s):\n%s"\
-                "RA,Dec (%g,%g) \n"\
-                "Sky X,Y (%g,%g)\n" \
+                "RA,Dec (%f,%f) \n"\
+                "Sky X,Y (%f,%f)\n" \
                 "$\lambda$ = %g $\AA$\n" \
                 "ModFlux = %g  DatFlux = %g\n" \
                 "FluxFrac = %g\n" \
@@ -734,8 +737,7 @@ class HETDEX:
         datakeep = self.build_hetdex_data_dict(e)
         if datakeep is not None:
 
-            #update emission with the ra, dec of all fibers
-            e.fiber_locs = list(zip(datakeep['ra'],datakeep['dec']))
+
 
             if datakeep['xi']:
                 plt.subplot(gs[0,1])
@@ -751,6 +753,9 @@ class HETDEX:
                 buf.seek(0)
                 im = Image.open(buf)
                 plt.imshow(im,interpolation='none')#needs to be 'none' else get blurring
+
+            # update emission with the ra, dec of all fibers
+            e.fiber_locs = list(zip(datakeep['ra'], datakeep['dec'],datakeep['color'],datakeep['index']))
 
         plt.close()
         pages.append(fig)
@@ -800,6 +805,8 @@ class HETDEX:
             dd['cos'] = []
             dd['ra'] = []
             dd['dec'] = []
+            dd['color'] = []
+            dd['index'] = []
         return dd
 
 
@@ -825,6 +832,10 @@ class HETDEX:
 
                 #this is for one side of one dither of one ifu
                 for loc in locations:
+                    #used later
+                    datakeep['color'].append(None)
+                    datakeep['index'].append(None)
+
                     datakeep['dit'].append(dither + 1)
                     datakeep['side'].append(side)
 
@@ -926,10 +937,12 @@ class HETDEX:
                 [borderxl + 1. * dx + 1 * bordbuff / 3., borderyb + i * dy + bordbuff / 2., dx1, dy1])
             imgplot = plt.axes([borderxl + 0. * dx + bordbuff / 2., borderyb + i * dy + bordbuff / 2., dx1, dy1])
             autoAxis = borplot.axis()
+            datakeep['color'][i] = colors[i, 0:3]
+            datakeep['index'][i] = num -i
             rec = plt.Rectangle((autoAxis[0] + bordbuff / 2., autoAxis[2] + bordbuff / 2.),
                                 (autoAxis[1] - autoAxis[0]) * (1. - bordbuff),
                                 (autoAxis[3] - autoAxis[2]) * (1. - bordbuff), fill=False, lw=3,
-                                color=colors[i, 0:3], zorder=1)
+                                color=datakeep['color'][i], zorder=1)
             rec = borplot.add_patch(rec)
             borplot.set_xticks([])
             borplot.set_yticks([])
@@ -987,7 +1000,10 @@ class HETDEX:
             S = np.where(datakeep['err'][ind[i]][yl:yh, xl:xh] < 0, 0., datakeep['im'][ind[i]][yl:yh, xl:xh]).sum()
             N = np.sqrt(np.where(datakeep['err'][ind[i]][yl:yh, xl:xh] < 0, 0.,
                                  datakeep['err'][ind[i]][yl:yh, xl:xh] ** 2).sum())
-            sn = S / N
+            if N != 0:
+                sn = S / N
+            else:
+                sn = 0.0
 
             imgplot.text(-0.2, .5, num - i,
                         transform=imgplot.transAxes, fontsize=6, color='k', #colors[i, 0:3],

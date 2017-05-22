@@ -298,7 +298,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 cls.Dec_min = cls.df['DEC'].min()
                 cls.Dec_max = cls.df['DEC'].max()
 
-                log.debug(cls.Name + " Coordinate Range: RA: %g to %g , Dec: %g to %g" % (cls.RA_min, cls.RA_max,
+                log.debug(cls.Name + " Coordinate Range: RA: %f to %f , Dec: %f to %f" % (cls.RA_min, cls.RA_max,
                                                                                           cls.Dec_min, cls.Dec_max))
             except:
                 print("Failed")
@@ -359,7 +359,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
     @classmethod
     def coordinate_range(cls,echo=False):
         if echo:
-            msg = "RA (%g, %g)" % (cls.RA_min, cls.RA_max) + "Dec(%g, %g)" % (cls.Dec_min, cls.Dec_max)
+            msg = "RA (%f, %f)" % (cls.RA_min, cls.RA_max) + "Dec(%f, %f)" % (cls.Dec_min, cls.Dec_max)
             print( msg )
         log.debug(cls.Name + " Simple Coordinate Box: " + msg )
         return (cls.RA_min, cls.RA_max, cls.Dec_min, cls.Dec_max)
@@ -389,6 +389,9 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         dec_min = float(dec - error_in_deg)
         dec_max = float(dec + error_in_deg)
 
+        log.info(self.Name + " searching for bid targets in range: RA [%f +/- %f], Dec [%f +/- %f] ..."
+                % (ra,error_in_deg,dec,error_in_deg))
+
         try:
             self.dataframe_of_bid_targets = self.df[(self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max) &
                                                 (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)]
@@ -403,7 +406,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             self.num_targets = self.dataframe_of_bid_targets.iloc[:, 0].count()
             self.sort_bid_targets_by_likelihood(ra,dec)
 
-            log.debug(self.Name + " searching for objects in [%g - %g, %g - %g] " %(ra_min,ra_max,dec_min,dec_max) +
+            log.info (self.Name + " searching for objects in [%f - %f, %f - %f] " %(ra_min,ra_max,dec_min,dec_max) +
                   ". Found = %d" % (self.num_targets ))
 
         return self.num_targets, self.dataframe_of_bid_targets, self.dataframe_of_bid_targets_photoz
@@ -460,7 +463,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 df_photoz = self.dataframe_of_bid_targets_photoz.loc[self.dataframe_of_bid_targets_photoz['ID'] == idnum ]
 
                 if len(df_photoz) == 0:
-                    log.debug("No conterpart found in photoz catalog; RA=%g , Dec =%g" %(r[0],d[0] ))
+                    log.debug("No conterpart found in photoz catalog; RA=%f , Dec =%f" %(r[0],d[0] ))
                     df_photoz = None
             except:
                 log.error("Exception attempting to find object in dataframe_of_bid_targets",exc_info=True)
@@ -505,7 +508,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         font.set_size(12)
 
         title = "Catalog: %s\n" %self.Name + section_title + "\nTarget Location\nPossible Matches=%d (within %g\")\n" \
-                "RA = %g    Dec = %g\n" % (len(self.dataframe_of_bid_targets),error,ra, dec)
+                "RA = %f    Dec = %f\n" % (len(self.dataframe_of_bid_targets),error,ra, dec)
         if target_w > 0:
             title = title + "Wavelength = %g $\AA$\n" % target_w
         else:
@@ -576,8 +579,8 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
         # plot the fiber cutout
         if (fiber_locs is not None) and (len(fiber_locs) > 0):
-            norm = plt.Normalize()
-            colors = plt.cm.hsv(norm(np.arange(len(fiber_locs) + 2)))
+            #norm = plt.Normalize()
+            #colors = plt.cm.hsv(norm(np.arange(len(fiber_locs) + 2)))
 
             plt.subplot(gs[0, cols - 2])
 
@@ -596,9 +599,10 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
                                               angle=0.0, color='red', fill=False))
 
-            i = -1
-            for r,d in fiber_locs:
-                i += 1
+            #note: the colors are in reverse order so index backward
+            #i = -1 #len(list(fiber_locs))+1
+            for r,d,c,i in fiber_locs:
+                #i += 1
                 px, py = empty_sci.get_position(r, d, self.master_cutout)
 
                 xmin = min(xmin,px-x)
@@ -606,7 +610,10 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 ymin = min(ymin,py-y)
                 ymax = max(ymax,py-y)
 
-                plt.gca().add_patch(plt.Circle(((px-x), (py-y)), radius=G.Fiber_Radius, color=colors[i,0:3], fill=False))
+                #plt.gca().add_patch(plt.Circle(((px-x), (py-y)), radius=G.Fiber_Radius, color=colors[i,0:3], fill=False))
+
+                plt.gca().add_patch(plt.Circle(((px - x), (py - y)), radius=G.Fiber_Radius, color=c, fill=False))
+                plt.text((px - x), (py - y), str(i), ha='center', va='center', fontsize='x-small', color=c)
 
 
             ext = max(abs(-xmin-2*G.Fiber_Radius),abs(xmax+2*G.Fiber_Radius),
@@ -664,7 +671,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         fig = plt.figure(figsize=(fig_sz_x,fig_sz_y))
 
         if df is not None:
-            title = "%s\nPossible Match #%d\n%s\n\nRA = %g    Dec = %g\nSeparation = %g\"" \
+            title = "%s\nPossible Match #%d\n%s\n\nRA = %f    Dec = %f\nSeparation = %g\"" \
                     % (section_title, bid_number,df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
                        df['distance'].values[0] * 3600)
             z = df['DEEP_SPEC_Z'].values[0]
@@ -684,7 +691,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 else:
                     title = title + "\nOII Z   = N/A"
         else:
-            title = "%s\nRA=%g    Dec=%g" % (section_title,ra, dec)
+            title = "%s\nRA=%f    Dec=%f" % (section_title,ra, dec)
 
         plt.subplot(gs[0, 0])
         plt.text(0,0.20,title,ha='left',va='bottom',fontproperties=font)
