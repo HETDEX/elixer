@@ -8,7 +8,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from distutils.version import LooseVersion
 import sys
 VERSION = sys.version.split()[0]
-
+#import random
 
 def get_input(prompt):
     if LooseVersion(VERSION) >= LooseVersion('3.0'):
@@ -141,24 +141,52 @@ def build_hetdex_section(hetdex, detect_id = 0,pages=None):
     return pages
 
 
-def build_pages (ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,target_w=0,fiber_locs=None):
-
+def build_pages (ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,target_w=0,fiber_locs=None,report=None):
+    #if a report object is passed in, immediately append to it, otherwise, add to the pages list and return that
     section_title = "Inspection ID: " + idstring
     for c in cats:
         r = c.build_bid_target_reports(ra, dec, error,num_hits=num_hits,section_title=section_title,
                                        base_count=base_count,target_w=target_w,fiber_locs=fiber_locs)
+
         if r is not None:
-            pages = pages + r
+            if report is not None:
+                add_to_report(r, report)
+                #build_report(r, "name.pdf",userand = True)
+            else:
+                pages = pages + r
             base_count += len(r)-1 #1st page is the target page
 
     return pages, base_count
 
 
-def build_report(pages,report_name):
+def open_report(report_name):
+    return PdfPages(report_name)
+
+def close_report(report):
+    if report is not None:
+        report.close()
+
+def add_to_report(pages,report):
+    if (pages is None) or (len(pages) == 0):
+        return
+
+    print("Adding to report ...")
+    rows = len(pages)
+
+    for r in range(rows):
+        report.savefig(pages[r])
+    return
+
+
+#all at once
+def build_report(pages,report_name): #,userand=False):
     if (pages is None) or (len(pages) == 0):
         return
 
     print("Finalizing report ...")
+    #if userand:
+    #    pdf = PdfPages(report_name+str(random.randint(0,999999999999)))
+    #else:
     pdf = PdfPages(report_name)
     rows = len(pages)
 
@@ -198,6 +226,8 @@ def main():
     pages = []
     hd = None
 
+    #pdf = open_report(args.name)
+
     # first, if hetdex info provided, build the hetdex part of the report
     # hetedex part
     if build_hd(args):
@@ -213,15 +243,21 @@ def main():
         if len(hd.emis_list) > 0:
             print()
             #first see if there are any possible matches anywhere
+
+            matched_cats = []
+
             num_hits = 0
-            for e in hd.emis_list:
-                ra = e.ra
-                dec = e.dec
-                for c in cats:
-                    if c.position_in_cat(ra=ra, dec=dec, error=args.error):
-                        hits, _, _ = c.build_list_of_bid_targets(ra=ra, dec=dec, error=args.error)
+            for c in cats:
+                for e in hd.emis_list:
+                    if c.position_in_cat(ra=e.ra, dec=e.dec, error=args.error):
+                        hits, _, _ = c.build_list_of_bid_targets(ra=e.ra, dec=e.dec, error=args.error)
                         num_hits += hits
+
+                        if c not in matched_cats:
+                            matched_cats.append(c)
                         print("%d hits in %s for Detect ID #%d" % (hits, c.name, e.id))
+                    else: #todo: don't bother printing the negative case
+                        print("Coordinates not in range of %s for Detect ID #%d" % (c.name,e.id))
 
             if not confirm(num_hits,args.force):
                 exit(0)
@@ -230,33 +266,50 @@ def main():
             section_id = 0
             total = len(hd.emis_list)
             count = 0
+
             for e in hd.emis_list:
                 section_id += 1
                 id = "#" + str(section_id) + " of " + str(total) + "  (Detect ID #" + str(e.id) + ")"
                 ra = e.ra
                 dec = e.dec
                 pages = build_hetdex_section(hd,e.id,pages) #this is the fiber, spectra cutouts for this detect
+
+                #build_report(pages, "name.pdf", userand=True)
+                #add_to_report(pages,pdf)
+                #del pages[:]
+                #G.gc.collect()
+
                 #this is the catalog info for the detect
-                pages,count = build_pages(ra, dec, args.error, cats, pages,num_hits=num_hits, idstring=id,
-                                          base_count=count,target_w=e.w,fiber_locs=e.fiber_locs)
-                G.gc.collect()
+                #with report passed in, pages are auto-aded
+                pages,count = build_pages(ra, dec, args.error, matched_cats, pages,num_hits=num_hits, idstring=id,
+                                          base_count=count,target_w=e.w,fiber_locs=e.fiber_locs,report=None)
+
+                #build_report(pages, "name.pdf", userand=True)
+                #del pages[:]
+                #G.gc.collect()
+
         else:
             print("\nNo emission detections meet minimum criteria. Exiting.\n")
     else:
         num_hits = 0
+        matched_cats = []
         for c in cats:
             if c.position_in_cat(ra=args.ra,dec=args.dec,error=args.error):
                 hits,_,_ = c.build_list_of_bid_targets(ra=args.ra,dec=args.dec,error=args.error)
                 num_hits += hits
                 if hits > 0:
                     print ("%d hits in %s" %(hits,c.name))
+                    if c not in matched_cats:
+                        matched_cats.append(c)
 
         if not confirm(num_hits,args.force):
             exit(0)
 
-        pages,_ = build_pages(args.ra, args.dec, args.error, cats, pages, idstring="# 1 of 1")
+        pages,_ = build_pages(args.ra, args.dec, args.error, matched_cats, pages, idstring="# 1 of 1",report=None)
 
     build_report(pages,args.name)
+
+    #close_report(pdf)
 
     exit(0)
 

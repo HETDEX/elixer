@@ -29,7 +29,7 @@ log.setLevel(global_config.logging.DEBUG)
 
 class science_image():
 
-    def __init__(self, wcs_manual=False, image_location=None):
+    def __init__(self, wcs_manual=False, image_location=None): #,frame=None):
         self.image_location = None
         self.image_name = None
         self.catalog_name = None
@@ -47,6 +47,11 @@ class science_image():
         self.window = None
 
         self.image_buffer = None
+
+        #todo: do I need to worry about this?
+        self.frame = 'fk5'
+        #if frame is not None:
+        #    self.frame = frame
 
         if (image_location is not None) and (len(image_location) > 0):
             self.image_location = image_location
@@ -96,8 +101,8 @@ class science_image():
 
     def contains_position(self,ra,dec):
         try:
-            cutout = Cutout2D(self.fits[0].data, SkyCoord(ra, dec, unit="deg", frame='fk5'), (1, 1),
-                              wcs=self.wcs, copy=True)
+            cutout = Cutout2D(self.fits[0].data, SkyCoord(ra, dec, unit="deg", frame=self.frame), (1, 1),
+                              wcs=self.wcs, copy=True)#,mode='partial')
         except:
             log.debug("position (%f, %f) is not in image." % (ra,dec), exc_info=False)
             return False
@@ -146,7 +151,13 @@ class science_image():
                # wcs = self.wcs
 
                 try:
-                    position = SkyCoord(ra, dec, unit="deg", frame='fk5')
+                    position = SkyCoord(ra, dec, unit="deg", frame=self.frame)
+
+                    #sanity check
+                    #x, y = skycoord_to_pixel(position, wcs=self.wcs, mode='all')
+                    #x = x * self.pix_size
+                    #y = y * self.pix_size
+
                     pix_window = int(np.ceil(window / self.pixel_size))  # now in pixels
                     log.debug("Collecting cutout size = %d square at RA,Dec = (%f,%f)" %(pix_window,ra,dec))
                     cutout = Cutout2D(self.fits[0].data, position, (pix_window, pix_window), wcs=self.wcs, copy=copy)
