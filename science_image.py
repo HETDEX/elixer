@@ -29,7 +29,7 @@ log.setLevel(global_config.logging.DEBUG)
 
 class science_image():
 
-    def __init__(self, wcs_manual=False, image_location=None): #,frame=None):
+    def __init__(self, wcs_manual=False, image_location=None,frame=None):
         self.image_location = None
         self.image_name = None
         self.catalog_name = None
@@ -49,9 +49,10 @@ class science_image():
         self.image_buffer = None
 
         #todo: do I need to worry about this?
-        self.frame = 'fk5'
-        #if frame is not None:
-        #    self.frame = frame
+        if frame is not None:
+            self.frame = frame
+        else:
+            self.frame = 'fk5'
 
         if (image_location is not None) and (len(image_location) > 0):
             self.image_location = image_location

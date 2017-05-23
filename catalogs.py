@@ -1269,25 +1269,14 @@ class STACK_COSMOS(Catalog):
             # note: error is essentially a radius, but this is done as a box, with the 0,0 position in lower-left
             # not the middle, so need the total length of each side to be twice translated error or 2*2*errorS
 
-            return None
-
             window = error * 2.
-            photoz_file = None
-            z_best = None
-            z_best_type = None  # s = spectral , p = photometric?
-            # z_spec = None
-            # z_spec_ref = None
 
-            rows = 2
-            cols = len(self.CatalogImages)
-
-            if df_photoz is not None:
-                photoz_file = df_photoz['file'].values[0]
-                z_best = df_photoz['z_best'].values[0]
-                z_best_type = df_photoz['z_best_type'].values[0]  # s = spectral , p = photometric?
-                # z_spec = df_photoz['z_spec'].values[0]
-                # z_spec_ref = df_photoz['z_spec_ref'].values[0]
-                # rows = rows + 1
+            num_cat_images = len(self.CatalogImages)
+            cols = max(num_cat_images, 6)
+            if num_cat_images > 1:
+                rows = 2
+            else:
+                rows = 1
 
             fig_sz_x = cols * 3
             fig_sz_y = rows * 3
@@ -1301,18 +1290,11 @@ class STACK_COSMOS(Catalog):
             fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
 
             if df is not None:
-                title = "%s\nPossible Match #%d\n%s\n\nRA = %f    Dec = %f\nSeparation = %g\"" \
-                        % (section_title, bid_number, df['IAU_designation'].values[0], df['RA'].values[0],
+                title = "%s\nPossible Match #%d\n\nRA = %f    Dec = %f\nSeparation = %g\"" \
+                        % (section_title, bid_number, df['RA'].values[0],
                            df['DEC'].values[0],
                            df['distance'].values[0] * 3600)
-                z = df['DEEP_SPEC_Z'].values[0]
-                if z >= 0.0:
-                    title = title + "\nDEEP SPEC Z = %g" % z
-                elif z_best_type is not None:
-                    if (z_best_type.lower() == 'p'):
-                        title = title + "\nPhoto Z = %g (blue)" % z_best
-                    elif (z_best_type.lower() == 's'):
-                        title = title + "\nSpec Z  = %g (blue)" % z_best
+
                 if target_w > 0:
                     la_z = target_w / G.LyA_rest - 1.0
                     oii_z = target_w / G.OII_rest - 1.0
@@ -1342,7 +1324,11 @@ class STACK_COSMOS(Catalog):
                 ext = sci.window / 2.
 
                 if cutout is not None:
-                    plt.subplot(gs[1, index])
+
+                    if rows == 1:
+                        plt.subplot(gs[rows-1, cols-2])
+                    else:
+                        plt.subplot(gs[1, index])
 
                     plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                                vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
@@ -1373,27 +1359,7 @@ class STACK_COSMOS(Catalog):
 
                         plt.xlabel(s, multialignment='left', fontproperties=font)
 
-            # add photo_z plot
-            # if the z_best_type is 'p' call it photo-Z, if s call it 'spec-Z'
-            # alwasy read in file for "file" and plot column 1 (z as x) vs column 9 (pseudo-probability)
-            # get 'file'
-            # z_best  # 6 z_best_type # 7 z_spec # 8 z_spec_ref
-            if df_photoz is not None:
-                z_cat = self.read_catalog(op.join(self.SupportFilesLocation, photoz_file), "z_cat")
-                if z_cat is not None:
-                    x = z_cat['z'].values
-                    y = z_cat['mFDa4'].values
-                    plt.subplot(gs[0, 3])
-                    plt.plot(x, y)
-                    if target_w > 0:
-                        la_z = target_w / G.LyA_rest - 1.0
-                        oii_z = target_w / G.OII_rest - 1.0
-                        plt.axvline(x=la_z, color='r', linestyle='--')
-                        if (oii_z > 0):
-                            plt.axvline(x=oii_z, color='g', linestyle='--')
-                    plt.title("Z PDF")
-                    plt.gca().yaxis.set_visible(False)
-                    plt.xlabel("Z")
+
 
             empty_sci = science_image.science_image()
             # master cutout (0,0 is the observered (exact) target RA, DEC)
