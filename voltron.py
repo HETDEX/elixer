@@ -7,8 +7,18 @@ from astropy.coordinates import Angle
 from matplotlib.backends.backend_pdf import PdfPages
 from distutils.version import LooseVersion
 import sys
+import glob
+import os
+
+try:
+    import PyPDF2 as PyPDF
+except ImportError:
+    PyPDF = None
+
 VERSION = sys.version.split()[0]
 #import random
+
+G_PDF_FILE_NUM = 0
 
 def get_input(prompt):
     if LooseVersion(VERSION) >= LooseVersion('3.0'):
@@ -138,10 +148,14 @@ def build_hetdex_section(hetdex, detect_id = 0,pages=None):
     #detection ids are unique (for the single detect_line.dat file we are using)
     pages = hetdex.build_hetdex_data_page(pages,detect_id)
 
+    if PyPDF is not None:
+        build_report_part(pages)
+        pages = None
+
     return pages
 
 
-def build_pages (ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,target_w=0,fiber_locs=None,report=None):
+def build_pages (ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,target_w=0,fiber_locs=None):
     #if a report object is passed in, immediately append to it, otherwise, add to the pages list and return that
     section_title = "Inspection ID: " + idstring
     for c in cats:
@@ -149,9 +163,8 @@ def build_pages (ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,t
                                        base_count=base_count,target_w=target_w,fiber_locs=fiber_locs)
 
         if r is not None:
-            if report is not None:
-                add_to_report(r, report)
-                #build_report(r, "name.pdf",userand = True)
+            if PyPDF is not None:
+                build_report_part(r)
             else:
                 pages = pages + r
             base_count += len(r)-1 #1st page is the target page
@@ -179,14 +192,12 @@ def add_to_report(pages,report):
 
 
 #all at once
-def build_report(pages,report_name): #,userand=False):
+def build_report(pages,report_name):
     if (pages is None) or (len(pages) == 0):
         return
 
     print("Finalizing report ...")
-    #if userand:
-    #    pdf = PdfPages(report_name+str(random.randint(0,999999999999)))
-    #else:
+
     pdf = PdfPages(report_name)
     rows = len(pages)
 
@@ -198,10 +209,44 @@ def build_report(pages,report_name): #,userand=False):
     return
 
 
+
+def build_report_part(pages):
+    if (pages is None) or (len(pages) == 0):
+        return
+
+    G_PDF_FILE_NUM += 1
+    report_name = "voltron.pdf.part%s" % (str(G_PDF_FILE_NUM).zfill(4))
+
+    pdf = PdfPages(report_name)
+    rows = len(pages)
+
+    for r in range(rows):
+        pdf.savefig(pages[r])
+
+    pdf.close()
+
+    return
+
+def join_report_parts(report_name):
+
+    if PyPDF is None:
+        return
+    print("Finalizing report ...")
+
+    merger = PyPDF.PdfFileMerger()
+    for i in range(G_PDF_FILE_NUM):
+        merger.append("voltron.pdf.part%" % str(i).zfill(4))
+
+    merger.write(report_name)
+    print("File written: " + report_name)
+
+
+
+def delete_report_parts():
+    for f in glob.glob("voltron.pdf.part*"):
+        os.remove(f)
+
 def confirm(hits,force):
-    #if hits == 0:
-    #    print("No possible matches found. Exiting")
-    #    return False
 
     if not force:
         i = get_input("\n%d total possible matches found.\nProceed (y/n ENTER=YES)?" % hits)
@@ -217,6 +262,7 @@ def confirm(hits,force):
     return True
 
 def main():
+    global  G_PDF_FILE_NUM
     G.gc.enable()
     #G.gc.set_debug(G.gc.DEBUG_LEAK)
     args = parse_commandline()
@@ -274,19 +320,10 @@ def main():
                 dec = e.dec
                 pages = build_hetdex_section(hd,e.id,pages) #this is the fiber, spectra cutouts for this detect
 
-                #build_report(pages, "name.pdf", userand=True)
-                #add_to_report(pages,pdf)
-                #del pages[:]
-                #G.gc.collect()
-
-                #this is the catalog info for the detect
-                #with report passed in, pages are auto-aded
                 pages,count = build_pages(ra, dec, args.error, matched_cats, pages,num_hits=num_hits, idstring=id,
-                                          base_count=count,target_w=e.w,fiber_locs=e.fiber_locs,report=None)
+                                          base_count=count,target_w=e.w,fiber_locs=e.fiber_locs)
 
-                #build_report(pages, "name.pdf", userand=True)
-                #del pages[:]
-                #G.gc.collect()
+
 
         else:
             print("\nNo emission detections meet minimum criteria. Exiting.\n")
@@ -305,11 +342,13 @@ def main():
         if not confirm(num_hits,args.force):
             exit(0)
 
-        pages,_ = build_pages(args.ra, args.dec, args.error, matched_cats, pages, idstring="# 1 of 1",report=None)
+        pages,_ = build_pages(args.ra, args.dec, args.error, matched_cats, pages, idstring="# 1 of 1")
 
     build_report(pages,args.name)
 
-    #close_report(pdf)
+    if PyPDF is not None:
+        join_report_parts(args.name)
+        delete_report_parts()
 
     exit(0)
 
