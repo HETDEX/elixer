@@ -788,8 +788,6 @@ class HETDEX:
         datakeep = self.build_hetdex_data_dict(e)
         if datakeep is not None:
 
-
-
             if datakeep['xi']:
                 plt.subplot(gs[0,1])
                 plt.gca().axis('off')

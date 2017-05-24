@@ -15,6 +15,7 @@ try:
 except ImportError:
     PyPDF = None
 
+
 VERSION = sys.version.split()[0]
 #import random
 
@@ -146,6 +147,8 @@ def build_hd(args):
 
 def build_hetdex_section(hetdex, detect_id = 0,pages=None):
     #detection ids are unique (for the single detect_line.dat file we are using)
+    if pages is None:
+        pages = []
     pages = hetdex.build_hetdex_data_page(pages,detect_id)
 
     if PyPDF is not None:
@@ -214,6 +217,8 @@ def build_report_part(pages):
     if (pages is None) or (len(pages) == 0):
         return
 
+    global G_PDF_FILE_NUM
+
     G_PDF_FILE_NUM += 1
     report_name = "voltron.pdf.part%s" % (str(G_PDF_FILE_NUM).zfill(4))
 
@@ -235,7 +240,8 @@ def join_report_parts(report_name):
 
     merger = PyPDF.PdfFileMerger()
     for i in range(G_PDF_FILE_NUM):
-        merger.append("voltron.pdf.part%" % str(i).zfill(4))
+        part_name = "voltron.pdf.part%s" % str(i+1).zfill(4)
+        merger.append(part_name)
 
     merger.write(report_name)
     print("File written: " + report_name)
@@ -263,6 +269,7 @@ def confirm(hits,force):
 
 def main():
     global  G_PDF_FILE_NUM
+
     G.gc.enable()
     #G.gc.set_debug(G.gc.DEBUG_LEAK)
     args = parse_commandline()
