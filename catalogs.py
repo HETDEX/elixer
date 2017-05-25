@@ -711,7 +711,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 if (z_best_type.lower() == 'p'):
                     title = title + "\nPhoto Z     = %g (blue)" % z_best
                 elif (z_best_type.lower() == 's'):
-                    title = title + "\nSpec Z      = %g (blue)" % z_best
+                    title = title + "\nSpec Z      = %g" % z_best
             if target_w > 0:
                 la_z = target_w / G.LyA_rest - 1.0
                 oii_z = target_w / G.OII_rest - 1.0
