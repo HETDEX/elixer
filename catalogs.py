@@ -52,7 +52,7 @@ def get_catalog_list():
     #build list of all catalogs below
     cats = list()
     cats.append(CANDELS_EGS_Stefanon_2016())
-    cats.append(EGS_GROTH())
+    #cats.append(EGS_GROTH()) #this is of no value right now
     cats.append(STACK_COSMOS())
 
   #  cats.append(CANDELS_EGS_Stefanon_2016())
@@ -117,13 +117,12 @@ __metaclass__ = type
 class Catalog:
     MainCatalog = None
     Name = "Generic Catalog (Base)"
+    # if multiple images, the composite broadest range (filled in by hand)
+    Image_Coord_Range = {'RA_min':None,'RA_max':None,'Dec_min':None, 'Dec_max':None}
+    Cat_Coord_Range = {'RA_min': None, 'RA_max': None, 'Dec_min': None, 'Dec_max': None}
+
     df = None  # pandas dataframe ... all instances share the same frame
     df_photoz = None
-    #tbl = None # astropy.io.table
-    RA_min = None
-    RA_max = None
-    Dec_min = None
-    Dec_max = None
     status = -1
 
     def __init__(self):
@@ -143,35 +142,31 @@ class Catalog:
         """Simple check for ra and dec within a rectangle defined by the min/max of RA,DEC for the catalog.
         RA and Dec in decimal degrees.
         """
-        if cls.ok:
-            try:
-                result = (ra >= (cls.RA_min - error)) and (ra <= (cls.RA_max + error))\
-                         and (dec >= (cls.Dec_min - error)) and (dec <= (cls.Dec_max + error))
-            except:
-                result = False
-        else:
-            result = False
-        return result
+        result = False
 
-    @classmethod
-    def coordinate_range(cls,echo=False):
-        if echo:
-            msg = "RA (%f, %f)" % (cls.RA_min, cls.RA_max) + "Dec(%f, %f)" % (cls.Dec_min, cls.Dec_max)
-            print( msg )
-        log.debug(cls.Name + " Simple Coordinate Box: " + msg )
-        return (cls.RA_min, cls.RA_max, cls.Dec_min, cls.Dec_max)
+        if (cls.Cat_Coord_Range['RA_min'] is None) and (cls.Image_Coord_Range['RA_min'] is None) and (cls.df is None):
+            cls.read_main_catalog()
 
-    @classmethod
-    def get_dict(cls,id,cols):
-        """returns a (nested) dictionary of desired cols for a single row from the full dataframe
-            form {col_name : {id : value}}
-        """
         try:
-            bid_dict = cls.df.loc[id,cols].to_dict()
+            #either in the catalog range OR in the Image range
+            if (cls.Cat_Coord_Range['RA_min'] is not None):
+                result = (ra >=  (cls.Cat_Coord_Range['RA_min'] - error)) and \
+                         (ra <=  (cls.Cat_Coord_Range['RA_max'] + error)) and \
+                         (dec >= (cls.Cat_Coord_Range['Dec_min'] - error)) and \
+                         (dec <= (cls.Cat_Coord_Range['Dec_max'] + error))
         except:
-            log.error("Exception attempting to build dictionary for id %d" %id)
-            return None
-        return bid_dict
+            result = False
+
+        try:
+            if (not result) and (cls.Image_Coord_Range['RA_min'] is not None):
+                result = (ra >=  (cls.Image_Coord_Range['RA_min'] - error)) and \
+                         (ra <=  (cls.Image_Coord_Range['RA_max'] + error)) and \
+                         (dec >= (cls.Image_Coord_Range['Dec_min'] - error)) and \
+                         (dec <= (cls.Image_Coord_Range['Dec_max'] + error))
+        except:
+            pass #keep the result as is
+
+        return result
 
     @classmethod
     def read_main_catalog(cls):
@@ -182,13 +177,35 @@ class Catalog:
                 print("Reading main catalog for ", cls.Name)
                 cls.df = cls.read_catalog(cls.MainCatalog, cls.Name)
                 cls.status = 0
-                cls.RA_min = cls.df['RA'].min()
-                cls.RA_max = cls.df['RA'].max()
-                cls.Dec_min = cls.df['DEC'].min()
-                cls.Dec_max = cls.df['DEC'].max()
 
-                log.debug(cls.Name + " Coordinate Range: RA: %f to %f , Dec: %f to %f" % (cls.RA_min, cls.RA_max,
-                                                                                          cls.Dec_min, cls.Dec_max))
+                #also check vs. by hand
+                ra_min = cls.Cat_Coord_Range['RA_min']
+                ra_max = cls.Cat_Coord_Range['RA_max']
+                dec_min = cls.Cat_Coord_Range['Dec_min']
+                dec_max = cls.Cat_Coord_Range['Dec_max']
+
+                cls.Cat_Coord_Range['RA_min'] = cls.df['RA'].min()
+                cls.Cat_Coord_Range['RA_max'] = cls.df['RA'].max()
+                cls.Cat_Coord_Range['Dec_min'] = cls.df['DEC'].min()
+                cls.Cat_Coord_Range['Dec_max']= cls.df['DEC'].max()
+
+                if ra_min is not None:
+                    if  (abs(ra_min - cls.Cat_Coord_Range['RA_min']) > 1e-6 ) or \
+                        (abs(ra_max - cls.Cat_Coord_Range['RA_max']) > 1e-6 ) or \
+                        (abs(dec_min - cls.Cat_Coord_Range['Dec_min']) > 1e-6 )or \
+                        (abs(dec_max - cls.Cat_Coord_Range['Dec_max']) > 1e-6 ):
+                        print("Warning! Pre-defined catalog coordinate ranges may have changed. Please check class "
+                              "definitions for %s" %(cls.Name))
+                        log.info("Warning! Pre-defined catalog coordinate ranges may have changed. Please check class "
+                              "definitions for %s.\nPre-defined ranges: RA [%f - %f], Dec [%f -%f]\n"
+                                 "Runtime ranges: RA [%f - %f], Dec [%f -%f]"
+                                 %(cls.Name,ra_min,ra_max,dec_min,dec_max,cls.Cat_Coord_Range['RA_min'],
+                                   cls.Cat_Coord_Range['RA_max'],cls.Cat_Coord_Range['Dec_min'],
+                                   cls.Cat_Coord_Range['Dec_max']))
+
+                log.debug(cls.Name + " Coordinate Range: RA: %f to %f , Dec: %f to %f"
+                          % (cls.Cat_Coord_Range['RA_min'], cls.Cat_Coord_Range['RA_max'],
+                             cls.Cat_Coord_Range['Dec_min'], cls.Cat_Coord_Range['Dec_max']))
             except:
                 print("Failed")
                 cls.status = -1
@@ -250,6 +267,9 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
     #class variables
     MainCatalog = CANDELS_EGS_Stefanon_2016_CAT
     Name = "CANDELS_EGS_Stefanon_2016"
+    # if multiple images, the composite broadest range (filled in by hand)
+    Image_Coord_Range = {'RA_min':None,'RA_max':None,'Dec_min':None, 'Dec_max':None}
+    Cat_Coord_Range = {'RA_min':214.576759,'RA_max':215.305229,'Dec_min':52.677569, 'Dec_max':53.105756}
     WCS_Manual = True
     BidCols = ["ID","IAU_designation","RA","DEC",
                "CFHT_U_FLUX","CFHT_U_FLUXERR",
@@ -335,8 +355,9 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         #self.table_of_bid_targets = None
         self.num_targets = 0
 
-        self.read_main_catalog()
-        self.read_photoz_catalog()
+        #do this only as needed
+        #self.read_main_catalog()
+        #self.read_photoz_catalog()
         #self.build_catalog_images() #will just build on demand
 
         self.master_cutout= None
@@ -348,30 +369,6 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
         for i in self.CatalogImages:  # i is a dictionary
             i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual, image_location=op.join(i['path'],i['name']))
 
-
-    @classmethod
-    def read_main_catalog(cls):
-        if cls.df is not None:
-            log.debug("Already built df")
-        else:
-            try:
-                print("Reading main catalog for ", cls.Name)
-                cls.df = cls.read_catalog(cls.MainCatalog,cls.Name)
-                cls.status = 0
-                cls.RA_min = cls.df['RA'].min()
-                cls.RA_max = cls.df['RA'].max()
-                cls.Dec_min = cls.df['DEC'].min()
-                cls.Dec_max = cls.df['DEC'].max()
-
-                log.debug(cls.Name + " Coordinate Range: RA: %f to %f , Dec: %f to %f" % (cls.RA_min, cls.RA_max,
-                                                                                          cls.Dec_min, cls.Dec_max))
-            except:
-                print("Failed")
-                cls.status = -1
-
-            if cls.df is None:
-                cls.status = -1
-        return
 
     @classmethod
     def read_photoz_catalog(cls):
@@ -425,6 +422,11 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
     def build_list_of_bid_targets(self,ra,dec,error):
         '''ra and dec in decimal degrees. error in arcsec.
         returns a pandas dataframe'''
+
+        if self.df is None:
+            self.read_main_catalog()
+        if self.df_photoz is None:
+            self.read_photoz_catalog()
 
         error_in_deg = float(error) / 3600.0
 
@@ -854,6 +856,9 @@ class EGS_GROTH(Catalog):
     #there is no catalog??
     MainCatalog = EGS_GROTH_CAT
     Name = "EGS_GROTH"
+    # if multiple images, the composite broadest range (filled in by hand)
+    Image_Coord_Range = {'RA_min': None, 'RA_max': None, 'Dec_min': None, 'Dec_max': None}
+    Cat_Coord_Range = {'RA_min': None, 'RA_max': None, 'Dec_min': None, 'Dec_max': None}
     WCS_Manual = False
 
     AstroTable = None
@@ -879,7 +884,8 @@ class EGS_GROTH(Catalog):
         # self.table_of_bid_targets = None
         self.num_targets = 0
 
-        self.read_main_catalog()
+        #only on demand
+        #self.read_main_catalog()
 
         self.master_cutout = None
 
@@ -957,6 +963,9 @@ class STACK_COSMOS(Catalog):
 
         MainCatalog = STACK_COSMOS_CAT
         Name = "STACK_COSMOS"
+        # if multiple images, the composite broadest range (filled in by hand)
+        Image_Coord_Range = {'RA_min': None, 'RA_max': None, 'Dec_min': None, 'Dec_max': None}
+        Cat_Coord_Range = {'RA_min': 149.005021, 'RA_max': 151.275747, 'Dec_min': 1.150460, 'Dec_max': 3.242518}
         WCS_Manual = False
 
         AstroTable = None
@@ -1006,7 +1015,8 @@ class STACK_COSMOS(Catalog):
             # self.table_of_bid_targets = None
             self.num_targets = 0
 
-            self.read_main_catalog()
+            #now only on demand
+            #self.read_main_catalog()
 
             self.master_cutout = None
 
@@ -1050,6 +1060,9 @@ class STACK_COSMOS(Catalog):
         def build_list_of_bid_targets(self, ra, dec, error):
             '''ra and dec in decimal degrees. error in arcsec.
             returns a pandas dataframe'''
+
+            if self.df is None:
+                self.read_main_catalog()
 
             error_in_deg = float(error) / 3600.0
 
