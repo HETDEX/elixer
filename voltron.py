@@ -30,8 +30,8 @@ def get_input(prompt):
 
 
 def parse_commandline():
-    desc = "Search multiple catalogs for possible object matches.\n\nNote: if (--ra), (--dec), (--rot) supplied in " \
-           "addition to (--dither),(--line), the supplied RA, Dec, and rotation will be used instead of the " \
+    desc = "Search multiple catalogs for possible object matches.\n\nNote: if (--ra), (--dec), (--par) supplied in " \
+           "addition to (--dither),(--line), the supplied RA, Dec, and Parangle will be used instead of the " \
            "TELERA, TELEDEC, and PARANGLE from the science FITS files."
 
     parser = argparse.ArgumentParser(description=desc)
@@ -43,7 +43,8 @@ def parse_commandline():
                                             , required=False)
     parser.add_argument('--dec', help='Target Dec (as decimal degrees or d:m:s.as (end with \'d\') '
                                             'Examples: --dec 52.921167    or  --dec 52:55:16.20d', required=False)
-    parser.add_argument('--rot',help="Rotation (as decimal degrees). NOT THE PARANGLE.",required=False,type=float)
+    #parser.add_argument('--rot',help="Rotation (as decimal degrees). NOT THE PARANGLE.",required=False,type=float)
+    parser.add_argument('--par', help="The Parangle in decimal degrees.", required=False, type=float)
     parser.add_argument('-e', '--error', help="Error (+/-) in RA and Dec in arcsecs.", required=True, type=float)
     parser.add_argument('-n','--name', help="PDF report filename",required=True)
 

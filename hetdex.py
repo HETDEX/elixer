@@ -559,17 +559,22 @@ class HETDEX:
         #note: rot = 360-(90 + 1.8 + PARANGLE) so, PARANGLE = 360 -(90+1.8+rot)
         #the 1.8 constant is under some investigation (have also seen 1.3)
 
-        if (args.ra is not None) and (args.dec is not None):
-            if (args.rot is not None):
-                rot = args.rot
-            else:
-                rot = 360. - (90. + 1.8 + self.parangle)
-
-            self.tangentplane = TP(args.ra, args.dec, rot)
-            log.debug("Calculating object RA, DEC from commandline RA=%f , DEC=%f , ROT=%f" \
-                      % (args.ra, args.dec, rot))
+        #if PARANGLE is specified on the command line, use it instead of the FITS PARANGLE
+        if args.par is not None:
+            self.rot = 360. - (90. + 1.8 + args.par)
         else:
             self.rot = 360. - (90. + 1.8 + self.parangle)
+
+        if (args.ra is not None) and (args.dec is not None):
+            #if (args.rot is not None):
+            #    rot = args.rot
+            #else:
+            #    rot = 360. - (90. + 1.8 + self.parangle)
+
+            self.tangentplane = TP(args.ra, args.dec, self.rot)
+            log.debug("Calculating object RA, DEC from commandline RA=%f , DEC=%f , ROT=%f" \
+                      % (args.ra, args.dec, self.rot))
+        else:
             self.tangentplane = TP(self.tel_ra, self.tel_dec, self.rot)
             log.debug("Calculating object RA, DEC from: TELRA=%f , TELDEC=%f , PARANGLE=%f , ROT=%f" \
                   % (self.tel_ra, self.tel_dec, self.parangle, self.rot))
@@ -984,7 +989,7 @@ class HETDEX:
         for i in range(num):
             borplot = plt.axes([borderxl + 0. * dx, borderyb + i * dy, 3 * dx, dy])
             smplot = plt.axes([borderxl + 2. * dx - bordbuff / 3., borderyb + i * dy + bordbuff / 2., dx1, dy1])
-            errplot = plt.axes(
+            pixplot = plt.axes(
                 [borderxl + 1. * dx + 1 * bordbuff / 3., borderyb + i * dy + bordbuff / 2., dx1, dy1])
             imgplot = plt.axes([borderxl + 0. * dx + bordbuff / 2., borderyb + i * dy + bordbuff / 2., dx1, dy1])
             autoAxis = borplot.axis()
@@ -1016,17 +1021,17 @@ class HETDEX:
             smplot.axis('off')
 
 
-            errplot.imshow(datakeep['pix'][ind[i]],
+            pixplot.imshow(datakeep['pix'][ind[i]],
                            origin="lower", cmap=plt.get_cmap('gray'),
                            interpolation="none", vmin=0.9, vmax=1.1,
                            extent=ext)
             # plot the center point
             #errplot.scatter(datakeep['xi'][ind[i]], datakeep['yi'][ind[i]],
             #                marker='.', c='r', edgecolor='r', s=10)
-            errplot.set_xticks([])
-            errplot.set_yticks([])
-            errplot.axis(ext)
-            errplot.axis('off')
+            pixplot.set_xticks([])
+            pixplot.set_yticks([])
+            pixplot.axis(ext)
+            pixplot.axis('off')
 
             #a = datakeep['cos'][ind[i]]
             #todo: only use if the cosmic removed error file was used
@@ -1086,8 +1091,8 @@ class HETDEX:
                 smplot.text(0.5, 1.3, 'Smoothed',
                             transform=smplot.transAxes, fontsize=8, color='k',
                             verticalalignment='top', horizontalalignment='center')
-                errplot.text(0.5, 1.3, 'Error',
-                             transform=errplot.transAxes, fontsize=8, color='k',
+                pixplot.text(0.5, 1.3, 'Pixel Flat',
+                             transform=pixplot.transAxes, fontsize=8, color='k',
                              verticalalignment='top', horizontalalignment='center')
                 imgplot.text(0.5, 1.3, 'Image',
                              transform=imgplot.transAxes, fontsize=8, color='k',

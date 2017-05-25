@@ -706,19 +706,20 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
             z = df['DEEP_SPEC_Z'].values[0]
             if z >= 0.0:
                 title = title + "\nDEEP SPEC Z = %g" % z
-            elif z_best_type is not None:
+
+            if z_best_type is not None:
                 if (z_best_type.lower() == 'p'):
-                    title = title + "\nPhoto Z = %g (blue)" % z_best
+                    title = title + "\nPhoto Z     = %g (blue)" % z_best
                 elif (z_best_type.lower() == 's'):
-                    title = title + "\nSpec Z  = %g (blue)" % z_best
+                    title = title + "\nSpec Z      = %g (blue)" % z_best
             if target_w > 0:
                 la_z = target_w / G.LyA_rest - 1.0
                 oii_z = target_w / G.OII_rest - 1.0
-                title = title + "\nLyA Z   = %g (red)" % la_z
+                title = title + "\nLyA Z       = %g (red)" % la_z
                 if (oii_z > 0):
-                    title = title + "\nOII Z   = %g (green)" % oii_z
+                    title = title + "\nOII Z       = %g (green)" % oii_z
                 else:
-                    title = title + "\nOII Z   = N/A"
+                    title = title + "\nOII Z       = N/A"
         else:
             title = "%s\nRA=%f    Dec=%f" % (section_title,ra, dec)
 
@@ -789,7 +790,7 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                     plt.axvline(x=la_z,color='r', linestyle='--')
                     if (oii_z > 0):
                         plt.axvline(x=oii_z, color='g', linestyle='--')
-                plt.title("Z PDF")
+                plt.title("Photo Z PDF")
                 plt.gca().yaxis.set_visible(False)
                 plt.xlabel("Z")
 
