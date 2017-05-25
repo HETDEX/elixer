@@ -699,19 +699,27 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
 
         fig = plt.figure(figsize=(fig_sz_x,fig_sz_y))
 
+        spec_z = 0.0
+
         if df is not None:
-            title = "%s\nPossible Match #%d\n%s\n\nRA = %f    Dec = %f\nSeparation = %g\"" \
+            title = "%s\nPossible Match #%d\n%s\n\nRA = %f    Dec = %f\nSeparation  = %g\"" \
                     % (section_title, bid_number,df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
                        df['distance'].values[0] * 3600)
             z = df['DEEP_SPEC_Z'].values[0]
             if z >= 0.0:
-                title = title + "\nDEEP SPEC Z = %g" % z
+                if (z_best_type is not None) and (z_best_type.lower() == 's'):
+                    title = title + "\nDEEP SPEC Z = %g" % z
+                else:
+                    title = title + "\nDEEP SPEC Z = %g (gold)" % z
+                    spec_z = z
 
             if z_best_type is not None:
                 if (z_best_type.lower() == 'p'):
                     title = title + "\nPhoto Z     = %g (blue)" % z_best
                 elif (z_best_type.lower() == 's'):
-                    title = title + "\nSpec Z      = %g" % z_best
+                    title = title + "\nSpec Z      = %g (gold)" % z_best
+                    spec_z = z
+
             if target_w > 0:
                 la_z = target_w / G.LyA_rest - 1.0
                 oii_z = target_w / G.OII_rest - 1.0
@@ -783,13 +791,18 @@ class CANDELS_EGS_Stefanon_2016(Catalog):
                 x = z_cat['z'].values
                 y = z_cat['mFDa4'].values
                 plt.subplot(gs[0, 3])
-                plt.plot(x,y)
+                plt.plot(x,y,zorder=1)
+
+                if spec_z > 0:
+                    plt.axvline(x=spec_z,color='gold', linestyle='solid', linewidth=3, zorder=0)
+
                 if target_w > 0:
                     la_z = target_w / G.LyA_rest - 1.0
                     oii_z = target_w / G.OII_rest - 1.0
-                    plt.axvline(x=la_z,color='r', linestyle='--')
+                    plt.axvline(x=la_z,color='r', linestyle='--',zorder=2)
                     if (oii_z > 0):
-                        plt.axvline(x=oii_z, color='g', linestyle='--')
+                        plt.axvline(x=oii_z, color='g', linestyle='--',zorder=2)
+
                 plt.title("Photo Z PDF")
                 plt.gca().yaxis.set_visible(False)
                 plt.xlabel("Z")
