@@ -3,13 +3,10 @@ from __future__ import print_function
 import global_config as G
 import os.path as op
 
+STACK_COSMOS_BASE_PATH = G.STACK_COSMOS_BASE_PATH
+STACK_COSMOS_IMAGE = op.join(G.STACK_COSMOS_BASE_PATH,"COSMOS_g_sci.fits")
+STACK_COSMOS_CAT = op.join(G.STACK_COSMOS_CAT_PATH,"cat_g.fits")
 
-CANDELS_EGS_Stefanon_2016_BASE_PATH = G.CANDELS_EGS_Stefanon_2016_BASE_PATH
-CANDELS_EGS_Stefanon_2016_CAT = op.join(CANDELS_EGS_Stefanon_2016_BASE_PATH,
-                                        "photometry/CANDELS.EGS.F160W.v1_1.photom.cat")
-CANDELS_EGS_Stefanon_2016_IMAGES_PATH = op.join(CANDELS_EGS_Stefanon_2016_BASE_PATH, "images")
-CANDELS_EGS_Stefanon_2016_PHOTOZ_CAT = op.join(CANDELS_EGS_Stefanon_2016_BASE_PATH , "photoz/zcat_EGS_v2.0.cat")
-CANDELS_EGS_Stefanon_2016_PHOTOZ_ZPDF_PATH = op.join(CANDELS_EGS_Stefanon_2016_BASE_PATH, "photoz/zPDF/")
 
 import matplotlib
 matplotlib.use('agg')
@@ -20,6 +17,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 import matplotlib.gridspec as gridspec
+import astropy.io.fits as fits
+from astropy.table import Table
 
 
 log = G.logging.getLogger('Cat_logger')
@@ -29,173 +28,177 @@ pd.options.mode.chained_assignment = None  #turn off warning about setting the d
 
 import cat_base
 
-class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
-    # RA,Dec in decimal degrees
-
-    # photometry catalog
-    #  1 ID #  2 IAU_designation  #  3 RA  #  4 DEC #  5 RA_Lotz2008 (RA in AEGIS ACS astrometric system)  #  6 DEC_Lotz2008 (DEC in AEGIS ACS astrometric system)
-    #  7 FLAGS #  8 CLASS_STAR #  9 CFHT_U_FLUX  # 10 CFHT_U_FLUXERR # 11 CFHT_g_FLUX # 12 CFHT_g_FLUXERR # 13 CFHT_r_FLUX
-    # 14 CFHT_r_FLUXERR  # 15 CFHT_i_FLUX # 16 CFHT_i_FLUXERR # 17 CFHT_z_FLUX # 18 CFHT_z_FLUXERR # 19 ACS_F606W_FLUX
-    # 20 ACS_F606W_FLUXERR # 21 ACS_F814W_FLUX # 22 ACS_F814W_FLUXERR # 23 WFC3_F125W_FLUX # 24 WFC3_F125W_FLUXERR
-    # 25 WFC3_F140W_FLUX # 26 WFC3_F140W_FLUXERR # 27 WFC3_F160W_FLUX # 28 WFC3_F160W_FLUXERR # 29 WIRCAM_J_FLUX
-    # 30 WIRCAM_J_FLUXERR  # 31 WIRCAM_H_FLUX # 32 WIRCAM_H_FLUXERR # 33 WIRCAM_K_FLUX # 34 WIRCAM_K_FLUXERR
-    # 35 NEWFIRM_J1_FLUX # 36 NEWFIRM_J1_FLUXERR # 37 NEWFIRM_J2_FLUX # 38 NEWFIRM_J2_FLUXERR # 39 NEWFIRM_J3_FLUX # 40 NEWFIRM_J3_FLUXERR
-    # 41 NEWFIRM_H1_FLUX # 42 NEWFIRM_H1_FLUXERR # 43 NEWFIRM_H2_FLUX # 44 NEWFIRM_H2_FLUXERR # 45 NEWFIRM_K_FLUX# 46 NEWFIRM_K_FLUXERR
-    # 47 IRAC_CH1_FLUX # 48 IRAC_CH1_FLUXERR # 49 IRAC_CH2_FLUX # 50 IRAC_CH2_FLUXERR # 51 IRAC_CH3_FLUX # 52 IRAC_CH3_FLUXERR # 53 IRAC_CH4_FLUX
-    # 54 IRAC_CH4_FLUXERR # 55 ACS_F606W_V08_FLUX # 56 ACS_F606W_V08_FLUXERR # 57 ACS_F814W_V08_FLUX # 58 ACS_F814W_V08_FLUXERR
-    # 59 WFC3_F125W_V08_FLUX # 60 WFC3_F125W_V08_FLUXERR # 61 WFC3_F160W_V08_FLUX # 62 WFC3_F160W_V08_FLUXERR
-    # 63 IRAC_CH3_V08_FLUX # 64 IRAC_CH3_V08_FLUXERR # 65 IRAC_CH4_V08_FLUX # 66 IRAC_CH4_V08_FLUXERR # 67 DEEP_SPEC_Z
-
+class SHELA(cat_base.Catalog):
     # class variables
-    MainCatalog = CANDELS_EGS_Stefanon_2016_CAT
-    Name = "CANDELS_EGS_Stefanon_2016"
+    SHELA_BASE_PATH = G.SHELA_BASE_PATH
+    SHELA_IMAGE_PATH = G.SHELA_BASE_PATH
+
+    Filters = ['u','g','r','i','z']
+    Tiles = ['3','4','5','6']
+    Img_ext = 'psfsci.fits'
+    Cat_ext = 'dualgcat.fits'
+
+    #SHELA_CAT = op.join(G.SHELA_CAT_PATH, "B3_g_dualgcat.fits")
+    #SHELA_IMAGE = op.join(SHELA_IMAGE_PATH, "B3_g_psfsci.fits")
+
+    MainCatalog = "SHELA" #while there is no main catalog, this needs to be not None
+    Name = "SHELA"
     # if multiple images, the composite broadest range (filled in by hand)
     Image_Coord_Range = {'RA_min': None, 'RA_max': None, 'Dec_min': None, 'Dec_max': None}
-    Cat_Coord_Range = {'RA_min': 214.576759, 'RA_max': 215.305229, 'Dec_min': 52.677569, 'Dec_max': 53.105756}
-    WCS_Manual = True
-    BidCols = ["ID", "IAU_designation", "RA", "DEC",
-               "CFHT_U_FLUX", "CFHT_U_FLUXERR",
-               "IRAC_CH1_FLUX", "IRAC_CH1_FLUXERR", "IRAC_CH2_FLUX", "IRAC_CH2_FLUXERR",
-               "ACS_F606W_FLUX", "ACS_F606W_FLUXERR",
-               "ACS_F814W_FLUX", "ACS_F814W_FLUXERR",
-               "WFC3_F125W_FLUX", "WFC3_F125W_FLUXERR",
-               "WFC3_F140W_FLUX", "WFC3_F140W_FLUXERR",
-               "WC3_F160W_FLUX", "WFC3_F160W_FLUXERR",
-               "DEEP_SPEC_Z"]  # NOTE: there are no F105W values
+    Cat_Coord_Range = {'RA_min': None, 'RA_max': None, 'Dec_min': None, 'Dec_max': None}
+    WCS_Manual = False
 
-    CatalogImages = [
-        {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
-         'name': 'egs_all_acs_wfc_f606w_060mas_v1.1_drz.fits',
-         'filter': 'f606w',
-         'instrument': 'ACS WFC',
-         'cols': ["ACS_F606W_FLUX", "ACS_F606W_FLUXERR"],
-         'labels': ["Flux", "Err"],
-         'image': None
-         },
-        {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
-         'name': 'egs_all_acs_wfc_f814w_060mas_v1.1_drz.fits',
-         'filter': 'f814w',
-         'instrument': 'ACS WFC',
-         'cols': ["ACS_F814W_FLUX", "ACS_F814W_FLUXERR"],
-         'labels': ["Flux", "Err"],
-         'image': None
-         },
-        {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
-         'name': 'egs_all_wfc3_ir_f105w_060mas_v1.5_drz.fits',
-         'filter': 'f105w',
-         'instrument': 'WFC3',
-         'cols': [],
-         'labels': [],
-         'image': None
-         },
-        {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
-         'name': 'egs_all_wfc3_ir_f125w_060mas_v1.1_drz.fits',
-         'filter': 'f125w',
-         'instrument': 'WFC3',
-         'cols': ["WFC3_F125W_FLUX", "WFC3_F125W_FLUXERR"],
-         'labels': ["Flux", "Err"],
-         'image': None
-         },
-        {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
-         'name': 'egs_all_wfc3_ir_f140w_060mas_v1.1_drz.fits',
-         'filter': 'f140w',
-         'instrument': 'WFC3',
-         'cols': ["WFC3_F140W_FLUX", "WFC3_F140W_FLUXERR"],
-         'labels': ["Flux", "Err"],
-         'image': None
-         },
-        {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
-         'name': 'egs_all_wfc3_ir_f160w_060mas_v1.1_drz.fits',
-         'filter': 'f160w',
-         'instrument': 'WFC3',
-         'cols': ["WFC3_F160W_FLUX", "WFC3_F160W_FLUXERR"],
-         'labels': ["Flux", "Err"],
-         'image': None
-         }
-    ]
+    AstroTable = None
 
-    # 1 file # 2 ID (CANDELS.EGS.F160W.v1b_1.photom.cat) # 3 RA (CANDELS.EGS.F160W.v1b_1.photom.cat) # 4 DEC (CANDELS.EGS.F160W.v1b_1.photom.cat)
-    # 5 z_best # 6 z_best_type # 7 z_spec # 8 z_spec_ref # 9 z_grism # 10 mFDa4_z_peak # 11 mFDa4_z_weight # 12 mFDa4_z683_low
-    # 13 mFDa4_z683_high # 14 mFDa4_z954_low # 15 mFDa4_z954_high # 16 HB4_z_peak # 17 HB4_z_weight # 18 HB4_z683_low
-    # 19 HB4_z683_high # 20 HB4_z954_low # 21 HB4_z954_high # 22 Finkelstein_z_peak # 23 Finkelstein_z_weight
-    # 24 Finkelstein_z683_low # 25 Finkelstein_z683_high # 26 Finkelstein_z954_low # 27 Finkelstein_z954_high
-    # 28 Fontana_z_peak # 29 Fontana_z_weight # 30 Fontana_z683_low # 31 Fontana_z683_high # 32 Fontana_z954_low
-    # 33 Fontana_z954_high # 34 Pforr_z_peak # 35 Pforr_z_weight # 36 Pforr_z683_low # 37 Pforr_z683_high
-    # 38 Pforr_z954_low # 39 Pforr_z954_high # 40 Salvato_z_peak # 41 Salvato_z_weight # 42 Salvato_z683_low
-    # 43 Salvato_z683_high # 44 Salvato_z954_low # 45 Salvato_z954_high # 46 Wiklind_z_peak # 47 Wiklind_z_weight
-    # 48 Wiklind_z683_low  # 49 Wiklind_z683_high # 50 Wiklind_z954_low # 51 Wiklind_z954_high # 52 Wuyts_z_peak
-    # 53 Wuyts_z_weight  # 54 Wuyts_z683_low # 55 Wuyts_z683_high # 56 Wuyts_z954_low # 57 Wuyts_z954_high
+# ColDefs(
+#     name = 'NUMBER'; format = '1J'; disp = 'I10'
+#     name = 'FLUXERR_ISO'; format = '1E'; unit = 'count'; disp = 'G12.7'
+#     name = 'MAG_APER'; format = '25E'; unit = 'mag'; disp = 'F8.4'
+#     name = 'MAGERR_APER'; format = '25E'; unit = 'mag'; disp = 'F8.4'
+#     name = 'FLUX_AUTO'; format = '1E'; unit = 'count'; disp = 'G12.7'
+#     name = 'FLUXERR_AUTO'; format = '1E'; unit = 'count'; disp = 'G12.7'
+#     name = 'MAG_AUTO'; format = '1E'; unit = 'mag'; disp = 'F8.4'
+#     name = 'MAGERR_AUTO'; format = '1E'; unit = 'mag'; disp = 'F8.4'
+#     name = 'KRON_RADIUS'; format = '1E'; disp = 'F5.2'
+#     name = 'THRESHOLD'; format = '1E'; unit = 'count'; disp = 'G12.7'
+#     name = 'X_IMAGE'; format = '1E'; unit = 'pixel'; disp = 'F11.4'
+#     name = 'Y_IMAGE'; format = '1E'; unit = 'pixel'; disp = 'F11.4'
+#     name = 'ALPHA_J2000'; format = '1D'; unit = 'deg'; disp = 'F11.7'
+#     name = 'DELTA_J2000'; format = '1D'; unit = 'deg'; disp = 'F11.7'
+#     name = 'A_WORLD'; format = '1E'; unit = 'deg'; disp = 'G12.7'
+#     name = 'B_WORLD'; format = '1E'; unit = 'deg'; disp = 'G12.7'
+#     name = 'FLUX_RADIUS'; format = '1E'; unit = 'pixel'; disp = 'F10.3'
+#     name = 'THETA_J2000'; format = '1E'; unit = 'deg'; disp = 'F6.2'
+#     name = 'FWHM_IMAGE'; format = '1E'; unit = 'pixel'; disp = 'F8.2'
+#     name = 'FWHM_WORLD'; format = '1E'; unit = 'deg'; disp = 'G12.7'
+#     name = 'FLAGS'; format = '1I'; disp = 'I3'
+#     name = 'IMAFLAGS_ISO'; format = '1J'; disp = 'I9'
+#     name = 'NIMAFLAGS_ISO'; format = '1J'; disp = 'I9'
+#     name = 'CLASS_STAR'; format = '1E'; disp = 'F6.3'
+# )
 
-    PhotoZCatalog = CANDELS_EGS_Stefanon_2016_PHOTOZ_CAT
-    SupportFilesLocation = CANDELS_EGS_Stefanon_2016_PHOTOZ_ZPDF_PATH
+
+    #NUMBER is NOT unique across Tiles (as expected)
+    #NUMBER is NOT unique within a Tile either (bummer)
+    #so ... it is essentially useless, just an index-1
+    #plus they have different entries per filter, so must match by exact RA, DEC? are they consistent??
+
+    BidCols = ['NUMBER',  # int32
+               'FLUXERR_ISO',  # ct float32
+               'MAG_APER',  # [25] mag float32
+               'MAGERR_APER',  # [25] mag float32
+               'FLUX_AUTO',  # ct float32
+               'FLUXERR_AUTO',  # ct float32
+               'MAG_AUTO',  # mag float32
+               'MAGERR_AUTO',  # mag float32
+               'KRON-RADIUS', #
+               'THRESHOLD', # ct float32
+               'X_IMAGE',  # pix float32
+               'Y_IMAGE',  # pix float32
+               'ALPHA_J2000',  # deg float64
+               'DELTA_J2000',  # deg float64
+               'A_WORLD',  # deg float32
+               'B_WORLD',  # deg float32
+               'FLUX_RADIUS',  # pix float32
+               'THETA_J2000',  #
+               'FWHM_IMAGE',  # pix float32
+               'FWHM_WORLD',  # deg float32
+               'FLAGS',  # int16
+               'IMAFLAGS_ISO',  # int32
+               'NIMAFLAGS_ISO',  # int32
+               'CLASS_STAR']  # float32
+
+    CatalogImages = [] #built in constructor
 
     def __init__(self):
-        super(CANDELS_EGS_Stefanon_2016, self).__init__()
+        super(SHELA, self).__init__()
 
-        # self.dataframe_of_bid_targets = None #defined in base class
+        self.dataframe_of_bid_targets = None
+        self.dataframe_of_bid_targets_unique = None
         self.dataframe_of_bid_targets_photoz = None
-        # self.table_of_bid_targets = None
         self.num_targets = 0
-
-        # do this only as needed
-        # self.read_main_catalog()
-        # self.read_photoz_catalog()
-        # self.build_catalog_images() #will just build on demand
-
         self.master_cutout = None
+        self.build_catalog_of_images()
 
-    # todo: is this more efficient? garbage collection does not seem to be running
-    # so building as needed does not seem to help memory
-    def build_catalog_images(self):
-        for i in self.CatalogImages:  # i is a dictionary
-            i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
-                                                     image_location=op.join(i['path'], i['name']))
 
     @classmethod
-    def read_photoz_catalog(cls):
-        if cls.df_photoz is not None:
-            log.debug("Already built df_photoz")
-        else:
-            try:
-                print("Reading photoz catalog for ", cls.Name)
-                cls.df_photoz = cls.read_catalog(cls.PhotoZCatalog, cls.Name)
-            except:
-                print("Failed")
+    def read_catalog(cls, catalog_loc=None, name=None):
+        "This catalog is in a fits file"
 
-        return
+        #ignore catalog_loc and name. Must use class defined.
+        #build each tile and filter and concatenate into a single pandas dataframe
 
-    @classmethod
-    def read_catalog(cls, catalog_loc, name):
+        df_master = pd.DataFrame()
 
-        log.debug("Building " + name + " dataframe...")
-        idx = []
-        header = []
-        skip = 0
-        try:
-            f = open(catalog_loc, mode='r')
-        except:
-            log.error(name + " Exception attempting to open catalog file: " + catalog_loc, exc_info=True)
-            return None
+        for t in cls.Tiles:
+            for f in cls.Filters:
+                cat_name = 'B'+t+'_'+f+'_'+cls.Cat_ext
+                log.debug("Building " + cls.Name + " " + cat_name + " dataframe...")
 
-        line = f.readline()
-        while '#' in line:
-            skip += 1
-            toks = line.split()
-            if (len(toks) > 2) and toks[1].isdigit():  # format:   # <id number> <column name>
-                idx.append(toks[1])
-                header.append(toks[2])
-            line = f.readline()
+                cat_loc = op.join(cls.SHELA_BASE_PATH,cat_name)
 
-        f.close()
+                try:
+                    table = Table.read(cat_loc)
+                except:
+                    log.error(name + " Exception attempting to open catalog file: " + catalog_loc, exc_info=True)
+                    return None
 
-        try:
-            df = pd.read_csv(catalog_loc, names=header,
-                             delim_whitespace=True, header=None, index_col=None, skiprows=skip)
-        except:
-            log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
-            return None
+                # convert into a pandas dataframe ... cannot convert directly to pandas because of the [25] lists
+                # so build a pandas df with just the few columns we need for searching
+                # then pull data from full astro table as needed
 
-        return df
+                try:
+                    lookup_table = Table([table['NUMBER'], table['ALPHA_J2000'], table['DELTA_J2000']])
+                    df = lookup_table.to_pandas()
+                    old_names = ['NUMBER', 'ALPHA_J2000', 'DELTA_J2000']
+                    new_names = ['ID', 'RA', 'DEC']
+                    df.rename(columns=dict(zip(old_names, new_names)), inplace=True)
+                    df['TILE'] = t
+                    df['FILTER'] = f
+
+                    df_master = pd.concat([df_master,df])
+
+                   # cls.AstroTable = table
+                except:
+                    log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
+                    return None
+
+        return df_master
+
+    def build_catalog_of_images(self):
+        for t in self.Tiles:
+            for f in self.Filters:
+                self.CatalogImages.append(
+                    {'path': self.SHELA_IMAGE_PATH,
+                     'name': 'B'+t+'_'+f+'_'+self.Img_ext,
+                     'tile': t,
+                     'filter': f,
+                     'instrument': "",
+                     'cols': [],
+                     'labels': [],
+                     'image': None
+                     })
+
+    def find_target_tile(self,ra,dec):
+        #assumed to have already confirmed this target is at least in coordinate range of this catalog
+        tile = None
+        for t in self.Tiles:
+            for f in ['g']: #self.Filters:
+                #can we assume the filters all have the same coord range?
+                #see if can get a cutout?
+                img_name = 'B' + t + '_' + f + '_' + self.Img_ext
+                try:
+                    image = science_image.science_image(wcs_manual=self.WCS_Manual,
+                            image_location=op.join(self.SHELA_IMAGE_PATH, img_name))
+                    if image.contains_position(ra,dec):
+                        tile = t
+                except:
+                    pass
+
+                if tile is not None:
+                    break
+
+        return tile
 
     def build_list_of_bid_targets(self, ra, dec, error):
         '''ra and dec in decimal degrees. error in arcsec.
@@ -203,8 +206,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
         if self.df is None:
             self.read_main_catalog()
-        if self.df_photoz is None:
-            self.read_photoz_catalog()
 
         error_in_deg = np.float64(error) / 3600.0
 
@@ -224,31 +225,46 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             self.dataframe_of_bid_targets = \
                 self.df[(self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max) &
                         (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)].copy()
+            #may contain duplicates (across tiles)
+            #remove duplicates (assuming same RA,DEC between tiles has same data)
+            #so, different tiles that have the same ra,dec and filter get dropped (keep only 1)
+            #but if the filter is different, it is kept
 
-            # ID matches between both catalogs
-            self.dataframe_of_bid_targets_photoz = \
-                self.df_photoz[(self.df_photoz['ID'].isin(self.dataframe_of_bid_targets['ID']))].copy()
+            #this could be done at construction time, but given the smaller subset I think
+            #this is faster here
+            self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.drop_duplicates(
+                subset=['RA','DEC','FILTER'])
+
+
+            #relying on auto garbage collection here ...
+            self.dataframe_of_bid_targets_unique = self.dataframe_of_bid_targets.copy()
+            self.dataframe_of_bid_targets_unique = \
+                self.dataframe_of_bid_targets_unique.drop_duplicates(subset=['RA','DEC'])
+            self.num_targets = self.dataframe_of_bid_targets_unique.iloc[:,0].count()
+
         except:
             log.error(self.Name + " Exception in build_list_of_bid_targets", exc_info=True)
 
         if self.dataframe_of_bid_targets is not None:
-            self.num_targets = self.dataframe_of_bid_targets.iloc[:, 0].count()
+            #self.num_targets = self.dataframe_of_bid_targets.iloc[:, 0].count()
             self.sort_bid_targets_by_likelihood(ra, dec)
 
             log.info(self.Name + " searching for objects in [%f - %f, %f - %f] " % (ra_min, ra_max, dec_min, dec_max) +
                      ". Found = %d" % (self.num_targets))
 
-        return self.num_targets, self.dataframe_of_bid_targets, self.dataframe_of_bid_targets_photoz
+        return self.num_targets, self.dataframe_of_bid_targets, None
 
-    # column names are catalog specific, but could map catalog specific names to generic ones and produce a dictionary?
+
     def build_bid_target_reports(self, target_ra, target_dec, error, num_hits=0, section_title="", base_count=0,
                                  target_w=0, fiber_locs=None):
-
         self.clear_pages()
         self.build_list_of_bid_targets(target_ra, target_dec, error)
 
-        ras = self.dataframe_of_bid_targets.loc[:, ['RA']].values
-        decs = self.dataframe_of_bid_targets.loc[:, ['DEC']].values
+        #need unique ra and decs only
+
+
+        ras = self.dataframe_of_bid_targets_unique.loc[:, ['RA']].values
+        decs = self.dataframe_of_bid_targets_unique.loc[:, ['DEC']].values
 
         # display the exact (target) location
         entry = self.build_exact_target_location_figure(target_ra, target_dec, error, section_title=section_title,
@@ -264,27 +280,13 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             try:
                 df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                        (self.dataframe_of_bid_targets['DEC'] == d[0])]
-
-                idnum = df['ID'].values[0]  # to matchup in photoz catalog
             except:
                 log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
                 continue  # this must be here, so skip to next ra,dec
 
-            try:
-                # note cannot dirctly use RA,DEC as the recorded precission is different (could do a rounded match)
-                # but the idnums match up, so just use that
-                df_photoz = self.dataframe_of_bid_targets_photoz.loc[
-                    self.dataframe_of_bid_targets_photoz['ID'] == idnum]
-
-                if len(df_photoz) == 0:
-                    log.debug("No conterpart found in photoz catalog; RA=%f , Dec =%f" % (r[0], d[0]))
-                    df_photoz = None
-            except:
-                log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
-                df_photoz = None
 
             print("Building report for bid target %d in %s" % (base_count + number, self.Name))
-            entry = self.build_bid_target_figure(r[0], d[0], error=error, df=df, df_photoz=df_photoz,
+            entry = self.build_bid_target_figure(r[0], d[0], error=error, df=df, df_photoz=None,
                                                  target_ra=target_ra, target_dec=target_dec,
                                                  section_title=section_title,
                                                  bid_number=number, target_w=target_w)
@@ -302,12 +304,9 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         # not the middle, so need the total length of each side to be twice translated error or 2*2*errorS
         window = error * 4
 
-        # set a minimum window size?
-        # if window < 8:
-        #    window = 8
 
         rows = 2
-        cols = len(self.CatalogImages)
+        cols = len(self.Filters)
 
         fig_sz_x = cols * 3
         fig_sz_y = rows * 3
@@ -323,7 +322,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
         title = "Catalog: %s\n" % self.Name + section_title + "\nTarget Location\nPossible Matches=%d (within %g\")\n" \
                                                               "RA = %f    Dec = %f\n" % (
-                                                              len(self.dataframe_of_bid_targets), error, ra, dec)
+                                                                  len(self.dataframe_of_bid_targets), error, ra, dec)
         if target_w > 0:
             title = title + "Wavelength = %g $\AA$\n" % target_w
         else:
@@ -338,8 +337,23 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             self.master_cutout = None
 
         index = -1
-        for i in self.CatalogImages:  # i is a dictionary
+
+        #for a given Tile, iterate over all filters
+        tile = self.find_target_tile(ra,dec)
+
+        if tile is None:
+            #problem
+            print("+++++ No appropriate tile found in SHELA for RA,DEC = [%f,%f]" %(ra,dec))
+            log.error("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" %(ra,dec))
+            return None
+
+        for f in self.Filters:
             index += 1
+
+            i = self.CatalogImages[
+                next(i for (i,d) in enumerate(self.CatalogImages)
+                     if ((d['filter'] == f) and (d['tile'] == tile)))]
+           # i = [elem for elem in self.CatalogImages if ((elem['filter'] == f) and (elem['tile'] == tile)]
 
             if i['image'] is None:
                 i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
@@ -450,15 +464,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         # z_spec_ref = None
 
         rows = 2
-        cols = len(self.CatalogImages)
-
-        if df_photoz is not None:
-            photoz_file = df_photoz['file'].values[0]
-            z_best = df_photoz['z_best'].values[0]
-            z_best_type = df_photoz['z_best_type'].values[0]  # s = spectral , p = photometric?
-            # z_spec = df_photoz['z_spec'].values[0]
-            # z_spec_ref = df_photoz['z_spec_ref'].values[0]
-            # rows = rows + 1
+        cols = len(self.Filters)
 
         fig_sz_x = cols * 3
         fig_sz_y = rows * 3
@@ -474,33 +480,9 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         spec_z = 0.0
 
         if df is not None:
-            title = "%s\nPossible Match #%d\n%s\n\nRA = %f    Dec = %f\nSeparation  = %g\"" \
-                    % (
-                    section_title, bid_number, df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
+            title = "%s\nPossible Match #%d\n\nRA = %f    Dec = %f\nSeparation  = %g\"" \
+                    % (section_title, bid_number, df['RA'].values[0], df['DEC'].values[0],
                     df['distance'].values[0] * 3600)
-            z = df['DEEP_SPEC_Z'].values[0]
-            if z >= 0.0:
-                if (z_best_type is not None) and (z_best_type.lower() == 's'):
-                    title = title + "\nDEEP SPEC Z = %g" % z
-                else:
-                    title = title + "\nDEEP SPEC Z = %g (gold)" % z
-                    spec_z = z
-
-            if z_best_type is not None:
-                if (z_best_type.lower() == 'p'):
-                    title = title + "\nPhoto Z     = %g (blue)" % z_best
-                elif (z_best_type.lower() == 's'):
-                    title = title + "\nSpec Z      = %g (gold)" % z_best
-                    spec_z = z
-
-            if target_w > 0:
-                la_z = target_w / G.LyA_rest - 1.0
-                oii_z = target_w / G.OII_rest - 1.0
-                title = title + "\nLyA Z       = %g (red)" % la_z
-                if (oii_z > 0):
-                    title = title + "\nOII Z       = %g (green)" % oii_z
-                else:
-                    title = title + "\nOII Z       = N/A"
         else:
             title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)
 
@@ -610,7 +592,3 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
         plt.close()
         return fig
-
-#######################################
-# end class CANDELS_EGS_Stefanon_2016
-#######################################

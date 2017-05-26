@@ -1,6 +1,4 @@
 from __future__ import print_function
-#keep it simple for now. Put base class and all children in here.
-#Later, create a proper package
 
 import global_config as G
 import os.path as op
@@ -170,22 +168,23 @@ class STACK_COSMOS(cat_base.Catalog):
             if self.df is None:
                 self.read_main_catalog()
 
-            error_in_deg = float(error) / 3600.0
+            error_in_deg = np.float64(error) / 3600.0
 
             self.dataframe_of_bid_targets = None
             self.num_targets = 0
 
-            ra_min = float(ra - error_in_deg)
-            ra_max = float(ra + error_in_deg)
-            dec_min = float(dec - error_in_deg)
-            dec_max = float(dec + error_in_deg)
+            ra_min = np.float64(ra - error_in_deg)
+            ra_max = np.float64(ra + error_in_deg)
+            dec_min = np.float64(dec - error_in_deg)
+            dec_max = np.float64(dec + error_in_deg)
 
             log.info(self.Name + " searching for bid targets in range: RA [%f +/- %f], Dec [%f +/- %f] ..."
                      % (ra, error_in_deg, dec, error_in_deg))
 
             try:
-                self.dataframe_of_bid_targets = self.df[(self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max) &
-                                                        (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)]
+                self.dataframe_of_bid_targets = \
+                    self.df[(self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max) &
+                            (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)].copy()
 
             except:
                 log.error(self.Name + " Exception in build_list_of_bid_targets", exc_info=True)
