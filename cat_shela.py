@@ -44,8 +44,17 @@ class SHELA(cat_base.Catalog):
     MainCatalog = "SHELA" #while there is no main catalog, this needs to be not None
     Name = "SHELA"
     # if multiple images, the composite broadest range (filled in by hand)
-    Image_Coord_Range = {'RA_min': None, 'RA_max': None, 'Dec_min': None, 'Dec_max': None}
+    Image_Coord_Range = {'RA_min': 14.09, 'RA_max': 25.31, 'Dec_min': -1.35, 'Dec_max': 1.34}
+    #approximate
+    Tile_Coord_Range = {'3': {'RA_min': 14.09, 'RA_max': 16.91, 'Dec_min': -1.35, 'Dec_max': 1.34},
+                        '4': {'RA_min': 16.90, 'RA_max': 19.71, 'Dec_min': -1.35, 'Dec_max': 1.34},
+                        '5': {'RA_min': 19.70, 'RA_max': 22.52, 'Dec_min': -1.35, 'Dec_max': 1.34},
+                        '6': {'RA_min': 22.51, 'RA_max': 25.31, 'Dec_min': -1.35, 'Dec_max': 1.34},
+                        }
+
+
     Cat_Coord_Range = {'RA_min': None, 'RA_max': None, 'Dec_min': None, 'Dec_max': None}
+
     WCS_Manual = False
 
     AstroTable = None
@@ -336,7 +345,7 @@ class SHELA(cat_base.Catalog):
             del (self.master_cutout)
             self.master_cutout = None
 
-        index = -1
+
 
         #for a given Tile, iterate over all filters
         tile = self.find_target_tile(ra,dec)
@@ -347,13 +356,16 @@ class SHELA(cat_base.Catalog):
             log.error("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" %(ra,dec))
             return None
 
+        index = -1
         for f in self.Filters:
             index += 1
 
             i = self.CatalogImages[
                 next(i for (i,d) in enumerate(self.CatalogImages)
                      if ((d['filter'] == f) and (d['tile'] == tile)))]
-           # i = [elem for elem in self.CatalogImages if ((elem['filter'] == f) and (elem['tile'] == tile)]
+
+            if i is None:
+                continue
 
             if i['image'] is None:
                 i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
@@ -491,10 +503,26 @@ class SHELA(cat_base.Catalog):
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
+        # for a given Tile, iterate over all filters
+        tile = self.find_target_tile(ra, dec)
+
+        if tile is None:
+            # problem
+            print("+++++ No appropriate tile found in SHELA for RA,DEC = [%f,%f]" % (ra, dec))
+            log.error("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" % (ra, dec))
+            return None
+
         index = -1
-        # iterate over all filter images
-        for i in self.CatalogImages:  # i is a dictionary
-            index += 1  # for subplot ... is 1 based
+        for f in self.Filters:
+            index += 1
+
+            i = self.CatalogImages[
+                next(i for (i, d) in enumerate(self.CatalogImages)
+                     if ((d['filter'] == f) and (d['tile'] == tile)))]
+
+            if i is None:
+                continue
+
             if i['image'] is None:
                 i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
                                                          image_location=op.join(i['path'], i['name']))

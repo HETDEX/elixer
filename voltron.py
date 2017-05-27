@@ -21,6 +21,9 @@ VERSION = sys.version.split()[0]
 
 G_PDF_FILE_NUM = 0
 
+log = G.logging.getLogger('main_logger')
+log.setLevel(G.logging.DEBUG)
+
 def get_input(prompt):
     if LooseVersion(VERSION) >= LooseVersion('3.0'):
         i = input(prompt)
@@ -68,6 +71,7 @@ def parse_commandline():
                 args.ra = float(Angle(args.ra).degree)
             except:
                 print("Error. Cannot determine format of RA")
+                log.critical("Main exit. Invalid command line parameters.")
                 exit(-1)
         else:
             args.ra = float(args.ra)
@@ -78,12 +82,14 @@ def parse_commandline():
                 args.dec = float(Angle(args.dec).degree)
             except:
                 print("Error. Cannot determine format of DEC")
+                log.critical("Main exit. Invalid command line parameters.")
                 exit(-1)
         else:
             args.dec = float(args.dec)
 
     if args.error < 0:
         print("Invalid error. Must be non-negative.")
+        log.critical("Main exit. Invalid command line parameters.")
         exit(0)
 
     if not args.force:
@@ -99,6 +105,7 @@ def parse_commandline():
 
         if len(i) > 0 and i.upper() !=  "Y":
             print ("Cancelled.")
+            log.critical("Main exit. User cancel.")
             exit(0)
         else:
             print()
@@ -107,6 +114,7 @@ def parse_commandline():
         return args
     else:
         print("Invalid command line parameters. Cancelled.")
+        log.critical("Main exit. Invalid command line parameters.")
         exit(-1)
 
 def valid_parameters(args):
@@ -291,6 +299,7 @@ def main():
         if hd.status != 0:
             #fatal
             print("Fatal error. Cannot build HETDEX working object.")
+            log.critical("Main exit. Fatal error.")
             exit (-1)
 
         #iterate over all emission line detections
@@ -314,6 +323,7 @@ def main():
                         print("Coordinates not in range of %s for Detect ID #%d" % (c.name,e.id))
 
             if not confirm(num_hits,args.force):
+                log.critical("Main exit. User cancel.")
                 exit(0)
 
             #now build the report for each emission detection
@@ -340,14 +350,16 @@ def main():
         matched_cats = []
         for c in cats:
             if c.position_in_cat(ra=args.ra,dec=args.dec,error=args.error):
+                if c not in matched_cats:
+                    matched_cats.append(c)
                 hits,_,_ = c.build_list_of_bid_targets(ra=args.ra,dec=args.dec,error=args.error)
                 num_hits += hits
                 if hits > 0:
                     print ("%d hits in %s" %(hits,c.name))
-                    if c not in matched_cats:
-                        matched_cats.append(c)
+
 
         if not confirm(num_hits,args.force):
+            log.critical("Main exit. User cancel.")
             exit(0)
 
         pages,_ = build_pages(args.ra, args.dec, args.error, matched_cats, pages, idstring="# 1 of 1")
@@ -357,6 +369,8 @@ def main():
     if PyPDF is not None:
         join_report_parts(args.name)
         delete_report_parts()
+
+    log.critical("Main complete.")
 
     exit(0)
 
