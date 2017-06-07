@@ -48,6 +48,7 @@ def parse_commandline():
                                             'Examples: --dec 52.921167    or  --dec 52:55:16.20d', required=False)
     #parser.add_argument('--rot',help="Rotation (as decimal degrees). NOT THE PARANGLE.",required=False,type=float)
     parser.add_argument('--par', help="The Parangle in decimal degrees.", required=False, type=float)
+    parser.add_argument('--rot', help="The rotation in decimal degrees. (Superceeds use of --par)", required=False, type=float)
     parser.add_argument('-e', '--error', help="Error (+/-) in RA and Dec in arcsecs.", required=True, type=float)
     parser.add_argument('-n','--name', help="PDF report filename",required=True)
 

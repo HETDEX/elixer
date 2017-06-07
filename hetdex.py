@@ -42,12 +42,17 @@ SIDE = ["L", "R"]
 
 #lifted from Greg Z.
 dist_thresh = 2.  # Fiber Distance (arcsecs)
+#todo: change to full width of frame?? (and change xl in build dict to this value, not the difference)
+FRAME_WIDTH_X = 1024
 xw = 24  # image width in x-dir
 yw = 10  # image width in y-dir
 contrast1 = 0.9  # convolved image
 contrast2 = 0.5  # regular image
 res = [3, 9]
 ww = xw * 1.9  # wavelength width
+
+fig_sz_x = 18
+fig_sz_y = 12
 
 
 #lifted from Greg Z. make_visualization_detect.py
@@ -560,7 +565,9 @@ class HETDEX:
         #the 1.8 constant is under some investigation (have also seen 1.3)
 
         #if PARANGLE is specified on the command line, use it instead of the FITS PARANGLE
-        if args.par is not None:
+        if args.rot is not None:
+            self.rot = float(args.rot)
+        elif args.par is not None:
             self.rot = 360. - (90. + 1.8 + args.par)
         else:
             self.rot = 360. - (90. + 1.8 + self.parangle)
@@ -750,13 +757,13 @@ class HETDEX:
 
         print ("Bulding HETDEX header for Detect ID #%d" %detectid)
         #todo: match this up with the catalog sizes
-        fig_sz_x = 18
-        fig_sz_y = 6
+        #fig_sz_x = 18
+        #fig_sz_y = 6
 
         fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
         plt.gca().axis('off')
         # 2x2 grid (but for sizing, make more fine)
-        gs = gridspec.GridSpec(1, 3)#, wspace=0.25, hspace=0.5)
+        gs = gridspec.GridSpec(2, 3)#, wspace=0.25, hspace=0.5)
 
         font = FontProperties()
         font.set_family('monospace')
@@ -797,6 +804,7 @@ class HETDEX:
                 plt.subplot(gs[0,1])
                 plt.gca().axis('off')
                 buf = self.build_2d_image(datakeep)
+
                 buf.seek(0)
                 im = Image.open(buf)
                 plt.imshow(im,interpolation='none') #needs to be 'none' else get blurring
@@ -807,6 +815,15 @@ class HETDEX:
                 buf.seek(0)
                 im = Image.open(buf)
                 plt.imshow(im,interpolation='none')#needs to be 'none' else get blurring
+
+
+                #todo: test
+                plt.subplot(gs[1,:])
+                plt.gca().axis('off')
+                buf = self.build_full_width_2d_image(datakeep)
+                buf.seek(0)
+                im = Image.open(buf)
+                plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
 
             # update emission with the ra, dec of all fibers
             e.fiber_locs = list(zip(datakeep['ra'], datakeep['dec'],datakeep['color'],datakeep['index']))
@@ -848,6 +865,9 @@ class HETDEX:
             dd['dx'] = []
             dd['dy'] = []
             dd['im'] = []
+            dd['fw_im'] = [] #full width (1024)
+            dd['fxl'] = []
+            dd['fxh'] = []
             dd['vmin1'] = []
             dd['vmax1'] = []
             dd['vmin2'] = []
@@ -914,12 +934,20 @@ class HETDEX:
                     datakeep['yl'].append(yl)
                     datakeep['xh'].append(xh)
                     datakeep['yh'].append(yh)
+                    datakeep['fxl'].append(0)
+                    datakeep['fxh'].append(FRAME_WIDTH_X-1)
                     datakeep['d'].append(d[loc]) #distance (in arcsec) of fiber center from object center
                     datakeep['sn'].append(e.sigma)
 
+
+
+                    #todo: also get full x width data
+                    #todo; would be more memory effecien to just grab full width,
+                    #todo: then in original func, slice as below
                     sci = self.get_sci_fits(dither,side)
                     if sci is not None:
                         datakeep['im'].append(sci.data[yl:yh,xl:xh])
+                        datakeep['fw_im'].append(sci.data[yl:yh, 0:FRAME_WIDTH_X-1])
 
                         # this is probably for the 1d spectra
                         I = sci.data.ravel()
@@ -1149,5 +1177,111 @@ class HETDEX:
         plt.close(fig)
         return buf
 
+     # 2d specta cutouts (one per fiber)
+    def build_full_width_2d_image(self, datakeep):
+
+        #just use the raw  image (normal color map)
+        cmap = plt.get_cmap('gray_r')
+        norm = plt.Normalize()
+        colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
+        num = len(datakeep['xi'])
+        dy = 1.0/num
+
+        #fig = plt.figure(figsize=(5, 6.25), frameon=False)
+        fig = plt.figure(figsize=(fig_sz_x,fig_sz_y/2.0),frameon=False)
+
+        ind = list(range(len(datakeep['d']) - 1, -1, -1))
+
+        for i in range(num):
+            borplot = plt.axes([0, i * dy, 1.0, dy])
+            imgplot = plt.axes([0.001, i * dy, 0.998, dy])
+
+            autoAxis = borplot.axis()
+            datakeep['color'][i] = colors[i, 0:3]
+            datakeep['index'][i] = num - i
+
+
+            rec = plt.Rectangle((autoAxis[0] , autoAxis[2]),
+                                (autoAxis[1] - autoAxis[0]) ,
+                                (autoAxis[3] - autoAxis[2]) , fill=False, lw=3,
+                                color=datakeep['color'][i], zorder=2)
+            borplot.add_patch(rec)
+            borplot.set_xticks([])
+            borplot.set_yticks([])
+            borplot.axis('off')
+
+            ext = list(np.hstack([datakeep['fxl'][ind[i]], datakeep['fxh'][ind[i]],
+                                  datakeep['yl'][ind[i]], datakeep['yh'][ind[i]]]))
+
+            a = datakeep['fw_im'][ind[i]]
+            #a = gaussian_filter(datakeep['fw_im'][ind[i]], (2, 1))
+
+            imgplot.imshow(a,
+                           origin="lower", cmap=cmap,
+                           interpolation="none",
+                           vmin=datakeep['vmin2'][ind[i]],
+                           vmax=datakeep['vmax2'][ind[i]],
+                           extent=ext,zorder=1)
+
+            imgplot.set_xticks([])
+            imgplot.set_yticks([])
+            imgplot.axis(ext)
+            imgplot.axis('off')
+
+            #todo: why no numbers showing up???
+            imgplot.text(-0.2, .5, num - i,
+                         transform=borplot.transAxes, fontsize=6, color='k',  # colors[i, 0:3],
+                         verticalalignment='bottom', horizontalalignment='left')
+
+        buf = io.BytesIO()
+        # plt.tight_layout()#pad=0.1, w_pad=0.5, h_pad=1.0)
+        plt.savefig(buf, format='png', dpi=300)
+
+        plt.close(fig)
+        return buf
+
+    def build_full_width_spec_image(self, datakeep, cwave, dwave=1.0):
+
+        fig = plt.figure(figsize=(5, 3))
+        norm = plt.Normalize()
+        colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
+
+        N = len(datakeep['xi'])
+        rm = 0.2
+        r, w = get_w_as_r(1.5, 500, 0.05, 6.)
+        specplot = plt.axes([0.1, 0.1, 0.8, 0.8])
+        bigwave = np.arange(cwave - ww, cwave + ww + dwave, dwave)
+        F = np.zeros(bigwave.shape)
+        mn = 100.0
+        mx = 0.0
+        W = 0.0
+        # ind = sorted(range(len(datakeep['d'])), key=lambda k: datakeep['d'][k],reverse=True)
+        # keep in dither order instead, but need to count backward for compatibility
+        ind = range(len(datakeep['d']) - 1, -1, -1)
+
+        for i in range(N):
+            specplot.step(datakeep['specwave'][ind[i]], datakeep['spec'][ind[i]],
+                          where='mid', color=colors[i, 0:3], alpha=0.5)
+            w1 = np.interp(datakeep['d'][ind[i]], r, w)
+            F += (np.interp(bigwave, datakeep['specwave'][ind[i]],
+                            datakeep['spec'][ind[i]]) * w1)  # *(2.0 -datakeep['d'][ind[i]])
+            W += w1
+            mn = np.min([mn, np.min(datakeep['spec'][ind[i]])])
+            mx = np.max([mx, np.max(datakeep['spec'][ind[i]])])
+        F /= W
+        specplot.step(bigwave, F, c='b', where='mid', lw=2)
+        ran = mx - mn
+        specplot.errorbar(cwave - .8 * ww, mn + ran * (1 + rm) * 0.85,
+                          yerr=biweight_midvariance(np.array(datakeep['spec'][:])),
+                          fmt='o', marker='o', ms=4, mec='k', ecolor=[0.7, 0.7, 0.7],
+                          mew=1, elinewidth=3, mfc=[0.7, 0.7, 0.7])
+        specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='--', c=[0.3, 0.3, 0.3])
+        specplot.axis([cwave - ww, cwave + ww, mn - ran * rm, mn + ran * (1 + rm)])
+
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=300)
+
+        plt.close(fig)
+        return buf
 
 #end HETDEX class
