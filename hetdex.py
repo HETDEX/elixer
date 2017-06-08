@@ -820,7 +820,7 @@ class HETDEX:
                 #todo: test
                 plt.subplot(gs[1,:])
                 plt.gca().axis('off')
-                buf = self.build_full_width_2d_image(datakeep)
+                buf = self.build_full_width_2d_image(datakeep,e.w)
                 buf.seek(0)
                 im = Image.open(buf)
                 plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
@@ -876,6 +876,8 @@ class HETDEX:
             dd['pix'] = []
             dd['spec'] = []
             dd['specwave'] = []
+            dd['fw_spec']  = []
+            dd['fw_specwave'] = []
             dd['cos'] = []
             dd['ra'] = []
             dd['dec'] = []
@@ -986,6 +988,9 @@ class HETDEX:
                         Fe_indh = np.searchsorted(wave,e.w+ww,side='right')
                         datakeep['spec'].append(sci.fe_data[loc,Fe_indl:(Fe_indh+1)])
                         datakeep['specwave'].append(wave[Fe_indl:(Fe_indh+1)])
+
+                        datakeep['fw_spec'].append(sci.fe_data[loc,:])
+                        datakeep['fw_specwave'].append(wave[:])
 
         return datakeep
 
@@ -1178,13 +1183,13 @@ class HETDEX:
         return buf
 
      # 2d specta cutouts (one per fiber)
-    def build_full_width_2d_image(self, datakeep):
+    def build_full_width_2d_image(self, datakeep, cwave):
 
         #just use the raw  image (normal color map)
         cmap = plt.get_cmap('gray_r')
         norm = plt.Normalize()
         colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
-        num = len(datakeep['xi'])
+        num = len(datakeep['xi']) + 2 #one extra for the 1D average spectrum plot and one for a skipped space
         dy = 1.0/num
 
         #fig = plt.figure(figsize=(5, 6.25), frameon=False)
@@ -1192,49 +1197,95 @@ class HETDEX:
 
         ind = list(range(len(datakeep['d']) - 1, -1, -1))
 
+        #fits cutouts (fibers)
         for i in range(num):
-            borplot = plt.axes([0, i * dy, 1.0, dy])
-            imgplot = plt.axes([0.001, i * dy, 0.998, dy])
 
-            autoAxis = borplot.axis()
-            datakeep['color'][i] = colors[i, 0:3]
-            datakeep['index'][i] = num - i
+            if i == (num-1): #this is the 1D averaged spectrum
+                # draw full width spectrum
+                N = len(datakeep['xi'])
+                rm = 0.2
+                r, w = get_w_as_r(1.5, 500, 0.05, 6.)
+                specplot = plt.axes([0.001, i * dy, 0.998, dy])
+                bigwave = np.arange(3500, 5500)
+                F = np.zeros(bigwave.shape)
+                mn = 100.0
+                mx = 0.0
+                W = 0.0
+
+                for j in range(N):
+                    w1 = np.interp(datakeep['d'][ind[j]], r, w)
+                    F += (np.interp(bigwave, datakeep['fw_specwave'][ind[j]],
+                                    datakeep['fw_spec'][ind[j]]) * w1)  # *(2.0 -datakeep['d'][ind[i]])
+                    W += w1
+
+                mn = np.min([mn, np.min(datakeep['fw_spec'][ind[j]])])
+                mx = np.max([mx, np.max(datakeep['fw_spec'][ind[j]])])
+
+                F /= W
+                specplot.step(bigwave, F, c='b', where='mid', lw=1)
+                ran = mx - mn
 
 
-            rec = plt.Rectangle((autoAxis[0] , autoAxis[2]),
-                                (autoAxis[1] - autoAxis[0]) ,
-                                (autoAxis[3] - autoAxis[2]) , fill=False, lw=3,
-                                color=datakeep['color'][i], zorder=2)
-            borplot.add_patch(rec)
-            borplot.set_xticks([])
-            borplot.set_yticks([])
-            borplot.axis('off')
 
-            ext = list(np.hstack([datakeep['fxl'][ind[i]], datakeep['fxh'][ind[i]],
-                                  datakeep['yl'][ind[i]], datakeep['yh'][ind[i]]]))
+                specplot.plot([3500, 3500], [mn - ran * rm, mn + ran * (1 + rm)], ls='solid', c=[0.3, 0.3, 0.3])
+                specplot.axis([3500, 5500, mn - ran * rm, mn + ran * (1 + rm)])
 
-            a = datakeep['fw_im'][ind[i]]
-            #a = gaussian_filter(datakeep['fw_im'][ind[i]], (2, 1))
+                yl, yh = specplot.get_ylim()
 
-            imgplot.imshow(a,
-                           origin="lower", cmap=cmap,
-                           interpolation="none",
-                           vmin=datakeep['vmin2'][ind[i]],
-                           vmax=datakeep['vmax2'][ind[i]],
-                           extent=ext,zorder=1)
+                rec = plt.Rectangle((cwave - ww, yl), 2*ww, yh-yl, fill=True, lw=1,
+                                    color='y', zorder=1)
+                specplot.add_patch(rec)
 
-            imgplot.set_xticks([])
-            imgplot.set_yticks([])
-            imgplot.axis(ext)
-            imgplot.axis('off')
 
-            #todo: why no numbers showing up???
-            imgplot.text(-0.2, .5, num - i,
-                         transform=borplot.transAxes, fontsize=6, color='k',  # colors[i, 0:3],
-                         verticalalignment='bottom', horizontalalignment='left')
+            elif i == (num-2):
+                #blank spot
+                continue
+
+            else:
+                borplot = plt.axes([0, i * dy, 1.0, dy])
+                imgplot = plt.axes([0.001, i * dy, 0.998, dy])
+                autoAxis = borplot.axis()
+
+                datakeep['color'][i] = colors[i, 0:3]
+                datakeep['index'][i] = num -2 - i
+
+
+                rec = plt.Rectangle((autoAxis[0] , autoAxis[2]),
+                                    (autoAxis[1] - autoAxis[0]) ,
+                                    (autoAxis[3] - autoAxis[2]) , fill=False, lw=3,
+                                    color=datakeep['color'][i], zorder=2)
+                borplot.add_patch(rec)
+                borplot.set_xticks([])
+                borplot.set_yticks([])
+                borplot.axis('off')
+
+                ext = list(np.hstack([datakeep['fxl'][ind[i]], datakeep['fxh'][ind[i]],
+                                      datakeep['yl'][ind[i]], datakeep['yh'][ind[i]]]))
+
+                a = datakeep['fw_im'][ind[i]]
+                #a = gaussian_filter(datakeep['fw_im'][ind[i]], (2, 1))
+
+                imgplot.imshow(a,
+                               origin="lower", cmap=cmap,
+                               interpolation="none",
+                               vmin=datakeep['vmin2'][ind[i]],
+                               vmax=datakeep['vmax2'][ind[i]],
+                               extent=ext,zorder=1)
+
+                imgplot.set_xticks([])
+                imgplot.set_yticks([])
+                imgplot.axis(ext)
+                imgplot.axis('off')
+
+
+                imgplot.text(0.005, .9, num -2 - i,
+                             transform=imgplot.transAxes, fontsize=10, color='k',  # colors[i, 0:3],
+                             verticalalignment='bottom', horizontalalignment='left')
+
+        # todo: draw rectangle around section that is "zoomed"
 
         buf = io.BytesIO()
-        # plt.tight_layout()#pad=0.1, w_pad=0.5, h_pad=1.0)
+        #plt.tight_layout(pad=0.1, w_pad=0.5, h_pad=1.0)
         plt.savefig(buf, format='png', dpi=300)
 
         plt.close(fig)
