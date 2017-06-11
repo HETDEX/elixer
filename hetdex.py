@@ -616,6 +616,7 @@ class HETDEX:
             self.status = -1
             return
 
+        #todo: panacea this ....
         #get ifu centers
         self.get_ifu_centers(args)
 
@@ -785,7 +786,7 @@ class HETDEX:
 
                 #next exposure
                 dit_idx += 1
-                path = op.join(multi_fits_basename, "exp" + str(dit_idx + 1).zfill(2), "virus")
+                path = op.join(multi_fits_basepath, "exp" + str(dit_idx + 1).zfill(2), "virus")
 
 
 
