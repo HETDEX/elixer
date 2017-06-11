@@ -40,6 +40,9 @@ def parse_commandline():
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument('-f', '--force', help='Do not prompt for confirmation.', required=False,
                         action='store_true', default=False)
+    parser.add_argument('-c', '--cure', help='Use Cure processed fits (instead of Panacea).', required=False,
+                        action='store_true', default=False)
+
     parser.add_argument('--ra', help='Target RA as decimal degrees or h:m:s.as (end with \'h\')'
                                            'or d:m:s.as (end with \'d\') '
                                            'Examples: --ra 214.963542  or --ra 14:19:51.250h or --ra 214:57:48.7512d'

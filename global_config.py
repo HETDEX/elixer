@@ -8,6 +8,9 @@ import socket
 
 if socket.gethostname() == 'z50':
     CONFIG_BASEDIR = "/home/dustin/code/python/voltron/data/config/"
+    PANACEA_RED_BASEDIR = "/home/dustin/code/python/voltron/data/config/red1/reductions/"
+
+
     CANDELS_EGS_Stefanon_2016_BASE_PATH = "/home/dustin/code/python/voltron/data/EGS"
 
     EGS_GROTH_BASE_PATH = "/home/dustin/code/python/voltron/data/isak"
@@ -20,6 +23,8 @@ if socket.gethostname() == 'z50':
     SHELA_CAT_PATH = "/home/dustin/code/python/voltron/data/isak/SHELA"
 else:
     CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
+    PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
+
     CANDELS_EGS_Stefanon_2016_BASE_PATH = "/work/03564/stevenf/maverick/EGS"
 
     EGS_GROTH_BASE_PATH = "/work/03229/iwold/maverick/groth"
