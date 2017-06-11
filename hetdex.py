@@ -321,6 +321,7 @@ class HetdexFits:
         self.data = None
         self.err_data = None
         self.fe_data = None
+        self.wave_data = None
         self.fe_crval1 = None
         self.fe_cdelt1 = None
 
@@ -491,6 +492,21 @@ class HetdexFits:
         self.data = np.array(f[idx].data)
         # clean up any NaNs
         self.data[np.isnan(self.data)] = 0.0
+
+        #todo:
+
+        #get error equivalent
+        self.err_data = np.array(f[PANACEA_HDU_IDX['error']].data)
+        self.err_data[np.isnan(self.err_data)] = 0.0
+
+        #get fe equivalent
+        self.fe_data = np.array(f[PANACEA_HDU_IDX['sky_subtracted']].data)
+        self.fe_data[np.isnan(self.fe_data)] = 0.0
+
+        # get fe equivalent (need also the matching wavelengths)
+        self.wave_data = np.array(f[PANACEA_HDU_IDX['wavelength']].data)
+        self.wave_data[np.isnan(self.wave_data)] = 0.0
+
         self.panacea = True
 
         try:
@@ -680,29 +696,39 @@ class HETDEX:
 
     #todo: if using the panacea variant, don't do this ... read the centers from the panacea fits file
     def get_ifu_centers(self,args):
-        if args.ifu is not None:
-            try:
-                self.ifu_ctr = IFUCenter(args.ifu)
-            except:
-                log.error("Unable to open IFUcen file: %s" % (args.ifu), exc_info=True)
+
+        if self.panacea:
+            pass
+            #todo: build self.ifu_ctr.xifu[a] and yifu[a] as np.arrays
+            #now using amp instead of side
+            #read from exp01 4 amps (all exp0x have same centers ... just the dither offset is applied later)
+            #get the  'ifupos' data
+
+
         else:
-            ifu_fn = op.join(IFUCEN_LOC, "IFUcen_VIFU" + self.ifu_slot_id + ".txt")
-            log.info("No IFUcen file provided. Look for CAM specific file %s" % (ifu_fn))
-            try:
-                self.ifu_ctr = IFUCenter(ifu_fn)
-            except:
-                ifu_fn = op.join(IFUCEN_LOC, "IFUcen_HETDEX.txt")
-                log.info("Unable to open CAM Specific IFUcen file. Look for generic IFUcen file.")
+            if args.ifu is not None:
+                try:
+                    self.ifu_ctr = IFUCenter(args.ifu)
+                except:
+                    log.error("Unable to open IFUcen file: %s" % (args.ifu), exc_info=True)
+            else:
+                ifu_fn = op.join(IFUCEN_LOC, "IFUcen_VIFU" + self.ifu_slot_id + ".txt")
+                log.info("No IFUcen file provided. Look for CAM specific file %s" % (ifu_fn))
                 try:
                     self.ifu_ctr = IFUCenter(ifu_fn)
                 except:
-                    log.error("Unable to open IFUcen file.", exc_info=True)
+                    ifu_fn = op.join(IFUCEN_LOC, "IFUcen_HETDEX.txt")
+                    log.info("Unable to open CAM Specific IFUcen file. Look for generic IFUcen file.")
+                    try:
+                        self.ifu_ctr = IFUCenter(ifu_fn)
+                    except:
+                        log.error("Unable to open IFUcen file.", exc_info=True)
 
-        if self.ifu_ctr is not None:
-            #need this to be numpy array later
-            for s in SIDE:
-                self.ifu_ctr.xifu[s] = np.array(self.ifu_ctr.xifu[s])
-                self.ifu_ctr.yifu[s] = np.array(self.ifu_ctr.yifu[s])
+            if self.ifu_ctr is not None:
+                #need this to be numpy array later
+                for s in SIDE:
+                    self.ifu_ctr.xifu[s] = np.array(self.ifu_ctr.xifu[s])
+                    self.ifu_ctr.yifu[s] = np.array(self.ifu_ctr.yifu[s])
 
 
     def get_distortion(self,args):
