@@ -550,10 +550,12 @@ class HetdexFits:
 
 class FitsSorter:
 #just a container for organization
-    def __init__(self,fits,dist,loc):
+    def __init__(self,fits=None,dist=0.0,loc=-1,side=None,dither=None):
         self.fits = fits
         self.dist = dist
         self.loc = loc
+        self.side = side
+        self.dither = dither
 
 
 class HETDEX:
@@ -1057,6 +1059,8 @@ class HETDEX:
         #basically cloned from Greg Z. make_visualization_detect.py; adjusted a bit for this code base
         datakeep = self.clean_data_dict()
 
+        sort_list = []
+
         for side in SIDE:  # 'L' and 'R'
             for dither in range(len(self.dither.dx)):  # so, dither is 0,1,2
                 dx = e.x - self.ifu_ctr.xifu[side] - self.dither.dx[dither]  # IFU is my self.ifu_ctr
@@ -1067,98 +1071,111 @@ class HETDEX:
                 # all locations (fiber array index) within dist_thresh of the x,y sky coords of the detection
                 locations = np.where(d < dist_thresh)[0]
 
-                #this is for one side of one dither of one ifu
                 for loc in locations:
-                    #used later
-                    datakeep['color'].append(None)
-                    datakeep['index'].append(None)
+                    sort_list.append(FitsSorter(None, d[loc], loc, side, dither))
 
-                    datakeep['dit'].append(dither + 1)
-                    datakeep['side'].append(side)
+                # sort from farthest to nearest ... yes, weird, but necessary for compatibility with
+                # some cloned code f
+                sort_list.sort(key=lambda x: x.dist, reverse=True)
 
-                    f0 = self.dist[side].get_reference_f(loc + 1)
-                    xi = self.dist[side].map_wf_x(e.w, f0)
-                    yi = self.dist[side].map_wf_y(e.w, f0)
-                    datakeep['fib'].append(self.dist[side].map_xy_fibernum(xi, yi))
-                    xfiber = self.ifu_ctr.xifu[side][loc] + self.dither.dx[dither]
-                    yfiber = self.ifu_ctr.yifu[side][loc] + self.dither.dy[dither]
-                    xfiber += self.ifuy #yes this is correct xfiber gets ifuy
-                    yfiber += self.ifux
-                    ra, dec = self.tangentplane.xy2raDec(xfiber, yfiber)
-                    datakeep['ra'].append(ra)
-                    datakeep['dec'].append(dec)
-                    xl = int(np.round(xi - xw))
-                    xh = int(np.round(xi + xw))
-                    yl = int(np.round(yi - yw))
-                    yh = int(np.round(yi + yw))
-                    datakeep['xi'].append(xi)
-                    datakeep['yi'].append(yi)
-                    datakeep['xl'].append(xl)
-                    datakeep['yl'].append(yl)
-                    datakeep['xh'].append(xh)
-                    datakeep['yh'].append(yh)
-                    datakeep['fxl'].append(0)
-                    datakeep['fxh'].append(FRAME_WIDTH_X-1)
-                    datakeep['d'].append(d[loc]) #distance (in arcsec) of fiber center from object center
-                    datakeep['sn'].append(e.sigma)
+        #this is for one side of one dither of one ifu
+        #for loc in locations:
+        for item in sort_list:
+            side = item.side
+            dither = item.dither
+            loc = item.loc
+            datakeep['d'].append(item.dist)  # distance (in arcsec) of fiber center from object center
 
-                    #also get full x width data
-                    #would be more memory effecien to just grab full width,
-                    #  then in original func, slice as below
-                    sci = self.get_sci_fits(dither,side)
-                    if sci is not None:
-                        datakeep['im'].append(sci.data[yl:yh,xl:xh])
-                        datakeep['fw_im'].append(sci.data[yl:yh, 0:FRAME_WIDTH_X-1])
+            #used later
+            datakeep['color'].append(None)
+            datakeep['index'].append(None)
 
-                        # this is probably for the 1d spectra
-                        I = sci.data.ravel()
-                        s_ind = np.argsort(I)
-                        len_s = len(s_ind)
-                        s_rank = np.arange(len_s)
-                        p = np.polyfit(s_rank - len_s / 2, I[s_ind], 1)
+            datakeep['dit'].append(dither + 1)
+            datakeep['side'].append(side)
 
-                        z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast1
-                        z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast1
+            f0 = self.dist[side].get_reference_f(loc + 1)
+            xi = self.dist[side].map_wf_x(e.w, f0)
+            yi = self.dist[side].map_wf_y(e.w, f0)
+            datakeep['fib'].append(self.dist[side].map_xy_fibernum(xi, yi))
+            xfiber = self.ifu_ctr.xifu[side][loc] + self.dither.dx[dither]
+            yfiber = self.ifu_ctr.yifu[side][loc] + self.dither.dy[dither]
+            xfiber += self.ifuy #yes this is correct xfiber gets ifuy
+            yfiber += self.ifux
+            ra, dec = self.tangentplane.xy2raDec(xfiber, yfiber)
+            datakeep['ra'].append(ra)
+            datakeep['dec'].append(dec)
+            xl = int(np.round(xi - xw))
+            xh = int(np.round(xi + xw))
+            yl = int(np.round(yi - yw))
+            yh = int(np.round(yi + yw))
+            datakeep['xi'].append(xi)
+            datakeep['yi'].append(yi)
+            datakeep['xl'].append(xl)
+            datakeep['yl'].append(yl)
+            datakeep['xh'].append(xh)
+            datakeep['yh'].append(yh)
+            datakeep['fxl'].append(0)
+            datakeep['fxh'].append(FRAME_WIDTH_X-1)
+            #datakeep['d'].append(d[loc]) #distance (in arcsec) of fiber center from object center
+            datakeep['sn'].append(e.sigma)
 
-                        #z1,z2 = self.get_vrange(sci.data[yl:yh,xl:xh])
-                        datakeep['vmin1'].append(z1)
-                        datakeep['vmax1'].append(z2)
+            #also get full x width data
+            #would be more memory effecien to just grab full width,
+            #  then in original func, slice as below
+            sci = self.get_sci_fits(dither,side)
+            if sci is not None:
+                datakeep['im'].append(sci.data[yl:yh,xl:xh])
+                datakeep['fw_im'].append(sci.data[yl:yh, 0:FRAME_WIDTH_X-1])
 
-                        z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast2
-                        z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast2
+                # this is probably for the 1d spectra
+                I = sci.data.ravel()
+                s_ind = np.argsort(I)
+                len_s = len(s_ind)
+                s_rank = np.arange(len_s)
+                p = np.polyfit(s_rank - len_s / 2, I[s_ind], 1)
 
-                        datakeep['vmin2'].append(z1)
-                        datakeep['vmax2'].append(z2)
+                z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast1
+                z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast1
 
-                        datakeep['err'].append(sci.err_data[yl:yh, xl:xh])
+                #z1,z2 = self.get_vrange(sci.data[yl:yh,xl:xh])
+                datakeep['vmin1'].append(z1)
+                datakeep['vmax1'].append(z2)
 
-                    pix_fn = op.join(PIXFLT_LOC,'pixelflat_cam%s_%s.fits' % (sci.specid, side))
-                    if op.exists(pix_fn):
-                        datakeep['pix'].append(pyfits.open(pix_fn)[0].data[yl:yh,xl:xh])
+                z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast2
+                z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast2
 
-                    #cosmic removed (but will assume that is the original data)
-                    #datakeep['cos'].append(fits.open(cos_fn)[0].data[yl:yh, xl:xh])
+                datakeep['vmin2'].append(z1)
+                datakeep['vmax2'].append(z2)
 
-                    #fiber extracted
-                    if len(sci.fe_data) > 0 and (sci.fe_crval1 is not None) and (sci.fe_cdelt1 is not None):
-                        nfib, xlen = sci.fe_data.shape
-                        wave = np.arange(xlen)*sci.fe_cdelt1 + sci.fe_crval1
+                datakeep['err'].append(sci.err_data[yl:yh, xl:xh])
 
-                        #this sometimes produces arrays of different lengths (+/- 1) [due to rounding?]
-                        #which causes problems later on, so just get the nearst point to the target wavelenght
-                        #and a fixed number of surrounding pixels
-                        #Fe_indl = np.searchsorted(wave,e.w-ww,side='left')
-                        #Fe_indh = np.searchsorted(wave,e.w+ww,side='right')
+            pix_fn = op.join(PIXFLT_LOC,'pixelflat_cam%s_%s.fits' % (sci.specid, side))
+            if op.exists(pix_fn):
+                datakeep['pix'].append(pyfits.open(pix_fn)[0].data[yl:yh,xl:xh])
 
-                        center = np.searchsorted(wave,e.w,side='left')
-                        Fe_indl = center - 25
-                        Fe_indh = center + 25
+            #cosmic removed (but will assume that is the original data)
+            #datakeep['cos'].append(fits.open(cos_fn)[0].data[yl:yh, xl:xh])
 
-                        datakeep['spec'].append(sci.fe_data[loc,Fe_indl:(Fe_indh+1)])
-                        datakeep['specwave'].append(wave[Fe_indl:(Fe_indh+1)])
+            #fiber extracted
+            if len(sci.fe_data) > 0 and (sci.fe_crval1 is not None) and (sci.fe_cdelt1 is not None):
+                nfib, xlen = sci.fe_data.shape
+                wave = np.arange(xlen)*sci.fe_cdelt1 + sci.fe_crval1
 
-                        datakeep['fw_spec'].append(sci.fe_data[loc,:])
-                        datakeep['fw_specwave'].append(wave[:])
+                #this sometimes produces arrays of different lengths (+/- 1) [due to rounding?]
+                #which causes problems later on, so just get the nearst point to the target wavelenght
+                #and a fixed number of surrounding pixels
+                #Fe_indl = np.searchsorted(wave,e.w-ww,side='left')
+                #Fe_indh = np.searchsorted(wave,e.w+ww,side='right')
+
+                center = np.searchsorted(wave,e.w,side='left')
+                Fe_indl = center - 25
+                Fe_indh = center + 25
+
+                datakeep['spec'].append(sci.fe_data[loc,Fe_indl:(Fe_indh+1)])
+                datakeep['specwave'].append(wave[Fe_indl:(Fe_indh+1)])
+
+                datakeep['fw_spec'].append(sci.fe_data[loc,:])
+                datakeep['fw_specwave'].append(wave[:])
 
         return datakeep
 
@@ -1246,10 +1263,9 @@ class HETDEX:
 
             datakeep['sn'].append(e.sigma)
 
-            # todo: also get full x width data
-            # todo; would be more memory effecien to just grab full width,
-            # todo: then in original func, slice as below
-
+            # also get full x width data
+            # would be more memory effecien to just grab full width,
+            # then in original func, slice as below
 
             datakeep['im'].append(fits.data[yl:yh, xl:xh])
             datakeep['fw_im'].append(fits.data[yl:yh, 0:FRAME_WIDTH_X - 1])
@@ -1512,7 +1528,7 @@ class HETDEX:
         fig = plt.figure(figsize=(fig_sz_x,fig_sz_y/2.0),frameon=False)
         ind = list(range(len(datakeep['d']))) # - 1, -1, -1))
 
-        border_buffer = 0.015 #percent from left and right edges to leave room for the axis labels
+        border_buffer = 0.02 #percent from left and right edges to leave room for the axis labels
         #fits cutouts (fibers)
         for i in range(num):
             borplot = plt.axes([0, i * dy, 1.0, dy])
@@ -1584,6 +1600,8 @@ class HETDEX:
 
         specplot.plot([3500, 3500], [mn - ran * rm, mn + ran * (1 + rm)], ls='solid', c=[0.3, 0.3, 0.3])
         specplot.axis([3500, 5500, mn - ran * rm, mn + ran * (1 + rm)])
+        specplot.locator_params(axis='y',tight=True,nbins=4)
+        #specplot.set_yticks(np.linspace(mn,mx,3))
 
         #draw rectangle around section that is "zoomed"
         yl, yh = specplot.get_ylim()
