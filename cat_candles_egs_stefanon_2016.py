@@ -406,7 +406,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
                                               angle=0.0, color='red', fill=False))
 
-            for r, d, c, i in fiber_locs:
+            for r, d, c, i, dist in fiber_locs:
                 # print("+++++ Cutout RA,DEC,ID,COLOR", r,d,i,c)
                 # fiber absolute position ... need relative position to plot (so fiber - zero pos)
                 fx, fy = empty_sci.get_position(r, d, self.master_cutout)
@@ -415,6 +415,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 xmax = max(xmax, fx - x)
                 ymin = min(ymin, fy - y)
                 ymax = max(ymax, fy - y)
+
 
                 plt.gca().add_patch(plt.Circle(((fx - x), (fy - y)), radius=G.Fiber_Radius, color=c, fill=False))
                 plt.text((fx - x), (fy - y), str(i), ha='center', va='center', fontsize='x-small', color=c)

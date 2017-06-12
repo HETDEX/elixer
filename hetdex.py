@@ -506,8 +506,8 @@ class HetdexFits:
         self.trace_data = np.array(f[PANACEA_HDU_IDX['trace']].data)
         self.trace_data[np.isnan(self.trace_data)] = 0.0
 
-        self.pixflat_data = np.array(f[PANACEA_HDU_IDX['flat_image']].data)
-        self.pixflat_data[np.isnan(self.pixflat_data)] = 0.0
+        #self.pixflat_data = np.array(f[PANACEA_HDU_IDX['flat_image']].data)
+        #self.pixflat_data[np.isnan(self.pixflat_data)] = 0.0
 
         self.panacea = True
 
@@ -546,6 +546,14 @@ class HetdexFits:
     def cleanup(self):
         #todo: close fits handles, etc
         pass
+
+
+class FitsSorter:
+#just a container for organization
+    def __init__(self,fits,dist,loc):
+        self.fits = fits
+        self.dist = dist
+        self.loc = loc
 
 
 class HETDEX:
@@ -978,7 +986,7 @@ class HETDEX:
                 plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
 
             # update emission with the ra, dec of all fibers
-            e.fiber_locs = list(zip(datakeep['ra'], datakeep['dec'],datakeep['color'],datakeep['index']))
+            e.fiber_locs = list(zip(datakeep['ra'], datakeep['dec'],datakeep['color'],datakeep['index'],datakeep['d']))
 
         plt.close()
         pages.append(fig)
@@ -1040,14 +1048,15 @@ class HETDEX:
 
 
     def build_hetdex_data_dict(self,e):#e is the emission detection to use
+        if e is None:
+            return None
+
         if e.type != 'emis':
             return None
 
         #basically cloned from Greg Z. make_visualization_detect.py; adjusted a bit for this code base
         datakeep = self.clean_data_dict()
 
-        if e is None:
-            return None
         for side in SIDE:  # 'L' and 'R'
             for dither in range(len(self.dither.dx)):  # so, dither is 0,1,2
                 dx = e.x - self.ifu_ctr.xifu[side] - self.dither.dx[dither]  # IFU is my self.ifu_ctr
@@ -1154,140 +1163,145 @@ class HETDEX:
         return datakeep
 
 
-    #todo: build_panacea_hetdex_data_dict
+    #build_panacea_hetdex_data_dict
     def build_panacea_hetdex_data_dict(self, e):  # e is the emission detection to use
+        if e is None:
+            return None
+
         if e.type != 'emis':
             return None
 
         # basically cloned from Greg Z. make_visualization_detect.py; adjusted a bit for this code base
         datakeep = self.clean_data_dict()
-
-        if e is None:
-            return None
-
-        #todo: change to iterate over each amp
-        #todo: self.ifu_ctr.xifu[side] is an array of fibers and is the fiber center in x,y
-        #todo:
-
-        #todo: iterate over each amp and each dither
-        #      self.dither.dx, dy can stay the same.
-        #      self.ifu_ctr.xifu needs to be replaced with a numpy array read from 'ifupos' panacea sub-fits
-
-        #todo: maybe "re" build self.ifu_ctr from the panacea fits rather than from the IFUCen file?
-
-        #remember: on the square grid, LU is the bottom (fibers 1 - 112), then LL (113-224), then RU (225-336)
-        # then  RL (337-448)
-
-        #todo: just iterate over all self.sci_fits
+        sort_list = []
 
         for fits in self.sci_fits:
-            dither = fits.dither_index #0,1,2
+            dither = fits.dither_index  # 0,1,2
 
-            #e.x and e.y are the sky x and y
-            #dx and dy then are the distances of each fiber center from the sky location of the source
-            dx = e.x - fits.fiber_centers[:,0] - self.dither.dx[dither]
-            dy = e.y - fits.fiber_centers[:,1] - self.dither.dy[dither]
+            # e.x and e.y are the sky x and y
+            # dx and dy then are the distances of each fiber center from the sky location of the source
+            dx = e.x - fits.fiber_centers[:, 0] - self.dither.dx[dither]
+            dy = e.y - fits.fiber_centers[:, 1] - self.dither.dy[dither]
 
             d = np.sqrt(dx ** 2 + dy ** 2)
 
             # all locations (fiber array index) within dist_thresh of the x,y sky coords of the detection
             locations = np.where(d < dist_thresh)[0]
 
-            #zero based so fiber is loc + amp_offset
-
             for loc in locations:
-                # used laterrange(len(fits.wave_data[loc,:]))
-                datakeep['color'].append(None)
-                datakeep['index'].append(None)
-                datakeep['dit'].append(dither + 1)
+                sort_list.append(FitsSorter(fits,d[loc],loc))
 
-                datakeep['side'].append(fits.side)
-                datakeep['amp'].append(fits.amp)
-
-                #lowest number fiber is at the top, not the bottom
-                #loc runs from the bottom and is zero based
-                #so flip ... nominally:  112 - (loc+1) + offset for the amp
-                datakeep['fib'].append(len(fits.fe_data) - (loc+1) + AMP_OFFSET[fits.amp])
-
-                xfiber = fits.fiber_centers[loc][0] + self.dither.dx[dither]
-                yfiber = fits.fiber_centers[loc][1] + self.dither.dy[dither]
-                xfiber += self.ifuy  # yes this is correct xfiber gets ifuy
-                yfiber += self.ifux
-                #ra and dec of the center of the fiber (loc)
-                ra, dec = self.tangentplane.xy2raDec(xfiber, yfiber)
-                datakeep['ra'].append(ra)
-                datakeep['dec'].append(dec)
-
-                x_2D = np.interp(e.w,fits.wave_data[loc,:],range(len(fits.wave_data[loc,:])))
-                y_2D = np.interp(x_2D,range(len(fits.trace_data[loc,:])),fits.trace_data[loc,:])
-
-                xl = int(np.round(x_2D - xw))
-                xh = int(np.round(x_2D + xw))
-                yl = int(np.round(y_2D - yw))
-                yh = int(np.round(y_2D + yw))
-                datakeep['xi'].append(x_2D)
-                datakeep['yi'].append(y_2D)
-                datakeep['xl'].append(xl)
-                datakeep['yl'].append(yl)
-                datakeep['xh'].append(xh)
-                datakeep['yh'].append(yh)
-                datakeep['fxl'].append(0)
-                datakeep['fxh'].append(FRAME_WIDTH_X - 1)
-                datakeep['d'].append(d[loc])  # distance (in arcsec) of fiber center from object center
-                datakeep['sn'].append(e.sigma)
-
-                # todo: also get full x width data
-                # todo; would be more memory effecien to just grab full width,
-                # todo: then in original func, slice as below
+        # sort from farthest to nearest ... yes, weird, but necessary for compatibility with
+        # some cloned code f
+        sort_list.sort(key=lambda x: x.dist,reverse=True)
 
 
-                datakeep['im'].append(fits.data[yl:yh, xl:xh])
-                datakeep['fw_im'].append(fits.data[yl:yh, 0:FRAME_WIDTH_X - 1])
+        #zero based so fiber is loc + amp_offset
 
-                # this is probably for the 1d spectra
-                I = fits.data.ravel()
-                s_ind = np.argsort(I)
-                len_s = len(s_ind)
-                s_rank = np.arange(len_s)
-                p = np.polyfit(s_rank - len_s / 2, I[s_ind], 1)
+        #for loc in locations:
+        for item in sort_list:
+            fits = item.fits
+            dither = fits.dither_index  # 0,1,2
+            loc = item.loc
+            datakeep['d'].append(item.dist)
 
-                z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast1
-                z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast1
+            # used laterrange(len(fits.wave_data[loc,:]))
+            datakeep['color'].append(None)
+            datakeep['index'].append(None)
+            datakeep['dit'].append(dither + 1)
 
-                # z1,z2 = self.get_vrange(sci.data[yl:yh,xl:xh])
-                datakeep['vmin1'].append(z1)
-                datakeep['vmax1'].append(z2)
+            datakeep['side'].append(fits.side)
+            datakeep['amp'].append(fits.amp)
 
-                z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast2
-                z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast2
+            #lowest number fiber is at the top, not the bottom
+            #loc runs from the bottom and is zero based
+            #so flip ... nominally:  112 - (loc+1) + offset for the amp
+            datakeep['fib'].append(len(fits.fe_data) - (loc+1) + AMP_OFFSET[fits.amp])
 
-                datakeep['vmin2'].append(z1)
-                datakeep['vmax2'].append(z2)
+            xfiber = fits.fiber_centers[loc][0] + self.dither.dx[dither]
+            yfiber = fits.fiber_centers[loc][1] + self.dither.dy[dither]
+            xfiber += self.ifuy  # yes this is correct xfiber gets ifuy
+            yfiber += self.ifux
+            #ra and dec of the center of the fiber (loc)
+            ra, dec = self.tangentplane.xy2raDec(xfiber, yfiber)
+            datakeep['ra'].append(ra)
+            datakeep['dec'].append(dec)
 
-                datakeep['err'].append(fits.err_data[yl:yh, xl:xh])
-                datakeep['pix'].append(fits.pixflat_data[yl:yh, xl:xh])
+            x_2D = np.interp(e.w,fits.wave_data[loc,:],range(len(fits.wave_data[loc,:])))
+            y_2D = np.interp(x_2D,range(len(fits.trace_data[loc,:])),fits.trace_data[loc,:])
 
-                #1D spectrum (spec is counts, specwave is the corresponding wavelength)
-                wave = fits.wave_data[loc,:]
-                # this sometimes produces arrays of different lengths (+/- 1) [due to rounding?]
-                # which causes problems later on, so just get the nearst point to the target wavelenght
-                # and a fixed number of surrounding pixels
+            xl = int(np.round(x_2D - xw))
+            xh = int(np.round(x_2D + xw))
+            yl = int(np.round(y_2D - yw))
+            yh = int(np.round(y_2D + yw))
+            datakeep['xi'].append(x_2D)
+            datakeep['yi'].append(y_2D)
+            datakeep['xl'].append(xl)
+            datakeep['yl'].append(yl)
+            datakeep['xh'].append(xh)
+            datakeep['yh'].append(yh)
+            datakeep['fxl'].append(0)
+            datakeep['fxh'].append(FRAME_WIDTH_X - 1)
+            #datakeep['d'].append(d[loc])  # distance (in arcsec) of fiber center from object center
 
-                #Fe_indl = np.searchsorted(wave, e.w - ww, side='left')
-                #Fe_indh = np.searchsorted(wave, e.w + ww, side='right')
-                #want say, approx +/- 50 angstroms
+            datakeep['sn'].append(e.sigma)
 
-                center = np.searchsorted(wave, e.w, side='left')
-                Fe_indl = center - 10
-                Fe_indh = center + 10
+            # todo: also get full x width data
+            # todo; would be more memory effecien to just grab full width,
+            # todo: then in original func, slice as below
 
-                #fe_data is "sky_subtracted" ... the counts
-                #wave is "wavelength" ... the corresponding wavelength
-                datakeep['spec'].append(fits.fe_data[loc, Fe_indl:(Fe_indh + 1)])
-                datakeep['specwave'].append(wave[Fe_indl:(Fe_indh + 1)])
 
-                datakeep['fw_spec'].append(fits.fe_data[loc, :])
-                datakeep['fw_specwave'].append(wave[:])
+            datakeep['im'].append(fits.data[yl:yh, xl:xh])
+            datakeep['fw_im'].append(fits.data[yl:yh, 0:FRAME_WIDTH_X - 1])
+
+            # this is probably for the 1d spectra
+            I = fits.data.ravel()
+            s_ind = np.argsort(I)
+            len_s = len(s_ind)
+            s_rank = np.arange(len_s)
+            p = np.polyfit(s_rank - len_s / 2, I[s_ind], 1)
+
+            z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast1
+            z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast1
+
+            # z1,z2 = self.get_vrange(sci.data[yl:yh,xl:xh])
+            datakeep['vmin1'].append(z1)
+            datakeep['vmax1'].append(z2)
+
+            z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast2
+            z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast2
+
+            datakeep['vmin2'].append(z1)
+            datakeep['vmax2'].append(z2)
+
+            datakeep['err'].append(fits.err_data[yl:yh, xl:xh])
+
+            pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid, fits.side))
+            if op.exists(pix_fn):
+                datakeep['pix'].append(pyfits.open(pix_fn)[0].data[yl:yh, xl:xh])
+            #datakeep['pix'].append(fits.pixflat_data[yl:yh, xl:xh])
+
+            #1D spectrum (spec is counts, specwave is the corresponding wavelength)
+            wave = fits.wave_data[loc,:]
+            # this sometimes produces arrays of different lengths (+/- 1) [due to rounding?]
+            # which causes problems later on, so just get the nearst point to the target wavelenght
+            # and a fixed number of surrounding pixels
+
+            #Fe_indl = np.searchsorted(wave, e.w - ww, side='left')
+            #Fe_indh = np.searchsorted(wave, e.w + ww, side='right')
+            #want say, approx +/- 50 angstroms
+
+            center = np.searchsorted(wave, e.w, side='left')
+            Fe_indl = center - int(round(ww))
+            Fe_indh = center + int(round(ww))
+
+            #fe_data is "sky_subtracted" ... the counts
+            #wave is "wavelength" ... the corresponding wavelength
+            datakeep['spec'].append(fits.fe_data[loc, Fe_indl:(Fe_indh + 1)])
+            datakeep['specwave'].append(wave[Fe_indl:(Fe_indh + 1)])
+
+            datakeep['fw_spec'].append(fits.fe_data[loc, :])
+            datakeep['fw_specwave'].append(wave[:])
 
         return datakeep
 
@@ -1313,7 +1327,7 @@ class HETDEX:
 
         #ind = sorted(range(len(datakeep['d'])), key=lambda k: datakeep['d'][k],reverse=True)
         # keep in dither order instead, but need to count backward for compatibility
-        ind = list(range(len(datakeep['d']) - 1, -1, -1))
+        ind = list(range(len(datakeep['d']))) # - 1, -1, -1))
 
         for i in range(num):
             borplot = plt.axes([borderxl + 0. * dx, borderyb + i * dy, 3 * dx, dy])
@@ -1451,7 +1465,7 @@ class HETDEX:
         W = 0.0
         #ind = sorted(range(len(datakeep['d'])), key=lambda k: datakeep['d'][k],reverse=True)
         # keep in dither order instead, but need to count backward for compatibility
-        ind = range(len(datakeep['d']) - 1, -1, -1)
+        ind = range(len(datakeep['d'])) # - 1, -1, -1)
 
         for i in range(N):
             specplot.step(datakeep['specwave'][ind[i]], datakeep['spec'][ind[i]],
@@ -1496,7 +1510,7 @@ class HETDEX:
 
         #fig = plt.figure(figsize=(5, 6.25), frameon=False)
         fig = plt.figure(figsize=(fig_sz_x,fig_sz_y/2.0),frameon=False)
-        ind = list(range(len(datakeep['d']) - 1, -1, -1))
+        ind = list(range(len(datakeep['d']))) # - 1, -1, -1))
 
         border_buffer = 0.015 #percent from left and right edges to leave room for the axis labels
         #fits cutouts (fibers)
