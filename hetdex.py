@@ -39,7 +39,8 @@ DIST_LOC = op.join(CONFIG_BASEDIR,"virus_config/DeformerDefaults")
 PIXFLT_LOC = op.join(CONFIG_BASEDIR,"virus_config/PixelFlats/20161223")
 
 SIDE = ["L", "R"]
-AMP  = ["LL","LU","RL","RU"]
+AMP  = ["LU","LL","RL","RU"] #in order from bottom to top
+AMP_OFFSET = {"LU":1,"LL":113,"RL":225,"RU":337}
 
 PANACEA_HDU_IDX = { 'image':0,
                     'error':1,
@@ -280,8 +281,6 @@ class DetObj:
             self.zmin = float(tokens[15])
             self.zmax = float(tokens[16])
 
-
-
         self.ra = None  # calculated value
         self.dec = None  # calculated value
         self.nearest_fiber = None
@@ -322,12 +321,15 @@ class HetdexFits:
         self.err_data = None
         self.fe_data = None
         self.wave_data = None
+        self.trace_data = None
+        self.pixflat_data = None
+        self.fiber_centers = None
         self.fe_crval1 = None
         self.fe_cdelt1 = None
 
         self.dither_index = dither_index
 
-        #todo: here or in read_fits, determine if 'cure'-style fits or panacea fits
+        #determine if 'cure'-style fits or panacea fits
         #stupid simple just for now
         if "multi_" in self.filename: # example: multi_020_095_004_LU.fits
             self.read_panacea_fits()
@@ -379,8 +381,6 @@ class HetdexFits:
         self.ifuslot = str(f[0].header['IFUSLOT']).zfill(3)
         self.side = f[0].header['CCDPOS']
         self.specid = str(f[0].header['SPECID']).zfill(3)
-
-
         self.obs_date = f[0].header['DATE-OBS']
 
         if '-' in self.obs_date: #expected format is YYYY-MM-DD
@@ -487,13 +487,9 @@ class HetdexFits:
             log.error("could not open file " + self.filename, exc_info=True)
             return None
 
-        #just pull from the raw science image
-        idx = PANACEA_HDU_IDX['image']
-        self.data = np.array(f[idx].data)
-        # clean up any NaNs
-        self.data[np.isnan(self.data)] = 0.0
-
-        #todo:
+        #use the cleaned image for display
+        self.data = np.array(f[PANACEA_HDU_IDX['clean_image']].data)
+        self.data[np.isnan(self.data)] = 0.0 # clean up any NaNs
 
         #get error equivalent
         self.err_data = np.array(f[PANACEA_HDU_IDX['error']].data)
@@ -507,7 +503,16 @@ class HetdexFits:
         self.wave_data = np.array(f[PANACEA_HDU_IDX['wavelength']].data)
         self.wave_data[np.isnan(self.wave_data)] = 0.0
 
+        self.trace_data = np.array(f[PANACEA_HDU_IDX['trace']].data)
+        self.trace_data[np.isnan(self.trace_data)] = 0.0
+
+        self.pixflat_data = np.array(f[PANACEA_HDU_IDX['flat_image']].data)
+        self.pixflat_data[np.isnan(self.pixflat_data)] = 0.0
+
         self.panacea = True
+
+        #most complete header in the raw image
+        idx = PANACEA_HDU_IDX['image']
 
         try:
             self.tel_ra = float(f[idx].header['RA']) * 15.0  # header is in decimal hours
@@ -523,6 +528,14 @@ class HetdexFits:
         self.side = f[idx].header['AMP'][0] #the L or R ... probably don't need this anyway
         self.exptime = f[idx].header['EXPTIME']
 
+        #get fiber centers
+        # the fits representation is backward (with grid x,y: 1,112 and 2,112 (i.e at the top) == fiber 1))
+        #flip so that index 0 is the lowest numbered fiber
+
+        #no ... lowest fiber number is at the top
+        #self.fiber_centers = np.flipud(f[PANACEA_HDU_IDX['ifupos']].data)
+        self.fiber_centers = np.array(f[PANACEA_HDU_IDX['ifupos']].data)
+
         try:
             f.close()
         except:
@@ -533,26 +546,6 @@ class HetdexFits:
     def cleanup(self):
         #todo: close fits handles, etc
         pass
-
-
-
-#class HetdexIfuObs:
-#    '''Basically, a container for all the fits, dither, etc that make up one observation for one IFU'''
-#    def __init__(self):
-#        self.specid = None
-#        self.ifuslotid = None
-#        #self.ifuid = None # I think can omit this ... don't want to confuse with ifuslotid
-#        #needs  list of fits
-#        #needs fplane
-#        #needs dither
-#        #
-
-
-#an object (detection) should only be in one IFU, so this is not necessary
-#class HetdexFullObs:
-#    '''Container for all HetdexIfuObs ... that is, all IFUs data for one observation'''
-#    def __init__(self):
-#        self.date_ymd = None #date string as yyyymmdd
 
 
 class HETDEX:
@@ -632,7 +625,6 @@ class HETDEX:
             self.status = -1
             return
 
-        #todo: panacea this ....
         #get ifu centers
         self.get_ifu_centers(args)
 
@@ -694,18 +686,11 @@ class HETDEX:
     #end HETDEX::__init__()
 
 
-    #todo: if using the panacea variant, don't do this ... read the centers from the panacea fits file
     def get_ifu_centers(self,args):
-
-        if self.panacea:
-            pass
-            #todo: build self.ifu_ctr.xifu[a] and yifu[a] as np.arrays
-            #now using amp instead of side
-            #read from exp01 4 amps (all exp0x have same centers ... just the dither offset is applied later)
-            #get the  'ifupos' data
-
-
-        else:
+        # if using the panacea variant, don't do this ... read the centers from the panacea fits file
+        #   this is already done ... stored in HETDEXFits self.fiber_centers (ie. for each multi_*.fits file)
+        #   see self.fiber_centers
+        if not self.panacea:
             if args.ifu is not None:
                 try:
                     self.ifu_ctr = IFUCenter(args.ifu)
@@ -732,40 +717,37 @@ class HETDEX:
 
 
     def get_distortion(self,args):
-        if args.dist is not None:
-            try:
-                self.dist['L'] = Distortion(args.dist + '_L.dist')
-                self.dist['R'] = Distortion(args.dist + '_R.dist')
-            except:
-                log.error("Unable to open Distortion files: %s" % (args.dist), exc_info=True)
-        else:
-            dist_base = op.join(DIST_LOC, "mastertrace_twi_" + self.specid)
-            log.info("No distortion file base provided. Look for CAM specific file %s" % (dist_base))
-            try:
-                self.dist['L'] = Distortion(dist_base + '_L.dist')
-                self.dist['R'] = Distortion(dist_base + '_R.dist')
-            except:
-                ifu_fn = op.join(IFUCEN_LOC, "IFUcen_HETDEX.txt")
-                log.info("Unable to open CAM Specific twi dist files. Look for generic dist files.")
-                dist_base = op.join(DIST_LOC, "mastertrace_" + self.specid)
+        if not self.panacea:
+            if args.dist is not None:
+                try:
+                    self.dist['L'] = Distortion(args.dist + '_L.dist')
+                    self.dist['R'] = Distortion(args.dist + '_R.dist')
+                except:
+                    log.error("Unable to open Distortion files: %s" % (args.dist), exc_info=True)
+            else:
+                dist_base = op.join(DIST_LOC, "mastertrace_twi_" + self.specid)
+                log.info("No distortion file base provided. Look for CAM specific file %s" % (dist_base))
                 try:
                     self.dist['L'] = Distortion(dist_base + '_L.dist')
                     self.dist['R'] = Distortion(dist_base + '_R.dist')
                 except:
-                    log.error("Unable to open distortion files.", exc_info=True)
+                    ifu_fn = op.join(IFUCEN_LOC, "IFUcen_HETDEX.txt")
+                    log.info("Unable to open CAM Specific twi dist files. Look for generic dist files.")
+                    dist_base = op.join(DIST_LOC, "mastertrace_" + self.specid)
+                    try:
+                        self.dist['L'] = Distortion(dist_base + '_L.dist')
+                        self.dist['R'] = Distortion(dist_base + '_R.dist')
+                    except:
+                        log.error("Unable to open distortion files.", exc_info=True)
 
 
-    #todo: need to find the panacea multi_*fits files in the base HETDEX DIRECTORY
-
-    #todo: is this panacea? if so, get the multi_*.fits files
     def build_fits_list(self):
         #read in all fits
         #get the key fits header values
 
         #only one dither object, but has array of (3) for each value
         #these are in "dither" order
-              #todo: read first cure-style fits to get header info needed to find the multi_*.fits files
-
+        #read first cure-style fits to get header info needed to find the multi_*.fits files
 
         if self.panacea:
             dit_idx = 0
@@ -801,7 +783,7 @@ class HETDEX:
             #leaves off the exp01/virus/
             multi_fits_basepath = op.join(G.PANACEA_RED_BASEDIR,self.ymd,"virus","virus"+str(self.obsid).zfill(7))
 
-            #todo: see if path is good and read in the panacea fits
+            #see if path is good and read in the panacea fits
             dit_idx = 0
             path = op.join(multi_fits_basepath, "exp" + str(dit_idx + 1).zfill(2), "virus")
 
@@ -814,9 +796,7 @@ class HETDEX:
                 dit_idx += 1
                 path = op.join(multi_fits_basepath, "exp" + str(dit_idx + 1).zfill(2), "virus")
 
-
-
-        else:
+        else: #cure style
             dit_idx = 0
             for b in self.dither.basename:
                 ext = ['_L.fits','_R.fits']
@@ -965,7 +945,12 @@ class HETDEX:
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
-        datakeep = self.build_hetdex_data_dict(e)
+        datakeep = None
+        if self.panacea:
+            datakeep = self.build_panacea_hetdex_data_dict(e)
+        else:
+            datakeep = self.build_hetdex_data_dict(e)
+
         if datakeep is not None:
 
             if datakeep['xi']:
@@ -1020,6 +1005,7 @@ class HETDEX:
             dd = {}
             dd['dit'] = []
             dd['side'] = []
+            dd['amp'] = []
             dd['fib'] = []
             dd['xi'] = []
             dd['yi'] = []
@@ -1107,11 +1093,9 @@ class HETDEX:
                     datakeep['d'].append(d[loc]) #distance (in arcsec) of fiber center from object center
                     datakeep['sn'].append(e.sigma)
 
-
-
-                    #todo: also get full x width data
-                    #todo; would be more memory effecien to just grab full width,
-                    #todo: then in original func, slice as below
+                    #also get full x width data
+                    #would be more memory effecien to just grab full width,
+                    #  then in original func, slice as below
                     sci = self.get_sci_fits(dither,side)
                     if sci is not None:
                         datakeep['im'].append(sci.data[yl:yh,xl:xh])
@@ -1150,8 +1134,17 @@ class HETDEX:
                     if len(sci.fe_data) > 0 and (sci.fe_crval1 is not None) and (sci.fe_cdelt1 is not None):
                         nfib, xlen = sci.fe_data.shape
                         wave = np.arange(xlen)*sci.fe_cdelt1 + sci.fe_crval1
-                        Fe_indl = np.searchsorted(wave,e.w-ww,side='left')
-                        Fe_indh = np.searchsorted(wave,e.w+ww,side='right')
+
+                        #this sometimes produces arrays of different lengths (+/- 1) [due to rounding?]
+                        #which causes problems later on, so just get the nearst point to the target wavelenght
+                        #and a fixed number of surrounding pixels
+                        #Fe_indl = np.searchsorted(wave,e.w-ww,side='left')
+                        #Fe_indh = np.searchsorted(wave,e.w+ww,side='right')
+
+                        center = np.searchsorted(wave,e.w,side='left')
+                        Fe_indl = center - 25
+                        Fe_indh = center + 25
+
                         datakeep['spec'].append(sci.fe_data[loc,Fe_indl:(Fe_indh+1)])
                         datakeep['specwave'].append(wave[Fe_indl:(Fe_indh+1)])
 
@@ -1185,103 +1178,116 @@ class HETDEX:
         #remember: on the square grid, LU is the bottom (fibers 1 - 112), then LL (113-224), then RU (225-336)
         # then  RL (337-448)
 
-        for side in SIDE:  # 'L' and 'R'
-            for dither in range(len(self.dither.dx)):  # so, dither is 0,1,2
+        #todo: just iterate over all self.sci_fits
 
-                #e.x and e.y are the sky x and y
-                #ifu_ctr.xifu[] ... x coords of the fiber centers (L has 224, R has 224)
-                #dx and dy then are the distances of each fiber center from the sky location of the source
-                dx = e.x - self.ifu_ctr.xifu[side] - self.dither.dx[dither]  # IFU is my self.ifu_ctr
-                dy = e.y - self.ifu_ctr.yifu[side] - self.dither.dy[dither]
+        for fits in self.sci_fits:
+            dither = fits.dither_index #0,1,2
 
-                d = np.sqrt(dx ** 2 + dy ** 2)
+            #e.x and e.y are the sky x and y
+            #dx and dy then are the distances of each fiber center from the sky location of the source
+            dx = e.x - fits.fiber_centers[:,0] - self.dither.dx[dither]
+            dy = e.y - fits.fiber_centers[:,1] - self.dither.dy[dither]
 
-                # all locations (fiber array index) within dist_thresh of the x,y sky coords of the detection
-                locations = np.where(d < dist_thresh)[0]
+            d = np.sqrt(dx ** 2 + dy ** 2)
 
-                # this is for one side of one dither of one ifu
-                for loc in locations:
-                    # used later
-                    datakeep['color'].append(None)
-                    datakeep['index'].append(None)
+            # all locations (fiber array index) within dist_thresh of the x,y sky coords of the detection
+            locations = np.where(d < dist_thresh)[0]
 
-                    datakeep['dit'].append(dither + 1)
-                    datakeep['side'].append(side)
+            #zero based so fiber is loc + amp_offset
 
-                    f0 = self.dist[side].get_reference_f(loc + 1)
-                    xi = self.dist[side].map_wf_x(e.w, f0)
-                    yi = self.dist[side].map_wf_y(e.w, f0)
-                    datakeep['fib'].append(self.dist[side].map_xy_fibernum(xi, yi))
-                    xfiber = self.ifu_ctr.xifu[side][loc] + self.dither.dx[dither]
-                    yfiber = self.ifu_ctr.yifu[side][loc] + self.dither.dy[dither]
-                    xfiber += self.ifuy  # yes this is correct xfiber gets ifuy
-                    yfiber += self.ifux
-                    ra, dec = self.tangentplane.xy2raDec(xfiber, yfiber)
-                    datakeep['ra'].append(ra)
-                    datakeep['dec'].append(dec)
-                    xl = int(np.round(xi - xw))
-                    xh = int(np.round(xi + xw))
-                    yl = int(np.round(yi - yw))
-                    yh = int(np.round(yi + yw))
-                    datakeep['xi'].append(xi)
-                    datakeep['yi'].append(yi)
-                    datakeep['xl'].append(xl)
-                    datakeep['yl'].append(yl)
-                    datakeep['xh'].append(xh)
-                    datakeep['yh'].append(yh)
-                    datakeep['fxl'].append(0)
-                    datakeep['fxh'].append(FRAME_WIDTH_X - 1)
-                    datakeep['d'].append(d[loc])  # distance (in arcsec) of fiber center from object center
-                    datakeep['sn'].append(e.sigma)
+            for loc in locations:
+                # used laterrange(len(fits.wave_data[loc,:]))
+                datakeep['color'].append(None)
+                datakeep['index'].append(None)
+                datakeep['dit'].append(dither + 1)
 
-                    # todo: also get full x width data
-                    # todo; would be more memory effecien to just grab full width,
-                    # todo: then in original func, slice as below
-                    sci = self.get_sci_fits(dither, side)
-                    if sci is not None:
-                        datakeep['im'].append(sci.data[yl:yh, xl:xh])
-                        datakeep['fw_im'].append(sci.data[yl:yh, 0:FRAME_WIDTH_X - 1])
+                datakeep['side'].append(fits.side)
+                datakeep['amp'].append(fits.amp)
 
-                        # this is probably for the 1d spectra
-                        I = sci.data.ravel()
-                        s_ind = np.argsort(I)
-                        len_s = len(s_ind)
-                        s_rank = np.arange(len_s)
-                        p = np.polyfit(s_rank - len_s / 2, I[s_ind], 1)
+                #lowest number fiber is at the top, not the bottom
+                #loc runs from the bottom and is zero based
+                #so flip ... nominally:  112 - (loc+1) + offset for the amp
+                datakeep['fib'].append(len(fits.fe_data) - (loc+1) + AMP_OFFSET[fits.amp])
 
-                        z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast1
-                        z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast1
+                xfiber = fits.fiber_centers[loc][0] + self.dither.dx[dither]
+                yfiber = fits.fiber_centers[loc][1] + self.dither.dy[dither]
+                xfiber += self.ifuy  # yes this is correct xfiber gets ifuy
+                yfiber += self.ifux
+                #ra and dec of the center of the fiber (loc)
+                ra, dec = self.tangentplane.xy2raDec(xfiber, yfiber)
+                datakeep['ra'].append(ra)
+                datakeep['dec'].append(dec)
 
-                        # z1,z2 = self.get_vrange(sci.data[yl:yh,xl:xh])
-                        datakeep['vmin1'].append(z1)
-                        datakeep['vmax1'].append(z2)
+                x_2D = np.interp(e.w,fits.wave_data[loc,:],range(len(fits.wave_data[loc,:])))
+                y_2D = np.interp(x_2D,range(len(fits.trace_data[loc,:])),fits.trace_data[loc,:])
 
-                        z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast2
-                        z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast2
+                xl = int(np.round(x_2D - xw))
+                xh = int(np.round(x_2D + xw))
+                yl = int(np.round(y_2D - yw))
+                yh = int(np.round(y_2D + yw))
+                datakeep['xi'].append(x_2D)
+                datakeep['yi'].append(y_2D)
+                datakeep['xl'].append(xl)
+                datakeep['yl'].append(yl)
+                datakeep['xh'].append(xh)
+                datakeep['yh'].append(yh)
+                datakeep['fxl'].append(0)
+                datakeep['fxh'].append(FRAME_WIDTH_X - 1)
+                datakeep['d'].append(d[loc])  # distance (in arcsec) of fiber center from object center
+                datakeep['sn'].append(e.sigma)
 
-                        datakeep['vmin2'].append(z1)
-                        datakeep['vmax2'].append(z2)
+                # todo: also get full x width data
+                # todo; would be more memory effecien to just grab full width,
+                # todo: then in original func, slice as below
 
-                        datakeep['err'].append(sci.err_data[yl:yh, xl:xh])
 
-                    pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (sci.specid, side))
-                    if op.exists(pix_fn):
-                        datakeep['pix'].append(pyfits.open(pix_fn)[0].data[yl:yh, xl:xh])
+                datakeep['im'].append(fits.data[yl:yh, xl:xh])
+                datakeep['fw_im'].append(fits.data[yl:yh, 0:FRAME_WIDTH_X - 1])
 
-                    # cosmic removed (but will assume that is the original data)
-                    # datakeep['cos'].append(fits.open(cos_fn)[0].data[yl:yh, xl:xh])
+                # this is probably for the 1d spectra
+                I = fits.data.ravel()
+                s_ind = np.argsort(I)
+                len_s = len(s_ind)
+                s_rank = np.arange(len_s)
+                p = np.polyfit(s_rank - len_s / 2, I[s_ind], 1)
 
-                    # fiber extracted
-                    if len(sci.fe_data) > 0 and (sci.fe_crval1 is not None) and (sci.fe_cdelt1 is not None):
-                        nfib, xlen = sci.fe_data.shape
-                        wave = np.arange(xlen) * sci.fe_cdelt1 + sci.fe_crval1
-                        Fe_indl = np.searchsorted(wave, e.w - ww, side='left')
-                        Fe_indh = np.searchsorted(wave, e.w + ww, side='right')
-                        datakeep['spec'].append(sci.fe_data[loc, Fe_indl:(Fe_indh + 1)])
-                        datakeep['specwave'].append(wave[Fe_indl:(Fe_indh + 1)])
+                z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast1
+                z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast1
 
-                        datakeep['fw_spec'].append(sci.fe_data[loc, :])
-                        datakeep['fw_specwave'].append(wave[:])
+                # z1,z2 = self.get_vrange(sci.data[yl:yh,xl:xh])
+                datakeep['vmin1'].append(z1)
+                datakeep['vmax1'].append(z2)
+
+                z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast2
+                z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast2
+
+                datakeep['vmin2'].append(z1)
+                datakeep['vmax2'].append(z2)
+
+                datakeep['err'].append(fits.err_data[yl:yh, xl:xh])
+                datakeep['pix'].append(fits.pixflat_data[yl:yh, xl:xh])
+
+                #1D spectrum (spec is counts, specwave is the corresponding wavelength)
+                wave = fits.wave_data[loc,:]
+                # this sometimes produces arrays of different lengths (+/- 1) [due to rounding?]
+                # which causes problems later on, so just get the nearst point to the target wavelenght
+                # and a fixed number of surrounding pixels
+
+                #Fe_indl = np.searchsorted(wave, e.w - ww, side='left')
+                #Fe_indh = np.searchsorted(wave, e.w + ww, side='right')
+                #want say, approx +/- 50 angstroms
+
+                center = np.searchsorted(wave, e.w, side='left')
+                Fe_indl = center - 10
+                Fe_indh = center + 10
+
+                #fe_data is "sky_subtracted" ... the counts
+                #wave is "wavelength" ... the corresponding wavelength
+                datakeep['spec'].append(fits.fe_data[loc, Fe_indl:(Fe_indh + 1)])
+                datakeep['specwave'].append(wave[Fe_indl:(Fe_indh + 1)])
+
+                datakeep['fw_spec'].append(fits.fe_data[loc, :])
+                datakeep['fw_specwave'].append(wave[:])
 
         return datakeep
 
@@ -1459,12 +1465,19 @@ class HETDEX:
         F /= W
         specplot.step(bigwave, F, c='b', where='mid', lw=2)
         ran = mx - mn
-        specplot.errorbar(cwave - .8 * ww, mn + ran * (1 + rm) * 0.85,
-                          yerr=biweight_midvariance(np.array(datakeep['spec'][:])),
-                          fmt='o', marker='o', ms=4, mec='k', ecolor=[0.7, 0.7, 0.7],
-                          mew=1, elinewidth=3, mfc=[0.7, 0.7, 0.7])
-        specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='--', c=[0.3, 0.3, 0.3])
-        specplot.axis([cwave - ww, cwave + ww, mn - ran * rm, mn + ran * (1 + rm)])
+        try:
+            specplot.errorbar(cwave - .8 * ww, mn + ran * (1 + rm) * 0.85,
+                              yerr=biweight_midvariance(np.array(datakeep['spec'][:])),
+                              fmt='o', marker='o', ms=4, mec='k', ecolor=[0.7, 0.7, 0.7],
+                              mew=1, elinewidth=3, mfc=[0.7, 0.7, 0.7])
+        except:
+            log.error("Error building spectra plot error bar", exc_info=True)
+
+        try:
+            specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='--', c=[0.3, 0.3, 0.3])
+            specplot.axis([cwave - ww, cwave + ww, mn - ran * rm, mn + ran * (1 + rm)])
+        except:
+            log.error("Error building spectra plot", exc_info=True)
 
         buf = io.BytesIO()
         plt.savefig(buf, format='png', dpi=300)
