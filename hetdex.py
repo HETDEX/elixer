@@ -167,13 +167,6 @@ def build_fplane_dicts(fqfn):
     return ifuslot_dict, cam_ifu_dict, cam_ifuslot_dict
 
 
-class DetectLine:
-    '''Cure detect line file '''
-    #needs open and parse
-    #needs: find (compute) RA,Dec of entries (used to match up with catalogs)
-    def __init__(self):
-        pass
-
 
 #mostly copied from Greg Z. make_visualization_dectect.py
 class Dither():
@@ -189,25 +182,55 @@ class Dither():
         self.seeing = []
         self.norm = []
         self.airmass = []
+        self.dither_path = None
 
         self.read_dither(dither_file)
 
     def read_dither(self, dither_file):
         try:
-            with open(dither_file, 'r') as f:
-                f = ft.skip_comments(f)
-                for l in f:
-                    try:
-                        _bn, _d, _x, _y, _seeing, _norm, _airmass = l.split()
-                    except ValueError:  # skip empty or incomplete lines
-                        pass
-                    self.basename.append(_bn)
-                    self.deformer.append(_d)
-                    self.dx.append(float(_x))
-                    self.dy.append(float(_y))
-                    self.seeing.append(float(_seeing))
-                    self.norm.append(float(_norm))
-                    self.airmass.append(float(_airmass))
+            self.dither_path = op.dirname(dither_file)
+
+            if dither_file[-4:] == ".mch":
+                with open(dither_file, 'r') as f:
+                    f = ft.skip_comments(f)
+                    for l in f:
+                        try:
+                            #there are inconsitencies in all.mch so can't just get fixed position values
+                            elim = l.split()
+                        except ValueError:  # skip empty or incomplete lines
+                            pass
+                        #get the first two floats
+                        val1 = None
+                        val2 = None
+                        for i in range(len(elim)):
+                            val1 = None
+                            val2 = None
+                            try:
+                                val1 = float(elim[i])
+                                val2 = float(elim[i+1])
+                            except:
+                                continue
+
+                            if (val1 is not None) and (val2 is not None):
+                                self.dx.append(float(val1))
+                                self.dy.append(float(val2))
+                                break
+
+            else:
+                with open(dither_file, 'r') as f:
+                    f = ft.skip_comments(f)
+                    for l in f:
+                        try:
+                            _bn, _d, _x, _y, _seeing, _norm, _airmass = l.split()
+                        except ValueError:  # skip empty or incomplete lines
+                            pass
+                        self.basename.append(_bn)
+                        self.deformer.append(_d)
+                        self.dx.append(float(_x))
+                        self.dy.append(float(_y))
+                        self.seeing.append(float(_seeing))
+                        self.norm.append(float(_norm))
+                        self.airmass.append(float(_airmass))
         except:
             log.error("Unable to read dither file: %s :" %dither_file, exc_info=True)
 
@@ -221,6 +244,9 @@ class DetObj:
     #cont
     # 0    1  2     3       4       5  6   7   8     9  10    11   12  13   14   15   16
     # ID  icx icy  <sigma> fwhm_xy  a  b   pa  ir1  ka  kb   xmin xmax ymin ymax zmin zmax
+
+    #0   1  2                   3                 4        5   6      7     8 9    0 1 2 3 4  5   6 7
+    #28 28 22.879905466813398 -11.019990953824617 3914.82 666 289.41 289.41 1 7.20 1 1 1 0 0 -300 0 ifu093
 
 
     def __init__(self,tokens,emission=True):
@@ -242,6 +268,7 @@ class DetObj:
         self.gammq_s = 0.0
         self.eqw = 0.0
         self.cont = -9999
+        self.ifuslot = None
 
         if emission:
             self.type = 'emis'
@@ -261,6 +288,13 @@ class DetObj:
             self.gammq_s = float(tokens[14])
             self.eqw = float(tokens[15])
             self.cont = float(tokens[16])
+
+            try:
+                if len(tokens) == 18: #this is probably an all ifu panacea version
+                    self.ifuslot = str(tokens[17][-3:]) #ifu093 -> 093
+            except:
+                log.info("Error parsing tokens from emission line file.",exc_info=True)
+
         else:
             self.type = 'cont'
             self.id = int(tokens[0])
@@ -577,6 +611,7 @@ class HETDEX:
         self.tel_dec = None
         self.parangle = None
         self.ifu_slot_id = None
+        self.ifu_id = None
         self.specid = None
         self.obsid = None
 
@@ -630,7 +665,7 @@ class HETDEX:
 
         #open and read the fits files specified in the dither file
         #need the exposure date, IFUSLOTID, SPECID, etc from the FITS files
-        if not self.build_fits_list():
+        if not self.build_fits_list(args):
             #fatal problem
             self.status = -1
             return
@@ -751,7 +786,7 @@ class HETDEX:
                         log.error("Unable to open distortion files.", exc_info=True)
 
 
-    def build_fits_list(self):
+    def build_fits_list(self,args=None):
         #read in all fits
         #get the key fits header values
 
@@ -759,7 +794,101 @@ class HETDEX:
         #these are in "dither" order
         #read first cure-style fits to get header info needed to find the multi_*.fits files
 
-        if self.panacea:
+        if len(self.dither.basename) < 1: #we just got dx,dy from all.mch, need other info to continue
+            exit_string = None
+            result = False
+            if args is None:
+                exit_string = "Insufficient information provided. Limited dither info. Fatal."
+            elif not self.panacea:
+                exit_string = "Insufficient dither information provided for Cure processing. Fatal."
+            elif (args.obsdate is None) or (args.obsid is None):
+                exit_string = "Insufficient dither information provided. Missing obsdate or obsid."
+            elif (args.specid is None) and (args.ifuid is None) and (args.ifuslot is None):
+                exit_string = "Insufficient dither information provided. Must supply at least one of: " \
+                              "specid, ifuid, ifuslot."
+            else:
+                #check args.obsdate
+                result = True
+                if len(args.obsdate) != 8:
+                    exit_string = "Insufficient information provided. Invalid obsdate. Fatal."
+                    result = False
+                else:
+                    try:
+                        f = int(args.obsdate)
+                    except:
+                        exit_string = "Insufficient information provided. Invalid obsdate. Fatal."
+                        result = False
+
+            if not result:
+                print (exit_string)
+                log.error(exit_string)
+                return False
+
+            #build up path and filename from args info
+            self.ymd = args.obsdate
+            self.obsid = args.obsid
+            wildcard = False
+            if args.ifuid is not None:
+                self.ifu_id = str(args.ifuid).zfill(3)
+            else:
+                self.ifu_id = '???'
+                wildcard = True
+            if args.ifuslot is not None:
+                self.ifu_slot_id = str(args.ifuslot).zfill(3)
+            else:
+                self.ifu_slot_id = '???'
+                wildcard = True
+            if args.specid is not None:
+                self.specid = str(args.specid).zfill(3)
+            else:
+                self.specid = '???'
+                wildcard = True
+
+            # leaves off the  LL.fits etc
+            multi_fits_basename = "multi_" + self.specid + "_" + self.ifu_slot_id + "_" + self.ifu_id + "_"
+            # leaves off the exp01/virus/
+            multi_fits_basepath = op.join(G.PANACEA_RED_BASEDIR, self.ymd, "virus",
+                                          "virus" + str(self.obsid).zfill(7))
+
+            # see if path is good and read in the panacea fits
+            dit_idx = 0
+            path = op.join(multi_fits_basepath, "exp" + str(dit_idx + 1).zfill(2), "virus")
+
+            if wildcard:
+                if op.isdir(path):
+                    fn = op.join(path, multi_fits_basename + "LU.fits")
+                    files = glob.glob(fn)
+                    #there should be exactly one match
+                    if len(files) != 1:
+                        exit_string = "Insufficient information provided. Unable to identify panacea science files. Fatal."
+                        print(exit_string)
+                        log.error(exit_string)
+                        return False
+                    else:
+                        try:
+                            toks = op.basename(files[0]).split('_')
+                            self.specid = toks[1]
+                            self.ifu_slot_id = toks[2]
+                            self.ifu_id = toks[3]
+                            multi_fits_basename = "multi_" + self.specid + "_" + self.ifu_slot_id + "_" \
+                                                  + self.ifu_id + "_"
+                        except:
+                            exit_string = "Insufficient information provided. Unable to construct panacea science " \
+                                          "file names. Fatal."
+                            print(exit_string)
+                            log.error(exit_string)
+                            return False
+
+            while op.isdir(path):
+                for a in AMP:
+                    fn = op.join(path, multi_fits_basename + a + ".fits")
+                    self.sci_fits.append(HetdexFits(fn, None, None, dit_idx, panacea=True))
+
+                # next exposure
+                dit_idx += 1
+                path = op.join(multi_fits_basepath, "exp" + str(dit_idx + 1).zfill(2), "virus")
+
+        elif self.panacea:
             dit_idx = 0
             for b in self.dither.basename:
                 ext = ['_L.fits', '_R.fits']
@@ -767,6 +896,16 @@ class HETDEX:
                     fn = b + e
                     if (self.sci_fits_path is not None):
                         fn = op.join(self.sci_fits_path, op.basename(fn))
+                    else:
+                        if not op.exists(fn):
+                            log.debug("Science files not found from cwd.\n%s" % (fn))
+                            fn = op.join(self.dither.dither_path, fn)
+                            log.debug("Trying again from dither path.\n%s" % (fn))
+
+                    if not op.exists(fn):
+                        log.error("Fatal. Cannot find science files from dither.")
+                        print("Fatal. Cannot find science files from dither.")
+                        return False
 
                     hdf = HetdexFits(fn, None, None, dit_idx)
 
@@ -818,8 +957,20 @@ class HETDEX:
                         fn = op.join(self.sci_fits_path, op.basename(fn))
                         e_fn = op.join(self.sci_fits_path, op.basename(e_fn))
                         fe_fn = op.join(self.sci_fits_path, op.basename(fe_fn))
+                    else:
+                        if not op.exists(fn):
+                            log.debug("Science files not found from cwd.\n%s" % (fn))
+                            fn = op.join(self.dither.dither_path, fn)
+                            e_fn = op.join(self.dither.dither_path, e_fn)
+                            fe_fn = op.join(self.dither.dither_path, fe_fn)
+                            log.debug("Trying again from dither path.\n%s" % (fn))
 
-                        self.sci_fits.append(HetdexFits(fn,e_fn,fe_fn,dit_idx))
+                    if not op.exists(fn):
+                        log.error("Fatal. Cannot find science files from dither.")
+                        print("Fatal. Cannot find science files from dither.")
+                        return False
+
+                    self.sci_fits.append(HetdexFits(fn,e_fn,fe_fn,dit_idx))
                 dit_idx += 1
 
         #all should have the same observation date in the headers so just use first
@@ -828,6 +979,7 @@ class HETDEX:
                 self.ymd = self.sci_fits[0].obs_ymd
                 self.obsid = self.sci_fits[0].obsid
 
+            self.ifu_id = self.sci_fits[0].ifuid
             self.ifu_slot_id = self.sci_fits[0].ifuslot
             self.specid = self.sci_fits[0].specid
             self.tel_ra = self.sci_fits[0].tel_ra
@@ -862,6 +1014,14 @@ class HETDEX:
                 for l in f:
                     toks = l.split()
                     e = DetObj(toks,emission=False)
+
+                    if e.ifuslot is not None:
+                        if e.ifuslot != self.ifu_slot_id:
+                            #this emission line does not belong to the IFU we are working on
+                            log.info("Continuum detection IFU (%s) does not match current working IFU (%s)" %
+                                     (e.ifuslot,self.ifu_slot_id))
+                            continue
+
                     if self.emis_det_id is not None:
                         if str(e.id) in self.emis_det_id:
                             self.emis_list.append(e)
@@ -881,6 +1041,14 @@ class HETDEX:
                 for l in f:
                     toks = l.split()
                     e = DetObj(toks,emission=True)
+
+                    if e.ifuslot is not None:
+                        if e.ifuslot != self.ifu_slot_id:
+                            #this emission line does not belong to the IFU we are working on
+                            log.info("Emission detection IFU (%s) does not match current working IFU (%s)" %
+                                     (e.ifuslot,self.ifu_slot_id))
+                            continue
+
                     if self.emis_det_id is not None:
                         if str(e.id) in self.emis_det_id:
                             self.emis_list.append(e)
@@ -964,28 +1132,36 @@ class HETDEX:
         if datakeep is not None:
 
             if datakeep['xi']:
-                plt.subplot(gs[0,1])
-                plt.gca().axis('off')
-                buf = self.build_2d_image(datakeep)
+                try:
+                    plt.subplot(gs[0,1])
+                    plt.gca().axis('off')
+                    buf = self.build_2d_image(datakeep)
 
-                buf.seek(0)
-                im = Image.open(buf)
-                plt.imshow(im,interpolation='none') #needs to be 'none' else get blurring
+                    buf.seek(0)
+                    im = Image.open(buf)
+                    plt.imshow(im,interpolation='none') #needs to be 'none' else get blurring
+                except:
+                    log.warning("Failed to 2D cutout image.", exc_info=True)
 
-                plt.subplot(gs[0,2:])
-                plt.gca().axis('off')
-                buf = self.build_spec_image(datakeep,e.w, dwave=1.0)
-                buf.seek(0)
-                im = Image.open(buf)
-                plt.imshow(im,interpolation='none')#needs to be 'none' else get blurring
+                try:
+                    plt.subplot(gs[0,2:])
+                    plt.gca().axis('off')
+                    buf = self.build_spec_image(datakeep,e.w, dwave=1.0)
+                    buf.seek(0)
+                    im = Image.open(buf)
+                    plt.imshow(im,interpolation='none')#needs to be 'none' else get blurring
+                except:
+                    log.warning("Failed to build spec image.",exc_info = True)
 
-
-                plt.subplot(gs[1,:])
-                plt.gca().axis('off')
-                buf = self.build_full_width_2d_image(datakeep,e.w)
-                buf.seek(0)
-                im = Image.open(buf)
-                plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
+                try:
+                    plt.subplot(gs[1,:])
+                    plt.gca().axis('off')
+                    buf = self.build_full_width_2d_image(datakeep,e.w)
+                    buf.seek(0)
+                    im = Image.open(buf)
+                    plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
+                except:
+                    log.warning("Failed to build full width spec/cutout image.", exc_info=True)
 
             # update emission with the ra, dec of all fibers
             e.fiber_locs = list(zip(datakeep['ra'], datakeep['dec'],datakeep['color'],datakeep['index'],datakeep['d']))
@@ -1341,9 +1517,8 @@ class HETDEX:
 
         fig = plt.figure(figsize=(5, Y), frameon=False)
 
-        #ind = sorted(range(len(datakeep['d'])), key=lambda k: datakeep['d'][k],reverse=True)
-        # keep in dither order instead, but need to count backward for compatibility
-        ind = list(range(len(datakeep['d']))) # - 1, -1, -1))
+        # previously sorted in order from largest distances to smallest
+        ind = list(range(len(datakeep['d'])))
 
         for i in range(num):
             borplot = plt.axes([borderxl + 0. * dx, borderyb + i * dy, 3 * dx, dy])
@@ -1479,35 +1654,42 @@ class HETDEX:
         mn = 100.0
         mx = 0.0
         W = 0.0
-        #ind = sorted(range(len(datakeep['d'])), key=lambda k: datakeep['d'][k],reverse=True)
-        # keep in dither order instead, but need to count backward for compatibility
-        ind = range(len(datakeep['d'])) # - 1, -1, -1)
 
-        for i in range(N):
-            specplot.step(datakeep['specwave'][ind[i]], datakeep['spec'][ind[i]],
-                          where='mid', color=colors[i, 0:3], alpha=0.5)
-            w1 = np.interp(datakeep['d'][ind[i]], r, w)
-            F += (np.interp(bigwave, datakeep['specwave'][ind[i]],
-                            datakeep['spec'][ind[i]]) * w1)  # *(2.0 -datakeep['d'][ind[i]])
-            W += w1
-            mn = np.min([mn, np.min(datakeep['spec'][ind[i]])])
-            mx = np.max([mx, np.max(datakeep['spec'][ind[i]])])
-        F /= W
-        specplot.step(bigwave, F, c='b', where='mid', lw=2)
-        ran = mx - mn
+        #previously sorted in order from largest distances to smallest
+        ind = range(len(datakeep['d']))
         try:
-            specplot.errorbar(cwave - .8 * ww, mn + ran * (1 + rm) * 0.85,
-                              yerr=biweight_midvariance(np.array(datakeep['spec'][:])),
-                              fmt='o', marker='o', ms=4, mec='k', ecolor=[0.7, 0.7, 0.7],
-                              mew=1, elinewidth=3, mfc=[0.7, 0.7, 0.7])
-        except:
-            log.error("Error building spectra plot error bar", exc_info=True)
+            for i in range(N):
+                specplot.step(datakeep['specwave'][ind[i]], datakeep['spec'][ind[i]],
+                              where='mid', color=colors[i, 0:3], alpha=0.5)
+                w1 = np.interp(datakeep['d'][ind[i]], r, w)
+                F += (np.interp(bigwave, datakeep['specwave'][ind[i]],
+                                datakeep['spec'][ind[i]]) * w1)  # *(2.0 -datakeep['d'][ind[i]])
+                W += w1
+                mn = np.min([mn, np.min(datakeep['spec'][ind[i]])])
+                mx = np.max([mx, np.max(datakeep['spec'][ind[i]])])
+            F /= W
+            specplot.step(bigwave, F, c='b', where='mid', lw=2)
+            ran = mx - mn
 
-        try:
             specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='--', c=[0.3, 0.3, 0.3])
-            specplot.axis([cwave - ww, cwave + ww, mn - ran * rm, mn + ran * (1 + rm)])
+            # specplot.axis([cwave - ww, cwave + ww, mn - ran * rm, mn + ran * (1 + rm)])
+            span = max(F) - min(F)
+            specplot.axis([cwave - ww, cwave + ww, min(F) - span / 3., max(F) + span / 3.])
+
         except:
-            log.error("Error building spectra plot", exc_info=True)
+            log.warning("Unable to build cutout spec plot", exc_info=True)
+
+
+        #turn off the errorbar for now
+            #todo: turn errorbar back on if useful
+       # try:
+       #    # specplot.errorbar(cwave - .8 * ww, mn + ran * (1 + rm) * 0.85,
+       #     specplot.errorbar(cwave - .8 * ww, max(F),
+       #                       yerr=biweight_midvariance(np.array(datakeep['spec'][:])),
+       #                       fmt='o', marker='o', ms=4, mec='k', ecolor=[0.7, 0.7, 0.7],
+       #                       mew=1, elinewidth=3, mfc=[0.7, 0.7, 0.7])
+       # except:
+       #     log.error("Error building spectra plot error bar", exc_info=True)
 
         buf = io.BytesIO()
         plt.savefig(buf, format='png', dpi=300)
@@ -1526,7 +1708,7 @@ class HETDEX:
 
         #fig = plt.figure(figsize=(5, 6.25), frameon=False)
         fig = plt.figure(figsize=(fig_sz_x,fig_sz_y/2.0),frameon=False)
-        ind = list(range(len(datakeep['d']))) # - 1, -1, -1))
+        ind = list(range(len(datakeep['d'])))
 
         border_buffer = 0.02 #percent from left and right edges to leave room for the axis labels
         #fits cutouts (fibers)
@@ -1585,23 +1767,26 @@ class HETDEX:
         mx = 0.0
         W = 0.0
 
-        for j in range(N):
-            w1 = np.interp(datakeep['d'][ind[j]], r, w)
-            F += (np.interp(bigwave, datakeep['fw_specwave'][ind[j]],
-                            datakeep['fw_spec'][ind[j]]) * w1)  # *(2.0 -datakeep['d'][ind[i]])
-            W += w1
+        try:
+            for j in range(N):
+                w1 = np.interp(datakeep['d'][ind[j]], r, w)
+                F += (np.interp(bigwave, datakeep['fw_specwave'][ind[j]],
+                                datakeep['fw_spec'][ind[j]]) * w1)  # *(2.0 -datakeep['d'][ind[i]])
+                W += w1
 
-        mn = np.min([mn, np.min(datakeep['fw_spec'][ind[j]])])
-        mx = np.max([mx, np.max(datakeep['fw_spec'][ind[j]])])
+            mn = np.min([mn, np.min(datakeep['fw_spec'][ind[j]])])
+            mx = np.max([mx, np.max(datakeep['fw_spec'][ind[j]])])
 
-        F /= W
-        specplot.step(bigwave, F, c='b', where='mid', lw=1)
-        ran = mx - mn
+            F /= W
+            specplot.step(bigwave, F, c='b', where='mid', lw=1)
+            ran = mx - mn
 
-        specplot.plot([3500, 3500], [mn - ran * rm, mn + ran * (1 + rm)], ls='solid', c=[0.3, 0.3, 0.3])
-        specplot.axis([3500, 5500, mn - ran * rm, mn + ran * (1 + rm)])
-        specplot.locator_params(axis='y',tight=True,nbins=4)
-        #specplot.set_yticks(np.linspace(mn,mx,3))
+            specplot.plot([3500, 3500], [mn - ran * rm, mn + ran * (1 + rm)], ls='solid', c=[0.3, 0.3, 0.3])
+            specplot.axis([3500, 5500, mn - ran * rm, mn + ran * (1 + rm)])
+            specplot.locator_params(axis='y',tight=True,nbins=4)
+            #specplot.set_yticks(np.linspace(mn,mx,3))
+        except:
+            log.warning("Unable to build full width spec plot",exc_info = True)
 
         #draw rectangle around section that is "zoomed"
         yl, yh = specplot.get_ylim()

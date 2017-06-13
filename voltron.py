@@ -6,6 +6,7 @@ import global_config as G
 from astropy.coordinates import Angle
 from matplotlib.backends.backend_pdf import PdfPages
 from distutils.version import LooseVersion
+import pyhetdex.tools.files.file_tools as ft
 import sys
 import glob
 import os
@@ -32,6 +33,26 @@ def get_input(prompt):
     return i
 
 
+def parse_astrometry(file):
+    ra = None
+    dec = None
+    par = None
+    try:
+        with open(file, 'r') as f:
+            f = ft.skip_comments(f)
+            for l in f:
+                if len(l) > 10: #some reasonable minimum
+                    toks = l.split()
+                    #todo: some sanity checking??
+                    ra = float(toks[0])
+                    dec = float(toks[1])
+                    par = float(toks[2])
+    except:
+        log.error("Cannot read astrometry file: %s" % file, exc_info=True)
+
+    return ra,dec,par
+
+
 def parse_commandline():
     desc = "Search multiple catalogs for possible object matches.\n\nNote: if (--ra), (--dec), (--par) supplied in " \
            "addition to (--dither),(--line), the supplied RA, Dec, and Parangle will be used instead of the " \
@@ -52,12 +73,21 @@ def parse_commandline():
     #parser.add_argument('--rot',help="Rotation (as decimal degrees). NOT THE PARANGLE.",required=False,type=float)
     parser.add_argument('--par', help="The Parangle in decimal degrees.", required=False, type=float)
     parser.add_argument('--rot', help="The rotation in decimal degrees. (Superceeds use of --par)", required=False, type=float)
+
+    parser.add_argument('--ast', help="Astrometry coordinates file. Use instead of --ra, --dec, --par", required=False)
+
+    parser.add_argument('--obsdate', help="Observation Date. Must be YYYYMMDD.", required=False)
+    parser.add_argument('--obsid', help="Observation ID (integer)", required=False, type=int)
+    parser.add_argument('--specid', help="SpecID aka CAM (integer)", required=False, type=int)
+    parser.add_argument('--ifuid', help="IFU ID (integer) *** NOTICE. This is the cable ID.", required=False, type=int)
+    parser.add_argument('--ifuslot', help="IFU SLOT ID (integer)", required=False, type=int)
+
     parser.add_argument('-e', '--error', help="Error (+/-) in RA and Dec in arcsecs.", required=True, type=float)
     parser.add_argument('-n','--name', help="PDF report filename",required=True)
 
     parser.add_argument('--dither', help="HETDEX Dither file", required=False)
     parser.add_argument('--path', help="Override path to science fits in dither file", required=False)
-    parser.add_argument('--line', help="HETDEX (Cure) detect line file", required=False)
+    parser.add_argument('--line', help="HETDEX (Cure style) detect line file", required=False)
     parser.add_argument('--ifu', help="HETDEX IFU file", required=False)
     parser.add_argument('--dist', help="HETDEX Distortion file base (i.e. do not include trailing _L.dist or _R.dist)",
                         required=False)
@@ -90,6 +120,14 @@ def parse_commandline():
                 exit(-1)
         else:
             args.dec = float(args.dec)
+
+    if args.ast is not None:
+        r,d,p = parse_astrometry(args.ast)
+        if r is not None:
+            args.ra = r
+            args.dec = d
+            args.par = p
+
 
     if args.error < 0:
         print("Invalid error. Must be non-negative.")
@@ -158,20 +196,20 @@ def build_hd(args):
     return False
 
 
-def build_hetdex_section(hetdex, detect_id = 0,pages=None):
+def build_hetdex_section(args,hetdex, detect_id = 0,pages=None):
     #detection ids are unique (for the single detect_line.dat file we are using)
     if pages is None:
         pages = []
     pages = hetdex.build_hetdex_data_page(pages,detect_id)
 
     if PyPDF is not None:
-        build_report_part(pages)
+        build_report_part(args.name,pages)
         pages = None
 
     return pages
 
 
-def build_pages (ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,target_w=0,fiber_locs=None):
+def build_pages (args,ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,target_w=0,fiber_locs=None):
     #if a report object is passed in, immediately append to it, otherwise, add to the pages list and return that
     section_title = "Inspection ID: " + idstring
     for c in cats:
@@ -180,7 +218,7 @@ def build_pages (ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,t
 
         if r is not None:
             if PyPDF is not None:
-                build_report_part(r)
+                build_report_part(args.name,r)
             else:
                 pages = pages + r
             base_count += len(r)-1 #1st page is the target page
@@ -226,16 +264,16 @@ def build_report(pages,report_name):
 
 
 
-def build_report_part(pages):
+def build_report_part(report_name,pages):
     if (pages is None) or (len(pages) == 0):
         return
 
     global G_PDF_FILE_NUM
 
     G_PDF_FILE_NUM += 1
-    report_name = "voltron.pdf.part%s" % (str(G_PDF_FILE_NUM).zfill(4))
+    part_name = report_name + ".part%s" % (str(G_PDF_FILE_NUM).zfill(4))
 
-    pdf = PdfPages(report_name)
+    pdf = PdfPages(part_name)
     rows = len(pages)
 
     for r in range(rows):
@@ -253,7 +291,7 @@ def join_report_parts(report_name):
 
     merger = PyPDF.PdfFileMerger()
     for i in range(G_PDF_FILE_NUM):
-        part_name = "voltron.pdf.part%s" % str(i+1).zfill(4)
+        part_name = report_name+".part%s" % str(i+1).zfill(4)
         merger.append(part_name)
 
     merger.write(report_name)
@@ -261,8 +299,8 @@ def join_report_parts(report_name):
 
 
 
-def delete_report_parts():
-    for f in glob.glob("voltron.pdf.part*"):
+def delete_report_parts(report_name):
+    for f in glob.glob(report_name+".part*"):
         os.remove(f)
 
 def confirm(hits,force):
@@ -280,6 +318,26 @@ def confirm(hits,force):
 
     return True
 
+
+def ifulist_from_detect_file(args):
+    ifu_list = []
+    if args.line is not None:
+        try:
+            with open(args.line, 'r') as f:
+                f = ft.skip_comments(f)
+                for l in f:
+                    toks = l.split()
+                    if len(toks) == 18: #this may be an aggregate line file (last token = ifuxxx)
+                        if "ifu" in toks[17]:
+                            ifu = str(toks[17][-3:])  # ifu093 -> 093
+                            if ifu in ifu_list:
+                                continue
+                            else:
+                                ifu_list.append(ifu)
+        except:
+            log.info("Exception checking detection file for ifu list", exc_info=True)
+    return ifu_list
+
 def main():
     global  G_PDF_FILE_NUM
 
@@ -294,61 +352,74 @@ def main():
 
     #pdf = open_report(args.name)
 
+    ifu_list = ifulist_from_detect_file(args)
+    hd_list = []
+
     # first, if hetdex info provided, build the hetdex part of the report
     # hetedex part
     if build_hd(args):
-        hd = hetdex.HETDEX(args)
-
-    if hd is not None:
-        if hd.status != 0:
-            #fatal
-            print("Fatal error. Cannot build HETDEX working object.")
-            log.critical("Main exit. Fatal error.")
-            exit (-1)
-
-        #iterate over all emission line detections
-        if len(hd.emis_list) > 0:
-            print()
-            #first see if there are any possible matches anywhere
-
-            matched_cats = []
-
-            num_hits = 0
-            for c in cats:
-                for e in hd.emis_list:
-                    if c.position_in_cat(ra=e.ra, dec=e.dec, error=args.error):
-                        hits, _, _ = c.build_list_of_bid_targets(ra=e.ra, dec=e.dec, error=args.error)
-                        num_hits += hits
-
-                        if c not in matched_cats:
-                            matched_cats.append(c)
-                        print("%d hits in %s for Detect ID #%d" % (hits, c.name, e.id))
-                    else: #todo: don't bother printing the negative case
-                        print("Coordinates not in range of %s for Detect ID #%d" % (c.name,e.id))
-
-            if not confirm(num_hits,args.force):
-                log.critical("Main exit. User cancel.")
-                exit(0)
-
-            #now build the report for each emission detection
-            section_id = 0
-            total = len(hd.emis_list)
-            count = 0
-
-            for e in hd.emis_list:
-                section_id += 1
-                id = "#" + str(section_id) + " of " + str(total) + "  (Detect ID #" + str(e.id) + ")"
-                ra = e.ra
-                dec = e.dec
-                pages = build_hetdex_section(hd,e.id,pages) #this is the fiber, spectra cutouts for this detect
-
-                pages,count = build_pages(ra, dec, args.error, matched_cats, pages,num_hits=num_hits, idstring=id,
-                                          base_count=count,target_w=e.w,fiber_locs=e.fiber_locs)
-
-
-
+        if (len(ifu_list) > 0) and ((args.ifuslot is None) and (args.ifuid is None) and (args.specid is None)):
+            for ifu in ifu_list:
+                args.ifuslot = int(ifu)
+                hd = hetdex.HETDEX(args)
+                if hd is not None:
+                    hd_list.append(hd)
         else:
-            print("\nNo emission detections meet minimum criteria. Exiting.\n")
+            hd = hetdex.HETDEX(args)
+            if hd is not None:
+                hd_list.append(hd)
+
+
+    if len(hd_list) > 0:
+        for hd in hd_list:
+            if hd.status != 0:
+                #fatal
+                print("Fatal error. Cannot build HETDEX working object.")
+                log.critical("Main exit. Fatal error.")
+                exit (-1)
+
+            #iterate over all emission line detections
+            if len(hd.emis_list) > 0:
+                print()
+                #first see if there are any possible matches anywhere
+
+                matched_cats = []
+
+                num_hits = 0
+                for c in cats:
+                    for e in hd.emis_list:
+                        if c.position_in_cat(ra=e.ra, dec=e.dec, error=args.error):
+                            hits, _, _ = c.build_list_of_bid_targets(ra=e.ra, dec=e.dec, error=args.error)
+                            num_hits += hits
+
+                            if c not in matched_cats:
+                                matched_cats.append(c)
+                            print("%d hits in %s for Detect ID #%d" % (hits, c.name, e.id))
+                        else: #todo: don't bother printing the negative case
+                            print("Coordinates not in range of %s for Detect ID #%d" % (c.name,e.id))
+
+                if not confirm(num_hits,args.force):
+                    log.critical("Main exit. User cancel.")
+                    exit(0)
+
+                #now build the report for each emission detection
+                section_id = 0
+                total = len(hd.emis_list)
+                count = 0
+
+                for e in hd.emis_list:
+                    section_id += 1
+                    id = "#" + str(section_id) + " of " + str(total) + "  (Detect ID #" + str(e.id) + ")"
+                    ra = e.ra
+                    dec = e.dec
+                    pages = build_hetdex_section(args,hd,e.id,pages) #this is the fiber, spectra cutouts for this detect
+
+                    pages,count = build_pages(args, ra, dec, args.error, matched_cats, pages,num_hits=num_hits,
+                                              idstring=id,base_count=count,target_w=e.w,fiber_locs=e.fiber_locs)
+
+            else:
+                print("\nNo emission detections meet minimum criteria for specified IFU. Exiting.\n")
+                log.warning("No emission detections meet minimum criteria for specified IFU. Exiting.")
     else:
         num_hits = 0
         matched_cats = []
@@ -366,13 +437,13 @@ def main():
             log.critical("Main exit. User cancel.")
             exit(0)
 
-        pages,_ = build_pages(args.ra, args.dec, args.error, matched_cats, pages, idstring="# 1 of 1")
+        pages,_ = build_pages(args,args.ra, args.dec, args.error, matched_cats, pages, idstring="# 1 of 1")
 
     build_report(pages,args.name)
 
     if PyPDF is not None:
         join_report_parts(args.name)
-        delete_report_parts()
+        delete_report_parts(args.name)
 
     log.critical("Main complete.")
 
