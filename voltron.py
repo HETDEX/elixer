@@ -359,6 +359,10 @@ def main():
     # hetedex part
     if build_hd(args):
         if (len(ifu_list) > 0) and ((args.ifuslot is None) and (args.ifuid is None) and (args.specid is None)):
+
+            #sort so easier to find
+            ifu_list.sort()
+
             for ifu in ifu_list:
                 args.ifuslot = int(ifu)
                 hd = hetdex.HETDEX(args)
@@ -375,8 +379,12 @@ def main():
             if hd.status != 0:
                 #fatal
                 print("Fatal error. Cannot build HETDEX working object.")
-                log.critical("Main exit. Fatal error.")
-                exit (-1)
+                log.critical("Fatal error. Cannot build HETDEX working object.")
+                if len(hd_list) > 1:
+                    continue
+                else:
+                    log.critical("Main exit. Fatal error.")
+                    exit (-1)
 
             #iterate over all emission line detections
             if len(hd.emis_list) > 0:

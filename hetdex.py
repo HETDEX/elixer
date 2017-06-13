@@ -1677,7 +1677,16 @@ class HETDEX:
             specplot.axis([cwave - ww, cwave + ww, min(F) - span / 3., max(F) + span / 3.])
 
         except:
-            log.warning("Unable to build cutout spec plot", exc_info=True)
+            log.warning("Unable to build cutout spec plot. Datakeep info:\n"
+                        "IFUSLOTID = %s\n"
+                        "Dither = %s\n"
+                        "SIDE = %s\n"
+                        "AMP = %s\n"
+                        "Fiber = %i\n"
+                        "Wavelength = %f\n"
+                        % (self.ifu_slot_id,datakeep['dit'][ind[i]],datakeep['side'][ind[i]],datakeep['amp'][ind[i]],
+                           datakeep['fib'][ind[i]],cwave)
+                        , exc_info=True)
 
 
         #turn off the errorbar for now
@@ -1710,7 +1719,7 @@ class HETDEX:
         fig = plt.figure(figsize=(fig_sz_x,fig_sz_y/2.0),frameon=False)
         ind = list(range(len(datakeep['d'])))
 
-        border_buffer = 0.02 #percent from left and right edges to leave room for the axis labels
+        border_buffer = 0.025 #percent from left and right edges to leave room for the axis labels
         #fits cutouts (fibers)
         for i in range(num):
             borplot = plt.axes([0, i * dy, 1.0, dy])
@@ -1782,11 +1791,24 @@ class HETDEX:
             ran = mx - mn
 
             specplot.plot([3500, 3500], [mn - ran * rm, mn + ran * (1 + rm)], ls='solid', c=[0.3, 0.3, 0.3])
-            specplot.axis([3500, 5500, mn - ran * rm, mn + ran * (1 + rm)])
+            #specplot.axis([3500, 5500, mn - ran * rm, mn + ran * (1 + rm)])
+
+            span = max(F) - min(F)
+            specplot.axis([3500, 5500, min(F) - span / 3., max(F) + span / 3.])
+
             specplot.locator_params(axis='y',tight=True,nbins=4)
             #specplot.set_yticks(np.linspace(mn,mx,3))
         except:
-            log.warning("Unable to build full width spec plot",exc_info = True)
+            log.warning("Unable to build full width spec plot. Datakeep info:\n"
+                        "IFUSLOTID = %s\n"
+                        "Dither = %s\n"
+                        "SIDE = %s\n"
+                        "AMP = %s\n"
+                        "Fiber = %i\n"
+                        "Wavelength = %f\n"
+                        % (self.ifu_slot_id, datakeep['dit'][ind[i]], datakeep['side'][ind[i]], datakeep['amp'][ind[i]],
+                           datakeep['fib'][ind[i]], cwave)
+                        , exc_info=True)
 
         #draw rectangle around section that is "zoomed"
         yl, yh = specplot.get_ylim()

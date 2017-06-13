@@ -22,7 +22,7 @@ from astropy.coordinates import SkyCoord
 from astropy.nddata import Cutout2D
 from astropy.wcs import WCS
 from astropy.wcs.utils import skycoord_to_pixel
-
+from astropy.nddata.utils import NoOverlapError
 
 log = global_config.logging.getLogger('sciimg_logger')
 log.setLevel(global_config.logging.DEBUG)
@@ -163,6 +163,11 @@ class science_image():
                     log.debug("Collecting cutout size = %d square at RA,Dec = (%f,%f)" %(pix_window,ra,dec))
                     cutout = Cutout2D(self.fits[0].data, position, (pix_window, pix_window), wcs=self.wcs, copy=copy)
                     self.get_vrange(cutout.data)
+                except NoOverlapError:
+                    log.info("Exception (possible NoOverlapError) in science_image::get_cutout(). "
+                             "Target is not in range of image. RA,Dec = (%f,%f) Window = %d" % (ra, dec, pix_window))
+                    print("Target is not in range of image. RA,Dec = (%f,%f) Window = %d" % (ra, dec, pix_window))
+                    return None
                 except:
                     log.error("Exception in science_image::get_cutout (%s):" %self.image_location, exc_info=True)
                     return None
