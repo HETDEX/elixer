@@ -564,10 +564,6 @@ class HetdexFits:
 
         #get fiber centers
         # the fits representation is backward (with grid x,y: 1,112 and 2,112 (i.e at the top) == fiber 1))
-        #flip so that index 0 is the lowest numbered fiber
-
-        #no ... lowest fiber number is at the top
-        #self.fiber_centers = np.flipud(f[PANACEA_HDU_IDX['ifupos']].data)
         self.fiber_centers = np.array(f[PANACEA_HDU_IDX['ifupos']].data)
 
         try:
@@ -699,12 +695,13 @@ class HETDEX:
         #the 1.8 constant is under some investigation (have also seen 1.3)
 
         #if PARANGLE is specified on the command line, use it instead of the FITS PARANGLE
+        #360. - (90+1.3+args.rot)) from DetectWebpage
         if args.rot is not None:
             self.rot = float(args.rot)
         elif args.par is not None:
-            self.rot = 360. - (90. + 1.8 + args.par)
+            self.rot = 360. - (90. + 1.3 + args.par)
         else:
-            self.rot = 360. - (90. + 1.8 + self.parangle)
+            self.rot = 360. - (90. + 1.3 + self.parangle)
 
         if (args.ra is not None) and (args.dec is not None):
             #if (args.rot is not None):
@@ -883,6 +880,11 @@ class HETDEX:
                 for a in AMP:
                     fn = op.join(path, multi_fits_basename + a + ".fits")
                     self.sci_fits.append(HetdexFits(fn, None, None, dit_idx, panacea=True))
+                    self.dither.basename.append(multi_fits_basename)
+
+                    #todo: sanity check : make sure obsid and obsdate from command line match those in the fits
+                  #  fits = self.sci_fits[-1]
+                  #  if fits.obs_ymd != args.obsdate
 
                 # next exposure
                 dit_idx += 1
@@ -1097,7 +1099,8 @@ class HETDEX:
 
         sci_files = ""
         for s in self.dither.basename:
-            sci_files += "  " + op.basename(s) + "*.fits\n"
+            if not( op.basename(s) in sci_files):
+                sci_files += "  " + op.basename(s) + "*.fits\n"
 
         title = ""
         if e.type == 'emis':
@@ -1106,7 +1109,7 @@ class HETDEX:
             title += "Continuum Detect ID#"
 
         title +="%d\n"\
-                "ObsDate %s  IFU %s  CAM %s\n" \
+                "ObsDate %s  ObsID %s IFU %s  CAM %s\n" \
                 "Science file(s):\n%s"\
                 "RA,Dec (%f,%f) \n"\
                 "Sky X,Y (%f,%f)\n" \
@@ -1115,7 +1118,7 @@ class HETDEX:
                 "FluxFrac = %g\n" \
                 "Eqw = %g  Cont = %g\n" \
                 "Sigma = %g  Chi2 = %g"\
-                 % (e.id,self.ymd, self.ifu_slot_id,self.specid,sci_files, e.ra, e.dec, e.x, e.y,e.w,
+                 % (e.id,self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, e.ra, e.dec, e.x, e.y,e.w,
                     e.modflux,e.dataflux,e.fluxfrac, e.eqw,e.cont, e.sigma,e.chi2)
 
         plt.subplot(gs[0, 0])
@@ -1261,6 +1264,10 @@ class HETDEX:
             dither = item.dither
             loc = item.loc
             datakeep['d'].append(item.dist)  # distance (in arcsec) of fiber center from object center
+            sci = self.get_sci_fits(dither, side)
+
+            max_y, max_x = sci.data.shape
+
 
             #used later
             datakeep['color'].append(None)
@@ -1284,6 +1291,16 @@ class HETDEX:
             xh = int(np.round(xi + xw))
             yl = int(np.round(yi - yw))
             yh = int(np.round(yi + yw))
+
+
+
+            xl = max(xl,0)
+            xh = min(xh,max_x)
+            yl = max(yl,0)
+            yh = min(yh,max_y)
+
+
+
             datakeep['xi'].append(xi)
             datakeep['yi'].append(yi)
             datakeep['xl'].append(xl)
@@ -1298,7 +1315,7 @@ class HETDEX:
             #also get full x width data
             #would be more memory effecien to just grab full width,
             #  then in original func, slice as below
-            sci = self.get_sci_fits(dither,side)
+
             if sci is not None:
                 datakeep['im'].append(sci.data[yl:yh,xl:xh])
                 datakeep['fw_im'].append(sci.data[yl:yh, 0:FRAME_WIDTH_X-1])
@@ -1344,8 +1361,12 @@ class HETDEX:
                 #Fe_indh = np.searchsorted(wave,e.w+ww,side='right')
 
                 center = np.searchsorted(wave,e.w,side='left')
-                Fe_indl = center - 25
-                Fe_indh = center + 25
+                Fe_indl = center - int(round(ww))
+                Fe_indh = center + int(round(ww))
+
+                max_y, max_x = sci.fe_data.shape
+                Fe_indl = max(Fe_indl, 0)
+                Fe_indh = min(Fe_indh, max_x)
 
                 datakeep['spec'].append(sci.fe_data[loc,Fe_indl:(Fe_indh+1)])
                 datakeep['specwave'].append(wave[Fe_indl:(Fe_indh+1)])
@@ -1398,6 +1419,8 @@ class HETDEX:
             loc = item.loc
             datakeep['d'].append(item.dist)
 
+            max_y, max_x = fits.data.shape
+
             # used laterrange(len(fits.wave_data[loc,:]))
             datakeep['color'].append(None)
             datakeep['index'].append(None)
@@ -1427,6 +1450,12 @@ class HETDEX:
             xh = int(np.round(x_2D + xw))
             yl = int(np.round(y_2D - yw))
             yh = int(np.round(y_2D + yw))
+
+            xl = max(xl, 0)
+            xh = min(xh, max_x)
+            yl = max(yl, 0)
+            yh = min(yh, max_y)
+
             datakeep['xi'].append(x_2D)
             datakeep['yi'].append(y_2D)
             datakeep['xl'].append(xl)
@@ -1487,10 +1516,14 @@ class HETDEX:
             Fe_indl = center - int(round(ww))
             Fe_indh = center + int(round(ww))
 
+            max_y, max_x = fits.fe_data.shape
+            Fe_indl = max(Fe_indl, 0)
+            Fe_indh = min(Fe_indh, max_x)
+
             #fe_data is "sky_subtracted" ... the counts
             #wave is "wavelength" ... the corresponding wavelength
-            datakeep['spec'].append(fits.fe_data[loc, Fe_indl:(Fe_indh + 1)])
-            datakeep['specwave'].append(wave[Fe_indl:(Fe_indh + 1)])
+            datakeep['spec'].append(fits.fe_data[loc, Fe_indl:(Fe_indh)])
+            datakeep['specwave'].append(wave[Fe_indl:(Fe_indh)])
 
             datakeep['fw_spec'].append(fits.fe_data[loc, :])
             datakeep['fw_specwave'].append(wave[:])
@@ -1663,7 +1696,7 @@ class HETDEX:
                               where='mid', color=colors[i, 0:3], alpha=0.5)
                 w1 = np.interp(datakeep['d'][ind[i]], r, w)
                 F += (np.interp(bigwave, datakeep['specwave'][ind[i]],
-                                datakeep['spec'][ind[i]]) * w1)  # *(2.0 -datakeep['d'][ind[i]])
+                                datakeep['spec'][ind[i]]) * w1)
                 W += w1
                 mn = np.min([mn, np.min(datakeep['spec'][ind[i]])])
                 mx = np.max([mx, np.max(datakeep['spec'][ind[i]])])
@@ -1682,10 +1715,17 @@ class HETDEX:
                         "Dither = %s\n"
                         "SIDE = %s\n"
                         "AMP = %s\n"
-                        "Fiber = %i\n"
+                        "Fiber = %d\n"
                         "Wavelength = %f\n"
+                        "i = %d\n"
+                        "ind[i] = %d\n"
+                        "len(ind) = %d\n"
+                        "len(dict) = %d\n"
+                        "len(specwave) = %d\n"
+                        "len(spec) = %d\n"
                         % (self.ifu_slot_id,datakeep['dit'][ind[i]],datakeep['side'][ind[i]],datakeep['amp'][ind[i]],
-                           datakeep['fib'][ind[i]],cwave)
+                           datakeep['fib'][ind[i]],cwave,i,ind[i],len(ind),len(datakeep['spec']),
+                           len(datakeep['specwave'][ind[i]]), len(datakeep['spec'][ind[i]]))
                         , exc_info=True)
 
 
@@ -1770,7 +1810,12 @@ class HETDEX:
         rm = 0.2
         r, w = get_w_as_r(1.5, 500, 0.05, 6.)
 
-        bigwave = np.arange(3500, 5500)
+        #they should all be the same length
+        #yes, want round and int ... so we get nearest pixel inside the range)
+        left = round(min(datakeep['fw_specwave'][0]))
+        right = int(max(datakeep['fw_specwave'][0]))
+
+        bigwave = np.arange(left, right)
         F = np.zeros(bigwave.shape)
         mn = 100.0
         mx = 0.0
@@ -1780,7 +1825,7 @@ class HETDEX:
             for j in range(N):
                 w1 = np.interp(datakeep['d'][ind[j]], r, w)
                 F += (np.interp(bigwave, datakeep['fw_specwave'][ind[j]],
-                                datakeep['fw_spec'][ind[j]]) * w1)  # *(2.0 -datakeep['d'][ind[i]])
+                                datakeep['fw_spec'][ind[j]]) * w1)
                 W += w1
 
             mn = np.min([mn, np.min(datakeep['fw_spec'][ind[j]])])
@@ -1790,11 +1835,11 @@ class HETDEX:
             specplot.step(bigwave, F, c='b', where='mid', lw=1)
             ran = mx - mn
 
-            specplot.plot([3500, 3500], [mn - ran * rm, mn + ran * (1 + rm)], ls='solid', c=[0.3, 0.3, 0.3])
+            specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='solid', c=[0.3, 0.3, 0.3])
             #specplot.axis([3500, 5500, mn - ran * rm, mn + ran * (1 + rm)])
 
             span = max(F) - min(F)
-            specplot.axis([3500, 5500, min(F) - span / 3., max(F) + span / 3.])
+            specplot.axis([left, right, min(F) - span / 3., max(F) + span / 3.])
 
             specplot.locator_params(axis='y',tight=True,nbins=4)
             #specplot.set_yticks(np.linspace(mn,mx,3))
