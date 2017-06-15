@@ -287,7 +287,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             entry = self.build_bid_target_figure(r[0], d[0], error=error, df=df, df_photoz=df_photoz,
                                                  target_ra=target_ra, target_dec=target_dec,
                                                  section_title=section_title,
-                                                 bid_number=number, target_w=target_w)
+                                                 bid_number=number, target_w=target_w, of_number=num_hits-base_count)
             if entry is not None:
                 self.add_bid_entry(entry)
 
@@ -435,7 +435,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         return fig
 
     def build_bid_target_figure(self, ra, dec, error, df=None, df_photoz=None, target_ra=None, target_dec=None,
-                                section_title="", bid_number=1, target_w=0):
+                                section_title="", bid_number=1, target_w=0, of_number=0):
         '''Builds the entry (e.g. like a row) for one bid target. Includes the target info (name, loc, Z, etc),
         photometry images, Z_PDF, etc
 
@@ -477,9 +477,12 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         spec_z = 0.0
 
         if df is not None:
-            title = "%s\nPossible Match #%d\n%s\n\nRA = %f    Dec = %f\nSeparation  = %g\"" \
-                    % (
-                    section_title, bid_number, df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
+            title = "%s\nPossible Match #%d" % (section_title,bid_number)
+            if of_number > 0:
+                title = title + " of %d" % of_number
+
+            title = title + "\n%s\n\nRA = %f    Dec = %f\nSeparation  = %g\"" \
+                    % (df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
                     df['distance'].values[0] * 3600)
             z = df['DEEP_SPEC_Z'].values[0]
             if z >= 0.0:

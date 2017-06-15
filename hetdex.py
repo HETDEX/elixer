@@ -1114,12 +1114,11 @@ class HETDEX:
                 "RA,Dec (%f,%f) \n"\
                 "Sky X,Y (%f,%f)\n" \
                 "$\lambda$ = %g $\AA$\n" \
-                "ModFlux = %g  DatFlux = %g\n" \
-                "FluxFrac = %g\n" \
+                "EstFlux = %0.3g  DataFlux = %0.3g/%0.3g\n" \
                 "Eqw = %g  Cont = %g\n" \
                 "Sigma = %g  Chi2 = %g"\
                  % (e.id,self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, e.ra, e.dec, e.x, e.y,e.w,
-                    e.modflux,e.dataflux,e.fluxfrac, e.eqw,e.cont, e.sigma,e.chi2)
+                    e.dataflux * G.FLUX_CONVERSION, e.dataflux, e.fluxfrac, e.eqw,e.cont, e.sigma,e.chi2)
 
         plt.subplot(gs[0, 0])
         plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)

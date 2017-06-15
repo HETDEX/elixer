@@ -239,7 +239,7 @@ def build_hetdex_section(pdfname, hetdex, detect_id = 0,pages=None):
 
 def build_pages (pdfname,ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,target_w=0,fiber_locs=None):
     #if a report object is passed in, immediately append to it, otherwise, add to the pages list and return that
-    section_title = "Inspection ID: " + idstring
+    section_title = idstring
     for c in cats:
         r = c.build_bid_target_reports(ra, dec, error,num_hits=num_hits,section_title=section_title,
                                        base_count=base_count,target_w=target_w,fiber_locs=fiber_locs)
