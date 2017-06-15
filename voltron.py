@@ -10,6 +10,7 @@ import pyhetdex.tools.files.file_tools as ft
 import sys
 import glob
 import os
+import errno
 
 try:
     import PyPDF2 as PyPDF
@@ -53,6 +54,30 @@ def parse_astrometry(file):
     return ra,dec,par
 
 
+class pdf_file():
+    def __init__(self,basename,id):
+        self.filename = '%s' % basename
+        self.id = id
+        if self.id > 0: #i.e. otherwise, just building a single pdf file
+            #make the directory
+            if not os.path.isdir(self.filename):
+                try:
+                    os.makedirs(self.filename)
+                except OSError as exception:
+                    if exception.errno != errno.EEXIST:
+                        print ("Fatal. Cannot create pdf output directory: %s" % self.filename)
+                        log.critical("Fatal. Cannot create pdf output directory: %s" % self.filename,exc_info=True)
+                        exit(-1)
+
+            filename = os.path.basename(self.filename) + "_" + str(id) + ".pdf"
+            self.filename = os.path.join(self.filename,filename)
+        else:
+            pass #keep filename as is
+
+        self.pages = None
+
+
+
 def parse_commandline():
     desc = "Search multiple catalogs for possible object matches.\n\nNote: if (--ra), (--dec), (--par) supplied in " \
            "addition to (--dither),(--line), the supplied RA, Dec, and Parangle will be used instead of the " \
@@ -83,7 +108,10 @@ def parse_commandline():
     parser.add_argument('--ifuslot', help="IFU SLOT ID (integer)", required=False, type=int)
 
     parser.add_argument('-e', '--error', help="Error (+/-) in RA and Dec in arcsecs.", required=True, type=float)
+
     parser.add_argument('-n','--name', help="PDF report filename",required=True)
+    parser.add_argument('--multi', help='Produce one PDF file per emission line (in folder from --name).', required=False,
+                        action='store_true', default=False)
 
     parser.add_argument('--dither', help="HETDEX Dither file", required=False)
     parser.add_argument('--path', help="Override path to science fits in dither file", required=False)
@@ -196,20 +224,20 @@ def build_hd(args):
     return False
 
 
-def build_hetdex_section(args,hetdex, detect_id = 0,pages=None):
+def build_hetdex_section(pdfname, hetdex, detect_id = 0,pages=None):
     #detection ids are unique (for the single detect_line.dat file we are using)
     if pages is None:
         pages = []
     pages = hetdex.build_hetdex_data_page(pages,detect_id)
 
     if PyPDF is not None:
-        build_report_part(args.name,pages)
+        build_report_part(pdfname,pages)
         pages = None
 
     return pages
 
 
-def build_pages (args,ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,target_w=0,fiber_locs=None):
+def build_pages (pdfname,ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,target_w=0,fiber_locs=None):
     #if a report object is passed in, immediately append to it, otherwise, add to the pages list and return that
     section_title = "Inspection ID: " + idstring
     for c in cats:
@@ -218,7 +246,7 @@ def build_pages (args,ra,dec,error,cats,pages,num_hits=0,idstring="",base_count 
 
         if r is not None:
             if PyPDF is not None:
-                build_report_part(args.name,r)
+                build_report_part(pdfname,r)
             else:
                 pages = pages + r
             base_count += len(r)-1 #1st page is the target page
@@ -290,9 +318,15 @@ def join_report_parts(report_name):
     print("Finalizing report ...")
 
     merger = PyPDF.PdfFileMerger()
+    #for --multi the file part numbers are unique. Only the first file starts with 001. The second starts with
+    #where the first left off
     for i in range(G_PDF_FILE_NUM):
+        #use this rather than glob since glob sometimes messes up the ordering
+        #and this needs to be in the correct order
+        #(though this is a bit ineffecient since we iterate over all the parts every time)
         part_name = report_name+".part%s" % str(i+1).zfill(4)
-        merger.append(part_name)
+        if os.path.isfile(part_name):
+            merger.append(part_name)
 
     merger.write(report_name)
     print("File written: " + report_name)
@@ -353,7 +387,8 @@ def main():
     #pdf = open_report(args.name)
 
     ifu_list = ifulist_from_detect_file(args)
-    hd_list = []
+    hd_list = [] #one entry for each amp (or side) and dither
+    file_list = []
 
     # first, if hetdex info provided, build the hetdex part of the report
     # hetedex part
@@ -375,6 +410,11 @@ def main():
 
 
     if len(hd_list) > 0:
+
+        if not args.multi:  # create just one pdf entry and use it
+            pdf = pdf_file(args.name, -1)
+            file_list.append(pdf)
+
         for hd in hd_list:
             if hd.status != 0:
                 #fatal
@@ -416,18 +456,26 @@ def main():
                 count = 0
 
                 for e in hd.emis_list:
-                    section_id += 1
-                    id = "#" + str(section_id) + " of " + str(total) + "  (Detect ID #" + str(e.id) + ")"
+                    # section_id += 1
+                    # id = "#" + str(section_id) + " of " + str(total) + "  (Detect ID #" + str(e.id) + ")"
+
+                    if args.multi: #create a new entry for each emission
+                        pdf = pdf_file(args.name, e.id)
+
+                    id = "Detect ID #" + str(e.id)
                     ra = e.ra
                     dec = e.dec
-                    pages = build_hetdex_section(args,hd,e.id,pages) #this is the fiber, spectra cutouts for this detect
+                    pdf.pages = build_hetdex_section(pdf.filename,hd,e.id,pdf.pages) #this is the fiber, spectra cutouts for this detect
 
-                    pages,count = build_pages(args, ra, dec, args.error, matched_cats, pages,num_hits=num_hits,
+                    pdf.pages,count = build_pages(pdf.filename, ra, dec, args.error, matched_cats, pdf.pages,num_hits=num_hits,
                                               idstring=id,base_count=count,target_w=e.w,fiber_locs=e.fiber_locs)
 
-            else:
-                print("\nNo emission detections meet minimum criteria for specified IFU. Exiting.\n")
-                log.warning("No emission detections meet minimum criteria for specified IFU. Exiting.")
+                    if args.multi:
+                        file_list.append(pdf)
+
+           # else: #for multi calls (which are common now) this is of no use
+           #     print("\nNo emission detections meet minimum criteria for specified IFU. Exiting.\n"
+           #     log.warning("No emission detections meet minimum criteria for specified IFU. Exiting.")
     else:
         num_hits = 0
         matched_cats = []
@@ -445,13 +493,23 @@ def main():
             log.critical("Main exit. User cancel.")
             exit(0)
 
-        pages,_ = build_pages(args,args.ra, args.dec, args.error, matched_cats, pages, idstring="# 1 of 1")
+        pages,_ = build_pages(args.name,args.ra, args.dec, args.error, matched_cats, pages, idstring="# 1 of 1")
 
-    build_report(pages,args.name)
+
+    if len(file_list) > 0:
+        for f in file_list:
+            build_report(f.pages,f.filename)
+    else:
+        build_report(pages,args.name)
 
     if PyPDF is not None:
-        join_report_parts(args.name)
-        delete_report_parts(args.name)
+        if len(file_list) > 0:
+            for f in file_list:
+                join_report_parts(f.filename)
+                delete_report_parts(f.filename)
+        else:
+            join_report_parts(args.name)
+            delete_report_parts(args.name)
 
     log.critical("Main complete.")
 

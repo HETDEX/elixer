@@ -449,6 +449,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         z_best_type = None  # s = spectral , p = photometric?
         # z_spec = None
         # z_spec_ref = None
+        z_photoz_weighted = None
 
         rows = 2
         cols = len(self.CatalogImages)
@@ -457,6 +458,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             photoz_file = df_photoz['file'].values[0]
             z_best = df_photoz['z_best'].values[0]
             z_best_type = df_photoz['z_best_type'].values[0]  # s = spectral , p = photometric?
+            z_photoz_weighted = df_photoz['mFDa4_z_weight']
             # z_spec = df_photoz['z_spec'].values[0]
             # z_spec_ref = df_photoz['z_spec_ref'].values[0]
             # rows = rows + 1
@@ -492,6 +494,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     title = title + "\nPhoto Z     = %g (blue)" % z_best
                 elif (z_best_type.lower() == 's'):
                     title = title + "\nSpec Z      = %g (gold)" % z_best
+                    if z_photoz_weighted is not None:
+                        title = title + "\nPhoto Z     = %g (blue)" % z_photoz_weighted
                     spec_z = z
 
             if target_w > 0:
@@ -563,8 +567,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             if z_cat is not None:
                 x = z_cat['z'].values
                 y = z_cat['mFDa4'].values
-                plt.subplot(gs[0, 3])
+                plt.subplot(gs[0, 3:5])
                 plt.plot(x, y, zorder=1)
+                plt.xlim([0,3.6])
+                #trim axis to 0 to 3.6
 
                 if spec_z > 0:
                     plt.axvline(x=spec_z, color='gold', linestyle='solid', linewidth=3, zorder=0)
@@ -592,7 +598,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                        vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
             plt.title("Master Cutout (Stacked)")
             plt.xlabel("arcsecs")
-            plt.ylabel("arcsecs")
+           # plt.ylabel("arcsecs")
 
             # mark the bid target location on the master cutout
             if (target_ra is not None) and (target_dec is not None):
