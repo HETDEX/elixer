@@ -1915,7 +1915,7 @@ class HETDEX:
                 # specplot.axis([cwave - ww, cwave + ww, mn - ran * rm, mn + ran * (1 + rm)])
                 specplot.axis([cwave - ww, cwave + ww, min(F) - span / 3., max(F) + span / 3.])
             else:
-                specplot.axis([cwave - ww/2, cwave + ww/2, mn - ran * rm, mn + ran * (1 + rm)])
+                specplot.axis([cwave - ww, cwave + ww, mn - ran * rm, mn + ran * (1 + rm)])
 
 
             specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='--', c=[0.3, 0.3, 0.3])
