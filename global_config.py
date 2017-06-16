@@ -7,9 +7,9 @@ import socket
 
 
 if socket.gethostname() == 'z50':
+#if False:
     CONFIG_BASEDIR = "/home/dustin/code/python/voltron/data/config/"
     PANACEA_RED_BASEDIR = "/home/dustin/code/python/voltron/data/config/red1/reductions/"
-
 
     CANDELS_EGS_Stefanon_2016_BASE_PATH = "/home/dustin/code/python/voltron/data/EGS"
 
@@ -45,7 +45,7 @@ logging.basicConfig(filename=LOG_FILENAME,level=LOG_LEVEL,filemode='w')
 LyA_rest = 1216. #A 1215.668 and 1215.674
 OII_rest = 3727.
 
-FLUX_CONVERSION = 60e-17
+FLUX_CONVERSION = (1./60)*1e-17
 
 
 Fiber_Radius = 0.75 #arcsec

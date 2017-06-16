@@ -69,7 +69,7 @@ class pdf_file():
                         log.critical("Fatal. Cannot create pdf output directory: %s" % self.filename,exc_info=True)
                         exit(-1)
 
-            filename = os.path.basename(self.filename) + "_" + str(id) + ".pdf"
+            filename = os.path.basename(self.filename) + "_" + str(id).zfill(3) + ".pdf"
             self.filename = os.path.join(self.filename,filename)
         else:
             pass #keep filename as is
@@ -108,6 +108,9 @@ def parse_commandline():
     parser.add_argument('--ifuslot', help="IFU SLOT ID (integer)", required=False, type=int)
 
     parser.add_argument('-e', '--error', help="Error (+/-) in RA and Dec in arcsecs.", required=True, type=float)
+
+    parser.add_argument('--fibers', help="Number of fibers to plot in 1D spectra cutout."
+                                         "If present, also turns off weighted average.", required=False, type=int)
 
     parser.add_argument('-n','--name', help="PDF report filename",required=True)
     parser.add_argument('--multi', help='Produce one PDF file per emission line (in folder from --name).', required=False,
@@ -361,7 +364,7 @@ def ifulist_from_detect_file(args):
                 f = ft.skip_comments(f)
                 for l in f:
                     toks = l.split()
-                    if len(toks) == 18: #this may be an aggregate line file (last token = ifuxxx)
+                    if len(toks) > 17: #this may be an aggregate line file (last token = ifuxxx)
                         if "ifu" in toks[17]:
                             ifu = str(toks[17][-3:])  # ifu093 -> 093
                             if ifu in ifu_list:
@@ -463,8 +466,12 @@ def main():
                         pdf = pdf_file(args.name, e.id)
 
                     id = "Detect ID #" + str(e.id)
-                    ra = e.ra
-                    dec = e.dec
+                    if (e.wra is not None) and (e.wdec is not None): #weighted RA and Dec
+                        ra = e.wra
+                        dec = e.wdec
+                    else:
+                        ra = e.ra
+                        dec = e.dec
                     pdf.pages = build_hetdex_section(pdf.filename,hd,e.id,pdf.pages) #this is the fiber, spectra cutouts for this detect
 
                     pdf.pages,count = build_pages(pdf.filename, ra, dec, args.error, matched_cats, pdf.pages,num_hits=num_hits,

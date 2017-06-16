@@ -184,7 +184,51 @@ class Dither():
         self.airmass = []
         self.dither_path = None
 
+        self.dither_id_str = []
+        self.dither_date = [] #string before T ... ie. in yyyymmdd
+        self.dither_time = [] #string after T without decimal
+        self.dither_time_extended = []
+        self.dither_idx = []
+
         self.read_dither(dither_file)
+
+    def get_dither_index(self,date,time,time_ex):
+        if (date is not None) and (time is not None):
+            for i in range(len(self.dither_id_str)):
+                if (date == self.dither_date[i]) and (time == self.dither_time[i]):
+                    #can assume that all dither_time_extended are populated or all are None
+                    if (time_ex is not None) and (self.dither_time_extended[i] is not None):
+                        if (date == self.dither_date[i]) and (time_ex == self.dither_time_extended[i]):
+                            return self.dither_idx[i]
+                        #else keep looking ... times match, but not extended time
+                    else:
+                        return self.dither_idx[i]
+
+        return None
+
+
+
+    def dither_id_str_split(self,dit_str,dit_idx=None):
+        if dit_str is not None:
+            #get rid of quotes, slashes, spaces
+            self.dither_id_str.append(dit_str)
+            dit_str = dit_str.replace("\\","")
+            dit_str = dit_str.replace("\'","")
+            #assume yyyymmddThhmmss.s format?
+
+            if len(dit_str) < 18:
+                log.error("Dither ID string not as expected: %s" % self.dither_id_str)
+                return
+            else:
+                self.dither_idx.append(dit_idx)
+                self.dither_date.append(dit_str[0:8])
+                #next should be 'T'
+                self.dither_time.append(dit_str[9:15]) #not the .# not always there
+                if dit_str[15] == ".":
+                    self.dither_time_extended.append(dit_str[9:17])
+                else:
+                    self.dither_time_extended.append(None)
+
 
     def read_dither(self, dither_file):
         try:
@@ -193,12 +237,17 @@ class Dither():
             if dither_file[-4:] == ".mch":
                 with open(dither_file, 'r') as f:
                     f = ft.skip_comments(f)
+                    dit_idx = -1
                     for l in f:
+                        dit_idx += 1
                         try:
                             #there are inconsitencies in all.mch so can't just get fixed position values
                             elim = l.split()
                         except ValueError:  # skip empty or incomplete lines
                             pass
+
+                        #used later to match up with a dither number
+                        self.dither_id_str_split(elim[0],dit_idx)
                         #get the first two floats
                         val1 = None
                         val2 = None
@@ -216,7 +265,7 @@ class Dither():
                                 self.dy.append(float(val2))
                                 break
 
-            else:
+            else: #Cure style
                 with open(dither_file, 'r') as f:
                     f = ft.skip_comments(f)
                     for l in f:
@@ -231,10 +280,29 @@ class Dither():
                         self.seeing.append(float(_seeing))
                         self.norm.append(float(_norm))
                         self.airmass.append(float(_airmass))
+
+
+                        #todo: similar to panacea style split the dither id string??
         except:
             log.error("Unable to read dither file: %s :" %dither_file, exc_info=True)
 
+class Fiber:
+    def __init__(self,exp_id,specid,ifuslot,ifuid,amp,number,date,time,time_ex):
 
+        self.exp_id = exp_id
+        self.specid = specid
+        self.ifuslot = ifuslot
+        self.ifuid = ifuid
+        self.amp = amp
+        self.side = amp[0]
+        self.number = int(number) #1 based
+        self.dither_date = date
+        self.dither_time = time
+        self.dither_time_extended = time_ex
+
+        self.dither_idx = None
+        self.center_x = None
+        self.center_y = None
 
 class DetObj:
     '''mostly a container for an emission line or continuum detection from detect_line.dat or detect_cont.dat file'''
@@ -259,7 +327,7 @@ class DetObj:
         self.la_z = 0.0
         self.dataflux = 0.0
         self.modflux = 0.0
-        self.fluxfrac = 0.0
+        self.fluxfrac = 1.0
         self.sigma = 0.0
         self.chi2 = 0.0
         self.chi2s = 0.0
@@ -268,7 +336,12 @@ class DetObj:
         self.gammq_s = 0.0
         self.eqw = 0.0
         self.cont = -9999
+
         self.ifuslot = None
+        self.wra = None
+        self.wdec = None
+
+        self.fibers = []
 
         if emission:
             self.type = 'emis'
@@ -280,6 +353,10 @@ class DetObj:
             self.dataflux = float(tokens[6])
             self.modflux = float(tokens[7])
             self.fluxfrac = float(tokens[8])
+            #for safety
+            if self.fluxfrac == 0:
+                self.fluxfrac = 1.0
+
             self.sigma = float(tokens[9])
             self.chi2 = float(tokens[10])
             self.chi2s = float(tokens[11])
@@ -289,9 +366,24 @@ class DetObj:
             self.eqw = float(tokens[15])
             self.cont = float(tokens[16])
 
+            # 0  1   2 ....
+            # 1  1  -16.39  -15.30 4615.18 666   285.7   285.7 1   7.2 1 1 1 0 0  -300 0
+            # 17       18         19
+            # ifu094  214.64391  52.80016
+            # 20                                      21
+            # 20170326T105655.6_032_094_028_LU_032   20170326T104328.6_032_094_028_LU_031
+            # 20170326T105013.0_032_094_028_LU_032   20170326T105013.0_032_094_028_LU_012
+            # 20170326T104328.6_032_094_028_LU_032
+
             try:
-                if len(tokens) == 18: #this is probably an all ifu panacea version
+                if len(tokens) > 17: #this is probably an all ifu panacea version
                     self.ifuslot = str(tokens[17][-3:]) #ifu093 -> 093
+                    if len(tokens) > 18:  # has the rest
+                        self.wra = float(tokens[18])
+                        self.wdec = float(tokens[19])
+
+                        for i in range(20,len(tokens)):
+                            self.parse_fiber(tokens[i])
             except:
                 log.info("Error parsing tokens from emission line file.",exc_info=True)
 
@@ -320,6 +412,50 @@ class DetObj:
         self.nearest_fiber = None
         self.fiber_locs = None #built later, tuples of Ra,Dec of fiber centers
 
+
+    def parse_fiber(self,fiber):
+        if fiber is None:
+            return False
+        #20170326T105655.6_032_094_028_LU_032
+
+        toks = fiber.split("_")
+
+        if len(toks) != 6:
+            if (len(toks) == 1) and (toks[0] == "666"):
+                pass #this is an "ignore" flag
+            else:
+                log.warn("Unexpected fiber id string: %s" % fiber)
+            return False
+
+        exp_id = toks[0] #ie. 20170326T105655.6
+
+        #todo: factor out into common call
+        dither_date = exp_id[0:8]
+        # next should be 'T'
+        dither_time = exp_id[9:15]  # not the .# not always there
+        if exp_id[15] == ".":
+            dither_time_extended = exp_id[9:17]
+        else:
+            dither_time_extended = None
+
+        specid = toks[1]
+        ifuslot = toks[2]
+        ifuid = toks[3]
+        amp = toks[4]
+        fiber_num = toks[5]
+
+        #validate info
+        if (ifuslot != self.ifuslot):
+            log.error("Mismatched fiber id string. Does not match expected ifuslot id %s vs %s"
+                      % (ifuslot,self.ifuslot))
+            return False
+
+        self.fibers.append(Fiber(exp_id,specid,ifuslot,ifuid,amp,fiber_num,dither_date,dither_time,dither_time_extended))
+
+    def get_dither_number_for_fibers(self):
+        #put fiber names in order (alphabetical also == time order)
+        #assign dithers by that?
+        pass
 
 
 class HetdexFits:
@@ -643,6 +779,8 @@ class HETDEX:
         self.sci_fits = []
         self.status = 0
 
+        self.plot_fibers = args.fibers
+
         if args.cure:
             self.panacea = False
         else:
@@ -685,6 +823,22 @@ class HETDEX:
         #read the detect line file if specified. Build a list of targets based on sigma and chi2 cuts
         if self.detectline_fn is not None: #this is optional
             self.read_detectline()
+
+
+        #assign dither indices to fibers for each emission object
+        for e in self.emis_list:
+            for f in e.fibers:
+                f.dither_idx = self.dither.get_dither_index(f.dither_date,f.dither_time,f.dither_time_extended)
+                #get centers
+                for s in self.sci_fits:
+                    #dither index should not matter, but if these are combined across much time, it is possible
+                    #that the centers could have changed
+                    if (s.dither_index == f.dither_idx) and (s.amp == f.amp):
+                        f.center_x = s.fiber_centers[f.number - 1,0]
+                        f.center_y = s.fiber_centers[f.number - 1,1]
+                        break
+
+
 
         #calculate the RA and DEC of each emission line object
         #remember, we are only using a single IFU per call, so all emissions belong to the same IFU
@@ -1063,10 +1217,14 @@ class HETDEX:
         return
 
 
-    def get_sci_fits(self,dither,side):
+    def get_sci_fits(self,dither,side,amp=None):
         for s in self.sci_fits:
             if ((s.dither_index == dither) and (s.side == side)):
-                return s
+                if (amp is not None) and (s.amp is not None):
+                    if amp == s.amp:
+                        return s
+                else:
+                    return s
         return None
 
     def get_emission_detect(self,detectid):
@@ -1108,17 +1266,25 @@ class HETDEX:
         else:
             title += "Continuum Detect ID#"
 
+        if (e.wra is not None) and (e.wdec is not None):  # weighted RA and Dec
+            ra = e.wra
+            dec = e.wdec
+        else:
+            ra = e.ra
+            dec = e.dec
+
         title +="%d\n"\
                 "ObsDate %s  ObsID %s IFU %s  CAM %s\n" \
                 "Science file(s):\n%s"\
                 "RA,Dec (%f,%f) \n"\
                 "Sky X,Y (%f,%f)\n" \
                 "$\lambda$ = %g $\AA$\n" \
-                "EstFlux = %0.3g  DataFlux = %0.3g/%0.3g\n" \
+                "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
                 "Eqw = %g  Cont = %g\n" \
                 "Sigma = %g  Chi2 = %g"\
-                 % (e.id,self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, e.ra, e.dec, e.x, e.y,e.w,
-                    e.dataflux * G.FLUX_CONVERSION, e.dataflux, e.fluxfrac, e.eqw,e.cont, e.sigma,e.chi2)
+                 % (e.id,self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.x, e.y,e.w,
+                    e.dataflux * G.FLUX_CONVERSION/e.fluxfrac, e.dataflux, e.fluxfrac, e.eqw,e.cont, e.sigma,e.chi2)
+                #note: e.fluxfrac gauranteed to be nonzero
 
         plt.subplot(gs[0, 0])
         plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
@@ -1388,25 +1554,54 @@ class HETDEX:
         datakeep = self.clean_data_dict()
         sort_list = []
 
-        for fits in self.sci_fits:
-            dither = fits.dither_index  # 0,1,2
+        if len(e.fibers) > 0:
+            #use fiber list rather than distance
+            for f in e.fibers:
+                dither = f.dither_idx
+                fits = self.get_sci_fits(dither,f.side,f.amp)
 
-            # e.x and e.y are the sky x and y
-            # dx and dy then are the distances of each fiber center from the sky location of the source
-            dx = e.x - fits.fiber_centers[:, 0] - self.dither.dx[dither]
-            dy = e.y - fits.fiber_centers[:, 1] - self.dither.dy[dither]
+                if fits is None:
+                    log.error("Error! Could not find appropriate fits file for fiber: %s %d" % (f.exp_id,f.number))
+                    continue
+                #look at specific fibers
 
-            d = np.sqrt(dx ** 2 + dy ** 2)
+                dx = e.x - f.center_x - self.dither.dx[dither] #just floats, not arrays like below
+                dy = e.y - f.center_y - self.dither.dy[dither]
 
-            # all locations (fiber array index) within dist_thresh of the x,y sky coords of the detection
-            locations = np.where(d < dist_thresh)[0]
+                d = np.sqrt(dx ** 2 + dy ** 2)
+                #turn fiber number into a location. Fiber Number 1 is at the top
+                #which is loc (or index) 111
+                #so loc = 112 - Fiber Number
+                loc = f.number-1
 
-            for loc in locations:
-                sort_list.append(FitsSorter(fits,d[loc],loc))
+                sort_list.append(FitsSorter(fits,d,loc))
 
-        # sort from farthest to nearest ... yes, weird, but necessary for compatibility with
-        # some cloned code f
-        sort_list.sort(key=lambda x: x.dist,reverse=True)
+            #we want these in the order given, but they print in reverse, so invert the order
+            #sort_list.sort(key=lambda x: x.dist, reverse=True)
+            sort_list = sort_list[::-1]
+
+
+        else: #use fibers w/in 2"
+
+            for fits in self.sci_fits:
+                dither = fits.dither_index  # 0,1,2
+
+                # e.x and e.y are the sky x and y
+                # dx and dy then are the distances of each fiber center from the sky location of the source
+                dx = e.x - fits.fiber_centers[:, 0] - self.dither.dx[dither]
+                dy = e.y - fits.fiber_centers[:, 1] - self.dither.dy[dither]
+
+                d = np.sqrt(dx ** 2 + dy ** 2)
+
+                # all locations (fiber array index) within dist_thresh of the x,y sky coords of the detection
+                locations = np.where(d < dist_thresh)[0]
+
+                for loc in locations:
+                    sort_list.append(FitsSorter(fits,d[loc],loc))
+
+            # sort from farthest to nearest ... yes, weird, but necessary for compatibility with
+            # some cloned code f
+            sort_list.sort(key=lambda x: x.dist,reverse=True)
 
 
         #zero based so fiber is loc + amp_offset
@@ -1627,6 +1822,7 @@ class HETDEX:
             xh = int(np.round(xi - ext[0] + res[0] / 2.))
             yl = int(np.round(yi - ext[2] - res[0] / 2.))
             yh = int(np.round(yi - ext[2] + res[0] / 2.))
+
             S = np.where(datakeep['err'][ind[i]][yl:yh, xl:xh] < 0, 0., datakeep['im'][ind[i]][yl:yh, xl:xh]).sum()
             N = np.sqrt(np.where(datakeep['err'][ind[i]][yl:yh, xl:xh] < 0, 0.,
                                  datakeep['err'][ind[i]][yl:yh, xl:xh] ** 2).sum())
@@ -1639,17 +1835,17 @@ class HETDEX:
                         transform=imgplot.transAxes, fontsize=6, color='k', #colors[i, 0:3],
                         verticalalignment='bottom', horizontalalignment='left')
 
-            smplot.text(1.10, .75, 'S/N = %0.2f' % (sn),
+            borplot.text(1.05, .75, 'S/N = %0.2f' % (sn),
                         transform=smplot.transAxes, fontsize=6, color='r',
                         verticalalignment='bottom', horizontalalignment='left')
             #distance (in arcsec) of fiber center from object center
-            smplot.text(1.10, .55, 'D(") = %0.2f' % (datakeep['d'][ind[i]]),
+            borplot.text(1.05, .55, 'D(") = %0.2f' % (datakeep['d'][ind[i]]),
                         transform=smplot.transAxes, fontsize=6, color='r',
                         verticalalignment='bottom', horizontalalignment='left')
-            smplot.text(1.10, .35, 'X,Y = %d,%d' % (datakeep['xi'][ind[i]], datakeep['yi'][ind[i]]),
+            borplot.text(1.05, .35, 'X,Y = %d,%d' % (datakeep['xi'][ind[i]], datakeep['yi'][ind[i]]),
                         transform=smplot.transAxes, fontsize=6, color='b',
                         verticalalignment='bottom', horizontalalignment='left')
-            smplot.text(1.10, .15, 'D,S,F = %d,%s,%d' % (datakeep['dit'][ind[i]], datakeep['side'][ind[i]],
+            borplot.text(1.05, .15, 'D,S,F = %d,%s,%d' % (datakeep['dit'][ind[i]], datakeep['side'][ind[i]],
                                                          datakeep['fib'][ind[i]]),
                         transform=smplot.transAxes, fontsize=6, color='b',
                         verticalalignment='bottom', horizontalalignment='left')
@@ -1677,7 +1873,6 @@ class HETDEX:
         norm = plt.Normalize()
         colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
 
-        N = len(datakeep['xi'])
         rm = 0.2
         r, w = get_w_as_r(1.5, 500, 0.05, 6.)
         specplot = plt.axes([0.1, 0.1, 0.8, 0.8])
@@ -1687,10 +1882,21 @@ class HETDEX:
         mx = 0.0
         W = 0.0
 
-        #previously sorted in order from largest distances to smallest
+        #these are plotted from bottom to top
+        #we want, then, the LAST (plot_fibers) to be ploted
+
+        #want ALL ind even if only goint to plot spectra for a subset
         ind = range(len(datakeep['d']))
+
+        #previously sorted in order from largest distances to smallest
+        N = len(datakeep['xi'])
+        if self.plot_fibers is not None:
+            stop = max(N - self.plot_fibers-1,-1)
+        else:
+            stop = -1
+
         try:
-            for i in range(N):
+            for i in range(N-1,stop,-1):
                 specplot.step(datakeep['specwave'][ind[i]], datakeep['spec'][ind[i]],
                               where='mid', color=colors[i, 0:3], alpha=0.5)
                 w1 = np.interp(datakeep['d'][ind[i]], r, w)
@@ -1700,13 +1906,19 @@ class HETDEX:
                 mn = np.min([mn, np.min(datakeep['spec'][ind[i]])])
                 mx = np.max([mx, np.max(datakeep['spec'][ind[i]])])
             F /= W
-            specplot.step(bigwave, F, c='b', where='mid', lw=2)
             ran = mx - mn
 
+            #only plot the weighted average if number of fibers to plot was not specified on command line
+            if self.plot_fibers is None:
+                specplot.step(bigwave, F, c='b', where='mid', lw=2)
+                span = max(F) - min(F)
+                # specplot.axis([cwave - ww, cwave + ww, mn - ran * rm, mn + ran * (1 + rm)])
+                specplot.axis([cwave - ww, cwave + ww, min(F) - span / 3., max(F) + span / 3.])
+            else:
+                specplot.axis([cwave - ww/2, cwave + ww/2, mn - ran * rm, mn + ran * (1 + rm)])
+
+
             specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='--', c=[0.3, 0.3, 0.3])
-            # specplot.axis([cwave - ww, cwave + ww, mn - ran * rm, mn + ran * (1 + rm)])
-            span = max(F) - min(F)
-            specplot.axis([cwave - ww, cwave + ww, min(F) - span / 3., max(F) + span / 3.])
 
         except:
             log.warning("Unable to build cutout spec plot. Datakeep info:\n"
