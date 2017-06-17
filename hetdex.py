@@ -1892,13 +1892,17 @@ class HETDEX:
         N = len(datakeep['xi'])
         if self.plot_fibers is not None:
             stop = max(N - self.plot_fibers-1,-1)
+            alpha = 1.0
+            linewidth = 2.0
         else:
             stop = -1
+            alpha = 0.5
+            linewidth = 1.0
 
         try:
             for i in range(N-1,stop,-1):
                 specplot.step(datakeep['specwave'][ind[i]], datakeep['spec'][ind[i]],
-                              where='mid', color=colors[i, 0:3], alpha=0.5)
+                              where='mid', color=colors[i, 0:3], alpha=alpha,linewidth=linewidth,zorder=i)
                 w1 = np.interp(datakeep['d'][ind[i]], r, w)
                 F += (np.interp(bigwave, datakeep['specwave'][ind[i]],
                                 datakeep['spec'][ind[i]]) * w1)
@@ -1916,7 +1920,7 @@ class HETDEX:
                 specplot.axis([cwave - ww, cwave + ww, min(F) - span / 3., max(F) + span / 3.])
             else:
                 specplot.axis([cwave - ww, cwave + ww, mn - ran * rm, mn + ran * (1 + rm)])
-
+                specplot.axis([cwave - ww, cwave + ww, mn - ran/20, mx + ran/20])
 
             specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='--', c=[0.3, 0.3, 0.3])
 
