@@ -130,6 +130,13 @@ def parse_commandline():
 
     args = parser.parse_args()
 
+    #if args.multi and (args.name is not None):
+    #    G.logging.basicConfig(filename=args.name+".log", level=G.LOG_LEVEL, filemode='w')
+    #else:
+    #    G.logging.basicConfig(filename=G.LOG_FILENAME,level=G.LOG_LEVEL,filemode='w')
+
+    log.info(args)
+
     if args.ra is not None:
         if ":" in args.ra:
             try:
@@ -381,13 +388,8 @@ def main():
     G.gc.enable()
     #G.gc.set_debug(G.gc.DEBUG_LEAK)
     args = parse_commandline()
-
     cats = catalogs.get_catalog_list()
-
     pages = []
-    hd = None
-
-    #pdf = open_report(args.name)
 
     ifu_list = ifulist_from_detect_file(args)
     hd_list = [] #one entry for each amp (or side) and dither
@@ -411,9 +413,7 @@ def main():
             if hd is not None:
                 hd_list.append(hd)
 
-
     if len(hd_list) > 0:
-
         if not args.multi:  # create just one pdf entry and use it
             pdf = pdf_file(args.name, -1)
             file_list.append(pdf)
@@ -433,9 +433,7 @@ def main():
             if len(hd.emis_list) > 0:
                 print()
                 #first see if there are any possible matches anywhere
-
                 matched_cats = []
-
                 num_hits = 0
                 for c in cats:
                     for e in hd.emis_list:
@@ -494,7 +492,6 @@ def main():
                 num_hits += hits
                 if hits > 0:
                     print ("%d hits in %s" %(hits,c.name))
-
 
         if not confirm(num_hits,args.force):
             log.critical("Main exit. User cancel.")

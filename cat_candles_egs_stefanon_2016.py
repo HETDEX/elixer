@@ -385,6 +385,25 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         plt.plot(0, 0, "r+")
         plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
                                           angle=0.0, color='red', fill=False))
+        # add  North and East arrows
+        # 0,0 is in the center, but xmax_ counts from lower left
+        theta = empty_sci.get_rotation_to_celestrial_north(self.master_cutout)
+        if theta is not None:
+            arrow_color = [0.2, 1.0, 0.23]
+            arrow_len = 0.05 * (self.master_cutout.xmax_cutout + self.master_cutout.ymax_cutout)
+            arrow_x = self.master_cutout.xmax_cutout * 0.3 * sci.pixel_size
+            arrow_y = self.master_cutout.ymax_cutout * 0.3 * sci.pixel_size
+            arrow_dx = arrow_len * np.cos(theta) * sci.pixel_size
+            arrow_dy = arrow_len * np.sin(theta) * sci.pixel_size
+            plt.gca().add_patch(plt.arrow(arrow_x, arrow_y, arrow_dx, arrow_dy, color=arrow_color, linewidth=1.0))
+            plt.text(arrow_x + arrow_dx * 1.5, arrow_y + arrow_dy * 1.5, 'N',
+                     fontsize=8, color=arrow_color, verticalalignment='center', horizontalalignment='center')
+
+            arrow_dx = arrow_len * np.cos(theta + np.pi / 2.) * sci.pixel_size
+            arrow_dy = arrow_len * np.sin(theta + np.pi / 2.) * sci.pixel_size
+            plt.gca().add_patch(plt.arrow(arrow_x, arrow_y, arrow_dx, arrow_dy, color=arrow_color, linewidth=1.0))
+            plt.text(arrow_x + arrow_dx * 1.5, arrow_y + arrow_dy * 1.5, 'E',
+                     fontsize=8, color=arrow_color, verticalalignment='center', horizontalalignment='center')
 
         # plot the fiber cutout
         if (fiber_locs is not None) and (len(fiber_locs) > 0):
@@ -618,6 +637,27 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 plt.gca().add_patch(plt.Rectangle((x, y), width=error * 2, height=error * 2,
                                                   angle=0.0, color='yellow', fill=False))
 
+            # add  North and East arrows
+            # 0,0 is in the center, but xmax_ counts from lower left
+            theta = empty_sci.get_rotation_to_celestrial_north(self.master_cutout)
+            if theta is not None:
+                arrow_color = [0.2, 1.0, 0.23]
+                arrow_len = 0.05 * (self.master_cutout.xmax_cutout + self.master_cutout.ymax_cutout)
+                arrow_x = self.master_cutout.xmax_cutout * 0.3 * sci.pixel_size
+                arrow_y = self.master_cutout.ymax_cutout * 0.3 * sci.pixel_size
+                arrow_dx = arrow_len * np.cos(theta) * sci.pixel_size
+                arrow_dy = arrow_len * np.sin(theta) * sci.pixel_size
+                plt.gca().add_patch(plt.arrow(arrow_x, arrow_y, arrow_dx, arrow_dy, color=arrow_color, linewidth=1.0))
+                plt.text(arrow_x + arrow_dx * 1.5, arrow_y + arrow_dy * 1.5, 'N',
+                         fontsize=8, color=arrow_color, verticalalignment='center', horizontalalignment='center')
+
+                arrow_dx = arrow_len * np.cos(theta + np.pi / 2.) * sci.pixel_size
+                arrow_dy = arrow_len * np.sin(theta + np.pi / 2.) * sci.pixel_size
+                plt.gca().add_patch(plt.arrow(arrow_x, arrow_y, arrow_dx, arrow_dy, color=arrow_color, linewidth=1.0))
+                plt.text(arrow_x + arrow_dx * 1.5, arrow_y + arrow_dy * 1.5, 'E',
+                         fontsize=8, color=arrow_color, verticalalignment='center', horizontalalignment='center')
+
+        #fig holds the entire page
         plt.close()
         return fig
 

@@ -1795,19 +1795,34 @@ class HETDEX:
             pixplot.axis('off')
 
             #a = datakeep['cos'][ind[i]]
-            #todo: only use if the cosmic removed error file was used
+
+            # ... changed ... it is safe to use the error file all the time ... zeroes only present if cosmic cleaned
+            # if (G.PreferCosmicCleaned):
+            #    a = np.ma.masked_where(a == -1, a) #should have been -1 not 0
+            #    cmap1 = cmap
+            #    cmap1.set_bad(color=[0.2, 1.0, 0.23])
+            # else:
+            #    cmap1 = cmap
+
             a = datakeep['im'][ind[i]] #im can be the cosmic removed version, depends on G.PreferCosmicCleaned
-            if (G.PreferCosmicCleaned):
-                a = np.ma.masked_where(a == 0, a)
-                cmap1 = cmap
-                cmap1.set_bad(color=[0.2, 1.0, 0.23])
-            else:
-                cmap1 = cmap
+            cmap1 = cmap
+            cmap1.set_bad(color=[0.2, 1.0, 0.23])
+            a = np.ma.masked_where( datakeep['err'][ind[i]] == -1, a)
+
+            #test
+            #jm,km = datakeep['err'][ind[i]].shape
+            #for j in range(jm):
+            #    for k in range(km):
+            #        if datakeep['err'][ind[i]][j,k] < 0:
+            #            msg = "++++++++++ [%d,%d] = %f" % (j,k,datakeep['err'][ind[i]][j,k])
+            #            log.critical(msg)
+
             imgplot.imshow(a,
                            origin="lower", cmap=cmap1,
-                           interpolation="none", vmin=datakeep['vmin2'][ind[i]],
-                           vmax=datakeep['vmax2'][ind[i]],
-                           extent=ext)
+                           vmin=datakeep['vmin1'][ind[i]],
+                           vmax=datakeep['vmax1'][ind[i]],
+                           interpolation="none",extent=ext)
+
             #plot the center point
             #imgplot.scatter(datakeep['xi'][ind[i]], datakeep['yi'][ind[i]],
             #               marker='.', c='b', edgecolor='b', s=10)

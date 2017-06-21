@@ -209,3 +209,12 @@ class science_image():
 
         return x,y
 
+    def get_rotation_to_celestrial_north(self,cutout):
+        try:
+            theta = np.arctan2(cutout.wcs.wcs.cd[0, 1], cutout.wcs.wcs.cd[0, 0]) - np.pi/2.
+            log.debug("Rotation (radians) = %g" % theta)
+            return theta
+        except:
+            log.error("Unable to calculate rotation.",exc_info=True)
+            return None
+
