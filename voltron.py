@@ -123,10 +123,12 @@ def parse_commandline():
     parser.add_argument('--dist', help="HETDEX Distortion file base (i.e. do not include trailing _L.dist or _R.dist)",
                         required=False)
     parser.add_argument('--id', help="ID or list of IDs from detect line file for which to search", required=False)
-    parser.add_argument('--sigma', help="Minimum sigma threshold to meet in selecting detections", required=False,
+    parser.add_argument('--sigma', help="Minimum sigma threshold (cure) to meet in selecting detections", required=False,
                         type=float,default=0.0)
-    parser.add_argument('--chi2', help="Maximum chi2 threshold to meet in selecting detections", required=False,
+    parser.add_argument('--chi2', help="Maximum chi2 threshold (cure) to meet in selecting detections", required=False,
                         type=float,default=1e9)
+    parser.add_argument('--sn', help="Minimum fiber signal/noise threshold (panacea) to plot in spectra cutouts",
+                        required=False, type=float, default=0.0)
 
     args = parser.parse_args()
 
@@ -247,12 +249,14 @@ def build_hetdex_section(pdfname, hetdex, detect_id = 0,pages=None):
     return pages
 
 
-def build_pages (pdfname,ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,target_w=0,fiber_locs=None):
+def build_pages (pdfname,ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,target_w=0,fiber_locs=None,
+                 target_flux=None):
     #if a report object is passed in, immediately append to it, otherwise, add to the pages list and return that
     section_title = idstring
     for c in cats:
         r = c.build_bid_target_reports(ra, dec, error,num_hits=num_hits,section_title=section_title,
-                                       base_count=base_count,target_w=target_w,fiber_locs=fiber_locs)
+                                       base_count=base_count,target_w=target_w,fiber_locs=fiber_locs,
+                                       target_flux=target_flux)
 
         if r is not None:
             if PyPDF is not None:
@@ -473,7 +477,8 @@ def main():
                     pdf.pages = build_hetdex_section(pdf.filename,hd,e.id,pdf.pages) #this is the fiber, spectra cutouts for this detect
 
                     pdf.pages,count = build_pages(pdf.filename, ra, dec, args.error, matched_cats, pdf.pages,num_hits=num_hits,
-                                              idstring=id,base_count=count,target_w=e.w,fiber_locs=e.fiber_locs)
+                                              idstring=id,base_count=count,target_w=e.w,fiber_locs=e.fiber_locs,
+                                                  target_flux=e.estflux)
 
                     if args.multi:
                         file_list.append(pdf)

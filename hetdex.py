@@ -299,6 +299,7 @@ class Fiber:
         self.dither_date = date
         self.dither_time = time
         self.dither_time_extended = time_ex
+        self.sn = None
 
         self.dither_idx = None
         self.center_x = None
@@ -353,6 +354,7 @@ class DetObj:
             self.dataflux = float(tokens[6])
             self.modflux = float(tokens[7])
             self.fluxfrac = float(tokens[8])
+            self.estflux = self.dataflux * G.FLUX_CONVERSION/self.fluxfrac #estimated flux in cgs f_lambda
             #for safety
             if self.fluxfrac == 0:
                 self.fluxfrac = 1.0
@@ -382,8 +384,21 @@ class DetObj:
                         self.wra = float(tokens[18])
                         self.wdec = float(tokens[19])
 
-                        for i in range(20,len(tokens)):
-                            self.parse_fiber(tokens[i])
+                        start = 20
+                        for i in range(start,len(tokens)): #there are fibers and other stuff to follow
+                            if not self.parse_fiber(tokens[i]): #this was not a fiber descriptor
+                                break
+
+                        self.cont = float(tokens[i])
+
+                        start = i+1
+                        for i in range(start,len(tokens)): #these are in the same order as fibers
+                            sn = float(tokens[i])
+                            for f in self.fibers:
+                                if f.sn is None:
+                                    f.sn = sn
+                                    break
+
             except:
                 log.info("Error parsing tokens from emission line file.",exc_info=True)
 
@@ -422,7 +437,7 @@ class DetObj:
 
         if len(toks) != 6:
             if (len(toks) == 1) and (toks[0] == "666"):
-                pass #this is an "ignore" flag
+                    pass #this is an "ignore" flag
             else:
                 log.warn("Unexpected fiber id string: %s" % fiber)
             return False
@@ -448,9 +463,11 @@ class DetObj:
         if (ifuslot != self.ifuslot):
             log.error("Mismatched fiber id string. Does not match expected ifuslot id %s vs %s"
                       % (ifuslot,self.ifuslot))
-            return False
+            return True #this was still a fiber, just not one that is valid
 
         self.fibers.append(Fiber(exp_id,specid,ifuslot,ifuid,amp,fiber_num,dither_date,dither_time,dither_time_extended))
+
+        return True
 
     def get_dither_number_for_fibers(self):
         #put fiber names in order (alphabetical also == time order)
@@ -716,12 +733,13 @@ class HetdexFits:
 
 class FitsSorter:
 #just a container for organization
-    def __init__(self,fits=None,dist=0.0,loc=-1,side=None,dither=None):
+    def __init__(self,fits=None,dist=0.0,loc=-1,side=None,dither=None,sn=None):
         self.fits = fits
         self.dist = dist
         self.loc = loc
         self.side = side
         self.dither = dither
+        self.fiber_sn = sn
 
 
 class HETDEX:
@@ -780,6 +798,7 @@ class HETDEX:
         self.status = 0
 
         self.plot_fibers = args.fibers
+        self.min_fiber_sn = args.sn
 
         if args.cure:
             self.panacea = False
@@ -1029,6 +1048,8 @@ class HETDEX:
                             print(exit_string)
                             log.error(exit_string)
                             return False
+                else: #invalid path:
+                    log.error("Invalid path to panacea science fits: %s" %path)
 
             while op.isdir(path):
                 for a in AMP:
@@ -1283,7 +1304,7 @@ class HETDEX:
                 "Eqw = %g  Cont = %g\n" \
                 "Sigma = %g  Chi2 = %g"\
                  % (e.id,self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.x, e.y,e.w,
-                    e.dataflux * G.FLUX_CONVERSION/e.fluxfrac, e.dataflux, e.fluxfrac, e.eqw,e.cont, e.sigma,e.chi2)
+                    e.estflux, e.dataflux, e.fluxfrac, e.eqw,e.cont, e.sigma,e.chi2)
                 #note: e.fluxfrac gauranteed to be nonzero
 
         plt.subplot(gs[0, 0])
@@ -1368,6 +1389,7 @@ class HETDEX:
             dd['xh'] = []
             dd['yh'] = []
             dd['sn'] = []
+            dd['fiber_sn'] = []
             dd['d'] = []
             dd['dx'] = []
             dd['dy'] = []
@@ -1574,7 +1596,7 @@ class HETDEX:
                 #so loc = 112 - Fiber Number
                 loc = f.number-1
 
-                sort_list.append(FitsSorter(fits,d,loc))
+                sort_list.append(FitsSorter(fits,d,loc,sn=f.sn))
 
             #we want these in the order given, but they print in reverse, so invert the order
             #sort_list.sort(key=lambda x: x.dist, reverse=True)
@@ -1612,6 +1634,7 @@ class HETDEX:
             dither = fits.dither_index  # 0,1,2
             loc = item.loc
             datakeep['d'].append(item.dist)
+            datakeep['fiber_sn'].append(item.fiber_sn)
 
             max_y, max_x = fits.data.shape
 
@@ -1627,6 +1650,7 @@ class HETDEX:
             #loc runs from the bottom and is zero based
             #so flip ... nominally:  112 - (loc+1) + offset for the amp
             datakeep['fib'].append(len(fits.fe_data) - (loc+1) + AMP_OFFSET[fits.amp])
+
 
             xfiber = fits.fiber_centers[loc][0] + self.dither.dx[dither]
             yfiber = fits.fiber_centers[loc][1] + self.dither.dy[dither]
@@ -1838,13 +1862,16 @@ class HETDEX:
             yl = int(np.round(yi - ext[2] - res[0] / 2.))
             yh = int(np.round(yi - ext[2] + res[0] / 2.))
 
-            S = np.where(datakeep['err'][ind[i]][yl:yh, xl:xh] < 0, 0., datakeep['im'][ind[i]][yl:yh, xl:xh]).sum()
-            N = np.sqrt(np.where(datakeep['err'][ind[i]][yl:yh, xl:xh] < 0, 0.,
-                                 datakeep['err'][ind[i]][yl:yh, xl:xh] ** 2).sum())
-            if N != 0:
-                sn = S / N
-            else:
-                sn = 0.0
+            sn = datakeep['fiber_sn'][ind[i]]
+
+            if sn is None:
+                S = np.where(datakeep['err'][ind[i]][yl:yh, xl:xh] < 0, 0., datakeep['im'][ind[i]][yl:yh, xl:xh]).sum()
+                N = np.sqrt(np.where(datakeep['err'][ind[i]][yl:yh, xl:xh] < 0, 0.,
+                                     datakeep['err'][ind[i]][yl:yh, xl:xh] ** 2).sum())
+                if N != 0:
+                    sn = S / N
+                else:
+                    sn = 0.0
 
             imgplot.text(-0.2, .5, num - i,
                         transform=imgplot.transAxes, fontsize=6, color='k', #colors[i, 0:3],
@@ -1916,6 +1943,10 @@ class HETDEX:
 
         try:
             for i in range(N-1,stop,-1):
+                #regardless of the number if the sn is below the threshold, skip it
+                if datakeep['fiber_sn'][i] < self.min_fiber_sn:
+                    continue
+
                 specplot.step(datakeep['specwave'][ind[i]], datakeep['spec'][ind[i]],
                               where='mid', color=colors[i, 0:3], alpha=alpha,linewidth=linewidth,zorder=i)
                 w1 = np.interp(datakeep['d'][ind[i]], r, w)
@@ -1992,6 +2023,10 @@ class HETDEX:
         border_buffer = 0.025 #percent from left and right edges to leave room for the axis labels
         #fits cutouts (fibers)
         for i in range(num):
+            #skip if below threshold
+            if datakeep['fiber_sn'][i] < self.min_fiber_sn:
+                continue
+
             borplot = plt.axes([0, i * dy, 1.0, dy])
             imgplot = plt.axes([border_buffer, i * dy, 1-(2*border_buffer), dy])
             autoAxis = borplot.axis()

@@ -265,7 +265,7 @@ class SHELA(cat_base.Catalog):
 
 
     def build_bid_target_reports(self, target_ra, target_dec, error, num_hits=0, section_title="", base_count=0,
-                                 target_w=0, fiber_locs=None):
+                                 target_w=0, fiber_locs=None,target_flux=None):
         self.clear_pages()
         self.build_list_of_bid_targets(target_ra, target_dec, error)
 
@@ -277,7 +277,7 @@ class SHELA(cat_base.Catalog):
 
         # display the exact (target) location
         entry = self.build_exact_target_location_figure(target_ra, target_dec, error, section_title=section_title,
-                                                        target_w=target_w, fiber_locs=fiber_locs)
+                                                        target_w=target_w, fiber_locs=fiber_locs,target_flux=target_flux)
 
         if entry is not None:
             self.add_bid_entry(entry)
@@ -298,13 +298,15 @@ class SHELA(cat_base.Catalog):
             entry = self.build_bid_target_figure(r[0], d[0], error=error, df=df, df_photoz=None,
                                                  target_ra=target_ra, target_dec=target_dec,
                                                  section_title=section_title,
-                                                 bid_number=number, target_w=target_w,of_number=num_hits-base_count)
+                                                 bid_number=number, target_w=target_w,of_number=num_hits-base_count,
+                                                 target_flux=target_flux)
             if entry is not None:
                 self.add_bid_entry(entry)
 
         return self.pages
 
-    def build_exact_target_location_figure(self, ra, dec, error, section_title="", target_w=0, fiber_locs=None):
+    def build_exact_target_location_figure(self, ra, dec, error, section_title="", target_w=0, fiber_locs=None,
+                                           target_flux=None):
         '''Builds the figure (page) the exact target location. Contains just the filter images ...
 
         Returns the matplotlib figure. Due to limitations of matplotlib pdf generation, each figure = 1 page'''
@@ -329,7 +331,7 @@ class SHELA(cat_base.Catalog):
         font.set_family('monospace')
         font.set_size(12)
 
-        title = "Catalog: %s\n" % self.Name + section_title + "\nTarget Location\nPossible Matches=%d (within %g\")\n" \
+        title = "Catalog: %s\n" % self.Name + section_title + "\nPossible Matches = %d (within %g\")\n" \
                                                               "RA = %f    Dec = %f\n" % (
                                                                   len(self.dataframe_of_bid_targets), error, ra, dec)
         if target_w > 0:
@@ -432,9 +434,6 @@ class SHELA(cat_base.Catalog):
 
             x, y = empty_sci.get_position(ra, dec, self.master_cutout)  # zero (absolute) position
 
-            #plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
-            #                                  angle=0.0, color='red', fill=False))
-
             self.add_north_box(plt, empty_sci, self.master_cutout, error, 0, 0, theta=None)
 
             for r, d, c, i in fiber_locs:
@@ -450,12 +449,15 @@ class SHELA(cat_base.Catalog):
                 plt.gca().add_patch(plt.Circle(((fx - x), (fy - y)), radius=G.Fiber_Radius, color=c, fill=False))
                 plt.text((fx - x), (fy - y), str(i), ha='center', va='center', fontsize='x-small', color=c)
 
-            ext = max(abs(-xmin - 2 * G.Fiber_Radius), abs(xmax + 2 * G.Fiber_Radius),
-                      abs(-ymin - 2 * G.Fiber_Radius), abs(ymax + 2 * G.Fiber_Radius), 2.0)
+            ext_base = max(abs(xmin), abs(xmax), abs(ymin), abs(ymax))
+            # larger of the spread of the fibers or the maximum width (in non-rotated x-y plane) of the error window
+            ext = ext_base + G.Fiber_Radius
 
             # need a new cutout since we rescalled the ext (and window) size
             cutout = empty_sci.get_cutout(ra, dec, error, window=ext * 2, image=self.master_cutout)
             vmin, vmax = empty_sci.get_vrange(cutout.data)
+
+            self.add_north_arrow(plt, sci, cutout, theta=None)
 
             plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                        vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
@@ -465,7 +467,7 @@ class SHELA(cat_base.Catalog):
         return fig
 
     def build_bid_target_figure(self, ra, dec, error, df=None, df_photoz=None, target_ra=None, target_dec=None,
-                                section_title="", bid_number=1, target_w=0, of_number=0):
+                                section_title="", bid_number=1, target_w=0, of_number=0,target_flux=None):
         '''Builds the entry (e.g. like a row) for one bid target. Includes the target info (name, loc, Z, etc),
         photometry images, Z_PDF, etc
 
@@ -501,11 +503,11 @@ class SHELA(cat_base.Catalog):
            #         % (section_title, bid_number, df['RA'].values[0], df['DEC'].values[0],
            #         df['distance'].values[0] * 3600)
 
-            title = "%s\nPossible Match #%d" % (section_title, bid_number)
+            title = "%s  Possible Match #%d" % (section_title, bid_number)
             if of_number > 0:
                 title = title + " of %d" % of_number
 
-            title = title + "\n\nRA = %f    Dec = %f\nSeparation  = %g\"" \
+            title = title + "\nRA = %f    Dec = %f\nSeparation  = %g\"" \
                     % (df['RA'].values[0], df['DEC'].values[0],df['distance'].values[0] * 3600)
         else:
             title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)

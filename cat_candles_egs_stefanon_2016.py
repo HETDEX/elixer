@@ -244,7 +244,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
     # column names are catalog specific, but could map catalog specific names to generic ones and produce a dictionary?
     def build_bid_target_reports(self, target_ra, target_dec, error, num_hits=0, section_title="", base_count=0,
-                                 target_w=0, fiber_locs=None):
+                                 target_w=0, fiber_locs=None,target_flux=None):
 
         self.clear_pages()
         self.build_list_of_bid_targets(target_ra, target_dec, error)
@@ -254,7 +254,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
         # display the exact (target) location
         entry = self.build_exact_target_location_figure(target_ra, target_dec, error, section_title=section_title,
-                                                        target_w=target_w, fiber_locs=fiber_locs)
+                                                        target_w=target_w, fiber_locs=fiber_locs,
+                                                        target_flux=target_flux)
 
         if entry is not None:
             self.add_bid_entry(entry)
@@ -289,13 +290,15 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             entry = self.build_bid_target_figure(r[0], d[0], error=error, df=df, df_photoz=df_photoz,
                                                  target_ra=target_ra, target_dec=target_dec,
                                                  section_title=section_title,
-                                                 bid_number=number, target_w=target_w, of_number=num_hits-base_count)
+                                                 bid_number=number, target_w=target_w, of_number=num_hits-base_count,
+                                                 target_flux=target_flux)
             if entry is not None:
                 self.add_bid_entry(entry)
 
         return self.pages
 
-    def build_exact_target_location_figure(self, ra, dec, error, section_title="", target_w=0, fiber_locs=None):
+    def build_exact_target_location_figure(self, ra, dec, error, section_title="", target_w=0, fiber_locs=None,
+                                           target_flux=None):
         '''Builds the figure (page) the exact target location. Contains just the filter images ...
 
         Returns the matplotlib figure. Due to limitations of matplotlib pdf generation, each figure = 1 page'''
@@ -323,13 +326,23 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         font.set_family('monospace')
         font.set_size(12)
 
-        title = "Catalog: %s\n" % self.Name + section_title + "\nTarget Location\nPossible Matches=%d (within %g\")\n" \
+        title = "Catalog: %s\n" % self.Name + section_title + "\nPossible Matches = %d (within %g\")\n" \
                                                               "RA = %f    Dec = %f\n" % (
                                                               len(self.dataframe_of_bid_targets), error, ra, dec)
         if target_w > 0:
             title = title + "Wavelength = %g $\AA$\n" % target_w
         else:
             title = title + "\n"
+
+        if target_flux is not None:
+            title = title + "Min (no match) 3$\sigma$ LyA rest-EW = %g $\AA$\n" % \
+                            ( (target_flux / 9.9e-21) / (target_w / G.LyA_rest))
+            if target_w >= G.OII_rest:
+                title = title + "Min (no match) 3$\sigma$ OII rest-EW = %g $\AA$\n" % \
+                            ((target_flux / 9.9e-21) / (target_w / G.OII_rest))
+            else:
+                title = title + "Min (no match) 3$\sigma$ OII rest-EW = N/A\n"
+
         plt.subplot(gs[0, 0])
         plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
         plt.gca().set_frame_on(False)
@@ -340,6 +353,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             self.master_cutout = None
 
         index = -1
+        ref_exptime = None
+        total_adjusted_exptime = None
         for i in self.CatalogImages:  # i is a dictionary
             index += 1
 
@@ -357,8 +372,11 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:
                     self.master_cutout = sci.get_cutout(ra, dec, error, window=window, copy=True)
+                    ref_exptime = sci.exptime
+                    total_adjusted_exptime = 1.0
                 else:
-                    self.master_cutout.data = np.add(self.master_cutout.data, cutout.data)
+                    self.master_cutout.data = np.add(self.master_cutout.data, cutout.data * sci.exptime/ref_exptime)
+                    total_adjusted_exptime += sci.exptime/ref_exptime
 
                 plt.subplot(gs[rows - 1, index])
                 plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
@@ -368,6 +386,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 plt.yticks([ext, ext / 2., 0, -ext / 2., -ext])
 
                 self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
+
+        self.master_cutout.data /= total_adjusted_exptime
 
         if self.master_cutout is None:
             # cannot continue
@@ -403,8 +423,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             plt.title("Fiber Positions")
             plt.xlabel("arcsecs")
             plt.ylabel("arcsecs")
-            plt.xticks([ext, ext / 2., 0, -ext / 2., -ext])
-            plt.yticks([ext, ext / 2., 0, -ext / 2., -ext])
 
             plt.plot(0, 0, "r+")
 
@@ -414,15 +432,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             ymax = float('-inf')
 
             x, y = empty_sci.get_position(ra, dec, self.master_cutout)  # zero (absolute) position
-
-            #rx, ry, rrot = empty_sci.get_rect_parms(self.master_cutout, -error, -error)
-            #plt.gca().add_patch(plt.Rectangle((rx, ry), width=error * 2, height=error * 2,
-            #                                  angle=rrot, color='red', fill=False))
-
-            theta = empty_sci.get_rotation_to_celestrial_north(self.master_cutout)
-
-            self.add_north_box(plt, sci, self.master_cutout, error, 0, 0, theta)
-            # self.add_north_arrow(plt, sci, self.master_cutout, theta)
 
             for r, d, c, i, dist in fiber_locs:
                 # print("+++++ Cutout RA,DEC,ID,COLOR", r,d,i,c)
@@ -438,12 +447,16 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 plt.gca().add_patch(plt.Circle(((fx - x), (fy - y)), radius=G.Fiber_Radius, color=c, fill=False))
                 plt.text((fx - x), (fy - y), str(i), ha='center', va='center', fontsize='x-small', color=c)
 
-            ext = max(abs(-xmin - 2 * G.Fiber_Radius), abs(xmax + 2 * G.Fiber_Radius),
-                      abs(-ymin - 2 * G.Fiber_Radius), abs(ymax + 2 * G.Fiber_Radius), 2.0)
 
-            # need a new cutout since we rescalled the ext (and window) size
+            ext_base = max (abs(xmin),abs(xmax),abs(ymin),abs(ymax))
+            #larger of the spread of the fibers or the maximum width (in non-rotated x-y plane) of the error window
+            ext = ext_base + G.Fiber_Radius
+
+            # need a new cutout since we rescaled the ext (and window) size
             cutout = empty_sci.get_cutout(ra, dec, error, window=ext * 2, image=self.master_cutout)
             vmin, vmax = empty_sci.get_vrange(cutout.data)
+
+            self.add_north_arrow(plt, sci, cutout, theta=None)
 
             plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                        vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
@@ -453,7 +466,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         return fig
 
     def build_bid_target_figure(self, ra, dec, error, df=None, df_photoz=None, target_ra=None, target_dec=None,
-                                section_title="", bid_number=1, target_w=0, of_number=0):
+                                section_title="", bid_number=1, target_w=0, of_number=0,target_flux=None):
         '''Builds the entry (e.g. like a row) for one bid target. Includes the target info (name, loc, Z, etc),
         photometry images, Z_PDF, etc
 
@@ -495,11 +508,11 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         spec_z = 0.0
 
         if df is not None:
-            title = "%s\nPossible Match #%d" % (section_title,bid_number)
+            title = "%s  Possible Match #%d" % (section_title,bid_number)
             if of_number > 0:
                 title = title + " of %d" % of_number
 
-            title = title + "\n%s\n\nRA = %f    Dec = %f\nSeparation  = %g\"" \
+            title = title + "\n%s\nRA = %f    Dec = %f\nSeparation    = %g\"" \
                     % (df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
                     df['distance'].values[0] * 3600)
            #do not use DEEP SPEC Z, just use spec Z below
@@ -513,11 +526,12 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
             if z_best_type is not None:
                 if (z_best_type.lower() == 'p'):
-                    title = title + "\nPhoto Z      = %g (blue)" % z_best
+                    title = title + "\nPhoto Z       = %g (blue)" % z_best
                 elif (z_best_type.lower() == 's'):
-                    title = title + "\nSpec Z       = %g (gold)" % z_best
+                    title = title + "\nSpec Z        = %g (gold)" % z_best
+                    spec_z = z_best
                     if z_photoz_weighted is not None:
-                        title = title + "\nPhoto Z      = %g (blue)" % z_photoz_weighted
+                        title = title + "\nPhoto Z       = %g (blue)" % z_photoz_weighted
 
             if target_w > 0:
                 la_z = target_w / G.LyA_rest - 1.0
@@ -527,6 +541,17 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     title = title + "\nOII Z (virus) = %g (green)" % oii_z
                 else:
                     title = title + "\nOII Z (virus) = N/A"
+
+            if target_flux is not None:
+                filter_fl = df['ACS_F606W_FLUX'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                if (filter_fl is not None) and (filter_fl > 0):
+                    filter_fl = filter_fl * 1e-29 * 3e18 / (target_w ** 2) #3e18 ~ c in angstroms/sec
+                    title = title +"\nEst LyA rest-EW = %g $\AA$" % (target_flux / filter_fl / (target_w / G.LyA_rest))
+
+                    if target_w >= G.OII_rest:
+                        title = title + "\nEst OII rest-EW = %g $\AA$" % (target_flux / filter_fl /(target_w / G.OII_rest))
+                    else:
+                        title = title + "\nEst OII rest-EW = N/A"
         else:
             title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)
 

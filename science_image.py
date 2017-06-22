@@ -45,6 +45,7 @@ class science_image():
         self.vmax = None
         self.pixel_size = None
         self.window = None
+        self.exptime = None
 
         self.image_buffer = None
 
@@ -82,6 +83,11 @@ class science_image():
             except:
                 log.error("Unable to use WCS constructor. Will attempt to build manually.", exc_info=True)
                 self.build_wcs_manually()
+
+        try:
+            self.exptime = self.fits[0].header['EXPTIME']
+        except:
+            log.warning('Warning. Could not load exposure time from %s' %self.image_location, exc_info=True)
 
         try:
             self.pixel_size = self.calc_pixel_size(self.wcs)#np.sqrt(self.wcs.wcs.cd[0, 0] ** 2 + self.wcs.wcs.cd[0, 1] ** 2) * 3600.0  # arcsec/pixel

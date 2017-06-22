@@ -238,7 +238,9 @@ class Catalog:
             return
 
         try:
-            arrow_color = [0.2, 1.0, 0.23]
+            #arrow_color = [0.2, 1.0, 0.23]
+            arrow_color = "red"
+
             if theta is None:
                 theta = sci.get_rotation_to_celestrial_north(cutout)
 
