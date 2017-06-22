@@ -210,11 +210,39 @@ class science_image():
         return x,y
 
     def get_rotation_to_celestrial_north(self,cutout):
+        #counterclockwise angle in radians to celestrial north from the x-axis (so north up would be pi/2)
         try:
             theta = np.arctan2(cutout.wcs.wcs.cd[0, 1], cutout.wcs.wcs.cd[0, 0]) - np.pi/2.
+            #theta = np.pi/2. - np.arctan2(cutout.wcs.wcs.cd[0, 1], cutout.wcs.wcs.cd[0, 0])
+
+            if theta < 0: # clockwise rotation
+                theta += 2*np.pi
             log.debug("Rotation (radians) = %g" % theta)
             return theta
         except:
             log.error("Unable to calculate rotation.",exc_info=True)
             return None
 
+    def get_rect_parms(self,cutout,x,y,rot=None): #side is length of whole side ... 2*error window
+        #rotation passed in radians, returned in degrees as wanted by rect call
+        if rot is None: #the - pi/2 is so we get rotation from y-axis instead of x-axis
+            rot = self.get_rotation_to_celestrial_north(cutout) - np.pi/2.0
+
+        rect_rot = rot * 180./np.pi
+
+        coords = np.dot(self.rotation_matrix(rot,deg=False), np.array([x, y]).transpose())
+        x = coords[0]
+        y = coords[1]
+
+        return x,y,rect_rot
+
+    def rotation_matrix(self,theta=0.0,deg=True):
+        #Returns a rotation matrix for CCW rotation
+        #if deg is False, theta is in radians
+        if deg:
+            rad = theta*np.pi/180.0
+        else:
+            rad = theta
+        s = np.sin(rad)
+        c = np.cos(rad)
+        return np.array([[c, -s], [s, c]])

@@ -204,3 +204,59 @@ class Catalog:
             self.clear_pages()
         self.pages.append(entry)
 
+    def add_north_box(self,plt,sci,cutout,half_side,zero_x = 0,zero_y = 0,theta = None):
+        #theta is angle in radians counter-clockwise from x-axis to the north celestrial pole
+
+        if (plt is None) or (sci is None) or (cutout is None) or (half_side is None):
+            return
+
+        try:
+            if theta is None:
+                theta = sci.get_rotation_to_celestrial_north(cutout)
+
+            rx, ry, rrot = sci.get_rect_parms(cutout, -half_side, -half_side, theta - np.pi / 2.)
+            plt.gca().add_patch(plt.Rectangle((zero_x + rx, zero_y + ry), width=half_side * 2, height=half_side * 2,
+                                              angle=rrot, color='red', fill=False))
+
+            t_dx = half_side * np.cos(theta)  # * sci.pixel_size
+            t_dy = half_side * np.sin(theta)  # * sci.pixel_size
+            plt.text(zero_x + t_dx * 1.3, zero_y + t_dy * 1.3, 'N', rotation=rrot,
+                     fontsize=10, color="red", verticalalignment='center', horizontalalignment='center')
+
+            t_dx = half_side * np.cos(theta + np.pi / 2.)  # * sci.pixel_size
+            t_dy = half_side * np.sin(theta + np.pi / 2.)  # * sci.pixel_size
+            plt.text(zero_x + t_dx * 1.3, zero_y + t_dy * 1.3, 'E', rotation=rrot,
+                     fontsize=10, color="red", verticalalignment='center', horizontalalignment='center')
+        except:
+            log.error("Exception bulding celestrial north box.", exc_info=True)
+
+
+    def add_north_arrow (self, plt, sci, cutout, theta=None):
+        # theta is angle in radians counter-clockwise from x-axis to the north celestrial pole
+
+        if (plt is None) or (sci is None) or (cutout is None):
+            return
+
+        try:
+            arrow_color = [0.2, 1.0, 0.23]
+            if theta is None:
+                theta = sci.get_rotation_to_celestrial_north(cutout)
+
+            t_rot = (theta - np.pi/2.) * 180./np.pi
+
+            arrow_len = 0.03 * (cutout.xmax_cutout + cutout.ymax_cutout)
+            arrow_x = cutout.xmax_cutout * 0.4 * sci.pixel_size
+            arrow_y = cutout.ymax_cutout * 0.4 * sci.pixel_size
+            arrow_dx = arrow_len * np.cos(theta) * sci.pixel_size
+            arrow_dy = arrow_len * np.sin(theta) * sci.pixel_size
+            plt.gca().add_patch(plt.arrow(arrow_x, arrow_y, arrow_dx, arrow_dy, color=arrow_color, linewidth=1.0))
+            plt.text(arrow_x + arrow_dx * 1.5, arrow_y + arrow_dy * 1.5, 'N', rotation=t_rot,
+                     fontsize=8, color=arrow_color, verticalalignment='center', horizontalalignment='center')
+
+            arrow_dx = arrow_len * np.cos(theta + np.pi / 2.) * sci.pixel_size
+            arrow_dy = arrow_len * np.sin(theta + np.pi / 2.) * sci.pixel_size
+            plt.gca().add_patch(plt.arrow(arrow_x, arrow_y, arrow_dx, arrow_dy, color=arrow_color, linewidth=1.0))
+            plt.text(arrow_x + arrow_dx * 1.5, arrow_y + arrow_dy * 1.5, 'E',rotation=t_rot,
+                     fontsize=8, color=arrow_color, verticalalignment='center', horizontalalignment='center')
+        except:
+            log.error("Exception bulding celestrial north arrow.", exc_info=True)

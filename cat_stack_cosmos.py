@@ -319,8 +319,10 @@ class STACK_COSMOS(cat_base.Catalog):
                                    vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
                         plt.title(i['instrument'] + " " + i['filter'])
 
-                        plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
-                                                          angle=0.0, color='red', fill=False))
+                       # plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
+                       #                                   angle=0.0, color='red', fill=False))
+
+                        self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
 
             if self.master_cutout is None:
                 # cannot continue
@@ -339,8 +341,10 @@ class STACK_COSMOS(cat_base.Catalog):
             if (fiber_locs is None) or (len(fiber_locs) == 0):
                 plt.ylabel("arcsecs")
             plt.plot(0, 0, "r+")
-            plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
-                                              angle=0.0, color='red', fill=False))
+            #plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
+            #                                  angle=0.0, color='red', fill=False))
+
+            self.add_north_box(plt, empty_sci, self.master_cutout, error, 0, 0, theta=None)
 
             # plot the fiber cutout
             if (fiber_locs is not None) and (len(fiber_locs) > 0):
@@ -359,8 +363,9 @@ class STACK_COSMOS(cat_base.Catalog):
 
                 x, y = empty_sci.get_position(ra, dec, self.master_cutout)  # zero (absolute) position
 
-                plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
-                                                  angle=0.0, color='red', fill=False))
+                #plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
+                #                                  angle=0.0, color='red', fill=False))
+                self.add_north_box(plt, empty_sci, self.master_cutout, error, 0, 0, theta=None)
 
                 for r, d, c, i in fiber_locs:
                     # print("+++++ Cutout RA,DEC,ID,COLOR", r,d,i,c)
@@ -482,6 +487,8 @@ class STACK_COSMOS(cat_base.Catalog):
                         # set the diameter of the cirle to half the error (radius error/4)
                         plt.gca().add_patch(plt.Circle((0, 0), radius=error / 4.0, color='yellow', fill=False))
 
+                        self.add_north_arrow(plt, sci, cutout, theta=None)
+
                     # iterate over all filters for this image and print values
                     font.set_size(10)
                     if df is not None:
@@ -518,8 +525,11 @@ class STACK_COSMOS(cat_base.Catalog):
                     # set the diameter of the cirle to half the error (radius error/4)
                     plt.gca().add_patch(
                         plt.Circle(((x - px), (y - py)), radius=error / 4.0, color='yellow', fill=False))
-                    plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
-                                                      angle=0.0, color='red', fill=False))
+                    #plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
+                    #                                  angle=0.0, color='red', fill=False))
+
+                    self.add_north_box(plt, empty_sci, self.master_cutout, error, 0, 0, theta=None)
+
                     x = (x - px) - error
                     y = (y - py) - error
                     plt.gca().add_patch(plt.Rectangle((x, y), width=error * 2, height=error * 2,

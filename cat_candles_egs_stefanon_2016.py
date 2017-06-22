@@ -20,6 +20,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 import matplotlib.gridspec as gridspec
+import mpl_toolkits.axisartist.floating_axes as floating_axes
+from matplotlib.transforms import Affine2D
 
 
 log = G.logging.getLogger('Cat_logger')
@@ -362,9 +364,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                            vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
                 plt.title(i['instrument'] + " " + i['filter'])
+                plt.xticks([ext, ext / 2., 0, -ext / 2., -ext])
+                plt.yticks([ext, ext / 2., 0, -ext / 2., -ext])
 
-                plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
-                                                  angle=0.0, color='red', fill=False))
+                self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
 
         if self.master_cutout is None:
             # cannot continue
@@ -379,31 +382,19 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                    vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
         plt.title("Master Cutout (Stacked)")
         plt.xlabel("arcsecs")
+        plt.xticks([ext, ext / 2., 0, -ext / 2., -ext])
+        plt.yticks([ext, ext / 2., 0, -ext / 2., -ext])
+
         # only show this lable if there is not going to be an adjacent fiber plot
         if (fiber_locs is None) or (len(fiber_locs) == 0):
             plt.ylabel("arcsecs")
         plt.plot(0, 0, "r+")
-        plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
-                                          angle=0.0, color='red', fill=False))
-        # add  North and East arrows
-        # 0,0 is in the center, but xmax_ counts from lower left
-        theta = empty_sci.get_rotation_to_celestrial_north(self.master_cutout)
-        if theta is not None:
-            arrow_color = [0.2, 1.0, 0.23]
-            arrow_len = 0.05 * (self.master_cutout.xmax_cutout + self.master_cutout.ymax_cutout)
-            arrow_x = self.master_cutout.xmax_cutout * 0.3 * sci.pixel_size
-            arrow_y = self.master_cutout.ymax_cutout * 0.3 * sci.pixel_size
-            arrow_dx = arrow_len * np.cos(theta) * sci.pixel_size
-            arrow_dy = arrow_len * np.sin(theta) * sci.pixel_size
-            plt.gca().add_patch(plt.arrow(arrow_x, arrow_y, arrow_dx, arrow_dy, color=arrow_color, linewidth=1.0))
-            plt.text(arrow_x + arrow_dx * 1.5, arrow_y + arrow_dy * 1.5, 'N',
-                     fontsize=8, color=arrow_color, verticalalignment='center', horizontalalignment='center')
 
-            arrow_dx = arrow_len * np.cos(theta + np.pi / 2.) * sci.pixel_size
-            arrow_dy = arrow_len * np.sin(theta + np.pi / 2.) * sci.pixel_size
-            plt.gca().add_patch(plt.arrow(arrow_x, arrow_y, arrow_dx, arrow_dy, color=arrow_color, linewidth=1.0))
-            plt.text(arrow_x + arrow_dx * 1.5, arrow_y + arrow_dy * 1.5, 'E',
-                     fontsize=8, color=arrow_color, verticalalignment='center', horizontalalignment='center')
+        theta = empty_sci.get_rotation_to_celestrial_north(self.master_cutout)
+
+        self.add_north_box(plt, sci, self.master_cutout, error, 0,0, theta)
+        #self.add_north_arrow(plt, sci, self.master_cutout, theta)
+
 
         # plot the fiber cutout
         if (fiber_locs is not None) and (len(fiber_locs) > 0):
@@ -412,6 +403,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             plt.title("Fiber Positions")
             plt.xlabel("arcsecs")
             plt.ylabel("arcsecs")
+            plt.xticks([ext, ext / 2., 0, -ext / 2., -ext])
+            plt.yticks([ext, ext / 2., 0, -ext / 2., -ext])
 
             plt.plot(0, 0, "r+")
 
@@ -422,8 +415,14 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
             x, y = empty_sci.get_position(ra, dec, self.master_cutout)  # zero (absolute) position
 
-            plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
-                                              angle=0.0, color='red', fill=False))
+            #rx, ry, rrot = empty_sci.get_rect_parms(self.master_cutout, -error, -error)
+            #plt.gca().add_patch(plt.Rectangle((rx, ry), width=error * 2, height=error * 2,
+            #                                  angle=rrot, color='red', fill=False))
+
+            theta = empty_sci.get_rotation_to_celestrial_north(self.master_cutout)
+
+            self.add_north_box(plt, sci, self.master_cutout, error, 0, 0, theta)
+            # self.add_north_arrow(plt, sci, self.master_cutout, theta)
 
             for r, d, c, i, dist in fiber_locs:
                 # print("+++++ Cutout RA,DEC,ID,COLOR", r,d,i,c)
@@ -503,31 +502,31 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             title = title + "\n%s\n\nRA = %f    Dec = %f\nSeparation  = %g\"" \
                     % (df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
                     df['distance'].values[0] * 3600)
-            z = df['DEEP_SPEC_Z'].values[0]
-            if z >= 0.0:
-                if (z_best_type is not None) and (z_best_type.lower() == 's'):
-                    title = title + "\nDEEP SPEC Z = %g" % z
-                else:
-                    title = title + "\nDEEP SPEC Z = %g (gold)" % z
-                    spec_z = z
+           #do not use DEEP SPEC Z, just use spec Z below
+           # z = df['DEEP_SPEC_Z'].values[0]
+           # if z >= 0.0:
+           #     if (z_best_type is not None) and (z_best_type.lower() == 's'):
+           #         title = title + "\nDEEP SPEC Z = %g" % z
+           #     else:
+           #         title = title + "\nDEEP SPEC Z = %g (gold)" % z
+           #         spec_z = z
 
             if z_best_type is not None:
                 if (z_best_type.lower() == 'p'):
-                    title = title + "\nPhoto Z     = %g (blue)" % z_best
+                    title = title + "\nPhoto Z      = %g (blue)" % z_best
                 elif (z_best_type.lower() == 's'):
-                    title = title + "\nSpec Z      = %g (gold)" % z_best
+                    title = title + "\nSpec Z       = %g (gold)" % z_best
                     if z_photoz_weighted is not None:
-                        title = title + "\nPhoto Z     = %g (blue)" % z_photoz_weighted
-                    spec_z = z
+                        title = title + "\nPhoto Z      = %g (blue)" % z_photoz_weighted
 
             if target_w > 0:
                 la_z = target_w / G.LyA_rest - 1.0
                 oii_z = target_w / G.OII_rest - 1.0
-                title = title + "\nLyA Z       = %g (red)" % la_z
+                title = title + "\nLyA Z (virus) = %g (red)" % la_z
                 if (oii_z > 0):
-                    title = title + "\nOII Z       = %g (green)" % oii_z
+                    title = title + "\nOII Z (virus) = %g (green)" % oii_z
                 else:
-                    title = title + "\nOII Z       = N/A"
+                    title = title + "\nOII Z (virus) = N/A"
         else:
             title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)
 
@@ -554,6 +553,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                            vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
                 plt.title(i['instrument'] + " " + i['filter'])
+                plt.xticks([ext, ext / 2., 0, -ext / 2., -ext])
+                plt.yticks([ext, ext / 2., 0, -ext / 2., -ext])
 
                 # add (+) to mark location of Target RA,DEC
                 # we are centered on ra,dec and target_ra, target_dec belong to the HETDEX detect
@@ -567,6 +568,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                                                       angle=0.0, color='yellow', fill=False, linewidth=5.0, zorder=1))
                     # set the diameter of the cirle to half the error (radius error/4)
                     plt.gca().add_patch(plt.Circle((0, 0), radius=error / 4.0, color='yellow', fill=False))
+
+                    self.add_north_arrow(plt, sci, cutout,theta=None)
 
                 # iterate over all filters for this image and print values
                 font.set_size(10)
@@ -622,40 +625,27 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             plt.xlabel("arcsecs")
            # plt.ylabel("arcsecs")
 
+            #plt.set_xticklabels([str(ext), str(ext / 2.), str(0), str(-ext / 2.), str(-ext)])
+            plt.xticks([ext, ext / 2., 0, -ext / 2., -ext])
+            plt.yticks([ext, ext / 2., 0, -ext / 2., -ext])
+
             # mark the bid target location on the master cutout
             if (target_ra is not None) and (target_dec is not None):
                 px, py = empty_sci.get_position(target_ra, target_dec, self.master_cutout)
                 x, y = empty_sci.get_position(ra, dec, self.master_cutout)
-                plt.plot(0, 0, "r+")
+
 
                 # set the diameter of the cirle to half the error (radius error/4)
                 plt.gca().add_patch(plt.Circle(((x - px), (y - py)), radius=error / 4.0, color='yellow', fill=False))
-                plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
-                                                  angle=0.0, color='red', fill=False))
+
+                #this is correct, do not rotate the yellow rectangle (it is a zoom window only)
                 x = (x - px) - error
                 y = (y - py) - error
                 plt.gca().add_patch(plt.Rectangle((x, y), width=error * 2, height=error * 2,
                                                   angle=0.0, color='yellow', fill=False))
 
-            # add  North and East arrows
-            # 0,0 is in the center, but xmax_ counts from lower left
-            theta = empty_sci.get_rotation_to_celestrial_north(self.master_cutout)
-            if theta is not None:
-                arrow_color = [0.2, 1.0, 0.23]
-                arrow_len = 0.05 * (self.master_cutout.xmax_cutout + self.master_cutout.ymax_cutout)
-                arrow_x = self.master_cutout.xmax_cutout * 0.3 * sci.pixel_size
-                arrow_y = self.master_cutout.ymax_cutout * 0.3 * sci.pixel_size
-                arrow_dx = arrow_len * np.cos(theta) * sci.pixel_size
-                arrow_dy = arrow_len * np.sin(theta) * sci.pixel_size
-                plt.gca().add_patch(plt.arrow(arrow_x, arrow_y, arrow_dx, arrow_dy, color=arrow_color, linewidth=1.0))
-                plt.text(arrow_x + arrow_dx * 1.5, arrow_y + arrow_dy * 1.5, 'N',
-                         fontsize=8, color=arrow_color, verticalalignment='center', horizontalalignment='center')
-
-                arrow_dx = arrow_len * np.cos(theta + np.pi / 2.) * sci.pixel_size
-                arrow_dy = arrow_len * np.sin(theta + np.pi / 2.) * sci.pixel_size
-                plt.gca().add_patch(plt.arrow(arrow_x, arrow_y, arrow_dx, arrow_dy, color=arrow_color, linewidth=1.0))
-                plt.text(arrow_x + arrow_dx * 1.5, arrow_y + arrow_dy * 1.5, 'E',
-                         fontsize=8, color=arrow_color, verticalalignment='center', horizontalalignment='center')
+                plt.plot(0, 0, "r+")
+                self.add_north_box(plt, empty_sci, self.master_cutout, error, 0, 0, theta=None)
 
         #fig holds the entire page
         plt.close()
