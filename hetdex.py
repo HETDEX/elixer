@@ -6,6 +6,7 @@ matplotlib.use('agg')
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 import matplotlib.gridspec as gridspec
+import matplotlib.patches as mpatches
 import numpy as np
 import io
 from PIL import Image
@@ -37,6 +38,8 @@ FPLANE_LOC = op.join(CONFIG_BASEDIR,"virus_config/fplane")
 IFUCEN_LOC = op.join(CONFIG_BASEDIR,"virus_config/IFUcen_files")
 DIST_LOC = op.join(CONFIG_BASEDIR,"virus_config/DeformerDefaults")
 PIXFLT_LOC = op.join(CONFIG_BASEDIR,"virus_config/PixelFlats/20161223")
+
+PLOT_SUMMED_SPECTRA = False
 
 SIDE = ["L", "R"]
 AMP  = ["LU","LL","RL","RU"] #in order from bottom to top
@@ -165,6 +168,23 @@ def build_fplane_dicts(fqfn):
             cam_ifuslot_dict[str("%03d" % specid[i])] = str("%03d" % ifuslot[i])
 
     return ifuslot_dict, cam_ifu_dict, cam_ifuslot_dict
+
+
+class EmissionLine():
+    def __init__(self,name,w_rest,plot_color,solution=True,z=0):
+        self.name = name
+        self.w_rest = w_rest
+        self.w_obs = w_rest * (1.0 + z)
+        self.z = z
+        self.color = plot_color
+        self.solution = solution #True = can consider this as the target line
+
+    def redshift(self,z):
+        self.z = z
+        self.w_obs = self.w_rest * (1.0 + z)
+        return self.w_obs
+
+
 
 
 
@@ -804,6 +824,18 @@ class HETDEX:
             self.panacea = False
         else:
             self.panacea = True
+
+        self.emission_lines = [EmissionLine("Ly$\\alpha$ ",1216,'red'),
+                               EmissionLine("OII ",3727,'green'),
+                               EmissionLine("OIII",4959,"lime"), EmissionLine("OIII",5007,"lime"),
+                               EmissionLine("CIII", 1909, "purple"),
+                               EmissionLine("CIV ",1549,"grey"),
+                               EmissionLine("H$\\beta$  ",4861,"blue"),
+                               EmissionLine("HeII", 1640, "brown"),
+                               EmissionLine("MgII", 2798, "magenta",solution=False),
+                               EmissionLine("H$\\gamma$  ", 4341, "royalblue",solution=False),
+                               EmissionLine("NV ",1240,"teal",solution=False),
+                               EmissionLine("SiII",1260,"gray",solution=False)]
 
         #self.panacea_fits_list = [] #list of all panacea multi_*fits files (all dithers) (should be 4amps x 3dithers)
 
@@ -1452,6 +1484,7 @@ class HETDEX:
             loc = item.loc
             datakeep['d'].append(item.dist)  # distance (in arcsec) of fiber center from object center
             sci = self.get_sci_fits(dither, side)
+            datakeep['fiber_sn'].append(item.fiber_sn)
 
             max_y, max_x = sci.data.shape
 
@@ -1934,40 +1967,32 @@ class HETDEX:
         N = len(datakeep['xi'])
         if self.plot_fibers is not None:
             stop = max(N - self.plot_fibers-1,-1)
-            alpha = 1.0
-            linewidth = 2.0
         else:
             stop = -1
-            alpha = 0.5
-            linewidth = 1.0
+
+        alpha = 1.0
+        linewidth = 2.0
 
         try:
             for i in range(N-1,stop,-1):
                 #regardless of the number if the sn is below the threshold, skip it
-                if datakeep['fiber_sn'][i] < self.min_fiber_sn:
+                if (datakeep['fiber_sn'][i] is not None) and (datakeep['fiber_sn'][i] < self.min_fiber_sn):
                     continue
 
-                specplot.step(datakeep['specwave'][ind[i]], datakeep['spec'][ind[i]],
+                specplot.step(datakeep['specwave'][ind[i]], datakeep['spec'][ind[i]],linestyle="solid",
                               where='mid', color=colors[i, 0:3], alpha=alpha,linewidth=linewidth,zorder=i)
                 w1 = np.interp(datakeep['d'][ind[i]], r, w)
-                F += (np.interp(bigwave, datakeep['specwave'][ind[i]],
-                                datakeep['spec'][ind[i]]) * w1)
+                F += (np.interp(bigwave, datakeep['specwave'][ind[i]], datakeep['spec'][ind[i]]) * w1)
                 W += w1
                 mn = np.min([mn, np.min(datakeep['spec'][ind[i]])])
                 mx = np.max([mx, np.max(datakeep['spec'][ind[i]])])
             F /= W
             ran = mx - mn
 
-            #only plot the weighted average if number of fibers to plot was not specified on command line
-            if self.plot_fibers is None:
-                specplot.step(bigwave, F, c='b', where='mid', lw=2)
-                span = max(F) - min(F)
-                # specplot.axis([cwave - ww, cwave + ww, mn - ran * rm, mn + ran * (1 + rm)])
-                specplot.axis([cwave - ww, cwave + ww, min(F) - span / 3., max(F) + span / 3.])
-            else:
-                specplot.axis([cwave - ww, cwave + ww, mn - ran * rm, mn + ran * (1 + rm)])
-                specplot.axis([cwave - ww, cwave + ww, mn - ran/20, mx + ran/20])
+            if PLOT_SUMMED_SPECTRA:
+                specplot.step(bigwave, F, c='k', where='mid', lw=5,linestyle="solid",alpha=0.3,zorder=99)
 
+            specplot.axis([cwave - ww, cwave + ww, mn - ran / 20, mx + ran / 20])
             specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='--', c=[0.3, 0.3, 0.3])
 
         except:
@@ -2014,7 +2039,7 @@ class HETDEX:
         norm = plt.Normalize()
         colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
         num = len(datakeep['xi'])
-        dy = 1.0/(num +2)  #+ 2 #one extra for the 1D average spectrum plot and one for a skipped space
+        dy = 1.0/(num +3)  #+ 2 #one extra for the 1D average spectrum plot and one for a skipped space
 
         #fig = plt.figure(figsize=(5, 6.25), frameon=False)
         fig = plt.figure(figsize=(fig_sz_x,fig_sz_y/2.0),frameon=False)
@@ -2023,10 +2048,13 @@ class HETDEX:
         border_buffer = 0.025 #percent from left and right edges to leave room for the axis labels
         #fits cutouts (fibers)
         for i in range(num):
+            #show all these (only skip when summing the spectra later below)
             #skip if below threshold
-            if datakeep['fiber_sn'][i] < self.min_fiber_sn:
-                continue
+            #if (datakeep['fiber_sn'][i] is not None) and (datakeep['fiber_sn'][i] < self.min_fiber_sn):
+            #    continue
 
+           # borplot = plt.axes([0, i * dy, 1.0, dy*0.75])
+           # imgplot = plt.axes([border_buffer, i * dy - 0.125*dy, 1-(2*border_buffer), dy])
             borplot = plt.axes([0, i * dy, 1.0, dy])
             imgplot = plt.axes([border_buffer, i * dy, 1-(2*border_buffer), dy])
             autoAxis = borplot.axis()
@@ -2071,9 +2099,12 @@ class HETDEX:
         i += 2  #(+1 is the skipped space)
         specplot = plt.axes([border_buffer, float(num + 1.0) * dy, 1.0 - (2 * border_buffer), dy])
 
-        N = len(datakeep['xi'])
+
         rm = 0.2
-        r, w = get_w_as_r(1.5, 500, 0.05, 6.)
+
+        #needed for Greg Z. version
+        #r, w = get_w_as_r(1.5, 500, 0.05, 6.)
+        #W = 0.0
 
         #they should all be the same length
         #yes, want round and int ... so we get nearest pixel inside the range)
@@ -2084,30 +2115,100 @@ class HETDEX:
         F = np.zeros(bigwave.shape)
         mn = 100.0
         mx = 0.0
-        W = 0.0
+
+        N = len(datakeep['xi'])
+        if self.plot_fibers is not None:
+            stop = max(N - self.plot_fibers - 1, -1)
+        else:
+            stop = -1
 
         try:
-            for j in range(N):
-                w1 = np.interp(datakeep['d'][ind[j]], r, w)
-                F += (np.interp(bigwave, datakeep['fw_specwave'][ind[j]],
-                                datakeep['fw_spec'][ind[j]]) * w1)
-                W += w1
+            #old way (weighted version ... lifted from Greg Z.)
+            #for j in range(N):
+            #    w1 = np.interp(datakeep['d'][ind[j]], r, w)
+            #    F += (np.interp(bigwave, datakeep['fw_specwave'][ind[j]], datakeep['fw_spec'][ind[j]]) * w1)
+            #    W += w1
+            #
+            #F /= W
 
-            mn = np.min([mn, np.min(datakeep['fw_spec'][ind[j]])])
-            mx = np.max([mx, np.max(datakeep['fw_spec'][ind[j]])])
+            #new way, per Karl, straigt sum
+            for j in range(N - 1, stop, -1):
+                # regardless of the number if the sn is below the threshold, skip it
+                if (datakeep['fiber_sn'][j] is not None) and (datakeep['fiber_sn'][j] < self.min_fiber_sn):
+                    continue
 
-            F /= W
-            specplot.step(bigwave, F, c='b', where='mid', lw=1)
+                F += (np.interp(bigwave, datakeep['fw_specwave'][ind[j]], datakeep['fw_spec'][ind[j]]) )
+
+        #    mn = np.min([mn, np.min(datakeep['fw_spec'][ind[j]])])
+        #    mx = np.max([mx, np.max(datakeep['fw_spec'][ind[j]])])
+            mn = np.min(F)
+            mn = max(mn,-20) #negative flux makes no sense (excepting for some noise error)
+            mx = np.max(F)
             ran = mx - mn
+            specplot.step(bigwave, F, c='b', where='mid', lw=1)
 
-            specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='solid', c=[0.3, 0.3, 0.3])
+            specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='dashed', c='k') #[0.3, 0.3, 0.3])
             #specplot.axis([3500, 5500, mn - ran * rm, mn + ran * (1 + rm)])
 
-            span = max(F) - min(F)
-            specplot.axis([left, right, min(F) - span / 3., max(F) + span / 3.])
+            #span = mx-mn # max(F) - min(F)
+            #specplot.axis([left, right, min(F) - span / 3., max(F) + span / 3.])
+            specplot.axis([left, right, mn - ran / 20, mx + ran / 20])
 
             specplot.locator_params(axis='y',tight=True,nbins=4)
             #specplot.set_yticks(np.linspace(mn,mx,3))
+
+            #experiment ... text overlaps at 12pt if closer than 50AA
+#            textplot = plt.axes([border_buffer, float(num) * dy, 1.0 - (2 * border_buffer), dy*.75])
+            textplot = plt.axes([border_buffer, (float(num)+2) * dy, 1.0 - (2 * border_buffer), dy ])
+            textplot.set_xticks([])
+            textplot.set_yticks([])
+            textplot.axis(specplot.axis())
+            textplot.axis('off')
+           # textplot.plot([5000, 5000], [mn + ran/2., mn + ran * (1 + rm)], ls='solid', c='k')
+            #textplot.text(4959, mn + ran / 2., "^\n[OIII]", ha='center', va='center', fontsize=12, color='k')
+            #textplot.text(5007, mn+ran/2., "^\n[OIII]", ha='center', va='center', fontsize=12, color='k')
+
+
+            # todo: iterate over all emission lines ... assume the cwave is that line and plot the additional lines
+
+            wavemin = specplot.axis()[0]
+            wavemax = specplot.axis()[1]
+            legend = []
+            rest_waves = []
+            obs_waves = []
+            for e in self.emission_lines:
+                z = cwave / e.w_rest - 1.0
+                if z < 0:
+                    continue
+                count = 0
+                for f in self.emission_lines:
+                    if (f == e) or not (wavemin <= f.redshift(z) <= wavemax ):
+                        continue
+
+                    count += 1
+                    y_pos = textplot.axis()[2]
+                    for w in obs_waves:
+                        if abs(f.w_obs - w) < 20: # too close, shift one vertically
+                            y_pos = textplot.axis()[2] + ran * 0.5
+                            break
+
+                    obs_waves.append(f.w_obs)
+                    textplot.text(f.w_obs, y_pos, f.name+" {", rotation=-90, ha='center', va='bottom',
+                                      fontsize=12, color=e.color)  # use the e color for this family
+
+                if (count > 0) and not (e.w_rest in rest_waves):
+                    legend.append(mpatches.Patch(color=e.color,label=e.name))
+                    rest_waves.append(e.w_rest)
+
+            #todo: make a legend ... this won't work as is ... need multiple colors
+            skipplot = plt.axes([border_buffer, (float(num)) * dy, 1.0 - (2 * border_buffer), dy])
+            skipplot.set_xticks([])
+            skipplot.set_yticks([])
+            skipplot.axis(specplot.axis())
+            skipplot.axis('off')
+            skipplot.legend(handles=legend, loc = 'center',ncol=len(legend),frameon=False,
+                                       fontsize='small',  borderaxespad=0)
+
         except:
             log.warning("Unable to build full width spec plot. Datakeep info:\n"
                         "IFUSLOTID = %s\n"
@@ -2116,8 +2217,8 @@ class HETDEX:
                         "AMP = %s\n"
                         "Fiber = %i\n"
                         "Wavelength = %f\n"
-                        % (self.ifu_slot_id, datakeep['dit'][ind[i]], datakeep['side'][ind[i]], datakeep['amp'][ind[i]],
-                           datakeep['fib'][ind[i]], cwave)
+                        % (self.ifu_slot_id, datakeep['dit'][ind[j]], datakeep['side'][ind[j]], datakeep['amp'][ind[j]],
+                           datakeep['fib'][ind[j]], cwave)
                         , exc_info=True)
 
         #draw rectangle around section that is "zoomed"
