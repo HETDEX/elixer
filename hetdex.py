@@ -72,8 +72,8 @@ contrast2 = 0.5  # regular image
 res = [3, 9]
 ww = xw * 1.9  # wavelength width
 
-fig_sz_x = 18
-fig_sz_y = 12
+fig_sz_x = 16 #18
+fig_sz_y = 10 #12
 
 
 #lifted from Greg Z. make_visualization_detect.py
@@ -388,6 +388,7 @@ class DetObj:
             self.eqw = float(tokens[15])
             self.cont = float(tokens[16])
 
+
             # 0  1   2 ....
             # 1  1  -16.39  -15.30 4615.18 666   285.7   285.7 1   7.2 1 1 1 0 0  -300 0
             # 17       18         19
@@ -421,6 +422,10 @@ class DetObj:
 
             except:
                 log.info("Error parsing tokens from emission line file.",exc_info=True)
+
+            if (self.eqw == -300) and (self.dataflux != 0) and (self.fluxfrac != 0) \
+                    and (self.cont != 666) and (self.cont > 0):  # dummy value
+                self.eqw = -1 * self.dataflux / self.fluxfrac / self.cont
 
         else:
             self.type = 'cont'
@@ -829,7 +834,7 @@ class HETDEX:
                                EmissionLine("OII ",3727,'green'),
                                EmissionLine("OIII",4959,"lime"), EmissionLine("OIII",5007,"lime"),
                                EmissionLine("CIII", 1909, "purple"),
-                               EmissionLine("CIV ",1549,"grey"),
+                               EmissionLine("CIV ",1549,"black"),
                                EmissionLine("H$\\beta$  ",4861,"blue"),
                                EmissionLine("HeII", 1640, "brown"),
                                EmissionLine("MgII", 2798, "magenta",solution=False),
@@ -1300,9 +1305,11 @@ class HETDEX:
         #fig_sz_y = 6
 
         fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
+        plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
+        #plt.tight_layout()
         plt.gca().axis('off')
         # 2x2 grid (but for sizing, make more fine)
-        gs = gridspec.GridSpec(2, 3)#, wspace=0.25, hspace=0.5)
+        gs = gridspec.GridSpec(5, 3)#, wspace=0.25, hspace=0.5)
 
         font = FontProperties()
         font.set_family('monospace')
@@ -1333,14 +1340,14 @@ class HETDEX:
                 "Sky X,Y (%f,%f)\n" \
                 "$\lambda$ = %g $\AA$\n" \
                 "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
-                "Eqw = %g  Cont = %g\n" \
+                "EstEqw = %g $\AA$ Cont = %g\n" \
                 "Sigma = %g  Chi2 = %g"\
                  % (e.id,self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.x, e.y,e.w,
                     e.estflux, e.dataflux, e.fluxfrac, e.eqw,e.cont, e.sigma,e.chi2)
                 #note: e.fluxfrac gauranteed to be nonzero
 
-        plt.subplot(gs[0, 0])
-        plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
+        plt.subplot(gs[0:2, 0])
+        plt.text(0, 0.5, title, ha='left', va='center', fontproperties=font)
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
@@ -1354,7 +1361,7 @@ class HETDEX:
 
             if datakeep['xi']:
                 try:
-                    plt.subplot(gs[0,1])
+                    plt.subplot(gs[0:2,1])
                     plt.gca().axis('off')
                     buf = self.build_2d_image(datakeep)
 
@@ -1365,7 +1372,7 @@ class HETDEX:
                     log.warning("Failed to 2D cutout image.", exc_info=True)
 
                 try:
-                    plt.subplot(gs[0,2:])
+                    plt.subplot(gs[0:2,2:])
                     plt.gca().axis('off')
                     buf = self.build_spec_image(datakeep,e.w, dwave=1.0)
                     buf.seek(0)
@@ -1375,7 +1382,7 @@ class HETDEX:
                     log.warning("Failed to build spec image.",exc_info = True)
 
                 try:
-                    plt.subplot(gs[1,:])
+                    plt.subplot(gs[2:,:])
                     plt.gca().axis('off')
                     buf = self.build_full_width_2d_image(datakeep,e.w)
                     buf.seek(0)
@@ -2039,10 +2046,10 @@ class HETDEX:
         norm = plt.Normalize()
         colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
         num = len(datakeep['xi'])
-        dy = 1.0/(num +3)  #+ 2 #one extra for the 1D average spectrum plot and one for a skipped space
+        dy = 1.0/(num +5)  #+ 1 skip for legend, + 2 for double height spectra + 2 for double height labels
 
         #fig = plt.figure(figsize=(5, 6.25), frameon=False)
-        fig = plt.figure(figsize=(fig_sz_x,fig_sz_y/2.0),frameon=False)
+        fig = plt.figure(figsize=(fig_sz_x,fig_sz_y*0.6),frameon=False)
         ind = list(range(len(datakeep['d'])))
 
         border_buffer = 0.025 #percent from left and right edges to leave room for the axis labels
@@ -2097,7 +2104,7 @@ class HETDEX:
 
         # this is the 1D averaged spectrum
         i += 2  #(+1 is the skipped space)
-        specplot = plt.axes([border_buffer, float(num + 1.0) * dy, 1.0 - (2 * border_buffer), dy])
+        specplot = plt.axes([border_buffer, float(num + 1.0) * dy, 1.0 - (2 * border_buffer), dy*2])
 
 
         rm = 0.2
@@ -2148,33 +2155,22 @@ class HETDEX:
             specplot.step(bigwave, F, c='b', where='mid', lw=1)
 
             specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='dashed', c='k') #[0.3, 0.3, 0.3])
-            #specplot.axis([3500, 5500, mn - ran * rm, mn + ran * (1 + rm)])
-
-            #span = mx-mn # max(F) - min(F)
-            #specplot.axis([left, right, min(F) - span / 3., max(F) + span / 3.])
             specplot.axis([left, right, mn - ran / 20, mx + ran / 20])
 
             specplot.locator_params(axis='y',tight=True,nbins=4)
-            #specplot.set_yticks(np.linspace(mn,mx,3))
 
-            #experiment ... text overlaps at 12pt if closer than 50AA
-#            textplot = plt.axes([border_buffer, float(num) * dy, 1.0 - (2 * border_buffer), dy*.75])
-            textplot = plt.axes([border_buffer, (float(num)+2) * dy, 1.0 - (2 * border_buffer), dy ])
+            textplot = plt.axes([border_buffer, (float(num)+3) * dy, 1.0 - (2 * border_buffer), dy*2 ])
             textplot.set_xticks([])
             textplot.set_yticks([])
             textplot.axis(specplot.axis())
             textplot.axis('off')
-           # textplot.plot([5000, 5000], [mn + ran/2., mn + ran * (1 + rm)], ls='solid', c='k')
-            #textplot.text(4959, mn + ran / 2., "^\n[OIII]", ha='center', va='center', fontsize=12, color='k')
-            #textplot.text(5007, mn+ran/2., "^\n[OIII]", ha='center', va='center', fontsize=12, color='k')
-
 
             # todo: iterate over all emission lines ... assume the cwave is that line and plot the additional lines
 
             wavemin = specplot.axis()[0]
             wavemax = specplot.axis()[1]
             legend = []
-            rest_waves = []
+            name_waves = []
             obs_waves = []
             for e in self.emission_lines:
                 z = cwave / e.w_rest - 1.0
@@ -2189,16 +2185,16 @@ class HETDEX:
                     y_pos = textplot.axis()[2]
                     for w in obs_waves:
                         if abs(f.w_obs - w) < 20: # too close, shift one vertically
-                            y_pos = textplot.axis()[2] + ran * 0.5
+                            y_pos = textplot.axis()[2] + mn + ran*0.5
                             break
 
                     obs_waves.append(f.w_obs)
                     textplot.text(f.w_obs, y_pos, f.name+" {", rotation=-90, ha='center', va='bottom',
                                       fontsize=12, color=e.color)  # use the e color for this family
 
-                if (count > 0) and not (e.w_rest in rest_waves):
+                if (count > 0) and not (e.name in name_waves):
                     legend.append(mpatches.Patch(color=e.color,label=e.name))
-                    rest_waves.append(e.w_rest)
+                    name_waves.append(e.name)
 
             #todo: make a legend ... this won't work as is ... need multiple colors
             skipplot = plt.axes([border_buffer, (float(num)) * dy, 1.0 - (2 * border_buffer), dy])

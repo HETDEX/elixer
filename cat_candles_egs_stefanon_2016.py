@@ -336,10 +336,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
         if target_flux is not None:
             title = title + "Min (no match) 3$\sigma$ LyA rest-EW = %g $\AA$\n" % \
-                            ( (target_flux / 9.9e-21) / (target_w / G.LyA_rest))
+                            ( -1 * (target_flux / 9.9e-21) / (target_w / G.LyA_rest))
             if target_w >= G.OII_rest:
                 title = title + "Min (no match) 3$\sigma$ OII rest-EW = %g $\AA$\n" % \
-                            ((target_flux / 9.9e-21) / (target_w / G.OII_rest))
+                            (-1 *(target_flux / 9.9e-21) / (target_w / G.OII_rest))
             else:
                 title = title + "Min (no match) 3$\sigma$ OII rest-EW = N/A\n"
 
@@ -546,10 +546,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 filter_fl = df['ACS_F606W_FLUX'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
                 if (filter_fl is not None) and (filter_fl > 0):
                     filter_fl = filter_fl * 1e-29 * 3e18 / (target_w ** 2) #3e18 ~ c in angstroms/sec
-                    title = title +"\nEst LyA rest-EW = %g $\AA$" % (target_flux / filter_fl / (target_w / G.LyA_rest))
+                    title = title +"\nEst LyA rest-EW = %g $\AA$" % (-1*target_flux / filter_fl / (target_w / G.LyA_rest))
 
                     if target_w >= G.OII_rest:
-                        title = title + "\nEst OII rest-EW = %g $\AA$" % (target_flux / filter_fl /(target_w / G.OII_rest))
+                        title = title + "\nEst OII rest-EW = %g $\AA$" % (-1*target_flux / filter_fl /(target_w / G.OII_rest))
                     else:
                         title = title + "\nEst OII rest-EW = N/A"
         else:
