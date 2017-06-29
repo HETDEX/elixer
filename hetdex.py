@@ -1388,9 +1388,11 @@ class HETDEX:
             # update emission with the ra, dec of all fibers
             e.fiber_locs = list(zip(datakeep['ra'], datakeep['dec'],datakeep['color'],datakeep['index'],datakeep['d']))
 
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=G.Figure_DPI)
         plt.close()
         pages.append(fig)
-        return pages
+        return pages, buf
 
     def get_vrange(self,vals):
         vmin = None
@@ -2017,7 +2019,7 @@ class HETDEX:
 
 
         #turn off the errorbar for now
-        #todo: turn errorbar back on if useful
+            #todo: turn errorbar back on if useful
        # try:
        #    # specplot.errorbar(cwave - .8 * ww, mn + ran * (1 + rm) * 0.85,
        #     specplot.errorbar(cwave - .8 * ww, max(F),
@@ -2046,6 +2048,7 @@ class HETDEX:
             num = 0
         dy = 1.0/(num +5)  #+ 1 skip for legend, + 2 for double height spectra + 2 for double height labels
 
+        #fig = plt.figure(figsize=(5, 6.25), frameon=False)
         fig = plt.figure(figsize=(G.FIGURE_SZ_X, G.FIGURE_SZ_Y*0.6),frameon=False)
         ind = list(range(len(datakeep['d'])))
 
@@ -2057,6 +2060,8 @@ class HETDEX:
             #if (datakeep['fiber_sn'][i] is not None) and (datakeep['fiber_sn'][i] < self.min_fiber_sn):
             #    continue
 
+           # borplot = plt.axes([0, i * dy, 1.0, dy*0.75])
+           # imgplot = plt.axes([border_buffer, i * dy - 0.125*dy, 1-(2*border_buffer), dy])
             borplot = plt.axes([0, i * dy, 1.0, dy])
             imgplot = plt.axes([border_buffer, i * dy, 1-(2*border_buffer), dy])
             autoAxis = borplot.axis()
@@ -2108,15 +2113,15 @@ class HETDEX:
 
         bigwave = np.arange(left, right)
         F = np.zeros(bigwave.shape)
-        N = len(datakeep['xi'])
 
+        N = len(datakeep['xi'])
         if self.plot_fibers is not None:
             stop = max(N - self.plot_fibers - 1, -1)
         else:
             stop = -1
 
         try:
-            #new way, per Karl, straight sum
+             #new way, per Karl, straigt sum
             for j in range(N - 1, stop, -1):
                 # regardless of the number if the sn is below the threshold, skip it
                 if (datakeep['fiber_sn'][j] is not None) and (datakeep['fiber_sn'][j] < self.min_fiber_sn):
@@ -2135,12 +2140,13 @@ class HETDEX:
 
             specplot.locator_params(axis='y',tight=True,nbins=4)
 
-            # iterate over all emission lines ... assume the cwave is that line and plot the additional lines
             textplot = plt.axes([border_buffer, (float(num)+3) * dy, 1.0 - (2 * border_buffer), dy*2 ])
             textplot.set_xticks([])
             textplot.set_yticks([])
             textplot.axis(specplot.axis())
             textplot.axis('off')
+
+            # todo: iterate over all emission lines ... assume the cwave is that line and plot the additional lines
 
             wavemin = specplot.axis()[0]
             wavemax = specplot.axis()[1]
@@ -2173,7 +2179,7 @@ class HETDEX:
                     legend.append(mpatches.Patch(color=e.color,label=e.name))
                     name_waves.append(e.name)
 
-            #make a legend ... this won't work as is ... need multiple colors
+            #todo: make a legend ... this won't work as is ... need multiple colors
             skipplot = plt.axes([border_buffer, (float(num)) * dy, 1.0 - (2 * border_buffer), dy])
             skipplot.set_xticks([])
             skipplot.set_yticks([])

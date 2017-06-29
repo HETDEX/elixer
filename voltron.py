@@ -11,12 +11,18 @@ import sys
 import glob
 import os
 import errno
-import plot_info
+
+from PIL import Image
+
+#try:
+#    import PyPDF2 as PyPDF
+#except ImportError:
+#    PyPDF = None
 
 try:
-    import PyPDF2 as PyPDF
+    import pdfrw as PyPDF
 except ImportError:
-    PyPDF = None
+    pdfrw = None
 
 
 VERSION = sys.version.split()[0]
@@ -241,13 +247,13 @@ def build_hetdex_section(pdfname, hetdex, detect_id = 0,pages=None):
     #detection ids are unique (for the single detect_line.dat file we are using)
     if pages is None:
         pages = []
-    pages = hetdex.build_hetdex_data_page(pages,detect_id)
+    pages,buf = hetdex.build_hetdex_data_page(pages,detect_id)
 
     if PyPDF is not None:
         build_report_part(pdfname,pages)
         pages = None
 
-    return pages
+    return pages,buf
 
 
 def build_pages (pdfname,ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,target_w=0,fiber_locs=None,
@@ -258,7 +264,6 @@ def build_pages (pdfname,ra,dec,error,cats,pages,num_hits=0,idstring="",base_cou
         r = c.build_bid_target_reports(ra, dec, error,num_hits=num_hits,section_title=section_title,
                                        base_count=base_count,target_w=target_w,fiber_locs=fiber_locs,
                                        target_flux=target_flux)
-
         if r is not None:
             if PyPDF is not None:
                 build_report_part(pdfname,r)
@@ -288,7 +293,6 @@ def add_to_report(pages,report):
     return
 
 
-#all at once
 def build_report(pages,report_name):
     if (pages is None) or (len(pages) == 0):
         return
@@ -326,26 +330,109 @@ def build_report_part(report_name,pages):
 
     return
 
+def join_report_parts_PyPDF(report_name):
+
+    if PyPDF is None:
+        return
+    print("Finalizing report ...")
+
+    if G.SINGLE_PAGE_PER_DETECT:
+        page = None
+
+
+#todo: update ... the merge call ONLY merges two pages ... it puts the second at the bottom of the first and
+        #todo: does not extend the first. If a third page is merged, it just overwrites the second
+        for i in range(G_PDF_FILE_NUM):
+            #use this rather than glob since glob sometimes messes up the ordering
+            #and this needs to be in the correct order
+            #(though this is a bit ineffecient since we iterate over all the parts every time)
+            part_name = report_name+".part%s" % str(i+1).zfill(4)
+            if os.path.isfile(part_name):
+                f = PyPDF.PdfFileReader(file(part_name,"rb"))
+                for j in range(f.getNumPages()):
+                    pg = f.getPage(j) #all only one page, so index zero
+                    if page is None:
+                        page = pg #PyPDF.pdf.PageObject(pg)
+                    else:
+                        page.mergePage(pg)
+
+        writer = PyPDF.PdfFileWriter()
+        writer.addPage(page)
+        writer.write(file(report_name,"wb"))
+
+    else:
+        merger = PyPDF.PdfFileMerger()
+        #for --multi the file part numbers are unique. Only the first file starts with 001. The second starts with
+        #where the first left off
+        for i in range(G_PDF_FILE_NUM):
+            #use this rather than glob since glob sometimes messes up the ordering
+            #and this needs to be in the correct order
+            #(though this is a bit ineffecient since we iterate over all the parts every time)
+            part_name = report_name+".part%s" % str(i+1).zfill(4)
+            if os.path.isfile(part_name):
+                merger.append(part_name)
+
+        merger.write(report_name)
+    print("File written: " + report_name)
+
+
+
+
+
 def join_report_parts(report_name):
 
     if PyPDF is None:
         return
     print("Finalizing report ...")
 
-    merger = PyPDF.PdfFileMerger()
-    #for --multi the file part numbers are unique. Only the first file starts with 001. The second starts with
-    #where the first left off
-    for i in range(G_PDF_FILE_NUM):
-        #use this rather than glob since glob sometimes messes up the ordering
-        #and this needs to be in the correct order
-        #(though this is a bit ineffecient since we iterate over all the parts every time)
-        part_name = report_name+".part%s" % str(i+1).zfill(4)
-        if os.path.isfile(part_name):
-            merger.append(part_name)
+    if G.SINGLE_PAGE_PER_DETECT:
 
-    merger.write(report_name)
+        list_pages = []
+
+        for i in range(G_PDF_FILE_NUM):
+            #use this rather than glob since glob sometimes messes up the ordering
+            #and this needs to be in the correct order
+            #(though this is a bit ineffecient since we iterate over all the parts every time)
+            part_name = report_name+".part%s" % str(i+1).zfill(4)
+            if os.path.isfile(part_name):
+                pages = PyPDF.PdfReader(part_name).pages
+                for p in pages:
+                    #merge_page += p
+                    list_pages.append(p)
+
+        merge_page = PyPDF.PageMerge() + list_pages
+
+        scale = 1.0 #full scale
+        y_offset = 0
+        #need to count backward ... position 0,0 is the bottom of the page
+        #each additional "page" is advanced in y by the y height of the previous "page"
+        for i in range(len(merge_page) - 1, -1, -1):
+            page = merge_page[i]
+            page.scale(scale)
+            page.x = 0
+            page.y = y_offset
+            y_offset = scale* page.box[3] #box is [x0,y0,x_top, y_top]
+
+
+        writer = PyPDF.PdfWriter(report_name)
+        writer.addPage(merge_page.render())
+        writer.write()
+
+    else:
+        writer = PyPDF.PdfWriter()
+        #for --multi the file part numbers are unique. Only the first file starts with 001. The second starts with
+        #where the first left off
+        for i in range(G_PDF_FILE_NUM):
+            #use this rather than glob since glob sometimes messes up the ordering
+            #and this needs to be in the correct order
+            #(though this is a bit ineffecient since we iterate over all the parts every time)
+            part_name = report_name+".part%s" % str(i+1).zfill(4)
+            if os.path.isfile(part_name):
+                writer.addpages(PyPDF.PdfReader(part_name).pages)
+
+        writer.write(report_name)
+
     print("File written: " + report_name)
-
 
 
 def delete_report_parts(report_name):
@@ -469,8 +556,6 @@ def main():
                 if G.SHOW_FULL_2D_SPECTA:
                     grids_y += 2 # 2 additional grids for full width 2D spectra
 
-                plot_helper = plot_info.Plot_Info(grids_x*G.GRID_SZ_X, grids_y*G.GRID_SZ_Y,G.Figure_DPI,grids_x,grids_y)
-
                 for e in hd.emis_list:
                     # section_id += 1
                     # id = "#" + str(section_id) + " of " + str(total) + "  (Detect ID #" + str(e.id) + ")"
@@ -485,7 +570,14 @@ def main():
                     else:
                         ra = e.ra
                         dec = e.dec
-                    pdf.pages = build_hetdex_section(pdf.filename,hd,e.id,pdf.pages) #this is the fiber, spectra cutouts for this detect
+                    pdf.pages, buf = build_hetdex_section(pdf.filename,hd,e.id,pdf.pages) #this is the fiber, spectra cutouts for this detect
+
+
+                    #test
+                    buf.seek(0)
+                    im = Image.open(buf)
+                    im.save('test.png')
+
 
                     pdf.pages,count = build_pages(pdf.filename, ra, dec, args.error, matched_cats, pdf.pages,num_hits=num_hits,
                                               idstring=id,base_count=count,target_w=e.w,fiber_locs=e.fiber_locs,
