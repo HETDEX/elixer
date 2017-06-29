@@ -248,6 +248,8 @@ class STACK_COSMOS(cat_base.Catalog):
 
         def build_exact_target_location_figure(self, ra, dec, error, section_title="", target_w=0, fiber_locs=None,
                                                target_flux=None):
+
+            #todo: weight master cutout by exposure time ... see cat_candles_egs ...
             '''Builds the figure (page) the exact target location. Contains just the filter images ...
 
             Returns the matplotlib figure. Due to limitations of matplotlib pdf generation, each figure = 1 page'''

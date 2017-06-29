@@ -11,7 +11,6 @@ import numpy as np
 import io
 from PIL import Image
 
-import global_config
 from astropy.io import fits as pyfits
 from astropy.coordinates import Angle
 from astropy.stats import biweight_midvariance
@@ -29,10 +28,10 @@ from pyhetdex.het.fplane import FPlane
 from pyhetdex.coordinates.tangent_projection import TangentPlane as TP
 import os.path as op
 
-log = global_config.logging.getLogger('Cat_logger')
-log.setLevel(global_config.logging.DEBUG)
+log = G.logging.getLogger('Cat_logger')
+log.setLevel(G.logging.DEBUG)
 
-CONFIG_BASEDIR = global_config.CONFIG_BASEDIR
+CONFIG_BASEDIR = G.CONFIG_BASEDIR
 VIRUS_CONFIG = op.join(CONFIG_BASEDIR,"virus_config")
 FPLANE_LOC = op.join(CONFIG_BASEDIR,"virus_config/fplane")
 IFUCEN_LOC = op.join(CONFIG_BASEDIR,"virus_config/IFUcen_files")
@@ -71,9 +70,6 @@ contrast1 = 0.9  # convolved image
 contrast2 = 0.5  # regular image
 res = [3, 9]
 ww = xw * 1.9  # wavelength width
-
-fig_sz_x = 16 #18
-fig_sz_y = 10 #12
 
 
 #lifted from Greg Z. make_visualization_detect.py
@@ -1301,10 +1297,8 @@ class HETDEX:
 
         print ("Bulding HETDEX header for Detect ID #%d" %detectid)
         #todo: match this up with the catalog sizes
-        #fig_sz_x = 18
-        #fig_sz_y = 6
 
-        fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
+        fig = plt.figure(figsize=(G.FIGURE_SZ_X, G.FIGURE_SZ_Y))
         plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
         #plt.tight_layout()
         plt.gca().axis('off')
@@ -2023,7 +2017,7 @@ class HETDEX:
 
 
         #turn off the errorbar for now
-            #todo: turn errorbar back on if useful
+        #todo: turn errorbar back on if useful
        # try:
        #    # specplot.errorbar(cwave - .8 * ww, mn + ran * (1 + rm) * 0.85,
        #     specplot.errorbar(cwave - .8 * ww, max(F),
@@ -2045,11 +2039,14 @@ class HETDEX:
         cmap = plt.get_cmap('gray_r')
         norm = plt.Normalize()
         colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
-        num = len(datakeep['xi'])
+
+        if G.SHOW_FULL_2D_SPECTA:
+            num = len(datakeep['xi'])
+        else:
+            num = 0
         dy = 1.0/(num +5)  #+ 1 skip for legend, + 2 for double height spectra + 2 for double height labels
 
-        #fig = plt.figure(figsize=(5, 6.25), frameon=False)
-        fig = plt.figure(figsize=(fig_sz_x,fig_sz_y*0.6),frameon=False)
+        fig = plt.figure(figsize=(G.FIGURE_SZ_X, G.FIGURE_SZ_Y*0.6),frameon=False)
         ind = list(range(len(datakeep['d'])))
 
         border_buffer = 0.025 #percent from left and right edges to leave room for the axis labels
@@ -2060,8 +2057,6 @@ class HETDEX:
             #if (datakeep['fiber_sn'][i] is not None) and (datakeep['fiber_sn'][i] < self.min_fiber_sn):
             #    continue
 
-           # borplot = plt.axes([0, i * dy, 1.0, dy*0.75])
-           # imgplot = plt.axes([border_buffer, i * dy - 0.125*dy, 1-(2*border_buffer), dy])
             borplot = plt.axes([0, i * dy, 1.0, dy])
             imgplot = plt.axes([border_buffer, i * dy, 1-(2*border_buffer), dy])
             autoAxis = borplot.axis()
@@ -2103,15 +2098,8 @@ class HETDEX:
                          verticalalignment='bottom', horizontalalignment='left')
 
         # this is the 1D averaged spectrum
-        i += 2  #(+1 is the skipped space)
         specplot = plt.axes([border_buffer, float(num + 1.0) * dy, 1.0 - (2 * border_buffer), dy*2])
-
-
         rm = 0.2
-
-        #needed for Greg Z. version
-        #r, w = get_w_as_r(1.5, 500, 0.05, 6.)
-        #W = 0.0
 
         #they should all be the same length
         #yes, want round and int ... so we get nearest pixel inside the range)
@@ -2120,25 +2108,15 @@ class HETDEX:
 
         bigwave = np.arange(left, right)
         F = np.zeros(bigwave.shape)
-        mn = 100.0
-        mx = 0.0
-
         N = len(datakeep['xi'])
+
         if self.plot_fibers is not None:
             stop = max(N - self.plot_fibers - 1, -1)
         else:
             stop = -1
 
         try:
-            #old way (weighted version ... lifted from Greg Z.)
-            #for j in range(N):
-            #    w1 = np.interp(datakeep['d'][ind[j]], r, w)
-            #    F += (np.interp(bigwave, datakeep['fw_specwave'][ind[j]], datakeep['fw_spec'][ind[j]]) * w1)
-            #    W += w1
-            #
-            #F /= W
-
-            #new way, per Karl, straigt sum
+            #new way, per Karl, straight sum
             for j in range(N - 1, stop, -1):
                 # regardless of the number if the sn is below the threshold, skip it
                 if (datakeep['fiber_sn'][j] is not None) and (datakeep['fiber_sn'][j] < self.min_fiber_sn):
@@ -2146,8 +2124,6 @@ class HETDEX:
 
                 F += (np.interp(bigwave, datakeep['fw_specwave'][ind[j]], datakeep['fw_spec'][ind[j]]) )
 
-        #    mn = np.min([mn, np.min(datakeep['fw_spec'][ind[j]])])
-        #    mx = np.max([mx, np.max(datakeep['fw_spec'][ind[j]])])
             mn = np.min(F)
             mn = max(mn,-20) #negative flux makes no sense (excepting for some noise error)
             mx = np.max(F)
@@ -2159,13 +2135,12 @@ class HETDEX:
 
             specplot.locator_params(axis='y',tight=True,nbins=4)
 
+            # iterate over all emission lines ... assume the cwave is that line and plot the additional lines
             textplot = plt.axes([border_buffer, (float(num)+3) * dy, 1.0 - (2 * border_buffer), dy*2 ])
             textplot.set_xticks([])
             textplot.set_yticks([])
             textplot.axis(specplot.axis())
             textplot.axis('off')
-
-            # todo: iterate over all emission lines ... assume the cwave is that line and plot the additional lines
 
             wavemin = specplot.axis()[0]
             wavemax = specplot.axis()[1]
@@ -2173,8 +2148,10 @@ class HETDEX:
             name_waves = []
             obs_waves = []
             for e in self.emission_lines:
+                if not e.solution:
+                    continue
                 z = cwave / e.w_rest - 1.0
-                if z < 0:
+                if (z < 0):
                     continue
                 count = 0
                 for f in self.emission_lines:
@@ -2196,7 +2173,7 @@ class HETDEX:
                     legend.append(mpatches.Patch(color=e.color,label=e.name))
                     name_waves.append(e.name)
 
-            #todo: make a legend ... this won't work as is ... need multiple colors
+            #make a legend ... this won't work as is ... need multiple colors
             skipplot = plt.axes([border_buffer, (float(num)) * dy, 1.0 - (2 * border_buffer), dy])
             skipplot.set_xticks([])
             skipplot.set_yticks([])

@@ -50,3 +50,11 @@ FLUX_CONVERSION = (1./60)*1e-17
 
 Fiber_Radius = 0.75 #arcsec
 PreferCosmicCleaned = True #use cosmic cleaned FITS data if available (note: assumes filename is 'c' + filename)
+
+Figure_DPI = 300
+FIGURE_SZ_X = 16 #18
+FIGURE_SZ_Y = 10 #12
+GRID_SZ_X = 3 # equivalent figure_sz_x for a grid width (e.g. one column)
+GRID_SZ_Y = 3 # equivalent figure_sz_y for a grid height (e.g. one row)
+
+SHOW_FULL_2D_SPECTA = False #if true, plot the full width 2D spectra for each hetdex fiber in detection

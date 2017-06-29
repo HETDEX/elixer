@@ -11,6 +11,7 @@ import sys
 import glob
 import os
 import errno
+import plot_info
 
 try:
     import PyPDF2 as PyPDF
@@ -459,6 +460,16 @@ def main():
                 section_id = 0
                 total = len(hd.emis_list)
                 count = 0
+
+                #todo: determine size of figure and gridspec from number of matched_cats and hd.emis_list
+                #todo: then build plot_info object
+                #base hetdex plot needs a fixed size
+                grids_x = 6
+                grids_y = 5 + len(hd.emis_list) #5 = 2 for hetdex top + 1 for full width spectra + 2 for catalog summary
+                if G.SHOW_FULL_2D_SPECTA:
+                    grids_y += 2 # 2 additional grids for full width 2D spectra
+
+                plot_helper = plot_info.Plot_Info(grids_x*G.GRID_SZ_X, grids_y*G.GRID_SZ_Y,G.Figure_DPI,grids_x,grids_y)
 
                 for e in hd.emis_list:
                     # section_id += 1

@@ -387,12 +387,12 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
                 self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
 
-        self.master_cutout.data /= total_adjusted_exptime
-
         if self.master_cutout is None:
             # cannot continue
             print("No catalog image available in %s" % self.Name)
             return None
+        else:
+            self.master_cutout.data /= total_adjusted_exptime
 
         # plot the master cutout
         empty_sci = science_image.science_image()
