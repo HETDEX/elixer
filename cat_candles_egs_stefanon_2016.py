@@ -696,7 +696,15 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 df_photoz = None
 
             print("Building report for bid target %d in %s" % (base_count + number, self.Name))
-            entry = self.build_bid_target_figure(r[0], d[0], error=error, df=df, df_photoz=df_photoz,
+
+            if G.SINGLE_PAGE_PER_DETECT:
+                entry = self.build_bid_target_figure_one_line(r[0], d[0], error=error, df=df, df_photoz=df_photoz,
+                                                 target_ra=target_ra, target_dec=target_dec,
+                                                 section_title=section_title,
+                                                 bid_number=number, target_w=target_w, of_number=num_hits-base_count,
+                                                 target_flux=target_flux)
+            else:
+                entry = self.build_bid_target_figure(r[0], d[0], error=error, df=df, df_photoz=df_photoz,
                                                  target_ra=target_ra, target_dec=target_dec,
                                                  section_title=section_title,
                                                  bid_number=number, target_w=target_w, of_number=num_hits-base_count,
@@ -718,7 +726,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         # not the middle, so need the total length of each side to be twice translated error or 2*2*error
         # ... change to 1.5 times twice the translated error (really sqrt(2) * 2* error, but 1.5 is close enough)
         window = error * 3
-        target_box_side = error/2.0
+        target_box_side = error/4.0 #basically, the box is 1/32 of the window size
 
         # set a minimum window size?
         # if window < 8:
@@ -881,7 +889,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             cutout = empty_sci.get_cutout(ra, dec, error, window=ext * 2, image=self.master_cutout)
             vmin, vmax = empty_sci.get_vrange(cutout.data)
 
-            self.add_north_arrow(plt, sci, cutout, theta=None, scale=scale)
+            if scale > 1.0: #e.g. we zoomed in
+                self.add_north_arrow(plt, sci, cutout, theta=None, scale=scale)
+            else: #did not zoom in, so position based on original cutout
+                self.add_north_arrow(plt, sci, cutout, theta=None, scale=1.0)
 
             plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                        vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
@@ -907,8 +918,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         # z_spec_ref = None
         z_photoz_weighted = None
 
-        rows = 2
-        cols = len(self.CatalogImages)
+        rows = 1
+        cols = 6
 
         if df_photoz is not None:
             photoz_file = df_photoz['file'].values[0]
@@ -929,7 +940,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         font.set_size(12)
 
         fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
-        plt.subplots_adjust(left=0.05, right=0.95, top=0.9, bottom=0.1)
+        plt.subplots_adjust(left=0.05, right=0.95, top=0.8, bottom=0.2)
 
         spec_z = 0.0
 
@@ -941,14 +952,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             title = title + "\n%s\nRA = %f    Dec = %f\nSeparation    = %g\"" \
                             % (df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
                                df['distance'].values[0] * 3600)
-            # do not use DEEP SPEC Z, just use spec Z below
-            # z = df['DEEP_SPEC_Z'].values[0]
-            # if z >= 0.0:
-            #     if (z_best_type is not None) and (z_best_type.lower() == 's'):
-            #         title = title + "\nDEEP SPEC Z = %g" % z
-            #     else:
-            #         title = title + "\nDEEP SPEC Z = %g (gold)" % z
-            #         spec_z = z
 
             if z_best_type is not None:
                 if (z_best_type.lower() == 'p'):
@@ -988,52 +991,27 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
-        index = -1
-        # iterate over all filter images
-        for i in self.CatalogImages:  # i is a dictionary
-            index += 1  # for subplot ... is 1 based
-            if i['image'] is None:
-                i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
-                                                         image_location=op.join(i['path'], i['name']))
-            sci = i['image']
 
-            cutout = sci.get_cutout(ra, dec, error, window=window)
-            ext = sci.window / 2.
-
-            if cutout is not None:
-                plt.subplot(gs[1, index])
-
-                plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
-                           vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
-                plt.title(i['instrument'] + " " + i['filter'])
-                plt.xticks([ext, ext / 2., 0, -ext / 2., -ext])
-                plt.yticks([ext, ext / 2., 0, -ext / 2., -ext])
-
-                # add (+) to mark location of Target RA,DEC
-                # we are centered on ra,dec and target_ra, target_dec belong to the HETDEX detect
-                if cutout and (target_ra is not None) and (target_dec is not None):
-                    px, py = sci.get_position(target_ra, target_dec, cutout)
-                    x, y = sci.get_position(ra, dec, cutout)
-
-                    plt.plot((px - x), (py - y), "r+")
-
-                    plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2., height=error * 2.,
-                                                      angle=0.0, color='yellow', fill=False, linewidth=5.0, zorder=1))
-                    # set the diameter of the cirle to half the error (radius error/4)
-                    plt.gca().add_patch(plt.Circle((0, 0), radius=error / 4.0, color='yellow', fill=False))
-
-                    self.add_north_arrow(plt, sci, cutout, theta=None)
-
+        #add flux values
+        if df is not None:
+            # iterate over all filter images
+            title = ""
+            for i in self.CatalogImages:  # i is a dictionary
                 # iterate over all filters for this image and print values
-                font.set_size(10)
-                if df is not None:
-                    s = ""
-                    for f, l in zip(i['cols'], i['labels']):
-                        # print (f)
-                        v = df[f].values[0]
-                        s = s + "%-8s = %.5f\n" % (l, v)
+                #font.set_size(10)
 
-                    plt.xlabel(s, multialignment='left', fontproperties=font)
+                #not all filters have entries ... note 'cols'[0] is flux, [1] is the error
+                if df[i['cols']].empty :
+                    title = title + "%7s %s %s = -- (--)\n" % (i['instrument'], i['filter'], "Flux")
+                else:
+                    title = title + "%7s %s %s = %.5f (%.5f)\n" % (i['instrument'], i['filter'], "Flux",
+                            df[i['cols'][0]].values[0], df[i['cols'][1]].values[0])
+
+
+        plt.subplot(gs[0, 2])
+        plt.text(0, 0.20, title, ha='left', va='bottom', fontproperties=font)
+        plt.gca().set_frame_on(False)
+        plt.gca().axis('off')
 
         # add photo_z plot
         # if the z_best_type is 'p' call it photo-Z, if s call it 'spec-Z'
@@ -1045,7 +1023,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             if z_cat is not None:
                 x = z_cat['z'].values
                 y = z_cat['mFDa4'].values
-                plt.subplot(gs[0, 3:5])
+                plt.subplot(gs[0, -2:])
                 plt.plot(x, y, zorder=1)
                 plt.xlim([0, 3.6])
                 # trim axis to 0 to 3.6
@@ -1063,41 +1041,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 plt.title("Photo Z PDF")
                 plt.gca().yaxis.set_visible(False)
                 plt.xlabel("Z")
-
-        empty_sci = science_image.science_image()
-        # master cutout (0,0 is the observered (exact) target RA, DEC)
-        if self.master_cutout is not None:
-            # window=error*4
-            ext = error * 2.
-            plt.subplot(gs[0, cols - 1])
-            vmin, vmax = empty_sci.get_vrange(self.master_cutout.data)
-            plt.imshow(self.master_cutout.data, origin='lower', interpolation='none',
-                       cmap=plt.get_cmap('gray_r'),
-                       vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
-            plt.title("Master Cutout (Stacked)")
-            plt.xlabel("arcsecs")
-            # plt.ylabel("arcsecs")
-
-            # plt.set_xticklabels([str(ext), str(ext / 2.), str(0), str(-ext / 2.), str(-ext)])
-            plt.xticks([ext, ext / 2., 0, -ext / 2., -ext])
-            plt.yticks([ext, ext / 2., 0, -ext / 2., -ext])
-
-            # mark the bid target location on the master cutout
-            if (target_ra is not None) and (target_dec is not None):
-                px, py = empty_sci.get_position(target_ra, target_dec, self.master_cutout)
-                x, y = empty_sci.get_position(ra, dec, self.master_cutout)
-
-                # set the diameter of the cirle to half the error (radius error/4)
-                plt.gca().add_patch(plt.Circle(((x - px), (y - py)), radius=error / 4.0, color='yellow', fill=False))
-
-                # this is correct, do not rotate the yellow rectangle (it is a zoom window only)
-                x = (x - px) - error
-                y = (y - py) - error
-                plt.gca().add_patch(plt.Rectangle((x, y), width=error * 2, height=error * 2,
-                                                  angle=0.0, color='yellow', fill=False))
-
-                plt.plot(0, 0, "r+")
-                self.add_north_box(plt, empty_sci, self.master_cutout, error, 0, 0, theta=None)
 
         # fig holds the entire page
         plt.close()
