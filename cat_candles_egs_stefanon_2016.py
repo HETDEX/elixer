@@ -404,7 +404,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)
 
         plt.subplot(gs[0, 0])
-        plt.text(0, 0.20, title, ha='left', va='bottom', fontproperties=font)
+        plt.text(0, 0, title, ha='left', va='bottom', fontproperties=font)
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
@@ -937,15 +937,24 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         fig_sz_x = cols * 3
         fig_sz_y = rows * 3
 
-        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.5)
-
-        font = FontProperties()
-        font.set_family('monospace')
-        font.set_size(12)
-
         fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
         plt.subplots_adjust(left=0.05, right=0.95, top=0.8, bottom=0.2)
 
+        #cols*2 to leave one column for the color coded rectange ... all other are made at 2x columns
+        gs = gridspec.GridSpec(rows, cols*2, wspace=0.25, hspace=0.5)
+
+        #use col = 0 for color coded rectangle
+        plt.subplot(gs[0, 0])
+        plt.gca().set_frame_on(False)
+        plt.gca().axis('off')
+        #2:1 so height should be 1/2 width
+        plt.gca().add_patch(plt.Rectangle((0.25,0.25), width=0.5, height=0.25, angle=0.0, color=color,
+                                          fill=False,linewidth=5,zorder=1))
+
+        #entry text
+        font = FontProperties()
+        font.set_family('monospace')
+        font.set_size(12)
         spec_z = 0.0
 
         if df is not None:
@@ -990,10 +999,11 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         else:
             title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)
 
-        plt.subplot(gs[0, 0])
-        plt.text(0, 0.20, title, ha='left', va='bottom', fontproperties=font)
+        plt.subplot(gs[0, 1:4])
+        plt.text(0, 0, title, ha='left', va='bottom', fontproperties=font)
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
+
 
 
         #add flux values
@@ -1012,8 +1022,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                             df[i['cols'][0]].values[0], df[i['cols'][1]].values[0])
 
 
-        plt.subplot(gs[0, 2])
-        plt.text(0, 0.20, title, ha='left', va='bottom', fontproperties=font,color=color)
+        plt.subplot(gs[0, 4])
+        plt.text(0, 0, title, ha='left', va='bottom', fontproperties=font)
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
@@ -1027,7 +1037,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             if z_cat is not None:
                 x = z_cat['z'].values
                 y = z_cat['mFDa4'].values
-                plt.subplot(gs[0, -2:])
+                plt.subplot(gs[0, -4:])
                 plt.plot(x, y, zorder=1)
                 plt.xlim([0, 3.6])
                 # trim axis to 0 to 3.6
