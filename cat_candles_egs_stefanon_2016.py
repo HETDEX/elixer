@@ -670,6 +670,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             self.add_bid_entry(entry)
 
         number = 0
+
+        #todo: factor out ... match colors to self.build_cat_summary_figure
+        norm = plt.Normalize()
+        bid_colors = plt.cm.brg(norm(np.arange(len(ras))))
         # display each bid target
         for r, d in zip(ras, decs):
             number += 1
@@ -702,7 +706,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                                                  target_ra=target_ra, target_dec=target_dec,
                                                  section_title=section_title,
                                                  bid_number=number, target_w=target_w, of_number=num_hits-base_count,
-                                                 target_flux=target_flux)
+                                                 target_flux=target_flux,color=bid_colors[number-1])
             else:
                 entry = self.build_bid_target_figure(r[0], d[0], error=error, df=df, df_photoz=df_photoz,
                                                  target_ra=target_ra, target_dec=target_dec,
@@ -902,7 +906,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         return fig
 
     def build_bid_target_figure_one_line (self, ra, dec, error, df=None, df_photoz=None, target_ra=None, target_dec=None,
-                                section_title="", bid_number=1, target_w=0, of_number=0, target_flux=None):
+                                section_title="", bid_number=1, target_w=0, of_number=0, target_flux=None, color="k"):
         '''Builds the entry (e.g. like a row) for one bid target. Includes the target info (name, loc, Z, etc),
         photometry images, Z_PDF, etc
 
@@ -1009,7 +1013,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
 
         plt.subplot(gs[0, 2])
-        plt.text(0, 0.20, title, ha='left', va='bottom', fontproperties=font)
+        plt.text(0, 0.20, title, ha='left', va='bottom', fontproperties=font,color=color)
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
