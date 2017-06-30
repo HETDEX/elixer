@@ -318,6 +318,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         fig_sz_y = rows * 3
 
         fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
+        plt.subplots_adjust(left=0.05, right=0.95, top=0.90, bottom=0.1)
 
         gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.5)
         # reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based
@@ -504,6 +505,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         font.set_size(12)
 
         fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
+        plt.subplots_adjust(left=0.05, right=0.95, top=0.9, bottom=0.1)
 
         spec_z = 0.0
 
