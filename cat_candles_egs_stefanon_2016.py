@@ -810,7 +810,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 plt.title(i['instrument'] + " " + i['filter'])
                 plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
                 plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-
+                plt.plot(0, 0, "r+")
                 self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
                 x, y = sci.get_position(ra, dec, cutout)  # zero (absolute) position
                 for br, bd, bc in zip(bid_ras, bid_decs, bid_colors):
@@ -900,6 +900,9 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
             plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                        vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+
+            plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+            plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
 
         # complete the entry
         plt.close()
