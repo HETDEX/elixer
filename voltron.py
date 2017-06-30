@@ -529,8 +529,14 @@ def main():
                 num_hits = 0
                 for c in cats:
                     for e in hd.emis_list:
-                        if c.position_in_cat(ra=e.ra, dec=e.dec, error=args.error):
-                            hits, _, _ = c.build_list_of_bid_targets(ra=e.ra, dec=e.dec, error=args.error)
+                        if (e.wra is not None) and (e.wdec is not None):  # weighted RA and Dec
+                            ra = e.wra
+                            dec = e.wdec
+                        else:
+                            ra = e.ra
+                            dec = e.dec
+                        if c.position_in_cat(ra=ra, dec=dec, error=args.error):
+                            hits, _, _ = c.build_list_of_bid_targets(ra=ra, dec=dec, error=args.error)
                             num_hits += hits
 
                             if c not in matched_cats:

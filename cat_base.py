@@ -231,7 +231,7 @@ class Catalog:
             log.error("Exception bulding celestrial north box.", exc_info=True)
 
 
-    def add_north_arrow (self, plt, sci, cutout, theta=None):
+    def add_north_arrow (self, plt, sci, cutout, theta=None,scale=1.0):
         # theta is angle in radians counter-clockwise from x-axis to the north celestrial pole
 
         if (plt is None) or (sci is None) or (cutout is None):
@@ -247,16 +247,16 @@ class Catalog:
             t_rot = (theta - np.pi/2.) * 180./np.pi
 
             arrow_len = 0.03 * (cutout.xmax_cutout + cutout.ymax_cutout)
-            arrow_x = cutout.xmax_cutout * 0.4 * sci.pixel_size
-            arrow_y = cutout.ymax_cutout * 0.4 * sci.pixel_size
-            arrow_dx = arrow_len * np.cos(theta) * sci.pixel_size
-            arrow_dy = arrow_len * np.sin(theta) * sci.pixel_size
+            arrow_x = cutout.xmax_cutout * 0.4 * sci.pixel_size * scale
+            arrow_y = cutout.ymax_cutout * 0.4 * sci.pixel_size * scale
+            arrow_dx = arrow_len * np.cos(theta) * sci.pixel_size * scale
+            arrow_dy = arrow_len * np.sin(theta) * sci.pixel_size * scale
             plt.gca().add_patch(plt.arrow(arrow_x, arrow_y, arrow_dx, arrow_dy, color=arrow_color, linewidth=1.0))
             plt.text(arrow_x + arrow_dx * 1.5, arrow_y + arrow_dy * 1.5, 'N', rotation=t_rot,
                      fontsize=8, color=arrow_color, verticalalignment='center', horizontalalignment='center')
 
-            arrow_dx = arrow_len * np.cos(theta + np.pi / 2.) * sci.pixel_size
-            arrow_dy = arrow_len * np.sin(theta + np.pi / 2.) * sci.pixel_size
+            arrow_dx = arrow_len * np.cos(theta + np.pi / 2.) * sci.pixel_size * scale
+            arrow_dy = arrow_len * np.sin(theta + np.pi / 2.) * sci.pixel_size * scale
             plt.gca().add_patch(plt.arrow(arrow_x, arrow_y, arrow_dx, arrow_dy, color=arrow_color, linewidth=1.0))
             plt.text(arrow_x + arrow_dx * 1.5, arrow_y + arrow_dy * 1.5, 'E',rotation=t_rot,
                      fontsize=8, color=arrow_color, verticalalignment='center', horizontalalignment='center')
