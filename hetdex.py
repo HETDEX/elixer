@@ -1298,12 +1298,23 @@ class HETDEX:
         print ("Bulding HETDEX header for Detect ID #%d" %detectid)
         #todo: match this up with the catalog sizes
 
-        fig = plt.figure(figsize=(G.FIGURE_SZ_X, G.FIGURE_SZ_Y))
+        if G.SINGLE_PAGE_PER_DETECT:
+            figure_sz_y = G.GRID_SZ_Y
+        else:
+            figure_sz_y = 3 * G.GRID_SZ_Y
+
+        fig = plt.figure(figsize=(G.FIGURE_SZ_X, figure_sz_y))
         plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
         #plt.tight_layout()
         plt.gca().axis('off')
         # 2x2 grid (but for sizing, make more fine)
-        gs = gridspec.GridSpec(5, 3)#, wspace=0.25, hspace=0.5)
+        if G.SINGLE_PAGE_PER_DETECT:
+            gs = gridspec.GridSpec(2, 3)
+        else:
+            if G.SHOW_FULL_2D_SPECTRA:
+                gs = gridspec.GridSpec(5, 3)#, wspace=0.25, hspace=0.5)
+            else:
+                gs = gridspec.GridSpec(3, 3)
 
         font = FontProperties()
         font.set_family('monospace')
@@ -1352,7 +1363,6 @@ class HETDEX:
             datakeep = self.build_hetdex_data_dict(e)
 
         if datakeep is not None:
-
             if datakeep['xi']:
                 try:
                     plt.subplot(gs[0:2,1])
@@ -1375,24 +1385,48 @@ class HETDEX:
                 except:
                     log.warning("Failed to build spec image.",exc_info = True)
 
-                try:
-                    plt.subplot(gs[2:,:])
-                    plt.gca().axis('off')
-                    buf = self.build_full_width_2d_image(datakeep,e.w)
-                    buf.seek(0)
-                    im = Image.open(buf)
-                    plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
-                except:
-                    log.warning("Failed to build full width spec/cutout image.", exc_info=True)
+                if G.SINGLE_PAGE_PER_DETECT:
+                    #make the first part is own (temporary) page (to be merged later)
+                    pages.append(fig)
+                    plt.close('all')
+                    try:
+                        if G.SHOW_FULL_2D_SPECTRA:
+                            figure_sz_y = figure_sz_y*2.0
+                        fig = plt.figure(figsize=(G.FIGURE_SZ_X, figure_sz_y))
+                        plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
+                        plt.gca().axis('off')
+                        buf = self.build_full_width_2d_image(datakeep, e.w)
+                        buf.seek(0)
+                        im = Image.open(buf)
+                        plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
+
+                        pages.append(fig) #append the second part to its own page to be merged later
+                        plt.close()
+                    except:
+                        log.warning("Failed to build full width spec/cutout image.", exc_info=True)
+
+
+                else: #join this to the hetdex page
+                    try:
+                        plt.subplot(gs[2:, :])
+                        plt.gca().axis('off')
+                        buf = self.build_full_width_2d_image(datakeep, e.w)
+                        buf.seek(0)
+                        im = Image.open(buf)
+                        plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
+                    except:
+                        log.warning("Failed to build full width spec/cutout image.", exc_info=True)
+
 
             # update emission with the ra, dec of all fibers
             e.fiber_locs = list(zip(datakeep['ra'], datakeep['dec'],datakeep['color'],datakeep['index'],datakeep['d']))
 
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', dpi=G.Figure_DPI)
-        plt.close()
-        pages.append(fig)
-        return pages, buf
+
+        if not G.SINGLE_PAGE_PER_DETECT:
+            pages.append(fig)
+            plt.close()
+        #else, the pages were appended invidivually
+        return pages
 
     def get_vrange(self,vals):
         vmin = None
@@ -1784,7 +1818,7 @@ class HETDEX:
 
         return datakeep
 
-    #2d specta cutouts (one per fiber)
+    #2d spectra cutouts (one per fiber)
     def build_2d_image(self,datakeep):
 
         cmap = plt.get_cmap('gray_r')
@@ -2035,21 +2069,32 @@ class HETDEX:
         plt.close(fig)
         return buf
 
-     # 2d specta cutouts (one per fiber)
+     # 2d spectra cutouts (one per fiber)
     def build_full_width_2d_image(self, datakeep, cwave):
 
         cmap = plt.get_cmap('gray_r')
         norm = plt.Normalize()
         colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
 
-        if G.SHOW_FULL_2D_SPECTA:
+        if G.SHOW_FULL_2D_SPECTRA:
             num = len(datakeep['xi'])
         else:
             num = 0
         dy = 1.0/(num +5)  #+ 1 skip for legend, + 2 for double height spectra + 2 for double height labels
 
+        if G.SINGLE_PAGE_PER_DETECT:
+            if G.SHOW_FULL_2D_SPECTRA:
+                figure_sz_y = 2* G.GRID_SZ_Y
+            else:
+                figure_sz_y = G.GRID_SZ_Y
+        else:
+            if G.SHOW_FULL_2D_SPECTRA:
+                figure_sz_y = 0.6 * 3 * G.GRID_SZ_Y
+            else:
+                figure_sz_y = 0.25 * 3 * G.GRID_SZ_Y
+
         #fig = plt.figure(figsize=(5, 6.25), frameon=False)
-        fig = plt.figure(figsize=(G.FIGURE_SZ_X, G.FIGURE_SZ_Y*0.6),frameon=False)
+        fig = plt.figure(figsize=(G.FIGURE_SZ_X, figure_sz_y),frameon=False)
         ind = list(range(len(datakeep['d'])))
 
         border_buffer = 0.025 #percent from left and right edges to leave room for the axis labels
@@ -2146,7 +2191,7 @@ class HETDEX:
             textplot.axis(specplot.axis())
             textplot.axis('off')
 
-            # todo: iterate over all emission lines ... assume the cwave is that line and plot the additional lines
+            #iterate over all emission lines ... assume the cwave is that line and plot the additional lines
 
             wavemin = specplot.axis()[0]
             wavemax = specplot.axis()[1]
@@ -2179,7 +2224,7 @@ class HETDEX:
                     legend.append(mpatches.Patch(color=e.color,label=e.name))
                     name_waves.append(e.name)
 
-            #todo: make a legend ... this won't work as is ... need multiple colors
+            #make a legend ... this won't work as is ... need multiple colors
             skipplot = plt.axes([border_buffer, (float(num)) * dy, 1.0 - (2 * border_buffer), dy])
             skipplot.set_xticks([])
             skipplot.set_yticks([])

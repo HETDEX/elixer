@@ -247,13 +247,13 @@ def build_hetdex_section(pdfname, hetdex, detect_id = 0,pages=None):
     #detection ids are unique (for the single detect_line.dat file we are using)
     if pages is None:
         pages = []
-    pages,buf = hetdex.build_hetdex_data_page(pages,detect_id)
+    pages = hetdex.build_hetdex_data_page(pages,detect_id)
 
     if PyPDF is not None:
         build_report_part(pdfname,pages)
         pages = None
 
-    return pages,buf
+    return pages
 
 
 def build_pages (pdfname,ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,target_w=0,fiber_locs=None,
@@ -559,7 +559,7 @@ def main():
                 #base hetdex plot needs a fixed size
                 grids_x = 6
                 grids_y = 5 + len(hd.emis_list) #5 = 2 for hetdex top + 1 for full width spectra + 2 for catalog summary
-                if G.SHOW_FULL_2D_SPECTA:
+                if G.SHOW_FULL_2D_SPECTRA:
                     grids_y += 2 # 2 additional grids for full width 2D spectra
 
                 for e in hd.emis_list:
@@ -576,19 +576,11 @@ def main():
                     else:
                         ra = e.ra
                         dec = e.dec
-                    pdf.pages, buf = build_hetdex_section(pdf.filename,hd,e.id,pdf.pages) #this is the fiber, spectra cutouts for this detect
-
-
-                    #test
-                    buf.seek(0)
-                    im = Image.open(buf)
-                    im.save('test.png')
-
+                    pdf.pages = build_hetdex_section(pdf.filename,hd,e.id,pdf.pages) #this is the fiber, spectra cutouts for this detect
 
                     pdf.pages,count = build_pages(pdf.filename, ra, dec, args.error, matched_cats, pdf.pages,num_hits=num_hits,
                                               idstring=id,base_count=count,target_w=e.w,fiber_locs=e.fiber_locs,
                                                   target_flux=e.estflux)
-
                     if args.multi:
                         file_list.append(pdf)
 

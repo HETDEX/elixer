@@ -53,9 +53,9 @@ PreferCosmicCleaned = True #use cosmic cleaned FITS data if available (note: ass
 
 Figure_DPI = 300
 FIGURE_SZ_X = 18 #18
-FIGURE_SZ_Y = 10 #12
+#FIGURE_SZ_Y = 9 #12
 GRID_SZ_X = 3 # equivalent figure_sz_x for a grid width (e.g. one column)
 GRID_SZ_Y = 3 # equivalent figure_sz_y for a grid height (e.g. one row)
 
-SHOW_FULL_2D_SPECTA = False #if true, plot the full width 2D spectra for each hetdex fiber in detection
+SHOW_FULL_2D_SPECTRA = False #if true, plot the full width 2D spectra for each hetdex fiber in detection
 SINGLE_PAGE_PER_DETECT = True #if true, a single pdf page per emission line detection is made
