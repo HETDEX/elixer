@@ -2277,5 +2277,4 @@ class HETDEX:
         plt.close(fig)
         return buf
 
-
 #end HETDEX class

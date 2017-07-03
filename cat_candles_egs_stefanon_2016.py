@@ -133,409 +133,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
     PhotoZCatalog = CANDELS_EGS_Stefanon_2016_PHOTOZ_CAT
     SupportFilesLocation = CANDELS_EGS_Stefanon_2016_PHOTOZ_ZPDF_PATH
 
-
-
-
-
-
-
-
-
-
-
-
-    def build_exact_target_location_figure(self, ra, dec, error, section_title="", target_w=0, fiber_locs=None,
-                                           target_flux=None):
-        '''Builds the figure (page) the exact target location. Contains just the filter images ...
-
-        Returns the matplotlib figure. Due to limitations of matplotlib pdf generation, each figure = 1 page'''
-
-        # note: error is essentially a radius, but this is done as a box, with the 0,0 position in lower-left
-        # not the middle, so need the total length of each side to be twice translated error or 2*2*errorS
-        window = error * 4
-
-        # set a minimum window size?
-        # if window < 8:
-        #    window = 8
-
-        rows = 2
-        cols = len(self.CatalogImages)
-
-        fig_sz_x = cols * 3
-        fig_sz_y = rows * 3
-
-        fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
-        plt.subplots_adjust(left=0.05, right=0.95, top=0.90, bottom=0.1)
-
-        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.5)
-        # reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based
-
-        font = FontProperties()
-        font.set_family('monospace')
-        font.set_size(12)
-
-        title = "Catalog: %s\n" % self.Name + section_title + "\nPossible Matches = %d (within %g\")\n" \
-                                                              "RA = %f    Dec = %f\n" % (
-                                                              len(self.dataframe_of_bid_targets), error, ra, dec)
-        if target_w > 0:
-            title = title + "Wavelength = %g $\AA$\n" % target_w
-        else:
-            title = title + "\n"
-
-        if target_flux is not None:
-            title = title + "Min (no match) 3$\sigma$ LyA rest-EW = %g $\AA$\n" % \
-                            ( -1 * (target_flux / 9.9e-21) / (target_w / G.LyA_rest))
-            if target_w >= G.OII_rest:
-                title = title + "Min (no match) 3$\sigma$ OII rest-EW = %g $\AA$\n" % \
-                            (-1 *(target_flux / 9.9e-21) / (target_w / G.OII_rest))
-            else:
-                title = title + "Min (no match) 3$\sigma$ OII rest-EW = N/A\n"
-
-        plt.subplot(gs[0, 0])
-        plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
-        plt.gca().set_frame_on(False)
-        plt.gca().axis('off')
-
-        if self.master_cutout is not None:
-            del (self.master_cutout)
-            self.master_cutout = None
-
-        index = -1
-        ref_exptime = None
-        total_adjusted_exptime = None
-        for i in self.CatalogImages:  # i is a dictionary
-            index += 1
-
-            if i['image'] is None:
-                i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
-                                                         image_location=op.join(i['path'], i['name']))
-            sci = i['image']
-
-            # sci.load_image(wcs_manual=True)
-            cutout = sci.get_cutout(ra, dec, error, window=window)
-            ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
-
-            if cutout is not None:  # construct master cutout
-                # master cutout needs a copy of the data since it is going to be modified  (stacked)
-                # repeat the cutout call, but get a copy
-                if self.master_cutout is None:
-                    self.master_cutout = sci.get_cutout(ra, dec, error, window=window, copy=True)
-                    ref_exptime = sci.exptime
-                    total_adjusted_exptime = 1.0
-                else:
-                    self.master_cutout.data = np.add(self.master_cutout.data, cutout.data * sci.exptime/ref_exptime)
-                    total_adjusted_exptime += sci.exptime/ref_exptime
-
-                plt.subplot(gs[rows - 1, index])
-                plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
-                           vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
-                plt.title(i['instrument'] + " " + i['filter'])
-                plt.xticks([ext, ext / 2., 0, -ext / 2., -ext])
-                plt.yticks([ext, ext / 2., 0, -ext / 2., -ext])
-
-                self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
-
-        if self.master_cutout is None:
-            # cannot continue
-            print("No catalog image available in %s" % self.Name)
-            return None
-        else:
-            self.master_cutout.data /= total_adjusted_exptime
-
-        # plot the master cutout
-        empty_sci = science_image.science_image()
-        plt.subplot(gs[0, cols - 1])
-        vmin, vmax = empty_sci.get_vrange(self.master_cutout.data)
-        plt.imshow(self.master_cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
-                   vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
-        plt.title("Master Cutout (Stacked)")
-        plt.xlabel("arcsecs")
-        plt.xticks([ext, ext / 2., 0, -ext / 2., -ext])
-        plt.yticks([ext, ext / 2., 0, -ext / 2., -ext])
-
-        # only show this lable if there is not going to be an adjacent fiber plot
-        if (fiber_locs is None) or (len(fiber_locs) == 0):
-            plt.ylabel("arcsecs")
-        plt.plot(0, 0, "r+")
-
-        theta = empty_sci.get_rotation_to_celestrial_north(self.master_cutout)
-
-        self.add_north_box(plt, sci, self.master_cutout, error, 0,0, theta)
-        #self.add_north_arrow(plt, sci, self.master_cutout, theta)
-
-
-        # plot the fiber cutout
-        if (fiber_locs is not None) and (len(fiber_locs) > 0):
-            plt.subplot(gs[0, cols - 2])
-
-            plt.title("Fiber Positions")
-            plt.xlabel("arcsecs")
-            plt.ylabel("arcsecs")
-
-            plt.plot(0, 0, "r+")
-
-            xmin = float('inf')
-            xmax = float('-inf')
-            ymin = float('inf')
-            ymax = float('-inf')
-
-            x, y = empty_sci.get_position(ra, dec, self.master_cutout)  # zero (absolute) position
-
-            for r, d, c, i, dist in fiber_locs:
-                # print("+++++ Cutout RA,DEC,ID,COLOR", r,d,i,c)
-                # fiber absolute position ... need relative position to plot (so fiber - zero pos)
-                fx, fy = empty_sci.get_position(r, d, self.master_cutout)
-
-                xmin = min(xmin, fx - x)
-                xmax = max(xmax, fx - x)
-                ymin = min(ymin, fy - y)
-                ymax = max(ymax, fy - y)
-
-
-                plt.gca().add_patch(plt.Circle(((fx - x), (fy - y)), radius=G.Fiber_Radius, color=c, fill=False))
-                plt.text((fx - x), (fy - y), str(i), ha='center', va='center', fontsize='x-small', color=c)
-
-
-            ext_base = max (abs(xmin),abs(xmax),abs(ymin),abs(ymax))
-            #larger of the spread of the fibers or the maximum width (in non-rotated x-y plane) of the error window
-            ext = ext_base + G.Fiber_Radius
-
-            # need a new cutout since we rescaled the ext (and window) size
-            cutout = empty_sci.get_cutout(ra, dec, error, window=ext * 2, image=self.master_cutout)
-            vmin, vmax = empty_sci.get_vrange(cutout.data)
-
-            self.add_north_arrow(plt, sci, cutout, theta=None)
-
-            plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
-                       vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
-
-        # complete the entry
-        plt.close()
-        return fig
-
-    def build_bid_target_figure(self, ra, dec, error, df=None, df_photoz=None, target_ra=None, target_dec=None,
-                                section_title="", bid_number=1, target_w=0, of_number=0,target_flux=None):
-        '''Builds the entry (e.g. like a row) for one bid target. Includes the target info (name, loc, Z, etc),
-        photometry images, Z_PDF, etc
-
-        Returns the matplotlib figure. Due to limitations of matplotlib pdf generateion, each figure = 1 page'''
-
-        # note: error is essentially a radius, but this is done as a box, with the 0,0 position in lower-left
-        # not the middle, so need the total length of each side to be twice translated error or 2*2*errorS
-        window = error * 2.
-        photoz_file = None
-        z_best = None
-        z_best_type = None  # s = spectral , p = photometric?
-        # z_spec = None
-        # z_spec_ref = None
-        z_photoz_weighted = None
-
-        rows = 2
-        cols = len(self.CatalogImages)
-
-        if df_photoz is not None:
-            photoz_file = df_photoz['file'].values[0]
-            z_best = df_photoz['z_best'].values[0]
-            z_best_type = df_photoz['z_best_type'].values[0]  # s = spectral , p = photometric?
-            z_photoz_weighted = df_photoz['mFDa4_z_weight']
-            # z_spec = df_photoz['z_spec'].values[0]
-            # z_spec_ref = df_photoz['z_spec_ref'].values[0]
-            # rows = rows + 1
-
-        fig_sz_x = cols * 3
-        fig_sz_y = rows * 3
-
-        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.5)
-
-        font = FontProperties()
-        font.set_family('monospace')
-        font.set_size(12)
-
-        fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
-        plt.subplots_adjust(left=0.05, right=0.95, top=0.9, bottom=0.1)
-
-        spec_z = 0.0
-
-        if df is not None:
-            title = "%s  Possible Match #%d" % (section_title,bid_number)
-            if of_number > 0:
-                title = title + " of %d" % of_number
-
-            title = title + "\n%s\nRA = %f    Dec = %f\nSeparation    = %g\"" \
-                    % (df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
-                    df['distance'].values[0] * 3600)
-           #do not use DEEP SPEC Z, just use spec Z below
-           # z = df['DEEP_SPEC_Z'].values[0]
-           # if z >= 0.0:
-           #     if (z_best_type is not None) and (z_best_type.lower() == 's'):
-           #         title = title + "\nDEEP SPEC Z = %g" % z
-           #     else:
-           #         title = title + "\nDEEP SPEC Z = %g (gold)" % z
-           #         spec_z = z
-
-            if z_best_type is not None:
-                if (z_best_type.lower() == 'p'):
-                    title = title + "\nPhoto Z       = %g (blue)" % z_best
-                elif (z_best_type.lower() == 's'):
-                    title = title + "\nSpec Z        = %g (gold)" % z_best
-                    spec_z = z_best
-                    if z_photoz_weighted is not None:
-                        title = title + "\nPhoto Z       = %g (blue)" % z_photoz_weighted
-
-            if target_w > 0:
-                la_z = target_w / G.LyA_rest - 1.0
-                oii_z = target_w / G.OII_rest - 1.0
-                title = title + "\nLyA Z (virus) = %g (red)" % la_z
-                if (oii_z > 0):
-                    title = title + "\nOII Z (virus) = %g (green)" % oii_z
-                else:
-                    title = title + "\nOII Z (virus) = N/A"
-
-            if target_flux is not None:
-                filter_fl = df['ACS_F606W_FLUX'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
-                if (filter_fl is not None) and (filter_fl > 0):
-                    filter_fl = filter_fl * 1e-29 * 3e18 / (target_w ** 2) #3e18 ~ c in angstroms/sec
-                    title = title +"\nEst LyA rest-EW = %g $\AA$" % (-1*target_flux / filter_fl / (target_w / G.LyA_rest))
-
-                    if target_w >= G.OII_rest:
-                        title = title + "\nEst OII rest-EW = %g $\AA$" % (-1*target_flux / filter_fl /(target_w / G.OII_rest))
-                    else:
-                        title = title + "\nEst OII rest-EW = N/A"
-        else:
-            title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)
-
-        plt.subplot(gs[0, 0])
-        plt.text(0, 0, title, ha='left', va='bottom', fontproperties=font)
-        plt.gca().set_frame_on(False)
-        plt.gca().axis('off')
-
-        index = -1
-        # iterate over all filter images
-        for i in self.CatalogImages:  # i is a dictionary
-            index += 1  # for subplot ... is 1 based
-            if i['image'] is None:
-                i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
-                                                         image_location=op.join(i['path'], i['name']))
-            sci = i['image']
-
-            cutout = sci.get_cutout(ra, dec, error, window=window)
-            ext = sci.window / 2.
-
-            if cutout is not None:
-                plt.subplot(gs[1, index])
-
-                plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
-                           vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
-                plt.title(i['instrument'] + " " + i['filter'])
-                plt.xticks([ext, ext / 2., 0, -ext / 2., -ext])
-                plt.yticks([ext, ext / 2., 0, -ext / 2., -ext])
-
-                # add (+) to mark location of Target RA,DEC
-                # we are centered on ra,dec and target_ra, target_dec belong to the HETDEX detect
-                if cutout and (target_ra is not None) and (target_dec is not None):
-                    px, py = sci.get_position(target_ra, target_dec, cutout)
-                    x, y = sci.get_position(ra, dec, cutout)
-
-                    plt.plot((px - x), (py - y), "r+")
-
-                    plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2., height=error * 2.,
-                                                      angle=0.0, color='yellow', fill=False, linewidth=5.0, zorder=1))
-                    # set the diameter of the cirle to half the error (radius error/4)
-                    plt.gca().add_patch(plt.Circle((0, 0), radius=error / 4.0, color='yellow', fill=False))
-
-                    self.add_north_arrow(plt, sci, cutout,theta=None)
-
-                # iterate over all filters for this image and print values
-                font.set_size(10)
-                if df is not None:
-                    s = ""
-                    for f, l in zip(i['cols'], i['labels']):
-                        # print (f)
-                        v = df[f].values[0]
-                        s = s + "%-8s = %.5f\n" % (l, v)
-
-                    plt.xlabel(s, multialignment='left', fontproperties=font)
-
-        # add photo_z plot
-        # if the z_best_type is 'p' call it photo-Z, if s call it 'spec-Z'
-        # alwasy read in file for "file" and plot column 1 (z as x) vs column 9 (pseudo-probability)
-        # get 'file'
-        # z_best  # 6 z_best_type # 7 z_spec # 8 z_spec_ref
-        if df_photoz is not None:
-            z_cat = self.read_catalog(op.join(self.SupportFilesLocation, photoz_file), "z_cat")
-            if z_cat is not None:
-                x = z_cat['z'].values
-                y = z_cat['mFDa4'].values
-                plt.subplot(gs[0, 3:5])
-                plt.plot(x, y, zorder=1)
-                plt.xlim([0,3.6])
-                #trim axis to 0 to 3.6
-
-                if spec_z > 0:
-                    plt.axvline(x=spec_z, color='gold', linestyle='solid', linewidth=3, zorder=0)
-
-                if target_w > 0:
-                    la_z = target_w / G.LyA_rest - 1.0
-                    oii_z = target_w / G.OII_rest - 1.0
-                    plt.axvline(x=la_z, color='r', linestyle='--', zorder=2)
-                    if (oii_z > 0):
-                        plt.axvline(x=oii_z, color='g', linestyle='--', zorder=2)
-
-                plt.title("Photo Z PDF")
-                plt.gca().yaxis.set_visible(False)
-                plt.xlabel("Z")
-
-        empty_sci = science_image.science_image()
-        # master cutout (0,0 is the observered (exact) target RA, DEC)
-        if self.master_cutout is not None:
-            # window=error*4
-            ext = error * 2.
-            plt.subplot(gs[0, cols - 1])
-            vmin, vmax = empty_sci.get_vrange(self.master_cutout.data)
-            plt.imshow(self.master_cutout.data, origin='lower', interpolation='none',
-                       cmap=plt.get_cmap('gray_r'),
-                       vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
-            plt.title("Master Cutout (Stacked)")
-            plt.xlabel("arcsecs")
-           # plt.ylabel("arcsecs")
-
-            #plt.set_xticklabels([str(ext), str(ext / 2.), str(0), str(-ext / 2.), str(-ext)])
-            plt.xticks([ext, ext / 2., 0, -ext / 2., -ext])
-            plt.yticks([ext, ext / 2., 0, -ext / 2., -ext])
-
-            # mark the bid target location on the master cutout
-            if (target_ra is not None) and (target_dec is not None):
-                px, py = empty_sci.get_position(target_ra, target_dec, self.master_cutout)
-                x, y = empty_sci.get_position(ra, dec, self.master_cutout)
-
-
-                # set the diameter of the cirle to half the error (radius error/4)
-                plt.gca().add_patch(plt.Circle(((x - px), (y - py)), radius=error / 4.0, color='yellow', fill=False))
-
-                #this is correct, do not rotate the yellow rectangle (it is a zoom window only)
-                x = (x - px) - error
-                y = (y - py) - error
-                plt.gca().add_patch(plt.Rectangle((x, y), width=error * 2, height=error * 2,
-                                                  angle=0.0, color='yellow', fill=False))
-
-                plt.plot(0, 0, "r+")
-                self.add_north_box(plt, empty_sci, self.master_cutout, error, 0, 0, theta=None)
-
-        #fig holds the entire page
-        plt.close()
-        return fig
-
-
-
-
-
-
-
-
-
-
-
-
     def __init__(self):
         super(CANDELS_EGS_Stefanon_2016, self).__init__()
 
@@ -722,6 +319,386 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
         return self.pages
 
+    def build_exact_target_location_figure(self, ra, dec, error, section_title="", target_w=0, fiber_locs=None,
+                                           target_flux=None):
+        '''Builds the figure (page) the exact target location. Contains just the filter images ...
+
+        Returns the matplotlib figure. Due to limitations of matplotlib pdf generation, each figure = 1 page'''
+
+        # note: error is essentially a radius, but this is done as a box, with the 0,0 position in lower-left
+        # not the middle, so need the total length of each side to be twice translated error or 2*2*errorS
+        window = error * 4
+
+        # set a minimum window size?
+        # if window < 8:
+        #    window = 8
+
+        rows = 2
+        cols = len(self.CatalogImages)
+
+        fig_sz_x = cols * 3
+        fig_sz_y = rows * 3
+
+        fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
+        plt.subplots_adjust(left=0.05, right=0.95, top=0.90, bottom=0.1)
+
+        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.5)
+        # reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based
+
+        font = FontProperties()
+        font.set_family('monospace')
+        font.set_size(12)
+
+        title = "Catalog: %s\n" % self.Name + section_title + "\nPossible Matches = %d (within %g\")\n" \
+                                                              "RA = %f    Dec = %f\n" % (
+                                                                  len(self.dataframe_of_bid_targets), error, ra, dec)
+        if target_w > 0:
+            title = title + "Wavelength = %g $\AA$\n" % target_w
+        else:
+            title = title + "\n"
+
+        if target_flux is not None:
+            title = title + "Min (no match) 3$\sigma$ LyA rest-EW = %g $\AA$\n" % \
+                            (-1 * (target_flux / 9.9e-21) / (target_w / G.LyA_rest))
+            if target_w >= G.OII_rest:
+                title = title + "Min (no match) 3$\sigma$ OII rest-EW = %g $\AA$\n" % \
+                                (-1 * (target_flux / 9.9e-21) / (target_w / G.OII_rest))
+            else:
+                title = title + "Min (no match) 3$\sigma$ OII rest-EW = N/A\n"
+
+        plt.subplot(gs[0, 0])
+        plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
+        plt.gca().set_frame_on(False)
+        plt.gca().axis('off')
+
+        if self.master_cutout is not None:
+            del (self.master_cutout)
+            self.master_cutout = None
+
+        index = -1
+        ref_exptime = None
+        total_adjusted_exptime = None
+        for i in self.CatalogImages:  # i is a dictionary
+            index += 1
+
+            if i['image'] is None:
+                i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
+                                                         image_location=op.join(i['path'], i['name']))
+            sci = i['image']
+
+            # sci.load_image(wcs_manual=True)
+            cutout = sci.get_cutout(ra, dec, error, window=window)
+            ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
+
+            if cutout is not None:  # construct master cutout
+                # master cutout needs a copy of the data since it is going to be modified  (stacked)
+                # repeat the cutout call, but get a copy
+                if self.master_cutout is None:
+                    self.master_cutout = sci.get_cutout(ra, dec, error, window=window, copy=True)
+                    ref_exptime = sci.exptime
+                    total_adjusted_exptime = 1.0
+                else:
+                    self.master_cutout.data = np.add(self.master_cutout.data, cutout.data * sci.exptime / ref_exptime)
+                    total_adjusted_exptime += sci.exptime / ref_exptime
+
+                plt.subplot(gs[rows - 1, index])
+                plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
+                           vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
+                plt.title(i['instrument'] + " " + i['filter'])
+                plt.xticks([ext, ext / 2., 0, -ext / 2., -ext])
+                plt.yticks([ext, ext / 2., 0, -ext / 2., -ext])
+
+                self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
+
+        if self.master_cutout is None:
+            # cannot continue
+            print("No catalog image available in %s" % self.Name)
+            return None
+        else:
+            self.master_cutout.data /= total_adjusted_exptime
+
+        # plot the master cutout
+        empty_sci = science_image.science_image()
+        plt.subplot(gs[0, cols - 1])
+        vmin, vmax = empty_sci.get_vrange(self.master_cutout.data)
+        plt.imshow(self.master_cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
+                   vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+        plt.title("Master Cutout (Stacked)")
+        plt.xlabel("arcsecs")
+        plt.xticks([ext, ext / 2., 0, -ext / 2., -ext])
+        plt.yticks([ext, ext / 2., 0, -ext / 2., -ext])
+
+        # only show this lable if there is not going to be an adjacent fiber plot
+        if (fiber_locs is None) or (len(fiber_locs) == 0):
+            plt.ylabel("arcsecs")
+        plt.plot(0, 0, "r+")
+
+        theta = empty_sci.get_rotation_to_celestrial_north(self.master_cutout)
+
+        self.add_north_box(plt, sci, self.master_cutout, error, 0, 0, theta)
+        # self.add_north_arrow(plt, sci, self.master_cutout, theta)
+
+
+        # plot the fiber cutout
+        if (fiber_locs is not None) and (len(fiber_locs) > 0):
+            plt.subplot(gs[0, cols - 2])
+
+            plt.title("Fiber Positions")
+            plt.xlabel("arcsecs")
+            plt.ylabel("arcsecs")
+
+            plt.plot(0, 0, "r+")
+
+            xmin = float('inf')
+            xmax = float('-inf')
+            ymin = float('inf')
+            ymax = float('-inf')
+
+            x, y = empty_sci.get_position(ra, dec, self.master_cutout)  # zero (absolute) position
+
+            for r, d, c, i, dist in fiber_locs:
+                # print("+++++ Cutout RA,DEC,ID,COLOR", r,d,i,c)
+                # fiber absolute position ... need relative position to plot (so fiber - zero pos)
+                fx, fy = empty_sci.get_position(r, d, self.master_cutout)
+
+                xmin = min(xmin, fx - x)
+                xmax = max(xmax, fx - x)
+                ymin = min(ymin, fy - y)
+                ymax = max(ymax, fy - y)
+
+                plt.gca().add_patch(plt.Circle(((fx - x), (fy - y)), radius=G.Fiber_Radius, color=c, fill=False))
+                plt.text((fx - x), (fy - y), str(i), ha='center', va='center', fontsize='x-small', color=c)
+
+            ext_base = max(abs(xmin), abs(xmax), abs(ymin), abs(ymax))
+            # larger of the spread of the fibers or the maximum width (in non-rotated x-y plane) of the error window
+            ext = ext_base + G.Fiber_Radius
+
+            # need a new cutout since we rescaled the ext (and window) size
+            cutout = empty_sci.get_cutout(ra, dec, error, window=ext * 2, image=self.master_cutout)
+            vmin, vmax = empty_sci.get_vrange(cutout.data)
+
+            self.add_north_arrow(plt, sci, cutout, theta=None)
+
+            plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
+                       vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+
+        # complete the entry
+        plt.close()
+        return fig
+
+
+    def build_bid_target_figure(self, ra, dec, error, df=None, df_photoz=None, target_ra=None, target_dec=None,
+                                section_title="", bid_number=1, target_w=0, of_number=0, target_flux=None):
+        '''Builds the entry (e.g. like a row) for one bid target. Includes the target info (name, loc, Z, etc),
+        photometry images, Z_PDF, etc
+
+        Returns the matplotlib figure. Due to limitations of matplotlib pdf generateion, each figure = 1 page'''
+
+        # note: error is essentially a radius, but this is done as a box, with the 0,0 position in lower-left
+        # not the middle, so need the total length of each side to be twice translated error or 2*2*errorS
+        window = error * 2.
+        photoz_file = None
+        z_best = None
+        z_best_type = None  # s = spectral , p = photometric?
+        # z_spec = None
+        # z_spec_ref = None
+        z_photoz_weighted = None
+
+        rows = 2
+        cols = len(self.CatalogImages)
+
+        if df_photoz is not None:
+            photoz_file = df_photoz['file'].values[0]
+            z_best = df_photoz['z_best'].values[0]
+            z_best_type = df_photoz['z_best_type'].values[0]  # s = spectral , p = photometric?
+            z_photoz_weighted = df_photoz['mFDa4_z_weight']
+            # z_spec = df_photoz['z_spec'].values[0]
+            # z_spec_ref = df_photoz['z_spec_ref'].values[0]
+            # rows = rows + 1
+
+        fig_sz_x = cols * 3
+        fig_sz_y = rows * 3
+
+        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.5)
+
+        font = FontProperties()
+        font.set_family('monospace')
+        font.set_size(12)
+
+        fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
+        plt.subplots_adjust(left=0.05, right=0.95, top=0.9, bottom=0.1)
+
+        spec_z = 0.0
+
+        if df is not None:
+            title = "%s  Possible Match #%d" % (section_title, bid_number)
+            if of_number > 0:
+                title = title + " of %d" % of_number
+
+            title = title + "\n%s\nRA = %f    Dec = %f\nSeparation    = %g\"" \
+                            % (df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
+                               df['distance'].values[0] * 3600)
+            # do not use DEEP SPEC Z, just use spec Z below
+            # z = df['DEEP_SPEC_Z'].values[0]
+            # if z >= 0.0:
+            #     if (z_best_type is not None) and (z_best_type.lower() == 's'):
+            #         title = title + "\nDEEP SPEC Z = %g" % z
+            #     else:
+            #         title = title + "\nDEEP SPEC Z = %g (gold)" % z
+            #         spec_z = z
+
+            if z_best_type is not None:
+                if (z_best_type.lower() == 'p'):
+                    title = title + "\nPhoto Z       = %g (blue)" % z_best
+                elif (z_best_type.lower() == 's'):
+                    title = title + "\nSpec Z        = %g (gold)" % z_best
+                    spec_z = z_best
+                    if z_photoz_weighted is not None:
+                        title = title + "\nPhoto Z       = %g (blue)" % z_photoz_weighted
+
+            if target_w > 0:
+                la_z = target_w / G.LyA_rest - 1.0
+                oii_z = target_w / G.OII_rest - 1.0
+                title = title + "\nLyA Z (virus) = %g (red)" % la_z
+                if (oii_z > 0):
+                    title = title + "\nOII Z (virus) = %g (green)" % oii_z
+                else:
+                    title = title + "\nOII Z (virus) = N/A"
+
+            if target_flux is not None:
+                filter_fl = df['ACS_F606W_FLUX'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                if (filter_fl is not None) and (filter_fl > 0):
+                    filter_fl = filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
+                    title = title + "\nEst LyA rest-EW = %g $\AA$" % (
+                    -1 * target_flux / filter_fl / (target_w / G.LyA_rest))
+
+                    if target_w >= G.OII_rest:
+                        title = title + "\nEst OII rest-EW = %g $\AA$" % (
+                        -1 * target_flux / filter_fl / (target_w / G.OII_rest))
+                    else:
+                        title = title + "\nEst OII rest-EW = N/A"
+        else:
+            title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)
+
+        plt.subplot(gs[0, 0])
+        plt.text(0, 0, title, ha='left', va='bottom', fontproperties=font)
+        plt.gca().set_frame_on(False)
+        plt.gca().axis('off')
+
+        index = -1
+        # iterate over all filter images
+        for i in self.CatalogImages:  # i is a dictionary
+            index += 1  # for subplot ... is 1 based
+            if i['image'] is None:
+                i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
+                                                         image_location=op.join(i['path'], i['name']))
+            sci = i['image']
+
+            cutout = sci.get_cutout(ra, dec, error, window=window)
+            ext = sci.window / 2.
+
+            if cutout is not None:
+                plt.subplot(gs[1, index])
+
+                plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
+                           vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
+                plt.title(i['instrument'] + " " + i['filter'])
+                plt.xticks([ext, ext / 2., 0, -ext / 2., -ext])
+                plt.yticks([ext, ext / 2., 0, -ext / 2., -ext])
+
+                # add (+) to mark location of Target RA,DEC
+                # we are centered on ra,dec and target_ra, target_dec belong to the HETDEX detect
+                if cutout and (target_ra is not None) and (target_dec is not None):
+                    px, py = sci.get_position(target_ra, target_dec, cutout)
+                    x, y = sci.get_position(ra, dec, cutout)
+
+                    plt.plot((px - x), (py - y), "r+")
+
+                    plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2., height=error * 2.,
+                                                      angle=0.0, color='yellow', fill=False, linewidth=5.0, zorder=1))
+                    # set the diameter of the cirle to half the error (radius error/4)
+                    plt.gca().add_patch(plt.Circle((0, 0), radius=error / 4.0, color='yellow', fill=False))
+
+                    self.add_north_arrow(plt, sci, cutout, theta=None)
+
+                # iterate over all filters for this image and print values
+                font.set_size(10)
+                if df is not None:
+                    s = ""
+                    for f, l in zip(i['cols'], i['labels']):
+                        # print (f)
+                        v = df[f].values[0]
+                        s = s + "%-8s = %.5f\n" % (l, v)
+
+                    plt.xlabel(s, multialignment='left', fontproperties=font)
+
+        # add photo_z plot
+        # if the z_best_type is 'p' call it photo-Z, if s call it 'spec-Z'
+        # alwasy read in file for "file" and plot column 1 (z as x) vs column 9 (pseudo-probability)
+        # get 'file'
+        # z_best  # 6 z_best_type # 7 z_spec # 8 z_spec_ref
+        if df_photoz is not None:
+            z_cat = self.read_catalog(op.join(self.SupportFilesLocation, photoz_file), "z_cat")
+            if z_cat is not None:
+                x = z_cat['z'].values
+                y = z_cat['mFDa4'].values
+                plt.subplot(gs[0, 3:5])
+                plt.plot(x, y, zorder=1)
+                plt.xlim([0, 3.6])
+                # trim axis to 0 to 3.6
+
+                if spec_z > 0:
+                    plt.axvline(x=spec_z, color='gold', linestyle='solid', linewidth=3, zorder=0)
+
+                if target_w > 0:
+                    la_z = target_w / G.LyA_rest - 1.0
+                    oii_z = target_w / G.OII_rest - 1.0
+                    plt.axvline(x=la_z, color='r', linestyle='--', zorder=2)
+                    if (oii_z > 0):
+                        plt.axvline(x=oii_z, color='g', linestyle='--', zorder=2)
+
+                plt.title("Photo Z PDF")
+                plt.gca().yaxis.set_visible(False)
+                plt.xlabel("Z")
+
+        empty_sci = science_image.science_image()
+        # master cutout (0,0 is the observered (exact) target RA, DEC)
+        if self.master_cutout is not None:
+            # window=error*4
+            ext = error * 2.
+            plt.subplot(gs[0, cols - 1])
+            vmin, vmax = empty_sci.get_vrange(self.master_cutout.data)
+            plt.imshow(self.master_cutout.data, origin='lower', interpolation='none',
+                       cmap=plt.get_cmap('gray_r'),
+                       vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+            plt.title("Master Cutout (Stacked)")
+            plt.xlabel("arcsecs")
+            # plt.ylabel("arcsecs")
+
+            # plt.set_xticklabels([str(ext), str(ext / 2.), str(0), str(-ext / 2.), str(-ext)])
+            plt.xticks([ext, ext / 2., 0, -ext / 2., -ext])
+            plt.yticks([ext, ext / 2., 0, -ext / 2., -ext])
+
+            # mark the bid target location on the master cutout
+            if (target_ra is not None) and (target_dec is not None):
+                px, py = empty_sci.get_position(target_ra, target_dec, self.master_cutout)
+                x, y = empty_sci.get_position(ra, dec, self.master_cutout)
+
+                # set the diameter of the cirle to half the error (radius error/4)
+                plt.gca().add_patch(plt.Circle(((x - px), (y - py)), radius=error / 4.0, color='yellow', fill=False))
+
+                # this is correct, do not rotate the yellow rectangle (it is a zoom window only)
+                x = (x - px) - error
+                y = (y - py) - error
+                plt.gca().add_patch(plt.Rectangle((x, y), width=error * 2, height=error * 2,
+                                                  angle=0.0, color='yellow', fill=False))
+
+                plt.plot(0, 0, "r+")
+                self.add_north_box(plt, empty_sci, self.master_cutout, error, 0, 0, theta=None)
+
+        # fig holds the entire page
+        plt.close()
+        return fig
 
 
     def build_cat_summary_figure (self, ra, dec, error,bid_ras, bid_decs, target_w=0,
