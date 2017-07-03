@@ -47,7 +47,6 @@ OII_rest = 3727.
 
 FLUX_CONVERSION = (1./60)*1e-17
 
-
 Fiber_Radius = 0.75 #arcsec
 PreferCosmicCleaned = True #use cosmic cleaned FITS data if available (note: assumes filename is 'c' + filename)
 
