@@ -353,6 +353,7 @@ class DetObj:
         self.gammq_s = 0.0
         self.eqw = 0.0
         self.cont = -9999
+        self.panacea = False
 
         self.ifuslot = None
         self.wra = None
@@ -399,6 +400,7 @@ class DetObj:
 
             try:
                 if len(tokens) > 17: #this is probably an all ifu panacea version
+                    self.panacea = True
                     self.ifuslot = str(tokens[17][-3:]) #ifu093 -> 093
                     if len(tokens) > 18:  # has the rest
                         self.wra = float(tokens[18])
@@ -1349,10 +1351,23 @@ class HETDEX:
                 "$\lambda$ = %g $\AA$\n" \
                 "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
                 "EstEqw = %g $\AA$ Cont = %g\n" \
-                "Sigma = %g  Chi2 = %g"\
                  % (e.id,self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.x, e.y,e.w,
-                    e.estflux, e.dataflux, e.fluxfrac, e.eqw,e.cont, e.sigma,e.chi2)
-                #note: e.fluxfrac gauranteed to be nonzero
+                    e.estflux, e.dataflux, e.fluxfrac, e.eqw, e.cont) #note: e.fluxfrac gauranteed to be nonzero
+
+        if self.panacea:
+            title += "S/N = %g  Chi2 = %g" % (e.sigma, e.chi2)
+        else:
+            title += "Sigma = %g  Chi2 = %g" % (e.sigma, e.chi2)
+
+        if e.w > 0:
+            la_z = e.w / G.LyA_rest - 1.0
+            oii_z = e.w / G.OII_rest - 1.0
+            #title = title + "\nLy$\\alpha$ Z = %g" % la_z
+            title = title + "\nLyA Z = %g" % la_z
+            if (oii_z > 0):
+                title = title + "  OII Z = %g" % oii_z
+            else:
+                title = title + "  OII Z = N/A"
 
         plt.subplot(gs[0:2, 0])
         plt.text(0, 0.5, title, ha='left', va='center', fontproperties=font)

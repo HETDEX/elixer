@@ -84,14 +84,14 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'labels': ["Flux", "Err"],
          'image': None
          },
-        {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
-         'name': 'egs_all_wfc3_ir_f105w_060mas_v1.5_drz.fits',
-         'filter': 'f105w',
-         'instrument': 'WFC3',
-         'cols': [],
-         'labels': [],
-         'image': None
-         },
+     #   {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
+     #    'name': 'egs_all_wfc3_ir_f105w_060mas_v1.5_drz.fits',
+     #    'filter': 'f105w',
+     #    'instrument': 'WFC3',
+     #    'cols': [],
+     #    'labels': [],
+     #    'image': None
+     #    },
         {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
          'name': 'egs_all_wfc3_ir_f125w_060mas_v1.1_drz.fits',
          'filter': 'f125w',
@@ -100,14 +100,14 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'labels': ["Flux", "Err"],
          'image': None
          },
-        {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
-         'name': 'egs_all_wfc3_ir_f140w_060mas_v1.1_drz.fits',
-         'filter': 'f140w',
-         'instrument': 'WFC3',
-         'cols': ["WFC3_F140W_FLUX", "WFC3_F140W_FLUXERR"],
-         'labels': ["Flux", "Err"],
-         'image': None
-         },
+    #    {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
+    #     'name': 'egs_all_wfc3_ir_f140w_060mas_v1.1_drz.fits',
+    #     'filter': 'f140w',
+    #     'instrument': 'WFC3',
+    #     'cols': ["WFC3_F140W_FLUX", "WFC3_F140W_FLUXERR"],
+    #     'labels': ["Flux", "Err"],
+    #     'image': None
+    #     },
         {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
          'name': 'egs_all_wfc3_ir_f160w_060mas_v1.1_drz.fits',
          'filter': 'f160w',
@@ -661,8 +661,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         if G.SINGLE_PAGE_PER_DETECT:
 
             entry = self.build_cat_summary_figure(target_ra, target_dec, error, ras, decs,
-                                                  section_title=section_title, target_w=target_w,
-                                                  fiber_locs=fiber_locs, target_flux=target_flux)
+                                                  target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux)
         else:
             entry = self.build_exact_target_location_figure(target_ra, target_dec, error, section_title=section_title,
                                                         target_w=target_w, fiber_locs=fiber_locs,
@@ -670,7 +669,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         if entry is not None:
             self.add_bid_entry(entry)
 
-        if G.SINGLE_PAGE_PER_DETECT and (len(ras) <= G.MAX_COMBINE_BID_TARGETS):
+        if G.SINGLE_PAGE_PER_DETECT and (len(ras) > 0) and (len(ras) <= G.MAX_COMBINE_BID_TARGETS):
             entry = self.build_multiple_bid_target_figures_one_line(ras, decs, error,
                                                                target_ra=target_ra, target_dec=target_dec,
                                                                target_w=target_w, target_flux=target_flux)
@@ -725,7 +724,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
 
 
-    def build_cat_summary_figure (self, ra, dec, error,bid_ras, bid_decs, section_title="", target_w=0,
+    def build_cat_summary_figure (self, ra, dec, error,bid_ras, bid_decs, target_w=0,
                                   fiber_locs=None, target_flux=None):
         '''Builds the figure (page) the exact target location. Contains just the filter images ...
 
@@ -741,8 +740,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         # if window < 8:
         #    window = 8
 
-        rows = 2
-        cols = len(self.CatalogImages)
+        rows = 1 #2
+        cols = 6 #len(self.CatalogImages)
 
         fig_sz_x = cols * 3
         fig_sz_y = rows * 3
@@ -757,17 +756,16 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         font.set_family('monospace')
         font.set_size(12)
 
-        title = "Catalog: %s\n" % self.Name + section_title + "\nPossible Matches = %d (within %g\")\n" \
+        title = "%s\n" % self.Name + "\nPossible Matches = %d\n  (within %g\")\n" \
                                                               % (len(self.dataframe_of_bid_targets), error)
 
         if target_flux is not None:
-            title = title + "Min (no match) 3$\sigma$ LyA rest-EW = %g $\AA$\n" % \
-                            (-1 * (target_flux / 9.9e-21) / (target_w / G.LyA_rest))
+            title += "Minimum (no match)\n  3$\sigma$ rest-EW:\n"
+            title += "  LyA = %g $\AA$\n" %  (-1 * (target_flux / 9.9e-21) / (target_w / G.LyA_rest))
             if target_w >= G.OII_rest:
-                title = title + "Min (no match) 3$\sigma$ OII rest-EW = %g $\AA$\n" % \
-                                (-1 * (target_flux / 9.9e-21) / (target_w / G.OII_rest))
+                title = title + "  OII = %g $\AA$\n" %  (-1 * (target_flux / 9.9e-21) / (target_w / G.OII_rest))
             else:
-                title = title + "Min (no match) 3$\sigma$ OII rest-EW = N/A\n"
+                title = title + "  OII = N/A\n"
 
         plt.subplot(gs[0, 0])
         plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
@@ -778,7 +776,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             del (self.master_cutout)
             self.master_cutout = None
 
-        index = -1
+
         ref_exptime = None
         total_adjusted_exptime = None
 
@@ -787,6 +785,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         #bid_colors = plt.cm.brg(norm(np.arange(len(bid_ras))))
         bid_colors = self.get_bid_colors(len(bid_ras))
 
+        index = 1 #start in the 3rd box (1 + 1 = 2, zero based count)
         for i in self.CatalogImages:  # i is a dictionary
             index += 1
 
@@ -832,41 +831,45 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         else:
             self.master_cutout.data /= total_adjusted_exptime
 
-        # plot the master cutout
         empty_sci = science_image.science_image()
-        plt.subplot(gs[0, cols - 1])
-        vmin, vmax = empty_sci.get_vrange(self.master_cutout.data)
-        plt.imshow(self.master_cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
-                   vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
-        plt.title("Master Cutout (Stacked)")
-        plt.xlabel("arcsecs")
-        plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-        plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
 
-        # only show this lable if there is not going to be an adjacent fiber plot
-        if (fiber_locs is None) or (len(fiber_locs) == 0):
-            plt.ylabel("arcsecs")
-        plt.plot(0, 0, "r+")
+        # plot the master cutout
+        if False:  # todo: turn off master cutout (build it, but don't show ... combine with fiber positions)
+            plt.subplot(gs[0, cols - 1])
+            vmin, vmax = empty_sci.get_vrange(self.master_cutout.data)
+            plt.imshow(self.master_cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
+                       vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+            plt.title("Master Cutout (Stacked)")
+            plt.xlabel("arcsecs")
+            plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+            plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
 
-        theta = empty_sci.get_rotation_to_celestrial_north(self.master_cutout)
-        self.add_north_box(plt, sci, self.master_cutout, error, 0, 0, theta)
+            # only show this lable if there is not going to be an adjacent fiber plot
+            if (fiber_locs is None) or (len(fiber_locs) == 0):
+                plt.ylabel("arcsecs")
+            plt.plot(0, 0, "r+")
 
+            theta = empty_sci.get_rotation_to_celestrial_north(self.master_cutout)
+            self.add_north_box(plt, sci, self.master_cutout, error, 0, 0, theta)
 
-        #add the bid targets
-        x, y = empty_sci.get_position(ra, dec, self.master_cutout)  # zero (absolute) position
-        for br,bd,bc in zip(bid_ras,bid_decs,bid_colors):
-            fx, fy = empty_sci.get_position(br, bd, self.master_cutout)
-            plt.gca().add_patch(plt.Rectangle(( (fx - x) - target_box_side/2.0, (fy - y) - target_box_side/2.0),
-                                              width=target_box_side, height=target_box_side,
-                                              angle=0.0, color=bc, fill=False, linewidth=1.0, zorder=1))
+            #add the bid targets
+            x, y = empty_sci.get_position(ra, dec, self.master_cutout)  # zero (absolute) position
+            for br,bd,bc in zip(bid_ras,bid_decs,bid_colors):
+                fx, fy = empty_sci.get_position(br, bd, self.master_cutout)
+                plt.gca().add_patch(plt.Rectangle(( (fx - x) - target_box_side/2.0, (fy - y) - target_box_side/2.0),
+                                                  width=target_box_side, height=target_box_side,
+                                                  angle=0.0, color=bc, fill=False, linewidth=1.0, zorder=1))
 
         # plot the fiber cutout
         if (fiber_locs is not None) and (len(fiber_locs) > 0):
-            plt.subplot(gs[0, cols - 3])
+            #plt.subplot(gs[0, cols - 3])
+            plt.subplot(gs[0, 1])
 
             plt.title("Fiber Positions")
             plt.xlabel("arcsecs")
-            plt.ylabel("arcsecs")
+            plt.gca().xaxis.labelpad = 0
+            #plt.ylabel("arcsecs")
+            #plt.gca().yaxis.labelpad = 0
 
             plt.plot(0, 0, "r+")
 
@@ -890,19 +893,22 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 plt.gca().add_patch(plt.Circle(((fx - x), (fy - y)), radius=G.Fiber_Radius, color=c, fill=False))
                 plt.text((fx - x), (fy - y), str(i), ha='center', va='center', fontsize='x-small', color=c)
 
-            ext_base = max(abs(xmin), abs(xmax), abs(ymin), abs(ymax))
             # larger of the spread of the fibers or the maximum width (in non-rotated x-y plane) of the error window
-            scale = (ext_base + G.Fiber_Radius) / ext
-            ext = scale * ext
+            ext_base = max(abs(xmin), abs(xmax), abs(ymin), abs(ymax))
+            ext = max(ext_base + G.Fiber_Radius,ext)
+
+          # scale = (ext_base + G.Fiber_Radius) / ext
+          # ext = scale * ext
+          #  if scale > 1.0: #e.g. we zoomed in
+          #      self.add_north_arrow(plt, sci, cutout, theta=None, scale=scale)
+          #  else: #did not zoom in, so position based on original cutout
+          #      self.add_north_arrow(plt, sci, cutout, theta=None, scale=1.0)
 
             # need a new cutout since we rescaled the ext (and window) size
             cutout = empty_sci.get_cutout(ra, dec, error, window=ext * 2, image=self.master_cutout)
             vmin, vmax = empty_sci.get_vrange(cutout.data)
 
-            if scale > 1.0: #e.g. we zoomed in
-                self.add_north_arrow(plt, sci, cutout, theta=None, scale=scale)
-            else: #did not zoom in, so position based on original cutout
-                self.add_north_arrow(plt, sci, cutout, theta=None, scale=1.0)
+            self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
 
             plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                        vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
@@ -1068,6 +1074,9 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
     def build_multiple_bid_target_figures_one_line(self, ras, decs, error, target_ra=None, target_dec=None,
                                          target_w=0, target_flux=None):
 
+        if len(ras) < 1:
+            return None
+
         window = error * 2.
         photoz_file = None
         z_best = None
@@ -1082,7 +1091,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         fig_sz_y = rows * 3
 
         fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
-        plt.subplots_adjust(left=0.05, right=0.95, top=0.8, bottom=0.2)
+        plt.subplots_adjust(left=0.05, right=0.95, top=0.9, bottom=0.2)
 
         #col(0) = "labels", 1..3 = bid targets, 4..5= Zplot
         gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.5)
@@ -1106,19 +1115,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                "ACS WFC f606W Flux\n"
 
         plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
-
-
-        #bid target entries
-
-        # todo: add in LyA and OII Z and legend
-        #legend = []
-        #if target_w > 0:
-        #    la_z = target_w / G.LyA_rest - 1.0
-        #    oii_z = target_w / G.OII_rest - 1.0
-        #    if (oii_z > 0):
-        #        legend.append(mpatches.Patch(color='red', linestyle="dashed",label="OII Z(virus) = % g" % oii_z))
-        #    legend.append(mpatches.Patch(color='red',linestyle='dashed', label="LyA Z (virus) = %g" % la_z))
-
 
         col_idx = 0
         for r, d in zip(ras, decs):
@@ -1185,7 +1181,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                             text = text + "%g $\AA$\n" % (-1 * target_flux / filter_fl_adj / (target_w / G.OII_rest))
                         else:
                             text = text + "N/A\n"
-                    text = text + "%g(%g) $\mu$Jy\n" %(filter_fl,filter_fl_err)
+                    text = text + "%g(%g) $\\mu$Jy\n" %(filter_fl,filter_fl_err)
             else:
                 text = "%s\n%f\n%f\n" % ("--",r, d)
 
@@ -1193,76 +1189,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             plt.gca().set_frame_on(False)
             plt.gca().axis('off')
             plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font,color=bid_colors[col_idx-1])
-
-
-            # todo: put back flux
-            if False:
-
-                # add flux values
-                if df is not None:
-                    # iterate over all filter images
-                    text = ""
-                    for i in self.CatalogImages:  # i is a dictionary
-                        # iterate over all filters for this image and print values
-                        # font.set_size(10)
-
-                        # not all filters have entries ... note 'cols'[0] is flux, [1] is the error
-                        if df[i['cols']].empty:
-                            text = text + "%7s %s %s = -- (--)\n" % (i['instrument'], i['filter'], "Flux")
-                        else:
-                            text = text + "%7s %s %s = %.5f (%.5f)\n" % (i['instrument'], i['filter'], "Flux",
-                                                                           df[i['cols'][0]].values[0],
-                                                                           df[i['cols'][1]].values[0])
-
-                plt.subplot(gs[0, 4])
-                plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
-                plt.gca().set_frame_on(False)
-                plt.gca().axis('off')
-
-            # todo: test table
-            if False:
-                data = [[66386, 174296, 75131, 577908, 32015],
-                        [58230, 381139, 78045, 99308, 160454],
-                        [89135, 80552, 152558, 497981, 603535],
-                        [78415, 81858, 150656, 193263, 69638],
-                        [139361, 331509, 343164, 781380, 52269]]
-
-                columns = ('Freeze', 'Wind', 'Flood', 'Quake', 'Hail')
-                rows = ['%d year' % x for x in (100, 50, 20, 10, 5)]
-
-                values = np.arange(0, 2500, 500)
-                value_increment = 1000
-
-                # Get some pastel shades for the colors
-                colors = plt.cm.BuPu(np.linspace(0, 0.5, len(rows)))
-                n_rows = len(data)
-
-                index = np.arange(len(columns)) + 0.3
-                bar_width = 0.4
-
-                # Initialize the vertical-offset for the stacked bar chart.
-                y_offset = np.array([0.0] * len(columns))
-
-                # Plot bars and create text labels for the table
-                cell_text = []
-                for row in range(n_rows):
-                    plt.bar(index, data[row], bar_width, bottom=y_offset, color=colors[row])
-                    y_offset = y_offset + data[row]
-                    cell_text.append(['%1.1f' % (x / 1000.0) for x in y_offset])
-                # Reverse colors and text labels to display the last value at the top.
-                cell_text.reverse()
-
-                plt.subplot(gs[0, 4])
-                plt.gca().set_frame_on(False)
-                plt.gca().axis('off')
-
-                # Add a table at the bottom of the axes
-                the_table = plt.gca().table(cellText=cell_text,
-                                            rowLabels=rows,
-                                            colLabels=columns,
-                                            loc='center')
-
-                # plt.subplots_adjust(left=0.2, bottom=0.2)
 
             # add photo_z plot
             # if the z_best_type is 'p' call it photo-Z, if s call it 'spec-Z'
@@ -1296,14 +1222,11 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                                                 label="OII Z(virus) = % g" % oii_z)
                                 legend.append(h)
                             h = plt.axvline(x=la_z, color='r', linestyle='--', zorder=9,
-                                label="LyA Z (virus) = %g" % la_z)
+                                label="LyA Z (VIRUS) = %g" % la_z)
                             legend.append(h)
 
                             plt.gca().legend(handles=legend, loc='lower center', ncol=len(legend), frameon=False,
                                                  fontsize='small', borderaxespad=0, bbox_to_anchor=(0.5, -0.25))
-
-
-
 
                     plt.title("Photo Z PDF")
                     #plt.gca().set_ylim(bottom=-1) #just negative so can see the zero line better
