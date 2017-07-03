@@ -20,8 +20,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 import matplotlib.gridspec as gridspec
-import mpl_toolkits.axisartist.floating_axes as floating_axes
-from matplotlib.transforms import Affine2D
+import matplotlib.patches as mpatches
+#import mpl_toolkits.axisartist.floating_axes as floating_axes
+#from matplotlib.transforms import Affine2D
 
 
 log = G.logging.getLogger('Cat_logger')
@@ -669,52 +670,56 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         if entry is not None:
             self.add_bid_entry(entry)
 
-        number = 0
-
-        #todo: factor out ... match colors to self.build_cat_summary_figure
-        norm = plt.Normalize()
-        bid_colors = plt.cm.brg(norm(np.arange(len(ras))))
-        # display each bid target
-        for r, d in zip(ras, decs):
-            number += 1
-            try:
-                df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
-                                                       (self.dataframe_of_bid_targets['DEC'] == d[0])]
-
-                idnum = df['ID'].values[0]  # to matchup in photoz catalog
-            except:
-                log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
-                continue  # this must be here, so skip to next ra,dec
-
-            try:
-                # note cannot dirctly use RA,DEC as the recorded precission is different (could do a rounded match)
-                # but the idnums match up, so just use that
-                df_photoz = self.dataframe_of_bid_targets_photoz.loc[
-                    self.dataframe_of_bid_targets_photoz['ID'] == idnum]
-
-                if len(df_photoz) == 0:
-                    log.debug("No conterpart found in photoz catalog; RA=%f , Dec =%f" % (r[0], d[0]))
-                    df_photoz = None
-            except:
-                log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
-                df_photoz = None
-
-            print("Building report for bid target %d in %s" % (base_count + number, self.Name))
-
-            if G.SINGLE_PAGE_PER_DETECT:
-                entry = self.build_bid_target_figure_one_line(r[0], d[0], error=error, df=df, df_photoz=df_photoz,
-                                                 target_ra=target_ra, target_dec=target_dec,
-                                                 section_title=section_title,
-                                                 bid_number=number, target_w=target_w, of_number=num_hits-base_count,
-                                                 target_flux=target_flux,color=bid_colors[number-1])
-            else:
-                entry = self.build_bid_target_figure(r[0], d[0], error=error, df=df, df_photoz=df_photoz,
-                                                 target_ra=target_ra, target_dec=target_dec,
-                                                 section_title=section_title,
-                                                 bid_number=number, target_w=target_w, of_number=num_hits-base_count,
-                                                 target_flux=target_flux)
+        if G.SINGLE_PAGE_PER_DETECT and (len(ras) <= G.MAX_COMBINE_BID_TARGETS):
+            entry = self.build_multiple_bid_target_figures_one_line(ras, decs, error,
+                                                               target_ra=target_ra, target_dec=target_dec,
+                                                               target_w=target_w, target_flux=target_flux)
             if entry is not None:
                 self.add_bid_entry(entry)
+        else: #each bid taget gets its own line
+
+            bid_colors = self.get_bid_colors(len(ras))
+            number = 0
+            for r, d in zip(ras, decs):
+                number += 1
+                try:
+                    df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
+                                                           (self.dataframe_of_bid_targets['DEC'] == d[0])]
+
+                    idnum = df['ID'].values[0]  # to matchup in photoz catalog
+                except:
+                    log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
+                    continue  # this must be here, so skip to next ra,dec
+
+                try:
+                    # note cannot dirctly use RA,DEC as the recorded precission is different (could do a rounded match)
+                    # but the idnums match up, so just use that
+                    df_photoz = self.dataframe_of_bid_targets_photoz.loc[
+                        self.dataframe_of_bid_targets_photoz['ID'] == idnum]
+
+                    if len(df_photoz) == 0:
+                        log.debug("No conterpart found in photoz catalog; RA=%f , Dec =%f" % (r[0], d[0]))
+                        df_photoz = None
+                except:
+                    log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
+                    df_photoz = None
+
+                print("Building report for bid target %d in %s" % (base_count + number, self.Name))
+
+                if G.SINGLE_PAGE_PER_DETECT:
+                    entry = self.build_bid_target_figure_one_line(r[0], d[0], error=error, df=df, df_photoz=df_photoz,
+                                                     target_ra=target_ra, target_dec=target_dec,
+                                                     section_title=section_title,
+                                                     bid_number=number, target_w=target_w, of_number=num_hits-base_count,
+                                                     target_flux=target_flux,color=bid_colors[number-1])
+                else:
+                    entry = self.build_bid_target_figure(r[0], d[0], error=error, df=df, df_photoz=df_photoz,
+                                                     target_ra=target_ra, target_dec=target_dec,
+                                                     section_title=section_title,
+                                                     bid_number=number, target_w=target_w, of_number=num_hits-base_count,
+                                                     target_flux=target_flux)
+                if entry is not None:
+                    self.add_bid_entry(entry)
 
         return self.pages
 
@@ -778,8 +783,9 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         total_adjusted_exptime = None
 
         # add the bid targets
-        norm = plt.Normalize()
-        bid_colors = plt.cm.brg(norm(np.arange(len(bid_ras))))
+        #norm = plt.Normalize()
+        #bid_colors = plt.cm.brg(norm(np.arange(len(bid_ras))))
+        bid_colors = self.get_bid_colors(len(bid_ras))
 
         for i in self.CatalogImages:  # i is a dictionary
             index += 1
@@ -933,9 +939,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             z_best = df_photoz['z_best'].values[0]
             z_best_type = df_photoz['z_best_type'].values[0]  # s = spectral , p = photometric?
             z_photoz_weighted = df_photoz['mFDa4_z_weight']
-            # z_spec = df_photoz['z_spec'].values[0]
-            # z_spec_ref = df_photoz['z_spec_ref'].values[0]
-            # rows = rows + 1
 
         fig_sz_x = cols * 3
         fig_sz_y = rows * 3
@@ -1007,8 +1010,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
-
-
         #add flux values
         if df is not None:
             # iterate over all filter images
@@ -1029,6 +1030,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         plt.text(0, 0, title, ha='left', va='bottom', fontproperties=font)
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
+
 
         # add photo_z plot
         # if the z_best_type is 'p' call it photo-Z, if s call it 'spec-Z'
@@ -1060,6 +1062,260 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 plt.xlabel("Z")
 
         # fig holds the entire page
+        plt.close()
+        return fig
+
+    def build_multiple_bid_target_figures_one_line(self, ras, decs, error, target_ra=None, target_dec=None,
+                                         target_w=0, target_flux=None):
+
+        window = error * 2.
+        photoz_file = None
+        z_best = None
+        z_best_type = None  # s = spectral , p = photometric?
+        z_photoz_weighted = None
+
+        rows = 1
+        cols = 6
+        bid_colors = self.get_bid_colors(len(ras))
+
+        fig_sz_x = cols * 3
+        fig_sz_y = rows * 3
+
+        fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
+        plt.subplots_adjust(left=0.05, right=0.95, top=0.8, bottom=0.2)
+
+        #col(0) = "labels", 1..3 = bid targets, 4..5= Zplot
+        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.5)
+
+        # entry text
+        font = FontProperties()
+        font.set_family('monospace')
+        font.set_size(12)
+
+        #row labels
+        plt.subplot(gs[0, 0])
+        plt.gca().set_frame_on(False)
+        plt.gca().axis('off')
+
+        text = "Separation\n" + \
+               "RA, Dec\n" + \
+               "Spec Z\n" + \
+               "Photo Z\n" + \
+               "Est LyA rest-EW\n" + \
+               "Est OII rest-EW\n" + \
+               "ACS WFC f606W Flux\n"
+
+        plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
+
+
+        #bid target entries
+
+        # todo: add in LyA and OII Z and legend
+        #legend = []
+        #if target_w > 0:
+        #    la_z = target_w / G.LyA_rest - 1.0
+        #    oii_z = target_w / G.OII_rest - 1.0
+        #    if (oii_z > 0):
+        #        legend.append(mpatches.Patch(color='red', linestyle="dashed",label="OII Z(virus) = % g" % oii_z))
+        #    legend.append(mpatches.Patch(color='red',linestyle='dashed', label="LyA Z (virus) = %g" % la_z))
+
+
+        col_idx = 0
+        for r, d in zip(ras, decs):
+            col_idx += 1
+            spec_z = 0.0
+
+            try:
+                df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
+                                                       (self.dataframe_of_bid_targets['DEC'] == d[0])]
+
+                idnum = df['ID'].values[0]  # to matchup in photoz catalog
+            except:
+                log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
+                continue  # this must be here, so skip to next ra,dec
+
+            try:
+                # note cannot dirctly use RA,DEC as the recorded precission is different (could do a rounded match)
+                # but the idnums match up, so just use that
+                df_photoz = self.dataframe_of_bid_targets_photoz.loc[
+                    self.dataframe_of_bid_targets_photoz['ID'] == idnum]
+
+                if len(df_photoz) == 0:
+                    log.debug("No conterpart found in photoz catalog; RA=%f , Dec =%f" % (r[0], d[0]))
+                    df_photoz = None
+            except:
+                log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
+                df_photoz = None
+
+            if df_photoz is not None:
+                photoz_file = df_photoz['file'].values[0]
+                z_best = df_photoz['z_best'].values[0]
+                z_best_type = df_photoz['z_best_type'].values[0]  # s = spectral , p = photometric?
+                z_photoz_weighted = df_photoz['mFDa4_z_weight']
+
+            if df is not None:
+                text = ""
+
+                text = text + "%g\"\n%f, %f\n" \
+                                % ( df['distance'].values[0] * 3600,df['RA'].values[0], df['DEC'].values[0])
+
+                if z_best_type is not None:
+                    if (z_best_type.lower() == 'p'):
+                        text = text + "N/A\n" + "%g\n" % z_best
+                    elif (z_best_type.lower() == 's'):
+                        text = text + "%g (circle)\n" % z_best
+                        spec_z = z_best
+                        if z_photoz_weighted is not None:
+                            text = text + "%g\n" % z_photoz_weighted
+                        else:
+                            text = text + "N/A\n"
+                    else:
+                        text = text + "N/A\n"
+                else:
+                    text = text + "N/A\n"
+
+                if target_flux is not None:
+                    filter_fl = df['ACS_F606W_FLUX'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                    filter_fl_err = df['ACS_F606W_FLUXERR'].values[0]
+                    if (filter_fl is not None) and (filter_fl > 0):
+                        filter_fl_adj = filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
+                        text = text + "%g $\AA$\n" % (-1 * target_flux / filter_fl_adj / (target_w / G.LyA_rest))
+
+                        if target_w >= G.OII_rest:
+                            text = text + "%g $\AA$\n" % (-1 * target_flux / filter_fl_adj / (target_w / G.OII_rest))
+                        else:
+                            text = text + "N/A\n"
+                    text = text + "%g(%g) $\mu$Jy\n" %(filter_fl,filter_fl_err)
+            else:
+                text = "%s\n%f\n%f\n" % ("--",r, d)
+
+            plt.subplot(gs[0, col_idx])
+            plt.gca().set_frame_on(False)
+            plt.gca().axis('off')
+            plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font,color=bid_colors[col_idx-1])
+
+
+            # todo: put back flux
+            if False:
+
+                # add flux values
+                if df is not None:
+                    # iterate over all filter images
+                    text = ""
+                    for i in self.CatalogImages:  # i is a dictionary
+                        # iterate over all filters for this image and print values
+                        # font.set_size(10)
+
+                        # not all filters have entries ... note 'cols'[0] is flux, [1] is the error
+                        if df[i['cols']].empty:
+                            text = text + "%7s %s %s = -- (--)\n" % (i['instrument'], i['filter'], "Flux")
+                        else:
+                            text = text + "%7s %s %s = %.5f (%.5f)\n" % (i['instrument'], i['filter'], "Flux",
+                                                                           df[i['cols'][0]].values[0],
+                                                                           df[i['cols'][1]].values[0])
+
+                plt.subplot(gs[0, 4])
+                plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
+                plt.gca().set_frame_on(False)
+                plt.gca().axis('off')
+
+            # todo: test table
+            if False:
+                data = [[66386, 174296, 75131, 577908, 32015],
+                        [58230, 381139, 78045, 99308, 160454],
+                        [89135, 80552, 152558, 497981, 603535],
+                        [78415, 81858, 150656, 193263, 69638],
+                        [139361, 331509, 343164, 781380, 52269]]
+
+                columns = ('Freeze', 'Wind', 'Flood', 'Quake', 'Hail')
+                rows = ['%d year' % x for x in (100, 50, 20, 10, 5)]
+
+                values = np.arange(0, 2500, 500)
+                value_increment = 1000
+
+                # Get some pastel shades for the colors
+                colors = plt.cm.BuPu(np.linspace(0, 0.5, len(rows)))
+                n_rows = len(data)
+
+                index = np.arange(len(columns)) + 0.3
+                bar_width = 0.4
+
+                # Initialize the vertical-offset for the stacked bar chart.
+                y_offset = np.array([0.0] * len(columns))
+
+                # Plot bars and create text labels for the table
+                cell_text = []
+                for row in range(n_rows):
+                    plt.bar(index, data[row], bar_width, bottom=y_offset, color=colors[row])
+                    y_offset = y_offset + data[row]
+                    cell_text.append(['%1.1f' % (x / 1000.0) for x in y_offset])
+                # Reverse colors and text labels to display the last value at the top.
+                cell_text.reverse()
+
+                plt.subplot(gs[0, 4])
+                plt.gca().set_frame_on(False)
+                plt.gca().axis('off')
+
+                # Add a table at the bottom of the axes
+                the_table = plt.gca().table(cellText=cell_text,
+                                            rowLabels=rows,
+                                            colLabels=columns,
+                                            loc='center')
+
+                # plt.subplots_adjust(left=0.2, bottom=0.2)
+
+            # add photo_z plot
+            # if the z_best_type is 'p' call it photo-Z, if s call it 'spec-Z'
+            # alwasy read in file for "file" and plot column 1 (z as x) vs column 9 (pseudo-probability)
+            # get 'file'
+            # z_best  # 6 z_best_type # 7 z_spec # 8 z_spec_ref
+            #overplot photo Z lines
+
+            if df_photoz is not None:
+                z_cat = self.read_catalog(op.join(self.SupportFilesLocation, photoz_file), "z_cat")
+                if z_cat is not None:
+                    x = z_cat['z'].values
+                    y = z_cat['mFDa4'].values
+                    plt.subplot(gs[0, 4:])
+                    plt.plot(x, y, color=bid_colors[col_idx-1])
+                    plt.xlim([0, 3.6])
+                    # trim axis to 0 to 3.6
+
+                    if spec_z > 0:
+                        #plt.axvline(x=spec_z, color='gold', linestyle='solid', linewidth=3, zorder=0)
+                        plt.scatter([spec_z,],[plt.gca().get_ylim()[1]*0.9,],zorder=9,
+                                 marker="o",s=40,facecolors='none',edgecolors=bid_colors[col_idx-1])
+
+                    if col_idx == 1:
+                        legend = []
+                        if target_w > 0:
+                            la_z = target_w / G.LyA_rest - 1.0
+                            oii_z = target_w / G.OII_rest - 1.0
+                            if (oii_z > 0):
+                                h = plt.axvline(x=oii_z, color='g', linestyle='--', zorder=9,
+                                                label="OII Z(virus) = % g" % oii_z)
+                                legend.append(h)
+                            h = plt.axvline(x=la_z, color='r', linestyle='--', zorder=9,
+                                label="LyA Z (virus) = %g" % la_z)
+                            legend.append(h)
+
+                            plt.gca().legend(handles=legend, loc='lower center', ncol=len(legend), frameon=False,
+                                                 fontsize='small', borderaxespad=0, bbox_to_anchor=(0.5, -0.25))
+
+
+
+
+                    plt.title("Photo Z PDF")
+                    #plt.gca().set_ylim(bottom=-1) #just negative so can see the zero line better
+                    plt.gca().yaxis.set_visible(False)
+                    #plt.xlabel("Z")
+
+                  #  if len(legend) > 0:
+                  #      plt.gca().legend(handles=legend, loc = 'lower center', ncol=len(legend), frameon=False,
+                  #                      fontsize='small', borderaxespad=0,bbox_to_anchor=(0.5,-0.25))
+
+
+            # fig holds the entire page
         plt.close()
         return fig
 

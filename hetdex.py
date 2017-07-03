@@ -376,7 +376,10 @@ class DetObj:
                 self.fluxfrac = 1.0
 
             self.sigma = float(tokens[9])
-            self.chi2 = float(tokens[10])
+            if tokens[10] == '1':
+                self.chi2 = 666
+            else:
+                self.chi2 = float(tokens[10])
             self.chi2s = float(tokens[11])
             self.chi2w = float(tokens[12])
             self.gammq = float(tokens[13])
@@ -831,10 +834,10 @@ class HETDEX:
                                EmissionLine("OIII",4959,"lime"), EmissionLine("OIII",5007,"lime"),
                                EmissionLine("CIII", 1909, "purple"),
                                EmissionLine("CIV ",1549,"black"),
-                               EmissionLine("H$\\beta$  ",4861,"blue"),
-                               EmissionLine("HeII", 1640, "brown"),
+                               EmissionLine("H$\\beta$ ",4861,"blue"),
+                               EmissionLine("HeII", 1640, "orange"),
                                EmissionLine("MgII", 2798, "magenta",solution=False),
-                               EmissionLine("H$\\gamma$  ", 4341, "royalblue",solution=False),
+                               EmissionLine("H$\\gamma$ ", 4341, "royalblue",solution=False),
                                EmissionLine("NV ",1240,"teal",solution=False),
                                EmissionLine("SiII",1260,"gray",solution=False)]
 
@@ -1304,7 +1307,7 @@ class HETDEX:
             figure_sz_y = 3 * G.GRID_SZ_Y
 
         fig = plt.figure(figsize=(G.FIGURE_SZ_X, figure_sz_y))
-        plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
+        plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
         #plt.tight_layout()
         plt.gca().axis('off')
         # 2x2 grid (but for sizing, make more fine)
@@ -1837,6 +1840,7 @@ class HETDEX:
         Y = (yw / dy) / (xw / dx) * 5.
 
         fig = plt.figure(figsize=(5, Y), frameon=False)
+        plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
 
         # previously sorted in order from largest distances to smallest
         ind = list(range(len(datakeep['d'])))
@@ -1982,6 +1986,7 @@ class HETDEX:
     def build_spec_image(self,datakeep,cwave, dwave=1.0):
 
         fig = plt.figure(figsize=(5, 3))
+        plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
         norm = plt.Normalize()
         colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
 
@@ -2095,6 +2100,7 @@ class HETDEX:
 
         #fig = plt.figure(figsize=(5, 6.25), frameon=False)
         fig = plt.figure(figsize=(G.FIGURE_SZ_X, figure_sz_y),frameon=False)
+        plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
         ind = list(range(len(datakeep['d'])))
 
         border_buffer = 0.025 #percent from left and right edges to leave room for the axis labels
@@ -2213,7 +2219,7 @@ class HETDEX:
                     y_pos = textplot.axis()[2]
                     for w in obs_waves:
                         if abs(f.w_obs - w) < 20: # too close, shift one vertically
-                            y_pos = textplot.axis()[2] + mn + ran*0.5
+                            y_pos = textplot.axis()[2] + mn + ran*0.7
                             break
 
                     obs_waves.append(f.w_obs)

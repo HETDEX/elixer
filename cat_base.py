@@ -15,6 +15,7 @@ import matplotlib.gridspec as gridspec
 
 
 
+
 log = G.logging.getLogger('Cat_logger')
 log.setLevel(G.logging.DEBUG)
 
@@ -262,3 +263,8 @@ class Catalog:
                      fontsize=8, color=arrow_color, verticalalignment='center', horizontalalignment='center')
         except:
             log.error("Exception bulding celestrial north arrow.", exc_info=True)
+
+    def get_bid_colors(self,count=1):
+        norm = plt.Normalize()
+        # gist_rainbow or brg or hsv
+        return plt.cm.brg(norm(np.arange(count)))
