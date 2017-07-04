@@ -1187,7 +1187,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     if spec_z > 0:
                         #plt.axvline(x=spec_z, color='gold', linestyle='solid', linewidth=3, zorder=0)
                         plt.scatter([spec_z,],[plt.gca().get_ylim()[1]*0.9,],zorder=9,
-                                 marker="o",s=40,facecolors='none',edgecolors=bid_colors[col_idx-1])
+                                 marker="o",s=80,facecolors='none',edgecolors=bid_colors[col_idx-1])
 
                     if col_idx == 1:
                         legend = []
@@ -1206,7 +1206,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                                                  fontsize='small', borderaxespad=0, bbox_to_anchor=(0.5, -0.25))
 
                     plt.title("Photo Z PDF")
-                    #plt.gca().set_ylim(bottom=-1) #just negative so can see the zero line better
+                    plt.gca().set_ylim(bottom=0)
                     plt.gca().yaxis.set_visible(False)
                     #plt.xlabel("Z")
 

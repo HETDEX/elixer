@@ -2234,7 +2234,8 @@ class HETDEX:
                     y_pos = textplot.axis()[2]
                     for w in obs_waves:
                         if abs(f.w_obs - w) < 20: # too close, shift one vertically
-                            y_pos = textplot.axis()[2] + mn + ran*0.7
+                            #y_pos = textplot.axis()[2] + mn + ran*0.7
+                            y_pos = (textplot.axis()[3] - textplot.axis()[2]) / 2.0 + textplot.axis()[2]
                             break
 
                     obs_waves.append(f.w_obs)
