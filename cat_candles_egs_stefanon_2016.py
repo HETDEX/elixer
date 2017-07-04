@@ -266,7 +266,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         if entry is not None:
             self.add_bid_entry(entry)
 
-        if G.SINGLE_PAGE_PER_DETECT and (len(ras) > 0) and (len(ras) <= G.MAX_COMBINE_BID_TARGETS):
+        if G.SINGLE_PAGE_PER_DETECT and (len(ras) <= G.MAX_COMBINE_BID_TARGETS):
             entry = self.build_multiple_bid_target_figures_one_line(ras, decs, error,
                                                                target_ra=target_ra, target_dec=target_dec,
                                                                target_w=target_w, target_flux=target_flux)
@@ -1051,8 +1051,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
     def build_multiple_bid_target_figures_one_line(self, ras, decs, error, target_ra=None, target_dec=None,
                                          target_w=0, target_flux=None):
 
-        if len(ras) < 1:
-            return None
+
+
 
         window = error * 2.
         photoz_file = None
@@ -1062,7 +1062,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
         rows = 1
         cols = 6
-        bid_colors = self.get_bid_colors(len(ras))
 
         fig_sz_x = cols * 3
         fig_sz_y = rows * 3
@@ -1082,6 +1081,16 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         plt.subplot(gs[0, 0])
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
+
+        if len(ras) < 1:
+            # per Karl insert a blank row
+            text = "No matching targets in catalog.\nRow intentionally blank."
+            plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
+            plt.close()
+            return fig
+
+
+        bid_colors = self.get_bid_colors(len(ras))
 
         text = "Separation\n" + \
                "RA, Dec\n" + \
