@@ -2049,7 +2049,9 @@ class HETDEX:
             if PLOT_SUMMED_SPECTRA:
                 specplot.step(bigwave, F, c='k', where='mid', lw=5,linestyle="solid",alpha=0.3,zorder=99)
 
-            specplot.axis([cwave - ww, cwave + ww, mn - ran / 20, mx + ran / 20])
+            min_y = max(mn - ran / 20, -20)
+
+            specplot.axis([cwave - ww, cwave + ww, min_y, mx + ran / 20])
             specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='--', c=[0.3, 0.3, 0.3])
 
         except:
