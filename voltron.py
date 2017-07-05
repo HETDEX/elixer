@@ -65,6 +65,7 @@ class pdf_file():
     def __init__(self,basename,id):
         self.filename = '%s' % basename
         self.id = id
+        self.bid_count = 0 #rough number of bid targets included
         if self.id > 0: #i.e. otherwise, just building a single pdf file
             #make the directory
             if not os.path.isdir(self.filename):
@@ -333,91 +334,93 @@ def build_report_part(report_name,pages):
 
     return
 
-def join_report_parts_PyPDF(report_name):
+
+def join_report_parts(report_name, bid_count = 0):
 
     if PyPDF is None:
         return
     print("Finalizing report ...")
 
     if G.SINGLE_PAGE_PER_DETECT:
-        page = None
+        if (bid_count <= G.MAX_COMBINE_BID_TARGETS):
+            list_pages = []
+
+            for i in range(G_PDF_FILE_NUM):
+                #use this rather than glob since glob sometimes messes up the ordering
+                #and this needs to be in the correct order
+                #(though this is a bit ineffecient since we iterate over all the parts every time)
+                part_name = report_name+".part%s" % str(i+1).zfill(4)
+                if os.path.isfile(part_name):
+                    pages = PyPDF.PdfReader(part_name).pages
+                    for p in pages:
+                        #merge_page += p
+                        list_pages.append(p)
+
+            merge_page = PyPDF.PageMerge() + list_pages
+
+            scale = 1.0 #full scale
+            y_offset = 0
+            #need to count backward ... position 0,0 is the bottom of the page
+            #each additional "page" is advanced in y by the y height of the previous "page"
+            for i in range(len(merge_page) - 1, -1, -1):
+                page = merge_page[i]
+                page.scale(scale)
+                page.x = 0
+                page.y = y_offset
+                y_offset = scale* page.box[3] #box is [x0,y0,x_top, y_top]
+
+            if os.path.isdir(report_name):  # often just the base name is given
+                report_name += ".pdf"
+            writer = PyPDF.PdfWriter(report_name)
+            writer.addPage(merge_page.render())
+            writer.write()
+        else: #want a single page, but there are just too many sub-pages
+            list_pages = []
+
+            part_num = 0
+            for i in range(G_PDF_FILE_NUM):
+                # use this rather than glob since glob sometimes messes up the ordering
+                # and this needs to be in the correct order
+                # (though this is a bit ineffecient since we iterate over all the parts every time)
+                part_name = report_name + ".part%s" % str(i + 1).zfill(4)
+                if os.path.isfile(part_name):
+                    pages = PyPDF.PdfReader(part_name).pages
+                    part_num = i + 1
+                    for p in pages:
+                        # merge_page += p
+                        list_pages.append(p)
+                    break # just merge the first part
+
+            merge_page = PyPDF.PageMerge() + list_pages
+
+            scale = 1.0  # full scale
+            y_offset = 0
+            # need to count backward ... position 0,0 is the bottom of the page
+            # each additional "page" is advanced in y by the y height of the previous "page"
+            for i in range(len(merge_page) - 1, -1, -1):
+                page = merge_page[i]
+                page.scale(scale)
+                page.x = 0
+                page.y = y_offset
+                y_offset = scale * page.box[3]  # box is [x0,y0,x_top, y_top]
+
+            if os.path.isdir(report_name):  # often just the base name is given
+                report_name += ".pdf"
+            writer = PyPDF.PdfWriter(report_name)
+            writer.addPage(merge_page.render())
+
+            #now, add (but don't merge) the other parts
+            for i in range(part_num,G_PDF_FILE_NUM):
+                # use this rather than glob since glob sometimes messes up the ordering
+                # and this needs to be in the correct order
+                # (though this is a bit ineffecient since we iterate over all the parts every time)
+                part_name = report_name + ".part%s" % str(i + 1).zfill(4)
+                if os.path.isfile(part_name):
+                    writer.addpages(PyPDF.PdfReader(part_name).pages)
 
 
-#todo: update ... the merge call ONLY merges two pages ... it puts the second at the bottom of the first and
-        #todo: does not extend the first. If a third page is merged, it just overwrites the second
-        for i in range(G_PDF_FILE_NUM):
-            #use this rather than glob since glob sometimes messes up the ordering
-            #and this needs to be in the correct order
-            #(though this is a bit ineffecient since we iterate over all the parts every time)
-            part_name = report_name+".part%s" % str(i+1).zfill(4)
-            if os.path.isfile(part_name):
-                f = PyPDF.PdfFileReader(file(part_name,"rb"))
-                for j in range(f.getNumPages()):
-                    pg = f.getPage(j) #all only one page, so index zero
-                    if page is None:
-                        page = pg #PyPDF.pdf.PageObject(pg)
-                    else:
-                        page.mergePage(pg)
+            writer.write()
 
-        writer = PyPDF.PdfFileWriter()
-        writer.addPage(page)
-        writer.write(file(report_name,"wb"))
-
-    else:
-        merger = PyPDF.PdfFileMerger()
-        #for --multi the file part numbers are unique. Only the first file starts with 001. The second starts with
-        #where the first left off
-        for i in range(G_PDF_FILE_NUM):
-            #use this rather than glob since glob sometimes messes up the ordering
-            #and this needs to be in the correct order
-            #(though this is a bit ineffecient since we iterate over all the parts every time)
-            part_name = report_name+".part%s" % str(i+1).zfill(4)
-            if os.path.isfile(part_name):
-                merger.append(part_name)
-
-        merger.write(report_name)
-    print("File written: " + report_name)
-
-
-
-def join_report_parts(report_name):
-
-    if PyPDF is None:
-        return
-    print("Finalizing report ...")
-
-    if G.SINGLE_PAGE_PER_DETECT:
-        list_pages = []
-
-        for i in range(G_PDF_FILE_NUM):
-            #use this rather than glob since glob sometimes messes up the ordering
-            #and this needs to be in the correct order
-            #(though this is a bit ineffecient since we iterate over all the parts every time)
-            part_name = report_name+".part%s" % str(i+1).zfill(4)
-            if os.path.isfile(part_name):
-                pages = PyPDF.PdfReader(part_name).pages
-                for p in pages:
-                    #merge_page += p
-                    list_pages.append(p)
-
-        merge_page = PyPDF.PageMerge() + list_pages
-
-        scale = 1.0 #full scale
-        y_offset = 0
-        #need to count backward ... position 0,0 is the bottom of the page
-        #each additional "page" is advanced in y by the y height of the previous "page"
-        for i in range(len(merge_page) - 1, -1, -1):
-            page = merge_page[i]
-            page.scale(scale)
-            page.x = 0
-            page.y = y_offset
-            y_offset = scale* page.box[3] #box is [x0,y0,x_top, y_top]
-
-        if os.path.isdir(report_name):  # often just the base name is given
-            report_name += ".pdf"
-        writer = PyPDF.PdfWriter(report_name)
-        writer.addPage(merge_page.render())
-        writer.write()
 
     else:
         writer = PyPDF.PdfWriter()
@@ -571,6 +574,7 @@ def main():
                     pdf.pages,count = build_pages(pdf.filename, ra, dec, args.error, matched_cats, pdf.pages,
                                                   num_hits=num_hits, idstring=id,base_count=count,target_w=e.w,
                                                   fiber_locs=e.fiber_locs,target_flux=e.estflux)
+                    pdf.bid_count += count
                     if args.multi:
                         file_list.append(pdf)
 
@@ -605,7 +609,7 @@ def main():
     if PyPDF is not None:
         if len(file_list) > 0:
             for f in file_list:
-                join_report_parts(f.filename)
+                join_report_parts(f.filename,f.bid_count)
                 delete_report_parts(f.filename)
         else:
             join_report_parts(args.name)

@@ -315,7 +315,7 @@ class GOODS_N(cat_base.Catalog):
         font.set_family('monospace')
         font.set_size(12)
 
-        title = "Catalog: %s\n" % self.Name + section_title + "\nPossible Matches = %d (within %g\")\n" \
+        title = "Catalog: %s\n" % self.Name + section_title + "\nPossible Matches = %d (within +/- %g\")\n" \
                                                               "RA = %f    Dec = %f\n" % (
                                                                   len(self.dataframe_of_bid_targets), error, ra, dec)
         if target_w > 0:
@@ -471,7 +471,7 @@ class GOODS_N(cat_base.Catalog):
         z_photoz_weighted = None
 
         rows = 2
-        cols = len(self.CatalogImages)
+        cols = 4 #len(self.CatalogImages)
 
         if df_photoz is not None:
            pass #photoz is None at this time
@@ -509,24 +509,43 @@ class GOODS_N(cat_base.Catalog):
             if target_w > 0:
                 la_z = target_w / G.LyA_rest - 1.0
                 oii_z = target_w / G.OII_rest - 1.0
-                title = title + "\nLyA Z (virus) = %g (red)" % la_z
+                title = title + "\nLyA Z (virus) = %g " % la_z
                 if (oii_z > 0):
-                    title = title + "\nOII Z (virus) = %g (green)" % oii_z
+                    title = title + "\nOII Z (virus) = %g " % oii_z
                 else:
                     title = title + "\nOII Z (virus) = N/A"
 
             if target_flux is not None:
-                filter_fl = df['ACS_F606W_FLUX'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
-                if (filter_fl is not None) and (filter_fl > 0):
-                    filter_fl = filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
-                    title = title + "\nEst LyA rest-EW = %g $\AA$" % (
-                    -1 * target_flux / filter_fl / (target_w / G.LyA_rest))
 
-                    if target_w >= G.OII_rest:
-                        title = title + "\nEst OII rest-EW = %g $\AA$" % (
-                        -1 * target_flux / filter_fl / (target_w / G.OII_rest))
-                    else:
-                        title = title + "\nEst OII rest-EW = N/A"
+                best_fit_photo_z = 0.0
+                try:
+                    best_fit_photo_z = float(df['Best-fit photo-z'].values[0])
+                except:
+                    pass
+
+                title += "\nSpec Z = N/A\n" + "Photo Z = %g\n" % best_fit_photo_z
+
+                try:
+                    filter_fl = float(
+                        df['F606W (V) flux (nJy)'].values[0])  # in nano-jansky or 1e-32  erg s^-1 cm^-2 Hz^-2
+                    filter_fl_err = float(df['F606W (V) flux error (nJy)'].values[0])
+                except:
+                    filter_fl = 0.0
+                    filter_fl_err = 0.0
+
+                if (target_flux is not None) and (filter_fl != 0.0):
+                    if (filter_fl is not None) and (filter_fl > 0):
+                        filter_fl_adj = filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
+                        title = title + "Est LyA rest-EW = %g $\AA$\n" % (-1 * target_flux / filter_fl_adj / (target_w / G.LyA_rest))
+
+                        if target_w >= G.OII_rest:
+                            title = title + "Est OII rest-EW = %g $\AA$\n" % (-1 * target_flux / filter_fl_adj / (target_w / G.OII_rest))
+                        else:
+                            title = title + "Est OII rest-EW = N/A\n"
+                else:
+                    title += "Est LyA rest-EW = N/A\nEst OII rest-EW = N/A\n"
+
+                title = title + "F606W Flux = %g(%g) nJy\n" % (filter_fl, filter_fl_err)
         else:
             title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)
 
@@ -585,13 +604,20 @@ class GOODS_N(cat_base.Catalog):
         # add photo_z plot
         if df_photoz is not None:
             pass
+        else:
+            plt.subplot(gs[0, 2])
+            plt.gca().set_frame_on(False)
+            plt.gca().axis('off')
+            text = "Photo Z plot not available."
+            plt.text(0, 0.5, text, ha='left', va='bottom', fontproperties=font)
+
 
         empty_sci = science_image.science_image()
         # master cutout (0,0 is the observered (exact) target RA, DEC)
         if self.master_cutout is not None:
             # window=error*4
             ext = error * 2.
-            plt.subplot(gs[0, cols - 1])
+            plt.subplot(gs[0, 3])
             vmin, vmax = empty_sci.get_vrange(self.master_cutout.data)
             plt.imshow(self.master_cutout.data, origin='lower', interpolation='none',
                        cmap=plt.get_cmap('gray_r'),
@@ -658,7 +684,7 @@ class GOODS_N(cat_base.Catalog):
         font.set_family('monospace')
         font.set_size(12)
 
-        title = "%s\n" % self.Name + "\nPossible Matches = %d\n  (within %g\")\n" \
+        title = "%s\n" % self.Name + "\nPossible Matches = %d\n  (within +/- %g\")\n" \
                                                               % (len(self.dataframe_of_bid_targets), error)
 
         if target_flux is not None:
@@ -862,9 +888,9 @@ class GOODS_N(cat_base.Catalog):
             if target_w > 0:
                 la_z = target_w / G.LyA_rest - 1.0
                 oii_z = target_w / G.OII_rest - 1.0
-                title = title + "\nLyA Z (virus) = %g (red)" % la_z
+                title = title + "\nLyA Z (virus) = %g" % la_z
                 if (oii_z > 0):
-                    title = title + "\nOII Z (virus) = %g (green)" % oii_z
+                    title = title + "\nOII Z (virus) = %g" % oii_z
                 else:
                     title = title + "\nOII Z (virus) = N/A"
 
@@ -909,10 +935,16 @@ class GOODS_N(cat_base.Catalog):
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
-
+        # todo: photo z plot if becomes available
         # add photo_z plot
         if df_photoz is not None:
             pass
+        else:
+            plt.subplot(gs[0, -4:])
+            plt.gca().set_frame_on(False)
+            plt.gca().axis('off')
+            text = "Photo Z plot not available."
+            plt.text(0, 0.5, text, ha='left', va='bottom', fontproperties=font)
 
         # fig holds the entire page
         plt.close()
@@ -1023,6 +1055,14 @@ class GOODS_N(cat_base.Catalog):
             plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font,color=bid_colors[col_idx-1])
 
             # fig holds the entire page
+
+            #todo: photo z plot if becomes available
+            plt.subplot(gs[0, 4:])
+            plt.gca().set_frame_on(False)
+            plt.gca().axis('off')
+            text = "Photo Z plot not available."
+            plt.text(0, 0.5, text, ha='left', va='bottom', fontproperties=font)
+
         plt.close()
         return fig
 

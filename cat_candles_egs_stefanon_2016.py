@@ -349,7 +349,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         font.set_family('monospace')
         font.set_size(12)
 
-        title = "Catalog: %s\n" % self.Name + section_title + "\nPossible Matches = %d (within %g\")\n" \
+        title = "Catalog: %s\n" % self.Name + section_title + "\nPossible Matches = %d (within +/- %g\")\n" \
                                                               "RA = %f    Dec = %f\n" % (
                                                                   len(self.dataframe_of_bid_targets), error, ra, dec)
         if target_w > 0:
@@ -505,7 +505,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         z_photoz_weighted = None
 
         rows = 2
-        cols = len(self.CatalogImages)
+        cols = 6 #len(self.CatalogImages)
 
         if df_photoz is not None:
             photoz_file = df_photoz['file'].values[0]
@@ -733,7 +733,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         font.set_family('monospace')
         font.set_size(12)
 
-        title = "%s\n" % self.Name + "\nPossible Matches = %d\n  (within %g\")\n" \
+        title = "%s\n" % self.Name + "\nPossible Matches = %d\n  (within +/- %g\")\n" \
                                                               % (len(self.dataframe_of_bid_targets), error)
 
         if target_flux is not None:
@@ -1050,8 +1050,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
     def build_multiple_bid_target_figures_one_line(self, ras, decs, error, target_ra=None, target_dec=None,
                                          target_w=0, target_flux=None):
-
-
 
 
         window = error * 2.
