@@ -139,6 +139,9 @@ def parse_commandline():
 
     args = parser.parse_args()
 
+    #regardless of setting, --multi must now always be true
+    #args.multi = True
+
     #if args.multi and (args.name is not None):
     #    G.logging.basicConfig(filename=args.name+".log", level=G.LOG_LEVEL, filemode='w')
     #else:
@@ -377,8 +380,6 @@ def join_report_parts_PyPDF(report_name):
 
 
 
-
-
 def join_report_parts(report_name):
 
     if PyPDF is None:
@@ -386,7 +387,6 @@ def join_report_parts(report_name):
     print("Finalizing report ...")
 
     if G.SINGLE_PAGE_PER_DETECT:
-
         list_pages = []
 
         for i in range(G_PDF_FILE_NUM):
@@ -413,7 +413,8 @@ def join_report_parts(report_name):
             page.y = y_offset
             y_offset = scale* page.box[3] #box is [x0,y0,x_top, y_top]
 
-
+        if os.path.isdir(report_name):  # often just the base name is given
+            report_name += ".pdf"
         writer = PyPDF.PdfWriter(report_name)
         writer.addPage(merge_page.render())
         writer.write()
@@ -554,18 +555,7 @@ def main():
                 total = len(hd.emis_list)
                 count = 0
 
-                #todo: determine size of figure and gridspec from number of matched_cats and hd.emis_list
-                #todo: then build plot_info object
-                #base hetdex plot needs a fixed size
-                grids_x = 6
-                grids_y = 5 + len(hd.emis_list) #5 = 2 for hetdex top + 1 for full width spectra + 2 for catalog summary
-                if G.SHOW_FULL_2D_SPECTRA:
-                    grids_y += 2 # 2 additional grids for full width 2D spectra
-
                 for e in hd.emis_list:
-                    # section_id += 1
-                    # id = "#" + str(section_id) + " of " + str(total) + "  (Detect ID #" + str(e.id) + ")"
-
                     if args.multi: #create a new entry for each emission
                         pdf = pdf_file(args.name, e.id)
 
@@ -578,9 +568,9 @@ def main():
                         dec = e.dec
                     pdf.pages = build_hetdex_section(pdf.filename,hd,e.id,pdf.pages) #this is the fiber, spectra cutouts for this detect
 
-                    pdf.pages,count = build_pages(pdf.filename, ra, dec, args.error, matched_cats, pdf.pages,num_hits=num_hits,
-                                              idstring=id,base_count=count,target_w=e.w,fiber_locs=e.fiber_locs,
-                                                  target_flux=e.estflux)
+                    pdf.pages,count = build_pages(pdf.filename, ra, dec, args.error, matched_cats, pdf.pages,
+                                                  num_hits=num_hits, idstring=id,base_count=count,target_w=e.w,
+                                                  fiber_locs=e.fiber_locs,target_flux=e.estflux)
                     if args.multi:
                         file_list.append(pdf)
 

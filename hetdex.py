@@ -2189,7 +2189,7 @@ class HETDEX:
             stop = -1
 
         try:
-             #new way, per Karl, straigt sum
+             #new way, per Karl, straight sum
             for j in range(N - 1, stop, -1):
                 # regardless of the number if the sn is below the threshold, skip it
                 if (datakeep['fiber_sn'][j] is not None) and (datakeep['fiber_sn'][j] < self.min_fiber_sn):

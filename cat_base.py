@@ -13,9 +13,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
-
-
-
 log = G.logging.getLogger('Cat_logger')
 log.setLevel(G.logging.DEBUG)
 

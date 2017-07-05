@@ -4,12 +4,10 @@ import global_config as G
 import os.path as op
 
 
-CANDELS_EGS_Stefanon_2016_BASE_PATH = G.CANDELS_EGS_Stefanon_2016_BASE_PATH
-CANDELS_EGS_Stefanon_2016_CAT = op.join(CANDELS_EGS_Stefanon_2016_BASE_PATH,
-                                        "photometry/CANDELS.EGS.F160W.v1_1.photom.cat")
-CANDELS_EGS_Stefanon_2016_IMAGES_PATH = op.join(CANDELS_EGS_Stefanon_2016_BASE_PATH, "images")
-CANDELS_EGS_Stefanon_2016_PHOTOZ_CAT = op.join(CANDELS_EGS_Stefanon_2016_BASE_PATH , "photoz/zcat_EGS_v2.0.cat")
-CANDELS_EGS_Stefanon_2016_PHOTOZ_ZPDF_PATH = op.join(CANDELS_EGS_Stefanon_2016_BASE_PATH, "photoz/zPDF/")
+GOODS_N_BASE_PATH = G.GOODS_N_BASE_PATH
+GOODS_N_CAT = op.join(G.GOODS_N_CAT_PATH, "GOODSN_HST_Finkelstein.cat")
+GOODS_N_IMAGES_PATH = GOODS_N_BASE_PATH
+
 
 import matplotlib
 matplotlib.use('agg')
@@ -20,9 +18,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 import matplotlib.gridspec as gridspec
-import matplotlib.patches as mpatches
-#import mpl_toolkits.axisartist.floating_axes as floating_axes
-#from matplotlib.transforms import Affine2D
 
 
 log = G.logging.getLogger('Cat_logger')
@@ -33,122 +28,98 @@ pd.options.mode.chained_assignment = None  #turn off warning about setting the d
 import cat_base
 
 
-class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
-    # RA,Dec in decimal degrees
-
-    # photometry catalog
-    #  1 ID #  2 IAU_designation  #  3 RA  #  4 DEC #  5 RA_Lotz2008 (RA in AEGIS ACS astrometric system)  #  6 DEC_Lotz2008 (DEC in AEGIS ACS astrometric system)
-    #  7 FLAGS #  8 CLASS_STAR #  9 CFHT_U_FLUX  # 10 CFHT_U_FLUXERR # 11 CFHT_g_FLUX # 12 CFHT_g_FLUXERR # 13 CFHT_r_FLUX
-    # 14 CFHT_r_FLUXERR  # 15 CFHT_i_FLUX # 16 CFHT_i_FLUXERR # 17 CFHT_z_FLUX # 18 CFHT_z_FLUXERR # 19 ACS_F606W_FLUX
-    # 20 ACS_F606W_FLUXERR # 21 ACS_F814W_FLUX # 22 ACS_F814W_FLUXERR # 23 WFC3_F125W_FLUX # 24 WFC3_F125W_FLUXERR
-    # 25 WFC3_F140W_FLUX # 26 WFC3_F140W_FLUXERR # 27 WFC3_F160W_FLUX # 28 WFC3_F160W_FLUXERR # 29 WIRCAM_J_FLUX
-    # 30 WIRCAM_J_FLUXERR  # 31 WIRCAM_H_FLUX # 32 WIRCAM_H_FLUXERR # 33 WIRCAM_K_FLUX # 34 WIRCAM_K_FLUXERR
-    # 35 NEWFIRM_J1_FLUX # 36 NEWFIRM_J1_FLUXERR # 37 NEWFIRM_J2_FLUX # 38 NEWFIRM_J2_FLUXERR # 39 NEWFIRM_J3_FLUX # 40 NEWFIRM_J3_FLUXERR
-    # 41 NEWFIRM_H1_FLUX # 42 NEWFIRM_H1_FLUXERR # 43 NEWFIRM_H2_FLUX # 44 NEWFIRM_H2_FLUXERR # 45 NEWFIRM_K_FLUX# 46 NEWFIRM_K_FLUXERR
-    # 47 IRAC_CH1_FLUX # 48 IRAC_CH1_FLUXERR # 49 IRAC_CH2_FLUX # 50 IRAC_CH2_FLUXERR # 51 IRAC_CH3_FLUX # 52 IRAC_CH3_FLUXERR # 53 IRAC_CH4_FLUX
-    # 54 IRAC_CH4_FLUXERR # 55 ACS_F606W_V08_FLUX # 56 ACS_F606W_V08_FLUXERR # 57 ACS_F814W_V08_FLUX # 58 ACS_F814W_V08_FLUXERR
-    # 59 WFC3_F125W_V08_FLUX # 60 WFC3_F125W_V08_FLUXERR # 61 WFC3_F160W_V08_FLUX # 62 WFC3_F160W_V08_FLUXERR
-    # 63 IRAC_CH3_V08_FLUX # 64 IRAC_CH3_V08_FLUXERR # 65 IRAC_CH4_V08_FLUX # 66 IRAC_CH4_V08_FLUXERR # 67 DEEP_SPEC_Z
+class GOODS_N(cat_base.Catalog):
 
     # class variables
-    MainCatalog = CANDELS_EGS_Stefanon_2016_CAT
-    Name = "CANDELS_EGS_Stefanon_2016"
+    # 1 RA (J2000)
+    # 2 Dec (J2000)
+    # 3 Best-fit photo-z
+    # 4 Photoz lower 68% CL
+    # 5 Photoz upper 68% CL
+    # 6 F435W (B) flux (nJy)
+    # 7 F435W (B) flux error (nJy)
+    # 8 F606W (V) flux (nJy)
+    # 9 F606W (V) flux error (nJy)
+    # 10 F775W (i) flux (nJy)
+    # 11 F775W (i) flux error (nJy)
+    # 12 F814W (I) flux (nJy)
+    # 13 F814W (I) flux error (nJy)
+    # 14 F850LP (z) flux (nJy)
+    # 15 F850LP (z) flux error (nJy)
+    # 16 F105W (Y) flux (nJy)
+    # 17 F105W (Y) flux error (nJy)
+    # 18 F125W (J) flux (nJy)
+    # 19 F125W (J) flux error (nJy)
+    # 20 F160W (H) flux (nJy)
+    # 21 F160W (H) flux error (nJy)
+
+    MainCatalog = GOODS_N_CAT
+    Name = "GOODS_N"
     # if multiple images, the composite broadest range (filled in by hand)
-    Image_Coord_Range = {'RA_min': None, 'RA_max': None, 'Dec_min': None, 'Dec_max': None}
-    Cat_Coord_Range = {'RA_min': 214.576759, 'RA_max': 215.305229, 'Dec_min': 52.677569, 'Dec_max': 53.105756}
+    Image_Coord_Range = {'RA_min': 188.91, 'RA_max': 189.55, 'Dec_min': 62.09, 'Dec_max': 62.39}
+    Cat_Coord_Range = {'RA_min': 188.915588, 'RA_max': 189.543671, 'Dec_min': 62.091625, 'Dec_max': 62.385319}
     WCS_Manual = True
-    BidCols = ["ID", "IAU_designation", "RA", "DEC",
-               "CFHT_U_FLUX", "CFHT_U_FLUXERR",
-               "IRAC_CH1_FLUX", "IRAC_CH1_FLUXERR", "IRAC_CH2_FLUX", "IRAC_CH2_FLUXERR",
-               "ACS_F606W_FLUX", "ACS_F606W_FLUXERR",
-               "ACS_F814W_FLUX", "ACS_F814W_FLUXERR",
-               "WFC3_F125W_FLUX", "WFC3_F125W_FLUXERR",
-               "WFC3_F140W_FLUX", "WFC3_F140W_FLUXERR",
-               "WC3_F160W_FLUX", "WFC3_F160W_FLUXERR",
-               "DEEP_SPEC_Z"]  # NOTE: there are no F105W values
+    BidCols = []  # NOTE: there are no F105W values
+
+    # 6 F435W (B) flux (nJy)
+    # 6 F435W (B) flux error (nJy)
+    # 6 F606W (V) flux (nJy)
+    # 6 F606W (V) flux error (nJy)
+    # 6 F775W (i) flux (nJy)
+    # 6 F775W (i) flux error (nJy)
+    # 6 F814W (I) flux (nJy)
+    # 6 F814W (I) flux error (nJy)
+    # 6 F850LP (z) flux (nJy)
+    # 6 F850LP (z) flux error (nJy)
+    # 6 F105W (Y) flux (nJy)
+    # 6 F105W (Y) flux error (nJy)
+    # 6 F125W (J) flux (nJy)
+    # 6 F125W (J) flux error (nJy)
+    # 6 F160W (H) flux (nJy)
+    # 6 F160W (H) flux error (nJy)
+
 
     CatalogImages = [
-        {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
-         'name': 'egs_all_acs_wfc_f606w_060mas_v1.1_drz.fits',
+        {'path': GOODS_N_IMAGES_PATH,
+         'name': 'gn_acs_old_f606w_060mas_v2_drz.fits',
          'filter': 'f606w',
-         'instrument': 'ACS WFC',
-         'cols': ["ACS_F606W_FLUX", "ACS_F606W_FLUXERR"],
+         'instrument': 'ACS',
+         'cols': ['F606W (V) flux (nJy)','F606W (V) flux error (nJy)'],
          'labels': ["Flux", "Err"],
          'image': None
          },
-        {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
-         'name': 'egs_all_acs_wfc_f814w_060mas_v1.1_drz.fits',
+        {'path': GOODS_N_IMAGES_PATH,
+         'name': 'gn_all_candels_acs_f814w_060mas_v0.9_drz.fits',
          'filter': 'f814w',
-         'instrument': 'ACS WFC',
-         'cols': ["ACS_F814W_FLUX", "ACS_F814W_FLUXERR"],
+         'instrument': 'ACS',
+         'cols': ['F814W (I) flux (nJy)','F814W (I) flux error (nJy)'],
          'labels': ["Flux", "Err"],
          'image': None
          },
-     #   {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
-     #    'name': 'egs_all_wfc3_ir_f105w_060mas_v1.5_drz.fits',
-     #    'filter': 'f105w',
-     #    'instrument': 'WFC3',
-     #    'cols': [],
-     #    'labels': [],
-     #    'image': None
-     #    },
-        {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
-         'name': 'egs_all_wfc3_ir_f125w_060mas_v1.1_drz.fits',
+        {'path': GOODS_N_IMAGES_PATH,
+         'name': 'gn_all_candels_wfc3_f125w_060mas_v0.8_drz.fits',
          'filter': 'f125w',
          'instrument': 'WFC3',
-         'cols': ["WFC3_F125W_FLUX", "WFC3_F125W_FLUXERR"],
+         'cols': ['F125W (J) flux (nJy)','F125W (J) flux error (nJy)'],
          'labels': ["Flux", "Err"],
          'image': None
          },
-    #    {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
-    #     'name': 'egs_all_wfc3_ir_f140w_060mas_v1.1_drz.fits',
-    #     'filter': 'f140w',
-    #     'instrument': 'WFC3',
-    #     'cols': ["WFC3_F140W_FLUX", "WFC3_F140W_FLUXERR"],
-    #     'labels': ["Flux", "Err"],
-    #     'image': None
-    #     },
-        {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
-         'name': 'egs_all_wfc3_ir_f160w_060mas_v1.1_drz.fits',
+        {'path': GOODS_N_IMAGES_PATH,
+         'name': 'gn_all_candels_wfc3_f160w_060mas_v0.8_drz.fits',
          'filter': 'f160w',
          'instrument': 'WFC3',
-         'cols': ["WFC3_F160W_FLUX", "WFC3_F160W_FLUXERR"],
+         'cols': ['F160W (H) flux (nJy)','F160W (H) flux error (nJy)'],
          'labels': ["Flux", "Err"],
          'image': None
          }
     ]
 
-    # 1 file # 2 ID (CANDELS.EGS.F160W.v1b_1.photom.cat) # 3 RA (CANDELS.EGS.F160W.v1b_1.photom.cat) # 4 DEC (CANDELS.EGS.F160W.v1b_1.photom.cat)
-    # 5 z_best # 6 z_best_type # 7 z_spec # 8 z_spec_ref # 9 z_grism # 10 mFDa4_z_peak # 11 mFDa4_z_weight # 12 mFDa4_z683_low
-    # 13 mFDa4_z683_high # 14 mFDa4_z954_low # 15 mFDa4_z954_high # 16 HB4_z_peak # 17 HB4_z_weight # 18 HB4_z683_low
-    # 19 HB4_z683_high # 20 HB4_z954_low # 21 HB4_z954_high # 22 Finkelstein_z_peak # 23 Finkelstein_z_weight
-    # 24 Finkelstein_z683_low # 25 Finkelstein_z683_high # 26 Finkelstein_z954_low # 27 Finkelstein_z954_high
-    # 28 Fontana_z_peak # 29 Fontana_z_weight # 30 Fontana_z683_low # 31 Fontana_z683_high # 32 Fontana_z954_low
-    # 33 Fontana_z954_high # 34 Pforr_z_peak # 35 Pforr_z_weight # 36 Pforr_z683_low # 37 Pforr_z683_high
-    # 38 Pforr_z954_low # 39 Pforr_z954_high # 40 Salvato_z_peak # 41 Salvato_z_weight # 42 Salvato_z683_low
-    # 43 Salvato_z683_high # 44 Salvato_z954_low # 45 Salvato_z954_high # 46 Wiklind_z_peak # 47 Wiklind_z_weight
-    # 48 Wiklind_z683_low  # 49 Wiklind_z683_high # 50 Wiklind_z954_low # 51 Wiklind_z954_high # 52 Wuyts_z_peak
-    # 53 Wuyts_z_weight  # 54 Wuyts_z683_low # 55 Wuyts_z683_high # 56 Wuyts_z954_low # 57 Wuyts_z954_high
-
-    PhotoZCatalog = CANDELS_EGS_Stefanon_2016_PHOTOZ_CAT
-    SupportFilesLocation = CANDELS_EGS_Stefanon_2016_PHOTOZ_ZPDF_PATH
-
     def __init__(self):
-        super(CANDELS_EGS_Stefanon_2016, self).__init__()
+        super(GOODS_N, self).__init__()
 
-        # self.dataframe_of_bid_targets = None #defined in base class
-        self.dataframe_of_bid_targets_photoz = None
-        # self.table_of_bid_targets = None
         self.num_targets = 0
-
-        # do this only as needed
-        # self.read_main_catalog()
-        # self.read_photoz_catalog()
-        # self.build_catalog_images() #will just build on demand
-
         self.master_cutout = None
 
-    # todo: is this more efficient? garbage collection does not seem to be running
     # so building as needed does not seem to help memory
     def build_catalog_images(self):
         for i in self.CatalogImages:  # i is a dictionary
@@ -156,23 +127,9 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                                                      image_location=op.join(i['path'], i['name']))
 
     @classmethod
-    def read_photoz_catalog(cls):
-        if cls.df_photoz is not None:
-            log.debug("Already built df_photoz")
-        else:
-            try:
-                print("Reading photoz catalog for ", cls.Name)
-                cls.df_photoz = cls.read_catalog(cls.PhotoZCatalog, cls.Name)
-            except:
-                print("Failed")
-
-        return
-
-    @classmethod
     def read_catalog(cls, catalog_loc, name):
 
         log.debug("Building " + name + " dataframe...")
-        idx = []
         header = []
         skip = 0
         try:
@@ -181,13 +138,40 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             log.error(name + " Exception attempting to open catalog file: " + catalog_loc, exc_info=True)
             return None
 
+        # 1 RA (J2000)
+        # 2 Dec (J2000)
+        # 3 Best-fit photo-z
+        # 4 Photoz lower 68% CL
+        # 5 Photoz upper 68% CL
+        # 6 F435W (B) flux (nJy)
+        # 6 F435W (B) flux error (nJy)
+        # 6 F606W (V) flux (nJy)
+        # 6 F606W (V) flux error (nJy)
+        # 6 F775W (i) flux (nJy)
+        # 6 F775W (i) flux error (nJy)
+        # 6 F814W (I) flux (nJy)
+        # 6 F814W (I) flux error (nJy)
+        # 6 F850LP (z) flux (nJy)
+        # 6 F850LP (z) flux error (nJy)
+        # 6 F105W (Y) flux (nJy)
+        # 6 F105W (Y) flux error (nJy)
+        # 6 F125W (J) flux (nJy)
+        # 6 F125W (J) flux error (nJy)
+        # 6 F160W (H) flux (nJy)
+        # 6 F160W (H) flux error (nJy)
+
         line = f.readline()
         while '#' in line:
             skip += 1
             toks = line.split()
-            if (len(toks) > 2) and toks[1].isdigit():  # format:   # <id number> <column name>
-                idx.append(toks[1])
-                header.append(toks[2])
+            if (len(toks) > 2): # and toks[1].isdigit():  # format:   #<id number> <column name (multiple tokens)>
+                label = " ".join(toks[1:])
+                #translastion
+                if label == 'RA (J2000)':
+                    label = 'RA'
+                elif label == 'Dec (J2000)':
+                    label = 'DEC'
+                header.append(label)
             line = f.readline()
 
         f.close()
@@ -207,8 +191,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
         if self.df is None:
             self.read_main_catalog()
-        if self.df_photoz is None:
-            self.read_photoz_catalog()
 
         error_in_deg = np.float64(error) / 3600.0
 
@@ -229,9 +211,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 self.df[(self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max) &
                         (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)].copy()
 
-            # ID matches between both catalogs
-            self.dataframe_of_bid_targets_photoz = \
-                self.df_photoz[(self.df_photoz['ID'].isin(self.dataframe_of_bid_targets['ID']))].copy()
         except:
             log.error(self.Name + " Exception in build_list_of_bid_targets", exc_info=True)
 
@@ -256,7 +235,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
         # display the exact (target) location
         if G.SINGLE_PAGE_PER_DETECT:
-
             entry = self.build_cat_summary_figure(target_ra, target_dec, error, ras, decs,
                                                   target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux)
         else:
@@ -282,34 +260,22 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                            (self.dataframe_of_bid_targets['DEC'] == d[0])]
 
-                    idnum = df['ID'].values[0]  # to matchup in photoz catalog
                 except:
                     log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
                     continue  # this must be here, so skip to next ra,dec
 
-                try:
-                    # note cannot dirctly use RA,DEC as the recorded precission is different (could do a rounded match)
-                    # but the idnums match up, so just use that
-                    df_photoz = self.dataframe_of_bid_targets_photoz.loc[
-                        self.dataframe_of_bid_targets_photoz['ID'] == idnum]
 
-                    if len(df_photoz) == 0:
-                        log.debug("No conterpart found in photoz catalog; RA=%f , Dec =%f" % (r[0], d[0]))
-                        df_photoz = None
-                except:
-                    log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
-                    df_photoz = None
 
                 print("Building report for bid target %d in %s" % (base_count + number, self.Name))
 
                 if G.SINGLE_PAGE_PER_DETECT and (len(ras) <= G.MAX_COMBINE_BID_TARGETS):
-                    entry = self.build_bid_target_figure_one_line(r[0], d[0], error=error, df=df, df_photoz=df_photoz,
+                    entry = self.build_bid_target_figure_one_line(r[0], d[0], error=error, df=df, df_photoz=None,
                                                      target_ra=target_ra, target_dec=target_dec,
                                                      section_title=section_title,
                                                      bid_number=number, target_w=target_w, of_number=num_hits-base_count,
                                                      target_flux=target_flux,color=bid_colors[number-1])
                 else:
-                    entry = self.build_bid_target_figure(r[0], d[0], error=error, df=df, df_photoz=df_photoz,
+                    entry = self.build_bid_target_figure(r[0], d[0], error=error, df=df, df_photoz=None,
                                                      target_ra=target_ra, target_dec=target_dec,
                                                      section_title=section_title,
                                                      bid_number=number, target_w=target_w, of_number=num_hits-base_count,
@@ -508,13 +474,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         cols = len(self.CatalogImages)
 
         if df_photoz is not None:
-            photoz_file = df_photoz['file'].values[0]
-            z_best = df_photoz['z_best'].values[0]
-            z_best_type = df_photoz['z_best_type'].values[0]  # s = spectral , p = photometric?
-            z_photoz_weighted = df_photoz['mFDa4_z_weight']
-            # z_spec = df_photoz['z_spec'].values[0]
-            # z_spec_ref = df_photoz['z_spec_ref'].values[0]
-            # rows = rows + 1
+           pass #photoz is None at this time
 
         fig_sz_x = cols * 3
         fig_sz_y = rows * 3
@@ -528,24 +488,14 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
         plt.subplots_adjust(left=0.05, right=0.95, top=0.9, bottom=0.1)
 
-        spec_z = 0.0
-
         if df is not None:
             title = "%s  Possible Match #%d" % (section_title, bid_number)
             if of_number > 0:
                 title = title + " of %d" % of_number
 
-            title = title + "\n%s\nRA = %f    Dec = %f\nSeparation    = %g\"" \
-                            % (df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
+            title = title + "\nRA = %f    Dec = %f\nSeparation    = %g\"" \
+                            % (df['RA'].values[0], df['DEC'].values[0],
                                df['distance'].values[0] * 3600)
-            # do not use DEEP SPEC Z, just use spec Z below
-            # z = df['DEEP_SPEC_Z'].values[0]
-            # if z >= 0.0:
-            #     if (z_best_type is not None) and (z_best_type.lower() == 's'):
-            #         title = title + "\nDEEP SPEC Z = %g" % z
-            #     else:
-            #         title = title + "\nDEEP SPEC Z = %g (gold)" % z
-            #         spec_z = z
 
             if z_best_type is not None:
                 if (z_best_type.lower() == 'p'):
@@ -627,39 +577,14 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     s = ""
                     for f, l in zip(i['cols'], i['labels']):
                         # print (f)
-                        v = df[f].values[0]
+                        v = float(df[f].values[0])
                         s = s + "%-8s = %.5f\n" % (l, v)
 
                     plt.xlabel(s, multialignment='left', fontproperties=font)
 
         # add photo_z plot
-        # if the z_best_type is 'p' call it photo-Z, if s call it 'spec-Z'
-        # alwasy read in file for "file" and plot column 1 (z as x) vs column 9 (pseudo-probability)
-        # get 'file'
-        # z_best  # 6 z_best_type # 7 z_spec # 8 z_spec_ref
         if df_photoz is not None:
-            z_cat = self.read_catalog(op.join(self.SupportFilesLocation, photoz_file), "z_cat")
-            if z_cat is not None:
-                x = z_cat['z'].values
-                y = z_cat['mFDa4'].values
-                plt.subplot(gs[0, 3:5])
-                plt.plot(x, y, zorder=1)
-                plt.xlim([0, 3.6])
-                # trim axis to 0 to 3.6
-
-                if spec_z > 0:
-                    plt.axvline(x=spec_z, color='gold', linestyle='solid', linewidth=3, zorder=0)
-
-                if target_w > 0:
-                    la_z = target_w / G.LyA_rest - 1.0
-                    oii_z = target_w / G.OII_rest - 1.0
-                    plt.axvline(x=la_z, color='r', linestyle='--', zorder=2)
-                    if (oii_z > 0):
-                        plt.axvline(x=oii_z, color='g', linestyle='--', zorder=2)
-
-                plt.title("Photo Z PDF")
-                plt.gca().yaxis.set_visible(False)
-                plt.xlabel("Z")
+            pass
 
         empty_sci = science_image.science_image()
         # master cutout (0,0 is the observered (exact) target RA, DEC)
@@ -810,32 +735,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
         empty_sci = science_image.science_image()
 
-        # plot the master cutout
-        if False:  # todo: turn off master cutout (build it, but don't show ... combine with fiber positions)
-            plt.subplot(gs[0, cols - 1])
-            vmin, vmax = empty_sci.get_vrange(self.master_cutout.data)
-            plt.imshow(self.master_cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
-                       vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
-            plt.title("Master Cutout (Stacked)")
-            plt.xlabel("arcsecs")
-            plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-            plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-
-            # only show this lable if there is not going to be an adjacent fiber plot
-            if (fiber_locs is None) or (len(fiber_locs) == 0):
-                plt.ylabel("arcsecs")
-            plt.plot(0, 0, "r+")
-
-            theta = empty_sci.get_rotation_to_celestrial_north(self.master_cutout)
-            self.add_north_box(plt, sci, self.master_cutout, error, 0, 0, theta)
-
-            #add the bid targets
-            x, y = empty_sci.get_position(ra, dec, self.master_cutout)  # zero (absolute) position
-            for br,bd,bc in zip(bid_ras,bid_decs,bid_colors):
-                fx, fy = empty_sci.get_position(br, bd, self.master_cutout)
-                plt.gca().add_patch(plt.Rectangle(( (fx - x) - target_box_side/2.0, (fy - y) - target_box_side/2.0),
-                                                  width=target_box_side, height=target_box_side,
-                                                  angle=0.0, color=bc, fill=False, linewidth=1.0, zorder=1))
 
         # plot the fiber cutout
         if (fiber_locs is not None) and (len(fiber_locs) > 0):
@@ -918,10 +817,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         cols = 6
 
         if df_photoz is not None:
-            photoz_file = df_photoz['file'].values[0]
-            z_best = df_photoz['z_best'].values[0]
-            z_best_type = df_photoz['z_best_type'].values[0]  # s = spectral , p = photometric?
-            z_photoz_weighted = df_photoz['mFDa4_z_weight']
+           pass
 
         fig_sz_x = cols * 3
         fig_sz_y = rows * 3
@@ -951,9 +847,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             if of_number > 0:
                 title = title + " of %d" % of_number
 
-            title = title + "\n%s\nRA = %f    Dec = %f\nSeparation    = %g\"" \
-                            % (df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
-                               df['distance'].values[0] * 3600)
+            title = title + "\nRA = %f    Dec = %f\nSeparation    = %g\"" \
+                            % (df['RA'].values[0], df['DEC'].values[0],df['distance'].values[0] * 3600)
 
             if z_best_type is not None:
                 if (z_best_type.lower() == 'p'):
@@ -1006,7 +901,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     title = title + "%7s %s %s = -- (--)\n" % (i['instrument'], i['filter'], "Flux")
                 else:
                     title = title + "%7s %s %s = %.5f (%.5f)\n" % (i['instrument'], i['filter'], "Flux",
-                            df[i['cols'][0]].values[0], df[i['cols'][1]].values[0])
+                            float(df[i['cols'][0]].values[0]), float(df[i['cols'][1]].values[0]))
 
 
         plt.subplot(gs[0, 4])
@@ -1016,33 +911,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
 
         # add photo_z plot
-        # if the z_best_type is 'p' call it photo-Z, if s call it 'spec-Z'
-        # alwasy read in file for "file" and plot column 1 (z as x) vs column 9 (pseudo-probability)
-        # get 'file'
-        # z_best  # 6 z_best_type # 7 z_spec # 8 z_spec_ref
         if df_photoz is not None:
-            z_cat = self.read_catalog(op.join(self.SupportFilesLocation, photoz_file), "z_cat")
-            if z_cat is not None:
-                x = z_cat['z'].values
-                y = z_cat['mFDa4'].values
-                plt.subplot(gs[0, -4:])
-                plt.plot(x, y, zorder=1)
-                plt.xlim([0, 3.6])
-                # trim axis to 0 to 3.6
-
-                if spec_z > 0:
-                    plt.axvline(x=spec_z, color='gold', linestyle='solid', linewidth=3, zorder=0)
-
-                if target_w > 0:
-                    la_z = target_w / G.LyA_rest - 1.0
-                    oii_z = target_w / G.OII_rest - 1.0
-                    plt.axvline(x=la_z, color='r', linestyle='--', zorder=2)
-                    if (oii_z > 0):
-                        plt.axvline(x=oii_z, color='g', linestyle='--', zorder=2)
-
-                plt.title("Photo Z PDF")
-                plt.gca().yaxis.set_visible(False)
-                plt.xlabel("Z")
+            pass
 
         # fig holds the entire page
         plt.close()
@@ -1050,10 +920,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
     def build_multiple_bid_target_figures_one_line(self, ras, decs, error, target_ra=None, target_dec=None,
                                          target_w=0, target_flux=None):
-
-
-
-
         window = error * 2.
         photoz_file = None
         z_best = None
@@ -1111,61 +977,33 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                        (self.dataframe_of_bid_targets['DEC'] == d[0])]
 
-                idnum = df['ID'].values[0]  # to matchup in photoz catalog
             except:
                 log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
                 continue  # this must be here, so skip to next ra,dec
 
-            try:
-                # note cannot dirctly use RA,DEC as the recorded precission is different (could do a rounded match)
-                # but the idnums match up, so just use that
-                df_photoz = self.dataframe_of_bid_targets_photoz.loc[
-                    self.dataframe_of_bid_targets_photoz['ID'] == idnum]
-
-                if len(df_photoz) == 0:
-                    log.debug("No conterpart found in photoz catalog; RA=%f , Dec =%f" % (r[0], d[0]))
-                    df_photoz = None
-            except:
-                log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
-                df_photoz = None
-
-            if df_photoz is not None:
-                photoz_file = df_photoz['file'].values[0]
-                z_best = df_photoz['z_best'].values[0]
-                z_best_type = df_photoz['z_best_type'].values[0]  # s = spectral , p = photometric?
-                z_photoz_weighted = df_photoz['mFDa4_z_weight']
-
             if df is not None:
                 text = ""
-
                 text = text + "%g\"\n%f, %f\n" \
                                 % ( df['distance'].values[0] * 3600,df['RA'].values[0], df['DEC'].values[0])
 
-                if z_best_type is not None:
-                    if (z_best_type.lower() == 'p'):
-                        text = text + "N/A\n" + "%g\n" % z_best
-                    elif (z_best_type.lower() == 's'):
-                        text = text + "%g (circle)\n" % z_best
-                        spec_z = z_best
-                        if z_photoz_weighted is not None:
-                            text = text + "%g\n" % z_photoz_weighted
-                        else:
-                            text = text + "N/A\n"
-                    else:
-                        text = text + "N/A\n"
-                else:
-                    text = text + "N/A\nN/A\n"
+                best_fit_photo_z = 0.0
+                try:
+                    best_fit_photo_z = float(df['Best-fit photo-z'].values[0])
+                except:
+                    pass
+
+                text += "N/A\n" + "%g\n" % best_fit_photo_z
 
                 try:
-                    filter_fl = df['ACS_F606W_FLUX'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
-                    filter_fl_err = df['ACS_F606W_FLUXERR'].values[0]
+                    filter_fl = float(df['F606W (V) flux (nJy)'].values[0])  # in nano-jansky or 1e-32  erg s^-1 cm^-2 Hz^-2
+                    filter_fl_err = float(df['F606W (V) flux error (nJy)'].values[0])
                 except:
                     filter_fl = 0.0
                     filter_fl_err = 0.0
 
                 if (target_flux is not None) and (filter_fl != 0.0):
                     if (filter_fl is not None) and (filter_fl > 0):
-                        filter_fl_adj = filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
+                        filter_fl_adj = filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
                         text = text + "%g $\AA$\n" % (-1 * target_flux / filter_fl_adj / (target_w / G.LyA_rest))
 
                         if target_w >= G.OII_rest:
@@ -1175,7 +1013,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 else:
                     text += "N/A\nN/A\n"
 
-                text = text + "%g(%g) $\\mu$Jy\n" % (filter_fl, filter_fl_err)
+                text = text + "%g(%g) nJy\n" % (filter_fl, filter_fl_err)
             else:
                 text = "%s\n%f\n%f\n" % ("--",r, d)
 
@@ -1183,53 +1021,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             plt.gca().set_frame_on(False)
             plt.gca().axis('off')
             plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font,color=bid_colors[col_idx-1])
-
-            # add photo_z plot
-            # if the z_best_type is 'p' call it photo-Z, if s call it 'spec-Z'
-            # alwasy read in file for "file" and plot column 1 (z as x) vs column 9 (pseudo-probability)
-            # get 'file'
-            # z_best  # 6 z_best_type # 7 z_spec # 8 z_spec_ref
-            #overplot photo Z lines
-
-            if df_photoz is not None:
-                z_cat = self.read_catalog(op.join(self.SupportFilesLocation, photoz_file), "z_cat")
-                if z_cat is not None:
-                    x = z_cat['z'].values
-                    y = z_cat['mFDa4'].values
-                    plt.subplot(gs[0, 4:])
-                    plt.plot(x, y, color=bid_colors[col_idx-1])
-                    plt.xlim([0, 3.6])
-                    # trim axis to 0 to 3.6
-
-                    if spec_z > 0:
-                        #plt.axvline(x=spec_z, color='gold', linestyle='solid', linewidth=3, zorder=0)
-                        plt.scatter([spec_z,],[plt.gca().get_ylim()[1]*0.9,],zorder=9,
-                                 marker="o",s=80,facecolors='none',edgecolors=bid_colors[col_idx-1])
-
-                    if col_idx == 1:
-                        legend = []
-                        if target_w > 0:
-                            la_z = target_w / G.LyA_rest - 1.0
-                            oii_z = target_w / G.OII_rest - 1.0
-                            if (oii_z > 0):
-                                h = plt.axvline(x=oii_z, color='g', linestyle='--', zorder=9,
-                                                label="OII Z(virus) = % g" % oii_z)
-                                legend.append(h)
-                            h = plt.axvline(x=la_z, color='r', linestyle='--', zorder=9,
-                                label="LyA Z (VIRUS) = %g" % la_z)
-                            legend.append(h)
-
-                            plt.gca().legend(handles=legend, loc='lower center', ncol=len(legend), frameon=False,
-                                                 fontsize='small', borderaxespad=0, bbox_to_anchor=(0.5, -0.25))
-
-                    plt.title("Photo Z PDF")
-                    plt.gca().yaxis.set_visible(False)
-                    #plt.xlabel("Z")
-
-                  #  if len(legend) > 0:
-                  #      plt.gca().legend(handles=legend, loc = 'lower center', ncol=len(legend), frameon=False,
-                  #                      fontsize='small', borderaxespad=0,bbox_to_anchor=(0.5,-0.25))
-
 
             # fig holds the entire page
         plt.close()

@@ -12,6 +12,8 @@ if socket.gethostname() == 'z50':
     PANACEA_RED_BASEDIR = "/home/dustin/code/python/voltron/data/config/red1/reductions/"
 
     CANDELS_EGS_Stefanon_2016_BASE_PATH = "/home/dustin/code/python/voltron/data/EGS"
+    GOODS_N_BASE_PATH = "/home/dustin/code/python/voltron/data/GOODSN"
+    GOODS_N_CAT_PATH = GOODS_N_BASE_PATH
 
     EGS_GROTH_BASE_PATH = "/home/dustin/code/python/voltron/data/isak"
     EGS_GROTH_CAT_PATH = EGS_GROTH_BASE_PATH #note: there is no catalog
@@ -26,6 +28,8 @@ else:
     PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
 
     CANDELS_EGS_Stefanon_2016_BASE_PATH = "/work/03564/stevenf/maverick/EGS"
+    GOODS_N_BASE_PATH = "/work/03564/stevenf/maverick/GOODSN"
+    GOODS_N_CAT_PATH = GOODS_N_BASE_PATH
 
     EGS_GROTH_BASE_PATH = "/work/03229/iwold/maverick/groth"
     EGS_GROTH_CAT_PATH = "/work/03229/iwold/maverick/groth" #note: there is no catalog
