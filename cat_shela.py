@@ -27,6 +27,7 @@ log.setLevel(G.logging.DEBUG)
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
 import cat_base
+import match_summary
 
 class SHELA(cat_base.Catalog):
     # class variables
@@ -264,7 +265,7 @@ class SHELA(cat_base.Catalog):
         return self.num_targets, self.dataframe_of_bid_targets, None
 
 
-    def build_bid_target_reports(self, target_ra, target_dec, error, num_hits=0, section_title="", base_count=0,
+    def build_bid_target_reports(self, cat_match,target_ra, target_dec, error, num_hits=0, section_title="", base_count=0,
                                  target_w=0, fiber_locs=None,target_flux=None):
         self.clear_pages()
         self.build_list_of_bid_targets(target_ra, target_dec, error)

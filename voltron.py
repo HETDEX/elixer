@@ -2,6 +2,7 @@ from __future__ import print_function
 import catalogs
 import argparse
 import hetdex
+import match_summary
 import global_config as G
 from astropy.coordinates import Angle
 from matplotlib.backends.backend_pdf import PdfPages
@@ -256,12 +257,12 @@ def build_hetdex_section(pdfname, hetdex, detect_id = 0,pages=None):
     return pages
 
 
-def build_pages (pdfname,ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,target_w=0,fiber_locs=None,
+def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,target_w=0,fiber_locs=None,
                  target_flux=None):
     #if a report object is passed in, immediately append to it, otherwise, add to the pages list and return that
     section_title = idstring
     for c in cats:
-        r = c.build_bid_target_reports(ra, dec, error,num_hits=num_hits,section_title=section_title,
+        r = c.build_bid_target_reports(match,ra, dec, error,num_hits=num_hits,section_title=section_title,
                                        base_count=base_count,target_w=target_w,fiber_locs=fiber_locs,
                                        target_flux=target_flux)
         count = 0
@@ -485,6 +486,7 @@ def main():
     ifu_list = ifulist_from_detect_file(args)
     hd_list = [] #one entry for each amp (or side) and dither
     file_list = []
+    match_list = match_summary.MatchSet()
 
     # first, if hetdex info provided, build the hetdex part of the report
     # hetedex part
@@ -557,10 +559,16 @@ def main():
                         dec = e.dec
                     pdf.pages = build_hetdex_section(pdf.filename,hd,e.id,pdf.pages) #this is the fiber, spectra cutouts for this detect
 
-                    pdf.pages,pdf.bid_count = build_pages(pdf.filename, ra, dec, args.error, matched_cats, pdf.pages,
+                    match = match_summary.Match(e)
+
+                    pdf.pages,pdf.bid_count = build_pages(pdf.filename, match, ra, dec, args.error, matched_cats, pdf.pages,
                                                   num_hits=num_hits, idstring=id,base_count=0,target_w=e.w,
                                                   fiber_locs=e.fiber_locs,target_flux=e.estflux)
-                    #count = pdf.bid_count
+
+                    #only add if there is at least one imaging catalog counterpart
+                    if len(match.bid_targets) > 0:
+                        match_list.add(match)
+
                     file_list.append(pdf)
 
            # else: #for multi calls (which are common now) this is of no use
@@ -582,7 +590,7 @@ def main():
             log.critical("Main exit. User cancel.")
             exit(0)
 
-        pages,_ = build_pages(args.name,args.ra, args.dec, args.error, matched_cats, pages, idstring="# 1 of 1")
+        pages,_ = build_pages(args.name,None,args.ra, args.dec, args.error, matched_cats, pages, idstring="# 1 of 1")
 
 
     if len(file_list) > 0:
@@ -599,6 +607,10 @@ def main():
         else:
             join_report_parts(args.name)
             delete_report_parts(args.name)
+
+    if match_list.size > 0:
+        filename = os.path.join(args.name,args.name+"_cat.txt")
+        match_list.write_file(filename)
 
     log.critical("Main complete.")
 

@@ -20,7 +20,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 import matplotlib.gridspec as gridspec
-import matplotlib.patches as mpatches
+#import matplotlib.patches as mpatches
 #import mpl_toolkits.axisartist.floating_axes as floating_axes
 #from matplotlib.transforms import Affine2D
 
@@ -31,6 +31,7 @@ log.setLevel(G.logging.DEBUG)
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
 import cat_base
+import match_summary
 
 
 class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
@@ -245,7 +246,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         return self.num_targets, self.dataframe_of_bid_targets, self.dataframe_of_bid_targets_photoz
 
     # column names are catalog specific, but could map catalog specific names to generic ones and produce a dictionary?
-    def build_bid_target_reports(self, target_ra, target_dec, error, num_hits=0, section_title="", base_count=0,
+    def build_bid_target_reports(self, cat_match, target_ra, target_dec, error, num_hits=0, section_title="", base_count=0,
                                  target_w=0, fiber_locs=None,target_flux=None):
 
         self.clear_pages()
@@ -267,7 +268,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             self.add_bid_entry(entry)
 
         if G.SINGLE_PAGE_PER_DETECT and (len(ras) <= G.MAX_COMBINE_BID_TARGETS):
-            entry = self.build_multiple_bid_target_figures_one_line(ras, decs, error,
+            entry = self.build_multiple_bid_target_figures_one_line(cat_match,ras, decs, error,
                                                                target_ra=target_ra, target_dec=target_dec,
                                                                target_w=target_w, target_flux=target_flux)
             if entry is not None:
@@ -303,13 +304,13 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 print("Building report for bid target %d in %s" % (base_count + number, self.Name))
 
                 if G.SINGLE_PAGE_PER_DETECT and (len(ras) <= G.MAX_COMBINE_BID_TARGETS):
-                    entry = self.build_bid_target_figure_one_line(r[0], d[0], error=error, df=df, df_photoz=df_photoz,
+                    entry = self.build_bid_target_figure_one_line(cat_match,r[0], d[0], error=error, df=df, df_photoz=df_photoz,
                                                      target_ra=target_ra, target_dec=target_dec,
                                                      section_title=section_title,
                                                      bid_number=number, target_w=target_w, of_number=num_hits-base_count,
                                                      target_flux=target_flux,color=bid_colors[number-1])
                 else:
-                    entry = self.build_bid_target_figure(r[0], d[0], error=error, df=df, df_photoz=df_photoz,
+                    entry = self.build_bid_target_figure(cat_match,r[0], d[0], error=error, df=df, df_photoz=df_photoz,
                                                      target_ra=target_ra, target_dec=target_dec,
                                                      section_title=section_title,
                                                      bid_number=number, target_w=target_w, of_number=num_hits-base_count,
@@ -487,7 +488,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         return fig
 
 
-    def build_bid_target_figure(self, ra, dec, error, df=None, df_photoz=None, target_ra=None, target_dec=None,
+    def build_bid_target_figure(self, cat_match, ra, dec, error, df=None, df_photoz=None, target_ra=None, target_dec=None,
                                 section_title="", bid_number=1, target_w=0, of_number=0, target_flux=None):
         '''Builds the entry (e.g. like a row) for one bid target. Includes the target info (name, loc, Z, etc),
         photometry images, Z_PDF, etc
@@ -577,6 +578,22 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                         -1 * target_flux / filter_fl / (target_w / G.OII_rest))
                     else:
                         title = title + "\nEst OII rest-EW = N/A"
+
+                    # bid target info is only of value if we have a flux from the emission line
+                    bid_target = match_summary.BidTarget()
+                    bid_target.bid_ra = df['RA'].values[0]
+                    bid_target.bid_dec = df['DEC'].values[0]
+                    bid_target.distance = df['distance'].values[0] * 3600
+                    bid_target.bid_flux_est_cgs = filter_fl
+                    bid_target.bid_flux_f606w_cgs = filter_fl
+                    bid_target.bid_flux_f814w_cgs = self.micro_jansky_to_cgs(df['ACS_F814W_FLUX'].values[0],
+                                                                             target_w)
+                    bid_target.bid_flux_f125w_cgs = self.micro_jansky_to_cgs(df['WFC3_F125W_FLUX'].values[0],
+                                                                             target_w)
+                    bid_target.bid_flux_f160w_cgs = self.micro_jansky_to_cgs(df['WFC3_F160W_FLUX'].values[0],
+                                                                             target_w)
+
+                    cat_match.add_bid_target(bid_target)
         else:
             title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)
 
@@ -897,7 +914,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         plt.close()
         return fig
 
-    def build_bid_target_figure_one_line (self, ra, dec, error, df=None, df_photoz=None, target_ra=None, target_dec=None,
+    def build_bid_target_figure_one_line (self, cat_match, ra, dec, error, df=None, df_photoz=None, target_ra=None, target_dec=None,
                                 section_title="", bid_number=1, target_w=0, of_number=0, target_flux=None, color="k"):
         '''Builds the entry (e.g. like a row) for one bid target. Includes the target info (name, loc, Z, etc),
         photometry images, Z_PDF, etc
@@ -976,7 +993,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             if target_flux is not None:
                 filter_fl = df['ACS_F606W_FLUX'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
                 if (filter_fl is not None) and (filter_fl > 0):
-                    filter_fl = filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
+                    #filter_fl = filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
+                    filter_fl = self.micro_jansky_to_cgs(filter_fl,target_w)
                     title = title + "\nEst LyA rest-EW = %g $\AA$" % (
                     -1 * target_flux / filter_fl / (target_w / G.LyA_rest))
 
@@ -985,6 +1003,20 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                         -1 * target_flux / filter_fl / (target_w / G.OII_rest))
                     else:
                         title = title + "\nEst OII rest-EW = N/A"
+
+                    #bid target info is only of value if we have a flux from the emission line
+                    bid_target = match_summary.BidTarget()
+                    bid_target.bid_ra = df['RA'].values[0]
+                    bid_target.bid_dec = df['DEC'].values[0]
+                    bid_target.distance = df['distance'].values[0] * 3600
+                    bid_target.bid_flux_est_cgs = filter_fl
+                    bid_target.bid_flux_f606w_cgs = filter_fl
+                    bid_target.bid_flux_f814w_cgs = self.micro_jansky_to_cgs(df['ACS_F814W_FLUX'].values[0], target_w)
+                    bid_target.bid_flux_f125w_cgs = self.micro_jansky_to_cgs(df['WFC3_F125W_FLUX'].values[0], target_w)
+                    bid_target.bid_flux_f160w_cgs = self.micro_jansky_to_cgs(df['WFC3_F160W_FLUX'].values[0], target_w)
+
+                    cat_match.add_bid_target(bid_target)
+
         else:
             title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)
 
@@ -1048,7 +1080,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         plt.close()
         return fig
 
-    def build_multiple_bid_target_figures_one_line(self, ras, decs, error, target_ra=None, target_dec=None,
+    def build_multiple_bid_target_figures_one_line(self, cat_match, ras, decs, error, target_ra=None, target_dec=None,
                                          target_w=0, target_flux=None):
 
 
@@ -1170,6 +1202,22 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                             text = text + "%g $\AA$\n" % (-1 * target_flux / filter_fl_adj / (target_w / G.OII_rest))
                         else:
                             text = text + "N/A\n"
+
+                    # bid target info is only of value if we have a flux from the emission line
+                    bid_target = match_summary.BidTarget()
+                    bid_target.bid_ra = df['RA'].values[0]
+                    bid_target.bid_dec = df['DEC'].values[0]
+                    bid_target.distance = df['distance'].values[0] * 3600
+                    bid_target.bid_flux_est_cgs = filter_fl
+                    bid_target.bid_flux_f606w_cgs = filter_fl
+                    bid_target.bid_flux_f814w_cgs = self.micro_jansky_to_cgs(df['ACS_F814W_FLUX'].values[0],
+                                                                             target_w)
+                    bid_target.bid_flux_f125w_cgs = self.micro_jansky_to_cgs(df['WFC3_F125W_FLUX'].values[0],
+                                                                             target_w)
+                    bid_target.bid_flux_f160w_cgs = self.micro_jansky_to_cgs(df['WFC3_F160W_FLUX'].values[0],
+                                                                             target_w)
+
+                    cat_match.add_bid_target(bid_target)
                 else:
                     text += "N/A\nN/A\n"
 

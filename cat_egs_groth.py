@@ -28,7 +28,7 @@ log.setLevel(G.logging.DEBUG)
 
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 import cat_base
-
+import match_summary
 
 class EGS_GROTH(cat_base.Catalog):
     #class variables

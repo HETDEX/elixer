@@ -187,7 +187,7 @@ class Catalog:
 
 
     #must be defined in child class
-    def build_bid_target_reports(self, target_ra, target_dec, error, num_hits=0, section_title="", base_count=0,
+    def build_bid_target_reports(self, cat_match, target_ra, target_dec, error, num_hits=0, section_title="", base_count=0,
                                  target_w=0, fiber_locs=None):
         return None
 
@@ -265,3 +265,17 @@ class Catalog:
         norm = plt.Normalize()
         # gist_rainbow or brg or hsv
         return plt.cm.brg(norm(np.arange(count)))
+
+    #caller might send in flux and.or wavelength as strings, so protect there
+    #also, might not have valid flux
+    def micro_jansky_to_cgs(self,flux,wavelength):
+        try:
+            return float(flux) * 1e-29 * 3e18 / (float(wavelength) ** 2)  # 3e18 ~ c in angstroms/sec
+        except:
+            return 0
+
+    def nano_jansky_to_cgs(self,flux,wavelength):
+        try:
+            return float(flux) * 1e-32 * 3e18 / (float(wavelength) ** 2)  # 3e18 ~ c in angstroms/sec
+        except:
+            return 0
