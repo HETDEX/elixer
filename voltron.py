@@ -121,7 +121,8 @@ def parse_commandline():
                                          "If present, also turns off weighted average.", required=False, type=int)
 
     parser.add_argument('-n','--name', help="PDF report filename",required=True)
-    parser.add_argument('--multi', help='Produce one PDF file per emission line (in folder from --name).', required=False,
+    parser.add_argument('--multi', help='*Mandatory. Switch remains only for compatibility. Cannot be turned off.*'
+                                        'Produce one PDF file per emission line (in folder from --name).', required=False,
                         action='store_true', default=False)
 
     parser.add_argument('--dither', help="HETDEX Dither file", required=False)
@@ -141,12 +142,7 @@ def parse_commandline():
     args = parser.parse_args()
 
     #regardless of setting, --multi must now always be true
-    #args.multi = True
-
-    #if args.multi and (args.name is not None):
-    #    G.logging.basicConfig(filename=args.name+".log", level=G.LOG_LEVEL, filemode='w')
-    #else:
-    #    G.logging.basicConfig(filename=G.LOG_FILENAME,level=G.LOG_LEVEL,filemode='w')
+    args.multi = True
 
     log.info(args)
 
@@ -268,14 +264,15 @@ def build_pages (pdfname,ra,dec,error,cats,pages,num_hits=0,idstring="",base_cou
         r = c.build_bid_target_reports(ra, dec, error,num_hits=num_hits,section_title=section_title,
                                        base_count=base_count,target_w=target_w,fiber_locs=fiber_locs,
                                        target_flux=target_flux)
+        count = 0
         if r is not None:
             if PyPDF is not None:
                 build_report_part(pdfname,r)
             else:
                 pages = pages + r
-            base_count += len(r)-1 #1st page is the target page
+            count = max(0,len(r)-1) #1st page is the target page
 
-    return pages, base_count
+    return pages, count
 
 
 def open_report(report_name):
@@ -335,7 +332,7 @@ def build_report_part(report_name,pages):
     return
 
 
-def join_report_parts(report_name, bid_count = 0):
+def join_report_parts(report_name, bid_count=0):
 
     if PyPDF is None:
         return
@@ -343,6 +340,7 @@ def join_report_parts(report_name, bid_count = 0):
 
     if G.SINGLE_PAGE_PER_DETECT:
         if (bid_count <= G.MAX_COMBINE_BID_TARGETS):
+            log.info("Creating single page report for %s. Bid count = %d" % (report_name, bid_count))
             list_pages = []
 
             for i in range(G_PDF_FILE_NUM):
@@ -376,7 +374,7 @@ def join_report_parts(report_name, bid_count = 0):
             writer.write()
         else: #want a single page, but there are just too many sub-pages
             list_pages = []
-
+            log.info("Single page report not possible for %s. Bid count = %d" %(report_name,bid_count))
             part_num = 0
             for i in range(G_PDF_FILE_NUM):
                 # use this rather than glob since glob sometimes messes up the ordering
@@ -417,12 +415,9 @@ def join_report_parts(report_name, bid_count = 0):
                 part_name = report_name + ".part%s" % str(i + 1).zfill(4)
                 if os.path.isfile(part_name):
                     writer.addpages(PyPDF.PdfReader(part_name).pages)
-
-
             writer.write()
-
-
     else:
+        log.info("Creating multi-page report for %s. Bid count = %d" % (report_name, bid_count))
         writer = PyPDF.PdfWriter()
         #for --multi the file part numbers are unique. Only the first file starts with 001. The second starts with
         #where the first left off
@@ -510,10 +505,6 @@ def main():
                 hd_list.append(hd)
 
     if len(hd_list) > 0:
-        if not args.multi:  # create just one pdf entry and use it
-            pdf = pdf_file(args.name, -1)
-            file_list.append(pdf)
-
         for hd in hd_list:
             if hd.status != 0:
                 #fatal
@@ -554,13 +545,8 @@ def main():
                     exit(0)
 
                 #now build the report for each emission detection
-                section_id = 0
-                total = len(hd.emis_list)
-                count = 0
-
                 for e in hd.emis_list:
-                    if args.multi: #create a new entry for each emission
-                        pdf = pdf_file(args.name, e.id)
+                    pdf = pdf_file(args.name, e.id)
 
                     id = "Detect ID #" + str(e.id)
                     if (e.wra is not None) and (e.wdec is not None): #weighted RA and Dec
@@ -571,12 +557,11 @@ def main():
                         dec = e.dec
                     pdf.pages = build_hetdex_section(pdf.filename,hd,e.id,pdf.pages) #this is the fiber, spectra cutouts for this detect
 
-                    pdf.pages,count = build_pages(pdf.filename, ra, dec, args.error, matched_cats, pdf.pages,
-                                                  num_hits=num_hits, idstring=id,base_count=count,target_w=e.w,
+                    pdf.pages,pdf.bid_count = build_pages(pdf.filename, ra, dec, args.error, matched_cats, pdf.pages,
+                                                  num_hits=num_hits, idstring=id,base_count=0,target_w=e.w,
                                                   fiber_locs=e.fiber_locs,target_flux=e.estflux)
-                    pdf.bid_count += count
-                    if args.multi:
-                        file_list.append(pdf)
+                    #count = pdf.bid_count
+                    file_list.append(pdf)
 
            # else: #for multi calls (which are common now) this is of no use
            #     print("\nNo emission detections meet minimum criteria for specified IFU. Exiting.\n"
