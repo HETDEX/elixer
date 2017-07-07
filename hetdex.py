@@ -463,7 +463,7 @@ class DetObj:
 
         if len(toks) != 6:
             if (len(toks) == 1) and (toks[0] == "666"):
-                    pass #this is an "ignore" flag
+                    return True #this is an "ignore" flag, but still continue as if it were a fiber
             else:
                 log.warn("Unexpected fiber id string: %s" % fiber)
             return False
