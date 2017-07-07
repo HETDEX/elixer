@@ -508,6 +508,7 @@ class HetdexFits:
     #
 
     def __init__(self,fn,e_fn,fe_fn,dither_index=-1,panacea=False):
+        self.okay = True
         self.filename = fn
         self.err_filename = e_fn
         self.fe_filename = fe_fn
@@ -527,8 +528,8 @@ class HetdexFits:
         self.mjd = None
         self.obsid = None
         self.imagetype = None
-        self.exptime = None
-        self.dettemp = None
+        #self.exptime = None #don't need these right now
+        #self.dettemp = None #don't need these right now
 
         self.data = None
         self.err_data = None
@@ -576,6 +577,7 @@ class HetdexFits:
             log.error("could not open file " + cosmic, exc_info=True)
             c = None
 
+
         if c is not None:
             self.data = np.array(c[0].data)
         else:
@@ -586,23 +588,27 @@ class HetdexFits:
         try:
             self.tel_ra = float(Angle(f[0].header['TELRA']+"h").degree) #header is in hour::mm:ss.arcsec
             self.tel_dec = float(Angle(f[0].header['TELDEC']+"d").degree) #header is in deg:hh:mm:ss.arcsec
+            self.parangle = f[0].header['PARANGLE']
         except:
             log.error("Cannot translate RA and/or Dec from FITS format to degrees in " + self.filename, exc_info=True)
 
-        self.parangle = f[0].header['PARANGLE']
-        self.ifuid = str(f[0].header['IFUID']).zfill(3)
-        self.ifuslot = str(f[0].header['IFUSLOT']).zfill(3)
-        self.side = f[0].header['CCDPOS']
-        self.specid = str(f[0].header['SPECID']).zfill(3)
-        self.obs_date = f[0].header['DATE-OBS']
+        try:
+            self.ifuid = str(f[0].header['IFUID']).zfill(3)
+            self.ifuslot = str(f[0].header['IFUSLOT']).zfill(3)
+            self.side = f[0].header['CCDPOS']
+            self.specid = str(f[0].header['SPECID']).zfill(3)
+            self.obs_date = f[0].header['DATE-OBS']
 
-        if '-' in self.obs_date: #expected format is YYYY-MM-DD
-            self.obs_ymd = self.obs_date.replace('-','')
-        self.mjd = f[0].header['MJD']
-        self.obsid = f[0].header['OBSID']
-        self.imagetype = f[0].header['IMAGETYP']
-        self.exptime = f[0].header['EXPTIME']
-        self.dettemp = f[0].header['DETTEMP']
+            if '-' in self.obs_date: #expected format is YYYY-MM-DD
+                self.obs_ymd = self.obs_date.replace('-','')
+            self.mjd = f[0].header['MJD']
+            self.obsid = f[0].header['OBSID']
+            self.imagetype = f[0].header['IMAGETYP']
+            #self.exptime = f[0].header['EXPTIME']
+            #self.dettemp = f[0].header['DETTEMP']
+        except:
+            log.error("Cannot read expected keywords in fits header: " + self.filename,exc_info=True)
+            self.okay = False
 
         try:
             f.close()
@@ -700,50 +706,62 @@ class HetdexFits:
             log.error("could not open file " + self.filename, exc_info=True)
             return None
 
-        #use the cleaned image for display
-        self.data = np.array(f[PANACEA_HDU_IDX['clean_image']].data)
-        self.data[np.isnan(self.data)] = 0.0 # clean up any NaNs
+        try:
+            #use the cleaned image for display
+            self.data = np.array(f[PANACEA_HDU_IDX['clean_image']].data)
+            self.data[np.isnan(self.data)] = 0.0 # clean up any NaNs
 
-        #get error equivalent
-        self.err_data = np.array(f[PANACEA_HDU_IDX['error']].data)
-        self.err_data[np.isnan(self.err_data)] = 0.0
+            #get error equivalent
+            self.err_data = np.array(f[PANACEA_HDU_IDX['error']].data)
+            self.err_data[np.isnan(self.err_data)] = 0.0
 
-        #get fe equivalent
-        self.fe_data = np.array(f[PANACEA_HDU_IDX['sky_subtracted']].data)
-        self.fe_data[np.isnan(self.fe_data)] = 0.0
+            #get fe equivalent
+            self.fe_data = np.array(f[PANACEA_HDU_IDX['sky_subtracted']].data)
+            self.fe_data[np.isnan(self.fe_data)] = 0.0
 
-        # get fe equivalent (need also the matching wavelengths)
-        self.wave_data = np.array(f[PANACEA_HDU_IDX['wavelength']].data)
-        self.wave_data[np.isnan(self.wave_data)] = 0.0
+            # get fe equivalent (need also the matching wavelengths)
+            self.wave_data = np.array(f[PANACEA_HDU_IDX['wavelength']].data)
+            self.wave_data[np.isnan(self.wave_data)] = 0.0
 
-        self.trace_data = np.array(f[PANACEA_HDU_IDX['trace']].data)
-        self.trace_data[np.isnan(self.trace_data)] = 0.0
+            self.trace_data = np.array(f[PANACEA_HDU_IDX['trace']].data)
+            self.trace_data[np.isnan(self.trace_data)] = 0.0
 
-        #self.pixflat_data = np.array(f[PANACEA_HDU_IDX['flat_image']].data)
-        #self.pixflat_data[np.isnan(self.pixflat_data)] = 0.0
+            # get fiber centers
+            # the fits representation is backward (with grid x,y: 1,112 and 2,112 (i.e at the top) == fiber 1))
+            self.fiber_centers = np.array(f[PANACEA_HDU_IDX['ifupos']].data)
 
-        self.panacea = True
+            #self.pixflat_data = np.array(f[PANACEA_HDU_IDX['flat_image']].data)
+            #self.pixflat_data[np.isnan(self.pixflat_data)] = 0.0
 
-        #most complete header in the raw image
-        idx = PANACEA_HDU_IDX['image']
+            self.panacea = True
+
+            #most complete header in the raw image
+            idx = PANACEA_HDU_IDX['image']
+        except:
+            log.error("Cannot read fits header. Missing expected keywords. " + self.filename, exc_info=True)
+            self.okay = False
+            return
 
         try:
             self.tel_ra = float(f[idx].header['RA']) * 15.0  # header is in decimal hours
             self.tel_dec = float(f[idx].header['DEC'])  # header is in decimal degs
+            self.parangle = f[idx].header['PA']
         except:
-            log.error("Cannot translate RA and/or Dec from FITS format to degrees in " + self.filename, exc_info=True)
+            log.error("Non-fatal: Cannot translate RA and/or Dec from FITS format to degrees in " + self.filename, exc_info=True)
+            #might be okay, depeding on if the individual emission lines have the weighted RA and Dec Specified
 
-        self.parangle = f[idx].header['PA']
-        self.ifuid = str(f[idx].header['IFUSID']).zfill(3)
-        self.ifuslot = str(f[idx].header['IFUSLOT']).zfill(3)
-        self.specid = str(f[idx].header['SPECID']).zfill(3)
-        self.amp = f[idx].header['AMP']
-        self.side = f[idx].header['AMP'][0] #the L or R ... probably don't need this anyway
-        self.exptime = f[idx].header['EXPTIME']
-
-        #get fiber centers
-        # the fits representation is backward (with grid x,y: 1,112 and 2,112 (i.e at the top) == fiber 1))
-        self.fiber_centers = np.array(f[PANACEA_HDU_IDX['ifupos']].data)
+        try:
+            self.ifuid = str(f[idx].header['IFUSID']).zfill(3)
+            self.ifuslot = str(f[idx].header['IFUSLOT']).zfill(3)
+            self.specid = str(f[idx].header['SPECID']).zfill(3)
+            self.amp = f[idx].header['AMP']
+            self.side = f[idx].header['AMP'][0] #the L or R ... probably don't need this anyway
+            #self.exptime = f[idx].header['EXPTIME']
+        except:
+            log.error("Cannot read fits header. Missing expected keywords. Will attempt to pull from filename." + self.filename, exc_info=True)
+            #try to get info from the filename
+            self.parse_panacea_fits_name(self.filename)
+            return
 
         try:
             f.close()
@@ -751,6 +769,23 @@ class HetdexFits:
             log.error("could not close file " + self.filename, exc_info=True)
 
         return
+
+    def parse_panacea_fits_name(self,name):
+        if name is not None:
+            if "multi_" in name: #multi_037_073_031_LL.fits
+                toks = name.split("_")  #multi_fits_basename = "multi_" + self.specid + "_" + self.ifu_slot_id + "_" + self.ifu_id + "_"
+                if len(toks) == 5:
+                    try:
+                        self.specid = toks[1].zfill(3)
+                        self.ifuslot = toks[2].zfill(3)
+                        self.ifuid = toks[3].zfill(3)
+                        self.amp = toks[4][0:2]
+                        self.side =toks[4][0]
+                    except:
+                        log.error("Cannot parse panaces fits filename: %s" %name,exc_info=True)
+                        self.okay = False
+
+
 
     def cleanup(self):
         #todo: close fits handles, etc
@@ -783,9 +818,21 @@ class HETDEX:
         self.target_dec = args.dec
         self.target_err = args.error
 
-        self.tel_ra = None
-        self.tel_dec = None
-        self.parangle = None
+        if args.ra is not None:
+            self.tel_ra = args.ra
+        else:
+            self.tel_ra = None
+
+        if args.dec is not None:
+            self.tel_dec = args.dec
+        else:
+            self.tel_dec = None
+
+        if args.par is not None:
+            self.parangle = args.par
+        else:
+            self.parangle = None
+
         self.ifu_slot_id = None
         self.ifu_id = None
         self.specid = None

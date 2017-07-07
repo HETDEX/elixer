@@ -504,7 +504,8 @@ def main():
         else:
             hd = hetdex.HETDEX(args)
             if hd is not None:
-                hd_list.append(hd)
+                if hd.okay:
+                    hd_list.append(hd)
 
     if len(hd_list) > 0:
         for hd in hd_list:
