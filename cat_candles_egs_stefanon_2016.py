@@ -1194,7 +1194,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     filter_fl_err = 0.0
 
                 if (target_flux is not None) and (filter_fl != 0.0):
-                    if (filter_fl is not None) and (filter_fl > 0):
+                    if (filter_fl is not None):# and (filter_fl > 0):
                         filter_fl_adj = filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
                         text = text + "%g $\AA$\n" % (-1 * target_flux / filter_fl_adj / (target_w / G.LyA_rest))
 
@@ -1221,7 +1221,12 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 else:
                     text += "N/A\nN/A\n"
 
-                text = text + "%g(%g) $\\mu$Jy\n" % (filter_fl, filter_fl_err)
+                if filter_fl < 0:
+                    text = text + "%g(%g) $\\mu$Jy !?\n" % (filter_fl, filter_fl_err)
+                else:
+                    text = text + "%g(%g) $\\mu$Jy\n" % (filter_fl, filter_fl_err)
+
+
             else:
                 text = "%s\n%f\n%f\n" % ("--",r, d)
 
