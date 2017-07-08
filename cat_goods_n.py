@@ -570,7 +570,11 @@ class GOODS_N(cat_base.Catalog):
                     s = ""
                     for f, l in zip(i['cols'], i['labels']):
                         # print (f)
-                        v = float(df[f].values[0])
+                        try:
+                            v = float(df[f].values[0])
+                        except:
+                            v = 0.0
+
                         s = s + "%-8s = %.5f\n" % (l, v)
 
                     plt.xlabel(s, multialignment='left', fontproperties=font)
@@ -915,8 +919,11 @@ class GOODS_N(cat_base.Catalog):
                 if df[i['cols']].empty :
                     title = title + "%7s %s %s = -- (--)\n" % (i['instrument'], i['filter'], "Flux")
                 else:
-                    title = title + "%7s %s %s = %.5f (%.5f)\n" % (i['instrument'], i['filter'], "Flux",
-                            float(df[i['cols'][0]].values[0]), float(df[i['cols'][1]].values[0]))
+                    try:
+                        title = title + "%7s %s %s = %.5f (%.5f)\n" % (i['instrument'], i['filter'], "Flux",
+                                float(df[i['cols'][0]].values[0]), float(df[i['cols'][1]].values[0]))
+                    except:
+                        title = title + "%7s %s %s = -- (--)\n" % (i['instrument'], i['filter'], "Flux")
 
 
         plt.subplot(gs[0, 4])
