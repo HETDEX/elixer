@@ -110,34 +110,39 @@ def parse_commandline():
 
     parser.add_argument('--ast', help="Astrometry coordinates file. Use instead of --ra, --dec, --par", required=False)
 
-    parser.add_argument('--obsdate', help="Observation Date. Must be YYYYMMDD.", required=False)
-    parser.add_argument('--obsid', help="Observation ID (integer)", required=False, type=int)
-    parser.add_argument('--specid', help="SpecID aka CAM (integer)", required=False, type=int)
-    parser.add_argument('--ifuid', help="IFU ID (integer) *** NOTICE. This is the cable ID.", required=False, type=int)
-    parser.add_argument('--ifuslot', help="IFU SLOT ID (integer)", required=False, type=int)
+    parser.add_argument('--obsdate', help="Observation Date. Must be YYYYMMDD.  "
+                                          "Must provide for Panacea.", required=False)
+    parser.add_argument('--obsid', help="Observation ID (integer). "
+                                        "Must provide for Panacea.", required=False, type=int)
+    parser.add_argument('--specid', help="SpecID aka CAM (integer) i.e. --specid 13 or --specid 13,14,19  "
+                                         "If not specified, all are used. (may be restricted by --ifuid or --ifuslot)", required=False, type=int)
+    parser.add_argument('--ifuid', help="IFU ID (integer) *** NOTICE. This is the cable ID.  "
+                                        "If not specified, all are used (may be restricted by --specid or --ifuslot)", required=False, type=int)
+    parser.add_argument('--ifuslot', help="IFU SLOT ID (integer)  "
+                                          "If not specified, all are used (may be restricted by --specid or --ifusid)", required=False, type=int)
 
     parser.add_argument('-e', '--error', help="Error (+/-) in RA and Dec in arcsecs.", required=True, type=float)
 
     parser.add_argument('--fibers', help="Number of fibers to plot in 1D spectra cutout."
                                          "If present, also turns off weighted average.", required=False, type=int)
 
-    parser.add_argument('-n','--name', help="PDF report filename",required=True)
+    parser.add_argument('-n','--name', help="Report filename or directory name (if HETDEX emission lines supplied)",required=True)
     parser.add_argument('--multi', help='*Mandatory. Switch remains only for compatibility. Cannot be turned off.*'
                                         'Produce one PDF file per emission line (in folder from --name).', required=False,
                         action='store_true', default=False)
 
     parser.add_argument('--dither', help="HETDEX Dither file", required=False)
     parser.add_argument('--path', help="Override path to science fits in dither file", required=False)
-    parser.add_argument('--line', help="HETDEX (Cure style) detect line file", required=False)
-    parser.add_argument('--ifu', help="HETDEX IFU file", required=False)
-    parser.add_argument('--dist', help="HETDEX Distortion file base (i.e. do not include trailing _L.dist or _R.dist)",
+    parser.add_argument('--line', help="HETDEX detect line file", required=False)
+    parser.add_argument('--ifu', help="HETDEX IFU (Cure) file", required=False)
+    parser.add_argument('--dist', help="HETDEX Distortion (Cure) file base (i.e. do not include trailing _L.dist or _R.dist)",
                         required=False)
     parser.add_argument('--id', help="ID or list of IDs from detect line file for which to search", required=False)
-    parser.add_argument('--sigma', help="Minimum sigma threshold (cure) to meet in selecting detections", required=False,
+    parser.add_argument('--sigma', help="Minimum sigma threshold (Cure) to meet in selecting detections", required=False,
                         type=float,default=0.0)
-    parser.add_argument('--chi2', help="Maximum chi2 threshold (cure) to meet in selecting detections", required=False,
+    parser.add_argument('--chi2', help="Maximum chi2 threshold (Cure) to meet in selecting detections", required=False,
                         type=float,default=1e9)
-    parser.add_argument('--sn', help="Minimum fiber signal/noise threshold (panacea) to plot in spectra cutouts",
+    parser.add_argument('--sn', help="Minimum fiber signal/noise threshold (Panacea) to plot in spectra cutouts",
                         required=False, type=float, default=0.0)
 
     args = parser.parse_args()
