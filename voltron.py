@@ -153,11 +153,14 @@ def parse_commandline():
 
     args = parser.parse_args()
 
-    if args.name is not None:
-        G.logging.basicConfig(filename="voltron."+args.name+".log", level=G.LOG_LEVEL, filemode='w')
-    else:
-        print("Missing mandatory paramater --name.")
-        exit(-1)
+    #reminder to self ... this is pointless with SLURM given the bash wraper (which does not know about the
+    #speccific dir name and just builds voltron.run
+
+    #if args.name is not None:
+    #    G.logging.basicConfig(filename="voltron."+args.name+".log", level=G.LOG_LEVEL, filemode='w')
+    #else:
+    #    print("Missing mandatory paramater --name.")
+    #    exit(-1)
 
     #regardless of setting, --multi must now always be true
     args.multi = True

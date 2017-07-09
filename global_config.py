@@ -42,9 +42,11 @@ else:
 
 LOG_LEVEL = logging.DEBUG
 
-#log initialization moved to voltron.py to incorporate --name into filename
-#LOG_FILENAME = "voltron.log"
-#logging.basicConfig(filename=LOG_FILENAME,level=LOG_LEVEL,filemode='w')
+##log initialization moved to voltron.py to incorporate --name into filename
+# reminder to self ... this is pointless with SLURM given the bash wraper (which does not know about the
+# specific dir name and just builds voltron.run ... so leave this here
+LOG_FILENAME = "voltron.log"
+logging.basicConfig(filename=LOG_FILENAME,level=LOG_LEVEL,filemode='w')
 #.debug(), .info(), .warning(), .error(), .critical()
 
 LyA_rest = 1216. #A 1215.668 and 1215.674
