@@ -40,10 +40,11 @@ else:
     SHELA_BASE_PATH = "/work/03229/iwold/maverick/fall_field/stack/v2/psf/nano/"
     SHELA_CAT_PATH = SHELA_BASE_PATH
 
-LOG_FILENAME = "voltron.log"
 LOG_LEVEL = logging.DEBUG
 
-logging.basicConfig(filename=LOG_FILENAME,level=LOG_LEVEL,filemode='w')
+#log initialization moved to voltron.py to incorporate --name into filename
+#LOG_FILENAME = "voltron.log"
+#logging.basicConfig(filename=LOG_FILENAME,level=LOG_LEVEL,filemode='w')
 #.debug(), .info(), .warning(), .error(), .critical()
 
 LyA_rest = 1216. #A 1215.668 and 1215.674

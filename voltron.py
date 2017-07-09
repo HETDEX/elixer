@@ -147,6 +147,12 @@ def parse_commandline():
 
     args = parser.parse_args()
 
+    if args.name is not None:
+        G.logging.basicConfig(filename="voltron."+args.name+".log", level=G.LOG_LEVEL, filemode='w')
+    else:
+        print("Missing mandatory paramater --name.")
+        exit(-1)
+
     #regardless of setting, --multi must now always be true
     args.multi = True
 
