@@ -77,12 +77,13 @@ class pdf_file():
                         print ("Fatal. Cannot create pdf output directory: %s" % self.filename)
                         log.critical("Fatal. Cannot create pdf output directory: %s" % self.filename,exc_info=True)
                         exit(-1)
-            else: #already exists
-                try: #empty the directory of any previous runs
-                    regex = re.compile(self.filename + '_.*')
-                    [os.remove(os.path.join(self.filename,f)) for f in os.listdir(self.filename) if re.match(regex,f)]
-                except:
-                    log.error("Unable to clean output directory: " + self.filename,exc_info=True)
+            # have to leave files there ... this is called per internal iteration (not just once0
+           # else: #already exists
+           #     try: #empty the directory of any previous runs
+           #         regex = re.compile(self.filename + '_.*')
+           #         [os.remove(os.path.join(self.filename,f)) for f in os.listdir(self.filename) if re.match(regex,f)]
+           #     except:
+           #         log.error("Unable to clean output directory: " + self.filename,exc_info=True)
 
             filename = os.path.basename(self.filename) + "_" + str(id).zfill(3) + ".pdf"
             self.filename = os.path.join(self.filename,filename)
@@ -524,7 +525,7 @@ def main():
         else:
             hd = hetdex.HETDEX(args)
             if hd is not None:
-                if hd.okay:
+                if hd.status == 0:
                     hd_list.append(hd)
 
     if len(hd_list) > 0:

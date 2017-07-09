@@ -51,18 +51,21 @@ class Match:
             self.emis_wavelength = emis.w
             if emis.panacea:
                 self.emis_sn = emis.sigma
-                self.emis_sigma = -999
-                self.emis_chi2 = -999
+                self.emis_sigma = -99999
+                self.emis_chi2 = -99999
             else:
                 self.emis_sigma = emis.sigma
                 self.emis_chi2 = emis.chi2
-                self.emis_sn = -999
+                self.emis_sn = -99999
             self.emis_flux_frac = emis.fluxfrac
             self.emis_flux_count = emis.dataflux
             self.emis_flux_cgs = emis.estflux #emis.dataflux * G.FLUX_CONVERSION / emis.fluxfrac
             self.emis_cont_flux_count = emis.cont
             self.emis_cont_flux_cgs = self.emis_cont_flux_count * G.FLUX_CONVERSION
-            self.emis_obs_eqw = -1 * self.emis_flux_count / self.emis_cont_flux_count
+            if self.emis_cont_flux_count != 0:
+                self.emis_obs_eqw = -1 * self.emis_flux_count / self.emis_cont_flux_count
+            else:
+                self.emis_obs_eqw = -99999
 
         self.bid_targets = []
 
