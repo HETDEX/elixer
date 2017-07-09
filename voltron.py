@@ -392,8 +392,11 @@ def join_report_parts(report_name, bid_count=0):
             if os.path.isdir(report_name):  # often just the base name is given
                 report_name += ".pdf"
             writer = PyPDF.PdfWriter(report_name)
-            writer.addPage(merge_page.render())
-            writer.write()
+            try:
+                writer.addPage(merge_page.render())
+                writer.write()
+            except:
+                log.error("Error writing out pdf: " + report_name, exc_info = True)
         else: #want a single page, but there are just too many sub-pages
             list_pages = []
             log.info("Single page report not possible for %s. Bid count = %d" %(report_name,bid_count))
