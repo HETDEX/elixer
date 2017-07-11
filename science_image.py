@@ -170,7 +170,7 @@ class science_image():
                     cutout = Cutout2D(self.fits[0].data, position, (pix_window, pix_window), wcs=self.wcs, copy=copy)
                     self.get_vrange(cutout.data)
                 except NoOverlapError:
-                    log.info("Exception (possible NoOverlapError) in science_image::get_cutout(). "
+                    log.info("Error (possible NoOverlapError) in science_image::get_cutout(). "
                              "Target is not in range of image. RA,Dec = (%f,%f) Window = %d" % (ra, dec, pix_window))
                     print("Target is not in range of image. RA,Dec = (%f,%f) Window = %d" % (ra, dec, pix_window))
                     return None
