@@ -1283,7 +1283,7 @@ class HETDEX:
                     if e.ifuslot is not None:
                         if e.ifuslot != self.ifu_slot_id:
                             #this emission line does not belong to the IFU we are working on
-                            log.info("Continuum detection IFU (%s) does not match current working IFU (%s)" %
+                            log.debug("Continuum detection IFU (%s) does not match current working IFU (%s)" %
                                      (e.ifuslot,self.ifu_slot_id))
                             continue
 
@@ -1310,7 +1310,7 @@ class HETDEX:
                     if e.ifuslot is not None:
                         if e.ifuslot != self.ifu_slot_id:
                             #this emission line does not belong to the IFU we are working on
-                            log.info("Emission detection IFU (%s) does not match current working IFU (%s)" %
+                            log.debug("Emission detection IFU (%s) does not match current working IFU (%s)" %
                                      (e.ifuslot,self.ifu_slot_id))
                             continue
 
