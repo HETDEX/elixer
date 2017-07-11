@@ -5,6 +5,9 @@ import gc
 #catalogs are defined at top of catalogs.py
 import socket
 
+#version
+__version__ = '1.0.0'
+
 
 if socket.gethostname() == 'z50':
 #if False:

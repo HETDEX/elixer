@@ -58,6 +58,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
     Image_Coord_Range = {'RA_min': None, 'RA_max': None, 'Dec_min': None, 'Dec_max': None}
     Cat_Coord_Range = {'RA_min': 214.576759, 'RA_max': 215.305229, 'Dec_min': 52.677569, 'Dec_max': 53.105756}
     WCS_Manual = True
+    EXPTIME_F606W = 289618.0
     BidCols = ["ID", "IAU_designation", "RA", "DEC",
                "CFHT_U_FLUX", "CFHT_U_FLUXERR",
                "IRAC_CH1_FLUX", "IRAC_CH1_FLUXERR", "IRAC_CH2_FLUX", "IRAC_CH2_FLUXERR",
@@ -359,13 +360,14 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             title = title + "\n"
 
         if target_flux is not None:
-            title = title + "Min (no match) 3$\sigma$ LyA rest-EW = %g $\AA$\n" % \
-                            (-1 * (target_flux / 9.9e-21) / (target_w / G.LyA_rest))
-            if target_w >= G.OII_rest:
-                title = title + "Min (no match) 3$\sigma$ OII rest-EW = %g $\AA$\n" % \
-                                (-1 * (target_flux / 9.9e-21) / (target_w / G.OII_rest))
-            else:
-                title = title + "Min (no match) 3$\sigma$ OII rest-EW = N/A\n"
+            cont_est = self.get_f606w_max_cont(self.EXPTIME_F606W, 3)
+            if cont_est != -1:
+                title += "Minimum (no match)\n  3$\sigma$ rest-EW:\n"
+                title += "  LyA = %g $\AA$\n" % (-1 * (target_flux / cont_est) / (target_w / G.LyA_rest))
+                if target_w >= G.OII_rest:
+                    title = title + "  OII = %g $\AA$\n" % (-1 * (target_flux / cont_est) / (target_w / G.OII_rest))
+                else:
+                    title = title + "  OII = N/A\n"
 
         plt.subplot(gs[0, 0])
         plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
@@ -754,12 +756,14 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                                                               % (len(self.dataframe_of_bid_targets), error)
 
         if target_flux is not None:
-            title += "Minimum (no match)\n  3$\sigma$ rest-EW:\n"
-            title += "  LyA = %g $\AA$\n" %  (-1 * (target_flux / 9.9e-21) / (target_w / G.LyA_rest))
-            if target_w >= G.OII_rest:
-                title = title + "  OII = %g $\AA$\n" %  (-1 * (target_flux / 9.9e-21) / (target_w / G.OII_rest))
-            else:
-                title = title + "  OII = N/A\n"
+            cont_est = self.get_f606w_max_cont(self.EXPTIME_F606W, 3)
+            if cont_est != -1:
+                title += "Minimum (no match)\n  3$\sigma$ rest-EW:\n"
+                title += "  LyA = %g $\AA$\n" % (-1 * (target_flux / cont_est) / (target_w / G.LyA_rest))
+                if target_w >= G.OII_rest:
+                    title = title + "  OII = %g $\AA$\n" % (-1 * (target_flux / cont_est) / (target_w / G.OII_rest))
+                else:
+                    title = title + "  OII = N/A\n"
 
         plt.subplot(gs[0, 0])
         plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)

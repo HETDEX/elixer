@@ -426,7 +426,9 @@ class DetObj:
 
             if (self.eqw == -300) and (self.dataflux != 0) and (self.fluxfrac != 0) \
                     and (self.cont != 666) and (self.cont > 0):  # dummy value
-                self.eqw = -1 * self.dataflux / self.fluxfrac / self.cont
+                self.eqw = -1 * self.dataflux / self.fluxfrac / self.cont #not quite right, units could be wrong
+                #todo: what really are the units of self.cont? need result to be angstroms and it may be that
+                #both dataflux and cont are just in counts
 
         else:
             self.type = 'cont'

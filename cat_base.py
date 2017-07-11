@@ -279,3 +279,15 @@ class Catalog:
             return float(flux) * 1e-32 * 3e18 / (float(wavelength) ** 2)  # 3e18 ~ c in angstroms/sec
         except:
             return 0
+
+    def get_f606w_max_cont(self,exp_time,sigma=3):
+        candles_egs_baseline_exp_time = 289618.0
+        candles_egs_baseline_cont = 3.3e-21
+
+        try:
+            cont = sigma * candles_egs_baseline_cont * candles_egs_baseline_exp_time / exp_time
+        except:
+            log.error("Error in cat_base:get_f606w_max_cont ", exc_info=True)
+            cont = -1
+
+        return cont

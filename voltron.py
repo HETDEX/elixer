@@ -15,6 +15,8 @@ import errno
 import re
 from PIL import Image
 
+
+
 #try:
 #    import PyPDF2 as PyPDF
 #except ImportError:
@@ -360,6 +362,11 @@ def join_report_parts(report_name, bid_count=0):
         return
     print("Finalizing report ...")
 
+    metadata = PyPDF.IndirectPdfDict(
+        Title='Voltron Emission Line Report',
+        Author="HETDEX, Univ. of Texas",
+        Keywords='Voltron Version = ' + G.__version__)
+
     if G.SINGLE_PAGE_PER_DETECT:
         if (bid_count <= G.MAX_COMBINE_BID_TARGETS):
             log.info("Creating single page report for %s. Bid count = %d" % (report_name, bid_count))
@@ -392,8 +399,10 @@ def join_report_parts(report_name, bid_count=0):
             if os.path.isdir(report_name):  # often just the base name is given
                 report_name += ".pdf"
             writer = PyPDF.PdfWriter(report_name)
+
             try:
                 writer.addPage(merge_page.render())
+                writer.trailer.Info = metadata
                 writer.write()
             except:
                 log.error("Error writing out pdf: " + report_name, exc_info = True)
@@ -440,6 +449,8 @@ def join_report_parts(report_name, bid_count=0):
                 part_name = report_name + ".part%s" % str(i + 1).zfill(4)
                 if os.path.isfile(part_name):
                     writer.addpages(PyPDF.PdfReader(part_name).pages)
+
+            writer.trailer.Info = metadata
             writer.write()
     else:
         log.info("Creating multi-page report for %s. Bid count = %d" % (report_name, bid_count))
@@ -454,6 +465,7 @@ def join_report_parts(report_name, bid_count=0):
             if os.path.isfile(part_name):
                 writer.addpages(PyPDF.PdfReader(part_name).pages)
 
+        writer.trailer.Info = metadata
         writer.write(report_name)
 
     print("File written: " + report_name)
