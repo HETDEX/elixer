@@ -186,11 +186,6 @@ class Catalog:
         self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.sort_values(by='distance', ascending=True)
 
 
-    #must be defined in child class
-    def build_bid_target_reports(self, cat_match, target_ra, target_dec, error, num_hits=0, section_title="", base_count=0,
-                                 target_w=0, fiber_locs=None):
-        return None
-
     def clear_pages(self):
         if self.pages is None:
             self.pages = []
@@ -291,3 +286,26 @@ class Catalog:
             cont = -1
 
         return cont
+
+    def build_bid_target_reports(self, cat_match, target_ra, target_dec, error, num_hits=0, section_title="", base_count=0,
+                                 target_w=0, fiber_locs=None,target_flux=None):
+        #implement in child class
+        pass
+
+
+    def build_cat_summary_figure (self,ra,dec,error,bid_ras,bid_decs, target_w=0, fiber_locs=None, target_flux=None):
+        #implement in child class
+        pass
+
+
+    def build_bid_target_figure_one_line (self,cat_match, ra, dec, error, df=None, df_photoz=None, target_ra=None,
+                                          target_dec=None, section_title="", bid_number=1, target_w=0, of_number=0,
+                                          target_flux=None, color="k"):
+        # implement in child class
+        pass
+
+    def build_multiple_bid_target_figures_one_line(self, cat_match, ras, decs, error, target_ra=None, target_dec=None,
+                                         target_w=0, target_flux=None):
+        # implement in child class
+
+        pass

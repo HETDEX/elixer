@@ -224,8 +224,6 @@ class GOODS_N(cat_base.Catalog):
                     log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
                     continue  # this must be here, so skip to next ra,dec
 
-
-
                 print("Building report for bid target %d in %s" % (base_count + number, self.Name))
 
                 if G.SINGLE_PAGE_PER_DETECT and (len(ras) <= G.MAX_COMBINE_BID_TARGETS):
@@ -424,11 +422,8 @@ class GOODS_N(cat_base.Catalog):
         # note: error is essentially a radius, but this is done as a box, with the 0,0 position in lower-left
         # not the middle, so need the total length of each side to be twice translated error or 2*2*errorS
         window = error * 2.
-        photoz_file = None
         z_best = None
         z_best_type = None  # s = spectral , p = photometric?
-        # z_spec = None
-        # z_spec_ref = None
         z_photoz_weighted = None
 
         rows = 2
@@ -814,11 +809,8 @@ class GOODS_N(cat_base.Catalog):
         # note: error is essentially a radius, but this is done as a box, with the 0,0 position in lower-left
         # not the middle, so need the total length of each side to be twice translated error or 2*2*errorS
         window = error * 2.
-        photoz_file = None
         z_best = None
         z_best_type = None  # s = spectral , p = photometric?
-        # z_spec = None
-        # z_spec_ref = None
         z_photoz_weighted = None
 
         rows = 1
@@ -877,9 +869,9 @@ class GOODS_N(cat_base.Catalog):
                     title = title + "\nOII Z (virus) = N/A"
 
             if target_flux is not None:
-                filter_fl = df['ACS_F606W_FLUX'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                filter_fl = df['ACS_F606W_FLUX'].values[0]  # in nano-jansky or 1e-32  erg s^-1 cm^-2 Hz^-2
                 if (filter_fl is not None) and (filter_fl > 0):
-                    filter_fl = filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
+                    filter_fl = self.nano_jansky_to_cgs(filter_fl,target_w) #filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
                     title = title + "\nEst LyA rest-EW = %g $\AA$" % (
                     -1 * target_flux / filter_fl / (target_w / G.LyA_rest))
 
@@ -952,12 +944,6 @@ class GOODS_N(cat_base.Catalog):
 
     def build_multiple_bid_target_figures_one_line(self, cat_match, ras, decs, error, target_ra=None, target_dec=None,
                                          target_w=0, target_flux=None):
-        window = error * 2.
-        photoz_file = None
-        z_best = None
-        z_best_type = None  # s = spectral , p = photometric?
-        z_photoz_weighted = None
-
         rows = 1
         cols = 6
 
@@ -1035,7 +1021,7 @@ class GOODS_N(cat_base.Catalog):
 
                 if (target_flux is not None) and (filter_fl != 0.0):
                     if (filter_fl is not None):# and (filter_fl > 0):
-                        filter_fl_adj = filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
+                        filter_fl_adj = self.nano_jansky_to_cgs(filter_fl,target_w)#filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
                         text = text + "%g $\AA$\n" % (-1 * target_flux / filter_fl_adj / (target_w / G.LyA_rest))
 
                         if target_w >= G.OII_rest:
@@ -1084,5 +1070,5 @@ class GOODS_N(cat_base.Catalog):
         return fig
 
 #######################################
-# end class CANDELS_EGS_Stefanon_2016
+# end class GOODS_N
 #######################################

@@ -44,6 +44,8 @@ class SHELA(cat_base.Catalog):
 
     MainCatalog = "SHELA" #while there is no main catalog, this needs to be not None
     Name = "SHELA"
+    #EXPTIME_R = 4990.0 #vary with tile and filter
+    #EXPTIME_G = 14490.0
     # if multiple images, the composite broadest range (filled in by hand)
     Image_Coord_Range = {'RA_min': 14.09, 'RA_max': 25.31, 'Dec_min': -1.35, 'Dec_max': 1.34}
     #approximate
@@ -158,7 +160,8 @@ class SHELA(cat_base.Catalog):
                 # then pull data from full astro table as needed
 
                 try:
-                    lookup_table = Table([table['NUMBER'], table['ALPHA_J2000'], table['DELTA_J2000']])
+                    lookup_table = Table([table['NUMBER'], table['ALPHA_J2000'], table['DELTA_J2000'],
+                                          table['FLUX_AUTO'],table['FLUXERR_AUTO']])
                     df = lookup_table.to_pandas()
                     old_names = ['NUMBER', 'ALPHA_J2000', 'DELTA_J2000']
                     new_names = ['ID', 'RA', 'DEC']
@@ -265,50 +268,80 @@ class SHELA(cat_base.Catalog):
         return self.num_targets, self.dataframe_of_bid_targets, None
 
 
-    def build_bid_target_reports(self, cat_match,target_ra, target_dec, error, num_hits=0, section_title="", base_count=0,
-                                 target_w=0, fiber_locs=None,target_flux=None):
+
+    def build_bid_target_reports(self, cat_match, target_ra, target_dec, error, num_hits=0, section_title="",
+                                 base_count=0,
+                                 target_w=0, fiber_locs=None, target_flux=None):
+
         self.clear_pages()
         self.build_list_of_bid_targets(target_ra, target_dec, error)
-
-        #need unique ra and decs only
-
 
         ras = self.dataframe_of_bid_targets_unique.loc[:, ['RA']].values
         decs = self.dataframe_of_bid_targets_unique.loc[:, ['DEC']].values
 
         # display the exact (target) location
-        entry = self.build_exact_target_location_figure(target_ra, target_dec, error, section_title=section_title,
-                                                        target_w=target_w, fiber_locs=fiber_locs,target_flux=target_flux)
-
+        if G.SINGLE_PAGE_PER_DETECT:
+            entry = self.build_cat_summary_figure(target_ra, target_dec, error, ras, decs,
+                                                  target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux)
+        else:
+            entry = self.build_exact_target_location_figure(target_ra, target_dec, error, section_title=section_title,
+                                                            target_w=target_w, fiber_locs=fiber_locs,
+                                                            target_flux=target_flux)
         if entry is not None:
             self.add_bid_entry(entry)
 
-        number = 0
-        # display each bid target
-        for r, d in zip(ras, decs):
-            number += 1
-            try:
-                df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
-                                                       (self.dataframe_of_bid_targets['DEC'] == d[0])]
-            except:
-                log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
-                continue  # this must be here, so skip to next ra,dec
-
-
-            print("Building report for bid target %d in %s" % (base_count + number, self.Name))
-            entry = self.build_bid_target_figure(r[0], d[0], error=error, df=df, df_photoz=None,
-                                                 target_ra=target_ra, target_dec=target_dec,
-                                                 section_title=section_title,
-                                                 bid_number=number, target_w=target_w,of_number=num_hits-base_count,
-                                                 target_flux=target_flux)
+        if G.SINGLE_PAGE_PER_DETECT and (len(ras) <= G.MAX_COMBINE_BID_TARGETS):
+            entry = self.build_multiple_bid_target_figures_one_line(cat_match, ras, decs, error,
+                                                                    target_ra=target_ra, target_dec=target_dec,
+                                                                    target_w=target_w, target_flux=target_flux)
             if entry is not None:
                 self.add_bid_entry(entry)
+        else:  # each bid taget gets its own line
+
+            bid_colors = self.get_bid_colors(len(ras))
+            number = 0
+            for r, d in zip(ras, decs):
+                number += 1
+                try:
+                    df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
+                                                           (self.dataframe_of_bid_targets['DEC'] == d[0]) &
+                                                           (self.dataframe_of_bid_targets['FILTER'] == 'r')]
+                    if df is None:
+                        df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
+                                                               (self.dataframe_of_bid_targets['DEC'] == d[0]) &
+                                                               (self.dataframe_of_bid_targets['FILTER'] == 'g')]
+                    if df is None:
+                        df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
+                                                               (self.dataframe_of_bid_targets['DEC'] == d[0])]
+
+                except:
+                    log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
+                    continue  # this must be here, so skip to next ra,dec
+
+                print("Building report for bid target %d in %s" % (base_count + number, self.Name))
+
+                if G.SINGLE_PAGE_PER_DETECT and (len(ras) <= G.MAX_COMBINE_BID_TARGETS):
+                    entry = self.build_bid_target_figure_one_line(cat_match, r[0], d[0], error=error, df=df,
+                                                                  df_photoz=None,
+                                                                  target_ra=target_ra, target_dec=target_dec,
+                                                                  section_title=section_title,
+                                                                  bid_number=number, target_w=target_w,
+                                                                  of_number=num_hits - base_count,
+                                                                  target_flux=target_flux, color=bid_colors[number - 1])
+                else:
+                    entry = self.build_bid_target_figure(cat_match, r[0], d[0], error=error, df=df, df_photoz=None,
+                                                         target_ra=target_ra, target_dec=target_dec,
+                                                         section_title=section_title,
+                                                         bid_number=number, target_w=target_w,
+                                                         of_number=num_hits - base_count,
+                                                         target_flux=target_flux)
+                if entry is not None:
+                    self.add_bid_entry(entry)
 
         return self.pages
 
     def build_exact_target_location_figure(self, ra, dec, error, section_title="", target_w=0, fiber_locs=None,
                                            target_flux=None):
-        # todo: weight master cutout by exposure time ... see cat_candles_egs ...
         '''Builds the figure (page) the exact target location. Contains just the filter images ...
 
         Returns the matplotlib figure. Due to limitations of matplotlib pdf generation, each figure = 1 page'''
@@ -316,7 +349,6 @@ class SHELA(cat_base.Catalog):
         # note: error is essentially a radius, but this is done as a box, with the 0,0 position in lower-left
         # not the middle, so need the total length of each side to be twice translated error or 2*2*errorS
         window = error * 4
-
 
         rows = 2
         cols = len(self.Filters)
@@ -348,7 +380,6 @@ class SHELA(cat_base.Catalog):
         if self.master_cutout is not None:
             del (self.master_cutout)
             self.master_cutout = None
-
 
         #for a given Tile, iterate over all filters
         tile = self.find_target_tile(ra,dec)
@@ -392,9 +423,6 @@ class SHELA(cat_base.Catalog):
                            vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
                 plt.title(i['instrument'] + " " + i['filter'])
 
-                #plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
-                #                                  angle=0.0, color='red', fill=False))
-
                 self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
 
         if self.master_cutout is None:
@@ -410,12 +438,12 @@ class SHELA(cat_base.Catalog):
                    vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
         plt.title("Master Cutout (Stacked)")
         plt.xlabel("arcsecs")
+        plt.xticks([ext, ext / 2., 0, -ext / 2., -ext])
+        plt.yticks([ext, ext / 2., 0, -ext / 2., -ext])
         # only show this lable if there is not going to be an adjacent fiber plot
         if (fiber_locs is None) or (len(fiber_locs) == 0):
             plt.ylabel("arcsecs")
         plt.plot(0, 0, "r+")
-        #plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
-        #                                  angle=0.0, color='red', fill=False))
 
         self.add_north_box(plt, empty_sci, self.master_cutout, error, 0, 0, theta=None)
 
@@ -468,7 +496,7 @@ class SHELA(cat_base.Catalog):
         plt.close()
         return fig
 
-    def build_bid_target_figure(self, ra, dec, error, df=None, df_photoz=None, target_ra=None, target_dec=None,
+    def build_bid_target_figure(self, cat_match,ra, dec, error, df=None, df_photoz=None, target_ra=None, target_dec=None,
                                 section_title="", bid_number=1, target_w=0, of_number=0,target_flux=None):
         '''Builds the entry (e.g. like a row) for one bid target. Includes the target info (name, loc, Z, etc),
         photometry images, Z_PDF, etc
@@ -479,10 +507,6 @@ class SHELA(cat_base.Catalog):
         # not the middle, so need the total length of each side to be twice translated error or 2*2*errorS
         window = error * 2.
         photoz_file = None
-        z_best = None
-        z_best_type = None  # s = spectral , p = photometric?
-        # z_spec = None
-        # z_spec_ref = None
 
         rows = 2
         cols = len(self.Filters)
@@ -497,14 +521,15 @@ class SHELA(cat_base.Catalog):
         font.set_size(12)
 
         fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
+        plt.subplots_adjust(left=0.05, right=0.95, top=0.9, bottom=0.1)
 
         spec_z = 0.0
 
-        if df is not None:
-           # title = "%s\nPossible Match #%d\n\nRA = %f    Dec = %f\nSeparation  = %g\"" \
-           #         % (section_title, bid_number, df['RA'].values[0], df['DEC'].values[0],
-           #         df['distance'].values[0] * 3600)
+        #todo: find photo z or spec z ... right now SHELA cat does not seem to have them
 
+        #todo: get bid target flux ... again, don't have that ... but maybe convert magnitude into flux?
+
+        if df is not None:
             title = "%s  Possible Match #%d" % (section_title, bid_number)
             if of_number > 0:
                 title = title + " of %d" % of_number
@@ -563,10 +588,6 @@ class SHELA(cat_base.Catalog):
                     plt.plot((px - x), (py - y), "r+")
 
                     self.add_north_arrow(plt, sci, cutout, theta=None)
-
-                    #plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2., height=error * 2.,
-                    #                                  angle=0.0, color='yellow', fill=False, linewidth=5.0, zorder=1))
-                    # set the diameter of the cirle to half the error (radius error/4)
                     plt.gca().add_patch(plt.Circle((0, 0), radius=error / 4.0, color='yellow', fill=False))
 
                 # iterate over all filters for this image and print values
@@ -620,6 +641,8 @@ class SHELA(cat_base.Catalog):
             plt.title("Master Cutout (Stacked)")
             plt.xlabel("arcsecs")
             plt.ylabel("arcsecs")
+            plt.xticks([ext, ext / 2., 0, -ext / 2., -ext])
+            plt.yticks([ext, ext / 2., 0, -ext / 2., -ext])
 
             # mark the bid target location on the master cutout
             if (target_ra is not None) and (target_dec is not None):
@@ -629,8 +652,6 @@ class SHELA(cat_base.Catalog):
 
                 # set the diameter of the cirle to half the error (radius error/4)
                 plt.gca().add_patch(plt.Circle(((x - px), (y - py)), radius=error / 4.0, color='yellow', fill=False))
-                #plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
-                #                                  angle=0.0, color='red', fill=False))
 
                 self.add_north_box(plt, empty_sci, self.master_cutout, error, 0, 0, theta=None)
 
@@ -638,6 +659,474 @@ class SHELA(cat_base.Catalog):
                 y = (y - py) - error
                 plt.gca().add_patch(plt.Rectangle((x, y), width=error * 2, height=error * 2,
                                                   angle=0.0, color='yellow', fill=False))
+
+        plt.close()
+        return fig
+
+
+
+    def build_cat_summary_figure (self, ra, dec, error,bid_ras, bid_decs, target_w=0,
+                                  fiber_locs=None, target_flux=None):
+        '''Builds the figure (page) the exact target location. Contains just the filter images ...
+
+        Returns the matplotlib figure. Due to limitations of matplotlib pdf generation, each figure = 1 page'''
+
+        # note: error is essentially a radius, but this is done as a box, with the 0,0 position in lower-left
+        # not the middle, so need the total length of each side to be twice translated error or 2*2*error
+        # ... change to 1.5 times twice the translated error (really sqrt(2) * 2* error, but 1.5 is close enough)
+        window = error * 3
+        target_box_side = error/4.0 #basically, the box is 1/32 of the window size
+
+        rows = 1 #2
+        cols = 6 #len(self.CatalogImages)
+
+        fig_sz_x = cols * 3
+        fig_sz_y = rows * 3
+
+        fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
+        plt.subplots_adjust(left=0.05, right=0.95, top=0.90, bottom=0.1)
+
+        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.5)
+        # reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based
+
+        font = FontProperties()
+        font.set_family('monospace')
+        font.set_size(12)
+
+        title = "%s\n" % self.Name + "\nPossible Matches = %d\n  (within +/- %g\")\n" \
+                                                              % (len(self.dataframe_of_bid_targets), error)
+
+        # for a given Tile, iterate over all filters
+        tile = self.find_target_tile(ra, dec)
+
+        if tile is None:
+            # problem
+            print("+++++ No appropriate tile found in SHELA for RA,DEC = [%f,%f]" % (ra, dec))
+            log.error("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" % (ra, dec))
+            return None
+
+        ref_exptime = None
+        total_adjusted_exptime = None
+        bid_colors = self.get_bid_colors(len(bid_ras))
+        exptime_cont_est = -1
+        index = 1 #images go in positions 2,3,4,5
+        for f in self.Filters:
+            ##note: there are 5 filters expected (ugriz) only disply 4, so skip 'i'?
+            if f == 'i':
+                continue
+
+            index += 1
+
+            i = self.CatalogImages[
+                next(i for (i, d) in enumerate(self.CatalogImages)
+                     if ((d['filter'] == f) and (d['tile'] == tile)))]
+
+            if i is None:
+                continue
+
+            if i['image'] is None:
+                i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
+                                                         image_location=op.join(i['path'], i['name']))
+            sci = i['image']
+
+            # todo: is this okay? using 'r' as rough equivalent of f606w
+            #the filters are in order, use g if r is not there
+            if (f == 'g') and (sci.exptime is not None) and (exptime_cont_est == -1):
+                exptime_cont_est = sci.exptime
+
+            # the filters are in order, so this will overwrite g
+            if (f == 'r') and (sci.exptime is not None):
+                exptime_cont_est = sci.exptime
+
+            # sci.load_image(wcs_manual=True)
+            cutout = sci.get_cutout(ra, dec, error, window=window)
+            ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
+
+            if cutout is not None:  # construct master cutout
+                # master cutout needs a copy of the data since it is going to be modified  (stacked)
+                # repeat the cutout call, but get a copy
+                if self.master_cutout is None:
+                    self.master_cutout = sci.get_cutout(ra, dec, error, window=window, copy=True)
+                    ref_exptime = sci.exptime
+                    total_adjusted_exptime = 1.0
+                else:
+                    self.master_cutout.data = np.add(self.master_cutout.data, cutout.data * sci.exptime / ref_exptime)
+                    total_adjusted_exptime += sci.exptime / ref_exptime
+
+                plt.subplot(gs[rows - 1, index])
+                plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
+                           vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
+                plt.title(i['instrument'] + " " + i['filter'])
+                plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+                plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+                plt.plot(0, 0, "r+")
+                self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
+                x, y = sci.get_position(ra, dec, cutout)  # zero (absolute) position
+                for br, bd, bc in zip(bid_ras, bid_decs, bid_colors):
+                    fx, fy = sci.get_position(br, bd, cutout)
+                    plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
+                                                      width=target_box_side, height=target_box_side,
+                                                      angle=0.0, color=bc, fill=False, linewidth=1.0, zorder=1))
+
+
+        if target_flux is not None:
+            #todo: is this okay? using 'r' filter
+            #todo: get exptime from the tile (science image has it)
+            cont_est = self.get_f606w_max_cont(exptime_cont_est, 3)
+            if cont_est != -1:
+                title += "Minimum (no match)\n  3$\sigma$ rest-EW:\n"
+                title += "  LyA = %g $\AA$\n" %  (-1 * (target_flux / cont_est) / (target_w / G.LyA_rest))
+                if target_w >= G.OII_rest:
+                    title = title + "  OII = %g $\AA$\n" %  (-1 * (target_flux / cont_est) / (target_w / G.OII_rest))
+                else:
+                    title = title + "  OII = N/A\n"
+
+        plt.subplot(gs[0, 0])
+        plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
+        plt.gca().set_frame_on(False)
+        plt.gca().axis('off')
+
+        if self.master_cutout is None:
+            # cannot continue
+            print("No catalog image available in %s" % self.Name)
+            return None
+        else:
+            self.master_cutout.data /= total_adjusted_exptime
+
+        empty_sci = science_image.science_image()
+
+
+        # plot the fiber cutout
+        if (fiber_locs is not None) and (len(fiber_locs) > 0):
+            plt.subplot(gs[0, 1])
+
+            plt.title("Fiber Positions")
+            plt.xlabel("arcsecs")
+            plt.gca().xaxis.labelpad = 0
+
+            plt.plot(0, 0, "r+")
+
+            xmin = float('inf')
+            xmax = float('-inf')
+            ymin = float('inf')
+            ymax = float('-inf')
+
+            x, y = empty_sci.get_position(ra, dec, self.master_cutout)  # zero (absolute) position
+
+            for r, d, c, i, dist in fiber_locs:
+                # fiber absolute position ... need relative position to plot (so fiber - zero pos)
+                fx, fy = empty_sci.get_position(r, d, self.master_cutout)
+
+                xmin = min(xmin, fx - x)
+                xmax = max(xmax, fx - x)
+                ymin = min(ymin, fy - y)
+                ymax = max(ymax, fy - y)
+
+                plt.gca().add_patch(plt.Circle(((fx - x), (fy - y)), radius=G.Fiber_Radius, color=c, fill=False))
+                plt.text((fx - x), (fy - y), str(i), ha='center', va='center', fontsize='x-small', color=c)
+
+            # larger of the spread of the fibers or the maximum width (in non-rotated x-y plane) of the error window
+            ext_base = max(abs(xmin), abs(xmax), abs(ymin), abs(ymax))
+            ext = max(ext_base + G.Fiber_Radius,ext)
+
+            # need a new cutout since we rescaled the ext (and window) size
+            cutout = empty_sci.get_cutout(ra, dec, error, window=ext * 2, image=self.master_cutout)
+            vmin, vmax = empty_sci.get_vrange(cutout.data)
+
+            self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
+
+            plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
+                       vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+
+            plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+            plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+
+        # complete the entry
+        plt.close()
+        return fig
+
+    def build_bid_target_figure_one_line (self,cat_match, ra, dec, error, df=None, df_photoz=None, target_ra=None, target_dec=None,
+                                section_title="", bid_number=1, target_w=0, of_number=0, target_flux=None, color="k"):
+        '''Builds the entry (e.g. like a row) for one bid target. Includes the target info (name, loc, Z, etc),
+        photometry images, Z_PDF, etc
+
+        Returns the matplotlib figure. Due to limitations of matplotlib pdf generateion, each figure = 1 page'''
+
+        # note: error is essentially a radius, but this is done as a box, with the 0,0 position in lower-left
+        # not the middle, so need the total length of each side to be twice translated error or 2*2*errorS
+        window = error * 2.
+        z_best = None
+        z_best_type = None  # s = spectral , p = photometric?
+        z_photoz_weighted = None
+
+        rows = 1
+        cols = 6
+
+        if df_photoz is not None:
+           pass
+
+        fig_sz_x = cols * 3
+        fig_sz_y = rows * 3
+
+        fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
+        plt.subplots_adjust(left=0.05, right=0.95, top=0.8, bottom=0.2)
+
+        #cols*2 to leave one column for the color coded rectange ... all other are made at 2x columns
+        gs = gridspec.GridSpec(rows, cols*2, wspace=0.25, hspace=0.5)
+
+        #use col = 0 for color coded rectangle
+        plt.subplot(gs[0, 0])
+        plt.gca().set_frame_on(False)
+        plt.gca().axis('off')
+        #2:1 so height should be 1/2 width
+        plt.gca().add_patch(plt.Rectangle((0.25,0.25), width=0.5, height=0.25, angle=0.0, color=color,
+                                          fill=False,linewidth=5,zorder=1))
+
+        #entry text
+        font = FontProperties()
+        font.set_family('monospace')
+        font.set_size(12)
+
+        if df is not None:
+            title = "%s  Possible Match #%d" % (section_title, bid_number)
+            if of_number > 0:
+                title = title + " of %d" % of_number
+
+            title = title + "\nRA = %f    Dec = %f\nSeparation    = %g\"" \
+                            % (df['RA'].values[0], df['DEC'].values[0],df['distance'].values[0] * 3600)
+
+            if z_best_type is not None:
+                if (z_best_type.lower() == 'p'):
+                    title = title + "\nPhoto Z       = %g (blue)" % z_best
+                elif (z_best_type.lower() == 's'):
+                    title = title + "\nSpec Z        = %g (gold)" % z_best
+                    spec_z = z_best
+                    if z_photoz_weighted is not None:
+                        title = title + "\nPhoto Z       = %g (blue)" % z_photoz_weighted
+
+            if target_w > 0:
+                la_z = target_w / G.LyA_rest - 1.0
+                oii_z = target_w / G.OII_rest - 1.0
+                title = title + "\nLyA Z (virus) = %g" % la_z
+                if (oii_z > 0):
+                    title = title + "\nOII Z (virus) = %g" % oii_z
+                else:
+                    title = title + "\nOII Z (virus) = N/A"
+
+            if (target_flux is not None) and (df['FILTER'].values[0] in 'rg'):
+                #here ...
+                filter_fl = df['FLUX_AUTO'].values[0]  #?? in nano-jansky or 1e-32  erg s^-1 cm^-2 Hz^-2
+                if (filter_fl is not None) and (filter_fl > 0):
+                    filter_fl = self.nano_jansky_to_cgs(filter_fl,target_w) #filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
+                    title = title + "\nEst LyA rest-EW = %g $\AA$" % (
+                    -1 * target_flux / filter_fl / (target_w / G.LyA_rest))
+
+                    if target_w >= G.OII_rest:
+                        title = title + "\nEst OII rest-EW = %g $\AA$" % (
+                        -1 * target_flux / filter_fl / (target_w / G.OII_rest))
+                    else:
+                        title = title + "\nEst OII rest-EW = N/A"
+
+                    # bid target info is only of value if we have a flux from the emission line
+                    bid_target = match_summary.BidTarget()
+                    bid_target.bid_ra = df['RA'].values[0]
+                    bid_target.bid_dec = df['DEC'].values[0]
+                    bid_target.distance = df['distance'].values[0] * 3600
+                    bid_target.bid_flux_est_cgs = filter_fl
+                    bid_target.bid_flux_f606w_cgs = filter_fl
+                    #todo: build these filters
+                    #bid_target.bid_flux_f814w_cgs = self.nano_jansky_to_cgs(df['F814W (I) flux (nJy)'].values[0],
+                    #                                                        target_w)
+                    #bid_target.bid_flux_f125w_cgs = self.nano_jansky_to_cgs(df['F125W (J) flux (nJy)'].values[0],
+                    #                                                        target_w)
+                    #bid_target.bid_flux_f160w_cgs = self.nano_jansky_to_cgs(df['F160W (H) flux (nJy)'].values[0],
+                    #                                                        target_w)
+                    cat_match.add_bid_target(bid_target)
+        else:
+            title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)
+
+        plt.subplot(gs[0, 1:4])
+        plt.text(0, 0, title, ha='left', va='bottom', fontproperties=font)
+        plt.gca().set_frame_on(False)
+        plt.gca().axis('off')
+
+        #add flux values
+        if df is not None:
+            # iterate over all filter images
+            title = ""
+            for i in self.CatalogImages:  # i is a dictionary
+                # iterate over all filters for this image and print values
+                #font.set_size(10)
+
+                #not all filters have entries ... note 'cols'[0] is flux, [1] is the error
+                if df[i['cols']].empty :
+                    title = title + "%7s %s %s = -- (--)\n" % (i['instrument'], i['filter'], "Flux")
+                else:
+                    try:
+                        title = title + "%7s %s %s = %.5f (%.5f)\n" % (i['instrument'], i['filter'], "Flux",
+                                float(df[i['cols'][0]].values[0]), float(df[i['cols'][1]].values[0]))
+                    except:
+                        title = title + "%7s %s %s = -- (--)\n" % (i['instrument'], i['filter'], "Flux")
+
+
+        plt.subplot(gs[0, 4])
+        plt.text(0, 0, title, ha='left', va='bottom', fontproperties=font)
+        plt.gca().set_frame_on(False)
+        plt.gca().axis('off')
+
+        # todo: photo z plot if becomes available
+        # add photo_z plot
+        if df_photoz is not None:
+            pass
+        else:
+            plt.subplot(gs[0, -4:])
+            plt.gca().set_frame_on(False)
+            plt.gca().axis('off')
+            text = "Photo Z plot not available."
+            plt.text(0, 0.5, text, ha='left', va='bottom', fontproperties=font)
+
+        # fig holds the entire page
+        plt.close()
+        return fig
+
+    def build_multiple_bid_target_figures_one_line(self, cat_match, ras, decs, error, target_ra=None, target_dec=None,
+                                         target_w=0, target_flux=None):
+
+        rows = 1
+        cols = 6
+
+        fig_sz_x = cols * 3
+        fig_sz_y = rows * 3
+
+        fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
+        plt.subplots_adjust(left=0.05, right=0.95, top=0.9, bottom=0.2)
+
+        #col(0) = "labels", 1..3 = bid targets, 4..5= Zplot
+        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.5)
+
+        # entry text
+        font = FontProperties()
+        font.set_family('monospace')
+        font.set_size(12)
+
+        #row labels
+        plt.subplot(gs[0, 0])
+        plt.gca().set_frame_on(False)
+        plt.gca().axis('off')
+
+        if len(ras) < 1:
+            # per Karl insert a blank row
+            text = "No matching targets in catalog.\nRow intentionally blank."
+            plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
+            plt.close()
+            return fig
+
+
+        bid_colors = self.get_bid_colors(len(ras))
+
+        text = "Separation\n" + \
+               "RA, Dec\n" + \
+               "Spec Z\n" + \
+               "Photo Z\n" + \
+               "Est LyA rest-EW\n" + \
+               "Est OII rest-EW\n" #+ \
+               #"ACS WFC f606W Flux\n"
+
+        plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
+
+        col_idx = 0
+        for r, d in zip(ras, decs):
+            col_idx += 1
+            try:
+                df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
+                                                       (self.dataframe_of_bid_targets['DEC'] == d[0]) &
+                                                       (self.dataframe_of_bid_targets['FILTER'] == 'r')]
+                if df is None:
+                    df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
+                                                       (self.dataframe_of_bid_targets['DEC'] == d[0]) &
+                                                       (self.dataframe_of_bid_targets['FILTER'] == 'g')]
+                if df is None:
+                    df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
+                                                        (self.dataframe_of_bid_targets['DEC'] == d[0])]
+
+            except:
+                log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
+                continue  # this must be here, so skip to next ra,dec
+
+            if df is not None:
+                text = ""
+                text = text + "%g\"\n%f, %f\n" \
+                                % ( df['distance'].values[0] * 3600,df['RA'].values[0], df['DEC'].values[0])
+
+                best_fit_photo_z = 0.0
+                try:
+                    best_fit_photo_z = float(df['Best-fit photo-z'].values[0])
+                except:
+                    pass
+
+                text += "N/A\n" + "%g\n" % best_fit_photo_z
+
+                filter_fl = 0.0
+                filter_fl_err = 0.0
+
+                #todo: add flux (cont est)
+                try:
+                    if (df['FILTER'].values[0] in 'rg'):
+                      filter_fl = float(df['FLUX_AUTO'].values[0])  #?? in nano-jansky or 1e-32  erg s^-1 cm^-2 Hz^-2
+                      filter_fl_err = float(df['FLUXERR_AUTO'].values[0])
+                except:
+                    filter_fl = 0.0
+                    filter_fl_err = 0.0
+
+                if (target_flux is not None) and (filter_fl != 0.0):
+                    if (filter_fl is not None):# and (filter_fl > 0):
+                        filter_fl_adj = self.nano_jansky_to_cgs(filter_fl,target_w) #filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
+                        text = text + "%g $\AA$\n" % (-1 * target_flux / filter_fl_adj / (target_w / G.LyA_rest))
+
+                        if target_w >= G.OII_rest:
+                            text = text + "%g $\AA$\n" % (-1 * target_flux / filter_fl_adj / (target_w / G.OII_rest))
+                        else:
+                            text = text + "N/A\n"
+                            # bid target info is only of value if we have a flux from the emission line
+                        bid_target = match_summary.BidTarget()
+                        bid_target.bid_ra = df['RA'].values[0]
+                        bid_target.bid_dec = df['DEC'].values[0]
+                        bid_target.distance = df['distance'].values[0] * 3600
+                        bid_target.bid_flux_est_cgs = filter_fl
+
+                        #todo: build these filters
+                        #bid_target.bid_flux_f606w_cgs = filter_fl
+                        #bid_target.bid_flux_f814w_cgs = self.nano_jansky_to_cgs(df['F814W (I) flux (nJy)'].values[0],
+                        #    target_w)
+                        #bid_target.bid_flux_f125w_cgs = self.nano_jansky_to_cgs(df['F125W (J) flux (nJy)'].values[0],
+                        #    target_w)
+                        #bid_target.bid_flux_f160w_cgs = self.nano_jansky_to_cgs(df['F160W (H) flux (nJy)'].values[0],
+                        #    target_w)
+                        cat_match.add_bid_target(bid_target)
+                else:
+                    text += "N/A\nN/A\n"
+
+            #todo: add flux (cont est)
+               # if filter_fl < 0:
+               #     text = text + "%g(%g) nJy !?\n" % (filter_fl, filter_fl_err)
+               # else:
+               #     text = text + "%g(%g) nJy\n" % (filter_fl, filter_fl_err)
+            else:
+                text = "%s\n%f\n%f\n" % ("--",r, d)
+
+            plt.subplot(gs[0, col_idx])
+            plt.gca().set_frame_on(False)
+            plt.gca().axis('off')
+            plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font,color=bid_colors[col_idx-1])
+
+            # fig holds the entire page
+
+            #todo: photo z plot if becomes available
+            plt.subplot(gs[0, 4:])
+            plt.gca().set_frame_on(False)
+            plt.gca().axis('off')
+            text = "Photo Z plot not available."
+            plt.text(0, 0.5, text, ha='left', va='bottom', fontproperties=font)
 
         plt.close()
         return fig
