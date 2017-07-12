@@ -396,7 +396,8 @@ def join_report_parts(report_name, bid_count=0):
                 page.y = y_offset
                 y_offset = scale* page.box[3] #box is [x0,y0,x_top, y_top]
 
-            if os.path.isdir(report_name):  # often just the base name is given
+ #           if os.path.isdir(report_name):  # often just the base name is given
+            if not report_name.endswith(".pdf"):
                 report_name += ".pdf"
             writer = PyPDF.PdfWriter(report_name)
 
@@ -436,7 +437,8 @@ def join_report_parts(report_name, bid_count=0):
                 page.y = y_offset
                 y_offset = scale * page.box[3]  # box is [x0,y0,x_top, y_top]
 
-            if os.path.isdir(report_name):  # often just the base name is given
+#            if os.path.isdir(report_name):  # often just the base name is given
+            if not report_name.endswith(".pdf"):
                 report_name += ".pdf"
             writer = PyPDF.PdfWriter(report_name)
             writer.addPage(merge_page.render())
