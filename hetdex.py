@@ -66,7 +66,9 @@ dist_thresh = 2.  # Fiber Distance (arcsecs)
 FRAME_WIDTH_X = 1024
 xw = 24  # image width in x-dir
 yw = 10  # image width in y-dir
-contrast1 = 0.9  # convolved image
+#contrast1 = 0.9  # convolved image  # from Greg
+#contrast2 = 0.5  # regular image # from Greg
+contrast1 = 1.0  # convolved image # using normal zscale
 contrast2 = 0.5  # regular image
 res = [3, 9]
 ww = xw * 1.9  # wavelength width
@@ -1496,13 +1498,18 @@ class HETDEX:
         #else, the pages were appended invidivually
         return pages
 
-    def get_vrange(self,vals):
+    def get_vrange(self,vals,scale=1.0):
         vmin = None
         vmax = None
+        if scale == 0:
+            scale = 1.0
 
         try:
-            zscale = ZScaleInterval(contrast=0.25,krej=2.5) #nsamples=len(vals)
-            vmin,vmax = zscale.get_limits(values=vals )
+            zscale = ZScaleInterval(contrast=1.0,krej=2.5) #nsamples=len(vals)
+            vmin,vmax = zscale.get_limits(values=vals)
+            vmin = vmin/scale
+            vmax = vmax/scale
+            log.info("HETDEX (zscale) vrange = %f, %f" %(vmin,vmax))
         except:
             log.info("Exception in science_image::get_vrange:",exc_info =True)
 
@@ -1604,7 +1611,8 @@ class HETDEX:
             f0 = self.dist[side].get_reference_f(loc + 1)
             xi = self.dist[side].map_wf_x(e.w, f0)
             yi = self.dist[side].map_wf_y(e.w, f0)
-            datakeep['fib'].append(self.dist[side].map_xy_fibernum(xi, yi))
+            fiber_num = self.dist[side].map_xy_fibernum(xi, yi)
+            datakeep['fib'].append(fiber_num)
             xfiber = self.ifu_ctr.xifu[side][loc] + self.dither.dx[dither]
             yfiber = self.ifu_ctr.yifu[side][loc] + self.dither.dy[dither]
             xfiber += self.ifuy #yes this is correct xfiber gets ifuy
@@ -1652,15 +1660,23 @@ class HETDEX:
                 s_rank = np.arange(len_s)
                 p = np.polyfit(s_rank - len_s / 2, I[s_ind], 1)
 
-                z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast1
-                z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast1
+                #z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast1
+                #z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast1
+
+                z1, z2 = self.get_vrange(sci.data[yl:yh, xl:xh], scale=contrast1)
+                log.debug("2D cutout zscale1 (smoothed) = %f, %f  for D,S,F = %d, %s, %d"
+                          % (z1, z2, dither + 1, side, fiber_num))
 
                 #z1,z2 = self.get_vrange(sci.data[yl:yh,xl:xh])
                 datakeep['vmin1'].append(z1)
                 datakeep['vmax1'].append(z2)
 
-                z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast2
-                z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast2
+                #z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast2
+                #z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast2
+
+                z1, z2 = self.get_vrange(sci.data[yl:yh, xl:xh], scale=contrast2)
+                log.debug("2D cutout zscale2 (image) = %f, %f  for D,S,F = %d, %s, %d"
+                          % (z1, z2, dither + 1, side, fiber_num))
 
                 datakeep['vmin2'].append(z1)
                 datakeep['vmax2'].append(z2)
@@ -1787,7 +1803,8 @@ class HETDEX:
             #lowest number fiber is at the top, not the bottom
             #loc runs from the bottom and is zero based
             #so flip ... nominally:  112 - (loc+1) + offset for the amp
-            datakeep['fib'].append(len(fits.fe_data) - (loc+1) + AMP_OFFSET[fits.amp])
+            fiber_num = len(fits.fe_data) - (loc+1) + AMP_OFFSET[fits.amp]
+            datakeep['fib'].append(fiber_num)
 
 
             xfiber = fits.fiber_centers[loc][0] + self.dither.dx[dither]
@@ -1838,15 +1855,21 @@ class HETDEX:
             s_rank = np.arange(len_s)
             p = np.polyfit(s_rank - len_s / 2, I[s_ind], 1)
 
-            z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast1
-            z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast1
+            #z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast1
+            #z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast1
+
+            z1, z2 = self.get_vrange(fits.data[yl:yh, xl:xh],scale=contrast1)
+            log.debug("2D cutout zscale1 (smoothed) = %f, %f  for D,S,F = %d, %s, %d" %(z1,z2,dither+1,fits.side,fiber_num))
 
             # z1,z2 = self.get_vrange(sci.data[yl:yh,xl:xh])
             datakeep['vmin1'].append(z1)
             datakeep['vmax1'].append(z2)
 
-            z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast2
-            z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast2
+            #z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast2
+            #z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast2
+
+            z1, z2 = self.get_vrange(fits.data[yl:yh, xl:xh],scale=contrast2)
+            log.debug("2D cutout zscale2 (image) = %f, %f  for D,S,F = %d, %s, %d" %(z1,z2,dither+1,fits.side,fiber_num))
 
             datakeep['vmin2'].append(z1)
             datakeep['vmax2'].append(z2)
@@ -1982,8 +2005,8 @@ class HETDEX:
 
             imgplot.imshow(a,
                            origin="lower", cmap=cmap1,
-                           vmin=datakeep['vmin1'][ind[i]],
-                           vmax=datakeep['vmax1'][ind[i]],
+                           vmin=datakeep['vmin2'][ind[i]],
+                           vmax=datakeep['vmax2'][ind[i]],
                            interpolation="none",extent=ext)
 
             #plot the center point

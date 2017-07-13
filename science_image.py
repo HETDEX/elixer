@@ -119,13 +119,14 @@ class science_image():
     def calc_pixel_size(self,wcs):
         return np.sqrt(wcs.wcs.cd[0, 0] ** 2 + wcs.wcs.cd[0, 1] ** 2) * 3600.0
 
-    def get_vrange(self,vals):
+    def get_vrange(self,vals,contrast=0.25):
         self.vmin = None
         self.vmax = None
 
         try:
-            zscale = ZScaleInterval(contrast=0.25,krej=2.5) #nsamples=len(vals)
+            zscale = ZScaleInterval(contrast=contrast,krej=2.5) #nsamples=len(vals)
             self.vmin, self.vmax = zscale.get_limits(values=vals )
+            log.info("Vrange = %f, %f" %(self.vmin,self.vmax))
         except:
             log.info("Exception in science_image::get_vrange:",exc_info =True)
 

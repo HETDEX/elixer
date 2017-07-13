@@ -6,13 +6,15 @@ import gc
 import socket
 
 #version
-__version__ = '1.0.0'
+__version__ = '1.0.1'
 
 
 if socket.gethostname() == 'z50':
 #if False:
     CONFIG_BASEDIR = "/home/dustin/code/python/voltron/data/config/"
+
     PANACEA_RED_BASEDIR = "/home/dustin/code/python/voltron/data/config/red1/reductions/"
+    #PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
 
     CANDELS_EGS_Stefanon_2016_BASE_PATH = "/home/dustin/code/python/voltron/data/EGS"
     GOODS_N_BASE_PATH = "/home/dustin/code/python/voltron/data/GOODSN"
