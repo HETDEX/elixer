@@ -1967,11 +1967,14 @@ class HETDEX:
             smplot.axis(ext)
             smplot.axis('off')
 
-
+            #todo: maybe set the scale separately here...
+           # vmin_pix, vmax_pix = self.get_vrange(datakeep['pix'][ind[i]], scale=0.01)
+            vmin_pix = 0.9
+            vmax_pix = 1.1
             pixplot.imshow(datakeep['pix'][ind[i]],
                            origin="lower", cmap=plt.get_cmap('gray'),
-                           interpolation="none", vmin=0.9, vmax=1.1,
-                           extent=ext)
+                           interpolation="none", vmin=vmin_pix, vmax=vmax_pix,
+                           extent=ext) #vmin=0.9, vmax=1.1
             # plot the center point
             #errplot.scatter(datakeep['xi'][ind[i]], datakeep['yi'][ind[i]],
             #                marker='.', c='r', edgecolor='r', s=10)

@@ -17,8 +17,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 import matplotlib.gridspec as gridspec
-import astropy.io.fits as fits
-from astropy.table import Table
+#import astropy.io.fits as fits
+import astropy.table
+#import astropy.utils.exceptions
+#import warnings
+#warnings.filterwarnings('ignore', category=astropy.utils.exceptions.AstropyUserWarning, append=True)
 
 
 log = G.logging.getLogger('Cat_logger')
@@ -39,13 +42,15 @@ class SHELA(cat_base.Catalog):
     Img_ext = 'psfsci.fits'
     Cat_ext = 'dualgcat.fits'
 
-    #SHELA_CAT = op.join(G.SHELA_CAT_PATH, "B3_g_dualgcat.fits")
-    #SHELA_IMAGE = op.join(SHELA_IMAGE_PATH, "B3_g_psfsci.fits")
+    PhotoZ_combined_cat = op.join(G.SHELA_PHOTO_Z_COMBINED_PATH,"shela_decam_irac_vista_combined_catalog.fits")
+    PhotoZ_master_cat = op.join(G.SHELA_PHOTO_Z_MASTER_PATH,"photz_master.zout.FITS")
+
+    df = None
+    df_photoz = None
 
     MainCatalog = "SHELA" #while there is no main catalog, this needs to be not None
     Name = "SHELA"
-    #EXPTIME_R = 4990.0 #vary with tile and filter
-    #EXPTIME_G = 14490.0
+
     # if multiple images, the composite broadest range (filled in by hand)
     Image_Coord_Range = {'RA_min': 14.09, 'RA_max': 25.31, 'Dec_min': -1.35, 'Dec_max': 1.34}
     #approximate
@@ -89,6 +94,130 @@ class SHELA(cat_base.Catalog):
 #     name = 'CLASS_STAR'; format = '1E'; disp = 'F6.3'
 # )
 
+    # photz_master.zout.FITS fields
+    # 'id',
+    # 'z_spec',
+    # 'z_a',
+    # 'z_m1',
+    # 'chi_a',
+    # 'l68',
+    # 'u68',
+    # 'l95',
+    # 'u95',
+    # 'l99',
+    # 'u99',
+    # 'nfilt',
+    # 'q_z',
+    # 'z_peak',
+    # 'peak_prob',
+    # 'z_mc'
+
+
+    #shela_decam_irac_vista_combined_catalog.fits fields
+    # 'X_IMAGE',
+    # 'Y_IMAGE',
+    # 'RA',
+    # 'DEC',
+    # 'FWHM_IMAGE',
+    # 'A_IMAGE',
+    # 'B_IMAGE',
+    # 'THETA_IMAGE',
+    # 'ISOAREA_FROM_SEGMAP',
+    # 'FLAGS',
+    # 'FLUX_APER_1_u',
+    # 'FLUX_APER_2_u',
+    # 'SIGMA_APER_1_u',
+    # 'SIGMA_APER_2_u',
+    # 'FLUX_AUTO_u',
+    # 'SIGMA_AUTO_u',
+    # 'FLUX_ISO_u',
+    # 'SIGMA_ISO_u',
+    # 'FLUX_RADIUS_u',
+    # 'KRON_RADIUS_u',
+    # 'EXP_CENTER_PIXEL_u',
+    # 'CLASS_STAR_u',
+    # 'IMAFLAGS_ISO_u',
+    # 'FLUX_APER_1_g',
+    # 'FLUX_APER_2_g',
+    # 'SIGMA_APER_1_g',
+    # 'SIGMA_APER_2_g',
+    # 'FLUX_AUTO_g',
+    # 'SIGMA_AUTO_g',
+    # 'FLUX_ISO_g',
+    # 'SIGMA_ISO_g',
+    # 'FLUX_RADIUS_g',
+    # 'KRON_RADIUS_g',
+    # 'EXP_CENTER_PIXEL_g',
+    # 'CLASS_STAR_g',
+    # 'IMAFLAGS_ISO_g',
+    # 'FLUX_APER_1_r',
+    # 'FLUX_APER_2_r',
+    # 'SIGMA_APER_1_r',
+    # 'SIGMA_APER_2_r',
+    # 'FLUX_AUTO_r',
+    # 'SIGMA_AUTO_r',
+    # 'FLUX_ISO_r',
+    # 'SIGMA_ISO_r',
+    # 'FLUX_RADIUS_r',
+    # 'KRON_RADIUS_r',
+    # 'EXP_CENTER_PIXEL_r',
+    # 'CLASS_STAR_r',
+    # 'IMAFLAGS_ISO_r',
+    # 'FLUX_APER_1_i',
+    # 'FLUX_APER_2_i',
+    # 'SIGMA_APER_1_i',
+    # 'SIGMA_APER_2_i',
+    # 'FLUX_AUTO_i',
+    # 'SIGMA_AUTO_i',
+    # 'FLUX_ISO_i',
+    # 'SIGMA_ISO_i',
+    # 'FLUX_RADIUS_i',
+    # 'KRON_RADIUS_i',
+    # 'EXP_CENTER_PIXEL_i',
+    # 'CLASS_STAR_i',
+    # 'IMAFLAGS_ISO_i',
+    # 'FLUX_APER_1_z',
+    # 'FLUX_APER_2_z',
+    # 'SIGMA_APER_1_z',
+    # 'SIGMA_APER_2_z',
+    # 'FLUX_AUTO_z',
+    # 'SIGMA_AUTO_z',
+    # 'FLUX_ISO_z',
+    # 'SIGMA_ISO_z',
+    # 'FLUX_RADIUS_z',
+    # 'KRON_RADIUS_z',
+    # 'EXP_CENTER_PIXEL_z',
+    # 'CLASS_STAR_z',
+    # 'IMAFLAGS_ISO_z',
+    # 'EBV',
+    # 'EBV_STDDEV',
+    # 'DETECT_IMG_FLUX_AUTO',
+    # 'DETECT_IMG_FLUXERR_AUTO',
+    # 'CATALOG_ID_A',
+    # 'CATALOG_ID_B',
+    # 'ch1_trflux_uJy',
+    # 'ch2_trflux_uJy',
+    # 'ch1_fluxvar_uJy',
+    # 'ch2_fluxvar_uJy',
+    # 'ch1_aper_errflux_uJy',
+    # 'ch2_aper_errflux_uJy',
+    # 'ch1_logprob',
+    # 'ch2_logprob',
+    # 'ch1_tractorflag',
+    # 'ch2_tractorflag',
+    # 'ch1_optpsf_arcs',
+    # 'ch2_optpsf_arcs',
+    # 'ch1_psfvar_arcs',
+    # 'ch2_psfvar_arcs',
+    # 'irac_ch1weightvalues',
+    # 'irac_ch2weightvalues',
+    # 'DECAM_FIELD_ID',
+    # 'MASTER_ID',
+    # 'FLUX_AUTO_K',
+    # 'SIGMA_AUTO_K',
+    # 'FLUX_AUTO_J',
+    # 'SIGMA_AUTO_J',
+    # 'VISTA_d2d_arcsec'
 
     #NUMBER is NOT unique across Tiles (as expected)
     #NUMBER is NOT unique within a Tile either (bummer)
@@ -150,7 +279,7 @@ class SHELA(cat_base.Catalog):
                 cat_loc = op.join(cls.SHELA_BASE_PATH,cat_name)
 
                 try:
-                    table = Table.read(cat_loc)
+                    table = astropy.table.Table.read(cat_loc)
                 except:
                     log.error(name + " Exception attempting to open catalog file: " + catalog_loc, exc_info=True)
                     return None
@@ -160,23 +289,44 @@ class SHELA(cat_base.Catalog):
                 # then pull data from full astro table as needed
 
                 try:
-                    lookup_table = Table([table['NUMBER'], table['ALPHA_J2000'], table['DELTA_J2000'],
+                    lookup_table = astropy.table.Table([table['NUMBER'], table['ALPHA_J2000'], table['DELTA_J2000'],
                                           table['FLUX_AUTO'],table['FLUXERR_AUTO']])
-                    df = lookup_table.to_pandas()
+                    pddf = lookup_table.to_pandas()
                     old_names = ['NUMBER', 'ALPHA_J2000', 'DELTA_J2000']
                     new_names = ['ID', 'RA', 'DEC']
-                    df.rename(columns=dict(zip(old_names, new_names)), inplace=True)
-                    df['TILE'] = t
-                    df['FILTER'] = f
+                    pddf.rename(columns=dict(zip(old_names, new_names)), inplace=True)
+                    pddf['TILE'] = t
+                    pddf['FILTER'] = f
 
-                    df_master = pd.concat([df_master,df])
+                    df_master = pd.concat([df_master,pddf])
 
                    # cls.AstroTable = table
                 except:
                     log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
                     return None
 
+        cls.df = df_master
         return df_master
+
+    @classmethod
+    def merge_photoz_catalogs(cls, combined_cat_file=PhotoZ_combined_cat, master_cat_file=PhotoZ_master_cat):
+        "This catalog is in a fits file"
+
+        try:
+            combined_table = astropy.table.Table.read(combined_cat_file)
+            master_table = astropy.table.Table.read(master_cat_file)
+            master_table.rename_column('id', 'MASTER_ID')
+            cls.df_photoz = astropy.table.join(master_table, combined_table, ['MASTER_ID'])
+
+            #error with .to_pandas(), so have to leave as astropy table (not as fast, but then
+            #we are just doing direct lookup, not a search)
+        except:
+            log.error("Exception attempting to open and compbine photoz catalog files: \n%s\n%s"
+                      %(combined_cat_file, master_cat_file), exc_info=True)
+            return None
+
+
+        return cls.df_photoz
 
     def build_catalog_of_images(self):
         for t in self.Tiles:
@@ -196,6 +346,17 @@ class SHELA(cat_base.Catalog):
         #assumed to have already confirmed this target is at least in coordinate range of this catalog
         tile = None
         for t in self.Tiles:
+
+            # don't bother to load if ra, dec not in range
+            try:
+                coord_range = self.Tile_Coord_Range[t]
+                # {'RA_min': 14.09, 'RA_max': 16.91, 'Dec_min': -1.35, 'Dec_max': 1.34}
+                if not ((ra >= coord_range['RA_min']) and (ra <= coord_range['RA_max']) and
+                        (dec >= coord_range['Dec_min']) and (dec <= coord_range['Dec_max'])) :
+                    continue
+            except:
+                pass
+
             for f in ['g']: #self.Filters:
                 #can we assume the filters all have the same coord range?
                 #see if can get a cutout?
@@ -205,6 +366,9 @@ class SHELA(cat_base.Catalog):
                             image_location=op.join(self.SHELA_IMAGE_PATH, img_name))
                     if image.contains_position(ra,dec):
                         tile = t
+                    else:
+                        log.debug("position (%f, %f) is not in image. %s" % (ra, dec,img_name))
+
                 except:
                     pass
 
@@ -219,6 +383,9 @@ class SHELA(cat_base.Catalog):
 
         if self.df is None:
             self.read_main_catalog()
+
+        if self.df_photoz is None:
+            self.merge_photoz_catalogs()
 
         error_in_deg = np.float64(error) / 3600.0
 

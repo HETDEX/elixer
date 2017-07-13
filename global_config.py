@@ -27,7 +27,10 @@ if socket.gethostname() == 'z50':
     STACK_COSMOS_CAT_PATH = "/home/dustin/code/python/voltron/data/isak"
 
     SHELA_BASE_PATH = "/home/dustin/code/python/voltron/data/isak/SHELA"
-    SHELA_CAT_PATH = "/home/dustin/code/python/voltron/data/isak/SHELA"
+    SHELA_CAT_PATH = SHELA_BASE_PATH
+    SHELA_PHOTO_Z_COMBINED_PATH = SHELA_BASE_PATH
+    SHELA_PHOTO_Z_MASTER_PATH = SHELA_BASE_PATH
+
 else:
     CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
     PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
@@ -44,6 +47,8 @@ else:
 
     SHELA_BASE_PATH = "/work/03229/iwold/maverick/fall_field/stack/v2/psf/nano/"
     SHELA_CAT_PATH = SHELA_BASE_PATH
+    SHELA_PHOTO_Z_COMBINED_PATH = "/work/03565/stevans/maverick/software/eazy-photoz/inputs_decam1.1_irac1.5_scaled_vistajk/OUTPUT/"
+    SHELA_PHOTO_Z_MASTER_PATH = "/work/03565/stevans/maverick/working/decam/psfmatched2017/per_field/v1.0/final_catalogs/v1.1/combined_irac_v1.5.a/with_vista/"
 
 LOG_LEVEL = logging.DEBUG
 
