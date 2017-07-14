@@ -680,14 +680,20 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 plt.gca().yaxis.set_visible(False)
                 plt.xlabel("Z")
 
-        empty_sci = science_image.science_image()
+
         # master cutout (0,0 is the observered (exact) target RA, DEC)
         if self.master_cutout is not None:
             # window=error*4
             ext = error * 2.
             plt.subplot(gs[0, cols - 1])
-            vmin, vmax = empty_sci.get_vrange(self.master_cutout.data)
-            plt.imshow(self.master_cutout.data, origin='lower', interpolation='none',
+            #todo: rebuild pixel scale
+            empty_sci = science_image.science_image()
+            # need a new cutout since we rescaled the ext (and window) size
+            cutout = empty_sci.get_cutout(ra, dec, error, window=ext * 2, image=self.master_cutout)
+            vmin, vmax = empty_sci.get_vrange(cutout.data)
+
+            vmin, vmax = empty_sci.get_vrange(cutout.data)
+            plt.imshow(cutout.data, origin='lower', interpolation='none',
                        cmap=plt.get_cmap('gray_r'),
                        vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
             plt.title("Master Cutout (Stacked)")
@@ -700,8 +706,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
             # mark the bid target location on the master cutout
             if (target_ra is not None) and (target_dec is not None):
-                px, py = empty_sci.get_position(target_ra, target_dec, self.master_cutout)
-                x, y = empty_sci.get_position(ra, dec, self.master_cutout)
+                px, py = empty_sci.get_position(target_ra, target_dec, cutout)
+                x, y = empty_sci.get_position(ra, dec, cutout)
 
                 # set the diameter of the cirle to half the error (radius error/4)
                 plt.gca().add_patch(plt.Circle(((x - px), (y - py)), radius=error / 4.0, color='yellow', fill=False))
@@ -713,7 +719,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                                                   angle=0.0, color='yellow', fill=False))
 
                 plt.plot(0, 0, "r+")
-                self.add_north_box(plt, empty_sci, self.master_cutout, error, 0, 0, theta=None)
+                self.add_north_box(plt, empty_sci, cutout, error, 0, 0, theta=None)
 
         # fig holds the entire page
         plt.close()
