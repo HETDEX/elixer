@@ -1365,13 +1365,16 @@ class HETDEX:
         #plt.tight_layout()
         plt.gca().axis('off')
         # 2x2 grid (but for sizing, make more fine)
+
+        #4 columns ... 3 wide, 1 narrow (for scattered light) .. so make 10
+        #the 3 wide are 3x and the 1 narrow is 1x
         if G.SINGLE_PAGE_PER_DETECT:
-            gs = gridspec.GridSpec(2, 3)
+            gs = gridspec.GridSpec(2, 10)
         else:
             if G.SHOW_FULL_2D_SPECTRA:
-                gs = gridspec.GridSpec(5, 3)#, wspace=0.25, hspace=0.5)
+                gs = gridspec.GridSpec(5, 10)#, wspace=0.25, hspace=0.5)
             else:
-                gs = gridspec.GridSpec(3, 3)
+                gs = gridspec.GridSpec(3, 10)
 
         font = FontProperties()
         font.set_family('monospace')
@@ -1421,7 +1424,7 @@ class HETDEX:
             else:
                 title = title + "  OII Z = N/A"
 
-        plt.subplot(gs[0:2, 0])
+        plt.subplot(gs[0:2, 0:3])
         plt.text(0, 0.5, title, ha='left', va='center', fontproperties=font)
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
@@ -1435,9 +1438,9 @@ class HETDEX:
         if datakeep is not None:
             if datakeep['xi']:
                 try:
-                    plt.subplot(gs[0:2,1])
+                    plt.subplot(gs[0:2,3:6])
                     plt.gca().axis('off')
-                    buf = self.build_2d_image(datakeep)
+                    buf,img_y = self.build_2d_image(datakeep)
 
                     buf.seek(0)
                     im = Image.open(buf)
@@ -1446,7 +1449,18 @@ class HETDEX:
                     log.warning("Failed to 2D cutout image.", exc_info=True)
 
                 try:
-                    plt.subplot(gs[0:2,2:])
+                    plt.subplot(gs[0:2,6])
+                    plt.gca().axis('off')
+                    buf = self.build_scattered_light_image(datakeep,img_y)
+
+                    buf.seek(0)
+                    im = Image.open(buf)
+                    plt.imshow(im,interpolation='none') #needs to be 'none' else get blurring
+                except:
+                    log.warning("Failed to 2D cutout image.", exc_info=True)
+
+                try:
+                    plt.subplot(gs[0:2,7:10])
                     plt.gca().axis('off')
                     buf = self.build_spec_image(datakeep,e.w, dwave=1.0)
                     buf.seek(0)
@@ -1534,6 +1548,7 @@ class HETDEX:
             dd['yh'] = []
             dd['sn'] = []
             dd['fiber_sn'] = []
+            dd['scatter'] = []
             dd['d'] = []
             dd['dx'] = []
             dd['dy'] = []
@@ -1632,7 +1647,9 @@ class HETDEX:
             yl = max(yl,0)
             yh = min(yh,max_y)
 
-
+            # update ... +/- 3 fiber heights (yw) (with 2 gaps in between, so 5)
+            datakeep['scatter'].append(sci.data[max(0, yl - 5 * yw):min(max_y, yh + 5 * yw),xl:xh])
+                                      # max(0, xi - 10):min(max_x, xi + 10)])
 
             datakeep['xi'].append(xi)
             datakeep['yi'].append(yi)
@@ -1654,11 +1671,11 @@ class HETDEX:
                 datakeep['fw_im'].append(sci.data[yl:yh, 0:FRAME_WIDTH_X-1])
 
                 # this is probably for the 1d spectra
-                I = sci.data.ravel()
-                s_ind = np.argsort(I)
-                len_s = len(s_ind)
-                s_rank = np.arange(len_s)
-                p = np.polyfit(s_rank - len_s / 2, I[s_ind], 1)
+                #I = sci.data.ravel()
+                #s_ind = np.argsort(I)
+                #len_s = len(s_ind)
+                #s_rank = np.arange(len_s)
+                #p = np.polyfit(s_rank - len_s / 2, I[s_ind], 1)
 
                 #z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast1
                 #z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast1
@@ -1829,6 +1846,9 @@ class HETDEX:
             yl = max(yl, 0)
             yh = min(yh, max_y)
 
+            # update ... +/- 3 fiber heights (yw) (with 2 gaps in between, so 5)
+            datakeep['scatter'].append(fits.data[max(0,yl-5*yw):min(max_y,yh+5*yw),xl:xh])
+
             datakeep['xi'].append(x_2D)
             datakeep['yi'].append(y_2D)
             datakeep['xl'].append(xl)
@@ -1848,12 +1868,14 @@ class HETDEX:
             datakeep['im'].append(fits.data[yl:yh, xl:xh])
             datakeep['fw_im'].append(fits.data[yl:yh, 0:FRAME_WIDTH_X - 1])
 
+
+
             # this is probably for the 1d spectra
-            I = fits.data.ravel()
-            s_ind = np.argsort(I)
-            len_s = len(s_ind)
-            s_rank = np.arange(len_s)
-            p = np.polyfit(s_rank - len_s / 2, I[s_ind], 1)
+            #I = fits.data.ravel()
+            #s_ind = np.argsort(I)
+            #len_s = len(s_ind)
+            #s_rank = np.arange(len_s)
+            #p = np.polyfit(s_rank - len_s / 2, I[s_ind], 1)
 
             #z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast1
             #z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast1
@@ -2072,7 +2094,79 @@ class HETDEX:
         plt.savefig(buf, format='png', dpi=300)
 
         plt.close(fig)
-        return buf
+        return buf, Y
+
+    # +/- 3 fiber sizes on CCD (not spacially adjacent fibers)
+    def build_scattered_light_image(self, datakeep, img_y = 2):
+
+            cmap = plt.get_cmap('gray_r')
+            norm = plt.Normalize()
+            colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
+            num = len(datakeep['scatter'])
+
+            # which is largest SN (should be first, but confirm)
+            ind = list(range(len(datakeep['scatter'])))
+            max_sn_idx = 0
+            for i in range(num):
+                if datakeep['fiber_sn'][ind[i]] > datakeep['fiber_sn'][ind[max_sn_idx]]:
+                    max_sn_idx = i
+
+            bordbuff = 0.01
+
+            borderxl = 0.05
+            borderxr = 0.15
+
+            borderyb = 0.05
+            borderyt = 0.15
+
+            dx = (1. - borderxl - borderxr)
+            dy = (1. - borderyb - borderyt)
+
+            datakeep['color'][max_sn_idx] = colors[max_sn_idx, 0:3]
+
+            #5/3. is to keep the scale (width) same as the 2D cutouts next to this plot
+            fig = plt.figure(figsize=(5/3., img_y), frameon=False)
+            plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
+
+            imgplot = plt.axes([0. + bordbuff + borderxl,0 + bordbuff + borderyb, dx, dy])
+            autoAxis = imgplot.axis()
+            imgplot.set_xticks([])
+            imgplot.set_yticks([])
+
+            plt.title("CCD Region of Main Fiber",fontsize=8)
+
+            imgplot.imshow(datakeep['scatter'][ind[max_sn_idx]],
+                           origin="lower", cmap=cmap,
+                           vmin=datakeep['vmin2'][ind[max_sn_idx]],
+                           vmax=datakeep['vmax2'][ind[max_sn_idx]],
+                           interpolation="none")  # , extent=ext)
+
+
+            borplot = plt.axes([0. + borderxl,0 + borderyb, dx + bordbuff, dy + bordbuff])
+            #autoAxis = borplot.axis()
+            borplot.set_xticks([])
+            borplot.set_yticks([])
+            borplot.axis('off')
+
+            #rec = plt.Rectangle((autoAxis[0] + bordbuff / 2., autoAxis[2] + bordbuff / 2.),
+            #                    (autoAxis[1] - autoAxis[0]) * (1. - bordbuff),
+            #                    (autoAxis[3] - autoAxis[2]) * (1. - bordbuff), fill=False, lw=3,
+            #                    color=datakeep['color'][i], zorder=1)
+
+            h,w = datakeep['scatter'][ind[max_sn_idx]].shape
+            rec = plt.Rectangle([0, 0],
+                                (w-1),
+                                (h-1), fill=False, lw=3,
+                                color=datakeep['color'][i], zorder=9)
+
+            rec = imgplot.add_patch(rec)
+
+            buf = io.BytesIO()
+            #plt.tight_layout()#pad=0.1, w_pad=0.5, h_pad=1.0)
+            plt.savefig(buf, format='png', dpi=300)
+
+            plt.close(fig)
+            return buf
 
     def build_spec_image(self,datakeep,cwave, dwave=1.0):
 

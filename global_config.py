@@ -77,3 +77,12 @@ SHOW_FULL_2D_SPECTRA = False #if true, plot the full width 2D spectra for each h
 SINGLE_PAGE_PER_DETECT = True #if true, a single pdf page per emission line detection is made
 MAX_COMBINE_BID_TARGETS = 3 #if SINGLE_PAGE_PER_DETECT is true, this is the max number of bid targets that can be
                             #merged on a single line. If the number is greater, each bid target gets its own line
+
+
+#overlaps removed from left and right
+CCD_EDGE_FIBERS_BOTTOM = range(1,40)
+CCD_EDGE_FIBERS_TOP = range(410,449)
+CCD_EDGE_FIBERS_LEFT = [40,41,59,60,79,80,98,99,118,119,137,138,157,158,176,177,196,197,215,216,
+                        235,236,254,255,274,275,293,294,313,314,332,333,352,353,371,372,391,392]
+CCD_EDGE_FIBERS_RIGHT = [57,58,77,78,96,97,116,117,135,136,155,156,174,175,194,195,213,214,
+                         233,234,252,253,272,273,291,292,311,312,330,331,350,351,369,370,389,390,408,409]
