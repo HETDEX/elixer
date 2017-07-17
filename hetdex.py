@@ -972,7 +972,7 @@ class HETDEX:
 
         #build fplane (find the correct file from the exposure date collected above)
         #for possible future use (could specify fplane_fn on commandline)
-        if self.fplane_fn is None:
+        if (self.fplane_fn is None) and (args.obsdate is not None):
             self.fplane_fn = find_fplane(self.ymd)
 
         if self.fplane_fn is not None:
@@ -1014,36 +1014,35 @@ class HETDEX:
 
         #if PARANGLE is specified on the command line, use it instead of the FITS PARANGLE
         #360. - (90+1.3+args.rot)) from DetectWebpage
+        build_coords = False
         if args.rot is not None:
             self.rot = float(args.rot)
         elif args.par is not None:
             self.rot = 360. - (90. + 1.3 + args.par)
-        else:
+        elif self.parangle:
             self.rot = 360. - (90. + 1.3 + self.parangle)
 
         if (args.ra is not None) and (args.dec is not None):
-            #if (args.rot is not None):
-            #    rot = args.rot
-            #else:
-            #    rot = 360. - (90. + 1.8 + self.parangle)
-
             self.tangentplane = TP(args.ra, args.dec, self.rot)
+            build_coords = True
             log.debug("Calculating object RA, DEC from commandline RA=%f , DEC=%f , ROT=%f" \
                       % (args.ra, args.dec, self.rot))
-        else:
+        elif (self.tel_ra and self.tel_dec and self.rot):
             self.tangentplane = TP(self.tel_ra, self.tel_dec, self.rot)
+            build_coords = True
             log.debug("Calculating object RA, DEC from: TELRA=%f , TELDEC=%f , PARANGLE=%f , ROT=%f" \
                   % (self.tel_ra, self.tel_dec, self.parangle, self.rot))
 
-        #wants the slot id as a 0 padded string ie. '073' instead of the int (73)
-        #ifu center
-        self.ifux = self.fplane.by_ifuslot(self.ifu_slot_id).x
-        self.ifuy = self.fplane.by_ifuslot(self.ifu_slot_id).y
+        if build_coords:
+            #wants the slot id as a 0 padded string ie. '073' instead of the int (73)
+            #ifu center
+            self.ifux = self.fplane.by_ifuslot(self.ifu_slot_id).x
+            self.ifuy = self.fplane.by_ifuslot(self.ifu_slot_id).y
 
-        #reminder, we use the weighted ra and dec (e.wra, e.wdec) if available
-        for e in self.emis_list: #yes this right: x + ifuy, y + ifux
-            e.ra, e.dec = self.tangentplane.xy2raDec(e.x + self.ifuy, e.y + self.ifux)
-            log.info("Emission Detect ID #%d RA=%f , Dec=%f" % (e.id,e.ra,e.dec))
+            #reminder, we use the weighted ra and dec (e.wra, e.wdec) if available
+            for e in self.emis_list: #yes this right: x + ifuy, y + ifux
+                e.ra, e.dec = self.tangentplane.xy2raDec(e.x + self.ifuy, e.y + self.ifux)
+                log.info("Emission Detect ID #%d RA=%f , Dec=%f" % (e.id,e.ra,e.dec))
 
     #end HETDEX::__init__()
 
@@ -1483,9 +1482,12 @@ class HETDEX:
 
     def build_multi_observation_panacea_fits_list(self):
 
+        log.info("Building list of reduced fits files ...")
         dit_idx = 0
         for det in self.emis_list:
+            log.debug("Searching for reduced fits file for detection ID %d " %(det.id))
             for fib in det.fibers:
+                log.debug("Searching for fits files matching %s* " % (fib.idstring))
                 #find the matching raw science file
                 #from the path, get the observation date, obsid, expid
                 #from those find the panacea file
@@ -1547,6 +1549,10 @@ class HETDEX:
                     log.error("Cannot locate panacea reduction data for %s" % (path))
                     continue
 
+        if len(self.sci_fits) > 0:
+            return True
+        else:
+            return False
 
     def read_detectline(self,force=False):
         #emission line or continuum line
