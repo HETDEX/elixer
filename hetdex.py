@@ -26,6 +26,8 @@ import pyhetdex.tools.files.file_tools as ft
 from pyhetdex.het.ifu_centers import IFUCenter
 from pyhetdex.het.fplane import FPlane
 from pyhetdex.coordinates.tangent_projection import TangentPlane as TP
+import os
+import fnmatch
 import os.path as op
 
 log = G.logging.getLogger('Cat_logger')
@@ -306,17 +308,19 @@ class Dither():
 
 class Fiber:
     #todo: if needed allow fiber number (in amp or side or ccd) to be passed in instead of panacea index
-    def __init__(self,exp_id,specid,ifuslot,ifuid,amp,date,time,time_ex,panacea_fiber_index=-1):
+    def __init__(self,idstring,specid,ifuslot,ifuid,amp,date,time,time_ex,panacea_fiber_index=-1):
 
-        self.exp_id = exp_id
+        self.idstring = idstring
         self.specid = specid
         self.ifuslot = ifuslot
         self.ifuid = ifuid
         self.amp = amp
         self.side = amp[0]
-        self.dither_date = date
-        self.dither_time = time
+        self.dither_date = date #or obsid
+        self.dither_time = time #or observation time
         self.dither_time_extended = time_ex
+        self.obsid = None
+        self.expid = None
         self.sn = None
 
         self.dither_idx = None
@@ -503,14 +507,14 @@ class DetObj:
                 #log.warn("Unexpected fiber id string: %s" % fiber)
             return False
 
-        exp_id = toks[0] #ie. 20170326T105655.6
+        idstring = toks[0] #ie. 20170326T105655.6
 
         #todo: factor out into common call
-        dither_date = exp_id[0:8]
+        dither_date = idstring[0:8]
         # next should be 'T'
-        dither_time = exp_id[9:15]  # not the .# not always there
-        if exp_id[15] == ".":
-            dither_time_extended = exp_id[9:17]
+        dither_time = idstring[9:15]  # not the .# not always there
+        if idstring[15] == ".":
+            dither_time_extended = idstring[9:17]
         else:
             dither_time_extended = None
 
@@ -529,7 +533,7 @@ class DetObj:
                       % (ifuslot,self.ifuslot))
             return True #this was still a fiber, just not one that is valid
 
-        self.fibers.append(Fiber(exp_id,specid,ifuslot,ifuid,amp,dither_date,dither_time,dither_time_extended,
+        self.fibers.append(Fiber(idstring,specid,ifuslot,ifuid,amp,dither_date,dither_time,dither_time_extended,
                                  fiber_idx))
 
         return True
@@ -941,12 +945,21 @@ class HETDEX:
             log.error("Cannot construct HETDEX object. No dither file provided.")
             return None
 
-        #open and read the fits files specified in the dither file
-        #need the exposure date, IFUSLOTID, SPECID, etc from the FITS files
-        if not self.build_fits_list(args):
-            #fatal problem
-            self.status = -1
-            return
+        # read the detect line file if specified. Build a list of targets based on sigma and chi2 cuts
+        if (args.obsdate is None) and (self.detectline_fn is not None):  # this is optional
+            self.read_detectline(force=True)
+
+        if (args.obsdate is None):
+            if not self.build_multi_observation_panacea_fits_list():
+                self.status = -1
+                return
+        else:
+            #open and read the fits files specified in the dither file
+            #need the exposure date, IFUSLOTID, SPECID, etc from the FITS files
+            if not self.build_fits_list(args):
+                #fatal problem
+                self.status = -1
+                return
 
         #get ifu centers
         self.get_ifu_centers(args)
@@ -965,8 +978,10 @@ class HETDEX:
 
 
         #read the detect line file if specified. Build a list of targets based on sigma and chi2 cuts
-        if self.detectline_fn is not None: #this is optional
-            self.read_detectline()
+        #older style with obsdate and obsid specified on command line and the detect line file applied to a single
+        #observation
+        if (self.detectline_fn is not None) and (len(self.emis_list) == 0): #this is optional
+            self.read_detectline(force=False)
 
 
         #assign dither indices to fibers for each emission object
@@ -1456,14 +1471,87 @@ class HETDEX:
         return True
 
 
-    def read_detectline(self):
+    def find_first_file(self,pattern, path):
+        for root, dirs, files in os.walk(path):
+            for name in files:
+                if fnmatch.fnmatch(name, pattern):
+                    return op.join(root, name)
+        return None
+
+    def build_multi_observation_panacea_fits_list(self):
+
+        dit_idx = 0
+        for det in self.emis_list:
+            for fib in det.fibers:
+                #find the matching raw science file
+                #from the path, get the observation date, obsid, expid
+                #from those find the panacea file
+
+                path = op.join(G.OBSERVATIONS_BASEDIR,fib.dither_date,"virus")
+
+                if not op.exists(path):
+                    log.error("Cannot locate observation data for %s" %(fib.idstring))
+                    continue
+
+                #we are at the top of the observation date ... have to search all subfolders for the idstring
+                #like: '20170326T111126.2'
+
+                #'/work/03946/hetdex/maverick/20170326/virus/virus0000013/exp01/virus/20170326T111126.2_093RU_sci.fits'
+                #using assumption that there maybe multiples, but they belong to different IFUs and Amps
+                #but all to the same observation date, obsid, and expid
+                scifile = self.find_first_file(fib.idstring+"*",path)
+
+                if not scifile:
+                    log.error("Cannot locate observation data for %s" % (fib.idstring))
+                    continue
+
+                try:
+                    obsid = scifile.split("virus/virus")[1].split("/")[0]
+                    expid = scifile.split("/exp")[1].split("/")[0]
+
+                    fib.expid = int(expid)
+                    fib.obsid = int(obsid)
+                except:
+                    log.error("Cannot locate observation data for %s" % (fib.idstring))
+                    continue
+
+                #now build the panace fits path
+                path = op.join(G.PANACEA_RED_BASEDIR,fib.dither_date,"virus","virus"+obsid,"exp"+expid,"virus")
+
+                if not op.exists(path):
+                    log.error("Cannot locate panacea reduction data for %s" %(fib.idstring))
+                    continue
+
+                # now build the path to the multi_*.fits and the file basename
+                # leaves off the  LL.fits etc
+                multi_fits_basename = "multi_" + fib.specid + "_" + fib.ifuslot + "_" + fib.ifuid + "_"
+                # leaves off the exp01/virus/
+                multi_fits_basepath = op.join(G.PANACEA_RED_BASEDIR, fib.dither_date, "virus", "virus" + str(fib.obsid).zfill(7))
+
+                # see if path is good and read in the panacea fits
+                dit_idx = 0
+                path = op.join(multi_fits_basepath, "exp" + str(dit_idx + 1).zfill(2), "virus")
+
+                while op.isdir(path):
+                    for a in AMP:
+                        fn = op.join(path, multi_fits_basename + a + ".fits")
+                        self.sci_fits.append(HetdexFits(fn, None, None, dit_idx, panacea=True))
+
+                    #todo: here ... we only want to grab this exact exposure, do not iterate .. just move on to
+                    #todo: the next fiber ... but do we want to increment a dit_idx then on the outer (fib) loop?
+
+                    # next exposure
+                    dit_idx += 1
+                    path = op.join(multi_fits_basepath, "exp" + str(dit_idx + 1).zfill(2), "virus")
+
+    def read_detectline(self,force=False):
         #emission line or continuum line
         #todo: determine which (should be more robust)
 
         if '_cont.dat' in self.detectline_fn:
-            self.read_contline()
+            self.read_contline() #for now, just applies to cure, which is not forced (ignore IFUSlot ID matching)
         else:
-            self.read_emisline()
+            self.read_emisline(force)
 
 
     def read_contline(self):
@@ -1493,7 +1581,7 @@ class HETDEX:
         except:
             log.error("Cannot read continuum objects.", exc_info=True)
 
-    def read_emisline(self):
+    def read_emisline(self,force=False):
         #open and read file, line at a time. Build up list of emission line objects
 
         if len(self.emis_list) > 0:
@@ -1505,12 +1593,13 @@ class HETDEX:
                     toks = l.split()
                     e = DetObj(toks,emission=True)
 
-                    if e.ifuslot is not None:
-                        if e.ifuslot != self.ifu_slot_id:
-                            #this emission line does not belong to the IFU we are working on
-                            log.debug("Emission detection IFU (%s) does not match current working IFU (%s)" %
-                                     (e.ifuslot,self.ifu_slot_id))
-                            continue
+                    if not force:
+                        if e.ifuslot is not None:
+                            if e.ifuslot != self.ifu_slot_id:
+                                #this emission line does not belong to the IFU we are working on
+                                log.debug("Emission detection IFU (%s) does not match current working IFU (%s)" %
+                                         (e.ifuslot,self.ifu_slot_id))
+                                continue
 
                     if self.emis_det_id is not None:
                         if str(e.id) in self.emis_det_id:
@@ -1953,7 +2042,7 @@ class HETDEX:
 
                 if fits is None:
                     log.error("Error! Could not find appropriate fits file for fiber: %s %d"
-                              % (f.exp_id,f.number_in_amp))
+                              % (f.idstring,f.number_in_amp))
                     continue
                 #look at specific fibers
 

@@ -11,6 +11,7 @@ __version__ = '1.0.1'
 
 if socket.gethostname() == 'z50':
 #if False:
+    OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
     CONFIG_BASEDIR = "/home/dustin/code/python/voltron/data/config/"
 
     PANACEA_RED_BASEDIR = "/home/dustin/code/python/voltron/data/config/red1/reductions/"
@@ -32,6 +33,7 @@ if socket.gethostname() == 'z50':
     SHELA_PHOTO_Z_MASTER_PATH = SHELA_BASE_PATH
 
 else:
+    OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
     CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
     PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
 

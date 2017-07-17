@@ -523,7 +523,12 @@ def main():
     cats = catalogs.get_catalog_list()
     pages = []
 
-    ifu_list = ifulist_from_detect_file(args)
+    #if a specific observation date was specified, build one hd object per ifu, otherwise they all go to one
+    if (args.obsdate is not None):
+        ifu_list = ifulist_from_detect_file(args)
+    else:
+        ifu_list = []
+
     hd_list = [] #one entry for each amp (or side) and dither
     file_list = []
     match_list = match_summary.MatchSet()
