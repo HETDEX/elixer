@@ -570,6 +570,7 @@ class HetdexFits:
         self.obs_ymd = None
         self.mjd = None
         self.obsid = None
+        self.expid = None
         self.imagetype = None
         #self.exptime = None #don't need these right now
         #self.dettemp = None #don't need these right now
@@ -585,6 +586,8 @@ class HetdexFits:
         self.fe_cdelt1 = None
 
         self.dither_index = dither_index
+
+        #build basic info from filename
 
         #determine if 'cure'-style fits or panacea fits
         #stupid simple just for now
@@ -1529,20 +1532,21 @@ class HETDEX:
                 multi_fits_basepath = op.join(G.PANACEA_RED_BASEDIR, fib.dither_date, "virus", "virus" + str(fib.obsid).zfill(7))
 
                 # see if path is good and read in the panacea fits
-                dit_idx = 0
                 path = op.join(multi_fits_basepath, "exp" + str(dit_idx + 1).zfill(2), "virus")
+                if op.isdir(path):
+                    fn = op.join(path, multi_fits_basename + fib.amp + ".fits")
+                    fits = HetdexFits(fn, None, None, dit_idx, panacea=True)
+                    fits.obs_date = fib.dither_date
+                    fits.obs_ymd = fits.obs_date
+                    fits.obsid = fib.obsid
+                    fits.expid = fib.expid
+                    fits.amp = fib.amp
+                    fits.side = fib.amp[0]
+                    self.sci_fits.append(fits)
+                else:
+                    log.error("Cannot locate panacea reduction data for %s" % (path))
+                    continue
 
-                while op.isdir(path):
-                    for a in AMP:
-                        fn = op.join(path, multi_fits_basename + a + ".fits")
-                        self.sci_fits.append(HetdexFits(fn, None, None, dit_idx, panacea=True))
-
-                    #todo: here ... we only want to grab this exact exposure, do not iterate .. just move on to
-                    #todo: the next fiber ... but do we want to increment a dit_idx then on the outer (fib) loop?
-
-                    # next exposure
-                    dit_idx += 1
-                    path = op.join(multi_fits_basepath, "exp" + str(dit_idx + 1).zfill(2), "virus")
 
     def read_detectline(self,force=False):
         #emission line or continuum line
@@ -2291,7 +2295,7 @@ class HETDEX:
             smplot.axis(ext)
             smplot.axis('off')
 
-            #todo: maybe set the scale separately here...
+
            # vmin_pix, vmax_pix = self.get_vrange(datakeep['pix'][ind[i]], scale=0.01)
             vmin_pix = 0.9
             vmax_pix = 1.1
