@@ -837,33 +837,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
         empty_sci = science_image.science_image()
 
-        # plot the master cutout
-        if False:  # todo: turn off master cutout (build it, but don't show ... combine with fiber positions)
-            plt.subplot(gs[0, cols - 1])
-            vmin, vmax = empty_sci.get_vrange(self.master_cutout.data)
-            plt.imshow(self.master_cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
-                       vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
-            plt.title("Master Cutout (Stacked)")
-            plt.xlabel("arcsecs")
-            plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-            plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-
-            # only show this lable if there is not going to be an adjacent fiber plot
-            if (fiber_locs is None) or (len(fiber_locs) == 0):
-                plt.ylabel("arcsecs")
-            plt.plot(0, 0, "r+")
-
-            theta = empty_sci.get_rotation_to_celestrial_north(self.master_cutout)
-            self.add_north_box(plt, sci, self.master_cutout, error, 0, 0, theta)
-
-            #add the bid targets
-            x, y = empty_sci.get_position(ra, dec, self.master_cutout)  # zero (absolute) position
-            for br,bd,bc in zip(bid_ras,bid_decs,bid_colors):
-                fx, fy = empty_sci.get_position(br, bd, self.master_cutout)
-                plt.gca().add_patch(plt.Rectangle(( (fx - x) - target_box_side/2.0, (fy - y) - target_box_side/2.0),
-                                                  width=target_box_side, height=target_box_side,
-                                                  angle=0.0, color=bc, fill=False, linewidth=1.0, zorder=1))
-
         # plot the fiber cutout
         if (fiber_locs is not None) and (len(fiber_locs) > 0):
             #plt.subplot(gs[0, cols - 3])
@@ -901,18 +874,18 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             ext_base = max(abs(xmin), abs(xmax), abs(ymin), abs(ymax))
             ext = max(ext_base + G.Fiber_Radius,ext)
 
-          # scale = (ext_base + G.Fiber_Radius) / ext
-          # ext = scale * ext
-          #  if scale > 1.0: #e.g. we zoomed in
-          #      self.add_north_arrow(plt, sci, cutout, theta=None, scale=scale)
-          #  else: #did not zoom in, so position based on original cutout
-          #      self.add_north_arrow(plt, sci, cutout, theta=None, scale=1.0)
-
             # need a new cutout since we rescaled the ext (and window) size
             cutout = empty_sci.get_cutout(ra, dec, error, window=ext * 2, image=self.master_cutout)
             vmin, vmax = empty_sci.get_vrange(cutout.data)
 
             self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
+
+            #todo:test
+            #plt.gca().add_patch(plt.Rectangle((-8 , -8 ), width=error * 10, height=error * 10,
+            #                                  angle=45, color='yellow', fill=False))
+
+            #fx, fy = empty_sci.get_position(r, d, self.master_cutout)
+
 
             plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                        vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])

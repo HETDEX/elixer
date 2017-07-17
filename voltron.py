@@ -238,7 +238,7 @@ def valid_parameters(args):
             print("Invalid parameters. Must specify either (--ra and --dec) or detect parameters (--dither, --line, --id, "
                   "--sigma, --chi2)")
             return False
-        else:
+        elif args.cure:
             if (args.ifu is None):
                 print("Warning. IFU file not provided. Report might not contain spectra cutouts. Will search for IFU file "
                       "in the config directory.")
@@ -246,6 +246,8 @@ def valid_parameters(args):
                 print("Warning. Distortion file (base) not provided. Report might not contain spectra cutouts. "
                       "Will search for Distortion files in the config directory.")
 
+            return True
+        else:
             return True
     else: #chi2 and sigma have default values, so don't use here
 

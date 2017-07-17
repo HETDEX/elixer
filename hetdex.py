@@ -305,7 +305,8 @@ class Dither():
             log.error("Unable to read dither file: %s :" %dither_file, exc_info=True)
 
 class Fiber:
-    def __init__(self,exp_id,specid,ifuslot,ifuid,amp,number,date,time,time_ex):
+    #todo: if needed allow fiber number (in amp or side or ccd) to be passed in instead of panacea index
+    def __init__(self,exp_id,specid,ifuslot,ifuid,amp,date,time,time_ex,panacea_fiber_index=-1):
 
         self.exp_id = exp_id
         self.specid = specid
@@ -313,7 +314,6 @@ class Fiber:
         self.ifuid = ifuid
         self.amp = amp
         self.side = amp[0]
-        self.number = int(number) #1 based
         self.dither_date = date
         self.dither_time = time
         self.dither_time_extended = time_ex
@@ -322,6 +322,26 @@ class Fiber:
         self.dither_idx = None
         self.center_x = None
         self.center_y = None
+
+        self.panacea_idx = -1 #0 to 111
+        self.number_in_amp = -1 #1 to 112
+        self.number_in_side = -1 #1 to 224
+        self.number_in_ccd = -1 #1 to 448
+
+        self.ra = None
+        self.dec = None
+        try:
+            self.panacea_idx = int(panacea_fiber_index)
+            self.number_in_amp = 112 - self.panacea_idx
+            self.number_in_ccd = AMP_OFFSET[self.amp] + self.number_in_amp - 1
+            if self.number_in_ccd > 224:
+                self.number_in_side = self.number_in_ccd - 224
+            else:
+                self.number_in_side = self.number_in_ccd
+
+        except:
+            log.error("Unable to map fiber index (%d) to fiber number(s)" % int(panacea_fiber_index), exc_info=True)
+
 
 class DetObj:
     '''mostly a container for an emission line or continuum detection from detect_line.dat or detect_cont.dat file'''
@@ -409,19 +429,29 @@ class DetObj:
                         self.wdec = float(tokens[19])
 
                         start = 20
+                        num_of_fibers = 0
                         for i in range(start,len(tokens)): #there are fibers and other stuff to follow
                             if not self.parse_fiber(tokens[i]): #this was not a fiber descriptor
                                 break
+                            else:
+                                num_of_fibers += 1 #will need to know for SN reads and fiber RA,DEC positions
 
                         self.cont = float(tokens[i])
 
                         start = i+1
-                        for i in range(start,len(tokens)): #these are in the same order as fibers
+                        for i in range(start,min(len(tokens),start+num_of_fibers)): #these are in the same order as fibers
                             sn = float(tokens[i])
                             for f in self.fibers:
                                 if f.sn is None:
                                     f.sn = sn
                                     break
+
+                        start = i+1
+                        fib_idx = 0
+                        if (len(tokens) - start) >= (2*num_of_fibers): #this probably has the RA and Decs
+                            for i in range(start,min(len(tokens),start+2*num_of_fibers),2):
+                                self.fibers[fib_idx].ra = float(tokens[i])
+                                self.fibers[fib_idx].dec = float(tokens[i+1])
 
             except:
                 log.info("Error parsing tokens from emission line file.",exc_info=True)
@@ -488,7 +518,10 @@ class DetObj:
         ifuslot = toks[2]
         ifuid = toks[3]
         amp = toks[4]
-        fiber_num = toks[5]
+        #fiber_idx = toks[5] #note: this is the INDEX from panacea, not the relative fiberm but karl adds 1 to it
+        # (ie. fiber #1 = index 111, fiber #2 = index 110 ... fiber #112 = index 0)
+        fiber_idx = int(toks[5])-1
+
 
         #validate info
         if (ifuslot != self.ifuslot):
@@ -496,7 +529,8 @@ class DetObj:
                       % (ifuslot,self.ifuslot))
             return True #this was still a fiber, just not one that is valid
 
-        self.fibers.append(Fiber(exp_id,specid,ifuslot,ifuid,amp,fiber_num,dither_date,dither_time,dither_time_extended))
+        self.fibers.append(Fiber(exp_id,specid,ifuslot,ifuid,amp,dither_date,dither_time,dither_time_extended,
+                                 fiber_idx))
 
         return True
 
@@ -799,20 +833,18 @@ class HetdexFits:
 
 class FitsSorter:
 #just a container for organization
-    def __init__(self,fits=None,dist=0.0,loc=-1,side=None,dither=None,sn=None):
+    def __init__(self,fits=None,dist=0.0,loc=-1,side=None,dither=None,sn=None,fiber=None):
         self.fits = fits
         self.dist = dist
         self.loc = loc
         self.side = side
         self.dither = dither
         self.fiber_sn = sn
+        self.fiber = fiber
 
 
 class HETDEX:
-
-    #needs dither file, detect_line file, 2D fits files (i.e. 6 for 3 dither positions)
-    #needs find fplane file (from observation date in fits files? or should it be passed in?)
-
+    #deals with a single IFU
     def __init__(self,args):
         if args is None:
             log.error("Cannot construct HETDEX object. No arguments provided.")
@@ -842,6 +874,9 @@ class HETDEX:
         self.ifu_id = None
         self.specid = None
         self.obsid = None
+        self.ifu_corner_ra = None
+        self.ifu_corner_dec = None
+        self.ifu_theta = None
 
         self.dither_fn = args.dither
         self.detectline_fn = args.line
@@ -943,8 +978,10 @@ class HETDEX:
                     #dither index should not matter, but if these are combined across much time, it is possible
                     #that the centers could have changed
                     if (s.dither_index == f.dither_idx) and (s.amp == f.amp):
-                        f.center_x = s.fiber_centers[f.number - 1,0]
-                        f.center_y = s.fiber_centers[f.number - 1,1]
+                        #f.center_x = s.fiber_centers[f.number - 1,0]
+                        #f.center_y = s.fiber_centers[f.number - 1,1]
+                        f.center_x = s.fiber_centers[f.panacea_idx, 0]
+                        f.center_y = s.fiber_centers[f.panacea_idx, 1]
                         break
 
 
@@ -981,14 +1018,173 @@ class HETDEX:
                   % (self.tel_ra, self.tel_dec, self.parangle, self.rot))
 
         #wants the slot id as a 0 padded string ie. '073' instead of the int (73)
+        #ifu center
         self.ifux = self.fplane.by_ifuslot(self.ifu_slot_id).x
         self.ifuy = self.fplane.by_ifuslot(self.ifu_slot_id).y
 
+        #reminder, we use the weighted ra and dec (e.wra, e.wdec) if available
         for e in self.emis_list: #yes this right: x + ifuy, y + ifux
             e.ra, e.dec = self.tangentplane.xy2raDec(e.x + self.ifuy, e.y + self.ifux)
             log.info("Emission Detect ID #%d RA=%f , Dec=%f" % (e.id,e.ra,e.dec))
 
     #end HETDEX::__init__()
+
+
+    def rotation_matrix(self, theta=0.0, deg=True):
+        # Returns a rotation matrix for CCW rotation
+        # if deg is False, theta is in radians
+        if deg:
+            rad = theta * np.pi / 180.0
+        else:
+            rad = theta
+        s = np.sin(rad)
+        c = np.cos(rad)
+        return np.array([[c, -s], [s, c]])
+
+    def build_ifu_astrometry(self):
+
+        if self.ifu_corner_ra is not None:
+            return #already built
+
+        #want the position of the lower left corner and the rotation relative to celestrial north
+
+        #todo: the rotation should be from the parangle (assuming the ifus are aligned with the center)
+
+
+
+        #cure:
+        #xfiber = self.ifu_ctr.xifu[side][loc] + self.dither.dx[dither]
+        #yfiber = self.ifu_ctr.yifu[side][loc] + self.dither.dy[dither]
+
+        #panacea
+        #xfiber = fits.fiber_centers[loc][0] + self.dither.dx[dither]
+        #yfiber = fits.fiber_centers[loc][1] + self.dither.dy[dither]
+        #self.sci_fits
+
+        if self.panacea:
+            #find the right fits for dither 0 LU (to get fiber 1 and fiber 19)
+            # find the right fits for dither 0 RU (to get fiber 430)
+            #fibers seem ordered from 0 to 111 (backward) fiber 1 = index 111
+            lu0 = None #want fibers at indices 0 and 18
+            ru0 = None #want fiber 430 which is index 112-94 (94 is 430-337+1 the relative fiber #)
+            for fits in self.sci_fits:
+                if fits.dither_index == 0:
+                    if fits.amp == 'LU':
+                        lu0 = fits
+                        continue
+                    elif fits.amp == 'RU':
+                        ru0 = fits
+                        continue
+
+            #I think we have the x,y coords of the corner fibers as they appear on sky?
+
+            #self.tangentplane = TP(args.ra, args.dec, self.rot)
+            #todo: test remove
+            #self.tangentplane = TP(0.355419, 20.170376, 116.575)
+            self.tangentplane = TP(self.tel_ra, self.tel_dec, self.rot)
+            #self.tangentplane = TP(self.tel_ra, 0.0, self.rot)
+            #self.tangentplane = TP(0.0  , self.tel_dec,self.rot)
+            self.ifux = self.fplane.by_ifuslot(self.ifu_slot_id).x
+            self.ifuy = self.fplane.by_ifuslot(self.ifu_slot_id).y
+
+          #  self.ifux = 250.7
+          #  self.ifuy = 150.3
+
+            #test
+            #ifux = self.ifux
+            #ifuy = self.ifuy
+
+            #self.ifux  = 0
+            #self.ifuy = 0
+
+            #fiber 1
+            corner1_x = self.ifuy + lu0.fiber_centers[112-1][0] #+ 0 for dither
+            corner1_y = self.ifux + lu0.fiber_centers[112-1][1] #+ 0 for dither
+
+            #corner1_x, corner1_y = np.dot(self.rotation_matrix(self.rot, deg=True),
+            #                                np.array([corner1_x, corner1_y]).transpose())
+
+
+            self.ifu_corner_ra, self.ifu_corner_dec = self.tangentplane.xy2raDec(corner1_x, corner1_y)
+
+            #self.ifu_corner_ra, self.ifu_corner_dec = np.dot(self.rotation_matrix(self.rot, deg=True),
+            #                                        np.array([self.ifu_corner_ra, self.ifu_corner_dec]).transpose())
+
+            #fiber 19
+            corner19_x = self.ifuy + lu0.fiber_centers[112-19][0]  # + 0 for dither
+            corner19_y = self.ifux + lu0.fiber_centers[112-19][1]  # + 0 for dither
+            #corner19_x, corner19_y = np.dot(self.rotation_matrix(self.rot-90.0, deg=True),
+            #                         np.array([corner19_x, corner19_y]).transpose())
+            bot_ra, bot_dec = self.tangentplane.xy2raDec(corner19_x, corner19_y)
+
+
+            #fiber 430
+            corner430_x = self.ifuy + ru0.fiber_centers[112-94][0]  # + 0 for dither
+            corner430_y = self.ifux + ru0.fiber_centers[112-94][1]  # + 0 for dither
+            #corner430_x, corner430_y = np.dot(self.rotation_matrix(self.rot, deg=True),
+            #                                np.array([corner430_x, corner430_y]).transpose())
+            top_ra, top_dec = self.tangentplane.xy2raDec(corner430_x, corner430_y)
+
+
+            #delta y / delta x  or delta dec / delta ra
+            self.ifu_theta = np.arctan2( (top_dec - self.ifu_corner_dec), (top_ra - self.ifu_corner_ra))
+            double_check   = np.arctan2( (bot_dec - self.ifu_corner_dec), (bot_ra - self.ifu_corner_ra))
+
+            sanity_check_1 = np.sqrt( (top_dec - self.ifu_corner_dec)**2 + (top_ra - self.ifu_corner_ra)**2 )*3600
+            sanity_check_2 = np.sqrt( (bot_dec - self.ifu_corner_dec)**2 + (bot_ra - self.ifu_corner_ra)**2)*3600
+
+            sanity_check_3 = np.sqrt((corner430_x - corner1_x) ** 2 + (corner430_y - corner1_y) ** 2)
+            sanity_check_4 = np.sqrt((corner19_x - corner1_x) ** 2 + (corner19_y - corner1_y) ** 2)
+
+            top_angle_xy = np.arctan2((corner430_y - corner1_y),(corner430_x - corner1_x))*180/np.pi
+            bot_angle_xy = np.arctan2((corner19_y - corner1_y),(corner19_x - corner1_x))*180/np.pi
+
+            top_angle_rd = np.arctan2((top_dec - self.ifu_corner_dec), (top_ra - self.ifu_corner_ra)) * 180 / np.pi
+            bot_angle_rd = np.arctan2((bot_dec - self.ifu_corner_dec), (bot_ra - self.ifu_corner_ra)) * 180 / np.pi
+
+            #todo: the above two should match (at least very closely) but are waaaaay off
+
+            #self.ifux = ifux
+            #self.ifuy = ifuy
+
+        else: #this is cure
+
+        #ifu_ctr 0,0 is bottom and left
+            corner1_x = self.ifuy + self.ifu_ctr.xifu['L'][0] #+ self.dither.dx[dither]
+            corner1_y = self.ifux + self.ifu_ctr.yifu['L'][0] #+ self.dither.dy[dither]
+            self.ifu_corner_ra, self.ifu_corner_dec = self.tangentplane.xy2raDec(corner1_x, corner1_y)
+
+
+            corner19_x = self.ifuy + self.ifu_ctr.xifu['L'][18] #+ self.dither.dx[dither]
+            corner19_y = self.ifux + self.ifu_ctr.yifu['L'][18] #+ self.dither.dy[dither]
+            bot_ra, bot_dec = self.tangentplane.xy2raDec(corner19_x, corner19_y)
+
+            #430-1 - 224
+            corner430_x = self.ifuy + self.ifu_ctr.xifu['R'][205] #+ self.dither.dx[dither]
+            corner430_y = self.ifux + self.ifu_ctr.yifu['R'][205] #+ self.dither.dy[dither]
+            top_ra, top_dec = self.tangentplane.xy2raDec(corner430_x, corner430_y)
+
+            # delta y / delta x  or delta dec / delta ra
+            self.ifu_theta = np.arctan2((top_dec - self.ifu_corner_dec), (top_ra - self.ifu_corner_ra))
+            double_check = np.arctan2((bot_dec - self.ifu_corner_dec), (bot_ra - self.ifu_corner_ra))
+
+            sanity_check_1 = np.sqrt((top_dec - self.ifu_corner_dec) ** 2 + (top_ra - self.ifu_corner_ra) ** 2) * 3600
+            sanity_check_2 = np.sqrt((bot_dec - self.ifu_corner_dec) ** 2 + (bot_ra - self.ifu_corner_ra) ** 2) * 3600
+
+            sanity_check_3 = np.sqrt((corner430_x - corner1_x) ** 2 + (corner430_y - corner1_y) ** 2)
+            sanity_check_4 = np.sqrt((corner19_x - corner1_x) ** 2 + (corner19_y - corner1_y) ** 2)
+
+            top_angle_xy = np.arctan2((corner430_y - corner1_y), (corner430_x - corner1_x)) * 180 / np.pi
+            bot_angle_xy = np.arctan2((corner19_y - corner1_y), (corner19_x - corner1_x)) * 180 / np.pi
+
+            top_angle_rd = np.arctan2((top_dec - self.ifu_corner_dec), (top_ra - self.ifu_corner_ra)) * 180 / np.pi
+            bot_angle_rd = np.arctan2((bot_dec - self.ifu_corner_dec), (bot_ra - self.ifu_corner_ra)) * 180 / np.pi
+
+
+        log.info("IFU (slot ID %s) lower left corner (dither 1) RA=%f , Dec=%f , Rot=%f" %
+                 (self.ifu_slot_id, self.ifu_corner_ra, self.ifu_corner_dec, self.ifu_theta))
+
+        return
 
 
     def get_ifu_centers(self,args):
@@ -1353,6 +1549,8 @@ class HETDEX:
             return None
 
         print ("Bulding HETDEX header for Detect ID #%d" %detectid)
+
+        #self.build_ifu_astrometry()
         #todo: match this up with the catalog sizes
 
         if G.SINGLE_PAGE_PER_DETECT:
@@ -1405,9 +1603,9 @@ class HETDEX:
                 "Sky X,Y (%f,%f)\n" \
                 "$\lambda$ = %g $\AA$\n" \
                 "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
-                "EstEqw = %g $\AA$ Cont = %g\n" \
-                 % (e.id,self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.x, e.y,e.w,
-                    e.estflux, e.dataflux, e.fluxfrac, e.eqw, e.cont) #note: e.fluxfrac gauranteed to be nonzero
+                "EstCont = %g\n" \
+                % (e.id,self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.x, e.y,e.w,
+                    e.estflux, e.dataflux, e.fluxfrac, e.cont) #note: e.fluxfrac gauranteed to be nonzero
 
         if self.panacea:
             title += "S/N = %g  Chi2 = %g" % (e.sigma, e.chi2)
@@ -1754,7 +1952,8 @@ class HETDEX:
                 fits = self.get_sci_fits(dither,f.side,f.amp)
 
                 if fits is None:
-                    log.error("Error! Could not find appropriate fits file for fiber: %s %d" % (f.exp_id,f.number))
+                    log.error("Error! Could not find appropriate fits file for fiber: %s %d"
+                              % (f.exp_id,f.number_in_amp))
                     continue
                 #look at specific fibers
 
@@ -1765,9 +1964,10 @@ class HETDEX:
                 #turn fiber number into a location. Fiber Number 1 is at the top
                 #which is loc (or index) 111
                 #so loc = 112 - Fiber Number
-                loc = f.number-1
+             #   loc = f.number_in_amp-1
+                loc = f.panacea_idx
 
-                sort_list.append(FitsSorter(fits,d,loc,sn=f.sn))
+                sort_list.append(FitsSorter(fits,d,loc,sn=f.sn,fiber=f))
 
             #we want these in the order given, but they print in reverse, so invert the order
             #sort_list.sort(key=lambda x: x.dist, reverse=True)
@@ -1802,8 +2002,14 @@ class HETDEX:
         #for loc in locations:
         for item in sort_list:
             fits = item.fits
-            dither = fits.dither_index  # 0,1,2
+            dither = fits.dither_index  # 0,1,2 or more
             loc = item.loc
+            fiber = item.fiber
+
+            if fiber is None: # did not find it? impossible?
+                log.error("Error! Cannot identify fiber in HETDEX:build_panacea_hetdex_data_dict().")
+                fiber = Fiber(0,0,0,0,'XX',"","","",-1)
+
             datakeep['d'].append(item.dist)
             datakeep['fiber_sn'].append(item.fiber_sn)
 
@@ -1820,18 +2026,24 @@ class HETDEX:
             #lowest number fiber is at the top, not the bottom
             #loc runs from the bottom and is zero based
             #so flip ... nominally:  112 - (loc+1) + offset for the amp
-            fiber_num = len(fits.fe_data) - (loc+1) + AMP_OFFSET[fits.amp]
-            datakeep['fib'].append(fiber_num)
+            if fiber.number_in_ccd == -1:
+                fiber.number_in_ccd = len(fits.fe_data) - (loc+1) + AMP_OFFSET[fits.amp]
+            datakeep['fib'].append(fiber.number_in_ccd)
 
-
-            xfiber = fits.fiber_centers[loc][0] + self.dither.dx[dither]
-            yfiber = fits.fiber_centers[loc][1] + self.dither.dy[dither]
-            xfiber += self.ifuy  # yes this is correct xfiber gets ifuy
-            yfiber += self.ifux
-            #ra and dec of the center of the fiber (loc)
-            ra, dec = self.tangentplane.xy2raDec(xfiber, yfiber)
-            datakeep['ra'].append(ra)
-            datakeep['dec'].append(dec)
+            if fiber.ra is None:
+                xfiber = fits.fiber_centers[loc][0] + self.dither.dx[dither]
+                yfiber = fits.fiber_centers[loc][1] + self.dither.dy[dither]
+                xfiber += self.ifuy  # yes this is correct xfiber gets ifuy
+                yfiber += self.ifux
+                #ra and dec of the center of the fiber (loc)
+                ra, dec = self.tangentplane.xy2raDec(xfiber, yfiber)
+                datakeep['ra'].append(ra)
+                datakeep['dec'].append(dec)
+                fiber.ra = ra
+                fiber.dec = dec
+            else: #only true in some panacea cases (if provided in detect line file)
+                datakeep['ra'].append(fiber.ra)
+                datakeep['dec'].append(fiber.dec)
 
             x_2D = np.interp(e.w,fits.wave_data[loc,:],range(len(fits.wave_data[loc,:])))
             y_2D = np.interp(x_2D,range(len(fits.trace_data[loc,:])),fits.trace_data[loc,:])
@@ -1869,7 +2081,6 @@ class HETDEX:
             datakeep['fw_im'].append(fits.data[yl:yh, 0:FRAME_WIDTH_X - 1])
 
 
-
             # this is probably for the 1d spectra
             #I = fits.data.ravel()
             #s_ind = np.argsort(I)
@@ -1881,7 +2092,8 @@ class HETDEX:
             #z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast1
 
             z1, z2 = self.get_vrange(fits.data[yl:yh, xl:xh],scale=contrast1)
-            log.debug("2D cutout zscale1 (smoothed) = %f, %f  for D,S,F = %d, %s, %d" %(z1,z2,dither+1,fits.side,fiber_num))
+            log.debug("2D cutout zscale1 (smoothed) = %f, %f  for D,S,F = %d, %s, %d"
+                      %(z1,z2,dither+1,fits.side,fiber.number_in_ccd))
 
             # z1,z2 = self.get_vrange(sci.data[yl:yh,xl:xh])
             datakeep['vmin1'].append(z1)
@@ -1891,7 +2103,8 @@ class HETDEX:
             #z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast2
 
             z1, z2 = self.get_vrange(fits.data[yl:yh, xl:xh],scale=contrast2)
-            log.debug("2D cutout zscale2 (image) = %f, %f  for D,S,F = %d, %s, %d" %(z1,z2,dither+1,fits.side,fiber_num))
+            log.debug("2D cutout zscale2 (image) = %f, %f  for D,S,F = %d, %s, %d"
+                      %(z1,z2,dither+1,fits.side,fiber.number_in_ccd))
 
             datakeep['vmin2'].append(z1)
             datakeep['vmax2'].append(z2)

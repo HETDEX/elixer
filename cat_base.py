@@ -307,5 +307,65 @@ class Catalog:
     def build_multiple_bid_target_figures_one_line(self, cat_match, ras, decs, error, target_ra=None, target_dec=None,
                                          target_w=0, target_flux=None):
         # implement in child class
+        pass
+
+
+    def is_edge_fiber(self,fiber_num):
+        #return 8 point compass direction if edge (East is left)
+        if fiber_num in G.CCD_EDGE_FIBERS_ALL:
+            if fiber_num in G.CCD_EDGE_FIBERS_TOP:
+                if fiber_num in G.CCD_EDGE_FIBERS_RIGHT:
+                    return 'NW'
+                elif fiber_num in G.CCD_EDGE_FIBERS_LEFT:
+                    return 'NE'
+                else:
+                    return 'N'
+            elif fiber_num in G.CCD_EDGE_FIBERS_BOTTOM:
+                if fiber_num in G.CCD_EDGE_FIBERS_RIGHT:
+                    return 'SW'
+                elif fiber_num in G.CCD_EDGE_FIBERS_LEFT:
+                    return 'SE'
+                else:
+                    return 'S'
+            elif fiber_num in G.CCD_EDGE_FIBERS_RIGHT:
+                return 'W'
+            elif fiber_num in G.CCD_EDGE_FIBERS_LEFT:
+                return 'E'
+            else:
+                return ''
+        else:
+            return ''
+
+    def add_edge_fibers(self, plt, sci, cutout, compass):
+        #compass is the 8 point compass direction from is_edge_fiber
+        #todo: based on compass direction, get list of fibers to plot
+
+        #todo: get fiber center x,y for each fiber
+
+        #todo: get RA, Dec for each fiber
+
+        #todo: plot the fibers (? blindly or see if they are in the cutout first?)
+        #todo: plot as dashed open circles slightly larger than normal fiber so can lie on top of source fiber if needed
+        radius = G.Fiber_Radius + 0.1
+
 
         pass
+
+
+    def add_ifu_box(self,plt,sci,cutout,height,width,zero_x = 0,zero_y = 0,ifu_theta = None,cel_theta=None):
+        #theta is angle in radians counter-clockwise from x-axis to the north celestrial pole
+
+        if (plt is None) or (sci is None) or (cutout is None) or (height is None) or (width is None):
+            return
+
+        try:
+            if cel_theta is None:
+                theta = sci.get_rotation_to_celestrial_north(cutout)
+
+            rrot =  theta - np.pi / 2. + ifu_theta
+            rx, ry, rrot = sci.get_rect_parms(cutout, -half_side, -half_side, theta - np.pi / 2. + ifu_theta)
+
+            plt.gca().add_patch(plt.Rectangle((zero_x + rx, zero_y + ry), width=width, height=height,
+                                              angle=rrot, color='yellow', fill=False))
+        except:
+            log.error("Exception bulding ifu footprint box.", exc_info=True)
