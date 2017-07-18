@@ -457,6 +457,7 @@ class DetObj:
                             for i in range(start,min(len(tokens),start+2*num_of_fibers),2):
                                 self.fibers[fib_idx].ra = float(tokens[i])
                                 self.fibers[fib_idx].dec = float(tokens[i+1])
+                                fib_idx += 1
 
             except:
                 log.info("Error parsing tokens from emission line file.",exc_info=True)
@@ -1003,16 +1004,16 @@ class HETDEX:
                             f.center_x = s.fiber_centers[f.panacea_idx, 0]
                             f.center_y = s.fiber_centers[f.panacea_idx, 1]
                             break
-        else: #sanity check #check that we the fibers have ra and decs
-            for e in self.emis_list:
-                for f in e.fibers:
-                    if f.ra and f.dec:
-                        pass #it is okay ... will assume that ra and decs were supplied in line file
-                    else:
-                        self.status = -1
-                        log.error("Fatal error. Line file does NOT contain fiber RA and Dec and "
-                                  "dither file and other paramaters not supplied")
-                        return
+        #else: #sanity check #check that we the fibers have ra and decs
+        #    for e in self.emis_list:
+        #        for f in e.fibers:
+        #            if f.ra and f.dec:
+        #                pass #it is okay ... will assume that ra and decs were supplied in line file
+        #            else:
+        #                self.status = -1
+        #                log.error("Fatal error. Line file does NOT contain fiber RA and Dec and "
+        #                          "dither file and other paramaters not supplied")
+        #                return
 
 
 
@@ -1712,16 +1713,26 @@ class HETDEX:
             ra = e.ra
             dec = e.dec
 
-        title +="%d\n"\
-                "ObsDate %s  ObsID %s IFU %s  CAM %s\n" \
-                "Science file(s):\n%s"\
-                "RA,Dec (%f,%f) \n"\
-                "Sky X,Y (%f,%f)\n" \
-                "$\lambda$ = %g $\AA$\n" \
-                "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
-                "EstCont = %g\n" \
-                % (e.id,self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.x, e.y,e.w,
-                    e.estflux, e.dataflux, e.fluxfrac, e.cont) #note: e.fluxfrac gauranteed to be nonzero
+        if self.ymd and self.obsid:
+            title +="%d\n"\
+                    "ObsDate %s  ObsID %s IFU %s  CAM %s\n" \
+                    "Science file(s):\n%s"\
+                    "RA,Dec (%f,%f) \n"\
+                    "Sky X,Y (%f,%f)\n" \
+                    "$\lambda$ = %g $\AA$\n" \
+                    "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
+                    "EstCont = %g\n" \
+                    % (e.id,self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.x, e.y,e.w,
+                        e.estflux, e.dataflux, e.fluxfrac, e.cont) #note: e.fluxfrac gauranteed to be nonzero
+        else:
+            title += "%d\n" \
+                     "RA,Dec (%f,%f) \n" \
+                     "Sky X,Y (%f,%f)\n" \
+                     "$\lambda$ = %g $\AA$\n" \
+                     "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
+                     "EstCont = %g\n" \
+                     % (e.id, ra, dec, e.x, e.y, e.w,
+                        e.estflux, e.dataflux, e.fluxfrac, e.cont)  # note: e.fluxfrac gauranteed to be nonzero
 
         if self.panacea:
             title += "S/N = %g  Chi2 = %g" % (e.sigma, e.chi2)
@@ -2083,7 +2094,17 @@ class HETDEX:
 
                     d = np.sqrt(dx ** 2 + dy ** 2)
                 else:
-                    d = np.sqrt((e.wra - f.ra)**2 + (e.wdec - f.dec)**2)
+                    try:
+                        d = np.sqrt((e.wra - f.ra)**2 + (e.wdec - f.dec)**2)
+                    except:
+                        if f.ra and f.dec:
+                            log.error("Missing required emission line (#%d) coordinates." % e.id)
+                        elif e.wra and e.wdec:
+                            log.error("Missing required fiber (%s) coordinates." % f.idstring)
+                        else:
+                            log.error("Missing required fiber (%s) and/or emission line (#%d) coords."
+                                  % (f.idstring,e.id))
+                        continue
                 #turn fiber number into a location. Fiber Number 1 is at the top
                 #which is loc (or index) 111
                 #so loc = 112 - Fiber Number
