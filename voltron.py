@@ -234,7 +234,7 @@ def valid_parameters(args):
 
     #must have ra and dec -OR- dither and (ID or (chi2 and sigma))
     if (args.ra is None) or (args.dec is None):
-        if (args.dither is None) or (args.line is None):
+        if (args.line is None):
             print("Invalid parameters. Must specify either (--ra and --dec) or detect parameters (--dither, --line, --id, "
                   "--sigma, --chi2)")
             return False
@@ -262,8 +262,8 @@ def valid_parameters(args):
 
 
 def build_hd(args):
-    if (args.dither is not None):
-        if (args.line is not None) or (args.id is not None):
+    #if (args.dither is not None):
+    if (args.line is not None): #or (args.id is not None):
             return True
 
     return False
@@ -286,6 +286,7 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
                  target_flux=None):
     #if a report object is passed in, immediately append to it, otherwise, add to the pages list and return that
     section_title = idstring
+    count = 0
     for c in cats:
         r = c.build_bid_target_reports(match,ra, dec, error,num_hits=num_hits,section_title=section_title,
                                        base_count=base_count,target_w=target_w,fiber_locs=fiber_locs,
@@ -620,7 +621,7 @@ def main():
            # else: #for multi calls (which are common now) this is of no use
            #     print("\nNo emission detections meet minimum criteria for specified IFU. Exiting.\n"
            #     log.warning("No emission detections meet minimum criteria for specified IFU. Exiting.")
-    else:
+    elif (args.ra and args.dec):
         num_hits = 0
         matched_cats = []
         for c in cats:
@@ -637,7 +638,9 @@ def main():
             exit(0)
 
         pages,_ = build_pages(args.name,None,args.ra, args.dec, args.error, matched_cats, pages, idstring="# 1 of 1")
-
+    else:
+        print("Invalid command line call. Insufficient information to execute.")
+        exit(-1)
 
     if len(file_list) > 0:
         for f in file_list:

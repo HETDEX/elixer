@@ -322,6 +322,7 @@ class Fiber:
         self.obsid = None
         self.expid = None
         self.sn = None
+        self.fits = None #HetdexFits object that includes this fiber
 
         self.dither_idx = None
         self.center_x = None
@@ -943,7 +944,7 @@ class HETDEX:
         #use to build fits list
         if self.dither_fn is not None:
             self.dither = Dither(self.dither_fn)
-        else:
+        elif (args.cure):
             #are we done? must have a dither file?
             log.error("Cannot construct HETDEX object. No dither file provided.")
             return None
@@ -988,19 +989,31 @@ class HETDEX:
 
 
         #assign dither indices to fibers for each emission object
-        for e in self.emis_list:
-            for f in e.fibers:
-                f.dither_idx = self.dither.get_dither_index(f.dither_date,f.dither_time,f.dither_time_extended)
-                #get centers
-                for s in self.sci_fits:
-                    #dither index should not matter, but if these are combined across much time, it is possible
-                    #that the centers could have changed
-                    if (s.dither_index == f.dither_idx) and (s.amp == f.amp):
-                        #f.center_x = s.fiber_centers[f.number - 1,0]
-                        #f.center_y = s.fiber_centers[f.number - 1,1]
-                        f.center_x = s.fiber_centers[f.panacea_idx, 0]
-                        f.center_y = s.fiber_centers[f.panacea_idx, 1]
-                        break
+        if self.dither:
+            for e in self.emis_list:
+                for f in e.fibers:
+                    f.dither_idx = self.dither.get_dither_index(f.dither_date,f.dither_time,f.dither_time_extended)
+                    #get centers
+                    for s in self.sci_fits:
+                        #dither index should not matter, but if these are combined across much time, it is possible
+                        #that the centers could have changed
+                        if (s.dither_index == f.dither_idx) and (s.amp == f.amp):
+                            #f.center_x = s.fiber_centers[f.number - 1,0]
+                            #f.center_y = s.fiber_centers[f.number - 1,1]
+                            f.center_x = s.fiber_centers[f.panacea_idx, 0]
+                            f.center_y = s.fiber_centers[f.panacea_idx, 1]
+                            break
+        else: #sanity check #check that we the fibers have ra and decs
+            for e in self.emis_list:
+                for f in e.fibers:
+                    if f.ra and f.dec:
+                        pass #it is okay ... will assume that ra and decs were supplied in line file
+                    else:
+                        self.status = -1
+                        log.error("Fatal error. Line file does NOT contain fiber RA and Dec and "
+                                  "dither file and other paramaters not supplied")
+                        return
+
 
 
 
@@ -1544,6 +1557,7 @@ class HETDEX:
                     fits.expid = fib.expid
                     fits.amp = fib.amp
                     fits.side = fib.amp[0]
+                    fib.fits = fits
                     self.sci_fits.append(fits)
                 else:
                     log.error("Cannot locate panacea reduction data for %s" % (path))
@@ -1678,9 +1692,12 @@ class HETDEX:
         font.set_size(12)
 
         sci_files = ""
-        for s in self.dither.basename:
-            if not( op.basename(s) in sci_files):
-                sci_files += "  " + op.basename(s) + "*.fits\n"
+        if self.dither:
+            for s in self.dither.basename:
+                if not( op.basename(s) in sci_files):
+                    sci_files += "  " + op.basename(s) + "*.fits\n"
+        else:
+            sci_files = "multiple fiber specific"
 
         title = ""
         if e.type == 'emis':
@@ -2048,7 +2065,11 @@ class HETDEX:
             #use fiber list rather than distance
             for f in e.fibers:
                 dither = f.dither_idx
-                fits = self.get_sci_fits(dither,f.side,f.amp)
+                if f.fits:
+                    #this is the multi ifu/fiber case (no dither file, etc)
+                    fits = f.fits
+                else:#this is the older case with one ifu and dithers within a single observation
+                    fits = self.get_sci_fits(dither,f.side,f.amp)
 
                 if fits is None:
                     log.error("Error! Could not find appropriate fits file for fiber: %s %d"
@@ -2056,10 +2077,13 @@ class HETDEX:
                     continue
                 #look at specific fibers
 
-                dx = e.x - f.center_x - self.dither.dx[dither] #just floats, not arrays like below
-                dy = e.y - f.center_y - self.dither.dy[dither]
+                if self.dither:
+                    dx = e.x - f.center_x - self.dither.dx[dither] #just floats, not arrays like below
+                    dy = e.y - f.center_y - self.dither.dy[dither]
 
-                d = np.sqrt(dx ** 2 + dy ** 2)
+                    d = np.sqrt(dx ** 2 + dy ** 2)
+                else:
+                    d = np.sqrt((e.wra - f.ra)**2 + (e.wdec - f.dec)**2)
                 #turn fiber number into a location. Fiber Number 1 is at the top
                 #which is loc (or index) 111
                 #so loc = 112 - Fiber Number
@@ -2078,6 +2102,7 @@ class HETDEX:
             for fits in self.sci_fits:
                 dither = fits.dither_index  # 0,1,2
 
+                #we must have a dither file in this case
                 # e.x and e.y are the sky x and y
                 # dx and dy then are the distances of each fiber center from the sky location of the source
                 dx = e.x - fits.fiber_centers[:, 0] - self.dither.dx[dither]
@@ -2129,7 +2154,7 @@ class HETDEX:
                 fiber.number_in_ccd = len(fits.fe_data) - (loc+1) + AMP_OFFSET[fits.amp]
             datakeep['fib'].append(fiber.number_in_ccd)
 
-            if fiber.ra is None:
+            if fiber.ra is None: #then there must be a dither file
                 xfiber = fits.fiber_centers[loc][0] + self.dither.dx[dither]
                 yfiber = fits.fiber_centers[loc][1] + self.dither.dy[dither]
                 xfiber += self.ifuy  # yes this is correct xfiber gets ifuy
