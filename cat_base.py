@@ -178,11 +178,13 @@ class Catalog:
         return
 
     def sort_bid_targets_by_likelihood(self,ra,dec):
-        #right now, just by euclidean distance (ra,dec are of target)
-        #todo: if radial separation is greater than the error, remove this bid target?
+        #right now, just by euclidean distance (ra,dec are of target) (don't forget to adjust RA coord difference
+        #for the declination ... just use the target dec, the difference to the bid dec is negligable)
+        #if radial separation is greater than the error, remove this bid target?
         #  remember we are looking in a box (error x error) so radial can be greater than errro (i.e. in a corner)
-        self.dataframe_of_bid_targets['distance'] = np.sqrt((self.dataframe_of_bid_targets['RA'] - ra)**2 +
-                                                            (self.dataframe_of_bid_targets['DEC'] - dec)**2)
+        self.dataframe_of_bid_targets['distance'] = np.sqrt(
+            (np.cos(np.deg2rad(dec)) *(self.dataframe_of_bid_targets['RA'] - ra))**2 +
+                                  (self.dataframe_of_bid_targets['DEC'] - dec)**2)
         self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.sort_values(by='distance', ascending=True)
 
 
@@ -275,12 +277,17 @@ class Catalog:
         except:
             return 0
 
-    def get_f606w_max_cont(self,exp_time,sigma=3):
+    def get_f606w_max_cont(self,exp_time,sigma=3,base=None):
+        #note:this goes as the sqrt of exp time, but even so, this is not a valid use
+        #each field has its own value (and may have several)
         candles_egs_baseline_exp_time = 289618.0
         candles_egs_baseline_cont = 3.3e-21
 
         try:
-            cont = sigma * candles_egs_baseline_cont * candles_egs_baseline_exp_time / exp_time
+            if base is None:
+                cont = sigma * candles_egs_baseline_cont * np.sqrt(candles_egs_baseline_exp_time / exp_time)
+            else:
+                cont = sigma * base
         except:
             log.error("Error in cat_base:get_f606w_max_cont ", exc_info=True)
             cont = -1

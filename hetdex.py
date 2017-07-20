@@ -350,16 +350,6 @@ class Fiber:
 
 class DetObj:
     '''mostly a container for an emission line or continuum detection from detect_line.dat or detect_cont.dat file'''
-    #  0    1   2   3   4   5   6           7       8        9     10    11    12     13      14      15  16
-    #  NR  ID   XS  XS  l   z   dataflux    modflux fluxfrac sigma chi2  chi2s chi2w  gammq   gammq_s eqw cont
-
-    #cont
-    # 0    1  2     3       4       5  6   7   8     9  10    11   12  13   14   15   16
-    # ID  icx icy  <sigma> fwhm_xy  a  b   pa  ir1  ka  kb   xmin xmax ymin ymax zmin zmax
-
-    #0   1  2                   3                 4        5   6      7     8 9    0 1 2 3 4  5   6 7
-    #28 28 22.879905466813398 -11.019990953824617 3914.82 666 289.41 289.41 1 7.20 1 1 1 0 0 -300 0 ifu093
-
 
     def __init__(self,tokens,emission=True):
         #skip NR (0)
@@ -414,16 +404,6 @@ class DetObj:
             self.gammq_s = float(tokens[14])
             self.eqw = float(tokens[15])
             self.cont = float(tokens[16])
-
-
-            # 0  1   2 ....
-            # 1  1  -16.39  -15.30 4615.18 666   285.7   285.7 1   7.2 1 1 1 0 0  -300 0
-            # 17       18         19
-            # ifu094  214.64391  52.80016
-            # 20                                      21
-            # 20170326T105655.6_032_094_028_LU_032   20170326T104328.6_032_094_028_LU_031
-            # 20170326T105013.0_032_094_028_LU_032   20170326T105013.0_032_094_028_LU_012
-            # 20170326T104328.6_032_094_028_LU_032
 
             try:
                 if len(tokens) > 17: #this is probably an all ifu panacea version
@@ -859,6 +839,7 @@ class HETDEX:
             log.error("Cannot construct HETDEX object. No arguments provided.")
             return None
 
+        self.multiple_observations = False #set if multiple observations are used (rather than a single obsdate,obsid)
         self.ymd = None
         self.target_ra = args.ra
         self.target_dec = args.dec
@@ -955,7 +936,9 @@ class HETDEX:
             self.read_detectline(force=True)
 
         if (args.obsdate is None):
-            if not self.build_multi_observation_panacea_fits_list():
+            if self.build_multi_observation_panacea_fits_list():
+                self.multiple_observations = True
+            else:
                 self.status = -1
                 return
         else:
@@ -988,7 +971,6 @@ class HETDEX:
         if (self.detectline_fn is not None) and (len(self.emis_list) == 0): #this is optional
             self.read_detectline(force=False)
 
-
         #assign dither indices to fibers for each emission object
         if self.dither:
             for e in self.emis_list:
@@ -1004,18 +986,6 @@ class HETDEX:
                             f.center_x = s.fiber_centers[f.panacea_idx, 0]
                             f.center_y = s.fiber_centers[f.panacea_idx, 1]
                             break
-        #else: #sanity check #check that we the fibers have ra and decs
-        #    for e in self.emis_list:
-        #        for f in e.fibers:
-        #            if f.ra and f.dec:
-        #                pass #it is okay ... will assume that ra and decs were supplied in line file
-        #            else:
-        #                self.status = -1
-        #                log.error("Fatal error. Line file does NOT contain fiber RA and Dec and "
-        #                          "dither file and other paramaters not supplied")
-        #                return
-
-
 
 
         #calculate the RA and DEC of each emission line object
@@ -1080,8 +1050,6 @@ class HETDEX:
         #want the position of the lower left corner and the rotation relative to celestrial north
 
         #todo: the rotation should be from the parangle (assuming the ifus are aligned with the center)
-
-
 
         #cure:
         #xfiber = self.ifu_ctr.xifu[side][loc] + self.dither.dx[dither]
@@ -1940,7 +1908,6 @@ class HETDEX:
 
             max_y, max_x = sci.data.shape
 
-
             #used later
             datakeep['color'].append(None)
             datakeep['index'].append(None)
@@ -1995,26 +1962,12 @@ class HETDEX:
                 datakeep['im'].append(sci.data[yl:yh,xl:xh])
                 datakeep['fw_im'].append(sci.data[yl:yh, 0:FRAME_WIDTH_X-1])
 
-                # this is probably for the 1d spectra
-                #I = sci.data.ravel()
-                #s_ind = np.argsort(I)
-                #len_s = len(s_ind)
-                #s_rank = np.arange(len_s)
-                #p = np.polyfit(s_rank - len_s / 2, I[s_ind], 1)
-
-                #z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast1
-                #z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast1
-
                 z1, z2 = self.get_vrange(sci.data[yl:yh, xl:xh], scale=contrast1)
                 log.debug("2D cutout zscale1 (smoothed) = %f, %f  for D,S,F = %d, %s, %d"
                           % (z1, z2, dither + 1, side, fiber_num))
 
-                #z1,z2 = self.get_vrange(sci.data[yl:yh,xl:xh])
                 datakeep['vmin1'].append(z1)
                 datakeep['vmax1'].append(z2)
-
-                #z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast2
-                #z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast2
 
                 z1, z2 = self.get_vrange(sci.data[yl:yh, xl:xh], scale=contrast2)
                 log.debug("2D cutout zscale2 (image) = %f, %f  for D,S,F = %d, %s, %d"
@@ -2117,7 +2070,6 @@ class HETDEX:
             #sort_list.sort(key=lambda x: x.dist, reverse=True)
             sort_list = sort_list[::-1]
 
-
         else: #use fibers w/in 2"
 
             for fits in self.sci_fits:
@@ -2140,9 +2092,6 @@ class HETDEX:
             # sort from farthest to nearest ... yes, weird, but necessary for compatibility with
             # some cloned code f
             sort_list.sort(key=lambda x: x.dist,reverse=True)
-
-
-        #zero based so fiber is loc + amp_offset
 
         #for loc in locations:
         for item in sort_list:
@@ -2214,27 +2163,11 @@ class HETDEX:
             datakeep['yh'].append(yh)
             datakeep['fxl'].append(0)
             datakeep['fxh'].append(FRAME_WIDTH_X - 1)
-            #datakeep['d'].append(d[loc])  # distance (in arcsec) of fiber center from object center
 
             datakeep['sn'].append(e.sigma)
 
-            # also get full x width data
-            # would be more memory effecien to just grab full width,
-            # then in original func, slice as below
-
             datakeep['im'].append(fits.data[yl:yh, xl:xh])
             datakeep['fw_im'].append(fits.data[yl:yh, 0:FRAME_WIDTH_X - 1])
-
-
-            # this is probably for the 1d spectra
-            #I = fits.data.ravel()
-            #s_ind = np.argsort(I)
-            #len_s = len(s_ind)
-            #s_rank = np.arange(len_s)
-            #p = np.polyfit(s_rank - len_s / 2, I[s_ind], 1)
-
-            #z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast1
-            #z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast1
 
             z1, z2 = self.get_vrange(fits.data[yl:yh, xl:xh],scale=contrast1)
             log.debug("2D cutout zscale1 (smoothed) = %f, %f  for D,S,F = %d, %s, %d"
@@ -2243,9 +2176,6 @@ class HETDEX:
             # z1,z2 = self.get_vrange(sci.data[yl:yh,xl:xh])
             datakeep['vmin1'].append(z1)
             datakeep['vmax1'].append(z2)
-
-            #z1 = I[s_ind[int(len_s / 2)]] + p[0] * (1 - len_s / 2) / contrast2
-            #z2 = I[s_ind[int(len_s / 2)]] + p[0] * (len_s - len_s / 2) / contrast2
 
             z1, z2 = self.get_vrange(fits.data[yl:yh, xl:xh],scale=contrast2)
             log.debug("2D cutout zscale2 (image) = %f, %f  for D,S,F = %d, %s, %d"
@@ -2339,52 +2269,28 @@ class HETDEX:
                           interpolation="none", vmin=datakeep['vmin1'][ind[i]],
                           vmax=datakeep['vmax1'][ind[i]],
                           extent=ext)
-            # plot the center point
-            #smplot.scatter(datakeep['xi'][ind[i]], datakeep['yi'][ind[i]],
-            #               marker='.', c='g', edgecolor='g', s=10)
+
             smplot.set_xticks([])
             smplot.set_yticks([])
             smplot.axis(ext)
             smplot.axis('off')
 
-
-           # vmin_pix, vmax_pix = self.get_vrange(datakeep['pix'][ind[i]], scale=0.01)
             vmin_pix = 0.9
             vmax_pix = 1.1
             pixplot.imshow(datakeep['pix'][ind[i]],
                            origin="lower", cmap=plt.get_cmap('gray'),
                            interpolation="none", vmin=vmin_pix, vmax=vmax_pix,
                            extent=ext) #vmin=0.9, vmax=1.1
-            # plot the center point
-            #errplot.scatter(datakeep['xi'][ind[i]], datakeep['yi'][ind[i]],
-            #                marker='.', c='r', edgecolor='r', s=10)
+
             pixplot.set_xticks([])
             pixplot.set_yticks([])
             pixplot.axis(ext)
             pixplot.axis('off')
 
-            #a = datakeep['cos'][ind[i]]
-
-            # ... changed ... it is safe to use the error file all the time ... zeroes only present if cosmic cleaned
-            # if (G.PreferCosmicCleaned):
-            #    a = np.ma.masked_where(a == -1, a) #should have been -1 not 0
-            #    cmap1 = cmap
-            #    cmap1.set_bad(color=[0.2, 1.0, 0.23])
-            # else:
-            #    cmap1 = cmap
-
             a = datakeep['im'][ind[i]] #im can be the cosmic removed version, depends on G.PreferCosmicCleaned
             cmap1 = cmap
             cmap1.set_bad(color=[0.2, 1.0, 0.23])
             a = np.ma.masked_where( datakeep['err'][ind[i]] == -1, a)
-
-            #test
-            #jm,km = datakeep['err'][ind[i]].shape
-            #for j in range(jm):
-            #    for k in range(km):
-            #        if datakeep['err'][ind[i]][j,k] < 0:
-            #            msg = "++++++++++ [%d,%d] = %f" % (j,k,datakeep['err'][ind[i]][j,k])
-            #            log.critical(msg)
 
             imgplot.imshow(a,
                            origin="lower", cmap=cmap1,
@@ -2392,9 +2298,6 @@ class HETDEX:
                            vmax=datakeep['vmax2'][ind[i]],
                            interpolation="none",extent=ext)
 
-            #plot the center point
-            #imgplot.scatter(datakeep['xi'][ind[i]], datakeep['yi'][ind[i]],
-            #               marker='.', c='b', edgecolor='b', s=10)
             imgplot.set_xticks([])
             imgplot.set_yticks([])
             imgplot.axis(ext)
@@ -2422,20 +2325,33 @@ class HETDEX:
                         transform=imgplot.transAxes, fontsize=6, color='k', #colors[i, 0:3],
                         verticalalignment='bottom', horizontalalignment='left')
 
-            borplot.text(1.05, .75, 'S/N = %0.2f' % (sn),
-                        transform=smplot.transAxes, fontsize=6, color='r',
-                        verticalalignment='bottom', horizontalalignment='left')
-            #distance (in arcsec) of fiber center from object center
-            borplot.text(1.05, .55, 'D(") = %0.2f' % (datakeep['d'][ind[i]]),
-                        transform=smplot.transAxes, fontsize=6, color='r',
-                        verticalalignment='bottom', horizontalalignment='left')
-            borplot.text(1.05, .35, 'X,Y = %d,%d' % (datakeep['xi'][ind[i]], datakeep['yi'][ind[i]]),
-                        transform=smplot.transAxes, fontsize=6, color='b',
-                        verticalalignment='bottom', horizontalalignment='left')
-            borplot.text(1.05, .15, 'D,S,F = %d,%s,%d' % (datakeep['dit'][ind[i]], datakeep['side'][ind[i]],
-                                                         datakeep['fib'][ind[i]]),
-                        transform=smplot.transAxes, fontsize=6, color='b',
-                        verticalalignment='bottom', horizontalalignment='left')
+
+            if self.multiple_observations:
+                #dither and fiber position, etc generally meaningless in this case
+                #as there is no good way to immediately go back and find the source image
+                #so just show S/N and distance (and make bigger)
+                borplot.text(1.05, .75, 'S/N = %0.2f' % (sn),
+                             transform=smplot.transAxes, fontsize=8, color='r',
+                             verticalalignment='bottom', horizontalalignment='left')
+                # distance (in arcsec) of fiber center from object center
+                borplot.text(1.05, .55, 'D(") = %0.2f' % (datakeep['d'][ind[i]]),
+                             transform=smplot.transAxes, fontsize=8, color='r',
+                             verticalalignment='bottom', horizontalalignment='left')
+            else:
+                borplot.text(1.05, .75, 'S/N = %0.2f' % (sn),
+                            transform=smplot.transAxes, fontsize=6, color='r',
+                            verticalalignment='bottom', horizontalalignment='left')
+                #distance (in arcsec) of fiber center from object center
+                borplot.text(1.05, .55, 'D(") = %0.2f' % (datakeep['d'][ind[i]]),
+                            transform=smplot.transAxes, fontsize=6, color='r',
+                            verticalalignment='bottom', horizontalalignment='left')
+                borplot.text(1.05, .35, 'X,Y = %d,%d' % (datakeep['xi'][ind[i]], datakeep['yi'][ind[i]]),
+                            transform=smplot.transAxes, fontsize=6, color='b',
+                            verticalalignment='bottom', horizontalalignment='left')
+                borplot.text(1.05, .15, 'D,S,F = %d,%s,%d' % (datakeep['dit'][ind[i]], datakeep['side'][ind[i]],
+                                                             datakeep['fib'][ind[i]]),
+                            transform=smplot.transAxes, fontsize=6, color='b',
+                            verticalalignment='bottom', horizontalalignment='left')
             if i == (num - 1):
                 smplot.text(0.5, 1.3, 'Smoothed',
                             transform=smplot.transAxes, fontsize=8, color='k',

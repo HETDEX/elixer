@@ -59,6 +59,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
     Cat_Coord_Range = {'RA_min': 214.576759, 'RA_max': 215.305229, 'Dec_min': 52.677569, 'Dec_max': 53.105756}
     WCS_Manual = True
     EXPTIME_F606W = 289618.0
+    CONT_EST_BASE = 3.3e-21
     BidCols = ["ID", "IAU_designation", "RA", "DEC",
                "CFHT_U_FLUX", "CFHT_U_FLUXERR",
                "IRAC_CH1_FLUX", "IRAC_CH1_FLUXERR", "IRAC_CH2_FLUX", "IRAC_CH2_FLUXERR",
@@ -86,14 +87,14 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'labels': ["Flux", "Err"],
          'image': None
          },
-     #   {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
-     #    'name': 'egs_all_wfc3_ir_f105w_060mas_v1.5_drz.fits',
-     #    'filter': 'f105w',
-     #    'instrument': 'WFC3',
-     #    'cols': [],
-     #    'labels': [],
-     #    'image': None
-     #    },
+        {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
+         'name': 'egs_all_wfc3_ir_f105w_060mas_v1.5_drz.fits',
+         'filter': 'f105w',
+         'instrument': 'WFC3',
+         'cols': [],
+         'labels': [],
+         'image': None
+         },
         {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
          'name': 'egs_all_wfc3_ir_f125w_060mas_v1.1_drz.fits',
          'filter': 'f125w',
@@ -102,14 +103,14 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'labels': ["Flux", "Err"],
          'image': None
          },
-    #    {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
-    #     'name': 'egs_all_wfc3_ir_f140w_060mas_v1.1_drz.fits',
-    #     'filter': 'f140w',
-    #     'instrument': 'WFC3',
-    #     'cols': ["WFC3_F140W_FLUX", "WFC3_F140W_FLUXERR"],
-    #     'labels': ["Flux", "Err"],
-    #     'image': None
-    #     },
+        {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
+         'name': 'egs_all_wfc3_ir_f140w_060mas_v1.1_drz.fits',
+         'filter': 'f140w',
+         'instrument': 'WFC3',
+         'cols': ["WFC3_F140W_FLUX", "WFC3_F140W_FLUXERR"],
+         'labels': ["Flux", "Err"],
+         'image': None
+         },
         {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
          'name': 'egs_all_wfc3_ir_f160w_060mas_v1.1_drz.fits',
          'filter': 'f160w',
@@ -218,8 +219,16 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         self.dataframe_of_bid_targets_photoz = None
         self.num_targets = 0
 
-        ra_min = np.float64(ra - error_in_deg)
-        ra_max = np.float64(ra + error_in_deg)
+        coord_scale = np.cos(np.deg2rad(dec))
+
+        #can't actually happen for this catalog
+        if coord_scale < 0.1: #about 85deg
+            print("Warning! Excessive declination (%f) for this method of defining error window. Not supported" %(dec))
+            log.error("Warning! Excessive declination (%f) for this method of defining error window. Not supported" %(dec))
+            return 0,None,None
+
+        ra_min = np.float64(ra - error_in_deg/coord_scale)
+        ra_max = np.float64(ra + error_in_deg/coord_scale)
         dec_min = np.float64(dec - error_in_deg)
         dec_max = np.float64(dec + error_in_deg)
 
@@ -360,12 +369,12 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             title = title + "\n"
 
         if target_flux is not None:
-            cont_est = self.get_f606w_max_cont(self.EXPTIME_F606W, 3)
+            cont_est = self.CONT_EST_BASE*3 #self.get_f606w_max_cont(self.EXPTIME_F606W, 3, self.CONT_EST_BASE)
             if cont_est != -1:
                 title += "Minimum (no match)\n  3$\sigma$ rest-EW:\n"
-                title += "  LyA = %g $\AA$\n" % (-1 * (target_flux / cont_est) / (target_w / G.LyA_rest))
+                title += "  LyA = %g $\AA$\n" % ((target_flux / cont_est) / (target_w / G.LyA_rest))
                 if target_w >= G.OII_rest:
-                    title = title + "  OII = %g $\AA$\n" % (-1 * (target_flux / cont_est) / (target_w / G.OII_rest))
+                    title = title + "  OII = %g $\AA$\n" % ((target_flux / cont_est) / (target_w / G.OII_rest))
                 else:
                     title = title + "  OII = N/A\n"
 
@@ -572,12 +581,12 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 filter_fl = df['ACS_F606W_FLUX'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
                 if (filter_fl is not None) and (filter_fl > 0):
                     filter_fl = filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
-                    title = title + "\nEst LyA rest-EW = %g $\AA$" % (
-                    -1 * target_flux / filter_fl / (target_w / G.LyA_rest))
+                    title = title + "\nEst LyA rest-EW = %g $\AA$" \
+                                    % (target_flux / filter_fl / (target_w / G.LyA_rest))
 
                     if target_w >= G.OII_rest:
-                        title = title + "\nEst OII rest-EW = %g $\AA$" % (
-                        -1 * target_flux / filter_fl / (target_w / G.OII_rest))
+                        title = title + "\nEst OII rest-EW = %g $\AA$" \
+                                        % (target_flux / filter_fl / (target_w / G.OII_rest))
                     else:
                         title = title + "\nEst OII rest-EW = N/A"
 
@@ -742,36 +751,37 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         # if window < 8:
         #    window = 8
 
-        rows = 1 #2
-        cols = 6 #len(self.CatalogImages)
+        rows = 10 #2 (use 0 for text and 1: for plots)
+        cols = 1+ len(self.CatalogImages) #(use 0 for master_stacked and 1 - N for filters)
 
-        fig_sz_x = cols * 3
-        fig_sz_y = rows * 3
+        fig_sz_x = 18 #cols * 3 # was 6 cols
+        fig_sz_y = 3 #rows * 3 # was 1 or 2 rows
 
         fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
-        plt.subplots_adjust(left=0.05, right=0.95, top=0.90, bottom=0.1)
+        plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
 
-        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.5)
+        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.0)
         # reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based
 
         font = FontProperties()
         font.set_family('monospace')
         font.set_size(12)
 
-        title = "%s\n" % self.Name + "\nPossible Matches = %d\n  (within +/- %g\")\n" \
-                                                              % (len(self.dataframe_of_bid_targets), error)
+        #All on one line now across top of plots
+        title = self.Name + " : Possible Matches = %d (within +/- %g\")" \
+                    % (len(self.dataframe_of_bid_targets), error)
 
         if target_flux is not None:
-            cont_est = self.get_f606w_max_cont(self.EXPTIME_F606W, 3)
+            cont_est = self.CONT_EST_BASE*3 #self.get_f606w_max_cont(self.EXPTIME_F606W, 3, self.CONT_EST_BASE)
             if cont_est != -1:
-                title += "Minimum (no match)\n  3$\sigma$ rest-EW:\n"
-                title += "  LyA = %g $\AA$\n" % (-1 * (target_flux / cont_est) / (target_w / G.LyA_rest))
+                title += "  Minimum (no match) 3$\sigma$ rest-EW: "
+                title += "  LyA = %g $\AA$ " % ((target_flux / cont_est) / (target_w / G.LyA_rest))
                 if target_w >= G.OII_rest:
-                    title = title + "  OII = %g $\AA$\n" % (-1 * (target_flux / cont_est) / (target_w / G.OII_rest))
+                    title = title + "  OII = %g $\AA$" % ((target_flux / cont_est) / (target_w / G.OII_rest))
                 else:
-                    title = title + "  OII = N/A\n"
+                    title = title + "  OII = N/A"
 
-        plt.subplot(gs[0, 0])
+        plt.subplot(gs[0, :])
         plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
@@ -780,16 +790,13 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             del (self.master_cutout)
             self.master_cutout = None
 
-
         ref_exptime = None
         total_adjusted_exptime = None
 
         # add the bid targets
-        #norm = plt.Normalize()
-        #bid_colors = plt.cm.brg(norm(np.arange(len(bid_ras))))
         bid_colors = self.get_bid_colors(len(bid_ras))
 
-        index = 1 #start in the 3rd box (1 + 1 = 2, zero based count)
+        index = 0 #start in the 2nd box which is index 1 (1st box is for the fiber position plot)
         for i in self.CatalogImages:  # i is a dictionary
             index += 1
 
@@ -813,7 +820,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     self.master_cutout.data = np.add(self.master_cutout.data, cutout.data * sci.exptime / ref_exptime)
                     total_adjusted_exptime += sci.exptime / ref_exptime
 
-                plt.subplot(gs[rows - 1, index])
+                plt.subplot(gs[1:, index])
                 plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                            vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
                 plt.title(i['instrument'] + " " + i['filter'])
@@ -839,14 +846,11 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
         # plot the fiber cutout
         if (fiber_locs is not None) and (len(fiber_locs) > 0):
-            #plt.subplot(gs[0, cols - 3])
-            plt.subplot(gs[0, 1])
+            plt.subplot(gs[1:, 0])
 
             plt.title("Fiber Positions")
             plt.xlabel("arcsecs")
             plt.gca().xaxis.labelpad = 0
-            #plt.ylabel("arcsecs")
-            #plt.gca().yaxis.labelpad = 0
 
             plt.plot(0, 0, "r+")
 
@@ -858,7 +862,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             x, y = empty_sci.get_position(ra, dec, self.master_cutout)  # zero (absolute) position
 
             for r, d, c, i, dist in fiber_locs:
-                # print("+++++ Cutout RA,DEC,ID,COLOR", r,d,i,c)
                 # fiber absolute position ... need relative position to plot (so fiber - zero pos)
                 fx, fy = empty_sci.get_position(r, d, self.master_cutout)
 
@@ -879,14 +882,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             vmin, vmax = empty_sci.get_vrange(cutout.data)
 
             self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
-
-            #todo:test
-            #plt.gca().add_patch(plt.Rectangle((-8 , -8 ), width=error * 10, height=error * 10,
-            #                                  angle=45, color='yellow', fill=False))
-
-            #fx, fy = empty_sci.get_position(r, d, self.master_cutout)
-
-
             plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                        vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
 
@@ -978,12 +973,12 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 if (filter_fl is not None) and (filter_fl > 0):
                     #filter_fl = filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
                     filter_fl = self.micro_jansky_to_cgs(filter_fl,target_w)
-                    title = title + "\nEst LyA rest-EW = %g $\AA$" % (
-                    -1 * target_flux / filter_fl / (target_w / G.LyA_rest))
+                    title = title + "\nEst LyA rest-EW = %g $\AA$" \
+                                    % (target_flux / filter_fl / (target_w / G.LyA_rest))
 
                     if target_w >= G.OII_rest:
-                        title = title + "\nEst OII rest-EW = %g $\AA$" % (
-                        -1 * target_flux / filter_fl / (target_w / G.OII_rest))
+                        title = title + "\nEst OII rest-EW = %g $\AA$" \
+                                        % (target_flux / filter_fl / (target_w / G.OII_rest))
                     else:
                         title = title + "\nEst OII rest-EW = N/A"
 
@@ -1179,10 +1174,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 if (target_flux is not None) and (filter_fl != 0.0):
                     if (filter_fl is not None):# and (filter_fl > 0):
                         filter_fl_adj = filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
-                        text = text + "%g $\AA$\n" % (-1 * target_flux / filter_fl_adj / (target_w / G.LyA_rest))
+                        text = text + "%g $\AA$\n" % (target_flux / filter_fl_adj / (target_w / G.LyA_rest))
 
                         if target_w >= G.OII_rest:
-                            text = text + "%g $\AA$\n" % (-1 * target_flux / filter_fl_adj / (target_w / G.OII_rest))
+                            text = text + "%g $\AA$\n" % (target_flux / filter_fl_adj / (target_w / G.OII_rest))
                         else:
                             text = text + "N/A\n"
 

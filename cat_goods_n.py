@@ -60,8 +60,17 @@ class GOODS_N(cat_base.Catalog):
     Cat_Coord_Range = {'RA_min': 188.915588, 'RA_max': 189.543671, 'Dec_min': 62.091625, 'Dec_max': 62.385319}
     WCS_Manual = True
     EXPTIME_F606W = 16950.0
+    CONT_EST_BASE = 2.8e-21
 
     CatalogImages = [
+        {'path': GOODS_N_IMAGES_PATH,
+         'name': 'gn_acs_old_f435w_060mas_v2_drz.fits',
+         'filter': 'f435w',
+         'instrument': 'ACS',
+         'cols': ['F435W (V) flux (nJy)', 'F435W (V) flux error (nJy)'],
+         'labels': ["Flux", "Err"],
+         'image': None
+         },
         {'path': GOODS_N_IMAGES_PATH,
          'name': 'gn_acs_old_f606w_060mas_v2_drz.fits',
          'filter': 'f606w',
@@ -71,6 +80,22 @@ class GOODS_N(cat_base.Catalog):
          'image': None
          },
         {'path': GOODS_N_IMAGES_PATH,
+         'name': 'gn_acs_old_f775w_060mas_v2_drz.fits',
+         'filter': 'f775w',
+         'instrument': 'ACS',
+         'cols': ['F775W (V) flux (nJy)', 'F775W (V) flux error (nJy)'],
+         'labels': ["Flux", "Err"],
+         'image': None
+         },
+    #    {'path': GOODS_N_IMAGES_PATH,
+    #     'name': 'gn_acs_old_f850l_060mas_v2_drz.fits',
+    #     'filter': 'f850l',
+    #     'instrument': 'ACS',
+    #     'cols': ['F850L (V) flux (nJy)', 'F850L (V) flux error (nJy)'],
+    #     'labels': ["Flux", "Err"],
+    #     'image': None
+    #     },
+        {'path': GOODS_N_IMAGES_PATH,
          'name': 'gn_all_candels_acs_f814w_060mas_v0.9_drz.fits',
          'filter': 'f814w',
          'instrument': 'ACS',
@@ -78,6 +103,14 @@ class GOODS_N(cat_base.Catalog):
          'labels': ["Flux", "Err"],
          'image': None
          },
+     #   {'path': GOODS_N_IMAGES_PATH,
+     #    'name': 'gn_all_candels_wfc3_f105w_060mas_v0.8_drz.fits',
+     #    'filter': 'f105w',
+     #    'instrument': 'WFC3',
+     #    'cols': ['F105W (J) flux (nJy)', 'F105W (J) flux error (nJy)'],
+     #    'labels': ["Flux", "Err"],
+     #    'image': None
+     #    },
         {'path': GOODS_N_IMAGES_PATH,
          'name': 'gn_all_candels_wfc3_f125w_060mas_v0.8_drz.fits',
          'filter': 'f125w',
@@ -157,6 +190,15 @@ class GOODS_N(cat_base.Catalog):
         self.dataframe_of_bid_targets = None
         self.dataframe_of_bid_targets_photoz = None
         self.num_targets = 0
+
+        coord_scale = np.cos(np.deg2rad(dec))
+
+        # can't actually happen for this catalog
+        if coord_scale < 0.1:  # about 85deg
+            print("Warning! Excessive declination (%f) for this method of defining error window. Not supported" % (dec))
+            log.error(
+                "Warning! Excessive declination (%f) for this method of defining error window. Not supported" % (dec))
+            return 0, None, None
 
         ra_min = np.float64(ra - error_in_deg)
         ra_max = np.float64(ra + error_in_deg)
@@ -282,12 +324,12 @@ class GOODS_N(cat_base.Catalog):
             title = title + "\n"
 
         if target_flux is not None:
-            cont_est = self.get_f606w_max_cont(self.EXPTIME_F606W, 3)
+            cont_est = self.CONT_EST_BASE*3 #self.get_f606w_max_cont(self.EXPTIME_F606W, 3, self.CONT_EST_BASE)
             if cont_est != -1:
                 title += "Minimum (no match)\n  3$\sigma$ rest-EW:\n"
-                title += "  LyA = %g $\AA$\n" %  (-1 * (target_flux / cont_est) / (target_w / G.LyA_rest))
+                title += "  LyA = %g $\AA$\n" %  ((target_flux / cont_est) / (target_w / G.LyA_rest))
                 if target_w >= G.OII_rest:
-                    title = title + "  OII = %g $\AA$\n" %  (-1 * (target_flux / cont_est) / (target_w / G.OII_rest))
+                    title = title + "  OII = %g $\AA$\n" %  ((target_flux / cont_est) / (target_w / G.OII_rest))
                 else:
                     title = title + "  OII = N/A\n"
 
@@ -492,10 +534,12 @@ class GOODS_N(cat_base.Catalog):
                 if (target_flux is not None) and (filter_fl != 0.0):
                     if (filter_fl is not None) and (filter_fl > 0):
                         filter_fl_adj = self.nano_jansky_to_cgs(filter_fl,target_w)# * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
-                        title = title + "Est LyA rest-EW = %g $\AA$\n" % (-1 * target_flux / filter_fl_adj / (target_w / G.LyA_rest))
+                        title = title + "Est LyA rest-EW = %g $\AA$\n" \
+                                        % (target_flux / filter_fl_adj / (target_w / G.LyA_rest))
 
                         if target_w >= G.OII_rest:
-                            title = title + "Est OII rest-EW = %g $\AA$\n" % (-1 * target_flux / filter_fl_adj / (target_w / G.OII_rest))
+                            title = title + "Est OII rest-EW = %g $\AA$\n" \
+                                            % (target_flux / filter_fl_adj / (target_w / G.OII_rest))
                         else:
                             title = title + "Est OII rest-EW = N/A\n"
 
@@ -648,36 +692,37 @@ class GOODS_N(cat_base.Catalog):
         # if window < 8:
         #    window = 8
 
-        rows = 1 #2
-        cols = 6 #len(self.CatalogImages)
+        rows = 10 #2
+        cols = 1+ len(self.CatalogImages)
 
-        fig_sz_x = cols * 3
-        fig_sz_y = rows * 3
+        fig_sz_x = 18 #cols * 3
+        fig_sz_y = 3 #rows * 3
 
         fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
-        plt.subplots_adjust(left=0.05, right=0.95, top=0.90, bottom=0.1)
+        plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
 
-        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.5)
+        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.0)
         # reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based
 
         font = FontProperties()
         font.set_family('monospace')
         font.set_size(12)
 
-        title = "%s\n" % self.Name + "\nPossible Matches = %d\n  (within +/- %g\")\n" \
-                                                              % (len(self.dataframe_of_bid_targets), error)
+        # All on one line now across top of plots
+        title = self.Name + " : Possible Matches = %d (within +/- %g\")" \
+                            % (len(self.dataframe_of_bid_targets), error)
 
         if target_flux is not None:
-            cont_est = self.get_f606w_max_cont(self.EXPTIME_F606W, 3)
+            cont_est = self.CONT_EST_BASE * 3
             if cont_est != -1:
-                title += "Minimum (no match)\n  3$\sigma$ rest-EW:\n"
-                title += "  LyA = %g $\AA$\n" %  (-1 * (target_flux / cont_est) / (target_w / G.LyA_rest))
+                title += "  Minimum (no match) 3$\sigma$ rest-EW: "
+                title += "  LyA = %g $\AA$ " % ((target_flux / cont_est) / (target_w / G.LyA_rest))
                 if target_w >= G.OII_rest:
-                    title = title + "  OII = %g $\AA$\n" %  (-1 * (target_flux / cont_est) / (target_w / G.OII_rest))
+                    title = title + "  OII = %g $\AA$" % ((target_flux / cont_est) / (target_w / G.OII_rest))
                 else:
-                    title = title + "  OII = N/A\n"
+                    title = title + "  OII = N/A"
 
-        plt.subplot(gs[0, 0])
+        plt.subplot(gs[0, :])
         plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
@@ -695,7 +740,7 @@ class GOODS_N(cat_base.Catalog):
         #bid_colors = plt.cm.brg(norm(np.arange(len(bid_ras))))
         bid_colors = self.get_bid_colors(len(bid_ras))
 
-        index = 1 #start in the 3rd box (1 + 1 = 2, zero based count)
+        index = 0 #start in the 2nd box (1 + 1 = 2, zero based count)
         for i in self.CatalogImages:  # i is a dictionary
             index += 1
 
@@ -719,7 +764,7 @@ class GOODS_N(cat_base.Catalog):
                     self.master_cutout.data = np.add(self.master_cutout.data, cutout.data * sci.exptime / ref_exptime)
                     total_adjusted_exptime += sci.exptime / ref_exptime
 
-                plt.subplot(gs[rows - 1, index])
+                plt.subplot(gs[1:, index])
                 plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                            vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
                 plt.title(i['instrument'] + " " + i['filter'])
@@ -746,8 +791,7 @@ class GOODS_N(cat_base.Catalog):
 
         # plot the fiber cutout
         if (fiber_locs is not None) and (len(fiber_locs) > 0):
-            #plt.subplot(gs[0, cols - 3])
-            plt.subplot(gs[0, 1])
+            plt.subplot(gs[1:, 0])
 
             plt.title("Fiber Positions")
             plt.xlabel("arcsecs")
@@ -877,12 +921,12 @@ class GOODS_N(cat_base.Catalog):
                 filter_fl = df['ACS_F606W_FLUX'].values[0]  # in nano-jansky or 1e-32  erg s^-1 cm^-2 Hz^-2
                 if (filter_fl is not None) and (filter_fl > 0):
                     filter_fl = self.nano_jansky_to_cgs(filter_fl,target_w) #filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
-                    title = title + "\nEst LyA rest-EW = %g $\AA$" % (
-                    -1 * target_flux / filter_fl / (target_w / G.LyA_rest))
+                    title = title + "\nEst LyA rest-EW = %g $\AA$" \
+                                    % (target_flux / filter_fl / (target_w / G.LyA_rest))
 
                     if target_w >= G.OII_rest:
-                        title = title + "\nEst OII rest-EW = %g $\AA$" % (
-                        -1 * target_flux / filter_fl / (target_w / G.OII_rest))
+                        title = title + "\nEst OII rest-EW = %g $\AA$" \
+                                        % (target_flux / filter_fl / (target_w / G.OII_rest))
                     else:
                         title = title + "\nEst OII rest-EW = N/A"
 
@@ -1027,10 +1071,10 @@ class GOODS_N(cat_base.Catalog):
                 if (target_flux is not None) and (filter_fl != 0.0):
                     if (filter_fl is not None):# and (filter_fl > 0):
                         filter_fl_adj = self.nano_jansky_to_cgs(filter_fl,target_w)#filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
-                        text = text + "%g $\AA$\n" % (-1 * target_flux / filter_fl_adj / (target_w / G.LyA_rest))
+                        text = text + "%g $\AA$\n" % (target_flux / filter_fl_adj / (target_w / G.LyA_rest))
 
                         if target_w >= G.OII_rest:
-                            text = text + "%g $\AA$\n" % (-1 * target_flux / filter_fl_adj / (target_w / G.OII_rest))
+                            text = text + "%g $\AA$\n" % (target_flux / filter_fl_adj / (target_w / G.OII_rest))
                         else:
                             text = text + "N/A\n"
                             # bid target info is only of value if we have a flux from the emission line

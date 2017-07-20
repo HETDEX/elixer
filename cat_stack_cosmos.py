@@ -173,6 +173,15 @@ class STACK_COSMOS(cat_base.Catalog):
         self.dataframe_of_bid_targets = None
         self.num_targets = 0
 
+        coord_scale = np.cos(np.deg2rad(dec))
+
+        # can't actually happen for this catalog
+        if coord_scale < 0.1:  # about 85deg
+            print("Warning! Excessive declination (%f) for this method of defining error window. Not supported" % (dec))
+            log.error(
+                "Warning! Excessive declination (%f) for this method of defining error window. Not supported" % (dec))
+            return 0, None, None
+
         ra_min = np.float64(ra - error_in_deg)
         ra_max = np.float64(ra + error_in_deg)
         dec_min = np.float64(dec - error_in_deg)
