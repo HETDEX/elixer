@@ -417,7 +417,10 @@ class DetObj:
                         except:
                             self.wra = None
                             self.wdec = None
-                            log.error("Exception parsing tokens.",exc_info=True)
+                            if ('***' in tokens[18]) and ('***' in tokens[19]):
+                                pass
+                            else:
+                                log.error("Exception parsing tokens.",exc_info=True)
 
                         start = 20
                         num_of_fibers = 0
@@ -431,7 +434,10 @@ class DetObj:
                             self.cont = float(tokens[i])
                         except:
                             self.cont = None
-                            log.error("Exception parsing tokens.", exc_info=True)
+                            if '***' in tokens[i]:
+                                pass
+                            else:
+                                log.error("Exception parsing tokens.", exc_info=True)
 
                         start = i+1
                         for i in range(start,min(len(tokens),start+num_of_fibers)): #these are in the same order as fibers
@@ -439,7 +445,10 @@ class DetObj:
                                 sn = float(tokens[i])
                             except:
                                 sn = -999
-                                log.error("Exception parsing tokens.", exc_info=True)
+                                if '***' in tokens[i]:
+                                    pass
+                                else:
+                                    log.error("Exception parsing tokens.", exc_info=True)
                             for f in self.fibers:
                                 if f.sn is None:
                                     f.sn = sn
