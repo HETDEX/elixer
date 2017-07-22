@@ -311,6 +311,7 @@ class Fiber:
     def __init__(self,idstring,specid,ifuslot,ifuid,amp,date,time,time_ex,panacea_fiber_index=-1):
 
         self.idstring = idstring
+        self.scifits_idstring = idstring.split("_")[0]
         self.specid = specid
         self.ifuslot = ifuslot
         self.ifuid = ifuid
@@ -410,8 +411,13 @@ class DetObj:
                     self.panacea = True
                     self.ifuslot = str(tokens[17][-3:]) #ifu093 -> 093
                     if len(tokens) > 18:  # has the rest
-                        self.wra = float(tokens[18])
-                        self.wdec = float(tokens[19])
+                        try:
+                            self.wra = float(tokens[18])
+                            self.wdec = float(tokens[19])
+                        except:
+                            self.wra = None
+                            self.wdec = None
+                            log.error("Exception parsing tokens.",exc_info=True)
 
                         start = 20
                         num_of_fibers = 0
@@ -421,11 +427,19 @@ class DetObj:
                             else:
                                 num_of_fibers += 1 #will need to know for SN reads and fiber RA,DEC positions
 
-                        self.cont = float(tokens[i])
+                        try:
+                            self.cont = float(tokens[i])
+                        except:
+                            self.cont = None
+                            log.error("Exception parsing tokens.", exc_info=True)
 
                         start = i+1
                         for i in range(start,min(len(tokens),start+num_of_fibers)): #these are in the same order as fibers
-                            sn = float(tokens[i])
+                            try:
+                                sn = float(tokens[i])
+                            except:
+                                sn = -999
+                                log.error("Exception parsing tokens.", exc_info=True)
                             for f in self.fibers:
                                 if f.sn is None:
                                     f.sn = sn
@@ -435,8 +449,13 @@ class DetObj:
                         fib_idx = 0
                         if (len(tokens) - start) >= (2*num_of_fibers): #this probably has the RA and Decs
                             for i in range(start,min(len(tokens),start+2*num_of_fibers),2):
-                                self.fibers[fib_idx].ra = float(tokens[i])
-                                self.fibers[fib_idx].dec = float(tokens[i+1])
+                                try:
+                                    self.fibers[fib_idx].ra = float(tokens[i])
+                                    self.fibers[fib_idx].dec = float(tokens[i+1])
+                                except:
+                                    self.fibers[fib_idx].ra = None
+                                    self.fibers[fib_idx].dec = None
+                                    log.error("Exception parsing tokens.", exc_info=True)
                                 fib_idx += 1
 
             except:
@@ -489,7 +508,7 @@ class DetObj:
                 #log.warn("Unexpected fiber id string: %s" % fiber)
             return False
 
-        idstring = toks[0] #ie. 20170326T105655.6
+        idstring = fiber #toks[0] #ie. 20170326T105655.6
 
         #todo: factor out into common call
         dither_date = idstring[0:8]
@@ -1486,7 +1505,7 @@ class HETDEX:
                 #'/work/03946/hetdex/maverick/20170326/virus/virus0000013/exp01/virus/20170326T111126.2_093RU_sci.fits'
                 #using assumption that there maybe multiples, but they belong to different IFUs and Amps
                 #but all to the same observation date, obsid, and expid
-                scifile = self.find_first_file(fib.idstring+"*",path)
+                scifile = self.find_first_file(fib.scifits_idstring+"*",path)
 
                 if not scifile:
                     log.error("Cannot locate observation data for %s" % (fib.idstring))
@@ -2047,8 +2066,8 @@ class HETDEX:
                     fits = self.get_sci_fits(dither,f.side,f.amp)
 
                 if (fits is None) or (fits.data is None):
-                    log.error("Error! Could not find appropriate fits file for fiber: %s %d"
-                              % (f.idstring,f.number_in_amp))
+                    log.error("Error! Could not find appropriate fits file for fiber: %s"
+                              % (f.idstring))
                     continue
                 #look at specific fibers
 
