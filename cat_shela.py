@@ -687,7 +687,7 @@ class SHELA(cat_base.Catalog):
         photoz_file = None
 
         rows = 2
-        cols = len(self.Filters)
+        cols = len(self.Filters)/self.Tiles
 
         fig_sz_x = cols * 3
         fig_sz_y = rows * 3

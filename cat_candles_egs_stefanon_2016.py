@@ -517,7 +517,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         z_photoz_weighted = None
 
         rows = 2
-        cols = 6 #len(self.CatalogImages)
+        cols = len(self.CatalogImages)
 
         if df_photoz is not None:
             photoz_file = df_photoz['file'].values[0]

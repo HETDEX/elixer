@@ -232,12 +232,14 @@ def parse_commandline():
 
 def valid_parameters(args):
 
+    result = True
+
     #must have ra and dec -OR- dither and (ID or (chi2 and sigma))
     if (args.ra is None) or (args.dec is None):
         if (args.line is None):
             print("Invalid parameters. Must specify either (--ra and --dec) or detect parameters (--dither, --line, --id, "
                   "--sigma, --chi2)")
-            return False
+            result =  False
         elif args.cure:
             if (args.ifu is None):
                 print("Warning. IFU file not provided. Report might not contain spectra cutouts. Will search for IFU file "
@@ -246,19 +248,39 @@ def valid_parameters(args):
                 print("Warning. Distortion file (base) not provided. Report might not contain spectra cutouts. "
                       "Will search for Distortion files in the config directory.")
 
-            return True
-        else:
-            return True
-    else: #chi2 and sigma have default values, so don't use here
+            #just a warning still return True
 
-        return True
+    if result and (args.obsdate or args.obsid or args.dither):
+        #if you proved obsdata and/or obsid they will be used and you must have all three
+        if not (args.obsdate and args.obsid and args.dither):
+            msg = "If providing obsdate or obsid you must provide obsdate, obsid, and dither"
+            log.error(msg)
+            print(msg)
+            result = False
 
-        #if (args.dither is None) and (args.line is None) and (args.id is None):# and (args.chi2 is None) and (args.sigma is None)
-        #    return True
-        #else:
-        #    print("Confusing parameters. Pass either (--ra and --dec) or detect parameters (--dither, --line, --id, "
-        #          "--sigma, --chi2)")
-        #    return False
+    #verify files exist and are not empty (--ast, --dither, --line)
+    if result:
+        for f in (args.ast,args.dither,args.line):
+            if f:
+                try:
+                    if os.path.exists(f):
+                        if os.path.getsize(f) == 0:
+                            msg = "Provide file is empty: " + f
+                            log.error(msg)
+                            print(msg)
+                            result = False
+                    else:
+                        msg  = "Provide file does not exist: " + f
+                        log.error(msg)
+                        print (msg)
+                        result = False
+                except:
+                    result = False
+                    log.error("Exception validating files in commandline.",exc_info=True)
+                    print("Exception validating files in commandline. Check log file.")
+
+
+    return result
 
 
 def build_hd(args):
@@ -386,7 +408,13 @@ def join_report_parts(report_name, bid_count=0):
                         #merge_page += p
                         list_pages.append(p)
 
-            merge_page = PyPDF.PageMerge() + list_pages
+            if len(list_pages) > 0:
+                merge_page = PyPDF.PageMerge() + list_pages
+            else:
+                #there is nothing to merge
+                log.info("No pages to merge for " + report_name)
+                print("No pages to merge for " + report_name)
+                return
 
             scale = 1.0 #full scale
             y_offset = 0
@@ -554,6 +582,7 @@ def main():
                     hd_list.append(hd)
 
     if len(hd_list) > 0:
+        total_emis = 0
         for hd in hd_list:
             if hd.status != 0:
                 #fatal
@@ -567,6 +596,7 @@ def main():
 
             #iterate over all emission line detections
             if len(hd.emis_list) > 0:
+                total_emis += len(hd.emis_list)
                 print()
                 #first see if there are any possible matches anywhere
                 matched_cats = []
@@ -621,6 +651,11 @@ def main():
            # else: #for multi calls (which are common now) this is of no use
            #     print("\nNo emission detections meet minimum criteria for specified IFU. Exiting.\n"
            #     log.warning("No emission detections meet minimum criteria for specified IFU. Exiting.")
+
+        if total_emis < 1:
+            log.info("No detections match input parameters.")
+            print("No detections match input parameters.")
+
     elif (args.ra and args.dec):
         num_hits = 0
         matched_cats = []

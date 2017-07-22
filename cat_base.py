@@ -343,36 +343,24 @@ class Catalog:
         else:
             return ''
 
-    def add_edge_fibers(self, plt, sci, cutout, compass):
-        #compass is the 8 point compass direction from is_edge_fiber
-        #todo: based on compass direction, get list of fibers to plot
 
-        #todo: get fiber center x,y for each fiber
-
-        #todo: get RA, Dec for each fiber
-
-        #todo: plot the fibers (? blindly or see if they are in the cutout first?)
-        #todo: plot as dashed open circles slightly larger than normal fiber so can lie on top of source fiber if needed
-        radius = G.Fiber_Radius + 0.1
-
-
-        pass
-
-
-    def add_ifu_box(self,plt,sci,cutout,height,width,zero_x = 0,zero_y = 0,ifu_theta = None,cel_theta=None):
+    #todo: note cannot do this with the new t5cut that has multiple observations and specifies the RA and Dec for
+    #each fiber since we no longer know the rotation (and there might be multiple rotations, since multiple observations)
+    #so we cannot correctly find the corner fibers relative to the target fiber directly, or build a
+    #tangentplane(s) (need rotation(s) and fplane center(s) RA, Dec)
+    #If there are two or more fibers from the same exposure, I could still figure it out, but that is going to be
+    #less accurate? and certainly unreliable (that there will be 2 or more fibers)
+    def add_ifu_box(self,plt,sci,cutout,corner_ras,corner_decs, color=None):
         #theta is angle in radians counter-clockwise from x-axis to the north celestrial pole
 
-        if (plt is None) or (sci is None) or (cutout is None) or (height is None) or (width is None):
+        if (plt is None) or (sci is None) or (cutout is None):
             return
 
         try:
-            if cel_theta is None:
-                theta = sci.get_rotation_to_celestrial_north(cutout)
+            #todo: just call plt with arrays of ra and dec, no marker, dashed line, color = color (None is okay)
+            #todo: I don't think we need to translate the ra and decs ... just send in as is
+            pass
 
-            rrot =  theta - np.pi / 2. + ifu_theta
-            rx, ry, rrot = sci.get_rect_parms(cutout, -half_side, -half_side, theta - np.pi / 2. + ifu_theta)
 
-            plt.gca().add_patch(plt.Rectangle((zero_x + rx, zero_y + ry), width=width, height=height,
-                                              angle=rrot, color='yellow', fill=False))
         except:
             log.error("Exception bulding ifu footprint box.", exc_info=True)

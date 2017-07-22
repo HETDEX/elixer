@@ -1249,7 +1249,7 @@ class HETDEX:
         #these are in "dither" order
         #read first cure-style fits to get header info needed to find the multi_*.fits files
 
-        if len(self.dither.basename) < 1: #we just got dx,dy from all.mch, need other info to continue
+        if (not self.dither) or (len(self.dither.basename) < 1): #we just got dx,dy from all.mch, need other info to continue
             exit_string = None
             result = False
             if args is None:
@@ -1491,6 +1491,8 @@ class HETDEX:
                 if not scifile:
                     log.error("Cannot locate observation data for %s" % (fib.idstring))
                     continue
+                else:
+                    log.debug("Found raw sci file: " + scifile)
 
                 try:
                     obsid = scifile.split("virus/virus")[1].split("/")[0]
@@ -1516,9 +1518,12 @@ class HETDEX:
                 multi_fits_basepath = op.join(G.PANACEA_RED_BASEDIR, fib.dither_date, "virus", "virus" + str(fib.obsid).zfill(7))
 
                 # see if path is good and read in the panacea fits
-                path = op.join(multi_fits_basepath, "exp" + str(dit_idx + 1).zfill(2), "virus")
+                path = op.join(multi_fits_basepath, "exp" + str(fib.expid).zfill(2), "virus")
                 if op.isdir(path):
                     fn = op.join(path, multi_fits_basename + fib.amp + ".fits")
+
+                    log.debug("Found reduced panacea file: " + fn)
+
                     fits = HetdexFits(fn, None, None, dit_idx, panacea=True)
                     fits.obs_date = fib.dither_date
                     fits.obs_ymd = fits.obs_date
@@ -2035,7 +2040,7 @@ class HETDEX:
                 else:#this is the older case with one ifu and dithers within a single observation
                     fits = self.get_sci_fits(dither,f.side,f.amp)
 
-                if fits is None:
+                if (fits is None) or (fits.data is None):
                     log.error("Error! Could not find appropriate fits file for fiber: %s %d"
                               % (f.idstring,f.number_in_amp))
                     continue
@@ -2048,7 +2053,7 @@ class HETDEX:
                     d = np.sqrt(dx ** 2 + dy ** 2)
                 else:
                     try:
-                        d = np.sqrt((e.wra - f.ra)**2 + (e.wdec - f.dec)**2)
+                        d = np.sqrt((np.cos(e.wdec)*(e.wra - f.ra))**2 + (e.wdec - f.dec)**2)*3600
                     except:
                         if f.ra and f.dec:
                             log.error("Missing required emission line (#%d) coordinates." % e.id)
@@ -2073,6 +2078,11 @@ class HETDEX:
         else: #use fibers w/in 2"
 
             for fits in self.sci_fits:
+
+                if (fits is None) or (fits.data is None):
+                    log.error("Error! Invalid or empty fits for detection ID %d", e.id)
+                    continue
+
                 dither = fits.dither_index  # 0,1,2
 
                 #we must have a dither file in this case
@@ -2096,6 +2106,14 @@ class HETDEX:
         #for loc in locations:
         for item in sort_list:
             fits = item.fits
+
+            if not fits:
+                #something is very wrong
+                log.error("Unexpected None fits in hetdex::build_panacea_hetdex_data_dict")
+            else:
+                log.debug("Building data dict for " + fits.filename)
+
+
             dither = fits.dither_index  # 0,1,2 or more
             loc = item.loc
             fiber = item.fiber
