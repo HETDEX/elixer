@@ -1837,7 +1837,13 @@ class HETDEX:
             dd['dit'] = []
             dd['side'] = []
             dd['amp'] = []
+            dd['date'] = []
+            dd['obsid'] = []
+            dd['expid'] = []
             dd['fib'] = []
+            dd['fib_idx1'] = []
+            dd['ifu_slot_id'] = []
+            dd['spec_id'] = []
             dd['xi'] = []
             dd['yi'] = []
             dd['xl'] = []
@@ -2110,9 +2116,6 @@ class HETDEX:
             if not fits:
                 #something is very wrong
                 log.error("Unexpected None fits in hetdex::build_panacea_hetdex_data_dict")
-            else:
-                log.debug("Building data dict for " + fits.filename)
-
 
             dither = fits.dither_index  # 0,1,2 or more
             loc = item.loc
@@ -2121,6 +2124,14 @@ class HETDEX:
             if fiber is None: # did not find it? impossible?
                 log.error("Error! Cannot identify fiber in HETDEX:build_panacea_hetdex_data_dict().")
                 fiber = Fiber(0,0,0,0,'XX',"","","",-1)
+
+            log.debug("Building data dict for " + fits.filename)
+            datakeep['date'].append(fiber.dither_date) #already a str
+            datakeep['obsid'].append(str(fiber.obsid))
+            datakeep['expid'].append(str(fiber.expid))
+            datakeep['fib_idx1'].append(str(fiber.panacea_idx+1))
+            datakeep['ifu_slot_id'].append(str(fiber.ifuslot).zfill(3))
+            datakeep['spec_id'].append(str(fiber.specid).zfill(3))
 
             datakeep['d'].append(item.dist)
             datakeep['fiber_sn'].append(item.fiber_sn)
@@ -2352,9 +2363,24 @@ class HETDEX:
                              transform=smplot.transAxes, fontsize=8, color='r',
                              verticalalignment='bottom', horizontalalignment='left')
                 # distance (in arcsec) of fiber center from object center
-                borplot.text(1.05, .55, 'D(") = %0.2f' % (datakeep['d'][ind[i]]),
-                             transform=smplot.transAxes, fontsize=8, color='r',
+                borplot.text(1.05, .53, 'D(") = %0.2f' % (datakeep['d'][ind[i]]),
+                             transform=smplot.transAxes, fontsize=6, color='r',
                              verticalalignment='bottom', horizontalalignment='left')
+
+                #here ...
+                try:
+                    l3 = datakeep['date'][ind[i]] + "_" + datakeep['obsid'][ind[i]] + "_" + datakeep['expid'][ind[i]]
+                    l4 = datakeep['spec_id'][ind[i]] + "_" + datakeep['amp'][ind[i]] + "_" + datakeep['fib_idx1'][ind[i]]
+
+                    borplot.text(1.05, .33, l3,
+                                 transform=smplot.transAxes, fontsize=6, color='b',
+                                 verticalalignment='bottom', horizontalalignment='left')
+                    borplot.text(1.05, .13, l4,
+                                 transform=smplot.transAxes, fontsize=6, color='b',
+                                 verticalalignment='bottom', horizontalalignment='left')
+                except:
+                    log.error("Exception building extra fiber info.", exc_info=True)
+
             else:
                 borplot.text(1.05, .75, 'S/N = %0.2f' % (sn),
                             transform=smplot.transAxes, fontsize=6, color='r',
