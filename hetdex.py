@@ -449,14 +449,28 @@ class DetObj:
                         fib_idx = 0
                         if (len(tokens) - start) >= (2*num_of_fibers): #this probably has the RA and Decs
                             for i in range(start,min(len(tokens),start+2*num_of_fibers),2):
-                                try:
-                                    self.fibers[fib_idx].ra = float(tokens[i])
-                                    self.fibers[fib_idx].dec = float(tokens[i+1])
-                                except:
-                                    self.fibers[fib_idx].ra = None
-                                    self.fibers[fib_idx].dec = None
-                                    log.error("Exception parsing tokens.", exc_info=True)
-                                fib_idx += 1
+                                #could have "666" fibers, which are not added to the list of fibers
+                                #so check before attempting to add ... if the fiber does not exist in the list
+                                #we expect the value of ra and dec to also be 666, as a sanity check
+                                #but we still need to iterate over these values to parse the file correctly
+                                if fib_idx < len(self.fibers):
+                                    try:
+                                        self.fibers[fib_idx].ra = float(tokens[i])
+                                        self.fibers[fib_idx].dec = float(tokens[i+1])
+                                    except:
+                                        self.fibers[fib_idx].ra = None
+                                        self.fibers[fib_idx].dec = None
+                                        log.error("Exception parsing tokens.", exc_info=True)
+                                    fib_idx += 1
+                                else: #we are out of fibers, must be junk ...
+                                    #sanity check
+                                    try:
+                                        if (float(tokens[i]) != 666.) or (float(tokens[i+1]) != 666.):
+                                            log.warning("Warning! line file parsing may be off. Expecting 666 for "
+                                                        "ra and dec but got: %s , %s " %(tokens[i],tokens[i+1]))
+                                    except:
+                                        pass
+
 
             except:
                 log.info("Error parsing tokens from emission line file.",exc_info=True)
@@ -1541,17 +1555,20 @@ class HETDEX:
                 if op.isdir(path):
                     fn = op.join(path, multi_fits_basename + fib.amp + ".fits")
 
-                    log.debug("Found reduced panacea file: " + fn)
+                    if op.isfile(fn):
+                        log.debug("Found reduced panacea file: " + fn)
 
-                    fits = HetdexFits(fn, None, None, dit_idx, panacea=True)
-                    fits.obs_date = fib.dither_date
-                    fits.obs_ymd = fits.obs_date
-                    fits.obsid = fib.obsid
-                    fits.expid = fib.expid
-                    fits.amp = fib.amp
-                    fits.side = fib.amp[0]
-                    fib.fits = fits
-                    self.sci_fits.append(fits)
+                        fits = HetdexFits(fn, None, None, dit_idx, panacea=True)
+                        fits.obs_date = fib.dither_date
+                        fits.obs_ymd = fits.obs_date
+                        fits.obsid = fib.obsid
+                        fits.expid = fib.expid
+                        fits.amp = fib.amp
+                        fits.side = fib.amp[0]
+                        fib.fits = fits
+                        self.sci_fits.append(fits)
+                    else:
+                        log.error("Designated reduced panacea file does not exist: " + fn)
                 else:
                     log.error("Cannot locate panacea reduction data for %s" % (path))
                     continue
