@@ -1866,7 +1866,7 @@ class HETDEX:
             vmin,vmax = zscale.get_limits(values=vals)
             vmin = vmin/scale
             vmax = vmax/scale
-            log.info("HETDEX (zscale) vrange = %f, %f" %(vmin,vmax))
+            log.info("HETDEX (zscale) vrange = (%f, %f) raw range = (%f, %f)" %(vmin,vmax,np.min(vals),np.max(vals)))
         except:
             log.info("Exception in science_image::get_vrange:",exc_info =True)
 
@@ -2404,11 +2404,16 @@ class HETDEX:
                 #dither and fiber position, etc generally meaningless in this case
                 #as there is no good way to immediately go back and find the source image
                 #so just show S/N and distance (and make bigger)
-                borplot.text(1.05, .75, 'S/N = %0.2f' % (sn),
-                             transform=smplot.transAxes, fontsize=8, color='r',
-                             verticalalignment='bottom', horizontalalignment='left')
+                if abs(sn) < 1000:
+                    borplot.text(1.05, .75, 'SN: %0.2f' % (sn),
+                                 transform=smplot.transAxes, fontsize=8, color='r',
+                                 verticalalignment='bottom', horizontalalignment='left')
+                else:
+                    borplot.text(1.05, .75, 'SN: %.1E' % (sn),
+                                 transform=smplot.transAxes, fontsize=8, color='r',
+                                 verticalalignment='bottom', horizontalalignment='left')
                 # distance (in arcsec) of fiber center from object center
-                borplot.text(1.05, .53, 'D(") = %0.2f' % (datakeep['d'][ind[i]]),
+                borplot.text(1.05, .53, 'D("): %0.2f' % (datakeep['d'][ind[i]]),
                              transform=smplot.transAxes, fontsize=6, color='r',
                              verticalalignment='bottom', horizontalalignment='left')
 
