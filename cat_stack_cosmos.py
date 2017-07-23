@@ -359,51 +359,9 @@ class STACK_COSMOS(cat_base.Catalog):
 
         self.add_north_box(plt, empty_sci, self.master_cutout, error, 0, 0, theta=None)
 
-        # plot the fiber cutout
-        if (fiber_locs is not None) and (len(fiber_locs) > 0):
-            plt.subplot(gs[0, cols - 2])
+        plt.subplot(gs[0, cols - 2])
+        self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, self.master_cutout)
 
-            plt.title("Fiber Positions")
-            plt.xlabel("arcsecs")
-            plt.ylabel("arcsecs")
-
-            plt.plot(0, 0, "r+")
-
-            xmin = float('inf')
-            xmax = float('-inf')
-            ymin = float('inf')
-            ymax = float('-inf')
-
-            x, y = empty_sci.get_position(ra, dec, self.master_cutout)  # zero (absolute) position
-
-            #plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
-            #                                  angle=0.0, color='red', fill=False))
-            #self.add_north_box(plt, empty_sci, self.master_cutout, error, 0, 0, theta=None)
-
-            for r, d, c, i in fiber_locs:
-                # print("+++++ Cutout RA,DEC,ID,COLOR", r,d,i,c)
-                # fiber absolute position ... need relative position to plot (so fiber - zero pos)
-                fx, fy = empty_sci.get_position(r, d, self.master_cutout)
-
-                xmin = min(xmin, fx - x)
-                xmax = max(xmax, fx - x)
-                ymin = min(ymin, fy - y)
-                ymax = max(ymax, fy - y)
-
-                plt.gca().add_patch(plt.Circle(((fx - x), (fy - y)), radius=G.Fiber_Radius, color=c, fill=False))
-                plt.text((fx - x), (fy - y), str(i), ha='center', va='center', fontsize='x-small', color=c)
-
-            ext_base = max(abs(xmin), abs(xmax), abs(ymin), abs(ymax))
-            # larger of the spread of the fibers or the maximum width (in non-rotated x-y plane) of the error window
-            ext = ext_base + G.Fiber_Radius
-
-            # need a new cutout since we rescalled the ext (and window) size
-            cutout = empty_sci.get_cutout(ra, dec, error, window=ext * 2, image=self.master_cutout)
-            vmin, vmax = empty_sci.get_vrange(cutout.data)
-            self.add_north_arrow(plt, sci, cutout, theta=None)
-
-            plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
-                       vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
 
         # complete the entry
         plt.close()

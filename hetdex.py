@@ -1846,7 +1846,8 @@ class HETDEX:
 
 
             # update emission with the ra, dec of all fibers
-            e.fiber_locs = list(zip(datakeep['ra'], datakeep['dec'],datakeep['color'],datakeep['index'],datakeep['d']))
+            e.fiber_locs = list(zip(datakeep['ra'], datakeep['dec'],datakeep['color'],datakeep['index'],datakeep['d'],
+                                    datakeep['fib']))
 
 
         if not G.SINGLE_PAGE_PER_DETECT:

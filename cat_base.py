@@ -12,6 +12,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import science_image
 
 log = G.logging.getLogger('Cat_logger')
 log.setLevel(G.logging.DEBUG)
@@ -318,7 +319,66 @@ class Catalog:
 
 
     def is_edge_fiber(self,fiber_num):
-        #return 8 point compass direction if edge (East is left)
+        return fiber_num in G.CCD_EDGE_FIBERS_ALL
+
+
+    def add_fiber_positions(self,plt,ra,dec,fiber_locs,error,ext,cutout):
+            # plot the fiber cutout
+            log.debug("Plotting fiber positions...")
+            try:
+                empty_sci = science_image.science_image()
+
+                plt.title("Fiber Positions")
+                plt.xlabel("arcsecs")
+                plt.gca().xaxis.labelpad = 0
+
+                plt.plot(0, 0, "r+")
+
+                xmin = float('inf')
+                xmax = float('-inf')
+                ymin = float('inf')
+                ymax = float('-inf')
+
+                x, y = empty_sci.get_position(ra, dec, cutout)  # zero (absolute) position
+
+                for r, d, c, i, dist,fn in fiber_locs:
+                    # fiber absolute position ... need relative position to plot (so fiber - zero pos)
+                    fx, fy = empty_sci.get_position(r, d, cutout)
+
+                    xmin = min(xmin, fx - x)
+                    xmax = max(xmax, fx - x)
+                    ymin = min(ymin, fy - y)
+                    ymax = max(ymax, fy - y)
+
+                    plt.gca().add_patch(plt.Circle(((fx - x), (fy - y)), radius=G.Fiber_Radius, color=c, fill=False,
+                                                   linestyle='solid'))
+                    plt.text((fx - x), (fy - y), str(i), ha='center', va='center', fontsize='x-small', color=c)
+
+                    if self.is_edge_fiber(fn):
+                        plt.gca().add_patch(
+                            plt.Circle(((fx - x), (fy - y)), radius=G.Fiber_Radius+0.1, color=c, fill=False,
+                                       linestyle='dashed'))
+
+                # larger of the spread of the fibers or the maximum width (in non-rotated x-y plane) of the error window
+                ext_base = max(abs(xmin), abs(xmax), abs(ymin), abs(ymax))
+                ext = max(ext_base + G.Fiber_Radius, ext)
+
+                # need a new cutout since we rescaled the ext (and window) size
+                cutout = empty_sci.get_cutout(ra, dec, error, window=ext * 2, image=self.master_cutout)
+                vmin, vmax = empty_sci.get_vrange(cutout.data)
+
+                self.add_north_box(plt, empty_sci, cutout, error, 0, 0, theta=None)
+                plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
+                           vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+
+                plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+                plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+            except:
+                log.error("Unable to overplot fiber positions.",exc_info=True)
+
+
+    def edge_compass(self,fiber_num):
+        # return 8 point compass direction if edge (East is left)
         if fiber_num in G.CCD_EDGE_FIBERS_ALL:
             if fiber_num in G.CCD_EDGE_FIBERS_TOP:
                 if fiber_num in G.CCD_EDGE_FIBERS_RIGHT:
@@ -342,7 +402,6 @@ class Catalog:
                 return ''
         else:
             return ''
-
 
     #todo: note cannot do this with the new t5cut that has multiple observations and specifies the RA and Dec for
     #each fiber since we no longer know the rotation (and there might be multiple rotations, since multiple observations)
