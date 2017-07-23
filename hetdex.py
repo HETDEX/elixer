@@ -2813,6 +2813,25 @@ class HETDEX:
         rec = plt.Rectangle((cwave - ww, yl), 2 * ww, yh - yl, fill=True, lw=1, color='y', zorder=1)
         specplot.add_patch(rec)
 
+
+        if G.SHOW_SKYLINES:
+            try:
+                yl, yh = specplot.get_ylim()
+
+                central_w = 3545
+                half_width = 10
+                rec = plt.Rectangle((central_w-half_width, yl), 2 * half_width, yh - yl, fill=True, lw=1,
+                                    color='gray',alpha=0.5, zorder=1)
+                specplot.add_patch(rec)
+
+                central_w = 5462
+                half_width = 5
+                rec = plt.Rectangle((central_w - half_width, yl), 2 * half_width, yh - yl, fill=True, lw=1,
+                                    color='gray',alpha=0.5, zorder=1)
+                specplot.add_patch(rec)
+            except:
+                pass
+
         buf = io.BytesIO()
         plt.savefig(buf, format='png', dpi=300)
 

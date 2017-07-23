@@ -89,7 +89,7 @@ SINGLE_PAGE_PER_DETECT = True #if true, a single pdf page per emission line dete
 MAX_COMBINE_BID_TARGETS = 3 #if SINGLE_PAGE_PER_DETECT is true, this is the max number of bid targets that can be
                             #merged on a single line. If the number is greater, each bid target gets its own line
 
-
+SHOW_SKYLINES = True
 
 
 #1 fiber (the edge-most) fiber
