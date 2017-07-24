@@ -2173,8 +2173,16 @@ class HETDEX:
 
             log.debug("Building data dict for " + fits.filename)
             datakeep['date'].append(fiber.dither_date) #already a str
-            datakeep['obsid'].append(str(fiber.obsid))
-            datakeep['expid'].append(str(fiber.expid))
+            if fiber.obsid:
+                datakeep['obsid'].append(str(fiber.obsid))
+            else:
+                datakeep['obsid'].append(str(self.obsid))
+
+            if fiber.expid:
+                datakeep['expid'].append(str(fiber.expid))
+            else:
+                datakeep['expid'].append(str(dither))
+
             datakeep['fib_idx1'].append(str(fiber.panacea_idx+1))
             datakeep['ifu_slot_id'].append(str(fiber.ifuslot).zfill(3))
             datakeep['spec_id'].append(str(fiber.specid).zfill(3))
@@ -2401,7 +2409,8 @@ class HETDEX:
                         verticalalignment='bottom', horizontalalignment='left')
 
 
-            if self.multiple_observations:
+            #if self.multiple_observations:
+            if self.panacea:
                 #dither and fiber position, etc generally meaningless in this case
                 #as there is no good way to immediately go back and find the source image
                 #so just show S/N and distance (and make bigger)
@@ -2614,7 +2623,6 @@ class HETDEX:
 
 
         #turn off the errorbar for now
-            #todo: turn errorbar back on if useful
        # try:
        #    # specplot.errorbar(cwave - .8 * ww, mn + ran * (1 + rm) * 0.85,
        #     specplot.errorbar(cwave - .8 * ww, max(F),
