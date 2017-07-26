@@ -555,13 +555,14 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     bid_target.bid_dec = df['DEC'].values[0]
                     bid_target.distance = df['distance'].values[0] * 3600
                     bid_target.bid_flux_est_cgs = filter_fl
-                    bid_target.bid_flux_f606w_cgs = filter_fl
-                    bid_target.bid_flux_f814w_cgs = self.micro_jansky_to_cgs(df['ACS_F814W_FLUX'].values[0],
-                                                                             target_w)
-                    bid_target.bid_flux_f125w_cgs = self.micro_jansky_to_cgs(df['WFC3_F125W_FLUX'].values[0],
-                                                                             target_w)
-                    bid_target.bid_flux_f160w_cgs = self.micro_jansky_to_cgs(df['WFC3_F160W_FLUX'].values[0],
-                                                                             target_w)
+
+                    for c in self.CatalogImages:
+                        try:
+                           bid_target.add_filter(c['instrument'], c['filter'],
+                                              self.micro_jansky_to_cgs(df[c['cols'][0]].values[0], target_w),
+                                              self.micro_jansky_to_cgs(df[c['cols'][1]].values[0], target_w))
+                        except:
+                            log.debug('Could not add filter info to bid_target.')
 
                     cat_match.add_bid_target(bid_target)
         else:
@@ -904,13 +905,16 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     bid_target.bid_dec = df['DEC'].values[0]
                     bid_target.distance = df['distance'].values[0] * 3600
                     bid_target.bid_flux_est_cgs = filter_fl
-                    bid_target.bid_flux_f606w_cgs = filter_fl
-                    bid_target.bid_flux_f814w_cgs = self.micro_jansky_to_cgs(df['ACS_F814W_FLUX'].values[0], target_w)
-                    bid_target.bid_flux_f125w_cgs = self.micro_jansky_to_cgs(df['WFC3_F125W_FLUX'].values[0], target_w)
-                    bid_target.bid_flux_f160w_cgs = self.micro_jansky_to_cgs(df['WFC3_F160W_FLUX'].values[0], target_w)
+
+                    for c in self.CatalogImages:
+                        try:
+                            bid_target.add_filter(c['instrument'], c['filter'],
+                                                  self.micro_jansky_to_cgs(df[c['cols'][0]].values[0], target_w),
+                                                  self.micro_jansky_to_cgs(df[c['cols'][1]].values[0], target_w))
+                        except:
+                            log.debug('Could not add filter info to bid_target.')
 
                     cat_match.add_bid_target(bid_target)
-
         else:
             title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)
 
@@ -1097,21 +1101,24 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                         else:
                             text = text + "N/A\n"
 
-                    # bid target info is only of value if we have a flux from the emission line
-                    bid_target = match_summary.BidTarget()
-                    bid_target.bid_ra = df['RA'].values[0]
-                    bid_target.bid_dec = df['DEC'].values[0]
-                    bid_target.distance = df['distance'].values[0] * 3600
-                    bid_target.bid_flux_est_cgs = filter_fl
-                    bid_target.bid_flux_f606w_cgs = filter_fl
-                    bid_target.bid_flux_f814w_cgs = self.micro_jansky_to_cgs(df['ACS_F814W_FLUX'].values[0],
-                                                                             target_w)
-                    bid_target.bid_flux_f125w_cgs = self.micro_jansky_to_cgs(df['WFC3_F125W_FLUX'].values[0],
-                                                                             target_w)
-                    bid_target.bid_flux_f160w_cgs = self.micro_jansky_to_cgs(df['WFC3_F160W_FLUX'].values[0],
-                                                                             target_w)
+                        # bid target info is only of value if we have a flux from the emission line
+                        bid_target = match_summary.BidTarget()
+                        bid_target.bid_ra = df['RA'].values[0]
+                        bid_target.bid_dec = df['DEC'].values[0]
+                        bid_target.distance = df['distance'].values[0] * 3600
+                        bid_target.bid_flux_est_cgs = filter_fl
 
-                    cat_match.add_bid_target(bid_target)
+                        for c in self.CatalogImages:
+                            try:
+                                bid_target.add_filter(c['instrument'], c['filter'],
+                                                      self.micro_jansky_to_cgs(df[c['cols'][0]].values[0],
+                                                                               target_w),
+                                                      self.micro_jansky_to_cgs(df[c['cols'][1]].values[0],
+                                                                               target_w))
+                            except:
+                                log.debug('Could not add filter info to bid_target.')
+
+                        cat_match.add_bid_target(bid_target)
                 else:
                     text += "N/A\nN/A\n"
 

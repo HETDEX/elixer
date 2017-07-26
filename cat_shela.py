@@ -1045,20 +1045,29 @@ class SHELA(cat_base.Catalog):
                         title = title + "\nEst OII rest-EW = N/A"
 
                     # bid target info is only of value if we have a flux from the emission line
-                    bid_target = match_summary.BidTarget()
-                    bid_target.bid_ra = df['RA'].values[0]
-                    bid_target.bid_dec = df['DEC'].values[0]
-                    bid_target.distance = df['distance'].values[0] * 3600
-                    bid_target.bid_flux_est_cgs = filter_fl
-                    bid_target.bid_flux_f606w_cgs = filter_fl
-                    #todo: build these filters
-                    #bid_target.bid_flux_f814w_cgs = self.nano_jansky_to_cgs(df['F814W (I) flux (nJy)'].values[0],
-                    #                                                        target_w)
-                    #bid_target.bid_flux_f125w_cgs = self.nano_jansky_to_cgs(df['F125W (J) flux (nJy)'].values[0],
-                    #                                                        target_w)
-                    #bid_target.bid_flux_f160w_cgs = self.nano_jansky_to_cgs(df['F160W (H) flux (nJy)'].values[0],
-                    #                                                        target_w)
-                    cat_match.add_bid_target(bid_target)
+                    try:
+                        bid_target = match_summary.BidTarget()
+                        bid_target.bid_ra = df['RA'].values[0]
+                        bid_target.bid_dec = df['DEC'].values[0]
+                        bid_target.distance = df['distance'].values[0] * 3600
+                        bid_target.bid_flux_est_cgs = filter_fl
+
+                        dfx = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == df['RA'].values[0]) &
+                                                                (self.dataframe_of_bid_targets['DEC'] == df['DEC'].values[0])]
+
+                        for flt, flux, err in zip(dfx['FILTER'].values,
+                                                  dfx['FLUX_AUTO'].values,
+                                                  dfx['FLUXERR_AUTO'].values):
+                            try:
+                                bid_target.add_filter('NA', flt,
+                                                      self.nano_jansky_to_cgs(flux, target_w),
+                                                      self.nano_jansky_to_cgs(err, target_w))
+                            except:
+                                log.debug('Unable to build filter entry for bid_target.')
+
+                        cat_match.add_bid_target(bid_target)
+                    except:
+                        log.debug('Unable to build bid_target.')
         else:
             title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)
 
@@ -1204,22 +1213,32 @@ class SHELA(cat_base.Catalog):
                             text = text + "%g $\AA$\n" % (target_flux / filter_fl_adj / (target_w / G.OII_rest))
                         else:
                             text = text + "N/A\n"
-                            # bid target info is only of value if we have a flux from the emission line
-                        bid_target = match_summary.BidTarget()
-                        bid_target.bid_ra = df['RA'].values[0]
-                        bid_target.bid_dec = df['DEC'].values[0]
-                        bid_target.distance = df['distance'].values[0] * 3600
-                        bid_target.bid_flux_est_cgs = filter_fl
 
-                        #todo: build these filters
-                        #bid_target.bid_flux_f606w_cgs = filter_fl
-                        #bid_target.bid_flux_f814w_cgs = self.nano_jansky_to_cgs(df['F814W (I) flux (nJy)'].values[0],
-                        #    target_w)
-                        #bid_target.bid_flux_f125w_cgs = self.nano_jansky_to_cgs(df['F125W (J) flux (nJy)'].values[0],
-                        #    target_w)
-                        #bid_target.bid_flux_f160w_cgs = self.nano_jansky_to_cgs(df['F160W (H) flux (nJy)'].values[0],
-                        #    target_w)
-                        cat_match.add_bid_target(bid_target)
+                        try:
+                            bid_target = match_summary.BidTarget()
+                            bid_target.bid_ra = df['RA'].values[0]
+                            bid_target.bid_dec = df['DEC'].values[0]
+                            bid_target.distance = df['distance'].values[0] * 3600
+                            bid_target.bid_flux_est_cgs = filter_fl
+
+                            dfx = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
+                                                                    (self.dataframe_of_bid_targets['DEC'] == d[0])]
+
+                            for flt,flux,err in zip(dfx['FILTER'].values,
+                                                    dfx['FLUX_AUTO'].values,
+                                                    dfx['FLUXERR_AUTO'].values):
+                                try:
+                                    bid_target.add_filter('NA',flt,
+                                                          self.nano_jansky_to_cgs(flux,target_w),
+                                                          self.nano_jansky_to_cgs(err,target_w))
+                                except:
+                                    log.debug('Unable to build filter entry for bid_target.',exc_info=True)
+
+                            cat_match.add_bid_target(bid_target)
+                        except:
+                            log.debug('Unable to build bid_target.',exc_info=True)
+
+
                 else:
                     text += "N/A\nN/A\n"
 

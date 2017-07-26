@@ -4,21 +4,30 @@ import global_config as G
 log = G.logging.getLogger('match_summary_logger')
 log.setLevel(G.logging.DEBUG)
 
+
+class Filter:
+    def __init__(self,instrument,filter,flux,err):
+        #don't want spaces
+        self.instrument = instrument.replace(" ","_")
+        self.filter = filter.replace(" ","_")
+        self.flux = flux
+        self.err = err
+        #note: units always cgs
+
+
 class BidTarget:
     def __init__(self):
         self.bid_ra = 361.00
         self.bid_dec = 181.00
         self.distance = 0.0
         self.bid_flux_est_cgs = 0.0
-        self.bid_flux_f606w_cgs = 0.0
-        self.bid_flux_f814w_cgs = 0.0
-        # self.bid_flux_f105w_cgs = 0.0
-        self.bid_flux_f125w_cgs = 0.0
-        # self.bid_flux_f140w_cgs = 0.0
-        self.bid_flux_f160w_cgs = 0.0
-        # todo: flux_errors??
-        # todo: other filters (depends on catalog)
         # todo: filter exposure time??
+
+        self.filters = []
+
+    def add_filter(self,instrument,filter,flux,err):
+        self.filters.append(Filter(instrument,filter,flux,err))
+
 
 class Match:
     def __init__(self,emis=None):
@@ -94,10 +103,11 @@ class MatchSet:
         "catalog object Dec (decimal degrees)",
         "catalog object separation (arcsecs)",
         "catalog object continuum flux est at emission line wavelength (cgs)",
-        "catalog object flux f606w at emission line wavelength (cgs)",
-        "catalog object flux f814w at emission line wavelength (cgs)",
-        "catalog object flux f160w at emission line wavelength (cgs)",
-        "catalog object flux f125w at emission line wavelength (cgs)"
+        "number of filters to follow (variable)",
+        "  instrument name (if available)",
+        "  filter name",
+        "  flux in cgs units",
+        "  flux error in cgs units"
     ]
 
     def __init__(self):
@@ -151,10 +161,13 @@ class MatchSet:
                     f.write(sep + str(b.bid_dec))
                     f.write(sep + str(b.distance))
                     f.write(sep + str(b.bid_flux_est_cgs))
-                    f.write(sep + str(b.bid_flux_f606w_cgs))
-                    f.write(sep + str(b.bid_flux_f814w_cgs))
-                    f.write(sep + str(b.bid_flux_f125w_cgs))
-                    f.write(sep + str(b.bid_flux_f160w_cgs))
+                    f.write(sep + str(len(b.filters)))
+                    for flt in b.filters:
+                        f.write(sep + str(flt.instrument))
+                        f.write(sep + str(flt.filter))
+                        f.write(sep + str(flt.flux))
+                        f.write(sep + str(flt.err))
+
                     f.write("\n")
 
             f.close()

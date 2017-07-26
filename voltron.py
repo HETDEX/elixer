@@ -543,6 +543,87 @@ def ifulist_from_detect_file(args):
             log.info("Exception checking detection file for ifu list", exc_info=True)
     return ifu_list
 
+
+def write_fibers_file(filename,hd_list):
+    if not filename:
+        return None
+
+    sep = "\t"
+    try:
+        f = open(filename, 'w')
+    except:
+        log.error("Exception create match summary file: %s" % filename, exc_info=True)
+        return None
+
+    #todo: write header info
+    headers = [
+        "entry number",
+        "detect ID",
+        "emission line RA (decimal degrees)",
+        "emission line Dec (decimal degrees)",
+        "emission line wavelength (AA)",
+        "emission line sky X",
+        "emission line sky Y",
+        "emission line sigma (significance) for cure or S/N for panacea",
+        "emission line chi2 (point source fit) (cure)",
+        "emission line estimated fraction of recovered flux",
+        "emission line flux (electron counts)",
+        "emission line flux (cgs)",
+        "emission line continuum flux (electron counts)",
+        "emission line continuum flux (cgs)",
+        "emission line observed (estimated) equivalent width (not restframe)",
+        "for each fiber: fiber_id string",
+        "  :fiber number on full CCD (1-448)",
+        "  :RA of fiber center",
+        "  :Dec of fiber center",
+        "  :S/N of emission line in this fiber",
+        "  :X coord on the CCD for the amp of this emission line in this fiber",
+        "  :Y coord on the CCD for the amp of this emission line in this fiber"
+    ]
+
+    # write help (header) part
+    f.write("# each row contains one emission line with accompanying fiber information\n")
+    col_num = 0
+    for h in headers:
+        col_num += 1
+        f.write("# %d %s\n" % (col_num, h))
+
+    entry_num = 0
+    for hd in hd_list:
+        for emis in hd.emis_list:
+            entry_num += 1
+            f.write(str(entry_num))
+            f.write(sep + str(emis.id))
+            if emis.wra:
+                f.write(sep + str(emis.wra))
+                f.write(sep + str(emis.wdec))
+            else:
+                f.write(sep + str(emis.ra))
+                f.write(sep + str(emis.dec))
+            f.write(sep + str(emis.w))
+
+            f.write(sep + str(emis.x))
+            f.write(sep + str(emis.y))
+
+            f.write(sep + str(emis.sigma))
+            f.write(sep + str(emis.chi2))
+            f.write(sep + str(emis.fluxfrac))
+            f.write(sep + str(emis.dataflux))
+            f.write(sep + str(emis.estflux))
+            f.write(sep + str(emis.cont))
+            f.write(sep + str(emis.cont * G.FLUX_CONVERSION))
+            f.write(sep + str(emis.eqw))
+
+            for fib in emis.fibers:
+                f.write(sep + str(fib.idstring))
+                f.write(sep + str(fib.number_in_ccd))
+                f.write(sep + str(fib.ra)) #of fiber center
+                f.write(sep + str(fib.dec))
+                f.write(sep + str(fib.sn))
+                f.write(sep + str(fib.emis_x))
+                f.write(sep + str(fib.emis_y))
+
+
 def main():
     global  G_PDF_FILE_NUM
 
@@ -693,8 +774,10 @@ def main():
             delete_report_parts(args.name)
 
     if match_list.size > 0:
-        filename = os.path.join(args.name,args.name+"_cat.txt")
-        match_list.write_file(filename)
+        match_list.write_file(os.path.join(args.name,args.name+"_cat.txt"))
+
+    write_fibers_file(os.path.join(args.name, args.name + "_fib.txt"),hd_list)
+
 
     log.critical("Main complete.")
 

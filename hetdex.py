@@ -329,6 +329,9 @@ class Fiber:
         self.center_x = None
         self.center_y = None
 
+        self.emis_x = None #x,y coords on the amp of the emission line peak
+        self.emis_y = None
+
         self.panacea_idx = -1 #0 to 111
         self.number_in_amp = -1 #1 to 112
         self.number_in_side = -1 #1 to 224
@@ -382,9 +385,9 @@ class DetObj:
         if emission:
             self.type = 'emis'
             self.id = int(tokens[1])
-            self.x = float(tokens[2])
-            self.y = float(tokens[3])
-            self.w = float(tokens[4])
+            self.x = float(tokens[2]) #sky x
+            self.y = float(tokens[3]) #sky y
+            self.w = float(tokens[4]) #wavelength
             self.la_z = float(tokens[5])
             self.dataflux = float(tokens[6])
             self.modflux = float(tokens[7])
@@ -533,7 +536,7 @@ class DetObj:
 
         idstring = fiber #toks[0] #ie. 20170326T105655.6
 
-        #todo: factor out into common call
+        #todo: factor out into common call or move into Fiber constructor (parse idstring there)
         dither_date = idstring[0:8]
         # next should be 'T'
         dither_time = idstring[9:15]  # not the .# not always there
@@ -624,7 +627,11 @@ class HetdexFits:
 
     def read_fits(self,use_cosmic_cleaned=False):
 
-        if self.filename is None:
+        if not self.filename:
+            return None
+
+        if not op.exists(self.filename):
+            log.error("Error. FITS file does not exist: " + self.filename)
             return None
 
         try:
@@ -770,6 +777,14 @@ class HetdexFits:
     def read_panacea_fits(self):
         #this represents one AMP
         #15 hdus, different header keys
+
+        if not self.filename:
+            return None
+
+        if not op.exists(self.filename):
+            log.error("Error. FITS file does not exist: " + self.filename)
+            return None
+
         try:
             f = pyfits.open(self.filename)
         except:
@@ -2173,14 +2188,19 @@ class HETDEX:
 
             log.debug("Building data dict for " + fits.filename)
             datakeep['date'].append(fiber.dither_date) #already a str
+
+            #reminder fiber might not have obsid or expid set (fiber is built before fits files are found)
+            #and in some versions of the line file, obsid and expid are not available until after fits are found
             if fiber.obsid:
                 datakeep['obsid'].append(str(fiber.obsid))
             else:
+                fiber.obsid = self.obsid
                 datakeep['obsid'].append(str(self.obsid))
 
             if fiber.expid:
                 datakeep['expid'].append(str(fiber.expid))
             else:
+                fiber.expid = dither
                 datakeep['expid'].append(str(dither))
 
             datakeep['fib_idx1'].append(str(fiber.panacea_idx+1))
@@ -2224,6 +2244,9 @@ class HETDEX:
 
             x_2D = np.interp(e.w,fits.wave_data[loc,:],range(len(fits.wave_data[loc,:])))
             y_2D = np.interp(x_2D,range(len(fits.trace_data[loc,:])),fits.trace_data[loc,:])
+
+            fiber.emis_x = x_2D
+            fiber.emis_y = y_2D
 
             xl = int(np.round(x_2D - xw))
             xh = int(np.round(x_2D + xw))
@@ -2526,11 +2549,6 @@ class HETDEX:
             borplot.set_yticks([])
             borplot.axis('off')
 
-            #rec = plt.Rectangle((autoAxis[0] + bordbuff / 2., autoAxis[2] + bordbuff / 2.),
-            #                    (autoAxis[1] - autoAxis[0]) * (1. - bordbuff),
-            #                    (autoAxis[3] - autoAxis[2]) * (1. - bordbuff), fill=False, lw=3,
-            #                    color=datakeep['color'][i], zorder=1)
-
             h,w = datakeep['scatter'][ind[max_sn_idx]].shape
             rec = plt.Rectangle([0, 0],
                                 (w-1),
@@ -2540,7 +2558,6 @@ class HETDEX:
             rec = imgplot.add_patch(rec)
 
             buf = io.BytesIO()
-            #plt.tight_layout()#pad=0.1, w_pad=0.5, h_pad=1.0)
             plt.savefig(buf, format='png', dpi=300)
 
             plt.close(fig)
