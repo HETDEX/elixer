@@ -423,3 +423,17 @@ class Catalog:
 
         except:
             log.error("Exception bulding ifu footprint box.", exc_info=True)
+
+
+    #really should not be necessary (all uses actually get each position from RA, and Dec
+    #and not a coordinate scale or angular distance scale
+    def scale_dx_dy_for_dec(self,dec,dx,dy,sci,cutout):
+        scale = np.cos(np.deg2rad(dec))
+
+        #rotation is from the x-axis, so to make from vertical, - np.pi/2.
+        rad = sci.get_rotation_to_celestrial_north(cutout) - np.pi/2.
+
+        dx -= scale*np.cos(rad) #negative because RA increases East and East is -x
+        dy += scale*np.sin(rad)
+
+        return dx,dy

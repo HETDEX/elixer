@@ -445,6 +445,8 @@ class STACK_COSMOS(cat_base.Catalog):
                 plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                            vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
                 plt.title(i['instrument'] + " " + i['filter'])
+                plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+                plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
 
                 # add (+) to mark location of Target RA,DEC
                 # we are centered on ra,dec and target_ra, target_dec belong to the HETDEX detect
@@ -476,14 +478,15 @@ class STACK_COSMOS(cat_base.Catalog):
 
 
         # master cutout (0,0 is the observered (exact) target RA, DEC)
-        if self.master_cutout is not None:
+        if self.master_cutout and target_ra and target_dec:
             # window=error*4
-            ext = error * 2.
+            ext = error * 1.5  # to be consistent with self.master_cutout scale set to error window *3 and ext = /2
+            # resizing (growing) is a problem since the master_cutout is stacked
+            # (could shrink (cutout smaller section) but not grow without re-stacking larger cutouts of filters)
             plt.subplot(gs[0, cols - 1])
-            # todo: rebuild pixel scale
             empty_sci = science_image.science_image()
             # need a new cutout since we rescaled the ext (and window) size
-            cutout = empty_sci.get_cutout(ra, dec, error, window=ext * 2, image=self.master_cutout)
+            cutout = empty_sci.get_cutout(target_ra, target_dec, error, window=ext * 2, image=self.master_cutout)
             vmin, vmax = empty_sci.get_vrange(cutout.data)
 
             vmin, vmax = empty_sci.get_vrange(cutout.data)
@@ -495,26 +498,26 @@ class STACK_COSMOS(cat_base.Catalog):
             # plt.ylabel("arcsecs")
 
             # plt.set_xticklabels([str(ext), str(ext / 2.), str(0), str(-ext / 2.), str(-ext)])
-            plt.xticks([ext, ext / 2., 0, -ext / 2., -ext])
-            plt.yticks([ext, ext / 2., 0, -ext / 2., -ext])
+            plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+            plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
 
             # mark the bid target location on the master cutout
-            if (target_ra is not None) and (target_dec is not None):
-                px, py = empty_sci.get_position(target_ra, target_dec, cutout)
-                x, y = empty_sci.get_position(ra, dec, cutout)
 
-                # set the diameter of the cirle to half the error (radius error/4)
-                plt.gca().add_patch(
-                    plt.Circle(((x - px), (y - py)), radius=error / 4.0, color='yellow', fill=False))
+            px, py = empty_sci.get_position(target_ra, target_dec, cutout)
+            x, y = empty_sci.get_position(ra, dec, cutout)
 
-                # this is correct, do not rotate the yellow rectangle (it is a zoom window only)
-                x = (x - px) - error
-                y = (y - py) - error
-                plt.gca().add_patch(plt.Rectangle((x, y), width=error * 2, height=error * 2,
-                                                  angle=0.0, color='yellow', fill=False))
+            # set the diameter of the cirle to half the error (radius error/4)
+            plt.gca().add_patch(
+                plt.Circle(((x - px), (y - py)), radius=error / 4.0, color='yellow', fill=False))
 
-                plt.plot(0, 0, "r+")
-                self.add_north_box(plt, empty_sci, cutout, error, 0, 0, theta=None)
+            # this is correct, do not rotate the yellow rectangle (it is a zoom window only)
+            #x = (x - px) - error
+            #y = (y - py) - error
+            #plt.gca().add_patch(plt.Rectangle((x, y), width=error * 2, height=error * 2,
+            #                                  angle=0.0, color='yellow', fill=False))
+
+            plt.plot(0, 0, "r+")
+            self.add_north_box(plt, empty_sci, cutout, error, 0, 0, theta=None)
 
         plt.close()
         return fig
