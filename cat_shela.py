@@ -871,8 +871,8 @@ class SHELA(cat_base.Catalog):
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
-        ref_exptime = None
-        total_adjusted_exptime = None
+        ref_exptime = 1.0
+        total_adjusted_exptime = 1.0
         bid_colors = self.get_bid_colors(len(bid_ras))
         exptime_cont_est = -1
         index = 0 #images go in positions 1+ (0 is for the fiber positions)
@@ -909,11 +909,15 @@ class SHELA(cat_base.Catalog):
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:
                     self.master_cutout = sci.get_cutout(ra, dec, error, window=window, copy=True)
-                    ref_exptime = sci.exptime
+                    if sci.exptime:
+                        ref_exptime = sci.exptime
                     total_adjusted_exptime = 1.0
                 else:
-                    self.master_cutout.data = np.add(self.master_cutout.data, cutout.data * sci.exptime / ref_exptime)
-                    total_adjusted_exptime += sci.exptime / ref_exptime
+                    try:
+                        self.master_cutout.data = np.add(self.master_cutout.data, cutout.data * sci.exptime / ref_exptime)
+                        total_adjusted_exptime += sci.exptime / ref_exptime
+                    except:
+                        log.warn("Unexpected exception.", exc_info=True)
 
                 plt.subplot(gs[1:, index])
                 plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),

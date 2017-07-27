@@ -316,7 +316,11 @@ class Fiber:
         self.ifuslot = ifuslot
         self.ifuid = ifuid
         self.amp = amp
-        self.side = amp[0]
+        if self.amp and (len(self.amp) == 2):
+            self.side = amp[0]
+        else:
+            self.side = ""
+            self.amp = ""
         self.dither_date = date #or obsid
         self.dither_time = time #or observation time
         self.dither_time_extended = time_ex
@@ -482,7 +486,6 @@ class DetObj:
                                                         "ra and dec but got: %s , %s " %(tokens[i],tokens[i+1]))
                                     except:
                                         pass
-
 
             except:
                 log.info("Error parsing tokens from emission line file.",exc_info=True)
@@ -1655,7 +1658,7 @@ class HETDEX:
                     toks = l.split()
                     e = DetObj(toks,emission=True)
 
-                    if e.sn < self.min_fiber_sn: #pointless to add, nothing will plot
+                    if self.panacea and (e.sn < self.min_fiber_sn): #pointless to add, nothing will plot
                         continue
 
                     if not force:
@@ -1981,6 +1984,7 @@ class HETDEX:
             side = item.side
             dither = item.dither
             loc = item.loc
+            fiber = None
             datakeep['d'].append(item.dist)  # distance (in arcsec) of fiber center from object center
             sci = self.get_sci_fits(dither, side)
             datakeep['fiber_sn'].append(item.fiber_sn)
@@ -1998,11 +2002,9 @@ class HETDEX:
             xi = self.dist[side].map_wf_x(e.w, f0)
             yi = self.dist[side].map_wf_y(e.w, f0)
 
-            #todo: is this the fiber_num for the side? or full 448?
+            #this the fiber_num for the side (1-224)
             fiber_num = self.dist[side].map_xy_fibernum(xi, yi)
 
-            #todo: find the matching Fiber (search the fibers list for a fiber that matches this side, fiber number
-            #todo: and dither
             datakeep['fib'].append(fiber_num)
             xfiber = self.ifu_ctr.xifu[side][loc] + self.dither.dx[dither]
             yfiber = self.ifu_ctr.yifu[side][loc] + self.dither.dy[dither]
@@ -2020,6 +2022,48 @@ class HETDEX:
             xh = min(xh,max_x)
             yl = max(yl,0)
             yh = min(yh,max_y)
+
+            # cure does not build specific fibers (don't know the info until here), so build now for the _fib.txt file
+            try:
+                fiber = Fiber(op.basename(sci.filename), str(self.specid), str(self.ifu_slot_id), str(self.ifu_id),
+                              None, str(self.ymd), "None", "None", -1)
+
+                if fiber:
+                    #could parse the filename and get dither_time and dither_time_extended and expid
+                    #but they are not used right now
+                    fiber.emis_x = xi[0]
+                    fiber.emis_y = yi[0]
+                    fiber.dither_idx = dither
+                    fiber.fits = sci
+                    fiber.side = side
+                    fiber.obsid = sci.obsid
+                    fiber.center_x = xfiber
+                    fiber.center_y = yfiber
+                    fiber.ra = ra
+                    fiber.dec = dec
+                    fiber.number_in_side = fiber_num[0]
+                    if side == 'L':
+                        fiber.number_in_ccd = fiber.number_in_side
+                        if fiber.number_in_side < 113:
+                            fiber.number_in_amp = fiber.number_in_side
+                            fiber.amp = 'LU'
+                        else:
+                            fiber.number_in_amp = fiber.number_in_side - 112
+                            fiber.amp = 'LL'
+                    else:
+                        fiber.number_in_ccd = fiber.number_in_side + 224
+                        if fiber.number_in_side < 113:
+                            fiber.number_in_amp = fiber.number_in_side
+                            fiber.amp = 'RL'
+                        else:
+                            fiber.number_in_amp = fiber.number_in_side - 112
+                            fiber.amp = 'RU'
+
+                    e.fibers.append(fiber)
+            except:
+                #this is minor, so just a debug log
+                log.debug("Error building fiber object for cure data in hetdex::build_hetdex_data_dict.", exc_info=True)
+
 
             # update ... +/- 3 fiber heights (yw) (with 2 gaps in between, so 5)
             datakeep['scatter'].append(sci.data[max(0, yl - 5 * yw):min(max_y, yh + 5 * yw),xl:xh])
