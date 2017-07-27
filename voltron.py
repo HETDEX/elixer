@@ -555,7 +555,7 @@ def write_fibers_file(filename,hd_list):
         log.error("Exception create match summary file: %s" % filename, exc_info=True)
         return None
 
-    #todo: write header info
+    #write header info
     headers = [
         "entry number",
         "detect ID",
@@ -622,6 +622,8 @@ def write_fibers_file(filename,hd_list):
                 f.write(sep + str(fib.sn))
                 f.write(sep + str(fib.emis_x))
                 f.write(sep + str(fib.emis_y))
+
+            f.write("\n")
 
 
 def main():

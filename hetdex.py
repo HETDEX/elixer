@@ -1990,7 +1990,12 @@ class HETDEX:
             f0 = self.dist[side].get_reference_f(loc + 1)
             xi = self.dist[side].map_wf_x(e.w, f0)
             yi = self.dist[side].map_wf_y(e.w, f0)
+
+            #todo: is this the fiber_num for the side? or full 448?
             fiber_num = self.dist[side].map_xy_fibernum(xi, yi)
+
+            #todo: find the matching Fiber (search the fibers list for a fiber that matches this side, fiber number
+            #todo: and dither
             datakeep['fib'].append(fiber_num)
             xfiber = self.ifu_ctr.xifu[side][loc] + self.dither.dx[dither]
             yfiber = self.ifu_ctr.yifu[side][loc] + self.dither.dy[dither]
@@ -2003,8 +2008,6 @@ class HETDEX:
             xh = int(np.round(xi + xw))
             yl = int(np.round(yi - yw))
             yh = int(np.round(yi + yw))
-
-
 
             xl = max(xl,0)
             xh = min(xh,max_x)
