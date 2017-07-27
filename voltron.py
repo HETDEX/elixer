@@ -695,6 +695,7 @@ def main():
                         if c.position_in_cat(ra=ra, dec=dec, error=args.error):
                             hits, _, _ = c.build_list_of_bid_targets(ra=ra, dec=dec, error=args.error)
                             num_hits += hits
+                            e.num_hits = hits
 
                             if c not in matched_cats:
                                 matched_cats.append(c)
@@ -722,7 +723,7 @@ def main():
                     match = match_summary.Match(e)
 
                     pdf.pages,pdf.bid_count = build_pages(pdf.filename, match, ra, dec, args.error, matched_cats, pdf.pages,
-                                                  num_hits=num_hits, idstring=id,base_count=0,target_w=e.w,
+                                                  num_hits=e.num_hits, idstring=id,base_count=0,target_w=e.w,
                                                   fiber_locs=e.fiber_locs,target_flux=e.estflux)
 
                     #only add if there is at least one imaging catalog counterpart

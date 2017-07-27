@@ -384,6 +384,8 @@ class DetObj:
         self.wra = None
         self.wdec = None
 
+        self.num_hits = 0
+
         self.fibers = []
 
         if emission:

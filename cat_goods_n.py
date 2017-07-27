@@ -602,7 +602,6 @@ class GOODS_N(cat_base.Catalog):
             # window=error*4
             ext = error * 2.
             plt.subplot(gs[0, cols - 1])
-            # todo: rebuild pixel scale
             empty_sci = science_image.science_image()
             # need a new cutout since we rescaled the ext (and window) size
             cutout = empty_sci.get_cutout(ra, dec, error, window=ext * 2, image=self.master_cutout)

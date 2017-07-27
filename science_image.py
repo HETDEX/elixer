@@ -193,7 +193,8 @@ class science_image():
             #wcs = image.wcs
             try:
                 position = SkyCoord(ra, dec, unit="deg", frame='fk5')
-                pix_window = window / self.calc_pixel_size(image.wcs)  # now in pixels
+                #self.pixel_size = self.calc_pixel_size(image.wcs)
+                pix_window = float(window) / self.calc_pixel_size(image.wcs)  # now in pixels
                 cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=image.wcs, copy=copy)
                 self.get_vrange(cutout.data)
             except:
