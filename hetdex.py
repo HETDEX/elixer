@@ -366,7 +366,7 @@ class DetObj:
         self.dataflux = 0.0
         self.modflux = 0.0
         self.fluxfrac = 1.0
-        self.sigma = 0.0
+        self.sigma = 0.0 #also doubling as sn (see @property sn farther below)
         self.chi2 = 0.0
         self.chi2s = 0.0
         self.chi2w = 0.0
@@ -518,6 +518,10 @@ class DetObj:
         self.nearest_fiber = None
         self.fiber_locs = None #built later, tuples of Ra,Dec of fiber centers
 
+
+    @property
+    def sn(self):
+        return self.sigma
 
     def parse_fiber(self,fiber):
         if fiber is None:
@@ -1651,6 +1655,9 @@ class HETDEX:
                     toks = l.split()
                     e = DetObj(toks,emission=True)
 
+                    if e.sn < self.min_fiber_sn: #pointless to add, nothing will plot
+                        continue
+
                     if not force:
                         if e.ifuslot is not None:
                             if e.ifuslot != self.ifu_slot_id:
@@ -2346,6 +2353,8 @@ class HETDEX:
         dy1 = (1. - borderyb - borderyt - num * bordbuff) / num
         Y = (yw / dy) / (xw / dx) * 5.
 
+        Y = max(Y,0.8) #set a minimum size
+
         fig = plt.figure(figsize=(5, Y), frameon=False)
         plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
 
@@ -2501,7 +2510,7 @@ class HETDEX:
         return buf, Y
 
     # +/- 3 fiber sizes on CCD (not spacially adjacent fibers)
-    def build_scattered_light_image(self, datakeep, img_y = 2):
+    def build_scattered_light_image(self, datakeep, img_y = 3):
 
             cmap = plt.get_cmap('gray_r')
             norm = plt.Normalize()
@@ -2529,6 +2538,7 @@ class HETDEX:
             datakeep['color'][max_sn_idx] = colors[max_sn_idx, 0:3]
 
             #5/3. is to keep the scale (width) same as the 2D cutouts next to this plot
+            img_y = max(img_y,3) #set a minimum size (height)
             fig = plt.figure(figsize=(5/3., img_y), frameon=False)
             plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
 

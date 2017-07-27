@@ -757,7 +757,7 @@ def main():
 
         pages,_ = build_pages(args.name,None,args.ra, args.dec, args.error, matched_cats, pages, idstring="# 1 of 1")
     else:
-        print("Invalid command line call. Insufficient information to execute.")
+        print("Invalid command line call. Insufficient information to execute or No detections meet minimum criteria.")
         exit(-1)
 
     if len(file_list) > 0:
