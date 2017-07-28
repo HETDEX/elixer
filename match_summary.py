@@ -107,7 +107,8 @@ class MatchSet:
         "  instrument name (if available)",
         "  filter name",
         "  flux in cgs units",
-        "  flux error in cgs units"
+        "  flux error in cgs units",
+        "  the next instrument name and so on ..."
     ]
 
     def __init__(self):

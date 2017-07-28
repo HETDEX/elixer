@@ -572,13 +572,18 @@ def write_fibers_file(filename,hd_list):
         "emission line continuum flux (electron counts)",
         "emission line continuum flux (cgs)",
         "emission line observed (estimated) equivalent width (not restframe)",
-        "for each fiber: fiber_id string",
-        "  :fiber number on full CCD (1-448)",
-        "  :RA of fiber center",
-        "  :Dec of fiber center",
-        "  :S/N of emission line in this fiber",
-        "  :X coord on the CCD for the amp of this emission line in this fiber",
-        "  :Y coord on the CCD for the amp of this emission line in this fiber"
+        "number of fiber records to follow (each consists of the following columns)",
+        "  fiber_id string",
+        "  observation date YYYYMMDD",
+        "  observation ID (for that date)",
+        "  exposure ID",
+        "  fiber number on full CCD (1-448)",
+        "  RA of fiber center",
+        "  Dec of fiber center",
+        "  S/N of emission line in this fiber",
+        "  X coord on the CCD for the amp of this emission line in this fiber",
+        "  Y coord on the CCD for the amp of this emission line in this fiber",
+        "  the next fiber_id string and so on ..."
     ]
 
     # write help (header) part
@@ -614,8 +619,13 @@ def write_fibers_file(filename,hd_list):
             f.write(sep + str(emis.cont * G.FLUX_CONVERSION))
             f.write(sep + str(emis.eqw))
 
+            f.write(sep + str(len(emis.fibers)))
+
             for fib in emis.fibers:
                 f.write(sep + str(fib.idstring))
+                f.write(sep + str(fib.dither_date))
+                f.write(sep + str(fib.obsid))
+                f.write(sep + str(fib.expid))
                 f.write(sep + str(fib.number_in_ccd))
                 f.write(sep + str(fib.ra)) #of fiber center
                 f.write(sep + str(fib.dec))

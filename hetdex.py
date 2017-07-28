@@ -2031,11 +2031,12 @@ class HETDEX:
                               None, str(self.ymd), "None", "None", -1)
 
                 if fiber:
-                    #could parse the filename and get dither_time and dither_time_extended and expid
+                    #could parse the filename and get dither_time and dither_time_extended
                     #but they are not used right now
                     fiber.emis_x = xi[0]
                     fiber.emis_y = yi[0]
                     fiber.dither_idx = dither
+                    fiber.expid = dither+1
                     fiber.fits = sci
                     fiber.side = side
                     fiber.obsid = sci.obsid
@@ -2256,7 +2257,7 @@ class HETDEX:
             if fiber.expid:
                 datakeep['expid'].append(str(fiber.expid))
             else:
-                fiber.expid = dither
+                fiber.expid = dither + 1
                 datakeep['expid'].append(str(dither))
 
             datakeep['fib_idx1'].append(str(fiber.panacea_idx+1))
