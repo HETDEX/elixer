@@ -311,7 +311,7 @@ class Fiber:
     def __init__(self,idstring,specid,ifuslot,ifuid,amp,date,time,time_ex,panacea_fiber_index=-1):
 
         self.idstring = idstring
-        self.scifits_idstring = idstring.split("_")[0]
+        self.scifits_idstring = idstring.split("_")[0] #todo: if cure, strip off leading non-numeric characters
         self.specid = specid
         self.ifuslot = ifuslot
         self.ifuid = ifuid
@@ -2033,6 +2033,7 @@ class HETDEX:
                 if fiber:
                     #could parse the filename and get dither_time and dither_time_extended
                     #but they are not used right now
+                    #fiber.scifits_idstring =
                     fiber.emis_x = xi[0]
                     fiber.emis_y = yi[0]
                     fiber.dither_idx = dither

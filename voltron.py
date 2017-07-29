@@ -573,7 +573,7 @@ def write_fibers_file(filename,hd_list):
         "emission line continuum flux (cgs)",
         "emission line observed (estimated) equivalent width (not restframe)",
         "number of fiber records to follow (each consists of the following columns)",
-        "  fiber_id string",
+        "  fiber_id string (panacea) or reduced science fits filename (cure)",
         "  observation date YYYYMMDD",
         "  observation ID (for that date)",
         "  exposure ID",
