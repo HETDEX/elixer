@@ -133,6 +133,7 @@ class MatchSet:
                 return None
 
             # write help (header) part
+            f.write("# version " + str(G.__version__) + "\n")
             f.write("# each row contains one emission line and one matched imaging catalog counterpart\n")
             f.write("# the same emission line may repeat with additional possible imaging catalog counterparts\n")
             col_num = 0
@@ -172,5 +173,6 @@ class MatchSet:
                     f.write("\n")
 
             f.close()
-
-
+            msg = "File written: " + filename
+            log.info(msg)
+            print(msg)

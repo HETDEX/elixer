@@ -153,6 +153,9 @@ def parse_commandline():
                         type=float,default=1e9)
     parser.add_argument('--sn', help="Minimum fiber signal/noise threshold (Panacea) to plot in spectra cutouts",
                         required=False, type=float, default=0.0)
+    parser.add_argument('--score', help='Do not build report. Just compute detection scores and output *_fib.txt. '
+                                        'Currently incompatible with --cure',
+                        required=False, action='store_true', default=False)
 
     args = parser.parse_args()
 
@@ -279,6 +282,12 @@ def valid_parameters(args):
                     log.error("Exception validating files in commandline.",exc_info=True)
                     print("Exception validating files in commandline. Check log file.")
 
+    if result:
+        if args.cure and args.score:
+            result = False
+            msg = "Incompatible commandline parameters --cure and --score."
+            log.error(msg)
+            print(msg)
 
     return result
 
@@ -559,6 +568,7 @@ def write_fibers_file(filename,hd_list):
     headers = [
         "entry number",
         "detect ID",
+        "detection quality score,"
         "emission line RA (decimal degrees)",
         "emission line Dec (decimal degrees)",
         "emission line wavelength (AA)",
@@ -587,6 +597,7 @@ def write_fibers_file(filename,hd_list):
     ]
 
     # write help (header) part
+    f.write("# version " + str(G.__version__) + "\n")
     f.write("# each row contains one emission line with accompanying fiber information\n")
     col_num = 0
     for h in headers:
@@ -599,6 +610,9 @@ def write_fibers_file(filename,hd_list):
             entry_num += 1
             f.write(str(entry_num))
             f.write(sep + str(emis.id))
+            if emis.dqs is None:
+                emis.dqs_score()
+            f.write(sep + str(emis.dqs))
             if emis.wra:
                 f.write(sep + str(emis.wra))
                 f.write(sep + str(emis.wdec))
@@ -634,6 +648,10 @@ def write_fibers_file(filename,hd_list):
                 f.write(sep + str(fib.emis_y))
 
             f.write("\n")
+
+    msg = "File written: " + filename
+    log.info(msg)
+    print(msg)
 
 
 def main():
@@ -673,6 +691,18 @@ def main():
             if hd is not None:
                 if hd.status == 0:
                     hd_list.append(hd)
+
+    if args.score:
+        #todo: future possibility that additional analysis needs to be done (beyond basic fiber info). Move as needed
+        if len(hd_list) > 0:
+            #esp. for older panacea and for cure, need data built in the data_dict to compute score
+            for hd in hd_list:
+                for emis in hd.emis_list:
+                    hd.build_data_dict(emis)
+
+            write_fibers_file(os.path.join(args.name, args.name + "_fib.txt"), hd_list)
+        log.critical("Main complete.")
+        exit(0)
 
     if len(hd_list) > 0:
         total_emis = 0

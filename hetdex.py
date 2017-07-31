@@ -310,6 +310,8 @@ class Fiber:
     #todo: if needed allow fiber number (in amp or side or ccd) to be passed in instead of panacea index
     def __init__(self,idstring,specid,ifuslot,ifuid,amp,date,time,time_ex,panacea_fiber_index=-1):
 
+        self.dqs = None #detection quality score for this fiber (as part of the DetObj owner)
+        self.dqw = 0.0 #DQS weight
         self.idstring = idstring
         self.scifits_idstring = idstring.split("_")[0] #todo: if cure, strip off leading non-numeric characters
         self.specid = specid
@@ -356,11 +358,49 @@ class Fiber:
             log.error("Unable to map fiber index (%d) to fiber number(s)" % int(panacea_fiber_index), exc_info=True)
 
 
+    def dqs_weight(self,ra,dec):
+        self.dqw = 0.0
+        #specifically None ... a 0.0 RA or Dec is possible
+        if (ra is None) or (dec is None) or (self.ra is None) or (self.dec is None):
+            return self.dqw
+
+        dist = np.sqrt( (np.cos(dec)*(ra-self.ra)) ** 2 + (dec - self.dec) ** 2) * 3600.
+        #quadratic fit s|t weight = 1 at 1/2 G.Fiber_Radius and 0. at 2 G.Fiber_Radius (and 0 at -1 G.Fiber_Radius)
+        a = -4.0/(9.0*G.Fiber_Radius**2)
+        b = 4.0/(9.0*G.Fiber_Radius)
+        c = 8.0/9.0
+
+        if dist > G.FULL_WEIGHT_DISTANCE:
+            if dist > G.ZERO_WEIGHT_DISTANCE:
+                self.dqw = 0.0
+            else:
+                self.dqw = a*dist**2 + b*dist + c
+        else:
+            self.dqw = 1.0
+
+        log.debug("Line (%f,%f), Fiber (%f,%f), dist = %f, weight = %f" %(ra,dec,self.ra,self.dec,dist,self.dqw))
+        return self.dqw
+
+    def dqs_score(self,ra,dec): #yeah, redundantly named ...
+        self.dqs = 0.0
+        if (ra is None) or (dec is None) or (self.ra is None) or (self.dec is None):
+            return self.dqs
+
+        weight = self.dqs_weight(ra,dec)
+        score = 0.0
+        # todo: build score
+
+        self.dqs = weight * score
+
+
+        return self.dqs
+
 class DetObj:
     '''mostly a container for an emission line or continuum detection from detect_line.dat or detect_cont.dat file'''
 
     def __init__(self,tokens,emission=True):
         #skip NR (0)
+        self.dqs = None #Detection Quality Score
         self.type = 'unk'
         self.id = None
         self.x = None
@@ -527,6 +567,34 @@ class DetObj:
     @property
     def sn(self):
         return self.sigma
+
+    def dqs_score(self): #Detection Quality Score (score)
+        log.debug("Computing detection quality score for detection #" + str(self.id))
+        self.dqs = 0.
+
+        if self.wra is not None:
+            ra = self.wra
+            dec = self.wdec
+        elif self.ra is not None:
+            ra = self.ra
+            dec = self.dec
+        else:
+            return self.dqs
+
+        #compute score for each fiber and sum
+        score = 0.0
+        for f in self.fibers:
+            score += f.dqs_score(ra,dec)
+
+        #todo: future possibility ... could be there are additional criteria outside individual fibers that need
+        #todo: to be considered. Add them here.
+
+        self.dqs = score
+
+        return self.dqs
+
+
+
 
     def parse_fiber(self,fiber):
         if fiber is None:
@@ -1950,6 +2018,12 @@ class HETDEX:
             dd['index'] = []
         return dd
 
+
+    def build_data_dict(self,detobj):
+        if self.panacea:
+            datakeep = self.build_panacea_hetdex_data_dict(detobj)
+        else:
+            datakeep = self.build_hetdex_data_dict(detobj)
 
     def build_hetdex_data_dict(self,e):#e is the emission detection to use
         if e is None:
