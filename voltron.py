@@ -64,7 +64,7 @@ def parse_astrometry(file):
     return ra,dec,par
 
 
-class pdf_file():
+class PDF_File():
     def __init__(self,basename,id):
         self.filename = '%s' % basename
         self.id = id
@@ -591,6 +591,7 @@ def write_fibers_file(filename,hd_list):
         "  RA of fiber center",
         "  Dec of fiber center",
         "  S/N of emission line in this fiber",
+        "  weighted quality score",
         "  X coord on the CCD for the amp of this emission line in this fiber",
         "  Y coord on the CCD for the amp of this emission line in this fiber",
         "  the next fiber_id string and so on ..."
@@ -644,6 +645,7 @@ def write_fibers_file(filename,hd_list):
                 f.write(sep + str(fib.ra)) #of fiber center
                 f.write(sep + str(fib.dec))
                 f.write(sep + str(fib.sn))
+                f.write(sep + str(fib.dqs))
                 f.write(sep + str(fib.emis_x))
                 f.write(sep + str(fib.emis_y))
 
@@ -700,6 +702,15 @@ def main():
                 for emis in hd.emis_list:
                     hd.build_data_dict(emis)
 
+            if not os.path.isdir(args.name):
+                try:
+                    os.makedirs(args.name)
+                except OSError as exception:
+                    if exception.errno != errno.EEXIST:
+                        print("Fatal. Cannot create pdf output directory: %s" % args.name)
+                        log.critical("Fatal. Cannot create pdf output directory: %s" % args.name, exc_info=True)
+                        exit(-1)
+
             write_fibers_file(os.path.join(args.name, args.name + "_fib.txt"), hd_list)
         log.critical("Main complete.")
         exit(0)
@@ -749,7 +760,7 @@ def main():
 
                 #now build the report for each emission detection
                 for e in hd.emis_list:
-                    pdf = pdf_file(args.name, e.id)
+                    pdf = PDF_File(args.name, e.id)
 
                     id = "Detect ID #" + str(e.id)
                     if (e.wra is not None) and (e.wdec is not None): #weighted RA and Dec

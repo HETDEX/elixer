@@ -99,6 +99,8 @@ def get_w_as_r(seeing, gridsize, rstep, rmax, profile_name='moffat'):
     phot_table = aperture_photometry(Z, apertures)
     return r, np.array(phot_table['aperture_sum'])
 
+def gaussian(x,x0,sigma):
+  return np.exp(-np.power((x - x0)/sigma, 2.)/2.)
 
 def find_fplane(date): #date as yyyymmdd string
     """Locate the fplane file to use based on the observation date
@@ -311,7 +313,11 @@ class Fiber:
     def __init__(self,idstring,specid,ifuslot,ifuid,amp,date,time,time_ex,panacea_fiber_index=-1):
 
         self.dqs = None #detection quality score for this fiber (as part of the DetObj owner)
-        self.dqw = 0.0 #DQS weight
+        self.dqs_raw = None #unweighted score
+        self.dqs_dist = None #distance from source
+       #self.dqw = 0.0 #DQS weight #no need to track separately
+        if idstring is None:
+            idstring = ""
         self.idstring = idstring
         self.scifits_idstring = idstring.split("_")[0] #todo: if cure, strip off leading non-numeric characters
         self.specid = specid
@@ -359,39 +365,55 @@ class Fiber:
 
 
     def dqs_weight(self,ra,dec):
-        self.dqw = 0.0
+        weight = 0.0
         #specifically None ... a 0.0 RA or Dec is possible
         if (ra is None) or (dec is None) or (self.ra is None) or (self.dec is None):
-            return self.dqw
+            return weight
 
         dist = np.sqrt( (np.cos(dec)*(ra-self.ra)) ** 2 + (dec - self.dec) ** 2) * 3600.
-        #quadratic fit s|t weight = 1 at 1/2 G.Fiber_Radius and 0. at 2 G.Fiber_Radius (and 0 at -1 G.Fiber_Radius)
-        a = -4.0/(9.0*G.Fiber_Radius**2)
-        b = 4.0/(9.0*G.Fiber_Radius)
-        c = 8.0/9.0
 
         if dist > G.FULL_WEIGHT_DISTANCE:
             if dist > G.ZERO_WEIGHT_DISTANCE:
-                self.dqw = 0.0
+                weight = 0.0
             else:
-                self.dqw = a*dist**2 + b*dist + c
+                weight = G.QUAD_A*dist**2 + G.QUAD_B*dist + G.QUAD_C
         else:
-            self.dqw = 1.0
+            weight = 1.0
 
-        log.debug("Line (%f,%f), Fiber (%f,%f), dist = %f, weight = %f" %(ra,dec,self.ra,self.dec,dist,self.dqw))
-        return self.dqw
+        self.dqs_dist = dist
+        log.debug("Line (%f,%f), Fiber (%f,%f), dist = %f, weight = %f" %(ra,dec,self.ra,self.dec,dist,weight))
+        return weight
 
-    def dqs_score(self,ra,dec): #yeah, redundantly named ...
+    def dqs_score(self,ra,dec,force_recompute=False): #yeah, redundantly named ...
+        if (self.dqs is not None) and not force_recompute:
+            return self.dqs
+
         self.dqs = 0.0
+        self.dqs_raw = 0.0
         if (ra is None) or (dec is None) or (self.ra is None) or (self.dec is None):
             return self.dqs
 
         weight = self.dqs_weight(ra,dec)
         score = 0.0
-        # todo: build score
 
+        #build score
+        if self.sn:
+            if self.sn < 2.5:
+                score += -1.0
+            elif self.sn < 3.5:
+                score += 0.0
+            elif self.sn < 6.5:
+                score += self.sn - 3.5
+            elif self.sn < 9.0:
+                score += 4.0
+            elif self.sn < 100:
+                score += 5.0
+            else:
+                log.info("Unexpected, really large S/N (%f) for %s" % (self.sn,self.idstring))
+                score += -1.0 #same as low score ... something really wrong sn 100+ is nonsense (thinking cosmic ray?)
+
+        self.dqs_raw = score
         self.dqs = weight * score
-
 
         return self.dqs
 
@@ -568,7 +590,10 @@ class DetObj:
     def sn(self):
         return self.sigma
 
-    def dqs_score(self): #Detection Quality Score (score)
+    def dqs_score(self,force_recompute=False): #Detection Quality Score (score)
+        if (self.dqs is not None) and not force_recompute:
+            return self.dqs
+
         log.debug("Computing detection quality score for detection #" + str(self.id))
         self.dqs = 0.
 
@@ -584,10 +609,47 @@ class DetObj:
         #compute score for each fiber and sum
         score = 0.0
         for f in self.fibers:
-            score += f.dqs_score(ra,dec)
+            score += f.dqs_score(ra,dec,force_recompute)
 
-        #todo: future possibility ... could be there are additional criteria outside individual fibers that need
-        #todo: to be considered. Add them here.
+        # todo: future possibility ... could be there are additional criteria outside individual fibers that need
+        # todo: to be considered. Add them here.
+
+
+        #these distance and SN penality only makes sense if we have the weighted RA and Dec
+        if self.wra is not None:
+            #compare fiber to fiber (i.e. high SN fiber with a second very nearby should have similar SN?)
+            #think about the SN, though dropping off like gaussian (not quadratic) ...  how peaked?
+            #basically, want to punish similar distances but dissimilar raw_scores
+
+            #slightly differently would be similar weights should have similar raw_scores (or similar SN)
+            #todo: should base this on a gaussian with PSF and account for some noise level
+            gross_noise = 3.0 #e.g. SN = +/- gross_noise
+            penalty = 0.0
+            for i in range(len(self.fibers)):
+                for j in range(i+1,len(self.fibers)):
+                    if not (self.fibers[i].dqs_dist and self.fibers[j].dqs_dist):
+                        continue
+                    if not (self.fibers[i].sn and self.fibers[j].sn):
+                        continue
+
+                    #for gaussian, x0 = 0, x = delta_dist, sigma = the PSF (so like, 1.5 or so?)
+
+                    #compare fiber[i] and fiber[j]
+                    delta_dist = abs(self.fibers[i].dqs_dist - self.fibers[j].dqs_dist)
+
+                    #using SN instead of raw_score since raw_score is capped at 5
+                    sn_cap = 100.0 #anything above this is considered the same value
+                    delta_sn = max(0,abs(min(sn_cap,self.fibers[i].sn) - min(sn_cap,self.fibers[j].sn))-gross_noise)
+
+                    #delta_score = max(0,abs(min(sn_cap,self.fibers[i].dqs_raw) - min(sn_cap,self.fibers[j].dqs_raw)))
+
+                    pad = 1.25
+                    if delta_sn > pad*(1.0-gaussian(delta_dist,0.0,1.5))*max(self.fibers[i].sn,self.fibers[j].sn):
+                        penalty += 0.5*(abs(self.fibers[i].dqs - self.fibers[j].dqs))
+
+
+            score -= penalty
+
 
         self.dqs = score
 
@@ -1826,6 +1888,12 @@ class HETDEX:
             ra = e.ra
             dec = e.dec
 
+        datakeep = None
+        if self.panacea:
+            datakeep = self.build_panacea_hetdex_data_dict(e)
+        else:
+            datakeep = self.build_hetdex_data_dict(e)
+
         if self.ymd and self.obsid:
             title +="%d\n"\
                     "ObsDate %s  ObsID %s IFU %s  CAM %s\n" \
@@ -1852,6 +1920,10 @@ class HETDEX:
         else:
             title += "Sigma = %g  Chi2 = %g" % (e.sigma, e.chi2)
 
+        if e.dqs is None:
+            e.dqs_score()
+        title += "  Score = %g" % e.dqs
+
         if e.w > 0:
             la_z = e.w / G.LyA_rest - 1.0
             oii_z = e.w / G.OII_rest - 1.0
@@ -1866,12 +1938,6 @@ class HETDEX:
         plt.text(0, 0.5, title, ha='left', va='center', fontproperties=font)
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
-
-        datakeep = None
-        if self.panacea:
-            datakeep = self.build_panacea_hetdex_data_dict(e)
-        else:
-            datakeep = self.build_hetdex_data_dict(e)
 
         if datakeep is not None:
             if datakeep['xi']:
@@ -1941,8 +2007,11 @@ class HETDEX:
 
 
             # update emission with the ra, dec of all fibers
-            e.fiber_locs = list(zip(datakeep['ra'], datakeep['dec'],datakeep['color'],datakeep['index'],datakeep['d'],
-                                    datakeep['fib']))
+            try:
+                e.fiber_locs = list(zip(datakeep['ra'], datakeep['dec'],datakeep['color'],datakeep['index'],datakeep['d'],
+                                           datakeep['fib']))
+            except:
+                log.error("Error building fiber_locs",exc_info=True)
 
 
         if not G.SINGLE_PAGE_PER_DETECT:
@@ -1993,6 +2062,7 @@ class HETDEX:
             dd['yh'] = []
             dd['sn'] = []
             dd['fiber_sn'] = []
+            dd['wscore'] = []
             dd['scatter'] = []
             dd['d'] = []
             dd['dx'] = []
@@ -2061,9 +2131,10 @@ class HETDEX:
             dither = item.dither
             loc = item.loc
             fiber = None
-            datakeep['d'].append(item.dist)  # distance (in arcsec) of fiber center from object center
+            #datakeep['d'].append(item.dist)  # distance (in arcsec) of fiber center from object center
             sci = self.get_sci_fits(dither, side)
             datakeep['fiber_sn'].append(item.fiber_sn)
+
 
             max_y, max_x = sci.data.shape
 
@@ -2137,8 +2208,22 @@ class HETDEX:
                             fiber.number_in_amp = fiber.number_in_side - 112
                             fiber.amp = 'RU'
 
+                    if e.wra:
+                        fiber.dqs_score(e.wra,e.wdec)
+                    else:
+                        fiber.dqs_score(e.ra,e.dec)
+                    datakeep['wscore'].append(fiber.dqs)
+
+                    d = self.emis_to_fiber_distance(e, fiber)
+                    if d is not None:
+                        datakeep['d'].append(d)
+                    else:
+                        datakeep['d'].append(item.dist)
+
                     e.fibers.append(fiber)
+
             except:
+                datakeep['d'].append(item.dist)
                 #this is minor, so just a debug log
                 log.debug("Error building fiber object for cure data in hetdex::build_hetdex_data_dict.", exc_info=True)
 
@@ -2245,14 +2330,19 @@ class HETDEX:
                     continue
                 #look at specific fibers
 
-                if self.dither:
-                    dx = e.x - f.center_x - self.dither.dx[dither] #just floats, not arrays like below
-                    dy = e.y - f.center_y - self.dither.dy[dither]
-
-                    d = np.sqrt(dx ** 2 + dy ** 2)
+                if e.wra:
+                    ra = e.wra
+                    dec = e.wdec
+                elif e.ra:
+                    ra = e.ra
+                    dec = e.dec
                 else:
+                    ra = None
+                    dec = None
+
+                if (ra is not None) and (f.ra is not None):
                     try:
-                        d = np.sqrt((np.cos(e.wdec)*(e.wra - f.ra))**2 + (e.wdec - f.dec)**2)*3600
+                        d = np.sqrt((np.cos(dec)*(ra - f.ra))**2 + (dec - f.dec)**2)*3600
                     except:
                         if f.ra and f.dec:
                             log.error("Missing required emission line (#%d) coordinates." % e.id)
@@ -2262,6 +2352,13 @@ class HETDEX:
                             log.error("Missing required fiber (%s) and/or emission line (#%d) coords."
                                   % (f.idstring,e.id))
                         continue
+                elif self.dither: #unweighted location
+                            dx = e.x - f.center_x - self.dither.dx[dither]  # just floats, not arrays like below
+                            dy = e.y - f.center_y - self.dither.dy[dither]
+                            d = np.sqrt(dx ** 2 + dy ** 2)
+                else:
+                    log.error("Cannot compute fiber distances. Missing mandatory information.")
+                    continue
                 #turn fiber number into a location. Fiber Number 1 is at the top
                 #which is loc (or index) 111
                 #so loc = 112 - Fiber Number
@@ -2318,6 +2415,7 @@ class HETDEX:
                 log.error("Error! Cannot identify fiber in HETDEX:build_panacea_hetdex_data_dict().")
                 fiber = Fiber(0,0,0,0,'XX',"","","",-1)
 
+
             log.debug("Building data dict for " + fits.filename)
             datakeep['date'].append(fiber.dither_date) #already a str
 
@@ -2338,8 +2436,6 @@ class HETDEX:
             datakeep['fib_idx1'].append(str(fiber.panacea_idx+1))
             datakeep['ifu_slot_id'].append(str(fiber.ifuslot).zfill(3))
             datakeep['spec_id'].append(str(fiber.specid).zfill(3))
-
-            datakeep['d'].append(item.dist)
             datakeep['fiber_sn'].append(item.fiber_sn)
 
             max_y, max_x = fits.data.shape
@@ -2373,6 +2469,18 @@ class HETDEX:
             else: #only true in some panacea cases (if provided in detect line file)
                 datakeep['ra'].append(fiber.ra)
                 datakeep['dec'].append(fiber.dec)
+
+            d = self.emis_to_fiber_distance(e,fiber)
+            if d is not None:
+                datakeep['d'].append(d)
+            else:
+                datakeep['d'].append(item.dist)
+
+            if e.wra:
+                fiber.dqs_score(e.wra, e.wdec)
+            else:
+                fiber.dqs_score(e.ra, e.dec)
+            datakeep['wscore'].append(fiber.dqs)
 
             x_2D = np.interp(e.w,fits.wave_data[loc,:],range(len(fits.wave_data[loc,:])))
             y_2D = np.interp(x_2D,range(len(fits.trace_data[loc,:])),fits.trace_data[loc,:])
@@ -2580,11 +2688,10 @@ class HETDEX:
                                  transform=smplot.transAxes, fontsize=8, color='r',
                                  verticalalignment='bottom', horizontalalignment='left')
                 # distance (in arcsec) of fiber center from object center
-                borplot.text(1.05, .53, 'D("): %0.2f' % (datakeep['d'][ind[i]]),
+                borplot.text(1.05, .53, 'D("): %0.2f %0.1f' % (datakeep['d'][ind[i]],datakeep['wscore'][ind[i]]),
                              transform=smplot.transAxes, fontsize=6, color='r',
                              verticalalignment='bottom', horizontalalignment='left')
 
-                #here ...
                 try:
                     l3 = datakeep['date'][ind[i]] + "_" + datakeep['obsid'][ind[i]] + "_" + datakeep['expid'][ind[i]]
                     l4 = datakeep['spec_id'][ind[i]] + "_" + datakeep['amp'][ind[i]] + "_" + datakeep['fib_idx1'][ind[i]]
@@ -2603,7 +2710,7 @@ class HETDEX:
                             transform=smplot.transAxes, fontsize=6, color='r',
                             verticalalignment='bottom', horizontalalignment='left')
                 #distance (in arcsec) of fiber center from object center
-                borplot.text(1.05, .55, 'D(") = %0.2f' % (datakeep['d'][ind[i]]),
+                borplot.text(1.05, .55, 'D(") = %0.2f %0.1f' % (datakeep['d'][ind[i]],datakeep['wscore'][ind[i]]),
                             transform=smplot.transAxes, fontsize=6, color='r',
                             verticalalignment='bottom', horizontalalignment='left')
                 borplot.text(1.05, .35, 'X,Y = %d,%d' % (datakeep['xi'][ind[i]], datakeep['yi'][ind[i]]),
@@ -2997,5 +3104,28 @@ class HETDEX:
 
         plt.close(fig)
         return buf
+
+
+    def emis_to_fiber_distance(self,emis,fiber):
+
+        if emis.wra:
+            ra = emis.wra
+            dec = emis.wdec
+        elif emis.ra:
+            ra = emis.ra
+            dec = emis.dec
+        else:
+            ra = None
+            dec = None
+
+        if (ra is not None) and (fiber.ra is not None):
+            try:
+                d = np.sqrt((np.cos(dec) * (ra - fiber.ra)) ** 2 + (dec - fiber.dec) ** 2) * 3600
+            except:
+                log.error("Exception in HETDEX::emis_to_fiber_distance",exc_info=True)
+                d = None
+
+        return d
+
 
 #end HETDEX class
