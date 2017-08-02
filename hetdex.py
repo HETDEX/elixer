@@ -75,6 +75,8 @@ contrast2 = 0.5  # regular image
 res = [3, 9]
 ww = xw * 1.9  # wavelength width
 
+PEAK_PIXELS = 7 # number of pixels to either side of peak to fit to gaussian and measure skewness and kurtosis
+
 
 #lifted from Greg Z. make_visualization_detect.py
 def get_w_as_r(seeing, gridsize, rstep, rmax, profile_name='moffat'):
@@ -312,10 +314,6 @@ class Fiber:
     #todo: if needed allow fiber number (in amp or side or ccd) to be passed in instead of panacea index
     def __init__(self,idstring,specid,ifuslot,ifuid,amp,date,time,time_ex,panacea_fiber_index=-1):
 
-        self.dqs = None #detection quality score for this fiber (as part of the DetObj owner)
-        self.dqs_raw = None #unweighted score
-        self.dqs_dist = None #distance from source
-       #self.dqw = 0.0 #DQS weight #no need to track separately
         if idstring is None:
             idstring = ""
         self.idstring = idstring
@@ -351,6 +349,13 @@ class Fiber:
 
         self.ra = None
         self.dec = None
+
+        self.dqs = None  # detection quality score for this fiber (as part of the DetObj owner)
+        self.dqs_raw = None  # unweighted score
+        self.dqs_dist = None  # distance from source
+        self.dqs_weight = None
+        self.central_wave_pixels = [] #from fiber-extracted ... the few pixels around the peak
+
         try:
             self.panacea_idx = int(panacea_fiber_index)
             self.number_in_amp = 112 - self.panacea_idx
@@ -368,6 +373,7 @@ class Fiber:
         weight = 0.0
         #specifically None ... a 0.0 RA or Dec is possible
         if (ra is None) or (dec is None) or (self.ra is None) or (self.dec is None):
+            self.dqs_dist = 999.9
             return weight
 
         dist = np.sqrt( (np.cos(dec)*(ra-self.ra)) ** 2 + (dec - self.dec) ** 2) * 3600.
@@ -381,6 +387,7 @@ class Fiber:
             weight = 1.0
 
         self.dqs_dist = dist
+        self.dqs_weight = weight
         log.debug("Line (%f,%f), Fiber (%f,%f), dist = %f, weight = %f" %(ra,dec,self.ra,self.dec,dist,weight))
         return weight
 
@@ -395,19 +402,18 @@ class Fiber:
 
         weight = self.dqs_weight(ra,dec)
         score = 0.0
-
-        #build score
+        max_score = 10.0
+        max_sn = 100.0 #above base_sn
+        linear_sn = 3.0 #above base_sn
+        base_sn = 3.5
+        #build score (additive only)
         if self.sn:
-            if self.sn < 2.5:
-                score += -1.0
-            elif self.sn < 3.5:
+            if self.sn < base_sn:
                 score += 0.0
-            elif self.sn < 6.5:
-                score += self.sn - 3.5
-            elif self.sn < 9.0:
-                score += 4.0
-            elif self.sn < 100:
-                score += 5.0
+            elif self.sn < (base_sn + linear_sn): #linear growth
+                score += self.sn - base_sn
+            elif self.sn < (base_sn + max_sn): #sqrt growth
+                score += linear_sn + np.sqrt(self.sn - base_sn)
             else:
                 log.info("Unexpected, really large S/N (%f) for %s" % (self.sn,self.idstring))
                 score += -1.0 #same as low score ... something really wrong sn 100+ is nonsense (thinking cosmic ray?)
@@ -415,7 +421,13 @@ class Fiber:
         self.dqs_raw = score
         self.dqs = weight * score
 
+        log.debug("Fiber: %s , Dist = %g , Raw Score = %g , Weighted Score = %g" %(self.idstring, self.dqs_dist, self.dqs_raw, self.dqs))
+
         return self.dqs
+
+
+
+
 
 class DetObj:
     '''mostly a container for an emission line or continuum detection from detect_line.dat or detect_cont.dat file'''
@@ -615,6 +627,10 @@ class DetObj:
         # todo: to be considered. Add them here.
 
 
+        #CAVEATS: this assumes a point-like emitter with a symmetric (gaussian) distribution of signal
+        #if we are on the edge of a resolved object, then there will be preferred direction of increased signal (not
+        #symmetric) and that can push down the score, etc
+
         #these distance and SN penality only makes sense if we have the weighted RA and Dec
         if self.wra is not None:
             #compare fiber to fiber (i.e. high SN fiber with a second very nearby should have similar SN?)
@@ -622,7 +638,8 @@ class DetObj:
             #basically, want to punish similar distances but dissimilar raw_scores
 
             #slightly differently would be similar weights should have similar raw_scores (or similar SN)
-            #todo: should base this on a gaussian with PSF and account for some noise level
+            #should base this on a gaussian with PSF and account for some noise level
+
             gross_noise = 3.0 #e.g. SN = +/- gross_noise
             penalty = 0.0
             for i in range(len(self.fibers)):
@@ -632,28 +649,71 @@ class DetObj:
                     if not (self.fibers[i].sn and self.fibers[j].sn):
                         continue
 
-                    #for gaussian, x0 = 0, x = delta_dist, sigma = the PSF (so like, 1.5 or so?)
+                    if self.fibers[i].dqs_dist < self.fibers[j].dqs_dist:
+                        f1 = self.fibers[i]
+                        f2 = self.fibers[j]
+                    else:
+                        f2 = self.fibers[i]
+                        f1 = self.fibers[j]
 
-                    #compare fiber[i] and fiber[j]
-                    delta_dist = abs(self.fibers[i].dqs_dist - self.fibers[j].dqs_dist)
+                    msg = None
+                    sn_cap = 12.0  # anything above this is considered the same value
+                    delta_dist = f2.dqs_dist - f1.dqs_dist
+                    # using SN instead of raw_score since raw_score is capped at 5
+                    delta_sn = min(sn_cap,f1.sn) - min(sn_cap,f2.sn)
+                    if delta_sn > 0:
+                        delta_sn = max(0, delta_sn - gross_noise)
+                    else:
+                        delta_sn = min(0, delta_sn + gross_noise)
 
-                    #using SN instead of raw_score since raw_score is capped at 5
-                    sn_cap = 100.0 #anything above this is considered the same value
-                    delta_sn = max(0,abs(min(sn_cap,self.fibers[i].sn) - min(sn_cap,self.fibers[j].sn))-gross_noise)
+                    #this only applies to fibers from the same observation
+                    #otherwise conditions could be much different and not directly comparable
+                    if (f1.dither_date == f2.dither_date) and (f1.obsid == f2.obsid):
+                        pad = 1.25
+                        sigma = 1.5 #todo: can we get this as the PSF for the observation?
+                        # for gaussian, x0 = 0, x = delta_dist, sigma = the PSF (so like, 1.5 or so?)
+                        #todo: maybe instead of larger sn, mult.by the closer one (always f1.sn)??
+                        if delta_sn > pad*(1.0-gaussian(delta_dist,0.0,sigma))*max(f1.sn,f2.sn):
+                            p = 0.5 * (abs(f1.dqs - f2.dqs))
+                            penalty += p
+                            msg = "Score Penalty (%g) (same obs), detect ID# %d. Delta_SN = %g , Delta_dist = %g" % \
+                                  (p,self.id,delta_sn,delta_dist)
+                    else: #different observations of the same spot; similar logic, different cuts
+                        sigma = 1.0  # can't really use PSF since over different observations, so just be conservative
+                        #(note: conservative here means, gaussian falls off faster, so smaller sigma)
+                        dist_cap = G.Fiber_Radius
+                        if delta_dist < dist_cap:
+                            pad = 2.0 #bigger pad since different observations
+                            # for gaussian, x0 = 0, x = delta_dist, sigma = the PSF (so like, 1.5 or so?)
+                            if delta_sn > pad * (1.0 - gaussian(delta_dist, 0.0, sigma)) * max(f1.sn, f2.sn):
+                                p = 0.5 * (abs(f1.dqs - f2.dqs))
+                                penalty += p
+                                msg = "Score Penalty (%g) (diff obs) , detect ID# %d. Delta_SN = %g , Delta_dist = %g" % \
+                                      (p, self.id, delta_sn, delta_dist)
 
-                    #delta_score = max(0,abs(min(sn_cap,self.fibers[i].dqs_raw) - min(sn_cap,self.fibers[j].dqs_raw)))
-
-                    pad = 1.25
-                    if delta_sn > pad*(1.0-gaussian(delta_dist,0.0,1.5))*max(self.fibers[i].sn,self.fibers[j].sn):
-                        penalty += 0.5*(abs(self.fibers[i].dqs - self.fibers[j].dqs))
-
+                    if msg:
+                        log.debug(msg)
 
             score -= penalty
-
 
         self.dqs = score
 
         return self.dqs
+
+    def dqs_shape(self,force_recompute=False):
+
+        central_wave = np.zeros(PEAK_PIXELS*2 + 1)
+
+        for f in self.fibers:
+            if len(self.central_wave_pixels) == 0:
+                continue #no modification
+
+            #todo: add up all fibers (weighted?)
+
+        # todo: skewness (want positive ... a right tail), kurtosis (want more positive ... peaky, but in some range)
+        # todo: is there enough resolution to get a reasonable calculation? for each fiber or sum of best fibers?
+        # todo: smooth it first? fit to a gaussian first? (say +/-3 or 5 pixels from center so .. 7 to 11 pixels in all
+        # todo: (about 7-10 AA to either side?)
 
 
 
@@ -2295,6 +2355,16 @@ class HETDEX:
 
                 datakeep['spec'].append(sci.fe_data[loc,Fe_indl:(Fe_indh+1)])
                 datakeep['specwave'].append(wave[Fe_indl:(Fe_indh+1)])
+                if fiber:
+                    Fe_indl = center - PEAK_PIXELS
+                    Fe_indh = center + PEAK_PIXELS
+                    Fe_indl = max(Fe_indl, 0)
+                    Fe_indh = min(Fe_indh, max_x)
+
+                    if (Fe_indh == max_x) or (Fe_indl == 0):
+                        log.info("Peak too close to wavelength edge for fiber %s" % fiber.idstring)
+                    else:
+                        fiber.central_wave_pixels = wave[Fe_indl:(Fe_indh+1)]
 
                 datakeep['fw_spec'].append(sci.fe_data[loc,:])
                 datakeep['fw_specwave'].append(wave[:])
@@ -2557,8 +2627,18 @@ class HETDEX:
 
             #fe_data is "sky_subtracted" ... the counts
             #wave is "wavelength" ... the corresponding wavelength
-            datakeep['spec'].append(fits.fe_data[loc, Fe_indl:(Fe_indh)])
-            datakeep['specwave'].append(wave[Fe_indl:(Fe_indh)])
+            datakeep['spec'].append(fits.fe_data[loc, Fe_indl:(Fe_indh+1)])
+            datakeep['specwave'].append(wave[Fe_indl:(Fe_indh+1)])
+            if fiber:
+                Fe_indl = center - PEAK_PIXELS
+                Fe_indh = center + PEAK_PIXELS
+                Fe_indl = max(Fe_indl, 0)
+                Fe_indh = min(Fe_indh, max_x)
+
+                if (Fe_indh == (max_x)) or (Fe_indl == 0):
+                    log.info("Peak too close to wavelength edge for fiber %s" % fiber.idstring)
+                else:
+                    fiber.central_wave_pixels = wave[Fe_indl:(Fe_indh+1)]
 
             datakeep['fw_spec'].append(fits.fe_data[loc, :])
             datakeep['fw_specwave'].append(wave[:])

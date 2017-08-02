@@ -414,7 +414,6 @@ def join_report_parts(report_name, bid_count=0):
                 if os.path.isfile(part_name):
                     pages = PyPDF.PdfReader(part_name).pages
                     for p in pages:
-                        #merge_page += p
                         list_pages.append(p)
 
             if len(list_pages) > 0:
@@ -436,7 +435,6 @@ def join_report_parts(report_name, bid_count=0):
                 page.y = y_offset
                 y_offset = scale* page.box[3] #box is [x0,y0,x_top, y_top]
 
- #           if os.path.isdir(report_name):  # often just the base name is given
             if not report_name.endswith(".pdf"):
                 report_name += ".pdf"
             writer = PyPDF.PdfWriter(report_name)
@@ -448,23 +446,33 @@ def join_report_parts(report_name, bid_count=0):
             except:
                 log.error("Error writing out pdf: " + report_name, exc_info = True)
         else: #want a single page, but there are just too many sub-pages
+
+            #todo: merge the top 2 pages (the two HETDEX columns and the catalog summary row)
+
             list_pages = []
             log.info("Single page report not possible for %s. Bid count = %d" %(report_name,bid_count))
             part_num = 0
+            list_pages_top2 = []
+            list_pages_bottom = []
             for i in range(G_PDF_FILE_NUM):
                 # use this rather than glob since glob sometimes messes up the ordering
                 # and this needs to be in the correct order
                 # (though this is a bit ineffecient since we iterate over all the parts every time)
+
                 part_name = report_name + ".part%s" % str(i + 1).zfill(4)
                 if os.path.isfile(part_name):
                     pages = PyPDF.PdfReader(part_name).pages
                     part_num = i + 1
                     for p in pages:
-                        # merge_page += p
                         list_pages.append(p)
+                        if len(list_pages_top2) < 2:
+                            list_pages_top2.append(p)
+                        else:
+                            list_pages_bottom.append(p)
                     break # just merge the first part
 
             merge_page = PyPDF.PageMerge() + list_pages
+            merge_page_top2 = PyPDF.PageMerge() + list_pages_top2
 
             scale = 1.0  # full scale
             y_offset = 0
@@ -477,11 +485,12 @@ def join_report_parts(report_name, bid_count=0):
                 page.y = y_offset
                 y_offset = scale * page.box[3]  # box is [x0,y0,x_top, y_top]
 
-#            if os.path.isdir(report_name):  # often just the base name is given
             if not report_name.endswith(".pdf"):
                 report_name += ".pdf"
             writer = PyPDF.PdfWriter(report_name)
             writer.addPage(merge_page.render())
+
+
 
             #now, add (but don't merge) the other parts
             for i in range(part_num,G_PDF_FILE_NUM):
@@ -832,6 +841,14 @@ def main():
 
     write_fibers_file(os.path.join(args.name, args.name + "_fib.txt"),hd_list)
 
+    #temporary
+    if args.line:
+        try:
+            import shutil
+            shutil.copy(args.line,os.path.join(args.name,os.path.basename(args.line)))
+
+        except:
+            log.error("Exception copying line file: ", exc_info=True)
 
     log.critical("Main complete.")
 
