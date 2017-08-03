@@ -19,6 +19,9 @@ from astropy.visualization import ZScaleInterval
 from photutils import CircularAperture, aperture_photometry
 from scipy.ndimage.filters import gaussian_filter
 
+from scipy.stats import skew, kurtosis
+from scipy.optimize import curve_fit
+
 
 import glob
 from pyhetdex.cure.distortion import Distortion
@@ -101,8 +104,22 @@ def get_w_as_r(seeing, gridsize, rstep, rmax, profile_name='moffat'):
     phot_table = aperture_photometry(Z, apertures)
     return r, np.array(phot_table['aperture_sum'])
 
-def gaussian(x,x0,sigma):
-  return np.exp(-np.power((x - x0)/sigma, 2.)/2.)
+def gaussian(x,x0,sigma,a=1.0):
+  return a*np.exp(-np.power((x - x0)/sigma, 2.)/2.)
+
+
+def fit_gaussian(x,y):
+    yfit = None
+    parm = None
+    pcov = None
+    try:
+        parm, pcov = curve_fit(gaussian, x, y,bounds=((-np.inf,0,-np.inf),(np.inf,np.inf,np.inf)))
+        yfit = gaussian(x,parm[0],parm[1],parm[2])
+    except:
+        log.error("Exception fitting gaussian.",exc_info=True)
+
+    return yfit,parm,pcov
+
 
 def find_fplane(date): #date as yyyymmdd string
     """Locate the fplane file to use based on the observation date
@@ -312,10 +329,11 @@ class Dither():
 
 class Fiber:
     #todo: if needed allow fiber number (in amp or side or ccd) to be passed in instead of panacea index
-    def __init__(self,idstring,specid,ifuslot,ifuid,amp,date,time,time_ex,panacea_fiber_index=-1):
+    def __init__(self,idstring,specid,ifuslot,ifuid,amp,date,time,time_ex,panacea_fiber_index=-1, detect_id = -1):
 
         if idstring is None:
             idstring = ""
+        self.detect_id = detect_id
         self.idstring = idstring
         self.scifits_idstring = idstring.split("_")[0] #todo: if cure, strip off leading non-numeric characters
         self.specid = specid
@@ -353,7 +371,7 @@ class Fiber:
         self.dqs = None  # detection quality score for this fiber (as part of the DetObj owner)
         self.dqs_raw = None  # unweighted score
         self.dqs_dist = None  # distance from source
-        self.dqs_weight = None
+        self.dqs_w = None #dqs weight
         self.central_wave_pixels = [] #from fiber-extracted ... the few pixels around the peak
 
         try:
@@ -387,7 +405,7 @@ class Fiber:
             weight = 1.0
 
         self.dqs_dist = dist
-        self.dqs_weight = weight
+        self.dqs_w = weight
         log.debug("Line (%f,%f), Fiber (%f,%f), dist = %f, weight = %f" %(ra,dec,self.ra,self.dec,dist,weight))
         return weight
 
@@ -421,7 +439,8 @@ class Fiber:
         self.dqs_raw = score
         self.dqs = weight * score
 
-        log.debug("Fiber: %s , Dist = %g , Raw Score = %g , Weighted Score = %g" %(self.idstring, self.dqs_dist, self.dqs_raw, self.dqs))
+        log.debug("DetID # %d , Fiber: %s , Dist = %g , Raw Score = %g , Weighted Score = %g"
+                  %(self.detect_id,self.idstring, self.dqs_dist, self.dqs_raw, self.dqs))
 
         return self.dqs
 
@@ -434,6 +453,7 @@ class DetObj:
 
     def __init__(self,tokens,emission=True):
         #skip NR (0)
+        self.plot_dqs_fit = False
         self.dqs = None #Detection Quality Score
         self.type = 'unk'
         self.id = None
@@ -656,11 +676,16 @@ class DetObj:
                         f2 = self.fibers[i]
                         f1 = self.fibers[j]
 
+                    #todo: fix for cure (this index to ID is really only true for panacea)
+                    f1_id = 1 + i
+                    f2_id = 1 + j
+
                     msg = None
                     sn_cap = 12.0  # anything above this is considered the same value
                     delta_dist = f2.dqs_dist - f1.dqs_dist
                     # using SN instead of raw_score since raw_score is capped at 5
                     delta_sn = min(sn_cap,f1.sn) - min(sn_cap,f2.sn)
+
                     if delta_sn > 0:
                         delta_sn = max(0, delta_sn - gross_noise)
                     else:
@@ -669,27 +694,32 @@ class DetObj:
                     #this only applies to fibers from the same observation
                     #otherwise conditions could be much different and not directly comparable
                     if (f1.dither_date == f2.dither_date) and (f1.obsid == f2.obsid):
-                        pad = 1.25
+                        pad = 1.5
                         sigma = 1.5 #todo: can we get this as the PSF for the observation?
                         # for gaussian, x0 = 0, x = delta_dist, sigma = the PSF (so like, 1.5 or so?)
-                        #todo: maybe instead of larger sn, mult.by the closer one (always f1.sn)??
-                        if delta_sn > pad*(1.0-gaussian(delta_dist,0.0,sigma))*max(f1.sn,f2.sn):
-                            p = 0.5 * (abs(f1.dqs - f2.dqs))
+                        limit_sn = pad * (1.0 - gaussian(delta_dist, 0.0, sigma)) * max(f1.sn, f2.sn)
+                        limit_sn = max(1.0, limit_sn)
+
+
+                        if delta_sn > limit_sn:
+                            p = min(1.,(delta_sn - limit_sn)/limit_sn) * 0.5 * (abs(f1.dqs - f2.dqs))
                             penalty += p
-                            msg = "Score Penalty (%g) (same obs), detect ID# %d. Delta_SN = %g , Delta_dist = %g" % \
-                                  (p,self.id,delta_sn,delta_dist)
+                            msg = "Score Penalty (%g) (same obs), detect ID# %d, f1:%d f2:%d . Delta_SN = %g (%g), Delta_dist = %g" % \
+                                  (p,self.id,f1_id, f2_id,delta_sn, limit_sn, delta_dist)
                     else: #different observations of the same spot; similar logic, different cuts
                         sigma = 1.0  # can't really use PSF since over different observations, so just be conservative
                         #(note: conservative here means, gaussian falls off faster, so smaller sigma)
                         dist_cap = G.Fiber_Radius
+                        limit_sn = pad * (1.0 - gaussian(delta_dist, 0.0, sigma)) * max(f1.sn, f2.sn)
+                        limit_sn = max(1.0,limit_sn)
                         if delta_dist < dist_cap:
                             pad = 2.0 #bigger pad since different observations
                             # for gaussian, x0 = 0, x = delta_dist, sigma = the PSF (so like, 1.5 or so?)
-                            if delta_sn > pad * (1.0 - gaussian(delta_dist, 0.0, sigma)) * max(f1.sn, f2.sn):
-                                p = 0.5 * (abs(f1.dqs - f2.dqs))
+                            if delta_sn > limit_sn:
+                                p = min(1.,(delta_sn - limit_sn)/limit_sn) * 0.5 * (abs(f1.dqs - f2.dqs))
                                 penalty += p
-                                msg = "Score Penalty (%g) (diff obs) , detect ID# %d. Delta_SN = %g , Delta_dist = %g" % \
-                                      (p, self.id, delta_sn, delta_dist)
+                                msg = "Score Penalty (%g) (diff obs) , detect ID# %d  f1:%d f2:%d . Delta_SN = %g (%g) , Delta_dist = %g" % \
+                                      (p, self.id, f1_id, f2_id,delta_sn, limit_sn, delta_dist)
 
                     if msg:
                         log.debug(msg)
@@ -697,6 +727,9 @@ class DetObj:
             score -= penalty
 
         self.dqs = score
+        #dqs_shape() may modify the score
+        self.dqs_shape()
+
 
         return self.dqs
 
@@ -705,15 +738,107 @@ class DetObj:
         central_wave = np.zeros(PEAK_PIXELS*2 + 1)
 
         for f in self.fibers:
-            if len(self.central_wave_pixels) == 0:
+            if len(f.central_wave_pixels) == 0:
                 continue #no modification
 
-            #todo: add up all fibers (weighted?)
+            # add up all fibers (weighted? or at least filtered by distance?)
+            if f.dqs > 0:
+                central_wave += f.central_wave_pixels
 
-        # todo: skewness (want positive ... a right tail), kurtosis (want more positive ... peaky, but in some range)
+        #blunt very negative values
+        central_wave = np.clip(central_wave,-10.0,np.inf)
+
+        # todo: skewness (want positive ... a right tail), kurtosis (more positive = fewer tail outliers
         # todo: is there enough resolution to get a reasonable calculation? for each fiber or sum of best fibers?
         # todo: smooth it first? fit to a gaussian first? (say +/-3 or 5 pixels from center so .. 7 to 11 pixels in all
         # todo: (about 7-10 AA to either side?)
+
+        #x = np.linspace(self.w-PEAK_PIXELS*1.9,self.w+PEAK_PIXELS*1.9,len(central_wave))
+        #note: do not center at zero ... messes up the skew and do not put at wavelength (can't fit?)
+        #x = np.linspace(-PEAK_PIXELS*1.9,PEAK_PIXELS*1.9,len(central_wave))
+        #norm to 1? 0 to 1 or -1 to 1 ... creates problems with fitting
+        #x = np.linspace(0.0,1.0, len(central_wave))
+        x = np.array(range(len(central_wave))) #0 to 2*PEAK_PIXElS
+        xfit = np.linspace(0, len(central_wave), 100)
+
+        try:
+             parm, pcov = curve_fit(gaussian, x, central_wave, bounds=((PEAK_PIXELS-1, 0, -np.inf), (PEAK_PIXELS+1, np.inf, np.inf)))
+             fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
+        except:
+            log.error("Could not fit gaussian -- Detect ID #%d." % self.id) #, exc_info=True)
+            return
+
+        if fit_wave is not None:
+            old_score = self.dqs
+            new_score = old_score
+            sk = skew(fit_wave)
+            ku = kurtosis(fit_wave)
+            si = parm[1] *1.9 #scale to angstroms
+            dx0 = (parm[0]-PEAK_PIXELS) *1.9
+
+            #new_score:
+            if si < 1.5:
+                new_score -= (1.5 - si)
+            elif si > 2.0:
+                new_score += np.sqrt(si -2.0)
+
+            if (sk < 1.0) and (ku < 0.0): #fairly central, little outlier (prob with fat sigma)
+                new_score += 1.0
+            elif (sk > 2.0) and (ku > 3.0): #skewed a bit red, a bit peaky, with outlier influence
+                new_score += 0.5
+
+
+            if self.plot_dqs_fit:
+
+                plt.title("ID #%d, Old Score = %g , New Score = %g \n"
+                          "dX0 = %g , Sigma = %g, Skew = %g, Kurtosis = %g"
+                          % (self.id, old_score, new_score, dx0, si, sk, ku))
+
+                plt.plot(x,central_wave)
+                plt.plot(xfit,fit_wave)
+                plt.grid(True)
+
+                ymin = min(min(fit_wave),min(central_wave))
+                ymax = max(max(fit_wave),max(central_wave))
+
+                ymin *= 1.1
+                ymax *= 1.1
+
+                if abs(ymin) < 1.0: ymin = -1.0
+                if abs(ymax) < 1.0: ymax = 1.0
+
+                plt.ylim((ymin,ymax))
+
+                png = 'gauss_' + str(self.id) + ".png"
+                log.info('Writing: ' + png)
+                print('Writing: ' + png)
+                plt.savefig(png)
+                plt.close('all')
+
+            base_msg = "Emission # %d, dX0 = %g(AA), Sigma = %g(AA), Skew = %g , Kurtosis = %g" \
+                       %  (self.id, dx0, si, sk, ku)
+
+            # todo: points for shape? sigma > 3.0  ; ku (more quality than points?), skew > 1.0 ?
+            # skew < -1.0 is bad (wrong direction)
+            # peak not near 0 +/-2 pixels (3.8AA) is a bad fit
+            # if (abs(xpeak) < 3.8) and (si < 20.0): #reasonable (within 2 pixels of the reported peak
+            #     #decent enough fit, use it to draw conclusions
+            #     #width ... within reason, larger is better? use sigma as proxy for width
+            #
+            #
+            #     log.info(base_msg)
+            # else: # bad fit
+            #     #todo: do we penalize for a bad fit? (can we draw any conclusions if the fit is bad)?
+            #     log.info("Bad Gaussian fit " + base_msg)
+
+            #there are now no bad fits ... forcing to central peak and minimizing deep negatie
+            #values
+
+            self.dqs = new_score
+            log.info(base_msg)
+
+        else:
+            log.info("Emission # %d -- unable to fit gaussian" % (self.id))
 
 
 
@@ -760,7 +885,7 @@ class DetObj:
             return True #this was still a fiber, just not one that is valid
 
         self.fibers.append(Fiber(idstring,specid,ifuslot,ifuid,amp,dither_date,dither_time,dither_time_extended,
-                                 fiber_idx))
+                                 fiber_idx,self.id))
 
         return True
 
@@ -1094,6 +1219,11 @@ class HETDEX:
         if args is None:
             log.error("Cannot construct HETDEX object. No arguments provided.")
             return None
+
+        if args.score:
+            self.plot_dqs_fit = True
+        else:
+            self.plot_dqs_fit = False
 
         self.multiple_observations = False #set if multiple observations are used (rather than a single obsdate,obsid)
         self.ymd = None
@@ -1590,6 +1720,7 @@ class HETDEX:
                             log.error(exit_string)
                             return False
                 else: #invalid path:
+                    print("Invalid path to panacea science fits: %s" %path)
                     log.error("Invalid path to panacea science fits: %s" %path)
 
             while op.isdir(path):
@@ -1826,8 +1957,8 @@ class HETDEX:
                     if e.ifuslot is not None:
                         if e.ifuslot != self.ifu_slot_id:
                             #this emission line does not belong to the IFU we are working on
-                            log.debug("Continuum detection IFU (%s) does not match current working IFU (%s)" %
-                                     (e.ifuslot,self.ifu_slot_id))
+                            #log.debug("Continuum detection IFU (%s) does not match current working IFU (%s)" %
+                            #         (e.ifuslot,self.ifu_slot_id))
                             continue
 
                     if self.emis_det_id is not None:
@@ -1850,6 +1981,8 @@ class HETDEX:
                     toks = l.split()
                     e = DetObj(toks,emission=True)
 
+                    e.plot_dqs_fit = self.plot_dqs_fit
+
                     if self.panacea and (e.sn < self.min_fiber_sn): #pointless to add, nothing will plot
                         continue
 
@@ -1857,8 +1990,8 @@ class HETDEX:
                         if e.ifuslot is not None:
                             if e.ifuslot != self.ifu_slot_id:
                                 #this emission line does not belong to the IFU we are working on
-                                log.debug("Emission detection IFU (%s) does not match current working IFU (%s)" %
-                                         (e.ifuslot,self.ifu_slot_id))
+                                #log.debug("Emission detection IFU (%s) does not match current working IFU (%s)" %
+                                #         (e.ifuslot,self.ifu_slot_id))
                                 continue
 
                     if self.emis_det_id is not None:
@@ -1948,11 +2081,7 @@ class HETDEX:
             ra = e.ra
             dec = e.dec
 
-        datakeep = None
-        if self.panacea:
-            datakeep = self.build_panacea_hetdex_data_dict(e)
-        else:
-            datakeep = self.build_hetdex_data_dict(e)
+        datakeep = self.build_data_dict(e)
 
         if self.ymd and self.obsid:
             title +="%d\n"\
@@ -2150,10 +2279,14 @@ class HETDEX:
 
 
     def build_data_dict(self,detobj):
+        datakeep = None
         if self.panacea:
             datakeep = self.build_panacea_hetdex_data_dict(detobj)
         else:
             datakeep = self.build_hetdex_data_dict(detobj)
+
+        detobj.dqs_score() #force_recompute=True)
+        return datakeep
 
     def build_hetdex_data_dict(self,e):#e is the emission detection to use
         if e is None:
@@ -2233,7 +2366,7 @@ class HETDEX:
             # cure does not build specific fibers (don't know the info until here), so build now for the _fib.txt file
             try:
                 fiber = Fiber(op.basename(sci.filename), str(self.specid), str(self.ifu_slot_id), str(self.ifu_id),
-                              None, str(self.ymd), "None", "None", -1)
+                              None, str(self.ymd), "None", "None", -1,e.id)
 
                 if fiber:
                     #could parse the filename and get dither_time and dither_time_extended
@@ -2364,7 +2497,7 @@ class HETDEX:
                     if (Fe_indh == max_x) or (Fe_indl == 0):
                         log.info("Peak too close to wavelength edge for fiber %s" % fiber.idstring)
                     else:
-                        fiber.central_wave_pixels = wave[Fe_indl:(Fe_indh+1)]
+                        fiber.central_wave_pixels = sci.fe_data[loc,Fe_indl:(Fe_indh+1)]
 
                 datakeep['fw_spec'].append(sci.fe_data[loc,:])
                 datakeep['fw_specwave'].append(wave[:])
@@ -2483,7 +2616,7 @@ class HETDEX:
 
             if fiber is None: # did not find it? impossible?
                 log.error("Error! Cannot identify fiber in HETDEX:build_panacea_hetdex_data_dict().")
-                fiber = Fiber(0,0,0,0,'XX',"","","",-1)
+                fiber = Fiber(0,0,0,0,'XX',"","","",-1,-1)
 
 
             log.debug("Building data dict for " + fits.filename)
@@ -2632,13 +2765,25 @@ class HETDEX:
             if fiber:
                 Fe_indl = center - PEAK_PIXELS
                 Fe_indh = center + PEAK_PIXELS
-                Fe_indl = max(Fe_indl, 0)
-                Fe_indh = min(Fe_indh, max_x)
+                #Fe_indl = max(Fe_indl, 0)
+                #Fe_indh = min(Fe_indh, max_x)
 
-                if (Fe_indh == (max_x)) or (Fe_indl == 0):
-                    log.info("Peak too close to wavelength edge for fiber %s" % fiber.idstring)
+
+
+                if (Fe_indl) < 0:
+                    fiber.central_wave_pixels = np.zeros(abs(Fe_indl))
+                    fiber.central_wave_pixels = np.concatenate(
+                        (fiber.central_wave_pixels,fits.fe_data[loc,0:(Fe_indh+1)]))
+                elif Fe_indh > max_x:
+                    fiber.central_wave_pixels = np.zeros(max_x - Fe_indl)
+                    fiber.central_wave_pixels = np.concatenate(
+                        (fits.fe_data[loc, Fe_indl:(max_x + 1)],fiber.central_wave_pixels))
+
+                #if (Fe_indh == (max_x)) or (Fe_indl == 0):
+                #    log.info("Peak too close to wavelength edge for fiber %s" % fiber.idstring)
+
                 else:
-                    fiber.central_wave_pixels = wave[Fe_indl:(Fe_indh+1)]
+                    fiber.central_wave_pixels = fits.fe_data[loc,Fe_indl:(Fe_indh+1)]
 
             datakeep['fw_spec'].append(fits.fe_data[loc, :])
             datakeep['fw_specwave'].append(wave[:])
