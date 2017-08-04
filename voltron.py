@@ -577,7 +577,7 @@ def write_fibers_file(filename,hd_list):
     headers = [
         "entry number",
         "detect ID",
-        "detection quality score,"
+        "detection quality score",
         "emission line RA (decimal degrees)",
         "emission line Dec (decimal degrees)",
         "emission line wavelength (AA)",

@@ -372,6 +372,7 @@ class Fiber:
         self.dqs_raw = None  # unweighted score
         self.dqs_dist = None  # distance from source
         self.dqs_w = None #dqs weight
+        self.central_wave_pixels_bad = 0
         self.central_wave_pixels = [] #from fiber-extracted ... the few pixels around the peak
 
         try:
@@ -422,8 +423,8 @@ class Fiber:
         score = 0.0
         max_score = 10.0
         max_sn = 100.0 #above base_sn
-        linear_sn = 3.0 #above base_sn
-        base_sn = 3.5
+        linear_sn = 2.0 #above base_sn
+        base_sn = 3.0
         #build score (additive only)
         if self.sn:
             if self.sn < base_sn:
@@ -735,6 +736,8 @@ class DetObj:
 
     def dqs_shape(self,force_recompute=False):
 
+        bad_pix = 0
+        fiber_count = 0
         central_wave = np.zeros(PEAK_PIXELS*2 + 1)
 
         for f in self.fibers:
@@ -742,8 +745,20 @@ class DetObj:
                 continue #no modification
 
             # add up all fibers (weighted? or at least filtered by distance?)
-            if f.dqs > 0:
-                central_wave += f.central_wave_pixels
+            #if (f.dqs != None) and (f.sn > 3.5):
+            if f.dqs > 1.0:
+                fiber_count += 1
+                bad_pix += f.central_wave_pixels_bad
+                try:
+                    central_wave += f.central_wave_pixels
+                except:
+                    log.error("Improperly shaped fiber.central_wave_pixels: %s" % f.idstring,exc_info=True)
+                    return
+
+        if fiber_count == 0:
+            #we are done ... no fibers to fit a shape
+            log.info("Emission # %d -- no fibers qualify to make spectra" % (self.id))
+            return
 
         #blunt very negative values
         central_wave = np.clip(central_wave,-10.0,np.inf)
@@ -777,19 +792,24 @@ class DetObj:
             dx0 = (parm[0]-PEAK_PIXELS) *1.9
 
             #new_score:
-            if si < 1.5:
-                new_score -= (1.5 - si)
-            elif si > 2.0:
-                new_score += np.sqrt(si -2.0)
+            if float(bad_pix)/float(fiber_count) < 2.0: # 1 bad pixel in each fiber is okay, but no more
+                if si < 2.0:
+                    new_score -= (2.0 - si) #yes, I want this linear
+                elif si < 2.5:
+                    pass #zero zone
+                elif si > 2.5:
+                    new_score += np.sqrt(si-2.0) #yes, I want this from 2.0 not 2.5
 
-            if (sk < 1.0) and (ku < 0.0): #fairly central, little outlier (prob with fat sigma)
-                new_score += 1.0
-            elif (sk > 2.0) and (ku > 3.0): #skewed a bit red, a bit peaky, with outlier influence
-                new_score += 0.5
+                if si > 2.0:
+                    if ku < 1.0:
+                        new_score += min(1.0 - ku, 2.0)
 
+                if sk < 0.0: #skew wrong directionn
+                    new_score -= min(0.5,sk)
+                if (sk > 2.0): #skewed a bit red, a bit peaky, with outlier influence
+                        new_score += min(0.5,sk-2.0)
 
             if self.plot_dqs_fit:
-
                 plt.title("ID #%d, Old Score = %g , New Score = %g \n"
                           "dX0 = %g , Sigma = %g, Skew = %g, Kurtosis = %g"
                           % (self.id, old_score, new_score, dx0, si, sk, ku))
@@ -814,6 +834,7 @@ class DetObj:
                 print('Writing: ' + png)
                 plt.savefig(png)
                 plt.close('all')
+                #end plotting
 
             base_msg = "Emission # %d, dX0 = %g(AA), Sigma = %g(AA), Skew = %g , Kurtosis = %g" \
                        %  (self.id, dx0, si, sk, ku)
@@ -2491,13 +2512,24 @@ class HETDEX:
                 if fiber:
                     Fe_indl = center - PEAK_PIXELS
                     Fe_indh = center + PEAK_PIXELS
-                    Fe_indl = max(Fe_indl, 0)
-                    Fe_indh = min(Fe_indh, max_x)
+                    #Fe_indl = max(Fe_indl, 0)
+                    #Fe_indh = min(Fe_indh, max_x)
 
-                    if (Fe_indh == max_x) or (Fe_indl == 0):
-                        log.info("Peak too close to wavelength edge for fiber %s" % fiber.idstring)
-                    else:
-                        fiber.central_wave_pixels = sci.fe_data[loc,Fe_indl:(Fe_indh+1)]
+                    if (Fe_indl) < 0:
+                        fiber.central_wave_pixels_bad = abs(Fe_indl)
+                        fiber.central_wave_pixels = np.zeros(abs(Fe_indl))
+                        fiber.central_wave_pixels = np.concatenate(
+                            (fiber.central_wave_pixels, sci.fe_data[loc, 0:(Fe_indh + 1)]))
+                    elif Fe_indh > max_x:
+                        fiber.central_wave_pixels_bad = max_x - Fe_indh
+                        fiber.central_wave_pixels = np.zeros(max_x - Fe_indl)
+                        fiber.central_wave_pixels = np.concatenate(
+                            (sci.fe_data[loc, Fe_indl:(max_x + 1)], fiber.central_wave_pixels))
+
+                    #if (Fe_indh == max_x) or (Fe_indl == 0):
+                    #    log.info("Peak too close to wavelength edge for fiber %s" % fiber.idstring)
+                    #else:
+                    #    fiber.central_wave_pixels = sci.fe_data[loc,Fe_indl:(Fe_indh+1)]
 
                 datakeep['fw_spec'].append(sci.fe_data[loc,:])
                 datakeep['fw_specwave'].append(wave[:])
@@ -2765,19 +2797,17 @@ class HETDEX:
             if fiber:
                 Fe_indl = center - PEAK_PIXELS
                 Fe_indh = center + PEAK_PIXELS
-                #Fe_indl = max(Fe_indl, 0)
-                #Fe_indh = min(Fe_indh, max_x)
-
-
 
                 if (Fe_indl) < 0:
-                    fiber.central_wave_pixels = np.zeros(abs(Fe_indl))
+                    fiber.central_wave_pixels_bad = abs(Fe_indl)
+                    fiber.central_wave_pixels = np.zeros(fiber.central_wave_pixels_bad)
                     fiber.central_wave_pixels = np.concatenate(
                         (fiber.central_wave_pixels,fits.fe_data[loc,0:(Fe_indh+1)]))
                 elif Fe_indh > max_x:
-                    fiber.central_wave_pixels = np.zeros(max_x - Fe_indl)
+                    fiber.central_wave_pixels_bad = Fe_indh - max_x + 1
+                    fiber.central_wave_pixels = np.zeros(fiber.central_wave_pixels_bad)
                     fiber.central_wave_pixels = np.concatenate(
-                        (fits.fe_data[loc, Fe_indl:(max_x + 1)],fiber.central_wave_pixels))
+                        (fits.fe_data[loc, Fe_indl:(max_x)],fiber.central_wave_pixels))
 
                 #if (Fe_indh == (max_x)) or (Fe_indl == 0):
                 #    log.info("Peak too close to wavelength edge for fiber %s" % fiber.idstring)
