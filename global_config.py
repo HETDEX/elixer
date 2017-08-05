@@ -13,10 +13,10 @@ if socket.gethostname() == 'z50':
 #if False:
     OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
 
-    #CONFIG_BASEDIR = "/home/dustin/code/python/voltron/data/config/"
-    #PANACEA_RED_BASEDIR = "/home/dustin/code/python/voltron/data/config/red1/reductions/"
-    CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
-    PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
+    CONFIG_BASEDIR = "/home/dustin/code/python/voltron/data/config/"
+    PANACEA_RED_BASEDIR = "/home/dustin/code/python/voltron/data/config/red1/reductions/"
+    #CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
+    #PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
 
     CANDELS_EGS_Stefanon_2016_BASE_PATH = "/home/dustin/code/python/voltron/data/EGS"
     GOODS_N_BASE_PATH = "/home/dustin/code/python/voltron/data/GOODSN"
@@ -123,7 +123,7 @@ CCD_EDGE_FIBERS_ALL_2 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 
 
 #Detection Quality Score Values
 FULL_WEIGHT_DISTANCE = 0.5 * Fiber_Radius
-ZERO_WEIGHT_DISTANCE = 3.0 * Fiber_Radius
+ZERO_WEIGHT_DISTANCE = 4.0 * Fiber_Radius
 
 #quadratic constants for ax^2 + bx + c for fitted quadratic to weight fall off
 #QUAD_A = -1/(Fiber_Radius**2*(FULL_WEIGHT_MULT-ZERO_WEIGHT_MULT)**2)

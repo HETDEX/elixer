@@ -421,18 +421,28 @@ class Fiber:
 
         weight = self.dqs_weight(ra,dec)
         score = 0.0
-        max_score = 10.0
-        max_sn = 100.0 #above base_sn
-        linear_sn = 2.0 #above base_sn
+        sqrt_sn = 100.0 #above linear_sn
+        linear_sn = 3.0 #above sq_sn
+        sq_sn = 2.0
         base_sn = 3.0
         #build score (additive only)
         if self.sn:
             if self.sn < base_sn:
                 score += 0.0
-            elif self.sn < (base_sn + linear_sn): #linear growth
-                score += self.sn - base_sn
-            elif self.sn < (base_sn + max_sn): #sqrt growth
-                score += linear_sn + np.sqrt(self.sn - base_sn)
+            elif self.sn < (base_sn + sq_sn):
+                score += (self.sn - base_sn)**2
+            elif self.sn < (base_sn + sq_sn + linear_sn): #linear growth
+                #square growth part
+                score += sq_sn**2
+                #linear part
+                score += (self.sn - (base_sn + sq_sn))
+            elif self.sn < (base_sn + sq_sn + linear_sn + sqrt_sn): #sqrt growth
+                # square growth part
+                score += sq_sn ** 2
+                # linear part
+                score += linear_sn
+                #sqrt growth part
+                score += np.sqrt(1. + self.sn-(base_sn+sq_sn+linear_sn))-1
             else:
                 log.info("Unexpected, really large S/N (%f) for %s" % (self.sn,self.idstring))
                 score += -1.0 #same as low score ... something really wrong sn 100+ is nonsense (thinking cosmic ray?)
@@ -663,11 +673,12 @@ class DetObj:
 
             gross_noise = 3.0 #e.g. SN = +/- gross_noise
             penalty = 0.0
+            bonus_idx = []
             for i in range(len(self.fibers)):
+                if (self.fibers[i].dqs_dist == None) or (self.fibers[i].sn == None) :
+                    continue
                 for j in range(i+1,len(self.fibers)):
-                    if not (self.fibers[i].dqs_dist and self.fibers[j].dqs_dist):
-                        continue
-                    if not (self.fibers[i].sn and self.fibers[j].sn):
+                    if (self.fibers[j].dqs_dist == None) or (self.fibers[j].sn == None):
                         continue
 
                     if self.fibers[i].dqs_dist < self.fibers[j].dqs_dist:
@@ -698,34 +709,58 @@ class DetObj:
                         pad = 1.5
                         sigma = 1.5 #todo: can we get this as the PSF for the observation?
                         # for gaussian, x0 = 0, x = delta_dist, sigma = the PSF (so like, 1.5 or so?)
-                        limit_sn = pad * (1.0 - gaussian(delta_dist, 0.0, sigma)) * max(f1.sn, f2.sn)
+                        limit_sn = (1.0 - gaussian(delta_dist, 0.0, sigma)) * max(f1.sn, f2.sn)
                         limit_sn = max(1.0, limit_sn)
 
 
-                        if delta_sn > limit_sn:
-                            p = min(1.,(delta_sn - limit_sn)/limit_sn) * 0.5 * (abs(f1.dqs - f2.dqs))
+                        if delta_sn > pad * limit_sn:
+                            #larger penality if from the same exposure
+                            if f1.expid == f2.expid:
+                                p = min(1.,(delta_sn - pad *limit_sn)/(pad *limit_sn)) * 0.5 * (abs(f1.dqs - f2.dqs))
+                            else:
+                                p = min(1., (delta_sn - pad *limit_sn) /( pad *limit_sn)) * 0.3 * (abs(f1.dqs - f2.dqs))
                             penalty += p
                             msg = "Score Penalty (%g) (same obs), detect ID# %d, f1:%d f2:%d . Delta_SN = %g (%g), Delta_dist = %g" % \
-                                  (p,self.id,f1_id, f2_id,delta_sn, limit_sn, delta_dist)
+                                  (p,self.id,f1_id, f2_id,delta_sn, pad * limit_sn, delta_dist)
+                        elif (delta_sn <= limit_sn) and not (j in bonus_idx):
+                            #SN are close, give a bonus
+                            bonus_idx.append(j)
+                            p = f2.dqs
+                            penalty -= p
+                            msg = "Score bonus (%g) (same obs), detect ID# %d, f1:%d f2:%d . Delta_SN = %g (%g), Delta_dist = %g" % \
+                                  (p, self.id, f1_id, f2_id, delta_sn, limit_sn, delta_dist)
+                        #else middle ground, no bonus, no penalty
+
+
                     else: #different observations of the same spot; similar logic, different cuts
-                        sigma = 1.0  # can't really use PSF since over different observations, so just be conservative
+                        pad = 2.0 #bigger pad since different observations
+                        sigma = 1.5  # can't really use PSF since over different observations, so just be conservative
                         #(note: conservative here means, gaussian falls off faster, so smaller sigma)
-                        dist_cap = G.Fiber_Radius
-                        limit_sn = pad * (1.0 - gaussian(delta_dist, 0.0, sigma)) * max(f1.sn, f2.sn)
+                        dist_cap = G.Fiber_Radius*4
+                        limit_sn = (1.0 - gaussian(delta_dist, 0.0, sigma)) * max(f1.sn, f2.sn)
                         limit_sn = max(1.0,limit_sn)
                         if delta_dist < dist_cap:
-                            pad = 2.0 #bigger pad since different observations
                             # for gaussian, x0 = 0, x = delta_dist, sigma = the PSF (so like, 1.5 or so?)
-                            if delta_sn > limit_sn:
-                                p = min(1.,(delta_sn - limit_sn)/limit_sn) * 0.5 * (abs(f1.dqs - f2.dqs))
+                            #lower max penality since from different observations
+                            if delta_sn > pad *limit_sn:
+                                p = min(1.,(delta_sn - pad *limit_sn)/(pad *limit_sn)) * 0.25 * (abs(f1.dqs - f2.dqs))
                                 penalty += p
                                 msg = "Score Penalty (%g) (diff obs) , detect ID# %d  f1:%d f2:%d . Delta_SN = %g (%g) , Delta_dist = %g" % \
-                                      (p, self.id, f1_id, f2_id,delta_sn, limit_sn, delta_dist)
+                                      (p, self.id, f1_id, f2_id,delta_sn, pad *limit_sn, delta_dist)
+                        elif  (delta_sn <= limit_sn) and not (j in bonus_idx):
+                            #give a bonus for the farther fiber (just once)
+                            bonus_idx.append(j)
+                            p = f2.dqs
+                            penalty -= p
+                            msg = "Score bonus (%g) (same obs), detect ID# %d, f1:%d f2:%d . Delta_SN = %g (%g), Delta_dist = %g" % \
+                                  (p, self.id, f1_id, f2_id, delta_sn, limit_sn, delta_dist)
 
                     if msg:
                         log.debug(msg)
 
             score -= penalty
+            log.info("Detect ID# %d total penalty (%g). New Score = %g" %(self.id, penalty, score))
+
 
         self.dqs = score
         #dqs_shape() may modify the score
@@ -746,7 +781,7 @@ class DetObj:
 
             # add up all fibers (weighted? or at least filtered by distance?)
             #if (f.dqs != None) and (f.sn > 3.5):
-            if f.dqs > 1.0:
+            if f.dqs > 0.0:
                 fiber_count += 1
                 bad_pix += f.central_wave_pixels_bad
                 try:
@@ -773,16 +808,37 @@ class DetObj:
         #x = np.linspace(-PEAK_PIXELS*1.9,PEAK_PIXELS*1.9,len(central_wave))
         #norm to 1? 0 to 1 or -1 to 1 ... creates problems with fitting
         #x = np.linspace(0.0,1.0, len(central_wave))
+
+
+
+
         x = np.array(range(len(central_wave))) #0 to 2*PEAK_PIXElS
         xfit = np.linspace(0, len(central_wave), 100)
+        fit_wave = None
 
+        wide = True
+
+        #use the wide_fit if we can ... if not, use narrow fit
         try:
-             parm, pcov = curve_fit(gaussian, x, central_wave, bounds=((PEAK_PIXELS-1, 0, -np.inf), (PEAK_PIXELS+1, np.inf, np.inf)))
-             fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
+            parm, pcov = curve_fit(gaussian, x, central_wave,p0=(PEAK_PIXELS,1.0,0),
+                                     bounds=((0, 0, -np.inf), (PEAK_PIXELS * 2, np.inf, np.inf)))
+            fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
         except:
-            log.error("Could not fit gaussian -- Detect ID #%d." % self.id) #, exc_info=True)
-            return
+            log.error("Could not wide fit gaussian (will try narrow) -- Detect ID # %d." % self.id)
+            wide = False
 
+            #use narrow fit
+            try:
+                 parm, pcov = curve_fit(gaussian, x, central_wave, p0=(PEAK_PIXELS,1.0,0),
+                                        bounds=((PEAK_PIXELS-1, 0, -np.inf), (PEAK_PIXELS+1, np.inf, np.inf)))
+                 fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
+            except:
+                log.error("Could not narrow fit gaussian -- Detect ID # %d." % self.id) #, exc_info=True)
+                return
+
+
+        title = ""
+        #fit around designated emis line
         if fit_wave is not None:
             old_score = self.dqs
             new_score = old_score
@@ -791,14 +847,24 @@ class DetObj:
             si = parm[1] *1.9 #scale to angstroms
             dx0 = (parm[0]-PEAK_PIXELS) *1.9
 
+            save = False
+
             #new_score:
             if float(bad_pix)/float(fiber_count) < 2.0: # 1 bad pixel in each fiber is okay, but no more
-                if si < 2.0:
-                    new_score -= (2.0 - si) #yes, I want this linear
+
+                if abs(dx0) > 1.9:  #+/- one pixel (in AA)  from center
+                    new_score -= (abs(dx0) - 1.9) ** 2
+
+                if si < 1.5:
+                    new_score -= np.sqrt(2.0 - si) #mostly less than one and want a bigger impact
                 elif si < 2.5:
                     pass #zero zone
-                elif si > 2.5:
+                elif si < PEAK_PIXELS*2:
                     new_score += np.sqrt(si-2.0) #yes, I want this from 2.0 not 2.5
+                elif si < PEAK_PIXELS*3:
+                    pass #unexpected, but lets not penalize just yet
+                else: #very wrong
+                    new_score -= np.sqrt(si-PEAK_PIXELS*3)
 
                 if si > 2.0:
                     if ku < 1.0:
@@ -809,13 +875,27 @@ class DetObj:
                 if (sk > 2.0): #skewed a bit red, a bit peaky, with outlier influence
                         new_score += min(0.5,sk-2.0)
 
-            if self.plot_dqs_fit:
-                plt.title("ID #%d, Old Score = %g , New Score = %g \n"
-                          "dX0 = %g , Sigma = %g, Skew = %g, Kurtosis = %g"
-                          % (self.id, old_score, new_score, dx0, si, sk, ku))
+                base_msg = "Emission # %d, Emis Fit dX0 = %g(AA), Sigma = %g(AA), Skew = %g , Kurtosis = %g : Score Change = %g" \
+                       % (self.id, dx0, si, sk, ku, new_score - old_score)
+                log.info(base_msg)
+            else:
+                log.info("Emission # %d, too many bad pixels to fit gaussian. No score change (%g)" % (self.id,old_score))
 
-                plt.plot(x,central_wave)
-                plt.plot(xfit,fit_wave)
+            if self.plot_dqs_fit:
+                if wide:
+                    title += "(Wide) "
+                else:
+                    title += "(Narrow) "
+
+                title += "ID #%d, Old Score = %g , New Score = %g \n"\
+                          "dX0 = %g , Sigma = %g, Skew = %g, Kurtosis = %g"\
+                          % (self.id, old_score, new_score, dx0, si, sk, ku)
+
+                plt.plot(x,central_wave,c='k')
+                if wide:
+                    plt.plot(xfit,fit_wave,c='r')
+                else:
+                    plt.plot(xfit, fit_wave, c='b')
                 plt.grid(True)
 
                 ymin = min(min(fit_wave),min(central_wave))
@@ -828,16 +908,14 @@ class DetObj:
                 if abs(ymax) < 1.0: ymax = 1.0
 
                 plt.ylim((ymin,ymax))
-
+                plt.title(title)
                 png = 'gauss_' + str(self.id) + ".png"
                 log.info('Writing: ' + png)
                 print('Writing: ' + png)
+                plt.tight_layout()
                 plt.savefig(png)
                 plt.close('all')
-                #end plotting
-
-            base_msg = "Emission # %d, dX0 = %g(AA), Sigma = %g(AA), Skew = %g , Kurtosis = %g" \
-                       %  (self.id, dx0, si, sk, ku)
+                # end plotting
 
             # todo: points for shape? sigma > 3.0  ; ku (more quality than points?), skew > 1.0 ?
             # skew < -1.0 is bad (wrong direction)
@@ -856,7 +934,7 @@ class DetObj:
             #values
 
             self.dqs = new_score
-            log.info(base_msg)
+            #log.info(base_msg)
 
         else:
             log.info("Emission # %d -- unable to fit gaussian" % (self.id))
