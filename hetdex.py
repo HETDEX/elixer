@@ -423,7 +423,7 @@ class Fiber:
         score = 0.0
         sqrt_sn = 100.0 #above linear_sn
         linear_sn = 3.0 #above sq_sn
-        sq_sn = 2.0
+        sq_sn = 1.5
         base_sn = 3.0
         #build score (additive only)
         if self.sn:
@@ -465,7 +465,8 @@ class DetObj:
     def __init__(self,tokens,emission=True):
         #skip NR (0)
         self.plot_dqs_fit = False
-        self.dqs = None #Detection Quality Score
+        self.dqs = None #scaled score
+        self.dqs_raw = None #Detection Quality Score (raw score)
         self.type = 'unk'
         self.id = None
         self.x = None
@@ -674,6 +675,7 @@ class DetObj:
             gross_noise = 3.0 #e.g. SN = +/- gross_noise
             penalty = 0.0
             bonus_idx = []
+            penalty_idx = []
             for i in range(len(self.fibers)):
                 if (self.fibers[i].dqs_dist == None) or (self.fibers[i].sn == None) :
                     continue
@@ -693,79 +695,154 @@ class DetObj:
                     f2_id = 1 + j
 
                     msg = None
-                    sn_cap = 12.0  # anything above this is considered the same value
-                    delta_dist = f2.dqs_dist - f1.dqs_dist
-                    # using SN instead of raw_score since raw_score is capped at 5
-                    delta_sn = min(sn_cap,f1.sn) - min(sn_cap,f2.sn)
+                    sigma = 1.5 #like an average PSF
 
-                    if delta_sn > 0:
-                        delta_sn = max(0, delta_sn - gross_noise)
-                    else:
-                        delta_sn = min(0, delta_sn + gross_noise)
+                    #adding .dqs_dist to sigma is rough approximation of
+                    # farther from center == greater sigma (fatter gaussian)
+                    g1 = gaussian(f1.dqs_dist, 0.0, sigma+f1.dqs_dist)
+                    g2 = gaussian(f2.dqs_dist, 0.0, sigma+f2.dqs_dist)
 
-                    #this only applies to fibers from the same observation
-                    #otherwise conditions could be much different and not directly comparable
+                    if not (g1 and g2):
+                        log.debug("Invalid gaussian for detect ID # %d" % (self.id))
+                        continue
+
+                    p1 = f1.sn / g1
+                    p2 = f2.sn / g2
+
+                    delta_peak_sn = abs(p1-p2)
+
                     if (f1.dither_date == f2.dither_date) and (f1.obsid == f2.obsid):
-                        pad = 1.5
-                        sigma = 1.5 #todo: can we get this as the PSF for the observation?
-                        # for gaussian, x0 = 0, x = delta_dist, sigma = the PSF (so like, 1.5 or so?)
-                        limit_sn = (1.0 - gaussian(delta_dist, 0.0, sigma)) * max(f1.sn, f2.sn)
-                        limit_sn = max(1.0, limit_sn)
+                        penalty_peak_limit = 1.5 * gross_noise
+                        bonus_peak_limit = 1.0 * gross_noise
+                        if f1.expid == f2.expid:
+                            penalty_scale = 0.5
+                        else:
+                            penalty_scale = 0.4
+                    else: #different observations
+                        penalty_peak_limit = 2.0 * gross_noise
+                        bonus_peak_limit = 1.0 * gross_noise
+                        penalty_scale = 0.3
 
 
-                        if delta_sn > pad * limit_sn:
-                            #larger penality if from the same exposure
-                            if f1.expid == f2.expid:
-                                p = min(1.,(delta_sn - pad *limit_sn)/(pad *limit_sn)) * 0.5 * (abs(f1.dqs - f2.dqs))
-                            else:
-                                p = min(1., (delta_sn - pad *limit_sn) /( pad *limit_sn)) * 0.3 * (abs(f1.dqs - f2.dqs))
+                    if delta_peak_sn > penalty_peak_limit:  # penalty
+                        if not (i in penalty_idx): #only penalize for this fiber once
+                            penalty_idx.append(i)
+                            p = min(1.0,(delta_peak_sn-penalty_peak_limit)/penalty_peak_limit) * penalty_scale * f1.dqs
+
                             penalty += p
-                            msg = "Score Penalty (%g) (same obs), detect ID# %d, f1:%d f2:%d . Delta_SN = %g (%g), Delta_dist = %g" % \
-                                  (p,self.id,f1_id, f2_id,delta_sn, pad * limit_sn, delta_dist)
-                        elif (delta_sn <= limit_sn) and not (j in bonus_idx):
-                            #SN are close, give a bonus
-                            bonus_idx.append(j)
-                            p = f2.dqs
-                            penalty -= p
-                            msg = "Score bonus (%g) (same obs), detect ID# %d, f1:%d f2:%d . Delta_SN = %g (%g), Delta_dist = %g" % \
-                                  (p, self.id, f1_id, f2_id, delta_sn, limit_sn, delta_dist)
-                        #else middle ground, no bonus, no penalty
+                            msg = "Score Penalty (%g), detect ID# %d, f1:%d f2:%d . Delta_Peak SN = %g , limit = %g" % \
+                                  (p, self.id, f1_id, f2_id, p1-p2,penalty_peak_limit)
+
+                    elif (delta_peak_sn < bonus_peak_limit) and not (j in bonus_idx): #what was expected ... Bonus
+                        #only get the bonus for this fiber once
+                        bonus_idx.append(j)
+                        #todo: f2.dqs could be zero ... should there be a minimal bonus and a maximum?
+                        p = (bonus_peak_limit - delta_peak_sn ) / bonus_peak_limit
+                        penalty -= p
+                        msg = "Score bonus (%g), detect ID# %d, f1:%d f2:%d . Delta_SN = %g, limit = %g" % \
+                              (p, self.id, f1_id, f2_id, p1-p2, bonus_peak_limit)
+
+                    #else: no bonus, no penalty
 
 
-                    else: #different observations of the same spot; similar logic, different cuts
-                        pad = 2.0 #bigger pad since different observations
-                        sigma = 1.5  # can't really use PSF since over different observations, so just be conservative
-                        #(note: conservative here means, gaussian falls off faster, so smaller sigma)
-                        dist_cap = G.Fiber_Radius*4
-                        limit_sn = (1.0 - gaussian(delta_dist, 0.0, sigma)) * max(f1.sn, f2.sn)
-                        limit_sn = max(1.0,limit_sn)
-                        if delta_dist < dist_cap:
-                            # for gaussian, x0 = 0, x = delta_dist, sigma = the PSF (so like, 1.5 or so?)
-                            #lower max penality since from different observations
-                            if delta_sn > pad *limit_sn:
-                                p = min(1.,(delta_sn - pad *limit_sn)/(pad *limit_sn)) * 0.25 * (abs(f1.dqs - f2.dqs))
+
+
+
+
+
+                    if (False): #old way
+                        sn_cap = 12.0  # anything above this is considered the same value
+                        delta_dist = f2.dqs_dist - f1.dqs_dist
+                        # using SN instead of raw_score since raw_score is capped at 5
+                        delta_sn = min(sn_cap,f1.sn) - min(sn_cap,f2.sn)
+
+                        if delta_sn > 0:
+                            delta_sn = max(0, delta_sn - gross_noise)
+                        else:
+                            delta_sn = min(0, delta_sn + gross_noise)
+
+                        #this only applies to fibers from the same observation
+                        #otherwise conditions could be much different and not directly comparable
+                        if (f1.dither_date == f2.dither_date) and (f1.obsid == f2.obsid):
+                            pad = 1.5
+                            sigma = 1.5 #todo: can we get this as the PSF for the observation?
+
+
+                            if ( delta_peak_sn > (2*gross_noise)): #penalty
+                                if f1.expid == f2.expid:
+                                    p = min(1.,(delta_sn - pad *limit_sn)/(pad *limit_sn)) * 0.5 * (abs(f1.dqs - f2.dqs))
+                                else:
+                                    p = min(1., (delta_sn - pad *limit_sn) /( pad *limit_sn)) * 0.3 * (abs(f1.dqs - f2.dqs))
                                 penalty += p
-                                msg = "Score Penalty (%g) (diff obs) , detect ID# %d  f1:%d f2:%d . Delta_SN = %g (%g) , Delta_dist = %g" % \
-                                      (p, self.id, f1_id, f2_id,delta_sn, pad *limit_sn, delta_dist)
-                        elif  (delta_sn <= limit_sn) and not (j in bonus_idx):
-                            #give a bonus for the farther fiber (just once)
-                            bonus_idx.append(j)
-                            p = f2.dqs
-                            penalty -= p
-                            msg = "Score bonus (%g) (same obs), detect ID# %d, f1:%d f2:%d . Delta_SN = %g (%g), Delta_dist = %g" % \
-                                  (p, self.id, f1_id, f2_id, delta_sn, limit_sn, delta_dist)
+                                msg = "Score Penalty (%g) (same obs), detect ID# %d, f1:%d f2:%d . Delta_SN = %g (%g), Delta_dist = %g" % \
+                                      (p,self.id,f1_id, f2_id,delta_sn, pad * limit_sn, delta_dist)
+
+
+
+                            # for gaussian, x0 = 0, x = delta_dist, sigma = the PSF (so like, 1.5 or so?)
+                            limit_sn = (1.0 - gaussian(delta_dist, 0.0, sigma)) * max(f1.sn, f2.sn)
+                            limit_sn = max(1.0, limit_sn)
+
+
+                            if delta_sn > pad * limit_sn:
+                                #larger penality if from the same exposure
+                                if f1.expid == f2.expid:
+                                    p = min(1.,(delta_sn - pad *limit_sn)/(pad *limit_sn)) * 0.5 * (abs(f1.dqs - f2.dqs))
+                                else:
+                                    p = min(1., (delta_sn - pad *limit_sn) /( pad *limit_sn)) * 0.3 * (abs(f1.dqs - f2.dqs))
+                                penalty += p
+                                msg = "Score Penalty (%g) (same obs), detect ID# %d, f1:%d f2:%d . Delta_SN = %g (%g), Delta_dist = %g" % \
+                                      (p,self.id,f1_id, f2_id,delta_sn, pad * limit_sn, delta_dist)
+                            elif (delta_sn <= limit_sn) and not (j in bonus_idx):
+                                #SN are close, give a bonus
+                                bonus_idx.append(j)
+                                p = f2.dqs
+                                penalty -= p
+                                msg = "Score bonus (%g) (same obs), detect ID# %d, f1:%d f2:%d . Delta_SN = %g (%g), Delta_dist = %g" % \
+                                      (p, self.id, f1_id, f2_id, delta_sn, limit_sn, delta_dist)
+                            #else middle ground, no bonus, no penalty
+
+
+                        else: #different observations of the same spot; similar logic, different cuts
+                            pad = 2.0 #bigger pad since different observations
+                            sigma = 1.5  # can't really use PSF since over different observations, so just be conservative
+                            #(note: conservative here means, gaussian falls off faster, so smaller sigma)
+                            dist_cap = G.Fiber_Radius*4
+                            limit_sn = (1.0 - gaussian(delta_dist, 0.0, sigma)) * max(f1.sn, f2.sn)
+                            limit_sn = max(1.0,limit_sn)
+                            if delta_dist < dist_cap:
+                                # for gaussian, x0 = 0, x = delta_dist, sigma = the PSF (so like, 1.5 or so?)
+                                #lower max penality since from different observations
+                                if delta_sn > pad *limit_sn:
+                                    p = min(1.,(delta_sn - pad *limit_sn)/(pad *limit_sn)) * 0.25 * (abs(f1.dqs - f2.dqs))
+                                    penalty += p
+                                    msg = "Score Penalty (%g) (diff obs) , detect ID# %d  f1:%d f2:%d . Delta_SN = %g (%g) , Delta_dist = %g" % \
+                                          (p, self.id, f1_id, f2_id,delta_sn, pad *limit_sn, delta_dist)
+                            elif  (delta_sn <= limit_sn) and not (j in bonus_idx):
+                                #give a bonus for the farther fiber (just once)
+                                bonus_idx.append(j)
+                                p = f2.dqs
+                                penalty -= p
+                                msg = "Score bonus (%g) (same obs), detect ID# %d, f1:%d f2:%d . Delta_SN = %g (%g), Delta_dist = %g" % \
+                                      (p, self.id, f1_id, f2_id, delta_sn, limit_sn, delta_dist)
+
+                    #end old way
 
                     if msg:
                         log.debug(msg)
 
             score -= penalty
-            log.info("Detect ID# %d total penalty (%g). New Score = %g" %(self.id, penalty, score))
+            if penalty < 0:
+                log.info("Detect ID# %d total bonus (%g). New Score = %g" % (self.id, -1* penalty, score))
+            else:
+                log.info("Detect ID# %d total penalty (%g). New Score = %g" %(self.id, penalty, score))
 
 
-        self.dqs = score
+        self.dqs_raw = score
         #dqs_shape() may modify the score
         self.dqs_shape()
 
+        self.dqs_calc_scaled_score()
 
         return self.dqs
 
@@ -834,13 +911,19 @@ class DetObj:
                  fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
             except:
                 log.error("Could not narrow fit gaussian -- Detect ID # %d." % self.id) #, exc_info=True)
+
+
+                #todo: here ... possible cause = bad pixel (hot) : check for same pixel in fibers
+                #todo: if yes, set score to zero? or at least very low (instead of substracting a penalty)
+                #todo: or remove scores from fibers with that bad pixel
+
                 return
 
 
         title = ""
         #fit around designated emis line
         if fit_wave is not None:
-            old_score = self.dqs
+            old_score = self.dqs_raw
             new_score = old_score
             sk = skew(fit_wave)
             ku = kurtosis(fit_wave)
@@ -855,7 +938,7 @@ class DetObj:
                 if abs(dx0) > 1.9:  #+/- one pixel (in AA)  from center
                     new_score -= (abs(dx0) - 1.9) ** 2
 
-                if si < 1.5:
+                if si < 1.5 and ku < 2.0: #narrow and little outside influence (so a true narrow)
                     new_score -= np.sqrt(2.0 - si) #mostly less than one and want a bigger impact
                 elif si < 2.5:
                     pass #zero zone
@@ -881,7 +964,8 @@ class DetObj:
             else:
                 log.info("Emission # %d, too many bad pixels to fit gaussian. No score change (%g)" % (self.id,old_score))
 
-            if self.plot_dqs_fit:
+            #todo: temporary ... comment out or mark as if False
+            if self.plot_dqs_fit or G.PLOT_GAUSSIAN:
                 if wide:
                     title += "(Wide) "
                 else:
@@ -891,15 +975,20 @@ class DetObj:
                           "dX0 = %g , Sigma = %g, Skew = %g, Kurtosis = %g"\
                           % (self.id, old_score, new_score, dx0, si, sk, ku)
 
-                plt.plot(x,central_wave,c='k')
+                fig = plt.figure()
+                gauss_plot = plt.axes()
+
+                gauss_plot.plot(x,central_wave,c='k')
                 if wide:
-                    plt.plot(xfit,fit_wave,c='r')
+                    gauss_plot.plot(xfit,fit_wave,c='r')
                 else:
-                    plt.plot(xfit, fit_wave, c='b')
-                plt.grid(True)
+                    gauss_plot.plot(xfit, fit_wave, c='b')
+                    gauss_plot.grid(True)
 
                 ymin = min(min(fit_wave),min(central_wave))
                 ymax = max(max(fit_wave),max(central_wave))
+                gauss_plot.set_ylabel("Counts")
+                gauss_plot.set_xlabel("Relative Pixels ~ x1.9 AA")
 
                 ymin *= 1.1
                 ymax *= 1.1
@@ -907,14 +996,15 @@ class DetObj:
                 if abs(ymin) < 1.0: ymin = -1.0
                 if abs(ymax) < 1.0: ymax = 1.0
 
-                plt.ylim((ymin,ymax))
-                plt.title(title)
+                gauss_plot.set_ylim((ymin,ymax))
+                gauss_plot.set_title(title)
                 png = 'gauss_' + str(self.id) + ".png"
                 log.info('Writing: ' + png)
                 print('Writing: ' + png)
-                plt.tight_layout()
-                plt.savefig(png)
-                plt.close('all')
+                fig.tight_layout()
+                fig.savefig(png)
+                fig.clear()
+                plt.close()
                 # end plotting
 
             # todo: points for shape? sigma > 3.0  ; ku (more quality than points?), skew > 1.0 ?
@@ -933,12 +1023,52 @@ class DetObj:
             #there are now no bad fits ... forcing to central peak and minimizing deep negatie
             #values
 
-            self.dqs = new_score
+            self.dqs_raw = new_score
             #log.info(base_msg)
 
         else:
             log.info("Emission # %d -- unable to fit gaussian" % (self.id))
 
+
+    def dqs_calc_scaled_score(self):
+        # 5 point scale
+        # A+ = 5.0
+        # A  = 4.0
+        # B+ = 3.5
+        # B  = 3.0
+        # C+ = 2.5
+        # C  = 2.0
+        # D+ = 1.5
+        # D  = 1.0
+        # F  = 0
+
+        a_p = 12.0
+        a__ = 10.5
+        a_m = 9.0
+        b_p = 8.0
+        b__ = 7.0
+        c_p = 6.0
+        c__ = 5.0
+        d_p = 4.0
+        d__ = 3.0
+        f__ = 2.0
+
+        if   self.dqs_raw > a_p : self.dqs = 5.0  #A+
+        elif self.dqs_raw > a__ : self.dqs = 4.5 + 0.5*(self.dqs_raw-a__)/(a_p-a__) #A
+        elif self.dqs_raw > a_m : self.dqs = 4.0 + 0.5*(self.dqs_raw-a_m)/(a__-a_m) #A-
+        elif self.dqs_raw > b_p : self.dqs = 3.5 + 0.5*(self.dqs_raw-b_p)/(a_m-b_p) #B+ AB
+        elif self.dqs_raw > b__ : self.dqs = 3.0 + 0.5*(self.dqs_raw-b__)/(b_p-b__) #B
+        elif self.dqs_raw > c_p : self.dqs = 2.5 + 0.5*(self.dqs_raw-c_p)/(b__-c_p) #C+ BC
+        elif self.dqs_raw > c__ : self.dqs = 2.0 + 0.5*(self.dqs_raw-c__)/(c_p-c__) #C
+        elif self.dqs_raw > d_p : self.dqs = 1.5 + 0.5*(self.dqs_raw-d_p)/(c__-d_p) #D+ CD
+        elif self.dqs_raw > d__ : self.dqs = 1.0 + 0.5*(self.dqs_raw-d__)/(d_p-d__) #D
+        elif self.dqs_raw > f__ : self.dqs = 0.5 + 0.5*(self.dqs_raw-f__)/(d__-f__) #F
+        elif self.dqs_raw > 0.0 : self.dqs =  0.5*self.dqs_raw/f__
+        else: self.dqs = 0.0
+
+        self.dqs = round(self.dqs,1)
+
+        return self.dqs
 
 
 
@@ -2210,7 +2340,8 @@ class HETDEX:
 
         if e.dqs is None:
             e.dqs_score()
-        title += "  Score = %g" % e.dqs
+        #title += "  Score = %0.1f (%0.2f)" % (e.dqs,e.dqs_raw)
+        title += "  Score = %0.1f" % (e.dqs)
 
         if e.w > 0:
             la_z = e.w / G.LyA_rest - 1.0
