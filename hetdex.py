@@ -372,6 +372,7 @@ class Fiber:
         self.dqs_raw = None  # unweighted score
         self.dqs_dist = None  # distance from source
         self.dqs_w = None #dqs weight
+        self.dsq_bad = False
         self.central_wave_pixels_bad = 0
         self.central_wave_pixels = [] #from fiber-extracted ... the few pixels around the peak
 
@@ -411,6 +412,9 @@ class Fiber:
         return weight
 
     def dqs_score(self,ra,dec,force_recompute=False): #yeah, redundantly named ...
+        if self.dsq_bad:
+            return 0.0
+
         if (self.dqs is not None) and not force_recompute:
             return self.dqs
 
@@ -634,7 +638,14 @@ class DetObj:
     def sn(self):
         return self.sigma
 
-    def dqs_score(self,force_recompute=False): #Detection Quality Score (score)
+    def dqs_score(self,force_recompute=False):
+        #dqs_compute_score eventually calls to dqs_shape() which can trigger a force_recompute
+        if self.dqs_compute_score(force_recompute=force_recompute):
+            return True
+        else:
+            self.dqs_compute_score(force_recompute=True)
+
+    def dqs_compute_score(self,force_recompute=False): #Detection Quality Score (score)
         if (self.dqs is not None) and not force_recompute:
             return self.dqs
 
@@ -658,20 +669,12 @@ class DetObj:
         # todo: future possibility ... could be there are additional criteria outside individual fibers that need
         # todo: to be considered. Add them here.
 
-
         #CAVEATS: this assumes a point-like emitter with a symmetric (gaussian) distribution of signal
         #if we are on the edge of a resolved object, then there will be preferred direction of increased signal (not
         #symmetric) and that can push down the score, etc
 
         #these distance and SN penality only makes sense if we have the weighted RA and Dec
         if self.wra is not None:
-            #compare fiber to fiber (i.e. high SN fiber with a second very nearby should have similar SN?)
-            #think about the SN, though dropping off like gaussian (not quadratic) ...  how peaked?
-            #basically, want to punish similar distances but dissimilar raw_scores
-
-            #slightly differently would be similar weights should have similar raw_scores (or similar SN)
-            #should base this on a gaussian with PSF and account for some noise level
-
             gross_noise = 3.0 #e.g. SN = +/- gross_noise
             penalty = 0.0
             bonus_idx = []
@@ -744,90 +747,6 @@ class DetObj:
 
                     #else: no bonus, no penalty
 
-
-
-
-
-
-
-                    if (False): #old way
-                        sn_cap = 12.0  # anything above this is considered the same value
-                        delta_dist = f2.dqs_dist - f1.dqs_dist
-                        # using SN instead of raw_score since raw_score is capped at 5
-                        delta_sn = min(sn_cap,f1.sn) - min(sn_cap,f2.sn)
-
-                        if delta_sn > 0:
-                            delta_sn = max(0, delta_sn - gross_noise)
-                        else:
-                            delta_sn = min(0, delta_sn + gross_noise)
-
-                        #this only applies to fibers from the same observation
-                        #otherwise conditions could be much different and not directly comparable
-                        if (f1.dither_date == f2.dither_date) and (f1.obsid == f2.obsid):
-                            pad = 1.5
-                            sigma = 1.5 #todo: can we get this as the PSF for the observation?
-
-
-                            if ( delta_peak_sn > (2*gross_noise)): #penalty
-                                if f1.expid == f2.expid:
-                                    p = min(1.,(delta_sn - pad *limit_sn)/(pad *limit_sn)) * 0.5 * (abs(f1.dqs - f2.dqs))
-                                else:
-                                    p = min(1., (delta_sn - pad *limit_sn) /( pad *limit_sn)) * 0.3 * (abs(f1.dqs - f2.dqs))
-                                penalty += p
-                                msg = "Score Penalty (%g) (same obs), detect ID# %d, f1:%d f2:%d . Delta_SN = %g (%g), Delta_dist = %g" % \
-                                      (p,self.id,f1_id, f2_id,delta_sn, pad * limit_sn, delta_dist)
-
-
-
-                            # for gaussian, x0 = 0, x = delta_dist, sigma = the PSF (so like, 1.5 or so?)
-                            limit_sn = (1.0 - gaussian(delta_dist, 0.0, sigma)) * max(f1.sn, f2.sn)
-                            limit_sn = max(1.0, limit_sn)
-
-
-                            if delta_sn > pad * limit_sn:
-                                #larger penality if from the same exposure
-                                if f1.expid == f2.expid:
-                                    p = min(1.,(delta_sn - pad *limit_sn)/(pad *limit_sn)) * 0.5 * (abs(f1.dqs - f2.dqs))
-                                else:
-                                    p = min(1., (delta_sn - pad *limit_sn) /( pad *limit_sn)) * 0.3 * (abs(f1.dqs - f2.dqs))
-                                penalty += p
-                                msg = "Score Penalty (%g) (same obs), detect ID# %d, f1:%d f2:%d . Delta_SN = %g (%g), Delta_dist = %g" % \
-                                      (p,self.id,f1_id, f2_id,delta_sn, pad * limit_sn, delta_dist)
-                            elif (delta_sn <= limit_sn) and not (j in bonus_idx):
-                                #SN are close, give a bonus
-                                bonus_idx.append(j)
-                                p = f2.dqs
-                                penalty -= p
-                                msg = "Score bonus (%g) (same obs), detect ID# %d, f1:%d f2:%d . Delta_SN = %g (%g), Delta_dist = %g" % \
-                                      (p, self.id, f1_id, f2_id, delta_sn, limit_sn, delta_dist)
-                            #else middle ground, no bonus, no penalty
-
-
-                        else: #different observations of the same spot; similar logic, different cuts
-                            pad = 2.0 #bigger pad since different observations
-                            sigma = 1.5  # can't really use PSF since over different observations, so just be conservative
-                            #(note: conservative here means, gaussian falls off faster, so smaller sigma)
-                            dist_cap = G.Fiber_Radius*4
-                            limit_sn = (1.0 - gaussian(delta_dist, 0.0, sigma)) * max(f1.sn, f2.sn)
-                            limit_sn = max(1.0,limit_sn)
-                            if delta_dist < dist_cap:
-                                # for gaussian, x0 = 0, x = delta_dist, sigma = the PSF (so like, 1.5 or so?)
-                                #lower max penality since from different observations
-                                if delta_sn > pad *limit_sn:
-                                    p = min(1.,(delta_sn - pad *limit_sn)/(pad *limit_sn)) * 0.25 * (abs(f1.dqs - f2.dqs))
-                                    penalty += p
-                                    msg = "Score Penalty (%g) (diff obs) , detect ID# %d  f1:%d f2:%d . Delta_SN = %g (%g) , Delta_dist = %g" % \
-                                          (p, self.id, f1_id, f2_id,delta_sn, pad *limit_sn, delta_dist)
-                            elif  (delta_sn <= limit_sn) and not (j in bonus_idx):
-                                #give a bonus for the farther fiber (just once)
-                                bonus_idx.append(j)
-                                p = f2.dqs
-                                penalty -= p
-                                msg = "Score bonus (%g) (same obs), detect ID# %d, f1:%d f2:%d . Delta_SN = %g (%g), Delta_dist = %g" % \
-                                      (p, self.id, f1_id, f2_id, delta_sn, limit_sn, delta_dist)
-
-                    #end old way
-
                     if msg:
                         log.debug(msg)
 
@@ -839,15 +758,15 @@ class DetObj:
 
 
         self.dqs_raw = score
-        #dqs_shape() may modify the score
-        self.dqs_shape()
+        if self.dqs_shape():
+            self.dqs_calc_scaled_score()
+        else:
+            return False
 
-        self.dqs_calc_scaled_score()
+        return True
 
-        return self.dqs
-
-    def dqs_shape(self,force_recompute=False):
-
+    def dqs_shape(self):
+        force_recompute = False
         bad_pix = 0
         fiber_count = 0
         central_wave = np.zeros(PEAK_PIXELS*2 + 1)
@@ -865,30 +784,15 @@ class DetObj:
                     central_wave += f.central_wave_pixels
                 except:
                     log.error("Improperly shaped fiber.central_wave_pixels: %s" % f.idstring,exc_info=True)
-                    return
+                    return True #return False if want to force a recompute
 
         if fiber_count == 0:
             #we are done ... no fibers to fit a shape
             log.info("Emission # %d -- no fibers qualify to make spectra" % (self.id))
-            return
+            return True
 
         #blunt very negative values
         central_wave = np.clip(central_wave,-10.0,np.inf)
-
-        # todo: skewness (want positive ... a right tail), kurtosis (more positive = fewer tail outliers
-        # todo: is there enough resolution to get a reasonable calculation? for each fiber or sum of best fibers?
-        # todo: smooth it first? fit to a gaussian first? (say +/-3 or 5 pixels from center so .. 7 to 11 pixels in all
-        # todo: (about 7-10 AA to either side?)
-
-        #x = np.linspace(self.w-PEAK_PIXELS*1.9,self.w+PEAK_PIXELS*1.9,len(central_wave))
-        #note: do not center at zero ... messes up the skew and do not put at wavelength (can't fit?)
-        #x = np.linspace(-PEAK_PIXELS*1.9,PEAK_PIXELS*1.9,len(central_wave))
-        #norm to 1? 0 to 1 or -1 to 1 ... creates problems with fitting
-        #x = np.linspace(0.0,1.0, len(central_wave))
-
-
-
-
         x = np.array(range(len(central_wave))) #0 to 2*PEAK_PIXElS
         xfit = np.linspace(0, len(central_wave), 100)
         fit_wave = None
@@ -910,17 +814,42 @@ class DetObj:
                                         bounds=((PEAK_PIXELS-1, 0, -np.inf), (PEAK_PIXELS+1, np.inf, np.inf)))
                  fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
             except:
-                log.error("Could not narrow fit gaussian -- Detect ID # %d." % self.id) #, exc_info=True)
+                log.error("Detect ID # %d could not narrow fit gaussian. Possible hot/stuck pixel. " % self.id) #, exc_info=True)
 
+                fib_dict = {}
+                for f in self.fibers:
+                    if not f.dsq_bad:
+                        if f.number_in_ccd in fib_dict.keys():
+                            fib_dict[f.number_in_ccd].append(f)
+                        else:
+                            fib_dict[f.number_in_ccd] = [f]
 
-                #todo: here ... possible cause = bad pixel (hot) : check for same pixel in fibers
-                #todo: if yes, set score to zero? or at least very low (instead of substracting a penalty)
-                #todo: or remove scores from fibers with that bad pixel
+                for k in fib_dict.keys():
+                    if len(fib_dict[k]) > 1:
+                        force_recompute = True
+                        peak_counts = []
+                        for f in fib_dict[k]:
+                            f.dsq = 0.0
+                            f.dsq_bad = True
+                            peak_counts.append(max(f.central_wave_pixels))
 
-                return
+                        log.info('Detect ID # %d. Duplicate fiber %s (# in CCD = %d). Possible stuck/hot pixel around wavelength = %0.1f .'
+                                  'Peak values = %s' %
+                              (self.id,fib_dict[k][0].idstring, fib_dict[k][0].number_in_ccd,self.w, peak_counts))
+
+        if force_recompute:
+            log.info("Detect ID # %d . Triggering recompuatation of score ..." % self.id)
+            return False
 
 
         title = ""
+        old_score = self.dqs_raw
+        new_score = old_score
+        sk = -999
+        ku = -999
+        si = -999
+        dx0 = -999
+
         #fit around designated emis line
         if fit_wave is not None:
             old_score = self.dqs_raw
@@ -929,8 +858,6 @@ class DetObj:
             ku = kurtosis(fit_wave)
             si = parm[1] *1.9 #scale to angstroms
             dx0 = (parm[0]-PEAK_PIXELS) *1.9
-
-            save = False
 
             #new_score:
             if float(bad_pix)/float(fiber_count) < 2.0: # 1 bad pixel in each fiber is okay, but no more
@@ -958,27 +885,31 @@ class DetObj:
                 if (sk > 2.0): #skewed a bit red, a bit peaky, with outlier influence
                         new_score += min(0.5,sk-2.0)
 
+                self.dqs_raw = new_score
+
                 base_msg = "Emission # %d, Emis Fit dX0 = %g(AA), Sigma = %g(AA), Skew = %g , Kurtosis = %g : Score Change = %g" \
                        % (self.id, dx0, si, sk, ku, new_score - old_score)
                 log.info(base_msg)
             else:
                 log.info("Emission # %d, too many bad pixels to fit gaussian. No score change (%g)" % (self.id,old_score))
 
-            #todo: temporary ... comment out or mark as if False
-            if self.plot_dqs_fit or G.PLOT_GAUSSIAN:
-                if wide:
-                    title += "(Wide) "
-                else:
-                    title += "(Narrow) "
+        #todo: temporary ... comment out or mark as if False
+        if self.plot_dqs_fit or G.PLOT_GAUSSIAN:
+            if wide:
+                title += "(Wide) "
+            else:
+                title += "(Narrow) "
 
-                title += "ID #%d, Old Score = %g , New Score = %g \n"\
-                          "dX0 = %g , Sigma = %g, Skew = %g, Kurtosis = %g"\
-                          % (self.id, old_score, new_score, dx0, si, sk, ku)
+            title += "ID #%d, Old Score = %g , New Score = %g \n"\
+                      "dX0 = %g , Sigma = %g, Skew = %g, Kurtosis = %g"\
+                      % (self.id, old_score, new_score, dx0, si, sk, ku)
 
-                fig = plt.figure()
-                gauss_plot = plt.axes()
+            fig = plt.figure()
+            gauss_plot = plt.axes()
 
-                gauss_plot.plot(x,central_wave,c='k')
+            gauss_plot.plot(x,central_wave,c='k')
+
+            if fit_wave is not None:
                 if wide:
                     gauss_plot.plot(xfit,fit_wave,c='r')
                 else:
@@ -987,47 +918,36 @@ class DetObj:
 
                 ymin = min(min(fit_wave),min(central_wave))
                 ymax = max(max(fit_wave),max(central_wave))
-                gauss_plot.set_ylabel("Counts")
-                gauss_plot.set_xlabel("Relative Pixels ~ x1.9 AA")
+            else:
+                ymin = min(central_wave)
+                ymax = max(central_wave)
+            gauss_plot.set_ylabel("Counts")
+            gauss_plot.set_xlabel("Relative Pixels ~ x1.9 AA")
 
-                ymin *= 1.1
-                ymax *= 1.1
+            ymin *= 1.1
+            ymax *= 1.1
 
-                if abs(ymin) < 1.0: ymin = -1.0
-                if abs(ymax) < 1.0: ymax = 1.0
+            if abs(ymin) < 1.0: ymin = -1.0
+            if abs(ymax) < 1.0: ymax = 1.0
 
-                gauss_plot.set_ylim((ymin,ymax))
-                gauss_plot.set_title(title)
-                png = 'gauss_' + str(self.id) + ".png"
-                log.info('Writing: ' + png)
-                print('Writing: ' + png)
-                fig.tight_layout()
-                fig.savefig(png)
-                fig.clear()
-                plt.close()
-                # end plotting
-
-            # todo: points for shape? sigma > 3.0  ; ku (more quality than points?), skew > 1.0 ?
-            # skew < -1.0 is bad (wrong direction)
-            # peak not near 0 +/-2 pixels (3.8AA) is a bad fit
-            # if (abs(xpeak) < 3.8) and (si < 20.0): #reasonable (within 2 pixels of the reported peak
-            #     #decent enough fit, use it to draw conclusions
-            #     #width ... within reason, larger is better? use sigma as proxy for width
-            #
-            #
-            #     log.info(base_msg)
-            # else: # bad fit
-            #     #todo: do we penalize for a bad fit? (can we draw any conclusions if the fit is bad)?
-            #     log.info("Bad Gaussian fit " + base_msg)
-
-            #there are now no bad fits ... forcing to central peak and minimizing deep negatie
-            #values
-
-            self.dqs_raw = new_score
-            #log.info(base_msg)
+            gauss_plot.set_ylim((ymin,ymax))
+            gauss_plot.set_title(title)
+            png = 'gauss_' + str(self.id) + ".png"
+            log.info('Writing: ' + png)
+            print('Writing: ' + png)
+            fig.tight_layout()
+            fig.savefig(png)
+            fig.clear()
+            plt.close()
+            # end plotting
 
         else:
             log.info("Emission # %d -- unable to fit gaussian" % (self.id))
+
+        if force_recompute:
+            return False
+        else:
+            return True
 
 
     def dqs_calc_scaled_score(self):
