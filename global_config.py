@@ -13,10 +13,10 @@ if socket.gethostname() == 'z50':
 #if False:
     OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
 
-    CONFIG_BASEDIR = "/home/dustin/code/python/voltron/data/config/"
-    PANACEA_RED_BASEDIR = "/home/dustin/code/python/voltron/data/config/red1/reductions/"
-    #CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
-    #PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
+    #CONFIG_BASEDIR = "/home/dustin/code/python/voltron/data/config/"
+    #PANACEA_RED_BASEDIR = "/home/dustin/code/python/voltron/data/config/red1/reductions/"
+    CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
+    PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
 
     CANDELS_EGS_Stefanon_2016_BASE_PATH = "/home/dustin/code/python/voltron/data/EGS"
     GOODS_N_BASE_PATH = "/home/dustin/code/python/voltron/data/GOODSN"
@@ -53,6 +53,7 @@ else:
     SHELA_CAT_PATH = SHELA_BASE_PATH
     SHELA_PHOTO_Z_COMBINED_PATH = "/work/03565/stevans/maverick/software/eazy-photoz/inputs_decam1.1_irac1.5_scaled_vistajk/OUTPUT/"
     SHELA_PHOTO_Z_MASTER_PATH = "/work/03565/stevans/maverick/working/decam/psfmatched2017/per_field/v1.0/final_catalogs/v1.1/combined_irac_v1.5.a/with_vista/"
+
 
 LOG_LEVEL = logging.DEBUG
 

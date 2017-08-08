@@ -816,6 +816,11 @@ class DetObj:
             except:
                 log.error("Detect ID # %d could not narrow fit gaussian. Possible hot/stuck pixel. " % self.id) #, exc_info=True)
 
+                #reminder: seeing the same fiber (or pixel) repeatedly for a given detection is not unusual
+                #(seeing it across many detections would be ... but cannot know that here)
+                #just the combination of extremely narrow or no-fit gaussian AND the same pixels is a good indicator
+                #of bad pixel(s)
+
                 fib_dict = {}
                 for f in self.fibers:
                     if not f.dsq_bad:
@@ -2795,7 +2800,7 @@ class HETDEX:
                 datakeep['expid'].append(str(fiber.expid))
             else:
                 fiber.expid = dither + 1
-                datakeep['expid'].append(str(dither))
+                datakeep['expid'].append(str(fiber.expid))
 
             datakeep['fib_idx1'].append(str(fiber.panacea_idx+1))
             datakeep['ifu_slot_id'].append(str(fiber.ifuslot).zfill(3))
@@ -2851,6 +2856,12 @@ class HETDEX:
 
             fiber.emis_x = x_2D
             fiber.emis_y = y_2D
+
+            try:
+                log.info("Detect # %d, Fiber %s, Cam(%d), ExpID(%d) CCD X,Y = (%d,%d)" %
+                         (e.id,fiber.idstring,fiber.specid,fiber.expid,int(x_2D),int(y_2D)))
+            except:
+                pass
 
             xl = int(np.round(x_2D - xw))
             xh = int(np.round(x_2D + xw))
