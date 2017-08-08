@@ -816,7 +816,7 @@ class DetObj:
             except:
                 log.error("Detect ID # %d could not narrow fit gaussian. Possible hot/stuck pixel. " % self.id) #, exc_info=True)
 
-                #reminder: seeing the same fiber (or pixel) repeatedly for a given detection is not unusual
+                #reminder: seeing the same fiber (or pixels) repeatedly for a given detection is not unusual
                 #(seeing it across many detections would be ... but cannot know that here)
                 #just the combination of extremely narrow or no-fit gaussian AND the same pixels is a good indicator
                 #of bad pixel(s)
