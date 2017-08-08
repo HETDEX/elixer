@@ -357,8 +357,8 @@ class Fiber:
         self.center_x = None
         self.center_y = None
 
-        self.emis_x = None #x,y coords on the amp of the emission line peak
-        self.emis_y = None
+        self.emis_x = -1 #x,y coords on the amp of the emission line peak
+        self.emis_y = -1
 
         self.panacea_idx = -1 #0 to 111
         self.number_in_amp = -1 #1 to 112
@@ -372,7 +372,7 @@ class Fiber:
         self.dqs_raw = None  # unweighted score
         self.dqs_dist = None  # distance from source
         self.dqs_w = None #dqs weight
-        self.dsq_bad = False
+        self.dqs_bad = False
         self.central_wave_pixels_bad = 0
         self.central_wave_pixels = [] #from fiber-extracted ... the few pixels around the peak
 
@@ -396,7 +396,7 @@ class Fiber:
             self.dqs_dist = 999.9
             return weight
 
-        dist = np.sqrt( (np.cos(dec)*(ra-self.ra)) ** 2 + (dec - self.dec) ** 2) * 3600.
+        dist = np.sqrt( (np.cos(np.deg2rad(dec))*(ra-self.ra)) ** 2 + (dec - self.dec) ** 2) * 3600.
 
         if dist > G.FULL_WEIGHT_DISTANCE:
             if dist > G.ZERO_WEIGHT_DISTANCE:
@@ -412,7 +412,7 @@ class Fiber:
         return weight
 
     def dqs_score(self,ra,dec,force_recompute=False): #yeah, redundantly named ...
-        if self.dsq_bad:
+        if self.dqs_bad:
             return 0.0
 
         if (self.dqs is not None) and not force_recompute:
@@ -427,7 +427,7 @@ class Fiber:
         score = 0.0
         sqrt_sn = 100.0 #above linear_sn
         linear_sn = 3.0 #above sq_sn
-        sq_sn = 1.5
+        sq_sn = 2.0
         base_sn = 3.0
         #build score (additive only)
         if self.sn:
@@ -771,7 +771,13 @@ class DetObj:
         fiber_count = 0
         central_wave = np.zeros(PEAK_PIXELS*2 + 1)
 
+        dqs_bad_count = 0
+
         for f in self.fibers:
+            if f.dqs_bad:
+                dqs_bad_count += 1
+                continue
+
             if len(f.central_wave_pixels) == 0:
                 continue #no modification
 
@@ -796,6 +802,7 @@ class DetObj:
         x = np.array(range(len(central_wave))) #0 to 2*PEAK_PIXElS
         xfit = np.linspace(0, len(central_wave), 100)
         fit_wave = None
+        check_for_bad_pixels = False
 
         wide = True
 
@@ -813,34 +820,33 @@ class DetObj:
                  parm, pcov = curve_fit(gaussian, x, central_wave, p0=(PEAK_PIXELS,1.0,0),
                                         bounds=((PEAK_PIXELS-1, 0, -np.inf), (PEAK_PIXELS+1, np.inf, np.inf)))
                  fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
+
+                 if (fit_wave is not None) and (parm is not None):
+                     if parm[1]*1.9 < 1.0:
+                         check_for_bad_pixels = True
             except:
                 log.error("Detect ID # %d could not narrow fit gaussian. Possible hot/stuck pixel. " % self.id) #, exc_info=True)
+                check_for_bad_pixels = True
 
-                #reminder: seeing the same fiber (or pixels) repeatedly for a given detection is not unusual
-                #(seeing it across many detections would be ... but cannot know that here)
-                #just the combination of extremely narrow or no-fit gaussian AND the same pixels is a good indicator
-                #of bad pixel(s)
+            #super narrow (or no fit) with high peak
+            if check_for_bad_pixels and (dqs_bad_count == 0): #else, already checked
+                # reminder: seeing the same fiber (or pixels) repeatedly for a given detection is not unusual
+                # (seeing it across many detections would be ... but cannot know that here)
+                # just the combination of extremely narrow or no-fit gaussian AND the same pixels is a good indicator
+                # of bad pixel(s)
 
-                fib_dict = {}
                 for f in self.fibers:
-                    if not f.dsq_bad:
-                        if f.number_in_ccd in fib_dict.keys():
-                            fib_dict[f.number_in_ccd].append(f)
-                        else:
-                            fib_dict[f.number_in_ccd] = [f]
-
-                for k in fib_dict.keys():
-                    if len(fib_dict[k]) > 1:
+                    #sort and grab the top two ... trigger if #1 >> 0 and >> #2 ?
+                    sl = sorted(f.central_wave_pixels,key=float,reverse=True)
+                    if (not f.dqs_bad) and (sl[0] > 50.0) and (sl[0] > 2.0*sl[1]):
+                    #could be stuck pixel in one exposure but not another, especially if multiple observations
                         force_recompute = True
-                        peak_counts = []
-                        for f in fib_dict[k]:
-                            f.dsq = 0.0
-                            f.dsq_bad = True
-                            peak_counts.append(max(f.central_wave_pixels))
+                        f.dqs = 0.0
+                        f.dqs_bad = True
 
-                        log.info('Detect ID # %d. Duplicate fiber %s (# in CCD = %d). Possible stuck/hot pixel around wavelength = %0.1f .'
-                                  'Peak values = %s' %
-                              (self.id,fib_dict[k][0].idstring, fib_dict[k][0].number_in_ccd,self.w, peak_counts))
+                        log.info('Detect ID # %d. Possible stuck/hot pixel in fiber %s (# in CCD = %d) '
+                             'around wavelength = %0.1f (CCD X,Y = %d,%d) . Peak values = %s ...' %
+                            (self.id,f.idstring, f.number_in_ccd,self.w,f.emis_x, f.emis_y, sl[0:3]))
 
         if force_recompute:
             log.info("Detect ID # %d . Triggering recompuatation of score ..." % self.id)
@@ -856,7 +862,7 @@ class DetObj:
         dx0 = -999
 
         #fit around designated emis line
-        if fit_wave is not None:
+        if (fit_wave is not None) and (fiber_count > 0) :
             old_score = self.dqs_raw
             new_score = old_score
             sk = skew(fit_wave)
@@ -864,8 +870,21 @@ class DetObj:
             si = parm[1] *1.9 #scale to angstroms
             dx0 = (parm[0]-PEAK_PIXELS) *1.9
 
+            height_pix = max(central_wave)
+            height_fit = max(fit_wave)
+
+            if height_pix > 0:
+                rh = height_fit/height_pix
+            else:
+                log.info("Detect ID # %d . Minimum peak height (%f) too small. Score zeroed." % (self.id, height_pix))
+                self.dqs_raw = 0.0
+                old_score = 0.0
+                rh = 0.0
+
+            #todo: for lower S/N, sigma (width) can be less and still get bonus if fibers have larger separation
+
             #new_score:
-            if float(bad_pix)/float(fiber_count) < 2.0: # 1 bad pixel in each fiber is okay, but no more
+            if (0.75 < rh < 1.25) and float(bad_pix)/float(fiber_count) < 2.0: # 1 bad pixel in each fiber is okay, but no more
 
                 if abs(dx0) > 1.9:  #+/- one pixel (in AA)  from center
                     new_score -= (abs(dx0) - 1.9) ** 2
@@ -896,7 +915,7 @@ class DetObj:
                        % (self.id, dx0, si, sk, ku, new_score - old_score)
                 log.info(base_msg)
             else:
-                log.info("Emission # %d, too many bad pixels to fit gaussian. No score change (%g)" % (self.id,old_score))
+                log.info("Emission # %d, too many bad pixels or failure to fit peak. No score change (%g)" % (self.id,old_score))
 
         #todo: temporary ... comment out or mark as if False
         if self.plot_dqs_fit or G.PLOT_GAUSSIAN:
@@ -967,9 +986,9 @@ class DetObj:
         # D  = 1.0
         # F  = 0
 
-        a_p = 12.0
-        a__ = 10.5
-        a_m = 9.0
+        a_p = 14.0
+        a__ = 12.5
+        a_m = 9.5
         b_p = 8.0
         b__ = 7.0
         c_p = 6.0
@@ -992,6 +1011,17 @@ class DetObj:
         else: self.dqs = 0.0
 
         self.dqs = round(self.dqs,1)
+
+        bad_pix = 0
+        for f in self.fibers:
+            bad_pix += f.central_wave_pixels_bad
+
+
+        if bad_pix/len(self.fibers) > 2.0:
+            log.info("Detect ID %d maximum score limited by bad (wavelength edge) pixels.")
+            self.dqs = min(3.5,self.dqs)
+
+        log.info("Detect ID # %d, Final score = %0.1f (raw = %f)" % (self.id,self.dqs,self.dqs_raw))
 
         return self.dqs
 
@@ -2187,7 +2217,6 @@ class HETDEX:
         print ("Bulding HETDEX header for Detect ID #%d" %detectid)
 
         #self.build_ifu_astrometry()
-        #todo: match this up with the catalog sizes
 
         if G.SINGLE_PAGE_PER_DETECT:
             figure_sz_y = G.GRID_SZ_Y
@@ -2203,16 +2232,16 @@ class HETDEX:
         #4 columns ... 3 wide, 1 narrow (for scattered light) .. so make 10
         #the 3 wide are 3x and the 1 narrow is 1x
         if G.SINGLE_PAGE_PER_DETECT:
-            gs = gridspec.GridSpec(2, 10)
+            gs = gridspec.GridSpec(2, 100)
         else:
             if G.SHOW_FULL_2D_SPECTRA:
-                gs = gridspec.GridSpec(5, 10)#, wspace=0.25, hspace=0.5)
+                gs = gridspec.GridSpec(5, 100)#, wspace=0.25, hspace=0.5)
             else:
-                gs = gridspec.GridSpec(3, 10)
+                gs = gridspec.GridSpec(3, 100)
 
         font = FontProperties()
         font.set_family('monospace')
-        font.set_size(12)
+        font.set_size(10)
 
         sci_files = ""
         if self.dither:
@@ -2265,8 +2294,8 @@ class HETDEX:
 
         if e.dqs is None:
             e.dqs_score()
-        #title += "  Score = %0.1f (%0.2f)" % (e.dqs,e.dqs_raw)
-        title += "  Score = %0.1f" % (e.dqs)
+        title += "  Score = %0.1f (%0.2f)" % (e.dqs,e.dqs_raw)
+        #title += "  Score = %0.1f" % (e.dqs)
 
         if e.w > 0:
             la_z = e.w / G.LyA_rest - 1.0
@@ -2278,7 +2307,7 @@ class HETDEX:
             else:
                 title = title + "  OII Z = N/A"
 
-        plt.subplot(gs[0:2, 0:3])
+        plt.subplot(gs[0:2, 0:23])
         plt.text(0, 0.5, title, ha='left', va='center', fontproperties=font)
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
@@ -2286,7 +2315,7 @@ class HETDEX:
         if datakeep is not None:
             if datakeep['xi']:
                 try:
-                    plt.subplot(gs[0:2,3:6])
+                    plt.subplot(gs[0:2,23:49])
                     plt.gca().axis('off')
                     buf,img_y = self.build_2d_image(datakeep)
 
@@ -2296,8 +2325,17 @@ class HETDEX:
                 except:
                     log.warning("Failed to 2D cutout image.", exc_info=True)
 
+                # update emission with the ra, dec of all fibers
+                # needs to be here, after build_2d_image so the 'index' and 'color' exist for assignment
                 try:
-                    plt.subplot(gs[0:2,6])
+                    e.fiber_locs = list(
+                        zip(datakeep['ra'], datakeep['dec'], datakeep['color'], datakeep['index'], datakeep['d'],
+                            datakeep['fib']))
+                except:
+                    log.error("Error building fiber_locs", exc_info=True)
+
+                try:
+                    plt.subplot(gs[0:2,50:58])
                     plt.gca().axis('off')
                     buf = self.build_scattered_light_image(datakeep,img_y)
 
@@ -2308,7 +2346,18 @@ class HETDEX:
                     log.warning("Failed to 2D cutout image.", exc_info=True)
 
                 try:
-                    plt.subplot(gs[0:2,7:10])
+                    plt.subplot(gs[0:2, 58:80])
+                    plt.gca().axis('off')
+
+                    buf = self.build_relative_fiber_locs(e)
+                    buf.seek(0)
+                    im = Image.open(buf)
+                    plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
+                except:
+                    log.warning("Failed to build relative fiber positions image.", exc_info=True)
+
+                try:
+                    plt.subplot(gs[0:2,80:])
                     plt.gca().axis('off')
                     buf = self.build_spec_image(datakeep,e.w, dwave=1.0)
                     buf.seek(0)
@@ -2316,6 +2365,8 @@ class HETDEX:
                     plt.imshow(im,interpolation='none')#needs to be 'none' else get blurring
                 except:
                     log.warning("Failed to build spec image.",exc_info = True)
+
+
 
                 if G.SINGLE_PAGE_PER_DETECT:
                     #make the first part is own (temporary) page (to be merged later)
@@ -2349,14 +2400,15 @@ class HETDEX:
                     except:
                         log.warning("Failed to build full width spec/cutout image.", exc_info=True)
 
-
-            # update emission with the ra, dec of all fibers
+        #safety check
+        # update emission with the ra, dec of all fibers
+        if e.fiber_locs is None:
             try:
-                e.fiber_locs = list(zip(datakeep['ra'], datakeep['dec'],datakeep['color'],datakeep['index'],datakeep['d'],
-                                           datakeep['fib']))
+                e.fiber_locs = list(
+                    zip(datakeep['ra'], datakeep['dec'], datakeep['color'], datakeep['index'], datakeep['d'],
+                        datakeep['fib']))
             except:
-                log.error("Error building fiber_locs",exc_info=True)
-
+                log.error("Error building fiber_locs", exc_info=True)
 
         if not G.SINGLE_PAGE_PER_DETECT:
             pages.append(fig)
@@ -2527,8 +2579,8 @@ class HETDEX:
                     #could parse the filename and get dither_time and dither_time_extended
                     #but they are not used right now
                     #fiber.scifits_idstring =
-                    fiber.emis_x = xi[0]
-                    fiber.emis_y = yi[0]
+                    fiber.emis_x = int(xi[0])
+                    fiber.emis_y = int(yi[0])
                     fiber.dither_idx = dither
                     fiber.expid = dither+1
                     fiber.fits = sci
@@ -2711,7 +2763,7 @@ class HETDEX:
 
                 if (ra is not None) and (f.ra is not None):
                     try:
-                        d = np.sqrt((np.cos(dec)*(ra - f.ra))**2 + (dec - f.dec)**2)*3600
+                        d = np.sqrt((np.cos(np.deg2rad(dec))*(ra - f.ra))**2 + (dec - f.dec)**2)*3600
                     except:
                         if f.ra and f.dec:
                             log.error("Missing required emission line (#%d) coordinates." % e.id)
@@ -2854,8 +2906,8 @@ class HETDEX:
             x_2D = np.interp(e.w,fits.wave_data[loc,:],range(len(fits.wave_data[loc,:])))
             y_2D = np.interp(x_2D,range(len(fits.trace_data[loc,:])),fits.trace_data[loc,:])
 
-            fiber.emis_x = x_2D
-            fiber.emis_y = y_2D
+            fiber.emis_x = int(x_2D)
+            fiber.emis_y = int(y_2D)
 
             try:
                 log.info("Detect # %d, Fiber %s, Cam(%d), ExpID(%d) CCD X,Y = (%d,%d)" %
@@ -2959,6 +3011,9 @@ class HETDEX:
             datakeep['fw_specwave'].append(wave[:])
 
         return datakeep
+
+
+
 
     #2d spectra cutouts (one per fiber)
     def build_2d_image(self,datakeep):
@@ -3200,16 +3255,18 @@ class HETDEX:
             plt.close(fig)
             return buf
 
+
+
     def build_spec_image(self,datakeep,cwave, dwave=1.0):
 
         fig = plt.figure(figsize=(5, 3))
-        plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
+        plt.subplots_adjust(left=0.0, right=1.0, top=1.0, bottom=0.0)
         norm = plt.Normalize()
         colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
 
         rm = 0.2
         r, w = get_w_as_r(1.5, 500, 0.05, 6.)
-        specplot = plt.axes([0.1, 0.1, 0.8, 0.8])
+        specplot = plt.axes([0.1, 0.1, 0.9, 0.9])
         bigwave = np.arange(cwave - ww, cwave + ww + dwave, dwave)
         F = np.zeros(bigwave.shape)
         mn = 100.0
@@ -3253,6 +3310,7 @@ class HETDEX:
 
             min_y = max(mn - ran / 20, -20)
 
+            log.debug("Detect ID# 20. Spec Plot max count = %f , min count = %f" %(mx,mx))
             specplot.axis([cwave - ww, cwave + ww, min_y, mx + ran / 20])
             specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='--', c=[0.3, 0.3, 0.3])
 
@@ -3291,6 +3349,72 @@ class HETDEX:
 
         plt.close(fig)
         return buf
+
+    def build_relative_fiber_locs(self, e):
+
+        fig = plt.figure(figsize=(5, 3))
+        #plt.subplots_adjust(left=0.0, right=1.0, top=1.0, bottom=0.0)
+        fibplot = plt.axes()#[0.1, 0.2, 0.8, 0.8])
+
+        fibplot.set_title("Relative Fiber Positions")
+        #fibplot.set_xlabel("arcsecs")
+        #plt.gca().xaxis.labelpad =
+
+        fibplot.plot(0, 0, "r+")
+
+        xmin = float('inf')
+        xmax = float('-inf')
+        ymin = float('inf')
+        ymax = float('-inf')
+
+        if e.wra:
+            e_ra = e.wra
+            e_dec = e.wdec
+        else:
+            e_ra = e.ra
+            e_dec = e.dec
+
+        for r, d, c, i, dist, fn in e.fiber_locs:
+            # fiber absolute position ... need relative position to plot (so fiber - zero pos)
+            fx = (r - e_ra) * np.cos(np.deg2rad(e_dec)) * 3600.
+            fy = (d - e_dec) * 3600.
+
+            xmin = min(xmin, fx)
+            xmax = max(xmax, fx)
+            ymin = min(ymin, fy)
+            ymax = max(ymax, fy)
+
+            fibplot.add_patch(plt.Circle((fx,fy), radius=G.Fiber_Radius, color=c, fill=False,
+                                           linestyle='solid',zorder=9))
+            fibplot.text(fx,fy, str(i), ha='center', va='center', fontsize='x-small', color=c)
+
+            if fn in G.CCD_EDGE_FIBERS_ALL:
+                fibplot.add_patch(
+                    plt.Circle((fx, fy), radius=G.Fiber_Radius + 0.1, color=c, fill=False,
+                               linestyle='dashed',zorder=9))
+
+
+
+
+        # larger of the spread of the fibers or the maximum width (in non-rotated x-y plane) of the error window
+        ext_base = max(abs(xmin), abs(xmax), abs(ymin), abs(ymax))
+        ext = ext_base + 2*G.Fiber_Radius
+
+        rec = plt.Rectangle((-ext,-ext),width=ext*2, height=ext * 2, fill=True, lw=1,
+                            color='gray', zorder=0, alpha=0.5)
+        fibplot.add_patch(rec)
+
+        fibplot.set_xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+        fibplot.set_yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+        fibplot.set_aspect('equal')
+
+        fig.tight_layout()
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=300)
+
+        plt.close(fig)
+        return buf
+
 
      # 2d spectra cutouts (one per fiber)
     def build_full_width_2d_image(self, datakeep, cwave):
@@ -3515,7 +3639,7 @@ class HETDEX:
 
         if (ra is not None) and (fiber.ra is not None):
             try:
-                d = np.sqrt((np.cos(dec) * (ra - fiber.ra)) ** 2 + (dec - fiber.dec) ** 2) * 3600
+                d = np.sqrt((np.cos(np.deg2rad(dec)) * (ra - fiber.ra)) ** 2 + (dec - fiber.dec) ** 2) * 3600
             except:
                 log.error("Exception in HETDEX::emis_to_fiber_distance",exc_info=True)
                 d = None
