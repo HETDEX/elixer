@@ -2015,25 +2015,24 @@ class HETDEX:
                 #from the path, get the observation date, obsid, expid
                 #from those find the panacea file
 
-                path = op.join(G.OBSERVATIONS_BASEDIR,fib.dither_date,"virus")
+                path = op.join(G.PANACEA_RED_BASEDIR,fib.dither_date,"virus")
 
                 if not op.exists(path):
-                    log.error("Cannot locate observation data for %s" %(fib.idstring))
+                    log.error("Cannot locate reduced data for %s" %(fib.idstring))
                     continue
 
                 #we are at the top of the observation date ... have to search all subfolders for the idstring
-                #like: '20170326T111126.2'
+                #like: '*20170326T111126.2*'
 
-                #'/work/03946/hetdex/maverick/20170326/virus/virus0000013/exp01/virus/20170326T111126.2_093RU_sci.fits'
                 #using assumption that there maybe multiples, but they belong to different IFUs and Amps
                 #but all to the same observation date, obsid, and expid
-                scifile = self.find_first_file(fib.scifits_idstring+"*",path)
+                scifile = self.find_first_file("*"+fib.scifits_idstring+"*",path)
 
                 if not scifile:
-                    log.error("Cannot locate observation data for %s" % (fib.idstring))
+                    log.error("Cannot locate reduction data for %s" % (fib.idstring))
                     continue
                 else:
-                    log.debug("Found raw sci file: " + scifile)
+                    log.debug("Found reduction folder for file: " + scifile)
 
                 try:
                     obsid = scifile.split("virus/virus")[1].split("/")[0]
@@ -2042,7 +2041,7 @@ class HETDEX:
                     fib.expid = int(expid)
                     fib.obsid = int(obsid)
                 except:
-                    log.error("Cannot locate observation data for %s" % (fib.idstring))
+                    log.error("Cannot locate reduction data for %s" % (fib.idstring))
                     continue
 
                 #now build the panace fits path
@@ -2085,6 +2084,7 @@ class HETDEX:
             return True
         else:
             return False
+
 
     def read_detectline(self,force=False):
         #emission line or continuum line
