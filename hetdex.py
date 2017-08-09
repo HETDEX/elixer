@@ -2232,16 +2232,16 @@ class HETDEX:
         #4 columns ... 3 wide, 1 narrow (for scattered light) .. so make 10
         #the 3 wide are 3x and the 1 narrow is 1x
         if G.SINGLE_PAGE_PER_DETECT:
-            gs = gridspec.GridSpec(2, 100)
+            gs = gridspec.GridSpec(2, 10)
         else:
             if G.SHOW_FULL_2D_SPECTRA:
-                gs = gridspec.GridSpec(5, 100)#, wspace=0.25, hspace=0.5)
+                gs = gridspec.GridSpec(5, 10)#, wspace=0.25, hspace=0.5)
             else:
-                gs = gridspec.GridSpec(3, 100)
+                gs = gridspec.GridSpec(3, 10)
 
         font = FontProperties()
         font.set_family('monospace')
-        font.set_size(10)
+        font.set_size(12)
 
         sci_files = ""
         if self.dither:
@@ -2307,7 +2307,7 @@ class HETDEX:
             else:
                 title = title + "  OII Z = N/A"
 
-        plt.subplot(gs[0:2, 0:23])
+        plt.subplot(gs[0:2, 0:3])
         plt.text(0, 0.5, title, ha='left', va='center', fontproperties=font)
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
@@ -2315,7 +2315,7 @@ class HETDEX:
         if datakeep is not None:
             if datakeep['xi']:
                 try:
-                    plt.subplot(gs[0:2,23:49])
+                    plt.subplot(gs[0:2,3:6])
                     plt.gca().axis('off')
                     buf,img_y = self.build_2d_image(datakeep)
 
@@ -2335,7 +2335,7 @@ class HETDEX:
                     log.error("Error building fiber_locs", exc_info=True)
 
                 try:
-                    plt.subplot(gs[0:2,50:58])
+                    plt.subplot(gs[0:2,6])
                     plt.gca().axis('off')
                     buf = self.build_scattered_light_image(datakeep,img_y)
 
@@ -2345,19 +2345,19 @@ class HETDEX:
                 except:
                     log.warning("Failed to 2D cutout image.", exc_info=True)
 
-                try:
-                    plt.subplot(gs[0:2, 58:80])
-                    plt.gca().axis('off')
+                #try:
+                #    plt.subplot(gs[0:2, 58:80])
+                #    plt.gca().axis('off')
+                #
+                #    buf = self.build_relative_fiber_locs(e)
+                #    buf.seek(0)
+                #    im = Image.open(buf)
+                #    plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
+                #except:
+                #    log.warning("Failed to build relative fiber positions image.", exc_info=True)
 
-                    buf = self.build_relative_fiber_locs(e)
-                    buf.seek(0)
-                    im = Image.open(buf)
-                    plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
-                except:
-                    log.warning("Failed to build relative fiber positions image.", exc_info=True)
-
                 try:
-                    plt.subplot(gs[0:2,80:])
+                    plt.subplot(gs[0:2,7:])
                     plt.gca().axis('off')
                     buf = self.build_spec_image(datakeep,e.w, dwave=1.0)
                     buf.seek(0)
@@ -2365,7 +2365,6 @@ class HETDEX:
                     plt.imshow(im,interpolation='none')#needs to be 'none' else get blurring
                 except:
                     log.warning("Failed to build spec image.",exc_info = True)
-
 
 
                 if G.SINGLE_PAGE_PER_DETECT:
@@ -2706,7 +2705,7 @@ class HETDEX:
                         fiber.central_wave_pixels = np.zeros(abs(Fe_indl))
                         fiber.central_wave_pixels = np.concatenate(
                             (fiber.central_wave_pixels, sci.fe_data[loc, 0:(Fe_indh + 1)]))
-                    elif Fe_indh > max_x:
+                    elif Fe_indh >= max_x:
                         fiber.central_wave_pixels_bad = max_x - Fe_indh
                         fiber.central_wave_pixels = np.zeros(max_x - Fe_indl)
                         fiber.central_wave_pixels = np.concatenate(
@@ -2995,7 +2994,7 @@ class HETDEX:
                     fiber.central_wave_pixels = np.zeros(fiber.central_wave_pixels_bad)
                     fiber.central_wave_pixels = np.concatenate(
                         (fiber.central_wave_pixels,fits.fe_data[loc,0:(Fe_indh+1)]))
-                elif Fe_indh > max_x:
+                elif Fe_indh >= max_x:
                     fiber.central_wave_pixels_bad = Fe_indh - max_x + 1
                     fiber.central_wave_pixels = np.zeros(fiber.central_wave_pixels_bad)
                     fiber.central_wave_pixels = np.concatenate(
@@ -3119,7 +3118,7 @@ class HETDEX:
                 else:
                     sn = 0.0
 
-            imgplot.text(-0.2, .5, num - i,
+            borplot.text(-0.2, .5, num - i,
                         transform=imgplot.transAxes, fontsize=6, color='k', #colors[i, 0:3],
                         verticalalignment='bottom', horizontalalignment='left')
 
@@ -3266,7 +3265,7 @@ class HETDEX:
 
         rm = 0.2
         r, w = get_w_as_r(1.5, 500, 0.05, 6.)
-        specplot = plt.axes([0.1, 0.1, 0.9, 0.9])
+        specplot = plt.axes([0.1, 0.1, 0.8, 0.8])
         bigwave = np.arange(cwave - ww, cwave + ww + dwave, dwave)
         F = np.zeros(bigwave.shape)
         mn = 100.0
