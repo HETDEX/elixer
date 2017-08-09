@@ -66,18 +66,19 @@ def parse_astrometry(file):
 
 class PDF_File():
     def __init__(self,basename,id):
-        self.filename = '%s' % basename
+        self.basename = '%s' % basename
+        self.filename = None
         self.id = id
         self.bid_count = 0 #rough number of bid targets included
         if self.id > 0: #i.e. otherwise, just building a single pdf file
             #make the directory
-            if not os.path.isdir(self.filename):
+            if not os.path.isdir(self.basename):
                 try:
-                    os.makedirs(self.filename)
+                    os.makedirs(self.basename)
                 except OSError as exception:
                     if exception.errno != errno.EEXIST:
-                        print ("Fatal. Cannot create pdf output directory: %s" % self.filename)
-                        log.critical("Fatal. Cannot create pdf output directory: %s" % self.filename,exc_info=True)
+                        print ("Fatal. Cannot create pdf output directory: %s" % self.basename)
+                        log.critical("Fatal. Cannot create pdf output directory: %s" % self.basename,exc_info=True)
                         exit(-1)
             # have to leave files there ... this is called per internal iteration (not just once0
            # else: #already exists
@@ -87,8 +88,8 @@ class PDF_File():
            #     except:
            #         log.error("Unable to clean output directory: " + self.filename,exc_info=True)
 
-            filename = os.path.basename(self.filename) + "_" + str(id).zfill(3) + ".pdf"
-            self.filename = os.path.join(self.filename,filename)
+            filename = os.path.basename(self.basename) + "_" + str(id).zfill(3) + ".pdf"
+            self.filename = os.path.join(self.basename,filename)
         else:
             pass #keep filename as is
 
@@ -706,11 +707,6 @@ def main():
     if args.score:
         #todo: future possibility that additional analysis needs to be done (beyond basic fiber info). Move as needed
         if len(hd_list) > 0:
-            #esp. for older panacea and for cure, need data built in the data_dict to compute score
-            for hd in hd_list:
-                for emis in hd.emis_list:
-                    hd.build_data_dict(emis)
-
             if not os.path.isdir(args.name):
                 try:
                     os.makedirs(args.name)
@@ -719,6 +715,11 @@ def main():
                         print("Fatal. Cannot create pdf output directory: %s" % args.name)
                         log.critical("Fatal. Cannot create pdf output directory: %s" % args.name, exc_info=True)
                         exit(-1)
+            #esp. for older panacea and for cure, need data built in the data_dict to compute score
+            for hd in hd_list:
+                for emis in hd.emis_list:
+                    emis.outdir = args.name
+                    hd.build_data_dict(emis)
 
             write_fibers_file(os.path.join(args.name, args.name + "_fib.txt"), hd_list)
         log.critical("Main complete.")
@@ -770,6 +771,7 @@ def main():
                 #now build the report for each emission detection
                 for e in hd.emis_list:
                     pdf = PDF_File(args.name, e.id)
+                    e.outdir = pdf.basename
 
                     id = "Detect ID #" + str(e.id)
                     if (e.wra is not None) and (e.wdec is not None): #weighted RA and Dec

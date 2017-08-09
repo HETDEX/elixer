@@ -78,7 +78,10 @@ contrast2 = 0.5  # regular image
 res = [3, 9]
 ww = xw * 1.9  # wavelength width
 
-PEAK_PIXELS = 7 # number of pixels to either side of peak to fit to gaussian and measure skewness and kurtosis
+# number of pixels to either side of peak to fit to gaussian
+#this value comes from looking at many detections and all but the widest will fit (and even the wide ones will
+#be mostly captured) ... making it too wide picks up too much noise and throws the fit (especially for weaker S/N)
+PEAK_PIXELS = 4
 
 
 #lifted from Greg Z. make_visualization_detect.py
@@ -105,8 +108,26 @@ def get_w_as_r(seeing, gridsize, rstep, rmax, profile_name='moffat'):
     return r, np.array(phot_table['aperture_sum'])
 
 def gaussian(x,x0,sigma,a=1.0):
-  return a*np.exp(-np.power((x - x0)/sigma, 2.)/2.)
+    if (x is None) or (x0 is None) or (sigma is None):
+        return None
 
+    return a*np.exp(-np.power((x - x0)/sigma, 2.)/2.)
+
+
+def rms(data, fit):
+    #sanity check
+    if (data is None) or (fit is None) or (len(data) != len(fit)) or any(np.isnan(data)) or any(np.isnan(fit)):
+        return None
+
+    mx = max(data)
+
+    if mx < 0:
+        return None
+
+    d = np.array(data)/mx
+    f = np.array(fit)/mx
+
+    return np.sqrt(((f - d) ** 2).mean())
 
 def fit_gaussian(x,y):
     yfit = None
@@ -374,7 +395,8 @@ class Fiber:
         self.dqs_w = None #dqs weight
         self.dqs_bad = False
         self.central_wave_pixels_bad = 0
-        self.central_wave_pixels = [] #from fiber-extracted ... the few pixels around the peak
+        self.central_emis_counts = [] #from fiber-extracted ... the few pixels around the peak
+        self.central_emis_wavelengths = []
 
         try:
             self.panacea_idx = int(panacea_fiber_index)
@@ -497,6 +519,7 @@ class DetObj:
         self.num_hits = 0
 
         self.fibers = []
+        self.outdir = None
 
         if emission:
             self.type = 'emis'
@@ -769,27 +792,36 @@ class DetObj:
         force_recompute = False
         bad_pix = 0
         fiber_count = 0
-        central_wave = np.zeros(PEAK_PIXELS*2 + 1)
+        wave_step = 1.0 #AA
+        wave_side = 8.0 #AA
+
+        wave_x = np.arange(self.w - wave_side, self.w + wave_side + wave_step, wave_step)
+        wave_counts = np.zeros(wave_x.shape)
+
+        #central_wave = np.zeros(PEAK_PIXELS*2 + 1)
 
         dqs_bad_count = 0
+        #total_fiber_weight = 0.0 #if using f.dqs_w the weighting is already scaled
 
         for f in self.fibers:
             if f.dqs_bad:
                 dqs_bad_count += 1
                 continue
 
-            if len(f.central_wave_pixels) == 0:
+            if len(f.central_emis_counts) == 0:
                 continue #no modification
 
             # add up all fibers (weighted? or at least filtered by distance?)
             #if (f.dqs != None) and (f.sn > 3.5):
-            if f.dqs > 0.0:
+            if f.dqs_w > 0.0:
                 fiber_count += 1
                 bad_pix += f.central_wave_pixels_bad
                 try:
-                    central_wave += f.central_wave_pixels
+                    #todo: should this be weighted by the score?? or maybe by distance (f.dqs_dist or f.dqs_w)?
+                    wave_counts += f.dqs_w * (np.interp(wave_x, f.central_emis_wavelengths,f.central_emis_counts))
+                    #total_fiber_weight += f.dqs_w
                 except:
-                    log.error("Improperly shaped fiber.central_wave_pixels: %s" % f.idstring,exc_info=True)
+                    log.error("Improperly shaped fiber.central_emis_counts: %s" % f.idstring,exc_info=True)
                     return True #return False if want to force a recompute
 
         if fiber_count == 0:
@@ -798,28 +830,37 @@ class DetObj:
             return True
 
         #blunt very negative values
-        central_wave = np.clip(central_wave,-10.0,np.inf)
-        x = np.array(range(len(central_wave))) #0 to 2*PEAK_PIXElS
-        xfit = np.linspace(0, len(central_wave), 100)
+       # wave_counts /= total_fiber_weight  # f.dqs_w already scaled to 1.0 so don't divide  out
+        wave_counts = np.clip(wave_counts,0.0,np.inf)
+
+        xfit = np.linspace(wave_x[0], wave_x[-1], 100)
+
         fit_wave = None
+        rms_wave = None
         check_for_bad_pixels = False
+        error = None
 
         wide = True
 
         #use the wide_fit if we can ... if not, use narrow fit
         try:
-            parm, pcov = curve_fit(gaussian, x, central_wave,p0=(PEAK_PIXELS,1.0,0),
-                                     bounds=((0, 0, -np.inf), (PEAK_PIXELS * 2, np.inf, np.inf)))
+            parm, pcov = curve_fit(gaussian, wave_x, wave_counts,p0=(self.w,1.0,0),
+                                     bounds=((self.w-8.0, 0, -np.inf), (self.w+8.0, np.inf, np.inf)))
+
             fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
+            rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2])
+            error = rms(wave_counts,rms_wave)
         except:
             log.error("Could not wide fit gaussian (will try narrow) -- Detect ID # %d." % self.id)
             wide = False
 
             #use narrow fit
             try:
-                 parm, pcov = curve_fit(gaussian, x, central_wave, p0=(PEAK_PIXELS,1.0,0),
-                                        bounds=((PEAK_PIXELS-1, 0, -np.inf), (PEAK_PIXELS+1, np.inf, np.inf)))
+                 parm, pcov = curve_fit(gaussian, wave_x, wave_counts, p0=(self.w,1.0,0),
+                                        bounds=((self.w-1.0, 0, -np.inf), (self.w+1.0, np.inf, np.inf)))
                  fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
+                 rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2])
+                 error = rms(wave_counts, rms_wave)
 
                  if (fit_wave is not None) and (parm is not None):
                      if parm[1]*1.9 < 1.0:
@@ -837,7 +878,7 @@ class DetObj:
 
                 for f in self.fibers:
                     #sort and grab the top two ... trigger if #1 >> 0 and >> #2 ?
-                    sl = sorted(f.central_wave_pixels,key=float,reverse=True)
+                    sl = sorted(f.central_emis_counts,key=float,reverse=True)
                     if (not f.dqs_bad) and (sl[0] > 50.0) and (sl[0] > 2.0*sl[1]):
                     #could be stuck pixel in one exposure but not another, especially if multiple observations
                         force_recompute = True
@@ -860,17 +901,21 @@ class DetObj:
         ku = -999
         si = -999
         dx0 = -999
+        rh = -999
+        mx_norm = max(wave_counts)/100.0
 
         #fit around designated emis line
         if (fit_wave is not None) and (fiber_count > 0) :
             old_score = self.dqs_raw
             new_score = old_score
             sk = skew(fit_wave)
-            ku = kurtosis(fit_wave)
-            si = parm[1] *1.9 #scale to angstroms
-            dx0 = (parm[0]-PEAK_PIXELS) *1.9
+            ku = kurtosis(fit_wave) # remember, 0 is tail width for Normal Dist. ( ku < 0 == thinner tails)
+            si = parm[1] #*1.9 #scale to angstroms
+            dx0 = (parm[0]-self.w) #*1.9
 
-            height_pix = max(central_wave)
+            #si and ku are correlated at this scale, for emission lines ... fat si <==> small ku
+
+            height_pix = max(wave_counts)
             height_fit = max(fit_wave)
 
             if height_pix > 0:
@@ -879,43 +924,77 @@ class DetObj:
                 log.info("Detect ID # %d . Minimum peak height (%f) too small. Score zeroed." % (self.id, height_pix))
                 self.dqs_raw = 0.0
                 old_score = 0.0
+                new_score = 0.0
                 rh = 0.0
 
             #todo: for lower S/N, sigma (width) can be less and still get bonus if fibers have larger separation
 
             #new_score:
-            if (0.75 < rh < 1.25) and float(bad_pix)/float(fiber_count) < 2.0: # 1 bad pixel in each fiber is okay, but no more
+            if (0.75 < rh < 1.25) and (error < 0.2) and (float(bad_pix)/float(fiber_count) < 2.0): # 1 bad pixel in each fiber is okay, but no more
 
+                #central peak position
                 if abs(dx0) > 1.9:  #+/- one pixel (in AA)  from center
-                    new_score -= (abs(dx0) - 1.9) ** 2
+                    val = (abs(dx0) - 1.9)** 2
+                    new_score -= val
+                    log.debug("Detect ID # %d. Penalty for excessive error in X0: %f" % (self.id, val))
 
-                if si < 1.5 and ku < 2.0: #narrow and little outside influence (so a true narrow)
-                    new_score -= np.sqrt(2.0 - si) #mostly less than one and want a bigger impact
+
+                #sigma scoring
+                if si < 2.0: # and ku < 2.0: #narrow and not huge tails
+                    val = mx_norm*np.sqrt(2.0 - si)
+                    new_score -= val
+                    log.debug("Detect ID # %d. Penalty for low sigma: %f" % (self.id, val))
+                    #note: si always > 0.0 and rarely < 1.0
                 elif si < 2.5:
                     pass #zero zone
-                elif si < PEAK_PIXELS*2:
-                    new_score += np.sqrt(si-2.0) #yes, I want this from 2.0 not 2.5
-                elif si < PEAK_PIXELS*3:
+                elif si < 10.0:
+                    val = np.sqrt(si-2.5)
+                    new_score += val
+                    log.debug("Detect ID # %d. Bonus for large sigma: %f" % (self.id, val))
+                elif si < 15.0:
                     pass #unexpected, but lets not penalize just yet
                 else: #very wrong
-                    new_score -= np.sqrt(si-PEAK_PIXELS*3)
+                    val = np.sqrt(si-15.0)
+                    new_score -= val
+                    log.debug("Detect ID # %d. Penalty for excessive sigma: %f" % (self.id, val))
 
-                if si > 2.0:
-                    if ku < 1.0:
-                        new_score += min(1.0 - ku, 2.0)
 
-                if sk < 0.0: #skew wrong directionn
-                    new_score -= min(0.5,sk)
-                if (sk > 2.0): #skewed a bit red, a bit peaky, with outlier influence
-                        new_score += min(0.5,sk-2.0)
+                #only check the skew for smaller sigma
+                #skew scoring
+                if si < 2.5:
+                    if sk < -0.5: #skew wrong directionn
+                        val = min(1.0,mx_norm*min(0.5,abs(sk)-0.5))
+                        new_score -= val
+                        log.debug("Detect ID # %d. Penalty for low sigma and negative skew: %f" % (self.id,val))
+                    if (sk > 2.0): #skewed a bit red, a bit peaky, with outlier influence
+                        val = min(0.5,sk-2.0)
+                        new_score += val
+                        log.debug("Detect ID # %d. Bonus for low sigma and positive skew: %f" % (self.id, val))
 
                 self.dqs_raw = new_score
 
-                base_msg = "Emission # %d, Emis Fit dX0 = %g(AA), Sigma = %g(AA), Skew = %g , Kurtosis = %g : Score Change = %g" \
-                       % (self.id, dx0, si, sk, ku, new_score - old_score)
+                base_msg = "Emission # %d, Emis Fit dX0 = %g(AA), RH = %0.2f, rms = %0.2f, Sigma = %g(AA), Skew = %g , Kurtosis = %g : Score Change = %g" \
+                       % (self.id, dx0, rh, error, si, sk, ku, new_score - old_score)
                 log.info(base_msg)
+            elif rh > 0.0:
+                #todo: based on rh and error give a penalty?? maybe scaled by maximum pixel value? (++val = ++penalty)
+
+                if (error > 0.3) and (0.75 < rh < 1.25): #really bad rms, but we did capture the peak
+                    val = mx_norm*(error - 0.3)
+                    new_score -= val
+                    log.debug("Detect ID # %d. Penalty for excessively bad rms: %f" % (self.id,val))
+                elif rh < 0.6: #way under shooting peak (should be a wide sigma) (peak with shoulders?)
+                    val = mx_norm * (0.6 - rh)
+                    new_score -= val
+                    log.debug("Detect ID # %d. Penalty for excessive undershoot peak: %f" % (self.id, val))
+                elif rh > 1.4: #way over shooting peak (super peaky ... prob. hot pixel?)
+                    val = mx_norm * (rh - 1.4)
+                    new_score -= val
+                    log.debug("Detect ID # %d. Penalty for excessively overshoot peak: %f" % (self.id, val))
+
+                    self.dqs_raw = new_score
             else:
-                log.info("Emission # %d, too many bad pixels or failure to fit peak. No score change (%g)" % (self.id,old_score))
+                log.info("Emission # %d, too many bad pixels or failure to fit peak or overall bad fit. No additional score change (%g)" % (self.id,old_score))
 
         #todo: temporary ... comment out or mark as if False
         if self.plot_dqs_fit or G.PLOT_GAUSSIAN:
@@ -924,14 +1003,18 @@ class DetObj:
             else:
                 title += "(Narrow) "
 
-            title += "ID #%d, Old Score = %g , New Score = %g \n"\
-                      "dX0 = %g , Sigma = %g, Skew = %g, Kurtosis = %g"\
-                      % (self.id, old_score, new_score, dx0, si, sk, ku)
+            if error is None:
+                error = -1
+            title += "ID #%d, Old Score = %0.2f , New Score = %0.2f (%0.1f)\n" \
+                     "dX0 = %0.2f, RH = %0.2f, RMS = %f\n"\
+                     "Sigma = %0.2f, Skew = %0.2f, Kurtosis = %0.2f"\
+                      % (self.id, old_score, new_score, self.dqs_calc_scaled_score(new_score),
+                         dx0, rh, error, si, sk, ku)
 
             fig = plt.figure()
             gauss_plot = plt.axes()
 
-            gauss_plot.plot(x,central_wave,c='k')
+            gauss_plot.plot(wave_x,wave_counts,c='k')
 
             if fit_wave is not None:
                 if wide:
@@ -940,13 +1023,13 @@ class DetObj:
                     gauss_plot.plot(xfit, fit_wave, c='b')
                     gauss_plot.grid(True)
 
-                ymin = min(min(fit_wave),min(central_wave))
-                ymax = max(max(fit_wave),max(central_wave))
+                ymin = min(min(fit_wave),min(wave_counts))
+                ymax = max(max(fit_wave),max(wave_counts))
             else:
-                ymin = min(central_wave)
-                ymax = max(central_wave)
-            gauss_plot.set_ylabel("Counts")
-            gauss_plot.set_xlabel("Relative Pixels ~ x1.9 AA")
+                ymin = min(wave_counts)
+                ymax = max(wave_counts)
+            gauss_plot.set_ylabel("Summed Counts")
+            gauss_plot.set_xlabel("Wavelength $\AA$ ")
 
             ymin *= 1.1
             ymax *= 1.1
@@ -955,8 +1038,11 @@ class DetObj:
             if abs(ymax) < 1.0: ymax = 1.0
 
             gauss_plot.set_ylim((ymin,ymax))
+            gauss_plot.set_xlim( (np.floor(wave_x[0]),np.ceil(wave_x[-1])) )
             gauss_plot.set_title(title)
             png = 'gauss_' + str(self.id) + ".png"
+            if self.outdir is not None:
+                png = op.join(self.outdir,png)
             log.info('Writing: ' + png)
             print('Writing: ' + png)
             fig.tight_layout()
@@ -974,7 +1060,7 @@ class DetObj:
             return True
 
 
-    def dqs_calc_scaled_score(self):
+    def dqs_calc_scaled_score(self,raw=None):
         # 5 point scale
         # A+ = 5.0
         # A  = 4.0
@@ -988,7 +1074,7 @@ class DetObj:
 
         a_p = 14.0
         a__ = 12.5
-        a_m = 9.5
+        a_m = 11.0
         b_p = 8.0
         b__ = 7.0
         c_p = 6.0
@@ -997,33 +1083,44 @@ class DetObj:
         d__ = 3.0
         f__ = 2.0
 
-        if   self.dqs_raw > a_p : self.dqs = 5.0  #A+
-        elif self.dqs_raw > a__ : self.dqs = 4.5 + 0.5*(self.dqs_raw-a__)/(a_p-a__) #A
-        elif self.dqs_raw > a_m : self.dqs = 4.0 + 0.5*(self.dqs_raw-a_m)/(a__-a_m) #A-
-        elif self.dqs_raw > b_p : self.dqs = 3.5 + 0.5*(self.dqs_raw-b_p)/(a_m-b_p) #B+ AB
-        elif self.dqs_raw > b__ : self.dqs = 3.0 + 0.5*(self.dqs_raw-b__)/(b_p-b__) #B
-        elif self.dqs_raw > c_p : self.dqs = 2.5 + 0.5*(self.dqs_raw-c_p)/(b__-c_p) #C+ BC
-        elif self.dqs_raw > c__ : self.dqs = 2.0 + 0.5*(self.dqs_raw-c__)/(c_p-c__) #C
-        elif self.dqs_raw > d_p : self.dqs = 1.5 + 0.5*(self.dqs_raw-d_p)/(c__-d_p) #D+ CD
-        elif self.dqs_raw > d__ : self.dqs = 1.0 + 0.5*(self.dqs_raw-d__)/(d_p-d__) #D
-        elif self.dqs_raw > f__ : self.dqs = 0.5 + 0.5*(self.dqs_raw-f__)/(d__-f__) #F
-        elif self.dqs_raw > 0.0 : self.dqs =  0.5*self.dqs_raw/f__
-        else: self.dqs = 0.0
+        if raw is None:
+            hold = True
+            raw = self.dqs_raw
+        else:
+            hold = False
 
-        self.dqs = round(self.dqs,1)
+        if   raw > a_p : score = 5.0  #A+
+        elif raw > a__ : score = 4.5 + 0.5*(raw-a__)/(a_p-a__) #A
+        elif raw > a_m : score = 4.0 + 0.5*(raw-a_m)/(a__-a_m) #A-
+        elif raw > b_p : score = 3.5 + 0.5*(raw-b_p)/(a_m-b_p) #B+ AB
+        elif raw > b__ : score = 3.0 + 0.5*(raw-b__)/(b_p-b__) #B
+        elif raw > c_p : score = 2.5 + 0.5*(raw-c_p)/(b__-c_p) #C+ BC
+        elif raw > c__ : score = 2.0 + 0.5*(raw-c__)/(c_p-c__) #C
+        elif raw > d_p : score = 1.5 + 0.5*(raw-d_p)/(c__-d_p) #D+ CD
+        elif raw > d__ : score = 1.0 + 0.5*(raw-d__)/(d_p-d__) #D
+        elif raw > f__ : score = 0.5 + 0.5*(raw-f__)/(d__-f__) #F
+        elif raw > 0.0 : score =  0.5*raw/f__
+        else: score = 0.0
+
+        score = round(score,1)
 
         bad_pix = 0
         for f in self.fibers:
             bad_pix += f.central_wave_pixels_bad
 
+        #allow only a single pixel to fall out of our range
+        if float(bad_pix)/len(self.fibers) > 1.0:
+            if hold:
+                log.info("Detect ID %d maximum score limited by bad (wavelength edge) pixels.")
+            score = min(3.5,score)
 
-        if bad_pix/len(self.fibers) > 2.0:
-            log.info("Detect ID %d maximum score limited by bad (wavelength edge) pixels.")
-            self.dqs = min(3.5,self.dqs)
+        if hold:
+            log.info("Detect ID # %d, Scale Score = %0.1f (raw = %f)" % (self.id,score,raw))
 
-        log.info("Detect ID # %d, Final score = %0.1f (raw = %f)" % (self.id,self.dqs,self.dqs_raw))
+        if hold:
+            self.dqs = score
 
-        return self.dqs
+        return score
 
 
 
@@ -2694,27 +2791,35 @@ class HETDEX:
 
                 datakeep['spec'].append(sci.fe_data[loc,Fe_indl:(Fe_indh+1)])
                 datakeep['specwave'].append(wave[Fe_indl:(Fe_indh+1)])
+
                 if fiber:
                     Fe_indl = center - PEAK_PIXELS
                     Fe_indh = center + PEAK_PIXELS
-                    #Fe_indl = max(Fe_indl, 0)
-                    #Fe_indh = min(Fe_indh, max_x)
 
                     if (Fe_indl) < 0:
                         fiber.central_wave_pixels_bad = abs(Fe_indl)
-                        fiber.central_wave_pixels = np.zeros(abs(Fe_indl))
-                        fiber.central_wave_pixels = np.concatenate(
-                            (fiber.central_wave_pixels, sci.fe_data[loc, 0:(Fe_indh + 1)]))
-                    elif Fe_indh >= max_x:
-                        fiber.central_wave_pixels_bad = max_x - Fe_indh
-                        fiber.central_wave_pixels = np.zeros(max_x - Fe_indl)
-                        fiber.central_wave_pixels = np.concatenate(
-                            (sci.fe_data[loc, Fe_indl:(max_x + 1)], fiber.central_wave_pixels))
+                        fiber.central_emis_counts = np.zeros(fiber.central_wave_pixels_bad)
+                        fiber.central_emis_wavelengths = np.zeros(fiber.central_wave_pixels_bad)
 
-                    #if (Fe_indh == max_x) or (Fe_indl == 0):
+                        fiber.central_emis_counts = np.concatenate(
+                            (fiber.central_emis_counts, sci.fe_data[loc, 0:(Fe_indh + 1)]))
+                        fiber.central_emis_wavelengths = np.concatenate(
+                            (fiber.central_emis_wavelengths, wave[0:(Fe_indh + 1)]))
+                    elif Fe_indh >= max_x:
+                        fiber.central_wave_pixels_bad = Fe_indh - max_x + 1
+                        fiber.central_emis_counts = np.zeros(fiber.central_wave_pixels_bad)
+                        fiber.central_emis_wavelengths = np.zeros(fiber.central_wave_pixels_bad)
+                        fiber.central_emis_counts = np.concatenate(
+                            (sci.fe_data[loc, Fe_indl:(max_x)], fiber.central_emis_counts))
+                        fiber.central_emis_wavelengths = np.concatenate(
+                            (wave[Fe_indl:(max_x)], fiber.central_emis_wavelengths))
+
+                    # if (Fe_indh == (max_x)) or (Fe_indl == 0):
                     #    log.info("Peak too close to wavelength edge for fiber %s" % fiber.idstring)
-                    #else:
-                    #    fiber.central_wave_pixels = sci.fe_data[loc,Fe_indl:(Fe_indh+1)]
+
+                    else:
+                        fiber.central_emis_counts = sci.fe_data[loc, Fe_indl:(Fe_indh + 1)]
+                        fiber.central_emis_wavelengths = wave[Fe_indl:(Fe_indh + 1)]
 
                 datakeep['fw_spec'].append(sci.fe_data[loc,:])
                 datakeep['fw_specwave'].append(wave[:])
@@ -2991,20 +3096,28 @@ class HETDEX:
 
                 if (Fe_indl) < 0:
                     fiber.central_wave_pixels_bad = abs(Fe_indl)
-                    fiber.central_wave_pixels = np.zeros(fiber.central_wave_pixels_bad)
-                    fiber.central_wave_pixels = np.concatenate(
-                        (fiber.central_wave_pixels,fits.fe_data[loc,0:(Fe_indh+1)]))
+                    fiber.central_emis_counts = np.zeros(fiber.central_wave_pixels_bad)
+                    fiber.central_emis_wavelengths = np.zeros(fiber.central_wave_pixels_bad)
+
+                    fiber.central_emis_counts = np.concatenate(
+                        (fiber.central_emis_counts,fits.fe_data[loc,0:(Fe_indh+1)]))
+                    fiber.central_emis_wavelengths = np.concatenate(
+                        (fiber.central_emis_wavelengths, wave[0:(Fe_indh + 1)]))
                 elif Fe_indh >= max_x:
                     fiber.central_wave_pixels_bad = Fe_indh - max_x + 1
-                    fiber.central_wave_pixels = np.zeros(fiber.central_wave_pixels_bad)
-                    fiber.central_wave_pixels = np.concatenate(
-                        (fits.fe_data[loc, Fe_indl:(max_x)],fiber.central_wave_pixels))
+                    fiber.central_emis_counts = np.zeros(fiber.central_wave_pixels_bad)
+                    fiber.central_emis_wavelengths = np.zeros(fiber.central_wave_pixels_bad)
+                    fiber.central_emis_counts = np.concatenate(
+                        (fits.fe_data[loc, Fe_indl:(max_x)],fiber.central_emis_counts))
+                    fiber.central_emis_wavelengths = np.concatenate(
+                    (wave[Fe_indl:(max_x)], fiber.central_emis_wavelengths))
 
                 #if (Fe_indh == (max_x)) or (Fe_indl == 0):
                 #    log.info("Peak too close to wavelength edge for fiber %s" % fiber.idstring)
 
                 else:
-                    fiber.central_wave_pixels = fits.fe_data[loc,Fe_indl:(Fe_indh+1)]
+                    fiber.central_emis_counts = fits.fe_data[loc,Fe_indl:(Fe_indh+1)]
+                    fiber.central_emis_wavelengths = wave[Fe_indl:(Fe_indh+1)]
 
             datakeep['fw_spec'].append(fits.fe_data[loc, :])
             datakeep['fw_specwave'].append(wave[:])
