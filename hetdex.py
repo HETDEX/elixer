@@ -32,6 +32,7 @@ from pyhetdex.coordinates.tangent_projection import TangentPlane as TP
 import os
 import fnmatch
 import os.path as op
+from copy import copy, deepcopy
 
 log = G.logging.getLogger('Cat_logger')
 log.setLevel(G.logging.DEBUG)
@@ -3024,26 +3025,51 @@ class HETDEX:
             yl = int(np.round(y_2D - yw))
             yh = int(np.round(y_2D + yw))
 
-            xl = max(xl, 0)
-            xh = min(xh, max_x)
-            yl = max(yl, 0)
-            yh = min(yh, max_y)
+            blank_xl = xl
+            blank_xh = xh
+            blank_yl = yl
+            blank_yh = yh
+            blank = np.zeros((yh-yl+1,xh-xl+1))
+            scatter_blank = np.zeros((yh - yl + 1 + 10*yw, xh - xl + 1)) #10*yw because +/- 5*yw in height
 
-            # update ... +/- 3 fiber heights (yw) (with 2 gaps in between, so 5)
-            datakeep['scatter'].append(fits.data[max(0,yl-5*yw):min(max_y,yh+5*yw),xl:xh])
+            xl = max(xl, 0)
+            xh = min(xh, max_x-1)
+            yl = max(yl, 0)
+            yh = min(yh, max_y-1)
+
+            scatter_blank_bot = 5 * yw - (yl - max(0, yl - 5 * yw)) #start copy position in scatter_blank
+            scatter_blank_height = min(max_y-1, yh + 5 * yw) - max(0, yl - 5 * yw)   #number of pixels to copy
+
+            scatter_blank[scatter_blank_bot:scatter_blank_bot + scatter_blank_height +1 , (xl - blank_xl):(xl - blank_xl) + (xh - xl) + 1] = \
+                fits.data[max(0, yl - 5 * yw):min(max_y-1, yh + 5 * yw) + 1, xl:xh + 1]
+
+            #datakeep['scatter'].append(fits.data[max(0,yl-5*yw):min(max_y,yh+5*yw),xl:xh])
+            datakeep['scatter'].append(deepcopy(scatter_blank))
 
             datakeep['xi'].append(x_2D)
             datakeep['yi'].append(y_2D)
-            datakeep['xl'].append(xl)
-            datakeep['yl'].append(yl)
-            datakeep['xh'].append(xh)
-            datakeep['yh'].append(yh)
+            #datakeep['xl'].append(xl)
+            #datakeep['yl'].append(yl)
+            #datakeep['xh'].append(xh)
+            #datakeep['yh'].append(yh)
+
+
+            datakeep['xl'].append(blank_xl)
+            datakeep['yl'].append(blank_yl)
+            datakeep['xh'].append(blank_xh)
+            datakeep['yh'].append(blank_yh)
+
             datakeep['fxl'].append(0)
             datakeep['fxh'].append(FRAME_WIDTH_X - 1)
 
             datakeep['sn'].append(e.sigma)
 
-            datakeep['im'].append(fits.data[yl:yh, xl:xh])
+            blank[(yl-blank_yl):(yl-blank_yl)+yh+1, (xl-blank_xl):(xl-blank_xl)+(xh-xl)+1] = \
+                fits.data[yl:yh+1, xl:xh+1]
+
+
+#            datakeep['im'].append(fits.data[yl:yh, xl:xh])
+            datakeep['im'].append(deepcopy(blank))
             datakeep['fw_im'].append(fits.data[yl:yh, 0:FRAME_WIDTH_X - 1])
 
             z1, z2 = self.get_vrange(fits.data[yl:yh, xl:xh],scale=contrast1)
@@ -3061,11 +3087,18 @@ class HETDEX:
             datakeep['vmin2'].append(z1)
             datakeep['vmax2'].append(z2)
 
-            datakeep['err'].append(fits.err_data[yl:yh, xl:xh])
+            blank[(yl-blank_yl):(yl-blank_yl)+yh+1,(xl-blank_xl):(xl-blank_xl)+(xh-xl)+1] = \
+                fits.err_data[yl:yh + 1,xl:xh + 1]
+            #datakeep['err'].append(fits.err_data[yl:yh, xl:xh])
+            datakeep['err'].append(deepcopy(blank))
 
             pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid, fits.side))
             if op.exists(pix_fn):
-                datakeep['pix'].append(pyfits.open(pix_fn)[0].data[yl:yh, xl:xh])
+
+                blank[(yl - blank_yl):(yl - blank_yl) + yh + 1, (xl - blank_xl):(xl - blank_xl) + (xh-xl) + 1] = \
+                    pyfits.open(pix_fn)[0].data[yl:yh + 1, xl:xh + 1]
+                #datakeep['pix'].append(pyfits.open(pix_fn)[0].data[yl:yh, xl:xh])
+                datakeep['pix'].append(deepcopy(blank))
             #datakeep['pix'].append(fits.pixflat_data[yl:yh, xl:xh])
 
             #1D spectrum (spec is counts, specwave is the corresponding wavelength)
