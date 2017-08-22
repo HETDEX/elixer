@@ -1063,7 +1063,7 @@ class DetObj:
             gauss_plot.set_ylim((ymin,ymax))
             gauss_plot.set_xlim( (np.floor(wave_x[0]),np.ceil(wave_x[-1])) )
             gauss_plot.set_title(title)
-            png = 'gauss_' + str(self.id) + "_" + str(self.entry_id) + ".png"
+            png = 'gauss_' + str(self.entry_id).zfill(4) + "_d" + str(self.id) + ".png"
             if self.outdir is not None:
                 png = op.join(self.outdir,png)
             log.info('Writing: ' + png)

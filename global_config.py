@@ -7,7 +7,7 @@ import gc
 import socket
 
 #version
-__version__ = '1.1.4'
+__version__ = '1.1.5'
 
 
 #if socket.gethostname() == 'z50':
