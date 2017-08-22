@@ -675,11 +675,15 @@ def main():
     cats = catalogs.get_catalog_list()
     pages = []
 
+
+    #always build ifu_list
+    ifu_list = ifulist_from_detect_file(args)
+
     #if a specific observation date was specified, build one hd object per ifu, otherwise they all go to one
-    if (args.obsdate is not None):
-        ifu_list = ifulist_from_detect_file(args)
-    else:
-        ifu_list = []
+    #if (args.obsdate is not None):
+    #    ifu_list = ifulist_from_detect_file(args)
+    #else:
+    #    ifu_list = []
 
     hd_list = [] #one entry for each amp (or side) and dither
     file_list = []
@@ -696,7 +700,7 @@ def main():
             for ifu in ifu_list:
                 args.ifuslot = int(ifu)
                 hd = hetdex.HETDEX(args)
-                if hd is not None:
+                if (hd is not None) and (hd.status != -1):
                     hd_list.append(hd)
         else:
             hd = hetdex.HETDEX(args)
@@ -729,12 +733,12 @@ def main():
         total_emis = 0
         for hd in hd_list:
             if hd.status != 0:
-                #fatal
-                print("Fatal error. Cannot build HETDEX working object.")
-                log.critical("Fatal error. Cannot build HETDEX working object.")
                 if len(hd_list) > 1:
                     continue
                 else:
+                    # fatal
+                    print("Fatal error. Cannot build HETDEX working object.")
+                    log.critical("Fatal error. Cannot build HETDEX working object.")
                     log.critical("Main exit. Fatal error.")
                     exit (-1)
 
@@ -770,7 +774,7 @@ def main():
 
                 #now build the report for each emission detection
                 for e in hd.emis_list:
-                    pdf = PDF_File(args.name, e.id)
+                    pdf = PDF_File(args.name, e.entry_id)
                     e.outdir = pdf.basename
 
                     id = "Detect ID #" + str(e.id)

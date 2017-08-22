@@ -325,6 +325,11 @@ class Catalog:
     def add_fiber_positions(self,plt,ra,dec,fiber_locs,error,ext,cutout):
             # plot the fiber cutout
             log.debug("Plotting fiber positions...")
+
+            if (fiber_locs is None) or len(fiber_locs) == 0:
+                log.debug("Fiber locations not provided.")
+                return False
+
             try:
                 empty_sci = science_image.science_image()
 
@@ -365,6 +370,10 @@ class Catalog:
 
                 # need a new cutout since we rescaled the ext (and window) size
                 cutout = empty_sci.get_cutout(ra, dec, error, window=ext * 2, image=self.master_cutout)
+                if cutout is None:
+                    log.warning("Cannot obtain new cutout from master_cutout in cat_base::add_fiber_positions")#,exc_info=True)
+                    cutout = self.master_cutout
+
                 vmin, vmax = empty_sci.get_vrange(cutout.data)
 
                 self.add_north_box(plt, empty_sci, cutout, error, 0, 0, theta=None)

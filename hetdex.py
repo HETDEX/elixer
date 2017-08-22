@@ -38,33 +38,22 @@ log = G.logging.getLogger('Cat_logger')
 log.setLevel(G.logging.DEBUG)
 
 CONFIG_BASEDIR = G.CONFIG_BASEDIR
-VIRUS_CONFIG = op.join(CONFIG_BASEDIR,"virus_config")
-FPLANE_LOC = op.join(CONFIG_BASEDIR,"virus_config/fplane")
-IFUCEN_LOC = op.join(CONFIG_BASEDIR,"virus_config/IFUcen_files")
-DIST_LOC = op.join(CONFIG_BASEDIR,"virus_config/DeformerDefaults")
-PIXFLT_LOC = op.join(CONFIG_BASEDIR,"virus_config/PixelFlats/20161223")
+VIRUS_CONFIG = G.VIRUS_CONFIG #op.join(CONFIG_BASEDIR,"virus_config")
+FPLANE_LOC = G.FPLANE_LOC #op.join(CONFIG_BASEDIR,"virus_config/fplane")
+IFUCEN_LOC = G.IFUCEN_LOC #op.join(CONFIG_BASEDIR,"virus_config/IFUcen_files")
+DIST_LOC = G.DIST_LOC #op.join(CONFIG_BASEDIR,"virus_config/DeformerDefaults")
+PIXFLT_LOC = G.PIXFLT_LOC #op.join(CONFIG_BASEDIR,"virus_config/PixelFlats/20161223")
 
 PLOT_SUMMED_SPECTRA = False
 
 SIDE = ["L", "R"]
+
+#!!! REMEBER, Y-axis runs 'down':  Python 0,0 is top-left, DS9 is bottom-left
+#!!! so in DS9 LU is 'above' LL and RL is 'above' RU
 AMP  = ["LU","LL","RL","RU"] #in order from bottom to top
 AMP_OFFSET = {"LU":1,"LL":113,"RL":225,"RU":337}
 
-PANACEA_HDU_IDX = { 'image':0,
-                    'error':1,
-                    'clean_image':2,
-                    'flat_image':3,
-                    'continuum_sub':4,
-                    'residual':5,
-                    'ifupos':6,
-                    'error_analysis':7,
-                    'spectrum':8,
-                    'wavelength':9,
-                    'trace':10,
-                    'fiber_to_fiber':11,
-                    'twi_spectrum':12,
-                    'sky_subtracted':13,
-                    'sky_spectrum':14 }
+
 
 #lifted from Greg Z.
 dist_thresh = 2.  # Fiber Distance (arcsecs)
@@ -83,6 +72,31 @@ ww = xw * 1.9  # wavelength width
 #this value comes from looking at many detections and all but the widest will fit (and even the wide ones will
 #be mostly captured) ... making it too wide picks up too much noise and throws the fit (especially for weaker S/N)
 PEAK_PIXELS = 4
+
+
+#todo: may change with Config0 vs Config1 ... so may need to add additional info
+def flip_amp(amp=None,buf=None):
+    if (amp is None) or (buf is None):
+        log.error("Amp designation or buffer is None.")
+        return None
+
+    #sanity check buf for correct size
+    y,x = np.shape(buf)
+
+    if (x != 1032) and (y != 1032):
+        log.error('Amp buffer wrrong shape: (%d,%d). Expecting (1032,1032).' %(x,y))
+        return None
+
+    if (amp.upper() == 'LL') or (amp.upper() == 'RU'):
+        log.debug('Will not flip amp (%s). Already in correct orientation.' % amp)
+        return buf
+
+    if (amp.upper() == 'LU') or (amp.upper() == 'RL'):
+        log.debug('Will flip amp (%s). Reverse X and Reverse Y.' % amp)
+        return np.fliplr(np.flipud(buf))
+
+    log.warning("Unexpected AMP designation: %s" % amp)
+    return None
 
 
 #lifted from Greg Z. make_visualization_detect.py
@@ -489,12 +503,13 @@ class Fiber:
 class DetObj:
     '''mostly a container for an emission line or continuum detection from detect_line.dat or detect_cont.dat file'''
 
-    def __init__(self,tokens,emission=True):
+    def __init__(self,tokens,emission=True,line_number=None):
         #skip NR (0)
         self.plot_dqs_fit = False
         self.dqs = None #scaled score
         self.dqs_raw = None #Detection Quality Score (raw score)
         self.type = 'unk'
+        self.entry_id = None #e.g. line number
         self.id = None
         self.x = None
         self.y = None
@@ -524,7 +539,14 @@ class DetObj:
 
         if emission:
             self.type = 'emis'
-            self.id = int(tokens[1])
+            self.entry_id = int(tokens[0])
+            self.id = int(tokens[1]) #detect id (not line number)
+
+            if (line_number is not None) and (self.entry_id == self.id):
+                #could be happenstance or could be an old file
+                #if it is just happenstance, the line_number should also be the same
+                self.entry_id = line_number
+
             self.x = float(tokens[2]) #sky x
             self.y = float(tokens[3]) #sky y
             self.w = float(tokens[4]) #wavelength
@@ -1041,7 +1063,7 @@ class DetObj:
             gauss_plot.set_ylim((ymin,ymax))
             gauss_plot.set_xlim( (np.floor(wave_x[0]),np.ceil(wave_x[-1])) )
             gauss_plot.set_title(title)
-            png = 'gauss_' + str(self.id) + ".png"
+            png = 'gauss_' + str(self.id) + "_" + str(self.entry_id) + ".png"
             if self.outdir is not None:
                 png = op.join(self.outdir,png)
             log.info('Writing: ' + png)
@@ -1398,36 +1420,46 @@ class HetdexFits:
             return None
 
         try:
+            #build idx
+            #the position of each extention within the multi-frame panacea FITS is not fixed,
+            #so need to build the index (dictionary) for each one we load
+            hdu_idx = {}
+            for i in range(len(f)):
+                try:
+                    hdu_idx[f[i].header['EXTNAME']] = i
+                except:
+                    pass
+
             #use the cleaned image for display
-            self.data = np.array(f[PANACEA_HDU_IDX['clean_image']].data)
+            self.data = np.array(f[hdu_idx['clean_image']].data)
             self.data[np.isnan(self.data)] = 0.0 # clean up any NaNs
 
             #get error equivalent
-            self.err_data = np.array(f[PANACEA_HDU_IDX['error']].data)
+            self.err_data = np.array(f[hdu_idx['error']].data)
             self.err_data[np.isnan(self.err_data)] = 0.0
 
             #get fe equivalent
-            self.fe_data = np.array(f[PANACEA_HDU_IDX['sky_subtracted']].data)
+            self.fe_data = np.array(f[hdu_idx['sky_subtracted']].data)
             self.fe_data[np.isnan(self.fe_data)] = 0.0
 
             # get fe equivalent (need also the matching wavelengths)
-            self.wave_data = np.array(f[PANACEA_HDU_IDX['wavelength']].data)
+            self.wave_data = np.array(f[hdu_idx['wavelength']].data)
             self.wave_data[np.isnan(self.wave_data)] = 0.0
 
-            self.trace_data = np.array(f[PANACEA_HDU_IDX['trace']].data)
+            self.trace_data = np.array(f[hdu_idx['trace']].data)
             self.trace_data[np.isnan(self.trace_data)] = 0.0
 
             # get fiber centers
             # the fits representation is backward (with grid x,y: 1,112 and 2,112 (i.e at the top) == fiber 1))
-            self.fiber_centers = np.array(f[PANACEA_HDU_IDX['ifupos']].data)
+            self.fiber_centers = np.array(f[hdu_idx['ifupos']].data)
 
-            #self.pixflat_data = np.array(f[PANACEA_HDU_IDX['flat_image']].data)
+            #self.pixflat_data = np.array(f[hdu_idx['flat_image']].data)
             #self.pixflat_data[np.isnan(self.pixflat_data)] = 0.0
 
             self.panacea = True
 
             #most complete header in the raw image
-            idx = PANACEA_HDU_IDX['image']
+            idx = hdu_idx['image']
         except:
             log.error("Cannot read fits header. Missing expected keywords. " + self.filename, exc_info=True)
             self.okay = False
@@ -1496,7 +1528,7 @@ class FitsSorter:
 
 
 class HETDEX:
-    #deals with a single IFU
+    #!!!deals with a single IFU
     def __init__(self,args):
         if args is None:
             log.error("Cannot construct HETDEX object. No arguments provided.")
@@ -1528,7 +1560,10 @@ class HETDEX:
         else:
             self.parangle = None
 
-        self.ifu_slot_id = None
+        if args.ifuslot is not None:
+            self.ifu_slot_id = str(args.ifuslot).zfill(3)
+        else:
+            self.ifu_slot_id = None
         self.ifu_id = None
         self.specid = None
         self.obsid = None
@@ -2132,8 +2167,9 @@ class HETDEX:
         return None
 
     def build_multi_observation_panacea_fits_list(self):
+        if len(self.emis_list) > 0:
+            log.info("Building list of reduced fits files ...")
 
-        log.info("Building list of reduced fits files ...")
         dit_idx = 0
         for det in self.emis_list:
             log.debug("Searching for reduced fits file for detection ID %d " %(det.id))
@@ -2245,9 +2281,17 @@ class HETDEX:
 
                     if self.emis_det_id is not None:
                         if str(e.id) in self.emis_det_id:
-                            self.emis_list.append(e)
+                            if (self.ifu_slot_id is not None):
+                                if (str(e.ifuslot) == str(self.ifu_slot_id)):
+                                    self.emis_list.append(e)
+                            else: #if is 'none' so they all go here ... must assume same IFU
+                                self.emis_list.append(e)
                     else:
-                        self.emis_list.append(e)
+                        if (self.ifu_slot_id is not None):
+                            if (str(e.ifuslot) == str(self.ifu_slot_id)):
+                                self.emis_list.append(e)
+                        else:
+                            self.emis_list.append(e)
         except:
             log.error("Cannot read continuum objects.", exc_info=True)
 
@@ -2259,9 +2303,11 @@ class HETDEX:
         try:
             with open(self.detectline_fn, 'r') as f:
                 f = ft.skip_comments(f)
+                line_counter = 0
                 for l in f:
+                    line_counter += 1
                     toks = l.split()
-                    e = DetObj(toks,emission=True)
+                    e = DetObj(toks,emission=True,line_number=line_counter)
 
                     e.plot_dqs_fit = self.plot_dqs_fit
 
@@ -2276,12 +2322,22 @@ class HETDEX:
                                 #         (e.ifuslot,self.ifu_slot_id))
                                 continue
 
+                    #only assign a detection to THIS HETDEX object if they are in the same IFU
+                    #todo: what about combined (across multiple IFUs) (maybe define as ifu000)?
                     if self.emis_det_id is not None:
                         if str(e.id) in self.emis_det_id:
-                            self.emis_list.append(e)
+                            if (self.ifu_slot_id is not None):
+                                if (str(e.ifuslot) == str(self.ifu_slot_id)):
+                                    self.emis_list.append(e)
+                            else: #if is 'none' so they all go here ... must assume same IFU
+                                self.emis_list.append(e)
                     else:
                         if (e.sigma >= self.sigma) and (e.chi2 <= self.chi2):
-                            self.emis_list.append(e)
+                            if (self.ifu_slot_id is not None):
+                                if (str(e.ifuslot) == str(self.ifu_slot_id)):
+                                    self.emis_list.append(e)
+                            else:
+                                self.emis_list.append(e)
         except:
             log.error("Cannot read emission line objects.", exc_info=True)
 
@@ -2351,9 +2407,12 @@ class HETDEX:
 
         title = ""
         if e.type == 'emis':
-            title += "Emission Line Detect ID #"
+            title += "Emission Line Detect ID #%d" % e.id
         else:
-            title += "Continuum Detect ID#"
+            title += "Continuum Detect ID #%d" % e.id
+
+        if e.entry_id is not None:
+            title += " (Line #%d)" % e.entry_id
 
         if (e.wra is not None) and (e.wdec is not None):  # weighted RA and Dec
             ra = e.wra
@@ -2365,7 +2424,7 @@ class HETDEX:
         datakeep = self.build_data_dict(e)
 
         if self.ymd and self.obsid:
-            title +="%d\n"\
+            title +="\n"\
                     "ObsDate %s  ObsID %s IFU %s  CAM %s\n" \
                     "Science file(s):\n%s"\
                     "RA,Dec (%f,%f) \n"\
@@ -2373,16 +2432,16 @@ class HETDEX:
                     "$\lambda$ = %g $\AA$\n" \
                     "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
                     "EstCont = %g\n" \
-                    % (e.id,self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.x, e.y,e.w,
+                    % (self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.x, e.y,e.w,
                         e.estflux, e.dataflux, e.fluxfrac, e.cont) #note: e.fluxfrac gauranteed to be nonzero
         else:
-            title += "%d\n" \
+            title += "\n" \
                      "RA,Dec (%f,%f) \n" \
                      "Sky X,Y (%f,%f)\n" \
                      "$\lambda$ = %g $\AA$\n" \
                      "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
                      "EstCont = %g\n" \
-                     % (e.id, ra, dec, e.x, e.y, e.w,
+                     % (ra, dec, e.x, e.y, e.w,
                         e.estflux, e.dataflux, e.fluxfrac, e.cont)  # note: e.fluxfrac gauranteed to be nonzero
 
         if self.panacea:
@@ -2411,6 +2470,7 @@ class HETDEX:
         plt.gca().axis('off')
 
         if datakeep is not None:
+            img_y = None
             if datakeep['xi']:
                 try:
                     plt.subplot(gs[0:2,3:6])
@@ -2435,7 +2495,10 @@ class HETDEX:
                 try:
                     plt.subplot(gs[0:2,6])
                     plt.gca().axis('off')
-                    buf = self.build_scattered_light_image(datakeep,img_y)
+                    if img_y is not None:
+                        buf = self.build_scattered_light_image(datakeep,img_y)
+                    else:
+                        buf = self.build_scattered_light_image(datakeep)
 
                     buf.seek(0)
                     im = Image.open(buf)
@@ -2625,6 +2688,7 @@ class HETDEX:
         #for loc in locations:
         for item in sort_list:
             side = item.side
+            amp = None
             dither = item.dither
             loc = item.loc
             fiber = None
@@ -2705,6 +2769,8 @@ class HETDEX:
                             fiber.number_in_amp = fiber.number_in_side - 112
                             fiber.amp = 'RU'
 
+                    amp = fiber.amp
+
                     if e.wra:
                         fiber.dqs_score(e.wra,e.wdec)
                     else:
@@ -2764,9 +2830,64 @@ class HETDEX:
 
                 datakeep['err'].append(sci.err_data[yl:yh, xl:xh])
 
-            pix_fn = op.join(PIXFLT_LOC,'pixelflat_cam%s_%s.fits' % (sci.specid, side))
+            #OLD ... using joined AMPS in SIDE
+            # pix_fn = op.join(PIXFLT_LOC,'pixelflat_cam%s_%s.fits' % (sci.specid, side))
+            # # specid (cam) in filename might not have leading zeroes
+            # if not op.exists(pix_fn) and (sci.specid[0] == '0'):
+            #     log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
+            #     pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (sci.specid.lstrip("0"), sci.side))
+            #
+            # if op.exists(pix_fn):
+            #     datakeep['pix'].append(pyfits.open(pix_fn)[0].data[yl:yh,xl:xh])
+            # else:
+            #     # todo: this is really sloppy ... make a better/more efficient pattern
+            #     log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
+            #     pix_x = xh - xl + 1
+            #     pix_y = yh - yl + 1
+            #     pix_blank = np.zeros((pix_y, pix_x))
+            #     try:
+            #         for x in range(pix_x / 2):
+            #             for y in range(pix_y / 2):
+            #                 pix_blank[y * 2, x * 2] = 999
+            #     except:
+            #         pass
+            #     datakeep['pix'].append(deepcopy(pix_blank))
+
+
+            load_blank = False
+            pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (sci.specid, amp))
+            # specid (cam) in filename might not have leading zeroes
+            if not op.exists(pix_fn) and (sci.specid[0] == '0'):
+                log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
+                pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (sci.specid.lstrip("0"), amp))
+
             if op.exists(pix_fn):
-                datakeep['pix'].append(pyfits.open(pix_fn)[0].data[yl:yh,xl:xh])
+                buf = flip_amp(amp,pyfits.open(pix_fn)[0].data)
+                if buf is not None:
+                    datakeep['pix'].append(buf[yl:yh, xl:xh])
+                else:
+                    load_blank = True
+            else:
+                load_blank = True
+
+            if load_blank:
+                # todo: this is really sloppy ... make a better/more efficient pattern
+                log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
+                pix_x = xh - xl + 1
+                pix_y = yh - yl + 1
+                pix_blank = np.zeros((pix_y, pix_x))
+                try:
+                    for x in range(pix_x / 2):
+                        for y in range(pix_y / 2):
+                            pix_blank[y * 2, x * 2] = 999
+                except:
+                    pass
+                datakeep['pix'].append(deepcopy(pix_blank))
+
+
+
+
+
 
             #cosmic removed (but will assume that is the original data)
             #datakeep['cos'].append(fits.open(cos_fn)[0].data[yl:yh, xl:xh])
@@ -3015,7 +3136,7 @@ class HETDEX:
             fiber.emis_y = int(y_2D)
 
             try:
-                log.info("Detect # %d, Fiber %s, Cam(%d), ExpID(%d) CCD X,Y = (%d,%d)" %
+                log.info("Detect # %d, Fiber %s, Cam(%s), ExpID(%d) CCD X,Y = (%d,%d)" %
                          (e.id,fiber.idstring,fiber.specid,fiber.expid,int(x_2D),int(y_2D)))
             except:
                 pass
@@ -3040,18 +3161,14 @@ class HETDEX:
             scatter_blank_bot = 5 * yw - (yl - max(0, yl - 5 * yw)) #start copy position in scatter_blank
             scatter_blank_height = min(max_y-1, yh + 5 * yw) - max(0, yl - 5 * yw)   #number of pixels to copy
 
-            scatter_blank[scatter_blank_bot:scatter_blank_bot + scatter_blank_height +1 , (xl - blank_xl):(xl - blank_xl) + (xh - xl) + 1] = \
+            scatter_blank[scatter_blank_bot:scatter_blank_bot + scatter_blank_height +1,
+                         (xl - blank_xl):(xl - blank_xl) + (xh - xl) + 1] = \
                 fits.data[max(0, yl - 5 * yw):min(max_y-1, yh + 5 * yw) + 1, xl:xh + 1]
 
-            #datakeep['scatter'].append(fits.data[max(0,yl-5*yw):min(max_y,yh+5*yw),xl:xh])
             datakeep['scatter'].append(deepcopy(scatter_blank))
 
             datakeep['xi'].append(x_2D)
             datakeep['yi'].append(y_2D)
-            #datakeep['xl'].append(xl)
-            #datakeep['yl'].append(yl)
-            #datakeep['xh'].append(xh)
-            #datakeep['yh'].append(yh)
 
 
             datakeep['xl'].append(blank_xl)
@@ -3067,8 +3184,6 @@ class HETDEX:
             blank[(yl-blank_yl):(yl-blank_yl)+yh+1, (xl-blank_xl):(xl-blank_xl)+(xh-xl)+1] = \
                 fits.data[yl:yh+1, xl:xh+1]
 
-
-#            datakeep['im'].append(fits.data[yl:yh, xl:xh])
             datakeep['im'].append(deepcopy(blank))
             datakeep['fw_im'].append(fits.data[yl:yh, 0:FRAME_WIDTH_X - 1])
 
@@ -3089,17 +3204,71 @@ class HETDEX:
 
             blank[(yl-blank_yl):(yl-blank_yl)+yh+1,(xl-blank_xl):(xl-blank_xl)+(xh-xl)+1] = \
                 fits.err_data[yl:yh + 1,xl:xh + 1]
-            #datakeep['err'].append(fits.err_data[yl:yh, xl:xh])
+
             datakeep['err'].append(deepcopy(blank))
 
-            pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid, fits.side))
-            if op.exists(pix_fn):
+            #OLD ... using side
+            # pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid, fits.side))
+            # #specid (cam) in filename might not have leading zeroes
+            # if not op.exists(pix_fn) and (fits.specid[0] == '0'):
+            #     log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
+            #     pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid.lstrip("0"), fits.side))
+            #
+            # if op.exists(pix_fn):
+            #     blank[(yl - blank_yl):(yl - blank_yl) + yh + 1, (xl - blank_xl):(xl - blank_xl) + (xh-xl) + 1] = \
+            #         pyfits.open(pix_fn)[0].data[yl:yh + 1, xl:xh + 1]
+            #
+            #     datakeep['pix'].append(deepcopy(blank))
+            # else:
+            #     #todo: this is really sloppy ... make a better/more efficient pattern
+            #     log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
+            #     pix_x = xh - xl + 1
+            #     pix_y = yh - yl + 1
+            #     pix_blank = np.zeros((pix_y, pix_x))
+            #     try:
+            #         for x in range(pix_x/2):
+            #             for y in range (pix_y/2):
+            #                 pix_blank[y*2,x*2] = 999
+            #     except:
+            #         pass
+            #     datakeep['pix'].append(deepcopy(pix_blank))
 
-                blank[(yl - blank_yl):(yl - blank_yl) + yh + 1, (xl - blank_xl):(xl - blank_xl) + (xh-xl) + 1] = \
-                    pyfits.open(pix_fn)[0].data[yl:yh + 1, xl:xh + 1]
-                #datakeep['pix'].append(pyfits.open(pix_fn)[0].data[yl:yh, xl:xh])
-                datakeep['pix'].append(deepcopy(blank))
-            #datakeep['pix'].append(fits.pixflat_data[yl:yh, xl:xh])
+
+            load_blank = False
+            pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid, fits.amp))
+            # specid (cam) in filename might not have leading zeroes
+            if not op.exists(pix_fn) and (fits.specid[0] == '0'):
+                log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
+                pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid.lstrip("0"), fits.amp))
+
+            if op.exists(pix_fn):
+                buf = flip_amp(fits.amp, pyfits.open(pix_fn)[0].data)
+
+                if buf is not None:
+                    blank[(yl - blank_yl):(yl - blank_yl) + yh + 1, (xl - blank_xl):(xl - blank_xl) + (xh - xl) + 1] = \
+                        buf[yl:yh + 1, xl:xh + 1]
+                    datakeep['pix'].append(deepcopy(blank))
+
+                else:
+                    load_blank = True
+            else:
+                load_blank = True
+
+            if load_blank:
+                # todo: this is really sloppy ... make a better/more efficient pattern
+                log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
+                pix_x = xh - xl + 1
+                pix_y = yh - yl + 1
+                pix_blank = np.zeros((pix_y, pix_x))
+                try:
+                    for x in range(pix_x / 2):
+                        for y in range(pix_y / 2):
+                            pix_blank[y * 2, x * 2] = 999
+                except:
+                    pass
+                datakeep['pix'].append(deepcopy(pix_blank))
+
+
 
             #1D spectrum (spec is counts, specwave is the corresponding wavelength)
             wave = fits.wave_data[loc,:]
