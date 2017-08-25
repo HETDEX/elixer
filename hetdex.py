@@ -2885,10 +2885,6 @@ class HETDEX:
                 datakeep['pix'].append(deepcopy(pix_blank))
 
 
-
-
-
-
             #cosmic removed (but will assume that is the original data)
             #datakeep['cos'].append(fits.open(cos_fn)[0].data[yl:yh, xl:xh])
 
@@ -3181,7 +3177,7 @@ class HETDEX:
 
             datakeep['sn'].append(e.sigma)
 
-            blank[(yl-blank_yl):(yl-blank_yl)+yh+1, (xl-blank_xl):(xl-blank_xl)+(xh-xl)+1] = \
+            blank[(yl-blank_yl):(yl-blank_yl)+(yh-yl)+1, (xl-blank_xl):(xl-blank_xl)+(xh-xl)+1] = \
                 fits.data[yl:yh+1, xl:xh+1]
 
             datakeep['im'].append(deepcopy(blank))
@@ -3202,7 +3198,7 @@ class HETDEX:
             datakeep['vmin2'].append(z1)
             datakeep['vmax2'].append(z2)
 
-            blank[(yl-blank_yl):(yl-blank_yl)+yh+1,(xl-blank_xl):(xl-blank_xl)+(xh-xl)+1] = \
+            blank[(yl-blank_yl):(yl-blank_yl)+(yh-yl)+1,(xl-blank_xl):(xl-blank_xl)+(xh-xl)+1] = \
                 fits.err_data[yl:yh + 1,xl:xh + 1]
 
             datakeep['err'].append(deepcopy(blank))
@@ -3245,7 +3241,7 @@ class HETDEX:
                 buf = flip_amp(fits.amp, pyfits.open(pix_fn)[0].data)
 
                 if buf is not None:
-                    blank[(yl - blank_yl):(yl - blank_yl) + yh + 1, (xl - blank_xl):(xl - blank_xl) + (xh - xl) + 1] = \
+                    blank[(yl - blank_yl):(yl - blank_yl) + (yh-yl) + 1, (xl - blank_xl):(xl - blank_xl) + (xh - xl) + 1] = \
                         buf[yl:yh + 1, xl:xh + 1]
                     datakeep['pix'].append(deepcopy(blank))
 
