@@ -72,30 +72,31 @@ class GOODS_N(cat_base.Catalog):
          'labels': ["Flux", "Err"],
          'image': None
          },
-       # {'path': GOODS_N_IMAGES_PATH,
-       #  'name': 'goodsn_all_acs_wfc_f775w_060mas_v2.0_drz.fits',
-       #  'filter': 'f775w',
-       #  'instrument': 'ACS WFC',
-       #  'cols': ["ACS_F775W_FLUX", "ACS_F775W_FLUXERR"],
-       #  'labels': ["Flux", "Err"],
-       #  'image': None
-       #  },
-       # {'path': GOODS_N_IMAGES_PATH,
-       #  'name': 'goodsn_all_acs_wfc_f814w_060mas_v2.0_drz.fits',
-       #  'filter': 'f814w',
-       #  'instrument': 'ACS WFC',
-       #  'cols': ["ACS_F814W_FLUX", "ACS_F814W_FLUXERR"],
-       #  'labels': ["Flux", "Err"],
-       #  'image': None
-       #  },
         {'path': GOODS_N_IMAGES_PATH,
-         'name': 'goodsn_all_acs_wfc_f850l_060mas_v2.0_drz.fits',
-         'filter': 'f850l',
+         'name': 'goodsn_all_acs_wfc_f775w_060mas_v2.0_drz.fits',
+         'filter': 'f775w',
          'instrument': 'ACS WFC',
-         'cols': ["ACS_F850L_FLUX", "ACS_F850L_FLUXERR"],
+         'cols': ["ACS_F775W_FLUX", "ACS_F775W_FLUXERR"],
          'labels': ["Flux", "Err"],
          'image': None
          },
+        {'path': GOODS_N_IMAGES_PATH,
+         'name': 'goodsn_all_acs_wfc_f814w_060mas_v2.0_drz.fits',
+         'filter': 'f814w',
+         'instrument': 'ACS WFC',
+         'cols': ["ACS_F814W_FLUX", "ACS_F814W_FLUXERR"],
+         'labels': ["Flux", "Err"],
+         'image': None
+         },
+        #omit 850LP (per Steve) ... long exposure due to low sensitivity
+       # {'path': GOODS_N_IMAGES_PATH,
+       #  'name': 'goodsn_all_acs_wfc_f850l_060mas_v2.0_drz.fits',
+       #  'filter': 'f850lp',
+       #  'instrument': 'ACS WFC',
+       #  'cols': ["ACS_F850LP_FLUX", "ACS_F850LP_FLUXERR"],
+       #  'labels': ["Flux", "Err"],
+       #  'image': None
+       #  },
         {'path': GOODS_N_IMAGES_PATH,
          'name': 'goodsn_all_wfc3_ir_f105w_060mas_v1.0_drz.fits',
          'filter': 'f105w',
@@ -112,6 +113,7 @@ class GOODS_N(cat_base.Catalog):
          'labels': ["Flux", "Err"],
          'image': None
          },
+        #omit 140w per Steve
         #{'path': GOODS_N_IMAGES_PATH,
         # 'name': 'goodsn_all_wfc3_ir_f140w_060mas_v1.0_drz.fits',
         # 'filter': 'f140w',
@@ -195,6 +197,11 @@ class GOODS_N(cat_base.Catalog):
         try:
             df = pd.read_csv(catalog_loc, names=header,
                              delim_whitespace=True, header=None, index_col=None, skiprows=skip)
+
+            old_names = ['ID (H-band SExtractor ID)', 'IAU_Name','RA (J2000, H-band)', 'DEC (J2000, H-band)']
+            new_names = ['ID', 'IAU_designation','RA', 'DEC']
+            df.rename(columns=dict(zip(old_names, new_names)), inplace=True)
+
         except:
             log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
             return None
