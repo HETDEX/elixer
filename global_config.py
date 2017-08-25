@@ -7,20 +7,20 @@ import gc
 import socket
 
 #version
-__version__ = '1.1.5'
+__version__ = '1.1.6'
 
 
-#if socket.gethostname() == 'z50':
-if False:
+if socket.gethostname() == 'z50':
+#if False:
     OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
 
-    #CONFIG_BASEDIR = "/home/dustin/code/python/voltron/data/config/"
-    #PANACEA_RED_BASEDIR = "/home/dustin/code/python/voltron/data/config/red1/reductions/"
-    CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
-    PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
+    CONFIG_BASEDIR = "/home/dustin/code/python/voltron/data/config/"
+    PANACEA_RED_BASEDIR = "/home/dustin/code/python/voltron/data/config/red1/reductions/"
+    #CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
+    #PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
 
     CANDELS_EGS_Stefanon_2016_BASE_PATH = "/home/dustin/code/python/voltron/data/EGS"
-    GOODS_N_BASE_PATH = "/home/dustin/code/python/voltron/data/GOODSN"
+    GOODS_N_BASE_PATH = "/home/dustin/code/python/voltron/data/GOODSN/"
     GOODS_N_CAT_PATH = GOODS_N_BASE_PATH
 
     EGS_GROTH_BASE_PATH = "/home/dustin/code/python/voltron/data/isak"

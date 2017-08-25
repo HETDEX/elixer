@@ -5,10 +5,9 @@ import os.path as op
 
 
 GOODS_N_BASE_PATH = G.GOODS_N_BASE_PATH
-GOODS_N_CAT = op.join(GOODS_N_BASE_PATH,"photometry/CANDELS.GOODSN.F160W.v1_1.photom.cat")
-GOODS_N_IMAGES_PATH = op.join(GOODS_N_BASE_PATH, "images")
-GOODS_N_PHOTOZ_CAT = op.join(GOODS_N_BASE_PATH , "photoz/zcat_GOODSN_v2.0.cat")
-GOODS_N_PHOTOZ_ZPDF_PATH = op.join(GOODS_N_BASE_PATH, "photoz/zPDFs/")
+GOODS_N_CAT = op.join(G.GOODS_N_CAT_PATH, "GOODSN_HST_Finkelstein.cat")
+GOODS_N_IMAGES_PATH = GOODS_N_BASE_PATH
+
 
 import matplotlib
 matplotlib.use('agg')
@@ -19,9 +18,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 import matplotlib.gridspec as gridspec
-#import matplotlib.patches as mpatches
-#import mpl_toolkits.axisartist.floating_axes as floating_axes
-#from matplotlib.transforms import Affine2D
 
 
 log = G.logging.getLogger('Cat_logger')
@@ -32,123 +28,113 @@ pd.options.mode.chained_assignment = None  #turn off warning about setting the d
 import cat_base
 import match_summary
 
-
-class GOODS_N(cat_base.Catalog):
+class GOODS_N_FINKELSTEIN(cat_base.Catalog):
 
     # class variables
-    MainCatalog = GOODS_N_CAT
-    Name = "GOODS-N"
-    # if multiple images, the composite broadest range (filled in by hand)
-    Cat_Coord_Range = {'RA_min': 188.915597, 'RA_max': 189.563471, 'Dec_min': 62.091438, 'Dec_max': 62.388316}
-    Image_Coord_Range = {'RA_min':188.862 , 'RA_max': 189.605, 'Dec_min': 62.066, 'Dec_max': 62.409}
+    # 1 RA (J2000)
+    # 2 Dec (J2000)
+    # 3 Best-fit photo-z
+    # 4 Photoz lower 68% CL
+    # 5 Photoz upper 68% CL
+    # 6 F435W (B) flux (nJy)
+    # 7 F435W (B) flux error (nJy)
+    # 8 F606W (V) flux (nJy)
+    # 9 F606W (V) flux error (nJy)
+    # 10 F775W (i) flux (nJy)
+    # 11 F775W (i) flux error (nJy)
+    # 12 F814W (I) flux (nJy)
+    # 13 F814W (I) flux error (nJy)
+    # 14 F850LP (z) flux (nJy)
+    # 15 F850LP (z) flux error (nJy)
+    # 16 F105W (Y) flux (nJy)
+    # 17 F105W (Y) flux error (nJy)
+    # 18 F125W (J) flux (nJy)
+    # 19 F125W (J) flux error (nJy)
+    # 20 F160W (H) flux (nJy)
+    # 21 F160W (H) flux error (nJy)
 
+    MainCatalog = GOODS_N_CAT
+    Name = "GOODS_N_FINKELSTEIN"
+    # if multiple images, the composite broadest range (filled in by hand)
+    Image_Coord_Range = {'RA_min': 188.91, 'RA_max': 189.55, 'Dec_min': 62.09, 'Dec_max': 62.39}
+    Cat_Coord_Range = {'RA_min': 188.915588, 'RA_max': 189.543671, 'Dec_min': 62.091625, 'Dec_max': 62.385319}
     WCS_Manual = True
-    EXPTIME_F606W = 236118.0 #289618.0
-    CONT_EST_BASE = 2.8e-21#3.3e-21
-    BidCols = ["ID", "IAU_designation", "RA", "DEC",
-               "CFHT_U_FLUX", "CFHT_U_FLUXERR",
-               "IRAC_CH1_FLUX", "IRAC_CH1_FLUXERR", "IRAC_CH2_FLUX", "IRAC_CH2_FLUXERR",
-               "ACS_F606W_FLUX", "ACS_F606W_FLUXERR",
-               "ACS_F814W_FLUX", "ACS_F814W_FLUXERR",
-               "WFC3_F125W_FLUX", "WFC3_F125W_FLUXERR",
-               "WFC3_F140W_FLUX", "WFC3_F140W_FLUXERR",
-               "WC3_F160W_FLUX", "WFC3_F160W_FLUXERR",
-               "DEEP_SPEC_Z"]  # NOTE: there are no F105W values
+    EXPTIME_F606W = 16950.0
+    CONT_EST_BASE = 2.8e-21
 
     CatalogImages = [
         {'path': GOODS_N_IMAGES_PATH,
-         'name': 'goodsn_all_acs_wfc_f435w_060mas_v1.3_drz.fits',
+         'name': 'gn_acs_old_f435w_060mas_v2_drz.fits',
          'filter': 'f435w',
-         'instrument': 'ACS WFC',
-         'cols': ["ACS_F435W_FLUX", "ACS_F435W_FLUXERR"],
+         'instrument': 'ACS',
+         'cols': ['F435W (V) flux (nJy)', 'F435W (V) flux error (nJy)'],
          'labels': ["Flux", "Err"],
          'image': None
          },
         {'path': GOODS_N_IMAGES_PATH,
-         'name': 'goodsn_all_acs_wfc_f606w_060mas_v2.0_drz.fits',
+         'name': 'gn_acs_old_f606w_060mas_v2_drz.fits',
          'filter': 'f606w',
-         'instrument': 'ACS WFC',
-         'cols': ["ACS_F606W_FLUX", "ACS_F606W_FLUXERR"],
-         'labels': ["Flux", "Err"],
-         'image': None
-         },
-       # {'path': GOODS_N_IMAGES_PATH,
-       #  'name': 'goodsn_all_acs_wfc_f775w_060mas_v2.0_drz.fits',
-       #  'filter': 'f775w',
-       #  'instrument': 'ACS WFC',
-       #  'cols': ["ACS_F775W_FLUX", "ACS_F775W_FLUXERR"],
-       #  'labels': ["Flux", "Err"],
-       #  'image': None
-       #  },
-       # {'path': GOODS_N_IMAGES_PATH,
-       #  'name': 'goodsn_all_acs_wfc_f814w_060mas_v2.0_drz.fits',
-       #  'filter': 'f814w',
-       #  'instrument': 'ACS WFC',
-       #  'cols': ["ACS_F814W_FLUX", "ACS_F814W_FLUXERR"],
-       #  'labels': ["Flux", "Err"],
-       #  'image': None
-       #  },
-        {'path': GOODS_N_IMAGES_PATH,
-         'name': 'goodsn_all_acs_wfc_f850l_060mas_v2.0_drz.fits',
-         'filter': 'f850l',
-         'instrument': 'ACS WFC',
-         'cols': ["ACS_F850L_FLUX", "ACS_F850L_FLUXERR"],
+         'instrument': 'ACS',
+         'cols': ['F606W (V) flux (nJy)','F606W (V) flux error (nJy)'],
          'labels': ["Flux", "Err"],
          'image': None
          },
         {'path': GOODS_N_IMAGES_PATH,
-         'name': 'goodsn_all_wfc3_ir_f105w_060mas_v1.0_drz.fits',
-         'filter': 'f105w',
-         'instrument': 'WFC3',
-         'cols': [],
-         'labels': [],
+         'name': 'gn_acs_old_f775w_060mas_v2_drz.fits',
+         'filter': 'f775w',
+         'instrument': 'ACS',
+         'cols': ['F775W (V) flux (nJy)', 'F775W (V) flux error (nJy)'],
+         'labels': ["Flux", "Err"],
          'image': None
          },
+    #    {'path': GOODS_N_IMAGES_PATH,
+    #     'name': 'gn_acs_old_f850l_060mas_v2_drz.fits',
+    #     'filter': 'f850l',
+    #     'instrument': 'ACS',
+    #     'cols': ['F850L (V) flux (nJy)', 'F850L (V) flux error (nJy)'],
+    #     'labels': ["Flux", "Err"],
+    #     'image': None
+    #     },
         {'path': GOODS_N_IMAGES_PATH,
-         'name': 'goodsn_all_wfc3_ir_f125w_060mas_v1.0_drz.fits',
+         'name': 'gn_all_candels_acs_f814w_060mas_v0.9_drz.fits',
+         'filter': 'f814w',
+         'instrument': 'ACS',
+         'cols': ['F814W (I) flux (nJy)','F814W (I) flux error (nJy)'],
+         'labels': ["Flux", "Err"],
+         'image': None
+         },
+     #   {'path': GOODS_N_IMAGES_PATH,
+     #    'name': 'gn_all_candels_wfc3_f105w_060mas_v0.8_drz.fits',
+     #    'filter': 'f105w',
+     #    'instrument': 'WFC3',
+     #    'cols': ['F105W (J) flux (nJy)', 'F105W (J) flux error (nJy)'],
+     #    'labels': ["Flux", "Err"],
+     #    'image': None
+     #    },
+        {'path': GOODS_N_IMAGES_PATH,
+         'name': 'gn_all_candels_wfc3_f125w_060mas_v0.8_drz.fits',
          'filter': 'f125w',
          'instrument': 'WFC3',
-         'cols': ["WFC3_F125W_FLUX", "WFC3_F125W_FLUXERR"],
+         'cols': ['F125W (J) flux (nJy)','F125W (J) flux error (nJy)'],
          'labels': ["Flux", "Err"],
          'image': None
          },
-        #{'path': GOODS_N_IMAGES_PATH,
-        # 'name': 'goodsn_all_wfc3_ir_f140w_060mas_v1.0_drz.fits',
-        # 'filter': 'f140w',
-        # 'instrument': 'WFC3',
-        # 'cols': ["WFC3_F140W_FLUX", "WFC3_F140W_FLUXERR"],
-        # 'labels': ["Flux", "Err"],
-        # 'image': None
-        # },
         {'path': GOODS_N_IMAGES_PATH,
-         'name': 'goodsn_all_wfc3_ir_f160w_060mas_v1.0_drz.fits',
+         'name': 'gn_all_candels_wfc3_f160w_060mas_v0.8_drz.fits',
          'filter': 'f160w',
          'instrument': 'WFC3',
-         'cols': ["WFC3_F160W_FLUX", "WFC3_F160W_FLUXERR"],
+         'cols': ['F160W (H) flux (nJy)','F160W (H) flux error (nJy)'],
          'labels': ["Flux", "Err"],
          'image': None
          }
     ]
 
-    PhotoZCatalog = GOODS_N_PHOTOZ_CAT
-    SupportFilesLocation = GOODS_N_PHOTOZ_ZPDF_PATH
-
     def __init__(self):
-        super(GOODS_N, self).__init__()
+        super(GOODS_N_FINKELSTEIN, self).__init__()
 
-        # self.dataframe_of_bid_targets = None #defined in base class
-        self.dataframe_of_bid_targets_photoz = None
-        # self.table_of_bid_targets = None
         self.num_targets = 0
-
-        # do this only as needed
-        # self.read_main_catalog()
-        # self.read_photoz_catalog()
-        # self.build_catalog_images() #will just build on demand
-
         self.master_cutout = None
 
-    # todo: is this more efficient? garbage collection does not seem to be running
     # so building as needed does not seem to help memory
     def build_catalog_images(self):
         for i in self.CatalogImages:  # i is a dictionary
@@ -156,23 +142,9 @@ class GOODS_N(cat_base.Catalog):
                                                      image_location=op.join(i['path'], i['name']))
 
     @classmethod
-    def read_photoz_catalog(cls):
-        if cls.df_photoz is not None:
-            log.debug("Already built df_photoz")
-        else:
-            try:
-                print("Reading photoz catalog for ", cls.Name)
-                cls.df_photoz = cls.read_catalog(cls.PhotoZCatalog, cls.Name)
-            except:
-                print("Failed")
-
-        return
-
-    @classmethod
     def read_catalog(cls, catalog_loc, name):
 
         log.debug("Building " + name + " dataframe...")
-        idx = []
         header = []
         skip = 0
         try:
@@ -185,9 +157,14 @@ class GOODS_N(cat_base.Catalog):
         while '#' in line:
             skip += 1
             toks = line.split()
-            if (len(toks) > 2) and toks[1].isdigit():  # format:   # <id number> <column name>
-                idx.append(toks[1])
-                header.append(toks[2])
+            if (len(toks) > 2): # and toks[1].isdigit():  # format:   #<id number> <column name (multiple tokens)>
+                label = " ".join(toks[1:])
+                #translastion
+                if label == 'RA (J2000)':
+                    label = 'RA'
+                elif label == 'Dec (J2000)':
+                    label = 'DEC'
+                header.append(label)
             line = f.readline()
 
         f.close()
@@ -207,8 +184,6 @@ class GOODS_N(cat_base.Catalog):
 
         if self.df is None:
             self.read_main_catalog()
-        if self.df_photoz is None:
-            self.read_photoz_catalog()
 
         error_in_deg = np.float64(error) / 3600.0
 
@@ -218,14 +193,15 @@ class GOODS_N(cat_base.Catalog):
 
         coord_scale = np.cos(np.deg2rad(dec))
 
-        #can't actually happen for this catalog
-        if coord_scale < 0.1: #about 85deg
-            print("Warning! Excessive declination (%f) for this method of defining error window. Not supported" %(dec))
-            log.error("Warning! Excessive declination (%f) for this method of defining error window. Not supported" %(dec))
-            return 0,None,None
+        # can't actually happen for this catalog
+        if coord_scale < 0.1:  # about 85deg
+            print("Warning! Excessive declination (%f) for this method of defining error window. Not supported" % (dec))
+            log.error(
+                "Warning! Excessive declination (%f) for this method of defining error window. Not supported" % (dec))
+            return 0, None, None
 
-        ra_min = np.float64(ra - error_in_deg/coord_scale)
-        ra_max = np.float64(ra + error_in_deg/coord_scale)
+        ra_min = np.float64(ra - error_in_deg)
+        ra_max = np.float64(ra + error_in_deg)
         dec_min = np.float64(dec - error_in_deg)
         dec_max = np.float64(dec + error_in_deg)
 
@@ -237,9 +213,6 @@ class GOODS_N(cat_base.Catalog):
                 self.df[(self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max) &
                         (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)].copy()
 
-            # ID matches between both catalogs
-            self.dataframe_of_bid_targets_photoz = \
-                self.df_photoz[(self.df_photoz['ID'].isin(self.dataframe_of_bid_targets['ID']))].copy()
         except:
             log.error(self.Name + " Exception in build_list_of_bid_targets", exc_info=True)
 
@@ -264,7 +237,6 @@ class GOODS_N(cat_base.Catalog):
 
         # display the exact (target) location
         if G.SINGLE_PAGE_PER_DETECT:
-
             entry = self.build_cat_summary_figure(target_ra, target_dec, error, ras, decs,
                                                   target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux)
         else:
@@ -290,34 +262,20 @@ class GOODS_N(cat_base.Catalog):
                     df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                            (self.dataframe_of_bid_targets['DEC'] == d[0])]
 
-                    idnum = df['ID'].values[0]  # to matchup in photoz catalog
                 except:
                     log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
                     continue  # this must be here, so skip to next ra,dec
 
-                try:
-                    # note cannot dirctly use RA,DEC as the recorded precission is different (could do a rounded match)
-                    # but the idnums match up, so just use that
-                    df_photoz = self.dataframe_of_bid_targets_photoz.loc[
-                        self.dataframe_of_bid_targets_photoz['ID'] == idnum]
-
-                    if len(df_photoz) == 0:
-                        log.debug("No conterpart found in photoz catalog; RA=%f , Dec =%f" % (r[0], d[0]))
-                        df_photoz = None
-                except:
-                    log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
-                    df_photoz = None
-
                 print("Building report for bid target %d in %s" % (base_count + number, self.Name))
 
                 if G.SINGLE_PAGE_PER_DETECT and (len(ras) <= G.MAX_COMBINE_BID_TARGETS):
-                    entry = self.build_bid_target_figure_one_line(cat_match,r[0], d[0], error=error, df=df, df_photoz=df_photoz,
+                    entry = self.build_bid_target_figure_one_line(cat_match,r[0], d[0], error=error, df=df, df_photoz=None,
                                                      target_ra=target_ra, target_dec=target_dec,
                                                      section_title=section_title,
                                                      bid_number=number, target_w=target_w, of_number=num_hits-base_count,
                                                      target_flux=target_flux,color=bid_colors[number-1])
                 else:
-                    entry = self.build_bid_target_figure(cat_match,r[0], d[0], error=error, df=df, df_photoz=df_photoz,
+                    entry = self.build_bid_target_figure(cat_match,r[0], d[0], error=error, df=df, df_photoz=None,
                                                      target_ra=target_ra, target_dec=target_dec,
                                                      section_title=section_title,
                                                      bid_number=number, target_w=target_w, of_number=num_hits-base_count,
@@ -369,9 +327,9 @@ class GOODS_N(cat_base.Catalog):
             cont_est = self.CONT_EST_BASE*3 #self.get_f606w_max_cont(self.EXPTIME_F606W, 3, self.CONT_EST_BASE)
             if cont_est != -1:
                 title += "Minimum (no match)\n  3$\sigma$ rest-EW:\n"
-                title += "  LyA = %g $\AA$\n" % ((target_flux / cont_est) / (target_w / G.LyA_rest))
+                title += "  LyA = %g $\AA$\n" %  ((target_flux / cont_est) / (target_w / G.LyA_rest))
                 if target_w >= G.OII_rest:
-                    title = title + "  OII = %g $\AA$\n" % ((target_flux / cont_est) / (target_w / G.OII_rest))
+                    title = title + "  OII = %g $\AA$\n" %  ((target_flux / cont_est) / (target_w / G.OII_rest))
                 else:
                     title = title + "  OII = N/A\n"
 
@@ -469,24 +427,15 @@ class GOODS_N(cat_base.Catalog):
         # note: error is essentially a radius, but this is done as a box, with the 0,0 position in lower-left
         # not the middle, so need the total length of each side to be twice translated error or 2*2*errorS
         window = error * 2.
-        photoz_file = None
         z_best = None
         z_best_type = None  # s = spectral , p = photometric?
-        # z_spec = None
-        # z_spec_ref = None
         z_photoz_weighted = None
 
         rows = 2
         cols = len(self.CatalogImages)
 
         if df_photoz is not None:
-            photoz_file = df_photoz['file'].values[0]
-            z_best = df_photoz['z_best'].values[0]
-            z_best_type = df_photoz['z_best_type'].values[0]  # s = spectral , p = photometric?
-            z_photoz_weighted = df_photoz['mFDa4_z_weight']
-            # z_spec = df_photoz['z_spec'].values[0]
-            # z_spec_ref = df_photoz['z_spec_ref'].values[0]
-            # rows = rows + 1
+           pass #photoz is None at this time
 
         fig_sz_x = cols * 3
         fig_sz_y = rows * 3
@@ -500,24 +449,14 @@ class GOODS_N(cat_base.Catalog):
         fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
         plt.subplots_adjust(left=0.05, right=0.95, top=0.9, bottom=0.1)
 
-        spec_z = 0.0
-
         if df is not None:
             title = "%s  Possible Match #%d" % (section_title, bid_number)
             if of_number > 0:
                 title = title + " of %d" % of_number
 
-            title = title + "\n%s\nRA = %f    Dec = %f\nSeparation    = %g\"" \
-                            % (df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
+            title = title + "\nRA = %f    Dec = %f\nSeparation    = %g\"" \
+                            % (df['RA'].values[0], df['DEC'].values[0],
                                df['distance'].values[0] * 3600)
-            # do not use DEEP SPEC Z, just use spec Z below
-            # z = df['DEEP_SPEC_Z'].values[0]
-            # if z >= 0.0:
-            #     if (z_best_type is not None) and (z_best_type.lower() == 's'):
-            #         title = title + "\nDEEP SPEC Z = %g" % z
-            #     else:
-            #         title = title + "\nDEEP SPEC Z = %g (gold)" % z
-            #         spec_z = z
 
             if z_best_type is not None:
                 if (z_best_type.lower() == 'p'):
@@ -531,41 +470,64 @@ class GOODS_N(cat_base.Catalog):
             if target_w > 0:
                 la_z = target_w / G.LyA_rest - 1.0
                 oii_z = target_w / G.OII_rest - 1.0
-                title = title + "\nLyA Z (virus) = %g (red)" % la_z
+                title = title + "\nLyA Z (virus) = %g " % la_z
                 if (oii_z > 0):
-                    title = title + "\nOII Z (virus) = %g (green)" % oii_z
+                    title = title + "\nOII Z (virus) = %g " % oii_z
                 else:
                     title = title + "\nOII Z (virus) = N/A"
 
             if target_flux is not None:
-                filter_fl = df['ACS_F606W_FLUX'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
-                if (filter_fl is not None) and (filter_fl > 0):
-                    filter_fl = filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
-                    title = title + "\nEst LyA rest-EW = %g $\AA$" \
-                                    % (target_flux / filter_fl / (target_w / G.LyA_rest))
 
-                    if target_w >= G.OII_rest:
-                        title = title + "\nEst OII rest-EW = %g $\AA$" \
-                                        % (target_flux / filter_fl / (target_w / G.OII_rest))
-                    else:
-                        title = title + "\nEst OII rest-EW = N/A"
+                best_fit_photo_z = 0.0
+                try:
+                    best_fit_photo_z = float(df['Best-fit photo-z'].values[0])
+                except:
+                    pass
 
-                    # bid target info is only of value if we have a flux from the emission line
-                    bid_target = match_summary.BidTarget()
-                    bid_target.bid_ra = df['RA'].values[0]
-                    bid_target.bid_dec = df['DEC'].values[0]
-                    bid_target.distance = df['distance'].values[0] * 3600
-                    bid_target.bid_flux_est_cgs = filter_fl
+                title += "\nSpec Z = N/A\n" + "Photo Z = %g\n" % best_fit_photo_z
 
-                    for c in self.CatalogImages:
-                        try:
-                           bid_target.add_filter(c['instrument'], c['filter'],
-                                              self.micro_jansky_to_cgs(df[c['cols'][0]].values[0], target_w),
-                                              self.micro_jansky_to_cgs(df[c['cols'][1]].values[0], target_w))
-                        except:
-                            log.debug('Could not add filter info to bid_target.')
+                try:
+                    filter_fl = float(
+                        df['F606W (V) flux (nJy)'].values[0])  # in nano-jansky or 1e-32  erg s^-1 cm^-2 Hz^-2
+                    filter_fl_err = float(df['F606W (V) flux error (nJy)'].values[0])
+                except:
+                    filter_fl = 0.0
+                    filter_fl_err = 0.0
 
-                    cat_match.add_bid_target(bid_target)
+                if (target_flux is not None) and (filter_fl != 0.0):
+                    if (filter_fl is not None) and (filter_fl > 0):
+                        filter_fl_adj = self.nano_jansky_to_cgs(filter_fl,target_w)# * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
+                        title = title + "Est LyA rest-EW = %g $\AA$\n" \
+                                        % (target_flux / filter_fl_adj / (target_w / G.LyA_rest))
+
+                        if target_w >= G.OII_rest:
+                            title = title + "Est OII rest-EW = %g $\AA$\n" \
+                                            % (target_flux / filter_fl_adj / (target_w / G.OII_rest))
+                        else:
+                            title = title + "Est OII rest-EW = N/A\n"
+
+                        # bid target info is only of value if we have a flux from the emission line
+                        bid_target = match_summary.BidTarget()
+                        bid_target.bid_ra = df['RA'].values[0]
+                        bid_target.bid_dec = df['DEC'].values[0]
+                        bid_target.distance = df['distance'].values[0] * 3600
+                        bid_target.bid_flux_est_cgs = filter_fl
+
+                        for c in self.CatalogImages:
+                            try:
+                                bid_target.add_filter(c['instrument'], c['filter'],
+                                                      self.nano_jansky_to_cgs(df[c['cols'][0]].values[0],
+                                                                               target_w),
+                                                      self.nano_jansky_to_cgs(df[c['cols'][1]].values[0],
+                                                                               target_w))
+                            except:
+                                log.debug('Could not add filter info to bid_target.')
+
+                        cat_match.add_bid_target(bid_target)
+                else:
+                    title += "Est LyA rest-EW = N/A\nEst OII rest-EW = N/A\n"
+
+                title = title + "F606W Flux = %g(%g) nJy\n" % (filter_fl, filter_fl_err)
         else:
             title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)
 
@@ -616,79 +578,60 @@ class GOODS_N(cat_base.Catalog):
                     s = ""
                     for f, l in zip(i['cols'], i['labels']):
                         # print (f)
-                        v = df[f].values[0]
+                        try:
+                            v = float(df[f].values[0])
+                        except:
+                            v = 0.0
+
                         s = s + "%-8s = %.5f\n" % (l, v)
 
                     plt.xlabel(s, multialignment='left', fontproperties=font)
 
         # add photo_z plot
-        # if the z_best_type is 'p' call it photo-Z, if s call it 'spec-Z'
-        # alwasy read in file for "file" and plot column 1 (z as x) vs column 9 (pseudo-probability)
-        # get 'file'
-        # z_best  # 6 z_best_type # 7 z_spec # 8 z_spec_ref
         if df_photoz is not None:
-            z_cat = self.read_catalog(op.join(self.SupportFilesLocation, photoz_file), "z_cat")
-            if z_cat is not None:
-                x = z_cat['z'].values
-                y = z_cat['mFDa4'].values
-                plt.subplot(gs[0, 3:5])
-                plt.plot(x, y, zorder=1)
-                plt.xlim([0, 3.6])
-                # trim axis to 0 to 3.6
-
-                if spec_z > 0:
-                    plt.axvline(x=spec_z, color='gold', linestyle='solid', linewidth=3, zorder=0)
-
-                if target_w > 0:
-                    la_z = target_w / G.LyA_rest - 1.0
-                    oii_z = target_w / G.OII_rest - 1.0
-                    plt.axvline(x=la_z, color='r', linestyle='--', zorder=2)
-                    if (oii_z > 0):
-                        plt.axvline(x=oii_z, color='g', linestyle='--', zorder=2)
-
-                plt.title("Photo Z PDF")
-                plt.gca().yaxis.set_visible(False)
-                plt.xlabel("Z")
-
+            pass
+        else:
+            plt.subplot(gs[0, 2])
+            plt.gca().set_frame_on(False)
+            plt.gca().axis('off')
+            text = "Photo Z plot not available."
+            plt.text(0, 0.5, text, ha='left', va='bottom', fontproperties=font)
 
         # master cutout (0,0 is the observered (exact) target RA, DEC)
-        #reminder target_ra and target_dec are the emission line RA, Dec (inconsistent naming on my part)
         if (self.master_cutout) and (target_ra) and (target_dec):
-            # window=error*4
             ext = error * 1.5 #to be consistent with self.master_cutout scale set to error window *3 and ext = /2
             # resizing (growing) is a problem since the master_cutout is stacked
             # (could shrink (cutout smaller section) but not grow without re-stacking larger cutouts of filters)
             plt.subplot(gs[0, cols - 1])
-
             empty_sci = science_image.science_image()
             # need a new cutout since we rescaled the ext (and window) size
-            cutout = empty_sci.get_cutout(target_ra, target_dec, error, window=ext * 2, image=self.master_cutout)
+            #cutout = empty_sci.get_cutout(target_ra, target_dec, error, window=ext * 2, image=self.master_cutout)
+            cutout = self.master_cutout
             vmin, vmax = empty_sci.get_vrange(cutout.data)
 
-            vmin, vmax = empty_sci.get_vrange(cutout.data)
             plt.imshow(cutout.data, origin='lower', interpolation='none',
                        cmap=plt.get_cmap('gray_r'),
                        vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
             plt.title("Master Cutout (Stacked)")
             plt.xlabel("arcsecs")
-            # plt.ylabel("arcsecs")
 
-            # plt.set_xticklabels([str(ext), str(ext / 2.), str(0), str(-ext / 2.), str(-ext)])
             plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
             plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
 
             # mark the bid target location on the master cutout
+            # note: poor naming on my part, but target_ra and target_dec are the emission line (so the center)
             px, py = empty_sci.get_position(target_ra, target_dec, cutout)
             x, y = empty_sci.get_position(ra, dec, cutout)
 
             # set the diameter of the cirle to half the error (radius error/4)
-            plt.gca().add_patch(plt.Circle(((x - px), (y - py)), radius=error / 4.0, color='yellow', fill=False))
+            plt.gca().add_patch(
+                plt.Circle(((x - px), (y - py)), radius=error / 4.0, color='yellow', fill=False))
 
             # this is correct, do not rotate the yellow rectangle (it is a zoom window only)
-            #x = (x - px) - error
-            #y = (y - py) - error
-            #plt.gca().add_patch(plt.Rectangle((x, y), width=error * 2, height=error * 2,
-            #                                  angle=0.0, color='yellow', fill=False))
+         #   x = (x - px) - error
+         #   y = (y - py) - error
+         #   plt.gca().add_patch(plt.Rectangle((x, y), width=error * 2, height=error * 2,
+         #                                     angle=0.0, color='yellow', fill=False))
 
             plt.plot(0, 0, "r+")
             self.add_north_box(plt, empty_sci, cutout, error, 0, 0, theta=None)
@@ -714,11 +657,11 @@ class GOODS_N(cat_base.Catalog):
         # if window < 8:
         #    window = 8
 
-        rows = 10 #2 (use 0 for text and 1: for plots)
-        cols = 1+ len(self.CatalogImages) #(use 0 for master_stacked and 1 - N for filters)
+        rows = 10 #2
+        cols = 1+ len(self.CatalogImages)
 
-        fig_sz_x = 18 #cols * 3 # was 6 cols
-        fig_sz_y = 3 #rows * 3 # was 1 or 2 rows
+        fig_sz_x = 18 #cols * 3
+        fig_sz_y = 3 #rows * 3
 
         fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
         plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
@@ -730,12 +673,12 @@ class GOODS_N(cat_base.Catalog):
         font.set_family('monospace')
         font.set_size(12)
 
-        #All on one line now across top of plots
+        # All on one line now across top of plots
         title = self.Name + " : Possible Matches = %d (within +/- %g\")" \
-                    % (len(self.dataframe_of_bid_targets), error)
+                            % (len(self.dataframe_of_bid_targets), error)
 
         if target_flux is not None:
-            cont_est = self.CONT_EST_BASE*3 #self.get_f606w_max_cont(self.EXPTIME_F606W, 3, self.CONT_EST_BASE)
+            cont_est = self.CONT_EST_BASE * 3
             if cont_est != -1:
                 title += "  Minimum (no match) 3$\sigma$ rest-EW: "
                 title += "  LyA = %g $\AA$ " % ((target_flux / cont_est) / (target_w / G.LyA_rest))
@@ -753,13 +696,16 @@ class GOODS_N(cat_base.Catalog):
             del (self.master_cutout)
             self.master_cutout = None
 
+
         ref_exptime = None
         total_adjusted_exptime = None
 
         # add the bid targets
+        #norm = plt.Normalize()
+        #bid_colors = plt.cm.brg(norm(np.arange(len(bid_ras))))
         bid_colors = self.get_bid_colors(len(bid_ras))
 
-        index = 0 #start in the 2nd box which is index 1 (1st box is for the fiber position plot)
+        index = 0 #start in the 2nd box (1 + 1 = 2, zero based count)
         for i in self.CatalogImages:  # i is a dictionary
             index += 1
 
@@ -806,13 +752,14 @@ class GOODS_N(cat_base.Catalog):
             self.master_cutout.data /= total_adjusted_exptime
 
         plt.subplot(gs[1:, 0])
+
         self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, self.master_cutout)
 
         # complete the entry
         plt.close()
         return fig
 
-    def build_bid_target_figure_one_line (self, cat_match, ra, dec, error, df=None, df_photoz=None, target_ra=None, target_dec=None,
+    def build_bid_target_figure_one_line (self,cat_match, ra, dec, error, df=None, df_photoz=None, target_ra=None, target_dec=None,
                                 section_title="", bid_number=1, target_w=0, of_number=0, target_flux=None, color="k"):
         '''Builds the entry (e.g. like a row) for one bid target. Includes the target info (name, loc, Z, etc),
         photometry images, Z_PDF, etc
@@ -822,21 +769,15 @@ class GOODS_N(cat_base.Catalog):
         # note: error is essentially a radius, but this is done as a box, with the 0,0 position in lower-left
         # not the middle, so need the total length of each side to be twice translated error or 2*2*errorS
         window = error * 2.
-        photoz_file = None
         z_best = None
         z_best_type = None  # s = spectral , p = photometric?
-        # z_spec = None
-        # z_spec_ref = None
         z_photoz_weighted = None
 
         rows = 1
         cols = 6
 
         if df_photoz is not None:
-            photoz_file = df_photoz['file'].values[0]
-            z_best = df_photoz['z_best'].values[0]
-            z_best_type = df_photoz['z_best_type'].values[0]  # s = spectral , p = photometric?
-            z_photoz_weighted = df_photoz['mFDa4_z_weight']
+           pass
 
         fig_sz_x = cols * 3
         fig_sz_y = rows * 3
@@ -866,9 +807,8 @@ class GOODS_N(cat_base.Catalog):
             if of_number > 0:
                 title = title + " of %d" % of_number
 
-            title = title + "\n%s\nRA = %f    Dec = %f\nSeparation    = %g\"" \
-                            % (df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
-                               df['distance'].values[0] * 3600)
+            title = title + "\nRA = %f    Dec = %f\nSeparation    = %g\"" \
+                            % (df['RA'].values[0], df['DEC'].values[0],df['distance'].values[0] * 3600)
 
             if z_best_type is not None:
                 if (z_best_type.lower() == 'p'):
@@ -882,17 +822,16 @@ class GOODS_N(cat_base.Catalog):
             if target_w > 0:
                 la_z = target_w / G.LyA_rest - 1.0
                 oii_z = target_w / G.OII_rest - 1.0
-                title = title + "\nLyA Z (virus) = %g (red)" % la_z
+                title = title + "\nLyA Z (virus) = %g" % la_z
                 if (oii_z > 0):
-                    title = title + "\nOII Z (virus) = %g (green)" % oii_z
+                    title = title + "\nOII Z (virus) = %g" % oii_z
                 else:
                     title = title + "\nOII Z (virus) = N/A"
 
             if target_flux is not None:
-                filter_fl = df['ACS_F606W_FLUX'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                filter_fl = df['ACS_F606W_FLUX'].values[0]  # in nano-jansky or 1e-32  erg s^-1 cm^-2 Hz^-2
                 if (filter_fl is not None) and (filter_fl > 0):
-                    #filter_fl = filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
-                    filter_fl = self.micro_jansky_to_cgs(filter_fl,target_w)
+                    filter_fl = self.nano_jansky_to_cgs(filter_fl,target_w) #filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
                     title = title + "\nEst LyA rest-EW = %g $\AA$" \
                                     % (target_flux / filter_fl / (target_w / G.LyA_rest))
 
@@ -902,7 +841,7 @@ class GOODS_N(cat_base.Catalog):
                     else:
                         title = title + "\nEst OII rest-EW = N/A"
 
-                    #bid target info is only of value if we have a flux from the emission line
+                    # bid target info is only of value if we have a flux from the emission line
                     bid_target = match_summary.BidTarget()
                     bid_target.bid_ra = df['RA'].values[0]
                     bid_target.bid_dec = df['DEC'].values[0]
@@ -912,8 +851,10 @@ class GOODS_N(cat_base.Catalog):
                     for c in self.CatalogImages:
                         try:
                             bid_target.add_filter(c['instrument'], c['filter'],
-                                                  self.micro_jansky_to_cgs(df[c['cols'][0]].values[0], target_w),
-                                                  self.micro_jansky_to_cgs(df[c['cols'][1]].values[0], target_w))
+                                                  self.nano_jansky_to_cgs(df[c['cols'][0]].values[0],
+                                                                          target_w),
+                                                  self.nano_jansky_to_cgs(df[c['cols'][1]].values[0],
+                                                                          target_w))
                         except:
                             log.debug('Could not add filter info to bid_target.')
 
@@ -938,8 +879,11 @@ class GOODS_N(cat_base.Catalog):
                 if df[i['cols']].empty :
                     title = title + "%7s %s %s = -- (--)\n" % (i['instrument'], i['filter'], "Flux")
                 else:
-                    title = title + "%7s %s %s = %.5f (%.5f)\n" % (i['instrument'], i['filter'], "Flux",
-                            df[i['cols'][0]].values[0], df[i['cols'][1]].values[0])
+                    try:
+                        title = title + "%7s %s %s = %.5f (%.5f)\n" % (i['instrument'], i['filter'], "Flux",
+                                float(df[i['cols'][0]].values[0]), float(df[i['cols'][1]].values[0]))
+                    except:
+                        title = title + "%7s %s %s = -- (--)\n" % (i['instrument'], i['filter'], "Flux")
 
 
         plt.subplot(gs[0, 4])
@@ -947,35 +891,16 @@ class GOODS_N(cat_base.Catalog):
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
-
+        # todo: photo z plot if becomes available
         # add photo_z plot
-        # if the z_best_type is 'p' call it photo-Z, if s call it 'spec-Z'
-        # alwasy read in file for "file" and plot column 1 (z as x) vs column 9 (pseudo-probability)
-        # get 'file'
-        # z_best  # 6 z_best_type # 7 z_spec # 8 z_spec_ref
         if df_photoz is not None:
-            z_cat = self.read_catalog(op.join(self.SupportFilesLocation, photoz_file), "z_cat")
-            if z_cat is not None:
-                x = z_cat['z'].values
-                y = z_cat['mFDa4'].values
-                plt.subplot(gs[0, -4:])
-                plt.plot(x, y, zorder=1)
-                plt.xlim([0, 3.6])
-                # trim axis to 0 to 3.6
-
-                if spec_z > 0:
-                    plt.axvline(x=spec_z, color='gold', linestyle='solid', linewidth=3, zorder=0)
-
-                if target_w > 0:
-                    la_z = target_w / G.LyA_rest - 1.0
-                    oii_z = target_w / G.OII_rest - 1.0
-                    plt.axvline(x=la_z, color='r', linestyle='--', zorder=2)
-                    if (oii_z > 0):
-                        plt.axvline(x=oii_z, color='g', linestyle='--', zorder=2)
-
-                plt.title("Photo Z PDF")
-                plt.gca().yaxis.set_visible(False)
-                plt.xlabel("Z")
+            pass
+        else:
+            plt.subplot(gs[0, -4:])
+            plt.gca().set_frame_on(False)
+            plt.gca().axis('off')
+            text = "Photo Z plot not available."
+            plt.text(0, 0.5, text, ha='left', va='bottom', fontproperties=font)
 
         # fig holds the entire page
         plt.close()
@@ -983,14 +908,6 @@ class GOODS_N(cat_base.Catalog):
 
     def build_multiple_bid_target_figures_one_line(self, cat_match, ras, decs, error, target_ra=None, target_dec=None,
                                          target_w=0, target_flux=None):
-
-
-        window = error * 2.
-        photoz_file = None
-        z_best = None
-        z_best_type = None  # s = spectral , p = photometric?
-        z_photoz_weighted = None
-
         rows = 1
         cols = 6
 
@@ -1042,61 +959,33 @@ class GOODS_N(cat_base.Catalog):
                 df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                        (self.dataframe_of_bid_targets['DEC'] == d[0])]
 
-                idnum = df['ID'].values[0]  # to matchup in photoz catalog
             except:
                 log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
                 continue  # this must be here, so skip to next ra,dec
 
-            try:
-                # note cannot dirctly use RA,DEC as the recorded precission is different (could do a rounded match)
-                # but the idnums match up, so just use that
-                df_photoz = self.dataframe_of_bid_targets_photoz.loc[
-                    self.dataframe_of_bid_targets_photoz['ID'] == idnum]
-
-                if len(df_photoz) == 0:
-                    log.debug("No conterpart found in photoz catalog; RA=%f , Dec =%f" % (r[0], d[0]))
-                    df_photoz = None
-            except:
-                log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
-                df_photoz = None
-
-            if df_photoz is not None:
-                photoz_file = df_photoz['file'].values[0]
-                z_best = df_photoz['z_best'].values[0]
-                z_best_type = df_photoz['z_best_type'].values[0]  # s = spectral , p = photometric?
-                z_photoz_weighted = df_photoz['mFDa4_z_weight']
-
             if df is not None:
                 text = ""
-
                 text = text + "%g\"\n%f, %f\n" \
                                 % ( df['distance'].values[0] * 3600,df['RA'].values[0], df['DEC'].values[0])
 
-                if z_best_type is not None:
-                    if (z_best_type.lower() == 'p'):
-                        text = text + "N/A\n" + "%g\n" % z_best
-                    elif (z_best_type.lower() == 's'):
-                        text = text + "%g (circle)\n" % z_best
-                        spec_z = z_best
-                        if z_photoz_weighted is not None:
-                            text = text + "%g\n" % z_photoz_weighted
-                        else:
-                            text = text + "N/A\n"
-                    else:
-                        text = text + "N/A\n"
-                else:
-                    text = text + "N/A\nN/A\n"
+                best_fit_photo_z = 0.0
+                try:
+                    best_fit_photo_z = float(df['Best-fit photo-z'].values[0])
+                except:
+                    pass
+
+                text += "N/A\n" + "%g\n" % best_fit_photo_z
 
                 try:
-                    filter_fl = df['ACS_F606W_FLUX'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
-                    filter_fl_err = df['ACS_F606W_FLUXERR'].values[0]
+                    filter_fl = float(df['F606W (V) flux (nJy)'].values[0])  # in nano-jansky or 1e-32  erg s^-1 cm^-2 Hz^-2
+                    filter_fl_err = float(df['F606W (V) flux error (nJy)'].values[0])
                 except:
                     filter_fl = 0.0
                     filter_fl_err = 0.0
 
                 if (target_flux is not None) and (filter_fl != 0.0):
                     if (filter_fl is not None):# and (filter_fl > 0):
-                        filter_fl_adj = filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
+                        filter_fl_adj = self.nano_jansky_to_cgs(filter_fl,target_w)#filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
                         text = text + "%g $\AA$\n" % (target_flux / filter_fl_adj / (target_w / G.LyA_rest))
 
                         if target_w >= G.OII_rest:
@@ -1114,10 +1003,10 @@ class GOODS_N(cat_base.Catalog):
                         for c in self.CatalogImages:
                             try:
                                 bid_target.add_filter(c['instrument'], c['filter'],
-                                                      self.micro_jansky_to_cgs(df[c['cols'][0]].values[0],
-                                                                               target_w),
-                                                      self.micro_jansky_to_cgs(df[c['cols'][1]].values[0],
-                                                                               target_w))
+                                                      self.nano_jansky_to_cgs(df[c['cols'][0]].values[0],
+                                                                              target_w),
+                                                      self.nano_jansky_to_cgs(df[c['cols'][1]].values[0],
+                                                                              target_w))
                             except:
                                 log.debug('Could not add filter info to bid_target.')
 
@@ -1126,11 +1015,9 @@ class GOODS_N(cat_base.Catalog):
                     text += "N/A\nN/A\n"
 
                 if filter_fl < 0:
-                    text = text + "%g(%g) $\\mu$Jy !?\n" % (filter_fl, filter_fl_err)
+                    text = text + "%g(%g) nJy !?\n" % (filter_fl, filter_fl_err)
                 else:
-                    text = text + "%g(%g) $\\mu$Jy\n" % (filter_fl, filter_fl_err)
-
-
+                    text = text + "%g(%g) nJy\n" % (filter_fl, filter_fl_err)
             else:
                 text = "%s\n%f\n%f\n" % ("--",r, d)
 
@@ -1139,54 +1026,15 @@ class GOODS_N(cat_base.Catalog):
             plt.gca().axis('off')
             plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font,color=bid_colors[col_idx-1])
 
-            # add photo_z plot
-            # if the z_best_type is 'p' call it photo-Z, if s call it 'spec-Z'
-            # alwasy read in file for "file" and plot column 1 (z as x) vs column 9 (pseudo-probability)
-            # get 'file'
-            # z_best  # 6 z_best_type # 7 z_spec # 8 z_spec_ref
-            #overplot photo Z lines
-
-            if df_photoz is not None:
-                z_cat = self.read_catalog(op.join(self.SupportFilesLocation, photoz_file), "z_cat")
-                if z_cat is not None:
-                    x = z_cat['z'].values
-                    y = z_cat['mFDa4'].values
-                    plt.subplot(gs[0, 4:])
-                    plt.plot(x, y, color=bid_colors[col_idx-1])
-                    plt.xlim([0, 3.6])
-                    # trim axis to 0 to 3.6
-
-                    if spec_z > 0:
-                        #plt.axvline(x=spec_z, color='gold', linestyle='solid', linewidth=3, zorder=0)
-                        plt.scatter([spec_z,],[plt.gca().get_ylim()[1]*0.9,],zorder=9,
-                                 marker="o",s=80,facecolors='none',edgecolors=bid_colors[col_idx-1])
-
-                    if col_idx == 1:
-                        legend = []
-                        if target_w > 0:
-                            la_z = target_w / G.LyA_rest - 1.0
-                            oii_z = target_w / G.OII_rest - 1.0
-                            if (oii_z > 0):
-                                h = plt.axvline(x=oii_z, color='g', linestyle='--', zorder=9,
-                                                label="OII Z(virus) = % g" % oii_z)
-                                legend.append(h)
-                            h = plt.axvline(x=la_z, color='r', linestyle='--', zorder=9,
-                                label="LyA Z (VIRUS) = %g" % la_z)
-                            legend.append(h)
-
-                            plt.gca().legend(handles=legend, loc='lower center', ncol=len(legend), frameon=False,
-                                                 fontsize='small', borderaxespad=0, bbox_to_anchor=(0.5, -0.25))
-
-                    plt.title("Photo Z PDF")
-                    plt.gca().yaxis.set_visible(False)
-                    #plt.xlabel("Z")
-
-                  #  if len(legend) > 0:
-                  #      plt.gca().legend(handles=legend, loc = 'lower center', ncol=len(legend), frameon=False,
-                  #                      fontsize='small', borderaxespad=0,bbox_to_anchor=(0.5,-0.25))
-
-
             # fig holds the entire page
+
+            #todo: photo z plot if becomes available
+            plt.subplot(gs[0, 4:])
+            plt.gca().set_frame_on(False)
+            plt.gca().axis('off')
+            text = "Photo Z plot not available."
+            plt.text(0, 0.5, text, ha='left', va='bottom', fontproperties=font)
+
         plt.close()
         return fig
 

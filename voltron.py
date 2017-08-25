@@ -491,8 +491,6 @@ def join_report_parts(report_name, bid_count=0):
             writer = PyPDF.PdfWriter(report_name)
             writer.addPage(merge_page.render())
 
-
-
             #now, add (but don't merge) the other parts
             for i in range(part_num,G_PDF_FILE_NUM):
                 # use this rather than glob since glob sometimes messes up the ordering
@@ -835,9 +833,12 @@ def main():
 
     if PyPDF is not None:
         if len(file_list) > 0:
-            for f in file_list:
-                join_report_parts(f.filename,f.bid_count)
-                delete_report_parts(f.filename)
+            try:
+                for f in file_list:
+                    join_report_parts(f.filename,f.bid_count)
+                    delete_report_parts(f.filename)
+            except:
+                log.error("Joining PDF parts failed for %s" %f.filename,exc_info=True)
         else:
             join_report_parts(args.name)
             delete_report_parts(args.name)
