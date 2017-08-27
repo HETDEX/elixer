@@ -1,0 +1,7 @@
+* add version number to top of first page
+
+* if no imaging catalog, default to dummy catalog that produces the relative fiber posistions plot
+
+* make master_cutout larger than initially needed (crop down to display to needed extent),
+so can use as base if fiber positions are too spread out
+

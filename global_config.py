@@ -61,7 +61,7 @@ VIRUS_CONFIG = op.join(CONFIG_BASEDIR,"virus_config")
 FPLANE_LOC = op.join(CONFIG_BASEDIR,"virus_config/fplane")
 IFUCEN_LOC = op.join(CONFIG_BASEDIR,"virus_config/IFUcen_files")
 DIST_LOC = op.join(CONFIG_BASEDIR,"virus_config/DeformerDefaults")
-PIXFLT_LOC = op.join(CONFIG_BASEDIR,"virus_config/PixelFlats/20170820")
+PIXFLT_LOC = op.join(CONFIG_BASEDIR,"virus_config/PixelFlats")
 
 LOG_LEVEL = logging.DEBUG
 
