@@ -158,6 +158,11 @@ def parse_commandline():
                                         'Currently incompatible with --cure',
                         required=False, action='store_true', default=False)
 
+    parser.add_argument('-t', '--time', help="Max runtime as hh:mm:ss for in SLURM queue",required=False)
+
+    #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
+    #                    required=False, action='store_true', default=False)
+
     args = parser.parse_args()
 
     #reminder to self ... this is pointless with SLURM given the bash wraper (which does not know about the
@@ -600,8 +605,8 @@ def write_fibers_file(filename,hd_list):
         "  Dec of fiber center",
         "  S/N of emission line in this fiber",
         "  weighted quality score",
-        "  X coord on the CCD for the amp of this emission line in this fiber",
-        "  Y coord on the CCD for the amp of this emission line in this fiber",
+        "  X coord on the CCD for the amp of this emission line in this fiber (as shown in ds9)",
+        "  Y coord on the CCD for the amp of this emission line in this fiber (as shown in ds9)",
         "  the next fiber_id string and so on ..."
     ]
 
@@ -654,8 +659,8 @@ def write_fibers_file(filename,hd_list):
                 f.write(sep + str(fib.dec))
                 f.write(sep + str(fib.sn))
                 f.write(sep + str(fib.dqs))
-                f.write(sep + str(fib.emis_x))
-                f.write(sep + str(fib.emis_y))
+                f.write(sep + str(fib.ds9_x))
+                f.write(sep + str(fib.ds9_y))
 
             f.write("\n")
 

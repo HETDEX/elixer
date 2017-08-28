@@ -58,7 +58,8 @@ AMP_OFFSET = {"LU":1,"LL":113,"RL":225,"RU":337}
 #lifted from Greg Z.
 dist_thresh = 2.  # Fiber Distance (arcsecs)
 #todo: change to full width of frame?? (and change xl in build dict to this value, not the difference)
-FRAME_WIDTH_X = 1024
+FRAME_WIDTH_X = 1032 #1024
+AMP_HEIGHT_Y = 1032
 xw = 24  # image width in x-dir
 yw = 10  # image width in y-dir
 #contrast1 = 0.9  # convolved image  # from Greg
@@ -424,6 +425,28 @@ class Fiber:
 
         except:
             log.error("Unable to map fiber index (%d) to fiber number(s)" % int(panacea_fiber_index), exc_info=True)
+
+    @property
+    def ds9_x(self):
+        """return the translated emis_x coordinate in terms of ds9 indexing"""
+        #ds9 starts with 1, python with 0
+        if (self.emis_y is not None) and (self.emis_y != -1):
+            return self.emis_x + 1
+        else:
+            return -1
+
+    @property
+    def ds9_y(self):
+        """return the translated emis_y coordinate in terms of ds9 indexing"""
+        #ds9 starts bottom, left as 1,1
+        #python starts top, left as 0,0
+        #assume 1032 amp height
+        #panacea already has the correct (python) indexing, so the indexing is correct except for the 1 base vs 0 base
+        if (self.emis_y is not None) and (self.emis_y != -1):
+            #return AMP_HEIGHT_Y - self.emis_y
+            return self.emis_y + 1
+        else:
+            return -1
 
 
     def dqs_weight(self,ra,dec):

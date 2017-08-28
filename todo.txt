@@ -5,3 +5,4 @@
 * make master_cutout larger than initially needed (crop down to display to needed extent),
 so can use as base if fiber positions are too spread out
 
+* add ground-based imaging catalog (see http://terapix.iap.fr/article.php?id_article=586 )
