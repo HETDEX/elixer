@@ -2487,8 +2487,12 @@ class HETDEX:
             else:
                 title = title + "  OII Z = N/A"
 
+
+
         plt.subplot(gs[0:2, 0:3])
         plt.text(0, 0.5, title, ha='left', va='center', fontproperties=font)
+        plt.suptitle("Version " + G.__version__, fontsize=8,x=1.0,y=0.98,
+                     horizontalalignment='right',verticalalignment='top')
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
