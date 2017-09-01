@@ -6,8 +6,9 @@ import errno
 
 
 #todo: allow user to change the run-time from command line
-time = "00:40:00"
-
+time = "00:59:59"
+email = "##SBATCH --mail-user \n\
+##SBATCH --mail-type all"
 args = map(str.lower,sys.argv)
 
 #check for name agument (mandatory)
@@ -38,6 +39,22 @@ elif "--time" in args:
 if i != -1:
     try:
         time = sys.argv[i + 1]
+    except:
+       pass
+else:
+    pass
+
+#check for email argument (optional)
+i = -1
+if "--email" in args:
+    i = args.index("--email")
+
+if i != -1:
+    try:
+        email_addr = sys.argv[i + 1]
+        if (email_addr is not None) and ('@' in email_addr) and (len(email_addr) > 5):
+            #assume good
+            email = "#SBATCH --mail-user " + email_addr + "\n#SBATCH --mail-type all"
     except:
        pass
 else:
@@ -77,9 +94,8 @@ slurm = "\
 #SBATCH -p vis                 # Queue name\n\
 #SBATCH -o VOLTRON.o%j          # Name of stdout output file (%j expands to jobid)\n\
 #SBATCH -t " + time + "            # Run time (hh:mm:ss)\n\
-#SBATCH -A Hobby-Eberly-Telesco\n\
-##SBATCH --mail-user \n\
-##SBATCH --mail-type all\n\
+#SBATCH -A Hobby-Eberly-Telesco\n"\
++ email + "\n\
 #------------------------------------------------------\n\
 #\n\
 # Usage:\n\
@@ -93,6 +109,7 @@ slurm = "\
 #------------------------------------------------------\n\
 \n\
 #------------------General Options---------------------\n\
+module unload xalt \n\
 module load launcher\n\
 export EXECUTABLE=$TACC_LAUNCHER_DIR/init_launcher\n\
 export WORKDIR=. \n\

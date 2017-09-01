@@ -159,6 +159,7 @@ def parse_commandline():
                         required=False, action='store_true', default=False)
 
     parser.add_argument('-t', '--time', help="Max runtime as hh:mm:ss for in SLURM queue",required=False)
+    parser.add_argument('--email', help="If populated, sends SLURM status to this email address", required=False)
 
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)

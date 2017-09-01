@@ -6,3 +6,11 @@
 so can use as base if fiber positions are too spread out
 
 * add ground-based imaging catalog (see http://terapix.iap.fr/article.php?id_article=586 )
+
+* name: HIVES (Hetdex Image matching and Visualization of Emission Sources)
+
+* add option in svoltron.py for:
+     email notifications
+     select queue (gpu or vis?)
+     parameteric file name
+      
