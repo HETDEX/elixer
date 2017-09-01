@@ -12,6 +12,7 @@ import cat_goods_n
 #import cat_egs_groth
 import cat_stack_cosmos
 import cat_shela
+import cat_catch_all
 
 
 def get_catalog_list():
@@ -25,3 +26,6 @@ def get_catalog_list():
     cats.append(cat_shela.SHELA())
 
     return cats
+
+def get_catch_all():
+    return cat_catch_all.CATCH_ALL()

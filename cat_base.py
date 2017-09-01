@@ -386,7 +386,7 @@ class Catalog:
                 log.error("Unable to overplot fiber positions.",exc_info=True)
 
 
-    def add_empty_catalog_fiber_positions(self, plt,ra,dec,fiber_locs):
+    def add_empty_catalog_fiber_positions(self, plt,fig,ra,dec,fiber_locs):
         '''used if there is no catalog. Just plot relative positions'''
 
         plt.title("Relative Fiber Positions")
@@ -407,26 +407,30 @@ class Catalog:
             ymin = min(ymin, fy)
             ymax = max(ymax, fy)
 
-            plt.add_patch(plt.Circle((fx, fy), radius=G.Fiber_Radius, color=c, fill=False,
+            plt.gca().add_patch(plt.Circle((fx, fy), radius=G.Fiber_Radius, color=c, fill=False,
                                          linestyle='solid', zorder=9))
             plt.text(fx, fy, str(i), ha='center', va='center', fontsize='x-small', color=c)
 
             if fn in G.CCD_EDGE_FIBERS_ALL:
-                plt.add_patch(
+                plt.gca().add_patch(
                     plt.Circle((fx, fy), radius=G.Fiber_Radius + 0.1, color=c, fill=False,
                                linestyle='dashed', zorder=9))
 
         # larger of the spread of the fibers or the maximum width (in non-rotated x-y plane) of the error window
         ext_base = max(abs(xmin), abs(xmax), abs(ymin), abs(ymax))
-        ext = ext_base + 2 * G.Fiber_Radius
+        ext = np.ceil(ext_base + G.Fiber_Radius)
 
-        rec = plt.Rectangle((-ext, -ext), width=ext * 2, height=ext * 2, fill=True, lw=1,
+        plt.xlim(-ext,ext)
+        plt.ylim(-ext,ext)
+        plt.xlabel('arcsecs')
+        plt.axis('equal')
+
+        rec = plt.Rectangle((-ext,-ext), width=ext*2., height=ext*2., fill=True, lw=1,
                             color='gray', zorder=0, alpha=0.5)
-        plt.add_patch(rec)
+        plt.gca().add_patch(rec)
 
-        plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-        plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-        plt.set_aspect('equal')
+        plt.xticks([int(-ext), int(-ext / 2.), 0, int(ext / 2.), int(ext)])
+        plt.yticks([int(-ext), int(-ext / 2.), 0, int(ext / 2.), int(ext)])
 
 
     def edge_compass(self,fiber_num):

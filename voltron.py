@@ -677,6 +677,7 @@ def main():
     #G.gc.set_debug(G.gc.DEBUG_LEAK)
     args = parse_commandline()
     cats = catalogs.get_catalog_list()
+    catch_all_cat = catalogs.get_catch_all()
     pages = []
 
 
@@ -771,6 +772,11 @@ def main():
                             print("%d hits in %s for Detect ID #%d" % (hits, c.name, e.id))
                         else: #todo: don't bother printing the negative case
                             print("Coordinates not in range of %s for Detect ID #%d" % (c.name,e.id))
+
+                if len(matched_cats) == 0:
+                    #todo: add the catch_all
+                    matched_cats.append(catch_all_cat)
+
 
                 if not confirm(num_hits,args.force):
                     log.critical("Main exit. User cancel.")
