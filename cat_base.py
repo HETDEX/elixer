@@ -386,6 +386,49 @@ class Catalog:
                 log.error("Unable to overplot fiber positions.",exc_info=True)
 
 
+    def add_empty_catalog_fiber_positions(self, plt,ra,dec,fiber_locs):
+        '''used if there is no catalog. Just plot relative positions'''
+
+        plt.title("Relative Fiber Positions")
+        plt.plot(0, 0, "r+")
+
+        xmin = float('inf')
+        xmax = float('-inf')
+        ymin = float('inf')
+        ymax = float('-inf')
+
+        for r, d, c, i, dist, fn in fiber_locs:
+            # fiber absolute position ... need relative position to plot (so fiber - zero pos)
+            fx = (r - ra) * np.cos(np.deg2rad(dec)) * 3600.
+            fy = (d - dec) * 3600.
+
+            xmin = min(xmin, fx)
+            xmax = max(xmax, fx)
+            ymin = min(ymin, fy)
+            ymax = max(ymax, fy)
+
+            plt.add_patch(plt.Circle((fx, fy), radius=G.Fiber_Radius, color=c, fill=False,
+                                         linestyle='solid', zorder=9))
+            plt.text(fx, fy, str(i), ha='center', va='center', fontsize='x-small', color=c)
+
+            if fn in G.CCD_EDGE_FIBERS_ALL:
+                plt.add_patch(
+                    plt.Circle((fx, fy), radius=G.Fiber_Radius + 0.1, color=c, fill=False,
+                               linestyle='dashed', zorder=9))
+
+        # larger of the spread of the fibers or the maximum width (in non-rotated x-y plane) of the error window
+        ext_base = max(abs(xmin), abs(xmax), abs(ymin), abs(ymax))
+        ext = ext_base + 2 * G.Fiber_Radius
+
+        rec = plt.Rectangle((-ext, -ext), width=ext * 2, height=ext * 2, fill=True, lw=1,
+                            color='gray', zorder=0, alpha=0.5)
+        plt.add_patch(rec)
+
+        plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+        plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+        plt.set_aspect('equal')
+
+
     def edge_compass(self,fiber_num):
         # return 8 point compass direction if edge (East is left)
         if fiber_num in G.CCD_EDGE_FIBERS_ALL:

@@ -3726,9 +3726,6 @@ class HETDEX:
                     plt.Circle((fx, fy), radius=G.Fiber_Radius + 0.1, color=c, fill=False,
                                linestyle='dashed',zorder=9))
 
-
-
-
         # larger of the spread of the fibers or the maximum width (in non-rotated x-y plane) of the error window
         ext_base = max(abs(xmin), abs(xmax), abs(ymin), abs(ymax))
         ext = ext_base + 2*G.Fiber_Radius
