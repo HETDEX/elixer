@@ -959,7 +959,11 @@ class SHELA(cat_base.Catalog):
         if self.master_cutout is None:
             # cannot continue
             print("No catalog image available in %s" % self.Name)
-            return None
+            plt.close()
+            # still need to plot relative fiber positions here
+            plt.subplot(gs[1:, 0])
+            return self.build_empty_cat_summary_figure(ra, dec, error, bid_ras, bid_decs, target_w=target_w,
+                                                       fiber_locs=fiber_locs)
         else:
             self.master_cutout.data /= total_adjusted_exptime
 

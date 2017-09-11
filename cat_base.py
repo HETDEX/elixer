@@ -13,6 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import science_image
+from matplotlib.font_manager import FontProperties
 
 log = G.logging.getLogger('Cat_logger')
 log.setLevel(G.logging.DEBUG)
@@ -493,3 +494,38 @@ class Catalog:
         dy += scale*np.sin(rad)
 
         return dx,dy
+
+    def build_empty_cat_summary_figure(self, ra, dec, error, bid_ras, bid_decs, target_w=0,
+                                 fiber_locs=None):
+        '''Builds the figure (page) the exact target location. Contains just the filter images ...'''
+
+        rows = 10  # 2 (use 0 for text and 1: for plots)
+        cols = 6  # just going to use the first, but this sets about the right size
+
+        fig_sz_x = 18  # cols * 3 # was 6 cols
+        fig_sz_y = 3  # rows * 3 # was 1 or 2 rows
+
+        fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
+        plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.15)
+
+        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.0)
+        # reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based
+
+        font = FontProperties()
+        font.set_family('monospace')
+        font.set_size(12)
+
+        # All on one line now across top of plots
+        title = "No overlapping imaging catalog."
+
+        plt.subplot(gs[0, :])
+        plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
+        plt.gca().set_frame_on(False)
+        plt.gca().axis('off')
+
+        plt.subplot(gs[2:, 0])
+        self.add_empty_catalog_fiber_positions(plt, fig, ra, dec, fiber_locs)
+
+        # complete the entry
+        plt.close()
+        return fig
