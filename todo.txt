@@ -9,4 +9,31 @@ so can use as base if fiber positions are too spread out
 * add option in svoltron.py for:
      select queue (gpu or vis?)
      parameteric file name ?
-      
+
+* for multi-page view, see if can figure that out early and set the first page with blanks so is
+  the same size as a single page (makes scanning through images less jerky)
+
+* scan detections for a given IFU (hd object) and try to match up (that is, find detections that belong
+to a single object and combine .... display the list of detect IDs and line #'s in the top line
+of the report).
+   - conditions to meet for any two detections to be the same object:
+   1. must share at least one fiber
+   2. must be within 1" (maybe 1.5"?)
+   3. summed 1D spectra of each must have similar peaks? (same peaks +/- at most 5.7AA ... note that
+   some peaks may be stronger/weaker depedning on where fibers fall)
+   >> Todo: need a way to really identify peaks (there may be something in astropy)
+   >> Todo: how to logically merge?? pick one as the base and add the fibers from the other (so can get
+            more than 5 fibers ... but do not duplicate the common fibers (that is, do not add the same
+            fibers that they share)
+   >> Todo: then pick the strongest (counts or S/N) peak as the yellow highlight ?? and make the
+            cut outs from that one
+   >> Todo: optional? also color highlight (not yellow) the other peaks, so would need to keep a list
+            of the other emis detects (or a list of the relevant data elements)
+   >> Todo: new member variable that says whether this emis obj is a Primary (and should be printed)
+            or a secondary and will not be printed
+
+
+* incorporate and expand Andrew Bayesian LAE v OII.
+  -- expand to include other data in priors (maybe from photometric image matching, or more HETDEX
+     spectral data ... e.g. goodness of peaks and goodness (likelihood) of other contributing lines)
+
