@@ -161,6 +161,8 @@ def parse_commandline():
     parser.add_argument('-t', '--time', help="Max runtime as hh:mm:ss for in SLURM queue",required=False)
     parser.add_argument('--email', help="If populated, sends SLURM status to this email address", required=False)
 
+    parser.add_argument('--panacea_red',help="Basedir for searching for Panacea reduction files",required=False)
+
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
 
@@ -296,6 +298,16 @@ def valid_parameters(args):
             log.error(msg)
             print(msg)
 
+
+    if result and (args.panacea_red is not None):
+        if not os.path.isdir(args.panacea_red):
+            result = False
+            msg = "Invalid Panacea reduction base directory (--panacea_red ) passed on commandline: "\
+                  + args.panacea_red
+            log.error(msg)
+            print(msg)
+        else:
+            G.PANACEA_RED_BASEDIR = args.panacea_red
     return result
 
 
@@ -409,9 +421,16 @@ def join_report_parts(report_name, bid_count=0):
         Keywords='Voltron Version = ' + G.__version__)
 
     if G.SINGLE_PAGE_PER_DETECT:
-        if (bid_count <= G.MAX_COMBINE_BID_TARGETS):
+        #part0001 is the hetdex part (usually 2 pages)
+        #part0002 is the catalog part (at least 2 pages, but if greater than MAX_COMBINED_BID_TARGETS
+        #         then 2 pages + 1 page for each target
+        if (True):
+#        if (bid_count <= G.MAX_COMBINE_BID_TARGETS):
             log.info("Creating single page report for %s. Bid count = %d" % (report_name, bid_count))
             list_pages = []
+            extra_pages = []
+
+            first_page = True
 
             for i in range(G_PDF_FILE_NUM):
                 #use this rather than glob since glob sometimes messes up the ordering
@@ -420,8 +439,19 @@ def join_report_parts(report_name, bid_count=0):
                 part_name = report_name+".part%s" % str(i+1).zfill(4)
                 if os.path.isfile(part_name):
                     pages = PyPDF.PdfReader(part_name).pages
-                    for p in pages:
-                        list_pages.append(p)
+                    if first_page:
+                        first_page = False
+                        for p in pages:
+                            list_pages.append(p)
+                    else: #get the first two, then go single after that
+                        for j in range(min(2,len(pages))):
+                            list_pages.append(pages[j])
+
+                        # todo: keep all others as individual pages
+                        for j in range(2,len(pages)):
+                            extra_pages.append(pages[j])
+
+
 
             if len(list_pages) > 0:
                 merge_page = PyPDF.PageMerge() + list_pages
@@ -449,6 +479,11 @@ def join_report_parts(report_name, bid_count=0):
             try:
                 writer.addPage(merge_page.render())
                 writer.trailer.Info = metadata
+
+                # now, add (but don't merge) the other parts
+                for p in extra_pages:
+                    writer.addPage(p)
+
                 writer.write()
             except:
                 log.error("Error writing out pdf: " + report_name, exc_info = True)

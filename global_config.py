@@ -7,7 +7,7 @@ import gc
 import socket
 
 #version
-__version__ = '1.1.8'
+__version__ = '1.1.10'
 
 
 if socket.gethostname() == 'z50':
@@ -95,9 +95,13 @@ GRID_SZ_X = 3 # equivalent figure_sz_x for a grid width (e.g. one column)
 GRID_SZ_Y = 3 # equivalent figure_sz_y for a grid height (e.g. one row)
 
 SHOW_FULL_2D_SPECTRA = False #if true, plot the full width 2D spectra for each hetdex fiber in detection
-SINGLE_PAGE_PER_DETECT = True #if true, a single pdf page per emission line detection is made
 MAX_COMBINE_BID_TARGETS = 3 #if SINGLE_PAGE_PER_DETECT is true, this is the max number of bid targets that can be
                             #merged on a single line. If the number is greater, each bid target gets its own line
+
+#WARNING! As of version 1.1.10 this should ALWAYS be True ... do not change unless you really
+#know what you are doing!!!
+SINGLE_PAGE_PER_DETECT = True #if true, a single pdf page per emission line detection is made
+
 
 SHOW_SKYLINES = True
 

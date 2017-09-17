@@ -281,13 +281,14 @@ class GOODS_N(cat_base.Catalog):
         if entry is not None:
             self.add_bid_entry(entry)
 
-        if G.SINGLE_PAGE_PER_DETECT and (len(ras) <= G.MAX_COMBINE_BID_TARGETS):
+        if G.SINGLE_PAGE_PER_DETECT: # and (len(ras) <= G.MAX_COMBINE_BID_TARGETS):
             entry = self.build_multiple_bid_target_figures_one_line(cat_match,ras, decs, error,
                                                                target_ra=target_ra, target_dec=target_dec,
                                                                target_w=target_w, target_flux=target_flux)
             if entry is not None:
                 self.add_bid_entry(entry)
-        else: #each bid taget gets its own line
+        #else: #each bid taget gets its own line
+        if len(ras) > G.MAX_COMBINE_BID_TARGETS:  # each bid taget gets its own line
 
             bid_colors = self.get_bid_colors(len(ras))
             number = 0
@@ -1027,6 +1028,11 @@ class GOODS_N(cat_base.Catalog):
         if len(ras) < 1:
             # per Karl insert a blank row
             text = "No matching targets in catalog.\nRow intentionally blank."
+            plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
+            plt.close()
+            return fig
+        elif len(ras) > G.MAX_COMBINE_BID_TARGETS:
+            text = "Too many matching targets in catalog.\nIndividual target reports on followin pages."
             plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
             plt.close()
             return fig

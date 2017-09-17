@@ -12,8 +12,11 @@ so can use as base if fiber positions are too spread out
 
 * for multi-page view, see if can figure that out early and set the first page with blanks so is
   the same size as a single page (makes scanning through images less jerky)
+  - maybe always plot (with colored squares) all hits, but have the second line empty (with note
+    saying pages to follow)
 
-* scan detections for a given IFU (hd object) and try to match up (that is, find detections that belong
+* Combine emission line detections:
+scan detections for a given IFU (hd object) and try to match up (that is, find detections that belong
 to a single object and combine .... display the list of detect IDs and line #'s in the top line
 of the report).
    - conditions to meet for any two detections to be the same object:
@@ -34,6 +37,14 @@ of the report).
 
 
 * incorporate and expand Andrew Bayesian LAE v OII.
-  -- expand to include other data in priors (maybe from photometric image matching, or more HETDEX
-     spectral data ... e.g. goodness of peaks and goodness (likelihood) of other contributing lines)
+  -- expand to include other data in priors (maybe from photometric image matching (its PDF), or
+     more HETDEX spectral data ... e.g. goodness of peaks and goodness (likelihood) of other
+     contributing lines), line flux (measured), EW (estimate?))
+     Also, distance to photo source and flux of source in comparable range to
+     HETDEX. (I.e if really bright but HETDEX is weak then not it ... needs
+     calibrated flux from hetdex
+  -- this should be independent of standard voltron (that is, treat like a subpackage or different package)
+     --need a way to call without voltron objects (i.e. spectra can be just an array of counts, but
+       need a way to quantify other data (like catalog image objects, etc)
+  --
 
