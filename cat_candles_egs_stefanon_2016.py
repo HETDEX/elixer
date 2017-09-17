@@ -1036,7 +1036,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             plt.close()
             return fig
         elif len(ras) > G.MAX_COMBINE_BID_TARGETS:
-            text = "Too many matching targets in catalog.\nIndividual target reports on followin pages."
+            text = "Too many matching targets. Individual reports on following pages.\n\nMORE PAGES ..."
             plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
             plt.close()
             return fig
