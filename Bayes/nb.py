@@ -2217,7 +2217,7 @@ def lumDist(z,cosmo):                        ## returns luminosity distance in M
 
 
 def lineSens(WL):                        ## returns HETDEX line flux sensitivity limit in erg/cm^2/s
-   global LyaWL, LFlim
+   #global LyaWL, LFlim
    return np.interp(WL,LyaWL,LFlim)
    
 

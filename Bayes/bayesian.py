@@ -379,7 +379,7 @@ def LAE_LF(wl_obs,sky_area,case,cosmo):
    logLStar = lg.LStarExt(z_LAE,case)
    LStar = 10**logLStar
       
-   
+
    L_min = 4*np.pi*( 3.08567758e24 * nb.lumDist(z_LAE,cosmo) )**2 * nb.lineSens(wl_obs) / np.sqrt(300./sky_area)
    
    
