@@ -7,7 +7,7 @@ import gc
 import socket
 
 #version
-__version__ = '1.1.10'
+__version__ = '1.1.12'
 
 
 if socket.gethostname() == 'z50':
@@ -18,6 +18,7 @@ if socket.gethostname() == 'z50':
     #PANACEA_RED_BASEDIR = "/home/dustin/code/python/voltron/data/config/red1/reductions/"
     CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
     PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
+    PANACEA_RED_BASEDIR_DEFAULT = PANACEA_RED_BASEDIR
 
     CANDELS_EGS_Stefanon_2016_BASE_PATH = "/home/dustin/code/python/voltron/data/EGS"
     GOODS_N_BASE_PATH = "/home/dustin/code/python/voltron/data/GOODSN/"
@@ -39,6 +40,7 @@ else:
     OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
     CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
     PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
+    PANACEA_RED_BASEDIR_DEFAULT = PANACEA_RED_BASEDIR
 
     CANDELS_EGS_Stefanon_2016_BASE_PATH = "/work/03564/stevenf/maverick/EGS"
     GOODS_N_BASE_PATH = "/work/03564/stevenf/maverick/GOODSN"

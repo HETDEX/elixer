@@ -1557,6 +1557,8 @@ class HETDEX:
             log.error("Cannot construct HETDEX object. No arguments provided.")
             return None
 
+        self.zoo = args.zoo
+
         if args.score:
             self.plot_dqs_fit = True
         else:
@@ -2216,6 +2218,14 @@ class HETDEX:
                 scifile = self.find_first_file("*"+fib.scifits_idstring+"*",path)
 
                 if not scifile:
+                    #try again with the defualt
+                    default_path = op.join(G.PANACEA_RED_BASEDIR_DEFAULT, fib.dither_date, "virus")
+                    if not op.exists(default_path):
+                        log.error("Cannot locate reduced data for %s" % (fib.idstring))
+                        continue
+                    scifile = self.find_first_file("*" + fib.scifits_idstring + "*", default_path)
+
+                if not scifile:
                     log.error("Cannot locate reduction data for %s" % (fib.idstring))
                     continue
                 else:
@@ -2249,7 +2259,7 @@ class HETDEX:
                 if op.isdir(path):
                     fn = op.join(path, multi_fits_basename + fib.amp + ".fits")
 
-                    if op.isfile(fn):
+                    if op.isfile(fn): # or op.islink(fn):
                         log.debug("Found reduced panacea file: " + fn)
 
                         fits = HetdexFits(fn, None, None, dit_idx, panacea=True)
@@ -2261,6 +2271,9 @@ class HETDEX:
                         fits.side = fib.amp[0]
                         fib.fits = fits
                         self.sci_fits.append(fits)
+                    elif op.islink(fn):
+                        log.error("Cannot open <" + fn + ">. Currently do not properly handle files as soft-links. "
+                                                         "The path, however, can contain soft-linked directories.")
                     else:
                         log.error("Designated reduced panacea file does not exist: " + fn)
                 else:
@@ -2447,7 +2460,9 @@ class HETDEX:
         datakeep = self.build_data_dict(e)
 
         if self.ymd and self.obsid:
-            title +="\n"\
+
+            if not self.zoo:
+               title +="\n"\
                     "ObsDate %s  ObsID %s IFU %s  CAM %s\n" \
                     "Science file(s):\n%s"\
                     "RA,Dec (%f,%f) \n"\
@@ -2457,14 +2472,33 @@ class HETDEX:
                     "EstCont = %g\n" \
                     % (self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.x, e.y,e.w,
                         e.estflux, e.dataflux, e.fluxfrac, e.cont) #note: e.fluxfrac gauranteed to be nonzero
+            else:  #this if for zooniverse, don't show RA and DEC
+                title += "\n" \
+                     "ObsDate %s  ObsID %s IFU %s  CAM %s\n" \
+                     "Science file(s):\n%s" \
+                     "Sky X,Y (%f,%f)\n" \
+                     "$\lambda$ = %g $\AA$\n" \
+                     "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
+                     "EstCont = %g\n" \
+                     % (self.ymd, self.obsid, self.ifu_slot_id, self.specid, sci_files, e.x, e.y, e.w,
+                        e.estflux, e.dataflux, e.fluxfrac, e.cont)  # note: e.fluxfrac gauranteed to be nonzero
         else:
-            title += "\n" \
+            if not self.zoo:
+                title += "\n" \
                      "RA,Dec (%f,%f) \n" \
                      "Sky X,Y (%f,%f)\n" \
                      "$\lambda$ = %g $\AA$\n" \
                      "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
                      "EstCont = %g\n" \
                      % (ra, dec, e.x, e.y, e.w,
+                        e.estflux, e.dataflux, e.fluxfrac, e.cont)  # note: e.fluxfrac gauranteed to be nonzero
+            else: #this if for zooniverse, don't show RA and DEC
+                title += "\n" \
+                     "Sky X,Y (%f,%f)\n" \
+                     "$\lambda$ = %g $\AA$\n" \
+                     "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
+                     "EstCont = %g\n" \
+                     % ( e.x, e.y, e.w,
                         e.estflux, e.dataflux, e.fluxfrac, e.cont)  # note: e.fluxfrac gauranteed to be nonzero
 
         if self.panacea:

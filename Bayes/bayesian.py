@@ -34,7 +34,8 @@ reload(og)
 def init(_alpha_LAE,_mult_LStar_LAE,_mult_phiStar_LAE,_mult_w0_LAE,_alpha_OII,_mult_LStar_OII,_mult_phiStar_OII,_mult_w0_OII):
    
    global alpha_LAE,mult_LStar_LAE,mult_phiStar_LAE,mult_w0_LAE,alpha_OII,mult_LStar_OII,mult_phiStar_OII,mult_w0_OII
-   alpha_LAE,mult_LStar_LAE,mult_phiStar_LAE,mult_w0_LAE,alpha_OII,mult_LStar_OII,mult_phiStar_OII,mult_w0_OII = _alpha_LAE,_mult_LStar_LAE,_mult_phiStar_LAE,_mult_w0_LAE,_alpha_OII,_mult_LStar_OII,_mult_phiStar_OII,_mult_w0_OII
+   alpha_LAE,mult_LStar_LAE,mult_phiStar_LAE,mult_w0_LAE,alpha_OII,mult_LStar_OII,mult_phiStar_OII,mult_w0_OII = \
+      _alpha_LAE,_mult_LStar_LAE,_mult_phiStar_LAE,_mult_w0_LAE,_alpha_OII,_mult_LStar_OII,_mult_phiStar_OII,_mult_w0_OII
 
 
 

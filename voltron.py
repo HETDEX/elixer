@@ -163,6 +163,8 @@ def parse_commandline():
 
     parser.add_argument('--panacea_red',help="Basedir for searching for Panacea reduction files",required=False)
 
+    parser.add_argument('--zoo', help='Redact sensitive information for publication on Zooniverse', required=False,
+                        action='store_true', default=False)
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
 
