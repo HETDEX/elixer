@@ -288,9 +288,15 @@ class STACK_COSMOS(cat_base.Catalog):
         font.set_family('monospace')
         font.set_size(12)
 
-        title = "Catalog: %s\n" % self.Name + section_title + "\nPossible Matches = %d (within %g\")\n" \
-                                                              "RA = %f    Dec = %f\n" % (
-                                                              len(self.dataframe_of_bid_targets), error, ra, dec)
+        if G.ZOO:
+            title = "Catalog: %s\n" % self.Name + section_title + "\nPossible Matches = %d (within +/- %g\")\n" % \
+                                                                  (len(self.dataframe_of_bid_targets), error)
+        else:
+            title = "Catalog: %s\n" % self.Name + section_title + "\nPossible Matches = %d (within +/- %g\")\n" \
+                                                                  "RA = %f    Dec = %f\n" % (
+                                                                      len(self.dataframe_of_bid_targets), error, ra,
+                                                                      dec)
+
         if target_w > 0:
             title = title + "Wavelength = %g $\AA$\n" % target_w
         else:
@@ -404,7 +410,11 @@ class STACK_COSMOS(cat_base.Catalog):
             if of_number > 0:
                 title = title + " of %d" % of_number
 
-            title = title + "\nRA = %f    Dec = %f\nSeparation  = %g\"" \
+            if G.ZOO:
+                title = title + "\nSeparation  = %g\"" \
+                                % (df['distance'].values[0] * 3600)
+            else:
+                title = title + "\nRA = %f    Dec = %f\nSeparation  = %g\"" \
                             % (df['RA'].values[0], df['DEC'].values[0], df['distance'].values[0] * 3600)
 
             if target_w > 0:
@@ -416,7 +426,10 @@ class STACK_COSMOS(cat_base.Catalog):
                 else:
                     title = title + "\nOII Z   = N/A"
         else:
-            title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)
+            if G.ZOO:
+                title = section_title
+            else:
+                title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)
 
         plt.subplot(gs[0, 0])
         plt.text(0, 0.20, title, ha='left', va='bottom', fontproperties=font)

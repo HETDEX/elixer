@@ -543,9 +543,15 @@ class SHELA(cat_base.Catalog):
         font.set_family('monospace')
         font.set_size(12)
 
-        title = "Catalog: %s\n" % self.Name + section_title + "\nPossible Matches = %d (within %g\")\n" \
-                                                              "RA = %f    Dec = %f\n" % (
-                                                                  len(self.dataframe_of_bid_targets), error, ra, dec)
+        if G.ZOO:
+            title = "Catalog: %s\n" % self.Name + section_title + "\nPossible Matches = %d (within +/- %g\")\n" % \
+                                                                  (len(self.dataframe_of_bid_targets), error)
+        else:
+            title = "Catalog: %s\n" % self.Name + section_title + "\nPossible Matches = %d (within +/- %g\")\n" \
+                                                                  "RA = %f    Dec = %f\n" % (
+                                                                      len(self.dataframe_of_bid_targets), error, ra,
+                                                                      dec)
+
         if target_w > 0:
             title = title + "Wavelength = %g $\AA$\n" % target_w
         else:
@@ -670,10 +676,17 @@ class SHELA(cat_base.Catalog):
             if of_number > 0:
                 title = title + " of %d" % of_number
 
-            title = title + "\nRA = %f    Dec = %f\nSeparation  = %g\"" \
-                    % (df['RA'].values[0], df['DEC'].values[0],df['distance'].values[0] * 3600)
+            if G.ZOO:
+                title = title + "\nSeparation    = %g\"" \
+                                % (df['distance'].values[0] * 3600)
+            else:
+                title = title + "\nRA = %f    Dec = %f\nSeparation  = %g\"" \
+                                % (df['RA'].values[0], df['DEC'].values[0], df['distance'].values[0] * 3600)
         else:
-            title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)
+            if G.ZOO:
+                title = section_title
+            else:
+                title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)
 
         plt.subplot(gs[0, 0])
         plt.text(0, 0.20, title, ha='left', va='bottom', fontproperties=font)
@@ -852,8 +865,12 @@ class SHELA(cat_base.Catalog):
             return None
 
         # All on one line now across top of plots
-        title = self.Name + " : Possible Matches = %d (within +/- %g\")" \
-                                % (len(bid_ras), error)
+        if G.ZOO:
+            title = "Possible Matches = %d (within +/- %g\")" \
+                    % (len(self.dataframe_of_bid_targets), error)
+        else:
+            title = self.Name + " : Possible Matches = %d (within +/- %g\")" \
+                    % (len(self.dataframe_of_bid_targets), error)
 
         title += "  Minimum (no match) 3$\sigma$ rest-EW: "
         if target_flux  and self.CONT_EST_BASE:
@@ -1021,7 +1038,11 @@ class SHELA(cat_base.Catalog):
             if of_number > 0:
                 title = title + " of %d" % of_number
 
-            title = title + "\nRA = %f    Dec = %f\nSeparation    = %g\"" \
+            if G.ZOO:
+                title = title + "\nSeparation    = %g\"" \
+                                % (df['distance'].values[0] * 3600)
+            else:
+                title = title + "\nRA = %f    Dec = %f\nSeparation    = %g\"" \
                             % (df['RA'].values[0], df['DEC'].values[0],df['distance'].values[0] * 3600)
 
             if z_best_type is not None:
@@ -1081,7 +1102,10 @@ class SHELA(cat_base.Catalog):
                     except:
                         log.debug('Unable to build bid_target.')
         else:
-            title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)
+            if G.ZOO:
+                title = section_title
+            else:
+                title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)
 
         plt.subplot(gs[0, 1:4])
         plt.text(0, 0, title, ha='left', va='bottom', fontproperties=font)
@@ -1167,13 +1191,20 @@ class SHELA(cat_base.Catalog):
 
         bid_colors = self.get_bid_colors(len(ras))
 
-        text = "Separation\n" + \
-               "RA, Dec\n" + \
-               "Spec Z\n" + \
-               "Photo Z\n" + \
-               "Est LyA rest-EW\n" + \
-               "Est OII rest-EW\n" #+ \
-               #"ACS WFC f606W Flux\n"
+        if G.ZOO:
+            text = "Separation\n" + \
+                   "Spec Z\n" + \
+                   "Photo Z\n" + \
+                   "Est LyA rest-EW\n" + \
+                   "Est OII rest-EW\n"
+        else:
+            text = "Separation\n" + \
+                   "RA, Dec\n" + \
+                   "Spec Z\n" + \
+                   "Photo Z\n" + \
+                   "Est LyA rest-EW\n" + \
+                   "Est OII rest-EW\n"
+
 
         plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
 
@@ -1198,8 +1229,14 @@ class SHELA(cat_base.Catalog):
 
             if df is not None:
                 text = ""
-                text = text + "%g\"\n%f, %f\n" \
+
+                if G.ZOO:
+                    text = text + "%g\"\n" \
+                                  % (df['distance'].values[0] * 3600)
+                else:
+                    text = text + "%g\"\n%f, %f\n" \
                                 % ( df['distance'].values[0] * 3600,df['RA'].values[0], df['DEC'].values[0])
+
 
                 best_fit_photo_z = 0.0
                 try:

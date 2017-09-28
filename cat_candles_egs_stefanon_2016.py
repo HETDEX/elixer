@@ -369,7 +369,11 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         font.set_family('monospace')
         font.set_size(12)
 
-        title = "Catalog: %s\n" % self.Name + section_title + "\nPossible Matches = %d (within +/- %g\")\n" \
+        if G.ZOO:
+            title = "Catalog: %s\n" % self.Name + section_title + "\nPossible Matches = %d (within +/- %g\")\n" % \
+                                                                  (len(self.dataframe_of_bid_targets), error)
+        else:
+            title = "Catalog: %s\n" % self.Name + section_title + "\nPossible Matches = %d (within +/- %g\")\n" \
                                                               "RA = %f    Dec = %f\n" % (
                                                                   len(self.dataframe_of_bid_targets), error, ra, dec)
         if target_w > 0:
@@ -519,7 +523,11 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             if of_number > 0:
                 title = title + " of %d" % of_number
 
-            title = title + "\n%s\nRA = %f    Dec = %f\nSeparation    = %g\"" \
+            if G.ZOO:
+                title = title + "\nSeparation    = %g\"" \
+                                % (df['distance'].values[0] * 3600)
+            else:
+                title = title + "\n%s\nRA = %f    Dec = %f\nSeparation    = %g\"" \
                             % (df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
                                df['distance'].values[0] * 3600)
             # do not use DEEP SPEC Z, just use spec Z below
@@ -743,7 +751,11 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         font.set_size(12)
 
         #All on one line now across top of plots
-        title = self.Name + " : Possible Matches = %d (within +/- %g\")" \
+        if G.ZOO:
+            title = "Possible Matches = %d (within +/- %g\")" \
+                    % (len(self.dataframe_of_bid_targets), error)
+        else:
+            title = self.Name + " : Possible Matches = %d (within +/- %g\")" \
                     % (len(self.dataframe_of_bid_targets), error)
 
         if target_flux is not None:
@@ -882,9 +894,13 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             if of_number > 0:
                 title = title + " of %d" % of_number
 
-            title = title + "\n%s\nRA = %f    Dec = %f\nSeparation    = %g\"" \
-                            % (df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
-                               df['distance'].values[0] * 3600)
+            if G.ZOO:
+                title = title + "\nSeparation    = %g\"" \
+                                % (df['distance'].values[0] * 3600)
+            else:
+                title = title + "\n%s\nRA = %f    Dec = %f\nSeparation    = %g\"" \
+                                % (df['IAU_designation'].values[0], df['RA'].values[0], df['DEC'].values[0],
+                                   df['distance'].values[0] * 3600)
 
             if z_best_type is not None:
                 if (z_best_type.lower() == 'p'):
@@ -1044,13 +1060,21 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
         bid_colors = self.get_bid_colors(len(ras))
 
-        text = "Separation\n" + \
-               "RA, Dec\n" + \
-               "Spec Z\n" + \
-               "Photo Z\n" + \
-               "Est LyA rest-EW\n" + \
-               "Est OII rest-EW\n" + \
-               "ACS WFC f606W Flux\n"
+        if G.ZOO:
+            text = "Separation\n" + \
+                   "Spec Z\n" + \
+                   "Photo Z\n" + \
+                   "Est LyA rest-EW\n" + \
+                   "Est OII rest-EW\n" + \
+                   "ACS WFC f606W Flux\n"
+        else:
+            text = "Separation\n" + \
+                   "RA, Dec\n" + \
+                   "Spec Z\n" + \
+                   "Photo Z\n" + \
+                   "Est LyA rest-EW\n" + \
+                   "Est OII rest-EW\n" + \
+                   "ACS WFC f606W Flux\n"
 
         plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
 
@@ -1090,7 +1114,11 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             if df is not None:
                 text = ""
 
-                text = text + "%g\"\n%f, %f\n" \
+                if G.ZOO:
+                    text = text + "%g\"\n" \
+                                  % (df['distance'].values[0] * 3600)
+                else:
+                    text = text + "%g\"\n%f, %f\n" \
                                 % ( df['distance'].values[0] * 3600,df['RA'].values[0], df['DEC'].values[0])
 
                 if z_best_type is not None:

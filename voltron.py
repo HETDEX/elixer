@@ -184,6 +184,9 @@ def parse_commandline():
 
     log.info(args)
 
+    if (args.zoo is not None) and (args.zoo):
+        G.ZOO = True
+
     if args.ra is not None:
         if ":" in args.ra:
             try:

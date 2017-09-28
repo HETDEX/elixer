@@ -1557,8 +1557,6 @@ class HETDEX:
             log.error("Cannot construct HETDEX object. No arguments provided.")
             return None
 
-        self.zoo = args.zoo
-
         if args.score:
             self.plot_dqs_fit = True
         else:
@@ -2461,7 +2459,7 @@ class HETDEX:
 
         if self.ymd and self.obsid:
 
-            if not self.zoo:
+            if not G.ZOO:
                title +="\n"\
                     "ObsDate %s  ObsID %s IFU %s  CAM %s\n" \
                     "Science file(s):\n%s"\
@@ -2483,7 +2481,7 @@ class HETDEX:
                      % (self.ymd, self.obsid, self.ifu_slot_id, self.specid, sci_files, e.x, e.y, e.w,
                         e.estflux, e.dataflux, e.fluxfrac, e.cont)  # note: e.fluxfrac gauranteed to be nonzero
         else:
-            if not self.zoo:
+            if not G.ZOO:
                 title += "\n" \
                      "RA,Dec (%f,%f) \n" \
                      "Sky X,Y (%f,%f)\n" \
