@@ -165,7 +165,7 @@ def parse_commandline():
 
     parser.add_argument('--zoo', help='Redact sensitive information for publication on Zooniverse', required=False,
                         action='store_true', default=False)
-    parser.add_argument('--png', help='Also save report in PNG format.', required=False,
+    parser.add_argument('--jpg', help='Also save report in JPEG format.', required=False,
                         action='store_true', default=False)
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
@@ -416,7 +416,7 @@ def build_report_part(report_name,pages):
     return
 
 
-def join_report_parts(report_name, bid_count=0, save_png=False):
+def join_report_parts(report_name, bid_count=0, save_as_img=False):
 
     if PyPDF is None:
         return
@@ -496,11 +496,11 @@ def join_report_parts(report_name, bid_count=0, save_png=False):
                 log.error("Error writing out pdf: " + report_name, exc_info = True)
                 pdf_okay = False
 
-            if pdf_okay and save_png:
+            if pdf_okay and save_as_img:
                 try:
                     convert_pdf(report_name)
                 except:
-                    log.error("Error converting to png: " + report_name, exc_info=True)
+                    log.error("Error converting to pdf to image type: " + report_name, exc_info=True)
 
         else: #want a single page, but there are just too many sub-pages
 
@@ -566,11 +566,11 @@ def join_report_parts(report_name, bid_count=0, save_png=False):
                 pdf_okay = False
                 log.error("Error writing out pdf: " + report_name, exc_info=True)
 
-            if pdf_okay and save_png:
+            if pdf_okay and save_as_img:
                 try:
                     convert_pdf(report_name)
                 except:
-                    log.error("Error converting to png: " + report_name, exc_info=True)
+                    log.error("Error converting pdf to image type: " + report_name, exc_info=True)
     else:
         log.info("Creating multi-page report for %s. Bid count = %d" % (report_name, bid_count))
         writer = PyPDF.PdfWriter()
@@ -739,11 +739,12 @@ def convert_pdf(filename, resolution=150):
     pages = Image(filename=filename, resolution=resolution)
     for i, page in enumerate(pages.sequence):
         with Image(page) as img:
-            img.format = 'png'
+            img.format = 'jpg'
             img.colorspace = 'rgb'
 
-            image_name = filename.strip(".pdf") + ".png"
+            image_name = filename.strip(".pdf") + ".jpg"
             img.save(filename=image_name)
+            print("File written: " + image_name)
 
 
 def main():
@@ -923,12 +924,12 @@ def main():
         if len(file_list) > 0:
             try:
                 for f in file_list:
-                    join_report_parts(f.filename,f.bid_count,args.png)
+                    join_report_parts(f.filename,f.bid_count,args.jpg)
                     delete_report_parts(f.filename)
             except:
                 log.error("Joining PDF parts failed for %s" %f.filename,exc_info=True)
         else:
-            join_report_parts(args.name,0,args.png)
+            join_report_parts(args.name,0,args.jpg)
             delete_report_parts(args.name)
 
     if match_list.size > 0:
