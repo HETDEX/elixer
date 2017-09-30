@@ -9,7 +9,7 @@ log.setLevel(G.logging.DEBUG)
 import cat_candles_egs_stefanon_2016
 import cat_goods_n
 #import cat_goods_n_finkelstein
-#import cat_egs_groth
+import cat_egs_groth
 import cat_stack_cosmos
 import cat_shela
 import cat_catch_all

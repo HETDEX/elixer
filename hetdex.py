@@ -1562,6 +1562,8 @@ class HETDEX:
         else:
             self.plot_dqs_fit = False
 
+        self.output_filename = args.name
+
         self.multiple_observations = False #set if multiple observations are used (rather than a single obsdate,obsid)
         self.ymd = None
         self.target_ra = args.ra
@@ -2439,7 +2441,10 @@ class HETDEX:
         else:
             sci_files = "multiple fiber specific"
 
-        title = ""
+        if self.output_filename is not None:
+            title = "%s_%s\n" % (self.output_filename, str(e.entry_id).zfill(3))
+        else:
+            title = "" #todo: start with filename
         if e.type == 'emis':
             title += "Emission Line Detect ID #%d" % e.id
         else:

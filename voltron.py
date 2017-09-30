@@ -12,9 +12,9 @@ import sys
 import glob
 import os
 import errno
-import re
-from PIL import Image
-
+#import re
+#from PIL import Image
+from wand.image import Image
 
 
 #try:
@@ -164,6 +164,8 @@ def parse_commandline():
     parser.add_argument('--panacea_red',help="Basedir for searching for Panacea reduction files",required=False)
 
     parser.add_argument('--zoo', help='Redact sensitive information for publication on Zooniverse', required=False,
+                        action='store_true', default=False)
+    parser.add_argument('--png', help='Also save report in PNG format.', required=False,
                         action='store_true', default=False)
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
@@ -414,7 +416,7 @@ def build_report_part(report_name,pages):
     return
 
 
-def join_report_parts(report_name, bid_count=0):
+def join_report_parts(report_name, bid_count=0, save_png=False):
 
     if PyPDF is None:
         return
@@ -456,8 +458,6 @@ def join_report_parts(report_name, bid_count=0):
                         for j in range(2,len(pages)):
                             extra_pages.append(pages[j])
 
-
-
             if len(list_pages) > 0:
                 merge_page = PyPDF.PageMerge() + list_pages
             else:
@@ -481,6 +481,8 @@ def join_report_parts(report_name, bid_count=0):
                 report_name += ".pdf"
             writer = PyPDF.PdfWriter(report_name)
 
+            pdf_okay = True
+
             try:
                 writer.addPage(merge_page.render())
                 writer.trailer.Info = metadata
@@ -492,6 +494,14 @@ def join_report_parts(report_name, bid_count=0):
                 writer.write()
             except:
                 log.error("Error writing out pdf: " + report_name, exc_info = True)
+                pdf_okay = False
+
+            if pdf_okay and save_png:
+                try:
+                    convert_pdf(report_name)
+                except:
+                    log.error("Error converting to png: " + report_name, exc_info=True)
+
         else: #want a single page, but there are just too many sub-pages
 
             #todo: merge the top 2 pages (the two HETDEX columns and the catalog summary row)
@@ -547,7 +557,20 @@ def join_report_parts(report_name, bid_count=0):
                     writer.addpages(PyPDF.PdfReader(part_name).pages)
 
             writer.trailer.Info = metadata
-            writer.write()
+
+            pdf_okay = True
+
+            try:
+                writer.write()
+            except:
+                pdf_okay = False
+                log.error("Error writing out pdf: " + report_name, exc_info=True)
+
+            if pdf_okay and save_png:
+                try:
+                    convert_pdf(report_name)
+                except:
+                    log.error("Error converting to png: " + report_name, exc_info=True)
     else:
         log.info("Creating multi-page report for %s. Bid count = %d" % (report_name, bid_count))
         writer = PyPDF.PdfWriter()
@@ -710,8 +733,21 @@ def write_fibers_file(filename,hd_list):
     print(msg)
 
 
+
+def convert_pdf(filename, resolution=150):
+
+    pages = Image(filename=filename, resolution=resolution)
+    for i, page in enumerate(pages.sequence):
+        with Image(page) as img:
+            img.format = 'png'
+            img.colorspace = 'rgb'
+
+            image_name = filename.strip(".pdf") + ".png"
+            img.save(filename=image_name)
+
+
 def main():
-    global  G_PDF_FILE_NUM
+    global G_PDF_FILE_NUM
 
     G.gc.enable()
     #G.gc.set_debug(G.gc.DEBUG_LEAK)
@@ -887,12 +923,12 @@ def main():
         if len(file_list) > 0:
             try:
                 for f in file_list:
-                    join_report_parts(f.filename,f.bid_count)
+                    join_report_parts(f.filename,f.bid_count,args.png)
                     delete_report_parts(f.filename)
             except:
                 log.error("Joining PDF parts failed for %s" %f.filename,exc_info=True)
         else:
-            join_report_parts(args.name)
+            join_report_parts(args.name,0,args.png)
             delete_report_parts(args.name)
 
     if match_list.size > 0:

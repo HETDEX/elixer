@@ -1,4 +1,14 @@
 
+** Add CHFTLS ?? as new catalog (overlaps with CANDLES_EGS) or as supplement to CANDLES_EGS?
+-- if suplement, need extra set of max, min RA, DEC (if not found in original set, check these)
+    -- bascially, if outside range OR if no matching targets? check the other
+-- if its own, what to do if hits in both?
+   -- same hits or different?
+   -- single page (extra rows?)
+--probably the first approach is overall simpler and will produce more what is expected in output
+
+
+
 * make master_cutout larger than initially needed (crop down to display to needed extent),
 so can use as base if fiber positions are too spread out
 
@@ -48,3 +58,13 @@ of the report).
        need a way to quantify other data (like catalog image objects, etc)
   --
 
+* Peak finder
+  -- scan the combined spectra and look for (other) peaks (ie. part of * Combined emission line detections)
+
+* Pop III signature finder
+  Could be made more general with different (known) object types by matching a template(s) for each based on
+    line locations, widths, and heights (or relative strengths)
+  -- specifically for Pop III .... look for strong LyA + clear [HeII] and absence of [CIV] (maybe absence of other
+  lines also ... MgII, etc).
+  -- needs peak finder
+  -- needs LAE/OII probabilty (as LyA - HeII similar to OII - OIII)
