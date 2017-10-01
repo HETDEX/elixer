@@ -417,7 +417,7 @@ def build_report_part(report_name,pages):
     return
 
 
-def join_report_parts(report_name, bid_count=0, save_as_img=False):
+def join_report_parts(report_name, bid_count=0):
 
     if PyPDF is None:
         return
@@ -482,8 +482,6 @@ def join_report_parts(report_name, bid_count=0, save_as_img=False):
                 report_name += ".pdf"
             writer = PyPDF.PdfWriter(report_name)
 
-            pdf_okay = True
-
             try:
                 writer.addPage(merge_page.render())
                 writer.trailer.Info = metadata
@@ -495,13 +493,6 @@ def join_report_parts(report_name, bid_count=0, save_as_img=False):
                 writer.write()
             except:
                 log.error("Error writing out pdf: " + report_name, exc_info = True)
-                pdf_okay = False
-
-            if pdf_okay and save_as_img:
-                try:
-                    convert_pdf(report_name)
-                except:
-                    log.error("Error converting to pdf to image type: " + report_name, exc_info=True)
 
         else: #want a single page, but there are just too many sub-pages
 
@@ -559,19 +550,11 @@ def join_report_parts(report_name, bid_count=0, save_as_img=False):
 
             writer.trailer.Info = metadata
 
-            pdf_okay = True
-
             try:
                 writer.write()
             except:
-                pdf_okay = False
                 log.error("Error writing out pdf: " + report_name, exc_info=True)
 
-            if pdf_okay and save_as_img:
-                try:
-                    convert_pdf(report_name)
-                except:
-                    log.error("Error converting pdf to image type: " + report_name, exc_info=True)
     else:
         log.info("Creating multi-page report for %s. Bid count = %d" % (report_name, bid_count))
         writer = PyPDF.PdfWriter()
@@ -734,26 +717,22 @@ def write_fibers_file(filename,hd_list):
     print(msg)
 
 
-
 def convert_pdf(filename, resolution=150):
 
-    #todo: this is a horrible approach, but fast to implement ... fix this!
-    count = 0
-    while (not os.path.isfile(filename)) and (count < 5):
-        time.sleep(1)
-        count += 1
+    #file might not exist, but this will just trap an execption
+    try:
+        pages = Image(filename=filename, resolution=resolution)
+        for i, page in enumerate(pages.sequence):
+            with Image(page) as img:
+                img.format = 'jpg'
+                img.colorspace = 'rgb'
 
-    #even if file not found above, try anyway ...
-    pages = Image(filename=filename, resolution=resolution)
-
-    for i, page in enumerate(pages.sequence):
-        with Image(page) as img:
-            img.format = 'jpg'
-            img.colorspace = 'rgb'
-
-            image_name = filename.strip(".pdf") + ".jpg"
-            img.save(filename=image_name)
-            print("File written: " + image_name)
+                image_name = filename.strip(".pdf") + ".jpg"
+                img.save(filename=image_name)
+                print("File written: " + image_name)
+    except:
+        log.error("Error converting to pdf to image type: " + filename, exc_info=True)
+        return
 
 
 def main():
@@ -933,12 +912,12 @@ def main():
         if len(file_list) > 0:
             try:
                 for f in file_list:
-                    join_report_parts(f.filename,f.bid_count,args.jpg)
+                    join_report_parts(f.filename,f.bid_count)
                     delete_report_parts(f.filename)
             except:
                 log.error("Joining PDF parts failed for %s" %f.filename,exc_info=True)
         else:
-            join_report_parts(args.name,0,args.jpg)
+            join_report_parts(args.name)
             delete_report_parts(args.name)
 
     if match_list.size > 0:
@@ -954,6 +933,19 @@ def main():
 
         except:
             log.error("Exception copying line file: ", exc_info=True)
+
+    if args.jpg and (PyPDF is not None):
+        if len(file_list) > 0:
+            for f in file_list:
+                try:
+                    convert_pdf(f.filename)
+                except:
+                    log.error("Error converting to pdf to image type: " + f.filename, exc_info=True)
+        else:
+            try:
+                convert_pdf(args.name)
+            except:
+                log.error("Error converting to pdf to image type: " + f.filename, exc_info=True)
 
     log.critical("Main complete.")
 

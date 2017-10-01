@@ -11,6 +11,8 @@ CANDELS_EGS_Stefanon_2016_IMAGES_PATH = op.join(CANDELS_EGS_Stefanon_2016_BASE_P
 CANDELS_EGS_Stefanon_2016_PHOTOZ_CAT = op.join(CANDELS_EGS_Stefanon_2016_BASE_PATH , "photoz/zcat_EGS_v2.0.cat")
 CANDELS_EGS_Stefanon_2016_PHOTOZ_ZPDF_PATH = op.join(CANDELS_EGS_Stefanon_2016_BASE_PATH, "photoz/zPDF/")
 
+EXPANDED_IMAGES_PATH = G.EGS_CFHTLS_PATH
+
 import matplotlib
 matplotlib.use('agg')
 
@@ -53,9 +55,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
     # class variables
     MainCatalog = CANDELS_EGS_Stefanon_2016_CAT
-    Name = "CANDELS_EGS_Stefanon_2016"
+    Name = "CANDELS/EGS"
     # if multiple images, the composite broadest range (filled in by hand)
-    Image_Coord_Range = {'RA_min': None, 'RA_max': None, 'Dec_min': None, 'Dec_max': None}
+    #includes the expanded catalog
+    Image_Coord_Range = {'RA_min': 214.0, 'RA_max': 215.7, 'Dec_min': 52.15, 'Dec_max': 53.21}
     Cat_Coord_Range = {'RA_min': 214.576759, 'RA_max': 215.305229, 'Dec_min': 52.677569, 'Dec_max': 53.105756}
     WCS_Manual = True
     EXPTIME_F606W = 289618.0
@@ -71,13 +74,23 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                "DEEP_SPEC_Z"]  # NOTE: there are no F105W values
 
     CatalogImages = [
+        {'path': EXPANDED_IMAGES_PATH,
+         'name': 'D3.I.1_20558_1_21553.fits',
+         'filter': 'Exp/Comp',
+         'instrument': '',
+         'cols': [],
+         'labels': [],
+         'image': None,
+         'expanded': True
+         },
         {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
          'name': 'egs_all_acs_wfc_f606w_060mas_v1.1_drz.fits',
          'filter': 'f606w',
          'instrument': 'ACS WFC',
          'cols': ["ACS_F606W_FLUX", "ACS_F606W_FLUXERR"],
          'labels': ["Flux", "Err"],
-         'image': None
+         'image': None,
+         'expanded': False
          },
         {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
          'name': 'egs_all_acs_wfc_f814w_060mas_v1.1_drz.fits',
@@ -85,7 +98,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'instrument': 'ACS WFC',
          'cols': ["ACS_F814W_FLUX", "ACS_F814W_FLUXERR"],
          'labels': ["Flux", "Err"],
-         'image': None
+         'image': None,
+         'expanded': False
          },
         {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
          'name': 'egs_all_wfc3_ir_f105w_060mas_v1.5_drz.fits',
@@ -93,7 +107,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'instrument': 'WFC3',
          'cols': [],
          'labels': [],
-         'image': None
+         'image': None,
+         'expanded': False
          },
         {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
          'name': 'egs_all_wfc3_ir_f125w_060mas_v1.1_drz.fits',
@@ -101,7 +116,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'instrument': 'WFC3',
          'cols': ["WFC3_F125W_FLUX", "WFC3_F125W_FLUXERR"],
          'labels': ["Flux", "Err"],
-         'image': None
+         'image': None,
+         'expanded': False
          },
         {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
          'name': 'egs_all_wfc3_ir_f140w_060mas_v1.1_drz.fits',
@@ -109,7 +125,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'instrument': 'WFC3',
          'cols': ["WFC3_F140W_FLUX", "WFC3_F140W_FLUXERR"],
          'labels': ["Flux", "Err"],
-         'image': None
+         'image': None,
+         'expanded': False
          },
         {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
          'name': 'egs_all_wfc3_ir_f160w_060mas_v1.1_drz.fits',
@@ -117,7 +134,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'instrument': 'WFC3',
          'cols': ["WFC3_F160W_FLUX", "WFC3_F160W_FLUXERR"],
          'labels': ["Flux", "Err"],
-         'image': None
+         'image': None,
+         'expanded': False
          }
     ]
 
@@ -821,6 +839,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
                                                       width=target_box_side, height=target_box_side,
                                                       angle=0.0, color=bc, fill=False, linewidth=1.0, zorder=1))
+
 
         if self.master_cutout is None:
             # cannot continue
