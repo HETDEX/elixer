@@ -12,6 +12,7 @@ import sys
 import glob
 import os
 import errno
+import time
 #import re
 #from PIL import Image
 from wand.image import Image
@@ -736,7 +737,15 @@ def write_fibers_file(filename,hd_list):
 
 def convert_pdf(filename, resolution=150):
 
+    #todo: this is a horrible approach, but fast to implement ... fix this!
+    count = 0
+    while (not os.path.isfile(filename)) and (count < 5):
+        time.sleep(1)
+        count += 1
+
+    #even if file not found above, try anyway ...
     pages = Image(filename=filename, resolution=resolution)
+
     for i, page in enumerate(pages.sequence):
         with Image(page) as img:
             img.format = 'jpg'
