@@ -21,6 +21,8 @@ class BidTarget:
         self.bid_dec = 181.00
         self.distance = 0.0
         self.bid_flux_est_cgs = 0.0
+        self.p_lae = None
+        self.p_oii = None
         # todo: filter exposure time??
 
         self.filters = []

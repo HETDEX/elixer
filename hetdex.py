@@ -33,6 +33,7 @@ import os
 import fnmatch
 import os.path as op
 from copy import copy, deepcopy
+import line_prob
 
 log = G.logging.getLogger('Cat_logger')
 log.setLevel(G.logging.DEBUG)
@@ -559,6 +560,9 @@ class DetObj:
 
         self.fibers = []
         self.outdir = None
+
+        self.p_lae = None #from Andrew Leung
+        self.p_oii = None
 
         if emission:
             self.type = 'emis'
@@ -1167,6 +1171,17 @@ class DetObj:
             self.dqs = score
 
         return score
+
+    def get_probabilities(self):
+        #is self.eqw rest or observed??
+        ratio, self.p_lae, self.p_oii = line_prob.prob_LAE(wl_obs=self.w,
+                                                           lineFlux=self.estflux,
+                                                           ew_obs=(self.eqw),
+                                                           c_obs=None, which_color=None,
+                                                           addl_fluxes=None, sky_area=None,
+                                                           cosmo=None, lae_priors=None,
+                                                           ew_case=None, W_0=None,
+                                                           z_OII=None, sigma=None)
 
 
 
@@ -2461,11 +2476,12 @@ class HETDEX:
             dec = e.dec
 
         datakeep = self.build_data_dict(e)
+        e.get_probabilities()
 
         if self.ymd and self.obsid:
 
             if not G.ZOO:
-               title +="\n"\
+                title +="\n"\
                     "ObsDate %s  ObsID %s IFU %s  CAM %s\n" \
                     "Science file(s):\n%s"\
                     "RA,Dec (%f,%f) \n"\
@@ -2475,7 +2491,18 @@ class HETDEX:
                     "EstCont = %g\n" \
                     % (self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.x, e.y,e.w,
                         e.estflux, e.dataflux, e.fluxfrac, e.cont) #note: e.fluxfrac gauranteed to be nonzero
-            else:  #this if for zooniverse, don't show RA and DEC
+
+                if e.p_lae is not None:
+                    title += "P(LAE) = %0.3g" % e.p_lae
+                    if e.p_oii is not None:
+                        title += "  P(OII) = %0.3g" % e.p_oii
+                        if e.p_oii > 0.0:
+                            title += "\nP(LAE)/P(OII) = %0.3g\n" %(e.p_lae / e.p_oii)
+                        else:
+                            title += "\n"
+                    else:
+                        title += "\n"
+            else:  #this if for zooniverse, don't show RA and DEC or Probabilitie
                 title += "\n" \
                      "ObsDate %s  ObsID %s IFU %s  CAM %s\n" \
                      "Science file(s):\n%s" \
@@ -2495,7 +2522,18 @@ class HETDEX:
                      "EstCont = %g\n" \
                      % (ra, dec, e.x, e.y, e.w,
                         e.estflux, e.dataflux, e.fluxfrac, e.cont)  # note: e.fluxfrac gauranteed to be nonzero
-            else: #this if for zooniverse, don't show RA and DEC
+
+                if e.p_lae is not None:
+                    title += "P(LAE) = %0.3g" % e.p_lae
+                    if e.p_oii is not None:
+                        title += "  P(OII) = %0.3g" % e.p_oii
+                        if e.p_oii > 0.0:
+                            title += "\nP(LAE)/P(OII) = %0.3g\n" %(e.p_lae / e.p_oii)
+                        else:
+                            title += "\n"
+                    else:
+                        title += "\n"
+            else: #this if for zooniverse, don't show RA and DEC or probabilities
                 title += "\n" \
                      "Sky X,Y (%f,%f)\n" \
                      "$\lambda$ = %g $\AA$\n" \

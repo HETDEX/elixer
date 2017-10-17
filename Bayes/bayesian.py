@@ -140,28 +140,34 @@ def prob_data_given_LAE(wl_obs,lineFlux,ew_obs,c_obs,which_color,addl_fluxes,sky
    ###### (04-24-15)
    addl_em_lines  = ['[NeIII]','H_beta','[OIII]','[OIII]']
    addl_lambda_rf = np.array([3869.00, 4861.32, 4958.91, 5006.84])
-   
+
+
+    #dd - shouldn't this be based on potential LAE observed, not OII??? see (line ~   257 in prob_data_given_OII(...) )
    inf_OII_redshift = wl_obs/3727.45-1
    
    addl_lambda_ob = addl_lambda_rf * (1+inf_OII_redshift)
    prob_NeIII3869, prob_Hb4861, prob_OII4959, prob_OII5007 = 1.,1.,1.,1.
    
    f_obs = addl_fluxes
-   
-   for i in range(len(addl_em_lines)):
-      if 3500. <= addl_lambda_ob[i] <= 5500.:
-         mean = 0.
-         stdev = 0.2*nb.lineSens(addl_lambda_ob[i])*np.sqrt(sky_area/300.)
-         if i == 0:
-            prob_NeIII3869 = np.abs( stats.norm.cdf(f_obs[i]*1.05,mean,stdev) - stats.norm.cdf(f_obs[i]*0.95,mean,stdev) )
-         elif i == 1:
-            prob_Hb4861 = np.abs( stats.norm.cdf(f_obs[i]*1.05,mean,stdev) - stats.norm.cdf(f_obs[i]*0.95,mean,stdev) )
-         elif i == 2:
-            prob_OII4959 = np.abs( stats.norm.cdf(f_obs[i]*1.05,mean,stdev) - stats.norm.cdf(f_obs[i]*0.95,mean,stdev) )
-         elif i == 3:
-            prob_OII5007 = np.abs( stats.norm.cdf(f_obs[i]*1.05,mean,stdev) - stats.norm.cdf(f_obs[i]*0.95,mean,stdev) )
+   #dd - this is the same code as in the prob_data_given_OII ... this needs to be revisited and recoded
+   #dd - 2017-10-16 for now, passing in None for the additional fluxes, so they are not being considered
+   if f_obs is not None:
+      for i in range(len(addl_em_lines)): #dd this is a problem addl_em_lines may nnot match with f_obs
+         if (f_obs[i] is not None) and (3500. <= addl_lambda_ob[i] <= 5500.):
+            mean = 0.
+            stdev = 0.2*nb.lineSens(addl_lambda_ob[i])*np.sqrt(sky_area/300.)
+            if i == 0:
+               prob_NeIII3869 = np.abs( stats.norm.cdf(f_obs[i]*1.05,mean,stdev) - stats.norm.cdf(f_obs[i]*0.95,mean,stdev) )
+            elif i == 1:
+               prob_Hb4861 = np.abs( stats.norm.cdf(f_obs[i]*1.05,mean,stdev) - stats.norm.cdf(f_obs[i]*0.95,mean,stdev) )
+            elif i == 2:
+               prob_OII4959 = np.abs( stats.norm.cdf(f_obs[i]*1.05,mean,stdev) - stats.norm.cdf(f_obs[i]*0.95,mean,stdev) )
+            elif i == 3:
+               prob_OII5007 = np.abs( stats.norm.cdf(f_obs[i]*1.05,mean,stdev) - stats.norm.cdf(f_obs[i]*0.95,mean,stdev) )
 
-   prob_addl_lines = prob_NeIII3869 * prob_Hb4861 * prob_OII4959 * prob_OII5007
+         prob_addl_lines = prob_NeIII3869 * prob_Hb4861 * prob_OII4959 * prob_OII5007
+   else:
+      prob_addl_lines = 1.0 #make no change
    
    if not (which_color == 'g-r') and not (which_color == 'g-i') and not (which_color == 'g-z') and not (which_color == 'r-i') and not (which_color == 'r-z') and not (which_color == 'i-z') and not (which_color == 'no_imaging'):
       return (prob_lineFlux * prob_EW * prob_addl_lines), phiStar_LAE, LStar, z_LAE, L_min
@@ -262,22 +268,43 @@ def prob_data_given_OII(wl_obs,lineFlux,ew_obs,c_obs,which_color,addl_fluxes,sky
    prob_NeIII3869, prob_Hb4861, prob_OII4959, prob_OII5007 = 1.,1.,1.,1.
    
    f_obs = addl_fluxes
-   
-   for i in range(len(addl_em_lines)):
-      if 3500. <= addl_lambda_ob[i] <= 5500.:
-         mean = rel_strength[i]*lineFlux
-         stdev = 0.2*nb.lineSens(addl_lambda_ob[i])*np.sqrt(sky_area/300.)
-         if i == 0:
-            prob_NeIII3869 = np.abs( stats.norm.cdf(f_obs[i]*1.05,mean,stdev) - stats.norm.cdf(f_obs[i]*0.95,mean,stdev) )
-         elif i == 1:
-            prob_Hb4861 = np.abs( stats.norm.cdf(f_obs[i]*1.05,mean,stdev) - stats.norm.cdf(f_obs[i]*0.95,mean,stdev) )
-         elif i == 2:
-            prob_OII4959 = np.abs( stats.norm.cdf(f_obs[i]*1.05,mean,stdev) - stats.norm.cdf(f_obs[i]*0.95,mean,stdev) )
-         elif i == 3:
-            prob_OII5007 = np.abs( stats.norm.cdf(f_obs[i]*1.05,mean,stdev) - stats.norm.cdf(f_obs[i]*0.95,mean,stdev) )
+   #
+   # for i in range(len(addl_em_lines)):
+   #    if 3500. <= addl_lambda_ob[i] <= 5500.:
+   #       mean = rel_strength[i]*lineFlux
+   #       stdev = 0.2*nb.lineSens(addl_lambda_ob[i])*np.sqrt(sky_area/300.)
+   #       if i == 0:
+   #          prob_NeIII3869 = np.abs( stats.norm.cdf(f_obs[i]*1.05,mean,stdev) - stats.norm.cdf(f_obs[i]*0.95,mean,stdev) )
+   #       elif i == 1:
+   #          prob_Hb4861 = np.abs( stats.norm.cdf(f_obs[i]*1.05,mean,stdev) - stats.norm.cdf(f_obs[i]*0.95,mean,stdev) )
+   #       elif i == 2:
+   #          prob_OII4959 = np.abs( stats.norm.cdf(f_obs[i]*1.05,mean,stdev) - stats.norm.cdf(f_obs[i]*0.95,mean,stdev) )
+   #       elif i == 3:
+   #          prob_OII5007 = np.abs( stats.norm.cdf(f_obs[i]*1.05,mean,stdev) - stats.norm.cdf(f_obs[i]*0.95,mean,stdev) )
+   #
+   # prob_addl_lines = prob_NeIII3869 * prob_Hb4861 * prob_OII4959 * prob_OII5007
 
-   prob_addl_lines = prob_NeIII3869 * prob_Hb4861 * prob_OII4959 * prob_OII5007
+   if f_obs is not None:
+      for i in range(len(addl_em_lines)):  # dd this is a problem addl_em_lines may nnot match with f_obs
+         if (f_obs[i] is not None) and (3500. <= addl_lambda_ob[i] <= 5500.):
+            mean = 0.
+            stdev = 0.2 * nb.lineSens(addl_lambda_ob[i]) * np.sqrt(sky_area / 300.)
+            if i == 0:
+               prob_NeIII3869 = np.abs(
+                  stats.norm.cdf(f_obs[i] * 1.05, mean, stdev) - stats.norm.cdf(f_obs[i] * 0.95, mean, stdev))
+            elif i == 1:
+               prob_Hb4861 = np.abs(
+                  stats.norm.cdf(f_obs[i] * 1.05, mean, stdev) - stats.norm.cdf(f_obs[i] * 0.95, mean, stdev))
+            elif i == 2:
+               prob_OII4959 = np.abs(
+                  stats.norm.cdf(f_obs[i] * 1.05, mean, stdev) - stats.norm.cdf(f_obs[i] * 0.95, mean, stdev))
+            elif i == 3:
+               prob_OII5007 = np.abs(
+                  stats.norm.cdf(f_obs[i] * 1.05, mean, stdev) - stats.norm.cdf(f_obs[i] * 0.95, mean, stdev))
 
+         prob_addl_lines = prob_NeIII3869 * prob_Hb4861 * prob_OII4959 * prob_OII5007
+   else:
+      prob_addl_lines = 1.0  # make no change
 
    if not (which_color == 'g-r') and not (which_color == 'g-i') and not (which_color == 'g-z') and not (which_color == 'r-i') and not (which_color == 'r-z') and not (which_color == 'i-z') and not (which_color == 'no_imaging'):
       return (prob_lineFlux * prob_EW * prob_addl_lines), phiStar_OII, LStar, z_OII, L_min

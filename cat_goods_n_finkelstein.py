@@ -18,6 +18,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 import matplotlib.gridspec as gridspec
+import line_prob
 
 
 log = G.logging.getLogger('Cat_logger')
@@ -362,6 +363,12 @@ class GOODS_N_FINKELSTEIN(cat_base.Catalog):
             cutout = sci.get_cutout(ra, dec, error, window=window)
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
+            # 1st cutout might not be what we want for the master (could be a summary image from elsewhere)
+            if self.master_cutout:
+                if self.master_cutout.shape != cutout.shape:
+                    del self.master_cutout
+                    self.master_cutout = None
+
             if cutout is not None:  # construct master cutout
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
@@ -521,6 +528,23 @@ class GOODS_N_FINKELSTEIN(cat_base.Catalog):
                         bid_target.bid_dec = df['DEC'].values[0]
                         bid_target.distance = df['distance'].values[0] * 3600
                         bid_target.bid_flux_est_cgs = filter_fl
+
+                        # todo: add call to line_probabilities:
+                        ratio, bid_target.p_lae, bid_target.p_oii = line_prob.prob_LAE(wl_obs=target_w,
+                                                                                       lineFlux=target_flux,
+                                                                                       ew_obs=(target_flux / filter_fl_adj),
+                                                                                       c_obs=None, which_color=None,
+                                                                                       addl_fluxes=None, sky_area=None,
+                                                                                       cosmo=None, lae_priors=None,
+                                                                                       ew_case=None, W_0=None,
+                                                                                       z_OII=None, sigma=None)
+                        if not G.ZOO:
+                            if bid_target.p_lae is not None:
+                                title += "\nP(LAE) = %0.3g" % bid_target.p_lae
+                                if bid_target.p_oii is not None:
+                                    title += "  P(OII) = %0.3g" % bid_target.p_oii
+                                    if bid_target.p_oii > 0.0:
+                                        title += "\nP(LAE)/P(OII) = %0.3g" % (bid_target.p_lae / bid_target.p_oii)
 
                         for c in self.CatalogImages:
                             try:
@@ -731,6 +755,12 @@ class GOODS_N_FINKELSTEIN(cat_base.Catalog):
             cutout = sci.get_cutout(ra, dec, error, window=window)
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
+            # 1st cutout might not be what we want for the master (could be a summary image from elsewhere)
+            if self.master_cutout:
+                if self.master_cutout.shape != cutout.shape:
+                    del self.master_cutout
+                    self.master_cutout = None
+
             if cutout is not None:  # construct master cutout
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
@@ -870,6 +900,23 @@ class GOODS_N_FINKELSTEIN(cat_base.Catalog):
                     bid_target.distance = df['distance'].values[0] * 3600
                     bid_target.bid_flux_est_cgs = filter_fl
 
+                    # todo: add call to line_probabilities:
+                    ratio, bid_target.p_lae, bid_target.p_oii = line_prob.prob_LAE(wl_obs=target_w,
+                                                                                   lineFlux=target_flux,
+                                                                                   ew_obs=(target_flux / filter_fl),
+                                                                                   c_obs=None, which_color=None,
+                                                                                   addl_fluxes=None, sky_area=None,
+                                                                                   cosmo=None, lae_priors=None,
+                                                                                   ew_case=None, W_0=None, z_OII=None,
+                                                                                   sigma=None)
+                    if not G.ZOO:
+                        if bid_target.p_lae is not None:
+                            title += "\nP(LAE) = %0.3g" % bid_target.p_lae
+                            if bid_target.p_oii is not None:
+                                title += "  P(OII) = %0.3g" % bid_target.p_oii
+                                if bid_target.p_oii > 0.0:
+                                    title += "\nP(LAE)/P(OII) = %0.3g" % (bid_target.p_lae / bid_target.p_oii)
+
                     for c in self.CatalogImages:
                         try:
                             bid_target.add_filter(c['instrument'], c['filter'],
@@ -981,7 +1028,9 @@ class GOODS_N_FINKELSTEIN(cat_base.Catalog):
                    "Photo Z\n" + \
                    "Est LyA rest-EW\n" + \
                    "Est OII rest-EW\n" + \
-                   "ACS WFC f606W Flux\n"
+                   "ACS WFC f606W Flux\n" + \
+                   "P(LAE), P(OII)\n" + \
+                   "P(LAE)/P(OII)\n"
 
         plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
 
@@ -1023,6 +1072,7 @@ class GOODS_N_FINKELSTEIN(cat_base.Catalog):
                     filter_fl = 0.0
                     filter_fl_err = 0.0
 
+                bid_target = None
                 if (target_flux is not None) and (filter_fl != 0.0):
                     if (filter_fl is not None):# and (filter_fl > 0):
                         filter_fl_adj = self.nano_jansky_to_cgs(filter_fl,target_w)#filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
@@ -1039,6 +1089,16 @@ class GOODS_N_FINKELSTEIN(cat_base.Catalog):
                         bid_target.bid_dec = df['DEC'].values[0]
                         bid_target.distance = df['distance'].values[0] * 3600
                         bid_target.bid_flux_est_cgs = filter_fl
+
+                        # todo: add call to line_probabilities:
+                        ratio, bid_target.p_lae, bid_target.p_oii = line_prob.prob_LAE(wl_obs=target_w,
+                                                                                       lineFlux=target_flux,
+                                                                                       ew_obs=(target_flux / filter_fl_adj),
+                                                                                       c_obs=None, which_color=None,
+                                                                                       addl_fluxes=None, sky_area=None,
+                                                                                       cosmo=None, lae_priors=None,
+                                                                                       ew_case=None, W_0=None,
+                                                                                       z_OII=None, sigma=None)
 
                         for c in self.CatalogImages:
                             try:
@@ -1058,6 +1118,19 @@ class GOODS_N_FINKELSTEIN(cat_base.Catalog):
                     text = text + "%g(%g) nJy !?\n" % (filter_fl, filter_fl_err)
                 else:
                     text = text + "%g(%g) nJy\n" % (filter_fl, filter_fl_err)
+
+                if (not G.ZOO) and (bid_target is not None):
+                    if bid_target.p_lae is not None:
+                        text = text + "%0.3g" % bid_target.p_lae
+                        if bid_target.p_oii is not None:
+                            text = text + ", %0.3g" % bid_target.p_oii
+                            if bid_target.p_oii > 0.0:
+                                text = text + "\n%0.3g\n" % (bid_target.p_lae / bid_target.p_oii)
+                            else:
+                                text = text + "\nN\A\n"
+                        else:
+                            text += ", N/A\nN/A\n"
+
             else:
                 text = "%s\n%f\n%f\n" % ("--",r, d)
 

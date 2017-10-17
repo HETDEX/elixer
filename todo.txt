@@ -8,6 +8,14 @@
 --probably the first approach is overall simpler and will produce more what is expected in output
 
 
+** Test cases ...
+   look over prior runs and piece together representatitve cases
+   * per catalog
+     - no targets
+     - 3 or fewer
+     - more than 3
+   save as a single line file (pull full lines from t5cut and stitch together in a single file)
+
 
 * make master_cutout larger than initially needed (crop down to display to needed extent),
 so can use as base if fiber positions are too spread out
