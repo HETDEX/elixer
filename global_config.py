@@ -105,6 +105,7 @@ MAX_COMBINE_BID_TARGETS = 3 #if SINGLE_PAGE_PER_DETECT is true, this is the max 
 #WARNING! As of version 1.1.10 this should ALWAYS be True ... do not change unless you really
 #know what you are doing!!!
 SINGLE_PAGE_PER_DETECT = True #if true, a single pdf page per emission line detection is made
+FORCE_SINGLE_PAGE = True
 
 
 SHOW_SKYLINES = True

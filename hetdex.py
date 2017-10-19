@@ -563,6 +563,7 @@ class DetObj:
 
         self.p_lae = None #from Andrew Leung
         self.p_oii = None
+        self.p_lae_oii_ratio = None
 
         if emission:
             self.type = 'emis'
@@ -1182,6 +1183,13 @@ class DetObj:
                                                            cosmo=None, lae_priors=None,
                                                            ew_case=None, W_0=None,
                                                            z_OII=None, sigma=None)
+        if (self.p_lae is not None) and (self.p_lae > 0.0):
+            if (self.p_oii is not None) and (self.p_oii > 0.0):
+                self.p_lae_oii_ratio = self.p_lae /self.p_oii
+            else:
+                self.p_lae_oii_ratio = float('inf')
+        else:
+            self.p_lae_oii_ratio = 0.0
 
 
 
@@ -2492,16 +2500,10 @@ class HETDEX:
                     % (self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.x, e.y,e.w,
                         e.estflux, e.dataflux, e.fluxfrac, e.cont) #note: e.fluxfrac gauranteed to be nonzero
 
-                if e.p_lae is not None:
-                    title += "P(LAE) = %0.3g" % e.p_lae
-                    if e.p_oii is not None:
-                        title += "  P(OII) = %0.3g" % e.p_oii
-                        if e.p_oii > 0.0:
-                            title += "\nP(LAE)/P(OII) = %0.3g\n" %(e.p_lae / e.p_oii)
-                        else:
-                            title += "\n"
-                    else:
-                        title += "\n"
+                if e.p_lae_oii_ratio is not None:
+                    title += "\nP(LAE)/P(OII) = %0.3g\n" %(e.p_lae_oii_ratio)
+                else:
+                    title += "\n"
             else:  #this if for zooniverse, don't show RA and DEC or Probabilitie
                 title += "\n" \
                      "ObsDate %s  ObsID %s IFU %s  CAM %s\n" \
@@ -2523,16 +2525,10 @@ class HETDEX:
                      % (ra, dec, e.x, e.y, e.w,
                         e.estflux, e.dataflux, e.fluxfrac, e.cont)  # note: e.fluxfrac gauranteed to be nonzero
 
-                if e.p_lae is not None:
-                    title += "P(LAE) = %0.3g" % e.p_lae
-                    if e.p_oii is not None:
-                        title += "  P(OII) = %0.3g" % e.p_oii
-                        if e.p_oii > 0.0:
-                            title += "\nP(LAE)/P(OII) = %0.3g\n" %(e.p_lae / e.p_oii)
-                        else:
-                            title += "\n"
-                    else:
-                        title += "\n"
+                if e.p_lae_oii_ratio is not None:
+                    title += "\nP(LAE)/P(OII) = %0.3g\n" %(e.p_lae_oii_ratio)
+                else:
+                    title += "\n"
             else: #this if for zooniverse, don't show RA and DEC or probabilities
                 title += "\n" \
                      "Sky X,Y (%f,%f)\n" \

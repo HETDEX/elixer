@@ -24,7 +24,7 @@ def example_prob_LAE():
     Bayes.nb.init(_alpha_LAE=-1.65, _mult_LStar_LAE=1, _mult_PhiStar_LAE=1, _mult_w0_LAE=1,
                   _alpha_OII=-1.2, _mult_LStar_OII=1, _mult_PhiStar_OII=1, _mult_w0_OII=1)
 
-    ratio_LAE, plgd, pogd = Bayes.bayesian.prob_ratio(wl_obs=3900.0, lineFlux=1.6e-17, ew_obs=20.0,
+    ratio_LAE, plgd, pogd = Bayes.bayesian.prob_ratio(wl_obs=3900.0, lineFlux=1.6e-17, ew_obs=-20.0,
                                                       c_obs=None, which_color=None, addl_fluxes=None,
                                                       sky_area=5.5e-07, cosmo=Cosmology, LAE_priors=LAE_Priors,
                                                       EW_case=1, W_0=None, z_OII=None, sigma=None)
@@ -74,6 +74,9 @@ def prob_LAE(wl_obs,lineFlux,ew_obs,c_obs, which_color=None, addl_fluxes=None,
     if sky_area is None:
         sky_area = sky_area_default
 
+
+    #suppress sign of EW (always wants positive)
+    ew_obs = abs(ew_obs)
 
     # initialization taken directly from Andrew's code, but I don't know what they mean
     Bayes.nb.init(_alpha_LAE=alpha_LAE_default, _mult_LStar_LAE=1, _mult_PhiStar_LAE=1, _mult_w0_LAE=1,

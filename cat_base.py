@@ -90,6 +90,11 @@ class Catalog:
         self.pages = None #list of bid entries (rows in the pdf)
         self.dataframe_of_bid_targets = None
 
+        norm = plt.Normalize()
+        colormap = plt.cm.hsv(norm(np.arange(7)))
+#        colormap_b = plt.cm.brg(norm(np.arange(3)))
+        self.colormap = [colormap[4],colormap[2],colormap[0],colormap[3]]
+
     @property
     def ok(self):
         return (self.status == 0)
@@ -261,9 +266,26 @@ class Catalog:
             log.error("Exception bulding celestrial north arrow.", exc_info=True)
 
     def get_bid_colors(self,count=1):
-        norm = plt.Normalize()
+        #adjust so colors always in the same sequence regardless of the number
+        #ie. 1 = blue, 2 = red, 3 = green, then other colors
+        #norm = plt.Normalize()
+        #map = plt.cm.tab10(norm(np.arange(10)))
         # gist_rainbow or brg or hsv
-        return plt.cm.brg(norm(np.arange(count)))
+
+        #any extras get the last color
+
+        if count > len(self.colormap):
+            map = self.colormap[:]
+
+            norm = plt.Normalize()
+            colormap = plt.cm.brg(norm(np.arange(3)))
+
+            elem = self.colormap[-1]*(count-len(self.colormap))
+            map = map + elem
+        else:
+            map = self.colormap[:count]
+
+        return map
 
     #caller might send in flux and.or wavelength as strings, so protect there
     #also, might not have valid flux

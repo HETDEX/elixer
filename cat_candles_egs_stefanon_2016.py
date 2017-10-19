@@ -312,7 +312,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             if entry is not None:
                 self.add_bid_entry(entry)
 
-        if len(ras) > G.MAX_COMBINE_BID_TARGETS: # each bid taget gets its own line
+        if (not G.FORCE_SINGLE_PAGE) and (len(ras) > G.MAX_COMBINE_BID_TARGETS): # each bid taget gets its own line
 
             bid_colors = self.get_bid_colors(len(ras))
             number = 0
@@ -611,21 +611,16 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                                                                                    cosmo=None, lae_priors=None,
                                                                                    ew_case=None, W_0=None, z_OII=None,
                                                                                    sigma=None)
-                    if not G.ZOO:
-                        if bid_target.p_lae is not None:
-                            title += "\nP(LAE) = %0.3g" % bid_target.p_lae
-                            if bid_target.p_oii is not None:
-                                title += "  P(OII) = %0.3g" % bid_target.p_oii
-                                if bid_target.p_oii > 0.0:
-                                    title += "\nP(LAE)/P(OII) = %0.3g" % (bid_target.p_lae / bid_target.p_oii)
+                    if (not G.ZOO) and (bid_target is not None):
+                        if (bid_target.p_lae is not None) and (bid_target.p_lae > 0.0):
+                            if (bid_target.p_oii is not None) and (bid_target.p_oii > 0.0):
+                                p_lae_oii_ratio = bid_target.p_lae / bid_target.p_oii
+                            else:
+                                p_lae_oii_ratio = float('inf')
+                        else:
+                            p_lae_oii_ratio = 0.0
 
-                    if not G.ZOO:
-                        if bid_target.p_lae is not None:
-                            title += "\nP(LAE) = %0.3g" % bid_target.p_lae
-                            if bid_target.p_oii is not None:
-                                title += "  P(OII) = %0.3g" % bid_target.p_oii
-                                if bid_target.p_oii > 0.0:
-                                    title += "\nP(LAE)/P(OII) = %0.3g" % (bid_target.p_lae / bid_target.p_oii)
+                        title += "\nP(LAE)/L(OII) = %0.3g\n" % (p_lae_oii_ratio)
 
                     for c in self.CatalogImages:
                         try:
@@ -1009,13 +1004,16 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                                                                                    cosmo=None, lae_priors=None,
                                                                                    ew_case=None, W_0=None, z_OII=None,
                                                                                    sigma=None)
-                    if not G.ZOO:
-                        if bid_target.p_lae is not None:
-                            title += "\nP(LAE) = %0.3g" % bid_target.p_lae
-                            if bid_target.p_oii is not None:
-                                title += "  P(OII) = %0.3g" % bid_target.p_oii
-                                if bid_target.p_oii > 0.0:
-                                    title += "\nP(LAE)/P(OII) = %0.3g" % (bid_target.p_lae / bid_target.p_oii)
+                    if (not G.ZOO) and (bid_target is not None):
+                        if (bid_target.p_lae is not None) and (bid_target.p_lae > 0.0):
+                            if (bid_target.p_oii is not None) and (bid_target.p_oii > 0.0):
+                                p_lae_oii_ratio = bid_target.p_lae / bid_target.p_oii
+                            else:
+                                p_lae_oii_ratio = float('inf')
+                        else:
+                            p_lae_oii_ratio = 0.0
+
+                        title += "\nP(LAE)/L(OII) = %0.3g\n" % (p_lae_oii_ratio)
 
                     for c in self.CatalogImages:
                         try:
@@ -1127,7 +1125,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
             plt.close()
             return fig
-        elif len(ras) > G.MAX_COMBINE_BID_TARGETS:
+        elif (not G.FORCE_SINGLE_PAGE) and (len(ras) > G.MAX_COMBINE_BID_TARGETS):
             text = "Too many matching targets. Individual reports on following pages.\n\nMORE PAGES ..."
             plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
             plt.close()
@@ -1151,13 +1149,18 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                    "Est LyA rest-EW\n" + \
                    "Est OII rest-EW\n" + \
                    "ACS WFC f606W Flux\n" + \
-                   "P(LAE), P(OII)\n" + \
                    "P(LAE)/P(OII)\n"
 
         plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
 
         col_idx = 0
+        target_count = 0
+        #targets are in order of increasing distance
         for r, d in zip(ras, decs):
+            target_count += 1
+            if target_count > G.MAX_COMBINE_BID_TARGETS:
+                break
+
             col_idx += 1
             spec_z = 0.0
 
@@ -1268,18 +1271,15 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     text = text + "%g(%g) $\\mu$Jy\n" % (filter_fl, filter_fl_err)
 
                 if (not G.ZOO) and (bid_target is not None):
-                    if bid_target.p_lae is not None:
-                        text = text + "%0.3g" % bid_target.p_lae
-                        if bid_target.p_oii is not None:
-                            text = text + ", %0.3g" % bid_target.p_oii
-                            if bid_target.p_oii > 0.0:
-                                text = text + "\n%0.3g\n" % (bid_target.p_lae / bid_target.p_oii)
-                            else:
-                                text = text + "\nN\A\n"
+                    if (bid_target.p_lae is not None) and (bid_target.p_lae > 0.0):
+                        if (bid_target.p_oii is not None) and (bid_target.p_oii > 0.0):
+                            p_lae_oii_ratio = bid_target.p_lae / bid_target.p_oii
                         else:
-                            text += ", N/A\nN/A\n"
+                            p_lae_oii_ratio = float('inf')
+                    else:
+                        p_lae_oii_ratio = 0.0
 
-
+                    text += "%0.3g\n" % (p_lae_oii_ratio)
             else:
                 text = "%s\n%f\n%f\n" % ("--",r, d)
 
