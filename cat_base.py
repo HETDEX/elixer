@@ -90,8 +90,8 @@ class Catalog:
         self.pages = None #list of bid entries (rows in the pdf)
         self.dataframe_of_bid_targets = None
 
-        #blue, green, red, white
-        self.colormap = [[0, 0, 1,1], [0, 1, 0,1], [1, 0, 0,1], [1, 1, 1,0.7]]
+        #blue, red, green, white
+        self.colormap = [[0, 0, 1,1], [1, 0, 0,1], [0, .85, 0,1], [1, 1, 1,0.7]]
 
     @property
     def ok(self):
