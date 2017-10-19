@@ -169,8 +169,7 @@ def parse_commandline():
     parser.add_argument('--jpg', help='Also save report in JPEG format.', required=False,
                         action='store_true', default=False)
     parser.add_argument('--allcat', help='Produce individual pages for all catalog matches if there are '
-                        'more than 3 matches.', required=False,
-                        action='store_true', default=False)
+                        'more than 3 matches.', required=False, action='store_true', default=False)
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
 
@@ -189,6 +188,9 @@ def parse_commandline():
     args.multi = True
 
     log.info(args)
+
+    if (args.allcat is not None):
+        G.FORCE_SINGLE_PAGE = not args.allcat
 
     if (args.zoo is not None) and (args.zoo):
         G.ZOO = True

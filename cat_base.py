@@ -90,10 +90,8 @@ class Catalog:
         self.pages = None #list of bid entries (rows in the pdf)
         self.dataframe_of_bid_targets = None
 
-        norm = plt.Normalize()
-        colormap = plt.cm.hsv(norm(np.arange(7)))
-#        colormap_b = plt.cm.brg(norm(np.arange(3)))
-        self.colormap = [colormap[4],colormap[2],colormap[0],colormap[3]]
+        #blue, green, red, white
+        self.colormap = [[0, 0, 1,1], [0, 1, 0,1], [1, 0, 0,1], [1, 1, 1,0.7]]
 
     @property
     def ok(self):
@@ -276,12 +274,8 @@ class Catalog:
 
         if count > len(self.colormap):
             map = self.colormap[:]
-
-            norm = plt.Normalize()
-            colormap = plt.cm.brg(norm(np.arange(3)))
-
-            elem = self.colormap[-1]*(count-len(self.colormap))
-            map = map + elem
+            elem = self.colormap[-1]
+            map = map + [elem]*(count-len(self.colormap))
         else:
             map = self.colormap[:count]
 
