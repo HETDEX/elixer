@@ -677,11 +677,21 @@ class DetObj:
             except:
                 log.info("Error parsing tokens from emission line file.",exc_info=True)
 
+            #todo: fix this calculation
+            #? units of dataflux? (counts?) need to convert to equivalent units with cont
+            #   counts are okay, I think, if cont is in counts / AA, else convert to cgs
+            #? assuming dataflux is NOT per AA (that is, the wavelength has been multiplied out ...
+            #                                  ... is this the total flux under the line?)
+            #? cont is sometimes less than zero? that makes no sense?
+            #? does dataflux already have the fluxfrac adjustment in it? Right now not getting a fluxfrac so set to 1.0
+            #
+            #** note: for the bid targets in the catalog, the line flux is this dataflux/fluxfrac converted to cgs
+            #         (again, assuming it is the total flux, not per AA)
+            #         and the continuum flux is the f606w converted from janskys to cgs
+            #   ?? is there a better estimate for the continuum for the bid targets?
             if (self.eqw_obs == -300) and (self.dataflux != 0) and (self.fluxfrac != 0) \
                     and (self.cont != 666) and (self.cont != 666):  # dummy value
-                self.eqw_obs = abs(self.dataflux / self.fluxfrac / self.cont) #not quite right, units could be wrong
-                #todo: what really are the units of self.cont? need result to be angstroms and it may be that
-                #both dataflux and cont are just in counts
+                self.eqw_obs = abs(self.dataflux / self.fluxfrac / self.cont)
 
         else:
             self.type = 'cont'
