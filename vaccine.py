@@ -176,10 +176,10 @@ def parse_commandline():
     args = parser.parse_args()
 
     #reminder to self ... this is pointless with SLURM given the bash wraper (which does not know about the
-    #speccific dir name and just builds voltron.run
+    #speccific dir name and just builds vaccine.run
 
     #if args.name is not None:
-    #    G.logging.basicConfig(filename="voltron."+args.name+".log", level=G.LOG_LEVEL, filemode='w')
+    #    G.logging.basicConfig(filename="vaccine."+args.name+".log", level=G.LOG_LEVEL, filemode='w')
     #else:
     #    print("Missing mandatory paramater --name.")
     #    exit(-1)
@@ -429,9 +429,9 @@ def join_report_parts(report_name, bid_count=0):
     print("Finalizing report ...")
 
     metadata = PyPDF.IndirectPdfDict(
-        Title='Voltron Emission Line Report',
+        Title='Vaccine Emission Line Report',
         Author="HETDEX, Univ. of Texas",
-        Keywords='Voltron Version = ' + G.__version__)
+        Keywords='Vaccine Version = ' + G.__version__)
 
     if G.SINGLE_PAGE_PER_DETECT:
         #part0001 is the hetdex part (usually 2 pages)

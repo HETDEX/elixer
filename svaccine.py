@@ -1,4 +1,4 @@
-# wrapper for SLURM call to voltron
+# wrapper for SLURM call to vaccine
 from __future__ import print_function
 import sys
 import os
@@ -71,7 +71,7 @@ if not os.path.isdir(basename):
 os.chdir(basename)
 
 
-### voltron.slurm
+### vaccine.slurm
 
 slurm = "\
 #!/bin/bash \n\
@@ -92,7 +92,7 @@ slurm = "\
 #SBATCH -n 1                  # Total number of tasks\n\
 ##SBATCH -p gpu                 # Queue name\n\
 #SBATCH -p vis                 # Queue name\n\
-#SBATCH -o VOLTRON.o%j          # Name of stdout output file (%j expands to jobid)\n\
+#SBATCH -o VACCINE.o%j          # Name of stdout output file (%j expands to jobid)\n\
 #SBATCH -t " + time + "            # Run time (hh:mm:ss)\n\
 #SBATCH -A Hobby-Eberly-Telesco\n"\
 + email + "\n\
@@ -113,7 +113,7 @@ module unload xalt \n\
 module load launcher\n\
 export EXECUTABLE=$TACC_LAUNCHER_DIR/init_launcher\n\
 export WORKDIR=. \n\
-export CONTROL_FILE=voltron.run\n\
+export CONTROL_FILE=vaccine.run\n\
 \n\
 # Variable descriptions:\n\
 #\n\
@@ -201,33 +201,33 @@ echo \" Parameteric Job Complete\"\n\
 echo \" \" "
 
 try:
-    f = open("voltron.slurm", 'w')
+    f = open("vaccine.slurm", 'w')
     f.write(slurm)
     f.close()
 except:
-    print("Error! Cannot create voltron.slurm")
+    print("Error! Cannot create vaccine.slurm")
     exit(-1)
 
 
 
 
-### voltron.run
-path = os.path.join(os.path.dirname(sys.argv[0]),"voltron.py")
+### vaccine.run
+path = os.path.join(os.path.dirname(sys.argv[0]),"vaccine.py")
 run = "python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' -f \n'
 
 try:
-    f = open("voltron.run", 'w')
+    f = open("vaccine.run", 'w')
     f.write(run)
     f.close()
 except:
-    print("Error! Cannot create voltron.slurm")
+    print("Error! Cannot create vaccine.slurm")
     exit(-1)
 
 
 #execute system command
 print ("Calling SLURM queue ...")
-os.system('sbatch voltron.slurm')
-#print ("Here we will call: sbatch voltron.slurm")
+os.system('sbatch vaccine.slurm')
+#print ("Here we will call: sbatch vaccine.slurm")
 
 
 
