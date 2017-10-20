@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import science_image
 from matplotlib.font_manager import FontProperties
+import scipy.constants
 
 log = G.logging.getLogger('Cat_logger')
 log.setLevel(G.logging.DEBUG)
@@ -284,14 +285,20 @@ class Catalog:
     #caller might send in flux and.or wavelength as strings, so protect there
     #also, might not have valid flux
     def micro_jansky_to_cgs(self,flux,wavelength):
+
+        c = scipy.constants.c * 1e10
+
         try:
-            return float(flux) * 1e-29 * 3e18 / (float(wavelength) ** 2)  # 3e18 ~ c in angstroms/sec
+            return float(flux) * 1e-29 * c / (float(wavelength) ** 2)  # 3e18 ~ c in angstroms/sec
         except:
             return 0
 
     def nano_jansky_to_cgs(self,flux,wavelength):
+
+        c = scipy.constants.c * 1e10
+
         try:
-            return float(flux) * 1e-32 * 3e18 / (float(wavelength) ** 2)  # 3e18 ~ c in angstroms/sec
+            return float(flux) * 1e-32 * c / (float(wavelength) ** 2)  # 3e18 ~ c in angstroms/sec
         except:
             return 0
 

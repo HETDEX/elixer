@@ -586,7 +586,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             if target_flux is not None:
                 filter_fl = df['ACS_F606W_FLUX'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
                 if (filter_fl is not None) and (filter_fl > 0):
-                    filter_fl = filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
+                    filter_fl = self.micro_jansky_to_cgs(filter_fl,target_w) #filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
                     title = title + "\nEst LyA rest-EW = %g $\AA$" \
                                     % (target_flux / filter_fl / (target_w / G.LyA_rest))
 
@@ -603,24 +603,14 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     bid_target.distance = df['distance'].values[0] * 3600
                     bid_target.bid_flux_est_cgs = filter_fl
                     # todo: add call to line_probabilities:
-                    ratio, bid_target.p_lae, bid_target.p_oii = line_prob.prob_LAE(wl_obs=target_w,
-                                                                                   lineFlux=target_flux,
-                                                                                   ew_obs=(target_flux / filter_fl),
-                                                                                   c_obs=None, which_color=None,
-                                                                                   addl_fluxes=None, sky_area=None,
-                                                                                   cosmo=None, lae_priors=None,
-                                                                                   ew_case=None, W_0=None, z_OII=None,
-                                                                                   sigma=None)
-                    if (not G.ZOO) and (bid_target is not None):
-                        if (bid_target.p_lae is not None) and (bid_target.p_lae > 0.0):
-                            if (bid_target.p_oii is not None) and (bid_target.p_oii > 0.0):
-                                p_lae_oii_ratio = bid_target.p_lae / bid_target.p_oii
-                            else:
-                                p_lae_oii_ratio = float('inf')
-                        else:
-                            p_lae_oii_ratio = 0.0
+                    bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii = \
+                        line_prob.prob_LAE(wl_obs=target_w, lineFlux=target_flux, ew_obs=(target_flux / filter_fl),
+                                           c_obs=None, which_color=None, addl_fluxes=None, sky_area=None,
+                                           cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
+                                           sigma=None)
 
-                        title += "\nP(LAE)/L(OII) = %0.3g\n" % (p_lae_oii_ratio)
+                    if (not G.ZOO) and (bid_target.p_lae_oii_ratio is not None):
+                        title += "\nP(LAE)/L(OII) = %0.3g\n" % (bid_target.p_lae_oii_ratio)
 
                     for c in self.CatalogImages:
                         try:
@@ -996,7 +986,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     bid_target.bid_flux_est_cgs = filter_fl
 
                     # todo: add call to line_probabilities:
-                    ratio, bid_target.p_lae, bid_target.p_oii = line_prob.prob_LAE(wl_obs=target_w,
+                    bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii = line_prob.prob_LAE(wl_obs=target_w,
                                                                                    lineFlux=target_flux,
                                                                                    ew_obs=(target_flux / filter_fl),
                                                                                    c_obs=None, which_color=None,
@@ -1004,16 +994,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                                                                                    cosmo=None, lae_priors=None,
                                                                                    ew_case=None, W_0=None, z_OII=None,
                                                                                    sigma=None)
-                    if (not G.ZOO) and (bid_target is not None):
-                        if (bid_target.p_lae is not None) and (bid_target.p_lae > 0.0):
-                            if (bid_target.p_oii is not None) and (bid_target.p_oii > 0.0):
-                                p_lae_oii_ratio = bid_target.p_lae / bid_target.p_oii
-                            else:
-                                p_lae_oii_ratio = float('inf')
-                        else:
-                            p_lae_oii_ratio = 0.0
-
-                        title += "\nP(LAE)/L(OII) = %0.3g\n" % (p_lae_oii_ratio)
+                    if (not G.ZOO) and (bid_target.p_lae_oii_ratio is not None):
+                        title += "\nP(LAE)/L(OII) = %0.3g\n" % (bid_target.p_lae_oii_ratio)
 
                     for c in self.CatalogImages:
                         try:
@@ -1227,11 +1209,11 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 bid_target = None
                 if (target_flux is not None) and (filter_fl != 0.0):
                     if (filter_fl is not None):# and (filter_fl > 0):
-                        filter_fl_adj = filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
-                        text = text + "%g $\AA$\n" % (target_flux / filter_fl_adj / (target_w / G.LyA_rest))
+                        filter_fl_cgs = self.micro_jansky_to_cgs(filter_fl,target_w)# filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
+                        text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
 
                         if target_w >= G.OII_rest:
-                            text = text + "%g $\AA$\n" % (target_flux / filter_fl_adj / (target_w / G.OII_rest))
+                            text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.OII_rest))
                         else:
                             text = text + "N/A\n"
 
@@ -1242,14 +1224,15 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                         bid_target.distance = df['distance'].values[0] * 3600
                         bid_target.bid_flux_est_cgs = filter_fl
                         # todo: add call to line_probabilities:
-                        ratio, bid_target.p_lae, bid_target.p_oii = line_prob.prob_LAE(wl_obs=target_w,
-                                                                                       lineFlux=target_flux,
-                                                                                       ew_obs=(target_flux / filter_fl_adj),
-                                                                                       c_obs=None, which_color=None,
-                                                                                       addl_fluxes=None, sky_area=None,
-                                                                                       cosmo=None, lae_priors=None,
-                                                                                       ew_case=None, W_0=None,
-                                                                                       z_OII=None, sigma=None)
+                        bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii = \
+                            line_prob.prob_LAE(wl_obs=target_w,
+                                               lineFlux=target_flux,
+                                               ew_obs=(target_flux / filter_fl_cgs),
+                                               c_obs=None, which_color=None,
+                                               addl_fluxes=None, sky_area=None,
+                                               cosmo=None, lae_priors=None,
+                                               ew_case=None, W_0=None,
+                                               z_OII=None, sigma=None)
 
                         for c in self.CatalogImages:
                             try:
@@ -1270,16 +1253,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 else:
                     text = text + "%g(%g) $\\mu$Jy\n" % (filter_fl, filter_fl_err)
 
-                if (not G.ZOO) and (bid_target is not None):
-                    if (bid_target.p_lae is not None) and (bid_target.p_lae > 0.0):
-                        if (bid_target.p_oii is not None) and (bid_target.p_oii > 0.0):
-                            p_lae_oii_ratio = bid_target.p_lae / bid_target.p_oii
-                        else:
-                            p_lae_oii_ratio = float('inf')
-                    else:
-                        p_lae_oii_ratio = 0.0
-
-                    text += "%0.3g\n" % (p_lae_oii_ratio)
+                if (not G.ZOO) and (bid_target.p_lae_oii_ratio is not None):
+                    text += "%0.3g\n" % (bid_target.p_lae_oii_ratio)
             else:
                 text = "%s\n%f\n%f\n" % ("--",r, d)
 

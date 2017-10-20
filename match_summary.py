@@ -23,6 +23,7 @@ class BidTarget:
         self.bid_flux_est_cgs = 0.0
         self.p_lae = None
         self.p_oii = None
+        self.p_lae_oii_ratio = None
         # todo: filter exposure time??
 
         self.filters = []
@@ -105,6 +106,7 @@ class MatchSet:
         "catalog object Dec (decimal degrees)",
         "catalog object separation (arcsecs)",
         "catalog object continuum flux est at emission line wavelength (cgs)",
+        "P(LAE)/P(OII)",
         "number of filters to follow (variable)",
         "  instrument name (if available)",
         "  filter name",
@@ -161,10 +163,12 @@ class MatchSet:
                     f.write(sep + str(m.emis_cont_flux_count))
                     f.write(sep + str(m.emis_cont_flux_cgs))
                     f.write(sep + str(m.emis_obs_eqw))
+
                     f.write(sep + str(b.bid_ra))
                     f.write(sep + str(b.bid_dec))
                     f.write(sep + str(b.distance))
                     f.write(sep + str(b.bid_flux_est_cgs))
+                    f.write(sep + str(b.p_lae_oii_ratio))
                     f.write(sep + str(len(b.filters)))
                     for flt in b.filters:
                         f.write(sep + str(flt.instrument))

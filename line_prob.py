@@ -41,6 +41,11 @@ def fiber_area_in_sqdeg(num_fibers=1):
 def prob_LAE(wl_obs,lineFlux,ew_obs,c_obs, which_color=None, addl_fluxes=None,
             sky_area=None, cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None, sigma=None):
 
+    #sanity check
+    if (ew_obs == -300) or (ew_obs == 666):
+        #bsically, sentinel (null) values from Karl's input file
+        return 0.0,0.0,0.0
+
     #what about different equivalent width calculations for LAE vs OII (different rest wavelength ... or is the ew_obs
     #not rest_frame --- the more likely ... in which case, don't divide by the ratio of observed wavelength/rest)?
 
@@ -90,6 +95,14 @@ def prob_LAE(wl_obs,lineFlux,ew_obs,c_obs, which_color=None, addl_fluxes=None,
                                                       EW_case=ew_case, W_0=W_0, z_OII=z_OII,  sigma=sigma)
 
     #ratio_LAE is plgd/pogd
+    #slightly different representation of ratio_LAE (so recomputed for vaccine use)
+    if (plgd is not None) and (plgd > 0.0):
+        if (pogd is not None) and (pogd > 0.0):
+            ratio_LAE = float(plgd) / pogd
+        else:
+            ratio_LAE = float('inf')
+    else:
+        ratio_LAE = 0.0
 
     return ratio_LAE, plgd, pogd
 

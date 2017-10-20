@@ -647,7 +647,8 @@ def write_fibers_file(filename,hd_list):
         "emission line flux (cgs)",
         "emission line continuum flux (electron counts)",
         "emission line continuum flux (cgs)",
-        "emission line observed (estimated) equivalent width (not restframe)",
+        "emission line equivalent width (observed) [estimated]",
+        "P(LAE)/P(OII),"
         "number of fiber records to follow (each consists of the following columns)",
         "  fiber_id string (panacea) or reduced science fits filename (cure)",
         "  observation date YYYYMMDD",
@@ -698,7 +699,8 @@ def write_fibers_file(filename,hd_list):
             f.write(sep + str(emis.estflux))
             f.write(sep + str(emis.cont))
             f.write(sep + str(emis.cont * G.FLUX_CONVERSION))
-            f.write(sep + str(emis.eqw))
+            f.write(sep + str(emis.eqw_obs))
+            f.write(sep + str(emis.p_lae_oii_ratio))
 
             f.write(sep + str(len(emis.fibers)))
 

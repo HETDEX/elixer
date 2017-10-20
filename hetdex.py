@@ -548,7 +548,8 @@ class DetObj:
         self.chi2w = 0.0
         self.gammq = 0.0
         self.gammq_s = 0.0
-        self.eqw = 0.0
+        #self.eqw = 0.0
+        self.eqw_obs = 0.0
         self.cont = -9999
         self.panacea = False
 
@@ -596,8 +597,8 @@ class DetObj:
             self.chi2w = float(tokens[12])
             self.gammq = float(tokens[13])
             self.gammq_s = float(tokens[14])
-            self.eqw = float(tokens[15])
-            self.cont = float(tokens[16])
+            self.eqw_obs = float(tokens[15])
+            self.cont = float(tokens[16]) #replaced by idx ~ 25 (1st value after the last fiber listed)
 
             try:
                 if len(tokens) > 17: #this is probably an all ifu panacea version
@@ -676,9 +677,9 @@ class DetObj:
             except:
                 log.info("Error parsing tokens from emission line file.",exc_info=True)
 
-            if (self.eqw == -300) and (self.dataflux != 0) and (self.fluxfrac != 0) \
-                    and (self.cont != 666) and (self.cont > 0):  # dummy value
-                self.eqw = -1 * self.dataflux / self.fluxfrac / self.cont #not quite right, units could be wrong
+            if (self.eqw_obs == -300) and (self.dataflux != 0) and (self.fluxfrac != 0) \
+                    and (self.cont != 666) and (self.cont != 666):  # dummy value
+                self.eqw_obs = abs(self.dataflux / self.fluxfrac / self.cont) #not quite right, units could be wrong
                 #todo: what really are the units of self.cont? need result to be angstroms and it may be that
                 #both dataflux and cont are just in counts
 
@@ -1177,7 +1178,7 @@ class DetObj:
         #is self.eqw rest or observed??
         ratio, self.p_lae, self.p_oii = line_prob.prob_LAE(wl_obs=self.w,
                                                            lineFlux=self.estflux,
-                                                           ew_obs=(self.eqw),
+                                                           ew_obs=(self.eqw_obs),
                                                            c_obs=None, which_color=None,
                                                            addl_fluxes=None, sky_area=None,
                                                            cosmo=None, lae_priors=None,
@@ -2494,49 +2495,45 @@ class HETDEX:
                     "Science file(s):\n%s"\
                     "RA,Dec (%f,%f) \n"\
                     "Sky X,Y (%f,%f)\n" \
-                    "$\lambda$ = %g $\AA$\n" \
+                    "$\lambda$ = %g$\AA$\n" \
                     "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
-                    "EstCont = %g\n" \
+                    "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" \
                     % (self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.x, e.y,e.w,
-                        e.estflux, e.dataflux, e.fluxfrac, e.cont) #note: e.fluxfrac gauranteed to be nonzero
+                        e.estflux, e.dataflux, e.fluxfrac, e.cont, e.eqw_obs) #note: e.fluxfrac gauranteed to be nonzero
 
                 if e.p_lae_oii_ratio is not None:
-                    title += "\nP(LAE)/P(OII) = %0.3g\n" %(e.p_lae_oii_ratio)
-                else:
-                    title += "\n"
+                    title += "P(LAE)/P(OII) = %0.3g\n" %(e.p_lae_oii_ratio)
             else:  #this if for zooniverse, don't show RA and DEC or Probabilitie
                 title += "\n" \
                      "ObsDate %s  ObsID %s IFU %s  CAM %s\n" \
                      "Science file(s):\n%s" \
                      "Sky X,Y (%f,%f)\n" \
-                     "$\lambda$ = %g $\AA$\n" \
+                     "$\lambda$ = %g$\AA$\n" \
                      "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
-                     "EstCont = %g\n" \
+                     "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" \
                      % (self.ymd, self.obsid, self.ifu_slot_id, self.specid, sci_files, e.x, e.y, e.w,
-                        e.estflux, e.dataflux, e.fluxfrac, e.cont)  # note: e.fluxfrac gauranteed to be nonzero
+                        e.estflux, e.dataflux, e.fluxfrac, e.cont,e.eqw_obs)  # note: e.fluxfrac gauranteed to be nonzero
         else:
             if not G.ZOO:
                 title += "\n" \
                      "RA,Dec (%f,%f) \n" \
                      "Sky X,Y (%f,%f)\n" \
-                     "$\lambda$ = %g $\AA$\n" \
+                     "$\lambda$ = %g$\AA$\n" \
                      "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
-                     "EstCont = %g\n" \
+                     "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" \
                      % (ra, dec, e.x, e.y, e.w,
-                        e.estflux, e.dataflux, e.fluxfrac, e.cont)  # note: e.fluxfrac gauranteed to be nonzero
+                        e.estflux, e.dataflux, e.fluxfrac, e.cont,e.eqw_obs)  # note: e.fluxfrac gauranteed to be nonzero
 
                 if e.p_lae_oii_ratio is not None:
-                    title += "\nP(LAE)/P(OII) = %0.3g\n" %(e.p_lae_oii_ratio)
-                else:
-                    title += "\n"
+                    title += "P(LAE)/P(OII) = %0.3g\n" %(e.p_lae_oii_ratio)
             else: #this if for zooniverse, don't show RA and DEC or probabilities
                 title += "\n" \
                      "Sky X,Y (%f,%f)\n" \
-                     "$\lambda$ = %g $\AA$\n" \
+                     "$\lambda$ = %g$\AA$\n" \
                      "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
-                     "EstCont = %g\n" \
+                     "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" \
                      % ( e.x, e.y, e.w,
-                        e.estflux, e.dataflux, e.fluxfrac, e.cont)  # note: e.fluxfrac gauranteed to be nonzero
+                        e.estflux, e.dataflux, e.fluxfrac, e.cont,e.eqw_obs)  # note: e.fluxfrac gauranteed to be nonzero
 
         if self.panacea:
             title += "S/N = %g  Chi2 = %g" % (e.sigma, e.chi2)
