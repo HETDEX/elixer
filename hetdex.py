@@ -691,6 +691,7 @@ class DetObj:
             #   ?? is there a better estimate for the continuum for the bid targets?
             if (self.eqw_obs == -300) and (self.dataflux != 0) and (self.fluxfrac != 0) \
                     and (self.cont != 666) and (self.cont != 666):  # dummy value
+                #this is the approximation vs EW = integration of (F_cont - F_line) / F_line dLambda
                 self.eqw_obs = abs(self.dataflux / self.fluxfrac / self.cont)
 
         else:

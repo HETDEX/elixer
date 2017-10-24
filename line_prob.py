@@ -95,7 +95,7 @@ def prob_LAE(wl_obs,lineFlux,ew_obs,c_obs, which_color=None, addl_fluxes=None,
                                                       EW_case=ew_case, W_0=W_0, z_OII=z_OII,  sigma=sigma)
 
     #ratio_LAE is plgd/pogd
-    #slightly different representation of ratio_LAE (so recomputed for vaccine use)
+    #slightly different representation of ratio_LAE (so recomputed for voltron use)
     if (plgd is not None) and (plgd > 0.0):
         if (pogd is not None) and (pogd > 0.0):
             ratio_LAE = float(plgd) / pogd
