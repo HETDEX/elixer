@@ -678,8 +678,8 @@ class DetObj:
                 log.info("Error parsing tokens from emission line file.",exc_info=True)
 
             #todo: fix this calculation
-            #? units of dataflux? (counts?) need to convert to equivalent units with cont
-            #   counts are okay, I think, if cont is in counts / AA, else convert to cgs
+            #? units of dataflux? (counts per AA or per 1.9xAA?) need to convert to equivalent units with cont
+            #   counts are okay, I think, if cont is in counts / AA  (or per 2AA?), else convert to cgs
             #? assuming dataflux is NOT per AA (that is, the wavelength has been multiplied out ...
             #                                  ... is this the total flux under the line?)
             #? cont is sometimes less than zero? that makes no sense?
@@ -689,9 +689,15 @@ class DetObj:
             #         (again, assuming it is the total flux, not per AA)
             #         and the continuum flux is the f606w converted from janskys to cgs
             #   ?? is there a better estimate for the continuum for the bid targets?
+
+            #todo: if self.cont <= 0, set to floor value (need to know virus limit ... does it vary with detector?)
+            if not (self.cont > 0.0):
+                pass
+
             if (self.eqw_obs == -300) and (self.dataflux != 0) and (self.fluxfrac != 0) \
-                    and (self.cont != 666) and (self.cont != 666):  # dummy value
+                    and (self.cont != 666):  # dummy value
                 #this is the approximation vs EW = integration of (F_cont - F_line) / F_line dLambda
+                #todo: are these counts per angstrom?? or per pixel (so, like per 1.9 angstroms, so cut in half?)
                 self.eqw_obs = abs(self.dataflux / self.fluxfrac / self.cont)
 
         else:
