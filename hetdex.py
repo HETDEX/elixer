@@ -1209,6 +1209,8 @@ class DetObj:
         else:
             self.p_lae_oii_ratio = 0.0
 
+        self.p_lae_oii_ratio = min(line_prob.MAX_PLAE_POII,self.p_lae_oii_ratio) #cap to MAX
+
 
 
     def parse_fiber(self,fiber):
@@ -2533,23 +2535,25 @@ class HETDEX:
         else:
             if not G.ZOO:
                 title += "\n" \
+                     "Primary IFU Slot %s\n" \
                      "RA,Dec (%f,%f) \n" \
                      "Sky X,Y (%f,%f)\n" \
                      "$\lambda$ = %g$\AA$\n" \
                      "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
                      "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" \
-                     % (ra, dec, e.x, e.y, e.w,
+                     % (e.fibers[0].ifuslot, ra, dec, e.x, e.y, e.w,
                         e.estflux, e.dataflux, e.fluxfrac, e.cont,e.eqw_obs)  # note: e.fluxfrac gauranteed to be nonzero
 
                 if e.p_lae_oii_ratio is not None:
                     title += "P(LAE)/P(OII) = %0.3g\n" %(e.p_lae_oii_ratio)
             else: #this if for zooniverse, don't show RA and DEC or probabilities
-                title += "\n" \
+                title += "\n" \ 
+                     "Primary IFU Slot %s\n" \
                      "Sky X,Y (%f,%f)\n" \
                      "$\lambda$ = %g$\AA$\n" \
                      "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
                      "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" \
-                     % ( e.x, e.y, e.w,
+                     % ( e.fibers[0].ifuslot, e.x, e.y, e.w,
                         e.estflux, e.dataflux, e.fluxfrac, e.cont,e.eqw_obs)  # note: e.fluxfrac gauranteed to be nonzero
 
         if self.panacea:
@@ -3483,7 +3487,18 @@ class HETDEX:
             borplot.axis('off')
             ext = list(np.hstack([datakeep['xl'][ind[i]], datakeep['xh'][ind[i]],
                                   datakeep['yl'][ind[i]], datakeep['yh'][ind[i]]]))
-            GF = gaussian_filter(datakeep['im'][ind[i]], (2, 1))
+
+
+
+            #todo: here ... copy of ['im'] and set the hot (cosmic) pixel values to either zero or nearby value
+            #todo: then employ guassian_filter
+
+            a = datakeep['im'][ind[i]]
+            a = np.ma.masked_where( datakeep['err'][ind[i]] == -1, a)
+            a = np.ma.filled(a,0.0)
+
+            #GF = gaussian_filter(datakeep['im'][ind[i]], (2, 1))
+            GF = gaussian_filter(a,(2,1))
             smplot.imshow(GF,
                           origin="lower", cmap=cmap,
                           interpolation="none", vmin=datakeep['vmin1'][ind[i]],

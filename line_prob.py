@@ -4,6 +4,7 @@ import math
 import global_config as G
 
 
+MAX_PLAE_POII = 999.9
 
 # test call
 #addl_fluxes is an array one for each = ['[NeIII]','H_beta','[OIII]','[OIII]']
@@ -103,6 +104,8 @@ def prob_LAE(wl_obs,lineFlux,ew_obs,c_obs, which_color=None, addl_fluxes=None,
             ratio_LAE = float('inf')
     else:
         ratio_LAE = 0.0
+
+    ratio_LAE = min(MAX_PLAE_POII,ratio_LAE)
 
     return ratio_LAE, plgd, pogd
 
