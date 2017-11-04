@@ -73,7 +73,7 @@ class Match:
             self.emis_flux_count = emis.dataflux
             self.emis_flux_cgs = emis.estflux #emis.dataflux * G.FLUX_CONVERSION / emis.fluxfrac
             self.emis_cont_flux_count = emis.cont
-            self.emis_cont_flux_cgs = self.emis_cont_flux_count * G.FLUX_CONVERSION
+            self.emis_cont_flux_cgs = emis.cont_cgs #* G.FLUX_CONVERSION
             if self.emis_cont_flux_count != 0:
                 self.emis_obs_eqw = -1 * self.emis_flux_count / self.emis_cont_flux_count
             else:

@@ -75,6 +75,29 @@ ww = xw * 1.9  # wavelength width
 #be mostly captured) ... making it too wide picks up too much noise and throws the fit (especially for weaker S/N)
 PEAK_PIXELS = 4
 
+FLUX_CONVERSION_measured_w = [3000., 3500., 3540., 3640., 3740., 3840., 3940., 4040., 4140., 4240., 4340., 4440., 4540., 4640., 4740., 4840.,
+     4940., 5040., 5140.,
+     5240., 5340., 5440., 5500., 6000.]
+FLUX_CONVERSION_measured_f = [1.12687e-18, 1.12687e-18, 9.05871e-19, 6.06978e-19, 4.78406e-19, 4.14478e-19, 3.461e-19, 2.77439e-19, 2.50407e-19,
+     2.41462e-19, 2.24238e-19, 2.0274e-19, 1.93557e-19, 1.82048e-19, 1.81218e-19, 1.8103e-19, 1.81251e-19,
+     1.80744e-19, 1.85613e-19, 1.78978e-19, 1.82547e-19, 1.85056e-19, 2.00788e-19, 2.00788e-19]
+
+FLUX_CONVERSION_w_grid = np.arange(3000.0, 6000.0, 1.0)
+FLUX_CONVERSION_f_grid = np.interp(FLUX_CONVERSION_w_grid, FLUX_CONVERSION_measured_w, FLUX_CONVERSION_measured_f)
+
+FLUX_CONVERSION_DICT = dict(zip(FLUX_CONVERSION_w_grid,FLUX_CONVERSION_f_grid))
+
+def flux_conversion(w): #electrons to ergs at wavelenght w
+    if w is None:
+        return 0.0
+    w = round(w)
+
+    if w in FLUX_CONVERSION_DICT.keys():
+        return FLUX_CONVERSION_DICT[w]
+    else:
+        log.error("ERROR! Unable to find FLUX CONVERSION entry for %f" %w)
+        return 0.0
+
 
 #todo: may change with Config0 vs Config1 ... so may need to add additional info
 def flip_amp(amp=None,buf=None):
@@ -551,6 +574,7 @@ class DetObj:
         #self.eqw = 0.0
         self.eqw_obs = 0.0
         self.cont = -9999
+        self.cont_cgs = -9999
         self.panacea = False
 
         self.ifuslot = None
@@ -583,7 +607,8 @@ class DetObj:
             self.dataflux = float(tokens[6])
             self.modflux = float(tokens[7])
             self.fluxfrac = float(tokens[8])
-            self.estflux = self.dataflux * G.FLUX_CONVERSION/self.fluxfrac #estimated flux in cgs f_lambda
+            #self.estflux = self.dataflux * G.FLUX_CONVERSION/self.fluxfrac #estimated flux in cgs f_lambda
+            self.estflux = self.dataflux * flux_conversion(self.w) / self.fluxfrac  # estimated flux in cgs f_lambda
             #for safety
             if self.fluxfrac == 0:
                 self.fluxfrac = 1.0
@@ -692,7 +717,9 @@ class DetObj:
 
             #todo: if self.cont <= 0, set to floor value (need to know virus limit ... does it vary with detector?)
             if not (self.cont > 0.0):
-                pass
+                self.cont = 0.001
+
+            self.cont_cgs = self.cont * flux_conversion(self.w)
 
             if (self.eqw_obs == -300) and (self.dataflux != 0) and (self.fluxfrac != 0) \
                     and (self.cont != 666):  # dummy value
@@ -2547,7 +2574,7 @@ class HETDEX:
                 if e.p_lae_oii_ratio is not None:
                     title += "P(LAE)/P(OII) = %0.3g\n" %(e.p_lae_oii_ratio)
             else: #this if for zooniverse, don't show RA and DEC or probabilities
-                title += "\n" \ 
+                title += "\n" \
                      "Primary IFU Slot %s\n" \
                      "Sky X,Y (%f,%f)\n" \
                      "$\lambda$ = %g$\AA$\n" \
@@ -3489,10 +3516,7 @@ class HETDEX:
                                   datakeep['yl'][ind[i]], datakeep['yh'][ind[i]]]))
 
 
-
-            #todo: here ... copy of ['im'] and set the hot (cosmic) pixel values to either zero or nearby value
-            #todo: then employ guassian_filter
-
+            #set the hot (cosmic) pixel values to zero then employ guassian_filter
             a = datakeep['im'][ind[i]]
             a = np.ma.masked_where( datakeep['err'][ind[i]] == -1, a)
             a = np.ma.filled(a,0.0)

@@ -79,7 +79,7 @@ logging.basicConfig(filename=LOG_FILENAME,level=LOG_LEVEL,filemode='w')
 LyA_rest = 1216. #A 1215.668 and 1215.674
 OII_rest = 3727.
 
-FLUX_CONVERSION = (1./60)*1e-17
+#FLUX_CONVERSION = (1./60)*1e-17
 
 Fiber_Radius = 0.75 #arcsec
 IFU_Width = 47.26 #arcsec ... includes 2x fiber radius ... more narrow part fiber 1 - 19, else is 49.8

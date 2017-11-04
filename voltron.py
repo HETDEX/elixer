@@ -698,7 +698,7 @@ def write_fibers_file(filename,hd_list):
             f.write(sep + str(emis.dataflux))
             f.write(sep + str(emis.estflux))
             f.write(sep + str(emis.cont))
-            f.write(sep + str(emis.cont * G.FLUX_CONVERSION))
+            f.write(sep + str(emis.cont_cgs))
             f.write(sep + str(emis.eqw_obs))
             f.write(sep + str(emis.p_lae_oii_ratio))
 
