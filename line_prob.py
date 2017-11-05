@@ -4,7 +4,7 @@ import math
 import global_config as G
 
 
-MAX_PLAE_POII = 999.9
+MAX_PLAE_POII = 99.9
 
 # test call
 #addl_fluxes is an array one for each = ['[NeIII]','H_beta','[OIII]','[OIII]']

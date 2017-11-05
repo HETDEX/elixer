@@ -715,17 +715,16 @@ class DetObj:
             #         and the continuum flux is the f606w converted from janskys to cgs
             #   ?? is there a better estimate for the continuum for the bid targets?
 
-            #todo: if self.cont <= 0, set to floor value (need to know virus limit ... does it vary with detector?)
-            if not (self.cont > 0.0):
+            #if self.cont <= 0, set to floor value (need to know virus limit ... does it vary with detector?)
+            if  (self.cont <= 0.0) or (self.cont == 666):
                 self.cont = 0.001
-
+            #use the conversion factor around the line
             self.cont_cgs = self.cont * flux_conversion(self.w)
 
-            if (self.eqw_obs == -300) and (self.dataflux != 0) and (self.fluxfrac != 0) \
-                    and (self.cont != 666):  # dummy value
+            if (self.eqw_obs == -300) and (self.dataflux != 0) and (self.fluxfrac != 0):
                 #this is the approximation vs EW = integration of (F_cont - F_line) / F_line dLambda
-                #todo: are these counts per angstrom?? or per pixel (so, like per 1.9 angstroms, so cut in half?)
-                self.eqw_obs = abs(self.dataflux / self.fluxfrac / self.cont)
+                #are these counts per angstrom?? or per pixel (so, like per 1.9 angstroms, so cut in half?)
+                self.eqw_obs = abs(self.dataflux / self.fluxfrac / self.cont_cgs)
 
         else:
             self.type = 'cont'
