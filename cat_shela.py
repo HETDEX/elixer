@@ -398,6 +398,16 @@ class SHELA(cat_base.Catalog):
                 pass
 
             for c in self.CatalogImages:
+
+                try:
+                    if ((ra < self.Tile_Coord_Range[c['tile']]['RA_min']) or \
+                       (ra > self.Tile_Coord_Range[c['tile']]['RA_max']) or \
+                       (dec < self.Tile_Coord_Range[c['tile']]['Dec_min']) or \
+                       (dec > self.Tile_Coord_Range[c['tile']]['Dec_max'])):
+                        continue
+                except:
+                    log.warning("Minor Exception in cat_shela.py:find_target_tile ", exc_info=True)
+
                 try:
                     image = science_image.science_image(wcs_manual=self.WCS_Manual,
                                                         image_location=op.join(self.SHELA_IMAGE_PATH, c['name']))

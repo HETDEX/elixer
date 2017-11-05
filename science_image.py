@@ -147,6 +147,7 @@ class science_image():
             window = float(max(2.0*error,5.0)) #should be at least 5 arcsecs
 
         self.window = window
+        cutout = None
 
         #data = None
         #pix_size = None
@@ -195,8 +196,16 @@ class science_image():
                 position = SkyCoord(ra, dec, unit="deg", frame='fk5')
                 #self.pixel_size = self.calc_pixel_size(image.wcs)
                 pix_window = float(window) / self.calc_pixel_size(image.wcs)  # now in pixels
-                cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=image.wcs, copy=copy)
+                cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=image.wcs, copy=copy,
+                                  mode='partial',fill_value=0.0)
                 self.get_vrange(cutout.data)
+            except NoOverlapError as e:
+                log.warning("NoOverlapError in science_image.py:get_cutout")
+                if cutout is not None:
+                    try:
+                        self.get_vrange(cutout.data)
+                    except:
+                        pass
             except:
                 log.error("Exception in science_image::get_cutout ():" , exc_info=True)
                 return None
