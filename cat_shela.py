@@ -3,10 +3,6 @@ from __future__ import print_function
 import global_config as G
 import os.path as op
 
-STACK_COSMOS_BASE_PATH = G.STACK_COSMOS_BASE_PATH
-STACK_COSMOS_IMAGE = op.join(G.STACK_COSMOS_BASE_PATH,"COSMOS_g_sci.fits")
-STACK_COSMOS_CAT = op.join(G.STACK_COSMOS_CAT_PATH,"cat_g.fits")
-
 
 import matplotlib
 matplotlib.use('agg')
@@ -35,7 +31,8 @@ import match_summary
 class SHELA(cat_base.Catalog):
     # class variables
     SHELA_BASE_PATH = G.SHELA_BASE_PATH
-    SHELA_IMAGE_PATH = G.SHELA_BASE_PATH
+    SHELA_CAT_PATH = G.SHELA_CAT_PATH
+    SHELA_IMAGE_PATH = G.DECAM_IMAGE_PATH#G.SHELA_BASE_PATH
 
     #not all tiles have all filters
     Filters = ['u','g','r','i','z']
@@ -59,7 +56,7 @@ class SHELA(cat_base.Catalog):
     Name = "DECAM/SHELA"
 
     # if multiple images, the composite broadest range (filled in by hand)
-    Image_Coord_Range = {'RA_min': 14.09, 'RA_max': 25.31, 'Dec_min': -1.35, 'Dec_max': 1.34}
+    Image_Coord_Range = {'RA_min': 8.50, 'RA_max': 36.51, 'Dec_min': -4.0, 'Dec_max': 4.0}
     #approximate
     Tile_Coord_Range = {
                         'A1': {'RA_min':  8.50, 'RA_max': 11.31, 'Dec_min': 1.32, 'Dec_max': 4.0},
@@ -94,8 +91,7 @@ class SHELA(cat_base.Catalog):
                         'C8': {'RA_min': 28.10, 'RA_max': 30.91, 'Dec_min': -4.0, 'Dec_max': -1.32},
                         'C9': {'RA_min': 30.90, 'RA_max': 33.71, 'Dec_min': -4.0, 'Dec_max': -1.32},
                         'C10':{'RA_min': 33.70, 'RA_max': 36.51, 'Dec_min': -4.0, 'Dec_max': -1.32},
-
-    }
+                    }
 
 
     Cat_Coord_Range = {'RA_min': None, 'RA_max': None, 'Dec_min': None, 'Dec_max': None}
@@ -310,10 +306,13 @@ class SHELA(cat_base.Catalog):
 
         for t in cls.Tiles:
             for f in cls.Filters:
-                cat_name = 'B'+t+'_'+f+'_'+cls.Cat_ext
-                log.debug("Building " + cls.Name + " " + cat_name + " dataframe...")
+                cat_name = t+'_'+f+'_'+cls.Cat_ext
+                cat_loc = op.join(cls.SHELA_CAT_PATH, cat_name)
 
-                cat_loc = op.join(cls.SHELA_BASE_PATH,cat_name)
+                if not op.exists(cat_loc):
+                    continue
+
+                log.debug("Building " + cls.Name + " " + cat_name + " dataframe...")
 
                 try:
                     table = astropy.table.Table.read(cat_loc)
@@ -368,16 +367,20 @@ class SHELA(cat_base.Catalog):
     def build_catalog_of_images(self):
         for t in self.Tiles:
             for f in self.Filters:
-                self.CatalogImages.append(
-                    {'path': self.SHELA_IMAGE_PATH,
-                     'name': 'B'+t+'_'+f+'_'+self.Img_ext,
-                     'tile': t,
-                     'filter': f,
-                     'instrument': "",
-                     'cols': [],
-                     'labels': [],
-                     'image': None
-                     })
+                #if the file exists, add it
+                name = t+'_'+f+'_'+self.Img_ext
+                if op.exists(op.join(self.SHELA_IMAGE_PATH,name)):
+
+                  self.CatalogImages.append(
+                        {'path': self.SHELA_IMAGE_PATH,
+                         'name': name, #'B'+t+'_'+f+'_'+self.Img_ext,
+                         'tile': t,
+                         'filter': f,
+                         'instrument': "",
+                         'cols': [],
+                         'labels': [],
+                         'image': None
+                         })
 
     def find_target_tile(self,ra,dec):
         #assumed to have already confirmed this target is at least in coordinate range of this catalog
@@ -394,23 +397,39 @@ class SHELA(cat_base.Catalog):
             except:
                 pass
 
-            for f in ['g']: #self.Filters:
-                #can we assume the filters all have the same coord range?
-                #see if can get a cutout?
-                img_name = 'B' + t + '_' + f + '_' + self.Img_ext
+            for c in self.CatalogImages:
                 try:
                     image = science_image.science_image(wcs_manual=self.WCS_Manual,
-                            image_location=op.join(self.SHELA_IMAGE_PATH, img_name))
-                    if image.contains_position(ra,dec):
+                                                        image_location=op.join(self.SHELA_IMAGE_PATH, c['name']))
+                    if image.contains_position(ra, dec):
                         tile = t
                     else:
-                        log.debug("position (%f, %f) is not in image. %s" % (ra, dec,img_name))
+                        log.debug("position (%f, %f) is not in image. %s" % (ra, dec, c['name']))
 
                 except:
                     pass
 
                 if tile is not None:
                     break
+
+            if (0): #old version SHELA ONLY
+                for f in ['g']: #self.Filters:
+                    #can we assume the filters all have the same coord range?
+                    #see if can get a cutout?
+                    img_name = 'B' + t + '_' + f + '_' + self.Img_ext
+                    try:
+                        image = science_image.science_image(wcs_manual=self.WCS_Manual,
+                                image_location=op.join(self.SHELA_IMAGE_PATH, img_name))
+                        if image.contains_position(ra,dec):
+                            tile = t
+                        else:
+                            log.debug("position (%f, %f) is not in image. %s" % (ra, dec,img_name))
+
+                    except:
+                        pass
+
+                    if tile is not None:
+                        break
 
         return tile
 
@@ -611,14 +630,21 @@ class SHELA(cat_base.Catalog):
 
         index = -1
         for f in self.Filters:
-            index += 1
-
-            i = self.CatalogImages[
+            try:
+                i = self.CatalogImages[
                 next(i for (i,d) in enumerate(self.CatalogImages)
                      if ((d['filter'] == f) and (d['tile'] == tile)))]
+            except:
+                i = None
 
             if i is None:
                 continue
+
+            index += 1
+
+            if index > cols:
+                log.warning("Exceeded max number of grid spec columns.")
+                break #have to be done
 
             if i['image'] is None:
                 i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
@@ -745,14 +771,20 @@ class SHELA(cat_base.Catalog):
 
         index = -1
         for f in self.Filters:
-            index += 1
-
-            i = self.CatalogImages[
-                next(i for (i, d) in enumerate(self.CatalogImages)
+            try:
+                i = self.CatalogImages[  next(i for (i, d) in enumerate(self.CatalogImages)
                      if ((d['filter'] == f) and (d['tile'] == tile)))]
+            except:
+                i = None
 
             if i is None:
                 continue
+
+            index += 1
+
+            if index > cols:
+                log.warning("Exceeded max number of grid spec columns.")
+                break #have to be done
 
             if i['image'] is None:
                 i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
@@ -881,7 +913,8 @@ class SHELA(cat_base.Catalog):
         target_box_side = error/4.0 #basically, the box is 1/32 of the window size
 
         rows = 10
-        cols = 1 + len(self.CatalogImages)/len(self.Tiles)
+        #cols = 1 + len(self.CatalogImages)/len(self.Tiles)
+        cols = 6 # 1 for the fiber position and up to 5 filters for any one tile (u,g,r,i,z)
 
         fig_sz_x = 18 #cols * 3
         fig_sz_y = 3 #ows * 3
@@ -939,14 +972,21 @@ class SHELA(cat_base.Catalog):
         exptime_cont_est = -1
         index = 0 #images go in positions 1+ (0 is for the fiber positions)
         for f in self.Filters:
-            index += 1
-
-            i = self.CatalogImages[
-                next(i for (i, d) in enumerate(self.CatalogImages)
-                     if ((d['filter'] == f) and (d['tile'] == tile)))]
+            try:
+                i = self.CatalogImages[
+                    next(i for (i, d) in enumerate(self.CatalogImages)
+                         if ((d['filter'] == f) and (d['tile'] == tile)))]
+            except:
+                i = None
 
             if i is None:
                 continue
+
+            index += 1
+
+            if index > cols:
+                log.warning("Exceeded max number of grid spec columns.")
+                break #have to be done
 
             if i['image'] is None:
                 i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,

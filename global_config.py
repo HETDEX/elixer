@@ -7,7 +7,7 @@ import gc
 import socket
 
 #version
-__version__ = '1.2.0-alpha'
+__version__ = '1.3.0-alpha'
 
 
 if socket.gethostname() == 'z50':
@@ -32,6 +32,7 @@ if socket.gethostname() == 'z50':
     STACK_COSMOS_CAT_PATH = "/home/dustin/code/python/voltron/data/isak"
 
     SHELA_BASE_PATH = "/home/dustin/code/python/voltron/data/isak/SHELA"
+    DECAM_IMAGE_PATH = "/media/dustin/dd/hetdex/data/decam/images"
     SHELA_CAT_PATH = SHELA_BASE_PATH
     SHELA_PHOTO_Z_COMBINED_PATH = SHELA_BASE_PATH
     SHELA_PHOTO_Z_MASTER_PATH = SHELA_BASE_PATH
@@ -55,6 +56,7 @@ else:
     STACK_COSMOS_CAT_PATH = "/work/03229/iwold/maverick/stackCOSMOS"
 
     SHELA_BASE_PATH = "/work/03261/polonius/maverick/catalogs/SHELA"#"/work/03229/iwold/maverick/fall_field/stack/v2/psf/nano/"
+    DECAM_IMAGE_PATH = "/work/03229/iwold/maverick/fall_field/stack/v2/psf/nano/"
     SHELA_CAT_PATH = SHELA_BASE_PATH
     #SHELA_PHOTO_Z_COMBINED_PATH = "/work/03565/stevans/maverick/software/eazy-photoz/inputs_decam1.1_irac1.5_scaled_vistajk/OUTPUT/"
     #SHELA_PHOTO_Z_MASTER_PATH = "/work/03565/stevans/maverick/working/decam/psfmatched2017/per_field/v1.0/final_catalogs/v1.1/combined_irac_v1.5.a/with_vista/"
