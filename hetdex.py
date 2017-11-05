@@ -723,8 +723,8 @@ class DetObj:
 
             if (self.eqw_obs == -300) and (self.dataflux != 0) and (self.fluxfrac != 0):
                 #this is the approximation vs EW = integration of (F_cont - F_line) / F_line dLambda
-                #are these counts per angstrom?? or per pixel (so, like per 1.9 angstroms, so cut in half?)
-                self.eqw_obs = abs(self.dataflux / self.fluxfrac / self.cont_cgs)
+                #these are all in counts (but equivalent of wFw)
+                self.eqw_obs = abs(self.dataflux / self.fluxfrac / self.cont)
 
         else:
             self.type = 'cont'
