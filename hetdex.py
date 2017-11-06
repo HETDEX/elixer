@@ -2546,8 +2546,6 @@ class HETDEX:
                     % (self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.x, e.y,e.w,
                         e.estflux, e.dataflux, e.fluxfrac, e.cont, e.eqw_obs) #note: e.fluxfrac gauranteed to be nonzero
 
-                if e.p_lae_oii_ratio is not None:
-                    title += "P(LAE)/P(OII) = %0.3g\n" %(e.p_lae_oii_ratio)
             else:  #this if for zooniverse, don't show RA and DEC or Probabilitie
                 title += "\n" \
                      "ObsDate %s  ObsID %s IFU %s  CAM %s\n" \
@@ -2570,8 +2568,6 @@ class HETDEX:
                      % (e.fibers[0].ifuslot, ra, dec, e.x, e.y, e.w,
                         e.estflux, e.dataflux, e.fluxfrac, e.cont,e.eqw_obs)  # note: e.fluxfrac gauranteed to be nonzero
 
-                if e.p_lae_oii_ratio is not None:
-                    title += "P(LAE)/P(OII) = %0.3g\n" %(e.p_lae_oii_ratio)
             else: #this if for zooniverse, don't show RA and DEC or probabilities
                 title += "\n" \
                      "Primary IFU Slot %s\n" \
@@ -2589,7 +2585,11 @@ class HETDEX:
 
         if e.dqs is None:
             e.dqs_score()
-        title += "  Score = %0.1f (%0.2f)" % (e.dqs,e.dqs_raw)
+      #  title += "  Score = %0.1f (%0.2f)" % (e.dqs,e.dqs_raw)
+
+        if not G.ZOO:
+            if e.p_lae_oii_ratio is not None:
+                title += "\nP(LAE)/P(OII) = %0.3g  Score = %0.1f (%0.2f)" % (e.p_lae_oii_ratio,e.dqs,e.dqs_raw)
         #title += "  Score = %0.1f" % (e.dqs)
 
         if e.w > 0:
