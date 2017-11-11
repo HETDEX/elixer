@@ -77,9 +77,9 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
     CatalogImages = [
         {'path': EXPANDED_IMAGES_PATH,
-         'name': 'D3.I.1_20558_1_21553.fits',
-         'filter': 'Exp/Comp',
-         'instrument': '',
+         'name': 'D3.I.1_20558_1_21553.fits', #or: CFHTLS_D-25_g_141927+524056_T0007_SIGWEI.fits
+         'filter': 'g',
+         'instrument': 'CFHTLS',
          'cols': [],
          'labels': [],
          'image': None,

@@ -7,7 +7,7 @@ import gc
 import socket
 
 #version
-__version__ = '1.3.0-alpha'
+__version__ = '1.3.1'
 
 
 if socket.gethostname() == 'z50':
@@ -82,6 +82,8 @@ LyA_rest = 1216. #A 1215.668 and 1215.674
 OII_rest = 3727.
 
 #FLUX_CONVERSION = (1./60)*1e-17
+
+CONTINUUM_FLOOR_COUNTS = 6.5 #5 sigma * 6 counts / sqrt(40 angstroms/1.9 angs per pixel)
 
 Fiber_Radius = 0.75 #arcsec
 IFU_Width = 47.26 #arcsec ... includes 2x fiber radius ... more narrow part fiber 1 - 19, else is 49.8

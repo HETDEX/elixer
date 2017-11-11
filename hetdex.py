@@ -716,8 +716,8 @@ class DetObj:
             #   ?? is there a better estimate for the continuum for the bid targets?
 
             #if self.cont <= 0, set to floor value (need to know virus limit ... does it vary with detector?)
-            if  (self.cont <= 0.0) or (self.cont == 666):
-                self.cont = 0.001
+            if (self.cont <= 0.0) or (self.cont == 666):
+                self.cont = G.CONTINUUM_FLOOR_COUNTS #floor (
             #use the conversion factor around the line
             self.cont_cgs = self.cont * flux_conversion(self.w)
 
@@ -2544,7 +2544,7 @@ class HETDEX:
                     "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
                     "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" \
                     % (self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.x, e.y,e.w,
-                        e.estflux, e.dataflux, e.fluxfrac, e.cont, e.eqw_obs) #note: e.fluxfrac gauranteed to be nonzero
+                        e.estflux, e.dataflux, e.fluxfrac, e.cont_cgs, e.eqw_obs) #note: e.fluxfrac gauranteed to be nonzero
 
             else:  #this if for zooniverse, don't show RA and DEC or Probabilitie
                 title += "\n" \
@@ -2555,7 +2555,7 @@ class HETDEX:
                      "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
                      "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" \
                      % (self.ymd, self.obsid, self.ifu_slot_id, self.specid, sci_files, e.x, e.y, e.w,
-                        e.estflux, e.dataflux, e.fluxfrac, e.cont,e.eqw_obs)  # note: e.fluxfrac gauranteed to be nonzero
+                        e.estflux, e.dataflux, e.fluxfrac, e.cont_cgs,e.eqw_obs)  # note: e.fluxfrac gauranteed to be nonzero
         else:
             if not G.ZOO:
                 title += "\n" \
@@ -2566,7 +2566,7 @@ class HETDEX:
                      "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
                      "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" \
                      % (e.fibers[0].ifuslot, ra, dec, e.x, e.y, e.w,
-                        e.estflux, e.dataflux, e.fluxfrac, e.cont,e.eqw_obs)  # note: e.fluxfrac gauranteed to be nonzero
+                        e.estflux, e.dataflux, e.fluxfrac, e.cont_cgs,e.eqw_obs)  # note: e.fluxfrac gauranteed to be nonzero
 
             else: #this if for zooniverse, don't show RA and DEC or probabilities
                 title += "\n" \
@@ -2576,7 +2576,7 @@ class HETDEX:
                      "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
                      "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" \
                      % ( e.fibers[0].ifuslot, e.x, e.y, e.w,
-                        e.estflux, e.dataflux, e.fluxfrac, e.cont,e.eqw_obs)  # note: e.fluxfrac gauranteed to be nonzero
+                        e.estflux, e.dataflux, e.fluxfrac, e.cont_cgs,e.eqw_obs)  # note: e.fluxfrac gauranteed to be nonzero
 
         if self.panacea:
             title += "S/N = %g  Chi2 = %g" % (e.sigma, e.chi2)
