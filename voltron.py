@@ -632,7 +632,7 @@ def write_fibers_file(filename,hd_list):
 
     #write header info
     headers = [
-        "entry number",
+        "input (entry) ID",
         "detect ID",
         "detection quality score",
         "emission line RA (decimal degrees)",
@@ -672,11 +672,12 @@ def write_fibers_file(filename,hd_list):
         col_num += 1
         f.write("# %d %s\n" % (col_num, h))
 
-    entry_num = 0
+    #entry_num = 0
     for hd in hd_list:
         for emis in hd.emis_list:
-            entry_num += 1
-            f.write(str(entry_num))
+            #entry_num += 1
+            #f.write(str(entry_num))
+            f.write(str(emis.entry_id))
             f.write(sep + str(emis.id))
             if emis.dqs is None:
                 emis.dqs_score()

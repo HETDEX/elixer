@@ -6,6 +6,9 @@ import global_config as G
 
 MAX_PLAE_POII = 999
 
+log = G.logging.getLogger('line_prob_logger')
+log.setLevel(G.logging.DEBUG)
+
 # test call
 #addl_fluxes is an array one for each = ['[NeIII]','H_beta','[OIII]','[OIII]']
 
@@ -84,28 +87,36 @@ def prob_LAE(wl_obs,lineFlux,ew_obs,c_obs, which_color=None, addl_fluxes=None,
     #suppress sign of EW (always wants positive)
     ew_obs = abs(ew_obs)
 
+    try:
     # initialization taken directly from Andrew's code, but I don't know what they mean
-    Bayes.nb.init(_alpha_LAE=alpha_LAE_default, _mult_LStar_LAE=1, _mult_PhiStar_LAE=1, _mult_w0_LAE=1,
-                  _alpha_OII=-1.2, _mult_LStar_OII=1, _mult_PhiStar_OII=1, _mult_w0_OII=1)
+        Bayes.nb.init(_alpha_LAE=alpha_LAE_default, _mult_LStar_LAE=1, _mult_PhiStar_LAE=1, _mult_w0_LAE=1,
+                      _alpha_OII=-1.2, _mult_LStar_OII=1, _mult_PhiStar_OII=1, _mult_w0_OII=1)
 
-    #plgd == Probability of lae given the data?
-    #pogd = Probability of OII given the data ?
-    ratio_LAE, plgd, pogd = Bayes.bayesian.prob_ratio(wl_obs=wl_obs, lineFlux=lineFlux, ew_obs=ew_obs,
-                                                      c_obs=c_obs, which_color=which_color, addl_fluxes=addl_fluxes,
-                                                      sky_area=sky_area, cosmo=cosmo, LAE_priors=lae_priors,
-                                                      EW_case=ew_case, W_0=W_0, z_OII=z_OII,  sigma=sigma)
+        #plgd == Probability of lae given the data?
+        #pogd = Probability of OII given the data ?
+        ratio_LAE, plgd, pogd = Bayes.bayesian.prob_ratio(wl_obs=wl_obs, lineFlux=lineFlux, ew_obs=ew_obs,
+                                                          c_obs=c_obs, which_color=which_color, addl_fluxes=addl_fluxes,
+                                                          sky_area=sky_area, cosmo=cosmo, LAE_priors=lae_priors,
+                                                          EW_case=ew_case, W_0=W_0, z_OII=z_OII,  sigma=sigma)
 
-    #ratio_LAE is plgd/pogd
-    #slightly different representation of ratio_LAE (so recomputed for voltron use)
-    if (plgd is not None) and (plgd > 0.0):
-        if (pogd is not None) and (pogd > 0.0):
-            ratio_LAE = float(plgd) / pogd
+
+        #ratio_LAE is plgd/pogd
+        #slightly different representation of ratio_LAE (so recomputed for voltron use)
+        if (plgd is not None) and (plgd > 0.0):
+            if (pogd is not None) and (pogd > 0.0):
+                ratio_LAE = float(plgd) / pogd
+            else:
+                ratio_LAE = float('inf')
         else:
-            ratio_LAE = float('inf')
-    else:
-        ratio_LAE = 0.0
+            ratio_LAE = 0.0
 
-    ratio_LAE = min(MAX_PLAE_POII,ratio_LAE)
+        ratio_LAE = min(MAX_PLAE_POII,ratio_LAE)
+    except:
+        ratio_LAE = 0
+        plgd = 0
+        pogd = 0
+        log.error("Exception calling into Bayes: ",  exc_info=True)
+
 
     return ratio_LAE, plgd, pogd
 

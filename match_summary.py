@@ -36,6 +36,7 @@ class Match:
     def __init__(self,emis=None):
         #self.match_num = 0
         if emis is None:
+            self.input_id = 0
             self.detect_id = 0
             self.emis_ra = 361.00
             self.emis_dec = 181.00
@@ -52,6 +53,7 @@ class Match:
             self.emis_cont_flux_cgs = 0.0
             self.emis_obs_eqw = 0.0
         else:
+            self.input_id = emis.entry_id
             self.detect_id = emis.id
             if emis.wra is not None:
                 self.emis_ra = emis.wra
@@ -88,7 +90,7 @@ class Match:
 
 class MatchSet:
     headers = [
-        "entry number",
+        "input (entry) ID",
         "detect ID",
         "emission line RA (decimal degrees)",
         "emission line Dec (decimal degrees)",
@@ -145,11 +147,12 @@ class MatchSet:
                 col_num += 1
                 f.write("# %d %s\n" % (col_num, h))
 
-            entry_num = 0
+            #entry_num = 0
             for m in self.match_set:
                 for b in m.bid_targets:
-                    entry_num += 1
-                    f.write(str(entry_num))
+             #       entry_num += 1
+                    #f.write(str(entry_num))
+                    f.write(str(m.input_id))
                     f.write(sep + str(m.detect_id))
                     f.write(sep + str(m.emis_ra))
                     f.write(sep + str(m.emis_dec))

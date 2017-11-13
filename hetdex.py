@@ -592,13 +592,14 @@ class DetObj:
 
         if emission:
             self.type = 'emis'
+            self.line_number = line_number
             self.entry_id = int(tokens[0])
             self.id = int(tokens[1]) #detect id (not line number)
 
-            if (line_number is not None) and (self.entry_id == self.id):
-                #could be happenstance or could be an old file
+            #if (line_number is not None) and (self.entry_id == self.id):
+            #    #could be happenstance or could be an old file
                 #if it is just happenstance, the line_number should also be the same
-                self.entry_id = line_number
+            #    self.entry_id = line_number
 
             self.x = float(tokens[2]) #sky x
             self.y = float(tokens[3]) #sky y
@@ -1135,7 +1136,7 @@ class DetObj:
             gauss_plot.set_ylim((ymin,ymax))
             gauss_plot.set_xlim( (np.floor(wave_x[0]),np.ceil(wave_x[-1])) )
             gauss_plot.set_title(title)
-            png = 'gauss_' + str(self.entry_id).zfill(4) + "_d" + str(self.id) + ".png"
+            png = 'gauss_' + str(self.entry_id).zfill(3) + "_d" + str(self.id) + ".png"
             if self.outdir is not None:
                 png = op.join(self.outdir,png)
             log.info('Writing: ' + png)
@@ -2579,9 +2580,13 @@ class HETDEX:
                         e.estflux, e.dataflux, e.fluxfrac, e.cont_cgs,e.eqw_obs)  # note: e.fluxfrac gauranteed to be nonzero
 
         if self.panacea:
-            title += "S/N = %g  Chi2 = %g" % (e.sigma, e.chi2)
+            title += "S/N = %g " % (e.sigma)
         else:
-            title += "Sigma = %g  Chi2 = %g" % (e.sigma, e.chi2)
+            title += "$\sigma$ = %g " % (e.sigma)
+
+        if (e.chi2 is not None) and (e.chi2 != 666):
+            title += " $\chi^2$ = %g" % (e.chi2)
+
 
         if e.dqs is None:
             e.dqs_score()
