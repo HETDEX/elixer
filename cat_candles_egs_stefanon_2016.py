@@ -57,11 +57,14 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
     # class variables
     MainCatalog = CANDELS_EGS_Stefanon_2016_CAT
-    Name = "CANDELS/EGS"
+    Name = "CANDELS/EGS/CFHTLS"
     # if multiple images, the composite broadest range (filled in by hand)
     #includes the expanded catalog
     Image_Coord_Range = {'RA_min': 214.0, 'RA_max': 215.7, 'Dec_min': 52.15, 'Dec_max': 53.21}
-    Cat_Coord_Range = {'RA_min': 214.576759, 'RA_max': 215.305229, 'Dec_min': 52.677569, 'Dec_max': 53.105756}
+#    Cat_Coord_Range = {'RA_min': 214.576759, 'RA_max': 215.305229, 'Dec_min': 52.677569, 'Dec_max': 53.105756}
+    #updated with CFHTLS extended coverage
+    Cat_Coord_Range = {'RA_min': 208.559, 'RA_max': 220.391, 'Dec_min': 51.2113, 'Dec_max': 57.8033}
+
     WCS_Manual = True
     EXPTIME_F606W = 289618.0
     CONT_EST_BASE = 3.3e-21
@@ -156,6 +159,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
     PhotoZCatalog = CANDELS_EGS_Stefanon_2016_PHOTOZ_CAT
     SupportFilesLocation = CANDELS_EGS_Stefanon_2016_PHOTOZ_ZPDF_PATH
 
+    CFHTLS_PhotoZCatalog = G.CFHTLS_PHOTOZ_CAT
+    cfhtls_df = None  # cat_base has df
+    cfhtls_df_photoz = None
+
     def __init__(self):
         super(CANDELS_EGS_Stefanon_2016, self).__init__()
 
@@ -177,6 +184,25 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         for i in self.CatalogImages:  # i is a dictionary
             i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
                                                      image_location=op.join(i['path'], i['name']))
+
+    @classmethod
+    def read_main_catalog(cls):
+        super(CANDELS_EGS_Stefanon_2016, cls).read_main_catalog()
+
+        if cls.cfhtls_df is not None:
+            return #already read in
+
+        try:
+            print("Reading CFHTLS catalog for ", cls.Name)
+            cls.cfhtls_df = cls.read_chftls_catalog(cls.CFHTLS_PhotoZCatalog, cls.Name)
+
+        except:
+            print("Failed")
+            cls.status = -1
+            log.error("Exception in read_main_catalog for %s" % cls.Name, exc_info=True)
+
+
+
 
     @classmethod
     def read_photoz_catalog(cls):
@@ -224,6 +250,76 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
         return df
 
+    @classmethod
+    def read_chftls_photoz_catalog(cls):
+        if cls.df_cfhtls_photoz is not None:
+            log.debug("Already built df_photoz")
+        else:
+            try:
+                print("Reading photoz catalog for ", cls.Name)
+                cls.df_cfhtls_photoz = cls.read_chftls_catalog(cls.CFHTLS_PhotoZCatalog, cls.Name)
+            except:
+                print("Failed")
+
+        return
+
+    @classmethod
+    def read_chftls_catalog(cls, catalog_loc, name):
+
+        log.debug("Building " + name + " dataframe...")
+
+
+        #names slightly changed (0,1,2,6) to match with the EGS header names
+        #each line is 10 index wide
+        header = ['ID','RA','DEC','flag','StarGal','r2','z_best','zPDF','zPDF_l68','zPDF_u68',
+                  'chi2_zPDF','mod','ebv','NbFilt','zMin','zl68','zu68','chi2_best','zp_2','chi2_2',
+                  'mods','chis','zq','chiq','modq','U','G','R','I','Y',
+                  'Z','eU','eG','eR','eI','eY','eZ','MU','MG','MR',
+                  'MI','MY','MZ']
+
+        dtypes = {'ID':str,'RA':np.float64,'DEC':np.float64,'flag':int,'StarGal':int,'r2':float,'z_best':float,
+                  'zPDF':float,'zPDF_l68':float,'zPDF_u68':float,
+                  'chi2_zPDF':float,'mod':int,'ebv':float,'NbFilt':int,'zMin':float,'zl68':float,'zu68':float,
+                  'chi2_best':float,'zp_2':float,'chi2_2':float,
+                  'mods':int,'chis':float,'zq':float,'chiq':float,'modq':int,
+                  'U':float,'G':float,'R':float,'I':float,'Y':float,'Z':float,
+                  'eU':float,'eG':float,'eR':float,'eI':float,'eY':float,'eZ':float,
+                  'MU':float,'MG':float,'MR':float,'MI':float,'MY':float,'MZ':float}
+
+        #this has no header comments
+
+        #note z_best = -99.9 is the non-value?
+
+        try: #for now, just use the few columns needed (ID,RA,DEC,z_best,G,eG)
+            df = pd.read_csv(catalog_loc, names=header,dtype=dtypes,usecols = [0,1,2,6,26,32],
+                             na_values= ['*********'],
+                             delim_whitespace=True, header=None, index_col=None, skiprows=0)
+        except:
+            log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
+            return None
+
+        return df
+
+    def get_filter_flux(self,df):
+
+        filter_fl = None
+        filter_fl_err = None
+        try:
+            filter_fl = df['ACS_F606W_FLUX'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+            filter_fl_err = df['ACS_F606W_FLUXERR'].values[0]
+        except: #not the EGS df, try the CFHTLS
+            pass
+
+        if filter_fl is None:
+            try:
+                filter_fl = self.obs_mag_to_micro_Jy(df['G'].values[0])
+                filter_fl_err = self.obs_mag_to_micro_Jy(df['G'].values[0] - df['eG'].values[0])
+            except:
+                pass
+
+        return filter_fl, filter_fl_err
+
+
     def build_list_of_bid_targets(self, ra, dec, error):
         '''ra and dec in decimal degrees. error in arcsec.
         returns a pandas dataframe'''
@@ -260,14 +356,41 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 self.df[(self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max) &
                         (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)].copy()
 
-            # ID matches between both catalogs
-            self.dataframe_of_bid_targets_photoz = \
-                self.df_photoz[(self.df_photoz['ID'].isin(self.dataframe_of_bid_targets['ID']))].copy()
+            if self.dataframe_of_bid_targets is not None:
+                self.num_targets = self.dataframe_of_bid_targets.iloc[:, 0].count()
+
+            if self.num_targets > 0:
+                # ID matches between both catalogs
+                self.dataframe_of_bid_targets_photoz = \
+                    self.df_photoz[(self.df_photoz['ID'].isin(self.dataframe_of_bid_targets['ID']))].copy()
         except:
             log.error(self.Name + " Exception in build_list_of_bid_targets", exc_info=True)
 
-        if self.dataframe_of_bid_targets is not None:
-            self.num_targets = self.dataframe_of_bid_targets.iloc[:, 0].count()
+        if self.num_targets == 0:  # try the larger CFHTLS
+            try:
+
+                self.dataframe_of_bid_targets = \
+                    self.cfhtls_df[(self.cfhtls_df['RA'] >= ra_min) & (self.cfhtls_df['RA'] <= ra_max) &
+                                   (self.cfhtls_df['DEC'] >= dec_min) & (self.cfhtls_df['DEC'] <= dec_max)].copy()
+
+                # the CFHTLS dataframe is combined with photo-z (at least for now)
+                self.dataframe_of_bid_targets_photoz = self.dataframe_of_bid_targets
+
+                if self.dataframe_of_bid_targets is not None:
+                    self.num_targets = self.dataframe_of_bid_targets.iloc[:, 0].count()
+                    # todo: re-name column headers for compatibility?
+                    # todo: maybe add a column to identify which catalog this is and wrap the pull of data
+                    # todo:      for printing?
+
+                    self.dataframe_of_bid_targets_photoz['file'] = None
+                    self.dataframe_of_bid_targets_photoz['z_best_type'] = 'p'
+                    self.dataframe_of_bid_targets_photoz['mFDa4_z_weight'] = None
+
+            except:
+                log.error(self.Name + " Exception in build_list_of_bid_targets", exc_info=True)
+
+
+        if self.num_targets > 0:
             self.sort_bid_targets_by_likelihood(ra, dec)
 
             log.info(self.Name + " searching for objects in [%f - %f, %f - %f] " % (ra_min, ra_max, dec_min, dec_max) +
@@ -584,7 +707,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     title = title + "\nOII Z (virus) = N/A"
 
             if target_flux is not None:
-                filter_fl = df['ACS_F606W_FLUX'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                #filter_fl = df['ACS_F606W_FLUX'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                filter_fl,  = self.get_filter_flux(df)
                 if (filter_fl is not None) and (filter_fl > 0):
                     filter_fl = self.micro_jansky_to_cgs(filter_fl,target_w) #filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
                     title = title + "\nEst LyA rest-EW = %g $\AA$" \
@@ -609,7 +733,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                                            cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
                                            sigma=None)
 
-                    if (not G.ZOO) and (bid_target.p_lae_oii_ratio is not None):
+                    if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
                         title += "\nP(LAE)/L(OII) = %0.3g\n" % (bid_target.p_lae_oii_ratio)
 
                     for c in self.CatalogImages:
@@ -681,7 +805,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         # alwasy read in file for "file" and plot column 1 (z as x) vs column 9 (pseudo-probability)
         # get 'file'
         # z_best  # 6 z_best_type # 7 z_spec # 8 z_spec_ref
-        if df_photoz is not None:
+        if photoz_file is not None:
             z_cat = self.read_catalog(op.join(self.SupportFilesLocation, photoz_file), "z_cat")
             if z_cat is not None:
                 x = z_cat['z'].values
@@ -965,7 +1089,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     title = title + "\nOII Z (virus) = N/A"
 
             if target_flux is not None:
-                filter_fl = df['ACS_F606W_FLUX'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                #filter_fl = df['ACS_F606W_FLUX'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                filter_fl, = self.get_filter_flux(df)
                 if (filter_fl is not None) and (filter_fl > 0):
                     #filter_fl = filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
                     filter_fl = self.micro_jansky_to_cgs(filter_fl,target_w)
@@ -994,7 +1119,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                                                                                    cosmo=None, lae_priors=None,
                                                                                    ew_case=None, W_0=None, z_OII=None,
                                                                                    sigma=None)
-                    if (not G.ZOO) and (bid_target.p_lae_oii_ratio is not None):
+                    if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
                         title += "\nP(LAE)/L(OII) = %0.3g\n" % (bid_target.p_lae_oii_ratio)
 
                     for c in self.CatalogImages:
@@ -1041,7 +1166,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         # alwasy read in file for "file" and plot column 1 (z as x) vs column 9 (pseudo-probability)
         # get 'file'
         # z_best  # 6 z_best_type # 7 z_spec # 8 z_spec_ref
-        if df_photoz is not None:
+        if photoz_file is not None:
             z_cat = self.read_catalog(op.join(self.SupportFilesLocation, photoz_file), "z_cat")
             if z_cat is not None:
                 x = z_cat['z'].values
@@ -1122,7 +1247,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                    "Photo Z\n" + \
                    "Est LyA rest-EW\n" + \
                    "Est OII rest-EW\n" + \
-                   "ACS WFC f606W Flux\n"
+                   "Filter Flux\n"
         else:
             text = "Separation\n" + \
                    "RA, Dec\n" + \
@@ -1130,7 +1255,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                    "Photo Z\n" + \
                    "Est LyA rest-EW\n" + \
                    "Est OII rest-EW\n" + \
-                   "ACS WFC f606W Flux\n" + \
+                   "Filter Flux\n" + \
                    "P(LAE)/P(OII)\n"
 
         plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
@@ -1200,8 +1325,9 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     text = text + "N/A\nN/A\n"
 
                 try:
-                    filter_fl = df['ACS_F606W_FLUX'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
-                    filter_fl_err = df['ACS_F606W_FLUXERR'].values[0]
+                   # filter_fl = df['ACS_F606W_FLUX'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                   # filter_fl_err = df['ACS_F606W_FLUXERR'].values[0]
+                    filter_fl, filter_fl_err = self.get_filter_flux(df)
                 except:
                     filter_fl = 0.0
                     filter_fl_err = 0.0
@@ -1253,8 +1379,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 else:
                     text = text + "%g(%g) $\\mu$Jy\n" % (filter_fl, filter_fl_err)
 
-                if (not G.ZOO) and (bid_target.p_lae_oii_ratio is not None):
+                if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
                     text += "%0.3g\n" % (bid_target.p_lae_oii_ratio)
+                else:
+                    text += "\n"
             else:
                 text = "%s\n%f\n%f\n" % ("--",r, d)
 
@@ -1270,7 +1398,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             # z_best  # 6 z_best_type # 7 z_spec # 8 z_spec_ref
             #overplot photo Z lines
 
-            if df_photoz is not None:
+            if photoz_file is not None:
                 z_cat = self.read_catalog(op.join(self.SupportFilesLocation, photoz_file), "z_cat")
                 if z_cat is not None:
                     x = z_cat['z'].values

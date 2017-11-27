@@ -704,6 +704,10 @@ class DetObj:
                 log.info("Error parsing tokens from emission line file.",exc_info=True)
 
             #todo: fix this calculation
+
+            ### this is the total flux under the line in ergs s^-1 cm^-2   (not per Hz or per Angstrom)
+
+
             #? units of dataflux? (counts per AA or per 1.9xAA?) need to convert to equivalent units with cont
             #   counts are okay, I think, if cont is in counts / AA  (or per 2AA?), else convert to cgs
             #? assuming dataflux is NOT per AA (that is, the wavelength has been multiplied out ...

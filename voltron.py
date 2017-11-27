@@ -620,7 +620,7 @@ def ifulist_from_detect_file(args):
 
 
 def write_fibers_file(filename,hd_list):
-    if not filename:
+    if not filename or not hd_list or (len(hd_list) == 0):
         return None
 
     sep = "\t"

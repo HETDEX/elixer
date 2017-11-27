@@ -22,6 +22,7 @@ log.setLevel(G.logging.DEBUG)
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
 
+
 #todo: future ... see if can reorganize and use this as a wrapper and maintain only one Figure per report
 class Page:
     def __init__(self,num_entries):
@@ -94,6 +95,7 @@ class Catalog:
         #blue, red, green, white
         self.colormap = [[0, 0, 1,1], [1, 0, 0,1], [0, .85, 0,1], [1, 1, 1,0.7]]
 
+
     @property
     def ok(self):
         return (self.status == 0)
@@ -143,34 +145,36 @@ class Catalog:
                 cls.df = cls.read_catalog(cls.MainCatalog, cls.Name)
                 cls.status = 0
 
-                #also check vs. by hand
-                ra_min = cls.Cat_Coord_Range['RA_min']
-                ra_max = cls.Cat_Coord_Range['RA_max']
-                dec_min = cls.Cat_Coord_Range['Dec_min']
-                dec_max = cls.Cat_Coord_Range['Dec_max']
+                #with the extended catalogs, this is no-longer appropriate
+                if False:
+                    #also check vs. by hand
+                    ra_min = cls.Cat_Coord_Range['RA_min']
+                    ra_max = cls.Cat_Coord_Range['RA_max']
+                    dec_min = cls.Cat_Coord_Range['Dec_min']
+                    dec_max = cls.Cat_Coord_Range['Dec_max']
 
-                cls.Cat_Coord_Range['RA_min'] = cls.df['RA'].min()
-                cls.Cat_Coord_Range['RA_max'] = cls.df['RA'].max()
-                cls.Cat_Coord_Range['Dec_min'] = cls.df['DEC'].min()
-                cls.Cat_Coord_Range['Dec_max']= cls.df['DEC'].max()
+                    cls.Cat_Coord_Range['RA_min'] = cls.df['RA'].min()
+                    cls.Cat_Coord_Range['RA_max'] = cls.df['RA'].max()
+                    cls.Cat_Coord_Range['Dec_min'] = cls.df['DEC'].min()
+                    cls.Cat_Coord_Range['Dec_max']= cls.df['DEC'].max()
 
-                if ra_min is not None:
-                    if  (abs(ra_min - cls.Cat_Coord_Range['RA_min']) > 1e-6 ) or \
-                        (abs(ra_max - cls.Cat_Coord_Range['RA_max']) > 1e-6 ) or \
-                        (abs(dec_min - cls.Cat_Coord_Range['Dec_min']) > 1e-6 )or \
-                        (abs(dec_max - cls.Cat_Coord_Range['Dec_max']) > 1e-6 ):
-                        print("Warning! Pre-defined catalog coordinate ranges may have changed. Please check class "
-                              "definitions for %s" %(cls.Name))
-                        log.info("Warning! Pre-defined catalog coordinate ranges may have changed. Please check class "
-                              "definitions for %s.\nPre-defined ranges: RA [%f - %f], Dec [%f -%f]\n"
-                                 "Runtime ranges: RA [%f - %f], Dec [%f -%f]"
-                                 %(cls.Name,ra_min,ra_max,dec_min,dec_max,cls.Cat_Coord_Range['RA_min'],
-                                   cls.Cat_Coord_Range['RA_max'],cls.Cat_Coord_Range['Dec_min'],
-                                   cls.Cat_Coord_Range['Dec_max']))
+                    if ra_min is not None:
+                        if  (abs(ra_min - cls.Cat_Coord_Range['RA_min']) > 1e-6 ) or \
+                            (abs(ra_max - cls.Cat_Coord_Range['RA_max']) > 1e-6 ) or \
+                            (abs(dec_min - cls.Cat_Coord_Range['Dec_min']) > 1e-6 )or \
+                            (abs(dec_max - cls.Cat_Coord_Range['Dec_max']) > 1e-6 ):
+                            print("Warning! Pre-defined catalog coordinate ranges may have changed. Please check class "
+                                  "definitions for %s" %(cls.Name))
+                            log.info("Warning! Pre-defined catalog coordinate ranges may have changed. Please check class "
+                                  "definitions for %s.\nPre-defined ranges: RA [%f - %f], Dec [%f -%f]\n"
+                                     "Runtime ranges: RA [%f - %f], Dec [%f -%f]"
+                                     %(cls.Name,ra_min,ra_max,dec_min,dec_max,cls.Cat_Coord_Range['RA_min'],
+                                       cls.Cat_Coord_Range['RA_max'],cls.Cat_Coord_Range['Dec_min'],
+                                       cls.Cat_Coord_Range['Dec_max']))
 
-                log.debug(cls.Name + " Coordinate Range: RA: %f to %f , Dec: %f to %f"
-                          % (cls.Cat_Coord_Range['RA_min'], cls.Cat_Coord_Range['RA_max'],
-                             cls.Cat_Coord_Range['Dec_min'], cls.Cat_Coord_Range['Dec_max']))
+                    log.debug(cls.Name + " Coordinate Range: RA: %f to %f , Dec: %f to %f"
+                              % (cls.Cat_Coord_Range['RA_min'], cls.Cat_Coord_Range['RA_max'],
+                                 cls.Cat_Coord_Range['Dec_min'], cls.Cat_Coord_Range['Dec_max']))
             except:
                 print("Failed")
                 cls.status = -1
@@ -285,22 +289,34 @@ class Catalog:
     #caller might send in flux and.or wavelength as strings, so protect there
     #also, might not have valid flux
     def micro_jansky_to_cgs(self,flux,wavelength):
-
         c = scipy.constants.c * 1e10
-
         try:
             return float(flux) * 1e-29 * c / (float(wavelength) ** 2)  # 3e18 ~ c in angstroms/sec
         except:
             return 0
 
     def nano_jansky_to_cgs(self,flux,wavelength):
-
         c = scipy.constants.c * 1e10
-
         try:
             return float(flux) * 1e-32 * c / (float(wavelength) ** 2)  # 3e18 ~ c in angstroms/sec
         except:
             return 0
+
+    def obs_mag_to_Jy(self,mag):
+        # essentially f_v
+        return 3631.0 * 10 ** (-0.4 * mag)
+
+    def obs_mag_to_micro_Jy(self,mag):
+        return self.obs_mag_to_Jy(mag) * 1e6
+
+    def obs_mag_to_nano_Jy(self,mag):
+        return self.obs_mag_to_Jy(mag) * 1e9
+
+    def obs_mag_to_cgs_flux(self,mag, wavelength):
+        # approximate, but good enough?
+        # should be the filter iso wavelength or iso frequency, not the line
+        # hz = (3e18)/float(wavelength)
+        return self.obs_mag_to_Jy(mag) * 1e-23 * (scipy.constants.c * 1e10) / (wavelength ** 2)
 
     def get_f606w_max_cont(self,exp_time,sigma=3,base=None):
         #note:this goes as the sqrt of exp time, but even so, this is not a valid use
@@ -412,6 +428,9 @@ class Catalog:
 
     def add_empty_catalog_fiber_positions(self, plt,fig,ra,dec,fiber_locs):
         '''used if there is no catalog. Just plot relative positions'''
+
+        if fiber_locs is None: #there are no fiber locations (could be a specific RA,Dec search)
+            return None
 
         plt.title("Relative Fiber Positions")
         plt.plot(0, 0, "r+")

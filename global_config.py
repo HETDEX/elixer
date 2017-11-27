@@ -22,6 +22,7 @@ if socket.gethostname() == 'z50':
 
     CANDELS_EGS_Stefanon_2016_BASE_PATH = "/home/dustin/code/python/voltron/data/EGS"
     EGS_CFHTLS_PATH = "/home/dustin/code/python/voltron/data/CFHTLS"
+    CFHTLS_PHOTOZ_CAT = "/home/dustin/code/python/voltron/data/CFHTLS/photozCFHTLS-W3_270912.out"
     GOODS_N_BASE_PATH = "/home/dustin/code/python/voltron/data/GOODSN/"
     GOODS_N_CAT_PATH = GOODS_N_BASE_PATH
 
@@ -46,6 +47,7 @@ else:
 
     CANDELS_EGS_Stefanon_2016_BASE_PATH = "/work/03564/stevenf/maverick/EGS"
     EGS_CFHTLS_PATH = "/work/03261/polonius/maverick/catalogs/CFHTLS"
+    CFHTLS_PHOTOZ_CAT = "/work/03261/polonius/maverick/catalogs/CFHTLS/photozCFHTLS-W3_270912.out"
     GOODS_N_BASE_PATH = "/work/03564/stevenf/maverick/GOODSN"
     GOODS_N_CAT_PATH = GOODS_N_BASE_PATH
 

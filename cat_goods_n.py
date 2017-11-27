@@ -592,7 +592,7 @@ class GOODS_N(cat_base.Catalog):
                                                                                    cosmo=None, lae_priors=None,
                                                                                    ew_case=None, W_0=None, z_OII=None,
                                                                                    sigma=None)
-                    if (not G.ZOO) and (bid_target.p_lae_oii_ratio is not None):
+                    if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
                         title += "\nP(LAE)/L(OII) = %0.3g\n" % (bid_target.p_lae_oii_ratio)
 
                     for c in self.CatalogImages:
@@ -973,7 +973,7 @@ class GOODS_N(cat_base.Catalog):
                                                                                    cosmo=None, lae_priors=None,
                                                                                    ew_case=None, W_0=None, z_OII=None,
                                                                                    sigma=None)
-                    if (not G.ZOO) and (bid_target.p_lae_oii_ratio is not None):
+                    if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
                         title += "\nP(LAE)/L(OII) = %0.3g\n" % (bid_target.p_lae_oii_ratio)
 
                     for c in self.CatalogImages:
@@ -1231,7 +1231,7 @@ class GOODS_N(cat_base.Catalog):
                 else:
                     text = text + "%g(%g) $\\mu$Jy\n" % (filter_fl, filter_fl_err)
 
-                if (not G.ZOO) and (bid_target.p_lae_oii_ratio is not None):
+                if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
                     text += "%0.3g\n" % (bid_target.p_lae_oii_ratio)
 
             else:
