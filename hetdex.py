@@ -592,6 +592,10 @@ class DetObj:
 
         if emission:
             self.type = 'emis'
+            # actual line number from the input file
+            # there are 3 numbers: the detect ID (from the detect file), the entity ID (from the composite file)
+            # (those two are usually the same, unless CURE is used), and the line number from the input file
+            # (e.g. the t7all or t5cut, etc)
             self.line_number = line_number
             self.entry_id = int(tokens[0])
             self.id = int(tokens[1]) #detect id (not line number)
@@ -2524,8 +2528,15 @@ class HETDEX:
         else:
             title += "Continuum Detect ID #%d" % e.id
 
-        if e.entry_id is not None:
-            title += " (Line #%d)" % e.entry_id
+        #if e.entry_id is not None:
+        #    title += " (Line #%d)" % e.entry_id
+
+        #actual line number from the input file
+        #there are 3 numbers: the detect ID (from the detect file), the entity ID (from the composite file)
+        # (those two are usually the same, unless CURE is used), and the line number from the input file
+        # (e.g. the t7all or t5cut, etc)
+        if e.line_number is not None:
+            title += " (Line #%d)" % e.line_number
 
         if (e.wra is not None) and (e.wdec is not None):  # weighted RA and Dec
             ra = e.wra

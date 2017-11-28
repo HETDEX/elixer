@@ -23,6 +23,9 @@ from astropy.nddata import Cutout2D
 from astropy.wcs import WCS
 from astropy.wcs.utils import skycoord_to_pixel
 from astropy.nddata.utils import NoOverlapError
+from astropy import units as ap_units
+from photutils import SkyCircularAperture
+from photutils import aperture_photometry
 
 log = global_config.logging.getLogger('sciimg_logger')
 log.setLevel(global_config.logging.DEBUG)
@@ -148,10 +151,12 @@ class science_image():
 
         self.window = window
         cutout = None
-
+        counts = 0.0 #raw data counts in aperture
+        mag = 999.9 #aperture converted to mag_AB
         #data = None
         #pix_size = None
         #wcs = None
+        position = None
         if image is None:
             if self.fits is not None:
                 #need to keep memory use down ... the statements below (esp. data = self.fit[0].data)
@@ -162,6 +167,7 @@ class science_image():
 
                 try:
                     position = SkyCoord(ra, dec, unit="deg", frame=self.frame)
+                    image = self.fits[0]
 
                     #sanity check
                     #x, y = skycoord_to_pixel(position, wcs=self.wcs, mode='all')
@@ -193,7 +199,7 @@ class science_image():
             #pix_size = self.calc_pixel_size(image.wcs)
             #wcs = image.wcs
             try:
-                position = SkyCoord(ra, dec, unit="deg", frame='fk5')
+                position = SkyCoord(ra, dec, unit="deg")#, frame='fk5')
                 #self.pixel_size = self.calc_pixel_size(image.wcs)
                 pix_window = float(window) / self.calc_pixel_size(image.wcs)  # now in pixels
                 cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=image.wcs, copy=copy)
@@ -211,7 +217,23 @@ class science_image():
                 log.error("Exception in science_image::get_cutout ():" , exc_info=True)
                 return None
 
-        return cutout
+
+        #todo: here ... put down aperture on cutout at RA,Dec and get  magnitude
+        if (position is not None) and (cutout is not None) and (image is not None):
+            try:
+                radius = 1.
+                aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec)
+                phot_table = aperture_photometry(image,aperture)
+                counts = phot_table['aperture_sum'][0]
+                #todo: convert counts to some measure of flux and then that to a magnitude
+                log.info("Imaging circular aperture radius = $g\". Counts = %g" % (radius,counts))
+                print ("Counts = %f" %counts)
+            except:
+                log.error("Exception in science_image::get_cutout () using aperture", exc_info=True)
+
+
+
+        return cutout, counts, mag
 
     def get_position(self,ra,dec,cutout):
         #this is not strictly a pixel x and y but is a meta position based on the wcs

@@ -86,6 +86,7 @@ Look in the tests/ and examples/ directories for more examples.
 """
 
 import constants as cc
+#from .constants import * as cc
 import density as cden
 import distance as cd
 import perturbation as cp

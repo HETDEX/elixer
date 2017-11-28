@@ -84,6 +84,10 @@ def prob_LAE(wl_obs,lineFlux,ew_obs,c_obs, which_color=None, addl_fluxes=None,
         sky_area = sky_area_default
 
 
+    #looks like lineFlux should be in cgs units (despite the paper showing luminosity func in Jy)
+    #convert lineFlux from cgs to Jansky
+    #lineFlux = lineFlux / (1e-23) * (wl_obs**2)/(3e18)
+
     #suppress sign of EW (always wants positive)
     ew_obs = abs(ew_obs)
 

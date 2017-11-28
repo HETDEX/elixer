@@ -313,7 +313,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         if filter_fl is None:
             try:
                 filter_fl = self.obs_mag_to_micro_Jy(df['G'].values[0])
-                filter_fl_err = self.obs_mag_to_micro_Jy(df['G'].values[0] - df['eG'].values[0])
+                filter_fl_err = abs(filter_fl - self.obs_mag_to_micro_Jy(df['G'].values[0] - df['eG'].values[0]))
             except:
                 pass
 
@@ -555,7 +555,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             sci = i['image']
 
             # sci.load_image(wcs_manual=True)
-            cutout = sci.get_cutout(ra, dec, error, window=window)
+            cutout,_,_ = sci.get_cutout(ra, dec, error, window=window)
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
             # 1st cutout might not be what we want for the master (could be a summary image from elsewhere)
@@ -568,7 +568,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:
-                    self.master_cutout = sci.get_cutout(ra, dec, error, window=window, copy=True)
+                    self.master_cutout,_,_ = sci.get_cutout(ra, dec, error, window=window, copy=True)
                     if sci.exptime:
                         ref_exptime = sci.exptime
                     total_adjusted_exptime = 1.0
@@ -762,7 +762,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                                                          image_location=op.join(i['path'], i['name']))
             sci = i['image']
 
-            cutout = sci.get_cutout(ra, dec, error, window=window)
+            cutout,_,_ = sci.get_cutout(ra, dec, error, window=window)
             ext = sci.window / 2.
 
             if cutout is not None:
@@ -841,7 +841,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
             empty_sci = science_image.science_image()
             # need a new cutout since we rescaled the ext (and window) size
-            cutout = empty_sci.get_cutout(target_ra, target_dec, error, window=ext * 2, image=self.master_cutout)
+            cutout,_,_ = empty_sci.get_cutout(target_ra, target_dec, error, window=ext * 2, image=self.master_cutout)
             vmin, vmax = empty_sci.get_vrange(cutout.data)
 
             vmin, vmax = empty_sci.get_vrange(cutout.data)
@@ -952,7 +952,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             sci = i['image']
 
             # sci.load_image(wcs_manual=True)
-            cutout = sci.get_cutout(ra, dec, error, window=window)
+            cutout,_,_ = sci.get_cutout(ra, dec, error, window=window)
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
             if cutout is not None:  # construct master cutout
@@ -967,7 +967,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:
-                    self.master_cutout = sci.get_cutout(ra, dec, error, window=window, copy=True)
+                    self.master_cutout,_,_ = sci.get_cutout(ra, dec, error, window=window, copy=True)
                     ref_exptime = sci.exptime
                     total_adjusted_exptime = 1.0
                 else:
