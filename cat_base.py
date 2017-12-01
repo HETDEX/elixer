@@ -426,6 +426,25 @@ class Catalog:
                 log.error("Unable to overplot fiber positions.",exc_info=True)
 
 
+
+    def add_aperture_position(self,plt,radius,mag=None):
+            # over plot a circle of radius on the center of the image (assumed to be the photo-aperture)
+            if radius > 0:
+                log.debug("Plotting imaging aperture position...")
+
+                try:
+                    plt.gca().add_patch(plt.Circle((0,0), radius=radius, color='gold', fill=False,
+                                                   linestyle='solid'))
+
+                    #temporary
+                    if mag is not None:
+                        plt.xlabel("mag = %g" %mag)
+                        plt.gca().xaxis.labelpad = 0
+
+                except:
+                    log.error("Unable to overplot aperture position.",exc_info=True)
+
+
     def add_empty_catalog_fiber_positions(self, plt,fig,ra,dec,fiber_locs):
         '''used if there is no catalog. Just plot relative positions'''
 

@@ -56,7 +56,10 @@ class EGS_GROTH(cat_base.Catalog):
          'instrument': 'unknown',
          'cols': [],
          'labels': [],
-         'image': None
+         'image': None,
+         'expanded': False,
+         'wcs_manual': True,
+         'aperture': 1.
          }]
 
 

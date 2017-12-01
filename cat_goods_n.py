@@ -64,7 +64,10 @@ class GOODS_N(cat_base.Catalog):
          'instrument': 'ACS WFC',
          'cols': ["ACS_F435W_FLUX", "ACS_F435W_FLUXERR"],
          'labels': ["Flux", "Err"],
-         'image': None
+         'image': None,
+         'expanded': False,
+         'wcs_manual': True,
+         'aperture': 1.
          },
         {'path': GOODS_N_IMAGES_PATH,
          'name': 'goodsn_all_acs_wfc_f606w_060mas_v2.0_drz.fits',
@@ -72,7 +75,10 @@ class GOODS_N(cat_base.Catalog):
          'instrument': 'ACS WFC',
          'cols': ["ACS_F606W_FLUX", "ACS_F606W_FLUXERR"],
          'labels': ["Flux", "Err"],
-         'image': None
+         'image': None,
+         'expanded': False,
+         'wcs_manual': True,
+         'aperture':1.0
          },
         {'path': GOODS_N_IMAGES_PATH,
          'name': 'goodsn_all_acs_wfc_f775w_060mas_v2.0_drz.fits',
@@ -80,7 +86,10 @@ class GOODS_N(cat_base.Catalog):
          'instrument': 'ACS WFC',
          'cols': ["ACS_F775W_FLUX", "ACS_F775W_FLUXERR"],
          'labels': ["Flux", "Err"],
-         'image': None
+         'image': None,
+         'expanded': False,
+         'wcs_manual': True,
+         'aperture':1.0
          },
         {'path': GOODS_N_IMAGES_PATH,
          'name': 'goodsn_all_acs_wfc_f814w_060mas_v2.0_drz.fits',
@@ -88,7 +97,10 @@ class GOODS_N(cat_base.Catalog):
          'instrument': 'ACS WFC',
          'cols': ["ACS_F814W_FLUX", "ACS_F814W_FLUXERR"],
          'labels': ["Flux", "Err"],
-         'image': None
+         'image': None,
+         'expanded': False,
+         'wcs_manual': True,
+         'aperture':1.0
          },
         #omit 850LP (per Steve) ... long exposure due to low sensitivity
        # {'path': GOODS_N_IMAGES_PATH,
@@ -97,7 +109,7 @@ class GOODS_N(cat_base.Catalog):
        #  'instrument': 'ACS WFC',
        #  'cols': ["ACS_F850LP_FLUX", "ACS_F850LP_FLUXERR"],
        #  'labels': ["Flux", "Err"],
-       #  'image': None
+       #  'image': None,
        #  },
         {'path': GOODS_N_IMAGES_PATH,
          'name': 'goodsn_all_wfc3_ir_f105w_060mas_v1.0_drz.fits',
@@ -105,7 +117,10 @@ class GOODS_N(cat_base.Catalog):
          'instrument': 'WFC3',
          'cols': [],
          'labels': [],
-         'image': None
+         'image': None,
+         'expanded': False,
+         'wcs_manual': True,
+         'aperture':1.0
          },
         {'path': GOODS_N_IMAGES_PATH,
          'name': 'goodsn_all_wfc3_ir_f125w_060mas_v1.0_drz.fits',
@@ -113,7 +128,10 @@ class GOODS_N(cat_base.Catalog):
          'instrument': 'WFC3',
          'cols': ["WFC3_F125W_FLUX", "WFC3_F125W_FLUXERR"],
          'labels': ["Flux", "Err"],
-         'image': None
+         'image': None,
+         'expanded': False,
+         'wcs_manual': True,
+         'aperture':1.0
          },
         #omit 140w per Steve
         #{'path': GOODS_N_IMAGES_PATH,
@@ -130,7 +148,10 @@ class GOODS_N(cat_base.Catalog):
          'instrument': 'WFC3',
          'cols': ["WFC3_F160W_FLUX", "WFC3_F160W_FLUXERR"],
          'labels': ["Flux", "Err"],
-         'image': None
+         'image': None,
+         'expanded': False,
+         'wcs_manual': True,
+         'aperture':1.0
          }
     ]
 

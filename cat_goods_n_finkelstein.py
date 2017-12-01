@@ -70,7 +70,10 @@ class GOODS_N_FINKELSTEIN(cat_base.Catalog):
          'instrument': 'ACS',
          'cols': ['F435W (V) flux (nJy)', 'F435W (V) flux error (nJy)'],
          'labels': ["Flux", "Err"],
-         'image': None
+         'image': None,
+         'expanded': False,
+         'wcs_manual': True,
+         'aperture':1.0
          },
         {'path': GOODS_N_IMAGES_PATH,
          'name': 'gn_acs_old_f606w_060mas_v2_drz.fits',
@@ -78,7 +81,10 @@ class GOODS_N_FINKELSTEIN(cat_base.Catalog):
          'instrument': 'ACS',
          'cols': ['F606W (V) flux (nJy)','F606W (V) flux error (nJy)'],
          'labels': ["Flux", "Err"],
-         'image': None
+         'image': None,
+         'expanded': False,
+         'wcs_manual': True,
+         'aperture':1.0
          },
         {'path': GOODS_N_IMAGES_PATH,
          'name': 'gn_acs_old_f775w_060mas_v2_drz.fits',
@@ -86,7 +92,10 @@ class GOODS_N_FINKELSTEIN(cat_base.Catalog):
          'instrument': 'ACS',
          'cols': ['F775W (V) flux (nJy)', 'F775W (V) flux error (nJy)'],
          'labels': ["Flux", "Err"],
-         'image': None
+         'image': None,
+         'expanded': False,
+         'wcs_manual': True,
+         'aperture':1.0
          },
     #    {'path': GOODS_N_IMAGES_PATH,
     #     'name': 'gn_acs_old_f850l_060mas_v2_drz.fits',
@@ -102,7 +111,10 @@ class GOODS_N_FINKELSTEIN(cat_base.Catalog):
          'instrument': 'ACS',
          'cols': ['F814W (I) flux (nJy)','F814W (I) flux error (nJy)'],
          'labels': ["Flux", "Err"],
-         'image': None
+         'image': None,
+         'expanded': False,
+         'wcs_manual': True,
+         'aperture':1.0
          },
      #   {'path': GOODS_N_IMAGES_PATH,
      #    'name': 'gn_all_candels_wfc3_f105w_060mas_v0.8_drz.fits',
@@ -118,7 +130,10 @@ class GOODS_N_FINKELSTEIN(cat_base.Catalog):
          'instrument': 'WFC3',
          'cols': ['F125W (J) flux (nJy)','F125W (J) flux error (nJy)'],
          'labels': ["Flux", "Err"],
-         'image': None
+         'image': None,
+         'expanded': False,
+         'wcs_manual': True,
+         'aperture':1.0
          },
         {'path': GOODS_N_IMAGES_PATH,
          'name': 'gn_all_candels_wfc3_f160w_060mas_v0.8_drz.fits',
@@ -126,7 +141,10 @@ class GOODS_N_FINKELSTEIN(cat_base.Catalog):
          'instrument': 'WFC3',
          'cols': ['F160W (H) flux (nJy)','F160W (H) flux error (nJy)'],
          'labels': ["Flux", "Err"],
-         'image': None
+         'image': None,
+         'expanded': False,
+         'wcs_manual': True,
+         'aperture':1.0
          }
     ]
 

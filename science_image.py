@@ -135,7 +135,7 @@ class science_image():
 
         return self.vmin,self.vmax
 
-    def get_cutout(self,ra,dec,error,window=None,image=None,copy=False):
+    def get_cutout(self,ra,dec,error,window=None,image=None,copy=False,aperture=0,mag_func=None):
         '''ra,dec in decimal degrees. error and window in arcsecs'''
         #error is central box (+/- from ra,dec)
         #window is the size of the entire coutout
@@ -151,7 +151,7 @@ class science_image():
 
         self.window = window
         cutout = None
-        counts = 0.0 #raw data counts in aperture
+        counts = None #raw data counts in aperture
         mag = 999.9 #aperture converted to mag_AB
         #data = None
         #pix_size = None
@@ -219,15 +219,21 @@ class science_image():
 
 
         #todo: here ... put down aperture on cutout at RA,Dec and get  magnitude
-        if (position is not None) and (cutout is not None) and (image is not None):
+        if (position is not None) and (cutout is not None) and (image is not None) and (aperture > 0):
             try:
-                radius = 1.
-                aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec)
-                phot_table = aperture_photometry(image,aperture)
+                if (type(aperture) is float) or (type(aperture) is int):
+                    radius = aperture
+                else:
+                    radius = 1.
+                sky_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec)
+                phot_table = aperture_photometry(image,sky_aperture)
                 counts = phot_table['aperture_sum'][0]
+                if mag_func is not None:
+                    mag = mag_func(counts)
                 #todo: convert counts to some measure of flux and then that to a magnitude
-                log.info("Imaging circular aperture radius = $g\". Counts = %g" % (radius,counts))
-                print ("Counts = %f" %counts)
+                log.info("Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %g Mag_AB = %g"
+                         % (radius,ra,dec,counts,mag))
+                print ("Counts = %f Mag %f" %(counts,mag))
             except:
                 log.error("Exception in science_image::get_cutout () using aperture", exc_info=True)
 

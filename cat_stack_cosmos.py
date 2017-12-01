@@ -107,7 +107,10 @@ class STACK_COSMOS(cat_base.Catalog):
          'instrument': 'unknown',
          'cols': [],
          'labels': [],
-         'image': None
+         'image': None,
+         'expanded': False,
+         'wcs_manual': False,
+         'aperture': 1.0
          #'frame': 'icrs'
         }]
 

@@ -379,7 +379,10 @@ class SHELA(cat_base.Catalog):
                          'instrument': "",
                          'cols': [],
                          'labels': [],
-                         'image': None
+                         'image': None,
+                         'expanded': False,
+                         'wcs_manual': False,
+                         'aperture': 1.0
                          })
 
     def find_target_tile(self,ra,dec):

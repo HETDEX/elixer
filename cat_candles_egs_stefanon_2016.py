@@ -38,6 +38,13 @@ import cat_base
 import match_summary
 
 
+def cfhtls_count_to_mag(count):
+    if count is not None:
+        if count > 0:
+            return -2.5 * np.log10(count) + 30.0
+        else:
+            return 99.9  # need a better floor
+
 class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
     # RA,Dec in decimal degrees
 
@@ -65,7 +72,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
     #updated with CFHTLS extended coverage
     Cat_Coord_Range = {'RA_min': 208.559, 'RA_max': 220.391, 'Dec_min': 51.2113, 'Dec_max': 57.8033}
 
-    WCS_Manual = True
+    WCS_Manual = False#True
     EXPTIME_F606W = 289618.0
     CONT_EST_BASE = 3.3e-21
     BidCols = ["ID", "IAU_designation", "RA", "DEC",
@@ -78,6 +85,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                "WC3_F160W_FLUX", "WFC3_F160W_FLUXERR",
                "DEEP_SPEC_Z"]  # NOTE: there are no F105W values
 
+
+
     CatalogImages = [
         {'path': EXPANDED_IMAGES_PATH,
          'name': 'D3.I.1_20558_1_21553.fits', #or: CFHTLS_D-25_g_141927+524056_T0007_SIGWEI.fits
@@ -86,7 +95,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'cols': [],
          'labels': [],
          'image': None,
-         'expanded': True
+         'expanded': True,
+         'wcs_manual': False,
+         'aperture': 1.0,  #if non-zero, use an aperture of this radius in arcsecs to find image based mag
+         'mag_func': cfhtls_count_to_mag
          },
         {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
          'name': 'egs_all_acs_wfc_f606w_060mas_v1.1_drz.fits',
@@ -95,7 +107,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'cols': ["ACS_F606W_FLUX", "ACS_F606W_FLUXERR"],
          'labels': ["Flux", "Err"],
          'image': None,
-         'expanded': False
+         'expanded': False,
+         'wcs_manual': True,
+         'aperture': 0, #if zero, there is something odd with the header and can't use astropy apertures
+         'mag_func': None
          },
         {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
          'name': 'egs_all_acs_wfc_f814w_060mas_v1.1_drz.fits',
@@ -104,7 +119,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'cols': ["ACS_F814W_FLUX", "ACS_F814W_FLUXERR"],
          'labels': ["Flux", "Err"],
          'image': None,
-         'expanded': False
+         'expanded': False,
+         'wcs_manual': True,
+         'aperture': 0,
+         'mag_func': None
          },
         {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
          'name': 'egs_all_wfc3_ir_f105w_060mas_v1.5_drz.fits',
@@ -113,7 +131,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'cols': [],
          'labels': [],
          'image': None,
-         'expanded': False
+         'expanded': False,
+         'wcs_manual': True,
+         'aperture': 0,
+         'mag_func': None
          },
         {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
          'name': 'egs_all_wfc3_ir_f125w_060mas_v1.1_drz.fits',
@@ -122,7 +143,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'cols': ["WFC3_F125W_FLUX", "WFC3_F125W_FLUXERR"],
          'labels': ["Flux", "Err"],
          'image': None,
-         'expanded': False
+         'expanded': False,
+         'wcs_manual': True,
+         'aperture': 0,
+         'mag_func': None
          },
         {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
          'name': 'egs_all_wfc3_ir_f140w_060mas_v1.1_drz.fits',
@@ -131,7 +155,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'cols': ["WFC3_F140W_FLUX", "WFC3_F140W_FLUXERR"],
          'labels': ["Flux", "Err"],
          'image': None,
-         'expanded': False
+         'expanded': False,
+         'wcs_manual': True,
+         'aperture': 0,
+         'mag_func': None
          },
         {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
          'name': 'egs_all_wfc3_ir_f160w_060mas_v1.1_drz.fits',
@@ -140,7 +167,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'cols': ["WFC3_F160W_FLUX", "WFC3_F160W_FLUXERR"],
          'labels': ["Flux", "Err"],
          'image': None,
-         'expanded': False
+         'expanded': False,
+         'wcs_manual': True,
+         'aperture': 0,
+         'mag_func': None
          }
     ]
 
@@ -177,6 +207,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         # self.build_catalog_images() #will just build on demand
 
         self.master_cutout = None
+
 
     # todo: is this more efficient? garbage collection does not seem to be running
     # so building as needed does not seem to help memory
@@ -549,13 +580,23 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         for i in self.CatalogImages:  # i is a dictionary
             index += 1
 
+            try:
+                wcs_manual = i['wcs_manual']
+                aperture = i['aperture']
+                mag_func = i['mag_func']
+            except:
+                wcs_manual = self.WCS_Manual
+                aperture = 0.0
+                mag_func = None
+
             if i['image'] is None:
-                i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
+                i['image'] = science_image.science_image(wcs_manual=wcs_manual,
                                                          image_location=op.join(i['path'], i['name']))
             sci = i['image']
 
             # sci.load_image(wcs_manual=True)
-            cutout,_,_ = sci.get_cutout(ra, dec, error, window=window)
+            cutout, pix_counts, mag = sci.get_cutout(ra, dec, error, window=window,
+                                                     aperture=aperture,mag_func=mag_func)
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
             # 1st cutout might not be what we want for the master (could be a summary image from elsewhere)
@@ -757,12 +798,23 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         # iterate over all filter images
         for i in self.CatalogImages:  # i is a dictionary
             index += 1  # for subplot ... is 1 based
+            try:
+                wcs_manual = i['wcs_manual']
+                aperture = i['aperture']
+                mag_func = i['mag_func']
+            except:
+                wcs_manual = self.WCS_Manual
+                aperture = 0.0
+                mag_func = None
+
+
             if i['image'] is None:
-                i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
+                i['image'] = science_image.science_image(wcs_manual=wcs_manual,
                                                          image_location=op.join(i['path'], i['name']))
             sci = i['image']
 
-            cutout,_,_ = sci.get_cutout(ra, dec, error, window=window)
+            cutout,pix_counts, mag  = sci.get_cutout(ra, dec, error, window=window,
+                                                     aperture=aperture,mag_func=mag_func)
             ext = sci.window / 2.
 
             if cutout is not None:
@@ -946,13 +998,23 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         for i in self.CatalogImages:  # i is a dictionary
             index += 1
 
+            try:
+                wcs_manual = i['wcs_manual']
+                aperture = i['aperture']
+                mag_func = i['mag_func']
+            except:
+                wcs_manual = self.WCS_Manual
+                aperture = 0.0
+                mag_func = None
+
             if i['image'] is None:
-                i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
+                i['image'] = science_image.science_image(wcs_manual=wcs_manual,
                                                          image_location=op.join(i['path'], i['name']))
             sci = i['image']
 
             # sci.load_image(wcs_manual=True)
-            cutout,_,_ = sci.get_cutout(ra, dec, error, window=window)
+            cutout, pix_counts, mag = sci.get_cutout(ra, dec, error, window=window,
+                                                     aperture=aperture,mag_func=mag_func)
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
             if cutout is not None:  # construct master cutout
@@ -981,6 +1043,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
                 plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
                 plt.plot(0, 0, "r+")
+                if pix_counts is not None:
+                    self.add_aperture_position(plt,aperture,mag)
                 self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
                 x, y = sci.get_position(ra, dec, cutout)  # zero (absolute) position
                 for br, bd, bc in zip(bid_ras, bid_decs, bid_colors):
