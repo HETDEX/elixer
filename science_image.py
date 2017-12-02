@@ -144,7 +144,7 @@ class science_image():
         self.window = None
         if (error is None or error == 0) and (window is None or window == 0):
             log.info("inavlid error box and window box")
-            return None
+            return None,None,None
 
         if window is None or window < error:
             window = float(max(2.0*error,5.0)) #should be at least 5 arcsecs
@@ -182,18 +182,18 @@ class science_image():
                     log.info("Error (possible NoOverlapError) in science_image::get_cutout(). "
                              "Target is not in range of image. RA,Dec = (%f,%f) Window = %d" % (ra, dec, pix_window))
                     print("Target is not in range of image. RA,Dec = (%f,%f) Window = %d" % (ra, dec, pix_window))
-                    return None
+                    return None,None,None
                 except:
                     log.error("Exception in science_image::get_cutout (%s):" %self.image_location, exc_info=True)
-                    return None
+                    return None,None,None
 
                 if not (self.contains_position(ra,dec)):
                     log.info("science image (%s) does not contain requested position: RA=%f , Dec=%f"
                              %(self.image_location,ra,dec))
-                    return None
+                    return None,None,None
             else:
                 log.error("No fits or passed image from which to make cutout.")
-                return None
+                return None,None,None
         else:
             #data = image.data
             #pix_size = self.calc_pixel_size(image.wcs)
@@ -215,7 +215,7 @@ class science_image():
                         pass
             except:
                 log.error("Exception in science_image::get_cutout ():" , exc_info=True)
-                return None
+                return None,None,None
 
 
         #todo: here ... put down aperture on cutout at RA,Dec and get  magnitude
