@@ -566,7 +566,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     title = title + "  OII = N/A\n"
 
         plt.subplot(gs[0, 0])
-        plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
+        text = plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
@@ -598,6 +598,35 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             cutout, pix_counts, mag = sci.get_cutout(ra, dec, error, window=window,
                                                      aperture=aperture,mag_func=mag_func)
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
+
+            try:  # update non-matched source line with PLAE()
+                if ((mag < 99) or (cont_est != -1)) and (target_flux is not None) \
+                        and (i['instrument'] == 'CFHTLS') and (i['filter'] == 'g'):
+                    # make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
+                    bid_target = match_summary.BidTarget()
+                    bid_target.bid_ra = 361.0  # nonsense RA
+                    bid_target.bid_dec = 91.0  # nonsense Dec
+                    bid_target.distance = 0.0
+                    if mag < 99:
+                        bid_target.bid_flux_est_cgs = self.obs_mag_to_cgs_flux(mag, target_w)
+                    else:
+                        bid_target.bid_flux_est_cgs = cont_est
+
+                    bid_target.add_filter(i['instrument'], i['filter'], bid_target.bid_flux_est_cgs, -1)
+
+                    bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii = \
+                        line_prob.prob_LAE(wl_obs=target_w, lineFlux=target_flux,
+                                           ew_obs=(target_flux / bid_target.bid_flux_est_cgs),
+                                           c_obs=None, which_color=None, addl_fluxes=None, sky_area=None,
+                                           cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
+                                           sigma=None)
+
+                    if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
+                        text.set_text(text.get_text() + "  P(LAE)/L(OII) = %0.3g" % (bid_target.p_lae_oii_ratio))
+
+                    cat_match.add_bid_target(bid_target)
+            except:
+                log.debug('Could not build exact location photometry info.', exc_info=True)
 
             # 1st cutout might not be what we want for the master (could be a summary image from elsewhere)
             if self.master_cutout:
@@ -980,60 +1009,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     title = title + "  OII = %g $\AA$" % ((target_flux / cont_est) / (target_w / G.OII_rest))
                 else:
                     title = title + "  OII = N/A"
-
-
-
-        if False:
-            #find the optical band image for continuum estimate from synthetic aperture
-            for i in self.CatalogImages:  # i is a dictionary
-                if (i['instrument'] == 'CFHTLS') and (i['filter'] == 'g'):
-                    try:
-                        wcs_manual = i['wcs_manual']
-                        aperture = i['aperture']
-                        mag_func = i['mag_func']
-                    except:
-                        wcs_manual = self.WCS_Manual
-                        aperture = 0.0
-                        mag_func = None
-
-                    if i['image'] is None:
-                        i['image'] = science_image.science_image(wcs_manual=wcs_manual,
-                                                                 image_location=op.join(i['path'], i['name']))
-                    sci = i['image']
-
-                    # sci.load_image(wcs_manual=True)
-                    cutout, pix_counts, mag = sci.get_cutout(ra, dec, error, window=window,
-                                                             aperture=aperture, mag_func=mag_func)
-
-                    try:
-                        if ((mag < 99) or (cont_est != -1)) and (target_flux is not None):
-                            # make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
-                            bid_target = match_summary.BidTarget()
-                            bid_target.bid_ra = 361.0  # nonsense RA
-                            bid_target.bid_dec = 91.0  # nonsense Dec
-                            bid_target.distance = 0.0
-                            if mag < 99:
-                                bid_target.bid_flux_est_cgs = self.obs_mag_to_cgs_flux(mag, target_w)
-                            else:
-                                bid_target.bid_flux_est_cgs = cont_est
-
-                            bid_target.add_filter(i['instrument'], i['filter'], bid_target.bid_flux_est_cgs, -1)
-                            # todo: add call to line_probabilities:
-                            bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii = \
-                                line_prob.prob_LAE(wl_obs=target_w, lineFlux=target_flux,
-                                                   ew_obs=(target_flux / bid_target.bid_flux_est_cgs),
-                                                   c_obs=None, which_color=None, addl_fluxes=None, sky_area=None,
-                                                   cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
-                                                   sigma=None)
-
-                            cat_match.add_bid_target(bid_target)
-
-                            if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
-                                title += "  P(LAE)/L(OII) = %0.3g" % (bid_target.p_lae_oii_ratio)
-
-
-                    except:
-                        log.debug('Could not build exact location photometry info.', exc_info=True)
 
         plt.subplot(gs[0, :])
         #text may be updated below with PLAE()
