@@ -442,10 +442,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         # display the exact (target) location
         if G.SINGLE_PAGE_PER_DETECT:
 
-            entry = self.build_cat_summary_figure(target_ra, target_dec, error, ras, decs,
-                                                  target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux)
+            entry = self.build_cat_summary_figure(cat_match,target_ra, target_dec, error, ras, decs,
+                                                  target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,)
         else:
-            entry = self.build_exact_target_location_figure(target_ra, target_dec, error, section_title=section_title,
+            entry = self.build_exact_target_location_figure(cat_match,target_ra, target_dec, error, section_title=section_title,
                                                         target_w=target_w, fiber_locs=fiber_locs,
                                                         target_flux=target_flux)
         if entry is not None:
@@ -513,7 +513,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
         return self.pages
 
-    def build_exact_target_location_figure(self, ra, dec, error, section_title="", target_w=0, fiber_locs=None,
+    def build_exact_target_location_figure(self,cat_match, ra, dec, error, section_title="", target_w=0, fiber_locs=None,
                                            target_flux=None):
         '''Builds the figure (page) the exact target location. Contains just the filter images ...
 
@@ -929,7 +929,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         return fig
 
 
-    def build_cat_summary_figure (self, ra, dec, error,bid_ras, bid_decs, target_w=0,
+    def build_cat_summary_figure (self, cat_match,ra, dec, error,bid_ras, bid_decs, target_w=0,
                                   fiber_locs=None, target_flux=None):
         '''Builds the figure (page) the exact target location. Contains just the filter images ...
 
@@ -940,6 +940,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         # ... change to 1.5 times twice the translated error (really sqrt(2) * 2* error, but 1.5 is close enough)
         window = error * 3
         target_box_side = error/4.0 #basically, the box is 1/32 of the window size
+
+        cont_est = -1
 
         # set a minimum window size?
         # if window < 8:
@@ -979,8 +981,63 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 else:
                     title = title + "  OII = N/A"
 
+
+
+        if False:
+            #find the optical band image for continuum estimate from synthetic aperture
+            for i in self.CatalogImages:  # i is a dictionary
+                if (i['instrument'] == 'CFHTLS') and (i['filter'] == 'g'):
+                    try:
+                        wcs_manual = i['wcs_manual']
+                        aperture = i['aperture']
+                        mag_func = i['mag_func']
+                    except:
+                        wcs_manual = self.WCS_Manual
+                        aperture = 0.0
+                        mag_func = None
+
+                    if i['image'] is None:
+                        i['image'] = science_image.science_image(wcs_manual=wcs_manual,
+                                                                 image_location=op.join(i['path'], i['name']))
+                    sci = i['image']
+
+                    # sci.load_image(wcs_manual=True)
+                    cutout, pix_counts, mag = sci.get_cutout(ra, dec, error, window=window,
+                                                             aperture=aperture, mag_func=mag_func)
+
+                    try:
+                        if ((mag < 99) or (cont_est != -1)) and (target_flux is not None):
+                            # make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
+                            bid_target = match_summary.BidTarget()
+                            bid_target.bid_ra = 361.0  # nonsense RA
+                            bid_target.bid_dec = 91.0  # nonsense Dec
+                            bid_target.distance = 0.0
+                            if mag < 99:
+                                bid_target.bid_flux_est_cgs = self.obs_mag_to_cgs_flux(mag, target_w)
+                            else:
+                                bid_target.bid_flux_est_cgs = cont_est
+
+                            bid_target.add_filter(i['instrument'], i['filter'], bid_target.bid_flux_est_cgs, -1)
+                            # todo: add call to line_probabilities:
+                            bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii = \
+                                line_prob.prob_LAE(wl_obs=target_w, lineFlux=target_flux,
+                                                   ew_obs=(target_flux / bid_target.bid_flux_est_cgs),
+                                                   c_obs=None, which_color=None, addl_fluxes=None, sky_area=None,
+                                                   cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
+                                                   sigma=None)
+
+                            cat_match.add_bid_target(bid_target)
+
+                            if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
+                                title += "  P(LAE)/L(OII) = %0.3g" % (bid_target.p_lae_oii_ratio)
+
+
+                    except:
+                        log.debug('Could not build exact location photometry info.', exc_info=True)
+
         plt.subplot(gs[0, :])
-        plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
+        #text may be updated below with PLAE()
+        text = plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
@@ -1015,10 +1072,40 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             # sci.load_image(wcs_manual=True)
             cutout, pix_counts, mag = sci.get_cutout(ra, dec, error, window=window,
                                                      aperture=aperture,mag_func=mag_func)
+
+            try: #update non-matched source line with PLAE()
+                if ((mag < 99) or (cont_est != -1)) and (target_flux is not None)\
+                        and (i['instrument'] == 'CFHTLS') and (i['filter'] == 'g'):
+                    #make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
+                    bid_target = match_summary.BidTarget()
+                    bid_target.bid_ra = 361.0 #nonsense RA
+                    bid_target.bid_dec = 91.0 #nonsense Dec
+                    bid_target.distance = 0.0
+                    if mag < 99:
+                        bid_target.bid_flux_est_cgs = self.obs_mag_to_cgs_flux(mag,target_w)
+                    else:
+                        bid_target.bid_flux_est_cgs = cont_est
+
+                    bid_target.add_filter(i['instrument'],i['filter'],bid_target.bid_flux_est_cgs,-1)
+
+                    bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii = \
+                        line_prob.prob_LAE(wl_obs=target_w, lineFlux=target_flux,
+                                           ew_obs=(target_flux / bid_target.bid_flux_est_cgs),
+                                           c_obs=None, which_color=None, addl_fluxes=None, sky_area=None,
+                                           cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
+                                           sigma=None)
+
+                    if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
+                        text.set_text(text.get_text() + "  P(LAE)/L(OII) = %0.3g" % (bid_target.p_lae_oii_ratio))
+
+                    cat_match.add_bid_target(bid_target)
+            except:
+                log.debug('Could not build exact location photometry info.',exc_info=True)
+
+
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
             if cutout is not None:  # construct master cutout
-
                 #1st cutout might not be what we want for the master (could be a summary image from elsewhere)
                 if self.master_cutout:
                     if self.master_cutout.shape != cutout.shape:
@@ -1052,7 +1139,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
                                                       width=target_box_side, height=target_box_side,
                                                       angle=0.0, color=bc, fill=False, linewidth=1.0, zorder=1))
-
 
         if self.master_cutout is None:
             # cannot continue
