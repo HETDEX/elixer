@@ -32,7 +32,7 @@ if socket.gethostname() == 'z50':
     STACK_COSMOS_BASE_PATH = "/home/dustin/code/python/voltron/data/isak"
     STACK_COSMOS_CAT_PATH = "/home/dustin/code/python/voltron/data/isak"
 
-    SHELA_BASE_PATH = "/home/dustin/code/python/voltron/data/isak/SHELA"
+    SHELA_BASE_PATH = "/media/dustin/dd/hetdex/data/SHELA" #"/home/dustin/code/python/voltron/data/isak/SHELA"
     DECAM_IMAGE_PATH = "/media/dustin/dd/hetdex/data/decam/images"
     SHELA_CAT_PATH = SHELA_BASE_PATH
     SHELA_PHOTO_Z_COMBINED_PATH = SHELA_BASE_PATH

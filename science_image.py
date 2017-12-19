@@ -229,7 +229,7 @@ class science_image():
                 phot_table = aperture_photometry(image,sky_aperture)
                 counts = phot_table['aperture_sum'][0]
                 if mag_func is not None:
-                    mag = mag_func(counts)
+                    mag = mag_func(counts,cutout,self.fits)
                 #todo: convert counts to some measure of flux and then that to a magnitude
                 log.info("Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %g Mag_AB = %g"
                          % (radius,ra,dec,counts,mag))

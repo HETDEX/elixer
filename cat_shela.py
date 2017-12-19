@@ -28,6 +28,22 @@ pd.options.mode.chained_assignment = None  #turn off warning about setting the d
 import cat_base
 import match_summary
 
+def shela_count_to_mag(count,cutout=None,sci_image=None):
+    if count is not None:
+        if sci_image is not None:
+            #get the conversion factor, each tile is different
+            try:
+                nanofact = float(sci_image[0].header['NANOFACT'])
+            except:
+                nanofact = 0.0
+                log.error("Exception in shela_count_to_mag",exc_info=True)
+                return 99.9
+
+        if count > 0:
+            return -2.5 * np.log10(count*nanofact) + 31.4
+        else:
+            return 99.9  # need a better floor
+
 class SHELA(cat_base.Catalog):
     # class variables
     SHELA_BASE_PATH = G.SHELA_BASE_PATH
@@ -382,7 +398,8 @@ class SHELA(cat_base.Catalog):
                          'image': None,
                          'expanded': False,
                          'wcs_manual': False,
-                         'aperture': 1.0
+                         'aperture': 1.0,
+                         'mag_func': shela_count_to_mag
                          })
 
     def find_target_tile(self,ra,dec):
@@ -526,10 +543,10 @@ class SHELA(cat_base.Catalog):
 
         # display the exact (target) location
         if G.SINGLE_PAGE_PER_DETECT:
-            entry = self.build_cat_summary_figure(target_ra, target_dec, error, ras, decs,
+            entry = self.build_cat_summary_figure(cat_match,target_ra, target_dec, error, ras, decs,
                                                   target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux)
         else:
-            entry = self.build_exact_target_location_figure(target_ra, target_dec, error, section_title=section_title,
+            entry = self.build_exact_target_location_figure(cat_match, target_ra, target_dec, error, section_title=section_title,
                                                             target_w=target_w, fiber_locs=fiber_locs,
                                                             target_flux=target_flux)
         if entry is not None:
@@ -585,7 +602,7 @@ class SHELA(cat_base.Catalog):
 
         return self.pages
 
-    def build_exact_target_location_figure(self, ra, dec, error, section_title="", target_w=0, fiber_locs=None,
+    def build_exact_target_location_figure(self, cat_match, ra, dec, error, section_title="", target_w=0, fiber_locs=None,
                                            target_flux=None):
         '''Builds the figure (page) the exact target location. Contains just the filter images ...
 
@@ -624,7 +641,7 @@ class SHELA(cat_base.Catalog):
         else:
             title = title + "\n"
         plt.subplot(gs[0, 0])
-        plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
+        text = plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
@@ -640,6 +657,9 @@ class SHELA(cat_base.Catalog):
             print("+++++ No appropriate tile found in SHELA for RA,DEC = [%f,%f]" %(ra,dec))
             log.error("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" %(ra,dec))
             return None
+
+        #todo: need SHELA continuum estimate (ceiling)
+        cont_est = -1
 
         index = -1
         for f in self.Filters:
@@ -659,14 +679,53 @@ class SHELA(cat_base.Catalog):
                 log.warning("Exceeded max number of grid spec columns.")
                 break #have to be done
 
+            try:
+                wcs_manual = i['wcs_manual']
+                aperture = i['aperture']
+                mag_func = i['mag_func']
+            except:
+                wcs_manual = self.WCS_Manual
+                aperture = 0.0
+                mag_func = None
+
             if i['image'] is None:
-                i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
+                i['image'] = science_image.science_image(wcs_manual=wcs_manual,
                                                          image_location=op.join(i['path'], i['name']))
             sci = i['image']
 
+
             # sci.load_image(wcs_manual=True)
-            cutout,_,_ = sci.get_cutout(ra, dec, error, window=window)
+            cutout, pix_counts, mag = sci.get_cutout(ra, dec, error, window=window,
+                                                     aperture=aperture,mag_func=mag_func)
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
+
+            try:  # update non-matched source line with PLAE()
+                if ((mag < 99) or (cont_est != -1)) and (target_flux is not None)  and (i['filter'] == 'g'):
+                    # make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
+                    bid_target = match_summary.BidTarget()
+                    bid_target.bid_ra = 666  # nonsense RA
+                    bid_target.bid_dec = 666  # nonsense Dec
+                    bid_target.distance = 0.0
+                    if mag < 99:
+                        bid_target.bid_flux_est_cgs = self.obs_mag_to_cgs_flux(mag, target_w)
+                    else:
+                        bid_target.bid_flux_est_cgs = cont_est
+
+                    bid_target.add_filter(i['instrument'], i['filter'], bid_target.bid_flux_est_cgs, -1)
+
+                    bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii = \
+                        line_prob.prob_LAE(wl_obs=target_w, lineFlux=target_flux,
+                                           ew_obs=(target_flux / bid_target.bid_flux_est_cgs),
+                                           c_obs=None, which_color=None, addl_fluxes=None, sky_area=None,
+                                           cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
+                                           sigma=None)
+
+                    if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
+                        text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g" % (bid_target.p_lae_oii_ratio))
+
+                    cat_match.add_bid_target(bid_target)
+            except:
+                log.debug('Could not build exact location photometry info.', exc_info=True)
 
             # 1st cutout might not be what we want for the master (could be a summary image from elsewhere)
             if self.master_cutout:
@@ -913,7 +972,7 @@ class SHELA(cat_base.Catalog):
 
 
 
-    def build_cat_summary_figure (self, ra, dec, error,bid_ras, bid_decs, target_w=0,
+    def build_cat_summary_figure (self, cat_match, ra, dec, error,bid_ras, bid_decs, target_w=0,
                                   fiber_locs=None, target_flux=None):
         '''Builds the figure (page) the exact target location. Contains just the filter images ...
 
@@ -927,7 +986,8 @@ class SHELA(cat_base.Catalog):
 
         rows = 10
         #cols = 1 + len(self.CatalogImages)/len(self.Tiles)
-        cols = 6 # 1 for the fiber position and up to 5 filters for any one tile (u,g,r,i,z)
+        #note: setting size to 7 from 6 so they will be the right size (the 7th position will not be populated)
+        cols = 7 # 1 for the fiber position and up to 5 filters for any one tile (u,g,r,i,z)
 
         fig_sz_x = 18 #cols * 3
         fig_sz_y = 3 #ows * 3
@@ -960,6 +1020,7 @@ class SHELA(cat_base.Catalog):
                     % (len(self.dataframe_of_bid_targets), error)
 
         title += "  Minimum (no match) 3$\sigma$ rest-EW: "
+        cont_est  = -1
         if target_flux  and self.CONT_EST_BASE:
             cont_est = self.CONT_EST_BASE*3
             if cont_est != -1:
@@ -975,7 +1036,7 @@ class SHELA(cat_base.Catalog):
 
 
         plt.subplot(gs[0, :])
-        plt.text(0, 0.7, title, ha='left', va='bottom', fontproperties=font)
+        text = plt.text(0, 0.7, title, ha='left', va='bottom', fontproperties=font)
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
@@ -1001,12 +1062,20 @@ class SHELA(cat_base.Catalog):
                 log.warning("Exceeded max number of grid spec columns.")
                 break #have to be done
 
+            try:
+                wcs_manual = i['wcs_manual']
+                aperture = i['aperture']
+                mag_func = i['mag_func']
+            except:
+                wcs_manual = self.WCS_Manual
+                aperture = 0.0
+                mag_func = None
+
             if i['image'] is None:
-                i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
+                i['image'] = science_image.science_image(wcs_manual=wcs_manual,
                                                          image_location=op.join(i['path'], i['name']))
             sci = i['image']
 
-            # todo: is this okay? using 'r' as rough equivalent of f606w
             #the filters are in order, use g if r is not there
             if (f == 'g') and (sci.exptime is not None) and (exptime_cont_est == -1):
                 exptime_cont_est = sci.exptime
@@ -1016,8 +1085,37 @@ class SHELA(cat_base.Catalog):
                 exptime_cont_est = sci.exptime
 
             # sci.load_image(wcs_manual=True)
-            cutout,_,_ = sci.get_cutout(ra, dec, error, window=window)
+            cutout, pix_counts, mag = sci.get_cutout(ra, dec, error, window=window,
+                                                     aperture=aperture,mag_func=mag_func)
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
+
+            try:  # update non-matched source line with PLAE()
+                if ((mag < 99) or (cont_est != -1)) and (target_flux is not None) and (i['filter'] == 'g'):
+                    # make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
+                    bid_target = match_summary.BidTarget()
+                    bid_target.bid_ra = 666  # nonsense RA
+                    bid_target.bid_dec = 666  # nonsense Dec
+                    bid_target.distance = 0.0
+                    if mag < 99:
+                        bid_target.bid_flux_est_cgs = self.obs_mag_to_cgs_flux(mag, target_w)
+                    else:
+                        bid_target.bid_flux_est_cgs = cont_est
+
+                    bid_target.add_filter(i['instrument'], i['filter'], bid_target.bid_flux_est_cgs, -1)
+
+                    bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii = \
+                        line_prob.prob_LAE(wl_obs=target_w, lineFlux=target_flux,
+                                           ew_obs=(target_flux / bid_target.bid_flux_est_cgs),
+                                           c_obs=None, which_color=None, addl_fluxes=None, sky_area=None,
+                                           cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
+                                           sigma=None)
+
+                    if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
+                        text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g" % (bid_target.p_lae_oii_ratio))
+
+                    cat_match.add_bid_target(bid_target)
+            except:
+                log.debug('Could not build exact location photometry info.', exc_info=True)
 
             # 1st cutout might not be what we want for the master (could be a summary image from elsewhere)
             if self.master_cutout:
@@ -1047,6 +1145,10 @@ class SHELA(cat_base.Catalog):
                 plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
                 plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
                 plt.plot(0, 0, "r+")
+
+                if pix_counts is not None:
+                    self.add_aperture_position(plt,aperture,mag)
+
                 self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
                 x, y = sci.get_position(ra, dec, cutout)  # zero (absolute) position
                 for br, bd, bc in zip(bid_ras, bid_decs, bid_colors):
@@ -1056,22 +1158,23 @@ class SHELA(cat_base.Catalog):
                                                       angle=0.0, color=bc, fill=False, linewidth=1.0, zorder=1))
 
 
-        if target_flux is not None:
-            #todo: is this okay? using 'r' filter
-            #todo: get exptime from the tile (science image has it)
-            cont_est = self.get_f606w_max_cont(exptime_cont_est, 3,self.CONT_EST_BASE)
-            if cont_est != -1:
-                title += "Minimum (no match)\n  3$\sigma$ rest-EW:\n"
-                title += "  LyA = %g $\AA$\n" %  ((target_flux / cont_est) / (target_w / G.LyA_rest))
-                if target_w >= G.OII_rest:
-                    title = title + "  OII = %g $\AA$\n" %  ((target_flux / cont_est) / (target_w / G.OII_rest))
-                else:
-                    title = title + "  OII = N/A\n"
 
-        #plt.subplot(gs[0, 0])
-        #plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
-        #plt.gca().set_frame_on(False)
-        #plt.gca().axis('off')
+        #if False:
+        #    if target_flux is not None:
+        #        #todo: get exptime from the tile (science image has it)
+        #        cont_est = self.get_f606w_max_cont(exptime_cont_est, 3,self.CONT_EST_BASE)
+        #        if cont_est != -1:
+        #            title += "Minimum (no match)\n  3$\sigma$ rest-EW:\n"
+        #            title += "  LyA = %g $\AA$\n" %  ((target_flux / cont_est) / (target_w / G.LyA_rest))
+        #            if target_w >= G.OII_rest:
+        #                title = title + "  OII = %g $\AA$\n" %  ((target_flux / cont_est) / (target_w / G.OII_rest))
+        #            else:
+        #                title = title + "  OII = N/A\n"
+
+            #plt.subplot(gs[0, 0])
+            #plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
+            #plt.gca().set_frame_on(False)
+            #plt.gca().axis('off')
 
         if self.master_cutout is None:
             # cannot continue

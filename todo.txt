@@ -1,11 +1,10 @@
 
-** Add CHFTLS ?? as new catalog (overlaps with CANDLES_EGS) or as supplement to CANDLES_EGS?
--- if suplement, need extra set of max, min RA, DEC (if not found in original set, check these)
-    -- bascially, if outside range OR if no matching targets? check the other
--- if its own, what to do if hits in both?
-   -- same hits or different?
-   -- single page (extra rows?)
---probably the first approach is overall simpler and will produce more what is expected in output
+** photo/imaging catalogs
+	- need more spring coverage (GOODS-N, etc) : 
+		(spring ~ RA: 160 - 230, Dec: 45 - 56)
+		[CFHTLS: 208-220;51-57]
+		
+	- need more fall coverage:
 
 
 ** Test cases ...
@@ -20,9 +19,8 @@
 * make master_cutout larger than initially needed (crop down to display to needed extent),
 so can use as base if fiber positions are too spread out
 
-* add ground-based imaging catalog (see http://terapix.iap.fr/article.php?id_article=586 )
 
-* name: HIVES (Hetdex Image matching and Visualization of Emission Sources)
+
 
 * add option in svoltron.py for:
      select queue (gpu or vis?)
@@ -76,3 +74,19 @@ of the report).
   lines also ... MgII, etc).
   -- needs peak finder
   -- needs LAE/OII probabilty (as LyA - HeII similar to OII - OIII)
+
+
+
+Done:
+
+** Add CHFTLS ?? as new catalog (overlaps with CANDLES_EGS) or as supplement to CANDLES_EGS?
+-- if suplement, need extra set of max, min RA, DEC (if not found in original set, check these)
+    -- bascially, if outside range OR if no matching targets? check the other
+-- if its own, what to do if hits in both?
+   -- same hits or different?
+   -- single page (extra rows?)
+--probably the first approach is overall simpler and will produce more what is expected in output
+
+* name: HIVES (Hetdex Image matching and Visualization of Emission Sources) [no: leave as voltron]
+
+* add ground-based imaging catalog (see http://terapix.iap.fr/article.php?id_article=586 ) [CFHTLS]

@@ -440,6 +440,7 @@ class Catalog:
                     if mag is not None:
                         plt.xlabel("mag = %g" %mag)
                         plt.gca().xaxis.labelpad = 0
+                        #plt.tight_layout()
 
                 except:
                     log.error("Unable to overplot aperture position.",exc_info=True)

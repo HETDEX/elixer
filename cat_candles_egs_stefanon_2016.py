@@ -38,7 +38,7 @@ import cat_base
 import match_summary
 
 
-def cfhtls_count_to_mag(count):
+def cfhtls_count_to_mag(count,cutout=None,sci_image=None):
     if count is not None:
         if count > 0:
             return -2.5 * np.log10(count) + 30.0
@@ -604,8 +604,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                         and (i['instrument'] == 'CFHTLS') and (i['filter'] == 'g'):
                     # make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
                     bid_target = match_summary.BidTarget()
-                    bid_target.bid_ra = 361.0  # nonsense RA
-                    bid_target.bid_dec = 91.0  # nonsense Dec
+                    bid_target.bid_ra = 666  # nonsense RA
+                    bid_target.bid_dec = 666  # nonsense Dec
                     bid_target.distance = 0.0
                     if mag < 99:
                         bid_target.bid_flux_est_cgs = self.obs_mag_to_cgs_flux(mag, target_w)
@@ -622,7 +622,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                                            sigma=None)
 
                     if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
-                        text.set_text(text.get_text() + "  P(LAE)/L(OII) = %0.3g" % (bid_target.p_lae_oii_ratio))
+                        text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g" % (bid_target.p_lae_oii_ratio))
 
                     cat_match.add_bid_target(bid_target)
             except:
@@ -804,7 +804,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                                            sigma=None)
 
                     if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
-                        title += "\nP(LAE)/L(OII) = %0.3g\n" % (bid_target.p_lae_oii_ratio)
+                        title += "\nP(LAE)/P(OII) = %0.3g\n" % (bid_target.p_lae_oii_ratio)
 
                     for c in self.CatalogImages:
                         try:
@@ -1053,8 +1053,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                         and (i['instrument'] == 'CFHTLS') and (i['filter'] == 'g'):
                     #make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
                     bid_target = match_summary.BidTarget()
-                    bid_target.bid_ra = 361.0 #nonsense RA
-                    bid_target.bid_dec = 91.0 #nonsense Dec
+                    bid_target.bid_ra = 666 #nonsense RA
+                    bid_target.bid_dec = 666 #nonsense Dec
                     bid_target.distance = 0.0
                     if mag < 99:
                         bid_target.bid_flux_est_cgs = self.obs_mag_to_cgs_flux(mag,target_w)
@@ -1071,7 +1071,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                                            sigma=None)
 
                     if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
-                        text.set_text(text.get_text() + "  P(LAE)/L(OII) = %0.3g" % (bid_target.p_lae_oii_ratio))
+                        text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g" % (bid_target.p_lae_oii_ratio))
 
                     cat_match.add_bid_target(bid_target)
             except:
@@ -1245,7 +1245,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                                                                                    ew_case=None, W_0=None, z_OII=None,
                                                                                    sigma=None)
                     if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
-                        title += "\nP(LAE)/L(OII) = %0.3g\n" % (bid_target.p_lae_oii_ratio)
+                        title += "\nP(LAE)/P(OII) = %0.3g\n" % (bid_target.p_lae_oii_ratio)
 
                     for c in self.CatalogImages:
                         try:
