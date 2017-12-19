@@ -4,9 +4,6 @@ import numpy as np
 log = G.logging.getLogger('fiber_logger')
 log.setLevel(G.logging.DEBUG)
 
-
-
-
 SIDE = ["L", "R"]
 
 #!!! REMEBER, Y-axis runs 'down':  Python 0,0 is top-left, DS9 is bottom-left
@@ -41,7 +38,8 @@ class Fiber:
                 log.error("Exception: Cannot parse fiber string.",exc_info=True)
 
         self.detect_id = detect_id
-        self.idstring = idstring
+        self.idstring = idstring #whole string
+        #scifits_idstring ... just the first part that IDs the file
         self.scifits_idstring = idstring.split("_")[0] #todo: if cure, strip off leading non-numeric characters
         self.specid = specid
         self.ifuslot = ifuslot
@@ -83,6 +81,15 @@ class Fiber:
         self.central_wave_pixels_bad = 0
         self.central_emis_counts = [] #from fiber-extracted ... the few pixels around the peak
         self.central_emis_wavelengths = []
+
+
+        #full length
+        self.data_spectra_wavelengths=[]
+        self.data_spectra_counts=[]
+
+        #interpolated onto a 1 angstrom grid
+        self.interp_spectra_wavelengths = []
+        self.interp_spectra_counts = []
 
         try:
             self.panacea_idx = int(panacea_fiber_index)
