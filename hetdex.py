@@ -35,7 +35,9 @@ import os.path as op
 from copy import copy, deepcopy
 import line_prob
 
-log = G.logging.getLogger('Cat_logger')
+import fiber as ifu_fiber
+
+log = G.logging.getLogger('hetdex_logger')
 log.setLevel(G.logging.DEBUG)
 
 CONFIG_BASEDIR = G.CONFIG_BASEDIR
@@ -47,12 +49,11 @@ PIXFLT_LOC = G.PIXFLT_LOC #op.join(CONFIG_BASEDIR,"virus_config/PixelFlats/20161
 
 PLOT_SUMMED_SPECTRA = False
 
-SIDE = ["L", "R"]
-
+SIDE = ifu_fiber.SIDE
 #!!! REMEBER, Y-axis runs 'down':  Python 0,0 is top-left, DS9 is bottom-left
 #!!! so in DS9 LU is 'above' LL and RL is 'above' RU
-AMP  = ["LU","LL","RL","RU"] #in order from bottom to top
-AMP_OFFSET = {"LU":1,"LL":113,"RL":225,"RU":337}
+AMP  = ifu_fiber.AMP #["LU","LL","RL","RU"] #in order from bottom to top
+AMP_OFFSET = ifu_fiber.AMP_OFFSET# {"LU":1,"LL":113,"RL":225,"RU":337}
 
 
 
@@ -387,162 +388,6 @@ class Dither():
                         #todo: similar to panacea style split the dither id string??
         except:
             log.error("Unable to read dither file: %s :" %dither_file, exc_info=True)
-
-class Fiber:
-    #todo: if needed allow fiber number (in amp or side or ccd) to be passed in instead of panacea index
-    def __init__(self,idstring,specid,ifuslot,ifuid,amp,date,time,time_ex,panacea_fiber_index=-1, detect_id = -1):
-
-        if idstring is None:
-            idstring = ""
-        self.detect_id = detect_id
-        self.idstring = idstring
-        self.scifits_idstring = idstring.split("_")[0] #todo: if cure, strip off leading non-numeric characters
-        self.specid = specid
-        self.ifuslot = ifuslot
-        self.ifuid = ifuid
-        self.amp = amp
-        if self.amp and (len(self.amp) == 2):
-            self.side = amp[0]
-        else:
-            self.side = ""
-            self.amp = ""
-        self.dither_date = date #or obsid
-        self.dither_time = time #or observation time
-        self.dither_time_extended = time_ex
-        self.obsid = None
-        self.expid = None
-        self.sn = None
-        self.fits = None #HetdexFits object that includes this fiber
-
-        self.dither_idx = None
-        self.center_x = None
-        self.center_y = None
-
-        self.emis_x = -1 #x,y coords on the amp of the emission line peak
-        self.emis_y = -1
-
-        self.panacea_idx = -1 #0 to 111
-        self.number_in_amp = -1 #1 to 112
-        self.number_in_side = -1 #1 to 224
-        self.number_in_ccd = -1 #1 to 448
-
-        self.ra = None
-        self.dec = None
-
-        self.dqs = None  # detection quality score for this fiber (as part of the DetObj owner)
-        self.dqs_raw = None  # unweighted score
-        self.dqs_dist = None  # distance from source
-        self.dqs_w = None #dqs weight
-        self.dqs_bad = False
-        self.central_wave_pixels_bad = 0
-        self.central_emis_counts = [] #from fiber-extracted ... the few pixels around the peak
-        self.central_emis_wavelengths = []
-
-        try:
-            self.panacea_idx = int(panacea_fiber_index)
-            self.number_in_amp = 112 - self.panacea_idx
-            self.number_in_ccd = AMP_OFFSET[self.amp] + self.number_in_amp - 1
-            if self.number_in_ccd > 224:
-                self.number_in_side = self.number_in_ccd - 224
-            else:
-                self.number_in_side = self.number_in_ccd
-
-        except:
-            log.error("Unable to map fiber index (%d) to fiber number(s)" % int(panacea_fiber_index), exc_info=True)
-
-    @property
-    def ds9_x(self):
-        """return the translated emis_x coordinate in terms of ds9 indexing"""
-        #ds9 starts with 1, python with 0
-        if (self.emis_y is not None) and (self.emis_y != -1):
-            return self.emis_x + 1
-        else:
-            return -1
-
-    @property
-    def ds9_y(self):
-        """return the translated emis_y coordinate in terms of ds9 indexing"""
-        #ds9 starts bottom, left as 1,1
-        #python starts top, left as 0,0
-        #assume 1032 amp height
-        #panacea already has the correct (python) indexing, so the indexing is correct except for the 1 base vs 0 base
-        if (self.emis_y is not None) and (self.emis_y != -1):
-            #return AMP_HEIGHT_Y - self.emis_y
-            return self.emis_y + 1
-        else:
-            return -1
-
-
-    def dqs_weight(self,ra,dec):
-        weight = 0.0
-        #specifically None ... a 0.0 RA or Dec is possible
-        if (ra is None) or (dec is None) or (self.ra is None) or (self.dec is None):
-            self.dqs_dist = 999.9
-            return weight
-
-        dist = np.sqrt( (np.cos(np.deg2rad(dec))*(ra-self.ra)) ** 2 + (dec - self.dec) ** 2) * 3600.
-
-        if dist > G.FULL_WEIGHT_DISTANCE:
-            if dist > G.ZERO_WEIGHT_DISTANCE:
-                weight = 0.0
-            else:
-                weight = G.QUAD_A*dist**2 + G.QUAD_B*dist + G.QUAD_C
-        else:
-            weight = 1.0
-
-        self.dqs_dist = dist
-        self.dqs_w = weight
-        log.debug("Line (%f,%f), Fiber (%f,%f), dist = %f, weight = %f" %(ra,dec,self.ra,self.dec,dist,weight))
-        return weight
-
-    def dqs_score(self,ra,dec,force_recompute=False): #yeah, redundantly named ...
-        if self.dqs_bad:
-            return 0.0
-
-        if (self.dqs is not None) and not force_recompute:
-            return self.dqs
-
-        self.dqs = 0.0
-        self.dqs_raw = 0.0
-        if (ra is None) or (dec is None) or (self.ra is None) or (self.dec is None):
-            return self.dqs
-
-        weight = self.dqs_weight(ra,dec)
-        score = 0.0
-        sqrt_sn = 100.0 #above linear_sn
-        linear_sn = 3.0 #above sq_sn
-        sq_sn = 2.0
-        base_sn = 3.0
-        #build score (additive only)
-        if self.sn:
-            if self.sn < base_sn:
-                score += 0.0
-            elif self.sn < (base_sn + sq_sn):
-                score += (self.sn - base_sn)**2
-            elif self.sn < (base_sn + sq_sn + linear_sn): #linear growth
-                #square growth part
-                score += sq_sn**2
-                #linear part
-                score += (self.sn - (base_sn + sq_sn))
-            elif self.sn < (base_sn + sq_sn + linear_sn + sqrt_sn): #sqrt growth
-                # square growth part
-                score += sq_sn ** 2
-                # linear part
-                score += linear_sn
-                #sqrt growth part
-                score += np.sqrt(1. + self.sn-(base_sn+sq_sn+linear_sn))-1
-            else:
-                log.info("Unexpected, really large S/N (%f) for %s" % (self.sn,self.idstring))
-                score += -1.0 #same as low score ... something really wrong sn 100+ is nonsense (thinking cosmic ray?)
-
-        self.dqs_raw = score
-        self.dqs = weight * score
-
-        log.debug("DetID # %d , Fiber: %s , Dist = %g , Raw Score = %g , Weighted Score = %g"
-                  %(self.detect_id,self.idstring, self.dqs_dist, self.dqs_raw, self.dqs))
-
-        return self.dqs
-
 
 
 
@@ -1249,6 +1094,7 @@ class DetObj:
 
 
     def parse_fiber(self,fiber):
+        #this might be a fiber id string or something else from a detection line, so check the toks before moving on
         if fiber is None:
             return False
         #20170326T105655.6_032_094_028_LU_032
@@ -1263,9 +1109,15 @@ class DetObj:
                 #log.warn("Unexpected fiber id string: %s" % fiber)
             return False
 
+        newfiber = ifu_fiber.Fiber(fiber, detect_id=self.id)
+
+        if newfiber is not None:
+            self.fibers.append(newfiber)
+            return True
+
+        #essentially the else path
         idstring = fiber #toks[0] #ie. 20170326T105655.6
 
-        #todo: factor out into common call or move into Fiber constructor (parse idstring there)
         dither_date = idstring[0:8]
         # next should be 'T'
         dither_time = idstring[9:15]  # not the .# not always there
@@ -1289,7 +1141,7 @@ class DetObj:
                       % (ifuslot,self.ifuslot))
             return True #this was still a fiber, just not one that is valid
 
-        self.fibers.append(Fiber(idstring,specid,ifuslot,ifuid,amp,dither_date,dither_time,dither_time_extended,
+        self.fibers.append(ifu_fiber.Fiber(idstring,specid,ifuslot,ifuid,amp,dither_date,dither_time,dither_time_extended,
                                  fiber_idx,self.id))
 
         return True
@@ -2282,7 +2134,10 @@ class HETDEX:
                 #from the path, get the observation date, obsid, expid
                 #from those find the panacea file
 
-                path = op.join(G.PANACEA_RED_BASEDIR,fib.dither_date,"virus")
+                try:
+                    path = op.join(G.PANACEA_RED_BASEDIR,fib.dither_date,"virus")
+                except:
+                    continue
 
                 if not op.exists(path):
                     log.error("Cannot locate reduced data for %s" %(fib.idstring))
@@ -2895,7 +2750,7 @@ class HETDEX:
 
             # cure does not build specific fibers (don't know the info until here), so build now for the _fib.txt file
             try:
-                fiber = Fiber(op.basename(sci.filename), str(self.specid), str(self.ifu_slot_id), str(self.ifu_id),
+                fiber = ifu_fiber.Fiber(op.basename(sci.filename), str(self.specid), str(self.ifu_slot_id), str(self.ifu_id),
                               None, str(self.ymd), "None", "None", -1,e.id)
 
                 if fiber:
@@ -3218,7 +3073,7 @@ class HETDEX:
 
             if fiber is None: # did not find it? impossible?
                 log.error("Error! Cannot identify fiber in HETDEX:build_panacea_hetdex_data_dict().")
-                fiber = Fiber(0,0,0,0,'XX',"","","",-1,-1)
+                fiber = ifu_fiber.Fiber(0,0,0,0,'XX',"","","",-1,-1)
 
 
             log.debug("Building data dict for " + fits.filename)
