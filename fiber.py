@@ -11,6 +11,47 @@ SIDE = ["L", "R"]
 AMP  = ["LU","LL","RL","RU"] #in order from bottom to top
 AMP_OFFSET = {"LU":1,"LL":113,"RL":225,"RU":337}
 
+
+def parse_fiber_idstring(idstring):
+    if idstring is None:
+        return None
+    # 20170326T105655.6_032_094_028_LU_032
+
+    toks = idstring.split("_")
+
+    if len(toks) != 6:
+        if (len(toks) == 1) and (toks[0] == "666"):
+            return True  # this is an "ignore" flag, but still continue as if it were a fiber
+        else:
+            pass  # stop bothering with this ... it is always there
+            # log.warn("Unexpected fiber id string: %s" % fiber)
+        return False
+
+    #idstring = fiber_idstring  # toks[0] #ie. 20170326T105655.6
+
+    date = idstring[0:8]
+    # next should be 'T'
+    time = idstring[9:15]  # not the .# not always there
+    if idstring[15] == ".":
+        time_ex = idstring[9:17]
+    else:
+        time_ex = None
+
+    specid = toks[1]
+    ifuslot = toks[2]
+    ifuid = toks[3]
+    amp = toks[4]
+    # fiber_idx = toks[5] #note: this is the INDEX from panacea, not the relative fiberm but karl adds 1 to it
+    # (ie. fiber #1 = index 111, fiber #2 = index 110 ... fiber #112 = index 0)
+    panacea_fiber_idx = int(toks[5]) - 1
+
+    fiber_dict = dict(zip(["idstring", "specid", "ifuslot", "ifuid", "amp", "date", "time",
+                           "time_ex", "panacea_fiber_idx"],
+                          [idstring, specid, ifuslot, ifuid, amp, date, time,
+                           time_ex, panacea_fiber_idx]))
+
+    return fiber_dict
+
 class Fiber:
     #todo: if needed allow fiber number (in amp or side or ccd) to be passed in instead of panacea index
     def __init__(self,idstring=None,specid=None,ifuslot=None,ifuid=None,amp=None,date=None,time=None,time_ex=None,
@@ -23,17 +64,19 @@ class Fiber:
             idstring = ""
         elif specid is None:
             try:
-                dict_args = self.parse_fiber(idstring)
+                dict_args = parse_fiber_idstring(idstring)
                 if dict_args is not None:
                     idstring = dict_args["idstring"]
                     specid = dict_args["specid"]
                     ifuslot = dict_args["ifuslot"]
                     ifuid = dict_args["ifuid"]
-                    amp = dict_args["amp"]
-                    date = dict_args["dither_date"]
-                    time = dict_args["dither_time"]
-                    time_ex = dict_args["dither_time_extended"]
-                    panacea_fiber_index = dict_args["panacea_fiber_idx"]
+                    if amp is None:
+                        amp = dict_args["amp"]
+                    date = dict_args["date"]
+                    time = dict_args["time"]
+                    time_ex = dict_args["time_ex"]
+                    if panacea_fiber_index == -1:
+                        panacea_fiber_index = dict_args["panacea_fiber_idx"]
             except:
                 log.error("Exception: Cannot parse fiber string.",exc_info=True)
 
@@ -125,45 +168,6 @@ class Fiber:
         else:
             return -1
 
-    def parse_fiber(self, fiber):
-        if fiber is None:
-            return None
-        # 20170326T105655.6_032_094_028_LU_032
-
-        toks = fiber.split("_")
-
-        if len(toks) != 6:
-            if (len(toks) == 1) and (toks[0] == "666"):
-                return True  # this is an "ignore" flag, but still continue as if it were a fiber
-            else:
-                pass  # stop bothering with this ... it is always there
-                # log.warn("Unexpected fiber id string: %s" % fiber)
-            return False
-
-        idstring = fiber  # toks[0] #ie. 20170326T105655.6
-
-        dither_date = idstring[0:8]
-        # next should be 'T'
-        dither_time = idstring[9:15]  # not the .# not always there
-        if idstring[15] == ".":
-            dither_time_extended = idstring[9:17]
-        else:
-            dither_time_extended = None
-
-        specid = toks[1]
-        ifuslot = toks[2]
-        ifuid = toks[3]
-        amp = toks[4]
-        # fiber_idx = toks[5] #note: this is the INDEX from panacea, not the relative fiberm but karl adds 1 to it
-        # (ie. fiber #1 = index 111, fiber #2 = index 110 ... fiber #112 = index 0)
-        panacea_fiber_idx = int(toks[5]) - 1
-
-        fiber_dict = dict(zip(["idstring", "specid", "ifuslot", "ifuid", "amp", "dither_date", "dither_time",
-                           "dither_time_extended","panacea_fiber_idx"],
-                            [idstring, specid, ifuslot, ifuid, amp, dither_date, dither_time,
-                             dither_time_extended,panacea_fiber_idx]))
-
-        return fiber_dict
 
     def dqs_weight(self,ra,dec):
         weight = 0.0
