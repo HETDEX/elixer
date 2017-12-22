@@ -173,6 +173,10 @@ class IFU:
                 fib.side = fits.side
                 fib.expid = fits.expid
 
+                #fiber sky position (center of fiber)
+                fib.center_x = fits.fiber_centers[i][0]
+                fib.center_y = fits.fiber_centers[i][1]
+
                 #get the recorded data (counts and corresponding wavelengths)
                 fib.data_spectra_counts = fits.fe_data[i]
                 fib.data_spectra_wavelengths =  fits.wave_data[i]

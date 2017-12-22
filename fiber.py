@@ -126,9 +126,10 @@ class Fiber:
         self.central_emis_wavelengths = []
 
 
-        #full length
+        #full length    
         self.data_spectra_wavelengths=[]
         self.data_spectra_counts=[]
+        self.max_spectra_count = None
 
         #interpolated onto a 1 angstrom grid
         self.interp_spectra_wavelengths = []
@@ -145,6 +146,22 @@ class Fiber:
 
         except:
             log.error("Unable to map fiber index (%d) to fiber number(s)" % int(panacea_fiber_index), exc_info=True)
+
+    @property
+    def sky_x(self):
+        return self.center_x
+
+    @property
+    def sky_y(self):
+        return self.center_y
+
+    @property
+    def max_count(self):
+        #todo: better way to find max?
+        if (self.max_spectra_count is None) and (len(self.data_spectra_counts) > 1):
+            self.max_spectra_count = np.max(self.data_spectra_counts)
+        return self.max_spectra_count
+
 
     @property
     def ds9_x(self):
