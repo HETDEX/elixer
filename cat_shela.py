@@ -1076,12 +1076,12 @@ class SHELA(cat_base.Catalog):
                                                          image_location=op.join(i['path'], i['name']))
             sci = i['image']
 
-            #the filters are in order, use g if r is not there
-            if (f == 'g') and (sci.exptime is not None) and (exptime_cont_est == -1):
+            #the filters are in order, use r if g is not there
+            if (f == 'r') and (sci.exptime is not None) and (exptime_cont_est == -1):
                 exptime_cont_est = sci.exptime
 
-            # the filters are in order, so this will overwrite g
-            if (f == 'r') and (sci.exptime is not None):
+            # the filters are in order, so this will overwrite r
+            if (f == 'g') and (sci.exptime is not None):
                 exptime_cont_est = sci.exptime
 
             # sci.load_image(wcs_manual=True)

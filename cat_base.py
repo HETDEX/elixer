@@ -91,6 +91,7 @@ class Catalog:
     def __init__(self):
         self.pages = None #list of bid entries (rows in the pdf)
         self.dataframe_of_bid_targets = None
+        self.master_cutout = None
 
         #blue, red, green, white
         self.colormap = [[0, 0, 1,1], [1, 0, 0,1], [0, .85, 0,1], [1, 1, 1,0.7]]
@@ -203,6 +204,10 @@ class Catalog:
             self.pages = []
         elif len(self.pages) > 0:
             del self.pages[:]
+
+        if self.master_cutout is not None:
+            del (self.master_cutout)
+            self.master_cutout = None
 
     def add_bid_entry(self, entry):
         if self.pages is None:
