@@ -3,8 +3,8 @@ import matplotlib
 matplotlib.use('agg')
 
 import matplotlib.pyplot as plt
-from matplotlib.font_manager import FontProperties
-import matplotlib.gridspec as gridspec
+#from matplotlib.font_manager import FontProperties
+#import matplotlib.gridspec as gridspec
 import matplotlib.patches as mpatches
 import numpy as np
 import io
@@ -12,6 +12,135 @@ import io
 
 log = G.logging.getLogger('spectrum_logger')
 log.setLevel(G.logging.DEBUG)
+
+MIN_FWHM = 5
+MIN_HEIGHT = 20
+MIN_DELTA_HEIGHT = 2 #to be a peak, must be at least this high above next adjacent point to the left
+
+def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
+
+    #dh (formerly, delta)
+    #dw (minimum width (as a fwhm) for a peak, else is noise and is ignored) IN PIXELS
+    # todo: think about jagged peaks (e.g. a wide peak with many subpeaks)
+    #zero is the count level zero (nominally zero, but with noise might raise or lower)
+    """
+    Converted from MATLAB script at http://billauer.co.il/peakdet.html
+
+    Returns two arrays
+
+    function [maxtab, mintab]=peakdet(v, delta, x)
+    %PEAKDET Detect peaks in a vector
+    %        [MAXTAB, MINTAB] = PEAKDET(V, DELTA) finds the local
+    %        maxima and minima ("peaks") in the vector V.
+    %        MAXTAB and MINTAB consists of two columns. Column 1
+    %        contains indices in V, and column 2 the found values.
+    %
+    %        With [MAXTAB, MINTAB] = PEAKDET(V, DELTA, X) the indices
+    %        in MAXTAB and MINTAB are replaced with the corresponding
+    %        X-values.
+    %
+    %        A point is considered a maximum peak if it has the maximal
+    %        value, and was preceded (to the left) by a value lower by
+    %        DELTA.
+
+    % Eli Billauer, 3.4.05 (Explicitly not copyrighted).
+    % This function is released to the public domain; Any use is allowed.
+
+    """
+    maxtab = []
+    mintab = []
+    emistab = []
+
+    if x is None:
+        x = np.arange(len(v))
+
+    v = np.asarray(v)
+    num_pix = len(v)
+
+    if num_pix != len(x):
+        log.warning('peakdet: Input vectors v and x must have same length')
+        return None,None
+
+    if not np.isscalar(dh):
+        log.warning('peakdet: Input argument delta must be a scalar')
+        return None, None
+
+    if dh <= 0:
+        log.warning('peakdet: Input argument delta must be positive')
+        return None, None
+
+    min, max = np.Inf, -np.Inf
+    minpos, maxpos = np.NaN, np.NaN
+
+    lookformax = True
+
+    for i in np.arange(len(v)):
+        this = v[i]
+        if this > max:
+            max = this
+            maxpos = x[i]
+        if this < min:
+            min = this
+            minpos = x[i]
+
+        if lookformax:
+            if (this >= h) and (this < max - dh):
+                maxtab.append((i,maxpos, max))
+                min = this
+                minpos = x[i]
+                lookformax = False
+        else:
+            if this > min + dh:
+                mintab.append((i,minpos, min))
+                max = this
+                maxpos = x[i]
+                lookformax = True
+
+
+
+    for pi,px,pv in maxtab:
+        #check fwhm (assume 0 is the continuum level)
+        hm = float((pv - zero) / 2.0)
+        pix_width = 0
+
+        #for centroid (though only down to fwhm)
+        sum_pos_val = x[pi] * v[pi]
+        sum_pos = x[pi]
+
+        #check left
+        pix_idx = pi -1
+
+        try:
+            while (pix_idx >=0) and (v[pix_idx] >= hm):
+                sum_pos += x[pix_idx]
+                sum_pos_val += x[pix_idx] * v[pix_idx]
+                pix_width += 1
+                pix_idx -= 1
+
+        except:
+            pass
+
+        #check right
+        pix_idx = pi + 1
+
+        try:
+            while (pix_idx < num_pix) and (v[pix_idx] >= hm):
+                sum_pos += x[pix_idx]
+                sum_pos_val += x[pix_idx] * v[pix_idx]
+                pix_width += 1
+                pix_idx += 1
+        except:
+            pass
+
+        #check vs minimum width
+        if not (pix_width < dw):
+            centroid = sum_pos_val / sum_pos
+            emistab.append((pi, px, pv,pix_width,centroid))
+
+
+    #return np.array(maxtab), np.array(mintab)
+    return emistab
+
 
 class EmissionLine():
     def __init__(self,name,w_rest,plot_color,solution=True,z=0):
@@ -44,8 +173,11 @@ class Spectrum:
                                EmissionLine("NV ", 1240, "teal", solution=False),
                                EmissionLine("SiII", 1260, "gray", solution=False)]
 
-    # 2d spectra cutouts (one per fiber)
-    def build_full_width_spectrum(self, counts, wavelengths, central_wavelength = 0, show_skylines=True, name=None):
+
+
+
+    def build_full_width_spectrum(self, counts, wavelengths, central_wavelength = 0,
+                                  show_skylines=True, show_peaks = True, name=None):
 
         # fig = plt.figure(figsize=(5, 6.25), frameon=False)
         fig = plt.figure(figsize=(8, 3), frameon=False)
@@ -54,7 +186,9 @@ class Spectrum:
         dy = 1.0 / 5.0  # + 1 skip for legend, + 2 for double height spectra + 2 for double height labels
 
         # this is the 1D averaged spectrum
-        specplot = plt.axes([0.05, 0.10, 0.90, 0.80])
+        #textplot = plt.axes([0.025, .6, 0.95, dy * 2])
+        specplot = plt.axes([0.05, 0.20, 0.90, 0.40])
+        #specplot = plt.axes([0.025, 0.20, 0.95, 0.40])
 
         # they should all be the same length
         # yes, want round and int ... so we get nearest pixel inside the range)
@@ -62,24 +196,29 @@ class Spectrum:
         right = wavelengths[-1]
 
         try:
-
             mn = np.min(counts)
             mn = max(mn, -20)  # negative flux makes no sense (excepting for some noise error)
             mx = np.max(counts)
             ran = mx - mn
-            specplot.step(wavelengths, counts, c='b', where='mid', lw=1)
+            specplot.step(wavelengths, counts,  where='mid', lw=1)
 
             specplot.axis([left, right, mn - ran / 20, mx + ran / 20])
 
             specplot.locator_params(axis='y', tight=True, nbins=4)
 
-            textplot = plt.axes([0.025, 3.0 * dy, 0.95, dy * 2])
+
+            if show_peaks:
+                #emistab.append((pi, px, pv,pix_width,centroid))
+                peaks = peakdet(wavelengths, counts)
+                if (peaks is not None) and (len(peaks) > 0):
+                    specplot.scatter(np.array(peaks)[:, 1], np.array(peaks)[:, 2], color='blue')
+
+            #textplot = plt.axes([0.025, .6, 0.95, dy * 2])
+            textplot = plt.axes([0.05, .6, 0.90, dy * 2])
             textplot.set_xticks([])
             textplot.set_yticks([])
             textplot.axis(specplot.axis())
             textplot.axis('off')
-
-            # iterate over all emission lines ... assume the cwave is that line and plot the additional lines
 
             if central_wavelength > 0:
                 wavemin = specplot.axis()[0]
@@ -118,7 +257,7 @@ class Spectrum:
                         name_waves.append(e.name)
 
             # make a legend ... this won't work as is ... need multiple colors
-            skipplot = plt.axes([.025, 1.0*dy, 0.95, dy])
+            skipplot = plt.axes([.025,0.0, 0.95, dy])
             skipplot.set_xticks([])
             skipplot.set_yticks([])
             skipplot.axis(specplot.axis())
@@ -145,14 +284,17 @@ class Spectrum:
                                     color='gray', alpha=0.5, zorder=1)
                 specplot.add_patch(rec)
             except:
-                pass
+                log.warning("Unable add skylines.", exc_info=True)
 
         if name is not None:
-            plt.savefig(name+".png", format='png', dpi=300)
-            buf = None
-        else:
-            buf = io.BytesIO()
-            plt.savefig(buf, format='png', dpi=300)
+            try:
+                plt.savefig(name+".png", format='png', dpi=300)
+            except:
+                log.warning("Unable save plot to file.", exc_info=True)
+
+
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=300)
 
         plt.close(fig)
         return buf

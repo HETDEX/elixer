@@ -654,7 +654,7 @@ class SHELA(cat_base.Catalog):
 
         if tile is None:
             #problem
-            print("+++++ No appropriate tile found in SHELA for RA,DEC = [%f,%f]" %(ra,dec))
+            print("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" %(ra,dec))
             log.error("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" %(ra,dec))
             return None
 
@@ -837,7 +837,7 @@ class SHELA(cat_base.Catalog):
 
         if tile is None:
             # problem
-            print("+++++ No appropriate tile found in SHELA for RA,DEC = [%f,%f]" % (ra, dec))
+            print("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" % (ra, dec))
             log.error("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" % (ra, dec))
             return None
 
@@ -1007,7 +1007,7 @@ class SHELA(cat_base.Catalog):
 
         if tile is None:
             # problem
-            print("+++++ No appropriate tile found in SHELA for RA,DEC = [%f,%f]" % (ra, dec))
+            print("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" % (ra, dec))
             log.error("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" % (ra, dec))
             return None
 

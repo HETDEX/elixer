@@ -2240,7 +2240,7 @@ class HETDEX:
                         fig = plt.figure(figsize=(G.FIGURE_SZ_X, figure_sz_y))
                         plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
                         plt.gca().axis('off')
-                        buf = self.build_full_width_2d_image(datakeep, e.w)
+                        buf = self.build_full_width_spectrum(datakeep, e.w)
                         buf.seek(0)
                         im = Image.open(buf)
                         plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
@@ -2255,7 +2255,7 @@ class HETDEX:
                     try:
                         plt.subplot(gs[2:, :])
                         plt.gca().axis('off')
-                        buf = self.build_full_width_2d_image(datakeep, e.w)
+                        buf = self.build_full_width_spectrum(datakeep, e.w)
                         buf.seek(0)
                         im = Image.open(buf)
                         plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
@@ -3433,8 +3433,8 @@ class HETDEX:
         return buf
 
 
-     # 2d spectra cutouts (one per fiber)
-    def build_full_width_2d_image(self, datakeep, cwave):
+    #wide (full width) spectrum
+    def build_full_width_spectrum (self, datakeep, cwave):
 
         cmap = plt.get_cmap('gray_r')
         norm = plt.Normalize()
