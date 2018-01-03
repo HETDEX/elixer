@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
 import io
+from scipy.stats.mstats import gmean
 
 
 log = G.logging.getLogger('spectrum_logger')
@@ -50,6 +51,7 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
     maxtab = []
     mintab = []
     emistab = []
+    delta = dh
 
     if x is None:
         x = np.arange(len(v))
@@ -69,43 +71,53 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
         log.warning('peakdet: Input argument delta must be positive')
         return None, None
 
-    min, max = np.Inf, -np.Inf
+    minv, maxv = np.Inf, -np.Inf
     minpos, maxpos = np.NaN, np.NaN
 
     lookformax = True
 
     for i in np.arange(len(v)):
-        this = v[i]
-        if this > max:
-            max = this
+        thisv = v[i]
+        if thisv > maxv:
+            maxv = thisv
             maxpos = x[i]
-        if this < min:
-            min = this
+            maxidx = i
+        if thisv < minv:
+            minv = thisv
             minpos = x[i]
-
+            minidx = i
         if lookformax:
-            if (this >= h) and (this < max - dh):
-                maxtab.append((i,maxpos, max))
-                min = this
+            if (thisv >= h) and (thisv < maxv - delta):
+                #i-1 since we are now on the right side of the peak and want the index associated with max
+                maxtab.append((maxidx,maxpos, maxv))
+                minv = thisv
                 minpos = x[i]
                 lookformax = False
         else:
-            if this > min + dh:
-                mintab.append((i,minpos, min))
-                max = this
+            if thisv > minv + delta:
+                mintab.append((minidx,minpos, minv))
+                maxv = thisv
                 maxpos = x[i]
                 lookformax = True
 
 
+    #make an array, slice out the 3rd column
+    gm = gmean(np.array(maxtab)[:,2])
 
     for pi,px,pv in maxtab:
         #check fwhm (assume 0 is the continuum level)
+
+        #minium height above the entire geometric average
+        if (pv < 1.33 * gm):
+            continue
+
         hm = float((pv - zero) / 2.0)
         pix_width = 0
 
         #for centroid (though only down to fwhm)
         sum_pos_val = x[pi] * v[pi]
         sum_pos = x[pi]
+        sum_val = v[pi]
 
         #check left
         pix_idx = pi -1
@@ -114,6 +126,7 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
             while (pix_idx >=0) and (v[pix_idx] >= hm):
                 sum_pos += x[pix_idx]
                 sum_pos_val += x[pix_idx] * v[pix_idx]
+                sum_val += v[pix_idx]
                 pix_width += 1
                 pix_idx -= 1
 
@@ -127,14 +140,35 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
             while (pix_idx < num_pix) and (v[pix_idx] >= hm):
                 sum_pos += x[pix_idx]
                 sum_pos_val += x[pix_idx] * v[pix_idx]
+                sum_val += v[pix_idx]
                 pix_width += 1
                 pix_idx += 1
         except:
             pass
 
+        #check local region around centroid
+        centroid = sum_pos_val / sum_val #centroid is an index
+
+        #back off the dw a bit
+        #what is the average value outside the fwhm*2 on either side
+        left = max(0,(pi - pix_width)-20)
+        gm_left = np.mean(v[left:(pi - pix_width)])
+        if gm_left > 0:
+            gm_left = gmean(v[left:(pi - pix_width)])
+
+        right = min(num_pix,pi+pix_width+1)
+        gm_right = np.mean(v[(pi + pix_width):right])
+        if gm_right > 0:
+            gm_right = gmean(v[(pi + pix_width):right])
+
+        #minimum height above the local gm_average
+        #note: can be a problem for adjacent peaks?
+        if pv < (1.5 * (gm_left+gm_right)/2.0):
+          #  print (pv,1.5 * (gm_left+gm_right)/2.0 )
+            continue
+
         #check vs minimum width
         if not (pix_width < dw):
-            centroid = sum_pos_val / sum_pos
             emistab.append((pi, px, pv,pix_width,centroid))
 
 
@@ -174,10 +208,9 @@ class Spectrum:
                                EmissionLine("SiII", 1260, "gray", solution=False)]
 
 
-
-
     def build_full_width_spectrum(self, counts, wavelengths, central_wavelength = 0,
-                                  show_skylines=True, show_peaks = True, name=None):
+                                  show_skylines=True, show_peaks = True, name=None,
+                                  dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
 
         # fig = plt.figure(figsize=(5, 6.25), frameon=False)
         fig = plt.figure(figsize=(8, 3), frameon=False)
@@ -209,7 +242,7 @@ class Spectrum:
 
             if show_peaks:
                 #emistab.append((pi, px, pv,pix_width,centroid))
-                peaks = peakdet(wavelengths, counts)
+                peaks = peakdet(wavelengths, counts,dw,h,dh,zero)
                 if (peaks is not None) and (len(peaks) > 0):
                     specplot.scatter(np.array(peaks)[:, 1], np.array(peaks)[:, 2], color='blue')
 
