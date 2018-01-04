@@ -8,7 +8,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
 import io
-from scipy.stats.mstats import gmean
+from scipy.stats import gmean
+from scipy import signal
 
 
 log = G.logging.getLogger('spectrum_logger')
@@ -19,6 +20,14 @@ MIN_HEIGHT = 20
 MIN_DELTA_HEIGHT = 2 #to be a peak, must be at least this high above next adjacent point to the left
 
 def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
+
+    #peakind = signal.find_peaks_cwt(v, [2,3,4,5],min_snr=4.0) #indexes of peaks
+
+    #emis = zip(peakind,x[peakind],v[peakind])
+    #emistab.append((pi, px, pv, pix_width, centroid))
+    #return emis
+
+
 
     #dh (formerly, delta)
     #dw (minimum width (as a fwhm) for a peak, else is noise and is ignored) IN PIXELS
@@ -102,13 +111,20 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
 
 
     #make an array, slice out the 3rd column
-    gm = gmean(np.array(maxtab)[:,2])
+    #gm = gmean(np.array(maxtab)[:,2])
+    peaks = np.array(maxtab)[:, 2]
+    gm = np.mean(peaks)
+    std = np.std(peaks)
+
+    #now, throw out anything waaaaay above the mean (toss out the outliers and recompute mean)
+    sub = peaks[np.where(peaks < (5.0*std))[0]]
+    gm = np.mean(sub)
 
     for pi,px,pv in maxtab:
         #check fwhm (assume 0 is the continuum level)
 
-        #minium height above the entire geometric average
-        if (pv < 1.33 * gm):
+        #minium height above the mean of the peaks (w/o outliers)
+        if (pv < 1.333 * gm):
             continue
 
         hm = float((pv - zero) / 2.0)
@@ -147,29 +163,35 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
             pass
 
         #check local region around centroid
-        centroid = sum_pos_val / sum_val #centroid is an index
+        centroid_pos = sum_pos_val / sum_val #centroid is an index
 
-        #back off the dw a bit
-        #what is the average value outside the fwhm*2 on either side
-        left = max(0,(pi - pix_width)-20)
+        #what is the average value in the vacinity of the peak (exlcuding the area under the peak)
+        side_pix = max(20,pix_width)
+        left = max(0,(pi - pix_width)-side_pix)
+        sub_left = v[left:(pi - pix_width)]
         gm_left = np.mean(v[left:(pi - pix_width)])
-        if gm_left > 0:
-            gm_left = gmean(v[left:(pi - pix_width)])
 
-        right = min(num_pix,pi+pix_width+1)
+        right = min(num_pix,pi+pix_width+side_pix+1)
+        sub_right = v[(pi + pix_width):right]
         gm_right = np.mean(v[(pi + pix_width):right])
-        if gm_right > 0:
-            gm_right = gmean(v[(pi + pix_width):right])
 
         #minimum height above the local gm_average
         #note: can be a problem for adjacent peaks?
-        if pv < (1.5 * (gm_left+gm_right)/2.0):
-          #  print (pv,1.5 * (gm_left+gm_right)/2.0 )
+        if pv < (2.0 * np.mean(np.concatenate((sub_left,sub_right)))):
             continue
 
         #check vs minimum width
         if not (pix_width < dw):
-            emistab.append((pi, px, pv,pix_width,centroid))
+            #see if too close to prior peak (these are in increasing wavelength order)
+            if len(emistab) > 0:
+                if (px - emistab[-1][1]) > 6.0:
+                    emistab.append((pi, px, pv,pix_width,centroid_pos))
+                else: #too close ... keep the higher peak
+                    if pv > emistab[-1][2]:
+                        emistab.pop()
+                        emistab.append((pi, px, pv, pix_width, centroid_pos))
+            else:
+                emistab.append((pi, px, pv, pix_width, centroid_pos))
 
 
     #return np.array(maxtab), np.array(mintab)
@@ -244,7 +266,7 @@ class Spectrum:
                 #emistab.append((pi, px, pv,pix_width,centroid))
                 peaks = peakdet(wavelengths, counts,dw,h,dh,zero)
                 if (peaks is not None) and (len(peaks) > 0):
-                    specplot.scatter(np.array(peaks)[:, 1], np.array(peaks)[:, 2], color='blue')
+                    specplot.scatter(np.array(peaks)[:, 1], np.array(peaks)[:, 2], facecolors='none', edgecolors='r')
 
             #textplot = plt.axes([0.025, .6, 0.95, dy * 2])
             textplot = plt.axes([0.05, .6, 0.90, dy * 2])
