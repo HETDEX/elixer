@@ -10,6 +10,8 @@ import numpy as np
 import io
 from scipy.stats import gmean
 from scipy import signal
+from scipy.stats import skew, kurtosis
+from scipy.optimize import curve_fit
 
 
 log = G.logging.getLogger('spectrum_logger')
@@ -18,6 +20,513 @@ log.setLevel(G.logging.DEBUG)
 MIN_FWHM = 5
 MIN_HEIGHT = 20
 MIN_DELTA_HEIGHT = 2 #to be a peak, must be at least this high above next adjacent point to the left
+DEFAULT_NOISE = 6.0
+
+
+#!!!!!!!!!! Note. all widths (like dw, xw, etc are in pixel space, so if we are not using
+#!!!!!!!!!!       1 pixel = 1 Angstrom, be sure to adjust
+
+
+def getnearpos(array,value):
+    idx = (np.abs(array-value)).argmin()
+    return idx
+
+
+def gaussian(x,x0,sigma,a=1.0):
+    if (x is None) or (x0 is None) or (sigma is None):
+        return None
+    return a*np.exp(-np.power((x - x0)/sigma, 2.)/2.)
+
+
+def rms(data, fit):
+    #sanity check
+    if (data is None) or (fit is None) or (len(data) != len(fit)) or any(np.isnan(data)) or any(np.isnan(fit)):
+        return None
+
+    mx = max(data)
+
+    if mx < 0:
+        return None
+
+    d = np.array(data)/mx
+    f = np.array(fit)/mx
+
+    return np.sqrt(((f - d) ** 2).mean())
+
+def fit_gaussian(x,y):
+    yfit = None
+    parm = None
+    pcov = None
+    try:
+        parm, pcov = curve_fit(gaussian, x, y,bounds=((-np.inf,0,-np.inf),(np.inf,np.inf,np.inf)))
+        yfit = gaussian(x,parm[0],parm[1],parm[2])
+    except:
+        log.error("Exception fitting gaussian.",exc_info=True)
+
+    return yfit,parm,pcov
+
+def signal_score(wavelengths,values,central,snr=None, show_plot=False):
+    force_recompute = False
+    bad_pix = 0
+    wave_step = 1 #pixels
+    wave_side = 8 #pixels
+
+    len_array = len(wavelengths)
+
+    idx = getnearpos(wavelengths,central)
+    min_idx = max(0,idx-wave_side)
+    max_idx = min(len_array,idx+wave_side)
+    wave_x = wavelengths[min_idx:max_idx+1]
+    wave_counts = values[min_idx:max_idx+1]
+
+    #central_wave = np.zeros(PEAK_PIXELS*2 + 1)
+    dqs_bad_count = 0
+
+    #blunt very negative values
+    #wave_counts = np.clip(wave_counts,0.0,np.inf)
+
+    xfit = np.linspace(wave_x[0], wave_x[-1], 100)
+
+    fit_wave = None
+    rms_wave = None
+    check_for_bad_pixels = False
+    error = None
+
+    wide = True
+
+    #use the wide_fit if we can ... if not, use narrow fit
+    try:
+        parm, pcov = curve_fit(gaussian, wave_x, wave_counts,p0=(central,1.0,0),
+                                 bounds=((central-wave_side, 0, -np.inf), (central+wave_side, np.inf, np.inf)))
+
+        fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
+        rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2])
+        error = rms(wave_counts,rms_wave)
+    except:
+        log.error("Could not wide fit gaussian (will try narrow)")
+        wide = False
+
+        #use narrow fit
+        try:
+             parm, pcov = curve_fit(gaussian, wave_x, wave_counts, p0=(central,1.0,0),
+                                    bounds=((central-1.0, 0, -np.inf), (central+1.0, np.inf, np.inf)))
+             fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
+             rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2])
+             error = rms(wave_counts, rms_wave)
+
+        except:
+            log.error("Detect ID # %d could not narrow fit gaussian. Possible hot/stuck pixel. ") #, exc_info=True)
+
+
+    title = ""
+
+    if snr is None:
+        snr = est_snr(wavelengths,values,central)
+
+    score = snr
+    sk = -999
+    ku = -999
+    si = -999
+    dx0 = -999
+    rh = -999
+    mx_norm = max(wave_counts)/100.0
+
+    #fit around designated emis line
+    if (fit_wave is not None):
+        sk = skew(fit_wave)
+        ku = kurtosis(fit_wave) # remember, 0 is tail width for Normal Dist. ( ku < 0 == thinner tails)
+        si = parm[1] #*1.9 #scale to angstroms
+        dx0 = (parm[0]-central) #*1.9
+
+        #si and ku are correlated at this scale, for emission lines ... fat si <==> small ku
+
+        height_pix = max(wave_counts)
+        height_fit = max(fit_wave)
+
+        if height_pix > 0:
+            rh = height_fit/height_pix
+        else:
+            log.info("Minimum peak height (%f) too small. Score zeroed." % (height_pix))
+            dqs_raw = 0.0
+            score = 0.0
+            rh = 0.0
+
+        #todo: for lower S/N, sigma (width) can be less and still get bonus if fibers have larger separation
+
+        #new_score:
+        if (0.75 < rh < 1.25) and (error < 0.2): # 1 bad pixel in each fiber is okay, but no more
+
+            #central peak position
+            if abs(dx0) > 1.9:  #+/- one pixel (in AA)  from center
+                val = (abs(dx0) - 1.9)** 2
+                score -= val
+                log.debug("Penalty for excessive error in X0: %f" % (val))
+
+
+            #sigma scoring
+            if si < 2.0: # and ku < 2.0: #narrow and not huge tails
+                val = mx_norm*np.sqrt(2.0 - si)
+                score -= val
+                log.debug("Penalty for low sigma: %f" % (val))
+                #note: si always > 0.0 and rarely < 1.0
+            elif si < 2.5:
+                pass #zero zone
+            elif si < 10.0:
+                val = np.sqrt(si-2.5)
+                score += val
+                log.debug("Bonus for large sigma: %f" % (val))
+            elif si < 15.0:
+                pass #unexpected, but lets not penalize just yet
+            else: #very wrong
+                val = np.sqrt(si-15.0)
+                score -= val
+                log.debug("Penalty for excessive sigma: %f" % (val))
+
+
+            #only check the skew for smaller sigma
+            #skew scoring
+            if si < 2.5:
+                if sk < -0.5: #skew wrong directionn
+                    val = min(1.0,mx_norm*min(0.5,abs(sk)-0.5))
+                    score -= val
+                    log.debug("Penalty for low sigma and negative skew: %f" % (val))
+                if (sk > 2.0): #skewed a bit red, a bit peaky, with outlier influence
+                    val = min(0.5,sk-2.0)
+                    score += val
+                    log.debug("Bonus for low sigma and positive skew: %f" % (val))
+
+            base_msg = "Fit dX0 = %g(AA), RH = %0.2f, rms = %0.2f, Sigma = %g(AA), Skew = %g , Kurtosis = %g "\
+                   % (dx0, rh, error, si, sk, ku)
+            log.info(base_msg)
+        elif rh > 0.0:
+            #todo: based on rh and error give a penalty?? maybe scaled by maximum pixel value? (++val = ++penalty)
+
+            if (error > 0.3) and (0.75 < rh < 1.25): #really bad rms, but we did capture the peak
+                val = mx_norm*(error - 0.3)
+                score -= val
+                log.debug("Penalty for excessively bad rms: %f" % (val))
+            elif rh < 0.6: #way under shooting peak (should be a wide sigma) (peak with shoulders?)
+                val = mx_norm * (0.6 - rh)
+                score -= val
+                log.debug("Penalty for excessive undershoot peak: %f" % (val))
+            elif rh > 1.4: #way over shooting peak (super peaky ... prob. hot pixel?)
+                val = mx_norm * (rh - 1.4)
+                score -= val
+                log.debug("Penalty for excessively overshoot peak: %f" % (val))
+        else:
+            log.info("Too many bad pixels or failure to fit peak or overall bad fit. ")
+            score = 0.0
+    else:
+        log.info("Unable to fit gaussian. ")
+        score = 0.0
+
+    if show_plot:
+        if wide:
+            title += "(Wide) "
+        else:
+            title += "(Narrow) "
+
+        if error is None:
+            error = -1
+        title += "Score = %0.2f (%0.1f), SNR = %0.2f (%0.1f)\n" \
+                 "dX0 = %0.2f, RH = %0.2f, RMS = %f\n"\
+                 "Sigma = %0.2f, Skew = %0.2f, Kurtosis = %0.2f"\
+                  % (score, signal_calc_scaled_score(score),snr,signal_calc_scaled_score(snr),
+                     dx0, rh, error, si, sk, ku)
+
+        fig = plt.figure()
+        gauss_plot = plt.axes()
+
+        gauss_plot.plot(wave_x,wave_counts,c='k')
+
+        if fit_wave is not None:
+            if wide:
+                gauss_plot.plot(xfit,fit_wave,c='r')
+            else:
+                gauss_plot.plot(xfit, fit_wave, c='b')
+                gauss_plot.grid(True)
+
+            ymin = min(min(fit_wave),min(wave_counts))
+            ymax = max(max(fit_wave),max(wave_counts))
+        else:
+            ymin = min(wave_counts)
+            ymax = max(wave_counts)
+        gauss_plot.set_ylabel("Summed Counts")
+        gauss_plot.set_xlabel("Wavelength $\AA$ ")
+
+        ymin *= 1.1
+        ymax *= 1.1
+
+        if abs(ymin) < 1.0: ymin = -1.0
+        if abs(ymax) < 1.0: ymax = 1.0
+
+        gauss_plot.set_ylim((ymin,ymax))
+        gauss_plot.set_xlim( (np.floor(wave_x[0]),np.ceil(wave_x[-1])) )
+        gauss_plot.set_title(title)
+        png = 'gauss_' + str(central)+ ".png"
+
+        log.info('Writing: ' + png)
+        print('Writing: ' + png)
+        fig.tight_layout()
+        fig.savefig(png)
+        fig.clear()
+        plt.close()
+        # end plotting
+
+
+    return signal_calc_scaled_score(score)
+
+
+def signal_calc_scaled_score(raw):
+    # 5 point scale
+    # A+ = 5.0
+    # A  = 4.0
+    # B+ = 3.5
+    # B  = 3.0
+    # C+ = 2.5
+    # C  = 2.0
+    # D+ = 1.5
+    # D  = 1.0
+    # F  = 0
+
+    a_p = 14.0
+    a__ = 12.5
+    a_m = 11.0
+    b_p = 8.0
+    b__ = 7.0
+    c_p = 6.0
+    c__ = 5.0
+    d_p = 4.0
+    d__ = 3.0
+    f__ = 2.0
+
+    if raw is None:
+        return 0.0
+    else:
+        hold = False
+
+    if   raw > a_p : score = 5.0  #A+
+    elif raw > a__ : score = 4.5 + 0.5*(raw-a__)/(a_p-a__) #A
+    elif raw > a_m : score = 4.0 + 0.5*(raw-a_m)/(a__-a_m) #A-
+    elif raw > b_p : score = 3.5 + 0.5*(raw-b_p)/(a_m-b_p) #B+ AB
+    elif raw > b__ : score = 3.0 + 0.5*(raw-b__)/(b_p-b__) #B
+    elif raw > c_p : score = 2.5 + 0.5*(raw-c_p)/(b__-c_p) #C+ BC
+    elif raw > c__ : score = 2.0 + 0.5*(raw-c__)/(c_p-c__) #C
+    elif raw > d_p : score = 1.5 + 0.5*(raw-d_p)/(c__-d_p) #D+ CD
+    elif raw > d__ : score = 1.0 + 0.5*(raw-d__)/(d_p-d__) #D
+    elif raw > f__ : score = 0.5 + 0.5*(raw-f__)/(d__-f__) #F
+    elif raw > 0.0 : score =  0.5*raw/f__
+    else: score = 0.0
+
+    score = round(score,1)
+
+    return score
+
+
+def est_fwhm(wavelengths,values,central):
+
+    num_pix = len(wavelengths)
+    idx = getnearpos(wavelengths, central)
+    hm = values[idx] / 2.0
+
+    #hm = float((pv - zero) / 2.0)
+    pix_width = 0
+
+    # for centroid (though only down to fwhm)
+    sum_pos_val = wavelengths[idx] * values[idx]
+    sum_pos = wavelengths[idx]
+    sum_val = values[idx]
+
+    # check left
+    pix_idx = idx - 1
+
+    try:
+        while (pix_idx >= 0) and (values[pix_idx] >= hm):
+            sum_pos += wavelengths[pix_idx]
+            sum_pos_val += wavelengths[pix_idx] * values[pix_idx]
+            sum_val += values[pix_idx]
+            pix_width += 1
+            pix_idx -= 1
+
+    except:
+        pass
+
+    # check right
+    pix_idx = idx + 1
+
+    try:
+        while (pix_idx < num_pix) and (values[pix_idx] >= hm):
+            sum_pos += wavelengths[pix_idx]
+            sum_pos_val += wavelengths[pix_idx] * values[pix_idx]
+            sum_val += values[pix_idx]
+            pix_width += 1
+            pix_idx += 1
+    except:
+        pass
+
+    return pix_width
+
+def est_noise(wavelengths,values,central,dw,xw=4.0,peaks=None,valleys=None):
+    """
+
+    :param wavelengths: [array] position (wavelength) coordinates of spectra
+    :param values: [array] values of the spectra
+    :param central: central wavelength aboout which to estimate noise
+    :param dw: width about the central wavelength over which to estimate noise
+    :param xw: width from the central wavelength to begin the dw window
+               that is, average over all peaks between (c-xw-dw) and (c-xw) AND (c+xw) and (c+xw+dw)
+               like a 1d annulus
+    :param px: optional peak coordinates (wavelengths)
+    :param pv: optional peak values (counts)
+    :return: noise, zero
+    """
+
+    outlier_x = 3.0
+    noise = DEFAULT_NOISE
+    wavelengths = np.array(wavelengths)
+    values = np.array(values)
+
+    try:
+        # peaks, vallyes are 3D arrays = [index in original array, wavelength, value]
+        if peaks is None or valleys is None:
+            peaks, valleys = simple_peaks(wavelengths,values)
+
+        #get all the peak values that are in our noise sample range
+        peak_v = peaks[:,2]
+        peak_w = peaks[:,1]
+
+        peak_v = peak_v[((peak_w >= (central - xw - dw)) & (peak_w <= (central - xw))) |
+                   ((peak_w >= (central + xw)) & (peak_w <= (central + xw + dw)))]
+
+        # get all the valley values that are in our noise sample range
+        valley_v = valleys[:, 2]
+        valley_w = valleys[:, 1]
+
+        valley_v = valley_v[((valley_w >= (central - xw - dw)) & (valley_w <= (central - xw))) |
+                        ((valley_w >= (central + xw)) & (valley_w <= (central + xw + dw)))]
+
+        #remove outliers (under assumption that extreme outliers are signals or errors)
+        peak_v = peak_v[abs(peak_v - np.mean(peak_v)) < abs(outlier_x * np.std(peak_v))]
+        valley_v = valley_v[abs(valley_v-np.mean(valley_v)) < abs(outlier_x * np.std(valley_v))]
+
+
+        peak_noise = np.sum(peak_v**2)/len(peak_v)
+        valley_noise = np.sum(valley_v**2)/len(valley_v)
+
+        noise = peak_noise
+
+
+
+        #average (signed) difference between peaks and valleys
+        #avg = (np.mean(peak_v) - np.mean(valley_v))/2.0
+
+        #zero point is the total average
+        zero = np.mean(np.append(peak_v,valley_v))
+
+        #noise = avg + zero
+
+        if False:
+            w = values[((wavelengths >= (central - xw - dw)) & (wavelengths <= (central - xw))) |
+                       ((wavelengths >= (central + xw)) & (wavelengths <= (central + xw + dw)))]
+
+            #pull any outliers (i.e. possible other signals)
+            sd = np.std(w)
+            w = w[abs(w-np.mean(w)) < abs(outlier_x*sd)]
+            if len(w) > 7:
+                noise = np.mean(w)
+
+
+    except:
+        log.error("Exception estimating noise: ", exc_info=True)
+
+    return noise, zero
+
+def est_signal(wavelengths,values,central,xw=None):
+    if xw is None:
+        xw = est_fwhm(wavelengths,values,central)
+
+    #temporary
+    return values[getnearpos(wavelengths,central)]**2
+
+
+def est_snr(wavelengths,values,central,dw=40.0,peaks=None,valleys=None):
+    """
+
+    :param wavelengths:
+    :param values:
+    :param central:
+    :param dw:
+    :param xw:
+    :param px:
+    :param pv:
+    :return:
+    """
+    snr = None
+    xw = est_fwhm(wavelengths,values,central)
+    noise,zero = est_noise(wavelengths,values,central,dw,xw,peaks,valleys)
+
+    # signal = nearest values (pv) to central ?? or average of a few near the central wavelength
+    signal = est_signal(wavelengths,values,central,xw)
+
+    snr = (signal-noise)/(noise)
+
+    return snr
+
+
+def simple_peaks(x,v,h=MIN_HEIGHT,delta_v=2.0):
+    """
+
+    :param x:
+    :param v:
+    :return:  #3 arrays: index of peaks, coordinate (wavelength) of peaks, values of peaks
+              2 3D arrays: index, wavelength, value for (1) peaks and (2) valleys
+    """
+
+    maxtab = []
+    mintab = []
+
+    if x is None:
+        x = np.arange(len(v))
+
+    v = np.asarray(v)
+    num_pix = len(v)
+
+    if num_pix != len(x):
+        log.warning('peakdet: Input vectors v and x must have same length')
+        return None,None
+
+    minv, maxv = np.Inf, -np.Inf
+    minpos, maxpos = np.NaN, np.NaN
+
+    lookformax = True
+
+    for i in np.arange(len(v)):
+        thisv = v[i]
+        if thisv > maxv:
+            maxv = thisv
+            maxpos = x[i]
+            maxidx = i
+        if thisv < minv:
+            minv = thisv
+            minpos = x[i]
+            minidx = i
+        if lookformax:
+            if (thisv >= h) and (thisv < maxv - delta_v):
+                #i-1 since we are now on the right side of the peak and want the index associated with max
+                maxtab.append((maxidx,maxpos, maxv))
+                minv = thisv
+                minpos = x[i]
+                lookformax = False
+        else:
+            if thisv > minv + delta_v:
+                mintab.append((minidx,minpos, minv))
+                maxv = thisv
+                maxpos = x[i]
+                lookformax = True
+
+    #return np.array(maxtab)[:, 0], np.array(maxtab)[:, 1], np.array(maxtab)[:, 2]
+    return np.array(maxtab), np.array(mintab)
+
 
 def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
 
@@ -214,6 +723,10 @@ class EmissionLine():
 
 
 class Spectrum:
+    """
+    helper functions for spectra
+    actual spectra data is kept in fiber.py
+    """
 
     def __init__(self):
 
@@ -228,6 +741,37 @@ class Spectrum:
                                EmissionLine("H$\\gamma$ ", 4341, "royalblue", solution=False),
                                EmissionLine("NV ", 1240, "teal", solution=False),
                                EmissionLine("SiII", 1260, "gray", solution=False)]
+
+
+        wavelengths = []
+        values = [] #could be fluxes or counts or something else
+
+    def set_spectra(self,wavelengths, values):
+        del self.wavelengths[:]
+        del self.values[:]
+
+        self.wavelengths = wavelengths
+        self.values = values
+
+    def classify(self):
+        """
+        using the main line
+        for each possible classification of the main line
+            for each possible additional line
+                if in the range of the spectrum
+                    fit a line (?gaussian ... like the score?) to the exact spot of the additional line
+                        (allow the position to shift a little)
+                    get the score and S/N (? how best to get S/N? ... look only nearby?)
+                    if score is okay and S/N is at least some minium (say, 2)
+                        add to weighted solution (say, score*S/N)
+                    (if score or S/N not okay, skip and move to the next one ... no penalties)
+
+        best weighted solution wins
+        ?what about close solutions? maybe something where we return the best weight / (sum of all weights)?
+        or (best weight - 2nd best) / best ?
+        """
+        pass
+
 
 
     def build_full_width_spectrum(self, counts, wavelengths, central_wavelength = 0,
@@ -265,8 +809,22 @@ class Spectrum:
             if show_peaks:
                 #emistab.append((pi, px, pv,pix_width,centroid))
                 peaks = peakdet(wavelengths, counts,dw,h,dh,zero)
+
+                scores = []
+                for p in peaks:
+                    scores.append(signal_score(wavelengths, counts, p[1]))
+
+                #for i in range(len(scores)):
+                #    print(peaks[i][0],peaks[i][1], peaks[i][2], peaks[i][3], peaks[i][4], scores[i])
+
                 if (peaks is not None) and (len(peaks) > 0):
                     specplot.scatter(np.array(peaks)[:, 1], np.array(peaks)[:, 2], facecolors='none', edgecolors='r')
+
+                    for i in range(len(peaks)):
+                        h = peaks[i][2]
+                        specplot.annotate(str(scores[i]),xy=(peaks[i][1],h),xytext=(peaks[i][1],h),fontsize=6)
+
+
 
             #textplot = plt.axes([0.025, .6, 0.95, dy * 2])
             textplot = plt.axes([0.05, .6, 0.90, dy * 2])

@@ -795,7 +795,7 @@ class DetObj:
         #use the wide_fit if we can ... if not, use narrow fit
         try:
             parm, pcov = curve_fit(gaussian, wave_x, wave_counts,p0=(self.w,1.0,0),
-                                     bounds=((self.w-8.0, 0, -np.inf), (self.w+8.0, np.inf, np.inf)))
+                                     bounds=((self.w-wave_side, 0, -np.inf), (self.w+wave_side, np.inf, np.inf)))
 
             fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
             rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2])

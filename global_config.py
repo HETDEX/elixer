@@ -9,12 +9,12 @@ import socket
 #version
 __version__ = '1.3.6'
 
-
 if socket.gethostname() == 'z50':
 #if False:
     OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
 
     #CONFIG_BASEDIR = "/home/dustin/code/python/voltron/data/config/"
+
     #PANACEA_RED_BASEDIR = "/home/dustin/code/python/voltron/data/config/red1/reductions/"
     CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
     PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
