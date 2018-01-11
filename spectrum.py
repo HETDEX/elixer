@@ -969,8 +969,10 @@ class Spectrum:
 
                     #todo: show the fractional score?
                     #todo: show the next highest possibility?
-                  #  legend.append(mpatches.Patch(color=e.color, label=e.name))
-                  #  name_waves.append(e.name)
+                    legend.append(mpatches.Patch(color=e.color,
+                                                 label="%s %0.1f (%0.2f)" %(e.name,self.solutions[0].score,
+                                                                            self.solutions[0].frac_score)))
+                    name_waves.append(e.name)
 
 
                 else:
