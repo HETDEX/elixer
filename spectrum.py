@@ -12,6 +12,7 @@ from scipy.stats import gmean
 from scipy import signal
 from scipy.stats import skew, kurtosis
 from scipy.optimize import curve_fit
+import copy
 
 
 log = G.logging.getLogger('spectrum_logger')
@@ -66,8 +67,6 @@ def fit_gaussian(x,y):
     return yfit,parm,pcov
 
 def signal_score(wavelengths,values,central,snr=None, show_plot=False):
-    force_recompute = False
-    bad_pix = 0
     wave_step = 1 #pixels
     wave_side = 8 #pixels
 
@@ -79,44 +78,27 @@ def signal_score(wavelengths,values,central,snr=None, show_plot=False):
     wave_x = wavelengths[min_idx:max_idx+1]
     wave_counts = values[min_idx:max_idx+1]
 
-    #central_wave = np.zeros(PEAK_PIXELS*2 + 1)
-    dqs_bad_count = 0
-
     #blunt very negative values
     #wave_counts = np.clip(wave_counts,0.0,np.inf)
 
     xfit = np.linspace(wave_x[0], wave_x[-1], 100)
 
     fit_wave = None
-    rms_wave = None
-    check_for_bad_pixels = False
-    error = None
+    #rms_wave = None
+    #error = None
+    fit_range = 1.0 #peak must fit to within +/- fit_range pixels
 
-    wide = True
-
-    #use the wide_fit if we can ... if not, use narrow fit
+    #use ONLY narrow fit
     try:
-        parm, pcov = curve_fit(gaussian, wave_x, wave_counts,p0=(central,1.0,0),
-                                 bounds=((central-wave_side, 0, -np.inf), (central+wave_side, np.inf, np.inf)))
+         parm, pcov = curve_fit(gaussian, wave_x, wave_counts, p0=(central,1.0,0),
+                                bounds=((central-fit_range, 0, -np.inf), (central+fit_range, np.inf, np.inf)))
+         fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
+         rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2])
+         error = rms(wave_counts, rms_wave)
 
-        fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
-        rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2])
-        error = rms(wave_counts,rms_wave)
     except:
-        log.error("Could not wide fit gaussian (will try narrow)")
-        wide = False
-
-        #use narrow fit
-        try:
-             parm, pcov = curve_fit(gaussian, wave_x, wave_counts, p0=(central,1.0,0),
-                                    bounds=((central-1.0, 0, -np.inf), (central+1.0, np.inf, np.inf)))
-             fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
-             rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2])
-             error = rms(wave_counts, rms_wave)
-
-        except:
-            log.error("Detect ID # %d could not narrow fit gaussian. Possible hot/stuck pixel. ") #, exc_info=True)
-
+        log.error("Could not fit gaussian.")
+        return 0.0
 
     title = ""
 
@@ -221,11 +203,6 @@ def signal_score(wavelengths,values,central,snr=None, show_plot=False):
         score = 0.0
 
     if show_plot:
-        if wide:
-            title += "(Wide) "
-        else:
-            title += "(Narrow) "
-
         if error is None:
             error = -1
         title += "Score = %0.2f (%0.1f), SNR = %0.2f (%0.1f)\n" \
@@ -240,11 +217,9 @@ def signal_score(wavelengths,values,central,snr=None, show_plot=False):
         gauss_plot.plot(wave_x,wave_counts,c='k')
 
         if fit_wave is not None:
-            if wide:
-                gauss_plot.plot(xfit,fit_wave,c='r')
-            else:
-                gauss_plot.plot(xfit, fit_wave, c='b')
-                gauss_plot.grid(True)
+
+            gauss_plot.plot(xfit, fit_wave, c='b')
+            gauss_plot.grid(True)
 
             ymin = min(min(fit_wave),min(wave_counts))
             ymax = max(max(fit_wave),max(wave_counts))
@@ -386,6 +361,9 @@ def est_noise(wavelengths,values,central,dw,xw=4.0,peaks=None,valleys=None):
     wavelengths = np.array(wavelengths)
     values = np.array(values)
 
+    if dw > len(wavelengths)/2.0:
+        return None, None
+
     try:
         # peaks, vallyes are 3D arrays = [index in original array, wavelength, value]
         if peaks is None or valleys is None:
@@ -410,8 +388,16 @@ def est_noise(wavelengths,values,central,dw,xw=4.0,peaks=None,valleys=None):
         valley_v = valley_v[abs(valley_v-np.mean(valley_v)) < abs(outlier_x * np.std(valley_v))]
 
 
-        peak_noise = np.sum(peak_v**2)/len(peak_v)
-        valley_noise = np.sum(valley_v**2)/len(valley_v)
+        if len(peak_v) > 2:
+            peak_noise = np.sum(peak_v**2)/len(peak_v)
+        else:
+            noise, zero = est_noise(wavelengths,values,central,dw*2,xw,peaks=None,valleys=None)
+            return noise, zero
+
+        if len(valley_v) > 2:
+            valley_noise = np.sum(valley_v**2)/len(valley_v)
+        else:
+            valley_noise = DEFAULT_NOISE
 
         noise = peak_noise
 
@@ -440,6 +426,12 @@ def est_noise(wavelengths,values,central,dw,xw=4.0,peaks=None,valleys=None):
         log.error("Exception estimating noise: ", exc_info=True)
 
     return noise, zero
+
+
+#todo: detect and estimate contiuum (? as SNR or mean value? over some range(s) of wavelength?)
+# ie. might have contiuum over just part of the spectra
+def est_continuum(wavengths,values,central):
+    pass
 
 def est_signal(wavelengths,values,central,xw=None):
     if xw is None:
@@ -708,18 +700,33 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
 
 
 class EmissionLine():
-    def __init__(self,name,w_rest,plot_color,solution=True,z=0):
+    def __init__(self,name,w_rest,plot_color,solution=True,z=0,score=0.0):
         self.name = name
         self.w_rest = w_rest
         self.w_obs = w_rest * (1.0 + z)
         self.z = z
         self.color = plot_color
         self.solution = solution #True = can consider this as the target line
+        self.score = score
 
     def redshift(self,z):
         self.z = z
         self.w_obs = self.w_rest * (1.0 + z)
         return self.w_obs
+
+
+
+
+class Classifier_Solution:
+    def __init__(self):
+        self.score = 0.0
+        self.frac_score = 0.0
+        self.z = 0.0
+        self.central_rest = 0.0
+
+        self.emission_line = None
+
+        self.lines = [] #list of EmissionLine
 
 
 class Spectrum:
@@ -742,18 +749,32 @@ class Spectrum:
                                EmissionLine("NV ", 1240, "teal", solution=False),
                                EmissionLine("SiII", 1260, "gray", solution=False)]
 
+        self.wavelengths = []
+        self.values = [] #could be fluxes or counts or something else
+        self.central = None
 
-        wavelengths = []
-        values = [] #could be fluxes or counts or something else
-
-    def set_spectra(self,wavelengths, values):
+    def set_spectra(self,wavelengths, values, central):
         del self.wavelengths[:]
         del self.values[:]
 
         self.wavelengths = wavelengths
         self.values = values
+        self.central = central
 
-    def classify(self):
+
+
+
+
+
+    def classify(self,wavelengths = None,values = None,central = None):
+        #for now, just with additional lines
+        #todo: later add in continuum
+        #todo: later add in bayseian stuff
+        solutions = self.classify_with_additional_lines(wavelengths,values,central)
+
+        return solutions
+
+    def classify_with_additional_lines(self,wavelengths = None,values = None,central = None):
         """
         using the main line
         for each possible classification of the main line
@@ -769,14 +790,90 @@ class Spectrum:
         best weighted solution wins
         ?what about close solutions? maybe something where we return the best weight / (sum of all weights)?
         or (best weight - 2nd best) / best ?
+
+        what to return?
+            with a clear winner:
+                redshift of primary line (z)
+                rest wavelength of primary line (e.g. effectively, the line identification) [though with z is redundant]
+                list of additional lines found (rest wavelengths?)
+                    and their scores or strengths?
+
+        should return all scores? all possible solutions? maybe a class called classification_solution?
+
         """
-        pass
+
+        if (values is None) or (wavelengths is None) or (central is None):
+            values = self.values
+            wavelengths = self.wavelengths
+            central = self.central
+
+        solutions = []
+        total_score = 0.0 #sum of all scores (use to represent each solution as fraction of total score)
+
+
+        #todo:
+        #for each self.emission_line
+        #   run down the list of remianing self.emission_lines and calculate score for each
+        #   make a copy of each emission_line, set the score, save to the self.lines list []
+        #
+        #sort solutions by score
+
+        max_w = max(wavelengths)
+        min_w = min(wavelengths)
+
+        for e in self.emission_lines:
+
+            sol = Classifier_Solution()
+            sol.z = central/e.w_rest - 1.0
+            sol.central_rest = e.w_rest
+            sol.emission_line = copy.deepcopy(e)
+
+            for a in self.emission_lines:
+                if e == a:
+                    continue
+
+                a_central = a.w_rest*(sol.z+1.0)
+                if (a_central > max_w) or (a_central < min_w):
+                    continue
+
+                scr = signal_score(wavelengths, values,a_central )
+
+                if scr > 0.0:
+                    total_score += scr
+                    sol.score += scr
+                    l = copy.deepcopy(a)
+                    l.score = scr
+                    sol.lines.append(l)
+
+            if sol.score > 0.0:
+                solutions.append(sol)
+
+        for s in solutions:
+            s.frac_score = s.score/total_score
+
+        #sort by score
+        solutions.sort(key=lambda x: x.score, reverse=True)
+
+        #todo: remove ... temporary
+        for s in solutions:
+            print(s.frac_score, s.score, s.emission_line.name, s.z, s.central_rest*(1.0+s.z),s.central_rest)
 
 
 
-    def build_full_width_spectrum(self, counts, wavelengths, central_wavelength = 0,
+        return solutions
+
+
+
+    def build_full_width_spectrum(self, counts = None, wavelengths = None, central_wavelength = None,
                                   show_skylines=True, show_peaks = True, name=None,
                                   dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
+
+
+        if (counts is None) or (wavelengths is None) or (central_wavelength is None):
+            counts = self.values
+            wavelengths = self.wavelengths
+            central_wavelength = self.central
+
 
         # fig = plt.figure(figsize=(5, 6.25), frameon=False)
         fig = plt.figure(figsize=(8, 3), frameon=False)
