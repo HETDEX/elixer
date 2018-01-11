@@ -753,6 +753,8 @@ class Spectrum:
         self.values = [] #could be fluxes or counts or something else
         self.central = None
 
+        self.solutions = []
+
     def set_spectra(self,wavelengths, values, central):
         del self.wavelengths[:]
         del self.values[:]
@@ -762,15 +764,16 @@ class Spectrum:
         self.central = central
 
 
-
-
-
-
     def classify(self,wavelengths = None,values = None,central = None):
         #for now, just with additional lines
         #todo: later add in continuum
         #todo: later add in bayseian stuff
+        if (wavelengths is not None) and (values is not None) and (central is not None):
+            self.set_spectra(wavelengths,values,central)
         solutions = self.classify_with_additional_lines(wavelengths,values,central)
+
+        del self.solutions[:]
+        self.solutions = solutions
 
         return solutions
 
@@ -827,6 +830,8 @@ class Spectrum:
             sol.z = central/e.w_rest - 1.0
             sol.central_rest = e.w_rest
             sol.emission_line = copy.deepcopy(e)
+            sol.emission_line.w_obs = sol.emission_line.w_rest*(1.0 + sol.z)
+            sol.emission_line.solution = True
 
             for a in self.emission_lines:
                 if e == a:
@@ -842,6 +847,7 @@ class Spectrum:
                     total_score += scr
                     sol.score += scr
                     l = copy.deepcopy(a)
+                    l.w_obs = l.w_rest * (1.0 + sol.z)
                     l.score = scr
                     sol.lines.append(l)
 
@@ -869,10 +875,12 @@ class Spectrum:
                                   dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
 
 
+        use_internal = False
         if (counts is None) or (wavelengths is None) or (central_wavelength is None):
             counts = self.values
             wavelengths = self.wavelengths
             central_wavelength = self.central
+            use_internal = True
 
 
         # fig = plt.figure(figsize=(5, 6.25), frameon=False)
@@ -899,6 +907,7 @@ class Spectrum:
             specplot.step(wavelengths, counts,  where='mid', lw=1)
 
             specplot.axis([left, right, mn - ran / 20, mx + ran / 20])
+            yl, yh = specplot.get_ylim()
 
             specplot.locator_params(axis='y', tight=True, nbins=4)
 
@@ -937,34 +946,62 @@ class Spectrum:
                 name_waves = []
                 obs_waves = []
 
-                for e in self.emission_lines:
-                    if not e.solution:
-                        continue
+                rec = plt.Rectangle((central_wavelength - 20.0, yl), 2 * 20.0, yh - yl, fill=True, lw=1, color='y', zorder=1)
+                specplot.add_patch(rec)
 
-                    z = central_wavelength / e.w_rest - 1.0
+                if use_internal and (len(self.solutions) > 0):
 
-                    if (z < 0):
-                        continue
+                    e = self.solutions[0].emission_line
 
-                    count = 0
-                    for f in self.emission_lines:
-                        if (f == e) or not (wavemin <= f.redshift(z) <= wavemax):
-                            continue
+                    z = self.solutions[0].z
 
-                        count += 1
+                    #plot the central (main) line
+                    y_pos = textplot.axis()[2]
+                    textplot.text(e.w_obs, y_pos, e.name + " {", rotation=-90, ha='center', va='bottom',
+                                  fontsize=12, color=e.color)  # use the e color for this family
+
+                    #plot the additional lines
+                    for f in self.solutions[0].lines:
                         y_pos = textplot.axis()[2]
-                        for w in obs_waves:
-                            if abs(f.w_obs - w) < 20:  # too close, shift one vertically
-                                y_pos = (textplot.axis()[3] - textplot.axis()[2]) / 2.0 + textplot.axis()[2]
-                                break
-
-                        obs_waves.append(f.w_obs)
                         textplot.text(f.w_obs, y_pos, f.name + " {", rotation=-90, ha='center', va='bottom',
                                       fontsize=12, color=e.color)  # use the e color for this family
 
-                    if (count > 0) and not (e.name in name_waves):
-                        legend.append(mpatches.Patch(color=e.color, label=e.name))
-                        name_waves.append(e.name)
+
+                    #todo: show the fractional score?
+                    #todo: show the next highest possibility?
+                  #  legend.append(mpatches.Patch(color=e.color, label=e.name))
+                  #  name_waves.append(e.name)
+
+
+                else:
+                    for e in self.emission_lines:
+                        if not e.solution:
+                            continue
+
+                        z = central_wavelength / e.w_rest - 1.0
+
+                        if (z < 0):
+                            continue
+
+                        count = 0
+                        for f in self.emission_lines:
+                            if (f == e) or not (wavemin <= f.redshift(z) <= wavemax):
+                                continue
+
+                            count += 1
+                            y_pos = textplot.axis()[2]
+                            for w in obs_waves:
+                                if abs(f.w_obs - w) < 20:  # too close, shift one vertically
+                                    y_pos = (textplot.axis()[3] - textplot.axis()[2]) / 2.0 + textplot.axis()[2]
+                                    break
+
+                            obs_waves.append(f.w_obs)
+                            textplot.text(f.w_obs, y_pos, f.name + " {", rotation=-90, ha='center', va='bottom',
+                                          fontsize=12, color=e.color)  # use the e color for this family
+
+                        if (count > 0) and not (e.name in name_waves):
+                            legend.append(mpatches.Patch(color=e.color, label=e.name))
+                            name_waves.append(e.name)
 
             # make a legend ... this won't work as is ... need multiple colors
             skipplot = plt.axes([.025,0.0, 0.95, dy])
