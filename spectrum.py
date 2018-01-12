@@ -22,6 +22,8 @@ MIN_FWHM = 5
 MIN_HEIGHT = 10
 MIN_DELTA_HEIGHT = 2 #to be a peak, must be at least this high above next adjacent point to the left
 DEFAULT_NOISE = 6.0
+DEFAULT_NOISE_WIDTH = 100.0 #pixels
+DEFAULT_MIN_WIDTH_FROM_CENTER_FOR_NOISE = 10.0 #pixels
 
 DEBUG_SHOW_PLOTS = False
 
@@ -303,11 +305,19 @@ def signal_calc_scaled_score(raw):
     return score
 
 
+
 def est_fwhm(wavelengths,values,central):
 
     num_pix = len(wavelengths)
     idx = getnearpos(wavelengths, central)
-    hm = values[idx] / 2.0
+
+
+    noise,zero = est_noise(wavelengths,values,central)
+
+    if zero is None:
+        zero = 0.0
+
+    hm = (values[idx] - zero) / 2.0
 
     #hm = float((pv - zero) / 2.0)
     pix_width = 0
@@ -321,7 +331,8 @@ def est_fwhm(wavelengths,values,central):
     pix_idx = idx - 1
 
     try:
-        while (pix_idx >= 0) and (values[pix_idx] >= hm):
+        while (pix_idx >= 0) and ((values[pix_idx] - zero) >= hm) \
+                and ((values[pix_idx] -zero) < values[idx]):
             sum_pos += wavelengths[pix_idx]
             sum_pos_val += wavelengths[pix_idx] * values[pix_idx]
             sum_val += values[pix_idx]
@@ -335,7 +346,8 @@ def est_fwhm(wavelengths,values,central):
     pix_idx = idx + 1
 
     try:
-        while (pix_idx < num_pix) and (values[pix_idx] >= hm):
+        while (pix_idx < num_pix) and ((values[pix_idx]-zero) >= hm) \
+                and ((values[pix_idx] - zero) < values[idx]):
             sum_pos += wavelengths[pix_idx]
             sum_pos_val += wavelengths[pix_idx] * values[pix_idx]
             sum_val += values[pix_idx]
@@ -344,9 +356,11 @@ def est_fwhm(wavelengths,values,central):
     except:
         pass
 
+    #print("FWHM = %f at %f" %(pix_width, central))
+
     return pix_width
 
-def est_noise(wavelengths,values,central,dw,xw=4.0,peaks=None,valleys=None):
+def est_noise(wavelengths,values,central,dw=DEFAULT_NOISE_WIDTH,xw=20.0,peaks=None,valleys=None):
     """
 
     :param wavelengths: [array] position (wavelength) coordinates of spectra
@@ -360,6 +374,8 @@ def est_noise(wavelengths,values,central,dw,xw=4.0,peaks=None,valleys=None):
     :param pv: optional peak values (counts)
     :return: noise, zero
     """
+
+    xw = max(DEFAULT_MIN_WIDTH_FROM_CENTER_FOR_NOISE,xw)
 
     outlier_x = 3.0
     noise = DEFAULT_NOISE
@@ -397,13 +413,15 @@ def est_noise(wavelengths,values,central,dw,xw=4.0,peaks=None,valleys=None):
             return noise, zero
 
         if len(peak_v) > 2:
-            peak_noise = np.sum(peak_v**2)/len(peak_v)
+            #peak_noise = np.sum(peak_v**2)/len(peak_v)
+            peak_noise = np.std(peak_v)**2
         else:
             noise, zero = est_noise(wavelengths,values,central,dw*2,xw,peaks=None,valleys=None)
             return noise, zero
 
         if len(valley_v) > 2:
-            valley_noise = np.sum(valley_v**2)/len(valley_v)
+            #valley_noise = np.sum(valley_v**2)/len(valley_v)
+            valley_noise = np.std(valley_v) ** 2
         else:
             valley_noise = DEFAULT_NOISE
 
@@ -441,15 +459,15 @@ def est_noise(wavelengths,values,central,dw,xw=4.0,peaks=None,valleys=None):
 def est_continuum(wavengths,values,central):
     pass
 
-def est_signal(wavelengths,values,central,xw=None):
+def est_signal(wavelengths,values,central,xw=None,zero=0.0):
     if xw is None:
         xw = est_fwhm(wavelengths,values,central)
 
     #temporary
-    return values[getnearpos(wavelengths,central)]**2
+    return (values[getnearpos(wavelengths,central)]-zero)**2
 
 
-def est_snr(wavelengths,values,central,dw=40.0,peaks=None,valleys=None):
+def est_snr(wavelengths,values,central,dw=DEFAULT_NOISE_WIDTH,peaks=None,valleys=None):
     """
 
     :param wavelengths:
@@ -463,14 +481,17 @@ def est_snr(wavelengths,values,central,dw=40.0,peaks=None,valleys=None):
     """
     snr = None
     xw = est_fwhm(wavelengths,values,central)
+
     noise,zero = est_noise(wavelengths,values,central,dw,xw,peaks,valleys)
 
     if noise is not None:
         # signal = nearest values (pv) to central ?? or average of a few near the central wavelength
-        signal = est_signal(wavelengths,values,central,xw)
+        signal = est_signal(wavelengths,values,central,xw,zero)
+        #signal = ((np.sqrt(signal)-zero)/2.0)**2
 
         if signal is not None:
-            snr = (signal-noise)/(noise)
+           # snr = (signal-noise)/(noise)
+           snr = signal/noise
 
     return snr
 
@@ -701,15 +722,18 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
         #check vs minimum width
         if not (pix_width < dw):
             #see if too close to prior peak (these are in increasing wavelength order)
-            if len(emistab) > 0:
-                if (px - emistab[-1][1]) > 6.0:
-                    emistab.append((pi, px, pv,pix_width,centroid_pos))
-                else: #too close ... keep the higher peak
-                    if pv > emistab[-1][2]:
-                        emistab.pop()
-                        emistab.append((pi, px, pv, pix_width, centroid_pos))
-            else:
-                emistab.append((pi, px, pv, pix_width, centroid_pos))
+            score = signal_score(x, v, px)
+
+            if score > 0:
+                if len(emistab) > 0:
+                    if (px - emistab[-1][1]) > 6.0:
+                        emistab.append((pi, px, pv,pix_width,centroid_pos,score))
+                    else: #too close ... keep the higher peak
+                        if pv > emistab[-1][2]:
+                            emistab.pop()
+                            emistab.append((pi, px, pv, pix_width, centroid_pos,score))
+                else:
+                    emistab.append((pi, px, pv, pix_width, centroid_pos,score))
 
 
     #return np.array(maxtab), np.array(mintab)
@@ -977,9 +1001,9 @@ class Spectrum:
                 #emistab.append((pi, px, pv,pix_width,centroid))
                 peaks = peakdet(wavelengths, counts,dw,h,dh,zero)
 
-                scores = []
-                for p in peaks:
-                    scores.append(signal_score(wavelengths, counts, p[1]))
+                #scores = []
+                #for p in peaks:
+                #    scores.append(signal_score(wavelengths, counts, p[1]))
 
                 #for i in range(len(scores)):
                 #    print(peaks[i][0],peaks[i][1], peaks[i][2], peaks[i][3], peaks[i][4], scores[i])
@@ -989,9 +1013,9 @@ class Spectrum:
 
                     for i in range(len(peaks)):
                         h = peaks[i][2]
-                        specplot.annotate(str(scores[i]),xy=(peaks[i][1],h),xytext=(peaks[i][1],h),fontsize=6)
+                        specplot.annotate(str(peaks[i][5]),xy=(peaks[i][1],h),xytext=(peaks[i][1],h),fontsize=6)
 
-                        log.debug("Peak at: %f , Score = %f" %(peaks[i][1],scores[i]))
+                        log.debug("Peak at: %f , Score = %f" %(peaks[i][1],peaks[i][5]))
 
 
 
@@ -1033,7 +1057,8 @@ class Spectrum:
                     #todo: show the fractional score?
                     #todo: show the next highest possibility?
                     legend.append(mpatches.Patch(color=e.color,
-                                                 label="%s %0.1f (%0.2f)" %(e.name,self.solutions[0].score,
+                                                 label="%s, z=%0.5f, Score = %0.1f (%0.2f)" %(e.name,self.solutions[0].z,
+                                                                            self.solutions[0].score,
                                                                             self.solutions[0].frac_score)))
                     name_waves.append(e.name)
 
