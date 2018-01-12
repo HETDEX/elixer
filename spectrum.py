@@ -581,15 +581,15 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
 
     if num_pix != len(x):
         log.warning('peakdet: Input vectors v and x must have same length')
-        return None,None
+        return []
 
     if not np.isscalar(dh):
         log.warning('peakdet: Input argument delta must be a scalar')
-        return None, None
+        return []
 
     if dh <= 0:
         log.warning('peakdet: Input argument delta must be positive')
-        return None, None
+        return []
 
     minv, maxv = np.Inf, -np.Inf
     minpos, maxpos = np.NaN, np.NaN
@@ -621,6 +621,11 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
                 lookformax = True
 
 
+    if len(maxtab) < 1:
+        log.warning("No peaks found with given conditions: mininum:  fwhm = %f, height = %f, delta height = %f" \
+                %(dw,h,dh))
+        return []
+
     #make an array, slice out the 3rd column
     #gm = gmean(np.array(maxtab)[:,2])
     peaks = np.array(maxtab)[:, 2]
@@ -628,7 +633,9 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
     std = np.std(peaks)
 
     #now, throw out anything waaaaay above the mean (toss out the outliers and recompute mean)
-    sub = peaks[np.where(peaks < (5.0*std))[0]]
+    sub = peaks[np.where(abs(peaks - gm) < (3.0*std))[0]]
+    if len(sub) < 3:
+        sub = peaks
     gm = np.mean(sub)
 
     for pi,px,pv in maxtab:
@@ -680,11 +687,11 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
         side_pix = max(20,pix_width)
         left = max(0,(pi - pix_width)-side_pix)
         sub_left = v[left:(pi - pix_width)]
-        gm_left = np.mean(v[left:(pi - pix_width)])
+   #     gm_left = np.mean(v[left:(pi - pix_width)])
 
         right = min(num_pix,pi+pix_width+side_pix+1)
         sub_right = v[(pi + pix_width):right]
-        gm_right = np.mean(v[(pi + pix_width):right])
+   #     gm_right = np.mean(v[(pi + pix_width):right])
 
         #minimum height above the local gm_average
         #note: can be a problem for adjacent peaks?
@@ -870,9 +877,13 @@ class Spectrum:
         #sort by score
         solutions.sort(key=lambda x: x.score, reverse=True)
 
-        #todo: remove ... temporary
+
         for s in solutions:
-            print(s.frac_score, s.score, s.emission_line.name, s.z, s.central_rest*(1.0+s.z),s.central_rest)
+            msg = "%s, Frac = %0.2f, Score = %0.1f, z = %0.5f, obs_w = %0.1f, rest_w = %0.1f" \
+                    % (s.emission_line.name,s.frac_score, s.score,s.z, s.central_rest*(1.0+s.z),s.central_rest )
+            log.info(msg)
+            # todo: remove ... temporary
+            print(msg)
 
 
 

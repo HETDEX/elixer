@@ -396,11 +396,11 @@ class IFU:
     #v += i.exposure(2).fibers[i.get_absolute_fiber_index("LL",89)].interp_spectra_counts
 
 
-    def sum_fibers_from_fib_file(self,file,id):
+    def sum_fibers_from_fib_file(self,file,line_id):
         """
 
         :param file:  full path to the voltron *_fib.txt file
-        :param id: the id number of the line to use
+        :param line_id: the id number of the line to use (1st column in *_fib.txt or the parenthetical value in pdf)
         :return: two arrays and a value: (1) wavelengths ,  (2) summed and averaged values and (3) central w
         """
 
@@ -425,7 +425,7 @@ class IFU:
                             version = toks[2]
                     else: #data line
                         toks = line.split()
-                        if int(id) == int(toks[0]): #we found the line we want
+                        if int(line_id) == int(toks[0]): #we found the line we want
                             break
 
 
