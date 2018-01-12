@@ -19,7 +19,7 @@ log = G.logging.getLogger('spectrum_logger')
 log.setLevel(G.logging.DEBUG)
 
 MIN_FWHM = 5
-MIN_HEIGHT = 20
+MIN_HEIGHT = 10
 MIN_DELTA_HEIGHT = 2 #to be a peak, must be at least this high above next adjacent point to the left
 DEFAULT_NOISE = 6.0
 
@@ -781,15 +781,55 @@ class Spectrum:
         self.central = central
 
 
+    def find_central_wavelength(self,wavelengths = None,values = None):
+        central = 0.0
+        update_self = False
+        if (wavelengths is None) or (values is None):
+            wavelengths = self.wavelengths
+            values = self.values
+            update_self = True
+
+        #find the peaks and use the largest
+        #for now, largest means highest value
+
+        peaks = peakdet(wavelengths,values)
+        max_v = -np.inf
+        for p in peaks:
+            #  0   1   2   3          4
+            # pi, px, pv, pix_width, centroid_pos
+            if p[2] > max_v:
+                max_v = p[2]
+                central = p[4]
+
+        if update_self:
+            self.central = central
+
+        log.info("Central wavelength = %f" %central)
+
+        return central
+
     def classify(self,wavelengths = None,values = None,central = None):
         #for now, just with additional lines
         #todo: later add in continuum
         #todo: later add in bayseian stuff
+        del self.solutions[:]
         if (wavelengths is not None) and (values is not None) and (central is not None):
             self.set_spectra(wavelengths,values,central)
-        solutions = self.classify_with_additional_lines(wavelengths,values,central)
+        else:
+            wavelengths = self.wavelengths
+            values = self.values
+            central = self.central
 
-        del self.solutions[:]
+        #if central wavelength not provided, find the peaks and use the largest
+        #for now, largest means highest value
+        if (central is None) or (central == 0.0):
+            central = self.find_central_wavelength(wavelengths,values)
+
+        if (central is None) or (central == 0.0):
+            log.warning("Cannot classify. No central wavelength specified or found.")
+            return []
+
+        solutions = self.classify_with_additional_lines(wavelengths,values,central)
         self.solutions = solutions
 
         return solutions
@@ -1028,14 +1068,14 @@ class Spectrum:
                             legend.append(mpatches.Patch(color=e.color, label=e.name))
                             name_waves.append(e.name)
 
-            # make a legend ... this won't work as is ... need multiple colors
-            skipplot = plt.axes([.025,0.0, 0.95, dy])
-            skipplot.set_xticks([])
-            skipplot.set_yticks([])
-            skipplot.axis(specplot.axis())
-            skipplot.axis('off')
-            skipplot.legend(handles=legend, loc='center', ncol=len(legend), frameon=False,
-                            fontsize='small', borderaxespad=0)
+                # make a legend ... this won't work as is ... need multiple colors
+                skipplot = plt.axes([.025,0.0, 0.95, dy])
+                skipplot.set_xticks([])
+                skipplot.set_yticks([])
+                skipplot.axis(specplot.axis())
+                skipplot.axis('off')
+                skipplot.legend(handles=legend, loc='center', ncol=len(legend), frameon=False,
+                                fontsize='small', borderaxespad=0)
 
         except:
             log.warning("Unable to build full width spec plot.", exc_info=True)
