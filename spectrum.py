@@ -23,6 +23,7 @@ MIN_HEIGHT = 20
 MIN_DELTA_HEIGHT = 2 #to be a peak, must be at least this high above next adjacent point to the left
 DEFAULT_NOISE = 6.0
 
+DEBUG_SHOW_PLOTS = False
 
 #!!!!!!!!!! Note. all widths (like dw, xw, etc are in pixel space, so if we are not using
 #!!!!!!!!!!       1 pixel = 1 Angstrom, be sure to adjust
@@ -104,6 +105,10 @@ def signal_score(wavelengths,values,central,snr=None, show_plot=False):
 
     if snr is None:
         snr = est_snr(wavelengths,values,central)
+        if snr is None:
+            #done, no reason to continue
+            log.warning("Could not determine SNR at wavelength = %f" %central)
+            return 0.0
 
     score = snr
     sk = -999
@@ -202,7 +207,7 @@ def signal_score(wavelengths,values,central,snr=None, show_plot=False):
         log.info("Unable to fit gaussian. ")
         score = 0.0
 
-    if show_plot:
+    if show_plot or DEBUG_SHOW_PLOTS:
         if error is None:
             error = -1
         title += "Score = %0.2f (%0.1f), SNR = %0.2f (%0.1f)\n" \
@@ -384,9 +389,12 @@ def est_noise(wavelengths,values,central,dw,xw=4.0,peaks=None,valleys=None):
                         ((valley_w >= (central + xw)) & (valley_w <= (central + xw + dw)))]
 
         #remove outliers (under assumption that extreme outliers are signals or errors)
-        peak_v = peak_v[abs(peak_v - np.mean(peak_v)) < abs(outlier_x * np.std(peak_v))]
-        valley_v = valley_v[abs(valley_v-np.mean(valley_v)) < abs(outlier_x * np.std(valley_v))]
-
+        if (len(peak_v) > 3) and (len(valley_v) > 3):
+            peak_v = peak_v[abs(peak_v - np.mean(peak_v)) < abs(outlier_x * np.std(peak_v))]
+            valley_v = valley_v[abs(valley_v-np.mean(valley_v)) < abs(outlier_x * np.std(valley_v))]
+        else:
+            noise, zero = est_noise(wavelengths, values, central, dw * 2, xw, peaks=None, valleys=None)
+            return noise, zero
 
         if len(peak_v) > 2:
             peak_noise = np.sum(peak_v**2)/len(peak_v)
@@ -457,10 +465,12 @@ def est_snr(wavelengths,values,central,dw=40.0,peaks=None,valleys=None):
     xw = est_fwhm(wavelengths,values,central)
     noise,zero = est_noise(wavelengths,values,central,dw,xw,peaks,valleys)
 
-    # signal = nearest values (pv) to central ?? or average of a few near the central wavelength
-    signal = est_signal(wavelengths,values,central,xw)
+    if noise is not None:
+        # signal = nearest values (pv) to central ?? or average of a few near the central wavelength
+        signal = est_signal(wavelengths,values,central,xw)
 
-    snr = (signal-noise)/(noise)
+        if signal is not None:
+            snr = (signal-noise)/(noise)
 
     return snr
 
@@ -929,6 +939,8 @@ class Spectrum:
                     for i in range(len(peaks)):
                         h = peaks[i][2]
                         specplot.annotate(str(scores[i]),xy=(peaks[i][1],h),xytext=(peaks[i][1],h),fontsize=6)
+
+                        log.debug("Peak at: %f , Score = %f" %(peaks[i][1],scores[i]))
 
 
 

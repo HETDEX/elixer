@@ -9,6 +9,7 @@
 import global_config as G
 import numpy as np
 import os
+import glob
 import fnmatch
 import fiber as ifu_fiber
 import hetdex_fits
@@ -46,7 +47,7 @@ class IFU:
     #is one IFU for one observation, and contains all exposures for that obervation
     #the fits files and fibers are stored under each IFU_EXPOSURE
 
-    def __init__(self,idstring):
+    def __init__(self,idstring,ifuslot=None,ifuid=None,specid=None,build=True):
 
         #self.path = None #maybe multiples? 3x dithers?
         #self.filename = None #maybe multiples? 3x dithers and 4x amps
@@ -74,23 +75,63 @@ class IFU:
         if idstring is not None:
             try:
                 dict_args = ifu_fiber.parse_fiber_idstring(idstring)
+
                 if dict_args is not None:
-                    self.idstring = dict_args["idstring"]
-                    self.scifits_idstring = self.idstring.split("_")[0]
-                    self.specid = dict_args["specid"]
-                    self.ifuslot = dict_args["ifuslot"]
-                    self.ifuid = dict_args["ifuid"]
-                    #self.amp = dict_args["amp"]
-                    self.date = dict_args["date"]
-                    self.time = dict_args["time"]
-                    self.time_ex = dict_args["time_ex"]
+                    if dict_args == False: #failed to parse ... might just be the date-time part
+
+                        if len(idstring) == 17:
+                            self.idstring = idstring
+                            self.date = idstring[0:8]
+                            # next should be 'T'
+                            self.time = idstring[9:15]  # not the .# not always there
+                            if idstring[15] == ".":
+                                self.time_ex = idstring[9:17]
+                            else:
+                                self.time_ex = None
+                        elif len(idstring) > 9:
+                            if idstring[8] == 'v': #might be of form 20171014v004 or 20171014v004_107
+                                try:
+                                    self.idstring = idstring
+                                    self.date = idstring[0:8]
+                                    self.obsid = int((idstring.split('v')[1]).split('_')[0])
+                                except:
+                                    log.error("Unable to parse idstring: %s" %idstring)
+                                    return
+                        else:
+                            log.error("Unable to parse idstring: %s" % idstring)
+                            return
+                    else:
+                        self.idstring = dict_args["idstring"]
+                        self.scifits_idstring = self.idstring.split("_")[0]
+                        self.specid = dict_args["specid"]
+                        self.ifuslot = dict_args["ifuslot"]
+                        self.ifuid = dict_args["ifuid"]
+                        #self.amp = dict_args["amp"]
+                        self.date = dict_args["date"]
+                        self.time = dict_args["time"]
+                        self.time_ex = dict_args["time_ex"]
             except:
                 log.error("Exception: Cannot parse fiber string.", exc_info=True)
+
+        if ifuslot is not None:
+            self.ifuslot = str(ifuslot).zfill(3)
+
+        if ifuid is not None:
+            self.ifuid = str(ifuid).zfill(3)
+
+        if specid is not None:
+            self.specid = str(specid).zfill(3)
+
 
         self.exposures = [] #list of exposures (that contain the fits files and fibers)
 
         #self.fits = [] #list of panacea fits as Hetdex Fits objects
         #self.fibers = [None]*448  # list of all fibers [448]
+
+
+        if build:
+            self.build_from_files()
+            self.build_fibers()
 
 
     #@property
@@ -115,8 +156,14 @@ class IFU:
     def build_from_files(self,expid=-1):
         #find the path and filename based on other info
 
+        if  (self.specid is None) and (self.ifuslot is None) and (self.ifuid is None):
+            log.error("Cannot build IFU data. Missing required info: specid, ifuslotid, and ifuid")
+            return None
+
         try:
             path = os.path.join(G.PANACEA_RED_BASEDIR, self.date, "virus")
+            if (self.obsid is not None):
+                path = os.path.join(path, "virus" + str(self.obsid).zfill(7))
         except:
             log.error("Cannot build path to panacea file.",exc_info=True)
             return None
@@ -126,9 +173,14 @@ class IFU:
             return None
 
         if self.scifits_idstring is None:
-            self.scifits_idstring = self.idstring.split("_")[0]
+                #had enough to build the basics, but not a full string
+            if (self.obsid is not None) and (self.date is not None):
+                self.scifits_idstring = self.date
+            else:
+                self.scifits_idstring = self.idstring.split("_")[0]
 
         scifile = find_first_file("*" + self.scifits_idstring + "*", path)
+
         if not scifile:
             log.error("Cannot locate reduction data for %s" % (self.idstring))
             return None
@@ -136,7 +188,10 @@ class IFU:
             log.debug("Found reduction folder for file: " + scifile)
 
         try:
-            obsid = scifile.split("virus/virus")[1].split("/")[0]
+            if self.obsid is None:
+                obsid = scifile.split("virus/virus")[1].split("/")[0]
+            else:
+                obsid = str(self.obsid).zfill(7)
             if expid < 1:
                 #expid = scifile.split("/exp")[1].split("/")[0]
                 min_exp = 1
@@ -168,12 +223,48 @@ class IFU:
 
             ifu_exp = IFU_EXPOSURE(exp)
 
+            # leaves off the exp01/virus/
+            multi_fits_basepath = os.path.join(G.PANACEA_RED_BASEDIR, self.date, "virus",
+                                               "virus" + str(self.obsid).zfill(7))
+
+            #at least one is not set, find an example file and populate the others
+            if (self.specid is None) or (self.ifuslot is None) or (self.ifuid is None):
+                check_file = "multi_"
+                if self.specid is None:
+                    check_file += "???_"
+                else:
+                    check_file += self.specid + "_"
+
+                if self.ifuslot is None:
+                    check_file += "???_"
+                else:
+                    check_file += self.ifuslot + "_"
+
+                if self.ifuid is None:
+                    check_file += "???_"
+                else:
+                    check_file += self.ifuid + "_"
+
+                check_file += "*"
+
+                path = os.path.join(multi_fits_basepath, "exp" + str(exp).zfill(2), "virus")
+                names = glob.glob(os.path.join(path, check_file))
+
+                #actually expect there to be 4 ... one for each amp
+                if len(names) > 0:
+                    toks = os.path.basename(names[0]).split("_")
+                    self.specid = toks[1]
+                    self.ifuslot = toks[2]
+                    self.ifuid = toks[3]
+
+                    #also need to update the idstring with this additional information (the full string
+                    #is expected downstream)
+                    self.idstring = self.idstring + "_" + self.specid + "_" + self.ifuslot + "_" + self.ifuid + "_LL_001"
+
             # now build the path to the multi_*.fits and the file basename
             # leaves off the  LL.fits etc
             multi_fits_basename = "multi_" + self.specid + "_" + self.ifuslot + "_" + self.ifuid + "_"
-            # leaves off the exp01/virus/
-            multi_fits_basepath = os.path.join(G.PANACEA_RED_BASEDIR, self.date, "virus",
-                                          "virus" + str(self.obsid).zfill(7))
+
 
             self.basepath = multi_fits_basepath
             self.basename = multi_fits_basename
@@ -410,6 +501,7 @@ class IFU:
                         "Fiber counts do not match. (expected %d , got %d)" % (number_of_fibers, count_of_fibers))
 
                 if count_of_fibers > 0:
+                    log.info("Summed %d fibers" % count_of_fibers)
                     v = v / float(count_of_fibers)
                 else:
                     v = []
