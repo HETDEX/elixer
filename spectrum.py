@@ -21,9 +21,9 @@ log.setLevel(G.logging.DEBUG)
 MIN_FWHM = 5
 MIN_HEIGHT = 10
 MIN_DELTA_HEIGHT = 2 #to be a peak, must be at least this high above next adjacent point to the left
-DEFAULT_NOISE = 6.0
-DEFAULT_NOISE_WIDTH = 100.0 #pixels
-DEFAULT_MIN_WIDTH_FROM_CENTER_FOR_NOISE = 10.0 #pixels
+DEFAULT_BACKGROUND = 6.0
+DEFAULT_BACKGROUND_WIDTH = 100.0 #pixels
+DEFAULT_MIN_WIDTH_FROM_CENTER_FOR_BACKGROUND = 10.0 #pixels
 
 DEBUG_SHOW_PLOTS = False
 
@@ -69,7 +69,8 @@ def fit_gaussian(x,y):
 
     return yfit,parm,pcov
 
-def signal_score(wavelengths,values,central,snr=None, show_plot=False):
+def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
+    #sbr signal to background ratio
     wave_step = 1 #pixels
     wave_side = 8 #pixels
 
@@ -105,14 +106,14 @@ def signal_score(wavelengths,values,central,snr=None, show_plot=False):
 
     title = ""
 
-    if snr is None:
-        snr = est_snr(wavelengths,values,central)
-        if snr is None:
+    if sbr is None:
+        sbr = est_peak_strength(wavelengths,values,central)
+        if sbr is None:
             #done, no reason to continue
-            log.warning("Could not determine SNR at wavelength = %f" %central)
+            log.warning("Could not determine SBR at wavelength = %f" %central)
             return 0.0
 
-    score = snr
+    score = sbr
     sk = -999
     ku = -999
     si = -999
@@ -212,10 +213,10 @@ def signal_score(wavelengths,values,central,snr=None, show_plot=False):
     if show_plot or DEBUG_SHOW_PLOTS:
         if error is None:
             error = -1
-        title += "Score = %0.2f (%0.1f), SNR = %0.2f (%0.1f)\n" \
+        title += "Score = %0.2f (%0.1f), SBR = %0.2f (%0.1f)\n" \
                  "dX0 = %0.2f, RH = %0.2f, RMS = %f\n"\
                  "Sigma = %0.2f, Skew = %0.2f, Kurtosis = %0.2f"\
-                  % (score, signal_calc_scaled_score(score),snr,signal_calc_scaled_score(snr),
+                  % (score, signal_calc_scaled_score(score),sbr,signal_calc_scaled_score(sbr),
                      dx0, rh, error, si, sk, ku)
 
         fig = plt.figure()
@@ -312,7 +313,7 @@ def est_fwhm(wavelengths,values,central):
     idx = getnearpos(wavelengths, central)
 
 
-    noise,zero = est_noise(wavelengths,values,central)
+    background,zero = est_background(wavelengths,values,central)
 
     if zero is None:
         zero = 0.0
@@ -360,8 +361,9 @@ def est_fwhm(wavelengths,values,central):
 
     return pix_width
 
-def est_noise(wavelengths,values,central,dw=DEFAULT_NOISE_WIDTH,xw=20.0,peaks=None,valleys=None):
+def est_background(wavelengths,values,central,dw=DEFAULT_BACKGROUND_WIDTH,xw=20.0,peaks=None,valleys=None):
     """
+    mean of surrounding (simple) peaks, excluding any obvious lines (above 3x std) - the zero
 
     :param wavelengths: [array] position (wavelength) coordinates of spectra
     :param values: [array] values of the spectra
@@ -372,13 +374,13 @@ def est_noise(wavelengths,values,central,dw=DEFAULT_NOISE_WIDTH,xw=20.0,peaks=No
                like a 1d annulus
     :param px: optional peak coordinates (wavelengths)
     :param pv: optional peak values (counts)
-    :return: noise, zero
+    :return: background, zero
     """
 
-    xw = max(DEFAULT_MIN_WIDTH_FROM_CENTER_FOR_NOISE,xw)
+    xw = max(DEFAULT_MIN_WIDTH_FROM_CENTER_FOR_BACKGROUND,xw)
 
     outlier_x = 3.0
-    noise = DEFAULT_NOISE
+    background = DEFAULT_BACKGROUND
     wavelengths = np.array(wavelengths)
     values = np.array(values)
 
@@ -390,14 +392,14 @@ def est_noise(wavelengths,values,central,dw=DEFAULT_NOISE_WIDTH,xw=20.0,peaks=No
         if peaks is None or valleys is None:
             peaks, valleys = simple_peaks(wavelengths,values)
 
-        #get all the peak values that are in our noise sample range
+        #get all the peak values that are in our background sample range
         peak_v = peaks[:,2]
         peak_w = peaks[:,1]
 
         peak_v = peak_v[((peak_w >= (central - xw - dw)) & (peak_w <= (central - xw))) |
                    ((peak_w >= (central + xw)) & (peak_w <= (central + xw + dw)))]
 
-        # get all the valley values that are in our noise sample range
+        # get all the valley values that are in our background sample range
         valley_v = valleys[:, 2]
         valley_w = valleys[:, 1]
 
@@ -409,49 +411,32 @@ def est_noise(wavelengths,values,central,dw=DEFAULT_NOISE_WIDTH,xw=20.0,peaks=No
             peak_v = peak_v[abs(peak_v - np.mean(peak_v)) < abs(outlier_x * np.std(peak_v))]
             valley_v = valley_v[abs(valley_v-np.mean(valley_v)) < abs(outlier_x * np.std(valley_v))]
         else:
-            noise, zero = est_noise(wavelengths, values, central, dw * 2, xw, peaks=None, valleys=None)
-            return noise, zero
-
-        if len(peak_v) > 2:
-            #peak_noise = np.sum(peak_v**2)/len(peak_v)
-            peak_noise = np.std(peak_v)**2
-        else:
-            noise, zero = est_noise(wavelengths,values,central,dw*2,xw,peaks=None,valleys=None)
-            return noise, zero
-
-        if len(valley_v) > 2:
-            #valley_noise = np.sum(valley_v**2)/len(valley_v)
-            valley_noise = np.std(valley_v) ** 2
-        else:
-            valley_noise = DEFAULT_NOISE
-
-        noise = peak_noise
-
-
-
-        #average (signed) difference between peaks and valleys
-        #avg = (np.mean(peak_v) - np.mean(valley_v))/2.0
+            background, zero = est_background(wavelengths, values, central, dw * 2, xw, peaks=None, valleys=None)
+            return background, zero
 
         #zero point is the total average
         zero = np.mean(np.append(peak_v,valley_v))
 
-        #noise = avg + zero
+        if len(peak_v) > 2:
+            peak_background = np.mean(peak_v) - zero
+            #peak_background = np.std(peak_v)**2
+        else:
+            background, zero = est_background(wavelengths,values,central,dw*2,xw,peaks=None,valleys=None)
+            return background, zero
 
-        if False:
-            w = values[((wavelengths >= (central - xw - dw)) & (wavelengths <= (central - xw))) |
-                       ((wavelengths >= (central + xw)) & (wavelengths <= (central + xw + dw)))]
+       # since looking for emission, not absorption, don't care about the valley background
+       # if len(valley_v) > 2: #expected to be negavive
+       #     valley_background = np.mean(valley_v) - zero
+       #     #valley_background = np.std(valley_v) ** 2
+       # else:
+       #     valley_background = DEFAULT_BACKGROUND
 
-            #pull any outliers (i.e. possible other signals)
-            sd = np.std(w)
-            w = w[abs(w-np.mean(w)) < abs(outlier_x*sd)]
-            if len(w) > 7:
-                noise = np.mean(w)
-
+        background = peak_background
 
     except:
-        log.error("Exception estimating noise: ", exc_info=True)
+        log.error("Exception estimating background: ", exc_info=True)
 
-    return noise, zero
+    return background, zero
 
 
 #todo: detect and estimate contiuum (? as SNR or mean value? over some range(s) of wavelength?)
@@ -459,15 +444,15 @@ def est_noise(wavelengths,values,central,dw=DEFAULT_NOISE_WIDTH,xw=20.0,peaks=No
 def est_continuum(wavengths,values,central):
     pass
 
+#todo: actual signal
 def est_signal(wavelengths,values,central,xw=None,zero=0.0):
-    if xw is None:
-        xw = est_fwhm(wavelengths,values,central)
+    pass
 
-    #temporary
-    return (values[getnearpos(wavelengths,central)]-zero)**2
+#todo: actual noise, not just the local background
+def est_noise():
+    pass
 
-
-def est_snr(wavelengths,values,central,dw=DEFAULT_NOISE_WIDTH,peaks=None,valleys=None):
+def est_peak_strength(wavelengths,values,central,dw=DEFAULT_BACKGROUND_WIDTH,peaks=None,valleys=None):
     """
 
     :param wavelengths:
@@ -479,21 +464,22 @@ def est_snr(wavelengths,values,central,dw=DEFAULT_NOISE_WIDTH,peaks=None,valleys
     :param pv:
     :return:
     """
-    snr = None
+    sbr = None
     xw = est_fwhm(wavelengths,values,central)
 
-    noise,zero = est_noise(wavelengths,values,central,dw,xw,peaks,valleys)
+    background,zero = est_background(wavelengths,values,central,dw,xw,peaks,valleys)
 
-    if noise is not None:
+    if background is not None:
         # signal = nearest values (pv) to central ?? or average of a few near the central wavelength
-        signal = est_signal(wavelengths,values,central,xw,zero)
+        #signal = est_signal(wavelengths,values,central,xw,zero)
+        peak_str = values[getnearpos(wavelengths, central)] - zero
         #signal = ((np.sqrt(signal)-zero)/2.0)**2
 
-        if signal is not None:
-           # snr = (signal-noise)/(noise)
-           snr = signal/noise
+        if peak_str is not None:
+           # sbr = (signal-background)/(background)
+           sbr = peak_str/background
 
-    return snr
+    return sbr
 
 
 def simple_peaks(x,v,h=MIN_HEIGHT,delta_v=2.0):
@@ -906,6 +892,9 @@ class Spectrum:
         min_w = min(wavelengths)
 
         for e in self.emission_lines:
+
+            if (central/e.w_rest - 1.0) < 0.0:
+                continue #impossible, can't have a negative z
 
             sol = Classifier_Solution()
             sol.z = central/e.w_rest - 1.0
