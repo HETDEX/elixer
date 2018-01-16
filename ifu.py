@@ -11,12 +11,13 @@ import numpy as np
 import os
 import glob
 import fnmatch
-import fiber as ifu_fiber
+import fiber as voltron_fiber
 import hetdex_fits
+from astropy.io import fits as pyfits
 
 
-AMP = ifu_fiber.AMP
-AMP_OFFSET = ifu_fiber.AMP_OFFSET
+AMP = voltron_fiber.AMP
+AMP_OFFSET = voltron_fiber.AMP_OFFSET
 
 MIN_WAVELENGTH = 3500.0
 MAX_WAVELENGTH = 5500.0
@@ -32,6 +33,126 @@ def find_first_file(pattern, path):
                 return os.path.join(root, name)
     return None
 
+
+def find_panacea_path_info(date,time_ex=None,time=None,basepath=G.PANACEA_RED_BASEDIR):
+    """
+
+    :param date: date string YYYYMMDD
+    :param time: time string hhmmss
+    :param time_ex: extended time string hhmmss.s
+    :return: None or dictionary with path, obsid, and expid
+    """
+
+    #get the basedir for the date to the reduction data
+    info = {}
+    ex = True
+    if time_ex is not None: #use it vs time
+        target_time = time_ex
+    elif time is not None:
+        target_time = time
+        ex = False
+    else:
+        log.error("Invalid parameters passed to find_panacea_path_info()")
+        return info
+
+    try:
+        path = os.path.join(basepath, date, "virus")
+    except:
+        log.error("Cannot build path to panacea file.",exc_info=True)
+        return info
+
+    if not os.path.exists(path):
+        log.error("Cannot locate reduced data for %s %s" % ())
+        return info
+
+    #path set above looks like:
+    #../red1/reductions/20170603/virus/
+
+    #complete path looks like:
+    #../red1/reductions/20170603/virus/virus0000002/exp01/virus
+    #../red1/reductions/20180113/virus/virus0000011/exp01/virus
+
+    #get all the subdirectories
+    subdirs = glob.glob(os.path.join(path, "virus*/exp*/virus"))
+
+    #walk each sub directory for observation id and exp id and find any
+    #multi*fits file, query its header and check for a time match
+    #if the time does match, pull the observation id and exp id from the path
+    #and return those (with the path)
+
+    for s in subdirs: #order here does not matter
+        #already know the subdirs exist (though, technically could be a filename rather than a
+        #directory, but will trust in the fixed naming convention
+        if len(info) > 0:
+            break
+
+        multi = glob.glob(os.path.join(s,"multi*"))
+        for m in multi:
+            try:
+                f = pyfits.open(m)
+            except:
+                log.error("could not open file " + m, exc_info=True)
+                continue
+
+            try:
+                ut = f[0].header['UT']  #format like = '08:57:00.902'
+                if ex:
+                    tx = ut[0:2]+ut[3:5]+ut[6:10] #if ut is bad, let the try block deal with it
+                else:
+                    tx = ut[0:2]+ut[3:5]+ut[6:8]
+
+                    try: #either way, we are done with this file
+                        f.close()
+                    except:
+                        log.error("could not close file " + m, exc_info=True)
+
+                    if target_time == tx:
+                        info['obsid'] = s.split("virus/virus")[1].split("/")[0]
+                        info['expid'] = s.split("/exp")[1].split("/")[0]
+                        info['path'] = s #overwrite path defined above
+
+                        log.info("Found panacea mult* files: %s" %s)
+
+                    break
+
+            except:
+                log.error("Could not read header value [UT]. Will try [RAWFN] for file: " + m, exc_info=False)
+
+            #older panacea multi files did not have the UT value, but did have RAWFN that contains it in
+            #the path
+            try:
+                #looks like
+                # '/work/03946/hetdex/maverick/20180113/virus/virus0000015/exp02/virus&/20180113T085700.9_035RU_sci.fits'
+                rawfn = os.path.basename(f[0].header['RAWFN']) #20180113T085700.9_035RU_sci.fits
+                #want the time part
+                if ex:
+                    tx = (rawfn.split('T')[1]).split('_')[0] #if ut is bad, let the try block deal with it
+                else:
+                    tx = (rawfn.split('T')[1]).split('.')[0]
+
+                try: #either way, we are done with this file
+                    f.close()
+                except:
+                    log.error("could not close file " + m, exc_info=True)
+
+                if target_time == tx:
+                    info['obsid'] = s.split("virus/virus")[1].split("/")[0]
+                    info['expid'] = s.split("/exp")[1].split("/")[0]
+                    info['path'] = s #overwrite path defined above
+
+                    log.info("Found panacea mult* files: %s" %s)
+
+                break
+
+            except:
+                log.error("Could not read header values for file: " + m, exc_info=False)
+                continue
+
+
+    if len(info) == 0:
+        log.info("Unable to locate panacea multi* files for %sT%s" %(date,target_time))
+
+    return info
 
 class IFU_EXPOSURE:
 #holding class for fits files and fibers
@@ -74,7 +195,7 @@ class IFU:
 
         if idstring is not None:
             try:
-                dict_args = ifu_fiber.parse_fiber_idstring(idstring)
+                dict_args = voltron_fiber.parse_fiber_idstring(idstring)
 
                 if dict_args is not None:
                     if dict_args == False: #failed to parse ... might just be the date-time part
@@ -153,6 +274,7 @@ class IFU:
 
         return abs_idx
 
+
     def build_from_files(self,expid=-1):
         #find the path and filename based on other info
 
@@ -172,6 +294,7 @@ class IFU:
             log.error("Cannot locate reduced data for %s" % (self.idstring))
             return None
 
+        #fast way (old way) first?
         if self.scifits_idstring is None:
                 #had enough to build the basics, but not a full string
             if (self.obsid is not None) and (self.date is not None):
@@ -181,31 +304,45 @@ class IFU:
 
         scifile = find_first_file("*" + self.scifits_idstring + "*", path)
 
-        if not scifile:
-            log.error("Cannot locate reduction data for %s" % (self.idstring))
-            return None
+        if scifile:
+            try:
+                if self.obsid is None:
+                    obsid = scifile.split("virus/virus")[1].split("/")[0]
+                else:
+                    obsid = str(self.obsid).zfill(7)
+                if expid < 1:
+                    #expid = scifile.split("/exp")[1].split("/")[0]
+                    min_exp = 1
+                    max_exp = 99
+                else:
+                    min_exp = expid
+                    max_exp = expid+1
+
+                self.expid = int(expid)
+                self.obsid = int(obsid)
+            except:
+                log.error("Cannot locate reduction data for %s" % (self.idstring))
+                return None
         else:
-            log.debug("Found reduction folder for file: " + scifile)
+            log.info("Filename method failed. Will try fits headers. Could not locate reduction data for %s" % (self.idstring))
 
-        try:
-            if self.obsid is None:
-                obsid = scifile.split("virus/virus")[1].split("/")[0]
+            info = find_panacea_path_info(self.date,self.time_ex,self.time)
+
+            if len(info) > 0:
+                obsid = info['obsid']
+                self.obsid = int(obsid)
+
+                if expid < 1: #passed in value
+                    min_exp = 1
+                    max_exp = 99
+                else:
+                    min_exp = expid
+                    max_exp = expid+1
+
+                self.expid = int(expid)
             else:
-                obsid = str(self.obsid).zfill(7)
-            if expid < 1:
-                #expid = scifile.split("/exp")[1].split("/")[0]
-                min_exp = 1
-                max_exp = 99
-            else:
-                min_exp = expid
-                max_exp = expid+1
-
-            self.expid = int(expid)
-            self.obsid = int(obsid)
-        except:
-            log.error("Cannot locate reduction data for %s" % (self.idstring))
-            return None
-
+                log.error("Cannot locate reduction data for %s" % (self.idstring))
+                return None
 
         for exp in range(min_exp,max_exp,1):
             # now build the panace fits path
@@ -307,7 +444,7 @@ class IFU:
     def build_fibers(self):
 
         #want the fe_data (fiber extracted data)
-        #maybe give ifu_fiber.fiber a HETDEX fits object to pull the data? or pull it here and feed it to fiber?
+        #maybe give voltron_fiber.fiber a HETDEX fits object to pull the data? or pull it here and feed it to fiber?
 
         for exp in self.exposures:
             del exp.fibers[:]
@@ -315,7 +452,7 @@ class IFU:
 
             for fits in exp.fits:
                 for i in range(len(fits.fe_data)):
-                    fib = ifu_fiber.Fiber(self.idstring,amp=fits.amp,panacea_fiber_index=i) #this will have the original amp, side
+                    fib = voltron_fiber.Fiber(self.idstring,amp=fits.amp,panacea_fiber_index=i) #this will have the original amp, side
 
                     #update with THIS file's amp and side
                     fib.amp = fits.amp

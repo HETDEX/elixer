@@ -36,7 +36,8 @@ from copy import copy, deepcopy
 import line_prob
 import hetdex_fits
 
-import fiber as ifu_fiber
+import fiber as voltron_fiber
+import ifu as voltron_ifu
 
 log = G.logging.getLogger('hetdex_logger')
 log.setLevel(G.logging.DEBUG)
@@ -50,11 +51,11 @@ PIXFLT_LOC = G.PIXFLT_LOC #op.join(CONFIG_BASEDIR,"virus_config/PixelFlats/20161
 
 PLOT_SUMMED_SPECTRA = False
 
-SIDE = ifu_fiber.SIDE
+SIDE = voltron_fiber.SIDE
 #!!! REMEBER, Y-axis runs 'down':  Python 0,0 is top-left, DS9 is bottom-left
 #!!! so in DS9 LU is 'above' LL and RL is 'above' RU
-AMP  = ifu_fiber.AMP #["LU","LL","RL","RU"] #in order from bottom to top
-AMP_OFFSET = ifu_fiber.AMP_OFFSET# {"LU":1,"LL":113,"RL":225,"RU":337}
+AMP  = voltron_fiber.AMP #["LU","LL","RL","RU"] #in order from bottom to top
+AMP_OFFSET = voltron_fiber.AMP_OFFSET# {"LU":1,"LL":113,"RL":225,"RU":337}
 
 
 
@@ -1110,7 +1111,7 @@ class DetObj:
                 #log.warn("Unexpected fiber id string: %s" % fiber)
             return False
 
-        newfiber = ifu_fiber.Fiber(fiber, detect_id=self.id)
+        newfiber = voltron_fiber.Fiber(fiber, detect_id=self.id)
 
         if newfiber is not None:
             self.fibers.append(newfiber)
@@ -1142,7 +1143,7 @@ class DetObj:
                       % (ifuslot,self.ifuslot))
             return True #this was still a fiber, just not one that is valid
 
-        self.fibers.append(ifu_fiber.Fiber(idstring,specid,ifuslot,ifuid,amp,dither_date,dither_time,dither_time_extended,
+        self.fibers.append(voltron_fiber.Fiber(idstring,specid,ifuslot,ifuid,amp,dither_date,dither_time,dither_time_extended,
                                  fiber_idx,self.id))
 
         return True
@@ -1834,7 +1835,6 @@ class HETDEX:
                 #using assumption that there maybe multiples, but they belong to different IFUs and Amps
                 #but all to the same observation date, obsid, and expid
                 scifile = self.find_first_file("*"+fib.scifits_idstring+"*",path)
-
                 if not scifile:
                     #try again with the defualt
                     default_path = op.join(G.PANACEA_RED_BASEDIR_DEFAULT, fib.dither_date, "virus")
@@ -1842,22 +1842,42 @@ class HETDEX:
                         log.error("Cannot locate reduced data for %s" % (fib.idstring))
                         continue
                     scifile = self.find_first_file("*" + fib.scifits_idstring + "*", default_path)
+                #old method did not find it, try using the fits headers
+                if scifile:
+                    try:
+                        obsid = scifile.split("virus/virus")[1].split("/")[0]
+                        expid = scifile.split("/exp")[1].split("/")[0]
 
-                if not scifile:
-                    log.error("Cannot locate reduction data for %s" % (fib.idstring))
-                    continue
+                        fib.expid = int(expid)
+                        fib.obsid = int(obsid)
+
+                        log.debug("Found reduction folder for file: " + scifile)
+                    except:
+                        log.error("Cannot locate reduction data for %s" % (fib.idstring))
+                        continue
                 else:
-                    log.debug("Found reduction folder for file: " + scifile)
+                    info = voltron_ifu.find_panacea_path_info(fib.dither_date,
+                                                              fib.dither_time_extended,
+                                                              fib.dither_time,
+                                                              G.PANACEA_RED_BASEDIR)
 
-                try:
-                    obsid = scifile.split("virus/virus")[1].split("/")[0]
-                    expid = scifile.split("/exp")[1].split("/")[0]
+                    if (len(info) == 0) and (G.PANACEA_RED_BASEDIR != G.PANACEA_RED_BASEDIR_DEFAULT):
+                        #try again with the default
+                        info = voltron_ifu.find_panacea_path_info(fib.dither_date,
+                                                                  fib.dither_time_extended,
+                                                                  fib.dither_time,
+                                                                  G.PANACEA_RED_BASEDIR_DEFAULT)
+                    if len(info) > 0:
+                        obsid = info['obsid']
+                        expid = info['expid']
 
-                    fib.expid = int(expid)
-                    fib.obsid = int(obsid)
-                except:
-                    log.error("Cannot locate reduction data for %s" % (fib.idstring))
-                    continue
+                        fib.expid = int(expid)
+                        fib.obsid = int(obsid)
+
+                        log.debug("Found reduction folder for file: " + info['path'])
+                    else:
+                        log.error("Cannot locate reduction data for %s" % (fib.idstring))
+                        continue
 
                 #now build the panace fits path
                 path = op.join(G.PANACEA_RED_BASEDIR,fib.dither_date,"virus","virus"+obsid,"exp"+expid,"virus")
@@ -2435,7 +2455,7 @@ class HETDEX:
 
             # cure does not build specific fibers (don't know the info until here), so build now for the _fib.txt file
             try:
-                fiber = ifu_fiber.Fiber(op.basename(sci.filename), str(self.specid), str(self.ifu_slot_id), str(self.ifu_id),
+                fiber = voltron_fiber.Fiber(op.basename(sci.filename), str(self.specid), str(self.ifu_slot_id), str(self.ifu_id),
                               None, str(self.ymd), "None", "None", -1,e.id)
 
                 if fiber:
@@ -2758,7 +2778,7 @@ class HETDEX:
 
             if fiber is None: # did not find it? impossible?
                 log.error("Error! Cannot identify fiber in HETDEX:build_panacea_hetdex_data_dict().")
-                fiber = ifu_fiber.Fiber(0,0,0,0,'XX',"","","",-1,-1)
+                fiber = voltron_fiber.Fiber(0,0,0,0,'XX',"","","",-1,-1)
 
 
             log.debug("Building data dict for " + fits.filename)
