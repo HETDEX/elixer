@@ -24,7 +24,7 @@ MIN_DELTA_HEIGHT = 2 #to be a peak, must be at least this high above next adjace
 DEFAULT_BACKGROUND = 6.0
 DEFAULT_BACKGROUND_WIDTH = 100.0 #pixels
 DEFAULT_MIN_WIDTH_FROM_CENTER_FOR_BACKGROUND = 10.0 #pixels
-MAX_SIGMA = 10.0 #maximum width (pixels) for fit gaussian to signal (greater than this, is really not a fit)
+MAX_SIGMA = 5.0 #maximum width (pixels) for fit gaussian to signal (greater than this, is really not a fit)
 DEBUG_SHOW_PLOTS = True
 
 #!!!!!!!!!! Note. all widths (like dw, xw, etc are in pixel space, so if we are not using
@@ -81,7 +81,7 @@ def fit_gaussian(x,y):
 def est_snr(wavelengths,values,central): #,rms=None,fwhm=None,peak=None):
     #todo: what about a second, nearby peak? Will that mess up the +/- 20 AA
     wave_step = 1  # pixels
-    wave_side = 20  # pixels
+    wave_side = 10  # pixels
 
     len_array = len(wavelengths)
 
@@ -103,7 +103,7 @@ def est_snr(wavelengths,values,central): #,rms=None,fwhm=None,peak=None):
     num_pix = len(wave_x)
     area = 0.0
     sigma = 0.0
-    true_error = 999.9
+    error = 999.9
 
     #fwhm = est_fwhm(wavelengths, values, central)
 
@@ -113,7 +113,7 @@ def est_snr(wavelengths,values,central): #,rms=None,fwhm=None,peak=None):
                                bounds=((central - fit_range, 0, -np.inf), (central + fit_range, np.inf, np.inf)))
         fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
         rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2])
-        true_error = rms(wave_counts, rms_wave)
+        error = rms(wave_counts, rms_wave,norm=False)
         sigma = pix_to_aa(parm[1])
         amp = max(fit_wave)
         #if fwhm is None:
@@ -126,7 +126,7 @@ def est_snr(wavelengths,values,central): #,rms=None,fwhm=None,peak=None):
         return 0.0
 
     if sigma < MAX_SIGMA:
-        snr = area/(np.sqrt(num_pix)*true_error)
+        snr = area/(np.sqrt(num_pix)*error)
     else:
         snr = 0.0
 
@@ -136,7 +136,7 @@ def est_snr(wavelengths,values,central): #,rms=None,fwhm=None,peak=None):
 def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
     #sbr signal to background ratio
     wave_step = 1 #pixels
-    wave_side = 20 #pixels
+    wave_side = 10 #pixels
 
     len_array = len(wavelengths)
 
