@@ -24,12 +24,17 @@ MIN_DELTA_HEIGHT = 2 #to be a peak, must be at least this high above next adjace
 DEFAULT_BACKGROUND = 6.0
 DEFAULT_BACKGROUND_WIDTH = 100.0 #pixels
 DEFAULT_MIN_WIDTH_FROM_CENTER_FOR_BACKGROUND = 10.0 #pixels
-
-DEBUG_SHOW_PLOTS = False
+MAX_SIGMA = 10.0 #maximum width (pixels) for fit gaussian to signal (greater than this, is really not a fit)
+DEBUG_SHOW_PLOTS = True
 
 #!!!!!!!!!! Note. all widths (like dw, xw, etc are in pixel space, so if we are not using
 #!!!!!!!!!!       1 pixel = 1 Angstrom, be sure to adjust
 
+
+def pix_to_aa(pix):
+    #constant for now since interpolating to 1 AA per pix
+    #e.g. pix * 1.0
+    return float(pix)
 
 def getnearpos(array,value):
     idx = (np.abs(array-value)).argmin()
@@ -39,23 +44,27 @@ def getnearpos(array,value):
 def gaussian(x,x0,sigma,a=1.0):
     if (x is None) or (x0 is None) or (sigma is None):
         return None
-    return a*np.exp(-np.power((x - x0)/sigma, 2.)/2.)
+    #return a * np.exp(-np.power((x - x0) / sigma, 2.) / 2.)
+    return a*np.exp(-np.power((x - x0)/sigma, 2.)/2.) / np.sqrt(2*np.pi*sigma**2)
 
 
-def rms(data, fit):
+def rms(data, fit,norm=True):
     #sanity check
     if (data is None) or (fit is None) or (len(data) != len(fit)) or any(np.isnan(data)) or any(np.isnan(fit)):
         return None
 
-    mx = max(data)
-
-    if mx < 0:
-        return None
+    if norm:
+        mx = max(data)
+        if mx < 0:
+            return None
+    else:
+        mx = 1.0
 
     d = np.array(data)/mx
     f = np.array(fit)/mx
 
     return np.sqrt(((f - d) ** 2).mean())
+
 
 def fit_gaussian(x,y):
     yfit = None
@@ -69,10 +78,65 @@ def fit_gaussian(x,y):
 
     return yfit,parm,pcov
 
+def est_snr(wavelengths,values,central): #,rms=None,fwhm=None,peak=None):
+    #todo: what about a second, nearby peak? Will that mess up the +/- 20 AA
+    wave_step = 1  # pixels
+    wave_side = 20  # pixels
+
+    len_array = len(wavelengths)
+
+    idx = getnearpos(wavelengths, central)
+    min_idx = max(0, idx - wave_side)
+    max_idx = min(len_array, idx + wave_side)
+    wave_x = wavelengths[min_idx:max_idx + 1]
+    wave_counts = values[min_idx:max_idx + 1]
+
+    # blunt very negative values
+    # wave_counts = np.clip(wave_counts,0.0,np.inf)
+
+    xfit = np.linspace(wave_x[0], wave_x[-1], 100)
+
+    fit_wave = None
+    # rms_wave = None
+    # error = None
+    fit_range = 2.0  # peak must fit to within +/- fit_range pixels
+    num_pix = len(wave_x)
+    area = 0.0
+    sigma = 0.0
+    true_error = 999.9
+
+    #fwhm = est_fwhm(wavelengths, values, central)
+
+    # use ONLY narrow fit
+    try:
+        parm, pcov = curve_fit(gaussian, wave_x, wave_counts, p0=(central, 1.0, 0),
+                               bounds=((central - fit_range, 0, -np.inf), (central + fit_range, np.inf, np.inf)))
+        fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
+        rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2])
+        true_error = rms(wave_counts, rms_wave)
+        sigma = pix_to_aa(parm[1])
+        amp = max(fit_wave)
+        #if fwhm is None:
+        #    fwhm = 2 * sigma
+
+        area = 2*sigma*amp
+
+    except:
+        log.error("Could not fit gaussian.")
+        return 0.0
+
+    if sigma < MAX_SIGMA:
+        snr = area/(np.sqrt(num_pix)*true_error)
+    else:
+        snr = 0.0
+
+    return snr
+
+
 def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
     #sbr signal to background ratio
     wave_step = 1 #pixels
-    wave_side = 8 #pixels
+    wave_side = 20 #pixels
 
     len_array = len(wavelengths)
 
@@ -91,6 +155,11 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
     #rms_wave = None
     #error = None
     fit_range = 1.0 #peak must fit to within +/- fit_range pixels
+    num_pix = len(wave_x)
+    area = 0.0
+    sigma = 0.0
+    error = 999.9
+    true_error = 999.9
 
     #use ONLY narrow fit
     try:
@@ -98,11 +167,24 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
                                 bounds=((central-fit_range, 0, -np.inf), (central+fit_range, np.inf, np.inf)))
          fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
          rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2])
-         error = rms(wave_counts, rms_wave)
+         error = rms(wave_counts, rms_wave) #e.g. normed such that the peak = 1.0
+         true_error = rms(wave_counts, rms_wave, norm=False)
+
+         sigma = pix_to_aa(parm[1])
+         amp = max(fit_wave)
+         area = 2 * amp * sigma
 
     except:
         log.error("Could not fit gaussian.")
         return 0.0
+
+
+    if sigma < MAX_SIGMA:
+        snr = area/(np.sqrt(num_pix)*true_error)
+    else:
+        snr = 0.0
+
+    print("SNR at %0.2f = %0.2f"%(central,snr))
 
     title = ""
 
@@ -213,10 +295,10 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
     if show_plot or DEBUG_SHOW_PLOTS:
         if error is None:
             error = -1
-        title += "Score = %0.2f (%0.1f), SBR = %0.2f (%0.1f)\n" \
+        title += "Score = %0.2f (%0.1f), SBR = %0.2f (%0.1f), SNR = %0.2f\n" \
                  "dX0 = %0.2f, RH = %0.2f, RMS = %f\n"\
                  "Sigma = %0.2f, Skew = %0.2f, Kurtosis = %0.2f"\
-                  % (score, signal_calc_scaled_score(score),sbr,signal_calc_scaled_score(sbr),
+                  % (score, signal_calc_scaled_score(score),sbr,signal_calc_scaled_score(sbr),snr,
                      dx0, rh, error, si, sk, ku)
 
         fig = plt.figure()
@@ -304,6 +386,28 @@ def signal_calc_scaled_score(raw):
     score = round(score,1)
 
     return score
+
+
+def est_ew_obs(fwhm=None,peak=None, wavelengths=None, values=None, central=None):
+
+    try:
+        if (wavelengths is not None) and (values is not None) and (central is not None):
+            fwhm =  est_fwhm(wavelengths,values,central)
+            if peak is None:
+                peak = values[getnearpos(wavelengths, central)]
+
+        if (fwhm is not None) and (peak is not None):
+            return pix_to_aa(fwhm)*peak
+        else:
+            return None
+    except:
+        log.error("Error in spectrum::est_ew",exc_info=True)
+        return None
+
+def est_ew_rest():
+    #need to know z
+    pass
+
 
 
 

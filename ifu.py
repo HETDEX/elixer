@@ -564,12 +564,8 @@ class IFU:
                         toks = line.split()
                         if int(line_id) == int(toks[0]): #we found the line we want
                             break
-
-
-
         except:
             log.error("Unable to parse voltron fiber file: %s" %file)
-
 
         return self.sum_fibers_from_voltron(line,version)
 
@@ -625,6 +621,8 @@ class IFU:
                         v = self.exposure(exp).fibers[self.get_absolute_fiber_index(amp, fib)].interp_spectra_counts
                         v = np.array(v)
                     else:
+                        #one run .. just the first fiber
+                        #pass
                         v += self.exposure(exp).fibers[self.get_absolute_fiber_index(amp, fib)].interp_spectra_counts
 
                     count_of_fibers += 1
@@ -637,11 +635,11 @@ class IFU:
                     log.warning(
                         "Fiber counts do not match. (expected %d , got %d)" % (number_of_fibers, count_of_fibers))
 
-                if count_of_fibers > 0:
-                    log.info("Summed %d fibers" % count_of_fibers)
-                    v = v / float(count_of_fibers)
+                if count_of_fibers < 1:
+                   v = []
                 else:
-                    v = []
+                    log.info("Summed %d fibers" % count_of_fibers)
+                    #v = v / float(count_of_fibers) #keep all, do not normalize to fibers
 
             except:
                 pass #we're done
