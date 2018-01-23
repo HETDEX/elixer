@@ -15,6 +15,10 @@ import fiber as voltron_fiber
 import hetdex_fits
 from astropy.io import fits as pyfits
 
+def getnearpos(array,value):
+    idx = (np.abs(array-value)).argmin()
+    return idx
+
 
 AMP = voltron_fiber.AMP
 AMP_OFFSET = voltron_fiber.AMP_OFFSET
@@ -446,6 +450,7 @@ class IFU:
         #want the fe_data (fiber extracted data)
         #maybe give voltron_fiber.fiber a HETDEX fits object to pull the data? or pull it here and feed it to fiber?
 
+        grid_size = 1.0 #AA per pixel (seems to be okay ... no real difference in flux (area under the spectra))
         for exp in self.exposures:
             del exp.fibers[:]
             exp.fibers = [None]*448  # list of all fibers [448]
@@ -465,12 +470,59 @@ class IFU:
 
                     #get the recorded data (counts and corresponding wavelengths)
                     fib.data_spectra_counts = fits.fe_data[i]
-                    fib.data_spectra_wavelengths =  fits.wave_data[i]
+                    fib.data_spectra_wavelengths = fits.wave_data[i]
 
                     #interpolate onto a fixed length, 1 Angstrom grid
-                    fib.interp_spectra_wavelengths = np.arange(MIN_WAVELENGTH,MAX_WAVELENGTH+1.0,1.0)
+                    fib.interp_spectra_wavelengths = np.arange(MIN_WAVELENGTH,MAX_WAVELENGTH+grid_size,grid_size)
                     fib.interp_spectra_counts = np.interp(fib.interp_spectra_wavelengths,fib.data_spectra_wavelengths,
                                                           fib.data_spectra_counts)
+
+
+                    #test: testing that interpolotion of 1 AA per pix prodcues the same area under the spectra
+                    #as the original raw data
+                    #
+                    #####################################
+                    #seems that any interpolation (even 2.0 or 1.9 vs 1.0 AA per pix) gives no difference
+                    #however, raw data vs interpolation (say at 1.0) is always a bit different, but usually around
+                    # 0.05% different and almost always less than 0.1% different. In the extremely few cases that are greater
+                    # than that (even up to 75% different, there is one (or a few?) maxed out pixel(s) that is causing
+                    # the problem
+                    ######################################
+                    #
+                    #print("***** Temporary Test ******")
+                    #
+                    ##temp ...testing interpolation
+                    # left = getnearpos(fib.data_spectra_wavelengths,MIN_WAVELENGTH)
+                    # right = getnearpos(fib.data_spectra_wavelengths,MAX_WAVELENGTH)
+                    # raw_counts = fib.data_spectra_counts[left:right+1]
+                    # raw_x = fib.data_spectra_wavelengths[left:right+1]
+                    #
+                    # mn = np.min(raw_counts)
+                    # if mn < 0:
+                    #     fib.data_spectra_counts += -1*mn
+                    # rc = np.trapz(raw_counts, raw_x)
+                    #
+                    # grid_size = 1.0  # AA per pixel
+                    # fib.interp_spectra_wavelengths = np.arange(MIN_WAVELENGTH, MAX_WAVELENGTH + grid_size, grid_size)
+                    # fib.interp_spectra_counts = np.interp(fib.interp_spectra_wavelengths, fib.data_spectra_wavelengths,
+                    #                                       fib.data_spectra_counts)
+                    # ic = np.trapz(fib.interp_spectra_counts,fib.interp_spectra_wavelengths)
+                    # #rd = abs( (rc-ic)/(0.5*(rc+ic)))
+                    # rd =  (rc-ic)/rc
+                    # if abs(rd) > 0:
+                    #     print("****** rc(%f), ic(%f), diff=%f" %(rc,ic,rd))
+                    # else:
+                    #     print("$$$$$$ same")
+                    #
+                    # if (abs(rd) < 0.001) and (abs(rd) > 0.0001):
+                    #     import matplotlib.pyplot as plt
+                    #     plt.close()
+                    #     plt.xlim((3495,5505))
+                    #     plt.plot(raw_x, raw_counts)
+                    #     plt.plot(fib.interp_spectra_wavelengths,fib.interp_spectra_counts,c='r',ls=":")
+                    #     plt.savefig("what.png")
+                    #     print("!!!!!! rc(%f), ic(%f), diff=%f" % (rc, ic, rd))
+
 
                     # remember panacea idx number backward so idx=0 is fiber #112, idx=1 is fiber #111 ... idx=336 = #448
                     # so, fill in accordingly
@@ -622,7 +674,7 @@ class IFU:
                         v = np.array(v)
                     else:
                         #one run .. just the first fiber
-                        #pass
+                        #print("***** ONE FIBER ONLY ******* ")
                         v += self.exposure(exp).fibers[self.get_absolute_fiber_index(amp, fib)].interp_spectra_counts
 
                     count_of_fibers += 1

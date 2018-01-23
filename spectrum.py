@@ -8,8 +8,9 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
 import io
-from scipy.stats import gmean
-from scipy import signal
+#from scipy.stats import gmean
+#from scipy import signal
+#from scipy.integrate import simps
 from scipy.stats import skew, kurtosis
 from scipy.optimize import curve_fit
 import copy
@@ -48,7 +49,16 @@ def gaussian(x,x0,sigma,a=1.0):
     return a*np.exp(-np.power((x - x0)/sigma, 2.)/2.) / np.sqrt(2*np.pi*sigma**2)
 
 
-def rms(data, fit,norm=True):
+def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
+    """
+
+    :param data: (raw) data
+    :param fit:  fitted data (on the same scale)
+    :param cw_pix: (nearest) pixel (index) of the central peak
+    :param hw_pix: half-width (in pixels from the cw_pix) overwhich to calculate rmse (i.e. cw_pix +/- hw_pix)
+    :param norm: T/F whether or not to divide by the peak of the raw data
+    :return:
+    """
     #sanity check
     if (data is None) or (fit is None) or (len(data) != len(fit)) or any(np.isnan(data)) or any(np.isnan(fit)):
         return None
@@ -63,7 +73,19 @@ def rms(data, fit,norm=True):
     d = np.array(data)/mx
     f = np.array(fit)/mx
 
-    return np.sqrt(((f - d) ** 2).mean())
+    if ((cw_pix is not None) and (hw_pix is not None)):
+        left = cw_pix - hw_pix
+        right = cw_pix + hw_pix
+
+        if (left < 0) or (right > len(data)):
+            log.error("Invalid range supplied for rms. Data len = %d. Central Idx = %d , Half-width= %d"
+                      % (len(data),cw_pix,hw_pix))
+            return None
+
+        d = d[cw_pix-hw_pix:cw_pix+hw_pix+1]
+        f = f[cw_pix-hw_pix:cw_pix+hw_pix+1]
+
+    return  np.sqrt(((f - d) ** 2).mean())
 
 
 def fit_gaussian(x,y):
@@ -80,8 +102,12 @@ def fit_gaussian(x,y):
 
 def est_snr(wavelengths,values,central): #,rms=None,fwhm=None,peak=None):
     #todo: what about a second, nearby peak? Will that mess up the +/- 20 AA
-    wave_step = 1  # pixels
-    wave_side = 10  # pixels
+    #assume fixed pixel size
+    pix_size = abs(wavelengths[1]-wavelengths[0]) #aa per pix
+    #want +/- 20 angstroms
+    wave_side = int(round(20.0 / pix_size)) # pixels
+    num_of_sigma = 3 #number of sigma to include on either side of the central peak to estimate noise
+    fit_range = 2.0  # peak must fit to within +/- fit_range pixels
 
     len_array = len(wavelengths)
 
@@ -95,37 +121,41 @@ def est_snr(wavelengths,values,central): #,rms=None,fwhm=None,peak=None):
     # wave_counts = np.clip(wave_counts,0.0,np.inf)
 
     xfit = np.linspace(wave_x[0], wave_x[-1], 100)
+    #xfit = wave_x
 
     fit_wave = None
-    # rms_wave = None
-    # error = None
-    fit_range = 2.0  # peak must fit to within +/- fit_range pixels
-    num_pix = len(wave_x)
+
+    num_pix = None
     area = 0.0
     sigma = 0.0
-    error = 999.9
+    error = None
 
     #fwhm = est_fwhm(wavelengths, values, central)
 
     # use ONLY narrow fit
     try:
+        #parm[0] = central point, parm[1] = sigma, parm[2] = area
         parm, pcov = curve_fit(gaussian, wave_x, wave_counts, p0=(central, 1.0, 0),
                                bounds=((central - fit_range, 0, -np.inf), (central + fit_range, np.inf, np.inf)))
         fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
-        rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2])
-        error = rms(wave_counts, rms_wave,norm=False)
-        sigma = pix_to_aa(parm[1])
-        amp = max(fit_wave)
-        #if fwhm is None:
-        #    fwhm = 2 * sigma
 
-        area = 2*sigma*amp
+        # putting the gaussian fit on the same scale (wave step size) as the data
+        rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2])
+        sigma = pix_to_aa(parm[1])
+       # amp = max(fit_wave)
+
+        #rms just under the part of the plot with signal (not the entire fit part) so, maybe just a few AA or pix
+        error = rms(wave_counts,rms_wave,cw_pix=getnearpos(wave_x,central),hw_pix=int(round(num_of_sigma*sigma)),norm=False)
+      #  area = num_of_sigma*sigma*amp
+        area = parm[2]
+
+        num_pix = int(round(num_of_sigma*sigma))*2+1  #3 sigma ~ 99.74%
 
     except:
         log.error("Could not fit gaussian.")
         return 0.0
 
-    if sigma < MAX_SIGMA:
+    if (error is not None) and (sigma < MAX_SIGMA):
         snr = area/(np.sqrt(num_pix)*error)
     else:
         snr = 0.0
@@ -135,8 +165,11 @@ def est_snr(wavelengths,values,central): #,rms=None,fwhm=None,peak=None):
 
 def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
     #sbr signal to background ratio
-    wave_step = 1 #pixels
-    wave_side = 10 #pixels
+    pix_size = abs(wavelengths[1] - wavelengths[0])  # aa per pix
+    # want +/- 20 angstroms
+    wave_side = int(round(20.0 / pix_size))  # pixels
+    fit_range = 2.0  # peak must fit to within +/- fit_range pixels
+    num_of_sigma = 3  # number of sigma to include on either side of the central peak to estimate noise
 
     len_array = len(wavelengths)
 
@@ -150,11 +183,11 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
     #wave_counts = np.clip(wave_counts,0.0,np.inf)
 
     xfit = np.linspace(wave_x[0], wave_x[-1], 100)
+    #xfit = wave_x
 
     fit_wave = None
     #rms_wave = None
     #error = None
-    fit_range = 1.0 #peak must fit to within +/- fit_range pixels
     num_pix = len(wave_x)
     area = 0.0
     sigma = 0.0
@@ -163,26 +196,36 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
 
     #use ONLY narrow fit
     try:
+        # parm[0] = central point, parm[1] = sigma, parm[2] = area
          parm, pcov = curve_fit(gaussian, wave_x, wave_counts, p0=(central,1.0,0),
                                 bounds=((central-fit_range, 0, -np.inf), (central+fit_range, np.inf, np.inf)))
          fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
          rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2])
-         error = rms(wave_counts, rms_wave) #e.g. normed such that the peak = 1.0
-         true_error = rms(wave_counts, rms_wave, norm=False)
+         #error = rms(wave_counts, rms_wave) #e.g. normed such that the peak = 1.0
+         #true_error = rms(wave_counts, rms_wave, norm=False)
 
-         sigma = pix_to_aa(parm[1])
-         amp = max(fit_wave)
-         area = 2 * amp * sigma
+         sigma = parm[1] #units of pixels
+         #amp = max(fit_wave)
+
+         # rms just under the part of the plot with signal (not the entire fit part) so, maybe just a few AA or pix
+         error = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, central), hw_pix=int(round(num_of_sigma * sigma)),
+                     norm=True)
+         true_error = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, central), hw_pix=int(round(num_of_sigma * sigma)),
+                     norm=False)
+         #area = 2 * sigma * amp
+         area = parm[2]
+         num_pix = int(round(num_of_sigma * sigma)) * 2 + 1
 
     except:
         log.error("Could not fit gaussian.")
         return 0.0
 
-
-    if sigma < MAX_SIGMA:
+    if (true_error is not None) and (sigma < MAX_SIGMA):
         snr = area/(np.sqrt(num_pix)*true_error)
     else:
         snr = 0.0
+        true_error = 999.9
+        error = 999.9
 
     print("SNR at %0.2f = %0.2f"%(central,snr))
 
@@ -296,10 +339,10 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
         if error is None:
             error = -1
         title += "Score = %0.2f (%0.1f), SBR = %0.2f (%0.1f), SNR = %0.2f\n" \
-                 "dX0 = %0.2f, RH = %0.2f, RMS = %f\n"\
+                 "dX0 = %0.2f, RH = %0.2f, RMS = %0.2f (%0.2f) \n"\
                  "Sigma = %0.2f, Skew = %0.2f, Kurtosis = %0.2f"\
                   % (score, signal_calc_scaled_score(score),sbr,signal_calc_scaled_score(sbr),snr,
-                     dx0, rh, error, si, sk, ku)
+                     dx0, rh, error,true_error, si, sk, ku)
 
         fig = plt.figure()
         gauss_plot = plt.axes()
