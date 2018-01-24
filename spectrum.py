@@ -19,13 +19,13 @@ import copy
 log = G.logging.getLogger('spectrum_logger')
 log.setLevel(G.logging.DEBUG)
 
-MIN_FWHM = 5
+MIN_FWHM = 5 #AA (must xlat to pixels)
 MIN_HEIGHT = 10
 MIN_DELTA_HEIGHT = 2 #to be a peak, must be at least this high above next adjacent point to the left
 DEFAULT_BACKGROUND = 6.0
 DEFAULT_BACKGROUND_WIDTH = 100.0 #pixels
 DEFAULT_MIN_WIDTH_FROM_CENTER_FOR_BACKGROUND = 10.0 #pixels
-MAX_SIGMA = 5.0 #maximum width (pixels) for fit gaussian to signal (greater than this, is really not a fit)
+MAX_SIGMA = 10.0 #maximum width (pixels) for fit gaussian to signal (greater than this, is really not a fit)
 DEBUG_SHOW_PLOTS = True
 
 #!!!!!!!!!! Note. all widths (like dw, xw, etc are in pixel space, so if we are not using
@@ -85,7 +85,7 @@ def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
         d = d[cw_pix-hw_pix:cw_pix+hw_pix+1]
         f = f[cw_pix-hw_pix:cw_pix+hw_pix+1]
 
-    return  np.sqrt(((f - d) ** 2).mean())
+    return np.sqrt(((f - d) ** 2).mean())
 
 
 def fit_gaussian(x,y):
@@ -107,7 +107,7 @@ def est_snr(wavelengths,values,central): #,rms=None,fwhm=None,peak=None):
     #want +/- 20 angstroms
     wave_side = int(round(20.0 / pix_size)) # pixels
     num_of_sigma = 3 #number of sigma to include on either side of the central peak to estimate noise
-    fit_range = 2.0  # peak must fit to within +/- fit_range pixels
+    fit_range_AA = 1.0  # peak must fit to within +/- fit_range in angstroms (not PIX)
 
     len_array = len(wavelengths)
 
@@ -116,6 +116,11 @@ def est_snr(wavelengths,values,central): #,rms=None,fwhm=None,peak=None):
     max_idx = min(len_array, idx + wave_side)
     wave_x = wavelengths[min_idx:max_idx + 1]
     wave_counts = values[min_idx:max_idx + 1]
+
+    min_idx = max(0, idx - wave_side/2)
+    max_idx = min(len_array, idx + wave_side/2)
+    narrow_wave_x = wavelengths[min_idx:max_idx+1]
+    narrow_wave_counts = values[min_idx:max_idx + 1]
 
     # blunt very negative values
     # wave_counts = np.clip(wave_counts,0.0,np.inf)
@@ -135,21 +140,19 @@ def est_snr(wavelengths,values,central): #,rms=None,fwhm=None,peak=None):
     # use ONLY narrow fit
     try:
         #parm[0] = central point, parm[1] = sigma, parm[2] = area
-        parm, pcov = curve_fit(gaussian, wave_x, wave_counts, p0=(central, 1.0, 0),
-                               bounds=((central - fit_range, 0, -np.inf), (central + fit_range, np.inf, np.inf)))
+        parm, pcov = curve_fit(gaussian, narrow_wave_x, narrow_wave_counts, p0=(central, 1.0, 0),
+                               bounds=((central - fit_range_AA, 0, -np.inf), (central + fit_range_AA, np.inf, np.inf)))
         fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
 
         # putting the gaussian fit on the same scale (wave step size) as the data
         rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2])
-        sigma = pix_to_aa(parm[1])
-       # amp = max(fit_wave)
+        sigma = parm[1]  #this is in AA
+        num_pix = int(round(num_of_sigma * sigma / pix_size)) * 2 + 1
 
-        #rms just under the part of the plot with signal (not the entire fit part) so, maybe just a few AA or pix
-        error = rms(wave_counts,rms_wave,cw_pix=getnearpos(wave_x,central),hw_pix=int(round(num_of_sigma*sigma)),norm=False)
-      #  area = num_of_sigma*sigma*amp
+        # rms just under the part of the plot with signal (not the entire fit part) so, maybe just a few AA or pix
+        error = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, central), hw_pix=(num_pix - 1) / 2,
+                    norm=False)
         area = parm[2]
-
-        num_pix = int(round(num_of_sigma*sigma))*2+1  #3 sigma ~ 99.74%
 
     except:
         log.error("Could not fit gaussian.")
@@ -163,12 +166,13 @@ def est_snr(wavelengths,values,central): #,rms=None,fwhm=None,peak=None):
     return snr
 
 
+#todo: !!!!!!!!!!!!!! need to update for sigma in AA not pixels and various calculations below
 def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
     #sbr signal to background ratio
     pix_size = abs(wavelengths[1] - wavelengths[0])  # aa per pix
     # want +/- 20 angstroms
     wave_side = int(round(20.0 / pix_size))  # pixels
-    fit_range = 2.0  # peak must fit to within +/- fit_range pixels
+    fit_range_AA = 1.0  # peak must fit to within +/- fit_range AA
     num_of_sigma = 3  # number of sigma to include on either side of the central peak to estimate noise
 
     len_array = len(wavelengths)
@@ -178,6 +182,11 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
     max_idx = min(len_array,idx+wave_side)
     wave_x = wavelengths[min_idx:max_idx+1]
     wave_counts = values[min_idx:max_idx+1]
+
+    min_idx = max(0, idx - wave_side/2)
+    max_idx = min(len_array, idx + wave_side/2)
+    narrow_wave_x = wavelengths[min_idx:max_idx+1]
+    narrow_wave_counts = values[min_idx:max_idx + 1]
 
     #blunt very negative values
     #wave_counts = np.clip(wave_counts,0.0,np.inf)
@@ -197,24 +206,25 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
     #use ONLY narrow fit
     try:
         # parm[0] = central point, parm[1] = sigma, parm[2] = area
-         parm, pcov = curve_fit(gaussian, wave_x, wave_counts, p0=(central,1.0,0),
-                                bounds=((central-fit_range, 0, -np.inf), (central+fit_range, np.inf, np.inf)))
+        #get the gaussian for the more central part, but use that to get noise from wider range
+         parm, pcov = curve_fit(gaussian, narrow_wave_x, narrow_wave_counts, p0=(central,1.0,0),
+                                bounds=((central-fit_range_AA, 0, -np.inf), (central+fit_range_AA, np.inf, np.inf)))
          fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
          rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2])
          #error = rms(wave_counts, rms_wave) #e.g. normed such that the peak = 1.0
          #true_error = rms(wave_counts, rms_wave, norm=False)
 
-         sigma = parm[1] #units of pixels
+         sigma = parm[1] #units of AA not pixels
+         num_pix = int(round(num_of_sigma * sigma / pix_size)) * 2 + 1
          #amp = max(fit_wave)
 
          # rms just under the part of the plot with signal (not the entire fit part) so, maybe just a few AA or pix
-         error = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, central), hw_pix=int(round(num_of_sigma * sigma)),
+         error = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, central), hw_pix=(num_pix-1)/2,
                      norm=True)
-         true_error = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, central), hw_pix=int(round(num_of_sigma * sigma)),
+         true_error = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, central), hw_pix=(num_pix-1)/2,
                      norm=False)
          #area = 2 * sigma * amp
          area = parm[2]
-         num_pix = int(round(num_of_sigma * sigma)) * 2 + 1
 
     except:
         log.error("Could not fit gaussian.")
@@ -727,6 +737,12 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
     emistab = []
     delta = dh
 
+    pix_size = abs(x[1] - x[0])  # aa per pix
+    # want +/- 20 angstroms
+    wave_side = int(round(20.0 / pix_size))  # pixels
+
+    dw = int(dw / pix_size) #want round down (i.e. 2.9 -> 2) so this is fine
+
     if x is None:
         x = np.arange(len(v))
 
@@ -838,7 +854,8 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
         centroid_pos = sum_pos_val / sum_val #centroid is an index
 
         #what is the average value in the vacinity of the peak (exlcuding the area under the peak)
-        side_pix = max(20,pix_width)
+        #should be 20 AA not 20 pix
+        side_pix = max(wave_side,pix_width)
         left = max(0,(pi - pix_width)-side_pix)
         sub_left = v[left:(pi - pix_width)]
    #     gm_left = np.mean(v[left:(pi - pix_width)])

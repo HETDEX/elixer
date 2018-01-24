@@ -450,7 +450,7 @@ class IFU:
         #want the fe_data (fiber extracted data)
         #maybe give voltron_fiber.fiber a HETDEX fits object to pull the data? or pull it here and feed it to fiber?
 
-        grid_size = 1.0 #AA per pixel (seems to be okay ... no real difference in flux (area under the spectra))
+        grid_size = 2.0 #AA per pixel (seems to be okay ... no real difference in flux (area under the spectra))
         for exp in self.exposures:
             del exp.fibers[:]
             exp.fibers = [None]*448  # list of all fibers [448]
