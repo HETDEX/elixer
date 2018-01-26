@@ -28,8 +28,33 @@ DEFAULT_MIN_WIDTH_FROM_CENTER_FOR_BACKGROUND = 10.0 #pixels
 MAX_SIGMA = 10.0 #maximum width (pixels) for fit gaussian to signal (greater than this, is really not a fit)
 DEBUG_SHOW_PLOTS = True
 
+
+FLUX_CONVERSION_measured_w = [3000., 3500., 3540., 3640., 3740., 3840., 3940., 4040., 4140., 4240., 4340., 4440., 4540., 4640., 4740., 4840.,
+     4940., 5040., 5140.,
+     5240., 5340., 5440., 5500., 6000.]
+FLUX_CONVERSION_measured_f = [1.12687e-18, 1.12687e-18, 9.05871e-19, 6.06978e-19, 4.78406e-19, 4.14478e-19, 3.461e-19, 2.77439e-19, 2.50407e-19,
+     2.41462e-19, 2.24238e-19, 2.0274e-19, 1.93557e-19, 1.82048e-19, 1.81218e-19, 1.8103e-19, 1.81251e-19,
+     1.80744e-19, 1.85613e-19, 1.78978e-19, 1.82547e-19, 1.85056e-19, 2.00788e-19, 2.00788e-19]
+
+FLUX_CONVERSION_w_grid = np.arange(3000.0, 6000.0, 1.0)
+FLUX_CONVERSION_f_grid = np.interp(FLUX_CONVERSION_w_grid, FLUX_CONVERSION_measured_w, FLUX_CONVERSION_measured_f)
+
+FLUX_CONVERSION_DICT = dict(zip(FLUX_CONVERSION_w_grid,FLUX_CONVERSION_f_grid))
+
 #!!!!!!!!!! Note. all widths (like dw, xw, etc are in pixel space, so if we are not using
 #!!!!!!!!!!       1 pixel = 1 Angstrom, be sure to adjust
+
+
+def flux_conversion(w): #electrons to ergs at wavelenght w
+    if w is None:
+        return 0.0
+    w = round(w)
+
+    if w in FLUX_CONVERSION_DICT.keys():
+        return FLUX_CONVERSION_DICT[w]
+    else:
+        log.error("ERROR! Unable to find FLUX CONVERSION entry for %f" %w)
+        return 0.0
 
 
 def pix_to_aa(pix):
@@ -42,11 +67,12 @@ def getnearpos(array,value):
     return idx
 
 
-def gaussian(x,x0,sigma,a=1.0):
+def gaussian(x,x0,sigma,a=1.0,y=0.0):
     if (x is None) or (x0 is None) or (sigma is None):
         return None
     #return a * np.exp(-np.power((x - x0) / sigma, 2.) / 2.)
-    return a*np.exp(-np.power((x - x0)/sigma, 2.)/2.) / np.sqrt(2*np.pi*sigma**2)
+    return a*(np.exp(-np.power((x - x0)/sigma, 2.)/2.) / np.sqrt(2*np.pi*sigma**2)) + y
+    #return (np.exp(-np.power((x - x0)/sigma, 2.)/2.) / np.sqrt(2*np.pi*sigma**2) + y)
 
 
 def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
@@ -100,11 +126,13 @@ def fit_gaussian(x,y):
 
     return yfit,parm,pcov
 
+#todo: !!!!! definitely add a penality for not catching the peak (maybe within 10% or 20% at most?)
+#maybe even zero it out if miss more than 25%?
 def est_snr(wavelengths,values,central): #,rms=None,fwhm=None,peak=None):
     #todo: what about a second, nearby peak? Will that mess up the +/- 20 AA
     #assume fixed pixel size
     pix_size = abs(wavelengths[1]-wavelengths[0]) #aa per pix
-    #want +/- 20 angstroms
+    #want +/- 20 angstroms in pixel units
     wave_side = int(round(20.0 / pix_size)) # pixels
     num_of_sigma = 3 #number of sigma to include on either side of the central peak to estimate noise
     fit_range_AA = 1.0  # peak must fit to within +/- fit_range in angstroms (not PIX)
@@ -122,6 +150,8 @@ def est_snr(wavelengths,values,central): #,rms=None,fwhm=None,peak=None):
     narrow_wave_x = wavelengths[min_idx:max_idx+1]
     narrow_wave_counts = values[min_idx:max_idx + 1]
 
+
+
     # blunt very negative values
     # wave_counts = np.clip(wave_counts,0.0,np.inf)
 
@@ -134,6 +164,8 @@ def est_snr(wavelengths,values,central): #,rms=None,fwhm=None,peak=None):
     area = 0.0
     sigma = 0.0
     error = None
+    raw_peak = values[getnearpos(wavelengths,central)]
+    fit_peak = 0.0
 
     #fwhm = est_fwhm(wavelengths, values, central)
 
@@ -154,6 +186,27 @@ def est_snr(wavelengths,values,central): #,rms=None,fwhm=None,peak=None):
                     norm=False)
         area = parm[2]
 
+        fit_peak = max(fit_wave)
+
+        if (abs(raw_peak-fit_peak)/raw_peak > 0.2):#didn;t capture the peak ... bad
+            log.warning("Failed to capture peak")
+            error = None #so we skip out ... call this a non-fit, so there is no signal here
+            print("Failed to capture peak: raw = %f , fit = %f, frac = %0.2f" %(raw_peak,fit_peak,
+                                                                                abs(raw_peak-fit_peak)/raw_peak ))
+        else:
+            print("Success: captured peak: raw = %f , fit = %f, frac = %0.2f" % (raw_peak, fit_peak,
+                                                                                 abs(
+                                                                                     raw_peak - fit_peak) / raw_peak ))
+
+
+        #should this be just from the brightest fiber???
+        total_flux = area * flux_conversion(central)  # cgs units
+        fit_cont_est = 0.5 * (fit_wave[getnearpos(xfit,central-3*sigma)] + fit_wave[getnearpos(xfit,central+3*sigma)]) \
+                        * flux_conversion(central)
+        raw_cont_est = 0.5 * (values[getnearpos(wavelengths,central-3*sigma)] + \
+                              values[getnearpos(wavelengths,central+3*sigma)]) * \
+                              flux_conversion(central)
+
     except:
         log.error("Could not fit gaussian.")
         return 0.0
@@ -168,9 +221,10 @@ def est_snr(wavelengths,values,central): #,rms=None,fwhm=None,peak=None):
 
 #todo: !!!!!!!!!!!!!! need to update for sigma in AA not pixels and various calculations below
 def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
+
     #sbr signal to background ratio
     pix_size = abs(wavelengths[1] - wavelengths[0])  # aa per pix
-    # want +/- 20 angstroms
+    # want +/- 20 angstroms in pixel units
     wave_side = int(round(20.0 / pix_size))  # pixels
     fit_range_AA = 1.0  # peak must fit to within +/- fit_range AA
     num_of_sigma = 3  # number of sigma to include on either side of the central peak to estimate noise
@@ -183,8 +237,8 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
     wave_x = wavelengths[min_idx:max_idx+1]
     wave_counts = values[min_idx:max_idx+1]
 
-    min_idx = max(0, idx - wave_side/2)
-    max_idx = min(len_array, idx + wave_side/2)
+    #min_idx = max(0, idx - wave_side/2)
+    #max_idx = min(len_array, idx + wave_side/2)
     narrow_wave_x = wavelengths[min_idx:max_idx+1]
     narrow_wave_counts = values[min_idx:max_idx + 1]
 
@@ -203,31 +257,82 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
     error = 999.9
     true_error = 999.9
 
+    eqwidth = 0.0
+    total_flux = 0.0
+    est_cont = 0.0
+    y_offset = 0.0
+
+    raw_peak = values[getnearpos(wavelengths, central)]
+    fit_peak = 0.0
+
     #use ONLY narrow fit
     try:
-        # parm[0] = central point, parm[1] = sigma, parm[2] = area
-        #get the gaussian for the more central part, but use that to get noise from wider range
-         parm, pcov = curve_fit(gaussian, narrow_wave_x, narrow_wave_counts, p0=(central,1.0,0),
-                                bounds=((central-fit_range_AA, 0, -np.inf), (central+fit_range_AA, np.inf, np.inf)))
-         fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
-         rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2])
-         #error = rms(wave_counts, rms_wave) #e.g. normed such that the peak = 1.0
-         #true_error = rms(wave_counts, rms_wave, norm=False)
 
-         sigma = parm[1] #units of AA not pixels
-         num_pix = int(round(num_of_sigma * sigma / pix_size)) * 2 + 1
-         #amp = max(fit_wave)
+        # parm[0] = central point (x in the call), parm[1] = sigma, parm[2] = 'a' multiplier (happens to also be area)
+        # parm[3] = y offset (e.g. the "continuum" level)
+        #get the gaussian for the more central part, but use that to get noise from wider range
+        if True:
+            parm, pcov = curve_fit(gaussian, narrow_wave_x, narrow_wave_counts,
+                                p0=(central,1.0,1.0,0.0),
+                                bounds=( (central-fit_range_AA, 0.5, 1.0, 0.0),
+                                         (central+fit_range_AA, np.inf, np.inf, np.mean(narrow_wave_counts))
+                                       ),
+                               method='dogbox'
+                               )
+
+        else:
+            parm, pcov = curve_fit(gaussian, narrow_wave_x, narrow_wave_counts,
+                               p0=(central, 1.0, 1.0),
+                               bounds=((central - fit_range_AA, 0.5, 1.0),
+                                       (central + fit_range_AA, np.inf, np.inf)
+                                       )
+                               )
+
+        fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
+        rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2])
+
+        sigma = parm[1] #units of AA not pixels
+
+        fit_peak = max(fit_wave)
+
+        if (abs(raw_peak - fit_peak) / raw_peak > 0.2):  # didn't capture the peak ... bad
+            log.warning("Failed to capture peak")
+            error = None  # so we skip out ... call this a non-fit, so there is no signal here
+            print("Failed to capture peak: raw = %f , fit = %f, frac = %0.2f" % (raw_peak, fit_peak,
+                                                                                 abs(raw_peak - fit_peak) / raw_peak))
+        else:
+            print("Success: captured peak: raw = %f , fit = %f, frac = %0.2f" % (raw_peak, fit_peak,
+                                                                                 abs(
+                                                                                     raw_peak - fit_peak) / raw_peak))
+
+        num_pix = int(round(num_of_sigma * sigma / pix_size)) * 2 + 1
 
          # rms just under the part of the plot with signal (not the entire fit part) so, maybe just a few AA or pix
-         error = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, central), hw_pix=(num_pix-1)/2,
+        error = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, central), hw_pix=(num_pix-1)/2,
                      norm=True)
-         true_error = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, central), hw_pix=(num_pix-1)/2,
+        true_error = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, central), hw_pix=(num_pix-1)/2,
                      norm=False)
-         #area = 2 * sigma * amp
-         area = parm[2]
+
+        area = parm[2]
+        if len(parm > 3):
+            y_offset = parm[3]
+        else:
+            y_offset = 0.0
+
+        # should this be just from the brightest fiber???
+        total_flux = area * flux_conversion(central)  # cgs units
+        est_cont = y_offset * flux_conversion(central)
+        eqwidth = total_flux/est_cont
+        fit_cont_est = 0.5 * (fit_wave[getnearpos(xfit, central - 3 * sigma)] + \
+                              fit_wave[getnearpos(xfit, central + 3 * sigma)]) *\
+                              flux_conversion(central)
+        raw_cont_est = 0.5 * (values[getnearpos(wavelengths, central - 3 * sigma)] + \
+                              values[getnearpos(wavelengths, central + 3 * sigma)]) * \
+                                flux_conversion(central)
+        # cont_flux_est =
 
     except:
-        log.error("Could not fit gaussian.")
+        log.error("Could not fit gaussian.",exc_info=True)
         return 0.0
 
     if (true_error is not None) and (sigma < MAX_SIGMA):

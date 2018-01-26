@@ -90,7 +90,7 @@ FLUX_CONVERSION_f_grid = np.interp(FLUX_CONVERSION_w_grid, FLUX_CONVERSION_measu
 
 FLUX_CONVERSION_DICT = dict(zip(FLUX_CONVERSION_w_grid,FLUX_CONVERSION_f_grid))
 
-def flux_conversion(w): #electrons to ergs at wavelenght w
+def flux_conversion(w): #electrons to ergs at wavelength w
     if w is None:
         return 0.0
     w = round(w)

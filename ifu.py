@@ -25,6 +25,7 @@ AMP_OFFSET = voltron_fiber.AMP_OFFSET
 
 MIN_WAVELENGTH = 3500.0
 MAX_WAVELENGTH = 5500.0
+INTERPOLATION_AA_PER_PIX = 2.0
 
 log = G.logging.getLogger('ifu_logger')
 log.setLevel(G.logging.DEBUG)
@@ -445,12 +446,12 @@ class IFU:
                 return False
 
 
-    def build_fibers(self):
+    def build_fibers(self,grid_size=INTERPOLATION_AA_PER_PIX):
 
         #want the fe_data (fiber extracted data)
         #maybe give voltron_fiber.fiber a HETDEX fits object to pull the data? or pull it here and feed it to fiber?
 
-        grid_size = 2.0 #AA per pixel (seems to be okay ... no real difference in flux (area under the spectra))
+        #grid_size = 2.0 #AA per pixel (seems to be okay ... no real difference in flux (area under the spectra))
         for exp in self.exposures:
             del exp.fibers[:]
             exp.fibers = [None]*448  # list of all fibers [448]
