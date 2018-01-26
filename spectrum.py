@@ -71,8 +71,11 @@ def gaussian(x,x0,sigma,a=1.0,y=0.0):
     if (x is None) or (x0 is None) or (sigma is None):
         return None
     #return a * np.exp(-np.power((x - x0) / sigma, 2.) / 2.)
-    return a*(np.exp(-np.power((x - x0)/sigma, 2.)/2.) / np.sqrt(2*np.pi*sigma**2)) + y
-    #return (np.exp(-np.power((x - x0)/sigma, 2.)/2.) / np.sqrt(2*np.pi*sigma**2) + y)
+    #return a * (np.exp(-np.power((x - x0) / sigma, 2.) / 2.))  + y
+
+    #have the / np.sqrt(...) part so the basic shape is normalized to 1 ... that way the 'a' becomes the area
+    return a * (np.exp(-np.power((x - x0) / sigma, 2.) / 2.) / np.sqrt(2 * np.pi * sigma ** 2)) + y
+
 
 
 def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
@@ -219,6 +222,55 @@ def est_snr(wavelengths,values,central): #,rms=None,fwhm=None,peak=None):
     return snr
 
 
+
+class EmissionLineInfo:
+    """
+    mostly a container, could have pretty well just used a dictionary
+    """
+    def __init__(self):
+
+        self.fit_a = None
+        self.fit_x0 = None
+        self.fit_sigma = 0.0
+        self.fit_y = None
+        self.fit_rmse = None
+        self.fit_norm_rmse = None
+
+        self.fit_wave = []
+        self.fit_vals = []
+
+        self.pix_size = None
+        self.raw_wave = []
+        self.raw_vals = []
+
+        self.total_flux = None
+        self.cont = None
+
+        self.snr = None
+        self.eqw = None
+        self.cont = None
+        self.fwhm = None
+        self.score = None
+
+    def build(self):
+        if self.fit_sigma is not None:
+            self.fwhm = 2.355 * self.fit_sigma  # e.g. 2*sqrt(2*ln(2))* sigma
+
+        if self.fit_x0 is not None:
+            if self.fit_a is not None:
+                self.total_flux = self.fit_a * flux_conversion(self.fit_x0)  # cgs units
+            if (self.fit_y is not None) and (self.fit_y > G.CONTINUUM_FLOOR_COUNTS):
+                self.cont = self.fit_y * flux_conversion(self.fit_x0)
+            else:
+                self.cont = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(self.fit_x0)
+
+
+        if self.total_flux and self.cont:
+            self.eqw = self.total_flux / self.cont
+
+
+
+
 #todo: !!!!!!!!!!!!!! need to update for sigma in AA not pixels and various calculations below
 def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
 
@@ -237,33 +289,24 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
     wave_x = wavelengths[min_idx:max_idx+1]
     wave_counts = values[min_idx:max_idx+1]
 
-    #min_idx = max(0, idx - wave_side/2)
-    #max_idx = min(len_array, idx + wave_side/2)
-    narrow_wave_x = wavelengths[min_idx:max_idx+1]
-    narrow_wave_counts = values[min_idx:max_idx + 1]
+    if False: #do I want to use a more narrow range for the gaussian fit? still uses the wider range for RMSE
+        min_idx = max(0, idx - wave_side/2)
+        max_idx = min(len_array, idx + wave_side/2)
+        narrow_wave_x = wavelengths[min_idx:max_idx+1]
+        narrow_wave_counts = values[min_idx:max_idx + 1]
+    else:
+        narrow_wave_x = wave_x
+        narrow_wave_counts = wave_counts
 
     #blunt very negative values
     #wave_counts = np.clip(wave_counts,0.0,np.inf)
 
-    xfit = np.linspace(wave_x[0], wave_x[-1], 100)
-    #xfit = wave_x
-
-    fit_wave = None
-    #rms_wave = None
-    #error = None
-    num_pix = len(wave_x)
-    area = 0.0
-    sigma = 0.0
-    error = 999.9
-    true_error = 999.9
-
-    eqwidth = 0.0
-    total_flux = 0.0
-    est_cont = 0.0
-    y_offset = 0.0
-
+    xfit = np.linspace(wave_x[0], wave_x[-1], 100) #range over which to plot the gaussian equation
     raw_peak = values[getnearpos(wavelengths, central)]
-    fit_peak = 0.0
+    fit_peak = None
+
+    eli = EmissionLineInfo()
+    eli.pix_size = pix_size
 
     #use ONLY narrow fit
     try:
@@ -271,29 +314,25 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
         # parm[0] = central point (x in the call), parm[1] = sigma, parm[2] = 'a' multiplier (happens to also be area)
         # parm[3] = y offset (e.g. the "continuum" level)
         #get the gaussian for the more central part, but use that to get noise from wider range
-        if True:
-            parm, pcov = curve_fit(gaussian, narrow_wave_x, narrow_wave_counts,
+        parm, pcov = curve_fit(gaussian, narrow_wave_x, narrow_wave_counts,
                                 p0=(central,1.0,1.0,0.0),
-                                bounds=( (central-fit_range_AA, 0.5, 1.0, 0.0),
-                                         (central+fit_range_AA, np.inf, np.inf, np.mean(narrow_wave_counts))
-                                       ),
-                               method='dogbox'
-                               )
+                                bounds=( (central-fit_range_AA, 0.5, 1.0, -100.0),
+                                         (central+fit_range_AA, np.inf, np.inf, np.mean(narrow_wave_counts))))
 
-        else:
-            parm, pcov = curve_fit(gaussian, narrow_wave_x, narrow_wave_counts,
-                               p0=(central, 1.0, 1.0),
-                               bounds=((central - fit_range_AA, 0.5, 1.0),
-                                       (central + fit_range_AA, np.inf, np.inf)
-                                       )
-                               )
+        eli.fit_vals = gaussian(xfit, parm[0], parm[1], parm[2], parm[3])
+        eli.fit_wave = xfit.copy()
 
-        fit_wave = gaussian(xfit, parm[0], parm[1], parm[2])
-        rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2])
+        #matches up with the raw data scale so can do RMSE
+        rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2], parm[3])
 
-        sigma = parm[1] #units of AA not pixels
+        eli.fit_x0 = parm[0]
+        eli.fit_sigma = parm[1] #units of AA not pixels
+        eli.fit_a = parm[2]
+        eli.fit_y = parm[3]
 
-        fit_peak = max(fit_wave)
+        eli.build()
+
+        fit_peak = max(eli.fit_vals)
 
         if (abs(raw_peak - fit_peak) / raw_peak > 0.2):  # didn't capture the peak ... bad
             log.warning("Failed to capture peak")
@@ -305,42 +344,24 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
                                                                                  abs(
                                                                                      raw_peak - fit_peak) / raw_peak))
 
-        num_pix = int(round(num_of_sigma * sigma / pix_size)) * 2 + 1
+        num_pix = int(round(num_of_sigma * eli.fit_sigma / pix_size)) * 2 + 1
 
          # rms just under the part of the plot with signal (not the entire fit part) so, maybe just a few AA or pix
-        error = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, central), hw_pix=(num_pix-1)/2,
+        eli.fit_norm_rmse = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, central), hw_pix=(num_pix-1)/2,
                      norm=True)
-        true_error = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, central), hw_pix=(num_pix-1)/2,
+        eli.fit_rmse = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, central), hw_pix=(num_pix-1)/2,
                      norm=False)
-
-        area = parm[2]
-        if len(parm > 3):
-            y_offset = parm[3]
-        else:
-            y_offset = 0.0
-
-        # should this be just from the brightest fiber???
-        total_flux = area * flux_conversion(central)  # cgs units
-        est_cont = y_offset * flux_conversion(central)
-        eqwidth = total_flux/est_cont
-        fit_cont_est = 0.5 * (fit_wave[getnearpos(xfit, central - 3 * sigma)] + \
-                              fit_wave[getnearpos(xfit, central + 3 * sigma)]) *\
-                              flux_conversion(central)
-        raw_cont_est = 0.5 * (values[getnearpos(wavelengths, central - 3 * sigma)] + \
-                              values[getnearpos(wavelengths, central + 3 * sigma)]) * \
-                                flux_conversion(central)
-        # cont_flux_est =
 
     except:
         log.error("Could not fit gaussian.",exc_info=True)
-        return 0.0
+        return None
 
-    if (true_error is not None) and (sigma < MAX_SIGMA):
-        snr = area/(np.sqrt(num_pix)*true_error)
+    if (eli.fit_rmse is not None) and (eli.fit_sigma < MAX_SIGMA):
+        eli.snr = eli.fit_a/(np.sqrt(num_pix)*eli.fit_rmse)
+        #eli.snr = max(eli.fit_vals) / (np.sqrt(num_pix) * eli.fit_rmse)
+        snr = eli.snr
     else:
         snr = 0.0
-        true_error = 999.9
-        error = 999.9
 
     print("SNR at %0.2f = %0.2f"%(central,snr))
 
@@ -360,6 +381,9 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
     dx0 = -999
     rh = -999
     mx_norm = max(wave_counts)/100.0
+
+    fit_wave = eli.fit_vals
+    error = eli.fit_norm_rmse
 
     #fit around designated emis line
     if (fit_wave is not None):
@@ -457,7 +481,7 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
                  "dX0 = %0.2f, RH = %0.2f, RMS = %0.2f (%0.2f) \n"\
                  "Sigma = %0.2f, Skew = %0.2f, Kurtosis = %0.2f"\
                   % (score, signal_calc_scaled_score(score),sbr,signal_calc_scaled_score(sbr),snr,
-                     dx0, rh, error,true_error, si, sk, ku)
+                     dx0, rh, error,eli.fit_rmse, si, sk, ku)
 
         fig = plt.figure()
         gauss_plot = plt.axes()
