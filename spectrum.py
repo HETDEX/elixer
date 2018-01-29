@@ -90,12 +90,12 @@ def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
     """
     #sanity check
     if (data is None) or (fit is None) or (len(data) != len(fit)) or any(np.isnan(data)) or any(np.isnan(fit)):
-        return None
+        return -999
 
     if norm:
         mx = max(data)
         if mx < 0:
-            return None
+            return -999
     else:
         mx = 1.0
 
@@ -109,7 +109,7 @@ def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
         if (left < 0) or (right > len(data)):
             log.error("Invalid range supplied for rms. Data len = %d. Central Idx = %d , Half-width= %d"
                       % (len(data),cw_pix,hw_pix))
-            return None
+            return -999
 
         d = d[cw_pix-hw_pix:cw_pix+hw_pix+1]
         f = f[cw_pix-hw_pix:cw_pix+hw_pix+1]
@@ -194,12 +194,11 @@ def est_snr(wavelengths,values,central): #,rms=None,fwhm=None,peak=None):
         if (abs(raw_peak-fit_peak)/raw_peak > 0.2):#didn;t capture the peak ... bad
             log.warning("Failed to capture peak")
             error = None #so we skip out ... call this a non-fit, so there is no signal here
-            print("Failed to capture peak: raw = %f , fit = %f, frac = %0.2f" %(raw_peak,fit_peak,
+            log.debug("Failed to capture peak: raw = %f , fit = %f, frac = %0.2f" %(raw_peak,fit_peak,
                                                                                 abs(raw_peak-fit_peak)/raw_peak ))
         else:
-            print("Success: captured peak: raw = %f , fit = %f, frac = %0.2f" % (raw_peak, fit_peak,
-                                                                                 abs(
-                                                                                     raw_peak - fit_peak) / raw_peak ))
+            log.debug("Success: captured peak: raw = %f , fit = %f, frac = %0.2f"
+                      % (raw_peak, fit_peak, abs(raw_peak - fit_peak) / raw_peak ))
 
 
         #should this be just from the brightest fiber???
@@ -233,8 +232,8 @@ class EmissionLineInfo:
         self.fit_x0 = None
         self.fit_sigma = 0.0
         self.fit_y = None
-        self.fit_rmse = None
-        self.fit_norm_rmse = None
+        self.fit_rmse = -999
+        self.fit_norm_rmse = -999
 
         self.fit_wave = []
         self.fit_vals = []
@@ -243,14 +242,15 @@ class EmissionLineInfo:
         self.raw_wave = []
         self.raw_vals = []
 
-        self.total_flux = None
-        self.cont = None
+        self.total_flux = -999
+        self.cont = -999
 
-        self.snr = None
-        self.eqw = None
+        self.snr = 0.0
+        self.eqw = -999
         self.cont = None
         self.fwhm = None
         self.score = None
+        self.raw_score = None
 
     def build(self):
         if self.fit_sigma is not None:
@@ -278,7 +278,7 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
     pix_size = abs(wavelengths[1] - wavelengths[0])  # aa per pix
     # want +/- 20 angstroms in pixel units
     wave_side = int(round(20.0 / pix_size))  # pixels
-    fit_range_AA = 1.0  # peak must fit to within +/- fit_range AA
+    fit_range_AA = pix_size #1.0  # peak must fit to within +/- fit_range AA
     num_of_sigma = 3  # number of sigma to include on either side of the central peak to estimate noise
 
     len_array = len(wavelengths)
@@ -301,8 +301,18 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
     #blunt very negative values
     #wave_counts = np.clip(wave_counts,0.0,np.inf)
 
-    xfit = np.linspace(wave_x[0], wave_x[-1], 100) #range over which to plot the gaussian equation
-    raw_peak = values[getnearpos(wavelengths, central)]
+    xfit = np.linspace(wave_x[0], wave_x[-1], 1000) #range over which to plot the gaussian equation
+
+    peak_pos = getnearpos(wavelengths, central)
+
+    #nearest pixel +/- 1 pixel (yes, pixel, not angstrom)
+    try:
+        raw_peak = max(values[peak_pos-1:peak_pos+2])
+    except:
+        #this can fail if on very edge, but if so, we would not use it anyway
+        log.info("Raw Peak value failure for wavelength (%f) at index (%d). Cannot fit to gaussian. " %(central,peak_pos))
+        return None
+
     fit_peak = None
 
     eli = EmissionLineInfo()
@@ -334,39 +344,38 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
 
         fit_peak = max(eli.fit_vals)
 
-        if (abs(raw_peak - fit_peak) / raw_peak > 0.2):  # didn't capture the peak ... bad
+        if (abs(raw_peak - fit_peak) / raw_peak > 0.2):  # didn't capture the peak ... bad, don't calculate anything else
             log.warning("Failed to capture peak")
-            error = None  # so we skip out ... call this a non-fit, so there is no signal here
-            print("Failed to capture peak: raw = %f , fit = %f, frac = %0.2f" % (raw_peak, fit_peak,
+            log.debug("Failed to capture peak: raw = %f , fit = %f, frac = %0.2f" % (raw_peak, fit_peak,
                                                                                  abs(raw_peak - fit_peak) / raw_peak))
         else:
-            print("Success: captured peak: raw = %f , fit = %f, frac = %0.2f" % (raw_peak, fit_peak,
-                                                                                 abs(
-                                                                                     raw_peak - fit_peak) / raw_peak))
+            log.debug("Success: captured peak: raw = %f , fit = %f, frac = %0.2f"
+                      % (raw_peak, fit_peak, abs(raw_peak - fit_peak) / raw_peak))
 
-        num_pix = int(round(num_of_sigma * eli.fit_sigma / pix_size)) * 2 + 1
+            num_pix = int(round(num_of_sigma * eli.fit_sigma / pix_size)) * 2 + 1
 
-         # rms just under the part of the plot with signal (not the entire fit part) so, maybe just a few AA or pix
-        eli.fit_norm_rmse = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, central), hw_pix=(num_pix-1)/2,
-                     norm=True)
-        eli.fit_rmse = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, central), hw_pix=(num_pix-1)/2,
-                     norm=False)
+             # rms just under the part of the plot with signal (not the entire fit part) so, maybe just a few AA or pix
+            eli.fit_norm_rmse = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, central), hw_pix=(num_pix-1)/2,
+                         norm=True)
+            eli.fit_rmse = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, central), hw_pix=(num_pix-1)/2,
+                         norm=False)
 
     except:
         log.error("Could not fit gaussian.",exc_info=True)
         return None
 
-    if (eli.fit_rmse is not None) and (eli.fit_sigma < MAX_SIGMA):
+    if (eli.fit_rmse > 0) and (eli.fit_sigma < MAX_SIGMA):
         eli.snr = eli.fit_a/(np.sqrt(num_pix)*eli.fit_rmse)
         #eli.snr = max(eli.fit_vals) / (np.sqrt(num_pix) * eli.fit_rmse)
         snr = eli.snr
     else:
         snr = 0.0
 
-    print("SNR at %0.2f = %0.2f"%(central,snr))
+    log.debug("SNR at %0.2f = %0.2f"%(central,snr))
 
     title = ""
 
+    #todo: re-calibrate to use SNR instead of SBR ??
     if sbr is None:
         sbr = est_peak_strength(wavelengths,values,central)
         if sbr is None:
@@ -477,10 +486,13 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
     if show_plot or DEBUG_SHOW_PLOTS:
         if error is None:
             error = -1
-        title += "Score = %0.2f (%0.1f), SBR = %0.2f (%0.1f), SNR = %0.2f\n" \
+        title += "Score = %0.2f (%0.1f), SBR = %0.2f (%0.1f), SNR = %0.2f (%0.1f)\n" \
+                 "Flux = %0.2g, Cont = %0.2g, EqW=%0.2f\n"\
                  "dX0 = %0.2f, RH = %0.2f, RMS = %0.2f (%0.2f) \n"\
                  "Sigma = %0.2f, Skew = %0.2f, Kurtosis = %0.2f"\
-                  % (score, signal_calc_scaled_score(score),sbr,signal_calc_scaled_score(sbr),snr,
+                  % (score, signal_calc_scaled_score(score),sbr,
+                     signal_calc_scaled_score(sbr),snr,signal_calc_scaled_score(snr),
+                     eli.total_flux, eli.cont,eli.eqw,
                      dx0, rh, error,eli.fit_rmse, si, sk, ku)
 
         fig = plt.figure()
@@ -513,15 +525,16 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
         png = 'gauss_' + str(central)+ ".png"
 
         log.info('Writing: ' + png)
-        print('Writing: ' + png)
+        #print('Writing: ' + png)
         fig.tight_layout()
         fig.savefig(png)
         fig.clear()
         plt.close()
         # end plotting
 
-
-    return signal_calc_scaled_score(score)
+    eli.raw_score = score
+    eli.score = signal_calc_scaled_score(score)
+    return eli
 
 
 def signal_calc_scaled_score(raw):
@@ -750,7 +763,7 @@ def est_peak_strength(wavelengths,values,central,dw=DEFAULT_BACKGROUND_WIDTH,pea
     :param pv:
     :return:
     """
-    sbr = None
+    sbr = None #Signal to Background Ratio  (similar to SNR)
     xw = est_fwhm(wavelengths,values,central)
 
     background,zero = est_background(wavelengths,values,central,dw,xw,peaks,valleys)
@@ -758,7 +771,16 @@ def est_peak_strength(wavelengths,values,central,dw=DEFAULT_BACKGROUND_WIDTH,pea
     if background is not None:
         # signal = nearest values (pv) to central ?? or average of a few near the central wavelength
         #signal = est_signal(wavelengths,values,central,xw,zero)
-        peak_str = values[getnearpos(wavelengths, central)] - zero
+
+        peak_pos = getnearpos(wavelengths, central)
+        try:
+            peak_str = max(values[peak_pos - 1:peak_pos + 2]) - zero
+        except:
+            # this can fail if on very edge, but if so, we would not use it anyway
+            log.info("Raw Peak value failure for wavelength (%f) at index (%d). Cannot calculate SBR. "
+                     % (central, peak_pos))
+            return 0
+
         #signal = ((np.sqrt(signal)-zero)/2.0)**2
 
         if peak_str is not None:
@@ -1001,18 +1023,18 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
         #check vs minimum width
         if not (pix_width < dw):
             #see if too close to prior peak (these are in increasing wavelength order)
-            score = signal_score(x, v, px)
+            eli = signal_score(x, v, px)
 
-            if score > 0:
+            if (eli is not None) and (eli.score > 0):
                 if len(emistab) > 0:
                     if (px - emistab[-1][1]) > 6.0:
-                        emistab.append((pi, px, pv,pix_width,centroid_pos,score))
+                        emistab.append((pi, px, pv,pix_width,centroid_pos,eli.score))
                     else: #too close ... keep the higher peak
                         if pv > emistab[-1][2]:
                             emistab.pop()
-                            emistab.append((pi, px, pv, pix_width, centroid_pos,score))
+                            emistab.append((pi, px, pv, pix_width, centroid_pos,eli.score))
                 else:
-                    emistab.append((pi, px, pv, pix_width, centroid_pos,score))
+                    emistab.append((pi, px, pv, pix_width, centroid_pos,eli.score))
 
 
     #return np.array(maxtab), np.array(mintab)
@@ -1204,14 +1226,14 @@ class Spectrum:
                 if (a_central > max_w) or (a_central < min_w):
                     continue
 
-                scr = signal_score(wavelengths, values,a_central )
+                eli = signal_score(wavelengths, values,a_central )
 
-                if scr > 0.0:
-                    total_score += scr
-                    sol.score += scr
+                if (eli is not None) and (eli.score > 0.0):
+                    total_score += eli.score
+                    sol.score += eli.score
                     l = copy.deepcopy(a)
                     l.w_obs = l.w_rest * (1.0 + sol.z)
-                    l.score = scr
+                    l.score = eli.score
                     sol.lines.append(l)
 
             if sol.score > 0.0:
