@@ -230,8 +230,11 @@ class EmissionLineInfo:
 
         self.fit_a = None
         self.fit_x0 = None
+        self.fit_dx0 = None #difference in fit_x0 and the target wavelength in AA, like bias: target-fit
         self.fit_sigma = 0.0
-        self.fit_y = None
+        self.fit_y = None #y offset for the fit (essentially, the continuum estimate)
+        self.fit_h = None #max of the fit (the peak) #relative height
+        self.fit_rh = None #fraction of fit height / raw peak height
         self.fit_rmse = -999
         self.fit_norm_rmse = -999
 
@@ -278,8 +281,10 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
     pix_size = abs(wavelengths[1] - wavelengths[0])  # aa per pix
     # want +/- 20 angstroms in pixel units
     wave_side = int(round(20.0 / pix_size))  # pixels
-    fit_range_AA = pix_size #1.0  # peak must fit to within +/- fit_range AA
-    num_of_sigma = 3  # number of sigma to include on either side of the central peak to estimate noise
+    #1.5 seems to be good multiplier ... 2.0 is a bit too much;
+    # 1.0 is not bad, but occasionally miss something by just a bit
+    fit_range_AA = 1.5 * pix_size #1.0  # peak must fit to within +/- fit_range AA
+    num_of_sigma = 3.0  # number of sigma to include on either side of the central peak to estimate noise
 
     len_array = len(wavelengths)
 
@@ -324,10 +329,12 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
         # parm[0] = central point (x in the call), parm[1] = sigma, parm[2] = 'a' multiplier (happens to also be area)
         # parm[3] = y offset (e.g. the "continuum" level)
         #get the gaussian for the more central part, but use that to get noise from wider range
+        #sigma lower limit at 0.5 (could make more like pixel_size / 4.0 or so, but probabaly should not depend on that
+        # the minimum size is in angstroms anyway, not pixels, and < 0.5 is awfully narrow to be real)
         parm, pcov = curve_fit(gaussian, narrow_wave_x, narrow_wave_counts,
                                 p0=(central,1.0,1.0,0.0),
-                                bounds=( (central-fit_range_AA, 0.5, 1.0, -100.0),
-                                         (central+fit_range_AA, np.inf, np.inf, np.mean(narrow_wave_counts))))
+                                bounds=((central-fit_range_AA, 0.5, 0.0, -100.0),
+                                        (central+fit_range_AA, np.inf, np.inf, np.inf)))
 
         eli.fit_vals = gaussian(xfit, parm[0], parm[1], parm[2], parm[3])
         eli.fit_wave = xfit.copy()
@@ -336,9 +343,13 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
         rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2], parm[3])
 
         eli.fit_x0 = parm[0]
+        eli.fit_dx0 = central - eli.fit_x0
+        eli.fit_h = max(eli.fit_vals)
+        eli.fit_rh = eli.fit_h / raw_peak
         eli.fit_sigma = parm[1] #units of AA not pixels
         eli.fit_a = parm[2]
         eli.fit_y = parm[3]
+
 
         eli.build()
 
@@ -361,7 +372,7 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
                          norm=False)
 
     except:
-        log.error("Could not fit gaussian.",exc_info=True)
+        log.error("Could not fit gaussian near %f" % central,exc_info=True)
         return None
 
     if (eli.fit_rmse > 0) and (eli.fit_sigma < MAX_SIGMA):
@@ -398,13 +409,13 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
     if (fit_wave is not None):
         sk = skew(fit_wave)
         ku = kurtosis(fit_wave) # remember, 0 is tail width for Normal Dist. ( ku < 0 == thinner tails)
-        si = parm[1] #*1.9 #scale to angstroms
-        dx0 = (parm[0]-central) #*1.9
+        si = eli.fit_sigma  #*1.9 #scale to angstroms
+        dx0 = eli.fit_dx0 #*1.9
 
         #si and ku are correlated at this scale, for emission lines ... fat si <==> small ku
 
-        height_pix = max(wave_counts)
-        height_fit = max(fit_wave)
+        height_pix = raw_peak
+        height_fit = eli.fit_h
 
         if height_pix > 0:
             rh = height_fit/height_pix
@@ -420,8 +431,8 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
         if (0.75 < rh < 1.25) and (error < 0.2): # 1 bad pixel in each fiber is okay, but no more
 
             #central peak position
-            if abs(dx0) > 1.9:  #+/- one pixel (in AA)  from center
-                val = (abs(dx0) - 1.9)** 2
+            if abs(dx0) > pix_size:# 1.9:  #+/- one pixel (in AA)  from center
+                val = (abs(dx0) - pix_size)** 2
                 score -= val
                 log.debug("Penalty for excessive error in X0: %f" % (val))
 
@@ -499,6 +510,14 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
         gauss_plot = plt.axes()
 
         gauss_plot.plot(wave_x,wave_counts,c='k')
+
+        try:
+            gauss_plot.axvline(x=central,c='k',linestyle="--")
+            gauss_plot.axvline(x=central+fit_range_AA, c='r', linestyle="--")
+            gauss_plot.axvline(x=central-fit_range_AA, c='r', linestyle="--")
+        except:
+            log.debug("Cannot plot central line fit boundaries.",exc_info=True)
+
 
         if fit_wave is not None:
 
