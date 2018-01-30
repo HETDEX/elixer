@@ -269,7 +269,15 @@ class HetdexFits:
             self.panacea = True
 
             #most complete header in the raw image
-            idx = hdu_idx['image']
+            #todo: at some point in late 2017, the 'image' header was dropped ... as this becomes common,
+            #todo: should stop trying to read the 'image' header and just always assume the 0th is PRIMARY?
+            #todo:   (is always TRUE ... or at least always after a re-reduction?)
+            try:
+                idx = hdu_idx['image']
+            except:
+                log.debug("[image] header not found. Will assume 0th header is the PRIMARY.")
+                idx = 0
+
         except:
             log.error("Cannot read fits header. Missing expected keywords. " + self.filename, exc_info=True)
             self.okay = False
