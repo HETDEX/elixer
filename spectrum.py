@@ -660,7 +660,7 @@ def est_fwhm(wavelengths,values,central):
 
     return pix_width
 
-def est_background(wavelengths,values,central,dw=DEFAULT_BACKGROUND_WIDTH,xw=20.0,peaks=None,valleys=None):
+def est_background(wavelengths,values,central,dw=DEFAULT_BACKGROUND_WIDTH,xw=10.0,peaks=None,valleys=None):
     """
     mean of surrounding (simple) peaks, excluding any obvious lines (above 3x std) - the zero
 
