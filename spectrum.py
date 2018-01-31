@@ -14,6 +14,7 @@ import io
 from scipy.stats import skew, kurtosis
 from scipy.optimize import curve_fit
 import copy
+import line_prob
 
 
 log = G.logging.getLogger('spectrum_logger')
@@ -249,7 +250,7 @@ class EmissionLineInfo:
         self.cont = -999
 
         self.snr = 0.0
-        self.eqw = -999
+        self.eqw_obs = -999
         self.cont = None
         self.fwhm = None
         self.score = None
@@ -269,7 +270,7 @@ class EmissionLineInfo:
 
 
         if self.total_flux and self.cont:
-            self.eqw = self.total_flux / self.cont
+            self.eqw_obs = self.total_flux / self.cont
 
 
 
@@ -371,8 +372,11 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
             eli.fit_rmse = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, central), hw_pix=(num_pix-1)/2,
                          norm=False)
 
-    except:
-        log.error("Could not fit gaussian near %f" % central,exc_info=True)
+    except Exception as ex:
+        if ex.message.find("Optimal parameters not found") > -1:
+            log.info("Could not fit gaussian near %f" % central,exc_info=False)
+        else:
+            log.error("Could not fit gaussian near %f" % central, exc_info=True)
         return None
 
     if (eli.fit_rmse > 0) and (eli.fit_sigma < MAX_SIGMA):
@@ -498,12 +502,12 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
         if error is None:
             error = -1
         title += "Score = %0.2f (%0.1f), SBR = %0.2f (%0.1f), SNR = %0.2f (%0.1f)\n" \
-                 "Flux = %0.2g, Cont = %0.2g, EqW=%0.2f\n"\
+                 "Flux = %0.2g, Cont = %0.2g, EqW_Obs=%0.2f\n"\
                  "dX0 = %0.2f, RH = %0.2f, RMS = %0.2f (%0.2f) \n"\
                  "Sigma = %0.2f, Skew = %0.2f, Kurtosis = %0.2f"\
                   % (score, signal_calc_scaled_score(score),sbr,
                      signal_calc_scaled_score(sbr),snr,signal_calc_scaled_score(snr),
-                     eli.total_flux, eli.cont,eli.eqw,
+                     eli.total_flux, eli.cont,eli.eqw_obs,
                      dx0, rh, error,eli.fit_rmse, si, sk, ku)
 
         fig = plt.figure()
@@ -1069,6 +1073,10 @@ class EmissionLine():
         self.color = plot_color
         self.solution = solution #True = can consider this as the target line
         self.score = score
+        self.snr = None
+        self.flux = None
+        self.eqw_obs = None
+        self.eqw_rest = None
 
     def redshift(self,z):
         self.z = z
@@ -1108,13 +1116,18 @@ class Spectrum:
                                EmissionLine("MgII", 2798, "magenta", solution=False),
                                EmissionLine("H$\\gamma$ ", 4341, "royalblue", solution=False),
                                EmissionLine("NV ", 1240, "teal", solution=False),
-                               EmissionLine("SiII", 1260, "gray", solution=False)]
+                               EmissionLine("SiII", 1260, "gray", solution=False),
+                               EmissionLine("NeIII", 3869, "pink", solution=False)]
 
         self.wavelengths = []
         self.values = [] #could be fluxes or counts or something else
         self.central = None
 
         self.solutions = []
+
+        self.p_lae = None
+        self.p_oii = None
+        self.p_lae_oii_ratio = None
 
     def set_spectra(self,wavelengths, values, central):
         del self.wavelengths[:]
@@ -1245,14 +1258,20 @@ class Spectrum:
                 if (a_central > max_w) or (a_central < min_w):
                     continue
 
-                eli = signal_score(wavelengths, values,a_central )
+                eli = signal_score(wavelengths, values, a_central)
 
-                if (eli is not None) and (eli.score > 0.0):
+                if (eli is not None):# and (eli.score > 0.0):
                     total_score += eli.score
                     sol.score += eli.score
                     l = copy.deepcopy(a)
                     l.w_obs = l.w_rest * (1.0 + sol.z)
+                    l.z = sol.z
                     l.score = eli.score
+                    l.snr = eli.snr
+                    l.eqw_obs = eli.eqw_obs
+                    l.eqw_rest = l.eqw_obs / (1 + l.z)
+                    l.flux = eli.total_flux
+
                     sol.lines.append(l)
 
             if sol.score > 0.0:
@@ -1277,6 +1296,29 @@ class Spectrum:
         return solutions
 
 
+    def get_bayes_probabilities(self):
+        # todo: feed in addl_fluxes from the additonal line solutions (or build specifically)?
+
+        #care only about the LAE and OII solutions:
+        #todo: find the LyA and OII options in the solution list and use to fill in addl_fluxes?
+
+        ratio, self.p_lae, self.p_oii = line_prob.prob_LAE(wl_obs=self.w,
+                                                           lineFlux=self.estflux,
+                                                           ew_obs=(self.eqw_obs),
+                                                           c_obs=None, which_color=None,
+                                                           addl_fluxes=None, sky_area=None,
+                                                           cosmo=None, lae_priors=None,
+                                                           ew_case=None, W_0=None,
+                                                           z_OII=None, sigma=None)
+        if (self.p_lae is not None) and (self.p_lae > 0.0):
+            if (self.p_oii is not None) and (self.p_oii > 0.0):
+                self.p_lae_oii_ratio = self.p_lae /self.p_oii
+            else:
+                self.p_lae_oii_ratio = float('inf')
+        else:
+            self.p_lae_oii_ratio = 0.0
+
+        self.p_lae_oii_ratio = min(line_prob.MAX_PLAE_POII,self.p_lae_oii_ratio) #cap to MAX
 
     def build_full_width_spectrum(self, counts = None, wavelengths = None, central_wavelength = None,
                                   show_skylines=True, show_peaks = True, name=None,
@@ -1372,9 +1414,10 @@ class Spectrum:
 
                     #plot the additional lines
                     for f in self.solutions[0].lines:
-                        y_pos = textplot.axis()[2]
-                        textplot.text(f.w_obs, y_pos, f.name + " {", rotation=-90, ha='center', va='bottom',
-                                      fontsize=12, color=e.color)  # use the e color for this family
+                        if f.score > 0:
+                            y_pos = textplot.axis()[2]
+                            textplot.text(f.w_obs, y_pos, f.name + " {", rotation=-90, ha='center', va='bottom',
+                                          fontsize=12, color=e.color)  # use the e color for this family
 
 
                     #todo: show the fractional score?

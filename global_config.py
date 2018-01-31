@@ -1,7 +1,7 @@
 from __future__ import print_function
 import logging
 import os.path as op
-import gc
+#import gc
 
 #catalogs are defined at top of catalogs.py
 import socket

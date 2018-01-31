@@ -1074,7 +1074,7 @@ class DetObj:
         return score
 
     def get_probabilities(self):
-        #is self.eqw rest or observed??
+
         ratio, self.p_lae, self.p_oii = line_prob.prob_LAE(wl_obs=self.w,
                                                            lineFlux=self.estflux,
                                                            ew_obs=(self.eqw_obs),

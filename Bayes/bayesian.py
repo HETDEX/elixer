@@ -139,7 +139,7 @@ def prob_data_given_LAE(wl_obs,lineFlux,ew_obs,c_obs,which_color,addl_fluxes,sky
       
    ###### (04-24-15)
    addl_em_lines  = ['[NeIII]','H_beta','[OIII]','[OIII]']
-   addl_lambda_rf = np.array([3869.00, 4861.32, 4958.91, 5006.84])
+   addl_lambda_rf = np.array([3869.00, 4861.32, 4958.91, 5006.84]) #rest wavelengths
 
 
     #dd - shouldn't this be based on potential LAE observed, not OII??? see (line ~   257 in prob_data_given_OII(...) )
