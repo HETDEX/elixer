@@ -21,6 +21,7 @@ log = G.logging.getLogger('spectrum_logger')
 log.setLevel(G.logging.DEBUG)
 
 MIN_FWHM = 5 #AA (must xlat to pixels)
+MIN_ELI_SNR = 2.0 #bare minium SNR to even remotely consider a signal as real
 MIN_HEIGHT = 10
 MIN_DELTA_HEIGHT = 2 #to be a peak, must be at least this high above next adjacent point to the left
 DEFAULT_BACKGROUND = 6.0
@@ -251,32 +252,37 @@ class EmissionLineInfo:
 
         self.snr = 0.0
         self.eqw_obs = -999
-        self.cont = None
-        self.fwhm = None
+        self.cont = -999
+        self.fwhm = -999
         self.score = None
         self.raw_score = None
 
     def build(self):
-        if self.fit_sigma is not None:
-            self.fwhm = 2.355 * self.fit_sigma  # e.g. 2*sqrt(2*ln(2))* sigma
 
-        if self.fit_x0 is not None:
-            if self.fit_a is not None:
-                self.total_flux = self.fit_a * flux_conversion(self.fit_x0)  # cgs units
-            if (self.fit_y is not None) and (self.fit_y > G.CONTINUUM_FLOOR_COUNTS):
-                self.cont = self.fit_y * flux_conversion(self.fit_x0)
-            else:
-                self.cont = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(self.fit_x0)
+        if self.snr > MIN_ELI_SNR:
+            if self.fit_sigma is not None:
+                self.fwhm = 2.355 * self.fit_sigma  # e.g. 2*sqrt(2*ln(2))* sigma
+
+            if self.fit_x0 is not None:
+                if self.fit_a is not None:
+                    self.total_flux = self.fit_a * flux_conversion(self.fit_x0)  # cgs units
+                if (self.fit_y is not None) and (self.fit_y > G.CONTINUUM_FLOOR_COUNTS):
+                    self.cont = self.fit_y * flux_conversion(self.fit_x0)
+                else:
+                    self.cont = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(self.fit_x0)
 
 
-        if self.total_flux and self.cont:
-            self.eqw_obs = self.total_flux / self.cont
-
+            if self.total_flux and self.cont:
+                self.eqw_obs = self.total_flux / self.cont
+        else:
+            self.fwhm = -999
+            self.cont = -999
+            self.total_flux = -999
 
 
 
 #todo: !!!!!!!!!!!!!! need to update for sigma in AA not pixels and various calculations below
-def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
+def signal_score(wavelengths,values,errors,central,sbr=None, show_plot=False):
 
     #sbr signal to background ratio
     pix_size = abs(wavelengths[1] - wavelengths[0])  # aa per pix
@@ -352,12 +358,12 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
         eli.fit_y = parm[3]
 
 
-        eli.build()
+        #eli.build()
 
         fit_peak = max(eli.fit_vals)
 
         if (abs(raw_peak - fit_peak) / raw_peak > 0.2):  # didn't capture the peak ... bad, don't calculate anything else
-            log.warning("Failed to capture peak")
+            #log.warning("Failed to capture peak")
             log.debug("Failed to capture peak: raw = %f , fit = %f, frac = %0.2f" % (raw_peak, fit_peak,
                                                                                  abs(raw_peak - fit_peak) / raw_peak))
         else:
@@ -381,10 +387,12 @@ def signal_score(wavelengths,values,central,sbr=None, show_plot=False):
 
     if (eli.fit_rmse > 0) and (eli.fit_sigma < MAX_SIGMA):
         eli.snr = eli.fit_a/(np.sqrt(num_pix)*eli.fit_rmse)
+        eli.build()
         #eli.snr = max(eli.fit_vals) / (np.sqrt(num_pix) * eli.fit_rmse)
         snr = eli.snr
     else:
         snr = 0.0
+        eli.total_flux = 0.0
 
     log.debug("SNR at %0.2f = %0.2f"%(central,snr))
 
@@ -1046,7 +1054,7 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
         #check vs minimum width
         if not (pix_width < dw):
             #see if too close to prior peak (these are in increasing wavelength order)
-            eli = signal_score(x, v, px)
+            eli = signal_score(x, v, None, px)
 
             if (eli is not None) and (eli.score > 0):
                 if len(emistab) > 0:
@@ -1106,8 +1114,8 @@ class Spectrum:
 
     def __init__(self):
 
-        self.emission_lines = [EmissionLine("Ly$\\alpha$ ", 1216, 'red'),
-                               EmissionLine("OII ", 3727, 'green'),
+        self.emission_lines = [EmissionLine("Ly$\\alpha$ ", G.LyA_rest, 'red'),
+                               EmissionLine("OII ", G.OII_rest, 'green'),
                                EmissionLine("OIII", 4959, "lime"), EmissionLine("OIII", 5007, "lime"),
                                EmissionLine("CIII", 1909, "purple"),
                                EmissionLine("CIV ", 1549, "black"),
@@ -1122,6 +1130,10 @@ class Spectrum:
         self.wavelengths = []
         self.values = [] #could be fluxes or counts or something else
         self.central = None
+        self.estflux = None
+        self.eqw_obs = None
+
+        self.central_eli = None
 
         self.solutions = []
 
@@ -1129,13 +1141,23 @@ class Spectrum:
         self.p_oii = None
         self.p_lae_oii_ratio = None
 
-    def set_spectra(self,wavelengths, values, central):
+    def set_spectra(self,wavelengths, values, errors, central, estflux=None,eqw_obs=None):
         del self.wavelengths[:]
         del self.values[:]
+
+        if (estflux is None) or (eqw_obs is None):
+            eli = signal_score(wavelengths=wavelengths, values=values, errors=errors,central=central, sbr=None, show_plot=False)
+            if eli:
+                estflux = eli.total_flux
+                eqw_obs = eli.eqw_obs
+
+                self.central_eli = copy.deepcopy(eli)
 
         self.wavelengths = wavelengths
         self.values = values
         self.central = central
+        self.estflux = estflux
+        self.eqw_obs = eqw_obs
 
 
     def find_central_wavelength(self,wavelengths = None,values = None):
@@ -1165,13 +1187,13 @@ class Spectrum:
 
         return central
 
-    def classify(self,wavelengths = None,values = None,central = None):
+    def classify(self,wavelengths = None,values = None,errors=None, central = None):
         #for now, just with additional lines
         #todo: later add in continuum
         #todo: later add in bayseian stuff
         del self.solutions[:]
         if (wavelengths is not None) and (values is not None) and (central is not None):
-            self.set_spectra(wavelengths,values,central)
+            self.set_spectra(wavelengths,values,errors,central)
         else:
             wavelengths = self.wavelengths
             values = self.values
@@ -1186,12 +1208,28 @@ class Spectrum:
             log.warning("Cannot classify. No central wavelength specified or found.")
             return []
 
-        solutions = self.classify_with_additional_lines(wavelengths,values,central)
+        solutions = self.classify_with_additional_lines(wavelengths,values,errors,central)
         self.solutions = solutions
+
+        #get the LAE and OII solutions and send to Bayesian to check p_LAE/p_OII
+        addl_fluxes = []
+        addl_wavelengths = []
+        for s in solutions:
+            if (abs(s.central_rest - G.LyA_rest) < 2.0) or \
+               (abs(s.central_rest - G.OII_rest) < 2.0): #LAE or OII
+
+                for l in s.lines:
+                    if l.flux > 0:
+                        addl_fluxes.append(l.flux)
+                        addl_wavelengths.append((l.w_obs))
+
+        #if len(addl_fluxes) > 0:
+        self.get_bayes_probabilities(addl_fluxes=addl_fluxes,addl_wavelengths=addl_wavelengths)
+        #self.get_bayes_probabilities(addl_fluxes=None, addl_wavelengths=None)
 
         return solutions
 
-    def classify_with_additional_lines(self,wavelengths = None,values = None,central = None):
+    def classify_with_additional_lines(self,wavelengths = None,values = None,errors=None,central = None):
         """
         using the main line
         for each possible classification of the main line
@@ -1258,7 +1296,7 @@ class Spectrum:
                 if (a_central > max_w) or (a_central < min_w):
                     continue
 
-                eli = signal_score(wavelengths, values, a_central)
+                eli = signal_score(wavelengths, values, errors, a_central)
 
                 if (eli is not None):# and (eli.score > 0.0):
                     total_score += eli.score
@@ -1296,17 +1334,18 @@ class Spectrum:
         return solutions
 
 
-    def get_bayes_probabilities(self):
+    def get_bayes_probabilities(self,addl_fluxes=None,addl_wavelengths=None):
         # todo: feed in addl_fluxes from the additonal line solutions (or build specifically)?
 
         #care only about the LAE and OII solutions:
         #todo: find the LyA and OII options in the solution list and use to fill in addl_fluxes?
 
-        ratio, self.p_lae, self.p_oii = line_prob.prob_LAE(wl_obs=self.w,
+        ratio, self.p_lae, self.p_oii = line_prob.prob_LAE(wl_obs=self.central,
                                                            lineFlux=self.estflux,
                                                            ew_obs=(self.eqw_obs),
                                                            c_obs=None, which_color=None,
-                                                           addl_fluxes=None, sky_area=None,
+                                                           addl_fluxes=addl_fluxes, addl_wavelengths=addl_wavelengths,
+                                                           sky_area=None,
                                                            cosmo=None, lae_priors=None,
                                                            ew_case=None, W_0=None,
                                                            z_OII=None, sigma=None)

@@ -470,14 +470,26 @@ class IFU:
                     fib.center_y = fits.fiber_centers[i][1]
 
                     #get the recorded data (counts and corresponding wavelengths)
-                    fib.data_spectra_counts = fits.fe_data[i]
+                    #divide by the fiber_to_fiber
+                    #fiber_to_fiber is on the same grid as fe_data
+                    fib.data_spectra_counts = fits.fe_data[i] / fits.fiber_to_fiber[i]
                     fib.data_spectra_wavelengths = fits.wave_data[i]
+
+                    #errors are the average for all fibers (so multiply by specific fiber to fiber)
+                    #[0] is the wavelength, [1] is either empirical or estimated error and [2] is the other
+                    #[1] and [2] are fairly close and neither is exactly right, so it does not matter which to use
+                    fib.data_spectra_errors = fits.fiber_to_fiber[i] * np.interp(fib.data_spectra_wavelengths,
+                                                        fits.error_analysis[0],fits.error_analysis[1])
 
                     #interpolate onto a fixed length, 1 Angstrom grid
                     fib.interp_spectra_wavelengths = np.arange(MIN_WAVELENGTH,MAX_WAVELENGTH+grid_size,grid_size)
                     fib.interp_spectra_counts = np.interp(fib.interp_spectra_wavelengths,fib.data_spectra_wavelengths,
                                                           fib.data_spectra_counts)
 
+                    #already adjusted the errors to the data grid AND adjusted for fiber to fiber, so just interpolate
+                    fib.interp_spectra_errors = np.interp(fib.interp_spectra_wavelengths,
+                                                          fib.data_spectra_wavelengths,
+                                                          fib.data_spectra_errors)
 
                     #test: testing that interpolotion of 1 AA per pix prodcues the same area under the spectra
                     #as the original raw data

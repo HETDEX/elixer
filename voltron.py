@@ -746,7 +746,7 @@ def convert_pdf(filename, resolution=150):
 def main():
     global G_PDF_FILE_NUM
 
-    G.gc.enable()
+    #G.gc.enable()
     #G.gc.set_debug(G.gc.DEBUG_LEAK)
     args = parse_commandline()
     cats = catalogs.get_catalog_list()

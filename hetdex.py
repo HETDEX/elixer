@@ -1079,7 +1079,8 @@ class DetObj:
                                                            lineFlux=self.estflux,
                                                            ew_obs=(self.eqw_obs),
                                                            c_obs=None, which_color=None,
-                                                           addl_fluxes=None, sky_area=None,
+                                                           addl_fluxes=None, addl_wavelengths=None,
+                                                           sky_area=None,
                                                            cosmo=None, lae_priors=None,
                                                            ew_case=None, W_0=None,
                                                            z_OII=None, sigma=None)

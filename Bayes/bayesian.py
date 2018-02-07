@@ -29,7 +29,11 @@ import fit_lognorm as fln
 reload(lg)
 reload(og)
 
+MAX_WAVELENGTH_DELTA = 2.0 #Angstroms
 
+def getnearpos(array,value):
+    idx = (np.abs(array-value)).argmin()
+    return idx
 
 def init(_alpha_LAE,_mult_LStar_LAE,_mult_phiStar_LAE,_mult_w0_LAE,_alpha_OII,_mult_LStar_OII,_mult_phiStar_OII,_mult_w0_OII):
    
@@ -45,12 +49,14 @@ def comoving_volume(z,cosmo):         ## function returns comoving volume out to
 
 
 
-def prob_ratio(wl_obs,lineFlux,ew_obs,c_obs,which_color,addl_fluxes,sky_area,cosmo,LAE_priors,EW_case,z_OII,W_0,sigma):
+def prob_ratio(wl_obs,lineFlux,ew_obs,c_obs,which_color,addl_fluxes,addl_wavelengths,sky_area,cosmo,LAE_priors,EW_case,z_OII,W_0,sigma):
    
    a, phiStar_LAE, LStar_LAE, z_LAE, L_min_LAE = prob_data_given_LAE(wl_obs,lineFlux,ew_obs,c_obs,which_color,
-                                                                     addl_fluxes,sky_area,cosmo,LAE_priors)
+                                                                     addl_fluxes,addl_wavelengths,sky_area,cosmo,
+                                                                     LAE_priors)
    b, phiStar_OII, LStar_OII, z_OII, L_min_OII = prob_data_given_OII(wl_obs,lineFlux,ew_obs,c_obs,which_color,
-                                                                     addl_fluxes,sky_area,cosmo,EW_case,z_OII,W_0,sigma)
+                                                                     addl_fluxes,addl_wavelengths,sky_area,cosmo,
+                                                                     EW_case,z_OII,W_0,sigma)
 
    c = prob_LAE(wl_obs, phiStar_LAE, LStar_LAE, z_LAE, L_min_LAE, phiStar_OII, LStar_OII, z_OII, L_min_OII, cosmo)
 
@@ -98,7 +104,7 @@ def prob_ratio(wl_obs,lineFlux,ew_obs,c_obs,which_color,addl_fluxes,sky_area,cos
 
 
 
-def prob_data_given_LAE(wl_obs,lineFlux,ew_obs,c_obs,which_color,addl_fluxes,sky_area,cosmo,LAE_priors):
+def prob_data_given_LAE(wl_obs,lineFlux,ew_obs,c_obs,which_color,addl_fluxes,addl_wavelengths,sky_area,cosmo,LAE_priors):
    t0 = time.time()
    
    z_LAE = wl_obs/1215.668-1
@@ -148,26 +154,38 @@ def prob_data_given_LAE(wl_obs,lineFlux,ew_obs,c_obs,which_color,addl_fluxes,sky
    addl_lambda_ob = addl_lambda_rf * (1+inf_OII_redshift)
    prob_NeIII3869, prob_Hb4861, prob_OII4959, prob_OII5007 = 1.,1.,1.,1.
    
-   f_obs = addl_fluxes
+   #f_obs = addl_fluxes
    #dd - this is the same code as in the prob_data_given_OII ... this needs to be revisited and recoded
    #dd - 2017-10-16 for now, passing in None for the additional fluxes, so they are not being considered
-   if f_obs is not None:
-      for i in range(len(addl_em_lines)): #dd this is a problem addl_em_lines may nnot match with f_obs
-         if (f_obs[i] is not None) and (3500. <= addl_lambda_ob[i] <= 5500.):
-            mean = 0.
-            stdev = 0.2*nb.lineSens(addl_lambda_ob[i])*np.sqrt(sky_area/300.)
-            if i == 0:
-               prob_NeIII3869 = np.abs( stats.norm.cdf(f_obs[i]*1.05,mean,stdev) - stats.norm.cdf(f_obs[i]*0.95,mean,stdev) )
-            elif i == 1:
-               prob_Hb4861 = np.abs( stats.norm.cdf(f_obs[i]*1.05,mean,stdev) - stats.norm.cdf(f_obs[i]*0.95,mean,stdev) )
-            elif i == 2:
-               prob_OII4959 = np.abs( stats.norm.cdf(f_obs[i]*1.05,mean,stdev) - stats.norm.cdf(f_obs[i]*0.95,mean,stdev) )
-            elif i == 3:
-               prob_OII5007 = np.abs( stats.norm.cdf(f_obs[i]*1.05,mean,stdev) - stats.norm.cdf(f_obs[i]*0.95,mean,stdev) )
+   if (addl_fluxes is not None) and (addl_wavelengths is not None)\
+           and (len(addl_fluxes) > 0) and (len(addl_fluxes) == len(addl_wavelengths)):
 
-         prob_addl_lines = prob_NeIII3869 * prob_Hb4861 * prob_OII4959 * prob_OII5007
+        for i in range(len(addl_em_lines)): #dd this is a problem addl_em_lines may nnot match with f_obs
+
+          #see if addl_wavelengths has a matched line (+/- small amount)
+          #match to addl_lambda_ob
+
+            idx = getnearpos(addl_wavelengths,addl_lambda_ob[i])
+            if abs(addl_wavelengths[idx] - addl_lambda_ob[i]) > MAX_WAVELENGTH_DELTA:
+                continue
+
+            f_obs = addl_fluxes[idx]
+
+            if (f_obs is not None) and (3500. <= addl_lambda_ob[i] <= 5500.):
+                mean = 0.
+                stdev = 0.2*nb.lineSens(addl_lambda_ob[i])*np.sqrt(sky_area/300.)
+            if i == 0:
+                prob_NeIII3869 = np.abs( stats.norm.cdf(f_obs*1.05,mean,stdev) - stats.norm.cdf(f_obs*0.95,mean,stdev) )
+            elif i == 1:
+                prob_Hb4861 = np.abs( stats.norm.cdf(f_obs*1.05,mean,stdev) - stats.norm.cdf(f_obs*0.95,mean,stdev) )
+            elif i == 2:
+                prob_OII4959 = np.abs( stats.norm.cdf(f_obs*1.05,mean,stdev) - stats.norm.cdf(f_obs*0.95,mean,stdev) )
+            elif i == 3:
+                prob_OII5007 = np.abs( stats.norm.cdf(f_obs*1.05,mean,stdev) - stats.norm.cdf(f_obs*0.95,mean,stdev) )
+
+        prob_addl_lines = prob_NeIII3869 * prob_Hb4861 * prob_OII4959 * prob_OII5007
    else:
-      prob_addl_lines = 1.0 #make no change
+        prob_addl_lines = 1.0 #make no change
    
    if not (which_color == 'g-r') and not (which_color == 'g-i') and not (which_color == 'g-z') and not (which_color == 'r-i') and not (which_color == 'r-z') and not (which_color == 'i-z') and not (which_color == 'no_imaging'):
       return (prob_lineFlux * prob_EW * prob_addl_lines), phiStar_LAE, LStar, z_LAE, L_min
@@ -201,7 +219,7 @@ def prob_data_given_LAE(wl_obs,lineFlux,ew_obs,c_obs,which_color,addl_fluxes,sky
 
 
 
-def prob_data_given_OII(wl_obs,lineFlux,ew_obs,c_obs,which_color,addl_fluxes,sky_area,cosmo,EW_case,z_OII_list,W_0_list,sigma_list):
+def prob_data_given_OII(wl_obs,lineFlux,ew_obs,c_obs,which_color,addl_fluxes,addl_wavelengths,sky_area,cosmo,EW_case,z_OII_list,W_0_list,sigma_list):
    t0 = time.time()
    
    z_OII = wl_obs/3727.45-1
@@ -267,7 +285,7 @@ def prob_data_given_OII(wl_obs,lineFlux,ew_obs,c_obs,which_color,addl_fluxes,sky
    addl_lambda_ob = np.array(addl_lambda_ob)
    prob_NeIII3869, prob_Hb4861, prob_OII4959, prob_OII5007 = 1.,1.,1.,1.
    
-   f_obs = addl_fluxes
+   #f_obs = addl_fluxes
    #
    # for i in range(len(addl_em_lines)):
    #    if 3500. <= addl_lambda_ob[i] <= 5500.:
@@ -284,25 +302,39 @@ def prob_data_given_OII(wl_obs,lineFlux,ew_obs,c_obs,which_color,addl_fluxes,sky
    #
    # prob_addl_lines = prob_NeIII3869 * prob_Hb4861 * prob_OII4959 * prob_OII5007
 
-   if f_obs is not None:
-      for i in range(len(addl_em_lines)):  # dd this is a problem addl_em_lines may nnot match with f_obs
-         if (f_obs[i] is not None) and (3500. <= addl_lambda_ob[i] <= 5500.):
-            mean = 0.
-            stdev = 0.2 * nb.lineSens(addl_lambda_ob[i]) * np.sqrt(sky_area / 300.)
+
+   if (addl_fluxes is not None) and (addl_wavelengths is not None)\
+           and (len(addl_fluxes) > 0) and (len(addl_fluxes) == len(addl_wavelengths)):
+
+        for i in range(len(addl_em_lines)): #dd this is a problem addl_em_lines may nnot match with f_obs
+
+          #see if addl_wavelengths has a matched line (+/- small amount)
+          #match to addl_lambda_ob
+
+            idx = getnearpos(addl_wavelengths,addl_lambda_ob[i])
+            if abs(addl_wavelengths[idx] - addl_lambda_ob[i]) > MAX_WAVELENGTH_DELTA:
+                continue
+
+            f_obs = addl_fluxes[idx]
+
+            if (f_obs is not None) and (3500. <= addl_lambda_ob[i] <= 5500.):
+                mean = rel_strength[i] * lineFlux
+                stdev = 0.2 * nb.lineSens(addl_lambda_ob[i]) * np.sqrt(sky_area / 300.)
             if i == 0:
                prob_NeIII3869 = np.abs(
-                  stats.norm.cdf(f_obs[i] * 1.05, mean, stdev) - stats.norm.cdf(f_obs[i] * 0.95, mean, stdev))
+                  stats.norm.cdf(f_obs * 1.05, mean, stdev) - stats.norm.cdf(f_obs * 0.95, mean, stdev))
             elif i == 1:
                prob_Hb4861 = np.abs(
-                  stats.norm.cdf(f_obs[i] * 1.05, mean, stdev) - stats.norm.cdf(f_obs[i] * 0.95, mean, stdev))
+                  stats.norm.cdf(f_obs * 1.05, mean, stdev) - stats.norm.cdf(f_obs * 0.95, mean, stdev))
             elif i == 2:
                prob_OII4959 = np.abs(
-                  stats.norm.cdf(f_obs[i] * 1.05, mean, stdev) - stats.norm.cdf(f_obs[i] * 0.95, mean, stdev))
+                  stats.norm.cdf(f_obs * 1.05, mean, stdev) - stats.norm.cdf(f_obs * 0.95, mean, stdev))
             elif i == 3:
                prob_OII5007 = np.abs(
-                  stats.norm.cdf(f_obs[i] * 1.05, mean, stdev) - stats.norm.cdf(f_obs[i] * 0.95, mean, stdev))
+                  stats.norm.cdf(f_obs * 1.05, mean, stdev) - stats.norm.cdf(f_obs * 0.95, mean, stdev))
 
-         prob_addl_lines = prob_NeIII3869 * prob_Hb4861 * prob_OII4959 * prob_OII5007
+
+        prob_addl_lines = prob_NeIII3869 * prob_Hb4861 * prob_OII4959 * prob_OII5007
    else:
       prob_addl_lines = 1.0  # make no change
 

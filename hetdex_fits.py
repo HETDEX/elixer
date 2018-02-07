@@ -45,6 +45,8 @@ class HetdexFits:
         self.fe_data = None #fiber extracted counts
         self.wave_data = None #matched wavelengths
         self.trace_data = None
+        self.fiber_to_fiber = None
+        self.error_analysis = None
         self.pixflat_data = None
         self.fiber_centers = None
         self.fe_crval1 = None
@@ -258,6 +260,21 @@ class HetdexFits:
 
             self.trace_data = np.array(f[hdu_idx['trace']].data)
             self.trace_data[np.isnan(self.trace_data)] = 0.0
+
+            self.fiber_to_fiber = np.array(f[hdu_idx['fiber_to_fiber']].data)
+            self.fiber_to_fiber[np.isnan(self.fiber_to_fiber)]
+
+            #[0] = wavelength, [1] = empirical? [2] = expected or estimated?
+            self.error_analysis = np.array(f[hdu_idx['error_analysis']].data)
+            self.error_analysis[np.isnan(self.error_analysis)]
+
+            #note: (this is done by IFU in build_fibers for each fiber that is constructed)
+            #closest thing to error is the error_analysis * fiber_to_fiber (for the fiber in question)
+            #take spectra ("clean image") and divide by fiber_to_fiber for the fiber in question
+            #note fiber to fiber is the deviation from the average of fibers
+            #when getting the data for a fiber, need to interpolate the error_analysis to be on same grid
+            #      as the wave_data for that fiber and then do the multiply and divide as needed
+
 
             # get fiber centers
             # the fits representation is backward (with grid x,y: 1,112 and 2,112 (i.e at the top) == fiber 1))

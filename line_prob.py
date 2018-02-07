@@ -42,8 +42,26 @@ def fiber_area_in_sqdeg(num_fibers=1):
 
 
 #wrapper for Andrew Leung's base code
-def prob_LAE(wl_obs,lineFlux,ew_obs,c_obs, which_color=None, addl_fluxes=None,
+def prob_LAE(wl_obs,lineFlux,ew_obs,c_obs, which_color=None, addl_fluxes=None,addl_wavelengths=None,
             sky_area=None, cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None, sigma=None):
+    '''
+
+    :param wl_obs:
+    :param lineFlux:
+    :param ew_obs:
+    :param c_obs:
+    :param which_color:
+    :param addl_fluxes: cgs flux
+    :param addl_wavelengths: wavelength(observed) for each addl_flux at same index
+    :param sky_area:
+    :param cosmo:
+    :param lae_priors:
+    :param ew_case:
+    :param W_0:
+    :param z_OII:
+    :param sigma:
+    :return:
+    '''
 
     #sanity check
     if (ew_obs == -300) or (ew_obs == 666):
@@ -54,6 +72,7 @@ def prob_LAE(wl_obs,lineFlux,ew_obs,c_obs, which_color=None, addl_fluxes=None,
     #not rest_frame --- the more likely ... in which case, don't divide by the ratio of observed wavelength/rest)?
 
     #addl_fluxes should be a dictionary: {wavlength,flux} (need to update downstream code though)
+        #to be consistent with Andrew's code, made addl_fluxex and addl_wavelengths, index matched arrays
 
     #sky_area in square degrees (should this be the overlapped sum of all fibers? each at 0.75" radius?
                 #makes very little difference in the output
@@ -100,6 +119,7 @@ def prob_LAE(wl_obs,lineFlux,ew_obs,c_obs, which_color=None, addl_fluxes=None,
         #pogd = Probability of OII given the data ?
         ratio_LAE, plgd, pogd = Bayes.bayesian.prob_ratio(wl_obs=wl_obs, lineFlux=lineFlux, ew_obs=ew_obs,
                                                           c_obs=c_obs, which_color=which_color, addl_fluxes=addl_fluxes,
+                                                          addl_wavelengths=addl_wavelengths,
                                                           sky_area=sky_area, cosmo=cosmo, LAE_priors=lae_priors,
                                                           EW_case=ew_case, W_0=W_0, z_OII=z_OII,  sigma=sigma)
 

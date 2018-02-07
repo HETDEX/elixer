@@ -124,16 +124,19 @@ class Fiber:
         self.central_wave_pixels_bad = 0
         self.central_emis_counts = [] #from fiber-extracted ... the few pixels around the peak
         self.central_emis_wavelengths = []
+        self.central_emis_errors = []
 
 
         #full length    
         self.data_spectra_wavelengths=[]
         self.data_spectra_counts=[]
+        self.data_spectra_errors = []
         self.max_spectra_count = None
 
         #interpolated onto a 1 angstrom grid
         self.interp_spectra_wavelengths = []
         self.interp_spectra_counts = []
+        self.interp_spectra_errors = []
 
         try:
             self.panacea_idx = int(panacea_fiber_index)
