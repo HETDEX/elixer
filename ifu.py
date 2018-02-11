@@ -1,10 +1,8 @@
-#todo: contain list of fibers (fiber.py) that belong to the ifu
-#todo: ifu has specification as to its IDentity and data/time/exposure
-#todo: provide sub-selection of its fibers (i.e. annulus, max value cut, etc)
 
-#todo: can find itself from id info (e.g. find the corresponding panacea fits? or should that be in another object?)
-#has 4 amps (LL,LU, RL,RU)
-#do we care about the amps??? or just merge them all together into an IFU
+#collection of a few functions to find and load panacea files
+#and an IFU class that holds all exposures (which in turn hold the fits files and the fibers)
+#for an ifu for one observation
+#and provides some basic operations (like summing up fibers and interpolating)
 
 import global_config as G
 import numpy as np
@@ -541,68 +539,12 @@ class IFU:
                     # so, fill in accordingly
                     exp.fibers[fib.number_in_ccd-1] = fib
 
-    # version 1.3.5
-    # each row contains one emission line with accompanying fiber information
-    # 1 input (entry) ID
-    # 2 detect ID
-    # 3 detection quality score
-    # 4 emission line RA (decimal degrees)
-    # 5 emission line Dec (decimal degrees)
-    # 6 emission line wavelength (AA)
-    # 7 emission line sky X
-    # 8 emission line sky Y
-    # 9 emission line sigma (significance) for cure or S/N for panacea
-    # 10 emission line chi2 (point source fit) (cure)
-    # 11 emission line estimated fraction of recovered flux
-    # 12 emission line flux (electron counts)
-    # 13 emission line flux (cgs)
-    # 14 emission line continuum flux (electron counts)
-    # 15 emission line continuum flux (cgs)
-    # 16 emission line equivalent width (observed) [estimated]
-    # 17 P(LAE)/P(OII),number of fiber records to follow (each consists of the following columns)
-    # 18   fiber_id string (panacea) or reduced science fits filename (cure)
-    # 19   observation date YYYYMMDD
-    # 20   observation ID (for that date)
-    # 21   exposure ID
-    # 22   fiber number on full CCD (1-448)
-    # 23   RA of fiber center
-    # 24   Dec of fiber center
-    # 25   S/N of emission line in this fiber
-    # 26   weighted quality score
-    # 27   X coord on the CCD for the amp of this emission line in this fiber (as shown in ds9)
-    # 28   Y coord on the CCD for the amp of this emission line in this fiber (as shown in ds9)
-    # 29   the next fiber_id string and so on ...
-    ###############
-    #  0     1   2   3           4           5       6      7        8   9   10  11        12                 13
-    # 240	240	5.0	214.92604	52.57537	5378.4	24.15	-10.29	6.4	666	1.0	508.9	9.3383363738e-17	15.03
-    #
-    # 14                 15                16           17
-    # 2.7580113126e-18	33.8589487691	0.284801251776	5
-    #
-    #18                                     19         20  21   22   23             24      25  26   27 28
-    # 20170603T065529.2_051_105_051_LL_089	20170603	2	3	136	214.92616	52.57556	6.4	5.4	955	818
-    #  0                  1  2   3  4  5
-    #
-    # 29
-    # 20170603T064844.9_051_105_051_LL_089	20170603	2	2	136	214.92589	52.57519	6.2	5.2	955	818
-    # 20170603T065529.2_051_105_051_LL_109	20170603	2	3	116	214.92627	52.57486	5.1	3.02202414323	954	994
-    # 20170603T064844.9_051_105_051_LL_090	20170603	2	2	135	214.92694	52.57489	2.8	0.0	955	827
-    # 20170603T064844.9_051_105_051_LL_070	20170603	2	2	155	214.92683	52.5756	2.6	0.0	957	643
-
-
-    #cw=5378.4
-
-    #x = i.exposure(3).fibers[i.get_absolute_fiber_index("LL",89)].interp_spectra_wavelengths
-
-    #v  = i.exposure(3).fibers[i.get_absolute_fiber_index("LL",89)].interp_spectra_counts
-    #v += i.exposure(2).fibers[i.get_absolute_fiber_index("LL",89)].interp_spectra_counts
-
-
-    def sum_fibers_from_fib_file(self,file,line_id):
+    def sum_fibers_from_fib_file(self,file,line_id,fiber_indicies=None):
         """
 
         :param file:  full path to the voltron *_fib.txt file
         :param line_id: the id number of the line to use (1st column in *_fib.txt or the parenthetical value in pdf)
+        :param fiber_indicies: zero based index of the fibers (as listed in t#cut or similar to add (adds all if is None or if empty)
         :return: two arrays and a value: (1) wavelengths ,  (2) summed and averaged values and (3) central w
         """
 
@@ -632,15 +574,16 @@ class IFU:
         except:
             log.error("Unable to parse voltron fiber file: %s" %file)
 
-        return self.sum_fibers_from_voltron(line,version)
+        return self.sum_fibers_from_voltron(line,version,fiber_indicies)
 
 
-    def sum_fibers_from_voltron(self,line,version=None):
+    def sum_fibers_from_voltron(self,line,version=None,fiber_indicies=None):
         """
 
         :param line: the string (line) from a voltron *_fib.txt file
         :param version: the version number of the *_fib.txt file if known
-        :return: two arrays and a value: (1) wavelengths ,  (2) summed and averaged values and (3) central wavelength
+        :param fiber_indicies: zero based index of the fibers (as listed in t#cut or similar to add (adds all if is None or if empty)
+        :return: three arrays and a value: (1) wavelengths ,  (2) summed  values, (3) summed errors and (4) central wavelength
         """
 
         if (line is None) or (len(line) < 20):
@@ -651,6 +594,7 @@ class IFU:
 
         x = []
         v = []
+        e = []
         cw = 0.0
 
         #todo: replace as needed with different parsing depending on version number
@@ -664,37 +608,44 @@ class IFU:
 
             idx = 18
             count_of_fibers = 0 #validate against number_of_fibers
+            fiber_idx = 0
             try:
                 while idx < len_toks:
-                    idstr = toks[idx]
-                    #get the amp and the fiber id
-                    id_toks = idstr.split("_")
-                    if len(id_toks) != 6:
-                        log.error("Invalid fiber id string: %s" % (idstr))
-                        idx += advance
-                        continue
 
-                    amp = id_toks[4]
-                    fib = int(id_toks[5])
-                    exp = int(toks[idx+3])
+                    if (not fiber_indicies) or (len(fiber_indicies) == 0) or (fiber_idx in fiber_indicies):
+                        idstr = toks[idx]
+                        #get the amp and the fiber id
+                        id_toks = idstr.split("_")
+                        if len(id_toks) != 6:
+                            log.error("Invalid fiber id string: %s" % (idstr))
+                            idx += advance
+                            continue
 
-                    if len(x) == 0:
-                        x = self.exposure(exp).fibers[self.get_absolute_fiber_index(amp,fib)].interp_spectra_wavelengths
-                        x = np.array(x)
+                        amp = id_toks[4]
+                        fib = int(id_toks[5])
+                        exp = int(toks[idx+3])
 
-                    if len(v) == 0:
-                        v = self.exposure(exp).fibers[self.get_absolute_fiber_index(amp, fib)].interp_spectra_counts
-                        v = np.array(v)
-                    else:
-                        #one run .. just the first fiber
-                        #print("***** ONE FIBER ONLY ******* ")
-                        v += self.exposure(exp).fibers[self.get_absolute_fiber_index(amp, fib)].interp_spectra_counts
+                        if len(x) == 0:
+                            x = self.exposure(exp).fibers[self.get_absolute_fiber_index(amp,fib)].interp_spectra_wavelengths
+                            x = np.array(x)
 
-                    count_of_fibers += 1
+                        if len(v) == 0:
+                            v = self.exposure(exp).fibers[self.get_absolute_fiber_index(amp, fib)].interp_spectra_counts
+                            v = np.array(v)
+
+                            e = self.exposure(exp).fibers[self.get_absolute_fiber_index(amp, fib)].interp_spectra_errors
+                            e = np.array(e)
+                        else:
+                            v += self.exposure(exp).fibers[self.get_absolute_fiber_index(amp, fib)].interp_spectra_counts
+                            e += self.exposure(exp).fibers[self.get_absolute_fiber_index(amp, fib)].interp_spectra_errors
+
+
+                        count_of_fibers += 1
 
 
                     #advance to next entry
                     idx += advance
+                    fiber_idx += 1
 
                 if count_of_fibers != number_of_fibers:
                     log.warning(
@@ -710,6 +661,6 @@ class IFU:
                 pass #we're done
 
 
-        return x,v,cw
+        return x,v,e,cw
 
 #end class IFU

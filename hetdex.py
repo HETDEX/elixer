@@ -22,7 +22,6 @@ from scipy.ndimage.filters import gaussian_filter
 from scipy.stats import skew, kurtosis
 from scipy.optimize import curve_fit
 
-
 import glob
 from pyhetdex.cure.distortion import Distortion
 import pyhetdex.tools.files.file_tools as ft
@@ -33,11 +32,13 @@ import os
 import fnmatch
 import os.path as op
 from copy import copy, deepcopy
-import line_prob
-import hetdex_fits
 
+import line_prob
+
+import hetdex_fits
 import fiber as voltron_fiber
-import ifu as voltron_ifu
+import ifu as voltron_ifu #only using to locate panacea files (voltron only uses individual fibers, not entire IFUs)
+import spectrum #as voltron_spectrum
 
 log = G.logging.getLogger('hetdex_logger')
 log.setLevel(G.logging.DEBUG)
@@ -1857,6 +1858,8 @@ class HETDEX:
                         log.error("Cannot locate reduction data for %s" % (fib.idstring))
                         continue
                 else:
+                    #only using the ifu package to get the path. voltron does not use entire IFU/observations
+                    #just the specific fibers for each detection
                     info = voltron_ifu.find_panacea_path_info(fib.dither_date,
                                                               fib.dither_time_extended,
                                                               fib.dither_time,
@@ -2081,13 +2084,19 @@ class HETDEX:
             sci_files = "multiple fiber specific"
 
         if self.output_filename is not None:
-            title = "%s_%s\n" % (self.output_filename, str(e.entry_id).zfill(3))
+            title = "%s_%s.pdf\n" % (self.output_filename, str(e.entry_id).zfill(3))
         else:
             title = "" #todo: start with filename
-        if e.type == 'emis':
-            title += "Emission Line Detect ID #%d" % e.id
-        else:
-            title += "Continuum Detect ID #%d" % e.id
+
+        try:
+            title += "Obs: " + e.fibers[0].dither_date + "v" + str(e.fibers[0].obsid).zfill(2) + "_" + \
+            str(e.fibers[0].detect_id) + "\n"
+        except:
+            log.debug("Exception building observation string.",exc_info=True)
+
+        title += "Entry ID (%d), Detect ID (%d)" %(e.entry_id, e.id)
+        if e.line_number is not None:
+            title += ", Line# (%d)" % (e.line_number)
 
         #if e.entry_id is not None:
         #    title += " (Line #%d)" % e.entry_id
@@ -2096,8 +2105,8 @@ class HETDEX:
         #there are 3 numbers: the detect ID (from the detect file), the entity ID (from the composite file)
         # (those two are usually the same, unless CURE is used), and the line number from the input file
         # (e.g. the t7all or t5cut, etc)
-        if e.line_number is not None:
-            title += " (Line #%d)" % e.line_number
+        #if e.line_number is not None:
+        #    title += " (Line #%d)" % e.line_number
 
         if (e.wra is not None) and (e.wdec is not None):  # weighted RA and Dec
             ra = e.wra
