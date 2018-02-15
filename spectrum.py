@@ -28,6 +28,7 @@ DEFAULT_BACKGROUND = 6.0
 DEFAULT_BACKGROUND_WIDTH = 100.0 #pixels
 DEFAULT_MIN_WIDTH_FROM_CENTER_FOR_BACKGROUND = 10.0 #pixels
 MAX_SIGMA = 10.0 #maximum width (pixels) for fit gaussian to signal (greater than this, is really not a fit)
+MIN_SIGMA = 1.0 #roughly 1/2 pixel where pixel = 1.9AA
 DEBUG_SHOW_PLOTS = True
 
 
@@ -246,6 +247,7 @@ def signal_score(wavelengths,values,errors,central,sbr=None, show_plot=False):
         #get the gaussian for the more central part, but use that to get noise from wider range
         #sigma lower limit at 0.5 (could make more like pixel_size / 4.0 or so, but probabaly should not depend on that
         # the minimum size is in angstroms anyway, not pixels, and < 0.5 is awfully narrow to be real)
+        # instrument resolution ~ 1.9AA/pix (dispersion around 2.2?)
         #todo: add sigma=error
         parm, pcov = curve_fit(gaussian, narrow_wave_x, narrow_wave_counts,
                                 p0=(central,1.0,1.0,0.0),
@@ -301,7 +303,7 @@ def signal_score(wavelengths,values,errors,central,sbr=None, show_plot=False):
             log.error("Could not fit gaussian near %f" % central, exc_info=True)
         return None
 
-    if (eli.fit_rmse > 0) and (eli.fit_sigma < MAX_SIGMA):
+    if (eli.fit_rmse > 0) and (eli.fit_sigma <= MAX_SIGMA) and (eli.fit_sigma >= MIN_SIGMA):
         eli.snr = eli.fit_a/(np.sqrt(num_pix)*eli.fit_rmse)
         eli.build()
         #eli.snr = max(eli.fit_vals) / (np.sqrt(num_pix) * eli.fit_rmse)
@@ -1054,6 +1056,9 @@ class Spectrum:
 
         self.solutions = []
 
+        self.addl_fluxes = []
+        self.addl_wavelengths = []
+        self.addl_fluxerrs = []
         self.p_lae = None
         self.p_oii = None
         self.p_lae_oii_ratio = None
@@ -1061,6 +1066,7 @@ class Spectrum:
     def set_spectra(self,wavelengths, values, errors, central, estflux=None,eqw_obs=None):
         del self.wavelengths[:]
         del self.values[:]
+        del self.errors[:]
 
         if (estflux is None) or (eqw_obs is None):
             eli = signal_score(wavelengths=wavelengths, values=values, errors=errors,central=central, sbr=None, show_plot=False)
@@ -1130,19 +1136,27 @@ class Spectrum:
         self.solutions = solutions
 
         #get the LAE and OII solutions and send to Bayesian to check p_LAE/p_OII
-        addl_fluxes = []
-        addl_wavelengths = []
+        del self.addl_fluxes[:]
+        del self.addl_wavelengths[:]
+        del self.addl_fluxerrs[:]
+
+        self.addl_fluxes = []
+        self.addl_wavelengths = []
+        self.addl_fluxerrs = []
         for s in solutions:
             if (abs(s.central_rest - G.LyA_rest) < 2.0) or \
                (abs(s.central_rest - G.OII_rest) < 2.0): #LAE or OII
 
                 for l in s.lines:
                     if l.flux > 0:
-                        addl_fluxes.append(l.flux)
-                        addl_wavelengths.append((l.w_obs))
+                        self.addl_fluxes.append(l.flux)
+                        self.addl_wavelengths.append((l.w_obs))
+                        #todo: get real errror
+                        self.addl_fluxerrs.append(0.0)
 
         #if len(addl_fluxes) > 0:
-        self.get_bayes_probabilities(addl_fluxes=addl_fluxes,addl_wavelengths=addl_wavelengths)
+        self.get_bayes_probabilities(addl_wavelengths=self.addl_wavelengths,addl_fluxes=self.addl_fluxes,
+                                     addl_errors=self.addl_fluxerrs)
         #self.get_bayes_probabilities(addl_fluxes=None, addl_wavelengths=None)
 
         return solutions
@@ -1252,8 +1266,9 @@ class Spectrum:
         return solutions
 
 
-    def get_bayes_probabilities(self,addl_fluxes=None,addl_wavelengths=None):
+    def get_bayes_probabilities(self,addl_wavelengths=None,addl_fluxes=None,addl_errors=None):
         # todo: feed in addl_fluxes from the additonal line solutions (or build specifically)?
+        # todo: make use of errors
 
         #care only about the LAE and OII solutions:
         #todo: find the LyA and OII options in the solution list and use to fill in addl_fluxes?

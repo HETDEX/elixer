@@ -7,7 +7,7 @@ import os.path as op
 import socket
 
 #version
-__version__ = '1.3.7a'
+__version__ = '1.4.0a'
 
 if socket.gethostname() == 'z50':
 #if False:

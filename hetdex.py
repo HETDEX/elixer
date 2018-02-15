@@ -38,7 +38,7 @@ import line_prob
 import hetdex_fits
 import fiber as voltron_fiber
 import ifu as voltron_ifu #only using to locate panacea files (voltron only uses individual fibers, not entire IFUs)
-import spectrum #as voltron_spectrum
+import spectrum as voltron_spectrum
 
 log = G.logging.getLogger('hetdex_logger')
 log.setLevel(G.logging.DEBUG)
@@ -434,6 +434,12 @@ class DetObj:
         self.fibers = []
         self.outdir = None
 
+        #flux calibrated data (from Karl's detect and calibration)
+        self.calspec_wavelength = []
+        self.calspec_flux = []
+        self.calspec_fluxerr = []
+        self.spec_obj = voltron_spectrum.Spectrum() #use for classification, etc
+
         self.p_lae = None #from Andrew Leung
         self.p_oii = None
         self.p_lae_oii_ratio = None
@@ -612,6 +618,20 @@ class DetObj:
     @property
     def sn(self):
         return self.sigma
+
+
+    def load_fluxcalibrated_spectra(self):
+        del self.calspec_wavelength[:]
+        del self.calspec_flux[:]
+        del self.calspec_fluxerr[:]
+
+        #todo: get info from Karl and load
+
+
+        #set_spectra(self, wavelengths, values, errors, central, estflux=None, eqw_obs=None)
+        self.spec_obj.set_spectra(self.calspec_wavelength,self.calspec_flux,self.calspec_fluxerr,self.w)
+        self.spec_obj.classify() #solutions can be returned, also stored in spec_obj.solutions
+
 
     def dqs_score(self,force_recompute=False):
         #dqs_compute_score eventually calls to dqs_shape() which can trigger a force_recompute
@@ -1076,24 +1096,33 @@ class DetObj:
 
     def get_probabilities(self):
 
-        ratio, self.p_lae, self.p_oii = line_prob.prob_LAE(wl_obs=self.w,
-                                                           lineFlux=self.estflux,
-                                                           ew_obs=(self.eqw_obs),
-                                                           c_obs=None, which_color=None,
-                                                           addl_fluxes=None, addl_wavelengths=None,
-                                                           sky_area=None,
-                                                           cosmo=None, lae_priors=None,
-                                                           ew_case=None, W_0=None,
-                                                           z_OII=None, sigma=None)
-        if (self.p_lae is not None) and (self.p_lae > 0.0):
-            if (self.p_oii is not None) and (self.p_oii > 0.0):
-                self.p_lae_oii_ratio = self.p_lae /self.p_oii
-            else:
-                self.p_lae_oii_ratio = float('inf')
-        else:
-            self.p_lae_oii_ratio = 0.0
+        #if we have a flux calibrated, already classified spectra, use that
+        #(this is the normal case)
+        if self.spec_obj.p_lae_oii_ratio is not None:
+            self.p_lae = self.spec_obj.p_lae
+            self.p_oii = self.spec_obj.p_oii
+            self.p_lae_oii_ratio = self.spec_obj.p_lae_oii_ratio
 
-        self.p_lae_oii_ratio = min(line_prob.MAX_PLAE_POII,self.p_lae_oii_ratio) #cap to MAX
+        #otherwise, build with what we've got (note: does not have additional lines, in this case)
+        else:
+            ratio, self.p_lae, self.p_oii = line_prob.prob_LAE(wl_obs=self.w,
+                                                               lineFlux=self.estflux,
+                                                               ew_obs=(self.eqw_obs),
+                                                               c_obs=None, which_color=None,
+                                                               addl_fluxes=None, addl_wavelengths=None,
+                                                               sky_area=None,
+                                                               cosmo=None, lae_priors=None,
+                                                               ew_case=None, W_0=None,
+                                                               z_OII=None, sigma=None)
+            if (self.p_lae is not None) and (self.p_lae > 0.0):
+                if (self.p_oii is not None) and (self.p_oii > 0.0):
+                    self.p_lae_oii_ratio = self.p_lae /self.p_oii
+                else:
+                    self.p_lae_oii_ratio = float('inf')
+            else:
+                self.p_lae_oii_ratio = 0.0
+
+            self.p_lae_oii_ratio = min(line_prob.MAX_PLAE_POII,self.p_lae_oii_ratio) #cap to MAX
 
 
 
@@ -1169,7 +1198,7 @@ class FitsSorter:
 
 
 class HETDEX:
-    #!!!deals with a single IFU
+
     def __init__(self,args):
         if args is None:
             log.error("Cannot construct HETDEX object. No arguments provided.")
@@ -2041,7 +2070,7 @@ class HETDEX:
 
     def build_hetdex_data_page(self,pages,detectid):
 
-        e = self.get_emission_detect(detectid)
+        e = self.get_emission_detect(detectid) #this is a DetObj
         if e is None:
             log.error("Could not identify correct emission to plot. Detect ID = %d" % detectid)
             return None
@@ -2369,6 +2398,9 @@ class HETDEX:
             dd['specwave'] = []
             dd['fw_spec']  = []
             dd['fw_specwave'] = []
+            dd['calspec_wave'] = []
+            dd['calspec_flux'] = []
+            dd['calspec_ferr'] = []
             dd['cos'] = []
             dd['ra'] = []
             dd['dec'] = []
@@ -2673,6 +2705,12 @@ class HETDEX:
 
                 datakeep['fw_spec'].append(sci.fe_data[loc,:])
                 datakeep['fw_specwave'].append(wave[:])
+
+                if len(datakeep['calspec_wave']) == 0:
+                    #there is only ONE fluxcalibrated spectra for the entire detection (not one per fiber)
+                    datakeep['calspec_wave'] = e.calspec_wavelength
+                    datakeep['calspec_flux'] = e.calspec_flux
+                    datakeep['calspec_ferr'] = e.calspec_fluxerr
 
         return datakeep
 
@@ -3051,6 +3089,12 @@ class HETDEX:
 
             datakeep['fw_spec'].append(fits.fe_data[loc, :])
             datakeep['fw_specwave'].append(wave[:])
+
+            if len(datakeep['calspec_wave']) == 0:
+                # there is only ONE fluxcalibrated spectra for the entire detection (not one per fiber)
+                datakeep['calspec_wave'] = e.calspec_wavelength
+                datakeep['calspec_flux'] = e.calspec_flux
+                datakeep['calspec_ferr'] = e.calspec_fluxerr
 
         return datakeep
 
@@ -3552,7 +3596,6 @@ class HETDEX:
         right = int(max(datakeep['fw_specwave'][0]))
 
         bigwave = np.arange(left, right)
-        F = np.zeros(bigwave.shape)
 
         N = len(datakeep['xi'])
         if self.plot_fibers is not None:
@@ -3561,13 +3604,18 @@ class HETDEX:
             stop = -1
 
         try:
-             #new way, per Karl, straight sum
-            for j in range(N - 1, stop, -1):
-                # regardless of the number if the sn is below the threshold, skip it
-                if (datakeep['fiber_sn'][j] is not None) and (datakeep['fiber_sn'][j] < self.min_fiber_sn):
-                    continue
+            j = None
+            if len(datakeep['calspec_wave']) > 0:
+                F = np.interp(bigwave, datakeep['calspec_wave'], datakeep['calspec_flux'])
+            else:
+                F = np.zeros(bigwave.shape)
+                #new way, per Karl, straight sum
+                for j in range(N - 1, stop, -1):
+                    # regardless of the number if the sn is below the threshold, skip it
+                    if (datakeep['fiber_sn'][j] is not None) and (datakeep['fiber_sn'][j] < self.min_fiber_sn):
+                        continue
 
-                F += (np.interp(bigwave, datakeep['fw_specwave'][ind[j]], datakeep['fw_spec'][ind[j]]) )
+                    F += (np.interp(bigwave, datakeep['fw_specwave'][ind[j]], datakeep['fw_spec'][ind[j]]) )
 
             mn = np.min(F)
             mn = max(mn,-20) #negative flux makes no sense (excepting for some noise error)
@@ -3630,16 +3678,19 @@ class HETDEX:
                                        fontsize='small',  borderaxespad=0)
 
         except:
-            log.warning("Unable to build full width spec plot. Datakeep info:\n"
-                        "IFUSLOTID = %s\n"
-                        "Dither = %s\n"
-                        "SIDE = %s\n"
-                        "AMP = %s\n"
-                        "Fiber = %i\n"
-                        "Wavelength = %f\n"
-                        % (self.ifu_slot_id, datakeep['dit'][ind[j]], datakeep['side'][ind[j]], datakeep['amp'][ind[j]],
-                           datakeep['fib'][ind[j]], cwave)
-                        , exc_info=True)
+            if j:
+                log.warning("Unable to build full width spec plot. Datakeep info:\n"
+                            "IFUSLOTID = %s\n"
+                            "Dither = %s\n"
+                            "SIDE = %s\n"
+                            "AMP = %s\n"
+                            "Fiber = %i\n"
+                            "Wavelength = %f\n"
+                            % (self.ifu_slot_id, datakeep['dit'][ind[j]], datakeep['side'][ind[j]], datakeep['amp'][ind[j]],
+                               datakeep['fib'][ind[j]], cwave)
+                            , exc_info=True)
+            else:
+                log.warning("Unable to build full width spec plot.",exc_info=True)
 
         #draw rectangle around section that is "zoomed"
         yl, yh = specplot.get_ylim()
