@@ -591,10 +591,21 @@ class STACK_COSMOS(cat_base.Catalog):
 
                     bid_target.add_filter(i['instrument'],i['filter'],bid_target.bid_flux_est_cgs,-1)
 
+                    addl_waves = None
+                    addl_flux = None
+                    addl_ferr = None
+                    try:
+                        addl_waves = cat_match.detobj.spec_obj.addl_wavelengths
+                        addl_flux = cat_match.detobj.spec_obj.addl_fluxes
+                        addl_ferr = cat_match.detobj.spec_obj.addl_fluxerrs
+                    except:
+                        pass
+
                     bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii = \
                         line_prob.prob_LAE(wl_obs=target_w, lineFlux=target_flux,
                                            ew_obs=(target_flux / bid_target.bid_flux_est_cgs),
-                                           c_obs=None, which_color=None, addl_fluxes=None, sky_area=None,
+                                           c_obs=None, which_color=None, addl_wavelengths=addl_waves,
+                                           addl_fluxes=addl_flux, addl_errors=addl_ferr,sky_area=None,
                                            cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
                                            sigma=None)
 
@@ -974,13 +985,24 @@ class STACK_COSMOS(cat_base.Catalog):
                             bid_target.bid_dec = df['DEC'].values[0]
                             bid_target.distance = df['distance'].values[0] * 3600
                             bid_target.bid_flux_est_cgs = filter_fl
-                            # todo: add call to line_probabilities:
+
+                            addl_waves = None
+                            addl_flux = None
+                            addl_ferr = None
+                            try:
+                                addl_waves = cat_match.detobj.spec_obj.addl_wavelengths
+                                addl_flux = cat_match.detobj.spec_obj.addl_fluxes
+                                addl_ferr = cat_match.detobj.spec_obj.addl_fluxerrs
+                            except:
+                                pass
+
                             bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii = line_prob.prob_LAE(
                                 wl_obs=target_w,
                                 lineFlux=target_flux,
                                 ew_obs=(target_flux / filter_fl_cgs),
                                 c_obs=None, which_color=None,
-                                addl_fluxes=None, sky_area=None,
+                                addl_wavelengths=addl_waves,
+                                addl_fluxes=addl_flux, addl_errors=addl_ferr,sky_area=None,
                                 cosmo=None, lae_priors=None,
                                 ew_case=None, W_0=None,
                                 z_OII=None, sigma=None)

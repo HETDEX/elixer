@@ -42,7 +42,7 @@ def fiber_area_in_sqdeg(num_fibers=1):
 
 
 #wrapper for Andrew Leung's base code
-def prob_LAE(wl_obs,lineFlux,ew_obs,c_obs, which_color=None, addl_fluxes=None,addl_wavelengths=None,
+def prob_LAE(wl_obs,lineFlux,ew_obs,c_obs, which_color=None, addl_wavelengths=None, addl_fluxes=None,addl_errors=None,
             sky_area=None, cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None, sigma=None):
     '''
 
@@ -110,6 +110,7 @@ def prob_LAE(wl_obs,lineFlux,ew_obs,c_obs, which_color=None, addl_fluxes=None,ad
     #suppress sign of EW (always wants positive)
     ew_obs = abs(ew_obs)
 
+    #todo: addl_errors=None
     try:
     # initialization taken directly from Andrew's code, but I don't know what they mean
         Bayes.nb.init(_alpha_LAE=alpha_LAE_default, _mult_LStar_LAE=1, _mult_PhiStar_LAE=1, _mult_w0_LAE=1,
@@ -118,8 +119,9 @@ def prob_LAE(wl_obs,lineFlux,ew_obs,c_obs, which_color=None, addl_fluxes=None,ad
         #plgd == Probability of lae given the data?
         #pogd = Probability of OII given the data ?
         ratio_LAE, plgd, pogd = Bayes.bayesian.prob_ratio(wl_obs=wl_obs, lineFlux=lineFlux, ew_obs=ew_obs,
-                                                          c_obs=c_obs, which_color=which_color, addl_fluxes=addl_fluxes,
+                                                          c_obs=c_obs, which_color=which_color,
                                                           addl_wavelengths=addl_wavelengths,
+                                                          addl_fluxes=addl_fluxes,
                                                           sky_area=sky_area, cosmo=cosmo, LAE_priors=lae_priors,
                                                           EW_case=ew_case, W_0=W_0, z_OII=z_OII,  sigma=sigma)
 

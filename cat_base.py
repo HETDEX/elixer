@@ -298,21 +298,27 @@ class Catalog:
         try:
             return float(flux) * 1e-29 * c / (float(wavelength) ** 2)  # 3e18 ~ c in angstroms/sec
         except:
-            return 0
+            return 0.
 
     def nano_jansky_to_cgs(self,flux,wavelength):
         c = scipy.constants.c * 1e10
         try:
             return float(flux) * 1e-32 * c / (float(wavelength) ** 2)  # 3e18 ~ c in angstroms/sec
         except:
-            return 0
+            return 0.
 
     def obs_mag_to_Jy(self,mag):
         # essentially f_v
-        return 3631.0 * 10 ** (-0.4 * mag)
+        try:
+            return 3631.0 * 10 ** (-0.4 * mag)
+        except:
+            return 0.
 
     def obs_mag_to_micro_Jy(self,mag):
-        return self.obs_mag_to_Jy(mag) * 1e6
+        try:
+            return self.obs_mag_to_Jy(mag) * 1e6
+        except:
+            return 0.
 
     def obs_mag_to_nano_Jy(self,mag):
         return self.obs_mag_to_Jy(mag) * 1e9
@@ -321,7 +327,10 @@ class Catalog:
         # approximate, but good enough?
         # should be the filter iso wavelength or iso frequency, not the line
         # hz = (3e18)/float(wavelength)
-        return self.obs_mag_to_Jy(mag) * 1e-23 * (scipy.constants.c * 1e10) / (wavelength ** 2)
+        try:
+            return self.obs_mag_to_Jy(mag) * 1e-23 * (scipy.constants.c * 1e10) / (wavelength ** 2)
+        except:
+            return 0.
 
     def get_f606w_max_cont(self,exp_time,sigma=3,base=None):
         #note:this goes as the sqrt of exp time, but even so, this is not a valid use

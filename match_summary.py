@@ -36,6 +36,7 @@ class Match:
     def __init__(self,emis=None):
         #self.match_num = 0
         if emis is None:
+            self.detobj = None
             self.input_id = 0
             self.detect_id = 0
             self.emis_ra = 361.00
@@ -53,6 +54,9 @@ class Match:
             self.emis_cont_flux_cgs = 0.0
             self.emis_obs_eqw = 0.0
         else:
+            # this is a bit kludgey but now need info on spectra data continained within emis (v1.4.0)
+            # and that also makes most of this data redundant
+            self.detobj = emis
             self.input_id = emis.entry_id
             self.detect_id = emis.id
             if emis.wra is not None:
