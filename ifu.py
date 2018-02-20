@@ -13,6 +13,11 @@ import fiber as voltron_fiber
 import hetdex_fits
 from astropy.io import fits as pyfits
 
+import spectrum as voltron_spectrum
+
+
+UNITS = ['counts','cgs-17']
+
 def getnearpos(array,value):
     idx = (np.abs(array-value)).argmin()
     return idx
@@ -195,6 +200,11 @@ class IFU:
         #self.add_fiber_ids = []
         #self.add_values = []
         #self.add_wavelengths = []
+
+        self.sum_wavelengths = []
+        self.sum_values = []
+        self.sum_errors = []
+        self.sum_count = 0
 
         if idstring is not None:
             try:
@@ -663,7 +673,7 @@ class IFU:
         return x,v,e,cw
 
 
-    def is_fiber_empty(self,wavelengths,values,errors=None):
+    def is_fiber_empty(self,wavelengths,values,errors=None, units=None,max_score=1.0, max_snr = 3.0):
         '''
         Basically, is the fiber free from any overt signals (real emission line(s), continuum, sky, etc)
         Values and errors must have the same units
@@ -672,9 +682,64 @@ class IFU:
 
         '''
         # todo: reject if any signal found
-        pass
+        # could find peaks and kick out anything with S/N > 3?
+        # what about contiuum??
+        #  could average over chunks of, say, 100 pixels and reject if any chunk is above a threshold
+        #   but then would need to know if these are counts, ergs, or what units???
 
+        #what about a relative distance between min and max as a simple check??
+        # (like    (max-min)/(.5*abs(max+min)) ...not that ... basically will always be 2
+        # maybe (max-min)/(mean(values)) should not be more than 2 or 3?
+        rc = False
+        try:
 
+#            extrema_ratio = (max(values) - min(values))/np.mean(values)
+#            print (extrema_ratio)
+
+            if (units is None) or (units == 'counts'):
+                if min(values) < -50.0 or max(values) > 50.0:
+                    log.debug("Fiber rejected for addition. Large extrema.")
+                    return False
+
+#def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
+            peaks = voltron_spectrum.peakdet(wavelengths, values, dw=5.0)#, h, dh, zero)
+            signal = list(filter(lambda x: (x[5] > max_score) or (x[6] > max_snr),peaks))
+
+            if len(signal) == 0:
+                rc = True
+            else:
+                log.debug("Fiber rejected for addition. Peaks found.")
+        except:
+            log.debug("Exception in ifu::is_fiber_empty() ", exc_info=True)
+
+        return rc
+
+    def sum_empty_fibers(self):
+        """
+        iterate over all fibers in this IFU (over all exposures for this shot)
+        sum up those that are apparently empty
+
+        :return: count of summed fibers
+        """
+
+        del self.sum_wavelengths[:]
+        del self.sum_values[:]
+        del self.sum_errors[:]
+        self.sum_count = 0
+
+        for e in self.exposures:
+            for f in e.fibers:
+                if self.is_fiber_empty(f.interp_spectra_wavelengths,f.interp_spectra_counts,f.interp_spectra_errors):
+                    self.sum_count += 1
+                    if len(self.sum_wavelengths) == 0:
+                        self.sum_wavelengths = np.array(f.interp_spectra_wavelengths)
+                        self.sum_values = np.array(f.interp_spectra_counts)
+                        self.sum_errors = np.array(f.interp_spectra_errors)
+                    else:
+                        self.sum_values += np.array(f.interp_spectra_counts)
+                        self.sum_errors += np.array(f.interp_spectra_errors)
+
+        return self.sum_count
 
 
 #end class IFU

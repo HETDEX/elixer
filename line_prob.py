@@ -64,7 +64,7 @@ def prob_LAE(wl_obs,lineFlux,ew_obs,c_obs, which_color=None, addl_wavelengths=No
     '''
 
     #sanity check
-    if (ew_obs == -300) or (ew_obs == 666):
+    if (ew_obs is None) or (ew_obs == -300) or (ew_obs == 666):
         #bsically, sentinel (null) values from Karl's input file
         return 0.0,0.0,0.0
 

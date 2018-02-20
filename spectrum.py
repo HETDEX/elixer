@@ -29,7 +29,7 @@ DEFAULT_BACKGROUND_WIDTH = 100.0 #pixels
 DEFAULT_MIN_WIDTH_FROM_CENTER_FOR_BACKGROUND = 10.0 #pixels
 MAX_SIGMA = 10.0 #maximum width (pixels) for fit gaussian to signal (greater than this, is really not a fit)
 MIN_SIGMA = 1.0 #roughly 1/2 pixel where pixel = 1.9AA
-DEBUG_SHOW_PLOTS = True
+DEBUG_SHOW_PLOTS = False
 
 
 FLUX_CONVERSION_measured_w = [3000., 3500., 3540., 3640., 3740., 3840., 3940., 4040., 4140., 4240., 4340., 4440., 4540., 4640., 4740., 4840.,
@@ -801,6 +801,17 @@ def simple_peaks(x,v,h=MIN_HEIGHT,delta_v=2.0):
 
 def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
 
+    """
+
+    :param x:
+    :param v:
+    :param dw:
+    :param h:
+    :param dh:
+    :param zero:
+    :return: array of [ pi, px, pv, pix_width, centroid_pos, eli.score, eli.snr]
+    """
+
     #peakind = signal.find_peaks_cwt(v, [2,3,4,5],min_snr=4.0) #indexes of peaks
 
     #emis = zip(peakind,x[peakind],v[peakind])
@@ -816,7 +827,6 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
     """
     Converted from MATLAB script at http://billauer.co.il/peakdet.html
 
-    Returns two arrays
 
     function [maxtab, mintab]=peakdet(v, delta, x)
     %PEAKDET Detect peaks in a vector
@@ -982,13 +992,13 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
             if (eli is not None) and (eli.score > 0):
                 if len(emistab) > 0:
                     if (px - emistab[-1][1]) > 6.0:
-                        emistab.append((pi, px, pv,pix_width,centroid_pos,eli.score))
+                        emistab.append((pi, px, pv,pix_width,centroid_pos,eli.score,eli.snr))
                     else: #too close ... keep the higher peak
                         if pv > emistab[-1][2]:
                             emistab.pop()
-                            emistab.append((pi, px, pv, pix_width, centroid_pos,eli.score))
+                            emistab.append((pi, px, pv, pix_width, centroid_pos,eli.score,eli.snr))
                 else:
-                    emistab.append((pi, px, pv, pix_width, centroid_pos,eli.score))
+                    emistab.append((pi, px, pv, pix_width, centroid_pos,eli.score,eli.snr))
 
 
     #return np.array(maxtab), np.array(mintab)
@@ -1357,7 +1367,7 @@ class Spectrum:
                         h = peaks[i][2]
                         specplot.annotate(str(peaks[i][5]),xy=(peaks[i][1],h),xytext=(peaks[i][1],h),fontsize=6)
 
-                        log.debug("Peak at: %f , Score = %f" %(peaks[i][1],peaks[i][5]))
+                        log.debug("Peak at: %g , Score = %g , SNR = %g" %(peaks[i][1],peaks[i][5], peaks[i][6]))
 
 
 
@@ -1468,6 +1478,7 @@ class Spectrum:
 
         if name is not None:
             try:
+                #plt.tight_layout(w_pad=1.1)
                 plt.savefig(name+".png", format='png', dpi=300)
             except:
                 log.warning("Unable save plot to file.", exc_info=True)
