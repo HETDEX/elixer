@@ -579,7 +579,6 @@ class IFU:
 
     def sum_fibers_from_voltron(self,line,version=None,fiber_indicies=None):
         """
-
         :param line: the string (line) from a voltron *_fib.txt file
         :param version: the version number of the *_fib.txt file if known
         :param fiber_indicies: zero based index of the fibers (as listed in t#cut or similar to add (adds all if is None or if empty)
@@ -662,5 +661,20 @@ class IFU:
 
 
         return x,v,e,cw
+
+
+    def is_fiber_empty(self,wavelengths,values,errors=None):
+        '''
+        Basically, is the fiber free from any overt signals (real emission line(s), continuum, sky, etc)
+        Values and errors must have the same units
+        Values and errors must already be normalized (e.g. values/fiber_to_fiber, errors*fiber_to_fiber, etc)
+        Would be best (downstream) if they were also flux calibtrated, but does not matter much in this function
+
+        '''
+        # todo: reject if any signal found
+        pass
+
+
+
 
 #end class IFU

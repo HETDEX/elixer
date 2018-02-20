@@ -200,20 +200,25 @@ def signal_score(wavelengths,values,errors,central,sbr=None, show_plot=False):
     num_of_sigma = 3.0  # number of sigma to include on either side of the central peak to estimate noise
 
     len_array = len(wavelengths)
-
     idx = getnearpos(wavelengths,central)
     min_idx = max(0,idx-wave_side)
     max_idx = min(len_array,idx+wave_side)
     wave_x = wavelengths[min_idx:max_idx+1]
     wave_counts = values[min_idx:max_idx+1]
-    wave_errors = errors[min_idx:max_idx+1]
+    if (errors is not None) and (len(errors) == len(wavelengths)):
+        wave_errors = errors[min_idx:max_idx+1]
+    else:
+        wave_errors = None
 
     if False: #do I want to use a more narrow range for the gaussian fit? still uses the wider range for RMSE
         min_idx = max(0, idx - wave_side/2)
         max_idx = min(len_array, idx + wave_side/2)
         narrow_wave_x = wavelengths[min_idx:max_idx+1]
         narrow_wave_counts = values[min_idx:max_idx + 1]
-        narrow_wave_errors = errors[min_idx:max_idx + 1]
+        if (errors is not None) and (len(errors) == len(wavelengths)):
+            narrow_wave_errors = errors[min_idx:max_idx + 1]
+        else:
+            narrow_wave_errors = None
     else:
         narrow_wave_x = wave_x
         narrow_wave_counts = wave_counts
