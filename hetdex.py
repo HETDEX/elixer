@@ -3221,8 +3221,9 @@ class HETDEX:
 
                 GF = gaussian_filter(summed_image, (2, 1))
                 image = summed_image
-
-
+                img_vmin, img_vmax = self.get_vrange(summed_image, scale=contrast1)
+                gauss_vmin = img_vmin
+                gauss_vmax = img_vmax
 
             borplot = plt.axes([borderxl + 0. * dx, borderyb + i * dy, 3 * dx, dy])
             smplot = plt.axes([borderxl + 2. * dx - bordbuff / 3., borderyb + i * dy + bordbuff / 2., dx1, dy1])
