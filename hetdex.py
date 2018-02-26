@@ -103,6 +103,30 @@ def flux_conversion(w): #electrons to ergs at wavelength w
         return 0.0
 
 
+def blank_pixel_flat(xh=48,xl=0,yh=20,yl=0,vmin_pix = 0.9,vmax_pix = 1.1):
+    # todo: this is really sloppy ... make a better/more efficient pattern
+    #remember, this is inverted (so vmax_pix = white, vmin_pix = black
+    pix_x = xh - xl + 1
+    pix_y = yh - yl + 1
+    pix_blank = np.zeros((pix_y, pix_x)) #yes, y then x and the same below
+    pix_blank += vmax_pix
+    v_avg = (vmax_pix + vmin_pix) / 2.
+    try:
+        for x in range(pix_x / 2):
+            for y in range(pix_y / 2):
+                pix_blank[y * 2, x * 2] = v_avg
+
+        #borders
+        pix_blank[0,:] = vmin_pix
+        pix_blank[pix_y-1,:] = vmin_pix
+        pix_blank[:,0] = vmin_pix
+        pix_blank[:,pix_x-1] = vmin_pix
+    except:
+        pass
+
+    return pix_blank
+
+
 #todo: may change with Config0 vs Config1 ... so may need to add additional info
 def flip_amp(amp=None,buf=None):
     if (amp is None) or (buf is None):
@@ -2401,6 +2425,7 @@ class HETDEX:
             dd['calspec_wave'] = []
             dd['calspec_flux'] = []
             dd['calspec_ferr'] = []
+            dd['fiber_weight'] = []
             dd['cos'] = []
             dd['ra'] = []
             dd['dec'] = []
@@ -2637,16 +2662,19 @@ class HETDEX:
             if load_blank:
                 # todo: this is really sloppy ... make a better/more efficient pattern
                 log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
-                pix_x = xh - xl + 1
-                pix_y = yh - yl + 1
-                pix_blank = np.zeros((pix_y, pix_x))
-                try:
-                    for x in range(pix_x / 2):
-                        for y in range(pix_y / 2):
-                            pix_blank[y * 2, x * 2] = 999
-                except:
-                    pass
-                datakeep['pix'].append(deepcopy(pix_blank))
+
+                datakeep['pix'].append(deepcopy(blank_pixel_flat(xh,xl,yh,yl)))
+
+               # pix_x = xh - xl + 1
+               # pix_y = yh - yl + 1
+               # pix_blank = np.zeros((pix_y, pix_x))
+               # try:
+               #     for x in range(pix_x / 2):
+               #         for y in range(pix_y / 2):
+               #             pix_blank[y * 2, x * 2] = 999
+               # except:
+               #     pass
+               # datakeep['pix'].append(deepcopy(pix_blank))
 
 
             #cosmic removed (but will assume that is the original data)
@@ -2705,6 +2733,9 @@ class HETDEX:
 
                 datakeep['fw_spec'].append(sci.fe_data[loc,:])
                 datakeep['fw_specwave'].append(wave[:])
+
+                # todo: set the weights correctly
+                datakeep['fiber_weight'].append(1.0)
 
                 if len(datakeep['calspec_wave']) == 0:
                     #there is only ONE fluxcalibrated spectra for the entire detection (not one per fiber)
@@ -3023,16 +3054,18 @@ class HETDEX:
             if load_blank:
                 # todo: this is really sloppy ... make a better/more efficient pattern
                 log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
-                pix_x = xh - xl + 1
-                pix_y = yh - yl + 1
-                pix_blank = np.zeros((pix_y, pix_x))
-                try:
-                    for x in range(pix_x / 2):
-                        for y in range(pix_y / 2):
-                            pix_blank[y * 2, x * 2] = 999
-                except:
-                    pass
-                datakeep['pix'].append(deepcopy(pix_blank))
+                datakeep['pix'].append(deepcopy(blank_pixel_flat(xh, xl, yh, yl)))
+
+                #pix_x = xh - xl + 1
+                #pix_y = yh - yl + 1
+                #pix_blank = np.zeros((pix_y, pix_x))
+                #try:
+                #    for x in range(pix_x / 2):
+                #        for y in range(pix_y / 2):
+                #            pix_blank[y * 2, x * 2] = 999
+                #except:
+                #    pass
+                #datakeep['pix'].append(deepcopy(pix_blank))
 
 
 
@@ -3090,33 +3123,44 @@ class HETDEX:
             datakeep['fw_spec'].append(fits.fe_data[loc, :])
             datakeep['fw_specwave'].append(wave[:])
 
+            #todo: set the weights correctly
+            datakeep['fiber_weight'].append(1.0)
+
             if len(datakeep['calspec_wave']) == 0:
                 # there is only ONE fluxcalibrated spectra for the entire detection (not one per fiber)
                 datakeep['calspec_wave'] = e.calspec_wavelength
                 datakeep['calspec_flux'] = e.calspec_flux
                 datakeep['calspec_ferr'] = e.calspec_fluxerr
 
+
         return datakeep
-
-
 
 
     #2d spectra cutouts (one per fiber)
     def build_2d_image(self,datakeep):
 
+        # todo: sum up the weighted 2D spec (image) [smoothed image comes later]
+        # todo: shift the other fibers to start one-position off to leave the top
+        # todo:     position open for the summed images
+
+        #not dynamic, but if we are going to add a combined 2D spectra cutout at the top, set this to 1
+        add_summed_image = 1
+
         cmap = plt.get_cmap('gray_r')
         norm = plt.Normalize()
         colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
-        num = len(datakeep['xi'])
+        num = len(datakeep['xi']) #for the summed images
         bordbuff = 0.01
         borderxl = 0.05
         borderxr = 0.15
         borderyb = 0.05
         borderyt = 0.15
+
+        #the +1 for the summed image
         dx = (1. - borderxl - borderxr) / 3.
-        dy = (1. - borderyb - borderyt) / num
+        dy = (1. - borderyb - borderyt) / (num+add_summed_image)
         dx1 = (1. - borderxl - borderxr) / 3.
-        dy1 = (1. - borderyb - borderyt - num * bordbuff) / num
+        dy1 = (1. - borderyb - borderyt - (num+add_summed_image) * bordbuff) / (num+add_summed_image)
         Y = (yw / dy) / (xw / dx) * 5.
 
         Y = max(Y,0.8) #set a minimum size
@@ -3127,144 +3171,191 @@ class HETDEX:
         # previously sorted in order from largest distances to smallest
         ind = list(range(len(datakeep['d'])))
 
-        for i in range(num):
+        #assume all the same shape
+        summed_image = np.zeros(datakeep['im'][ind[0]].shape)
+
+        #need i to start at zero
+        #building from bottom up
+        for i in range(num+add_summed_image):
+            if i < num:
+                pcolor = colors[i, 0:3]
+                datakeep['color'][i] = pcolor
+                datakeep['index'][i] = num -i
+
+                ext = list(np.hstack([datakeep['xl'][ind[i]], datakeep['xh'][ind[i]],
+                                      datakeep['yl'][ind[i]], datakeep['yh'][ind[i]]]))
+
+                # set the hot (cosmic) pixel values to zero then employ guassian_filter
+                a = datakeep['im'][ind[i]]
+                a = np.ma.masked_where(datakeep['err'][ind[i]] == -1, a)
+                a = np.ma.filled(a, 0.0)
+
+                summed_image += a * datakeep['fiber_weight'][ind[i]]
+
+                # GF = gaussian_filter(datakeep['im'][ind[i]], (2, 1))
+                GF = gaussian_filter(a, (2, 1))
+
+                gauss_vmin = datakeep['vmin1'][ind[i]]
+                gauss_vmax = datakeep['vmax1'][ind[i]]
+
+                pix_image = datakeep['pix'][ind[i]]
+
+
+
+                image = datakeep['im'][ind[i]]  # im can be the cosmic removed version, depends on G.PreferCosmicCleaned
+                cmap1 = cmap
+                cmap1.set_bad(color=[0.2, 1.0, 0.23])
+                image = np.ma.masked_where(datakeep['err'][ind[i]] == -1, image)
+                img_vmin = datakeep['vmin2'][ind[i]]
+                img_vmax = datakeep['vmax2'][ind[i]]
+
+                plot_label = str(num-i)
+
+
+
+            else: #this is the top image (the sum)
+                pcolor = None
+                ext = None
+                pix_image = blank_pixel_flat()
+                plot_label = "SUM"
+
+                GF = gaussian_filter(summed_image, (2, 1))
+                image = summed_image
+
+
+
             borplot = plt.axes([borderxl + 0. * dx, borderyb + i * dy, 3 * dx, dy])
             smplot = plt.axes([borderxl + 2. * dx - bordbuff / 3., borderyb + i * dy + bordbuff / 2., dx1, dy1])
             pixplot = plt.axes(
                 [borderxl + 1. * dx + 1 * bordbuff / 3., borderyb + i * dy + bordbuff / 2., dx1, dy1])
             imgplot = plt.axes([borderxl + 0. * dx + bordbuff / 2., borderyb + i * dy + bordbuff / 2., dx1, dy1])
             autoAxis = borplot.axis()
-            datakeep['color'][i] = colors[i, 0:3]
-            datakeep['index'][i] = num -i
 
             rec = plt.Rectangle((autoAxis[0] + bordbuff / 2., autoAxis[2] + bordbuff / 2.),
                                 (autoAxis[1] - autoAxis[0]) * (1. - bordbuff),
                                 (autoAxis[3] - autoAxis[2]) * (1. - bordbuff), fill=False, lw=3,
-                                color=datakeep['color'][i], zorder=1)
+                                color=pcolor, zorder=1)
             rec = borplot.add_patch(rec)
             borplot.set_xticks([])
             borplot.set_yticks([])
             borplot.axis('off')
-            ext = list(np.hstack([datakeep['xl'][ind[i]], datakeep['xh'][ind[i]],
-                                  datakeep['yl'][ind[i]], datakeep['yh'][ind[i]]]))
 
-
-            #set the hot (cosmic) pixel values to zero then employ guassian_filter
-            a = datakeep['im'][ind[i]]
-            a = np.ma.masked_where( datakeep['err'][ind[i]] == -1, a)
-            a = np.ma.filled(a,0.0)
-
-            #GF = gaussian_filter(datakeep['im'][ind[i]], (2, 1))
-            GF = gaussian_filter(a,(2,1))
             smplot.imshow(GF,
                           origin="lower", cmap=cmap,
-                          interpolation="none", vmin=datakeep['vmin1'][ind[i]],
-                          vmax=datakeep['vmax1'][ind[i]],
+                          interpolation="none", vmin=gauss_vmin,
+                          vmax=gauss_vmax,
                           extent=ext)
 
             smplot.set_xticks([])
             smplot.set_yticks([])
-            smplot.axis(ext)
+           # smplot.axis(ext)
             smplot.axis('off')
 
-            vmin_pix = 0.9
-            vmax_pix = 1.1
-            pixplot.imshow(datakeep['pix'][ind[i]],
-                           origin="lower", cmap=plt.get_cmap('gray'),
-                           interpolation="none", vmin=vmin_pix, vmax=vmax_pix,
-                           extent=ext) #vmin=0.9, vmax=1.1
+            if pix_image is not None:
+                vmin_pix = 0.9
+                vmax_pix = 1.1
+                pixplot.imshow(pix_image,
+                               origin="lower", cmap=plt.get_cmap('gray'),
+                               interpolation="none", vmin=vmin_pix, vmax=vmax_pix,
+                               extent=ext) #vmin=0.9, vmax=1.1
 
+            #still need to always turn off the axis
             pixplot.set_xticks([])
             pixplot.set_yticks([])
-            pixplot.axis(ext)
+            # pixplot.axis(ext)
             pixplot.axis('off')
 
-            a = datakeep['im'][ind[i]] #im can be the cosmic removed version, depends on G.PreferCosmicCleaned
-            cmap1 = cmap
-            cmap1.set_bad(color=[0.2, 1.0, 0.23])
-            a = np.ma.masked_where( datakeep['err'][ind[i]] == -1, a)
-
-            imgplot.imshow(a,
+            imgplot.imshow(image,
                            origin="lower", cmap=cmap1,
-                           vmin=datakeep['vmin2'][ind[i]],
-                           vmax=datakeep['vmax2'][ind[i]],
+                           vmin=img_vmin,
+                           vmax=img_vmax,
                            interpolation="none",extent=ext)
 
             imgplot.set_xticks([])
             imgplot.set_yticks([])
-            imgplot.axis(ext)
+           # imgplot.axis(ext)
             imgplot.axis('off')
 
-            xi = datakeep['xi'][ind[i]]
-            yi = datakeep['yi'][ind[i]]
-            xl = int(np.round(xi - ext[0] - res[0] / 2.))
-            xh = int(np.round(xi - ext[0] + res[0] / 2.))
-            yl = int(np.round(yi - ext[2] - res[0] / 2.))
-            yh = int(np.round(yi - ext[2] + res[0] / 2.))
+            if i < num:
+                xi = datakeep['xi'][ind[i]]
+                yi = datakeep['yi'][ind[i]]
+                xl = int(np.round(xi - ext[0] - res[0] / 2.))
+                xh = int(np.round(xi - ext[0] + res[0] / 2.))
+                yl = int(np.round(yi - ext[2] - res[0] / 2.))
+                yh = int(np.round(yi - ext[2] + res[0] / 2.))
 
-            sn = datakeep['fiber_sn'][ind[i]]
+                sn = datakeep['fiber_sn'][ind[i]]
 
-            if sn is None:
-                S = np.where(datakeep['err'][ind[i]][yl:yh, xl:xh] < 0, 0., datakeep['im'][ind[i]][yl:yh, xl:xh]).sum()
-                N = np.sqrt(np.where(datakeep['err'][ind[i]][yl:yh, xl:xh] < 0, 0.,
-                                     datakeep['err'][ind[i]][yl:yh, xl:xh] ** 2).sum())
-                if N != 0:
-                    sn = S / N
-                else:
-                    sn = 0.0
+                if sn is None:
+                    S = np.where(datakeep['err'][ind[i]][yl:yh, xl:xh] < 0, 0., datakeep['im'][ind[i]][yl:yh, xl:xh]).sum()
+                    N = np.sqrt(np.where(datakeep['err'][ind[i]][yl:yh, xl:xh] < 0, 0.,
+                                         datakeep['err'][ind[i]][yl:yh, xl:xh] ** 2).sum())
+                    if N != 0:
+                        sn = S / N
+                    else:
+                        sn = 0.0
 
-            borplot.text(-0.2, .5, num - i,
-                        transform=imgplot.transAxes, fontsize=6, color='k', #colors[i, 0:3],
+
+                borplot.text(-0.2, .5, plot_label,
+                        transform=imgplot.transAxes, fontsize=10, color='k', #colors[i, 0:3],
                         verticalalignment='bottom', horizontalalignment='left')
 
 
+
             #if self.multiple_observations:
-            if self.panacea:
-                #dither and fiber position, etc generally meaningless in this case
-                #as there is no good way to immediately go back and find the source image
-                #so just show S/N and distance (and make bigger)
-                if abs(sn) < 1000:
-                    borplot.text(1.05, .75, 'SN: %0.2f' % (sn),
-                                 transform=smplot.transAxes, fontsize=8, color='r',
+            #add the fiber info to the right of the images
+            if i < num:
+                if self.panacea:
+                    #dither and fiber position, etc generally meaningless in this case
+                    #as there is no good way to immediately go back and find the source image
+                    #so just show S/N and distance (and make bigger)
+                    if abs(sn) < 1000:
+                        borplot.text(1.05, .75, 'SN: %0.2f' % (sn),
+                                     transform=smplot.transAxes, fontsize=8, color='r',
+                                     verticalalignment='bottom', horizontalalignment='left')
+                    else:
+                        borplot.text(1.05, .75, 'SN: %.1E' % (sn),
+                                     transform=smplot.transAxes, fontsize=8, color='r',
+                                     verticalalignment='bottom', horizontalalignment='left')
+                    # distance (in arcsec) of fiber center from object center
+                    borplot.text(1.05, .53, 'D("): %0.2f %0.1f' % (datakeep['d'][ind[i]],datakeep['wscore'][ind[i]]),
+                                 transform=smplot.transAxes, fontsize=6, color='r',
                                  verticalalignment='bottom', horizontalalignment='left')
+
+                    try:
+                        l3 = datakeep['date'][ind[i]] + "_" + datakeep['obsid'][ind[i]] + "_" + datakeep['expid'][ind[i]]
+                        l4 = datakeep['spec_id'][ind[i]] + "_" + datakeep['amp'][ind[i]] + "_" + datakeep['fib_idx1'][ind[i]]
+
+                        borplot.text(1.05, .33, l3,
+                                     transform=smplot.transAxes, fontsize=6, color='b',
+                                     verticalalignment='bottom', horizontalalignment='left')
+                        borplot.text(1.05, .13, l4,
+                                     transform=smplot.transAxes, fontsize=6, color='b',
+                                     verticalalignment='bottom', horizontalalignment='left')
+                    except:
+                        log.error("Exception building extra fiber info.", exc_info=True)
+
                 else:
-                    borplot.text(1.05, .75, 'SN: %.1E' % (sn),
-                                 transform=smplot.transAxes, fontsize=8, color='r',
-                                 verticalalignment='bottom', horizontalalignment='left')
-                # distance (in arcsec) of fiber center from object center
-                borplot.text(1.05, .53, 'D("): %0.2f %0.1f' % (datakeep['d'][ind[i]],datakeep['wscore'][ind[i]]),
-                             transform=smplot.transAxes, fontsize=6, color='r',
+                    borplot.text(1.05, .75, 'S/N = %0.2f' % (sn),
+                                transform=smplot.transAxes, fontsize=6, color='r',
+                                verticalalignment='bottom', horizontalalignment='left')
+                    #distance (in arcsec) of fiber center from object center
+                    borplot.text(1.05, .55, 'D(") = %0.2f %0.1f' % (datakeep['d'][ind[i]],datakeep['wscore'][ind[i]]),
+                                transform=smplot.transAxes, fontsize=6, color='r',
+                                verticalalignment='bottom', horizontalalignment='left')
+                    borplot.text(1.05, .35, 'X,Y = %d,%d' % (datakeep['xi'][ind[i]], datakeep['yi'][ind[i]]),
+                                transform=smplot.transAxes, fontsize=6, color='b',
+                                verticalalignment='bottom', horizontalalignment='left')
+                    borplot.text(1.05, .15, 'D,S,F = %d,%s,%d' % (datakeep['dit'][ind[i]], datakeep['side'][ind[i]],
+                                                                 datakeep['fib'][ind[i]]),
+                                transform=smplot.transAxes, fontsize=6, color='b',
+                                verticalalignment='bottom', horizontalalignment='left')
+            else:
+                borplot.text(1.05, .35, '\nWEIGHTED\nSUM',
+                             transform=smplot.transAxes, fontsize=8, color='k',
                              verticalalignment='bottom', horizontalalignment='left')
 
-                try:
-                    l3 = datakeep['date'][ind[i]] + "_" + datakeep['obsid'][ind[i]] + "_" + datakeep['expid'][ind[i]]
-                    l4 = datakeep['spec_id'][ind[i]] + "_" + datakeep['amp'][ind[i]] + "_" + datakeep['fib_idx1'][ind[i]]
-
-                    borplot.text(1.05, .33, l3,
-                                 transform=smplot.transAxes, fontsize=6, color='b',
-                                 verticalalignment='bottom', horizontalalignment='left')
-                    borplot.text(1.05, .13, l4,
-                                 transform=smplot.transAxes, fontsize=6, color='b',
-                                 verticalalignment='bottom', horizontalalignment='left')
-                except:
-                    log.error("Exception building extra fiber info.", exc_info=True)
-
-            else:
-                borplot.text(1.05, .75, 'S/N = %0.2f' % (sn),
-                            transform=smplot.transAxes, fontsize=6, color='r',
-                            verticalalignment='bottom', horizontalalignment='left')
-                #distance (in arcsec) of fiber center from object center
-                borplot.text(1.05, .55, 'D(") = %0.2f %0.1f' % (datakeep['d'][ind[i]],datakeep['wscore'][ind[i]]),
-                            transform=smplot.transAxes, fontsize=6, color='r',
-                            verticalalignment='bottom', horizontalalignment='left')
-                borplot.text(1.05, .35, 'X,Y = %d,%d' % (datakeep['xi'][ind[i]], datakeep['yi'][ind[i]]),
-                            transform=smplot.transAxes, fontsize=6, color='b',
-                            verticalalignment='bottom', horizontalalignment='left')
-                borplot.text(1.05, .15, 'D,S,F = %d,%s,%d' % (datakeep['dit'][ind[i]], datakeep['side'][ind[i]],
-                                                             datakeep['fib'][ind[i]]),
-                            transform=smplot.transAxes, fontsize=6, color='b',
-                            verticalalignment='bottom', horizontalalignment='left')
-            if i == (num - 1):
+            if i == (num + add_summed_image - 1):
                 smplot.text(0.5, 1.3, 'Smoothed',
                             transform=smplot.transAxes, fontsize=8, color='k',
                             verticalalignment='top', horizontalalignment='center')

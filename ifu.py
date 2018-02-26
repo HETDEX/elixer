@@ -673,7 +673,7 @@ class IFU:
         return x,v,e,cw
 
 
-    def is_fiber_empty(self,wavelengths,values,errors=None, units=None,max_score=1.0, max_snr = 3.0):
+    def is_fiber_empty(self,wavelengths,values,errors=None, units=None,max_score=10.0, max_snr = 2.0):
         '''
         Basically, is the fiber free from any overt signals (real emission line(s), continuum, sky, etc)
         Values and errors must have the same units
@@ -701,9 +701,9 @@ class IFU:
                     log.debug("Fiber rejected for addition. Large extrema.")
                     return False
 
-#def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
             peaks = voltron_spectrum.peakdet(wavelengths, values, dw=5.0)#, h, dh, zero)
-            signal = list(filter(lambda x: (x[5] > max_score) or (x[6] > max_snr),peaks))
+            #signal = list(filter(lambda x: (x[5] > max_score) or (x[6] > max_snr),peaks))
+            signal = list(filter(lambda x: x[6] > max_snr,peaks))
 
             if len(signal) == 0:
                 rc = True

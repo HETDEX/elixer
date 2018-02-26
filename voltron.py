@@ -99,9 +99,9 @@ class PDF_File():
 
 
 def parse_commandline():
-    desc = "Search multiple catalogs for possible object matches.\n\nNote: if (--ra), (--dec), (--par) supplied in " \
+    desc = "(Version %s) Search multiple catalogs for possible object matches.\n\nNote: if (--ra), (--dec), (--par) supplied in " \
            "addition to (--dither),(--line), the supplied RA, Dec, and Parangle will be used instead of the " \
-           "TELERA, TELEDEC, and PARANGLE from the science FITS files."
+           "TELERA, TELEDEC, and PARANGLE from the science FITS files." % (G.__version__)
 
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument('-f', '--force', help='Do not prompt for confirmation.', required=False,
