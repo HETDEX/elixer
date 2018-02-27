@@ -50,7 +50,8 @@ IFUCEN_LOC = G.IFUCEN_LOC #op.join(CONFIG_BASEDIR,"virus_config/IFUcen_files")
 DIST_LOC = G.DIST_LOC #op.join(CONFIG_BASEDIR,"virus_config/DeformerDefaults")
 PIXFLT_LOC = G.PIXFLT_LOC #op.join(CONFIG_BASEDIR,"virus_config/PixelFlats/20161223")
 
-PLOT_SUMMED_SPECTRA = False
+PLOT_SUMMED_SPECTRA = True #zoom-in plot of top few fibers
+MAX_2D_CUTOUTS = 5 #~ 5x3 of 2d cutouts
 
 SIDE = voltron_fiber.SIDE
 #!!! REMEBER, Y-axis runs 'down':  Python 0,0 is top-left, DS9 is bottom-left
@@ -3149,7 +3150,7 @@ class HETDEX:
         cmap = plt.get_cmap('gray_r')
         norm = plt.Normalize()
         colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
-        num = len(datakeep['xi']) #for the summed images
+        num = min(MAX_2D_CUTOUTS,len(datakeep['xi'])) #for the summed images
         bordbuff = 0.01
         borderxl = 0.05
         borderxr = 0.15
@@ -3444,6 +3445,7 @@ class HETDEX:
 
 
     def build_spec_image(self,datakeep,cwave, dwave=1.0):
+        #cwave = central wavelength, dwave = delta wave (wavestep in AA)
 
         fig = plt.figure(figsize=(5, 3))
         plt.subplots_adjust(left=0.0, right=1.0, top=1.0, bottom=0.0)
@@ -3451,13 +3453,11 @@ class HETDEX:
         colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
 
         rm = 0.2
-        r, w = get_w_as_r(1.5, 500, 0.05, 6.)
         specplot = plt.axes([0.1, 0.1, 0.8, 0.8])
         bigwave = np.arange(cwave - ww, cwave + ww + dwave, dwave)
-        F = np.zeros(bigwave.shape)
+        summed_spec = np.zeros(bigwave.shape)
         mn = 100.0
         mx = 0.0
-        W = 0.0
 
         #these are plotted from bottom to top
         #we want, then, the LAST (plot_fibers) to be ploted
@@ -3472,8 +3472,12 @@ class HETDEX:
         else:
             stop = -1
 
-        alpha = 1.0
-        linewidth = 2.0
+        if PLOT_SUMMED_SPECTRA:
+            alpha = 1.0 #for individual fibers
+            linewidth = 1.5 #for individual fibers
+        else:
+            alpha = 1.0 #for individual fibers
+            linewidth = 2.0 #for individual fibers
 
         try:
             for i in range(N-1,stop,-1):
@@ -3483,22 +3487,28 @@ class HETDEX:
 
                 specplot.step(datakeep['specwave'][ind[i]], datakeep['spec'][ind[i]],linestyle="solid",
                               where='mid', color=colors[i, 0:3], alpha=alpha,linewidth=linewidth,zorder=i)
-                w1 = np.interp(datakeep['d'][ind[i]], r, w)
-                F += (np.interp(bigwave, datakeep['specwave'][ind[i]], datakeep['spec'][ind[i]]) * w1)
-                W += w1
+
+                summed_spec += (np.interp(bigwave, datakeep['specwave'][ind[i]],
+                                          datakeep['spec'][ind[i]]) * datakeep['fiber_weight'][ind[i]])
                 mn = np.min([mn, np.min(datakeep['spec'][ind[i]])])
                 mx = np.max([mx, np.max(datakeep['spec'][ind[i]])])
-            F /= W
+
             ran = mx - mn
 
             if PLOT_SUMMED_SPECTRA:
-                specplot.step(bigwave, F, c='k', where='mid', lw=5,linestyle="solid",alpha=0.3,zorder=99)
+                specplot.step(bigwave, summed_spec, c='k', where='mid', lw=2,linestyle="solid",alpha=1.0,zorder=99)
+                mn = min(mn, min(summed_spec))
+                mx = max(mx, max(summed_spec))
 
-            min_y = max(mn - ran / 20, -20)
+            if mn > 0: #next 10 below the mn
+                min_y = int(mn)/10*10-10
+            else:
+                min_y = int(mn)/10*10
+            min_y = max(min_y,-40) #but not below -40
 
-            log.debug("Detect ID# 20. Spec Plot max count = %f , min count = %f" %(mx,mx))
-            specplot.axis([cwave - ww, cwave + ww, min_y, mx + ran / 20])
+            log.debug("Spec Plot max count = %f , min count = %f" %(mx,mx))
             specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='--', c=[0.3, 0.3, 0.3])
+            specplot.axis([cwave - ww, cwave + ww, min_y, mx + ran / 20])
 
         except:
             log.warning("Unable to build cutout spec plot. Datakeep info:\n"
