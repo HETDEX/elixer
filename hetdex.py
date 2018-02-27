@@ -3504,7 +3504,7 @@ class HETDEX:
                 min_y = int(mn)/10*10-10
             else:
                 min_y = int(mn)/10*10
-            min_y = max(min_y,-40) #but not below -40
+            min_y = max(min_y,-20) #but not below -20
 
             log.debug("Spec Plot max count = %f , min count = %f" %(mx,mx))
             specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='--', c=[0.3, 0.3, 0.3])
@@ -3717,7 +3717,8 @@ class HETDEX:
                     if (datakeep['fiber_sn'][j] is not None) and (datakeep['fiber_sn'][j] < self.min_fiber_sn):
                         continue
 
-                    F += (np.interp(bigwave, datakeep['fw_specwave'][ind[j]], datakeep['fw_spec'][ind[j]]) )
+                    F += (np.interp(bigwave, datakeep['fw_specwave'][ind[j]],
+                                    datakeep['fw_spec'][ind[j]] * datakeep['fiber_weight'][ind[j]]) )
 
             mn = np.min(F)
             mn = max(mn,-20) #negative flux makes no sense (excepting for some noise error)
