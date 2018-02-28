@@ -3140,12 +3140,8 @@ class HETDEX:
     #2d spectra cutouts (one per fiber)
     def build_2d_image(self,datakeep):
 
-        # todo: sum up the weighted 2D spec (image) [smoothed image comes later]
-        # todo: shift the other fibers to start one-position off to leave the top
-        # todo:     position open for the summed images
-
         #not dynamic, but if we are going to add a combined 2D spectra cutout at the top, set this to 1
-        add_summed_image = 1
+        add_summed_image = 1 #note: adding w/cosmics masked out
 
         cmap = plt.get_cmap('gray_r')
         norm = plt.Normalize()
@@ -3201,8 +3197,6 @@ class HETDEX:
 
                 pix_image = datakeep['pix'][ind[i]]
 
-
-
                 image = datakeep['im'][ind[i]]  # im can be the cosmic removed version, depends on G.PreferCosmicCleaned
                 cmap1 = cmap
                 cmap1.set_bad(color=[0.2, 1.0, 0.23])
@@ -3211,9 +3205,6 @@ class HETDEX:
                 img_vmax = datakeep['vmax2'][ind[i]]
 
                 plot_label = str(num-i)
-
-
-
             else: #this is the top image (the sum)
                 pcolor = None
                 ext = None
@@ -3723,6 +3714,17 @@ class HETDEX:
             mn = np.min(F)
             mn = max(mn,-20) #negative flux makes no sense (excepting for some noise error)
             mx = np.max(F)
+
+            #flux at the cwave position
+            line_mx = F[(np.abs(F-cwave)).argmin()]
+            if mx > 3.0*line_mx: #limit mx to a more narrow range)
+                mx = max(F[(np.abs(F-3500.0)).argmin():(np.abs(F-5500.0)).argmin()])
+                if mx > 3.0*line_mx:
+                    log.info("Truncating max spectra value...")
+                    mx = 3.0 * line_mx
+                else:
+                    log.info("Exclusing spectra maximum outside 3500 - 5500 AA")
+
             ran = mx - mn
             specplot.step(bigwave, F, c='b', where='mid', lw=1)
 
