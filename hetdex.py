@@ -72,7 +72,7 @@ yw = 10  # image width in y-dir
 #contrast2 = 0.5  # regular image # from Greg
 contrast1 = 1.0  # convolved image # using normal zscale
 contrast2 = 0.5  # regular image
-contrast3 = 0.9  # regular image still has sky
+contrast3 = 1.0  # regular image still has sky
 
 res = [3, 9]
 ww = xw * 1.9  # wavelength width
@@ -2117,15 +2117,16 @@ class HETDEX:
         plt.gca().axis('off')
         # 2x2 grid (but for sizing, make more fine)
 
-        #4 columns ... 3 wide, 1 narrow (for scattered light) .. so make 10
-        #the 3 wide are 3x and the 1 narrow is 1x
+        #4 columns ... 3 wider, 1 narrower (for scattered light) .. so make 40 steps
+        #text, 2D cutous, scattered light, 1D (small) plot
+        #column groups are not the same size
         if G.SINGLE_PAGE_PER_DETECT:
-            gs = gridspec.GridSpec(2, 10)
+            gs = gridspec.GridSpec(2, 40)
         else:
             if G.SHOW_FULL_2D_SPECTRA:
-                gs = gridspec.GridSpec(5, 10)#, wspace=0.25, hspace=0.5)
+                gs = gridspec.GridSpec(5, 40)#, wspace=0.25, hspace=0.5)
             else:
-                gs = gridspec.GridSpec(3, 10)
+                gs = gridspec.GridSpec(3, 40)
 
         font = FontProperties()
         font.set_family('monospace')
@@ -2250,7 +2251,8 @@ class HETDEX:
 
 
 
-        plt.subplot(gs[0:2, 0:3])
+        #plt.subplot(gs[0:2, 0:3])
+        plt.subplot(gs[0:2, 0:10])
         plt.text(0, 0.5, title, ha='left', va='center', fontproperties=font)
         plt.suptitle("Version " + G.__version__, fontsize=8,x=1.0,y=0.98,
                      horizontalalignment='right',verticalalignment='top')
@@ -2261,7 +2263,7 @@ class HETDEX:
             img_y = None
             if datakeep['xi']:
                 try:
-                    plt.subplot(gs[0:2,3:6])
+                    plt.subplot(gs[0:2,10:24])
                     plt.gca().axis('off')
                     buf,img_y = self.build_2d_image(datakeep)
 
@@ -2281,12 +2283,27 @@ class HETDEX:
                     log.error("Error building fiber_locs", exc_info=True)
 
                 try:
-                    plt.subplot(gs[0:2,6])
+                    plt.subplot(gs[0:2,24:27])
                     plt.gca().axis('off')
                     if img_y is not None:
-                        buf = self.build_scattered_light_image(datakeep,img_y)
+                        buf = self.build_scattered_light_image(datakeep,img_y,key='scatter_sky')
                     else:
-                        buf = self.build_scattered_light_image(datakeep)
+                        buf = self.build_scattered_light_image(datakeep,key='scatter_sky')
+
+                    buf.seek(0)
+                    im = Image.open(buf)
+                    plt.imshow(im,interpolation='none') #needs to be 'none' else get blurring
+                except:
+                    log.warning("Failed to 2D cutout image.", exc_info=True)
+
+
+                try:
+                    plt.subplot(gs[0:2,27:30])
+                    plt.gca().axis('off')
+                    if img_y is not None:
+                        buf = self.build_scattered_light_image(datakeep,img_y,key='scatter')
+                    else:
+                        buf = self.build_scattered_light_image(datakeep,key='scatter')
 
                     buf.seek(0)
                     im = Image.open(buf)
@@ -2306,7 +2323,7 @@ class HETDEX:
                 #    log.warning("Failed to build relative fiber positions image.", exc_info=True)
 
                 try:
-                    plt.subplot(gs[0:2,7:])
+                    plt.subplot(gs[0:2,30:])
                     plt.gca().axis('off')
                     buf = self.build_spec_image(datakeep,e.w, dwave=1.0)
                     buf.seek(0)
@@ -3409,19 +3426,37 @@ class HETDEX:
 
 
     # +/- 3 fiber sizes on CCD (not spacially adjacent fibers)
-    def build_scattered_light_image(self, datakeep, img_y = 3):
+    def build_scattered_light_image(self, datakeep, img_y = 3, key='scatter'):
+
+            if not key in ['scatter','scatter_sky']:
+                log.error("Invalid key for build_scattered_light_image: %s" % key)
+                return None
 
             cmap = plt.get_cmap('gray_r')
             norm = plt.Normalize()
             colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
-            num = len(datakeep['scatter'])
+            num = len(datakeep[key])
 
             # which is largest SN (should be first, but confirm)
-            ind = list(range(len(datakeep['scatter'])))
+            ind = list(range(len(datakeep[key])))
+
             max_sn_idx = 0
             for i in range(num):
                 if datakeep['fiber_sn'][ind[i]] > datakeep['fiber_sn'][ind[max_sn_idx]]:
                     max_sn_idx = i
+
+            if key == 'scatter':
+                vmin = datakeep['vmin2'][ind[max_sn_idx]]
+                vmax = datakeep['vmax2'][ind[max_sn_idx]]
+                title = "Clean Image"
+
+            elif key == 'scatter_sky':
+                vmin = datakeep['vmin3'][ind[max_sn_idx]]
+                vmax = datakeep['vmax3'][ind[max_sn_idx]]
+                title = "With Sky"
+            else: #not possible ... just here for sanity and future expansion
+                log.error("Invalid key for build_scattered_light_image: %s" % key)
+                return None
 
             bordbuff = 0.01
 
@@ -3447,17 +3482,18 @@ class HETDEX:
             imgplot.set_xticks([])
             imgplot.set_yticks([])
 
-            plt.title("CCD Region of Main Fiber\nDS9 (x,y) = (%d,%d)"
-                      % (datakeep['ds9_x'][ind[max_sn_idx]], datakeep['ds9_y'][ind[max_sn_idx]]), fontsize=8)
+            #plt.title("CCD Region of Main Fiber\n(%d,%d)"
+            plt.title("%s\nx,y: %d,%d"
+                      % (title,datakeep['ds9_x'][ind[max_sn_idx]], datakeep['ds9_y'][ind[max_sn_idx]]), fontsize=12)
 
             #combined_image = np.concatenate((datakeep['scatter_sky'][ind[max_sn_idx]],
             #                                 datakeep['scatter'][ind[max_sn_idx]]),axis=1)
 
-            imgplot.imshow(datakeep['scatter'][ind[max_sn_idx]],
+            imgplot.imshow(datakeep[key][ind[max_sn_idx]],
             #imgplot.imshow(combined_image,
                            origin="lower", cmap=cmap,
-                           vmin=datakeep['vmin2'][ind[max_sn_idx]],
-                           vmax=datakeep['vmax2'][ind[max_sn_idx]],
+                           vmin=vmin,
+                           vmax=vmax,
                            interpolation="none")  # , extent=ext)
 
 
@@ -3467,7 +3503,7 @@ class HETDEX:
             borplot.set_yticks([])
             borplot.axis('off')
 
-            h,w = datakeep['scatter'][ind[max_sn_idx]].shape
+            h,w = datakeep[key][ind[max_sn_idx]].shape
             rec = plt.Rectangle([0, 0],
                                 (w-1),
                                 (h-1), fill=False, lw=3,
