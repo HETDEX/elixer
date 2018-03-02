@@ -41,6 +41,7 @@ class HetdexFits:
         #self.dettemp = None #don't need these right now
 
         self.data = None
+        self.data_sky = None #sky NOT subtracted
         self.err_data = None
         self.fe_data = None #fiber extracted counts
         self.wave_data = None #matched wavelengths
@@ -245,6 +246,13 @@ class HetdexFits:
             #use the cleaned image for display
             self.data = np.array(f[hdu_idx['clean_image']].data)
             self.data[np.isnan(self.data)] = 0.0 # clean up any NaNs
+
+            #with the sky NOT subtracted
+            try:
+                self.data_sky = np.array(f[0].data)
+                self.data_sky[np.isnan(self.data_sky)] = 0.0  # clean up any NaNs
+            except: #error, but not fatal, just keep going
+                log.error("Could not load sky NOT subtracted fits data from multi*fits")
 
             #get error equivalent
             self.err_data = np.array(f[hdu_idx['error']].data)

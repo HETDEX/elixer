@@ -72,6 +72,8 @@ yw = 10  # image width in y-dir
 #contrast2 = 0.5  # regular image # from Greg
 contrast1 = 1.0  # convolved image # using normal zscale
 contrast2 = 0.5  # regular image
+contrast3 = 0.9  # regular image still has sky
+
 res = [3, 9]
 ww = xw * 1.9  # wavelength width
 
@@ -2402,10 +2404,13 @@ class HETDEX:
             dd['yl'] = []
             dd['xh'] = []
             dd['yh'] = []
+            dd['ds9_x'] = []
+            dd['ds9_y'] = []
             dd['sn'] = []
             dd['fiber_sn'] = []
             dd['wscore'] = []
             dd['scatter'] = []
+            dd['scatter_sky'] = []
             dd['d'] = []
             dd['dx'] = []
             dd['dy'] = []
@@ -2417,6 +2422,8 @@ class HETDEX:
             dd['vmax1'] = []
             dd['vmin2'] = []
             dd['vmax2'] = []
+            dd['vmin3'] = []
+            dd['vmax3'] = []
             dd['err'] = []
             dd['pix'] = []
             dd['spec'] = []
@@ -2515,6 +2522,9 @@ class HETDEX:
             xh = int(np.round(xi + xw))
             yl = int(np.round(yi - yw))
             yh = int(np.round(yi + yw))
+
+            datakeep['ds9_x'].append(1. + (xl + xh) / 2.)
+            datakeep['ds9_y'].append(1. + (yl + yh) / 2.)
 
             xl = max(xl,0)
             xh = min(xh,max_x)
@@ -2943,6 +2953,8 @@ class HETDEX:
             xh = int(np.round(x_2D + xw))
             yl = int(np.round(y_2D - yw))
             yh = int(np.round(y_2D + yw))
+            datakeep['ds9_x'].append(1. + (xl + xh) / 2.)
+            datakeep['ds9_y'].append(1. + (yl + yh) / 2.)
 
             blank_xl = xl
             blank_xh = xh
@@ -2964,6 +2976,15 @@ class HETDEX:
                 fits.data[max(0, yl - 5 * yw):min(max_y-1, yh + 5 * yw) + 1, xl:xh + 1]
 
             datakeep['scatter'].append(deepcopy(scatter_blank))
+
+
+            #now with the sky NOT subtracted ... the indices are the same, just a different fits image
+            scatter_blank[scatter_blank_bot:scatter_blank_bot + scatter_blank_height + 1,
+                            (xl - blank_xl):(xl - blank_xl) + (xh - xl) + 1] = \
+                fits.data_sky[max(0, yl - 5 * yw):min(max_y - 1, yh + 5 * yw) + 1, xl:xh + 1]
+            datakeep['scatter_sky'].append(deepcopy(scatter_blank))
+
+
 
             datakeep['xi'].append(x_2D)
             datakeep['yi'].append(y_2D)
@@ -2999,6 +3020,16 @@ class HETDEX:
 
             datakeep['vmin2'].append(z1)
             datakeep['vmax2'].append(z2)
+
+            try:
+                z1, z2 = self.get_vrange(fits.data_sky[yl:yh, xl:xh], scale=contrast3)
+                log.debug("2D cutout zscale3 (image) = %f, %f  for D,S,F = %d, %s, %d"
+                          % (z1, z2, dither + 1, fits.side, fiber.number_in_ccd))
+
+                datakeep['vmin3'].append(z1)
+                datakeep['vmax3'].append(z2)
+            except:
+                log.error("Could net get contrast stretch for sky NOT subtracted 2D spectra")
 
             blank[(yl-blank_yl):(yl-blank_yl)+(yh-yl)+1,(xl-blank_xl):(xl-blank_xl)+(xh-xl)+1] = \
                 fits.err_data[yl:yh + 1,xl:xh + 1]
@@ -3376,6 +3407,7 @@ class HETDEX:
         plt.close(fig)
         return buf, Y
 
+
     # +/- 3 fiber sizes on CCD (not spacially adjacent fibers)
     def build_scattered_light_image(self, datakeep, img_y = 3):
 
@@ -3409,14 +3441,20 @@ class HETDEX:
             fig = plt.figure(figsize=(5/3., img_y), frameon=False)
             plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
 
+
             imgplot = plt.axes([0. + bordbuff + borderxl,0 + bordbuff + borderyb, dx, dy])
             autoAxis = imgplot.axis()
             imgplot.set_xticks([])
             imgplot.set_yticks([])
 
-            plt.title("CCD Region of Main Fiber",fontsize=8)
+            plt.title("CCD Region of Main Fiber\nDS9 (x,y) = (%d,%d)"
+                      % (datakeep['ds9_x'][ind[max_sn_idx]], datakeep['ds9_y'][ind[max_sn_idx]]), fontsize=8)
+
+            #combined_image = np.concatenate((datakeep['scatter_sky'][ind[max_sn_idx]],
+            #                                 datakeep['scatter'][ind[max_sn_idx]]),axis=1)
 
             imgplot.imshow(datakeep['scatter'][ind[max_sn_idx]],
+            #imgplot.imshow(combined_image,
                            origin="lower", cmap=cmap,
                            vmin=datakeep['vmin2'][ind[max_sn_idx]],
                            vmax=datakeep['vmax2'][ind[max_sn_idx]],
