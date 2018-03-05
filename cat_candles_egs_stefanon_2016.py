@@ -697,6 +697,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         self.add_north_box(plt, sci, self.master_cutout, error, 0, 0, theta)
         # self.add_north_arrow(plt, sci, self.master_cutout, theta)
 
+
         plt.subplot(gs[0, cols - 2])
         self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, self.master_cutout)
 

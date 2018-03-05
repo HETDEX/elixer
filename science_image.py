@@ -220,8 +220,9 @@ class science_image():
                 return cutout, counts, mag
 
 
-        #todo: here ... put down aperture on cutout at RA,Dec and get  magnitude
-        if (position is not None) and (cutout is not None) and (image is not None) and (aperture > 0):
+        #put down aperture on cutout at RA,Dec and get magnitude
+        if (position is not None) and (cutout is not None) and (image is not None) \
+                and (mag_func is not None) and (aperture > 0):
             try:
                 if (type(aperture) is float) or (type(aperture) is int):
                     radius = aperture
@@ -232,14 +233,12 @@ class science_image():
                 counts = phot_table['aperture_sum'][0]
                 if mag_func is not None:
                     mag = mag_func(counts,cutout,self.fits)
-                #todo: convert counts to some measure of flux and then that to a magnitude
+
                 log.info("Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %g Mag_AB = %g"
                          % (radius,ra,dec,counts,mag))
                 print ("Counts = %f Mag %f" %(counts,mag))
             except:
                 log.error("Exception in science_image::get_cutout () using aperture", exc_info=True)
-
-
 
         return cutout, counts, mag
 

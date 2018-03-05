@@ -72,7 +72,7 @@ yw = 10  # image width in y-dir
 #contrast2 = 0.5  # regular image # from Greg
 contrast1 = 1.0  # convolved image # using normal zscale
 contrast2 = 0.5  # regular image
-contrast3 = 1.0  # regular image still has sky
+contrast3 = 0.8  # regular image still has sky
 
 res = [3, 9]
 ww = xw * 1.9  # wavelength width
@@ -462,6 +462,7 @@ class DetObj:
         self.outdir = None
 
         #flux calibrated data (from Karl's detect and calibration)
+        #todo:
         self.calspec_wavelength = []
         self.calspec_flux = []
         self.calspec_fluxerr = []
@@ -653,6 +654,13 @@ class DetObj:
         del self.calspec_fluxerr[:]
 
         #todo: get info from Karl and load
+        #todo: likely look in a known location (possible a relative path from the t5all file?)
+        #todo: read in the "catalog" list of fiberfiles (match RA, Dec to emissionline in question)
+        #todo:    line count (number) maps to which tmp1xx.dat file to read in for the wavelengths, flux, errors
+        #
+        #todo: this is a cumulative (summed over some number of fibers) spectrum?
+        #todo: need to get to spectrum for each contributing fiber and its weight
+        #todo:    (put weight with the fiber? or in hetdex_fiber (along with the fe_data, etc)
 
 
         #set_spectra(self, wavelengths, values, errors, central, estflux=None, eqw_obs=None)
@@ -2151,7 +2159,7 @@ class HETDEX:
         except:
             log.debug("Exception building observation string.",exc_info=True)
 
-        title += "Entry ID (%d), Detect ID (%d)" %(e.entry_id, e.id)
+        title += "Entry# (%d), Detect ID (%d)" %(e.entry_id, e.id)
         if e.line_number is not None:
             title += ", Line# (%d)" % (e.line_number)
 
@@ -2381,7 +2389,7 @@ class HETDEX:
         #else, the pages were appended invidivually
         return pages
 
-    def get_vrange(self,vals,scale=1.0):
+    def get_vrange(self,vals,scale=1.0,contrast=1.0):
         vmin = None
         vmax = None
         if scale == 0:
@@ -3267,7 +3275,7 @@ class HETDEX:
                 grid_idx += 1
                 pcolor = 'k'
                 ext = None
-                pix_image = blank_pixel_flat()
+                pix_image = None #blank_pixel_flat() #per Karl, just leave it blank, no pattern
                 plot_label = "SUM"
 
                 GF = gaussian_filter(summed_image, (2, 1))
@@ -3432,7 +3440,7 @@ class HETDEX:
                 log.error("Invalid key for build_scattered_light_image: %s" % key)
                 return None
 
-            cmap = plt.get_cmap('gray_r')
+            #cmap = plt.get_cmap('gray_r')
             norm = plt.Normalize()
             colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
             num = len(datakeep[key])
@@ -3446,11 +3454,13 @@ class HETDEX:
                     max_sn_idx = i
 
             if key == 'scatter':
+                cmap = plt.get_cmap('gray_r')
                 vmin = datakeep['vmin2'][ind[max_sn_idx]]
                 vmax = datakeep['vmax2'][ind[max_sn_idx]]
                 title = "Clean Image"
 
             elif key == 'scatter_sky':
+                cmap = plt.get_cmap('gray_r')
                 vmin = datakeep['vmin3'][ind[max_sn_idx]]
                 vmax = datakeep['vmax3'][ind[max_sn_idx]]
                 title = "With Sky"

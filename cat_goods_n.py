@@ -34,6 +34,35 @@ import cat_base
 import match_summary
 
 
+#todo: update with aperture on photometry
+#todo: currently astropy does not like the drz fits files and throws exception with the aperture
+
+def goodsn_f606w_count_to_mag(count,cutout=None,sci_image=None):
+    if count is not None:
+        if sci_image is not None:
+            #get the conversion factor, each tile is different
+            try:
+                photoflam = float(sci_image[0].header['PHOTFLAM']) #inverse sensitivity, ergs / cm2 / Ang / electron
+                photozero = float(sci_image[0].header['PHOTZPT']) #/ ST magnitude zero point
+            except:
+                photoflam = 7.7265099E-20
+                photozero = -2.1100000E+01
+                log.warn("Exception in goodsn_count_to_mag",exc_info=True)
+                #return 99.9
+
+        if count > 0:
+            flux = photoflam*count
+            # convert from per Angstrom to per Hertz
+            # F_v  = F_l * (l^2)/c ... but which lambda to use? center of the filter? ... what is the iso-lambda
+            # iso = 5778.3 AA?
+            c = scipy.constants.c * 1e10 #in AA
+            flux = flux * (5778.3**2.)/c * 1e-23 #to Jansky
+            #then
+            return -2.5 * np.log10(flux/3631.0)
+        else:
+            return 99.9  # need a better floor
+
+
 class GOODS_N(cat_base.Catalog):
 
     # class variables
@@ -67,8 +96,15 @@ class GOODS_N(cat_base.Catalog):
          'image': None,
          'expanded': False,
          'wcs_manual': True,
-         'aperture': 1.
+         'aperture': 0.0,
+         'mag_func': None
          },
+        # / PHOTOMETRY    KEYWORDS
+        # PHOTMODE = 'ACS WFC1 F606W MJD#52599.1628' / observation con
+        # PHOTFLAM = 7.7265099E-20 / inverse sensitivity, ergs / cm2 / Ang / electron
+        # PHOTZPT = -2.1100000E+01 / ST magnitude zero point
+        # PHOTPLAM = 5.9194604E+03 / Pivot wavelength(Angstroms)
+        # PHOTBW = 6.7240521E+02 / RMS bandwidth of filter plus detector
         {'path': GOODS_N_IMAGES_PATH,
          'name': 'goodsn_all_acs_wfc_f606w_060mas_v2.0_drz.fits',
          'filter': 'f606w',
@@ -78,7 +114,8 @@ class GOODS_N(cat_base.Catalog):
          'image': None,
          'expanded': False,
          'wcs_manual': True,
-         'aperture':1.0
+         'aperture':0.0,
+         'mag_func': goodsn_f606w_count_to_mag
          },
         {'path': GOODS_N_IMAGES_PATH,
          'name': 'goodsn_all_acs_wfc_f775w_060mas_v2.0_drz.fits',
@@ -89,7 +126,8 @@ class GOODS_N(cat_base.Catalog):
          'image': None,
          'expanded': False,
          'wcs_manual': True,
-         'aperture':1.0
+         'aperture':0.0,
+         'mag_func': None
          },
         {'path': GOODS_N_IMAGES_PATH,
          'name': 'goodsn_all_acs_wfc_f814w_060mas_v2.0_drz.fits',
@@ -100,7 +138,8 @@ class GOODS_N(cat_base.Catalog):
          'image': None,
          'expanded': False,
          'wcs_manual': True,
-         'aperture':1.0
+         'aperture':0.0,
+         'mag_func': None
          },
         #omit 850LP (per Steve) ... long exposure due to low sensitivity
        # {'path': GOODS_N_IMAGES_PATH,
@@ -120,7 +159,8 @@ class GOODS_N(cat_base.Catalog):
          'image': None,
          'expanded': False,
          'wcs_manual': True,
-         'aperture':1.0
+         'aperture':0.0,
+         'mag_func': None
          },
         {'path': GOODS_N_IMAGES_PATH,
          'name': 'goodsn_all_wfc3_ir_f125w_060mas_v1.0_drz.fits',
@@ -131,7 +171,8 @@ class GOODS_N(cat_base.Catalog):
          'image': None,
          'expanded': False,
          'wcs_manual': True,
-         'aperture':1.0
+         'aperture':0.0,
+         'mag_func': None
          },
         #omit 140w per Steve
         #{'path': GOODS_N_IMAGES_PATH,
@@ -151,7 +192,8 @@ class GOODS_N(cat_base.Catalog):
          'image': None,
          'expanded': False,
          'wcs_manual': True,
-         'aperture':1.0
+         'aperture':0.0,
+         'mag_func': None
          }
     ]
 
@@ -425,13 +467,24 @@ class GOODS_N(cat_base.Catalog):
         for i in self.CatalogImages:  # i is a dictionary
             index += 1
 
+            try:
+                wcs_manual = i['wcs_manual']
+                aperture = i['aperture']
+                mag_func = i['mag_func']
+            except:
+                wcs_manual = self.WCS_Manual
+                aperture = 0.0
+                mag_func = None
+
             if i['image'] is None:
                 i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
                                                          image_location=op.join(i['path'], i['name']))
             sci = i['image']
 
             # sci.load_image(wcs_manual=True)
-            cutout,_,_ = sci.get_cutout(ra, dec, error, window=window)
+            cutout, pix_counts, mag = sci.get_cutout(ra, dec, error, window=window,
+                                                     aperture=aperture,mag_func=mag_func)
+            #cutout,_,_ = sci.get_cutout(ra, dec, error, window=window)
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
             if cutout is not None:  # construct master cutout
@@ -838,13 +891,24 @@ class GOODS_N(cat_base.Catalog):
         for i in self.CatalogImages:  # i is a dictionary
             index += 1
 
+            try:
+                wcs_manual = i['wcs_manual']
+                aperture = i['aperture']
+                mag_func = i['mag_func']
+            except:
+                wcs_manual = self.WCS_Manual
+                aperture = 0.0
+                mag_func = None
+
+
             if i['image'] is None:
                 i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
                                                          image_location=op.join(i['path'], i['name']))
             sci = i['image']
 
             # sci.load_image(wcs_manual=True)
-            cutout,_,_ = sci.get_cutout(ra, dec, error, window=window)
+            cutout, pix_counts, mag = sci.get_cutout(ra, dec, error, window=window,
+                                                     aperture=aperture, mag_func=mag_func)
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
             # 1st cutout might not be what we want for the master (could be a summary image from elsewhere)

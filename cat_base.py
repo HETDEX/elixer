@@ -380,9 +380,12 @@ class Catalog:
             # plot the fiber cutout
             log.debug("Plotting fiber positions...")
 
-            if (fiber_locs is None) or len(fiber_locs) == 0:
-                log.debug("Fiber locations not provided.")
-                return False
+        #    if (fiber_locs is None) or len(fiber_locs) == 0:
+        #        log.debug("Fiber locations not provided.")
+        #        return False
+
+            if fiber_locs is None:
+                fiber_locs = []
 
             try:
                 empty_sci = science_image.science_image()
@@ -420,7 +423,9 @@ class Catalog:
 
                 # larger of the spread of the fibers or the maximum width (in non-rotated x-y plane) of the error window
                 ext_base = max(abs(xmin), abs(xmax), abs(ymin), abs(ymax))
-                ext = max(ext_base + G.Fiber_Radius, ext)
+                if ext_base != np.inf:
+                    ext = max(ext_base + G.Fiber_Radius, ext)
+
 
                 # need a new cutout since we rescaled the ext (and window) size
                 cutout,_,_ = empty_sci.get_cutout(ra, dec, error, window=ext * 2, image=self.master_cutout)
@@ -433,6 +438,7 @@ class Catalog:
                 self.add_north_box(plt, empty_sci, cutout, error, 0, 0, theta=None)
                 plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                            vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+
 
                 plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
                 plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
