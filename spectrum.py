@@ -636,6 +636,7 @@ def est_background(wavelengths,values,central,dw=DEFAULT_BACKGROUND_WIDTH,xw=10.
     background = DEFAULT_BACKGROUND
     wavelengths = np.array(wavelengths)
     values = np.array(values)
+    zero = None
 
     if dw > len(wavelengths)/2.0:
         return None, None
@@ -744,6 +745,7 @@ def est_peak_strength(wavelengths,values,central,dw=DEFAULT_BACKGROUND_WIDTH,pea
     return sbr
 
 
+#todo: update to deal with flux instead of counts
 def simple_peaks(x,v,h=MIN_HEIGHT,delta_v=2.0):
     """
 
@@ -1061,7 +1063,8 @@ class Spectrum:
                                EmissionLine("NeIII", 3869, "pink", solution=False)]
 
         self.wavelengths = []
-        self.values = [] #could be fluxes or counts or something else
+        self.values = [] #could be fluxes or counts or something else ... right now needs to be counts
+      #  self.fluxes = []
         self.errors = []
         self.central = None
         self.estflux = None

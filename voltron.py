@@ -145,6 +145,8 @@ def parse_commandline():
     parser.add_argument('--dither', help="HETDEX Dither file", required=False)
     parser.add_argument('--path', help="Override path to science fits in dither file", required=False)
     parser.add_argument('--line', help="HETDEX detect line file", required=False)
+    parser.add_argument('--fcsdir', help="Flux calibrated spectra directory", required=False)
+
     parser.add_argument('--ifu', help="HETDEX IFU (Cure) file", required=False)
     parser.add_argument('--dist', help="HETDEX Distortion (Cure) file base (i.e. do not include trailing _L.dist or _R.dist)",
                         required=False)

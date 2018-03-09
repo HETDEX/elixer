@@ -23,6 +23,7 @@ from scipy.stats import skew, kurtosis
 from scipy.optimize import curve_fit
 
 import glob
+import re
 from pyhetdex.cure.distortion import Distortion
 import pyhetdex.tools.files.file_tools as ft
 from pyhetdex.het.ifu_centers import IFUCenter
@@ -425,7 +426,7 @@ class Dither():
 class DetObj:
     '''mostly a container for an emission line or continuum detection from detect_line.dat or detect_cont.dat file'''
 
-    def __init__(self,tokens,emission=True,line_number=None):
+    def __init__(self,tokens,emission=True,line_number=None,fcs_base=None):
         #skip NR (0)
         self.plot_dqs_fit = False
         self.dqs = None #scaled score
@@ -441,6 +442,7 @@ class DetObj:
         self.modflux = 0.0
         self.fluxfrac = 1.0
         self.sigma = 0.0 #also doubling as sn (see @property sn farther below)
+        self.snr = None
         self.chi2 = 0.0
         self.chi2s = 0.0
         self.chi2w = 0.0
@@ -462,10 +464,19 @@ class DetObj:
         self.outdir = None
 
         #flux calibrated data (from Karl's detect and calibration)
-        #todo:
+        self.fcsdir = None
+        if (fcs_base is not None) and (line_number is not None):
+            self.fcsdir = fcs_base + str(line_number).zfill(3)
+
         self.calspec_wavelength = []
+        self.calspec_counts = []
         self.calspec_flux = []
         self.calspec_fluxerr = []
+        self.calspec_wavelength_zoom = []
+        self.calspec_counts_zoom = []
+        self.calspec_flux_zoom = []
+        self.calspec_fluxerr_zoom = []
+        self.calspec_2d_zoom = []
         self.spec_obj = voltron_spectrum.Spectrum() #use for classification, etc
 
         self.p_lae = None #from Andrew Leung
@@ -642,16 +653,136 @@ class DetObj:
         self.nearest_fiber = None
         self.fiber_locs = None #built later, tuples of Ra,Dec of fiber centers
 
+        self.load_fluxcalibrated_spectra()
+
 
     @property
     def sn(self):
-        return self.sigma
+        if self.snr is not None:
+            return self.snr
+        else:
+            return self.sigma
 
 
     def load_fluxcalibrated_spectra(self):
         del self.calspec_wavelength[:]
+        del self.calspec_counts[:]
         del self.calspec_flux[:]
         del self.calspec_fluxerr[:]
+        del self.calspec_wavelength_zoom[:]
+        del self.calspec_counts_zoom[:]
+        del self.calspec_flux_zoom[:]
+        del self.calspec_fluxerr_zoom[:]
+
+        if self.fcsdir is None:
+            return
+
+        #note the 20170615v09 might be v009 ... inconsistent
+
+
+        #todo: remove this dummy
+        #self.fcsdir = "/work/00115/gebhardt/maverick/egs3/20170603v003_065"
+
+        if not op.isdir(self.fcsdir):
+            log.debug("Cannot find flux calibrated spectra directory: " + self.fcsdir +" . Trying alternate (extra 0)")
+            toks = self.fcsdir.split('v')
+            toks[-1] = 'v0'+toks[-1]
+            self.fcsdir = "".join(toks)
+
+            if not op.isdir(self.fcsdir):
+                #still did not find ...
+                log.error("Cannot find flux calibrated spectra directory: " + self.fcsdir)
+                return
+
+
+        basename = op.basename(self.fcsdir)
+        #get the weights (*2d.res)
+        file = op.join(self.fcsdir, "list2")
+        try:
+            out = np.genfromtxt(file,dtype=None)
+            tmp = []
+            w = [] #weights
+            for o in out:
+               if o[1] == 0: #keep
+                   tmp.append(o[0])
+                   w.append(o[2])
+
+            w = w / np.sum(w)
+
+            #todo: match up tmpxxx files to fibers so can match up the weights
+
+
+        except:
+            log.error("Cannot read list2: %s" % file, exc_info=True)
+
+        #get the SN, flux etc
+        #should be just one line
+        file = op.join(self.fcsdir, basename + "_2d.res")
+        try:
+            with open(file, 'r') as f:
+                f = ft.skip_comments(f)
+                for l in f:
+                    toks = l.split()
+                    w = float(toks[1]) #sanity check against self.w
+
+                    if (w != self.w):
+                        print("!!! Sanity check *2d.res w != self.w", w, self.w)
+
+                    self.w = w
+                    self.estflux = float(toks[2])*10**(-17)
+                    self.sigma = float(toks[3])
+                    self.snr = float(toks[5])
+                    self.cont_cgs = float(toks[6])*10**(-17)
+
+                    # todo: need a floor for cgs (if negative)
+                    #for now only
+                    if self.cont_cgs <= 0.:
+                        print("Warning! Using predefined floor for continuum")
+                        self.cont_cgs = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(self.w)
+
+                    self.eqw_obs = self.estflux/self.cont_cgs
+        except:
+            log.error("Cannot read *2d.res file: %s" % file, exc_info=True)
+
+        #get the full flux calibrated spectra
+        file = op.join(self.fcsdir, basename + "specf.dat")
+        try:
+            out = np.loadtxt(file, dtype=None)
+
+            self.calspec_wavelength = out[:,0]
+            self.calspec_counts = out[:, 1]
+            self.calspec_flux = out[:,2]
+            #todo: get flux_err
+            #self.calspec_fluxerr = out[:,xxx]
+
+        except:
+            log.error("Cannot read *specf.res file: %s" % file, exc_info=True)
+
+        # get the zoomed in flux calibrated spectra
+        file = op.join(self.fcsdir, basename + "spece.dat")
+        try:
+            out = np.loadtxt(file, dtype=None)
+
+            self.calspec_wavelength_zoom = out[:, 0]
+            self.calspec_counts_zoom = out[:, 1]
+            self.calspec_flux_zoom = out[:, 2]
+            # todo: get flux_err_zoom
+            # self.calspec_fluxerr_zoom = out[:,xxx]
+
+        except:
+            log.error("Cannot read *_spece.res file: %s" % file, exc_info=True)
+
+
+        #get zoomed 2d cutout
+        #fits file
+        file = op.join(self.fcsdir, basename + ".fits")
+        try:
+            f = pyfits.open(file)
+            self.calspec_2d_zoom = f[0].data
+            f.close()
+        except:
+            log.error("could not read file " + self.filename, exc_info=True)
+
 
         #todo: get info from Karl and load
         #todo: likely look in a known location (possible a relative path from the t5all file?)
@@ -664,7 +795,7 @@ class DetObj:
 
 
         #set_spectra(self, wavelengths, values, errors, central, estflux=None, eqw_obs=None)
-        self.spec_obj.set_spectra(self.calspec_wavelength,self.calspec_flux,self.calspec_fluxerr,self.w)
+        self.spec_obj.set_spectra(self.calspec_wavelength,self.calspec_counts,self.calspec_fluxerr,self.w)
         self.spec_obj.classify() #solutions can be returned, also stored in spec_obj.solutions
 
 
@@ -1312,6 +1443,10 @@ class HETDEX:
 
         self.plot_fibers = args.fibers
         self.min_fiber_sn = args.sn
+
+        self.fcs_base = None
+        if args.fcsdir is not None:
+            self.fcs_base = op.join(args.fcsdir,self.output_filename+"_")
 
         if args.cure:
             self.panacea = False
@@ -2012,7 +2147,7 @@ class HETDEX:
                 f = ft.skip_comments(f)
                 for l in f:
                     toks = l.split()
-                    e = DetObj(toks,emission=False)
+                    e = DetObj(toks,emission=False,fcs_base=self.fcs_base)
 
                     if e.ifuslot is not None:
                         if e.ifuslot != self.ifu_slot_id:
@@ -2049,7 +2184,7 @@ class HETDEX:
                 for l in f:
                     line_counter += 1
                     toks = l.split()
-                    e = DetObj(toks,emission=True,line_number=line_counter)
+                    e = DetObj(toks,emission=True,line_number=line_counter,fcs_base=self.fcs_base)
 
                     e.plot_dqs_fit = self.plot_dqs_fit
 
@@ -2456,6 +2591,7 @@ class HETDEX:
             dd['fw_spec']  = []
             dd['fw_specwave'] = []
             dd['calspec_wave'] = []
+            dd['calspec_cnts'] = []
             dd['calspec_flux'] = []
             dd['calspec_ferr'] = []
             dd['fiber_weight'] = []
@@ -2776,6 +2912,7 @@ class HETDEX:
                 if len(datakeep['calspec_wave']) == 0:
                     #there is only ONE fluxcalibrated spectra for the entire detection (not one per fiber)
                     datakeep['calspec_wave'] = e.calspec_wavelength
+                    datakeep['calspec_cnts'] = e.calspec_counts
                     datakeep['calspec_flux'] = e.calspec_flux
                     datakeep['calspec_ferr'] = e.calspec_fluxerr
 
@@ -3186,6 +3323,7 @@ class HETDEX:
             if len(datakeep['calspec_wave']) == 0:
                 # there is only ONE fluxcalibrated spectra for the entire detection (not one per fiber)
                 datakeep['calspec_wave'] = e.calspec_wavelength
+                datakeep['calspec_cnts'] = e.calspec_counts
                 datakeep['calspec_flux'] = e.calspec_flux
                 datakeep['calspec_ferr'] = e.calspec_fluxerr
 
