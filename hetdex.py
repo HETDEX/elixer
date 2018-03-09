@@ -2,6 +2,7 @@
 import global_config as G
 import matplotlib
 matplotlib.use('agg')
+import time
 
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
@@ -465,8 +466,7 @@ class DetObj:
 
         #flux calibrated data (from Karl's detect and calibration)
         self.fcsdir = None
-        if (fcs_base is not None) and (line_number is not None):
-            self.fcsdir = fcs_base + str(line_number).zfill(3)
+
 
         self.calspec_wavelength = []
         self.calspec_counts = []
@@ -653,7 +653,13 @@ class DetObj:
         self.nearest_fiber = None
         self.fiber_locs = None #built later, tuples of Ra,Dec of fiber centers
 
-        self.load_fluxcalibrated_spectra()
+        # karl is not using the line number ... is using the entry_id
+        if (fcs_base is not None) and (line_number is not None):
+            self.fcsdir = fcs_base + str(self.entry_id).zfill(3)
+
+        # dont do this here ... only call after we know we are going to keep this DetObj
+        # as this next step takes a while
+        #self.load_fluxcalibrated_spectra()
 
 
     @property
@@ -679,10 +685,6 @@ class DetObj:
 
         #note the 20170615v09 might be v009 ... inconsistent
 
-
-        #todo: remove this dummy
-        #self.fcsdir = "/work/00115/gebhardt/maverick/egs3/20170603v003_065"
-
         if not op.isdir(self.fcsdir):
             log.debug("Cannot find flux calibrated spectra directory: " + self.fcsdir +" . Trying alternate (extra 0)")
             toks = self.fcsdir.split('v')
@@ -696,21 +698,53 @@ class DetObj:
 
 
         basename = op.basename(self.fcsdir)
+
+
+        #build the mapping between the tmpxxx files and fibers
+        #l1 file
+        multi = []
+        idstr = []
+
+        file = op.join(self.fcsdir, "l1")
+        try:
+            out = np.genfromtxt(file, dtype=None,usecols=(4,8))
+            multi = np.array(map(lambda x: x.split(".")[0],out[:,0]))
+            idstr = out[:,1]
+        except:
+            log.error("Cannot read l1: %s" % file, exc_info=True)
+
+
         #get the weights (*2d.res)
         file = op.join(self.fcsdir, "list2")
         try:
-            out = np.genfromtxt(file,dtype=None)
-            tmp = []
-            w = [] #weights
-            for o in out:
-               if o[1] == 0: #keep
-                   tmp.append(o[0])
-                   w.append(o[2])
+            tmp = np.genfromtxt(file,dtype=np.str,usecols=0)
+            if len(tmp) != len(multi):
+                log.error("Cannot match up list2 and l1 files")
+            else:
 
-            w = w / np.sum(w)
+                #tmp = out[:,0]
+                out = np.loadtxt(file, dtype=np.float, usecols=(1,2))
+                keep = out[:,0]
+                w = out[:,1] #weights
 
-            #todo: match up tmpxxx files to fibers so can match up the weights
+                #sum up the weights where keep == 0
+                norm = np.sum(w[np.where(keep==0)])
 
+
+                for f in self.fibers:
+                    f.relative_weight = 0.0
+
+                    for i in range(len(out)):
+                        if keep[i] == 0.:
+                            #find which fiber, if any, in set this belongs to
+                            if (f.multi == multi[i]) and (f.scifits_idstring == idstr[i]):
+                                f.relative_weight += w[i]
+                        else:
+                            # find which fiber, if any, in set this belongs to
+                            if (f.multi == multi[i]) and (f.scifits_idstring == idstr[i]):
+                                f.relative_weight += 0.0
+
+                    f.relative_weight /= norm #note: some we see are zero??
 
         except:
             log.error("Cannot read list2: %s" % file, exc_info=True)
@@ -2218,6 +2252,10 @@ class HETDEX:
         except:
             log.error("Cannot read emission line objects.", exc_info=True)
 
+
+        for e in self.emis_list:
+            e.load_fluxcalibrated_spectra()
+
         return
 
 
@@ -2397,7 +2435,8 @@ class HETDEX:
         #plt.subplot(gs[0:2, 0:3])
         plt.subplot(gs[0:2, 0:10])
         plt.text(0, 0.5, title, ha='left', va='center', fontproperties=font)
-        plt.suptitle("Version " + G.__version__, fontsize=8,x=1.0,y=0.98,
+        plt.suptitle(time.strftime("%Y-%m-%d %H:%M:%S") +
+                     "  Version " + G.__version__ +"  ", fontsize=8,x=1.0,y=0.98,
                      horizontalalignment='right',verticalalignment='top')
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
@@ -2594,6 +2633,11 @@ class HETDEX:
             dd['calspec_cnts'] = []
             dd['calspec_flux'] = []
             dd['calspec_ferr'] = []
+            dd['calspec_2d'] = []
+            dd['calspec_cnts_zoom'] = []
+            dd['calspec_wave_zoom'] = []
+            dd['calspec_flux_zoom'] = []
+            dd['calspec_ferr_zoom'] = []
             dd['fiber_weight'] = []
             dd['cos'] = []
             dd['ra'] = []
@@ -2909,6 +2953,7 @@ class HETDEX:
                 # todo: set the weights correctly
                 datakeep['fiber_weight'].append(1.0)
 
+                #this is CURE for now, do not ever have this data
                 if len(datakeep['calspec_wave']) == 0:
                     #there is only ONE fluxcalibrated spectra for the entire detection (not one per fiber)
                     datakeep['calspec_wave'] = e.calspec_wavelength
@@ -3146,11 +3191,8 @@ class HETDEX:
                 fits.data_sky[max(0, yl - 5 * yw):min(max_y - 1, yh + 5 * yw) + 1, xl:xh + 1]
             datakeep['scatter_sky'].append(deepcopy(scatter_blank))
 
-
-
             datakeep['xi'].append(x_2D)
             datakeep['yi'].append(y_2D)
-
 
             datakeep['xl'].append(blank_xl)
             datakeep['yl'].append(blank_yl)
@@ -3326,6 +3368,20 @@ class HETDEX:
                 datakeep['calspec_cnts'] = e.calspec_counts
                 datakeep['calspec_flux'] = e.calspec_flux
                 datakeep['calspec_ferr'] = e.calspec_fluxerr
+
+                datakeep['calspec_2d'] = e.calspec_2d_zoom
+                datakeep['calspec_cnts_zoom'] = e.calspec_counts_zoom
+                datakeep['calspec_wave_zoom'] = e.calspec_wavelength_zoom
+                datakeep['calspec_flux_zoom'] = e.calspec_flux_zoom
+                datakeep['calspec_ferr_zoom'] = e.calspec_fluxerr_zoom
+
+
+
+
+                #make Karl's 2d cutout the shame shape, keeping its zero
+                y_2D, x_2D = np.shape(blank)
+
+
 
 
         return datakeep
@@ -3559,7 +3615,7 @@ class HETDEX:
                     pixplot.text(0.5, 1.3, 'Pixel Flat',
                                  transform=pixplot.transAxes, fontsize=8, color='k',
                                  verticalalignment='top', horizontalalignment='center')
-                    imgplot.text(0.5, 1.3, 'Image',
+                    imgplot.text(0.5, 1.3, '2D Spec',
                                  transform=imgplot.transAxes, fontsize=8, color='k',
                                  verticalalignment='top', horizontalalignment='center')
 
@@ -3931,7 +3987,7 @@ class HETDEX:
         try:
             j = None
             if len(datakeep['calspec_wave']) > 0:
-                F = np.interp(bigwave, datakeep['calspec_wave'], datakeep['calspec_flux'])
+                F = np.interp(bigwave, datakeep['calspec_wave'], datakeep['calspec_cnts'])
             else:
                 F = np.zeros(bigwave.shape)
                 #new way, per Karl, straight sum
@@ -3948,14 +4004,16 @@ class HETDEX:
             mx = np.max(F)
 
             #flux at the cwave position
-            line_mx = F[(np.abs(F-cwave)).argmin()]
-            if mx > 3.0*line_mx: #limit mx to a more narrow range)
-                mx = max(F[(np.abs(F-3500.0)).argmin():(np.abs(F-5500.0)).argmin()])
-                if mx > 3.0*line_mx:
-                    log.info("Truncating max spectra value...")
-                    mx = 3.0 * line_mx
-                else:
-                    log.info("Exclusing spectra maximum outside 3500 - 5500 AA")
+            #todo: this is wrong F-cwave makes no sense (F is a flux array, cwave is a wavelength)
+            if False:
+                line_mx = F[(np.abs(F-cwave)).argmin()]
+                if mx > 3.0*line_mx: #limit mx to a more narrow range)
+                    mx = max(F[(np.abs(F-3500.0)).argmin():(np.abs(F-5500.0)).argmin()])
+                    if mx > 3.0*line_mx:
+                        log.info("Truncating max spectra value...")
+                        mx = 3.0 * line_mx
+                    else:
+                        log.info("Exclusing spectra maximum outside 3500 - 5500 AA")
 
             ran = mx - mn
             specplot.step(bigwave, F, c='b', where='mid', lw=1)

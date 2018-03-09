@@ -138,6 +138,8 @@ class Fiber:
         self.interp_spectra_counts = []
         self.interp_spectra_errors = []
 
+        self.multi = None
+        self.relative_weight = 1.0
         try:
             self.panacea_idx = int(panacea_fiber_index)
             self.number_in_amp = 112 - self.panacea_idx
@@ -147,8 +149,15 @@ class Fiber:
             else:
                 self.number_in_side = self.number_in_ccd
 
+            #panacea_idx +1 since Karl starts at 1 and panacea at 0
+            self.multi = "multi_%s_%s_%s_%s_%s" % \
+                        ( str(self.specid).zfill(3), str(self.ifuslot).zfill(3),str(self.ifuid).zfill(3),
+                          self.amp, str(self.panacea_idx+1).zfill(3))
+
         except:
             log.error("Unable to map fiber index (%d) to fiber number(s)" % int(panacea_fiber_index), exc_info=True)
+
+
 
     @property
     def sky_x(self):

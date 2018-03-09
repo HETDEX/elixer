@@ -668,6 +668,7 @@ def write_fibers_file(filename,hd_list):
 
     # write help (header) part
     f.write("# version " + str(G.__version__) + "\n")
+    f.write("# date time " + time.strftime("%Y-%m-%d %H:%M:%S") + "\n" )
     f.write("# each row contains one emission line with accompanying fiber information\n")
     col_num = 0
     for h in headers:
