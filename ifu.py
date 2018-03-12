@@ -555,7 +555,7 @@ class IFU:
         :param file:  full path to the voltron *_fib.txt file
         :param line_id: the id number of the line to use (1st column in *_fib.txt or the parenthetical value in pdf)
         :param fiber_indicies: zero based index of the fibers (as listed in t#cut or similar to add (adds all if is None or if empty)
-        :return: two arrays and a value: (1) wavelengths ,  (2) summed and averaged values and (3) central w
+        :return: three arrays and a value: (1) wavelengths ,  (2) summed  values, (3) summed errors and (4) central wavelength
         """
 
         #make sure file exists
@@ -567,7 +567,7 @@ class IFU:
 
         if not os.path.exists(file):
             log.error("Provided voltron fiber file does not exist: %s" %file)
-            return None, None, None
+            return None, None, None, None
 
         try:
             with open(file, 'r') as f:
@@ -596,7 +596,7 @@ class IFU:
         """
 
         if (line is None) or (len(line) < 20):
-            return None, None, None
+            return None, None, None, None
 
         toks = line.split()
         len_toks = len(toks)

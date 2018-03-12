@@ -52,6 +52,8 @@ class science_image():
 
         self.image_buffer = None
 
+        self.footprint = None #on sky footprint, decimal degrees Ra,Dec as 4x2 array (with North up: LL, UL, UR, LR)
+
         #todo: do I need to worry about this?
         if frame is not None:
             self.frame = frame
@@ -86,6 +88,11 @@ class science_image():
             except:
                 log.error("Unable to use WCS constructor. Will attempt to build manually.", exc_info=True)
                 self.build_wcs_manually()
+
+        try:
+            self.footprint = WCS.calc_footprint(self.wcs)
+        except:
+            log.error("Unable to get on-sky footprint")
 
         try:
             self.exptime = self.fits[0].header['EXPTIME']

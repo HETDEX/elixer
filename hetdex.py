@@ -785,9 +785,9 @@ class DetObj:
 
             self.calspec_wavelength = out[:,0]
             self.calspec_counts = out[:, 1]
-            self.calspec_flux = out[:,2]
+            self.calspec_flux = out[:,2] * 1e17
             #todo: get flux_err
-            #self.calspec_fluxerr = out[:,xxx]
+            #self.calspec_fluxerr = out[:,xxx]  * 1e17
 
         except:
             log.error("Cannot read *specf.res file: %s" % file, exc_info=True)
@@ -799,9 +799,9 @@ class DetObj:
 
             self.calspec_wavelength_zoom = out[:, 0]
             self.calspec_counts_zoom = out[:, 1]
-            self.calspec_flux_zoom = out[:, 2]
+            self.calspec_flux_zoom = out[:, 2]  * 1e17
             # todo: get flux_err_zoom
-            # self.calspec_fluxerr_zoom = out[:,xxx]
+            # self.calspec_fluxerr_zoom = out[:,xxx]  * 1e17
 
         except:
             log.error("Cannot read *_spece.res file: %s" % file, exc_info=True)
@@ -3984,10 +3984,14 @@ class HETDEX:
         else:
             stop = -1
 
+        y_label = "counts"
+        min_y = -20
         try:
             j = None
             if len(datakeep['calspec_wave']) > 0:
-                F = np.interp(bigwave, datakeep['calspec_wave'], datakeep['calspec_cnts'])
+                F = np.interp(bigwave, datakeep['calspec_wave'], datakeep['calspec_flux'])
+                y_label = "cgs" #r"cgs [$10^{-17}$]"
+                min_y = -20
             else:
                 F = np.zeros(bigwave.shape)
                 #new way, per Karl, straight sum
@@ -4000,15 +4004,15 @@ class HETDEX:
                                     datakeep['fw_spec'][ind[j]] * datakeep['fiber_weight'][ind[j]]) )
 
             mn = np.min(F)
-            mn = max(mn,-20) #negative flux makes no sense (excepting for some noise error)
+            mn = max(mn,min_y) #negative flux makes no sense (excepting for some noise error)
             mx = np.max(F)
 
             #flux at the cwave position
             #todo: this is wrong F-cwave makes no sense (F is a flux array, cwave is a wavelength)
-            if False:
-                line_mx = F[(np.abs(F-cwave)).argmin()]
+            if True:
+                line_mx = F[(np.abs(bigwave-cwave)).argmin()]
                 if mx > 3.0*line_mx: #limit mx to a more narrow range)
-                    mx = max(F[(np.abs(F-3500.0)).argmin():(np.abs(F-5500.0)).argmin()])
+                    mx = max(F[(np.abs(bigwave-3500.0)).argmin():(np.abs(bigwave-5500.0)).argmin()])
                     if mx > 3.0*line_mx:
                         log.info("Truncating max spectra value...")
                         mx = 3.0 * line_mx
@@ -4020,14 +4024,20 @@ class HETDEX:
 
             specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='dashed', c='k') #[0.3, 0.3, 0.3])
             specplot.axis([left, right, mn - ran / 20, mx + ran / 20])
+            # specplot.set_ylabel(y_label) #not honoring it, so just put in the text plot
 
-            specplot.locator_params(axis='y',tight=True,nbins=4)
+            specplot.locator_params(axis='y',tight=True,nbins=4,y_label='cgs')
 
             textplot = plt.axes([border_buffer, (float(num)+3) * dy, 1.0 - (2 * border_buffer), dy*2 ])
             textplot.set_xticks([])
             textplot.set_yticks([])
             textplot.axis(specplot.axis())
             textplot.axis('off')
+
+            #if this is flux, not counts, add a ersatz scale label for y axis
+            if len( datakeep['calspec_wave']) > 0:
+                textplot.text(3500, textplot.axis()[2], "e-17", rotation=0, ha='left', va='bottom',
+                          fontsize=10, color='k')  # use the e color for this family
 
             #iterate over all emission lines ... assume the cwave is that line and plot the additional lines
 
