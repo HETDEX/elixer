@@ -118,6 +118,14 @@ class science_image():
         self.wcs._naxis2 = self.fits[0].header['NAXIS2']
 
     def contains_position(self,ra,dec):
+        if self.footprint is not None: #do fast check first
+            if (ra  > np.max(self.footprint[:,0])) or (ra  < np.min(self.footprint[:,0])) or \
+               (dec > np.max(self.footprint[:,1])) or (dec < np.min(self.footprint[:,1])):
+                #can't be inside the rectangle
+                log.debug("position (%f, %f) is not in image max rectangle." % (ra, dec), exc_info=False)
+                return False
+
+        #now, it could be, so actually try a cutout to see if it will work
         try:
             cutout = Cutout2D(self.fits[0].data, SkyCoord(ra, dec, unit="deg", frame=self.frame), (1, 1),
                               wcs=self.wcs, copy=True)#,mode='partial')
