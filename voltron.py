@@ -843,6 +843,12 @@ def main():
                 hd = hetdex.HETDEX(args)
                 if (hd is not None) and (hd.status != -1):
                     hd_list.append(hd)
+        elif len(fcsdir_list) > 0:
+            #build one hd object for each ?
+            for det in fcsdir_list:
+                hd = hetdex.HETDEX(args,fcsdir=det) #builds out the hd object (with fibers, DetObj, etc)
+                if hd.status == 0:
+                    hd_list.append(hd)
         else:
             hd = hetdex.HETDEX(args) #builds out the hd object (with fibers, DetObj, etc)
             if hd is not None:

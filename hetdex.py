@@ -1405,7 +1405,7 @@ class FitsSorter:
 
 class HETDEX:
 
-    def __init__(self,args):
+    def __init__(self,args,fcsdir=None):
         if args is None:
             log.error("Cannot construct HETDEX object. No arguments provided.")
             return None
