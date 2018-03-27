@@ -86,6 +86,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                "DEEP_SPEC_Z"]  # NOTE: there are no F105W values
 
 
+    #todo: add 4x2 array of corners (ra,dec) to each catalogimage so can quickly check if target ra,dec is contained
 
     CatalogImages = [
         {'path': EXPANDED_IMAGES_PATH,
@@ -98,7 +99,13 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'expanded': True,
          'wcs_manual': False,
          'aperture': 1.0,  #if non-zero, use an aperture of this radius in arcsecs to find image based mag
-         'mag_func': cfhtls_count_to_mag
+         'mag_func': cfhtls_count_to_mag,
+         'footprint': [[215.72182464, 52.12056378],[215.74413972, 53.23356319],
+                       [213.97033408, 53.23356319],[213.99264916, 52.12056378]],
+         'RA_min': 213.970334,
+         'RA_max': 215.744140,
+         'Dec_min': 52.120564,
+         'Dec_max': 53.233563
          },
         {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
          'name': 'egs_all_acs_wfc_f606w_060mas_v1.1_drz.fits',

@@ -669,7 +669,7 @@ class DetObj:
         else:
             return self.sigma
 
-
+    #rsp1 (when t5all was provided and we want to load specific fibers for a single detection)
     def load_fluxcalibrated_spectra(self):
         del self.calspec_wavelength[:]
         del self.calspec_counts[:]
@@ -729,6 +729,7 @@ class DetObj:
 
                 #sum up the weights where keep == 0
                 norm = np.sum(w[np.where(keep==0)])
+                subset_norm = 0.0
 
 
                 for f in self.fibers:
@@ -739,12 +740,17 @@ class DetObj:
                             #find which fiber, if any, in set this belongs to
                             if (f.multi == multi[i]) and (f.scifits_idstring == idstr[i]):
                                 f.relative_weight += w[i]
+                                subset_norm += w[i]
                         else:
                             # find which fiber, if any, in set this belongs to
                             if (f.multi == multi[i]) and (f.scifits_idstring == idstr[i]):
                                 f.relative_weight += 0.0
 
-                    f.relative_weight /= norm #note: some we see are zero??
+                    #f.relative_weight /= norm #note: some we see are zero ... they do not contribute
+
+                for f in self.fibers:
+                    f.relative_weight /= subset_norm
+
 
         except:
             log.error("Cannot read list2: %s" % file, exc_info=True)
@@ -1479,6 +1485,7 @@ class HETDEX:
         self.min_fiber_sn = args.sn
 
         self.fcs_base = None
+        self.fcsdir = args.fcsdir
         if args.fcsdir is not None:
             self.fcs_base = op.join(args.fcsdir,self.output_filename+"_")
 
@@ -1489,7 +1496,7 @@ class HETDEX:
 
         self.emission_lines = [EmissionLine("Ly$\\alpha$ ",1216,'red'),
                                EmissionLine("OII ",3727,'green'),
-                               EmissionLine("OIII",4959,"lime"), EmissionLine("OIII",5007,"lime"),
+                               EmissionLine("OIIIa",4959,"lime"), EmissionLine("OIIIb",5007,"lime"),
                                EmissionLine("CIII", 1909, "purple"),
                                EmissionLine("CIV ",1549,"black"),
                                EmissionLine("H$\\beta$ ",4861,"blue"),
@@ -1513,6 +1520,8 @@ class HETDEX:
         # read the detect line file if specified. Build a list of targets based on sigma and chi2 cuts
         if (args.obsdate is None) and (self.detectline_fn is not None):  # this is optional
             self.read_detectline(force=True)
+        elif (self.fcsdir is not None):
+            pass
 
         if (args.obsdate is None):
             if self.build_multi_observation_panacea_fits_list():
@@ -2163,7 +2172,28 @@ class HETDEX:
 
     def read_detectline(self,force=False):
         #emission line or continuum line
-        #todo: determine which (should be more robust)
+
+        #todo: rsp1 ... here, new option to build from rsp1 directories
+        #todo:          an elif statement that calls to a new read_emisline replacement (read_rspdir?)
+        #todo:              it will read (one or multiple subdirs) and build DetObj
+        #todo:                  DetObj needs a new __init__ for this case (tokens are wrong for it)
+        #todo: a single directory (detection) or multiple?
+        #todo:      given a --fcsdir and no --line, look under for rsp1 output and run for each
+        #todo:          so, if given a specific detection subdir, only that one woould be run
+
+        #todo:      build this single or multiple as a call WITH the SUBDIR specified, so call
+        #todo:          something else first to build a list of SUBDIRs to use (the idea is that a future
+        #todo:          version will let the user specify which SUBDIRs (some subset) and then no downstream
+        #todo:          changes are needed)
+
+        #todo: something like: build_rspdirs_to_use() #returns a list of directories
+        #todo:                 ingest_rspdirs (list of dirs) # fills out DetObj for each
+        #todo:                      parse_rspdir(single dir,DetObj): populates DetObj and fibers, etc
+
+
+
+        #todo: **** maybe rename fcsdir to rspdir? or in calls make above rspdir fcsdir for consistencey ***
+
 
         if '_cont.dat' in self.detectline_fn:
             self.read_contline() #for now, just applies to cure, which is not forced (ignore IFUSlot ID matching)
@@ -2587,6 +2617,7 @@ class HETDEX:
                 del dd[k][:]
         else:
             dd = {}
+            dd['detobj'] =  None
             dd['dit'] = []
             dd['side'] = []
             dd['amp'] = []
@@ -2666,7 +2697,7 @@ class HETDEX:
 
         #basically cloned from Greg Z. make_visualization_detect.py; adjusted a bit for this code base
         datakeep = self.clean_data_dict()
-
+        datakeep['detobj'] = e
         sort_list = []
 
         for side in SIDE:  # 'L' and 'R'
@@ -2974,6 +3005,7 @@ class HETDEX:
 
         # basically cloned from Greg Z. make_visualization_detect.py; adjusted a bit for this code base
         datakeep = self.clean_data_dict()
+        datakeep['detobj'] = e
         sort_list = []
 
         if len(e.fibers) > 0:
@@ -3360,7 +3392,7 @@ class HETDEX:
             datakeep['fw_specwave'].append(wave[:])
 
             #todo: set the weights correctly
-            datakeep['fiber_weight'].append(1.0)
+            datakeep['fiber_weight'].append(fiber.relative_weight)
 
             if len(datakeep['calspec_wave']) == 0:
                 # there is only ONE fluxcalibrated spectra for the entire detection (not one per fiber)
@@ -3387,6 +3419,16 @@ class HETDEX:
         return datakeep
 
 
+    def make_fiber_colors(self,num_colors,total_fibers):
+        #get num_colors as color, the rest are grey
+        norm = plt.Normalize()
+        colors = plt.cm.hsv(norm(np.arange(num_colors)))
+        if total_fibers > num_colors:
+            greys = [[1,1,1,0.7]]*(total_fibers-num_colors)
+            colors = np.vstack((greys, colors))
+        return colors
+
+
     #2d spectra cutouts (one per fiber)
     def build_2d_image(self,datakeep):
 
@@ -3396,6 +3438,7 @@ class HETDEX:
         cmap = plt.get_cmap('gray_r')
         norm = plt.Normalize()
         colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
+        #colors = self.make_fiber_colors(min(4,len(datakeep['ra'])),len(datakeep['ra']) + 2 )
         num_fibers = len(datakeep['xi'])
         num_to_display = min(MAX_2D_CUTOUTS,num_fibers) + add_summed_image #for the summed images
         bordbuff = 0.01
@@ -3461,7 +3504,8 @@ class HETDEX:
                     img_vmin = datakeep['vmin2'][ind[i]]
                     img_vmax = datakeep['vmax2'][ind[i]]
 
-                    plot_label = str(num_fibers-i)
+                    #plot_label = str(num_fibers-i)
+                    plot_label = str("%d" % int(100.0*datakeep['fiber_weight'][ind[i]]))
 
             else: #this is the top image (the sum)
                 is_a_fiber = False
@@ -3557,56 +3601,57 @@ class HETDEX:
 
                 #if self.multiple_observations:
                 #add the fiber info to the right of the images
-                if is_a_fiber:
-                    if self.panacea:
-                        #dither and fiber position, etc generally meaningless in this case
-                        #as there is no good way to immediately go back and find the source image
-                        #so just show S/N and distance (and make bigger)
-                        if abs(sn) < 1000:
-                            borplot.text(1.05, .75, 'SN: %0.2f' % (sn),
-                                         transform=smplot.transAxes, fontsize=8, color='r',
+                if not G.ZOO:
+                    if is_a_fiber:
+                        if self.panacea:
+                            #dither and fiber position, etc generally meaningless in this case
+                            #as there is no good way to immediately go back and find the source image
+                            #so just show S/N and distance (and make bigger)
+                            if abs(sn) < 1000:
+                                borplot.text(1.05, .75, 'SN: %0.2f' % (sn),
+                                             transform=smplot.transAxes, fontsize=8, color='r',
+                                             verticalalignment='bottom', horizontalalignment='left')
+                            else:
+                                borplot.text(1.05, .75, 'SN: %.1E' % (sn),
+                                             transform=smplot.transAxes, fontsize=8, color='r',
+                                             verticalalignment='bottom', horizontalalignment='left')
+                            # distance (in arcsec) of fiber center from object center
+                            borplot.text(1.05, .53, 'D("): %0.2f %0.1f' % (datakeep['d'][ind[i]],datakeep['wscore'][ind[i]]),
+                                         transform=smplot.transAxes, fontsize=6, color='r',
                                          verticalalignment='bottom', horizontalalignment='left')
+
+                            try:
+                                l3 = datakeep['date'][ind[i]] + "_" + datakeep['obsid'][ind[i]] + "_" + datakeep['expid'][ind[i]]
+                                l4 = datakeep['spec_id'][ind[i]] + "_" + datakeep['amp'][ind[i]] + "_" + datakeep['fib_idx1'][ind[i]]
+
+                                borplot.text(1.05, .33, l3,
+                                             transform=smplot.transAxes, fontsize=6, color='b',
+                                             verticalalignment='bottom', horizontalalignment='left')
+                                borplot.text(1.05, .13, l4,
+                                             transform=smplot.transAxes, fontsize=6, color='b',
+                                             verticalalignment='bottom', horizontalalignment='left')
+                            except:
+                                log.error("Exception building extra fiber info.", exc_info=True)
+
                         else:
-                            borplot.text(1.05, .75, 'SN: %.1E' % (sn),
-                                         transform=smplot.transAxes, fontsize=8, color='r',
-                                         verticalalignment='bottom', horizontalalignment='left')
-                        # distance (in arcsec) of fiber center from object center
-                        borplot.text(1.05, .53, 'D("): %0.2f %0.1f' % (datakeep['d'][ind[i]],datakeep['wscore'][ind[i]]),
-                                     transform=smplot.transAxes, fontsize=6, color='r',
-                                     verticalalignment='bottom', horizontalalignment='left')
-
-                        try:
-                            l3 = datakeep['date'][ind[i]] + "_" + datakeep['obsid'][ind[i]] + "_" + datakeep['expid'][ind[i]]
-                            l4 = datakeep['spec_id'][ind[i]] + "_" + datakeep['amp'][ind[i]] + "_" + datakeep['fib_idx1'][ind[i]]
-
-                            borplot.text(1.05, .33, l3,
-                                         transform=smplot.transAxes, fontsize=6, color='b',
-                                         verticalalignment='bottom', horizontalalignment='left')
-                            borplot.text(1.05, .13, l4,
-                                         transform=smplot.transAxes, fontsize=6, color='b',
-                                         verticalalignment='bottom', horizontalalignment='left')
-                        except:
-                            log.error("Exception building extra fiber info.", exc_info=True)
-
+                            borplot.text(1.05, .75, 'S/N = %0.2f' % (sn),
+                                        transform=smplot.transAxes, fontsize=6, color='r',
+                                        verticalalignment='bottom', horizontalalignment='left')
+                            #distance (in arcsec) of fiber center from object center
+                            borplot.text(1.05, .55, 'D(") = %0.2f %0.1f' % (datakeep['d'][ind[i]],datakeep['wscore'][ind[i]]),
+                                        transform=smplot.transAxes, fontsize=6, color='r',
+                                        verticalalignment='bottom', horizontalalignment='left')
+                            borplot.text(1.05, .35, 'X,Y = %d,%d' % (datakeep['xi'][ind[i]], datakeep['yi'][ind[i]]),
+                                        transform=smplot.transAxes, fontsize=6, color='b',
+                                        verticalalignment='bottom', horizontalalignment='left')
+                            borplot.text(1.05, .15, 'D,S,F = %d,%s,%d' % (datakeep['dit'][ind[i]], datakeep['side'][ind[i]],
+                                                                         datakeep['fib'][ind[i]]),
+                                        transform=smplot.transAxes, fontsize=6, color='b',
+                                        verticalalignment='bottom', horizontalalignment='left')
                     else:
-                        borplot.text(1.05, .75, 'S/N = %0.2f' % (sn),
-                                    transform=smplot.transAxes, fontsize=6, color='r',
-                                    verticalalignment='bottom', horizontalalignment='left')
-                        #distance (in arcsec) of fiber center from object center
-                        borplot.text(1.05, .55, 'D(") = %0.2f %0.1f' % (datakeep['d'][ind[i]],datakeep['wscore'][ind[i]]),
-                                    transform=smplot.transAxes, fontsize=6, color='r',
-                                    verticalalignment='bottom', horizontalalignment='left')
-                        borplot.text(1.05, .35, 'X,Y = %d,%d' % (datakeep['xi'][ind[i]], datakeep['yi'][ind[i]]),
-                                    transform=smplot.transAxes, fontsize=6, color='b',
-                                    verticalalignment='bottom', horizontalalignment='left')
-                        borplot.text(1.05, .15, 'D,S,F = %d,%s,%d' % (datakeep['dit'][ind[i]], datakeep['side'][ind[i]],
-                                                                     datakeep['fib'][ind[i]]),
-                                    transform=smplot.transAxes, fontsize=6, color='b',
-                                    verticalalignment='bottom', horizontalalignment='left')
-                else:
-                    borplot.text(1.05, .35, '\nWEIGHTED\nSUM',
-                                 transform=smplot.transAxes, fontsize=8, color='k',
-                                 verticalalignment='bottom', horizontalalignment='left')
+                        borplot.text(1.05, .35, '\nWEIGHTED\nSUM',
+                                     transform=smplot.transAxes, fontsize=8, color='k',
+                                     verticalalignment='bottom', horizontalalignment='left')
 
                 if grid_idx == (num_to_display-1): #(num + add_summed_image - 1):
                     smplot.text(0.5, 1.3, 'Smoothed',
@@ -3622,6 +3667,14 @@ class HETDEX:
         buf = io.BytesIO()
        # plt.tight_layout()#pad=0.1, w_pad=0.5, h_pad=1.0)
         plt.savefig(buf, format='png', dpi=300)
+
+        if G.ZOO:
+            try:
+                fn = self.output_filename + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_2d_fib.png"
+                fn = op.join( datakeep['detobj'].outdir, fn)
+                plt.savefig(fn,format="png",dpi=300)
+            except:
+                log.error("Unable to write zoo_2d_fib image to disk.",exc_info=True)
 
         plt.close(fig)
         return buf, Y
@@ -3686,9 +3739,12 @@ class HETDEX:
             imgplot.set_xticks([])
             imgplot.set_yticks([])
 
-            #plt.title("CCD Region of Main Fiber\n(%d,%d)"
-            plt.title("%s\nx,y: %d,%d"
-                      % (title,datakeep['ds9_x'][ind[max_sn_idx]], datakeep['ds9_y'][ind[max_sn_idx]]), fontsize=12)
+            if not G.ZOO:
+                #plt.title("CCD Region of Main Fiber\n(%d,%d)"
+                plt.title("%s\nx,y: %d,%d"
+                          % (title,datakeep['ds9_x'][ind[max_sn_idx]], datakeep['ds9_y'][ind[max_sn_idx]]), fontsize=12)
+            else:
+                plt.title("%s" % (title), fontsize=12)
 
             #combined_image = np.concatenate((datakeep['scatter_sky'][ind[max_sn_idx]],
             #                                 datakeep['scatter'][ind[max_sn_idx]]),axis=1)
@@ -3717,6 +3773,18 @@ class HETDEX:
 
             buf = io.BytesIO()
             plt.savefig(buf, format='png', dpi=300)
+
+            if G.ZOO:
+                try:
+                    zoo_num = "ccd_sub"
+                    if key == "scatter_sky":
+                        zoo_num = "ccd_sky"
+                    fn = self.output_filename + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_" + zoo_num \
+                         + ".png"
+                    fn = op.join(datakeep['detobj'].outdir, fn)
+                    plt.savefig(fn, format="png", dpi=300)
+                except:
+                    log.error("Unable to write zoo_%s image to disk." %(zoo_num), exc_info=True)
 
             plt.close(fig)
             return buf

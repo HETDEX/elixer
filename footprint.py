@@ -1,6 +1,7 @@
 from astropy.wcs import WCS
 import astropy.io.fits as fits
 import argparse
+import numpy as np
 
 
 
@@ -22,6 +23,19 @@ def build_wcs_manually(img):
     return wcs
 
 
+def build_wcs_manually_1(img):
+    wcs = WCS(naxis=img[1].header['NAXIS'])
+    wcs.wcs.crpix = [img[1].header['CRPIX1'], img[1].header['CRPIX2']]
+    wcs.wcs.crval = [img[1].header['CRVAL1'], img[1].header['CRVAL2']]
+    wcs.wcs.ctype = [img[1].header['CTYPE1'], img[1].header['CTYPE2']]
+    # self.wcs.wcs.cdelt = [None,None]#[hdu1[1].header['CDELT1O'],hdu1[1].header['CDELT2O']]
+    wcs.wcs.cd = [[img[1].header['CD1_1'], img[1].header['CD1_2']],
+                       [img[1].header['CD2_1'], img[1].header['CD2_2']]]
+    wcs._naxis1 = img[1].header['NAXIS1']
+    wcs._naxis2 = img[1].header['NAXIS2']
+
+    return wcs
+
 
 def main():
 
@@ -29,17 +43,39 @@ def main():
     parser.add_argument('-f','--file', help='Fits filename',required=True)
 
     args = parser.parse_args()
-    try:
-        footprint = WCS.calc_footprint(WCS(args.file))
-    except:
-        img = fits.open(args.file)
-        footprint = WCS.calc_footprint(build_wcs_manually(img))
-        img.close()
+#    try:
+#        footprint = WCS.calc_footprint(WCS(args.file))
+#    except:
+#        img = fits.open(args.file)
+#        footprint = WCS.calc_footprint(build_wcs_manually(img))
+#        img.close()
+
+    img = fits.open(args.file)
+    footprint = WCS.calc_footprint(build_wcs_manually_1(img))
+    img.close()
 
 
     print("UL", footprint[1],"  UR", footprint[2])
     print("LL", footprint[0],"  LR", footprint[3])
 
+    print("copy form")
+    print("[[%f,%f],[%f,%f],[%f,%f],[%f,%f]]" %
+          (footprint[0][0], footprint[0][1],
+           footprint[1][0], footprint[1][1],
+           footprint[2][0], footprint[2][1],
+           footprint[3][0], footprint[3][1],
+           ))
+
+    print("Min Max")
+    print("{'RA_min': %f, 'RA_max': %f, 'Dec_min': %f, 'Dec_max': %f}" %
+          (np.min(footprint[:,0]),np.max(footprint[:,0]),
+           np.min(footprint[:,1]), np.max(footprint[:,1])))
+
+    print("Min Max linear dict")
+    print("'RA_min': %f," % np.min(footprint[:, 0]))
+    print("'RA_max': %f," % np.max(footprint[:, 0]))
+    print("'Dec_min': %f," % np.min(footprint[:, 1]))
+    print("'Dec_max': %f," % np.max(footprint[:, 1]))
 
 if __name__ == '__main__':
     main()

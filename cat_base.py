@@ -293,12 +293,15 @@ class Catalog:
 
     #caller might send in flux and.or wavelength as strings, so protect there
     #also, might not have valid flux
+
+    def nano_jansky_to_mag(self,flux,wavelength):
+        return -2.5*np.log10(flux) + 31.4
+
+    def micro_jansky_to_mag(self,flux,wavelength):
+        return -2.5*np.log10(flux) + 23.9
+
     def micro_jansky_to_cgs(self,flux,wavelength):
-        c = scipy.constants.c * 1e10
-        try:
-            return float(flux) * 1e-29 * c / (float(wavelength) ** 2)  # 3e18 ~ c in angstroms/sec
-        except:
-            return 0.
+        return self.nano_jansky_to_cgs(flux*1000.0,wavelength)
 
     def nano_jansky_to_cgs(self,flux,wavelength):
         c = scipy.constants.c * 1e10
@@ -414,7 +417,8 @@ class Catalog:
 
                     plt.gca().add_patch(plt.Circle(((fx - x), (fy - y)), radius=G.Fiber_Radius, color=c, fill=False,
                                                    linestyle='solid'))
-                    plt.text((fx - x), (fy - y), str(i), ha='center', va='center', fontsize='x-small', color=c)
+                   #stop displaying the 1-5 fiber number
+                   # plt.text((fx - x), (fy - y), str(i), ha='center', va='center', fontsize='x-small', color=c)
 
                     if self.is_edge_fiber(fn):
                         plt.gca().add_patch(

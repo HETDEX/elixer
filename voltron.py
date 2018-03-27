@@ -11,8 +11,10 @@ import pyhetdex.tools.files.file_tools as ft
 import sys
 import glob
 import os
+import fnmatch
 import errno
 import time
+import numpy as np
 #import re
 #from PIL import Image
 from wand.image import Image
@@ -145,7 +147,10 @@ def parse_commandline():
     parser.add_argument('--dither', help="HETDEX Dither file", required=False)
     parser.add_argument('--path', help="Override path to science fits in dither file", required=False)
     parser.add_argument('--line', help="HETDEX detect line file", required=False)
-    parser.add_argument('--fcsdir', help="Flux calibrated spectra directory", required=False)
+    parser.add_argument('--fcsdir', help="Flux Calibrated Spectra DIRectory (commonly from rsp1)", required=False)
+
+    parser.add_argument('--dets', help="List of detections (of form '20170314v011_005') or file containing a list"
+                                       " of detections (one per line)", required=False)
 
     parser.add_argument('--ifu', help="HETDEX IFU (Cure) file", required=False)
     parser.add_argument('--dist', help="HETDEX Distortion (Cure) file base (i.e. do not include trailing _L.dist or _R.dist)",
@@ -263,9 +268,9 @@ def valid_parameters(args):
 
     #must have ra and dec -OR- dither and (ID or (chi2 and sigma))
     if (args.ra is None) or (args.dec is None):
-        if (args.line is None):
+        if (args.line is None) and (args.fcsdir is None):
             print("Invalid parameters. Must specify either (--ra and --dec) or detect parameters (--dither, --line, --id, "
-                  "--sigma, --chi2)")
+                  "--sigma, --chi2, --fcsdir)")
             result =  False
         elif args.cure:
             if (args.ifu is None):
@@ -328,7 +333,7 @@ def valid_parameters(args):
 
 def build_hd(args):
     #if (args.dither is not None):
-    if (args.line is not None): #or (args.id is not None):
+    if (args.line is not None) or (args.fcsdir is not None):#or (args.id is not None):
             return True
 
     return False
@@ -746,6 +751,60 @@ def convert_pdf(filename, resolution=150):
         return
 
 
+
+def get_fcsdir_subdirs_to_process(args):
+#return list of rsp1 style directories to process
+    if args.fcsdir is None:
+        return []
+
+    fcsdir = args.fcsdir
+
+    if args.dets is not None:
+        try:
+            #is this a list or a file
+            if os.path.isfile(args.dets):
+                sublist = out = np.genfromtxt(args.dets, dtype=None)
+            else:
+                sublist = args.dets.split(', ')
+        except:
+            log.error("Exception processing detections (--dets) sublist. FATAL. ", exc_info=True)
+            print("Exception processing detections (--dets) sublist. FATAL.")
+            exit(-1)
+
+    subdirs = []
+
+    try:
+        if not os.path.isdir(fcsdir):
+            log.error("Cannot process flux calibrated spectra directory: " + str(fcsdir))
+
+        #scan subdirs for detections ... assume an rsp1 style format
+        #look for "list2" file or "*spec.dat" files
+
+        #pattern = "*spec.dat" #using one of the expected files in subdir not likely to be found elsewhere
+        #assumes no naming convention for the directory names or intermediate structure in the tree
+        if (sublist is None) or (len(sublist) == 0):
+            for root, dirs, files in os.walk(fcsdir):
+                pattern = os.path.basename(root)+"spec.dat" #ie. 20170322v011_005spec.dat
+                for name in files:
+                    if name == pattern:
+                    #if fnmatch.fnmatch(name, pattern):
+                        subdirs.append(root)
+                        break #stop looking at names in THIS dir and go to next
+        else:
+            for root, dirs, files in os.walk(fcsdir):
+                patterns = [x + "spec.dat" for x in sublist] #ie. 20170322v011_005spec.dat
+                for name in files:
+                    if name in patterns:
+                    #if fnmatch.fnmatch(name, patterns):
+                        subdirs.append(root)
+                        break #stop looking at names in THIS dir and go to next
+    except:
+        log.error("Exception attempting to process --fcsdir. FATAL.",exc_info=True)
+        print("Exception attempting to process --fcsdir. FATAL.")
+        exit(-1)
+
+    return subdirs
+
 def main():
     global G_PDF_FILE_NUM
 
@@ -757,22 +816,23 @@ def main():
     pages = []
 
 
+    #if a --line file was provided ... old way (pre-April 2018)
     #always build ifu_list
     ifu_list = ifulist_from_detect_file(args)
 
-    #if a specific observation date was specified, build one hd object per ifu, otherwise they all go to one
-    #if (args.obsdate is not None):
-    #    ifu_list = ifulist_from_detect_file(args)
-    #else:
-    #    ifu_list = []
+    hd_list = [] #if --line provided, one entry for each amp (or side) and dither
+    #for rsp1 variant, hd_list should be one per detection (one per rsp subdirectory) or just one hd object?
+    file_list = [] #output pdfs (parts)
 
-    hd_list = [] #one entry for each amp (or side) and dither
-    file_list = []
+    fcsdir_list = get_fcsdir_subdirs_to_process(args) #list of rsp1 style directories to process (each represents one detection)
+
     match_list = match_summary.MatchSet()
 
     # first, if hetdex info provided, build the hetdex part of the report
     # hetedex part
     if build_hd(args):
+        #hd_list by IFU (one hd object per IFU, pre-April 2018)
+        #each hd object can have multiple DetObjs (assigned s|t the first fiber's IFU matches the hd IFU)
         if (len(ifu_list) > 0) and ((args.ifuslot is None) and (args.ifuid is None) and (args.specid is None)):
 
             #sort so easier to find
@@ -784,7 +844,7 @@ def main():
                 if (hd is not None) and (hd.status != -1):
                     hd_list.append(hd)
         else:
-            hd = hetdex.HETDEX(args)
+            hd = hetdex.HETDEX(args) #builds out the hd object (with fibers, DetObj, etc)
             if hd is not None:
                 if hd.status == 0:
                     hd_list.append(hd)
