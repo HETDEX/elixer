@@ -148,7 +148,6 @@ def parse_commandline():
     parser.add_argument('--path', help="Override path to science fits in dither file", required=False)
     parser.add_argument('--line', help="HETDEX detect line file", required=False)
     parser.add_argument('--fcsdir', help="Flux Calibrated Spectra DIRectory (commonly from rsp1)", required=False)
-
     parser.add_argument('--dets', help="List of detections (of form '20170314v011_005') or file containing a list"
                                        " of detections (one per line)", required=False)
 
@@ -758,19 +757,19 @@ def get_fcsdir_subdirs_to_process(args):
         return []
 
     fcsdir = args.fcsdir
-    sublist = [] #list of detections in 20170322v011_005 format
+    detlist = [] #list of detections in 20170322v011_005 format
     subdirs = [] #list of specific rsp1 subdirectories to process (output)
 
     if args.dets is not None:
         try:
             #is this a list or a file
             if os.path.isfile(args.dets):
-                sublist = out = np.genfromtxt(args.dets, dtype=None)
+                detlist = out = np.genfromtxt(args.dets, dtype=None)
             else:
-                sublist = args.dets.split(', ')
+                detlist = args.dets.split(', ')
         except:
-            log.error("Exception processing detections (--dets) sublist. FATAL. ", exc_info=True)
-            print("Exception processing detections (--dets) sublist. FATAL.")
+            log.error("Exception processing detections (--dets) detlist. FATAL. ", exc_info=True)
+            print("Exception processing detections (--dets) detlist. FATAL.")
             exit(-1)
 
     try:
@@ -782,7 +781,7 @@ def get_fcsdir_subdirs_to_process(args):
 
         #pattern = "*spec.dat" #using one of the expected files in subdir not likely to be found elsewhere
         #assumes no naming convention for the directory names or intermediate structure in the tree
-        if (sublist is None) or (len(sublist) == 0):
+        if (detlist is None) or (len(detlist) == 0):
             for root, dirs, files in os.walk(fcsdir):
                 pattern = os.path.basename(root)+"spec.dat" #ie. 20170322v011_005spec.dat
                 for name in files:
@@ -792,11 +791,11 @@ def get_fcsdir_subdirs_to_process(args):
                         break #stop looking at names in THIS dir and go to next
         else:
             use_search = False
-            #try fast way first (assume sublist is immediate subdirectory name, if that does not work, use slow method
-            for s in sublist:
-                pattern = s + "spec.dat"
-                if os.path.isfile(os.path.join(fcsdir,s,pattern)):
-                    subdirs.append(os.path.join(fcsdir,s))
+            #try fast way first (assume detlist is immediate subdirectory name, if that does not work, use slow method
+            for d in detlist:
+                pattern = d + "spec.dat"
+                if os.path.isfile(os.path.join(fcsdir,d,pattern)):
+                    subdirs.append(os.path.join(fcsdir,d))
                 else:
                     #fail, fast method will not work
                     #if any fail, all fail?
@@ -806,7 +805,7 @@ def get_fcsdir_subdirs_to_process(args):
 
             if use_search:
                 for root, dirs, files in os.walk(fcsdir):
-                    patterns = [x + "spec.dat" for x in sublist] #ie. 20170322v011_005spec.dat
+                    patterns = [x + "spec.dat" for x in detlist] #ie. 20170322v011_005spec.dat
                     for name in files:
                         if name in patterns:
                         #if fnmatch.fnmatch(name, patterns):
