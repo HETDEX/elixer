@@ -1485,9 +1485,14 @@ class HETDEX:
         self.min_fiber_sn = args.sn
 
         self.fcs_base = None
-        self.fcsdir = args.fcsdir
-        if args.fcsdir is not None:
-            self.fcs_base = op.join(args.fcsdir,self.output_filename+"_")
+        #if we were not provided with a specific fcsdir, use the root level dir (if provided) in the args list
+        #and prepend what is expected to be the appropriate subdir root (based on the naming of the output dir)
+        if fcsdir == None:
+            self.fcsdir = args.fcsdir
+            if args.fcsdir is not None:
+                self.fcs_base = op.join(args.fcsdir,self.output_filename+"_")
+        else: #we were given a specific directory, so use that
+            self.fcsdir = fcsdir
 
         if args.cure:
             self.panacea = False
@@ -1496,7 +1501,7 @@ class HETDEX:
 
         self.emission_lines = [EmissionLine("Ly$\\alpha$ ",1216,'red'),
                                EmissionLine("OII ",3727,'green'),
-                               EmissionLine("OIIIa",4959,"lime"), EmissionLine("OIIIb",5007,"lime"),
+                               EmissionLine("OIIIb",4959,"lime"), EmissionLine("OIIIa",5007,"lime"), #5007 is the primary
                                EmissionLine("CIII", 1909, "purple"),
                                EmissionLine("CIV ",1549,"black"),
                                EmissionLine("H$\\beta$ ",4861,"blue"),
@@ -1521,6 +1526,7 @@ class HETDEX:
         if (args.obsdate is None) and (self.detectline_fn is not None):  # this is optional
             self.read_detectline(force=True)
         elif (self.fcsdir is not None):
+            #todo: consume the rsp1 style directory
             pass
 
         if (args.obsdate is None):

@@ -758,6 +758,8 @@ def get_fcsdir_subdirs_to_process(args):
         return []
 
     fcsdir = args.fcsdir
+    sublist = [] #list of detections in 20170322v011_005 format
+    subdirs = [] #list of specific rsp1 subdirectories to process (output)
 
     if args.dets is not None:
         try:
@@ -770,8 +772,6 @@ def get_fcsdir_subdirs_to_process(args):
             log.error("Exception processing detections (--dets) sublist. FATAL. ", exc_info=True)
             print("Exception processing detections (--dets) sublist. FATAL.")
             exit(-1)
-
-    subdirs = []
 
     try:
         if not os.path.isdir(fcsdir):
@@ -791,13 +791,27 @@ def get_fcsdir_subdirs_to_process(args):
                         subdirs.append(root)
                         break #stop looking at names in THIS dir and go to next
         else:
-            for root, dirs, files in os.walk(fcsdir):
-                patterns = [x + "spec.dat" for x in sublist] #ie. 20170322v011_005spec.dat
-                for name in files:
-                    if name in patterns:
-                    #if fnmatch.fnmatch(name, patterns):
-                        subdirs.append(root)
-                        break #stop looking at names in THIS dir and go to next
+            use_search = False
+            #try fast way first (assume sublist is immediate subdirectory name, if that does not work, use slow method
+            for s in sublist:
+                pattern = s + "spec.dat"
+                if os.path.isfile(os.path.join(fcsdir,s,pattern)):
+                    subdirs.append(os.path.join(fcsdir,s))
+                else:
+                    #fail, fast method will not work
+                    #if any fail, all fail?
+                    del subdirs[:]
+                    use_search = True
+                    break
+
+            if use_search:
+                for root, dirs, files in os.walk(fcsdir):
+                    patterns = [x + "spec.dat" for x in sublist] #ie. 20170322v011_005spec.dat
+                    for name in files:
+                        if name in patterns:
+                        #if fnmatch.fnmatch(name, patterns):
+                            subdirs.append(root)
+                            break #stop looking at names in THIS dir and go to next
     except:
         log.error("Exception attempting to process --fcsdir. FATAL.",exc_info=True)
         print("Exception attempting to process --fcsdir. FATAL.")
