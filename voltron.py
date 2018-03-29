@@ -753,7 +753,7 @@ def convert_pdf(filename, resolution=150):
 
 def get_fcsdir_subdirs_to_process(args):
 #return list of rsp1 style directories to process
-    if args.fcsdir is None:
+    if (args.fcsdir is None) or (args.line is not None): #if a line file was provided, we will use it instead of this
         return []
 
     fcsdir = args.fcsdir
@@ -804,13 +804,15 @@ def get_fcsdir_subdirs_to_process(args):
                     break
 
             if use_search:
+                log.debug("Searching fcsdir for matching subdirs ...")
                 for root, dirs, files in os.walk(fcsdir):
                     patterns = [x + "spec.dat" for x in detlist] #ie. 20170322v011_005spec.dat
                     for name in files:
-                        if name in patterns:
-                        #if fnmatch.fnmatch(name, patterns):
-                            subdirs.append(root)
-                            break #stop looking at names in THIS dir and go to next
+                        #if name in patterns:
+                        for p in patterns:
+                            if fnmatch.fnmatch(name, p): #could have wild card
+                                subdirs.append(root)
+                                break #stop looking at names in THIS dir and go to next
     except:
         log.error("Exception attempting to process --fcsdir. FATAL.",exc_info=True)
         print("Exception attempting to process --fcsdir. FATAL.")
@@ -827,7 +829,6 @@ def main():
     cats = catalogs.get_catalog_list()
     catch_all_cat = catalogs.get_catch_all()
     pages = []
-
 
     #if a --line file was provided ... old way (pre-April 2018)
     #always build ifu_list
@@ -858,8 +859,22 @@ def main():
                     hd_list.append(hd)
         elif len(fcsdir_list) > 0:
             #build one hd object for each ?
-            for det in fcsdir_list:
-                hd = hetdex.HETDEX(args,fcsdir=det) #builds out the hd object (with fibers, DetObj, etc)
+            #assume of form 20170322v011_xxx
+            obs_dict = {} #key=20170322v011  values=list of dirs
+
+            for d in fcsdir_list:
+                key = os.path.basename(d).split("_")[0]
+                if key in obs_dict:
+                    obs_dict[key].append(d)
+                else:
+                    obs_dict[key] = [d]
+
+
+            for key in obs_dict.keys():
+                hd = hetdex.HETDEX(args,fcsdir_list=obs_dict[key]) #builds out the hd object (with fibers, DetObj, etc)
+                #todo: maybe join all hd objects that have the same observation
+                # could save in loading catalogs (assuming all from the same observation)?
+                # each with then multiple detections (DetObjs)
                 if hd.status == 0:
                     hd_list.append(hd)
         else:

@@ -427,7 +427,9 @@ class Dither():
 class DetObj:
     '''mostly a container for an emission line or continuum detection from detect_line.dat or detect_cont.dat file'''
 
-    def __init__(self,tokens,emission=True,line_number=None,fcs_base=None):
+    def __init__(self,tokens,emission=True,line_number=None,fcs_base=None,fcsdir=None):
+        #fcs_base is a basename of a single fcs directory, fcsdir is the entire FQdirname
+        #fcsdir is more specific
         #skip NR (0)
         self.plot_dqs_fit = False
         self.dqs = None #scaled score
@@ -490,172 +492,186 @@ class DetObj:
             # (those two are usually the same, unless CURE is used), and the line number from the input file
             # (e.g. the t7all or t5cut, etc)
             self.line_number = line_number
-            self.entry_id = int(tokens[0])
-            self.id = int(tokens[1]) #detect id (not line number)
+            if (tokens is not None) and (len(tokens) > 0):
+                self.entry_id = int(tokens[0])
+                self.id = int(tokens[1]) #detect id (not line number)
 
-            #if (line_number is not None) and (self.entry_id == self.id):
-            #    #could be happenstance or could be an old file
-                #if it is just happenstance, the line_number should also be the same
-            #    self.entry_id = line_number
+                #if (line_number is not None) and (self.entry_id == self.id):
+                #    #could be happenstance or could be an old file
+                    #if it is just happenstance, the line_number should also be the same
+                #    self.entry_id = line_number
 
-            self.x = float(tokens[2]) #sky x
-            self.y = float(tokens[3]) #sky y
-            self.w = float(tokens[4]) #wavelength
-            self.la_z = float(tokens[5])
-            self.dataflux = float(tokens[6])
-            self.modflux = float(tokens[7])
-            self.fluxfrac = float(tokens[8])
-            #self.estflux = self.dataflux * G.FLUX_CONVERSION/self.fluxfrac #estimated flux in cgs f_lambda
-            self.estflux = self.dataflux * flux_conversion(self.w) / self.fluxfrac  # estimated flux in cgs f_lambda
-            #for safety
-            if self.fluxfrac == 0:
-                self.fluxfrac = 1.0
+                self.x = float(tokens[2]) #sky x
+                self.y = float(tokens[3]) #sky y
+                self.w = float(tokens[4]) #wavelength
+                self.la_z = float(tokens[5])
+                self.dataflux = float(tokens[6])
+                self.modflux = float(tokens[7])
+                self.fluxfrac = float(tokens[8])
+                #self.estflux = self.dataflux * G.FLUX_CONVERSION/self.fluxfrac #estimated flux in cgs f_lambda
+                self.estflux = self.dataflux * flux_conversion(self.w) / self.fluxfrac  # estimated flux in cgs f_lambda
+                #for safety
+                if self.fluxfrac == 0:
+                    self.fluxfrac = 1.0
 
-            self.sigma = float(tokens[9])
-            if tokens[10] == '1':
-                self.chi2 = 666
-            else:
-                self.chi2 = float(tokens[10])
-            self.chi2s = float(tokens[11])
-            self.chi2w = float(tokens[12])
-            self.gammq = float(tokens[13])
-            self.gammq_s = float(tokens[14])
-            self.eqw_obs = float(tokens[15])
-            self.cont = float(tokens[16]) #replaced by idx ~ 25 (1st value after the last fiber listed)
+                self.sigma = float(tokens[9])
+                if tokens[10] == '1':
+                    self.chi2 = 666
+                else:
+                    self.chi2 = float(tokens[10])
+                self.chi2s = float(tokens[11])
+                self.chi2w = float(tokens[12])
+                self.gammq = float(tokens[13])
+                self.gammq_s = float(tokens[14])
+                self.eqw_obs = float(tokens[15])
+                self.cont = float(tokens[16]) #replaced by idx ~ 25 (1st value after the last fiber listed)
 
-            try:
-                if len(tokens) > 17: #this is probably an all ifu panacea version
-                    self.panacea = True
-                    self.ifuslot = str(tokens[17][-3:]) #ifu093 -> 093
-                    if len(tokens) > 18:  # has the rest
-                        try:
-                            self.wra = float(tokens[18])
-                            self.wdec = float(tokens[19])
-                        except:
-                            self.wra = None
-                            self.wdec = None
-                            if ('***' in tokens[18]) and ('***' in tokens[19]):
-                                pass
-                            else:
-                                log.error("Exception parsing tokens.",exc_info=True)
-
-                        start = 20
-                        num_of_fibers = 0
-                        for i in range(start,len(tokens)): #there are fibers and other stuff to follow
-                            if not self.parse_fiber(tokens[i]): #this was not a fiber descriptor
-                                break
-                            else:
-                                num_of_fibers += 1 #will need to know for SN reads and fiber RA,DEC positions
-
-                        try:
-                            self.cont = float(tokens[i])
-                        except:
-                            self.cont = None
-                            if '***' in tokens[i]:
-                                pass
-                            else:
-                                log.error("Exception parsing tokens.", exc_info=True)
-
-                        start = i+1
-                        for i in range(start,min(len(tokens),start+num_of_fibers)): #these are in the same order as fibers
+                try:
+                    if len(tokens) > 17: #this is probably an all ifu panacea version
+                        self.panacea = True
+                        self.ifuslot = str(tokens[17][-3:]) #ifu093 -> 093
+                        if len(tokens) > 18:  # has the rest
                             try:
-                                sn = float(tokens[i])
+                                self.wra = float(tokens[18])
+                                self.wdec = float(tokens[19])
                             except:
-                                sn = -999
+                                self.wra = None
+                                self.wdec = None
+                                if ('***' in tokens[18]) and ('***' in tokens[19]):
+                                    pass
+                                else:
+                                    log.error("Exception parsing tokens.",exc_info=True)
+
+                            start = 20
+                            num_of_fibers = 0
+                            for i in range(start,len(tokens)): #there are fibers and other stuff to follow
+                                if not self.parse_fiber(tokens[i]): #this was not a fiber descriptor
+                                    break
+                                else:
+                                    num_of_fibers += 1 #will need to know for SN reads and fiber RA,DEC positions
+
+                            try:
+                                self.cont = float(tokens[i])
+                            except:
+                                self.cont = None
                                 if '***' in tokens[i]:
                                     pass
                                 else:
                                     log.error("Exception parsing tokens.", exc_info=True)
-                            for f in self.fibers:
-                                if f.sn is None:
-                                    f.sn = sn
-                                    break
 
-                        start = i+1
-                        fib_idx = 0
-                        if (len(tokens) - start) >= (2*num_of_fibers): #this probably has the RA and Decs
-                            for i in range(start,min(len(tokens),start+2*num_of_fibers),2):
-                                #could have "666" fibers, which are not added to the list of fibers
-                                #so check before attempting to add ... if the fiber does not exist in the list
-                                #we expect the value of ra and dec to also be 666, as a sanity check
-                                #but we still need to iterate over these values to parse the file correctly
-                                if fib_idx < len(self.fibers):
-                                    try:
-                                        self.fibers[fib_idx].ra = float(tokens[i])
-                                        self.fibers[fib_idx].dec = float(tokens[i+1])
-                                    except:
-                                        self.fibers[fib_idx].ra = None
-                                        self.fibers[fib_idx].dec = None
-                                        log.error("Exception parsing tokens.", exc_info=True)
-                                    fib_idx += 1
-                                else: #we are out of fibers, must be junk ...
-                                    #sanity check
-                                    try:
-                                        if (float(tokens[i]) != 666.) or (float(tokens[i+1]) != 666.):
-                                            log.warning("Warning! line file parsing may be off. Expecting 666 for "
-                                                        "ra and dec but got: %s , %s " %(tokens[i],tokens[i+1]))
-                                    except:
+                            start = i+1
+                            for i in range(start,min(len(tokens),start+num_of_fibers)): #these are in the same order as fibers
+                                try:
+                                    sn = float(tokens[i])
+                                except:
+                                    sn = -999
+                                    if '***' in tokens[i]:
                                         pass
+                                    else:
+                                        log.error("Exception parsing tokens.", exc_info=True)
+                                for f in self.fibers:
+                                    if f.sn is None:
+                                        f.sn = sn
+                                        break
 
-            except:
-                log.info("Error parsing tokens from emission line file.",exc_info=True)
+                            start = i+1
+                            fib_idx = 0
+                            if (len(tokens) - start) >= (2*num_of_fibers): #this probably has the RA and Decs
+                                for i in range(start,min(len(tokens),start+2*num_of_fibers),2):
+                                    #could have "666" fibers, which are not added to the list of fibers
+                                    #so check before attempting to add ... if the fiber does not exist in the list
+                                    #we expect the value of ra and dec to also be 666, as a sanity check
+                                    #but we still need to iterate over these values to parse the file correctly
+                                    if fib_idx < len(self.fibers):
+                                        try:
+                                            self.fibers[fib_idx].ra = float(tokens[i])
+                                            self.fibers[fib_idx].dec = float(tokens[i+1])
+                                        except:
+                                            self.fibers[fib_idx].ra = None
+                                            self.fibers[fib_idx].dec = None
+                                            log.error("Exception parsing tokens.", exc_info=True)
+                                        fib_idx += 1
+                                    else: #we are out of fibers, must be junk ...
+                                        #sanity check
+                                        try:
+                                            if (float(tokens[i]) != 666.) or (float(tokens[i+1]) != 666.):
+                                                log.warning("Warning! line file parsing may be off. Expecting 666 for "
+                                                            "ra and dec but got: %s , %s " %(tokens[i],tokens[i+1]))
+                                        except:
+                                            pass
 
-            #todo: fix this calculation
+                except:
+                    log.info("Error parsing tokens from emission line file.",exc_info=True)
 
-            ### this is the total flux under the line in ergs s^-1 cm^-2   (not per Hz or per Angstrom)
+                # karl is not using the line number ... is using the entry_id
+                #this is a combination of having a line file AND an rsp1 direcotry
+                if fcsdir is not None:
+                    self.fcsdir = fcsdir
+                elif (fcs_base is not None) and (line_number is not None):
+                    self.fcsdir = fcs_base + str(self.entry_id).zfill(3)
+
+                ### this is the total flux under the line in ergs s^-1 cm^-2   (not per Hz or per Angstrom)
 
 
-            #? units of dataflux? (counts per AA or per 1.9xAA?) need to convert to equivalent units with cont
-            #   counts are okay, I think, if cont is in counts / AA  (or per 2AA?), else convert to cgs
-            #? assuming dataflux is NOT per AA (that is, the wavelength has been multiplied out ...
-            #                                  ... is this the total flux under the line?)
-            #? cont is sometimes less than zero? that makes no sense?
-            #? does dataflux already have the fluxfrac adjustment in it? Right now not getting a fluxfrac so set to 1.0
-            #
-            #** note: for the bid targets in the catalog, the line flux is this dataflux/fluxfrac converted to cgs
-            #         (again, assuming it is the total flux, not per AA)
-            #         and the continuum flux is the f606w converted from janskys to cgs
-            #   ?? is there a better estimate for the continuum for the bid targets?
+                # ? units of dataflux? (counts per AA or per 1.9xAA?) need to convert to equivalent units with cont
+                #   counts are okay, I think, if cont is in counts / AA  (or per 2AA?), else convert to cgs
+                # ? assuming dataflux is NOT per AA (that is, the wavelength has been multiplied out ...
+                #                                  ... is this the total flux under the line?)
+                # ? cont is sometimes less than zero? that makes no sense?
+                # ? does dataflux already have the fluxfrac adjustment in it? Right now not getting a fluxfrac so set to 1.0
+                #
+                # ** note: for the bid targets in the catalog, the line flux is this dataflux/fluxfrac converted to cgs
+                #         (again, assuming it is the total flux, not per AA)
+                #         and the continuum flux is the f606w converted from janskys to cgs
+                #   ?? is there a better estimate for the continuum for the bid targets?
 
-            #if self.cont <= 0, set to floor value (need to know virus limit ... does it vary with detector?)
-            if (self.cont <= 0.0) or (self.cont == 666):
-                self.cont = G.CONTINUUM_FLOOR_COUNTS #floor (
-            #use the conversion factor around the line
-            self.cont_cgs = self.cont * flux_conversion(self.w)
+                # if self.cont <= 0, set to floor value (need to know virus limit ... does it vary with detector?)
+                if (self.cont <= 0.0) or (self.cont == 666):
+                    self.cont = G.CONTINUUM_FLOOR_COUNTS  # floor (
+                # use the conversion factor around the line
+                self.cont_cgs = self.cont * flux_conversion(self.w)
 
-            if (self.eqw_obs == -300) and (self.dataflux != 0) and (self.fluxfrac != 0):
-                #this is the approximation vs EW = integration of (F_cont - F_line) / F_line dLambda
-                #these are all in counts (but equivalent of wFw)
-                self.eqw_obs = abs(self.dataflux / self.fluxfrac / self.cont)
+                if (self.eqw_obs == -300) and (self.dataflux != 0) and (self.fluxfrac != 0):
+                    # this is the approximation vs EW = integration of (F_cont - F_line) / F_line dLambda
+                    # these are all in counts (but equivalent of wFw)
+                    self.eqw_obs = abs(self.dataflux / self.fluxfrac / self.cont)
+
+            #end if tokens > 0
+            elif fcsdir is not None: #expectation is that we have an rsp1 style directory instead
+                self.fcsdir = fcsdir
+                try: #for consistency with Karl's naming, the entry_id here is the _xxx number
+                    self.entry_id = int(os.path.basename(fcsdir).split("_")[1]) #assumes 20170322v011_005
+                except:
+                    pass
 
         else:
             self.type = 'cont'
-            self.id = int(tokens[0])
-            self.x = float(tokens[1])
-            self.y = float(tokens[2])
-            self.sigma = float(tokens[3])
-            self.fwhm = float(tokens[4])
-            self.a = float(tokens[5])
-            self.b = float(tokens[6])
-            self.pa = float(tokens[7])
-            self.ir1 = float(tokens[8])
-            self.ka = float(tokens[9])
-            self.kb = float(tokens[10])
-            self.xmin = float(tokens[11])
-            self.xmax = float(tokens[12])
-            self.ymin = float(tokens[13])
-            self.ymax = float(tokens[14])
-            self.zmin = float(tokens[15])
-            self.zmax = float(tokens[16])
+            if (tokens is not None) and (len(tokens) > 0):
+                #basically, from an input line file
+                self.id = int(tokens[0])
+                self.x = float(tokens[1])
+                self.y = float(tokens[2])
+                self.sigma = float(tokens[3])
+                self.fwhm = float(tokens[4])
+                self.a = float(tokens[5])
+                self.b = float(tokens[6])
+                self.pa = float(tokens[7])
+                self.ir1 = float(tokens[8])
+                self.ka = float(tokens[9])
+                self.kb = float(tokens[10])
+                self.xmin = float(tokens[11])
+                self.xmax = float(tokens[12])
+                self.ymin = float(tokens[13])
+                self.ymax = float(tokens[14])
+                self.zmin = float(tokens[15])
+                self.zmax = float(tokens[16])
 
         self.ra = None  # calculated value
         self.dec = None  # calculated value
         self.nearest_fiber = None
         self.fiber_locs = None #built later, tuples of Ra,Dec of fiber centers
 
-        # karl is not using the line number ... is using the entry_id
-        if (fcs_base is not None) and (line_number is not None):
-            self.fcsdir = fcs_base + str(self.entry_id).zfill(3)
+
 
         # dont do this here ... only call after we know we are going to keep this DetObj
         # as this next step takes a while
@@ -699,6 +715,34 @@ class DetObj:
 
         basename = op.basename(self.fcsdir)
 
+        #get summary information (res file)
+        #wavelength   wavelength(best fit) flux(10^-17) sigma  ?? S/N   cont(10^-17)
+        file = op.join(self.fcsdir, basename + "_2d.res")
+        try:
+            with open(file, 'r') as f:
+                f = ft.skip_comments(f)
+                count = 0
+                for l in f: #should be exactly one line (but takes the last one if more than one)
+                    count += 1
+                    if count > 1:
+                        log.warning("Unexepcted number of lines in %s" %(file))
+                    toks = l.split()
+                    w = float(toks[1])  # sanity check against self.w
+                    self.w = w
+                    self.estflux = float(toks[2]) * 10 ** (-17)
+                    self.sigma = float(toks[3])
+                    self.snr = float(toks[5])
+                    self.cont_cgs = float(toks[6]) * 10 ** (-17)
+
+                    # todo: need a floor for cgs (if negative)
+                    # for now only
+                    if self.cont_cgs <= 0.:
+                        print("Warning! Using predefined floor for continuum")
+                        self.cont_cgs = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(self.w)
+
+                    self.eqw_obs = self.estflux / self.cont_cgs
+        except:
+            log.error("Cannot read *2d.res file: %s" % file, exc_info=True)
 
         #build the mapping between the tmpxxx files and fibers
         #l1 file
@@ -714,7 +758,87 @@ class DetObj:
             log.error("Cannot read l1: %s" % file, exc_info=True)
 
 
-        #get the weights (*2d.res)
+        #todo: if don't already have fibers, build them
+        #l6 file has the paths to the multi*fits file
+        #l1 file has the bulk info
+        # RA, Dec, X, Y, multi(?ixy), exp, ???, ???, obs_string, obs_date, shot #
+        # tmp1xx.files are in order, so first entry is tmp101.dat
+
+        file1 = op.join(self.fcsdir, "l1")
+        file6 = op.join(self.fcsdir, "l6")
+        if (self.fibers is None) or (len(self.fibers) == 0):
+            try:
+                out1 = np.genfromtxt(file1, dtype=None)
+                out6 = np.genfromtxt(file6, dtype=None)
+
+                if len(out6) != len(out1):
+                    log.error("Error. Unmatched file lengths for l1 and l6 under %s" %(self.fcsdir))
+                    return
+
+                for i in range(len(out6)):
+                    ra = float(out1[i][0])
+                    dec = float(out1[i][1])
+                    sky_x = float(out1[i][2])
+                    sky_y = float(out1[i][3])
+                    multi_name = out1[i][4]
+                    exp = int(out1[i][5].lstrip("exp"))
+                    time_ex = out1[i][8]
+                    ymd = out1[i][9]
+                    shot_num = out1[i][10]
+
+                    toks = multi_name.split("_")  #example "multi_038_096_014_RL_041.ixy"
+                    specid = toks[1] #string
+                    ifu_slot = toks[2]
+                    ifuid = toks[3]
+                    side = toks[4]
+                    fib_id = toks[5].split(".")[0]
+
+                    #20171220T094210.0_020_095_004_RU_089
+                    idstring = time_ex + "_" + specid + "_" + ifu_slot + "_" + ifuid + "_" + side + "_" + fib_id
+
+                    #just build up from the idstring
+                    fiber = voltron_fiber.Fiber(idstring)
+                    if fiber is not None:
+                        fiber.ra = ra
+                        fiber.dec = dec
+                        fiber.obsid = int(shot_num)
+                        fiber.expid = exp
+                        fiber.detect_id = self.id
+                        # add the fiber (still needs to load its fits file)
+                        # we already know the path to it ... so do that here??
+                        fiber.fits_fn = out6[i]
+
+                        fits = hetdex_fits.HetdexFits(fiber.fits_fn, None, None, exp-1, panacea=True)
+                        fits.obs_date = fiber.dither_date
+                        fits.obs_ymd = fits.obs_date
+                        fits.obsid = fiber.obsid
+                        fits.expid = fiber.expid
+                        fits.amp = fiber.amp
+                        fits.side = fiber.amp[0]
+                        fiber.fits = fits
+                        #self.sci_fits.append(fits)
+
+
+                        self.wra = ra
+                        self.wdec = dec
+                        self.x = sky_x
+                        self.y = sky_y
+
+                        self.fibers.append(fiber)
+
+
+
+            except:
+                log.error("Cannot read l1,l6 files to build fibers: %s" % self.fcsdir, exc_info=True)
+
+             #build fibers from this directory (and get the multi*fits files into the list)
+                #there is a file that links all this together
+            #basically, go through the fibers in the directory
+            #if the associated multi*fits file is not already in the list, append it
+            #construct the fiber and append to the list
+
+
+        #get the weights
         file = op.join(self.fcsdir, "list2")
         try:
             tmp = np.genfromtxt(file,dtype=np.str,usecols=0)
@@ -752,37 +876,15 @@ class DetObj:
                     f.relative_weight /= subset_norm
 
 
+                #todo: how is Karl using the weights
+                #now, sort by weight:
+                self.fibers.sort(key=lambda  x: x.relative_weight,reverse=True)
+
+
+
         except:
             log.error("Cannot read list2: %s" % file, exc_info=True)
 
-        #get the SN, flux etc
-        #should be just one line
-        file = op.join(self.fcsdir, basename + "_2d.res")
-        try:
-            with open(file, 'r') as f:
-                f = ft.skip_comments(f)
-                for l in f:
-                    toks = l.split()
-                    w = float(toks[1]) #sanity check against self.w
-
-                    if (w != self.w):
-                        print("!!! Sanity check *2d.res w != self.w", w, self.w)
-
-                    self.w = w
-                    self.estflux = float(toks[2])*10**(-17)
-                    self.sigma = float(toks[3])
-                    self.snr = float(toks[5])
-                    self.cont_cgs = float(toks[6])*10**(-17)
-
-                    # todo: need a floor for cgs (if negative)
-                    #for now only
-                    if self.cont_cgs <= 0.:
-                        print("Warning! Using predefined floor for continuum")
-                        self.cont_cgs = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(self.w)
-
-                    self.eqw_obs = self.estflux/self.cont_cgs
-        except:
-            log.error("Cannot read *2d.res file: %s" % file, exc_info=True)
 
         #get the full flux calibrated spectra
         file = op.join(self.fcsdir, basename + "specf.dat")
@@ -1405,7 +1507,8 @@ class FitsSorter:
 
 class HETDEX:
 
-    def __init__(self,args,fcsdir=None):
+    def __init__(self,args,fcsdir_list=None):
+        #fcsdir may be a single dir or a list
         if args is None:
             log.error("Cannot construct HETDEX object. No arguments provided.")
             return None
@@ -1485,14 +1588,16 @@ class HETDEX:
         self.min_fiber_sn = args.sn
 
         self.fcs_base = None
+        self.fcsdir = None
+        self.fcsdir_list = []
         #if we were not provided with a specific fcsdir, use the root level dir (if provided) in the args list
         #and prepend what is expected to be the appropriate subdir root (based on the naming of the output dir)
-        if fcsdir == None:
-            self.fcsdir = args.fcsdir
+        if (fcsdir_list == None) or (len(fcsdir_list) == 0):
             if args.fcsdir is not None:
+                self.fcsdir = args.fcsdir
                 self.fcs_base = op.join(args.fcsdir,self.output_filename+"_")
         else: #we were given a specific directory, so use that
-            self.fcsdir = fcsdir
+            self.fcsdir_list = fcsdir_list
 
         if args.cure:
             self.panacea = False
@@ -1523,25 +1628,30 @@ class HETDEX:
             return None
 
         # read the detect line file if specified. Build a list of targets based on sigma and chi2 cuts
+        build_fits_list = True
         if (args.obsdate is None) and (self.detectline_fn is not None):  # this is optional
             self.read_detectline(force=True)
-        elif (self.fcsdir is not None):
-            #todo: consume the rsp1 style directory
-            pass
+        elif (self.fcsdir is not None) or (len(self.fcsdir_list) > 0):
+            #we have either fcsdir and fcs_base or fcsdir_list
+            #consume the rsp1 style directory(ies)
+            #DetObj(s) will be built here (as they are built, downstream from self.read_detectline() above
+            self.read_fcsdirs()
+            build_fits_list = False
 
-        if (args.obsdate is None):
-            if self.build_multi_observation_panacea_fits_list():
-                self.multiple_observations = True
+        if build_fits_list:
+            if (args.obsdate is None):
+                if self.build_multi_observation_panacea_fits_list():
+                    self.multiple_observations = True
+                else:
+                    self.status = -1
+                    return
             else:
-                self.status = -1
-                return
-        else:
-            #open and read the fits files specified in the dither file
-            #need the exposure date, IFUSLOTID, SPECID, etc from the FITS files
-            if not self.build_fits_list(args):
-                #fatal problem
-                self.status = -1
-                return
+                #open and read the fits files specified in the dither file
+                #need the exposure date, IFUSLOTID, SPECID, etc from the FITS files
+                if not self.build_fits_list(args):
+                    #fatal problem
+                    self.status = -1
+                    return
 
         #get ifu centers
         self.get_ifu_centers(args)
@@ -1566,20 +1676,21 @@ class HETDEX:
             self.read_detectline(force=False)
 
         #assign dither indices to fibers for each emission object
-        if self.dither:
-            for e in self.emis_list:
-                for f in e.fibers:
-                    f.dither_idx = self.dither.get_dither_index(f.dither_date,f.dither_time,f.dither_time_extended)
-                    #get centers
-                    for s in self.sci_fits:
-                        #dither index should not matter, but if these are combined across much time, it is possible
-                        #that the centers could have changed
-                        if (s.dither_index == f.dither_idx) and (s.amp == f.amp):
-                            #f.center_x = s.fiber_centers[f.number - 1,0]
-                            #f.center_y = s.fiber_centers[f.number - 1,1]
-                            f.center_x = s.fiber_centers[f.panacea_idx, 0]
-                            f.center_y = s.fiber_centers[f.panacea_idx, 1]
-                            break
+        if build_fits_list:
+            if self.dither:
+                for e in self.emis_list:
+                    for f in e.fibers:
+                        f.dither_idx = self.dither.get_dither_index(f.dither_date,f.dither_time,f.dither_time_extended)
+                        #get centers
+                        for s in self.sci_fits:
+                            #dither index should not matter, but if these are combined across much time, it is possible
+                            #that the centers could have changed
+                            if (s.dither_index == f.dither_idx) and (s.amp == f.amp):
+                                #f.center_x = s.fiber_centers[f.number - 1,0]
+                                #f.center_y = s.fiber_centers[f.number - 1,1]
+                                f.center_x = s.fiber_centers[f.panacea_idx, 0]
+                                f.center_y = s.fiber_centers[f.panacea_idx, 1]
+                                break
 
 
         #calculate the RA and DEC of each emission line object
@@ -2176,6 +2287,43 @@ class HETDEX:
             return False
 
 
+    def read_fcsdirs(self):
+        # we have either fcsdir and fcs_base or fcsdir_list
+        # consume the rsp1 style directory
+        # get fibers, get multi*fits files (may preclude the call to build_fits_list() just below)
+        # note: at this point we are dealing with exactly one detection
+        # base this on DetObj::load_fluxcalibrated_spectra()
+        # DetObj(s) will be built here (as they are built, downstream from self.read_detectline() above
+        if len(self.emis_list) > 0:
+            del self.emis_list[:]
+
+        if len(self.fcsdir_list) > 0: #we have a list of fcsdirs, one DetObj for each
+            for d in self.fcsdir_list: #this is the typical case
+                #todo: build up the tokens that DetObj needs?
+                toks = None
+                e = DetObj(toks, emission=True, fcsdir=d)
+                if e is not None:
+                    G.UNIQUE_DET_ID_NUM += 1
+                    #for consistency with Karl's namine, the entry_id is the _xxx number at the end
+                    if e.entry_id is None or e.entry_id == 0:
+                        e.entry_id = G.UNIQUE_DET_ID_NUM
+
+                    e.id = G.UNIQUE_DET_ID_NUM
+                    e.load_fluxcalibrated_spectra()
+                    self.emis_list.append(e)
+        elif (self.fcs_base is not None and self.fcsdir is not None): #not the usual case
+            toks = None
+            e = DetObj(toks, emission=True, fcs_base=self.fcs_base,fcsdir=self.fcsdir)
+            if e is not None:
+                G.UNIQUE_DET_ID_NUM += 1
+                if e.entry_id is None or e.entry_id == 0:
+                    e.entry_id = G.UNIQUE_DET_ID_NUM
+
+                e.id = G.UNIQUE_DET_ID_NUM
+                e.load_fluxcalibrated_spectra()
+                self.emis_list.append(e)
+
+
     def read_detectline(self,force=False):
         #emission line or continuum line
 
@@ -2368,9 +2516,10 @@ class HETDEX:
         except:
             log.debug("Exception building observation string.",exc_info=True)
 
-        title += "Entry# (%d), Detect ID (%d)" %(e.entry_id, e.id)
-        if e.line_number is not None:
-            title += ", Line# (%d)" % (e.line_number)
+        if (e.entry_id is not None) and (e.id is not None):
+            title += "Entry# (%d), Detect ID (%d)" %(e.entry_id, e.id)
+            if e.line_number is not None:
+                title += ", Line# (%d)" % (e.line_number)
 
         #if e.entry_id is not None:
         #    title += " (Line #%d)" % e.entry_id

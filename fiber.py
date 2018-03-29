@@ -99,6 +99,7 @@ class Fiber:
         self.obsid = None
         self.expid = None
         self.sn = None
+        self.fits_fn = None #full path to the fits file
         self.fits = None #HetdexFits object that includes this fiber
 
         self.dither_idx = None
