@@ -2554,10 +2554,16 @@ class HETDEX:
                     "RA,Dec (%f,%f) \n"\
                     "Sky X,Y (%f,%f)\n" \
                     "$\lambda$ = %g$\AA$\n" \
-                    "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
-                    "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" \
+                    "EstFlux = %0.3g"   \
                     % (self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.x, e.y,e.w,
-                        e.estflux, e.dataflux, e.fluxfrac, e.cont_cgs, e.eqw_obs) #note: e.fluxfrac gauranteed to be nonzero
+                        e.estflux)
+
+                if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
+                    title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
+                else:
+                    title += "\n"
+                title +=  "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" \
+                    %(e.cont_cgs, e.eqw_obs)
 
             else:  #this if for zooniverse, don't show RA and DEC or Probabilitie
                 title += "\n" \
@@ -2565,10 +2571,17 @@ class HETDEX:
                      "Science file(s):\n%s" \
                      "Sky X,Y (%f,%f)\n" \
                      "$\lambda$ = %g$\AA$\n" \
-                     "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
+                     "EstFlux = %0.3g" \
                      "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" \
-                     % (self.ymd, self.obsid, self.ifu_slot_id, self.specid, sci_files, e.x, e.y, e.w,
-                        e.estflux, e.dataflux, e.fluxfrac, e.cont_cgs,e.eqw_obs)  # note: e.fluxfrac gauranteed to be nonzero
+                             % (self.ymd, self.obsid, self.ifu_slot_id, self.specid, sci_files, e.x, e.y, e.w,e.estflux)  # note: e.fluxfrac gauranteed to be nonzero
+                if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
+                    title += "DataFlux = %g/%0.3g\n" % (e.dataflux, e.fluxfrac)
+                else:
+                    title += "\n"
+
+                title += "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" % (e.cont_cgs, e.eqw_obs)
+
+
         else:
             if not G.ZOO:
                 title += "\n" \
@@ -2576,20 +2589,32 @@ class HETDEX:
                      "RA,Dec (%f,%f) \n" \
                      "Sky X,Y (%f,%f)\n" \
                      "$\lambda$ = %g$\AA$\n" \
-                     "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
-                     "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" \
+                     "EstFlux = %0.3g" \
                      % (e.fibers[0].ifuslot, ra, dec, e.x, e.y, e.w,
-                        e.estflux, e.dataflux, e.fluxfrac, e.cont_cgs,e.eqw_obs)  # note: e.fluxfrac gauranteed to be nonzero
+                        e.estflux)
+
+                if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
+                    title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
+                else:
+                    title += "\n"
+                title +=  "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" % (e.cont_cgs,e.eqw_obs)
 
             else: #this if for zooniverse, don't show RA and DEC or probabilities
                 title += "\n" \
                      "Primary IFU Slot %s\n" \
                      "Sky X,Y (%f,%f)\n" \
                      "$\lambda$ = %g$\AA$\n" \
-                     "EstFlux = %0.3g  DataFlux = %g/%0.3g\n" \
+                     "EstFlux = %0.3g " \
                      "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" \
                      % ( e.fibers[0].ifuslot, e.x, e.y, e.w,
-                        e.estflux, e.dataflux, e.fluxfrac, e.cont_cgs,e.eqw_obs)  # note: e.fluxfrac gauranteed to be nonzero
+                        e.estflux)
+
+                if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
+                    title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
+                else:
+                    title += "\n"
+                title +=  "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" % (e.cont_cgs,e.eqw_obs)
+
 
         if self.panacea:
             title += "S/N = %g " % (e.sigma)
@@ -3597,12 +3622,15 @@ class HETDEX:
         #get num_colors as color, the rest are grey
         #norm = plt.Normalize()
         #colors = plt.cm.hsv(norm(np.arange(num_colors)))
-        colors = [[1,0,0,1],[.98,.96,0,1],[0,1,0,1],[0,0,1,1]] #red, yellow, green, blue
+        #colors = [[1,0,0,1],[.98,.96,0,1],[0,1,0,1],[0,0,1,1]] #red, yellow, green, blue
+        colors = [[1, 0, 0, 1], [1.0, 0.65, 0, 1], [0, 1, 0, 1], [0, 0, 1, 1]]  # red, orange, green, blue
         if num_colors < 4:
             colors = colors[(4-num_colors):] #keep the last colors
-        pad = [[1,1,1,0.7]]*2
+        pad = [[0,0,0,0]]*2
         if total_fibers > num_colors:
-            greys = [[1,1,1,0.7]]*(total_fibers-num_colors)
+            cf = 0.3
+            alpha = 0.6
+            greys = [[cf,cf,cf,alpha]]*(total_fibers-num_colors)
             colors = np.vstack((greys, colors,pad))
         return colors
 
@@ -3654,7 +3682,7 @@ class HETDEX:
         for i in range(num_fibers+add_summed_image):
             make_display = False
             if i < num_fibers:
-                pcolor = colors[i, 0:3]
+                pcolor = colors[i, 0:4] #keep the 4th value (alpha value) ... need that to lower the alpha of the greys
                 datakeep['color'][i] = pcolor
                 datakeep['index'][i] = num_fibers -i
 
