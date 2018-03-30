@@ -855,7 +855,9 @@ class DetObj:
                 norm = np.sum(w[np.where(keep==0)])
                 subset_norm = 0.0
 
-
+                #not optimal for rsp1 organization, but if a line file was provided and the source of the fibers
+                # is not from rsp1, this is necessary (and it works either way ... and there are usually just a few
+                # fibers, so not that bad)
                 for f in self.fibers:
                     f.relative_weight = 0.0
 
@@ -865,10 +867,10 @@ class DetObj:
                             if (f.multi == multi[i]) and (f.scifits_idstring == idstr[i]):
                                 f.relative_weight += w[i]
                                 subset_norm += w[i]
-                        else:
-                            # find which fiber, if any, in set this belongs to
-                            if (f.multi == multi[i]) and (f.scifits_idstring == idstr[i]):
-                                f.relative_weight += 0.0
+                        #else:
+                        #    # find which fiber, if any, in set this belongs to
+                        #    if (f.multi == multi[i]) and (f.scifits_idstring == idstr[i]):
+                        #        f.relative_weight += 0.0
 
                     #f.relative_weight /= norm #note: some we see are zero ... they do not contribute
 
@@ -876,11 +878,10 @@ class DetObj:
                     f.relative_weight /= subset_norm
 
 
-                #todo: how is Karl using the weights
-                #now, sort by weight:
+                #todo: how is Karl using the weights (sum to 100% or something else?)
+                #now, remove the zero weighted fibers, then sort
+                self.fibers = [x for x in self.fibers if x.relative_weight > 0]
                 self.fibers.sort(key=lambda  x: x.relative_weight,reverse=True)
-
-
 
         except:
             log.error("Cannot read list2: %s" % file, exc_info=True)
