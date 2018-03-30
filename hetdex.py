@@ -855,6 +855,9 @@ class DetObj:
                 norm = np.sum(w[np.where(keep==0)])
                 subset_norm = 0.0
 
+                #todo: if only using a subset of fibers (e.g. from a line file), how do we interpret the weights?
+                # as here, as a subset??
+
                 #not optimal for rsp1 organization, but if a line file was provided and the source of the fibers
                 # is not from rsp1, this is necessary (and it works either way ... and there are usually just a few
                 # fibers, so not that bad)
@@ -881,7 +884,7 @@ class DetObj:
                 #todo: how is Karl using the weights (sum to 100% or something else?)
                 #now, remove the zero weighted fibers, then sort
                 self.fibers = [x for x in self.fibers if x.relative_weight > 0]
-                self.fibers.sort(key=lambda  x: x.relative_weight,reverse=True)
+                self.fibers.sort(key=lambda  x: x.relative_weight,reverse=True) #highest weight is index = 0
 
         except:
             log.error("Cannot read list2: %s" % file, exc_info=True)
@@ -3576,12 +3579,31 @@ class HETDEX:
 
 
     def make_fiber_colors(self,num_colors,total_fibers):
+        #this is a weird setup and is necessary only for historical reasons
+        #  the color array originally fit the fiber arrangement, but was co-opted and grown and never refactored
+        #  so this is neccessary for continued compatibility with various old sections of code
+
+        #in general the setup is:
+        # (color idx) (fiber no.)  ~ color
+        #   0           n           gray
+        #   ...         n-1,n-2...  gray
+        #   x           4           red
+        #   x+1         3           yellow
+        #   x+2         2           green
+        #   x+3         1           blue
+        #   x+4 (n+1)   --          gray (pad)  (for plotting organization)
+        #   x+5 (n+2)   --          gray (pad)  (for plotting organization)
+
         #get num_colors as color, the rest are grey
-        norm = plt.Normalize()
-        colors = plt.cm.hsv(norm(np.arange(num_colors)))
+        #norm = plt.Normalize()
+        #colors = plt.cm.hsv(norm(np.arange(num_colors)))
+        colors = [[1,0,0,1],[.98,.96,0,1],[0,1,0,1],[0,0,1,1]] #red, yellow, green, blue
+        if num_colors < 4:
+            colors = colors[(4-num_colors):] #keep the last colors
+        pad = [[1,1,1,0.7]]*2
         if total_fibers > num_colors:
             greys = [[1,1,1,0.7]]*(total_fibers-num_colors)
-            colors = np.vstack((greys, colors))
+            colors = np.vstack((greys, colors,pad))
         return colors
 
 
@@ -3592,9 +3614,14 @@ class HETDEX:
         add_summed_image = 1 #note: adding w/cosmics masked out
 
         cmap = plt.get_cmap('gray_r')
-        norm = plt.Normalize()
-        colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
-        #colors = self.make_fiber_colors(min(4,len(datakeep['ra'])),len(datakeep['ra']) + 2 )
+#        norm = plt.Normalize()
+#        colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
+
+       # colors[0] = (1,0,0,1)
+       # colors[1] = (1, 0, 0, 1)
+       # colors[2] = (1, 0, 0, 1)
+
+        colors = self.make_fiber_colors(min(4,len(datakeep['ra'])),len(datakeep['ra']))# + 2 ) #the +2 is a pad in the call
         num_fibers = len(datakeep['xi'])
         num_to_display = min(MAX_2D_CUTOUTS,num_fibers) + add_summed_image #for the summed images
         bordbuff = 0.01
@@ -3952,8 +3979,10 @@ class HETDEX:
 
         fig = plt.figure(figsize=(5, 3))
         plt.subplots_adjust(left=0.0, right=1.0, top=1.0, bottom=0.0)
-        norm = plt.Normalize()
-        colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
+        #norm = plt.Normalize()
+        #colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
+        colors = self.make_fiber_colors(min(4, len(datakeep['ra'])),
+                                        len(datakeep['ra']))  # + 2 ) #the +2 is a pad in the call
 
         rm = 0.2
         specplot = plt.axes([0.1, 0.1, 0.8, 0.8])
@@ -3976,8 +4005,8 @@ class HETDEX:
             stop = -1
 
         if PLOT_SUMMED_SPECTRA:
-            alpha = 1.0 #for individual fibers
-            linewidth = 1.5 #for individual fibers
+            alpha = 0.7 #for individual fibers
+            linewidth = 1.25 #for individual fibers
         else:
             alpha = 1.0 #for individual fibers
             linewidth = 2.0 #for individual fibers
