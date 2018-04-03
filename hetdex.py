@@ -464,6 +464,7 @@ class DetObj:
         self.num_hits = 0
 
         self.fibers = []
+        self.fibers_sorted = False
         self.outdir = None
 
         #flux calibrated data (from Karl's detect and calibration)
@@ -473,6 +474,7 @@ class DetObj:
         self.calspec_wavelength = []
         self.calspec_counts = []
         self.calspec_flux = []
+        self.calspec_flux_unit_scale = 1e-17 #cgs
         self.calspec_fluxerr = []
         self.calspec_wavelength_zoom = []
         self.calspec_counts_zoom = []
@@ -727,12 +729,14 @@ class DetObj:
                     if count > 1:
                         log.warning("Unexepcted number of lines in %s" %(file))
                     toks = l.split()
-                    w = float(toks[1])  # sanity check against self.w
-                    self.w = w
-                    self.estflux = float(toks[2]) * 10 ** (-17)
+                    #w = float(toks[1])  # sanity check against self.w
+                    self.w = float(toks[1])
+                    #as is, way too large ... maybe not originally calculated as per angstrom? so divide by wavelength?
+                    #or maybe units are not right or a miscalculation?
+                    self.estflux = float(toks[2]) * self.calspec_flux_unit_scale # * 10 ** (-17)
                     self.sigma = float(toks[3])
                     self.snr = float(toks[5])
-                    self.cont_cgs = float(toks[6]) * 10 ** (-17)
+                    self.cont_cgs = float(toks[6]) * self.calspec_flux_unit_scale# * 10 ** (-17)
 
                     # todo: need a floor for cgs (if negative)
                     # for now only
@@ -758,7 +762,7 @@ class DetObj:
             log.error("Cannot read l1: %s" % file, exc_info=True)
 
 
-        #todo: if don't already have fibers, build them
+        #if don't already have fibers, build them
         #l6 file has the paths to the multi*fits file
         #l1 file has the bulk info
         # RA, Dec, X, Y, multi(?ixy), exp, ???, ???, obs_string, obs_date, shot #
@@ -885,6 +889,7 @@ class DetObj:
                 #now, remove the zero weighted fibers, then sort
                 self.fibers = [x for x in self.fibers if x.relative_weight > 0]
                 self.fibers.sort(key=lambda  x: x.relative_weight,reverse=True) #highest weight is index = 0
+                self.fibers_sorted = True
 
         except:
             log.error("Cannot read list2: %s" % file, exc_info=True)
@@ -1610,7 +1615,7 @@ class HETDEX:
 
         self.emission_lines = [EmissionLine("Ly$\\alpha$ ",1216,'red'),
                                EmissionLine("OII ",3727,'green'),
-                               EmissionLine("OIIIb",4959,"lime"), EmissionLine("OIIIa",5007,"lime"), #5007 is the primary
+                               EmissionLine("OIII",4959,"lime"), EmissionLine("OIII",5007,"lime"), #5007 is the primary
                                EmissionLine("CIII", 1909, "purple"),
                                EmissionLine("CIV ",1549,"black"),
                                EmissionLine("H$\\beta$ ",4861,"blue"),
@@ -2545,6 +2550,13 @@ class HETDEX:
         datakeep = self.build_data_dict(e)
         e.get_probabilities()
 
+        if e.w > 0:
+            la_z = e.w / G.LyA_rest - 1.0
+            oii_z = e.w / G.OII_rest - 1.0
+        else:
+            la_z = 1
+            oii_z = 1
+
         if self.ymd and self.obsid:
 
             if not G.ZOO:
@@ -2556,14 +2568,14 @@ class HETDEX:
                     "$\lambda$ = %g$\AA$\n" \
                     "EstFlux = %0.3g"   \
                     % (self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.x, e.y,e.w,
-                        e.estflux)
+                        e.estflux )
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
                 else:
                     title += "\n"
-                title +=  "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" \
-                    %(e.cont_cgs, e.eqw_obs)
+                title +=  "EstCont = %0.3g  EW_rest(LyA) = %0.3g$\AA$\n" \
+                    %(e.cont_cgs, e.eqw_obs/la_z)
 
             else:  #this if for zooniverse, don't show RA and DEC or Probabilitie
                 title += "\n" \
@@ -2572,14 +2584,13 @@ class HETDEX:
                      "Sky X,Y (%f,%f)\n" \
                      "$\lambda$ = %g$\AA$\n" \
                      "EstFlux = %0.3g" \
-                     "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" \
                              % (self.ymd, self.obsid, self.ifu_slot_id, self.specid, sci_files, e.x, e.y, e.w,e.estflux)  # note: e.fluxfrac gauranteed to be nonzero
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux, e.fluxfrac)
                 else:
                     title += "\n"
 
-                title += "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" % (e.cont_cgs, e.eqw_obs)
+                title += "EstCont = %0.3g  EW_rest(LyA) = %0.3g$\AA$\n" % (e.cont_cgs, e.eqw_obs/la_z)
 
 
         else:
@@ -2597,7 +2608,7 @@ class HETDEX:
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
                 else:
                     title += "\n"
-                title +=  "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" % (e.cont_cgs,e.eqw_obs)
+                title +=  "EstCont = %0.3g  EW_rest(LyA) = %0.3g$\AA$\n" % (e.cont_cgs,e.eqw_obs/la_z)
 
             else: #this if for zooniverse, don't show RA and DEC or probabilities
                 title += "\n" \
@@ -2605,7 +2616,6 @@ class HETDEX:
                      "Sky X,Y (%f,%f)\n" \
                      "$\lambda$ = %g$\AA$\n" \
                      "EstFlux = %0.3g " \
-                     "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" \
                      % ( e.fibers[0].ifuslot, e.x, e.y, e.w,
                         e.estflux)
 
@@ -2613,7 +2623,7 @@ class HETDEX:
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
                 else:
                     title += "\n"
-                title +=  "EstCont = %0.3g  EW_obs = %0.3g$\AA$\n" % (e.cont_cgs,e.eqw_obs)
+                title +=  "EstCont = %0.3g  EW_rest(LyA) = %0.3g$\AA$\n" % (e.cont_cgs,e.eqw_obs/la_z)
 
 
         if self.panacea:
@@ -2635,8 +2645,6 @@ class HETDEX:
         #title += "  Score = %0.1f" % (e.dqs)
 
         if e.w > 0:
-            la_z = e.w / G.LyA_rest - 1.0
-            oii_z = e.w / G.OII_rest - 1.0
             #title = title + "\nLy$\\alpha$ Z = %g" % la_z
             title = title + "\nLyA Z = %g" % la_z
             if (oii_z > 0):
@@ -3716,7 +3724,7 @@ class HETDEX:
                     img_vmax = datakeep['vmax2'][ind[i]]
 
                     #plot_label = str(num_fibers-i)
-                    plot_label = str("%d" % int(100.0*datakeep['fiber_weight'][ind[i]]))
+                    plot_label = str("%0.2f" % datakeep['fiber_weight'][ind[i]]).lstrip('0') #save space, kill leading 0
 
             else: #this is the top image (the sum)
                 is_a_fiber = False
@@ -3797,13 +3805,17 @@ class HETDEX:
                     sn = datakeep['fiber_sn'][ind[i]]
 
                     if sn is None:
-                        S = np.where(datakeep['err'][ind[i]][yl:yh, xl:xh] < 0, 0., datakeep['im'][ind[i]][yl:yh, xl:xh]).sum()
-                        N = np.sqrt(np.where(datakeep['err'][ind[i]][yl:yh, xl:xh] < 0, 0.,
-                                             datakeep['err'][ind[i]][yl:yh, xl:xh] ** 2).sum())
-                        if N != 0:
-                            sn = S / N
-                        else:
-                            sn = 0.0
+                        if self.panacea:
+                            sn = -99 #so will fail the check and not print
+
+                        else: #this only works (relatively well) for Cure
+                            S = np.where(datakeep['err'][ind[i]][yl:yh, xl:xh] < 0, 0., datakeep['im'][ind[i]][yl:yh, xl:xh]).sum()
+                            N = np.sqrt(np.where(datakeep['err'][ind[i]][yl:yh, xl:xh] < 0, 0.,
+                                                 datakeep['err'][ind[i]][yl:yh, xl:xh] ** 2).sum())
+                            if N != 0:
+                                sn = S / N
+                            else:
+                                sn = 0.0
 
 
                     borplot.text(-0.2, .5, plot_label,
@@ -3818,14 +3830,15 @@ class HETDEX:
                             #dither and fiber position, etc generally meaningless in this case
                             #as there is no good way to immediately go back and find the source image
                             #so just show S/N and distance (and make bigger)
-                            if abs(sn) < 1000:
-                                borplot.text(1.05, .75, 'SN: %0.2f' % (sn),
-                                             transform=smplot.transAxes, fontsize=8, color='r',
-                                             verticalalignment='bottom', horizontalalignment='left')
-                            else:
-                                borplot.text(1.05, .75, 'SN: %.1E' % (sn),
-                                             transform=smplot.transAxes, fontsize=8, color='r',
-                                             verticalalignment='bottom', horizontalalignment='left')
+                            if sn > 0:
+                                if abs(sn) < 1000:
+                                    borplot.text(1.05, .75, 'SN: %0.2f' % (sn),
+                                                 transform=smplot.transAxes, fontsize=8, color='r',
+                                                 verticalalignment='bottom', horizontalalignment='left')
+                                else:
+                                    borplot.text(1.05, .75, 'SN: %.1E' % (sn),
+                                                 transform=smplot.transAxes, fontsize=8, color='r',
+                                                 verticalalignment='bottom', horizontalalignment='left')
                             # distance (in arcsec) of fiber center from object center
                             borplot.text(1.05, .53, 'D("): %0.2f %0.1f' % (datakeep['d'][ind[i]],datakeep['wscore'][ind[i]]),
                                          transform=smplot.transAxes, fontsize=6, color='r',
@@ -3845,9 +3858,10 @@ class HETDEX:
                                 log.error("Exception building extra fiber info.", exc_info=True)
 
                         else:
-                            borplot.text(1.05, .75, 'S/N = %0.2f' % (sn),
-                                        transform=smplot.transAxes, fontsize=6, color='r',
-                                        verticalalignment='bottom', horizontalalignment='left')
+                            if sn > 0:
+                                borplot.text(1.05, .75, 'S/N = %0.2f' % (sn),
+                                            transform=smplot.transAxes, fontsize=6, color='r',
+                                            verticalalignment='bottom', horizontalalignment='left')
                             #distance (in arcsec) of fiber center from object center
                             borplot.text(1.05, .55, 'D(") = %0.2f %0.1f' % (datakeep['d'][ind[i]],datakeep['wscore'][ind[i]]),
                                         transform=smplot.transAxes, fontsize=6, color='r',
@@ -4040,7 +4054,7 @@ class HETDEX:
             linewidth = 2.0 #for individual fibers
 
         try:
-            for i in range(N-1,stop,-1):
+            for i in range(N-1,stop,-1): #stop is not included
                 #regardless of the number if the sn is below the threshold, skip it
                 if (datakeep['fiber_sn'][i] is not None) and (datakeep['fiber_sn'][i] < self.min_fiber_sn):
                     continue
@@ -4050,15 +4064,23 @@ class HETDEX:
 
                 summed_spec += (np.interp(bigwave, datakeep['specwave'][ind[i]],
                                           datakeep['spec'][ind[i]]) * datakeep['fiber_weight'][ind[i]])
+
+                #this is for plotting purposes, so don't need them in the next loop (not plotted)
                 mn = np.min([mn, np.min(datakeep['spec'][ind[i]])])
                 mx = np.max([mx, np.max(datakeep['spec'][ind[i]])])
 
-            ran = mx - mn
+            #now for the rest
+            for i in range(stop,-1,-1):
+                summed_spec += (np.interp(bigwave, datakeep['specwave'][ind[i]],
+                                          datakeep['spec'][ind[i]]) * datakeep['fiber_weight'][ind[i]])
+
 
             if PLOT_SUMMED_SPECTRA:
                 specplot.step(bigwave, summed_spec, c='k', where='mid', lw=2,linestyle="solid",alpha=1.0,zorder=99)
                 mn = min(mn, min(summed_spec))
                 mx = max(mx, max(summed_spec))
+
+            ran = mx - mn
 
             if mn > 0: #next 10 below the mn
                 min_y = int(mn)/10*10-10
