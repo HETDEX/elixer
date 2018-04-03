@@ -4044,7 +4044,10 @@ class HETDEX:
         if self.plot_fibers is not None:
             stop = max(N - self.plot_fibers-1,-1)
         else:
-            stop = -1
+            if self.panacea:
+                stop = max(N -4 -1,-1) #plot the top 4 if not specified
+            else:
+                stop = -1 #plot them all
 
         if PLOT_SUMMED_SPECTRA:
             alpha = 0.7 #for individual fibers
