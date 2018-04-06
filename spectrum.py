@@ -120,17 +120,17 @@ def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
     return np.sqrt(((f - d) ** 2).mean())
 
 
-def fit_gaussian(x,y):
-    yfit = None
-    parm = None
-    pcov = None
-    try:
-        parm, pcov = curve_fit(gaussian, x, y,bounds=((-np.inf,0,-np.inf),(np.inf,np.inf,np.inf)))
-        yfit = gaussian(x,parm[0],parm[1],parm[2])
-    except:
-        log.error("Exception fitting gaussian.",exc_info=True)
-
-    return yfit,parm,pcov
+#def fit_gaussian(x,y):
+#    yfit = None
+#    parm = None
+#    pcov = None
+#    try:
+#        parm, pcov = curve_fit(gaussian, x, y,bounds=((-np.inf,0,-np.inf),(np.inf,np.inf,np.inf)))
+#        yfit = gaussian(x,parm[0],parm[1],parm[2])
+#    except:
+#        log.error("Exception fitting gaussian.",exc_info=True)
+#
+#    return yfit,parm,pcov
 
 
 class EmissionLineInfo:

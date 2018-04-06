@@ -202,17 +202,17 @@ def rms(data, fit):
 
     return np.sqrt(((f - d) ** 2).mean())
 
-def fit_gaussian(x,y):
-    yfit = None
-    parm = None
-    pcov = None
-    try:
-        parm, pcov = curve_fit(gaussian, x, y,bounds=((-np.inf,0,-np.inf),(np.inf,np.inf,np.inf)))
-        yfit = gaussian(x,parm[0],parm[1],parm[2])
-    except:
-        log.error("Exception fitting gaussian.",exc_info=True)
-
-    return yfit,parm,pcov
+#def fit_gaussian(x,y):
+#    yfit = None
+#    parm = None
+#    pcov = None
+#    try:
+#        parm, pcov = curve_fit(gaussian, x, y,bounds=((-np.inf,0,-np.inf),(np.inf,np.inf,np.inf)))
+#        yfit = gaussian(x,parm[0],parm[1],parm[2])
+#    except:
+#        log.error("Exception fitting gaussian.",exc_info=True)
+#
+#    return yfit,parm,pcov
 
 
 def find_fplane(date): #date as yyyymmdd string
@@ -1078,6 +1078,7 @@ class DetObj:
         return True
 
     def dqs_shape(self):
+        #todo: defunct?? replace with spectrum::signal_score()
         force_recompute = False
         bad_pix = 0
         fiber_count = 0
@@ -1132,6 +1133,7 @@ class DetObj:
         wide = True
 
         #use the wide_fit if we can ... if not, use narrow fit
+        # todo: defunct?? replace with spectrum::signal_score()
         try:
             parm, pcov = curve_fit(gaussian, wave_x, wave_counts,p0=(self.w,1.0,0),
                                      bounds=((self.w-wave_side, 0, -np.inf), (self.w+wave_side, np.inf, np.inf)))
@@ -1296,7 +1298,7 @@ class DetObj:
                 error = -1
             title += "ID #%d, Old Score = %0.2f , New Score = %0.2f (%0.1f)\n" \
                      "dX0 = %0.2f, RH = %0.2f, RMS = %f\n"\
-                     "Sigma = %0.2f, Skew = %0.2f, Kurtosis = %0.2f"\
+                     "Sigma = %0.2f, Skew = %0.2f, Kurtosis = %0.2f\n"\
                       % (self.id, old_score, new_score, self.dqs_calc_scaled_score(new_score),
                          dx0, rh, error, si, sk, ku)
 
@@ -4128,6 +4130,14 @@ class HETDEX:
         buf = io.BytesIO()
         plt.savefig(buf, format='png', dpi=300)
 
+        if G.ZOO:
+            try:
+                fn = self.output_filename + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_1d_sum.png"
+                fn = op.join(datakeep['detobj'].outdir, fn)
+                plt.savefig(fn, format="png", dpi=300)
+            except:
+                log.error("Unable to write zoo_1d_sum image to disk.", exc_info=True)
+
         plt.close(fig)
         return buf
 
@@ -4291,13 +4301,13 @@ class HETDEX:
             stop = -1
 
         y_label = "counts"
-        min_y = -20
+      #  min_y = -20
         try:
             j = None
             if len(datakeep['calspec_wave']) > 0:
                 F = np.interp(bigwave, datakeep['calspec_wave'], datakeep['calspec_flux'])
                 y_label = "cgs" #r"cgs [$10^{-17}$]"
-                min_y = -20
+ #               min_y = -2
             else:
                 F = np.zeros(bigwave.shape)
                 #new way, per Karl, straight sum
@@ -4310,8 +4320,9 @@ class HETDEX:
                                     datakeep['fw_spec'][ind[j]] * datakeep['fiber_weight'][ind[j]]) )
 
             mn = np.min(F)
-            mn = max(mn,min_y) #negative flux makes no sense (excepting for some noise error)
             mx = np.max(F)
+            mn = max(mn,-0.2*mx) #at most go -20% of the peak below zero (most likely a bad sky subtraction)
+
 
             #flux at the cwave position
             #todo: this is wrong F-cwave makes no sense (F is a flux array, cwave is a wavelength)
@@ -4429,6 +4440,15 @@ class HETDEX:
 
         buf = io.BytesIO()
         plt.savefig(buf, format='png', dpi=300)
+
+
+        if G.ZOO:
+            try:
+                fn = self.output_filename + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_1d_full.png"
+                fn = op.join(datakeep['detobj'].outdir, fn)
+                plt.savefig(fn, format="png", dpi=300)
+            except:
+                log.error("Unable to write zoo_1d_full image to disk.", exc_info=True)
 
         plt.close(fig)
         return buf

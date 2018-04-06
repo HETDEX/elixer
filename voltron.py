@@ -356,6 +356,16 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
     #if a report object is passed in, immediately append to it, otherwise, add to the pages list and return that
     section_title = idstring
     count = 0
+    #generally expect this to be one catalog
+    if len(cats) > 1 and G.SINGLE_PAGE_PER_DETECT:
+        #todo: choose the single best catalog
+        #rank them based on data? choose deepest? choose based on number of hits?
+        #cats only contains pointers to the catalogs for which the RA, Dec were in range
+        # do not yet know if there are any catalog counterparts or if there are imaging cutouts to be made
+        #for now, just print and move on
+        print("INFO: More than one catalog matched ....")
+        #will get extra rows of cutouts and data (one pair for each catalog)
+
     for c in cats:
         r = c.build_bid_target_reports(match,ra, dec, error,num_hits=num_hits,section_title=section_title,
                                        base_count=base_count,target_w=target_w,fiber_locs=fiber_locs,
