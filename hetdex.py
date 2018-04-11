@@ -431,6 +431,7 @@ class DetObj:
         #fcs_base is a basename of a single fcs directory, fcsdir is the entire FQdirname
         #fcsdir is more specific
         #skip NR (0)
+        self.status = 0
         self.plot_dqs_fit = False
         self.dqs = None #scaled score
         self.dqs_raw = None #Detection Quality Score (raw score)
@@ -714,7 +715,6 @@ class DetObj:
                 log.error("Cannot find flux calibrated spectra directory: " + self.fcsdir)
                 return
 
-
         basename = op.basename(self.fcsdir)
 
         #get summary information (res file)
@@ -892,7 +892,10 @@ class DetObj:
                 self.fibers_sorted = True
 
         except:
-            log.error("Cannot read list2: %s" % file, exc_info=True)
+            log.error("Fatal. Cannot read list2: %s" % file, exc_info=True)
+            print("Fatal. Cannot read list2: %s" % file)
+            self.status = -1
+            return
 
 
         #get the full flux calibrated spectra
@@ -907,7 +910,10 @@ class DetObj:
             #self.calspec_fluxerr = out[:,xxx]  * 1e17
 
         except:
-            log.error("Cannot read *specf.res file: %s" % file, exc_info=True)
+            log.error("Fatal. Cannot read *specf.res file: %s" % file, exc_info=True)
+            print("Fatal. Cannot read *specf.res file: %s" % file)
+            self.status = -1
+            return
 
         # get the zoomed in flux calibrated spectra
         file = op.join(self.fcsdir, basename + "spece.dat")
@@ -921,7 +927,10 @@ class DetObj:
             # self.calspec_fluxerr_zoom = out[:,xxx]  * 1e17
 
         except:
-            log.error("Cannot read *_spece.res file: %s" % file, exc_info=True)
+            log.error("Fatal. Cannot read *_spece.res file: %s" % file, exc_info=True)
+            print("Fatal. Cannot read *_spece.res file: %s" % file)
+            self.status = -1
+            return
 
 
         #get zoomed 2d cutout
@@ -932,7 +941,7 @@ class DetObj:
             self.calspec_2d_zoom = f[0].data
             f.close()
         except:
-            log.error("could not read file " + self.filename, exc_info=True)
+            log.error("could not read file " + file, exc_info=True) #not fatal
 
 
         #todo: get info from Karl and load
@@ -2321,7 +2330,8 @@ class HETDEX:
 
                     e.id = G.UNIQUE_DET_ID_NUM
                     e.load_fluxcalibrated_spectra()
-                    self.emis_list.append(e)
+                    if e.status >= 0:
+                        self.emis_list.append(e)
         elif (self.fcs_base is not None and self.fcsdir is not None): #not the usual case
             toks = None
             e = DetObj(toks, emission=True, fcs_base=self.fcs_base,fcsdir=self.fcsdir)
@@ -2332,7 +2342,8 @@ class HETDEX:
 
                 e.id = G.UNIQUE_DET_ID_NUM
                 e.load_fluxcalibrated_spectra()
-                self.emis_list.append(e)
+                if e.status >= 0:
+                    self.emis_list.append(e)
 
 
     def read_detectline(self,force=False):
@@ -2869,6 +2880,7 @@ class HETDEX:
             dd['dec'] = []
             dd['color'] = []
             dd['index'] = []
+            dd['primary_idx'] = None #index in datakeep of the primary fiber
         return dd
 
 
@@ -3693,8 +3705,8 @@ class HETDEX:
             make_display = False
             if i < num_fibers:
                 pcolor = colors[i, 0:4] #keep the 4th value (alpha value) ... need that to lower the alpha of the greys
-                datakeep['color'][i] = pcolor
-                datakeep['index'][i] = num_fibers -i
+                datakeep['color'][ind[i]] = pcolor
+                datakeep['index'][ind[i]] = num_fibers -i
 
                 if i > (num_fibers - num_to_display):#we are in reverse order (building the bottom cutout first)
                     make_display = True
@@ -3727,6 +3739,9 @@ class HETDEX:
 
                     #plot_label = str(num_fibers-i)
                     plot_label = str("%0.2f" % datakeep['fiber_weight'][ind[i]]).lstrip('0') #save space, kill leading 0
+
+                    #the last one is the top one and is the primary
+                    datakeep['primary_idx'] = ind[i]
 
             else: #this is the top image (the sum)
                 is_a_fiber = False
@@ -3922,21 +3937,27 @@ class HETDEX:
             # which is largest SN (should be first, but confirm)
             ind = list(range(len(datakeep[key])))
 
-            max_sn_idx = 0
-            for i in range(num):
-                if datakeep['fiber_sn'][ind[i]] > datakeep['fiber_sn'][ind[max_sn_idx]]:
-                    max_sn_idx = i
+            datakeep_idx = datakeep['primary_idx']
+
+            if datakeep_idx is None:
+                datakeep_idx = 0
+                for i in range(num):
+                    if datakeep['fiber_sn'][ind[i]] > datakeep['fiber_sn'][ind[datakeep_idx]]:
+                        datakeep_idx = i
+                datakeep['color'][datakeep_idx] = colors[datakeep_idx, 0:3]
+
+            datakeep['primary_idx'] = datakeep_idx
 
             if key == 'scatter':
                 cmap = plt.get_cmap('gray_r')
-                vmin = datakeep['vmin2'][ind[max_sn_idx]]
-                vmax = datakeep['vmax2'][ind[max_sn_idx]]
+                vmin = datakeep['vmin2'][ind[datakeep_idx]]
+                vmax = datakeep['vmax2'][ind[datakeep_idx]]
                 title = "Clean Image"
 
             elif key == 'scatter_sky':
                 cmap = plt.get_cmap('gray_r')
-                vmin = datakeep['vmin3'][ind[max_sn_idx]]
-                vmax = datakeep['vmax3'][ind[max_sn_idx]]
+                vmin = datakeep['vmin3'][ind[datakeep_idx]]
+                vmax = datakeep['vmax3'][ind[datakeep_idx]]
                 title = "With Sky"
             else: #not possible ... just here for sanity and future expansion
                 log.error("Invalid key for build_scattered_light_image: %s" % key)
@@ -3953,8 +3974,6 @@ class HETDEX:
             dx = (1. - borderxl - borderxr)
             dy = (1. - borderyb - borderyt)
 
-            datakeep['color'][max_sn_idx] = colors[max_sn_idx, 0:3]
-
             #5/3. is to keep the scale (width) same as the 2D cutouts next to this plot
             img_y = max(img_y,3) #set a minimum size (height)
             fig = plt.figure(figsize=(5/3., img_y), frameon=False)
@@ -3969,14 +3988,14 @@ class HETDEX:
             if not G.ZOO:
                 #plt.title("CCD Region of Main Fiber\n(%d,%d)"
                 plt.title("%s\nx,y: %d,%d"
-                          % (title,datakeep['ds9_x'][ind[max_sn_idx]], datakeep['ds9_y'][ind[max_sn_idx]]), fontsize=12)
+                          % (title,datakeep['ds9_x'][ind[datakeep_idx]], datakeep['ds9_y'][ind[datakeep_idx]]), fontsize=12)
             else:
                 plt.title("%s" % (title), fontsize=12)
 
-            #combined_image = np.concatenate((datakeep['scatter_sky'][ind[max_sn_idx]],
-            #                                 datakeep['scatter'][ind[max_sn_idx]]),axis=1)
+            #combined_image = np.concatenate((datakeep['scatter_sky'][ind[datakeep_idx]],
+            #                                 datakeep['scatter'][ind[datakeep_idx]]),axis=1)
 
-            imgplot.imshow(datakeep[key][ind[max_sn_idx]],
+            imgplot.imshow(datakeep[key][ind[datakeep_idx]],
             #imgplot.imshow(combined_image,
                            origin="lower", cmap=cmap,
                            vmin=vmin,
@@ -3990,11 +4009,11 @@ class HETDEX:
             borplot.set_yticks([])
             borplot.axis('off')
 
-            h,w = datakeep[key][ind[max_sn_idx]].shape
+            h,w = datakeep[key][ind[datakeep_idx]].shape
             rec = plt.Rectangle([0, 0],
                                 (w-1),
                                 (h-1), fill=False, lw=3,
-                                color=datakeep['color'][i], zorder=9)
+                                color=datakeep['color'][datakeep_idx], zorder=9)
 
             rec = imgplot.add_patch(rec)
 

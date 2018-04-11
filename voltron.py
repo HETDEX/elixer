@@ -327,6 +327,14 @@ def valid_parameters(args):
             print(msg)
         else:
             G.PANACEA_RED_BASEDIR = args.panacea_red
+
+    if args.fcsdir is not None:
+        if args.fcsdir[-1] == "/":
+            args.fcsdir = args.fcsdir.rstrip("/")
+        elif args.fcsdir[-1] == "\\":
+            args.fcsdir = args.fcsdir.rstrip("\\")
+
+
     return result
 
 
