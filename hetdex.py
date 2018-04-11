@@ -3704,7 +3704,7 @@ class HETDEX:
         for i in range(num_fibers+add_summed_image):
             make_display = False
             if i < num_fibers:
-                pcolor = colors[i, 0:4] #keep the 4th value (alpha value) ... need that to lower the alpha of the greys
+                pcolor = colors[i] #, 0:4] #keep the 4th value (alpha value) ... need that to lower the alpha of the greys
                 datakeep['color'][ind[i]] = pcolor
                 datakeep['index'][ind[i]] = num_fibers -i
 
@@ -4083,8 +4083,11 @@ class HETDEX:
                 if (datakeep['fiber_sn'][i] is not None) and (datakeep['fiber_sn'][i] < self.min_fiber_sn):
                     continue
 
+                if datakeep['color'][i] is None:
+                    datakeep['color'][i] = colors[i]  # , 0:3]
+
                 specplot.step(datakeep['specwave'][ind[i]], datakeep['spec'][ind[i]],linestyle="solid",
-                              where='mid', color=colors[i, 0:3], alpha=alpha,linewidth=linewidth,zorder=i)
+                              where='mid', color=datakeep['color'][i], alpha=alpha,linewidth=linewidth,zorder=i)
 
                 summed_spec += (np.interp(bigwave, datakeep['specwave'][ind[i]],
                                           datakeep['spec'][ind[i]]) * datakeep['fiber_weight'][ind[i]])
@@ -4266,8 +4269,9 @@ class HETDEX:
             imgplot = plt.axes([border_buffer, i * dy, 1-(2*border_buffer), dy])
             autoAxis = borplot.axis()
 
-            datakeep['color'][i] = colors[i, 0:3]
-            datakeep['index'][i] = num - i
+            if datakeep['color'][i] is None:
+                datakeep['color'][i] = colors[i]#, 0:3]
+                datakeep['index'][i] = num - i
 
 
             rec = plt.Rectangle((autoAxis[0] , autoAxis[2]),
