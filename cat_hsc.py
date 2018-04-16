@@ -23,6 +23,7 @@ pd.options.mode.chained_assignment = None  #turn off warning about setting the d
 
 import cat_base
 import match_summary
+import hsc_meta
 
 def hsc_count_to_mag(count,cutout=None,sci_image=None):
     return 99.9
@@ -48,58 +49,16 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
     HSC_CAT_PATH = G.HSC_CAT_PATH
     HSC_IMAGE_PATH = G.HSC_IMAGE_PATH
 
-    #not all tiles have all filters
-    Filters = ['r']
-    Tiles = ['A1','A2','A3','A4','A5','A6','A7','A8','A9','A10',
-             'B1','B2','B3','B4','B5','B6','B7','B8','B9','B10',
-             'C1','C2','C3','C4','C5','C6','C7','C8','C9','C10']
-
     CONT_EST_BASE = None
 
     df = None
     df_photoz = None
 
-    MainCatalog = "HyperSuprimeCam" #while there is no main catalog, this needs to be not None
+    MainCatalog = "HyperSuprimeCam"
     Name = "HyperSuprimeCam"
 
-    # if multiple images, the composite broadest range (filled in by hand)
-    Image_Coord_Range = {'RA_min': 8.50, 'RA_max': 36.51, 'Dec_min': -4.0, 'Dec_max': 4.0}
-    #approximate
-    Tile_Coord_Range = {
-                        'A1': {'RA_min':  8.50, 'RA_max': 11.31, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                        'A2': {'RA_min': 11.30, 'RA_max': 14.11, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                        'A3': {'RA_min': 14.10, 'RA_max': 16.91, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                        'A4': {'RA_min': 16.90, 'RA_max': 19.71, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                        'A5': {'RA_min': 19.70, 'RA_max': 22.51, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                        'A6': {'RA_min': 22.50, 'RA_max': 25.31, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                        'A7': {'RA_min': 25.30, 'RA_max': 28.11, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                        'A8': {'RA_min': 28.10, 'RA_max': 30.91, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                        'A9': {'RA_min': 30.90, 'RA_max': 33.71, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                        'A10':{'RA_min': 33.70, 'RA_max': 36.51, 'Dec_min': 1.32, 'Dec_max': 4.0},
-
-                        'B1': {'RA_min':  8.50, 'RA_max': 11.31, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                        'B2': {'RA_min': 11.30, 'RA_max': 14.11, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                        'B3': {'RA_min': 14.10, 'RA_max': 16.91, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                        'B4': {'RA_min': 16.90, 'RA_max': 19.71, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                        'B5': {'RA_min': 19.70, 'RA_max': 22.51, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                        'B6': {'RA_min': 22.50, 'RA_max': 25.31, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                        'B7': {'RA_min': 25.30, 'RA_max': 28.11, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                        'B8': {'RA_min': 28.10, 'RA_max': 30.91, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                        'B9': {'RA_min': 30.90, 'RA_max': 33.71, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                        'B10':{'RA_min': 33.70, 'RA_max': 36.51, 'Dec_min': -1.35, 'Dec_max': 1.34},
-
-                        'C1': {'RA_min':  8.50, 'RA_max': 11.31, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                        'C2': {'RA_min': 11.30, 'RA_max': 14.11, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                        'C3': {'RA_min': 14.10, 'RA_max': 16.91, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                        'C4': {'RA_min': 16.90, 'RA_max': 19.71, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                        'C5': {'RA_min': 19.70, 'RA_max': 22.51, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                        'C6': {'RA_min': 22.50, 'RA_max': 25.31, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                        'C7': {'RA_min': 25.30, 'RA_max': 28.11, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                        'C8': {'RA_min': 28.10, 'RA_max': 30.91, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                        'C9': {'RA_min': 30.90, 'RA_max': 33.71, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                        'C10':{'RA_min': 33.70, 'RA_max': 36.51, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                    }
-
+    Image_Coord_Range = hsc_meta.Image_Coord_Range
+    Tile_Dict = hsc_meta.HSC_META_DICT
 
     Cat_Coord_Range = {'RA_min': None, 'RA_max': None, 'Dec_min': None, 'Dec_max': None}
 
@@ -107,192 +66,71 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
     AstroTable = None
 
-# ColDefs(
-#     name = 'NUMBER'; format = '1J'; disp = 'I10'
-#     name = 'FLUXERR_ISO'; format = '1E'; unit = 'count'; disp = 'G12.7'
-#     name = 'MAG_APER'; format = '25E'; unit = 'mag'; disp = 'F8.4'
-#     name = 'MAGERR_APER'; format = '25E'; unit = 'mag'; disp = 'F8.4'
-#     name = 'FLUX_AUTO'; format = '1E'; unit = 'count'; disp = 'G12.7'
-#     name = 'FLUXERR_AUTO'; format = '1E'; unit = 'count'; disp = 'G12.7'
-#     name = 'MAG_AUTO'; format = '1E'; unit = 'mag'; disp = 'F8.4'
-#     name = 'MAGERR_AUTO'; format = '1E'; unit = 'mag'; disp = 'F8.4'
-#     name = 'KRON_RADIUS'; format = '1E'; disp = 'F5.2'
-#     name = 'THRESHOLD'; format = '1E'; unit = 'count'; disp = 'G12.7'
-#     name = 'X_IMAGE'; format = '1E'; unit = 'pixel'; disp = 'F11.4'
-#     name = 'Y_IMAGE'; format = '1E'; unit = 'pixel'; disp = 'F11.4'
-#     name = 'ALPHA_J2000'; format = '1D'; unit = 'deg'; disp = 'F11.7'
-#     name = 'DELTA_J2000'; format = '1D'; unit = 'deg'; disp = 'F11.7'
-#     name = 'A_WORLD'; format = '1E'; unit = 'deg'; disp = 'G12.7'
-#     name = 'B_WORLD'; format = '1E'; unit = 'deg'; disp = 'G12.7'
-#     name = 'FLUX_RADIUS'; format = '1E'; unit = 'pixel'; disp = 'F10.3'
-#     name = 'THETA_J2000'; format = '1E'; unit = 'deg'; disp = 'F6.2'
-#     name = 'FWHM_IMAGE'; format = '1E'; unit = 'pixel'; disp = 'F8.2'
-#     name = 'FWHM_WORLD'; format = '1E'; unit = 'deg'; disp = 'G12.7'
-#     name = 'FLAGS'; format = '1I'; disp = 'I3'
-#     name = 'IMAFLAGS_ISO'; format = '1J'; disp = 'I9'
-#     name = 'NIMAFLAGS_ISO'; format = '1J'; disp = 'I9'
-#     name = 'CLASS_STAR'; format = '1E'; disp = 'F6.3'
-# )
+    # 1 sourceID
+    # 2 X on fits
+    # 3 Y on fits
+    # 4 RA
+    # 5 Dec
+    # 6 flux.psf
+    # 7 flux.psf.err
+    # 8 flux.psf.flags ("False" means no problems)
+    # 9 mag.psf
+    # 10 magerr.psf
+    # 11 flux.kron
+    # 12 flux.kron.err
+    # 13 flux.kron.flags ("False" means no problems)
+    # 14 mag.kron
+    # 15 magerr.kron
+    # 16 cmodel.flux
+    # 17 cmodel.flux.err
+    # 18 cmodel.flux.flags ("False" means no problems)
+    # 19 cmodel.mag
+    # 20 cmodel.magerr
+    #
+    #
+    # SOME TRACTS below have no detections,
+    # because these tract have almost no overlap with HSC pointings.
+    # Please check the tract-pointing distributions at
+    # /work/04094/mshiro/maverick/HSC/S15A/reduced/tract_pointing/tract_pointing.png
+    #
+    # --no detection tracts--
+    # R_16174.dat
+    # R_16645.dat
+    # R_16805.dat
+    # R_16963.dat
+    # R_16964.dat
+    # R_16965.dat
+    # R_16969.dat
+    # R_16972.dat
+    # R_16974.dat
 
-    # photz_master.zout.FITS fields
-    # 'id',
-    # 'z_spec',
-    # 'z_a',
-    # 'z_m1',
-    # 'chi_a',
-    # 'l68',
-    # 'u68',
-    # 'l95',
-    # 'u95',
-    # 'l99',
-    # 'u99',
-    # 'nfilt',
-    # 'q_z',
-    # 'z_peak',
-    # 'peak_prob',
-    # 'z_mc'
-
-
-    #shela_decam_irac_vista_combined_catalog.fits fields
-    # 'X_IMAGE',
-    # 'Y_IMAGE',
-    # 'RA',
-    # 'DEC',
-    # 'FWHM_IMAGE',
-    # 'A_IMAGE',
-    # 'B_IMAGE',
-    # 'THETA_IMAGE',
-    # 'ISOAREA_FROM_SEGMAP',
-    # 'FLAGS',
-    # 'FLUX_APER_1_u',
-    # 'FLUX_APER_2_u',
-    # 'SIGMA_APER_1_u',
-    # 'SIGMA_APER_2_u',
-    # 'FLUX_AUTO_u',
-    # 'SIGMA_AUTO_u',
-    # 'FLUX_ISO_u',
-    # 'SIGMA_ISO_u',
-    # 'FLUX_RADIUS_u',
-    # 'KRON_RADIUS_u',
-    # 'EXP_CENTER_PIXEL_u',
-    # 'CLASS_STAR_u',
-    # 'IMAFLAGS_ISO_u',
-    # 'FLUX_APER_1_g',
-    # 'FLUX_APER_2_g',
-    # 'SIGMA_APER_1_g',
-    # 'SIGMA_APER_2_g',
-    # 'FLUX_AUTO_g',
-    # 'SIGMA_AUTO_g',
-    # 'FLUX_ISO_g',
-    # 'SIGMA_ISO_g',
-    # 'FLUX_RADIUS_g',
-    # 'KRON_RADIUS_g',
-    # 'EXP_CENTER_PIXEL_g',
-    # 'CLASS_STAR_g',
-    # 'IMAFLAGS_ISO_g',
-    # 'FLUX_APER_1_r',
-    # 'FLUX_APER_2_r',
-    # 'SIGMA_APER_1_r',
-    # 'SIGMA_APER_2_r',
-    # 'FLUX_AUTO_r',
-    # 'SIGMA_AUTO_r',
-    # 'FLUX_ISO_r',
-    # 'SIGMA_ISO_r',
-    # 'FLUX_RADIUS_r',
-    # 'KRON_RADIUS_r',
-    # 'EXP_CENTER_PIXEL_r',
-    # 'CLASS_STAR_r',
-    # 'IMAFLAGS_ISO_r',
-    # 'FLUX_APER_1_i',
-    # 'FLUX_APER_2_i',
-    # 'SIGMA_APER_1_i',
-    # 'SIGMA_APER_2_i',
-    # 'FLUX_AUTO_i',
-    # 'SIGMA_AUTO_i',
-    # 'FLUX_ISO_i',
-    # 'SIGMA_ISO_i',
-    # 'FLUX_RADIUS_i',
-    # 'KRON_RADIUS_i',
-    # 'EXP_CENTER_PIXEL_i',
-    # 'CLASS_STAR_i',
-    # 'IMAFLAGS_ISO_i',
-    # 'FLUX_APER_1_z',
-    # 'FLUX_APER_2_z',
-    # 'SIGMA_APER_1_z',
-    # 'SIGMA_APER_2_z',
-    # 'FLUX_AUTO_z',
-    # 'SIGMA_AUTO_z',
-    # 'FLUX_ISO_z',
-    # 'SIGMA_ISO_z',
-    # 'FLUX_RADIUS_z',
-    # 'KRON_RADIUS_z',
-    # 'EXP_CENTER_PIXEL_z',
-    # 'CLASS_STAR_z',
-    # 'IMAFLAGS_ISO_z',
-    # 'EBV',
-    # 'EBV_STDDEV',
-    # 'DETECT_IMG_FLUX_AUTO',
-    # 'DETECT_IMG_FLUXERR_AUTO',
-    # 'CATALOG_ID_A',
-    # 'CATALOG_ID_B',
-    # 'ch1_trflux_uJy',
-    # 'ch2_trflux_uJy',
-    # 'ch1_fluxvar_uJy',
-    # 'ch2_fluxvar_uJy',
-    # 'ch1_aper_errflux_uJy',
-    # 'ch2_aper_errflux_uJy',
-    # 'ch1_logprob',
-    # 'ch2_logprob',
-    # 'ch1_tractorflag',
-    # 'ch2_tractorflag',
-    # 'ch1_optpsf_arcs',
-    # 'ch2_optpsf_arcs',
-    # 'ch1_psfvar_arcs',
-    # 'ch2_psfvar_arcs',
-    # 'irac_ch1weightvalues',
-    # 'irac_ch2weightvalues',
-    # 'DECAM_FIELD_ID',
-    # 'MASTER_ID',
-    # 'FLUX_AUTO_K',
-    # 'SIGMA_AUTO_K',
-    # 'FLUX_AUTO_J',
-    # 'SIGMA_AUTO_J',
-    # 'VISTA_d2d_arcsec'
-
-    #NUMBER is NOT unique across Tiles (as expected)
-    #NUMBER is NOT unique within a Tile either (bummer)
-    #so ... it is essentially useless, just an index-1
-    #plus they have different entries per filter, so must match by exact RA, DEC? are they consistent??
-
-    BidCols = ['NUMBER',  # int32
-               'FLUXERR_ISO',  # ct float32
-               'MAG_APER',  # [25] mag float32
-               'MAGERR_APER',  # [25] mag float32
-               'FLUX_AUTO',  # ct float32
-               'FLUXERR_AUTO',  # ct float32
-               'MAG_AUTO',  # mag float32
-               'MAGERR_AUTO',  # mag float32
-               'KRON-RADIUS', #
-               'THRESHOLD', # ct float32
-               'X_IMAGE',  # pix float32
-               'Y_IMAGE',  # pix float32
-               'ALPHA_J2000',  # deg float64
-               'DELTA_J2000',  # deg float64
-               'A_WORLD',  # deg float32
-               'B_WORLD',  # deg float32
-               'FLUX_RADIUS',  # pix float32
-               'THETA_J2000',  #
-               'FWHM_IMAGE',  # pix float32
-               'FWHM_WORLD',  # deg float32
-               'FLAGS',  # int16
-               'IMAFLAGS_ISO',  # int32
-               'NIMAFLAGS_ISO',  # int32
-               'CLASS_STAR']  # float32
+    BidCols = [
+        'sourceID',
+        'X', # on fits
+        'Y', # on fits
+        'RA',
+        'Dec',
+        'flux.psf',
+        'flux.psf.err',
+        'flux.psf.flags',#("False" means no problems)
+        'mag.psf',
+        'magerr.psf',
+        'flux.kron',
+        'flux.kron.err',
+        'flux.kron.flags',# ("False" means no problems)
+        'mag.kron',
+        'magerr.kron',
+        'cmodel.flux',
+        'cmodel.flux.err',
+        'cmodel.flux.flags',# ("False" means no problems)
+        'cmodel.mag',
+        'cmodel.magerr'
+        ]
 
     CatalogImages = [] #built in constructor
 
     def __init__(self):
-        super(SHELA, self).__init__()
+        super(HSC, self).__init__()
 
         self.dataframe_of_bid_targets = None
         self.dataframe_of_bid_targets_unique = None

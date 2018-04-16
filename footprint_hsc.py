@@ -1,12 +1,13 @@
+#to use, pipe the output to some text file, then repalce hsc_meta.py with that text file
+#NOTE: the last entry in the dictionary has a trailing comma ... need to remove that
+
 from astropy.wcs import WCS
 import astropy.io.fits as fits
 import argparse
 import numpy as np
+import os
 
-basepath = "/work/04094/mshiro/maverick/HSC/S15A/reduced"
-
-
-#super simple ... load a FITS file and print its footprint
+basepath = "/work/04094/mshiro/maverick/HSC/S15A/reduced/"
 
 
 def build_wcs_manually(img):
@@ -35,48 +36,6 @@ def build_wcs_manually_1(img):
     wcs._naxis2 = img[1].header['NAXIS2']
 
     return wcs
-
-
-#SHELA example
-# if multiple images, the composite broadest range (filled in by hand)
-Image_Coord_Range = {'RA_min': 8.50, 'RA_max': 36.51, 'Dec_min': -4.0, 'Dec_max': 4.0}
-#approximate
-Tile_Coord_Range = {
-                    'A1': {'RA_min':  8.50, 'RA_max': 11.31, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                    'A2': {'RA_min': 11.30, 'RA_max': 14.11, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                    'A3': {'RA_min': 14.10, 'RA_max': 16.91, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                    'A4': {'RA_min': 16.90, 'RA_max': 19.71, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                    'A5': {'RA_min': 19.70, 'RA_max': 22.51, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                    'A6': {'RA_min': 22.50, 'RA_max': 25.31, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                    'A7': {'RA_min': 25.30, 'RA_max': 28.11, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                    'A8': {'RA_min': 28.10, 'RA_max': 30.91, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                    'A9': {'RA_min': 30.90, 'RA_max': 33.71, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                    'A10':{'RA_min': 33.70, 'RA_max': 36.51, 'Dec_min': 1.32, 'Dec_max': 4.0},
-
-                    'B1': {'RA_min':  8.50, 'RA_max': 11.31, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                    'B2': {'RA_min': 11.30, 'RA_max': 14.11, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                    'B3': {'RA_min': 14.10, 'RA_max': 16.91, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                    'B4': {'RA_min': 16.90, 'RA_max': 19.71, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                    'B5': {'RA_min': 19.70, 'RA_max': 22.51, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                    'B6': {'RA_min': 22.50, 'RA_max': 25.31, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                    'B7': {'RA_min': 25.30, 'RA_max': 28.11, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                    'B8': {'RA_min': 28.10, 'RA_max': 30.91, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                    'B9': {'RA_min': 30.90, 'RA_max': 33.71, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                    'B10':{'RA_min': 33.70, 'RA_max': 36.51, 'Dec_min': -1.35, 'Dec_max': 1.34},
-
-                    'C1': {'RA_min':  8.50, 'RA_max': 11.31, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                    'C2': {'RA_min': 11.30, 'RA_max': 14.11, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                    'C3': {'RA_min': 14.10, 'RA_max': 16.91, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                    'C4': {'RA_min': 16.90, 'RA_max': 19.71, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                    'C5': {'RA_min': 19.70, 'RA_max': 22.51, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                    'C6': {'RA_min': 22.50, 'RA_max': 25.31, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                    'C7': {'RA_min': 25.30, 'RA_max': 28.11, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                    'C8': {'RA_min': 28.10, 'RA_max': 30.91, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                    'C9': {'RA_min': 30.90, 'RA_max': 33.71, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                    'C10':{'RA_min': 33.70, 'RA_max': 36.51, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                }
-
-
 
 
 def parse_hsc_image_name(name):
@@ -114,35 +73,50 @@ def main():
     #   e.g. calexp-HSC-R-16666-4,3.fits
     #   parse out the filter (R) and the tile position (4,3) and catalog_tract (16666)
 
-    #here for f in files ...
 
-    img = fits.open(f)
-    footprint = WCS.calc_footprint(build_wcs_manually_1(img))
+    print("HSC_META_DICT = {")
 
-    img.close()
+    min_ra = 361.0
+    max_ra = 0.0
+    min_dec = 90.0
+    max_dec = -90.0
+
+    img_path = os.path.join(basepath,"images")
+
+    files = os.listdir(img_path)
+
+    for f in files:
+        img = fits.open(os.path.join(img_path,f))
+        footprint = WCS.calc_footprint(build_wcs_manually_1(img))
+
+        ra_lo = np.min(footprint[:, 0]) #min ra
+        ra_hi = np.max(footprint[:, 0])  # max ra
+        dec_lo = np.min(footprint[:, 1])  # min dec
+        dec_hi = np.max(footprint[:, 1])  # max dec
+        if min_ra > ra_lo:
+            min_ra = ra_lo
+
+        if max_ra < ra_hi:
+            max_ra = ra_hi
+
+        if min_dec > dec_lo:
+            min_dec = dec_lo
+
+        if max_dec < dec_hi:
+            max_dec = dec_hi
+
+#'RA_min':  8.50, 'RA_max': 11.31, 'Dec_min': -4.0, 'Dec_max': -1.32
+        instrument,filter,cat_tract,tile_pos = parse_hsc_image_name(os.path.basename(f))
+
+        print("'%s': {'RA_min':%f,'RA_max':%f,'Dec_min':%f,'Dec_max':%f,'instrument':'%s','filter':'%s','tract':%s,'pos':(%d,%d)},"
+              %(f,ra_lo,ra_hi,dec_lo,dec_hi,instrument,filter,cat_tract,tile_pos[0],tile_pos[1]))
 
 
-    print("UL", footprint[1],"  UR", footprint[2])
-    print("LL", footprint[0],"  LR", footprint[3])
+        img.close()
+    print("}")
 
-    print("copy form")
-    print("[[%f,%f],[%f,%f],[%f,%f],[%f,%f]]" %
-          (footprint[0][0], footprint[0][1],
-           footprint[1][0], footprint[1][1],
-           footprint[2][0], footprint[2][1],
-           footprint[3][0], footprint[3][1],
-           ))
+    print("Image_Coord_Range = {'RA_min':%f, 'RA_max':%f, 'Dec_min':%f, 'Dec_max':%f}" %(min_ra,max_ra,min_dec,max_dec))
 
-    print("Min Max")
-    print("{'RA_min': %f, 'RA_max': %f, 'Dec_min': %f, 'Dec_max': %f}" %
-          (np.min(footprint[:,0]),np.max(footprint[:,0]),
-           np.min(footprint[:,1]), np.max(footprint[:,1])))
-
-    print("Min Max linear dict")
-    print("'RA_min': %f," % np.min(footprint[:, 0]))
-    print("'RA_max': %f," % np.max(footprint[:, 0]))
-    print("'Dec_min': %f," % np.min(footprint[:, 1]))
-    print("'Dec_max': %f," % np.max(footprint[:, 1]))
 
 if __name__ == '__main__':
     main()
