@@ -52,7 +52,6 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
     CONT_EST_BASE = None
 
     df = None
-    df_photoz = None
 
     MainCatalog = "HyperSuprimeCam"
     Name = "HyperSuprimeCam"
@@ -137,15 +136,10 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         self.dataframe_of_bid_targets_photoz = None
         self.num_targets = 0
         self.master_cutout = None
-        self.build_catalog_of_images()
-
 
     @classmethod
     def read_catalog(cls, catalog_loc=None, name=None):
         "This catalog is in a fits file"
-
-        #ignore catalog_loc and name. Must use class defined.
-        #build each tile and filter and concatenate into a single pandas dataframe
 
         df_master = pd.DataFrame()
 
@@ -189,26 +183,8 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         cls.df = df_master
         return df_master
 
-    @classmethod
-    def merge_photoz_catalogs(cls, combined_cat_file=PhotoZ_combined_cat, master_cat_file=PhotoZ_master_cat):
-        "This catalog is in a fits file"
 
-        try:
-            combined_table = astropy.table.Table.read(combined_cat_file)
-            master_table = astropy.table.Table.read(master_cat_file)
-            master_table.rename_column('id', 'MASTER_ID')
-            cls.df_photoz = astropy.table.join(master_table, combined_table, ['MASTER_ID'])
-
-            #error with .to_pandas(), so have to leave as astropy table (not as fast, but then
-            #we are just doing direct lookup, not a search)
-        except:
-            log.error("Exception attempting to open and compbine photoz catalog files: \n%s\n%s"
-                      %(combined_cat_file, master_cat_file), exc_info=True)
-            return None
-
-
-        return cls.df_photoz
-
+    #todo: not going to build here, but need a meta data creator to do this
     def build_catalog_of_images(self):
         for t in self.Tiles:
             for f in self.Filters:
@@ -234,17 +210,39 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
     def find_target_tile(self,ra,dec):
         #assumed to have already confirmed this target is at least in coordinate range of this catalog
         tile = None
-        for t in self.Tiles:
-
+        keys = []
+        for k in self.Tile_Dict.keys():
             # don't bother to load if ra, dec not in range
             try:
-                coord_range = self.Tile_Coord_Range[t]
-                # {'RA_min': 14.09, 'RA_max': 16.91, 'Dec_min': -1.35, 'Dec_max': 1.34}
-                if not ((ra >= coord_range['RA_min']) and (ra <= coord_range['RA_max']) and
-                        (dec >= coord_range['Dec_min']) and (dec <= coord_range['Dec_max'])) :
+                if not ((ra >= self.Tile_Dict[k]['RA_min']) and (ra <= self.Tile_Dict[k]['RA_max']) and
+                        (dec >= self.Tile_Dict[k]['Dec_min']) and (dec <= self.Tile_Dict[k]['Dec_max'])) :
                     continue
+                else:
+                    keys.append(k)
             except:
                 pass
+
+        if len(keys) == 0: #we're done ... did not find any
+            return tile
+        elif len(keys) == 1: #found exactly one
+            tile = keys[0]
+        elif len(keys) > 1: #find the best one
+            min = 9e9
+            #we don't have the actual corners anymore, so just assume a rectangle
+            #so there are 2 of each min, max coords. Only need the smallest distance so just sum one
+            for k in keys:
+                sqdist = (ra-self.Tile_Dict[k]['RA_min'])**2 + (dec-self.Tile_Dict[k]['Dec_min'])**2 + \
+                         (ra-self.Tile_Dict[k]['RA_max'])**2 + (dec-self.Tile_Dict[k]['Dec_max'])**2
+                if sqdist < min:
+                    min = sqdist
+                    tile = k
+        else: #really?? len(keys) < 0 : this is just a sanity catch
+            log.error("ERROR! len(keys) < 0 in cat_hsc::find_target_tile.")
+            return None
+
+        #now we have the tile key (filename)
+        #do we want to find the matching catalog and see if there is an entry in it?
+
 
             for c in self.CatalogImages:
 
@@ -296,11 +294,9 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         '''ra and dec in decimal degrees. error in arcsec.
         returns a pandas dataframe'''
 
+        #even if not None, could be we need a different catalog, so check and append
         if self.df is None:
             self.read_main_catalog()
-
-        if self.df_photoz is None:
-            self.merge_photoz_catalogs()
 
         error_in_deg = np.float64(error) / 3600.0
 
@@ -739,31 +735,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                     plt.xlabel(s, multialignment='left', fontproperties=font)
 
         # add photo_z plot
-        # if the z_best_type is 'p' call it photo-Z, if s call it 'spec-Z'
-        # alwasy read in file for "file" and plot column 1 (z as x) vs column 9 (pseudo-probability)
-        # get 'file'
-        # z_best  # 6 z_best_type # 7 z_spec # 8 z_spec_ref
-        if df_photoz is not None:
-            z_cat = self.read_catalog(op.join(self.SupportFilesLocation, photoz_file), "z_cat")
-            if z_cat is not None:
-                x = z_cat['z'].values
-                y = z_cat['mFDa4'].values
-                plt.subplot(gs[0, 3])
-                plt.plot(x, y, zorder=1)
-
-                if spec_z > 0:
-                    plt.axvline(x=spec_z, color='gold', linestyle='solid', linewidth=3, zorder=0)
-
-                if target_w > 0:
-                    la_z = target_w / G.LyA_rest - 1.0
-                    oii_z = target_w / G.OII_rest - 1.0
-                    plt.axvline(x=la_z, color='r', linestyle='--', zorder=2)
-                    if (oii_z > 0):
-                        plt.axvline(x=oii_z, color='g', linestyle='--', zorder=2)
-
-                plt.title("Photo Z PDF")
-                plt.gca().yaxis.set_visible(False)
-                plt.xlabel("Z")
+        #there is no photo_z at this point for HSC
 
         # master cutout (0,0 is the observered (exact) target RA, DEC)
         if (self.master_cutout) and (target_ra) and (target_dec):
@@ -1062,9 +1034,6 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         rows = 1
         cols = 6
 
-        if df_photoz is not None:
-           pass
-
         fig_sz_x = cols * 3
         fig_sz_y = rows * 3
 
@@ -1216,9 +1185,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
         # todo: photo z plot if becomes available
         # add photo_z plot
-        if df_photoz is not None:
-            pass
-        else:
+        if df_photoz is None:
             plt.subplot(gs[0, -4:])
             plt.gca().set_frame_on(False)
             plt.gca().axis('off')
