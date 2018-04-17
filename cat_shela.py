@@ -1513,6 +1513,8 @@ class SHELA(cat_base.Catalog):
                     filter_fl = 0.0
                     filter_fl_err = 0.0
 
+                bid_target = None
+
                 if (target_flux is not None) and (filter_fl != 0.0):
                     if (filter_fl is not None):# and (filter_fl > 0):
                         filter_fl_cgs = self.nano_jansky_to_cgs(filter_fl,target_w) #filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
@@ -1522,8 +1524,6 @@ class SHELA(cat_base.Catalog):
                             text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.OII_rest))
                         else:
                             text = text + "N/A\n"
-
-                        bid_target = None
                         try:
                             bid_target = match_summary.BidTarget()
                             bid_target.bid_ra = df['RA'].values[0]
@@ -1583,6 +1583,8 @@ class SHELA(cat_base.Catalog):
 
                 if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
                     text += "%0.3g\n" % (bid_target.p_lae_oii_ratio)
+                else:
+                    text += "\n"
             else:
                 text = "%s\n%f\n%f\n" % ("--",r, d)
 

@@ -59,7 +59,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
     Image_Coord_Range = hsc_meta.Image_Coord_Range
     Tile_Dict = hsc_meta.HSC_META_DICT
-    Filters = ['R']
+    Filters = ['r'] #case is important ... needs to be lowercase
     Cat_Coord_Range = {'RA_min': None, 'RA_max': None, 'Dec_min': None, 'Dec_max': None}
 
     WCS_Manual = True
@@ -137,6 +137,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         self.dataframe_of_bid_targets_photoz = None
         self.num_targets = 0
         self.master_cutout = None
+        self.build_catalog_of_images()
 
     @classmethod
     def read_catalog(cls, catalog_loc=None, name=None,tract=None):
@@ -172,7 +173,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             new_names = ['DEC']
             df.rename(columns=dict(zip(old_names, new_names)), inplace=True)
 
-            df['FILTER'] = 'R' #add the FILTER to the dataframe
+            df['FILTER'] = 'r' #add the FILTER to the dataframe !!! case is important. must be lowercase
 
             if cls.df is not None:
                 cls.df = pd.concat([cls.df, df])
@@ -186,29 +187,24 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
         return cls.df
 
-
-    #todo: not going to build here, but need a meta data creator to do this
     def build_catalog_of_images(self):
-        for t in self.Tiles:
-            for f in self.Filters:
-                #if the file exists, add it
-                name = t+'_'+f+'_'+self.Img_ext
-                if op.exists(op.join(self.SHELA_IMAGE_PATH,name)):
 
-                  self.CatalogImages.append(
-                        {'path': self.SHELA_IMAGE_PATH,
-                         'name': name, #'B'+t+'_'+f+'_'+self.Img_ext,
-                         'tile': t,
-                         'filter': f,
-                         'instrument': "",
-                         'cols': [],
-                         'labels': [],
-                         'image': None,
-                         'expanded': False,
-                         'wcs_manual': False,
-                         'aperture': 1.0,
-                         'mag_func': shela_count_to_mag
-                         })
+        for t in self.Tile_Dict.keys(): #tile is the key (the filename)
+            for f in self.Filters:
+                self.CatalogImages.append(
+                    {'path': self.HSC_IMAGE_PATH,
+                     'name': t, #filename is the tilename
+                     'tile': t,
+                     'filter': f,
+                     'instrument': "",
+                     'cols': [],
+                     'labels': [],
+                     'image': None,
+                     'expanded': False,
+                     'wcs_manual': True,
+                     'aperture': 1.0,
+                     'mag_func': hsc_count_to_mag
+                     })
 
     def find_target_tile(self,ra,dec):
         #assumed to have already confirmed this target is at least in coordinate range of this catalog
@@ -441,12 +437,6 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         bid_colors = self.get_bid_colors(len(bid_ras))
         exptime_cont_est = -1
         index = 0 #images go in positions 1+ (0 is for the fiber positions)
-
-
-
-        #todo: HERE!!!
-
-
 
         for f in self.Filters:
             try:
@@ -722,6 +712,8 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                     filter_fl = 0.0
                     filter_fl_err = 0.0
 
+                bid_target = None
+
                 if (target_flux is not None) and (filter_fl != 0.0):
                     if (filter_fl is not None):# and (filter_fl > 0):
                         filter_fl_cgs = self.nano_jansky_to_cgs(filter_fl,target_w) #filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
@@ -731,8 +723,6 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                             text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.OII_rest))
                         else:
                             text = text + "N/A\n"
-
-                        bid_target = None
                         try:
                             bid_target = match_summary.BidTarget()
                             bid_target.bid_ra = df['RA'].values[0]
@@ -792,6 +782,8 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
                 if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
                     text += "%0.3g\n" % (bid_target.p_lae_oii_ratio)
+                else:
+                    text += "\n"
             else:
                 text = "%s\n%f\n%f\n" % ("--",r, d)
 
