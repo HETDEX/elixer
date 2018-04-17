@@ -12,6 +12,7 @@ import cat_goods_n
 import cat_egs_groth
 import cat_stack_cosmos
 import cat_shela
+import cat_hsc
 import cat_catch_all
 
 
@@ -24,6 +25,7 @@ def get_catalog_list():
     #cats.append(EGS_GROTH()) #this is of no value right now
     cats.append(cat_stack_cosmos.STACK_COSMOS())
     cats.append(cat_shela.SHELA())
+    cats.append(cat_hsc.HSC())
 
     return cats
 

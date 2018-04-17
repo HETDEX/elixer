@@ -111,6 +111,7 @@ class Catalog:
         RA and Dec in decimal degrees.
         """
         result = False
+        error = error / 3600.00 #passed in as arcsec but coords below are in degrees
 
         if (cls.Cat_Coord_Range['RA_min'] is None) and (cls.Image_Coord_Range['RA_min'] is None) and (cls.df is None):
             cls.read_main_catalog()
@@ -182,7 +183,7 @@ class Catalog:
                 log.error("Exception in read_main_catalog for %s" % cls.Name, exc_info=True)
 
         else:
-            print("No catalog defined for ", cls.Name)
+            print("No Main Catalog defined for ", cls.Name)
 
         if cls.df is None:
             cls.status = -1

@@ -52,16 +52,17 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
     CONT_EST_BASE = None
 
     df = None
+    loaded_tracts = []
 
-    MainCatalog = "HyperSuprimeCam"
+    MainCatalog = None #there is no Main Catalog ... must load individual catalog tracts
     Name = "HyperSuprimeCam"
 
     Image_Coord_Range = hsc_meta.Image_Coord_Range
     Tile_Dict = hsc_meta.HSC_META_DICT
-
+    Filters = ['R']
     Cat_Coord_Range = {'RA_min': None, 'RA_max': None, 'Dec_min': None, 'Dec_max': None}
 
-    WCS_Manual = False
+    WCS_Manual = True
 
     AstroTable = None
 
@@ -138,50 +139,52 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         self.master_cutout = None
 
     @classmethod
-    def read_catalog(cls, catalog_loc=None, name=None):
-        "This catalog is in a fits file"
+    def read_catalog(cls, catalog_loc=None, name=None,tract=None):
 
-        df_master = pd.DataFrame()
+        if name is None:
+            name = cls.Name
 
-        for t in cls.Tiles:
-            for f in cls.Filters:
-                cat_name = t+'_'+f+'_'+cls.Cat_ext
-                cat_loc = op.join(cls.SHELA_CAT_PATH, cat_name)
+        if tract is not None:
+            if tract in cls.loaded_tracts:
+                log.info("Catalog tract (%s) already loaded." %tract)
+                return cls.df
 
-                if not op.exists(cat_loc):
-                    continue
+        if tract is None:
+            log.error("Cannot load catalog tract for HSC. No tract provided.")
+            return None
 
-                log.debug("Building " + cls.Name + " " + cat_name + " dataframe...")
 
-                try:
-                    table = astropy.table.Table.read(cat_loc)
-                except:
-                    log.error(name + " Exception attempting to open catalog file: " + catalog_loc, exc_info=True)
-                    return None
+        #todo: future more than just the R filter if any are ever added
+        cat_name = 'R_' + tract + ".dat"
+        cat_loc = op.join(cls.HSC_CAT_PATH, cat_name)
+        header = cls.BidCols
 
-                # convert into a pandas dataframe ... cannot convert directly to pandas because of the [25] lists
-                # so build a pandas df with just the few columns we need for searching
-                # then pull data from full astro table as needed
+        if not op.exists(cat_loc):
+            log.error("Cannot load catalog tract for HSC. File does not exist: %s" %cat_loc)
 
-                try:
-                    lookup_table = astropy.table.Table([table['NUMBER'], table['ALPHA_J2000'], table['DELTA_J2000'],
-                                          table['FLUX_AUTO'],table['FLUXERR_AUTO']])
-                    pddf = lookup_table.to_pandas()
-                    old_names = ['NUMBER', 'ALPHA_J2000', 'DELTA_J2000']
-                    new_names = ['ID', 'RA', 'DEC']
-                    pddf.rename(columns=dict(zip(old_names, new_names)), inplace=True)
-                    pddf['TILE'] = t
-                    pddf['FILTER'] = f
+        log.debug("Building " + cls.Name + " " + cat_name + " dataframe...")
 
-                    df_master = pd.concat([df_master,pddf])
+        try:
+            df = pd.read_csv(cat_loc, names=header,
+                             delim_whitespace=True, header=None, index_col=None, skiprows=0)
 
-                   # cls.AstroTable = table
-                except:
-                    log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
-                    return None
+            old_names = ['Dec']
+            new_names = ['DEC']
+            df.rename(columns=dict(zip(old_names, new_names)), inplace=True)
 
-        cls.df = df_master
-        return df_master
+            df['FILTER'] = 'R' #add the FILTER to the dataframe
+
+            if cls.df is not None:
+                cls.df = pd.concat([cls.df, df])
+            else:
+                cls.df = df
+            cls.loaded_tracts.append(tract)
+
+        except:
+            log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
+            return None
+
+        return cls.df
 
 
     #todo: not going to build here, but need a meta data creator to do this
@@ -223,7 +226,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 pass
 
         if len(keys) == 0: #we're done ... did not find any
-            return tile
+            return None
         elif len(keys) == 1: #found exactly one
             tile = keys[0]
         elif len(keys) > 1: #find the best one
@@ -243,50 +246,17 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         #now we have the tile key (filename)
         #do we want to find the matching catalog and see if there is an entry in it?
 
-
-            for c in self.CatalogImages:
-
-                try:
-                    if ((ra < self.Tile_Coord_Range[c['tile']]['RA_min']) or \
-                       (ra > self.Tile_Coord_Range[c['tile']]['RA_max']) or \
-                       (dec < self.Tile_Coord_Range[c['tile']]['Dec_min']) or \
-                       (dec > self.Tile_Coord_Range[c['tile']]['Dec_max'])):
-                        continue
-                except:
-                    log.warning("Minor Exception in cat_shela.py:find_target_tile ", exc_info=True)
-
-                try:
-                    image = science_image.science_image(wcs_manual=self.WCS_Manual,
-                                                        image_location=op.join(self.SHELA_IMAGE_PATH, c['name']))
-                    if image.contains_position(ra, dec):
-                        tile = t
-                    else:
-                        log.debug("position (%f, %f) is not in image. %s" % (ra, dec, c['name']))
-
-                except:
-                    pass
-
-                if tile is not None:
-                    break
-
-            if (0): #old version SHELA ONLY
-                for f in ['g']: #self.Filters:
-                    #can we assume the filters all have the same coord range?
-                    #see if can get a cutout?
-                    img_name = 'B' + t + '_' + f + '_' + self.Img_ext
-                    try:
-                        image = science_image.science_image(wcs_manual=self.WCS_Manual,
-                                image_location=op.join(self.SHELA_IMAGE_PATH, img_name))
-                        if image.contains_position(ra,dec):
-                            tile = t
-                        else:
-                            log.debug("position (%f, %f) is not in image. %s" % (ra, dec,img_name))
-
-                    except:
-                        pass
-
-                    if tile is not None:
-                        break
+        #sanity check the image
+        try:
+            image = science_image.science_image(wcs_manual=self.WCS_Manual,wcs_idx=1,
+                                                image_location=op.join(self.HSC_IMAGE_PATH,tile))
+            if image.contains_position(ra, dec):
+                pass
+            else:
+                log.debug("position (%f, %f) is not in image. %s" % (ra, dec,tile))
+                tile = None
+        except:
+            pass
 
         return tile
 
@@ -295,8 +265,16 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         returns a pandas dataframe'''
 
         #even if not None, could be we need a different catalog, so check and append
-        if self.df is None:
-            self.read_main_catalog()
+        tile = self.find_target_tile(ra,dec)
+
+        if tile is None:
+            log.info("Could not locate tile for HSC. Discontinuing search of this catalog.")
+            return 0,None,None
+
+        #could be none or could be not loaded yet
+        if self.df is None or not (self.Tile_Dict[tile]['tract'] in self.loaded_tracts):
+            #self.read_main_catalog()
+            self.read_catalog(tract=self.Tile_Dict[tile]['tract'])
 
         error_in_deg = np.float64(error) / 3600.0
 
@@ -371,9 +349,9 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             entry = self.build_cat_summary_figure(cat_match,target_ra, target_dec, error, ras, decs,
                                                   target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux)
         else:
-            entry = self.build_exact_target_location_figure(cat_match, target_ra, target_dec, error, section_title=section_title,
-                                                            target_w=target_w, fiber_locs=fiber_locs,
-                                                            target_flux=target_flux)
+            log.error("ERRROR!!! Unexpected state of G.SINGLE_PAGE_PER_DETECT")
+
+
         if entry is not None:
             self.add_bid_entry(entry)
 
@@ -385,403 +363,9 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 self.add_bid_entry(entry)
 #        else:  # each bid taget gets its own line
         if (not G.FORCE_SINGLE_PAGE) and (len(ras) > G.MAX_COMBINE_BID_TARGETS):  # each bid taget gets its own line
-            bid_colors = self.get_bid_colors(len(ras))
-            number = 0
-            for r, d in zip(ras, decs):
-                number += 1
-                try:
-                    df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
-                                                           (self.dataframe_of_bid_targets['DEC'] == d[0]) &
-                                                           (self.dataframe_of_bid_targets['FILTER'] == 'r')]
-                    if df is None:
-                        df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
-                                                               (self.dataframe_of_bid_targets['DEC'] == d[0]) &
-                                                               (self.dataframe_of_bid_targets['FILTER'] == 'g')]
-                    if df is None:
-                        df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
-                                                               (self.dataframe_of_bid_targets['DEC'] == d[0])]
-
-                except:
-                    log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
-                    continue  # this must be here, so skip to next ra,dec
-
-                print("Building report for bid target %d in %s" % (base_count + number, self.Name))
-
-                if G.SINGLE_PAGE_PER_DETECT and (len(ras) <= G.MAX_COMBINE_BID_TARGETS):
-                    entry = self.build_bid_target_figure_one_line(cat_match, r[0], d[0], error=error, df=df,
-                                                                  df_photoz=None,
-                                                                  target_ra=target_ra, target_dec=target_dec,
-                                                                  section_title=section_title,
-                                                                  bid_number=number, target_w=target_w,
-                                                                  of_number=num_hits - base_count,
-                                                                  target_flux=target_flux, color=bid_colors[number - 1])
-                else:
-                    entry = self.build_bid_target_figure(cat_match, r[0], d[0], error=error, df=df, df_photoz=None,
-                                                         target_ra=target_ra, target_dec=target_dec,
-                                                         section_title=section_title,
-                                                         bid_number=number, target_w=target_w,
-                                                         of_number=num_hits - base_count,
-                                                         target_flux=target_flux)
-                if entry is not None:
-                    self.add_bid_entry(entry)
+            log.error("ERRROR!!! Unexpected state of G.FORCE_SINGLE_PAGE")
 
         return self.pages
-
-    def build_exact_target_location_figure(self, cat_match, ra, dec, error, section_title="", target_w=0, fiber_locs=None,
-                                           target_flux=None):
-        '''Builds the figure (page) the exact target location. Contains just the filter images ...
-
-        Returns the matplotlib figure. Due to limitations of matplotlib pdf generation, each figure = 1 page'''
-
-        # note: error is essentially a radius, but this is done as a box, with the 0,0 position in lower-left
-        # not the middle, so need the total length of each side to be twice translated error or 2*2*errorS
-        window = error * 4
-
-        rows = 2
-        cols = len(self.Filters)
-
-        fig_sz_x = cols * 3
-        fig_sz_y = rows * 3
-
-        fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
-
-        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.5)
-        # reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based
-
-        font = FontProperties()
-        font.set_family('monospace')
-        font.set_size(12)
-
-        if G.ZOO:
-            title = "Catalog: %s\n" % self.Name + section_title + "\nPossible Matches = %d (within +/- %g\")\n" % \
-                                                                  (len(self.dataframe_of_bid_targets), error)
-        else:
-            title = "Catalog: %s\n" % self.Name + section_title + "\nPossible Matches = %d (within +/- %g\")\n" \
-                                                                  "RA = %f    Dec = %f\n" % (
-                                                                      len(self.dataframe_of_bid_targets), error, ra,
-                                                                      dec)
-
-        if target_w > 0:
-            title = title + "Wavelength = %g $\AA$\n" % target_w
-        else:
-            title = title + "\n"
-        plt.subplot(gs[0, 0])
-        text = plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
-        plt.gca().set_frame_on(False)
-        plt.gca().axis('off')
-
-        if self.master_cutout is not None:
-            del (self.master_cutout)
-            self.master_cutout = None
-
-        #for a given Tile, iterate over all filters
-        tile = self.find_target_tile(ra,dec)
-
-        if tile is None:
-            #problem
-            print("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" %(ra,dec))
-            log.error("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" %(ra,dec))
-            return None
-
-        #todo: need SHELA continuum estimate (ceiling)
-        cont_est = -1
-
-        index = -1
-        for f in self.Filters:
-            try:
-                i = self.CatalogImages[
-                next(i for (i,d) in enumerate(self.CatalogImages)
-                     if ((d['filter'] == f) and (d['tile'] == tile)))]
-            except:
-                i = None
-
-            if i is None:
-                continue
-
-            index += 1
-
-            if index > cols:
-                log.warning("Exceeded max number of grid spec columns.")
-                break #have to be done
-
-            try:
-                wcs_manual = i['wcs_manual']
-                aperture = i['aperture']
-                mag_func = i['mag_func']
-            except:
-                wcs_manual = self.WCS_Manual
-                aperture = 0.0
-                mag_func = None
-
-            if i['image'] is None:
-                i['image'] = science_image.science_image(wcs_manual=wcs_manual,
-                                                         image_location=op.join(i['path'], i['name']))
-            sci = i['image']
-
-
-            # sci.load_image(wcs_manual=True)
-            cutout, pix_counts, mag = sci.get_cutout(ra, dec, error, window=window,
-                                                     aperture=aperture,mag_func=mag_func)
-            ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
-
-            try:  # update non-matched source line with PLAE()
-                if ((mag < 99) or (cont_est != -1)) and (target_flux is not None)  and (i['filter'] == 'g'):
-                    # make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
-                    bid_target = match_summary.BidTarget()
-                    bid_target.bid_ra = 666  # nonsense RA
-                    bid_target.bid_dec = 666  # nonsense Dec
-                    bid_target.distance = 0.0
-                    if mag < 99:
-                        bid_target.bid_flux_est_cgs = self.obs_mag_to_cgs_flux(mag, target_w)
-                    else:
-                        bid_target.bid_flux_est_cgs = cont_est
-
-                    bid_target.add_filter(i['instrument'], i['filter'], bid_target.bid_flux_est_cgs, -1)
-
-                    addl_waves = None
-                    addl_flux = None
-                    addl_ferr = None
-                    try:
-                        addl_waves = cat_match.detobj.spec_obj.addl_wavelengths
-                        addl_flux = cat_match.detobj.spec_obj.addl_fluxes
-                        addl_ferr = cat_match.detobj.spec_obj.addl_fluxerrs
-                    except:
-                        pass
-
-                    bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii = \
-                        line_prob.prob_LAE(wl_obs=target_w, lineFlux=target_flux,
-                                           ew_obs=(target_flux / bid_target.bid_flux_est_cgs),
-                                           c_obs=None, which_color=None, addl_wavelengths=addl_waves,
-                                           addl_fluxes=addl_flux, addl_errors=addl_ferr, sky_area=None,
-                                           cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
-                                           sigma=None)
-
-                    if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
-                        text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g" % (bid_target.p_lae_oii_ratio))
-
-                    cat_match.add_bid_target(bid_target)
-            except:
-                log.debug('Could not build exact location photometry info.', exc_info=True)
-
-            # 1st cutout might not be what we want for the master (could be a summary image from elsewhere)
-            if self.master_cutout:
-                if self.master_cutout.shape != cutout.shape:
-                    del self.master_cutout
-                    self.master_cutout = None
-
-            if cutout is not None:  # construct master cutout
-                # master cutout needs a copy of the data since it is going to be modified  (stacked)
-                # repeat the cutout call, but get a copy
-                if self.master_cutout is None:
-                    self.master_cutout,_,_ = sci.get_cutout(ra, dec, error, window=window, copy=True)
-                else:
-                    self.master_cutout.data = np.add(self.master_cutout.data, cutout.data)
-
-                plt.subplot(gs[rows - 1, index])
-                plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
-                           vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
-                plt.title(i['instrument'] + " " + i['filter'])
-
-                self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
-
-        if self.master_cutout is None:
-            # cannot continue
-            print("No catalog image available in %s" % self.Name)
-            return None
-
-        # plot the master cutout
-        empty_sci = science_image.science_image()
-        plt.subplot(gs[0, cols - 1])
-        vmin, vmax = empty_sci.get_vrange(self.master_cutout.data)
-        plt.imshow(self.master_cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
-                   vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
-        plt.title("Master Cutout (Stacked)")
-        plt.xlabel("arcsecs")
-        plt.xticks([ext, ext / 2., 0, -ext / 2., -ext])
-        plt.yticks([ext, ext / 2., 0, -ext / 2., -ext])
-        # only show this lable if there is not going to be an adjacent fiber plot
-        if (fiber_locs is None) or (len(fiber_locs) == 0):
-            plt.ylabel("arcsecs")
-        plt.plot(0, 0, "r+")
-
-        self.add_north_box(plt, empty_sci, self.master_cutout, error, 0, 0, theta=None)
-
-        plt.subplot(gs[0, cols - 2])
-        self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, self.master_cutout)
-
-        # complete the entry
-        plt.close()
-        return fig
-
-    def build_bid_target_figure(self, cat_match,ra, dec, error, df=None, df_photoz=None, target_ra=None, target_dec=None,
-                                section_title="", bid_number=1, target_w=0, of_number=0,target_flux=None):
-        '''Builds the entry (e.g. like a row) for one bid target. Includes the target info (name, loc, Z, etc),
-        photometry images, Z_PDF, etc
-
-        Returns the matplotlib figure. Due to limitations of matplotlib pdf generateion, each figure = 1 page'''
-
-        # note: error is essentially a radius, but this is done as a box, with the 0,0 position in lower-left
-        # not the middle, so need the total length of each side to be twice translated error or 2*2*errorS
-        window = error * 2.
-        photoz_file = None
-
-        rows = 2
-        cols = len(self.Filters)
-
-        fig_sz_x = cols * 3
-        fig_sz_y = rows * 3
-
-        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.5)
-
-        font = FontProperties()
-        font.set_family('monospace')
-        font.set_size(12)
-
-        fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
-        plt.subplots_adjust(left=0.05, right=0.95, top=0.9, bottom=0.1)
-
-        spec_z = 0.0
-
-        #todo: find photo z or spec z ... right now SHELA cat does not seem to have them
-
-        #todo: get bid target flux ... again, don't have that ... but maybe convert magnitude into flux?
-
-        if df is not None:
-            title = "%s  Possible Match #%d" % (section_title, bid_number)
-            if of_number > 0:
-                title = title + " of %d" % of_number
-
-            if G.ZOO:
-                title = title + "\nSeparation    = %g\"" \
-                                % (df['distance'].values[0] * 3600)
-            else:
-                title = title + "\nRA = %f    Dec = %f\nSeparation  = %g\"" \
-                                % (df['RA'].values[0], df['DEC'].values[0], df['distance'].values[0] * 3600)
-        else:
-            if G.ZOO:
-                title = section_title
-            else:
-                title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)
-
-        plt.subplot(gs[0, 0])
-        plt.text(0, 0.20, title, ha='left', va='bottom', fontproperties=font)
-        plt.gca().set_frame_on(False)
-        plt.gca().axis('off')
-
-        # for a given Tile, iterate over all filters
-        tile = self.find_target_tile(ra, dec)
-
-        if tile is None:
-            # problem
-            print("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" % (ra, dec))
-            log.error("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" % (ra, dec))
-            return None
-
-        index = -1
-        for f in self.Filters:
-            try:
-                i = self.CatalogImages[  next(i for (i, d) in enumerate(self.CatalogImages)
-                     if ((d['filter'] == f) and (d['tile'] == tile)))]
-            except:
-                i = None
-
-            if i is None:
-                continue
-
-            index += 1
-
-            if index > cols:
-                log.warning("Exceeded max number of grid spec columns.")
-                break #have to be done
-
-            if i['image'] is None:
-                i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
-                                                         image_location=op.join(i['path'], i['name']))
-            sci = i['image']
-
-            cutout,_,_ = sci.get_cutout(ra, dec, error, window=window)
-            ext = sci.window / 2.
-
-            if cutout is not None:
-                plt.subplot(gs[1, index])
-
-                plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
-                           vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
-                plt.title(i['instrument'] + " " + i['filter'])
-
-                plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-                plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-
-                # add (+) to mark location of Target RA,DEC
-                # we are centered on ra,dec and target_ra, target_dec belong to the HETDEX detect
-                if cutout and (target_ra is not None) and (target_dec is not None):
-                    px, py = sci.get_position(target_ra, target_dec, cutout)
-                    x, y = sci.get_position(ra, dec, cutout)
-
-                    plt.plot((px - x), (py - y), "r+")
-
-                    self.add_north_arrow(plt, sci, cutout, theta=None)
-                    plt.gca().add_patch(plt.Circle((0, 0), radius=error / 4.0, color='yellow', fill=False))
-
-                # iterate over all filters for this image and print values
-                font.set_size(10)
-                if df is not None:
-                    s = ""
-                    for f, l in zip(i['cols'], i['labels']):
-                        # print (f)
-                        v = df[f].values[0]
-                        s = s + "%-8s = %.5f\n" % (l, v)
-
-                    plt.xlabel(s, multialignment='left', fontproperties=font)
-
-        # add photo_z plot
-        #there is no photo_z at this point for HSC
-
-        # master cutout (0,0 is the observered (exact) target RA, DEC)
-        if (self.master_cutout) and (target_ra) and (target_dec):
-            # window=error*4
-            ext = error * 1.5 #to be consistent with self.master_cutout scale set to error window *3 and ext = /2
-            #resizing (growing) is a problem since the master_cutout is stacked
-            # (could shrink (cutout smaller section) but not grow without re-stacking larger cutouts of filters)
-            plt.subplot(gs[0, cols - 1])
-            empty_sci = science_image.science_image()
-            # need a new cutout since we rescaled the ext (and window) size
-            cutout,_,_ = empty_sci.get_cutout(target_ra, target_dec, error, window=ext * 2, image=self.master_cutout)
-            vmin, vmax = empty_sci.get_vrange(cutout.data)
-
-            vmin, vmax = empty_sci.get_vrange(cutout.data)
-            plt.imshow(cutout.data, origin='lower', interpolation='none',
-                       cmap=plt.get_cmap('gray_r'),
-                       vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
-            plt.title("Master Cutout (Stacked)")
-            plt.xlabel("arcsecs")
-            # plt.ylabel("arcsecs")
-
-            # plt.set_xticklabels([str(ext), str(ext / 2.), str(0), str(-ext / 2.), str(-ext)])
-            plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-            plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-
-            # mark the bid target location on the master cutout
-            if (target_ra is not None) and (target_dec is not None):
-                px, py = empty_sci.get_position(target_ra, target_dec, cutout)
-                x, y = empty_sci.get_position(ra, dec, cutout)
-
-                # set the diameter of the cirle to half the error (radius error/4)
-                plt.gca().add_patch(
-                    plt.Circle(((x - px),(y - py)), radius=error / 4.0, color='yellow', fill=False))
-
-                # this is correct, do not rotate the yellow rectangle (it is a zoom window only)
-                #x = (x - px) - error
-                #y = (y - py) - error
-                #plt.gca().add_patch(plt.Rectangle((x, y), width=error * 2, height=error * 2,
-                #                                  angle=0.0, color='yellow', fill=False))
-
-                plt.plot(0, 0, "r+")
-                self.add_north_box(plt, empty_sci, cutout, error, 0, 0, theta=None)
-
-        plt.close()
-        return fig
-
 
 
     def build_cat_summary_figure (self, cat_match, ra, dec, error,bid_ras, bid_decs, target_w=0,
@@ -857,6 +441,13 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         bid_colors = self.get_bid_colors(len(bid_ras))
         exptime_cont_est = -1
         index = 0 #images go in positions 1+ (0 is for the fiber positions)
+
+
+
+        #todo: HERE!!!
+
+
+
         for f in self.Filters:
             try:
                 i = self.CatalogImages[
@@ -884,7 +475,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 mag_func = None
 
             if i['image'] is None:
-                i['image'] = science_image.science_image(wcs_manual=wcs_manual,
+                i['image'] = science_image.science_image(wcs_manual=wcs_manual,wcs_idx=1,
                                                          image_location=op.join(i['path'], i['name']))
             sci = i['image']
 
@@ -1017,184 +608,6 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         plt.close()
         return fig
 
-    def build_bid_target_figure_one_line (self,cat_match, ra, dec, error, df=None, df_photoz=None, target_ra=None, target_dec=None,
-                                section_title="", bid_number=1, target_w=0, of_number=0, target_flux=None, color="k"):
-        '''Builds the entry (e.g. like a row) for one bid target. Includes the target info (name, loc, Z, etc),
-        photometry images, Z_PDF, etc
-
-        Returns the matplotlib figure. Due to limitations of matplotlib pdf generateion, each figure = 1 page'''
-
-        # note: error is essentially a radius, but this is done as a box, with the 0,0 position in lower-left
-        # not the middle, so need the total length of each side to be twice translated error or 2*2*errorS
-        window = error * 2.
-        z_best = None
-        z_best_type = None  # s = spectral , p = photometric?
-        z_photoz_weighted = None
-
-        rows = 1
-        cols = 6
-
-        fig_sz_x = cols * 3
-        fig_sz_y = rows * 3
-
-        fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
-        plt.subplots_adjust(left=0.05, right=0.95, top=0.8, bottom=0.2)
-
-        #cols*2 to leave one column for the color coded rectange ... all other are made at 2x columns
-        gs = gridspec.GridSpec(rows, cols*2, wspace=0.25, hspace=0.5)
-
-        #use col = 0 for color coded rectangle
-        plt.subplot(gs[0, 0])
-        plt.gca().set_frame_on(False)
-        plt.gca().axis('off')
-        #2:1 so height should be 1/2 width
-        plt.gca().add_patch(plt.Rectangle((0.25,0.25), width=0.5, height=0.25, angle=0.0, color=color,
-                                          fill=False,linewidth=5,zorder=1))
-
-        #entry text
-        font = FontProperties()
-        font.set_family('monospace')
-        font.set_size(12)
-
-        if df is not None:
-            title = "%s  Possible Match #%d" % (section_title, bid_number)
-            if of_number > 0:
-                title = title + " of %d" % of_number
-
-            if G.ZOO:
-                title = title + "\nSeparation    = %g\"" \
-                                % (df['distance'].values[0] * 3600)
-            else:
-                title = title + "\nRA = %f    Dec = %f\nSeparation    = %g\"" \
-                            % (df['RA'].values[0], df['DEC'].values[0],df['distance'].values[0] * 3600)
-
-            if z_best_type is not None:
-                if (z_best_type.lower() == 'p'):
-                    title = title + "\nPhoto Z       = %g (blue)" % z_best
-                elif (z_best_type.lower() == 's'):
-                    title = title + "\nSpec Z        = %g (gold)" % z_best
-                    spec_z = z_best
-                    if z_photoz_weighted is not None:
-                        title = title + "\nPhoto Z       = %g (blue)" % z_photoz_weighted
-
-            if target_w > 0:
-                la_z = target_w / G.LyA_rest - 1.0
-                oii_z = target_w / G.OII_rest - 1.0
-                title = title + "\nLyA Z (virus) = %g" % la_z
-                if (oii_z > 0):
-                    title = title + "\nOII Z (virus) = %g" % oii_z
-                else:
-                    title = title + "\nOII Z (virus) = N/A"
-
-            if (target_flux is not None) and (df['FILTER'].values[0] in 'rg'):
-                #here ...
-                filter_fl = df['FLUX_AUTO'].values[0]  #?? in nano-jansky or 1e-32  erg s^-1 cm^-2 Hz^-2
-                if (filter_fl is not None) and (filter_fl > 0):
-                    filter_fl = self.nano_jansky_to_cgs(filter_fl,target_w) #filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
-                    title = title + "\nEst LyA rest-EW = %g $\AA$" % \
-                                    (target_flux / filter_fl / (target_w / G.LyA_rest))
-
-                    if target_w >= G.OII_rest:
-                        title = title + "\nEst OII rest-EW = %g $\AA$" % \
-                                        (target_flux / filter_fl / (target_w / G.OII_rest))
-                    else:
-                        title = title + "\nEst OII rest-EW = N/A"
-
-                    # bid target info is only of value if we have a flux from the emission line
-                    try:
-                        bid_target = match_summary.BidTarget()
-                        bid_target.bid_ra = df['RA'].values[0]
-                        bid_target.bid_dec = df['DEC'].values[0]
-                        bid_target.distance = df['distance'].values[0] * 3600
-                        bid_target.bid_flux_est_cgs = filter_fl
-
-                        addl_waves = None
-                        addl_flux = None
-                        addl_ferr = None
-                        try:
-                            addl_waves = cat_match.detobj.spec_obj.addl_wavelengths
-                            addl_flux = cat_match.detobj.spec_obj.addl_fluxes
-                            addl_ferr = cat_match.detobj.spec_obj.addl_fluxerrs
-                        except:
-                            pass
-
-                        bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii = line_prob.prob_LAE(wl_obs=target_w,
-                                                                                       lineFlux=target_flux,
-                                                                                       ew_obs=(target_flux / filter_fl),
-                                                                                       c_obs=None, which_color=None,
-                                                                                       addl_wavelengths=addl_waves,
-                                                                                       addl_fluxes=addl_flux,
-                                                                                       addl_errors=addl_ferr,
-                                                                                       sky_area=None,
-                                                                                       cosmo=None, lae_priors=None,
-                                                                                       ew_case=None, W_0=None,
-                                                                                       z_OII=None, sigma=None)
-                        if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
-                           title += "\nP(LAE)/L(OII) = %0.3g\n" % (bid_target.p_lae_oii_ratio)
-
-                        dfx = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == df['RA'].values[0]) &
-                                                                (self.dataframe_of_bid_targets['DEC'] == df['DEC'].values[0])]
-
-                        for flt, flux, err in zip(dfx['FILTER'].values,
-                                                  dfx['FLUX_AUTO'].values,
-                                                  dfx['FLUXERR_AUTO'].values):
-                            try:
-                                bid_target.add_filter('NA', flt,
-                                                      self.nano_jansky_to_cgs(flux, target_w),
-                                                      self.nano_jansky_to_cgs(err, target_w))
-                            except:
-                                log.debug('Unable to build filter entry for bid_target.')
-
-                        cat_match.add_bid_target(bid_target)
-                    except:
-                        log.debug('Unable to build bid_target.')
-        else:
-            if G.ZOO:
-                title = section_title
-            else:
-                title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)
-
-        plt.subplot(gs[0, 1:4])
-        plt.text(0, 0, title, ha='left', va='bottom', fontproperties=font)
-        plt.gca().set_frame_on(False)
-        plt.gca().axis('off')
-
-        #add flux values
-        if df is not None:
-            # iterate over all filter images
-            title = ""
-            for i in self.CatalogImages:  # i is a dictionary
-                # iterate over all filters for this image and print values
-                #font.set_size(10)
-
-                #not all filters have entries ... note 'cols'[0] is flux, [1] is the error
-                if df[i['cols']].empty :
-                    title = title + "%7s %s %s = -- (--)\n" % (i['instrument'], i['filter'], "Flux")
-                else:
-                    try:
-                        title = title + "%7s %s %s = %.5f (%.5f)\n" % (i['instrument'], i['filter'], "Flux",
-                                float(df[i['cols'][0]].values[0]), float(df[i['cols'][1]].values[0]))
-                    except:
-                        title = title + "%7s %s %s = -- (--)\n" % (i['instrument'], i['filter'], "Flux")
-
-
-        plt.subplot(gs[0, 4])
-        plt.text(0, 0, title, ha='left', va='bottom', fontproperties=font)
-        plt.gca().set_frame_on(False)
-        plt.gca().axis('off')
-
-        # todo: photo z plot if becomes available
-        # add photo_z plot
-        if df_photoz is None:
-            plt.subplot(gs[0, -4:])
-            plt.gca().set_frame_on(False)
-            plt.gca().axis('off')
-            text = "Photo Z plot not available."
-            plt.text(0, 0.5, text, ha='left', va='bottom', fontproperties=font)
-
-        # fig holds the entire page
-        plt.close()
-        return fig
 
     def build_multiple_bid_target_figures_one_line(self, cat_match, ras, decs, error, target_ra=None, target_dec=None,
                                          target_w=0, target_flux=None):

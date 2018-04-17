@@ -32,7 +32,7 @@ log.setLevel(global_config.logging.DEBUG)
 
 class science_image():
 
-    def __init__(self, wcs_manual=False, image_location=None,frame=None):
+    def __init__(self, wcs_manual=False, image_location=None,frame=None, wcs_idx=0):
         self.image_location = None
         self.image_name = None
         self.catalog_name = None
@@ -52,6 +52,7 @@ class science_image():
 
         self.image_buffer = None
 
+        self.wcs_idx = wcs_idx #usually on hdu 0 but sometimes not (i.e. HyperSuprimeCam on 1)
         self.footprint = None #on sky footprint, decimal degrees Ra,Dec as 4x2 array (with North up: LL, UL, UR, LR)
 
         #todo: do I need to worry about this?
@@ -95,7 +96,7 @@ class science_image():
             log.error("Unable to get on-sky footprint")
 
         try:
-            self.exptime = self.fits[0].header['EXPTIME']
+            self.exptime = self.fits[self.wcs_idx].header['EXPTIME']
         except:
             log.warning('Warning. Could not load exposure time from %s' %self.image_location, exc_info=True)
             self.exptime = None
@@ -107,15 +108,15 @@ class science_image():
             log.error("Unable to build pixel size", exc_info=True)
 
     def build_wcs_manually(self):
-        self.wcs = WCS(naxis=self.fits[0].header['NAXIS'])
-        self.wcs.wcs.crpix = [self.fits[0].header['CRPIX1'], self.fits[0].header['CRPIX2']]
-        self.wcs.wcs.crval = [self.fits[0].header['CRVAL1'], self.fits[0].header['CRVAL2']]
-        self.wcs.wcs.ctype = [self.fits[0].header['CTYPE1'], self.fits[0].header['CTYPE2']]
+        self.wcs = WCS(naxis=self.fits[self.wcs_idx].header['NAXIS'])
+        self.wcs.wcs.crpix = [self.fits[self.wcs_idx].header['CRPIX1'], self.fits[self.wcs_idx].header['CRPIX2']]
+        self.wcs.wcs.crval = [self.fits[self.wcs_idx].header['CRVAL1'], self.fits[self.wcs_idx].header['CRVAL2']]
+        self.wcs.wcs.ctype = [self.fits[self.wcs_idx].header['CTYPE1'], self.fits[self.wcs_idx].header['CTYPE2']]
         #self.wcs.wcs.cdelt = [None,None]#[hdu1[0].header['CDELT1O'],hdu1[0].header['CDELT2O']]
-        self.wcs.wcs.cd = [[self.fits[0].header['CD1_1'], self.fits[0].header['CD1_2']],
-                           [self.fits[0].header['CD2_1'], self.fits[0].header['CD2_2']]]
-        self.wcs._naxis1 = self.fits[0].header['NAXIS1']
-        self.wcs._naxis2 = self.fits[0].header['NAXIS2']
+        self.wcs.wcs.cd = [[self.fits[self.wcs_idx].header['CD1_1'], self.fits[self.wcs_idx].header['CD1_2']],
+                           [self.fits[self.wcs_idx].header['CD2_1'], self.fits[self.wcs_idx].header['CD2_2']]]
+        self.wcs._naxis1 = self.fits[self.wcs_idx].header['NAXIS1']
+        self.wcs._naxis2 = self.fits[self.wcs_idx].header['NAXIS2']
 
     def contains_position(self,ra,dec):
         if self.footprint is not None: #do fast check first
@@ -127,7 +128,7 @@ class science_image():
 
         #now, it could be, so actually try a cutout to see if it will work
         try:
-            cutout = Cutout2D(self.fits[0].data, SkyCoord(ra, dec, unit="deg", frame=self.frame), (1, 1),
+            cutout = Cutout2D(self.fits[self.wcs_idx].data, SkyCoord(ra, dec, unit="deg", frame=self.frame), (1, 1),
                               wcs=self.wcs, copy=True)#,mode='partial')
         except:
             log.debug("position (%f, %f) is not in image." % (ra,dec), exc_info=False)
@@ -184,7 +185,7 @@ class science_image():
 
                 try:
                     position = SkyCoord(ra, dec, unit="deg", frame=self.frame)
-                    image = self.fits[0]
+                    image = self.fits[self.wcs_idx]
 
                     #sanity check
                     #x, y = skycoord_to_pixel(position, wcs=self.wcs, mode='all')
@@ -193,7 +194,7 @@ class science_image():
 
                     pix_window = int(np.ceil(window / self.pixel_size))  # now in pixels
                     log.debug("Collecting cutout size = %d square at RA,Dec = (%f,%f)" %(pix_window,ra,dec))
-                    cutout = Cutout2D(self.fits[0].data, position, (pix_window, pix_window), wcs=self.wcs, copy=copy)
+                    cutout = Cutout2D(self.fits[self.wcs_idx].data, position, (pix_window, pix_window), wcs=self.wcs, copy=copy)
                     self.get_vrange(cutout.data)
                 except NoOverlapError:
                     log.info("Error (possible NoOverlapError) in science_image::get_cutout(). "

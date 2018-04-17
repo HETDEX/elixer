@@ -108,7 +108,7 @@ def main():
 #'RA_min':  8.50, 'RA_max': 11.31, 'Dec_min': -4.0, 'Dec_max': -1.32
         instrument,filter,cat_tract,tile_pos = parse_hsc_image_name(os.path.basename(f))
 
-        print("'%s': {'RA_min':%f,'RA_max':%f,'Dec_min':%f,'Dec_max':%f,'instrument':'%s','filter':'%s','tract':%s,'pos':(%d,%d)},"
+        print("'%s': {'RA_min':%f,'RA_max':%f,'Dec_min':%f,'Dec_max':%f,'instrument':'%s','filter':'%s','tract':'%s','pos':(%d,%d)},"
               %(f,ra_lo,ra_hi,dec_lo,dec_hi,instrument,filter,cat_tract,tile_pos[0],tile_pos[1]))
 
 
