@@ -16,8 +16,10 @@ import matplotlib.gridspec as gridspec
 import astropy.table
 import line_prob
 
-log = G.logging.getLogger('Cat_logger')
-log.setLevel(G.logging.DEBUG)
+#log = G.logging.getLogger('Cat_logger')
+#log.setLevel(G.logging.DEBUG)
+log = G.Global_Logger('cat_logger')
+log.setlevel(G.logging.DEBUG)
 
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
@@ -26,7 +28,7 @@ import match_summary
 import hsc_meta
 
 def hsc_count_to_mag(count,cutout=None,sci_image=None):
-    return 99.9
+    return 999.9
     #todo: fill in with the correct conversion once added to the HSC headers
     if count is not None:
         if sci_image is not None:
@@ -345,7 +347,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             entry = self.build_cat_summary_figure(cat_match,target_ra, target_dec, error, ras, decs,
                                                   target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux)
         else:
-            log.error("ERRROR!!! Unexpected state of G.SINGLE_PAGE_PER_DETECT")
+            log.error("ERROR!!! Unexpected state of G.SINGLE_PAGE_PER_DETECT")
 
 
         if entry is not None:
@@ -359,7 +361,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 self.add_bid_entry(entry)
 #        else:  # each bid taget gets its own line
         if (not G.FORCE_SINGLE_PAGE) and (len(ras) > G.MAX_COMBINE_BID_TARGETS):  # each bid taget gets its own line
-            log.error("ERRROR!!! Unexpected state of G.FORCE_SINGLE_PAGE")
+            log.error("ERROR!!! Unexpected state of G.FORCE_SINGLE_PAGE")
 
         return self.pages
 

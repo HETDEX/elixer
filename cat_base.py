@@ -16,8 +16,10 @@ import science_image
 from matplotlib.font_manager import FontProperties
 import scipy.constants
 
-log = G.logging.getLogger('Cat_logger')
-log.setLevel(G.logging.DEBUG)
+#log = G.logging.getLogger('Cat_logger')
+#log.setLevel(G.logging.DEBUG)
+log = G.Global_Logger('cat_logger')
+log.setlevel(G.logging.DEBUG)
 
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
@@ -116,9 +118,19 @@ class Catalog:
         if (cls.Cat_Coord_Range['RA_min'] is None) and (cls.Image_Coord_Range['RA_min'] is None) and (cls.df is None):
             cls.read_main_catalog()
 
+        #use the imaging first (it is most important)
+        #some catalogs have entries outside of the imageing field and, now, that is not useful
         try:
-            #either in the catalog range OR in the Image range
-            if (cls.Cat_Coord_Range['RA_min'] is not None):
+            if (cls.Image_Coord_Range['RA_min'] is not None):
+                result = (ra >= (cls.Image_Coord_Range['RA_min'] - error)) and \
+                         (ra <= (cls.Image_Coord_Range['RA_max'] + error)) and \
+                         (dec >= (cls.Image_Coord_Range['Dec_min'] - error)) and \
+                         (dec <= (cls.Image_Coord_Range['Dec_max'] + error))
+
+               # if result: #yes it is in range, lets see if there is actually a non-empty cutout for it??
+               #     cutout,counts, ... this is a complication. Needs to know which image(s) to load
+
+            elif (cls.Cat_Coord_Range['RA_min'] is not None):
                 result = (ra >=  (cls.Cat_Coord_Range['RA_min'] - error)) and \
                          (ra <=  (cls.Cat_Coord_Range['RA_max'] + error)) and \
                          (dec >= (cls.Cat_Coord_Range['Dec_min'] - error)) and \
@@ -126,14 +138,24 @@ class Catalog:
         except:
             result = False
 
-        try:
-            if (not result) and (cls.Image_Coord_Range['RA_min'] is not None):
-                result = (ra >=  (cls.Image_Coord_Range['RA_min'] - error)) and \
-                         (ra <=  (cls.Image_Coord_Range['RA_max'] + error)) and \
-                         (dec >= (cls.Image_Coord_Range['Dec_min'] - error)) and \
-                         (dec <= (cls.Image_Coord_Range['Dec_max'] + error))
-        except:
-            pass #keep the result as is
+        # try:
+        #     #either in the catalog range OR in the Image range
+        #     if (cls.Cat_Coord_Range['RA_min'] is not None):
+        #         result = (ra >=  (cls.Cat_Coord_Range['RA_min'] - error)) and \
+        #                  (ra <=  (cls.Cat_Coord_Range['RA_max'] + error)) and \
+        #                  (dec >= (cls.Cat_Coord_Range['Dec_min'] - error)) and \
+        #                  (dec <= (cls.Cat_Coord_Range['Dec_max'] + error))
+        # except:
+        #     result = False
+        #
+        # try:
+        #     if (not result) and (cls.Image_Coord_Range['RA_min'] is not None):
+        #         result = (ra >=  (cls.Image_Coord_Range['RA_min'] - error)) and \
+        #                  (ra <=  (cls.Image_Coord_Range['RA_max'] + error)) and \
+        #                  (dec >= (cls.Image_Coord_Range['Dec_min'] - error)) and \
+        #                  (dec <= (cls.Image_Coord_Range['Dec_max'] + error))
+        # except:
+        #     pass #keep the result as is
 
         return result
 

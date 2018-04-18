@@ -20,8 +20,10 @@ import astropy.table
 #warnings.filterwarnings('ignore', category=astropy.utils.exceptions.AstropyUserWarning, append=True)
 import line_prob
 
-log = G.logging.getLogger('Cat_logger')
-log.setLevel(G.logging.DEBUG)
+#log = G.logging.getLogger('Cat_logger')
+#log.setLevel(G.logging.DEBUG)
+log = G.Global_Logger('cat_logger')
+log.setlevel(G.logging.DEBUG)
 
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 

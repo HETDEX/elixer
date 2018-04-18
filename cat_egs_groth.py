@@ -23,8 +23,10 @@ from astropy.table import Table
 #from astropy.io import ascii #note: this works, but pandas is much faster
 
 
-log = G.logging.getLogger('Cat_logger')
-log.setLevel(G.logging.DEBUG)
+#log = G.logging.getLogger('Cat_logger')
+#log.setLevel(G.logging.DEBUG)
+log = G.Global_Logger('cat_logger')
+log.setlevel(G.logging.DEBUG)
 
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 import cat_base

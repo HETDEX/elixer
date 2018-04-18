@@ -1,8 +1,10 @@
 from __future__ import print_function
 import global_config as G
 
-log = G.logging.getLogger('match_summary_logger')
-log.setLevel(G.logging.DEBUG)
+#log = G.logging.getLogger('match_summary_logger')
+#log.setLevel(G.logging.DEBUG)
+log = G.Global_Logger('match_summary_logger')
+log.setlevel(G.logging.DEBUG)
 
 
 class Filter:

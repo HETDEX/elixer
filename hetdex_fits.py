@@ -5,9 +5,10 @@ from astropy.io import fits as pyfits
 from astropy.coordinates import Angle
 import os.path as op
 
-log = G.logging.getLogger('hetdex_logger')
-log.setLevel(G.logging.DEBUG)
-
+#log = G.logging.getLogger('hetdex_logger')
+#log.setLevel(G.logging.DEBUG)
+log = G.Global_Logger('hetdex_logger')
+log.setlevel(G.logging.DEBUG)
 
 class HetdexFits:
     '''A single HETDEX fits file ... 2D spectra, expected to be science file'''

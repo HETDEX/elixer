@@ -42,8 +42,17 @@ import fiber as voltron_fiber
 import ifu as voltron_ifu #only using to locate panacea files (voltron only uses individual fibers, not entire IFUs)
 import spectrum as voltron_spectrum
 
-log = G.logging.getLogger('hetdex_logger')
-log.setLevel(G.logging.DEBUG)
+#todo: write a class wrapper for log
+#an instance called log that has functions .Info, .Debug, etc
+#they all take a string (the message) and the exc_info flag
+# inside they prepend a time to the string and then pass along to the regular logger
+
+#log = G.logging.getLogger('hetdex_logger')
+#log.setLevel(G.logging.DEBUG)
+
+log = G.Global_Logger('hetdex_logger')
+log.setlevel(G.logging.DEBUG)
+
 
 CONFIG_BASEDIR = G.CONFIG_BASEDIR
 VIRUS_CONFIG = G.VIRUS_CONFIG #op.join(CONFIG_BASEDIR,"virus_config")
@@ -690,6 +699,9 @@ class DetObj:
 
     #rsp1 (when t5all was provided and we want to load specific fibers for a single detection)
     def load_fluxcalibrated_spectra(self):
+
+
+
         del self.calspec_wavelength[:]
         del self.calspec_counts[:]
         del self.calspec_flux[:]
@@ -717,7 +729,10 @@ class DetObj:
 
         basename = op.basename(self.fcsdir)
 
+        log.info("Loading HETDEX data (flux calibrated spectra, etc) for %s" %self.fcsdir)
+
         #get summary information (res file)
+        # wavelength   wavelength(best fit) counts sigma  ?? S/N   cont(10^-17)
         #wavelength   wavelength(best fit) flux(10^-17) sigma  ?? S/N   cont(10^-17)
         file = op.join(self.fcsdir, basename + "_2d.res")
         try:
@@ -733,7 +748,11 @@ class DetObj:
                     self.w = float(toks[1])
                     #as is, way too large ... maybe not originally calculated as per angstrom? so divide by wavelength?
                     #or maybe units are not right or a miscalculation?
-                    self.estflux = float(toks[2]) * self.calspec_flux_unit_scale # * 10 ** (-17)
+                    #toks2 is in counts
+                 #   self.estflux = float(toks[2]) * self.calspec_flux_unit_scale # * 10 ** (-17)
+                    print("Warning! Using old flux conversion between counts and flux!!!")
+                    self.estflux = float(toks[2]) * flux_conversion(self.w)
+
                     self.sigma = float(toks[3])
                     self.snr = float(toks[5])
                     self.cont_cgs = float(toks[6]) * self.calspec_flux_unit_scale# * 10 ** (-17)
@@ -3910,7 +3929,7 @@ class HETDEX:
        # plt.tight_layout()#pad=0.1, w_pad=0.5, h_pad=1.0)
         plt.savefig(buf, format='png', dpi=300)
 
-        if G.ZOO:
+        if G.ZOO_CUTOUTS:
             try:
                 fn = self.output_filename + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_2d_fib.png"
                 fn = op.join( datakeep['detobj'].outdir, fn)
@@ -4020,7 +4039,7 @@ class HETDEX:
             buf = io.BytesIO()
             plt.savefig(buf, format='png', dpi=300)
 
-            if G.ZOO:
+            if G.ZOO_CUTOUTS:
                 try:
                     zoo_num = "ccd_sub"
                     if key == "scatter_sky":
@@ -4152,7 +4171,7 @@ class HETDEX:
         buf = io.BytesIO()
         plt.savefig(buf, format='png', dpi=300)
 
-        if G.ZOO:
+        if G.ZOO_CUTOUTS:
             try:
                 fn = self.output_filename + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_1d_sum.png"
                 fn = op.join(datakeep['detobj'].outdir, fn)
@@ -4342,9 +4361,21 @@ class HETDEX:
                     F += (np.interp(bigwave, datakeep['fw_specwave'][ind[j]],
                                     datakeep['fw_spec'][ind[j]] * datakeep['fiber_weight'][ind[j]]) )
 
+
+
+
+            #peak_height = near get the approximate peak height
             mn = np.min(F)
             mx = np.max(F)
-            mn = max(mn,-0.2*mx) #at most go -20% of the peak below zero (most likely a bad sky subtraction)
+
+            try:
+                peak_idx = (np.abs(datakeep['calspec_wave'] - cwave)).argmin()
+                peak_height = datakeep['calspec_flux'][peak_idx]
+
+                mn = max(mn,-0.2*peak_height) #at most go -20% of the peak below zero (most likely a bad sky subtraction)
+                mx = min(mx, 2.0 * peak_height)  # at most go 100% above the peak
+            except:
+                pass
 
 
             #flux at the cwave position
@@ -4465,7 +4496,7 @@ class HETDEX:
         plt.savefig(buf, format='png', dpi=300)
 
 
-        if G.ZOO:
+        if G.ZOO_CUTOUTS:
             try:
                 fn = self.output_filename + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_1d_full.png"
                 fn = op.join(datakeep['detobj'].outdir, fn)

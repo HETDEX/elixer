@@ -13,7 +13,7 @@
 # get status
 # get cutout (takes ra,dec,error) returns cutout_image (the cutout is just another science image)
 
-import global_config
+import global_config as G
 import numpy as np
 from astropy.visualization import ZScaleInterval
 import astropy.io.fits as fits
@@ -27,8 +27,10 @@ from astropy import units as ap_units
 from photutils import SkyCircularAperture
 from photutils import aperture_photometry
 
-log = global_config.logging.getLogger('sciimg_logger')
-log.setLevel(global_config.logging.DEBUG)
+#log = G.logging.getLogger('sciimg_logger')
+#log.setLevel(G.logging.DEBUG)
+log = G.Global_Logger('sciimg_logger')
+log.setlevel(G.logging.DEBUG)
 
 class science_image():
 
@@ -310,3 +312,12 @@ class science_image():
         s = np.sin(rad)
         c = np.cos(rad)
         return np.array([[c, -s], [s, c]])
+
+    def is_cutout_blank(self,cutout):
+        #check the variance if zero, cutout is empty
+        try:
+            if np.var(cutout.data) == 0.0:
+                return True
+        except:
+            return False
+        return False

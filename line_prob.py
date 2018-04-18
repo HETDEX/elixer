@@ -6,9 +6,10 @@ import global_config as G
 
 MAX_PLAE_POII = 999
 
-log = G.logging.getLogger('line_prob_logger')
-log.setLevel(G.logging.DEBUG)
-
+#log = G.logging.getLogger('line_prob_logger')
+#log.setLevel(G.logging.DEBUG)
+log = G.Global_Logger('line_prob_logger')
+log.setlevel(G.logging.DEBUG)
 # test call
 #addl_fluxes is an array one for each = ['[NeIII]','H_beta','[OIII]','[OIII]']
 

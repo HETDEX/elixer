@@ -36,8 +36,10 @@ VERSION = sys.version.split()[0]
 
 G_PDF_FILE_NUM = 0
 
-log = G.logging.getLogger('main_logger')
-log.setLevel(G.logging.DEBUG)
+#log = G.logging.getLogger('main_logger')
+#log.setLevel(G.logging.DEBUG)
+log = G.Global_Logger('main_logger')
+log.setlevel(G.logging.DEBUG)
 
 def get_input(prompt):
     if LooseVersion(VERSION) >= LooseVersion('3.0'):
@@ -170,7 +172,9 @@ def parse_commandline():
 
     parser.add_argument('--panacea_red',help="Basedir for searching for Panacea reduction files",required=False)
 
-    parser.add_argument('--zoo', help='Redact sensitive information for publication on Zooniverse', required=False,
+    parser.add_argument('--zoo', help='Produce image cutouts for publication on Zooniverse', required=False,
+                        action='store_true', default=False)
+    parser.add_argument('--zoox', help='Redact sensitive information AND produce image cutouts for publication on Zooniverse', required=False,
                         action='store_true', default=False)
     parser.add_argument('--jpg', help='Also save report in JPEG format.', required=False,
                         action='store_true', default=False)
@@ -199,7 +203,12 @@ def parse_commandline():
         G.FORCE_SINGLE_PAGE = not args.allcat
 
     if (args.zoo is not None) and (args.zoo):
+        #G.ZOO = False #for now, don't hide, just do the cutouts
+        G.ZOO_CUTOUTS = True
+
+    if (args.zoox is not None) and (args.zoox):
         G.ZOO = True
+        G.ZOO_CUTOUTS = True
 
     if args.ra is not None:
         if ":" in args.ra:
@@ -364,6 +373,8 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
     #if a report object is passed in, immediately append to it, otherwise, add to the pages list and return that
     section_title = idstring
     count = 0
+
+    log.info("Building page for %s" %pdfname)
     #generally expect this to be one catalog
     if len(cats) > 1 and G.SINGLE_PAGE_PER_DETECT:
         #todo: choose the single best catalog
@@ -782,7 +793,7 @@ def get_fcsdir_subdirs_to_process(args):
         try:
             #is this a list or a file
             if os.path.isfile(args.dets):
-                detlist = out = np.genfromtxt(args.dets, dtype=None)
+                detlist = out = np.genfromtxt(args.dets, dtype=None,comments='#',usecols=(0,))
             else:
                 detlist = args.dets.split(', ')
         except:

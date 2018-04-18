@@ -17,8 +17,10 @@ import copy
 import line_prob
 
 
-log = G.logging.getLogger('spectrum_logger')
-log.setLevel(G.logging.DEBUG)
+#log = G.logging.getLogger('spectrum_logger')
+#log.setLevel(G.logging.DEBUG)
+log = G.Global_Logger('spectrum_logger')
+log.setlevel(G.logging.DEBUG)
 
 MIN_FWHM = 5 #AA (must xlat to pixels)
 MIN_ELI_SNR = 2.0 #bare minium SNR to even remotely consider a signal as real
@@ -327,7 +329,7 @@ def signal_score(wavelengths,values,errors,central,sbr=None, show_plot=False):
         if sbr is None:
             #done, no reason to continue
             log.warning("Could not determine SBR at wavelength = %f" %central)
-            return 0.0
+            return None
 
     score = sbr
     sk = -999

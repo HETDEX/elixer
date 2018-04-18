@@ -1,6 +1,7 @@
 from __future__ import print_function
 import logging
 import os.path as op
+from datetime import datetime
 #import gc
 
 #catalogs are defined at top of catalogs.py
@@ -89,6 +90,63 @@ LOG_FILENAME = "voltron.log"
 logging.basicConfig(filename=LOG_FILENAME,level=LOG_LEVEL,filemode='w')
 #.debug(), .info(), .warning(), .error(), .critical()
 
+
+class Global_Logger:
+    def __init__(self,id): #id is a string identifier
+        self.logger = logging.getLogger(id)
+
+    def add_time(self,msg):
+        try:
+            d = datetime.now()
+            msg = "[%s:%s:%s.%s]  %s" %(str(d.hour).zfill(2),str(d.minute).zfill(2),str(d.second).zfill(2),d.microsecond,msg)
+            return msg
+        except:
+            return msg
+
+
+    def setlevel(self,level):
+        try:
+            self.logger.setLevel(level)
+        except:
+            print("Exception in logger....")
+
+    def debug(self,msg,exc_info=False):
+        try:
+            msg = self.add_time(msg)
+            self.logger.debug(msg,exc_info=exc_info)
+        except:
+            print("Exception in logger....")
+
+    def info(self,msg,exc_info=False):
+        try:
+            msg = self.add_time(msg)
+            self.logger.info(msg,exc_info=exc_info)
+        except:
+            print("Exception in logger....")
+
+    def warning(self,msg,exc_info=False):
+        try:
+            msg = self.add_time(msg)
+            self.logger.warning(msg,exc_info=exc_info)
+        except:
+            print("Exception in logger....")
+
+    def error(self,msg,exc_info=False):
+        try:
+            msg = self.add_time(msg)
+            self.logger.error(msg,exc_info=exc_info)
+        except:
+            print("Exception in logger....")
+
+    def critical(self, msg, exc_info=False):
+        try:
+            msg = self.add_time(msg)
+            self.logger.critical(msg, exc_info=exc_info)
+        except:
+            print("Exception in logger....")
+
+
+
 LyA_rest = 1216. #A 1215.668 and 1215.674
 OII_rest = 3727.
 
@@ -169,5 +227,6 @@ QUAD_C = (ZERO_WEIGHT_DISTANCE**2-2*FULL_WEIGHT_DISTANCE*ZERO_WEIGHT_DISTANCE)/(
 PLOT_GAUSSIAN = True
 
 ZOO = False #target output for Zooniverse
+ZOO_CUTOUTS = False #produce the small zooniverse cutouts
 
 UNIQUE_DET_ID_NUM = 0

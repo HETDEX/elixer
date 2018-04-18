@@ -1,7 +1,9 @@
 import global_config as G
 
-log = G.logging.getLogger('Cat_logger')
-log.setLevel(G.logging.DEBUG)
+#log = G.logging.getLogger('Cat_logger')
+#log.setLevel(G.logging.DEBUG)
+log = G.Global_Logger('cat_logger')
+log.setlevel(G.logging.DEBUG)
 
 #base class for catalogs (essentially an interface class)
 #all Catalogs classes must implement:

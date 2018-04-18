@@ -1,8 +1,10 @@
 import global_config as G
 import numpy as np
 
-log = G.logging.getLogger('fiber_logger')
-log.setLevel(G.logging.DEBUG)
+#log = G.logging.getLogger('fiber_logger')
+#log.setLevel(G.logging.DEBUG)
+log = G.Global_Logger('fiber_logger')
+log.setlevel(G.logging.DEBUG)
 
 SIDE = ["L", "R"]
 
