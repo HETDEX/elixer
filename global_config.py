@@ -215,6 +215,7 @@ CCD_EDGE_FIBERS_ALL_2 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 
 #Detection Quality Score Values
 FULL_WEIGHT_DISTANCE = Fiber_Radius
 ZERO_WEIGHT_DISTANCE = 4.0 * Fiber_Radius
+COMPUTE_QUALITY_SCORE = True
 
 #quadratic constants for ax^2 + bx + c for fitted quadratic to weight fall off
 #QUAD_A = -1/(Fiber_Radius**2*(FULL_WEIGHT_MULT-ZERO_WEIGHT_MULT)**2)
@@ -230,3 +231,5 @@ ZOO = False #target output for Zooniverse
 ZOO_CUTOUTS = False #produce the small zooniverse cutouts
 
 UNIQUE_DET_ID_NUM = 0
+
+CLASSIFY_WITH_OTHER_LINES = True

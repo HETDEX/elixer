@@ -124,6 +124,8 @@ class Fiber:
         self.dqs_dist = None  # distance from source
         self.dqs_w = None #dqs weight
         self.dqs_bad = False
+
+        #these are from panacea or cure directly , the flux-calibrated data is farther down
         self.central_wave_pixels_bad = 0
         self.central_emis_counts = [] #from fiber-extracted ... the few pixels around the peak
         self.central_emis_wavelengths = []
@@ -142,7 +144,14 @@ class Fiber:
         self.interp_spectra_errors = []
 
         self.multi = None
-        self.relative_weight = 1.0
+        self.relative_weight = 1.0 #spatially calculated, so one for entire fiber
+        # to sum fibers need relative_weight*thuput at each wavelength
+        self.fluxcal_central_emis_wavelengths = []
+        self.fluxcal_central_emis_counts = []
+        self.fluxcal_central_emis_flux = []
+        self.fluxcal_central_emis_thru = []
+        self.fluxcal_emis_cont = []
+
         try:
             self.panacea_idx = int(panacea_fiber_index)
             self.number_in_amp = 112 - self.panacea_idx

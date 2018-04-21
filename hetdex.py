@@ -749,9 +749,9 @@ class DetObj:
                     #as is, way too large ... maybe not originally calculated as per angstrom? so divide by wavelength?
                     #or maybe units are not right or a miscalculation?
                     #toks2 is in counts
-                 #   self.estflux = float(toks[2]) * self.calspec_flux_unit_scale # * 10 ** (-17)
-                    print("Warning! Using old flux conversion between counts and flux!!!")
-                    self.estflux = float(toks[2]) * flux_conversion(self.w)
+                    self.estflux = float(toks[2]) * self.calspec_flux_unit_scale # * 10 ** (-17)
+                    #print("Warning! Using old flux conversion between counts and flux!!!")
+                    #self.estflux = float(toks[2]) * flux_conversion(self.w)
 
                     self.sigma = float(toks[3])
                     self.snr = float(toks[5])
@@ -848,9 +848,6 @@ class DetObj:
                         self.y = sky_y
 
                         self.fibers.append(fiber)
-
-
-
             except:
                 log.error("Cannot read l1,l6 files to build fibers: %s" % self.fcsdir, exc_info=True)
 
@@ -861,8 +858,18 @@ class DetObj:
             #construct the fiber and append to the list
 
 
+
+        #todo: get the tmpxxx.dat files for the relative through put for each fiber (by wavelength)
+        #these are the spectra cutout sections .. so need to weight each wavelength for each fiber
+        #in the cutout
+        #maybe add another array ... relative throughput
+
+      #  for f in self.fibers:
+
+
         #get the weights
         file = op.join(self.fcsdir, "list2")
+        tmp_base_count = 100
         try:
             tmp = np.genfromtxt(file,dtype=np.str,usecols=0)
             if len(tmp) != len(multi):
@@ -893,6 +900,18 @@ class DetObj:
                             if (f.multi == multi[i]) and (f.scifits_idstring == idstr[i]):
                                 f.relative_weight += w[i]
                                 subset_norm += w[i]
+
+                                #now, get the tmp file for the thoughput
+                                tmpfile = op.join(self.fcsdir, "tmp"+str(i+101)+".dat")
+                                tmp_out = np.loadtxt(tmpfile, dtype=np.float)
+                                #0 = wavelength, 1=counts?, 2=flux? 3,4,5 = throughput 6=cont?
+
+                                f.fluxcal_central_emis_wavelengths = tmp_out[:,0]
+                                f.fluxcal_central_emis_counts = tmp_out[:,1]
+                                f.fluxcal_central_emis_flux = tmp_out[:,2]
+                                f.fluxcal_central_emis_thru = tmp_out[:,3]*tmp_out[:,4]*tmp_out[:,5]
+                                f.fluxcal_emis_cont = tmp_out[:,6]
+
                         #else:
                         #    # find which fiber, if any, in set this belongs to
                         #    if (f.multi == multi[i]) and (f.scifits_idstring == idstr[i]):
@@ -941,7 +960,7 @@ class DetObj:
 
             self.calspec_wavelength_zoom = out[:, 0]
             self.calspec_counts_zoom = out[:, 1]
-            self.calspec_flux_zoom = out[:, 2]  * 1e17
+            self.calspec_flux_zoom = out[:, 2]  #* 1e17
             # todo: get flux_err_zoom
             # self.calspec_fluxerr_zoom = out[:,xxx]  * 1e17
 
@@ -980,10 +999,11 @@ class DetObj:
 
     def dqs_score(self,force_recompute=False):
         #dqs_compute_score eventually calls to dqs_shape() which can trigger a force_recompute
-        if self.dqs_compute_score(force_recompute=force_recompute):
-            return True
-        else:
-            self.dqs_compute_score(force_recompute=True)
+        if G.COMPUTE_QUALITY_SCORE:
+            if self.dqs_compute_score(force_recompute=force_recompute):
+                return True
+            else:
+                self.dqs_compute_score(force_recompute=True)
 
     def dqs_compute_score(self,force_recompute=False): #Detection Quality Score (score)
         if (self.dqs is not None) and not force_recompute:
@@ -2673,7 +2693,10 @@ class HETDEX:
 
         if not G.ZOO:
             if e.p_lae_oii_ratio is not None:
-                title += "\nP(LAE)/P(OII) = %0.3g  Score = %0.1f (%0.2f)" % (e.p_lae_oii_ratio,e.dqs,e.dqs_raw)
+                title += "\nP(LAE)/P(OII) = %0.3g" % (e.p_lae_oii_ratio)
+
+            if (e.dqs is not None) and (e.dqs_raw is not None):
+                title += "  Score = %0.1f (%0.2f)" % (e.dqs, e.dqs_raw)
         #title += "  Score = %0.1f" % (e.dqs)
 
         if e.w > 0:
@@ -2894,6 +2917,7 @@ class HETDEX:
             dd['calspec_flux_zoom'] = []
             dd['calspec_ferr_zoom'] = []
             dd['fiber_weight'] = []
+            dd['thruput'] = []
             dd['cos'] = []
             dd['ra'] = []
             dd['dec'] = []
@@ -3582,8 +3606,18 @@ class HETDEX:
 
             #fe_data is "sky_subtracted" ... the counts
             #wave is "wavelength" ... the corresponding wavelength
-            datakeep['spec'].append(fits.fe_data[loc, Fe_indl:(Fe_indh+1)])
-            datakeep['specwave'].append(wave[Fe_indl:(Fe_indh+1)])
+
+            if len(fiber.fluxcal_central_emis_wavelengths) > 0:
+                log.info("Using flux-calibrated spectra for central emission.")
+                datakeep['spec'].append(fiber.fluxcal_central_emis_counts)
+                datakeep['specwave'].append(fiber.fluxcal_central_emis_wavelengths)
+
+
+            else:
+                log.info("Using panacea fiber-extracted data for central emission.")
+                datakeep['spec'].append(fits.fe_data[loc, Fe_indl:(Fe_indh+1)])
+                datakeep['specwave'].append(wave[Fe_indl:(Fe_indh+1)])
+
             if fiber:
                 Fe_indl = center - PEAK_PIXELS
                 Fe_indh = center + PEAK_PIXELS
@@ -3618,6 +3652,7 @@ class HETDEX:
 
             #todo: set the weights correctly
             datakeep['fiber_weight'].append(fiber.relative_weight)
+            datakeep['thruput'].append(fiber.fluxcal_central_emis_thru)
 
             if len(datakeep['calspec_wave']) == 0:
                 # there is only ONE fluxcalibrated spectra for the entire detection (not one per fiber)
@@ -4109,7 +4144,11 @@ class HETDEX:
                               where='mid', color=datakeep['color'][i], alpha=alpha,linewidth=linewidth,zorder=i)
 
                 summed_spec += (np.interp(bigwave, datakeep['specwave'][ind[i]],
-                                          datakeep['spec'][ind[i]]) * datakeep['fiber_weight'][ind[i]])
+                                          datakeep['spec'][ind[i]] * datakeep['fiber_weight'][ind[i]]))
+
+                #summed_spec += (np.interp(bigwave, datakeep['specwave'][ind[i]],
+                #                          datakeep['spec'][ind[i]] / datakeep['thruput'][ind[i]] *
+                #                          datakeep['fiber_weight'][ind[i]]))
 
                 #this is for plotting purposes, so don't need them in the next loop (not plotted)
                 mn = np.min([mn, np.min(datakeep['spec'][ind[i]])])
@@ -4117,14 +4156,27 @@ class HETDEX:
 
             #now for the rest
             for i in range(stop,-1,-1):
-                summed_spec += (np.interp(bigwave, datakeep['specwave'][ind[i]],
-                                          datakeep['spec'][ind[i]]) * datakeep['fiber_weight'][ind[i]])
+               summed_spec += (np.interp(bigwave, datakeep['specwave'][ind[i]],
+                                          datakeep['spec'][ind[i]] * datakeep['fiber_weight'][ind[i]]))
 
+               #summed_spec += (np.interp(bigwave, datakeep['specwave'][ind[i]],
+               #                           datakeep['spec'][ind[i]] / datakeep['thruput'][ind[i]] *
+                #                          datakeep['fiber_weight'][ind[i]]))
 
             if PLOT_SUMMED_SPECTRA:
                 specplot.step(bigwave, summed_spec, c='k', where='mid', lw=2,linestyle="solid",alpha=1.0,zorder=99)
                 mn = min(mn, min(summed_spec))
                 mx = max(mx, max(summed_spec))
+
+
+                #print("temporary .. spece")
+                #datakeep['calspec_2d'] = e.calspec_2d_zoom
+                #datakeep['calspec_cnts_zoom'] = e.calspec_counts_zoom
+                #datakeep['calspec_wave_zoom'] = e.calspec_wavelength_zoom
+                #datakeep['calspec_flux_zoom'] = e.calspec_flux_zoom
+                #datakeep['calspec_ferr_zoom'] = e.calspec_fluxerr_zoom
+
+                #specplot.step(datakeep['calspec_wave_zoom'], datakeep['calspec_cnts_zoom'], c='r', where='mid', lw=2, linestyle="dotted", alpha=1.0, zorder=99)
 
             ran = mx - mn
 

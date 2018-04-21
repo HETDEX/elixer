@@ -1169,8 +1169,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         else:
             self.master_cutout.data /= total_adjusted_exptime
 
+
         plt.subplot(gs[1:, 0])
         self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, self.master_cutout)
+
 
         # complete the entry
         plt.close()

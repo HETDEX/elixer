@@ -194,8 +194,8 @@ def signal_score(wavelengths,values,errors,central,sbr=None, show_plot=False):
 
     #sbr signal to background ratio
     pix_size = abs(wavelengths[1] - wavelengths[0])  # aa per pix
-    # want +/- 20 angstroms in pixel units
-    wave_side = int(round(20.0 / pix_size))  # pixels
+    # want +/- 20 angstroms in pixel units (maybe should be 50 AA?
+    wave_side = int(round(50.0 / pix_size))  # pixels
     #1.5 seems to be good multiplier ... 2.0 is a bit too much;
     # 1.0 is not bad, but occasionally miss something by just a bit
     fit_range_AA = 1.5 * pix_size #1.0  # peak must fit to within +/- fit_range AA
@@ -1135,6 +1135,9 @@ class Spectrum:
         #for now, just with additional lines
         #todo: later add in continuum
         #todo: later add in bayseian stuff
+        if not G.CLASSIFY_WITH_OTHER_LINES:
+            return []
+
         del self.solutions[:]
         if (wavelengths is not None) and (values is not None) and (central is not None):
             self.set_spectra(wavelengths,values,errors,central)

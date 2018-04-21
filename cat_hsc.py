@@ -337,7 +337,11 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                                  target_w=0, fiber_locs=None, target_flux=None):
 
         self.clear_pages()
-        self.build_list_of_bid_targets(target_ra, target_dec, error)
+        num_targets, _, _ = self.build_list_of_bid_targets(target_ra, target_dec, error)
+        #could be there is no matching tile, if so, the dataframe will be none
+
+        if (num_targets == 0) or (self.dataframe_of_bid_targets_unique is None):
+            return None
 
         ras = self.dataframe_of_bid_targets_unique.loc[:, ['RA']].values
         decs = self.dataframe_of_bid_targets_unique.loc[:, ['DEC']].values

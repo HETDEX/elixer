@@ -406,6 +406,13 @@ class Catalog:
             # plot the fiber cutout
             log.debug("Plotting fiber positions...")
 
+            #temporary for Milos (examples for segementation)
+            #np.save("r"+str(ra)+"d"+str(dec), cutout.data)
+
+            #test
+            #ar = np.load("r"+str(ra)+"d"+str(dec)+".npy")
+            #plt.imshow(ar, origin='lower')
+
         #    if (fiber_locs is None) or len(fiber_locs) == 0:
         #        log.debug("Fiber locations not provided.")
         #        return False
@@ -638,3 +645,6 @@ class Catalog:
         # complete the entry
         plt.close()
         return fig
+
+    def write_cutout_as_fits(self,cutout,filename):
+        '''write a cutout as a fits file'''
