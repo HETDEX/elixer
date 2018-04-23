@@ -481,16 +481,16 @@ class DetObj:
         self.fcsdir = None
 
 
-        self.calspec_wavelength = []
-        self.calspec_counts = []
-        self.calspec_flux = []
-        self.calspec_flux_unit_scale = 1e-17 #cgs
-        self.calspec_fluxerr = []
-        self.calspec_wavelength_zoom = []
-        self.calspec_counts_zoom = []
-        self.calspec_flux_zoom = []
-        self.calspec_fluxerr_zoom = []
-        self.calspec_2d_zoom = []
+        self.sumspec_wavelength = []
+        self.sumspec_counts = []
+        self.sumspec_flux = []
+        self.sumspec_flux_unit_scale = 1e-17 #cgs
+        self.sumspec_fluxerr = []
+        self.sumspec_wavelength_zoom = []
+        self.sumspec_counts_zoom = []
+        self.sumspec_flux_zoom = []
+        self.sumspec_fluxerr_zoom = []
+        self.sumspec_2d_zoom = []
         self.spec_obj = voltron_spectrum.Spectrum() #use for classification, etc
 
         self.p_lae = None #from Andrew Leung
@@ -702,14 +702,14 @@ class DetObj:
 
 
 
-        del self.calspec_wavelength[:]
-        del self.calspec_counts[:]
-        del self.calspec_flux[:]
-        del self.calspec_fluxerr[:]
-        del self.calspec_wavelength_zoom[:]
-        del self.calspec_counts_zoom[:]
-        del self.calspec_flux_zoom[:]
-        del self.calspec_fluxerr_zoom[:]
+        del self.sumspec_wavelength[:]
+        del self.sumspec_counts[:]
+        del self.sumspec_flux[:]
+        del self.sumspec_fluxerr[:]
+        del self.sumspec_wavelength_zoom[:]
+        del self.sumspec_counts_zoom[:]
+        del self.sumspec_flux_zoom[:]
+        del self.sumspec_fluxerr_zoom[:]
 
         if self.fcsdir is None:
             return
@@ -749,13 +749,13 @@ class DetObj:
                     #as is, way too large ... maybe not originally calculated as per angstrom? so divide by wavelength?
                     #or maybe units are not right or a miscalculation?
                     #toks2 is in counts
-                    self.estflux = float(toks[2]) * self.calspec_flux_unit_scale # * 10 ** (-17)
+                    self.estflux = float(toks[2]) * self.sumspec_flux_unit_scale # * 10 ** (-17)
                     #print("Warning! Using old flux conversion between counts and flux!!!")
                     #self.estflux = float(toks[2]) * flux_conversion(self.w)
 
                     self.sigma = float(toks[3])
                     self.snr = float(toks[5])
-                    self.cont_cgs = float(toks[6]) * self.calspec_flux_unit_scale# * 10 ** (-17)
+                    self.cont_cgs = float(toks[6]) * self.sumspec_flux_unit_scale# * 10 ** (-17)
 
                     # todo: need a floor for cgs (if negative)
                     # for now only
@@ -941,11 +941,11 @@ class DetObj:
         try:
             out = np.loadtxt(file, dtype=None)
 
-            self.calspec_wavelength = out[:,0]
-            self.calspec_counts = out[:, 1]
-            self.calspec_flux = out[:,2] * 1e17
+            self.sumspec_wavelength = out[:,0]
+            self.sumspec_counts = out[:, 1]
+            self.sumspec_flux = out[:,2] * 1e17
             #todo: get flux_err
-            #self.calspec_fluxerr = out[:,xxx]  * 1e17
+            #self.sumspec_fluxerr = out[:,xxx]  * 1e17
 
         except:
             log.error("Fatal. Cannot read *specf.res file: %s" % file, exc_info=True)
@@ -958,11 +958,11 @@ class DetObj:
         try:
             out = np.loadtxt(file, dtype=None)
 
-            self.calspec_wavelength_zoom = out[:, 0]
-            self.calspec_counts_zoom = out[:, 1]
-            self.calspec_flux_zoom = out[:, 2]  #* 1e17
+            self.sumspec_wavelength_zoom = out[:, 0]
+            self.sumspec_counts_zoom = out[:, 1]
+            self.sumspec_flux_zoom = out[:, 2]  #* 1e17
             # todo: get flux_err_zoom
-            # self.calspec_fluxerr_zoom = out[:,xxx]  * 1e17
+            # self.sumspec_fluxerr_zoom = out[:,xxx]  * 1e17
 
         except:
             log.error("Fatal. Cannot read *_spece.res file: %s" % file, exc_info=True)
@@ -976,7 +976,7 @@ class DetObj:
         file = op.join(self.fcsdir, basename + ".fits")
         try:
             f = pyfits.open(file)
-            self.calspec_2d_zoom = f[0].data
+            self.sumspec_2d_zoom = f[0].data
             f.close()
         except:
             log.error("could not read file " + file, exc_info=True) #not fatal
@@ -993,7 +993,7 @@ class DetObj:
 
 
         #set_spectra(self, wavelengths, values, errors, central, estflux=None, eqw_obs=None)
-        self.spec_obj.set_spectra(self.calspec_wavelength,self.calspec_counts,self.calspec_fluxerr,self.w)
+        self.spec_obj.set_spectra(self.sumspec_wavelength,self.sumspec_counts,self.sumspec_fluxerr,self.w)
         self.spec_obj.classify() #solutions can be returned, also stored in spec_obj.solutions
 
 
@@ -2907,17 +2907,26 @@ class HETDEX:
             dd['specwave'] = []
             dd['fw_spec']  = []
             dd['fw_specwave'] = []
-            dd['calspec_wave'] = []
-            dd['calspec_cnts'] = []
-            dd['calspec_flux'] = []
-            dd['calspec_ferr'] = []
-            dd['calspec_2d'] = []
-            dd['calspec_cnts_zoom'] = []
-            dd['calspec_wave_zoom'] = []
-            dd['calspec_flux_zoom'] = []
-            dd['calspec_ferr_zoom'] = []
+
+            #these are single entry for entire detection (i.e. summed up)
+            dd['sumspec_wave'] = []
+            dd['sumspec_cnts'] = []
+            dd['sumspec_flux'] = []
+            dd['sumspec_ferr'] = []
+            dd['sumspec_2d'] = []
+            dd['sumspec_cnts_zoom'] = []
+            dd['sumspec_wave_zoom'] = []
+            dd['sumspec_flux_zoom'] = []
+            dd['sumspec_ferr_zoom'] = []
+
+            #these are per fiber in the detection
             dd['fiber_weight'] = []
             dd['thruput'] = []
+            dd['fluxcal_wave'] = []
+            dd['fluxcal_cnts'] = []
+            dd['fluxcal_flux'] = []
+            dd['fluxcal_cont'] = []
+
             dd['cos'] = []
             dd['ra'] = []
             dd['dec'] = []
@@ -3234,12 +3243,12 @@ class HETDEX:
                 datakeep['fiber_weight'].append(1.0)
 
                 #this is CURE for now, do not ever have this data
-                if len(datakeep['calspec_wave']) == 0:
+                if len(datakeep['sumspec_wave']) == 0:
                     #there is only ONE fluxcalibrated spectra for the entire detection (not one per fiber)
-                    datakeep['calspec_wave'] = e.calspec_wavelength
-                    datakeep['calspec_cnts'] = e.calspec_counts
-                    datakeep['calspec_flux'] = e.calspec_flux
-                    datakeep['calspec_ferr'] = e.calspec_fluxerr
+                    datakeep['sumspec_wave'] = e.sumspec_wavelength
+                    datakeep['sumspec_cnts'] = e.sumspec_counts
+                    datakeep['sumspec_flux'] = e.sumspec_flux
+                    datakeep['sumspec_ferr'] = e.sumspec_fluxerr
 
         return datakeep
 
@@ -3654,18 +3663,26 @@ class HETDEX:
             datakeep['fiber_weight'].append(fiber.relative_weight)
             datakeep['thruput'].append(fiber.fluxcal_central_emis_thru)
 
-            if len(datakeep['calspec_wave']) == 0:
-                # there is only ONE fluxcalibrated spectra for the entire detection (not one per fiber)
-                datakeep['calspec_wave'] = e.calspec_wavelength
-                datakeep['calspec_cnts'] = e.calspec_counts
-                datakeep['calspec_flux'] = e.calspec_flux
-                datakeep['calspec_ferr'] = e.calspec_fluxerr
+            datakeep['fluxcal_wave'].append(fiber.fluxcal_central_emis_wavelengths)
+            datakeep['fluxcal_cnts'].append(fiber.fluxcal_central_emis_counts)
+            datakeep['fluxcal_flux'].append(fiber.fluxcal_central_emis_flux)
+            datakeep['fluxcal_cont'].append(fiber.fluxcal_emis_cont)
 
-                datakeep['calspec_2d'] = e.calspec_2d_zoom
-                datakeep['calspec_cnts_zoom'] = e.calspec_counts_zoom
-                datakeep['calspec_wave_zoom'] = e.calspec_wavelength_zoom
-                datakeep['calspec_flux_zoom'] = e.calspec_flux_zoom
-                datakeep['calspec_ferr_zoom'] = e.calspec_fluxerr_zoom
+
+
+
+            if len(datakeep['sumspec_wave']) == 0:
+                # there is only ONE summed fluxcalibrated spectra for the entire detection (not one per fiber)
+                datakeep['sumspec_wave'] = e.sumspec_wavelength
+                datakeep['sumspec_cnts'] = e.sumspec_counts
+                datakeep['sumspec_flux'] = e.sumspec_flux
+                datakeep['sumspec_ferr'] = e.sumspec_fluxerr
+
+                datakeep['sumspec_2d'] = e.sumspec_2d_zoom
+                datakeep['sumspec_cnts_zoom'] = e.sumspec_counts_zoom
+                datakeep['sumspec_wave_zoom'] = e.sumspec_wavelength_zoom
+                datakeep['sumspec_flux_zoom'] = e.sumspec_flux_zoom
+                datakeep['sumspec_ferr_zoom'] = e.sumspec_fluxerr_zoom
 
 
 
@@ -4170,13 +4187,13 @@ class HETDEX:
 
 
                 #print("temporary .. spece")
-                #datakeep['calspec_2d'] = e.calspec_2d_zoom
-                #datakeep['calspec_cnts_zoom'] = e.calspec_counts_zoom
-                #datakeep['calspec_wave_zoom'] = e.calspec_wavelength_zoom
-                #datakeep['calspec_flux_zoom'] = e.calspec_flux_zoom
-                #datakeep['calspec_ferr_zoom'] = e.calspec_fluxerr_zoom
+                #datakeep['sumspec_2d'] = e.sumspec_2d_zoom
+                #datakeep['sumspec_cnts_zoom'] = e.sumspec_counts_zoom
+                #datakeep['sumspec_wave_zoom'] = e.sumspec_wavelength_zoom
+                #datakeep['sumspec_flux_zoom'] = e.sumspec_flux_zoom
+                #datakeep['sumspec_ferr_zoom'] = e.sumspec_fluxerr_zoom
 
-                #specplot.step(datakeep['calspec_wave_zoom'], datakeep['calspec_cnts_zoom'], c='r', where='mid', lw=2, linestyle="dotted", alpha=1.0, zorder=99)
+                #specplot.step(datakeep['sumspec_wave_zoom'], datakeep['sumspec_cnts_zoom'], c='r', where='mid', lw=2, linestyle="dotted", alpha=1.0, zorder=99)
 
             ran = mx - mn
 
@@ -4398,8 +4415,8 @@ class HETDEX:
       #  min_y = -20
         try:
             j = None
-            if len(datakeep['calspec_wave']) > 0:
-                F = np.interp(bigwave, datakeep['calspec_wave'], datakeep['calspec_flux'])
+            if len(datakeep['sumspec_wave']) > 0:
+                F = np.interp(bigwave, datakeep['sumspec_wave'], datakeep['sumspec_flux'])
                 y_label = "cgs" #r"cgs [$10^{-17}$]"
  #               min_y = -2
             else:
@@ -4421,8 +4438,8 @@ class HETDEX:
             mx = np.max(F)
 
             try:
-                peak_idx = (np.abs(datakeep['calspec_wave'] - cwave)).argmin()
-                peak_height = datakeep['calspec_flux'][peak_idx]
+                peak_idx = (np.abs(datakeep['sumspec_wave'] - cwave)).argmin()
+                peak_height = datakeep['sumspec_flux'][peak_idx]
 
                 mn = max(mn,-0.2*peak_height) #at most go -20% of the peak below zero (most likely a bad sky subtraction)
                 mx = min(mx, 2.0 * peak_height)  # at most go 100% above the peak
@@ -4458,7 +4475,7 @@ class HETDEX:
             textplot.axis('off')
 
             #if this is flux, not counts, add a ersatz scale label for y axis
-            if len( datakeep['calspec_wave']) > 0:
+            if len( datakeep['sumspec_wave']) > 0:
                 textplot.text(3500, textplot.axis()[2], "e-17", rotation=0, ha='left', va='bottom',
                           fontsize=10, color='k')  # use the e color for this family
 

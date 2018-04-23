@@ -413,17 +413,14 @@ class Catalog:
             #ar = np.load("r"+str(ra)+"d"+str(dec)+".npy")
             #plt.imshow(ar, origin='lower')
 
-        #    if (fiber_locs is None) or len(fiber_locs) == 0:
-        #        log.debug("Fiber locations not provided.")
-        #        return False
-
-            if fiber_locs is None:
-                fiber_locs = []
-
             try:
                 empty_sci = science_image.science_image()
 
-                plt.title("Fiber Positions")
+                if (fiber_locs is None) or (len(fiber_locs) == 0):
+                    fiber_locs = []
+                    plt.title("")
+                else:
+                    plt.title("Fiber Positions")
                 plt.xlabel("arcsecs")
                 plt.gca().xaxis.labelpad = 0
 
