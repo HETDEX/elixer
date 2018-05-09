@@ -1098,6 +1098,7 @@ class Spectrum:
             num_hats = 0
 
             filter = np.zeros(np.shape(wx))
+            #filter = np.full(np.shape(wx),-1.0)
             pix_size = np.float(wx[1]-wx[0]) #assume to be evenly spaced
 
 
