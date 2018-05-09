@@ -26,6 +26,7 @@ class BidTarget:
         self.p_lae = None
         self.p_oii = None
         self.p_lae_oii_ratio = None
+        self.catalog_name = None
         # todo: filter exposure time??
 
         self.filters = []
@@ -44,6 +45,7 @@ class Match:
             self.emis_ra = 361.00
             self.emis_dec = 181.00
             self.emis_wavelength = 0.0
+            self.emis_fwhm = -1.0
             self.emis_sigma = 0.0
             self.emis_chi2 = 0.0
             self.emis_sn = 0.0
@@ -69,6 +71,12 @@ class Match:
                 self.emis_dec = emis.dec
 
             self.emis_wavelength = emis.w
+
+            if emis.fwhm is not None:
+                self.emis_fwhm= emis.fwhm
+            else:
+                self.emis_fwhm = -1.0
+
             if emis.panacea:
                 self.emis_sn = emis.sigma
                 self.emis_sigma = -99999
@@ -100,7 +108,9 @@ class MatchSet:
         "detect ID",
         "emission line RA (decimal degrees)",
         "emission line Dec (decimal degrees)",
+        "number of possible catalog matches",
         "emission line wavelength (AA)",
+        "emission line FWHM (AA)",
         "emission line sigma (significance)",
         "emission line chi2 (point source fit)",
         "emission line S/N",
@@ -110,8 +120,9 @@ class MatchSet:
         "emission line continuum flux (electron counts)",
         "emission line continuum flux (cgs)",
         "emission line observed (estimated) equivalent width (not restframe)",
-        "catalog object RA (decimal degrees) [for the exact emission position, not matched to a catalog object, will = 666]",
-        "catalog object Dec (decimal degrees)[for the exact emission position, not matched to a catalog object, will = 666]",
+        "catalog name",
+        "catalog object RA (decimal degrees) [for the exact emission position, not matched to a catalog object, will = 361.0]",
+        "catalog object Dec (decimal degrees)[for the exact emission position, not matched to a catalog object, will = 181.0]",
         "catalog object separation (arcsecs) [for the exact emission position, not matched to a catalog object, will = 0.0]",
         "catalog object continuum flux est at emission line wavelength (cgs) [for the exact emission position, from aperture on catalog image]",
         "P(LAE)/P(OII)",
@@ -153,8 +164,16 @@ class MatchSet:
                 col_num += 1
                 f.write("# %d %s\n" % (col_num, h))
 
+            #need to get number of potential matches
+
             #entry_num = 0
             for m in self.match_set:
+                dummy_bid = 0
+                if len(m.bid_targets) == 0:
+                    #make a dummy one
+                    m.add_bid_target(BidTarget())
+                    dummy_bid = 1
+
                 for b in m.bid_targets:
              #       entry_num += 1
                     #f.write(str(entry_num))
@@ -162,7 +181,9 @@ class MatchSet:
                     f.write(sep + str(m.detect_id))
                     f.write(sep + str(m.emis_ra))
                     f.write(sep + str(m.emis_dec))
+                    f.write(sep + str(len(m.bid_targets)-dummy_bid))
                     f.write(sep + str(m.emis_wavelength))
+                    f.write(sep + str(m.emis_fwhm))
                     f.write(sep + str(m.emis_sigma))
                     f.write(sep + str(m.emis_chi2))
                     f.write(sep + str(m.emis_sn))
@@ -173,6 +194,7 @@ class MatchSet:
                     f.write(sep + str(m.emis_cont_flux_cgs))
                     f.write(sep + str(m.emis_obs_eqw))
 
+                    f.write(sep + str(b.catalog_name))
                     f.write(sep + str(b.bid_ra))
                     f.write(sep + str(b.bid_dec))
                     f.write(sep + str(b.distance))

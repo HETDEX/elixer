@@ -28,20 +28,30 @@ import match_summary
 import hsc_meta
 
 def hsc_count_to_mag(count,cutout=None,sci_image=None):
-    return 999.9
-    #todo: fill in with the correct conversion once added to the HSC headers
+   # return 999.9
+
+    #We can convert the counts into flux
+    # with a keyword in the header of the imaging data;
+    # FLUXMAG0=     63095734448.0194
+    #
+    # Because the HSC pipeline uses the zeropoint value (corresponds to 27 mag) to all filters,
+    # we can convert the counts values in the R-band imaging data as follows:
+    # -2.5*log(flux_R) -48.6 = -2.5*log(count_R / FLUXMAG0)
+    # --> flux_R = count_R / ( 10^(30.24) )
+
+    #note: zero point is 27 mag
     if count is not None:
         if sci_image is not None:
             #get the conversion factor, each tile is different
             try:
-                nanofact = float(sci_image[0].header['NANOFACT'])
+                fluxmag0 = float(sci_image[0].header['FLUXMAG0'])
             except:
-                nanofact = 0.0
+                fluxmag0 = 0.0
                 log.error("Exception in hsc_count_to_mag",exc_info=True)
                 return 99.9
 
         if count > 0:
-            return -2.5 * np.log10(count*nanofact) + 31.4
+            return -2.5 * np.log10(count/fluxmag0) #+ 48.6
         else:
             return 99.9  # need a better floor
 
@@ -111,7 +121,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         'X', # on fits
         'Y', # on fits
         'RA',
-        'Dec',
+        'Dec', #reanamed 'DEC'
         'flux.psf',
         'flux.psf.err',
         'flux.psf.flags',#("False" means no problems)
@@ -340,7 +350,8 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         num_targets, _, _ = self.build_list_of_bid_targets(target_ra, target_dec, error)
         #could be there is no matching tile, if so, the dataframe will be none
 
-        if (num_targets == 0) or (self.dataframe_of_bid_targets_unique is None):
+        #if (num_targets == 0) or
+        if (self.dataframe_of_bid_targets_unique is None):
             return None
 
         ras = self.dataframe_of_bid_targets_unique.loc[:, ['RA']].values
@@ -492,6 +503,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 if ((mag < 99) or (cont_est != -1)) and (target_flux is not None) and (i['filter'] == 'g'):
                     # make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
                     bid_target = match_summary.BidTarget()
+                    bid_target.catalog_name = self.Name
                     bid_target.bid_ra = 666  # nonsense RA
                     bid_target.bid_dec = 666  # nonsense Dec
                     bid_target.distance = 0.0
@@ -731,6 +743,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                             text = text + "N/A\n"
                         try:
                             bid_target = match_summary.BidTarget()
+                            bid_target.catalog_name = self.Name
                             bid_target.bid_ra = df['RA'].values[0]
                             bid_target.bid_dec = df['DEC'].values[0]
                             bid_target.distance = df['distance'].values[0] * 3600

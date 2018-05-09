@@ -149,6 +149,7 @@ class Fiber:
         self.fluxcal_central_emis_wavelengths = []
         self.fluxcal_central_emis_counts = []
         self.fluxcal_central_emis_flux = []
+        self.fluxcal_central_emis_fluxerr = []
         self.fluxcal_central_emis_thru = []
         self.fluxcal_emis_cont = []
 

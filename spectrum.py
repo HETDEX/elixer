@@ -1083,6 +1083,46 @@ class Spectrum:
         self.p_oii = None
         self.p_lae_oii_ratio = None
 
+    def top_hat_filter(self,w_rest,w_obs, wx, hat_width=None):
+        #optimal seems to be around 1 to < 2 resolutions (e.g. HETDEX ~ 6AA) ... 6 is good, 12 is a bit
+        #unstable ... or as rougly 3x pixel pix_size
+
+
+        #build up an array with tophat filters at emission line positions
+        #based on the rest and observed (shifted and streched based on the redshift)
+        # wx is the array of wavelengths (e.g the x coords)
+        # hat width in angstroms
+        try:
+            w_rest = np.float(w_rest)
+            w_obs = np.float(w_obs)
+            num_hats = 0
+
+            filter = np.zeros(np.shape(wx))
+            pix_size = np.float(wx[1]-wx[0]) #assume to be evenly spaced
+
+
+            if hat_width is None:
+                hat_width = 3.0*pix_size
+
+            half_hat = int(np.ceil(hat_width/pix_size)/2.0) #hat is split evenly on either side of center pix
+            z = w_obs/w_rest -1.0
+
+            #for each line in self.emission_lines that is in range, add a top_hat filter to filter
+            for e in self.emission_lines:
+                w = e.redshift(z)
+
+                #set center pixel and half-hat on either side to 1.0
+                if (w > wx[0]) and (w < wx[-1]):
+                    num_hats += 1
+                    idx = getnearpos(wx,w)
+                    filter[idx-half_hat:idx+half_hat+1] = 1.0
+        except:
+            log.warning("Unable to build top hat filter.", exc_info=True)
+            return None
+
+        return filter, num_hats
+
+
     def set_spectra(self,wavelengths, values, errors, central, estflux=None,eqw_obs=None):
         del self.wavelengths[:]
         del self.values[:]

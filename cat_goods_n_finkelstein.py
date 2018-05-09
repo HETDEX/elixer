@@ -544,6 +544,7 @@ class GOODS_N_FINKELSTEIN(cat_base.Catalog):
 
                         # bid target info is only of value if we have a flux from the emission line
                         bid_target = match_summary.BidTarget()
+                        bid_target.catalog_name = self.Name
                         bid_target.bid_ra = df['RA'].values[0]
                         bid_target.bid_dec = df['DEC'].values[0]
                         bid_target.distance = df['distance'].values[0] * 3600
@@ -922,6 +923,7 @@ class GOODS_N_FINKELSTEIN(cat_base.Catalog):
 
                     # bid target info is only of value if we have a flux from the emission line
                     bid_target = match_summary.BidTarget()
+                    bid_target.catalog_name = self.Name
                     bid_target.bid_ra = df['RA'].values[0]
                     bid_target.bid_dec = df['DEC'].values[0]
                     bid_target.distance = df['distance'].values[0] * 3600
@@ -1123,6 +1125,7 @@ class GOODS_N_FINKELSTEIN(cat_base.Catalog):
 
                         # bid target info is only of value if we have a flux from the emission line
                         bid_target = match_summary.BidTarget()
+                        bid_target.catalog_name = self.Name
                         bid_target.bid_ra = df['RA'].values[0]
                         bid_target.bid_dec = df['DEC'].values[0]
                         bid_target.distance = df['distance'].values[0] * 3600

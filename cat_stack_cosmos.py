@@ -583,6 +583,7 @@ class STACK_COSMOS(cat_base.Catalog):
                         and (i['instrument'] == 'CFHTLS') and (i['filter'] == 'g'):
                     #make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
                     bid_target = match_summary.BidTarget()
+                    bid_target.catalog_name = self.Name
                     bid_target.bid_ra = 666 #nonsense RA
                     bid_target.bid_dec = 666 #nonsense Dec
                     bid_target.distance = 0.0
@@ -983,6 +984,7 @@ class STACK_COSMOS(cat_base.Catalog):
 
                             # bid target info is only of value if we have a flux from the emission line
                             bid_target = match_summary.BidTarget()
+                            bid_target.catalog_name = self.Name
                             bid_target.bid_ra = df['RA'].values[0]
                             bid_target.bid_dec = df['DEC'].values[0]
                             bid_target.distance = df['distance'].values[0] * 3600

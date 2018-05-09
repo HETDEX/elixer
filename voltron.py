@@ -375,27 +375,24 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
     count = 0
 
     log.info("Building page for %s" %pdfname)
-    #generally expect this to be one catalog
-    if len(cats) > 1 and G.SINGLE_PAGE_PER_DETECT:
-        #todo: choose the single best catalog
-        #rank them based on data? choose deepest? choose based on number of hits?
-        #cats only contains pointers to the catalogs for which the RA, Dec were in range
-        # do not yet know if there are any catalog counterparts or if there are imaging cutouts to be made
-        #for now, just print and move on
-        print("INFO: More than one catalog matched ....")
-        #will get extra rows of cutouts and data (one pair for each catalog)
 
+    cat_count = 0
     for c in cats:
         r = c.build_bid_target_reports(match,ra, dec, error,num_hits=num_hits,section_title=section_title,
                                        base_count=base_count,target_w=target_w,fiber_locs=fiber_locs,
                                        target_flux=target_flux)
         count = 0
         if r is not None:
-            if PyPDF is not None:
-                build_report_part(pdfname,r)
+            cat_count+= 1
+            if (cat_count > 1) and G.SINGLE_PAGE_PER_DETECT:
+                print("INFO: More than one catalog matched .... taking top catalog only. Skipping PDF for %s"
+                      % c.Name)
             else:
-                pages = pages + r
-            count = max(0,len(r)-1) #1st page is the target page
+                if PyPDF is not None:
+                    build_report_part(pdfname,r)
+                else:
+                    pages = pages + r
+                count = max(0,len(r)-1) #1st page is the target page
 
     return pages, count
 
@@ -1001,9 +998,7 @@ def main():
                                                   num_hits=e.num_hits, idstring=id,base_count=0,target_w=e.w,
                                                   fiber_locs=e.fiber_locs,target_flux=e.estflux)
 
-                    #only add if there is at least one imaging catalog counterpart
-                    if len(match.bid_targets) > 0:
-                        match_list.add(match)
+                    match_list.add(match) #always add even if bids are none
 
                     file_list.append(pdf)
 

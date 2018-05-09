@@ -606,6 +606,10 @@ class IFU:
         x = []
         v = []
         e = []
+        # freq_radians = []
+        # f = []
+        # var = []
+        # sumvar = 0.
         cw = 0.0
 
         #todo: replace as needed with different parsing depending on version number
@@ -639,10 +643,14 @@ class IFU:
                         if len(x) == 0:
                             x = self.exposure(exp).fibers[self.get_absolute_fiber_index(amp,fib)].interp_spectra_wavelengths
                             x = np.array(x)
+                            #freq_radians = 2.998e-18 / (2*np.pi * x)
 
                         if len(v) == 0:
                             v = self.exposure(exp).fibers[self.get_absolute_fiber_index(amp, fib)].interp_spectra_counts
                             v = np.array(v)
+                            # f = np.fft.fft(v) / np.var(v)
+                            # var = np.var(v)
+                            # sumvar = var
 
                             e = self.exposure(exp).fibers[self.get_absolute_fiber_index(amp, fib)].interp_spectra_errors
                             e = np.array(e)
@@ -650,6 +658,10 @@ class IFU:
                             v += self.exposure(exp).fibers[self.get_absolute_fiber_index(amp, fib)].interp_spectra_counts
                             e += self.exposure(exp).fibers[self.get_absolute_fiber_index(amp, fib)].interp_spectra_errors
 
+                            # vi = self.exposure(exp).fibers[self.get_absolute_fiber_index(amp, fib)].interp_spectra_counts
+                            # f += np.fft.fft(vi) / np.var(vi)
+                            # var += np.var(vi)
+                            # sumvar += np.var(vi)
 
                         count_of_fibers += 1
 
@@ -665,6 +677,32 @@ class IFU:
                 if count_of_fibers < 1:
                    v = []
                 else:
+                    # print("Testing FFT")
+                    # ifv = np.fft.ifft(v)
+                    # f = v
+                    # ifv = np.sqrt((ifv*ifv.conjugate()).real)
+                    #
+                    # import matplotlib.pyplot as plt
+                    # plt.plot(x,ifv)
+                    # plt.savefig("ifv.png")
+                    # plt.close()
+                    #
+                    # fR = f / np.sqrt(1./sumvar)
+                    #
+                    # plt.plot(x,fR)
+                    # plt.savefig("fR.png")
+                    # plt.close()
+                    #
+                    # iR = np.fft.ifft(fR).real
+                    # plt.plot(x,iR)
+                    # plt.savefig("iR.png")
+                    # plt.close()
+                    #
+                    # v = np.sqrt((iR * iR.conjugate()).real)
+                    # plt.plot(x,v)
+                    # plt.savefig("v.png")
+                    # plt.close()
+
                     log.info("Summed %d fibers" % count_of_fibers)
                     #v = v / float(count_of_fibers) #keep all, do not normalize to fibers
 

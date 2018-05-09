@@ -465,6 +465,7 @@ class DetObj:
         self.eqw_obs = 0.0
         self.cont = -9999
         self.cont_cgs = -9999
+        self.fwhm = -1.0 #in angstroms
         self.panacea = False
 
         self.ifuslot = None
@@ -700,7 +701,7 @@ class DetObj:
     #rsp1 (when t5all was provided and we want to load specific fibers for a single detection)
     def load_fluxcalibrated_spectra(self):
 
-
+        #todo: get the line width as well
 
         del self.sumspec_wavelength[:]
         del self.sumspec_counts[:]
@@ -731,6 +732,28 @@ class DetObj:
 
         log.info("Loading HETDEX data (flux calibrated spectra, etc) for %s" %self.fcsdir)
 
+
+        #get basic info
+        file = op.join(self.fcsdir,"out2")
+        try:
+            with open(file,'r') as f:
+                f = ft.skip_comments(f)
+                count = 0
+                for l in f:  # should be exactly one line (but takes the last one if more than one)
+                    count += 1
+                    if count > 1:
+                        log.warning("Unexepcted number of lines in %s" % (file))
+
+                    toks = l.split()
+                    self.wra = float(toks[0])
+                    self.wdec = float(toks[1])
+                    self.x = -999
+                    self.y = -999
+        except:
+            log.error("Fatal: Cannot read out2 file: %s" % file, exc_info=True)
+            self.status = -1
+            return
+
         #get summary information (res file)
         # wavelength   wavelength(best fit) counts sigma  ?? S/N   cont(10^-17)
         #wavelength   wavelength(best fit) flux(10^-17) sigma  ?? S/N   cont(10^-17)
@@ -746,6 +769,11 @@ class DetObj:
                     toks = l.split()
                     #w = float(toks[1])  # sanity check against self.w
                     self.w = float(toks[1])
+                    if self.w == 0.0: #seeing some 2d.res files are all zeroes
+                        log.error("Fatal: Invalid *_2d.res file. Empty content.: %s " % file)
+                        self.status = -1
+                        return
+
                     #as is, way too large ... maybe not originally calculated as per angstrom? so divide by wavelength?
                     #or maybe units are not right or a miscalculation?
                     #toks2 is in counts
@@ -753,7 +781,7 @@ class DetObj:
                     #print("Warning! Using old flux conversion between counts and flux!!!")
                     #self.estflux = float(toks[2]) * flux_conversion(self.w)
 
-                    self.sigma = float(toks[3])
+                    self.fwhm = 2.35*float(toks[3]) #here sigma is the gaussian sigma, the line width, not significance
                     self.snr = float(toks[5])
                     self.cont_cgs = float(toks[6]) * self.sumspec_flux_unit_scale# * 10 ** (-17)
 
@@ -842,10 +870,11 @@ class DetObj:
                         #self.sci_fits.append(fits)
 
 
-                        self.wra = ra
-                        self.wdec = dec
-                        self.x = sky_x
-                        self.y = sky_y
+                        #not here ... this is for the entire detection not just this fiber
+                        #self.wra = ra
+                        #self.wdec = dec
+                        #self.x = sky_x
+                        #self.y = sky_y
 
                         self.fibers.append(fiber)
             except:
@@ -863,8 +892,6 @@ class DetObj:
         #these are the spectra cutout sections .. so need to weight each wavelength for each fiber
         #in the cutout
         #maybe add another array ... relative throughput
-
-      #  for f in self.fibers:
 
 
         #get the weights
@@ -910,7 +937,8 @@ class DetObj:
                                 f.fluxcal_central_emis_counts = tmp_out[:,1]
                                 f.fluxcal_central_emis_flux = tmp_out[:,2]
                                 f.fluxcal_central_emis_thru = tmp_out[:,3]*tmp_out[:,4]*tmp_out[:,5]
-                                f.fluxcal_emis_cont = tmp_out[:,6]
+                                f.fluxcal_central_emis_fluxerr =  tmp_out[:,6]
+                                #f.fluxcal_emis_cont = tmp_out[:,6]
 
                         #else:
                         #    # find which fiber, if any, in set this belongs to
@@ -934,6 +962,13 @@ class DetObj:
             print("Fatal. Cannot read list2: %s" % file)
             self.status = -1
             return
+
+        #avg_ra = 0.0
+        #avg_dec = 0.0
+        #for f in self.fibers:
+        #    avg_ra += f.ra * f.relative_weight
+        #    avg_dec += f.dec * f.relative_weight
+
 
 
         #get the full flux calibrated spectra
@@ -2617,9 +2652,9 @@ class HETDEX:
                     "Science file(s):\n%s"\
                     "RA,Dec (%f,%f) \n"\
                     "Sky X,Y (%f,%f)\n" \
-                    "$\lambda$ = %g$\AA$\n" \
+                    "$\lambda$ = %g$\AA$  FWHM = %g$\AA$\n" \
                     "EstFlux = %0.3g"   \
-                    % (self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.x, e.y,e.w,
+                    % (self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.x, e.y,e.w,e.fwhm,
                         e.estflux )
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
@@ -2634,9 +2669,9 @@ class HETDEX:
                      "ObsDate %s  ObsID %s IFU %s  CAM %s\n" \
                      "Science file(s):\n%s" \
                      "Sky X,Y (%f,%f)\n" \
-                     "$\lambda$ = %g$\AA$\n" \
+                     "$\lambda$ = %g$\AA$  FWHM = %g$\AA$\n" \
                      "EstFlux = %0.3g" \
-                             % (self.ymd, self.obsid, self.ifu_slot_id, self.specid, sci_files, e.x, e.y, e.w,e.estflux)  # note: e.fluxfrac gauranteed to be nonzero
+                             % (self.ymd, self.obsid, self.ifu_slot_id, self.specid, sci_files, e.x, e.y, e.w,e.fwhm,e.estflux)  # note: e.fluxfrac gauranteed to be nonzero
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux, e.fluxfrac)
                 else:
@@ -2651,10 +2686,9 @@ class HETDEX:
                      "Primary IFU Slot %s\n" \
                      "RA,Dec (%f,%f) \n" \
                      "Sky X,Y (%f,%f)\n" \
-                     "$\lambda$ = %g$\AA$\n" \
+                     "$\lambda$ = %g$\AA$  FWHM = %g$\AA$\n" \
                      "EstFlux = %0.3g" \
-                     % (e.fibers[0].ifuslot, ra, dec, e.x, e.y, e.w,
-                        e.estflux)
+                     % (e.fibers[0].ifuslot, ra, dec, e.x, e.y, e.w,e.fwhm, e.estflux)
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
@@ -2666,10 +2700,9 @@ class HETDEX:
                 title += "\n" \
                      "Primary IFU Slot %s\n" \
                      "Sky X,Y (%f,%f)\n" \
-                     "$\lambda$ = %g$\AA$\n" \
+                     "$\lambda$ = %g$\AA$  FWHM = %g$\AA$\n" \
                      "EstFlux = %0.3g " \
-                     % ( e.fibers[0].ifuslot, e.x, e.y, e.w,
-                        e.estflux)
+                     % ( e.fibers[0].ifuslot, e.x, e.y, e.w,e.fwhm, e.estflux)
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
@@ -2925,6 +2958,7 @@ class HETDEX:
             dd['fluxcal_wave'] = []
             dd['fluxcal_cnts'] = []
             dd['fluxcal_flux'] = []
+            dd['fluxcal_fluxerr'] = []
             dd['fluxcal_cont'] = []
 
             dd['cos'] = []
@@ -3666,6 +3700,7 @@ class HETDEX:
             datakeep['fluxcal_wave'].append(fiber.fluxcal_central_emis_wavelengths)
             datakeep['fluxcal_cnts'].append(fiber.fluxcal_central_emis_counts)
             datakeep['fluxcal_flux'].append(fiber.fluxcal_central_emis_flux)
+            datakeep['fluxcal_fluxerr'].append(fluxcal_central_emis_fluxerr)
             datakeep['fluxcal_cont'].append(fiber.fluxcal_emis_cont)
 
 
@@ -4148,6 +4183,28 @@ class HETDEX:
             alpha = 1.0 #for individual fibers
             linewidth = 2.0 #for individual fibers
 
+
+        key_wave  = 'specwave'
+        key_data = 'spec'
+
+        if (datakeep['fluxcal_wave'][N-1] is not None) and (len(datakeep['fluxcal_wave'][N-1]) > 0):
+            key_wave = 'fluxcal_wave'
+            key_data = 'fluxcal_cnts'
+
+
+        # # todo: set the weights correctly
+        # datakeep['fiber_weight'].append(fiber.relative_weight)
+        # datakeep['thruput'].append(fiber.fluxcal_central_emis_thru)
+        #
+        # datakeep['fluxcal_wave'].append(fiber.fluxcal_central_emis_wavelengths)
+        # datakeep['fluxcal_cnts'].append(fiber.fluxcal_central_emis_counts)
+        # datakeep['fluxcal_flux'].append(fiber.fluxcal_central_emis_flux)
+        # datakeep['fluxcal_cont'].append(fiber.fluxcal_emis_cont)
+
+        #print("temporary set weight == 1.0")
+        #for i in range(N-1,-1,-1):
+        #    datakeep['fiber_weight'][ind[i]] = 1.0
+
         try:
             for i in range(N-1,stop,-1): #stop is not included
                 #regardless of the number if the sn is below the threshold, skip it
@@ -4157,24 +4214,30 @@ class HETDEX:
                 if datakeep['color'][i] is None:
                     datakeep['color'][i] = colors[i]  # , 0:3]
 
-                specplot.step(datakeep['specwave'][ind[i]], datakeep['spec'][ind[i]],linestyle="solid",
+
+                #todo: fluxcal_wave
+                #specwave is directly from panacea and is not calibrated
+
+
+
+                specplot.step(datakeep[key_wave][ind[i]], datakeep[key_data][ind[i]],linestyle="solid",
                               where='mid', color=datakeep['color'][i], alpha=alpha,linewidth=linewidth,zorder=i)
 
-                summed_spec += (np.interp(bigwave, datakeep['specwave'][ind[i]],
-                                          datakeep['spec'][ind[i]] * datakeep['fiber_weight'][ind[i]]))
+                summed_spec += (np.interp(bigwave, datakeep[key_wave][ind[i]],
+                                          datakeep[key_data][ind[i]] * datakeep['fiber_weight'][ind[i]]))
 
                 #summed_spec += (np.interp(bigwave, datakeep['specwave'][ind[i]],
                 #                          datakeep['spec'][ind[i]] / datakeep['thruput'][ind[i]] *
                 #                          datakeep['fiber_weight'][ind[i]]))
 
                 #this is for plotting purposes, so don't need them in the next loop (not plotted)
-                mn = np.min([mn, np.min(datakeep['spec'][ind[i]])])
-                mx = np.max([mx, np.max(datakeep['spec'][ind[i]])])
+                mn = np.min([mn, np.min(datakeep[key_data][ind[i]])])
+                mx = np.max([mx, np.max(datakeep[key_data][ind[i]])])
 
             #now for the rest
             for i in range(stop,-1,-1):
-               summed_spec += (np.interp(bigwave, datakeep['specwave'][ind[i]],
-                                          datakeep['spec'][ind[i]] * datakeep['fiber_weight'][ind[i]]))
+               summed_spec += (np.interp(bigwave, datakeep[key_wave][ind[i]],
+                                          datakeep[key_data][ind[i]] * datakeep['fiber_weight'][ind[i]]))
 
                #summed_spec += (np.interp(bigwave, datakeep['specwave'][ind[i]],
                #                           datakeep['spec'][ind[i]] / datakeep['thruput'][ind[i]] *
@@ -4194,6 +4257,8 @@ class HETDEX:
                 #datakeep['sumspec_ferr_zoom'] = e.sumspec_fluxerr_zoom
 
                 #specplot.step(datakeep['sumspec_wave_zoom'], datakeep['sumspec_cnts_zoom'], c='r', where='mid', lw=2, linestyle="dotted", alpha=1.0, zorder=99)
+                #mn = min(mn, min(datakeep['sumspec_cnts_zoom']))
+                #mx = max(mx, max(datakeep['sumspec_cnts_zoom']))
 
             ran = mx - mn
 
