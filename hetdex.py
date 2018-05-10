@@ -3700,7 +3700,7 @@ class HETDEX:
             datakeep['fluxcal_wave'].append(fiber.fluxcal_central_emis_wavelengths)
             datakeep['fluxcal_cnts'].append(fiber.fluxcal_central_emis_counts)
             datakeep['fluxcal_flux'].append(fiber.fluxcal_central_emis_flux)
-            datakeep['fluxcal_fluxerr'].append(fluxcal_central_emis_fluxerr)
+            datakeep['fluxcal_fluxerr'].append(fiber.fluxcal_central_emis_fluxerr)
             datakeep['fluxcal_cont'].append(fiber.fluxcal_emis_cont)
 
 

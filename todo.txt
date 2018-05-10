@@ -1,4 +1,13 @@
 
+Update ifu.IFU() constructor to make use of rsp1 output ...
+    + may need to call rsp1 manually (since the output is per detection, not per ifu and it
+        performs fiber normalization)
+    + would be useful if fibers (spectra per fiber) flux calibrated on its own (maybe in extra
+        fits payload in multi_* files?)
+
+
+
+
 ** photo/imaging catalogs
 	- need more spring coverage (GOODS-N, etc) : 
 		(spring ~ RA: 160 - 230, Dec: 45 - 56)

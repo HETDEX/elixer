@@ -170,6 +170,8 @@ def parse_commandline():
     parser.add_argument('-t', '--time', help="Max runtime as hh:mm:ss for in SLURM queue",required=False)
     parser.add_argument('--email', help="If populated, sends SLURM status to this email address", required=False)
 
+    parser.add_argument('--queue', help="If populated, specifies which TACC queue (vis, gpu) to use.", required=False)
+
     parser.add_argument('--panacea_red',help="Basedir for searching for Panacea reduction files",required=False)
 
     parser.add_argument('--zoo', help='Produce image cutouts for publication on Zooniverse', required=False,

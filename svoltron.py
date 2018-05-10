@@ -9,6 +9,7 @@ import errno
 time = "00:59:59"
 email = "##SBATCH --mail-user \n\
 ##SBATCH --mail-type all"
+queue = "vis"
 args = map(str.lower,sys.argv)
 
 #check for name agument (mandatory)
@@ -60,6 +61,21 @@ if i != -1:
 else:
     pass
 
+
+
+#check for queue (optional)
+i = -1
+if "--queue" in args:
+    i = args.index("--queue")
+
+if i != -1:
+    try:
+        queue = sys.argv[i + 1]
+    except:
+       pass
+else:
+    pass
+
 if not os.path.isdir(basename):
     try:
         os.makedirs(basename)
@@ -91,7 +107,7 @@ slurm = "\
 #SBATCH -J HETDEX              # Job name\n\
 #SBATCH -n 1                  # Total number of tasks\n\
 ##SBATCH -p gpu                 # Queue name\n\
-#SBATCH -p vis                 # Queue name\n\
+#SBATCH -p " + queue +"                 # Queue name\n\
 #SBATCH -o VOLTRON.o%j          # Name of stdout output file (%j expands to jobid)\n\
 #SBATCH -t " + time + "            # Run time (hh:mm:ss)\n\
 #SBATCH -A Hobby-Eberly-Telesco\n"\
