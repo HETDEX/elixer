@@ -10,7 +10,7 @@ time = "00:59:59"
 email = "##SBATCH --mail-user \n\
 ##SBATCH --mail-type all"
 queue = "vis"
-args = map(str.lower,sys.argv)
+args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
 
 #check for name agument (mandatory)
 i = -1
