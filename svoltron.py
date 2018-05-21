@@ -106,7 +106,6 @@ slurm = "\
 #------------------Scheduler Options--------------------\n\
 #SBATCH -J HETDEX              # Job name\n\
 #SBATCH -n 1                  # Total number of tasks\n\
-##SBATCH -p gpu                 # Queue name\n\
 #SBATCH -p " + queue +"                 # Queue name\n\
 #SBATCH -o VOLTRON.o%j          # Name of stdout output file (%j expands to jobid)\n\
 #SBATCH -t " + time + "            # Run time (hh:mm:ss)\n\

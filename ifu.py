@@ -44,7 +44,7 @@ def find_first_file(pattern, path):
     return None
 
 
-def find_panacea_path_info(date,time_ex=None,time=None,basepath=G.PANACEA_RED_BASEDIR):
+def find_panacea_path_info(date,time_ex=None,time=None,obsid=None,expid=None,basepath=G.PANACEA_RED_BASEDIR):
     """
 
     :param date: date string YYYYMMDD
@@ -62,8 +62,11 @@ def find_panacea_path_info(date,time_ex=None,time=None,basepath=G.PANACEA_RED_BA
         target_time = time
         ex = False
     else:
-        log.error("Invalid parameters passed to find_panacea_path_info()")
-        return info
+        target_time = None
+        ex = False
+    # else:
+    #     log.error("Invalid parameters passed to find_panacea_path_info()")
+    #     return info
 
     try:
         path = os.path.join(basepath, date, "virus")
@@ -83,7 +86,16 @@ def find_panacea_path_info(date,time_ex=None,time=None,basepath=G.PANACEA_RED_BA
     #../red1/reductions/20180113/virus/virus0000011/exp01/virus
 
     #get all the subdirectories
-    subdirs = glob.glob(os.path.join(path, "virus*/exp*/virus"))
+    if obsid is not None:
+        obsdir = "virus" + str(int(obsid)).zfill(7)
+    else:
+        obsdir = "virus*"
+    if expid is not None:
+        expdir = "exp" + str(int(expid)).zfill(2)
+    else:
+        expdir = "exp*"
+
+    subdirs = glob.glob(os.path.join(path, obsdir,expdir,"virus"))
 
     #walk each sub directory for observation id and exp id and find any
     #multi*fits file, query its header and check for a time match
@@ -96,20 +108,58 @@ def find_panacea_path_info(date,time_ex=None,time=None,basepath=G.PANACEA_RED_BA
         if len(info) > 0:
             break
 
-        multi = glob.glob(os.path.join(s,"multi*"))
-        for m in multi:
-            try:
-                f = pyfits.open(m)
-            except:
-                log.error("could not open file " + m, exc_info=True)
-                continue
+        multi = glob.glob(os.path.join(s, "multi*"))
 
-            try:
-                ut = f[0].header['UT']  #format like = '08:57:00.902'
-                if ex:
-                    tx = ut[0:2]+ut[3:5]+ut[6:10] #if ut is bad, let the try block deal with it
-                else:
-                    tx = ut[0:2]+ut[3:5]+ut[6:8]
+        if target_time is None: # no time to compare, must accept all
+
+            if (multi is not None) and (len(multi) > 0):
+                info['obsid'] = s.split("virus/virus")[1].split("/")[0]
+                info['expid'] = s.split("/exp")[1].split("/")[0]
+                info['path'] = s  # overwrite path defined above
+
+        else:
+            for m in multi:
+                try:
+                    f = pyfits.open(m)
+                except:
+                    log.error("could not open file " + m, exc_info=True)
+                    continue
+
+                try:
+                    ut = f[0].header['UT']  #format like = '08:57:00.902'
+                    if ex:
+                        tx = ut[0:2]+ut[3:5]+ut[6:10] #if ut is bad, let the try block deal with it
+                    else:
+                        tx = ut[0:2]+ut[3:5]+ut[6:8]
+
+                        try: #either way, we are done with this file
+                            f.close()
+                        except:
+                            log.error("could not close file " + m, exc_info=True)
+
+                        if target_time == tx:
+                            info['obsid'] = s.split("virus/virus")[1].split("/")[0]
+                            info['expid'] = s.split("/exp")[1].split("/")[0]
+                            info['path'] = s #overwrite path defined above
+
+                            log.info("Found panacea mult* files: %s" %s)
+
+                        break
+
+                except:
+                    log.error("Could not read header value [UT]. Will try [RAWFN] for file: " + m, exc_info=False)
+
+                #older panacea multi files did not have the UT value, but did have RAWFN that contains it in
+                #the path
+                try:
+                    #looks like
+                    # '/work/03946/hetdex/maverick/20180113/virus/virus0000015/exp02/virus&/20180113T085700.9_035RU_sci.fits'
+                    rawfn = os.path.basename(f[0].header['RAWFN']) #20180113T085700.9_035RU_sci.fits
+                    #want the time part
+                    if ex:
+                        tx = (rawfn.split('T')[1]).split('_')[0] #if ut is bad, let the try block deal with it
+                    else:
+                        tx = (rawfn.split('T')[1]).split('.')[0]
 
                     try: #either way, we are done with this file
                         f.close()
@@ -125,38 +175,9 @@ def find_panacea_path_info(date,time_ex=None,time=None,basepath=G.PANACEA_RED_BA
 
                     break
 
-            except:
-                log.error("Could not read header value [UT]. Will try [RAWFN] for file: " + m, exc_info=False)
-
-            #older panacea multi files did not have the UT value, but did have RAWFN that contains it in
-            #the path
-            try:
-                #looks like
-                # '/work/03946/hetdex/maverick/20180113/virus/virus0000015/exp02/virus&/20180113T085700.9_035RU_sci.fits'
-                rawfn = os.path.basename(f[0].header['RAWFN']) #20180113T085700.9_035RU_sci.fits
-                #want the time part
-                if ex:
-                    tx = (rawfn.split('T')[1]).split('_')[0] #if ut is bad, let the try block deal with it
-                else:
-                    tx = (rawfn.split('T')[1]).split('.')[0]
-
-                try: #either way, we are done with this file
-                    f.close()
                 except:
-                    log.error("could not close file " + m, exc_info=True)
-
-                if target_time == tx:
-                    info['obsid'] = s.split("virus/virus")[1].split("/")[0]
-                    info['expid'] = s.split("/exp")[1].split("/")[0]
-                    info['path'] = s #overwrite path defined above
-
-                    log.info("Found panacea mult* files: %s" %s)
-
-                break
-
-            except:
-                log.error("Could not read header values for file: " + m, exc_info=False)
-                continue
+                    log.error("Could not read header values for file: " + m, exc_info=False)
+                    continue
 
 
     if len(info) == 0:
@@ -341,7 +362,7 @@ class IFU:
         else:
             log.info("Filename method failed. Will try fits headers. Could not locate reduction data for %s" % (self.idstring))
 
-            info = find_panacea_path_info(self.date,self.time_ex,self.time)
+            info = find_panacea_path_info(self.date,self.time_ex,self.time,self.obsid,self.expid)
 
             if len(info) > 0:
                 obsid = info['obsid']

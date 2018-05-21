@@ -1,9 +1,12 @@
 
+[2018-05-10]
 Update ifu.IFU() constructor to make use of rsp1 output ...
     + may need to call rsp1 manually (since the output is per detection, not per ifu and it
         performs fiber normalization)
-    + would be useful if fibers (spectra per fiber) flux calibrated on its own (maybe in extra
-        fits payload in multi_* files?)
+
+Would be useful if fibers (spectra per fiber) flux calibrated on its own (maybe in extra
+    fits payload in multi_* files?). Need this for summing over IFUs? Could still use rsp1 files,
+    but would be more convenient if in multi* file
 
 
 

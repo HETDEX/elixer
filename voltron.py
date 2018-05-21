@@ -818,6 +818,13 @@ def get_fcsdir_subdirs_to_process(args):
                         subdirs.append(root)
                         break #stop looking at names in THIS dir and go to next
         else:
+
+            #second check, first version of Karl's headers had no comment
+            if detlist[0] == 'name':
+                detlist = detlist[1:]
+
+
+
             use_search = False
             #try fast way first (assume detlist is immediate subdirectory name, if that does not work, use slow method
             for d in detlist:
@@ -840,6 +847,7 @@ def get_fcsdir_subdirs_to_process(args):
                         for p in patterns:
                             if fnmatch.fnmatch(name, p): #could have wild card
                                 subdirs.append(root)
+                                log.debug("Adding ", root)
                                 break #stop looking at names in THIS dir and go to next
     except:
         log.error("Exception attempting to process --fcsdir. FATAL.",exc_info=True)
@@ -1012,7 +1020,7 @@ def main():
             log.info("No detections match input parameters.")
             print("No detections match input parameters.")
 
-    elif (args.ra and args.dec):
+    elif (args.ra is not None) and (args.dec is not None):
         num_hits = 0
         matched_cats = []
         for c in cats:

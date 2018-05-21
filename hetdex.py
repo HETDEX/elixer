@@ -2734,11 +2734,11 @@ class HETDEX:
 
         if e.w > 0:
             #title = title + "\nLy$\\alpha$ Z = %g" % la_z
-            title = title + "\nLyA Z = %g" % la_z
+            title = title + "\nLyA z = %g" % la_z
             if (oii_z > 0):
-                title = title + "  OII Z = %g" % oii_z
+                title = title + "  OII z = %g" % oii_z
             else:
-                title = title + "  OII Z = N/A"
+                title = title + "  OII z = N/A"
 
 
 

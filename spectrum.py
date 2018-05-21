@@ -1083,7 +1083,7 @@ class Spectrum:
         self.p_oii = None
         self.p_lae_oii_ratio = None
 
-    def top_hat_filter(self,w_rest,w_obs, wx, hat_width=None):
+    def top_hat_filter(self,w_rest,w_obs, wx, hat_width=None, negative=False):
         #optimal seems to be around 1 to < 2 resolutions (e.g. HETDEX ~ 6AA) ... 6 is good, 12 is a bit
         #unstable ... or as rougly 3x pixel pix_size
 
@@ -1097,8 +1097,11 @@ class Spectrum:
             w_obs = np.float(w_obs)
             num_hats = 0
 
-            filter = np.zeros(np.shape(wx))
-            #filter = np.full(np.shape(wx),-1.0)
+            if negative:
+                filter = np.full(np.shape(wx), -1.0)
+            else:
+                filter = np.zeros(np.shape(wx))
+
             pix_size = np.float(wx[1]-wx[0]) #assume to be evenly spaced
 
 

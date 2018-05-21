@@ -659,15 +659,15 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
         if G.ZOO:
             text = "Separation\n" + \
-                   "Spec Z\n" + \
-                   "Photo Z\n" + \
+                   "Spec z\n" + \
+                   "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
                    "Est OII rest-EW\n"
         else:
             text = "Separation\n" + \
                    "RA, Dec\n" + \
-                   "Spec Z\n" + \
-                   "Photo Z\n" + \
+                   "Spec z\n" + \
+                   "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
                    "Est OII rest-EW\n" + \
                    "P(LAE)/P(OII)\n"
@@ -817,7 +817,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             plt.subplot(gs[0, 4:])
             plt.gca().set_frame_on(False)
             plt.gca().axis('off')
-            text = "Photo Z plot not available."
+            text = "Photo z plot not available."
             plt.text(0, 0.5, text, ha='left', va='bottom', fontproperties=font)
 
         plt.close()

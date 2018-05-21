@@ -285,6 +285,9 @@ class STACK_COSMOS(cat_base.Catalog):
         self.clear_pages()
         self.build_list_of_bid_targets(target_ra, target_dec, error)
 
+        if (self.dataframe_of_bid_targets is None):
+            return None
+
         ras = self.dataframe_of_bid_targets.loc[:, ['RA']].values
         decs = self.dataframe_of_bid_targets.loc[:, ['DEC']].values
 
@@ -294,10 +297,8 @@ class STACK_COSMOS(cat_base.Catalog):
             entry = self.build_cat_summary_figure(cat_match, target_ra, target_dec, error, ras, decs,
                                                   target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux, )
         else:
-            entry = self.build_exact_target_location_figure(cat_match, target_ra, target_dec, error,
-                                                            section_title=section_title,
-                                                            target_w=target_w, fiber_locs=fiber_locs,
-                                                            target_flux=target_flux)
+            log.error("ERROR!!! Unexpected state of G.SINGLE_PAGE_PER_DETECT")
+
         if entry is not None:
             self.add_bid_entry(entry)
 
@@ -347,143 +348,12 @@ class STACK_COSMOS(cat_base.Catalog):
                 print("Building report for bid target %d in %s" % (base_count + number, self.Name))
 
                 if G.SINGLE_PAGE_PER_DETECT and (len(ras) <= G.MAX_COMBINE_BID_TARGETS):
-                    entry = self.build_bid_target_figure_one_line(cat_match, r[0], d[0], error=error, df=df,
-                                                                  df_photoz=df_photoz,
-                                                                  target_ra=target_ra, target_dec=target_dec,
-                                                                  section_title=section_title,
-                                                                  bid_number=number, target_w=target_w,
-                                                                  of_number=num_hits - base_count,
-                                                                  target_flux=target_flux, color=bid_colors[number - 1])
-                else:
-                    entry = self.build_bid_target_figure(cat_match, r[0], d[0], error=error, df=df, df_photoz=df_photoz,
-                                                         target_ra=target_ra, target_dec=target_dec,
-                                                         section_title=section_title,
-                                                         bid_number=number, target_w=target_w,
-                                                         of_number=num_hits - base_count,
-                                                         target_flux=target_flux)
+                    log.error("ERROR!!! Unexpected state of G.FORCE_SINGLE_PAGE")
+
                 if entry is not None:
                     self.add_bid_entry(entry)
 
         return self.pages
-
-    def build_exact_target_location_figure(self, ra, dec, error, section_title="", target_w=0, fiber_locs=None,
-                                           target_flux=None):
-
-        #todo: weight master cutout by exposure time ... see cat_candles_egs ...
-        '''Builds the figure (page) the exact target location. Contains just the filter images ...
-
-        Returns the matplotlib figure. Due to limitations of matplotlib pdf generation, each figure = 1 page'''
-
-        #there is just one image
-
-        # note: error is essentially a radius, but this is done as a box, with the 0,0 position in lower-left
-        # not the middle, so need the total length of each side to be twice translated error or 2*2*errorS
-        window = error * 4
-
-        num_cat_images = len(self.CatalogImages)
-        cols = max(num_cat_images,6)
-        if num_cat_images > 1:
-            rows = 2
-        else:
-            rows = 1
-
-        fig_sz_x = cols * 3
-        fig_sz_y = rows * 3
-
-        fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
-
-        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.5)
-        # reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based
-
-        font = FontProperties()
-        font.set_family('monospace')
-        font.set_size(12)
-
-        if G.ZOO:
-            title = "Catalog: %s\n" % self.Name + section_title + "\nPossible Matches = %d (within +/- %g\")\n" % \
-                                                                  (len(self.dataframe_of_bid_targets), error)
-        else:
-            title = "Catalog: %s\n" % self.Name + section_title + "\nPossible Matches = %d (within +/- %g\")\n" \
-                                                                  "RA = %f    Dec = %f\n" % (
-                                                                      len(self.dataframe_of_bid_targets), error, ra,
-                                                                      dec)
-
-        if target_w > 0:
-            title = title + "Wavelength = %g $\AA$\n" % target_w
-        else:
-            title = title + "\n"
-        plt.subplot(gs[0, 0])
-        plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
-        plt.gca().set_frame_on(False)
-        plt.gca().axis('off')
-
-        if self.master_cutout is not None:
-            del (self.master_cutout)
-            self.master_cutout = None
-
-        #there is (at this time) just the one image, but leave in the loop in-case we change that?
-        index = -1
-        for i in self.CatalogImages:  # i is a dictionary
-            index += 1
-
-            if i['image'] is None:
-                i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
-                                                         image_location=op.join(i['path'], i['name'])) #,frame=i['frame'])
-            sci = i['image']
-
-            # sci.load_image(wcs_manual=True)
-            cutout,_,_ = sci.get_cutout(ra, dec, error, window=window)
-            ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
-
-            if cutout is not None:  # construct master cutout
-                # master cutout needs a copy of the data since it is going to be modified  (stacked)
-                # repeat the cutout call, but get a copy
-                if self.master_cutout is None:
-                    self.master_cutout,_,_ = sci.get_cutout(ra, dec, error, window=window, copy=True)
-                else:
-                    self.master_cutout.data = np.add(self.master_cutout.data, cutout.data)
-
-                if rows > 1:
-                    plt.subplot(gs[rows - 1, index])
-                    plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
-                               vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
-                    plt.title(i['instrument'] + " " + i['filter'])
-
-                   # plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
-                   #                                   angle=0.0, color='red', fill=False))
-
-                    self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
-
-        if self.master_cutout is None:
-            # cannot continue
-            print("No catalog image available in %s" % self.Name)
-            return None
-
-        # plot the master cutout
-        empty_sci = science_image.science_image()
-        plt.subplot(gs[0, cols - 1])
-        vmin, vmax = empty_sci.get_vrange(self.master_cutout.data)
-        plt.imshow(self.master_cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
-                   vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
-        plt.title("Master Cutout (Stacked)")
-        plt.xlabel("arcsecs")
-        # only show this lable if there is not going to be an adjacent fiber plot
-        if (fiber_locs is None) or (len(fiber_locs) == 0):
-            plt.ylabel("arcsecs")
-        plt.plot(0, 0, "r+")
-        #plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2, height=error * 2,
-        #                                  angle=0.0, color='red', fill=False))
-
-        self.add_north_box(plt, empty_sci, self.master_cutout, error, 0, 0, theta=None)
-
-        plt.subplot(gs[0, cols - 2])
-        self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, self.master_cutout)
-
-
-        # complete the entry
-        plt.close()
-        return fig
-
 
     def build_cat_summary_figure (self, cat_match,ra, dec, error,bid_ras, bid_decs, target_w=0,
                                   fiber_locs=None, target_flux=None):
@@ -675,165 +545,6 @@ class STACK_COSMOS(cat_base.Catalog):
         plt.close()
         return fig
 
-    def build_bid_target_figure(self, ra, dec, error, df=None, df_photoz=None, target_ra=None, target_dec=None,
-                                section_title="", bid_number=1, target_w=0, of_number = 0,target_flux=None):
-        '''Builds the entry (e.g. like a row) for one bid target. Includes the target info (name, loc, Z, etc),
-        photometry images, Z_PDF, etc
-
-        Returns the matplotlib figure. Due to limitations of matplotlib pdf generateion, each figure = 1 page'''
-
-        # note: error is essentially a radius, but this is done as a box, with the 0,0 position in lower-left
-        # not the middle, so need the total length of each side to be twice translated error or 2*2*errorS
-
-        window = error * 2.
-
-        num_cat_images = len(self.CatalogImages)
-        cols = max(num_cat_images, 6)
-        if num_cat_images > 1:
-            rows = 2
-        else:
-            rows = 1
-
-        fig_sz_x = cols * 3
-        fig_sz_y = rows * 3
-
-        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.5)
-
-        font = FontProperties()
-        font.set_family('monospace')
-        font.set_size(12)
-
-        fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
-
-        if df is not None:
-            title = "%s  Possible Match #%d" % (section_title, bid_number)
-            if of_number > 0:
-                title = title + " of %d" % of_number
-
-            if G.ZOO:
-                title = title + "\nSeparation  = %g\"" \
-                                % (df['distance'].values[0] * 3600)
-            else:
-                title = title + "\nRA = %f    Dec = %f\nSeparation  = %g\"" \
-                            % (df['RA'].values[0], df['DEC'].values[0], df['distance'].values[0] * 3600)
-
-            if target_w > 0:
-                la_z = target_w / G.LyA_rest - 1.0
-                oii_z = target_w / G.OII_rest - 1.0
-                title = title + "\nLyA Z   = %g (red)" % la_z
-                if (oii_z > 0):
-                    title = title + "\nOII Z   = %g (green)" % oii_z
-                else:
-                    title = title + "\nOII Z   = N/A"
-        else:
-            if G.ZOO:
-                title = section_title
-            else:
-                title = "%s\nRA=%f    Dec=%f" % (section_title, ra, dec)
-
-        plt.subplot(gs[0, 0])
-        plt.text(0, 0.20, title, ha='left', va='bottom', fontproperties=font)
-        plt.gca().set_frame_on(False)
-        plt.gca().axis('off')
-
-        index = -1
-        # iterate over all filter images
-        for i in self.CatalogImages:  # i is a dictionary
-            index += 1  # for subplot ... is 1 based
-            if i['image'] is None:
-                i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
-                                                         image_location=op.join(i['path'], i['name']))
-            sci = i['image']
-
-            cutout,_,_ = sci.get_cutout(ra, dec, error, window=window)
-            ext = sci.window / 2.
-
-            if cutout is not None:
-
-                if rows == 1:
-                    plt.subplot(gs[rows-1, cols-2])
-                else:
-                    plt.subplot(gs[1, index])
-
-                plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
-                           vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
-                plt.title(i['instrument'] + " " + i['filter'])
-                plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-                plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-
-                # add (+) to mark location of Target RA,DEC
-                # we are centered on ra,dec and target_ra, target_dec belong to the HETDEX detect
-                if cutout and (target_ra is not None) and (target_dec is not None):
-                    px, py = sci.get_position(target_ra, target_dec, cutout)
-                    x, y = sci.get_position(ra, dec, cutout)
-
-                    plt.plot((px - x), (py - y), "r+")
-
-                    plt.gca().add_patch(plt.Rectangle((-error, -error), width=error * 2., height=error * 2.,
-                                                      angle=0.0, color='yellow', fill=False, linewidth=5.0,
-                                                      zorder=1))
-                    # set the diameter of the cirle to half the error (radius error/4)
-                    plt.gca().add_patch(plt.Circle((0, 0), radius=error / 4.0, color='yellow', fill=False))
-
-                    self.add_north_arrow(plt, sci, cutout, theta=None)
-
-                # iterate over all filters for this image and print values
-                font.set_size(10)
-                if df is not None:
-                    s = ""
-                    for f, l in zip(i['cols'], i['labels']):
-                        # print (f)
-                        v = df[f].values[0]
-                        s = s + "%-8s = %.5f\n" % (l, v)
-
-                    plt.xlabel(s, multialignment='left', fontproperties=font)
-
-
-
-        # master cutout (0,0 is the observered (exact) target RA, DEC)
-        if self.master_cutout and target_ra and target_dec:
-            # window=error*4
-            ext = error * 1.5  # to be consistent with self.master_cutout scale set to error window *3 and ext = /2
-            # resizing (growing) is a problem since the master_cutout is stacked
-            # (could shrink (cutout smaller section) but not grow without re-stacking larger cutouts of filters)
-            plt.subplot(gs[0, cols - 1])
-            empty_sci = science_image.science_image()
-            # need a new cutout since we rescaled the ext (and window) size
-            cutout,_,_ = empty_sci.get_cutout(target_ra, target_dec, error, window=ext * 2, image=self.master_cutout)
-            vmin, vmax = empty_sci.get_vrange(cutout.data)
-
-            vmin, vmax = empty_sci.get_vrange(cutout.data)
-            plt.imshow(cutout.data, origin='lower', interpolation='none',
-                       cmap=plt.get_cmap('gray_r'),
-                       vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
-            plt.title("Master Cutout (Stacked)")
-            plt.xlabel("arcsecs")
-            # plt.ylabel("arcsecs")
-
-            # plt.set_xticklabels([str(ext), str(ext / 2.), str(0), str(-ext / 2.), str(-ext)])
-            plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-            plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-
-            # mark the bid target location on the master cutout
-
-            px, py = empty_sci.get_position(target_ra, target_dec, cutout)
-            x, y = empty_sci.get_position(ra, dec, cutout)
-
-            # set the diameter of the cirle to half the error (radius error/4)
-            plt.gca().add_patch(
-                plt.Circle(((x - px), (y - py)), radius=error / 4.0, color='yellow', fill=False))
-
-            # this is correct, do not rotate the yellow rectangle (it is a zoom window only)
-            #x = (x - px) - error
-            #y = (y - py) - error
-            #plt.gca().add_patch(plt.Rectangle((x, y), width=error * 2, height=error * 2,
-            #                                  angle=0.0, color='yellow', fill=False))
-
-            plt.plot(0, 0, "r+")
-            self.add_north_box(plt, empty_sci, cutout, error, 0, 0, theta=None)
-
-        plt.close()
-        return fig
 
     def build_multiple_bid_target_figures_one_line(self, cat_match, ras, decs, error, target_ra=None,
                                                        target_dec=None,
@@ -883,16 +594,16 @@ class STACK_COSMOS(cat_base.Catalog):
 
             if G.ZOO:
                 text = "Separation\n" + \
-                       "Spec Z\n" + \
-                       "Photo Z\n" + \
+                       "Spec z\n" + \
+                       "Photo z\n" + \
                        "Est LyA rest-EW\n" + \
                        "Est OII rest-EW\n" + \
                        "G-Band Flux\n"
             else:
                 text = "Separation\n" + \
                        "RA, Dec\n" + \
-                       "Spec Z\n" + \
-                       "Photo Z\n" + \
+                       "Spec z\n" + \
+                       "Photo z\n" + \
                        "Est LyA rest-EW\n" + \
                        "Est OII rest-EW\n" + \
                        "G-Band Flux\n" + \
@@ -1045,11 +756,11 @@ class STACK_COSMOS(cat_base.Catalog):
                 plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font, color=bid_colors[col_idx - 1])
 
                 # add photo_z plot
-                # if the z_best_type is 'p' call it photo-Z, if s call it 'spec-Z'
+                # if the z_best_type is 'p' call it photo-z, if s call it 'spec-z'
                 # alwasy read in file for "file" and plot column 1 (z as x) vs column 9 (pseudo-probability)
                 # get 'file'
                 # z_best  # 6 z_best_type # 7 z_spec # 8 z_spec_ref
-                # overplot photo Z lines
+                # overplot photo z lines
 
                 if df_photoz is not None:
                     z_cat = self.read_catalog(op.join(self.SupportFilesLocation, photoz_file), "z_cat")
@@ -1073,18 +784,18 @@ class STACK_COSMOS(cat_base.Catalog):
                                 oii_z = target_w / G.OII_rest - 1.0
                                 if (oii_z > 0):
                                     h = plt.axvline(x=oii_z, color='g', linestyle='--', zorder=9,
-                                                    label="OII Z(virus) = % g" % oii_z)
+                                                    label="OII z(virus) = % g" % oii_z)
                                     legend.append(h)
                                 h = plt.axvline(x=la_z, color='r', linestyle='--', zorder=9,
-                                                label="LyA Z (VIRUS) = %g" % la_z)
+                                                label="LyA z (VIRUS) = %g" % la_z)
                                 legend.append(h)
 
                                 plt.gca().legend(handles=legend, loc='lower center', ncol=len(legend), frameon=False,
                                                  fontsize='small', borderaxespad=0, bbox_to_anchor=(0.5, -0.25))
 
-                        plt.title("Photo Z PDF")
+                        plt.title("Photo z PDF")
                         plt.gca().yaxis.set_visible(False)
-                        # plt.xlabel("Z")
+                        # plt.xlabel("z")
 
                         #  if len(legend) > 0:
                         #      plt.gca().legend(handles=legend, loc = 'lower center', ncol=len(legend), frameon=False,
