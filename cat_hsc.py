@@ -554,7 +554,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 exptime_cont_est = sci.exptime
 
             # sci.load_image(wcs_manual=True)
-            cutout, pix_counts, mag = sci.get_cutout(ra, dec, error, window=window,
+            cutout, pix_counts, mag, mag_radius = sci.get_cutout(ra, dec, error, window=window,
                                                      aperture=aperture,mag_func=mag_func)
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
@@ -608,7 +608,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:
-                    self.master_cutout,_,_ = sci.get_cutout(ra, dec, error, window=window, copy=True)
+                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True)
                     if sci.exptime:
                         ref_exptime = sci.exptime
                     total_adjusted_exptime = 1.0
@@ -628,7 +628,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 plt.plot(0, 0, "r+")
 
                 if pix_counts is not None:
-                    self.add_aperture_position(plt,aperture,mag)
+                    self.add_aperture_position(plt,mag_radius,mag)
 
                 self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
                 x, y = sci.get_position(ra, dec, cutout)  # zero (absolute) position

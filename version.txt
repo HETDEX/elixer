@@ -1,0 +1,19 @@
+changes to voltron by version
+
+1.4.0a3
+* change reported flux for bid catalog objects to magnitude for easier comparison
+    (note: in some catalogs, the mag is provided by the catalog, in some it is calculated from the flux)
+    uses v,g,r bands (in that order, when present)
+
+* add global option DYNAMIC_MAG_APERTURE that, when true, allows the forced aperture placed on the imaging to calculate
+    the magnitude to grow until the magnitude stabalizes or reaches the maximum of the error window. Currently set
+    to a minium of 0.5". Stablization defined by either an increase in magnitude (dimming) or a change of less than
+    0.1 mag. The aperture is sized to match on the cutout and the radius is reported next to the magnitude beneath the
+    plot.
+
+* update contrast stretching for summed 2D cutout for better readability
+
+* update summing of spectra (upper right) to use RSP1 output when present
+
+* update summed spectra plotting (upper right and full spectra, center) to standard plot (from step plotting)
+

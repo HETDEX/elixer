@@ -472,7 +472,7 @@ class GOODS_N(cat_base.Catalog):
 
             # sci.load_image(wcs_manual=True)
             log.info("Reminder: aperture issue with .drz fits file, so no forced aperture magnitude.")
-            cutout, pix_counts, mag = sci.get_cutout(ra, dec, error, window=window,
+            cutout, pix_counts, mag, mag_radius = sci.get_cutout(ra, dec, error, window=window,
                                                      aperture=aperture, mag_func=mag_func)
 
             try: #update non-matched source line with PLAE()
@@ -529,7 +529,7 @@ class GOODS_N(cat_base.Catalog):
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:
-                    self.master_cutout,_,_ = sci.get_cutout(ra, dec, error, window=window, copy=True)
+                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True)
                     ref_exptime = sci.exptime
                     total_adjusted_exptime = 1.0
                 else:

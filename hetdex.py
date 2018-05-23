@@ -911,6 +911,7 @@ class DetObj:
                 #sum up the weights where keep == 0
                 norm = np.sum(w[np.where(keep==0)])
                 subset_norm = 0.0
+                #max_weight = -999.9
 
                 #todo: if only using a subset of fibers (e.g. from a line file), how do we interpret the weights?
                 # as here, as a subset??
@@ -925,8 +926,11 @@ class DetObj:
                         if keep[i] == 0.:
                             #find which fiber, if any, in set this belongs to
                             if (f.multi == multi[i]) and (f.scifits_idstring == idstr[i]):
-                                f.relative_weight += w[i]
+                                f.relative_weight += w[i] #usually there is only one, so this is 0 + weight = weight
                                 subset_norm += w[i]
+
+                                #if w[i] > max_weight:
+                                #    max_weight = w[i]
 
                                 #now, get the tmp file for the thoughput
                                 tmpfile = op.join(self.fcsdir, "tmp"+str(i+101)+".dat")
@@ -948,7 +952,9 @@ class DetObj:
                     #f.relative_weight /= norm #note: some we see are zero ... they do not contribute
 
                 for f in self.fibers:
-                    f.relative_weight /= subset_norm
+                    #f.relative_weight /= subset_norm
+                    f.relative_weight /= 100.0
+
 
 
                 #todo: how is Karl using the weights (sum to 100% or something else?)
@@ -3860,9 +3866,8 @@ class HETDEX:
 
                 GF = gaussian_filter(summed_image, (2, 1))
                 image = summed_image
-                img_vmin, img_vmax = self.get_vrange(summed_image, scale=contrast1)
-                gauss_vmin = img_vmin
-                gauss_vmax = img_vmax
+                img_vmin, img_vmax = self.get_vrange(summed_image, scale=contrast2)
+                gauss_vmin, gauss_vmax =  self.get_vrange(summed_image, scale=contrast1)
 
             if make_display:
                 borplot = plt.axes([borderxl + 0. * dx, borderyb + grid_idx * dy, 3 * dx, dy])
@@ -4218,17 +4223,12 @@ class HETDEX:
                 #todo: fluxcal_wave
                 #specwave is directly from panacea and is not calibrated
 
-
-
                 specplot.step(datakeep[key_wave][ind[i]], datakeep[key_data][ind[i]],linestyle="solid",
                               where='mid', color=datakeep['color'][i], alpha=alpha,linewidth=linewidth,zorder=i)
 
-                summed_spec += (np.interp(bigwave, datakeep[key_wave][ind[i]],
-                                          datakeep[key_data][ind[i]] * datakeep['fiber_weight'][ind[i]]))
-
-                #summed_spec += (np.interp(bigwave, datakeep['specwave'][ind[i]],
-                #                          datakeep['spec'][ind[i]] / datakeep['thruput'][ind[i]] *
-                #                          datakeep['fiber_weight'][ind[i]]))
+                if datakeep['fiber_weight'][ind[i]] > 0.1:
+                    summed_spec += (np.interp(bigwave, datakeep[key_wave][ind[i]],
+                                          datakeep[key_data][ind[i]]) * datakeep['fiber_weight'][ind[i]])
 
                 #this is for plotting purposes, so don't need them in the next loop (not plotted)
                 mn = np.min([mn, np.min(datakeep[key_data][ind[i]])])
@@ -4236,29 +4236,24 @@ class HETDEX:
 
             #now for the rest
             for i in range(stop,-1,-1):
-               summed_spec += (np.interp(bigwave, datakeep[key_wave][ind[i]],
-                                          datakeep[key_data][ind[i]] * datakeep['fiber_weight'][ind[i]]))
+                if datakeep['fiber_weight'][ind[i]] > 0.1:
+                    summed_spec += (np.interp(bigwave, datakeep[key_wave][ind[i]],
+                                          datakeep[key_data][ind[i]]) * datakeep['fiber_weight'][ind[i]])
 
                #summed_spec += (np.interp(bigwave, datakeep['specwave'][ind[i]],
                #                           datakeep['spec'][ind[i]] / datakeep['thruput'][ind[i]] *
                 #                          datakeep['fiber_weight'][ind[i]]))
 
             if PLOT_SUMMED_SPECTRA:
-                specplot.step(bigwave, summed_spec, c='k', where='mid', lw=2,linestyle="solid",alpha=1.0,zorder=99)
+
+                #use Karl's externally summed spectra if available
+                if (datakeep['sumspec_wave'] is not None) and (len(datakeep['sumspec_wave']) > 0):
+                    summed_spec = np.interp(bigwave, datakeep['sumspec_wave'],datakeep['sumspec_cnts'])
+
+                #specplot.step(bigwave, summed_spec, c='k', where='mid', lw=2,linestyle="solid",alpha=1.0,zorder=0)
+                specplot.plot(bigwave, summed_spec, c='k', lw=2, linestyle="solid", alpha=1.0, zorder=0)
                 mn = min(mn, min(summed_spec))
                 mx = max(mx, max(summed_spec))
-
-
-                #print("temporary .. spece")
-                #datakeep['sumspec_2d'] = e.sumspec_2d_zoom
-                #datakeep['sumspec_cnts_zoom'] = e.sumspec_counts_zoom
-                #datakeep['sumspec_wave_zoom'] = e.sumspec_wavelength_zoom
-                #datakeep['sumspec_flux_zoom'] = e.sumspec_flux_zoom
-                #datakeep['sumspec_ferr_zoom'] = e.sumspec_fluxerr_zoom
-
-                #specplot.step(datakeep['sumspec_wave_zoom'], datakeep['sumspec_cnts_zoom'], c='r', where='mid', lw=2, linestyle="dotted", alpha=1.0, zorder=99)
-                #mn = min(mn, min(datakeep['sumspec_cnts_zoom']))
-                #mx = max(mx, max(datakeep['sumspec_cnts_zoom']))
 
             ran = mx - mn
 
@@ -4266,7 +4261,7 @@ class HETDEX:
                 min_y = int(mn)/10*10-10
             else:
                 min_y = int(mn)/10*10
-            min_y = max(min_y,-20) #but not below -20
+            min_y = max(min_y, -0.25*mx)#-20) #but not below -20
 
             log.debug("Spec Plot max count = %f , min count = %f" %(mx,mx))
             specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='--', c=[0.3, 0.3, 0.3])
@@ -4525,7 +4520,8 @@ class HETDEX:
                         log.info("Exclusing spectra maximum outside 3500 - 5500 AA")
 
             ran = mx - mn
-            specplot.step(bigwave, F, c='b', where='mid', lw=1)
+            #specplot.step(bigwave, F, c='b', where='mid', lw=1)
+            specplot.plot(bigwave, F, c='b', lw=1)
 
             specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='dashed', c='k') #[0.3, 0.3, 0.3])
             specplot.axis([left, right, mn - ran / 20, mx + ran / 20])

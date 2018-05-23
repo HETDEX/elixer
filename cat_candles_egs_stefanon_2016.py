@@ -565,7 +565,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             sci = i['image']
 
             # sci.load_image(wcs_manual=True)
-            cutout, pix_counts, mag = sci.get_cutout(ra, dec, error, window=window,
+            cutout, pix_counts, mag, mag_radius = sci.get_cutout(ra, dec, error, window=window,
                                                      aperture=aperture,mag_func=mag_func)
 
             try: #update non-matched source line with PLAE()
@@ -623,7 +623,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:
-                    self.master_cutout,_,_ = sci.get_cutout(ra, dec, error, window=window, copy=True)
+                    self.master_cutout,_,_,_ = sci.get_cutout(ra, dec, error, window=window, copy=True)
                     ref_exptime = sci.exptime
                     total_adjusted_exptime = 1.0
                 else:
@@ -638,7 +638,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
                 plt.plot(0, 0, "r+")
                 if pix_counts is not None:
-                    self.add_aperture_position(plt,aperture,mag)
+                    self.add_aperture_position(plt,mag_radius,mag)
                 self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
                 x, y = sci.get_position(ra, dec, cutout)  # zero (absolute) position
                 for br, bd, bc in zip(bid_ras, bid_decs, bid_colors):

@@ -10,8 +10,8 @@ import socket
 #version
 __version__ = '1.4.0a3'
 
-if socket.gethostname() == 'z50':
-#if False:
+#if socket.gethostname() == 'z50':
+if False:
     OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
 
     #CONFIG_BASEDIR = "/home/dustin/code/python/voltron/data/config/"
@@ -233,3 +233,5 @@ ZOO_CUTOUTS = False #produce the small zooniverse cutouts
 UNIQUE_DET_ID_NUM = 0
 
 CLASSIFY_WITH_OTHER_LINES = True
+
+DYNAMIC_MAG_APERTURE = True  #allow aperture size to change to fit maximum magnitude

@@ -36,7 +36,8 @@ def shela_count_to_mag(count,cutout=None,sci_image=None):
             #get the conversion factor, each tile is different
             try:
                 #gain = float(sci_image[0].header['GAIN'])
-                nanofact = float(sci_image[0].header['NANOFACT'])
+                #nanofact = float(sci_image[0].header['NANOFACT'])
+                magzero = float(sci_image[0].header['MAGZERO'])
             except:
                 #gain = 1.0
                 nanofact = 0.0
@@ -44,7 +45,9 @@ def shela_count_to_mag(count,cutout=None,sci_image=None):
                 return 99.9
 
         if count > 0:
-            return -2.5 * np.log10(count*nanofact) + 31.4
+            #return -2.5 * np.log10(count*nanofact) + magzero
+            # counts for SHELA  ALREADY in nanojansky
+            return -2.5 * np.log10(count) + magzero
         else:
             return 99.9  # need a better floor
 
@@ -719,7 +722,7 @@ class SHELA(cat_base.Catalog):
                 exptime_cont_est = sci.exptime
 
             # sci.load_image(wcs_manual=True)
-            cutout, pix_counts, mag = sci.get_cutout(ra, dec, error, window=window,
+            cutout, pix_counts, mag, mag_radius = sci.get_cutout(ra, dec, error, window=window,
                                                      aperture=aperture,mag_func=mag_func)
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
@@ -773,7 +776,7 @@ class SHELA(cat_base.Catalog):
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:
-                    self.master_cutout,_,_ = sci.get_cutout(ra, dec, error, window=window, copy=True)
+                    self.master_cutout,_,_,_ = sci.get_cutout(ra, dec, error, window=window, copy=True)
                     if sci.exptime:
                         ref_exptime = sci.exptime
                     total_adjusted_exptime = 1.0
@@ -793,7 +796,7 @@ class SHELA(cat_base.Catalog):
                 plt.plot(0, 0, "r+")
 
                 if pix_counts is not None:
-                    self.add_aperture_position(plt,aperture,mag)
+                    self.add_aperture_position(plt,mag_radius,mag)
 
                 self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
                 x, y = sci.get_position(ra, dec, cutout)  # zero (absolute) position

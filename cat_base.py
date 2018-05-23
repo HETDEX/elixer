@@ -485,7 +485,7 @@ class Catalog:
 
 
                 # need a new cutout since we rescaled the ext (and window) size
-                cutout,_,_ = empty_sci.get_cutout(ra, dec, error, window=ext * 2, image=self.master_cutout)
+                cutout,_,_,_ = empty_sci.get_cutout(ra, dec, error, window=ext * 2, image=self.master_cutout)
                 if cutout is None:
                     log.warning("Cannot obtain new cutout from master_cutout in cat_base::add_fiber_positions")#,exc_info=True)
                     cutout = self.master_cutout
@@ -515,7 +515,7 @@ class Catalog:
 
                     #temporary
                     if mag is not None:
-                        plt.xlabel("mag = %g" %mag)
+                        plt.xlabel("mag = %0.1f, %0.1f\"" % (mag,radius))
                         plt.gca().xaxis.labelpad = 0
                         #plt.tight_layout()
 

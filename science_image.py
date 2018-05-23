@@ -167,10 +167,11 @@ class science_image():
         cutout = None
         counts = None #raw data counts in aperture
         mag = 999.9 #aperture converted to mag_AB
+        radius = aperture
 
         if (error is None or error == 0) and (window is None or window == 0):
             log.info("inavlid error box and window box")
-            return cutout, counts, mag
+            return cutout, counts, mag, radius
 
         if window is None or window < error:
             window = float(max(2.0*error,5.0)) #should be at least 5 arcsecs
@@ -206,7 +207,7 @@ class science_image():
                     log.info("Error (possible NoOverlapError) in science_image::get_cutout(). "
                              "Target is not in range of image. RA,Dec = (%f,%f) Window = %d" % (ra, dec, pix_window))
                     print("Target is not in range of image. RA,Dec = (%f,%f) Window = %d" % (ra, dec, pix_window))
-                    return cutout, counts, mag
+                    return cutout, counts, mag, radius
                 except:
                     log.error("Exception in science_image::get_cutout (%s):" %self.image_location, exc_info=True)
                     return cutout, counts, mag
@@ -214,10 +215,10 @@ class science_image():
                 if not (self.contains_position(ra,dec)):
                     log.info("science image (%s) does not contain requested position: RA=%f , Dec=%f"
                              %(self.image_location,ra,dec))
-                    return cutout, counts, mag
+                    return cutout, counts, mag, radius
             else:
                 log.error("No fits or passed image from which to make cutout.")
-                return cutout, counts, mag
+                return cutout, counts, mag, radius
         else:
             #data = image.data
             #pix_size = self.calc_pixel_size(image.wcs)
@@ -239,30 +240,62 @@ class science_image():
                         pass
             except:
                 log.error("Exception in science_image::get_cutout ():" , exc_info=True)
-                return cutout, counts, mag
+                return cutout, counts, mag, radius
 
 
         #put down aperture on cutout at RA,Dec and get magnitude
         if (position is not None) and (cutout is not None) and (image is not None) \
                 and (mag_func is not None) and (aperture > 0):
-            try:
-                if (type(aperture) is float) or (type(aperture) is int):
-                    radius = aperture
-                else:
-                    radius = 1.
-                sky_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec)
-                phot_table = aperture_photometry(image,sky_aperture)
-                counts = phot_table['aperture_sum'][0]
-                if mag_func is not None:
+
+            if G.DYNAMIC_MAG_APERTURE:
+                radius = 0.4
+                step = 0.1
+                max_radius = radius
+                max_bright = 99.9
+                max_counts = 0
+
+                while radius < window:
+                    try:
+                        radius += step
+                        sky_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec)
+                        phot_table = aperture_photometry(image, sky_aperture)
+                        counts = phot_table['aperture_sum'][0]
+                        mag = mag_func(counts, cutout, self.fits)
+
+                        log.info("Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %g Mag_AB = %g"
+                                 % (radius, ra, dec, counts, mag))
+
+                        if (mag > max_bright) or (abs(mag-max_bright) < 0.1):
+                            break
+
+                        max_bright = mag
+                        max_counts = counts
+                        max_radius = radius
+
+                    except:
+                        log.error("Exception in science_image::get_cutout () using dynamic aperture", exc_info=True)
+                mag = max_bright
+                counts = max_counts
+                radius = max_radius
+
+            else:
+                try:
+                    if (type(aperture) is float) or (type(aperture) is int):
+                        radius = aperture
+                    else:
+                        radius = 1.
+                    sky_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec)
+                    phot_table = aperture_photometry(image,sky_aperture)
+                    counts = phot_table['aperture_sum'][0]
                     mag = mag_func(counts,cutout,self.fits)
 
-                log.info("Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %g Mag_AB = %g"
-                         % (radius,ra,dec,counts,mag))
-                print ("Counts = %f Mag %f" %(counts,mag))
-            except:
-                log.error("Exception in science_image::get_cutout () using aperture", exc_info=True)
+                    log.info("Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %g Mag_AB = %g"
+                             % (radius,ra,dec,counts,mag))
+                    print ("Counts = %f Mag %f" %(counts,mag))
+                except:
+                    log.error("Exception in science_image::get_cutout () using aperture", exc_info=True)
 
-        return cutout, counts, mag
+        return cutout, counts, mag, radius
 
     def get_position(self,ra,dec,cutout):
         #this is not strictly a pixel x and y but is a meta position based on the wcs

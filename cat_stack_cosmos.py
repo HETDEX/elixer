@@ -34,10 +34,25 @@ import cat_base
 import match_summary
 
 def cosmos_g_count_to_mag(count,cutout=None,sci_image=None):
-    c2nj = 334.116462522 #counts to nano-janksy from g fits header [NANOFACT]
+    nanofact = 334.116462522 #counts to nano-janksy from g fits header [NANOFACT]
+    magzero = 31.4
     if count is not None:
+
+        try:
+            # gain = float(sci_image[0].header['GAIN'])
+            #nanofact = float(sci_image[0].header['NANOFACT'])
+            magzero = float(sci_image[0].header['MAGZERO'])
+            #exptime = float(sci_image[0].header['EXPTIME'])
+        except:
+            # gain = 1.0
+            nanofact = 0.0
+            log.error("Exception in shela_count_to_mag", exc_info=True)
+            return 99.9
+
         if count > 0:
-            return -2.5 * np.log10(count*c2nj) + 31.4
+            #return -2.5 * np.log10(count*nanofact) + magzero
+            #counts for cosmos ALREADY in nanojansky
+            return -2.5 * np.log10(count) + magzero
         else:
             return 99.9  # need a better floor
 
@@ -229,6 +244,44 @@ class STACK_COSMOS(cat_base.Catalog):
                                                             (self.dataframe_of_bid_targets['DEC'] - dec) ** 2)
         self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.sort_values(by='distance', ascending=True)
 
+    def get_filter_flux(self,df): #right now, only g-band catalog
+
+        filter_fl = None
+        filter_fl_err = None
+        mag = None
+        mag_bright = None
+        mag_faint = None
+        filter_str = None
+        try:
+
+            filter_str = 'g'
+            dfx = df
+            #dfx = df.loc[df['FILTER']==filter_str]
+            #
+            #
+            # if (dfx is None) or (len(dfx)==0):
+            #     filter_str = 'r'
+            #     dfx = df.loc[df['FILTER'] == filter_str]
+            #
+            # if (dfx is None) or (len(dfx)==0):
+            #     filter_str = '?'
+            #     log.error("Neither g-band nor r-band filter available.")
+            #     return filter_fl, filter_fl_err, mag, mag_plus, mag_minus, filter_str
+
+            filter_fl = dfx['FLUX_AUTO'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+            filter_fl_err = dfx['FLUXERR_AUTO'].values[0]
+
+            mag = dfx['MAG_AUTO'].values[0]
+            mag_faint = dfx['MAGERR_AUTO'].values[0]
+            mag_bright = -1*mag_faint
+
+            #something is way wrong with the MAG_AUTO
+            mag, mag_bright, mag_faint= self.micro_jansky_to_mag(filter_fl,filter_fl_err)
+
+        except: #not the EGS df, try the CFHTLS
+            pass
+
+        return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
 
     def build_list_of_bid_targets(self, ra, dec, error):
         '''ra and dec in decimal degrees. error in arcsec.
@@ -445,7 +498,7 @@ class STACK_COSMOS(cat_base.Catalog):
             sci = i['image']
 
             # sci.load_image(wcs_manual=True)
-            cutout, pix_counts, mag = sci.get_cutout(ra, dec, error, window=window,
+            cutout, pix_counts, mag, mag_radius = sci.get_cutout(ra, dec, error, window=window,
                                                      aperture=aperture,mag_func=mag_func)
 
             try: #update non-matched source line with PLAE()
@@ -503,7 +556,7 @@ class STACK_COSMOS(cat_base.Catalog):
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:
-                    self.master_cutout,_,_ = sci.get_cutout(ra, dec, error, window=window, copy=True)
+                    self.master_cutout,_,_,_ = sci.get_cutout(ra, dec, error, window=window, copy=True)
                     ref_exptime = sci.exptime
                     total_adjusted_exptime = 1.0
                 else:
@@ -518,7 +571,7 @@ class STACK_COSMOS(cat_base.Catalog):
                 plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
                 plt.plot(0, 0, "r+")
                 if pix_counts is not None:
-                    self.add_aperture_position(plt,aperture,mag)
+                    self.add_aperture_position(plt,mag_radius,mag)
                 self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
                 x, y = sci.get_position(ra, dec, cutout)  # zero (absolute) position
                 for br, bd, bc in zip(bid_ras, bid_decs, bid_colors):
@@ -598,7 +651,7 @@ class STACK_COSMOS(cat_base.Catalog):
                        "Photo z\n" + \
                        "Est LyA rest-EW\n" + \
                        "Est OII rest-EW\n" + \
-                       "G-Band Flux\n"
+                       "Mag AB\n"
             else:
                 text = "Separation\n" + \
                        "RA, Dec\n" + \
@@ -606,13 +659,14 @@ class STACK_COSMOS(cat_base.Catalog):
                        "Photo z\n" + \
                        "Est LyA rest-EW\n" + \
                        "Est OII rest-EW\n" + \
-                       "G-Band Flux\n" + \
+                       "Mag AB\n" + \
                        "P(LAE)/P(OII)\n"
 
             plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
 
             col_idx = 0
             target_count = 0
+
             # targets are in order of increasing distance
             for r, d in zip(ras, decs):
                 target_count += 1
@@ -630,24 +684,25 @@ class STACK_COSMOS(cat_base.Catalog):
                     log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
                     continue  # this must be here, so skip to next ra,dec
 
-                try: #don't have photoz???
-                    # note cannot dirctly use RA,DEC as the recorded precission is different (could do a rounded match)
-                    # but the idnums match up, so just use that
-                    df_photoz = self.dataframe_of_bid_targets_photoz.loc[
-                        self.dataframe_of_bid_targets_photoz['ID'] == idnum]
-
-                    if len(df_photoz) == 0:
-                        log.debug("No conterpart found in photoz catalog; RA=%f , Dec =%f" % (r[0], d[0]))
-                        df_photoz = None
-                except:
-                    log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
-                    df_photoz = None
-
-                if df_photoz is not None:
-                    photoz_file = df_photoz['file'].values[0]
-                    z_best = df_photoz['z_best'].values[0]
-                    z_best_type = df_photoz['z_best_type'].values[0]  # s = spectral , p = photometric?
-                    z_photoz_weighted = df_photoz['mFDa4_z_weight']
+                df_photoz = None
+                # try: #don't have photoz???
+                #     # note cannot dirctly use RA,DEC as the recorded precission is different (could do a rounded match)
+                #     # but the idnums match up, so just use that
+                #     df_photoz = self.dataframe_of_bid_targets_photoz.loc[
+                #         self.dataframe_of_bid_targets_photoz['ID'] == idnum]
+                #
+                #     if len(df_photoz) == 0:
+                #         log.debug("No conterpart found in photoz catalog; RA=%f , Dec =%f" % (r[0], d[0]))
+                #         df_photoz = None
+                # except:
+                #     log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
+                #     df_photoz = None
+                #
+                # if df_photoz is not None:
+                #     photoz_file = df_photoz['file'].values[0]
+                #     z_best = df_photoz['z_best'].values[0]
+                #     z_best_type = df_photoz['z_best_type'].values[0]  # s = spectral , p = photometric?
+                #     z_photoz_weighted = df_photoz['mFDa4_z_weight']
 
                 if df is not None:
                     text = ""
@@ -675,11 +730,15 @@ class STACK_COSMOS(cat_base.Catalog):
                         text = text + "N/A\nN/A\n"
 
                     try:
-                        filter_fl = df['FLUX_AUTO'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
-                        filter_fl_err = df['FLUXERR_AUTO'].values[0]
+                        filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = \
+                            self.get_filter_flux(df)
                     except:
                         filter_fl = 0.0
                         filter_fl_err = 0.0
+                        filter_mag = 0.0
+                        filter_mag_bright = 0.0
+                        filter_mag_faint = 0.0
+                        filter_str = "NA"
 
                     bid_target = None
                     if (target_flux is not None) and (filter_fl != 0.0):
@@ -699,7 +758,11 @@ class STACK_COSMOS(cat_base.Catalog):
                             bid_target.bid_ra = df['RA'].values[0]
                             bid_target.bid_dec = df['DEC'].values[0]
                             bid_target.distance = df['distance'].values[0] * 3600
-                            bid_target.bid_flux_est_cgs = filter_fl
+                            bid_target.bid_flux_est_cgs = filter_fl_cgs
+                            bid_target.bid_filter = filter_str
+                            bid_target.bid_mag = filter_mag
+                            bid_target.bid_mag_err_bright = filter_mag_bright
+                            bid_target.bid_mag_err_faint = filter_mag_faint
 
                             addl_waves = None
                             addl_flux = None
@@ -736,10 +799,7 @@ class STACK_COSMOS(cat_base.Catalog):
                     else:
                         text += "N/A\nN/A\n"
 
-                    if filter_fl < 0:
-                        text = text + "%g(%g) $\\mu$Jy !?\n" % (filter_fl, filter_fl_err)
-                    else:
-                        text = text + "%g(%g) $\\mu$Jy\n" % (filter_fl, filter_fl_err)
+                    text = text + "%0.2f(%0.2f,%0.2f)%s\n" % (filter_mag, filter_mag_bright,filter_mag_faint, filter_str)
 
                     if (not G.ZOO):
                         if (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
