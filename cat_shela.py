@@ -35,8 +35,10 @@ def shela_count_to_mag(count,cutout=None,sci_image=None):
         if sci_image is not None:
             #get the conversion factor, each tile is different
             try:
+                #gain = float(sci_image[0].header['GAIN'])
                 nanofact = float(sci_image[0].header['NANOFACT'])
             except:
+                #gain = 1.0
                 nanofact = 0.0
                 log.error("Exception in shela_count_to_mag",exc_info=True)
                 return 99.9
@@ -344,7 +346,7 @@ class SHELA(cat_base.Catalog):
 
                 try:
                     lookup_table = astropy.table.Table([table['NUMBER'], table['ALPHA_J2000'], table['DELTA_J2000'],
-                                          table['FLUX_AUTO'],table['FLUXERR_AUTO']])
+                                          table['FLUX_AUTO'],table['FLUXERR_AUTO'],table['MAG_AUTO'],table['MAGERR_AUTO']])
                     pddf = lookup_table.to_pandas()
                     old_names = ['NUMBER', 'ALPHA_J2000', 'DELTA_J2000']
                     new_names = ['ID', 'RA', 'DEC']
@@ -465,6 +467,41 @@ class SHELA(cat_base.Catalog):
 
         return tile
 
+
+    def get_filter_flux(self,df):
+
+        filter_fl = None
+        filter_fl_err = None
+        mag = None
+        mag_bright = None
+        mag_faint = None
+        filter_str = None
+        try:
+
+            filter_str = 'g'
+            dfx = df.loc[df['FILTER']==filter_str]
+
+
+            if (dfx is None) or (len(dfx)==0):
+                filter_str = 'r'
+                dfx = df.loc[df['FILTER'] == filter_str]
+
+            if (dfx is None) or (len(dfx)==0):
+                filter_str = '?'
+                log.error("Neither g-band nor r-band filter available.")
+                return filter_fl, filter_fl_err, mag, mag_plus, mag_minus, filter_str
+
+            filter_fl = dfx['FLUX_AUTO'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+            filter_fl_err = dfx['FLUXERR_AUTO'].values[0]
+            mag = dfx['MAG_AUTO'].values[0]
+            mag_faint = dfx['MAGERR_AUTO'].values[0]
+            mag_bright = -1*mag_faint
+
+        except: #not the EGS df, try the CFHTLS
+            pass
+
+        return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
+
     def build_list_of_bid_targets(self, ra, dec, error):
         '''ra and dec in decimal degrees. error in arcsec.
         returns a pandas dataframe'''
@@ -516,20 +553,20 @@ class SHELA(cat_base.Catalog):
             #relying on auto garbage collection here ...
             self.dataframe_of_bid_targets_unique = self.dataframe_of_bid_targets.copy()
             self.dataframe_of_bid_targets_unique = \
-                self.dataframe_of_bid_targets_unique.drop_duplicates(subset=['RA','DEC'])
+                self.dataframe_of_bid_targets_unique.drop_duplicates(subset=['RA','DEC'])#,'FILTER'])
             self.num_targets = self.dataframe_of_bid_targets_unique.iloc[:,0].count()
 
         except:
             log.error(self.Name + " Exception in build_list_of_bid_targets", exc_info=True)
 
-        if self.dataframe_of_bid_targets is not None:
+        if self.dataframe_of_bid_targets_unique is not None:
             #self.num_targets = self.dataframe_of_bid_targets.iloc[:, 0].count()
             self.sort_bid_targets_by_likelihood(ra, dec)
 
             log.info(self.Name + " searching for objects in [%f - %f, %f - %f] " % (ra_min, ra_max, dec_min, dec_max) +
                      ". Found = %d" % (self.num_targets))
 
-        return self.num_targets, self.dataframe_of_bid_targets, None
+        return self.num_targets, self.dataframe_of_bid_targets_unique, None
 
 
 
@@ -611,10 +648,10 @@ class SHELA(cat_base.Catalog):
         # All on one line now across top of plots
         if G.ZOO:
             title = "Possible Matches = %d (within +/- %g\")" \
-                    % (len(self.dataframe_of_bid_targets), error)
+                    % (len(self.dataframe_of_bid_targets_unique), error)
         else:
             title = self.Name + " : Possible Matches = %d (within +/- %g\")" \
-                    % (len(self.dataframe_of_bid_targets), error)
+                    % (len(self.dataframe_of_bid_targets_unique), error)
 
         title += "  Minimum (no match) 3$\sigma$ rest-EW: "
         cont_est  = -1
@@ -849,7 +886,8 @@ class SHELA(cat_base.Catalog):
                    "Spec z\n" + \
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
-                   "Est OII rest-EW\n"
+                   "Est OII rest-EW\n" + \
+                   "Mag AB\n"
         else:
             text = "Separation\n" + \
                    "RA, Dec\n" + \
@@ -857,6 +895,7 @@ class SHELA(cat_base.Catalog):
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
                    "Est OII rest-EW\n" + \
+                   "Mag AB\n" + \
                    "P(LAE)/P(OII)\n"
 
 
@@ -870,20 +909,20 @@ class SHELA(cat_base.Catalog):
             if target_count > G.MAX_COMBINE_BID_TARGETS:
                 break
             col_idx += 1
-            try:
+            try: #DO NOT WANT _unique (since that has wiped out the filters)
                 df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                        (self.dataframe_of_bid_targets['DEC'] == d[0]) &
-                                                       (self.dataframe_of_bid_targets['FILTER'] == 'r')]
-                if df is None:
+                                                       (self.dataframe_of_bid_targets['FILTER'] == 'g')]
+                if (df is None) or (len(df) == 0):
                     df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                        (self.dataframe_of_bid_targets['DEC'] == d[0]) &
-                                                       (self.dataframe_of_bid_targets['FILTER'] == 'g')]
-                if df is None:
+                                                       (self.dataframe_of_bid_targets['FILTER'] == 'r')]
+                if (df is None) or (len(df) == 0):
                     df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                         (self.dataframe_of_bid_targets['DEC'] == d[0])]
 
             except:
-                log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
+                log.error("Exception attempting to find object in dataframe_of_bid_targets_unique", exc_info=True)
                 continue  # this must be here, so skip to next ra,dec
 
             if df is not None:
@@ -897,25 +936,23 @@ class SHELA(cat_base.Catalog):
                                 % ( df['distance'].values[0] * 3600,df['RA'].values[0], df['DEC'].values[0])
 
 
-                best_fit_photo_z = 0.0
-                try:
-                    best_fit_photo_z = float(df['Best-fit photo-z'].values[0])
-                except:
-                    pass
+                best_fit_photo_z = 0.0 #SHELA has no photoz right now
+                #try:
+                #    best_fit_photo_z = float(df['Best-fit photo-z'].values[0])
+                #except:
+                #    pass
 
                 text += "N/A\n" + "%g\n" % best_fit_photo_z
 
-                filter_fl = 0.0
-                filter_fl_err = 0.0
-
-                #todo: add flux (cont est)
                 try:
-                    if (df['FILTER'].values[0] in 'rg'):
-                      filter_fl = float(df['FLUX_AUTO'].values[0])  #?? in nano-jansky or 1e-32  erg s^-1 cm^-2 Hz^-2
-                      filter_fl_err = float(df['FLUXERR_AUTO'].values[0])
+                    filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = self.get_filter_flux(df)
                 except:
                     filter_fl = 0.0
                     filter_fl_err = 0.0
+                    filter_mag = 0.0
+                    filter_mag_bright = 0.0
+                    filter_mag_faint = 0.0
+                    filter_str = "NA"
 
                 bid_target = None
 
@@ -934,7 +971,11 @@ class SHELA(cat_base.Catalog):
                             bid_target.bid_ra = df['RA'].values[0]
                             bid_target.bid_dec = df['DEC'].values[0]
                             bid_target.distance = df['distance'].values[0] * 3600
-                            bid_target.bid_flux_est_cgs = filter_fl
+                            bid_target.bid_flux_est_cgs = filter_fl_cgs
+                            bid_target.bid_filter = filter_str
+                            bid_target.bid_mag = filter_mag
+                            bid_target.bid_mag_err_bright = filter_mag_bright
+                            bid_target.bid_mag_err_faint = filter_mag_faint
 
                             addl_waves = None
                             addl_flux = None
@@ -980,11 +1021,7 @@ class SHELA(cat_base.Catalog):
                 else:
                     text += "N/A\nN/A\n"
 
-                #todo: add flux (cont est)
-               # if filter_fl < 0:
-               #     text = text + "%g(%g) nJy !?\n" % (filter_fl, filter_fl_err)
-               # else:
-               #     text = text + "%g(%g) nJy\n" % (filter_fl, filter_fl_err)
+                text = text + "%0.2f(%0.2f)%s\n" % (filter_mag, filter_mag_faint,filter_str)
 
                 if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
                     text += "%0.3g\n" % (bid_target.p_lae_oii_ratio)

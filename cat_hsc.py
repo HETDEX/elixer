@@ -238,6 +238,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         elif len(keys) == 1: #found exactly one
             tile = keys[0]
         elif len(keys) > 1: #find the best one
+            log.info("Multiple overlapping tiles %s. Sub-selecting tile with maximum angular coverage around target." %keys)
             min = 9e9
             #we don't have the actual corners anymore, so just assume a rectangle
             #so there are 2 of each min, max coords. Only need the smallest distance so just sum one
@@ -251,6 +252,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             log.error("ERROR! len(keys) < 0 in cat_hsc::find_target_tile.")
             return None
 
+        log.info("Selected tile: %s" % tile)
         #now we have the tile key (filename)
         #do we want to find the matching catalog and see if there is an entry in it?
 
@@ -267,6 +269,63 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             pass
 
         return tile
+
+    def get_filter_flux(self, df):
+
+        filter_fl = None
+        filter_fl_err = None
+        filter_flag = None
+        mag = None
+        mag_bright = None
+        mag_faint = None
+        filter_str = 'R'
+
+        method  = None
+
+        try:
+            if df['flux.psf.flags'].values[0]: #there is a problem
+                if df['flux.kron.flags'].values[0]:  # there is a problem
+                    if df['cmodel.flux.flags'].values[0]:  # there is a problem
+                        log.info("Flux/Mag unreliable due to errors.")
+                        return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
+                    else:
+                        method = 'cmodel'
+                else:
+                    method = 'kron'
+            else:
+                method = 'psf'
+        except:
+            log.error("Exception in cat_hsc.get_filter_flux",exc_info=True)
+            return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
+
+        try:
+
+            if method == 'psf' or method == 'kron':
+                filter_fl = df["flux."+method].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                filter_fl_err = df["flux."+method+".err"].values[0]
+                mag = df["mag."+method].values[0]
+                #mag_bright = mag - df["magerr."+method].values[0]
+                mag_faint = df["magerr."+method].values[0]
+                mag_bright = -1*mag_faint
+            else: #cmodel
+                filter_fl = df[method +".flux"].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                filter_fl_err = df[method +".flux.err"].values[0]
+                mag = df[method + ".mag"].values[0]
+                # mag_bright = mag - df["magerr."+method].values[0]
+                mag_faint = df[method + ".magerr"].values[0]
+                mag_bright = -1 * mag_faint
+
+            #mag, mag_plus, mag_minus = self.micro_jansky_to_mag(filter_fl, filter_fl_err)
+        except:  # not the EGS df, try the CFHTLS
+            log.error("Exception in cat_hsc.get_filter_flux", exc_info=True)
+
+        #it is unclear what unit flux is in (but it is not nJy or uJy), so lets back convert from the magnitude
+        #this is used as a continuum estimate
+
+        filter_fl = self.obs_mag_to_nano_Jy(mag)
+        filter_fl_err = 0.0 #set to 0 so not to be trusted
+
+        return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
 
     def build_list_of_bid_targets(self, ra, dec, error):
         '''ra and dec in decimal degrees. error in arcsec.
@@ -325,20 +384,20 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             #relying on auto garbage collection here ...
             self.dataframe_of_bid_targets_unique = self.dataframe_of_bid_targets.copy()
             self.dataframe_of_bid_targets_unique = \
-                self.dataframe_of_bid_targets_unique.drop_duplicates(subset=['RA','DEC'])
+                self.dataframe_of_bid_targets_unique.drop_duplicates(subset=['RA','DEC'])#,'FILTER'])
             self.num_targets = self.dataframe_of_bid_targets_unique.iloc[:,0].count()
 
         except:
             log.error(self.Name + " Exception in build_list_of_bid_targets", exc_info=True)
 
-        if self.dataframe_of_bid_targets is not None:
+        if self.dataframe_of_bid_targets_unique is not None:
             #self.num_targets = self.dataframe_of_bid_targets.iloc[:, 0].count()
             self.sort_bid_targets_by_likelihood(ra, dec)
 
             log.info(self.Name + " searching for objects in [%f - %f, %f - %f] " % (ra_min, ra_max, dec_min, dec_max) +
                      ". Found = %d" % (self.num_targets))
 
-        return self.num_targets, self.dataframe_of_bid_targets, None
+        return self.num_targets, self.dataframe_of_bid_targets_unique, None
 
 
 
@@ -423,10 +482,10 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         # All on one line now across top of plots
         if G.ZOO:
             title = "Possible Matches = %d (within +/- %g\")" \
-                    % (len(self.dataframe_of_bid_targets), error)
+                    % (len(self.dataframe_of_bid_targets_unique), error)
         else:
             title = self.Name + " : Possible Matches = %d (within +/- %g\")" \
-                    % (len(self.dataframe_of_bid_targets), error)
+                    % (len(self.dataframe_of_bid_targets_unique), error)
 
         title += "  Minimum (no match) 3$\sigma$ rest-EW: "
         cont_est  = -1
@@ -662,7 +721,8 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                    "Spec z\n" + \
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
-                   "Est OII rest-EW\n"
+                   "Est OII rest-EW\n" + \
+                   "Mag AB\n"
         else:
             text = "Separation\n" + \
                    "RA, Dec\n" + \
@@ -670,6 +730,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
                    "Est OII rest-EW\n" + \
+                   "Mag AB\n" + \
                    "P(LAE)/P(OII)\n"
 
 
@@ -683,15 +744,15 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             if target_count > G.MAX_COMBINE_BID_TARGETS:
                 break
             col_idx += 1
-            try:
+            try: #DO NOT WANT _unique as that has wiped out the filters
                 df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                        (self.dataframe_of_bid_targets['DEC'] == d[0]) &
                                                        (self.dataframe_of_bid_targets['FILTER'] == 'r')]
-                if df is None:
+                if (df is None) or (len(df) == 0):
                     df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                        (self.dataframe_of_bid_targets['DEC'] == d[0]) &
                                                        (self.dataframe_of_bid_targets['FILTER'] == 'g')]
-                if df is None:
+                if (df is None) or (len(df) == 0):
                     df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                         (self.dataframe_of_bid_targets['DEC'] == d[0])]
 
@@ -709,26 +770,18 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                     text = text + "%g\"\n%f, %f\n" \
                                 % ( df['distance'].values[0] * 3600,df['RA'].values[0], df['DEC'].values[0])
 
-
-                best_fit_photo_z = 0.0
-                try:
-                    best_fit_photo_z = float(df['Best-fit photo-z'].values[0])
-                except:
-                    pass
-
-                text += "N/A\n" + "%g\n" % best_fit_photo_z
-
-                filter_fl = 0.0
-                filter_fl_err = 0.0
+                text += "N/A\nN/A\n"  #dont have specz or photoz for HSC
 
                 #todo: add flux (cont est)
                 try:
-                    if (df['FILTER'].values[0] in 'rg'):
-                      filter_fl = float(df['FLUX_AUTO'].values[0])  #?? in nano-jansky or 1e-32  erg s^-1 cm^-2 Hz^-2
-                      filter_fl_err = float(df['FLUXERR_AUTO'].values[0])
+                    filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = self.get_filter_flux(df)
                 except:
                     filter_fl = 0.0
                     filter_fl_err = 0.0
+                    filter_mag = 0.0
+                    filter_mag_bright = 0.0
+                    filter_mag_faint = 0.0
+                    filter_str = "NA"
 
                 bid_target = None
 
@@ -747,7 +800,11 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                             bid_target.bid_ra = df['RA'].values[0]
                             bid_target.bid_dec = df['DEC'].values[0]
                             bid_target.distance = df['distance'].values[0] * 3600
-                            bid_target.bid_flux_est_cgs = filter_fl
+                            bid_target.bid_flux_est_cgs = filter_fl_cgs
+                            bid_target.bid_filter = filter_str
+                            bid_target.bid_mag = filter_mag
+                            bid_target.bid_mag_err_bright = filter_mag_bright
+                            bid_target.bid_mag_err_faint = filter_mag_faint
 
                             addl_waves = None
                             addl_flux = None
@@ -793,11 +850,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 else:
                     text += "N/A\nN/A\n"
 
-                #todo: add flux (cont est)
-               # if filter_fl < 0:
-               #     text = text + "%g(%g) nJy !?\n" % (filter_fl, filter_fl_err)
-               # else:
-               #     text = text + "%g(%g) nJy\n" % (filter_fl, filter_fl_err)
+                text = text + "%0.2f(%0.2f,%0.2f)\n" % (filter_mag, filter_mag_bright, filter_mag_faint)
 
                 if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
                     text += "%0.3g\n" % (bid_target.p_lae_oii_ratio)

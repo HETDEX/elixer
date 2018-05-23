@@ -344,9 +344,14 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
         filter_fl = None
         filter_fl_err = None
+        mag = None
+        mag_plus = None
+        mag_minus = None
+        filter_str = 'ACS_F606W_FLUX'
         try:
-            filter_fl = df['ACS_F606W_FLUX'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+            filter_fl = df[filter_str].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
             filter_fl_err = df['ACS_F606W_FLUXERR'].values[0]
+            mag, mag_plus, mag_minus = self.micro_jansky_to_mag(filter_fl,filter_fl_err)
         except: #not the EGS df, try the CFHTLS
             pass
 
@@ -357,7 +362,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             except:
                 pass
 
-        return filter_fl, filter_fl_err
+        return filter_fl, filter_fl_err, mag, mag_plus, mag_minus, filter_str
 
 
     def build_list_of_bid_targets(self, ra, dec, error):
@@ -715,7 +720,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
                    "Est OII rest-EW\n" + \
-                   "Filter Flux\n"
+                   "Mag AB\n"
         else:
             text = "Separation\n" + \
                    "RA, Dec\n" + \
@@ -723,7 +728,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
                    "Est OII rest-EW\n" + \
-                   "Filter Flux\n" + \
+                   "Mag AB\n" + \
                    "P(LAE)/P(OII)\n"
 
         plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
@@ -795,10 +800,14 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 try:
                    # filter_fl = df['ACS_F606W_FLUX'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
                    # filter_fl_err = df['ACS_F606W_FLUXERR'].values[0]
-                    filter_fl, filter_fl_err = self.get_filter_flux(df)
+                    filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = self.get_filter_flux(df)
                 except:
                     filter_fl = 0.0
                     filter_fl_err = 0.0
+                    filter_mag = 0.0
+                    filter_mag_bright = 0.0
+                    filter_mag_faint = 0.0
+                    filter_str = "NA"
 
                 bid_target = None
                 if (target_flux is not None) and (filter_fl != 0.0):
@@ -817,7 +826,11 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                         bid_target.bid_ra = df['RA'].values[0]
                         bid_target.bid_dec = df['DEC'].values[0]
                         bid_target.distance = df['distance'].values[0] * 3600
-                        bid_target.bid_flux_est_cgs = filter_fl
+                        bid_target.bid_flux_est_cgs = filter_fl_cgs
+                        bid_target.bid_filter = filter_str
+                        bid_target.bid_mag = filter_mag
+                        bid_target.bid_mag_err_bright = filter_mag_bright
+                        bid_target.bid_mag_err_faint = filter_mag_faint
 
                         addl_waves = None
                         addl_flux = None
@@ -853,10 +866,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 else:
                     text += "N/A\nN/A\n"
 
-                if filter_fl < 0:
-                    text = text + "%g(%g) $\\mu$Jy !?\n" % (filter_fl, filter_fl_err)
-                else:
-                    text = text + "%g(%g) $\\mu$Jy\n" % (filter_fl, filter_fl_err)
+                #if filter_mag != 0:
+                text = text + "%0.2f(%0.2f,%0.2f)\n" % (filter_mag, filter_mag_bright,filter_mag_faint)
+                #else:
+                #    text = text + "%g(%g) $\\mu$Jy\n" % (filter_fl, filter_fl_err)
 
                 if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
                     text += "%0.3g\n" % (bid_target.p_lae_oii_ratio)

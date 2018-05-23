@@ -216,10 +216,24 @@ class Catalog:
         #for the declination ... just use the target dec, the difference to the bid dec is negligable)
         #if radial separation is greater than the error, remove this bid target?
         #  remember we are looking in a box (error x error) so radial can be greater than errro (i.e. in a corner)
-        self.dataframe_of_bid_targets['distance'] = np.sqrt(
-            (np.cos(np.deg2rad(dec)) *(self.dataframe_of_bid_targets['RA'] - ra))**2 +
-                                  (self.dataframe_of_bid_targets['DEC'] - dec)**2)
-        self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.sort_values(by='distance', ascending=True)
+
+        #if _unique exists, the child catalog could have duplicates (stitched together from other filters, etc)
+        #   so, use the _unique version to sort by distance, otherwise the same object will have multiple entries
+        #   and the sort is messed up
+
+        if hasattr(self,'dataframe_of_bid_targets_unique'):
+            df = self.dataframe_of_bid_targets_unique
+            df['distance'] = np.sqrt(
+                (np.cos(np.deg2rad(dec)) * (df['RA'] - ra)) ** 2 + (df['DEC'] - dec) ** 2)
+            self.dataframe_of_bid_targets_unique = df.sort_values(by='distance', ascending=True)
+
+        #YES, both need to have this performed (this one always) as they are used for different purposes later
+        if hasattr(self,'dataframe_of_bid_targets'): #sanity check ... all cats have this
+            df = self.dataframe_of_bid_targets
+            df['distance'] = np.sqrt(
+                (np.cos(np.deg2rad(dec)) * (df['RA'] - ra)) ** 2 + (df['DEC'] - dec) ** 2)
+            #note: if _unique exists, this sort here is redudant, otherwise it is needed
+            self.dataframe_of_bid_targets = df.sort_values(by='distance', ascending=True)
 
 
     def clear_pages(self):
@@ -317,11 +331,23 @@ class Catalog:
     #caller might send in flux and.or wavelength as strings, so protect there
     #also, might not have valid flux
 
-    def nano_jansky_to_mag(self,flux,wavelength):
-        return -2.5*np.log10(flux) + 31.4
+    def nano_jansky_to_mag(self,flux,err=None):#,wavelength):
+        if err is None:
+            return -2.5*np.log10(flux) + 31.4,0,0
+        else:
+            cn = self.nano_jansky_to_cgs(flux)[0]
+            mx = self.nano_jansky_to_cgs(flux+err)[0] - cn #reminder, this will be negative because magnitudes
+            mn = self.nano_jansky_to_cgs(flux-err)[0] - cn #reminder, this will be positive because magnitudes
+            return cn, mx, mn
 
-    def micro_jansky_to_mag(self,flux,wavelength):
-        return -2.5*np.log10(flux) + 23.9
+    def micro_jansky_to_mag(self,flux,err=None):#,wavelength):
+        if err is None:
+            return -2.5*np.log10(flux) + 23.9, 0, 0
+        else:
+            cn = self.micro_jansky_to_mag(flux)[0]
+            mx = self.micro_jansky_to_mag(flux+err)[0] - cn
+            mn = self.micro_jansky_to_mag(flux-err)[0] - cn
+            return cn, mx, mn
 
     def micro_jansky_to_cgs(self,flux,wavelength):
         return self.nano_jansky_to_cgs(flux*1000.0,wavelength)

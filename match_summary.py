@@ -22,7 +22,11 @@ class BidTarget:
         self.bid_ra = 361.00
         self.bid_dec = 181.00
         self.distance = 0.0
+        self.bid_filter = ""
         self.bid_flux_est_cgs = 0.0
+        self.bid_mag = 0.0
+        self.bid_mag_err_bright = 0.0
+        self.bid_mag_err_faint = 0.0
         self.p_lae = None
         self.p_oii = None
         self.p_lae_oii_ratio = None
@@ -125,6 +129,10 @@ class MatchSet:
         "catalog object Dec (decimal degrees)[for the exact emission position, not matched to a catalog object, will = 181.0]",
         "catalog object separation (arcsecs) [for the exact emission position, not matched to a catalog object, will = 0.0]",
         "catalog object continuum flux est at emission line wavelength (cgs) [for the exact emission position, from aperture on catalog image]",
+        "catalog object filter used for magnitudes,"
+        "catalog object magnitude,"
+        "catalog object magnitude error (brighter),"
+        "catalog object magnitude error (fainter)",
         "P(LAE)/P(OII)",
         "number of filters to follow (variable)",
         "  instrument name (if available)",
@@ -199,6 +207,12 @@ class MatchSet:
                     f.write(sep + str(b.bid_dec))
                     f.write(sep + str(b.distance))
                     f.write(sep + str(b.bid_flux_est_cgs))
+
+                    f.write(sep + str(b.bid_filter))
+                    f.write(sep + str(b.bid_mag))
+                    f.write(sep + str(b.bid_mag_err_bright))
+                    f.write(sep + str(b.bid_mag_err_faint))
+
                     f.write(sep + str(b.p_lae_oii_ratio))
                     f.write(sep + str(len(b.filters)))
                     for flt in b.filters:
