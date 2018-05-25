@@ -283,7 +283,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         method  = None
 
         try:
-            if df['flux.psf.flags'].values[0]: #there is a problem
+            if df['flux.psf.flags'].values[0]:  # there is a problem
                 if df['flux.kron.flags'].values[0]:  # there is a problem
                     if df['cmodel.flux.flags'].values[0]:  # there is a problem
                         log.info("Flux/Mag unreliable due to errors.")
@@ -295,37 +295,38 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             else:
                 method = 'psf'
         except:
-            log.error("Exception in cat_hsc.get_filter_flux",exc_info=True)
+            log.error("Exception in cat_hsc.get_filter_flux", exc_info=True)
             return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
 
         try:
 
             if method == 'psf' or method == 'kron':
-                filter_fl = df["flux."+method].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
-                filter_fl_err = df["flux."+method+".err"].values[0]
-                mag = df["mag."+method].values[0]
-                #mag_bright = mag - df["magerr."+method].values[0]
-                mag_faint = df["magerr."+method].values[0]
-                mag_bright = -1*mag_faint
-            else: #cmodel
-                filter_fl = df[method +".flux"].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
-                filter_fl_err = df[method +".flux.err"].values[0]
+                filter_fl = df["flux." + method].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                filter_fl_err = df["flux." + method + ".err"].values[0]
+                mag = df["mag." + method].values[0]
+                # mag_bright = mag - df["magerr."+method].values[0]
+                mag_faint = df["magerr." + method].values[0]
+                mag_bright = -1 * mag_faint
+            else:  # cmodel
+                filter_fl = df[method + ".flux"].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                filter_fl_err = df[method + ".flux.err"].values[0]
                 mag = df[method + ".mag"].values[0]
                 # mag_bright = mag - df["magerr."+method].values[0]
                 mag_faint = df[method + ".magerr"].values[0]
                 mag_bright = -1 * mag_faint
 
-            #mag, mag_plus, mag_minus = self.micro_jansky_to_mag(filter_fl, filter_fl_err)
+            # mag, mag_plus, mag_minus = self.micro_jansky_to_mag(filter_fl, filter_fl_err)
         except:  # not the EGS df, try the CFHTLS
             log.error("Exception in cat_hsc.get_filter_flux", exc_info=True)
 
-        #it is unclear what unit flux is in (but it is not nJy or uJy), so lets back convert from the magnitude
-        #this is used as a continuum estimate
+            # it is unclear what unit flux is in (but it is not nJy or uJy), so lets back convert from the magnitude
+            # this is used as a continuum estimate
 
         filter_fl = self.obs_mag_to_nano_Jy(mag)
-        filter_fl_err = 0.0 #set to 0 so not to be trusted
+        filter_fl_err = 0.0  # set to 0 so not to be trusted
 
         return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
+
 
     def build_list_of_bid_targets(self, ra, dec, error):
         '''ra and dec in decimal degrees. error in arcsec.
@@ -718,19 +719,21 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
         if G.ZOO:
             text = "Separation\n" + \
+                   "1-p(rand)\n" + \
                    "Spec z\n" + \
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
                    "Est OII rest-EW\n" + \
-                   "Mag AB\n"
+                   "mag\n"
         else:
             text = "Separation\n" + \
+                   "1-p(rand)\n" + \
                    "RA, Dec\n" + \
                    "Spec z\n" + \
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
                    "Est OII rest-EW\n" + \
-                   "Mag AB\n" + \
+                   "mag\n" + \
                    "P(LAE)/P(OII)\n"
 
 
@@ -764,11 +767,12 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 text = ""
 
                 if G.ZOO:
-                    text = text + "%g\"\n" \
-                                  % (df['distance'].values[0] * 3600)
+                    text = text + "%g\"\n%0.3f\n" \
+                                  % (df['distance'].values[0] * 3600.,df['dist_prior'].values[0])
                 else:
-                    text = text + "%g\"\n%f, %f\n" \
-                                % ( df['distance'].values[0] * 3600,df['RA'].values[0], df['DEC'].values[0])
+                    text = text + "%g\"\n%0.3f\n%f, %f\n" \
+                                % ( df['distance'].values[0] * 3600.,df['dist_prior'].values[0],
+                                    df['RA'].values[0], df['DEC'].values[0])
 
                 text += "N/A\nN/A\n"  #dont have specz or photoz for HSC
 

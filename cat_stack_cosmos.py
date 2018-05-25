@@ -34,7 +34,7 @@ import cat_base
 import match_summary
 
 def cosmos_g_count_to_mag(count,cutout=None,sci_image=None):
-    nanofact = 334.116462522 #counts to nano-janksy from g fits header [NANOFACT]
+    #nanofact = 334.116462522 #counts to nano-janksy from g fits header [NANOFACT]
     magzero = 31.4
     if count is not None:
 
@@ -237,12 +237,12 @@ class STACK_COSMOS(cat_base.Catalog):
 
         return df
 
-    def sort_bid_targets_by_likelihood(self, ra, dec):
-        # right now, just by euclidean distance (ra,dec are of target)
-        #  remember we are looking in a box (error x error) so radial can be greater than errro (i.e. in a corner)
-        self.dataframe_of_bid_targets['distance'] = np.sqrt((self.dataframe_of_bid_targets['RA'] - ra) ** 2 +
-                                                            (self.dataframe_of_bid_targets['DEC'] - dec) ** 2)
-        self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.sort_values(by='distance', ascending=True)
+    # def sort_bid_targets_by_likelihood(self, ra, dec):
+    #     # right now, just by euclidean distance (ra,dec are of target)
+    #     #  remember we are looking in a box (error x error) so radial can be greater than errro (i.e. in a corner)
+    #     self.dataframe_of_bid_targets['distance'] = np.sqrt((self.dataframe_of_bid_targets['RA'] - ra) ** 2 +
+    #                                                         (self.dataframe_of_bid_targets['DEC'] - dec) ** 2)
+    #     self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.sort_values(by='distance', ascending=True)
 
     def get_filter_flux(self,df): #right now, only g-band catalog
 
@@ -273,7 +273,7 @@ class STACK_COSMOS(cat_base.Catalog):
 
             mag = dfx['MAG_AUTO'].values[0]
             mag_faint = dfx['MAGERR_AUTO'].values[0]
-            mag_bright = -1*mag_faint
+            mag_bright = -1 * mag_faint
 
             #something is way wrong with the MAG_AUTO
             mag, mag_bright, mag_faint= self.micro_jansky_to_mag(filter_fl,filter_fl_err)
@@ -647,19 +647,21 @@ class STACK_COSMOS(cat_base.Catalog):
 
             if G.ZOO:
                 text = "Separation\n" + \
+                       "1-p(rand)\n" + \
                        "Spec z\n" + \
                        "Photo z\n" + \
                        "Est LyA rest-EW\n" + \
                        "Est OII rest-EW\n" + \
-                       "Mag AB\n"
+                       "mag\n"
             else:
                 text = "Separation\n" + \
+                       "1-p(rand)\n" + \
                        "RA, Dec\n" + \
                        "Spec z\n" + \
                        "Photo z\n" + \
                        "Est LyA rest-EW\n" + \
                        "Est OII rest-EW\n" + \
-                       "Mag AB\n" + \
+                       "mag\n" + \
                        "P(LAE)/P(OII)\n"
 
             plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
@@ -708,12 +710,12 @@ class STACK_COSMOS(cat_base.Catalog):
                     text = ""
 
                     if G.ZOO:
-                        text = text + "%g\"\n" \
-                                      % (df['distance'].values[0] * 3600)
+                        text = text + "%g\"\n%0.3f\n" \
+                               % (df['distance'].values[0] * 3600., df['dist_prior'].values[0])
                     else:
-                        text = text + "%g\"\n%f, %f\n" \
-                                      % (df['distance'].values[0] * 3600, df['RA'].values[0], df['DEC'].values[0])
-
+                        text = text + "%g\"\n%0.3f\n%f, %f\n" \
+                               % (df['distance'].values[0] * 3600., df['dist_prior'].values[0],
+                                  df['RA'].values[0], df['DEC'].values[0])
                     if z_best_type is not None:
                         if (z_best_type.lower() == 'p'):
                             text = text + "N/A\n" + "%g\n" % z_best

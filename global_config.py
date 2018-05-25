@@ -10,8 +10,8 @@ import socket
 #version
 __version__ = '1.4.0a3'
 
-#if socket.gethostname() == 'z50':
-if False:
+if socket.gethostname() == 'z50':
+#if False:
     OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
 
     #CONFIG_BASEDIR = "/home/dustin/code/python/voltron/data/config/"

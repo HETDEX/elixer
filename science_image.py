@@ -262,10 +262,10 @@ class science_image():
                         counts = phot_table['aperture_sum'][0]
                         mag = mag_func(counts, cutout, self.fits)
 
-                        log.info("Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %g Mag_AB = %g"
+                        log.info("Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %g mag = %g"
                                  % (radius, ra, dec, counts, mag))
 
-                        if (mag > max_bright) or (abs(mag-max_bright) < 0.1):
+                        if (mag > max_bright) or (abs(mag-max_bright) < 0.05):
                             break
 
                         max_bright = mag

@@ -16,6 +16,7 @@ import science_image
 from matplotlib.font_manager import FontProperties
 import scipy.constants
 
+import cat_bayesian
 #log = G.logging.getLogger('Cat_logger')
 #log.setLevel(G.logging.DEBUG)
 log = G.Global_Logger('cat_logger')
@@ -94,6 +95,7 @@ class Catalog:
         self.pages = None #list of bid entries (rows in the pdf)
         self.dataframe_of_bid_targets = None
         self.master_cutout = None
+        self.distance_prior = cat_bayesian.DistancePrior()
 
         #blue, red, green, white
         self.colormap = [[0, 0, 1,1], [1, 0, 0,1], [0, .85, 0,1], [1, 1, 1,0.7]]
@@ -222,18 +224,43 @@ class Catalog:
         #   and the sort is messed up
 
         if hasattr(self,'dataframe_of_bid_targets_unique'):
+            self.dataframe_of_bid_targets_unique['dist_prior'] = 1.0
             df = self.dataframe_of_bid_targets_unique
             df['distance'] = np.sqrt(
                 (np.cos(np.deg2rad(dec)) * (df['RA'] - ra)) ** 2 + (df['DEC'] - dec) ** 2)
-            self.dataframe_of_bid_targets_unique = df.sort_values(by='distance', ascending=True)
+
+            df['dist_prior'] = 1.0
+            pidx = df.columns.get_loc('dist_prior')
+
+            for i in range(len(df)):
+                filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = \
+                    self.get_filter_flux(df.iloc[[i]]) #note the .iloc[[i]] so we get a dataframe not a series
+                if filter_mag is not None:
+                    p = self.distance_prior.get_prior(df.iloc[i]['distance'] * 3600.0, filter_mag)
+                    df.iat[i, pidx] = p
+
+            self.dataframe_of_bid_targets_unique = df.sort_values(by=['dist_prior','distance'], ascending=[False,True])
+
 
         #YES, both need to have this performed (this one always) as they are used for different purposes later
         if hasattr(self,'dataframe_of_bid_targets'): #sanity check ... all cats have this
             df = self.dataframe_of_bid_targets
             df['distance'] = np.sqrt(
                 (np.cos(np.deg2rad(dec)) * (df['RA'] - ra)) ** 2 + (df['DEC'] - dec) ** 2)
+
+            df['dist_prior'] = 1.0
+            pidx = df.columns.get_loc('dist_prior')
             #note: if _unique exists, this sort here is redudant, otherwise it is needed
-            self.dataframe_of_bid_targets = df.sort_values(by='distance', ascending=True)
+            for i in range(len(df)):
+                filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = \
+                    self.get_filter_flux(df.iloc[[i]]) #note the .iloc[[i]] so we get a dataframe not a series
+                if filter_mag is not None:
+                    p = self.distance_prior.get_prior(df.iloc[i]['distance']*3600.0,filter_mag)
+                    df.iat[i,pidx] = p
+
+
+            self.dataframe_of_bid_targets = df.sort_values(by=['dist_prior','distance'], ascending=[False,True])
+
 
 
     def clear_pages(self):

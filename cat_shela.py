@@ -482,14 +482,13 @@ class SHELA(cat_base.Catalog):
         try:
 
             filter_str = 'g'
-            dfx = df.loc[df['FILTER']==filter_str]
+            dfx = df.loc[df['FILTER'] == filter_str]
 
-
-            if (dfx is None) or (len(dfx)==0):
+            if (dfx is None) or (len(dfx) == 0):
                 filter_str = 'r'
                 dfx = df.loc[df['FILTER'] == filter_str]
 
-            if (dfx is None) or (len(dfx)==0):
+            if (dfx is None) or (len(dfx) == 0):
                 filter_str = '?'
                 log.error("Neither g-band nor r-band filter available.")
                 return filter_fl, filter_fl_err, mag, mag_plus, mag_minus, filter_str
@@ -498,7 +497,7 @@ class SHELA(cat_base.Catalog):
             filter_fl_err = dfx['FLUXERR_AUTO'].values[0]
             mag = dfx['MAG_AUTO'].values[0]
             mag_faint = dfx['MAGERR_AUTO'].values[0]
-            mag_bright = -1*mag_faint
+            mag_bright = -1 * mag_faint
 
         except: #not the EGS df, try the CFHTLS
             pass
@@ -550,13 +549,22 @@ class SHELA(cat_base.Catalog):
             #this could be done at construction time, but given the smaller subset I think
             #this is faster here
             self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.drop_duplicates(
-                subset=['RA','DEC','FILTER'])
+                subset=['RA','DEC','FILTER']) #keeps one of each filter
 
 
             #relying on auto garbage collection here ...
-            self.dataframe_of_bid_targets_unique = self.dataframe_of_bid_targets.copy()
+            #want to keep FILTER='g' or FILTER='r' if possible
             self.dataframe_of_bid_targets_unique = \
-                self.dataframe_of_bid_targets_unique.drop_duplicates(subset=['RA','DEC'])#,'FILTER'])
+                self.dataframe_of_bid_targets[self.dataframe_of_bid_targets['FILTER']=='g']
+
+            if len(self.dataframe_of_bid_targets_unique) == 0:
+                self.dataframe_of_bid_targets_unique = \
+                    self.dataframe_of_bid_targets[self.dataframe_of_bid_targets['FILTER'] == 'r']
+
+            if len(self.dataframe_of_bid_targets_unique) == 0:
+                self.dataframe_of_bid_targets_unique = \
+                    self.dataframe_of_bid_targets_unique.drop_duplicates(subset=['RA','DEC'])#,'FILTER'])
+
             self.num_targets = self.dataframe_of_bid_targets_unique.iloc[:,0].count()
 
         except:
@@ -886,19 +894,21 @@ class SHELA(cat_base.Catalog):
 
         if G.ZOO:
             text = "Separation\n" + \
+                   "1-p(rand)\n" + \
                    "Spec z\n" + \
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
                    "Est OII rest-EW\n" + \
-                   "Mag AB\n"
+                   "mag\n"
         else:
             text = "Separation\n" + \
+                   "1-p(rand)\n" + \
                    "RA, Dec\n" + \
                    "Spec z\n" + \
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
                    "Est OII rest-EW\n" + \
-                   "Mag AB\n" + \
+                   "mag\n" + \
                    "P(LAE)/P(OII)\n"
 
 
@@ -932,12 +942,12 @@ class SHELA(cat_base.Catalog):
                 text = ""
 
                 if G.ZOO:
-                    text = text + "%g\"\n" \
-                                  % (df['distance'].values[0] * 3600)
+                    text = text + "%g\"\n%0.3f\n" \
+                                  % (df['distance'].values[0] * 3600.,df['dist_prior'].values[0])
                 else:
-                    text = text + "%g\"\n%f, %f\n" \
-                                % ( df['distance'].values[0] * 3600,df['RA'].values[0], df['DEC'].values[0])
-
+                    text = text + "%g\"\n%0.3f\n%f, %f\n" \
+                                % ( df['distance'].values[0] * 3600.,df['dist_prior'].values[0],
+                                    df['RA'].values[0], df['DEC'].values[0])
 
                 best_fit_photo_z = 0.0 #SHELA has no photoz right now
                 #try:

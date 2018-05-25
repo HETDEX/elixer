@@ -716,19 +716,21 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
         if G.ZOO:
             text = "Separation\n" + \
+                   "1-p(rand)\n" + \
                    "Spec z\n" + \
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
                    "Est OII rest-EW\n" + \
-                   "Mag AB\n"
+                   "mag\n"
         else:
             text = "Separation\n" + \
+                   "1-p(rand)\n" + \
                    "RA, Dec\n" + \
                    "Spec z\n" + \
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
                    "Est OII rest-EW\n" + \
-                   "Mag AB\n" + \
+                   "mag\n" + \
                    "P(LAE)/P(OII)\n"
 
         plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
@@ -776,12 +778,12 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 text = ""
 
                 if G.ZOO:
-                    text = text + "%g\"\n" \
-                                  % (df['distance'].values[0] * 3600)
+                    text = text + "%g\"\n%0.3f\n" \
+                                  % (df['distance'].values[0] * 3600.,df['dist_prior'].values[0])
                 else:
-                    text = text + "%g\"\n%f, %f\n" \
-                                % ( df['distance'].values[0] * 3600,df['RA'].values[0], df['DEC'].values[0])
-
+                    text = text + "%g\"\n%0.3f\n%f, %f\n" \
+                                % ( df['distance'].values[0] * 3600.,df['dist_prior'].values[0],
+                                    df['RA'].values[0], df['DEC'].values[0])
                 if z_best_type is not None:
                     if (z_best_type.lower() == 'p'):
                         text = text + "N/A\n" + "%g\n" % z_best

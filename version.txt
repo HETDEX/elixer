@@ -1,6 +1,6 @@
 changes to voltron by version
 
-1.4.0a3
+1.4.0a3 [2018-05-23]
 * change reported flux for bid catalog objects to magnitude for easier comparison
     (note: in some catalogs, the mag is provided by the catalog, in some it is calculated from the flux)
     uses v,g,r bands (in that order, when present)
@@ -17,3 +17,20 @@ changes to voltron by version
 
 * update summed spectra plotting (upper right and full spectra, center) to standard plot (from step plotting)
 
+* fixed(?) stackedCOSMOS and SHELA magnitude calcuations. Imaging counts are already in nJy and do not need to be
+    converted.
+
+* removed dead code from catalog classes (older versions that optionally produced individual pages for each bid catalog
+    match, etc)
+
+* add cat_bayesian package to handle Bayesian treatment of bid catalog objects (priors on likelihood of match to
+    observation)
+    - initial version of likelihood of being not random (as MDF based on Yaswant's work)
+    - sorting possible matches by this prob then distance
+    - added to top 3 bid match summaries
+
+* update SHELA and COSMOS magnitude calculations (pixels are already in nJy and do not need conversion)
+   (there is still some mismatch between reported mag and aperture mag, but it is closer)
+
+[older versions]
+* changes not listed. See GitHub version control check-in comments
