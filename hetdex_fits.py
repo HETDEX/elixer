@@ -228,6 +228,7 @@ class HetdexFits:
             return None
 
         try:
+            log.debug("Loading %s ..." %self.filename)
             f = pyfits.open(self.filename)
         except:
             log.error("could not open file " + self.filename, exc_info=True)

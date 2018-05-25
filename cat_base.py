@@ -359,6 +359,10 @@ class Catalog:
     #also, might not have valid flux
 
     def nano_jansky_to_mag(self,flux,err=None):#,wavelength):
+        if flux <= 0.0:
+            log.info("Cannot use negative flux (cat_base::*_janksy_to_mag()). flux =  %f" %flux)
+            return 99.9, 0., 0.
+
         if err is None:
             return -2.5*np.log10(flux) + 31.4,0,0
         else:
@@ -368,6 +372,9 @@ class Catalog:
             return cn, mx, mn
 
     def micro_jansky_to_mag(self,flux,err=None):#,wavelength):
+        if flux <= 0.0:
+            log.info("Cannot use negative flux (cat_base::*_janksy_to_mag()). flux =  %f" %flux)
+            return 99.9, 0., 0.
         if err is None:
             return -2.5*np.log10(flux) + 23.9, 0, 0
         else:

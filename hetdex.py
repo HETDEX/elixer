@@ -980,6 +980,15 @@ class DetObj:
         #get the full flux calibrated spectra
         file = op.join(self.fcsdir, basename + "specf.dat")
         try:
+            size = os.stat(file).st_size
+            if size == 0:
+                log.error("*specf.res file is zero length: %s" %file)
+                self.status = -1
+                return
+        except:
+            pass
+
+        try:
             out = np.loadtxt(file, dtype=None)
 
             self.sumspec_wavelength = out[:,0]

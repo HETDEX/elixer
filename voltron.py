@@ -847,7 +847,7 @@ def get_fcsdir_subdirs_to_process(args):
                         for p in patterns:
                             if fnmatch.fnmatch(name, p): #could have wild card
                                 subdirs.append(root)
-                                log.debug("Adding ", root)
+                                log.debug("Adding %s" %root)
                                 break #stop looking at names in THIS dir and go to next
     except:
         log.error("Exception attempting to process --fcsdir. FATAL.",exc_info=True)
