@@ -32,5 +32,11 @@ changes to voltron by version
 * update SHELA and COSMOS magnitude calculations (pixels are already in nJy and do not need conversion)
    (there is still some mismatch between reported mag and aperture mag, but it is closer)
 
+* fixed missing S/N in upper left stats
+
+* remove chi2 if not present (upper left stats)
+
+* (temporarily?) turned off quality score until it can be re-scaled to flux (from counts)
+
 [older versions]
 * changes not listed. See GitHub version control check-in comments

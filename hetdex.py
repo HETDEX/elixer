@@ -726,6 +726,7 @@ class DetObj:
             if not op.isdir(self.fcsdir):
                 #still did not find ...
                 log.error("Cannot find flux calibrated spectra directory: " + self.fcsdir)
+                self.status = -1
                 return
 
         basename = op.basename(self.fcsdir)
@@ -2727,11 +2728,14 @@ class HETDEX:
 
 
         if self.panacea:
-            title += "S/N = %g " % (e.sigma)
+            snr = e.sigma
+            if (e.snr is not None) and (e.snr != 0.0):
+                snr = e.snr
+            title += "S/N = %g " % (snr)
         else:
             title += "$\sigma$ = %g " % (e.sigma)
 
-        if (e.chi2 is not None) and (e.chi2 != 666):
+        if (e.chi2 is not None) and (e.chi2 != 666) and (e.chi2 != 0):
             title += " $\chi^2$ = %g" % (e.chi2)
 
 
@@ -2743,9 +2747,10 @@ class HETDEX:
             if e.p_lae_oii_ratio is not None:
                 title += "\nP(LAE)/P(OII) = %0.3g" % (e.p_lae_oii_ratio)
 
-            if (e.dqs is not None) and (e.dqs_raw is not None):
-                title += "  Score = %0.1f (%0.2f)" % (e.dqs, e.dqs_raw)
-        #title += "  Score = %0.1f" % (e.dqs)
+            #if (e.dqs is not None) and (e.dqs_raw is not None):
+            #    title += "  Score = %0.1f (%0.2f)" % (e.dqs, e.dqs_raw)
+
+
 
         if e.w > 0:
             #title = title + "\nLy$\\alpha$ Z = %g" % la_z
