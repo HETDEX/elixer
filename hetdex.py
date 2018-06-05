@@ -698,6 +698,19 @@ class DetObj:
         else:
             return self.sigma
 
+
+    def multi_line_solution_score(self):
+        #todo: gradiate score a bit and add other conditions
+        #todo: a better way of some kind rather than a by-hand scoring
+        if (self.spec_obj is not None) and (len(self.spec_obj.solutions) > 0):
+            sols = self.spec_obj.solutions
+            if (self.spec_obj.solutions[0].score > 3.0) and (self.spec_obj.solutions[0].frac_score > 0.5):  # need to tune this
+                if (len(self.spec_obj.solutions) == 1) or \
+                    ((len(self.spec_obj.solutions) > 1) and \
+                      (self.spec_obj.solutions[0].frac_score / self.spec_obj.solutions[1].frac_score > 1.5)):
+                    return 1.0
+        return 0
+
     #rsp1 (when t5all was provided and we want to load specific fibers for a single detection)
     def load_fluxcalibrated_spectra(self):
 
@@ -1734,17 +1747,20 @@ class HETDEX:
         else:
             self.panacea = True
 
-        self.emission_lines = [EmissionLine("Ly$\\alpha$ ",1216,'red'),
-                               EmissionLine("OII ",3727,'green'),
-                               EmissionLine("OIII",4959,"lime"), EmissionLine("OIII",5007,"lime"), #5007 is the primary
-                               EmissionLine("CIII", 1909, "purple"),
-                               EmissionLine("CIV ",1549,"black"),
-                               EmissionLine("H$\\beta$ ",4861,"blue"),
-                               EmissionLine("HeII", 1640, "orange"),
-                               EmissionLine("MgII", 2798, "magenta",solution=False),
-                               EmissionLine("H$\\gamma$ ", 4341, "royalblue",solution=False),
-                               EmissionLine("NV ",1240,"teal",solution=False),
-                               EmissionLine("SiII",1260,"gray",solution=False)]
+
+        self.emission_lines = voltron_spectrum.Spectrum().emission_lines
+
+        # self.emission_lines = [EmissionLine("Ly$\\alpha$ ",1216,'red'),
+        #                        EmissionLine("OII ",3727,'green'),
+        #                        EmissionLine("OIII",4959,"lime"), EmissionLine("OIII",5007,"lime"), #5007 is the primary
+        #                        EmissionLine("CIII", 1909, "purple"),
+        #                        EmissionLine("CIV ",1549,"black"),
+        #                        EmissionLine("H$\\beta$ ",4861,"blue"),
+        #                        EmissionLine("HeII", 1640, "orange"),
+        #                        EmissionLine("MgII", 2798, "magenta",solution=False),
+        #                        EmissionLine("H$\\gamma$ ", 4341, "royalblue",solution=False),
+        #                        EmissionLine("NV ",1240,"teal",solution=False),
+        #                        EmissionLine("SiII",1260,"gray",solution=False)]
 
         #self.panacea_fits_list = [] #list of all panacea multi_*fits files (all dithers) (should be 4amps x 3dithers)
 
@@ -2766,7 +2782,6 @@ class HETDEX:
         if not G.ZOO:
             if e.p_lae_oii_ratio is not None:
                 title += "\nP(LAE)/P(OII) = %0.3g" % (e.p_lae_oii_ratio)
-
             #if (e.dqs is not None) and (e.dqs_raw is not None):
             #    title += "  Score = %0.1f (%0.2f)" % (e.dqs, e.dqs_raw)
 
@@ -2774,12 +2789,18 @@ class HETDEX:
 
         if e.w > 0:
             #title = title + "\nLy$\\alpha$ Z = %g" % la_z
-            title = title + "\nLyA z = %g" % la_z
+            title = title + "\nLyA z = %0.4f" % la_z
             if (oii_z > 0):
-                title = title + "  OII z = %g" % oii_z
+                title = title + "  OII z = %0.4f" % oii_z
             else:
                 title = title + "  OII z = N/A"
 
+        if not G.ZOO:
+            if (e.multi_line_solution_score() > 0.9):
+                # strong solution
+                sol = datakeep['detobj'].spec_obj.solutions[0]
+                title += "\n* %s(%d) z = %0.4f  EW_rest = %0.1f$\AA$" %(sol.name, int(sol.central_rest),sol.z,
+                                                                        e.eqw_obs/sol.z)
 
 
         #plt.subplot(gs[0:2, 0:3])
@@ -4578,24 +4599,22 @@ class HETDEX:
             #
             #possibly add the matched line at cwave position
             #
-            if (datakeep['detobj'].spec_obj is not None) and (len(datakeep['detobj'].spec_obj.solutions) > 0):
-                sols = datakeep['detobj'].spec_obj.solutions
-                if (sols[0].score > 3.0) and (sols[0].frac_score > 0.5): #need to tune this
-                    if (len(sols) == 1) or ((len(sols) > 1) and (sols[0].frac_score/sols[1].frac_score > 1.5)):
-                        #strong solution
-                        y_pos = textplot.axis()[2]
-                        textplot.text(cwave, y_pos, sols[0].name + " {", rotation=-90, ha='center', va='bottom',
-                                      fontsize=24, color=sols[0].color)  # use the e color for this family
+            if (datakeep['detobj'].multi_line_solution_score() > 0.9):
+                #strong solution
+                sol = datakeep['detobj'].spec_obj.solutions[0]
+                y_pos = textplot.axis()[2]
+                textplot.text(cwave, y_pos, sol.name + " {", rotation=-90, ha='center', va='bottom',
+                              fontsize=24, color=sol.color)  # use the e color for this family
 
-                        #todo: highlight the matched lines
-                        #todo: maybe fill in under the plot and not a highlight
-                        yl, yh = specplot.get_ylim()
-                        for f in sols[0].lines:
-                            hw = 5 #highlight half-width
-                            # use 'y' rather than sols[0].color ... becomes confusing with black
-                            rec = plt.Rectangle((f.w_obs - hw, yl), 2 * hw, yh - yl, fill=True, lw=1,
-                                                color=sols[0].color, alpha=1.0,zorder=1)
-                            specplot.add_patch(rec)
+                #highlight the matched lines
+
+                yl, yh = specplot.get_ylim()
+                for f in sol.lines:
+                    hw = 5 #highlight half-width
+                    # use 'y' rather than sols[0].color ... becomes confusing with black
+                    rec = plt.Rectangle((f.w_obs - hw, yl), 2 * hw, yh - yl, fill=True, lw=1,
+                                        color=sol.color, alpha=1.0,zorder=1)
+                    specplot.add_patch(rec)
 
 
             #
@@ -4674,10 +4693,18 @@ class HETDEX:
                                     color='gray',alpha=alpha, zorder=1)
                 specplot.add_patch(rec)
 
+                rec = plt.Rectangle((central_w-half_width, yl), 2 * half_width, yh - yl, fill=False, lw=1,
+                                    color='k',alpha=alpha, zorder=1,hatch='/')
+                specplot.add_patch(rec)
+
                 central_w = 5462
                 half_width = 5
                 rec = plt.Rectangle((central_w - half_width, yl), 2 * half_width, yh - yl, fill=True, lw=1,
-                                    color='gray',alpha=alpha, zorder=1)
+                                    color='gray',alpha=alpha, zorder=1,hatch='/',ec=None)
+                specplot.add_patch(rec)
+
+                rec = plt.Rectangle((central_w - half_width, yl), 2 * half_width, yh - yl, fill=False, lw=1,
+                                    color='k', alpha=alpha, zorder=1, hatch='/',ec=None)
                 specplot.add_patch(rec)
             except:
                 pass

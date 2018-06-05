@@ -1,6 +1,11 @@
 changes to voltron by version
 
 1.4.0a4 [2018-xx-xx]
+* added large emission line name and colored highlights to full 1D spectrum plot if a strong multiline solution is found
+  - added name, rest wavelength, z, and EW to last line of stats text (upper left)
+
+* added hatch marks to skylines to disambiguate from possible emission line highlights
+
 * fixed problem with HSC tract catalogs (entries in tracts corresponding to overlapping tiles do not correctly
   overlap (objects that appear in the overlap region are not necessarily recorded in the overlapping tracts).
   Now keeps all overlapping tracts, not just the one corresponding to the selected image tile.
