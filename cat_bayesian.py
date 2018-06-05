@@ -6,6 +6,7 @@ from __future__ import print_function
 import global_config as G
 import os.path as op
 import numpy as np
+from scipy.optimize import curve_fit
 
 log = G.Global_Logger('cat_logger')
 log.setlevel(G.logging.DEBUG)
@@ -15,6 +16,27 @@ log.setlevel(G.logging.DEBUG)
 #todo: later fit sigmoid and estimate pdf from the mdf
 
 DISTANCE_PRIOR_FILENAME = "distance_list.txt"
+
+
+# def sigmoid(x, x0, k): #generalized logistic (Richard's curve)
+#     #A = 0
+#     #K = 1
+#     #Q ~ 0.001
+#     return  1. / (1. + 0.001 * np.exp(-k * (x - x0)))
+
+def sigmoid(x, x0, k): #logistic
+    return  1. / (1. + np.exp(-k * (x - x0)))
+
+def gaussian(x,x0,sigma,a=1.0,y=0.0):
+    if (x is None) or (x0 is None) or (sigma is None):
+        return None
+    #have the / np.sqrt(...) part so the basic shape is normalized to 1 ... that way the 'a' becomes the area
+    return a * (np.exp(-np.power((x - x0) / sigma, 2.) / 2.) / np.sqrt(2 * np.pi * sigma ** 2)) + y
+
+
+
+
+
 
 #distance prior needs as input the distance and the magnitude of the bid object
 class DistancePrior:
@@ -34,7 +56,22 @@ class DistancePrior:
 
     def __init__(self):
         self.mdf_matrix = None
+        self.pdf_sigmoid_parms = None
         self.build_mdfs()
+        self.build_pdfs()
+
+    def plot_fits(self):
+        import pylab
+        #assumes only 8 magnitude bins
+        color = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'orange', 'teal']
+        x = self.mdf_matrix[:,0]
+        for i in range(len(self.pdf_sigmoid_parms)):
+            y = sigmoid(x, *(self.pdf_sigmoid_parms[i]))
+            pylab.plot(x, y, label=str(21 + i), c=color[i])
+            pylab.plot(x, self.mdf_matrix[:, i + 1], '.', c=color[i])
+
+        pylab.legend(loc='best')
+        pylab.show()
 
 
     def build_mdfs(self):
@@ -61,33 +98,76 @@ class DistancePrior:
             log.error("Cannot build mdf from distance prior file: %s" % file, exc_info=True)
 
 
+    def build_pdfs(self):
+        if self.mdf_matrix is None:
+            self.build_mdfs()
+
+            if self.mdf_matrix is None:
+                log.error("Cannot build pdfs for distance priors")
+
+        if self.pdf_sigmoid_parms is not None:
+            del self.pdf_sigmoid_parms[:]
+
+        self.pdf_sigmoid_parms = []
+
+        xdata = self.annuli_bin_centers
+
+        #brightest to dimmest
+        for mag_idx in range(len(self.mag_bin_centers)):
+            ydata = self.mdf_matrix[:,mag_idx+1] #+1 since first column is just the distances
+            one_idx = np.argmax(ydata)
+
+            try:
+                popt, pcov = curve_fit(sigmoid, xdata[:one_idx], ydata[:one_idx],
+                                       p0=(5.0, 0.2),
+                                       bounds=((-1000.0,0.0),(1000.0,10.0))
+                                       )
+            except:
+                log.error("Failure to fit sigmoid to mag = %g" %(self.mag_bin_centers[mag_idx]), exc_info=True)
+                print("Failure to fit sigmoid to mag = %g" % (self.mag_bin_centers[mag_idx]))
+                self.pdf_sigmoid_parms.append(None)
+                continue
+
+            self.pdf_sigmoid_parms.append(popt)
+
+
     def get_prior(self,dist,mag): #distance in arcsec
         #find in mdf the likelihood of a RANDOM match
         #return 1-likelihood(random)
         p_rand_match = 0.0
-
-        #round dist to nearest 0.2" (get an index)
-        #round mag to nearest 1.0 mag (get an index)
-
         try:
+            #round dist to nearest 0.2" (get an index)
+            #round mag to nearest 1.0 mag (get an index)
+
             # technically this would put the right edge in with the lower bin
             # but for an early, quick and dirty experiment, is okay
-            dist = round(float(dist) / 0.2) * 0.2
-            mag = round(float(mag))
+            dist_bin = round(float(dist) / 0.2) * 0.2
+            mag_bin = round(float(mag))
 
             #find the corresponding indicies
             #should always have an entry (unless > 30" or mag is out of range)
             # in either case, will just return 1.0
-            if (mag < 21.0) and (dist < 5.0): #super-bright and close
+            if (mag_bin < 21.0) and (dist_bin < 5.0): #super-bright and close
                 p_rand_match = 0.0
-            elif (dist > 30.0): #way too far (outside of the distribution, so call it random)
+            elif (dist_bin > 30.0): #way too far (outside of the distribution, so call it random)
                 p_rand_match = 1.0
-            elif (mag < 21.0): #bright (so outside the distribution, but still far-ish away)
+            elif (mag_bin < 21.0): #bright (so outside the distribution, but still far-ish away)
                 p_rand_match = 1.0
             else:
-                idist = np.where(self.annuli_bin_centers == dist)[0][0]
-                imag =  np.where(self.mag_bin_centers == mag)[0][0]
-                p_rand_match = self.mdf_matrix[idist,imag]
+                imag = np.where(self.mag_bin_centers == mag_bin)[0][0]
+                #use the pdf if available
+                if (self.pdf_sigmoid_parms is not None) and (len(self.pdf_sigmoid_parms) >  imag) and \
+                        (self.pdf_sigmoid_parms[imag] is not None):
+
+                    p_rand_match = sigmoid(dist,*(self.pdf_sigmoid_parms[imag]))
+                    log.info("Using sigmoid PDF for distance prior: mag = %f , dist = %f, 1-p(rand) = %f" %
+                             (mag, dist,1. - p_rand_match))
+                else: #use the mdf_matrix
+
+                    idist = np.where(self.annuli_bin_centers == dist_bin)[0][0]
+                    p_rand_match = self.mdf_matrix[idist,imag]
+                    log.info("Using MDF for distance prior: mag = %f , dist = %f, 1-p(rand) = %f" %
+                             (mag, dist,1. - p_rand_match))
 
         except:
             log.warning("Cannot sample distance mdf. Will return p = 1.0",exc_info=True)

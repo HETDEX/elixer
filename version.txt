@@ -1,6 +1,8 @@
 changes to voltron by version
 
 1.4.0a4 [2018-xx-xx]
+* fit sigmoid to prob. of random alignment by magnitude matrix (want to get more data and more refined bins)
+
 * added large emission line name and colored highlights to full 1D spectrum plot if a strong multiline solution is found
   - added name, rest wavelength, z, and EW to last line of stats text (upper left)
 
