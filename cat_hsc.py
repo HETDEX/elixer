@@ -157,45 +157,49 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         if name is None:
             name = cls.Name
 
-        if tract is not None:
-            if tract in cls.loaded_tracts:
+        if tract is not None: #tract may be a list
+            if set(tract).issubset(cls.loaded_tracts):
                 log.info("Catalog tract (%s) already loaded." %tract)
                 return cls.df
-
-        if tract is None:
+        else:
+        #if tract is None:
             log.error("Cannot load catalog tract for HSC. No tract provided.")
             return None
 
 
         #todo: future more than just the R filter if any are ever added
-        cat_name = 'R_' + tract + ".dat"
-        cat_loc = op.join(cls.HSC_CAT_PATH, cat_name)
-        header = cls.BidCols
+        for t in tract:
+            if t in cls.loaded_tracts: #skip if already loaded
+                continue
 
-        if not op.exists(cat_loc):
-            log.error("Cannot load catalog tract for HSC. File does not exist: %s" %cat_loc)
+            cat_name = 'R_' + t + ".dat"
+            cat_loc = op.join(cls.HSC_CAT_PATH, cat_name)
+            header = cls.BidCols
 
-        log.debug("Building " + cls.Name + " " + cat_name + " dataframe...")
+            if not op.exists(cat_loc):
+                log.error("Cannot load catalog tract for HSC. File does not exist: %s" %cat_loc)
 
-        try:
-            df = pd.read_csv(cat_loc, names=header,
-                             delim_whitespace=True, header=None, index_col=None, skiprows=0)
+            log.debug("Building " + cls.Name + " " + cat_name + " dataframe...")
 
-            old_names = ['Dec']
-            new_names = ['DEC']
-            df.rename(columns=dict(zip(old_names, new_names)), inplace=True)
+            try:
+                df = pd.read_csv(cat_loc, names=header,
+                                 delim_whitespace=True, header=None, index_col=None, skiprows=0)
 
-            df['FILTER'] = 'r' #add the FILTER to the dataframe !!! case is important. must be lowercase
+                old_names = ['Dec']
+                new_names = ['DEC']
+                df.rename(columns=dict(zip(old_names, new_names)), inplace=True)
 
-            if cls.df is not None:
-                cls.df = pd.concat([cls.df, df])
-            else:
-                cls.df = df
-            cls.loaded_tracts.append(tract)
+                df['FILTER'] = 'r' #add the FILTER to the dataframe !!! case is important. must be lowercase
 
-        except:
-            log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
-            return None
+                if cls.df is not None:
+                    cls.df = pd.concat([cls.df, df])
+                else:
+                    cls.df = df
+                cls.loaded_tracts.append(t)
+
+            except:
+                log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
+                return None
 
         return cls.df
 
@@ -220,7 +224,11 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
     def find_target_tile(self,ra,dec):
         #assumed to have already confirmed this target is at least in coordinate range of this catalog
+        #return at most one tile, but maybe more than one tract (for the catalog ... HSC does not completely
+        #   overlap the tracts so if multiple tiles are valid, depending on which one is selected, you may
+        #   not find matching objects for the associated tract)
         tile = None
+        tract = []
         keys = []
         for k in self.Tile_Dict.keys():
             # don't bother to load if ra, dec not in range
@@ -234,7 +242,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 pass
 
         if len(keys) == 0: #we're done ... did not find any
-            return None
+            return None, None
         elif len(keys) == 1: #found exactly one
             tile = keys[0]
         elif len(keys) > 1: #find the best one
@@ -243,6 +251,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             #we don't have the actual corners anymore, so just assume a rectangle
             #so there are 2 of each min, max coords. Only need the smallest distance so just sum one
             for k in keys:
+                tract.append(self.Tile_Dict[k]['tract'])
                 sqdist = (ra-self.Tile_Dict[k]['RA_min'])**2 + (dec-self.Tile_Dict[k]['Dec_min'])**2 + \
                          (ra-self.Tile_Dict[k]['RA_max'])**2 + (dec-self.Tile_Dict[k]['Dec_max'])**2
                 if sqdist < min:
@@ -250,7 +259,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                     tile = k
         else: #really?? len(keys) < 0 : this is just a sanity catch
             log.error("ERROR! len(keys) < 0 in cat_hsc::find_target_tile.")
-            return None
+            return None, None
 
         log.info("Selected tile: %s" % tile)
         #now we have the tile key (filename)
@@ -268,7 +277,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         except:
             pass
 
-        return tile
+        return tile, tract
 
     def get_filter_flux(self, df):
 
@@ -333,16 +342,18 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         returns a pandas dataframe'''
 
         #even if not None, could be we need a different catalog, so check and append
-        tile = self.find_target_tile(ra,dec)
+        tile, tract = self.find_target_tile(ra,dec)
 
         if tile is None:
             log.info("Could not locate tile for HSC. Discontinuing search of this catalog.")
             return 0,None,None
 
         #could be none or could be not loaded yet
-        if self.df is None or not (self.Tile_Dict[tile]['tract'] in self.loaded_tracts):
+        #if self.df is None or not (self.Tile_Dict[tile]['tract'] in self.loaded_tracts):
+        if self.df is None or not (set(tract).issubset(self.loaded_tracts)):
             #self.read_main_catalog()
-            self.read_catalog(tract=self.Tile_Dict[tile]['tract'])
+            #self.read_catalog(tract=self.Tile_Dict[tile]['tract'])
+            self.read_catalog(tract=tract)
 
         error_in_deg = np.float64(error) / 3600.0
 
@@ -472,7 +483,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         font.set_size(12)
 
         # for a given Tile, iterate over all filters
-        tile = self.find_target_tile(ra, dec)
+        tile, tract = self.find_target_tile(ra, dec)
 
         if tile is None:
             # problem
@@ -833,18 +844,13 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                                                                                            ew_case=None, W_0=None,
                                                                                            z_OII=None, sigma=None)
 
-                            dfx = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
-                                                                    (self.dataframe_of_bid_targets['DEC'] == d[0])]
+                            #dfx = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
+                            #                                        (self.dataframe_of_bid_targets['DEC'] == d[0])]
 
-                            for flt,flux,err in zip(dfx['FILTER'].values,
-                                                    dfx['FLUX_AUTO'].values,
-                                                    dfx['FLUXERR_AUTO'].values):
-                                try:
-                                    bid_target.add_filter('NA',flt,
-                                                          self.nano_jansky_to_cgs(flux,target_w),
-                                                          self.nano_jansky_to_cgs(err,target_w))
-                                except:
-                                    log.debug('Unable to build filter entry for bid_target.',exc_info=True)
+                            try:
+                                bid_target.add_filter('HSC','R',filter_fl_cgs,filter_fl_err)
+                            except:
+                                log.debug('Unable to build filter entry for bid_target.',exc_info=True)
 
                             cat_match.add_bid_target(bid_target)
                         except:

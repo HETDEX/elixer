@@ -203,7 +203,7 @@ def rms(data, fit):
 
     mx = max(data)
 
-    if mx < 0:
+    if mx <= 0:
         return None
 
     d = np.array(data)/mx
@@ -770,29 +770,39 @@ class DetObj:
                     toks = l.split()
                     #w = float(toks[1])  # sanity check against self.w
                     self.w = float(toks[1])
+
                     if self.w == 0.0: #seeing some 2d.res files are all zeroes
                         log.error("Fatal: Invalid *_2d.res file. Empty content.: %s " % file)
-                        self.status = -1
-                        return
+                        #self.status = -1
+                        self.w = -1.0
 
-                    #as is, way too large ... maybe not originally calculated as per angstrom? so divide by wavelength?
-                    #or maybe units are not right or a miscalculation?
-                    #toks2 is in counts
-                    self.estflux = float(toks[2]) * self.sumspec_flux_unit_scale # * 10 ** (-17)
-                    #print("Warning! Using old flux conversion between counts and flux!!!")
-                    #self.estflux = float(toks[2]) * flux_conversion(self.w)
+                        self.estflux = -0.0001
+                        self.snr = 0.01
+                        self.fwhm = 0.0
+                        self.cont_cgs = -0.0001
+                        self.eqw_obs = -1.0
 
-                    self.fwhm = 2.35*float(toks[3]) #here sigma is the gaussian sigma, the line width, not significance
-                    self.snr = float(toks[5])
-                    self.cont_cgs = float(toks[6]) * self.sumspec_flux_unit_scale# * 10 ** (-17)
 
-                    # todo: need a floor for cgs (if negative)
-                    # for now only
-                    if self.cont_cgs <= 0.:
-                        print("Warning! Using predefined floor for continuum")
-                        self.cont_cgs = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(self.w)
+                    else:
 
-                    self.eqw_obs = self.estflux / self.cont_cgs
+                        #as is, way too large ... maybe not originally calculated as per angstrom? so divide by wavelength?
+                        #or maybe units are not right or a miscalculation?
+                        #toks2 is in counts
+                        self.estflux = float(toks[2]) * self.sumspec_flux_unit_scale # * 10 ** (-17)
+                        #print("Warning! Using old flux conversion between counts and flux!!!")
+                        #self.estflux = float(toks[2]) * flux_conversion(self.w)
+
+                        self.fwhm = 2.35*float(toks[3]) #here sigma is the gaussian sigma, the line width, not significance
+                        self.snr = float(toks[5])
+                        self.cont_cgs = float(toks[6]) * self.sumspec_flux_unit_scale# * 10 ** (-17)
+
+                        # todo: need a floor for cgs (if negative)
+                        # for now only
+                        if self.cont_cgs <= 0.:
+                            print("Warning! Using predefined floor for continuum")
+                            self.cont_cgs = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(self.w)
+
+                        self.eqw_obs = self.estflux / self.cont_cgs
         except:
             log.error("Cannot read *2d.res file: %s" % file, exc_info=True)
 
@@ -953,8 +963,8 @@ class DetObj:
                     #f.relative_weight /= norm #note: some we see are zero ... they do not contribute
 
                 for f in self.fibers:
-                    #f.relative_weight /= subset_norm
-                    f.relative_weight /= 100.0
+                    f.relative_weight /= subset_norm
+                    #f.relative_weight /= max_weight
 
 
 
@@ -994,13 +1004,14 @@ class DetObj:
 
             self.sumspec_wavelength = out[:,0]
             self.sumspec_counts = out[:, 1]
+            #reminder data scientific notation, so mostly e-17 or e-18
             self.sumspec_flux = out[:,2] * 1e17
-            #todo: get flux_err
-            #self.sumspec_fluxerr = out[:,xxx]  * 1e17
+            #todo: get flux error
+            #self.sumspec_fluxerr = out[:,6]  * 1e17
 
         except:
-            log.error("Fatal. Cannot read *specf.res file: %s" % file, exc_info=True)
-            print("Fatal. Cannot read *specf.res file: %s" % file)
+            log.error("Fatal. Cannot read *specf.dat file: %s" % file, exc_info=True)
+            print("Fatal. Cannot read *specf.dat file: %s" % file)
             self.status = -1
             return
 
@@ -1011,9 +1022,9 @@ class DetObj:
 
             self.sumspec_wavelength_zoom = out[:, 0]
             self.sumspec_counts_zoom = out[:, 1]
-            self.sumspec_flux_zoom = out[:, 2]  #* 1e17
-            # todo: get flux_err_zoom
-            # self.sumspec_fluxerr_zoom = out[:,xxx]  * 1e17
+            self.sumspec_flux_zoom = out[:, 2]  * 1e17
+            #todo: get flux error
+            #self.sumspec_fluxerr_zoom = out[:,6]  * 1e17
 
         except:
             log.error("Fatal. Cannot read *_spece.res file: %s" % file, exc_info=True)
@@ -1044,7 +1055,10 @@ class DetObj:
 
 
         #set_spectra(self, wavelengths, values, errors, central, estflux=None, eqw_obs=None)
-        self.spec_obj.set_spectra(self.sumspec_wavelength,self.sumspec_counts,self.sumspec_fluxerr,self.w)
+        #self.spec_obj.set_spectra(self.sumspec_wavelength,self.sumspec_counts,self.sumspec_fluxerr,self.w)
+        self.spec_obj.set_spectra(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr, self.w,
+                                  values_are_flux=True)
+
         self.spec_obj.classify() #solutions can be returned, also stored in spec_obj.solutions
 
 
@@ -1522,6 +1536,12 @@ class DetObj:
             self.p_lae_oii_ratio = self.spec_obj.p_lae_oii_ratio
 
         #otherwise, build with what we've got (note: does not have additional lines, in this case)
+        elif self.w < 10: #really < 3500 is nonsense
+            log.info("Warning. Cannot calculate p(LAE) ... no wavelength defined.")
+            #can't calculate ... no wavelength
+            self.p_lae = -1
+            self.p_oii = -1
+            self.p_lae_oii_ratio = -1
         else:
             ratio, self.p_lae, self.p_oii = line_prob.prob_LAE(wl_obs=self.w,
                                                                lineFlux=self.estflux,
@@ -4554,8 +4574,33 @@ class HETDEX:
                 textplot.text(3500, textplot.axis()[2], "e-17", rotation=0, ha='left', va='bottom',
                           fontsize=10, color='k')  # use the e color for this family
 
-            #iterate over all emission lines ... assume the cwave is that line and plot the additional lines
 
+            #
+            #possibly add the matched line at cwave position
+            #
+            if (datakeep['detobj'].spec_obj is not None) and (len(datakeep['detobj'].spec_obj.solutions) > 0):
+                sols = datakeep['detobj'].spec_obj.solutions
+                if (sols[0].score > 3.0) and (sols[0].frac_score > 0.5): #need to tune this
+                    if (len(sols) == 1) or ((len(sols) > 1) and (sols[0].frac_score/sols[1].frac_score > 1.5)):
+                        #strong solution
+                        y_pos = textplot.axis()[2]
+                        textplot.text(cwave, y_pos, sols[0].name + " {", rotation=-90, ha='center', va='bottom',
+                                      fontsize=24, color=sols[0].color)  # use the e color for this family
+
+                        #todo: highlight the matched lines
+                        #todo: maybe fill in under the plot and not a highlight
+                        yl, yh = specplot.get_ylim()
+                        for f in sols[0].lines:
+                            hw = 5 #highlight half-width
+                            # use 'y' rather than sols[0].color ... becomes confusing with black
+                            rec = plt.Rectangle((f.w_obs - hw, yl), 2 * hw, yh - yl, fill=True, lw=1,
+                                                color=sols[0].color, alpha=1.0,zorder=1)
+                            specplot.add_patch(rec)
+
+
+            #
+            #iterate over all emission lines ... assume the cwave is that line and plot the additional lines
+            #
             wavemin = specplot.axis()[0]
             wavemax = specplot.axis()[1]
             legend = []
@@ -4621,17 +4666,18 @@ class HETDEX:
         if G.SHOW_SKYLINES:
             try:
                 yl, yh = specplot.get_ylim()
+                alpha = 0.75
 
                 central_w = 3545
                 half_width = 10
                 rec = plt.Rectangle((central_w-half_width, yl), 2 * half_width, yh - yl, fill=True, lw=1,
-                                    color='gray',alpha=0.5, zorder=1)
+                                    color='gray',alpha=alpha, zorder=1)
                 specplot.add_patch(rec)
 
                 central_w = 5462
                 half_width = 5
                 rec = plt.Rectangle((central_w - half_width, yl), 2 * half_width, yh - yl, fill=True, lw=1,
-                                    color='gray',alpha=0.5, zorder=1)
+                                    color='gray',alpha=alpha, zorder=1)
                 specplot.add_patch(rec)
             except:
                 pass

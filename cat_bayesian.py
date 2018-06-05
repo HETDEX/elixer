@@ -78,7 +78,11 @@ class DistancePrior:
             #find the corresponding indicies
             #should always have an entry (unless > 30" or mag is out of range)
             # in either case, will just return 1.0
-            if (dist > 30.0) or (mag < 21.0):
+            if (mag < 21.0) and (dist < 5.0): #super-bright and close
+                p_rand_match = 0.0
+            elif (dist > 30.0): #way too far (outside of the distribution, so call it random)
+                p_rand_match = 1.0
+            elif (mag < 21.0): #bright (so outside the distribution, but still far-ish away)
                 p_rand_match = 1.0
             else:
                 idist = np.where(self.annuli_bin_centers == dist)[0][0]

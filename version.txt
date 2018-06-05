@@ -1,17 +1,35 @@
 changes to voltron by version
 
-1.4.0a3 [2018-05-23]
+1.4.0a4 [2018-xx-xx]
+* fixed problem with HSC tract catalogs (entries in tracts corresponding to overlapping tiles do not correctly
+  overlap (objects that appear in the overlap region are not necessarily recorded in the overlapping tracts).
+  Now keeps all overlapping tracts, not just the one corresponding to the selected image tile.
+
+* allow pdf to still be produced even if rsp1 (*2d.res file) is empty (or all zeroes). Data may be junk, but
+  the pdf will still be produced.
+
+* for classification scoring, feed in fluxes as e-18 (rather than e-17) ... the scaling is then very close to
+  counts and the downstream logic can remain unchanged
+
+
+
+
+1.4.0a3 [2018-05-25]
+* add cat_bayesian package to handle Bayesian treatment of bid catalog objects (priors on likelihood of match to
+    observation)
+    - initial version of likelihood of being not random (as MDF based on Yaswant's work)
+    - sorting possible matches by this prob then distance
+    - added to top 3 bid match summaries
+
 * change reported flux for bid catalog objects to magnitude for easier comparison
     (note: in some catalogs, the mag is provided by the catalog, in some it is calculated from the flux)
     uses v,g,r bands (in that order, when present)
 
 * add global option DYNAMIC_MAG_APERTURE that, when true, allows the forced aperture placed on the imaging to calculate
-    the magnitude to grow until the magnitude stabalizes or reaches the maximum of the error window. Currently set
-    to a minium of 0.5". Stablization defined by either an increase in magnitude (dimming) or a change of less than
-    0.1 mag. The aperture is sized to match on the cutout and the radius is reported next to the magnitude beneath the
+    the magnitude to grow until the magnitude stabilizes or reaches the maximum of the error window. Currently set
+    to a minimum of 0.5". Stabilization defined by either an increase in magnitude (dimming) or a change of less than
+    0.05 mag. The aperture is sized to match on the cutout and the radius is reported next to the magnitude beneath the
     plot.
-
-* update contrast stretching for summed 2D cutout for better readability
 
 * update summing of spectra (upper right) to use RSP1 output when present
 
@@ -20,16 +38,9 @@ changes to voltron by version
 * fixed(?) stackedCOSMOS and SHELA magnitude calcuations. Imaging counts are already in nJy and do not need to be
     converted.
 
-* removed dead code from catalog classes (older versions that optionally produced individual pages for each bid catalog
-    match, etc)
+* update contrast stretching for summed 2D cutout for better readability
 
-* add cat_bayesian package to handle Bayesian treatment of bid catalog objects (priors on likelihood of match to
-    observation)
-    - initial version of likelihood of being not random (as MDF based on Yaswant's work)
-    - sorting possible matches by this prob then distance
-    - added to top 3 bid match summaries
-
-* update SHELA and COSMOS magnitude calculations (pixels are already in nJy and do not need conversion)
+* update SHELA and COSMOS aperture magnitude calculations (pixels are already in nJy and do not need conversion)
    (there is still some mismatch between reported mag and aperture mag, but it is closer)
 
 * fixed missing S/N in upper left stats
@@ -37,6 +48,10 @@ changes to voltron by version
 * remove chi2 if not present (upper left stats)
 
 * (temporarily?) turned off quality score until it can be re-scaled to flux (from counts)
+
+* removed dead code from catalog classes (older versions that optionally produced individual pages for each bid catalog
+    match, etc)
+
 
 [older versions]
 * changes not listed. See GitHub version control check-in comments

@@ -1,4 +1,10 @@
 
+[2018-06-04] -- late summer?
+** add new 0th row to top of plot to be generated at the end (but sorted to top when building pdf)
+    0th row will have the classification best guess
+    And move the version info to 0th row (top right)
+
+
 [2018-05-10]
 Update ifu.IFU() constructor to make use of rsp1 output ...
     + may need to call rsp1 manually (since the output is per detection, not per ifu and it
