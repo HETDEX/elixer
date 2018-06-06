@@ -4613,7 +4613,7 @@ class HETDEX:
                     hw = 5 #highlight half-width
                     # use 'y' rather than sols[0].color ... becomes confusing with black
                     rec = plt.Rectangle((f.w_obs - hw, yl), 2 * hw, yh - yl, fill=True, lw=1,
-                                        color=sol.color, alpha=1.0,zorder=1)
+                                        color=sol.color, alpha=0.5,zorder=1)
                     specplot.add_patch(rec)
 
 

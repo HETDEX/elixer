@@ -1078,22 +1078,24 @@ class Spectrum:
 
         self.emission_lines = [EmissionLine("Ly$\\alpha$ ", G.LyA_rest, 'red'),
                                EmissionLine("OII ", G.OII_rest, 'green'),
-                               EmissionLine("OIII", 4959, "lime"),
-                                    EmissionLine("OIII", 5007, "lime"),
-                               EmissionLine("H$\\beta$ ", 4861, "blue"),
-                               EmissionLine("H$\\gamma$ ", 4341, "royalblue"),
-                               EmissionLine("CIII", 1909, "purple"),
-                               EmissionLine("CIV ", 1549, "blueviolet"),
-                               EmissionLine("HeII", 1640, "orange"),
+                               EmissionLine("OIII", 4960.295, "lime"),
+                                    EmissionLine("OIII", 5008.240, "lime"),
+                               EmissionLine("H$\\beta$ ", 4862.68, "blue"),
+                               EmissionLine("H$\\gamma$ ", 4341.68, "royalblue"),
+                               EmissionLine("CIII", 1908.734, "purple"),
+                               EmissionLine("CIV ", 1549.48, "blueviolet"),
+                               EmissionLine("HeII", 1640.4, "orange"),
                                #EmissionLine("H$\\delta ", 4102, "royalblue", solution=False),
                                #EmissionLine("H$\\epsilon ", 3970, "royalblue", solution=False),
                                #EmissionLine("H$\\zeta ", 3889, "royalblue", solution=False),
                                #EmissionLine("H$\\eta ", 3835, "royalblue", solution=False),
-                               EmissionLine("MgII", 2798, "magenta", solution=False),
-                               EmissionLine("NV ", 1240, "teal", solution=False),
+                               EmissionLine("MgII", 2799.117, "magenta", solution=False),
+                               EmissionLine("NV ", 1240.81, "teal", solution=False),
                                EmissionLine("SiII", 1260, "gray", solution=False),
                                EmissionLine("NeIII", 3869, "pink", solution=False),
-                                    EmissionLine("NeIII", 3967, "pink", solution=False)]
+                                    EmissionLine("NeIII", 3967, "pink", solution=False),
+                               EmissionLine("NeV", 3346.79, "pink", solution=False),
+                               EmissionLine("NeVI", 3426.85, "pink", solution=False)]
 
         self.wavelengths = []
         self.values = [] #could be fluxes or counts or something else ... right now needs to be counts
