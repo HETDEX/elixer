@@ -40,7 +40,7 @@ if socket.gethostname() == 'z50':
     SHELA_PHOTO_Z_MASTER_PATH = "/home/dustin/code/python/voltron/data/isak/SHELA"
 
     HSC_BASE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced"
-    HSC_CAT_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced/catalog_tracts"
+    HSC_CAT_PATH = "/media/dustin/dd/hetdex/data/HSC/catalog_tracts" #"/work/04094/mshiro/maverick/HSC/S15A/reduced/catalog_tracts"
     HSC_IMAGE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced/images"
 
 else:
@@ -235,3 +235,5 @@ UNIQUE_DET_ID_NUM = 0
 CLASSIFY_WITH_OTHER_LINES = True
 
 DYNAMIC_MAG_APERTURE = True  #allow aperture size to change to fit maximum magnitude
+
+DEBUG_SHOW_GAUSS_PLOTS = False

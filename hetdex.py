@@ -704,10 +704,16 @@ class DetObj:
         #todo: a better way of some kind rather than a by-hand scoring
         if (self.spec_obj is not None) and (len(self.spec_obj.solutions) > 0):
             sols = self.spec_obj.solutions
-            if (self.spec_obj.solutions[0].score > 3.0) and (self.spec_obj.solutions[0].frac_score > 0.5):  # need to tune this
+            # need to tune this
+            # score is the sum of the observed eq widths
+            if (self.spec_obj.solutions[0].score > 10.0) and \
+                (self.spec_obj.solutions[0].frac_score > 0.5) and \
+                (len(self.spec_obj.solutions[0].lines) > 1): #> 1 == total of 3+ lines (main +2 or more additional)
+
                 if (len(self.spec_obj.solutions) == 1) or \
                     ((len(self.spec_obj.solutions) > 1) and \
                       (self.spec_obj.solutions[0].frac_score / self.spec_obj.solutions[1].frac_score > 1.5)):
+
                     return 1.0
         return 0
 
@@ -1071,6 +1077,10 @@ class DetObj:
         #self.spec_obj.set_spectra(self.sumspec_wavelength,self.sumspec_counts,self.sumspec_fluxerr,self.w)
         self.spec_obj.set_spectra(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr, self.w,
                                   values_are_flux=True)
+
+        #print("DEBUG ... spectrum peak finder")
+        self.spec_obj.build_full_width_spectrum(show_skylines=True, show_peaks=True, name="testsol")
+        #print("DEBUG ... spectrum peak finder DONE")
 
         self.spec_obj.classify() #solutions can be returned, also stored in spec_obj.solutions
 
@@ -2801,6 +2811,8 @@ class HETDEX:
                 sol = datakeep['detobj'].spec_obj.solutions[0]
                 title += "\n* %s(%d) z = %0.4f  EW_rest = %0.1f$\AA$" %(sol.name, int(sol.central_rest),sol.z,
                                                                         e.eqw_obs/sol.z)
+            else:
+                log.info("No singular, strong emission line solution.")
 
 
         #plt.subplot(gs[0:2, 0:3])
@@ -4599,22 +4611,25 @@ class HETDEX:
             #
             #possibly add the matched line at cwave position
             #
-            if (datakeep['detobj'].multi_line_solution_score() > 0.9):
-                #strong solution
-                sol = datakeep['detobj'].spec_obj.solutions[0]
-                y_pos = textplot.axis()[2]
-                textplot.text(cwave, y_pos, sol.name + " {", rotation=-90, ha='center', va='bottom',
-                              fontsize=24, color=sol.color)  # use the e color for this family
+            if not G.ZOO:
+                if (datakeep['detobj'].multi_line_solution_score() > 0.9):
+                    #strong solution
+                    sol = datakeep['detobj'].spec_obj.solutions[0]
+                    y_pos = textplot.axis()[2]
+                    textplot.text(cwave, y_pos, sol.name + " {", rotation=-90, ha='center', va='bottom',
+                                  fontsize=24, color=sol.color)  # use the e color for this family
 
-                #highlight the matched lines
+                    #highlight the matched lines
 
-                yl, yh = specplot.get_ylim()
-                for f in sol.lines:
-                    hw = 5 #highlight half-width
-                    # use 'y' rather than sols[0].color ... becomes confusing with black
-                    rec = plt.Rectangle((f.w_obs - hw, yl), 2 * hw, yh - yl, fill=True, lw=1,
-                                        color=sol.color, alpha=0.5,zorder=1)
-                    specplot.add_patch(rec)
+                    yl, yh = specplot.get_ylim()
+                    for f in sol.lines:
+                        hw = 3.0 * f.sigma #highlight half-width
+                        # use 'y' rather than sols[0].color ... becomes confusing with black
+                        rec = plt.Rectangle((f.w_obs - hw, yl), 2 * hw, yh - yl, fill=True, lw=1,
+                                            color=sol.color, alpha=0.5,zorder=1)
+                        specplot.add_patch(rec)
+                #else: #redundant log ... already logged when preparing the upper left text block
+                #    log.info("No singular, strong emission line solution.")
 
 
             #

@@ -1,7 +1,14 @@
 changes to voltron by version
 
-1.4.0a4 [2018-xx-xx]
+1.4.0a4 [2018-06-07]
 * fit sigmoid to prob. of random alignment by magnitude matrix (want to get more data and more refined bins)
+
+* updated peakfinder (boxcar smoothing w/3x pixels to reduce jitter) then fit with gaussian to un-smoothed spectra
+    - additional lines (a few NaI, NeV, NeVI)
+
+* reworked multi-line solution finder
+  - solution accepted if it dominates the score of all solutions with 2+ additional lines detetect of significant quality
+        (obs_EW, total flux, etc)
 
 * added large emission line name and colored highlights to full 1D spectrum plot if a strong multiline solution is found
   - added name, rest wavelength, z, and EW to last line of stats text (upper left)

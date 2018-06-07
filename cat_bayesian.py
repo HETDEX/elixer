@@ -110,15 +110,20 @@ class DistancePrior:
 
         self.pdf_sigmoid_parms = []
 
+
+        #to make sigmoid fit better, mirror the data to the 3rd quadrant??
+        #NO ... fits better w/o that
+        #xdata = np.concatenate((-1 * np.flip(self.annuli_bin_centers[1:],0), self.annuli_bin_centers))
         xdata = self.annuli_bin_centers
 
         #brightest to dimmest
         for mag_idx in range(len(self.mag_bin_centers)):
-            ydata = self.mdf_matrix[:,mag_idx+1] #+1 since first column is just the distances
-            one_idx = np.argmax(ydata)
+            ydata = self.mdf_matrix[:,mag_idx+1] #+1 since first column is just the distance
 
+            #No ... truncating to the first "1" does not really improve the fit
+            #one_idx = np.argmax(ydata)
             try:
-                popt, pcov = curve_fit(sigmoid, xdata[:one_idx], ydata[:one_idx],
+                popt, pcov = curve_fit(sigmoid, xdata, ydata,
                                        p0=(5.0, 0.2),
                                        bounds=((-1000.0,0.0),(1000.0,10.0))
                                        )

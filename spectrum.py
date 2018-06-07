@@ -22,7 +22,7 @@ import line_prob
 log = G.Global_Logger('spectrum_logger')
 log.setlevel(G.logging.DEBUG)
 
-MIN_FWHM = 5 #AA (must xlat to pixels)
+MIN_FWHM = 2 #AA (must xlat to pixels)
 MIN_ELI_SNR = 2.0 #bare minium SNR to even remotely consider a signal as real
 MIN_HEIGHT = 10
 MIN_DELTA_HEIGHT = 2 #to be a peak, must be at least this high above next adjacent point to the left
@@ -30,10 +30,24 @@ DEFAULT_BACKGROUND = 6.0
 DEFAULT_BACKGROUND_WIDTH = 100.0 #pixels
 DEFAULT_MIN_WIDTH_FROM_CENTER_FOR_BACKGROUND = 10.0 #pixels
 MAX_SIGMA = 10.0 #maximum width (pixels) for fit gaussian to signal (greater than this, is really not a fit)
-MIN_SIGMA = 1.0 #roughly 1/2 pixel where pixel = 1.9AA
-DEBUG_SHOW_PLOTS = True
+MIN_SIGMA = 1.5 #roughly 1/2 pixel where pixel = 1.9AA
 
+GAUSS_FIT_AA_RANGE = 40.0 #AA to either side of the line center to include in the gaussian fit attempt
+GAUSS_MAX_DX0 = 3.8 #maximum error in fitting to line center in AA
+                    #since this is based on the fit of the extra line AND the line center error of the central line
+                    #this is a compound error (assume +/- 2 AA since ~ 1.9AA/pix for each so at most 4 AA here)?
+                    #
+GAUSS_FIT_PIX_ERROR = 2.0 #have to allow at least 2 pixels of error (if aa/pix is small, _AA_ERROR takes over)
+GAUSS_FIT_AA_ERROR = 1.0 #error in line center in AA, still considered to be okay
+GAUSS_SNR_SIGMA = 3.0 #check at least these pixels to either side of the fit line for SNR (larger of this or NUM_AA)
+GAUSS_SNR_NUM_AA = 5.0 #check at least 5 AA to either side (11 total) of the fit line for SNR in gaussian fit (larger of this or _SIGMA
 
+GOOD_MIN_SNR = 4.5
+GOOD_MIN_SIGMA = 1.5
+GOOD_MIN_EW_OBS = 3.0
+GOOD_MIN_TOT_FLUX = 1.0e-18
+
+#FLUX conversion are pretty much defunct, but kept here as a last ditch conversion if all else fails
 FLUX_CONVERSION_measured_w = [3000., 3500., 3540., 3640., 3740., 3840., 3940., 4040., 4140., 4240., 4340., 4440., 4540., 4640., 4740., 4840.,
      4940., 5040., 5140.,
      5240., 5340., 5440., 5500., 6000.]
@@ -162,6 +176,7 @@ class EmissionLineInfo:
         self.cont = -999
 
         self.snr = 0.0
+        self.sbr = 0.0
         self.eqw_obs = -999
         self.cont = -999
         self.fwhm = -999
@@ -189,8 +204,38 @@ class EmissionLineInfo:
             self.cont = -999
             self.total_flux = -999
 
+    def is_good(self):
+        #(self.score > 0) and  #until score can be recalibrated, don't use it here
+        #(self.sbr > 1.0) #not working the way I want. don't use it
+        if (self.snr > GOOD_MIN_SNR) and (self.fit_sigma > GOOD_MIN_SIGMA) and \
+                (self.eqw_obs > GOOD_MIN_EW_OBS) and (self.total_flux > GOOD_MIN_TOT_FLUX) and \
+                (abs(self.fit_dx0) < GAUSS_MAX_DX0):
+          return True
+        else:
+            return False
 
-def signal_score(wavelengths,values,errors,central,values_are_flux=False, sbr=None, show_plot=False):
+
+def signal_score(wavelengths,values,errors,central,central_z = 0.0, values_are_flux=False, sbr=None, show_plot=False):
+
+    #error on the wavelength of the possible line depends on the redshift and its error and the wavelength itself
+    #i.e. wavelength error = wavelength / (1+z + error)  - wavelength / (1+z - error)
+    # want that by 1/2 (so +/- error from center ... note: not quite symmetric, but close enough over small delta)
+    # and want in pixels so divide by pix_size
+    #todo: note error itself should be a function of z ... otherwise, error is constant and as z increases, the
+    #todo:   pix_error then decreases
+    #however, this error is ON TOP of the wavelength measurement error, assumed to be +/- 1 pixel?
+    def pix_error(z,wavelength,error=0.001, pix_size= 2.0):
+        return 0.0
+
+        try:
+            e =  0.5 * wavelength * (2. * error / ((1.+z)**2 - error**2)) / pix_size
+        except:
+            e = 0.0
+            log.warning("Invalid pix_error in spectrum::signal_score",exc_info=True)
+
+        return e
+
+
 
     accept_fit = False
     if values_are_flux:
@@ -198,15 +243,19 @@ def signal_score(wavelengths,values,errors,central,values_are_flux=False, sbr=No
         # !!!! reminder, do NOT do values *= 10.0  ... that is an in place operation and overwrites the original
         values = values * 10.0  # put in units of 10^-18 so they pretty much match up with counts
 
+
     #sbr signal to background ratio
     pix_size = abs(wavelengths[1] - wavelengths[0])  # aa per pix
+
     # want +/- 20 angstroms in pixel units (maybe should be 50 AA?
-    wave_side = int(round(50.0 / pix_size))  # pixels
+    wave_side = int(round(GAUSS_FIT_AA_RANGE / pix_size))  # pixels
     #1.5 seems to be good multiplier ... 2.0 is a bit too much;
     # 1.0 is not bad, but occasionally miss something by just a bit
-    fit_range_AA = 2.0 * pix_size #1.0  # peak must fit to within +/- fit_range AA
+
+    fit_range_AA = max(GAUSS_FIT_PIX_ERROR * pix_size, GAUSS_FIT_AA_ERROR)
+    #fit_range_AA = GAUSS_FIT_PIX_ERROR * pix_size #1.0  # peak must fit to within +/- fit_range AA
                                   # this allows room to fit, but will enforce +/- pix_size after
-    num_of_sigma = 3.0  # number of sigma to include on either side of the central peak to estimate noise
+    #num_of_sigma = 3.0  # number of sigma to include on either side of the central peak to estimate noise
 
     len_array = len(wavelengths)
     idx = getnearpos(wavelengths,central)
@@ -237,12 +286,12 @@ def signal_score(wavelengths,values,errors,central,values_are_flux=False, sbr=No
     #wave_counts = np.clip(wave_counts,0.0,np.inf)
 
     xfit = np.linspace(wave_x[0], wave_x[-1], 1000) #range over which to plot the gaussian equation
-
     peak_pos = getnearpos(wavelengths, central)
 
-    #nearest pixel +/- 1 pixel (yes, pixel, not angstrom)
     try:
-        raw_peak = max(values[peak_pos-1:peak_pos+2])
+        # find the highest point in the raw data inside the range we are allowing for the line center fit
+        dpix = int(round(fit_range_AA / pix_size))
+        raw_peak = max(values[peak_pos-dpix:peak_pos+dpix+1])
     except:
         #this can fail if on very edge, but if so, we would not use it anyway
         log.info("Raw Peak value failure for wavelength (%f) at index (%d). Cannot fit to gaussian. " %(central,peak_pos))
@@ -265,10 +314,11 @@ def signal_score(wavelengths,values,errors,central,values_are_flux=False, sbr=No
         #todo: add sigma=error
         parm, pcov = curve_fit(gaussian, narrow_wave_x, narrow_wave_counts,
                                 p0=(central,1.5,1.0,0.0),
-                                bounds=((central-fit_range_AA, 1.5, 0.0, -100.0),
+                                bounds=((central-fit_range_AA, 1.0, 0.0, -100.0),
                                         (central+fit_range_AA, np.inf, np.inf, np.inf)),
                                 #sigma=1./(narrow_wave_errors*narrow_wave_errors)
                                 sigma=narrow_wave_errors
+                               #method='trf'
                                )
 
         perr = np.sqrt(np.diag(pcov)) #1-sigma level errors on the fitted parameters
@@ -301,14 +351,21 @@ def signal_score(wavelengths,values,errors,central,values_are_flux=False, sbr=No
         else:
             #check the dx0
 
-            if (abs(eli.fit_dx0) > pix_size):
-                log.debug("Failed to capture peak: dx0 = %f , pix_size = %f" % (eli.fit_dx0,pix_size))
+            p_err = pix_error(central_z,eli.fit_x0,pix_size=pix_size)
+            if (abs(eli.fit_dx0) > (1.75 * pix_size + p_err)):
+                log.debug("Failed to capture peak: dx0 = %f, pix_size = %f, wavelength = %f, pix_z_err = %f"
+                          % (eli.fit_dx0,pix_size, eli.fit_x0,p_err))
             else:
                 accept_fit = True
                 log.debug("Success: captured peak: raw = %f , fit = %f, frac = %0.2f"
                           % (raw_peak, fit_peak, abs(raw_peak - fit_peak) / raw_peak))
 
-                num_pix = int(round(num_of_sigma * eli.fit_sigma / pix_size)) * 2 + 1
+
+                num_pix = max(GAUSS_SNR_SIGMA * eli.fit_sigma, GAUSS_SNR_NUM_AA) #half-width in AA
+                num_pix = int(round(num_pix))*2 + 1
+
+                #num_pix = int(round(GAUSS_SNR_SIGMA * eli.fit_sigma / pix_size)) * 2 + 1
+                #num_pix = max(num_pix,2*int(round(GAUSS_SNR_NUM_AA/pix_size))+1)
 
                  # rms just under the part of the plot with signal (not the entire fit part) so, maybe just a few AA or pix
                 eli.fit_norm_rmse = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, central), hw_pix=(num_pix-1)/2,
@@ -332,6 +389,7 @@ def signal_score(wavelengths,values,errors,central,values_are_flux=False, sbr=No
         #eli.snr = max(eli.fit_vals) / (np.sqrt(num_pix) * eli.fit_rmse)
         snr = eli.snr
     else:
+        accept_fit = False
         snr = 0.0
         eli.total_flux = 0.0
 
@@ -348,10 +406,11 @@ def signal_score(wavelengths,values,errors,central,values_are_flux=False, sbr=No
             return None
 
     score = sbr
+    eli.sbr = sbr
     sk = -999
     ku = -999
     si = -999
-    dx0 = -999
+    dx0 = -999 #in AA
     rh = -999
     mx_norm = max(wave_counts)/100.0
 
@@ -447,14 +506,15 @@ def signal_score(wavelengths,values,errors,central,values_are_flux=False, sbr=No
         log.info("Unable to fit gaussian. ")
         score = 0.0
 
-    if show_plot or DEBUG_SHOW_PLOTS:
+    if show_plot or G.DEBUG_SHOW_GAUSS_PLOTS:
         if error is None:
             error = -1
-        title += "Score = %0.2f (%0.1f), SBR = %0.2f (%0.1f), SNR = %0.2f (%0.1f)\n" \
+        title += "%f z_guess=%f\n" \
+                 "Score = %0.2f (%0.1f), SBR = %0.2f (%0.1f), SNR = %0.2f (%0.1f)\n" \
                  "Flux = %0.2g, Cont = %0.2g, EqW_Obs=%0.2f\n"\
                  "dX0 = %0.2f, RH = %0.2f, RMS = %0.2f (%0.2f) \n"\
                  "Sigma = %0.2f, Skew = %0.2f, Kurtosis = %0.2f"\
-                  % (score, signal_calc_scaled_score(score),sbr,
+                  % (eli.fit_x0,central_z,score, signal_calc_scaled_score(score),sbr,
                      signal_calc_scaled_score(sbr),snr,signal_calc_scaled_score(snr),
                      eli.total_flux, eli.cont,eli.eqw_obs,
                      dx0, rh, error,eli.fit_rmse, si, sk, ku)
@@ -471,9 +531,7 @@ def signal_score(wavelengths,values,errors,central,values_are_flux=False, sbr=No
         except:
             log.debug("Cannot plot central line fit boundaries.",exc_info=True)
 
-
         if fit_wave is not None:
-
             gauss_plot.plot(xfit, fit_wave, c='b')
             gauss_plot.grid(True)
 
@@ -791,7 +849,7 @@ def simple_peaks(x,v,h=MIN_HEIGHT,delta_v=2.0):
     num_pix = len(v)
 
     if num_pix != len(x):
-        log.warning('peakdet: Input vectors v and x must have same length')
+        log.warning('simple_peaks: Input vectors v and x must have same length')
         return None,None
 
     minv, maxv = np.Inf, -np.Inf
@@ -904,6 +962,18 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
         log.warning('peakdet: Input argument delta must be positive')
         return []
 
+
+    v_0 = v[:]
+    x_0 = x[:]
+
+    #smooth v and rescale x,
+    #the peak positions are unchanged but some of the jitter is smoothed out
+    v = v[:-2] + v[1:-1] + v[2:]
+    #v = v[:-4] + v[1:-3] + v[2:-2] + v[3:-1] + v[4:]
+    #v = v[:-6] + v[1:-5] + v[2:-4] + v[3:-3] + v[4:-2] + v[5:-1] + v[6:]
+    v /= 3.0
+    x = x[1:-1]
+
     minv, maxv = np.Inf, -np.Inf
     minpos, maxpos = np.NaN, np.NaN
 
@@ -946,17 +1016,19 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
     std = np.std(peaks)
 
     #now, throw out anything waaaaay above the mean (toss out the outliers and recompute mean)
-    sub = peaks[np.where(abs(peaks - gm) < (3.0*std))[0]]
-    if len(sub) < 3:
-        sub = peaks
-    gm = np.mean(sub)
+    if False:
+        sub = peaks[np.where(abs(peaks - gm) < (3.0*std))[0]]
+        if len(sub) < 3:
+            sub = peaks
+        gm = np.mean(sub)
 
     for pi,px,pv in maxtab:
         #check fwhm (assume 0 is the continuum level)
 
         #minium height above the mean of the peaks (w/o outliers)
-        if (pv < 1.333 * gm):
-            continue
+        if False:
+            if (pv < 1.333 * gm):
+                continue
 
         hm = float((pv - zero) / 2.0)
         pix_width = 0
@@ -1009,27 +1081,32 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
 
         #minimum height above the local gm_average
         #note: can be a problem for adjacent peaks?
-        if pv < (2.0 * np.mean(np.concatenate((sub_left,sub_right)))):
-            continue
+        if False:
+            if pv < (2.0 * np.mean(np.concatenate((sub_left,sub_right)))):
+                continue
 
         #check vs minimum width
         if not (pix_width < dw):
             #see if too close to prior peak (these are in increasing wavelength order)
-            eli = signal_score(x, v, None, px)
+            eli = signal_score(x_0, v_0, None, px)
 
-            if (eli is not None) and (eli.score > 0):
+            #if (eli is not None) and (eli.score > 0) and (eli.snr > 7.0) and (eli.fit_sigma > 1.6) and (eli.eqw_obs > 5.0):
+            if (eli is not None) and eli.is_good():
                 if len(emistab) > 0:
                     if (px - emistab[-1][1]) > 6.0:
-                        emistab.append((pi, px, pv,pix_width,centroid_pos,eli.score,eli.snr))
+                        emistab.append((pi, px, pv,pix_width,centroid_pos,eli.eqw_obs,eli.snr))
                     else: #too close ... keep the higher peak
                         if pv > emistab[-1][2]:
                             emistab.pop()
-                            emistab.append((pi, px, pv, pix_width, centroid_pos,eli.score,eli.snr))
+                            emistab.append((pi, px, pv, pix_width, centroid_pos,eli.eqw_obs,eli.snr))
                 else:
-                    emistab.append((pi, px, pv, pix_width, centroid_pos,eli.score,eli.snr))
+                    emistab.append((pi, px, pv, pix_width, centroid_pos,eli.eqw_obs,eli.snr))
 
 
     #return np.array(maxtab), np.array(mintab)
+    #print("DEBUG ... peak count = %d" %(len(emistab)))
+    #for i in range(len(emistab)):
+    #    print(emistab[i][1],emistab[i][2], emistab[i][5])
     return emistab
 
 
@@ -1041,11 +1118,15 @@ class EmissionLine():
         self.z = z
         self.color = plot_color
         self.solution = solution #True = can consider this as the target line
+
+        #can be filled in later if a specific instance is created and a model fit to it
         self.score = score
         self.snr = None
+        self.sbr = None
         self.flux = None
         self.eqw_obs = None
         self.eqw_rest = None
+        self.sigma = None #gaussian fit sigma
 
     def redshift(self,z):
         self.z = z
@@ -1075,27 +1156,33 @@ class Spectrum:
     """
 
     def __init__(self):
-
+        #reminder ... colors don't really matter (are not used) if solution is not True)
         self.emission_lines = [EmissionLine("Ly$\\alpha$ ", G.LyA_rest, 'red'),
                                EmissionLine("OII ", G.OII_rest, 'green'),
                                EmissionLine("OIII", 4960.295, "lime"),
-                                    EmissionLine("OIII", 5008.240, "lime"),
+                               EmissionLine("OIII", 5008.240, "lime"),
+
+                               EmissionLine("CIV ", 1549.48, "blueviolet"),  # big in AGN
+                               EmissionLine("CIII", 1908.734, "purple"),  #big in AGN
+                               EmissionLine("MgII", 2799.117, "magenta"),  #big in AGN
+
                                EmissionLine("H$\\beta$ ", 4862.68, "blue"),
                                EmissionLine("H$\\gamma$ ", 4341.68, "royalblue"),
-                               EmissionLine("CIII", 1908.734, "purple"),
-                               EmissionLine("CIV ", 1549.48, "blueviolet"),
-                               EmissionLine("HeII", 1640.4, "orange"),
                                #EmissionLine("H$\\delta ", 4102, "royalblue", solution=False),
                                #EmissionLine("H$\\epsilon ", 3970, "royalblue", solution=False),
                                #EmissionLine("H$\\zeta ", 3889, "royalblue", solution=False),
                                #EmissionLine("H$\\eta ", 3835, "royalblue", solution=False),
-                               EmissionLine("MgII", 2799.117, "magenta", solution=False),
+
                                EmissionLine("NV ", 1240.81, "teal", solution=False),
                                EmissionLine("SiII", 1260, "gray", solution=False),
+                               EmissionLine("HeII", 1640.4, "orange", solution=False),
                                EmissionLine("NeIII", 3869, "pink", solution=False),
-                                    EmissionLine("NeIII", 3967, "pink", solution=False),
+                               EmissionLine("NeIII", 3967, "pink", solution=False),
                                EmissionLine("NeV", 3346.79, "pink", solution=False),
-                               EmissionLine("NeVI", 3426.85, "pink", solution=False)]
+                               EmissionLine("NeVI", 3426.85, "pink", solution=False),
+                               EmissionLine("NaI", 4980, "lightcoral", solution=False),  #4978.5 + 4982.8
+                               EmissionLine("NaI",5153,"lightcoral",solution=False)  #5148.8 + 5153.4
+                               ]
 
         self.wavelengths = []
         self.values = [] #could be fluxes or counts or something else ... right now needs to be counts
@@ -1323,6 +1410,8 @@ class Spectrum:
         min_w = min(wavelengths)
 
         for e in self.emission_lines:
+            if not e.solution: #if this line is not allowed to be the main line
+                continue
 
             if (central/e.w_rest - 1.0) < 0.0:
                 continue #impossible, can't have a negative z
@@ -1344,19 +1433,32 @@ class Spectrum:
                 if (a_central > max_w) or (a_central < min_w):
                     continue
 
-                eli = signal_score(wavelengths, values, errors, a_central, values_are_flux=values_are_flux)
+                if central is not None:
+                    central_z = central/e.w_rest - 1.0
+                else:
+                    central_z = 0.0
 
-                if (eli is not None):# and (eli.score > 0.0):
-                    total_score += eli.score
-                    sol.score += eli.score
+                eli = signal_score(wavelengths, values, errors, a_central,
+                                   central_z = central_z, values_are_flux=values_are_flux)
+
+                #if (eli is not None):# and (eli.score > 0.0):
+                #    total_score += eli.score
+                #    sol.score += eli.score
+
+                #if (eli is not None) and (eli.sbr > 1.0):
+                if (eli is not None) and eli.is_good():
+                    total_score += eli.eqw_obs
+                    sol.score += eli.eqw_obs
                     l = copy.deepcopy(a)
                     l.w_obs = l.w_rest * (1.0 + sol.z)
                     l.z = sol.z
                     l.score = eli.score
                     l.snr = eli.snr
+                    l.sbr = eli.sbr
                     l.eqw_obs = eli.eqw_obs
                     l.eqw_rest = l.eqw_obs / (1 + l.z)
                     l.flux = eli.total_flux
+                    l.sigma = eli.fit_sigma
 
                     sol.lines.append(l)
 
@@ -1369,10 +1471,13 @@ class Spectrum:
         #sort by score
         solutions.sort(key=lambda x: x.score, reverse=True)
 
-
         for s in solutions:
-            msg = "%s, Frac = %0.2f, Score = %0.1f, z = %0.5f, obs_w = %0.1f, rest_w = %0.1f" \
-                    % (s.emission_line.name,s.frac_score, s.score,s.z, s.central_rest*(1.0+s.z),s.central_rest )
+            ll =""
+            for l in s.lines:
+                ll += " %s(%0.1f at %0.1f)," %(l.name,l.w_rest,l.w_obs)
+            msg = "Possible Mulit-line Solution:\n  %s (%0.1f at %0.1f), Frac = %0.2f, Score = %0.1f, z = %0.5f, +lines=%d\n    %s" \
+                    % (s.emission_line.name,s.central_rest*(1.0+s.z),s.central_rest, s.frac_score, s.score,s.z,
+                       len(s.lines),ll )
             log.info(msg)
             # todo: remove ... temporary
             print(msg)
@@ -1416,13 +1521,15 @@ class Spectrum:
         use_internal = False
         if (counts is None) or (wavelengths is None) or (central_wavelength is None):
             counts = self.values
+            if self.values_are_flux: #!!! need a copy here ... DO NOT counts *= 10.0
+                counts = counts * 10.0 #flux assumed to be cgs x10^-17 ... by 10x to x10^-18 become very similar to counts in scale
             wavelengths = self.wavelengths
             central_wavelength = self.central
             use_internal = True
 
 
         # fig = plt.figure(figsize=(5, 6.25), frameon=False)
-        fig = plt.figure(figsize=(8, 3), frameon=False)
+        fig = plt.figure(figsize=(8, 2), frameon=False)
         plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
 
         dy = 1.0 / 5.0  # + 1 skip for legend, + 2 for double height spectra + 2 for double height labels
@@ -1442,7 +1549,7 @@ class Spectrum:
             mn = max(mn, -20)  # negative flux makes no sense (excepting for some noise error)
             mx = np.max(counts)
             ran = mx - mn
-            specplot.step(wavelengths, counts,  where='mid', lw=1)
+            specplot.plot(wavelengths, counts,lw=0.5,c='b')
 
             specplot.axis([left, right, mn - ran / 20, mx + ran / 20])
             yl, yh = specplot.get_ylim()
@@ -1462,11 +1569,12 @@ class Spectrum:
                 #    print(peaks[i][0],peaks[i][1], peaks[i][2], peaks[i][3], peaks[i][4], scores[i])
 
                 if (peaks is not None) and (len(peaks) > 0):
-                    specplot.scatter(np.array(peaks)[:, 1], np.array(peaks)[:, 2], facecolors='none', edgecolors='r')
+                    specplot.scatter(np.array(peaks)[:, 1], np.array(peaks)[:, 2], facecolors='none', edgecolors='r',
+                                     zorder=99)
 
                     for i in range(len(peaks)):
                         h = peaks[i][2]
-                        specplot.annotate(str(peaks[i][5]),xy=(peaks[i][1],h),xytext=(peaks[i][1],h),fontsize=6)
+                        specplot.annotate("%0.1f"%peaks[i][5],xy=(peaks[i][1],h),xytext=(peaks[i][1],h),fontsize=6,zorder=99)
 
                         log.debug("Peak at: %g , Score = %g , SNR = %g" %(peaks[i][1],peaks[i][5], peaks[i][6]))
 
@@ -1486,7 +1594,7 @@ class Spectrum:
                 name_waves = []
                 obs_waves = []
 
-                rec = plt.Rectangle((central_wavelength - 20.0, yl), 2 * 20.0, yh - yl, fill=True, lw=1, color='y', zorder=1)
+                rec = plt.Rectangle((central_wavelength - 20.0, yl), 2 * 20.0, yh - yl, fill=True, lw=0.5, color='y', zorder=1)
                 specplot.add_patch(rec)
 
                 if use_internal and (len(self.solutions) > 0):
