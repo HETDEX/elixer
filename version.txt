@@ -1,7 +1,8 @@
 changes to voltron by version
 
 1.4.0a4 [2018-06-07]
-* fit sigmoid to prob. of random alignment by magnitude matrix (want to get more data and more refined bins)
+* fit sigmoid and polynomial to probability of random alignment by magnitude matrix
+    (may want to get more data and more refined bins)
 
 * updated peakfinder (boxcar smoothing w/3x pixels to reduce jitter) then fit with gaussian to un-smoothed spectra
     - additional lines (a few NaI, NeV, NeVI)
