@@ -1079,7 +1079,7 @@ class DetObj:
                                   values_are_flux=True)
 
         #print("DEBUG ... spectrum peak finder")
-        self.spec_obj.build_full_width_spectrum(show_skylines=True, show_peaks=True, name="testsol")
+        #self.spec_obj.build_full_width_spectrum(show_skylines=True, show_peaks=True, name="testsol")
         #print("DEBUG ... spectrum peak finder DONE")
 
         self.spec_obj.classify() #solutions can be returned, also stored in spec_obj.solutions
