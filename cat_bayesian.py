@@ -18,8 +18,8 @@ log.setlevel(G.logging.DEBUG)
 DISTANCE_PRIOR_FILENAME ="distance_list_bool.txt"# "distance_list.txt"
 MIRROR = False #should probably stay false ... mirror to 3rd quadrant for sigmoid seems to make fit worse
 
-PDF_MODEL = "poly"
 #PDF_MODEL = "sigmoid"
+PDF_MODEL = "poly" #DEFAULT ... better fit than sigmoid in these cases
 POLY_DEG = 3 #cubic is somewhat better than quadratic, but the relative improvements fall off rapidly after
              #each higher order does do a little better for the fainter mags, but the improvements are
              #increasingly small
@@ -96,6 +96,10 @@ class DistancePrior:
     mag_bin_edges = mag_bin_centers - 0.5
     mag_bin_edges[0] = 21.0
     mag_bin_edges = np.append(mag_bin_edges, 28.0)
+
+    min_mag = min(mag_bin_centers)
+    max_mag = max(mag_bin_centers)
+    max_radius = max(annuli_bin_centers)
 
     def __init__(self,pdf_model=PDF_MODEL, poly_deg=POLY_DEG):
 
@@ -260,40 +264,52 @@ class DistancePrior:
             #find the corresponding indicies
             #should always have an entry (unless > 30" or mag is out of range)
             # in either case, will just return 1.0
-            if (mag_bin < 21.0) and (dist_bin < 5.0): #super-bright and close
-                p_rand_match = 0.0
-            elif (dist_bin > 30.0): #way too far (outside of the distribution, so call it random)
-                p_rand_match = 1.0
-            elif (mag_bin < 21.0): #bright (so outside the distribution, but still far-ish away)
+
+
+            if (dist_bin > self.max_radius):  # way too far (outside of the distribution, so call it random)
                 p_rand_match = 1.0
             else:
-                p_rand_match = -1
-                imag = np.where(self.mag_bin_centers == mag_bin)[0][0]
-                if self.pdf_model == "sigmoid":
-                    #use the pdf if available
-                    if (self.pdf_sigmoid_parms is not None) and (len(self.pdf_sigmoid_parms) >  imag) and \
-                            (self.pdf_sigmoid_parms[imag] is not None):
 
-                        p_rand_match = sigmoid(dist,*(self.pdf_sigmoid_parms[imag]))
-                        log.info("Using sigmoid PDF for distance prior: mag = %f , dist = %f, 1-p(rand) = %f" %
-                                 (mag, dist,1. - p_rand_match))
-                elif self.pdf_model == "poly":
-                    if (self.pdf_poly_parms is not None) and (len(self.pdf_poly_parms) >  imag) and \
-                            (self.pdf_poly_parms[imag] is not None):
+                if (mag_bin < self.min_mag) and (dist_bin > 5.0): #too bright, but not super close
+                    #bright usually means big, larger dist_bin
+                    mag_bin = self.min_mag #just set to the minimum mag and use that
+                elif (mag_bin > self.max_mag) and (dist_bin < 3.0): #faint, but fairly close
+                    mag_bin = self.max_mag
 
-                        p_rand_match = polynomial(dist,self.pdf_poly_parms[imag])
-                        log.info("Using polynomial PDF for distance prior: mag = %f , dist = %f, 1-p(rand) = %f" %
-                                 (mag, dist,1. - p_rand_match))
+                if (mag_bin < self.min_mag): #super-bright and close ... very likely to be the real match
+                    p_rand_match = 0.0
+                elif (mag_bin > self.max_mag): #too faint. No data but assume very many so max out random likelihood
+                    p_rand_match = 1.0
+                else:
+                    p_rand_match = -1
+                    imag = np.where(self.mag_bin_centers == mag_bin)[0][0]
+                    if self.pdf_model == "sigmoid":
+                        #use the pdf if available
+                        if (self.pdf_sigmoid_parms is not None) and (len(self.pdf_sigmoid_parms) >  imag) and \
+                                (self.pdf_sigmoid_parms[imag] is not None):
 
-                if p_rand_match == -1 :  # use the mdf_matrix
-                    idist = np.where(self.annuli_bin_centers == dist_bin)[0][0]
-                    p_rand_match = self.mdf_matrix[idist, imag]
-                    log.info("Using MDF for distance prior: mag = %f , dist = %f, 1-p(rand) = %f" %
-                             (mag, dist, 1. - p_rand_match))
+                            p_rand_match = sigmoid(dist,*(self.pdf_sigmoid_parms[imag]))
+                            log.info("Using sigmoid PDF for distance prior: mag = %f , dist = %f, 1-p(rand) = %f" %
+                                     (mag, dist,1. - p_rand_match))
+                    elif self.pdf_model == "poly":
+                        if (self.pdf_poly_parms is not None) and (len(self.pdf_poly_parms) >  imag) and \
+                                (self.pdf_poly_parms[imag] is not None):
 
+                            p_rand_match = polynomial(dist,self.pdf_poly_parms[imag])
+                            log.info("Using polynomial PDF for distance prior: mag = %f , dist = %f, 1-p(rand) = %f" %
+                                     (mag, dist,1. - p_rand_match))
 
+                    if p_rand_match == -1 :  # use the mdf_matrix
+                        idist = np.where(self.annuli_bin_centers == dist_bin)[0][0]
+                        p_rand_match = self.mdf_matrix[idist, imag]
+                        log.info("Using MDF for distance prior: mag = %f , dist = %f, 1-p(rand) = %f" %
+                                 (mag, dist, 1. - p_rand_match))
         except:
             log.warning("Cannot sample distance mdf. Will return p = 1.0",exc_info=True)
+            p_rand_match = 1.0
+
+
+        p_rand_match = min(1.0,abs(p_rand_match))
 
         return 1. - p_rand_match
 
