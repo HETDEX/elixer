@@ -18,9 +18,11 @@ log.setlevel(G.logging.DEBUG)
 DISTANCE_PRIOR_FILENAME ="distance_list_bool.txt"# "distance_list.txt"
 MIRROR = False #should probably stay false ... mirror to 3rd quadrant for sigmoid seems to make fit worse
 
-PDF_FUNC = "poly"
-#PDF_FUNC = "sigmoid"
-POLY_DEG = 3
+PDF_MODEL = "poly"
+#PDF_MODEL = "sigmoid"
+POLY_DEG = 3 #cubic is somewhat better than quadratic, but the relative improvements fall off rapidly after
+             #each higher order does do a little better for the fainter mags, but the improvements are
+             #increasingly small
 
 
 # def sigmoid(x, x0, k): #generalized logistic (Richard's curve)
@@ -41,8 +43,40 @@ def gaussian(x,x0,sigma,a=1.0,y=0.0):
     #have the / np.sqrt(...) part so the basic shape is normalized to 1 ... that way the 'a' becomes the area
     return a * (np.exp(-np.power((x - x0) / sigma, 2.) / 2.) / np.sqrt(2 * np.pi * sigma ** 2)) + y
 
+#just a simple diagnostic for comparing polynomial fits ... not intended to be used at runtime
+def chi2 (obs, model, error=None):
 
+    obs = np.array(obs)
+    model = np.array(model)
 
+    if error is not None:
+        error = np.array(error)
+
+    #trim non-values
+    if 0:
+        remove = []
+        for i in range(len(obs)):
+            if obs[i] > 98.0:
+                remove.append(i)
+
+        obs = np.delete(obs, remove)
+        model = np.delete(model, remove)
+        if error is not None:
+            error = np.delete(error, remove)
+
+    if error is not None:
+        c = np.sum((obs*model)/(error*error)) / np.sum((model*model)/(error*error))
+    else:
+        c = 1.0
+
+    chisqr = 0
+    if error is None:
+        error=np.zeros(len(obs))
+        error += 1.0
+
+    for i in range(len(obs)):
+        chisqr = chisqr + ((obs[i]-c*model[i])**2)/(error[i])
+    return chisqr,c
 
 
 
@@ -63,38 +97,59 @@ class DistancePrior:
     mag_bin_edges[0] = 21.0
     mag_bin_edges = np.append(mag_bin_edges, 28.0)
 
-    def __init__(self):
+    def __init__(self,pdf_model=PDF_MODEL, poly_deg=POLY_DEG):
+
+        self.pdf_model = pdf_model
+        self.poly_deg = poly_deg
         self.mdf_matrix = None
         self.pdf_sigmoid_parms = None
         self.pdf_poly_parms = None
         self.build_mdfs()
         self.build_pdfs()
 
+    def plot_fits(self):
+        if self.pdf_model == "sigmoid":
+            self.plot_sigmoid_fits()
+        elif self.pdf_model == "poly":
+            self.plot_poly_fits()
+
     def plot_sigmoid_fits(self):
+        # just a simple diagnostic for visualizing fits ... not intended to be used at runtime
         import pylab
         #assumes only 8 magnitude bins
         color = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'orange', 'teal']
+        pylab.title("Sigmoid")
         x = self.mdf_matrix[:,0]
         for i in range(len(self.pdf_sigmoid_parms)):
             y = sigmoid(x, *(self.pdf_sigmoid_parms[i]))
-            pylab.plot(x, y, label=str(21 + i), c=color[i])
+
+            c2, c = chi2(obs=self.mdf_matrix[:, i + 1], model=y, error=None)
+
+            pylab.plot(x, y, label="%d(%f)"%(21 + i,c2), c=color[i])
             pylab.plot(x, self.mdf_matrix[:, i + 1], '.', c=color[i])
 
         pylab.legend(loc='best')
         pylab.show()
 
     def plot_poly_fits(self):
+        # just a simple diagnostic for visualizing fits ... not intended to be used at runtime
         import pylab
         #assumes only 8 magnitude bins
         color = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'orange', 'teal']
         x = self.mdf_matrix[:,0]
+        pylab.title("Polynomial, Degree %d" %(self.poly_deg))
         for i in range(len(self.pdf_poly_parms)):
             y = polynomial(x, self.pdf_poly_parms[i])
-            pylab.plot(x, y, label=str(21 + i), c=color[i])
+
+            c2,c = chi2(obs=self.mdf_matrix[:, i + 1],model=y,error=None)
+
+            pylab.plot(x, y, label="%d(%f)"%(21 + i,c2), c=color[i])
             pylab.plot(x, self.mdf_matrix[:, i + 1], '.', c=color[i])
 
         pylab.legend(loc='best')
+        #pylab.savefig("poly_%d.png" % (self.poly_deg))
         pylab.show()
+
 
 
     def build_mdfs(self):
@@ -133,7 +188,7 @@ class DistancePrior:
                 log.error("Cannot build pdfs for distance priors")
 
 
-        if PDF_FUNC == "sigmoid":
+        if self.pdf_model == "sigmoid":
             if self.pdf_sigmoid_parms is not None:
                 del self.pdf_sigmoid_parms[:]
 
@@ -166,7 +221,7 @@ class DistancePrior:
                     continue
 
                 self.pdf_sigmoid_parms.append(popt)
-        elif PDF_FUNC == "poly":
+        elif self.pdf_model == "poly":
             if self.pdf_poly_parms is not None:
                 del self.pdf_poly_parms[:]
 
@@ -179,7 +234,7 @@ class DistancePrior:
                 ydata = self.mdf_matrix[:, mag_idx + 1]  # +1 since first column is just the distance
 
                 try:
-                    popt = np.polyfit(xdata,ydata,POLY_DEG)
+                    popt = np.polyfit(xdata,ydata,self.poly_deg)
                 except:
                     log.error("Failure to fit polynomial to mag = %g" %(self.mag_bin_centers[mag_idx]), exc_info=True)
                     print("Failure to fit polynomial to mag = %g" % (self.mag_bin_centers[mag_idx]))
@@ -214,7 +269,7 @@ class DistancePrior:
             else:
                 p_rand_match = -1
                 imag = np.where(self.mag_bin_centers == mag_bin)[0][0]
-                if PDF_FUNC == "sigmoid":
+                if self.pdf_model == "sigmoid":
                     #use the pdf if available
                     if (self.pdf_sigmoid_parms is not None) and (len(self.pdf_sigmoid_parms) >  imag) and \
                             (self.pdf_sigmoid_parms[imag] is not None):
@@ -222,7 +277,7 @@ class DistancePrior:
                         p_rand_match = sigmoid(dist,*(self.pdf_sigmoid_parms[imag]))
                         log.info("Using sigmoid PDF for distance prior: mag = %f , dist = %f, 1-p(rand) = %f" %
                                  (mag, dist,1. - p_rand_match))
-                elif PDF_FUNC == "poly":
+                elif self.pdf_model == "poly":
                     if (self.pdf_poly_parms is not None) and (len(self.pdf_poly_parms) >  imag) and \
                             (self.pdf_poly_parms[imag] is not None):
 
