@@ -707,9 +707,9 @@ class DetObj:
             # need to tune this
             # score is the sum of the observed eq widths
             if (self.spec_obj.solutions[0].score > 10.0) and \
-                (self.spec_obj.solutions[0].frac_score > 0.5) and \
-                (len(self.spec_obj.solutions[0].lines) > 1): #> 1 == total of 3+ lines (main +2 or more additional)
-
+                    (self.spec_obj.solutions[0].frac_score > 0.5) and \
+                    (len(self.spec_obj.solutions[0].lines) > 1):
+                # > 1 == total of 3+ lines (main +2 or more additional)
                 if (len(self.spec_obj.solutions) == 1) or \
                     ((len(self.spec_obj.solutions) > 1) and \
                       (self.spec_obj.solutions[0].frac_score / self.spec_obj.solutions[1].frac_score > 1.5)):
