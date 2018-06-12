@@ -1,6 +1,13 @@
 changes to voltron by version
 
-1.4.0a4 [2018-06-07]
+1.4.0a5 [2018-xx-xx]
+* added dashed lines to indicate possible emission lines in full 1D spectra plot
+
+* fixed bug where PDF displayed EW_rest was EW_obs/z instead of EW_obs(1+z)
+
+* improvements and tuning on matching detected peaks to additional line positions based on primary emission line
+
+1.4.0a4 [2018-06-08]
 * fit sigmoid and variable degree polynomial (default=3 and better fit) to probability of random alignment
   by magnitude matrix (may want to get more data and more refined bins)
 
@@ -9,7 +16,7 @@ changes to voltron by version
     - additional lines (a few NaI, NeV, NeVI)
 
 * reworked multi-line solution finder
-  - solution accepted if it dominates the score of all solutions with 2+ additional lines detetect of significant quality
+  - solution accepted if it dominates the score of all solutions with 2+ additional lines detect of significant quality
         (obs_EW, total flux, etc)
   - added large emission line name and colored highlights to full 1D spectrum plot if a strong multiline solution is found
   - added name, rest wavelength, z, and EW to last line of stats text (upper left)

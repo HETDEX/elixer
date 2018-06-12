@@ -22,6 +22,7 @@ import line_prob
 log = G.Global_Logger('spectrum_logger')
 log.setlevel(G.logging.DEBUG)
 
+#these are for the older peak finder (based on direction change)
 MIN_FWHM = 2 #AA (must xlat to pixels)
 MIN_ELI_SNR = 2.0 #bare minium SNR to even remotely consider a signal as real
 MIN_HEIGHT = 10
@@ -29,23 +30,41 @@ MIN_DELTA_HEIGHT = 2 #to be a peak, must be at least this high above next adjace
 DEFAULT_BACKGROUND = 6.0
 DEFAULT_BACKGROUND_WIDTH = 100.0 #pixels
 DEFAULT_MIN_WIDTH_FROM_CENTER_FOR_BACKGROUND = 10.0 #pixels
-MAX_SIGMA = 10.0 #maximum width (pixels) for fit gaussian to signal (greater than this, is really not a fit)
-MIN_SIGMA = 1.5 #roughly 1/2 pixel where pixel = 1.9AA
 
+
+GAUSS_FIT_MAX_SIGMA = 10.0 #maximum width (pixels) for fit gaussian to signal (greater than this, is really not a fit)
+GAUSS_FIT_MIN_SIGMA = 1.0 #roughly 1/2 pixel where pixel = 1.9AA (#note: "GOOD_MIN_SIGMA" below provides post
+                          # check and is more strict) ... allowed to fit a more narrow sigma, but will be rejected later
+                          # as not a good signal .... should these actually be the same??
 GAUSS_FIT_AA_RANGE = 40.0 #AA to either side of the line center to include in the gaussian fit attempt
-GAUSS_MAX_DX0 = 3.8 #maximum error in fitting to line center in AA
+                          #a bit of an art here; too wide and the general noise and continuum kills the fit (too wide)
+                          #too narrow and fit hard to find if the line center is off by more than about 2 AA
+                          #40 seems (based on testing) to be about right (50 leaves too many clear, but weak signals behind)
+GAUSS_FIT_PIX_ERROR = 2.0 #error (freedom) in pixels: have to allow at least 2 pixels of error
+                          # (if aa/pix is small, _AA_ERROR takes over)
+GAUSS_FIT_AA_ERROR = 1.0 #error (freedom) in line center in AA, still considered to be okay
+GAUSS_SNR_SIGMA = 3.0 #check at least these pixels (pix*sigma) to either side of the fit line for SNR
+                      # (larger of this or GAUSS_SNR_NUM_AA)
+GAUSS_SNR_NUM_AA = 5.0 #check at least 4 AA to either side (9 total) of the fit line for SNR in gaussian fit
+                       # (larger of this or GAUSS_SNR_SIGMA
+
+#beyond an okay fit (see GAUSS_FIT_xxx above) is this a "good" signal
+GOOD_FULL_SNR = 9.0 #ignore SBR is SNR is above this
+GOOD_MIN_SNR = 5.0 #bare-minimum; if you change the SNR ranges just above, this will also need to change
+GOOD_MIN_SBR = 3.0 #signal to "background" noise (looks at peak height vs surrounding peaks) (only for "weak" signals0
+GOOD_MIN_SIGMA = 1.4
+GOOD_MIN_EW_OBS = 1.5 #not sure this is a good choice ... really should depend on the physics of the line and
+                      # not be absolute
+GOOD_MIN_EW_REST = 1.0 #ditto here
+GOOD_MIN_LINE_FLUX = 5.0e-18 #todo: this should be the HETDEX flux limit (but that depends on exposure time and wavelength)
+GOOD_MAX_DX0 = 3.8 #maximum error (domain freedom) in fitting to line center in AA
                     #since this is based on the fit of the extra line AND the line center error of the central line
                     #this is a compound error (assume +/- 2 AA since ~ 1.9AA/pix for each so at most 4 AA here)?
-                    #
-GAUSS_FIT_PIX_ERROR = 2.0 #have to allow at least 2 pixels of error (if aa/pix is small, _AA_ERROR takes over)
-GAUSS_FIT_AA_ERROR = 1.0 #error in line center in AA, still considered to be okay
-GAUSS_SNR_SIGMA = 3.0 #check at least these pixels to either side of the fit line for SNR (larger of this or NUM_AA)
-GAUSS_SNR_NUM_AA = 5.0 #check at least 5 AA to either side (11 total) of the fit line for SNR in gaussian fit (larger of this or _SIGMA
+GOOD_MIN_H_CONT_RATIO = 1.33 #height of the peak must be at least 33% above the continuum fit level
+#todo: impose line ratios?
+#todo:  that is, if line_x is assumed and line_y is assumed, can only be valid if line_x/line_y ~ ratio??
+#todo:  i.e. [OIII(5007)] / [OIII(4959)] ~ 3.0 (2.993 +/- 0.014 ... at least in AGN)
 
-GOOD_MIN_SNR = 4.5
-GOOD_MIN_SIGMA = 1.5
-GOOD_MIN_EW_OBS = 3.0
-GOOD_MIN_TOT_FLUX = 1.0e-18
 
 #FLUX conversion are pretty much defunct, but kept here as a last ditch conversion if all else fails
 FLUX_CONVERSION_measured_w = [3000., 3500., 3540., 3640., 3740., 3840., 3940., 4040., 4140., 4240., 4340., 4440., 4540., 4640., 4740., 4840.,
@@ -62,6 +81,28 @@ FLUX_CONVERSION_DICT = dict(zip(FLUX_CONVERSION_w_grid,FLUX_CONVERSION_f_grid))
 
 #!!!!!!!!!! Note. all widths (like dw, xw, etc are in pixel space, so if we are not using
 #!!!!!!!!!!       1 pixel = 1 Angstrom, be sure to adjust
+
+
+
+def norm_values(values,values_units):
+    '''
+    Basically, make spectra values either counts or cgs x10^-18 (whose magnitdues are pretty close to counts) and the
+    old logic and parameters can stay the same
+    :param values:
+    :param values_units:
+    :return:
+    '''
+    if values_units == 0: #counts
+        return values, values_units
+    elif values_units == 1:
+        return values * 1e18, -18
+    elif values_units == -17:
+        return values * 10.0, -18
+    elif values_units == -18:
+        return values, values_units
+    else:
+        log.warning("!!! Problem. Unexpected values_units = %s" % str(values_units))
+        return values, values_units
 
 
 def flux_conversion(w): #electrons to ergs at wavelenght w
@@ -155,8 +196,8 @@ class EmissionLineInfo:
     """
     def __init__(self):
 
-        self.fit_a = None
-        self.fit_x0 = None
+        self.fit_a = None #expected in counts or in x10^-18 cgs [notice!!! -18 not -17]
+        self.fit_x0 = None #central peak (x) position in AA
         self.fit_dx0 = None #difference in fit_x0 and the target wavelength in AA, like bias: target-fit
         self.fit_sigma = 0.0
         self.fit_y = None #y offset for the fit (essentially, the continuum estimate)
@@ -169,10 +210,14 @@ class EmissionLineInfo:
         self.fit_vals = []
 
         self.pix_size = None
+
+        #!! Important: raw_wave, etc is NOT of the same scale or length of fit_wave, etc
         self.raw_wave = []
         self.raw_vals = []
+        self.raw_h =  None
+        self.raw_x0 = None
 
-        self.total_flux = -999
+        self.line_flux = -999 #the line fluux
         self.cont = -999
 
         self.snr = 0.0
@@ -183,39 +228,76 @@ class EmissionLineInfo:
         self.score = None
         self.raw_score = None
 
-    def build(self):
+    def build(self,values_units=0):
         if self.snr > MIN_ELI_SNR:
             if self.fit_sigma is not None:
                 self.fwhm = 2.355 * self.fit_sigma  # e.g. 2*sqrt(2*ln(2))* sigma
 
             if self.fit_x0 is not None:
-                if self.fit_a is not None:
-                    self.total_flux = self.fit_a * flux_conversion(self.fit_x0)  # cgs units
-                if (self.fit_y is not None) and (self.fit_y > G.CONTINUUM_FLOOR_COUNTS):
-                    self.cont = self.fit_y * flux_conversion(self.fit_x0)
+
+                if values_units != 0:
+                    if values_units == 1:
+                        unit = 1.0
+                    elif values_units == -17:
+                        unit = 1.0e-17
+                    elif values_units == -18:
+                        unit = 1.0e-18
+                    else:
+                        unit = 1.0
+                        log.warning(("!!! Problem. Unexpected values units in EmissionLineInfo::build(): %s") % str(values_units))
+
+                    #if self.fit_a > 1.0: #assume x0^-18 units (since that is what is fit ... similar to counts)
+                    #    unit = 1e-18
+                    #else:
+                    #    unit = 1.0
+
+                    self.line_flux = self.fit_a * unit
+                    # !! remember, fit_a is an area and thus has two of 10.0 in it (h*w ... each with x10)
+                    # so if in e-17 or e-18 units, need to remove the other 10.0
+                    if unit == 1.0e-18:
+                        self.line_flux /= 10.0
+                    self.cont = self.fit_y * unit
+
+                    #fix fit_h
+                    if (self.fit_h > 1.0) and (values_units < 0):
+                        self.fit_h *= unit
+
                 else:
-                    self.cont = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(self.fit_x0)
+                    if (self.fit_a is not None):
+                        #todo: HERE ... do not attempt to convert if this is already FLUX !!!
+                        #todo: AND ... need to know units of flux (if passed from signal_score are in x10^-18 not -17
+                        self.line_flux = self.fit_a * flux_conversion(self.fit_x0)  # cgs units
 
+                    if (self.fit_y is not None) and (self.fit_y > G.CONTINUUM_FLOOR_COUNTS):
+                        self.cont = self.fit_y * flux_conversion(self.fit_x0)
+                    else:
+                        self.cont = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(self.fit_x0)
 
-            if self.total_flux and self.cont:
-                self.eqw_obs = self.total_flux / self.cont
+            if self.line_flux and self.cont:
+                self.eqw_obs = self.line_flux / self.cont
         else:
             self.fwhm = -999
             self.cont = -999
-            self.total_flux = -999
+            self.line_flux = -999
 
-    def is_good(self):
+    def is_good(self,z=0.0):
         #(self.score > 0) and  #until score can be recalibrated, don't use it here
         #(self.sbr > 1.0) #not working the way I want. don't use it
-        if (self.snr > GOOD_MIN_SNR) and (self.fit_sigma > GOOD_MIN_SIGMA) and \
-                (self.eqw_obs > GOOD_MIN_EW_OBS) and (self.total_flux > GOOD_MIN_TOT_FLUX) and \
-                (abs(self.fit_dx0) < GAUSS_MAX_DX0):
-          return True
-        else:
-            return False
+        result = False
+        if ((self.snr > GOOD_FULL_SNR) or ((self.snr > GOOD_MIN_SNR) and (self.sbr > GOOD_MIN_SBR))) and \
+           (self.fit_sigma > GOOD_MIN_SIGMA) and \
+           (self.line_flux > GOOD_MIN_LINE_FLUX) and \
+           (self.fit_h/self.cont > GOOD_MIN_H_CONT_RATIO) and \
+           (abs(self.fit_dx0) < GOOD_MAX_DX0):
+                result = True
+
+            #if self.eqw_obs/(1.+z) > GOOD_MIN_EW_REST:
+            #    result =  True
+
+        return result
 
 
-def signal_score(wavelengths,values,errors,central,central_z = 0.0, values_are_flux=False, sbr=None, show_plot=False):
+def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=None,values_units=0, sbr=None, show_plot=False):
 
     #error on the wavelength of the possible line depends on the redshift and its error and the wavelength itself
     #i.e. wavelength error = wavelength / (1+z + error)  - wavelength / (1+z - error)
@@ -237,15 +319,23 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, values_are_f
 
 
 
-    accept_fit = False
-    if values_are_flux:
-        # assumed then to be in cgs units of x10^-17 as per typical HETDEX values
-        # !!!! reminder, do NOT do values *= 10.0  ... that is an in place operation and overwrites the original
-        values = values * 10.0  # put in units of 10^-18 so they pretty much match up with counts
 
+    accept_fit = False
+    #if values_are_flux:
+    #    # assumed then to be in cgs units of x10^-17 as per typical HETDEX values
+    #    # !!!! reminder, do NOT do values *= 10.0  ... that is an in place operation and overwrites the original
+    #    values = values * 10.0  # put in units of 10^-18 so they pretty much match up with counts
+
+    values, values_units = norm_values(values,values_units)
 
     #sbr signal to background ratio
     pix_size = abs(wavelengths[1] - wavelengths[0])  # aa per pix
+
+    #if near a peak we already found, nudge to align
+    if isinstance(spectrum,Spectrum):
+        w = spectrum.is_near_a_peak(central,pix_size)
+        if w:
+            central = w
 
     # want +/- 20 angstroms in pixel units (maybe should be 50 AA?
     wave_side = int(round(GAUSS_FIT_AA_RANGE / pix_size))  # pixels
@@ -301,6 +391,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, values_are_f
 
     eli = EmissionLineInfo()
     eli.pix_size = pix_size
+    num_sn_pix = 0
 
     #use ONLY narrow fit
     try:
@@ -327,20 +418,24 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, values_are_f
 
         eli.fit_vals = gaussian(xfit, parm[0], parm[1], parm[2], parm[3])
         eli.fit_wave = xfit.copy()
+        eli.raw_vals = wave_counts[:]
+        eli.raw_wave = wave_x[:]
 
         #matches up with the raw data scale so can do RMSE
         rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2], parm[3])
 
         eli.fit_x0 = parm[0]
         eli.fit_dx0 = central - eli.fit_x0
-        eli.fit_h = max(eli.fit_vals)
+        scaled_fit_h = max(eli.fit_vals)
+        eli.fit_h = scaled_fit_h
         eli.fit_rh = eli.fit_h / raw_peak
         eli.fit_sigma = parm[1] #units of AA not pixels
-        eli.fit_a = parm[2]
+        eli.fit_a = parm[2] #this is an AREA so there are 2 powers of 10.0 in it (hx10 * wx10) if in e-18 units
         eli.fit_y = parm[3]
 
-
-        #eli.build()
+        raw_idx = getnearpos(eli.raw_wave, eli.fit_x0)
+        eli.raw_h = max(eli.raw_vals[raw_idx - 3:raw_idx + 4])
+        eli.raw_x0 = eli.raw_wave[getnearpos(eli.raw_vals, eli.raw_h)]
 
         fit_peak = max(eli.fit_vals)
 
@@ -360,22 +455,15 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, values_are_f
                 log.debug("Success: captured peak: raw = %f , fit = %f, frac = %0.2f"
                           % (raw_peak, fit_peak, abs(raw_peak - fit_peak) / raw_peak))
 
+                num_sn_pix = int(round(max(GAUSS_SNR_SIGMA * eli.fit_sigma, GAUSS_SNR_NUM_AA)/pix_size)) #half-width in AA
 
-                num_pix = max(GAUSS_SNR_SIGMA * eli.fit_sigma, GAUSS_SNR_NUM_AA) #half-width in AA
-                num_pix = int(round(num_pix))*2 + 1
-
-                #num_pix = int(round(GAUSS_SNR_SIGMA * eli.fit_sigma / pix_size)) * 2 + 1
-                #num_pix = max(num_pix,2*int(round(GAUSS_SNR_NUM_AA/pix_size))+1)
-
-                 # rms just under the part of the plot with signal (not the entire fit part) so, maybe just a few AA or pix
-                eli.fit_norm_rmse = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, central), hw_pix=(num_pix-1)/2,
+                #?rms just under the part of the plot with signal (not the entire fit part) so, maybe just a few AA or pix
+                eli.fit_norm_rmse = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, eli.fit_x0 ), hw_pix=num_sn_pix,
                              norm=True)
-                eli.fit_rmse = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, central), hw_pix=(num_pix-1)/2,
+                eli.fit_rmse = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, eli.fit_x0 ), hw_pix=num_sn_pix,
                              norm=False)
 
-
-
-
+                num_sn_pix = num_sn_pix * 2 + 1 #need full width later (still an integer)
     except Exception as ex:
         if ex.message.find("Optimal parameters not found") > -1:
             log.info("Could not fit gaussian near %f" % central,exc_info=False)
@@ -383,15 +471,15 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, values_are_f
             log.error("Could not fit gaussian near %f" % central, exc_info=True)
         return None
 
-    if (eli.fit_rmse > 0) and (eli.fit_sigma <= MAX_SIGMA) and (eli.fit_sigma >= MIN_SIGMA):
-        eli.snr = eli.fit_a/(np.sqrt(num_pix)*eli.fit_rmse)
-        eli.build()
-        #eli.snr = max(eli.fit_vals) / (np.sqrt(num_pix) * eli.fit_rmse)
+    if (eli.fit_rmse > 0) and (eli.fit_sigma <= GAUSS_FIT_MAX_SIGMA) and (eli.fit_sigma >= GAUSS_FIT_MIN_SIGMA):
+        eli.snr = eli.fit_a/(np.sqrt(num_sn_pix)*eli.fit_rmse)
+        eli.build(values_units=values_units)
+        #eli.snr = max(eli.fit_vals) / (np.sqrt(num_sn_pix) * eli.fit_rmse)
         snr = eli.snr
     else:
         accept_fit = False
         snr = 0.0
-        eli.total_flux = 0.0
+        eli.line_flux = 0.0
 
     log.debug("SNR at %0.2f = %0.2f"%(central,snr))
 
@@ -399,7 +487,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, values_are_f
 
     #todo: re-calibrate to use SNR instead of SBR ??
     if sbr is None:
-        sbr = est_peak_strength(wavelengths,values,central)
+        sbr = est_peak_strength(wavelengths,values,central,values_units)
         if sbr is None:
             #done, no reason to continue
             log.warning("Could not determine SBR at wavelength = %f" %central)
@@ -427,7 +515,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, values_are_f
         #si and ku are correlated at this scale, for emission lines ... fat si <==> small ku
 
         height_pix = raw_peak
-        height_fit = eli.fit_h
+        height_fit = scaled_fit_h
 
         if height_pix > 0:
             rh = height_fit/height_pix
@@ -509,14 +597,18 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, values_are_f
     if show_plot or G.DEBUG_SHOW_GAUSS_PLOTS:
         if error is None:
             error = -1
-        title += "%f z_guess=%f\n" \
-                 "Score = %0.2f (%0.1f), SBR = %0.2f (%0.1f), SNR = %0.2f (%0.1f)\n" \
-                 "Flux = %0.2g, Cont = %0.2g, EqW_Obs=%0.2f\n"\
+
+        g = eli.is_good(z=central_z)
+        a = accept_fit
+
+        title += "%0.2f z_guess=%0.4f A(%d) G(%d)\n" \
+                 "Score = %0.2f (%0.1f), SBR = %0.2f (%0.1f), SNR = %0.2f (%0.1f) wpix = %d\n" \
+                 "Peak = %0.2g, Line(A) = %0.2g, Cont = %0.2g, EqW_Obs=%0.2f\n"\
                  "dX0 = %0.2f, RH = %0.2f, RMS = %0.2f (%0.2f) \n"\
                  "Sigma = %0.2f, Skew = %0.2f, Kurtosis = %0.2f"\
-                  % (eli.fit_x0,central_z,score, signal_calc_scaled_score(score),sbr,
-                     signal_calc_scaled_score(sbr),snr,signal_calc_scaled_score(snr),
-                     eli.total_flux, eli.cont,eli.eqw_obs,
+                  % (eli.fit_x0,central_z,a,g,score, signal_calc_scaled_score(score),sbr,
+                     signal_calc_scaled_score(sbr),snr,signal_calc_scaled_score(snr),num_sn_pix,
+                     eli.fit_h,eli.line_flux, eli.cont,eli.eqw_obs,
                      dx0, rh, error,eli.fit_rmse, si, sk, ku)
 
         fig = plt.figure()
@@ -528,6 +620,11 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, values_are_f
             gauss_plot.axvline(x=central,c='k',linestyle="--")
             gauss_plot.axvline(x=central+fit_range_AA, c='r', linestyle="--")
             gauss_plot.axvline(x=central-fit_range_AA, c='r', linestyle="--")
+            if num_sn_pix > 0:
+                half_sn = (num_sn_pix - 1) / 2. * pix_size
+
+                gauss_plot.axvline(x=central + half_sn, c='g')
+                gauss_plot.axvline(x=central - half_sn, c='g')
         except:
             log.debug("Cannot plot central line fit boundaries.",exc_info=True)
 
@@ -552,7 +649,13 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, values_are_f
         gauss_plot.set_ylim((ymin,ymax))
         gauss_plot.set_xlim( (np.floor(wave_x[0]),np.ceil(wave_x[-1])) )
         gauss_plot.set_title(title)
-        png = 'gauss_' + str(central)+ ".png"
+        stat = ""
+        if a:
+            stat += "a"
+        if g:
+            stat += "g"
+
+        png = "gauss_" + str(central)+ "_" + stat + ".png"
 
         log.info('Writing: ' + png)
         #print('Writing: ' + png)
@@ -617,36 +720,37 @@ def signal_calc_scaled_score(raw):
     return score
 
 
-def est_ew_obs(fwhm=None,peak=None, wavelengths=None, values=None, central=None):
+# def est_ew_obs(fwhm=None,peak=None, wavelengths=None, values=None, central=None,values_units=0):
+#
+#     try:
+#         if (wavelengths is not None) and (values is not None) and (central is not None):
+#             fwhm =  est_fwhm(wavelengths,values,central,values_units)
+#             if peak is None:
+#                 peak = values[getnearpos(wavelengths, central)]
+#
+#         if (fwhm is not None) and (peak is not None):
+#             return pix_to_aa(fwhm)*peak
+#         else:
+#             return None
+#     except:
+#         log.error("Error in spectrum::est_ew",exc_info=True)
+#         return None
+#
+# def est_ew_rest():
+#     #need to know z
+#     pass
+#
+#
 
-    try:
-        if (wavelengths is not None) and (values is not None) and (central is not None):
-            fwhm =  est_fwhm(wavelengths,values,central)
-            if peak is None:
-                peak = values[getnearpos(wavelengths, central)]
 
-        if (fwhm is not None) and (peak is not None):
-            return pix_to_aa(fwhm)*peak
-        else:
-            return None
-    except:
-        log.error("Error in spectrum::est_ew",exc_info=True)
-        return None
-
-def est_ew_rest():
-    #need to know z
-    pass
-
-
-
-
-def est_fwhm(wavelengths,values,central):
+def est_fwhm(wavelengths,values,central,values_units=0):
 
     num_pix = len(wavelengths)
     idx = getnearpos(wavelengths, central)
 
+    values, values_units = norm_values(values,values_units)
 
-    background,zero = est_background(wavelengths,values,central)
+    background,zero = est_background(wavelengths,values,central,values_units)
 
     if zero is None:
         zero = 0.0
@@ -694,7 +798,7 @@ def est_fwhm(wavelengths,values,central):
 
     return pix_width
 
-def est_background(wavelengths,values,central,dw=DEFAULT_BACKGROUND_WIDTH,xw=10.0,peaks=None,valleys=None):
+def est_background(wavelengths,values,central,values_units = 0,dw=DEFAULT_BACKGROUND_WIDTH,xw=10.0,peaks=None,valleys=None):
     """
     mean of surrounding (simple) peaks, excluding any obvious lines (above 3x std) - the zero
 
@@ -710,6 +814,8 @@ def est_background(wavelengths,values,central,dw=DEFAULT_BACKGROUND_WIDTH,xw=10.
     :return: background, zero
     """
 
+    values, values_units = norm_values(values, values_units)
+
     xw = max(DEFAULT_MIN_WIDTH_FROM_CENTER_FOR_BACKGROUND,xw)
 
     outlier_x = 3.0
@@ -724,7 +830,7 @@ def est_background(wavelengths,values,central,dw=DEFAULT_BACKGROUND_WIDTH,xw=10.
     try:
         # peaks, vallyes are 3D arrays = [index in original array, wavelength, value]
         if peaks is None or valleys is None:
-            peaks, valleys = simple_peaks(wavelengths,values)
+            peaks, valleys = simple_peaks(wavelengths,values,values_units=values_units)
 
         if peaks is None or len(peaks) < 1:
             log.debug("No peaks returned. spectrum::est_background(...). Values range (%f,%f)" %(min(values),max(values)))
@@ -749,7 +855,8 @@ def est_background(wavelengths,values,central,dw=DEFAULT_BACKGROUND_WIDTH,xw=10.
             peak_v = peak_v[abs(peak_v - np.mean(peak_v)) < abs(outlier_x * np.std(peak_v))]
             valley_v = valley_v[abs(valley_v-np.mean(valley_v)) < abs(outlier_x * np.std(valley_v))]
         else:
-            background, zero = est_background(wavelengths, values, central, dw * 2, xw, peaks=None, valleys=None)
+            background, zero = est_background(wavelengths, values, central, values_units,
+                                              dw * 2, xw, peaks=None, valleys=None)
             return background, zero
 
         #zero point is the total average
@@ -759,7 +866,7 @@ def est_background(wavelengths,values,central,dw=DEFAULT_BACKGROUND_WIDTH,xw=10.
             peak_background = np.mean(peak_v) - zero
             #peak_background = np.std(peak_v)**2
         else:
-            background, zero = est_background(wavelengths,values,central,dw*2,xw,peaks=None,valleys=None)
+            background, zero = est_background(wavelengths,values,central,values_units,dw*2,xw,peaks=None,valleys=None)
             return background, zero
 
        # since looking for emission, not absorption, don't care about the valley background
@@ -790,7 +897,7 @@ def est_signal(wavelengths,values,central,xw=None,zero=0.0):
 def est_noise():
     pass
 
-def est_peak_strength(wavelengths,values,central,dw=DEFAULT_BACKGROUND_WIDTH,peaks=None,valleys=None):
+def est_peak_strength(wavelengths,values,central,values_units=0,dw=DEFAULT_BACKGROUND_WIDTH,peaks=None,valleys=None):
     """
 
     :param wavelengths:
@@ -802,10 +909,12 @@ def est_peak_strength(wavelengths,values,central,dw=DEFAULT_BACKGROUND_WIDTH,pea
     :param pv:
     :return:
     """
-    sbr = None #Signal to Background Ratio  (similar to SNR)
-    xw = est_fwhm(wavelengths,values,central)
+    values, values_units = norm_values(values, values_units)
 
-    background,zero = est_background(wavelengths,values,central,dw,xw,peaks,valleys)
+    sbr = None #Signal to Background Ratio  (similar to SNR)
+    xw = est_fwhm(wavelengths,values,central,values_units)
+
+    background,zero = est_background(wavelengths,values,central,values_units,dw,xw,peaks,valleys)
 
     if background is not None:
         # signal = nearest values (pv) to central ?? or average of a few near the central wavelength
@@ -830,7 +939,7 @@ def est_peak_strength(wavelengths,values,central,dw=DEFAULT_BACKGROUND_WIDTH,pea
 
 
 #todo: update to deal with flux instead of counts
-def simple_peaks(x,v,h=MIN_HEIGHT,delta_v=2.0):
+def simple_peaks(x,v,h=MIN_HEIGHT,delta_v=2.0,values_units=0):
     """
 
     :param x:
@@ -844,6 +953,8 @@ def simple_peaks(x,v,h=MIN_HEIGHT,delta_v=2.0):
 
     if x is None:
         x = np.arange(len(v))
+
+    v, values_units = norm_values(v, values_units)
 
     v = np.asarray(v)
     num_pix = len(v)
@@ -885,7 +996,7 @@ def simple_peaks(x,v,h=MIN_HEIGHT,delta_v=2.0):
     return np.array(maxtab), np.array(mintab)
 
 
-def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
+def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,values_units=0):
 
     """
 
@@ -936,6 +1047,7 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
     maxtab = []
     mintab = []
     emistab = []
+    eli_list = []
     delta = dh
 
     pix_size = abs(x[1] - x[0])  # aa per pix
@@ -965,14 +1077,20 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
 
     v_0 = v[:]
     x_0 = x[:]
+    values_units_0 = values_units
+
+    #if values_are_flux:
+    #    v = v * 10.0
+
+    v,values_units = norm_values(v,values_units)
 
     #smooth v and rescale x,
     #the peak positions are unchanged but some of the jitter is smoothed out
-    v = v[:-2] + v[1:-1] + v[2:]
-    #v = v[:-4] + v[1:-3] + v[2:-2] + v[3:-1] + v[4:]
+    #v = v[:-2] + v[1:-1] + v[2:]
+    v = v[:-4] + v[1:-3] + v[2:-2] + v[3:-1] + v[4:]
     #v = v[:-6] + v[1:-5] + v[2:-4] + v[3:-3] + v[4:-2] + v[5:-1] + v[6:]
-    v /= 3.0
-    x = x[1:-1]
+    v /= 5.0
+    x = x[2:-2]
 
     minv, maxv = np.Inf, -np.Inf
     minpos, maxpos = np.NaN, np.NaN
@@ -1088,10 +1206,13 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
         #check vs minimum width
         if not (pix_width < dw):
             #see if too close to prior peak (these are in increasing wavelength order)
-            eli = signal_score(x_0, v_0, None, px)
+
+            #this is dumb but necessary for right now since signal_score will multiply by 10
+            eli = signal_score(x_0, v_0, None, px,values_units=values_units_0)
 
             #if (eli is not None) and (eli.score > 0) and (eli.snr > 7.0) and (eli.fit_sigma > 1.6) and (eli.eqw_obs > 5.0):
             if (eli is not None) and eli.is_good():
+                eli_list.append(eli)
                 if len(emistab) > 0:
                     if (px - emistab[-1][1]) > 6.0:
                         emistab.append((pi, px, pv,pix_width,centroid_pos,eli.eqw_obs,eli.snr))
@@ -1107,7 +1228,8 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
     #print("DEBUG ... peak count = %d" %(len(emistab)))
     #for i in range(len(emistab)):
     #    print(emistab[i][1],emistab[i][2], emistab[i][5])
-    return emistab
+    #return emistab
+    return eli_list
 
 
 class EmissionLine():
@@ -1187,7 +1309,7 @@ class Spectrum:
         self.wavelengths = []
         self.values = [] #could be fluxes or counts or something else ... right now needs to be counts
         self.errors = []
-        self.values_are_flux = False
+        self.values_units = 0
 
         self.central = None
         self.estflux = None
@@ -1196,6 +1318,7 @@ class Spectrum:
         self.central_eli = None
 
         self.solutions = []
+        self.all_found_lines = None #EmissionLineInfo objs (want None here ... if no lines, then peakdet returns [])
 
         self.addl_fluxes = []
         self.addl_wavelengths = []
@@ -1248,16 +1371,20 @@ class Spectrum:
         return filter, num_hats
 
 
-    def set_spectra(self,wavelengths, values, errors, central, values_are_flux = False, estflux=None,eqw_obs=None):
+    def set_spectra(self,wavelengths, values, errors, central, values_units = 0, estflux=None,eqw_obs=None):
         del self.wavelengths[:]
         del self.values[:]
         del self.errors[:]
+        if self.all_found_lines is not None:
+            del self.all_found_lines[:]
+        if self.solutions is not None:
+            del self.solutions[:]
 
         if (estflux is None) or (eqw_obs is None):
             eli = signal_score(wavelengths=wavelengths, values=values, errors=errors,central=central,
-                               values_are_flux=values_are_flux,sbr=None, show_plot=False)
+                               values_units=values_units,sbr=None, show_plot=False)
             if eli:
-                estflux = eli.total_flux
+                estflux = eli.line_flux
                 eqw_obs = eli.eqw_obs
 
                 self.central_eli = copy.deepcopy(eli)
@@ -1265,13 +1392,13 @@ class Spectrum:
         self.wavelengths = wavelengths
         self.values = values
         self.errors = errors
-        self.values_are_flux = values_are_flux
+        self.values_units = values_units
         self.central = central
         self.estflux = estflux
         self.eqw_obs = eqw_obs
 
 
-    def find_central_wavelength(self,wavelengths = None,values = None, values_are_flux=False):
+    def find_central_wavelength(self,wavelengths = None,values = None, values_units=0):
         central = 0.0
         update_self = False
         if (wavelengths is None) or (values is None):
@@ -1282,19 +1409,25 @@ class Spectrum:
         #find the peaks and use the largest
         #for now, largest means highest value
 
-        if values_are_flux:
-            #!!!!! do not do values *= 10.0 (will overwrite)
-            # assumes fluxes in e-17 .... making e-18 ~= counts so logic can stay the same
-            values = values * 10.0
+        # if values_are_flux:
+        #     #!!!!! do not do values *= 10.0 (will overwrite)
+        #     # assumes fluxes in e-17 .... making e-18 ~= counts so logic can stay the same
+        #     values = values * 10.0
 
-        peaks = peakdet(wavelengths,values)
+        values,values_units = norm_values(values,values_units)
+
+        peaks = peakdet(wavelengths,values) #as of 2018-06-11 these are EmissionLineInfo objects
         max_v = -np.inf
+        #find the largest flux
         for p in peaks:
             #  0   1   2   3          4
             # pi, px, pv, pix_width, centroid_pos
-            if p[2] > max_v:
-                max_v = p[2]
-                central = p[4]
+            #if p[2] > max_v:
+            #    max_v = p[2]
+            #    central = p[4]
+            if p.line_flux > max_v:
+                max_v = p.line_flux
+                central = p.fit_x0
 
         if update_self:
             self.central = central
@@ -1303,7 +1436,7 @@ class Spectrum:
 
         return central
 
-    def classify(self,wavelengths = None,values = None, errors=None, central = None, values_are_flux=False):
+    def classify(self,wavelengths = None,values = None, errors=None, central = None, values_units=0):
         #for now, just with additional lines
         #todo: later add in continuum
         #todo: later add in bayseian stuff
@@ -1312,24 +1445,24 @@ class Spectrum:
 
         del self.solutions[:]
         if (wavelengths is not None) and (values is not None) and (central is not None):
-            self.set_spectra(wavelengths,values,errors,central,values_are_flux=values_are_flux)
+            self.set_spectra(wavelengths,values,errors,central,values_units=values_units)
         else:
             wavelengths = self.wavelengths
             values = self.values
             central = self.central
             errors=self.errors
-            values_are_flux = self.values_are_flux
+            values_units = self.values_units
 
         #if central wavelength not provided, find the peaks and use the largest
         #for now, largest means highest value
         if (central is None) or (central == 0.0):
-            central = self.find_central_wavelength(wavelengths,values,values_are_flux=values_are_flux)
+            central = self.find_central_wavelength(wavelengths,values,values_units=values_units)
 
         if (central is None) or (central == 0.0):
             log.warning("Cannot classify. No central wavelength specified or found.")
             return []
 
-        solutions = self.classify_with_additional_lines(wavelengths,values,errors,central,values_are_flux)
+        solutions = self.classify_with_additional_lines(wavelengths,values,errors,central,values_units)
         self.solutions = solutions
 
         #get the LAE and OII solutions and send to Bayesian to check p_LAE/p_OII
@@ -1348,7 +1481,7 @@ class Spectrum:
                     if l.flux > 0:
                         self.addl_fluxes.append(l.flux)
                         self.addl_wavelengths.append((l.w_obs))
-                        #todo: get real errror
+                        #todo: get real error
                         self.addl_fluxerrs.append(0.0)
 
         #if len(addl_fluxes) > 0:
@@ -1358,8 +1491,34 @@ class Spectrum:
 
         return solutions
 
+
+    def is_near_a_peak(self,w,pix_size=1.9): #is the provided wavelength near one of the found peaks (+/- few AA or pixels)
+
+        wavelength = 0.0
+        if (self.all_found_lines is None):
+            self.all_found_lines = peakdet(self.wavelengths, self.values, values_units=self.values_units)
+
+        if self.all_found_lines is None:
+            return 0.0
+
+        GAUSS_FIT_PIX_ERROR = 3.0  # error (freedom) in pixels: have to allow at least 2 pixels of error
+        # (if aa/pix is small, _AA_ERROR takes over)
+        GAUSS_FIT_AA_ERROR = 1.0  # error (freedom) in line center in AA, still considered to be okay
+
+        max_dx = max(GAUSS_FIT_AA_ERROR, GAUSS_FIT_PIX_ERROR*pix_size)
+        for f in self.all_found_lines:
+            dx = abs(f.fit_x0 - w)
+            if dx < max_dx:
+                wavelength = f.fit_x0
+                break
+
+        return wavelength
+
+
+
+
     def classify_with_additional_lines(self,wavelengths = None,values = None,errors=None,central = None,
-                                       values_are_flux=False):
+                                       values_units=0):
         """
         using the main line
         for each possible classification of the main line
@@ -1392,14 +1551,15 @@ class Spectrum:
             wavelengths = self.wavelengths
             errors = self.errors
             central = self.central
-            values_are_flux = self.values_are_flux
+            values_units = self.values_units
 
+        if (self.all_found_lines is None):
+            self.all_found_lines = peakdet(wavelengths,values,values_units=values_units)
 
         solutions = []
         total_score = 0.0 #sum of all scores (use to represent each solution as fraction of total score)
 
 
-        #todo:
         #for each self.emission_line
         #   run down the list of remianing self.emission_lines and calculate score for each
         #   make a copy of each emission_line, set the score, save to the self.lines list []
@@ -1439,28 +1599,31 @@ class Spectrum:
                     central_z = 0.0
 
                 eli = signal_score(wavelengths, values, errors, a_central,
-                                   central_z = central_z, values_are_flux=values_are_flux)
+                                   central_z = central_z, values_units=values_units, spectrum=self)
 
                 #if (eli is not None):# and (eli.score > 0.0):
                 #    total_score += eli.score
                 #    sol.score += eli.score
 
                 #if (eli is not None) and (eli.sbr > 1.0):
-                if (eli is not None) and eli.is_good():
-                    total_score += eli.eqw_obs
-                    sol.score += eli.eqw_obs
-                    l = copy.deepcopy(a)
-                    l.w_obs = l.w_rest * (1.0 + sol.z)
-                    l.z = sol.z
-                    l.score = eli.score
-                    l.snr = eli.snr
-                    l.sbr = eli.sbr
-                    l.eqw_obs = eli.eqw_obs
-                    l.eqw_rest = l.eqw_obs / (1 + l.z)
-                    l.flux = eli.total_flux
-                    l.sigma = eli.fit_sigma
+                if (eli is not None) and eli.is_good(z=sol.z):
+                    #is there a corresponding peak?
+                    #this helps enforce a shape (has to correspond to one of the peaks found by shape)
+                    if self.is_near_a_peak(eli.fit_x0,eli.pix_size): #todo: redundant now that is in signal_score
+                        total_score += eli.snr * (eli.line_flux * 1.0e17) #eli.eqw_obs
+                        sol.score += eli.snr * (eli.line_flux * 1.0e17) #eli.eqw_obs
+                        l = copy.deepcopy(a)
+                        l.w_obs = l.w_rest * (1.0 + sol.z)
+                        l.z = sol.z
+                        l.score = eli.score
+                        l.snr = eli.snr
+                        l.sbr = eli.sbr
+                        l.eqw_obs = eli.eqw_obs
+                        l.eqw_rest = l.eqw_obs / (1.0 + l.z)
+                        l.flux = eli.line_flux
+                        l.sigma = eli.fit_sigma
 
-                    sol.lines.append(l)
+                        sol.lines.append(l)
 
             if sol.score > 0.0:
                 solutions.append(sol)
@@ -1475,14 +1638,12 @@ class Spectrum:
             ll =""
             for l in s.lines:
                 ll += " %s(%0.1f at %0.1f)," %(l.name,l.w_rest,l.w_obs)
-            msg = "Possible Mulit-line Solution:\n  %s (%0.1f at %0.1f), Frac = %0.2f, Score = %0.1f, z = %0.5f, +lines=%d\n    %s" \
-                    % (s.emission_line.name,s.central_rest*(1.0+s.z),s.central_rest, s.frac_score, s.score,s.z,
+            msg = "Possible Solution: %s (%0.1f at %0.1f), Frac = %0.2f, Score = %0.1f, z = %0.5f, +lines=%d %s" \
+                    % (s.emission_line.name,s.central_rest,s.central_rest*(1.0+s.z), s.frac_score, s.score,s.z,
                        len(s.lines),ll )
             log.info(msg)
-            # todo: remove ... temporary
+            # todo: DEBUG  remove ... temporary
             print(msg)
-
-
 
         return solutions
 
@@ -1521,8 +1682,10 @@ class Spectrum:
         use_internal = False
         if (counts is None) or (wavelengths is None) or (central_wavelength is None):
             counts = self.values
-            if self.values_are_flux: #!!! need a copy here ... DO NOT counts *= 10.0
-                counts = counts * 10.0 #flux assumed to be cgs x10^-17 ... by 10x to x10^-18 become very similar to counts in scale
+            #if self.values_are_flux: #!!! need a copy here ... DO NOT counts *= 10.0
+            #    counts = counts * 10.0 #flux assumed to be cgs x10^-17 ... by 10x to x10^-18 become very similar to counts in scale
+
+            counts, values_units = norm_values(counts,self.values_units)
             wavelengths = self.wavelengths
             central_wavelength = self.central
             use_internal = True
@@ -1559,7 +1722,10 @@ class Spectrum:
 
             if show_peaks:
                 #emistab.append((pi, px, pv,pix_width,centroid))
-                peaks = peakdet(wavelengths, counts,dw,h,dh,zero)
+                if (self.all_found_lines is not None):
+                    peaks = self.all_found_lines
+                else:
+                    peaks = peakdet(wavelengths,counts,dw,h,dh,zero,values_units=values_units) #as of 2018-06-11 these are EmissionLineInfo objects
 
                 #scores = []
                 #for p in peaks:
@@ -1569,15 +1735,29 @@ class Spectrum:
                 #    print(peaks[i][0],peaks[i][1], peaks[i][2], peaks[i][3], peaks[i][4], scores[i])
 
                 if (peaks is not None) and (len(peaks) > 0):
-                    specplot.scatter(np.array(peaks)[:, 1], np.array(peaks)[:, 2], facecolors='none', edgecolors='r',
-                                     zorder=99)
+                    # specplot.scatter(np.array(peaks)[:, 1], np.array(peaks)[:, 2], facecolors='none', edgecolors='r',
+                    #                  zorder=99)
+                    #
+                    # for i in range(len(peaks)):
+                    #     h = peaks[i][2]
+                    #     specplot.annotate("%0.1f"%peaks[i][5],xy=(peaks[i][1],h),xytext=(peaks[i][1],h),fontsize=6,zorder=99)
+                    #
+                    #     log.debug("Peak at: %g , Score = %g , SNR = %g" %(peaks[i][1],peaks[i][5], peaks[i][6]))
+
+                    #                 0   1   2  3           4            5          6
+                    #emistab.append((pi, px, pv, pix_width, centroid_pos,eli.eqw_obs,eli.snr))
+
+                    x = [p.raw_x0 for p in peaks]
+                    y = [p.raw_h for p in peaks] #np.array(peaks)[:, 2]
+
+                    specplot.scatter(x, y, facecolors='none', edgecolors='r',zorder=99)
 
                     for i in range(len(peaks)):
-                        h = peaks[i][2]
-                        specplot.annotate("%0.1f"%peaks[i][5],xy=(peaks[i][1],h),xytext=(peaks[i][1],h),fontsize=6,zorder=99)
+                        h = peaks[i].raw_h
+                        specplot.annotate("%0.1f"%peaks[i].eqw_obs,xy=(peaks[i].fit_x0,h),xytext=(peaks[i].fit_x0,h),
+                                          fontsize=6,zorder=99)
 
-                        log.debug("Peak at: %g , Score = %g , SNR = %g" %(peaks[i][1],peaks[i][5], peaks[i][6]))
-
+                        log.debug("Peak at %g , Score = %g , SNR = %g" %(peaks[i].fit_x0,peaks[i].eqw_obs, peaks[i].snr))
 
 
             #textplot = plt.axes([0.025, .6, 0.95, dy * 2])

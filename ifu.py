@@ -764,9 +764,12 @@ class IFU:
 
             peaks = voltron_spectrum.peakdet(wavelengths, values, dw=5.0)#, h, dh, zero)
             #signal = list(filter(lambda x: (x[5] > max_score) or (x[6] > max_snr),peaks))
-            signal = list(filter(lambda x: x[6] > max_snr,peaks))
 
-            if len(signal) == 0:
+            #signal = list(filter(lambda x: x[6] > max_snr,peaks))
+            #2018-06-11: dd .. peakdet modified to apply "is_good" and return list of EmissionLineInfo objects
+            #            so, if the list if not empty, then there are "good" signals and this is not what we want
+            if len(peaks):
+            #if len(signal) == 0:
                 rc = True
             else:
                 log.debug("Fiber rejected for addition. Peaks found.")

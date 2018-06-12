@@ -53,6 +53,7 @@ import spectrum as voltron_spectrum
 log = G.Global_Logger('hetdex_logger')
 log.setlevel(G.logging.DEBUG)
 
+MULTILINE_MIN_SOLUTION_SCORE = 15.0
 
 CONFIG_BASEDIR = G.CONFIG_BASEDIR
 VIRUS_CONFIG = G.VIRUS_CONFIG #op.join(CONFIG_BASEDIR,"virus_config")
@@ -454,6 +455,7 @@ class DetObj:
         self.dataflux = 0.0
         self.modflux = 0.0
         self.fluxfrac = 1.0
+        self.estflux = None
         self.sigma = 0.0 #also doubling as sn (see @property sn farther below)
         self.snr = None
         self.chi2 = 0.0
@@ -706,7 +708,7 @@ class DetObj:
             sols = self.spec_obj.solutions
             # need to tune this
             # score is the sum of the observed eq widths
-            if (self.spec_obj.solutions[0].score > 10.0) and \
+            if (self.spec_obj.solutions[0].score > MULTILINE_MIN_SOLUTION_SCORE) and \
                     (self.spec_obj.solutions[0].frac_score > 0.5) and \
                     (len(self.spec_obj.solutions[0].lines) > 1):
                 # > 1 == total of 3+ lines (main +2 or more additional)
@@ -807,7 +809,8 @@ class DetObj:
                         #as is, way too large ... maybe not originally calculated as per angstrom? so divide by wavelength?
                         #or maybe units are not right or a miscalculation?
                         #toks2 is in counts
-                        self.estflux = float(toks[2]) * self.sumspec_flux_unit_scale # * 10 ** (-17)
+                        #todo: are we SURE this is -17 and not -18 ??
+                        self.estflux = float(toks[2]) * 1e-18 #self.sumspec_flux_unit_scale # * 10 ** (-17)
                         #print("Warning! Using old flux conversion between counts and flux!!!")
                         #self.estflux = float(toks[2]) * flux_conversion(self.w)
 
@@ -1076,10 +1079,11 @@ class DetObj:
         #set_spectra(self, wavelengths, values, errors, central, estflux=None, eqw_obs=None)
         #self.spec_obj.set_spectra(self.sumspec_wavelength,self.sumspec_counts,self.sumspec_fluxerr,self.w)
         self.spec_obj.set_spectra(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr, self.w,
-                                  values_are_flux=True)
+                                  values_units=-17,estflux=self.estflux,eqw_obs=self.eqw_obs)
 
         #print("DEBUG ... spectrum peak finder")
-        #self.spec_obj.build_full_width_spectrum(show_skylines=True, show_peaks=True, name="testsol")
+        if G.DEBUG_SHOW_GAUSS_PLOTS:
+            self.spec_obj.build_full_width_spectrum(show_skylines=True, show_peaks=True, name="testsol")
         #print("DEBUG ... spectrum peak finder DONE")
 
         self.spec_obj.classify() #solutions can be returned, also stored in spec_obj.solutions
@@ -2724,7 +2728,7 @@ class HETDEX:
                 else:
                     title += "\n"
                 title +=  "EstCont = %0.3g  EW_rest(LyA) = %0.3g$\AA$\n" \
-                    %(e.cont_cgs, e.eqw_obs/la_z)
+                    %(e.cont_cgs, e.eqw_obs/(1.0+la_z))
 
             else:  #this if for zooniverse, don't show RA and DEC or Probabilitie
                 title += "\n" \
@@ -2739,7 +2743,7 @@ class HETDEX:
                 else:
                     title += "\n"
 
-                title += "EstCont = %0.3g  EW_rest(LyA) = %0.3g$\AA$\n" % (e.cont_cgs, e.eqw_obs/la_z)
+                title += "EstCont = %0.3g  EW_rest(LyA) = %0.3g$\AA$\n" % (e.cont_cgs, e.eqw_obs/(1.0+la_z))
 
 
         else:
@@ -2756,7 +2760,7 @@ class HETDEX:
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
                 else:
                     title += "\n"
-                title +=  "EstCont = %0.3g  EW_rest(LyA) = %0.3g$\AA$\n" % (e.cont_cgs,e.eqw_obs/la_z)
+                title +=  "EstCont = %0.3g  EW_rest(LyA) = %0.3g$\AA$\n" % (e.cont_cgs,e.eqw_obs/(1.0+la_z))
 
             else: #this if for zooniverse, don't show RA and DEC or probabilities
                 title += "\n" \
@@ -2770,7 +2774,7 @@ class HETDEX:
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
                 else:
                     title += "\n"
-                title +=  "EstCont = %0.3g  EW_rest(LyA) = %0.3g$\AA$\n" % (e.cont_cgs,e.eqw_obs/la_z)
+                title +=  "EstCont = %0.3g  EW_rest(LyA) = %0.3g$\AA$\n" % (e.cont_cgs,e.eqw_obs/(1.0+la_z))
 
 
         if self.panacea:
@@ -2810,7 +2814,7 @@ class HETDEX:
                 # strong solution
                 sol = datakeep['detobj'].spec_obj.solutions[0]
                 title += "\n* %s(%d) z = %0.4f  EW_rest = %0.1f$\AA$" %(sol.name, int(sol.central_rest),sol.z,
-                                                                        e.eqw_obs/sol.z)
+                                                                        e.eqw_obs/(1.0+sol.z))
             else:
                 log.info("No singular, strong emission line solution.")
 
@@ -4631,6 +4635,18 @@ class HETDEX:
                 #else: #redundant log ... already logged when preparing the upper left text block
                 #    log.info("No singular, strong emission line solution.")
 
+
+                #put dashed line through all possible lined
+                if (datakeep['detobj'].spec_obj.all_found_lines is not None):
+                    for f in datakeep['detobj'].spec_obj.all_found_lines: #this is an EmisssionLineInfo object
+                        x_pos = f.raw_x0
+                        #y_pos = f.raw_h / 10.0 # per definition of EmissionLineInfo ... these are in 10^-18 cgs
+                                               # and these plots are 10^-17 cgs
+                        #specplot.scatter(x_pos, y_pos, facecolors='None', edgecolors='b', zorder=99)
+                        specplot.plot([x_pos, x_pos], [mn - ran * rm, mn + ran * (1 + rm)], ls='dashed', c='k',
+                                      zorder=1,alpha=0.5)
+                        #DEBUG:
+                        print("Line: %f (%f) " %(f.raw_x0,f.fit_x0))
 
             #
             #iterate over all emission lines ... assume the cwave is that line and plot the additional lines
