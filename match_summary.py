@@ -42,6 +42,13 @@ class BidTarget:
 class Match:
     def __init__(self,emis=None):
         #self.match_num = 0
+        self.addtl_line_names = "None"
+        self.addtl_line_obs = "None"
+        self.addtl_line_rest = "None"
+        self.all_line_obs = "None"
+        self.best_z = -1
+        self.best_confidence = -1
+
         if emis is None:
             self.detobj = None
             self.input_id = 0
@@ -100,10 +107,56 @@ class Match:
                 self.emis_obs_eqw = -99999
 
         self.bid_targets = []
+        self.update_classification(emis)
 
     def add_bid_target(self,bid):
         if bid is not None:
             self.bid_targets.append(bid)
+
+    def update_classification(self,emis): #emis is a DetObj
+        if emis.spec_obj is None:
+            self.addtl_line_names = "None"
+            self.addtl_line_obs = "None"
+            self.addtl_line_rest = "None"
+            self.all_line_obs = "None"
+            self.best_z = -1
+            self.best_confidence = -1
+            return
+
+        #at the moment, this is all that is in place
+        #todo: replace with a call to the DetObj that aggregates all the info and establishes a best_z
+        confidence = emis.multi_line_solution_score()
+        if ( confidence > 0.9):
+            self.addtl_line_names = ""
+            self.addtl_line_obs = ""
+            self.addtl_line_rest = ""
+            self.all_line_obs = ""
+
+            # strong solution
+            sol = emis.spec_obj.solutions[0]
+
+            self.best_z = sol.z
+            self.best_confidence = confidence
+
+            for el in sol.lines:
+                self.addtl_line_names += "%s," % el.name.rstrip(" ")
+                self.addtl_line_obs += "%0.2f," % el.w_obs
+                self.addtl_line_rest += "%0.2f," % el.w_rest
+
+            self.addtl_line_names = self.addtl_line_names.rstrip(",")
+            self.addtl_line_obs = self.addtl_line_obs.rstrip(",")
+            self.addtl_line_rest = self.addtl_line_rest.rstrip(",")
+
+            for el in emis.spec_obj.all_found_lines:
+                self.all_line_obs += "%0.2f," % el.fit_x0
+
+            self.all_line_obs = self.all_line_obs.rstrip(",")
+        else:
+            self.addtl_line_names = "None"
+            self.addtl_line_obs = "None"
+            self.addtl_line_rest = "None"
+            self.all_line_obs = "None"
+
 
 
 class MatchSet:
@@ -114,6 +167,8 @@ class MatchSet:
         "emission line Dec (decimal degrees)",
         "number of possible catalog matches",
         "emission line wavelength (AA)",
+        "best z (highest confidence redshift based on all information) [-1 if there is none]",
+	    "best confidence (measure of the confidence of the best z) [-1 if there is none or is not calculated, 0.0 to 1.0 otherwise]",
         "emission line FWHM (AA)",
         "emission line sigma (significance)",
         "emission line chi2 (point source fit)",
@@ -124,6 +179,10 @@ class MatchSet:
         "emission line continuum flux (electron counts)",
         "emission line continuum flux (cgs)",
         "emission line observed (estimated) equivalent width (not restframe)",
+        "comma separated list of observed wavelengths of ALL potential emission lines (whether or not they are used in the multi-line classification) [\"None\" if empty]",
+	    "comma separated list of the additional line names used in the multi-line match [\"None\" if empty] ***Does NOT include the main (central) line***",
+	    "comma separated list of the additional rest-frame wavelengths corresponding to emission line names [\"None\" if empty] ***Does NOT include the main (central) line***",
+	    "comma separated list of the additional observed wavelengths corresponding to emission line names [\"None\" if empty] ***Does NOT include the main (central) line***",
         "catalog name",
         "catalog object RA (decimal degrees) [for the exact emission position, not matched to a catalog object, will = 361.0]",
         "catalog object Dec (decimal degrees)[for the exact emission position, not matched to a catalog object, will = 181.0]",
@@ -191,6 +250,10 @@ class MatchSet:
                     f.write(sep + str(m.emis_dec))
                     f.write(sep + str(len(m.bid_targets)-dummy_bid))
                     f.write(sep + str(m.emis_wavelength))
+
+                    f.write(sep + str(m.best_z))
+                    f.write(sep + str(m.best_confidence))
+
                     f.write(sep + str(m.emis_fwhm))
                     f.write(sep + str(m.emis_sigma))
                     f.write(sep + str(m.emis_chi2))
@@ -201,6 +264,11 @@ class MatchSet:
                     f.write(sep + str(m.emis_cont_flux_count))
                     f.write(sep + str(m.emis_cont_flux_cgs))
                     f.write(sep + str(m.emis_obs_eqw))
+
+                    f.write(sep + str(m.all_line_obs))
+                    f.write(sep + str(m.addtl_line_names))
+                    f.write(sep + str(m.addtl_line_rest))
+                    f.write(sep + str(m.all_line_obs))
 
                     f.write(sep + str(b.catalog_name))
                     f.write(sep + str(b.bid_ra))

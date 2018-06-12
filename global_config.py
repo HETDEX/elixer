@@ -233,6 +233,7 @@ ZOO_CUTOUTS = False #produce the small zooniverse cutouts
 UNIQUE_DET_ID_NUM = 0
 
 CLASSIFY_WITH_OTHER_LINES = True
+MIN_ADDL_EMIS_LINES_FOR_CLASSIFY = 2 # so a total of this +1 for the central line
 
 DYNAMIC_MAG_APERTURE = True  #allow aperture size to change to fit maximum magnitude
 

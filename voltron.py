@@ -1014,6 +1014,9 @@ def main():
                                                   num_hits=e.num_hits, idstring=id,base_count=0,target_w=e.w,
                                                   fiber_locs=e.fiber_locs,target_flux=e.estflux)
 
+                    #add in lines and classification info
+
+
                     match_list.add(match) #always add even if bids are none
 
                     file_list.append(pdf)

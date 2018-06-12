@@ -434,6 +434,12 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         eli.fit_y = parm[3]
 
         raw_idx = getnearpos(eli.raw_wave, eli.fit_x0)
+        if raw_idx < 3:
+            raw_idx = 3
+
+        if raw_idx > len(eli.raw_vals)-4:
+            raw_idx = len(eli.raw_vals)-4
+        #if still out of range, will throw a trapped exception ... we can't use this data anyway
         eli.raw_h = max(eli.raw_vals[raw_idx - 3:raw_idx + 4])
         eli.raw_x0 = eli.raw_wave[getnearpos(eli.raw_vals, eli.raw_h)]
 
@@ -1642,8 +1648,9 @@ class Spectrum:
                     % (s.emission_line.name,s.central_rest,s.central_rest*(1.0+s.z), s.frac_score, s.score,s.z,
                        len(s.lines),ll )
             log.info(msg)
-            # todo: DEBUG  remove ... temporary
-            print(msg)
+            #
+            if G.DEBUG_SHOW_GAUSS_PLOTS:
+                print(msg)
 
         return solutions
 

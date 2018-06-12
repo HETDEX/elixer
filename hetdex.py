@@ -710,7 +710,7 @@ class DetObj:
             # score is the sum of the observed eq widths
             if (self.spec_obj.solutions[0].score > MULTILINE_MIN_SOLUTION_SCORE) and \
                     (self.spec_obj.solutions[0].frac_score > 0.5) and \
-                    (len(self.spec_obj.solutions[0].lines) > 1):
+                    (len(self.spec_obj.solutions[0].lines) >= G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY):
                 # > 1 == total of 3+ lines (main +2 or more additional)
                 if (len(self.spec_obj.solutions) == 1) or \
                     ((len(self.spec_obj.solutions) > 1) and \
@@ -4646,7 +4646,8 @@ class HETDEX:
                         specplot.plot([x_pos, x_pos], [mn - ran * rm, mn + ran * (1 + rm)], ls='dashed', c='k',
                                       zorder=1,alpha=0.5)
                         #DEBUG:
-                        print("Line: %f (%f) " %(f.raw_x0,f.fit_x0))
+                        if G.DEBUG_SHOW_GAUSS_PLOTS:
+                            print("Line: %f (%f) " %(f.raw_x0,f.fit_x0))
 
             #
             #iterate over all emission lines ... assume the cwave is that line and plot the additional lines
