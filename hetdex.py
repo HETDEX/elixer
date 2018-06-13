@@ -1082,8 +1082,8 @@ class DetObj:
                                   values_units=-17,estflux=self.estflux,eqw_obs=self.eqw_obs)
 
         #print("DEBUG ... spectrum peak finder")
-        if G.DEBUG_SHOW_GAUSS_PLOTS:
-            self.spec_obj.build_full_width_spectrum(show_skylines=True, show_peaks=True, name="testsol")
+        #if G.DEBUG_SHOW_GAUSS_PLOTS:
+        #    self.spec_obj.build_full_width_spectrum(show_skylines=True, show_peaks=True, name="testsol")
         #print("DEBUG ... spectrum peak finder DONE")
 
         self.spec_obj.classify() #solutions can be returned, also stored in spec_obj.solutions
@@ -4662,7 +4662,10 @@ class HETDEX:
                     continue
                 z = cwave / e.w_rest - 1.0
                 if (z < 0):
-                    continue
+                    if z > -0.01:
+                        z = 0.0
+                    else:
+                        continue
                 count = 0
                 for f in self.emission_lines:
                     if (f == e) or not (wavemin <= f.redshift(z) <= wavemax ):

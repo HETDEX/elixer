@@ -1296,7 +1296,7 @@ class Spectrum:
 
                                EmissionLine("H$\\beta$ ", 4862.68, "blue"),
                                EmissionLine("H$\\gamma$ ", 4341.68, "royalblue"),
-                               #EmissionLine("H$\\delta ", 4102, "royalblue", solution=False),
+                               EmissionLine("H$\\delta$ ", 4102, "royalblue", solution=False),
                                #EmissionLine("H$\\epsilon ", 3970, "royalblue", solution=False),
                                #EmissionLine("H$\\zeta ", 3889, "royalblue", solution=False),
                                #EmissionLine("H$\\eta ", 3835, "royalblue", solution=False),
@@ -1309,7 +1309,12 @@ class Spectrum:
                                EmissionLine("NeV", 3346.79, "pink", solution=False),
                                EmissionLine("NeVI", 3426.85, "pink", solution=False),
                                EmissionLine("NaI", 4980, "lightcoral", solution=False),  #4978.5 + 4982.8
-                               EmissionLine("NaI",5153,"lightcoral",solution=False)  #5148.8 + 5153.4
+                               EmissionLine("NaI",5153,"lightcoral",solution=False),  #5148.8 + 5153.4
+
+                               #stars
+                               EmissionLine("CaII", 3935, "skyblue", solution=False),
+                               EmissionLine("CaII", 3970, "skyblue", solution=False)
+
                                ]
 
         self.wavelengths = []
@@ -1579,11 +1584,15 @@ class Spectrum:
             if not e.solution: #if this line is not allowed to be the main line
                 continue
 
-            if (central/e.w_rest - 1.0) < 0.0:
-                continue #impossible, can't have a negative z
+            central_z = central/e.w_rest - 1.0
+            if (central_z) < 0.0:
+                if central_z > -0.01:
+                    central_z = 0.0
+                else:
+                    continue #impossible, can't have a negative z
 
             sol = Classifier_Solution()
-            sol.z = central/e.w_rest - 1.0
+            sol.z = central_z
             sol.central_rest = e.w_rest
             sol.name = e.name
             sol.color = e.color
@@ -1599,10 +1608,10 @@ class Spectrum:
                 if (a_central > max_w) or (a_central < min_w):
                     continue
 
-                if central is not None:
-                    central_z = central/e.w_rest - 1.0
-                else:
-                    central_z = 0.0
+                # if central is not None:
+                #     central_z = central/e.w_rest - 1.0
+                # else:
+                #     central_z = 0.0
 
                 eli = signal_score(wavelengths, values, errors, a_central,
                                    central_z = central_z, values_units=values_units, spectrum=self)
@@ -1633,6 +1642,12 @@ class Spectrum:
 
             if sol.score > 0.0:
                 solutions.append(sol)
+
+        #end for e in emission lines
+
+        #AND check one more for forced z == 0 (basically something really close, like a star)
+
+
 
         for s in solutions:
             s.frac_score = s.score/total_score
@@ -1733,6 +1748,7 @@ class Spectrum:
                     peaks = self.all_found_lines
                 else:
                     peaks = peakdet(wavelengths,counts,dw,h,dh,zero,values_units=values_units) #as of 2018-06-11 these are EmissionLineInfo objects
+                    self.all_found_lines = peaks
 
                 #scores = []
                 #for p in peaks:
