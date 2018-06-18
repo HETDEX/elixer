@@ -49,6 +49,7 @@ GAUSS_SNR_NUM_AA = 5.0 #check at least 4 AA to either side (9 total) of the fit 
                        # (larger of this or GAUSS_SNR_SIGMA
 
 #beyond an okay fit (see GAUSS_FIT_xxx above) is this a "good" signal
+GOOD_MIN_LINE_SCORE = 6.0 # rouhgly 10% chance of noise
 GOOD_FULL_SNR = 9.0 #ignore SBR is SNR is above this
 GOOD_MIN_SNR = 5.0 #bare-minimum; if you change the SNR ranges just above, this will also need to change
 GOOD_MIN_SBR = 3.0 #signal to "background" noise (looks at peak height vs surrounding peaks) (only for "weak" signals0
@@ -61,6 +62,8 @@ GOOD_MAX_DX0 = 3.8 #maximum error (domain freedom) in fitting to line center in 
                     #since this is based on the fit of the extra line AND the line center error of the central line
                     #this is a compound error (assume +/- 2 AA since ~ 1.9AA/pix for each so at most 4 AA here)?
 GOOD_MIN_H_CONT_RATIO = 1.33 #height of the peak must be at least 33% above the continuum fit level
+ADDL_LINE_SCORE_BONUS = 10.0 #add for each line at 2+ lines (so 1st line adds nothing)
+                            #this is rather "hand-wavy" but gives a nod to having more lines beyond just their score
 #todo: impose line ratios?
 #todo:  that is, if line_x is assumed and line_y is assumed, can only be valid if line_x/line_y ~ ratio??
 #todo:  i.e. [OIII(5007)] / [OIII(4959)] ~ 3.0 (2.993 +/- 0.014 ... at least in AGN)
@@ -83,6 +86,37 @@ FLUX_CONVERSION_DICT = dict(zip(FLUX_CONVERSION_w_grid,FLUX_CONVERSION_f_grid))
 #!!!!!!!!!!       1 pixel = 1 Angstrom, be sure to adjust
 
 
+
+#copied from manual run of 100,000 noise spectra (see exp_prob.py)
+#if change the noise model or SNR or line_flux algorithm, need to recompute these
+PROB_NOISE_LINE_SCORE = \
+[  0.5,   1.5,   2.5,   3.5,   4.5,   5.5,   6.5,   7.5,   8.5,
+   9.5,  10.5,  11.5,  12.5,  13.5,  14.5,  15.5,  16.5,  17.5,
+  18.5,  19.5,  20.5,  21.5,  22.5,  23.5,  24.5,  25.5,  26.5,
+  27.5,  28.5,  29.5,  30.5,  31.5,  32.5,  33.5,  34.5,  35.5,
+  36.5,  37.5,  38.5,  39.5,  40.5,  41.5,  42.5,  43.5,  44.5,
+  45.5,  46.5,  47.5,  48.5]
+PROB_NOISE_GIVEN_SCORE = \
+[        1.00000000e+00,   9.96200000e-01,   9.71840000e-01,
+         8.91400000e-01,   7.63720000e-01,   6.16580000e-01,
+         4.75780000e-01,   3.56200000e-01,   2.62330000e-01,
+         1.92090000e-01,   1.39710000e-01,   1.01700000e-01,
+         7.53600000e-02,   5.61400000e-02,   4.20100000e-02,
+         3.18400000e-02,   2.41900000e-02,   1.85100000e-02,
+         1.42900000e-02,   1.14000000e-02,   8.97000000e-03,
+         6.99000000e-03,   5.64000000e-03,   4.66000000e-03,
+         3.85000000e-03,   3.12000000e-03,   2.64000000e-03,
+         2.26000000e-03,   1.95000000e-03,   1.67000000e-03,
+         1.41000000e-03,   1.23000000e-03,   1.14000000e-03,
+         9.80000000e-04,   8.70000000e-04,   7.80000000e-04,
+         6.50000000e-04,   5.90000000e-04,   5.70000000e-04,
+         4.90000000e-04,   4.30000000e-04,   3.80000000e-04,
+         3.10000000e-04,   2.90000000e-04,   2.80000000e-04,
+         2.70000000e-04,   2.50000000e-04,   2.30000000e-04,
+         2.10000000e-04]
+PROB_NOISE_TRUNCATED = 0.0002
+PROB_NOISE_MIN_SCORE = 6.0 #below this, just set the PROB_NOISE... to 1.0 (for safety ... we would not
+                           # even consider any lines with scores this low)
 
 def norm_values(values,values_units):
     '''
@@ -223,10 +257,12 @@ class EmissionLineInfo:
         self.snr = 0.0
         self.sbr = 0.0
         self.eqw_obs = -999
-        self.cont = -999
         self.fwhm = -999
         self.score = None
         self.raw_score = None
+
+        self.line_score = None
+        self.prob_noise = 1.0
 
     def build(self,values_units=0):
         if self.snr > MIN_ELI_SNR:
@@ -256,6 +292,7 @@ class EmissionLineInfo:
                     # so if in e-17 or e-18 units, need to remove the other 10.0
                     if unit == 1.0e-18:
                         self.line_flux /= 10.0
+
                     self.cont = self.fit_y * unit
 
                     #fix fit_h
@@ -275,21 +312,42 @@ class EmissionLineInfo:
 
             if self.line_flux and self.cont:
                 self.eqw_obs = self.line_flux / self.cont
+
+            self.line_score = self.snr * self.line_flux * 1.0e17
+            self.prob_noise = self.get_prob_noise()
         else:
             self.fwhm = -999
             self.cont = -999
             self.line_flux = -999
+            self.line_score = 0
+
+    def get_prob_noise(self):
+        try:
+            if (self.line_score is None) or (self.line_score < PROB_NOISE_MIN_SCORE):
+                return 1.0 # really not, but we will cap it
+            #if we are off the end of the scores, set to a fixed probability
+            elif self.line_score > max(PROB_NOISE_LINE_SCORE) + (PROB_NOISE_LINE_SCORE[1]-PROB_NOISE_LINE_SCORE[0]):
+                return PROB_NOISE_TRUNCATED #set this as the minium
+            else:
+                return PROB_NOISE_GIVEN_SCORE[getnearpos(PROB_NOISE_LINE_SCORE,self.line_score)]
+        except:
+            return 1.0
+
 
     def is_good(self,z=0.0):
         #(self.score > 0) and  #until score can be recalibrated, don't use it here
         #(self.sbr > 1.0) #not working the way I want. don't use it
         result = False
-        if ((self.snr > GOOD_FULL_SNR) or ((self.snr > GOOD_MIN_SNR) and (self.sbr > GOOD_MIN_SBR))) and \
-           (self.fit_sigma > GOOD_MIN_SIGMA) and \
-           (self.line_flux > GOOD_MIN_LINE_FLUX) and \
-           (self.fit_h/self.cont > GOOD_MIN_H_CONT_RATIO) and \
-           (abs(self.fit_dx0) < GOOD_MAX_DX0):
-                result = True
+
+        if (self.line_score > GOOD_MIN_LINE_SCORE): #minimum to be possibly good
+            result = True
+
+        # if ((self.snr > GOOD_FULL_SNR) or ((self.snr > GOOD_MIN_SNR) and (self.sbr > GOOD_MIN_SBR))) and \
+        #    (self.fit_sigma > GOOD_MIN_SIGMA) and \
+        #    (self.line_flux > GOOD_MIN_LINE_FLUX) and \
+        #    (self.fit_h/self.cont > GOOD_MIN_H_CONT_RATIO) and \
+        #    (abs(self.fit_dx0) < GOOD_MAX_DX0):
+        #         result = True
 
             #if self.eqw_obs/(1.+z) > GOOD_MIN_EW_REST:
             #    result =  True
@@ -297,7 +355,8 @@ class EmissionLineInfo:
         return result
 
 
-def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=None,values_units=0, sbr=None, show_plot=False):
+def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=None,values_units=0, sbr=None,
+                 show_plot=False,min_sigma=GAUSS_FIT_MIN_SIGMA):
 
     #error on the wavelength of the possible line depends on the redshift and its error and the wavelength itself
     #i.e. wavelength error = wavelength / (1+z + error)  - wavelength / (1+z - error)
@@ -405,7 +464,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #todo: add sigma=error
         parm, pcov = curve_fit(gaussian, narrow_wave_x, narrow_wave_counts,
                                 p0=(central,1.5,1.0,0.0),
-                                bounds=((central-fit_range_AA, 1.0, 0.0, -100.0),
+                                bounds=((central-fit_range_AA, min_sigma, 0.0, -100.0),
                                         (central+fit_range_AA, np.inf, np.inf, np.inf)),
                                 #sigma=1./(narrow_wave_errors*narrow_wave_errors)
                                 sigma=narrow_wave_errors
@@ -445,7 +504,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
         fit_peak = max(eli.fit_vals)
 
-        if (abs(raw_peak - fit_peak) / raw_peak > 0.2):  # didn't capture the peak ... bad, don't calculate anything else
+        if ( abs(fit_peak - raw_peak) > (raw_peak * 0.2) ):
+        #if (abs(raw_peak - fit_peak) / raw_peak > 0.2):  # didn't capture the peak ... bad, don't calculate anything else
             #log.warning("Failed to capture peak")
             log.debug("Failed to capture peak: raw = %f , fit = %f, frac = %0.2f" % (raw_peak, fit_peak,
                                                                                  abs(raw_peak - fit_peak) / raw_peak))
@@ -477,7 +537,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             log.error("Could not fit gaussian near %f" % central, exc_info=True)
         return None
 
-    if (eli.fit_rmse > 0) and (eli.fit_sigma <= GAUSS_FIT_MAX_SIGMA) and (eli.fit_sigma >= GAUSS_FIT_MIN_SIGMA):
+    if (eli.fit_rmse > 0) and (eli.fit_sigma <= GAUSS_FIT_MAX_SIGMA) and (eli.fit_sigma >= min_sigma):
         eli.snr = eli.fit_a/(np.sqrt(num_sn_pix)*eli.fit_rmse)
         eli.build(values_units=values_units)
         #eli.snr = max(eli.fit_vals) / (np.sqrt(num_sn_pix) * eli.fit_rmse)
@@ -600,19 +660,29 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         log.info("Unable to fit gaussian. ")
         score = 0.0
 
-    if show_plot or G.DEBUG_SHOW_GAUSS_PLOTS:
+    if show_plot or G.DEBUG_SHOW_GAUSS_PLOTS:# or eli.snr > 40.0:
         if error is None:
             error = -1
 
         g = eli.is_good(z=central_z)
         a = accept_fit
 
+        # title += "%0.2f z_guess=%0.4f A(%d) G(%d)\n" \
+        #          "Score = %0.2f (%0.1f), SBR = %0.2f (%0.1f), SNR = %0.2f (%0.1f) wpix = %d\n" \
+        #          "Peak = %0.2g, Line(A) = %0.2g, Cont = %0.2g, EqW_Obs=%0.2f\n"\
+        #          "dX0 = %0.2f, RH = %0.2f, RMS = %0.2f (%0.2f) \n"\
+        #          "Sigma = %0.2f, Skew = %0.2f, Kurtosis = %0.2f"\
+        #           % (eli.fit_x0,central_z,a,g,score, signal_calc_scaled_score(score),sbr,
+        #              signal_calc_scaled_score(sbr),snr,signal_calc_scaled_score(snr),num_sn_pix,
+        #              eli.fit_h,eli.line_flux, eli.cont,eli.eqw_obs,
+        #              dx0, rh, error,eli.fit_rmse, si, sk, ku)
+
         title += "%0.2f z_guess=%0.4f A(%d) G(%d)\n" \
-                 "Score = %0.2f (%0.1f), SBR = %0.2f (%0.1f), SNR = %0.2f (%0.1f) wpix = %d\n" \
+                 "Score = %0.2f , SBR = %0.2f (%0.1f), SNR = %0.2f (%0.1f) wpix = %d\n" \
                  "Peak = %0.2g, Line(A) = %0.2g, Cont = %0.2g, EqW_Obs=%0.2f\n"\
                  "dX0 = %0.2f, RH = %0.2f, RMS = %0.2f (%0.2f) \n"\
                  "Sigma = %0.2f, Skew = %0.2f, Kurtosis = %0.2f"\
-                  % (eli.fit_x0,central_z,a,g,score, signal_calc_scaled_score(score),sbr,
+                  % (eli.fit_x0,central_z,a,g,eli.snr * eli.line_flux * 1.0e17,sbr,
                      signal_calc_scaled_score(sbr),snr,signal_calc_scaled_score(snr),num_sn_pix,
                      eli.fit_h,eli.line_flux, eli.cont,eli.eqw_obs,
                      dx0, rh, error,eli.fit_rmse, si, sk, ku)
@@ -1002,7 +1072,8 @@ def simple_peaks(x,v,h=MIN_HEIGHT,delta_v=2.0,values_units=0):
     return np.array(maxtab), np.array(mintab)
 
 
-def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,values_units=0):
+def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,values_units=0,
+            enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA):
 
     """
 
@@ -1050,20 +1121,24 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,values_uni
     % This function is released to the public domain; Any use is allowed.
 
     """
+
+    if (v is None) or (len(v) < 3):
+        return []
+
     maxtab = []
     mintab = []
     emistab = []
     eli_list = []
     delta = dh
 
+    if x is None:
+        x = np.arange(len(v))
+
     pix_size = abs(x[1] - x[0])  # aa per pix
     # want +/- 20 angstroms
     wave_side = int(round(20.0 / pix_size))  # pixels
 
     dw = int(dw / pix_size) #want round down (i.e. 2.9 -> 2) so this is fine
-
-    if x is None:
-        x = np.arange(len(v))
 
     v = np.asarray(v)
     num_pix = len(v)
@@ -1214,10 +1289,10 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,values_uni
             #see if too close to prior peak (these are in increasing wavelength order)
 
             #this is dumb but necessary for right now since signal_score will multiply by 10
-            eli = signal_score(x_0, v_0, None, px,values_units=values_units_0)
+            eli = signal_score(x_0, v_0, None, px,values_units=values_units_0,min_sigma=min_sigma)
 
             #if (eli is not None) and (eli.score > 0) and (eli.snr > 7.0) and (eli.fit_sigma > 1.6) and (eli.eqw_obs > 5.0):
-            if (eli is not None) and eli.is_good():
+            if (eli is not None) and ((not enforce_good) or eli.is_good()):
                 eli_list.append(eli)
                 if len(emistab) > 0:
                     if (px - emistab[-1][1]) > 6.0:
@@ -1256,6 +1331,10 @@ class EmissionLine():
         self.eqw_rest = None
         self.sigma = None #gaussian fit sigma
 
+        #a bit redundant with EmissionLineInfo
+        self.line_score = 0.0
+        self.prob_noise = 1.0
+
     def redshift(self,z):
         self.z = z
         self.w_obs = self.w_rest * (1.0 + z)
@@ -1274,7 +1353,12 @@ class Classifier_Solution:
         self.color = None
         self.emission_line = None
 
+        self.prob_noise = 1.0
         self.lines = [] #list of EmissionLine
+
+    @property
+    def prob_real(self):
+        return min(1-self.prob_noise,0.999)
 
 
 class Spectrum:
@@ -1284,6 +1368,9 @@ class Spectrum:
     """
 
     def __init__(self):
+        #todo: add a "don't display" option?? do not plot unless it is a selected line?
+        #todo: or further limit the "solution" options?
+        #todo: maybe check them all, but only auto display those that are solution=True
         #reminder ... colors don't really matter (are not used) if solution is not True)
         self.emission_lines = [EmissionLine("Ly$\\alpha$ ", G.LyA_rest, 'red'),
                                EmissionLine("OII ", G.OII_rest, 'green'),
@@ -1297,7 +1384,7 @@ class Spectrum:
                                EmissionLine("H$\\beta$ ", 4862.68, "blue"),
                                EmissionLine("H$\\gamma$ ", 4341.68, "royalblue"),
                                EmissionLine("H$\\delta$ ", 4102, "royalblue", solution=False),
-                               #EmissionLine("H$\\epsilon ", 3970, "royalblue", solution=False),
+                               #EmissionLine("H$\\epsilon ", 3970, "royalblue", solution=False), #very close to CaII(3970)
                                #EmissionLine("H$\\zeta ", 3889, "royalblue", solution=False),
                                #EmissionLine("H$\\eta ", 3835, "royalblue", solution=False),
 
@@ -1305,7 +1392,7 @@ class Spectrum:
                                EmissionLine("SiII", 1260, "gray", solution=False),
                                EmissionLine("HeII", 1640.4, "orange", solution=False),
                                EmissionLine("NeIII", 3869, "pink", solution=False),
-                               EmissionLine("NeIII", 3967, "pink", solution=False),
+                               EmissionLine("NeIII", 3967, "pink", solution=False), #very close to CaII(3970)
                                EmissionLine("NeV", 3346.79, "pink", solution=False),
                                EmissionLine("NeVI", 3426.85, "pink", solution=False),
                                EmissionLine("NaI", 4980, "lightcoral", solution=False),  #4978.5 + 4982.8
@@ -1313,7 +1400,7 @@ class Spectrum:
 
                                #stars
                                EmissionLine("CaII", 3935, "skyblue", solution=False),
-                               EmissionLine("CaII", 3970, "skyblue", solution=False)
+                               EmissionLine("CaII", 3970, "skyblue", solution=False) #very close to NeIII(3967)
 
                                ]
 
@@ -1337,6 +1424,8 @@ class Spectrum:
         self.p_lae = None
         self.p_oii = None
         self.p_lae_oii_ratio = None
+
+        self.identifier = None #optional string to help identify in the log
 
     def top_hat_filter(self,w_rest,w_obs, wx, hat_width=None, negative=False):
         #optimal seems to be around 1 to < 2 resolutions (e.g. HETDEX ~ 6AA) ... 6 is good, 12 is a bit
@@ -1599,6 +1688,7 @@ class Spectrum:
             sol.emission_line = copy.deepcopy(e)
             sol.emission_line.w_obs = sol.emission_line.w_rest*(1.0 + sol.z)
             sol.emission_line.solution = True
+            sol.prob_noise = 1.0
 
             for a in self.emission_lines:
                 if e == a:
@@ -1608,25 +1698,29 @@ class Spectrum:
                 if (a_central > max_w) or (a_central < min_w):
                     continue
 
-                # if central is not None:
-                #     central_z = central/e.w_rest - 1.0
-                # else:
-                #     central_z = 0.0
-
                 eli = signal_score(wavelengths, values, errors, a_central,
                                    central_z = central_z, values_units=values_units, spectrum=self)
 
-                #if (eli is not None):# and (eli.score > 0.0):
-                #    total_score += eli.score
-                #    sol.score += eli.score
-
-                #if (eli is not None) and (eli.sbr > 1.0):
                 if (eli is not None) and eli.is_good(z=sol.z):
-                    #is there a corresponding peak?
-                    #this helps enforce a shape (has to correspond to one of the peaks found by shape)
-                    if self.is_near_a_peak(eli.fit_x0,eli.pix_size): #todo: redundant now that is in signal_score
-                        total_score += eli.snr * (eli.line_flux * 1.0e17) #eli.eqw_obs
-                        sol.score += eli.snr * (eli.line_flux * 1.0e17) #eli.eqw_obs
+                    #if this line is too close to another, keep the one with the better score
+                    add_to_sol = True
+                    for i in range(len(sol.lines)):
+                        if abs(sol.lines[i].w_obs - eli.fit_x0) < 10.0:
+                            if sol.lines[i].line_score < eli.line_score:
+                                log.info("Lines too close (%s). Removing %s(%01.f) from solution in favor of %s(%0.1f)"
+                                         % (self.identifier,sol.lines[i].name, sol.lines[i].w_rest,a.name, a.w_rest))
+                                #remove this solution
+                                total_score -= sol.lines[i].line_score
+                                sol.score -= sol.lines[i].line_score
+                                sol.prob_noise /= sol.lines[i].prob_noise
+                                del sol.lines[i]
+                            else:
+                                #the new line is not as good so just skip it
+                                log.info("Lines too close (%s). Removing %s(%01.f) from solution in favor of %s(%0.1f)"
+                                         % (self.identifier,a.name, a.w_rest,sol.lines[i].name, sol.lines[i].w_rest))
+                                add_to_sol = False
+
+                    if add_to_sol:
                         l = copy.deepcopy(a)
                         l.w_obs = l.w_rest * (1.0 + sol.z)
                         l.z = sol.z
@@ -1637,17 +1731,22 @@ class Spectrum:
                         l.eqw_rest = l.eqw_obs / (1.0 + l.z)
                         l.flux = eli.line_flux
                         l.sigma = eli.fit_sigma
+                        l.line_score = eli.line_score
+                        l.prob_noise = eli.prob_noise
+
+                        total_score += eli.line_score  # cumulative score for ALL solutions
+                        sol.score += eli.line_score  # score for this solution
+                        sol.prob_noise *= eli.prob_noise
 
                         sol.lines.append(l)
+                        log.info("Accepting line (%s): %s(%0.1f at %01.f) line_score = %0.1f  p(noise) = %g"
+                                 %(self.identifier,l.name,l.w_rest,l.w_obs,l.line_score,l.prob_noise))
 
             if sol.score > 0.0:
+                #log.info("Solution p(noise) (%f) from %d additional lines" % (sol.prob_noise, len(sol.lines) - 1))
+                sol.score += (len(sol.lines)-G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY)*ADDL_LINE_SCORE_BONUS
                 solutions.append(sol)
-
         #end for e in emission lines
-
-        #AND check one more for forced z == 0 (basically something really close, like a star)
-
-
 
         for s in solutions:
             s.frac_score = s.score/total_score
@@ -1659,9 +1758,9 @@ class Spectrum:
             ll =""
             for l in s.lines:
                 ll += " %s(%0.1f at %0.1f)," %(l.name,l.w_rest,l.w_obs)
-            msg = "Possible Solution: %s (%0.1f at %0.1f), Frac = %0.2f, Score = %0.1f, z = %0.5f, +lines=%d %s" \
-                    % (s.emission_line.name,s.central_rest,s.central_rest*(1.0+s.z), s.frac_score, s.score,s.z,
-                       len(s.lines),ll )
+            msg = "Possible Solution %s (%0.3f): %s (%0.1f at %0.1f), Frac = %0.2f, Score = %0.1f, z = %0.5f, +lines=%d %s"\
+                    % (self.identifier, 1.0-s.prob_noise,s.emission_line.name,s.central_rest,s.central_rest*(1.0+s.z), s.frac_score,
+                       s.score,s.z, len(s.lines),ll )
             log.info(msg)
             #
             if G.DEBUG_SHOW_GAUSS_PLOTS:

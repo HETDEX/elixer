@@ -6,6 +6,7 @@ from __future__ import print_function
 import global_config as G
 import os.path as op
 import numpy as np
+from scipy.integrate import quad
 from scipy.optimize import curve_fit
 
 log = G.Global_Logger('cat_logger')
@@ -86,7 +87,8 @@ class DistancePrior:
     #all class vars
     num_trials = 1000
     #annuli_bin_centers = np.arange(0.0,30.2,0.2) #uncomment if NOT trimming last row
-    annuli_bin_centers = np.arange(0.0, 30.0, 0.2) #does not include last row (radii bin center = 30.0")
+    dist_bin_width = 0.2
+    annuli_bin_centers = np.arange(0.0, 30.0, dist_bin_width) #does not include last row (radii bin center = 30.0")
 
     annuli_bin_edges = annuli_bin_centers - 0.1
     annuli_bin_edges[0] = 0.0
@@ -101,13 +103,16 @@ class DistancePrior:
     max_mag = max(mag_bin_centers)
     max_radius = max(annuli_bin_centers)
 
-    def __init__(self,pdf_model=PDF_MODEL, poly_deg=POLY_DEG):
+    def __init__(self,pdf_model=PDF_MODEL, poly_deg=POLY_DEG, dist_err = 0.5):
+        #dist_err = astrometry accuracy error in arcsec
 
         self.pdf_model = pdf_model
         self.poly_deg = poly_deg
         self.mdf_matrix = None
         self.pdf_sigmoid_parms = None
         self.pdf_poly_parms = None
+        # dist_err = astrometry accuracy error in arcsec + annuli_bin_width
+        self.dist_err = dist_err + self.dist_bin_width
         self.build_mdfs()
         self.build_pdfs()
 
@@ -184,6 +189,7 @@ class DistancePrior:
             log.error("Cannot build mdf from distance prior file: %s" % file, exc_info=True)
 
 
+    #though, not really a pdf ... does not sum to 1.0
     def build_pdfs(self):
         if self.mdf_matrix is None:
             self.build_mdfs()
@@ -247,8 +253,29 @@ class DistancePrior:
 
                 self.pdf_poly_parms.append(popt)
 
+    def get_mdf_prior(self,dist,dist_bin,mag,mag_bin,integrate):
 
-    def get_prior(self,dist,mag): #distance in arcsec
+        p_rand_match = 0.0
+        min_dist_bin = round(float(max(0, dist - self.dist_err)) / self.dist_bin_width) * self.dist_bin_width
+        max_dist_bin = round(float(dist + self.dist_err) / self.dist_bin_width) * self.dist_bin_width
+        idist = np.where(self.annuli_bin_centers == dist_bin)[0][0]
+        imag = np.where(self.mag_bin_centers == mag_bin)[0][0]
+
+        if integrate:
+            min_idist = np.where(self.annuli_bin_centers == min_dist_bin)[0][0]
+            max_idist = np.where(self.annuli_bin_centers == max_dist_bin)[0][0]
+
+            for i in range(min_idist, max_idist + 1):
+                p_rand_match += self.mdf_matrix[i, imag]
+        else:
+            p_rand_match = self.mdf_matrix[idist, imag]
+
+        log.info("Using MDF for distance prior: mag = %f , dist = %f, 1-p(rand) = %f" %
+                 (mag, dist, 1. - p_rand_match))
+
+        return p_rand_match
+
+    def get_prior(self,dist,mag,integrate=True,mdf=False): #distance in arcsec
         #find in mdf the likelihood of a RANDOM match
         #return 1-likelihood(random)
         p_rand_match = 0.0
@@ -258,7 +285,7 @@ class DistancePrior:
 
             # technically this would put the right edge in with the lower bin
             # but for an early, quick and dirty experiment, is okay
-            dist_bin = round(float(dist) / 0.2) * 0.2
+            dist_bin = round(float(dist) / self.dist_bin_width) * self.dist_bin_width
             mag_bin = round(float(mag))
 
             #find the corresponding indicies
@@ -280,6 +307,8 @@ class DistancePrior:
                     p_rand_match = 0.0
                 elif (mag_bin > self.max_mag): #too faint. No data but assume very many so max out random likelihood
                     p_rand_match = 1.0
+                elif mdf:
+                    p_rand_match = self.get_mdf_prior(dist,dist_bin,mag,mag_bin,integrate)
                 else:
                     p_rand_match = -1
                     imag = np.where(self.mag_bin_centers == mag_bin)[0][0]
@@ -288,20 +317,44 @@ class DistancePrior:
                         if (self.pdf_sigmoid_parms is not None) and (len(self.pdf_sigmoid_parms) >  imag) and \
                                 (self.pdf_sigmoid_parms[imag] is not None):
 
-                            p_rand_match = sigmoid(dist,*(self.pdf_sigmoid_parms[imag]))
+                            if integrate:
+                                min_dist = max(0, dist - self.dist_err)
+                                max_dist = dist + self.dist_err
+                                p_rand_match = quad(sigmoid, min_dist, max_dist, *(self.pdf_sigmoid_parms[imag]))[0]
+                            else:
+                                # simple function call (lookup)
+                                p_rand_match = sigmoid(dist, *(self.pdf_sigmoid_parms[imag]))
+
                             log.info("Using sigmoid PDF for distance prior: mag = %f , dist = %f, 1-p(rand) = %f" %
                                      (mag, dist,1. - p_rand_match))
                     elif self.pdf_model == "poly":
                         if (self.pdf_poly_parms is not None) and (len(self.pdf_poly_parms) >  imag) and \
                                 (self.pdf_poly_parms[imag] is not None):
 
-                            p_rand_match = polynomial(dist,self.pdf_poly_parms[imag])
+                            if integrate:
+                                #integrate for area under the curve and deal with astrometry error
+                                min_dist = max(0, dist - self.dist_err)
+                                max_dist = dist + self.dist_err
+                                p_rand_match = quad(polynomial, min_dist, max_dist, self.pdf_poly_parms[imag])[0]
+                            else:
+                                #simple function call (lookup)
+                                p_rand_match = polynomial(dist,self.pdf_poly_parms[imag])
+
                             log.info("Using polynomial PDF for distance prior: mag = %f , dist = %f, 1-p(rand) = %f" %
                                      (mag, dist,1. - p_rand_match))
 
                     if p_rand_match == -1 :  # use the mdf_matrix
                         idist = np.where(self.annuli_bin_centers == dist_bin)[0][0]
-                        p_rand_match = self.mdf_matrix[idist, imag]
+
+                        if integrate:
+                            min_idist = np.where(self.annuli_bin_centers == min_dist_bin)[0][0]
+                            max_idist = np.where(self.annuli_bin_centers == max_dist_bin)[0][0]
+
+                            for i in range(min_idist,max_idist+1):
+                                p_rand_match += self.mdf_matrix[i, imag]
+                        else:
+                            p_rand_match = self.mdf_matrix[idist, imag]
+
                         log.info("Using MDF for distance prior: mag = %f , dist = %f, 1-p(rand) = %f" %
                                  (mag, dist, 1. - p_rand_match))
         except:

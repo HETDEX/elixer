@@ -1,5 +1,18 @@
 changes to voltron by version
 
+1.4.0a6 [2018-06-17]
+* add 1 - probability of noise "confidence" to multiline solution
+    - use skewed Gaussian noise model with 1e5 samples
+    - use SNR * Line_flux as score
+    - for 1.0 wide score bins for each emission line, get the cumulative prob that it is noise
+    - solution confidence = 1.0 - product of each emission line prob(noise)
+    - (note: noise only ... does not explicitly deal with partially removed cosmic rays, etc)
+
+* update cat_bayesian (probability of random catalog match) to allow caller selection of MDF vs pseudo-PDF and
+  whether or not to integrate over the distance +/- astrometry error (and bin-width).
+  Default is pseduo-PDF with integration and assumed error of 0.5"
+
+
 
 1.4.0a5 [2018-06-12]
 * added dashed lines to indicate possible emission lines in full 1D spectra plot
