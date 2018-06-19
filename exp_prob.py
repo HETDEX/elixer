@@ -6,7 +6,7 @@ import sys
 import spectrum
 import matplotlib.pyplot as plt
 
-#plt.switch_backend('QT4Agg')
+plt.switch_backend('QT4Agg')
 
 SHOW_SPEC = False
 
@@ -19,6 +19,24 @@ SHOW_SPEC = False
 #The prob that a line_score is random is that line_score's bin / total number of scores
 #  so, if there are 1537 line_score in the 9.0 line_score center bin with another 523 in bins 10.0 to inf,
 # the prob of random is (1537+523)/100000 = 0.02060
+
+
+
+#6-18-2018 update
+#slightly different logic .... still get num_trials, but only accept IF is_good(), so the resulting set is all peaks
+#by score that voltron would classify as good. The fraction then, is by score/total ... out of the universe of noise,
+#the fraction (by score) that are considered good == probability by score that the fit is just noise
+
+#these are for the resulting PDF, not for fitting the emission line itself
+def polynomial(x,coeff):
+    return np.poly1d(coeff)(x)
+
+def gaussian(x,x0,sigma,a=1.0,y=0.0):
+    if (x is None) or (x0 is None) or (sigma is None):
+        return None
+    #have the / np.sqrt(...) part so the basic shape is normalized to 1 ... that way the 'a' becomes the area
+    return a * (np.exp(-np.power((x - x0) / sigma, 2.) / 2.) / np.sqrt(2 * np.pi * sigma ** 2)) + y
+
 
 def reload():
     imp.reload(spectrum)
@@ -45,6 +63,7 @@ class GaussFit:
     def rand_spec(self):
         #return a random (noise only) 'spectrum'
         return sp.stats.skewnorm.rvs(loc=0, scale=7.0, a=1.5, size=self.num_pix)
+        #return sp.stats.skewnorm.rvs(loc=0, scale=7.0, a=0.0, size=self.num_pix)
 
 
     def trial(self):
@@ -54,9 +73,12 @@ class GaussFit:
 
         errors = None
 
-        peaks = spectrum.peakdet(wavelengths, values, values_units=-18,enforce_good=False,min_sigma=0.0)
+        # 6-18-2018 additional condition, enforce_good = True, min_sigma = 1.0 ... just as per normal
+        peaks = spectrum.peakdet(wavelengths, values, values_units=-18,enforce_good=True,min_sigma=1.0)
 
         score = []
+        line_flux = []
+        snr = []
         good = []
         eli = []
 
@@ -66,9 +88,12 @@ class GaussFit:
             #    plot = True
             #    print("Big SNR ...")
             #    xsnr = p.snr
-            score.append(p.line_score)
-            good.append(p.is_good())
-            eli.append(p)
+            if p.is_good(): #6-18-2018 additional condition
+                score.append(p.line_score)
+                line_flux.append(p.line_flux)
+                snr.append(p.snr)
+                good.append(p.is_good())
+                eli.append(p)
 
 
         if SHOW_SPEC and (len(peaks) > 0):# and plot:
@@ -90,7 +115,7 @@ class GaussFit:
            # plt.close()
             #plt.show()
 
-        return score,good, eli
+        return score,line_flux, snr, good, eli
 
         # a_central = wavelengths[len(wavelengths)/2]
         # central_z = 0.0
@@ -107,6 +132,8 @@ class GaussFit:
     def go(self):
 
         all_score = []
+        all_line_flux = []
+        all_snr  = []
         all_good = []
         all_eli = []
 
@@ -114,7 +141,7 @@ class GaussFit:
 
         #for i in range(self.num_trials):
         while total_samples < self.num_trials:
-            score,good,eli = self.trial()
+            score,line_flux, snr, good,eli = self.trial()
 
             samples = len(score)
 
@@ -127,6 +154,8 @@ class GaussFit:
                 print("Samples: %d" % total_samples)
          #       print(snr,good)
                 all_score = np.concatenate((all_score,score))
+                all_line_flux = np.concatenate((all_line_flux,line_flux))
+                all_snr = np.concatenate((all_snr, snr))
                 all_good = np.concatenate((all_good, good))
                 all_eli = np.concatenate((all_eli, eli))
               #  for s,g in zip(snr,good):
@@ -145,18 +174,22 @@ class GaussFit:
 
 
 
-        return all_score,all_good, all_eli
+        return all_score,all_line_flux, all_snr, all_good, all_eli
 
 
     def load(self,filename): #no error control
 
         score = []
+        line_flux = []
+        snr = []
         good = []
         eli = []
 
         #sort of a dumb way to do this, but convenient to put in the ELI objects
         out =  np.loadtxt(filename)
         score = out[:,7]
+        line_flux = out[:,3]
+        snr = out[:,1]
         good = out[:,0].astype(int)
         # Good  SNR  Sigma  LineFlux  Cont  SBR  EW_Obs  Score
         for i in range(len(out)):
@@ -173,7 +206,7 @@ class GaussFit:
 
             eli.append(e)
 
-        return np.array(score), np.array(good), np.array(eli)
+        return np.array(score), np.array(line_flux),np.array(snr),np.array(good), np.array(eli)
 
 
 def main():
@@ -181,9 +214,9 @@ def main():
     gf = GaussFit()
 
     if (RUN):
-        score, good, eli = gf.go()
+        score, line_flux, snr, good, eli = gf.go()
     else:
-        score, good, eli = gf.load("~/code/python/voltron/exp_gauss_out.txt")
+        score, line_flux, snr, good, eli = gf.load("~/code/python/voltron/exp_gauss_out.txt")
 
 
     all_score = np.histogram(score, bins=gf.score_bin_edges)
@@ -195,14 +228,16 @@ def main():
     all_score = all_score[0].astype(float)
     good_score = good_score[0].astype(float)
     frac_good = good_score / all_score #may be some 0/0
-    frac_good = np.nan_to_num(frac)
+    frac_good = np.nan_to_num(frac_good)
 
     #this is really all we want ... what fraction does each score bin represents of the total scores
-    pop_frac = all_score   # fraction of the population in each snr bin
+    #pop_frac = all_score   # fraction of the population in each snr bin
+    pop_frac = all_score / gf.num_trials #6-18-2018 version
 
+    #6-18-2018 remove this condition
     #truncate to the bin where the cumulative fraction drops below about 0.0002
-    for i in range(len(pop_frac)):
-        pop_frac[i] = np.sum(pop_frac[i:]) / gf.num_trials
+    #for i in range(len(pop_frac)):
+    #    pop_frac[i] = np.sum(pop_frac[i:]) / gf.num_trials
 
     # create two arrays ... one of the score bins and one with the fraction of total (equiv. to prob of noise)
     keep_idx = np.where(pop_frac >= 0.0002)[0]
@@ -226,8 +261,8 @@ def main():
     #look at SNR
     plt.close()
     plt.title("SNR")
-    plt.hist([ob.snr for ob in eli],bins=gf.snr_bin_edges) #all
-    plt.hist([ob.snr for ob in eli[np.where(good)[0]]],bins=gf.snr_bin_edges) #just the good ones
+    plt.hist([ob.snr for ob in eli],bins=gf.score_bin_edges) #all
+    plt.hist([ob.snr for ob in eli[np.where(good)[0]]],bins=gf.score_bin_edges) #just the good ones
     plt.show()
 
     # look at SBR

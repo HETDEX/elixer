@@ -89,34 +89,20 @@ FLUX_CONVERSION_DICT = dict(zip(FLUX_CONVERSION_w_grid,FLUX_CONVERSION_f_grid))
 
 #copied from manual run of 100,000 noise spectra (see exp_prob.py)
 #if change the noise model or SNR or line_flux algorithm, need to recompute these
+
+#as MDF
 PROB_NOISE_LINE_SCORE = \
-[  0.5,   1.5,   2.5,   3.5,   4.5,   5.5,   6.5,   7.5,   8.5,
-   9.5,  10.5,  11.5,  12.5,  13.5,  14.5,  15.5,  16.5,  17.5,
-  18.5,  19.5,  20.5,  21.5,  22.5,  23.5,  24.5,  25.5,  26.5,
-  27.5,  28.5,  29.5,  30.5,  31.5,  32.5,  33.5,  34.5,  35.5,
-  36.5,  37.5,  38.5,  39.5,  40.5,  41.5,  42.5,  43.5,  44.5,
-  45.5,  46.5,  47.5,  48.5]
+[  6.5,   7.5,   8.5,   9.5,  10.5,  11.5,  12.5,  13.5,  14.5, 15.5,
+  16.5,  17.5,  18.5,  19.5,  20.5,  21.5,  22.5,  23.5,  24.5, 25.5,
+  26.5,  27.5,  28.5,  29.5,  30.5,  31.5,  32.5]
+
 PROB_NOISE_GIVEN_SCORE = \
-[        1.00000000e+00,   9.96200000e-01,   9.71840000e-01,
-         8.91400000e-01,   7.63720000e-01,   6.16580000e-01,
-         4.75780000e-01,   3.56200000e-01,   2.62330000e-01,
-         1.92090000e-01,   1.39710000e-01,   1.01700000e-01,
-         7.53600000e-02,   5.61400000e-02,   4.20100000e-02,
-         3.18400000e-02,   2.41900000e-02,   1.85100000e-02,
-         1.42900000e-02,   1.14000000e-02,   8.97000000e-03,
-         6.99000000e-03,   5.64000000e-03,   4.66000000e-03,
-         3.85000000e-03,   3.12000000e-03,   2.64000000e-03,
-         2.26000000e-03,   1.95000000e-03,   1.67000000e-03,
-         1.41000000e-03,   1.23000000e-03,   1.14000000e-03,
-         9.80000000e-04,   8.70000000e-04,   7.80000000e-04,
-         6.50000000e-04,   5.90000000e-04,   5.70000000e-04,
-         4.90000000e-04,   4.30000000e-04,   3.80000000e-04,
-         3.10000000e-04,   2.90000000e-04,   2.80000000e-04,
-         2.70000000e-04,   2.50000000e-04,   2.30000000e-04,
-         2.10000000e-04]
-PROB_NOISE_TRUNCATED = 0.0002
-PROB_NOISE_MIN_SCORE = 6.0 #below this, just set the PROB_NOISE... to 1.0 (for safety ... we would not
-                           # even consider any lines with scores this low)
+    [0.25478, 0.19842, 0.14652, 0.10913, 0.07948, 0.05505, 0.04134, 0.02957, 0.02118, 0.01557,
+     0.01134, 0.00836, 0.00647, 0.00499, 0.00354, 0.00290, 0.00237, 0.00160, 0.00128, 0.00082,
+     0.00077, 0.00074, 0.00059, 0.00042, 0.00034, 0.00034, 0.00033]
+
+PROB_NOISE_TRUNCATED = 0.0002 #all bins after the end of the list get this value
+PROB_NOISE_MIN_SCORE = 6.0 #min score that makes it to the bin list
 
 def norm_values(values,values_units):
     '''
@@ -322,6 +308,9 @@ class EmissionLineInfo:
             self.line_score = 0
 
     def get_prob_noise(self):
+
+        MDF = False
+
         try:
             if (self.line_score is None) or (self.line_score < PROB_NOISE_MIN_SCORE):
                 return 1.0 # really not, but we will cap it
@@ -329,7 +318,26 @@ class EmissionLineInfo:
             elif self.line_score > max(PROB_NOISE_LINE_SCORE) + (PROB_NOISE_LINE_SCORE[1]-PROB_NOISE_LINE_SCORE[0]):
                 return PROB_NOISE_TRUNCATED #set this as the minium
             else:
-                return PROB_NOISE_GIVEN_SCORE[getnearpos(PROB_NOISE_LINE_SCORE,self.line_score)]
+
+                if MDF:
+                    prob = 0.0
+                    assumed_error_frac = 0.5
+                    score_bin_width = PROB_NOISE_LINE_SCORE[1] - PROB_NOISE_LINE_SCORE[0]
+                    #treat the arrays as MDF and use an error in LineFlux as a range over which to sum
+                    min_score_bin = round(float(max(0, self.line_score*(1.0 - assumed_error_frac))) / score_bin_width)\
+                                    * score_bin_width
+                    max_score_bin = round(float( self.line_score*(1.0+assumed_error_frac)) / score_bin_width)\
+                                    * score_bin_width
+
+                    min_score_idx = np.where(PROB_NOISE_LINE_SCORE == min_score_bin)[0][0]
+                    max_score_idx = np.where(PROB_NOISE_LINE_SCORE == max_score_bin)[0][0]
+
+                    for i in range(min_score_idx, max_score_idx + 1):
+                        prob += PROB_NOISE_GIVEN_SCORE[i]
+
+                    return prob
+                else:
+                    return PROB_NOISE_GIVEN_SCORE[getnearpos(PROB_NOISE_LINE_SCORE,self.line_score)]
         except:
             return 1.0
 
@@ -1745,6 +1753,7 @@ class Spectrum:
             if sol.score > 0.0:
                 #log.info("Solution p(noise) (%f) from %d additional lines" % (sol.prob_noise, len(sol.lines) - 1))
                 sol.score += (len(sol.lines)-G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY)*ADDL_LINE_SCORE_BONUS
+                total_score += (len(sol.lines)-G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY)*ADDL_LINE_SCORE_BONUS
                 solutions.append(sol)
         #end for e in emission lines
 

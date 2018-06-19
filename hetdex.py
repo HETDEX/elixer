@@ -53,8 +53,6 @@ import spectrum as voltron_spectrum
 log = G.Global_Logger('hetdex_logger')
 log.setlevel(G.logging.DEBUG)
 
-MULTILINE_MIN_SOLUTION_SCORE = 25.0 #remember, this does NOT include the main line's score
-
 CONFIG_BASEDIR = G.CONFIG_BASEDIR
 VIRUS_CONFIG = G.VIRUS_CONFIG #op.join(CONFIG_BASEDIR,"virus_config")
 FPLANE_LOC = G.FPLANE_LOC #op.join(CONFIG_BASEDIR,"virus_config/fplane")
@@ -702,21 +700,31 @@ class DetObj:
 
 
     def multi_line_solution_score(self):
+        '''
+
+        :return: bool (True) if the solution is good
+                 float best solution score
+        '''
         #todo: gradiate score a bit and add other conditions
         #todo: a better way of some kind rather than a by-hand scoring
         if (self.spec_obj is not None) and (len(self.spec_obj.solutions) > 0):
             sols = self.spec_obj.solutions
             # need to tune this
             # score is the sum of the observed eq widths
-            if (self.spec_obj.solutions[0].score > MULTILINE_MIN_SOLUTION_SCORE) and \
+            if (self.spec_obj.solutions[0].score >= G.MULTILINE_MIN_SOLUTION_SCORE) and \
+                    (self.spec_obj.solutions[0].prob_real >= G.MULTILINE_MIN_SOLUTION_CONFIDENCE) and \
                     (self.spec_obj.solutions[0].frac_score > 0.5) and \
                     (len(self.spec_obj.solutions[0].lines) >= G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY):
                 if (len(self.spec_obj.solutions) == 1) or \
                     ((len(self.spec_obj.solutions) > 1) and \
                       (self.spec_obj.solutions[0].frac_score / self.spec_obj.solutions[1].frac_score > 2.0)):
 
-                    return self.spec_obj.solutions[0].prob_real
-        return 0
+                    return True, self.spec_obj.solutions[0].prob_real
+
+            if G.MULTILINE_ALWAYS_SHOW_BEST_GUESS:
+                return False, self.spec_obj.solutions[0].prob_real
+
+        return False, 0.0
 
     #rsp1 (when t5all was provided and we want to load specific fibers for a single detection)
     def load_fluxcalibrated_spectra(self):
@@ -2810,12 +2818,18 @@ class HETDEX:
                 title = title + "  OII z = N/A"
 
         if not G.ZOO:
-            p_good = e.multi_line_solution_score()
-            if ( p_good > 0.9):
+            good, p_good = e.multi_line_solution_score()
+            if ( good ):
                 # strong solution
                 sol = datakeep['detobj'].spec_obj.solutions[0]
                 title += "\n*(%0.3f) %s(%d) z = %0.4f  EW_r = %0.1f$\AA$" %(p_good, sol.name, int(sol.central_rest),sol.z,
                                                                         e.eqw_obs/(1.0+sol.z))
+            elif (p_good > 0.0):
+                #weak solution ... for display only, not acceptabale as a solution
+                #do not set the solution (sol) to be recorded
+                sol = datakeep['detobj'].spec_obj.solutions[0]
+                title += "\nweak %s(%d) z = %0.4f  EW_r = %0.1f$\AA$" % \
+                         (sol.name, int(sol.central_rest), sol.z,e.eqw_obs / (1.0 + sol.z))
             else:
                 log.info("No singular, strong emission line solution.")
 
@@ -4617,12 +4631,18 @@ class HETDEX:
             #possibly add the matched line at cwave position
             #
             if not G.ZOO:
-                if (datakeep['detobj'].multi_line_solution_score() > 0.9):
-                    #strong solution
+                good, p_real = datakeep['detobj'].multi_line_solution_score()
+                if (p_real > 0.0):
+                    #a solution
                     sol = datakeep['detobj'].spec_obj.solutions[0]
                     y_pos = textplot.axis()[2]
-                    textplot.text(cwave, y_pos, sol.name + " {", rotation=-90, ha='center', va='bottom',
-                                  fontsize=24, color=sol.color)  # use the e color for this family
+
+                    if good:
+                        textplot.text(cwave, y_pos, sol.name + " {", rotation=-90, ha='center', va='bottom',
+                                      fontsize=24, color=sol.color)  # use the e color for this family
+                    else: #weak solution, use standard font size
+                        textplot.text(cwave, y_pos, sol.name + " {", rotation=-90, ha='center', va='bottom',
+                                      color=sol.color)  # use the e color for this family
 
                     #highlight the matched lines
 

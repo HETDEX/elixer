@@ -234,6 +234,9 @@ UNIQUE_DET_ID_NUM = 0
 
 CLASSIFY_WITH_OTHER_LINES = True
 MIN_ADDL_EMIS_LINES_FOR_CLASSIFY = 1
+MULTILINE_MIN_SOLUTION_SCORE = 17.0 #remember, this does NOT include the main line's score (about p(noise) = 0.01)
+MULTILINE_MIN_SOLUTION_CONFIDENCE = 0.98
+MULTILINE_ALWAYS_SHOW_BEST_GUESS = True #if true, show the best guess even if it does not meet the miniumum requirements
 
 DYNAMIC_MAG_APERTURE = True  #allow aperture size to change to fit maximum magnitude
 

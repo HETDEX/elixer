@@ -125,8 +125,8 @@ class Match:
 
         #at the moment, this is all that is in place
         #todo: replace with a call to the DetObj that aggregates all the info and establishes a best_z
-        confidence = emis.multi_line_solution_score()
-        if ( confidence > 0.9):
+        good, confidence = emis.multi_line_solution_score()
+        if good:
             self.addtl_line_names = ""
             self.addtl_line_obs = ""
             self.addtl_line_rest = ""
