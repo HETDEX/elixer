@@ -8,7 +8,7 @@ from datetime import datetime
 import socket
 
 #version
-__version__ = '1.4.0a6'
+__version__ = '1.4.0a7'
 
 if socket.gethostname() == 'z50':
 #if False:

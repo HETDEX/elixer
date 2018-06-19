@@ -1,5 +1,9 @@
 changes to voltron by version
 
+
+1.4.0a7 [2018-06-xx]
+
+
 1.4.0a6 [2018-06-19]
 * add 1 - probability of noise "confidence" to multiline solution
     - use skewed Gaussian noise model with 1e5 samples
