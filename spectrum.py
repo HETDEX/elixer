@@ -48,25 +48,54 @@ GAUSS_SNR_SIGMA = 3.0 #check at least these pixels (pix*sigma) to either side of
 GAUSS_SNR_NUM_AA = 5.0 #check at least 4 AA to either side (9 total) of the fit line for SNR in gaussian fit
                        # (larger of this or GAUSS_SNR_SIGMA
 
+
+#copied from manual run of 100,000 noise spectra (see exp_prob.py)
+#if change the noise model or SNR or line_flux algorithm or "EmissionLineInfo::is_good", need to recompute these
+#as MDF
+PROB_NOISE_LINE_SCORE = \
+[  6.5,   7.5,   8.5,   9.5,  10.5,  11.5,  12.5,  13.5,  14.5, 15.5,
+  16.5,  17.5,  18.5,  19.5,  20.5,  21.5,  22.5,  23.5,  24.5, 25.5,
+  26.5,  27.5,  28.5,  29.5,  30.5,  31.5,  32.5]
+
+PROB_NOISE_GIVEN_SCORE = \
+    [2.51860000e-01, 1.96010000e-01, 1.51290000e-01,
+     1.10050000e-01, 7.84900000e-02, 5.61000000e-02,
+     4.05900000e-02, 2.96600000e-02, 2.21200000e-02,
+     1.52200000e-02, 1.14000000e-02, 8.40000000e-03,
+     5.87000000e-03, 4.78000000e-03, 3.65000000e-03,
+     2.59000000e-03, 2.11000000e-03, 1.66000000e-03,
+     1.38000000e-03, 1.21000000e-03, 9.40000000e-04,
+     5.70000000e-04, 6.80000000e-04, 5.60000000e-04,
+     4.50000000e-04, 2.80000000e-04, 2.20000000e-04]
+
+PROB_NOISE_TRUNCATED = 0.0002 #all bins after the end of the list get this value
+PROB_NOISE_MIN_SCORE = 6.0 #min score that makes it to the bin list
+
+
 #beyond an okay fit (see GAUSS_FIT_xxx above) is this a "good" signal
-GOOD_MIN_LINE_SCORE = 6.0 # rouhgly 10% chance of noise
-GOOD_FULL_SNR = 9.0 #ignore SBR is SNR is above this
-GOOD_MIN_SNR = 5.0 #bare-minimum; if you change the SNR ranges just above, this will also need to change
-GOOD_MIN_SBR = 3.0 #signal to "background" noise (looks at peak height vs surrounding peaks) (only for "weak" signals0
-GOOD_MIN_SIGMA = 1.4
-GOOD_MIN_EW_OBS = 1.5 #not sure this is a good choice ... really should depend on the physics of the line and
+GOOD_MIN_LINE_SCORE = PROB_NOISE_MIN_SCORE # roughly 25% chance of noise
+#GOOD_FULL_SNR = 9.0 #ignore SBR is SNR is above this
+#GOOD_MIN_SNR = 5.0 #bare-minimum; if you change the SNR ranges just above, this will also need to change
+#GOOD_MIN_SBR = 3.0 #signal to "background" noise (looks at peak height vs surrounding peaks) (only for "weak" signals0
+GOOD_MIN_SIGMA = 1.425 #in AA, roughly # 0.75 * pixel_size
+#GOOD_MIN_EW_OBS = 1.5 #not sure this is a good choice ... really should depend on the physics of the line and
                       # not be absolute
-GOOD_MIN_EW_REST = 1.0 #ditto here
-GOOD_MIN_LINE_FLUX = 5.0e-18 #todo: this should be the HETDEX flux limit (but that depends on exposure time and wavelength)
-GOOD_MAX_DX0 = 3.8 #maximum error (domain freedom) in fitting to line center in AA
+#GOOD_MIN_EW_REST = 1.0 #ditto here
+
+#GOOD_MIN_LINE_FLUX = 5.0e-18 #todo: this should be the HETDEX flux limit (but that depends on exposure time and wavelength)
+#combined in the score
+GOOD_MAX_DX0_MULT = 1.75 #3.8 (AA) ... now 1.75 means 1.75 * pixel_size
+                    # #maximum error (domain freedom) in fitting to line center in AA
                     #since this is based on the fit of the extra line AND the line center error of the central line
                     #this is a compound error (assume +/- 2 AA since ~ 1.9AA/pix for each so at most 4 AA here)?
-GOOD_MIN_H_CONT_RATIO = 1.33 #height of the peak must be at least 33% above the continuum fit level
+#GOOD_MIN_H_CONT_RATIO = 1.33 #height of the peak must be at least 33% above the continuum fit level
 ADDL_LINE_SCORE_BONUS = 10.0 #add for each line at 2+ lines (so 1st line adds nothing)
                             #this is rather "hand-wavy" but gives a nod to having more lines beyond just their score
 #todo: impose line ratios?
 #todo:  that is, if line_x is assumed and line_y is assumed, can only be valid if line_x/line_y ~ ratio??
 #todo:  i.e. [OIII(5007)] / [OIII(4959)] ~ 3.0 (2.993 +/- 0.014 ... at least in AGN)
+
+
 
 
 #FLUX conversion are pretty much defunct, but kept here as a last ditch conversion if all else fails
@@ -81,28 +110,6 @@ FLUX_CONVERSION_w_grid = np.arange(3000.0, 6000.0, 1.0)
 FLUX_CONVERSION_f_grid = np.interp(FLUX_CONVERSION_w_grid, FLUX_CONVERSION_measured_w, FLUX_CONVERSION_measured_f)
 
 FLUX_CONVERSION_DICT = dict(zip(FLUX_CONVERSION_w_grid,FLUX_CONVERSION_f_grid))
-
-#!!!!!!!!!! Note. all widths (like dw, xw, etc are in pixel space, so if we are not using
-#!!!!!!!!!!       1 pixel = 1 Angstrom, be sure to adjust
-
-
-
-#copied from manual run of 100,000 noise spectra (see exp_prob.py)
-#if change the noise model or SNR or line_flux algorithm, need to recompute these
-
-#as MDF
-PROB_NOISE_LINE_SCORE = \
-[  6.5,   7.5,   8.5,   9.5,  10.5,  11.5,  12.5,  13.5,  14.5, 15.5,
-  16.5,  17.5,  18.5,  19.5,  20.5,  21.5,  22.5,  23.5,  24.5, 25.5,
-  26.5,  27.5,  28.5,  29.5,  30.5,  31.5,  32.5]
-
-PROB_NOISE_GIVEN_SCORE = \
-    [0.25478, 0.19842, 0.14652, 0.10913, 0.07948, 0.05505, 0.04134, 0.02957, 0.02118, 0.01557,
-     0.01134, 0.00836, 0.00647, 0.00499, 0.00354, 0.00290, 0.00237, 0.00160, 0.00128, 0.00082,
-     0.00077, 0.00074, 0.00059, 0.00042, 0.00034, 0.00034, 0.00033]
-
-PROB_NOISE_TRUNCATED = 0.0002 #all bins after the end of the list get this value
-PROB_NOISE_MIN_SCORE = 6.0 #min score that makes it to the bin list
 
 def norm_values(values,values_units):
     '''
@@ -347,8 +354,10 @@ class EmissionLineInfo:
         #(self.sbr > 1.0) #not working the way I want. don't use it
         result = False
 
-        if (self.line_score > GOOD_MIN_LINE_SCORE): #minimum to be possibly good
+        # minimum to be possibly good
+        if (self.line_score > GOOD_MIN_LINE_SCORE) and (self.fit_sigma >= GOOD_MIN_SIGMA):
             result = True
+            #note: GOOD_MAX_DX0_MULT enforced in signal_score
 
         # if ((self.snr > GOOD_FULL_SNR) or ((self.snr > GOOD_MIN_SNR) and (self.sbr > GOOD_MIN_SBR))) and \
         #    (self.fit_sigma > GOOD_MIN_SIGMA) and \
@@ -521,7 +530,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             #check the dx0
 
             p_err = pix_error(central_z,eli.fit_x0,pix_size=pix_size)
-            if (abs(eli.fit_dx0) > (1.75 * pix_size + p_err)):
+            if (abs(eli.fit_dx0) > (GOOD_MAX_DX0_MULT * pix_size + p_err)):
                 log.debug("Failed to capture peak: dx0 = %f, pix_size = %f, wavelength = %f, pix_z_err = %f"
                           % (eli.fit_dx0,pix_size, eli.fit_x0,p_err))
             else:
@@ -1747,8 +1756,9 @@ class Spectrum:
                         sol.prob_noise *= eli.prob_noise
 
                         sol.lines.append(l)
-                        log.info("Accepting line (%s): %s(%0.1f at %01.f) line_score = %0.1f  p(noise) = %g"
-                                 %(self.identifier,l.name,l.w_rest,l.w_obs,l.line_score,l.prob_noise))
+                        log.info("Accepting line (%s): %s(%0.1f at %01.f) snr = %0.1f  line_flux = %0.1g  sigma = %0.1f  "
+                                 "line_score = %0.1f  p(noise) = %g"
+                                 %(self.identifier,l.name,l.w_rest,l.w_obs,l.snr, l.flux, l.sigma, l.line_score,l.prob_noise))
 
             if sol.score > 0.0:
                 #log.info("Solution p(noise) (%f) from %d additional lines" % (sol.prob_noise, len(sol.lines) - 1))

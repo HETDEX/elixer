@@ -5,6 +5,8 @@ import imp
 import sys
 import spectrum
 import matplotlib.pyplot as plt
+from timeit import default_timer as timer
+
 
 plt.switch_backend('QT4Agg')
 
@@ -55,6 +57,7 @@ class GaussFit:
     score_bin_edges = score_bin_centers - 0.5
     score_bin_edges = np.append(score_bin_edges, 100.0)
 
+    start_time = None
 
 
     def __init__(self):
@@ -139,6 +142,7 @@ class GaussFit:
 
         total_samples = 0
 
+        self.start_time = timer()
         #for i in range(self.num_trials):
         while total_samples < self.num_trials:
             score,line_flux, snr, good,eli = self.trial()
@@ -151,7 +155,7 @@ class GaussFit:
                 #sys.stdout.write('\r')
                 #sys.stdout.write("[%-20s] %g%% (N=%d)" % ('=' * int(percent / 5.0), percent, total_samples))
                 #sys.stdout.flush()
-                print("Samples: %d" % total_samples)
+
          #       print(snr,good)
                 all_score = np.concatenate((all_score,score))
                 all_line_flux = np.concatenate((all_line_flux,line_flux))
@@ -159,6 +163,15 @@ class GaussFit:
                 all_good = np.concatenate((all_good, good))
                 all_eli = np.concatenate((all_eli, eli))
               #  for s,g in zip(snr,good):
+
+                rate = total_samples/(timer() - self.start_time)
+                tot_sec = int((self.num_trials - total_samples)/rate)
+                h = tot_sec / 3600
+                m = (tot_sec - h*3600)/60
+                s = (tot_sec - h*3600 - m*60)
+
+                print("Samples: %d  ETA: %02d:%02d:%02d" % (total_samples,h,m,s) )
+
 
 
         #print (len(all_snr),len(np.where(all_good)[0]))

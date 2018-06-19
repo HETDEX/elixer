@@ -98,7 +98,8 @@ class Global_Logger:
     def add_time(self,msg):
         try:
             d = datetime.now()
-            msg = "[%s:%s:%s.%s]  %s" %(str(d.hour).zfill(2),str(d.minute).zfill(2),str(d.second).zfill(2),d.microsecond,msg)
+            msg = "[%s:%s:%s.%s]  %s" %(str(d.hour).zfill(2),str(d.minute).zfill(2),str(d.second).zfill(2),
+                                        str(d.microsecond).zfill(6),msg)
             return msg
         except:
             return msg
@@ -234,7 +235,7 @@ UNIQUE_DET_ID_NUM = 0
 
 CLASSIFY_WITH_OTHER_LINES = True
 MIN_ADDL_EMIS_LINES_FOR_CLASSIFY = 1
-MULTILINE_MIN_SOLUTION_SCORE = 17.0 #remember, this does NOT include the main line's score (about p(noise) = 0.01)
+MULTILINE_MIN_SOLUTION_SCORE = 25.0 #remember, this does NOT include the main line's score (about p(noise) = 0.01)
 MULTILINE_MIN_SOLUTION_CONFIDENCE = 0.98
 MULTILINE_ALWAYS_SHOW_BEST_GUESS = True #if true, show the best guess even if it does not meet the miniumum requirements
 

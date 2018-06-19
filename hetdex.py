@@ -699,7 +699,7 @@ class DetObj:
             return self.sigma
 
 
-    def multi_line_solution_score(self):
+    def multiline_solution_score(self):
         '''
 
         :return: bool (True) if the solution is good
@@ -2735,7 +2735,7 @@ class HETDEX:
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
                 else:
                     title += "\n"
-                title +=  "EstCont = %0.3g  EW_rest(LyA) = %0.3g$\AA$\n" \
+                title +=  "EstCont = %0.3g  EW_r(LyA) = %0.3g$\AA$\n" \
                     %(e.cont_cgs, e.eqw_obs/(1.0+la_z))
 
             else:  #this if for zooniverse, don't show RA and DEC or Probabilitie
@@ -2751,7 +2751,7 @@ class HETDEX:
                 else:
                     title += "\n"
 
-                title += "EstCont = %0.3g  EW_rest(LyA) = %0.3g$\AA$\n" % (e.cont_cgs, e.eqw_obs/(1.0+la_z))
+                title += "EstCont = %0.3g  EW_r(LyA) = %0.3g$\AA$\n" % (e.cont_cgs, e.eqw_obs/(1.0+la_z))
 
 
         else:
@@ -2768,7 +2768,7 @@ class HETDEX:
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
                 else:
                     title += "\n"
-                title +=  "EstCont = %0.3g  EW_rest(LyA) = %0.3g$\AA$\n" % (e.cont_cgs,e.eqw_obs/(1.0+la_z))
+                title +=  "EstCont = %0.3g  EW_r(LyA) = %0.3g$\AA$\n" % (e.cont_cgs,e.eqw_obs/(1.0+la_z))
 
             else: #this if for zooniverse, don't show RA and DEC or probabilities
                 title += "\n" \
@@ -2782,7 +2782,7 @@ class HETDEX:
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
                 else:
                     title += "\n"
-                title +=  "EstCont = %0.3g  EW_rest(LyA) = %0.3g$\AA$\n" % (e.cont_cgs,e.eqw_obs/(1.0+la_z))
+                title +=  "EstCont = %0.3g  EW_r(LyA) = %0.3g$\AA$\n" % (e.cont_cgs,e.eqw_obs/(1.0+la_z))
 
 
         if self.panacea:
@@ -2818,7 +2818,7 @@ class HETDEX:
                 title = title + "  OII z = N/A"
 
         if not G.ZOO:
-            good, p_good = e.multi_line_solution_score()
+            good, p_good = e.multiline_solution_score()
             if ( good ):
                 # strong solution
                 sol = datakeep['detobj'].spec_obj.solutions[0]
@@ -2828,8 +2828,8 @@ class HETDEX:
                 #weak solution ... for display only, not acceptabale as a solution
                 #do not set the solution (sol) to be recorded
                 sol = datakeep['detobj'].spec_obj.solutions[0]
-                title += "\nweak %s(%d) z = %0.4f  EW_r = %0.1f$\AA$" % \
-                         (sol.name, int(sol.central_rest), sol.z,e.eqw_obs / (1.0 + sol.z))
+                title += "\nweak(%s(%d) z = %0.4f  EW_r = %0.1f$\AA$)" % \
+                         ( sol.name, int(sol.central_rest), sol.z,e.eqw_obs / (1.0 + sol.z))
             else:
                 log.info("No singular, strong emission line solution.")
 
@@ -4631,7 +4631,7 @@ class HETDEX:
             #possibly add the matched line at cwave position
             #
             if not G.ZOO:
-                good, p_real = datakeep['detobj'].multi_line_solution_score()
+                good, p_real = datakeep['detobj'].multiline_solution_score()
                 if (p_real > 0.0):
                     #a solution
                     sol = datakeep['detobj'].spec_obj.solutions[0]
@@ -4657,18 +4657,19 @@ class HETDEX:
                 #    log.info("No singular, strong emission line solution.")
 
 
-                #put dashed line through all possible lined
+                #put dashed line through all possible emission lines (note: possible, not necessarily probable)
                 if (datakeep['detobj'].spec_obj.all_found_lines is not None):
                     for f in datakeep['detobj'].spec_obj.all_found_lines: #this is an EmisssionLineInfo object
-                        x_pos = f.raw_x0
-                        #y_pos = f.raw_h / 10.0 # per definition of EmissionLineInfo ... these are in 10^-18 cgs
-                                               # and these plots are 10^-17 cgs
-                        #specplot.scatter(x_pos, y_pos, facecolors='None', edgecolors='b', zorder=99)
-                        specplot.plot([x_pos, x_pos], [mn - ran * rm, mn + ran * (1 + rm)], ls='dashed', c='k',
-                                      zorder=1,alpha=0.5)
-                        #DEBUG:
-                        if G.DEBUG_SHOW_GAUSS_PLOTS:
-                            print("Line: %f (%f) " %(f.raw_x0,f.fit_x0))
+                        if f.prob_noise < 0.1:
+                            x_pos = f.raw_x0
+                            #y_pos = f.raw_h / 10.0 # per definition of EmissionLineInfo ... these are in 10^-18 cgs
+                                                   # and these plots are 10^-17 cgs
+                            #specplot.scatter(x_pos, y_pos, facecolors='None', edgecolors='b', zorder=99)
+                            specplot.plot([x_pos, x_pos], [mn - ran * rm, mn + ran * (1 + rm)], ls='dashed', c='k',
+                                          zorder=1,alpha=0.5)
+                            #DEBUG:
+                            if G.DEBUG_SHOW_GAUSS_PLOTS:
+                                print("Line: %f (%f) " %(f.raw_x0,f.fit_x0))
 
             #
             #iterate over all emission lines ... assume the cwave is that line and plot the additional lines
