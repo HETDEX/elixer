@@ -1352,13 +1352,14 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
 
 
 class EmissionLine():
-    def __init__(self,name,w_rest,plot_color,solution=True,z=0,score=0.0):
+    def __init__(self,name,w_rest,plot_color,solution=True,display=True,z=0,score=0.0):
         self.name = name
         self.w_rest = w_rest
         self.w_obs = w_rest * (1.0 + z)
         self.z = z
         self.color = plot_color
-        self.solution = solution #True = can consider this as the target line
+        self.solution = solution #True = can consider this as the target lines
+        self.display = display #True = plot label on full 1D plot
 
         #can be filled in later if a specific instance is created and a model fit to it
         self.score = score
@@ -1406,41 +1407,49 @@ class Spectrum:
     """
 
     def __init__(self):
-        #todo: add a "don't display" option?? do not plot unless it is a selected line?
-        #todo: or further limit the "solution" options?
-        #todo: maybe check them all, but only auto display those that are solution=True
         #reminder ... colors don't really matter (are not used) if solution is not True)
-        self.emission_lines = [EmissionLine("Ly$\\alpha$ ", G.LyA_rest, 'red'),
-                               EmissionLine("OII ", G.OII_rest, 'green'),
-                               EmissionLine("OIII", 4960.295, "lime"),
-                               EmissionLine("OIII", 5008.240, "lime"),
+        #try to keep the name in 4 characters
+        w = 4
+        self.emission_lines = [
+            EmissionLine("Ly$\\alpha$".ljust(w), G.LyA_rest, 'red'),
 
-                               EmissionLine("CIV ", 1549.48, "blueviolet"),  # big in AGN
-                               EmissionLine("CIII", 1908.734, "purple"),  #big in AGN
-                               EmissionLine("MgII", 2799.117, "magenta"),  #big in AGN
+            EmissionLine("OII".ljust(w), G.OII_rest, 'green'),
+            EmissionLine("OIII".ljust(w), 4960.295, "lime"),
+            EmissionLine("OIII".ljust(w), 5008.240, "lime"),
 
-                               EmissionLine("H$\\beta$ ", 4862.68, "blue"),
-                               EmissionLine("H$\\gamma$ ", 4341.68, "royalblue"),
-                               EmissionLine("H$\\delta$ ", 4102, "royalblue", solution=False),
-                               #EmissionLine("H$\\epsilon ", 3970, "royalblue", solution=False), #very close to CaII(3970)
-                               #EmissionLine("H$\\zeta ", 3889, "royalblue", solution=False),
-                               #EmissionLine("H$\\eta ", 3835, "royalblue", solution=False),
+            EmissionLine("CIV".ljust(w), 1549.48, "blueviolet"),  # big in AGN
+            EmissionLine("CIII".ljust(w), 1908.734, "purple"),  #big in AGN
+            EmissionLine("CII".ljust(w),  2326.0, "purple",solution=False,display=False),  # in AGN
 
-                               EmissionLine("NV ", 1240.81, "teal", solution=False),
-                               EmissionLine("SiII", 1260, "gray", solution=False),
-                               EmissionLine("HeII", 1640.4, "orange", solution=False),
-                               EmissionLine("NeIII", 3869, "pink", solution=False),
-                               EmissionLine("NeIII", 3967, "pink", solution=False), #very close to CaII(3970)
-                               EmissionLine("NeV", 3346.79, "pink", solution=False),
-                               EmissionLine("NeVI", 3426.85, "pink", solution=False),
-                               EmissionLine("NaI", 4980, "lightcoral", solution=False),  #4978.5 + 4982.8
-                               EmissionLine("NaI",5153,"lightcoral",solution=False),  #5148.8 + 5153.4
+            EmissionLine("MgII".ljust(w), 2799.117, "magenta"),  #big in AGN
 
-                               #stars
-                               EmissionLine("CaII", 3935, "skyblue", solution=False),
-                               EmissionLine("CaII", 3970, "skyblue", solution=False) #very close to NeIII(3967)
+            EmissionLine("H$\\beta$".ljust(w), 4862.68, "blue"),
+            EmissionLine("H$\\gamma$".ljust(w), 4341.68, "royalblue"),
+            EmissionLine("H$\\delta$".ljust(w), 4102, "royalblue", solution=False),
+            EmissionLine("H$\\epsilon$/CaII".ljust(w), 3970, "royalblue", solution=False,display=False), #very close to CaII(3970)
+            EmissionLine("H$\\zeta$".ljust(w), 3889, "royalblue", solution=False,display=False),
+            EmissionLine("H$\\eta$".ljust(w), 3835, "royalblue", solution=False,display=False),
 
-                               ]
+            EmissionLine("NV".ljust(w), 1240.81, "teal", solution=False),
+
+            EmissionLine("SiII".ljust(w), 1260, "gray", solution=False,display=False),
+
+            EmissionLine("HeII".ljust(w), 1640.4, "orange", solution=False,display=False),
+
+            EmissionLine("NeIII".ljust(w), 3869, "pink", solution=False,display=False),
+            EmissionLine("NeIII".ljust(w), 3967, "pink", solution=False,display=False),  #very close to CaII(3970)
+            EmissionLine("NeV".ljust(w), 3346.79, "pink", solution=False,display=False),
+            EmissionLine("NeVI".ljust(w), 3426.85, "pink", solution=False, display=False),
+
+            EmissionLine("NaI".ljust(w),4980,"lightcoral",solution=False, display=False),  #4978.5 + 4982.8
+            EmissionLine("NaI".ljust(w),5153,"lightcoral",solution=False, display=False),  #5148.8 + 5153.4
+
+            #stars
+            EmissionLine("CaII".ljust(w), 3935, "skyblue", solution=False, display=False)
+
+            #merged CaII(3970) with H\$epsilon$(3970)
+            #EmissionLine("CaII".ljust(w), 3970, "skyblue", solution=False, display=False)  #very close to NeIII(3967)
+           ]
 
         self.wavelengths = []
         self.values = [] #could be fluxes or counts or something else ... right now needs to be counts

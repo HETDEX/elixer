@@ -439,7 +439,7 @@ class DetObj:
         #fcs_base is a basename of a single fcs directory, fcsdir is the entire FQdirname
         #fcsdir is more specific
         #skip NR (0)
-        self.matched_cats = [] #list of catalogs in which this object appears (managed outside this class)
+        self.matched_cats = [] #list of catalogs in which this object appears (managed outside this class, in voltron.py)
         self.status = 0
         self.plot_dqs_fit = False
         self.dqs = None #scaled score
@@ -4636,6 +4636,9 @@ class HETDEX:
             #
             #possibly add the matched line at cwave position
             #
+
+            matched_line_list = [] #use farther down to display line labels otherwise marked as not to be displayed
+
             if not G.ZOO:
                 good, p_real = datakeep['detobj'].multiline_solution_score()
                 if (p_real > 0.0):
@@ -4654,6 +4657,7 @@ class HETDEX:
 
                     yl, yh = specplot.get_ylim()
                     for f in sol.lines:
+                        matched_line_list.append(f.w_rest)
                         hw = 3.0 * f.sigma #highlight half-width
                         # use 'y' rather than sols[0].color ... becomes confusing with black
                         rec = plt.Rectangle((f.w_obs - hw, yl), 2 * hw, yh - yl, fill=True, lw=1,
@@ -4696,7 +4700,8 @@ class HETDEX:
                         continue
                 count = 0
                 for f in self.emission_lines:
-                    if (f == e) or not (wavemin <= f.redshift(z) <= wavemax ):
+                    if (f == e) or not (wavemin <= f.redshift(z) <= wavemax) or \
+                        ((f.display == False) and (not (f.w_rest in matched_line_list))):
                         continue
 
                     count += 1
