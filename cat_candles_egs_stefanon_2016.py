@@ -359,6 +359,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             try:
                 filter_fl = self.obs_mag_to_micro_Jy(df['G'].values[0])
                 filter_fl_err = abs(filter_fl - self.obs_mag_to_micro_Jy(df['G'].values[0] - df['eG'].values[0]))
+                mag, mag_plus, mag_minus = self.micro_jansky_to_mag(filter_fl, filter_fl_err)
             except:
                 pass
 
@@ -869,7 +870,12 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     text += "N/A\nN/A\n"
 
                 #if filter_mag != 0:
-                text = text + "%0.2f(%0.2f,%0.2f)\n" % (filter_mag, filter_mag_bright,filter_mag_faint)
+                try:
+                    text += "%0.2f(%0.2f,%0.2f)\n" % (filter_mag, filter_mag_bright,filter_mag_faint)
+                except:
+                    log.warning("Magnitude info is none: mag(%s), mag_bright(%s), mag_faint(%s)"
+                                %(filter_mag, filter_mag_bright,filter_mag_faint))
+                    text += "No mag info\n"
                 #else:
                 #    text = text + "%g(%g) $\\mu$Jy\n" % (filter_fl, filter_fl_err)
 

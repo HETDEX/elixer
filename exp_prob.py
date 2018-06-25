@@ -13,6 +13,26 @@ plt.switch_backend('QT4Agg')
 SHOW_SPEC = False
 
 
+# N = noise , f = flux or score or whatever criteria
+# want to know P(N|f) so ... P(N|f) = P(f|N)*P(N)/p(f)
+#
+# P(f|N) is what we find here .... really P(f|N)*P(N) since P(N) here is 1.0 (all samples are only noise, no signal)
+# but is it okay that P(N) = 1.0 ... that feels not right (while true for this set, it would not be true for all spectra)
+# what is p(f)?
+# there is a wrinkle, of course, since I am only considering those lines that pass the "is_good" test
+# so this is more like P(N|f,g) where g is passing the good test
+# so ...
+# P(N|f,g) = P(f,g|N)*P(N) / {P(f|g)*p(g)}
+
+# could get at p(g) by removing the restriction that it must pass the is_good test (e.g. # passing / # total)
+# then p(f|g) would be fraction of each score bin out of those that were good
+# and p(f,g|N) ... well, f,g are correlated, but letting p(f,g|N) --> just p(f,g) = p(f|g)*p(g) leaves us with
+#     P(N|f,g) == 1 (which is kind of true in here since ALL samples are noise)
+
+# ?? how to objectively determine total P(N)
+#
+#
+
 
 #Basically, generate full (random noise) spectra and scan for "peaks" using the voltron peak finder
 #to produce xxx (say 100,000) identifiable peaks (ie. that a gaussian fits)
@@ -28,6 +48,7 @@ SHOW_SPEC = False
 #slightly different logic .... still get num_trials, but only accept IF is_good(), so the resulting set is all peaks
 #by score that voltron would classify as good. The fraction then, is by score/total ... out of the universe of noise,
 #the fraction (by score) that are considered good == probability by score that the fit is just noise
+
 
 #these are for the resulting PDF, not for fitting the emission line itself
 def polynomial(x,coeff):
@@ -77,7 +98,7 @@ class GaussFit:
         errors = None
 
         # 6-18-2018 additional condition, enforce_good = True, min_sigma = 1.0 ... just as per normal
-        peaks = spectrum.peakdet(wavelengths, values, values_units=-18,enforce_good=True,min_sigma=1.0)
+        peaks = spectrum.peakdet(wavelengths, values, errors, values_units=-18,enforce_good=True,min_sigma=1.0)
 
         score = []
         line_flux = []

@@ -439,6 +439,7 @@ class DetObj:
         #fcs_base is a basename of a single fcs directory, fcsdir is the entire FQdirname
         #fcsdir is more specific
         #skip NR (0)
+        self.matched_cats = [] #list of catalogs in which this object appears (managed outside this class)
         self.status = 0
         self.plot_dqs_fit = False
         self.dqs = None #scaled score
@@ -1035,8 +1036,12 @@ class DetObj:
             self.sumspec_counts = out[:, 1]
             #reminder data scientific notation, so mostly e-17 or e-18
             self.sumspec_flux = out[:,2] * 1e17
-            #todo: get flux error
+            #todo: get flux error (not yet in this file)
             #self.sumspec_fluxerr = out[:,6]  * 1e17
+
+            #self.sumspec_fluxerr = np.full_like(self.sumspec_flux,1.0) #i.e. 0.5x10^-17 cgs
+            #np.random.seed(1138)
+            #self.sumspec_fluxerr = np.random.random(len(self.sumspec_flux)) # just for test
 
         except:
             log.error("Fatal. Cannot read *specf.dat file: %s" % file, exc_info=True)
@@ -1052,8 +1057,9 @@ class DetObj:
             self.sumspec_wavelength_zoom = out[:, 0]
             self.sumspec_counts_zoom = out[:, 1]
             self.sumspec_flux_zoom = out[:, 2]  * 1e17
-            #todo: get flux error
+            #todo: get flux error (not yet in this file)
             #self.sumspec_fluxerr_zoom = out[:,6]  * 1e17
+            #self.sumspec_fluxerr_zoom = np.full_like(self.sumspec_flux_zoom, 0.5)  # i.e. 0.5x10^-17 cgs
 
         except:
             log.error("Fatal. Cannot read *_spece.res file: %s" % file, exc_info=True)

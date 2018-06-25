@@ -1,7 +1,12 @@
 changes to voltron by version
 
 
-1.4.0a7 [2018-06-xx]
+1.4.0a7 [2018-06-25]
+* fixed bug where CFHTLS catalog magnitude was not being calculated from flux (resulting in exception in print statement)
+
+* fixed bug where list of matched catalogs was not being tracked per emission line object (could cause empty cutouts if
+  detections are from different sky regions with separate catalogs)
+
 
 
 1.4.0a6 [2018-06-19]

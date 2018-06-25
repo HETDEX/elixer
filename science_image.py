@@ -205,7 +205,7 @@ class science_image():
                     cutout = Cutout2D(self.fits[self.wcs_idx].data, position, (pix_window, pix_window), wcs=self.wcs, copy=copy)
                     self.get_vrange(cutout.data)
                 except NoOverlapError:
-                    log.info("Error (possible NoOverlapError) in science_image::get_cutout(). "
+                    log.info("Error (possible NoOverlapError) in science_image::get_cutout(). *** Did more than one catalog match the coordinates? ***"
                              "Target is not in range of image. RA,Dec = (%f,%f) Window = %d" % (ra, dec, pix_window))
                     print("Target is not in range of image. RA,Dec = (%f,%f) Window = %d" % (ra, dec, pix_window))
                     return cutout, counts, mag, radius

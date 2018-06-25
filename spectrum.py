@@ -402,7 +402,10 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     #    # !!!! reminder, do NOT do values *= 10.0  ... that is an in place operation and overwrites the original
     #    values = values * 10.0  # put in units of 10^-18 so they pretty much match up with counts
 
+    err_units = values_units #assumed to be in the same units
     values, values_units = norm_values(values,values_units)
+    if errors is not None and (len(errors) == len(values)):
+        errors, err_units = norm_values(errors,err_units)
 
     #sbr signal to background ratio
     pix_size = abs(wavelengths[1] - wavelengths[0])  # aa per pix
@@ -431,22 +434,30 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     wave_counts = values[min_idx:max_idx+1]
     if (errors is not None) and (len(errors) == len(wavelengths)):
         wave_errors = errors[min_idx:max_idx+1]
+        wave_err_sigma = 1. / (wave_errors * wave_errors) #double checked and this is correct (assuming errors is +/- as expected)
+        #as a reminder, if the errors are all the same, then it does not matter what they are, it reduces to the standard
+        #arithmetic mean :  Sum 1 to N (x_n**2, sigma_n**2) / (Sum 1 to N (1/sigma_n**2) ==> 1/N * Sum(x_n**2)
+        # since sigma_n (as a constant) divides out
     else:
         wave_errors = None
+        wave_err_sigma = None
 
     if False: #do I want to use a more narrow range for the gaussian fit? still uses the wider range for RMSE
         min_idx = max(0, idx - wave_side/2)
         max_idx = min(len_array, idx + wave_side/2)
         narrow_wave_x = wavelengths[min_idx:max_idx+1]
         narrow_wave_counts = values[min_idx:max_idx + 1]
-        if (errors is not None) and (len(errors) == len(wavelengths)):
-            narrow_wave_errors = errors[min_idx:max_idx + 1]
+        if (wave_errors is not None):
+            narrow_wave_errors = wave_errors[min_idx:max_idx + 1]
+            narrow_wave_err_sigma =  wave_err_sigma[min_idx:max_idx + 1]
         else:
+            narrow_wave_err_sigma = None
             narrow_wave_errors = None
     else:
         narrow_wave_x = wave_x
         narrow_wave_counts = wave_counts
         narrow_wave_errors = wave_errors
+        narrow_wave_err_sigma = wave_err_sigma
 
     #blunt very negative values
     #wave_counts = np.clip(wave_counts,0.0,np.inf)
@@ -478,13 +489,18 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #sigma lower limit at 0.5 (could make more like pixel_size / 4.0 or so, but probabaly should not depend on that
         # the minimum size is in angstroms anyway, not pixels, and < 0.5 is awfully narrow to be real)
         # instrument resolution ~ 1.9AA/pix (dispersion around 2.2?)
-        #todo: add sigma=error
+
+        #if narrow_wave_err_sigma is None:
+        #    print("**** NO UNCERTAINTIES ****")
+        #   log.warning("**** NO UNCERTAINTIES ****")
+
         parm, pcov = curve_fit(gaussian, narrow_wave_x, narrow_wave_counts,
                                 p0=(central,1.5,1.0,0.0),
                                 bounds=((central-fit_range_AA, min_sigma, 0.0, -100.0),
                                         (central+fit_range_AA, np.inf, np.inf, np.inf)),
                                 #sigma=1./(narrow_wave_errors*narrow_wave_errors)
-                                sigma=narrow_wave_errors
+                                sigma=narrow_wave_err_sigma #handles the 1./(err*err)
+                               #note: if sigma == None, then curve_fit uses array of all 1.0
                                #method='trf'
                                )
 
@@ -555,6 +571,10 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         return None
 
     if (eli.fit_rmse > 0) and (eli.fit_sigma <= GAUSS_FIT_MAX_SIGMA) and (eli.fit_sigma >= min_sigma):
+
+        #this snr makes sense IF we assume the noise is distributed as a gaussian (which is reasonable)
+        #then we'd be looking at something like 1/N * Sum (sigma_i **2) ... BUT , there are so few pixels
+        #  typically around 10 and there really should be at least 30  to approximate the gaussian shape
         eli.snr = eli.fit_a/(np.sqrt(num_sn_pix)*eli.fit_rmse)
         eli.build(values_units=values_units)
         #eli.snr = max(eli.fit_vals) / (np.sqrt(num_sn_pix) * eli.fit_rmse)
@@ -1089,7 +1109,7 @@ def simple_peaks(x,v,h=MIN_HEIGHT,delta_v=2.0,values_units=0):
     return np.array(maxtab), np.array(mintab)
 
 
-def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,values_units=0,
+def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,values_units=0,
             enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA):
 
     """
@@ -1180,6 +1200,7 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,values_uni
     #if values_are_flux:
     #    v = v * 10.0
 
+    #don't need to normalize errors for peakdet ... will be handled in signal_score
     v,values_units = norm_values(v,values_units)
 
     #smooth v and rescale x,
@@ -1306,7 +1327,7 @@ def peakdet(x,v,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,values_uni
             #see if too close to prior peak (these are in increasing wavelength order)
 
             #this is dumb but necessary for right now since signal_score will multiply by 10
-            eli = signal_score(x_0, v_0, None, px,values_units=values_units_0,min_sigma=min_sigma)
+            eli = signal_score(x_0, v_0, err, px,values_units=values_units_0,min_sigma=min_sigma)
 
             #if (eli is not None) and (eli.score > 0) and (eli.snr > 7.0) and (eli.fit_sigma > 1.6) and (eli.eqw_obs > 5.0):
             if (eli is not None) and ((not enforce_good) or eli.is_good()):
@@ -1515,7 +1536,7 @@ class Spectrum:
         self.eqw_obs = eqw_obs
 
 
-    def find_central_wavelength(self,wavelengths = None,values = None, values_units=0):
+    def find_central_wavelength(self,wavelengths = None,values = None, errors=None,values_units=0):
         central = 0.0
         update_self = False
         if (wavelengths is None) or (values is None):
@@ -1533,7 +1554,8 @@ class Spectrum:
 
         values,values_units = norm_values(values,values_units)
 
-        peaks = peakdet(wavelengths,values) #as of 2018-06-11 these are EmissionLineInfo objects
+        #does not need errors for this purpose
+        peaks = peakdet(wavelengths,values,errors) #as of 2018-06-11 these are EmissionLineInfo objects
         max_v = -np.inf
         #find the largest flux
         for p in peaks:
@@ -1573,7 +1595,7 @@ class Spectrum:
         #if central wavelength not provided, find the peaks and use the largest
         #for now, largest means highest value
         if (central is None) or (central == 0.0):
-            central = self.find_central_wavelength(wavelengths,values,values_units=values_units)
+            central = self.find_central_wavelength(wavelengths,values,errors,values_units=values_units)
 
         if (central is None) or (central == 0.0):
             log.warning("Cannot classify. No central wavelength specified or found.")
@@ -1613,7 +1635,7 @@ class Spectrum:
 
         wavelength = 0.0
         if (self.all_found_lines is None):
-            self.all_found_lines = peakdet(self.wavelengths, self.values, values_units=self.values_units)
+            self.all_found_lines = peakdet(self.wavelengths, self.values, self.errors,values_units=self.values_units)
 
         if self.all_found_lines is None:
             return 0.0
@@ -1671,7 +1693,7 @@ class Spectrum:
             values_units = self.values_units
 
         if (self.all_found_lines is None):
-            self.all_found_lines = peakdet(wavelengths,values,values_units=values_units)
+            self.all_found_lines = peakdet(wavelengths,values,errors, values_units=values_units)
 
         solutions = []
         total_score = 0.0 #sum of all scores (use to represent each solution as fraction of total score)
@@ -1814,7 +1836,7 @@ class Spectrum:
 
         self.p_lae_oii_ratio = min(line_prob.MAX_PLAE_POII,self.p_lae_oii_ratio) #cap to MAX
 
-    def build_full_width_spectrum(self, counts = None, wavelengths = None, central_wavelength = None,
+    def build_full_width_spectrum(self,wavelengths = None,  counts = None, errors = None, central_wavelength = None,
                                   show_skylines=True, show_peaks = True, name=None,
                                   dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
 
@@ -1865,7 +1887,7 @@ class Spectrum:
                 if (self.all_found_lines is not None):
                     peaks = self.all_found_lines
                 else:
-                    peaks = peakdet(wavelengths,counts,dw,h,dh,zero,values_units=values_units) #as of 2018-06-11 these are EmissionLineInfo objects
+                    peaks = peakdet(wavelengths,counts,errors, dw,h,dh,zero,values_units=values_units) #as of 2018-06-11 these are EmissionLineInfo objects
                     self.all_found_lines = peaks
 
                 #scores = []

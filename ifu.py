@@ -762,7 +762,7 @@ class IFU:
                     log.debug("Fiber rejected for addition. Large extrema.")
                     return False
 
-            peaks = voltron_spectrum.peakdet(wavelengths, values, dw=5.0)#, h, dh, zero)
+            peaks = voltron_spectrum.peakdet(wavelengths, values, errors, dw=5.0)#, h, dh, zero)
             #signal = list(filter(lambda x: (x[5] > max_score) or (x[6] > max_snr),peaks))
 
             #signal = list(filter(lambda x: x[6] > max_snr,peaks))

@@ -800,7 +800,7 @@ def get_fcsdir_subdirs_to_process(args):
             if os.path.isfile(args.dets):
                 detlist = out = np.genfromtxt(args.dets, dtype=None,comments='#',usecols=(0,))
             else:
-                detlist = args.dets.split(', ')
+                detlist = args.dets.replace(', ',',').split(',') #allow comma or comma-space separation
         except:
             log.error("Exception processing detections (--dets) detlist. FATAL. ", exc_info=True)
             print("Exception processing detections (--dets) detlist. FATAL.")
@@ -964,10 +964,11 @@ def main():
                 total_emis += len(hd.emis_list)
                 print()
                 #first see if there are any possible matches anywhere
-                matched_cats = []
+                #matched_cats = []  ... here matched_cats needs to be per each emission line (DetObj)
                 num_hits = 0
-                for c in cats:
-                    for e in hd.emis_list:
+
+                for e in hd.emis_list:
+                    for c in cats:
                         if (e.wra is not None) and (e.wdec is not None):  # weighted RA and Dec
                             ra = e.wra
                             dec = e.wdec
@@ -979,16 +980,15 @@ def main():
                             num_hits += hits
                             e.num_hits = hits
 
-                            if c not in matched_cats:
-                                matched_cats.append(c)
+                            if c not in e.matched_cats:
+                                e.matched_cats.append(c)
+
                             print("%d hits in %s for Detect ID #%d" % (hits, c.name, e.id))
                         else: #todo: don't bother printing the negative case
                             print("Coordinates not in range of %s for Detect ID #%d" % (c.name,e.id))
 
-                if len(matched_cats) == 0:
-                    #todo: add the catch_all
-                    matched_cats.append(catch_all_cat)
-
+                    if len(e.matched_cats) == 0:
+                        e.matched_cats.append(catch_all_cat)
 
                 if not confirm(num_hits,args.force):
                     log.critical("Main exit. User cancel.")
@@ -1010,7 +1010,7 @@ def main():
 
                     match = match_summary.Match(e)
 
-                    pdf.pages,pdf.bid_count = build_pages(pdf.filename, match, ra, dec, args.error, matched_cats, pdf.pages,
+                    pdf.pages,pdf.bid_count = build_pages(pdf.filename, match, ra, dec, args.error, e.matched_cats, pdf.pages,
                                                   num_hits=e.num_hits, idstring=id,base_count=0,target_w=e.w,
                                                   fiber_locs=e.fiber_locs,target_flux=e.estflux)
 
@@ -1031,7 +1031,7 @@ def main():
 
     elif (args.ra is not None) and (args.dec is not None):
         num_hits = 0
-        matched_cats = []
+        matched_cats = [] #there were no detection objects (just an RA, Dec) so use a generic, global matched_cats
         for c in cats:
             if c.position_in_cat(ra=args.ra,dec=args.dec,error=args.error):
                 if c not in matched_cats:
