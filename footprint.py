@@ -9,32 +9,46 @@ import numpy as np
 #super simple ... load a FITS file and print its footprint
 
 
-def build_wcs_manually(img):
-    wcs = WCS(naxis=img[0].header['NAXIS'])
-    wcs.wcs.crpix = [img[0].header['CRPIX1'], img[0].header['CRPIX2']]
-    wcs.wcs.crval = [img[0].header['CRVAL1'], img[0].header['CRVAL2']]
-    wcs.wcs.ctype = [img[0].header['CTYPE1'], img[0].header['CTYPE2']]
+# def build_wcs_manually(img):
+#     wcs = WCS(naxis=img[0].header['NAXIS'])
+#     wcs.wcs.crpix = [img[0].header['CRPIX1'], img[0].header['CRPIX2']]
+#     wcs.wcs.crval = [img[0].header['CRVAL1'], img[0].header['CRVAL2']]
+#     wcs.wcs.ctype = [img[0].header['CTYPE1'], img[0].header['CTYPE2']]
+#     # self.wcs.wcs.cdelt = [None,None]#[hdu1[0].header['CDELT1O'],hdu1[0].header['CDELT2O']]
+#     wcs.wcs.cd = [[img[0].header['CD1_1'], img[0].header['CD1_2']],
+#                        [img[0].header['CD2_1'], img[0].header['CD2_2']]]
+#     wcs._naxis1 = img[0].header['NAXIS1']
+#     wcs._naxis2 = img[0].header['NAXIS2']
+#
+#     return wcs
+
+
+# def build_wcs_manually_1(img):
+#     wcs = WCS(naxis=img[1].header['NAXIS'])
+#     wcs.wcs.crpix = [img[1].header['CRPIX1'], img[1].header['CRPIX2']]
+#     wcs.wcs.crval = [img[1].header['CRVAL1'], img[1].header['CRVAL2']]
+#     wcs.wcs.ctype = [img[1].header['CTYPE1'], img[1].header['CTYPE2']]
+#     # self.wcs.wcs.cdelt = [None,None]#[hdu1[1].header['CDELT1O'],hdu1[1].header['CDELT2O']]
+#     wcs.wcs.cd = [[img[1].header['CD1_1'], img[1].header['CD1_2']],
+#                        [img[1].header['CD2_1'], img[1].header['CD2_2']]]
+#     wcs._naxis1 = img[1].header['NAXIS1']
+#     wcs._naxis2 = img[1].header['NAXIS2']
+#
+#     return wcs
+
+def build_wcs_manually(img, idx=0):
+    wcs = WCS(naxis=img[idx].header['NAXIS'])
+    wcs.wcs.crpix = [img[idx].header['CRPIX1'], img[idx].header['CRPIX2']]
+    wcs.wcs.crval = [img[idx].header['CRVAL1'], img[idx].header['CRVAL2']]
+    wcs.wcs.ctype = [img[idx].header['CTYPE1'], img[idx].header['CTYPE2']]
     # self.wcs.wcs.cdelt = [None,None]#[hdu1[0].header['CDELT1O'],hdu1[0].header['CDELT2O']]
-    wcs.wcs.cd = [[img[0].header['CD1_1'], img[0].header['CD1_2']],
-                       [img[0].header['CD2_1'], img[0].header['CD2_2']]]
-    wcs._naxis1 = img[0].header['NAXIS1']
-    wcs._naxis2 = img[0].header['NAXIS2']
+    wcs.wcs.cd = [[img[idx].header['CD1_1'], img[idx].header['CD1_2']],
+                       [img[0].header['CD2_1'], img[idx].header['CD2_2']]]
+    wcs._naxis1 = img[idx].header['NAXIS1']
+    wcs._naxis2 = img[idx].header['NAXIS2']
 
     return wcs
 
-
-def build_wcs_manually_1(img):
-    wcs = WCS(naxis=img[1].header['NAXIS'])
-    wcs.wcs.crpix = [img[1].header['CRPIX1'], img[1].header['CRPIX2']]
-    wcs.wcs.crval = [img[1].header['CRVAL1'], img[1].header['CRVAL2']]
-    wcs.wcs.ctype = [img[1].header['CTYPE1'], img[1].header['CTYPE2']]
-    # self.wcs.wcs.cdelt = [None,None]#[hdu1[1].header['CDELT1O'],hdu1[1].header['CDELT2O']]
-    wcs.wcs.cd = [[img[1].header['CD1_1'], img[1].header['CD1_2']],
-                       [img[1].header['CD2_1'], img[1].header['CD2_2']]]
-    wcs._naxis1 = img[1].header['NAXIS1']
-    wcs._naxis2 = img[1].header['NAXIS2']
-
-    return wcs
 
 
 def main():
@@ -51,7 +65,14 @@ def main():
 #        img.close()
 
     img = fits.open(args.file)
-    footprint = WCS.calc_footprint(build_wcs_manually_1(img))
+
+    for idx in range(len(img)):
+        try:
+            footprint = WCS.calc_footprint(build_wcs_manually(img,idx))
+            break
+        except:
+            print("Img[%d] failed. Trying next ..." %idx)
+
     img.close()
 
 

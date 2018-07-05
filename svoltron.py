@@ -45,6 +45,15 @@ if i != -1:
 else:
     pass
 
+#sanity check the time ... might be just hh:mm
+#count the colons
+colons = len(time.split(":"))-1
+if colons == 1:
+    time += ":00" #add seconds
+elif colons != 2:
+    print("Error! Invalid --time parameter")
+    exit(-1)
+
 #check for email argument (optional)
 i = -1
 if "--email" in args:

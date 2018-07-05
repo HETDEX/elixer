@@ -8,7 +8,7 @@ from datetime import datetime
 import socket
 
 #version
-__version__ = '1.4.0a7'
+__version__ = '1.4.0a8'
 
 if socket.gethostname() == 'z50':
 #if False:
@@ -35,7 +35,7 @@ if socket.gethostname() == 'z50':
 
     SHELA_BASE_PATH = "/media/dustin/dd/hetdex/data/SHELA" #"/home/dustin/code/python/voltron/data/isak/SHELA"
     DECAM_IMAGE_PATH = SHELA_BASE_PATH#"/media/dustin/dd/hetdex/data/decam/images"
-    SHELA_CAT_PATH = "/home/dustin/code/python/voltron/data/isak/SHELA"
+    SHELA_CAT_PATH = "/media/dustin/dd/hetdex/data/SHELA"#"/home/dustin/code/python/voltron/data/isak/SHELA"
     SHELA_PHOTO_Z_COMBINED_PATH = "/home/dustin/code/python/voltron/data/isak/SHELA"
     SHELA_PHOTO_Z_MASTER_PATH = "/home/dustin/code/python/voltron/data/isak/SHELA"
 
@@ -63,7 +63,9 @@ else:
     STACK_COSMOS_CAT_PATH = "/work/03229/iwold/maverick/stackCOSMOS"
 
     DECAM_IMAGE_PATH = "/work/03229/iwold/maverick/fall_field/stack/v2/psf/nano/"
-    SHELA_BASE_PATH = "/work/03261/polonius/maverick/catalogs/SHELA"#"/work/03229/iwold/maverick/fall_field/stack/v2/psf/nano/"
+    #SHELA_BASE_PATH = "/work/03261/polonius/maverick/catalogs/SHELA"
+    SHELA_BASE_PATH  = "/work/03229/iwold/maverick/fall_field/stack/v2/psf/nano/"
+
     SHELA_CAT_PATH = SHELA_BASE_PATH
     #SHELA_PHOTO_Z_COMBINED_PATH = "/work/03565/stevans/maverick/software/eazy-photoz/inputs_decam1.1_irac1.5_scaled_vistajk/OUTPUT/"
     #SHELA_PHOTO_Z_MASTER_PATH = "/work/03565/stevans/maverick/working/decam/psfmatched2017/per_field/v1.0/final_catalogs/v1.1/combined_irac_v1.5.a/with_vista/"

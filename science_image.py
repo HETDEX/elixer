@@ -24,7 +24,8 @@ from astropy.wcs import WCS
 from astropy.wcs.utils import skycoord_to_pixel
 from astropy.nddata.utils import NoOverlapError
 from astropy import units as ap_units
-from photutils import SkyCircularAperture
+from photutils import CircularAperture #pixel coords
+from photutils import SkyCircularAperture #sky coords
 from photutils import aperture_photometry
 
 #log = G.logging.getLogger('sciimg_logger')
@@ -257,10 +258,50 @@ class science_image():
 
                 while radius <= error:
                     try:
-                        sky_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec)
-                        phot_table = aperture_photometry(image, sky_aperture)
-                        counts = phot_table['aperture_sum'][0]
+                        #use the cutout first if possible (much smaller than image and faster)
+                        #note: net difference is less than 0.1 mag at 0.5" and less than 0.01 at 1.5"
+                        try:
+                            pix_aperture = CircularAperture(cutout.center_cutout,r=radius/self.pixel_size)
+                            phot_table = aperture_photometry(cutout.data, pix_aperture)
+                            counts = phot_table['aperture_sum'][0]
+                        except:
+                            log.info("Pixel based aperture photometry failed. Attemping sky based ... ",exc_info=True)
+
+                            try:
+                                sky_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec)
+                                phot_table = aperture_photometry(image, sky_aperture)
+                                counts = phot_table['aperture_sum'][0]
+                            except:
+                                log.info("Sky based aperture photometry failed. Will skip aperture photometery.",
+                                         exc_info=True)
+                                break
+
+                        #log.info("+++++ %s, %s" %(counts.__repr__(), type(counts)))
+                        #log.info("+++++\n %s" %(phot_table.__repr__()))
+                        #counts might now be a quantity type and not just a float
+                        #if isinstance(counts,astropy.units.quantity.Quantity):
+                        if not isinstance(counts, float):
+                            log.info("Attempting to strip units from counts (%s) ..." %(type(counts)))
+                            try:
+                                counts = counts.value
+
+                                if not isinstance(counts, float):
+                                    log.warning(
+                                        "Cannot cast counts as float. Will not attempt aperture magnitude calculation")
+                                    break
+
+                            except:
+                                log.info("Failed to strip units. Cannot cast to float. "
+                                         "Will not attempt aperture magnitude calculation",exc_info=True)
+                                break
+
+
                         mag = mag_func(counts, cutout, self.fits)
+
+                        # pix_mag = mag_func(pix_counts, cutout, self.fits)
+                        # log.info("++++++ pix_mag (%f) sky_mag(%f)" %(pix_mag,mag))
+                        # log.info("++++++ pix_radius (%f)  sky_radius (%f)" % (radius / self.pixel_size, radius))
+                        # log.info("++++++ pix_counts (%f)  sky_counts (%f)" % (pix_counts, counts))
 
                         log.info("Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %g mag = %g"
                                  % (radius, ra, dec, counts, mag))

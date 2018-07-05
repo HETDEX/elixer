@@ -1,8 +1,16 @@
 changes to voltron by version
 
 
-1.4.0a8 [2018-06-xx]
-* TBD
+1.4.0a8 [2018-07-05]
+* Updated with Isak's new SHELA cats and images
+
+* Updated to cat_shela to only load one tile at a time (as needed) rather than all tiles up front
+  (note: photoZ catalog is not by tile, however, and is loaded up front and still takes a while)
+
+* Updated science_image.py to deal with change in astropy and photutils adding units to aperture counts
+
+* Updated science_image.py to use pixel based aperture photometry first (much faster) and switch to sky coord based
+  (needs the whole image for WCS) if it fails.
 
 
 1.4.0a7 [2018-06-25]

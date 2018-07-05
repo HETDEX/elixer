@@ -64,8 +64,9 @@ class SHELA(cat_base.Catalog):
     Tiles = ['A1','A2','A3','A4','A5','A6','A7','A8','A9','A10',
              'B1','B2','B3','B4','B5','B6','B7','B8','B9','B10',
              'C1','C2','C3','C4','C5','C6','C7','C8','C9','C10']
-    Img_ext = 'sci.fits' #was psfsci.fits for just SHELA
-    Cat_ext = 'dualgcat.fits'
+    Img_ext = ['psfsci.fits','sci.fits'] #was psfsci.fits for just SHELA
+    Cat_ext = ['dualcat.fits','cat.fits'] #was 'dualgcat.fits'
+    loaded_cat_tiles = [] #tile lables, like "A1","C9", etc for which the catalog has already been loaded
 
     CONT_EST_BASE = None
 
@@ -319,17 +320,28 @@ class SHELA(cat_base.Catalog):
 
 
     @classmethod
-    def read_catalog(cls, catalog_loc=None, name=None):
+    def read_catalog(cls, catalog_loc=None, name=None, tile=None): #tile is a single tile like "A3"
         "This catalog is in a fits file"
 
         #ignore catalog_loc and name. Must use class defined.
         #build each tile and filter and concatenate into a single pandas dataframe
 
+        if tile is not None:
+            if tile in cls.loaded_cat_tiles:
+                log.info("Catalog tile (%s) already loaded." %tile)
+                return cls.df
+        else:
+            log.error("Cannot load catalog tile for DECAM/SHELA. No tile provided.")
+            return None
+
+        if name is None:
+            name = cls.Name
+
         df_master = pd.DataFrame()
 
-        for t in cls.Tiles:
-            for f in cls.Filters:
-                cat_name = t+'_'+f+'_'+cls.Cat_ext
+        for f in cls.Filters:
+            for ext in cls.Cat_ext:
+                cat_name = tile +'_'+f+'_'+ ext
                 cat_loc = op.join(cls.SHELA_CAT_PATH, cat_name)
 
                 if not op.exists(cat_loc):
@@ -354,15 +366,19 @@ class SHELA(cat_base.Catalog):
                     old_names = ['NUMBER', 'ALPHA_J2000', 'DELTA_J2000']
                     new_names = ['ID', 'RA', 'DEC']
                     pddf.rename(columns=dict(zip(old_names, new_names)), inplace=True)
-                    pddf['TILE'] = t
+                    pddf['TILE'] = tile
                     pddf['FILTER'] = f
 
                     df_master = pd.concat([df_master,pddf])
+
+                    cls.loaded_cat_tiles.append(tile)
 
                    # cls.AstroTable = table
                 except:
                     log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
                     return None
+
+                break #keep only the first found matching extensions
 
         cls.df = df_master
         return df_master
@@ -370,6 +386,12 @@ class SHELA(cat_base.Catalog):
     @classmethod
     def merge_photoz_catalogs(cls, combined_cat_file=PhotoZ_combined_cat, master_cat_file=PhotoZ_master_cat):
         "This catalog is in a fits file"
+
+        if (0):
+            print("!!!SKIPPING PHOTOZ CATALOGS ... BE SURE TO RESTORE!!!")
+            return
+
+        log.info("Merging DECAM/SHELA PhotoZ Catalogs (this may take a while) ...")
 
         try:
             combined_table = astropy.table.Table.read(combined_cat_file)
@@ -391,23 +413,24 @@ class SHELA(cat_base.Catalog):
         for t in self.Tiles:
             for f in self.Filters:
                 #if the file exists, add it
-                name = t+'_'+f+'_'+self.Img_ext
-                if op.exists(op.join(self.SHELA_IMAGE_PATH,name)):
-
-                  self.CatalogImages.append(
-                        {'path': self.SHELA_IMAGE_PATH,
-                         'name': name, #'B'+t+'_'+f+'_'+self.Img_ext,
-                         'tile': t,
-                         'filter': f,
-                         'instrument': "",
-                         'cols': [],
-                         'labels': [],
-                         'image': None,
-                         'expanded': False,
-                         'wcs_manual': False,
-                         'aperture': 1.0,
-                         'mag_func': shela_count_to_mag
-                         })
+                for ext in self.Img_ext:
+                    name = t+'_'+f+'_'+ ext
+                    if op.exists(op.join(self.SHELA_IMAGE_PATH,name)):
+                        self.CatalogImages.append(
+                            {'path': self.SHELA_IMAGE_PATH,
+                             'name': name, #'B'+t+'_'+f+'_'+self.Img_ext,
+                             'tile': t,
+                             'filter': f,
+                             'instrument': "",
+                             'cols': [],
+                             'labels': [],
+                             'image': None,
+                             'expanded': False,
+                             'wcs_manual': False,
+                             'aperture': 1.0,
+                             'mag_func': shela_count_to_mag
+                             })
+                        break #(out of ext in self.Img_ext) keep the first name that is found
 
     def find_target_tile(self,ra,dec):
         #assumed to have already confirmed this target is at least in coordinate range of this catalog
@@ -449,25 +472,6 @@ class SHELA(cat_base.Catalog):
                 if tile is not None:
                     break
 
-            if (0): #old version SHELA ONLY
-                for f in ['g']: #self.Filters:
-                    #can we assume the filters all have the same coord range?
-                    #see if can get a cutout?
-                    img_name = 'B' + t + '_' + f + '_' + self.Img_ext
-                    try:
-                        image = science_image.science_image(wcs_manual=self.WCS_Manual,
-                                image_location=op.join(self.SHELA_IMAGE_PATH, img_name))
-                        if image.contains_position(ra,dec):
-                            tile = t
-                        else:
-                            log.debug("position (%f, %f) is not in image. %s" % (ra, dec,img_name))
-
-                    except:
-                        pass
-
-                    if tile is not None:
-                        break
-
         return tile
 
 
@@ -491,7 +495,7 @@ class SHELA(cat_base.Catalog):
             if (dfx is None) or (len(dfx) == 0):
                 filter_str = '?'
                 log.error("Neither g-band nor r-band filter available.")
-                return filter_fl, filter_fl_err, mag, mag_plus, mag_minus, filter_str
+                return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
 
             filter_fl = dfx['FLUX_AUTO'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
             filter_fl_err = dfx['FLUXERR_AUTO'].values[0]
@@ -508,8 +512,19 @@ class SHELA(cat_base.Catalog):
         '''ra and dec in decimal degrees. error in arcsec.
         returns a pandas dataframe'''
 
-        if self.df is None:
-            self.read_main_catalog()
+        #if self.df is None:
+        #    self.read_main_catalog()
+
+        #even if not None, could be we need a different catalog, so check and append
+        tile = self.find_target_tile(ra,dec)
+
+        if tile is None:
+            log.info("Could not locate tile for DECAM/SHELA. Discontinuing search of this catalog.")
+            return 0,None,None
+
+        #could be none or could be not loaded yet
+        if self.df is None or not (set(tile).issubset(self.loaded_cat_tiles)):
+            self.read_catalog(tile=tile)
 
         if self.df_photoz is None:
             self.merge_photoz_catalogs()
