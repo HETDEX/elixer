@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import emcee
 import corner
+import warnings
 
 log = G.Global_Logger('mcmc_logger')
 log.setlevel(G.logging.DEBUG)
@@ -83,21 +84,39 @@ class MCMC_Gauss:
 
 
     def sanity_check_init(self):
-        if len(self.data_x) == len(self.data_y) == len(self.err_y): #leave off self.err_x as could be None
-            if (self.err_x is not None):
-                if len(self.data_x) != len(self.err_x):
+        try:
+            if self.err_y is None:
+                self.err_y = np.ones(np.shape(self.data_y))
+
+            if self.err_x is None:
+                self.err_x = np.ones(np.shape(self.data_x))
+
+            if (self.data_x is None) or (self.data_y is None) or (self.err_y is None):
+                return False
+
+            if len(self.data_x) == len(self.data_y) == len(self.err_y): #leave off self.err_x as could be None
+                if (self.err_x is not None):
+                    if len(self.data_x) != len(self.err_x):
+                        return False
+
+                if self.initial_sigma < 0.0: #self.initial_A < 0.0  ... actually, leave A alone .. might allow absorportion later
                     return False
 
-            if self.initial_sigma < 0.0: #self.initial_A < 0.0  ... actually, leave A alone .. might allow absorportion later
+                if self.initial_y > self.initial_peak:
+                    return False
+            else:
                 return False
-
-            if self.initial_y > self.initial_peak:
-                return False
-        else:
+            return True
+        except:
+            log.warning("Exception in mcmc_gauss::sanity_check",exc_info=True)
             return False
-        return True
 
     def run_mcmc(self):
+
+        if not self.sanity_check_init():
+            log.info("Sanity check failed. Cannot conduct MCMC.")
+            return False
+
         result = True
         ndim = 4  # 4 dims since 4 parms mu, sigma, A, y = theta
         #here for initial positions of the walkers, sample from narrow gaussian (hence the randn or randNormal)
@@ -115,11 +134,13 @@ class MCMC_Gauss:
             self.sampler = emcee.EnsembleSampler(self.walkers, ndim, self.lnprob,
                                             args=(self.data_x,self.data_y, self.err_y))
 
-            # the alternate way would be:
-            log.debug("Burn in ....")
-            pos, prob, state = self.sampler.run_mcmc(pos, self.burn_in)  # burn in
-            log.debug("Main run ...")
-            pos, prob, state = self.sampler.run_mcmc(pos, self.main_run, rstate0=state)  # start from end position of burn-in
+            with warnings.catch_warnings(): #ignore the occassional warnings from the walkers (NaNs, etc that reject step)
+                warnings.simplefilter("ignore")
+                log.debug("Burn in ....")
+                pos, prob, state = self.sampler.run_mcmc(pos, self.burn_in)  # burn in
+                log.debug("Main run ...")
+                pos, prob, state = self.sampler.run_mcmc(pos, self.main_run, rstate0=state)  # start from end position of burn-in
+
             self.samples = self.sampler.flatchain  # collapse the walkers and interations (aka steps or epochs)
 
             log.info("MCMC mean acceptance fraction: %0.3f" %(np.mean(self.sampler.acceptance_fraction)))

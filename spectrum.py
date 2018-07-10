@@ -15,6 +15,7 @@ from scipy.stats import skew, kurtosis
 from scipy.optimize import curve_fit
 import copy
 import line_prob
+import mcmc_gauss
 
 
 #log = G.logging.getLogger('spectrum_logger')
@@ -781,6 +782,20 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     if accept_fit:
         eli.raw_score = score
         eli.score = signal_calc_scaled_score(score)
+
+        #sanity checks for now ... just in the log
+        mcmc = mcmc_gauss.MCMC_Gauss()
+        mcmc.initial_mu = eli.fit_x0
+        mcmc.initial_sigma = eli.fit_sigma
+        mcmc.initial_A = eli.fit_a
+        mcmc.initial_y = eli.fit_y
+        mcmc.initial_peak = raw_peak
+        mcmc.data_x = narrow_wave_x
+        mcmc.data_y = narrow_wave_counts
+        mcmc.err_y = narrow_wave_errors #not the 1./err*err .... that is done in the mcmc likelihood function
+
+        mcmc.run_mcmc()
+
         return eli
     else:
         log.info("Fit rejected")
