@@ -260,6 +260,11 @@ class science_image():
                     try:
                         #use the cutout first if possible (much smaller than image and faster)
                         #note: net difference is less than 0.1 mag at 0.5" and less than 0.01 at 1.5"
+                        #I believe the source of the difference is the center position ... in the pixel mode
+                        #we center on the center pixel as reported by the center of the cutout. In sky mode
+                        #we center on an RA, Dec position and the slight difference between the two centers
+                        # (itself, less than one pixel) yields slightly different counts as the area covered is slightly
+                        # offset (fraction of a pixel or, typically, small fractions of an arcsec)
                         try:
                             pix_aperture = CircularAperture(cutout.center_cutout,r=radius/self.pixel_size)
                             phot_table = aperture_photometry(cutout.data, pix_aperture)
