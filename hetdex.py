@@ -1092,6 +1092,7 @@ class DetObj:
         #set_spectra(self, wavelengths, values, errors, central, estflux=None, eqw_obs=None)
         #self.spec_obj.set_spectra(self.sumspec_wavelength,self.sumspec_counts,self.sumspec_fluxerr,self.w)
         self.spec_obj.identifier = "eid(%d)" %self.entry_id
+        self.spec_obj.plot_dir = self.outdir
         self.spec_obj.set_spectra(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr, self.w,
                                   values_units=-17,estflux=self.estflux,eqw_obs=self.eqw_obs)
 
@@ -1232,6 +1233,9 @@ class DetObj:
         return True
 
     def dqs_shape(self):
+
+        print("+++++ dqs_shape +++++")
+
         #todo: defunct?? replace with spectrum::signal_score()
         force_recompute = False
         bad_pix = 0
@@ -2483,6 +2487,8 @@ class HETDEX:
                         e.entry_id = G.UNIQUE_DET_ID_NUM
 
                     e.id = G.UNIQUE_DET_ID_NUM
+                    if e.outdir is None:
+                        e.outdir = self.output_filename
                     e.load_fluxcalibrated_spectra()
                     if e.status >= 0:
                         self.emis_list.append(e)

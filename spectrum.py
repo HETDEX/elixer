@@ -16,6 +16,7 @@ from scipy.optimize import curve_fit
 import copy
 import line_prob
 import mcmc_gauss
+import os.path as op
 
 
 #log = G.logging.getLogger('spectrum_logger')
@@ -120,6 +121,9 @@ def norm_values(values,values_units):
     :param values_units:
     :return:
     '''
+
+    #return values, values_units
+
     if values_units == 0: #counts
         return values, values_units
     elif values_units == 1:
@@ -163,7 +167,7 @@ def gaussian(x,x0,sigma,a=1.0,y=0.0):
 
     #have the / np.sqrt(...) part so the basic shape is normalized to 1 ... that way the 'a' becomes the area
     return a * (np.exp(-np.power((x - x0) / sigma, 2.) / 2.) / np.sqrt(2 * np.pi * sigma ** 2)) + y
-
+    #return a * (np.exp(-np.power((x - x0) / sigma, 2.) / 2.)) + y
 
 
 def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
@@ -245,7 +249,7 @@ class EmissionLineInfo:
         self.raw_h =  None
         self.raw_x0 = None
 
-        self.line_flux = -999 #the line fluux
+        self.line_flux = -999 #the line flux
         self.cont = -999
 
         self.snr = 0.0
@@ -257,6 +261,15 @@ class EmissionLineInfo:
 
         self.line_score = None
         self.prob_noise = 1.0
+
+        #MCMC errors and info
+        # 3-tuples [0] = fit, [1] = fit +16%,  [2] = fit - 16% (i.e. ~ +/- 1 sd ... the interior 66%)
+        self.mcmc_x0 = None #aka mu
+        self.mcmc_sigma = None
+        self.mcmc_a = None #area
+        self.mcmc_y = None
+        self.mcmc_ew_obs = None #calcuated value (using error propogation from mcmc_a and mcmc_y)
+
 
     def build(self,values_units=0):
         if self.snr > MIN_ELI_SNR:
@@ -374,7 +387,7 @@ class EmissionLineInfo:
 
 
 def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=None,values_units=0, sbr=None,
-                 show_plot=False,min_sigma=GAUSS_FIT_MIN_SIGMA):
+                 min_sigma=GAUSS_FIT_MIN_SIGMA,show_plot=False,plot_id=None,plot_path=None,do_mcmc=False):
 
     #error on the wavelength of the possible line depends on the redshift and its error and the wavelength itself
     #i.e. wavelength error = wavelength / (1+z + error)  - wavelength / (1+z - error)
@@ -769,7 +782,14 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         if g:
             stat += "g"
 
-        png = "gauss_" + str(central)+ "_" + stat + ".png"
+        if plot_id is not None:
+            plot_id = "_" + str(plot_id) + "_"
+        else:
+            plot_id = "_"
+        png = "gauss" + plot_id + str(central)+ "_" + stat + ".png"
+
+        if plot_path is not None:
+            png = op.join(plot_path,png)
 
         log.info('Writing: ' + png)
         #print('Writing: ' + png)
@@ -783,18 +803,42 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         eli.raw_score = score
         eli.score = signal_calc_scaled_score(score)
 
-        #sanity checks for now ... just in the log
-        mcmc = mcmc_gauss.MCMC_Gauss()
-        mcmc.initial_mu = eli.fit_x0
-        mcmc.initial_sigma = eli.fit_sigma
-        mcmc.initial_A = eli.fit_a
-        mcmc.initial_y = eli.fit_y
-        mcmc.initial_peak = raw_peak
-        mcmc.data_x = narrow_wave_x
-        mcmc.data_y = narrow_wave_counts
-        mcmc.err_y = narrow_wave_errors #not the 1./err*err .... that is done in the mcmc likelihood function
+        if do_mcmc:
+            mcmc = mcmc_gauss.MCMC_Gauss()
+            mcmc.initial_mu = eli.fit_x0
+            mcmc.initial_sigma = eli.fit_sigma
+            mcmc.initial_A = eli.fit_a#/ adjust
+            mcmc.initial_y = eli.fit_y #/ adjust
+            mcmc.initial_peak = raw_peak #/ adjust
+            mcmc.data_x = narrow_wave_x
+            mcmc.data_y = narrow_wave_counts #/ adjust
+            mcmc.err_y = narrow_wave_errors  #not the 1./err*err .... that is done in the mcmc likelihood function
 
-        mcmc.run_mcmc()
+            #if using the scipy::curve_fit, 50-100 burn-in and ~1000 main run is plenty
+            #if other input (like Karl's) ... the method is different and we are farther off ... takes longer to converge
+            #   but still converges close to the scipy::curve_fit
+            mcmc.burn_in = 100
+            mcmc.main_run = 1000
+            mcmc.run_mcmc()
+
+            # 3-tuple [0] = fit, [1] = fit +16%,  [2] = fit - 16%
+            eli.mcmc_x0 = mcmc.mcmc_mu
+            eli.mcmc_sigma = mcmc.mcmc_sigma
+
+            eli.mcmc_a = mcmc.mcmc_A
+            eli.mcmc_y = mcmc.mcmc_y
+
+            if values_units == -18:  # converted from e-17, but this is an area so there are 2 factors
+                eli.mcmc_a = tuple(np.array(mcmc.mcmc_A)/ [10.,1.,1.])
+
+            # calc EW and error with approximate symmetric error on area and continuum
+            ew = abs(eli.mcmc_a[0] / eli.mcmc_y[0])
+            ew_err = ew * np.sqrt( (mcmc.approx_symmetric_error(eli.mcmc_a) / eli.mcmc_a[0]) ** 2 +
+                                   (mcmc.approx_symmetric_error(eli.mcmc_y) / eli.mcmc_y[0]) ** 2 )
+
+            eli.mcmc_ew_obs = (ew,ew_err,ew_err)
+            log.info("MCMC Peak height = %f" %(max(narrow_wave_counts)))
+            log.info("MCMC calculated EW_obs for main line = %0.3g +/- %0.3g" %(ew,ew_err))
 
         return eli
     else:
@@ -1488,6 +1532,7 @@ class Spectrum:
         self.p_lae_oii_ratio = None
 
         self.identifier = None #optional string to help identify in the log
+        self.plot_dir = None
 
     def top_hat_filter(self,w_rest,w_obs, wx, hat_width=None, negative=False):
         #optimal seems to be around 1 to < 2 resolutions (e.g. HETDEX ~ 6AA) ... 6 is good, 12 is a bit
@@ -1533,7 +1578,7 @@ class Spectrum:
         return filter, num_hats
 
 
-    def set_spectra(self,wavelengths, values, errors, central, values_units = 0, estflux=None,eqw_obs=None):
+    def set_spectra(self,wavelengths, values, errors, central, values_units = 0, estflux=None, eqw_obs=None):
         del self.wavelengths[:]
         del self.values[:]
         del self.errors[:]
@@ -1542,14 +1587,21 @@ class Spectrum:
         if self.solutions is not None:
             del self.solutions[:]
 
-        if (estflux is None) or (eqw_obs is None):
-            eli = signal_score(wavelengths=wavelengths, values=values, errors=errors,central=central,
-                               values_units=values_units,sbr=None, show_plot=False)
-            if eli:
+
+        #run MCMC on this one ... the main line
+        eli = signal_score(wavelengths=wavelengths, values=values, errors=errors,central=central,
+                           values_units=values_units,sbr=None, show_plot=True,plot_id=self.identifier,
+                           plot_path=self.plot_dir,do_mcmc=True)
+        if eli:
+            if (estflux is None) or (eqw_obs is None):
+                #basically ... if I did not get this from Karl, use my own measure
+                #todo: maybe use my own anyway??? (will want the errors later)
                 estflux = eli.line_flux
                 eqw_obs = eli.eqw_obs
 
-                self.central_eli = copy.deepcopy(eli)
+            self.central_eli = copy.deepcopy(eli)
+        else:
+            log.warning("Warning! Did not successfully compute signal_score on main emission line.")
 
         self.wavelengths = wavelengths
         self.values = values
@@ -1558,7 +1610,6 @@ class Spectrum:
         self.central = central
         self.estflux = estflux
         self.eqw_obs = eqw_obs
-
 
     def find_central_wavelength(self,wavelengths = None,values = None, errors=None,values_units=0):
         central = 0.0
@@ -1761,8 +1812,10 @@ class Spectrum:
                 if (a_central > max_w) or (a_central < min_w):
                     continue
 
-                eli = signal_score(wavelengths, values, errors, a_central,
-                                   central_z = central_z, values_units=values_units, spectrum=self)
+                eli = signal_score(wavelengths=wavelengths, values=values, errors=errors, central=a_central,
+                                   central_z = central_z, values_units=values_units, spectrum=self,
+                                   show_plot=False, do_mcmc=False)
+
 
                 if (eli is not None) and eli.is_good(z=sol.z):
                     #if this line is too close to another, keep the one with the better score

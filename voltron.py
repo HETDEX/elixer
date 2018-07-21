@@ -884,6 +884,8 @@ def main():
 
     match_list = match_summary.MatchSet()
 
+    PDF_File(args.name, 1) #use to pre-create the output dir (just toss the returned pdf container)
+
     # first, if hetdex info provided, build the hetdex part of the report
     # hetedex part
     if build_hd(args):

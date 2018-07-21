@@ -1,6 +1,10 @@
 changes to voltron by version
 
 1.4.0a9 [2018-xx-xx]
+* add MCMC fitting of gaussian (can be used on any line, but currently just on main line)
+  (note: testing shows close agreement with scipy curve_fit, so for the additional lines, just use curve_fit as it
+   is much faster ... for the main line use MCMC as it provides the estimated distribution (uncertainties) in the
+   parameters)
 
 
 1.4.0a8 [2018-07-05]

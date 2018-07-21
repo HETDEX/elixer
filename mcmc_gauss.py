@@ -10,9 +10,10 @@ import warnings
 log = G.Global_Logger('mcmc_logger')
 log.setlevel(G.logging.DEBUG)
 
-#todo: incorporate error in x coord
 
 class MCMC_Gauss:
+
+    UncertaintyRange = [16,50,84]
 
     def __init__(self):
         #intial values are meant to be near the truth
@@ -43,10 +44,32 @@ class MCMC_Gauss:
         self.sampler = None #mcmc sampler
         self.samples = None #resulting samples
 
-        self.mcmc_mu = None
+        self.mcmc_mu = None  #3-tuples [0] = fit, [1] = fit +16%,  [2] = fit - 16%
         self.mcmc_sigma = None
         self.mcmc_A = None
         self.mcmc_y = None
+
+    def approx_symmetric_error(self,parm): #parm is assumed to be a 3 vector as [0] = mean, [1] = +error, [2] = -error
+
+        try:
+            if parm is None or (len(parm)!= 3) :
+                return None
+
+            p1 = abs(parm[1])
+            p2 = abs(parm[2])
+            avg = 0.5*(p1+p2)
+
+            similarity = abs(p1-p2)/avg
+
+            if similarity > 0.1:
+                log.warning("Warning! Asymmetric uncertainty similarity = %0.3g (%0.3g, %0.3g)" %(similarity,p1,p2))
+
+            #for now, do it anyway
+            return avg
+            #return max(p1,p2)
+
+        except:
+            return None
 
 
     def model(self,x,theta):
@@ -55,14 +78,15 @@ class MCMC_Gauss:
             return None
         try:
             value = A * (np.exp(-np.power((x - mu) / sigma, 2.) / 2.) / np.sqrt(2 * np.pi * sigma ** 2)) + y
+            #value = A * (np.exp(-np.power((x - mu) / sigma, 2.) / 2.))  + y
         except:
             value = np.nan
         return value
 
     def lnlike(self, theta, x, y, yerr):
         diff = y - self.model(x, theta)
-        inv_sigma2 = 1.0 / (self.err_y ** 2)  # + model**2)
-        return -0.5 * (np.sum(diff ** 2 * inv_sigma2 - np.log(inv_sigma2)))
+        sigma2 = (self.err_y ** 2)
+        return -0.5 * (np.sum(diff ** 2 / sigma2 + np.log(sigma2)))
 
     # if any are zero, the whole prior is zero
     # all priors here are uniformitive ... i.e they are all flat ... either zero or one
@@ -130,31 +154,31 @@ class MCMC_Gauss:
             pos = [initial_pos +  scale * np.random.randn(ndim) for i in range(self.walkers)]
 
             #build the sampler
-            #todo: incorporate self.err_x
+            #todo: incorporate self.err_x ? (realistically, do we have significant uncertainty in x?)
             self.sampler = emcee.EnsembleSampler(self.walkers, ndim, self.lnprob,
                                             args=(self.data_x,self.data_y, self.err_y))
 
             with warnings.catch_warnings(): #ignore the occassional warnings from the walkers (NaNs, etc that reject step)
                 warnings.simplefilter("ignore")
-                log.debug("Burn in ....")
+                log.debug("MCMC burn in (%d) ...." %self.burn_in)
                 pos, prob, state = self.sampler.run_mcmc(pos, self.burn_in)  # burn in
-                log.debug("Main run ...")
+                log.debug("MCMC main run (%d) ..." %self.main_run)
                 pos, prob, state = self.sampler.run_mcmc(pos, self.main_run, rstate0=state)  # start from end position of burn-in
 
             self.samples = self.sampler.flatchain  # collapse the walkers and interations (aka steps or epochs)
 
-            log.info("MCMC mean acceptance fraction: %0.3f" %(np.mean(self.sampler.acceptance_fraction)))
+            log.debug("MCMC mean acceptance fraction: %0.3f" %(np.mean(self.sampler.acceptance_fraction)))
 
             self.mcmc_mu, self.mcmc_sigma, self.mcmc_A, self.mcmc_y = \
-                map(lambda v: (v[1], v[2] - v[1], v[1] - v[0]),zip(*np.percentile(self.samples, [16, 50, 84],axis=0)))
+                map(lambda v: (v[1], v[2] - v[1], v[1] - v[0]),zip(*np.percentile(self.samples, self.UncertaintyRange,axis=0)))
 
-            log.info("MCMC mu: [%0.5g] (%0.5g, +%0.5g, -%0.5g)" %
+            log.info("MCMC mu: i[%0.5g] (%0.5g, +%0.5g, -%0.5g)" %
                      (self.initial_mu, self.mcmc_mu[0],self.mcmc_mu[1],self.mcmc_mu[2]))
-            log.info("MCMC sigma: [%0.5g] (%0.5g, +%0.5g, -%0.5g)" %
+            log.info("MCMC sigma: i[%0.5g] (%0.5g, +%0.5g, -%0.5g)" %
                      (self.initial_sigma, self.mcmc_sigma[0],self.mcmc_sigma[1],self.mcmc_sigma[2]))
-            log.info("MCMC A: [%0.5g] (%0.5g, +%0.5g, -%0.5g)" %
+            log.info("MCMC A: i[%0.5g] (%0.5g, +%0.5g, -%0.5g) *(possible extra factor of 10.0)" %
                      (self.initial_A, self.mcmc_A[0],self.mcmc_A[1],self.mcmc_A[2] ))
-            log.info("MCMC y: [%0.5g] (%0.5g, +%0.5g, -%0.5g)"%
+            log.info("MCMC y: i[%0.5g] (%0.5g, +%0.5g, -%0.5g)"%
                      (self.initial_y, self.mcmc_y[0],self.mcmc_y[1],self.mcmc_y[2]))
         except:
             log.error("Exception in mcmc_gauss::run_mcmc",exc_info=True)
