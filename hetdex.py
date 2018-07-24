@@ -810,21 +810,17 @@ class DetObj:
                         self.fwhm = 0.0
                         self.cont_cgs = -0.0001
                         self.eqw_obs = -1.0
-
-
                     else:
-
                         #as is, way too large ... maybe not originally calculated as per angstrom? so divide by wavelength?
                         #or maybe units are not right or a miscalculation?
                         #toks2 is in counts
-                        #todo: are we SURE this is -17 and not -18 ??
-                        self.estflux = float(toks[2]) * self.sumspec_flux_unit_scale #self.sumspec_flux_unit_scale # * 10 ** (-17)
+                        self.estflux = float(toks[2]) * self.sumspec_flux_unit_scale # e.g. * 10**(-17)
                         #print("Warning! Using old flux conversion between counts and flux!!!")
                         #self.estflux = float(toks[2]) * flux_conversion(self.w)
 
                         self.fwhm = 2.35*float(toks[3]) #here sigma is the gaussian sigma, the line width, not significance
                         self.snr = float(toks[5])
-                        self.cont_cgs = float(toks[6]) * self.sumspec_flux_unit_scale# * 10 ** (-17)
+                        self.cont_cgs = float(toks[6]) * self.sumspec_flux_unit_scale#  e.g. 10**(-17)
 
                         # todo: need a floor for cgs (if negative)
                         # for now only
