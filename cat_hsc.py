@@ -631,9 +631,11 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                     except:
                         log.warn("Unexpected exception.", exc_info=True)
 
-                plt.subplot(gs[1:, index])
+                _ = plt.subplot(gs[1:, index])
+
                 plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                            vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
+
                 plt.title(i['instrument'] + " " + i['filter'])
                 plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
                 plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
@@ -649,7 +651,6 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                     plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
                                                       width=target_box_side, height=target_box_side,
                                                       angle=0.0, color=bc, fill=False, linewidth=1.0, zorder=1))
-
 
 
         #if False:

@@ -818,7 +818,7 @@ class DetObj:
                         #or maybe units are not right or a miscalculation?
                         #toks2 is in counts
                         #todo: are we SURE this is -17 and not -18 ??
-                        self.estflux = float(toks[2]) * 1e-18 #self.sumspec_flux_unit_scale # * 10 ** (-17)
+                        self.estflux = float(toks[2]) * self.sumspec_flux_unit_scale #self.sumspec_flux_unit_scale # * 10 ** (-17)
                         #print("Warning! Using old flux conversion between counts and flux!!!")
                         #self.estflux = float(toks[2]) * flux_conversion(self.w)
 

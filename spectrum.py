@@ -297,8 +297,11 @@ class EmissionLineInfo:
                     self.line_flux = self.fit_a * unit
                     # !! remember, fit_a is an area and thus has two of 10.0 in it (h*w ... each with x10)
                     # so if in e-17 or e-18 units, need to remove the other 10.0
-                    if unit == 1.0e-18:
-                        self.line_flux /= 10.0
+                    #IS THIS RIGHT???? yes, it is an "area", but we only rescale 1 axis (flux axis ...
+                    #   ... the wavelength axis is not scaled)
+                    #no ... I think this is wrong ... it is correct as is
+                    #if unit == 1.0e-18:
+                    #    self.line_flux /= 10.0
 
                     self.cont = self.fit_y * unit
 
@@ -764,8 +767,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         else:
             ymin = min(wave_counts)
             ymax = max(wave_counts)
-        gauss_plot.set_ylabel("Summed Counts")
-        gauss_plot.set_xlabel("Wavelength $\AA$ ")
+        gauss_plot.set_ylabel("Flux [unsp] ")
+        gauss_plot.set_xlabel("Wavelength [$\AA$] ")
 
         ymin *= 1.1
         ymax *= 1.1
@@ -817,7 +820,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             #if using the scipy::curve_fit, 50-100 burn-in and ~1000 main run is plenty
             #if other input (like Karl's) ... the method is different and we are farther off ... takes longer to converge
             #   but still converges close to the scipy::curve_fit
-            mcmc.burn_in = 100
+            mcmc.burn_in = 250
             mcmc.main_run = 1000
             mcmc.run_mcmc()
 
@@ -1111,7 +1114,8 @@ def est_peak_strength(wavelengths,values,central,values_units=0,dw=DEFAULT_BACKG
 
 
 #todo: update to deal with flux instead of counts
-def simple_peaks(x,v,h=MIN_HEIGHT,delta_v=2.0,values_units=0):
+#def simple_peaks(x,v,h=MIN_HEIGHT,delta_v=2.0,values_units=0):
+def simple_peaks(x, v, h=None, delta_v=None, values_units=0):
     """
 
     :param x:
@@ -1122,6 +1126,12 @@ def simple_peaks(x,v,h=MIN_HEIGHT,delta_v=2.0,values_units=0):
 
     maxtab = []
     mintab = []
+
+    if h is None:
+        h = np.mean(v)*0.8 #assume the mean to be roughly like the continuum level ... make min height with some slop
+
+    if delta_v is None:
+        delta_v = 0.2*h
 
     if x is None:
         x = np.arange(len(v))

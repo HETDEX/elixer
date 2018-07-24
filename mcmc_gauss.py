@@ -72,26 +72,49 @@ class MCMC_Gauss:
             return None
 
 
+    def noise_model(self):
+        #todo: fill in model for the noise
+        #some distribution
+        #or can this also be solved (fitted)?
+        return 0.0
+
     def model(self,x,theta):
-        mu, sigma, A, y = theta
+        mu, sigma, A, y, ln_f = theta #note: not using ln_f here
         if (x is None) or (mu is None) or (sigma is None):
             return None
         try:
+            # note: noise is separate and included in the lnlike() function
             value = A * (np.exp(-np.power((x - mu) / sigma, 2.) / 2.) / np.sqrt(2 * np.pi * sigma ** 2)) + y
-            #value = A * (np.exp(-np.power((x - mu) / sigma, 2.) / 2.))  + y
         except:
             value = np.nan
         return value
 
     def lnlike(self, theta, x, y, yerr):
-        diff = y - self.model(x, theta)
+        ln_f = theta[-1] #last parameter in theta
+        model = self.model(x, theta)
+        noise = self.noise_model()
+        diff = y - (model + noise) #or ... do we roll noise in with y_err??
+        #sigma2 = (self.err_y ** 2) +  np.exp(2*ln_f) * model**2
+            #assumes some additional uncertainties in y based on an underestimation in the model by some factor f
+            #err_y are the reported error bars in the y-direction (e.g. the flux)
+            #  assuming these are essentially the variance in the generative model
+            #  e.g. the model itself is a gaussian that predicts a y value from the x value (and the other parameters)
+            #           each y value that is predicted (generated) has a mean and a variance (or standar deviation)
+            #          and the error bars can be thought of as due to the variace in the gaussian distribution of y
+            # (note: do not confuse the gaussians .... the emission line is also more or less a gaussian, but here
+            # I am talking about a gaussian in y (kind of like a little gaussian at each y running along the y-axis so
+            # each y "point" is the mean of the gaussian and the vertical error bars are like the 1-sigma width of the
+            # y gaussian)
+            # notice ... the assumed y_err of 1 ==> sigma == 1 (or rather, sigma**2 == 1) ... eg. a standard normal distro)
+
+        # assume that the (distribution of) errors in y are known and indepentent
         sigma2 = (self.err_y ** 2)
-        return -0.5 * (np.sum(diff ** 2 / sigma2 + np.log(sigma2)))
+        return -0.5 * (np.sum((diff ** 2) / sigma2 + np.log(sigma2)))
 
     # if any are zero, the whole prior is zero
     # all priors here are uniformitive ... i.e they are all flat ... either zero or one
     def lnprior(self, theta):  # theta is a n-tuple (_,_,_ ... )
-        mu, sigma, A, y = theta
+        mu, sigma, A, y, ln_f = theta
         # note: could take some other dynamic maximum for y (like compute the peak ... y can't be greater than that
         if (-self.range_mu < mu - self.initial_mu < self.range_mu) and \
                 (0.0 < sigma < self.max_sigma) and \
@@ -109,7 +132,10 @@ class MCMC_Gauss:
 
     def sanity_check_init(self):
         try:
+            #if the error on y is None or if it is all zeros, set to all ones
             if self.err_y is None:
+                self.err_y = np.ones(np.shape(self.data_y))
+            elif not np.any(self.err_y):
                 self.err_y = np.ones(np.shape(self.data_y))
 
             if self.err_x is None:
@@ -142,12 +168,14 @@ class MCMC_Gauss:
             return False
 
         result = True
-        ndim = 4  # 4 dims since 4 parms mu, sigma, A, y = theta
+
         #here for initial positions of the walkers, sample from narrow gaussian (hence the randn or randNormal)
         #centered on each of the maximum likelihood selected parameter values
-        #mu, sigma, A, y, lnf = theta
-        initial_pos = [self.initial_mu,self.initial_sigma,self.initial_A,self.initial_y]
-        scale = np.array([1.,1.,1.,1.])
+        #mu, sigma, A, y, ln_f = theta #note f or ln(f) is another uncertainty ...an underestimation of the variance
+        #                               by some factor (f) .... e.g. variance = variance + f * model
+        initial_pos = [self.initial_mu,self.initial_sigma,self.initial_A,self.initial_y,0.0]
+        ndim = len(initial_pos)
+        scale = np.array([1.,1.,1.,1.,-100.5]) #don't nudge ln_f ...note ln_f = -4.5 --> f ~ 0.01
         #nudge the initial positions around a bit
 
         try:
@@ -169,17 +197,19 @@ class MCMC_Gauss:
 
             log.debug("MCMC mean acceptance fraction: %0.3f" %(np.mean(self.sampler.acceptance_fraction)))
 
-            self.mcmc_mu, self.mcmc_sigma, self.mcmc_A, self.mcmc_y = \
+            self.mcmc_mu, self.mcmc_sigma, self.mcmc_A, self.mcmc_y, mcmc_f = \
                 map(lambda v: (v[1], v[2] - v[1], v[1] - v[0]),zip(*np.percentile(self.samples, self.UncertaintyRange,axis=0)))
 
             log.info("MCMC mu: i[%0.5g] (%0.5g, +%0.5g, -%0.5g)" %
                      (self.initial_mu, self.mcmc_mu[0],self.mcmc_mu[1],self.mcmc_mu[2]))
             log.info("MCMC sigma: i[%0.5g] (%0.5g, +%0.5g, -%0.5g)" %
                      (self.initial_sigma, self.mcmc_sigma[0],self.mcmc_sigma[1],self.mcmc_sigma[2]))
-            log.info("MCMC A: i[%0.5g] (%0.5g, +%0.5g, -%0.5g) *(possible extra factor of 10.0)" %
+            log.info("MCMC A: i[%0.5g] (%0.5g, +%0.5g, -%0.5g)" %
                      (self.initial_A, self.mcmc_A[0],self.mcmc_A[1],self.mcmc_A[2] ))
             log.info("MCMC y: i[%0.5g] (%0.5g, +%0.5g, -%0.5g)"%
                      (self.initial_y, self.mcmc_y[0],self.mcmc_y[1],self.mcmc_y[2]))
+            log.info("MCMC f: i[%0.5g] (%0.5g, +%0.5g, -%0.5g)" %
+                     (0.0, mcmc_f[0], mcmc_f[1], mcmc_f[2]))
         except:
             log.error("Exception in mcmc_gauss::run_mcmc",exc_info=True)
             result = False
