@@ -593,12 +593,13 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     title = ""
 
     #todo: re-calibrate to use SNR instead of SBR ??
-    if sbr is None:
-        sbr = est_peak_strength(wavelengths,values,central,values_units)
-        if sbr is None:
-            #done, no reason to continue
-            log.warning("Could not determine SBR at wavelength = %f" %central)
-            return None
+    sbr = snr
+    #if sbr is None:
+    #    sbr = est_peak_strength(wavelengths,values,central,values_units)
+    #    if sbr is None:
+    #        #done, no reason to continue
+    #        log.warning("Could not determine SBR at wavelength = %f" %central)
+    #        return None
 
     score = sbr
     eli.sbr = sbr
