@@ -289,20 +289,7 @@ class EmissionLineInfo:
                         unit = 1.0
                         log.warning(("!!! Problem. Unexpected values units in EmissionLineInfo::build(): %s") % str(values_units))
 
-                    #if self.fit_a > 1.0: #assume x0^-18 units (since that is what is fit ... similar to counts)
-                    #    unit = 1e-18
-                    #else:
-                    #    unit = 1.0
-
                     self.line_flux = self.fit_a * unit
-                    # !! remember, fit_a is an area and thus has two of 10.0 in it (h*w ... each with x10)
-                    # so if in e-17 or e-18 units, need to remove the other 10.0
-                    #IS THIS RIGHT???? yes, it is an "area", but we only rescale 1 axis (flux axis ...
-                    #   ... the wavelength axis is not scaled)
-                    #no ... I think this is wrong ... it is correct as is
-                    #if unit == 1.0e-18:
-                    #    self.line_flux /= 10.0
-
                     self.cont = self.fit_y * unit
 
                     #fix fit_h
