@@ -2,7 +2,7 @@
 
 RUN = True #if false, reads in the file, if True runs samples and makes a new file
 FILE = "/home/dustin/code/python/voltron/exp_gauss_out.txt"
-SAMPLES = 10000
+SAMPLES = 100000
 
 import numpy as np
 import scipy as sp
