@@ -228,6 +228,8 @@ def parse_commandline():
                 print("Error. Cannot determine format of RA")
                 log.critical("Main exit. Invalid command line parameters.")
                 exit(-1)
+        elif args.ra[-1].lower() == 'h': #decimal hours
+            args.ra = float(args.ra.rstrip('Hh'))  * 15.0
         else:
             args.ra = float(args.ra)
 
