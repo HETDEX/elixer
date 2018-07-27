@@ -8,36 +8,36 @@ from datetime import datetime
 import socket
 
 #version
-__version__ = '1.4.0a9'
+__version__ = '1.4.0a10'
 
 if socket.gethostname() == 'z50':
 #if False:
     OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
 
-    #CONFIG_BASEDIR = "/home/dustin/code/python/voltron/data/config/"
+    #CONFIG_BASEDIR = "/home/dustin/code/python/elixer/data/config/"
 
-    #PANACEA_RED_BASEDIR = "/home/dustin/code/python/voltron/data/config/red1/reductions/"
+    #PANACEA_RED_BASEDIR = "/home/dustin/code/python/elixer/data/config/red1/reductions/"
     CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
     PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
     PANACEA_RED_BASEDIR_DEFAULT = PANACEA_RED_BASEDIR
 
-    CANDELS_EGS_Stefanon_2016_BASE_PATH = "/home/dustin/code/python/voltron/data/EGS"
-    EGS_CFHTLS_PATH = "/home/dustin/code/python/voltron/data/CFHTLS"
-    CFHTLS_PHOTOZ_CAT = "/home/dustin/code/python/voltron/data/CFHTLS/photozCFHTLS-W3_270912.out"
-    GOODS_N_BASE_PATH = "/home/dustin/code/python/voltron/data/GOODSN/"
+    CANDELS_EGS_Stefanon_2016_BASE_PATH = "/home/dustin/code/python/elixer/data/EGS"
+    EGS_CFHTLS_PATH = "/home/dustin/code/python/elixer/data/CFHTLS"
+    CFHTLS_PHOTOZ_CAT = "/home/dustin/code/python/elixer/data/CFHTLS/photozCFHTLS-W3_270912.out"
+    GOODS_N_BASE_PATH = "/home/dustin/code/python/elixer/data/GOODSN/"
     GOODS_N_CAT_PATH = GOODS_N_BASE_PATH
 
-    EGS_GROTH_BASE_PATH = "/home/dustin/code/python/voltron/data/isak"
+    EGS_GROTH_BASE_PATH = "/home/dustin/code/python/elixer/data/isak"
     EGS_GROTH_CAT_PATH = EGS_GROTH_BASE_PATH #note: there is no catalog
 
-    STACK_COSMOS_BASE_PATH = "/home/dustin/code/python/voltron/data/isak"
-    STACK_COSMOS_CAT_PATH = "/home/dustin/code/python/voltron/data/isak"
+    STACK_COSMOS_BASE_PATH = "/home/dustin/code/python/elixer/data/isak"
+    STACK_COSMOS_CAT_PATH = "/home/dustin/code/python/elixer/data/isak"
 
-    SHELA_BASE_PATH = "/media/dustin/dd/hetdex/data/SHELA" #"/home/dustin/code/python/voltron/data/isak/SHELA"
+    SHELA_BASE_PATH = "/media/dustin/dd/hetdex/data/SHELA" #"/home/dustin/code/python/elixer/data/isak/SHELA"
     DECAM_IMAGE_PATH = SHELA_BASE_PATH#"/media/dustin/dd/hetdex/data/decam/images"
-    SHELA_CAT_PATH = "/media/dustin/dd/hetdex/data/SHELA"#"/home/dustin/code/python/voltron/data/isak/SHELA"
-    SHELA_PHOTO_Z_COMBINED_PATH = "/home/dustin/code/python/voltron/data/isak/SHELA"
-    SHELA_PHOTO_Z_MASTER_PATH = "/home/dustin/code/python/voltron/data/isak/SHELA"
+    SHELA_CAT_PATH = "/media/dustin/dd/hetdex/data/SHELA"#"/home/dustin/code/python/elixer/data/isak/SHELA"
+    SHELA_PHOTO_Z_COMBINED_PATH = "/home/dustin/code/python/elixer/data/isak/SHELA"
+    SHELA_PHOTO_Z_MASTER_PATH = "/home/dustin/code/python/elixer/data/isak/SHELA"
 
     HSC_BASE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced"
     HSC_CAT_PATH = "/media/dustin/dd/hetdex/data/HSC/catalog_tracts" #"/work/04094/mshiro/maverick/HSC/S15A/reduced/catalog_tracts"

@@ -1,7 +1,7 @@
 #explore probabilities
 
 RUN = True #if false, reads in the file, if True runs samples and makes a new file
-FILE = "/home/dustin/code/python/voltron/exp_gauss_out.txt"
+FILE = "/home/dustin/code/python/elixer/exp_gauss_out.txt"
 SAMPLES = 100000
 
 import numpy as np
@@ -39,9 +39,9 @@ SHOW_SPEC = False
 #
 
 
-#Basically, generate full (random noise) spectra and scan for "peaks" using the voltron peak finder
+#Basically, generate full (random noise) spectra and scan for "peaks" using the elixer peak finder
 #to produce xxx (say 100,000) identifiable peaks (ie. that a gaussian fits)
-#For each peak, get its properties (SNR, EW, etc) and produce its line_score (per voltron)
+#For each peak, get its properties (SNR, EW, etc) and produce its line_score (per elixer)
 #Then bin up those line_scores and sum to the right (such that the bin width does not matter much)
 #The prob that a line_score is random is that line_score's bin / total number of scores
 #  so, if there are 1537 line_score in the 9.0 line_score center bin with another 523 in bins 10.0 to inf,
@@ -51,7 +51,7 @@ SHOW_SPEC = False
 
 #6-18-2018 update
 #slightly different logic .... still get num_trials, but only accept IF is_good(), so the resulting set is all peaks
-#by score that voltron would classify as good. The fraction then, is by score/total ... out of the universe of noise,
+#by score that elixer would classify as good. The fraction then, is by score/total ... out of the universe of noise,
 #the fraction (by score) that are considered good == probability by score that the fit is just noise
 
 
