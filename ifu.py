@@ -9,11 +9,11 @@ import numpy as np
 import os
 import glob
 import fnmatch
-import fiber as voltron_fiber
+import fiber as elixer_fiber
 import hetdex_fits
 from astropy.io import fits as pyfits
 
-import spectrum as voltron_spectrum
+import spectrum as elixer_spectrum
 
 
 UNITS = ['counts','cgs-17']
@@ -23,8 +23,8 @@ def getnearpos(array,value):
     return idx
 
 
-AMP = voltron_fiber.AMP
-AMP_OFFSET = voltron_fiber.AMP_OFFSET
+AMP = elixer_fiber.AMP
+AMP_OFFSET = elixer_fiber.AMP_OFFSET
 
 MIN_WAVELENGTH = 3500.0
 MAX_WAVELENGTH = 5500.0
@@ -231,7 +231,7 @@ class IFU:
 
         if idstring is not None:
             try:
-                dict_args = voltron_fiber.parse_fiber_idstring(idstring)
+                dict_args = elixer_fiber.parse_fiber_idstring(idstring)
 
                 if dict_args is not None:
                     if dict_args == False: #failed to parse ... might just be the date-time part
@@ -480,7 +480,7 @@ class IFU:
     def build_fibers(self,grid_size=INTERPOLATION_AA_PER_PIX):
 
         #want the fe_data (fiber extracted data)
-        #maybe give voltron_fiber.fiber a HETDEX fits object to pull the data? or pull it here and feed it to fiber?
+        #maybe give elixer_fiber.fiber a HETDEX fits object to pull the data? or pull it here and feed it to fiber?
 
         #grid_size = 2.0 #AA per pixel (seems to be okay ... no real difference in flux (area under the spectra))
         for exp in self.exposures:
@@ -489,7 +489,7 @@ class IFU:
 
             for fits in exp.fits:
                 for i in range(len(fits.fe_data)):
-                    fib = voltron_fiber.Fiber(self.idstring,amp=fits.amp,panacea_fiber_index=i) #this will have the original amp, side
+                    fib = elixer_fiber.Fiber(self.idstring,amp=fits.amp,panacea_fiber_index=i) #this will have the original amp, side
 
                     #update with THIS file's amp and side
                     fib.amp = fits.amp
@@ -575,7 +575,7 @@ class IFU:
     def sum_fibers_from_fib_file(self,file,line_id,fiber_indicies=None):
         """
 
-        :param file:  full path to the voltron *_fib.txt file
+        :param file:  full path to the elixer *_fib.txt file
         :param line_id: the id number of the line to use (1st column in *_fib.txt or the parenthetical value in pdf)
         :param fiber_indicies: zero based index of the fibers (as listed in t#cut or similar to add (adds all if is None or if empty)
         :return: three arrays and a value: (1) wavelengths ,  (2) summed  values, (3) summed errors and (4) central wavelength
@@ -589,7 +589,7 @@ class IFU:
         version = None
 
         if not os.path.exists(file):
-            log.error("Provided voltron fiber file does not exist: %s" %file)
+            log.error("Provided elixer fiber file does not exist: %s" %file)
             return None, None, None, None
 
         try:
@@ -605,14 +605,14 @@ class IFU:
                         if int(line_id) == int(toks[0]): #we found the line we want
                             break
         except:
-            log.error("Unable to parse voltron fiber file: %s" %file)
+            log.error("Unable to parse elixer fiber file: %s" %file)
 
-        return self.sum_fibers_from_voltron(line,version,fiber_indicies)
+        return self.sum_fibers_from_elixer(line,version,fiber_indicies)
 
 
-    def sum_fibers_from_voltron(self,line,version=None,fiber_indicies=None):
+    def sum_fibers_from_elixer(self,line,version=None,fiber_indicies=None):
         """
-        :param line: the string (line) from a voltron *_fib.txt file
+        :param line: the string (line) from a elixer *_fib.txt file
         :param version: the version number of the *_fib.txt file if known
         :param fiber_indicies: zero based index of the fibers (as listed in t#cut or similar to add (adds all if is None or if empty)
         :return: three arrays and a value: (1) wavelengths ,  (2) summed  values, (3) summed errors and (4) central wavelength
@@ -762,7 +762,7 @@ class IFU:
                     log.debug("Fiber rejected for addition. Large extrema.")
                     return False
 
-            peaks = voltron_spectrum.peakdet(wavelengths, values, errors, dw=5.0)#, h, dh, zero)
+            peaks = elixer_spectrum.peakdet(wavelengths, values, errors, dw=5.0)#, h, dh, zero)
             #signal = list(filter(lambda x: (x[5] > max_score) or (x[6] > max_snr),peaks))
 
             #signal = list(filter(lambda x: x[6] > max_snr,peaks))

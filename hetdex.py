@@ -38,9 +38,9 @@ from copy import copy, deepcopy
 import line_prob
 
 import hetdex_fits
-import fiber as voltron_fiber
-import ifu as voltron_ifu #only using to locate panacea files (voltron only uses individual fibers, not entire IFUs)
-import spectrum as voltron_spectrum
+import fiber as elixer_fiber
+import ifu as elixer_ifu #only using to locate panacea files (elixer only uses individual fibers, not entire IFUs)
+import spectrum as elixer_spectrum
 
 #todo: write a class wrapper for log
 #an instance called log that has functions .Info, .Debug, etc
@@ -63,11 +63,11 @@ PIXFLT_LOC = G.PIXFLT_LOC #op.join(CONFIG_BASEDIR,"virus_config/PixelFlats/20161
 PLOT_SUMMED_SPECTRA = True #zoom-in plot of top few fibers
 MAX_2D_CUTOUTS = 4 #~ 5x3 of 2d cutouts  +1 for the summed cutout
 
-SIDE = voltron_fiber.SIDE
+SIDE = elixer_fiber.SIDE
 #!!! REMEBER, Y-axis runs 'down':  Python 0,0 is top-left, DS9 is bottom-left
 #!!! so in DS9 LU is 'above' LL and RL is 'above' RU
-AMP  = voltron_fiber.AMP #["LU","LL","RL","RU"] #in order from bottom to top
-AMP_OFFSET = voltron_fiber.AMP_OFFSET# {"LU":1,"LL":113,"RL":225,"RU":337}
+AMP  = elixer_fiber.AMP #["LU","LL","RL","RU"] #in order from bottom to top
+AMP_OFFSET = elixer_fiber.AMP_OFFSET# {"LU":1,"LL":113,"RL":225,"RU":337}
 
 
 
@@ -439,7 +439,7 @@ class DetObj:
         #fcs_base is a basename of a single fcs directory, fcsdir is the entire FQdirname
         #fcsdir is more specific
         #skip NR (0)
-        self.matched_cats = [] #list of catalogs in which this object appears (managed outside this class, in voltron.py)
+        self.matched_cats = [] #list of catalogs in which this object appears (managed outside this class, in elixer.py)
         self.status = 0
         self.plot_dqs_fit = False
         self.dqs = None #scaled score
@@ -493,7 +493,7 @@ class DetObj:
         self.sumspec_flux_zoom = []
         self.sumspec_fluxerr_zoom = []
         self.sumspec_2d_zoom = []
-        self.spec_obj = voltron_spectrum.Spectrum() #use for classification, etc
+        self.spec_obj = elixer_spectrum.Spectrum() #use for classification, etc
 
         self.p_lae = None #from Andrew Leung
         self.p_oii = None
@@ -885,7 +885,7 @@ class DetObj:
                     idstring = time_ex + "_" + specid + "_" + ifu_slot + "_" + ifuid + "_" + side + "_" + fib_id
 
                     #just build up from the idstring
-                    fiber = voltron_fiber.Fiber(idstring)
+                    fiber = elixer_fiber.Fiber(idstring)
                     if fiber is not None:
                         fiber.ra = ra
                         fiber.dec = dec
@@ -1621,7 +1621,7 @@ class DetObj:
                 #log.warn("Unexpected fiber id string: %s" % fiber)
             return False
 
-        newfiber = voltron_fiber.Fiber(fiber, detect_id=self.id)
+        newfiber = elixer_fiber.Fiber(fiber, detect_id=self.id)
 
         if newfiber is not None:
             self.fibers.append(newfiber)
@@ -1653,7 +1653,7 @@ class DetObj:
                       % (ifuslot,self.ifuslot))
             return True #this was still a fiber, just not one that is valid
 
-        self.fibers.append(voltron_fiber.Fiber(idstring,specid,ifuslot,ifuid,amp,dither_date,dither_time,dither_time_extended,
+        self.fibers.append(elixer_fiber.Fiber(idstring,specid,ifuslot,ifuid,amp,dither_date,dither_time,dither_time_extended,
                                  fiber_idx,self.id))
 
         return True
@@ -1776,7 +1776,7 @@ class HETDEX:
             self.panacea = True
 
 
-        self.emission_lines = voltron_spectrum.Spectrum().emission_lines
+        self.emission_lines = elixer_spectrum.Spectrum().emission_lines
 
         # self.emission_lines = [EmissionLine("Ly$\\alpha$ ",1216,'red'),
         #                        EmissionLine("OII ",3727,'green'),
@@ -2391,16 +2391,16 @@ class HETDEX:
                         log.error("Cannot locate reduction data for %s" % (fib.idstring))
                         continue
                 else:
-                    #only using the ifu package to get the path. voltron does not use entire IFU/observations
+                    #only using the ifu package to get the path. elixer does not use entire IFU/observations
                     #just the specific fibers for each detection
-                    info = voltron_ifu.find_panacea_path_info(fib.dither_date,
+                    info = elixer_ifu.find_panacea_path_info(fib.dither_date,
                                                               fib.dither_time_extended,
                                                               fib.dither_time,
                                                               G.PANACEA_RED_BASEDIR)
 
                     if (len(info) == 0) and (G.PANACEA_RED_BASEDIR != G.PANACEA_RED_BASEDIR_DEFAULT):
                         #try again with the default
-                        info = voltron_ifu.find_panacea_path_info(fib.dither_date,
+                        info = elixer_ifu.find_panacea_path_info(fib.dither_date,
                                                                   fib.dither_time_extended,
                                                                   fib.dither_time,
                                                                   G.PANACEA_RED_BASEDIR_DEFAULT)
@@ -3161,7 +3161,7 @@ class HETDEX:
 
             # cure does not build specific fibers (don't know the info until here), so build now for the _fib.txt file
             try:
-                fiber = voltron_fiber.Fiber(op.basename(sci.filename), str(self.specid), str(self.ifu_slot_id), str(self.ifu_id),
+                fiber = elixer_fiber.Fiber(op.basename(sci.filename), str(self.specid), str(self.ifu_slot_id), str(self.ifu_id),
                               None, str(self.ymd), "None", "None", -1,e.id)
 
                 if fiber:
@@ -3499,7 +3499,7 @@ class HETDEX:
 
             if fiber is None: # did not find it? impossible?
                 log.error("Error! Cannot identify fiber in HETDEX:build_panacea_hetdex_data_dict().")
-                fiber = voltron_fiber.Fiber(0,0,0,0,'XX',"","","",-1,-1)
+                fiber = elixer_fiber.Fiber(0,0,0,0,'XX',"","","",-1,-1)
 
 
             log.debug("Building data dict for " + fits.filename)

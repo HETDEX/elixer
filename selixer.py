@@ -1,10 +1,3 @@
-
-######################################
-# DEFUNCT: replaced by selixer.py
-######################################
-
-
-
 # wrapper for SLURM call to elixer
 from __future__ import print_function
 import sys
@@ -243,7 +236,7 @@ except:
 
 
 ### elixer.run
-path = os.path.join(os.path.dirname(sys.argv[0]),"voltron.py")
+path = os.path.join(os.path.dirname(sys.argv[0]),"elixer.py")
 run = "python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' -f \n'
 
 try:

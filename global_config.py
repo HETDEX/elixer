@@ -85,10 +85,10 @@ PIXFLT_LOC = op.join(CONFIG_BASEDIR,"virus_config/PixelFlats")
 
 LOG_LEVEL = logging.DEBUG
 
-##log initialization moved to voltron.py to incorporate --name into filename
+##log initialization moved to elixer.py to incorporate --name into filename
 # reminder to self ... this is pointless with SLURM given the bash wraper (which does not know about the
-# specific dir name and just builds voltron.run ... so leave this here
-LOG_FILENAME = "voltron.log"
+# specific dir name and just builds elixer.run ... so leave this here
+LOG_FILENAME = "elixer.log"
 logging.basicConfig(filename=LOG_FILENAME,level=LOG_LEVEL,filemode='w')
 #.debug(), .info(), .warning(), .error(), .critical()
 

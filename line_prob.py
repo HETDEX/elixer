@@ -128,7 +128,7 @@ def prob_LAE(wl_obs,lineFlux,ew_obs,c_obs, which_color=None, addl_wavelengths=No
 
 
         #ratio_LAE is plgd/pogd
-        #slightly different representation of ratio_LAE (so recomputed for voltron use)
+        #slightly different representation of ratio_LAE (so recomputed for elixer use)
         if (plgd is not None) and (plgd > 0.0):
             if (pogd is not None) and (pogd > 0.0):
                 ratio_LAE = float(plgd) / pogd
