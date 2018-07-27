@@ -1,4 +1,4 @@
-changes to voltron by version
+changes to elixer by version
 
 1.4.0a10 [2018-07-27]
 * changing project name (and supporting files/references) from voltron to elixer
