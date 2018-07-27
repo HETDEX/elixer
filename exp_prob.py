@@ -1,4 +1,9 @@
 #explore probabilities
+
+RUN = True #if false, reads in the file, if True runs samples and makes a new file
+FILE = "/home/dustin/code/python/voltron/exp_gauss_out.txt"
+SAMPLES = 10000
+
 import numpy as np
 import scipy as sp
 import imp
@@ -68,7 +73,7 @@ def reload():
 class GaussFit:
 
     #all class vars
-    num_trials = 100000 #start with 1000 just to test
+    num_trials = SAMPLES #start with 1000 just to test
     #note: because an entire spectrum is generated and many peaks are evaluated per spectrum
     #      the actualy 'number of trials' is much larger where the meaning is per peak not per spectrum
     num_pix = 1001
@@ -203,7 +208,7 @@ class GaussFit:
                 eli.build(values_units=-18)
                 if eli.line_flux == -999:
                     eli.line_flux = 0.0
-                out.write("%d  %0.2g  %0.2g  %0.2g  %0.2g  %0.2g  %0.2g  %0.2g\n"
+                out.write("%d  %f  %f  %f  %f  %f  %f  %f\n"
                       % (eli.is_good(), eli.snr, eli.fit_sigma, eli.line_flux, eli.cont , eli.sbr, eli.eqw_obs, eli.line_score))
 
 
@@ -220,7 +225,7 @@ class GaussFit:
         eli = []
 
         #sort of a dumb way to do this, but convenient to put in the ELI objects
-        out =  np.loadtxt(filename)
+        out =  np.loadtxt(filename,dtype=np.float64)
         score = out[:,7]
         line_flux = out[:,3]
         snr = out[:,1]
@@ -244,13 +249,12 @@ class GaussFit:
 
 
 def main():
-    RUN = True
     gf = GaussFit()
 
     if (RUN):
         score, line_flux, snr, good, eli = gf.go()
     else:
-        score, line_flux, snr, good, eli = gf.load("~/code/python/voltron/exp_gauss_out.txt")
+        score, line_flux, snr, good, eli = gf.load(FILE)
 
 
     all_score = np.histogram(score, bins=gf.score_bin_edges)
@@ -329,12 +333,20 @@ def main():
     plt.hist([ob.line_flux for ob in eli[np.where(good)[0]]],bins=bins)  # just the good ones
     plt.show()
 
-    # look at raw_score
+
+    # look at line_flux
     plt.close()
-    plt.title=("raw_score")
-    vals, bins, _ =plt.hist([ob.raw_score for ob in eli],bins=50)  # all
-    plt.hist([ob.raw_score for ob in eli[np.where(good)[0]]],bins=bins)  # just the good ones
+    plt.title("DX0")
+    vals, bins, _ =plt.hist(np.clip([ob.fit_dx0 for ob in eli],0,np.inf),bins=50)  # all
+    plt.hist([ob.line_flux for ob in eli[np.where(good)[0]]],bins=bins)  # just the good ones
     plt.show()
+
+    # look at raw_score
+    # plt.close()
+    # plt.title=("raw_score")
+    # vals, bins, _ =plt.hist([ob.raw_score for ob in eli],bins=50)  # all
+    # plt.hist([ob.raw_score for ob in eli[np.where(good)[0]]],bins=bins)  # just the good ones
+    # plt.show()
 
 
 
@@ -342,28 +354,36 @@ def main():
 
     #SNR vs SBR (there isn't one)
     plt.close()
-    plt.title = ("SNR vs SBR")
+    plt.title("SNR vs SBR")
+    plt.xlabel("SNR")
+    plt.ylabel("SBR")
     plt.scatter([ob.snr for ob in eli], [ob.sbr for ob in eli])
     plt.show()
 
 
     #SNR vs sigma (there isn't one)
     plt.close()
-    plt.title = ("SNR vs Sigma")
+    plt.title("SNR vs Sigma")
+    plt.xlabel("SNR")
+    plt.ylabel("sigma")
     plt.scatter([ob.snr for ob in eli], [ob.fit_sigma for ob in eli])
     plt.show()
 
 
     #SNR vs sigma (a little, weak)
     plt.close()
-    plt.title = ("SNR vs EW")
+    plt.title("SNR vs EW")
+    plt.xlabel("SNR")
+    plt.ylabel("EW")
     plt.scatter([ob.snr for ob in eli], [ob.eqw_obs for ob in eli])
     plt.show()
 
 
     #SNR vs line flux (a little, weak)
     plt.close()
-    plt.title = ("SNR vs line_flux")
+    plt.title("SNR vs line_flux")
+    plt.xlabel("SNR")
+    plt.ylabel("Line Flux")
     plt.scatter(np.array([ob.snr for ob in eli]), np.array([ob.line_flux for ob in eli])*1e18)
     plt.show()
 
@@ -371,8 +391,26 @@ def main():
 
     #SNR vs line flux (a little, weak)
     plt.close()
-    plt.title = ("SNR vs line_score")
+    plt.title("SNR vs line_score")
+    plt.xlabel("SNR")
+    plt.ylabel("Line Score")
     plt.scatter(np.array([ob.snr for ob in eli]), np.array([ob.line_score for ob in eli]))
+    plt.show()
+
+
+    plt.close()
+    plt.title("EW vs sigma")
+    plt.xlabel("EW")
+    plt.ylabel("sigma")
+    plt.scatter(np.array([ob.eqw_obs for ob in eli]), np.array([ob.fit_sigma for ob in eli]))
+    plt.show()
+
+
+    plt.close()
+    plt.title("EW vs Line Flux")
+    plt.xlabel("EW")
+    plt.ylabel("Line Flux")
+    plt.scatter(np.array([ob.eqw_obs for ob in eli]), np.array([ob.line_flux for ob in eli])*1e17)
     plt.show()
 
     #histogram

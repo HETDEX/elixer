@@ -8,6 +8,10 @@ changes to voltron by version
 
 * fixed bug where rsp1 calculated line flux data was being read in units of e-18 instead of e-17
 
+* modified Bayes.basyesian.prob_data_given_OII and prob_data_given_LAE to incorporate uncertainties in the lineflux and
+  EqW_obs if known (otherwise defaults back to the previous +/- 5%)
+
+
 1.4.0a8 [2018-07-05]
 * Updated with Isak's new SHELA cats and images
 

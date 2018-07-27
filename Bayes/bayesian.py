@@ -104,18 +104,31 @@ def prob_ratio(wl_obs,lineFlux,ew_obs,c_obs,which_color,addl_fluxes,addl_wavelen
 
 
 
-def prob_data_given_LAE(wl_obs,lineFlux,ew_obs,c_obs,which_color,addl_fluxes,addl_wavelengths,sky_area,cosmo,LAE_priors):
+def prob_data_given_LAE(wl_obs,lineFlux,ew_obs,c_obs,which_color,addl_fluxes,addl_wavelengths,sky_area,cosmo,
+                        LAE_priors,wl_obs_hilo=None,lineFlux_hilo=None,ew_obs_hilo=None):
    t0 = time.time()
    
    z_LAE = wl_obs/1215.668-1
-   L = 4*np.pi*( 3.08567758e24 * nb.lumDist(z_LAE,cosmo) )**2 * lineFlux
+   # DD: 2018-07-25 reworked this section to use uncertainties
+   prob_EW = 1. # DD: can be not set ... so this is a safety
+
+   L_base = 4*np.pi*( 3.08567758e24 * nb.lumDist(z_LAE,cosmo) )**2
+
+   if lineFlux_hilo is not None:
+      L_hi = L_base * lineFlux_hilo[0]
+      L_lo = L_base * lineFlux_hilo[1]
+   else:
+      L_hi = L_base * lineFlux * 1.05
+      L_lo = L_base * lineFlux * 0.95
+
+   #L = 4*np.pi*( 3.08567758e24 * nb.lumDist(z_LAE,cosmo) )**2 * lineFlux
    norm_to_1, phiStar_LAE, LStar, z_LAE, L_min = LAE_LF(wl_obs,sky_area,LAE_priors,cosmo)
    ### third argument '1' denotes Ci12, evolving LF between z = 2.1 and z = 3.1
    
    LStar = LStar * mult_LStar_LAE
    phiStar_LAE = phiStar_LAE * mult_phiStar_LAE
    
-   prob_lineFlux = norm_to_1 * phiStar_LAE * ( float(mpm.gammainc(alpha_LAE+1,0.95*L/LStar)) - float(mpm.gammainc(alpha_LAE+1,1.05*L/LStar)) )
+   prob_lineFlux = norm_to_1 * phiStar_LAE * ( float(mpm.gammainc(alpha_LAE+1,L_lo/LStar)) - float(mpm.gammainc(alpha_LAE+1,L_hi/LStar)) )
 
    ### same thing; chain rule + recusive definition of gamma function (15-08-17)
    #prob_lineFlux = norm_to_1 * phiStar_LAE / (alpha_LAE+1) * ( float(mpm.gammainc(alpha_LAE+2,0.95*L/LStar)-(0.95*L/LStar)**(alpha_LAE+1)*np.exp(-0.95*L/LStar)) - float(mpm.gammainc(alpha_LAE+2,1.05*L/LStar)-(1.05*L/LStar)**(alpha_LAE+1)*np.exp(-1.05*L/LStar)) )
@@ -128,20 +141,27 @@ def prob_data_given_LAE(wl_obs,lineFlux,ew_obs,c_obs,which_color,addl_fluxes,add
       need to use recursion relation for the incomplete gamma function to integral under the schechter function
       
    '''
-
-   if not which_color == 'no_imaging':
-      
-      w_0 = LAE_EW(wl_obs,LAE_priors)
+   # DD: 2018-07-25 reworked this section to use uncertainties
+   if not (which_color == 'no_imaging') and (ew_obs > 0):
+      #if ew_obs <= 0:         ### (10/14/14) allow negative EW (only LAEs affected because [O II]s are bright in the continuum)
+      #   prob_EW = 1.
+      #
+      # else:
+      w_0 = LAE_EW(wl_obs, LAE_priors)
       ### last argument '1' denotes Ci12, evolving LF between z = 2.1 and z = 3.1
 
       w_0 = w_0 * mult_w0_LAE
-      ew_rest = ew_obs/(1+z_LAE)
+      # ew_rest = ew_obs/(1+z_LAE)
 
-      if ew_obs <= 0:         ### (10/14/14) allow negative EW (only LAEs affected because [O II]s are bright in the continuum)
-         prob_EW = 1.
-      
+      if ew_obs_hilo is not None:
+         ew_rest_hi = ew_obs_hilo[0] / (1. + z_LAE)
+         ew_rest_lo = ew_obs_hilo[1] / (1. + z_LAE)
       else:
-         prob_EW = -exp(-1.05*ew_rest/w_0) - ( -exp(-0.95*ew_rest/w_0) )
+         ew_rest_hi = ew_obs * 1.05 / (1. + z_LAE)
+         ew_rest_lo = ew_obs * 0.95 / (1. + z_LAE)
+
+      #prob_EW = -exp(-1.05*ew_rest/w_0) - ( -exp(-0.95*ew_rest/w_0) )
+      prob_EW = -exp(-ew_rest_hi / w_0) - (-exp(-ew_rest_lo/ w_0))
       
    ###### (04-24-15)
    addl_em_lines  = ['[NeIII]','H_beta','[OIII]','[OIII]']
@@ -219,11 +239,26 @@ def prob_data_given_LAE(wl_obs,lineFlux,ew_obs,c_obs,which_color,addl_fluxes,add
 
 
 
-def prob_data_given_OII(wl_obs,lineFlux,ew_obs,c_obs,which_color,addl_fluxes,addl_wavelengths,sky_area,cosmo,EW_case,z_OII_list,W_0_list,sigma_list):
+def prob_data_given_OII(wl_obs,lineFlux,ew_obs,c_obs,which_color,addl_fluxes,addl_wavelengths,sky_area,cosmo,
+                        EW_case,z_OII_list,W_0_list,sigma_list,wl_obs_hilo=None,lineFlux_hilo=None,ew_obs_hilo=None):
+   #DD 2018-07-25 the *_hilo are uncertainties, expected to be a 2 element array or tuple with the
+   # high then low values (e.g. with uncertainties added in, NOT the uncertainties themselves, so 10 +/-5 is passed
+   # as (15,5) or [15,5]
+
    t0 = time.time()
+   prob_EW = 1.  # DD: can be not set ... so this is a safety
    
    z_OII = wl_obs/3727.45-1
-   L = 4*np.pi*( 3.08567758e24 * nb.lumDist(z_OII,cosmo) )**2 * lineFlux
+   # DD: 2018-07-25 reworked this section to use uncertainties
+   L_base = 4 * np.pi * (3.08567758e24 * nb.lumDist(z_OII, cosmo)) ** 2
+
+   if lineFlux_hilo is not None:
+      L_hi = L_base * lineFlux_hilo[0]
+      L_lo = L_base * lineFlux_hilo[1]
+   else:
+      L_hi = L_base * lineFlux * 1.05
+      L_lo = L_base * lineFlux * 0.95
+
    norm_to_1, phiStar_OII, LStar, z_OII, L_min = OII_LF(wl_obs,sky_area,cosmo)
    
    LStar = LStar * mult_LStar_OII
@@ -232,7 +267,7 @@ def prob_data_given_OII(wl_obs,lineFlux,ew_obs,c_obs,which_color,addl_fluxes,add
    
    if wl_obs < 3727.45: prob_lineFlux = 0         ## wavelength observed shorter than [O II] rest frame
    else:
-      prob_lineFlux = norm_to_1 * phiStar_OII * ( float(mpm.gammainc(alpha_OII+1,0.95*L/LStar)) - float(mpm.gammainc(alpha_OII+1,1.05*L/LStar)) )
+      prob_lineFlux = norm_to_1 * phiStar_OII * ( float(mpm.gammainc(alpha_OII+1,L_lo/LStar)) - float(mpm.gammainc(alpha_OII+1,L_hi/LStar)) )
       ### same thing; chain rule + recusive definition of gamma function (15-08-17)
       #prob_lineFlux = norm_to_1 * phiStar_OII / (alpha_OII+1) * ( float(mpm.gammainc(alpha_OII+2,0.95*L/LStar)-(0.95*L/LStar)**(alpha_OII+1)*np.exp(-0.95*L/LStar)) - float(mpm.gammainc(alpha_OII+2,1.05*L/LStar)-(1.05*L/LStar)**(alpha_OII+1)*np.exp(-1.05*L/LStar)) )
       
@@ -245,31 +280,42 @@ def prob_data_given_OII(wl_obs,lineFlux,ew_obs,c_obs,which_color,addl_fluxes,add
       
    '''
 
-   if not which_color == 'no_imaging':
+   #if not which_color == 'no_imaging':
+   #DD: 2018-07-25 reworked this section to use uncertainties
+   if not (which_color == 'no_imaging') and (ew_obs > 0):
 
-      ew_rest = ew_obs/(1+z_OII)
-      
-      if ew_obs <= 0:         ### (10/14/14) allow negative EW (only LAEs affected because [O II]s are bright in the continuum)
-         prob_EW = 0.
-      
+      ew_rest_mean = ew_obs/(1+z_OII)
+
+      if ew_obs_hilo is not None:
+         ew_rest_hi = ew_obs_hilo[0] / (1. + z_OII)
+         ew_rest_lo = ew_obs_hilo[1] / (1. + z_OII)
       else:
-         if (EW_case == 'lognormal' and ew_rest <= 10) or EW_case == 'fully_lognormal':
-            ### (09/03/15) re-fitting for lognormal parameters makes for a good slow-down!
-            ###            0.53 second per object to run prob_ratio() this way
-            ###            0.0096 second per object by pre-fitting lognormal in nb.prob_ratio()
-            ###            0.0036 second per object on grad box
-            #fitParam, fitCovar = fln.run(z_OII,'base')
-            #W_0, sigma = fitParam[0], fitParam[1]
-            
-            W_0   = np.interp(z_OII,z_OII_list,W_0_list)
-            sigma = np.interp(z_OII,z_OII_list,sigma_list)
-            prob_EW = 0.5 * ( ssp.erf((np.log((1.05*ew_rest)/W_0)-0.5*sigma**2)/(np.sqrt(2)*sigma)) - ssp.erf((np.log((0.95*ew_rest)/W_0)-0.5*sigma**2)/(np.sqrt(2)*sigma)) )
+         ew_rest_hi = ew_obs * 1.05 / (1. + z_OII)
+         ew_rest_lo = ew_obs * 0.95 / (1. + z_OII)
       
-         else:
-            w_0 = OII_EW(wl_obs)
-            w_0 = w_0 * mult_w0_OII
-            prob_EW = -np.exp(-1.05*ew_rest/w_0) - ( -np.exp(-0.95*ew_rest/w_0) )
-   
+      #if ew_obs <= 0:         ### (10/14/14) allow negative EW (only LAEs affected because [O II]s are bright in the continuum)
+      #   prob_EW = 0.
+      #
+      #else:
+      if (EW_case == 'lognormal' and ew_rest_mean <= 10) or EW_case == 'fully_lognormal':
+         ### (09/03/15) re-fitting for lognormal parameters makes for a good slow-down!
+         ###            0.53 second per object to run prob_ratio() this way
+         ###            0.0096 second per object by pre-fitting lognormal in nb.prob_ratio()
+         ###            0.0036 second per object on grad box
+         #fitParam, fitCovar = fln.run(z_OII,'base')
+         #W_0, sigma = fitParam[0], fitParam[1]
+
+         W_0   = np.interp(z_OII,z_OII_list,W_0_list)
+         sigma = np.interp(z_OII,z_OII_list,sigma_list)
+         prob_EW = 0.5 * ( ssp.erf((np.log((ew_rest_hi)/W_0)-0.5*sigma**2)/(np.sqrt(2)*sigma)) -
+                           ssp.erf((np.log((ew_rest_lo)/W_0)-0.5*sigma**2)/(np.sqrt(2)*sigma)) )
+
+      else:
+         w_0 = OII_EW(wl_obs)
+         w_0 = w_0 * mult_w0_OII
+         prob_EW = -np.exp(-ew_rest_hi/w_0) - ( -np.exp(-ew_rest_lo/w_0) )
+
+
    ###### (04-24-15)
    addl_em_lines  = ['[NeIII]','H_beta','[OIII]','[OIII]']
    addl_lambda_rf = np.array([3869.00, 4861.32, 4958.91, 5006.84])

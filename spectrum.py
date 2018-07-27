@@ -26,7 +26,8 @@ log.setlevel(G.logging.DEBUG)
 
 #these are for the older peak finder (based on direction change)
 MIN_FWHM = 2 #AA (must xlat to pixels)
-MIN_ELI_SNR = 2.0 #bare minium SNR to even remotely consider a signal as real
+MIN_ELI_SNR = 3.0 #bare minium SNR to even remotely consider a signal as real
+MIN_ELI_SIGMA = 1.0 #bare minium (expect this to be more like 2+)
 MIN_HEIGHT = 10
 MIN_DELTA_HEIGHT = 2 #to be a peak, must be at least this high above next adjacent point to the left
 DEFAULT_BACKGROUND = 6.0
@@ -45,9 +46,10 @@ GAUSS_FIT_AA_RANGE = 40.0 #AA to either side of the line center to include in th
 GAUSS_FIT_PIX_ERROR = 2.0 #error (freedom) in pixels: have to allow at least 2 pixels of error
                           # (if aa/pix is small, _AA_ERROR takes over)
 GAUSS_FIT_AA_ERROR = 1.0 #error (freedom) in line center in AA, still considered to be okay
-GAUSS_SNR_SIGMA = 3.0 #check at least these pixels (pix*sigma) to either side of the fit line for SNR
-                      # (larger of this or GAUSS_SNR_NUM_AA)
-GAUSS_SNR_NUM_AA = 5.0 #check at least 4 AA to either side (9 total) of the fit line for SNR in gaussian fit
+GAUSS_SNR_SIGMA = 5.0 #check at least these pixels (pix*sigma) to either side of the fit line for SNR
+                      # (larger of this or GAUSS_SNR_NUM_AA) *note: also capped to a max of 40AA or so (the size of the
+                      # 'cutout' of the signal (i.e. GAUSS_FIT_AA_RANGE)
+GAUSS_SNR_NUM_AA = 5.0 #check at least this num of AA to either side (2x +1 total) of the fit line for SNR in gaussian fit
                        # (larger of this or GAUSS_SNR_SIGMA
 
 
@@ -55,27 +57,24 @@ GAUSS_SNR_NUM_AA = 5.0 #check at least 4 AA to either side (9 total) of the fit 
 #if change the noise model or SNR or line_flux algorithm or "EmissionLineInfo::is_good", need to recompute these
 #as MDF
 PROB_NOISE_LINE_SCORE = \
-[  6.5,   7.5,   8.5,   9.5,  10.5,  11.5,  12.5,  13.5,  14.5, 15.5,
-  16.5,  17.5,  18.5,  19.5,  20.5,  21.5,  22.5,  23.5,  24.5, 25.5,
-  26.5,  27.5,  28.5,  29.5,  30.5,  31.5,  32.5]
+[  2.5,   3.5,   4.5,   5.5,   6.5,   7.5,   8.5,   9.5,  10.5,
+        11.5,  12.5,  13.5,  14.5,  15.5]
 
-PROB_NOISE_GIVEN_SCORE = \
-    [2.51860000e-01, 1.96010000e-01, 1.51290000e-01,
-     1.10050000e-01, 7.84900000e-02, 5.61000000e-02,
-     4.05900000e-02, 2.96600000e-02, 2.21200000e-02,
-     1.52200000e-02, 1.14000000e-02, 8.40000000e-03,
-     5.87000000e-03, 4.78000000e-03, 3.65000000e-03,
-     2.59000000e-03, 2.11000000e-03, 1.66000000e-03,
-     1.38000000e-03, 1.21000000e-03, 9.40000000e-04,
-     5.70000000e-04, 6.80000000e-04, 5.60000000e-04,
-     4.50000000e-04, 2.80000000e-04, 2.20000000e-04]
+#PROB_NOISE_GIVEN_SCORE = np.zeros(len(PROB_NOISE_LINE_SCORE))#\
+PROB_NOISE_GIVEN_SCORE =  \
+[        3.77800000e-01,   2.69600000e-01,   1.66400000e-01,
+         9.05000000e-02,   4.69000000e-02,   2.28000000e-02,
+         1.07000000e-02,   7.30000000e-03,   3.30000000e-03,
+         2.30000000e-03,   1.00000000e-03,   5.00000000e-04,
+         5.00000000e-04,   2.00000000e-04]
 
 PROB_NOISE_TRUNCATED = 0.0002 #all bins after the end of the list get this value
-PROB_NOISE_MIN_SCORE = 6.0 #min score that makes it to the bin list
+PROB_NOISE_MIN_SCORE = 2.0 #min score that makes it to the bin list
 
 
 #beyond an okay fit (see GAUSS_FIT_xxx above) is this a "good" signal
-GOOD_MIN_LINE_SCORE = PROB_NOISE_MIN_SCORE # roughly 25% chance of noise
+GOOD_MIN_LINE_SCORE = 2.0 #lines are added to solution only if 'GOOD' (meaning, minimally more likely real than noise)
+#does not have to be the same as PROB_NOISE_MIN_SCORE, but that generally makes sense
 #GOOD_FULL_SNR = 9.0 #ignore SBR is SNR is above this
 #GOOD_MIN_SNR = 5.0 #bare-minimum; if you change the SNR ranges just above, this will also need to change
 #GOOD_MIN_SBR = 3.0 #signal to "background" noise (looks at peak height vs surrounding peaks) (only for "weak" signals0
@@ -91,7 +90,7 @@ GOOD_MAX_DX0_MULT = 1.75 #3.8 (AA) ... now 1.75 means 1.75 * pixel_size
                     #since this is based on the fit of the extra line AND the line center error of the central line
                     #this is a compound error (assume +/- 2 AA since ~ 1.9AA/pix for each so at most 4 AA here)?
 #GOOD_MIN_H_CONT_RATIO = 1.33 #height of the peak must be at least 33% above the continuum fit level
-ADDL_LINE_SCORE_BONUS = 10.0 #add for each line at 2+ lines (so 1st line adds nothing)
+ADDL_LINE_SCORE_BONUS = 5.0 #add for each line at 2+ lines (so 1st line adds nothing)
                             #this is rather "hand-wavy" but gives a nod to having more lines beyond just their score
 #todo: impose line ratios?
 #todo:  that is, if line_x is assumed and line_y is assumed, can only be valid if line_x/line_y ~ ratio??
@@ -242,6 +241,7 @@ class EmissionLineInfo:
         self.fit_vals = []
 
         self.pix_size = None
+        self.sn_pix = 0 #total number of pixels used to calcualte the SN (kind of like a width in pixels)
 
         #!! Important: raw_wave, etc is NOT of the same scale or length of fit_wave, etc
         self.raw_wave = []
@@ -272,10 +272,11 @@ class EmissionLineInfo:
 
 
     def build(self,values_units=0):
-        if self.snr > MIN_ELI_SNR:
+        if self.snr > MIN_ELI_SNR and self.fit_sigma > MIN_ELI_SIGMA:
             if self.fit_sigma is not None:
                 self.fwhm = 2.355 * self.fit_sigma  # e.g. 2*sqrt(2*ln(2))* sigma
 
+            unit = 1.0
             if self.fit_x0 is not None:
 
                 if values_units != 0:
@@ -310,7 +311,30 @@ class EmissionLineInfo:
             if self.line_flux and self.cont:
                 self.eqw_obs = self.line_flux / self.cont
 
-            self.line_score = self.snr * self.line_flux * 1.0e17
+            #line_flux is now in erg/s/... the 1e17 scales up to reasonable numbers (easier to deal with)
+            #we are technically penalizing a for large variance, but really this is only to weed out
+            #low and wide fits that are probably not reliable
+
+            #and penalize for large deviation from the highest point and the line (gauss) mean (center) (1.9 ~ pixel size)
+            #self.line_score = self.snr * self.line_flux * 1e17 / (2.5 * self.fit_sigma * (1. + abs(self.fit_dx0/1.9)))
+
+            #penalize for few pixels (translated to angstroms ... anything less than 21 AA total)
+            #penalize for too narrow sigma (anything less than 1 pixel
+
+            #the 10.0 is just to rescale ... could make 1e17 -> 1e16, but I prefer to read it this way
+
+            self.line_score = self.snr * self.line_flux * 1e17 * \
+                              min(self.fit_sigma/self.pix_size,1.0) * \
+                              min((self.pix_size * self.sn_pix)/21.0,1) / \
+                              (10.0 * (1. + abs(self.fit_dx0 / 1.9)) )
+            #
+            # !!! if you change this calculation, you need to re-calibrate the prob(Noise) (re-run exp_prob.py)
+            # !!! and update the Solution cut criteria in global_config.py (MULTILINE_MIN_SOLUTION_SCORE, etc) and
+            # !!!    in hetdex.py (DetObj::multiline_solution_score)
+            # !!! and update GOOD_MIN_LINE_SCORE and PROB_NOISE_MIN_SCORE
+            # !!! It is a little ciruclar as MIN scores are dependent on the results of the exp_prob.py run
+            #
+
             self.prob_noise = self.get_prob_noise()
         else:
             self.fwhm = -999
@@ -319,12 +343,11 @@ class EmissionLineInfo:
             self.line_score = 0
 
     def get_prob_noise(self):
-
         MDF = False
 
         try:
             if (self.line_score is None) or (self.line_score < PROB_NOISE_MIN_SCORE):
-                return 1.0 # really not, but we will cap it
+                return 0.98 # really not, but we will cap it
             #if we are off the end of the scores, set to a fixed probability
             elif self.line_score > max(PROB_NOISE_LINE_SCORE) + (PROB_NOISE_LINE_SCORE[1]-PROB_NOISE_LINE_SCORE[0]):
                 return PROB_NOISE_TRUNCATED #set this as the minium
@@ -359,7 +382,7 @@ class EmissionLineInfo:
         result = False
 
         # minimum to be possibly good
-        if (self.line_score > GOOD_MIN_LINE_SCORE) and (self.fit_sigma >= GOOD_MIN_SIGMA):
+        if (self.line_score >= GOOD_MIN_LINE_SCORE) and (self.fit_sigma >= GOOD_MIN_SIGMA):
             result = True
             #note: GOOD_MAX_DX0_MULT enforced in signal_score
 
@@ -559,6 +582,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                           % (raw_peak, fit_peak, abs(raw_peak - fit_peak) / raw_peak))
 
                 num_sn_pix = int(round(max(GAUSS_SNR_SIGMA * eli.fit_sigma, GAUSS_SNR_NUM_AA)/pix_size)) #half-width in AA
+                num_sn_pix = int(round(min(num_sn_pix,len(wave_counts)/2 - 1))) #don't go larger than the actual array
 
                 #?rms just under the part of the plot with signal (not the entire fit part) so, maybe just a few AA or pix
                 eli.fit_norm_rmse = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, eli.fit_x0 ), hw_pix=num_sn_pix,
@@ -567,6 +591,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                              norm=False)
 
                 num_sn_pix = num_sn_pix * 2 + 1 #need full width later (still an integer)
+
+                eli.sn_pix = num_sn_pix
     except Exception as ex:
         if ex.message.find("Optimal parameters not found") > -1:
             log.info("Could not fit gaussian near %f" % central,exc_info=False)
@@ -586,6 +612,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     else:
         accept_fit = False
         snr = 0.0
+        eli.snr = 0.0
+        eli.line_score = 0.0
         eli.line_flux = 0.0
 
     log.debug("SNR at %0.2f = %0.2f"%(central,snr))
@@ -594,12 +622,12 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
     #todo: re-calibrate to use SNR instead of SBR ??
     sbr = snr
-    #if sbr is None:
-    #    sbr = est_peak_strength(wavelengths,values,central,values_units)
-    #    if sbr is None:
-    #        #done, no reason to continue
-    #        log.warning("Could not determine SBR at wavelength = %f" %central)
-    #        return None
+    if sbr is None:
+        sbr = est_peak_strength(wavelengths,values,central,values_units)
+        if sbr is None:
+            #done, no reason to continue
+            log.warning("Could not determine SBR at wavelength = %f. Will use SNR." %central)
+            sbr = snr
 
     score = sbr
     eli.sbr = sbr
@@ -720,11 +748,11 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #              dx0, rh, error,eli.fit_rmse, si, sk, ku)
 
         title += "%0.2f z_guess=%0.4f A(%d) G(%d)\n" \
-                 "Score = %0.2f , SBR = %0.2f (%0.1f), SNR = %0.2f (%0.1f) wpix = %d\n" \
+                 "Line Score = %0.2f , SBR = %0.2f (%0.1f), SNR = %0.2f (%0.1f) wpix = %d\n" \
                  "Peak = %0.2g, Line(A) = %0.2g, Cont = %0.2g, EqW_Obs=%0.2f\n"\
                  "dX0 = %0.2f, RH = %0.2f, RMS = %0.2f (%0.2f) \n"\
                  "Sigma = %0.2f, Skew = %0.2f, Kurtosis = %0.2f"\
-                  % (eli.fit_x0,central_z,a,g,eli.snr * eli.line_flux * 1.0e17,sbr,
+                  % (eli.fit_x0,central_z,a,g,eli.line_score,sbr,
                      signal_calc_scaled_score(sbr),snr,signal_calc_scaled_score(snr),num_sn_pix,
                      eli.fit_h,eli.line_flux, eli.cont,eli.eqw_obs,
                      dx0, rh, error,eli.fit_rmse, si, sk, ku)

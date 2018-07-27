@@ -4672,7 +4672,7 @@ class HETDEX:
                 #put dashed line through all possible emission lines (note: possible, not necessarily probable)
                 if (datakeep['detobj'].spec_obj.all_found_lines is not None):
                     for f in datakeep['detobj'].spec_obj.all_found_lines: #this is an EmisssionLineInfo object
-                        if f.prob_noise < 0.1:
+                        if f.prob_noise < G.MULTILINE_MAX_PROB_NOISE_TO_PLOT:
                             x_pos = f.raw_x0
                             #y_pos = f.raw_h / 10.0 # per definition of EmissionLineInfo ... these are in 10^-18 cgs
                                                    # and these plots are 10^-17 cgs

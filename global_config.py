@@ -237,10 +237,11 @@ UNIQUE_DET_ID_NUM = 0
 
 CLASSIFY_WITH_OTHER_LINES = True
 MIN_ADDL_EMIS_LINES_FOR_CLASSIFY = 1
-MULTILINE_MIN_SOLUTION_SCORE = 25.0 #remember, this does NOT include the main line's score (about p(noise) = 0.01)
+MULTILINE_MIN_SOLUTION_SCORE = 20.0 #remember, this does NOT include the main line's score (about p(noise) = 0.01)
 MULTILINE_MIN_SOLUTION_CONFIDENCE = 0.98
+MULTILINE_MAX_PROB_NOISE_TO_PLOT = 0.1
 MULTILINE_ALWAYS_SHOW_BEST_GUESS = True #if true, show the best guess even if it does not meet the miniumum requirements
 
 DYNAMIC_MAG_APERTURE = True  #allow aperture size to change to fit maximum magnitude
 
-#DEBUG_SHOW_GAUSS_PLOTS = True #set on command line now --gaussplots
+DEBUG_SHOW_GAUSS_PLOTS = False #set on command line now --gaussplots (but keep here for compatibility with other programs)

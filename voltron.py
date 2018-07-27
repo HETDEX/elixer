@@ -136,12 +136,12 @@ def parse_commandline():
     parser.add_argument('--ifuslot', help="IFU SLOT ID (integer)  "
                                           "If not specified, all are used (may be restricted by --specid or --ifusid)", required=False, type=int)
 
-    parser.add_argument('-e', '--error', help="Error (+/-) in RA and Dec in arcsecs.", required=True, type=float)
+    parser.add_argument('-e', '--error', help="Error (+/-) in RA and Dec in arcsecs.", required=False, type=float)
 
     parser.add_argument('--fibers', help="Number of fibers to plot in 1D spectra cutout."
                                          "If present, also turns off weighted average.", required=False, type=int)
 
-    parser.add_argument('-n','--name', help="Report filename or directory name (if HETDEX emission lines supplied)",required=True)
+    parser.add_argument('-n','--name', help="Report filename or directory name (if HETDEX emission lines supplied)",required=False)
     parser.add_argument('--multi', help='*Mandatory. Switch remains only for compatibility. Cannot be turned off.*'
                                         'Produce one PDF file per emission line (in folder from --name).', required=False,
                         action='store_true', default=False)
@@ -184,6 +184,8 @@ def parse_commandline():
                         'more than 3 matches.', required=False, action='store_true', default=False)
 
     parser.add_argument('--gaussplots', help='(Debug) output plots of gaussian fits to emission line data',
+                        required=False, action='store_true', default=False)
+    parser.add_argument('--catcheck', help='Only check to see if there possible matches. Simplified commandline output only',
                         required=False, action='store_true', default=False)
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
@@ -248,28 +250,29 @@ def parse_commandline():
             args.par = p
 
 
-    if args.error < 0:
-        print("Invalid error. Must be non-negative.")
-        log.critical("Main exit. Invalid command line parameters.")
-        exit(0)
-
-    if not args.force:
-        prompt = ""
-        if (args.ra is not None) and (args.dec is not None):
-            prompt = "Looking for targets +/- %f\" from RA=%f DEC=%f\nProceed (y/n ENTER=YES)?" \
-                          % (args.error, args.ra, args.dec)
-        else:
-            prompt = "Looking for targets +/- %f\" from detections listed in file.\nProceed (y/n ENTER=YES)?" \
-                        % args.error
-
-        i = get_input(prompt)
-
-        if len(i) > 0 and i.upper() !=  "Y":
-            print ("Cancelled.")
-            log.critical("Main exit. User cancel.")
+    if not args.catcheck:
+        if args.error < 0:
+            print("Invalid --error. Must be non-negative.")
+            log.critical("Main exit. Invalid command line parameters.")
             exit(0)
-        else:
-            print()
+
+        if not args.force:
+            prompt = ""
+            if (args.ra is not None) and (args.dec is not None):
+                prompt = "Looking for targets +/- %f\" from RA=%f DEC=%f\nProceed (y/n ENTER=YES)?" \
+                              % (args.error, args.ra, args.dec)
+            else:
+                prompt = "Looking for targets +/- %f\" from detections listed in file.\nProceed (y/n ENTER=YES)?" \
+                            % args.error
+
+            i = get_input(prompt)
+
+            if len(i) > 0 and i.upper() !=  "Y":
+                print ("Cancelled.")
+                log.critical("Main exit. User cancel.")
+                exit(0)
+            else:
+                print()
 
     if valid_parameters(args):
         return args
@@ -282,21 +285,37 @@ def valid_parameters(args):
 
     result = True
 
-    #must have ra and dec -OR- dither and (ID or (chi2 and sigma))
-    if (args.ra is None) or (args.dec is None):
-        if (args.line is None) and (args.fcsdir is None):
-            print("Invalid parameters. Must specify either (--ra and --dec) or detect parameters (--dither, --line, --id, "
-                  "--sigma, --chi2, --fcsdir)")
-            result =  False
-        elif args.cure:
-            if (args.ifu is None):
-                print("Warning. IFU file not provided. Report might not contain spectra cutouts. Will search for IFU file "
-                      "in the config directory.")
-            if (args.dist is None):
-                print("Warning. Distortion file (base) not provided. Report might not contain spectra cutouts. "
-                      "Will search for Distortion files in the config directory.")
+    if not args.catcheck:
+        #also check name and error
+        if args.name is None:
+            print("--name is required")
+            result = False
 
-            #just a warning still return True
+        if args.error is None:
+            print("--error is required")
+            result = False
+    else:
+        if args.error is None:
+            args.error = 0.0
+        if args.name is None:
+            args.name = "argscheck"
+
+    #must have ra and dec -OR- dither and (ID or (chi2 and sigma))
+    if result:
+        if (args.ra is None) or (args.dec is None):
+            if (args.line is None) and (args.fcsdir is None):
+                print("Invalid parameters. Must specify either (--ra and --dec) or detect parameters (--dither, --line, --id, "
+                      "--sigma, --chi2, --fcsdir)")
+                result =  False
+            elif args.cure:
+                if (args.ifu is None):
+                    print("Warning. IFU file not provided. Report might not contain spectra cutouts. Will search for IFU file "
+                          "in the config directory.")
+                if (args.dist is None):
+                    print("Warning. Distortion file (base) not provided. Report might not contain spectra cutouts. "
+                          "Will search for Distortion files in the config directory.")
+
+                #just a warning still return True
 
     if result and (args.obsdate or args.obsid or args.dither):
         #if you proved obsdata and/or obsid they will be used and you must have all three
@@ -626,7 +645,13 @@ def delete_report_parts(report_name):
 def confirm(hits,force):
 
     if not force:
-        i = get_input("\n%d total possible matches found.\nProceed (y/n ENTER=YES)?" % hits)
+
+        if hits < 0:
+            msg = "\n%d total possible matches found (no overlapping catalogs).\nProceed anyway (y/n ENTER=YES)?" % hits
+        else:
+            msg = "\n%d total possible matches found.\nProceed (y/n ENTER=YES)?" % hits
+
+        i = get_input(msg)
 
         if len(i) > 0 and i.upper() != "Y":
             print("Cancelled.")
@@ -863,6 +888,7 @@ def get_fcsdir_subdirs_to_process(args):
     return subdirs
 
 def main():
+
     global G_PDF_FILE_NUM
 
     #G.gc.enable()
@@ -1033,21 +1059,37 @@ def main():
 
     elif (args.ra is not None) and (args.dec is not None):
         num_hits = 0
+        num_cats = 0
+        catlist_str = ""
         matched_cats = [] #there were no detection objects (just an RA, Dec) so use a generic, global matched_cats
         for c in cats:
             if c.position_in_cat(ra=args.ra,dec=args.dec,error=args.error):
+                num_cats += 1
                 if c not in matched_cats:
                     matched_cats.append(c)
-                hits,_,_ = c.build_list_of_bid_targets(ra=args.ra,dec=args.dec,error=args.error)
-                num_hits += hits
-                if hits > 0:
-                    print ("%d hits in %s" %(hits,c.name))
+                    catlist_str += c.name + ", "
 
-        if not confirm(num_hits,args.force):
-            log.critical("Main exit. User cancel.")
+                if args.error > 0:
+                    hits,_,_ = c.build_list_of_bid_targets(ra=args.ra,dec=args.dec,error=args.error)
+                    num_hits += hits
+
+                    if hits > 0:
+                        print ("%d hits in %s" %(hits,c.name))
+                    elif args.catcheck:
+                        print("%d hits in %s (*only checks closest tile)" %(hits,c.name))
+        if args.catcheck:
+            catlist_str = catlist_str[:-2]
+            print("%d overlapping catalogs (%f,%f). %s" %(num_cats,args.ra, args.dec, catlist_str))
             exit(0)
+            #if num_cats == 0:
+            #    num_hits = -1 #will show -1 if no catalogs vs 0 if there are matching catalogs, just no matching targets
+                #print("-1 hits. No overlapping imaging catalogs.")
+        else:
+            if not confirm(num_hits,args.force):
+                log.critical("Main exit. User cancel.")
+                exit(0)
 
-        pages,_ = build_pages(args.name,None,args.ra, args.dec, args.error, matched_cats, pages, idstring="# 1 of 1")
+            pages,_ = build_pages(args.name,None,args.ra, args.dec, args.error, matched_cats, pages, idstring="# 1 of 1")
     else:
         print("Invalid command line call. Insufficient information to execute or No detections meet minimum criteria.")
         exit(-1)
