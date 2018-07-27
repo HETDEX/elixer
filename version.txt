@@ -1,6 +1,10 @@
 changes to voltron by version
 
-1.4.0a9 [2018-xx-xx]
+1.4.0a10 [2018-07-27]
+* changing project name (and supporting files/references) from voltron to elixer
+
+
+1.4.0a9 [2018-07-27]
 * add MCMC fitting of gaussian (can be used on any line, but currently just on main line and currently only logged)
   (note: testing shows close agreement with scipy curve_fit, so for the additional lines, just use curve_fit as it
    is much faster ... for the main line use MCMC as it provides the estimated distribution (uncertainties) in the
