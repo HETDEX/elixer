@@ -230,6 +230,8 @@ def parse_commandline():
                 exit(-1)
         elif args.ra[-1].lower() == 'h': #decimal hours
             args.ra = float(args.ra.rstrip('Hh'))  * 15.0
+        elif args.ra[-1].lower() == 'd': #decimal (unncessary)
+            args.ra = float(args.ra.rstrip('Dd'))
         else:
             args.ra = float(args.ra)
 
@@ -241,6 +243,8 @@ def parse_commandline():
                 print("Error. Cannot determine format of DEC")
                 log.critical("Main exit. Invalid command line parameters.")
                 exit(-1)
+        elif args.dec[-1].lower() == 'd': #decimal (unncessary)
+            args.dec = float(args.dec.rstrip('Dd'))
         else:
             args.dec = float(args.dec)
 
