@@ -223,15 +223,54 @@ class HetdexFits:
         if not self.filename:
             return None
 
+        tarfile = None
+        file = None
         if not op.exists(self.filename):
-            log.error("Error. FITS file does not exist: " + self.filename)
-            return None
+            # todo: try to find .tar file and load that way
+            tar_fn = self.filename.split("/exp")[0] + ".tar"
+            #remember, no leading '/' in tarfile contents
+            fits_fn = "exp" + self.filename.split("/exp")[1]
+
+            try:
+                if op.exists(tar_fn):
+                    if tar.is_tarfile(tar_fn):
+                        tarfile = tar.open(name=tar_fn)
+
+                    #todo: search for name first? or just try to extract it
+                    #fqdn = tarfile.getnames()  # list of all conents (as full paths) includes directories
+                    file = tarfile.extractfile(fits_fn)
+                    # remember do not close the tarfile until we are done
+                else:
+                    log.info("Could not open tarfile:fits (%s: %s)" %(tar_fn,fits_fn))
+
+            except:
+                log.error("Error. Could not open tarfile:fits (%s: %s)" %(tar_fn,fits_fn), exc_info=True)
+                tarfile = None
+                file=None
+
+            if file == None:
+                log.error("Error. FITS file does not exist: " + self.filename)
+                try:
+                    if tarfile:
+                        tarfile.close()
+                except:
+                    log.error("could not close tar file ", exc_info=True)
+
+                return None
+        else:
+            file = self.filename
 
         try:
             log.debug("Loading %s ..." %self.filename)
-            f = pyfits.open(self.filename)
+            f = pyfits.open(file) #file maybe a file name or a .tar file object
         except:
             log.error("could not open file " + self.filename, exc_info=True)
+
+            try:
+                if tarfile:
+                    tarfile.close()
+            except:
+                log.error("could not close tar file ", exc_info=True)
             return None
 
         try:
@@ -308,6 +347,11 @@ class HetdexFits:
         except:
             log.error("Cannot read fits header. Missing expected keywords. " + self.filename, exc_info=True)
             self.okay = False
+            try:
+                if tarfile:
+                    tarfile.close()
+            except:
+                log.error("could not close tar file ", exc_info=True)
             return
 
         try:
@@ -326,10 +370,22 @@ class HetdexFits:
             self.side = f[idx].header['AMP'][0] #the L or R ... probably don't need this anyway
             #self.exptime = f[idx].header['EXPTIME']
         except:
+            try:
+                if tarfile:
+                    tarfile.close()
+            except:
+                log.error("could not close tar file ", exc_info=True)
+
             log.error("Cannot read fits header. Missing expected keywords. Will attempt to pull from filename." + self.filename, exc_info=True)
             #try to get info from the filename
             self.parse_panacea_fits_name(self.filename)
             return
+
+        try:
+            if tarfile:
+                tarfile.close()
+        except:
+            log.error("could not close tar file ", exc_info=True)
 
         try:
             f.close()

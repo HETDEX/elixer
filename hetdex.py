@@ -989,7 +989,8 @@ class DetObj:
                     #f.relative_weight /= norm #note: some we see are zero ... they do not contribute
 
                 for f in self.fibers:
-                    f.relative_weight /= subset_norm
+                    if subset_norm != 0:
+                        f.relative_weight /= subset_norm
                     #f.relative_weight /= max_weight
 
 
@@ -1019,7 +1020,8 @@ class DetObj:
         try:
             size = os.stat(file).st_size
             if size == 0:
-                log.error("*specf.res file is zero length: %s" %file)
+                print("*specf.res file is zero length (no VIRUS data available?): %s" %file)
+                log.error("*specf.res file is zero length (no VIRUS data available?): %s" %file)
                 self.status = -1
                 return
         except:
