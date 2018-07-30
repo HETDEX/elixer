@@ -2805,8 +2805,8 @@ class HETDEX:
             title += " $\chi^2$ = %g" % (e.chi2)
 
 
-        if e.dqs is None:
-            e.dqs_score()
+        #if e.dqs is None:
+        #    e.dqs_score() #not doing dqs anymore
       #  title += "  Score = %0.1f (%0.2f)" % (e.dqs,e.dqs_raw)
 
         if not G.ZOO:
@@ -2956,6 +2956,25 @@ class HETDEX:
                         plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
                     except:
                         log.warning("Failed to build full width spec/cutout image.", exc_info=True)
+            else:
+                pages.append(fig) #append what we have (done with a blank as well so the sizes are correct)
+                plt.close('all')
+                fig = plt.figure(figsize=(G.FIGURE_SZ_X, figure_sz_y))
+                plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
+                plt.gca().axis('off')
+                plt.text(0.5, 0.5, "Unable to locate or import reduced data (FITS)", ha='center', va='center', fontproperties=font)
+                pages.append(fig)  # append the second part to its own page to be merged later
+                plt.close()
+        else:
+            pages.append(fig)  # append what we have (done with a blank as well so the sizes are correct)
+            plt.close('all')
+            fig = plt.figure(figsize=(G.FIGURE_SZ_X, figure_sz_y))
+            plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
+            plt.gca().axis('off')
+            plt.text(0.5, 0.5, "Unable to locate or import reduced data (FITS)", ha='center', va='center',
+                     fontproperties=font)
+            pages.append(fig)  # append the second part to its own page to be merged later
+            plt.close()
 
         #safety check
         # update emission with the ra, dec of all fibers
@@ -2967,9 +2986,10 @@ class HETDEX:
             except:
                 log.error("Error building fiber_locs", exc_info=True)
 
-        if not G.SINGLE_PAGE_PER_DETECT:
-            pages.append(fig)
-            plt.close()
+        #always forcing SINGLE_PAGE_PER_DETECT as of version 1.1.0
+        #if not G.SINGLE_PAGE_PER_DETECT:
+        #    pages.append(fig)
+        #    plt.close()
         #else, the pages were appended invidivually
         return pages
 
@@ -3077,7 +3097,7 @@ class HETDEX:
         else:
             datakeep = self.build_hetdex_data_dict(detobj)
 
-        detobj.dqs_score() #force_recompute=True)
+        #detobj.dqs_score() #force_recompute=True) #not doing dqs score anymore
         return datakeep
 
     def build_hetdex_data_dict(self,e):#e is the emission detection to use

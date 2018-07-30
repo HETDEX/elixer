@@ -397,6 +397,36 @@ class EmissionLineInfo:
             #    result =  True
 
         return result
+ #end EmissionLineInfo Class
+
+def fit_line(wavelengths,values,errors=None):
+#super simple line fit ... very basic
+#rescale x so that we start at x = 0
+    coeff = np.polyfit(wavelengths,values,deg=1)
+
+    #flip the array so [0] = 0th, [1] = 1st ...
+    coeff = np.flip(coeff,0)
+
+    if False: #just for debug
+        fig = plt.figure()
+        line_plot = plt.axes()
+        line_plot.plot(wavelengths, values, c='b')
+
+        x_vals = np.array(line_plot.get_xlim())
+        y_vals = coeff[0] + coeff[1] * x_vals
+        line_plot.plot(x_vals, y_vals, '--',c='r')
+
+        fig.tight_layout()
+        fig.savefig("line.png")
+        fig.clear()
+        plt.close()
+        # end plotting
+
+
+    return coeff
+
+
+
 
 
 def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=None,values_units=0, sbr=None,
@@ -1541,6 +1571,10 @@ class Spectrum:
         self.errors = []
         self.values_units = 0
 
+        # very basic info, fit line to entire spectrum to see if there is a general slope
+        #useful in identifying stars (kind of like a color U-V (ish))
+        self.spectrum_linear_coeff = None #index = power so [0] = onstant, [1] = 1st .... e.g. mx+b where m=[1], b=[0]
+
         self.central = None
         self.estflux = None
         self.eqw_obs = None
@@ -1613,7 +1647,6 @@ class Spectrum:
         if self.solutions is not None:
             del self.solutions[:]
 
-
         #run MCMC on this one ... the main line
         eli = signal_score(wavelengths=wavelengths, values=values, errors=errors,central=central,
                            values_units=values_units,sbr=None, show_plot=True,plot_id=self.identifier,
@@ -1626,6 +1659,12 @@ class Spectrum:
                 eqw_obs = eli.eqw_obs
 
             self.central_eli = copy.deepcopy(eli)
+
+            # get very basic info (line fit)
+            coeff = fit_line(wavelengths, values, errors)  # flipped order ... coeff[0] = 0th, coeff[1]=1st
+            self.spectrum_linear_coeff = coeff
+            log.info("%s Spectrum basic info (mx+b): %f(x) + %f" %(self.identifier,coeff[1],coeff[0]))
+            #todo: maybe also a basic parabola? (if we capture an overall peak? like for a star black body peak?
         else:
             log.warning("Warning! Did not successfully compute signal_score on main emission line.")
 
