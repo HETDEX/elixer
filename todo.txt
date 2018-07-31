@@ -1,3 +1,11 @@
+[2018-07-31] rsp family
+for annulus ... run rsp1a2 as ___ ___ max_radius 4500.0 1000 name2 name1
+basically, get all fibers in the maximum radius
+then use l1 (for the RA, Dec of each fiber, in order) and tmpxxx.dat (each fiber data) to select which fibers to keep
+ do the annulus and the addition in your own code, that way, need not maintain any modification to rsp
+
+
+
 
 [2018-06-04] -- late summer?
 ** add new 0th row to top of plot to be generated at the end (but sorted to top when building pdf)

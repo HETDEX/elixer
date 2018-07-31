@@ -149,8 +149,8 @@ def parse_commandline():
     parser.add_argument('--dither', help="HETDEX Dither file", required=False)
     parser.add_argument('--path', help="Override path to science fits in dither file", required=False)
     parser.add_argument('--line', help="HETDEX detect line file", required=False)
-    parser.add_argument('--fcsdir', help="Flux Calibrated Spectra DIRectory (commonly from rsp1)", required=False)
-    parser.add_argument('--dets', help="List of detections (of form '20170314v011_005') or file containing a list"
+    parser.add_argument('--fcsdir', help="Flux Calibrated Spectra DIRectory (commonly from rsp1). No wildcards. (see --dets)", required=False)
+    parser.add_argument('--dets', help="List of detections (of form '20170314v011_005') or subdirs under fscdir (wildcards okay) or file containing a list"
                                        " of detections (one per line)", required=False)
 
     parser.add_argument('--ifu', help="HETDEX IFU (Cure) file", required=False)

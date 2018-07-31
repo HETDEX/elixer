@@ -1020,8 +1020,8 @@ class DetObj:
         try:
             size = os.stat(file).st_size
             if size == 0:
-                print("*specf.res file is zero length (no VIRUS data available?): %s" %file)
-                log.error("*specf.res file is zero length (no VIRUS data available?): %s" %file)
+                print("eid(%d) *specf.res file is zero length (no VIRUS data available?): %s" %(self.entry_id,file))
+                log.error("eid(%d) *specf.res file is zero length (no VIRUS data available?): %s" %(self.entry_id,file))
                 self.status = -1
                 return
         except:
@@ -2490,6 +2490,8 @@ class HETDEX:
                     e.load_fluxcalibrated_spectra()
                     if e.status >= 0:
                         self.emis_list.append(e)
+                    else:
+                        log.info("Unable to continue with eid(%d). No report will be generated." %(e.entry_id))
         elif (self.fcs_base is not None and self.fcsdir is not None): #not the usual case
             toks = None
             e = DetObj(toks, emission=True, fcs_base=self.fcs_base,fcsdir=self.fcsdir)
@@ -2834,7 +2836,7 @@ class HETDEX:
                 sol = datakeep['detobj'].spec_obj.solutions[0]
                 title += "\n*(%0.3f) %s(%d) z = %0.4f  EW_r = %0.1f$\AA$" %(p_good, sol.name, int(sol.central_rest),sol.z,
                                                                         e.eqw_obs/(1.0+sol.z))
-            elif (p_good > 0.0):
+            elif (p_good > G.MULTILINE_MIN_WEAK_SOLUTION_CONFIDENCE):
                 #weak solution ... for display only, not acceptabale as a solution
                 #do not set the solution (sol) to be recorded
                 sol = datakeep['detobj'].spec_obj.solutions[0]
@@ -4665,7 +4667,7 @@ class HETDEX:
 
             if not G.ZOO:
                 good, p_real = datakeep['detobj'].multiline_solution_score()
-                if (p_real > 0.0):
+                if (p_real > G.MULTILINE_MIN_WEAK_SOLUTION_CONFIDENCE):
                     #a solution
                     sol = datakeep['detobj'].spec_obj.solutions[0]
                     y_pos = textplot.axis()[2]
