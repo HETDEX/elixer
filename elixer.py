@@ -705,7 +705,7 @@ def write_fibers_file(filename,hd_list):
     headers = [
         "input (entry) ID",
         "detect ID",
-        "detection quality score",
+        #"detection quality score",
         "emission line RA (decimal degrees)",
         "emission line Dec (decimal degrees)",
         "emission line wavelength (AA)",
@@ -729,7 +729,7 @@ def write_fibers_file(filename,hd_list):
         "  RA of fiber center",
         "  Dec of fiber center",
         "  S/N of emission line in this fiber",
-        "  weighted quality score",
+        #"  weighted quality score",
         "  X coord on the CCD for the amp of this emission line in this fiber (as shown in ds9)",
         "  Y coord on the CCD for the amp of this emission line in this fiber (as shown in ds9)",
         "  the next fiber_id string and so on ..."
@@ -751,9 +751,9 @@ def write_fibers_file(filename,hd_list):
             #f.write(str(entry_num))
             f.write(str(emis.entry_id))
             f.write(sep + str(emis.id))
-            if emis.dqs is None:
-                emis.dqs_score()
-            f.write(sep + str(emis.dqs))
+            #if emis.dqs is None: #as of 1.4.0a11+ not using dqs
+            #    emis.dqs_score()
+            #f.write(sep + str(emis.dqs))
             if emis.wra:
                 f.write(sep + str(emis.wra))
                 f.write(sep + str(emis.wdec))
@@ -786,7 +786,7 @@ def write_fibers_file(filename,hd_list):
                 f.write(sep + str(fib.ra)) #of fiber center
                 f.write(sep + str(fib.dec))
                 f.write(sep + str(fib.sn))
-                f.write(sep + str(fib.dqs))
+                #f.write(sep + str(fib.dqs)) #as of 1.4.0a11 not using dqs
                 f.write(sep + str(fib.ds9_x))
                 f.write(sep + str(fib.ds9_y))
 
@@ -1002,6 +1002,9 @@ def main():
                 num_hits = 0
 
                 for e in hd.emis_list:
+
+                    log.info("Processing catalogs for eid(%d) ... " %e.entry_id)
+
                     for c in cats:
                         if (e.wra is not None) and (e.wdec is not None):  # weighted RA and Dec
                             ra = e.wra

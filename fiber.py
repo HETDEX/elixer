@@ -1,5 +1,6 @@
 import global_config as G
 import numpy as np
+import spectrum as elixer_spectrum
 
 #log = G.logging.getLogger('fiber_logger')
 #log.setLevel(G.logging.DEBUG)
@@ -13,6 +14,17 @@ SIDE = ["L", "R"]
 AMP  = ["LU","LL","RL","RU"] #in order from bottom to top
 AMP_OFFSET = {"LU":1,"LL":113,"RL":225,"RU":337}
 
+MIN_WAVELENGTH = 3500.0
+MAX_WAVELENGTH = 5500.0
+INTERPOLATION_AA_PER_PIX = 2.0
+
+def fit_line(wavelengths,values,errors=None):
+#super simple line fit ... very basic
+#rescale x so that we start at x = 0
+    coeff = np.polyfit(wavelengths,values,deg=1)
+    #flip the array so [0] = 0th, [1] = 1st ...
+    coeff = np.flip(coeff,0)
+    return coeff
 
 def parse_fiber_idstring(idstring):
     if idstring is None:
@@ -119,11 +131,12 @@ class Fiber:
         self.ra = None
         self.dec = None
 
-        self.dqs = None  # detection quality score for this fiber (as part of the DetObj owner)
-        self.dqs_raw = None  # unweighted score
-        self.dqs_dist = None  # distance from source
-        self.dqs_w = None #dqs weight
-        self.dqs_bad = False
+        #as of 1.4.0a11+ no longer using dqs
+        # self.dqs = None  # detection quality score for this fiber (as part of the DetObj owner)
+        # self.dqs_raw = None  # unweighted score
+        # self.dqs_dist = None  # distance from source
+        # self.dqs_w = None #dqs weight
+        # self.dqs_bad = False
 
         #these are from panacea or cure directly , the flux-calibrated data is farther down
         self.central_wave_pixels_bad = 0
@@ -132,7 +145,7 @@ class Fiber:
         self.central_emis_errors = []
 
 
-        #full length    
+        #full length   (NOT CALIBRATED)
         self.data_spectra_wavelengths=[]
         self.data_spectra_counts=[]
         self.data_spectra_errors = []
@@ -140,18 +153,24 @@ class Fiber:
 
         #interpolated onto a 1 angstrom grid
         self.interp_spectra_wavelengths = []
+        self.interp_spectra_flux = []
         self.interp_spectra_counts = []
         self.interp_spectra_errors = []
 
         self.multi = None
         self.relative_weight = 1.0 #spatially calculated, so one for entire fiber
         # to sum fibers need relative_weight*thuput at each wavelength
+
+        #full length CALIBRATED (labeled 'central' but this is the whole length)
         self.fluxcal_central_emis_wavelengths = []
         self.fluxcal_central_emis_counts = []
         self.fluxcal_central_emis_flux = []
         self.fluxcal_central_emis_fluxerr = []
         self.fluxcal_central_emis_thru = []
         self.fluxcal_emis_cont = []
+
+        self.empty_status = None #meaning, no strong signals (anywhere in spectrum)
+        self.peaks = None #if populated is an array of peaks from spectrum::peakdet (may be empty if no strong signal)
 
         try:
             self.panacea_idx = int(panacea_fiber_index)
@@ -166,11 +185,24 @@ class Fiber:
             self.multi = "multi_%s_%s_%s_%s_%s" % \
                         ( str(self.specid).zfill(3), str(self.ifuslot).zfill(3),str(self.ifuid).zfill(3),
                           self.amp, str(self.panacea_idx+1).zfill(3))
-
         except:
             log.error("Unable to map fiber index (%d) to fiber number(s)" % int(panacea_fiber_index), exc_info=True)
 
+    @property
+    def fluxcal_wavelengths(self):
+        return self.fluxcal_central_emis_wavelengths
 
+    @property
+    def fluxcal_flux(self):
+        return self.fluxcal_central_emis_flux
+
+    @property
+    def fluxcal_values(self):
+        return self.fluxcal_central_emis_flux
+
+    @property
+    def fluxcal_err(self):
+        return self.fluxcal_central_emis_fluxerr
 
     @property
     def sky_x(self):
@@ -210,74 +242,157 @@ class Fiber:
         else:
             return -1
 
+    def is_empty(self, wavelengths, values, errors=None, units=None, max_score=10.0, max_snr=2.0, force=False):
+        '''
+        Basically, is the fiber free from any overt signals (real emission line(s), continuum, sky, etc)
+        Values and errors must have the same units
+        Values and errors must already be normalized (e.g. values/fiber_to_fiber, errors*fiber_to_fiber, etc)
+        Would be best (downstream) if they were also flux calibtrated, but does not matter much in this function
 
-    def dqs_weight(self,ra,dec):
-        weight = 0.0
-        #specifically None ... a 0.0 RA or Dec is possible
-        if (ra is None) or (dec is None) or (self.ra is None) or (self.dec is None):
-            self.dqs_dist = 999.9
-            return weight
+        '''
 
-        dist = np.sqrt( (np.cos(np.deg2rad(dec))*(ra-self.ra)) ** 2 + (dec - self.dec) ** 2) * 3600.
+        if not force and (self.empty_status is not None):
+            return self.empty_status
 
-        if dist > G.FULL_WEIGHT_DISTANCE:
-            if dist > G.ZERO_WEIGHT_DISTANCE:
-                weight = 0.0
+
+        # todo: reject if any signal found
+        # could find peaks and kick out anything with S/N > 3?
+        # what about contiuum??
+        #  could average over chunks of, say, 100 pixels and reject if any chunk is above a threshold
+        #   but then would need to know if these are counts, ergs, or what units???
+
+        # what about a relative distance between min and max as a simple check??
+        # (like    (max-min)/(.5*abs(max+min)) ...not that ... basically will always be 2
+        # maybe (max-min)/(mean(values)) should not be more than 2 or 3?
+        self.empty_status = False
+
+        #first check the slope .... if there is an overall slope there must be continuum and that == signal
+        try:
+
+            coeff = fit_line(wavelengths, values, errors)  # flipped order ... coeff[0] = 0th, coeff[1]=1st
+            self.spectrum_linear_coeff = coeff
+            # check it later, still want to perform peakdet
+
+            #            extrema_ratio = (max(values) - min(values))/np.mean(values)
+            #            print (extrema_ratio)
+
+            if (units is None) or (units == 'counts'):
+                if min(values) < -50.0 or max(values) > 50.0:
+                    log.debug("Fiber rejected for addition. Large extrema.")
+                    return self.empty_status
+
+            self.peaks = elixer_spectrum.peakdet(wavelengths, values, errors)  # , h, dh, zero)
+            # signal = list(filter(lambda x: (x[5] > max_score) or (x[6] > max_snr),peaks))
+
+            # signal = list(filter(lambda x: x[6] > max_snr,peaks))
+            # 2018-06-11: dd .. peakdet modified to apply "is_good" and return list of EmissionLineInfo objects
+            #            so, if the list if not empty, then there are "good" signals and this is not what we want
+
+
+            num_peaks = -1
+            if (self.peaks is not None):
+                num_peaks = len(self.peaks)
+
+            log.info("(%f,%f) spectrum basic info. Peaks (%d), continuum (mx+b): %f(x) + %f"
+                     %(self.ra, self.dec, num_peaks,coeff[1], coeff[0]))
+
+            if (num_peaks == 0) and (coeff[1] < 0.001): #todo .. what is a good value here?
+                #stars and some galaxies are 0.001+ might need to go even smaller?
+                self.empty_status = True
             else:
-                weight = G.QUAD_A*dist**2 + G.QUAD_B*dist + G.QUAD_C
-        else:
-            weight = 1.0
+                log.debug("Fiber may not be empty.")
+        except:
+            log.debug("Exception in fiber::is_empty() ", exc_info=True)
 
-        self.dqs_dist = dist
-        self.dqs_w = weight
-        log.debug("Line (%f,%f), Fiber (%f,%f), dist = %f, weight = %f" %(ra,dec,self.ra,self.dec,dist,weight))
-        return weight
+        return self.empty_status
 
-    def dqs_score(self,ra,dec,force_recompute=False): #yeah, redundantly named ...
-        if self.dqs_bad:
-            return 0.0
+    def interpolate(self,grid_size=INTERPOLATION_AA_PER_PIX):
 
-        if (self.dqs is not None) and not force_recompute:
-            return self.dqs
+        self.interp_spectra_wavelengths = np.arange(MIN_WAVELENGTH, MAX_WAVELENGTH + grid_size, grid_size)
+        self.interp_spectra_flux = np.interp(self.interp_spectra_wavelengths, self.fluxcal_wavelengths,
+                                              self.fluxcal_flux)
 
-        self.dqs = 0.0
-        self.dqs_raw = 0.0
-        if (ra is None) or (dec is None) or (self.ra is None) or (self.dec is None):
-            return self.dqs
+        #should not need this one...
+        self.interp_spectra_counts = np.interp(self.interp_spectra_wavelengths, self.fluxcal_wavelengths,
+                                             self.fluxcal_central_emis_counts)
 
-        weight = self.dqs_weight(ra,dec)
-        score = 0.0
-        sqrt_sn = 100.0 #above linear_sn
-        linear_sn = 3.0 #above sq_sn
-        sq_sn = 2.0
-        base_sn = 3.0
-        #build score (additive only)
-        if self.sn:
-            if self.sn < base_sn:
-                score += 0.0
-            elif self.sn < (base_sn + sq_sn):
-                score += (self.sn - base_sn)**2
-            elif self.sn < (base_sn + sq_sn + linear_sn): #linear growth
-                #square growth part
-                score += sq_sn**2
-                #linear part
-                score += (self.sn - (base_sn + sq_sn))
-            elif self.sn < (base_sn + sq_sn + linear_sn + sqrt_sn): #sqrt growth
-                # square growth part
-                score += sq_sn ** 2
-                # linear part
-                score += linear_sn
-                #sqrt growth part
-                score += np.sqrt(1. + self.sn-(base_sn+sq_sn+linear_sn))-1
-            else:
-                log.info("Unexpected, really large S/N (%f) for %s" % (self.sn,self.idstring))
-                score += -1.0 #same as low score ... something really wrong sn 100+ is nonsense (thinking cosmic ray?)
+        #not sure this is the best approach, but the errors are pretty consistent (slowly varying),
+        #so hopefully this is okay
+        self.interp_spectra_errors = np.interp(self.interp_spectra_wavelengths,
+                                               self.fluxcal_wavelengths,
+                                               self.fluxcal_err)
 
-        self.dqs_raw = score
-        self.dqs = weight * score
 
-        log.debug("DetID # %d , Fiber: %s , Dist = %g , Raw Score = %g , Weighted Score = %g"
-                  %(self.detect_id,self.idstring, self.dqs_dist, self.dqs_raw, self.dqs))
 
-        return self.dqs
 
+
+    # def dqs_weight(self,ra,dec):
+    #     weight = 0.0
+    #     #specifically None ... a 0.0 RA or Dec is possible
+    #     if (ra is None) or (dec is None) or (self.ra is None) or (self.dec is None):
+    #         self.dqs_dist = 999.9
+    #         return weight
+    #
+    #     dist = np.sqrt( (np.cos(np.deg2rad(dec))*(ra-self.ra)) ** 2 + (dec - self.dec) ** 2) * 3600.
+    #
+    #     if dist > G.FULL_WEIGHT_DISTANCE:
+    #         if dist > G.ZERO_WEIGHT_DISTANCE:
+    #             weight = 0.0
+    #         else:
+    #             weight = G.QUAD_A*dist**2 + G.QUAD_B*dist + G.QUAD_C
+    #     else:
+    #         weight = 1.0
+    #
+    #     self.dqs_dist = dist
+    #     self.dqs_w = weight
+    #     log.debug("Line (%f,%f), Fiber (%f,%f), dist = %f, weight = %f" %(ra,dec,self.ra,self.dec,dist,weight))
+    #     return weight
+
+    # def dqs_score(self,ra,dec,force_recompute=False): #yeah, redundantly named ...
+    #     if self.dqs_bad:
+    #         return 0.0
+    #
+    #     if (self.dqs is not None) and not force_recompute:
+    #         return self.dqs
+    #
+    #     self.dqs = 0.0
+    #     self.dqs_raw = 0.0
+    #     if (ra is None) or (dec is None) or (self.ra is None) or (self.dec is None):
+    #         return self.dqs
+    #
+    #     weight = self.dqs_weight(ra,dec)
+    #     score = 0.0
+    #     sqrt_sn = 100.0 #above linear_sn
+    #     linear_sn = 3.0 #above sq_sn
+    #     sq_sn = 2.0
+    #     base_sn = 3.0
+    #     #build score (additive only)
+    #     if self.sn:
+    #         if self.sn < base_sn:
+    #             score += 0.0
+    #         elif self.sn < (base_sn + sq_sn):
+    #             score += (self.sn - base_sn)**2
+    #         elif self.sn < (base_sn + sq_sn + linear_sn): #linear growth
+    #             #square growth part
+    #             score += sq_sn**2
+    #             #linear part
+    #             score += (self.sn - (base_sn + sq_sn))
+    #         elif self.sn < (base_sn + sq_sn + linear_sn + sqrt_sn): #sqrt growth
+    #             # square growth part
+    #             score += sq_sn ** 2
+    #             # linear part
+    #             score += linear_sn
+    #             #sqrt growth part
+    #             score += np.sqrt(1. + self.sn-(base_sn+sq_sn+linear_sn))-1
+    #         else:
+    #             log.info("Unexpected, really large S/N (%f) for %s" % (self.sn,self.idstring))
+    #             score += -1.0 #same as low score ... something really wrong sn 100+ is nonsense (thinking cosmic ray?)
+    #
+    #     self.dqs_raw = score
+    #     self.dqs = weight * score
+    #
+    #     log.debug("DetID # %d , Fiber: %s , Dist = %g , Raw Score = %g , Weighted Score = %g"
+    #               %(self.detect_id,self.idstring, self.dqs_dist, self.dqs_raw, self.dqs))
+    #
+    #     return self.dqs
+    #

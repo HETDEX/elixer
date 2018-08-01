@@ -768,7 +768,7 @@ class IFU:
             #signal = list(filter(lambda x: x[6] > max_snr,peaks))
             #2018-06-11: dd .. peakdet modified to apply "is_good" and return list of EmissionLineInfo objects
             #            so, if the list if not empty, then there are "good" signals and this is not what we want
-            if len(peaks):
+            if len(peaks) == 0:
             #if len(signal) == 0:
                 rc = True
             else:

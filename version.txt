@@ -3,6 +3,9 @@ changes to elixer by version
 1.4.0a11 [2018-07-30]
 * still produce full sized PDF even if multi*fits files cannot be located or imported (use empty spacing)
 
+* building toward summing fibers (for diffuse emission).
+    Add: SyntheticObservation (observation.py)
+
 1.4.0a10 [2018-07-27]
 * changing project name (and supporting files/references) from voltron to elixer
 

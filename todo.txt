@@ -4,6 +4,19 @@ basically, get all fibers in the maximum radius
 then use l1 (for the RA, Dec of each fiber, in order) and tmpxxx.dat (each fiber data) to select which fibers to keep
  do the annulus and the addition in your own code, that way, need not maintain any modification to rsp
 
+**note: rsp1a2 for just 30" taking ~ 30+ minutes (~2000 fibers)
+
+Maybe have (defined in hetdex.py?) an RSP object that has an entry for each fiber under the rsp folder (per detection)
+(so this would belong to the DetObj) ...
+RSP object would have:
+                            *            *                                   *
+(columns in tmpxxx.dat:  wave, counts, flux, amp_norm, tp_norm, ftf_norm, err_flux)
+    path (and filename ...e.g. to tmpxxx.dat)
+    wavelengths array
+    flux values array (need to know units)
+    flux uncertainty array
+
+
 
 
 
