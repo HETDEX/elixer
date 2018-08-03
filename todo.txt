@@ -16,7 +16,71 @@ RSP object would have:
     flux values array (need to know units)
     flux uncertainty array
 
+#########################
+# stacking diffuse emission
+#########################
 
+call rsp to large radii
+ingest results
+sub-select fibers by annulus
+align (interpolate)
+stack "empty" fibers
+?look for any signal
+look specfically at central object (LyA) position
+ *** when stacking, maybe 3 pixel boxcar smoothing?? could not use that for (true) properties (area, snr, etc) but might
+        work well just for deciding that there is signal???
+
+if signal in stack: (get its flux, etc ... as matter of course in determining if there is a signal)
+    look at specific wavelength in each fiber
+    calc flux, err, p(noise), etc for each
+
+plot fibers on catalog image(s) (if available, blank background if not)
+    color code (fill in) each fiber with a gradient based on either SNR or flux (more likely flux ... say fraction
+        of some maximum set by the central object or by the total signal or just a constant)
+       * color fill, but maybe no edge color (so the overall is soft, no hard small circles?)
+    needs a side bar scale (for color gradient) ... recommend same color, just with a gradient rather than a rainbow
+    (since this is supposed to be a signal)
+
+plot (second?)
+    color code based on p(noise)? ... this is likely to correlate (and does) with SNR and flux, so maybe redundant
+
+can look at plot for shape?
+
+maybe estimate area (in square arcsecs) by counting number of fibers above a certain threshold? what about areas not
+    covered by fibers?
+alternate estimate ... assume roughly circular and estimate as pi*r^2 where r is the distance from RA, Dec cetner to
+    maximum detected fiber position? (but max fiber signal will be, again, by definiation very low)?
+    -- in any case the "edge" assuming cirular will be difficult to pin down ...
+    -- maybe there will be a gradient trend? as radius increases, flux decreases so maybe fit a curve to that and plot
+            an edge with flux drops below some value (like 10^-18)
+
+    *** think about plotting contours of constant flux?? or at least a kind of half-light radius? ****
+        (iso-flux lines ... not quite isochrones)
+
+>> ELiXer call
+add a new command line parameter "--annulus in,out" followed by two radii in arcsecs
+if present, assumes the diffuse mode
+    ignore any --error window
+    use catalogs for images only ? (do not search for matches)
+    do not build cutout images
+    DO build full length spectrum of summed spectra
+    DO build big image cutout(s) with catalog image background
+        --maybe pick optical range image or stack if multiple bands, but just one image
+
+    Deisgn: text at top, basic info like RA, Dec of center (no sky, no IFU, etc), Redshift, Annuli radii
+
+            next line ... full length summed spectra
+
+            next BIG image with fibers (color gradient)
+
+
+
+#############################
+# absorption lines
+############################
+
+invert the spectra (multiple by -1 or subtract from largest value?)
+search for emission lines, but mark as absorption
 
 
 

@@ -172,6 +172,15 @@ class Fiber:
         self.empty_status = None #meaning, no strong signals (anywhere in spectrum)
         self.peaks = None #if populated is an array of peaks from spectrum::peakdet (may be empty if no strong signal)
 
+        #info about weak (diffuse) signal:  d for diffuse
+        self.d_wavelength = None #line center attempting to find (e.g. th observed, LyA line of central object)
+        self.d_units = -17 #expected to be 10^-17 cgs
+        self.d_flux = None #approximate flux (area of gaussian)
+        self.d_flux_err = None #error on the flux estimate
+        self.d_snr = None #approximate signal to noise
+        self.d_prob_noise = None #probability that this "signal" is just noise (generally will be high, given, by
+                                 #definition, the low flux (and correlated low SNR) we are seeking
+
         try:
             self.panacea_idx = int(panacea_fiber_index)
             self.number_in_amp = 112 - self.panacea_idx

@@ -2840,10 +2840,10 @@ class HETDEX:
                 #weak solution ... for display only, not acceptabale as a solution
                 #do not set the solution (sol) to be recorded
                 sol = datakeep['detobj'].spec_obj.solutions[0]
-                title += "\nweak(%s(%d) z = %0.4f  EW_r = %0.1f$\AA$)" % \
-                         ( sol.name, int(sol.central_rest), sol.z,e.eqw_obs / (1.0 + sol.z))
-            else:
-                log.info("No singular, strong emission line solution.")
+                title += "\n(%0.3f) %s(%d) z = %0.4f  EW_r = %0.1f$\AA$" % \
+                         ( p_good, sol.name, int(sol.central_rest), sol.z,e.eqw_obs / (1.0 + sol.z))
+            #else:
+            #    log.info("No singular, strong emission line solution.")
 
 
         #plt.subplot(gs[0:2, 0:3])
@@ -4684,7 +4684,7 @@ class HETDEX:
                                       fontsize=24, color=sol.color)  # use the e color for this family
                     else: #weak solution, use standard font size
                         textplot.text(cwave, y_pos, sol.name + " {", rotation=-90, ha='center', va='bottom',
-                                      color=sol.color)  # use the e color for this family
+                                      color=sol.color,fontsize=10)  # use the e color for this family
 
                     #highlight the matched lines
 
@@ -4714,8 +4714,22 @@ class HETDEX:
                             if G.DEBUG_SHOW_GAUSS_PLOTS:
                                 print("Line: %f (%f) " %(f.raw_x0,f.fit_x0))
 
+                # put dashed line through all possible ABSORPTION lines (note: possible, not necessarily probable)
+                if (datakeep['detobj'].spec_obj.all_found_absorbs is not None):
+                    for f in datakeep['detobj'].spec_obj.all_found_absorbs:  # this is an EmisssionLineInfo object
+                        if f.prob_noise < G.MULTILINE_MAX_PROB_NOISE_TO_PLOT:
+                            x_pos = f.raw_x0
+                            # y_pos = f.raw_h / 10.0 # per definition of EmissionLineInfo ... these are in 10^-18 cgs
+                            # and these plots are 10^-17 cgs
+                            # specplot.scatter(x_pos, y_pos, facecolors='None', edgecolors='b', zorder=99)
+                            specplot.plot([x_pos, x_pos], [mn - ran * rm, mn + ran * (1 + rm)], ls='dashed', c='k',
+                                          zorder=1, alpha=0.5)
+                            # DEBUG:
+                            if G.DEBUG_SHOW_GAUSS_PLOTS:
+                                print("Absorb: %f (%f) " % (f.raw_x0, f.fit_x0))
+
             #
-            #iterate over all emission lines ... assume the cwave is that line and plot the additional lines
+            #iterate over all (database of) emission lines ... assume the cwave is that line and plot the additional lines
             #
             wavemin = specplot.axis()[0]
             wavemax = specplot.axis()[1]
@@ -4733,8 +4747,13 @@ class HETDEX:
                         continue
                 count = 0
                 for f in self.emission_lines:
-                    if (f == e) or not (wavemin <= f.redshift(z) <= wavemax) or \
-                        ((f.display == False) and (not (f.w_rest in matched_line_list))):
+                    if (f == e) or not (wavemin <= f.redshift(z) <= wavemax):
+                        continue
+                    elif G.DISPLAY_ABSORPTION_LINES and datakeep['detobj'].spec_obj.is_near_absorber(f.w_obs):
+                        pass #print this one
+                    elif datakeep['detobj'].spec_obj.is_near_a_peak(f.w_obs):
+                        pass #print this one
+                    elif ((f.display == False) and (not (f.w_rest in matched_line_list))):
                         continue
 
                     count += 1
@@ -4747,7 +4766,7 @@ class HETDEX:
 
                     obs_waves.append(f.w_obs)
                     textplot.text(f.w_obs, y_pos, f.name+" {", rotation=-90, ha='center', va='bottom',
-                                      fontsize=12, color=e.color)  # use the e color for this family
+                                      fontsize=10, color=e.color)  # use the e color for this family
 
                 if (count > 0) and not (e.name in name_waves):
                     legend.append(mpatches.Patch(color=e.color,label=e.name))

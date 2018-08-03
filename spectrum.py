@@ -96,7 +96,7 @@ ADDL_LINE_SCORE_BONUS = 5.0 #add for each line at 2+ lines (so 1st line adds not
 #todo:  that is, if line_x is assumed and line_y is assumed, can only be valid if line_x/line_y ~ ratio??
 #todo:  i.e. [OIII(5007)] / [OIII(4959)] ~ 3.0 (2.993 +/- 0.014 ... at least in AGN)
 
-
+ABSORPTION_LINE_SCORE_SCALE_FACTOR = 0.8 #treat absorption lines as 80% of the equivalent emission line score
 
 
 #FLUX conversion are pretty much defunct, but kept here as a last ditch conversion if all else fails
@@ -111,6 +111,41 @@ FLUX_CONVERSION_w_grid = np.arange(3000.0, 6000.0, 1.0)
 FLUX_CONVERSION_f_grid = np.interp(FLUX_CONVERSION_w_grid, FLUX_CONVERSION_measured_w, FLUX_CONVERSION_measured_f)
 
 FLUX_CONVERSION_DICT = dict(zip(FLUX_CONVERSION_w_grid,FLUX_CONVERSION_f_grid))
+
+
+
+
+def fit_line(wavelengths,values,errors=None):
+#super simple line fit ... very basic
+#rescale x so that we start at x = 0
+    coeff = np.polyfit(wavelengths,values,deg=1)
+
+    #flip the array so [0] = 0th, [1] = 1st ...
+    coeff = np.flip(coeff,0)
+
+    if False: #just for debug
+        fig = plt.figure()
+        line_plot = plt.axes()
+        line_plot.plot(wavelengths, values, c='b')
+
+        x_vals = np.array(line_plot.get_xlim())
+        y_vals = coeff[0] + coeff[1] * x_vals
+        line_plot.plot(x_vals, y_vals, '--',c='r')
+
+        fig.tight_layout()
+        fig.savefig("line.png")
+        fig.clear()
+        plt.close()
+        # end plotting
+    return coeff
+
+
+def invert_spectrum(wavelengths,values):
+    #mx = np.max(values)
+    #mn = np.min(values)
+    coeff = fit_line(wavelengths,values)
+    return coeff[1]*wavelengths+coeff[0] - values
+
 
 def norm_values(values,values_units):
     '''
@@ -270,6 +305,8 @@ class EmissionLineInfo:
         self.mcmc_y = None
         self.mcmc_ew_obs = None #calcuated value (using error propogation from mcmc_a and mcmc_y)
 
+        self.absorber = False #set to True if this is an absorption line
+
 
     def build(self,values_units=0):
         if self.snr > MIN_ELI_SNR and self.fit_sigma > MIN_ELI_SIGMA:
@@ -326,7 +363,18 @@ class EmissionLineInfo:
             self.line_score = self.snr * self.line_flux * 1e17 * \
                               min(self.fit_sigma/self.pix_size,1.0) * \
                               min((self.pix_size * self.sn_pix)/21.0,1) / \
-                              (10.0 * (1. + abs(self.fit_dx0 / 1.9)) )
+                              (10.0 * (1. + abs(self.fit_dx0 / self.pix_size)) )
+
+            if self.absorber:
+                if G.SCORE_ABSORPTION_LINES: #if not scoring absorption, should never actually get here ... this is a safety
+                    # as hand-wavy correction, reduce the score as an absorber
+                    # to do this correctly, need to NOT invert the values and treat as a proper absorption line
+                    #   and calucate a true flux and width down from continuum
+                    log.info("Rescalling line_score for absorption line.")
+                    self.line_score *= ABSORPTION_LINE_SCORE_SCALE_FACTOR
+                else:
+                    log.info("Zeroing line_score for absorption line.")
+                    self.line_score = 0.0
             #
             # !!! if you change this calculation, you need to re-calibrate the prob(Noise) (re-run exp_prob.py)
             # !!! and update the Solution cut criteria in global_config.py (MULTILINE_MIN_SOLUTION_SCORE, etc) and
@@ -399,38 +447,11 @@ class EmissionLineInfo:
         return result
  #end EmissionLineInfo Class
 
-def fit_line(wavelengths,values,errors=None):
-#super simple line fit ... very basic
-#rescale x so that we start at x = 0
-    coeff = np.polyfit(wavelengths,values,deg=1)
-
-    #flip the array so [0] = 0th, [1] = 1st ...
-    coeff = np.flip(coeff,0)
-
-    if False: #just for debug
-        fig = plt.figure()
-        line_plot = plt.axes()
-        line_plot.plot(wavelengths, values, c='b')
-
-        x_vals = np.array(line_plot.get_xlim())
-        y_vals = coeff[0] + coeff[1] * x_vals
-        line_plot.plot(x_vals, y_vals, '--',c='r')
-
-        fig.tight_layout()
-        fig.savefig("line.png")
-        fig.clear()
-        plt.close()
-        # end plotting
-
-
-    return coeff
-
-
 
 
 
 def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=None,values_units=0, sbr=None,
-                 min_sigma=GAUSS_FIT_MIN_SIGMA,show_plot=False,plot_id=None,plot_path=None,do_mcmc=False):
+                 min_sigma=GAUSS_FIT_MIN_SIGMA,show_plot=False,plot_id=None,plot_path=None,do_mcmc=False,absorber=False):
 
     #error on the wavelength of the possible line depends on the redshift and its error and the wavelength itself
     #i.e. wavelength error = wavelength / (1+z + error)  - wavelength / (1+z - error)
@@ -534,6 +555,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     fit_peak = None
 
     eli = EmissionLineInfo()
+    eli.absorber = absorber
     eli.pix_size = pix_size
     num_sn_pix = 0
 
@@ -1225,7 +1247,7 @@ def simple_peaks(x, v, h=None, delta_v=None, values_units=0):
 
 
 def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,values_units=0,
-            enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA):
+            enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False):
 
     """
 
@@ -1440,9 +1462,7 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
         #check vs minimum width
         if not (pix_width < dw):
             #see if too close to prior peak (these are in increasing wavelength order)
-
-            #this is dumb but necessary for right now since signal_score will multiply by 10
-            eli = signal_score(x_0, v_0, err, px,values_units=values_units_0,min_sigma=min_sigma)
+            eli = signal_score(x_0, v_0, err, px,values_units=values_units_0,min_sigma=min_sigma,absorber=absorber)
 
             #if (eli is not None) and (eli.score > 0) and (eli.snr > 7.0) and (eli.fit_sigma > 1.6) and (eli.eqw_obs > 5.0):
             if (eli is not None) and ((not enforce_good) or eli.is_good()):
@@ -1512,7 +1532,7 @@ class Classifier_Solution:
 
     @property
     def prob_real(self):
-        return min(1-self.prob_noise,0.999)
+        return min(1-self.prob_noise,0.999) * min(1.0, self.score/G.MULTILINE_MIN_SOLUTION_SCORE)
 
 
 class Spectrum:
@@ -1532,20 +1552,20 @@ class Spectrum:
             EmissionLine("OIII".ljust(w), 4960.295, "lime"),
             EmissionLine("OIII".ljust(w), 5008.240, "lime"),
 
-            EmissionLine("CIV".ljust(w), 1549.48, "blueviolet"),  # big in AGN
-            EmissionLine("CIII".ljust(w), 1908.734, "purple"),  #big in AGN
+            EmissionLine("CIV".ljust(w), 1549.48, "blueviolet",display=False),  # big in AGN
+            EmissionLine("CIII".ljust(w), 1908.734, "purple",display=False),  #big in AGN
             EmissionLine("CII".ljust(w),  2326.0, "purple",solution=False,display=False),  # in AGN
 
-            EmissionLine("MgII".ljust(w), 2799.117, "magenta"),  #big in AGN
+            EmissionLine("MgII".ljust(w), 2799.117, "magenta",display=False),  #big in AGN
 
             EmissionLine("H$\\beta$".ljust(w), 4862.68, "blue"),
             EmissionLine("H$\\gamma$".ljust(w), 4341.68, "royalblue"),
-            EmissionLine("H$\\delta$".ljust(w), 4102, "royalblue", solution=False),
+            EmissionLine("H$\\delta$".ljust(w), 4102, "royalblue", solution=False,display=False),
             EmissionLine("H$\\epsilon$/CaII".ljust(w), 3970, "royalblue", solution=False,display=False), #very close to CaII(3970)
             EmissionLine("H$\\zeta$".ljust(w), 3889, "royalblue", solution=False,display=False),
             EmissionLine("H$\\eta$".ljust(w), 3835, "royalblue", solution=False,display=False),
 
-            EmissionLine("NV".ljust(w), 1240.81, "teal", solution=False),
+            EmissionLine("NV".ljust(w), 1240.81, "teal", solution=False,display=False),
 
             EmissionLine("SiII".ljust(w), 1260, "gray", solution=False,display=False),
 
@@ -1583,6 +1603,8 @@ class Spectrum:
 
         self.solutions = []
         self.all_found_lines = None #EmissionLineInfo objs (want None here ... if no lines, then peakdet returns [])
+        self.all_found_absorbs = None
+
 
         self.addl_fluxes = []
         self.addl_wavelengths = []
@@ -1644,6 +1666,8 @@ class Spectrum:
         del self.errors[:]
         if self.all_found_lines is not None:
             del self.all_found_lines[:]
+        if self.all_found_absorbs is not None:
+            del self.all_found_absorbs[:]
         if self.solutions is not None:
             del self.solutions[:]
 
@@ -1771,7 +1795,7 @@ class Spectrum:
         return solutions
 
 
-    def is_near_a_peak(self,w,pix_size=1.9): #is the provided wavelength near one of the found peaks (+/- few AA or pixels)
+    def is_near_a_peak(self,w,aa=5.0): #is the provided wavelength near one of the found peaks (+/- few AA or pixels)
 
         wavelength = 0.0
         if (self.all_found_lines is None):
@@ -1780,19 +1804,41 @@ class Spectrum:
         if self.all_found_lines is None:
             return 0.0
 
-        GAUSS_FIT_PIX_ERROR = 3.0  # error (freedom) in pixels: have to allow at least 2 pixels of error
-        # (if aa/pix is small, _AA_ERROR takes over)
-        GAUSS_FIT_AA_ERROR = 1.0  # error (freedom) in line center in AA, still considered to be okay
-
-        max_dx = max(GAUSS_FIT_AA_ERROR, GAUSS_FIT_PIX_ERROR*pix_size)
         for f in self.all_found_lines:
-            dx = abs(f.fit_x0 - w)
-            if dx < max_dx:
+            if abs(f.fit_x0 - w) < aa:
                 wavelength = f.fit_x0
                 break
 
         return wavelength
 
+    def is_near_absorber(self,w,aa=5.0):#pix_size=1.9): #is the provided wavelength near one of the found peaks (+/- few AA or pixels)
+
+        if not (G.DISPLAY_ABSORPTION_LINES or G.SCORE_ABSORPTION_LINES):
+            return 0
+
+        wavelength = 0.0
+        if (self.all_found_absorbs is None):
+            self.all_found_absorbs = peakdet(self.wavelengths, invert_spectrum(self.wavelengths,self.values),
+                                             self.errors, values_units=self.values_units,absorber=True)
+            self.clean_absorbers()
+
+        if self.all_found_absorbs is None:
+            return 0.0
+
+        for f in self.all_found_absorbs:
+            if abs(f.fit_x0 - w) < aa:
+                wavelength = f.fit_x0
+                break
+
+        return wavelength
+
+
+    def clean_absorbers(self):
+        return
+        if self.all_found_absorbs is not None:
+            for i in range(len(self.all_found_absorbs)-1,-1,-1):
+                if self.is_near_a_peak(self.all_found_absorbs[i].fit_x0,aa=10.0):
+                    del self.all_found_absorbs[i]
 
 
 
@@ -1834,6 +1880,12 @@ class Spectrum:
 
         if (self.all_found_lines is None):
             self.all_found_lines = peakdet(wavelengths,values,errors, values_units=values_units)
+            if G.DISPLAY_ABSORPTION_LINES or G.SCORE_ABSORPTION_LINES:
+                self.all_found_absorbs = peakdet(wavelengths, invert_spectrum(wavelengths,values),errors,
+                                                 values_units=values_units,absorber=True)
+                self.clean_absorbers()
+
+
 
         solutions = []
         total_score = 0.0 #sum of all scores (use to represent each solution as fraction of total score)
@@ -1882,6 +1934,12 @@ class Spectrum:
                                    show_plot=False, do_mcmc=False)
 
 
+                #try as absorber
+                if G.SCORE_ABSORPTION_LINES and eli is None and self.is_near_absorber(a_central):
+                    eli = signal_score(wavelengths=wavelengths, values=invert_spectrum(wavelengths,values), errors=errors, central=a_central,
+                                       central_z=central_z, values_units=values_units, spectrum=self,
+                                       show_plot=False, do_mcmc=False,absorber=True)
+
                 if (eli is not None) and eli.is_good(z=sol.z):
                     #if this line is too close to another, keep the one with the better score
                     add_to_sol = True
@@ -1895,11 +1953,13 @@ class Spectrum:
                                 sol.score -= sol.lines[i].line_score
                                 sol.prob_noise /= sol.lines[i].prob_noise
                                 del sol.lines[i]
+                                break
                             else:
                                 #the new line is not as good so just skip it
                                 log.info("Lines too close (%s). Removing %s(%01.f) from solution in favor of %s(%0.1f)"
                                          % (self.identifier,a.name, a.w_rest,sol.lines[i].name, sol.lines[i].w_rest))
                                 add_to_sol = False
+                                break
 
                     if add_to_sol:
                         l = copy.deepcopy(a)
@@ -1926,8 +1986,15 @@ class Spectrum:
 
             if sol.score > 0.0:
                 #log.info("Solution p(noise) (%f) from %d additional lines" % (sol.prob_noise, len(sol.lines) - 1))
-                sol.score += (len(sol.lines)-G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY)*ADDL_LINE_SCORE_BONUS
-                total_score += (len(sol.lines)-G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY)*ADDL_LINE_SCORE_BONUS
+                #bonus for each extra line over the minimum
+
+                #sol.lines does NOT include the main line (just the extra lines)
+                n = len(sol.lines) + 1 #+1 for the main line
+                if  n >= G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY:
+                    bonus =0.5*(n**2 - n)*ADDL_LINE_SCORE_BONUS #could be negative
+                    #print("+++++ %s n(%d) bonus(%g)"  %(self.identifier,n,bonus))
+                    sol.score += bonus
+                    total_score += bonus
                 solutions.append(sol)
         #end for e in emission lines
 
@@ -1942,7 +2009,7 @@ class Spectrum:
             for l in s.lines:
                 ll += " %s(%0.1f at %0.1f)," %(l.name,l.w_rest,l.w_obs)
             msg = "Possible Solution %s (%0.3f): %s (%0.1f at %0.1f), Frac = %0.2f, Score = %0.1f, z = %0.5f, +lines=%d %s"\
-                    % (self.identifier, 1.0-s.prob_noise,s.emission_line.name,s.central_rest,s.central_rest*(1.0+s.z), s.frac_score,
+                    % (self.identifier, s.prob_real,s.emission_line.name,s.central_rest,s.central_rest*(1.0+s.z), s.frac_score,
                        s.score,s.z, len(s.lines),ll )
             log.info(msg)
             #
@@ -2031,6 +2098,11 @@ class Spectrum:
                 else:
                     peaks = peakdet(wavelengths,counts,errors, dw,h,dh,zero,values_units=values_units) #as of 2018-06-11 these are EmissionLineInfo objects
                     self.all_found_lines = peaks
+                    if G.DISPLAY_ABSORPTION_LINES or G.SCORE_ABSORPTION_LINES:
+                        self.all_found_absorbs = peakdet(wavelengths, invert_spectrum(wavelengths,counts), errors,
+                                                         values_units=values_units,absorber=True)
+                        self.clean_absorbers()
+
 
                 #scores = []
                 #for p in peaks:
