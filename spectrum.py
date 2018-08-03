@@ -96,7 +96,7 @@ ADDL_LINE_SCORE_BONUS = 5.0 #add for each line at 2+ lines (so 1st line adds not
 #todo:  that is, if line_x is assumed and line_y is assumed, can only be valid if line_x/line_y ~ ratio??
 #todo:  i.e. [OIII(5007)] / [OIII(4959)] ~ 3.0 (2.993 +/- 0.014 ... at least in AGN)
 
-ABSORPTION_LINE_SCORE_SCALE_FACTOR = 0.8 #treat absorption lines as 80% of the equivalent emission line score
+ABSORPTION_LINE_SCORE_SCALE_FACTOR = 0.5 #treat absorption lines as 50% of the equivalent emission line score
 
 
 #FLUX conversion are pretty much defunct, but kept here as a last ditch conversion if all else fails
@@ -124,7 +124,7 @@ def fit_line(wavelengths,values,errors=None):
     coeff = np.flip(coeff,0)
 
     if False: #just for debug
-        fig = plt.figure()
+        fig = plt.figure(figsize=(8, 2), frameon=False)
         line_plot = plt.axes()
         line_plot.plot(wavelengths, values, c='b')
 
@@ -141,10 +141,34 @@ def fit_line(wavelengths,values,errors=None):
 
 
 def invert_spectrum(wavelengths,values):
-    #mx = np.max(values)
-    #mn = np.min(values)
-    coeff = fit_line(wavelengths,values)
-    return coeff[1]*wavelengths+coeff[0] - values
+    # subtracting from the maximum value inverts the slope also, and keeps the overall shape intact
+    # subtracting from the line fit slope flattens out the slope (leveling out the continuum) and changes the overall shape
+    #
+    #coeff = fit_line(wavelengths,values)
+    #inverted = coeff[1]*wavelengths+coeff[0] - values
+
+    mx = np.max(values)
+    inverted = mx - values
+
+    if False: #for debugging
+        if not 'coeff' in locals():
+            coeff = [mx, 0]
+
+        fig = plt.figure(figsize=(8, 2), frameon=False)
+        line_plot = plt.axes()
+        line_plot.plot(wavelengths, values, c='g',alpha=0.5)
+        x_vals = np.array(line_plot.get_xlim())
+        y_vals = coeff[0] + coeff[1] * x_vals
+        line_plot.plot(x_vals, y_vals, '--', c='b')
+
+        line_plot.plot(wavelengths, inverted, c='r' ,lw=0.5)
+        fig.tight_layout()
+        fig.savefig("inverted.png")
+        fig.clear()
+        plt.close()
+
+
+    return inverted
 
 
 def norm_values(values,values_units):
@@ -799,12 +823,17 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #              eli.fit_h,eli.line_flux, eli.cont,eli.eqw_obs,
         #              dx0, rh, error,eli.fit_rmse, si, sk, ku)
 
-        title += "%0.2f z_guess=%0.4f A(%d) G(%d)\n" \
+        if eli.absorber:
+            line_type = "[Absorption]"
+        else:
+            line_type = ""
+
+        title += "%0.2f z_guess=%0.4f A(%d) G(%d) %s\n" \
                  "Line Score = %0.2f , SBR = %0.2f (%0.1f), SNR = %0.2f (%0.1f) wpix = %d\n" \
                  "Peak = %0.2g, Line(A) = %0.2g, Cont = %0.2g, EqW_Obs=%0.2f\n"\
                  "dX0 = %0.2f, RH = %0.2f, RMS = %0.2f (%0.2f) \n"\
                  "Sigma = %0.2f, Skew = %0.2f, Kurtosis = %0.2f"\
-                  % (eli.fit_x0,central_z,a,g,eli.line_score,sbr,
+                  % (eli.fit_x0,central_z,a,g,line_type,eli.line_score,sbr,
                      signal_calc_scaled_score(sbr),snr,signal_calc_scaled_score(snr),num_sn_pix,
                      eli.fit_h,eli.line_flux, eli.cont,eli.eqw_obs,
                      dx0, rh, error,eli.fit_rmse, si, sk, ku)
@@ -829,22 +858,23 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         if fit_wave is not None:
             gauss_plot.plot(xfit, fit_wave, c='b')
             gauss_plot.grid(True)
-
-            ymin = min(min(fit_wave),min(wave_counts))
-            ymax = max(max(fit_wave),max(wave_counts))
-        else:
-            ymin = min(wave_counts)
-            ymax = max(wave_counts)
+        #     ymin = min(min(fit_wave),min(wave_counts))
+        #     ymax = max(max(fit_wave),max(wave_counts))
+        # else:
+        #     ymin = min(wave_counts)
+        #     ymax = max(wave_counts)
         gauss_plot.set_ylabel("Flux [unsp] ")
         gauss_plot.set_xlabel("Wavelength [$\AA$] ")
 
-        ymin *= 1.1
-        ymax *= 1.1
+        # ymin, ymax = gauss_plot.get_ylim()
+        #
+        # ymin *= 1.1
+        # ymax *= 1.1
+        #
+        # if abs(ymin) < 1.0: ymin = -1.0
+        # if abs(ymax) < 1.0: ymax = 1.0
 
-        if abs(ymin) < 1.0: ymin = -1.0
-        if abs(ymax) < 1.0: ymax = 1.0
-
-        gauss_plot.set_ylim((ymin,ymax))
+       # gauss_plot.set_ylim((ymin,ymax))
         gauss_plot.set_xlim( (np.floor(wave_x[0]),np.ceil(wave_x[-1])) )
         gauss_plot.set_title(title)
         stat = ""
@@ -1509,6 +1539,8 @@ class EmissionLine():
         self.line_score = 0.0
         self.prob_noise = 1.0
 
+        self.absorber = False #true if an abosrption line
+
     def redshift(self,z):
         self.z = z
         self.w_obs = self.w_rest * (1.0 + z)
@@ -1945,21 +1977,40 @@ class Spectrum:
                     add_to_sol = True
                     for i in range(len(sol.lines)):
                         if abs(sol.lines[i].w_obs - eli.fit_x0) < 10.0:
-                            if sol.lines[i].line_score < eli.line_score:
-                                log.info("Lines too close (%s). Removing %s(%01.f) from solution in favor of %s(%0.1f)"
-                                         % (self.identifier,sol.lines[i].name, sol.lines[i].w_rest,a.name, a.w_rest))
-                                #remove this solution
-                                total_score -= sol.lines[i].line_score
-                                sol.score -= sol.lines[i].line_score
-                                sol.prob_noise /= sol.lines[i].prob_noise
-                                del sol.lines[i]
-                                break
-                            else:
-                                #the new line is not as good so just skip it
-                                log.info("Lines too close (%s). Removing %s(%01.f) from solution in favor of %s(%0.1f)"
-                                         % (self.identifier,a.name, a.w_rest,sol.lines[i].name, sol.lines[i].w_rest))
-                                add_to_sol = False
-                                break
+
+                            #keep the emission line over the absorption line, regardless of score, if that is the case
+                            if sol.lines[i].absorber != eli.absorber:
+                                if eli.absorber:
+                                    log.info("Emission line too close to absorption line (%s). Removing %s(%01.f) "
+                                             "from solution in favor of %s(%0.1f)"
+                                        % (self.identifier, a.name, a.w_rest, sol.lines[i].name, sol.lines[i].w_rest))
+
+                                    add_to_sol = False
+                                else:
+                                    log.info("Emission line too close to absorption line (%s). Removing %s(%01.f) "
+                                             "from solution in favor of %s(%0.1f)"
+                                        % (self.identifier, sol.lines[i].name, sol.lines[i].w_rest, a.name, a.w_rest))
+                                    # remove this solution
+                                    total_score -= sol.lines[i].line_score
+                                    sol.score -= sol.lines[i].line_score
+                                    sol.prob_noise /= sol.lines[i].prob_noise
+                                    del sol.lines[i]
+                            else: #they are are of the same type, so keep the better score
+                                if sol.lines[i].line_score < eli.line_score:
+                                    log.info("Lines too close (%s). Removing %s(%01.f) from solution in favor of %s(%0.1f)"
+                                             % (self.identifier,sol.lines[i].name, sol.lines[i].w_rest,a.name, a.w_rest))
+                                    #remove this solution
+                                    total_score -= sol.lines[i].line_score
+                                    sol.score -= sol.lines[i].line_score
+                                    sol.prob_noise /= sol.lines[i].prob_noise
+                                    del sol.lines[i]
+                                    break
+                                else:
+                                    #the new line is not as good so just skip it
+                                    log.info("Lines too close (%s). Removing %s(%01.f) from solution in favor of %s(%0.1f)"
+                                             % (self.identifier,a.name, a.w_rest,sol.lines[i].name, sol.lines[i].w_rest))
+                                    add_to_sol = False
+                                    break
 
                     if add_to_sol:
                         l = copy.deepcopy(a)
@@ -1974,22 +2025,28 @@ class Spectrum:
                         l.sigma = eli.fit_sigma
                         l.line_score = eli.line_score
                         l.prob_noise = eli.prob_noise
+                        l.absorber = eli.absorber
 
                         total_score += eli.line_score  # cumulative score for ALL solutions
                         sol.score += eli.line_score  # score for this solution
                         sol.prob_noise *= eli.prob_noise
 
                         sol.lines.append(l)
-                        log.info("Accepting line (%s): %s(%0.1f at %01.f) snr = %0.1f  line_flux = %0.1g  sigma = %0.1f  "
+                        if l.absorber:
+                            line_type = "absorption"
+                        else:
+                            line_type = "emission"
+                        log.info("Accepting %s line (%s): %s(%0.1f at %01.f) snr = %0.1f  line_flux = %0.1g  sigma = %0.1f  "
                                  "line_score = %0.1f  p(noise) = %g"
-                                 %(self.identifier,l.name,l.w_rest,l.w_obs,l.snr, l.flux, l.sigma, l.line_score,l.prob_noise))
+                                 %(line_type, self.identifier,l.name,l.w_rest,l.w_obs,l.snr, l.flux, l.sigma, l.line_score,l.prob_noise))
 
             if sol.score > 0.0:
                 #log.info("Solution p(noise) (%f) from %d additional lines" % (sol.prob_noise, len(sol.lines) - 1))
                 #bonus for each extra line over the minimum
 
                 #sol.lines does NOT include the main line (just the extra lines)
-                n = len(sol.lines) + 1 #+1 for the main line
+                n = len(np.where([l.absorber == False for l in sol.lines])[0])
+      #          n = len(sol.lines) + 1 #+1 for the main line
                 if  n >= G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY:
                     bonus =0.5*(n**2 - n)*ADDL_LINE_SCORE_BONUS #could be negative
                     #print("+++++ %s n(%d) bonus(%g)"  %(self.identifier,n,bonus))

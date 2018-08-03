@@ -4703,6 +4703,14 @@ class HETDEX:
                 #put dashed line through all possible emission lines (note: possible, not necessarily probable)
                 if (datakeep['detobj'].spec_obj.all_found_lines is not None):
                     for f in datakeep['detobj'].spec_obj.all_found_lines: #this is an EmisssionLineInfo object
+
+                        log.info(
+                            "eid(%d) emission line at %01.f snr = %0.1f  line_flux = %0.1g  sigma = %0.1f  "
+                            "line_score = %0.1f  p(noise) = %g  threshold = %g"
+                            % (
+                                datakeep['detobj'].entry_id, f.fit_x0, f.snr, f.line_flux, f.fit_sigma, f.line_score,
+                                f.prob_noise,G.MULTILINE_MAX_PROB_NOISE_TO_PLOT))
+
                         if f.prob_noise < G.MULTILINE_MAX_PROB_NOISE_TO_PLOT:
                             x_pos = f.raw_x0
                             #y_pos = f.raw_h / 10.0 # per definition of EmissionLineInfo ... these are in 10^-18 cgs
@@ -4716,6 +4724,12 @@ class HETDEX:
 
                 # put dashed line through all possible ABSORPTION lines (note: possible, not necessarily probable)
                 if (datakeep['detobj'].spec_obj.all_found_absorbs is not None):
+                    log.info(
+                        "eid(%d) absorption line at %01.f snr = %0.1f  line_flux = %0.1g  sigma = %0.1f  "
+                        "line_score = %0.1f  p(noise) = %g  threshold = %g"
+                        % (
+                            datakeep['detobj'].entry_id, f.fit_x0, f.snr, f.line_flux, f.fit_sigma,f.line_score,
+                            f.prob_noise,G.MULTILINE_MAX_PROB_NOISE_TO_PLOT))
                     for f in datakeep['detobj'].spec_obj.all_found_absorbs:  # this is an EmisssionLineInfo object
                         if f.prob_noise < G.MULTILINE_MAX_PROB_NOISE_TO_PLOT:
                             x_pos = f.raw_x0
@@ -4759,7 +4773,7 @@ class HETDEX:
                     count += 1
                     y_pos = textplot.axis()[2]
                     for w in obs_waves:
-                        if abs(f.w_obs - w) < 20: # too close, shift one vertically
+                        if abs(f.w_obs - w) < 10: # too close, shift one vertically
                             #y_pos = textplot.axis()[2] + mn + ran*0.7
                             y_pos = (textplot.axis()[3] - textplot.axis()[2]) / 2.0 + textplot.axis()[2]
                             break
