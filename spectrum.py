@@ -390,12 +390,13 @@ class EmissionLineInfo:
                               (10.0 * (1. + abs(self.fit_dx0 / self.pix_size)) )
 
             if self.absorber:
-                if G.SCORE_ABSORPTION_LINES: #if not scoring absorption, should never actually get here ... this is a safety
+                if G.MAX_SCORE_ABSORPTION_LINES: #if not scoring absorption, should never actually get here ... this is a safety
                     # as hand-wavy correction, reduce the score as an absorber
                     # to do this correctly, need to NOT invert the values and treat as a proper absorption line
                     #   and calucate a true flux and width down from continuum
-                    log.info("Rescalling line_score for absorption line.")
-                    self.line_score *= ABSORPTION_LINE_SCORE_SCALE_FACTOR
+                    new_score = min(G.MAX_SCORE_ABSORPTION_LINES, self.line_score * ABSORPTION_LINE_SCORE_SCALE_FACTOR)
+                    log.info("Rescalling line_score for absorption line: %f to %f" %(self.line_score,new_score))
+                    self.line_score = new_score
                 else:
                     log.info("Zeroing line_score for absorption line.")
                     self.line_score = 0.0
@@ -1618,7 +1619,8 @@ class Classifier_Solution:
 
     @property
     def prob_real(self):
-        return min(1-self.prob_noise,0.999) * min(1.0, self.score/G.MULTILINE_MIN_SOLUTION_SCORE)
+        #return min(1-self.prob_noise,0.999) * min(1.0, max(0.67,self.score/G.MULTILINE_MIN_SOLUTION_SCORE))
+        return min(1 - self.prob_noise, 0.999) * min(1.0, float(len(self.lines))/(G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY + 1.0))
 
 
 class Spectrum:
@@ -1899,7 +1901,7 @@ class Spectrum:
 
     def is_near_absorber(self,w,aa=5.0):#pix_size=1.9): #is the provided wavelength near one of the found peaks (+/- few AA or pixels)
 
-        if not (G.DISPLAY_ABSORPTION_LINES or G.SCORE_ABSORPTION_LINES):
+        if not (G.DISPLAY_ABSORPTION_LINES or G.MAX_SCORE_ABSORPTION_LINES):
             return 0
 
         wavelength = 0.0
@@ -1966,7 +1968,7 @@ class Spectrum:
 
         if (self.all_found_lines is None):
             self.all_found_lines = peakdet(wavelengths,values,errors, values_units=values_units)
-            if G.DISPLAY_ABSORPTION_LINES or G.SCORE_ABSORPTION_LINES:
+            if G.DISPLAY_ABSORPTION_LINES or G.MAX_SCORE_ABSORPTION_LINES:
                 self.all_found_absorbs = peakdet(wavelengths, invert_spectrum(wavelengths,values),errors,
                                                  values_units=values_units,absorber=True)
                 self.clean_absorbers()
@@ -2021,7 +2023,7 @@ class Spectrum:
 
 
                 #try as absorber
-                if G.SCORE_ABSORPTION_LINES and eli is None and self.is_near_absorber(a_central):
+                if G.MAX_SCORE_ABSORPTION_LINES and eli is None and self.is_near_absorber(a_central):
                     eli = signal_score(wavelengths=wavelengths, values=invert_spectrum(wavelengths,values), errors=errors, central=a_central,
                                        central_z=central_z, values_units=values_units, spectrum=self,
                                        show_plot=False, do_mcmc=False,absorber=True)
@@ -2210,7 +2212,7 @@ class Spectrum:
                     else:
                         peaks = peakdet(wavelengths,counts,errors, dw,h,dh,zero,values_units=values_units) #as of 2018-06-11 these are EmissionLineInfo objects
                         self.all_found_lines = peaks
-                        if G.DISPLAY_ABSORPTION_LINES or G.SCORE_ABSORPTION_LINES:
+                        if G.DISPLAY_ABSORPTION_LINES or G.MAX_SCORE_ABSORPTION_LINES:
                             self.all_found_absorbs = peakdet(wavelengths, invert_spectrum(wavelengths,counts), errors,
                                                              values_units=values_units,absorber=True)
                             self.clean_absorbers()

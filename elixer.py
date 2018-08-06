@@ -102,7 +102,7 @@ class PDF_File():
 
 
 
-def parse_commandline():
+def parse_commandline(auto_force=False):
     desc = "(Version %s) Search multiple catalogs for possible object matches.\n\nNote: if (--ra), (--dec), (--par) supplied in " \
            "addition to (--dither),(--line), the supplied RA, Dec, and Parangle will be used instead of the " \
            "TELERA, TELEDEC, and PARANGLE from the science FITS files." % (G.__version__)
@@ -153,6 +153,9 @@ def parse_commandline():
     parser.add_argument('--dets', help="List of detections (of form '20170314v011_005') or subdirs under fscdir (wildcards okay) or file containing a list"
                                        " of detections (one per line)", required=False)
 
+    parser.add_argument('--dispatch', help="Dispatched list of directories to process. Auto-created. DO NOT SET MANUALLY",
+                        required=False)
+
     parser.add_argument('--ifu', help="HETDEX IFU (Cure) file", required=False)
     parser.add_argument('--dist', help="HETDEX Distortion (Cure) file base (i.e. do not include trailing _L.dist or _R.dist)",
                         required=False)
@@ -171,6 +174,7 @@ def parse_commandline():
     parser.add_argument('--email', help="If populated, sends SLURM status to this email address", required=False)
 
     parser.add_argument('--queue', help="If populated, specifies which TACC queue (vis, gpu) to use.", required=False)
+    parser.add_argument('--tasks', help="If populated, specifies how many TACC tasks to use.", required=False)
 
     parser.add_argument('--panacea_red',help="Basedir for searching for Panacea reduction files",required=False)
 
@@ -205,6 +209,9 @@ def parse_commandline():
     args.multi = True
 
     log.info(args)
+
+    if auto_force:
+        args.force = True #forced to be true in dispatch mode
 
     if args.gaussplots is not None:
         G.DEBUG_SHOW_GAUSS_PLOTS = args.gaussplots
@@ -825,7 +832,20 @@ def get_fcsdir_subdirs_to_process(args):
     detlist = [] #list of detections in 20170322v011_005 format
     subdirs = [] #list of specific rsp1 subdirectories to process (output)
 
-    if args.dets is not None:
+
+    if args.dispatch is not None: #from multi-task SLURM only
+        try:
+            # is this a list or a file
+            if os.path.isfile(args.dispatch):
+                detlist = out = np.genfromtxt(args.dispatch, dtype=None, comments='#', usecols=(0,))
+            else:
+                detlist = args.dispatch.replace(', ', ',').split(',')  # allow comma or comma-space separation
+        except:
+            log.error("Exception processing detections (--dispatch) detlist. FATAL. ", exc_info=True)
+            print("Exception processing detections (--dispatch) detlist. FATAL.")
+            exit(-1)
+
+    elif args.dets is not None:
         try:
             #is this a list or a file
             if os.path.isfile(args.dets):
@@ -868,6 +888,8 @@ def get_fcsdir_subdirs_to_process(args):
                 pattern = d + "spec.dat"
                 if os.path.isfile(os.path.join(fcsdir,d,pattern)):
                     subdirs.append(os.path.join(fcsdir,d))
+                elif os.path.isfile(os.path.join(d,os.path.basename(d)+"spec.dat")):
+                    subdirs.append(d)
                 else:
                     #fail, fast method will not work
                     #if any fail, all fail?

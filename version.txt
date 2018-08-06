@@ -11,6 +11,12 @@ changes to elixer by version
 * added (somewhat hand-wavy) absorption line features to scoring by inverting the spectra and fitting for emission.
   Scores from these features down-scaled to 80% of an equivalent (true) emission line
 
+* added MCMC output (corner plot) of fit paramters of main line (as mcmc_eid(*)_*.png )
+
+* added overplot of MCMC fit to main line gauss*.png (as a 'highlight')
+
+* added --tasks option to allow for multiple tasks in TACC SLURM call
+
 
 1.4.0a10 [2018-07-27]
 * changing project name (and supporting files/references) from voltron to elixer

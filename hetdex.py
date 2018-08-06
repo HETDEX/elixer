@@ -712,15 +712,17 @@ class DetObj:
             sols = self.spec_obj.solutions
             # need to tune this
             # score is the sum of the observed eq widths
-            if (self.spec_obj.solutions[0].score >= G.MULTILINE_MIN_SOLUTION_SCORE) and \
-                    (self.spec_obj.solutions[0].prob_real >= G.MULTILINE_MIN_SOLUTION_CONFIDENCE) and \
-                    (self.spec_obj.solutions[0].frac_score > 0.5) and \
-                    (len(self.spec_obj.solutions[0].lines) >= G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY):
+            #if  (self.spec_obj.solutions[0].score >= G.MULTILINE_MIN_SOLUTION_SCORE) and \
+            if  (self.spec_obj.solutions[0].prob_real >= G.MULTILINE_MIN_SOLUTION_CONFIDENCE) and \
+                (self.spec_obj.solutions[0].frac_score > 0.5) and \
+                (len(self.spec_obj.solutions[0].lines) >= G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY):
+
                 if (len(self.spec_obj.solutions) == 1) or \
                     ((len(self.spec_obj.solutions) > 1) and \
                       (self.spec_obj.solutions[0].frac_score / self.spec_obj.solutions[1].frac_score > 2.0)):
 
                     return True, self.spec_obj.solutions[0].prob_real
+                #else two or more scores are too close, so cannot identify a unique solution, which means 'no solution'
 
             if G.MULTILINE_ALWAYS_SHOW_BEST_GUESS:
                 return False, self.spec_obj.solutions[0].prob_real
@@ -4724,13 +4726,14 @@ class HETDEX:
 
                 # put dashed line through all possible ABSORPTION lines (note: possible, not necessarily probable)
                 if (datakeep['detobj'].spec_obj.all_found_absorbs is not None):
-                    log.info(
-                        "eid(%d) absorption line at %01.f snr = %0.1f  line_flux = %0.1g  sigma = %0.1f  "
-                        "line_score = %0.1f  p(noise) = %g  threshold = %g"
-                        % (
-                            datakeep['detobj'].entry_id, f.fit_x0, f.snr, f.line_flux, f.fit_sigma,f.line_score,
-                            f.prob_noise,G.MULTILINE_MAX_PROB_NOISE_TO_PLOT))
                     for f in datakeep['detobj'].spec_obj.all_found_absorbs:  # this is an EmisssionLineInfo object
+                        log.info(
+                            "eid(%d) absorption line at %01.f snr = %0.1f  line_flux = %0.1g  sigma = %0.1f  "
+                            "line_score = %0.1f  p(noise) = %g  threshold = %g"
+                            % (
+                                datakeep['detobj'].entry_id, f.fit_x0, f.snr, f.line_flux, f.fit_sigma, f.line_score,
+                                f.prob_noise, G.MULTILINE_MAX_PROB_NOISE_TO_PLOT))
+
                         if f.prob_noise < G.MULTILINE_MAX_PROB_NOISE_TO_PLOT:
                             x_pos = f.raw_x0
                             # y_pos = f.raw_h / 10.0 # per definition of EmissionLineInfo ... these are in 10^-18 cgs

@@ -3,6 +3,8 @@ from __future__ import print_function
 import sys
 import os
 import errno
+import elixer
+from math import ceil
 
 
 #todo: allow user to change the run-time from command line
@@ -10,6 +12,7 @@ time = "00:59:59"
 email = "##SBATCH --mail-user \n\
 ##SBATCH --mail-type all"
 queue = "vis"
+tasks = 1
 args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
 
 #check for name agument (mandatory)
@@ -85,6 +88,24 @@ if i != -1:
 else:
     pass
 
+
+#check for tasks (optional)
+i = -1
+if "--tasks" in args:
+    i = args.index("--tasks")
+
+if i != -1:
+    try:
+        tasks = int(sys.argv[i + 1])
+    except:
+       print("Exception parsing --tasks")
+
+    if (tasks < 1) or (tasks > 640):
+        print ("Invalid --tasks value. Must between 1 to 640 inclusive.")
+        exit(-1)
+else:
+    pass
+
 if not os.path.isdir(basename):
     try:
         os.makedirs(basename)
@@ -114,7 +135,7 @@ slurm = "\
 # \n\
 #------------------Scheduler Options--------------------\n\
 #SBATCH -J HETDEX              # Job name\n\
-#SBATCH -n 1                  # Total number of tasks\n\
+#SBATCH -n " + str(tasks) + "                  # Total number of tasks\n\
 #SBATCH -p " + queue +"                 # Queue name\n\
 #SBATCH -o ELIXER.o%j          # Name of stdout output file (%j expands to jobid)\n\
 #SBATCH -t " + time + "            # Run time (hh:mm:ss)\n\
@@ -237,15 +258,62 @@ except:
 
 ### elixer.run
 path = os.path.join(os.path.dirname(sys.argv[0]),"elixer.py")
-run = "python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' -f \n'
 
-try:
-    f = open("elixer.run", 'w')
-    f.write(run)
-    f.close()
-except:
-    print("Error! Cannot create elixer.slurm")
-    exit(-1)
+if tasks == 1:
+    run = "python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' -f \n'
+
+    try:
+        f = open("elixer.run", 'w')
+        f.write(run)
+        f.close()
+    except:
+        print("Error! Cannot create elixer.slurm")
+        exit(-1)
+else: # multiple tasks
+    try:
+        args = elixer.parse_commandline(auto_force=True)
+        print("Parsing directories to process. This may take a little while ... ")
+        subdirs = elixer.get_fcsdir_subdirs_to_process(args)
+        dirs_per_file = int(ceil(float(len(subdirs))/float(tasks)))
+
+        if tasks > len(subdirs): #problem too many tasks requestd
+            print("Error! Too many tasks (%d) requested. Only %d directories to process." %(tasks,len(subdirs)))
+            exit(-1)
+
+        f = open("elixer.run", 'w')
+
+        for i in range(int(tasks)):
+            fn = "dispatch_" + str(i).zfill(3)
+
+            if not os.path.isdir(fn):
+                try:
+                    os.makedirs(fn)
+                except OSError as exception:
+                    if exception.errno != errno.EEXIST:
+                        print ("Fatal. Cannot create output directory: %s" % fn)
+                        exit(-1)
+
+            df = open(os.path.join(fn,fn), 'w')
+            content = ""
+
+            start_idx = i * dirs_per_file
+            stop_idx = min(start_idx + dirs_per_file,len(subdirs))
+            for j in range(start_idx,stop_idx):
+                df.write(subdirs[j] + "\n")
+
+            df.close()
+
+            #add  dispatch_xxx
+            #run = "python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' --dispatch ' + os.path.join(basename,fn) + ' -f \n'
+            run = "cd " + fn + " ; python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' --dispatch ' + fn + ' -f ; cd .. \n'
+            f.write(run)
+
+        f.close()
+    except:
+        print("Error! Cannot create dispatch files.")
+        exit(-1)
+
+
 
 
 #execute system command
