@@ -221,9 +221,13 @@ class MCMC_Gauss:
     def visualize(self,filename=None):
         try:
             if self.samples is not None:
-                fig = corner.corner(self.samples, labels=["$mu$", "$sigma$", "$A$", "$y$"],
-                                    truths=[self.initial_mu, self.initial_sigma, self.initial_A, self.initial_y])
+                warnings.simplefilter(action='ignore', category=FutureWarning)
+
+                fig = corner.corner(self.samples, labels=["$mu$", "$sigma$", "$A$", "$y$","f"],
+                                    truths=[self.initial_mu, self.initial_sigma, self.initial_A, self.initial_y,None])
+                #fifth = None is for the 'f' parameter ... there is no initial for it
                 if filename is not None:
+                    log.info('Writing: ' + filename)
                     fig.savefig(filename)
                 else:
                     plt.show()

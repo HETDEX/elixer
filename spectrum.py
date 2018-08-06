@@ -806,6 +806,45 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         log.info("Unable to fit gaussian. ")
         score = 0.0
 
+    mcmc = None
+    if do_mcmc:
+        mcmc = mcmc_gauss.MCMC_Gauss()
+        mcmc.initial_mu = eli.fit_x0
+        mcmc.initial_sigma = eli.fit_sigma
+        mcmc.initial_A = eli.fit_a  # / adjust
+        mcmc.initial_y = eli.fit_y  # / adjust
+        mcmc.initial_peak = raw_peak  # / adjust
+        mcmc.data_x = narrow_wave_x
+        mcmc.data_y = narrow_wave_counts  # / adjust
+        mcmc.err_y = narrow_wave_errors  # not the 1./err*err .... that is done in the mcmc likelihood function
+
+        # if using the scipy::curve_fit, 50-100 burn-in and ~1000 main run is plenty
+        # if other input (like Karl's) ... the method is different and we are farther off ... takes longer to converge
+        #   but still converges close to the scipy::curve_fit
+        mcmc.burn_in = 250
+        mcmc.main_run = 1000
+        mcmc.run_mcmc()
+
+        # 3-tuple [0] = fit, [1] = fit +16%,  [2] = fit - 16%
+        eli.mcmc_x0 = mcmc.mcmc_mu
+        eli.mcmc_sigma = mcmc.mcmc_sigma
+
+        eli.mcmc_a = mcmc.mcmc_A
+        eli.mcmc_y = mcmc.mcmc_y
+
+        if values_units == -18:  # converted from e-17, but this is an area so there are 2 factors
+            eli.mcmc_a = tuple(np.array(mcmc.mcmc_A) / [10., 1., 1.])
+
+        # calc EW and error with approximate symmetric error on area and continuum
+        ew = abs(eli.mcmc_a[0] / eli.mcmc_y[0])
+        ew_err = ew * np.sqrt((mcmc.approx_symmetric_error(eli.mcmc_a) / eli.mcmc_a[0]) ** 2 +
+                              (mcmc.approx_symmetric_error(eli.mcmc_y) / eli.mcmc_y[0]) ** 2)
+
+        eli.mcmc_ew_obs = (ew, ew_err, ew_err)
+        log.info("MCMC Peak height = %f" % (max(narrow_wave_counts)))
+        log.info("MCMC calculated EW_obs for main line = %0.3g +/- %0.3g" % (ew, ew_err))
+
+
     if show_plot or G.DEBUG_SHOW_GAUSS_PLOTS:# or eli.snr > 40.0:
         if error is None:
             error = -1
@@ -856,13 +895,19 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             log.debug("Cannot plot central line fit boundaries.",exc_info=True)
 
         if fit_wave is not None:
-            gauss_plot.plot(xfit, fit_wave, c='b')
+            gauss_plot.plot(xfit, fit_wave, c='b',zorder=99,lw=1)
             gauss_plot.grid(True)
         #     ymin = min(min(fit_wave),min(wave_counts))
         #     ymax = max(max(fit_wave),max(wave_counts))
         # else:
         #     ymin = min(wave_counts)
         #     ymax = max(wave_counts)
+
+        if mcmc is not None:
+            gauss_plot.plot(xfit,gaussian(xfit,mcmc.mcmc_mu[0], mcmc.mcmc_sigma[0],mcmc.mcmc_A[0],mcmc.mcmc_y[0]),
+                            c='b', lw=10,alpha=0.2,zorder=1)
+
+
         gauss_plot.set_ylabel("Flux [unsp] ")
         gauss_plot.set_xlabel("Wavelength [$\AA$] ")
 
@@ -898,48 +943,20 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         fig.savefig(png)
         fig.clear()
         plt.close()
+
+        if mcmc is not None:
+            png = "mcmc" + plot_id + str(central) + "_" + stat + ".png"
+            if plot_path is not None:
+                png = op.join(plot_path, png)
+            mcmc.visualize(png)
+
         # end plotting
 
     if accept_fit:
         eli.raw_score = score
         eli.score = signal_calc_scaled_score(score)
 
-        if do_mcmc:
-            mcmc = mcmc_gauss.MCMC_Gauss()
-            mcmc.initial_mu = eli.fit_x0
-            mcmc.initial_sigma = eli.fit_sigma
-            mcmc.initial_A = eli.fit_a#/ adjust
-            mcmc.initial_y = eli.fit_y #/ adjust
-            mcmc.initial_peak = raw_peak #/ adjust
-            mcmc.data_x = narrow_wave_x
-            mcmc.data_y = narrow_wave_counts #/ adjust
-            mcmc.err_y = narrow_wave_errors  #not the 1./err*err .... that is done in the mcmc likelihood function
 
-            #if using the scipy::curve_fit, 50-100 burn-in and ~1000 main run is plenty
-            #if other input (like Karl's) ... the method is different and we are farther off ... takes longer to converge
-            #   but still converges close to the scipy::curve_fit
-            mcmc.burn_in = 250
-            mcmc.main_run = 1000
-            mcmc.run_mcmc()
-
-            # 3-tuple [0] = fit, [1] = fit +16%,  [2] = fit - 16%
-            eli.mcmc_x0 = mcmc.mcmc_mu
-            eli.mcmc_sigma = mcmc.mcmc_sigma
-
-            eli.mcmc_a = mcmc.mcmc_A
-            eli.mcmc_y = mcmc.mcmc_y
-
-            if values_units == -18:  # converted from e-17, but this is an area so there are 2 factors
-                eli.mcmc_a = tuple(np.array(mcmc.mcmc_A)/ [10.,1.,1.])
-
-            # calc EW and error with approximate symmetric error on area and continuum
-            ew = abs(eli.mcmc_a[0] / eli.mcmc_y[0])
-            ew_err = ew * np.sqrt( (mcmc.approx_symmetric_error(eli.mcmc_a) / eli.mcmc_a[0]) ** 2 +
-                                   (mcmc.approx_symmetric_error(eli.mcmc_y) / eli.mcmc_y[0]) ** 2 )
-
-            eli.mcmc_ew_obs = (ew,ew_err,ew_err)
-            log.info("MCMC Peak height = %f" %(max(narrow_wave_counts)))
-            log.info("MCMC calculated EW_obs for main line = %0.3g +/- %0.3g" %(ew,ew_err))
 
         return eli
     else:
@@ -1419,6 +1436,26 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
     gm = np.mean(peaks)
     std = np.std(peaks)
 
+
+    ################
+    #DEBUG
+    ################
+
+    if False:
+        so = Spectrum()
+        eli = []
+        for p in maxtab:
+            e = EmissionLineInfo()
+            e.raw_x0 = p[1] #xposition p[0] is the index
+            e.raw_h = v_0[p[0]+2] #v_0[getnearpos(x_0,p[1])]
+            eli.append(e)
+
+        so.build_full_width_spectrum(wavelengths=x_0, counts=v_0, errors=None, central_wavelength=0,
+                                      show_skylines=False, show_peaks=True, name="peaks",
+                                      dw=MIN_FWHM, h=MIN_HEIGHT, dh=MIN_DELTA_HEIGHT, zero=0.0,peaks=eli,annotate=False)
+
+
+
     #now, throw out anything waaaaay above the mean (toss out the outliers and recompute mean)
     if False:
         sub = peaks[np.where(abs(peaks - gm) < (3.0*std))[0]]
@@ -1513,6 +1550,23 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
     #for i in range(len(emistab)):
     #    print(emistab[i][1],emistab[i][2], emistab[i][5])
     #return emistab
+
+    ################
+    #DEBUG
+    ################
+    if False:
+        so = Spectrum()
+        eli = []
+        for p in eli_list:
+            e = EmissionLineInfo()
+            e.raw_x0 = p.raw_x0
+            e.raw_h = p.raw_h / 10.0
+            eli.append(e)
+        so.build_full_width_spectrum(wavelengths=x_0, counts=v_0, errors=None, central_wavelength=0,
+                                     show_skylines=False, show_peaks=True, name="peaks_trimmed",
+                                     dw=MIN_FWHM, h=MIN_HEIGHT, dh=MIN_DELTA_HEIGHT, zero=0.0, peaks=eli,
+                                     annotate=False)
+
     return eli_list
 
 
@@ -2104,7 +2158,7 @@ class Spectrum:
 
     def build_full_width_spectrum(self,wavelengths = None,  counts = None, errors = None, central_wavelength = None,
                                   show_skylines=True, show_peaks = True, name=None,
-                                  dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0):
+                                  dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,peaks=None,annotate=True):
 
 
         use_internal = False
@@ -2150,15 +2204,16 @@ class Spectrum:
 
             if show_peaks:
                 #emistab.append((pi, px, pv,pix_width,centroid))
-                if (self.all_found_lines is not None):
-                    peaks = self.all_found_lines
-                else:
-                    peaks = peakdet(wavelengths,counts,errors, dw,h,dh,zero,values_units=values_units) #as of 2018-06-11 these are EmissionLineInfo objects
-                    self.all_found_lines = peaks
-                    if G.DISPLAY_ABSORPTION_LINES or G.SCORE_ABSORPTION_LINES:
-                        self.all_found_absorbs = peakdet(wavelengths, invert_spectrum(wavelengths,counts), errors,
-                                                         values_units=values_units,absorber=True)
-                        self.clean_absorbers()
+                if peaks is None:
+                    if (self.all_found_lines is not None):
+                        peaks = self.all_found_lines
+                    else:
+                        peaks = peakdet(wavelengths,counts,errors, dw,h,dh,zero,values_units=values_units) #as of 2018-06-11 these are EmissionLineInfo objects
+                        self.all_found_lines = peaks
+                        if G.DISPLAY_ABSORPTION_LINES or G.SCORE_ABSORPTION_LINES:
+                            self.all_found_absorbs = peakdet(wavelengths, invert_spectrum(wavelengths,counts), errors,
+                                                             values_units=values_units,absorber=True)
+                            self.clean_absorbers()
 
 
                 #scores = []
@@ -2186,12 +2241,13 @@ class Spectrum:
 
                     specplot.scatter(x, y, facecolors='none', edgecolors='r',zorder=99)
 
-                    for i in range(len(peaks)):
-                        h = peaks[i].raw_h
-                        specplot.annotate("%0.1f"%peaks[i].eqw_obs,xy=(peaks[i].fit_x0,h),xytext=(peaks[i].fit_x0,h),
-                                          fontsize=6,zorder=99)
+                    if annotate:
+                        for i in range(len(peaks)):
+                            h = peaks[i].raw_h
+                            specplot.annotate("%0.1f"%peaks[i].eqw_obs,xy=(peaks[i].fit_x0,h),xytext=(peaks[i].fit_x0,h),
+                                              fontsize=6,zorder=99)
 
-                        log.debug("Peak at %g , Score = %g , SNR = %g" %(peaks[i].fit_x0,peaks[i].eqw_obs, peaks[i].snr))
+                            log.debug("Peak at %g , Score = %g , SNR = %g" %(peaks[i].fit_x0,peaks[i].eqw_obs, peaks[i].snr))
 
 
             #textplot = plt.axes([0.025, .6, 0.95, dy * 2])
