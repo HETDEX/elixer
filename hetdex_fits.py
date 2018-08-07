@@ -280,7 +280,11 @@ class HetdexFits:
             hdu_idx = {}
             for i in range(len(f)):
                 try:
-                    hdu_idx[f[i].header['EXTNAME']] = i
+                    if f[i].header['EXTNAME'] in hdu_idx:
+                        log.warning("WARNING! Duplicate frame 'EXTNAME' found. ['%s'] at index %d and %d in file: %s"
+                                    %(f[i].header['EXTNAME'],hdu_idx[f[i].header['EXTNAME']], i,self.filename))
+                    else:
+                        hdu_idx[f[i].header['EXTNAME']] = i
                 except:
                     pass
 
@@ -305,6 +309,10 @@ class HetdexFits:
 
             #get error equivalent
             self.err_data = np.array(f[hdu_idx['error']].data)
+            if self.err_data.shape != (1032, 1032):
+                print("TEMPORARY!!! using [1] for ['error'] frame until name correctd.")
+                self.err_data = np.array(f[1].data)
+
             self.err_data[np.isnan(self.err_data)] = 0.0
             if self.err_data.shape != (1032,1032):
                 log.error("ERROR!! Unexpected data shape for [error]. Expected (1032,1032), got (%d,%d)"

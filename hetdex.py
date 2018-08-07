@@ -3110,6 +3110,8 @@ class HETDEX:
             log.error("Error! Cannot build datakeep.",exc_info=True)
 
         #detobj.dqs_score() #force_recompute=True) #not doing dqs score anymore
+        if datakeep is None:
+            log.error("Error! Cannot build datakeep.")
         return datakeep
 
     def build_hetdex_data_dict(self,e):#e is the emission detection to use

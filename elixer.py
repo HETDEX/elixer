@@ -191,6 +191,9 @@ def parse_commandline(auto_force=False):
                         required=False, action='store_true', default=False)
     parser.add_argument('--catcheck', help='Only check to see if there possible matches. Simplified commandline output only',
                         required=False, action='store_true', default=False)
+
+    parser.add_argument('--merge', help='Merge all cat and fib txt files',
+                        required=False, action='store_true', default=False)
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
 
@@ -212,6 +215,10 @@ def parse_commandline(auto_force=False):
 
     if auto_force:
         args.force = True #forced to be true in dispatch mode
+
+    if args.merge:
+        print("Merging catalogs and fiber files ... [ignoring all other parameters]")
+        return args
 
     if args.gaussplots is not None:
         G.DEBUG_SHOW_GAUSS_PLOTS = args.gaussplots
@@ -401,9 +408,10 @@ def build_hetdex_section(pdfname, hetdex, detect_id = 0,pages=None):
         pages = []
     pages = hetdex.build_hetdex_data_page(pages,detect_id)
 
-    if (PyPDF is not None) and (pages is not None):
-        build_report_part(pdfname,pages)
-        pages = None
+    if pages is not None:
+        if (PyPDF is not None):
+            build_report_part(pdfname,pages)
+            pages = None
 
     return pages
 
@@ -929,6 +937,68 @@ def get_fcsdir_subdirs_to_process(args):
 
     return subdirs
 
+
+def merge(args):
+    #must be in directory with all the dispatch_xxx folders
+    #for each folder, read in and join the  dispatch_xxx
+
+    #cat file first
+    try:
+        first = True
+        merge_fn = None
+        merge = None
+        for fn in sorted(glob.glob("dispatch_*/*/*_cat.txt")):
+            if first:
+                first = False
+                merge_fn = os.path.basename(fn)
+                merge = open(merge_fn, 'w')
+
+                with open(fn,'r') as f:
+                    merge.writelines(l for l in f)
+            else:
+                with open(fn,'r') as f:
+                    merge.writelines(l for l in f if l[0] != '#')
+
+        if merge is not None:
+            merge.close()
+            print("Done: " + merge_fn)
+        else:
+            print("No catalog files found. Are you in the directory with the dispatch_* subdirs?")
+
+    except:
+        pass
+
+    #fib file
+    try:
+        first = True
+        merge_fn = None
+        merge = None
+        for fn in sorted(glob.glob("dispatch_*/*/*_fib.txt")):
+            if first:
+                first = False
+                merge_fn = os.path.basename(fn)
+                merge = open(merge_fn, 'w')
+
+                with open(fn,'r') as f:
+                    merge.writelines(l for l in f)
+            else:
+                with open(fn,'r') as f:
+                    merge.writelines(l for l in f if l[0] != '#')
+
+        if merge is not None:
+            merge.close()
+            print("Done: " + merge_fn)
+        else:
+            print("No fiber files found. Are you in the directory with the dispatch_* subdirs?")
+
+
+    except:
+        pass
+
+
+
+
+
 def main():
 
     global G_PDF_FILE_NUM
@@ -936,6 +1006,11 @@ def main():
     #G.gc.enable()
     #G.gc.set_debug(G.gc.DEBUG_LEAK)
     args = parse_commandline()
+
+    if args.merge:
+        merge(args)
+        exit(0)
+
     cats = catalogs.get_catalog_list()
     catch_all_cat = catalogs.get_catch_all()
     pages = []
@@ -1081,16 +1156,15 @@ def main():
                         dec = e.dec
                     pdf.pages = build_hetdex_section(pdf.filename,hd,e.id,pdf.pages) #this is the fiber, spectra cutouts for this detect
 
-                    if pdf.pages is not None:
-                        match = match_summary.Match(e)
+                    match = match_summary.Match(e)
 
-                        pdf.pages,pdf.bid_count = build_pages(pdf.filename, match, ra, dec, args.error, e.matched_cats, pdf.pages,
-                                                      num_hits=e.num_hits, idstring=id,base_count=0,target_w=e.w,
-                                                      fiber_locs=e.fiber_locs,target_flux=e.estflux)
+                    pdf.pages,pdf.bid_count = build_pages(pdf.filename, match, ra, dec, args.error, e.matched_cats, pdf.pages,
+                                                  num_hits=e.num_hits, idstring=id,base_count=0,target_w=e.w,
+                                                  fiber_locs=e.fiber_locs,target_flux=e.estflux)
 
-                        #add in lines and classification info
-                        match_list.add(match) #always add even if bids are none
-                        file_list.append(pdf)
+                    #add in lines and classification info
+                    match_list.add(match) #always add even if bids are none
+                    file_list.append(pdf)
 
            # else: #for multi calls (which are common now) this is of no use
            #     print("\nNo emission detections meet minimum criteria for specified IFU. Exiting.\n"
