@@ -261,7 +261,7 @@ class HetdexFits:
             file = self.filename
 
         try:
-            log.debug("Loading %s ..." %self.filename)
+            log.info("Loading %s ..." %self.filename)
             f = pyfits.open(file) #file maybe a file name or a .tar file object
         except:
             log.error("could not open file " + self.filename, exc_info=True)
@@ -288,6 +288,9 @@ class HetdexFits:
             self.data = np.array(f[hdu_idx['clean_image']].data)
             self.data[np.isnan(self.data)] = 0.0 # clean up any NaNs
 
+            if self.data.shape != (1032,1032):
+                log.error("ERROR!! Unexpected data shape for [clean_image]. Expected (1032,1032), got (%d,%d)" %(self.data.shape))
+
             #with the sky NOT subtracted
             try:
                 self.data_sky = np.array(f[0].data)
@@ -295,27 +298,50 @@ class HetdexFits:
             except: #error, but not fatal, just keep going
                 log.error("Could not load sky NOT subtracted fits data from multi*fits")
 
+            if self.data_sky.shape != (1032,1032):
+                log.error("ERROR!! Unexpected data shape for [0] (data_sky). Expected (1032,1032), got (%d,%d)"
+                            %(self.data_sky.shape))
+
+
             #get error equivalent
             self.err_data = np.array(f[hdu_idx['error']].data)
             self.err_data[np.isnan(self.err_data)] = 0.0
+            if self.err_data.shape != (1032,1032):
+                log.error("ERROR!! Unexpected data shape for [error]. Expected (1032,1032), got (%d,%d)"
+                            %(self.err_data.shape))
 
             #get fe equivalent
             self.fe_data = np.array(f[hdu_idx['sky_subtracted']].data)
             self.fe_data[np.isnan(self.fe_data)] = 0.0
+            if self.fe_data.shape != (112,1032):
+                log.error("ERROR!! Unexpected data shape for [sky_subtracted]. Expected (112,1032), got (%d,%d)"
+                            %(self.fe_data.shape))
 
             # get fe equivalent (need also the matching wavelengths)
             self.wave_data = np.array(f[hdu_idx['wavelength']].data)
             self.wave_data[np.isnan(self.wave_data)] = 0.0
+            if self.wave_data.shape != (112,1032):
+                log.error("ERROR!! Unexpected data shape for [wavelength]. Expected (112,1032), got (%d,%d)"
+                            %(self.wave_data.shape))
 
             self.trace_data = np.array(f[hdu_idx['trace']].data)
             self.trace_data[np.isnan(self.trace_data)] = 0.0
+            if self.trace_data.shape != (112,1032):
+                log.error("ERROR!! Unexpected data shape for [trace]. Expected (112,1032), got (%d,%d)"
+                            %(self.trace_data.shape))
 
             self.fiber_to_fiber = np.array(f[hdu_idx['fiber_to_fiber']].data)
             self.fiber_to_fiber[np.isnan(self.fiber_to_fiber)]
+            if self.fiber_to_fiber.shape != (112,1032):
+                log.error("ERROR!! Unexpected data shape for [fiber_to_fiber]. Expected (112,1032), got (%d,%d)"
+                            %(self.fiber_to_fiber.shape))
 
             #[0] = wavelength, [1] = empirical? [2] = expected or estimated?
             self.error_analysis = np.array(f[hdu_idx['error_analysis']].data)
             self.error_analysis[np.isnan(self.error_analysis)]
+            if self.error_analysis.shape != (3,512):
+                log.error("ERROR!! Unexpected data shape for [error_analysis]. Expected (3,512), got (%d,%d)"
+                            %(self.error_analysis.shape))
 
             #note: (this is done by IFU in build_fibers for each fiber that is constructed)
             #closest thing to error is the error_analysis * fiber_to_fiber (for the fiber in question)
@@ -328,6 +354,9 @@ class HetdexFits:
             # get fiber centers
             # the fits representation is backward (with grid x,y: 1,112 and 2,112 (i.e at the top) == fiber 1))
             self.fiber_centers = np.array(f[hdu_idx['ifupos']].data)
+            if self.fiber_centers.shape != (112, 2):
+                log.error("ERROR!! Unexpected data shape for [ifupos]. Expected (112,2), got (%d,%d)"
+                            % (self.fiber_centers.shape))
 
             #self.pixflat_data = np.array(f[hdu_idx['flat_image']].data)
             #self.pixflat_data[np.isnan(self.pixflat_data)] = 0.0

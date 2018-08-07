@@ -8,7 +8,9 @@ from math import ceil
 
 
 #todo: allow user to change the run-time from command line
+MAX_TASKS = 640 #max allowed by TACC (for gpu or vis)
 time = "00:59:59"
+time_set = False
 email = "##SBATCH --mail-user \n\
 ##SBATCH --mail-type all"
 queue = "vis"
@@ -43,6 +45,7 @@ elif "--time" in args:
 if i != -1:
     try:
         time = sys.argv[i + 1]
+        time_set = True
     except:
        pass
 else:
@@ -100,8 +103,12 @@ if i != -1:
     except:
        print("Exception parsing --tasks")
 
-    if (tasks < 1) or (tasks > 640):
-        print ("Invalid --tasks value. Must between 1 to 640 inclusive.")
+    if tasks == 0:
+        print("Using maximum tasks ...")
+        if not time_set:
+            time = "00:05:00" #5 minutes (no known elixer call takes more than 1 minute
+    elif (tasks < 1) or (tasks > MAX_TASKS):
+        print ("Invalid --tasks value. Must be 0 (auto-max) or between 1 to 640 inclusive.")
         exit(-1)
 else:
     pass
@@ -115,6 +122,70 @@ if not os.path.isdir(basename):
             exit(-1)
 
 os.chdir(basename)
+
+### elixer.run
+path = os.path.join(os.path.dirname(sys.argv[0]),"elixer.py")
+
+if tasks == 1:
+    run = "python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' -f \n'
+
+    try:
+        f = open("elixer.run", 'w')
+        f.write(run)
+        f.close()
+    except:
+        print("Error! Cannot create elixer.slurm")
+        exit(-1)
+else: # multiple tasks
+    try:
+        args = elixer.parse_commandline(auto_force=True)
+        print("Parsing directories to process. This may take a little while ... ")
+        subdirs = elixer.get_fcsdir_subdirs_to_process(args)
+        if tasks != 0:
+            if tasks > len(subdirs):  # problem too many tasks requestd
+                print("Error! Too many tasks (%d) requested. Only %d directories to process." % (tasks, len(subdirs)))
+                exit(-1)
+
+            dirs_per_file = int(ceil(float(len(subdirs)) / float(tasks)))
+        else:
+            tasks = min(MAX_TASKS,len(subdirs))
+            if tasks == MAX_TASKS:
+                dirs_per_file = int(ceil(float(len(subdirs)) / float(tasks)))
+            else:
+                dirs_per_file = 1
+
+        f = open("elixer.run", 'w')
+
+        for i in range(int(tasks)):
+            fn = "dispatch_" + str(i).zfill(3)
+
+            if not os.path.isdir(fn):
+                try:
+                    os.makedirs(fn)
+                except OSError as exception:
+                    if exception.errno != errno.EEXIST:
+                        print ("Fatal. Cannot create output directory: %s" % fn)
+                        exit(-1)
+
+            df = open(os.path.join(fn,fn), 'w')
+            content = ""
+
+            start_idx = i * dirs_per_file
+            stop_idx = min(start_idx + dirs_per_file,len(subdirs))
+            for j in range(start_idx,stop_idx):
+                df.write(subdirs[j] + "\n")
+
+            df.close()
+
+            #add  dispatch_xxx
+            #run = "python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' --dispatch ' + os.path.join(basename,fn) + ' -f \n'
+            run = "cd " + fn + " ; python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' --dispatch ' + fn + ' -f ; cd .. \n'
+            f.write(run)
+
+        f.close()
+    except:
+        print("Error! Cannot create dispatch files.")
+        exit(-1)
 
 
 ### elixer.slurm
@@ -256,64 +327,64 @@ except:
 
 
 
-### elixer.run
-path = os.path.join(os.path.dirname(sys.argv[0]),"elixer.py")
-
-if tasks == 1:
-    run = "python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' -f \n'
-
-    try:
-        f = open("elixer.run", 'w')
-        f.write(run)
-        f.close()
-    except:
-        print("Error! Cannot create elixer.slurm")
-        exit(-1)
-else: # multiple tasks
-    try:
-        args = elixer.parse_commandline(auto_force=True)
-        print("Parsing directories to process. This may take a little while ... ")
-        subdirs = elixer.get_fcsdir_subdirs_to_process(args)
-        dirs_per_file = int(ceil(float(len(subdirs))/float(tasks)))
-
-        if tasks > len(subdirs): #problem too many tasks requestd
-            print("Error! Too many tasks (%d) requested. Only %d directories to process." %(tasks,len(subdirs)))
-            exit(-1)
-
-        f = open("elixer.run", 'w')
-
-        for i in range(int(tasks)):
-            fn = "dispatch_" + str(i).zfill(3)
-
-            if not os.path.isdir(fn):
-                try:
-                    os.makedirs(fn)
-                except OSError as exception:
-                    if exception.errno != errno.EEXIST:
-                        print ("Fatal. Cannot create output directory: %s" % fn)
-                        exit(-1)
-
-            df = open(os.path.join(fn,fn), 'w')
-            content = ""
-
-            start_idx = i * dirs_per_file
-            stop_idx = min(start_idx + dirs_per_file,len(subdirs))
-            for j in range(start_idx,stop_idx):
-                df.write(subdirs[j] + "\n")
-
-            df.close()
-
-            #add  dispatch_xxx
-            #run = "python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' --dispatch ' + os.path.join(basename,fn) + ' -f \n'
-            run = "cd " + fn + " ; python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' --dispatch ' + fn + ' -f ; cd .. \n'
-            f.write(run)
-
-        f.close()
-    except:
-        print("Error! Cannot create dispatch files.")
-        exit(-1)
-
-
+# ### elixer.run
+# path = os.path.join(os.path.dirname(sys.argv[0]),"elixer.py")
+#
+# if tasks == 1:
+#     run = "python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' -f \n'
+#
+#     try:
+#         f = open("elixer.run", 'w')
+#         f.write(run)
+#         f.close()
+#     except:
+#         print("Error! Cannot create elixer.slurm")
+#         exit(-1)
+# else: # multiple tasks
+#     try:
+#         args = elixer.parse_commandline(auto_force=True)
+#         print("Parsing directories to process. This may take a little while ... ")
+#         subdirs = elixer.get_fcsdir_subdirs_to_process(args)
+#         dirs_per_file = int(ceil(float(len(subdirs))/float(tasks)))
+#
+#         if tasks > len(subdirs): #problem too many tasks requestd
+#             print("Error! Too many tasks (%d) requested. Only %d directories to process." %(tasks,len(subdirs)))
+#             exit(-1)
+#
+#         f = open("elixer.run", 'w')
+#
+#         for i in range(int(tasks)):
+#             fn = "dispatch_" + str(i).zfill(3)
+#
+#             if not os.path.isdir(fn):
+#                 try:
+#                     os.makedirs(fn)
+#                 except OSError as exception:
+#                     if exception.errno != errno.EEXIST:
+#                         print ("Fatal. Cannot create output directory: %s" % fn)
+#                         exit(-1)
+#
+#             df = open(os.path.join(fn,fn), 'w')
+#             content = ""
+#
+#             start_idx = i * dirs_per_file
+#             stop_idx = min(start_idx + dirs_per_file,len(subdirs))
+#             for j in range(start_idx,stop_idx):
+#                 df.write(subdirs[j] + "\n")
+#
+#             df.close()
+#
+#             #add  dispatch_xxx
+#             #run = "python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' --dispatch ' + os.path.join(basename,fn) + ' -f \n'
+#             run = "cd " + fn + " ; python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' --dispatch ' + fn + ' -f ; cd .. \n'
+#             f.write(run)
+#
+#         f.close()
+#     except:
+#         print("Error! Cannot create dispatch files.")
+#         exit(-1)
+#
+#
 
 
 #execute system command

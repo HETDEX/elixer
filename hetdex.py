@@ -2723,6 +2723,9 @@ class HETDEX:
             dec = e.dec
 
         datakeep = self.build_data_dict(e)
+        if datakeep is None:
+            return None
+
         e.get_probabilities()
 
         if e.w > 0:
@@ -3098,10 +3101,13 @@ class HETDEX:
 
     def build_data_dict(self,detobj):
         datakeep = None
-        if self.panacea:
-            datakeep = self.build_panacea_hetdex_data_dict(detobj)
-        else:
-            datakeep = self.build_hetdex_data_dict(detobj)
+        try:
+            if self.panacea:
+                datakeep = self.build_panacea_hetdex_data_dict(detobj)
+            else:
+                datakeep = self.build_hetdex_data_dict(detobj)
+        except:
+            log.error("Error! Cannot build datakeep.",exc_info=True)
 
         #detobj.dqs_score() #force_recompute=True) #not doing dqs score anymore
         return datakeep

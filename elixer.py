@@ -401,7 +401,7 @@ def build_hetdex_section(pdfname, hetdex, detect_id = 0,pages=None):
         pages = []
     pages = hetdex.build_hetdex_data_page(pages,detect_id)
 
-    if PyPDF is not None:
+    if (PyPDF is not None) and (pages is not None):
         build_report_part(pdfname,pages)
         pages = None
 
@@ -837,7 +837,7 @@ def get_fcsdir_subdirs_to_process(args):
         try:
             # is this a list or a file
             if os.path.isfile(args.dispatch):
-                detlist = out = np.genfromtxt(args.dispatch, dtype=None, comments='#', usecols=(0,))
+                detlist = np.genfromtxt(args.dispatch, dtype=None, comments='#', usecols=(0,))
             else:
                 detlist = args.dispatch.replace(', ', ',').split(',')  # allow comma or comma-space separation
         except:
@@ -849,7 +849,7 @@ def get_fcsdir_subdirs_to_process(args):
         try:
             #is this a list or a file
             if os.path.isfile(args.dets):
-                detlist = out = np.genfromtxt(args.dets, dtype=None,comments='#',usecols=(0,))
+                detlist = np.genfromtxt(args.dets, dtype=None,comments='#',usecols=(0,))
             else:
                 detlist = args.dets.replace(', ',',').split(',') #allow comma or comma-space separation
         except:
@@ -866,7 +866,21 @@ def get_fcsdir_subdirs_to_process(args):
 
         #pattern = "*spec.dat" #using one of the expected files in subdir not likely to be found elsewhere
         #assumes no naming convention for the directory names or intermediate structure in the tree
-        if (detlist is None) or (len(detlist) == 0):
+
+        len_detlist = 0
+        try:
+            len_detlist = len(detlist) #ok
+        except:
+            try:
+                len_detlist = detlist.size
+            except:
+                pass
+
+        if len_detlist == 1 and not isinstance(detlist,list): #so we get a list of strings, not just a single string and not a list of characters
+            detlist = [str(detlist)]
+
+        #if (detlist is None) or (len(detlist) == 0):
+        if len_detlist == 0:
             for root, dirs, files in os.walk(fcsdir):
                 pattern = os.path.basename(root)+"spec.dat" #ie. 20170322v011_005spec.dat
                 for name in files:
@@ -1067,18 +1081,16 @@ def main():
                         dec = e.dec
                     pdf.pages = build_hetdex_section(pdf.filename,hd,e.id,pdf.pages) #this is the fiber, spectra cutouts for this detect
 
-                    match = match_summary.Match(e)
+                    if pdf.pages is not None:
+                        match = match_summary.Match(e)
 
-                    pdf.pages,pdf.bid_count = build_pages(pdf.filename, match, ra, dec, args.error, e.matched_cats, pdf.pages,
-                                                  num_hits=e.num_hits, idstring=id,base_count=0,target_w=e.w,
-                                                  fiber_locs=e.fiber_locs,target_flux=e.estflux)
+                        pdf.pages,pdf.bid_count = build_pages(pdf.filename, match, ra, dec, args.error, e.matched_cats, pdf.pages,
+                                                      num_hits=e.num_hits, idstring=id,base_count=0,target_w=e.w,
+                                                      fiber_locs=e.fiber_locs,target_flux=e.estflux)
 
-                    #add in lines and classification info
-
-
-                    match_list.add(match) #always add even if bids are none
-
-                    file_list.append(pdf)
+                        #add in lines and classification info
+                        match_list.add(match) #always add even if bids are none
+                        file_list.append(pdf)
 
            # else: #for multi calls (which are common now) this is of no use
            #     print("\nNo emission detections meet minimum criteria for specified IFU. Exiting.\n"
