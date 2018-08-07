@@ -17,6 +17,15 @@ queue = "vis"
 tasks = 1
 args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
 
+
+#check for --merge (if so just call elixer
+if "--merge" in args:
+    print("Calling ELiXer to merge catalogs and fiber files (ignoring all other parameters) ... ")
+    elixer.merge()
+    exit(0)
+
+
+
 #check for name agument (mandatory)
 i = -1
 if "-n" in args:

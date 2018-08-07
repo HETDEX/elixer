@@ -217,7 +217,7 @@ def parse_commandline(auto_force=False):
         args.force = True #forced to be true in dispatch mode
 
     if args.merge:
-        print("Merging catalogs and fiber files ... [ignoring all other parameters]")
+        print("Merging catalogs and fiber files (ignoring all other parameters) ... ")
         return args
 
     if args.gaussplots is not None:
@@ -938,7 +938,7 @@ def get_fcsdir_subdirs_to_process(args):
     return subdirs
 
 
-def merge(args):
+def merge(args=None):
     #must be in directory with all the dispatch_xxx folders
     #for each folder, read in and join the  dispatch_xxx
 
