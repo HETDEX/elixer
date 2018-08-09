@@ -480,11 +480,11 @@ class Catalog:
         rows = 1
         cols = 1
 
-        fig_sz_x = 8 #initial guess
+        fig_sz_x = G.ANNULUS_FIGURE_SZ_X #initial guess
         fig_sz_y = 10
 
         fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
-        plt.subplots_adjust(left=0.1, right=0.90, top=0.90, bottom=0.05)
+       # plt.subplots_adjust(left=0.1, right=0.90, top=0.90, bottom=0.05)
 
         gs = gridspec.GridSpec(rows, cols, wspace=0.0, hspace=0.0)
         # reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based

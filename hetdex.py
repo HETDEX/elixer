@@ -2685,8 +2685,21 @@ class HETDEX:
 
         print ("Bulding HETDEX annulus header for Detect ID #%d" %detectid)
 
+        e.syn_obs.build_complete_emission_line_info_dict()
+        if len(e.syn_obs.eli_dict) == 0:  # problem, we're done
+            log.error("Problem building complete EmissionLineInfo dictionary.")
+            return None
+
+        # now sub select the annulus fibers (without signal) (populate obs.fibers_work
+        e.syn_obs.annulus_fibers()
+
+        if len(e.syn_obs.fibers_work) > 0:
+            e.syn_obs.sum_fibers()
+        else:
+            log.warning("No fibers inside annulus.")
+
         figure_sz_y = G.GRID_SZ_Y
-        fig = plt.figure(figsize=(G.FIGURE_SZ_X, figure_sz_y))
+        fig = plt.figure(figsize=(G.ANNULUS_FIGURE_SZ_X, figure_sz_y))
         plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
         plt.gca().axis('off')
 
@@ -2768,23 +2781,30 @@ class HETDEX:
 
             #todo: replace this or modify ... go be sure to capture the syntheticobservation.eli_dict{} infor
 
+            pages.append(fig)
+            plt.close('all')
+            try:
+                fig = plt.figure(figsize=(G.ANNULUS_FIGURE_SZ_X, figure_sz_y))
+                plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
+                plt.gca().axis('off')
+              #  buf = self.build_full_width_spectrum(datakeep, e.w)
 
-            if False: #turn off for now (debugging)
-                pages.append(fig)
-                plt.close('all')
-                try:
-                    fig = plt.figure(figsize=(G.FIGURE_SZ_X, figure_sz_y))
-                    plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
-                    plt.gca().axis('off')
-                    buf = self.build_full_width_spectrum(datakeep, e.w)
-                    buf.seek(0)
-                    im = Image.open(buf)
-                    plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
+                buf = e.spec_obj.build_full_width_spectrum(wavelengths=e.syn_obs.sum_wavelengths,
+                                                           counts=e.syn_obs.sum_values,
+                                                           errors=e.syn_obs.sum_errors,
+                                                           values_units = e.syn_obs.units,
+                                                           central_wavelength=e.syn_obs.w,
+                                                           show_skylines=True, show_peaks=True, name=None,
+                                                           annotate=False)
 
-                    pages.append(fig) #append the second part to its own page to be merged later
-                    plt.close()
-                except:
-                    log.warning("Failed to build full width spec/cutout image.", exc_info=True)
+                buf.seek(0)
+                im = Image.open(buf)
+                plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
+
+                pages.append(fig) #append the second part to its own page to be merged later
+                plt.close()
+            except:
+                log.warning("Failed to build full width spec/cutout image.", exc_info=True)
 
         else:
             pages.append(fig)  # append what we have (done with a blank as well so the sizes are correct)

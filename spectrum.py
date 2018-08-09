@@ -2160,7 +2160,7 @@ class Spectrum:
         self.p_lae_oii_ratio = min(line_prob.MAX_PLAE_POII,self.p_lae_oii_ratio) #cap to MAX
 
     def build_full_width_spectrum(self,wavelengths = None,  counts = None, errors = None, central_wavelength = None,
-                                  show_skylines=True, show_peaks = True, name=None,
+                                  values_units = 0, show_skylines=True, show_peaks = True, name=None,
                                   dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,peaks=None,annotate=True):
 
 
@@ -2177,7 +2177,7 @@ class Spectrum:
 
 
         # fig = plt.figure(figsize=(5, 6.25), frameon=False)
-        fig = plt.figure(figsize=(8, 2), frameon=False)
+        fig = plt.figure(figsize=(G.ANNULUS_FIGURE_SZ_X, 2), frameon=False)
         plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
 
         dy = 1.0 / 5.0  # + 1 skip for legend, + 2 for double height spectra + 2 for double height labels
