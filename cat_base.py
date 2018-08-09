@@ -279,7 +279,7 @@ class Catalog:
             self.clear_pages()
         self.pages.append(entry)
 
-    def add_north_box(self,plt,sci,cutout,half_side,zero_x = 0,zero_y = 0,theta = None):
+    def add_north_box(self,plt,sci,cutout,half_side,zero_x = 0,zero_y = 0,theta = None,box=True):
         #theta is angle in radians counter-clockwise from x-axis to the north celestrial pole
 
         if (plt is None) or (sci is None) or (cutout is None) or (half_side is None):
@@ -289,19 +289,33 @@ class Catalog:
             if theta is None:
                 theta = sci.get_rotation_to_celestrial_north(cutout)
 
+
             rx, ry, rrot = sci.get_rect_parms(cutout, -half_side, -half_side, theta - np.pi / 2.)
-            plt.gca().add_patch(plt.Rectangle((zero_x + rx, zero_y + ry), width=half_side * 2, height=half_side * 2,
-                                              angle=rrot, color='red', fill=False))
 
-            t_dx = half_side * np.cos(theta)  # * sci.pixel_size
-            t_dy = half_side * np.sin(theta)  # * sci.pixel_size
-            plt.text(zero_x + t_dx * 1.3, zero_y + t_dy * 1.3, 'N', rotation=rrot,
-                     fontsize=10, color="red", verticalalignment='center', horizontalalignment='center')
+            if box:
+                plt.gca().add_patch(plt.Rectangle((zero_x + rx, zero_y + ry), width=half_side * 2, height=half_side * 2,
+                                                  angle=rrot, color='red', fill=False))
 
-            t_dx = half_side * np.cos(theta + np.pi / 2.)  # * sci.pixel_size
-            t_dy = half_side * np.sin(theta + np.pi / 2.)  # * sci.pixel_size
-            plt.text(zero_x + t_dx * 1.3, zero_y + t_dy * 1.3, 'E', rotation=rrot,
-                     fontsize=10, color="red", verticalalignment='center', horizontalalignment='center')
+                t_dx = half_side * np.cos(theta)  # * sci.pixel_size
+                t_dy = half_side * np.sin(theta)  # * sci.pixel_size
+                plt.text(zero_x + t_dx * 1.3, zero_y + t_dy * 1.3, 'N', rotation=rrot,
+                         fontsize=10, color="red", verticalalignment='center', horizontalalignment='center')
+
+                t_dx = half_side * np.cos(theta + np.pi / 2.)  # * sci.pixel_size
+                t_dy = half_side * np.sin(theta + np.pi / 2.)  # * sci.pixel_size
+                plt.text(zero_x + t_dx * 1.3, zero_y + t_dy * 1.3, 'E', rotation=rrot,
+                         fontsize=10, color="red", verticalalignment='center', horizontalalignment='center')
+            else:
+                t_dx = half_side * np.cos(theta)  # * sci.pixel_size
+                t_dy = half_side * np.sin(theta)  # * sci.pixel_size
+                plt.text(zero_x + t_dx * 0.95, zero_y + t_dy * 0.95, 'N', rotation=rrot,
+                         fontsize=10, color="red", verticalalignment='center', horizontalalignment='center')
+
+                t_dx = half_side * np.cos(theta + np.pi / 2.)  # * sci.pixel_size
+                t_dy = half_side * np.sin(theta + np.pi / 2.)  # * sci.pixel_size
+                plt.text(zero_x + t_dx * 0.95, zero_y + t_dy * 0.95, 'E', rotation=rrot,
+                         fontsize=10, color="red", verticalalignment='center', horizontalalignment='center')
+
         except:
             log.error("Exception bulding celestrial north box.", exc_info=True)
 
@@ -470,9 +484,9 @@ class Catalog:
         fig_sz_y = 10
 
         fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
-        plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
+        plt.subplots_adjust(left=0.1, right=0.90, top=0.90, bottom=0.05)
 
-        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.0)
+        gs = gridspec.GridSpec(rows, cols, wspace=0.0, hspace=0.0)
         # reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based
 
         font = FontProperties()
@@ -483,8 +497,8 @@ class Catalog:
 
         plt.subplot(gs[:, :]) #right now, only the one (if in future want more this needs to change)
         #text = plt.text(0, 0.7, title, ha='left', va='bottom', fontproperties=font)
-        plt.gca().set_frame_on(False)
-        plt.gca().axis('off')
+        #plt.gca().set_frame_on(False)
+        #plt.gca().axis('off')
 
         empty_sci = science_image.science_image()
 
@@ -496,9 +510,11 @@ class Catalog:
 
         plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
         plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+        plt.title(title)
+        plt.ylabel('arcsec')
+        plt.xlabel('arcsec')
 
-        #do I want a North Box??
-        #self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
+        self.add_north_box(plt, empty_sci, cutout, obs.annulus[1], 0, 0, theta=None,box=False)
 
         #put in the fibers ... this is very similar to, but not the same as add_fiber_positions
         try:
@@ -558,6 +574,7 @@ class Catalog:
 
         #plot all fibers (with signal info for gradient fill but no edge color)
         #then (over) plot fibers_work with edge color
+        #plt.tight_layout()
         plt.close()
         self.add_bid_entry(fig)
 
