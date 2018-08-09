@@ -249,3 +249,5 @@ MULTILINE_ALWAYS_SHOW_BEST_GUESS = True #if true, show the best guess even if it
 DYNAMIC_MAG_APERTURE = True  #allow aperture size to change to fit maximum magnitude
 
 DEBUG_SHOW_GAUSS_PLOTS = False #set on command line now --gaussplots (but keep here for compatibility with other programs)
+
+MAX_ANNULUS_RADIUS = 3600.0 #ridiculously large ... need to trim this to a reasonable size

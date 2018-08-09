@@ -94,6 +94,9 @@ class science_image():
                 log.error("Unable to use WCS constructor. Will attempt to build manually.", exc_info=True)
                 self.build_wcs_manually()
 
+        if self.wcs is None: #must have WCS
+            return -1
+
         try:
             self.footprint = WCS.calc_footprint(self.wcs)
         except:
@@ -116,15 +119,19 @@ class science_image():
             log.error("Unable to build pixel size", exc_info=True)
 
     def build_wcs_manually(self):
-        self.wcs = WCS(naxis=self.fits[self.wcs_idx].header['NAXIS'])
-        self.wcs.wcs.crpix = [self.fits[self.wcs_idx].header['CRPIX1'], self.fits[self.wcs_idx].header['CRPIX2']]
-        self.wcs.wcs.crval = [self.fits[self.wcs_idx].header['CRVAL1'], self.fits[self.wcs_idx].header['CRVAL2']]
-        self.wcs.wcs.ctype = [self.fits[self.wcs_idx].header['CTYPE1'], self.fits[self.wcs_idx].header['CTYPE2']]
-        #self.wcs.wcs.cdelt = [None,None]#[hdu1[0].header['CDELT1O'],hdu1[0].header['CDELT2O']]
-        self.wcs.wcs.cd = [[self.fits[self.wcs_idx].header['CD1_1'], self.fits[self.wcs_idx].header['CD1_2']],
-                           [self.fits[self.wcs_idx].header['CD2_1'], self.fits[self.wcs_idx].header['CD2_2']]]
-        self.wcs._naxis1 = self.fits[self.wcs_idx].header['NAXIS1']
-        self.wcs._naxis2 = self.fits[self.wcs_idx].header['NAXIS2']
+        try:
+            self.wcs = WCS(naxis=self.fits[self.wcs_idx].header['NAXIS'])
+            self.wcs.wcs.crpix = [self.fits[self.wcs_idx].header['CRPIX1'], self.fits[self.wcs_idx].header['CRPIX2']]
+            self.wcs.wcs.crval = [self.fits[self.wcs_idx].header['CRVAL1'], self.fits[self.wcs_idx].header['CRVAL2']]
+            self.wcs.wcs.ctype = [self.fits[self.wcs_idx].header['CTYPE1'], self.fits[self.wcs_idx].header['CTYPE2']]
+            #self.wcs.wcs.cdelt = [None,None]#[hdu1[0].header['CDELT1O'],hdu1[0].header['CDELT2O']]
+            self.wcs.wcs.cd = [[self.fits[self.wcs_idx].header['CD1_1'], self.fits[self.wcs_idx].header['CD1_2']],
+                               [self.fits[self.wcs_idx].header['CD2_1'], self.fits[self.wcs_idx].header['CD2_2']]]
+            self.wcs._naxis1 = self.fits[self.wcs_idx].header['NAXIS1']
+            self.wcs._naxis2 = self.fits[self.wcs_idx].header['NAXIS2']
+        except:
+            log.error("Failed to build WCS manually.",exc_info=True)
+            self.wcs = None
 
     def contains_position(self,ra,dec):
         if self.footprint is not None: #do fast check first
@@ -337,7 +344,6 @@ class science_image():
                 mag = max_bright
                 counts = max_counts
                 radius = max_radius
-
 
             else:
                 try:

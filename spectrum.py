@@ -474,9 +474,10 @@ class EmissionLineInfo:
 
 
 
-
+#really should change this to use kwargs
 def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=None,values_units=0, sbr=None,
-                 min_sigma=GAUSS_FIT_MIN_SIGMA,show_plot=False,plot_id=None,plot_path=None,do_mcmc=False,absorber=False):
+                 min_sigma=GAUSS_FIT_MIN_SIGMA,show_plot=False,plot_id=None,plot_path=None,do_mcmc=False,absorber=False,
+                 force_score=False):
 
     #error on the wavelength of the possible line depends on the redshift and its error and the wavelength itself
     #i.e. wavelength error = wavelength / (1+z + error)  - wavelength / (1+z - error)

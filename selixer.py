@@ -113,7 +113,7 @@ if i != -1:
        print("Exception parsing --tasks")
 
     if tasks == 0:
-        print("Using maximum tasks ...")
+        print("Auto set maximum tasks ...")
         if not time_set:
             time = "00:05:00" #5 minutes (no known elixer call takes more than 1 minute
     elif (tasks < 1) or (tasks > MAX_TASKS):

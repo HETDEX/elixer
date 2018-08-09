@@ -17,6 +17,7 @@ from matplotlib.font_manager import FontProperties
 import scipy.constants
 
 import cat_bayesian
+import observation as elixer_observation
 #log = G.logging.getLogger('Cat_logger')
 #log.setLevel(G.logging.DEBUG)
 log = G.Global_Logger('cat_logger')
@@ -435,6 +436,133 @@ class Catalog:
 
         return cont
 
+    def build_annulus_report(self, obs, cutout, section_title=""):
+
+        MAX_LINE_SCORE = 20.0
+        MAX_ALPHA = 0.5 #still want to be able to see through it
+        #BUILD HERE ... we have everything we need now
+        #base this off of build_bid_target_reports, but use the attached cutout and just make the single image
+        print("Building ANNULUS  REPORT")
+
+        if (cutout is None) or (obs is None):
+            log.error("Invalid parameters passed to build_annulus_report")
+            return None
+
+        self.clear_pages()
+
+        #ra,dec,annulus should already be set as part of the obs (SyntheticObservation)
+
+        #make sure the eli_dict is fully populated
+        obs.build_complete_emission_line_info_dict()
+        if len(obs.eli_dict) == 0: #problem, we're done
+            log.error("Problem building complete EmissionLineInfo dictionary.")
+            return None
+
+        #now sub select the annulus fibers (without signal) (populate obs.fibers_work
+        obs.annulus_fibers()
+        if len(obs.fibers_work) == 0:
+            log.warning("Warning. No fibers found inside the annulus.")
+
+        rows = 1
+        cols = 1
+
+        fig_sz_x = 8 #initial guess
+        fig_sz_y = 10
+
+        fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
+        plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
+
+        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.0)
+        # reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based
+
+        font = FontProperties()
+        font.set_family('monospace')
+        font.set_size(12)
+
+        title = "Diffuse Emission"
+
+        plt.subplot(gs[:, :]) #right now, only the one (if in future want more this needs to change)
+        #text = plt.text(0, 0.7, title, ha='left', va='bottom', fontproperties=font)
+        plt.gca().set_frame_on(False)
+        plt.gca().axis('off')
+
+        empty_sci = science_image.science_image()
+
+        vmin, vmax = empty_sci.get_vrange(cutout.data)
+        ext = obs.annulus[1]
+
+        plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
+                   vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+
+        plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+        plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+
+        #do I want a North Box??
+        #self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
+
+        #put in the fibers ... this is very similar to, but not the same as add_fiber_positions
+        try:
+            xmin = float('inf')
+            xmax = float('-inf')
+            ymin = float('inf')
+            ymax = float('-inf')
+
+            x, y = empty_sci.get_position(obs.ra, obs.dec, cutout)  # zero (absolute) position
+
+
+            #plot annulus
+            plt.gca().add_patch(plt.Circle((0, 0), radius=obs.annulus[0],
+                                           facecolor='none', fill=False, alpha=1,
+                                           edgecolor='k', linestyle="dashed"))
+
+            plt.gca().add_patch(plt.Circle((0, 0), radius=obs.annulus[1],
+                                           facecolor='none', fill=False, alpha=1,
+                                           edgecolor='k', linestyle="dashed"))
+
+
+            #go over ALL fibers for the fill color, but only add edge to work fibers
+            signal_color = 'r'
+            empty_color = 'y'
+            for f in obs.fibers_all:
+                # fiber absolute position ... need relative position to plot (so fiber - zero pos)
+                fx, fy = empty_sci.get_position(f.ra, f.dec, cutout)
+
+                xmin = min(xmin, fx - x)
+                xmax = max(xmax, fx - x)
+                ymin = min(ymin, fy - y)
+                ymax = max(ymax, fy - y)
+
+                #for now, set alpha as a fraction of a max line score? cap at 1.0
+                if obs.eli_dict[f] is not None:
+                    alpha = obs.eli_dict[f].line_score
+                    if alpha is None:
+                        alpha = 0.0
+                    else:
+                        alpha = min(MAX_ALPHA, (alpha / MAX_LINE_SCORE * MAX_ALPHA))
+                else:
+                    alpha = 0.0
+
+                plt.gca().add_patch(plt.Circle(((fx - x), (fy - y)), radius=G.Fiber_Radius,
+                                               facecolor=signal_color, fill=True, alpha=alpha,
+                                               edgecolor='none',linestyle=None))
+
+                #over plot an edge to the fiber if it is a work fiber
+                if f in obs.fibers_work:
+                    plt.gca().add_patch(plt.Circle(((fx - x), (fy - y)), radius=G.Fiber_Radius,
+                                                   facecolor='none', fill=True, alpha=0.5,
+                                                   edgecolor=empty_color, linestyle="solid",linewidth=1))
+
+
+        except:
+            log.error("Unable to overplot gradient (all) fiber positions.", exc_info=True)
+
+        #plot all fibers (with signal info for gradient fill but no edge color)
+        #then (over) plot fibers_work with edge color
+        plt.close()
+        self.add_bid_entry(fig)
+
+        return self.pages
+
     def build_bid_target_reports(self, cat_match, target_ra, target_dec, error, num_hits=0, section_title="", base_count=0,
                                  target_w=0, fiber_locs=None,target_flux=None):
         #implement in child class
@@ -703,5 +831,11 @@ class Catalog:
         plt.close()
         return fig
 
-    def write_cutout_as_fits(self,cutout,filename):
-        '''write a cutout as a fits file'''
+
+    def get_stacked_cutout(self,ra,dec,window):
+        #implement in child class
+        pass
+
+    # def write_cutout_as_fits(self,cutout,filename):
+    #     '''write a cutout as a fits file'''
+    #     pass

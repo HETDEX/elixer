@@ -60,6 +60,7 @@ class HetdexFits:
 
         #determine if 'cure'-style fits or panacea fits
         #stupid simple just for now
+        #even for annulus, go ahead an read. Don't know if we are going to want the fits files, but may as well get them
         if "multi_" in self.filename: # example: multi_020_095_004_LU.fits
             self.read_panacea_fits()
         else:
@@ -218,7 +219,7 @@ class HetdexFits:
 
     def read_panacea_fits(self):
         #this represents one AMP
-        #15 hdus, different header keys
+        #15+ hdus, different header keys
 
         if not self.filename:
             return None

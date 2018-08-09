@@ -4,7 +4,8 @@ import global_config as G
 import numpy as np
 import os.path as op
 
-import fiber
+import fiber as elixer_fiber
+import spectrum as elixer_spectrum
 
 log = G.Global_Logger('obs_logger')
 log.setlevel(G.logging.DEBUG)
@@ -32,10 +33,14 @@ class SyntheticObservation():
 
         self.ra = None #central (anchor) RA for the "observation"
         self.dec = None #central (anchor) Dec for the "observation"
+        self.target_wavelength = None
+        self.annulus = None
 
         self.fibers_all = [] #one fiber object for each
+        self.eli_dict = {} #everytime we call signal_score on a fiber, it should be added here so as to not repeat
+                           #keys are fiber objects themselves, values are EmissionLineInfo objects
 
-        self.units = -17 #assumed to be 10**-17 cgs
+        self.units = 1 #assumed to be 10**-17 cgs (but being read-in in full notation, e.g. '1')
         self.fibers_work = []  # working set of fibers (subset of fibers_all)
 
         self.sum_wavelengths = []
@@ -43,8 +48,26 @@ class SyntheticObservation():
         self.sum_errors = []
         self.sum_count = 0 #generally should be == len(self.fibers_work)
 
+        self.w = 0
+        self.fwhm = 0
+        self.estflux = 0
+        self.snr = 0
 
-    def annulus_fibers(self,inner_radius,outer_radius,ra=None,dec=None):
+    def build_complete_emission_line_info_dict(self):
+        for f in self.fibers_all:
+            if not (f in self.eli_dict):
+                #can be None and that is okay
+                try:
+                    self.eli_dict[f] = elixer_spectrum.signal_score(wavelengths=f.fluxcal_central_emis_wavelengths,
+                               values=f.fluxcal_central_emis_flux, errors=f.fluxcal_central_emis_fluxerr,
+                               central=self.w, values_units=self.units, sbr=None,
+                               show_plot=False,plot_id=None, plot_path=None,do_mcmc=False,
+                                                                    force_score=True)
+                except:
+                    log.error("Error! Could not get signal_score for fiber. %s" %(str(f)), exc_info=True)
+
+
+    def annulus_fibers(self,inner_radius=None,outer_radius=None,ra=None,dec=None):
         '''
         Build subset of fibers that are between the inner and outer radius.
         If outer radius is larger than maximum fiber distance, only populate as much as is possible. No error.
@@ -58,6 +81,15 @@ class SyntheticObservation():
         '''
         self.fibers_work = []
 
+        if (inner_radius is None) or (outer_radius is None):
+            if self.annulus is not None:
+                inner_radius = self.annulus[0]
+                outer_radius = self.annulus[1]
+            else:
+                log.warning("SyntheticObsercation::annulus_fibers invalid radii (None)")
+                return self.fibers_work
+
+
         if ra is None and dec is None:
             ra = self.ra
             dec = self.dec
@@ -65,12 +97,25 @@ class SyntheticObservation():
         #having problems with np.where ... so just do this for now
         #self.fibers_work = all[np.where(inner_radius < angular_distance(ra,dec,f.ra,f.dec) < outer_radius)]
 
-        if inner_radius > outer_radius:
+        if inner_radius < outer_radius:
             for f in self.fibers_all:
                 if inner_radius < angular_distance(ra, dec, f.ra, f.dec) < outer_radius:
                     self.fibers_work.append(f)
         else:
             log.warning("Observation::annulus_fibers Invalid radii (inner = %f, outer = %f)" % (inner_radius, outer_radius))
+
+        for f in self.fibers_work:
+            if not (f in self.eli_dict):
+                #can be None and that is okay
+                try:
+                    self.eli_dict[f] = elixer_spectrum.signal_score(wavelengths=f.fluxcal_central_emis_wavelengths,
+                               values=f.fluxcal_central_emis_flux, errors=f.fluxcal_central_emis_fluxerr,
+                               central=self.w, values_units=self.units, sbr=None,
+                               show_plot=False,plot_id=None, plot_path=None,do_mcmc=False,
+                                                                    force_score=True)
+                except:
+                    log.error("Error! Could not get signal_score for fiber. %s" %(str(f)), exc_info=True)
+
 
         return self.fibers_work
 

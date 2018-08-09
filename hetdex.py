@@ -41,6 +41,8 @@ import hetdex_fits
 import fiber as elixer_fiber
 import ifu as elixer_ifu #only using to locate panacea files (elixer only uses individual fibers, not entire IFUs)
 import spectrum as elixer_spectrum
+import observation as elixer_observation
+
 
 #todo: write a class wrapper for log
 #an instance called log that has functions .Info, .Debug, etc
@@ -441,6 +443,9 @@ class DetObj:
         #skip NR (0)
         self.matched_cats = [] #list of catalogs in which this object appears (managed outside this class, in elixer.py)
         self.status = 0
+        self.annulus = None
+        self.target_wavelength = None
+        self.syn_obs = None #SyntheticObservation
         #self.plot_dqs_fit = False
         #self.dqs = None #scaled score
         #self.dqs_raw = None #Detection Quality Score (raw score)
@@ -1093,16 +1098,30 @@ class DetObj:
         #self.spec_obj.set_spectra(self.sumspec_wavelength,self.sumspec_counts,self.sumspec_fluxerr,self.w)
         self.spec_obj.identifier = "eid(%d)" %self.entry_id
         self.spec_obj.plot_dir = self.outdir
-        self.spec_obj.set_spectra(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr, self.w,
-                                  values_units=-17,estflux=self.estflux,eqw_obs=self.eqw_obs)
 
-        #print("DEBUG ... spectrum peak finder")
-        #if G.DEBUG_SHOW_GAUSS_PLOTS:
-        #    self.spec_obj.build_full_width_spectrum(show_skylines=True, show_peaks=True, name="testsol")
-        #print("DEBUG ... spectrum peak finder DONE")
+        if self.annulus is None:
+            self.spec_obj.set_spectra(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr, self.w,
+                                      values_units=-17, estflux=self.estflux, eqw_obs=self.eqw_obs)
+            # print("DEBUG ... spectrum peak finder")
+            # if G.DEBUG_SHOW_GAUSS_PLOTS:
+            #    self.spec_obj.build_full_width_spectrum(show_skylines=True, show_peaks=True, name="testsol")
+            # print("DEBUG ... spectrum peak finder DONE")
 
-        self.spec_obj.classify() #solutions can be returned, also stored in spec_obj.solutions
+            self.spec_obj.classify() #solutions can be returned, also stored in spec_obj.solutions
+        else:
+            self.syn_obs = elixer_observation.SyntheticObservation()
+            if self.wra:
+                self.syn_obs.ra = self.wra
+                self.syn_obs.dec = self.wdec
+            else:
+                self.syn_obs.ra = self.ra
+                self.syn_obs.dec = self.dec
+            self.syn_obs.target_wavelength = self.target_wavelength
+            self.syn_obs.annulus = self.annulus
+            self.syn_obs.fibers_all = self.fibers
+            self.syn_obs.w = self.w
 
+    #end load_flux_calibrated_spectra
 
     # def dqs_score(self,force_recompute=False):
     #     #dqs_compute_score eventually calls to dqs_shape() which can trigger a force_recompute
@@ -1687,6 +1706,16 @@ class HETDEX:
         if args is None:
             log.error("Cannot construct HETDEX object. No arguments provided.")
             return None
+
+        if args.annulus is not None:
+            self.annulus = args.annulus
+        else:
+            self.annulus = None
+
+        if args.wavelength is not None:
+            self.target_wavelength = args.wavelength
+        else:
+            self.target_wavelength = None
 
         # if args.score:
         #     self.plot_dqs_fit = True
@@ -2480,6 +2509,8 @@ class HETDEX:
                 #todo: build up the tokens that DetObj needs?
                 toks = None
                 e = DetObj(toks, emission=True, fcsdir=d)
+                e.annulus = self.annulus
+                e.target_wavelength = self.target_wavelength
                 if e is not None:
                     G.UNIQUE_DET_ID_NUM += 1
                     #for consistency with Karl's namine, the entry_id is the _xxx number at the end
@@ -2497,6 +2528,8 @@ class HETDEX:
         elif (self.fcs_base is not None and self.fcsdir is not None): #not the usual case
             toks = None
             e = DetObj(toks, emission=True, fcs_base=self.fcs_base,fcsdir=self.fcsdir)
+            e.annulus = self.annulus
+            e.target_wavelength = self.target_wavelength
             if e is not None:
                 G.UNIQUE_DET_ID_NUM += 1
                 if e.entry_id is None or e.entry_id == 0:
@@ -2642,6 +2675,143 @@ class HETDEX:
             if e.id == detectid:
                 return e
         return None
+
+
+    def build_hetdex_annulus_data_page(self,pages,detectid):
+        e = self.get_emission_detect(detectid) #this is a DetObj
+        if e is None:
+            log.error("Could not identify correct emission to plot. Detect ID = %d" % detectid)
+            return None
+
+        print ("Bulding HETDEX annulus header for Detect ID #%d" %detectid)
+
+        figure_sz_y = G.GRID_SZ_Y
+        fig = plt.figure(figsize=(G.FIGURE_SZ_X, figure_sz_y))
+        plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
+        plt.gca().axis('off')
+
+        #go ahead and build a gridspec, but at this time I don't think I am going to need it
+        gs = gridspec.GridSpec(1,1)
+
+        font = FontProperties()
+        font.set_family('monospace')
+        font.set_size(12)
+
+        if self.output_filename is not None:
+            title = "%s_%s.pdf\n" % (self.output_filename, str(e.entry_id).zfill(3))
+        else:
+            title = ""
+
+
+        title += "Obs: Synthetic \n"
+
+        if (e.entry_id is not None) and (e.id is not None):
+            title += "Entry# (%d), Detect ID (%d)" % (e.entry_id, e.id)
+            if e.line_number is not None:
+                title += ", Line# (%d)" % (e.line_number)
+
+        if (e.wra is not None) and (e.wdec is not None):  # weighted RA and Dec
+            ra = e.wra
+            dec = e.wdec
+        else:
+            ra = e.ra
+            dec = e.dec
+
+        datakeep = self.build_data_dict(e)
+        if datakeep is None:
+            return None
+
+        title += "\n" \
+                 "RA,Dec (%f,%f) \n" \
+                 "$\lambda$ = %g$\AA$  FWHM = %g$\AA$\n" \
+                 "EstFlux = %0.3g \n" \
+                 % (e.syn_obs.ra, e.syn_obs.dec, e.syn_obs.w, e.syn_obs.fwhm, e.syn_obs.estflux)
+
+        title += "S/N = %g " % (e.syn_obs.snr)
+
+
+        plt.subplot(gs[:,:]) #all (again, probably won't end up using grid_spec for this case)
+        plt.text(0, 0.5, title, ha='left', va='center', fontproperties=font)
+        plt.suptitle(time.strftime("%Y-%m-%d %H:%M:%S") +
+                     "  Version " + G.__version__ +"  ", fontsize=8,x=1.0,y=0.98,
+                     horizontalalignment='right',verticalalignment='top')
+        plt.gca().set_frame_on(False)
+        plt.gca().axis('off')
+
+        #todo: HERE
+        if (datakeep is not None) and (datakeep['fib']):
+            try:
+                e.fiber_locs = list(
+                    zip(datakeep['ra'], datakeep['dec'], datakeep['color'], datakeep['index'], datakeep['d'],
+                        datakeep['fib']))
+            except:
+                log.error("Error building fiber_locs", exc_info=True)
+
+
+            #?? do we want the short spec image???
+            #if so need to actually use grid_spec and may need to adjust the rsp calls since
+            #we are doing our own summing and over the entire spectrum
+            # try:
+            #     plt.subplot(gs[0:2,30:])
+            #     plt.gca().axis('off')
+            #     buf = self.build_spec_image(datakeep,e.w, dwave=1.0)
+            #     buf.seek(0)
+            #     im = Image.open(buf)
+            #     plt.imshow(im,interpolation='none')#needs to be 'none' else get blurring
+            # except:
+            #     log.warning("Failed to build spec image.",exc_info = True)
+            #
+
+
+            #make the first part is own (temporary) page (to be merged later)
+
+
+            #todo: replace this or modify ... go be sure to capture the syntheticobservation.eli_dict{} infor
+
+
+            if False: #turn off for now (debugging)
+                pages.append(fig)
+                plt.close('all')
+                try:
+                    fig = plt.figure(figsize=(G.FIGURE_SZ_X, figure_sz_y))
+                    plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
+                    plt.gca().axis('off')
+                    buf = self.build_full_width_spectrum(datakeep, e.w)
+                    buf.seek(0)
+                    im = Image.open(buf)
+                    plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
+
+                    pages.append(fig) #append the second part to its own page to be merged later
+                    plt.close()
+                except:
+                    log.warning("Failed to build full width spec/cutout image.", exc_info=True)
+
+        else:
+            pages.append(fig)  # append what we have (done with a blank as well so the sizes are correct)
+            plt.close('all')
+            fig = plt.figure(figsize=(G.FIGURE_SZ_X, figure_sz_y))
+            plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
+            plt.gca().axis('off')
+            plt.text(0.5, 0.5, "Unable to locate or import reduced data (FITS)", ha='center', va='center',
+                     fontproperties=font)
+            pages.append(fig)  # append the second part to its own page to be merged later
+            plt.close()
+
+        #safety check
+        # update emission with the ra, dec of all fibers
+        if e.fiber_locs is None:
+            try:
+                e.fiber_locs = list(
+                    zip(datakeep['ra'], datakeep['dec'], datakeep['color'], datakeep['index'], datakeep['d'],
+                        datakeep['fib']))
+            except:
+                log.error("Error building fiber_locs", exc_info=True)
+
+        return pages
+
+
+
+
 
 
     def build_hetdex_data_page(self,pages,detectid):
@@ -3602,6 +3772,8 @@ class HETDEX:
             #     fiber.dqs_score(e.ra, e.dec)
             # datakeep['wscore'].append(fiber.dqs)
 
+            #don't think I am going to need any cutouts from the fits files, so lets save time and space and not load any
+            #if e.syn_obs is None: #no .. actually need some of this ...
             x_2D = np.interp(e.w,fits.wave_data[loc,:],range(len(fits.wave_data[loc,:])))
             y_2D = np.interp(x_2D,range(len(fits.trace_data[loc,:])),fits.trace_data[loc,:])
 
@@ -3837,9 +4009,6 @@ class HETDEX:
             datakeep['fluxcal_fluxerr'].append(fiber.fluxcal_central_emis_fluxerr)
             datakeep['fluxcal_cont'].append(fiber.fluxcal_emis_cont)
 
-
-
-
             if len(datakeep['sumspec_wave']) == 0:
                 # there is only ONE summed fluxcalibrated spectra for the entire detection (not one per fiber)
                 datakeep['sumspec_wave'] = e.sumspec_wavelength
@@ -3853,14 +4022,8 @@ class HETDEX:
                 datakeep['sumspec_flux_zoom'] = e.sumspec_flux_zoom
                 datakeep['sumspec_ferr_zoom'] = e.sumspec_fluxerr_zoom
 
-
-
-
                 #make Karl's 2d cutout the shame shape, keeping its zero
-                y_2D, x_2D = np.shape(blank)
-
-
-
+                #y_2D, x_2D = np.shape(blank)
 
         return datakeep
 
@@ -4600,7 +4763,7 @@ class HETDEX:
 
         bigwave = np.arange(left, right)
 
-        N = len(datakeep['xi'])
+        N = len(datakeep['fib'])
         if self.plot_fibers is not None:
             stop = max(N - self.plot_fibers - 1, -1)
         else:

@@ -149,9 +149,10 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--dither', help="HETDEX Dither file", required=False)
     parser.add_argument('--path', help="Override path to science fits in dither file", required=False)
     parser.add_argument('--line', help="HETDEX detect line file", required=False)
-    parser.add_argument('--fcsdir', help="Flux Calibrated Spectra DIRectory (commonly from rsp1). No wildcards. (see --dets)", required=False)
-    parser.add_argument('--dets', help="List of detections (of form '20170314v011_005') or subdirs under fscdir (wildcards okay) or file containing a list"
-                                       " of detections (one per line)", required=False)
+    parser.add_argument('--fcsdir', help="Flux Calibrated Spectra DIRectory (commonly from rsp1). No wildcards. "
+                                         "(see --dets)", required=False)
+    parser.add_argument('--dets', help="List of detections (of form '20170314v011_005') or subdirs under fscdir "
+                        "(wildcards okay) or file containing a list of detections (one per line)", required=False)
 
     parser.add_argument('--dispatch', help="Dispatched list of directories to process. Auto-created. DO NOT SET MANUALLY",
                         required=False)
@@ -194,6 +195,10 @@ def parse_commandline(auto_force=False):
 
     parser.add_argument('--merge', help='Merge all cat and fib txt files',
                         required=False, action='store_true', default=False)
+
+    parser.add_argument('--annulus', help="Inner and outer radii in arcsec (e.g. (10.0,35.2) )", required=False)
+    parser.add_argument('--wavelength', help="Target wavelength (observed) in angstroms for annulus", required=False,
+                        type=float)
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
 
@@ -219,6 +224,53 @@ def parse_commandline(auto_force=False):
     if args.merge:
         print("Merging catalogs and fiber files (ignoring all other parameters) ... ")
         return args
+
+    if args.annulus:
+        try:
+            args.annulus = tuple(map(float, args.annulus.translate(None, '( )').split(',')))
+
+            if len(args.annulus)==0:
+                print("Fatal. Inavlid annulus.")
+                log.error("Fatal. Inavlid annulus.")
+                exit(-1)
+            elif len(args.annulus)==1: #assume the inner radius is zero
+                args.annulus = (0,args.annulus[0])
+                log.info("Single valued annulus. Assume 0.0 for the inner radius.")
+            elif len(args.annulus) > 2:
+                print("Fatal. Inavlid annulus.")
+                log.error("Fatal. Inavlid annulus.")
+                exit(-1)
+
+            if args.annulus[0] > args.annulus[1]:
+                print("Fatal. Inavlid annulus. Inner radius larger than outer.")
+                log.error("Fatal. Inavlid annulus. Inner radius larger than outer.")
+                exit(-1)
+
+            if (args.annulus[0] < 0) or (args.annulus[1] < 0):
+                print("Fatal. Inavlid annulus. Negative value.")
+                log.error("Fatal. Inavlid annulus. Negative value.")
+                exit(-1)
+
+            if (args.annulus[0] > G.MAX_ANNULUS_RADIUS) or (args.annulus[1] > G.MAX_ANNULUS_RADIUS):
+                print("Fatal. Inavlid annulus. Excessively large value.")
+                log.error("Fatal. Inavlid annulus. Excessively large value.")
+                exit(-1)
+
+        except: #if annulus provided, this is a fatal exception
+            print ("Fatal. Failed to map annulus to tuple.")
+            log.error("Fatal. Failed to map annulus to tuple.", exc_info=True)
+            exit(-1)
+
+    if args.wavelength:
+        try:
+            if not (3500.0 < args.wavelength < 5500.0):
+                print("Fatal. Invalid target wavelength.")
+                log.error("Fatal. Invalid target wavelength.")
+                exit(-1)
+        except:
+            print("Fatal. Invalid target wavelength.")
+            log.error("Fatal. Invalid target wavelength.")
+            exit(-1)
 
     if args.gaussplots is not None:
         G.DEBUG_SHOW_GAUSS_PLOTS = args.gaussplots
@@ -401,12 +453,15 @@ def build_hd(args):
 
     return False
 
-
-def build_hetdex_section(pdfname, hetdex, detect_id = 0,pages=None):
+def build_hetdex_section(pdfname, hetdex, detect_id = 0,pages=None,annulus=False):
     #detection ids are unique (for the single detect_line.dat file we are using)
     if pages is None:
         pages = []
-    pages = hetdex.build_hetdex_data_page(pages,detect_id)
+
+    if annulus:
+        pages = hetdex.build_hetdex_annulus_data_page(pages, detect_id)
+    else:
+        pages = hetdex.build_hetdex_data_page(pages,detect_id)
 
     if pages is not None:
         if (PyPDF is not None):
@@ -417,7 +472,7 @@ def build_hetdex_section(pdfname, hetdex, detect_id = 0,pages=None):
 
 
 def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,target_w=0,fiber_locs=None,
-                 target_flux=None):
+                 target_flux=None,annulus=None,obs=None):
     #if a report object is passed in, immediately append to it, otherwise, add to the pages list and return that
     section_title = idstring
     count = 0
@@ -425,10 +480,20 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
     log.info("Building page for %s" %pdfname)
 
     cat_count = 0
+
     for c in cats:
-        r = c.build_bid_target_reports(match,ra, dec, error,num_hits=num_hits,section_title=section_title,
-                                       base_count=base_count,target_w=target_w,fiber_locs=fiber_locs,
-                                       target_flux=target_flux)
+        if annulus is not None:
+            cutout = c.get_stacked_cutout(ra,dec,window=annulus[1])
+
+            if cutout is not None:
+                r = c.build_annulus_report(obs=obs,cutout=cutout,section_title=section_title)
+            else:
+                r = None
+
+        else:
+            r = c.build_bid_target_reports(match,ra, dec, error,num_hits=num_hits,section_title=section_title,
+                                           base_count=base_count,target_w=target_w,fiber_locs=fiber_locs,
+                                           target_flux=target_flux)
         count = 0
         if r is not None:
             cat_count+= 1
@@ -1154,19 +1219,34 @@ def main():
                     else:
                         ra = e.ra
                         dec = e.dec
-                    pdf.pages = build_hetdex_section(pdf.filename,hd,e.id,pdf.pages) #this is the fiber, spectra cutouts for this detect
 
-                    match = match_summary.Match(e)
 
-                    pdf.pages,pdf.bid_count = build_pages(pdf.filename, match, ra, dec, args.error, e.matched_cats, pdf.pages,
-                                                  num_hits=e.num_hits, idstring=id,base_count=0,target_w=e.w,
-                                                  fiber_locs=e.fiber_locs,target_flux=e.estflux)
+                    #todo: ANNULUS STUFF HERE
+                    #todo: still use hetdex objects, but want a different hetdex section
+                    #todo: and we won't be catalog matching (though will grab images from them)
 
-                    #add in lines and classification info
-                    match_list.add(match) #always add even if bids are none
-                    file_list.append(pdf)
+                    if args.annulus is None:
+                        pdf.pages = build_hetdex_section(pdf.filename,hd,e.id,pdf.pages) #this is the fiber, spectra cutouts for this detect
 
-           # else: #for multi calls (which are common now) this is of no use
+                        match = match_summary.Match(e)
+
+                        pdf.pages,pdf.bid_count = build_pages(pdf.filename, match, ra, dec, args.error, e.matched_cats, pdf.pages,
+                                                      num_hits=e.num_hits, idstring=id,base_count=0,target_w=e.w,
+                                                      fiber_locs=e.fiber_locs,target_flux=e.estflux)
+
+                        #add in lines and classification info
+                        match_list.add(match) #always add even if bids are none
+                        file_list.append(pdf)
+                    else: #todo: this is an annulus examination (fiber stacking)
+                        log.info("***** ANNULUS ***** ")
+                        pdf.pages = build_hetdex_section(pdf.filename, hd, e.id, pdf.pages, annulus=True)
+                        pdf.pages, pdf.bid_count = build_pages(pdf.filename, None, ra, dec, args.error, e.matched_cats,
+                                                               pdf.pages, num_hits=0, idstring=id, base_count=0,
+                                                               target_w=e.w, fiber_locs=e.fiber_locs,
+                                                               target_flux=e.estflux, annulus=args.annulus,obs=e.syn_obs)
+                        file_list.append(pdf)
+
+        # else: #for multi calls (which are common now) this is of no use
            #     print("\nNo emission detections meet minimum criteria for specified IFU. Exiting.\n"
            #     log.warning("No emission detections meet minimum criteria for specified IFU. Exiting.")
 

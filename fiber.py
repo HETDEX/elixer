@@ -197,6 +197,25 @@ class Fiber:
         except:
             log.error("Unable to map fiber index (%d) to fiber number(s)" % int(panacea_fiber_index), exc_info=True)
 
+    def __str__(self):
+        date = ""
+        time = ""
+        ra = 0
+        dec = 0
+        if self.ra is not None:
+            ra = self.ra
+
+        if self.dec is not None:
+            dec = self.dec
+
+        if self.dither_date is not None:
+            date = self.dither_date
+
+        if self.dither_time is not None:
+            time = self.dither_time
+
+        return "(ra=%f, dec=%f, datetime=%sT%s)" %(ra, dec, date, time)
+
     @property
     def fluxcal_wavelengths(self):
         return self.fluxcal_central_emis_wavelengths
@@ -250,6 +269,20 @@ class Fiber:
             return self.emis_y + 1
         else:
             return -1
+
+    #for dictionary comparisions to use as keys
+    def __eq__(self,other):
+        return (self.ra, self.dec, self.dither_date, self.dither_time) == \
+               (other.ra, other.dec, other.dither_date,other.dither_time)
+
+    # for dictionary comparisions to use as keys
+    def __ne__(self,other):
+        return not (self == other)
+
+    # for dictionary comparisions to use as keys
+    def __hash__(self):
+        return hash((self.ra, self.dec, self.dither_date, self.dither_time))
+
 
     def is_empty(self, wavelengths, values, errors=None, units=None, max_score=10.0, max_snr=2.0, force=False):
         '''
