@@ -2698,7 +2698,7 @@ class HETDEX:
         else:
             log.warning("No fibers inside annulus.")
 
-        figure_sz_y = G.GRID_SZ_Y
+        figure_sz_y = 2#G.GRID_SZ_Y
         fig = plt.figure(figsize=(G.ANNULUS_FIGURE_SZ_X, figure_sz_y))
         plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
         plt.gca().axis('off')
@@ -2784,8 +2784,8 @@ class HETDEX:
             pages.append(fig)
             plt.close('all')
             try:
-                fig = plt.figure(figsize=(G.ANNULUS_FIGURE_SZ_X, figure_sz_y))
-                plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
+                fig = plt.figure(figsize=(G.ANNULUS_FIGURE_SZ_X, 2))
+                plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
                 plt.gca().axis('off')
               #  buf = self.build_full_width_spectrum(datakeep, e.w)
 
@@ -2795,7 +2795,7 @@ class HETDEX:
                                                            values_units = e.syn_obs.units,
                                                            central_wavelength=e.syn_obs.w,
                                                            show_skylines=True, show_peaks=True, name=None,
-                                                           annotate=False)
+                                                           annotate=False,figure=fig,show_line_names=False)
 
                 buf.seek(0)
                 im = Image.open(buf)

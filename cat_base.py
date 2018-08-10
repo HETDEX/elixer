@@ -481,7 +481,7 @@ class Catalog:
         cols = 1
 
         fig_sz_x = G.ANNULUS_FIGURE_SZ_X #initial guess
-        fig_sz_y = 10
+        fig_sz_y = 7
 
         fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
        # plt.subplots_adjust(left=0.1, right=0.90, top=0.90, bottom=0.05)

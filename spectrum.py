@@ -2161,7 +2161,8 @@ class Spectrum:
 
     def build_full_width_spectrum(self,wavelengths = None,  counts = None, errors = None, central_wavelength = None,
                                   values_units = 0, show_skylines=True, show_peaks = True, name=None,
-                                  dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,peaks=None,annotate=True):
+                                  dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,peaks=None,annotate=True,
+                                  figure=None,show_line_names=True):
 
 
         use_internal = False
@@ -2177,14 +2178,23 @@ class Spectrum:
 
 
         # fig = plt.figure(figsize=(5, 6.25), frameon=False)
-        fig = plt.figure(figsize=(G.ANNULUS_FIGURE_SZ_X, 2), frameon=False)
-        plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
+        if figure is None:
+            fig = plt.figure(figsize=(G.ANNULUS_FIGURE_SZ_X, 2), frameon=False)
+            plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
+        else:
+            fig = figure
 
-        dy = 1.0 / 5.0  # + 1 skip for legend, + 2 for double height spectra + 2 for double height labels
+
+        if show_line_names:
+            dy = 1.0 / 5.0  # + 1 skip for legend, + 2 for double height spectra + 2 for double height labels
+            specplot = plt.axes([0.05, 0.20, 0.90, 0.40])
+        else:
+            dy = 0.0
+            specplot = plt.axes([0.05, 0.1, 0.9, 0.8]) #left,bottom,width, height in fraction of 1.0
 
         # this is the 1D averaged spectrum
         #textplot = plt.axes([0.025, .6, 0.95, dy * 2])
-        specplot = plt.axes([0.05, 0.20, 0.90, 0.40])
+        #specplot = plt.axes([0.05, 0.20, 0.90, 0.40])
         #specplot = plt.axes([0.025, 0.20, 0.95, 0.40])
 
         # they should all be the same length
@@ -2270,72 +2280,74 @@ class Spectrum:
                 rec = plt.Rectangle((central_wavelength - 20.0, yl), 2 * 20.0, yh - yl, fill=True, lw=0.5, color='y', zorder=1)
                 specplot.add_patch(rec)
 
-                if use_internal and (len(self.solutions) > 0):
+                if show_line_names:
 
-                    e = self.solutions[0].emission_line
+                    if use_internal and (len(self.solutions) > 0):
 
-                    z = self.solutions[0].z
+                        e = self.solutions[0].emission_line
 
-                    #plot the central (main) line
-                    y_pos = textplot.axis()[2]
-                    textplot.text(e.w_obs, y_pos, e.name + " {", rotation=-90, ha='center', va='bottom',
-                                  fontsize=12, color=e.color)  # use the e color for this family
+                        z = self.solutions[0].z
 
-                    #plot the additional lines
-                    for f in self.solutions[0].lines:
-                        if f.score > 0:
-                            y_pos = textplot.axis()[2]
-                            textplot.text(f.w_obs, y_pos, f.name + " {", rotation=-90, ha='center', va='bottom',
-                                          fontsize=12, color=e.color)  # use the e color for this family
+                        #plot the central (main) line
+                        y_pos = textplot.axis()[2]
+                        textplot.text(e.w_obs, y_pos, e.name + " {", rotation=-90, ha='center', va='bottom',
+                                      fontsize=12, color=e.color)  # use the e color for this family
 
-
-                    #todo: show the fractional score?
-                    #todo: show the next highest possibility?
-                    legend.append(mpatches.Patch(color=e.color,
-                                                 label="%s, z=%0.5f, Score = %0.1f (%0.2f)" %(e.name,self.solutions[0].z,
-                                                                            self.solutions[0].score,
-                                                                            self.solutions[0].frac_score)))
-                    name_waves.append(e.name)
+                        #plot the additional lines
+                        for f in self.solutions[0].lines:
+                            if f.score > 0:
+                                y_pos = textplot.axis()[2]
+                                textplot.text(f.w_obs, y_pos, f.name + " {", rotation=-90, ha='center', va='bottom',
+                                              fontsize=12, color=e.color)  # use the e color for this family
 
 
-                else:
-                    for e in self.emission_lines:
-                        if not e.solution:
-                            continue
+                        #todo: show the fractional score?
+                        #todo: show the next highest possibility?
+                        legend.append(mpatches.Patch(color=e.color,
+                                                     label="%s, z=%0.5f, Score = %0.1f (%0.2f)" %(e.name,self.solutions[0].z,
+                                                                                self.solutions[0].score,
+                                                                                self.solutions[0].frac_score)))
+                        name_waves.append(e.name)
 
-                        z = central_wavelength / e.w_rest - 1.0
 
-                        if (z < 0):
-                            continue
-
-                        count = 0
-                        for f in self.emission_lines:
-                            if (f == e) or not (wavemin <= f.redshift(z) <= wavemax):
+                    else:
+                        for e in self.emission_lines:
+                            if not e.solution:
                                 continue
 
-                            count += 1
-                            y_pos = textplot.axis()[2]
-                            for w in obs_waves:
-                                if abs(f.w_obs - w) < 20:  # too close, shift one vertically
-                                    y_pos = (textplot.axis()[3] - textplot.axis()[2]) / 2.0 + textplot.axis()[2]
-                                    break
+                            z = central_wavelength / e.w_rest - 1.0
 
-                            obs_waves.append(f.w_obs)
-                            textplot.text(f.w_obs, y_pos, f.name + " {", rotation=-90, ha='center', va='bottom',
-                                          fontsize=12, color=e.color)  # use the e color for this family
+                            if (z < 0):
+                                continue
 
-                        if (count > 0) and not (e.name in name_waves):
-                            legend.append(mpatches.Patch(color=e.color, label=e.name))
-                            name_waves.append(e.name)
+                            count = 0
+                            for f in self.emission_lines:
+                                if (f == e) or not (wavemin <= f.redshift(z) <= wavemax):
+                                    continue
 
-                # make a legend ... this won't work as is ... need multiple colors
-                skipplot = plt.axes([.025,0.0, 0.95, dy])
-                skipplot.set_xticks([])
-                skipplot.set_yticks([])
-                skipplot.axis(specplot.axis())
-                skipplot.axis('off')
-                skipplot.legend(handles=legend, loc='center', ncol=len(legend), frameon=False,
-                                fontsize='small', borderaxespad=0)
+                                count += 1
+                                y_pos = textplot.axis()[2]
+                                for w in obs_waves:
+                                    if abs(f.w_obs - w) < 20:  # too close, shift one vertically
+                                        y_pos = (textplot.axis()[3] - textplot.axis()[2]) / 2.0 + textplot.axis()[2]
+                                        break
+
+                                obs_waves.append(f.w_obs)
+                                textplot.text(f.w_obs, y_pos, f.name + " {", rotation=-90, ha='center', va='bottom',
+                                              fontsize=12, color=e.color)  # use the e color for this family
+
+                            if (count > 0) and not (e.name in name_waves):
+                                legend.append(mpatches.Patch(color=e.color, label=e.name))
+                                name_waves.append(e.name)
+
+                    # make a legend ... this won't work as is ... need multiple colors
+                    skipplot = plt.axes([.025,0.0, 0.95, dy])
+                    skipplot.set_xticks([])
+                    skipplot.set_yticks([])
+                    skipplot.axis(specplot.axis())
+                    skipplot.axis('off')
+                    skipplot.legend(handles=legend, loc='center', ncol=len(legend), frameon=False,
+                                    fontsize='small', borderaxespad=0)
 
         except:
             log.warning("Unable to build full width spec plot.", exc_info=True)
