@@ -583,19 +583,24 @@ class Catalog:
                         alpha = min(MAX_ALPHA, (alpha / MAX_LINE_SCORE * MAX_ALPHA))
 
 
-                plt.gca().add_patch(plt.Circle(((fx - x), (fy - y)), radius=G.Fiber_Radius,
+                if alpha > 0: #has signal
+                    plt.gca().add_patch(plt.Circle(((fx - x), (fy - y)), radius=G.Fiber_Radius,
                                                facecolor=signal_color, fill=True, alpha=alpha,
-                                               edgecolor='none',linestyle=None))
+                                               edgecolor=signal_color,linestyle="solid",linewidth=1))
+                elif not(f in obs.fibers_work): #empty and NOT in working set
+                    plt.gca().add_patch(plt.Circle(((fx - x), (fy - y)), radius=G.Fiber_Radius,
+                                               facecolor='none', fill=False, alpha=1,
+                                               edgecolor='grey',linestyle="solid",linewidth=1))
 
-                #over plot an edge to the fiber if it is a work fiber
                 if f in obs.fibers_work:
-                    #todo:
-                    #could be in work AND have signal (depending on options)
-                    #don't want to color twice so, if colored just above, don't re-fill here, just add the edge
+                    # todo:
+                    # could be in work AND have signal (depending on options)
+                    # don't want to color twice so, if colored just above, don't re-fill here, just add the edge
 
                     plt.gca().add_patch(plt.Circle(((fx - x), (fy - y)), radius=G.Fiber_Radius,
                                                    facecolor=empty_color, fill=True, alpha=0.25,
-                                                   edgecolor='none', linestyle="solid",linewidth=1))
+                                                   edgecolor=empty_color, linestyle="solid", linewidth=1))
+
 
 
         except:
