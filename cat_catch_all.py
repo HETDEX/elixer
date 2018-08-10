@@ -98,6 +98,10 @@ class CATCH_ALL(cat_base.Catalog):
 
         return self.pages
 
+
+    def get_stacked_cutout(self,ra,dec,window):
+        return None #no cutout available
+
     def build_cat_summary_figure (self, ra, dec, error,bid_ras, bid_decs, target_w=0,
                                   fiber_locs=None):
         return self.build_empty_cat_summary_figure(ra,dec,error,bid_ras, bid_decs, target_w=target_w,

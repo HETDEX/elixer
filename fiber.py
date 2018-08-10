@@ -284,7 +284,7 @@ class Fiber:
         return hash((self.ra, self.dec, self.dither_date, self.dither_time))
 
 
-    def is_empty(self, wavelengths, values, errors=None, units=None, max_score=10.0, max_snr=2.0, force=False):
+    def is_empty(self, wavelengths, values, errors=None, units=None, max_score=2.0, max_snr=2.0, force=False):
         '''
         Basically, is the fiber free from any overt signals (real emission line(s), continuum, sky, etc)
         Values and errors must have the same units
@@ -318,12 +318,12 @@ class Fiber:
             #            extrema_ratio = (max(values) - min(values))/np.mean(values)
             #            print (extrema_ratio)
 
-            if (units is None) or (units == 'counts'):
-                if min(values) < -50.0 or max(values) > 50.0:
-                    log.debug("Fiber rejected for addition. Large extrema.")
-                    return self.empty_status
+            # if (units is None) or (units == 'counts'):
+            #     if min(values) < -50.0 or max(values) > 50.0:
+            #         log.debug("Fiber rejected for addition. Large extrema.")
+            #         return self.empty_status
 
-            self.peaks = elixer_spectrum.peakdet(wavelengths, values, errors)  # , h, dh, zero)
+            self.peaks = elixer_spectrum.peakdet(wavelengths, values, errors,values_units=units)  # , h, dh, zero)
             # signal = list(filter(lambda x: (x[5] > max_score) or (x[6] > max_snr),peaks))
 
             # signal = list(filter(lambda x: x[6] > max_snr,peaks))
@@ -338,13 +338,26 @@ class Fiber:
             log.info("(%f,%f) spectrum basic info. Peaks (%d), continuum (mx+b): %f(x) + %f"
                      %(self.ra, self.dec, num_peaks,coeff[1], coeff[0]))
 
-            if (num_peaks == 0) and (coeff[1] < 0.001): #todo .. what is a good value here?
-                #stars and some galaxies are 0.001+ might need to go even smaller?
+            #could have 1+ peaks, if all line_score below max_score and all snr below max_snr
+
+            if coeff[1] < 0.001:
                 self.empty_status = True
-            else:
+                for p in self.peaks:
+                    if (p.line_score is not None and p.snr is not None) and \
+                        (p.line_score > max_score or p.snr > max_snr):
+                        self.empty_status = False
+                        break
+
+            # if (num_peaks == 0) and (coeff[1] < 0.001): #todo .. what is a good value here?
+            #     #stars and some galaxies are 0.001+ might need to go even smaller?
+            #     self.empty_status = True
+            # else:
+
+            if self.empty_status == False:
                 log.debug("Fiber may not be empty.")
         except:
             log.debug("Exception in fiber::is_empty() ", exc_info=True)
+            self.empty_status = False
 
         return self.empty_status
 

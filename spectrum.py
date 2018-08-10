@@ -538,6 +538,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     wave_counts = values[min_idx:max_idx+1]
     if (errors is not None) and (len(errors) == len(wavelengths)):
         wave_errors = errors[min_idx:max_idx+1]
+        #replace any 0 with 1
+        wave_errors[np.where(wave_errors == 0)] = 1
         wave_err_sigma = 1. / (wave_errors * wave_errors) #double checked and this is correct (assuming errors is +/- as expected)
         #as a reminder, if the errors are all the same, then it does not matter what they are, it reduces to the standard
         #arithmetic mean :  Sum 1 to N (x_n**2, sigma_n**2) / (Sum 1 to N (1/sigma_n**2) ==> 1/N * Sum(x_n**2)
@@ -2176,6 +2178,10 @@ class Spectrum:
             central_wavelength = self.central
             use_internal = True
 
+        if len(counts)==0:
+            #not empty but still wrong
+            log.error("Spectrum::build_full_width_spectrum. No spectrum to plot.")
+            return None
 
         # fig = plt.figure(figsize=(5, 6.25), frameon=False)
         if figure is None:

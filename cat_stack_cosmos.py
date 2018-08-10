@@ -417,12 +417,8 @@ class STACK_COSMOS(cat_base.Catalog):
         for i in self.CatalogImages:  # i is a dictionary
             try:
                 wcs_manual = i['wcs_manual']
-                aperture = i['aperture']
-                mag_func = i['mag_func']
             except:
                 wcs_manual = self.WCS_Manual
-                aperture = 0.0
-                mag_func = None
 
             try:
                 if i['image'] is None:
@@ -430,9 +426,8 @@ class STACK_COSMOS(cat_base.Catalog):
                                                              image_location=op.join(i['path'], i['name']))
                 sci = i['image']
 
-                # sci.load_image(wcs_manual=True)
-                cutout, pix_counts, mag, mag_radius = sci.get_cutout(ra, dec, error, window=window,
-                                                                     aperture=aperture, mag_func=mag_func)
+                cutout, _, _, _ = sci.get_cutout(ra, dec, error, window=window, aperture=None, mag_func=None)
+                #don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
 
                 if cutout is not None:  # construct master cutout
                     if stacked_cutout is None:

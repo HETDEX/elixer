@@ -1119,7 +1119,7 @@ class DetObj:
             self.syn_obs.target_wavelength = self.target_wavelength
             self.syn_obs.annulus = self.annulus
             self.syn_obs.fibers_all = self.fibers
-            self.syn_obs.w = self.w
+            self.syn_obs.w = self.target_wavelength
 
     #end load_flux_calibrated_spectra
 
@@ -2691,7 +2691,7 @@ class HETDEX:
             return None
 
         # now sub select the annulus fibers (without signal) (populate obs.fibers_work
-        e.syn_obs.annulus_fibers()
+        e.syn_obs.annulus_fibers(empty=True)
 
         if len(e.syn_obs.fibers_work) > 0:
             e.syn_obs.sum_fibers()
@@ -2751,14 +2751,14 @@ class HETDEX:
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
-        #todo: HERE
+        #
         if (datakeep is not None) and (datakeep['fib']):
-            try:
-                e.fiber_locs = list(
-                    zip(datakeep['ra'], datakeep['dec'], datakeep['color'], datakeep['index'], datakeep['d'],
-                        datakeep['fib']))
-            except:
-                log.error("Error building fiber_locs", exc_info=True)
+            # try:
+            #     e.fiber_locs = list(
+            #         zip(datakeep['ra'], datakeep['dec'], datakeep['color'], datakeep['index'], datakeep['d'],
+            #             datakeep['fib']))
+            # except:
+            #     log.error("Error building fiber_locs", exc_info=True)
 
 
             #?? do we want the short spec image???
@@ -2797,11 +2797,12 @@ class HETDEX:
                                                            show_skylines=True, show_peaks=True, name=None,
                                                            annotate=False,figure=fig,show_line_names=False)
 
-                buf.seek(0)
-                im = Image.open(buf)
-                plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
+                if buf is not None:
+                    buf.seek(0)
+                    im = Image.open(buf)
+                    plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
 
-                pages.append(fig) #append the second part to its own page to be merged later
+                    pages.append(fig) #append the second part to its own page to be merged later
                 plt.close()
             except:
                 log.warning("Failed to build full width spec/cutout image.", exc_info=True)
@@ -2819,13 +2820,13 @@ class HETDEX:
 
         #safety check
         # update emission with the ra, dec of all fibers
-        if e.fiber_locs is None:
-            try:
-                e.fiber_locs = list(
-                    zip(datakeep['ra'], datakeep['dec'], datakeep['color'], datakeep['index'], datakeep['d'],
-                        datakeep['fib']))
-            except:
-                log.error("Error building fiber_locs", exc_info=True)
+        # if e.fiber_locs is None:
+        #     try:
+        #         e.fiber_locs = list(
+        #             zip(datakeep['ra'], datakeep['dec'], datakeep['color'], datakeep['index'], datakeep['d'],
+        #                 datakeep['fib']))
+        #     except:
+        #         log.error("Error building fiber_locs", exc_info=True)
 
         return pages
 

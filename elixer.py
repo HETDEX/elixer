@@ -485,10 +485,10 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
         if annulus is not None:
             cutout = c.get_stacked_cutout(ra,dec,window=annulus[1])
 
-            if cutout is not None:
-                r = c.build_annulus_report(obs=obs,cutout=cutout,section_title=section_title)
-            else:
-                r = None
+            #if cutout is not None:
+            r = c.build_annulus_report(obs=obs,cutout=cutout,section_title=section_title)
+            #else:
+            #    r = None
 
         else:
             r = c.build_bid_target_reports(match,ra, dec, error,num_hits=num_hits,section_title=section_title,
@@ -1203,7 +1203,7 @@ def main():
                     if len(e.matched_cats) == 0:
                         e.matched_cats.append(catch_all_cat)
 
-                if not confirm(num_hits,args.force):
+                if (args.annulus is None) and (not confirm(num_hits,args.force)):
                     log.critical("Main exit. User cancel.")
                     exit(0)
 

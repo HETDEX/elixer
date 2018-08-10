@@ -20,7 +20,7 @@ def angular_distance(ra1,dec1,ra2,dec2):
     except:
         log.warning("Invalid angular distance.",exc_info=True)
 
-    return dist
+    return dist * 3600. #in arcsec
 
 class SyntheticObservation():
     #is one 'observation', and contains all fibers (regardless of IFU or exposure) for that obervation
@@ -63,11 +63,16 @@ class SyntheticObservation():
                                central=self.w, values_units=self.units, sbr=None,
                                show_plot=False,plot_id=None, plot_path=None,do_mcmc=False,
                                                                     force_score=True)
+
+                    #build up the full list of peaks
+                    f.is_empty(wavelengths=f.fluxcal_central_emis_wavelengths,
+                               values=f.fluxcal_central_emis_flux, errors=f.fluxcal_central_emis_fluxerr,
+                               units=self.units, max_score=2.0, max_snr=2.0, force=False)
                 except:
                     log.error("Error! Could not get signal_score for fiber. %s" %(str(f)), exc_info=True)
 
 
-    def annulus_fibers(self,inner_radius=None,outer_radius=None,ra=None,dec=None):
+    def annulus_fibers(self,inner_radius=None,outer_radius=None,ra=None,dec=None,empty=False):
         '''
         Build subset of fibers that are between the inner and outer radius.
         If outer radius is larger than maximum fiber distance, only populate as much as is possible. No error.
@@ -100,7 +105,10 @@ class SyntheticObservation():
         if inner_radius < outer_radius:
             for f in self.fibers_all:
                 if inner_radius < angular_distance(ra, dec, f.ra, f.dec) < outer_radius:
-                    self.fibers_work.append(f)
+                    if (not empty) or (empty and f.is_empty(wavelengths=f.fluxcal_central_emis_wavelengths,
+                               values=f.fluxcal_central_emis_flux, errors=f.fluxcal_central_emis_fluxerr,
+                                units=self.units, max_score=2.0,max_snr=2.0,force=False)):
+                        self.fibers_work.append(f)
         else:
             log.warning("Observation::annulus_fibers Invalid radii (inner = %f, outer = %f)" % (inner_radius, outer_radius))
 
@@ -155,6 +163,8 @@ class SyntheticObservation():
         del self.sum_errors[:]
         self.sum_count = 0
 
+        #self.sum_values = np.zeros()
+
         if (self.fibers_work is None) or (len(self.fibers_work) == 0):
             fibers = self.fibers_all
         else:
@@ -176,6 +186,15 @@ class SyntheticObservation():
             else:
                 self.sum_values += np.array(f.interp_spectra_flux)
                 self.sum_errors += np.array(f.interp_spectra_errors)
+
+        if self.sum_count == 0:
+            try:
+                self.sum_wavelengths = self.fibers_all[0].fluxcal_central_emis_wavelengths
+            except:
+                self.sum_wavelengths = np.arange(3500.0,5500.0,2.0)
+
+            self.sum_values = np.zeros(len(self.sum_wavelengths))
+            self.sum_errors = np.zeros(len(self.sum_wavelengths))
 
         return self.sum_count
     #
