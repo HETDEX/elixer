@@ -2754,11 +2754,15 @@ class HETDEX:
             ra = e.ra
             dec = e.dec
 
-        title += "\n" \
-                 "RA,Dec (%f,%f)  $\lambda$ = %g$\AA$ \n" \
-                 "EstFlux = %0.3g  EW_obs = %g$\AA$ \n" \
-                 "S/N = %g \n"\
-                 % (e.syn_obs.ra, e.syn_obs.dec, e.syn_obs.w, e.spec_obj.estflux, e.spec_obj.eqw_obs,e.snr)
+        try:
+            title += "\n" \
+                     "RA,Dec (%f,%f)  $\lambda$ = %g$\AA$ \n" \
+                     "EstFlux = %0.3g  EW_obs = %g$\AA$ \n" \
+                     "S/N = %g \n"\
+                     % (e.syn_obs.ra, e.syn_obs.dec, e.syn_obs.w, e.spec_obj.estflux, e.spec_obj.eqw_obs,
+                        e.spec_obj.central_eli.snr)
+        except:
+            log.error("Exception setting title.",exc_info=True)
 
         plt.subplot(gs[:,:]) #all (again, probably won't end up using grid_spec for this case)
         plt.text(0, 0.5, title, ha='left', va='center', fontproperties=font)
