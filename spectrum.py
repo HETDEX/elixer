@@ -500,6 +500,9 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         return e
 
 
+    if (wavelengths is None) or (values is None) or (len(wavelengths)==0) or (len(values)==0):
+        log.warning("Zero length (or None) spectrum passed to spectrum::signal_score().")
+        return None
 
 
     accept_fit = False
@@ -1775,6 +1778,9 @@ class Spectrum:
                 estflux = eli.line_flux
                 eqw_obs = eli.eqw_obs
 
+            #if (self.snr is None) or (self.snr == 0):
+            #    self.snr = eli.snr
+
             self.central_eli = copy.deepcopy(eli)
 
             # get very basic info (line fit)
@@ -1792,6 +1798,9 @@ class Spectrum:
         self.central = central
         self.estflux = estflux
         self.eqw_obs = eqw_obs
+        #if self.snr is None:
+        #    self.snr = 0
+
 
     def find_central_wavelength(self,wavelengths = None,values = None, errors=None,values_units=0):
         central = 0.0

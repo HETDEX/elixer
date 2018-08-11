@@ -2755,12 +2755,16 @@ class HETDEX:
             dec = e.dec
 
         try:
-            title += "\n" \
-                     "RA,Dec (%f,%f)  $\lambda$ = %g$\AA$ \n" \
-                     "EstFlux = %0.3g  EW_obs = %g$\AA$ \n" \
-                     "S/N = %g \n"\
-                     % (e.syn_obs.ra, e.syn_obs.dec, e.syn_obs.w, e.spec_obj.estflux, e.spec_obj.eqw_obs,
-                        e.spec_obj.central_eli.snr)
+            title += "\nRA,Dec (%f,%f)  $\lambda$ = %g$\AA$ \n" % (e.syn_obs.ra, e.syn_obs.dec, e.syn_obs.w)
+
+            if e.spec_obj.estflux is not None:
+                title += "EstFlux = %0.3g  " % e.spec_obj.estflux
+
+            if e.spec_obj.eqw_obs is not None:
+                title += "EW_obs = %g$\AA$ " % e.spec_obj.eqw_obs
+
+            if (e.spec_obj.central_eli is not None) and (e.spec_obj.central_eli.snr is not None):
+                title += "S/N = %g \n" %e.spec_obj.central_eli.snr
         except:
             log.error("Exception setting title.",exc_info=True)
 

@@ -293,21 +293,13 @@ class Fiber:
         Would be best (downstream) if they were also flux calibtrated, but does not matter much in this function
 
         '''
-
         if not force and (self.empty_status is not None):
             return self.empty_status
 
-
-        # todo: reject if any signal found
-        # could find peaks and kick out anything with S/N > 3?
-        # what about contiuum??
-        #  could average over chunks of, say, 100 pixels and reject if any chunk is above a threshold
-        #   but then would need to know if these are counts, ergs, or what units???
-
-        # what about a relative distance between min and max as a simple check??
-        # (like    (max-min)/(.5*abs(max+min)) ...not that ... basically will always be 2
-        # maybe (max-min)/(mean(values)) should not be more than 2 or 3?
         self.empty_status = False
+        if (wavelengths is None) or (values is None) or (len(wavelengths)==0) or (len(values)==0):
+            log.warning("Zero length (or None) spectrum passed to fiber::is_empty(). Treating as NOT empty.")
+            return self.empty_status
 
         #first check the slope .... if there is an overall slope there must be continuum and that == signal
         try:
