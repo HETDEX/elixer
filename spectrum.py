@@ -181,6 +181,8 @@ def norm_values(values,values_units):
     '''
 
     #return values, values_units
+    if values is not None:
+        values = np.array(values)
 
     if values_units == 0: #counts
         return values, values_units

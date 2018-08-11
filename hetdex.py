@@ -794,50 +794,51 @@ class DetObj:
         #get summary information (res file)
         # wavelength   wavelength(best fit) counts sigma  ?? S/N   cont(10^-17)
         #wavelength   wavelength(best fit) flux(10^-17) sigma  ?? S/N   cont(10^-17)
-        file = op.join(self.fcsdir, basename + "_2d.res")
-        try:
-            with open(file, 'r') as f:
-                f = ft.skip_comments(f)
-                count = 0
-                for l in f: #should be exactly one line (but takes the last one if more than one)
-                    count += 1
-                    if count > 1:
-                        log.warning("Unexepcted number of lines in %s" %(file))
-                    toks = l.split()
-                    #w = float(toks[1])  # sanity check against self.w
-                    self.w = float(toks[1])
+        if self.annulus is None:
+            file = op.join(self.fcsdir, basename + "_2d.res")
+            try:
+                with open(file, 'r') as f:
+                    f = ft.skip_comments(f)
+                    count = 0
+                    for l in f: #should be exactly one line (but takes the last one if more than one)
+                        count += 1
+                        if count > 1:
+                            log.warning("Unexepcted number of lines in %s" %(file))
+                        toks = l.split()
+                        #w = float(toks[1])  # sanity check against self.w
+                        self.w = float(toks[1])
 
-                    if self.w == 0.0: #seeing some 2d.res files are all zeroes
-                        log.error("Fatal: Invalid *_2d.res file. Empty content.: %s " % file)
-                        #self.status = -1
-                        self.w = -1.0
+                        if self.w == 0.0: #seeing some 2d.res files are all zeroes
+                            log.error("Invalid *_2d.res file. Empty content.: %s " % file)
+                            #self.status = -1
+                            self.w = -1.0
 
-                        self.estflux = -0.0001
-                        self.snr = 0.01
-                        self.fwhm = 0.0
-                        self.cont_cgs = -0.0001
-                        self.eqw_obs = -1.0
-                    else:
-                        #as is, way too large ... maybe not originally calculated as per angstrom? so divide by wavelength?
-                        #or maybe units are not right or a miscalculation?
-                        #toks2 is in counts
-                        self.estflux = float(toks[2]) * self.sumspec_flux_unit_scale # e.g. * 10**(-17)
-                        #print("Warning! Using old flux conversion between counts and flux!!!")
-                        #self.estflux = float(toks[2]) * flux_conversion(self.w)
+                            self.estflux = -0.0001
+                            self.snr = 0.01
+                            self.fwhm = 0.0
+                            self.cont_cgs = -0.0001
+                            self.eqw_obs = -1.0
+                        else:
+                            #as is, way too large ... maybe not originally calculated as per angstrom? so divide by wavelength?
+                            #or maybe units are not right or a miscalculation?
+                            #toks2 is in counts
+                            self.estflux = float(toks[2]) * self.sumspec_flux_unit_scale # e.g. * 10**(-17)
+                            #print("Warning! Using old flux conversion between counts and flux!!!")
+                            #self.estflux = float(toks[2]) * flux_conversion(self.w)
 
-                        self.fwhm = 2.35*float(toks[3]) #here sigma is the gaussian sigma, the line width, not significance
-                        self.snr = float(toks[5])
-                        self.cont_cgs = float(toks[6]) * self.sumspec_flux_unit_scale#  e.g. 10**(-17)
+                            self.fwhm = 2.35*float(toks[3]) #here sigma is the gaussian sigma, the line width, not significance
+                            self.snr = float(toks[5])
+                            self.cont_cgs = float(toks[6]) * self.sumspec_flux_unit_scale#  e.g. 10**(-17)
 
-                        # todo: need a floor for cgs (if negative)
-                        # for now only
-                        if self.cont_cgs <= 0.:
-                            print("Warning! Using predefined floor for continuum")
-                            self.cont_cgs = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(self.w)
+                            # todo: need a floor for cgs (if negative)
+                            # for now only
+                            if self.cont_cgs <= 0.:
+                                print("Warning! Using predefined floor for continuum")
+                                self.cont_cgs = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(self.w)
 
-                        self.eqw_obs = self.estflux / self.cont_cgs
-        except:
-            log.error("Cannot read *2d.res file: %s" % file, exc_info=True)
+                            self.eqw_obs = self.estflux / self.cont_cgs
+            except:
+                log.error("Cannot read *2d.res file: %s" % file, exc_info=True)
 
         #build the mapping between the tmpxxx files and fibers
         #l1 file
@@ -904,15 +905,16 @@ class DetObj:
                         # we already know the path to it ... so do that here??
                         fiber.fits_fn = out6[i]
 
-                        fits = hetdex_fits.HetdexFits(fiber.fits_fn, None, None, exp-1, panacea=True)
-                        fits.obs_date = fiber.dither_date
-                        fits.obs_ymd = fits.obs_date
-                        fits.obsid = fiber.obsid
-                        fits.expid = fiber.expid
-                        fits.amp = fiber.amp
-                        fits.side = fiber.amp[0]
-                        fiber.fits = fits
-                        #self.sci_fits.append(fits)
+                        if self.annulus is None:
+                            fits = hetdex_fits.HetdexFits(fiber.fits_fn, None, None, exp-1, panacea=True)
+                            fits.obs_date = fiber.dither_date
+                            fits.obs_ymd = fits.obs_date
+                            fits.obsid = fiber.obsid
+                            fits.expid = fiber.expid
+                            fits.amp = fiber.amp
+                            fits.side = fiber.amp[0]
+                            fiber.fits = fits
+                            #self.sci_fits.append(fits)
 
 
                         #not here ... this is for the entire detection not just this fiber
@@ -941,7 +943,6 @@ class DetObj:
 
         #get the weights
         file = op.join(self.fcsdir, "list2")
-        tmp_base_count = 100
         try:
             tmp = np.genfromtxt(file,dtype=np.str,usecols=0)
             if len(tmp) != len(multi):
@@ -949,9 +950,13 @@ class DetObj:
             else:
 
                 #tmp = out[:,0]
-                out = np.loadtxt(file, dtype=np.float, usecols=(1,2))
-                keep = out[:,0]
-                w = out[:,1] #weights
+                if self.annulus is None:
+                    out = np.loadtxt(file, dtype=np.float, usecols=(1,2))
+                    keep = out[:,0]
+                    w = out[:,1] #weights
+                else:
+                    keep = np.zeros(len(self.fibers))
+                    w = np.zeros(len(keep))  # weights
 
                 #sum up the weights where keep == 0
                 norm = np.sum(w[np.where(keep==0)])
@@ -980,6 +985,9 @@ class DetObj:
 
                                     #now, get the tmp file for the thoughput
                                     tmpfile = op.join(self.fcsdir, "tmp"+str(i+101)+".dat")
+
+                                    log.info("Loading spectrum from: %s" %tmpfile)
+
                                     tmp_out = np.loadtxt(tmpfile, dtype=np.float)
                                     #0 = wavelength, 1=counts?, 2=flux? 3,4,5 = throughput 6=cont?
 
@@ -1004,10 +1012,11 @@ class DetObj:
 
                     #f.relative_weight /= norm #note: some we see are zero ... they do not contribute
 
-                for f in self.fibers:
-                    if subset_norm != 0:
-                        f.relative_weight /= subset_norm
-                    #f.relative_weight /= max_weight
+                if self.annulus is None:
+                    for f in self.fibers:
+                        if subset_norm != 0:
+                            f.relative_weight /= subset_norm
+                        #f.relative_weight /= max_weight
 
                 #todo: how is Karl using the weights (sum to 100% or something else?)
                 #now, remove the zero weighted fibers, then sort
@@ -1031,65 +1040,66 @@ class DetObj:
 
 
         #get the full flux calibrated spectra
-        file = op.join(self.fcsdir, basename + "specf.dat")
-        try:
-            size = os.stat(file).st_size
-            if size == 0:
-                print("eid(%d) *specf.res file is zero length (no VIRUS data available?): %s" %(self.entry_id,file))
-                log.error("eid(%d) *specf.res file is zero length (no VIRUS data available?): %s" %(self.entry_id,file))
+        if self.annulus is None:
+            file = op.join(self.fcsdir, basename + "specf.dat")
+            try:
+                size = os.stat(file).st_size
+                if size == 0:
+                    print("eid(%d) *specf.res file is zero length (no VIRUS data available?): %s" %(self.entry_id,file))
+                    log.error("eid(%d) *specf.res file is zero length (no VIRUS data available?): %s" %(self.entry_id,file))
+                    self.status = -1
+                    return
+            except:
+                pass
+
+            try:
+                out = np.loadtxt(file, dtype=None)
+
+                self.sumspec_wavelength = out[:,0]
+                self.sumspec_counts = out[:, 1]
+                #reminder data scientific notation, so mostly e-17 or e-18
+                self.sumspec_flux = out[:,2] * 1e17
+                #todo: get flux error (not yet in this file)
+                #self.sumspec_fluxerr = out[:,6]  * 1e17
+
+                #self.sumspec_fluxerr = np.full_like(self.sumspec_flux,1.0) #i.e. 0.5x10^-17 cgs
+                #np.random.seed(1138)
+                #self.sumspec_fluxerr = np.random.random(len(self.sumspec_flux)) # just for test
+
+            except:
+                log.error("Fatal. Cannot read *specf.dat file: %s" % file, exc_info=True)
+                print("Fatal. Cannot read *specf.dat file: %s" % file)
                 self.status = -1
                 return
-        except:
-            pass
 
-        try:
-            out = np.loadtxt(file, dtype=None)
+            # get the zoomed in flux calibrated spectra
+            file = op.join(self.fcsdir, basename + "spece.dat")
+            try:
+                out = np.loadtxt(file, dtype=None)
 
-            self.sumspec_wavelength = out[:,0]
-            self.sumspec_counts = out[:, 1]
-            #reminder data scientific notation, so mostly e-17 or e-18
-            self.sumspec_flux = out[:,2] * 1e17
-            #todo: get flux error (not yet in this file)
-            #self.sumspec_fluxerr = out[:,6]  * 1e17
+                self.sumspec_wavelength_zoom = out[:, 0]
+                self.sumspec_counts_zoom = out[:, 1]
+                self.sumspec_flux_zoom = out[:, 2]  * 1e17
+                #todo: get flux error (not yet in this file)
+                #self.sumspec_fluxerr_zoom = out[:,6]  * 1e17
+                #self.sumspec_fluxerr_zoom = np.full_like(self.sumspec_flux_zoom, 0.5)  # i.e. 0.5x10^-17 cgs
 
-            #self.sumspec_fluxerr = np.full_like(self.sumspec_flux,1.0) #i.e. 0.5x10^-17 cgs
-            #np.random.seed(1138)
-            #self.sumspec_fluxerr = np.random.random(len(self.sumspec_flux)) # just for test
-
-        except:
-            log.error("Fatal. Cannot read *specf.dat file: %s" % file, exc_info=True)
-            print("Fatal. Cannot read *specf.dat file: %s" % file)
-            self.status = -1
-            return
-
-        # get the zoomed in flux calibrated spectra
-        file = op.join(self.fcsdir, basename + "spece.dat")
-        try:
-            out = np.loadtxt(file, dtype=None)
-
-            self.sumspec_wavelength_zoom = out[:, 0]
-            self.sumspec_counts_zoom = out[:, 1]
-            self.sumspec_flux_zoom = out[:, 2]  * 1e17
-            #todo: get flux error (not yet in this file)
-            #self.sumspec_fluxerr_zoom = out[:,6]  * 1e17
-            #self.sumspec_fluxerr_zoom = np.full_like(self.sumspec_flux_zoom, 0.5)  # i.e. 0.5x10^-17 cgs
-
-        except:
-            log.error("Fatal. Cannot read *_spece.res file: %s" % file, exc_info=True)
-            print("Fatal. Cannot read *_spece.res file: %s" % file)
-            self.status = -1
-            return
+            except:
+                log.error("Fatal. Cannot read *_spece.res file: %s" % file, exc_info=True)
+                print("Fatal. Cannot read *_spece.res file: %s" % file)
+                self.status = -1
+                return
 
 
-        #get zoomed 2d cutout
-        #fits file
-        file = op.join(self.fcsdir, basename + ".fits")
-        try:
-            f = pyfits.open(file)
-            self.sumspec_2d_zoom = f[0].data
-            f.close()
-        except:
-            log.error("could not read file " + file, exc_info=True) #not fatal
+            #get zoomed 2d cutout
+            #fits file
+            file = op.join(self.fcsdir, basename + ".fits")
+            try:
+                f = pyfits.open(file)
+                self.sumspec_2d_zoom = f[0].data
+                f.close()
+            except:
+                log.error("could not read file " + file, exc_info=True) #not fatal
 
 
         #todo: get info from Karl and load
@@ -2703,6 +2713,13 @@ class HETDEX:
 
         if len(e.syn_obs.fibers_work) > 0:
             e.syn_obs.sum_fibers()
+
+            e.spec_obj.set_spectra(e.syn_obs.sum_wavelengths, e.syn_obs.sum_values,
+                                   e.syn_obs.sum_errors, e.syn_obs.target_wavelength,
+                                   values_units=e.syn_obs.units)
+
+            e.spec_obj.classify()  # solutions can be returned, also stored in spec_obj.solutions
+
         else:
             log.warning("No fibers inside annulus.")
 
@@ -2723,7 +2740,6 @@ class HETDEX:
         else:
             title = ""
 
-
         title += "Obs: Synthetic \n"
 
         if (e.entry_id is not None) and (e.id is not None):
@@ -2738,18 +2754,11 @@ class HETDEX:
             ra = e.ra
             dec = e.dec
 
-        datakeep = self.build_data_dict(e)
-        if datakeep is None:
-            return None
-
         title += "\n" \
-                 "RA,Dec (%f,%f) \n" \
-                 "$\lambda$ = %g$\AA$  FWHM = %g$\AA$\n" \
-                 "EstFlux = %0.3g \n" \
-                 % (e.syn_obs.ra, e.syn_obs.dec, e.syn_obs.w, e.syn_obs.fwhm, e.syn_obs.estflux)
-
-        title += "S/N = %g " % (e.syn_obs.snr)
-
+                 "RA,Dec (%f,%f)  $\lambda$ = %g$\AA$ \n" \
+                 "EstFlux = %0.3g  EW_obs = %g$\AA$ \n" \
+                 "S/N = %g \n"\
+                 % (e.syn_obs.ra, e.syn_obs.dec, e.syn_obs.w, e.spec_obj.estflux, e.spec_obj.eqw_obs,e.snr)
 
         plt.subplot(gs[:,:]) #all (again, probably won't end up using grid_spec for this case)
         plt.text(0, 0.5, title, ha='left', va='center', fontproperties=font)
@@ -2759,89 +2768,32 @@ class HETDEX:
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
-        #
-        if (datakeep is not None) and (datakeep['fib']):
-            # try:
-            #     e.fiber_locs = list(
-            #         zip(datakeep['ra'], datakeep['dec'], datakeep['color'], datakeep['index'], datakeep['d'],
-            #             datakeep['fib']))
-            # except:
-            #     log.error("Error building fiber_locs", exc_info=True)
-
-
-            #?? do we want the short spec image???
-            #if so need to actually use grid_spec and may need to adjust the rsp calls since
-            #we are doing our own summing and over the entire spectrum
-            # try:
-            #     plt.subplot(gs[0:2,30:])
-            #     plt.gca().axis('off')
-            #     buf = self.build_spec_image(datakeep,e.w, dwave=1.0)
-            #     buf.seek(0)
-            #     im = Image.open(buf)
-            #     plt.imshow(im,interpolation='none')#needs to be 'none' else get blurring
-            # except:
-            #     log.warning("Failed to build spec image.",exc_info = True)
-            #
-
-
-            #make the first part is own (temporary) page (to be merged later)
-
-
-            #todo: replace this or modify ... go be sure to capture the syntheticobservation.eli_dict{} infor
-
-            pages.append(fig)
-            plt.close('all')
-            try:
-                fig = plt.figure(figsize=(G.ANNULUS_FIGURE_SZ_X, 2))
-                plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
-                plt.gca().axis('off')
-              #  buf = self.build_full_width_spectrum(datakeep, e.w)
-
-                buf = e.spec_obj.build_full_width_spectrum(wavelengths=e.syn_obs.sum_wavelengths,
-                                                           counts=e.syn_obs.sum_values,
-                                                           errors=e.syn_obs.sum_errors,
-                                                           values_units = e.syn_obs.units,
-                                                           central_wavelength=e.syn_obs.w,
-                                                           show_skylines=True, show_peaks=True, name=None,
-                                                           annotate=False,figure=fig,show_line_names=False)
-
-                if buf is not None:
-                    buf.seek(0)
-                    im = Image.open(buf)
-                    plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
-
-                    pages.append(fig) #append the second part to its own page to be merged later
-                plt.close()
-            except:
-                log.warning("Failed to build full width spec/cutout image.", exc_info=True)
-
-        else:
-            pages.append(fig)  # append what we have (done with a blank as well so the sizes are correct)
-            plt.close('all')
-            fig = plt.figure(figsize=(G.FIGURE_SZ_X, figure_sz_y))
-            plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
+        pages.append(fig)
+        plt.close('all')
+        try:
+            fig = plt.figure(figsize=(G.ANNULUS_FIGURE_SZ_X, 2))
+            plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
             plt.gca().axis('off')
-            plt.text(0.5, 0.5, "Unable to locate or import reduced data (FITS)", ha='center', va='center',
-                     fontproperties=font)
-            pages.append(fig)  # append the second part to its own page to be merged later
-            plt.close()
 
-        #safety check
-        # update emission with the ra, dec of all fibers
-        # if e.fiber_locs is None:
-        #     try:
-        #         e.fiber_locs = list(
-        #             zip(datakeep['ra'], datakeep['dec'], datakeep['color'], datakeep['index'], datakeep['d'],
-        #                 datakeep['fib']))
-        #     except:
-        #         log.error("Error building fiber_locs", exc_info=True)
+            buf = e.spec_obj.build_full_width_spectrum(wavelengths=e.syn_obs.sum_wavelengths,
+                                                       counts=e.syn_obs.sum_values,
+                                                       errors=e.syn_obs.sum_errors,
+                                                       values_units = e.syn_obs.units,
+                                                       central_wavelength=e.syn_obs.w,
+                                                       show_skylines=True, show_peaks=True, name=None,
+                                                       annotate=False,figure=fig,show_line_names=False)
+
+            if buf is not None:
+                buf.seek(0)
+                im = Image.open(buf)
+                plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
+
+                pages.append(fig) #append the second part to its own page to be merged later
+            plt.close()
+        except:
+            log.warning("Failed to build full width spec/cutout image.", exc_info=True)
 
         return pages
-
-
-
-
-
 
     def build_hetdex_data_page(self,pages,detectid):
 
@@ -3312,6 +3264,7 @@ class HETDEX:
         if datakeep is None:
             log.error("Error! Cannot build datakeep.")
         return datakeep
+
 
     def build_hetdex_data_dict(self,e):#e is the emission detection to use
         if e is None:
