@@ -284,7 +284,8 @@ class Fiber:
         return hash((self.ra, self.dec, self.dither_date, self.dither_time))
 
 
-    def is_empty(self, wavelengths, values, errors=None, units=None, max_score=2.0, max_snr=2.0, force=False):
+    def is_empty(self, wavelengths, values, errors=None, units=None, max_score=2.0, max_snr=2.0,
+                 max_val=5.0e-17, force=False):
         '''
         Basically, is the fiber free from any overt signals (real emission line(s), continuum, sky, etc)
         Values and errors must have the same units
@@ -310,48 +311,50 @@ class Fiber:
 
         #first check the slope .... if there is an overall slope there must be continuum and that == signal
         try:
+            #simplest check first
+            #take out any large values (could be just a stuck pixel, but a gaussian would not fit and thus no peaks)
+            mx = max(values)
+            mn = min(values)
 
+            if mx > max_val:
+                log.info("Maximum value exceeded (%0.3g < %0.3g). Fiber not empty." %(max_val,mx))
+                self.empty_status = False
+                return self.empty_status
+
+            if mn < (-1.*max_val):
+                log.info("Minium value exceeded (%0.3g > %0.3g). Fiber not empty." %(-1.*max_val,mn))
+                self.empty_status = False
+                return self.empty_status
+
+
+
+            #next check the slope
             coeff = fit_line(wavelengths, values, errors)  # flipped order ... coeff[0] = 0th, coeff[1]=1st
             self.spectrum_linear_coeff = coeff
-            # check it later, still want to perform peakdet
+            if abs(coeff[1]) > 0.001:  # todo .. what is a good value here?
+                log.info("Maximum slope exceeded (|%0.3g| > 0.001). Fiber not empty." % (coeff[1]))
+                self.empty_status = False
+                return self.empty_status
 
-            #            extrema_ratio = (max(values) - min(values))/np.mean(values)
-            #            print (extrema_ratio)
 
-            # if (units is None) or (units == 'counts'):
-            #     if min(values) < -50.0 or max(values) > 50.0:
-            #         log.debug("Fiber rejected for addition. Large extrema.")
-            #         return self.empty_status
-
+            #now check for any "good" peaks (most costly check)
             self.peaks = elixer_spectrum.peakdet(wavelengths, values, errors,values_units=units)  # , h, dh, zero)
-            # signal = list(filter(lambda x: (x[5] > max_score) or (x[6] > max_snr),peaks))
-
-            # signal = list(filter(lambda x: x[6] > max_snr,peaks))
-            # 2018-06-11: dd .. peakdet modified to apply "is_good" and return list of EmissionLineInfo objects
-            #            so, if the list if not empty, then there are "good" signals and this is not what we want
-
 
             num_peaks = -1
             if (self.peaks is not None):
                 num_peaks = len(self.peaks)
 
-            log.info("(%f,%f) spectrum basic info. Peaks (%d), continuum (mx+b): %f(x) + %f"
-                     %(self.ra, self.dec, num_peaks,coeff[1], coeff[0]))
+            log.info("(%f,%f) spectrum basic info. Peaks (%d), continuum (mx+b): %f(x) + %f, min (%f), max(%f)"
+                     %(self.ra, self.dec, num_peaks, coeff[1], coeff[0], mn, mx))
 
             #could have 1+ peaks, if all line_score below max_score and all snr below max_snr
-
-            if coeff[1] < 0.001:
-                self.empty_status = True
+            self.empty_status = True
+            if num_peaks > 0:
                 for p in self.peaks:
                     if (p.line_score is not None and p.snr is not None) and \
                         (p.line_score > max_score or p.snr > max_snr):
                         self.empty_status = False
                         break
-
-            # if (num_peaks == 0) and (coeff[1] < 0.001): #todo .. what is a good value here?
-            #     #stars and some galaxies are 0.001+ might need to go even smaller?
-            #     self.empty_status = True
-            # else:
 
             if self.empty_status == False:
                 log.debug("Fiber may not be empty.")

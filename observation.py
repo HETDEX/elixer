@@ -67,7 +67,7 @@ class SyntheticObservation():
                     #build up the full list of peaks
                     f.is_empty(wavelengths=f.fluxcal_central_emis_wavelengths,
                                values=f.fluxcal_central_emis_flux, errors=f.fluxcal_central_emis_fluxerr,
-                               units=self.units, max_score=2.0, max_snr=2.0, force=False)
+                               units=self.units, max_score=2.0, max_snr=2.0, max_val=5.0e-17, force=False)
                 except:
                     log.error("Error! Could not get signal_score for fiber. %s" %(str(f)), exc_info=True)
 
@@ -123,7 +123,6 @@ class SyntheticObservation():
                                                                     force_score=True)
                 except:
                     log.error("Error! Could not get signal_score for fiber. %s" %(str(f)), exc_info=True)
-
 
         return self.fibers_work
 

@@ -861,6 +861,7 @@ class DetObj:
 
         file1 = op.join(self.fcsdir, "l1")
         file6 = op.join(self.fcsdir, "l6")
+
         if (self.fibers is None) or (len(self.fibers) == 0):
             try:
                 out1 = np.genfromtxt(file1, dtype=None)
@@ -967,31 +968,39 @@ class DetObj:
                     f.relative_weight = 0.0
 
                     for i in range(len(out)):
-                        if keep[i] == 0.:
-                            #find which fiber, if any, in set this belongs to
-                            if (f.multi == multi[i]) and (f.scifits_idstring == idstr[i]):
-                                f.relative_weight += w[i] #usually there is only one, so this is 0 + weight = weight
-                                subset_norm += w[i]
+                        try:
+                            if keep[i] == 0.:
+                                #find which fiber, if any, in set this belongs to
+                                if (f.multi == multi[i]) and (f.scifits_idstring == idstr[i]):
+                                    f.relative_weight += w[i] #usually there is only one, so this is 0 + weight = weight
+                                    subset_norm += w[i]
 
-                                #if w[i] > max_weight:
-                                #    max_weight = w[i]
+                                    #if w[i] > max_weight:
+                                    #    max_weight = w[i]
 
-                                #now, get the tmp file for the thoughput
-                                tmpfile = op.join(self.fcsdir, "tmp"+str(i+101)+".dat")
-                                tmp_out = np.loadtxt(tmpfile, dtype=np.float)
-                                #0 = wavelength, 1=counts?, 2=flux? 3,4,5 = throughput 6=cont?
+                                    #now, get the tmp file for the thoughput
+                                    tmpfile = op.join(self.fcsdir, "tmp"+str(i+101)+".dat")
+                                    tmp_out = np.loadtxt(tmpfile, dtype=np.float)
+                                    #0 = wavelength, 1=counts?, 2=flux? 3,4,5 = throughput 6=cont?
 
-                                f.fluxcal_central_emis_wavelengths = tmp_out[:,0]
-                                f.fluxcal_central_emis_counts = tmp_out[:,1]
-                                f.fluxcal_central_emis_flux = tmp_out[:,2]
-                                f.fluxcal_central_emis_thru = tmp_out[:,3]*tmp_out[:,4]*tmp_out[:,5]
-                                f.fluxcal_central_emis_fluxerr =  tmp_out[:,6]
-                                #f.fluxcal_emis_cont = tmp_out[:,6]
+                                    f.fluxcal_central_emis_wavelengths = tmp_out[:,0]
+                                    f.fluxcal_central_emis_counts = tmp_out[:,1]
+                                    f.fluxcal_central_emis_flux = tmp_out[:,2]
+                                    f.fluxcal_central_emis_thru = tmp_out[:,3]*tmp_out[:,4]*tmp_out[:,5]
+                                    f.fluxcal_central_emis_fluxerr =  tmp_out[:,6]
+                                    #f.fluxcal_emis_cont = tmp_out[:,6]
 
-                        #else:
-                        #    # find which fiber, if any, in set this belongs to
-                        #    if (f.multi == multi[i]) and (f.scifits_idstring == idstr[i]):
-                        #        f.relative_weight += 0.0
+                            #else:
+                            #    # find which fiber, if any, in set this belongs to
+                            #    if (f.multi == multi[i]) and (f.scifits_idstring == idstr[i]):
+                            #        f.relative_weight += 0.0
+                        except:
+                            log.error("Error loading fiber from %s" %tmpfile,exc_info=True)
+                            if self.annulus is None:
+                                log.error("Fatal. Cannot load flux calibrated spectra", exc_info=True)
+                                print("Fatal. Cannot load flux calibrated spectra")
+                                self.status = -1
+                                return
 
                     #f.relative_weight /= norm #note: some we see are zero ... they do not contribute
 
@@ -1000,11 +1009,10 @@ class DetObj:
                         f.relative_weight /= subset_norm
                     #f.relative_weight /= max_weight
 
-
-
                 #todo: how is Karl using the weights (sum to 100% or something else?)
                 #now, remove the zero weighted fibers, then sort
-                self.fibers = [x for x in self.fibers if x.relative_weight > 0]
+                if self.annulus is None:
+                    self.fibers = [x for x in self.fibers if x.relative_weight > 0]
                 self.fibers.sort(key=lambda  x: x.relative_weight,reverse=True) #highest weight is index = 0
                 self.fibers_sorted = True
 
