@@ -157,9 +157,9 @@ class SyntheticObservation():
         :return: count of summed fibers
         """
 
-        del self.sum_wavelengths[:]
-        del self.sum_values[:]
-        del self.sum_errors[:]
+        self.sum_wavelengths = []
+        self.sum_values = []
+        self.sum_errors = []
         self.sum_count = 0
 
         #self.sum_values = np.zeros()

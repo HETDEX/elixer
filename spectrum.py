@@ -838,16 +838,28 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         eli.mcmc_x0 = mcmc.mcmc_mu
         eli.mcmc_sigma = mcmc.mcmc_sigma
 
-        eli.mcmc_a = mcmc.mcmc_A
-        eli.mcmc_y = mcmc.mcmc_y
+        if mcmc.mcmc_A is not None:
+            eli.mcmc_a = mcmc.mcmc_A
+        else:
+            eli.mcmc_a = (0.,0.,0.)
+
+        if mcmc.mcmc_y is not None:
+            eli.mcmc_y = mcmc.mcmc_y
+        else:
+            eli.mcmc_y = (0.,0.,0.)
 
         if values_units == -18:  # converted from e-17, but this is an area so there are 2 factors
-            eli.mcmc_a = tuple(np.array(mcmc.mcmc_A) / [10., 1., 1.])
+            eli.mcmc_a = tuple(np.array(eli.mcmc_a ) / [10., 1., 1.])
 
         # calc EW and error with approximate symmetric error on area and continuum
-        ew = abs(eli.mcmc_a[0] / eli.mcmc_y[0])
-        ew_err = ew * np.sqrt((mcmc.approx_symmetric_error(eli.mcmc_a) / eli.mcmc_a[0]) ** 2 +
-                              (mcmc.approx_symmetric_error(eli.mcmc_y) / eli.mcmc_y[0]) ** 2)
+        if eli.mcmc_y[0] != 0 and eli.mcmc_a[0] != 0:
+            ew = abs(eli.mcmc_a[0] / eli.mcmc_y[0])
+            ew_err = ew * np.sqrt((mcmc.approx_symmetric_error(eli.mcmc_a) / eli.mcmc_a[0]) ** 2 +
+                                  (mcmc.approx_symmetric_error(eli.mcmc_y) / eli.mcmc_y[0]) ** 2)
+        else:
+            ew = eli.mcmc_a[0]
+            ew_err = mcmc.approx_symmetric_error(eli.mcmc_a)
+
 
         eli.mcmc_ew_obs = (ew, ew_err, ew_err)
         log.info("MCMC Peak height = %f" % (max(narrow_wave_counts)))
@@ -913,8 +925,11 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #     ymax = max(wave_counts)
 
         if mcmc is not None:
-            gauss_plot.plot(xfit,gaussian(xfit,mcmc.mcmc_mu[0], mcmc.mcmc_sigma[0],mcmc.mcmc_A[0],mcmc.mcmc_y[0]),
+            try:
+                gauss_plot.plot(xfit,gaussian(xfit,mcmc.mcmc_mu[0], mcmc.mcmc_sigma[0],mcmc.mcmc_A[0],mcmc.mcmc_y[0]),
                             c='b', lw=10,alpha=0.2,zorder=1)
+            except:
+                log.warning("Exception in spectrum::signal_score() trying to plot mcmc output." ,exc_info=True)
 
 
         gauss_plot.set_ylabel("Flux [unsp] ")
@@ -1757,20 +1772,23 @@ class Spectrum:
 
 
     def set_spectra(self,wavelengths, values, errors, central, values_units = 0, estflux=None, eqw_obs=None):
-        del self.wavelengths[:]
-        del self.values[:]
-        del self.errors[:]
-        if self.all_found_lines is not None:
-            del self.all_found_lines[:]
-        if self.all_found_absorbs is not None:
-            del self.all_found_absorbs[:]
-        if self.solutions is not None:
-            del self.solutions[:]
+        self.wavelengths = []
+        self.values = []
+        self.errors = []
+        self.all_found_lines = None
+        self.all_found_absorbs = None
+        self.solutions = None
+        self.central_eli = None
 
         #run MCMC on this one ... the main line
-        eli = signal_score(wavelengths=wavelengths, values=values, errors=errors,central=central,
-                           values_units=values_units,sbr=None, show_plot=True,plot_id=self.identifier,
-                           plot_path=self.plot_dir,do_mcmc=True)
+        try:
+            eli = signal_score(wavelengths=wavelengths, values=values, errors=errors,central=central,
+                               values_units=values_units,sbr=None, show_plot=True,plot_id=self.identifier,
+                               plot_path=self.plot_dir,do_mcmc=True)
+        except:
+            log.error("Exception in spectrum::set_spectra calling signal_score().",exc_info=True)
+            eli = None
+
         if eli:
             if (estflux is None) or (eqw_obs is None):
                 #basically ... if I did not get this from Karl, use my own measure
@@ -1848,7 +1866,7 @@ class Spectrum:
         if not G.CLASSIFY_WITH_OTHER_LINES:
             return []
 
-        del self.solutions[:]
+        self.solutions = []
         if (wavelengths is not None) and (values is not None) and (central is not None):
             self.set_spectra(wavelengths,values,errors,central,values_units=values_units)
         else:
@@ -1871,10 +1889,6 @@ class Spectrum:
         self.solutions = solutions
 
         #get the LAE and OII solutions and send to Bayesian to check p_LAE/p_OII
-        del self.addl_fluxes[:]
-        del self.addl_wavelengths[:]
-        del self.addl_fluxerrs[:]
-
         self.addl_fluxes = []
         self.addl_wavelengths = []
         self.addl_fluxerrs = []

@@ -59,6 +59,9 @@ class MCMC_Gauss:
             p2 = abs(parm[2])
             avg = 0.5*(p1+p2)
 
+            if avg == 0:
+                return 0
+
             similarity = abs(p1-p2)/avg
 
             if similarity > 0.1:

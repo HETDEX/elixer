@@ -2745,28 +2745,71 @@ class HETDEX:
             log.error("Problem building complete EmissionLineInfo dictionary.")
             return None
 
-        # now sub select the annulus fibers (without signal) (populate obs.fibers_work
-        e.syn_obs.annulus_fibers(empty=True)
+        radius_step = G.Fiber_Radius * 2.0
+        radii_vector = np.arange(e.annulus[0]+radius_step,e.annulus[1]+radius_step,radius_step)
+        eli_vector = [None] * len(radii_vector)
+        snr_vector = [0] * len(radii_vector)
+        best_eli = None
+        best_radius = None
 
-        if len(e.syn_obs.fibers_work) > 0:
+        #loop here, incrementing the radius and rebuilding annulus_fibers
+        print("LOOPING ....")
+
+        for i in range(len(radii_vector)):
+            radius = radii_vector[i]
+            e.syn_obs.annulus_fibers(inner_radius=e.annulus[0],outer_radius=radius)
+
+            # now sub select the annulus fibers (without signal) (populate obs.fibers_work
+            #e.syn_obs.annulus_fibers(empty=True)
+            if len(e.syn_obs.fibers_work) > 0:
+                e.syn_obs.sum_fibers()
+
+                spec_obj = elixer_spectrum.Spectrum()
+
+                spec_obj.set_spectra(e.syn_obs.sum_wavelengths, e.syn_obs.sum_values,
+                                       e.syn_obs.sum_errors, e.syn_obs.target_wavelength,
+                                       values_units=e.syn_obs.units)
+
+                eli_vector[i] = spec_obj.central_eli #might be none
+
+                #dummy:
+                if eli_vector[i] is not None and eli_vector[i].snr is not None:
+
+                    snr_vector[i] = eli_vector[i].snr
+
+                    if best_eli is None or (best_eli.snr <= eli_vector[i].snr):
+                        best_eli = eli_vector[i]
+                        best_radius = radius
+
+                    print("LOOP: %f %f %d" % (radius,eli_vector[i].snr,len(e.syn_obs.fibers_work)))
+                    log.info("Annulus loop(%d): %f %f %d" % (i,radius, eli_vector[i].snr, len(e.syn_obs.fibers_work)))
+                else:
+                    print("LOOP: %f None %d" % (radius,len(e.syn_obs.fibers_work)))
+                    log.info("Annulus loop(%d): %f None %d" % (i, radius, len(e.syn_obs.fibers_work)))
+
+            else:
+                log.warning("No fibers inside annulus.")
+
+        # do I need to classify? Is there any point (maybe pass in a fixed redshift?)
+        # maybe find the max line_score in the vector and just run classify on that one?
+
+        if (best_eli is not None) and (best_eli.snr > 0):
+            log.info("Rebuilding best score ...")
+            e.syn_obs.annulus_fibers(inner_radius=e.annulus[0], outer_radius=best_radius)
             e.syn_obs.sum_fibers()
 
             e.spec_obj.set_spectra(e.syn_obs.sum_wavelengths, e.syn_obs.sum_values,
                                    e.syn_obs.sum_errors, e.syn_obs.target_wavelength,
                                    values_units=e.syn_obs.units)
-
             e.spec_obj.classify()  # solutions can be returned, also stored in spec_obj.solutions
 
-        else:
-            log.warning("No fibers inside annulus.")
-
-        figure_sz_y = 2#G.GRID_SZ_Y
+        figure_sz_y = G.GRID_SZ_Y
         fig = plt.figure(figsize=(G.ANNULUS_FIGURE_SZ_X, figure_sz_y))
         plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
         plt.gca().axis('off')
 
-        #go ahead and build a gridspec, but at this time I don't think I am going to need it
-        gs = gridspec.GridSpec(1,1)
+        #two columns info then plot (radius vs line_score)
+        gs = gridspec.GridSpec(1,2)
 
         font = FontProperties()
         font.set_family('monospace')
@@ -2792,20 +2835,20 @@ class HETDEX:
             dec = e.dec
 
         try:
-            title += "\nRA,Dec (%f,%f)  $\lambda$ = %g$\AA$ \n" % (e.syn_obs.ra, e.syn_obs.dec, e.syn_obs.w)
+            title += "\nRA,Dec (%f,%f)\n$\lambda$ = %g$\AA$ \n" % (e.syn_obs.ra, e.syn_obs.dec, e.syn_obs.w)
 
             if e.spec_obj.estflux is not None:
-                title += "EstFlux = %0.3g  " % e.spec_obj.estflux
+                title += "EstFlux = %0.3g  \n" % e.spec_obj.estflux
 
             if e.spec_obj.eqw_obs is not None:
-                title += "EW_obs = %g$\AA$ " % e.spec_obj.eqw_obs
+                title += "EW_obs = %g$\AA$ \n" % e.spec_obj.eqw_obs
 
             if (e.spec_obj.central_eli is not None) and (e.spec_obj.central_eli.snr is not None):
-                title += "S/N = %g \n" %e.spec_obj.central_eli.snr
+                title += "S/N = %0.3g at %0.2g\" \n" %(e.spec_obj.central_eli.snr,best_radius)
         except:
             log.error("Exception setting title.",exc_info=True)
 
-        plt.subplot(gs[:,:]) #all (again, probably won't end up using grid_spec for this case)
+        plt.subplot(gs[0,0]) #all (again, probably won't end up using grid_spec for this case)
         plt.text(0, 0.5, title, ha='left', va='center', fontproperties=font)
         plt.suptitle(time.strftime("%Y-%m-%d %H:%M:%S") +
                      "  Version " + G.__version__ +"  ", fontsize=8,x=1.0,y=0.98,
@@ -2813,8 +2856,19 @@ class HETDEX:
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
+
+        plt.subplot(gs[0,1])
+        plt.subplots_adjust(left=0.05, right=0.95, top=.9, bottom=0.2)
+        plt.plot(radii_vector,snr_vector)
+        plt.ylabel("SNR")
+        plt.xlabel("Radius [arcsec]")
+
         pages.append(fig)
         plt.close('all')
+
+
+
+
         try:
             fig = plt.figure(figsize=(G.ANNULUS_FIGURE_SZ_X, 2))
             plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
