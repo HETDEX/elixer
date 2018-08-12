@@ -1053,15 +1053,33 @@ class DetObj:
                 pass
 
             try:
+                #                (0)    (1)              (2)                  (3)     (4)
+                #could be (new) wave, flux (cgs/1e-17), flux_err (cgs/1e-17), counts, counts_err
+                #or       (old) wave, counts, flux (cgs/1e-17), counts_err, flux_err (cgs/1e-17)
+                #     AND flux may or may not have the E-17 notation
+
+
                 out = np.loadtxt(file, dtype=None)
 
                 self.sumspec_wavelength = out[:,0]
                 self.sumspec_counts = out[:, 1]
+
+                if max(self.sumspec_counts) < 1.0: # new order
+                    self.sumspec_flux = self.sumspec_counts * 1e17
+                    self.sumspec_fluxerr = out[:, 2] * 1e17
+                    self.sumspec_counts = out[:, 3]
+                else: #old order
+                    self.sumspec_flux = out[:, 2]
+                    if max(self.sumspec_flux) < 1:
+                        self.sumspec_flux *= 1e17
+                        self.sumspec_fluxerr = out[:, 4] * 1e17
+                    else:
+                        self.sumspec_fluxerr = out[:, 4]
+
                 #reminder data scientific notation, so mostly e-17 or e-18
-                self.sumspec_flux = out[:,2] * 1e17
+
                 #todo: get flux error (not yet in this file)
                 #self.sumspec_fluxerr = out[:,6]  * 1e17
-
                 #self.sumspec_fluxerr = np.full_like(self.sumspec_flux,1.0) #i.e. 0.5x10^-17 cgs
                 #np.random.seed(1138)
                 #self.sumspec_fluxerr = np.random.random(len(self.sumspec_flux)) # just for test
@@ -1073,16 +1091,35 @@ class DetObj:
                 return
 
             # get the zoomed in flux calibrated spectra
+            #                (0)    (1)              (2)                  (3)     (4)
+            # could be (new) wave, flux (cgs/1e-17), flux_err (cgs/1e-17), counts, counts_err
+            # or       (old) wave, counts, flux (cgs/1e-17), counts_err, flux_err (cgs/1e-17)
+            #     AND flux may or may not have the E-17 notation
             file = op.join(self.fcsdir, basename + "spece.dat")
             try:
                 out = np.loadtxt(file, dtype=None)
 
-                self.sumspec_wavelength_zoom = out[:, 0]
+                # self.sumspec_wavelength_zoom = out[:, 0]
+                # self.sumspec_counts_zoom = out[:, 1]
+                # self.sumspec_flux_zoom = out[:, 2]  * 1e17
+                # #todo: get flux error (not yet in this file)
+                # #self.sumspec_fluxerr_zoom = out[:,6]  * 1e17
+                # #self.sumspec_fluxerr_zoom = np.full_like(self.sumspec_flux_zoom, 0.5)  # i.e. 0.5x10^-17 cgs
+
+                self.sumspec_wavelength_zoom = out[:,0]
                 self.sumspec_counts_zoom = out[:, 1]
-                self.sumspec_flux_zoom = out[:, 2]  * 1e17
-                #todo: get flux error (not yet in this file)
-                #self.sumspec_fluxerr_zoom = out[:,6]  * 1e17
-                #self.sumspec_fluxerr_zoom = np.full_like(self.sumspec_flux_zoom, 0.5)  # i.e. 0.5x10^-17 cgs
+
+                if max(self.sumspec_counts_zoom) < 1.0: # new order
+                    self.sumspec_flux_zoom = self.sumspec_counts_zoom * 1e17
+                    self.sumspec_fluxerr_zoom = out[:, 2] * 1e17
+                    self.sumspec_counts_zoom = out[:, 3]
+                else: #old order
+                    self.sumspec_flux_zoom = out[:, 2]
+                    if max(self.sumspec_flux_zoom) < 1:
+                        self.sumspec_flux_zoom *= 1e17
+                        self.sumspec_fluxerr_zoom = out[:, 4] * 1e17
+                    else:
+                        self.sumspec_fluxerr_zoom = out[:, 4]
 
             except:
                 log.error("Fatal. Cannot read *_spece.res file: %s" % file, exc_info=True)

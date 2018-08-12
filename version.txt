@@ -1,5 +1,14 @@
 changes to elixer by version
 
+
+
+1.5.0a1 [2018-08-11]
+* support for stacking empty fibers (diffuse/extended emission search)
+* adding in --annulus, --wavelength
+
+
+1.4.0 [2018-08-11] promoted version 1.4.0a11 to release to avoid active user collisions
+
 1.4.0a11 [2018-07-30]
 * still produce full sized PDF even if multi*fits files cannot be located or imported (use empty spacing)
 
