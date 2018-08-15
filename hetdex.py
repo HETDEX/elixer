@@ -989,14 +989,37 @@ class DetObj:
                                     log.info("Loading spectrum from: %s" %tmpfile)
 
                                     tmp_out = np.loadtxt(tmpfile, dtype=np.float)
+                                    cols = np.shape(tmp_out)[1]
                                     #0 = wavelength, 1=counts?, 2=flux? 3,4,5 = throughput 6=cont?
 
-                                    f.fluxcal_central_emis_wavelengths = tmp_out[:,0]
-                                    f.fluxcal_central_emis_counts = tmp_out[:,1]
-                                    f.fluxcal_central_emis_flux = tmp_out[:,2]
-                                    f.fluxcal_central_emis_thru = tmp_out[:,3]*tmp_out[:,4]*tmp_out[:,5]
-                                    f.fluxcal_central_emis_fluxerr =  tmp_out[:,6]
-                                    #f.fluxcal_emis_cont = tmp_out[:,6]
+                                    # due to call to rsp1a2, might not be 3500 to 5500 and there can be junk
+                                    # on either end, so slice the arrays read in
+                                    mn_idx = elixer_spectrum.getnearpos(tmp_out[:,0], 3500.0)
+                                    mx_idx = elixer_spectrum.getnearpos(tmp_out[:,0], 5500.0)
+
+                                    f.fluxcal_central_emis_wavelengths = tmp_out[:,0][mn_idx:mx_idx+1]
+                                    f.fluxcal_central_emis_counts = tmp_out[:,1][mn_idx:mx_idx+1]
+                                    f.fluxcal_central_emis_flux = tmp_out[:,2][mn_idx:mx_idx+1]
+
+                                    f.fluxcal_central_emis_thru = (tmp_out[:,3][mn_idx:mx_idx+1])* \
+                                                                  (tmp_out[:,4][mn_idx:mx_idx+1])* \
+                                                                  (tmp_out[:,5][mn_idx:mx_idx+1])
+
+                                    if cols == 9:
+                                        try:
+                                            f.fluxcal_central_emis_fluxerr =  tmp_out[:,8][mn_idx:mx_idx+1]
+                                        except:
+                                            log.error("Exception loading fluxerr.",exc_info=True)
+                                            f.fluxcal_central_emis_fluxerr = []
+                                    elif cols == 7:
+                                        try:
+                                            f.fluxcal_central_emis_fluxerr = tmp_out[:, 6][mn_idx:mx_idx+1]
+                                        except:
+                                            log.error("Exception loading fluxerr.", exc_info=True)
+                                            f.fluxcal_central_emis_fluxerr = []
+                                    else:
+                                        log.warning("Warning! Unexpected number of columns (%d) in tmpxxx.dat." %cols)
+                                    #f.fluxcal_emis_cont = tmp_out[:,6][mn_idx:mx_idx+1]
 
                             #else:
                             #    # find which fiber, if any, in set this belongs to
@@ -2751,24 +2774,25 @@ class HETDEX:
         snr_vector = [0] * len(radii_vector)
         best_eli = None
         best_radius = None
+        best_fiber_count = 0
 
         #loop here, incrementing the radius and rebuilding annulus_fibers
         print("LOOPING ....")
 
         for i in range(len(radii_vector)):
             radius = radii_vector[i]
-            e.syn_obs.annulus_fibers(inner_radius=e.annulus[0],outer_radius=radius)
+            e.syn_obs.annulus_fibers(inner_radius=e.annulus[0],outer_radius=radius,empty=True)
 
             # now sub select the annulus fibers (without signal) (populate obs.fibers_work
             #e.syn_obs.annulus_fibers(empty=True)
             if len(e.syn_obs.fibers_work) > 0:
                 e.syn_obs.sum_fibers()
 
-                spec_obj = elixer_spectrum.Spectrum()
+                spec_obj = elixer_spectrum.Spectrum()#todo: needs spec_obj.identifier and spec_obj.plot_dir
 
                 spec_obj.set_spectra(e.syn_obs.sum_wavelengths, e.syn_obs.sum_values,
                                        e.syn_obs.sum_errors, e.syn_obs.target_wavelength,
-                                       values_units=e.syn_obs.units)
+                                       values_units=e.syn_obs.units) #,fit_min_sigma=2.0)
 
                 eli_vector[i] = spec_obj.central_eli #might be none
 
@@ -2780,12 +2804,13 @@ class HETDEX:
                     if best_eli is None or (best_eli.snr <= eli_vector[i].snr):
                         best_eli = eli_vector[i]
                         best_radius = radius
+                        best_fiber_count = len(e.syn_obs.fibers_work)
 
-                    print("LOOP: %f %f %d" % (radius,eli_vector[i].snr,len(e.syn_obs.fibers_work)))
-                    log.info("Annulus loop(%d): %f %f %d" % (i,radius, eli_vector[i].snr, len(e.syn_obs.fibers_work)))
+                    print("LOOP (%d): %0.2f %f %d" % (i,radius,eli_vector[i].snr,len(e.syn_obs.fibers_work)))
+                    log.info("Annulus loop(%d): %0.2f %f %d" % (i,radius, eli_vector[i].snr, len(e.syn_obs.fibers_work)))
                 else:
-                    print("LOOP: %f None %d" % (radius,len(e.syn_obs.fibers_work)))
-                    log.info("Annulus loop(%d): %f None %d" % (i, radius, len(e.syn_obs.fibers_work)))
+                    print("LOOP (%d): %0.2f None %d" % (i,radius,len(e.syn_obs.fibers_work)))
+                    log.info("Annulus loop(%d): %0.2f None %d" % (i, radius, len(e.syn_obs.fibers_work)))
 
             else:
                 log.warning("No fibers inside annulus.")
@@ -2795,32 +2820,36 @@ class HETDEX:
 
         if (best_eli is not None) and (best_eli.snr > 0):
             log.info("Rebuilding best score ...")
-            e.syn_obs.annulus_fibers(inner_radius=e.annulus[0], outer_radius=best_radius)
+            e.syn_obs.best_radius = best_radius
+            e.syn_obs.annulus_fibers(inner_radius=e.annulus[0], outer_radius=best_radius,empty=True)
             e.syn_obs.sum_fibers()
 
             e.spec_obj.set_spectra(e.syn_obs.sum_wavelengths, e.syn_obs.sum_values,
                                    e.syn_obs.sum_errors, e.syn_obs.target_wavelength,
                                    values_units=e.syn_obs.units)
-            e.spec_obj.classify()  # solutions can be returned, also stored in spec_obj.solutions
 
-        figure_sz_y = G.GRID_SZ_Y
+            #don't think there is any point in calling classify?
+
+            #e.spec_obj.classify()  # solutions can be returned, also stored in spec_obj.solutions
+
+        figure_sz_y = G.GRID_SZ_Y * 2
         fig = plt.figure(figsize=(G.ANNULUS_FIGURE_SZ_X, figure_sz_y))
         plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
         plt.gca().axis('off')
 
         #two columns info then plot (radius vs line_score)
-        gs = gridspec.GridSpec(1,2)
+        gs = gridspec.GridSpec(2,3)
 
         font = FontProperties()
         font.set_family('monospace')
         font.set_size(12)
 
         if self.output_filename is not None:
-            title = "%s_%s.pdf\n" % (self.output_filename, str(e.entry_id).zfill(3))
+            title = "\n%s_%s.pdf\n" % (self.output_filename, str(e.entry_id).zfill(3))
         else:
             title = ""
 
-        title += "Obs: Synthetic \n"
+        title += "Obs: Synthetic (%0.2f to %0.2f\")\n" %(e.annulus[0],e.annulus[1])
 
         if (e.entry_id is not None) and (e.id is not None):
             title += "Entry# (%d), Detect ID (%d)" % (e.entry_id, e.id)
@@ -2844,34 +2873,57 @@ class HETDEX:
                 title += "EW_obs = %g$\AA$ \n" % e.spec_obj.eqw_obs
 
             if (e.spec_obj.central_eli is not None) and (e.spec_obj.central_eli.snr is not None):
-                title += "S/N = %0.3g at %0.2g\" \n" %(e.spec_obj.central_eli.snr,best_radius)
+                title += "S/N = %0.3g at %0.1f\" with %d fibers \n" \
+                         %(e.spec_obj.central_eli.snr,best_radius,best_fiber_count)
+
+            title += "Area = %0.1f (%0.1f) sq.arcsec\n" %(np.pi * (best_radius**2 - self.annulus[0]**2),
+                                                      len(e.syn_obs.fibers_work) * np.pi * G.Fiber_Radius ** 2)
+
+
         except:
             log.error("Exception setting title.",exc_info=True)
 
         plt.subplot(gs[0,0]) #all (again, probably won't end up using grid_spec for this case)
-        plt.text(0, 0.5, title, ha='left', va='center', fontproperties=font)
+        plt.text(0, 1.0, title, ha='left', va='top', fontproperties=font)
         plt.suptitle(time.strftime("%Y-%m-%d %H:%M:%S") +
                      "  Version " + G.__version__ +"  ", fontsize=8,x=1.0,y=0.98,
                      horizontalalignment='right',verticalalignment='top')
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
-
-        plt.subplot(gs[0,1])
+        #SNR vs Radius
+        plt.subplot(gs[1,0])
         plt.subplots_adjust(left=0.05, right=0.95, top=.9, bottom=0.2)
-        plt.plot(radii_vector,snr_vector)
+        plt.bar(radii_vector,snr_vector,color='b')
         plt.ylabel("SNR")
         plt.xlabel("Radius [arcsec]")
+
+        #pages.append(fig)
+        #plt.close('all')
+
+
+        #Gauss Plot
+        try:
+            if (e.spec_obj.central_eli is not None) and (e.spec_obj.central_eli.gauss_plot_buffer is not None):
+                plt.subplot(gs[:, 1:])
+                plt.gca().set_frame_on(False)
+                plt.gca().axis('off')
+                #plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
+
+                e.spec_obj.central_eli.gauss_plot_buffer.seek(0)
+                im = Image.open(e.spec_obj.central_eli.gauss_plot_buffer)
+                plt.imshow(im, interpolation='none')
+                #pages.append(fig)
+                #plt.close('all')
+        except:
+            log.error("Exception adding gauss fit plot to report.",exc_info=True)
 
         pages.append(fig)
         plt.close('all')
 
-
-
-
-        try:
-            fig = plt.figure(figsize=(G.ANNULUS_FIGURE_SZ_X, 2))
-            plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
+        try: #full width spectrum plot
+            fig = plt.figure(figsize=(G.ANNULUS_FIGURE_SZ_X, 2.0))
+            #plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
             plt.gca().axis('off')
 
             buf = e.spec_obj.build_full_width_spectrum(wavelengths=e.syn_obs.sum_wavelengths,

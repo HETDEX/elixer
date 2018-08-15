@@ -35,6 +35,7 @@ class SyntheticObservation():
         self.dec = None #central (anchor) Dec for the "observation"
         self.target_wavelength = None
         self.annulus = None
+        self.best_radius = None
 
         self.fibers_all = [] #one fiber object for each
         self.eli_dict = {} #everytime we call signal_score on a fiber, it should be added here so as to not repeat

@@ -331,8 +331,11 @@ class EmissionLineInfo:
         self.mcmc_y = None
         self.mcmc_ew_obs = None #calcuated value (using error propogation from mcmc_a and mcmc_y)
 
+
         self.absorber = False #set to True if this is an absorption line
 
+        self.mcmc_plot_buffer = None
+        self.gauss_plot_buffer = None
 
     def build(self,values_units=0):
         if self.snr > MIN_ELI_SNR and self.fit_sigma > MIN_ELI_SIGMA:
@@ -515,6 +518,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     values, values_units = norm_values(values,values_units)
     if errors is not None and (len(errors) == len(values)):
         errors, err_units = norm_values(errors,err_units)
+        errors /= 10.0 #todo: something weird here with the latest update ... seem to be off by 10.0
 
     #sbr signal to background ratio
     pix_size = abs(wavelengths[1] - wavelengths[0])  # aa per pix
@@ -889,12 +893,12 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             line_type = ""
 
         title += "%0.2f z_guess=%0.4f A(%d) G(%d) %s\n" \
-                 "Line Score = %0.2f , SBR = %0.2f (%0.1f), SNR = %0.2f (%0.1f) wpix = %d\n" \
+                 "Line Score = %0.2f , SNR = %0.2f (%0.1f) , wpix = %d\n" \
                  "Peak = %0.2g, Line(A) = %0.2g, Cont = %0.2g, EqW_Obs=%0.2f\n"\
                  "dX0 = %0.2f, RH = %0.2f, RMS = %0.2f (%0.2f) \n"\
                  "Sigma = %0.2f, Skew = %0.2f, Kurtosis = %0.2f"\
-                  % (eli.fit_x0,central_z,a,g,line_type,eli.line_score,sbr,
-                     signal_calc_scaled_score(sbr),snr,signal_calc_scaled_score(snr),num_sn_pix,
+                  % (eli.fit_x0,central_z,a,g,line_type,eli.line_score,
+                     snr,signal_calc_scaled_score(snr),num_sn_pix,
                      eli.fit_h,eli.line_flux, eli.cont,eli.eqw_obs,
                      dx0, rh, error,eli.fit_rmse, si, sk, ku)
 
@@ -965,6 +969,11 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #print('Writing: ' + png)
         fig.tight_layout()
         fig.savefig(png)
+
+        if eli is not None:
+            eli.gauss_plot_buffer = io.BytesIO()
+            plt.savefig(eli.gauss_plot_buffer, format='png', dpi=300)
+
         fig.clear()
         plt.close()
 
@@ -972,16 +981,16 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             png = "mcmc" + plot_id + str(central) + "_" + stat + ".png"
             if plot_path is not None:
                 png = op.join(plot_path, png)
-            mcmc.visualize(png)
+            buf = mcmc.visualize(png)
+
+            if eli is not None:
+                eli.mcmc_plot_buffer = buf
 
         # end plotting
 
     if accept_fit:
         eli.raw_score = score
         eli.score = signal_calc_scaled_score(score)
-
-
-
         return eli
     else:
         log.info("Fit rejected")
@@ -1771,7 +1780,8 @@ class Spectrum:
         return filter, num_hats
 
 
-    def set_spectra(self,wavelengths, values, errors, central, values_units = 0, estflux=None, eqw_obs=None):
+    def set_spectra(self,wavelengths, values, errors, central, values_units = 0, estflux=None, eqw_obs=None,
+                    fit_min_sigma=GAUSS_FIT_MIN_SIGMA):
         self.wavelengths = []
         self.values = []
         self.errors = []
@@ -1782,8 +1792,15 @@ class Spectrum:
 
         #run MCMC on this one ... the main line
         try:
+
+            if self.identifier is None and self.plot_dir is None:
+                show_plot = False #intermediate call, not the final
+            else:
+                show_plot = True
+
             eli = signal_score(wavelengths=wavelengths, values=values, errors=errors,central=central,
-                               values_units=values_units,sbr=None, show_plot=True,plot_id=self.identifier,
+                               values_units=values_units, sbr=None, min_sigma=fit_min_sigma,
+                               show_plot=show_plot,plot_id=self.identifier,
                                plot_path=self.plot_dir,do_mcmc=True)
         except:
             log.error("Exception in spectrum::set_spectra calling signal_score().",exc_info=True)

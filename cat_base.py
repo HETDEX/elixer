@@ -479,17 +479,24 @@ class Catalog:
             obs.annulus_fibers(empty=True)
             if len(obs.fibers_work) == 0:
                 log.warning("Warning. No fibers found inside the annulus.")
+        elif obs.best_radius != obs.annulus[1]: #get the full set (maximum included)
+            #*** note: this does NOT rebuild the spectrum or the mcmc fit, but does rebuild the list of fibers
+            #    if you re-run set_spectrum after this it WILL rebuild the spectrum and fit
+            obs.annulus_fibers(empty=True)
+            if len(obs.fibers_work) == 0:
+                log.warning("Warning. No fibers found inside the annulus.")
 
         rows = 1
         cols = 1
 
         fig_sz_x = G.ANNULUS_FIGURE_SZ_X #initial guess
-        fig_sz_y = 7
+        fig_sz_y = G.ANNULUS_FIGURE_SZ_X #7 #want square
 
         fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
+        plt.axes().set_aspect('equal')
        # plt.subplots_adjust(left=0.1, right=0.90, top=0.90, bottom=0.05)
 
-        gs = gridspec.GridSpec(rows, cols, wspace=0.0, hspace=0.0)
+       # gs = gridspec.GridSpec(rows, cols, wspace=0.0, hspace=0.0)
         # reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based
 
         font = FontProperties()
@@ -498,7 +505,7 @@ class Catalog:
 
         title = "Diffuse Emission"
 
-        plt.subplot(gs[:, :]) #right now, only the one (if in future want more this needs to change)
+        #plt.subplot(gs[:, :]) #right now, only the one (if in future want more this needs to change)
         #text = plt.text(0, 0.7, title, ha='left', va='bottom', fontproperties=font)
         #plt.gca().set_frame_on(False)
         #plt.gca().axis('off')
@@ -550,6 +557,12 @@ class Catalog:
                                            facecolor='none', fill=False, alpha=1,
                                            edgecolor='k', linestyle="dashed"))
 
+            #best
+            if obs.best_radius is not None:
+                plt.gca().add_patch(plt.Circle((0, 0), radius=obs.best_radius,
+                                               facecolor='none', fill=False, alpha=1,
+                                               edgecolor='r', linestyle="solid"))
+
 
             #go over ALL fibers for the fill color, but only add edge to work fibers
             for f in obs.fibers_all:
@@ -588,6 +601,8 @@ class Catalog:
                                                facecolor=signal_color, fill=True, alpha=alpha,
                                                edgecolor=signal_color,linestyle="solid",linewidth=1))
                 elif not(f in obs.fibers_work): #empty and NOT in working set
+                    #maybe there was a problem if this is inside the outer radius
+                    #or if outside the radius, this is expected
                     plt.gca().add_patch(plt.Circle(((fx - x), (fy - y)), radius=G.Fiber_Radius,
                                                facecolor='none', fill=False, alpha=1,
                                                edgecolor='grey',linestyle="solid",linewidth=1))
@@ -605,70 +620,10 @@ class Catalog:
 
         except:
             log.error("Unable to overplot gradient (all) fiber positions.", exc_info=True)
-        # else: #we don't have a cutout (so just use relative fiber positions)
-        #   #  plt.title("Relative Fiber Positions")
-        #   #  plt.plot(0, 0, "r+")
-        #     try:
-        #
-        #         plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-        #         plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-        #         plt.title(title)
-        #         plt.ylabel('arcsec')
-        #         plt.xlabel('arcsec')
-        #
-        #         #gray background
-        #         rec = plt.Rectangle((-ext, -ext), width=ext * 2., height=ext * 2., fill=True, lw=1,
-        #                             color='gray', zorder=0, alpha=0.3)
-        #         plt.gca().add_patch(rec)
-        #
-        #
-        #         # plot annulus
-        #         plt.gca().add_patch(plt.Circle((0, 0), radius=obs.annulus[0],
-        #                                      facecolor='none', fill=False, alpha=1,
-        #                                      edgecolor='k', linestyle="dashed"))
-        #
-        #         plt.gca().add_patch(plt.Circle((0, 0), radius=obs.annulus[1],
-        #                                      facecolor='none', fill=False, alpha=1,
-        #                                      edgecolor='k', linestyle="dashed"))
-        #
-        #         x = y = 0
-        #         for f in obs.fibers_all:
-        #         #for r, d, c, i, dist, fn in fiber_locs:
-        #             # fiber absolute position ... need relative position to plot (so fiber - zero pos)
-        #             fx = (f.ra - obs.ra) * np.cos(np.deg2rad(obs.dec)) * 3600.
-        #             fy = (f.dec - obs.dec) * 3600.
-        #
-        #             # for now, set alpha as a fraction of a max line score? cap at 1.0
-        #             if obs.eli_dict[f] is not None:
-        #                 alpha = obs.eli_dict[f].line_score
-        #                 if alpha is None:
-        #                     alpha = 0.0
-        #                 else:
-        #                     alpha = min(MAX_ALPHA, (alpha / MAX_LINE_SCORE * MAX_ALPHA))
-        #             else:
-        #                 alpha = 0.0
-        #
-        #             plt.gca().add_patch(plt.Circle(((fx - x), (fy - y)), radius=G.Fiber_Radius,
-        #                                          facecolor=signal_color, fill=True, alpha=alpha,
-        #                                          edgecolor='none', linestyle=None))
-        #
-        #             # over plot an edge to the fiber if it is a work fiber
-        #             if f in obs.fibers_work:
-        #                 plt.gca().add_patch(plt.Circle(((fx - x), (fy - y)), radius=G.Fiber_Radius,
-        #                                              facecolor='none', fill=True, alpha=0.5,
-        #                                              edgecolor=empty_color, linestyle="solid", linewidth=1))
-        #
-        #
-        #
-        #         plt.xticks([int(-ext), int(-ext / 2.), 0, int(ext / 2.), int(ext)])
-        #         plt.yticks([int(-ext), int(-ext / 2.), 0, int(ext / 2.), int(ext)])
-        #     except:
-        #         log.error("Unable to overplot gradient (all) fiber positions.", exc_info=True)
 
-
-        #plot all fibers (with signal info for gradient fill but no edge color)
-        #then (over) plot fibers_work with edge color
+        #plt.axes().set_aspect('equal')
         #plt.tight_layout()
+
         plt.close()
         self.add_bid_entry(fig)
 

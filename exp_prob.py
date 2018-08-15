@@ -111,6 +111,8 @@ class GaussFit:
         good = []
         eli = []
 
+        num_good = 0
+
         #plot = False
         for p in peaks:
             #if p.snr > 40.0:
@@ -122,6 +124,7 @@ class GaussFit:
                 line_flux.append(p.line_flux)
                 snr.append(p.snr)
                 good.append(p.is_good())
+                num_good += 1
                 eli.append(p)
 
 
@@ -144,7 +147,7 @@ class GaussFit:
            # plt.close()
             #plt.show()
 
-        return score,line_flux, snr, good, eli
+        return score,line_flux, snr, good, eli, num_good
 
         # a_central = wavelengths[len(wavelengths)/2]
         # central_z = 0.0
@@ -165,13 +168,14 @@ class GaussFit:
         all_snr  = []
         all_good = []
         all_eli = []
+        all_num_good = [] #the number of "good" peaks found in a single spectrum
 
         total_samples = 0
 
         self.start_time = timer()
         #for i in range(self.num_trials):
         while total_samples < self.num_trials:
-            score,line_flux, snr, good,eli = self.trial()
+            score,line_flux, snr, good, eli, num_good = self.trial()
 
             samples = len(score)
 
@@ -188,6 +192,7 @@ class GaussFit:
                 all_snr = np.concatenate((all_snr, snr))
                 all_good = np.concatenate((all_good, good))
                 all_eli = np.concatenate((all_eli, eli))
+                all_num_good = np.concatenate(all_num_good,num_good)
               #  for s,g in zip(snr,good):
 
                 rate = total_samples/(timer() - self.start_time)
@@ -208,12 +213,13 @@ class GaussFit:
                 eli.build(values_units=-18)
                 if eli.line_flux == -999:
                     eli.line_flux = 0.0
-                out.write("%d  %f  %f  %f  %f  %f  %f  %f\n"
-                      % (eli.is_good(), eli.snr, eli.fit_sigma, eli.line_flux, eli.cont , eli.sbr, eli.eqw_obs, eli.line_score))
+                out.write("%d  %f  %f  %f  %f  %f  %f  %f %d\n"
+                      % (eli.is_good(), eli.snr, eli.fit_sigma, eli.line_flux, eli.cont , eli.sbr, eli.eqw_obs,
+                         eli.line_score))
 
 
 
-        return all_score,all_line_flux, all_snr, all_good, all_eli
+        return all_score,all_line_flux, all_snr, all_good, all_eli, all_num_good
 
 
     def load(self,filename): #no error control
@@ -223,6 +229,7 @@ class GaussFit:
         snr = []
         good = []
         eli = []
+        #num_good = [] #only known at original run time
 
         #sort of a dumb way to do this, but convenient to put in the ELI objects
         out =  np.loadtxt(filename,dtype=np.float64)
@@ -252,9 +259,10 @@ def main():
     gf = GaussFit()
 
     if (RUN):
-        score, line_flux, snr, good, eli = gf.go()
+        score, line_flux, snr, good, eli, num_good = gf.go()
     else:
         score, line_flux, snr, good, eli = gf.load(FILE)
+        num_good = None #can only know at original runtime (at least as currently implemented)
 
 
     all_score = np.histogram(score, bins=gf.score_bin_edges)

@@ -322,7 +322,7 @@ def parse_commandline(auto_force=False):
             args.par = p
 
 
-    if not args.catcheck:
+    if not (args.catcheck or args.annulus):
         if args.error < 0:
             print("Invalid --error. Must be non-negative.")
             log.critical("Main exit. Invalid command line parameters.")
@@ -357,7 +357,7 @@ def valid_parameters(args):
 
     result = True
 
-    if not args.catcheck:
+    if not (args.catcheck or args.annulus):
         #also check name and error
         if args.name is None:
             print("--name is required")

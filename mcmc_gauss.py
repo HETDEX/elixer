@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import global_config as G
 import numpy as np
+import io
 import matplotlib.pyplot as plt
 import emcee
 import corner
@@ -234,5 +235,14 @@ class MCMC_Gauss:
                     fig.savefig(filename)
                 else:
                     plt.show()
+
+                buf = None
+                try:
+                    buf = io.BytesIO()
+                    fig.savefig(buf, format='png', dpi=300)
+                except:
+                    log.warning("Exception in mcmc_gauss::visualize",exc_info=True)
+                return buf
         except:
             log.warning("Exception in mcmc_gauss::visualize",exc_info=True)
+            return None
