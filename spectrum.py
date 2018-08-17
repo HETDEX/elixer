@@ -230,6 +230,34 @@ def gaussian(x,x0,sigma,a=1.0,y=0.0):
     #return a * (np.exp(-np.power((x - x0) / sigma, 2.) / 2.)) + y
 
 
+
+
+def gaussian_unc(x, mu, mu_u, sigma, sigma_u, A, A_u, y, y_u ):
+
+    def df_dmu(x,mu,sigma,A):
+        return A * (x - mu)/(np.sqrt(2.*np.pi)*sigma**3)*np.exp(-np.power((x - mu) / sigma, 2.) / 2.)
+
+    def df_dsigma(x,mu,sigma,A):
+        return A / (np.sqrt(2.*np.pi)*sigma**2) * (((x-mu)/sigma)**2 -1) * np.exp(-np.power((x - mu) / sigma, 2.) / 2.)
+
+    def df_dA(x,mu,sigma):
+        return 1./ (np.sqrt(2.*np.pi)*sigma)*np.exp(-np.power((x - mu) / sigma, 2.) / 2.)
+
+    def df_dy():
+        return 1
+
+    f = gaussian(x,mu,sigma,A,y)
+
+    variance = (mu_u**2) * (df_dmu(x,mu,sigma,A)**2) + (sigma_u**2) * (df_dsigma(x,mu,sigma,A)**2) + \
+               (A_u**2) * (df_dA(x,mu,sigma_u)**2) + (y_u**2) * (df_dy()**2)
+
+    return f, variance
+
+
+
+
+
+
 def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
     """
 
