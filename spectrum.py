@@ -246,12 +246,18 @@ def gaussian_unc(x, mu, mu_u, sigma, sigma_u, A, A_u, y, y_u ):
     def df_dy():
         return 1
 
-    f = gaussian(x,mu,sigma,A,y)
+    try:
+        f = gaussian(x,mu,sigma,A,y)
 
-    variance = (mu_u**2) * (df_dmu(x,mu,sigma,A)**2) + (sigma_u**2) * (df_dsigma(x,mu,sigma,A)**2) + \
-               (A_u**2) * (df_dA(x,mu,sigma_u)**2) + (y_u**2) * (df_dy()**2)
+        variance = (mu_u**2) * (df_dmu(x,mu,sigma,A)**2) + (sigma_u**2) * (df_dsigma(x,mu,sigma,A)**2) + \
+                   (A_u**2) * (df_dA(x,mu,sigma)**2) + (y_u**2) * (df_dy()**2)
+    except:
+        log.warning("Exception in spectrum::gaussian_unc: ", exc_info=True)
+        f = None
+        variance = 0
 
-    return f, variance
+
+    return f, np.sqrt(variance)
 
 
 
@@ -546,7 +552,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     values, values_units = norm_values(values,values_units)
     if errors is not None and (len(errors) == len(values)):
         errors, err_units = norm_values(errors,err_units)
-        errors /= 10.0 #todo: something weird here with the latest update ... seem to be off by 10.0
+       # errors /= 10.0 #todo: something weird here with the latest update ... seem to be off by 10.0
 
     #sbr signal to background ratio
     pix_size = abs(wavelengths[1] - wavelengths[0])  # aa per pix
@@ -958,8 +964,25 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
         if mcmc is not None:
             try:
-                gauss_plot.plot(xfit,gaussian(xfit,mcmc.mcmc_mu[0], mcmc.mcmc_sigma[0],mcmc.mcmc_A[0],mcmc.mcmc_y[0]),
-                            c='b', lw=10,alpha=0.2,zorder=1)
+
+              #  y,y_unc = gaussian_unc(narrow_wave_x, mcmc.mcmc_mu[0], mcmc.approx_symmetric_error(mcmc.mcmc_mu),
+              #                         mcmc.mcmc_sigma[0], mcmc.approx_symmetric_error(mcmc.mcmc_sigma),
+              #                         mcmc.mcmc_A[0], mcmc.approx_symmetric_error(mcmc.mcmc_A),
+              #                         mcmc.mcmc_y[0], mcmc.approx_symmetric_error(mcmc.mcmc_y))
+              #
+              #  gauss_plot.errorbar(narrow_wave_x,y,yerr=[y_unc,y_unc],fmt="--o",alpha=0.5,color='green')
+
+                y, y_unc = gaussian_unc(xfit, mcmc.mcmc_mu[0], mcmc.approx_symmetric_error(mcmc.mcmc_mu),
+                                        mcmc.mcmc_sigma[0], mcmc.approx_symmetric_error(mcmc.mcmc_sigma),
+                                        mcmc.mcmc_A[0], mcmc.approx_symmetric_error(mcmc.mcmc_A),
+                                        mcmc.mcmc_y[0], mcmc.approx_symmetric_error(mcmc.mcmc_y))
+
+
+                gauss_plot.fill_between(xfit,y+y_unc,y-y_unc,alpha=0.4,color='g')
+                gauss_plot.plot(xfit, y, c='g', lw=1,alpha=1)#,zorder=1)
+
+                #gauss_plot.plot(xfit,gaussian(xfit,mcmc.mcmc_mu[0], mcmc.mcmc_sigma[0],mcmc.mcmc_A[0],mcmc.mcmc_y[0]),
+                #            c='b', lw=10,alpha=0.2,zorder=1)
             except:
                 log.warning("Exception in spectrum::signal_score() trying to plot mcmc output." ,exc_info=True)
 

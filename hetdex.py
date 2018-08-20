@@ -1089,15 +1089,18 @@ class DetObj:
 
                 if max(self.sumspec_counts) < 1.0: # new order
                     self.sumspec_flux = self.sumspec_counts * 1e17
-                    self.sumspec_fluxerr = out[:, 2] * 1e17
+                    self.sumspec_fluxerr = out[:, 2]
                     self.sumspec_counts = out[:, 3]
                 else: #old order
                     self.sumspec_flux = out[:, 2]
                     if max(self.sumspec_flux) < 1:
                         self.sumspec_flux *= 1e17
-                        self.sumspec_fluxerr = out[:, 4] * 1e17
+                        self.sumspec_fluxerr = out[:, 4]
                     else:
                         self.sumspec_fluxerr = out[:, 4]
+
+                if abs(np.max(self.sumspec_fluxerr)) < 0.00001: #can assume has the e-17 or e-18 notation
+                    self.sumspec_fluxerr *= 1e17
 
                 #reminder data scientific notation, so mostly e-17 or e-18
 
@@ -1134,15 +1137,18 @@ class DetObj:
 
                 if max(self.sumspec_counts_zoom) < 1.0: # new order
                     self.sumspec_flux_zoom = self.sumspec_counts_zoom * 1e17
-                    self.sumspec_fluxerr_zoom = out[:, 2] * 1e17
+                    self.sumspec_fluxerr_zoom = out[:, 2] #* 1e17
                     self.sumspec_counts_zoom = out[:, 3]
                 else: #old order
                     self.sumspec_flux_zoom = out[:, 2]
                     if max(self.sumspec_flux_zoom) < 1:
                         self.sumspec_flux_zoom *= 1e17
-                        self.sumspec_fluxerr_zoom = out[:, 4] * 1e17
+                        self.sumspec_fluxerr_zoom = out[:, 4] #* 1e17
                     else:
                         self.sumspec_fluxerr_zoom = out[:, 4]
+
+                if abs(np.max(self.sumspec_fluxerr_zoom)) < 0.00001: #can assume has the e-17 or e-18 notation
+                    self.sumspec_fluxerr_zoom *= 1e17
 
             except:
                 log.error("Fatal. Cannot read *_spece.res file: %s" % file, exc_info=True)
