@@ -1188,12 +1188,21 @@ def main():
                         else:
                             ra = e.ra
                             dec = e.dec
-                        if c.position_in_cat(ra=ra, dec=dec, error=args.error):
+                        if c.position_in_cat(ra=ra, dec=dec, error=args.error): #
+                            in_cat = True
                             hits, _, _ = c.build_list_of_bid_targets(ra=ra, dec=dec, error=args.error)
-                            num_hits += hits
-                            e.num_hits = hits
+                            if hits < 0:
+                                # detailed examination found that the position cannot be found in the catalogs
+                                # this is for a tiled catalog (like SHELA or HSC) where the range is there, but
+                                # there is no tile that covers that specific position
 
-                            if c not in e.matched_cats:
+                                hits = 0
+                                in_cat = False
+
+                            num_hits += hits
+                            e.num_hits = hits #yes, for printing ... just the hits in this ONE catalog
+
+                            if in_cat and (c not in e.matched_cats):
                                 e.matched_cats.append(c)
 
                             print("%d hits in %s for Detect ID #%d" % (hits, c.name, e.id))

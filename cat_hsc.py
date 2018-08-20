@@ -347,7 +347,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
         if tile is None:
             log.info("Could not locate tile for HSC. Discontinuing search of this catalog.")
-            return 0,None,None
+            return -1,None,None
 
         #could be none or could be not loaded yet
         #if self.df is None or not (self.Tile_Dict[tile]['tract'] in self.loaded_tracts):

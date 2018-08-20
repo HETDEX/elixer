@@ -521,7 +521,7 @@ class SHELA(cat_base.Catalog):
 
         if tile is None:
             log.info("Could not locate tile for DECAM/SHELA. Discontinuing search of this catalog.")
-            return 0,None,None
+            return -1,None,None
 
         #could be none or could be not loaded yet
         if self.df is None or not (set(tile).issubset(self.loaded_cat_tiles)):
