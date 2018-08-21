@@ -158,6 +158,8 @@ else: # multiple tasks
                 exit(-1)
         else:
             tasks = min(MAX_TASKS,len(subdirs))
+            print("Adjusting tasks to nearest lower multiple of 20 ...")
+            tasks = tasks - tasks%20 #to deal with TACC parser issue
             print("%d tasks" % tasks)
 
         dirs_per_file = len(subdirs) // tasks  # int(floor(float(len(subdirs)) / float(tasks)))
