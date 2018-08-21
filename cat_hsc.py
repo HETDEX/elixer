@@ -158,7 +158,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         if name is None:
             name = cls.Name
 
-        if tract is not None: #tract may be a list
+        if tract is not None and (len(tract)>0): #tract may be a list
             if set(tract).issubset(cls.loaded_tracts):
                 log.info("Catalog tract (%s) already loaded." %tract)
                 return cls.df
@@ -245,7 +245,8 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         if len(keys) == 0: #we're done ... did not find any
             return None, None
         elif len(keys) == 1: #found exactly one
-            tile = keys[0]
+            tile = keys[0] #remember tile is a string ... there can be only one
+            tract.append(self.Tile_Dict[tile]['tract']) #remember, tract is a list (there can be more than one)
         elif len(keys) > 1: #find the best one
             log.info("Multiple overlapping tiles %s. Sub-selecting tile with maximum angular coverage around target." %keys)
             min = 9e9
