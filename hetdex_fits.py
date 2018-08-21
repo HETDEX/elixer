@@ -229,16 +229,26 @@ class HetdexFits:
         if not op.exists(self.filename):
             # todo: try to find .tar file and load that way
             tar_fn = self.filename.split("/exp")[0] + ".tar"
-            #remember, no leading '/' in tarfile contents
-            fits_fn = "exp" + self.filename.split("/exp")[1]
 
             try:
                 if op.exists(tar_fn):
                     if tar.is_tarfile(tar_fn):
                         tarfile = tar.open(name=tar_fn)
 
-                    #todo: search for name first? or just try to extract it
+                    #search for name first? or just try to extract it ... just extract ... if not there it will throw
+                    #an exception and it will be trapped
+                    #todo: if the naming of the path becomes irregular
+                    #todo: then substring search for the "exp01/virus/multi_xxx.fits" part (should still be exactly one match)
+                    #todo: and return the entire string in which it matches as the fits_fn
                     #fqdn = tarfile.getnames()  # list of all conents (as full paths) includes directories
+
+                    # remember, no leading '/' in tarfile contents
+                    # fits_fn = "exp" + self.filename.split("/exp")[1]
+                    # i.e. = "exp01/virus/multi_038_096_014_RU.fits"
+
+                    fits_fn = "virus" + self.filename.split("/virus/virus")[1]
+                    # ie. = "virus0000001/exp01/virus/multi_038_096_014_RU.fits"
+
                     file = tarfile.extractfile(fits_fn)
                     # remember do not close the tarfile until we are done
                 else:
