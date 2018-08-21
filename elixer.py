@@ -457,11 +457,13 @@ def build_hetdex_section(pdfname, hetdex, detect_id = 0,pages=None,annulus=False
     #detection ids are unique (for the single detect_line.dat file we are using)
     if pages is None:
         pages = []
-
-    if annulus:
-        pages = hetdex.build_hetdex_annulus_data_page(pages, detect_id)
-    else:
-        pages = hetdex.build_hetdex_data_page(pages,detect_id)
+    try:
+        if annulus:
+            pages = hetdex.build_hetdex_annulus_data_page(pages, detect_id)
+        else:
+            pages = hetdex.build_hetdex_data_page(pages,detect_id)
+    except:
+        log.error("Exception calling hetdex.build_hetdex_data_page(): ", exc_info=True)
 
     if pages is not None:
         if (PyPDF is not None):

@@ -1440,6 +1440,9 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
         x = np.arange(len(v))
 
     pix_size = abs(x[1] - x[0])  # aa per pix
+    if pix_size == 0:
+        log.error("Unexpected pixel_size in spectrum::peakdet(). Wavelength step is zero.")
+        return []
     # want +/- 20 angstroms
     wave_side = int(round(20.0 / pix_size))  # pixels
 

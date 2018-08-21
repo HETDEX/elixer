@@ -4,6 +4,7 @@ import sys
 import os
 import errno
 import elixer
+import numpy as np
 from math import ceil
 
 
@@ -147,6 +148,7 @@ if tasks == 1:
         exit(-1)
 else: # multiple tasks
     try:
+
         args = elixer.parse_commandline(auto_force=True)
         print("Parsing directories to process. This may take a little while ... ")
         subdirs = elixer.get_fcsdir_subdirs_to_process(args)
@@ -154,17 +156,18 @@ else: # multiple tasks
             if tasks > len(subdirs):  # problem too many tasks requestd
                 print("Error! Too many tasks (%d) requested. Only %d directories to process." % (tasks, len(subdirs)))
                 exit(-1)
-
-            dirs_per_file = int(ceil(float(len(subdirs)) / float(tasks)))
         else:
             tasks = min(MAX_TASKS,len(subdirs))
-            if tasks == MAX_TASKS:
-                dirs_per_file = int(ceil(float(len(subdirs)) / float(tasks)))
-            else:
-                dirs_per_file = 1
+            print("%d tasks" % tasks)
+
+        dirs_per_file = len(subdirs) // tasks  # int(floor(float(len(subdirs)) / float(tasks)))
+        remainder = len(subdirs) % tasks
+        jobs_per_task = np.full(tasks,dirs_per_file)
+        jobs_per_task[0:remainder] += 1 #add one more per task to cover the remainder
 
         f = open("elixer.run", 'w')
 
+        start_idx = 0
         for i in range(int(tasks)):
             fn = "dispatch_" + str(i).zfill(3)
 
@@ -177,14 +180,16 @@ else: # multiple tasks
                         exit(-1)
 
             df = open(os.path.join(fn,fn), 'w')
-            content = ""
+            #content = ""
 
-            start_idx = i * dirs_per_file
-            stop_idx = min(start_idx + dirs_per_file,len(subdirs))
+            #start_idx = i * dirs_per_file
+            stop_idx = start_idx + jobs_per_task[i] #min(start_idx + dirs_per_file,len(subdirs))
             for j in range(start_idx,stop_idx):
                 df.write(subdirs[j] + "\n")
 
             df.close()
+
+            start_idx = stop_idx #start where we left off
 
             #add  dispatch_xxx
             #run = "python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' --dispatch ' + os.path.join(basename,fn) + ' -f \n'

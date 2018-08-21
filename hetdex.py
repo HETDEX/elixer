@@ -459,7 +459,7 @@ class DetObj:
         self.dataflux = 0.0
         self.modflux = 0.0
         self.fluxfrac = 1.0
-        self.estflux = None
+        self.estflux = -1
         self.sigma = 0.0 #also doubling as sn (see @property sn farther below)
         self.snr = None
         self.chi2 = 0.0
@@ -998,6 +998,12 @@ class DetObj:
                                     mx_idx = elixer_spectrum.getnearpos(tmp_out[:,0], 5500.0)
 
                                     f.fluxcal_central_emis_wavelengths = tmp_out[:,0][mn_idx:mx_idx+1]
+                                    if f.fluxcal_central_emis_wavelengths[0] == f.fluxcal_central_emis_wavelengths[1]:
+                                        log.warning(
+                                            "Invalid wavelengths in hetdex::DetObj::load_flux_calibrated_spectra. Skipping ...")
+                                        f.fluxcal_central_emis_wavelengths = []
+                                        continue
+
                                     f.fluxcal_central_emis_counts = tmp_out[:,1][mn_idx:mx_idx+1]
                                     f.fluxcal_central_emis_flux = tmp_out[:,2][mn_idx:mx_idx+1]
 
@@ -1085,6 +1091,13 @@ class DetObj:
                 out = np.loadtxt(file, dtype=None)
 
                 self.sumspec_wavelength = out[:,0]
+
+                if self.sumspec_wavelength[0] == self.sumspec_wavelength[1]:
+                    print("Invalid wavelengths reported")
+                    log.error("Invalid wavelengths in hetdex::DetObj::load_flux_calibrated_spectra.")
+                    self.status = -1
+                    return
+
                 self.sumspec_counts = out[:, 1]
 
                 if max(self.sumspec_counts) < 1.0: # new order
@@ -1133,6 +1146,12 @@ class DetObj:
                 # #self.sumspec_fluxerr_zoom = np.full_like(self.sumspec_flux_zoom, 0.5)  # i.e. 0.5x10^-17 cgs
 
                 self.sumspec_wavelength_zoom = out[:,0]
+                if self.sumspec_wavelength_zoom[0] == self.sumspec_wavelength_zoom[1]:
+                    print("Invalid wavelengths reported")
+                    log.error("Invalid wavelengths in hetdex::DetObj::load_flux_calibrated_spectra.")
+                    self.status = -1
+                    return
+
                 self.sumspec_counts_zoom = out[:, 1]
 
                 if max(self.sumspec_counts_zoom) < 1.0: # new order
