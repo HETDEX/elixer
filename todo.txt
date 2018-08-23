@@ -1,3 +1,11 @@
+[2018-08-22]
+add to _fib.txt for each fiber in a detection, add the center (y) of fiber and x (at detection peak) in the 0th frame of
+    multi_*.fits (need to include the amp and ifu_id ... basically, ifu_id, amp, ccd x, ccd y)
+    --already there
+
+
+
+
 [2018-07-31] rsp family
 for annulus ... run rsp1a2 as ___ ___ max_radius 4500.0 1000 name2 name1
 basically, get all fibers in the maximum radius
@@ -20,12 +28,13 @@ RSP object would have:
 # stacking diffuse emission
 #########################
 
-call rsp to large radii
-ingest results
-sub-select fibers by annulus
-align (interpolate)
-stack "empty" fibers
-?look for any signal
+x call rsp to large radii
+x ingest results
+x sub-select fibers by annulus
+x align (interpolate)
+x stack "empty" fibers
+x ?look for any signal
+
 look specfically at central object (LyA) position
  *** when stacking, maybe 3 pixel boxcar smoothing?? could not use that for (true) properties (area, snr, etc) but might
         work well just for deciding that there is signal???
