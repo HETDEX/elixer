@@ -364,12 +364,75 @@ class EmissionLineInfo:
         self.mcmc_a = None #area
         self.mcmc_y = None
         self.mcmc_ew_obs = None #calcuated value (using error propogation from mcmc_a and mcmc_y)
+        self.mcmc_snr = None
 
 
         self.absorber = False #set to True if this is an absorption line
 
         self.mcmc_plot_buffer = None
         self.gauss_plot_buffer = None
+
+
+
+    def unc_str(self,tuple):
+        s = ""
+        try:
+            flux = ("%0.2g" % tuple[0]).split('e')
+            unc = ("%0.2g" % (0.5 * (abs(tuple[1]) + abs(tuple[2])))).split('e')
+
+            if len(flux) == 2:
+                fcoef = float(flux[0])
+                fexp = float(flux[1])
+            else:
+                fcoef = flux
+                fexp = 0
+
+            if len(unc) == 2:
+                ucoef = float(unc[0])
+                uexp = float(unc[1])
+            else:
+                ucoef = unc
+                uexp = 0
+
+            s = '%0.2f($\pm$%0.2f)e%d' % (fcoef, ucoef * 10 ** (uexp - fexp), fexp)
+        except:
+            log.warning("Exception in EmissionLineInfo::flux_unc()", exc_info=True)
+
+        return s
+
+    @property
+    def flux_unc(self):
+        #return a string with flux uncertainties in place
+        return self.unc_str(self.mcmc_a)
+
+    @property
+    def cont_unc(self):
+        #return a string with flux uncertainties in place
+        return self.unc_str(self.mcmc_y)
+
+
+    @property
+    def eqw_lya_unc(self):
+        #return a string with flux uncertainties in place
+        s = ""
+        try:
+           # ew = np.array(self.mcmc_ew_obs)/(self.fit_x0 / G.LyA_rest) #reminder this is 1+z
+           # s  =  "%0.2g($\pm$%0.2g)" %(ew[0],(0.5 * (abs(ew[1]) + abs(ew[2]))))
+
+            #more traditional way
+            ew = self.mcmc_a[0] / self.mcmc_y[0] /(self.fit_x0 / G.LyA_rest)
+            a_unc = 0.5 * (abs(self.mcmc_a[1])+abs(self.mcmc_a[2]))
+            y_unc = 0.5 * (abs(self.mcmc_y[1])+abs(self.mcmc_y[2]))
+
+            ew_unc = np.sqrt((self.mcmc_a[0]/a_unc)**2 + (self.mcmc_y[0]/y_unc)**2)
+
+            s = "%0.2g($\pm$%0.2g)" % (ew, ew_unc)
+
+
+        except:
+            log.warning("Exception in eqw_lya_unc",exc_info=True)
+
+        return s
 
     def build(self,values_units=0):
         if self.snr > MIN_ELI_SNR and self.fit_sigma > MIN_ELI_SIGMA:
@@ -875,19 +938,25 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         # 3-tuple [0] = fit, [1] = fit +16%,  [2] = fit - 16%
         eli.mcmc_x0 = mcmc.mcmc_mu
         eli.mcmc_sigma = mcmc.mcmc_sigma
+        eli.mcmc_snr = mcmc.mcmc_snr
 
         if mcmc.mcmc_A is not None:
-            eli.mcmc_a = mcmc.mcmc_A
+            eli.mcmc_a = np.array(mcmc.mcmc_A)
         else:
-            eli.mcmc_a = (0.,0.,0.)
+            eli.mcmc_a = np.array((0.,0.,0.))
 
         if mcmc.mcmc_y is not None:
-            eli.mcmc_y = mcmc.mcmc_y
+            eli.mcmc_y = np.array(mcmc.mcmc_y)
         else:
-            eli.mcmc_y = (0.,0.,0.)
+            eli.mcmc_y = np.array((0.,0.,0.))
 
-        if values_units == -18:  # converted from e-17, but this is an area so there are 2 factors
-            eli.mcmc_a = tuple(np.array(eli.mcmc_a ) / [10., 1., 1.])
+        if values_units < 0:
+            eli.mcmc_a *= 10**values_units
+            eli.mcmc_y *= 10**values_units
+
+        #no ... this is wrong ... its all good now
+        # if values_units == -18:  # converted from e-17, but this is an area so there are 2 factors
+        #     eli.mcmc_a = tuple(np.array(eli.mcmc_a ) / [10., 1., 1.])
 
         # calc EW and error with approximate symmetric error on area and continuum
         if eli.mcmc_y[0] != 0 and eli.mcmc_a[0] != 0:
@@ -899,7 +968,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             ew_err = mcmc.approx_symmetric_error(eli.mcmc_a)
 
 
-        eli.mcmc_ew_obs = (ew, ew_err, ew_err)
+        eli.mcmc_ew_obs = [ew, ew_err, ew_err]
         log.info("MCMC Peak height = %f" % (max(narrow_wave_counts)))
         log.info("MCMC calculated EW_obs for main line = %0.3g +/- %0.3g" % (ew, ew_err))
 

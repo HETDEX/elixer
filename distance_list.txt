@@ -5,7 +5,7 @@
 #
 # DD 1st col. 0 is 0.0 - 0.1,  next is 0.2 which is 0.1 to 0.3 (sep in arcsec)
 # DD 2nd to nth column are magnitude bins (20.5 to 21.5 (center 21), 21.5x to 22.5 (center 22)...)
-# DD totals from 1000 random positions
+# DD totals from 1000 random positions (within each annulus)
 # DD the first column is the center of the bin (1st and last rows are half sized)
 # DD annuli 0-0.1", then 0.1 to 0.3" (center is 0.2") ...
 # DD these are V-band mags

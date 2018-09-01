@@ -29,7 +29,7 @@ class MCMC_Gauss:
         self.range_mu = 5.0
         self.max_A_mult = 2.0
         self.max_y_mult = 2.0
-        self.min_y = -100.0
+        self.min_y = -10.0 #-100.0 #should this be zero? or some above zero but low limit
 
         self.data_x = None
         self.data_y = None
@@ -49,6 +49,7 @@ class MCMC_Gauss:
         self.mcmc_sigma = None
         self.mcmc_A = None
         self.mcmc_y = None
+        self.mcmc_snr = None #snr as flux_area/1-sigma uncertainty
 
     def approx_symmetric_error(self,parm): #parm is assumed to be a 3 vector as [0] = mean, [1] = +error, [2] = -error
 
@@ -203,6 +204,11 @@ class MCMC_Gauss:
 
             self.mcmc_mu, self.mcmc_sigma, self.mcmc_A, self.mcmc_y, mcmc_f = \
                 map(lambda v: (v[1], v[2] - v[1], v[1] - v[0]),zip(*np.percentile(self.samples, self.UncertaintyRange,axis=0)))
+            try:
+                self.mcmc_snr = self.mcmc_A[0] / (0.5 * (abs(self.mcmc_A[1]) + abs(self.mcmc_A[2])))
+            except:
+                self.mcmc_snr = -1
+                log.warning("Exception calculating MCMC SNR: ", exc_info=True)
 
             log.info("MCMC mu: i[%0.5g] (%0.5g, +%0.5g, -%0.5g)" %
                      (self.initial_mu, self.mcmc_mu[0],self.mcmc_mu[1],self.mcmc_mu[2]))
@@ -212,6 +218,7 @@ class MCMC_Gauss:
                      (self.initial_A, self.mcmc_A[0],self.mcmc_A[1],self.mcmc_A[2] ))
             log.info("MCMC y: i[%0.5g] (%0.5g, +%0.5g, -%0.5g)"%
                      (self.initial_y, self.mcmc_y[0],self.mcmc_y[1],self.mcmc_y[2]))
+            log.info("MCMC SNR: %0.5g" % self.mcmc_snr)
             log.info("MCMC f: i[%0.5g] (%0.5g, +%0.5g, -%0.5g)" %
                      (0.0, mcmc_f[0], mcmc_f[1], mcmc_f[2]))
         except:

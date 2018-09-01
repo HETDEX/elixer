@@ -1,6 +1,6 @@
 #explore probabilities
 
-RUN = True #if false, reads in the file, if True runs samples and makes a new file
+RUN = False #if false, reads in the file, if True runs samples and makes a new file
 FILE = "/home/dustin/code/python/elixer/exp_gauss_out.txt"
 SAMPLES = 100000
 
@@ -299,7 +299,13 @@ def main():
 
 
     #plt.xlim(xmax=20) #essentially down to zero by SNR = 20
-    plt.plot(gf.score_bin_centers,pop_frac) #distro of ALL possible signals (e.g. a gaussian was fit, though may not be good)
+    plt.plot(gf.score_bin_centers,pop_frac,zorder=2) #distro of ALL possible signals (e.g. a gaussian was fit, though may not be good)
+    plt.bar(gf.score_bin_centers,pop_frac,color='g',alpha=0.5)
+    plt.ylabel("fraction")
+    plt.xlabel("line score")
+    plt.xlim(0,20)
+    plt.title("Pseudo-PDF (MDF) of Random Emission Line Scores")
+    #plt.savefig("random_emission_line_score_pdf.png")
 
     plt.show()
 

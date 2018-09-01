@@ -1,8 +1,12 @@
 changes to elixer by version
 
+1.5.0a2 [2018-]
+* updated to new rsp1xx output (*specf.dat), remove *spece.dat
+* use internal MCMC for uncertainties
+* working on incorporating per wavelength noise model for simulated noise only spectra
 
 
-1.5.0a1 [2018-08-11]
+1.5.0a1 [2018-08-30]
 * support for stacking empty fibers (diffuse/extended emission search)
 * adding in --annulus, --wavelength
 

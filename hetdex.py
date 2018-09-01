@@ -1081,47 +1081,68 @@ class DetObj:
             except:
                 pass
 
+
+            #2018-08-30 new order in specf and spece is to be removed
+            #wavelength flux flux_err counts counts_err       with flux and flux_err in cgs x10^-17
             try:
-                #                (0)    (1)              (2)                  (3)     (4)
-                #could be (new) wave, flux (cgs/1e-17), flux_err (cgs/1e-17), counts, counts_err
-                #or       (old) wave, counts, flux (cgs/1e-17), counts_err, flux_err (cgs/1e-17)
-                #     AND flux may or may not have the E-17 notation
-
-
                 out = np.loadtxt(file, dtype=None)
 
-                self.sumspec_wavelength = out[:,0]
+                self.sumspec_wavelength = out[:, 0]
 
                 if self.sumspec_wavelength[0] == self.sumspec_wavelength[1]:
+                    #this happens when there is rsp output, but there were no fibers actually found
                     print("Invalid wavelengths reported")
                     log.error("Invalid wavelengths in hetdex::DetObj::load_flux_calibrated_spectra.")
                     self.status = -1
                     return
 
-                self.sumspec_counts = out[:, 1]
+                col1 = out[:, 1]
+                col2 = out[:, 2]
+                col3 = out[:, 3]
+                col4 = out[:, 4]
 
-                if max(self.sumspec_counts) < 1.0: # new order
-                    self.sumspec_flux = self.sumspec_counts * 1e17
-                    self.sumspec_fluxerr = out[:, 2]
-                    self.sumspec_counts = out[:, 3]
-                else: #old order
-                    self.sumspec_flux = out[:, 2]
-                    if max(self.sumspec_flux) < 1:
-                        self.sumspec_flux *= 1e17
-                        self.sumspec_fluxerr = out[:, 4]
-                    else:
-                        self.sumspec_fluxerr = out[:, 4]
 
-                if abs(np.max(self.sumspec_fluxerr)) < 0.00001: #can assume has the e-17 or e-18 notation
-                    self.sumspec_fluxerr *= 1e17
+                #there are various old version out there ... try to sort them out
+                if (max(col2) < 0.00001 ) and (max(col4) <= 1.):  #<1= since might not have error
+                    #wave cts flux(e-17) cts_err flux_err(e-17)
+                    self.sumspec_flux = col2 * 1e17
+                    if max(col4) < 1.:
+                        self.sumspec_fluxerr = col4 * 1e17
+                    self.sumspec_counts = col1
+                    #not using col3, counts_err
+                else: #current newest version 2018-08-30
+                    self.sumspec_flux = col1
+                    self.sumspec_fluxerr = col2
 
-                #reminder data scientific notation, so mostly e-17 or e-18
+                    #sometimes have the scientific notation (though this should no longer be the case)
+                    if max(self.sumspec_flux) < 0.00001:
+                        self.sumspec_flux *=  1e17
 
-                #todo: get flux error (not yet in this file)
-                #self.sumspec_fluxerr = out[:,6]  * 1e17
-                #self.sumspec_fluxerr = np.full_like(self.sumspec_flux,1.0) #i.e. 0.5x10^-17 cgs
-                #np.random.seed(1138)
-                #self.sumspec_fluxerr = np.random.random(len(self.sumspec_flux)) # just for test
+                    if max(self.sumspec_fluxerr) < 0.00001:
+                        self.sumspec_fluxerr *=  1e17
+
+                    self.sumspec_counts = col3 #still using for upper right zoomed in cutout
+                    #self.sumspec_counts_err = out[:, 4] #not using these in elixer anymore
+
+                #get the zoomed in part (slice around the central wavelength)
+
+                idx = elixer_spectrum.getnearpos(self.sumspec_wavelength, self.w)
+
+                left = idx - 25 #2AA steps so +/- 50AA
+                right = idx + 25
+
+                if left < 0:
+                    left = 0
+                if right > len(self.sumspec_flux):
+                    right = len(self.sumspec_flux)
+
+                #these are on the 2AA grid (old spece had 2AA steps but, the grid was centered on the main wavelength)
+                #this grid is not centered but is on whole 2AA (i.e. 3500.00, 3502.00, ... not 3500.4192, 3502.3192, ...)
+                self.sumspec_wavelength_zoom = self.sumspec_wavelength[left:right]
+                self.sumspec_flux_zoom = self.sumspec_flux[left:right]
+                self.sumspec_fluxerr_zoom = self.sumspec_fluxerr[left:right]
+                self.sumspec_counts_zoom = self.sumspec_counts[left:right]
+
 
             except:
                 log.error("Fatal. Cannot read *specf.dat file: %s" % file, exc_info=True)
@@ -1129,51 +1150,104 @@ class DetObj:
                 self.status = -1
                 return
 
+
+
+            # try:
+            #     #                (0)    (1)              (2)                  (3)     (4)
+            #     #could be (new) wave, flux (cgs/1e-17), flux_err (cgs/1e-17), counts, counts_err
+            #     #or       (old) wave, counts, flux (cgs/1e-17), counts_err, flux_err (cgs/1e-17)
+            #     #     AND flux may or may not have the E-17 notation
+            #
+            #
+            #     out = np.loadtxt(file, dtype=None)
+            #
+            #     self.sumspec_wavelength = out[:,0]
+            #
+            #     if self.sumspec_wavelength[0] == self.sumspec_wavelength[1]:
+            #         print("Invalid wavelengths reported")
+            #         log.error("Invalid wavelengths in hetdex::DetObj::load_flux_calibrated_spectra.")
+            #         self.status = -1
+            #         return
+            #
+            #     self.sumspec_counts = out[:, 1]
+            #
+            #     if max(self.sumspec_counts) < 1.0: # new order
+            #         self.sumspec_flux = self.sumspec_counts * 1e17
+            #         self.sumspec_fluxerr = out[:, 2]
+            #         self.sumspec_counts = out[:, 3]
+            #     else: #old order
+            #         self.sumspec_flux = out[:, 2]
+            #         if max(self.sumspec_flux) < 1:
+            #             self.sumspec_flux *= 1e17
+            #             self.sumspec_fluxerr = out[:, 4]
+            #         else:
+            #             self.sumspec_fluxerr = out[:, 4]
+            #
+            #     if abs(np.max(self.sumspec_fluxerr)) < 0.00001: #can assume has the e-17 or e-18 notation
+            #         self.sumspec_fluxerr *= 1e17
+            #
+            #     #reminder data scientific notation, so mostly e-17 or e-18
+            #
+            #     #get flux error (not yet in this file)
+            #     #self.sumspec_fluxerr = out[:,6]  * 1e17
+            #     #self.sumspec_fluxerr = np.full_like(self.sumspec_flux,1.0) #i.e. 0.5x10^-17 cgs
+            #     #np.random.seed(1138)
+            #     #self.sumspec_fluxerr = np.random.random(len(self.sumspec_flux)) # just for test
+            #
+            # except:
+            #     log.error("Fatal. Cannot read *specf.dat file: %s" % file, exc_info=True)
+            #     print("Fatal. Cannot read *specf.dat file: %s" % file)
+            #     self.status = -1
+            #     return
+
             # get the zoomed in flux calibrated spectra
             #                (0)    (1)              (2)                  (3)     (4)
             # could be (new) wave, flux (cgs/1e-17), flux_err (cgs/1e-17), counts, counts_err
             # or       (old) wave, counts, flux (cgs/1e-17), counts_err, flux_err (cgs/1e-17)
             #     AND flux may or may not have the E-17 notation
-            file = op.join(self.fcsdir, basename + "spece.dat")
-            try:
-                out = np.loadtxt(file, dtype=None)
 
-                # self.sumspec_wavelength_zoom = out[:, 0]
-                # self.sumspec_counts_zoom = out[:, 1]
-                # self.sumspec_flux_zoom = out[:, 2]  * 1e17
-                # #todo: get flux error (not yet in this file)
-                # #self.sumspec_fluxerr_zoom = out[:,6]  * 1e17
-                # #self.sumspec_fluxerr_zoom = np.full_like(self.sumspec_flux_zoom, 0.5)  # i.e. 0.5x10^-17 cgs
+            if False:
+                file = op.join(self.fcsdir, basename + "spece.dat")
+                try:
+                    out = np.loadtxt(file, dtype=None)
 
-                self.sumspec_wavelength_zoom = out[:,0]
-                if self.sumspec_wavelength_zoom[0] == self.sumspec_wavelength_zoom[1]:
-                    print("Invalid wavelengths reported")
-                    log.error("Invalid wavelengths in hetdex::DetObj::load_flux_calibrated_spectra.")
-                    self.status = -1
-                    return
+                    # self.sumspec_wavelength_zoom = out[:, 0]
+                    # self.sumspec_counts_zoom = out[:, 1]
+                    # self.sumspec_flux_zoom = out[:, 2]  * 1e17
+                    # #todo: get flux error (not yet in this file)
+                    # #self.sumspec_fluxerr_zoom = out[:,6]  * 1e17
+                    # #self.sumspec_fluxerr_zoom = np.full_like(self.sumspec_flux_zoom, 0.5)  # i.e. 0.5x10^-17 cgs
 
-                self.sumspec_counts_zoom = out[:, 1]
+                    self.sumspec_wavelength_zoom = out[:,0]
+                    if self.sumspec_wavelength_zoom[0] == self.sumspec_wavelength_zoom[1]:
+                        print("Invalid wavelengths reported")
+                        log.error("Invalid wavelengths in hetdex::DetObj::load_flux_calibrated_spectra.")
+                        self.status = -1
+                        return
 
-                if max(self.sumspec_counts_zoom) < 1.0: # new order
-                    self.sumspec_flux_zoom = self.sumspec_counts_zoom * 1e17
-                    self.sumspec_fluxerr_zoom = out[:, 2] #* 1e17
-                    self.sumspec_counts_zoom = out[:, 3]
-                else: #old order
-                    self.sumspec_flux_zoom = out[:, 2]
-                    if max(self.sumspec_flux_zoom) < 1:
-                        self.sumspec_flux_zoom *= 1e17
-                        self.sumspec_fluxerr_zoom = out[:, 4] #* 1e17
-                    else:
-                        self.sumspec_fluxerr_zoom = out[:, 4]
+                    self.sumspec_counts_zoom = out[:, 1]
 
-                if abs(np.max(self.sumspec_fluxerr_zoom)) < 0.00001: #can assume has the e-17 or e-18 notation
-                    self.sumspec_fluxerr_zoom *= 1e17
+                    if max(self.sumspec_counts_zoom) < 1.0: # new order
+                        self.sumspec_flux_zoom = self.sumspec_counts_zoom * 1e17
+                        self.sumspec_fluxerr_zoom = out[:, 2] #* 1e17
+                        self.sumspec_counts_zoom = out[:, 3]
+                    else: #old order
+                        self.sumspec_flux_zoom = out[:, 2]
+                        if max(self.sumspec_flux_zoom) < 1:
+                            self.sumspec_flux_zoom *= 1e17
+                            self.sumspec_fluxerr_zoom = out[:, 4] #* 1e17
+                        else:
+                            self.sumspec_fluxerr_zoom = out[:, 4]
 
-            except:
-                log.error("Fatal. Cannot read *_spece.res file: %s" % file, exc_info=True)
-                print("Fatal. Cannot read *_spece.res file: %s" % file)
-                self.status = -1
-                return
+                    if abs(np.max(self.sumspec_fluxerr_zoom)) < 0.00001: #can assume has the e-17 or e-18 notation
+                        self.sumspec_fluxerr_zoom *= 1e17
+
+                except: #no longer consider this fatal. Using the specf data, but will use spece if it is there
+                    pass
+                    # log.error("Cannot read *_spece.res file: %s" % file, exc_info=True)
+                    # print("Cannot read *_spece.res file: %s" % file)
+                    # self.status = -1
+                    # return
 
 
             #get zoomed 2d cutout
@@ -1203,6 +1277,7 @@ class DetObj:
         self.spec_obj.plot_dir = self.outdir
 
         if self.annulus is None:
+            #todo: something wrong with the rsp output or my reading of it ... flux way too high
             self.spec_obj.set_spectra(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr, self.w,
                                       values_units=-17, estflux=self.estflux, eqw_obs=self.eqw_obs)
             # print("DEBUG ... spectrum peak finder")
@@ -1210,7 +1285,31 @@ class DetObj:
             #    self.spec_obj.build_full_width_spectrum(show_skylines=True, show_peaks=True, name="testsol")
             # print("DEBUG ... spectrum peak finder DONE")
 
+
+
+            #todo: update with MY FIT results?
+            try:
+                self.estflux = self.spec_obj.central_eli.mcmc_a[0]
+                self.eqw_obs = self.spec_obj.central_eli.mcmc_ew_obs[0]
+                self.cont_cgs = self.spec_obj.central_eli.mcmc_y[0]
+                #self.snr = self.spec_obj.central_eli.mcmc_snr
+                self.snr = self.spec_obj.central_eli.snr
+
+                self.spec_obj.estflux = self.estflux
+                self.spec_obj.eqw_obs = self.eqw_obs
+
+                #self.estflux = self.spec_obj.central_eli.line_flux
+                #self.cont = self.spec_obj.central_eli.cont
+                #self.eqw_obs = self.estflux / self.cont
+                #self.snr = self.spec_obj.central_eli.snr
+            except:
+                log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra")
+
+
+
+
             self.spec_obj.classify() #solutions can be returned, also stored in spec_obj.solutions
+
         else:
             self.syn_obs = elixer_observation.SyntheticObservation()
             if self.wra:
@@ -3016,10 +3115,11 @@ class HETDEX:
         else:
             sci_files = "multiple fiber specific"
 
+        title = r""
         if self.output_filename is not None:
-            title = "%s_%s.pdf\n" % (self.output_filename, str(e.entry_id).zfill(3))
-        else:
-            title = "" #todo: start with filename
+            title += "%s_%s.pdf\n" % (self.output_filename, str(e.entry_id).zfill(3))
+        #else:
+            #title += "" #todo: start with filename
 
         try:
             title += "Obs: " + e.fibers[0].dither_date + "v" + str(e.fibers[0].obsid).zfill(2) + "_" + \
@@ -3062,40 +3162,49 @@ class HETDEX:
             la_z = 1
             oii_z = 1
 
-        if self.ymd and self.obsid:
+        estflux_str = "%0.3g" %e.estflux
+        estcont_str = "%0.3g" %e.cont_cgs
+        eqw_lya_str = "%0.3g" %(e.eqw_obs/(1.0+la_z))
+        try:
+            estflux_str = e.spec_obj.central_eli.flux_unc
+            estcont_str = e.spec_obj.central_eli.cont_unc
+            #comment out for now, need to check error propogation and EW fit from MCMC ... instead use original version
+            eqw_lya_str = e.spec_obj.central_eli.eqw_lya_unc
+        except:
+            log.error("Exception setting uncertainty strings",exc_info=True)
 
+        if self.ymd and self.obsid:
             if not G.ZOO:
                 title +="\n"\
                     "ObsDate %s  ObsID %s IFU %s  CAM %s\n" \
-                    "Science file(s):\n%s"\
-                    "RA,Dec (%f,%f) \n"\
-                    "Sky X,Y (%f,%f)\n" \
+                    "Science file(s):\n%s" \
+                    "RA,Dec (%f,%f) \n" \
                     "$\lambda$ = %g$\AA$  FWHM = %g$\AA$\n" \
-                    "EstFlux = %0.3g"   \
-                    % (self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.x, e.y,e.w,e.fwhm,
-                        e.estflux )
+                    "EstFlux = %s" \
+                    % (self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.w,e.fwhm,
+                       estflux_str )
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
                 else:
                     title += "\n"
-                title +=  "EstCont = %0.3g  EW_r(LyA) = %0.3g$\AA$\n" \
-                    %(e.cont_cgs, e.eqw_obs/(1.0+la_z))
+                title +=  "EstCont = %s  \nEW_r(LyA) = %s$\AA$\n" \
+                    %(estcont_str, eqw_lya_str)
 
             else:  #this if for zooniverse, don't show RA and DEC or Probabilitie
                 title += "\n" \
                      "ObsDate %s  ObsID %s IFU %s  CAM %s\n" \
                      "Science file(s):\n%s" \
-                     "Sky X,Y (%f,%f)\n" \
                      "$\lambda$ = %g$\AA$  FWHM = %g$\AA$\n" \
-                     "EstFlux = %0.3g" \
-                             % (self.ymd, self.obsid, self.ifu_slot_id, self.specid, sci_files, e.x, e.y, e.w,e.fwhm,e.estflux)  # note: e.fluxfrac gauranteed to be nonzero
+                     "EstFlux = %s" \
+                             % (self.ymd, self.obsid, self.ifu_slot_id, self.specid, sci_files, e.w,e.fwhm,
+                                estflux_str)  # note: e.fluxfrac gauranteed to be nonzero
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux, e.fluxfrac)
                 else:
                     title += "\n"
 
-                title += "EstCont = %0.3g  EW_r(LyA) = %0.3g$\AA$\n" % (e.cont_cgs, e.eqw_obs/(1.0+la_z))
+                title += "EstCont = %s  \nEW_r(LyA) = %s$\AA$\n" % (estcont_str, eqw_lya_str)
 
 
         else:
@@ -3103,37 +3212,35 @@ class HETDEX:
                 title += "\n" \
                      "Primary IFU Slot %s\n" \
                      "RA,Dec (%f,%f) \n" \
-                     "Sky X,Y (%f,%f)\n" \
                      "$\lambda$ = %g$\AA$  FWHM = %g$\AA$\n" \
-                     "EstFlux = %0.3g" \
-                     % (e.fibers[0].ifuslot, ra, dec, e.x, e.y, e.w,e.fwhm, e.estflux)
+                     "EstFlux = %s" \
+                     % (e.fibers[0].ifuslot, ra, dec, e.w,e.fwhm, estflux_str)
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
                 else:
                     title += "\n"
-                title +=  "EstCont = %0.3g  EW_r(LyA) = %0.3g$\AA$\n" % (e.cont_cgs,e.eqw_obs/(1.0+la_z))
+                title +=  "EstCont = %s  \nEW_r(LyA) = %s$\AA$\n" % (estcont_str, eqw_lya_str)
 
             else: #this if for zooniverse, don't show RA and DEC or probabilities
                 title += "\n" \
                      "Primary IFU Slot %s\n" \
-                     "Sky X,Y (%f,%f)\n" \
                      "$\lambda$ = %g$\AA$  FWHM = %g$\AA$\n" \
-                     "EstFlux = %0.3g " \
-                     % ( e.fibers[0].ifuslot, e.x, e.y, e.w,e.fwhm, e.estflux)
+                     "EstFlux = %s " \
+                     % ( e.fibers[0].ifuslot,e.w,e.fwhm, estflux_str)
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
                 else:
                     title += "\n"
-                title +=  "EstCont = %0.3g  EW_r(LyA) = %0.3g$\AA$\n" % (e.cont_cgs,e.eqw_obs/(1.0+la_z))
+                title +=  "EstCont = %s  \nEW_r(LyA) = %s$\AA$\n" % (estcont_str, eqw_lya_str)
 
 
         if self.panacea:
             snr = e.sigma
             if (e.snr is not None) and (e.snr != 0.0):
                 snr = e.snr
-            title += "S/N = %g " % (snr)
+            title += "S/N = %0.2f " % (snr)
         else:
             title += "$\sigma$ = %g " % (e.sigma)
 

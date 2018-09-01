@@ -128,6 +128,8 @@ class DistancePrior:
         #assumes only 8 magnitude bins
         color = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'orange', 'teal']
         pylab.title("Sigmoid")
+        pylab.xlabel("Arcsec")
+        pylab.ylabel("P(1+ in 1\" wide annulus)")
         x = self.mdf_matrix[:,0]
         for i in range(len(self.pdf_sigmoid_parms)):
             y = sigmoid(x, *(self.pdf_sigmoid_parms[i]))
@@ -137,7 +139,7 @@ class DistancePrior:
             pylab.plot(x, y, label="%d(%f)"%(21 + i,c2), c=color[i])
             pylab.plot(x, self.mdf_matrix[:, i + 1], '.', c=color[i])
 
-        pylab.legend(loc='best')
+        pylab.legend(loc='upper left', title=r"mag ($\chi{^2}$)") #loc="best"
         pylab.show()
 
     def plot_poly_fits(self):
@@ -147,15 +149,17 @@ class DistancePrior:
         color = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'orange', 'teal']
         x = self.mdf_matrix[:,0]
         pylab.title("Polynomial, Degree %d" %(self.poly_deg))
+        pylab.xlabel("Arcsec")
+        pylab.ylabel("P(1+ in 1\" wide annulus)")
         for i in range(len(self.pdf_poly_parms)):
             y = polynomial(x, self.pdf_poly_parms[i])
 
             c2,c = chi2(obs=self.mdf_matrix[:, i + 1],model=y,error=None)
 
-            pylab.plot(x, y, label="%d(%f)"%(21 + i,c2), c=color[i])
+            pylab.plot(x, y, label="%d(%0.3f)"%(21 + i,c2), c=color[i])
             pylab.plot(x, self.mdf_matrix[:, i + 1], '.', c=color[i])
 
-        pylab.legend(loc='best')
+        pylab.legend(loc='upper left',title=r"mag ($\chi{^2}$)") #loc="best"
         #pylab.savefig("poly_%d.png" % (self.poly_deg))
         pylab.show()
 
