@@ -771,6 +771,7 @@ class DetObj:
 
 
         #get basic info
+        #if self.annulus is None:
         file = op.join(self.fcsdir,"out2")
         try:
             with open(file,'r') as f:

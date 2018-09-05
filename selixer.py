@@ -10,6 +10,7 @@ from math import ceil
 
 #todo: allow user to change the run-time from command line
 MAX_TASKS = 640 #max allowed by TACC (for gpu or vis)
+cores_per_node = 20 #for Maverick
 time = "00:59:59"
 time_set = False
 email = "##SBATCH --mail-user \n\
@@ -206,6 +207,8 @@ else: # multiple tasks
 
 ### elixer.slurm
 
+nodes = 1 + tasks//cores_per_node
+
 slurm = "\
 #!/bin/bash \n\
 #\
@@ -223,6 +226,7 @@ slurm = "\
 #------------------Scheduler Options--------------------\n\
 #SBATCH -J HETDEX              # Job name\n\
 #SBATCH -n " + str(tasks) + "                  # Total number of tasks\n\
+#SBATCH -N " + str(nodes) + "                  # Total number of nodes requested (20 cores per node)\n\
 #SBATCH -p " + queue +"                 # Queue name\n\
 #SBATCH -o ELIXER.o%j          # Name of stdout output file (%j expands to jobid)\n\
 #SBATCH -t " + time + "            # Run time (hh:mm:ss)\n\
