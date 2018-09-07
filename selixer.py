@@ -6,6 +6,7 @@ import errno
 import elixer
 import numpy as np
 from math import ceil
+from datetime import timedelta
 
 
 #todo: allow user to change the run-time from command line
@@ -116,8 +117,8 @@ if i != -1:
 
     if tasks == 0:
         print("Auto set maximum tasks ...")
-        if not time_set:
-            time = "00:05:00" #5 minutes (no known elixer call takes more than 1 minute
+        if not time_set: #updated later on when we know the number of tasks per CPU
+            time = "00:10:00" #10 minutes (no known elixer call takes more than 1 minute, give lots of slop
     elif (tasks < 1) or (tasks > MAX_TASKS):
         print ("Invalid --tasks value. Must be 0 (auto-max) or between 1 to 640 inclusive.")
         exit(-1)
@@ -137,6 +138,7 @@ os.chdir(basename)
 ### elixer.run
 path = os.path.join(os.path.dirname(sys.argv[0]),"elixer.py")
 
+jobs_per_task =  []
 if tasks == 1:
     run = "python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' -f \n'
 
@@ -207,7 +209,17 @@ else: # multiple tasks
 
 ### elixer.slurm
 
-nodes = 1 + tasks//cores_per_node
+nodes = tasks//cores_per_node
+if tasks%cores_per_node != 0:
+    nodes += 1
+
+if not time_set: #update time
+    try:
+        mx = np.max(jobs_per_task)
+        time = str(timedelta(minutes=5.0 * mx)) #3 minutes is pretty reasonable ... but use 5 minutes to be super safe
+        print("--time %s" %time)
+    except:
+        print("Error auto-setting time ... SLURM behavior may be unexpected.")
 
 slurm = "\
 #!/bin/bash \n\
@@ -225,8 +237,10 @@ slurm = "\
 # \n\
 #------------------Scheduler Options--------------------\n\
 #SBATCH -J HETDEX              # Job name\n\
-#SBATCH -n " + str(tasks) + "                  # Total number of tasks\n\
-#SBATCH -N " + str(nodes) + "                  # Total number of nodes requested (20 cores per node)\n\
+#SBATCH -n " + str(tasks) + "                  # Total number of tasks\n"
+
+slurm += "#SBATCH -N " + str(nodes) + "                  # Total number of nodes requested (20 cores per node)\n"
+slurm += "\
 #SBATCH -p " + queue +"                 # Queue name\n\
 #SBATCH -o ELIXER.o%j          # Name of stdout output file (%j expands to jobid)\n\
 #SBATCH -t " + time + "            # Run time (hh:mm:ss)\n\

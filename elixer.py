@@ -907,14 +907,17 @@ def get_fcsdir_subdirs_to_process(args):
     detlist = [] #list of detections in 20170322v011_005 format
     subdirs = [] #list of specific rsp1 subdirectories to process (output)
 
+    #print(os.getcwd())
 
     if args.dispatch is not None: #from multi-task SLURM only
         try:
             # is this a list or a file
             if os.path.isfile(args.dispatch):
                 detlist = np.genfromtxt(args.dispatch, dtype=None, comments='#', usecols=(0,))
+                log.debug("[dispatch] Loaded --dets as file")
             else:
                 detlist = args.dispatch.replace(', ', ',').split(',')  # allow comma or comma-space separation
+                log.debug("[dispatch] Loaded --dets as list")
         except:
             log.error("Exception processing detections (--dispatch) detlist. FATAL. ", exc_info=True)
             print("Exception processing detections (--dispatch) detlist. FATAL.")
@@ -925,8 +928,13 @@ def get_fcsdir_subdirs_to_process(args):
             #is this a list or a file
             if os.path.isfile(args.dets):
                 detlist = np.genfromtxt(args.dets, dtype=None,comments='#',usecols=(0,))
+                log.debug("Loaded --dets as file")
+            elif os.path.isfile(os.path.join("..",args.dets)):
+                detlist = np.genfromtxt(os.path.join("..",args.dets), dtype=None, comments='#', usecols=(0,))
+                log.debug("Loaded --dets as ../<file> ")
             else:
                 detlist = args.dets.replace(', ',',').split(',') #allow comma or comma-space separation
+                log.debug("Loaded --dets as list")
         except:
             log.error("Exception processing detections (--dets) detlist. FATAL. ", exc_info=True)
             print("Exception processing detections (--dets) detlist. FATAL.")
@@ -957,7 +965,7 @@ def get_fcsdir_subdirs_to_process(args):
         #if (detlist is None) or (len(detlist) == 0):
         if len_detlist == 0:
             for root, dirs, files in os.walk(fcsdir):
-                pattern = os.path.basename(root)+"spec.dat" #ie. 20170322v011_005spec.dat
+                pattern = os.path.basename(root)+"specf.dat" #ie. 20170322v011_005spec.dat
                 for name in files:
                     if name == pattern:
                     #if fnmatch.fnmatch(name, pattern):
@@ -972,16 +980,21 @@ def get_fcsdir_subdirs_to_process(args):
 
 
             use_search = False
+            log.debug("Attempting FAST search for %d directories ..." %len_detlist)
             #try fast way first (assume detlist is immediate subdirectory name, if that does not work, use slow method
             for d in detlist:
                 pattern = d + "spec.dat"
-                if os.path.isfile(os.path.join(fcsdir,d,pattern)):
+                if os.path.isfile(os.path.join(fcsdir,d,pattern)) or \
+                    os.path.isfile(os.path.join(fcsdir, d, os.path.basename(d) + "specf.dat")):
                     subdirs.append(os.path.join(fcsdir,d))
-                elif os.path.isfile(os.path.join(d,os.path.basename(d)+"spec.dat")):
+                    log.debug("Adding %s" % os.path.join(fcsdir,d))
+                elif os.path.isfile(os.path.join(d,os.path.basename(d)+"specf.dat")):
                     subdirs.append(d)
+                    log.debug("Adding %s" % d)
                 else:
                     #fail, fast method will not work
                     #if any fail, all fail?
+                    log.debug("FAST search fail ... ")
                     del subdirs[:]
                     use_search = True
                     break
@@ -989,7 +1002,7 @@ def get_fcsdir_subdirs_to_process(args):
             if use_search:
                 log.debug("Searching fcsdir for matching subdirs ...")
                 for root, dirs, files in os.walk(fcsdir):
-                    patterns = [x + "spec.dat" for x in detlist] #ie. 20170322v011_005spec.dat
+                    patterns = [x + "specf.dat" for x in detlist] #ie. 20170322v011_005spec.dat
                     for name in files:
                         #if name in patterns:
                         for p in patterns:
