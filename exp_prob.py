@@ -11,11 +11,13 @@ import sys
 import spectrum
 import matplotlib.pyplot as plt
 from timeit import default_timer as timer
+import collections
 
 
 plt.switch_backend('QT4Agg')
 
 SHOW_SPEC = False
+SPECTRUM_WIDTH = 1000 #in 2AA steps
 
 
 # N = noise , f = flux or score or whatever criteria
@@ -70,6 +72,59 @@ def reload():
     imp.reload(spectrum)
     imp.reload(sys.modules[__name__])
 
+
+class SpectrumDistro:
+    def __init__(self,filename):
+        self.parms = [] #array of parameter dicts
+        self.waves = [] #just the wavelengths to index
+        self.sample = {}
+
+        self.read_file(filename)
+        sp.random.seed(seed=1138) #fixed for now so should get same sequnce
+
+
+    def read_file(self,filename):
+        try:
+            #with open(filename, "r") as f:
+            #int(wm[0, c]), parm[0], parm[1], parm[2], parm[3], sk
+            #wavelength, x0, sigma, Area, y-offset, skew
+            #self.waves = []
+            self.parms = []
+            out = np.loadtxt(filename, dtype=float) # x by 6
+
+            for p in out:
+                self.parms.append({"wave":p[0],"mu":p[1],"sigma":p[2],"area":p[3],"y":p[4],"skew":p[5]})
+                self.waves.append(p[0])
+
+            self.waves = np.array(self.waves)
+
+        except:
+            print("Exception reading file in SpectrumDistro")
+
+
+    def noise_spectrum(self,center,wings=25):
+        #center = center wavelength
+        #wings = how many indicies to either side of the center to sample from the respective noise distro
+        #(each wavelength bin or index has its own noise PDF distribution from which to sample)
+
+        #find the parameters nearest to center
+        idx = (np.abs(self.waves - center)).argmin()
+
+        left = max(0,idx-wings)
+        right = min(SPECTRUM_WIDTH,idx+wings+1)
+        spectrum = np.zeros(SPECTRUM_WIDTH)
+
+        for i in np.arange(left,right):
+            spectrum[i] = sp.stats.skewnorm.rvs(loc=self.parms[i]['mu'],
+                                                scale=self.parms[i]['sigma'],
+                                                a=self.parms[i]['skew'],size=1)
+
+        return spectrum
+
+
+
+
+
 class GaussFit:
 
     #all class vars
@@ -92,7 +147,15 @@ class GaussFit:
     def rand_spec(self):
         #return a random (noise only) 'spectrum'
         return sp.stats.skewnorm.rvs(loc=0, scale=7.0, a=1.5, size=self.num_pix)
+        #loc = mu, scale = standard deviation, a = skew parameter (alpha)
         #return sp.stats.skewnorm.rvs(loc=0, scale=7.0, a=0.0, size=self.num_pix)
+
+
+    #skewnormal
+    # 2 * norm.pdf(x) * norm.cdf(a*x)
+    #def make_spectrum(self,):
+
+
 
 
     def trial(self):

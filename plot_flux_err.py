@@ -24,9 +24,13 @@ def gaussian(x,x0,sigma,a=1.0,y=0.0):
 #here ... y would mean the minimum noise value (never 0)?
 
 
-def fit_gaussian(central,x,y):
-    #a bit different in that I am being aggressive and will force the A high enough to cover the max-value
-    parm, pcov = curve_fit(gaussian, x, y)
+
+def skew_gaussian(x,x0,sigma,a=1.0,y=0.0,s=0.0):
+    pass
+
+# def fit_gaussian(central,x,y):
+#     #a bit different in that I am being aggressive and will force the A high enough to cover the max-value
+#     parm, pcov = curve_fit(gaussian, x, y)
 
 
 fig = plt.figure(figsize=(16,9))
@@ -130,18 +134,26 @@ for c in range(cols):
                            bounds=((x0 - width, 0.01, 5.0, 0.0),
                                    (x0 + width, np.inf, np.inf, np.inf)))
 
+
+    sk = skew(v)
+
+    #todo: use the returned x0 and A to feed to a skewnormal and figure the alpha (skew) parameter?
+    #todo: x0 and sigma and alpha would go to scipy.stats.skewnormal:  loc = x0, scale=sigma, a=alpha
+    #todo: NO:  then multiply the whole thing by 'A' then add 'y' ??-- the value we want back is the x coord (the "noise" in cgs)
+    #todo:          A and y just shift up and stretch the pdf, but the relative probs are unchanged.
+
     x = np.linspace(0,e[-1],100)
     plt.plot(x,gaussian(x,parm[0],parm[1],parm[2],parm[3]))
-    plt.title("wave=%g\nx0=%f sigma=%f\nArea=%f y=%f"%(int(wm[0,c]), parm[0], parm[1], parm[2],parm[3]))
-    fit_parms.append((wm[0,c],parm[0], parm[1], parm[2],parm[3]))
+    plt.title("wave=%g\nx0=%f sigma=%f\nArea=%f y=%f skew=%f"%(int(wm[0,c]), parm[0], parm[1], parm[2],parm[3], sk))
+    fit_parms.append((wm[0,c],parm[0], parm[1], parm[2], parm[3], sk))
     plt.tight_layout()
     plt.savefig("unc_w%d.png" %(int(wm[0,c])))
 
 
 with open("unc_fit_parms.txt","w") as f:
-    f.write("wave x0 sigma Area y\n")
+    f.write("#wave x0 sigma Area y skew \n")
     for l in fit_parms:
-        f.write("%f %f %f %f %f" %(l[0],l[1],l[2],l[3],l[4]))
+        f.write("%f %f %f %f %f %f" %(l[0],l[1],l[2],l[3],l[4],l[5]))
         f.write("\n")
 
 #print(fit_parms)
