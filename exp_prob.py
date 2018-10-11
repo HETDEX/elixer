@@ -1,23 +1,31 @@
 #explore probabilities
 
 RUN = False #if false, reads in the file, if True runs samples and makes a new file
-FILE = "/home/dustin/code/python/elixer/exp_gauss_out.txt"
-SAMPLES = 100000
+FILE = "/home/dustin/code/python/elixer/exp_per_wave_gauss_out.txt"
+SAMPLES = 100  #now, as samples PER wavelength
+
+#todo: still need to update the plotting to be per-wavelength
+#todo: change trial to just do a fit at the cw ... do not run peakdet
 
 import numpy as np
 import scipy as sp
 import imp
 import sys
+import os.path as op
 import spectrum
 import matplotlib.pyplot as plt
 from timeit import default_timer as timer
 import collections
+from scipy.optimize import curve_fit
 
 
 plt.switch_backend('QT4Agg')
 
 SHOW_SPEC = False
 SPECTRUM_WIDTH = 1000 #in 2AA steps
+UNC_PARAMS_FILE = "/home/dustin/code/python/elixer/noise/unc_fit_parms.txt"
+FLUX_PARAMS_FILE = "/home/dustin/code/python/elixer/noise/flux_fit_parms.txt"
+NOISE_SAMPLES_FILE = "noise_lines.txt"
 
 
 # N = noise , f = flux or score or whatever criteria
@@ -68,6 +76,11 @@ def gaussian(x,x0,sigma,a=1.0,y=0.0):
     return a * (np.exp(-np.power((x - x0) / sigma, 2.) / 2.) / np.sqrt(2 * np.pi * sigma ** 2)) + y
 
 
+def exponential(x,A,r):
+    if (x is None) or (A is None) or (r is None):
+        return None
+    return A*np.exp(r*x)
+
 def reload():
     imp.reload(spectrum)
     imp.reload(sys.modules[__name__])
@@ -101,26 +114,42 @@ class SpectrumDistro:
         except:
             print("Exception reading file in SpectrumDistro")
 
+    #
+    # def distro_spectrum(self,center,wings):
+    #     #center = center wavelength
+    #     #wings = how many indicies to either side of the center to sample from the respective noise distro
+    #     #(each wavelength bin or index has its own noise PDF distribution from which to sample)
+    #
+    #     #find the parameters nearest to center
+    #     idx = (np.abs(self.waves - center)).argmin()
+    #
+    #     left = max(0,idx-wings)
+    #     right = min(SPECTRUM_WIDTH,idx+wings+1)
+    #     spec = np.zeros(SPECTRUM_WIDTH)
+    #
+    #     for i in np.arange(left,right):
+    #         spec[i] = sp.stats.skewnorm.rvs(loc=self.parms[i]['mu'],
+    #                                             scale=self.parms[i]['sigma'],
+    #                                             a=self.parms[i]['skew'],size=1)
+    #     return spec
 
-    def noise_spectrum(self,center,wings=25):
+
+    def distro_spectrum(self,wavelengths):
         #center = center wavelength
         #wings = how many indicies to either side of the center to sample from the respective noise distro
         #(each wavelength bin or index has its own noise PDF distribution from which to sample)
 
         #find the parameters nearest to center
-        idx = (np.abs(self.waves - center)).argmin()
+        spec = np.zeros(len(wavelengths))
 
-        left = max(0,idx-wings)
-        right = min(SPECTRUM_WIDTH,idx+wings+1)
-        spectrum = np.zeros(SPECTRUM_WIDTH)
+        for w in wavelengths:
+            i = spectrum.getnearpos(self.waves,w)
 
-        for i in np.arange(left,right):
-            spectrum[i] = sp.stats.skewnorm.rvs(loc=self.parms[i]['mu'],
+            spec[i] = sp.stats.skewnorm.rvs(loc=self.parms[i]['mu'],
                                                 scale=self.parms[i]['sigma'],
                                                 a=self.parms[i]['skew'],size=1)
 
-        return spectrum
-
+        return spec
 
 
 
@@ -158,13 +187,18 @@ class GaussFit:
 
 
 
-    def trial(self):
+    def trial(self,cw,sd_flux,sd_unc): #cw is central wavelength
+
         so = spectrum.Spectrum()
+
         wavelengths = np.arange(self.w_min,self.w_min+(self.num_pix)*self.pix_size,self.pix_size) # actual wavelengths do not actaully matter
-        values = self.rand_spec()
+        #values = sd_.distro_spectrum(center=cw,wings=25)*10.0  #*10.0 so can keep the -18 units
+        #values = self.rand_spec() #old, not PER wavelength
 
-        errors = None
-
+        #values = sd_flux.distro_spectrum(center=cw, wings=1000) * 10.0  # *10.0 so can keep the -18 units
+        #errors = sd_unc.distro_spectrum(center=cw,wings=1000)*10.0  #*10.0 so can keep the -18 units
+        values = sd_flux.distro_spectrum(wavelengths) * 10.0  # *10.0 so can keep the -18 units
+        errors = sd_unc.distro_spectrum(wavelengths)*10.0  #*10.0 so can keep the -18 units
         # 6-18-2018 additional condition, enforce_good = True, min_sigma = 1.0 ... just as per normal
         peaks = spectrum.peakdet(wavelengths, values, errors, values_units=-18,enforce_good=True,min_sigma=1.0)
 
@@ -190,8 +224,25 @@ class GaussFit:
                 num_good += 1
                 eli.append(p)
 
+        # p = spectrum.signal_score(wavelengths, values, errors, central=cw,
+        #                             values_units=-18, min_sigma=1.0, absorber=False)
+        #
+        # if p is not None:
+        #     if p.is_good():
+        #         score.append(p.line_score)
+        #         line_flux.append(p.line_flux)
+        #         snr.append(p.snr)
+        #         good.append(p.is_good())
+        #         num_good += 1
+        #         eli.append(p)
 
-        if SHOW_SPEC and (len(peaks) > 0):# and plot:
+        # plt.close()
+        # plt.figure(figsize=(8, 2), frameon=False)
+        # plt.plot(wavelengths, values)
+        # plt.show()
+
+
+        if SHOW_SPEC and p is not None: #and (len(peaks) > 0):# and plot:
             plt.close()
             plt.figure(figsize=(8, 2), frameon=False)
             plt.plot(wavelengths,values)
@@ -208,7 +259,7 @@ class GaussFit:
 
             #plt.savefig("exp_score_%0.2g.png" % (xscore))
            # plt.close()
-            #plt.show()
+            plt.show()
 
         return score,line_flux, snr, good, eli, num_good
 
@@ -226,6 +277,7 @@ class GaussFit:
 
     def go(self):
 
+        all_wave = [] #wavelengths
         all_score = []
         all_line_flux = []
         all_snr  = []
@@ -234,51 +286,133 @@ class GaussFit:
         all_num_good = [] #the number of "good" peaks found in a single spectrum
 
         total_samples = 0
+        total_trials = 0
+        sd_unc = SpectrumDistro(filename=UNC_PARAMS_FILE)
+        sd_flux = SpectrumDistro(filename=FLUX_PARAMS_FILE)
+
+        wave_range = np.arange(3500.0, 5500.0, 2.0)
+        wave_bins = np.zeros(len(wave_range))
 
         self.start_time = timer()
         #for i in range(self.num_trials):
-        while total_samples < self.num_trials:
-            score,line_flux, snr, good, eli, num_good = self.trial()
-
-            samples = len(score)
-
-            if samples > 0:
-                total_samples += samples
-                #percent = float(total_samples)/float(self.num_trials)
-                #sys.stdout.write('\r')
-                #sys.stdout.write("[%-20s] %g%% (N=%d)" % ('=' * int(percent / 5.0), percent, total_samples))
-                #sys.stdout.flush()
-
-         #       print(snr,good)
-                all_score = np.concatenate((all_score,score))
-                all_line_flux = np.concatenate((all_line_flux,line_flux))
-                all_snr = np.concatenate((all_snr, snr))
-                all_good = np.concatenate((all_good, good))
-                all_eli = np.concatenate((all_eli, eli))
-                all_num_good = np.concatenate(all_num_good,num_good)
-              #  for s,g in zip(snr,good):
-
-                rate = total_samples/(timer() - self.start_time)
-                tot_sec = int((self.num_trials - total_samples)/rate)
-                h = tot_sec / 3600
-                m = (tot_sec - h*3600)/60
-                s = (tot_sec - h*3600 - m*60)
-
-                print("Samples: %d  ETA: %02d:%02d:%02d" % (total_samples,h,m,s) )
 
 
+
+        #for debugging
+
+        #for cw in np.arange(3510.00, 5490.00,2.0):
+        #    total_samples = 0 #total samples is not per wavelength
+       # while total_samples < self.num_trials:
+
+        exists = False
+        if op.isfile(NOISE_SAMPLES_FILE):  # alread exists
+            exists = True
+
+        with open(NOISE_SAMPLES_FILE,"a+") as out:
+            if exists:#alread exists
+                txt = np.loadtxt(NOISE_SAMPLES_FILE,skiprows=1)
+
+                all_score = txt[:,8]
+                all_line_flux = txt[:,4]
+                all_snr = txt[:,2]
+                all_good = txt[:,1]
+                total_trials = txt[:,9][-1]
+                total_samples = txt[:, 10][-1]
+
+
+                bins = txt[:,0]
+                for b in bins:
+                    i = spectrum.getnearpos(wave_range,b)
+                    wave_bins[i] += 1
+
+            else:
+                out.write("#Wavelength Good  SNR  Sigma  LineFlux  Cont  SBR  EW_Obs  Score Trials Samples\n")
+
+            done = False
+
+            try:
+                while (np.any([(w<self.num_trials) for w in wave_bins])) and (not done):
+
+                    score,line_flux, snr, good, eli, num_good = self.trial(4500.0,sd_flux,sd_unc)
+                    total_trials += 1
+
+                    samples = len(score)
+
+                    #print (iter, total_samples)
+                    if samples > 0:
+                        total_samples += samples
+                        #percent = float(total_samples)/float(self.num_trials)
+                        #sys.stdout.write('\r')
+                        #sys.stdout.write("[%-20s] %g%% (N=%d)" % ('=' * int(percent / 5.0), percent, total_samples))
+                        #sys.stdout.flush()
+
+                 #       print(snr,good)
+                        #all_wave = np.concatenate((all_wave,cw))
+                        for e in eli:
+                            #round to nearest step
+                            w = spectrum.getnearpos(wave_range,e.fit_x0)
+                            all_wave.append(wave_range[w])
+                            wave_bins[w] += 1
+
+                            #print(wave_range[w])
+
+                        plt.clf()
+                        #plt.title(title)
+                        plt.plot(wave_range, wave_bins)
+                        # plt.ion()
+                        plt.pause(0.01)
+                        plt.show(block=False)
+
+                        all_score = np.concatenate((all_score,score))
+                        all_line_flux = np.concatenate((all_line_flux,line_flux))
+                        all_snr = np.concatenate((all_snr, snr))
+                        all_good = np.concatenate((all_good, good))
+                        all_eli = np.concatenate((all_eli, eli))
+                        #all_num_good = np.concatenate(all_num_good,num_good)
+                        all_num_good.append(num_good)
+                      #  for s,g in zip(snr,good):
+
+                        #rate = total_samples/(timer() - self.start_time)
+                        #tot_sec = int((self.num_trials - total_samples)/rate)
+                        tot_sec = int(timer()-self.start_time)
+
+                        h = tot_sec / 3600
+                        m = (tot_sec - h*3600)/60
+                        s = (tot_sec - h*3600 - m*60)
+
+                        print("Trials: %d Samples: %d  ELAPSED: %02d:%02d:%02d  min(%d) max(%d)" % (total_trials, total_samples,h,m,s,np.min(wave_bins),np.max(wave_bins)) )
+
+                        for e in eli:
+                            e.build(values_units=-18)
+                            if e.line_flux == -999:
+                                e.line_flux = 0.0
+                            out.write("%d  %f  %f  %f  %f  %f  %f  %f %f %d %d\n"
+                                      % (
+                                      e.fit_x0, e.is_good(), e.snr, e.fit_sigma, e.line_flux, e.cont, e.sbr,
+                                      e.eqw_obs, e.line_score, total_trials, total_samples))
+                            out.flush()
+
+                        #todo: plot histogram of bins so can watch them fill in
+                        #todo: remove clock estimate (no longer valid) (or make s|t it is based on the current smallest bin)
+
+            except (KeyboardInterrupt, SystemExit):
+                done = True
+
+            except:
+               print("Some exception ... keep going")
 
         #print (len(all_snr),len(np.where(all_good)[0]))
 
-        with open("exp_gauss_out.txt","w") as out:
-            out.write("#Good  SNR  Sigma  LineFlux  Cont  SBR  EW_Obs  Score\n")
-            for eli in all_eli:
-                eli.build(values_units=-18)
-                if eli.line_flux == -999:
-                    eli.line_flux = 0.0
-                out.write("%d  %f  %f  %f  %f  %f  %f  %f %d\n"
-                      % (eli.is_good(), eli.snr, eli.fit_sigma, eli.line_flux, eli.cont , eli.sbr, eli.eqw_obs,
-                         eli.line_score))
+        if False:
+            with open("exp_gauss_out.txt","w") as out:
+                out.write("#Wavelength Good  SNR  Sigma  LineFlux  Cont  SBR  EW_Obs  Score\n")
+                for eli in all_eli:
+                    eli.build(values_units=-18)
+                    if eli.line_flux == -999:
+                        eli.line_flux = 0.0
+                    out.write("%d  %f  %f  %f  %f  %f  %f  %f %d\n"
+                          % (eli.fit_x0 , eli.is_good(), eli.snr, eli.fit_sigma, eli.line_flux, eli.cont , eli.sbr, eli.eqw_obs,
+                             eli.line_score))
 
 
 
@@ -296,26 +430,32 @@ class GaussFit:
 
         #sort of a dumb way to do this, but convenient to put in the ELI objects
         out =  np.loadtxt(filename,dtype=np.float64)
-        score = out[:,7]
-        line_flux = out[:,3]
-        snr = out[:,1]
-        good = out[:,0].astype(int)
+        wave = out[:,0].astype(int)
+        score = out[:,8]
+        line_flux = out[:,4]
+        snr = out[:,2]
+        good = out[:,1].astype(int)
+
+        total_trials = out[:,9].astype(int)[-1]
+        total_samples = out[:, 10].astype(int)[-1]
+
         # Good  SNR  Sigma  LineFlux  Cont  SBR  EW_Obs  Score
         for i in range(len(out)):
             e = spectrum.EmissionLineInfo()
-            e.snr = out[i,1]
-            e.fit_sigma = out[i,2]
-            e.line_flux = out[i,3]
+            e.snr = out[i,2]
+            e.fit_sigma = out[i,3]
+            e.line_flux = out[i,4]
             if e.line_flux == -999:
                 e.line_flux = 0.0
-            e.cont = out[i,4]
-            e.sbr = out[i,5]
-            e.eqw_obs = out[i,6]
-            e.line_score  = out[i,7]
+            e.cont = out[i,5]
+            e.sbr = out[i,6]
+            e.eqw_obs = out[i,7]
+            e.line_score  = out[i,8]
 
             eli.append(e)
 
-        return np.array(score), np.array(line_flux),np.array(snr),np.array(good), np.array(eli)
+        return np.array(wave), np.array(score), np.array(line_flux),np.array(snr),np.array(good), np.array(eli), \
+               total_trials, total_samples
 
 
 def main():
@@ -323,16 +463,128 @@ def main():
 
     if (RUN):
         score, line_flux, snr, good, eli, num_good = gf.go()
-    else:
-        score, line_flux, snr, good, eli = gf.load(FILE)
-        num_good = None #can only know at original runtime (at least as currently implemented)
+    #else:
+        #wave, score, line_flux, snr, good, eli = gf.load(FILE)
+        #num_good = None #can only know at original runtime (at least as currently implemented)
 
+    wave, score, line_flux, snr, good, eli, trials, samples = gf.load(NOISE_SAMPLES_FILE)
+
+    all_noise_count = len(good)
+
+    #todo: break these up by wavelength bin but do essentially the same thing
+    #todo: want a file as output with wavelength then tuples (score,fraction) (score,fraction) ...
+    #todo: -OR- can we reliably fit a curve? then it would be wavelength then params
+    #todo: -OR- wavelengths (score, count) (score, count) .... and figure precentages on the read in side
+    #todo:              this lets us deal with very small counts where maybe only 1 or 2 instances occur at even lowest score
+    #todo:      if only one or few? what is a minimum number for statistics
+    #todo:         implies it is difficult to get a random line even at lowest score
+
+
+    #get the unique wavelengths (note: on the read side, will find the nearest wavelength to the target wavelength
+        # and if that distance in wavelength is greater than say 2, then assume there are zero hits at that wavelength
+
+
+    #save as an array of dictionaries
+    # the dictionary has two keys: "scores" and "frac" whose values are the arrays
+
+    out = {}
+
+
+    #with open("random_signal_by_wavebin.txt","w+") as f:
+    if True:
+        set_of_waves = sorted(set(wave))
+
+        for w in set_of_waves:
+            #center on the wavelength, +/- 1 AA  e.g. 3560 == 3559 + 3560 + 3561, so 2AA wide bin centered on w
+            #so most wavelengths get counted in more than one bin, but that is okay and what I want to smooth it out
+            # e.g. 3561 = 3560 + 3561 + 3562
+            #      3562 = 3561 + 3562 + 3563  ... so 3561 appears in three bins
+            # in many cases though, there is not a 1 AA adjacent wave-bin, so we just add in zero
+            a = np.where( abs(wave-w) <= 1.0)[0] #list of indicies that match this wavelength (techinally a tuple, hence the [0])
+
+            all_score = np.histogram(score[a], bins=gf.score_bin_edges)
+            all_score = all_score[0].astype(float)
+            pop_frac = all_score / len(a)
+            trial_frac = all_score / trials
+            sample_frac = all_score / samples
+
+
+            #rather hand-wavy, but thinking about counting or binning errors,
+            #force this to be decreasing or level
+            #sometimes get a low bin in-between two higher bins ,so set the low middle bin = max of what remains
+            # usually, the very next bin (sometimes two bins to the right, for very low counts)
+            # and force a minimum of 0.05
+            first = np.nonzero(pop_frac)[0][0]
+            last = np.nonzero(pop_frac)[0][-1]
+
+            for i in range(first, last):
+                pop_frac[i] = max(max(pop_frac[i:]),0.05)
+
+            indicies = np.where(pop_frac != 0)[0]
+
+            #now, turn into cumulative sum for trial and sample fractions
+            trial_frac = np.flip(np.cumsum(np.flip(trial_frac, axis=0)), axis=0)
+            sample_frac = np.flip(np.cumsum(np.flip(sample_frac, axis=0)), axis=0)
+
+            d = {'scores':gf.score_bin_centers[indicies],'counts':all_score[indicies],'fracs':pop_frac[indicies],
+                 'trial_fracs':trial_frac, 'sample_fracs':sample_frac}
+            out[w] = d
+
+          #   #visualize
+          #   # plt.xlim(xmax=20) #essentially down to zero by SNR = 20
+          #   plt.plot(gf.score_bin_centers, pop_frac,
+          #            zorder=2)  # distro of ALL possible signals (e.g. a gaussian was fit, though may not be good)
+          #   plt.bar(gf.score_bin_centers, pop_frac, color='g', alpha=0.5)
+          #   plt.ylabel("fraction")
+          #   plt.xlabel("line score")
+          #   plt.xlim(0, 20)
+          #   plt.title("Pseudo-PDF (MDF) of Random Emission Line Scores for %d +/- 1 AA" %w)
+          #   # plt.savefig("random_emission_line_score_pdf.png")
+          #
+          #
+          #
+          #   #want to fit a curve ... exponential decay maybe? or just a bin count (set minimum to the rightmost value
+          #   #regardless of the actually minimum??) For small counts have a binarization (counting) problem where there
+          #   #can be multiple zero counts between non-zero counts just by random chance
+          #   #start from the score = 2.5 bin (or the maximum count)
+          #
+          #   #
+          #   # the exponential fit just does not do well enough ... will just record the (adjusted) bin values
+          #   #
+          #   x_start = gf.score_bin_centers[np.argmax(pop_frac)]
+          #   x_stop = gf.score_bin_centers[ np.where(pop_frac != 0)[0][-1] ] #last non-zero element
+          #   x_grid = np.linspace(x_start,x_stop,1000)
+          #   x = gf.score_bin_centers[ np.where(pop_frac != 0)[0]]
+          #   y = pop_frac[np.where(pop_frac != 0)[0]]
+          #   unc =  np.sqrt(y * len(a))/len(a) #treat as Poissin with noise = sqrt(Num samples) at each bin
+          #   plt.errorbar(x,y,yerr=unc)
+          #   try:
+          #       parm, pcov = curve_fit(exponential, x, y,sigma=unc)
+          #
+          #       plt.title("wave = %d, exp=%f, A=%f\nunc_exp=%f, unc_A=%f" %(int(w), parm[0], parm[1], pcov[0][0], pcov[1][1]))
+          #       plt.plot(x_grid,exponential(x_grid,parm[0],parm[1]),color='r')
+          #       plt.plot(x_grid,exponential(x_grid,parm[0]+pcov[0][0],parm[1]+pcov[1][1]),color='g')
+          #   except:
+          #       plt.title("wave = %d, Fit Failed" %(int(w)))
+          #
+          #
+          #   plt.ylim(0,1)
+          #   plt.savefig("noise_fig_w%d.png" %(int(w)))
+          #
+          # #  plt.show()
+          #   plt.close()
+
+    np.save('random_signal_dict',out)
+
+    o2 = np.load('random_signal_dict.npy').item()
+
+    exit(0)
 
     all_score = np.histogram(score, bins=gf.score_bin_edges)
 
     # really almost meaningless ... as the score increases it will necessarily be marked as "good" so
     # the fraction of "good" scores rises with the scores
-    good_score = np.histogram(score[np.where(good)[0]], bins=gf.score_bin_edges)
+   # good_score = np.histogram(score[np.where(good)[0]], binso2.shape=gf.score_bin_edges)
 
     all_score = all_score[0].astype(float)
     good_score = good_score[0].astype(float)

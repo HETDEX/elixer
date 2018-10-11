@@ -972,12 +972,9 @@ def get_fcsdir_subdirs_to_process(args):
                         subdirs.append(root)
                         break #stop looking at names in THIS dir and go to next
         else:
-
             #second check, first version of Karl's headers had no comment
             if detlist[0] == 'name':
                 detlist = detlist[1:]
-
-
 
             use_search = False
             log.debug("Attempting FAST search for %d directories ..." %len_detlist)
@@ -992,24 +989,30 @@ def get_fcsdir_subdirs_to_process(args):
                     subdirs.append(d)
                     log.debug("Adding %s" % d)
                 else:
+                    log.debug("FAILED to find %s" % d)
+                    print("FAILED: %s" % d) #but keep going
+
                     #fail, fast method will not work
                     #if any fail, all fail?
-                    log.debug("FAST search fail ... ")
-                    del subdirs[:]
-                    use_search = True
-                    break
+                    # log.debug("FAST search fail ... ")
+                    # del subdirs[:]
+                    # use_search = True
+                    # break
 
-            if use_search:
-                log.debug("Searching fcsdir for matching subdirs ...")
-                for root, dirs, files in os.walk(fcsdir):
-                    patterns = [x + "specf.dat" for x in detlist] #ie. 20170322v011_005spec.dat
-                    for name in files:
-                        #if name in patterns:
-                        for p in patterns:
-                            if fnmatch.fnmatch(name, p): #could have wild card
-                                subdirs.append(root)
-                                log.debug("Adding %s" %root)
-                                break #stop looking at names in THIS dir and go to next
+            if len(subdirs) == 0:
+                log.debug("Fast search method failed. Detlist does not match to subdirectories. Attempting full search...")
+
+                if use_search:
+                    log.debug("Searching fcsdir for matching subdirs ...")
+                    for root, dirs, files in os.walk(fcsdir):
+                        patterns = [x + "specf.dat" for x in detlist] #ie. 20170322v011_005spec.dat
+                        for name in files:
+                            #if name in patterns:
+                            for p in patterns:
+                                if fnmatch.fnmatch(name, p): #could have wild card
+                                    subdirs.append(root)
+                                    log.debug("Adding %s" %root)
+                                    break #stop looking at names in THIS dir and go to next
     except:
         log.error("Exception attempting to process --fcsdir. FATAL.",exc_info=True)
         print("Exception attempting to process --fcsdir. FATAL.")

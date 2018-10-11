@@ -172,6 +172,9 @@ class Catalog:
                 cls.df = cls.read_catalog(cls.MainCatalog, cls.Name)
                 cls.status = 0
 
+                #if True:
+                #    print(cls.df.columns.values)
+
                 #with the extended catalogs, this is no-longer appropriate
                 if False:
                     #also check vs. by hand

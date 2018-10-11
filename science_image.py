@@ -219,7 +219,7 @@ class science_image():
                     return cutout, counts, mag, radius
                 except:
                     log.error("Exception in science_image::get_cutout (%s):" %self.image_location, exc_info=True)
-                    return cutout, counts, mag
+                    return cutout, counts, mag, radius
 
                 if not (self.contains_position(ra,dec)):
                     log.info("science image (%s) does not contain requested position: RA=%f , Dec=%f"
