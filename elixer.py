@@ -990,7 +990,7 @@ def get_fcsdir_subdirs_to_process(args):
                     log.debug("Adding %s" % d)
                 else:
                     log.debug("FAILED to find %s" % d)
-                    print("FAILED: %s" % d) #but keep going
+                    print("*** FAILED: %s" % d) #but keep going
 
                     #fail, fast method will not work
                     #if any fail, all fail?

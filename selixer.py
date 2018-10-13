@@ -153,7 +153,7 @@ else: # multiple tasks
     try:
 
         args = elixer.parse_commandline(auto_force=True)
-        print("Parsing directories to process. This may take a little while ... ")
+        print("Parsing directories to process. This may take a little while ...\n")
         subdirs = elixer.get_fcsdir_subdirs_to_process(args)
         if tasks != 0:
             if tasks > len(subdirs):  # problem too many tasks requestd
@@ -161,7 +161,7 @@ else: # multiple tasks
                 exit(-1)
         else:
             tasks = min(MAX_TASKS,len(subdirs))
-            print("Adjusting tasks to nearest lower multiple of 20 ...")
+            print("\nAdjusting tasks to nearest lower multiple of 20 ...")
             tasks = tasks - tasks%20 #to deal with TACC parser issue
             print("%d tasks" % tasks)
 

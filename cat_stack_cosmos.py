@@ -34,6 +34,8 @@ pd.options.mode.chained_assignment = None  #turn off warning about setting the d
 import cat_base
 import match_summary
 
+#NOTE: Depth around 26 mag or so
+
 def cosmos_g_count_to_mag(count,cutout=None,sci_image=None):
     #nanofact = 334.116462522 #counts to nano-janksy from g fits header [NANOFACT]
     magzero = 31.4

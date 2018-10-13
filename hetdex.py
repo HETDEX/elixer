@@ -486,6 +486,7 @@ class DetObj:
 
         #flux calibrated data (from Karl's detect and calibration)
         self.fcsdir = None
+        self.line_gaussfit_parms = None #in load_fluxcalibrated_spectra becomes a 4 tuple (mu, sigma, A, y)
 
 
         self.sumspec_wavelength = []
@@ -796,6 +797,24 @@ class DetObj:
         # wavelength   wavelength(best fit) counts sigma  ?? S/N   cont(10^-17)
         #wavelength   wavelength(best fit) flux(10^-17) sigma  ?? S/N   cont(10^-17)
         if self.annulus is None:
+
+            file = op.join(self.fcsdir, basename + "spec.res")
+            try:
+                with open(file, 'r') as f:
+                    f = ft.skip_comments(f)
+                    for l in f:  # should be exactly one line (but takes the last one if more than one)
+                        toks = l.split()
+                        if len(toks) != 8:
+                            log.error("Error. Unexpected number of columns in *spec.res")
+                        else:
+                            #order: mu, sigma, A, y
+                            self.line_gaussfit_parms = (float(toks[2]), float(toks[6]),float(toks[5]),float(toks[7]))
+            except:
+                log.warning("Warning. Could not load/parse: %s" %file)
+
+
+
+
             file = op.join(self.fcsdir, basename + "_2d.res")
             try:
                 with open(file, 'r') as f:
@@ -1259,11 +1278,11 @@ class DetObj:
                 self.sumspec_2d_zoom = f[0].data
                 f.close()
             except:
-                log.error("could not read file " + file, exc_info=True) #not fatal
+                log.warning("Warning (not fatal). Could not read file " + file)#, exc_info=True) #not fatal
 
 
         #todo: get info from Karl and load
-        #todo: likely look in a known location (possible a relative path from the t5all file?)
+        #todo: likely look in a known location (possible a relative pFath from the t5all file?)
         #todo: read in the "catalog" list of fiberfiles (match RA, Dec to emissionline in question)
         #todo:    line count (number) maps to which tmp1xx.dat file to read in for the wavelengths, flux, errors
         #
@@ -3167,10 +3186,13 @@ class HETDEX:
         estcont_str = "%0.3g" %e.cont_cgs
         eqw_lya_str = "%0.3g" %(e.eqw_obs/(1.0+la_z))
         try:
-            estflux_str = e.spec_obj.central_eli.flux_unc
-            estcont_str = e.spec_obj.central_eli.cont_unc
-            #comment out for now, need to check error propogation and EW fit from MCMC ... instead use original version
-            eqw_lya_str = e.spec_obj.central_eli.eqw_lya_unc
+            if e.spec_obj.central_eli is not None:
+                estflux_str = e.spec_obj.central_eli.flux_unc
+                estcont_str = e.spec_obj.central_eli.cont_unc
+                #comment out for now, need to check error propogation and EW fit from MCMC ... instead use original version
+                eqw_lya_str = e.spec_obj.central_eli.eqw_lya_unc
+            else:
+                log.warning("Warning. e.spec_obj.central_eli is None in HETDEX::build_hetdex_data_page()")
         except:
             log.error("Exception setting uncertainty strings",exc_info=True)
 
@@ -4052,12 +4074,35 @@ class HETDEX:
             except:
                 pass
 
+
             xl = int(np.round(x_2D - xw))
             xh = int(np.round(x_2D + xw))
             yl = int(np.round(y_2D - yw))
             yh = int(np.round(y_2D + yw))
             datakeep['ds9_x'].append(1. + (xl + xh) / 2.)
             datakeep['ds9_y'].append(1. + (yl + yh) / 2.)
+
+            #################################################
+            #load pixel flat ... needed to modify data image
+            # more pixel flat stuff a bit later on, to make the smaller cutout images
+            #################################################
+            pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid, fits.amp))
+            # specid (cam) in filename might not have leading zeroes
+            if not op.exists(pix_fn) and (fits.specid[0] == '0'):
+                log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
+                pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid.lstrip("0"), fits.amp))
+
+            if op.exists(pix_fn):
+                pixel_flat_buf = flip_amp(fits.amp, pyfits.open(pix_fn)[0].data)
+                #per Karl 20181012, zero out where the pixel flat is less than zero (indicates an error and a
+                #section to be ignored ... don't want it showing up as 'hot' data later on
+                if pixel_flat_buf is not None:
+                    fits.data_sky[np.where(pixel_flat_buf <= 0)] = 0
+                    fits.data[np.where(pixel_flat_buf <= 0)] = 0
+            else:
+                pixel_flat_buf = None
+                load_blank = True
+
 
             blank_xl = xl
             blank_xh = xh
@@ -4163,23 +4208,16 @@ class HETDEX:
             #     datakeep['pix'].append(deepcopy(pix_blank))
 
 
+            #########################################################
+            # pixel flats continued ... build smaller cutout piece
+            #########################################################
             load_blank = False
-            pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid, fits.amp))
-            # specid (cam) in filename might not have leading zeroes
-            if not op.exists(pix_fn) and (fits.specid[0] == '0'):
-                log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
-                pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid.lstrip("0"), fits.amp))
 
-            if op.exists(pix_fn):
-                buf = flip_amp(fits.amp, pyfits.open(pix_fn)[0].data)
-
-                if buf is not None:
-                    blank[(yl - blank_yl):(yl - blank_yl) + (yh-yl) + 1, (xl - blank_xl):(xl - blank_xl) + (xh - xl) + 1] = \
-                        buf[yl:yh + 1, xl:xh + 1]
-                    datakeep['pix'].append(deepcopy(blank))
-
-                else:
-                    load_blank = True
+            if pixel_flat_buf is not None: #loaded a few dozen lines above
+                blank[(yl - blank_yl):(yl - blank_yl) + (yh - yl) + 1,
+                (xl - blank_xl):(xl - blank_xl) + (xh - xl) + 1] = \
+                    pixel_flat_buf[yl:yh + 1, xl:xh + 1]
+                datakeep['pix'].append(deepcopy(blank))
             else:
                 load_blank = True
 
@@ -4188,16 +4226,7 @@ class HETDEX:
                 log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
                 datakeep['pix'].append(deepcopy(blank_pixel_flat(xh, xl, yh, yl)))
 
-                #pix_x = xh - xl + 1
-                #pix_y = yh - yl + 1
-                #pix_blank = np.zeros((pix_y, pix_x))
-                #try:
-                #    for x in range(pix_x / 2):
-                #        for y in range(pix_y / 2):
-                #            pix_blank[y * 2, x * 2] = 999
-                #except:
-                #    pass
-                #datakeep['pix'].append(deepcopy(pix_blank))
+
 
 
 
@@ -4333,12 +4362,6 @@ class HETDEX:
         add_summed_image = 1 #note: adding w/cosmics masked out
 
         cmap = plt.get_cmap('gray_r')
-#        norm = plt.Normalize()
-#        colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
-
-       # colors[0] = (1,0,0,1)
-       # colors[1] = (1, 0, 0, 1)
-       # colors[2] = (1, 0, 0, 1)
 
         colors = self.make_fiber_colors(min(4,len(datakeep['ra'])),len(datakeep['ra']))# + 2 ) #the +2 is a pad in the call
         num_fibers = len(datakeep['xi'])
@@ -4398,8 +4421,8 @@ class HETDEX:
                     gauss_vmax = datakeep['vmax1'][ind[i]]
 
                     pix_image = datakeep['pix'][ind[i]]
-
                     image = datakeep['im'][ind[i]]  # im can be the cosmic removed version, depends on G.PreferCosmicCleaned
+
                     cmap1 = cmap
                     cmap1.set_bad(color=[0.2, 1.0, 0.23])
                     image = np.ma.masked_where(datakeep['err'][ind[i]] == -1, image)
@@ -4712,7 +4735,21 @@ class HETDEX:
 
 
 
+    def build_spec_image_fit_gaussian(self,datakeep,cwave,dwave=1.0):
+
+        fig = plt.figure(figsize=(5, 3))
+        plt.subplots_adjust(left=0.0, right=1.0, top=1.0, bottom=0.0)
+
+#HERE ... make option to change to error bars and fit
+    #upper right panel (zoomed in spectrum image)
     def build_spec_image(self,datakeep,cwave, dwave=1.0):
+
+        # try:
+        #     if datakeep['detobj'].line_gaussfit_parms is not None:
+        #        return build_spec_image_fit_gaussian(datakeep,cwave,dwave=1.0)
+        # except:
+        #     log.error("Call failed to HETDEX::build_spec_image_fit_gaussian. Attempting old style.")
+
         #cwave = central wavelength, dwave = delta wave (wavestep in AA)
 
         fig = plt.figure(figsize=(5, 3))
@@ -4825,7 +4862,9 @@ class HETDEX:
                 min_y = int(mn)/10*10-10
             else:
                 min_y = int(mn)/10*10
-            min_y = max(min_y, -0.25*mx)#-20) #but not below -20
+
+            #per Karl 20181012 no longer need this restriction
+            #min_y = max(min_y, -0.25*mx)#-20) #but not below -20
 
             log.debug("Spec Plot max count = %f , min count = %f" %(mx,mx))
             specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='--', c=[0.3, 0.3, 0.3])
