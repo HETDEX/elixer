@@ -904,6 +904,7 @@ def get_fcsdir_subdirs_to_process(args):
         return []
 
     fcsdir = args.fcsdir
+    detlist_is_file = False
     detlist = [] #list of detections in 20170322v011_005 format
     subdirs = [] #list of specific rsp1 subdirectories to process (output)
 
@@ -928,9 +929,11 @@ def get_fcsdir_subdirs_to_process(args):
             #is this a list or a file
             if os.path.isfile(args.dets):
                 detlist = np.genfromtxt(args.dets, dtype=None,comments='#',usecols=(0,))
+                detlist_is_file = True
                 log.debug("Loaded --dets as file")
             elif os.path.isfile(os.path.join("..",args.dets)):
                 detlist = np.genfromtxt(os.path.join("..",args.dets), dtype=None, comments='#', usecols=(0,))
+                detlist_is_file = True
                 log.debug("Loaded --dets as ../<file> ")
             else:
                 detlist = args.dets.replace(', ',',').split(',') #allow comma or comma-space separation
@@ -970,6 +973,8 @@ def get_fcsdir_subdirs_to_process(args):
                     if name == pattern:
                     #if fnmatch.fnmatch(name, pattern):
                         subdirs.append(root)
+                        print("Adding: %s" % root)
+                        log.debug("Adding %s" % root)
                         break #stop looking at names in THIS dir and go to next
         else:
             #second check, first version of Karl's headers had no comment
@@ -1002,17 +1007,40 @@ def get_fcsdir_subdirs_to_process(args):
             if len(subdirs) == 0:
                 log.debug("Fast search method failed. Detlist does not match to subdirectories. Attempting full search...")
 
+                if type(detlist) is str:
+                    if '*' in detlist or "?" in detlist:
+                        use_search = True
+                elif type(detlist) is list:
+                    for d in detlist:
+                        if '*' in d or "?" in d:
+                            use_search = True
+                            break
+
                 if use_search:
                     log.debug("Searching fcsdir for matching subdirs ...")
-                    for root, dirs, files in os.walk(fcsdir):
-                        patterns = [x + "specf.dat" for x in detlist] #ie. 20170322v011_005spec.dat
-                        for name in files:
-                            #if name in patterns:
-                            for p in patterns:
-                                if fnmatch.fnmatch(name, p): #could have wild card
+                    if detlist_is_file: #this was a file provided with a list of directories but totally failed, so
+                                        #treat like there was no detlist provided at all
+                        for root, dirs, files in os.walk(fcsdir):
+                            pattern = os.path.basename(root) + "specf.dat"  # ie. 20170322v011_005spec.dat
+                            for name in files:
+                                if name == pattern:
+                                    # if fnmatch.fnmatch(name, pattern):
                                     subdirs.append(root)
-                                    log.debug("Adding %s" %root)
-                                    break #stop looking at names in THIS dir and go to next
+                                    print("Adding: %s" % root)
+                                    log.debug("Adding %s" % root)
+                                    break  # stop looking at names in THIS dir and go to next
+                    else: #here, detlist was a short command line list or something with wildcards
+                        for root, dirs, files in os.walk(fcsdir):
+                            #this is a little different in that detlist might be populated with a wildcard pattern
+                            patterns = [x + "specf.dat" for x in detlist] #ie. 20170322v011_005spec.dat
+                            for name in files:
+                                #if name in patterns:
+                                for p in patterns:
+                                    if fnmatch.fnmatch(name, p): #could have wild card
+                                        subdirs.append(root)
+                                        print("Adding: %s" % root)
+                                        log.debug("Adding %s" %root)
+                                        break #stop looking at names in THIS dir and go to next
     except:
         log.error("Exception attempting to process --fcsdir. FATAL.",exc_info=True)
         print("Exception attempting to process --fcsdir. FATAL.")

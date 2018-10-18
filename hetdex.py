@@ -4818,7 +4818,6 @@ class HETDEX:
         plt.close(fig)
         return buf
 
-#HERE ... make option to change to error bars and fit
     #upper right panel (zoomed in spectrum image)
     def build_spec_image(self,datakeep,cwave, dwave=1.0):
 
