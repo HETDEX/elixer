@@ -34,8 +34,15 @@ pd.options.mode.chained_assignment = None  #turn off warning about setting the d
 import cat_base
 import match_summary
 
-#NOTE: Depth around 26 mag or so
+EXPANDED_IMAGES_PATH = G.COSMOS_EXTRA_PATH
 
+#todo:
+def subaru_hsc_g_count_to_mag(count,cutout=None,sci_image=None):
+   pass
+    #image has no converion defined
+
+
+#NOTE: Depth around 26 mag or so
 def cosmos_g_count_to_mag(count,cutout=None,sci_image=None):
     #nanofact = 334.116462522 #counts to nano-janksy from g fits header [NANOFACT]
     magzero = 31.4
@@ -59,6 +66,7 @@ def cosmos_g_count_to_mag(count,cutout=None,sci_image=None):
         else:
             return 99.9  # need a better floor
 
+#I think this is from DECCAM
 class STACK_COSMOS(cat_base.Catalog):
 
     # name = 'NUMBER'; format = '1J'; disp = 'I10'
@@ -133,6 +141,24 @@ class STACK_COSMOS(cat_base.Catalog):
                'CLASS_STAR']  # float32
 
     CatalogImages = [
+        {'path': EXPANDED_IMAGES_PATH,
+         'name': 'cosmos.g.image.fits',
+         'filter': 'g',
+         'instrument': 'Subaru HSC',
+         'cols': [],
+         'labels': [],
+         'image': None,
+         'expanded': True,
+         'wcs_manual': False,
+         'aperture': 1.0,  # if non-zero, use an aperture of this radius in arcsecs to find image based mag
+         'mag_func': None,
+         'footprint': [[151.35, 0.915], [151.35, 3.49],
+                       [148.90, 3.49], [148.90, 0.915]],
+         'RA_min': 148.90,
+         'RA_max': 151.35,
+         'Dec_min': 0.915,
+         'Dec_max': 3.49
+         },
         {'path': STACK_COSMOS_IMAGE_PATH,
          'name': 'COSMOS_u_sci.fits',
          'filter': 'u',
@@ -418,6 +444,8 @@ class STACK_COSMOS(cat_base.Catalog):
 
         for i in self.CatalogImages:  # i is a dictionary
             try:
+                if i['expanded']:
+                    continue #don't stack the expanded image(s)
                 wcs_manual = i['wcs_manual']
             except:
                 wcs_manual = self.WCS_Manual
@@ -516,6 +544,7 @@ class STACK_COSMOS(cat_base.Catalog):
         bid_colors = self.get_bid_colors(len(bid_ras))
 
         index = 0 #start in the 2nd box which is index 1 (1st box is for the fiber position plot)
+        master_is_expanded = False
         for i in self.CatalogImages:  # i is a dictionary
             index += 1
 
@@ -523,10 +552,12 @@ class STACK_COSMOS(cat_base.Catalog):
                 wcs_manual = i['wcs_manual']
                 aperture = i['aperture']
                 mag_func = i['mag_func']
+                expanded = i['expanded']
             except:
                 wcs_manual = self.WCS_Manual
                 aperture = 0.0
                 mag_func = None
+                expanded = None
 
             if i['image'] is None:
                 i['image'] = science_image.science_image(wcs_manual=wcs_manual,
@@ -595,7 +626,8 @@ class STACK_COSMOS(cat_base.Catalog):
                     self.master_cutout,_,_,_ = sci.get_cutout(ra, dec, error, window=window, copy=True)
                     ref_exptime = sci.exptime
                     total_adjusted_exptime = 1.0
-                else:
+                    master_is_expanded = expanded
+                elif not master_is_expanded:
                     self.master_cutout.data = np.add(self.master_cutout.data, cutout.data * sci.exptime / ref_exptime)
                     total_adjusted_exptime += sci.exptime / ref_exptime
 

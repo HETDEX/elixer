@@ -32,6 +32,7 @@ if socket.gethostname() == 'z50':
 
     STACK_COSMOS_BASE_PATH = "/home/dustin/code/python/elixer/data/isak"
     STACK_COSMOS_CAT_PATH = "/home/dustin/code/python/elixer/data/isak"
+    COSMOS_EXTRA_PATH = "/home/dustin/code/python/elixer/data/"
 
     SHELA_BASE_PATH = "/media/dustin/dd/hetdex/data/SHELA" #"/home/dustin/code/python/elixer/data/isak/SHELA"
     DECAM_IMAGE_PATH = SHELA_BASE_PATH#"/media/dustin/dd/hetdex/data/decam/images"
@@ -61,6 +62,7 @@ else:
 
     STACK_COSMOS_BASE_PATH = "/work/03229/iwold/maverick/stackCOSMOS/nano/"
     STACK_COSMOS_CAT_PATH = "/work/03229/iwold/maverick/stackCOSMOS"
+    COSMOS_EXTRA_PATH = "/work/03261/polonius/maverick/catalogs/COSMOS/"
 
     DECAM_IMAGE_PATH = "/work/03229/iwold/maverick/fall_field/stack/v2/psf/nano/"
     #SHELA_BASE_PATH = "/work/03261/polonius/maverick/catalogs/SHELA"

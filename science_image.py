@@ -62,7 +62,7 @@ class science_image():
         if frame is not None:
             self.frame = frame
         else:
-            self.frame = 'fk5'
+            self.frame = 'icrs' #todo: try icrs or fk5 (older)
 
         if (image_location is not None) and (len(image_location) > 0):
             self.image_location = image_location

@@ -190,12 +190,16 @@ def get_w_as_r(seeing, gridsize, rstep, rmax, profile_name='moffat'):
     phot_table = aperture_photometry(Z, apertures)
     return r, np.array(phot_table['aperture_sum'])
 
-def gaussian(x,x0,sigma,a=1.0):
+# def gaussian(x,x0,sigma,a=1.0):
+#     if (x is None) or (x0 is None) or (sigma is None):
+#         return None
+#
+#     return a*np.exp(-np.power((x - x0)/sigma, 2.)/2.)
+
+def gaussian(x,x0,sigma,a=1.0,y=0.0):
     if (x is None) or (x0 is None) or (sigma is None):
         return None
-
-    return a*np.exp(-np.power((x - x0)/sigma, 2.)/2.)
-
+    return a * (np.exp(-np.power((x - x0) / sigma, 2.) / 2.) / np.sqrt(2 * np.pi * sigma ** 2)) + y
 
 def rms(data, fit):
     #sanity check
@@ -797,20 +801,43 @@ class DetObj:
         # wavelength   wavelength(best fit) counts sigma  ?? S/N   cont(10^-17)
         #wavelength   wavelength(best fit) flux(10^-17) sigma  ?? S/N   cont(10^-17)
         if self.annulus is None:
-
-            file = op.join(self.fcsdir, basename + "spec.res")
             try:
-                with open(file, 'r') as f:
-                    f = ft.skip_comments(f)
-                    for l in f:  # should be exactly one line (but takes the last one if more than one)
-                        toks = l.split()
-                        if len(toks) != 8:
-                            log.error("Error. Unexpected number of columns in *spec.res")
-                        else:
-                            #order: mu, sigma, A, y
-                            self.line_gaussfit_parms = (float(toks[2]), float(toks[6]),float(toks[5]),float(toks[7]))
+                file = op.join(self.fcsdir, basename + "spec.res")
+
+                if not op.exists(file):
+                    log.warning("Warning. Could not load/parse: %s . Will try alternate location." % file)
+
+                    if self.fcsdir[-1] == '/':
+                        updir, _ = op.split( op.dirname(self.fcsdir))
+                    else:
+                        updir,_ = op.split(self.fcsdir)
+
+                    file = op.join(updir,"fitres",basename+".res")
+                    if not op.exists(file):
+                        log.warning("Warning. Could not load/parse: %s" % file)
+                        file = None
             except:
-                log.warning("Warning. Could not load/parse: %s" %file)
+                file = None
+                log.warning("Warning. Could not load/parse Gaussian parm file.", exc_info=True)
+
+            #dustin@z50:/lines/$ cat header.cat
+            # ID RA DEC wavelength S/N chi^2 amplitude sigma_line continuum
+            # dustin@z50:/lines/$ cat header.res
+            # RA DEC wavelength S/N chi^2 amplitude sigma_line continuum
+
+            if file is not None:
+                try:
+                    with open(file, 'r') as f:
+                        f = ft.skip_comments(f)
+                        for l in f:  # should be exactly one line (but takes the last one if more than one)
+                            toks = l.split()
+                            if len(toks) != 8:
+                                log.error("Error. Unexpected number of columns in *spec.res")
+                            else:
+                                #order: mu, sigma, A, y
+                                self.line_gaussfit_parms = (float(toks[2]), float(toks[6]),float(toks[5]),float(toks[7]))
+                except:
+                    log.warning("Warning. Could not load/parse: %s" %file)
 
 
 
@@ -4737,18 +4764,76 @@ class HETDEX:
 
     def build_spec_image_fit_gaussian(self,datakeep,cwave,dwave=1.0):
 
+        #scatter plot (with errors) the data points within the zoom-in region
+        #and overplot the Gaussian fit from the 4 parameters
+
+        try:
+            parms = datakeep['detobj'].line_gaussfit_parms
+            flux = datakeep['sumspec_flux_zoom']
+            flux_err = datakeep['sumspec_ferr_zoom']
+            wave_data = datakeep['sumspec_wave_zoom']
+        except:
+            log.warning("Warning. No zoom-in Gaussian fit parameters.")
+            return None
+
         fig = plt.figure(figsize=(5, 3))
         plt.subplots_adjust(left=0.0, right=1.0, top=1.0, bottom=0.0)
+
+        rm = 0.2
+        specplot = plt.axes([0.1, 0.1, 0.8, 0.8])
+        wave_grid = np.arange(cwave - ww, cwave + ww + dwave, 0.1)
+        fit_spec = gaussian(x=wave_grid,x0=parms[0],sigma=parms[1],a=parms[2],y=parms[3])
+
+        # mn = min(mn, min(summed_spec))
+        # mx = max(mx, max(summed_spec))
+        # ran = mx - mn
+        #
+        # if mn > 0:  # next 10 below the mn
+        #     min_y = int(mn) / 10 * 10 - 10
+        # else:
+        #     min_y = int(mn) / 10 * 10
+
+
+        specplot.plot(wave_grid, fit_spec, c='k', lw=2, linestyle="solid", alpha=1.0, zorder=0)
+        specplot.errorbar(wave_data,flux,yerr=flux_err)
+        specplot.text(0.05,0.95,'e-17',horizontalalignment='center',
+                      verticalalignment='center', transform=specplot.transAxes)
+
+        # log.debug("Spec Plot max count = %f , min count = %f" % (mx, mx))
+        # specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='--', c=[0.3, 0.3, 0.3])
+        # specplot.axis([cwave - ww, cwave + ww, min_y, mx + ran / 20])
+
+
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=300)
+
+        if G.ZOO_CUTOUTS:
+            try:
+                fn = self.output_filename + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_1d_sum.png"
+                fn = op.join(datakeep['detobj'].outdir, fn)
+                plt.savefig(fn, format="png", dpi=300)
+            except:
+                log.error("Unable to write zoo_1d_sum image to disk.", exc_info=True)
+
+        plt.close(fig)
+        return buf
 
 #HERE ... make option to change to error bars and fit
     #upper right panel (zoomed in spectrum image)
     def build_spec_image(self,datakeep,cwave, dwave=1.0):
 
-        # try:
-        #     if datakeep['detobj'].line_gaussfit_parms is not None:
-        #        return build_spec_image_fit_gaussian(datakeep,cwave,dwave=1.0)
-        # except:
-        #     log.error("Call failed to HETDEX::build_spec_image_fit_gaussian. Attempting old style.")
+        try:
+            result = None
+            if datakeep['detobj'].line_gaussfit_parms is not None:
+                result =  self.build_spec_image_fit_gaussian(datakeep,cwave,dwave=1.0)
+
+            #if the Gaussian fit plot worked, use it ... otherwise make the old plot
+            if result is not None:
+                return result
+            else:
+                log.warning("Call failed to HETDEX::build_spec_image_fit_gaussian. Attempting old style.")
+        except:
+            log.warning("Call failed to HETDEX::build_spec_image_fit_gaussian. Attempting old style.")
 
         #cwave = central wavelength, dwave = delta wave (wavestep in AA)
 

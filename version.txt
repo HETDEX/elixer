@@ -1,6 +1,13 @@
 changes to elixer by version
 
-1.5.0a2 [2018-]
+
+1.5.0a3 [2018-10-17]
+* allow --fcsdir directory building with --dets to continue if individual directories are bad
+* changed upper right panel to display best Gaussian fit instead of summed fibers if fit parameters are available
+* added Subarau HSC g-band COSMOS image to stackCOSMOS catalog
+* zero out regions in 2D CCD cutouts where pixel flat is < 0
+
+1.5.0a2 [2018-10-10]
 * updated to new rsp1xx output (*specf.dat), remove *spece.dat
 * use internal MCMC for uncertainties
 * working on incorporating per wavelength noise model for simulated noise only spectra
