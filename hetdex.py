@@ -1340,7 +1340,6 @@ class DetObj:
         self.spec_obj.plot_dir = self.outdir
 
         if self.annulus is None:
-            #todo: something wrong with the rsp output or my reading of it ... flux way too high
             self.spec_obj.set_spectra(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr, self.w,
                                       values_units=-17, estflux=self.estflux, eqw_obs=self.eqw_obs)
             # print("DEBUG ... spectrum peak finder")
@@ -1351,25 +1350,23 @@ class DetObj:
 
 
             #todo: update with MY FIT results?
-            try:
-                self.estflux = self.spec_obj.central_eli.mcmc_a[0]
-                self.eqw_obs = self.spec_obj.central_eli.mcmc_ew_obs[0]
-                self.cont_cgs = self.spec_obj.central_eli.mcmc_y[0]
-                #self.snr = self.spec_obj.central_eli.mcmc_snr
-                self.snr = self.spec_obj.central_eli.snr
+            if G.REPORT_ELIXER_MCMC_FIT:
+                try:
+                    self.estflux = self.spec_obj.central_eli.mcmc_a[0]
+                    self.eqw_obs = self.spec_obj.central_eli.mcmc_ew_obs[0]
+                    self.cont_cgs = self.spec_obj.central_eli.mcmc_y[0]
+                    #self.snr = self.spec_obj.central_eli.mcmc_snr
+                    self.snr = self.spec_obj.central_eli.snr
 
-                self.spec_obj.estflux = self.estflux
-                self.spec_obj.eqw_obs = self.eqw_obs
+                    self.spec_obj.estflux = self.estflux
+                    self.spec_obj.eqw_obs = self.eqw_obs
 
-                #self.estflux = self.spec_obj.central_eli.line_flux
-                #self.cont = self.spec_obj.central_eli.cont
-                #self.eqw_obs = self.estflux / self.cont
-                #self.snr = self.spec_obj.central_eli.snr
-            except:
-                log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra")
-
-
-
+                    #self.estflux = self.spec_obj.central_eli.line_flux
+                    #self.cont = self.spec_obj.central_eli.cont
+                    #self.eqw_obs = self.estflux / self.cont
+                    #self.snr = self.spec_obj.central_eli.snr
+                except:
+                    log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra")
 
             self.spec_obj.classify() #solutions can be returned, also stored in spec_obj.solutions
 
@@ -3232,16 +3229,18 @@ class HETDEX:
         estflux_str = "%0.3g" %e.estflux
         estcont_str = "%0.3g" %e.cont_cgs
         eqw_lya_str = "%0.3g" %(e.eqw_obs/(1.0+la_z))
-        try:
-            if e.spec_obj.central_eli is not None:
-                estflux_str = e.spec_obj.central_eli.flux_unc
-                estcont_str = e.spec_obj.central_eli.cont_unc
-                #comment out for now, need to check error propogation and EW fit from MCMC ... instead use original version
-                eqw_lya_str = e.spec_obj.central_eli.eqw_lya_unc
-            else:
-                log.warning("Warning. e.spec_obj.central_eli is None in HETDEX::build_hetdex_data_page()")
-        except:
-            log.error("Exception setting uncertainty strings",exc_info=True)
+
+        if G.REPORT_ELIXER_MCMC_FIT:
+            try:
+                if e.spec_obj.central_eli is not None:
+                    estflux_str = e.spec_obj.central_eli.flux_unc
+                    estcont_str = e.spec_obj.central_eli.cont_unc
+                    #comment out for now, need to check error propogation and EW fit from MCMC ... instead use original version
+                    eqw_lya_str = e.spec_obj.central_eli.eqw_lya_unc
+                else:
+                    log.warning("Warning. e.spec_obj.central_eli is None in HETDEX::build_hetdex_data_page()")
+            except:
+                log.error("Exception setting uncertainty strings",exc_info=True)
 
         if self.ymd and self.obsid:
             if not G.ZOO:

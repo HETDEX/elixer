@@ -10,6 +10,8 @@ import socket
 #version
 __version__ = '1.5.0a4'
 
+REPORT_ELIXER_MCMC_FIT = False
+
 if socket.gethostname() == 'z50':
 #if False:
     OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"

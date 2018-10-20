@@ -4,6 +4,7 @@ changes to elixer by version
 * updating for changes to rsp output
 * moved initialization of logger to after check for --help
 * fixed summing problem with Cutout2D.data in catalogs get_stacked_cutout
+* added global option to use (or not) ELiXer internal MCMC fit for main line and uncertainties
 
 
 1.5.0a3 [2018-10-17]
