@@ -141,7 +141,7 @@ path = os.path.join(os.path.dirname(sys.argv[0]),"elixer.py")
 jobs_per_task =  []
 if tasks == 1:
     run = "python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' -f \n'
-
+    jobs_per_task.append(1)
     try:
         f = open("elixer.run", 'w')
         f.write(run)
@@ -220,8 +220,14 @@ if not time_set: #update time
         mx = np.max(jobs_per_task)
         time = str(timedelta(minutes=5.0 * mx)) #3 minutes is pretty reasonable ... but use 5 minutes to be super safe
         print("--time %s" %time)
-    except:
+
+    except Exception as e:
         print("Error auto-setting time ... SLURM behavior may be unexpected.")
+        print(e)  # for the repr
+      #  print(str(e))  # for just the message
+      #  print(e.args)  # the arguments that the exception has been called with.
+        # the first one is usually the message.
+
 
 slurm = "\
 #!/bin/bash \n\
@@ -238,7 +244,7 @@ slurm = "\
 #-------------------------------------------------------\n\
 # \n\
 #------------------Scheduler Options--------------------\n\
-#SBATCH -J HETDEX              # Job name\n\
+#SBATCH -J ELiXer              # Job name\n\
 #SBATCH -n " + str(tasks) + "                  # Total number of tasks\n"
 
 slurm += "#SBATCH -N " + str(nodes) + "                  # Total number of nodes requested (20 cores per node)\n"

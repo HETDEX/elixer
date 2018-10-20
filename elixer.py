@@ -20,6 +20,7 @@ import numpy as np
 from wand.image import Image
 
 
+
 #try:
 #    import PyPDF2 as PyPDF
 #except ImportError:
@@ -215,6 +216,9 @@ def parse_commandline(auto_force=False):
 
     #regardless of setting, --multi must now always be true
     args.multi = True
+
+    #first time we need to log anything
+    G.logging.basicConfig(filename=G.LOG_FILENAME, level=G.LOG_LEVEL, filemode='w')
 
     log.info(args)
 
@@ -985,7 +989,10 @@ def get_fcsdir_subdirs_to_process(args):
             log.debug("Attempting FAST search for %d directories ..." %len_detlist)
             #try fast way first (assume detlist is immediate subdirectory name, if that does not work, use slow method
             for d in detlist:
-                pattern = d + "spec.dat"
+                if args.annulus:
+                    pattern = d + ".spsum"
+                else:
+                    pattern = d + "specf.dat"
                 if os.path.isfile(os.path.join(fcsdir,d,pattern)) or \
                     os.path.isfile(os.path.join(fcsdir, d, os.path.basename(d) + "specf.dat")):
                     subdirs.append(os.path.join(fcsdir,d))
@@ -1021,7 +1028,10 @@ def get_fcsdir_subdirs_to_process(args):
                     if detlist_is_file: #this was a file provided with a list of directories but totally failed, so
                                         #treat like there was no detlist provided at all
                         for root, dirs, files in os.walk(fcsdir):
-                            pattern = os.path.basename(root) + "specf.dat"  # ie. 20170322v011_005spec.dat
+                            if args.annulus:
+                                pattern = os.path.basename(root) + ".spsum"  # ie. 20170322v011_005spec.dat
+                            else:
+                                pattern = os.path.basename(root) + "specf.dat"  # ie. 20170322v011_005spec.dat
                             for name in files:
                                 if name == pattern:
                                     # if fnmatch.fnmatch(name, pattern):
@@ -1032,7 +1042,10 @@ def get_fcsdir_subdirs_to_process(args):
                     else: #here, detlist was a short command line list or something with wildcards
                         for root, dirs, files in os.walk(fcsdir):
                             #this is a little different in that detlist might be populated with a wildcard pattern
-                            patterns = [x + "specf.dat" for x in detlist] #ie. 20170322v011_005spec.dat
+                            if args.annulus:
+                                patterns = [x + ".spsum" for x in detlist]  # ie. 20170322v011_005spec.dat
+                            else:
+                                patterns = [x + "specf.dat" for x in detlist] #ie. 20170322v011_005spec.dat
                             for name in files:
                                 #if name in patterns:
                                 for p in patterns:
@@ -1111,7 +1124,6 @@ def merge(args=None):
 
 
 def main():
-
     global G_PDF_FILE_NUM
 
     #G.gc.enable()

@@ -793,9 +793,13 @@ class DetObj:
                     self.x = -999
                     self.y = -999
         except:
-            log.error("Fatal: Cannot read out2 file: %s" % file, exc_info=True)
-            self.status = -1
-            return
+            if self.annulus is None:
+                log.error("Fatal: Cannot read out2 file: %s" % file, exc_info=True)
+                self.status = -1
+                return
+            else:
+                self.wra = self.ra
+                self.wdec = self.dec
 
         #get summary information (res file)
         # wavelength   wavelength(best fit) counts sigma  ?? S/N   cont(10^-17)
@@ -989,13 +993,25 @@ class DetObj:
 
 
         #get the weights
-        file = op.join(self.fcsdir, "list2")
         try:
-            tmp = np.genfromtxt(file,dtype=np.str,usecols=0)
-            if len(tmp) != len(multi):
-                log.error("Cannot match up list2 and l1 files")
-            else:
 
+            #this file may not be there ... if we are doing an annulus, that does not matter
+            if self.annulus is None:
+                file = op.join(self.fcsdir, "list2")
+                #just a simple check on the length
+                try:
+                    if len(np.genfromtxt(file,dtype=np.str,usecols=0)) != len(multi):
+                        log.error("Cannot match up list2 and l1 files")
+                        good = False
+                    else:
+                        good = True
+                except:
+                    log.error("Cannot load list2")
+                    good = False
+            else:
+                good = True
+
+            if good:
                 #tmp = out[:,0]
                 if self.annulus is None:
                     out = np.loadtxt(file, dtype=np.float, usecols=(1,2))
@@ -2149,45 +2165,47 @@ class HETDEX:
                                 break
 
 
-        #calculate the RA and DEC of each emission line object
-        #remember, we are only using a single IFU per call, so all emissions belong to the same IFU
 
-        #if ra and dec were passed in, use them instead of tel_ra and tel_dec
+        if args.annulus is None:
+            #calculate the RA and DEC of each emission line object
+            #remember, we are only using a single IFU per call, so all emissions belong to the same IFU
 
-        #note: rot = 360-(90 + 1.8 + PARANGLE) so, PARANGLE = 360 -(90+1.8+rot)
-        #the 1.8 constant is under some investigation (have also seen 1.3)
+            #if ra and dec were passed in, use them instead of tel_ra and tel_dec
 
-        #if PARANGLE is specified on the command line, use it instead of the FITS PARANGLE
-        #360. - (90+1.3+args.rot)) from DetectWebpage
-        build_coords = False
-        if args.rot is not None:
-            self.rot = float(args.rot)
-        elif args.par is not None:
-            self.rot = 360. - (90. + 1.3 + args.par)
-        elif self.parangle:
-            self.rot = 360. - (90. + 1.3 + self.parangle)
+            #note: rot = 360-(90 + 1.8 + PARANGLE) so, PARANGLE = 360 -(90+1.8+rot)
+            #the 1.8 constant is under some investigation (have also seen 1.3)
 
-        if (args.ra is not None) and (args.dec is not None):
-            self.tangentplane = TP(args.ra, args.dec, self.rot)
-            build_coords = True
-            log.debug("Calculating object RA, DEC from commandline RA=%f , DEC=%f , ROT=%f" \
-                      % (args.ra, args.dec, self.rot))
-        elif (self.tel_ra and self.tel_dec and self.rot):
-            self.tangentplane = TP(self.tel_ra, self.tel_dec, self.rot)
-            build_coords = True
-            log.debug("Calculating object RA, DEC from: TELRA=%f , TELDEC=%f , PARANGLE=%f , ROT=%f" \
-                  % (self.tel_ra, self.tel_dec, self.parangle, self.rot))
+            #if PARANGLE is specified on the command line, use it instead of the FITS PARANGLE
+            #360. - (90+1.3+args.rot)) from DetectWebpage
+            build_coords = False
+            if args.rot is not None:
+                self.rot = float(args.rot)
+            elif args.par is not None:
+                self.rot = 360. - (90. + 1.3 + args.par)
+            elif self.parangle:
+                self.rot = 360. - (90. + 1.3 + self.parangle)
 
-        if build_coords:
-            #wants the slot id as a 0 padded string ie. '073' instead of the int (73)
-            #ifu center
-            self.ifux = self.fplane.by_ifuslot(self.ifu_slot_id).x
-            self.ifuy = self.fplane.by_ifuslot(self.ifu_slot_id).y
+            if (args.ra is not None) and (args.dec is not None) and (self.rot is not None):
+                self.tangentplane = TP(args.ra, args.dec, self.rot)
+                build_coords = True
+                log.debug("Calculating object RA, DEC from commandline RA=%f , DEC=%f , ROT=%f" \
+                          % (args.ra, args.dec, self.rot))
+            elif (self.tel_ra and self.tel_dec and self.rot):
+                self.tangentplane = TP(self.tel_ra, self.tel_dec, self.rot)
+                build_coords = True
+                log.debug("Calculating object RA, DEC from: TELRA=%f , TELDEC=%f , PARANGLE=%f , ROT=%f" \
+                      % (self.tel_ra, self.tel_dec, self.parangle, self.rot))
 
-            #reminder, we use the weighted ra and dec (e.wra, e.wdec) if available
-            for e in self.emis_list: #yes this right: x + ifuy, y + ifux
-                e.ra, e.dec = self.tangentplane.xy2raDec(e.x + self.ifuy, e.y + self.ifux)
-                log.info("Emission Detect ID #%d RA=%f , Dec=%f" % (e.id,e.ra,e.dec))
+            if build_coords:
+                #wants the slot id as a 0 padded string ie. '073' instead of the int (73)
+                #ifu center
+                self.ifux = self.fplane.by_ifuslot(self.ifu_slot_id).x
+                self.ifuy = self.fplane.by_ifuslot(self.ifu_slot_id).y
+
+                #reminder, we use the weighted ra and dec (e.wra, e.wdec) if available
+                for e in self.emis_list: #yes this right: x + ifuy, y + ifux
+                    e.ra, e.dec = self.tangentplane.xy2raDec(e.x + self.ifuy, e.y + self.ifux)
+                    log.info("Emission Detect ID #%d RA=%f , Dec=%f" % (e.id,e.ra,e.dec))
 
     #end HETDEX::__init__()
 
@@ -2760,6 +2778,8 @@ class HETDEX:
                 e = DetObj(toks, emission=True, fcsdir=d)
                 e.annulus = self.annulus
                 e.target_wavelength = self.target_wavelength
+                e.ra = self.target_ra
+                e.dec = self.target_dec
                 if e is not None:
                     G.UNIQUE_DET_ID_NUM += 1
                     #for consistency with Karl's namine, the entry_id is the _xxx number at the end

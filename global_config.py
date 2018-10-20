@@ -8,7 +8,7 @@ from datetime import datetime
 import socket
 
 #version
-__version__ = '1.5.0a3'
+__version__ = '1.5.0a4'
 
 if socket.gethostname() == 'z50':
 #if False:
@@ -91,7 +91,9 @@ LOG_LEVEL = logging.DEBUG
 # reminder to self ... this is pointless with SLURM given the bash wraper (which does not know about the
 # specific dir name and just builds elixer.run ... so leave this here
 LOG_FILENAME = "elixer.log"
-logging.basicConfig(filename=LOG_FILENAME,level=LOG_LEVEL,filemode='w')
+#loggin intialization moved to elixer.py in parse_commandline as that is the first place we need to log ...
+#   if --help, then the logger is not created
+#logging.basicConfig(filename=LOG_FILENAME,level=LOG_LEVEL,filemode='w')
 #.debug(), .info(), .warning(), .error(), .critical()
 
 

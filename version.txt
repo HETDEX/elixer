@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.5.0a4 [2018-10-19]
+* updating for changes to rsp output
+* moved initialization of logger to after check for --help
+* fixed summing problem with Cutout2D.data in catalogs get_stacked_cutout
+
 
 1.5.0a3 [2018-10-17]
 * allow --fcsdir directory building with --dets to continue if individual directories are bad

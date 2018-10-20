@@ -676,7 +676,7 @@ class SHELA(cat_base.Catalog):
                         ref_exptime = sci.exptime
                         total_adjusted_exptime = 1.0
                     else:
-                        stacked_cutout = np.add(stacked_cutout.data, cutout.data * sci.exptime / ref_exptime)
+                        stacked_cutout.data = np.add(stacked_cutout.data, cutout.data * sci.exptime / ref_exptime)
                         total_adjusted_exptime += sci.exptime / ref_exptime
             except:
                 log.error("Error in get_stacked_cutout.", exc_info=True)
