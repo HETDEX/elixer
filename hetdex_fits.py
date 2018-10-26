@@ -56,6 +56,8 @@ class HetdexFits:
 
         self.dither_index = dither_index
 
+        self.ampname = None #specifically, Header keyword (or could come from AMPLIFIE)
+
         #build basic info from filename
 
         #determine if 'cure'-style fits or panacea fits
@@ -111,6 +113,16 @@ class HetdexFits:
             self.parangle = f[0].header['PARANGLE']
         except:
             log.error("Cannot translate RA and/or Dec from FITS format to degrees in " + self.filename, exc_info=True)
+
+        try:
+            self.ampname = f[idx].header['AMPNAME']
+        except:
+            log.info("FITS keyword [AMPNAME] not found. Trying alternate [AMPLIFIE] in " + self.filename)
+            try:
+                self.ampname = f[idx].header['AMPLIFIE']
+            except:
+                log.info("FITS keyword [AMPLIFIE] not found in " + self.filename)
+                self.ampname = None
 
         try:
             self.ifuid = str(f[0].header['IFUID']).zfill(3)
@@ -409,6 +421,16 @@ class HetdexFits:
         except:
             log.error("Non-fatal: Cannot translate RA and/or Dec from FITS format to degrees in " + self.filename, exc_info=True)
             #might be okay, depeding on if the individual emission lines have the weighted RA and Dec Specified
+
+        try:
+            self.ampname = f[idx].header['AMPNAME']
+        except:
+            log.info("FITS keyword [AMPNAME] not found. Trying alternate [AMPLIFIE] in " + self.filename)
+            try:
+                self.ampname = f[idx].header['AMPLIFIE']
+            except:
+                log.info("FITS keyword [AMPLIFIE] not found in " + self.filename)
+                self.ampname = None
 
         try:
             self.ifuid = str(f[idx].header['IFUSID']).zfill(3)

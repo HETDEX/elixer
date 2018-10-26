@@ -94,6 +94,7 @@ class Fiber:
             except:
                 log.error("Exception: Cannot parse fiber string.",exc_info=True)
 
+        self.bad = False
         self.detect_id = detect_id
         self.idstring = idstring #whole string
         #scifits_idstring ... just the first part that IDs the file
@@ -197,6 +198,49 @@ class Fiber:
         except:
             log.error("Unable to map fiber index (%d) to fiber number(s)" % int(panacea_fiber_index), exc_info=True)
 
+    def clear(self,bad=False):
+        self.central_emis_counts = []  # from fiber-extracted ... the few pixels around the peak
+        self.central_emis_wavelengths = []
+        self.central_emis_errors = []
+
+        # full length   (NOT CALIBRATED)
+        self.data_spectra_wavelengths = []
+        self.data_spectra_counts = []
+        self.data_spectra_errors = []
+        self.max_spectra_count = None
+
+        # interpolated onto a 1 angstrom grid
+        self.interp_spectra_wavelengths = []
+        self.interp_spectra_flux = []
+        self.interp_spectra_counts = []
+        self.interp_spectra_errors = []
+
+        self.multi = None
+        self.relative_weight = 1.0  # spatially calculated, so one for entire fiber
+        # to sum fibers need relative_weight*thuput at each wavelength
+
+        # full length CALIBRATED (labeled 'central' but this is the whole length)
+        self.fluxcal_central_emis_wavelengths = []
+        self.fluxcal_central_emis_counts = []
+        self.fluxcal_central_emis_flux = []
+        self.fluxcal_central_emis_fluxerr = []
+        self.fluxcal_central_emis_thru = []
+        self.fluxcal_emis_cont = []
+
+        self.empty_status = None  # meaning, no strong signals (anywhere in spectrum)
+        self.peaks = None  # if populated is an array of peaks from spectrum::peakdet (may be empty if no strong signal)
+
+        # info about weak (diffuse) signal:  d for diffuse
+        self.d_wavelength = None  # line center attempting to find (e.g. th observed, LyA line of central object)
+        self.d_units = -17  # expected to be 10^-17 cgs
+        self.d_flux = None  # approximate flux (area of gaussian)
+        self.d_flux_err = None  # error on the flux estimate
+        self.d_snr = None  # approximate signal to noise
+        self.d_prob_noise = None  # probability that this "signal" is just noise (generally will be high, given, by
+        # definition, the low flux (and correlated low SNR) we are seeking
+
+        self.bad = bad #mark as bad fiber
+
     def __str__(self):
         date = ""
         time = ""
@@ -285,7 +329,7 @@ class Fiber:
 
 
     def is_empty(self, wavelengths, values, errors=None, units=None, max_score=2.0, max_snr=2.0,
-                 max_val=5.0e-17, force=False):
+                 max_val=5.0e-17, force=False, central_wavelength=None):
         '''
         Basically, is the fiber free from any overt signals (real emission line(s), continuum, sky, etc)
         Values and errors must have the same units
@@ -293,6 +337,11 @@ class Fiber:
         Would be best (downstream) if they were also flux calibtrated, but does not matter much in this function
 
         '''
+
+        #return True #always add, just for now just to count the fibers
+
+        central_wavelength = None
+
         if not force and (self.empty_status is not None):
             return self.empty_status
 
@@ -301,12 +350,28 @@ class Fiber:
             log.warning("Zero length (or None) spectrum passed to fiber::is_empty(). Treating as NOT empty.")
             return self.empty_status
 
+        narrow_values = values
+        narrow_wavelengths = wavelengths
+        narrow_errors = errors
+        if central_wavelength is not None:
+            min_idx = G.getnearpos(wavelengths,central_wavelength - 20.0)
+            max_idx = G.getnearpos(wavelengths,central_wavelength + 20.0)
+            narrow_values = values[min_idx:max_idx]
+            narrow_wavelengths = wavelengths[min_idx:max_idx]
+            if errors is not None:
+                narrow_errors = errors[min_idx:max_idx]
+            log.debug("Fiber::is_empty subselect wavelengths [%g:%g]" %(wavelengths[min_idx], wavelengths[max_idx]))
+            #subselect around the central wavelength +/- 50A
+        else:
+            log.debug("Fiber::is_empty central wavelgnth not provided.")
+
+
         #first check the slope .... if there is an overall slope there must be continuum and that == signal
         try:
             #simplest check first
             #take out any large values (could be just a stuck pixel, but a gaussian would not fit and thus no peaks)
-            mx = max(values)
-            mn = min(values)
+            mx = max(narrow_values)
+            mn = min(narrow_values)
 
             if mx > max_val:
                 log.info("Maximum value exceeded (%0.3g < %0.3g). Fiber not empty." %(max_val,mx))
@@ -321,16 +386,21 @@ class Fiber:
 
 
             #next check the slope
+
             coeff = fit_line(wavelengths, values, errors)  # flipped order ... coeff[0] = 0th, coeff[1]=1st
             self.spectrum_linear_coeff = coeff
-            if abs(coeff[1]) > 0.001:  # todo .. what is a good value here?
-                log.info("Maximum slope exceeded (|%0.3g| > 0.001). Fiber not empty." % (coeff[1]))
-                self.empty_status = False
-                return self.empty_status
+
+            #todo: not sure I can trust this ... can have a slope and still no signal due to
+            #todo:   wavelength bin dependent uncertainty
+            #todo: for now, just report it in the log
+            # if abs(coeff[1]) > 0.001:  # todo .. what is a good value here?
+            #     log.info("Maximum slope exceeded (|%0.3g| > 0.001). Fiber not empty." % (coeff[1]))
+            #     self.empty_status = False
+            #     return self.empty_status
 
 
             #now check for any "good" peaks (most costly check)
-            self.peaks = elixer_spectrum.peakdet(wavelengths, values, errors,values_units=units)  # , h, dh, zero)
+            self.peaks = elixer_spectrum.peakdet(narrow_wavelengths, narrow_values, narrow_errors,values_units=units)  # , h, dh, zero)
 
             num_peaks = -1
             if (self.peaks is not None):

@@ -200,7 +200,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
             except:
                 log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
-                return None
+                continue
 
         return cls.df
 

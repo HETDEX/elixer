@@ -1,6 +1,6 @@
 #explore probabilities
 
-RUN = False #if false, reads in the file, if True runs samples and makes a new file
+RUN = True #if false, reads in the file, if True runs samples and makes a new file
 FILE = "/home/dustin/code/python/elixer/exp_per_wave_gauss_out.txt"
 SAMPLES = 100  #now, as samples PER wavelength
 
@@ -578,7 +578,7 @@ def main():
 
     o2 = np.load('random_signal_dict.npy').item()
 
-    exit(0)
+   # exit(0)
 
     all_score = np.histogram(score, bins=gf.score_bin_edges)
 

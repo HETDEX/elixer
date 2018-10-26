@@ -2,13 +2,14 @@ from __future__ import print_function
 import logging
 import os.path as op
 from datetime import datetime
+import numpy as np
 #import gc
 
 #catalogs are defined at top of catalogs.py
 import socket
 
 #version
-__version__ = '1.5.0a4'
+__version__ = '1.5.0a5'
 
 REPORT_ELIXER_MCMC_FIT = False
 
@@ -155,6 +156,9 @@ class Global_Logger:
             print("Exception in logger....")
 
 
+def getnearpos(array,value):
+    idx = (np.abs(array-value)).argmin()
+    return idx
 
 LyA_rest = 1216. #A 1215.668 and 1215.674
 OII_rest = 3727.

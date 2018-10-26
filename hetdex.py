@@ -142,8 +142,7 @@ def blank_pixel_flat(xh=48,xl=0,yh=20,yl=0,vmin_pix = 0.9,vmax_pix = 1.1):
     return pix_blank
 
 
-#todo: may change with Config0 vs Config1 ... so may need to add additional info
-def flip_amp(amp=None,buf=None):
+def flip_amp(amp=None,ampname=None, buf=None):
     if (amp is None) or (buf is None):
         log.error("Amp designation or buffer is None.")
         return None
@@ -157,14 +156,20 @@ def flip_amp(amp=None,buf=None):
 
     if (amp.upper() == 'LL') or (amp.upper() == 'RU'):
         log.debug('Will not flip amp (%s). Already in correct orientation.' % amp)
-        return buf
-
-    if (amp.upper() == 'LU') or (amp.upper() == 'RL'):
+    elif (amp.upper() == 'LU') or (amp.upper() == 'RL'):
         log.debug('Will flip amp (%s). Reverse X and Reverse Y.' % amp)
-        return np.fliplr(np.flipud(buf))
+        buf =  np.fliplr(np.flipud(buf))
+    else:
+        log.warning("Unexpected AMP designation: %s" % amp)
+        return None
 
-    log.warning("Unexpected AMP designation: %s" % amp)
-    return None
+    #this is essentially the  Config0 vs Config1 ... info
+    #AMPNAME is not the same as the AMP (it comes from either [AMPNAME] or [AMPLIFIE] and has a somewhat different meaning
+    if (ampname is not None) and ((ampname.upper() == 'LR') or (ampname.upper() == 'UL')):
+        log.debug('Will flip amp (%s). Reverse Y.' % amp)
+        buf = np.fliplr(buf)
+
+    return buf
 
 
 #lifted from Greg Z. make_visualization_detect.py
@@ -464,17 +469,21 @@ class DetObj:
         self.modflux = 0.0
         self.fluxfrac = 1.0
         self.estflux = -1
+        self.estflux_unc = 0.0
         self.sigma = 0.0 #also doubling as sn (see @property sn farther below)
         self.snr = None
         self.chi2 = 0.0
+        self.chi2_unc = None
         self.chi2s = 0.0
         self.chi2w = 0.0
         self.gammq = 0.0
         self.gammq_s = 0.0
         #self.eqw = 0.0
         self.eqw_obs = 0.0
+        self.eqw_obs_unc = 0.0
         self.cont = -9999
         self.cont_cgs = -9999
+        self.cont_cgs_unc = 0.0
         self.fwhm = -1.0 #in angstroms
         self.panacea = False
 
@@ -491,7 +500,7 @@ class DetObj:
         #flux calibrated data (from Karl's detect and calibration)
         self.fcsdir = None
         self.line_gaussfit_parms = None #in load_fluxcalibrated_spectra becomes a 4 tuple (mu, sigma, A, y)
-
+        self.line_gaussfit_unc = None
 
         self.sumspec_wavelength = []
         self.sumspec_counts = []
@@ -806,7 +815,7 @@ class DetObj:
         #wavelength   wavelength(best fit) flux(10^-17) sigma  ?? S/N   cont(10^-17)
         if self.annulus is None:
             try:
-                file = op.join(self.fcsdir, basename + "spec.res")
+                file = op.join(self.fcsdir, basename + "mc.res")
 
                 if not op.exists(file):
                     log.warning("Warning. Could not load/parse: %s . Will try alternate location." % file)
@@ -835,11 +844,54 @@ class DetObj:
                         f = ft.skip_comments(f)
                         for l in f:  # should be exactly one line (but takes the last one if more than one)
                             toks = l.split()
-                            if len(toks) != 8:
-                                log.error("Error. Unexpected number of columns in *spec.res")
-                            else:
+                            if len(toks) == 8:
                                 #order: mu, sigma, A, y
                                 self.line_gaussfit_parms = (float(toks[2]), float(toks[6]),float(toks[5]),float(toks[7]))
+                                self.estflux = self.line_gaussfit_parms[2] * 1e-17
+                                self.cont_cgs = self.line_gaussfit_parms[3] * 1e-17
+                                self.fwhm = 2.35 * float(toks[1])
+
+                                if self.cont_cgs <= 0:
+                                    self.cont_cgs = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(float(toks[2]))
+                                    self.cont_cgs_unc = 0.0 #so show no uncertainty ... a give away that this is a floor
+
+                                if float(toks[7]) != 0:
+                                    self.eqw_obs = abs(self.estflux / self.cont_cgs )
+                            elif len(toks) == 14: #xxx_mc.res version
+                                #          0  1   2     3     4   5     6    7       8   9      10   11    12   13
+                                # mc.res: RA DEC wave d_wave amp d_amp sigma d_sigma con d_con ston d_ston chi d_chi
+
+                                self.wra = float(toks[0])
+                                self.wdec = float(toks[1])
+
+                                #mu, sigma, Area, y
+                                self.line_gaussfit_parms = (float(toks[2]), float(toks[6]), float(toks[4]), float(toks[8]))
+
+                                self.line_gaussfit_unc = (float(toks[3]), float(toks[7]), float(toks[5]), float(toks[9]))
+
+                                self.chi2 = float(toks[12])
+                                self.chi2_unc = float(toks[13])
+
+                                self.fwhm = 2.35 * float(toks[1])
+
+                                self.estflux = self.line_gaussfit_parms[2] * 1e-17
+                                self.estflux_unc = self.line_gaussfit_unc[2] * 1e-17
+
+                                self.cont_cgs = self.line_gaussfit_parms[3] * 1e-17
+                                self.cont_cgs_unc = self.line_gaussfit_unc[3] * 1e-17
+
+                                if self.cont_cgs <= 0:
+                                    self.cont_cgs = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(float(toks[2]))
+                                    self.cont_cgs_unc = 0.0 #so show no uncertainty ... a give away that this is a floor
+
+                                self.eqw_obs = abs(self.estflux/self.cont_cgs)
+                                self.eqw_obs_unc = abs(self.eqw_obs * np.sqrt(
+                                    (self.estflux_unc / self.estflux)**2 +
+                                    (self.cont_cgs_unc / self.cont_cgs) ** 2))
+
+
+                            else:
+                                log.error("Error. Unexpected number of columns in %s" %file)
                 except:
                     log.warning("Warning. Could not load/parse: %s" %file)
 
@@ -873,13 +925,15 @@ class DetObj:
                             #as is, way too large ... maybe not originally calculated as per angstrom? so divide by wavelength?
                             #or maybe units are not right or a miscalculation?
                             #toks2 is in counts
-                            self.estflux = float(toks[2]) * self.sumspec_flux_unit_scale # e.g. * 10**(-17)
-                            #print("Warning! Using old flux conversion between counts and flux!!!")
-                            #self.estflux = float(toks[2]) * flux_conversion(self.w)
+                            if self.estflux <= 0:
+                                self.estflux = float(toks[2]) * self.sumspec_flux_unit_scale # e.g. * 10**(-17)
+                                #print("Warning! Using old flux conversion between counts and flux!!!")
+                                #self.estflux = float(toks[2]) * flux_conversion(self.w)
+                                self.cont_cgs = float(toks[6]) * self.sumspec_flux_unit_scale  # e.g. 10**(-17)
 
-                            self.fwhm = 2.35*float(toks[3]) #here sigma is the gaussian sigma, the line width, not significance
+                                self.fwhm = 2.35*float(toks[3]) #here sigma is the gaussian sigma, the line width, not significance
                             self.snr = float(toks[5])
-                            self.cont_cgs = float(toks[6]) * self.sumspec_flux_unit_scale#  e.g. 10**(-17)
+
 
                             # todo: need a floor for cgs (if negative)
                             # for now only
@@ -887,7 +941,8 @@ class DetObj:
                                 print("Warning! Using predefined floor for continuum")
                                 self.cont_cgs = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(self.w)
 
-                            self.eqw_obs = self.estflux / self.cont_cgs
+                            if self.eqw_obs <= 0 :
+                                self.eqw_obs = self.estflux / self.cont_cgs
             except:
                 log.error("Cannot read *2d.res file: %s" % file, exc_info=True)
 
@@ -1090,6 +1145,14 @@ class DetObj:
                                         log.warning("Warning! Unexpected number of columns (%d) in tmpxxx.dat." %cols)
                                     #f.fluxcal_emis_cont = tmp_out[:,6][mn_idx:mx_idx+1]
 
+
+                                    #sanity check ... could be all zeros
+                                    if np.max(f.fluxcal_central_emis_flux) == 0: #prob all zero
+                                        log.info("Clearing all fiber with all zero flux values ...")
+                                        #would be best to remove it
+                                        f.clear(bad=True)
+
+
                             #else:
                             #    # find which fiber, if any, in set this belongs to
                             #    if (f.multi == multi[i]) and (f.scifits_idstring == idstr[i]):
@@ -1103,6 +1166,11 @@ class DetObj:
                                 return
 
                     #f.relative_weight /= norm #note: some we see are zero ... they do not contribute
+
+
+                #subselect only fibers without all zero fluxes
+                select = np.where(np.array([f.bad for f in self.fibers]) == False)
+                self.fibers = list(np.array(self.fibers)[select])
 
                 if self.annulus is None:
                     for f in self.fibers:
@@ -2206,6 +2274,36 @@ class HETDEX:
 
     #end HETDEX::__init__()
 
+    def unc_str(self, tuple): #helper, formats a string with exponents and uncertainty
+        s = ""
+        if len(tuple) == 2:
+            tuple = (tuple[0],tuple[1],tuple[1])
+        try:
+            flux = ("%0.2g" % tuple[0]).split('e')
+            unc = ("%0.2g" % (0.5 * (abs(tuple[1]) + abs(tuple[2])))).split('e')
+
+            if len(flux) == 2:
+                fcoef = float(flux[0])
+                fexp = float(flux[1])
+            else:
+                fcoef =  float(flux[0])
+                fexp = 0
+
+            if len(unc) == 2:
+                ucoef = float(unc[0])
+                uexp = float(unc[1])
+            else:
+                ucoef = float(unc[0])
+                uexp = 0
+
+            if fexp != 0:
+                s = '%0.2f($\pm$%0.2f)e%d' % (fcoef, ucoef * 10 ** (uexp - fexp), fexp)
+            else:
+                s = '%0.2f($\pm$%0.2f)' % (fcoef, ucoef * 10 ** (uexp - fexp))
+        except:
+            log.warning("Exception in EmissionLineInfo::flux_unc()", exc_info=True)
+
+        return s
 
     def rotation_matrix(self, theta=0.0, deg=True):
         # Returns a rotation matrix for CCW rotation
@@ -2796,6 +2894,8 @@ class HETDEX:
             e = DetObj(toks, emission=True, fcs_base=self.fcs_base,fcsdir=self.fcsdir)
             e.annulus = self.annulus
             e.target_wavelength = self.target_wavelength
+            e.ra = self.target_ra
+            e.dec = self.target_dec
             if e is not None:
                 G.UNIQUE_DET_ID_NUM += 1
                 if e.entry_id is None or e.entry_id == 0:
@@ -2806,6 +2906,9 @@ class HETDEX:
                 if e.status >= 0:
                     self.emis_list.append(e)
 
+
+
+        #and if everything is None, nothing will work anyway
 
     def read_detectline(self,force=False):
         #emission line or continuum line
@@ -2961,15 +3064,18 @@ class HETDEX:
         eli_vector = [None] * len(radii_vector)
         snr_vector = [0] * len(radii_vector)
         best_eli = None
-        best_radius = None
+        best_radius = 0
         best_fiber_count = 0
 
         #loop here, incrementing the radius and rebuilding annulus_fibers
         print("LOOPING ....")
 
         for i in range(len(radii_vector)):
-            radius = radii_vector[i]
-            e.syn_obs.annulus_fibers(inner_radius=e.annulus[0],outer_radius=radius,empty=True)
+            outer_radius = radii_vector[i]
+            inner_radius = e.annulus[0] #todo: option to also shift the inner_radius
+
+            e.syn_obs.annulus_fibers(inner_radius=inner_radius,outer_radius=outer_radius,empty=True,
+                                     central_wavelength=self.target_wavelength)
 
             # now sub select the annulus fibers (without signal) (populate obs.fibers_work
             #e.syn_obs.annulus_fibers(empty=True)
@@ -2991,14 +3097,18 @@ class HETDEX:
 
                     if best_eli is None or (best_eli.snr <= eli_vector[i].snr):
                         best_eli = eli_vector[i]
-                        best_radius = radius
+                        best_radius = outer_radius
                         best_fiber_count = len(e.syn_obs.fibers_work)
 
-                    print("LOOP (%d): %0.2f %f %d" % (i,radius,eli_vector[i].snr,len(e.syn_obs.fibers_work)))
-                    log.info("Annulus loop(%d): %0.2f %f %d" % (i,radius, eli_vector[i].snr, len(e.syn_obs.fibers_work)))
+                    print("LOOP (%d): %0.1f-%0.1f [#fib %d] SNR = %0.2f (score = %0.2f)"
+                          % (i,inner_radius,outer_radius,len(e.syn_obs.fibers_work), eli_vector[i].snr, eli_vector[i].line_score))
+                    log.info("Annulus loop(%d): %0.1f-%0.1f [#fib %d] SNR = %0.2f (score = %0.2f)"
+                             % (i,inner_radius, outer_radius, len(e.syn_obs.fibers_work), eli_vector[i].snr, eli_vector[i].line_score))
                 else:
-                    print("LOOP (%d): %0.2f None %d" % (i,radius,len(e.syn_obs.fibers_work)))
-                    log.info("Annulus loop(%d): %0.2f None %d" % (i, radius, len(e.syn_obs.fibers_work)))
+                    print("LOOP (%d): %0.1f-%0.1f [#fib %d] SNR = None"
+                          % (i,inner_radius, outer_radius,len(e.syn_obs.fibers_work)))
+                    log.info("Annulus loop(%d): %0.1f-%0.1f [#fib %d] SNR = None"
+                             % (i, inner_radius, outer_radius, len(e.syn_obs.fibers_work)))
 
             else:
                 log.warning("No fibers inside annulus.")
@@ -3009,7 +3119,8 @@ class HETDEX:
         if (best_eli is not None) and (best_eli.snr > 0):
             log.info("Rebuilding best score ...")
             e.syn_obs.best_radius = best_radius
-            e.syn_obs.annulus_fibers(inner_radius=e.annulus[0], outer_radius=best_radius,empty=True)
+            e.syn_obs.annulus_fibers(inner_radius=inner_radius, outer_radius=best_radius,empty=True,
+                                     central_wavelength=self.target_wavelength)
             e.syn_obs.sum_fibers()
 
             e.spec_obj.set_spectra(e.syn_obs.sum_wavelengths, e.syn_obs.sum_values,
@@ -3226,8 +3337,8 @@ class HETDEX:
             la_z = 1
             oii_z = 1
 
-        estflux_str = "%0.3g" %e.estflux
-        estcont_str = "%0.3g" %e.cont_cgs
+        estflux_str = "%0.3g" %(e.estflux)
+        estcont_str = "%0.3g" %(e.cont_cgs)
         eqw_lya_str = "%0.3g" %(e.eqw_obs/(1.0+la_z))
 
         if G.REPORT_ELIXER_MCMC_FIT:
@@ -3241,6 +3352,15 @@ class HETDEX:
                     log.warning("Warning. e.spec_obj.central_eli is None in HETDEX::build_hetdex_data_page()")
             except:
                 log.error("Exception setting uncertainty strings",exc_info=True)
+
+        elif e.line_gaussfit_parms is not None:
+            if e.line_gaussfit_unc is not None:
+                estflux_str = self.unc_str((e.line_gaussfit_parms[2] *1e-17,e.line_gaussfit_unc[2]*1e-17))
+                estcont_str = self.unc_str((e.line_gaussfit_parms[3]*1e-17,e.line_gaussfit_unc[3]*1e-17))
+                eqw_lya_str = self.unc_str((e.eqw_obs/(1.0 + la_z),e.eqw_obs_unc/(1.0 + la_z)))
+            else:
+                estflux_str = "%0.3g" %(e.line_gaussfit_parms[2]*1e-17)
+                estcont_str = "%0.3g" %(e.line_gaussfit_parms[3]*1e-17)
 
         if self.ymd and self.obsid:
             if not G.ZOO:
@@ -3828,7 +3948,7 @@ class HETDEX:
                 pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (sci.specid.lstrip("0"), amp))
 
             if op.exists(pix_fn):
-                buf = flip_amp(amp,pyfits.open(pix_fn)[0].data)
+                buf = flip_amp(amp,sci.ampname,pyfits.open(pix_fn)[0].data)
                 if buf is not None:
                     datakeep['pix'].append(buf[yl:yh, xl:xh])
                 else:
@@ -4139,7 +4259,7 @@ class HETDEX:
                 pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid.lstrip("0"), fits.amp))
 
             if op.exists(pix_fn):
-                pixel_flat_buf = flip_amp(fits.amp, pyfits.open(pix_fn)[0].data)
+                pixel_flat_buf = flip_amp(fits.amp, fits.ampname, pyfits.open(pix_fn)[0].data)
                 #per Karl 20181012, zero out where the pixel flat is less than zero (indicates an error and a
                 #section to be ignored ... don't want it showing up as 'hot' data later on
                 if pixel_flat_buf is not None:
@@ -4148,7 +4268,6 @@ class HETDEX:
             else:
                 pixel_flat_buf = None
                 load_blank = True
-
 
             blank_xl = xl
             blank_xh = xh

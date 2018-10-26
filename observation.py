@@ -68,12 +68,14 @@ class SyntheticObservation():
                     #build up the full list of peaks
                     f.is_empty(wavelengths=f.fluxcal_central_emis_wavelengths,
                                values=f.fluxcal_central_emis_flux, errors=f.fluxcal_central_emis_fluxerr,
-                               units=self.units, max_score=2.0, max_snr=2.0, max_val=5.0e-17, force=False)
+                               units=self.units, max_score=10.0, max_snr=5.0, max_val=9.0e-17, force=False,
+                               central_wavelength=self.target_wavelength)
+                             #max_score = 2.0, max_snr = 2.0, max_val = 5.0e-17
                 except:
                     log.error("Error! Could not get signal_score for fiber. %s" %(str(f)), exc_info=True)
 
 
-    def annulus_fibers(self,inner_radius=None,outer_radius=None,ra=None,dec=None,empty=False):
+    def annulus_fibers(self,inner_radius=None,outer_radius=None,ra=None,dec=None,empty=False,central_wavelength=None):
         '''
         Build subset of fibers that are between the inner and outer radius.
         If outer radius is larger than maximum fiber distance, only populate as much as is possible. No error.
@@ -85,6 +87,8 @@ class SyntheticObservation():
         :param dec: optional ... if not specified, use the observations center Dec
         :return:
         '''
+
+        central_wavelength = None #force to not use right now
         self.fibers_work = []
 
         if (inner_radius is None) or (outer_radius is None):
@@ -108,7 +112,9 @@ class SyntheticObservation():
                 if inner_radius < angular_distance(ra, dec, f.ra, f.dec) < outer_radius:
                     if (not empty) or (empty and f.is_empty(wavelengths=f.fluxcal_central_emis_wavelengths,
                                values=f.fluxcal_central_emis_flux, errors=f.fluxcal_central_emis_fluxerr,
-                                units=self.units, max_score=2.0,max_snr=2.0,force=False)):
+                                units=self.units, max_score=10.0,max_snr=5.0,force=False,
+                                                            central_wavelength=central_wavelength)):
+                        #previous max_score = 2.0 , max_snr = 2.0 in effort to keep out signal
                         self.fibers_work.append(f)
         else:
             log.warning("Observation::annulus_fibers Invalid radii (inner = %f, outer = %f)" % (inner_radius, outer_radius))

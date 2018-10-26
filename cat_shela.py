@@ -353,8 +353,8 @@ class SHELA(cat_base.Catalog):
                 try:
                     table = astropy.table.Table.read(cat_loc)
                 except:
-                    log.error(name + " Exception attempting to open catalog file: " + catalog_loc, exc_info=True)
-                    return None
+                    log.error(name + " Exception attempting to open catalog file: " + cat_loc, exc_info=True)
+                    continue #try the next one
 
                 # convert into a pandas dataframe ... cannot convert directly to pandas because of the [25] lists
                 # so build a pandas df with just the few columns we need for searching

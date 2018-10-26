@@ -681,6 +681,9 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         # find the highest point in the raw data inside the range we are allowing for the line center fit
         dpix = int(round(fit_range_AA / pix_size))
         raw_peak = max(values[peak_pos-dpix:peak_pos+dpix+1])
+        if raw_peak <= 0:
+            log.warning("Spectrum::signal_score invalid raw peak %f" %raw_peak)
+            return None
     except:
         #this can fail if on very edge, but if so, we would not use it anyway
         log.info("Raw Peak value failure for wavelength (%f) at index (%d). Cannot fit to gaussian. " %(central,peak_pos))

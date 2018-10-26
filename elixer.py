@@ -1001,8 +1001,12 @@ def get_fcsdir_subdirs_to_process(args):
                     subdirs.append(d)
                     log.debug("Adding %s" % d)
                 else:
-                    log.debug("FAILED to find %s" % d)
-                    print("*** FAILED: %s" % d) #but keep going
+                    if ("*" in d) or ("?" in d):
+                        #this is a wildcard
+                        log.debug("Proceeding with wildcard (--fcsdir) search ...")
+                    else:
+                        log.debug("FAILED to find %s. Will proceed with full search ...." % d)
+                        print("*** FAILED: %s" % d) #but keep going
 
                     #fail, fast method will not work
                     #if any fail, all fail?
