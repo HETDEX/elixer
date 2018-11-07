@@ -461,8 +461,12 @@ class DetObj:
         self.type = 'unk'
         self.entry_id = None #e.g. line number
         self.id = None
-        self.x = None
+
+        #defunct for a while and removed in 1.5.07
+        #still in place for CURE calls
+        self.x = None  #sky x and y?
         self.y = None
+
         self.w = 0.0
         self.la_z = 0.0
         self.dataflux = 0.0
@@ -997,7 +1001,7 @@ class DetObj:
                 for i in range(len(out6)):
                     ra = float(out1[i][0])
                     dec = float(out1[i][1])
-                    sky_x = float(out1[i][2])
+                    sky_x = float(out1[i][2]) #IFU x,y location of this fiber
                     sky_y = float(out1[i][3])
                     multi_name = out1[i][4]
                     exp = int(out1[i][5].lstrip("exp"))
@@ -1023,6 +1027,8 @@ class DetObj:
                         fiber.obsid = int(shot_num)
                         fiber.expid = exp
                         fiber.detect_id = self.id
+                        fiber.center_x = sky_x
+                        fiber.center_y = sky_y
                         # add the fiber (still needs to load its fits file)
                         # we already know the path to it ... so do that here??
                         fiber.fits_fn = out6[i]

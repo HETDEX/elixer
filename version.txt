@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.5.0a7 [2018-11-07]
+* removed Sky X, Y (weighted X,Y of the source in the IFU) from *_fib.txt
+* added IFU X, Y (X,Y of the center of the fiber in the IFU) for each fiber in *_fib.txt
+
 1.5.0a6 [2018-11-06]
 * adjust rspxxx Gauss fit of line flux by 2x (pixels to angstroms correction)
 * replace upper right dataplot as scatter with error vs line with error

@@ -795,8 +795,8 @@ def write_fibers_file(filename,hd_list):
         "emission line RA (decimal degrees)",
         "emission line Dec (decimal degrees)",
         "emission line wavelength (AA)",
-        "emission line sky X",
-        "emission line sky Y",
+        #"emission line sky X",
+        #"emission line sky Y",
         "emission line sigma (significance) for cure or S/N for panacea",
         "emission line chi2 (point source fit) (cure)",
         "emission line estimated fraction of recovered flux",
@@ -814,6 +814,8 @@ def write_fibers_file(filename,hd_list):
         "  fiber number on full CCD (1-448)",
         "  RA of fiber center",
         "  Dec of fiber center",
+        "  X of the fiber center in the IFU",
+        "  Y of the fiber center in the IFU",
         "  S/N of emission line in this fiber",
         #"  weighted quality score",
         "  X coord on the CCD for the amp of this emission line in this fiber (as shown in ds9)",
@@ -848,8 +850,9 @@ def write_fibers_file(filename,hd_list):
                 f.write(sep + str(emis.dec))
             f.write(sep + str(emis.w))
 
-            f.write(sep + str(emis.x))
-            f.write(sep + str(emis.y))
+        #dead ... no longer being calculated
+           # f.write(sep + str(emis.x))
+           # f.write(sep + str(emis.y))
 
             f.write(sep + str(emis.sigma))
             f.write(sep + str(emis.chi2))
@@ -871,6 +874,8 @@ def write_fibers_file(filename,hd_list):
                 f.write(sep + str(fib.number_in_ccd))
                 f.write(sep + str(fib.ra)) #of fiber center
                 f.write(sep + str(fib.dec))
+                f.write(sep + str(fib.sky_x)) #of fiber center
+                f.write(sep + str(fib.sky_y))
                 f.write(sep + str(fib.sn))
                 #f.write(sep + str(fib.dqs)) #as of 1.4.0a11 not using dqs
                 f.write(sep + str(fib.ds9_x))

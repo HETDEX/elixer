@@ -8,7 +8,6 @@
    see http://arxiv.org/abs/1510.07043
    
 '''
-
 from pylab import *
 import numpy as np
 import math
