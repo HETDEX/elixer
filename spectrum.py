@@ -35,7 +35,7 @@ DEFAULT_BACKGROUND_WIDTH = 100.0 #pixels
 DEFAULT_MIN_WIDTH_FROM_CENTER_FOR_BACKGROUND = 10.0 #pixels
 
 
-GAUSS_FIT_MAX_SIGMA = 10.0 #maximum width (pixels) for fit gaussian to signal (greater than this, is really not a fit)
+GAUSS_FIT_MAX_SIGMA = 17.0 #maximum width (pixels) for fit gaussian to signal (greater than this, is really not a fit)
 GAUSS_FIT_MIN_SIGMA = 1.0 #roughly 1/2 pixel where pixel = 1.9AA (#note: "GOOD_MIN_SIGMA" below provides post
                           # check and is more strict) ... allowed to fit a more narrow sigma, but will be rejected later
                           # as not a good signal .... should these actually be the same??
@@ -753,7 +753,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
         fit_peak = max(eli.fit_vals)
 
-        if ( abs(fit_peak - raw_peak) > (raw_peak * 0.2) ):
+        if ( abs(fit_peak - raw_peak) > (raw_peak * 0.25) ):
         #if (abs(raw_peak - fit_peak) / raw_peak > 0.2):  # didn't capture the peak ... bad, don't calculate anything else
             #log.warning("Failed to capture peak")
             log.debug("Failed to capture peak: raw = %f , fit = %f, frac = %0.2f" % (raw_peak, fit_peak,
@@ -1791,7 +1791,16 @@ class Spectrum:
         #reminder ... colors don't really matter (are not used) if solution is not True)
         #try to keep the name in 4 characters
         w = 4
+
         self.emission_lines = [
+            #extras for HW
+            # EmissionLine("H$\\alpha$".ljust(w), 6562.8, "blue"),
+            # EmissionLine("NaII".ljust(w),6549.0,"lightcoral",solution=True, display=True),
+            # EmissionLine("NaII".ljust(w),6583.0,"lightcoral",solution=True, display=True),
+            # EmissionLine("Pa$\\beta$".ljust(w),12818.0,"lightcoral",solution=True, display=True),
+            # EmissionLine("Pa$\\alpha$".ljust(w),18751.0,"lightcoral",solution=True, display=True),
+
+
             EmissionLine("Ly$\\alpha$".ljust(w), G.LyA_rest, 'red'),
 
             EmissionLine("OII".ljust(w), G.OII_rest, 'green'),
@@ -1803,6 +1812,7 @@ class Spectrum:
             EmissionLine("CII".ljust(w),  2326.0, "purple",solution=False,display=False),  # in AGN
 
             EmissionLine("MgII".ljust(w), 2799.117, "magenta",display=False),  #big in AGN
+
 
             EmissionLine("H$\\beta$".ljust(w), 4862.68, "blue"),
             EmissionLine("H$\\gamma$".ljust(w), 4341.68, "royalblue"),
@@ -1916,6 +1926,14 @@ class Spectrum:
         self.solutions = None
         self.central_eli = None
 
+        if central is None:
+            self.wavelengths = wavelengths
+            self.values = values
+            self.errors = errors
+            self.values_units = values_units
+            self.central = central
+            return
+
         #run MCMC on this one ... the main line
         try:
 
@@ -1969,6 +1987,7 @@ class Spectrum:
         if (wavelengths is None) or (values is None):
             wavelengths = self.wavelengths
             values = self.values
+            values_units = self.values_units
             update_self = True
 
         #find the peaks and use the largest
@@ -1982,7 +2001,7 @@ class Spectrum:
         values,values_units = norm_values(values,values_units)
 
         #does not need errors for this purpose
-        peaks = peakdet(wavelengths,values,errors) #as of 2018-06-11 these are EmissionLineInfo objects
+        peaks = peakdet(wavelengths,values,errors,values_units=values_units) #as of 2018-06-11 these are EmissionLineInfo objects
         max_v = -np.inf
         #find the largest flux
         for p in peaks:

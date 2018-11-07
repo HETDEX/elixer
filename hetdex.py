@@ -895,8 +895,24 @@ class DetObj:
                 except:
                     log.warning("Warning. Could not load/parse: %s" %file)
 
+            #correction for pixels to AA (impacts only flux)
+            if self.line_gaussfit_parms is not None:
+                try:
+                    #have to make a list and back again since tuples are immutable
+                    parms = list(self.line_gaussfit_parms)
+                    parms[2] *= 2.0
+                    self.line_gaussfit_parms = tuple(parms)
 
+                except:
+                    log.warning("hetdex::load_fluxcalibrated_spectra() unable to correct pixels to AA",exc_info=True)
 
+            # if self.line_gaussfit_unc is not None:
+            #     try:
+            #         parms = list(self.line_gaussfit_unc)
+            #         parms[2] *= 2.0
+            #         self.line_gaussfit_unc = tuple(parms)
+            #     except:
+            #         log.warning("hetdex::load_fluxcalibrated_spectra() unable to correct pixels to AA", exc_info=True)
 
             file = op.join(self.fcsdir, basename + "_2d.res")
             try:
@@ -4933,7 +4949,7 @@ class HETDEX:
 
 
         specplot.plot(wave_grid, fit_spec, c='k', lw=2, linestyle="solid", alpha=1.0, zorder=0)
-        specplot.errorbar(wave_data,flux,yerr=flux_err)
+        specplot.errorbar(wave_data,flux,yerr=flux_err,fmt='.')
         specplot.text(0.05,0.95,'e-17',horizontalalignment='center',
                       verticalalignment='center', transform=specplot.transAxes)
 
