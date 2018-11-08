@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.5.0a8 [2018-11-08]
+* changed search for an entry ID from the fcsdir detection file path to use the last token that is an integer
+
 1.5.0a7 [2018-11-07]
 * removed Sky X, Y (weighted X,Y of the source in the IFU) from *_fib.txt
 * added IFU X, Y (X,Y of the center of the fiber in the IFU) for each fiber in *_fib.txt

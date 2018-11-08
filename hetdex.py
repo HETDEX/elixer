@@ -677,9 +677,24 @@ class DetObj:
             elif fcsdir is not None: #expectation is that we have an rsp1 style directory instead
                 self.fcsdir = fcsdir
                 try: #for consistency with Karl's naming, the entry_id here is the _xxx number
-                    self.entry_id = int(os.path.basename(fcsdir).split("_")[1]) #assumes 20170322v011_005
+                    #try as the last number
+                    toks = os.path.basename(fcsdir).split("_")
+                    possible_ids = []
+                    for s in toks:
+                        try:
+                            id = int(s)
+                            possible_ids.append(id)
+                        except:
+                            pass
+
+                    if len(possible_ids) > 0:
+                        self.entry_id = possible_ids[-1] #get the last one
+                    else:
+                        log.debug("No detection ID from basename: %s" %fcsdir)
+
+                    #self.entry_id = int(os.path.basename(fcsdir).split("_")[-1]) #assumes 20170322v011_005
                 except:
-                    pass
+                    log.debug("No detection ID from basename")
 
         else:
             self.type = 'cont'
