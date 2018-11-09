@@ -993,7 +993,7 @@ class DetObj:
         file = op.join(self.fcsdir, "l1")
         try:
             out = np.genfromtxt(file, dtype=None,usecols=(4,8))
-            if out.size == 1:
+            if out.size < 3: #two columns ... so if the size comes back as 2, only one row in place and need to make 2d
                 a = []
                 a.append(out)
                 out = np.array(a)
@@ -1138,6 +1138,12 @@ class DetObj:
                 #tmp = out[:,0]
                 if self.annulus is None:
                     out = np.loadtxt(file, dtype=np.float, usecols=(1,2))
+
+                    if out.size < 3:  # two columns ... so if the size comes back as 2, only one row in place and need to make 2d
+                        a = []
+                        a.append(out)
+                        out = np.array(a)
+
                     keep = out[:,0]
                     w = out[:,1] #weights
                 else:
