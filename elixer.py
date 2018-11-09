@@ -94,7 +94,11 @@ class PDF_File():
            #     except:
            #         log.error("Unable to clean output directory: " + self.filename,exc_info=True)
 
-            filename = os.path.basename(self.basename) + "_" + str(id).zfill(3) + ".pdf"
+            if type(id) == int:
+                filename = os.path.basename(self.basename) + "_" + str(id).zfill(3) + ".pdf"
+            else:
+                filename = os.path.basename(self.basename) + "_" + str(id) + ".pdf"
+
             self.filename = os.path.join(self.basename,filename)
         else:
             pass #keep filename as is
@@ -1246,7 +1250,7 @@ def main():
 
                 for e in hd.emis_list:
 
-                    log.info("Processing catalogs for eid(%d) ... " %e.entry_id)
+                    log.info("Processing catalogs for eid(%s) ... " %str(e.entry_id))
 
                     for c in cats:
                         if (e.wra is not None) and (e.wdec is not None):  # weighted RA and Dec

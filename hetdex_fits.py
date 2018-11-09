@@ -240,7 +240,9 @@ class HetdexFits:
         file = None
         if not op.exists(self.filename):
             # todo: try to find .tar file and load that way
+            log.info("%s does not exist. Looking for tar file ..." %(self.filename))
             tar_fn = self.filename.split("/exp")[0] + ".tar"
+            fits_fn = ""
 
             try:
                 if op.exists(tar_fn):

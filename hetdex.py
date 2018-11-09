@@ -459,7 +459,7 @@ class DetObj:
         #self.dqs = None #scaled score
         #self.dqs_raw = None #Detection Quality Score (raw score)
         self.type = 'unk'
-        self.entry_id = None #e.g. line number
+        self.entry_id = None #e.g. line number or identifier (maybe not a number) from rsp output
         self.id = None
 
         #defunct for a while and removed in 1.5.07
@@ -678,19 +678,23 @@ class DetObj:
                 self.fcsdir = fcsdir
                 try: #for consistency with Karl's naming, the entry_id here is the _xxx number
                     #try as the last number
-                    toks = os.path.basename(fcsdir).split("_")
-                    possible_ids = []
-                    for s in toks:
-                        try:
-                            id = int(s)
-                            possible_ids.append(id)
-                        except:
-                            pass
+                    # toks = os.path.basename(fcsdir).split("_")
+                    # possible_ids = []
+                    # for s in toks:
+                    #     try:
+                    #         id = int(s)
+                    #         possible_ids.append(id)
+                    #     except:
+                    #         pass
+                    #
+                    # if len(possible_ids) > 0:
+                    #     self.entry_id = possible_ids[-1] #get the last one
+                    # else:
+                    #     log.debug("No detection ID from basename: %s" %fcsdir)
 
-                    if len(possible_ids) > 0:
-                        self.entry_id = possible_ids[-1] #get the last one
-                    else:
-                        log.debug("No detection ID from basename: %s" %fcsdir)
+                    self.entry_id = os.path.basename(fcsdir).split("_",1)[1] #split on 1st '_' ... everything after is ID
+                    if self.entry_id.isdigit(): #digits only
+                        self.entry_id = int(self.entry_id)
 
                     #self.entry_id = int(os.path.basename(fcsdir).split("_")[-1]) #assumes 20170322v011_005
                 except:
@@ -1009,7 +1013,21 @@ class DetObj:
                 out1 = np.genfromtxt(file1, dtype=None)
                 out6 = np.genfromtxt(file6, dtype=None)
 
+                #if len(out6.shape) == 0: #only 1D
+                #or could say if out6.size == 1:
+                if out6.size == 1:
+                    a = []
+                    a.append(out6)
+                    out6 = np.array(a)
+
+                #if len(out1.shape) == 0:
+                if out1.size == 1:
+                    a = []
+                    a.append(out1)
+                    out1 = np.array(a)
+
                 if len(out6) != len(out1):
+                #if out6.size != out1.size: #better since out1, out6 are ndarrays
                     log.error("Error. Unmatched file lengths for l1 and l6 under %s" %(self.fcsdir))
                     return
 
@@ -1092,7 +1110,15 @@ class DetObj:
                 file = op.join(self.fcsdir, "list2")
                 #just a simple check on the length
                 try:
-                    if len(np.genfromtxt(file,dtype=np.str,usecols=0)) != len(multi):
+
+                    tempw = np.genfromtxt(file,dtype=np.str,usecols=0)
+                    #if len(tempw.shape) == 0:
+                    if tempw.size == 1:
+                        a = []
+                        a.append(tempw)
+                        tempw = np.array(a)
+
+                    if len(tempw) != len(multi):
                         log.error("Cannot match up list2 and l1 files")
                         good = False
                     else:
@@ -1242,8 +1268,8 @@ class DetObj:
             try:
                 size = os.stat(file).st_size
                 if size == 0:
-                    print("eid(%d) *specf.res file is zero length (no VIRUS data available?): %s" %(self.entry_id,file))
-                    log.error("eid(%d) *specf.res file is zero length (no VIRUS data available?): %s" %(self.entry_id,file))
+                    print("eid(%s) *specf.res file is zero length (no VIRUS data available?): %s" %(str(self.entry_id),file))
+                    log.error("eid(%s) *specf.res file is zero length (no VIRUS data available?): %s" %(str(self.entry_id),file))
                     self.status = -1
                     return
             except:
@@ -1441,7 +1467,7 @@ class DetObj:
 
         #set_spectra(self, wavelengths, values, errors, central, estflux=None, eqw_obs=None)
         #self.spec_obj.set_spectra(self.sumspec_wavelength,self.sumspec_counts,self.sumspec_fluxerr,self.w)
-        self.spec_obj.identifier = "eid(%d)" %self.entry_id
+        self.spec_obj.identifier = "eid(%s)" %str(self.entry_id)
         self.spec_obj.plot_dir = self.outdir
 
         if self.annulus is None:
@@ -2925,7 +2951,7 @@ class HETDEX:
                     if e.status >= 0:
                         self.emis_list.append(e)
                     else:
-                        log.info("Unable to continue with eid(%d). No report will be generated." %(e.entry_id))
+                        log.info("Unable to continue with eid(%s). No report will be generated." %(str(e.entry_id)))
         elif (self.fcs_base is not None and self.fcsdir is not None): #not the usual case
             toks = None
             e = DetObj(toks, emission=True, fcs_base=self.fcs_base,fcsdir=self.fcsdir)
@@ -3188,7 +3214,7 @@ class HETDEX:
         title += "Obs: Synthetic (%0.2f to %0.2f\")\n" %(e.annulus[0],e.annulus[1])
 
         if (e.entry_id is not None) and (e.id is not None):
-            title += "Entry# (%d), Detect ID (%d)" % (e.entry_id, e.id)
+            title += "Entry# (%s), Detect ID (%d)" % (str(e.entry_id), e.id)
             if e.line_number is not None:
                 title += ", Line# (%d)" % (e.line_number)
 
@@ -3340,7 +3366,7 @@ class HETDEX:
             log.debug("Exception building observation string.",exc_info=True)
 
         if (e.entry_id is not None) and (e.id is not None):
-            title += "Entry# (%d), Detect ID (%d)" %(e.entry_id, e.id)
+            title += "Entry# (%s), Detect ID (%d)" %(str(e.entry_id), e.id)
             if e.line_number is not None:
                 title += ", Line# (%d)" % (e.line_number)
 
@@ -5442,10 +5468,10 @@ class HETDEX:
                     for f in datakeep['detobj'].spec_obj.all_found_lines: #this is an EmisssionLineInfo object
 
                         log.info(
-                            "eid(%d) emission line at %01.f snr = %0.1f  line_flux = %0.1g  sigma = %0.1f  "
+                            "eid(%s) emission line at %01.f snr = %0.1f  line_flux = %0.1g  sigma = %0.1f  "
                             "line_score = %0.1f  p(noise) = %g  threshold = %g"
                             % (
-                                datakeep['detobj'].entry_id, f.fit_x0, f.snr, f.line_flux, f.fit_sigma, f.line_score,
+                                str(datakeep['detobj'].entry_id), f.fit_x0, f.snr, f.line_flux, f.fit_sigma, f.line_score,
                                 f.prob_noise,G.MULTILINE_MAX_PROB_NOISE_TO_PLOT))
 
                         if f.prob_noise < G.MULTILINE_MAX_PROB_NOISE_TO_PLOT:
@@ -5463,10 +5489,10 @@ class HETDEX:
                 if (datakeep['detobj'].spec_obj.all_found_absorbs is not None):
                     for f in datakeep['detobj'].spec_obj.all_found_absorbs:  # this is an EmisssionLineInfo object
                         log.info(
-                            "eid(%d) absorption line at %01.f snr = %0.1f  line_flux = %0.1g  sigma = %0.1f  "
+                            "eid(%s) absorption line at %01.f snr = %0.1f  line_flux = %0.1g  sigma = %0.1f  "
                             "line_score = %0.1f  p(noise) = %g  threshold = %g"
                             % (
-                                datakeep['detobj'].entry_id, f.fit_x0, f.snr, f.line_flux, f.fit_sigma, f.line_score,
+                                str(datakeep['detobj'].entry_id), f.fit_x0, f.snr, f.line_flux, f.fit_sigma, f.line_score,
                                 f.prob_noise, G.MULTILINE_MAX_PROB_NOISE_TO_PLOT))
 
                         if f.prob_noise < G.MULTILINE_MAX_PROB_NOISE_TO_PLOT:
