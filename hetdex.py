@@ -993,6 +993,11 @@ class DetObj:
         file = op.join(self.fcsdir, "l1")
         try:
             out = np.genfromtxt(file, dtype=None,usecols=(4,8))
+            if out.size == 1:
+                a = []
+                a.append(out)
+                out = np.array(a)
+
             multi = np.array(map(lambda x: x.split(".")[0],out[:,0]))
             idstr = out[:,1]
         except:
