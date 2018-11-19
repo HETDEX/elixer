@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.5.0a10 [2018-11-13]
+* added fullname / PDF name to catalogs as 1st column
+* if fcsdir is provided and the final node directory is an rspxxx output, will build PDF filename from the dirname
+
 1.5.0a9 [2018-11-08]
 * changed entry ID to allow it to be a string (if just numerical, will still treat as an integer)
 * hetdex.py::load_fluxcalibrated_spectra deal with l1,l6 files of only one line (ndarray.size issue vs len())

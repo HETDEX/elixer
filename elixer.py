@@ -71,7 +71,7 @@ def parse_astrometry(file):
 
 
 class PDF_File():
-    def __init__(self,basename,id):
+    def __init__(self,basename,id,pdf_name=None):
         self.basename = '%s' % basename
         self.filename = None
         self.id = id
@@ -94,12 +94,19 @@ class PDF_File():
            #     except:
            #         log.error("Unable to clean output directory: " + self.filename,exc_info=True)
 
-            if type(id) == int:
-                filename = os.path.basename(self.basename) + "_" + str(id).zfill(3) + ".pdf"
-            else:
-                filename = os.path.basename(self.basename) + "_" + str(id) + ".pdf"
+            self.filename = None
+            if pdf_name is not None:
+                #expect the id to be in the pdf_name
+                if str(id) in pdf_name:
+                    self.filename = os.path.join(self.basename, pdf_name) + ".pdf"
 
-            self.filename = os.path.join(self.basename,filename)
+            if self.filename is None:
+                if type(id) == int:
+                    filename = os.path.basename(self.basename) + "_" + str(id).zfill(3) + ".pdf"
+                else:
+                    filename = os.path.basename(self.basename) + "_" + str(id) + ".pdf"
+
+                self.filename = os.path.join(self.basename,filename)
         else:
             pass #keep filename as is
 
@@ -793,6 +800,7 @@ def write_fibers_file(filename,hd_list):
 
     #write header info
     headers = [
+        "fullname / PDF name",
         "input (entry) ID",
         "detect ID",
         #"detection quality score",
@@ -841,7 +849,8 @@ def write_fibers_file(filename,hd_list):
         for emis in hd.emis_list:
             #entry_num += 1
             #f.write(str(entry_num))
-            f.write(str(emis.entry_id))
+            f.write(str(emis.pdf_name))
+            f.write(sep + str(emis.entry_id))
             f.write(sep + str(emis.id))
             #if emis.dqs is None: #as of 1.4.0a11+ not using dqs
             #    emis.dqs_score()
@@ -1289,7 +1298,7 @@ def main():
 
                 #now build the report for each emission detection
                 for e in hd.emis_list:
-                    pdf = PDF_File(args.name, e.entry_id)
+                    pdf = PDF_File(args.name, e.entry_id, e.pdf_name)
                     e.outdir = pdf.basename
 
                     id = "Detect ID #" + str(e.id)

@@ -503,6 +503,8 @@ class DetObj:
 
         #flux calibrated data (from Karl's detect and calibration)
         self.fcsdir = None
+        self.pdf_name = None
+
         self.line_gaussfit_parms = None #in load_fluxcalibrated_spectra becomes a 4 tuple (mu, sigma, A, y)
         self.line_gaussfit_unc = None
 
@@ -727,7 +729,11 @@ class DetObj:
         self.nearest_fiber = None
         self.fiber_locs = None #built later, tuples of Ra,Dec of fiber centers
 
-
+        if fcsdir is not None:
+            filename = os.path.basename(fcsdir)
+            # expect the id to be in the filename
+            if str(self.entry_id) in filename:
+                self.pdf_name = filename  #w/o the extension
 
         # dont do this here ... only call after we know we are going to keep this DetObj
         # as this next step takes a while
@@ -3217,7 +3223,10 @@ class HETDEX:
         font.set_family('monospace')
         font.set_size(12)
 
-        if self.output_filename is not None:
+
+        if e.pdf_name is not None:
+            title = "\n%s\n" % (e.pdf_name)
+        elif self.output_filename is not None:
             title = "\n%s_%s.pdf\n" % (self.output_filename, str(e.entry_id).zfill(3))
         else:
             title = ""
@@ -3365,7 +3374,9 @@ class HETDEX:
             sci_files = "multiple fiber specific"
 
         title = r""
-        if self.output_filename is not None:
+        if e.pdf_name is not None:
+            title = "\n%s\n" % (e.pdf_name)
+        elif self.output_filename is not None:
             title += "%s_%s.pdf\n" % (self.output_filename, str(e.entry_id).zfill(3))
         #else:
             #title += "" #todo: start with filename
@@ -4849,7 +4860,10 @@ class HETDEX:
 
         if G.ZOO_CUTOUTS:
             try:
-                fn = self.output_filename + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_2d_fib.png"
+                if e.pdf_name is not None:
+                    fn = e.pdf_name.rstrip(".pdf") + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_2d_fib.png"
+                else:
+                    fn = self.output_filename + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_2d_fib.png"
                 fn = op.join( datakeep['detobj'].outdir, fn)
                 plt.savefig(fn,format="png",dpi=300)
             except:
@@ -4962,7 +4976,12 @@ class HETDEX:
                     zoo_num = "ccd_sub"
                     if key == "scatter_sky":
                         zoo_num = "ccd_sky"
-                    fn = self.output_filename + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_" + zoo_num \
+
+                    if e.pdf_name is not None:
+                        fn = e.pdf_name.rstrip(".pdf") + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_" + zoo_num \
+                         + ".png"
+                    else:
+                        fn = self.output_filename + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_" + zoo_num \
                          + ".png"
                     fn = op.join(datakeep['detobj'].outdir, fn)
                     plt.savefig(fn, format="png", dpi=300)
@@ -5021,7 +5040,10 @@ class HETDEX:
 
         if G.ZOO_CUTOUTS:
             try:
-                fn = self.output_filename + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_1d_sum.png"
+                if e.pdf_name is not None:
+                    fn = e.pdf_name.rstrip(".pdf") + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_1d_sum.png"
+                else:
+                    fn = self.output_filename + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_1d_sum.png"
                 fn = op.join(datakeep['detobj'].outdir, fn)
                 plt.savefig(fn, format="png", dpi=300)
             except:
@@ -5201,7 +5223,10 @@ class HETDEX:
 
         if G.ZOO_CUTOUTS:
             try:
-                fn = self.output_filename + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_1d_sum.png"
+                if e.pdf_name is not None:
+                    fn = e.pdf_name.rstrip(".pdf") + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_1d_sum.png"
+                else:
+                    fn = self.output_filename + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_1d_sum.png"
                 fn = op.join(datakeep['detobj'].outdir, fn)
                 plt.savefig(fn, format="png", dpi=300)
             except:
@@ -5624,7 +5649,10 @@ class HETDEX:
 
         if G.ZOO_CUTOUTS:
             try:
-                fn = self.output_filename + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_1d_full.png"
+                if e.pdf_name is not None:
+                    fn = e.pdf_name.rstrip(".pdf") + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_1d_full.png"
+                else:
+                    fn = self.output_filename + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_1d_full.png"
                 fn = op.join(datakeep['detobj'].outdir, fn)
                 plt.savefig(fn, format="png", dpi=300)
             except:

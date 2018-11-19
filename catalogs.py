@@ -16,7 +16,7 @@ import cat_stack_cosmos
 import cat_shela
 import cat_hsc
 import cat_catch_all
-
+import cat_ast376_shela
 
 def get_catalog_list():
     #build list of all catalogs below
@@ -28,6 +28,7 @@ def get_catalog_list():
     cats.append(cat_stack_cosmos.STACK_COSMOS())
     cats.append(cat_shela.SHELA())
     cats.append(cat_hsc.HSC())
+    cats.append(cat_ast376_shela.AST376_SHELA())
 
     return cats
 

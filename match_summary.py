@@ -51,6 +51,7 @@ class Match:
 
         if emis is None:
             self.detobj = None
+            self.name = "N/A"
             self.input_id = 0
             self.detect_id = 0
             self.emis_ra = 361.00
@@ -72,6 +73,7 @@ class Match:
             # this is a bit kludgey but now need info on spectra data continained within emis (v1.4.0)
             # and that also makes most of this data redundant
             self.detobj = emis
+            self.name = emis.pdf_name
             self.input_id = emis.entry_id
             self.detect_id = emis.id
             if emis.wra is not None:
@@ -161,6 +163,7 @@ class Match:
 
 class MatchSet:
     headers = [
+        "fullname / PDF name",
         "input (entry) ID",
         "detect ID",
         "emission line RA (decimal degrees)",
@@ -244,7 +247,8 @@ class MatchSet:
                 for b in m.bid_targets:
              #       entry_num += 1
                     #f.write(str(entry_num))
-                    f.write(str(m.input_id))
+                    f.write(str(m.name))
+                    f.write(sep + str(m.input_id))
                     f.write(sep + str(m.detect_id))
                     f.write(sep + str(m.emis_ra))
                     f.write(sep + str(m.emis_dec))
