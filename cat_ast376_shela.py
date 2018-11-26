@@ -22,7 +22,7 @@ import line_prob
 log = G.Global_Logger('cat_logger')
 log.setlevel(G.logging.DEBUG)
 
-pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
+#pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
 import cat_base
 import match_summary
@@ -51,7 +51,7 @@ def shela_count_to_mag(count,cutout=None,sci_image=None):
 class AST376_SHELA(cat_base.Catalog):
 
     # class variables
-    MainCatalog = AST376_SHELA
+    MainCatalog = None
     Name = "AST376_SHELA"
 
     # if multiple images, the composite broadest range (filled in by hand)
@@ -60,8 +60,8 @@ class AST376_SHELA(cat_base.Catalog):
     WCS_Manual = False
 
     CatalogImages = [
-        {'path': '/home/dustin/code/python/ast376_obs/p5-shela/data',
-         'name': 'stack_crop_shela.fits',
+        {'path': G.AST376_PATH,
+         'name': 'stack_crop_SHELA.fits',
          'filter': 'r',
          'instrument': 'LF1',
          'cols': None,
@@ -106,6 +106,9 @@ class AST376_SHELA(cat_base.Catalog):
 
 
     def build_list_of_bid_targets(self, ra, dec, error):
+
+        return 0,None,None
+
         '''ra and dec in decimal degrees. error in arcsec.
         returns a pandas dataframe'''
         # NO dataframes for this catalog ... AST376 assignment
@@ -136,16 +139,16 @@ class AST376_SHELA(cat_base.Catalog):
         log.info(self.Name + " searching for bid targets in range: RA [%f +/- %f], Dec [%f +/- %f] ..."
                  % (ra, error_in_deg, dec, error_in_deg))
 
-        try:
-            self.dataframe_of_bid_targets = \
-                self.df[(self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max) &
-                        (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)].copy()
-
-            # ID matches between both catalogs
-            self.dataframe_of_bid_targets_photoz = \
-                self.df_photoz[(self.df_photoz['ID'].isin(self.dataframe_of_bid_targets['ID']))].copy()
-        except:
-            log.error(self.Name + " Exception in build_list_of_bid_targets", exc_info=True)
+        # try:
+        #     self.dataframe_of_bid_targets = \
+        #         self.df[(self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max) &
+        #                 (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)].copy()
+        #
+        #     # ID matches between both catalogs
+        #     self.dataframe_of_bid_targets_photoz = \
+        #         self.df_photoz[(self.df_photoz['ID'].isin(self.dataframe_of_bid_targets['ID']))].copy()
+        # except:
+        #     log.error(self.Name + " Exception in build_list_of_bid_targets", exc_info=True)
 
         if self.dataframe_of_bid_targets is not None:
             self.num_targets = self.dataframe_of_bid_targets.iloc[:, 0].count()
@@ -161,13 +164,13 @@ class AST376_SHELA(cat_base.Catalog):
                                  target_w=0, fiber_locs=None,target_flux=None):
 
         self.clear_pages()
-        num_targets, _, _ = self.build_list_of_bid_targets(target_ra, target_dec, error)
 
-        if (self.dataframe_of_bid_targets is None):
-            return None
+        #there is no matching catalog ... this is just imaging so don't bother with an empty catalog
 
-        ras = self.dataframe_of_bid_targets.loc[:, ['RA']].values
-        decs = self.dataframe_of_bid_targets.loc[:, ['DEC']].values
+        ras = []
+        decs = []
+
+        self.dataframe_of_bid_targets = []
 
         # display the exact (target) location
         if G.SINGLE_PAGE_PER_DETECT:
@@ -242,7 +245,8 @@ class AST376_SHELA(cat_base.Catalog):
         #    window = 8
 
         rows = 10 #2 (use 0 for text and 1: for plots)
-        cols = 1+ len(self.CatalogImages) #(use 0 for master_stacked and 1 - N for filters)
+        #7 is the current miniumum to make the spacing look right
+        cols = 7 # 1+ len(self.CatalogImages) #(use 0 for master_stacked and 1 - N for filters)
 
         fig_sz_x = 18 #cols * 3 # was 6 cols
         fig_sz_y = 3 #rows * 3 # was 1 or 2 rows
@@ -250,7 +254,7 @@ class AST376_SHELA(cat_base.Catalog):
         fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
         plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
 
-        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.0)
+        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.05)
         # reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based
 
         font = FontProperties()
@@ -267,7 +271,7 @@ class AST376_SHELA(cat_base.Catalog):
 
         cont_est = -1
         if target_flux is not None:
-            cont_est = self.CONT_EST_BASE*3 #self.get_f606w_max_cont(self.EXPTIME_F606W, 3, self.CONT_EST_BASE)
+           # cont_est = self.CONT_EST_BASE*3 #self.get_f606w_max_cont(self.EXPTIME_F606W, 3, self.CONT_EST_BASE)
             if cont_est != -1:
                 title += "  Minimum (no match) 3$\sigma$ rest-EW: "
                 title += "  LyA = %g $\AA$ " % ((target_flux / cont_est) / (target_w / G.LyA_rest))
@@ -276,8 +280,10 @@ class AST376_SHELA(cat_base.Catalog):
                 else:
                     title = title + "  OII = N/A"
 
+       # title += "\n"
+
         plt.subplot(gs[0, :])
-        plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
+        text = plt.text(0, 0.7, title, ha='left', va='bottom', fontproperties=font)
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
@@ -389,6 +395,9 @@ class AST376_SHELA(cat_base.Catalog):
                                                       width=target_box_side, height=target_box_side,
                                                       angle=0.0, color=bc, fill=False, linewidth=1.0, zorder=1))
 
+                if pix_counts is not None:
+                    self.add_aperture_position(plt,mag_radius,mag)
+
         if self.master_cutout is None:
             # cannot continue
             print("No catalog image available in %s" % self.Name)
@@ -398,7 +407,7 @@ class AST376_SHELA(cat_base.Catalog):
             return self.build_empty_cat_summary_figure(ra, dec, error, bid_ras, bid_decs, target_w=target_w,
                                                        fiber_locs=fiber_locs)
         else:
-            self.master_cutout.data /= total_adjusted_exptime
+            self.master_cutout.data = self.master_cutout.data.astype(float) / total_adjusted_exptime
 
         plt.subplot(gs[1:, 0])
         self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, self.master_cutout)

@@ -47,7 +47,11 @@ if socket.gethostname() == 'z50':
     HSC_CAT_PATH = "/media/dustin/dd/hetdex/data/HSC/catalog_tracts" #"/work/04094/mshiro/maverick/HSC/S15A/reduced/catalog_tracts"
     HSC_IMAGE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced/images"
 
+    AST376_PATH = "/home/dustin/code/python/ast376_obs/p5-shela/data"
+
 else:
+
+    AST376_PATH = "/work/03261/polonius/maverick/catalogs/ast376"
 
     OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
     CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
