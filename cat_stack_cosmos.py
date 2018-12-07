@@ -62,7 +62,33 @@ def cosmos_g_count_to_mag(count,cutout=None,sci_image=None):
         if count > 0:
             #return -2.5 * np.log10(count*nanofact) + magzero
             #counts for cosmos ALREADY in nanojansky
-            return -2.5 * np.log10(count) + magzero
+            return -2.5 * np.log10(count.value) + magzero
+        else:
+            return 99.9  # need a better floor
+
+
+
+#NOTE: Depth around 26 mag or so
+def cosmos_r_count_to_mag(count,cutout=None,sci_image=None):
+    #nanofact = 334.116462522 #counts to nano-janksy from g fits header [NANOFACT]
+    magzero = 31.4
+    if count is not None:
+
+        try:
+            # gain = float(sci_image[0].header['GAIN'])
+            #nanofact = float(sci_image[0].header['NANOFACT'])
+            magzero = float(sci_image[0].header['MAGZERO'])
+            #exptime = float(sci_image[0].header['EXPTIME'])
+        except:
+            # gain = 1.0
+            nanofact = 0.0
+            log.error("Exception in shela_count_to_mag", exc_info=True)
+            return 99.9
+
+        if count > 0:
+            #return -2.5 * np.log10(count*nanofact) + magzero
+            #counts for cosmos ALREADY in nanojansky
+            return -2.5 * np.log10(count.value)  + magzero
         else:
             return 99.9  # need a better floor
 
@@ -193,7 +219,8 @@ class STACK_COSMOS(cat_base.Catalog):
          'image': None,
          'expanded': False,
          'wcs_manual': False,
-         'aperture': 1.0
+         'aperture': 1.0,
+         'mag_func': cosmos_r_count_to_mag
          # 'frame': 'icrs'
          },
         {'path': STACK_COSMOS_IMAGE_PATH,
@@ -283,7 +310,7 @@ class STACK_COSMOS(cat_base.Catalog):
         filter_str = None
         try:
 
-            filter_str = 'g'
+            filter_str = 'r'
             dfx = df
             #dfx = df.loc[df['FILTER']==filter_str]
             #
@@ -515,17 +542,17 @@ class STACK_COSMOS(cat_base.Catalog):
             title = self.Name + " : Possible Matches = %d (within +/- %g\")" \
                     % (len(self.dataframe_of_bid_targets), error)
 
-        if target_flux is not None:
-            cont_est = self.CONT_EST_BASE*3 #self.get_f606w_max_cont(self.EXPTIME_F606W, 3, self.CONT_EST_BASE)
-            if cont_est != 0:
-                title += "  Minimum (no match) 3$\sigma$ rest-EW: "
-                title += "  LyA = %g $\AA$ " % ((target_flux / cont_est) / (target_w / G.LyA_rest))
-                if target_w >= G.OII_rest:
-                    title = title + "  OII = %g $\AA$" % ((target_flux / cont_est) / (target_w / G.OII_rest))
-                else:
-                    title = title + "  OII = N/A"
-            else:
-                title += "  No continuum floor baseline defined."
+        # if target_flux is not None:
+        #     cont_est = self.CONT_EST_BASE*3 #self.get_f606w_max_cont(self.EXPTIME_F606W, 3, self.CONT_EST_BASE)
+        #     if cont_est != 0:
+        #         title += "  Minimum (no match) 3$\sigma$ rest-EW: "
+        #         title += "  LyA = %g $\AA$ " % ((target_flux / cont_est) / (target_w / G.LyA_rest))
+        #         if target_w >= G.OII_rest:
+        #             title = title + "  OII = %g $\AA$" % ((target_flux / cont_est) / (target_w / G.OII_rest))
+        #         else:
+        #             title = title + "  OII = N/A"
+        #     else:
+        #         title += "  No continuum floor baseline defined."
 
         plt.subplot(gs[0, :])
         #text may be updated below with PLAE()
@@ -569,8 +596,7 @@ class STACK_COSMOS(cat_base.Catalog):
                                                      aperture=aperture,mag_func=mag_func)
 
             try: #update non-matched source line with PLAE()
-                if ((mag < 99) or (cont_est != -1)) and (target_flux is not None)\
-                        and (i['instrument'] == 'CFHTLS') and (i['filter'] == 'g'):
+                if ((mag < 99)  and (target_flux is not None) and (i['filter'] == 'r')):
                     #make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
                     bid_target = match_summary.BidTarget()
                     bid_target.catalog_name = self.Name

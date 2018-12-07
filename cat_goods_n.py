@@ -463,15 +463,15 @@ class GOODS_N(cat_base.Catalog):
                     % (len(self.dataframe_of_bid_targets), error)
 
         cont_est = -1
-        if target_flux is not None:
-            cont_est = self.CONT_EST_BASE*3 #self.get_f606w_max_cont(self.EXPTIME_F606W, 3, self.CONT_EST_BASE)
-            if cont_est != -1:
-                title += "  Minimum (no match) 3$\sigma$ rest-EW: "
-                title += "  LyA = %g $\AA$ " % ((target_flux / cont_est) / (target_w / G.LyA_rest))
-                if target_w >= G.OII_rest:
-                    title = title + "  OII = %g $\AA$" % ((target_flux / cont_est) / (target_w / G.OII_rest))
-                else:
-                    title = title + "  OII = N/A"
+        # if target_flux is not None:
+        #     cont_est = self.CONT_EST_BASE*3 #self.get_f606w_max_cont(self.EXPTIME_F606W, 3, self.CONT_EST_BASE)
+        #     if cont_est != -1:
+        #         title += "  Minimum (no match) 3$\sigma$ rest-EW: "
+        #         title += "  LyA = %g $\AA$ " % ((target_flux / cont_est) / (target_w / G.LyA_rest))
+        #         if target_w >= G.OII_rest:
+        #             title = title + "  OII = %g $\AA$" % ((target_flux / cont_est) / (target_w / G.OII_rest))
+        #         else:
+        #             title = title + "  OII = N/A"
 
         plt.subplot(gs[0, :])
         plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)

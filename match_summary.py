@@ -91,9 +91,9 @@ class Match:
                 self.emis_fwhm = -1.0
 
             if emis.panacea:
-                self.emis_sn = emis.sigma
-                self.emis_sigma = -99999
-                self.emis_chi2 = -99999
+                self.emis_sn = emis.snr
+                self.emis_sigma = emis.sigma
+                self.emis_chi2 = emis.chi2
             else:
                 self.emis_sigma = emis.sigma
                 self.emis_chi2 = emis.chi2

@@ -1,5 +1,13 @@
 changes to elixer by version
 
+1.5.0a12 [2018-12-07]
+* made photometry aperture fixed at 1.5" (not yet configurable on command line, but is set in global_config.py)
+* switching preferred filter to compute continuum estimate to r-band
+* fix missing SNR (col 13) in *_cat.txt
+
+1.5.0a11 [2018-11-28]
+* corrected error in hetdex.py load_fluxcalibrated_spectra (wrong column being used for sigma from fitres *.res files)
+
 1.5.0a10 [2018-11-13]
 * added fullname / PDF name to catalogs as 1st column
 * if fcsdir is provided and the final node directory is an rspxxx output, will build PDF filename from the dirname

@@ -257,11 +257,25 @@ class science_image():
                 and (mag_func is not None) and (aperture > 0):
 
             if G.DYNAMIC_MAG_APERTURE:
-                radius = 0.5
+                radius = max(0.5,aperture)
                 step = 0.1
+
+                # try:
+                #     ps = cutout.wcs.pixel_scale_matrix[0][0] * 3600.0 #approx pix-scale
+                #     step = ps/2. #half-pixel steps in terms of arcsec
+                #     if step > radius:
+                #         radius = step
+                # except:
+                #     step = 0.1
+
+                log.debug("science_image::get_cutout() mag aperture radius step size = %f" %step)
+
                 max_radius = radius
                 max_bright = 99.9
                 max_counts = 0
+
+                mag_list = [99.9]
+                rad_list = [0.0]
 
                 while radius <= error:
                     try:
@@ -310,26 +324,32 @@ class science_image():
 
                         mag = mag_func(counts, cutout, self.fits)
 
+
+
                         # pix_mag = mag_func(pix_counts, cutout, self.fits)
                         # log.info("++++++ pix_mag (%f) sky_mag(%f)" %(pix_mag,mag))
                         # log.info("++++++ pix_radius (%f)  sky_radius (%f)" % (radius / self.pixel_size, radius))
                         # log.info("++++++ pix_counts (%f)  sky_counts (%f)" % (pix_counts, counts))
 
-                        log.info("Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %g mag = %g"
-                                 % (radius, ra, dec, counts, mag))
+                        log.info("Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %g mag = %g dmag = %g"
+                                 % (radius, ra, dec, counts, mag, mag - mag_list[-1]))
+
+                        mag_list.append(mag)
+                        rad_list.append(radius)
 
                         #todo: if mag == 99.9 at radius == 0.5" maybe just stop or limit to 1" total?
                         #todo: don't want to catch somthing on the edge and then expand
                         #todo: plus our astrometry accuracy is ~ 0.5"
 
                         if mag < 99:
-                            if (mag > max_bright) or (abs(mag-max_bright) < 0.05):
+                            if (mag > max_bright) or (abs(mag-max_bright) < 0.05):#< 0.0005):
                                 break
                         elif (radius >= aperture) or (abs(radius-aperture) <1e-5):
                             #weirdness in floats, difference when "==" is non-zero ~ 1e-16
-                            max_bright = mag
-                            max_counts = counts
-                            max_radius = radius
+                            if max_bright > mag:
+                                max_bright = mag
+                                max_counts = counts
+                                max_radius = radius
                             break
 
                         max_bright = mag
@@ -347,18 +367,21 @@ class science_image():
 
             else:
                 try:
-                    if (type(aperture) is float) or (type(aperture) is int):
-                        radius = aperture
+                    if G.FIXED_MAG_APERTURE is not None:
+                        radius = G.FIXED_MAG_APERTURE
                     else:
-                        radius = 1.
+                        if (type(aperture) is float) or (type(aperture) is int):
+                            radius = aperture
+                        else:
+                            radius = 1.
                     sky_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec)
                     phot_table = aperture_photometry(image,sky_aperture)
                     counts = phot_table['aperture_sum'][0]
                     mag = mag_func(counts,cutout,self.fits)
 
-                    log.info("Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %g Mag_AB = %g"
-                             % (radius,ra,dec,counts,mag))
-                    print ("Counts = %f Mag %f" %(counts,mag))
+                    log.info("Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %s Mag_AB = %g"
+                             % (radius,ra,dec,str(counts),mag))
+                    print ("Counts = %s Mag %f" %(str(counts),mag))
                 except:
                     log.error("Exception in science_image::get_cutout () using aperture", exc_info=True)
 

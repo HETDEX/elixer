@@ -557,15 +557,15 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             title = self.Name + " : Possible Matches = %d (within +/- %g\")" \
                     % (len(self.dataframe_of_bid_targets), error)
 
-        if target_flux is not None:
-            cont_est = self.CONT_EST_BASE*3 #self.get_f606w_max_cont(self.EXPTIME_F606W, 3, self.CONT_EST_BASE)
-            if cont_est != -1:
-                title += "  Minimum (no match) 3$\sigma$ rest-EW: "
-                title += "  LyA = %g $\AA$ " % ((target_flux / cont_est) / (target_w / G.LyA_rest))
-                if target_w >= G.OII_rest:
-                    title = title + "  OII = %g $\AA$" % ((target_flux / cont_est) / (target_w / G.OII_rest))
-                else:
-                    title = title + "  OII = N/A"
+        # if target_flux is not None:
+        #     cont_est = self.CONT_EST_BASE*3 #self.get_f606w_max_cont(self.EXPTIME_F606W, 3, self.CONT_EST_BASE)
+        #     if cont_est != -1:
+        #         title += "  Minimum (no match) 3$\sigma$ rest-EW: "
+        #         title += "  LyA = %g $\AA$ " % ((target_flux / cont_est) / (target_w / G.LyA_rest))
+        #         if target_w >= G.OII_rest:
+        #             title = title + "  OII = %g $\AA$" % ((target_flux / cont_est) / (target_w / G.OII_rest))
+        #         else:
+        #             title = title + "  OII = N/A"
 
         plt.subplot(gs[0, :])
         #text may be updated below with PLAE()
@@ -606,8 +606,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                                                      aperture=aperture,mag_func=mag_func)
 
             try: #update non-matched source line with PLAE()
-                if ((mag < 99) or (cont_est != -1)) and (target_flux is not None)\
-                        and (i['instrument'] == 'CFHTLS') and (i['filter'] == 'g'):
+                if (mag < 99) and (target_flux is not None) and (i['instrument'] == 'CFHTLS') and (i['filter'] == 'g'):
                     #make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
                     bid_target = match_summary.BidTarget()
                     bid_target.catalog_name = self.Name

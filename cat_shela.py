@@ -486,11 +486,11 @@ class SHELA(cat_base.Catalog):
         filter_str = None
         try:
 
-            filter_str = 'g'
+            filter_str = 'r'
             dfx = df.loc[df['FILTER'] == filter_str]
 
             if (dfx is None) or (len(dfx) == 0):
-                filter_str = 'r'
+                filter_str = 'g'
                 dfx = df.loc[df['FILTER'] == filter_str]
 
             if (dfx is None) or (len(dfx) == 0):
@@ -569,13 +569,13 @@ class SHELA(cat_base.Catalog):
 
 
             #relying on auto garbage collection here ...
-            #want to keep FILTER='g' or FILTER='r' if possible
+            #want to keep FILTER='g' or FILTER='r' if possible (r is better)
             self.dataframe_of_bid_targets_unique = \
-                self.dataframe_of_bid_targets[self.dataframe_of_bid_targets['FILTER']=='g']
+                self.dataframe_of_bid_targets[self.dataframe_of_bid_targets['FILTER']=='r']
 
             if len(self.dataframe_of_bid_targets_unique) == 0:
                 self.dataframe_of_bid_targets_unique = \
-                    self.dataframe_of_bid_targets[self.dataframe_of_bid_targets['FILTER'] == 'r']
+                    self.dataframe_of_bid_targets[self.dataframe_of_bid_targets['FILTER'] == 'g']
 
             if len(self.dataframe_of_bid_targets_unique) == 0:
                 self.dataframe_of_bid_targets_unique = \
@@ -788,12 +788,12 @@ class SHELA(cat_base.Catalog):
                                                          image_location=op.join(i['path'], i['name']))
             sci = i['image']
 
-            #the filters are in order, use r if g is not there
-            if (f == 'r') and (sci.exptime is not None) and (exptime_cont_est == -1):
+            #the filters are in order, use g if f is not there
+            if (f == 'g') and (sci.exptime is not None) and (exptime_cont_est == -1):
                 exptime_cont_est = sci.exptime
 
-            # the filters are in order, so this will overwrite r
-            if (f == 'g') and (sci.exptime is not None):
+            # the filters are in order, so this will overwrite g
+            if (f == 'r') and (sci.exptime is not None):
                 exptime_cont_est = sci.exptime
 
             # sci.load_image(wcs_manual=True)
@@ -802,7 +802,7 @@ class SHELA(cat_base.Catalog):
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
             try:  # update non-matched source line with PLAE()
-                if ((mag < 99) or (cont_est != -1)) and (target_flux is not None) and (i['filter'] == 'g'):
+                if (mag < 99)  and (target_flux is not None) and (i['filter'] == 'r'):
                     # make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
                     bid_target = match_summary.BidTarget()
                     bid_target.catalog_name = self.Name
@@ -992,11 +992,11 @@ class SHELA(cat_base.Catalog):
             try: #DO NOT WANT _unique (since that has wiped out the filters)
                 df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                        (self.dataframe_of_bid_targets['DEC'] == d[0]) &
-                                                       (self.dataframe_of_bid_targets['FILTER'] == 'g')]
+                                                       (self.dataframe_of_bid_targets['FILTER'] == 'r')]
                 if (df is None) or (len(df) == 0):
                     df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                        (self.dataframe_of_bid_targets['DEC'] == d[0]) &
-                                                       (self.dataframe_of_bid_targets['FILTER'] == 'r')]
+                                                       (self.dataframe_of_bid_targets['FILTER'] == 'g')]
                 if (df is None) or (len(df) == 0):
                     df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                         (self.dataframe_of_bid_targets['DEC'] == d[0])]

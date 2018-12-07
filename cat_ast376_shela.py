@@ -28,23 +28,30 @@ import cat_base
 import match_summary
 
 
+RA_NUDGE =  -2.5/3600.#-25./3600.
+DEC_NUDGE = -2.0/3600. #-7./3600.
+
+
 def shela_count_to_mag(count,cutout=None,sci_image=None):
     if count is not None:
         if sci_image is not None:
             #get the conversion factor, each tile is different
             try:
-                #gain = float(sci_image[0].header['GAIN'])
-                #nanofact = float(sci_image[0].header['NANOFACT'])
                 fluxcon = float(sci_image[0].header['fluxcon'])
+                magadd = float(sci_image[0].header['magadd'])
             except:
                 #gain = 1.0
                 log.error("Exception in shela_count_to_mag",exc_info=True)
                 return 99.9
 
         if count > 0:
-            #return -2.5 * np.log10(count*nanofact) + magzero
-            # counts for SHELA  ALREADY in nanojansky
-            return -2.5 * np.log10(count * fluxcon)
+
+            #note: either should give the exact same result as fluxcon is calculated from magadd
+
+            if magadd != 0:
+                return -2.5 * np.log10(count) + magadd
+            else:
+                return -2.5 * np.log10(count * fluxcon)
         else:
             return 99.9  # need a better floor
 
@@ -69,7 +76,7 @@ class AST376_SHELA(cat_base.Catalog):
          'image': None,
          'expanded': False,
          'wcs_manual': False,
-         'aperture': 1.0,
+         'aperture': 5.0,
          'mag_func': shela_count_to_mag
          }
     ]
@@ -212,7 +219,7 @@ class AST376_SHELA(cat_base.Catalog):
                                                              image_location=op.join(i['path'], i['name']))
                 sci = i['image']
 
-                cutout, _, _, _ = sci.get_cutout(ra, dec, error, window=window, aperture=None, mag_func=None)
+                cutout, _, _, _ = sci.get_cutout(ra + RA_NUDGE, dec + DEC_NUDGE, error, window=window, aperture=None, mag_func=None)
                 #don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
 
                 if cutout is not None:  # construct master cutout
@@ -317,7 +324,7 @@ class AST376_SHELA(cat_base.Catalog):
             sci = i['image']
 
             # sci.load_image(wcs_manual=True)
-            cutout, pix_counts, mag, mag_radius = sci.get_cutout(ra, dec, error, window=window,
+            cutout, pix_counts, mag, mag_radius = sci.get_cutout(ra + RA_NUDGE, dec + DEC_NUDGE, error, window=window,
                                                      aperture=aperture, mag_func=mag_func)
 
             try: #update non-matched source line with PLAE()
@@ -373,7 +380,7 @@ class AST376_SHELA(cat_base.Catalog):
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:
-                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True)
+                    self.master_cutout,_,_, _ = sci.get_cutout(ra + RA_NUDGE, dec + DEC_NUDGE, error, window=window, copy=True)
                     ref_exptime = sci.exptime
                     total_adjusted_exptime = 1.0
                 else:
@@ -410,7 +417,13 @@ class AST376_SHELA(cat_base.Catalog):
             self.master_cutout.data = self.master_cutout.data.astype(float) / total_adjusted_exptime
 
         plt.subplot(gs[1:, 0])
-        self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, self.master_cutout)
+
+        if fiber_locs is not None:
+            nudged_fiber_locs = []
+            for f in fiber_locs:
+                nudged_fiber_locs.append( (f[0] + RA_NUDGE, f[1] + DEC_NUDGE, f[2], f[3], f[4], f[5]) )
+
+            self.add_fiber_positions(plt, ra + RA_NUDGE, dec + DEC_NUDGE, nudged_fiber_locs, error, ext, self.master_cutout)
 
         # complete the entry
         plt.close()

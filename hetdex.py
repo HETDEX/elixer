@@ -780,6 +780,8 @@ class DetObj:
     #rsp1 (when t5all was provided and we want to load specific fibers for a single detection)
     def load_fluxcalibrated_spectra(self):
 
+        self.panacea = True #if we are here, it can only be panacea
+
         #todo: get the line width as well
 
         del self.sumspec_wavelength[:]
@@ -874,11 +876,14 @@ class DetObj:
                         for l in f:  # should be exactly one line (but takes the last one if more than one)
                             toks = l.split()
                             if len(toks) == 8:
-                                #order: mu, sigma, A, y
+                                   #gaussfit order: mu, sigma, A, y
+                                # 0  1    2           3   4    5          6         7
+                                # RA DEC wavelength S/N chi^2 amplitude sigma_line continuum
                                 self.line_gaussfit_parms = (float(toks[2]), float(toks[6]),float(toks[5]),float(toks[7]))
                                 self.estflux = self.line_gaussfit_parms[2] * 1e-17
                                 self.cont_cgs = self.line_gaussfit_parms[3] * 1e-17
-                                self.fwhm = 2.35 * float(toks[1])
+
+                                self.fwhm = 2.35 * float(toks[6])
 
                                 if self.cont_cgs <= 0:
                                     self.cont_cgs = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(float(toks[2]))
@@ -901,7 +906,7 @@ class DetObj:
                                 self.chi2 = float(toks[12])
                                 self.chi2_unc = float(toks[13])
 
-                                self.fwhm = 2.35 * float(toks[1])
+                                self.fwhm = 2.35 * float(toks[6])
 
                                 self.estflux = self.line_gaussfit_parms[2] * 1e-17
                                 self.estflux_unc = self.line_gaussfit_unc[2] * 1e-17
