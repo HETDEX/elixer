@@ -377,6 +377,15 @@ class science_image():
                     sky_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec)
                     phot_table = aperture_photometry(image,sky_aperture)
                     counts = phot_table['aperture_sum'][0]
+
+                    if not isinstance(counts, float):
+                        log.info("Attempting to strip units from counts (%s) ..." % (type(counts)))
+                        try:
+                            counts = counts.value
+                        except:
+                            log.info("Failed to strip units. Cannot cast to float. "
+                                     "Will not attempt aperture magnitude calculation", exc_info=True)
+
                     mag = mag_func(counts,cutout,self.fits)
 
                     log.info("Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %s Mag_AB = %g"
