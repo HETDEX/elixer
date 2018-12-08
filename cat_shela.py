@@ -48,7 +48,10 @@ def shela_count_to_mag(count,cutout=None,sci_image=None):
         if count > 0:
             #return -2.5 * np.log10(count*nanofact) + magzero
             # counts for SHELA  ALREADY in nanojansky
-            return -2.5 * np.log10(count) + magzero
+            if isinstance(count,float):
+                return -2.5 * np.log10(count) + magzero
+            else:
+                return -2.5 * np.log10(count.value) + magzero
         else:
             return 99.9  # need a better floor
 
@@ -731,20 +734,20 @@ class SHELA(cat_base.Catalog):
             title = self.Name + " : Possible Matches = %d (within +/- %g\")" \
                     % (len(self.dataframe_of_bid_targets_unique), error)
 
-        title += "  Minimum (no match) 3$\sigma$ rest-EW: "
-        cont_est  = -1
-        if target_flux  and self.CONT_EST_BASE:
-            cont_est = self.CONT_EST_BASE*3
-            if cont_est != -1:
-                title += "  LyA = %g $\AA$ " % ((target_flux / cont_est) / (target_w / G.LyA_rest))
-                if target_w >= G.OII_rest:
-                    title = title + "  OII = %g $\AA$" % ((target_flux / cont_est) / (target_w / G.OII_rest))
-                else:
-                    title = title + "  OII = N/A"
-            else:
-                title += "  LyA = N/A  OII = N/A"
-        else:
-            title += "  LyA = N/A  OII = N/A"
+        # title += "  Minimum (no match) 3$\sigma$ rest-EW: "
+        # cont_est  = -1
+        # if target_flux  and self.CONT_EST_BASE:
+        #     cont_est = self.CONT_EST_BASE*3
+        #     if cont_est != -1:
+        #         title += "  LyA = %g $\AA$ " % ((target_flux / cont_est) / (target_w / G.LyA_rest))
+        #         if target_w >= G.OII_rest:
+        #             title = title + "  OII = %g $\AA$" % ((target_flux / cont_est) / (target_w / G.OII_rest))
+        #         else:
+        #             title = title + "  OII = N/A"
+        #     else:
+        #         title += "  LyA = N/A  OII = N/A"
+        # else:
+        #     title += "  LyA = N/A  OII = N/A"
 
 
         plt.subplot(gs[0, :])
@@ -757,6 +760,9 @@ class SHELA(cat_base.Catalog):
         bid_colors = self.get_bid_colors(len(bid_ras))
         exptime_cont_est = -1
         index = 0 #images go in positions 1+ (0 is for the fiber positions)
+
+        best_plae_poii = None
+
         for f in self.Filters:
             try:
                 i = self.CatalogImages[
@@ -802,7 +808,7 @@ class SHELA(cat_base.Catalog):
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
             try:  # update non-matched source line with PLAE()
-                if (mag < 99)  and (target_flux is not None) and (i['filter'] == 'r'):
+                if (mag < 99)  and (target_flux is not None) and (i['filter'] in 'gr'):
                     # make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
                     bid_target = match_summary.BidTarget()
                     bid_target.catalog_name = self.Name
@@ -834,12 +840,18 @@ class SHELA(cat_base.Catalog):
                                            cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
                                            sigma=None)
 
-                    if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
-                        text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g" % (bid_target.p_lae_oii_ratio))
+                    if best_plae_poii is None or i['filter'] == 'r':
+                        best_plae_poii = bid_target.p_lae_oii_ratio
+
+                    #if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
+                    #    text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g" % (bid_target.p_lae_oii_ratio))
 
                     cat_match.add_bid_target(bid_target)
             except:
                 log.debug('Could not build exact location photometry info.', exc_info=True)
+
+            if (not G.ZOO) and (bid_target is not None) and (best_plae_poii is not None):
+                text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g" % (best_plae_poii))
 
             # 1st cutout might not be what we want for the master (could be a summary image from elsewhere)
             if self.master_cutout:
