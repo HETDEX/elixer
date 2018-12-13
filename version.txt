@@ -4,8 +4,10 @@ changes to elixer by version
 1.5.0a14 [2018-12-12]
 * if aperture magnitude fainter than global_config::SKY_ANNULUS_MIN_MAG, then compute local sky in 2x radius annulus
    around the original source, subtract sky and recompute magnitude
-* add DS9 x,y back to the data to the right of the 2D CCD cutouts (top center) and make font black for all data
-* add support for bad_amp_list (consists of ifuslot start_date stop_date)
+* add DS9 x,y back to the data to the right of the 2D CCD cutouts (top center),
+  changed last line to be IFUSLOT_ID AMP Fiber_Index  (was SPECID AMP Fiber_Index),
+  and made font black for all data
+* add support for bad_amp_list (consists of ifuslot amp start_date stop_date)
 * fixed typo in header for *_fibs.txt (was not printing the 16th column header correctly as the number of fibers)
 
 1.5.0a13 [2018-12-10]

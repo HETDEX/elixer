@@ -808,32 +808,44 @@ class DetObj:
                         else:  # data line
                             toks = line.split()
 
-                            if len(toks) != 3:
+                            if len(toks) != 4:
                                 log.warning("Unexpected line in BAD_AMP_LIST: %s" %line)
                             else:
 
                                 start_date = None
                                 stop_date = None
+                                amp = None
 
-                                if toks[1].lower() != 'none':
-                                    try:
-                                        date = dateutil.parser.parse(toks[1])
-                                        start_date = "%d%02d%02d" %(date.year,date.month,date.day)
-                                    except:
-                                        log.warning("Invalid date in BAD_AMP_LIST: %s" %line)
+                                if toks[1].upper() in elixer_fiber.AMP:
+                                    amp = toks[1].upper()
+                                else:
+                                    log.warning("Unexpected AMP in BAD_AMP_LIST: %s" %line)
+                                    continue
+
 
                                 if toks[2].lower() != 'none':
                                     try:
                                         date = dateutil.parser.parse(toks[2])
+                                        start_date = "%d%02d%02d" %(date.year,date.month,date.day)
+                                    except:
+                                        log.warning("Invalid date in BAD_AMP_LIST: %s" %line)
+                                        continue
+
+                                if toks[3].lower() != 'none':
+                                    try:
+                                        date = dateutil.parser.parse(toks[3])
                                         stop_date = "%d%02d%02d" %(date.year,date.month,date.day)
                                     except:
                                         log.warning("Invalid date in BAD_AMP_LIST: %s" %line)
+                                        continue
 
 
-                                if toks[0] in self.bad_amp_dict.keys():
-                                    self.bad_amp_dict[toks[0]].append((start_date,stop_date))
+                                key = "%s_%s" %(toks[0],amp.upper())
+
+                                if key in self.bad_amp_dict.keys():
+                                    self.bad_amp_dict[key].append((start_date,stop_date))
                                 else:
-                                    self.bad_amp_dict[toks[0]] = [(start_date,stop_date)]
+                                    self.bad_amp_dict[key] = [(start_date,stop_date)]
 
             except:
                 log.warning("Could not consume BAD_AMP_LIST %s" %G.BAD_AMP_LIST)
@@ -844,8 +856,8 @@ class DetObj:
 
         for i in range(len(self.fibers)-1,-1,-1):
             #ifuslot, ifuid, specid -- all strings
-            key = self.fibers[i].ifuslot
-            if self.fibers[i].ifuslot in self.bad_amp_dict.keys():
+            key =  "%s_%s" %(self.fibers[i].ifuslot,self.fibers[i].amp.upper())
+            if key in self.bad_amp_dict.keys():
 
                 for t in self.bad_amp_dict[key]:
                     if (t[0] is None) or (self.fibers[i].dither_date > t[0]):
@@ -4911,7 +4923,7 @@ class HETDEX:
 
                             try:
                                 l3 = datakeep['date'][ind[i]] + "_" + datakeep['obsid'][ind[i]] + "_" + datakeep['expid'][ind[i]]
-                                l4 = datakeep['spec_id'][ind[i]] + "_" + datakeep['amp'][ind[i]] + "_" + datakeep['fib_idx1'][ind[i]]
+                                l4 = datakeep['ifu_slot_id'][ind[i]] + "_" + datakeep['amp'][ind[i]] + "_" + datakeep['fib_idx1'][ind[i]]
 
                                 borplot.text(1.05, .33, l3,
                                              transform=smplot.transAxes, fontsize=6, color='k',
