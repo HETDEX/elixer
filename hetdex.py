@@ -3,6 +3,7 @@ import global_config as G
 import matplotlib
 matplotlib.use('agg')
 import time
+import dateutil.parser
 
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
@@ -524,6 +525,8 @@ class DetObj:
         self.p_oii = None
         self.p_lae_oii_ratio = None
 
+        self.bad_amp_dict = None
+
         if emission:
             self.type = 'emis'
             # actual line number from the input file
@@ -776,6 +779,90 @@ class DetObj:
                 return False, self.spec_obj.solutions[0].prob_real
 
         return False, 0.0
+
+
+
+    def bad_amp(self,fatal=True, fiber=None):
+
+        #fatal default True ... stop and return; if false, delete the offending fiber but keep going
+        #fiber ... apply to a single fiber, not the list of self.fibers
+        #iterate through amps (or maybe just the top (highest amp?))
+        #if in the bad amp list for the date range, log and return TRUE
+        #log.warning("" )
+
+        #bad_amp_dict = dictionary of lists of tuples
+        #key = ifuslot  value = list that contains tuples of (start_date, end_date)
+
+        rc = False
+
+        #read in the file that populates the bad_amp_dict
+        if self.bad_amp_dict is None:
+            self.bad_amp_dict = {}
+            try:
+                with open(G.BAD_AMP_LIST) as f:
+                    for line in f:
+                        if len(line) < 3:
+                            continue
+                        elif line[0] == '#':  # a comment
+                            continue
+                        else:  # data line
+                            toks = line.split()
+
+                            if len(toks) != 3:
+                                log.warning("Unexpected line in BAD_AMP_LIST: %s" %line)
+                            else:
+
+                                start_date = None
+                                stop_date = None
+
+                                if toks[1].lower() != 'none':
+                                    try:
+                                        date = dateutil.parser.parse(toks[1])
+                                        start_date = "%d%02d%02d" %(date.year,date.month,date.day)
+                                    except:
+                                        log.warning("Invalid date in BAD_AMP_LIST: %s" %line)
+
+                                if toks[2].lower() != 'none':
+                                    try:
+                                        date = dateutil.parser.parse(toks[2])
+                                        stop_date = "%d%02d%02d" %(date.year,date.month,date.day)
+                                    except:
+                                        log.warning("Invalid date in BAD_AMP_LIST: %s" %line)
+
+
+                                if toks[0] in self.bad_amp_dict.keys():
+                                    self.bad_amp_dict[toks[0]].append((start_date,stop_date))
+                                else:
+                                    self.bad_amp_dict[toks[0]] = [(start_date,stop_date)]
+
+            except:
+                log.warning("Could not consume BAD_AMP_LIST %s" %G.BAD_AMP_LIST)
+
+
+        if len(self.bad_amp_dict) == 0: #no bad amps listed
+            return rc
+
+        for i in range(len(self.fibers)-1,-1,-1):
+            #ifuslot, ifuid, specid -- all strings
+            key = self.fibers[i].ifuslot
+            if self.fibers[i].ifuslot in self.bad_amp_dict.keys():
+
+                for t in self.bad_amp_dict[key]:
+                    if (t[0] is None) or (self.fibers[i].dither_date > t[0]):
+                        if (t[1] is None) or  (self.fibers[i].dither_date < t[1]):
+                            if fatal:
+                                log.warning("Bad amp (%s) encountered (fatal)." %key)
+                                rc = True
+                                break
+                            else:
+                                log.info("Bad amp (%s) encountered (non-fatal). Offending fiber removed." %(key))
+                                del self.fibers[i]
+                                rc = True
+
+        return rc
+
+
+
 
     #rsp1 (when t5all was provided and we want to load specific fibers for a single detection)
     def load_fluxcalibrated_spectra(self):
@@ -1477,14 +1564,23 @@ class DetObj:
                 log.warning("Warning (not fatal). Could not read file " + file)#, exc_info=True) #not fatal
 
 
-        #todo: get info from Karl and load
-        #todo: likely look in a known location (possible a relative pFath from the t5all file?)
-        #todo: read in the "catalog" list of fiberfiles (match RA, Dec to emissionline in question)
-        #todo:    line count (number) maps to which tmp1xx.dat file to read in for the wavelengths, flux, errors
-        #
-        #todo: this is a cumulative (summed over some number of fibers) spectrum?
-        #todo: need to get to spectrum for each contributing fiber and its weight
-        #todo:    (put weight with the fiber? or in hetdex_fiber (along with the fe_data, etc)
+
+        #check the fiber(s) for bad amps ... if found, we're done ... discontinue
+        if self.annulus is None:
+            if self.bad_amp(fatal=True):
+                self.status = -1
+                log.warning("Warning (fatal). Bad amp(s) in the fiber list.")
+                print("Warning (fatal). Bad amp(s) in the fiber list.")
+                return
+        else: #annulus case, just remove the offending fibers
+            self.bad_amp(fatal=False)
+            if len(self.fibers) == 0:
+                log.warning("Warning (fatal). Bad amp(s) in the fiber list. Number of remaining fibers below minimum.")
+                print("Warning (fatal). Bad amp(s) in the fiber list. Number of remaining fibers below minimum.")
+                self.status = -1
+                return
+
+
 
 
         #set_spectra(self, wavelengths, values, errors, central, estflux=None, eqw_obs=None)
@@ -3387,7 +3483,7 @@ class HETDEX:
             #title += "" #todo: start with filename
 
         try:
-            title += "Obs: " + e.fibers[0].dither_date + "v" + str(e.fibers[0].obsid).zfill(2) + "_" + \
+            title += "Obs: " + e.fibers[0].dither_date + "v" + str(e.fibers[0].obsid).zfill(3) + "_" + \
             str(e.fibers[0].detect_id) + "\n"
         except:
             log.debug("Exception building observation string.",exc_info=True)
@@ -4793,22 +4889,24 @@ class HETDEX:
                             #dither and fiber position, etc generally meaningless in this case
                             #as there is no good way to immediately go back and find the source image
                             #so just show S/N and distance (and make bigger)
-                            if sn > 0:
-                                if abs(sn) < 1000:
-                                    borplot.text(1.05, .75, 'SN: %0.2f' % (sn),
-                                                 transform=smplot.transAxes, fontsize=8, color='r',
-                                                 verticalalignment='bottom', horizontalalignment='left')
-                                else:
-                                    borplot.text(1.05, .75, 'SN: %.1E' % (sn),
-                                                 transform=smplot.transAxes, fontsize=8, color='r',
-                                                 verticalalignment='bottom', horizontalalignment='left')
-                            # distance (in arcsec) of fiber center from object center
-                            # borplot.text(1.05, .53, 'D("): %0.2f %0.1f' % (datakeep['d'][ind[i]],datakeep['wscore'][ind[i]]),
-                            #              transform=smplot.transAxes, fontsize=6, color='r',
-                            #              verticalalignment='bottom', horizontalalignment='left')
+                            # if sn > 0:
+                            #     if abs(sn) < 1000:
+                            #         borplot.text(1.05, .75, 'SN: %0.2f' % (sn),
+                            #                      transform=smplot.transAxes, fontsize=8, color='r',
+                            #                      verticalalignment='bottom', horizontalalignment='left')
+                            #     else:
+                            #         borplot.text(1.05, .75, 'SN: %.1E' % (sn),
+                            #                      transform=smplot.transAxes, fontsize=8, color='r',
+                            #                      verticalalignment='bottom', horizontalalignment='left')
 
-                            borplot.text(1.05, .53, 'D("): %0.2f' % (datakeep['d'][ind[i]]),
-                                         transform=smplot.transAxes, fontsize=6, color='r',
+                            # distance (in arcsec) of fiber center from object center
+
+                            borplot.text(1.05, .73, 'D("): %0.2f' % (datakeep['d'][ind[i]]),
+                                         transform=smplot.transAxes, fontsize=6, color='k',
+                                         verticalalignment='bottom', horizontalalignment='left')
+
+                            borplot.text(1.05, .53, 'x, y: %d, %d' % (datakeep['ds9_x'][ind[i]], datakeep['ds9_y'][ind[i]]),
+                                         transform=smplot.transAxes, fontsize=6, color='k',
                                          verticalalignment='bottom', horizontalalignment='left')
 
                             try:
@@ -4816,10 +4914,10 @@ class HETDEX:
                                 l4 = datakeep['spec_id'][ind[i]] + "_" + datakeep['amp'][ind[i]] + "_" + datakeep['fib_idx1'][ind[i]]
 
                                 borplot.text(1.05, .33, l3,
-                                             transform=smplot.transAxes, fontsize=6, color='b',
+                                             transform=smplot.transAxes, fontsize=6, color='k',
                                              verticalalignment='bottom', horizontalalignment='left')
                                 borplot.text(1.05, .13, l4,
-                                             transform=smplot.transAxes, fontsize=6, color='b',
+                                             transform=smplot.transAxes, fontsize=6, color='k',
                                              verticalalignment='bottom', horizontalalignment='left')
                             except:
                                 log.error("Exception building extra fiber info.", exc_info=True)
@@ -4943,7 +5041,7 @@ class HETDEX:
 
             if not G.ZOO:
                 #plt.title("CCD Region of Main Fiber\n(%d,%d)"
-                plt.title("%s\nx,y: %d,%d"
+                plt.title("%s\nx, y: %d, %d"
                           % (title,datakeep['ds9_x'][ind[datakeep_idx]], datakeep['ds9_y'][ind[datakeep_idx]]), fontsize=12)
             else:
                 plt.title("%s" % (title), fontsize=12)

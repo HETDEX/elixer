@@ -16,6 +16,7 @@ REPORT_ELIXER_MCMC_FIT = False
 if socket.gethostname() == 'z50':
 #if False:
     OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
+    BAD_AMP_LIST = "/home/dustin/code/python/elixer/bad_amp_list.txt"
 
     #CONFIG_BASEDIR = "/home/dustin/code/python/elixer/data/config/"
 
@@ -54,6 +55,7 @@ else:
     AST376_PATH = "/work/03261/polonius/maverick/catalogs/ast376"
 
     OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
+    BAD_AMP_LIST = ""
     CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
     PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
     PANACEA_RED_BASEDIR_DEFAULT = PANACEA_RED_BASEDIR
