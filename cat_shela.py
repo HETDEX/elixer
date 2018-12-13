@@ -807,6 +807,8 @@ class SHELA(cat_base.Catalog):
                                                      aperture=aperture,mag_func=mag_func)
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
+            bid_target = None
+
             try:  # update non-matched source line with PLAE()
                 if (mag < 99)  and (target_flux is not None) and (i['filter'] in 'gr'):
                     # make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)

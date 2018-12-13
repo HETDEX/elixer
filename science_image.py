@@ -25,8 +25,9 @@ from astropy.wcs.utils import skycoord_to_pixel
 from astropy.nddata.utils import NoOverlapError
 from astropy import units as ap_units
 from photutils import CircularAperture #pixel coords
-from photutils import SkyCircularAperture #sky coords
+from photutils import SkyCircularAperture, SkyCircularAnnulus #sky coords
 from photutils import aperture_photometry
+from astropy.stats import sigma_clipped_stats
 
 #log = G.logging.getLogger('sciimg_logger')
 #log.setLevel(G.logging.DEBUG)
@@ -393,6 +394,62 @@ class science_image():
                     print ("Counts = %s Mag %f" %(str(counts),mag))
                 except:
                     log.error("Exception in science_image::get_cutout () using aperture", exc_info=True)
+
+
+            #if we have a magnitude and it is fainter than a minimum, subtract the sky from a surrounding annulus
+            #s|t we have ~ 3x pixels in the sky annulus as in the source aperture, so 2x the radius
+            if (mag < 99) and (mag > G.SKY_ANNULUS_MIN_MAG):
+
+
+                try:
+                    # we know position, image, are good or could not have gotten here
+                    sky_radius = radius * 2.
+                    if self.pixel_size is not None:
+                        pix_window = 2. * float(sky_radius * 1.1) / self.pixel_size #length of size, so 2x radius
+                        sky_cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=self.wcs)
+                        wcs = self.wcs
+                    else:
+                        pix_window = 2. * float(sky_radius*1.1) / self.calc_pixel_size(image.wcs)  # now in pixels
+                        sky_cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=image.wcs)
+                        wcs = image.wcs
+
+
+                    #todo: note in photutils, pixel x,y is the CENTER of the pixel and [0,0] is the center of the
+                    #todo: lower-left pixel
+                    #it should not really matter if the pixel position is the center of the pixel or at a corner
+                    #given the typically small pixels the set of pixels will not change much one way or the other
+                    #and we are going to take a median average (and not use partial pixels), at least not in this 1st
+                    #revision
+
+                    # to take a median value and subtract off the counts from the original aperture
+                    source_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec).to_pixel(wcs)
+
+                    sky_annulus = SkyCircularAnnulus(position, r_in=radius * ap_units.arcsec,
+                                                     r_out=sky_radius * ap_units.arcsec).to_pixel(wcs)
+
+                    #made an annulus in pixel, set to a "mask" where 0 = pixel not in annulus, 1 = pixel in annulus
+                    sky_mask = sky_annulus.to_mask(method='center')[0]
+
+                    #select all pixels from the cutout that are in the annulus
+                    annulus_data_1d = sky_cutout.data[np.where(sky_mask.data > 0)]
+
+                    #and take the median average from a 3-sigma clip
+                    _, bkg_median, _ = sigma_clipped_stats(annulus_data_1d,sigma=3.0) #this is the average sky per pixel
+                    bkg_median * source_aperture.area() #total (sky) to subtract is averager sky per pix * number pix in source aperture
+
+                    counts -= bkg_median * source_aperture.area()
+
+                    #re-compute the magnitude
+                    mag = mag_func(counts,cutout,self.fits)
+
+                    log.info("Sky subtracted imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Sky = (%f/pix %f tot). Counts = %s Mag_AB = %g"
+                             % (radius,ra,dec,bkg_median, bkg_median * source_aperture.area(),str(counts),mag))
+                    print ("Counts = %s Mag %f" %(str(counts),mag))
+
+
+                except:
+                    log.error("Exception in science_image::get_cutout () figuring sky subtraction aperture", exc_info=True)
+
 
         return cutout, counts, mag, radius
 

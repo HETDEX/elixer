@@ -1,5 +1,14 @@
 changes to elixer by version
 
+
+1.5.0a14 [2018-12-12]
+* if aperture magnitude fainter than global_config::SKY_ANNULUS_MIN_MAG, then compute local sky in 2x radius annulus
+   around the original source, subtract sky and recompute magnitude
+* fixed typo in header for *_fibs.txt (was not printing the 16th column header correctly as the number of fibers)
+
+1.5.0a13 [2018-12-10]
+* fixed bug for non-measured continuum and reporting of P(LAE)/P(OII) in cat_shela
+
 1.5.0a12 [2018-12-07]
 * made photometry aperture fixed at 1.5" (not yet configurable on command line, but is set in global_config.py)
 * switching preferred filter to compute continuum estimate to r-band

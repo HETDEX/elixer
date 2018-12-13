@@ -9,7 +9,7 @@ import numpy as np
 import socket
 
 #version
-__version__ = '1.5.0a12'
+__version__ = '1.5.0a13'
 
 REPORT_ELIXER_MCMC_FIT = False
 
@@ -268,3 +268,5 @@ DEBUG_SHOW_GAUSS_PLOTS = False #set on command line now --gaussplots (but keep h
 MAX_ANNULUS_RADIUS = 3600.0 #ridiculously large ... need to trim this to a reasonable size
 ANNULUS_FIGURE_SZ_X = 12
 ANNULUS_FIGURE_SZ_Y = 12
+
+SKY_ANNULUS_MIN_MAG = 22.0 #measure magnitude must be fainter than this to trigger sky subtraction from surrounding annulus

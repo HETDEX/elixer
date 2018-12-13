@@ -91,7 +91,10 @@ def cosmos_r_count_to_mag(count,cutout=None,sci_image=None):
         if count > 0:
             #return -2.5 * np.log10(count*nanofact) + magzero
             #counts for cosmos ALREADY in nanojansky
-            return -2.5 * np.log10(count.value)  + magzero
+            if isinstance(count, float):
+                return -2.5 * np.log10(count) + magzero
+            else:
+                return -2.5 * np.log10(count.value) + magzero
         else:
             return 99.9  # need a better floor
 
