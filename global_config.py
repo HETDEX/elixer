@@ -55,7 +55,7 @@ else:
     AST376_PATH = "/work/03261/polonius/maverick/catalogs/ast376"
 
     OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
-    BAD_AMP_LIST = ""
+    BAD_AMP_LIST = "/work/03261/polonius/maverick/catalogs/bad_amp_list.txt"
     CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
     PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
     PANACEA_RED_BASEDIR_DEFAULT = PANACEA_RED_BASEDIR
