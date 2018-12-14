@@ -272,3 +272,5 @@ ANNULUS_FIGURE_SZ_X = 12
 ANNULUS_FIGURE_SZ_Y = 12
 
 SKY_ANNULUS_MIN_MAG = 22.0 #measure magnitude must be fainter than this to trigger sky subtraction from surrounding annulus
+
+INCLUDE_ALL_AMPS = False #ie. if true, ignore the bad amp list

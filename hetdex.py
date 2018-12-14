@@ -793,6 +793,9 @@ class DetObj:
         #bad_amp_dict = dictionary of lists of tuples
         #key = ifuslot  value = list that contains tuples of (start_date, end_date)
 
+        if G.INCLUDE_ALL_AMPS:
+            return False
+
         rc = False
 
         #read in the file that populates the bad_amp_dict
@@ -808,7 +811,7 @@ class DetObj:
                         else:  # data line
                             toks = line.split()
 
-                            if len(toks) != 4:
+                            if len(toks) < 4:
                                 log.warning("Unexpected line in BAD_AMP_LIST: %s" %line)
                             else:
 
@@ -2489,10 +2492,12 @@ class HETDEX:
                 ucoef = float(unc[0])
                 uexp = 0
 
-            if fexp != 0:
+            if (fexp < 4) and (fexp > -4):
+                s = '%0.2f($\pm$%0.2f)' % (fcoef* 10 ** (fexp), ucoef * 10 ** (uexp ))
+            else:# fexp != 0:
                 s = '%0.2f($\pm$%0.2f)e%d' % (fcoef, ucoef * 10 ** (uexp - fexp), fexp)
-            else:
-                s = '%0.2f($\pm$%0.2f)' % (fcoef, ucoef * 10 ** (uexp - fexp))
+            #else:
+            #    s = '%0.2f($\pm$%0.2f)' % (fcoef, ucoef * 10 ** (uexp - fexp))
         except:
             log.warning("Exception in EmissionLineInfo::flux_unc()", exc_info=True)
 
@@ -3597,11 +3602,11 @@ class HETDEX:
         else:
             if not G.ZOO:
                 title += "\n" \
-                     "Primary IFU Slot %s\n" \
+                     "Primary IFU SpecID (%s) SlotID (%s)\n" \
                      "RA,Dec (%f,%f) \n" \
                      "$\lambda$ = %g$\AA$  FWHM = %g$\AA$\n" \
                      "EstFlux = %s" \
-                     % (e.fibers[0].ifuslot, ra, dec, e.w,e.fwhm, estflux_str)
+                     % (e.fibers[0].specid, e.fibers[0].ifuslot, ra, dec, e.w,e.fwhm, estflux_str)
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
@@ -3611,10 +3616,10 @@ class HETDEX:
 
             else: #this if for zooniverse, don't show RA and DEC or probabilities
                 title += "\n" \
-                     "Primary IFU Slot %s\n" \
+                     "Primary IFU SpecID (%s) SlotID (%s)\n" \
                      "$\lambda$ = %g$\AA$  FWHM = %g$\AA$\n" \
                      "EstFlux = %s " \
-                     % ( e.fibers[0].ifuslot,e.w,e.fwhm, estflux_str)
+                     % ( e.fibers[0].specid, e.fibers[0].ifuslot,e.w,e.fwhm, estflux_str)
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
@@ -3857,6 +3862,7 @@ class HETDEX:
             dd['fib'] = []
             dd['fib_idx1'] = []
             dd['ifu_slot_id'] = []
+            dd['ifu_id'] = []
             dd['spec_id'] = []
             dd['xi'] = []
             dd['yi'] = []
@@ -4377,6 +4383,7 @@ class HETDEX:
 
             datakeep['fib_idx1'].append(str(fiber.panacea_idx+1))
             datakeep['ifu_slot_id'].append(str(fiber.ifuslot).zfill(3))
+            datakeep['ifu_id'].append(str(fiber.ifuid).zfill(3))
             datakeep['spec_id'].append(str(fiber.specid).zfill(3))
             datakeep['fiber_sn'].append(item.fiber_sn)
 
@@ -4923,7 +4930,11 @@ class HETDEX:
 
                             try:
                                 l3 = datakeep['date'][ind[i]] + "_" + datakeep['obsid'][ind[i]] + "_" + datakeep['expid'][ind[i]]
-                                l4 = datakeep['spec_id'][ind[i]] + "_" + datakeep['amp'][ind[i]] + "_" + datakeep['fib_idx1'][ind[i]]
+
+                                #!!! multi*fits is <specid>_<ifuslot>_<ifuid> !!!
+                                #!!! so do NOT change from spec_id
+                                #!!! note: having all three identifiers makes the string too long so leave as is
+                                l4 = datakeep['spec_id'][ind[i]] + "_" + datakeep['amp'][ind[i]] + "_" +  datakeep['fib_idx1'][ind[i]]
 
                                 borplot.text(1.05, .33, l3,
                                              transform=smplot.transAxes, fontsize=6, color='k',

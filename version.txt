@@ -1,8 +1,11 @@
 changes to elixer by version
 
 1.5.0a15 [2018-12-14]
-* changed IFUSLOT_ID back to SPECID in the text to the right of the 2D cutous (the multi*fits are named starting
+* changed IFUSLOT_ID back to SPECID in the text to the right of the 2D cutouts (the multi*fits are named starting
   with the SPECID so that makes the file easier to find)
+* dispaly (top left) SpecID and SlotID of the primary fiber's IFU
+* added command line option --include_all_amps which overrides the Bad Amp List and forces all amps to be processed
+* fixed string representation of value +/- uncertainties for small exponents (upper left text)
 
 1.5.0a14 [2018-12-13]
 * if aperture magnitude fainter than global_config::SKY_ANNULUS_MIN_MAG, then compute local sky in 2x radius annulus

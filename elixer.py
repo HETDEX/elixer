@@ -211,6 +211,10 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--annulus', help="Inner and outer radii in arcsec (e.g. (10.0,35.2) )", required=False)
     parser.add_argument('--wavelength', help="Target wavelength (observed) in angstroms for annulus", required=False,
                         type=float)
+
+    parser.add_argument('--include_all_amps', help='Override bad amp list and process all amps',
+                        required=False, action='store_true', default=False)
+
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
 
@@ -360,6 +364,9 @@ def parse_commandline(auto_force=False):
                 exit(0)
             else:
                 print()
+
+    if args.include_all_amps:
+        G.INCLUDE_ALL_AMPS = True
 
     if valid_parameters(args):
         return args
