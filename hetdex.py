@@ -4923,7 +4923,7 @@ class HETDEX:
 
                             try:
                                 l3 = datakeep['date'][ind[i]] + "_" + datakeep['obsid'][ind[i]] + "_" + datakeep['expid'][ind[i]]
-                                l4 = datakeep['ifu_slot_id'][ind[i]] + "_" + datakeep['amp'][ind[i]] + "_" + datakeep['fib_idx1'][ind[i]]
+                                l4 = datakeep['spec_id'][ind[i]] + "_" + datakeep['amp'][ind[i]] + "_" + datakeep['fib_idx1'][ind[i]]
 
                                 borplot.text(1.05, .33, l3,
                                              transform=smplot.transAxes, fontsize=6, color='k',

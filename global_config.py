@@ -9,7 +9,7 @@ import numpy as np
 import socket
 
 #version
-__version__ = '1.5.0a14'
+__version__ = '1.5.0a15'
 
 REPORT_ELIXER_MCMC_FIT = False
 
