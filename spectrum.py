@@ -424,7 +424,10 @@ class EmissionLineInfo:
             a_unc = 0.5 * (abs(self.mcmc_a[1])+abs(self.mcmc_a[2]))
             y_unc = 0.5 * (abs(self.mcmc_y[1])+abs(self.mcmc_y[2]))
 
-            ew_unc = np.sqrt((self.mcmc_a[0]/a_unc)**2 + (self.mcmc_y[0]/y_unc)**2)
+            #wrong!! missing the abs(ew) and the ratios inside are flipped
+            #ew_unc = np.sqrt((self.mcmc_a[0]/a_unc)**2 + (self.mcmc_y[0]/y_unc)**2)
+
+            ew_unc = abs(ew) * np.sqrt((a_unc/self.mcmc_a[0])**2 + (y_unc/self.mcmc_y[0])**2)
 
             s = "%0.2g($\pm$%0.2g)" % (ew, ew_unc)
 
@@ -1853,7 +1856,9 @@ class Spectrum:
 
         self.central = None
         self.estflux = None
+        self.estflux_unc = None
         self.eqw_obs = None
+        self.eqw_obs_unc = None
 
         self.central_eli = None
 
@@ -1916,8 +1921,8 @@ class Spectrum:
         return filter, num_hats
 
 
-    def set_spectra(self,wavelengths, values, errors, central, values_units = 0, estflux=None, eqw_obs=None,
-                    fit_min_sigma=GAUSS_FIT_MIN_SIGMA):
+    def set_spectra(self,wavelengths, values, errors, central, values_units = 0, estflux=None, estflux_unc=None,
+                    eqw_obs=None, eqw_obs_unc=None, fit_min_sigma=GAUSS_FIT_MIN_SIGMA):
         self.wavelengths = []
         self.values = []
         self.errors = []
@@ -1953,9 +1958,22 @@ class Spectrum:
         if eli:
             if (estflux is None) or (eqw_obs is None):
                 #basically ... if I did not get this from Karl, use my own measure
-                #todo: maybe use my own anyway??? (will want the errors later)
-                estflux = eli.line_flux
-                eqw_obs = eli.eqw_obs
+                if (eli.mcmc_a is not None) and (eli.mcmc_y is not None):
+                    a_unc = 0.5 * (abs(eli.mcmc_a[1]) + abs(eli.mcmc_a[2]))
+                    y_unc = 0.5 * (abs(eli.mcmc_y[1]) + abs(eli.mcmc_y[2]))
+
+                    estflux = eli.mcmc_a[0]
+                    estflux_unc = a_unc
+
+                    eqw_obs = abs(eli.mcmc_a[0] / eli.mcmc_y[0])
+                    eqw_obs_unc = abs(eqw_obs) * np.sqrt((a_unc / eli.mcmc_a[0]) ** 2 + (y_unc / eli.mcmc_y[0]) ** 2)
+                else: #not from mcmc, so we have no error
+                    estflux = eli.line_flux
+                    estflux_unc = 0.0
+                    eqw_obs = eli.eqw_obs
+                    eqw_obs_unc = 0.0
+
+
 
             #if (self.snr is None) or (self.snr == 0):
             #    self.snr = eli.snr
@@ -1976,7 +1994,9 @@ class Spectrum:
         self.values_units = values_units
         self.central = central
         self.estflux = estflux
+        self.estflux_unc = estflux_unc
         self.eqw_obs = eqw_obs
+        self.eqw_obs_unc = eqw_obs_unc
         #if self.snr is None:
         #    self.snr = 0
 
@@ -2062,7 +2082,7 @@ class Spectrum:
                     if l.flux > 0:
                         self.addl_fluxes.append(l.flux)
                         self.addl_wavelengths.append((l.w_obs))
-                        #todo: get real error
+                        #todo: get real error (don't have that unless I run mcmc and right now, only running on main line)
                         self.addl_fluxerrs.append(0.0)
 
         #if len(addl_fluxes) > 0:
@@ -2331,9 +2351,13 @@ class Spectrum:
 
         ratio, self.p_lae, self.p_oii = line_prob.prob_LAE(wl_obs=self.central,
                                                            lineFlux=self.estflux,
-                                                           ew_obs=(self.eqw_obs),
+                                                           lineFlux_err=self.estflux_unc,
+                                                           ew_obs=self.eqw_obs,
+                                                           ew_obs_err=self.eqw_obs_unc,
                                                            c_obs=None, which_color=None,
-                                                           addl_fluxes=addl_fluxes, addl_wavelengths=addl_wavelengths,
+                                                           addl_wavelengths=addl_wavelengths,
+                                                           addl_fluxes=addl_fluxes,
+                                                           addl_errors=addl_errors,
                                                            sky_area=None,
                                                            cosmo=None, lae_priors=None,
                                                            ew_case=None, W_0=None,

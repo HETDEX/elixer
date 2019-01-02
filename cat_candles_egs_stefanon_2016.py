@@ -630,9 +630,13 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     except:
                         pass
 
+
+                    #todo: calculate error on EW as flux from HETDEX (so flux_err from HETDEX) and continuum
+                    #todo: from catalog (so, continuum error from catalog)
+
                     bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii = \
-                        line_prob.prob_LAE(wl_obs=target_w, lineFlux=target_flux,
-                                           ew_obs=(target_flux / bid_target.bid_flux_est_cgs),
+                        line_prob.prob_LAE(wl_obs=target_w, lineFlux=target_flux, lineFlux_err=0.0,
+                                           ew_obs=(target_flux / bid_target.bid_flux_est_cgs), ew_obs_err=0.0,
                                            c_obs=None, which_color=None, addl_fluxes=addl_flux,
                                            addl_wavelengths=addl_waves,addl_errors=addl_ferr,sky_area=None,
                                            cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,

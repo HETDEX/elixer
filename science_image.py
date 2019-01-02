@@ -399,8 +399,6 @@ class science_image():
             #if we have a magnitude and it is fainter than a minimum, subtract the sky from a surrounding annulus
             #s|t we have ~ 3x pixels in the sky annulus as in the source aperture, so 2x the radius
             if (mag < 99) and (mag > G.SKY_ANNULUS_MIN_MAG):
-
-
                 try:
                     # we know position, image, are good or could not have gotten here
                     sky_radius = radius * 2.

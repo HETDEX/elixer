@@ -1,3 +1,18 @@
+[2019-01-02]
+*** Add uncertainty to magnitude (and continuum flux) and equivalent width as calculated by aperture photometry
+	to do this, I need the error frame (error in each pixel) to pass to the phot_utils.aperture photometry call
+		-- if nothing else, could use numpy to take the square root of each pixel and use that as a Poission error (see observations project 2 : get_mags)
+	
+		use:     count_err = phot_table['aperture_sum_err'][0] 
+			to get the count error (then for magnitude, call call mag_func twice more with +err and -err)
+
+
+
+
+
+
+
+
 [2018-08-22]
 add to _fib.txt for each fiber in a detection, add the center (y) of fiber and x (at detection peak) in the 0th frame of
     multi_*.fits (need to include the amp and ifu_id ... basically, ifu_id, amp, ccd x, ccd y)

@@ -908,3 +908,10 @@ class Catalog:
     # def write_cutout_as_fits(self,cutout,filename):
     #     '''write a cutout as a fits file'''
     #     pass
+
+
+    # def estimate_aperture_flux_uncertainty(self,mag_func,counts,cutout,fits):
+    # #sky has been subtracted or is not significant
+    # #assume only Poisson noise in the counts ... need to know the count in EACH pixel though, to do that
+    #     mx_mag = mag_func(counts + np.sqrt(counts), cutout, self.fits)
+    #     mn_mag = mag_func(counts - np.sqrt(counts), cutout, self.fits)

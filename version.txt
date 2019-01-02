@@ -1,5 +1,15 @@
 changes to elixer by version
 
+1.5.0a16 [2019-01-02]
+* incorporated Daniel Farrow's version of the Bayesian line discriminator (currently calling both versions and logging
+    a warning if there is a > 1% discrepency between them)
+* including line flux and eq.width uncertainties in calls the Bayesian discriminator for HETDEX data (not yet including
+    uncertainties from external imaging catalogs as (1) do not have error frames and (2) assuming Poisson error at
+    the pixel level might not be appropriate)
+* fixed error in propogating line flux and continuum uncertainties into equivalent width uncertainty if using local
+  MCMC fit
+
+
 1.5.0a15 [2018-12-14]
 * changed IFUSLOT_ID back to SPECID in the text to the right of the 2D cutouts (the multi*fits are named starting
   with the SPECID so that makes the file easier to find)

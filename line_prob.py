@@ -1,22 +1,27 @@
 import Bayes.bayesian
 import Bayes.nb
 import math
+from ConfigParser import RawConfigParser
+import os
+import sys
+import line_classifier.probs.classification_prob_leung as LineClassifierPro
+from numpy import array
+#don't need to do this ... is performed in source_prob call
+#from line_classifier.misc.tools import generate_cosmology_from_config, read_flim_file
+
 import global_config as G
 
-
 MAX_PLAE_POII = 999
+UNIVERSE_CONFIG = None
+FLUX_LIMIT_FN = None
+COSMOLOGY = None
 
 #log = G.logging.getLogger('line_prob_logger')
 #log.setLevel(G.logging.DEBUG)
 log = G.Global_Logger('line_prob_logger')
 log.setlevel(G.logging.DEBUG)
-# test call
-#addl_fluxes is an array one for each = ['[NeIII]','H_beta','[OIII]','[OIII]']
-
-#turn addl_fluxes into dictionary of wavelength and flux
 
 
-#print(ratio_LAE, plgd, pogd)
 
 def example_prob_LAE():
     Cosmology = {'omega_M_0': 0.3, 'omega_lambda_0': 0.7, 'h': 0.70, 'omega_k_0': 0}
@@ -43,7 +48,7 @@ def fiber_area_in_sqdeg(num_fibers=1):
 
 
 #wrapper for Andrew Leung's base code
-def prob_LAE(wl_obs,lineFlux,ew_obs,c_obs, which_color=None, addl_wavelengths=None, addl_fluxes=None,addl_errors=None,
+def prob_LAE_old(wl_obs,lineFlux,ew_obs,c_obs, which_color=None, addl_wavelengths=None, addl_fluxes=None,addl_errors=None,
             sky_area=None, cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None, sigma=None):
     '''
 
@@ -147,6 +152,219 @@ def prob_LAE(wl_obs,lineFlux,ew_obs,c_obs, which_color=None, addl_wavelengths=No
 
     return ratio_LAE, plgd, pogd
 
-# end main
-#if __name__ == '__main__':
-#    main()
+
+
+
+
+#def source_prob(config, ra, dec, zs, fluxes, flux_errs, ews_obs, ew_err, c_obs, which_color, addl_fluxes,
+#                addl_fluxes_error, addl_line_names, flim_file, extended_output=False):
+#     """
+#     Return P(LAE) = P(LAE|DATA)/P(DATA) and evidence ratio P(DATA|LAE)P(LAE)/(P(DATA|OII)P(OII))
+#     given input information about the sources
+#
+#     Parameters
+#     ----------
+#     config : ConfigParser
+#         configuration object
+#     ra, dec, zs, fluxes, flux_errs, ews_obs, ew_err, c_obs : array
+#         positions, redshifts (assuming LAE), line fluxes, errors on
+#         line fluxes, equivalent widths, errors on EW and
+#         colours of the sources (latter two not used!)
+#     which_color : str
+#         which colour is given
+#     addl_fluxes, addl_fluxes_error : 2D array
+#         each i of addl_fluxes[i, :] should correspond,
+#         in order, to the fluxes measured for each source
+#         for the emission line named at position i in
+#         addl_line_names. To not use set to None (not an
+#         array of None!)
+#     addl_line_names : array
+#         names of emission lines stored in addl_fluxes, in the
+#         correct order (see above). To not use set to None (not an array of None!)
+#     flim_file : str
+#         file containing the flux limits
+#     h : float
+#         Hubbles constant/100
+#     extended_output : bool
+#         Return extended output
+#
+#     Returns
+#     -------
+#     posterior_odds, prob_lae_given_data : float arrays
+#         posterior_odds = P(DATA|LAE)P(LAE)/(P(DATA|OII)P(OII))
+#         P(LAE|DATA) = P(DATA|LAE)*P(LAE)/(P(DATA|LAE)*P(LAE) + P(DATA|OII)*P(OII))
+#
+#     """
+
+def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_obs=None, which_color=None, addl_wavelengths=None,
+             addl_fluxes=None,addl_errors=None, sky_area=None, cosmo=None, lae_priors=None, ew_case=None, W_0=None,
+             z_OII=None, sigma=None):
+
+
+#temporarary ... call both and compare
+    old_ratio_LAE, old_plgd, old_pogd = prob_LAE_old(wl_obs,lineFlux,ew_obs,c_obs, which_color=which_color,
+                                        addl_wavelengths=addl_wavelengths, addl_fluxes=addl_fluxes,addl_errors=addl_errors,
+            sky_area=sky_area, cosmo=cosmo, lae_priors=lae_priors, ew_case=ew_case, W_0=W_0, z_OII=z_OII, sigma=sigma)
+
+
+
+    global UNIVERSE_CONFIG, FLUX_LIMIT_FN
+    if UNIVERSE_CONFIG is None:
+        try:
+            config_fn = os.path.join(os.path.dirname(os.path.realpath(__file__)), G.RELATIVE_PATH_UNIVERSE_CONFIG)
+            UNIVERSE_CONFIG = RawConfigParser()
+            UNIVERSE_CONFIG.read(config_fn)
+            log.debug("Load universe config for LAE/OII discriminator: %s" %config_fn)
+
+            FLUX_LIMIT_FN = os.path.join(os.path.dirname(os.path.realpath(__file__)),G.RELATIVE_PATH_FLUX_LIM_FN)
+            log.debug("Load flux limit filename for LAE/OII discriminator: %s" % FLUX_LIMIT_FN)
+
+            # don't need to do this ... is performed in source_prob call
+            #COSMOLOGY = generate_cosmology_from_config(UNIVERSE_CONFIG)
+        except:
+            log.warning("Exception loading LAE/OII discriminator config",exc_info=True)
+            print("Exception loading LAE/OII discriminator config")
+
+    posterior_odds = 0.0
+    prob_lae_given_data = 0.0
+
+    #build up parameters (need to be numpy arrays for the call)
+    ra = None #have no meaning in this case? could set to [100.0] and [0.0] per example?
+    dec = None
+    z_LyA = wl_obs / G.LyA_rest - 1.0
+    z_OII = wl_obs / G.OII_rest - 1.0
+
+    #suppress sign of EW (always wants positive)
+    # (and, note this is the OBSERVERED EqW, not EW/(1+z_LAE) ... that calc occurs inside the calls)
+    ew_obs = abs(ew_obs)
+
+    if lineFlux_err is None:
+        lineFlux_err = 0.0
+
+    if ew_obs_err is None:
+        ew_obs_err = 0.0
+
+
+    #convert additional wavelengths into names for the call
+    #from the UNIVERSE_CONFIG file
+    known_lines = UNIVERSE_CONFIG.items("wavelengths") #array of tuples (name,wavelength)
+
+    extra_fluxes = []
+    extra_fluxes_err = []
+    extra_fluxes_name = []
+
+    #all the extra lines used by the Bayes code are visible in our range only if OII is the primary
+    #so assume OII and shift to rest frame
+
+    # LAE = 1215.668
+    # OII = 3727.45
+    # NeIII = 3869.00
+    # H_beta = 4861.32
+    # OIII4959 = 4958.91
+    # OIII5007 = 5006.84
+
+    #iterate over all in addl_wavelengths, if +/- (1? 2? AA ... what are we using elsewhere?) assign name
+    #if no match, toss the additional flux, etc
+
+    wl_unc = 1.0 #AA
+
+    try:
+        for n, w in known_lines:
+            w_oii = float(w) / (z_OII + 1.)
+            for i in range(len(addl_fluxes)):
+                if abs(w_oii-addl_wavelengths[i]) < wl_unc:
+                    extra_fluxes.append(addl_fluxes[i])
+                    extra_fluxes_name.append(n)
+                    try:
+                        extra_fluxes_err.append(addl_errors[i])
+                    except:
+                        extra_fluxes_err.append(0.0)
+                        log.warning("Exception (non-fatal) building extra line fluxes in line_prob.py. " + \
+                                    "Unable to set flux uncertainty.", exc_info=True)
+
+                    break
+    except:
+        log.error("Exception building extra line fluxes in line_prob.py.", exc_info=True)
+        return 0,0,0
+
+
+    try:
+        posterior_odds, prob_lae_given_data = LineClassifierPro.source_prob(UNIVERSE_CONFIG,
+                                                      array([ra]), array([dec]), array([z_LyA]),
+                                                      array([lineFlux]), array([lineFlux_err]),
+                                                      array([ew_obs]), array([ew_obs_err]),
+                                                      c_obs=None, which_color=None,
+                                                      addl_fluxes=array(extra_fluxes),
+                                                      addl_fluxes_error=array(extra_fluxes_err),
+                                                      addl_line_names=array(extra_fluxes_name),
+                                                      flim_file=FLUX_LIMIT_FN,extended_output=False)
+    except:
+        log.error("Exception calling LineClassifierPro::source_prob()", exc_info=True)
+
+    ###############################
+    #just testing ....
+    ###############################
+    if False:
+
+        # @pytest.mark.parametrize("z, fluxes, ew_obs, addl_fluxes, addl_names, e_ratio, e_prob_lae",
+        #                          [
+        #                              (1.9, 9e-17, 40, None, None, 1e+32, 1.0),
+        #                              (2.48, 9e-17, 40, None, None, 9.0769011810393501, 0.90076314314944406),
+        #                              (3.18, 9e-17, 40, None, None, 0.17790889751426178, 0.151037909544365),
+
+        #                              (2.08, 9e-17, 40, [[5e-17]], ["NeIII"], 10.917948575339162, 0.91609294219734949),
+
+        #                              (2.12, 9e-17, 40, [[6e-17]], ["H_beta"], 2.2721726484396545e-09,
+        #                               2.2721726536024229e-09),
+        #                              (2.08, 9e-17, 40, [[7e-17], [9e-17 * 4.752 / 1.791]], ["OIII4959", "OIII5007"], 0.0,
+        #                               0.0)
+        #                          ])
+
+        #flim_file = '/home/dustin/code/python/elixer/line_classifier_install/tests/data/Line_flux_limit_5_sigma_baseline.dat'
+
+        #posterior_odds, prob_lae_given_data = LineClassifierPro.source_prob(UNIVERSE_CONFIG, [100.0], [0.0],
+        #                                                                [2.08], array([9e-17]),
+        #                                                array([0.0]), [40.], [0.0], None, None, None, None, None,
+        #                                                FLUX_LIMIT_FN)
+
+        from line_classifier.misc.tools import read_flim_file
+        flims = read_flim_file(FLUX_LIMIT_FN)
+        errors = []
+        for x in ["NeIII"]:
+            zoii = (1.0 + 2.08) * UNIVERSE_CONFIG.getfloat("wavelengths", "LAE") / UNIVERSE_CONFIG.getfloat("wavelengths", "OII") - 1.0
+            lambda_ = UNIVERSE_CONFIG.getfloat("wavelengths", x) * (1.0 + zoii)
+            errors.append(0.2 * flims(lambda_ / UNIVERSE_CONFIG.getfloat("wavelengths", "LAE") - 1.0))
+        errors = array(errors)
+
+
+        posterior_odds, prob_lae_given_data = LineClassifierPro.source_prob(UNIVERSE_CONFIG, ra,dec,
+                                                          array([2.08]), array([9e-17]), array([0.0]),
+                                                          [40.0], [0.0], None, None,
+                                                          array([5e-17]), errors, array(["NeIII"]), FLUX_LIMIT_FN)
+            #LineClassifierPro.source_prob(extended_output=False)
+
+    ################################
+    # end testing
+    ###############################
+
+
+    if (posterior_odds is not None) and (posterior_odds != 0):
+        pogd = prob_lae_given_data / posterior_odds
+    else:
+        pogd = 0.
+
+    plgd = prob_lae_given_data
+    ratio_LAE = min(MAX_PLAE_POII, posterior_odds)
+
+    #temporary -- compare results and note if the new method disagrees with the old
+    if old_ratio_LAE + ratio_LAE != 0:
+        if abs((old_ratio_LAE - ratio_LAE)/(0.5*(old_ratio_LAE+ratio_LAE))) > 0.01:
+            msg = "Warning! Difference in P(LAE)/P(OII).\n  Original: P(LAE|data) = %f, P(OII|data) = %f, ratio = %f" \
+                  "\n  New: P(LAE|data) = %f, P(OII|data) = %f, ratio = %f" \
+                  %(old_plgd,old_pogd,old_ratio_LAE,plgd,pogd,ratio_LAE)
+
+            log.warning("***" + msg)
+            print(msg)
+
+
+    return ratio_LAE, plgd, pogd
