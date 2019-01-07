@@ -8,6 +8,9 @@ changes to elixer by version
     the pixel level might not be appropriate)
 * fixed error in propogating line flux and continuum uncertainties into equivalent width uncertainty if using local
   MCMC fit
+* updated SLURM wrapper to allow for maverick or wrangler
+* fixed missing columns in dataframe for stack_cosmos (was missing the FLUX_AUTO and FLUXERR_AUTO) to add per filter
+  flux to the catalog
 
 
 1.5.0a15 [2018-12-14]

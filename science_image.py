@@ -252,7 +252,6 @@ class science_image():
                 log.error("Exception in science_image::get_cutout ():" , exc_info=True)
                 return cutout, counts, mag, radius
 
-
         #put down aperture on cutout at RA,Dec and get magnitude
         if (position is not None) and (cutout is not None) and (image is not None) \
                 and (mag_func is not None) and (aperture > 0):
@@ -322,10 +321,7 @@ class science_image():
                                          "Will not attempt aperture magnitude calculation",exc_info=True)
                                 break
 
-
                         mag = mag_func(counts, cutout, self.fits)
-
-
 
                         # pix_mag = mag_func(pix_counts, cutout, self.fits)
                         # log.info("++++++ pix_mag (%f) sky_mag(%f)" %(pix_mag,mag))
@@ -367,6 +363,7 @@ class science_image():
                 radius = max_radius
 
             else:
+
                 try:
                     if G.FIXED_MAG_APERTURE is not None:
                         radius = G.FIXED_MAG_APERTURE
@@ -375,6 +372,7 @@ class science_image():
                             radius = aperture
                         else:
                             radius = 1.
+
                     sky_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec)
                     phot_table = aperture_photometry(image,sky_aperture)
                     counts = phot_table['aperture_sum'][0]
@@ -447,7 +445,6 @@ class science_image():
 
                 except:
                     log.error("Exception in science_image::get_cutout () figuring sky subtraction aperture", exc_info=True)
-
 
         return cutout, counts, mag, radius
 

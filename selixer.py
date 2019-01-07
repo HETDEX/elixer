@@ -7,17 +7,39 @@ import elixer
 import numpy as np
 from math import ceil
 from datetime import timedelta
+import socket
+hostname = socket.gethostname()
+
+#form of loginxxx.<name>.tacc.utexas.edu
+if "tacc.utexas.edu" in hostname:
+    hostname = hostname.split(".")[1]
+
+if hostname == "maverick":
+    MAX_TASKS = 640 #max allowed by TACC (for gpu or vis)
+    cores_per_node = 20 #for Maverick
+    time = "00:59:59"
+    time_set = False
+    email = "##SBATCH --mail-user\n##SBATCH --mail-type all"
+    queue = "vis"
+    tasks = 1
+elif hostname == "wrangler":
+    MAX_TASKS = 640 #
+    cores_per_node = 24 #for wrangler
+    time = "00:59:59"
+    time_set = False
+    email = "##SBATCH --mail-user\n##SBATCH --mail-type all"
+    queue = "normal"
+    tasks = 1
+else:
+    MAX_TASKS = 640 #max allowed by TACC (for gpu or vis)
+    cores_per_node = 20 #for Maverick
+    time = "00:59:59"
+    time_set = False
+    email = "##SBATCH --mail-user\n##SBATCH --mail-type all"
+    queue = "vis"
+    tasks = 1
 
 
-#todo: allow user to change the run-time from command line
-MAX_TASKS = 640 #max allowed by TACC (for gpu or vis)
-cores_per_node = 20 #for Maverick
-time = "00:59:59"
-time_set = False
-email = "##SBATCH --mail-user \n\
-##SBATCH --mail-type all"
-queue = "vis"
-tasks = 1
 args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
 
 
@@ -252,8 +274,9 @@ slurm += "\
 #SBATCH -p " + queue +"                 # Queue name\n\
 #SBATCH -o ELIXER.o%j          # Name of stdout output file (%j expands to jobid)\n\
 #SBATCH -t " + time + "            # Run time (hh:mm:ss)\n\
-#SBATCH -A Hobby-Eberly-Telesco\n"\
-+ email + "\n\
+#SBATCH -A Hobby-Eberly-Telesco\n"
+slurm += email + "\n"
+slurm += "\
 #------------------------------------------------------\n\
 #\n\
 # Usage:\n\
@@ -266,12 +289,33 @@ slurm += "\
 #\n\
 #------------------------------------------------------\n\
 \n\
-#------------------General Options---------------------\n\
-module unload xalt \n\
-module load launcher\n\
-export EXECUTABLE=$TACC_LAUNCHER_DIR/init_launcher\n\
-export WORKDIR=. \n\
-export CONTROL_FILE=elixer.run\n\
+#------------------General Options---------------------\n"
+
+if hostname == "maverick":
+    slurm += "module unload xalt \n"
+    slurm += "module load launcher\n"
+    slurm += "export EXECUTABLE=$TACC_LAUNCHER_DIR/init_launcher\n"
+    slurm += "export WORKDIR=. \n"
+    slurm += "export CONTROL_FILE=elixer.run\n"
+
+elif hostname == "wrangler":
+    #slurm += "module unload xalt \n"
+    slurm += "module load launcher\n"
+    slurm += "export TACC_LAUNCHER_PPN=24\n"
+    slurm += "export EXECUTABLE=$TACC_LAUNCHER_DIR/init_launcher\n"
+    #note: wranger says WORKDIR and CONTROL_FILE deprecated, so replace with LAUNCHER_WORKDIR, LAUNCHER_JOB_FILE
+    slurm += "export LAUNCHER_WORKDIR=$(pwd)\n"
+    slurm += "export LAUNCHER_JOB_FILE=elixer.run\n"
+    #just so the bottom part work as is and print w/o error
+    slurm += "WORKDIR=$LAUNCHER_WORKDIR\n"
+    slurm += "CONTROL_FILE=$LAUNCHER_JOB_FILE\n"
+else:
+    slurm += "module load launcher\n"
+    slurm += "export EXECUTABLE=$TACC_LAUNCHER_DIR/init_launcher\n"
+    slurm += "export WORKDIR=. \n"
+    slurm += "export CONTROL_FILE=elixer.run\n"
+
+slurm += "\
 \n\
 # Variable descriptions:\n\
 #\n\
@@ -431,8 +475,11 @@ except:
 
 #execute system command
 print ("Calling SLURM queue ...")
-os.system('sbatch elixer.slurm')
-#print ("Here we will call: sbatch elixer.slurm")
+if hostname == "z50":
+    print("Here we will call: sbatch elixer.slurm")
+else:
+    os.system('sbatch elixer.slurm')
+#
 
 
 

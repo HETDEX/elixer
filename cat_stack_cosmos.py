@@ -195,7 +195,7 @@ class STACK_COSMOS(cat_base.Catalog):
          'name': 'COSMOS_u_sci.fits',
          'filter': 'u',
          'instrument': '',
-         'cols': [],
+         'cols': ['FLUX_AUTO','FLUXERR_AUTO'],
          'labels': [],
          'image': None,
          'expanded': False,
@@ -207,7 +207,7 @@ class STACK_COSMOS(cat_base.Catalog):
          'name': 'COSMOS_g_sci.fits',
          'filter': 'g',
          'instrument': '',
-         'cols': [],
+         'cols': ['FLUX_AUTO','FLUXERR_AUTO'],
          'labels': [],
          'image': None,
          'expanded': False,
@@ -220,7 +220,7 @@ class STACK_COSMOS(cat_base.Catalog):
          'name': 'COSMOS_r_sci.fits',
          'filter': 'r',
          'instrument': '',
-         'cols': [],
+         'cols': ['FLUX_AUTO','FLUXERR_AUTO'],
          'labels': [],
          'image': None,
          'expanded': False,
@@ -233,7 +233,7 @@ class STACK_COSMOS(cat_base.Catalog):
          'name': 'COSMOS_i_sci.fits',
          'filter': 'i',
          'instrument': '',
-         'cols': [],
+         'cols': ['FLUX_AUTO','FLUXERR_AUTO'],
          'labels': [],
          'image': None,
          'expanded': False,
@@ -245,7 +245,7 @@ class STACK_COSMOS(cat_base.Catalog):
          'name': 'COSMOS_z_sci.fits',
          'filter': 'z',
          'instrument': '',
-         'cols': [],
+         'cols': ['FLUX_AUTO','FLUXERR_AUTO'],
          'labels': [],
          'image': None,
          'expanded': False,
@@ -895,7 +895,12 @@ class STACK_COSMOS(cat_base.Catalog):
                                                           self.micro_jansky_to_cgs(df[c['cols'][1]].values[0],
                                                                                    target_w))
                                 except:
-                                    log.debug('Could not add filter info to bid_target.')
+                                    try:
+                                        log.debug('Could not add instrument (%s) and filter (%s) info to bid_target.'
+                                                  %(c['instrument'], c['filter']))
+                                    except:
+                                        log.debug('Could not add filter info to bid_target.')
+
 
                             cat_match.add_bid_target(bid_target)
                     else:
