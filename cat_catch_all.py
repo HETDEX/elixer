@@ -5,7 +5,7 @@ import os.path as op
 
 
 import matplotlib
-matplotlib.use('agg')
+#matplotlib.use('agg')
 
 import pandas as pd
 import science_image

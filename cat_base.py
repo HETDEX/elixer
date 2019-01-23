@@ -6,7 +6,7 @@ import global_config as G
 import os.path as op
 
 import matplotlib
-matplotlib.use('agg')
+#matplotlib.use('agg')
 
 import pandas as pd
 import numpy as np
@@ -900,6 +900,74 @@ class Catalog:
         plt.close()
         return fig
 
+
+    def get_single_cutout(self,ra,dec,window,catalog_image):
+
+        d = {'cutout':None,
+             'hdu':None,
+             'path':None,
+             'filter':catalog_image['filter'],
+             'instrument':catalog_image['instrument']}
+
+        try:
+            wcs_manual = catalog_image['wcs_manual']
+        except:
+            wcs_manual = self.WCS_Manual
+
+        try:
+            if catalog_image['image'] is None:
+                catalog_image['image'] = science_image.science_image(wcs_manual=wcs_manual,
+                                                         image_location=op.join(catalog_image['path'],
+                                                                                catalog_image['name']))
+            sci = catalog_image['image']
+
+            if sci.fits is None:
+                sci.load_image(wcs_manual=wcs_manual)
+
+            d['path'] = sci.image_location
+            d['hdu'] = sci.fits
+
+            #to here, window is in degrees so ...
+            window = 3600.*window
+
+            cutout, _, _, _ = sci.get_cutout(ra, dec, error=window, window=window, aperture=None,
+                                             mag_func=None,copy=True)
+            #don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
+
+            if cutout is not None:  # construct master cutout
+               d['cutout'] = cutout
+        except:
+            log.error("Error in get_single_cutout.",exc_info=True)
+
+        return d
+
+
+    def get_cutouts(self,ra,dec,window):
+        l = list()
+
+        for i in self.CatalogImages:  # i is a dictionary
+            #note: this works, but can be grossly inefficient and
+            #should be overwritten by the child-class
+            l.append(self.get_single_cutout(ra,dec,window,i))
+
+        return l
+
+    #todo:
+    def get_catalog_objects(self,ra,dec,window):
+        #needs to be overwritten by each catalog
+
+        d = {'count':-1,'name':None,'dataframe':None}
+
+        window = window * 3600. #came in as degress, want arsec
+        num, df, photoz = self.build_list_of_bid_targets(ra,dec,window)
+
+        if df is not None:
+            d['count'] = num
+            d['dataframe'] = df
+            d['name'] = self.name
+            #very few have photoz, so lets just drop it?
+
+        return d
 
     def get_stacked_cutout(self,ra,dec,window):
         #implement in child class

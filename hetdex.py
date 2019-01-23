@@ -1,7 +1,7 @@
 
 import global_config as G
 import matplotlib
-matplotlib.use('agg')
+#matplotlib.use('agg')
 import time
 import dateutil.parser
 

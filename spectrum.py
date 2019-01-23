@@ -1,6 +1,6 @@
 import global_config as G
 import matplotlib
-matplotlib.use('agg')
+#matplotlib.use('agg')
 
 import matplotlib.pyplot as plt
 #from matplotlib.font_manager import FontProperties
@@ -519,6 +519,14 @@ class EmissionLineInfo:
             self.cont = -999
             self.line_flux = -999
             self.line_score = 0
+
+
+    # def calc_line_score(self):
+    #
+    #     return   self.snr * self.line_flux * 1e17 * \
+    #              min(self.fit_sigma / self.pix_size, 1.0) * \
+    #              min((self.pix_size * self.sn_pix) / 21.0, 1) / \
+    #              (10.0 * (1. + abs(self.fit_dx0 / self.pix_size)))
 
     def get_prob_noise(self):
         MDF = False
@@ -1121,6 +1129,112 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     else:
         log.info("Fit rejected")
         return None
+
+
+
+
+def run_mcmc(eli,wavelengths,values,errors,central,values_units):
+
+    err_units = values_units  # assumed to be in the same units
+    values, values_units = norm_values(values, values_units)
+    if errors is not None and (len(errors) == len(values)):
+        errors, err_units = norm_values(errors, err_units)
+
+    pix_size = abs(wavelengths[1] - wavelengths[0])  # aa per pix
+    wave_side = int(round(GAUSS_FIT_AA_RANGE / pix_size))  # pixels
+    fit_range_AA = max(GAUSS_FIT_PIX_ERROR * pix_size, GAUSS_FIT_AA_ERROR)
+
+    len_array = len(wavelengths)
+    idx = getnearpos(wavelengths, central)
+    min_idx = max(0, idx - wave_side)
+    max_idx = min(len_array, idx + wave_side)
+    wave_x = wavelengths[min_idx:max_idx + 1]
+    wave_counts = values[min_idx:max_idx + 1]
+    if (errors is not None) and (len(errors) == len(wavelengths)):
+        wave_errors = errors[min_idx:max_idx + 1]
+        # replace any 0 with 1
+        wave_errors[np.where(wave_errors == 0)] = 1
+    else:
+        wave_errors = None
+
+    narrow_wave_x = wave_x
+    narrow_wave_counts = wave_counts
+    narrow_wave_errors = wave_errors
+
+    fit_range_AA = max(GAUSS_FIT_PIX_ERROR * pix_size, GAUSS_FIT_AA_ERROR)
+    peak_pos = getnearpos(wavelengths, central)
+
+    try:
+        # find the highest point in the raw data inside the range we are allowing for the line center fit
+        dpix = int(round(fit_range_AA / pix_size))
+        raw_peak = max(values[peak_pos - dpix:peak_pos + dpix + 1])
+        if raw_peak <= 0:
+            log.warning("Spectrum::run_mcmc invalid raw peak %f" % raw_peak)
+            return eli
+    except:
+        # this can fail if on very edge, but if so, we would not use it anyway
+        log.info(
+            "Raw Peak value failure for wavelength (%f) at index (%d). Cannot fit to gaussian. " % (central, peak_pos))
+        return eli
+
+
+    mcmc = mcmc_gauss.MCMC_Gauss()
+    mcmc.initial_mu = eli.fit_x0
+    mcmc.initial_sigma = eli.fit_sigma
+    mcmc.initial_A = eli.fit_a  # / adjust
+    mcmc.initial_y = eli.fit_y  # / adjust
+    mcmc.initial_peak = raw_peak  # / adjust
+    mcmc.data_x = narrow_wave_x
+    mcmc.data_y = narrow_wave_counts  # / adjust
+    mcmc.err_y = narrow_wave_errors  # not the 1./err*err .... that is done in the mcmc likelihood function
+
+    # if using the scipy::curve_fit, 50-100 burn-in and ~1000 main run is plenty
+    # if other input (like Karl's) ... the method is different and we are farther off ... takes longer to converge
+    #   but still converges close to the scipy::curve_fit
+    mcmc.burn_in = 250
+    mcmc.main_run = 1000
+
+    try:
+        mcmc.run_mcmc()
+    except:
+        log.warning("Exception in spectrum.py calling mcmc.run_mcmc()", exc_info=True)
+        return eli
+
+    # 3-tuple [0] = fit, [1] = fit +16%,  [2] = fit - 16%
+    eli.mcmc_x0 = mcmc.mcmc_mu
+    eli.mcmc_sigma = mcmc.mcmc_sigma
+    eli.mcmc_snr = mcmc.mcmc_snr
+
+    if mcmc.mcmc_A is not None:
+        eli.mcmc_a = np.array(mcmc.mcmc_A)
+    else:
+        eli.mcmc_a = np.array((0., 0., 0.))
+
+    if mcmc.mcmc_y is not None:
+        eli.mcmc_y = np.array(mcmc.mcmc_y)
+    else:
+        eli.mcmc_y = np.array((0., 0., 0.))
+
+    if values_units < 0:
+        eli.mcmc_a *= 10 ** values_units
+        eli.mcmc_y *= 10 ** values_units
+
+    # calc EW and error with approximate symmetric error on area and continuum
+    if eli.mcmc_y[0] != 0 and eli.mcmc_a[0] != 0:
+        ew = abs(eli.mcmc_a[0] / eli.mcmc_y[0])
+        ew_err = ew * np.sqrt((mcmc.approx_symmetric_error(eli.mcmc_a) / eli.mcmc_a[0]) ** 2 +
+                              (mcmc.approx_symmetric_error(eli.mcmc_y) / eli.mcmc_y[0]) ** 2)
+    else:
+        ew = eli.mcmc_a[0]
+        ew_err = mcmc.approx_symmetric_error(eli.mcmc_a)
+
+    eli.mcmc_ew_obs = [ew, ew_err, ew_err]
+    log.info("MCMC Peak height = %f" % (max(narrow_wave_counts)))
+    log.info("MCMC calculated EW_obs for main line = %0.3g +/- %0.3g" % (ew, ew_err))
+
+
+
+    return eli
 
 
 def signal_calc_scaled_score(raw):
@@ -2093,7 +2207,7 @@ class Spectrum:
         return solutions
 
 
-    def is_near_a_peak(self,w,aa=5.0): #is the provided wavelength near one of the found peaks (+/- few AA or pixels)
+    def is_near_a_peak(self,w,aa=4.0): #is the provided wavelength near one of the found peaks (+/- few AA or pixels)
 
         wavelength = 0.0
         if (self.all_found_lines is None):
@@ -2109,7 +2223,7 @@ class Spectrum:
 
         return wavelength
 
-    def is_near_absorber(self,w,aa=5.0):#pix_size=1.9): #is the provided wavelength near one of the found peaks (+/- few AA or pixels)
+    def is_near_absorber(self,w,aa=4.0):#pix_size=1.9): #is the provided wavelength near one of the found peaks (+/- few AA or pixels)
 
         if not (G.DISPLAY_ABSORPTION_LINES or G.MAX_SCORE_ABSORPTION_LINES):
             return 0
@@ -2132,6 +2246,9 @@ class Spectrum:
 
 
     def clean_absorbers(self):
+        #the intent is to not mark a "partial trough next to a peak as an absorption feature
+        #but this does not really do the job
+        #really should properly fit an absorption profile and not use this cheap, flip the spectra approach
         return
         if self.all_found_absorbs is not None:
             for i in range(len(self.all_found_absorbs)-1,-1,-1):
@@ -2278,6 +2395,25 @@ class Spectrum:
                                     add_to_sol = False
                                     break
 
+
+                    #now, before we add, if we have not run MCMC on the feature, do so now
+                    if add_to_sol:
+                        if eli.mcmc_x0 is None:
+                            eli = run_mcmc(eli,wavelengths,values,errors,a_central,values_units)
+
+                        #and now validate the MCMC SNR (reminder:  MCMC SNR is line flux (e.g. Area) / (1sigma uncertainty)
+                        if eli.mcmc_snr is None:
+                            add_to_sol = False
+                            log.info("Line (at %f) rejected due to missing MCMC SNR" %(a_central))
+                        elif eli.mcmc_snr < G.MIN_MCMC_SNR:
+                            add_to_sol = False
+                            log.info("Line (at %f) rejected due to poor MCMC SNR (%f)" % (a_central,eli.mcmc_snr))
+                        #todo: should we recalculate the score with the MCMC data (flux, SNR, etc)??
+                        #todo: or, at this point, is this a binary condition ... the line is there, or not
+                        #todo: .... still with multiple solutions possible, we must meet the minimum and then the best
+                        #todo:      score (clear winner) wins
+
+
                     if add_to_sol:
                         l = copy.deepcopy(a)
                         l.w_obs = l.w_rest * (1.0 + sol.z)
@@ -2302,9 +2438,10 @@ class Spectrum:
                             line_type = "absorption"
                         else:
                             line_type = "emission"
-                        log.info("Accepting %s line (%s): %s(%0.1f at %01.f) snr = %0.1f  line_flux = %0.1g  sigma = %0.1f  "
-                                 "line_score = %0.1f  p(noise) = %g"
-                                 %(line_type, self.identifier,l.name,l.w_rest,l.w_obs,l.snr, l.flux, l.sigma, l.line_score,l.prob_noise))
+                        log.info("Accepting %s line (%s): %s(%0.1f at %01.f) snr = %0.1f  MCMC_snr = %0.1f  "
+                                 "line_flux = %0.1g  sigma = %0.1f  line_score = %0.1f  p(noise) = %g"
+                                 %(line_type, self.identifier,l.name,l.w_rest,l.w_obs,l.snr, eli.mcmc_snr, l.flux,
+                                   l.sigma, l.line_score,l.prob_noise))
 
             if sol.score > 0.0:
                 #log.info("Solution p(noise) (%f) from %d additional lines" % (sol.prob_noise, len(sol.lines) - 1))

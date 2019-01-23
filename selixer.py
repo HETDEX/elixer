@@ -8,13 +8,27 @@ import numpy as np
 from math import ceil
 from datetime import timedelta
 import socket
-hostname = socket.gethostname()
 
-#form of loginxxx.<name>.tacc.utexas.edu
+hostname = socket.gethostname()
+#print("+++++++++++++ put this BACK !!!!! ")
+#hostname = "wrangler"
+
+HOST_LOCAL = -1
+HOST_UNKNOWN = 0
+HOST_MAVERICK = 1
+HOST_WRANGLER = 2
+HOST_STAMPEDE2 = 3
+
+host = HOST_UNKNOWN
+
+#form of loginxxx.<name>.tacc.utexas.edu for login nodes
+#or cxxx-xxx.<name>.tacc.utexas.edu for compute nodes
 if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 if hostname == "maverick":
+    print("preparing SLURM for maverick...")
+    host = HOST_MAVERICK
     MAX_TASKS = 640 #max allowed by TACC (for gpu or vis)
     cores_per_node = 20 #for Maverick
     time = "00:59:59"
@@ -23,20 +37,52 @@ if hostname == "maverick":
     queue = "vis"
     tasks = 1
 elif hostname == "wrangler":
+    #!!! right now, for whatever reason, memmory is a problem for wrangler
+    #and it can handle only 4 tasks per node (maximum)
+    #It takes about 1 minute to run a task (lets call it 90 seconds to be safe)
+    #set -N and -n s|t n/N <= 4
+    print("preparing SLURM for wrangler...")
+    host = HOST_WRANGLER
     MAX_TASKS = 640 #
-    cores_per_node = 24 #for wrangler
+    MAX_NODES = 48
+    MAX_TASKS_PER_NODE = 4.0
+    cores_per_node = 24 #but basically can only use 4 at a time (see note just above)
+    time = "00:59:59"
+    time_set = False
+    email = "##SBATCH --mail-user\n##SBATCH --mail-type all"
+    queue = "normal"
+    tasks = 1
+elif hostname == "stampede2":
+    #https://portal.tacc.utexas.edu/user-guides/stampede2#running
+    #KNL normal 256 nodes/17408 cores total so ... 68 cores per node
+    print("preparing SLURM for stampede2...")
+    host = HOST_STAMPEDE2
+
+    MAX_TASKS = 640  #
+    cores_per_node = 68
+    time = "00:59:59"
+    time_set = False
+    email = "##SBATCH --mail-user\n##SBATCH --mail-type all"
+    queue = "normal" #KNL
+    tasks = 1
+
+elif hostname == "z50":
+    host = HOST_LOCAL
+    MAX_TASKS = 1 #
+    cores_per_node = 1
     time = "00:59:59"
     time_set = False
     email = "##SBATCH --mail-user\n##SBATCH --mail-type all"
     queue = "normal"
     tasks = 1
 else:
-    MAX_TASKS = 640 #max allowed by TACC (for gpu or vis)
-    cores_per_node = 20 #for Maverick
+    print("Warning!! Preparing SLURM for generic host ...")
+    MAX_TASKS = 1 #max allowed by TACC (for gpu or vis)
+    cores_per_node = 1
     time = "00:59:59"
     time_set = False
     email = "##SBATCH --mail-user\n##SBATCH --mail-type all"
-    queue = "vis"
+    queue = "gpu"
     tasks = 1
 
 
@@ -130,6 +176,8 @@ else:
 i = -1
 if "--tasks" in args:
     i = args.index("--tasks")
+else:
+    print("!!! --tasks NOT specified. Defaulting to (%d) task(s)." %tasks)
 
 if i != -1:
     try:
@@ -162,6 +210,8 @@ path = os.path.join(os.path.dirname(sys.argv[0]),"elixer.py")
 
 jobs_per_task =  []
 if tasks == 1:
+    print("Only 1 task. Will not use dispatch.")
+
     run = "python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' -f \n'
     jobs_per_task.append(1)
     try:
@@ -183,9 +233,11 @@ else: # multiple tasks
                 exit(-1)
         else:
             tasks = min(MAX_TASKS,len(subdirs))
-            print("\nAdjusting tasks to nearest lower multiple of 20 ...")
-            if tasks > 20:
-                tasks = tasks - tasks%20 #to deal with TACC parser issue
+
+            if host == HOST_MAVERICK:
+                print("\nAdjusting tasks to nearest lower multiple of 20 ...")
+                if tasks > 20:
+                    tasks = tasks - tasks%20 #to deal with TACC parser issue
 
             print("%d tasks" % tasks)
 
@@ -240,7 +292,7 @@ if tasks%cores_per_node != 0:
 if not time_set: #update time
     try:
         mx = np.max(jobs_per_task)
-        time = str(timedelta(minutes=5.0 * mx)) #3 minutes is pretty reasonable ... but use 5 minutes to be super safe
+        time = str(timedelta(minutes=10.0 * mx)) #3 minutes is pretty reasonable ... but use 5 minutes to be super safe
         print("--time %s" %time)
 
     except Exception as e:
@@ -269,7 +321,7 @@ slurm = "\
 #SBATCH -J ELiXer              # Job name\n\
 #SBATCH -n " + str(tasks) + "                  # Total number of tasks\n"
 
-slurm += "#SBATCH -N " + str(nodes) + "                  # Total number of nodes requested (20 cores per node)\n"
+slurm += "#SBATCH -N " + str(nodes) + "                  # Total number of nodes requested\n"
 slurm += "\
 #SBATCH -p " + queue +"                 # Queue name\n\
 #SBATCH -o ELIXER.o%j          # Name of stdout output file (%j expands to jobid)\n\
@@ -291,14 +343,14 @@ slurm += "\
 \n\
 #------------------General Options---------------------\n"
 
-if hostname == "maverick":
+if host == HOST_MAVERICK:
     slurm += "module unload xalt \n"
     slurm += "module load launcher\n"
     slurm += "export EXECUTABLE=$TACC_LAUNCHER_DIR/init_launcher\n"
     slurm += "export WORKDIR=. \n"
     slurm += "export CONTROL_FILE=elixer.run\n"
 
-elif hostname == "wrangler":
+elif host == HOST_WRANGLER:
     #slurm += "module unload xalt \n"
     slurm += "module load launcher\n"
     slurm += "export TACC_LAUNCHER_PPN=24\n"
@@ -475,7 +527,7 @@ except:
 
 #execute system command
 print ("Calling SLURM queue ...")
-if hostname == "z50":
+if host == HOST_LOCAL:
     print("Here we will call: sbatch elixer.slurm")
 else:
     os.system('sbatch elixer.slurm')

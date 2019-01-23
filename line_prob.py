@@ -357,7 +357,7 @@ def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_
     ratio_LAE = min(MAX_PLAE_POII, posterior_odds)
 
     #temporary -- compare results and note if the new method disagrees with the old
-    if old_ratio_LAE + ratio_LAE != 0:
+    if old_ratio_LAE + ratio_LAE > 0.2: #if they are both small, don't bother
         if abs((old_ratio_LAE - ratio_LAE)/(0.5*(old_ratio_LAE+ratio_LAE))) > 0.01:
             msg = "Warning! Difference in P(LAE)/P(OII).\n  Original: P(LAE|data) = %f, P(OII|data) = %f, ratio = %f" \
                   "\n  New: P(LAE|data) = %f, P(OII|data) = %f, ratio = %f" \

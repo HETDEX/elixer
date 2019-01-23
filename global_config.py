@@ -3,6 +3,8 @@ import logging
 import os.path as op
 from datetime import datetime
 import numpy as np
+#from guppy import hpy
+#HPY = hpy()
 #import gc
 
 #catalogs are defined at top of catalogs.py
@@ -16,8 +18,8 @@ REPORT_ELIXER_MCMC_FIT = False
 RELATIVE_PATH_UNIVERSE_CONFIG = "line_classifier_install/tests/data/universe.cfg"
 RELATIVE_PATH_FLUX_LIM_FN = "line_classifier_install/tests/data/Line_flux_limit_5_sigma_baseline.dat"
 
-if socket.gethostname() == 'z50':
-#if False:
+#if socket.gethostname() == 'z50':
+if False:
     OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
     BAD_AMP_LIST = "/home/dustin/code/python/elixer/bad_amp_list.txt"
 
@@ -108,11 +110,21 @@ LOG_FILENAME = "elixer.log"
 #.debug(), .info(), .warning(), .error(), .critical()
 
 
+
+#first time we need to log anything
+
 class Global_Logger:
+    #LOGGER_INITIALIZED = False
+
     def __init__(self,id): #id is a string identifier
         self.logger = logging.getLogger(id)
 
     def add_time(self,msg):
+
+        #if self.LOGGER_INITIALIZED == False:
+        #    logging.basicConfig(filename=LOG_FILENAME, level=LOG_LEVEL, filemode='w')
+        #    self.LOGGER_INITIALIZED = True
+
         try:
             d = datetime.now()
             msg = "[%s:%s:%s.%s]  %s" %(str(d.hour).zfill(2),str(d.minute).zfill(2),str(d.second).zfill(2),
@@ -257,6 +269,7 @@ DISPLAY_ABSORPTION_LINES = True
 MAX_SCORE_ABSORPTION_LINES = 0.0 #the most an absorption line can contribute to the score (set to 0 to turn off)
 
 CLASSIFY_WITH_OTHER_LINES = True
+MIN_MCMC_SNR = 3.5 #minium SNR from an MCMC fit to accept as a real line
 MIN_ADDL_EMIS_LINES_FOR_CLASSIFY = 1
 MULTILINE_MIN_SOLUTION_SCORE = 25.0 #remember, this does NOT include the main line's score (about p(noise) = 0.01)
 MULTILINE_MIN_SOLUTION_CONFIDENCE = 0.99

@@ -14,6 +14,9 @@
 # get cutout (takes ra,dec,error) returns cutout_image (the cutout is just another science image)
 
 import global_config as G
+import gc
+#from time import sleep
+
 import numpy as np
 from astropy.visualization import ZScaleInterval
 import astropy.io.fits as fits
@@ -28,6 +31,7 @@ from photutils import CircularAperture #pixel coords
 from photutils import SkyCircularAperture, SkyCircularAnnulus #sky coords
 from photutils import aperture_photometry
 from astropy.stats import sigma_clipped_stats
+
 
 #log = G.logging.getLogger('sciimg_logger')
 #log.setLevel(G.logging.DEBUG)
@@ -46,7 +50,10 @@ class science_image():
 
         self.ra_center = 0.0
         self.dec_center = 0.0
+
         self.fits = None # fits handle
+
+
         self.wcs = None
         self.vmin = None
         self.vmax = None
@@ -56,6 +63,7 @@ class science_image():
 
         self.image_buffer = None
 
+        self.wcs_manual = wcs_manual
         self.wcs_idx = wcs_idx #usually on hdu 0 but sometimes not (i.e. HyperSuprimeCam on 1)
         self.footprint = None #on sky footprint, decimal degrees Ra,Dec as 4x2 array (with North up: LL, UL, UR, LR)
 
@@ -69,6 +77,20 @@ class science_image():
             self.image_location = image_location
             self.load_image(wcs_manual=wcs_manual)
 
+
+    def cycle_fits(self):
+        if self.fits is not None:
+            log.info("Closing fits and forcing garbage collection")
+            self.fits.close() # should free the memory (i.e. for large files, even with memmap)
+            del self.fits[self.wcs_idx].data
+            del self.fits
+            self.fits = None
+
+            gc.collect()
+            log.info("Reopening fits")
+            self.fits = fits.open(self.image_location, memmap=True, lazy_load_hdus=True)
+            #self.load_image(self.wcs_manual)#
+
     def load_image(self,wcs_manual=False):
         if (self.image_location is None) or (len(self.image_location) == 0):
             return -1
@@ -81,7 +103,7 @@ class science_image():
 
         try:
             log.info("Loading fits %s ..." % self.image_location)
-            self.fits = fits.open(self.image_location)
+            self.fits = fits.open(self.image_location,memmap=True,lazy_load_hdus=True)
         except:
             log.error("Unable to open science image file: %s" %self.image_location)
             return -1
@@ -119,6 +141,7 @@ class science_image():
         except:
             log.error("Unable to build pixel size", exc_info=True)
 
+
     def build_wcs_manually(self):
         try:
             self.wcs = WCS(naxis=self.fits[self.wcs_idx].header['NAXIS'])
@@ -145,7 +168,7 @@ class science_image():
         #now, it could be, so actually try a cutout to see if it will work
         try:
             cutout = Cutout2D(self.fits[self.wcs_idx].data, SkyCoord(ra, dec, unit="deg", frame=self.frame), (1, 1),
-                              wcs=self.wcs, copy=True)#,mode='partial')
+                              wcs=self.wcs, copy=False)#,mode='partial')
         except:
             log.debug("position (%f, %f) is not in image." % (ra,dec), exc_info=False)
             return False
@@ -193,6 +216,8 @@ class science_image():
         #wcs = None
         position = None
         if image is None:
+
+            #may have been freed to help with wrangler memory
             if self.fits is not None:
                 #need to keep memory use down ... the statements below (esp. data = self.fit[0].data)
                 #cause a copy into memory ... want to avoid it so, leave the code fragmented a bit as is
@@ -211,7 +236,62 @@ class science_image():
 
                     pix_window = int(np.ceil(window / self.pixel_size))  # now in pixels
                     log.debug("Collecting cutout size = %d square at RA,Dec = (%f,%f)" %(pix_window,ra,dec))
-                    cutout = Cutout2D(self.fits[self.wcs_idx].data, position, (pix_window, pix_window), wcs=self.wcs, copy=copy)
+
+                    #test for wrangler ... does not work
+
+                    # retries = 0
+                    # max_retries = 10
+                    # while retries < max_retries:
+                    #     try:
+                    #         cutout = Cutout2D(self.fits[self.wcs_idx].data, position, (pix_window, pix_window), wcs=self.wcs, copy=copy)
+                    #         #cutout = Cutout2D(self.fits[self.wcs_idx].data, position, (pix_window, pix_window), wcs=self.wcs,copy=False)
+                    #     except: #put in memory error
+                    #         t2sleep = np.random.random_integers(0,5000)/1000.
+                    #         log.info("+++++ Memory issue? Random sleep and retry (%f)s" % t2sleep)
+                    #         sleep(t2sleep)
+                    #         retries += 1
+                    #         self.load_image()
+                    #
+                    # if retries >= max_retries:
+                    #     log.info("+++++ giving up ....")
+                    # elif retries > 0:
+                    #     log.info("+++++ it worked (%d) ...." % retries)
+
+                    #before = float(G.HPY.heap().size) /(2**20)
+
+
+                    #potential "cheat" for wrangler
+                    # tempfits = fits.open(self.image_location, memmap=True, lazy_load_hdus=True)
+                    # cutout = Cutout2D(tempfits[self.wcs_idx].data, position, (pix_window, pix_window), wcs=self.wcs,
+                    #                   copy=copy)
+                    # tempfits.close()
+                    # del tempfits
+                    #
+
+
+                    #attempt to work arond wrangler memory problems
+                    #self.fits.close()
+                    #self.fits = fits.open(self.image_location, memmap=True, lazy_load_hdus=True)
+
+                    cutout = Cutout2D(self.fits[self.wcs_idx].data, position, (pix_window, pix_window), wcs=self.wcs,
+                                      copy=copy)
+
+                    #image = cutout #now that we have a cutout, the rest of this func works on it
+
+                    #del self.fits[self.wcs_idx].data
+                    #self.fits[self.wcs_idx].data = []
+
+
+
+
+                    #self.cycle_fits()
+                    #self.fits.close()
+
+                    #after = float(G.HPY.heap().size) /(2**20)
+
+                    #msg = "+++++ heap before (%0.2f), after (%0.2f) MB" %(before,after)
+                    #print(msg)
+                    #log.debug(msg)
                     self.get_vrange(cutout.data)
                 except NoOverlapError:
                     log.info("Error (possible NoOverlapError) in science_image::get_cutout(). *** Did more than one catalog match the coordinates? ***"
@@ -219,6 +299,12 @@ class science_image():
                     print("Target is not in range of image. RA,Dec = (%f,%f) Window = %d" % (ra, dec, pix_window))
                     return cutout, counts, mag, radius
                 except:
+                    #after = float(G.HPY.heap().size) /(2**20)
+
+                    #msg = "+++++ heap before (%0.2f), after (%0.2f) MB (exception case)" %(before,after)
+                    #print(msg)
+                    #log.debug(msg)
+
                     log.error("Exception in science_image::get_cutout (%s):" %self.image_location, exc_info=True)
                     return cutout, counts, mag, radius
 
@@ -296,6 +382,8 @@ class science_image():
                             try:
                                 sky_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec)
                                 phot_table = aperture_photometry(image, sky_aperture)
+#                                pix_aperture = CircularAperture(cutout.center_cutout, r=radius / self.pixel_size)
+#                                phot_table = aperture_photometry(cutout.data, pix_aperture)
                                 counts = phot_table['aperture_sum'][0]
                             except:
                                 log.info("Sky based aperture photometry failed. Will skip aperture photometery.",
@@ -373,8 +461,21 @@ class science_image():
                         else:
                             radius = 1.
 
-                    sky_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec)
-                    phot_table = aperture_photometry(image,sky_aperture)
+                    try:
+                        pix_aperture = CircularAperture(cutout.center_cutout, r=radius / self.pixel_size)
+                        phot_table = aperture_photometry(cutout.data, pix_aperture)
+                    except:
+                        log.info("Pixel based aperture photometry failed. Attemping sky based ... ", exc_info=True)
+                        #note: if we do this, photutils loads the entire fits image and that can be costly
+                        #in terms of time and memory
+                        try:
+                            sky_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec)
+                            phot_table = aperture_photometry(image, sky_aperture)
+                        except:
+                            log.info("Sky based aperture photometry failed. Will skip aperture photometery.",
+                                     exc_info=True)
+                            return cutout, counts, mag, radius
+
                     counts = phot_table['aperture_sum'][0]
 
                     if not isinstance(counts, float):

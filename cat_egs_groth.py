@@ -10,7 +10,7 @@ EGS_GROTH_CAT_PATH = G.EGS_GROTH_CAT_PATH
 #EGS_GROTH_IMAGE = op.join(G.EGS_GROTH_BASE_PATH,"groth.fits")
 
 import matplotlib
-matplotlib.use('agg')
+#matplotlib.use('agg')
 
 import pandas as pd
 import science_image

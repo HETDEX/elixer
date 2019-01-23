@@ -12,7 +12,7 @@ GOODS_N_PHOTOZ_CAT = op.join(GOODS_N_BASE_PATH , "photoz/zcat_GOODSN_v2.0.cat")
 GOODS_N_PHOTOZ_ZPDF_PATH = op.join(GOODS_N_BASE_PATH, "photoz/zPDFs/")
 
 import matplotlib
-matplotlib.use('agg')
+#matplotlib.use('agg')
 
 import pandas as pd
 import science_image

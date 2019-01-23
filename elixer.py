@@ -1,4 +1,8 @@
 from __future__ import print_function
+
+import matplotlib
+matplotlib.use('agg')
+
 import catalogs
 import argparse
 import hetdex
@@ -1153,6 +1157,7 @@ def merge(args=None):
 
 
 def main():
+
     global G_PDF_FILE_NUM
 
     #G.gc.enable()
@@ -1163,8 +1168,9 @@ def main():
         merge(args)
         exit(0)
 
-    cats = catalogs.get_catalog_list()
-    catch_all_cat = catalogs.get_catch_all()
+    cat_library = catalogs.CatalogLibrary()
+    cats = cat_library.get_full_catalog_list()
+    catch_all_cat = cat_library.get_catch_all()
     pages = []
 
     #if a --line file was provided ... old way (pre-April 2018)

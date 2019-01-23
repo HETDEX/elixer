@@ -6,7 +6,7 @@ import copy
 
 
 import matplotlib
-matplotlib.use('agg')
+#matplotlib.use('agg')
 
 import pandas as pd
 import science_image
@@ -213,7 +213,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                      'name': t, #filename is the tilename
                      'tile': t,
                      'filter': f,
-                     'instrument': "",
+                     'instrument': "HSC",
                      'cols': [],
                      'labels': [],
                      'image': None,
@@ -463,8 +463,8 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         tile, tract = self.find_target_tile(ra, dec)
         if tile is None:
             # problem
-            print("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" % (ra, dec))
-            log.error("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" % (ra, dec))
+            print("No appropriate tile found in HSC for RA,DEC = [%f,%f]" % (ra, dec))
+            log.error("No appropriate tile found in HSC for RA,DEC = [%f,%f]" % (ra, dec))
             return None
 
         for f in self.Filters:
@@ -540,8 +540,8 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
         if tile is None:
             # problem
-            print("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" % (ra, dec))
-            log.error("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" % (ra, dec))
+            print("No appropriate tile found in HSC for RA,DEC = [%f,%f]" % (ra, dec))
+            log.error("No appropriate tile found in HSC for RA,DEC = [%f,%f]" % (ra, dec))
             return None
 
         # All on one line now across top of plots
@@ -939,3 +939,69 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
         plt.close()
         return fig
+
+    def get_single_cutout(self, ra, dec, window, catalog_image):
+
+        d = {'cutout': None,
+             'hdu': None,
+             'path': None,
+             'filter': catalog_image['filter'],
+             'instrument': catalog_image['instrument']}
+
+        try:
+            wcs_manual = catalog_image['wcs_manual']
+        except:
+            wcs_manual = self.WCS_Manual
+
+        try:
+            if catalog_image['image'] is None:
+                catalog_image['image'] =  science_image.science_image(wcs_manual=wcs_manual,wcs_idx=1,
+                                                        image_location=op.join(catalog_image['path'],
+                                                                        catalog_image['name']))
+
+            sci = catalog_image['image']
+
+            if sci.fits is None:
+                sci.load_image(wcs_manual=wcs_manual)
+
+            d['path'] = sci.image_location
+            d['hdu'] = sci.fits
+
+            # to here, window is in degrees so ...
+            window = 3600. * window
+
+            cutout, _, _, _ = sci.get_cutout(ra, dec, error=window, window=window, aperture=None,
+                                             mag_func=None,copy=True)
+            # don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
+
+            if cutout is not None:  # construct master cutout
+                d['cutout'] = cutout
+        except:
+            log.error("Error in get_single_cutout.", exc_info=True)
+
+        return d
+
+    def get_cutouts(self,ra,dec,window):
+        l = list()
+
+        tile, tract = self.find_target_tile(ra, dec)
+
+        if tile is None:
+            # problem
+            log.error("No appropriate tile found in HSC for RA,DEC = [%f,%f]" % (ra, dec))
+            return None
+
+        for f in self.Filters:
+            try:
+                i = self.CatalogImages[
+                    next(i for (i, d) in enumerate(self.CatalogImages)
+                         if ((d['filter'] == f) and (d['tile'] == tile)))]
+            except:
+                i = None
+
+            if i is None:
+                continue
+
+            l.append(self.get_single_cutout(ra,dec,window,i))
+
+        return l
