@@ -1898,6 +1898,49 @@ class Classifier_Solution:
         return min(1 - self.prob_noise, 0.999) * min(1.0, float(len(self.lines))/(G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY + 1.0))
 
 
+
+class PanaceaSpectrum:
+    """
+    identification, etc from Panacea
+    the operable unit
+    now from HDF5
+    """
+
+    def __init__(self):
+        #address
+        self.amp = None
+        self.ifuid = None
+        self.ifuslot = None
+        self.specid = None
+        self.fibnum = None
+
+        #when
+        self.expnum = None
+        self.obsind = None
+
+
+        #coords
+        self.ra = None
+        self.dec = None
+        self.fpx = None
+        self.fpy = None
+        self.ifux = None
+        self.ifuy = None
+
+        #data
+        self.spectrum = None
+        self.error1Dfib = None
+        self.wavelength = None
+        self.sky_subtracted = None
+
+        #calibration
+        self.fiber_to_fiber = None
+        self.trace = None
+        self.twi_spectrum = None
+
+#end class PanaceaSpectrum
+
+
 class Spectrum:
     """
     helper functions for spectra
@@ -1990,6 +2033,9 @@ class Spectrum:
 
         self.identifier = None #optional string to help identify in the log
         self.plot_dir = None
+
+        #from HDF5
+
 
     def top_hat_filter(self,w_rest,w_obs, wx, hat_width=None, negative=False):
         #optimal seems to be around 1 to < 2 resolutions (e.g. HETDEX ~ 6AA) ... 6 is good, 12 is a bit

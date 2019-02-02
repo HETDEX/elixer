@@ -878,7 +878,13 @@ def write_fibers_file(filename,hd_list):
            # f.write(sep + str(emis.x))
            # f.write(sep + str(emis.y))
 
-            f.write(sep + str(emis.sigma))
+            if emis.snr is not None and emis.snr != 0:
+                f.write(sep + str(emis.snr))
+            elif emis.sn is not None and emis.sn != 0:
+                f.write(sep + str(emis.sn))
+            else:
+                f.write(sep + str(emis.sigma))
+
             f.write(sep + str(emis.chi2))
             f.write(sep + str(emis.fluxfrac))
             f.write(sep + str(emis.dataflux))

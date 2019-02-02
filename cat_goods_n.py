@@ -40,13 +40,13 @@ import match_summary
 #todo: update with aperture on photometry
 #todo: currently astropy does not like the drz fits files and throws exception with the aperture
 
-def goodsn_f606w_count_to_mag(count,cutout=None,sci_image=None):
+def goodsn_f606w_count_to_mag(count,cutout=None,headers=None):
     if count is not None:
         if sci_image is not None:
             #get the conversion factor, each tile is different
             try:
-                photoflam = float(sci_image[0].header['PHOTFLAM']) #inverse sensitivity, ergs / cm2 / Ang / electron
-                photozero = float(sci_image[0].header['PHOTZPT']) #/ ST magnitude zero point
+                photoflam = float(headers[0]['PHOTFLAM']) #inverse sensitivity, ergs / cm2 / Ang / electron
+                photozero = float(headers[0]['PHOTZPT']) #/ ST magnitude zero point
             except:
                 photoflam = 7.7265099E-20
                 photozero = -2.1100000E+01

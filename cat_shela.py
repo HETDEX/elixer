@@ -31,14 +31,14 @@ pd.options.mode.chained_assignment = None  #turn off warning about setting the d
 import cat_base
 import match_summary
 
-def shela_count_to_mag(count,cutout=None,sci_image=None):
+def shela_count_to_mag(count,cutout=None,headers=None):
     if count is not None:
         if sci_image is not None:
             #get the conversion factor, each tile is different
             try:
                 #gain = float(sci_image[0].header['GAIN'])
                 #nanofact = float(sci_image[0].header['NANOFACT'])
-                magzero = float(sci_image[0].header['MAGZERO'])
+                magzero = float(headers[0]['MAGZERO'])
             except:
                 #gain = 1.0
                 nanofact = 0.0
@@ -1164,11 +1164,11 @@ class SHELA(cat_base.Catalog):
 
             sci = catalog_image['image']
 
-            if sci.fits is None:
+            if sci.hdulist is None:
                 sci.load_image(wcs_manual=wcs_manual)
 
             d['path'] = sci.image_location
-            d['hdu'] = sci.fits
+            d['hdu'] = sci.headers
 
             # to here, window is in degrees so ...
             window = 3600. * window

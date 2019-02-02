@@ -15,7 +15,8 @@
 
 import global_config as G
 import gc
-#from time import sleep
+from time import sleep
+import mmap
 
 import numpy as np
 from astropy.visualization import ZScaleInterval
@@ -51,8 +52,10 @@ class science_image():
         self.ra_center = 0.0
         self.dec_center = 0.0
 
-        self.fits = None # fits handle
+        #self.fits = None # fits handle
 
+        self.hdulist = None
+        self.headers = None #array of hdulist headers
 
         self.wcs = None
         self.vmin = None
@@ -78,35 +81,43 @@ class science_image():
             self.load_image(wcs_manual=wcs_manual)
 
 
-    def cycle_fits(self):
-        if self.fits is not None:
-            log.info("Closing fits and forcing garbage collection")
-            self.fits.close() # should free the memory (i.e. for large files, even with memmap)
-            del self.fits[self.wcs_idx].data
-            del self.fits
-            self.fits = None
-
-            gc.collect()
-            log.info("Reopening fits")
-            self.fits = fits.open(self.image_location, memmap=True, lazy_load_hdus=True)
-            #self.load_image(self.wcs_manual)#
+    # def cycle_fits(self):
+    #     if self.fits is not None:
+    #         log.info("Closing fits and forcing garbage collection")
+    #         self.fits.close() # should free the memory (i.e. for large files, even with memmap)
+    #         del self.fits[self.wcs_idx].data
+    #         del self.fits
+    #         self.fits = None
+    #
+    #         gc.collect()
+    #         log.info("Reopening fits")
+    #         self.fits = fits.open(self.image_location, memmap=True, lazy_load_hdus=True)
+    #         #self.load_image(self.wcs_manual)#
 
     def load_image(self,wcs_manual=False):
         if (self.image_location is None) or (len(self.image_location) == 0):
             return -1
 
-        if self.fits is not None:
+        if self.hdulist is not None:
             try:
-                self.fits.close()
+                self.hdulist.close()
             except:
                 log.info("Unable to close fits file.")
 
+        if self.headers is not None:
+            del self.headers[:]
+
         try:
             log.info("Loading fits %s ..." % self.image_location)
-            self.fits = fits.open(self.image_location,memmap=True,lazy_load_hdus=True)
+            self.hdulist = fits.open(self.image_location,memmap=True,lazy_load_hdus=True)
         except:
             log.error("Unable to open science image file: %s" %self.image_location)
             return -1
+
+        self.headers = []
+        for i in range(len(self.hdulist)):
+            self.headers.append(fits.getheader(self.image_location,i))
+
 
         if wcs_manual:
             self.build_wcs_manually()
@@ -118,6 +129,7 @@ class science_image():
                 self.build_wcs_manually()
 
         if self.wcs is None: #must have WCS
+            self.hdulist.close()
             return -1
 
         try:
@@ -126,10 +138,10 @@ class science_image():
             log.error("Unable to get on-sky footprint")
 
         try:
-            self.exptime = self.fits[self.wcs_idx].header['EXPTIME']
+            self.exptime = self.hdulist[self.wcs_idx].header['EXPTIME']
         except:
             try:#if not with the wcs header, check the main (0) header
-                self.exptime = self.fits[0].header['EXPTIME']
+                self.exptime = self.hdulist[0].header['EXPTIME']
             except:
 
                 log.warning('Warning. Could not load exposure time from %s' %self.image_location, exc_info=True)
@@ -141,21 +153,43 @@ class science_image():
         except:
             log.error("Unable to build pixel size", exc_info=True)
 
+        self.hdulist.close() #don't keep it open ... can be a memory problem with wrangler
+        self.hdulist = None
+        return 0
+    #end load_image
+
 
     def build_wcs_manually(self):
+
+        close = False
+        if self.hdulist is None:
+            try:
+                log.info("Loading (local scope) fits %s ..." % self.image_location)
+                hdulist = fits.open(self.image_location, memmap=True, lazy_load_hdus=True)
+                close = True
+            except:
+                log.error("Unable to open science image file: %s" % self.image_location)
+                return -1
+        else:
+            log.info("Using outer scope fits %s ..." % self.image_location)
+            hdulist = self.hdulist
+
         try:
-            self.wcs = WCS(naxis=self.fits[self.wcs_idx].header['NAXIS'])
-            self.wcs.wcs.crpix = [self.fits[self.wcs_idx].header['CRPIX1'], self.fits[self.wcs_idx].header['CRPIX2']]
-            self.wcs.wcs.crval = [self.fits[self.wcs_idx].header['CRVAL1'], self.fits[self.wcs_idx].header['CRVAL2']]
-            self.wcs.wcs.ctype = [self.fits[self.wcs_idx].header['CTYPE1'], self.fits[self.wcs_idx].header['CTYPE2']]
+            self.wcs = WCS(naxis=hdulist[self.wcs_idx].header['NAXIS'])
+            self.wcs.wcs.crpix = [hdulist[self.wcs_idx].header['CRPIX1'], hdulist[self.wcs_idx].header['CRPIX2']]
+            self.wcs.wcs.crval = [hdulist[self.wcs_idx].header['CRVAL1'], hdulist[self.wcs_idx].header['CRVAL2']]
+            self.wcs.wcs.ctype = [hdulist[self.wcs_idx].header['CTYPE1'], hdulist[self.wcs_idx].header['CTYPE2']]
             #self.wcs.wcs.cdelt = [None,None]#[hdu1[0].header['CDELT1O'],hdu1[0].header['CDELT2O']]
-            self.wcs.wcs.cd = [[self.fits[self.wcs_idx].header['CD1_1'], self.fits[self.wcs_idx].header['CD1_2']],
-                               [self.fits[self.wcs_idx].header['CD2_1'], self.fits[self.wcs_idx].header['CD2_2']]]
-            self.wcs._naxis1 = self.fits[self.wcs_idx].header['NAXIS1']
-            self.wcs._naxis2 = self.fits[self.wcs_idx].header['NAXIS2']
+            self.wcs.wcs.cd = [[hdulist[self.wcs_idx].header['CD1_1'], hdulist[self.wcs_idx].header['CD1_2']],
+                               [hdulist[self.wcs_idx].header['CD2_1'], hdulist[self.wcs_idx].header['CD2_2']]]
+            self.wcs._naxis1 = hdulist[self.wcs_idx].header['NAXIS1']
+            self.wcs._naxis2 = hdulist[self.wcs_idx].header['NAXIS2']
         except:
             log.error("Failed to build WCS manually.",exc_info=True)
             self.wcs = None
+
+        if close:
+            hdulist.close()
 
     def contains_position(self,ra,dec):
         if self.footprint is not None: #do fast check first
@@ -165,14 +199,32 @@ class science_image():
                 log.debug("position (%f, %f) is not in image max rectangle." % (ra, dec), exc_info=False)
                 return False
 
+        close = False
+        rc = True
+        if self.hdulist is None:
+            try:
+                log.info("Loading (local scope) fits %s ..." % self.image_location)
+                hdulist = fits.open(self.image_location, memmap=True, lazy_load_hdus=True)
+                close = True
+            except:
+                log.error("Unable to open science image file: %s" % self.image_location)
+                return -1
+        else:
+            log.info("Using outer scope fits %s ..." % self.image_location)
+            hdulist = self.hdulist
+
         #now, it could be, so actually try a cutout to see if it will work
         try:
-            cutout = Cutout2D(self.fits[self.wcs_idx].data, SkyCoord(ra, dec, unit="deg", frame=self.frame), (1, 1),
+            cutout = Cutout2D(hdulist[self.wcs_idx].data, SkyCoord(ra, dec, unit="deg", frame=self.frame), (1, 1),
                               wcs=self.wcs, copy=False)#,mode='partial')
         except:
             log.debug("position (%f, %f) is not in image." % (ra,dec), exc_info=False)
-            return False
-        return True
+            rc = False
+
+        if close:
+            hdulist.close()
+
+        return rc
 
     def calc_pixel_size(self,wcs):
         return np.sqrt(wcs.wcs.cd[0, 0] ** 2 + wcs.wcs.cd[0, 1] ** 2) * 3600.0
@@ -217,17 +269,30 @@ class science_image():
         position = None
         if image is None:
 
+            close = False
+            if self.hdulist is None:
+                try:
+                    log.info("Loading (local scope) fits %s ..." % self.image_location)
+                    hdulist = fits.open(self.image_location, memmap=True, lazy_load_hdus=True)
+                    close = True
+                except:
+                    log.error("Unable to open science image file: %s" % self.image_location)
+                    return -1
+            else:
+                log.info("Using outer scope fits %s ..." % self.image_location)
+                hdulist = self.hdulist
+
             #may have been freed to help with wrangler memory
-            if self.fits is not None:
+            if hdulist is not None:
                 #need to keep memory use down ... the statements below (esp. data = self.fit[0].data)
                 #cause a copy into memory ... want to avoid it so, leave the code fragmented a bit as is
-               # data = self.fits[0].data
+               # data = self.hdulist[0].data
                # pix_size = self.pixel_size
                # wcs = self.wcs
 
                 try:
                     position = SkyCoord(ra, dec, unit="deg", frame=self.frame)
-                    image = self.fits[self.wcs_idx]
+                    image = hdulist[self.wcs_idx] #?should auto-close when it falls out of scope
 
                     #sanity check
                     #x, y = skycoord_to_pixel(position, wcs=self.wcs, mode='all')
@@ -237,25 +302,67 @@ class science_image():
                     pix_window = int(np.ceil(window / self.pixel_size))  # now in pixels
                     log.debug("Collecting cutout size = %d square at RA,Dec = (%f,%f)" %(pix_window,ra,dec))
 
-                    #test for wrangler ... does not work
+                    #test for wranglerk
 
-                    # retries = 0
-                    # max_retries = 10
-                    # while retries < max_retries:
-                    #     try:
-                    #         cutout = Cutout2D(self.fits[self.wcs_idx].data, position, (pix_window, pix_window), wcs=self.wcs, copy=copy)
-                    #         #cutout = Cutout2D(self.fits[self.wcs_idx].data, position, (pix_window, pix_window), wcs=self.wcs,copy=False)
-                    #     except: #put in memory error
-                    #         t2sleep = np.random.random_integers(0,5000)/1000.
-                    #         log.info("+++++ Memory issue? Random sleep and retry (%f)s" % t2sleep)
-                    #         sleep(t2sleep)
-                    #         retries += 1
-                    #         self.load_image()
-                    #
-                    # if retries >= max_retries:
-                    #     log.info("+++++ giving up ....")
-                    # elif retries > 0:
-                    #     log.info("+++++ it worked (%d) ...." % retries)
+                    retries = 0
+                    max_retries = 30
+                    while retries < max_retries:
+                        try:
+                            cutout = Cutout2D(hdulist[self.wcs_idx].data, position, (pix_window, pix_window),
+                                              wcs=self.wcs, copy=copy)
+
+                            image = cutout  # now that we have a cutout, the rest of this func works on it
+                            break
+
+                        except (MemoryError, mmap.error):
+
+                            if close: #we are using a local hdulist
+                                del cutout
+                                cutout = None
+                                if close:
+                                    try:
+                                        hdulist.close()
+                                    except:
+                                        log.warning("Exception attempting to close hdulist. science_image::get_cutout",
+                                                    exc_info=True)
+
+                                retries += 1
+                                if retries >= max_retries:
+                                    break
+
+                                t2sleep = np.random.random_integers(0,5000)/1000. #sleep up to 5 sec
+                                log.info("+++++ Memory issue? Random sleep (%d / %d) and retry (%f)s" %
+                                         (retries,max_retries,t2sleep),exc_info=True)
+                                sleep(t2sleep)
+
+                                try:
+                                    log.info("Loading (local scope) fits %s ..." % self.image_location)
+                                    hdulist = fits.open(self.image_location, memmap=True, lazy_load_hdus=True)
+                                    close = True
+                                except:
+                                    log.error("Unable to open science image file: %s" % self.image_location)
+                                    return -1
+                            else:
+                                log.error("Unable to open science image file: %s" % self.image_location)
+                                retries = max_retries
+                        except:
+                            log.error("Exception. Unable to load cutout.",exc_info=True)
+                            retries = max_retries
+
+
+                    if close:
+                        try:
+                            hdulist.close()
+                        except:
+                            log.warning("Exception attempting to close hdulist. science_image::get_cutout", exc_info=True)
+
+                    if retries >= max_retries:
+                        log.info("+++++ giving up ....")
+                        return None, counts, mag, radius
+                    elif retries > 0:
+                        log.info("+++++ it worked (%d) ...." % retries)
+
+
 
                     #before = float(G.HPY.heap().size) /(2**20)
 
@@ -270,22 +377,22 @@ class science_image():
 
 
                     #attempt to work arond wrangler memory problems
-                    #self.fits.close()
-                    #self.fits = fits.open(self.image_location, memmap=True, lazy_load_hdus=True)
+                    #self.hdulist.close()
+                    #self.hdulist = fits.open(self.image_location, memmap=True, lazy_load_hdus=True)
 
-                    cutout = Cutout2D(self.fits[self.wcs_idx].data, position, (pix_window, pix_window), wcs=self.wcs,
-                                      copy=copy)
+                    #cutout = Cutout2D(hdulist[self.wcs_idx].data, position, (pix_window, pix_window), wcs=self.wcs,
+                    #                  copy=copy)
 
                     #image = cutout #now that we have a cutout, the rest of this func works on it
 
-                    #del self.fits[self.wcs_idx].data
-                    #self.fits[self.wcs_idx].data = []
+                    #del self.hdulist[self.wcs_idx].data
+                    #self.hdulist[self.wcs_idx].data = []
 
 
 
 
                     #self.cycle_fits()
-                    #self.fits.close()
+                    #self.hdulist.close()
 
                     #after = float(G.HPY.heap().size) /(2**20)
 
@@ -409,7 +516,7 @@ class science_image():
                                          "Will not attempt aperture magnitude calculation",exc_info=True)
                                 break
 
-                        mag = mag_func(counts, cutout, self.fits)
+                        mag = mag_func(counts, cutout, self.headers)
 
                         # pix_mag = mag_func(pix_counts, cutout, self.fits)
                         # log.info("++++++ pix_mag (%f) sky_mag(%f)" %(pix_mag,mag))
@@ -486,7 +593,7 @@ class science_image():
                             log.info("Failed to strip units. Cannot cast to float. "
                                      "Will not attempt aperture magnitude calculation", exc_info=True)
 
-                    mag = mag_func(counts,cutout,self.fits)
+                    mag = mag_func(counts,cutout,self.headers)
 
                     log.info("Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %s Mag_AB = %g"
                              % (radius,ra,dec,str(counts),mag))
@@ -537,7 +644,7 @@ class science_image():
                     counts -= bkg_median * source_aperture.area()
 
                     #re-compute the magnitude
-                    mag = mag_func(counts,cutout,self.fits)
+                    mag = mag_func(counts,cutout,self.headers)
 
                     log.info("Sky subtracted imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Sky = (%f/pix %f tot). Counts = %s Mag_AB = %g"
                              % (radius,ra,dec,bkg_median, bkg_median * source_aperture.area(),str(counts),mag))

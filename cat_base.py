@@ -921,11 +921,12 @@ class Catalog:
                                                                                 catalog_image['name']))
             sci = catalog_image['image']
 
-            if sci.fits is None:
+
+            if sci.hdulist is None:
                 sci.load_image(wcs_manual=wcs_manual)
 
             d['path'] = sci.image_location
-            d['hdu'] = sci.fits
+            d['hdu'] = sci.headers
 
             #to here, window is in degrees so ...
             window = 3600.*window

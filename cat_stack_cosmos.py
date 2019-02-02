@@ -37,13 +37,13 @@ import match_summary
 EXPANDED_IMAGES_PATH = G.COSMOS_EXTRA_PATH
 
 #todo:
-def subaru_hsc_g_count_to_mag(count,cutout=None,sci_image=None):
+def subaru_hsc_g_count_to_mag(count,cutout=None,headers=None):
    pass
     #image has no converion defined
 
 
 #NOTE: Depth around 26 mag or so
-def cosmos_g_count_to_mag(count,cutout=None,sci_image=None):
+def cosmos_g_count_to_mag(count,cutout=None,headers=None):
     #nanofact = 334.116462522 #counts to nano-janksy from g fits header [NANOFACT]
     magzero = 31.4
     if count is not None:
@@ -51,7 +51,7 @@ def cosmos_g_count_to_mag(count,cutout=None,sci_image=None):
         try:
             # gain = float(sci_image[0].header['GAIN'])
             #nanofact = float(sci_image[0].header['NANOFACT'])
-            magzero = float(sci_image[0].header['MAGZERO'])
+            magzero = float(headers[0]['MAGZERO'])
             #exptime = float(sci_image[0].header['EXPTIME'])
         except:
             # gain = 1.0
@@ -72,7 +72,7 @@ def cosmos_g_count_to_mag(count,cutout=None,sci_image=None):
 
 
 #NOTE: Depth around 26 mag or so
-def cosmos_r_count_to_mag(count,cutout=None,sci_image=None):
+def cosmos_r_count_to_mag(count,cutout=None,headers=None):
     #nanofact = 334.116462522 #counts to nano-janksy from g fits header [NANOFACT]
     magzero = 31.4
     if count is not None:
@@ -80,7 +80,7 @@ def cosmos_r_count_to_mag(count,cutout=None,sci_image=None):
         try:
             # gain = float(sci_image[0].header['GAIN'])
             #nanofact = float(sci_image[0].header['NANOFACT'])
-            magzero = float(sci_image[0].header['MAGZERO'])
+            magzero = float(headers[0]['MAGZERO'])
             #exptime = float(sci_image[0].header['EXPTIME'])
         except:
             # gain = 1.0

@@ -28,7 +28,7 @@ import cat_base
 import match_summary
 import hsc_meta
 
-def hsc_count_to_mag(count,cutout=None,sci_image=None):
+def hsc_count_to_mag(count,cutout=None,headers=None):
    # return 999.9
 
     #We can convert the counts into flux
@@ -45,7 +45,7 @@ def hsc_count_to_mag(count,cutout=None,sci_image=None):
         if sci_image is not None:
             #get the conversion factor, each tile is different
             try:
-                fluxmag0 = float(sci_image[0].header['FLUXMAG0'])
+                fluxmag0 = float(headers[0]['FLUXMAG0'])
             except:
                 fluxmag0 = 0.0
                 log.error("Exception in hsc_count_to_mag",exc_info=True)
@@ -961,11 +961,11 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
             sci = catalog_image['image']
 
-            if sci.fits is None:
+            if sci.hdulist is None:
                 sci.load_image(wcs_manual=wcs_manual)
 
             d['path'] = sci.image_location
-            d['hdu'] = sci.fits
+            d['hdu'] = sci.headers
 
             # to here, window is in degrees so ...
             window = 3600. * window
