@@ -21,6 +21,17 @@ HOST_STAMPEDE2 = 3
 
 host = HOST_UNKNOWN
 
+
+### NAMING, NOTATION
+# job == an elixer dispatch
+# task == on the cluster ...
+#         one line in the execution file [elixer.run]
+#         becomes the number of dispatch_xxx subdirectories created
+#         each will have one or more explicitly listed detections to process (each line in the dispatch_xxx file)
+# core == single processing unit (runs one elixer call)
+# node == group of cores (shares memory and other resources)
+
+
 #form of loginxxx.<name>.tacc.utexas.edu for login nodes
 #or cxxx-xxx.<name>.tacc.utexas.edu for compute nodes
 if "tacc.utexas.edu" in hostname:
@@ -30,6 +41,8 @@ if hostname == "maverick":
     print("preparing SLURM for maverick...")
     host = HOST_MAVERICK
     MAX_TASKS = 640 #max allowed by TACC (for gpu or vis)
+    TIME_OVERHEAD = 1.0 #MINUTES of overhead to get started (per task call ... just a safety)
+    MAX_TIME_PER_TASK = 3.0  # MINUTES max, worst case expected time per task to execute (assumes minimal retries)
     cores_per_node = 20 #for Maverick
     time = "00:59:59"
     time_set = False
@@ -43,9 +56,11 @@ elif hostname == "wrangler":
     #set -N and -n s|t n/N <= 4
     print("preparing SLURM for wrangler...")
     host = HOST_WRANGLER
-    MAX_TASKS = 640 #
-    MAX_NODES = 48
-    MAX_TASKS_PER_NODE = 4.0
+    MAX_TASKS = 10
+    MAX_NODES = 1
+    #MAX_TASKS_PER_NODE = 10 #actually, variable, encoded later
+    TIME_OVERHEAD = 1.0  # MINUTES of overhead to get started (per task call ... just a safety)
+    MAX_TIME_PER_TASK = 1.5  #MINUTES max, worst case expected time per task to execute (assumes minimal retries)
     cores_per_node = 24 #but basically can only use 4 at a time (see note just above)
     time = "00:59:59"
     time_set = False
@@ -58,17 +73,23 @@ elif hostname == "stampede2":
     print("preparing SLURM for stampede2...")
     host = HOST_STAMPEDE2
 
-    MAX_TASKS = 640  #
+    MAX_TASKS = 48 #point of seriously diminishing returns
+    MAX_NODES = 3 #right now, pointless to go beyond 2 nodes
+    #MAX_TASKS_PER_NODE = 22 #actually, variable, encoded later
+    TIME_OVERHEAD = 1.0  # MINUTES of overhead to get started (per task call ... just a safety)
+    MAX_TIME_PER_TASK = 2.0  # MINUTES max, worst case expected time per task to execute (assumes minimal retries)
     cores_per_node = 68
     time = "00:59:59"
     time_set = False
     email = "##SBATCH --mail-user\n##SBATCH --mail-type all"
-    queue = "normal" #KNL
+    queue = "skx-normal" #SKX  ... the KNL nodes seem really slow
     tasks = 1
 
 elif hostname == "z50":
     host = HOST_LOCAL
     MAX_TASKS = 1 #
+    TIME_OVERHEAD = 1.0  # MINUTES of overhead to get started (per task call ... just a safety)
+    MAX_TIME_PER_TASK = 5.0  # MINUTES max, worst case expected time per task to execute (assumes minimal retries)
     cores_per_node = 1
     time = "00:59:59"
     time_set = False
@@ -208,12 +229,12 @@ os.chdir(basename)
 ### elixer.run
 path = os.path.join(os.path.dirname(sys.argv[0]),"elixer.py")
 
-jobs_per_task =  []
+dets_per_dispatch =  [] #list of counts ... the number of detection directories to list in the corresponding dispatch_xxx file
 if tasks == 1:
     print("Only 1 task. Will not use dispatch.")
 
     run = "python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' -f \n'
-    jobs_per_task.append(1)
+    dets_per_dispatch.append(1)
     try:
         f = open("elixer.run", 'w')
         f.write(run)
@@ -235,16 +256,50 @@ else: # multiple tasks
             tasks = min(MAX_TASKS,len(subdirs))
 
             if host == HOST_MAVERICK:
+                #maverick forces 20 tasks per node, does not use --ntasks-per-node
+
                 print("\nAdjusting tasks to nearest lower multiple of 20 ...")
                 if tasks > 20:
                     tasks = tasks - tasks%20 #to deal with TACC parser issue
 
-            print("%d tasks" % tasks)
+                nodes = tasks // cores_per_node
+                if tasks % cores_per_node != 0:
+                    nodes += 1
 
+                ntasks_per_node = 20
+
+            elif host == HOST_WRANGLER:
+                #wrangler is a mess ... don't run more than 10 tasks and only on one node
+                nodes = 1
+                ntasks_per_node = 10
+
+            elif host == HOST_STAMPEDE2:
+                #nominal, minium retries:
+                #22 tasks per node up to 1 node   (22)
+                #20 tasks per node up to 2 nodes  (40)
+                #16 tasks per node up to 3 nodes  (48)
+                if tasks <= 22:
+                    ntasks_per_node = tasks
+                    nodes = 1
+                elif tasks <= 40:
+                    nodes = 2
+                    ntasks_per_node = tasks // nodes + tasks % nodes
+                elif tasks <= 48: #point of seriously diminishing return
+                    nodes = 3
+                    ntasks_per_node = tasks // nodes + tasks % nodes
+                else: #cap at 48 (or 16 tasks per 3 nodes)
+                    nodes = 3
+                    ntasks_per_node = 16
+
+
+
+            print("%d detections as %d tasks on %d nodes at %d tasks-per-node" % (len(subdirs),tasks,nodes,ntasks_per_node))
+
+        #dirs_per_file == how many detections (directory holding detection info) to add to each dispatch_xxx
         dirs_per_file = len(subdirs) // tasks  # int(floor(float(len(subdirs)) / float(tasks)))
         remainder = len(subdirs) % tasks
-        jobs_per_task = np.full(tasks,dirs_per_file)
-        jobs_per_task[0:remainder] += 1 #add one more per task to cover the remainder
+        dets_per_dispatch = np.full(tasks,dirs_per_file)
+        dets_per_dispatch[0:remainder] += 1 #add one more per task to cover the remainder
 
         f = open("elixer.run", 'w')
 
@@ -264,7 +319,7 @@ else: # multiple tasks
             #content = ""
 
             #start_idx = i * dirs_per_file
-            stop_idx = start_idx + jobs_per_task[i] #min(start_idx + dirs_per_file,len(subdirs))
+            stop_idx = start_idx + dets_per_dispatch[i] #min(start_idx + dirs_per_file,len(subdirs))
             for j in range(start_idx,stop_idx):
                 df.write(subdirs[j] + "\n")
 
@@ -283,16 +338,10 @@ else: # multiple tasks
         exit(-1)
 
 
-### elixer.slurm
-
-nodes = tasks//cores_per_node
-if tasks%cores_per_node != 0:
-    nodes += 1
-
 if not time_set: #update time
     try:
-        mx = np.max(jobs_per_task)
-        time = str(timedelta(minutes=10.0 * mx)) #3 minutes is pretty reasonable ... but use 5 minutes to be super safe
+        mx = np.max(dets_per_dispatch)
+        time = str(timedelta(minutes=TIME_OVERHEAD + MAX_TIME_PER_TASK * mx))
         print("--time %s" %time)
 
     except Exception as e:
@@ -303,115 +352,96 @@ if not time_set: #update time
         # the first one is usually the message.
 
 
-slurm = "\
-#!/bin/bash \n\
-#\
-# Simple SLURM script for submitting multiple serial\n\
-# jobs (e.g. parametric studies) using a script wrapper\n\
-# to launch the jobs.\n\
-#\n\
-# To use, build the launcher executable and your\n\
-# serial application(s) and place them in your WORKDIR\n\
-# directory.  Then, edit the CONTROL_FILE to specify \n\
-# each executable per process.\n\
-#-------------------------------------------------------\n\
-#-------------------------------------------------------\n\
-# \n\
-#------------------Scheduler Options--------------------\n\
-#SBATCH -J ELiXer              # Job name\n\
-#SBATCH -n " + str(tasks) + "                  # Total number of tasks\n"
+#a little less efficient, but easier to read ... dump all the unncessary, human readable comments
+#and just prep the machine used code
 
-slurm += "#SBATCH -N " + str(nodes) + "                  # Total number of nodes requested\n"
-slurm += "\
-#SBATCH -p " + queue +"                 # Queue name\n\
-#SBATCH -o ELIXER.o%j          # Name of stdout output file (%j expands to jobid)\n\
-#SBATCH -t " + time + "            # Run time (hh:mm:ss)\n\
-#SBATCH -A Hobby-Eberly-Telesco\n"
-slurm += email + "\n"
-slurm += "\
-#------------------------------------------------------\n\
-#\n\
-# Usage:\n\
-#	#$ -pe <parallel environment> <number of slots> \n\
-#	#$ -l h_rt=hours:minutes:seconds to specify run time limit\n\
-# 	#$ -N <job name>\n\
-# 	#$ -q <queue name>\n\
-# 	#$ -o <job output file>\n\
-#	   NOTE: The env variable $JOB_ID contains the job id. \n\
-#\n\
-#------------------------------------------------------\n\
-\n\
-#------------------General Options---------------------\n"
+launch_str = None
 
 if host == HOST_MAVERICK:
+    slurm = "#!/bin/bash \n"
+    slurm += "#SBATCH -J ELiXer              # Job name\n"
+    slurm += "#SBATCH -n " + str(tasks) + "                  # Total number of tasks\n"
+    slurm += "#SBATCH -N " + str(nodes) + "                  # Total number of nodes requested\n"
+    slurm += "#SBATCH -p " + queue +"                 # Queue name\n"
+    slurm += "#SBATCH -o ELIXER.o%j          # Name of stdout output file (%j expands to jobid)\n"
+    slurm += "#SBATCH -t " + time + "            # Run time (hh:mm:ss)\n"
+    slurm += "#SBATCH -A Hobby-Eberly-Telesco\n"
+    slurm += email + "\n"
     slurm += "module unload xalt \n"
     slurm += "module load launcher\n"
     slurm += "export EXECUTABLE=$TACC_LAUNCHER_DIR/init_launcher\n"
     slurm += "export WORKDIR=. \n"
     slurm += "export CONTROL_FILE=elixer.run\n"
+    slurm += "export TACC_LAUNCHER_NPHI = 0\n"
+    slurm += "export TACC_LAUNCHER_PHI_PPN = 8\n"
+    slurm += "export PHI_WORKDIR =.\n"
+    slurm += "export PHI_CONTROL_FILE = phiparamlist\n"
+    slurm += "export TACC_LAUNCHER_SCHED = interleaved\n"
+
+    launch_str = "$TACC_LAUNCHER_DIR/paramrun SLURM $EXECUTABLE $WORKDIR $CONTROL_FILE $PHI_WORKDIR $PHI_CONTROL_FILE"
+
 
 elif host == HOST_WRANGLER:
+
+    slurm = "#!/bin/bash \n"
+    slurm += "#SBATCH -J ELiXer              # Job name\n"
+    #slurm += "#SBATCH -n " + str(tasks) + "                  # Total number of tasks\n"
+    slurm += "#SBATCH -N " + str(nodes) + "                  # Total number of nodes requested\n"
+    slurm += "#SBATCH --ntasks-per-node " + str(ntasks_per_node) + "       #Tasks per node\n"
+    slurm += "#SBATCH -p " + queue + "                 # Queue name\n"
+    slurm += "#SBATCH -o ELIXER.o%j          # Name of stdout output file (%j expands to jobid)\n"
+    slurm += "#SBATCH -t " + time + "            # Run time (hh:mm:ss)\n"
+    slurm += "#SBATCH -A Hobby-Eberly-Telesco\n"
+    slurm += email + "\n"
     #slurm += "module unload xalt \n"
     slurm += "module load launcher\n"
     slurm += "export TACC_LAUNCHER_PPN=24\n"
     slurm += "export EXECUTABLE=$TACC_LAUNCHER_DIR/init_launcher\n"
-    #note: wranger says WORKDIR and CONTROL_FILE deprecated, so replace with LAUNCHER_WORKDIR, LAUNCHER_JOB_FILE
+    # note: wranger says WORKDIR and CONTROL_FILE deprecated, so replace with LAUNCHER_WORKDIR, LAUNCHER_JOB_FILE
     slurm += "export LAUNCHER_WORKDIR=$(pwd)\n"
     slurm += "export LAUNCHER_JOB_FILE=elixer.run\n"
-    #just so the bottom part work as is and print w/o error
+    # just so the bottom part work as is and print w/o error
     slurm += "WORKDIR=$LAUNCHER_WORKDIR\n"
     slurm += "CONTROL_FILE=$LAUNCHER_JOB_FILE\n"
-else:
-    slurm += "module load launcher\n"
-    slurm += "export EXECUTABLE=$TACC_LAUNCHER_DIR/init_launcher\n"
-    slurm += "export WORKDIR=. \n"
-    slurm += "export CONTROL_FILE=elixer.run\n"
 
+    slurm += "export LAUNCHER_SCHED=interleaved\n"
+
+    launch_str = "$TACC_LAUNCHER_DIR/paramrun\n"
+
+
+elif host == HOST_STAMPEDE2:
+
+    slurm = "#!/bin/bash \n"
+    slurm += "#SBATCH -J ELiXer              # Job name\n"
+    #slurm += "#SBATCH -n " + str(tasks) + "                  # Total number of tasks\n"
+    slurm += "#SBATCH -N " + str(nodes) + "                  # Total number of nodes requested\n"
+    slurm += "#SBATCH --ntasks-per-node " + str(ntasks_per_node) + "       #Tasks per node\n"
+    slurm += "#SBATCH -p " + queue + "                 # Queue name\n"
+    slurm += "#SBATCH -o ELIXER.o%j          # Name of stdout output file (%j expands to jobid)\n"
+    slurm += "#SBATCH -t " + time + "            # Run time (hh:mm:ss)\n"
+    slurm += "#SBATCH -A Hobby-Eberly-Telesco\n"
+    slurm += email + "\n"
+
+    #slurm += "module unload xalt \n"
+    slurm += "module load launcher\n"
+    slurm += "export LAUNCHER_PLUGIN_DIR=$TACC_LAUNCHER_DIR/plugins\n"
+    slurm += "export LAUNCHER_RMI=SLURM\n"
+    slurm += "export LAUNCHER_WORKDIR=$(pwd)\n"
+    slurm += "export LAUNCHER_JOB_FILE=elixer.run\n"
+    # just so the bottom part work as is and print w/o error
+    slurm += "WORKDIR=$LAUNCHER_WORKDIR\n"
+    slurm += "CONTROL_FILE=$LAUNCHER_JOB_FILE\n"
+
+    slurm += "export LAUNCHER_SCHED=interleaved\n"
+
+
+    launch_str = "$TACC_LAUNCHER_DIR/paramrun\n"
+
+else:
+    pass
+
+#add the common logging/basic error checking to the end
 slurm += "\
-\n\
-# Variable descriptions:\n\
-#\n\
-#  TACC_LAUNCHER_PPN = number of simultaneous processes per host\n\
-#                      - if this variable is not set, value is\n\
-#                        determined by the process density/wayness\n\
-#                        specified in 'Scheduler Options'\n\
-#  EXECUTABLE        = full path to the job launcher executable\n\
-#  WORKDIR           = location of working directory\n\
-#  CONTROL_FILE      = text input file which specifies\n\
-#                      executable for each process\n\
-#                      (should be located in WORKDIR)\n\
-#------------------------------------------------------\n\
-\n\
-#--------- Intel Xeon Phi Options (EXPERIMENTAL) -------------\n\
-export TACC_LAUNCHER_NPHI=0\n\
-export TACC_LAUNCHER_PHI_PPN=8\n\
-export PHI_WORKDIR=.\n\
-export PHI_CONTROL_FILE=phiparamlist\n\
-\n\
-# Variable descriptions:\n\
-#  TACC_LAUNCHER_NPHI    = number of Intel Xeon Phi cards to use per node\n\
-#                          (use 0 to disable use of Xeon Phi cards)\n\
-#  TACC_LAUNCHER_PHI_PPN = number of simultaneous processes per Xeon Phi card\n\
-#  PHI_WORKDIR           = location of working directory for Intel Xeon Phi jobs\n\
-#  PHI_CONTROL_FILE      = text input file which specifies executable\n\
-#                          for each process to be run on Intel Xeon Phi\n\
-#                          (should be located in PHI_WORKDIR)\n\
-#------------------------------------------------------\n\
-\n\
-#------------ Task Scheduling Options -----------------\n\
-export TACC_LAUNCHER_SCHED=interleaved\n\
-\n\
-# Variable descriptions:\n\
-#  TACC_LAUNCHER_SCHED = scheduling method for lines in CONTROL_FILE\n\
-#                        options (k=process, n=num. lines, p=num. procs):\n\
-#                          - interleaved (default): \n\
-#                              process k executes every k+nth line\n\
-#                          - block:\n\
-#                              process k executes lines [ k(n/p)+1 , (k+1)(n/p) ]\n\
-#                          - dynamic:\n\
-#                              process k executes first available unclaimed line\n\
-#--------------------------------------------------------\n\
-\n\
 #----------------\n\
 # Error Checking\n\
 #----------------\n\
@@ -447,12 +477,178 @@ fi\n\
 \n\
 cd $WORKDIR/ \n\
 echo \" WORKING DIR:   $WORKDIR/\"\n\
-\n\
-$TACC_LAUNCHER_DIR/paramrun SLURM $EXECUTABLE $WORKDIR $CONTROL_FILE $PHI_WORKDIR $PHI_CONTROL_FILE\n\
-\n\
-echo \" \"\n\
-echo \" Parameteric Job Complete\"\n\
-echo \" \" "
+\n"
+
+slurm += launch_str +"\n"
+
+slurm += "echo \" \"\n"
+slurm += "echo \" Parameteric Job Complete\"\n"
+slurm += "echo \" \" "
+
+
+
+
+if False: #old way
+    slurm = "\
+    #!/bin/bash \n\
+    #\
+    # Simple SLURM script for submitting multiple serial\n\
+    # jobs (e.g. parametric studies) using a script wrapper\n\
+    # to launch the jobs.\n\
+    #\n\
+    # To use, build the launcher executable and your\n\
+    # serial application(s) and place them in your WORKDIR\n\
+    # directory.  Then, edit the CONTROL_FILE to specify \n\
+    # each executable per process.\n\
+    #-------------------------------------------------------\n\
+    #-------------------------------------------------------\n\
+    # \n\
+    #------------------Scheduler Options--------------------\n\
+    #SBATCH -J ELiXer              # Job name\n\
+    #SBATCH -n " + str(tasks) + "                  # Total number of tasks\n"
+
+    slurm += "#SBATCH -N " + str(nodes) + "                  # Total number of nodes requested\n"
+    slurm += "\
+    #SBATCH -p " + queue +"                 # Queue name\n\
+    #SBATCH -o ELIXER.o%j          # Name of stdout output file (%j expands to jobid)\n\
+    #SBATCH -t " + time + "            # Run time (hh:mm:ss)\n\
+    #SBATCH -A Hobby-Eberly-Telesco\n"
+    slurm += email + "\n"
+    slurm += "\
+    #------------------------------------------------------\n\
+    #\n\
+    # Usage:\n\
+    #	#$ -pe <parallel environment> <number of slots> \n\
+    #	#$ -l h_rt=hours:minutes:seconds to specify run time limit\n\
+    # 	#$ -N <job name>\n\
+    # 	#$ -q <queue name>\n\
+    # 	#$ -o <job output file>\n\
+    #	   NOTE: The env variable $JOB_ID contains the job id. \n\
+    #\n\
+    #------------------------------------------------------\n\
+    \n\
+    #------------------General Options---------------------\n"
+
+    if host == HOST_MAVERICK:
+        slurm += "module unload xalt \n"
+        slurm += "module load launcher\n"
+        slurm += "export EXECUTABLE=$TACC_LAUNCHER_DIR/init_launcher\n"
+        slurm += "export WORKDIR=. \n"
+        slurm += "export CONTROL_FILE=elixer.run\n"
+
+    elif host == HOST_WRANGLER:
+        slurm += "module load launcher\n"
+        slurm += "export TACC_LAUNCHER_PPN=24\n"
+        slurm += "export EXECUTABLE=$TACC_LAUNCHER_DIR/init_launcher\n"
+        #note: wranger says WORKDIR and CONTROL_FILE deprecated, so replace with LAUNCHER_WORKDIR, LAUNCHER_JOB_FILE
+        slurm += "export LAUNCHER_WORKDIR=$(pwd)\n"
+        slurm += "export LAUNCHER_JOB_FILE=elixer.run\n"
+        #just so the bottom part work as is and print w/o error
+        slurm += "WORKDIR=$LAUNCHER_WORKDIR\n"
+        slurm += "CONTROL_FILE=$LAUNCHER_JOB_FILE\n"
+
+    elif host == HOST_STAMPEDE2:
+        slurm += "module load launcher\n"
+        slurm += "export EXECUTABLE=$TACC_LAUNCHER_DIR/init_launcher\n"
+        # note: wranger says WORKDIR and CONTROL_FILE deprecated, so replace with LAUNCHER_WORKDIR, LAUNCHER_JOB_FILE
+        slurm += "export LAUNCHER_WORKDIR=$(pwd)\n"
+        slurm += "export LAUNCHER_JOB_FILE=elixer.run\n"
+        # just so the bottom part work as is and print w/o error
+        slurm += "WORKDIR=$LAUNCHER_WORKDIR\n"
+        slurm += "CONTROL_FILE=$LAUNCHER_JOB_FILE\n"
+    else:
+        slurm += "module load launcher\n"
+        slurm += "export EXECUTABLE=$TACC_LAUNCHER_DIR/init_launcher\n"
+        slurm += "export WORKDIR=. \n"
+        slurm += "export CONTROL_FILE=elixer.run\n"
+
+    slurm += "\
+    \n\
+    # Variable descriptions:\n\
+    #\n\
+    #  TACC_LAUNCHER_PPN = number of simultaneous processes per host\n\
+    #                      - if this variable is not set, value is\n\
+    #                        determined by the process density/wayness\n\
+    #                        specified in 'Scheduler Options'\n\
+    #  EXECUTABLE        = full path to the job launcher executable\n\
+    #  WORKDIR           = location of working directory\n\
+    #  CONTROL_FILE      = text input file which specifies\n\
+    #                      executable for each process\n\
+    #                      (should be located in WORKDIR)\n\
+    #------------------------------------------------------\n\
+    \n\
+    #--------- Intel Xeon Phi Options (EXPERIMENTAL) -------------\n\
+    export TACC_LAUNCHER_NPHI=0\n\
+    export TACC_LAUNCHER_PHI_PPN=8\n\
+    export PHI_WORKDIR=.\n\
+    export PHI_CONTROL_FILE=phiparamlist\n\
+    \n\
+    # Variable descriptions:\n\
+    #  TACC_LAUNCHER_NPHI    = number of Intel Xeon Phi cards to use per node\n\
+    #                          (use 0 to disable use of Xeon Phi cards)\n\
+    #  TACC_LAUNCHER_PHI_PPN = number of simultaneous processes per Xeon Phi card\n\
+    #  PHI_WORKDIR           = location of working directory for Intel Xeon Phi jobs\n\
+    #  PHI_CONTROL_FILE      = text input file which specifies executable\n\
+    #                          for each process to be run on Intel Xeon Phi\n\
+    #                          (should be located in PHI_WORKDIR)\n\
+    #------------------------------------------------------\n\
+    \n\
+    #------------ Task Scheduling Options -----------------\n\
+    export TACC_LAUNCHER_SCHED=interleaved\n\
+    \n\
+    # Variable descriptions:\n\
+    #  TACC_LAUNCHER_SCHED = scheduling method for lines in CONTROL_FILE\n\
+    #                        options (k=process, n=num. lines, p=num. procs):\n\
+    #                          - interleaved (default): \n\
+    #                              process k executes every k+nth line\n\
+    #                          - block:\n\
+    #                              process k executes lines [ k(n/p)+1 , (k+1)(n/p) ]\n\
+    #                          - dynamic:\n\
+    #                              process k executes first available unclaimed line\n\
+    #--------------------------------------------------------\n\
+    \n\
+    #----------------\n\
+    # Error Checking\n\
+    #----------------\n\
+    \n\
+    if [ ! -d $WORKDIR ]; then \n\
+            echo \" \" \n\
+        echo \"Error: unable to change to working directory.\" \n\
+        echo \"       $WORKDIR\" \n\
+        echo \" \" \n\
+        echo \"Job not submitted.\"\n\
+        exit\n\
+    fi\n\
+    \n\
+    if [ ! -x $EXECUTABLE ]; then\n\
+        echo \" \"\n\
+        echo \"Error: unable to find launcher executable $EXECUTABLE.\"\n\
+        echo \" \"\n\
+        echo \"Job not submitted.\"\n\
+        exit\n\
+    fi\n\
+    \n\
+    if [ ! -e $WORKDIR/$CONTROL_FILE ]; then\n\
+        echo \" \"\n\
+        echo \"Error: unable to find input control file $CONTROL_FILE.\"\n\
+        echo \" \"\n\
+        echo \"Job not submitted.\"\n\
+        exit\n\
+    fi\n\
+    \n\
+    #----------------\n\
+    # Job Submission\n\
+    #----------------\n\
+    \n\
+    cd $WORKDIR/ \n\
+    echo \" WORKING DIR:   $WORKDIR/\"\n\
+    \n\
+    $TACC_LAUNCHER_DIR/paramrun SLURM $EXECUTABLE $WORKDIR $CONTROL_FILE $PHI_WORKDIR $PHI_CONTROL_FILE\n\
+    \n\
+    echo \" \"\n\
+    echo \" Parameteric Job Complete \"\n \
+    echo \" \" "
+#end old way
 
 try:
     f = open("elixer.slurm", 'w')
@@ -464,65 +660,6 @@ except:
 
 
 
-
-# ### elixer.run
-# path = os.path.join(os.path.dirname(sys.argv[0]),"elixer.py")
-#
-# if tasks == 1:
-#     run = "python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' -f \n'
-#
-#     try:
-#         f = open("elixer.run", 'w')
-#         f.write(run)
-#         f.close()
-#     except:
-#         print("Error! Cannot create elixer.slurm")
-#         exit(-1)
-# else: # multiple tasks
-#     try:
-#         args = elixer.parse_commandline(auto_force=True)
-#         print("Parsing directories to process. This may take a little while ... ")
-#         subdirs = elixer.get_fcsdir_subdirs_to_process(args)
-#         dirs_per_file = int(ceil(float(len(subdirs))/float(tasks)))
-#
-#         if tasks > len(subdirs): #problem too many tasks requestd
-#             print("Error! Too many tasks (%d) requested. Only %d directories to process." %(tasks,len(subdirs)))
-#             exit(-1)
-#
-#         f = open("elixer.run", 'w')
-#
-#         for i in range(int(tasks)):
-#             fn = "dispatch_" + str(i).zfill(3)
-#
-#             if not os.path.isdir(fn):
-#                 try:
-#                     os.makedirs(fn)
-#                 except OSError as exception:
-#                     if exception.errno != errno.EEXIST:
-#                         print ("Fatal. Cannot create output directory: %s" % fn)
-#                         exit(-1)
-#
-#             df = open(os.path.join(fn,fn), 'w')
-#             content = ""
-#
-#             start_idx = i * dirs_per_file
-#             stop_idx = min(start_idx + dirs_per_file,len(subdirs))
-#             for j in range(start_idx,stop_idx):
-#                 df.write(subdirs[j] + "\n")
-#
-#             df.close()
-#
-#             #add  dispatch_xxx
-#             #run = "python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' --dispatch ' + os.path.join(basename,fn) + ' -f \n'
-#             run = "cd " + fn + " ; python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' --dispatch ' + fn + ' -f ; cd .. \n'
-#             f.write(run)
-#
-#         f.close()
-#     except:
-#         print("Error! Cannot create dispatch files.")
-#         exit(-1)
-#
-#
 
 
 #execute system command

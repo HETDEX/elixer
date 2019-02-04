@@ -610,12 +610,16 @@ class science_image():
                     sky_radius = radius * 2.
                     if self.pixel_size is not None:
                         pix_window = 2. * float(sky_radius * 1.1) / self.pixel_size #length of size, so 2x radius
-                        sky_cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=self.wcs)
-                        wcs = self.wcs
+                    #    sky_cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=self.wcs)
+                    #    wcs = self.wcs
                     else:
                         pix_window = 2. * float(sky_radius*1.1) / self.calc_pixel_size(image.wcs)  # now in pixels
-                        sky_cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=image.wcs)
-                        wcs = image.wcs
+                     #   sky_cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=image.wcs)
+                     #   wcs = image.wcs
+
+                    #is there anyway we don't have image.data and image.wcs?
+                    sky_cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=image.wcs)
+                    wcs = image.wcs
 
 
                     #todo: note in photutils, pixel x,y is the CENTER of the pixel and [0,0] is the center of the

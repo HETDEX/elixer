@@ -83,10 +83,9 @@ def shift_to_restframe(z, flux, wave, ez=0.0, eflux=None, ewave=None):
     #that is; 4500.0 AA bin ... is that 4490.0 - 4451.0  or 4500.00 - 4502.0 .....
 
     #rescale the wavelengths
-    wave /= (1.+z) #slide to lower z and squeeze bins
+    wave /= (1.+z) #shift to lower z and squeeze bins
 
-    #no ... only do this if these were flux denisities
-    #flux *= (1.+z) #shift up flux (shorter wavelength = higher energy)
+    flux *= (1.+z) #shift up flux (shorter wavelength = higher energy)
 
 
     #todo: deal with wavelength bin compression (change in counting error?)
@@ -99,12 +98,67 @@ def shift_to_restframe(z, flux, wave, ez=0.0, eflux=None, ewave=None):
     # if ewave is None or len(ewave) == 0:
     #     ewave = np.zeros(np.shape(flux))
 
-    #todo: deal with luminosity distance (undo dimming?)
+    #todo: deal with luminosity distance (undo dimming?) and turn into luminosity??
+    #
+    #lum = flux*4.*np.pi*(luminosity_distance(z))**2
+    #
+    # or just boost the flux to zero distance point source (don't include the 4*pi)
+    #
+    #flux = flux * (luminosity_distance(z))**2
+
 
 
 
     return flux, wave, eflux, ewave
 
+
+def make_grid(all_waves):
+    """
+    Takes in all the wavelength arrays to figure the best grid so that
+    the interpolation only happens on a single grid
+
+    The grid is on the step size of the spectrum with the smallest steps and the range is
+    between the shortest and longest wavelengths that are in all spectra.
+
+    :param all_waves: 2d array of all wavelengths
+    :return: grid (1d array) of wavelengths
+
+    """
+
+    #set the range to the maximum(minimum) to the minimum(maximum)
+    mn = np.max(np.amin(all_waves,axis=1)) #maximum of the minimums of each row
+    mx = np.min(np.amax(all_waves,axis=1)) #minimum of the maximums of each row
+
+    # the step is the smallest of the step sizes
+    # assume (within each wavelength array) the stepsize is uniform
+    step = np.min(all_waves[:,1] - all_waves[:,0])
+
+    #return the grid
+    return np.arange(mn, mx + step, step)
+
+
+def interpolate(flux,wave,grid,eflux=None,ewave=None):
+    """
+
+    :param flux:
+    :param wave:
+    :param grid:
+    :param eflux:
+    :param ewave:
+    :return: interpolated flux and interpolated flux error
+            note: does not return the wavelengths as that is the grid that was passed in
+    """
+
+    #todo: how do we really want to handle interpolating the noise (and how much new noise does
+    #interpolation add)?
+
+    interp_flux = np.interp(grid, wave, flux)
+    if (eflux is not None) and (len(eflux)==len(wave)):
+        interp_eflux = np.interp(grid, wave, eflux)
+    else:
+        interp_eflux = np.zeros(np.shape(interp_flux))
+
+    return interp_flux, interp_eflux
 
 def add_spectra(flux1,flux2,wave1,wave2,grid=None,eflux1=None,eflux2=None,ewave1=None,ewave2=None):
 
@@ -150,10 +204,16 @@ def add_spectra(flux1,flux2,wave1,wave2,grid=None,eflux1=None,eflux2=None,ewave1
     #todo: not sure linear interpolation of error is the best .. maybe should take larger of two nearest?
     # ... what does this do to the noise?
     interp_flux1 = np.interp(grid, wave1, flux1)
-    interp_eflux1 = np.interp(grid, wave1, eflux1)
+    if (eflux1 is not None) and (len(eflux1)==len(wave1)):
+        interp_eflux1 = np.interp(grid, wave1, eflux1)
+    else:
+        interp_eflux1 = np.zeros(np.shape(interp_flux1))
 
     interp_flux2 = np.interp(grid, wave2, flux2)
-    interp_eflux2 = np.interp(grid, wave2, eflux2)
+    if (eflux2 is not None) and (len(eflux2) == len(wave2)):
+        interp_eflux2 = np.interp(grid, wave2, eflux2)
+    else:
+        interp_eflux2 = np.zeros(np.shape(interp_flux2))
 
     #then add
     flux = interp_flux1 + interp_flux2
@@ -163,19 +223,19 @@ def add_spectra(flux1,flux2,wave1,wave2,grid=None,eflux1=None,eflux2=None,ewave1
     #z is determined from the wavelength, which has error and then the shift is determined from z
 
     #then crop to the overlap region
-    i, _, gt = getnearpos(grid,w_min)
+    i, mn, _ = getnearpos(grid,w_min) #want the nearest position greater than the minimum overlap position
 
-    if gt is None:
-        gt = i
+    if mn is None:
+        mn = i
 
-    i, lt, _ = getnearpos(grid, w_max)
+    i, _,mx = getnearpos(grid, w_max) #want the nearest position less than the maximum overlap position
 
-    if lt is None:
-        lt = i
+    if mx is None:
+        mx = i
 
-    flux = flux[lt:gt+1]
-    eflux = eflux[lt:gt+1]
-    wave = grid[lt:gt+1]
+    flux = flux[mn:mx+1]
+    eflux = eflux[mn:mx+1]
+    wave = grid[mn:mx+1]
     ewave = np.zeros(np.shape(wave))  #for now, no error
 
 

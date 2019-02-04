@@ -1,5 +1,12 @@
 changes to elixer by version
 
+1.5.0.a17 [2019-02-03]
+* updates to selixer.py to deal with (minimum func) wrangler and stampede2
+* added API for imaging catalogs (cutouts and catalog detections)
+  + add cut2fits.py as command line python app to save cutouts as FITS
+* reworked catalogs to minimize memory usage on loading larger FITS for imaging cutouts and add retries
+
+
 1.5.0a16 [2019-01-02]
 * incorporated Daniel Farrow's version of the Bayesian line discriminator (currently calling both versions and logging
     a warning if there is a > 1% discrepency between them)
