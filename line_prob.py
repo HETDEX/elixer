@@ -5,7 +5,8 @@ from ConfigParser import RawConfigParser
 import os
 import sys
 import line_classifier.probs.classification_prob_leung as LineClassifierPro
-from numpy import array
+import numpy as np
+#numpy import array
 #don't need to do this ... is performed in source_prob call
 #from line_classifier.misc.tools import generate_cosmology_from_config, read_flim_file
 
@@ -290,14 +291,29 @@ def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_
 
     try:
         posterior_odds, prob_lae_given_data = LineClassifierPro.source_prob(UNIVERSE_CONFIG,
-                                                      array([ra]), array([dec]), array([z_LyA]),
-                                                      array([lineFlux]), array([lineFlux_err]),
-                                                      array([ew_obs]), array([ew_obs_err]),
+                                                      np.array([ra]), np.array([dec]), np.array([z_LyA]),
+                                                      np.array([lineFlux]), np.array([lineFlux_err]),
+                                                      np.array([ew_obs]), np.array([ew_obs_err]),
                                                       c_obs=None, which_color=None,
-                                                      addl_fluxes=array(extra_fluxes),
-                                                      addl_fluxes_error=array(extra_fluxes_err),
-                                                      addl_line_names=array(extra_fluxes_name),
+                                                      addl_fluxes=np.array(extra_fluxes),
+                                                      addl_fluxes_error=np.array(extra_fluxes_err),
+                                                      addl_line_names=np.array(extra_fluxes_name),
                                                       flim_file=FLUX_LIMIT_FN,extended_output=False)
+
+
+        if isinstance(posterior_odds,list) or isinstance(posterior_odds,np.ndarray):
+            if len(posterior_odds) == 1:
+                posterior_odds = posterior_odds[0]
+            else:
+                log.info("Weird. posterior_odds %s" %(posterior_odds))
+
+        if isinstance(prob_lae_given_data,list) or isinstance(prob_lae_given_data,np.ndarray):
+            if len(prob_lae_given_data) == 1:
+                prob_lae_given_data = prob_lae_given_data[0]
+            else:
+                log.info("Weird. prob_lae_given_data %s" %(prob_lae_given_data))
+
+
     except:
         log.error("Exception calling LineClassifierPro::source_prob()", exc_info=True)
 
@@ -334,13 +350,13 @@ def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_
             zoii = (1.0 + 2.08) * UNIVERSE_CONFIG.getfloat("wavelengths", "LAE") / UNIVERSE_CONFIG.getfloat("wavelengths", "OII") - 1.0
             lambda_ = UNIVERSE_CONFIG.getfloat("wavelengths", x) * (1.0 + zoii)
             errors.append(0.2 * flims(lambda_ / UNIVERSE_CONFIG.getfloat("wavelengths", "LAE") - 1.0))
-        errors = array(errors)
+        errors = np.array(errors)
 
 
         posterior_odds, prob_lae_given_data = LineClassifierPro.source_prob(UNIVERSE_CONFIG, ra,dec,
-                                                          array([2.08]), array([9e-17]), array([0.0]),
+                                                          np.array([2.08]), np.array([9e-17]), np.array([0.0]),
                                                           [40.0], [0.0], None, None,
-                                                          array([5e-17]), errors, array(["NeIII"]), FLUX_LIMIT_FN)
+                                                          np.array([5e-17]), errors, np.array(["NeIII"]), FLUX_LIMIT_FN)
             #LineClassifierPro.source_prob(extended_output=False)
 
     ################################

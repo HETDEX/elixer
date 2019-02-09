@@ -1,5 +1,6 @@
 import global_config as G
 import numpy as np
+import tables
 
 from astropy.io import fits as pyfits
 from astropy.coordinates import Angle
@@ -16,13 +17,25 @@ class HetdexFits:
     #needs open with basic validation
     #
 
-    def __init__(self,fn,e_fn,fe_fn,dither_index=-1,panacea=False):
+    def __init__(self,fn=None,e_fn=None,fe_fn=None,dither_index=-1,panacea=False,hdf5=False,empty=False):
+        """
+
+        empty ... if True, don't attempt to read and populate, just return an empty HetdexFits
+        """
+
         self.okay = True
         self.filename = fn
         self.err_filename = e_fn
         self.fe_filename = fe_fn
 
         self.panacea = panacea
+        self.hdf5 = hdf5
+
+        # if HDF5, this must be a panacea style
+        # since the panacea flag is used elsewhere and this is decoupled from the actual FITS format
+        #    set the panasea flag to True
+        if hdf5:
+            self.panacea = True
 
         self.tel_ra = None
         self.tel_dec = None
@@ -63,12 +76,19 @@ class HetdexFits:
         #determine if 'cure'-style fits or panacea fits
         #stupid simple just for now
         #even for annulus, go ahead an read. Don't know if we are going to want the fits files, but may as well get them
-        if "multi_" in self.filename: # example: multi_020_095_004_LU.fits
+
+        if empty: #don't build this up yet
+            return
+
+        if self.hdf5:
+            self.read_hdf5()
+        elif "multi_" in self.filename: # example: multi_020_095_004_LU.fits
             self.read_panacea_fits()
         else:
             self.read_fits(use_cosmic_cleaned=G.PreferCosmicCleaned)
             self.read_efits(use_cosmic_cleaned=G.PreferCosmicCleaned)
             self.read_fefits()
+
 
     def read_fits(self,use_cosmic_cleaned=False):
 
@@ -229,11 +249,159 @@ class HetdexFits:
 
         return
 
+    def read_hdf5(self):
+
+        #todo: debug
+        print("******* !!!!!! take this out ... dev only !!!!!!! *******")
+        self.filename = "/home/dustin/code/python/hdf5_learn/test_new.h5"
+
+        if not self.filename:
+            self.okay = False
+            return None
+
+        try:
+            with tables.open_file(self.filename, mode="r") as h5_multifits:
+                fibers_table = h5_multifits.root.Info.Fibers
+                images_table = h5_multifits.root.Info.Images
+                shots_table = h5_multifits.root.Info.Shot
+
+                #########################################
+                #shot info
+                #########################################
+                #should only be one shot ...
+                rows = shots_table.read(0)
+
+                if (rows is None) or (len(rows) != 1):
+                    self.okay = False
+                    log.error("Problem loading multi-fits HDF5 equivalant. Bad Shot table.")
+                    return
+
+                row = rows[0]
+
+                self.tel_ra =  row['ra']   #assuming decimal degrees, but is that true? (was not for FITS header)
+                self.tel_dec = row['dec']
+                self.parangle = row['pa']
+
+                self.obs_date = row['date']
+                self.obs_ymd = row['date']
+                self.mjd = row['mjd']
+                self.obsid = int(row['obsid'])
+                self.expid = int(row['expn'])
+
+                #don't currently need time, pressure, etc
+
+                #########################################
+                #Amp info (big images)
+                #########################################
+                rows = images_table.read_where("(specid==q_specid) & (expnum==q_expnum) & (amp==q_amp)")
+
+                if (rows is None) or (len(rows) != 1):
+                    self.okay = False
+                    log.error("Problem loading multi-fits HDF5 equivalant. Bad Images table.")
+                    return
+
+                row = rows[0]
+
+                # use the cleaned image
+                self.data = row['clean_image']
+                self.data[np.isnan(self.data)] = 0.0  # clean up any NaNs
+                if self.data.shape != (1032, 1032):
+                    log.error(
+                        "ERROR!! Unexpected data shape for [clean_image]. Expected (1032,1032), got (%d,%d)" % (
+                            self.data.shape))
+
+                # get the error
+                self.err_data = row['error']
+                self.err_data[np.isnan(self.err_data)] = 0.0
+                if self.err_data.shape != (1032, 1032):
+                    log.error("ERROR!! Unexpected data shape for [error]. Expected (1032,1032), got (%d,%d)"
+                              % (self.err_data.shape))
+                    self.err_data = np.full(self.data.shape,0.0)
+
+                # with the sky NOT subtracted (the raw image)
+                self.data_sky = row['image']
+                self.data_sky[np.isnan(self.data_sky)] = 0.0  # clean up any NaNs
+                if self.data_sky.shape != (1032, 1032):
+                    log.error("ERROR!! Unexpected data shape for [0] (data_sky). Expected (1032,1032), got (%d,%d)"
+                          % (self.data_sky.shape))
+
+                #########################################
+                #fiber info (and amp, etc)
+                #!!! For compatibility with the older organization
+                #    this is the image data,etc for a single fiber
+                #    There will be redundant data
+                #########################################
+
+                #query a specific fiber by ifuid ... amp and fiber_number
+                q_specid = str(self.specid).zfill(3)
+                #q_ifuid = str(self.ifuid).zfill(3)
+                #q_ifuslot = str(self.ifuslot).zfill(3)
+                q_expnum = int(self.expid)
+                q_amp = self.amp
+                #for a given SHOT specid OR ifuid OR ifuslot is unique when compbined with the amp and expsosure
+                rows = fibers_table.read_where("(specid==q_specid) & (expnum==q_expnum) & (amp==q_amp)")
+
+                #expect there to be 112 fibers (though maybe fewer if some are dead)
+                if (rows is None) or (len(rows) == 0):
+                    self.okay = False
+                    log.error("Problem loading multi-fits HDF5 equivalant. No fibers for request IFU, AMP, EXP, etc")
+                    return
+
+                # todo: maybe build up the arrays, as if they were read from a multi-fits file?
+                # that is, for each row, starting with index 0, build up the equivalent arrays for:
+                # sky_subtracted  (fe_data)  112,1032
+                # wavelength (wave_data) 112,1032
+                # trace (trace_data) 112,1032
+                # fiber_to_fiber (fiber_to_fiber) 112,1032
+                # error_analysis (error_analysis) 3,1032  ???
+                #
+                # this way, all the downstream code stays the same, even if this is duplicate data
+                # (and, as a future todo: re-organize the code so this is not necessary)
+
+                self.fe_data = np.zeros((112,1032))
+                self.wave_data = np.zeros((112, 1032))
+                self.trace_data = np.zeros((112, 1032))
+                self.fiber_to_fiber = np.zeros((112, 1032))
+
+                #todo: figure out what to do with error analysis
+                #self.error_analysis = np.zeros((3, 1032))
+
+                for row in rows:
+                    idx = row['fibnum']
+
+                    self.fe_data[idx] = row['sky_subtracted']
+                    self.wave_data[idx] = row['wavelength']
+                    self.trace_data[idx] = row['trace']
+                    self.fiber_to_fiber[idx] = row['fiber_to_fiber']
+
+
+                #todo: deal with AMP vs AMPNAME (for flip_amp() ... the pixel flats issue)
+                # self.ampname
+                #
+                # try:
+                #     self.ampname = f[idx].header['AMPNAME']
+                # except:
+                #     log.info("FITS keyword [AMPNAME] not found. Trying alternate [AMPLIFIE] in " + self.filename)
+                #     try:
+                #         self.ampname = f[idx].header['AMPLIFIE']
+                #     except:
+                #         log.info("FITS keyword [AMPLIFIE] not found in " + self.filename)
+                #         self.ampname = None
+
+
+
+
+        except:
+            log.error("Could not process HDF5 multi-fits equivalent: %s" %(self.filename),exc_info=True)
+            self.okay = False
+            return None
+
     def read_panacea_fits(self):
         #this represents one AMP
         #15+ hdus, different header keys
 
         if not self.filename:
+            self.okay = False
             return None
 
         tarfile = None
@@ -424,7 +592,7 @@ class HetdexFits:
             log.error("Non-fatal: Cannot translate RA and/or Dec from FITS format to degrees in " + self.filename, exc_info=True)
             #might be okay, depeding on if the individual emission lines have the weighted RA and Dec Specified
 
-        try:
+        try: #reminder not the same as AMP (LU, RU, LL, LR) ... can be UL, etc ... used in flip_amp() in hetdex
             self.ampname = f[idx].header['AMPNAME']
         except:
             log.info("FITS keyword [AMPNAME] not found. Trying alternate [AMPLIFIE] in " + self.filename)
@@ -465,6 +633,8 @@ class HetdexFits:
             log.error("could not close file " + self.filename, exc_info=True)
 
         return
+
+
 
     def parse_panacea_fits_name(self,name):
         if name is not None:

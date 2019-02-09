@@ -333,8 +333,10 @@ else: # multiple tasks
             f.write(run)
 
         f.close()
-    except:
+    except Exception as e:
+        print(e)
         print("Error! Cannot create dispatch files.")
+
         exit(-1)
 
 
@@ -372,11 +374,11 @@ if host == HOST_MAVERICK:
     slurm += "export EXECUTABLE=$TACC_LAUNCHER_DIR/init_launcher\n"
     slurm += "export WORKDIR=. \n"
     slurm += "export CONTROL_FILE=elixer.run\n"
-    slurm += "export TACC_LAUNCHER_NPHI = 0\n"
-    slurm += "export TACC_LAUNCHER_PHI_PPN = 8\n"
-    slurm += "export PHI_WORKDIR =.\n"
-    slurm += "export PHI_CONTROL_FILE = phiparamlist\n"
-    slurm += "export TACC_LAUNCHER_SCHED = interleaved\n"
+    slurm += "export TACC_LAUNCHER_NPHI=0\n"
+    slurm += "export TACC_LAUNCHER_PHI_PPN=8\n"
+    slurm += "export PHI_WORKDIR=.\n"
+    slurm += "export PHI_CONTROL_FILE=phiparamlist\n"
+    slurm += "export TACC_LAUNCHER_SCHED=interleaved\n"
 
     launch_str = "$TACC_LAUNCHER_DIR/paramrun SLURM $EXECUTABLE $WORKDIR $CONTROL_FILE $PHI_WORKDIR $PHI_CONTROL_FILE"
 
@@ -533,7 +535,7 @@ if False: #old way
         slurm += "module unload xalt \n"
         slurm += "module load launcher\n"
         slurm += "export EXECUTABLE=$TACC_LAUNCHER_DIR/init_launcher\n"
-        slurm += "export WORKDIR=. \n"
+        slurm += "export WORKDIR=.\n"
         slurm += "export CONTROL_FILE=elixer.run\n"
 
     elif host == HOST_WRANGLER:

@@ -23,6 +23,8 @@ import numpy as np
 #from PIL import Image
 from wand.image import Image
 
+import tables
+
 
 
 #try:
@@ -219,6 +221,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--include_all_amps', help='Override bad amp list and process all amps',
                         required=False, action='store_true', default=False)
 
+    parser.add_argument('--hdf5', help="HDF5 Detections File (see also --dets)", required=False,
+                        default=G.HDF5_DETECT_FN)
+
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
 
@@ -401,9 +406,9 @@ def valid_parameters(args):
     #must have ra and dec -OR- dither and (ID or (chi2 and sigma))
     if result:
         if (args.ra is None) or (args.dec is None):
-            if (args.line is None) and (args.fcsdir is None):
+            if (args.line is None) and (args.fcsdir is None) and(args.hdf5 is None):
                 print("Invalid parameters. Must specify either (--ra and --dec) or detect parameters (--dither, --line, --id, "
-                      "--sigma, --chi2, --fcsdir)")
+                      "--sigma, --chi2, --fcsdir, --hdf5)")
                 result =  False
             elif args.cure:
                 if (args.ifu is None):
@@ -474,7 +479,7 @@ def valid_parameters(args):
 
 def build_hd(args):
     #if (args.dither is not None):
-    if (args.line is not None) or (args.fcsdir is not None):#or (args.id is not None):
+    if (args.line is not None) or (args.fcsdir is not None) or (args.hdf5 is not None):#or (args.id is not None):
             return True
 
     return False
@@ -936,6 +941,146 @@ def convert_pdf(filename, resolution=150):
         return
 
 
+def get_hdf5_detectids_to_process(args):
+    """
+    returns a list of detectids (Int64) to process
+
+    This is built from the supplied HDF5 detection file and dets list, translated to detectIDs
+
+    :param args:
+    :return:
+    """
+
+    if args.hdf5 is None:
+        return []
+
+    #check that the file exists
+    try:
+        if not os.path.isfile(args.hdf5):
+            msg = "Fatal. Supplied HDF5 file does not exist (%s)" % (args.hdf5)
+            print(msg)
+            log.error(msg)
+            exit(-1)
+    except:
+        msg = "Fatal. Supplied HDF5 file does not exist (%s)" % (args.hdf5)
+        print(msg)
+        log.error(msg,exc_info=True)
+        exit(-1)
+
+    detectids = []
+
+    try:
+        h5 = tables.open_file(args.hdf5,mode="r")
+
+        #todo: keep the tables up to date
+        #todo: expect there to be a translation/name mapping table in the future
+        dtb = h5.root.Detections
+        #ftb = h5.root.Fibers
+        #stb = h5.root.Spectra
+
+
+        #dets might be a single value or a list
+        try:
+            #is this a list or a file
+            if os.path.isfile(args.dets):
+                detlist = np.genfromtxt(args.dets, dtype=None,comments='#',usecols=(0,))
+                detlist_is_file = True
+                log.debug("Loaded --dets as file")
+            elif os.path.isfile(os.path.join("..",args.dets)):
+                detlist = np.genfromtxt(os.path.join("..",args.dets), dtype=None, comments='#', usecols=(0,))
+                detlist_is_file = True
+                log.debug("Loaded --dets as ../<file> ")
+            else:
+                detlist = args.dets.replace(', ',',').split(',') #allow comma or comma-space separation
+                log.debug("Loaded --dets as list")
+        except:
+            log.error("Exception processing detections (--dets) detlist. FATAL. ", exc_info=True)
+            print("Exception processing detections (--dets) detlist. FATAL.")
+            h5.close()
+            exit(-1)
+
+        len_detlist = 0
+        try:
+            len_detlist = len(detlist)  # ok
+        except:
+            try:
+                len_detlist = detlist.size
+            except:
+                pass
+
+        if len_detlist == 1 and not isinstance(detlist,list):
+            # so we get a list of strings, not just a single string and not a list of characters
+            detlist = [str(detlist)]
+
+        #iterate through --dets (might be detectID or some other format ... allow mixed)
+        for d in detlist:
+
+            #is it an int?
+            #could be a string as an int
+            try:
+                if str(d).isdigit():
+                    #this is a detectid"
+                    id = int(d)
+                    rows = dtb.read_where("detectid==id")
+                    num = len(rows)
+
+                    if num == 0:
+                        log.info("%d not found in HDF5 detections" %(id))
+                        continue
+                    elif num == 1:
+                        log.info("%d added to detection list" %(id))
+                        detectids.append(id)
+                        continue
+                    else:
+                        log.info("%d detectid is not unique" %(id))
+                        #might be something else, like 20180123 ??
+                        #todo: for now, just skip it ... might consider checking something els
+                        continue
+            except:
+                pass
+
+            #todo: ould be a range: like 123-130 or 123:130 as slices or ranges?
+
+            #is it an old style id ... like "20180123v009_5"
+            try:
+                if "v" in str(d).lower():
+                    #todo: this could represent a name .... could map to multiple detectIDs
+                    #currently called an "inputid"
+                    id  = str(d)
+                    rows = dtb.read_where("inputid==id")
+                    num = len(rows)
+
+                    if num == 0:
+                        log.info("%s not found in HDF5 detections" % (id))
+                        continue
+                    elif num == 1:
+                        d_id = rows['detectid'][0]
+                        log.info("%s added to detection list as %d" % (id,d_id))
+                        detectids.append(d_id)
+                        continue
+                    else:
+                        log.info("%s inputid is not unique" % (id))
+                        # might be something else, like 20180123 ??
+                        # todo: for now, just skip it ... might consider checking something els
+                        continue
+
+            except:
+                pass
+
+        h5.close()
+
+    except:
+        msg = "Fatal. Could not consume HDF5 file."
+        print(msg)
+        log.error(msg,exc_info=True)
+        try:
+            h5.close()
+        except:
+            pass
+        exit(-1)
+
+    return detectids
+
 
 def get_fcsdir_subdirs_to_process(args):
 #return list of rsp1 style directories to process
@@ -1024,6 +1169,13 @@ def get_fcsdir_subdirs_to_process(args):
             log.debug("Attempting FAST search for %d directories ..." %len_detlist)
             #try fast way first (assume detlist is immediate subdirectory name, if that does not work, use slow method
             for d in detlist:
+
+                try:
+                    if d[-1] == "/":
+                        d = d.rstrip("/")
+                except:
+                    pass
+
                 if args.annulus:
                     pattern = d + ".spsum"
                 else:
@@ -1187,7 +1339,13 @@ def main():
     #for rsp1 variant, hd_list should be one per detection (one per rsp subdirectory) or just one hd object?
     file_list = [] #output pdfs (parts)
 
-    fcsdir_list = get_fcsdir_subdirs_to_process(args) #list of rsp1 style directories to process (each represents one detection)
+    fcsdir_list = []
+    hdf5_detectid_list = []
+
+    if args.fcsdir is not None:
+        fcsdir_list = get_fcsdir_subdirs_to_process(args) #list of rsp1 style directories to process (each represents one detection)
+    else:
+        hdf5_detectid_list = get_hdf5_detectids_to_process(args)
 
     match_list = match_summary.MatchSet()
 
@@ -1208,7 +1366,7 @@ def main():
                 hd = hetdex.HETDEX(args)
                 if (hd is not None) and (hd.status != -1):
                     hd_list.append(hd)
-        elif len(fcsdir_list) > 0:
+        elif len(fcsdir_list) > 0: #rsp style
             #build one hd object for each ?
             #assume of form 20170322v011_xxx
             obs_dict = {} #key=20170322v011  values=list of dirs
@@ -1228,6 +1386,14 @@ def main():
                 # each with then multiple detections (DetObjs)
                 if hd.status == 0:
                     hd_list.append(hd)
+        elif len(hdf5_detectid_list) > 0: #HDF5 (DataRelease style)
+            #here
+            for d in hdf5_detectid_list:
+                hd = hetdex.HETDEX(args,fcsdir_list=None,hdf5_detectid_list=[d])
+
+                if hd.status == 0:
+                    hd_list.append(hd)
+
         else:
             hd = hetdex.HETDEX(args) #builds out the hd object (with fibers, DetObj, etc)
             if hd is not None:

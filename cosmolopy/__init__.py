@@ -84,6 +84,8 @@ Calculate the critical and matter densities:
 Look in the tests/ and examples/ directories for more examples. 
 
 """
+import sys
+sys.path.append('/home/dustin/code/python/elixer/cosmolopy')
 
 import constants as cc
 #from .constants import * as cc

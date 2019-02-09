@@ -125,6 +125,7 @@ def make_grid(all_waves):
 
     """
 
+    all_waves = np.array(all_waves)
     #set the range to the maximum(minimum) to the minimum(maximum)
     mn = np.max(np.amin(all_waves,axis=1)) #maximum of the minimums of each row
     mx = np.min(np.amax(all_waves,axis=1)) #minimum of the maximums of each row
@@ -158,7 +159,10 @@ def interpolate(flux,wave,grid,eflux=None,ewave=None):
     else:
         interp_eflux = np.zeros(np.shape(interp_flux))
 
-    return interp_flux, interp_eflux
+    #todo: dividing by constant with an error, so adjust the error here too
+    interp_ewave = ewave
+
+    return interp_flux, interp_eflux, interp_ewave
 
 def add_spectra(flux1,flux2,wave1,wave2,grid=None,eflux1=None,eflux2=None,ewave1=None,ewave2=None):
 

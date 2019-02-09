@@ -44,6 +44,8 @@ import ifu as elixer_ifu #only using to locate panacea files (elixer only uses i
 import spectrum as elixer_spectrum
 import observation as elixer_observation
 
+import tables
+
 
 #todo: write a class wrapper for log
 #an instance called log that has functions .Info, .Debug, etc
@@ -469,6 +471,7 @@ class DetObj:
         self.y = None
 
         self.w = 0.0
+        self.w_unc = 0.0
         self.la_z = 0.0
         self.dataflux = 0.0
         self.modflux = 0.0
@@ -477,6 +480,7 @@ class DetObj:
         self.estflux_unc = 0.0
         self.sigma = 0.0 #also doubling as sn (see @property sn farther below)
         self.snr = None
+        self.snr_unc = 0.0
         self.chi2 = 0.0
         self.chi2_unc = None
         self.chi2s = 0.0
@@ -505,6 +509,8 @@ class DetObj:
         #flux calibrated data (from Karl's detect and calibration)
         self.fcsdir = None
         self.pdf_name = None
+        self.hdf5_detectname = None #detectname column in HDF5 representation (just for reference)
+        #the hdf5_detectid is the same as the self.entry_id, (see propert hdf5_detectid())
 
         self.line_gaussfit_parms = None #in load_fluxcalibrated_spectra becomes a 4 tuple (mu, sigma, A, y)
         self.line_gaussfit_unc = None
@@ -742,6 +748,11 @@ class DetObj:
         # as this next step takes a while
         #self.load_fluxcalibrated_spectra()
 
+    @property
+    def hdf5_detectid(self):
+        #for now .... may be smarter than this in the future
+        #HDF5 (internal) detectid (INT64)
+        return self.entry_id
 
     @property
     def sn(self):
@@ -875,6 +886,203 @@ class DetObj:
                                 rc = True
 
         return rc
+
+
+
+    def load_hdf5_fluxcalibrated_spectra(self,hdf5_fn,id):
+        """
+
+        :return:
+        """
+        self.panacea = True #if we are here, it can only be panacea
+
+        del self.sumspec_wavelength[:]
+        del self.sumspec_counts[:]
+        del self.sumspec_flux[:]
+        del self.sumspec_fluxerr[:]
+        del self.sumspec_wavelength_zoom[:]
+        del self.sumspec_counts_zoom[:]
+        del self.sumspec_flux_zoom[:]
+        del self.sumspec_fluxerr_zoom[:]
+
+        with tables.open_file(hdf5_fn,mode="r") as h5_detect:
+
+            detection_table = h5_detect.root.Detections
+            fiber_table = h5_detect.root.Fibers
+            spectra_table = h5_detect.root.Spectra
+            #spectra_table.cols.detectid.create_csindex()
+
+            #get the multi-fits equivalent info
+            #can't use "detectid==detectid" ... context is confused
+            rows = detection_table.read_where("detectid==id")
+
+            if (rows is None) or (len(rows)!=1):
+                self.status = -1
+                log.error("Problem loading detectid ...")
+                return
+
+            row = rows[0] #should only be the one row
+
+            #could be more than one? ... fibers from different dates, or across amps at least
+            #or just the highest weight fiber?
+            #mfits_name = row['multiframe']
+
+            #set the pdf name (w/o the .pdf extension
+            self.pdf_name = row['inputid']
+            self.hdf5_detectname = row['detectname']
+
+
+            ############################
+            #get basic detection info
+            ############################
+            self.w = row['wave']
+            self.w_unc = row['wave_err']
+            self.wra = row['ra']
+            self.wdec = row['dec']
+
+            #todo: need the Sky X,Y ?
+            #self.x = #Sky X (IFU-X)
+            #self.y =
+
+            self.chi2 = row['chi2']
+            self.chi2_unc = row['chi2_err']
+
+            self.snr = row['sn']
+            self.snr_unc = row['sn_err']
+
+            self.sigma = row['linewidth']#AA
+            self.sigma_unc = row['linewidth_err']
+            self.fwhm = 2.35 * self.sigma
+
+            self.estflux = row['flux']
+            self.estflux_unc = row['flux_err']
+
+            self.cont_cgs = row['continuum']
+            self.cont_cgs_unc = row['continuum_err']
+
+            # mu, sigma, Area, y
+            self.line_gaussfit_parms = (self.w,self.sigma,self.estflux,self.cont_cgs)
+            self.line_gaussfit_unc = (self.w_unc,self.sigma_unc,self.estflux_unc,self.cont_cgs_unc)
+
+            self.estflux *= 1e-17 #now as erg s^-1 cm^-2
+            self.estflux_unc *= 1e-17
+
+            self.cont_cgs *= 1e-17
+            self.cont_cgs_unc *= 1e-17
+
+            #ignoring date, datevobs, fiber_num, etc that apply to the top weighted fiber or observation, etc
+            #since we want ALL the fibers and will load them after the core spectra info
+
+            ############################################
+            #get the weighted and summed spectra info
+            ############################################
+            rows = spectra_table.read_where("detectid==id")
+            if (rows is None) or (len(rows)!=1):
+                self.status = -1
+                log.error("Problem loading detectid. Multiple rows or no rows in Spectra table.")
+                return
+            row = rows[0]
+
+            self.sumspec_wavelength = row['wave1d']
+            self.sumspec_counts = row['counts1d']#not really using this anymore
+            #self.sumspec_countserr #not using this
+            self.sumspec_flux = row['spec1d'] #DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
+            self.sumspec_fluxerr = row['spec1d_err']
+
+            idx = elixer_spectrum.getnearpos(self.sumspec_wavelength, self.w)
+            left = idx - 25  # 2AA steps so +/- 50AA
+            right = idx + 25
+
+            if left < 0:
+                left = 0
+            if right > len(self.sumspec_flux):
+                right = len(self.sumspec_flux)
+
+            # these are on the 2AA grid (old spece had 2AA steps but, the grid was centered on the main wavelength)
+            # this grid is not centered but is on whole 2AA (i.e. 3500.00, 3502.00, ... not 3500.4192, 3502.3192, ...)
+            self.sumspec_wavelength_zoom = self.sumspec_wavelength[left:right]
+            self.sumspec_flux_zoom = self.sumspec_flux[left:right]
+            self.sumspec_fluxerr_zoom = self.sumspec_fluxerr[left:right]
+            self.sumspec_counts_zoom = self.sumspec_counts[left:right]
+
+
+            #######################################
+            #get individual fiber info
+            #######################################
+            #   idstring=None,specid=None,ifuslot=None,ifuid=None,amp=None,date=None,time=None,time_ex=None,
+             #    panacea_fiber_index=-1, detect_id = -1):
+
+            rows = fiber_table.read_where("detectid == id")
+            for row in rows:
+                specid = row['specid']
+                ifuslot = row['ifuslot']
+                ifuid = row['ifuid']
+                amp = row['amp'] #missing the L or R right now...
+                date = str(row['date']) #check format
+
+                #expected to be "20180320T052104.2"
+                time_ex = row['timestamp'][9:]
+                time = time_ex[0:6] #hhmmss
+                mfits_name = row['multiframe']
+
+                fiber_num = row['fiber_num']
+
+                fiber = elixer_fiber.Fiber(idstring=None,specid=specid,ifuslot=ifuslot,ifuid=ifuid,amp=amp,
+                                           date=date,time=time,time_ex=time_ex, panacea_fiber_index=fiber_num,
+                                           detect_id=id)
+
+                if fiber is not None:
+                    fiber.ra = row['ra']
+                    fiber.dec = row['dec']
+                    fiber.obsid = int(row['obsid'])
+                    fiber.expid = int(row['expn'][3:]) # 'exp01'
+                    fiber.detect_id = id
+                    fiber.center_x = row['x_ifu']
+                    fiber.center_y = row['y_ifu']
+                    # add the fiber (still needs to load its fits file)
+                    # we already know the path to it ... so do that here??
+
+                    # todo: full path to the HDF5 fits equivalent (or failing that the panacea fits file?)
+                    fiber.fits_fn = mfits_name
+
+                    #now, get the corresponding FITS or FITS equivalent (HDF5)
+                    if self.annulus is None:
+                        fits = hetdex_fits.HetdexFits(empty=True)
+                        #populate the data we need to read the HDF5 file
+                        fits.filename = mfits_name #todo: fix to the corect path
+                        fits.panacea = True
+                        fits.hdf5 = True
+
+                        fits.obsid = str(fiber.obsid).zfill(3)
+                        fits.expid = int(fiber.expid)
+                        fits.specid = str(fiber.specid).zfill(3)
+                        fits.ifuslot = str(fiber.ifuslot).zfill(3)
+                        fits.ifuid = str(fiber.ifuid).zfill(3)
+                        fits.amp = fiber.amp
+                        fits.side = fiber.amp[0]
+
+                        fits.obs_date = fiber.dither_date
+                        fits.obs_ymd = fits.obs_date
+
+                        #now read the HDF5 equivalent
+                        fits.read_hdf5()
+                        #check if it is okay
+
+                        if fits.okay:
+                            fiber.fits = fits
+                        else:
+                            log.error("HDF5 multi-fits equivalent is not okay ...")
+                        # self.sci_fits.append(fits)
+
+                    # not here ... this is for the entire detection not just this fiber
+                    # self.wra = ra
+                    # self.wdec = dec
+                    # self.x = sky_x
+                    # self.y = sky_y
+
+                    self.fibers.append(fiber)
+
+
 
 
 
@@ -1766,7 +1974,7 @@ class FitsSorter:
 
 class HETDEX:
 
-    def __init__(self,args,fcsdir_list=None):
+    def __init__(self,args,fcsdir_list=None,hdf5_detectid_list=[]):
         #fcsdir may be a single dir or a list
         if args is None:
             log.error("Cannot construct HETDEX object. No arguments provided.")
@@ -1868,6 +2076,17 @@ class HETDEX:
         else: #we were given a specific directory, so use that
             self.fcsdir_list = fcsdir_list
 
+
+        #HDF5 Stuff (might be empty)
+        self.hdf5_detectid_list = None
+        self.hdf5_detect_fqfn = None  # string ... the fully qualified filename
+        self.hdf5_detect = None  # the actual HDF5 representation loaded
+
+        if (hdf5_detectid_list is not None) and (len(hdf5_detectid_list) > 0):
+            self.hdf5_detectid_list = hdf5_detectid_list
+            self.hdf5_detect_fqfn = args.hdf5  #string ... the fully qualified filename
+            self.hdf5_detect = None #the actual HDF5 representation loaded
+
         if args.cure:
             self.panacea = False
         else:
@@ -1909,6 +2128,10 @@ class HETDEX:
             #DetObj(s) will be built here (as they are built, downstream from self.read_detectline() above
             self.read_fcsdirs()
             build_fits_list = False
+        elif (self.hdf5_detectid_list is not None):
+            #todo: equivalent of read_fcsdirs
+            self.read_hdf5_detect()
+
 
         if build_fits_list:
             if (args.obsdate is None):
@@ -1925,11 +2148,12 @@ class HETDEX:
                     self.status = -1
                     return
 
-        #get ifu centers
-        self.get_ifu_centers(args)
+        if not self.panacea:
+            #get ifu centers
+            self.get_ifu_centers(args)
 
-        #get distortion info
-        self.get_distortion(args)
+            #get distortion info
+            self.get_distortion(args)
 
         #build fplane (find the correct file from the exposure date collected above)
         #for possible future use (could specify fplane_fn on commandline)
@@ -2593,6 +2817,45 @@ class HETDEX:
             return False
 
 
+    def read_hdf5_detect(self):
+        """
+        Consume the HDF5 version of detections for the list of detections passed in
+        (though there should only be one detectID at this point)
+        :return:
+        """
+
+        #clear out any existing detections
+        if len(self.emis_list) > 0:
+            del self.emis_list[:]
+
+        for d in self.hdf5_detectid_list:
+            #build an empty Detect Object and then populate
+            e = DetObj(None, emission=True)
+            if e is not None:
+                e.entry_id = d #aka detect_id from HDF5
+                e.annulus = self.annulus
+                e.target_wavelength = self.target_wavelength
+                e.ra = self.target_ra
+                e.dec = self.target_dec
+
+                #just internal (ELiXer) numbering here
+                G.UNIQUE_DET_ID_NUM += 1
+                e.id = G.UNIQUE_DET_ID_NUM
+
+                if e.outdir is None:
+                    e.outdir = self.output_filename
+
+                #todo: load the HDF5 data here ...
+                #e.load_fluxcalibrated_spectra()
+                e.load_hdf5_fluxcalibrated_spectra(self.hdf5_detect_fqfn,d)
+
+
+
+                if e.status >= 0:
+                    self.emis_list.append(e)
+                else:
+                    log.info("Unable to continue with eid(%s). No report will be generated." % (str(e.entry_id)))
+
     def read_fcsdirs(self):
         # we have either fcsdir and fcs_base or fcsdir_list
         # consume the rsp1 style directory
@@ -2605,7 +2868,7 @@ class HETDEX:
 
         if len(self.fcsdir_list) > 0: #we have a list of fcsdirs, one DetObj for each
             for d in self.fcsdir_list: #this is the typical case
-                #todo: build up the tokens that DetObj needs?
+                #build up the tokens that DetObj needs
                 toks = None
                 e = DetObj(toks, emission=True, fcsdir=d)
                 e.annulus = self.annulus

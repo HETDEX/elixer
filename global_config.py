@@ -11,15 +11,16 @@ import numpy as np
 import socket
 
 #version
-__version__ = '1.5.0a17'
+__version__ = '1.5.0a18'
 
 REPORT_ELIXER_MCMC_FIT = False
 
 RELATIVE_PATH_UNIVERSE_CONFIG = "line_classifier_install/tests/data/universe.cfg"
 RELATIVE_PATH_FLUX_LIM_FN = "line_classifier_install/tests/data/Line_flux_limit_5_sigma_baseline.dat"
 
-#if socket.gethostname() == 'z50':
-if False:
+if socket.gethostname() == 'z50':
+#if False:
+    HDF5_DETECT_FN = "/home/dustin/code/python/hdf5_learn/cache/detect_big.h5"
     OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
     BAD_AMP_LIST = "/home/dustin/code/python/elixer/bad_amp_list.txt"
 
@@ -57,7 +58,8 @@ if False:
 
 else:
 
-    #AST376_PATH = "/work/03261/polonius/maverick/catalogs/ast376"
+    #AST376_PATH = "/work/03261/polonius/maverick/catalogs/ast376"-
+    HDF5_DETECT_FN  = "/work/05350/ecooper/wrangler/database/detect_test2.h5"
     OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
     BAD_AMP_LIST = "/work/03261/polonius/maverick/catalogs/bad_amp_list.txt"
     CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
