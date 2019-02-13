@@ -94,8 +94,8 @@ PIXFLT_LOC = op.join(CONFIG_BASEDIR,"virus_config/PixelFlats")
 
 REPORT_ELIXER_MCMC_FIT = False
 
-RELATIVE_PATH_UNIVERSE_CONFIG = "line_classifier_install/tests/data/universe.cfg"
-RELATIVE_PATH_FLUX_LIM_FN = "line_classifier_install/tests/data/Line_flux_limit_5_sigma_baseline.dat"
+RELATIVE_PATH_UNIVERSE_CONFIG = "line_classifier/universe.cfg"
+RELATIVE_PATH_FLUX_LIM_FN = "line_classifier/Line_flux_limit_5_sigma_baseline.dat"
 
 LOG_LEVEL = logging.DEBUG
 
