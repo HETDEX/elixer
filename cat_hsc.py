@@ -42,14 +42,14 @@ def hsc_count_to_mag(count,cutout=None,headers=None):
 
     #note: zero point is 27 mag
     if count is not None:
-        if sci_image is not None:
-            #get the conversion factor, each tile is different
-            try:
-                fluxmag0 = float(headers[0]['FLUXMAG0'])
-            except:
-                fluxmag0 = 0.0
-                log.error("Exception in hsc_count_to_mag",exc_info=True)
-                return 99.9
+    #if cutout is not None:
+        #get the conversion factor, each tile is different
+        try:
+            fluxmag0 = float(headers[0]['FLUXMAG0'])
+        except:
+            fluxmag0 = 0.0
+            log.error("Exception in hsc_count_to_mag",exc_info=True)
+            return 99.9
 
         if count > 0:
             return -2.5 * np.log10(count/fluxmag0) #+ 48.6

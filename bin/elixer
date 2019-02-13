@@ -1,0 +1,1 @@
+python /work/03261/polonius/maverick/science/sciscripts/elixer/elixer.py "$@"

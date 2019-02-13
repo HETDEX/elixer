@@ -1,5 +1,11 @@
 changes to elixer by version
 
+1.5.0.a18 []
+* fixed left-over 'sci_image' reference in cat_xxx.py count_to_mag functions
+* add HDF5 support
+
+
+
 1.5.0.a17 [2019-02-03]
 * updates to selixer.py to deal with (minimum func) wrangler and stampede2
 * added API for imaging catalogs (cutouts and catalog detections)

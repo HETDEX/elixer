@@ -42,16 +42,16 @@ import match_summary
 
 def goodsn_f606w_count_to_mag(count,cutout=None,headers=None):
     if count is not None:
-        if sci_image is not None:
-            #get the conversion factor, each tile is different
-            try:
-                photoflam = float(headers[0]['PHOTFLAM']) #inverse sensitivity, ergs / cm2 / Ang / electron
-                photozero = float(headers[0]['PHOTZPT']) #/ ST magnitude zero point
-            except:
-                photoflam = 7.7265099E-20
-                photozero = -2.1100000E+01
-                log.warn("Exception in goodsn_count_to_mag",exc_info=True)
-                #return 99.9
+        #if cutout is not None:
+        #get the conversion factor, each tile is different
+        try:
+            photoflam = float(headers[0]['PHOTFLAM']) #inverse sensitivity, ergs / cm2 / Ang / electron
+            photozero = float(headers[0]['PHOTZPT']) #/ ST magnitude zero point
+        except:
+            photoflam = 7.7265099E-20
+            photozero = -2.1100000E+01
+            log.warn("Exception in goodsn_count_to_mag",exc_info=True)
+            #return 99.9
 
         if count > 0:
             flux = photoflam*count

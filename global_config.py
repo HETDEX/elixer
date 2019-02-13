@@ -20,7 +20,7 @@ RELATIVE_PATH_FLUX_LIM_FN = "line_classifier_install/tests/data/Line_flux_limit_
 
 if socket.gethostname() == 'z50':
 #if False:
-    HDF5_DETECT_FN = "/home/dustin/code/python/hdf5_learn/cache/detect_big.h5"
+    HDF5_DETECT_FN = "/home/dustin/code/python/hdf5_learn/cache/detect_test3.h5"
     OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
     BAD_AMP_LIST = "/home/dustin/code/python/elixer/bad_amp_list.txt"
 

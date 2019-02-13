@@ -90,6 +90,11 @@ class HetdexFits:
             self.read_fefits()
 
 
+    def find_hdf5_multifits(self):
+         #build up path and see if it exists
+        pass
+
+
     def read_fits(self,use_cosmic_cleaned=False):
 
         if not self.filename:
@@ -253,7 +258,7 @@ class HetdexFits:
 
         #todo: debug
         print("******* !!!!!! take this out ... dev only !!!!!!! *******")
-        self.filename = "/home/dustin/code/python/hdf5_learn/test_new.h5"
+        self.filename = "/home/dustin/code/python/hdf5_learn/cache/test_new.h5"
 
         if not self.filename:
             self.okay = False
@@ -265,9 +270,18 @@ class HetdexFits:
                 images_table = h5_multifits.root.Info.Images
                 shots_table = h5_multifits.root.Info.Shot
 
+                # set the query values needed shortly ...
+                # query a specific fiber by ifuid ... amp and fiber_number
+                q_specid = str(self.specid).zfill(3)
+                # q_ifuid = str(self.ifuid).zfill(3)
+                # q_ifuslot = str(self.ifuslot).zfill(3)
+                q_expnum = int(self.expid)
+                q_amp = self.amp
+
                 #########################################
                 #shot info
                 #########################################
+
                 #should only be one shot ...
                 rows = shots_table.read(0)
 
@@ -332,12 +346,6 @@ class HetdexFits:
                 #    There will be redundant data
                 #########################################
 
-                #query a specific fiber by ifuid ... amp and fiber_number
-                q_specid = str(self.specid).zfill(3)
-                #q_ifuid = str(self.ifuid).zfill(3)
-                #q_ifuslot = str(self.ifuslot).zfill(3)
-                q_expnum = int(self.expid)
-                q_amp = self.amp
                 #for a given SHOT specid OR ifuid OR ifuslot is unique when compbined with the amp and expsosure
                 rows = fibers_table.read_where("(specid==q_specid) & (expnum==q_expnum) & (amp==q_amp)")
 

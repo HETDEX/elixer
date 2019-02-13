@@ -269,6 +269,11 @@ def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_
 
     wl_unc = 1.0 #AA
 
+    if (addl_wavelengths is None) or (addl_fluxes is None) or (addl_errors is None):
+        addl_wavelengths = []
+        addl_fluxes = []
+        addl_errors = []
+
     try:
         for n, w in known_lines:
             w_oii = float(w) / (z_OII + 1.)

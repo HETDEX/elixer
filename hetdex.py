@@ -207,7 +207,7 @@ def get_w_as_r(seeing, gridsize, rstep, rmax, profile_name='moffat'):
 def gaussian(x,x0,sigma,a=1.0,y=0.0):
     if (x is None) or (x0 is None) or (sigma is None):
         return None
-    return a * (np.exp(-np.power((x - x0) / sigma, 2.) / 2.) / np.sqrt(2 * np.pi * sigma ** 2)) + y
+    return a * (np.exp(-np.power((x - x0) / sigma, 2.) / 2.) / np.sqrt(2. * np.pi * sigma ** 2.)) + y
 
 def rms(data, fit):
     #sanity check
@@ -887,7 +887,763 @@ class DetObj:
 
         return rc
 
+        # rsp1 (when t5all was provided and we want to load specific fibers for a single detection)
 
+    def load_fluxcalibrated_spectra(self):
+
+        self.panacea = True  # if we are here, it can only be panacea
+
+        # todo: get the line width as well
+
+        del self.sumspec_wavelength[:]
+        del self.sumspec_counts[:]
+        del self.sumspec_flux[:]
+        del self.sumspec_fluxerr[:]
+        del self.sumspec_wavelength_zoom[:]
+        del self.sumspec_counts_zoom[:]
+        del self.sumspec_flux_zoom[:]
+        del self.sumspec_fluxerr_zoom[:]
+
+        if self.fcsdir is None:
+            return
+
+        # note the 20170615v09 might be v009 ... inconsistent
+
+        if not op.isdir(self.fcsdir):
+            log.debug("Cannot find flux calibrated spectra directory: " + self.fcsdir + " . Trying alternate (extra 0)")
+            toks = self.fcsdir.split('v')
+            toks[-1] = 'v0' + toks[-1]
+            self.fcsdir = "".join(toks)
+
+            if not op.isdir(self.fcsdir):
+                # still did not find ...
+                log.error("Cannot find flux calibrated spectra directory: " + self.fcsdir)
+                self.status = -1
+                return
+
+        basename = op.basename(self.fcsdir)
+
+        log.info("Loading HETDEX data (flux calibrated spectra, etc) for %s" % self.fcsdir)
+
+        # get basic info
+        # if self.annulus is None:
+        file = op.join(self.fcsdir, "out2")
+        try:
+            with open(file, 'r') as f:
+                f = ft.skip_comments(f)
+                count = 0
+                for l in f:  # should be exactly one line (but takes the last one if more than one)
+                    count += 1
+                    if count > 1:
+                        log.warning("Unexepcted number of lines in %s" % (file))
+
+                    toks = l.split()
+                    self.wra = float(toks[0])
+                    self.wdec = float(toks[1])
+                    self.x = -999
+                    self.y = -999
+        except:
+            if self.annulus is None:
+                log.error("Fatal: Cannot read out2 file: %s" % file, exc_info=True)
+                self.status = -1
+                return
+            else:
+                self.wra = self.ra
+                self.wdec = self.dec
+
+        # get summary information (res file)
+        # wavelength   wavelength(best fit) counts sigma  ?? S/N   cont(10^-17)
+        # wavelength   wavelength(best fit) flux(10^-17) sigma  ?? S/N   cont(10^-17)
+        if self.annulus is None:
+            try:
+                file = op.join(self.fcsdir, basename + "mc.res")
+
+                if not op.exists(file):
+                    log.warning("Warning. Could not load/parse: %s . Will try alternate location." % file)
+
+                    if self.fcsdir[-1] == '/':
+                        updir, _ = op.split(op.dirname(self.fcsdir))
+                    else:
+                        updir, _ = op.split(self.fcsdir)
+
+                    file = op.join(updir, "fitres", basename + ".res")
+                    if not op.exists(file):
+                        log.warning("Warning. Could not load/parse: %s" % file)
+                        file = None
+            except:
+                file = None
+                log.warning("Warning. Could not load/parse Gaussian parm file.", exc_info=True)
+
+            # dustin@z50:/lines/$ cat header.cat
+            # ID RA DEC wavelength S/N chi^2 amplitude sigma_line continuum
+            # dustin@z50:/lines/$ cat header.res
+            # RA DEC wavelength S/N chi^2 amplitude sigma_line continuum
+
+            if file is not None:
+                try:
+                    with open(file, 'r') as f:
+                        f = ft.skip_comments(f)
+                        for l in f:  # should be exactly one line (but takes the last one if more than one)
+                            toks = l.split()
+                            if len(toks) == 8:
+
+                                log.info(
+                                    "Using reduced info (old form) *.res file. Uncertainties not included in file.")
+                                # gaussfit order: mu, sigma, A, y
+                                # 0  1    2           3   4    5          6         7
+                                # RA DEC wavelength S/N chi^2 amplitude sigma_line continuum
+                                self.line_gaussfit_parms = (
+                                float(toks[2]), float(toks[6]), float(toks[5]), float(toks[7]))
+                                self.estflux = self.line_gaussfit_parms[2] * 1e-17
+                                self.cont_cgs = self.line_gaussfit_parms[3] * 1e-17
+
+                                self.fwhm = 2.35 * float(toks[6])
+
+                                if self.cont_cgs <= 0:
+                                    self.cont_cgs = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(float(toks[2]))
+                                    self.cont_cgs_unc = 0.0  # so show no uncertainty ... a give away that this is a floor
+
+                                if float(toks[7]) != 0:
+                                    self.eqw_obs = abs(self.estflux / self.cont_cgs)
+                            elif len(toks) == 14:  # xxx_mc.res version
+                                #          0  1   2     3     4   5     6    7       8   9      10   11    12   13
+                                # mc.res: RA DEC wave d_wave amp d_amp sigma d_sigma con d_con ston d_ston chi d_chi
+
+                                self.wra = float(toks[0])
+                                self.wdec = float(toks[1])
+
+                                # mu, sigma, Area, y
+                                self.line_gaussfit_parms = (
+                                float(toks[2]), float(toks[6]), float(toks[4]), float(toks[8]))
+
+                                self.line_gaussfit_unc = (
+                                float(toks[3]), float(toks[7]), float(toks[5]), float(toks[9]))
+
+                                self.chi2 = float(toks[12])
+                                self.chi2_unc = float(toks[13])
+
+                                self.fwhm = 2.35 * float(toks[6])
+
+                                self.estflux = self.line_gaussfit_parms[2] * 1e-17
+                                self.estflux_unc = self.line_gaussfit_unc[2] * 1e-17
+
+                                self.cont_cgs = self.line_gaussfit_parms[3] * 1e-17
+                                self.cont_cgs_unc = self.line_gaussfit_unc[3] * 1e-17
+
+                                if self.cont_cgs <= 0:
+                                    self.cont_cgs = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(float(toks[2]))
+                                    self.cont_cgs_unc = 0.0  # so show no uncertainty ... a give away that this is a floor
+
+                                self.eqw_obs = abs(self.estflux / self.cont_cgs)
+                                self.eqw_obs_unc = abs(self.eqw_obs * np.sqrt(
+                                    (self.estflux_unc / self.estflux) ** 2 +
+                                    (self.cont_cgs_unc / self.cont_cgs) ** 2))
+
+
+                            else:
+                                log.error("Error. Unexpected number of columns in %s" % file)
+                except:
+                    log.warning("Warning. Could not load/parse: %s" % file)
+
+            # correction for pixels to AA (impacts only flux)
+            if self.line_gaussfit_parms is not None:
+                try:
+                    # have to make a list and back again since tuples are immutable
+                    parms = list(self.line_gaussfit_parms)
+                    parms[2] *= 2.0
+                    self.line_gaussfit_parms = tuple(parms)
+
+                except:
+                    log.warning("hetdex::load_fluxcalibrated_spectra() unable to correct pixels to AA", exc_info=True)
+
+            # if self.line_gaussfit_unc is not None:
+            #     try:
+            #         parms = list(self.line_gaussfit_unc)
+            #         parms[2] *= 2.0
+            #         self.line_gaussfit_unc = tuple(parms)
+            #     except:
+            #         log.warning("hetdex::load_fluxcalibrated_spectra() unable to correct pixels to AA", exc_info=True)
+
+            file = op.join(self.fcsdir, basename + "_2d.res")
+            try:
+                with open(file, 'r') as f:
+                    f = ft.skip_comments(f)
+                    count = 0
+                    for l in f:  # should be exactly one line (but takes the last one if more than one)
+                        count += 1
+                        if count > 1:
+                            log.warning("Unexepcted number of lines in %s" % (file))
+                        toks = l.split()
+                        # w = float(toks[1])  # sanity check against self.w
+                        self.w = float(toks[1])
+
+                        if self.w == 0.0:  # seeing some 2d.res files are all zeroes
+                            log.error("Invalid *_2d.res file. Empty content.: %s " % file)
+                            # self.status = -1
+                            self.w = -1.0
+
+                            self.estflux = -0.0001
+                            self.snr = 0.01
+                            self.fwhm = 0.0
+                            self.cont_cgs = -0.0001
+                            self.eqw_obs = -1.0
+                        else:
+                            # as is, way too large ... maybe not originally calculated as per angstrom? so divide by wavelength?
+                            # or maybe units are not right or a miscalculation?
+                            # toks2 is in counts
+                            if self.estflux <= 0:
+                                self.estflux = float(toks[2]) * self.sumspec_flux_unit_scale  # e.g. * 10**(-17)
+                                # print("Warning! Using old flux conversion between counts and flux!!!")
+                                # self.estflux = float(toks[2]) * flux_conversion(self.w)
+                                self.cont_cgs = float(toks[6]) * self.sumspec_flux_unit_scale  # e.g. 10**(-17)
+
+                                self.fwhm = 2.35 * float(
+                                    toks[3])  # here sigma is the gaussian sigma, the line width, not significance
+                            self.snr = float(toks[5])
+
+                            # todo: need a floor for cgs (if negative)
+                            # for now only
+                            if self.cont_cgs <= 0.:
+                                print("Warning! Using predefined floor for continuum")
+                                self.cont_cgs = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(self.w)
+
+                            if self.eqw_obs <= 0:
+                                self.eqw_obs = self.estflux / self.cont_cgs
+            except:
+                log.error("Cannot read *2d.res file: %s" % file, exc_info=True)
+
+        # build the mapping between the tmpxxx files and fibers
+        # l1 file
+        multi = []
+        idstr = []
+
+        file = op.join(self.fcsdir, "l1")
+        try:
+            out = np.genfromtxt(file, dtype=None, usecols=(4, 8))
+            if out.size < 3:  # two columns ... so if the size comes back as 2, only one row in place and need to make 2d
+                a = []
+                a.append(out)
+                out = np.array(a)
+
+            multi = np.array(map(lambda x: x.split(".")[0], out[:, 0]))
+            idstr = out[:, 1]
+        except:
+            log.error("Cannot read l1: %s" % file, exc_info=True)
+
+        # if don't already have fibers, build them
+        # l6 file has the paths to the multi*fits file
+        # l1 file has the bulk info
+        # RA, Dec, X, Y, multi(?ixy), exp, ???, ???, obs_string, obs_date, shot #
+        # tmp1xx.files are in order, so first entry is tmp101.dat
+
+        file1 = op.join(self.fcsdir, "l1")
+        file6 = op.join(self.fcsdir, "l6")
+
+        if (self.fibers is None) or (len(self.fibers) == 0):
+            try:
+                out1 = np.genfromtxt(file1, dtype=None)
+                out6 = np.genfromtxt(file6, dtype=None)
+
+                # if len(out6.shape) == 0: #only 1D
+                # or could say if out6.size == 1:
+                if out6.size == 1:
+                    a = []
+                    a.append(out6)
+                    out6 = np.array(a)
+
+                # if len(out1.shape) == 0:
+                if out1.size == 1:
+                    a = []
+                    a.append(out1)
+                    out1 = np.array(a)
+
+                if len(out6) != len(out1):
+                    # if out6.size != out1.size: #better since out1, out6 are ndarrays
+                    log.error("Error. Unmatched file lengths for l1 and l6 under %s" % (self.fcsdir))
+                    return
+
+                for i in range(len(out6)):
+                    ra = float(out1[i][0])
+                    dec = float(out1[i][1])
+                    sky_x = float(out1[i][2])  # IFU x,y location of this fiber
+                    sky_y = float(out1[i][3])
+                    multi_name = out1[i][4]
+                    exp = int(out1[i][5].lstrip("exp"))
+                    time_ex = out1[i][8]
+                    ymd = out1[i][9]
+                    shot_num = out1[i][10]
+
+                    toks = multi_name.split("_")  # example "multi_038_096_014_RL_041.ixy"
+                    specid = toks[1]  # string
+                    ifu_slot = toks[2]
+                    ifuid = toks[3]
+                    side = toks[4]
+                    fib_id = toks[5].split(".")[0]
+
+                    # 20171220T094210.0_020_095_004_RU_089
+                    idstring = time_ex + "_" + specid + "_" + ifu_slot + "_" + ifuid + "_" + side + "_" + fib_id
+
+                    # just build up from the idstring
+                    fiber = elixer_fiber.Fiber(idstring)
+                    if fiber is not None:
+                        fiber.ra = ra
+                        fiber.dec = dec
+                        fiber.obsid = int(shot_num)
+                        fiber.expid = exp
+                        fiber.detect_id = self.id
+                        fiber.center_x = sky_x
+                        fiber.center_y = sky_y
+                        # add the fiber (still needs to load its fits file)
+                        # we already know the path to it ... so do that here??
+                        fiber.fits_fn = out6[i]
+
+                        if self.annulus is None:
+                            fits = hetdex_fits.HetdexFits(fiber.fits_fn, None, None, exp - 1, panacea=True)
+                            fits.obs_date = fiber.dither_date
+                            fits.obs_ymd = fits.obs_date
+                            fits.obsid = fiber.obsid
+                            fits.expid = fiber.expid
+                            fits.amp = fiber.amp
+                            fits.side = fiber.amp[0]
+                            fiber.fits = fits
+                            # self.sci_fits.append(fits)
+
+                        # not here ... this is for the entire detection not just this fiber
+                        # self.wra = ra
+                        # self.wdec = dec
+                        # self.x = sky_x
+                        # self.y = sky_y
+
+                        self.fibers.append(fiber)
+            except:
+                log.error("Cannot read l1,l6 files to build fibers: %s" % self.fcsdir, exc_info=True)
+
+            # build fibers from this directory (and get the multi*fits files into the list)
+            # there is a file that links all this together
+            # basically, go through the fibers in the directory
+            # if the associated multi*fits file is not already in the list, append it
+            # construct the fiber and append to the list
+
+        # todo: get the tmpxxx.dat files for the relative through put for each fiber (by wavelength)
+        # these are the spectra cutout sections .. so need to weight each wavelength for each fiber
+        # in the cutout
+        # maybe add another array ... relative throughput
+
+        # get the weights
+        try:
+
+            # this file may not be there ... if we are doing an annulus, that does not matter
+            if self.annulus is None:
+                file = op.join(self.fcsdir, "list2")
+                # just a simple check on the length
+                try:
+
+                    tempw = np.genfromtxt(file, dtype=np.str, usecols=0)
+                    # if len(tempw.shape) == 0:
+                    if tempw.size == 1:
+                        a = []
+                        a.append(tempw)
+                        tempw = np.array(a)
+
+                    if len(tempw) != len(multi):
+                        log.error("Cannot match up list2 and l1 files")
+                        good = False
+                    else:
+                        good = True
+                except:
+                    log.error("Cannot load list2")
+                    good = False
+            else:
+                good = True
+
+            if good:
+                # tmp = out[:,0]
+                if self.annulus is None:
+                    out = np.loadtxt(file, dtype=np.float, usecols=(1, 2))
+
+                    if out.size < 3:  # two columns ... so if the size comes back as 2, only one row in place and need to make 2d
+                        a = []
+                        a.append(out)
+                        out = np.array(a)
+
+                    keep = out[:, 0]
+                    w = out[:, 1]  # weights
+                else:
+                    keep = np.zeros(len(self.fibers))
+                    w = np.zeros(len(keep))  # weights
+
+                # sum up the weights where keep == 0
+                norm = np.sum(w[np.where(keep == 0)])
+                subset_norm = 0.0
+                # max_weight = -999.9
+
+                # todo: if only using a subset of fibers (e.g. from a line file), how do we interpret the weights?
+                # as here, as a subset??
+
+                # not optimal for rsp1 organization, but if a line file was provided and the source of the fibers
+                # is not from rsp1, this is necessary (and it works either way ... and there are usually just a few
+                # fibers, so not that bad)
+                for f in self.fibers:
+                    f.relative_weight = 0.0
+
+                    for i in range(len(out)):
+                        try:
+                            if keep[i] == 0.:
+                                # find which fiber, if any, in set this belongs to
+                                if (f.multi == multi[i]) and (f.scifits_idstring == idstr[i]):
+                                    f.relative_weight += w[
+                                        i]  # usually there is only one, so this is 0 + weight = weight
+                                    subset_norm += w[i]
+
+                                    # if w[i] > max_weight:
+                                    #    max_weight = w[i]
+
+                                    # now, get the tmp file for the thoughput
+                                    tmpfile = op.join(self.fcsdir, "tmp" + str(i + 101) + ".dat")
+
+                                    log.info("Loading spectrum from: %s" % tmpfile)
+
+                                    tmp_out = np.loadtxt(tmpfile, dtype=np.float)
+                                    cols = np.shape(tmp_out)[1]
+                                    # 0 = wavelength, 1=counts?, 2=flux? 3,4,5 = throughput 6=cont?
+
+                                    # due to call to rsp1a2, might not be 3500 to 5500 and there can be junk
+                                    # on either end, so slice the arrays read in
+                                    mn_idx = elixer_spectrum.getnearpos(tmp_out[:, 0], 3500.0)
+                                    mx_idx = elixer_spectrum.getnearpos(tmp_out[:, 0], 5500.0)
+
+                                    f.fluxcal_central_emis_wavelengths = tmp_out[:, 0][mn_idx:mx_idx + 1]
+                                    if f.fluxcal_central_emis_wavelengths[0] == f.fluxcal_central_emis_wavelengths[1]:
+                                        log.warning(
+                                            "Invalid wavelengths in hetdex::DetObj::load_flux_calibrated_spectra. Skipping ...")
+                                        f.fluxcal_central_emis_wavelengths = []
+                                        continue
+
+                                    f.fluxcal_central_emis_counts = tmp_out[:, 1][mn_idx:mx_idx + 1]
+                                    f.fluxcal_central_emis_flux = tmp_out[:, 2][mn_idx:mx_idx + 1]
+
+                                    f.fluxcal_central_emis_thru = (tmp_out[:, 3][mn_idx:mx_idx + 1]) * \
+                                                                  (tmp_out[:, 4][mn_idx:mx_idx + 1]) * \
+                                                                  (tmp_out[:, 5][mn_idx:mx_idx + 1])
+
+                                    if cols == 9:
+                                        try:
+                                            f.fluxcal_central_emis_fluxerr = tmp_out[:, 8][mn_idx:mx_idx + 1]
+                                        except:
+                                            log.error("Exception loading fluxerr.", exc_info=True)
+                                            f.fluxcal_central_emis_fluxerr = []
+                                    elif cols == 7:
+                                        try:
+                                            f.fluxcal_central_emis_fluxerr = tmp_out[:, 6][mn_idx:mx_idx + 1]
+                                        except:
+                                            log.error("Exception loading fluxerr.", exc_info=True)
+                                            f.fluxcal_central_emis_fluxerr = []
+                                    else:
+                                        log.warning("Warning! Unexpected number of columns (%d) in tmpxxx.dat." % cols)
+                                    # f.fluxcal_emis_cont = tmp_out[:,6][mn_idx:mx_idx+1]
+
+                                    # sanity check ... could be all zeros
+                                    if np.max(f.fluxcal_central_emis_flux) == 0:  # prob all zero
+                                        log.info("Clearing all fiber with all zero flux values ...")
+                                        # would be best to remove it
+                                        f.clear(bad=True)
+
+                            # else:
+                            #    # find which fiber, if any, in set this belongs to
+                            #    if (f.multi == multi[i]) and (f.scifits_idstring == idstr[i]):
+                            #        f.relative_weight += 0.0
+                        except:
+                            log.error("Error loading fiber from %s" % tmpfile, exc_info=True)
+                            if self.annulus is None:
+                                log.error("Fatal. Cannot load flux calibrated spectra", exc_info=True)
+                                print("Fatal. Cannot load flux calibrated spectra")
+                                self.status = -1
+                                return
+
+                    # f.relative_weight /= norm #note: some we see are zero ... they do not contribute
+
+                # subselect only fibers without all zero fluxes
+                select = np.where(np.array([f.bad for f in self.fibers]) == False)
+                self.fibers = list(np.array(self.fibers)[select])
+
+                if self.annulus is None:
+                    for f in self.fibers:
+                        if subset_norm != 0:
+                            f.relative_weight /= subset_norm
+                        # f.relative_weight /= max_weight
+
+                # todo: how is Karl using the weights (sum to 100% or something else?)
+                # now, remove the zero weighted fibers, then sort
+                if self.annulus is None:
+                    self.fibers = [x for x in self.fibers if x.relative_weight > 0]
+                self.fibers.sort(key=lambda x: x.relative_weight, reverse=True)  # highest weight is index = 0
+                self.fibers_sorted = True
+
+        except:
+            log.error("Fatal. Cannot read list2: %s" % file, exc_info=True)
+            print("Fatal. Cannot read list2: %s" % file)
+            self.status = -1
+            return
+
+        # avg_ra = 0.0
+        # avg_dec = 0.0
+        # for f in self.fibers:
+        #    avg_ra += f.ra * f.relative_weight
+        #    avg_dec += f.dec * f.relative_weight
+
+        # get the full flux calibrated spectra
+        if self.annulus is None:
+            file = op.join(self.fcsdir, basename + "specf.dat")
+            try:
+                size = os.stat(file).st_size
+                if size == 0:
+                    print("eid(%s) *specf.res file is zero length (no VIRUS data available?): %s" % (
+                    str(self.entry_id), file))
+                    log.error("eid(%s) *specf.res file is zero length (no VIRUS data available?): %s" % (
+                    str(self.entry_id), file))
+                    self.status = -1
+                    return
+            except:
+                pass
+
+            # 2018-08-30 new order in specf and spece is to be removed
+            # wavelength flux flux_err counts counts_err       with flux and flux_err in cgs x10^-17
+            try:
+                out = np.loadtxt(file, dtype=None)
+
+                self.sumspec_wavelength = out[:, 0]
+
+                if self.sumspec_wavelength[0] == self.sumspec_wavelength[1]:
+                    # this happens when there is rsp output, but there were no fibers actually found
+                    print("Invalid wavelengths reported")
+                    log.error("Invalid wavelengths in hetdex::DetObj::load_flux_calibrated_spectra.")
+                    self.status = -1
+                    return
+
+                col1 = out[:, 1]
+                col2 = out[:, 2]
+                col3 = out[:, 3]
+                col4 = out[:, 4]
+
+                # there are various old version out there ... try to sort them out
+                if (max(col2) < 0.00001) and (max(col4) <= 1.):  # <1= since might not have error
+                    # wave cts flux(e-17) cts_err flux_err(e-17)
+                    self.sumspec_flux = col2 * 1e17
+                    if max(col4) < 1.:
+                        self.sumspec_fluxerr = col4 * 1e17
+                    self.sumspec_counts = col1
+                    # not using col3, counts_err
+                else:  # current newest version 2018-08-30
+                    self.sumspec_flux = col1
+                    self.sumspec_fluxerr = col2
+
+                    # sometimes have the scientific notation (though this should no longer be the case)
+                    if max(self.sumspec_flux) < 0.00001:
+                        self.sumspec_flux *= 1e17
+
+                    if max(self.sumspec_fluxerr) < 0.00001:
+                        self.sumspec_fluxerr *= 1e17
+
+                    self.sumspec_counts = col3  # still using for upper right zoomed in cutout
+                    # self.sumspec_counts_err = out[:, 4] #not using these in elixer anymore
+
+                # get the zoomed in part (slice around the central wavelength)
+
+                idx = elixer_spectrum.getnearpos(self.sumspec_wavelength, self.w)
+
+                left = idx - 25  # 2AA steps so +/- 50AA
+                right = idx + 25
+
+                if left < 0:
+                    left = 0
+                if right > len(self.sumspec_flux):
+                    right = len(self.sumspec_flux)
+
+                # these are on the 2AA grid (old spece had 2AA steps but, the grid was centered on the main wavelength)
+                # this grid is not centered but is on whole 2AA (i.e. 3500.00, 3502.00, ... not 3500.4192, 3502.3192, ...)
+                self.sumspec_wavelength_zoom = self.sumspec_wavelength[left:right]
+                self.sumspec_flux_zoom = self.sumspec_flux[left:right]
+                self.sumspec_fluxerr_zoom = self.sumspec_fluxerr[left:right]
+                self.sumspec_counts_zoom = self.sumspec_counts[left:right]
+
+
+            except:
+                log.error("Fatal. Cannot read *specf.dat file: %s" % file, exc_info=True)
+                print("Fatal. Cannot read *specf.dat file: %s" % file)
+                self.status = -1
+                return
+
+            # try:
+            #     #                (0)    (1)              (2)                  (3)     (4)
+            #     #could be (new) wave, flux (cgs/1e-17), flux_err (cgs/1e-17), counts, counts_err
+            #     #or       (old) wave, counts, flux (cgs/1e-17), counts_err, flux_err (cgs/1e-17)
+            #     #     AND flux may or may not have the E-17 notation
+            #
+            #
+            #     out = np.loadtxt(file, dtype=None)
+            #
+            #     self.sumspec_wavelength = out[:,0]
+            #
+            #     if self.sumspec_wavelength[0] == self.sumspec_wavelength[1]:
+            #         print("Invalid wavelengths reported")
+            #         log.error("Invalid wavelengths in hetdex::DetObj::load_flux_calibrated_spectra.")
+            #         self.status = -1
+            #         return
+            #
+            #     self.sumspec_counts = out[:, 1]
+            #
+            #     if max(self.sumspec_counts) < 1.0: # new order
+            #         self.sumspec_flux = self.sumspec_counts * 1e17
+            #         self.sumspec_fluxerr = out[:, 2]
+            #         self.sumspec_counts = out[:, 3]
+            #     else: #old order
+            #         self.sumspec_flux = out[:, 2]
+            #         if max(self.sumspec_flux) < 1:
+            #             self.sumspec_flux *= 1e17
+            #             self.sumspec_fluxerr = out[:, 4]
+            #         else:
+            #             self.sumspec_fluxerr = out[:, 4]
+            #
+            #     if abs(np.max(self.sumspec_fluxerr)) < 0.00001: #can assume has the e-17 or e-18 notation
+            #         self.sumspec_fluxerr *= 1e17
+            #
+            #     #reminder data scientific notation, so mostly e-17 or e-18
+            #
+            #     #get flux error (not yet in this file)
+            #     #self.sumspec_fluxerr = out[:,6]  * 1e17
+            #     #self.sumspec_fluxerr = np.full_like(self.sumspec_flux,1.0) #i.e. 0.5x10^-17 cgs
+            #     #np.random.seed(1138)
+            #     #self.sumspec_fluxerr = np.random.random(len(self.sumspec_flux)) # just for test
+            #
+            # except:
+            #     log.error("Fatal. Cannot read *specf.dat file: %s" % file, exc_info=True)
+            #     print("Fatal. Cannot read *specf.dat file: %s" % file)
+            #     self.status = -1
+            #     return
+
+            # get the zoomed in flux calibrated spectra
+            #                (0)    (1)              (2)                  (3)     (4)
+            # could be (new) wave, flux (cgs/1e-17), flux_err (cgs/1e-17), counts, counts_err
+            # or       (old) wave, counts, flux (cgs/1e-17), counts_err, flux_err (cgs/1e-17)
+            #     AND flux may or may not have the E-17 notation
+
+            if False:
+                file = op.join(self.fcsdir, basename + "spece.dat")
+                try:
+                    out = np.loadtxt(file, dtype=None)
+
+                    # self.sumspec_wavelength_zoom = out[:, 0]
+                    # self.sumspec_counts_zoom = out[:, 1]
+                    # self.sumspec_flux_zoom = out[:, 2]  * 1e17
+                    # #todo: get flux error (not yet in this file)
+                    # #self.sumspec_fluxerr_zoom = out[:,6]  * 1e17
+                    # #self.sumspec_fluxerr_zoom = np.full_like(self.sumspec_flux_zoom, 0.5)  # i.e. 0.5x10^-17 cgs
+
+                    self.sumspec_wavelength_zoom = out[:, 0]
+                    if self.sumspec_wavelength_zoom[0] == self.sumspec_wavelength_zoom[1]:
+                        print("Invalid wavelengths reported")
+                        log.error("Invalid wavelengths in hetdex::DetObj::load_flux_calibrated_spectra.")
+                        self.status = -1
+                        return
+
+                    self.sumspec_counts_zoom = out[:, 1]
+
+                    if max(self.sumspec_counts_zoom) < 1.0:  # new order
+                        self.sumspec_flux_zoom = self.sumspec_counts_zoom * 1e17
+                        self.sumspec_fluxerr_zoom = out[:, 2]  # * 1e17
+                        self.sumspec_counts_zoom = out[:, 3]
+                    else:  # old order
+                        self.sumspec_flux_zoom = out[:, 2]
+                        if max(self.sumspec_flux_zoom) < 1:
+                            self.sumspec_flux_zoom *= 1e17
+                            self.sumspec_fluxerr_zoom = out[:, 4]  # * 1e17
+                        else:
+                            self.sumspec_fluxerr_zoom = out[:, 4]
+
+                    if abs(np.max(self.sumspec_fluxerr_zoom)) < 0.00001:  # can assume has the e-17 or e-18 notation
+                        self.sumspec_fluxerr_zoom *= 1e17
+
+                except:  # no longer consider this fatal. Using the specf data, but will use spece if it is there
+                    pass
+                    # log.error("Cannot read *_spece.res file: %s" % file, exc_info=True)
+                    # print("Cannot read *_spece.res file: %s" % file)
+                    # self.status = -1
+                    # return
+
+            # get zoomed 2d cutout
+            # fits file
+            file = op.join(self.fcsdir, basename + ".fits")
+            try:
+                f = pyfits.open(file)
+                self.sumspec_2d_zoom = f[0].data
+                f.close()
+            except:
+                log.warning("Warning (not fatal). Could not read file " + file)  # , exc_info=True) #not fatal
+
+        # check the fiber(s) for bad amps ... if found, we're done ... discontinue
+        if self.annulus is None:
+            if self.bad_amp(fatal=True):
+                self.status = -1
+                log.warning("Warning (fatal). Bad amp(s) in the fiber list.")
+                print("Warning (fatal). Bad amp(s) in the fiber list.")
+                return
+        else:  # annulus case, just remove the offending fibers
+            self.bad_amp(fatal=False)
+            if len(self.fibers) == 0:
+                log.warning("Warning (fatal). Bad amp(s) in the fiber list. Number of remaining fibers below minimum.")
+                print("Warning (fatal). Bad amp(s) in the fiber list. Number of remaining fibers below minimum.")
+                self.status = -1
+                return
+
+        # set_spectra(self, wavelengths, values, errors, central, estflux=None, eqw_obs=None)
+        # self.spec_obj.set_spectra(self.sumspec_wavelength,self.sumspec_counts,self.sumspec_fluxerr,self.w)
+        self.spec_obj.identifier = "eid(%s)" % str(self.entry_id)
+        self.spec_obj.plot_dir = self.outdir
+
+        if self.annulus is None:
+            self.spec_obj.set_spectra(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr, self.w,
+                                      values_units=-17, estflux=self.estflux, estflux_unc=self.estflux_unc,
+                                      eqw_obs=self.eqw_obs, eqw_obs_unc=self.eqw_obs_unc)
+            # print("DEBUG ... spectrum peak finder")
+            # if G.DEBUG_SHOW_GAUSS_PLOTS:
+            #    self.spec_obj.build_full_width_spectrum(show_skylines=True, show_peaks=True, name="testsol")
+            # print("DEBUG ... spectrum peak finder DONE")
+
+            # todo: update with MY FIT results?
+            if G.REPORT_ELIXER_MCMC_FIT:
+                try:
+                    self.estflux = self.spec_obj.central_eli.mcmc_a[0]
+                    self.eqw_obs = self.spec_obj.central_eli.mcmc_ew_obs[0]
+                    self.cont_cgs = self.spec_obj.central_eli.mcmc_y[0]
+                    # self.snr = self.spec_obj.central_eli.mcmc_snr
+                    self.snr = self.spec_obj.central_eli.snr
+
+                    self.spec_obj.estflux = self.estflux
+                    self.spec_obj.eqw_obs = self.eqw_obs
+
+                    # self.estflux = self.spec_obj.central_eli.line_flux
+                    # self.cont = self.spec_obj.central_eli.cont
+                    # self.eqw_obs = self.estflux / self.cont
+                    # self.snr = self.spec_obj.central_eli.snr
+                except:
+                    log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra")
+
+            self.spec_obj.classify()  # solutions can be returned, also stored in spec_obj.solutions
+
+        else:
+            self.syn_obs = elixer_observation.SyntheticObservation()
+            if self.wra:
+                self.syn_obs.ra = self.wra
+                self.syn_obs.dec = self.wdec
+            else:
+                self.syn_obs.ra = self.ra
+                self.syn_obs.dec = self.dec
+            self.syn_obs.target_wavelength = self.target_wavelength
+            self.syn_obs.annulus = self.annulus
+            self.syn_obs.fibers_all = self.fibers
+            self.syn_obs.w = self.target_wavelength
+
+    # end load_flux_calibrated_spectra
 
     def load_hdf5_fluxcalibrated_spectra(self,hdf5_fn,id):
         """
@@ -1039,11 +1795,13 @@ class DetObj:
                     fiber.detect_id = id
                     fiber.center_x = row['x_ifu']
                     fiber.center_y = row['y_ifu']
+                    fiber.relative_weight = row['weight']
                     # add the fiber (still needs to load its fits file)
                     # we already know the path to it ... so do that here??
 
                     # todo: full path to the HDF5 fits equivalent (or failing that the panacea fits file?)
                     fiber.fits_fn = mfits_name
+                    #fiber.fits_fn = get_hetdex_multifits_path(fiber.)
 
                     #now, get the corresponding FITS or FITS equivalent (HDF5)
                     if self.annulus is None:
@@ -1072,744 +1830,18 @@ class DetObj:
                             fiber.fits = fits
                         else:
                             log.error("HDF5 multi-fits equivalent is not okay ...")
-                        # self.sci_fits.append(fits)
-
-                    # not here ... this is for the entire detection not just this fiber
-                    # self.wra = ra
-                    # self.wdec = dec
-                    # self.x = sky_x
-                    # self.y = sky_y
 
                     self.fibers.append(fiber)
 
 
+        #todo: more to do here ... get the weights, etc (see load_flux_calibrated spectra)
 
-
-
-
-    #rsp1 (when t5all was provided and we want to load specific fibers for a single detection)
-    def load_fluxcalibrated_spectra(self):
-
-        self.panacea = True #if we are here, it can only be panacea
-
-        #todo: get the line width as well
-
-        del self.sumspec_wavelength[:]
-        del self.sumspec_counts[:]
-        del self.sumspec_flux[:]
-        del self.sumspec_fluxerr[:]
-        del self.sumspec_wavelength_zoom[:]
-        del self.sumspec_counts_zoom[:]
-        del self.sumspec_flux_zoom[:]
-        del self.sumspec_fluxerr_zoom[:]
-
-        if self.fcsdir is None:
-            return
-
-        #note the 20170615v09 might be v009 ... inconsistent
-
-        if not op.isdir(self.fcsdir):
-            log.debug("Cannot find flux calibrated spectra directory: " + self.fcsdir +" . Trying alternate (extra 0)")
-            toks = self.fcsdir.split('v')
-            toks[-1] = 'v0'+toks[-1]
-            self.fcsdir = "".join(toks)
-
-            if not op.isdir(self.fcsdir):
-                #still did not find ...
-                log.error("Cannot find flux calibrated spectra directory: " + self.fcsdir)
-                self.status = -1
-                return
-
-        basename = op.basename(self.fcsdir)
-
-        log.info("Loading HETDEX data (flux calibrated spectra, etc) for %s" %self.fcsdir)
-
-
-        #get basic info
-        #if self.annulus is None:
-        file = op.join(self.fcsdir,"out2")
-        try:
-            with open(file,'r') as f:
-                f = ft.skip_comments(f)
-                count = 0
-                for l in f:  # should be exactly one line (but takes the last one if more than one)
-                    count += 1
-                    if count > 1:
-                        log.warning("Unexepcted number of lines in %s" % (file))
-
-                    toks = l.split()
-                    self.wra = float(toks[0])
-                    self.wdec = float(toks[1])
-                    self.x = -999
-                    self.y = -999
-        except:
-            if self.annulus is None:
-                log.error("Fatal: Cannot read out2 file: %s" % file, exc_info=True)
-                self.status = -1
-                return
-            else:
-                self.wra = self.ra
-                self.wdec = self.dec
-
-        #get summary information (res file)
-        # wavelength   wavelength(best fit) counts sigma  ?? S/N   cont(10^-17)
-        #wavelength   wavelength(best fit) flux(10^-17) sigma  ?? S/N   cont(10^-17)
+        #sort the fibers by weight
         if self.annulus is None:
-            try:
-                file = op.join(self.fcsdir, basename + "mc.res")
+            self.fibers = [x for x in self.fibers if x.relative_weight > 0]
+        self.fibers.sort(key=lambda x: x.relative_weight, reverse=True)  # highest weight is index = 0
+        self.fibers_sorted = True
 
-                if not op.exists(file):
-                    log.warning("Warning. Could not load/parse: %s . Will try alternate location." % file)
-
-                    if self.fcsdir[-1] == '/':
-                        updir, _ = op.split( op.dirname(self.fcsdir))
-                    else:
-                        updir,_ = op.split(self.fcsdir)
-
-                    file = op.join(updir,"fitres",basename+".res")
-                    if not op.exists(file):
-                        log.warning("Warning. Could not load/parse: %s" % file)
-                        file = None
-            except:
-                file = None
-                log.warning("Warning. Could not load/parse Gaussian parm file.", exc_info=True)
-
-            #dustin@z50:/lines/$ cat header.cat
-            # ID RA DEC wavelength S/N chi^2 amplitude sigma_line continuum
-            # dustin@z50:/lines/$ cat header.res
-            # RA DEC wavelength S/N chi^2 amplitude sigma_line continuum
-
-            if file is not None:
-                try:
-                    with open(file, 'r') as f:
-                        f = ft.skip_comments(f)
-                        for l in f:  # should be exactly one line (but takes the last one if more than one)
-                            toks = l.split()
-                            if len(toks) == 8:
-
-                                log.info("Using reduced info (old form) *.res file. Uncertainties not included in file.")
-                                   #gaussfit order: mu, sigma, A, y
-                                # 0  1    2           3   4    5          6         7
-                                # RA DEC wavelength S/N chi^2 amplitude sigma_line continuum
-                                self.line_gaussfit_parms = (float(toks[2]), float(toks[6]),float(toks[5]),float(toks[7]))
-                                self.estflux = self.line_gaussfit_parms[2] * 1e-17
-                                self.cont_cgs = self.line_gaussfit_parms[3] * 1e-17
-
-                                self.fwhm = 2.35 * float(toks[6])
-
-                                if self.cont_cgs <= 0:
-                                    self.cont_cgs = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(float(toks[2]))
-                                    self.cont_cgs_unc = 0.0 #so show no uncertainty ... a give away that this is a floor
-
-                                if float(toks[7]) != 0:
-                                    self.eqw_obs = abs(self.estflux / self.cont_cgs )
-                            elif len(toks) == 14: #xxx_mc.res version
-                                #          0  1   2     3     4   5     6    7       8   9      10   11    12   13
-                                # mc.res: RA DEC wave d_wave amp d_amp sigma d_sigma con d_con ston d_ston chi d_chi
-
-                                self.wra = float(toks[0])
-                                self.wdec = float(toks[1])
-
-                                #mu, sigma, Area, y
-                                self.line_gaussfit_parms = (float(toks[2]), float(toks[6]), float(toks[4]), float(toks[8]))
-
-                                self.line_gaussfit_unc = (float(toks[3]), float(toks[7]), float(toks[5]), float(toks[9]))
-
-                                self.chi2 = float(toks[12])
-                                self.chi2_unc = float(toks[13])
-
-                                self.fwhm = 2.35 * float(toks[6])
-
-                                self.estflux = self.line_gaussfit_parms[2] * 1e-17
-                                self.estflux_unc = self.line_gaussfit_unc[2] * 1e-17
-
-                                self.cont_cgs = self.line_gaussfit_parms[3] * 1e-17
-                                self.cont_cgs_unc = self.line_gaussfit_unc[3] * 1e-17
-
-                                if self.cont_cgs <= 0:
-                                    self.cont_cgs = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(float(toks[2]))
-                                    self.cont_cgs_unc = 0.0 #so show no uncertainty ... a give away that this is a floor
-
-                                self.eqw_obs = abs(self.estflux/self.cont_cgs)
-                                self.eqw_obs_unc = abs(self.eqw_obs * np.sqrt(
-                                    (self.estflux_unc / self.estflux)**2 +
-                                    (self.cont_cgs_unc / self.cont_cgs)**2))
-
-
-                            else:
-                                log.error("Error. Unexpected number of columns in %s" %file)
-                except:
-                    log.warning("Warning. Could not load/parse: %s" %file)
-
-            #correction for pixels to AA (impacts only flux)
-            if self.line_gaussfit_parms is not None:
-                try:
-                    #have to make a list and back again since tuples are immutable
-                    parms = list(self.line_gaussfit_parms)
-                    parms[2] *= 2.0
-                    self.line_gaussfit_parms = tuple(parms)
-
-                except:
-                    log.warning("hetdex::load_fluxcalibrated_spectra() unable to correct pixels to AA",exc_info=True)
-
-            # if self.line_gaussfit_unc is not None:
-            #     try:
-            #         parms = list(self.line_gaussfit_unc)
-            #         parms[2] *= 2.0
-            #         self.line_gaussfit_unc = tuple(parms)
-            #     except:
-            #         log.warning("hetdex::load_fluxcalibrated_spectra() unable to correct pixels to AA", exc_info=True)
-
-            file = op.join(self.fcsdir, basename + "_2d.res")
-            try:
-                with open(file, 'r') as f:
-                    f = ft.skip_comments(f)
-                    count = 0
-                    for l in f: #should be exactly one line (but takes the last one if more than one)
-                        count += 1
-                        if count > 1:
-                            log.warning("Unexepcted number of lines in %s" %(file))
-                        toks = l.split()
-                        #w = float(toks[1])  # sanity check against self.w
-                        self.w = float(toks[1])
-
-                        if self.w == 0.0: #seeing some 2d.res files are all zeroes
-                            log.error("Invalid *_2d.res file. Empty content.: %s " % file)
-                            #self.status = -1
-                            self.w = -1.0
-
-                            self.estflux = -0.0001
-                            self.snr = 0.01
-                            self.fwhm = 0.0
-                            self.cont_cgs = -0.0001
-                            self.eqw_obs = -1.0
-                        else:
-                            #as is, way too large ... maybe not originally calculated as per angstrom? so divide by wavelength?
-                            #or maybe units are not right or a miscalculation?
-                            #toks2 is in counts
-                            if self.estflux <= 0:
-                                self.estflux = float(toks[2]) * self.sumspec_flux_unit_scale # e.g. * 10**(-17)
-                                #print("Warning! Using old flux conversion between counts and flux!!!")
-                                #self.estflux = float(toks[2]) * flux_conversion(self.w)
-                                self.cont_cgs = float(toks[6]) * self.sumspec_flux_unit_scale  # e.g. 10**(-17)
-
-                                self.fwhm = 2.35*float(toks[3]) #here sigma is the gaussian sigma, the line width, not significance
-                            self.snr = float(toks[5])
-
-
-                            # todo: need a floor for cgs (if negative)
-                            # for now only
-                            if self.cont_cgs <= 0.:
-                                print("Warning! Using predefined floor for continuum")
-                                self.cont_cgs = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(self.w)
-
-                            if self.eqw_obs <= 0 :
-                                self.eqw_obs = self.estflux / self.cont_cgs
-            except:
-                log.error("Cannot read *2d.res file: %s" % file, exc_info=True)
-
-        #build the mapping between the tmpxxx files and fibers
-        #l1 file
-        multi = []
-        idstr = []
-
-        file = op.join(self.fcsdir, "l1")
-        try:
-            out = np.genfromtxt(file, dtype=None,usecols=(4,8))
-            if out.size < 3: #two columns ... so if the size comes back as 2, only one row in place and need to make 2d
-                a = []
-                a.append(out)
-                out = np.array(a)
-
-            multi = np.array(map(lambda x: x.split(".")[0],out[:,0]))
-            idstr = out[:,1]
-        except:
-            log.error("Cannot read l1: %s" % file, exc_info=True)
-
-
-        #if don't already have fibers, build them
-        #l6 file has the paths to the multi*fits file
-        #l1 file has the bulk info
-        # RA, Dec, X, Y, multi(?ixy), exp, ???, ???, obs_string, obs_date, shot #
-        # tmp1xx.files are in order, so first entry is tmp101.dat
-
-        file1 = op.join(self.fcsdir, "l1")
-        file6 = op.join(self.fcsdir, "l6")
-
-        if (self.fibers is None) or (len(self.fibers) == 0):
-            try:
-                out1 = np.genfromtxt(file1, dtype=None)
-                out6 = np.genfromtxt(file6, dtype=None)
-
-                #if len(out6.shape) == 0: #only 1D
-                #or could say if out6.size == 1:
-                if out6.size == 1:
-                    a = []
-                    a.append(out6)
-                    out6 = np.array(a)
-
-                #if len(out1.shape) == 0:
-                if out1.size == 1:
-                    a = []
-                    a.append(out1)
-                    out1 = np.array(a)
-
-                if len(out6) != len(out1):
-                #if out6.size != out1.size: #better since out1, out6 are ndarrays
-                    log.error("Error. Unmatched file lengths for l1 and l6 under %s" %(self.fcsdir))
-                    return
-
-                for i in range(len(out6)):
-                    ra = float(out1[i][0])
-                    dec = float(out1[i][1])
-                    sky_x = float(out1[i][2]) #IFU x,y location of this fiber
-                    sky_y = float(out1[i][3])
-                    multi_name = out1[i][4]
-                    exp = int(out1[i][5].lstrip("exp"))
-                    time_ex = out1[i][8]
-                    ymd = out1[i][9]
-                    shot_num = out1[i][10]
-
-                    toks = multi_name.split("_")  #example "multi_038_096_014_RL_041.ixy"
-                    specid = toks[1] #string
-                    ifu_slot = toks[2]
-                    ifuid = toks[3]
-                    side = toks[4]
-                    fib_id = toks[5].split(".")[0]
-
-                    #20171220T094210.0_020_095_004_RU_089
-                    idstring = time_ex + "_" + specid + "_" + ifu_slot + "_" + ifuid + "_" + side + "_" + fib_id
-
-                    #just build up from the idstring
-                    fiber = elixer_fiber.Fiber(idstring)
-                    if fiber is not None:
-                        fiber.ra = ra
-                        fiber.dec = dec
-                        fiber.obsid = int(shot_num)
-                        fiber.expid = exp
-                        fiber.detect_id = self.id
-                        fiber.center_x = sky_x
-                        fiber.center_y = sky_y
-                        # add the fiber (still needs to load its fits file)
-                        # we already know the path to it ... so do that here??
-                        fiber.fits_fn = out6[i]
-
-                        if self.annulus is None:
-                            fits = hetdex_fits.HetdexFits(fiber.fits_fn, None, None, exp-1, panacea=True)
-                            fits.obs_date = fiber.dither_date
-                            fits.obs_ymd = fits.obs_date
-                            fits.obsid = fiber.obsid
-                            fits.expid = fiber.expid
-                            fits.amp = fiber.amp
-                            fits.side = fiber.amp[0]
-                            fiber.fits = fits
-                            #self.sci_fits.append(fits)
-
-
-                        #not here ... this is for the entire detection not just this fiber
-                        #self.wra = ra
-                        #self.wdec = dec
-                        #self.x = sky_x
-                        #self.y = sky_y
-
-                        self.fibers.append(fiber)
-            except:
-                log.error("Cannot read l1,l6 files to build fibers: %s" % self.fcsdir, exc_info=True)
-
-             #build fibers from this directory (and get the multi*fits files into the list)
-                #there is a file that links all this together
-            #basically, go through the fibers in the directory
-            #if the associated multi*fits file is not already in the list, append it
-            #construct the fiber and append to the list
-
-
-
-        #todo: get the tmpxxx.dat files for the relative through put for each fiber (by wavelength)
-        #these are the spectra cutout sections .. so need to weight each wavelength for each fiber
-        #in the cutout
-        #maybe add another array ... relative throughput
-
-
-        #get the weights
-        try:
-
-            #this file may not be there ... if we are doing an annulus, that does not matter
-            if self.annulus is None:
-                file = op.join(self.fcsdir, "list2")
-                #just a simple check on the length
-                try:
-
-                    tempw = np.genfromtxt(file,dtype=np.str,usecols=0)
-                    #if len(tempw.shape) == 0:
-                    if tempw.size == 1:
-                        a = []
-                        a.append(tempw)
-                        tempw = np.array(a)
-
-                    if len(tempw) != len(multi):
-                        log.error("Cannot match up list2 and l1 files")
-                        good = False
-                    else:
-                        good = True
-                except:
-                    log.error("Cannot load list2")
-                    good = False
-            else:
-                good = True
-
-            if good:
-                #tmp = out[:,0]
-                if self.annulus is None:
-                    out = np.loadtxt(file, dtype=np.float, usecols=(1,2))
-
-                    if out.size < 3:  # two columns ... so if the size comes back as 2, only one row in place and need to make 2d
-                        a = []
-                        a.append(out)
-                        out = np.array(a)
-
-                    keep = out[:,0]
-                    w = out[:,1] #weights
-                else:
-                    keep = np.zeros(len(self.fibers))
-                    w = np.zeros(len(keep))  # weights
-
-                #sum up the weights where keep == 0
-                norm = np.sum(w[np.where(keep==0)])
-                subset_norm = 0.0
-                #max_weight = -999.9
-
-                #todo: if only using a subset of fibers (e.g. from a line file), how do we interpret the weights?
-                # as here, as a subset??
-
-                #not optimal for rsp1 organization, but if a line file was provided and the source of the fibers
-                # is not from rsp1, this is necessary (and it works either way ... and there are usually just a few
-                # fibers, so not that bad)
-                for f in self.fibers:
-                    f.relative_weight = 0.0
-
-                    for i in range(len(out)):
-                        try:
-                            if keep[i] == 0.:
-                                #find which fiber, if any, in set this belongs to
-                                if (f.multi == multi[i]) and (f.scifits_idstring == idstr[i]):
-                                    f.relative_weight += w[i] #usually there is only one, so this is 0 + weight = weight
-                                    subset_norm += w[i]
-
-                                    #if w[i] > max_weight:
-                                    #    max_weight = w[i]
-
-                                    #now, get the tmp file for the thoughput
-                                    tmpfile = op.join(self.fcsdir, "tmp"+str(i+101)+".dat")
-
-                                    log.info("Loading spectrum from: %s" %tmpfile)
-
-                                    tmp_out = np.loadtxt(tmpfile, dtype=np.float)
-                                    cols = np.shape(tmp_out)[1]
-                                    #0 = wavelength, 1=counts?, 2=flux? 3,4,5 = throughput 6=cont?
-
-                                    # due to call to rsp1a2, might not be 3500 to 5500 and there can be junk
-                                    # on either end, so slice the arrays read in
-                                    mn_idx = elixer_spectrum.getnearpos(tmp_out[:,0], 3500.0)
-                                    mx_idx = elixer_spectrum.getnearpos(tmp_out[:,0], 5500.0)
-
-                                    f.fluxcal_central_emis_wavelengths = tmp_out[:,0][mn_idx:mx_idx+1]
-                                    if f.fluxcal_central_emis_wavelengths[0] == f.fluxcal_central_emis_wavelengths[1]:
-                                        log.warning(
-                                            "Invalid wavelengths in hetdex::DetObj::load_flux_calibrated_spectra. Skipping ...")
-                                        f.fluxcal_central_emis_wavelengths = []
-                                        continue
-
-                                    f.fluxcal_central_emis_counts = tmp_out[:,1][mn_idx:mx_idx+1]
-                                    f.fluxcal_central_emis_flux = tmp_out[:,2][mn_idx:mx_idx+1]
-
-                                    f.fluxcal_central_emis_thru = (tmp_out[:,3][mn_idx:mx_idx+1])* \
-                                                                  (tmp_out[:,4][mn_idx:mx_idx+1])* \
-                                                                  (tmp_out[:,5][mn_idx:mx_idx+1])
-
-                                    if cols == 9:
-                                        try:
-                                            f.fluxcal_central_emis_fluxerr =  tmp_out[:,8][mn_idx:mx_idx+1]
-                                        except:
-                                            log.error("Exception loading fluxerr.",exc_info=True)
-                                            f.fluxcal_central_emis_fluxerr = []
-                                    elif cols == 7:
-                                        try:
-                                            f.fluxcal_central_emis_fluxerr = tmp_out[:, 6][mn_idx:mx_idx+1]
-                                        except:
-                                            log.error("Exception loading fluxerr.", exc_info=True)
-                                            f.fluxcal_central_emis_fluxerr = []
-                                    else:
-                                        log.warning("Warning! Unexpected number of columns (%d) in tmpxxx.dat." %cols)
-                                    #f.fluxcal_emis_cont = tmp_out[:,6][mn_idx:mx_idx+1]
-
-
-                                    #sanity check ... could be all zeros
-                                    if np.max(f.fluxcal_central_emis_flux) == 0: #prob all zero
-                                        log.info("Clearing all fiber with all zero flux values ...")
-                                        #would be best to remove it
-                                        f.clear(bad=True)
-
-
-                            #else:
-                            #    # find which fiber, if any, in set this belongs to
-                            #    if (f.multi == multi[i]) and (f.scifits_idstring == idstr[i]):
-                            #        f.relative_weight += 0.0
-                        except:
-                            log.error("Error loading fiber from %s" %tmpfile,exc_info=True)
-                            if self.annulus is None:
-                                log.error("Fatal. Cannot load flux calibrated spectra", exc_info=True)
-                                print("Fatal. Cannot load flux calibrated spectra")
-                                self.status = -1
-                                return
-
-                    #f.relative_weight /= norm #note: some we see are zero ... they do not contribute
-
-
-                #subselect only fibers without all zero fluxes
-                select = np.where(np.array([f.bad for f in self.fibers]) == False)
-                self.fibers = list(np.array(self.fibers)[select])
-
-                if self.annulus is None:
-                    for f in self.fibers:
-                        if subset_norm != 0:
-                            f.relative_weight /= subset_norm
-                        #f.relative_weight /= max_weight
-
-                #todo: how is Karl using the weights (sum to 100% or something else?)
-                #now, remove the zero weighted fibers, then sort
-                if self.annulus is None:
-                    self.fibers = [x for x in self.fibers if x.relative_weight > 0]
-                self.fibers.sort(key=lambda  x: x.relative_weight,reverse=True) #highest weight is index = 0
-                self.fibers_sorted = True
-
-        except:
-            log.error("Fatal. Cannot read list2: %s" % file, exc_info=True)
-            print("Fatal. Cannot read list2: %s" % file)
-            self.status = -1
-            return
-
-        #avg_ra = 0.0
-        #avg_dec = 0.0
-        #for f in self.fibers:
-        #    avg_ra += f.ra * f.relative_weight
-        #    avg_dec += f.dec * f.relative_weight
-
-
-
-        #get the full flux calibrated spectra
-        if self.annulus is None:
-            file = op.join(self.fcsdir, basename + "specf.dat")
-            try:
-                size = os.stat(file).st_size
-                if size == 0:
-                    print("eid(%s) *specf.res file is zero length (no VIRUS data available?): %s" %(str(self.entry_id),file))
-                    log.error("eid(%s) *specf.res file is zero length (no VIRUS data available?): %s" %(str(self.entry_id),file))
-                    self.status = -1
-                    return
-            except:
-                pass
-
-
-            #2018-08-30 new order in specf and spece is to be removed
-            #wavelength flux flux_err counts counts_err       with flux and flux_err in cgs x10^-17
-            try:
-                out = np.loadtxt(file, dtype=None)
-
-                self.sumspec_wavelength = out[:, 0]
-
-                if self.sumspec_wavelength[0] == self.sumspec_wavelength[1]:
-                    #this happens when there is rsp output, but there were no fibers actually found
-                    print("Invalid wavelengths reported")
-                    log.error("Invalid wavelengths in hetdex::DetObj::load_flux_calibrated_spectra.")
-                    self.status = -1
-                    return
-
-                col1 = out[:, 1]
-                col2 = out[:, 2]
-                col3 = out[:, 3]
-                col4 = out[:, 4]
-
-
-                #there are various old version out there ... try to sort them out
-                if (max(col2) < 0.00001 ) and (max(col4) <= 1.):  #<1= since might not have error
-                    #wave cts flux(e-17) cts_err flux_err(e-17)
-                    self.sumspec_flux = col2 * 1e17
-                    if max(col4) < 1.:
-                        self.sumspec_fluxerr = col4 * 1e17
-                    self.sumspec_counts = col1
-                    #not using col3, counts_err
-                else: #current newest version 2018-08-30
-                    self.sumspec_flux = col1
-                    self.sumspec_fluxerr = col2
-
-                    #sometimes have the scientific notation (though this should no longer be the case)
-                    if max(self.sumspec_flux) < 0.00001:
-                        self.sumspec_flux *=  1e17
-
-                    if max(self.sumspec_fluxerr) < 0.00001:
-                        self.sumspec_fluxerr *=  1e17
-
-                    self.sumspec_counts = col3 #still using for upper right zoomed in cutout
-                    #self.sumspec_counts_err = out[:, 4] #not using these in elixer anymore
-
-                #get the zoomed in part (slice around the central wavelength)
-
-                idx = elixer_spectrum.getnearpos(self.sumspec_wavelength, self.w)
-
-                left = idx - 25 #2AA steps so +/- 50AA
-                right = idx + 25
-
-                if left < 0:
-                    left = 0
-                if right > len(self.sumspec_flux):
-                    right = len(self.sumspec_flux)
-
-                #these are on the 2AA grid (old spece had 2AA steps but, the grid was centered on the main wavelength)
-                #this grid is not centered but is on whole 2AA (i.e. 3500.00, 3502.00, ... not 3500.4192, 3502.3192, ...)
-                self.sumspec_wavelength_zoom = self.sumspec_wavelength[left:right]
-                self.sumspec_flux_zoom = self.sumspec_flux[left:right]
-                self.sumspec_fluxerr_zoom = self.sumspec_fluxerr[left:right]
-                self.sumspec_counts_zoom = self.sumspec_counts[left:right]
-
-
-            except:
-                log.error("Fatal. Cannot read *specf.dat file: %s" % file, exc_info=True)
-                print("Fatal. Cannot read *specf.dat file: %s" % file)
-                self.status = -1
-                return
-
-
-
-            # try:
-            #     #                (0)    (1)              (2)                  (3)     (4)
-            #     #could be (new) wave, flux (cgs/1e-17), flux_err (cgs/1e-17), counts, counts_err
-            #     #or       (old) wave, counts, flux (cgs/1e-17), counts_err, flux_err (cgs/1e-17)
-            #     #     AND flux may or may not have the E-17 notation
-            #
-            #
-            #     out = np.loadtxt(file, dtype=None)
-            #
-            #     self.sumspec_wavelength = out[:,0]
-            #
-            #     if self.sumspec_wavelength[0] == self.sumspec_wavelength[1]:
-            #         print("Invalid wavelengths reported")
-            #         log.error("Invalid wavelengths in hetdex::DetObj::load_flux_calibrated_spectra.")
-            #         self.status = -1
-            #         return
-            #
-            #     self.sumspec_counts = out[:, 1]
-            #
-            #     if max(self.sumspec_counts) < 1.0: # new order
-            #         self.sumspec_flux = self.sumspec_counts * 1e17
-            #         self.sumspec_fluxerr = out[:, 2]
-            #         self.sumspec_counts = out[:, 3]
-            #     else: #old order
-            #         self.sumspec_flux = out[:, 2]
-            #         if max(self.sumspec_flux) < 1:
-            #             self.sumspec_flux *= 1e17
-            #             self.sumspec_fluxerr = out[:, 4]
-            #         else:
-            #             self.sumspec_fluxerr = out[:, 4]
-            #
-            #     if abs(np.max(self.sumspec_fluxerr)) < 0.00001: #can assume has the e-17 or e-18 notation
-            #         self.sumspec_fluxerr *= 1e17
-            #
-            #     #reminder data scientific notation, so mostly e-17 or e-18
-            #
-            #     #get flux error (not yet in this file)
-            #     #self.sumspec_fluxerr = out[:,6]  * 1e17
-            #     #self.sumspec_fluxerr = np.full_like(self.sumspec_flux,1.0) #i.e. 0.5x10^-17 cgs
-            #     #np.random.seed(1138)
-            #     #self.sumspec_fluxerr = np.random.random(len(self.sumspec_flux)) # just for test
-            #
-            # except:
-            #     log.error("Fatal. Cannot read *specf.dat file: %s" % file, exc_info=True)
-            #     print("Fatal. Cannot read *specf.dat file: %s" % file)
-            #     self.status = -1
-            #     return
-
-            # get the zoomed in flux calibrated spectra
-            #                (0)    (1)              (2)                  (3)     (4)
-            # could be (new) wave, flux (cgs/1e-17), flux_err (cgs/1e-17), counts, counts_err
-            # or       (old) wave, counts, flux (cgs/1e-17), counts_err, flux_err (cgs/1e-17)
-            #     AND flux may or may not have the E-17 notation
-
-            if False:
-                file = op.join(self.fcsdir, basename + "spece.dat")
-                try:
-                    out = np.loadtxt(file, dtype=None)
-
-                    # self.sumspec_wavelength_zoom = out[:, 0]
-                    # self.sumspec_counts_zoom = out[:, 1]
-                    # self.sumspec_flux_zoom = out[:, 2]  * 1e17
-                    # #todo: get flux error (not yet in this file)
-                    # #self.sumspec_fluxerr_zoom = out[:,6]  * 1e17
-                    # #self.sumspec_fluxerr_zoom = np.full_like(self.sumspec_flux_zoom, 0.5)  # i.e. 0.5x10^-17 cgs
-
-                    self.sumspec_wavelength_zoom = out[:,0]
-                    if self.sumspec_wavelength_zoom[0] == self.sumspec_wavelength_zoom[1]:
-                        print("Invalid wavelengths reported")
-                        log.error("Invalid wavelengths in hetdex::DetObj::load_flux_calibrated_spectra.")
-                        self.status = -1
-                        return
-
-                    self.sumspec_counts_zoom = out[:, 1]
-
-                    if max(self.sumspec_counts_zoom) < 1.0: # new order
-                        self.sumspec_flux_zoom = self.sumspec_counts_zoom * 1e17
-                        self.sumspec_fluxerr_zoom = out[:, 2] #* 1e17
-                        self.sumspec_counts_zoom = out[:, 3]
-                    else: #old order
-                        self.sumspec_flux_zoom = out[:, 2]
-                        if max(self.sumspec_flux_zoom) < 1:
-                            self.sumspec_flux_zoom *= 1e17
-                            self.sumspec_fluxerr_zoom = out[:, 4] #* 1e17
-                        else:
-                            self.sumspec_fluxerr_zoom = out[:, 4]
-
-                    if abs(np.max(self.sumspec_fluxerr_zoom)) < 0.00001: #can assume has the e-17 or e-18 notation
-                        self.sumspec_fluxerr_zoom *= 1e17
-
-                except: #no longer consider this fatal. Using the specf data, but will use spece if it is there
-                    pass
-                    # log.error("Cannot read *_spece.res file: %s" % file, exc_info=True)
-                    # print("Cannot read *_spece.res file: %s" % file)
-                    # self.status = -1
-                    # return
-
-
-            #get zoomed 2d cutout
-            #fits file
-            file = op.join(self.fcsdir, basename + ".fits")
-            try:
-                f = pyfits.open(file)
-                self.sumspec_2d_zoom = f[0].data
-                f.close()
-            except:
-                log.warning("Warning (not fatal). Could not read file " + file)#, exc_info=True) #not fatal
-
-
-
-        #check the fiber(s) for bad amps ... if found, we're done ... discontinue
-        if self.annulus is None:
-            if self.bad_amp(fatal=True):
-                self.status = -1
-                log.warning("Warning (fatal). Bad amp(s) in the fiber list.")
-                print("Warning (fatal). Bad amp(s) in the fiber list.")
-                return
-        else: #annulus case, just remove the offending fibers
-            self.bad_amp(fatal=False)
-            if len(self.fibers) == 0:
-                log.warning("Warning (fatal). Bad amp(s) in the fiber list. Number of remaining fibers below minimum.")
-                print("Warning (fatal). Bad amp(s) in the fiber list. Number of remaining fibers below minimum.")
-                self.status = -1
-                return
-
-
-
-
-        #set_spectra(self, wavelengths, values, errors, central, estflux=None, eqw_obs=None)
-        #self.spec_obj.set_spectra(self.sumspec_wavelength,self.sumspec_counts,self.sumspec_fluxerr,self.w)
         self.spec_obj.identifier = "eid(%s)" %str(self.entry_id)
         self.spec_obj.plot_dir = self.outdir
 
@@ -1858,7 +1890,10 @@ class DetObj:
             self.syn_obs.fibers_all = self.fibers
             self.syn_obs.w = self.target_wavelength
 
-    #end load_flux_calibrated_spectra
+        return
+    #nd load_hdf5
+
+
 
 
     def get_probabilities(self):
@@ -1884,7 +1919,7 @@ class DetObj:
                                                                ew_obs=self.eqw_obs,
                                                                ew_obs_err=self.eqw_obs_unc,
                                                                c_obs=None, which_color=None,
-                                                               addl_fluxes=None, addl_wavelengths=None,
+                                                               addl_fluxes=[], addl_wavelengths=[],
                                                                sky_area=None,
                                                                cosmo=None, lae_priors=None,
                                                                ew_case=None, W_0=None,
@@ -4942,6 +4977,7 @@ class HETDEX:
         rm = 0.2
         specplot = plt.axes([0.1, 0.1, 0.8, 0.8])
         wave_grid = np.arange(cwave - ww, cwave + ww + dwave, 0.1)
+        #wave_grid = np.arange(cwave - ww, cwave + ww + dwave + 2.0, 2.0)  # 0.1)
         fit_spec = gaussian(x=wave_grid,x0=parms[0],sigma=parms[1],a=parms[2],y=parms[3])
 
         # mn = min(mn, min(summed_spec))
