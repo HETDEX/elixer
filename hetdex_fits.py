@@ -90,10 +90,6 @@ class HetdexFits:
             self.read_fefits()
 
 
-    def find_hdf5_multifits(self):
-         #build up path and see if it exists
-        pass
-
 
     def read_fits(self,use_cosmic_cleaned=False):
 
@@ -255,10 +251,6 @@ class HetdexFits:
         return
 
     def read_hdf5(self):
-
-        #todo: debug
-        print("******* !!!!!! take this out ... dev only !!!!!!! *******")
-        self.filename = "/home/dustin/code/python/hdf5_learn/cache/test_new.h5"
 
         if not self.filename:
             self.okay = False

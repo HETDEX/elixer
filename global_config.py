@@ -19,12 +19,13 @@ HDR1 = False #set to TRUE for HDR1 release
 if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
     #base path: /work/03946/hetdex/hdr1/
 
-    HDF5_DETECT_FN = "/work/05350/ecooper/wrangler/database/detect_test2.h5"
+    HDF5_DETECT_FN = "/work/05350/ecooper/wrangler/database/detect_test3.h5"
     OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
     BAD_AMP_LIST = "/work/03261/polonius/maverick/catalogs/bad_amp_list.txt"
     CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
     PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
     PANACEA_RED_BASEDIR_DEFAULT = PANACEA_RED_BASEDIR
+    PANACEA_HDF5_BASEDIR = PANACEA_RED_BASEDIR
 
     CANDELS_EGS_Stefanon_2016_BASE_PATH = "/work/03564/stevenf/maverick/EGS"
     EGS_CFHTLS_PATH = "/work/03261/polonius/maverick/catalogs/CFHTLS"
@@ -51,8 +52,8 @@ if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
     HSC_IMAGE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced/images"
 
 else:
-    if socket.gethostname() == 'z50':
-    #if False:
+    #if socket.gethostname() == 'z50':
+    if False:
         HDF5_DETECT_FN = "/home/dustin/code/python/hdf5_learn/cache/detect_test3.h5"
         OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
         BAD_AMP_LIST = "/home/dustin/code/python/elixer/bad_amp_list.txt"
@@ -63,6 +64,7 @@ else:
         CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
         PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
         PANACEA_RED_BASEDIR_DEFAULT = PANACEA_RED_BASEDIR
+        PANACEA_HDF5_BASEDIR = PANACEA_RED_BASEDIR
 
         CANDELS_EGS_Stefanon_2016_BASE_PATH = "/home/dustin/code/python/elixer/data/EGS"
         EGS_CFHTLS_PATH = "/home/dustin/code/python/elixer/data/CFHTLS"
@@ -89,12 +91,13 @@ else:
 
     else:
 
-        HDF5_DETECT_FN  = "/work/05350/ecooper/wrangler/database/detect_test2.h5"
+        HDF5_DETECT_FN  = "/work/05350/ecooper/wrangler/database/detect_test3.h5"
         OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
         BAD_AMP_LIST = "/work/03261/polonius/maverick/catalogs/bad_amp_list.txt"
         CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
         PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
         PANACEA_RED_BASEDIR_DEFAULT = PANACEA_RED_BASEDIR
+        PANACEA_HDF5_BASEDIR = PANACEA_RED_BASEDIR
 
         CANDELS_EGS_Stefanon_2016_BASE_PATH = "/work/03564/stevenf/maverick/EGS"
         EGS_CFHTLS_PATH = "/work/03261/polonius/maverick/catalogs/CFHTLS"

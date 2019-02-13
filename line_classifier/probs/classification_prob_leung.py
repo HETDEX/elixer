@@ -11,7 +11,7 @@ Author: Daniel Farrow 2018 (parts adapted from Andrew Leung's code)
 from __future__ import absolute_import, print_function
 
 
-from numpy import pi, square, exp, array, power, zeros, ones, isnan, sqrt, abs, errstate
+from numpy import pi, square, exp, array, power, zeros, ones, isnan, sqrt, abs, errstate, divide
 from numpy import any as nany
 from astropy.table import Table
 from scipy.stats import norm
@@ -468,11 +468,14 @@ def source_prob(config, ra, dec, zs, fluxes, flux_errs, ews_obs, ew_err, c_obs, 
 
     #print(prior_lae, prior_oii, prob_data_lae, prob_data_oii)
 
-    # Ignore div0 errors
-    with errstate(divide='ignore'):
-        posterior_odds = (prob_data_lae*prior_lae)/(prob_data_oii*prior_oii)
+    #Ignore div0 errors
+    # with errstate(divide='ignore'):
+    #     posterior_odds = (prob_data_lae*prior_lae)/(prob_data_oii*prior_oii)
+    #
+    # prob_lae_given_data = prob_data_lae*prior_lae/prob_data
 
-    prob_lae_given_data = prob_data_lae*prior_lae/prob_data
+    posterior_odds = divide( (prob_data_lae*prior_lae), (prob_data_oii*prior_oii) )
+    prob_lae_given_data = divide( prob_data_lae * prior_lae,  prob_data )
 
     if nany(prob_lae_given_data < 0.0) or nany(isnan(prob_lae_given_data)):
         #dodgy_is = (prob_lae_given_data < 0.0) | isnan(prob_lae_given_data)

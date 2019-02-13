@@ -1779,7 +1779,7 @@ class DetObj:
                 #expected to be "20180320T052104.2"
                 time_ex = row['timestamp'][9:]
                 time = time_ex[0:6] #hhmmss
-                mfits_name = row['multiframe']
+                mfits_name = row['multiframe'] #similar to multi*fits style name
 
                 fiber_num = row['fiber_num']
 
@@ -1800,14 +1800,15 @@ class DetObj:
                     # we already know the path to it ... so do that here??
 
                     # todo: full path to the HDF5 fits equivalent (or failing that the panacea fits file?)
-                    fiber.fits_fn = mfits_name
+                    fiber.fits_fn = fiber.find_hdf5_multifits()
+
                     #fiber.fits_fn = get_hetdex_multifits_path(fiber.)
 
                     #now, get the corresponding FITS or FITS equivalent (HDF5)
                     if self.annulus is None:
                         fits = hetdex_fits.HetdexFits(empty=True)
                         #populate the data we need to read the HDF5 file
-                        fits.filename = mfits_name #todo: fix to the corect path
+                        fits.filename = fiber.fits_fn #mfits_name #todo: fix to the corect path
                         fits.panacea = True
                         fits.hdf5 = True
 

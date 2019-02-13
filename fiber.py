@@ -1,6 +1,7 @@
 import global_config as G
 import numpy as np
 import spectrum as elixer_spectrum
+import os.path as op
 
 #log = G.logging.getLogger('fiber_logger')
 #log.setLevel(G.logging.DEBUG)
@@ -326,6 +327,39 @@ class Fiber:
     # for dictionary comparisions to use as keys
     def __hash__(self):
         return hash((self.ra, self.dec, self.dither_date, self.dither_time))
+
+
+    def find_hdf5_multifits(self):
+        """
+        Find the parent HDF5 multi-fits equivalent file that houses THIS fiber
+        ... depends on date, time, shot, etc
+        :return:
+        """
+         #build up path and see if it exists
+        print("******* !!!!!! take this out ... dev only !!!!!!! *******")
+        return "/home/dustin/code/python/hdf5_learn/cache/test_new.h5"
+
+        try:
+            fn = None
+            #todo: not sure what the naming schema is going to be, but will assume stops at a SHOT
+            name = ""
+            path = G.PANACEA_HDF5_BASEDIR #start here
+
+            #todo: add to the path ... not sure yet if all the HDF5 files will be at one level or if they
+            #todo: will follow the multi*fits directory organization
+            #<BASEDIR>/20180123/virus/virus0000009/exp01/virus/<multi_xxx.fits>
+
+            fn = op.join(path,name)
+
+            if not op.isfile(fn):
+                log.info("Could not locate HDF5 multi-fits equivalent file: %s" %fn)
+                fn = None
+        except:
+            log.error("Exception attempting to locate HDF5 multi-fits equivalent file", exc_info=True)
+            fn = None
+
+        return fn
+
 
 
     def is_empty(self, wavelengths, values, errors=None, units=None, max_score=2.0, max_snr=2.0,
