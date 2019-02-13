@@ -4990,8 +4990,21 @@ class HETDEX:
         #     min_y = int(mn) / 10 * 10
 
 
-        specplot.plot(wave_grid, fit_spec, c='k', lw=2, linestyle="solid", alpha=1.0, zorder=0)
-        specplot.errorbar(wave_data,flux,yerr=flux_err,fmt='.')
+        #get ymin, ymax ... should completely cover the error bars (from the central half of the plot)
+        #don't worry about possibly wild data points outside the central region
+        try:
+            width = len(flux)
+            left = int(width/2) - int(width/4)
+            right = int(width/2) + int(width/4) + 1
+            y_min = np.min(flux[left:right] - flux_err[left:right])
+            y_max = np.max(flux[left:right] + flux_err[left:right])
+            y_bump = (y_max - y_min)*0.05 #5% of the range
+            specplot.set_ylim(ymin=y_min-y_bump, ymax=y_max+y_bump)
+        except:
+            log.debug("Could not set model spectra fit scale to data.", exc_info=True)
+
+        specplot.plot(wave_grid, fit_spec, c='k', lw=2, linestyle="solid", alpha=0.7, zorder=0)
+        specplot.errorbar(wave_data,flux,yerr=flux_err,fmt='.',zorder=9)
         specplot.text(0.05,0.95,'e-17',horizontalalignment='center',
                       verticalalignment='center', transform=specplot.transAxes)
 
