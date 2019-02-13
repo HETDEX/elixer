@@ -13,11 +13,6 @@ import socket
 #version
 __version__ = '1.5.0a18'
 
-REPORT_ELIXER_MCMC_FIT = False
-
-RELATIVE_PATH_UNIVERSE_CONFIG = "line_classifier_install/tests/data/universe.cfg"
-RELATIVE_PATH_FLUX_LIM_FN = "line_classifier_install/tests/data/Line_flux_limit_5_sigma_baseline.dat"
-
 if socket.gethostname() == 'z50':
 #if False:
     HDF5_DETECT_FN = "/home/dustin/code/python/hdf5_learn/cache/detect_test3.h5"
@@ -54,11 +49,8 @@ if socket.gethostname() == 'z50':
     HSC_CAT_PATH = "/media/dustin/dd/hetdex/data/HSC/catalog_tracts" #"/work/04094/mshiro/maverick/HSC/S15A/reduced/catalog_tracts"
     HSC_IMAGE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced/images"
 
-    #AST376_PATH = "/home/dustin/code/python/ast376_obs/p5-shela/data"
-
 else:
 
-    #AST376_PATH = "/work/03261/polonius/maverick/catalogs/ast376"-
     HDF5_DETECT_FN  = "/work/05350/ecooper/wrangler/database/detect_test2.h5"
     OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
     BAD_AMP_LIST = "/work/03261/polonius/maverick/catalogs/bad_amp_list.txt"
@@ -99,6 +91,11 @@ FPLANE_LOC = op.join(CONFIG_BASEDIR,"virus_config/fplane")
 IFUCEN_LOC = op.join(CONFIG_BASEDIR,"virus_config/IFUcen_files")
 DIST_LOC = op.join(CONFIG_BASEDIR,"virus_config/DeformerDefaults")
 PIXFLT_LOC = op.join(CONFIG_BASEDIR,"virus_config/PixelFlats")
+
+REPORT_ELIXER_MCMC_FIT = False
+
+RELATIVE_PATH_UNIVERSE_CONFIG = "line_classifier_install/tests/data/universe.cfg"
+RELATIVE_PATH_FLUX_LIM_FN = "line_classifier_install/tests/data/Line_flux_limit_5_sigma_baseline.dat"
 
 LOG_LEVEL = logging.DEBUG
 

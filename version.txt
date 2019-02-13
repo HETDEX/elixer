@@ -3,6 +3,7 @@ changes to elixer by version
 1.5.0.a18 []
 * fixed left-over 'sci_image' reference in cat_xxx.py count_to_mag functions
 * add HDF5 support
+* scale upper right (model fit) plot to the central 50% of the datapoints
 
 
 

@@ -4992,6 +4992,16 @@ class HETDEX:
 
         #get ymin, ymax ... should completely cover the error bars (from the central half of the plot)
         #don't worry about possibly wild data points outside the central region
+
+        #!!! NOTE: Karl's data is evaluated in the center of each wavelength bin and has its value
+        #set s|t the area is correct (that is, s|t it is a flux (erg s^-1 cm^-2) NOT a flux density (
+        # (erg s^-1 cm^-2 bin^-1)
+        #essentially then, what I really need to do is evaluate the Gaussian at the center of each bin
+        # s|t that my bins are the same as Karl's (or smaller is okay) and then multiply by the bin width ratio
+        # ... e.g. if Karl is on 2AA bins and I am using 0.1AA steps. multiply the Gaussian value by 0.1/2. = 1/20
+        # NEED to think about that some more ... need the area under the Gaussian to match over the same width
+        # in wavelength
+
         try:
             width = len(flux)
             left = int(width/2) - int(width/4)
