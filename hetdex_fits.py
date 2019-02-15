@@ -258,9 +258,9 @@ class HetdexFits:
 
         try:
             with tables.open_file(self.filename, mode="r") as h5_multifits:
-                fibers_table = h5_multifits.root.Info.Fibers
-                images_table = h5_multifits.root.Info.Images
-                shots_table = h5_multifits.root.Info.Shot
+                fibers_table = h5_multifits.root.Data.Fibers
+                images_table = h5_multifits.root.Data.Images
+                shots_table = h5_multifits.root.Shot
 
                 # set the query values needed shortly ...
                 # query a specific fiber by ifuid ... amp and fiber_number

@@ -337,7 +337,8 @@ class Fiber:
         """
          #build up path and see if it exists
         print("******* !!!!!! take this out ... dev only !!!!!!! *******")
-        return "/home/dustin/code/python/hdf5_learn/cache/test_new.h5"
+        #return "/home/dustin/code/python/hdf5_learn/cache/test_new.h5"
+        return "/work/05350/ecooper/HDR1/data/20180123v009.h5"
 
         try:
             fn = None

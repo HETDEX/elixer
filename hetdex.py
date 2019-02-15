@@ -4272,6 +4272,7 @@ class HETDEX:
 
             #don't think I am going to need any cutouts from the fits files, so lets save time and space and not load any
             #if e.syn_obs is None: #no .. actually need some of this ...
+            #REMINDER: we are going from x,y to row, column (so x coord is the column number, and y is row)
             x_2D = np.interp(e.w,fits.wave_data[loc,:],range(len(fits.wave_data[loc,:])))
             y_2D = np.interp(x_2D,range(len(fits.trace_data[loc,:])),fits.trace_data[loc,:])
 

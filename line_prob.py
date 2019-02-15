@@ -385,7 +385,7 @@ def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_
                   %(old_plgd,old_pogd,old_ratio_LAE,plgd,pogd,ratio_LAE)
 
             log.warning("***" + msg)
-            print(msg)
+            #print(msg)
 
 
     return ratio_LAE, plgd, pogd
