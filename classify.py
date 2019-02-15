@@ -17,6 +17,7 @@ def plae_poii(line_wave,line_flux,line_flux_err, eqw_obs, eqw_obs_err,
     Maximum P(LAE)/P(OII) is capped at 999. There is no minimum value but 0.0 represents an
     error or inability to calcluate the ratio.
 
+    Uses ELiXer standard options and cosmology
 
     :param line_wave:  observed wavelength of the emission line in angstroms
     :param line_flux:  observed line flux (cgs)
@@ -37,10 +38,7 @@ def plae_poii(line_wave,line_flux,line_flux_err, eqw_obs, eqw_obs_err,
                                              ew_obs_err=eqw_obs_err,
                                              addl_wavelengths=addl_wave,
                                              addl_fluxes=addl_flux,
-                                             addl_errors=addl_flux_err,
-                                             c_obs=None, which_color=None,
-                                             sky_area=None, cosmo=None, lae_priors=None,
-                                             ew_case=None, W_0=None, z_OII=None, sigma=None)
+                                             addl_errors=addl_flux_err)
 
 
     #todo: any logging, etc?
