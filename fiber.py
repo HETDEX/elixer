@@ -160,6 +160,7 @@ class Fiber:
         self.interp_spectra_errors = []
 
         self.multi = None
+        self.raw_weight = 1.0 #raw weight from Karl
         self.relative_weight = 1.0 #spatially calculated, so one for entire fiber
         # to sum fibers need relative_weight*thuput at each wavelength
 
@@ -338,7 +339,7 @@ class Fiber:
          #build up path and see if it exists
         print("******* !!!!!! take this out ... dev only !!!!!!! *******")
         #return "/home/dustin/code/python/hdf5_learn/cache/test_new.h5"
-        return "/work/05350/ecooper/HDR1/data/20180123v009.h5"
+        return "/home/dustin/code/python/hdf5_learn/cache/20180123v009.h5"
 
         try:
             fn = None

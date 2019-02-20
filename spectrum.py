@@ -322,6 +322,7 @@ class EmissionLineInfo:
     """
     def __init__(self):
 
+        #unless noted, these are without units
         self.fit_a = None #expected in counts or in x10^-18 cgs [notice!!! -18 not -17]
         self.fit_x0 = None #central peak (x) position in AA
         self.fit_dx0 = None #difference in fit_x0 and the target wavelength in AA, like bias: target-fit
@@ -331,6 +332,10 @@ class EmissionLineInfo:
         self.fit_rh = None #fraction of fit height / raw peak height
         self.fit_rmse = -999
         self.fit_norm_rmse = -999
+        self.fit_bin_dx = 1.0 #default to 1.0 for no effect (bin-width of flux bins if flux instead of flux/dx)
+
+        self.fit_line_flux = None #has units applied
+        self.fit_continuum = None #has units applied
 
         self.fit_wave = []
         self.fit_vals = []
@@ -365,7 +370,11 @@ class EmissionLineInfo:
         self.mcmc_y = None
         self.mcmc_ew_obs = None #calcuated value (using error propogation from mcmc_a and mcmc_y)
         self.mcmc_snr = None
-
+        self.mcmc_dx = 1.0 #default to 1.0 so mult or div have no effect
+        self.mcmc_line_flux = None #actual line_flux not amplitude (not the same if y data is flux instead of flux/dx)
+        self.mcmc_continuum = None #ditto for continuum
+        self.mcmc_line_flux_tuple = None #3-tuple version of mcmc_a / mcmc_dx
+        self.mcmc_continuum_tuple = None #3-tuple version of mcmc_y / mcmc_dx
 
         self.absorber = False #set to True if this is an absorption line
 
@@ -403,12 +412,12 @@ class EmissionLineInfo:
     @property
     def flux_unc(self):
         #return a string with flux uncertainties in place
-        return self.unc_str(self.mcmc_a)
+        return self.unc_str(self.mcmc_line_flux_tuple)
 
     @property
     def cont_unc(self):
         #return a string with flux uncertainties in place
-        return self.unc_str(self.mcmc_y)
+        return self.unc_str(self.mcmc_continuum_tuple)
 
 
     @property
@@ -420,14 +429,14 @@ class EmissionLineInfo:
            # s  =  "%0.2g($\pm$%0.2g)" %(ew[0],(0.5 * (abs(ew[1]) + abs(ew[2]))))
 
             #more traditional way
-            ew = self.mcmc_a[0] / self.mcmc_y[0] /(self.fit_x0 / G.LyA_rest)
-            a_unc = 0.5 * (abs(self.mcmc_a[1])+abs(self.mcmc_a[2]))
-            y_unc = 0.5 * (abs(self.mcmc_y[1])+abs(self.mcmc_y[2]))
+            ew = self.mcmc_line_flux / self.mcmc_continuum /(self.fit_x0 / G.LyA_rest)
+            a_unc = 0.5 * (abs(self.mcmc_line_flux_tuple[1])+abs(self.mcmc_line_flux_tuple[2]))
+            y_unc = 0.5 * (abs(self.mcmc_continuum_tuple[1])+abs(self.mcmc_continuum_tuple[2]))
 
             #wrong!! missing the abs(ew) and the ratios inside are flipped
             #ew_unc = np.sqrt((self.mcmc_a[0]/a_unc)**2 + (self.mcmc_y[0]/y_unc)**2)
 
-            ew_unc = abs(ew) * np.sqrt((a_unc/self.mcmc_a[0])**2 + (y_unc/self.mcmc_y[0])**2)
+            ew_unc = abs(ew) * np.sqrt((a_unc/self.mcmc_line_flux)**2 + (y_unc/self.mcmc_continuum)**2)
 
             s = "%0.2g($\pm$%0.2g)" % (ew, ew_unc)
 
@@ -456,23 +465,33 @@ class EmissionLineInfo:
                         unit = 1.0
                         log.warning(("!!! Problem. Unexpected values units in EmissionLineInfo::build(): %s") % str(values_units))
 
-                    self.line_flux = self.fit_a * unit
+                    #need these unadjusted since they inform the MCMC fit
+                    # self.fit_a *= unit
+                    # self.fit_y *= unit
+                    # self.fit_h *= unit
+
+                    self.line_flux = self.fit_a / self.fit_bin_dx * unit
+                    self.fit_line_flux = self.line_flux
                     self.cont = self.fit_y * unit
+                    self.fit_continuum = self.cont
 
                     #fix fit_h
-                    if (self.fit_h > 1.0) and (values_units < 0):
-                        self.fit_h *= unit
+                    # if (self.fit_h > 1.0) and (values_units < 0):
+                    #     self.fit_h *= unit
 
-                else:
+                else: #very old deals with counts instead of flux
                     if (self.fit_a is not None):
                         #todo: HERE ... do not attempt to convert if this is already FLUX !!!
                         #todo: AND ... need to know units of flux (if passed from signal_score are in x10^-18 not -17
-                        self.line_flux = self.fit_a * flux_conversion(self.fit_x0)  # cgs units
+                        self.line_flux = self.fit_a / self.fit_bin_dx * flux_conversion(self.fit_x0)  # cgs units
+                        self.fit_line_flux = self.line_flux
 
                     if (self.fit_y is not None) and (self.fit_y > G.CONTINUUM_FLOOR_COUNTS):
                         self.cont = self.fit_y * flux_conversion(self.fit_x0)
                     else:
                         self.cont = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(self.fit_x0)
+                    self.fit_continuum = self.cont
+
 
             if self.line_flux and self.cont:
                 self.eqw_obs = self.line_flux / self.cont
@@ -590,7 +609,10 @@ class EmissionLineInfo:
 #really should change this to use kwargs
 def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=None,values_units=0, sbr=None,
                  min_sigma=GAUSS_FIT_MIN_SIGMA,show_plot=False,plot_id=None,plot_path=None,do_mcmc=False,absorber=False,
-                 force_score=False):
+                 force_score=False,values_dx=G.FLUX_WAVEBIN_WIDTH):
+
+    #values_dx is the bin width for the values if multiplied out (s|t) values are flux and not flux/dx
+    #   by default, Karl's data is on a 2.0 AA bin width
 
     #error on the wavelength of the possible line depends on the redshift and its error and the wavelength itself
     #i.e. wavelength error = wavelength / (1+z + error)  - wavelength / (1+z - error)
@@ -705,8 +727,10 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     eli = EmissionLineInfo()
     eli.absorber = absorber
     eli.pix_size = pix_size
+    eli.fit_bin_dx = values_dx
     num_sn_pix = 0
 
+    bad_curve_fit = False
     #use ONLY narrow fit
     try:
 
@@ -721,12 +745,13 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #    print("**** NO UNCERTAINTIES ****")
         #   log.warning("**** NO UNCERTAINTIES ****")
 
-        parm, pcov = curve_fit(gaussian, narrow_wave_x, narrow_wave_counts,
+
+        parm, pcov = curve_fit(gaussian, np.float64(narrow_wave_x), np.float64(narrow_wave_counts),
                                 p0=(central,1.5,1.0,0.0),
                                 bounds=((central-fit_range_AA, min_sigma, 0.0, -100.0),
                                         (central+fit_range_AA, np.inf, np.inf, np.inf)),
                                 #sigma=1./(narrow_wave_errors*narrow_wave_errors)
-                                sigma=narrow_wave_err_sigma #handles the 1./(err*err)
+                                sigma=narrow_wave_err_sigma#, #handles the 1./(err*err)
                                #note: if sigma == None, then curve_fit uses array of all 1.0
                                #method='trf'
                                )
@@ -734,6 +759,14 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         perr = np.sqrt(np.diag(pcov)) #1-sigma level errors on the fitted parameters
         #e.g. flux = a = parm[2]   +/- perr[2]*num_of_sigma_confidence
         #where num_of_sigma_confidence ~ at a 5 sigma confidence, then *5 ... at 3 sigma, *3
+
+        try:
+            if not np.any(pcov): #all zeros ... something wrong
+                log.info("Something very wrong with curve_fit")
+                bad_curve_fit = True
+                do_mcmc = True
+        except:
+            pass
 
         eli.fit_vals = gaussian(xfit, parm[0], parm[1], parm[2], parm[3])
         eli.fit_wave = xfit.copy()
@@ -751,6 +784,15 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         eli.fit_sigma = parm[1] #units of AA not pixels
         eli.fit_a = parm[2] #this is an AREA so there are 2 powers of 10.0 in it (hx10 * wx10) if in e-18 units
         eli.fit_y = parm[3]
+
+        if (values_dx is not None) and (values_dx > 0):
+            eli.fit_bin_dx = values_dx
+            eli.fit_line_flux = eli.fit_a / eli.fit_bin_dx
+            eli.fit_continuum = eli.fit_y / eli.fit_bin_dx
+        else:
+            eli.fit_line_flux = eli.fit_a
+            eli.fit_continuum = eli.fit_y
+
 
         raw_idx = getnearpos(eli.raw_wave, eli.fit_x0)
         if raw_idx < 3:
@@ -934,8 +976,13 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     if do_mcmc:
         mcmc = mcmc_gauss.MCMC_Gauss()
         mcmc.initial_mu = eli.fit_x0
-        mcmc.initial_sigma = eli.fit_sigma
-        mcmc.initial_A = eli.fit_a  # / adjust
+
+        if bad_curve_fit:
+            mcmc.initial_sigma = min_sigma
+            mcmc.initial_A = raw_peak * 2.35 * mcmc.initial_sigma  # / adjust
+        else:
+            mcmc.initial_sigma = eli.fit_sigma
+            mcmc.initial_A = eli.fit_a  # / adjust
         mcmc.initial_y = eli.fit_y  # / adjust
         mcmc.initial_peak = raw_peak  # / adjust
         mcmc.data_x = narrow_wave_x
@@ -956,13 +1003,23 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
         if mcmc.mcmc_A is not None:
             eli.mcmc_a = np.array(mcmc.mcmc_A)
+            if (values_dx is not None) and (values_dx > 0):
+                eli.mcmc_dx = values_dx
+                eli.mcmc_line_flux = eli.mcmc_a[0]/values_dx
+                eli.mcmc_line_flux_tuple =  np.array(mcmc.mcmc_A)/values_dx
         else:
             eli.mcmc_a = np.array((0.,0.,0.))
+            eli.mcmc_line_flux = eli.mcmc_a[0]
 
         if mcmc.mcmc_y is not None:
             eli.mcmc_y = np.array(mcmc.mcmc_y)
+            if (values_dx is not None) and (values_dx > 0):
+                eli.mcmc_dx = values_dx
+                eli.mcmc_continuum = eli.mcmc_y[0]
+                eli.mcmc_continuum_tuple = np.array(mcmc.mcmc_y)
         else:
             eli.mcmc_y = np.array((0.,0.,0.))
+            eli.mcmc_continuum = eli.mcmc_y[0]
 
         if values_units < 0:
             eli.mcmc_a *= 10**values_units
@@ -1010,13 +1067,13 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             line_type = ""
 
         title += "%0.2f z_guess=%0.4f A(%d) G(%d) %s\n" \
-                 "Line Score = %0.2f , SNR = %0.2f (%0.1f) , wpix = %d\n" \
-                 "Peak = %0.2g, Line(A) = %0.2g, Cont = %0.2g, EqW_Obs=%0.2f\n"\
+                 "Line Score = %0.2f , SNR = %0.2f (%0.1f) , wpix = %d, LineFlux = %0.2g\n" \
+                 "Peak = %0.2g, Area = %0.2g, Y = %0.2g, EqW_Obs=%0.2f\n"\
                  "dX0 = %0.2f, RH = %0.2f, RMS = %0.2f (%0.2f) \n"\
                  "Sigma = %0.2f, Skew = %0.2f, Kurtosis = %0.2f"\
                   % (eli.fit_x0,central_z,a,g,line_type,eli.line_score,
-                     snr,signal_calc_scaled_score(snr),num_sn_pix,
-                     eli.fit_h,eli.line_flux, eli.cont,eli.eqw_obs,
+                     snr,signal_calc_scaled_score(snr),num_sn_pix,eli.fit_line_flux,
+                     eli.fit_h,eli.fit_a, eli.fit_y,eli.eqw_obs,
                      dx0, rh, error,eli.fit_rmse, si, sk, ku)
 
         fig = plt.figure()
@@ -1133,7 +1190,10 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
 
 
-def run_mcmc(eli,wavelengths,values,errors,central,values_units):
+def run_mcmc(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLUX_WAVEBIN_WIDTH):
+
+    #values_dx is the bin width for the values if multiplied out (s|t) values are flux and not flux/dx
+    #   by default, Karl's data is on a 2.0 AA bin width
 
     err_units = values_units  # assumed to be in the same units
     values, values_units = norm_values(values, values_units)
@@ -1207,13 +1267,23 @@ def run_mcmc(eli,wavelengths,values,errors,central,values_units):
 
     if mcmc.mcmc_A is not None:
         eli.mcmc_a = np.array(mcmc.mcmc_A)
+        if (values_dx is not None) and (values_dx > 0):
+            eli.mcmc_dx = values_dx
+            eli.mcmc_line_flux = eli.mcmc_a[0] / eli.mcmc_dx
+            eli.mcmc_line_flux_tuple =  np.array(mcmc.mcmc_A)/values_dx
     else:
         eli.mcmc_a = np.array((0., 0., 0.))
+        eli.mcmc_line_flux = eli.mcmc_a[0]
 
     if mcmc.mcmc_y is not None:
         eli.mcmc_y = np.array(mcmc.mcmc_y)
+        if (values_dx is not None) and (values_dx > 0):
+            eli.mcmc_dx = values_dx
+            eli.mcmc_continuum = eli.mcmc_y[0]
+            eli.mcmc_continumm_tuple =  np.array(mcmc.mcmc_y)
     else:
         eli.mcmc_y = np.array((0., 0., 0.))
+        eli.mcmc_continuum = eli.mcmc_y[0]
 
     if values_units < 0:
         eli.mcmc_a *= 10 ** values_units
@@ -2119,14 +2189,14 @@ class Spectrum:
             if (estflux is None) or (eqw_obs is None):
                 #basically ... if I did not get this from Karl, use my own measure
                 if (eli.mcmc_a is not None) and (eli.mcmc_y is not None):
-                    a_unc = 0.5 * (abs(eli.mcmc_a[1]) + abs(eli.mcmc_a[2]))
-                    y_unc = 0.5 * (abs(eli.mcmc_y[1]) + abs(eli.mcmc_y[2]))
+                    a_unc = 0.5 * (abs(eli.mcmc_a[1]) + abs(eli.mcmc_a[2])) / eli.mcmc_dx
+                    y_unc = 0.5 * (abs(eli.mcmc_y[1]) + abs(eli.mcmc_y[2])) / eli.mcmc_dx
 
-                    estflux = eli.mcmc_a[0]
+                    estflux = eli.mcmc_line_flux
                     estflux_unc = a_unc
 
-                    eqw_obs = abs(eli.mcmc_a[0] / eli.mcmc_y[0])
-                    eqw_obs_unc = abs(eqw_obs) * np.sqrt((a_unc / eli.mcmc_a[0]) ** 2 + (y_unc / eli.mcmc_y[0]) ** 2)
+                    eqw_obs = abs(estflux / eli.mcmc_continuum)
+                    eqw_obs_unc = abs(eqw_obs) * np.sqrt((a_unc / estflux) ** 2 + (y_unc / eli.mcmc_continuum) ** 2)
                 else: #not from mcmc, so we have no error
                     estflux = eli.line_flux
                     estflux_unc = 0.0

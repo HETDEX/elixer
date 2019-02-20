@@ -21,8 +21,7 @@ from astropy.visualization import ZScaleInterval
 from photutils import CircularAperture, aperture_photometry
 from scipy.ndimage.filters import gaussian_filter
 
-from scipy.stats import skew, kurtosis
-from scipy.optimize import curve_fit
+#from scipy.stats import skew, kurtosis
 
 import glob
 import re
@@ -223,19 +222,6 @@ def rms(data, fit):
     f = np.array(fit)/mx
 
     return np.sqrt(((f - d) ** 2).mean())
-
-#def fit_gaussian(x,y):
-#    yfit = None
-#    parm = None
-#    pcov = None
-#    try:
-#        parm, pcov = curve_fit(gaussian, x, y,bounds=((-np.inf,0,-np.inf),(np.inf,np.inf,np.inf)))
-#        yfit = gaussian(x,parm[0],parm[1],parm[2])
-#    except:
-#        log.error("Exception fitting gaussian.",exc_info=True)
-#
-#    return yfit,parm,pcov
-
 
 def find_fplane(date): #date as yyyymmdd string
     """Locate the fplane file to use based on the observation date
@@ -512,7 +498,9 @@ class DetObj:
         self.hdf5_detectname = None #detectname column in HDF5 representation (just for reference)
         #the hdf5_detectid is the same as the self.entry_id, (see propert hdf5_detectid())
 
-        self.line_gaussfit_parms = None #in load_fluxcalibrated_spectra becomes a 4 tuple (mu, sigma, A, y)
+        self.line_gaussfit_parms = None #in load_fluxcalibrated_spectra becomes a 4 tuple (mu, sigma, Amplitude, y, dx)
+                                        #where dx is the bin width for the amplitude (used if input data is
+                                        #flux instead of flux density or flux/dx)
         self.line_gaussfit_unc = None
 
         self.sumspec_wavelength = []
@@ -992,9 +980,12 @@ class DetObj:
                                 # gaussfit order: mu, sigma, A, y
                                 # 0  1    2           3   4    5          6         7
                                 # RA DEC wavelength S/N chi^2 amplitude sigma_line continuum
+
+                                #line_gaussfit_parms
                                 self.line_gaussfit_parms = (
-                                float(toks[2]), float(toks[6]), float(toks[5]), float(toks[7]))
-                                self.estflux = self.line_gaussfit_parms[2] * 1e-17
+                                float(toks[2]), float(toks[6]), float(toks[5])*G.FLUX_WAVEBIN_WIDTH, float(toks[7]),
+                                    G.FLUX_WAVEBIN_WIDTH)
+                                self.estflux = self.line_gaussfit_parms[2]/self.line_gaussfit_parms[4] * 1e-17
                                 self.cont_cgs = self.line_gaussfit_parms[3] * 1e-17
 
                                 self.fwhm = 2.35 * float(toks[6])
@@ -1012,19 +1003,22 @@ class DetObj:
                                 self.wra = float(toks[0])
                                 self.wdec = float(toks[1])
 
-                                # mu, sigma, Area, y
+                                # mu, sigma, Amplitude, y, dx (see definition)
                                 self.line_gaussfit_parms = (
-                                float(toks[2]), float(toks[6]), float(toks[4]), float(toks[8]))
+                                float(toks[2]), float(toks[6]), float(toks[4])*G.FLUX_WAVEBIN_WIDTH, float(toks[8]),
+                                    G.FLUX_WAVEBIN_WIDTH)
+
 
                                 self.line_gaussfit_unc = (
-                                float(toks[3]), float(toks[7]), float(toks[5]), float(toks[9]))
+                                float(toks[3]), float(toks[7]), float(toks[5])*G.FLUX_WAVEBIN_WIDTH, float(toks[9]),0.0)
+                                #extra 0.0 at the end is just for symmetry ... the dx has no associated uncertainty
 
                                 self.chi2 = float(toks[12])
                                 self.chi2_unc = float(toks[13])
 
                                 self.fwhm = 2.35 * float(toks[6])
 
-                                self.estflux = self.line_gaussfit_parms[2] * 1e-17
+                                self.estflux = self.line_gaussfit_parms[2]/self.line_gaussfit_parms[4] * 1e-17
                                 self.estflux_unc = self.line_gaussfit_unc[2] * 1e-17
 
                                 self.cont_cgs = self.line_gaussfit_parms[3] * 1e-17
@@ -1046,20 +1040,21 @@ class DetObj:
                     log.warning("Warning. Could not load/parse: %s" % file)
 
             # correction for pixels to AA (impacts only flux)
-            if self.line_gaussfit_parms is not None:
-                try:
-                    # have to make a list and back again since tuples are immutable
-                    parms = list(self.line_gaussfit_parms)
-                    parms[2] *= 2.0
-                    self.line_gaussfit_parms = tuple(parms)
-
-                except:
-                    log.warning("hetdex::load_fluxcalibrated_spectra() unable to correct pixels to AA", exc_info=True)
+            # this section replaced by extra parameter in line_gaussfit_parms
+            # if self.line_gaussfit_parms is not None:
+            #     try:
+            #         # have to make a list and back again since tuples are immutable
+            #         parms = list(self.line_gaussfit_parms)
+            #         parms[2] *= G.FLUX_WAVEBIN_WIDTH
+            #         self.line_gaussfit_parms = tuple(parms)
+            #
+            #     except:
+            #         log.warning("hetdex::load_fluxcalibrated_spectra() unable to correct pixels to AA", exc_info=True)
 
             # if self.line_gaussfit_unc is not None:
             #     try:
             #         parms = list(self.line_gaussfit_unc)
-            #         parms[2] *= 2.0
+            #         parms[2] *= G.FLUX_WAVEBIN_WIDTH
             #         self.line_gaussfit_unc = tuple(parms)
             #     except:
             #         log.warning("hetdex::load_fluxcalibrated_spectra() unable to correct pixels to AA", exc_info=True)
@@ -1109,6 +1104,10 @@ class DetObj:
 
                             if self.eqw_obs <= 0:
                                 self.eqw_obs = self.estflux / self.cont_cgs
+                                self.eqw_obs_unc = abs(self.eqw_obs * np.sqrt(
+                                    (self.estflux_unc / self.estflux) ** 2 +
+                                    (self.cont_cgs_unc / self.cont_cgs) ** 2))
+
             except:
                 log.error("Cannot read *2d.res file: %s" % file, exc_info=True)
 
@@ -1610,11 +1609,12 @@ class DetObj:
             # print("DEBUG ... spectrum peak finder DONE")
 
             # todo: update with MY FIT results?
-            if G.REPORT_ELIXER_MCMC_FIT:
+            if G.REPORT_ELIXER_MCMC_FIT or self.eqw_obs == 0:
+                log.info("Using ELiXer MCMC Fit for line flux, continuum, EW, and SNR")
                 try:
-                    self.estflux = self.spec_obj.central_eli.mcmc_a[0]
+                    self.estflux = self.spec_obj.central_eli.mcmc_line_flux
                     self.eqw_obs = self.spec_obj.central_eli.mcmc_ew_obs[0]
-                    self.cont_cgs = self.spec_obj.central_eli.mcmc_y[0]
+                    self.cont_cgs = self.spec_obj.central_eli.mcmc_continuum
                     # self.snr = self.spec_obj.central_eli.mcmc_snr
                     self.snr = self.spec_obj.central_eli.snr
 
@@ -1716,15 +1716,44 @@ class DetObj:
             self.cont_cgs = row['continuum']
             self.cont_cgs_unc = row['continuum_err']
 
-            # mu, sigma, Area, y
-            self.line_gaussfit_parms = (self.w,self.sigma,self.estflux,self.cont_cgs)
-            self.line_gaussfit_unc = (self.w_unc,self.sigma_unc,self.estflux_unc,self.cont_cgs_unc)
+            # mu, sigma, Amplitude, y, dx   (dx is the bin width if flux instead of flux/dx)
+            #continuum does NOT get the bin scaling
+            self.line_gaussfit_parms = (self.w,self.sigma,self.estflux*G.FLUX_WAVEBIN_WIDTH,self.cont_cgs,
+                                        G.FLUX_WAVEBIN_WIDTH) #*2.0 for Karl's bin width
+            self.line_gaussfit_unc = (self.w_unc,self.sigma_unc,self.estflux_unc*G.FLUX_WAVEBIN_WIDTH,self.cont_cgs_unc,
+                                      0.0)
 
-            self.estflux *= 1e-17 #now as erg s^-1 cm^-2
+            #fix bin-width scaling issue for area parameter
+            # if False:
+            #     #todo: deal with this at a later point ...??
+            #     #the data is erg s^-1 cm^-2 (not per AA)
+            #     #if integrate under curve, then get flux * Length (AA) not a flux
+            #     #so would then need to divide by the dx (or bin width) to get back to a flux
+            #     #and that would be the dx originally used to calculate the data points (or 2.0 AA)
+            #     if self.line_gaussfit_parms is not None:
+            #         try:
+            #             # have to make a list and back again since tuples are immutable
+            #             parms = list(self.line_gaussfit_parms)
+            #             parms[2] *= 2.0
+            #             self.line_gaussfit_parms = tuple(parms)
+            #
+            #         except:
+            #             log.warning("hetdex::load_hdf5_fluxcalibrated_spectra() unable to correct pixels to AA", exc_info=True)
+
+            self.estflux *= 1e-17 #now as erg s^-1 cm^-2  .... NOT per AA
+            #each data point IS the integrated line flux over the width of the bin
             self.estflux_unc *= 1e-17
 
             self.cont_cgs *= 1e-17
             self.cont_cgs_unc *= 1e-17
+
+            #todo: should check for cong < 0? if so, try my MCMCfit?
+            if self.cont_cgs != 0:
+                self.eqw_obs = self.estflux / self.cont_cgs
+
+                self.eqw_obs_unc = abs(self.eqw_obs * np.sqrt(
+                    (self.estflux_unc / self.estflux) ** 2 +
+                    (self.cont_cgs_unc / self.cont_cgs) ** 2))
 
             #ignoring date, datevobs, fiber_num, etc that apply to the top weighted fiber or observation, etc
             #since we want ALL the fibers and will load them after the core spectra info
@@ -1742,6 +1771,7 @@ class DetObj:
             self.sumspec_wavelength = row['wave1d']
             self.sumspec_counts = row['counts1d']#not really using this anymore
             #self.sumspec_countserr #not using this
+
             self.sumspec_flux = row['spec1d'] #DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
             self.sumspec_fluxerr = row['spec1d_err']
 
@@ -1769,6 +1799,7 @@ class DetObj:
              #    panacea_fiber_index=-1, detect_id = -1):
 
             rows = fiber_table.read_where("detectid == id")
+            subset_norm = 0.0 #for the relative weights
             for row in rows:
                 specid = row['specid']
                 ifuslot = row['ifuslot']
@@ -1781,21 +1812,23 @@ class DetObj:
                 time = time_ex[0:6] #hhmmss
                 mfits_name = row['multiframe'] #similar to multi*fits style name
 
-                fiber_num = row['fiber_num']
+                fiber_index = row['fibnum'] -1  #1-112 #panacea index is 0-111
 
                 fiber = elixer_fiber.Fiber(idstring=None,specid=specid,ifuslot=ifuslot,ifuid=ifuid,amp=amp,
-                                           date=date,time=time,time_ex=time_ex, panacea_fiber_index=fiber_num,
+                                           date=date,time=time,time_ex=time_ex, panacea_fiber_index=fiber_index,
                                            detect_id=id)
 
                 if fiber is not None:
                     fiber.ra = row['ra']
                     fiber.dec = row['dec']
                     fiber.obsid = int(row['obsid'])
-                    fiber.expid = int(row['expn'][3:]) # 'exp01'
+                    fiber.expid = int(row['expnum']) # integer now
                     fiber.detect_id = id
                     fiber.center_x = row['x_ifu']
                     fiber.center_y = row['y_ifu']
-                    fiber.relative_weight = row['weight']
+                    fiber.raw_weight = row['weight']
+                    subset_norm += fiber.raw_weight
+                    #fiber.relative_weight = row['weight']
                     # add the fiber (still needs to load its fits file)
                     # we already know the path to it ... so do that here??
 
@@ -1837,6 +1870,11 @@ class DetObj:
 
         #todo: more to do here ... get the weights, etc (see load_flux_calibrated spectra)
 
+        if self.annulus is None:
+            for f in self.fibers:
+                if subset_norm != 0:
+                    f.relative_weight = f.raw_weight/subset_norm
+
         #sort the fibers by weight
         if self.annulus is None:
             self.fibers = [x for x in self.fibers if x.relative_weight > 0]
@@ -1847,7 +1885,7 @@ class DetObj:
         self.spec_obj.plot_dir = self.outdir
 
         if self.annulus is None:
-            self.spec_obj.set_spectra(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr, self.w,
+            self.spec_obj.set_spectra(self.sumspec_wavelength,self.sumspec_flux,self.sumspec_fluxerr, self.w,
                                       values_units=-17, estflux=self.estflux, estflux_unc=self.estflux_unc,
                                       eqw_obs=self.eqw_obs,eqw_obs_unc=self.eqw_obs_unc)
             # print("DEBUG ... spectrum peak finder")
@@ -1858,11 +1896,12 @@ class DetObj:
 
 
             #todo: update with MY FIT results?
-            if G.REPORT_ELIXER_MCMC_FIT:
+            if G.REPORT_ELIXER_MCMC_FIT or self.eqw_obs == 0:
+                log.info("Using ELiXer MCMC Fit for line flux, continuum, EW, and SNR")
                 try:
-                    self.estflux = self.spec_obj.central_eli.mcmc_a[0]
+                    self.estflux = self.spec_obj.central_eli.mcmc_line_flux
                     self.eqw_obs = self.spec_obj.central_eli.mcmc_ew_obs[0]
-                    self.cont_cgs = self.spec_obj.central_eli.mcmc_y[0]
+                    self.cont_cgs = self.spec_obj.central_eli.mcmc_continuum
                     #self.snr = self.spec_obj.central_eli.mcmc_snr
                     self.snr = self.spec_obj.central_eli.snr
 
@@ -3396,12 +3435,14 @@ class HETDEX:
 
         elif e.line_gaussfit_parms is not None:
             if e.line_gaussfit_unc is not None:
-                estflux_str = self.unc_str((e.line_gaussfit_parms[2] *1e-17,e.line_gaussfit_unc[2]*1e-17))
+                #the /2.0 to deal with Karl's 2AA bin width
+                estflux_str = self.unc_str((e.line_gaussfit_parms[2]/e.line_gaussfit_parms[4] *1e-17,e.line_gaussfit_unc[2]*1e-17))
                 estcont_str = self.unc_str((e.line_gaussfit_parms[3]*1e-17,e.line_gaussfit_unc[3]*1e-17))
                 eqw_lya_str = self.unc_str((e.eqw_obs/(1.0 + la_z),e.eqw_obs_unc/(1.0 + la_z)))
             else:
                 log.info("e.line_gaussfit_unc is None. Cannot report uncertainties in flux or EW.")
-                estflux_str = "%0.3g" %(e.line_gaussfit_parms[2]*1e-17)
+                # the /2.0 to deal with Karl's 2AA bin width
+                estflux_str = "%0.3g" %(e.line_gaussfit_parms[2]/e.line_gaussfit_parms[4]*1e-17)
                 estcont_str = "%0.3g" %(e.line_gaussfit_parms[3]*1e-17)
 
         if self.ymd and self.obsid:

@@ -224,7 +224,7 @@ class DistancePrior:
                 #No ... truncating to the first "1" does not really improve the fit
                 #one_idx = np.argmax(ydata)
                 try:
-                    popt, pcov = curve_fit(sigmoid, xdata, ydata,
+                    popt, pcov = curve_fit(sigmoid, np.float64(xdata), np.float64(ydata),
                                            p0=(5.0, 0.2),
                                            bounds=((-1000.0,0.0),(1000.0,10.0))
                                            )

@@ -157,7 +157,7 @@ for c in range(cols):
     #parm: 0 = x0,  1 = sigma, 2 = Area , 3 = y
     width = e[1]-e[0]
     x0 = e[np.argmax(v)]
-    parm, pcov = curve_fit(gaussian, e, v, p0=(x0,0.2,20.,0.0),
+    parm, pcov = curve_fit(gaussian, np.float64(e), np.float64(v), p0=(x0,0.2,20.,0.0),
                            bounds=((x0 - width, 0.01, 5.0, 0.0),
                                    (x0 + width, np.inf, np.inf, np.inf)))
 
@@ -187,7 +187,7 @@ for c in range(cols):
         #parm: 0 = x0,  1 = sigma, 2 = Area , 3 = y
         width = e[1]-e[0]
         x0 = e[np.argmax(v)]
-        parm, pcov = curve_fit(gaussian, e, v, p0=(x0,1.0,20.,0.0),
+        parm, pcov = curve_fit(gaussian, np.float64(e), np.float64(v), p0=(x0,1.0,20.,0.0),
                                bounds=((x0 - width, 0.2, 1.0, 0.0),
                                        (x0 + width, np.inf, np.inf, np.inf)))
 

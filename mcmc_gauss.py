@@ -36,6 +36,10 @@ class MCMC_Gauss:
         self.err_x = None
         self.err_y = None
 
+        #just for reference ... MCMC itself does not need to know about this
+        #the caller DOES though and needs to adjust the line_flux accordingly
+        #self.dx = None #original bin width IF NOT part of the data_y already
+
         #this is mostly a guess ... no great way to automate, but this is pretty quick
         #and since the initials are from a scipy curve fit, we stabablize pretty fast
         self.burn_in = 100
@@ -50,6 +54,10 @@ class MCMC_Gauss:
         self.mcmc_A = None
         self.mcmc_y = None
         self.mcmc_snr = None #snr as flux_area/1-sigma uncertainty
+        # just for reference ... MCMC itself does not need to know about this
+        # the caller DOES though and needs to adjust the line_flux accordingly
+        #self.mcmc_line_flux = None #the actual line flux (erg s^-1 cm^-2);
+                                   # deals with bin width and input as flux instead of flux/dx
 
     def approx_symmetric_error(self,parm): #parm is assumed to be a 3 vector as [0] = mean, [1] = +error, [2] = -error
 

@@ -19,7 +19,7 @@ HDR1 = False #set to TRUE for HDR1 release
 if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
     #base path: /work/03946/hetdex/hdr1/
 
-    HDF5_DETECT_FN = "/work/05350/ecooper/wrangler/database/detect_test3.h5"
+    HDF5_DETECT_FN = "/work/05350/ecooper/hdr1/detect/detect_cosmos.h5"
     OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
     BAD_AMP_LIST = "/work/03261/polonius/maverick/catalogs/bad_amp_list.txt"
     CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
@@ -307,6 +307,9 @@ UNIQUE_DET_ID_NUM = 0
 
 DISPLAY_ABSORPTION_LINES = True
 MAX_SCORE_ABSORPTION_LINES = 0.0 #the most an absorption line can contribute to the score (set to 0 to turn off)
+
+
+FLUX_WAVEBIN_WIDTH = 2.0 # AA
 
 CLASSIFY_WITH_OTHER_LINES = True
 MIN_MCMC_SNR = 3.0 #minium SNR from an MCMC fit to accept as a real line

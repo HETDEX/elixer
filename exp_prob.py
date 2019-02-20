@@ -16,7 +16,7 @@ import spectrum
 import matplotlib.pyplot as plt
 from timeit import default_timer as timer
 import collections
-from scipy.optimize import curve_fit
+#from scipy.optimize import curve_fit
 
 
 plt.switch_backend('QT4Agg')

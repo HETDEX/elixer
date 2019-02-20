@@ -299,6 +299,8 @@ class HetdexFits:
                 #########################################
                 #Amp info (big images)
                 #########################################
+
+                #todo: switch to querqy against multiname instead of q_specid ?
                 rows = images_table.read_where("(specid==q_specid) & (expnum==q_expnum) & (amp==q_amp)")
 
                 if (rows is None) or (len(rows) != 1):

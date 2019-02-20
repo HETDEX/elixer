@@ -474,7 +474,7 @@ def source_prob(config, ra, dec, zs, fluxes, flux_errs, ews_obs, ew_err, c_obs, 
     #
     # prob_lae_given_data = prob_data_lae*prior_lae/prob_data
 
-    with errstate(divide='ignore'):
+    with errstate(divide='ignore',invalid='ignore'):
         posterior_odds = divide( (prob_data_lae*prior_lae), (prob_data_oii*prior_oii) )
         prob_lae_given_data = divide( prob_data_lae * prior_lae,  prob_data )
 

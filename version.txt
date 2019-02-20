@@ -1,10 +1,11 @@
 changes to elixer by version
 
-1.5.0.a18 []
+1.5.0.a18 [2019-02-19]
 * fixed left-over 'sci_image' reference in cat_xxx.py count_to_mag functions
-* add HDF5 support
+* add HDF5 support (path to multi-fits still hardcoded)
 * scale upper right (model fit) plot to the central 50% of the datapoints
-
+* explicitly cast x and y data to scipy.curve_fit as np.float64 to deal with precision issue in scipy implementation
+* moved bin width (for flux vs flux/dx) as part of Gaussian parameters to track model area vs actual line_flux separately
 
 
 1.5.0.a17 [2019-02-03]
