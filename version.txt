@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.5.0a19 [2019-02-20]
+* bumped local sky annulus for forced aperture photometry to 5x (inner) to 10x (outer) of the aperture radius
+  (roughly 75x more sky pixels than source pixels) ... makes very little difference in magnitude (order 0.1 - 0.2 mag)
+  (I think becuase the images are already well sky subtracted)
+
 1.5.0.a18 [2019-02-19]
 * fixed left-over 'sci_image' reference in cat_xxx.py count_to_mag functions
 * add HDF5 support (path to multi-fits still hardcoded)

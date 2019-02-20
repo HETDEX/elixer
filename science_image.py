@@ -253,6 +253,8 @@ class science_image():
         counts = None #raw data counts in aperture
         mag = 999.9 #aperture converted to mag_AB
         radius = aperture
+        sky_outer_radius_multi = 10.
+        sky_inner_radius_multi = 5.
 
         if (error is None or error == 0) and (window is None or window == 0):
             log.info("inavlid error box and window box")
@@ -302,7 +304,7 @@ class science_image():
                     pix_window = int(np.ceil(window / self.pixel_size))  # now in pixels
                     log.debug("Collecting cutout size = %d square at RA,Dec = (%f,%f)" %(pix_window,ra,dec))
 
-                    #test for wranglerk
+                    #test for wrangler
 
                     retries = 0
                     max_retries = 30
@@ -312,6 +314,11 @@ class science_image():
                                               wcs=self.wcs, copy=copy)
 
                             image = cutout  # now that we have a cutout, the rest of this func works on it
+
+                            sky_pix_window = pix_window*sky_outer_radius_multi*1.1 #and a little extra
+                            sky_image = Cutout2D(hdulist[self.wcs_idx].data, position, (sky_pix_window, sky_pix_window),
+                                              wcs=self.wcs, copy=copy)
+
                             break
 
                         except (MemoryError, mmap.error):
@@ -605,21 +612,25 @@ class science_image():
             #if we have a magnitude and it is fainter than a minimum, subtract the sky from a surrounding annulus
             #s|t we have ~ 3x pixels in the sky annulus as in the source aperture, so 2x the radius
             if (mag < 99) and (mag > G.SKY_ANNULUS_MIN_MAG):
+
+                sky_outer_radius = radius * sky_outer_radius_multi
+                sky_inner_radius = radius * sky_inner_radius_multi
+
                 try:
                     # we know position, image, are good or could not have gotten here
-                    sky_radius = radius * 2.
+
                     if self.pixel_size is not None:
-                        pix_window = 2. * float(sky_radius * 1.1) / self.pixel_size #length of size, so 2x radius
+                        pix_window = 2. * float(sky_outer_radius * 1.1) / self.pixel_size #length of size, so 2x radius
                     #    sky_cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=self.wcs)
                     #    wcs = self.wcs
                     else:
-                        pix_window = 2. * float(sky_radius*1.1) / self.calc_pixel_size(image.wcs)  # now in pixels
+                        pix_window = 2. * float(sky_outer_radius*1.1) / self.calc_pixel_size(sky_image.wcs)  # now in pixels
                      #   sky_cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=image.wcs)
                      #   wcs = image.wcs
 
                     #is there anyway we don't have image.data and image.wcs?
-                    sky_cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=image.wcs)
-                    wcs = image.wcs
+                    sky_cutout = Cutout2D(sky_image.data, position, (pix_window, pix_window), wcs=sky_image.wcs)
+                    wcs = sky_image.wcs
 
 
                     #todo: note in photutils, pixel x,y is the CENTER of the pixel and [0,0] is the center of the
@@ -632,18 +643,24 @@ class science_image():
                     # to take a median value and subtract off the counts from the original aperture
                     source_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec).to_pixel(wcs)
 
-                    sky_annulus = SkyCircularAnnulus(position, r_in=radius * ap_units.arcsec,
-                                                     r_out=sky_radius * ap_units.arcsec).to_pixel(wcs)
+                    sky_annulus = SkyCircularAnnulus(position, r_in=sky_inner_radius * ap_units.arcsec,
+                                                     r_out=sky_outer_radius * ap_units.arcsec).to_pixel(wcs)
 
                     #made an annulus in pixel, set to a "mask" where 0 = pixel not in annulus, 1 = pixel in annulus
                     sky_mask = sky_annulus.to_mask(method='center')[0]
 
+                    #print("+++++", np.shape(sky_image.data),pix_window)
+
                     #select all pixels from the cutout that are in the annulus
                     annulus_data_1d = sky_cutout.data[np.where(sky_mask.data > 0)]
 
+                    #print("+++++ total sky pixels",len(annulus_data_1d))
+
                     #and take the median average from a 3-sigma clip
-                    _, bkg_median, _ = sigma_clipped_stats(annulus_data_1d,sigma=3.0) #this is the average sky per pixel
-                    bkg_median * source_aperture.area() #total (sky) to subtract is averager sky per pix * number pix in source aperture
+                    bkg_mean, bkg_median, _ = sigma_clipped_stats(annulus_data_1d,sigma=3.0) #this is the average sky per pixel
+                    #bkg_median * source_aperture.area() #total (sky) to subtract is averager sky per pix * number pix in source aperture
+
+                    #print("+++++", bkg_mean, bkg_median)
 
                     counts -= bkg_median * source_aperture.area()
 
