@@ -410,7 +410,7 @@ class STACK_COSMOS(cat_base.Catalog):
         if G.SINGLE_PAGE_PER_DETECT:
 
             entry = self.build_cat_summary_figure(cat_match, target_ra, target_dec, error, ras, decs,
-                                                  target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux, )
+                                                  target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux )
         else:
             log.error("ERROR!!! Unexpected state of G.SINGLE_PAGE_PER_DETECT")
 

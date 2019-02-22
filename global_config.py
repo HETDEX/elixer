@@ -11,7 +11,7 @@ import numpy as np
 import socket
 
 #version
-__version__ = '1.5.0a19'
+__version__ = '1.5.0a20'
 
 
 HDR1 = False #set to TRUE for HDR1 release
@@ -52,8 +52,8 @@ if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
     HSC_IMAGE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced/images"
 
 else:
-    #if socket.gethostname() == 'z50':
-    if False:
+    if socket.gethostname() == 'z50':
+    #if False:
         HDF5_DETECT_FN = "/home/dustin/code/python/hdf5_learn/cache/detect_test3.h5"
         OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
         BAD_AMP_LIST = "/home/dustin/code/python/elixer/bad_amp_list.txt"
@@ -329,6 +329,6 @@ MAX_ANNULUS_RADIUS = 3600.0 #ridiculously large ... need to trim this to a reaso
 ANNULUS_FIGURE_SZ_X = 12
 ANNULUS_FIGURE_SZ_Y = 12
 
-SKY_ANNULUS_MIN_MAG = 22.0 #measure magnitude must be fainter than this to trigger sky subtraction from surrounding annulus
+SKY_ANNULUS_MIN_MAG = 15.0 #measure magnitude must be fainter than this to trigger sky subtraction from surrounding annulus
 
 INCLUDE_ALL_AMPS = False #ie. if true, ignore the bad amp list

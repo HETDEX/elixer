@@ -78,14 +78,19 @@ class CatalogLibrary:
 
 
 
-    def get_cutouts(self,position,radius,catalogs=None):
+    def get_cutouts(self,position,radius,catalogs=None,aperture=None,dynamic=False):
         '''
         Return a list of dictionaries of the FITS cutouts from imaging catalogs
         (does not include objects in those catalogs, just the images)
 
         :param position: astropy SkyCoord
-        :param radius:
+        :param radius: half-side of square cutout in arcsecs
         :param catalogs: optional list of catalogs to search (if not provided, searches all)
+        :param aperture: optional aperture radius in arcsecs inside which to calcuate an AB magnitude
+                          note: only returned IF the associated image has a magnitude function defined
+                          note: will be forced to radius if radius is smaller than aperture
+        :param dynamic: optional - if True, the aperture provided will grow in 0.1 arcsec steps until the magnitude
+                        stabalizes (similar to, but not curve of growth)
         :return: list of dictionaries of cutouts and info
         '''
 
@@ -98,10 +103,21 @@ class CatalogLibrary:
         ra = position.ra.to_value() #decimal degrees
         dec = position.dec.to_value()
 
+        if radius > 0.5: #assume then that radius is in arcsecs
+            radius /= 3600. #downstream calls expect this in degrees
+
+        #sanity check
+        if aperture is not None:
+            aperture = min(aperture, radius*3600.)
+
         l = list()
 
+        #override the default ELiXer behavior
+        G.DYNAMIC_MAG_APERTURE = dynamic
+        G.FIXED_MAG_APERTURE = aperture
+
         for c in catalogs:
-            cutouts = c.get_cutouts(ra, dec, radius)
+            cutouts = c.get_cutouts(ra, dec, radius,aperture)
             if (cutouts is not None) and (len(cutouts) > 0):
                 l.extend(cutouts)
 

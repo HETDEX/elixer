@@ -252,9 +252,14 @@ class science_image():
         cutout = None
         counts = None #raw data counts in aperture
         mag = 999.9 #aperture converted to mag_AB
-        radius = aperture
-        sky_outer_radius_multi = 10.
-        sky_inner_radius_multi = 5.
+        if (aperture is not None) and (mag_func is not None):
+            radius = aperture
+            sky_outer_radius_multi = 10.
+            sky_inner_radius_multi = 5.
+        else:
+            radius = 0.0
+            sky_outer_radius_multi = 0.
+            sky_inner_radius_multi = 0.
 
         if (error is None or error == 0) and (window is None or window == 0):
             log.info("inavlid error box and window box")
@@ -315,9 +320,24 @@ class science_image():
 
                             image = cutout  # now that we have a cutout, the rest of this func works on it
 
-                            sky_pix_window = pix_window*sky_outer_radius_multi*1.1 #and a little extra
-                            sky_image = Cutout2D(hdulist[self.wcs_idx].data, position, (sky_pix_window, sky_pix_window),
-                                              wcs=self.wcs, copy=copy)
+                            #sky_pix_window = int(pix_window*sky_outer_radius_multi*1.2)+1 #and a little extra
+
+                            if sky_outer_radius_multi > 0:
+                                sky_annulus = SkyCircularAnnulus(position, r_in=sky_inner_radius_multi * radius * ap_units.arcsec,
+                                                    r_out=sky_outer_radius_multi * radius * ap_units.arcsec).to_pixel(self.wcs)
+
+                                sky_pix_window = 2*(int(sky_annulus.r_out)+ 1)
+
+                                try:
+                                    sky_image = Cutout2D(hdulist[self.wcs_idx].data, position, (sky_pix_window, sky_pix_window),
+                                                  wcs=self.wcs, copy=False) #don't need a copy, will not persist beyond
+                                                                            #this call
+                                except:
+                                    log.warning("Exception attempting to get larger sky_image. science_image::get_cutout",
+                                                exc_info=True)
+                                    sky_image = image
+                            else:
+                                sky_image = image
 
                             break
 
@@ -541,7 +561,7 @@ class science_image():
                         #todo: plus our astrometry accuracy is ~ 0.5"
 
                         if mag < 99:
-                            if (mag > max_bright) or (abs(mag-max_bright) < 0.05):#< 0.0005):
+                            if (mag > max_bright) or (abs(mag-max_bright) < 0.01):#< 0.0005):
                                 break
                         elif (radius >= aperture) or (abs(radius-aperture) <1e-5):
                             #weirdness in floats, difference when "==" is non-zero ~ 1e-16
@@ -604,7 +624,7 @@ class science_image():
 
                     log.info("Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %s Mag_AB = %g"
                              % (radius,ra,dec,str(counts),mag))
-                    print ("Counts = %s Mag %f" %(str(counts),mag))
+                    #print ("Counts = %s Mag %f" %(str(counts),mag))
                 except:
                     log.error("Exception in science_image::get_cutout () using aperture", exc_info=True)
 
@@ -619,17 +639,18 @@ class science_image():
                 try:
                     # we know position, image, are good or could not have gotten here
 
-                    if self.pixel_size is not None:
-                        pix_window = 2. * float(sky_outer_radius * 1.1) / self.pixel_size #length of size, so 2x radius
-                    #    sky_cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=self.wcs)
-                    #    wcs = self.wcs
-                    else:
-                        pix_window = 2. * float(sky_outer_radius*1.1) / self.calc_pixel_size(sky_image.wcs)  # now in pixels
-                     #   sky_cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=image.wcs)
-                     #   wcs = image.wcs
-
-                    #is there anyway we don't have image.data and image.wcs?
-                    sky_cutout = Cutout2D(sky_image.data, position, (pix_window, pix_window), wcs=sky_image.wcs)
+                    # if self.pixel_size is not None:
+                    #     pix_window = 2. * float(sky_outer_radius * 1.1) / self.pixel_size #length of size, so 2x radius
+                    # #    sky_cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=self.wcs)
+                    # #    wcs = self.wcs
+                    # else:
+                    #     pix_window = 2. * float(sky_outer_radius*1.1) / self.calc_pixel_size(sky_image.wcs)  # now in pixels
+                    #  #   sky_cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=image.wcs)
+                    #  #   wcs = image.wcs
+                    #
+                    # #is there anyway we don't have image.data and image.wcs?
+                    # sky_cutout = Cutout2D(sky_image.data, position, (pix_window, pix_window), wcs=sky_image.wcs)
+                    sky_cutout = sky_image
                     wcs = sky_image.wcs
 
 
@@ -641,6 +662,7 @@ class science_image():
                     #revision
 
                     # to take a median value and subtract off the counts from the original aperture
+                    # yes, against the new cutout (which is just a super set of the smaller cutout
                     source_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec).to_pixel(wcs)
 
                     sky_annulus = SkyCircularAnnulus(position, r_in=sky_inner_radius * ap_units.arcsec,
@@ -669,7 +691,7 @@ class science_image():
 
                     log.info("Sky subtracted imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Sky = (%f/pix %f tot). Counts = %s Mag_AB = %g"
                              % (radius,ra,dec,bkg_median, bkg_median * source_aperture.area(),str(counts),mag))
-                    print ("Counts = %s Mag %f" %(str(counts),mag))
+                    #print ("Counts = %s Mag %f" %(str(counts),mag))
 
 
                 except:

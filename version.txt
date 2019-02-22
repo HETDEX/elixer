@@ -1,5 +1,11 @@
 changes to elixer by version
 
+
+1.5.0a20 [2019-02-22]
+* updated the catalogs API to allow operator to specify an aperture for a magnitude calcuation and whether that
+  aperture is dynamic
+* fixed bug in calcuation of sky subtraction annulus (outer radius) into pixel space
+
 1.5.0a19 [2019-02-20]
 * bumped local sky annulus for forced aperture photometry to 5x (inner) to 10x (outer) of the aperture radius
   (roughly 75x more sky pixels than source pixels) ... makes very little difference in magnitude (order 0.1 - 0.2 mag)
