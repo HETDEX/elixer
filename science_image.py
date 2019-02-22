@@ -320,8 +320,7 @@ class science_image():
 
                             image = cutout  # now that we have a cutout, the rest of this func works on it
 
-                            #sky_pix_window = int(pix_window*sky_outer_radius_multi*1.2)+1 #and a little extra
-
+                            #get a larger cutout to accomodate the sky subtraction outer radius
                             if sky_outer_radius_multi > 0:
                                 sky_annulus = SkyCircularAnnulus(position, r_in=sky_inner_radius_multi * radius * ap_units.arcsec,
                                                     r_out=sky_outer_radius_multi * radius * ap_units.arcsec).to_pixel(self.wcs)
@@ -637,8 +636,8 @@ class science_image():
                 sky_inner_radius = radius * sky_inner_radius_multi
 
                 try:
-                    # we know position, image, are good or could not have gotten here
 
+                    # we know position, image, are good or could not have gotten here
                     # if self.pixel_size is not None:
                     #     pix_window = 2. * float(sky_outer_radius * 1.1) / self.pixel_size #length of size, so 2x radius
                     # #    sky_cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=self.wcs)
@@ -650,8 +649,6 @@ class science_image():
                     #
                     # #is there anyway we don't have image.data and image.wcs?
                     # sky_cutout = Cutout2D(sky_image.data, position, (pix_window, pix_window), wcs=sky_image.wcs)
-                    sky_cutout = sky_image
-                    wcs = sky_image.wcs
 
 
                     #todo: note in photutils, pixel x,y is the CENTER of the pixel and [0,0] is the center of the
@@ -663,10 +660,10 @@ class science_image():
 
                     # to take a median value and subtract off the counts from the original aperture
                     # yes, against the new cutout (which is just a super set of the smaller cutout
-                    source_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec).to_pixel(wcs)
+                    source_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec).to_pixel(sky_image.wcs)
 
                     sky_annulus = SkyCircularAnnulus(position, r_in=sky_inner_radius * ap_units.arcsec,
-                                                     r_out=sky_outer_radius * ap_units.arcsec).to_pixel(wcs)
+                                                     r_out=sky_outer_radius * ap_units.arcsec).to_pixel(sky_image.wcs)
 
                     #made an annulus in pixel, set to a "mask" where 0 = pixel not in annulus, 1 = pixel in annulus
                     sky_mask = sky_annulus.to_mask(method='center')[0]
@@ -674,7 +671,7 @@ class science_image():
                     #print("+++++", np.shape(sky_image.data),pix_window)
 
                     #select all pixels from the cutout that are in the annulus
-                    annulus_data_1d = sky_cutout.data[np.where(sky_mask.data > 0)]
+                    annulus_data_1d = sky_image.data[np.where(sky_mask.data > 0)]
 
                     #print("+++++ total sky pixels",len(annulus_data_1d))
 
