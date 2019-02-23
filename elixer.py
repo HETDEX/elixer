@@ -1588,6 +1588,42 @@ def main():
 
     write_fibers_file(os.path.join(args.name, args.name + "_fib.txt"),hd_list)
 
+
+    #todo: iterate over detections and make a clean sample for LyC
+    #conditions ...
+    #   exactly 1 catalog detection
+    #   all 3 P(LAE)/P(OII) of similar value (that is all > say, 10)
+    #todo: OR - record all in HDF5 and subselect later
+    #not an optimal search (lots of redundant hits, but there will only be a few and this is simple to code
+    if False:
+        for h in hd_list: #iterate over all hetdex detections
+            for e in h.emis_list:
+                for c in match_list.match_set: #iterate over all match_list detections
+                    if e.id == c.detobj.id: #internal ID (guaranteed unique)
+
+                        print("Detect ID",c.detobj.entry_id)
+                        for b in c.bid_targets:
+                            print("         ",b.p_lae_oii_ratio,b.distance)
+                        print("\n")
+
+                        if False:
+                            if len(c.bid_targets) == 2: #the HETDEX + imaging, and 1 catalog match
+                                #c.bid_targets[0] is the hetdex one
+                                #check all plae_poii
+                                if (c.detobj.p_lae_oii_ratio > 10)          and \
+                                   (c.bid_targets[0].p_lae_oii_ratio > 10) and \
+                                   (c.bid_targets[1].p_lae_oii_ratio > 10):
+                                    #meets criteria, so log
+                                    if c.bid_targets[1].distance < 1.0:
+                                        print(c.detobj.id,c.detobj.p_lae_oii_ratio,c.bid_targets[0].p_lae_oii_ratio,c.bid_targets[1].p_lae_oii_ratio )
+
+
+                        break
+
+
+
+
+
     #temporary
     if args.line:
         try:

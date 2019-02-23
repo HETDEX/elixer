@@ -254,12 +254,20 @@ class science_image():
         mag = 999.9 #aperture converted to mag_AB
         if (aperture is not None) and (mag_func is not None):
             radius = aperture
-            sky_outer_radius_multi = 10.
-            sky_inner_radius_multi = 5.
+
+            # aperture-radius is not allowed to grow past the error-radius in the dynamic case
+            if G.DYNAMIC_MAG_APERTURE:
+                max_aperture = max(0, error, radius)
+            else:
+                max_aperture = G.FIXED_MAG_APERTURE
+
+            sky_outer_radius = max_aperture * 10. #this is the maximum it can be
+            sky_inner_radius = max_aperture * 5.
         else:
             radius = 0.0
-            sky_outer_radius_multi = 0.
-            sky_inner_radius_multi = 0.
+            sky_outer_radius = 0.
+            sky_inner_radius = 0.
+
 
         if (error is None or error == 0) and (window is None or window == 0):
             log.info("inavlid error box and window box")
@@ -321,9 +329,9 @@ class science_image():
                             image = cutout  # now that we have a cutout, the rest of this func works on it
 
                             #get a larger cutout to accomodate the sky subtraction outer radius
-                            if sky_outer_radius_multi > 0:
-                                sky_annulus = SkyCircularAnnulus(position, r_in=sky_inner_radius_multi * radius * ap_units.arcsec,
-                                                    r_out=sky_outer_radius_multi * radius * ap_units.arcsec).to_pixel(self.wcs)
+                            if sky_outer_radius > 0:
+                                sky_annulus = SkyCircularAnnulus(position, r_in=sky_inner_radius * ap_units.arcsec,
+                                                    r_out=sky_outer_radius * ap_units.arcsec).to_pixel(self.wcs)
 
                                 sky_pix_window = 2*(int(sky_annulus.r_out)+ 1)
 
@@ -636,9 +644,6 @@ class science_image():
             #if we have a magnitude and it is fainter than a minimum, subtract the sky from a surrounding annulus
             #s|t we have ~ 3x pixels in the sky annulus as in the source aperture, so 2x the radius
             if (mag < 99) and (mag > G.SKY_ANNULUS_MIN_MAG):
-
-                sky_outer_radius = radius * sky_outer_radius_multi
-                sky_inner_radius = radius * sky_inner_radius_multi
 
                 try:
 
