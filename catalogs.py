@@ -106,7 +106,7 @@ class CatalogLibrary:
         if radius > 0.5: #assume then that radius is in arcsecs
             radius /= 3600. #downstream calls expect this in degrees
 
-        #sanity check
+        #sanity check, aperture cannot be larger than the cutout
         if aperture is not None:
             aperture = min(aperture, radius*3600.)
 
@@ -117,7 +117,8 @@ class CatalogLibrary:
         G.FIXED_MAG_APERTURE = aperture
 
         for c in catalogs:
-            cutouts = c.get_cutouts(ra, dec, radius,aperture)
+            cutouts = c.get_cutouts(ra, dec, window=radius*2.,aperture=aperture)
+            # since this is a half-length of a side, the window (or side) is 2x radius
             if (cutouts is not None) and (len(cutouts) > 0):
                 l.extend(cutouts)
 
@@ -129,7 +130,7 @@ class CatalogLibrary:
          Return a list of dictionaries of pandas dataframes of objects in imaging catalogs
 
         :param position: astropy SkyCoord
-        :param radius:
+        :param radius: distance in arcsecs from the provided position in which to search for catalog objects
         :param catalogs: optional list of catalogs to search (if not provided, searches all)
         :return: list of dictionaries of cutouts and info
         '''
@@ -142,6 +143,9 @@ class CatalogLibrary:
 
         ra = position.ra.to_value() #decimal degrees
         dec = position.dec.to_value()
+
+        if radius > 0.5: #assume then that radius is in arcsecs
+            radius /= 3600. #downstream calls expect this in degrees
 
         l = list()
 
