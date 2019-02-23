@@ -327,13 +327,18 @@ class science_image():
 
                                 sky_pix_window = 2*(int(sky_annulus.r_out)+ 1)
 
-                                try:
-                                    sky_image = Cutout2D(hdulist[self.wcs_idx].data, position, (sky_pix_window, sky_pix_window),
-                                                  wcs=self.wcs, copy=False) #don't need a copy, will not persist beyond
-                                                                            #this call
-                                except:
-                                    log.warning("Exception attempting to get larger sky_image. science_image::get_cutout",
-                                                exc_info=True)
+                                if sky_pix_window > pix_window:
+                                    #if the sky window is larger than the original cutout, get a larger cutout for the sky
+                                    #else, just use the original cutout (e.g. if the window is large, but the aperture is small
+                                    try:
+                                        sky_image = Cutout2D(hdulist[self.wcs_idx].data, position, (sky_pix_window, sky_pix_window),
+                                                      wcs=self.wcs, copy=False) #don't need a copy, will not persist beyond
+                                                                                #this call
+                                    except:
+                                        log.warning("Exception attempting to get larger sky_image. science_image::get_cutout",
+                                                    exc_info=True)
+                                        sky_image = image
+                                else:
                                     sky_image = image
                             else:
                                 sky_image = image
