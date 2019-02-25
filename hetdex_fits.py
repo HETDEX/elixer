@@ -25,6 +25,7 @@ class HetdexFits:
 
         self.okay = True
         self.filename = fn
+        self.multiframe = None #multiframe (panacea) style name for HDF5 index etc
         self.err_filename = e_fn
         self.fe_filename = fe_fn
 
@@ -264,11 +265,9 @@ class HetdexFits:
 
                 # set the query values needed shortly ...
                 # query a specific fiber by ifuid ... amp and fiber_number
-                q_specid = str(self.specid).zfill(3)
-                # q_ifuid = str(self.ifuid).zfill(3)
-                # q_ifuslot = str(self.ifuslot).zfill(3)
+                #q_specid = str(self.specid).zfill(3)
                 q_expnum = int(self.expid)
-                q_amp = self.amp
+                #q_amp = self.amp
 
                 #########################################
                 #shot info
@@ -277,7 +276,7 @@ class HetdexFits:
                 #should only be one shot ...
                 rows = shots_table.read(0)
 
-                if (rows is None) or (len(rows) != 1):
+                if (rows is None) or (rows.size != 1):
                     self.okay = False
                     log.error("Problem loading multi-fits HDF5 equivalant. Bad Shot table.")
                     return
@@ -292,7 +291,6 @@ class HetdexFits:
                 self.obs_ymd = row['date']
                 self.mjd = row['mjd']
                 self.obsid = int(row['obsid'])
-                self.expid = int(row['expn'])
 
                 #don't currently need time, pressure, etc
 
@@ -300,10 +298,13 @@ class HetdexFits:
                 #Amp info (big images)
                 #########################################
 
-                #todo: switch to querqy against multiname instead of q_specid ?
-                rows = images_table.read_where("(specid==q_specid) & (expnum==q_expnum) & (amp==q_amp)")
 
-                if (rows is None) or (len(rows) != 1):
+                q_expnum = int(self.expid)
+                q_multiframe = self.multiframe
+                #rows = images_table.read_where("(specid==q_specid) & (expnum==q_expnum) & (amp==q_amp)")
+                rows = images_table.read_where("(multiframe==q_multiframe) & (expnum==q_expnum)")
+
+                if (rows is None) or (rows.size != 1):
                     self.okay = False
                     log.error("Problem loading multi-fits HDF5 equivalant. Bad Images table.")
                     return
@@ -341,10 +342,11 @@ class HetdexFits:
                 #########################################
 
                 #for a given SHOT specid OR ifuid OR ifuslot is unique when compbined with the amp and expsosure
-                rows = fibers_table.read_where("(specid==q_specid) & (expnum==q_expnum) & (amp==q_amp)")
+                #rows = fibers_table.read_where("(specid==q_specid) & (expnum==q_expnum) & (amp==q_amp)")
+                rows = fibers_table.read_where("(multiframe==q_multiframe) & (expnum==q_expnum)")
 
                 #expect there to be 112 fibers (though maybe fewer if some are dead)
-                if (rows is None) or (len(rows) == 0):
+                if (rows is None) or (rows.size == 0):
                     self.okay = False
                     log.error("Problem loading multi-fits HDF5 equivalant. No fibers for request IFU, AMP, EXP, etc")
                     return
@@ -369,7 +371,9 @@ class HetdexFits:
                 #self.error_analysis = np.zeros((3, 1032))
 
                 for row in rows:
-                    idx = row['fibnum']
+                    idx = row['fibnum'] #fibnum is 0-111 so, just like an index
+
+                    #print("*****", idx, q_expnum)
 
                     self.fe_data[idx] = row['sky_subtracted']
                     self.wave_data[idx] = row['wavelength']

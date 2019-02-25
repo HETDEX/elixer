@@ -1022,7 +1022,7 @@ def get_hdf5_detectids_to_process(args):
                     #this is a detectid"
                     id = int(d)
                     rows = dtb.read_where("detectid==id")
-                    num = len(rows)
+                    num = rows.size
 
                     if num == 0:
                         log.info("%d not found in HDF5 detections" %(id))
@@ -1048,7 +1048,7 @@ def get_hdf5_detectids_to_process(args):
                     #currently called an "inputid"
                     id  = str(d)
                     rows = dtb.read_where("inputid==id")
-                    num = len(rows)
+                    num = rows.size
 
                     if num == 0:
                         log.info("%s not found in HDF5 detections" % (id))

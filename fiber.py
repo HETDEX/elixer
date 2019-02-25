@@ -337,15 +337,17 @@ class Fiber:
         :return:
         """
          #build up path and see if it exists
-        print("******* !!!!!! take this out ... dev only !!!!!!! *******")
+        #print("******* !!!!!! take this out ... dev only !!!!!!! *******")
         #return "/home/dustin/code/python/hdf5_learn/cache/test_new.h5"
-        return "/home/dustin/code/python/hdf5_learn/cache/20180123v009.h5"
+        #return "/home/dustin/code/python/hdf5_learn/cache/20180123v009.h5"
 
         try:
             fn = None
             #todo: not sure what the naming schema is going to be, but will assume stops at a SHOT
-            name = ""
+            name = self.dither_date + "v" + str(self.obsid).zfill(3) + ".h5"
             path = G.PANACEA_HDF5_BASEDIR #start here
+            #/work/03261/polonius/hdr1/reduction/data  ... all at top level?
+            #name == DateVShot ... i.e.: 20180123v009.h5
 
             #todo: add to the path ... not sure yet if all the HDF5 files will be at one level or if they
             #todo: will follow the multi*fits directory organization

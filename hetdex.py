@@ -1650,6 +1650,8 @@ class DetObj:
 
         :return:
         """
+
+        log.debug("Loading flux calibrated data from HDF5 ...")
         self.panacea = True #if we are here, it can only be panacea
 
         del self.sumspec_wavelength[:]
@@ -1661,6 +1663,7 @@ class DetObj:
         del self.sumspec_flux_zoom[:]
         del self.sumspec_fluxerr_zoom[:]
 
+        log.debug("Loading base detection data from HDF5 ...")
         with tables.open_file(hdf5_fn,mode="r") as h5_detect:
 
             detection_table = h5_detect.root.Detections
@@ -1672,7 +1675,7 @@ class DetObj:
             #can't use "detectid==detectid" ... context is confused
             rows = detection_table.read_where("detectid==id")
 
-            if (rows is None) or (len(rows)!=1):
+            if (rows is None) or (rows.size != 1):
                 self.status = -1
                 log.error("Problem loading detectid ...")
                 return
@@ -1761,8 +1764,9 @@ class DetObj:
             ############################################
             #get the weighted and summed spectra info
             ############################################
+            log.debug("Loading summed spectra data from HDF5 ...")
             rows = spectra_table.read_where("detectid==id")
-            if (rows is None) or (len(rows)!=1):
+            if (rows is None) or (rows.size != 1):
                 self.status = -1
                 log.error("Problem loading detectid. Multiple rows or no rows in Spectra table.")
                 return
@@ -1798,9 +1802,15 @@ class DetObj:
             #   idstring=None,specid=None,ifuslot=None,ifuid=None,amp=None,date=None,time=None,time_ex=None,
              #    panacea_fiber_index=-1, detect_id = -1):
 
+            log.debug("Loading loading base fiber data from HDF5 ...")
             rows = fiber_table.read_where("detectid == id")
             subset_norm = 0.0 #for the relative weights
+
+            num_fibers = rows.size
+            count = 0
+
             for row in rows:
+                count += 1
                 specid = row['specid']
                 ifuslot = row['ifuslot']
                 ifuid = row['ifuid']
@@ -1811,9 +1821,11 @@ class DetObj:
                 time_ex = row['timestamp'][9:]
                 time = time_ex[0:6] #hhmmss
                 mfits_name = row['multiframe'] #similar to multi*fits style name
-
                 fiber_index = row['fibnum'] -1  #1-112 #panacea index is 0-111
 
+                #print("***** ", mfits_name, specid, ifuslot, ifuid, amp, row['expnum'])
+
+                log.debug("Building fiber %d of %d..." %(count,num_fibers))
                 fiber = elixer_fiber.Fiber(idstring=None,specid=specid,ifuslot=ifuslot,ifuid=ifuid,amp=amp,
                                            date=date,time=time,time_ex=time_ex, panacea_fiber_index=fiber_index,
                                            detect_id=id)
@@ -1842,6 +1854,7 @@ class DetObj:
                         fits = hetdex_fits.HetdexFits(empty=True)
                         #populate the data we need to read the HDF5 file
                         fits.filename = fiber.fits_fn #mfits_name #todo: fix to the corect path
+                        fits.multiframe = mfits_name
                         fits.panacea = True
                         fits.hdf5 = True
 
@@ -2204,8 +2217,8 @@ class HETDEX:
             self.read_fcsdirs()
             build_fits_list = False
         elif (self.hdf5_detectid_list is not None):
-            #todo: equivalent of read_fcsdirs
             self.read_hdf5_detect()
+            build_fits_list = False
 
 
         if build_fits_list:
