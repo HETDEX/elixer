@@ -1802,7 +1802,7 @@ class DetObj:
             #   idstring=None,specid=None,ifuslot=None,ifuid=None,amp=None,date=None,time=None,time_ex=None,
              #    panacea_fiber_index=-1, detect_id = -1):
 
-            log.debug("Loading loading base fiber data from HDF5 ...")
+            log.debug("Loading base fiber data from HDF5 ...")
             rows = fiber_table.read_where("detectid == id")
             subset_norm = 0.0 #for the relative weights
 

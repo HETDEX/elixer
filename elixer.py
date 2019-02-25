@@ -941,6 +941,38 @@ def convert_pdf(filename, resolution=150):
         return
 
 
+
+def get_hdf5_detectids_by_coord(hdf5,ra,dec,error):
+    """
+    Find all detections within +/- error from given ra and dec
+
+    :param ra: decimal degrees
+    :param dec:  decimal degress
+    :param error:  decimal degrees
+    :return:
+    """
+
+    detectids = []
+    try:
+        with tables.open_file(hdf5, mode="r") as h5:
+            dtb = h5.root.Detections
+
+            ra1 = ra - error
+            ra2 = ra + error
+            dec1 = dec - error
+            dec2 = dec + error
+
+            rows = dtb.read_where("(ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2)")
+
+            if (rows is not None) and (rows.size > 0):
+                detectids = rows['detectid']
+
+
+    except:
+        log.error("Exception in elixer.py get_hdf5_detectids_by_coord",exc_info=True)
+
+    return detectids
+
 def get_hdf5_detectids_to_process(args):
     """
     returns a list of detectids (Int64) to process
@@ -970,6 +1002,16 @@ def get_hdf5_detectids_to_process(args):
     detectids = []
 
     try:
+
+        if args.dets is None:
+            # maybe an ra and dec ?
+            if (args.ra is not None) and (args.dec is not None) and (args.error is not None):
+                # args.ra and dec are now guaranteed to be decimal degrees. args.error is in arcsecs
+                return get_hdf5_detectids_by_coord(args.hdf5, args.ra, args.dec, args.error / 3600.)
+            else:
+                return []
+
+
         h5 = tables.open_file(args.hdf5,mode="r")
 
         #todo: keep the tables up to date
@@ -977,7 +1019,6 @@ def get_hdf5_detectids_to_process(args):
         dtb = h5.root.Detections
         #ftb = h5.root.Fibers
         #stb = h5.root.Spectra
-
 
         #dets might be a single value or a list
         try:
@@ -1387,7 +1428,7 @@ def main():
                 if hd.status == 0:
                     hd_list.append(hd)
         elif len(hdf5_detectid_list) > 0: #HDF5 (DataRelease style)
-            #here
+            #only one detection per hetdex object
             for d in hdf5_detectid_list:
                 hd = hetdex.HETDEX(args,fcsdir_list=None,hdf5_detectid_list=[d])
 

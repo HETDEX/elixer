@@ -258,6 +258,7 @@ class HetdexFits:
             return None
 
         try:
+            log.debug("Reading HDF5 file: %s" %(self.filename))
             with tables.open_file(self.filename, mode="r") as h5_multifits:
                 fibers_table = h5_multifits.root.Data.Fibers
                 images_table = h5_multifits.root.Data.Images
@@ -297,9 +298,13 @@ class HetdexFits:
                 #########################################
                 rows = images_table.read_where("(multiframe==q_multiframe) & (expnum==q_expnum)")
 
-                if (rows is None) or (rows.size != 1):
+                if (rows is None):
                     self.okay = False
-                    log.error("Problem loading multi-fits HDF5 equivalant. Bad Images table.")
+                    log.error("Problem loading multi-fits HDF5 equivalant. Bad Images table (0 rows returned).")
+                elif (rows.size != 1):
+                    self.okay = False
+                    log.error("Problem loading multi-fits HDF5 equivalant. Bad Images table "
+                              "(%d rows returned. Expected 1.) %s expn %d" %(rows.size, q_multiframe, q_expnum))
                     return
 
                 row = rows[0]
