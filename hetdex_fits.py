@@ -264,10 +264,8 @@ class HetdexFits:
                 shots_table = h5_multifits.root.Shot
 
                 # set the query values needed shortly ...
-                # query a specific fiber by ifuid ... amp and fiber_number
-                #q_specid = str(self.specid).zfill(3)
                 q_expnum = int(self.expid)
-                #q_amp = self.amp
+                q_multiframe = self.multiframe
 
                 #########################################
                 #shot info
@@ -297,11 +295,6 @@ class HetdexFits:
                 #########################################
                 #Amp info (big images)
                 #########################################
-
-
-                q_expnum = int(self.expid)
-                q_multiframe = self.multiframe
-                #rows = images_table.read_where("(specid==q_specid) & (expnum==q_expnum) & (amp==q_amp)")
                 rows = images_table.read_where("(multiframe==q_multiframe) & (expnum==q_expnum)")
 
                 if (rows is None) or (rows.size != 1):
@@ -341,8 +334,6 @@ class HetdexFits:
                 #    There will be redundant data
                 #########################################
 
-                #for a given SHOT specid OR ifuid OR ifuslot is unique when compbined with the amp and expsosure
-                #rows = fibers_table.read_where("(specid==q_specid) & (expnum==q_expnum) & (amp==q_amp)")
                 rows = fibers_table.read_where("(multiframe==q_multiframe) & (expnum==q_expnum)")
 
                 #expect there to be 112 fibers (though maybe fewer if some are dead)
@@ -372,8 +363,6 @@ class HetdexFits:
 
                 for row in rows:
                     idx = row['fibnum'] #fibnum is 0-111 so, just like an index
-
-                    #print("*****", idx, q_expnum)
 
                     self.fe_data[idx] = row['sky_subtracted']
                     self.wave_data[idx] = row['wavelength']
