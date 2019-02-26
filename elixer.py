@@ -1092,25 +1092,42 @@ def get_hdf5_detectids_to_process(args):
             #is it an old style id ... like "20180123v009_5"
             try:
                 if "v" in str(d).lower():
-                    #todo: this could represent a name .... could map to multiple detectIDs
-                    #currently called an "inputid"
-                    id  = str(d)
-                    rows = dtb.read_where("inputid==id")
-                    num = rows.size
 
-                    if num == 0:
-                        log.info("%s not found in HDF5 detections" % (id))
-                        continue
-                    elif num == 1:
-                        d_id = rows['detectid'][0]
-                        log.info("%s added to detection list as %d" % (id,d_id))
-                        detectids.append(d_id)
-                        continue
-                    else:
-                        log.info("%s inputid is not unique" % (id))
-                        # might be something else, like 20180123 ??
-                        # todo: for now, just skip it ... might consider checking something els
-                        continue
+                    if "_" in str(d): #this is a specific input
+
+                        #todo: this could represent a name .... could map to multiple detectIDs
+                        #currently called an "inputid"
+                        id  = str(d)
+                        rows = dtb.read_where("inputid==id")
+                        num = rows.size
+
+                        if num == 0:
+                            log.info("%s not found in HDF5 detections" % (id))
+                            continue
+                        elif num == 1:
+                            d_id = rows['detectid'][0]
+                            log.info("%s added to detection list as %d" % (id,d_id))
+                            detectids.append(d_id)
+                            continue
+                        else:
+                            log.info("%s inputid is not unique" % (id))
+                            # might be something else, like 20180123 ??
+                            # todo: for now, just skip it ... might consider checking something els
+                            continue
+                    else: #this is just a datevshot, get the entire shot
+                        #assumes a 20180123v009 format
+                        try:
+                            toks = str(d).lower().split('v')
+                            q_date = int(toks[0])
+                            q_shot = int(toks[0]+toks[1])
+
+                            rows = dtb.read_where("(date==q_date) & (shotid==q_shot)")
+
+                            if rows is not None:
+                                for row in rows:
+                                    detectids.append(row['detectid'])
+                        except:
+                            log.error("Invalid detection identifier: %s" %d)
 
             except:
                 pass
