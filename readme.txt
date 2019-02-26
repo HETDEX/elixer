@@ -70,8 +70,8 @@ You may launch the ELiXer process with a python call: e.g.
 > selixer --help
 
 The "--help" switch will print to screen a simple break out of the command line options. Also NOTE that the SLURM
-version will NOT spawn multiple instances if the "--help" switch is on the command line (in this one case, elixer and
-selixer are equivalent).
+version will NOT spawn multiple instances if the "--help" switch is on the command line (in this case, elixer and
+selixer are equivalent (the other case is with the --merge switch described at the end of this readme).
 
 * COMMON USAGE
 
@@ -124,4 +124,25 @@ This may also be a comma separated list like:
 # Output
 ##############################
 
-What to expect
+If you run the single instance of ELiXer, all the output will be immediately under a directory named for the
+--name switch.
+
+If you run the SLURM version of ELiXer, there will be a series of dispatch_xxx directories (where xxx is a number)
+under the directory named for the --name switch and under each of those will be a log file and a directory named for
+the datevshot of the detection. Under this second nested directory will be the output files for the detections.
+
+The output files (excluding files created due to other options that may be supplied on the command line) at a
+minimum, will consist of a report PDF (named after the detection) and two catalog files, also named after the
+detection and terminated with *_cat.txt and *_fib.txt
+
+The PDF reports graphically represent the basic information about the detection including information on the fiber
+2D spectra, the fit of the emission line, the full summed/weighted spectra, photometric imaging (if available) and
+potential catalog matches (if available).
+
+The two catalogs summarize this data in text catalog format with the *_fib.txt file covering each fiber in the
+HETDEX data and the *_cat.txt catalog focusing on the photometric catalog matches. Each begins with a header than
+describe the columns.
+
+The catalogs are fragmented under each of the dispatch_xxx directories, but you can combine them all into one
+catalog (each) by running selixer --merge (or elixer --merge) at the parent directory of the dispatch_xxx folders.
+
