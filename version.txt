@@ -1,7 +1,7 @@
 changes to elixer by version
 
 
-1.5.0a20 [2019-02-25]
+1.5.0a20 [2019-02-25] [branched to hdr1]
 * updated the catalogs API to allow operator to specify an aperture for a magnitude calcuation and whether that
   aperture is dynamic
 * updated the catalogs API to take radius as arcsecs rather than degrees (though if less than 0.5, will assume degrees)
