@@ -966,6 +966,13 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error):
 
             if (rows is not None) and (rows.size > 0):
                 detectids = rows['detectid']
+                msg = "%d detection records found +/- %g\" from %f, %f" %(rows.size,error*3600.,ra,dec)
+                log.info(msg)
+                print(msg)
+            else:
+                msg = "0 detection records found +/- %g\" from %f, %f" % (error * 3600., ra, dec)
+                log.info(msg)
+                print(msg)
 
 
     except:

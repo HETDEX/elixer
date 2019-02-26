@@ -1826,7 +1826,9 @@ class DetObj:
                 #print("***** ", mfits_name, specid, ifuslot, ifuid, amp, row['expnum'])
 
                 log.debug("Building fiber %d of %d..." %(count,num_fibers))
-                fiber = elixer_fiber.Fiber(idstring=None,specid=specid,ifuslot=ifuslot,ifuid=ifuid,amp=amp,
+                idstring = date + "v" + time_ex + "_" + specid + "_" + ifuslot + "_" + ifuid + "_" + amp + "_" + str(fiber_index)
+
+                fiber = elixer_fiber.Fiber(idstring=idstring,specid=specid,ifuslot=ifuslot,ifuid=ifuid,amp=amp,
                                            date=date,time=time,time_ex=time_ex, panacea_fiber_index=fiber_index,
                                            detect_id=id)
 
