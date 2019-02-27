@@ -314,6 +314,15 @@ def parse_commandline(auto_force=False):
         G.ZOO = True
         G.ZOO_CUTOUTS = True
 
+
+    if args.dispatch is not None:
+        if args.ra is not None: #then this is from selixer and dispatch needs to be the dets list
+            args.ra = None
+            args.dec = None
+            args.dets = args.dispatch
+
+            log.info("Command line: --dets set to --dispatch and ignoring --ra and --dec")
+
     if args.ra is not None:
         if ":" in args.ra:
             try:

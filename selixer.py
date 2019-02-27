@@ -22,6 +22,20 @@ HOST_STAMPEDE2 = 3
 host = HOST_UNKNOWN
 
 
+# def remove_ra_dec(arg_list):
+#     new_list = []
+#     skip_next = False
+#     for arg in arg_list:
+#         arg = str(arg).lower()
+#         if  (arg == "--ra") or (arg == "--dec"):
+#             skip_next = True
+#
+#         elif not skip_next:
+#             new_list.append(arg)
+#         else:
+#             skip_next = False
+#     return new_list
+
 ### NAMING, NOTATION
 # job == an elixer dispatch
 # task == on the cluster ...
@@ -228,6 +242,7 @@ os.chdir(basename)
 
 ### elixer.run
 path = os.path.join(os.path.dirname(sys.argv[0]),"elixer.py")
+nodes = 1
 
 dets_per_dispatch =  [] #list of counts ... the number of detection directories to list in the corresponding dispatch_xxx file
 if tasks == 1:
@@ -247,7 +262,12 @@ else: # multiple tasks
 
         args = elixer.parse_commandline(auto_force=True)
         print("Parsing directories to process. This may take a little while ...\n")
-        subdirs = elixer.get_fcsdir_subdirs_to_process(args)
+
+        if args.fcsdir is not None:
+            subdirs = elixer.get_fcsdir_subdirs_to_process(args)
+        elif (args.ra is not None):
+            subdirs = elixer.get_hdf5_detectids_to_process(args)
+
         if tasks != 0:
             if tasks > len(subdirs):  # problem too many tasks requestd
                 print("Error! Too many tasks (%d) requested. Only %d directories to process." % (tasks, len(subdirs)))
@@ -290,7 +310,9 @@ else: # multiple tasks
                 else: #cap at 48 (or 16 tasks per 3 nodes)
                     nodes = 3
                     ntasks_per_node = 16
-
+            else:
+                ntasks_per_node = tasks
+                nodes = 1
 
 
             print("%d detections as %d tasks on %d nodes at %d tasks-per-node" % (len(subdirs),tasks,nodes,ntasks_per_node))
@@ -321,7 +343,7 @@ else: # multiple tasks
             #start_idx = i * dirs_per_file
             stop_idx = start_idx + dets_per_dispatch[i] #min(start_idx + dirs_per_file,len(subdirs))
             for j in range(start_idx,stop_idx):
-                df.write(subdirs[j] + "\n")
+                df.write(str(subdirs[j]) + "\n")
 
             df.close()
 
@@ -329,6 +351,11 @@ else: # multiple tasks
 
             #add  dispatch_xxx
             #run = "python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' --dispatch ' + os.path.join(basename,fn) + ' -f \n'
+
+            #may need to get rid of ra and dec
+
+            #parms = remove_ra_dec(sys.argv[1:])
+            #run = "cd " + fn + " ; python " + path + ' ' + ' ' + ' '.join(parms) + ' --dispatch ' + fn + ' -f ; cd .. \n'
             run = "cd " + fn + " ; python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' --dispatch ' + fn + ' -f ; cd .. \n'
             f.write(run)
 
