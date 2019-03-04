@@ -940,18 +940,23 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         plt.close()
         return fig
 
-    def get_single_cutout(self, ra, dec, window, catalog_image):
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None):
 
-        d = {'cutout': None,
-             'hdu': None,
-             'path': None,
-             'filter': catalog_image['filter'],
-             'instrument': catalog_image['instrument']}
+
+        d = {'cutout':None,
+             'hdu':None,
+             'path':None,
+             'filter':catalog_image['filter'],
+             'instrument':catalog_image['instrument'],
+             'mag':None,
+             'aperture':None}
 
         try:
             wcs_manual = catalog_image['wcs_manual']
+            mag_func = catalog_image['mag_func']
         except:
             wcs_manual = self.WCS_Manual
+            mag_func = None
 
         try:
             if catalog_image['image'] is None:
@@ -970,18 +975,21 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             # to here, window is in degrees so ...
             window = 3600. * window
 
-            cutout, _, _, _ = sci.get_cutout(ra, dec, error=window, window=window, aperture=None,
-                                             mag_func=None,copy=True)
+            cutout,pix_counts, mag, mag_radius = sci.get_cutout(ra, dec, error=window, window=window, aperture=aperture,
+                                             mag_func=mag_func,copy=True)
             # don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
 
             if cutout is not None:  # construct master cutout
                 d['cutout'] = cutout
+                if (mag is not None) and (mag < 999):
+                    d['mag'] = mag
+                    d['aperture'] = mag_radius
         except:
             log.error("Error in get_single_cutout.", exc_info=True)
 
         return d
 
-    def get_cutouts(self,ra,dec,window):
+    def get_cutouts(self,ra,dec,window,aperture=None):
         l = list()
 
         tile, tract = self.find_target_tile(ra, dec)
@@ -1002,6 +1010,6 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             if i is None:
                 continue
 
-            l.append(self.get_single_cutout(ra,dec,window,i))
+            l.append(self.get_single_cutout(ra,dec,window,i,aperture))
 
         return l

@@ -1,6 +1,10 @@
 changes to elixer by version
 
 
+1.5.0a22 [2019-03-04]
+* updated cat_HSC and cat_SHELA to handle aperture magnitude calculation from 1.5.0a20
+* changed sky pixel averaging from median of 3-sigma cut to biweight
+
 1.5.0a21 [2019-02-25]
 * fixed SLURM dispatch issue going from --ra and --dec to --dispatch and --dets
 

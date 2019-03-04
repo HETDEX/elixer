@@ -487,7 +487,6 @@ def source_prob(config, ra, dec, zs, fluxes, flux_errs, ews_obs, ew_err, c_obs, 
         #                               source neither OII or LAE!""")
         _logger.warning("Some sources appear to be neither LAE or OII!")
 
-    
     # Not a chance it's OII
     posterior_odds[(prior_oii < 1e-80) | (prob_data_oii < 1e-80)] = 1e32
     prob_lae_given_data[(prior_oii < 1e-80) | (prob_data_oii < 1e-80)] = 1.0

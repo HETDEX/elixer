@@ -314,6 +314,9 @@ else: # multiple tasks
                 ntasks_per_node = tasks
                 nodes = 1
 
+            #fix the minimum (don't ask for more tasks per node than you have actual tasks to run)
+            #only an issue if there is only one node requested
+            ntasks_per_node = min(tasks,ntasks_per_node)
 
             print("%d detections as %d tasks on %d nodes at %d tasks-per-node" % (len(subdirs),tasks,nodes,ntasks_per_node))
 

@@ -295,7 +295,8 @@ def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_
 
 
     try:
-        posterior_odds, prob_lae_given_data = LineClassifierPro.source_prob(UNIVERSE_CONFIG,
+        posterior_odds, prob_lae_given_data, prob_data_lae, prob_data_oii, prior_lae, prior_oii = \
+                                                LineClassifierPro.source_prob(UNIVERSE_CONFIG,
                                                       np.array([ra]), np.array([dec]), np.array([z_LyA]),
                                                       np.array([lineFlux]), np.array([lineFlux_err]),
                                                       np.array([ew_obs]), np.array([ew_obs_err]),
@@ -303,7 +304,7 @@ def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_
                                                       addl_fluxes=np.array(extra_fluxes),
                                                       addl_fluxes_error=np.array(extra_fluxes_err),
                                                       addl_line_names=np.array(extra_fluxes_name),
-                                                      flim_file=FLUX_LIMIT_FN,extended_output=False)
+                                                      flim_file=FLUX_LIMIT_FN,extended_output=True)
 
 
         if isinstance(posterior_odds,list) or isinstance(posterior_odds,np.ndarray):

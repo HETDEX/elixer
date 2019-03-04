@@ -15,7 +15,7 @@ from PIL import Image
 
 from astropy.io import fits as pyfits
 from astropy.coordinates import Angle
-from astropy.stats import biweight_midvariance
+#from astropy.stats import biweight_midvariance
 from astropy.modeling.models import Moffat2D, Gaussian2D
 from astropy.visualization import ZScaleInterval
 from photutils import CircularAperture, aperture_photometry
