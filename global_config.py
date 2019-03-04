@@ -14,7 +14,7 @@ import socket
 __version__ = '1.5.0a23'
 
 
-HDR1 = False #set to TRUE for HDR1 release
+HDR1 = True #set to TRUE for HDR1 release
 
 if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
     #base path: /work/03946/hetdex/hdr1/
