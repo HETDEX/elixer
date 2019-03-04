@@ -1,5 +1,13 @@
 changes to elixer by version
 
+1.5.0a23 [2019-03-04]
+* fixed typo in match_summary.py that failed to separated the header text for columns 29-33
+  (the columns are present but the header text was not separated and numbered correctly)
+* fixed missing filter (column 29 .. was printing a space) for aperture magnitude (e.g. the first row
+  or 0.0 distance entry in *_cat.txt)
+* fixed 0.0 value for aperture magnitude (was not being set) in *_cat.txt for the first row (aka
+  the 0.0 distance entry)
+
 
 1.5.0a22 [2019-03-04]
 * updated cat_HSC and cat_SHELA to handle aperture magnitude calculation from 1.5.0a20

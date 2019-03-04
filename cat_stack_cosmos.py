@@ -609,6 +609,10 @@ class STACK_COSMOS(cat_base.Catalog):
                     bid_target.bid_ra = 666 #nonsense RA
                     bid_target.bid_dec = 666 #nonsense Dec
                     bid_target.distance = 0.0
+                    bid_target.bid_filter = i['filter']
+                    bid_target.bid_mag = mag
+                    bid_target.bid_mag_err_bright = 0.0 #todo: right now don't have error on aperture mag
+                    bid_target.bid_mag_err_faint = 0.0
                     if mag < 99:
                         bid_target.bid_flux_est_cgs = self.obs_mag_to_cgs_flux(mag,target_w)
                     else:
