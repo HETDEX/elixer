@@ -265,7 +265,7 @@ else: # multiple tasks
 
         if args.fcsdir is not None:
             subdirs = elixer.get_fcsdir_subdirs_to_process(args)
-        elif (args.ra is not None):
+        else: #if (args.ra is not None):
             subdirs = elixer.get_hdf5_detectids_to_process(args)
 
         if tasks != 0:

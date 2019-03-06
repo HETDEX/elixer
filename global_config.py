@@ -11,7 +11,7 @@ import numpy as np
 import socket
 
 #version
-__version__ = '1.5.0a23'
+__version__ = '1.5.0a24'
 
 
 HDR1 = True #set to TRUE for HDR1 release

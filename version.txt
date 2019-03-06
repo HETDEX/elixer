@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.5.0a24 [2019-03-06]
+* fixed missing call to elixer::get_hdf5_detectids_to_process is RA, Dec not supplied (selixer.py)
+* explicitly clear matplotlib at top of each cycle of HD object processing (elixer.py)
+
 1.5.0a23 [2019-03-04]
 * fixed typo in match_summary.py that failed to separated the header text for columns 29-33
   (the columns are present but the header text was not separated and numbered correctly)

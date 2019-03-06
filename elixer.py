@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import matplotlib
 matplotlib.use('agg')
+import matplotlib.pyplot as plt
 
 import catalogs
 import argparse
@@ -1418,8 +1419,15 @@ def main():
 
     if args.fcsdir is not None:
         fcsdir_list = get_fcsdir_subdirs_to_process(args) #list of rsp1 style directories to process (each represents one detection)
+        if fcsdir_list is not None:
+            log.info("Processing %d entries in FCSDIR" %(len(fcsdir_list)))
+            print("Processing %d entries in FCSDIR" %(len(fcsdir_list)))
+
     else:
         hdf5_detectid_list = get_hdf5_detectids_to_process(args)
+        if fcsdir_list is not None:
+            log.info("Processing %d entries in HDF5" %(len(hdf5_detectid_list)))
+            print("Processing %d entries in HDF5" %(len(hdf5_detectid_list)))
 
     match_list = match_summary.MatchSet()
 
@@ -1454,6 +1462,7 @@ def main():
 
 
             for key in obs_dict.keys():
+                plt.close('all')
                 hd = hetdex.HETDEX(args,fcsdir_list=obs_dict[key]) #builds out the hd object (with fibers, DetObj, etc)
                 #todo: maybe join all hd objects that have the same observation
                 # could save in loading catalogs (assuming all from the same observation)?
@@ -1463,6 +1472,7 @@ def main():
         elif len(hdf5_detectid_list) > 0: #HDF5 (DataRelease style)
             #only one detection per hetdex object
             for d in hdf5_detectid_list:
+                plt.close('all')
                 hd = hetdex.HETDEX(args,fcsdir_list=None,hdf5_detectid_list=[d])
 
                 if hd.status == 0:
@@ -1517,7 +1527,7 @@ def main():
                 num_hits = 0
 
                 for e in hd.emis_list:
-
+                    plt.close('all')
                     log.info("Processing catalogs for eid(%s) ... " %str(e.entry_id))
 
                     for c in cats:
