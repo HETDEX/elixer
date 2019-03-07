@@ -1,5 +1,10 @@
 changes to elixer by version
 
+
+1.5.0a25 [2019-03-07]
+* modified line_classifier.probs.classification_prob_leung.py to return -1 PLAE/POII ratio if calc
+  number of OII and LAEs are both zero (e.g. the priors will be zero).
+
 1.5.0a24 [2019-03-06]
 * fixed missing call to elixer::get_hdf5_detectids_to_process is RA, Dec not supplied (selixer.py)
 * explicitly clear matplotlib at top of each cycle of HD object processing (elixer.py)

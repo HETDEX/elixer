@@ -449,6 +449,10 @@ def source_prob(config, ra, dec, zs, fluxes, flux_errs, ews_obs, ew_err, c_obs, 
     prior_oii = noiis/(nlaes + noiis)
     prior_lae = nlaes/(nlaes + noiis)
 
+    if (nlaes + noiis) == 0.0:
+        _logger.warning("Bayesian Classification: number of OII and LAE is zero. Returning -1 ratio.")
+        return -1, 0
+
     # P(DATA|LAE), P(DATA|OII)
     prob_data_lae = prob_ew_lae*prob_flux_lae*prob_lines_lae
     prob_data_oii = prob_flux_oii*prob_ew_oii*prob_lines_oii
