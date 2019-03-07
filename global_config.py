@@ -28,30 +28,31 @@ if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
     PANACEA_RED_BASEDIR_DEFAULT = PANACEA_RED_BASEDIR
     PANACEA_HDF5_BASEDIR = "/work/03946/hetdex/hdr1/reduction/data"
 
+    # "/work/03946/hetdex/hdr1/imaging/candles_egs"
+    CANDELS_EGS_Stefanon_2016_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/candles_egs/EGS"
+    EGS_CFHTLS_PATH = "/work/03946/hetdex/hdr1/imaging/candles_egs/CFHTLS"
+    CFHTLS_PHOTOZ_CAT = "/work/03946/hetdex/hdr1/imaging/candles_egs/CFHTLS/photozCFHTLS-W3_270912.out"
 
-    CANDELS_EGS_Stefanon_2016_BASE_PATH = "/work/03564/stevenf/maverick/EGS"
-    EGS_CFHTLS_PATH = "/work/03261/polonius/maverick/catalogs/CFHTLS"
-    CFHTLS_PHOTOZ_CAT = "/work/03261/polonius/maverick/catalogs/CFHTLS/photozCFHTLS-W3_270912.out"
-    GOODS_N_BASE_PATH = "/work/03564/stevenf/maverick/GOODSN"
+    EGS_GROTH_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/candles_egs/groth"
+    EGS_GROTH_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/candles_egs/groth"  # note: there is no catalog
+
+    GOODS_N_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/goods_north/GOODSN"
     GOODS_N_CAT_PATH = GOODS_N_BASE_PATH
 
-    EGS_GROTH_BASE_PATH = "/work/03229/iwold/maverick/groth"
-    EGS_GROTH_CAT_PATH = "/work/03229/iwold/maverick/groth"  # note: there is no catalog
+    STACK_COSMOS_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/cosmos/stackCOSMOS/nano/"
+    STACK_COSMOS_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/cosmos/stackCOSMOS"
+    COSMOS_EXTRA_PATH = "/work/03946/hetdex/hdr1/imaging/cosmos/COSMOS/"
 
-    STACK_COSMOS_BASE_PATH = "/work/03229/iwold/maverick/stackCOSMOS/nano/"
-    STACK_COSMOS_CAT_PATH = "/work/03229/iwold/maverick/stackCOSMOS"
-    COSMOS_EXTRA_PATH = "/work/03261/polonius/maverick/catalogs/COSMOS/"
-
-    DECAM_IMAGE_PATH = "/work/03229/iwold/maverick/fall_field/stack/v2/psf/nano/"
-    SHELA_BASE_PATH = "/work/03229/iwold/maverick/fall_field/stack/v2/psf/nano/"
+    DECAM_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/shela/nano/"
+    SHELA_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/shela/nano/"
 
     SHELA_CAT_PATH = SHELA_BASE_PATH
-    SHELA_PHOTO_Z_COMBINED_PATH = "/work/03261/polonius/maverick/catalogs/SHELA"
-    SHELA_PHOTO_Z_MASTER_PATH = "/work/03261/polonius/maverick/catalogs/SHELA"
+    SHELA_PHOTO_Z_COMBINED_PATH = "/work/03946/hetdex/hdr1/imaging/shela/SHELA"
+    SHELA_PHOTO_Z_MASTER_PATH = "/work/03946/hetdex/hdr1/imaging/shela/SHELA"
 
-    HSC_BASE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced"
-    HSC_CAT_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced/catalog_tracts"
-    HSC_IMAGE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced/images"
+    HSC_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced"
+    HSC_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts"
+    HSC_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
 
 else:
     if socket.gethostname() == 'z50':
