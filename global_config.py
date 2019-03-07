@@ -315,7 +315,7 @@ MAX_SCORE_ABSORPTION_LINES = 0.0 #the most an absorption line can contribute to 
 FLUX_WAVEBIN_WIDTH = 2.0 # AA
 
 CLASSIFY_WITH_OTHER_LINES = True
-MIN_MCMC_SNR = 3.0 #minium SNR from an MCMC fit to accept as a real line
+MIN_MCMC_SNR = 0.0 #minium SNR from an MCMC fit to accept as a real line (if 0.0, do not MCMC additional lines)
 MIN_ADDL_EMIS_LINES_FOR_CLASSIFY = 1
 MULTILINE_MIN_SOLUTION_SCORE = 25.0 #remember, this does NOT include the main line's score (about p(noise) = 0.01)
 MULTILINE_MIN_SOLUTION_CONFIDENCE = 0.99
