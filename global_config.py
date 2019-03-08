@@ -28,7 +28,7 @@ if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
     PANACEA_RED_BASEDIR_DEFAULT = PANACEA_RED_BASEDIR
     PANACEA_HDF5_BASEDIR = "/work/03946/hetdex/hdr1/reduction/data"
 
-    # "/work/03946/hetdex/hdr1/imaging/candles_egs"
+    #todo: the phot0-z files are now in in tar ... need to update handling
     CANDELS_EGS_Stefanon_2016_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/candles_egs/EGS"
     EGS_CFHTLS_PATH = "/work/03946/hetdex/hdr1/imaging/candles_egs/CFHTLS"
     CFHTLS_PHOTOZ_CAT = "/work/03946/hetdex/hdr1/imaging/candles_egs/CFHTLS/photozCFHTLS-W3_270912.out"
