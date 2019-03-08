@@ -369,7 +369,7 @@ class EmissionLineInfo:
         self.mcmc_a = None #area
         self.mcmc_y = None
         self.mcmc_ew_obs = None #calcuated value (using error propogation from mcmc_a and mcmc_y)
-        self.mcmc_snr = None
+        self.mcmc_snr = -1
         self.mcmc_dx = 1.0 #default to 1.0 so mult or div have no effect
         self.mcmc_line_flux = None #actual line_flux not amplitude (not the same if y data is flux instead of flux/dx)
         self.mcmc_continuum = None #ditto for continuum
