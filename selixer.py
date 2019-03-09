@@ -55,7 +55,7 @@ if hostname == "maverick":
     print("preparing SLURM for maverick...")
     host = HOST_MAVERICK
     MAX_TASKS = 640 #max allowed by TACC (for gpu or vis)
-    TIME_OVERHEAD = 1.0 #MINUTES of overhead to get started (per task call ... just a safety)
+    TIME_OVERHEAD = 2.0 #MINUTES of overhead to get started (per task call ... just a safety)
     MAX_TIME_PER_TASK = 3.0  # MINUTES max, worst case expected time per task to execute (assumes minimal retries)
     cores_per_node = 20 #for Maverick
     time = "00:59:59"
@@ -73,8 +73,8 @@ elif hostname == "wrangler":
     MAX_TASKS = 10
     MAX_NODES = 1
     #MAX_TASKS_PER_NODE = 10 #actually, variable, encoded later
-    TIME_OVERHEAD = 1.0  # MINUTES of overhead to get started (per task call ... just a safety)
-    MAX_TIME_PER_TASK = 1.5  #MINUTES max, worst case expected time per task to execute (assumes minimal retries)
+    TIME_OVERHEAD = 2.0  # MINUTES of overhead to get started (per task call ... just a safety)
+    MAX_TIME_PER_TASK = 3.0  #MINUTES max, worst case expected time per task to execute (assumes minimal retries)
     cores_per_node = 24 #but basically can only use 4 at a time (see note just above)
     time = "00:59:59"
     time_set = False
@@ -90,8 +90,8 @@ elif hostname == "stampede2":
     MAX_TASKS = 48 #point of seriously diminishing returns
     MAX_NODES = 3 #right now, pointless to go beyond 2 nodes
     #MAX_TASKS_PER_NODE = 22 #actually, variable, encoded later
-    TIME_OVERHEAD = 1.0  # MINUTES of overhead to get started (per task call ... just a safety)
-    MAX_TIME_PER_TASK = 2.0  # MINUTES max, worst case expected time per task to execute (assumes minimal retries)
+    TIME_OVERHEAD = 2.0  # MINUTES of overhead to get started (per task call ... just a safety)
+    MAX_TIME_PER_TASK = 3.0  # MINUTES max, worst case expected time per task to execute (assumes minimal retries)
     cores_per_node = 68
     time = "00:59:59"
     time_set = False
@@ -321,6 +321,9 @@ else: # multiple tasks
             print("%d detections as %d tasks on %d nodes at %d tasks-per-node" % (len(subdirs),tasks,nodes,ntasks_per_node))
 
         #dirs_per_file == how many detections (directory holding detection info) to add to each dispatch_xxx
+        if tasks == 0:
+            print("No tasks to execute. Exiting ...")
+            exit(0)
         dirs_per_file = len(subdirs) // tasks  # int(floor(float(len(subdirs)) / float(tasks)))
         remainder = len(subdirs) % tasks
         dets_per_dispatch = np.full(tasks,dirs_per_file)
