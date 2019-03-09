@@ -11,7 +11,7 @@ import numpy as np
 import socket
 
 #version
-__version__ = '1.5.0a25'
+__version__ = '1.6.0a1'
 
 
 HDR1 = True #set to TRUE for HDR1 release
@@ -336,3 +336,5 @@ ANNULUS_FIGURE_SZ_Y = 12
 SKY_ANNULUS_MIN_MAG = 15.0 #measure magnitude must be fainter than this to trigger sky subtraction from surrounding annulus
 
 INCLUDE_ALL_AMPS = False #ie. if true, ignore the bad amp list
+
+RECOVERY_RUN = False

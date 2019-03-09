@@ -898,10 +898,10 @@ class STACK_COSMOS(cat_base.Catalog):
                                                                                    target_w),
                                                           self.micro_jansky_to_cgs(df[c['cols'][1]].values[0],
                                                                                    target_w))
-                                except:
+                                except: #there can be several images that do not have this info, so will get out of range
                                     try:
                                         log.debug('Could not add instrument (%s) and filter (%s) info to bid_target.'
-                                                  %(c['instrument'], c['filter']))
+                                                  %(c['instrument'], c['filter']))#,exc_info=True)
                                     except:
                                         log.debug('Could not add filter info to bid_target.')
 

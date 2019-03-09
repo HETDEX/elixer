@@ -1,5 +1,6 @@
 from __future__ import print_function
 import global_config as G
+import os
 
 #log = G.logging.getLogger('match_summary_logger')
 #log.setLevel(G.logging.DEBUG)
@@ -219,20 +220,36 @@ class MatchSet:
 
         if filename is not None:
             sep = "\t"
-            try:
-                f = open(filename,'w')
-            except:
-                log.error("Exception create match summary file: %s" %filename, exc_info=True)
-                return None
 
-            # write help (header) part
-            f.write("# version " + str(G.__version__) + "\n")
-            f.write("# each row contains one emission line and one matched imaging catalog counterpart\n")
-            f.write("# the same emission line may repeat with additional possible imaging catalog counterparts\n")
-            col_num = 0
-            for h in self.headers:
-                col_num += 1
-                f.write("# %d %s\n" % (col_num, h))
+            write_header = True
+            if G.RECOVERY_RUN:
+                try:
+                    if os.path.isfile(filename):
+                        write_header = False
+                except:
+                    log.info("Unexpected exception (not fatal) in match_summary::write_file", exc_info=True)
+
+                try:
+                    f = open(filename, 'a+')  # open for append, but create if it does not exist
+                except:
+                    log.error("Exception create match summary file: %s" % filename, exc_info=True)
+                    return None
+            else: #not a recovery run ... overwrite if present
+                try:
+                    f = open(filename, 'w')
+                except:
+                    log.error("Exception create match summary file: %s" % filename, exc_info=True)
+                    return None
+
+            if write_header:
+                # write help (header) part
+                f.write("# version " + str(G.__version__) + "\n")
+                f.write("# each row contains one emission line and one matched imaging catalog counterpart\n")
+                f.write("# the same emission line may repeat with additional possible imaging catalog counterparts\n")
+                col_num = 0
+                for h in self.headers:
+                    col_num += 1
+                    f.write("# %d %s\n" % (col_num, h))
 
             #need to get number of potential matches
 

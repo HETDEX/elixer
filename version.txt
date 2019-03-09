@@ -1,6 +1,19 @@
 changes to elixer by version
 
 
+1.6.0a1 [2019-03-09]
+* added --recover option
+  Reorganizes elixer.py to execute to completion one detection at a time (rather than all detections in stages)
+  If --recover is on the command line, ELiXer will first check the expected output directory for reports that
+  match the list of detections to process. Any that are found are removed from the list. The anticipated primary use
+  case is a run of many detections that ran out of time on TACC. Now, some subset of the reports will be complete and
+  they user can re-execute the sbatch command directly (or even re-run elixer) but only those detections for which a
+  PDF report does not exist will be processed.
+
+  If --recover is NOT on the command line, all detections will be processed and the files overwritten in the original
+  all or nothing process (that is, all detections are processed in stages and are all written out only at the end).
+
+
 1.5.0a25 [2019-03-07]
 * modified line_classifier.probs.classification_prob_leung.py to return -1 PLAE/POII ratio if calc
   number of OII and LAEs are both zero (e.g. the priors will be zero).
