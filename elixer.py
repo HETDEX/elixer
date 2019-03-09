@@ -157,6 +157,8 @@ def parse_commandline(auto_force=False):
 
     parser.add_argument('-e', '--error', help="Error (+/-) in RA and Dec in arcsecs.", required=False, type=float)
 
+    parser.add_argument('--search', help="Search window (+/-) in RA and Dec in arcsecs (for use only with --ra and --dec).", required=False, type=float)
+
     parser.add_argument('--fibers', help="Number of fibers to plot in 1D spectra cutout."
                                          "If present, also turns off weighted average.", required=False, type=int)
 
@@ -419,6 +421,16 @@ def valid_parameters(args):
             args.error = 0.0
         if args.name is None:
             args.name = "argscheck"
+
+    if args.search is not None:
+        try:
+            f = float(args.search)
+            if f < 0:
+                print("Invalid --search")
+                result = False
+        except:
+            print("Invalid --search")
+            result = False
 
     #must have ra and dec -OR- dither and (ID or (chi2 and sigma))
     if result:
@@ -1048,7 +1060,13 @@ def get_hdf5_detectids_to_process(args):
             # maybe an ra and dec ?
             if (args.ra is not None) and (args.dec is not None) and (args.error is not None):
                 # args.ra and dec are now guaranteed to be decimal degrees. args.error is in arcsecs
-                return get_hdf5_detectids_by_coord(args.hdf5, args.ra, args.dec, args.error / 3600.)
+
+                if args.search is not None:
+                    error = args.search
+                else:
+                    error = args.error
+
+                return get_hdf5_detectids_by_coord(args.hdf5, args.ra, args.dec, error / 3600.)
             else:
                 return []
 

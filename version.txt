@@ -12,6 +12,9 @@ changes to elixer by version
 
   If --recover is NOT on the command line, all detections will be processed and the files overwritten in the original
   all or nothing process (that is, all detections are processed in stages and are all written out only at the end).
+* added --search option to split out from --error. Use is exclusively with --ra and --dec and specifies the search
+  radius in arcsecs. If not supplied, --error is used instead. This allows for a wide search area but with still a
+  small (as defined by --error) cutout window.
 
 
 1.5.0a25 [2019-03-07]
