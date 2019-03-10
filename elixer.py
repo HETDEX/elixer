@@ -1528,6 +1528,7 @@ def main():
             if len(hdf5_detectid_list) == 0:
                 print("[RECOVERY MODE] All detections already processed. Exiting...")
                 log.info("[RECOVERY MODE] All detections already processed. Exiting...")
+                log.critical("Main complete.")
                 exit(0)
             else:
                 master_loop_length = len(hdf5_detectid_list)
@@ -1539,6 +1540,7 @@ def main():
             if len(fcsdir_list) == 0:
                 print("[RECOVERY MODE] All detections already processed. Exiting...")
                 log.info("[RECOVERY MODE] All detections already processed. Exiting...")
+                log.critical("Main complete.")
                 exit(0)
             else:
                 master_loop_length = len(fcsdir_list)
