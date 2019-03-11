@@ -1053,10 +1053,25 @@ def get_hdf5_detectids_to_process(args):
         exit(-1)
 
     detectids = []
+    detlist = None
 
     try:
 
-        if args.dets is None:
+        if args.dispatch is not None:  # from multi-task SLURM only
+            try:
+                # is this a list or a file
+                if os.path.isfile(args.dispatch):
+                    detlist = np.genfromtxt(args.dispatch, dtype=None, comments='#', usecols=(0,))
+                    log.debug("[dispatch] Loaded --dets as file")
+                else:
+                    detlist = args.dispatch.replace(', ', ',').split(',')  # allow comma or comma-space separation
+                    log.debug("[dispatch] Loaded --dets as list")
+            except:
+                log.error("Exception processing detections (--dispatch) detlist. FATAL. ", exc_info=True)
+                print("Exception processing detections (--dispatch) detlist. FATAL.")
+                exit(-1)
+
+        elif args.dets is None:
             # maybe an ra and dec ?
             if (args.ra is not None) and (args.dec is not None) and (args.error is not None):
                 # args.ra and dec are now guaranteed to be decimal degrees. args.error is in arcsecs
@@ -1080,24 +1095,25 @@ def get_hdf5_detectids_to_process(args):
         #stb = h5.root.Spectra
 
         #dets might be a single value or a list
-        try:
-            #is this a list or a file
-            if os.path.isfile(args.dets):
-                detlist = np.genfromtxt(args.dets, dtype=None,comments='#',usecols=(0,))
-                detlist_is_file = True
-                log.debug("Loaded --dets as file")
-            elif os.path.isfile(os.path.join("..",args.dets)):
-                detlist = np.genfromtxt(os.path.join("..",args.dets), dtype=None, comments='#', usecols=(0,))
-                detlist_is_file = True
-                log.debug("Loaded --dets as ../<file> ")
-            else:
-                detlist = args.dets.replace(', ',',').split(',') #allow comma or comma-space separation
-                log.debug("Loaded --dets as list")
-        except:
-            log.error("Exception processing detections (--dets) detlist. FATAL. ", exc_info=True)
-            print("Exception processing detections (--dets) detlist. FATAL.")
-            h5.close()
-            exit(-1)
+        if detlist is None:
+            try:
+                #is this a list or a file
+                if os.path.isfile(args.dets):
+                    detlist = np.genfromtxt(args.dets, dtype=None,comments='#',usecols=(0,))
+                    detlist_is_file = True
+                    log.debug("Loaded --dets as file")
+                elif os.path.isfile(os.path.join("..",args.dets)):
+                    detlist = np.genfromtxt(os.path.join("..",args.dets), dtype=None, comments='#', usecols=(0,))
+                    detlist_is_file = True
+                    log.debug("Loaded --dets as ../<file> ")
+                else:
+                    detlist = args.dets.replace(', ',',').split(',') #allow comma or comma-space separation
+                    log.debug("Loaded --dets as list")
+            except:
+                log.error("Exception processing detections (--dets) detlist. FATAL. ", exc_info=True)
+                print("Exception processing detections (--dets) detlist. FATAL.")
+                h5.close()
+                exit(-1)
 
         len_detlist = 0
         try:

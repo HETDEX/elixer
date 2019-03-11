@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.6.0a2 [2019-03-11]
+* fixed missing process of --dispatch for HDF5 consumption with --dets as entire shot
+
 
 1.6.0a1 [2019-03-09]
 * added --recover option
