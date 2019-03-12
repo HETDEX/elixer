@@ -48,6 +48,23 @@ host = HOST_UNKNOWN
 
 #form of loginxxx.<name>.tacc.utexas.edu for login nodes
 #or cxxx-xxx.<name>.tacc.utexas.edu for compute nodes
+
+args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
+
+#check for --merge (if so just call elixer
+if "--merge" in args:
+    print("Calling ELiXer to merge catalogs and fiber files (ignoring all other parameters) ... ")
+    elixer.merge()
+    exit(0)
+
+
+if "--recover" in args:
+    recover_mode = True
+else:
+    recover_mode = False
+
+
+
 if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
@@ -56,7 +73,10 @@ if hostname == "maverick":
     host = HOST_MAVERICK
     MAX_TASKS = 640 #max allowed by TACC (for gpu or vis)
     TIME_OVERHEAD = 2.0 #MINUTES of overhead to get started (per task call ... just a safety)
-    MAX_TIME_PER_TASK = 3.0  # MINUTES max, worst case expected time per task to execute (assumes minimal retries)
+    if recover_mode:
+        MAX_TIME_PER_TASK = 1.5 #in recover mode, can bit more agressive in timing (easier to continue if timeout)
+    else:
+        MAX_TIME_PER_TASK = 3.0  # MINUTES max, worst case expected time per task to execute (assumes minimal retries)
     cores_per_node = 20 #for Maverick
     time = "00:59:59"
     time_set = False
@@ -74,7 +94,10 @@ elif hostname == "wrangler":
     MAX_NODES = 1
     #MAX_TASKS_PER_NODE = 10 #actually, variable, encoded later
     TIME_OVERHEAD = 2.0  # MINUTES of overhead to get started (per task call ... just a safety)
-    MAX_TIME_PER_TASK = 3.0  #MINUTES max, worst case expected time per task to execute (assumes minimal retries)
+    if recover_mode:
+        MAX_TIME_PER_TASK = 1.5 #in recover mode, can bit more agressive in timing (easier to continue if timeout)
+    else:
+        MAX_TIME_PER_TASK = 3.0  # MINUTES max, worst case expected time per task to execute (assumes minimal retries)
     cores_per_node = 24 #but basically can only use 4 at a time (see note just above)
     time = "00:59:59"
     time_set = False
@@ -90,8 +113,12 @@ elif hostname == "stampede2":
     MAX_TASKS = 48 #point of seriously diminishing returns
     MAX_NODES = 3 #right now, pointless to go beyond 2 nodes
     #MAX_TASKS_PER_NODE = 22 #actually, variable, encoded later
-    TIME_OVERHEAD = 2.0  # MINUTES of overhead to get started (per task call ... just a safety)
-    MAX_TIME_PER_TASK = 3.0  # MINUTES max, worst case expected time per task to execute (assumes minimal retries)
+    TIME_OVERHEAD = 1.0  # MINUTES of overhead to get started (per task call ... just a safety)
+
+    if recover_mode:
+        MAX_TIME_PER_TASK = 1.5 #in recover mode, can bit more agressive in timing (easier to continue if timeout)
+    else:
+        MAX_TIME_PER_TASK = 3.0  # MINUTES max, worst case expected time per task to execute (assumes minimal retries)
     cores_per_node = 68
     time = "00:59:59"
     time_set = False
@@ -121,14 +148,9 @@ else:
     tasks = 1
 
 
-args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
 
 
-#check for --merge (if so just call elixer
-if "--merge" in args:
-    print("Calling ELiXer to merge catalogs and fiber files (ignoring all other parameters) ... ")
-    elixer.merge()
-    exit(0)
+
 
 
 

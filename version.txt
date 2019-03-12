@@ -3,6 +3,7 @@ changes to elixer by version
 
 1.6.0a3 [2019-03-12]
 * launch tasks with mpiexec.hydra for stampede2 cluster
+* reduced max time per task (if using --recover) as is easier to continue on timeout if underestimate time
 
 1.6.0a2 [2019-03-11]
 * fixed missing process of --dispatch for HDF5 consumption with --dets as entire shot
