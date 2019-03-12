@@ -244,11 +244,16 @@ os.chdir(basename)
 path = os.path.join(os.path.dirname(sys.argv[0]),"elixer.py")
 nodes = 1
 
+python_cmd = "python "
+
+if host == HOST_STAMPEDE2:
+    python_cmd = "mpiexec.hydra -np 1 python "
+
 dets_per_dispatch =  [] #list of counts ... the number of detection directories to list in the corresponding dispatch_xxx file
 if tasks == 1:
     print("Only 1 task. Will not use dispatch.")
 
-    run = "python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' -f \n'
+    run = python_cmd + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' -f \n'
     dets_per_dispatch.append(1)
     try:
         f = open("elixer.run", 'w')
@@ -362,7 +367,7 @@ else: # multiple tasks
 
             #parms = remove_ra_dec(sys.argv[1:])
             #run = "cd " + fn + " ; python " + path + ' ' + ' ' + ' '.join(parms) + ' --dispatch ' + fn + ' -f ; cd .. \n'
-            run = "cd " + fn + " ; python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' --dispatch ' + fn + ' -f ; cd .. \n'
+            run = "cd " + fn + " ; " + python_cmd + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' --dispatch ' + fn + ' -f ; cd .. \n'
             f.write(run)
 
         f.close()
