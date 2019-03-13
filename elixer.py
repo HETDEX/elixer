@@ -548,14 +548,22 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
             cutout = c.get_stacked_cutout(ra,dec,window=annulus[1])
 
             #if cutout is not None:
-            r = c.build_annulus_report(obs=obs,cutout=cutout,section_title=section_title)
+            try:
+                r = c.build_annulus_report(obs=obs,cutout=cutout,section_title=section_title)
             #else:
             #    r = None
+            except:
+                log.error("Exception in elixer::build_pages",exc_info=True)
+                r = None
 
         else:
-            r = c.build_bid_target_reports(match,ra, dec, error,num_hits=num_hits,section_title=section_title,
-                                           base_count=base_count,target_w=target_w,fiber_locs=fiber_locs,
-                                           target_flux=target_flux)
+            try:
+                r = c.build_bid_target_reports(match,ra, dec, error,num_hits=num_hits,section_title=section_title,
+                                               base_count=base_count,target_w=target_w,fiber_locs=fiber_locs,
+                                               target_flux=target_flux)
+            except:
+                log.error("Exception in elixer::build_pages",exc_info=True)
+                r = None
         count = 0
         if r is not None:
             cat_count+= 1

@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.6.0a4 [2019-03-13]
+* add better protection on add empty fiber list cutout (formerly unhandled exception in rare case where we have
+  entries in the detection HDF5 but no shot files and not overlapping photometry)
+
 
 1.6.0a3 [2019-03-12]
 * launch tasks with mpiexec.hydra for stampede2 cluster

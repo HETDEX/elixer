@@ -34,7 +34,7 @@ Additional (less common) packages: (install with "pip install --user xxx"  where
 
 
 One additional HETDEX specific package is also required: pyhetdex
-    ("pip install --extra-index-url https://gate.mpe.mpg.de/pypi/simple/ pyhetdex")
+    ("pip install --user --extra-index-url https://gate.mpe.mpg.de/pypi/simple/ pyhetdex")
 
 
 
@@ -83,7 +83,7 @@ a report for each.
 The following examples will assume the SLURM version using the bash wrapper.
 
 * EXAMPLE 1
-> selixer  --ra 150.025406 --dec 2.087600 --error 2.0 --name example1 --tasks 0 --email yourname@utexas.edu
+> selixer --recover --ra 150.025406 --dec 2.087600 --error 2.0 --name example1 --tasks 0 --email yourname@utexas.edu
 
 Here an --ra and --dec are provide (in decimal degress ... however, hms and dms notations will also work, e.g.:
  --ra 10h00m6.10s --dec 2d05m15.36s are equivalent).
@@ -103,7 +103,7 @@ Additional, optional commonly used command line switches:
 
 
 * Example 2
-> selixer --tasks 0 --email yourname@utexas.edu --dets detlist --error 2.5 --name example2
+> selixer --recover --tasks 0 --email yourname@utexas.edu --dets detlist --error 2.5 --name example2
 
 Here, --dets detlist refers to a file named detlist that contains a list of detectionIDs, one per line.
 
