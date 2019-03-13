@@ -3,6 +3,7 @@ changes to elixer by version
 1.6.0a4 [2019-03-13]
 * add better protection on add empty fiber list cutout (formerly unhandled exception in rare case where we have
   entries in the detection HDF5 but no shot files and not overlapping photometry)
+* trim stampede2 time estimate down to 45 sec per report
 
 
 1.6.0a3 [2019-03-12]
