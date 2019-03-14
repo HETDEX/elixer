@@ -108,7 +108,7 @@ elif hostname == "stampede2":
     #https://portal.tacc.utexas.edu/user-guides/stampede2#running
     #KNL normal 256 nodes/17408 cores total so ... 68 cores per node
     print("preparing SLURM for stampede2...")
-    host = HOST_STAMPEDE2
+    host = HOST_STAMPEDE2 #defaulting to skx-normal
 
     MAX_TASKS = 48 #point of seriously diminishing returns
     MAX_NODES = 3 #right now, pointless to go beyond 2 nodes
@@ -267,6 +267,7 @@ path = os.path.join(os.path.dirname(sys.argv[0]),"elixer.py")
 nodes = 1
 
 python_cmd = "python "
+pre_python_cmd = ""
 
 if host == HOST_STAMPEDE2:
     python_cmd = "mpiexec.hydra -np 1 python "
@@ -325,18 +326,30 @@ else: # multiple tasks
                 #22 tasks per node up to 1 node   (22)
                 #20 tasks per node up to 2 nodes  (40)
                 #16 tasks per node up to 3 nodes  (48)
-                if tasks <= 22:
-                    ntasks_per_node = tasks
-                    nodes = 1
-                elif tasks <= 40:
-                    nodes = 2
-                    ntasks_per_node = tasks // nodes + tasks % nodes
-                elif tasks <= 48: #point of seriously diminishing return
-                    nodes = 3
-                    ntasks_per_node = tasks // nodes + tasks % nodes
-                else: #cap at 48 (or 16 tasks per 3 nodes)
-                    nodes = 3
-                    ntasks_per_node = 16
+
+                if queue == "skx-normal":
+                    if tasks <= 22:
+                        ntasks_per_node = tasks
+                        nodes = 1
+                    elif tasks <= 40:
+                        nodes = 2
+                        ntasks_per_node = tasks // nodes + tasks % nodes
+                    elif tasks <= 48: #point of seriously diminishing return
+                        nodes = 3
+                        ntasks_per_node = tasks // nodes + tasks % nodes
+                    else: #cap at 48 (or 16 tasks per 3 nodes)
+                        nodes = 3
+                        ntasks_per_node = 16
+                else: #if queue == "normal":  # KNL
+                    if tasks <= 6:
+                        ntasks_per_node = tasks
+                    else:
+                        ntasks_per_node = 6
+
+                    nodes = min(tasks // ntasks_per_node, 50)
+
+                    pre_python_cmd = " export OMP_PROC_BIND=0 ; "
+                    MAX_TIME_PER_TASK = 5.0
             else:
                 ntasks_per_node = tasks
                 nodes = 1
@@ -389,7 +402,7 @@ else: # multiple tasks
 
             #parms = remove_ra_dec(sys.argv[1:])
             #run = "cd " + fn + " ; python " + path + ' ' + ' ' + ' '.join(parms) + ' --dispatch ' + fn + ' -f ; cd .. \n'
-            run = "cd " + fn + " ; " + python_cmd + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' --dispatch ' + fn + ' -f ; cd .. \n'
+            run = "cd " + fn + " ; " + pre_python_cmd + python_cmd + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' --dispatch ' + fn + ' -f ; cd .. \n'
             f.write(run)
 
         f.close()

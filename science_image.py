@@ -269,6 +269,9 @@ class science_image():
             sky_outer_radius = 0.
             sky_inner_radius = 0.
 
+        if aperture is None:
+            aperture = 0.
+
 
         if (error is None or error == 0) and (window is None or window == 0):
             log.info("inavlid error box and window box")

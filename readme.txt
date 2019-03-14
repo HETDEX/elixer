@@ -2,7 +2,9 @@ HETDEX ELiXer (Emission Line eXplorer) Data Release 1 Readme
 ------------------------------------------------------------
 
 The following readme covers the installation/setup and basic usage of ELiXer as incorporated into the HETDEX
-Data Release 1.
+Data Release 1. This version of ELiXer was written for and tested with Python 2.7.15. It is compatible with Python 3x
+(limited testing performed with Python 3.6.8) but there are deprication warnings for several packages (notably astropy
+and photutils).
 
 ##############################
 # Installation
@@ -30,7 +32,7 @@ Additional (common) python packages (should be included in python 2.7.15 w/o add
     numpy, matplotlib, pylab, argparse, sys, os, distutils, glob, shutils, socket
 
 Additional (less common) packages: (install with "pip install --user xxx"  where xxx is the package name)
- astropy, pandas, photutils, scipy, tables (aka pytables)
+ astropy, ConfigParser, pandas, photutils, scipy, tables (aka pytables)
 
 
 One additional HETDEX specific package is also required: pyhetdex
@@ -88,6 +90,10 @@ The following examples will assume the SLURM version using the bash wrapper.
 Here an --ra and --dec are provide (in decimal degress ... however, hms and dms notations will also work, e.g.:
  --ra 10h00m6.10s --dec 2d05m15.36s are equivalent).
 
+  --recover is a switch that instructs ELiXer to run each detection to completion before starting the next one. This
+            allows ELiXer to be run a second time, using the exact same commmand, if the first command timed out in
+            the queue and it will resume where it left off and only process detections for which a report does not yet
+            exist.
   --error is the radius in which to search from the given RA and Dec and is ALWAYS in arcsecs.
   --name is the output directory name under which the results will be written.
   --tasks 0 specifies that ELiXer should set the number of instances to spawn based on the cluster on which it

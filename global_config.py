@@ -3,6 +3,7 @@ import logging
 import os.path as op
 from datetime import datetime
 import numpy as np
+
 #from guppy import hpy
 #HPY = hpy()
 #import gc
@@ -11,7 +12,7 @@ import numpy as np
 import socket
 
 #version
-__version__ = '1.6.0a4'
+__version__ = '1.6.0a5'
 
 
 HDR1 = True #set to TRUE for HDR1 release

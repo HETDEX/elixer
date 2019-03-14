@@ -1,5 +1,12 @@
 changes to elixer by version
 
+
+1.6.0a5 [2019-03-14]
+* removed import and calls to Andrews's Bayesian PLAE/POII which necessitated cosmolopy so can eliminate hard
+  python2 dependencies
+* support python2 or python3 versions of ConfigParser (configparser in python3)
+* update binding for stampede2 normal queue (KNL nodes) ... limit to 6 tasks per node and a max of 50 nodes
+
 1.6.0a4 [2019-03-13]
 * add better protection on add empty fiber list cutout (formerly unhandled exception in rare case where we have
   entries in the detection HDF5 but no shot files and not overlapping photometry)

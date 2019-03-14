@@ -354,7 +354,7 @@ class SHELA(cat_base.Catalog):
                 log.debug("Building " + cls.Name + " " + cat_name + " dataframe...")
 
                 try:
-                    table = astropy.table.Table.read(cat_loc)
+                    table = astropy.table.Table.read(cat_loc)#,format='fits')
                 except:
                     log.error(name + " Exception attempting to open catalog file: " + cat_loc, exc_info=True)
                     continue #try the next one  #exc_info = sys.exc_info()
