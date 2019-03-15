@@ -1,6 +1,18 @@
 from __future__ import print_function
 
-import global_config as G
+try:
+    from elixer import global_config as G
+    from elixer import science_image
+    from elixer import cat_base
+    from elixer import match_summary
+    from elixer import line_prob
+except:
+    import global_config as G
+    import science_image
+    import cat_base
+    import match_summary
+    import line_prob
+
 import os.path as op
 import copy
 
@@ -9,7 +21,6 @@ import matplotlib
 #matplotlib.use('agg')
 
 import pandas as pd
-import science_image
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
@@ -19,7 +30,7 @@ import astropy.table
 #import astropy.utils.exceptions
 #import warnings
 #warnings.filterwarnings('ignore', category=astropy.utils.exceptions.AstropyUserWarning, append=True)
-import line_prob
+
 
 #log = G.logging.getLogger('Cat_logger')
 #log.setLevel(G.logging.DEBUG)
@@ -28,8 +39,6 @@ log.setlevel(G.logging.DEBUG)
 
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
-import cat_base
-import match_summary
 
 def shela_count_to_mag(count,cutout=None,headers=None):
     if count is not None:
@@ -354,7 +363,7 @@ class SHELA(cat_base.Catalog):
                 log.debug("Building " + cls.Name + " " + cat_name + " dataframe...")
 
                 try:
-                    table = astropy.table.Table.read(cat_loc)
+                    table = astropy.table.Table.read(cat_loc)#,format='fits')
                 except:
                     log.error(name + " Exception attempting to open catalog file: " + cat_loc, exc_info=True)
                     continue #try the next one  #exc_info = sys.exc_info()
@@ -817,6 +826,10 @@ class SHELA(cat_base.Catalog):
                     bid_target.bid_ra = 666  # nonsense RA
                     bid_target.bid_dec = 666  # nonsense Dec
                     bid_target.distance = 0.0
+                    bid_target.bid_filter = i['filter']
+                    bid_target.bid_mag = mag
+                    bid_target.bid_mag_err_bright = 0.0 #todo: right now don't have error on aperture mag
+                    bid_target.bid_mag_err_faint = 0.0
                     if mag < 99:
                         bid_target.bid_flux_est_cgs = self.obs_mag_to_cgs_flux(mag, target_w)
                     else:
@@ -1143,18 +1156,22 @@ class SHELA(cat_base.Catalog):
 
 
 
-    def get_single_cutout(self, ra, dec, window, catalog_image):
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None):
 
-        d = {'cutout': None,
-             'hdu': None,
-             'path': None,
-             'filter': catalog_image['filter'],
-             'instrument': catalog_image['instrument']}
+        d = {'cutout':None,
+             'hdu':None,
+             'path':None,
+             'filter':catalog_image['filter'],
+             'instrument':catalog_image['instrument'],
+             'mag':None,
+             'aperture':None}
 
         try:
             wcs_manual = catalog_image['wcs_manual']
+            mag_func = catalog_image['mag_func']
         except:
             wcs_manual = self.WCS_Manual
+            mag_func = None
 
         try:
             if catalog_image['image'] is None:
@@ -1173,18 +1190,21 @@ class SHELA(cat_base.Catalog):
             # to here, window is in degrees so ...
             window = 3600. * window
 
-            cutout, _, _, _ = sci.get_cutout(ra, dec, error=window, window=window, aperture=None,
-                                             mag_func=None,copy=True)
+            cutout, pix_counts, mag, mag_radius = sci.get_cutout(ra, dec, error=window, window=window, aperture=aperture,
+                                             mag_func=mag_func,copy=True)
             # don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
 
             if cutout is not None:  # construct master cutout
                 d['cutout'] = cutout
+                if (mag is not None) and (mag < 999):
+                    d['mag'] = mag
+                    d['aperture'] = mag_radius
         except:
             log.error("Error in get_single_cutout.", exc_info=True)
 
         return d
 
-    def get_cutouts(self,ra,dec,window):
+    def get_cutouts(self,ra,dec,window,aperture=None):
         l = list()
 
         tile = self.find_target_tile(ra, dec)
@@ -1205,6 +1225,6 @@ class SHELA(cat_base.Catalog):
             if i is None:
                 continue
 
-            l.append(self.get_single_cutout(ra,dec,window,i))
+            l.append(self.get_single_cutout(ra,dec,window,i,aperture))
 
         return l

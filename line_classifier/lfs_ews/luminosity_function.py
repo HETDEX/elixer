@@ -8,7 +8,10 @@ from numpy import (seterr, linspace, power, exp, log10, trapz, array, digitize,
 import numpy.random as rand
 from astropy.table import Table
 from scipy.special import gammainc, gammaincc, gamma
-from line_classifier.misc.tools import generate_cosmology_from_config 
+try:
+    from elixer.line_classifier.misc.tools import generate_cosmology_from_config
+except:
+    from line_classifier.misc.tools import generate_cosmology_from_config
 
 class TooLargeForGammaException(Exception):
     pass

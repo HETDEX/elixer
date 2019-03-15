@@ -1,5 +1,10 @@
 from __future__ import print_function
-import global_config as G
+try:
+    from elixer import global_config as G
+except:
+    import global_config as G
+
+import os
 
 #log = G.logging.getLogger('match_summary_logger')
 #log.setLevel(G.logging.DEBUG)
@@ -22,7 +27,7 @@ class BidTarget:
         self.bid_ra = 361.00
         self.bid_dec = 181.00
         self.distance = 0.0
-        self.bid_filter = ""
+        self.bid_filter = "?"
         self.bid_flux_est_cgs = 0.0
         self.bid_mag = 0.0
         self.bid_mag_err_bright = 0.0
@@ -191,9 +196,9 @@ class MatchSet:
         "catalog object Dec (decimal degrees)[for the exact emission position, not matched to a catalog object, will = 181.0]",
         "catalog object separation (arcsecs) [for the exact emission position, not matched to a catalog object, will = 0.0]",
         "catalog object continuum flux est at emission line wavelength (cgs) [for the exact emission position, from aperture on catalog image]",
-        "catalog object filter used for magnitudes,"
-        "catalog object magnitude,"
-        "catalog object magnitude error (brighter),"
+        "catalog object filter used for magnitudes",
+        "catalog object magnitude",
+        "catalog object magnitude error (brighter)",
         "catalog object magnitude error (fainter)",
         "P(LAE)/P(OII)",
         "number of filters to follow (variable)",
@@ -219,20 +224,36 @@ class MatchSet:
 
         if filename is not None:
             sep = "\t"
-            try:
-                f = open(filename,'w')
-            except:
-                log.error("Exception create match summary file: %s" %filename, exc_info=True)
-                return None
 
-            # write help (header) part
-            f.write("# version " + str(G.__version__) + "\n")
-            f.write("# each row contains one emission line and one matched imaging catalog counterpart\n")
-            f.write("# the same emission line may repeat with additional possible imaging catalog counterparts\n")
-            col_num = 0
-            for h in self.headers:
-                col_num += 1
-                f.write("# %d %s\n" % (col_num, h))
+            write_header = True
+            if G.RECOVERY_RUN:
+                try:
+                    if os.path.isfile(filename):
+                        write_header = False
+                except:
+                    log.info("Unexpected exception (not fatal) in match_summary::write_file", exc_info=True)
+
+                try:
+                    f = open(filename, 'a+')  # open for append, but create if it does not exist
+                except:
+                    log.error("Exception create match summary file: %s" % filename, exc_info=True)
+                    return None
+            else: #not a recovery run ... overwrite if present
+                try:
+                    f = open(filename, 'w')
+                except:
+                    log.error("Exception create match summary file: %s" % filename, exc_info=True)
+                    return None
+
+            if write_header:
+                # write help (header) part
+                f.write("# version " + str(G.__version__) + "\n")
+                f.write("# each row contains one emission line and one matched imaging catalog counterpart\n")
+                f.write("# the same emission line may repeat with additional possible imaging catalog counterparts\n")
+                col_num = 0
+                for h in self.headers:
+                    col_num += 1
+                    f.write("# %d %s\n" % (col_num, h))
 
             #need to get number of potential matches
 
@@ -280,6 +301,8 @@ class MatchSet:
                     f.write(sep + str(b.distance))
                     f.write(sep + str(b.bid_flux_est_cgs))
 
+                    if (b.bid_filter is None) or (len(b.bid_filter) == 0):
+                        f.write(sep + "?")
                     f.write(sep + str(b.bid_filter))
                     f.write(sep + str(b.bid_mag))
                     f.write(sep + str(b.bid_mag_err_bright))

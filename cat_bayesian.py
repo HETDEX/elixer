@@ -3,7 +3,11 @@ from __future__ import print_function
 #keep it simple for now. Put base class and all children in here.
 #Later, create a proper package
 
-import global_config as G
+try:
+    from elixer import global_config as G
+except:
+    import global_config as G
+
 import os.path as op
 import numpy as np
 from scipy.integrate import quad

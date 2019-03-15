@@ -1,7 +1,11 @@
 import sys
 sys.path.append('/work/03261/polonius/wrangler/science/sciscripts/elixer.wrangler')
 
-import catalogs
+try:
+    from elixer import catalogs
+except:
+    import catalogs
+
 from astropy.coordinates import SkyCoord
 import astropy.io.fits as fits
 import logging

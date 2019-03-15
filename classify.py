@@ -1,7 +1,12 @@
 #API Wrapper for classification (mostly P(LAE)/P(OII))
-import global_config as G
-import line_prob
-import spectrum as elixer_spectrum
+try:
+    from elixer import global_config as G
+    from elixer import line_prob
+    from elixer import spectrum as elixer_spectrum
+except:
+    import global_config as G
+    import line_prob
+    import spectrum as elixer_spectrum
 
 log = G.Global_Logger('classify_logger')
 log.setlevel(G.logging.DEBUG)

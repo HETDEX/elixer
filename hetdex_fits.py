@@ -1,4 +1,8 @@
-import global_config as G
+try:
+    from elixer import global_config as G
+except:
+    import global_config as G
+
 import numpy as np
 import tables
 
@@ -367,7 +371,11 @@ class HetdexFits:
                 #self.error_analysis = np.zeros((3, 1032))
 
                 for row in rows:
-                    idx = row['fibnum'] #fibnum is 0-111 so, just like an index
+                    #at some point this changes to fibidx
+                    try:
+                        idx = row['fibidx']  # fibnum is 0-111 so, just like an index
+                    except:
+                        idx = row['fibnum'] # fibnum is 0-111 so, just like an index
 
                     self.fe_data[idx] = row['sky_subtracted']
                     self.wave_data[idx] = row['wavelength']

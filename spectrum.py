@@ -1,4 +1,12 @@
-import global_config as G
+try:
+    from elixer import global_config as G
+    from elixer import line_prob
+    from elixer import mcmc_gauss
+except:
+    import global_config as G
+    import line_prob
+    import mcmc_gauss
+
 import matplotlib
 #matplotlib.use('agg')
 
@@ -14,8 +22,7 @@ import io
 from scipy.stats import skew, kurtosis
 from scipy.optimize import curve_fit
 import copy
-import line_prob
-import mcmc_gauss
+
 import os.path as op
 
 
@@ -369,7 +376,7 @@ class EmissionLineInfo:
         self.mcmc_a = None #area
         self.mcmc_y = None
         self.mcmc_ew_obs = None #calcuated value (using error propogation from mcmc_a and mcmc_y)
-        self.mcmc_snr = None
+        self.mcmc_snr = -1
         self.mcmc_dx = 1.0 #default to 1.0 so mult or div have no effect
         self.mcmc_line_flux = None #actual line_flux not amplitude (not the same if y data is flux instead of flux/dx)
         self.mcmc_continuum = None #ditto for continuum
@@ -2513,21 +2520,22 @@ class Spectrum:
 
 
                     #now, before we add, if we have not run MCMC on the feature, do so now
-                    if add_to_sol:
-                        if eli.mcmc_x0 is None:
-                            eli = run_mcmc(eli,wavelengths,values,errors,a_central,values_units)
+                    if G.MIN_MCMC_SNR > 0:
+                        if add_to_sol:
+                            if eli.mcmc_x0 is None:
+                                eli = run_mcmc(eli,wavelengths,values,errors,a_central,values_units)
 
-                        #and now validate the MCMC SNR (reminder:  MCMC SNR is line flux (e.g. Area) / (1sigma uncertainty)
-                        if eli.mcmc_snr is None:
-                            add_to_sol = False
-                            log.info("Line (at %f) rejected due to missing MCMC SNR" %(a_central))
-                        elif eli.mcmc_snr < G.MIN_MCMC_SNR:
-                            add_to_sol = False
-                            log.info("Line (at %f) rejected due to poor MCMC SNR (%f)" % (a_central,eli.mcmc_snr))
-                        #todo: should we recalculate the score with the MCMC data (flux, SNR, etc)??
-                        #todo: or, at this point, is this a binary condition ... the line is there, or not
-                        #todo: .... still with multiple solutions possible, we must meet the minimum and then the best
-                        #todo:      score (clear winner) wins
+                            #and now validate the MCMC SNR (reminder:  MCMC SNR is line flux (e.g. Area) / (1sigma uncertainty)
+                            if eli.mcmc_snr is None:
+                                add_to_sol = False
+                                log.info("Line (at %f) rejected due to missing MCMC SNR" %(a_central))
+                            elif eli.mcmc_snr < G.MIN_MCMC_SNR:
+                                add_to_sol = False
+                                log.info("Line (at %f) rejected due to poor MCMC SNR (%f)" % (a_central,eli.mcmc_snr))
+                            #todo: should we recalculate the score with the MCMC data (flux, SNR, etc)??
+                            #todo: or, at this point, is this a binary condition ... the line is there, or not
+                            #todo: .... still with multiple solutions possible, we must meet the minimum and then the best
+                            #todo:      score (clear winner) wins
 
 
                     if add_to_sol:

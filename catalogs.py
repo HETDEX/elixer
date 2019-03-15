@@ -1,23 +1,40 @@
-import global_config as G
+#import global_config as G
 
-#log = G.logging.getLogger('Cat_logger')
-#log.setLevel(G.logging.DEBUG)
-log = G.Global_Logger('cat_logger')
-log.setlevel(G.logging.DEBUG)
+
+
 
 #base class for catalogs (essentially an interface class)
 #all Catalogs classes must implement:
 
-import cat_candles_egs_stefanon_2016
-import cat_goods_n
-#import cat_goods_n_finkelstein
-import cat_egs_groth
-import cat_stack_cosmos
-import cat_shela
-import cat_hsc
-import cat_catch_all
-#import cat_ast376_shela
 
+
+try:
+    from elixer import global_config as G
+    from elixer import cat_candles_egs_stefanon_2016
+    from elixer import cat_goods_n
+    # from elixer import cat_goods_n_finkelstein
+    from elixer import cat_egs_groth
+    from elixer import cat_stack_cosmos
+    from elixer import cat_shela
+    from elixer import cat_hsc
+    from elixer import cat_catch_all
+    # from elixer import cat_ast376_shela
+except:
+    import global_config as G
+    import cat_candles_egs_stefanon_2016
+    import cat_goods_n
+    #import cat_goods_n_finkelstein
+    import cat_egs_groth
+    import cat_stack_cosmos
+    import cat_shela
+    import cat_hsc
+    import cat_catch_all
+    # from elixer import cat_ast376_shela
+
+# log = G.logging.getLogger('Cat_logger')
+# log.setLevel(G.logging.DEBUG)
+log = G.Global_Logger('cat_logger')
+log.setlevel(G.logging.DEBUG)
 
 class CatalogLibrary:
 

@@ -14,13 +14,20 @@ from numpy import any as nany
 from numpy import pi, square, exp, array, power, zeros, ones, isnan, sqrt, mean
 from scipy.stats import norm
 
-from line_classifier.lfs_ews.luminosity_function import LuminosityFunction
-from line_classifier.lfs_ews.equivalent_width import EquivalentWidthAssigner, InterpolatedEW
-from line_classifier.misc.tools import generate_cosmology_from_config
+try:
+    from elixer import global_config as G
+    from elixer.line_classifier.lfs_ews.luminosity_function import LuminosityFunction
+    from elixer.line_classifier.lfs_ews.equivalent_width import EquivalentWidthAssigner, InterpolatedEW
+    from elixer.line_classifier.misc.tools import generate_cosmology_from_config
+except:
+    import global_config as G
+    from line_classifier.lfs_ews.luminosity_function import LuminosityFunction
+    from line_classifier.lfs_ews.equivalent_width import EquivalentWidthAssigner, InterpolatedEW
+    from line_classifier.misc.tools import generate_cosmology_from_config
 
 from astropy.table import Table
 
-import global_config as G
+
 _logger = G.Global_Logger("lae_prob")
 _logger.setlevel(G.logging.INFO)
 

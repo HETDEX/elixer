@@ -2,7 +2,18 @@ from __future__ import print_function
 #keep it simple for now. Put base class and all children in here.
 #Later, create a proper package
 
-import global_config as G
+
+try:
+    from elixer import global_config as G
+    from elixer import science_image
+    from elixer import cat_bayesian
+    from elixer import observation as elixer_observation
+except:
+    import global_config as G
+    import science_image
+    import cat_bayesian
+    import observation as elixer_observation
+
 import os.path as op
 
 import matplotlib
@@ -12,12 +23,12 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-import science_image
+
 from matplotlib.font_manager import FontProperties
 import scipy.constants
 
-import cat_bayesian
-import observation as elixer_observation
+
+
 #log = G.logging.getLogger('Cat_logger')
 #log.setLevel(G.logging.DEBUG)
 log = G.Global_Logger('cat_logger')
@@ -760,48 +771,51 @@ class Catalog:
         if fiber_locs is None: #there are no fiber locations (could be a specific RA,Dec search)
             return None
 
-        plt.title("Relative Fiber Positions")
-        plt.plot(0, 0, "r+")
+        try:
+            plt.title("Relative Fiber Positions")
+            plt.plot(0, 0, "r+")
 
-        xmin = float('inf')
-        xmax = float('-inf')
-        ymin = float('inf')
-        ymax = float('-inf')
+            xmin = float('inf')
+            xmax = float('-inf')
+            ymin = float('inf')
+            ymax = float('-inf')
 
-        for r, d, c, i, dist, fn in fiber_locs:
-            # fiber absolute position ... need relative position to plot (so fiber - zero pos)
-            fx = (r - ra) * np.cos(np.deg2rad(dec)) * 3600.
-            fy = (d - dec) * 3600.
+            for r, d, c, i, dist, fn in fiber_locs:
+                # fiber absolute position ... need relative position to plot (so fiber - zero pos)
+                fx = (r - ra) * np.cos(np.deg2rad(dec)) * 3600.
+                fy = (d - dec) * 3600.
 
-            xmin = min(xmin, fx)
-            xmax = max(xmax, fx)
-            ymin = min(ymin, fy)
-            ymax = max(ymax, fy)
+                xmin = min(xmin, fx)
+                xmax = max(xmax, fx)
+                ymin = min(ymin, fy)
+                ymax = max(ymax, fy)
 
-            plt.gca().add_patch(plt.Circle((fx, fy), radius=G.Fiber_Radius, color=c, fill=False,
-                                         linestyle='solid', zorder=9))
-            plt.text(fx, fy, str(i), ha='center', va='center', fontsize='x-small', color=c)
+                plt.gca().add_patch(plt.Circle((fx, fy), radius=G.Fiber_Radius, color=c, fill=False,
+                                             linestyle='solid', zorder=9))
+                plt.text(fx, fy, str(i), ha='center', va='center', fontsize='x-small', color=c)
 
-            if fn in G.CCD_EDGE_FIBERS_ALL:
-                plt.gca().add_patch(
-                    plt.Circle((fx, fy), radius=G.Fiber_Radius + 0.1, color=c, fill=False,
-                               linestyle='dashed', zorder=9))
+                if fn in G.CCD_EDGE_FIBERS_ALL:
+                    plt.gca().add_patch(
+                        plt.Circle((fx, fy), radius=G.Fiber_Radius + 0.1, color=c, fill=False,
+                                   linestyle='dashed', zorder=9))
 
-        # larger of the spread of the fibers or the maximum width (in non-rotated x-y plane) of the error window
-        ext_base = max(abs(xmin), abs(xmax), abs(ymin), abs(ymax))
-        ext = np.ceil(ext_base + G.Fiber_Radius)
+            # larger of the spread of the fibers or the maximum width (in non-rotated x-y plane) of the error window
+            ext_base = max(abs(xmin), abs(xmax), abs(ymin), abs(ymax))
+            ext = np.ceil(ext_base + G.Fiber_Radius)
 
-        plt.xlim(-ext,ext)
-        plt.ylim(-ext,ext)
-        plt.xlabel('arcsecs')
-        plt.axis('equal')
+            plt.xlim(-ext,ext)
+            plt.ylim(-ext,ext)
+            plt.xlabel('arcsecs')
+            plt.axis('equal')
 
-        rec = plt.Rectangle((-ext,-ext), width=ext*2., height=ext*2., fill=True, lw=1,
-                            color='gray', zorder=0, alpha=0.5)
-        plt.gca().add_patch(rec)
+            rec = plt.Rectangle((-ext,-ext), width=ext*2., height=ext*2., fill=True, lw=1,
+                                color='gray', zorder=0, alpha=0.5)
+            plt.gca().add_patch(rec)
 
-        plt.xticks([int(-ext), int(-ext / 2.), 0, int(ext / 2.), int(ext)])
-        plt.yticks([int(-ext), int(-ext / 2.), 0, int(ext / 2.), int(ext)])
+            plt.xticks([int(-ext), int(-ext / 2.), 0, int(ext / 2.), int(ext)])
+            plt.yticks([int(-ext), int(-ext / 2.), 0, int(ext / 2.), int(ext)])
+        except:
+            log.error("Exception in cat_base::add_empty_catalog_fiber_positions.",exc_info=True)
 
 
     def edge_compass(self,fiber_num):
@@ -875,30 +889,34 @@ class Catalog:
         fig_sz_x = 18  # cols * 3 # was 6 cols
         fig_sz_y = 3  # rows * 3 # was 1 or 2 rows
 
-        fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
-        plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.15)
+        try:
+            fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
+            plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.15)
 
-        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.0)
-        # reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based
+            gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.0)
+            # reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based
 
-        font = FontProperties()
-        font.set_family('monospace')
-        font.set_size(12)
+            font = FontProperties()
+            font.set_family('monospace')
+            font.set_size(12)
 
-        # All on one line now across top of plots
-        title = "No overlapping imaging catalog."
+            # All on one line now across top of plots
+            title = "No overlapping imaging catalog."
 
-        plt.subplot(gs[0, :])
-        plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
-        plt.gca().set_frame_on(False)
-        plt.gca().axis('off')
+            plt.subplot(gs[0, :])
+            plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
+            plt.gca().set_frame_on(False)
+            plt.gca().axis('off')
 
-        plt.subplot(gs[2:, 0])
-        self.add_empty_catalog_fiber_positions(plt, fig, ra, dec, fiber_locs)
+            plt.subplot(gs[2:, 0])
+            self.add_empty_catalog_fiber_positions(plt, fig, ra, dec, fiber_locs)
 
-        # complete the entry
-        plt.close()
-        return fig
+            # complete the entry
+            plt.close()
+            return fig
+        except:
+            log.error("Exception in cat_base::build_empty_cat_summary_figure.",exc_info=True)
+            return None
 
 
     def get_single_cutout(self,ra,dec,window,catalog_image,aperture=None):

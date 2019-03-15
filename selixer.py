@@ -3,7 +3,11 @@ from __future__ import print_function
 import sys
 import os
 import errno
-import elixer
+try:
+    from elixer import elixer
+except:
+    import elixer
+
 import numpy as np
 from math import ceil
 from datetime import timedelta
@@ -22,6 +26,20 @@ HOST_STAMPEDE2 = 3
 host = HOST_UNKNOWN
 
 
+# def remove_ra_dec(arg_list):
+#     new_list = []
+#     skip_next = False
+#     for arg in arg_list:
+#         arg = str(arg).lower()
+#         if  (arg == "--ra") or (arg == "--dec"):
+#             skip_next = True
+#
+#         elif not skip_next:
+#             new_list.append(arg)
+#         else:
+#             skip_next = False
+#     return new_list
+
 ### NAMING, NOTATION
 # job == an elixer dispatch
 # task == on the cluster ...
@@ -34,6 +52,23 @@ host = HOST_UNKNOWN
 
 #form of loginxxx.<name>.tacc.utexas.edu for login nodes
 #or cxxx-xxx.<name>.tacc.utexas.edu for compute nodes
+
+args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
+
+#check for --merge (if so just call elixer
+if "--merge" in args:
+    print("Calling ELiXer to merge catalogs and fiber files (ignoring all other parameters) ... ")
+    elixer.merge()
+    exit(0)
+
+
+if "--recover" in args:
+    recover_mode = True
+else:
+    recover_mode = False
+
+
+
 if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
@@ -41,8 +76,11 @@ if hostname == "maverick":
     print("preparing SLURM for maverick...")
     host = HOST_MAVERICK
     MAX_TASKS = 640 #max allowed by TACC (for gpu or vis)
-    TIME_OVERHEAD = 1.0 #MINUTES of overhead to get started (per task call ... just a safety)
-    MAX_TIME_PER_TASK = 3.0  # MINUTES max, worst case expected time per task to execute (assumes minimal retries)
+    TIME_OVERHEAD = 2.0 #MINUTES of overhead to get started (per task call ... just a safety)
+    if recover_mode:
+        MAX_TIME_PER_TASK = 1.5 #in recover mode, can bit more agressive in timing (easier to continue if timeout)
+    else:
+        MAX_TIME_PER_TASK = 3.0  # MINUTES max, worst case expected time per task to execute (assumes minimal retries)
     cores_per_node = 20 #for Maverick
     time = "00:59:59"
     time_set = False
@@ -59,8 +97,11 @@ elif hostname == "wrangler":
     MAX_TASKS = 10
     MAX_NODES = 1
     #MAX_TASKS_PER_NODE = 10 #actually, variable, encoded later
-    TIME_OVERHEAD = 1.0  # MINUTES of overhead to get started (per task call ... just a safety)
-    MAX_TIME_PER_TASK = 1.5  #MINUTES max, worst case expected time per task to execute (assumes minimal retries)
+    TIME_OVERHEAD = 2.0  # MINUTES of overhead to get started (per task call ... just a safety)
+    if recover_mode:
+        MAX_TIME_PER_TASK = 1.5 #in recover mode, can bit more agressive in timing (easier to continue if timeout)
+    else:
+        MAX_TIME_PER_TASK = 3.0  # MINUTES max, worst case expected time per task to execute (assumes minimal retries)
     cores_per_node = 24 #but basically can only use 4 at a time (see note just above)
     time = "00:59:59"
     time_set = False
@@ -71,13 +112,17 @@ elif hostname == "stampede2":
     #https://portal.tacc.utexas.edu/user-guides/stampede2#running
     #KNL normal 256 nodes/17408 cores total so ... 68 cores per node
     print("preparing SLURM for stampede2...")
-    host = HOST_STAMPEDE2
+    host = HOST_STAMPEDE2 #defaulting to skx-normal
 
     MAX_TASKS = 48 #point of seriously diminishing returns
     MAX_NODES = 3 #right now, pointless to go beyond 2 nodes
     #MAX_TASKS_PER_NODE = 22 #actually, variable, encoded later
     TIME_OVERHEAD = 1.0  # MINUTES of overhead to get started (per task call ... just a safety)
-    MAX_TIME_PER_TASK = 2.0  # MINUTES max, worst case expected time per task to execute (assumes minimal retries)
+
+    if recover_mode:
+        MAX_TIME_PER_TASK = 0.75 #in recover mode, can bit more agressive in timing (easier to continue if timeout)
+    else:
+        MAX_TIME_PER_TASK = 3.0  # MINUTES max, worst case expected time per task to execute (assumes minimal retries)
     cores_per_node = 68
     time = "00:59:59"
     time_set = False
@@ -107,14 +152,9 @@ else:
     tasks = 1
 
 
-args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
 
 
-#check for --merge (if so just call elixer
-if "--merge" in args:
-    print("Calling ELiXer to merge catalogs and fiber files (ignoring all other parameters) ... ")
-    elixer.merge()
-    exit(0)
+
 
 
 
@@ -228,12 +268,19 @@ os.chdir(basename)
 
 ### elixer.run
 path = os.path.join(os.path.dirname(sys.argv[0]),"elixer.py")
+nodes = 1
+
+python_cmd = "python "
+pre_python_cmd = ""
+
+if host == HOST_STAMPEDE2:
+    python_cmd = "mpiexec.hydra -np 1 python "
 
 dets_per_dispatch =  [] #list of counts ... the number of detection directories to list in the corresponding dispatch_xxx file
 if tasks == 1:
     print("Only 1 task. Will not use dispatch.")
 
-    run = "python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' -f \n'
+    run = python_cmd + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' -f \n'
     dets_per_dispatch.append(1)
     try:
         f = open("elixer.run", 'w')
@@ -247,7 +294,12 @@ else: # multiple tasks
 
         args = elixer.parse_commandline(auto_force=True)
         print("Parsing directories to process. This may take a little while ...\n")
-        subdirs = elixer.get_fcsdir_subdirs_to_process(args)
+
+        if args.fcsdir is not None:
+            subdirs = elixer.get_fcsdir_subdirs_to_process(args)
+        else: #if (args.ra is not None):
+            subdirs = elixer.get_hdf5_detectids_to_process(args)
+
         if tasks != 0:
             if tasks > len(subdirs):  # problem too many tasks requestd
                 print("Error! Too many tasks (%d) requested. Only %d directories to process." % (tasks, len(subdirs)))
@@ -278,24 +330,44 @@ else: # multiple tasks
                 #22 tasks per node up to 1 node   (22)
                 #20 tasks per node up to 2 nodes  (40)
                 #16 tasks per node up to 3 nodes  (48)
-                if tasks <= 22:
-                    ntasks_per_node = tasks
-                    nodes = 1
-                elif tasks <= 40:
-                    nodes = 2
-                    ntasks_per_node = tasks // nodes + tasks % nodes
-                elif tasks <= 48: #point of seriously diminishing return
-                    nodes = 3
-                    ntasks_per_node = tasks // nodes + tasks % nodes
-                else: #cap at 48 (or 16 tasks per 3 nodes)
-                    nodes = 3
-                    ntasks_per_node = 16
 
+                if queue == "skx-normal":
+                    if tasks <= 22:
+                        ntasks_per_node = tasks
+                        nodes = 1
+                    elif tasks <= 40:
+                        nodes = 2
+                        ntasks_per_node = tasks // nodes + tasks % nodes
+                    elif tasks <= 48: #point of seriously diminishing return
+                        nodes = 3
+                        ntasks_per_node = tasks // nodes + tasks % nodes
+                    else: #cap at 48 (or 16 tasks per 3 nodes)
+                        nodes = 3
+                        ntasks_per_node = 16
+                else: #if queue == "normal":  # KNL
+                    if tasks <= 6:
+                        ntasks_per_node = tasks
+                    else:
+                        ntasks_per_node = 6
 
+                    nodes = min(tasks // ntasks_per_node, 50)
+
+                    pre_python_cmd = " export OMP_PROC_BIND=0 ; "
+                    MAX_TIME_PER_TASK = 5.0
+            else:
+                ntasks_per_node = tasks
+                nodes = 1
+
+            #fix the minimum (don't ask for more tasks per node than you have actual tasks to run)
+            #only an issue if there is only one node requested
+            ntasks_per_node = min(tasks,ntasks_per_node)
 
             print("%d detections as %d tasks on %d nodes at %d tasks-per-node" % (len(subdirs),tasks,nodes,ntasks_per_node))
 
         #dirs_per_file == how many detections (directory holding detection info) to add to each dispatch_xxx
+        if tasks == 0:
+            print("No tasks to execute. Exiting ...")
+            exit(0)
         dirs_per_file = len(subdirs) // tasks  # int(floor(float(len(subdirs)) / float(tasks)))
         remainder = len(subdirs) % tasks
         dets_per_dispatch = np.full(tasks,dirs_per_file)
@@ -321,7 +393,7 @@ else: # multiple tasks
             #start_idx = i * dirs_per_file
             stop_idx = start_idx + dets_per_dispatch[i] #min(start_idx + dirs_per_file,len(subdirs))
             for j in range(start_idx,stop_idx):
-                df.write(subdirs[j] + "\n")
+                df.write(str(subdirs[j]) + "\n")
 
             df.close()
 
@@ -329,7 +401,12 @@ else: # multiple tasks
 
             #add  dispatch_xxx
             #run = "python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' --dispatch ' + os.path.join(basename,fn) + ' -f \n'
-            run = "cd " + fn + " ; python " + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' --dispatch ' + fn + ' -f ; cd .. \n'
+
+            #may need to get rid of ra and dec
+
+            #parms = remove_ra_dec(sys.argv[1:])
+            #run = "cd " + fn + " ; python " + path + ' ' + ' ' + ' '.join(parms) + ' --dispatch ' + fn + ' -f ; cd .. \n'
+            run = "cd " + fn + " ; " + pre_python_cmd + python_cmd + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' --dispatch ' + fn + ' -f ; cd .. \n'
             f.write(run)
 
         f.close()

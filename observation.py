@@ -1,11 +1,18 @@
 #for consuming rsp data
 
-import global_config as G
+try:
+    from elixer import global_config as G
+    from elixer import fiber as elixer_fiber
+    from elixer import spectrum as elixer_spectrum
+except:
+    import global_config as G
+    import fiber as elixer_fiber
+    import spectrum as elixer_spectrum
+
 import numpy as np
 import os.path as op
 
-import fiber as elixer_fiber
-import spectrum as elixer_spectrum
+
 
 log = G.Global_Logger('obs_logger')
 log.setlevel(G.logging.DEBUG)

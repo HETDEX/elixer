@@ -7,12 +7,17 @@ SAMPLES = 100  #now, as samples PER wavelength
 #todo: still need to update the plotting to be per-wavelength
 #todo: change trial to just do a fit at the cw ... do not run peakdet
 
+try:
+    from elixer import spectrum
+except:
+    import spectrum
+
 import numpy as np
 import scipy as sp
 import imp
 import sys
 import os.path as op
-import spectrum
+
 import matplotlib.pyplot as plt
 from timeit import default_timer as timer
 import collections

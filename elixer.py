@@ -2,12 +2,22 @@ from __future__ import print_function
 
 import matplotlib
 matplotlib.use('agg')
+import matplotlib.pyplot as plt
 
-import catalogs
+try:
+    from elixer import hetdex
+    from elixer import match_summary
+    from elixer import global_config as G
+    from elixer import catalogs
+except:
+    import hetdex
+    import match_summary
+    import global_config as G
+    import catalogs
+
+
 import argparse
-import hetdex
-import match_summary
-import global_config as G
+
 from astropy.coordinates import Angle
 from matplotlib.backends.backend_pdf import PdfPages
 from distutils.version import LooseVersion
@@ -33,9 +43,12 @@ import tables
 #    PyPDF = None
 
 try:
-    import pdfrw as PyPDF
-except ImportError:
-    pdfrw = None
+    import elixer.pdfrw as PyPDF
+except:
+    try:
+        import pdfrw as PyPDF
+    except ImportError:
+        pdfrw = None
 
 
 VERSION = sys.version.split()[0]
@@ -156,6 +169,8 @@ def parse_commandline(auto_force=False):
 
     parser.add_argument('-e', '--error', help="Error (+/-) in RA and Dec in arcsecs.", required=False, type=float)
 
+    parser.add_argument('--search', help="Search window (+/-) in RA and Dec in arcsecs (for use only with --ra and --dec).", required=False, type=float)
+
     parser.add_argument('--fibers', help="Number of fibers to plot in 1D spectra cutout."
                                          "If present, also turns off weighted average.", required=False, type=int)
 
@@ -224,6 +239,10 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--hdf5', help="HDF5 Detections File (see also --dets)", required=False,
                         default=G.HDF5_DETECT_FN)
 
+
+    parser.add_argument('--recover', help='Recover/continue from previous run. Will append to and NOT overwrite exsiting output.',
+                        required=False, action='store_true', default=False)
+
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
 
@@ -240,6 +259,9 @@ def parse_commandline(auto_force=False):
 
     #regardless of setting, --multi must now always be true
     args.multi = True
+
+    if args.recover:
+        G.RECOVERY_RUN = True
 
     #first time we need to log anything
     G.logging.basicConfig(filename=G.LOG_FILENAME, level=G.LOG_LEVEL, filemode='w')
@@ -313,6 +335,15 @@ def parse_commandline(auto_force=False):
     if (args.zoox is not None) and (args.zoox):
         G.ZOO = True
         G.ZOO_CUTOUTS = True
+
+
+    if args.dispatch is not None:
+        if args.ra is not None: #then this is from selixer and dispatch needs to be the dets list
+            args.ra = None
+            args.dec = None
+            args.dets = args.dispatch
+
+            log.info("Command line: --dets set to --dispatch and ignoring --ra and --dec")
 
     if args.ra is not None:
         if ":" in args.ra:
@@ -402,6 +433,16 @@ def valid_parameters(args):
             args.error = 0.0
         if args.name is None:
             args.name = "argscheck"
+
+    if args.search is not None:
+        try:
+            f = float(args.search)
+            if f < 0:
+                print("Invalid --search")
+                result = False
+        except:
+            print("Invalid --search")
+            result = False
 
     #must have ra and dec -OR- dither and (ID or (chi2 and sigma))
     if result:
@@ -519,14 +560,22 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
             cutout = c.get_stacked_cutout(ra,dec,window=annulus[1])
 
             #if cutout is not None:
-            r = c.build_annulus_report(obs=obs,cutout=cutout,section_title=section_title)
+            try:
+                r = c.build_annulus_report(obs=obs,cutout=cutout,section_title=section_title)
             #else:
             #    r = None
+            except:
+                log.error("Exception in elixer::build_pages",exc_info=True)
+                r = None
 
         else:
-            r = c.build_bid_target_reports(match,ra, dec, error,num_hits=num_hits,section_title=section_title,
-                                           base_count=base_count,target_w=target_w,fiber_locs=fiber_locs,
-                                           target_flux=target_flux)
+            try:
+                r = c.build_bid_target_reports(match,ra, dec, error,num_hits=num_hits,section_title=section_title,
+                                               base_count=base_count,target_w=target_w,fiber_locs=fiber_locs,
+                                               target_flux=target_flux)
+            except:
+                log.error("Exception in elixer::build_pages",exc_info=True)
+                r = None
         count = 0
         if r is not None:
             cat_count+= 1
@@ -808,57 +857,74 @@ def write_fibers_file(filename,hd_list):
         return None
 
     sep = "\t"
-    try:
-        f = open(filename, 'w')
-    except:
-        log.error("Exception create match summary file: %s" % filename, exc_info=True)
-        return None
 
-    #write header info
-    headers = [
-        "fullname / PDF name",
-        "input (entry) ID",
-        "detect ID",
-        #"detection quality score",
-        "emission line RA (decimal degrees)",
-        "emission line Dec (decimal degrees)",
-        "emission line wavelength (AA)",
-        #"emission line sky X",
-        #"emission line sky Y",
-        "emission line sigma (significance) for cure or S/N for panacea",
-        "emission line chi2 (point source fit) (cure)",
-        "emission line estimated fraction of recovered flux",
-        "emission line flux (electron counts)",
-        "emission line flux (cgs)",
-        "emission line continuum flux (electron counts)",
-        "emission line continuum flux (cgs)",
-        "emission line equivalent width (observed) [estimated]",
-        "P(LAE)/P(OII)",
-        "number of fiber records to follow (each consists of the following columns)",
-        "  fiber_id string (panacea) or reduced science fits filename (cure)",
-        "  observation date YYYYMMDD",
-        "  observation ID (for that date)",
-        "  exposure ID",
-        "  fiber number on full CCD (1-448)",
-        "  RA of fiber center",
-        "  Dec of fiber center",
-        "  X of the fiber center in the IFU",
-        "  Y of the fiber center in the IFU",
-        "  S/N of emission line in this fiber",
-        #"  weighted quality score",
-        "  X coord on the CCD for the amp of this emission line in this fiber (as shown in ds9)",
-        "  Y coord on the CCD for the amp of this emission line in this fiber (as shown in ds9)",
-        "  the next fiber_id string and so on ..."
-    ]
+    write_header = True
+    if G.RECOVERY_RUN:
+        try:
+            if os.path.isfile(filename):
+                write_header = False
+        except:
+            log.info("Unexpected exception (not fatal) in elixer::write_fibers_file",exc_info=True)
 
-    # write help (header) part
-    f.write("# version " + str(G.__version__) + "\n")
-    f.write("# date time " + time.strftime("%Y-%m-%d %H:%M:%S") + "\n" )
-    f.write("# each row contains one emission line with accompanying fiber information\n")
-    col_num = 0
-    for h in headers:
-        col_num += 1
-        f.write("# %d %s\n" % (col_num, h))
+        try:
+            f = open(filename, 'a+') #open for append, but create if it does not exist
+        except:
+            log.error("Exception create match summary file: %s" % filename, exc_info=True)
+            return None
+    else: #not a recovery run ... overwrite what is there
+        try:
+            f = open(filename, 'w')
+        except:
+            log.error("Exception create match summary file: %s" % filename, exc_info=True)
+            return None
+
+    if write_header:
+        #write header info
+        headers = [
+            "fullname / PDF name",
+            "input (entry) ID",
+            "detect ID",
+            #"detection quality score",
+            "emission line RA (decimal degrees)",
+            "emission line Dec (decimal degrees)",
+            "emission line wavelength (AA)",
+            #"emission line sky X",
+            #"emission line sky Y",
+            "emission line sigma (significance) for cure or S/N for panacea",
+            "emission line chi2 (point source fit) (cure)",
+            "emission line estimated fraction of recovered flux",
+            "emission line flux (electron counts)",
+            "emission line flux (cgs)",
+            "emission line continuum flux (electron counts)",
+            "emission line continuum flux (cgs)",
+            "emission line equivalent width (observed) [estimated]",
+            "P(LAE)/P(OII)",
+            "number of fiber records to follow (each consists of the following columns)",
+            "  fiber_id string (panacea) or reduced science fits filename (cure)",
+            "  observation date YYYYMMDD",
+            "  observation ID (for that date)",
+            "  exposure ID",
+            "  fiber number on full CCD (1-448)",
+            "  RA of fiber center",
+            "  Dec of fiber center",
+            "  X of the fiber center in the IFU",
+            "  Y of the fiber center in the IFU",
+            "  S/N of emission line in this fiber",
+            #"  weighted quality score",
+            "  X coord on the CCD for the amp of this emission line in this fiber (as shown in ds9)",
+            "  Y coord on the CCD for the amp of this emission line in this fiber (as shown in ds9)",
+            "  the next fiber_id string and so on ..."
+        ]
+
+
+        # write help (header) part
+        f.write("# version " + str(G.__version__) + "\n")
+        f.write("# date time " + time.strftime("%Y-%m-%d %H:%M:%S") + "\n" )
+        f.write("# each row contains one emission line with accompanying fiber information\n")
+        col_num = 0
+        for h in headers:
+            col_num += 1
+            f.write("# %d %s\n" % (col_num, h))
 
     #entry_num = 0
     for hd in hd_list:
@@ -1007,14 +1073,35 @@ def get_hdf5_detectids_to_process(args):
         exit(-1)
 
     detectids = []
+    detlist = None
 
     try:
 
-        if args.dets is None:
+        if args.dispatch is not None:  # from multi-task SLURM only
+            try:
+                # is this a list or a file
+                if os.path.isfile(args.dispatch):
+                    detlist = np.genfromtxt(args.dispatch, dtype=None, comments='#', usecols=(0,))
+                    log.debug("[dispatch] Loaded --dets as file")
+                else:
+                    detlist = args.dispatch.replace(', ', ',').split(',')  # allow comma or comma-space separation
+                    log.debug("[dispatch] Loaded --dets as list")
+            except:
+                log.error("Exception processing detections (--dispatch) detlist. FATAL. ", exc_info=True)
+                print("Exception processing detections (--dispatch) detlist. FATAL.")
+                exit(-1)
+
+        elif args.dets is None:
             # maybe an ra and dec ?
             if (args.ra is not None) and (args.dec is not None) and (args.error is not None):
                 # args.ra and dec are now guaranteed to be decimal degrees. args.error is in arcsecs
-                return get_hdf5_detectids_by_coord(args.hdf5, args.ra, args.dec, args.error / 3600.)
+
+                if args.search is not None:
+                    error = args.search
+                else:
+                    error = args.error
+
+                return get_hdf5_detectids_by_coord(args.hdf5, args.ra, args.dec, error / 3600.)
             else:
                 return []
 
@@ -1028,24 +1115,25 @@ def get_hdf5_detectids_to_process(args):
         #stb = h5.root.Spectra
 
         #dets might be a single value or a list
-        try:
-            #is this a list or a file
-            if os.path.isfile(args.dets):
-                detlist = np.genfromtxt(args.dets, dtype=None,comments='#',usecols=(0,))
-                detlist_is_file = True
-                log.debug("Loaded --dets as file")
-            elif os.path.isfile(os.path.join("..",args.dets)):
-                detlist = np.genfromtxt(os.path.join("..",args.dets), dtype=None, comments='#', usecols=(0,))
-                detlist_is_file = True
-                log.debug("Loaded --dets as ../<file> ")
-            else:
-                detlist = args.dets.replace(', ',',').split(',') #allow comma or comma-space separation
-                log.debug("Loaded --dets as list")
-        except:
-            log.error("Exception processing detections (--dets) detlist. FATAL. ", exc_info=True)
-            print("Exception processing detections (--dets) detlist. FATAL.")
-            h5.close()
-            exit(-1)
+        if detlist is None:
+            try:
+                #is this a list or a file
+                if os.path.isfile(args.dets):
+                    detlist = np.genfromtxt(args.dets, dtype=None,comments='#',usecols=(0,))
+                    detlist_is_file = True
+                    log.debug("Loaded --dets as file")
+                elif os.path.isfile(os.path.join("..",args.dets)):
+                    detlist = np.genfromtxt(os.path.join("..",args.dets), dtype=None, comments='#', usecols=(0,))
+                    detlist_is_file = True
+                    log.debug("Loaded --dets as ../<file> ")
+                else:
+                    detlist = args.dets.replace(', ',',').split(',') #allow comma or comma-space separation
+                    log.debug("Loaded --dets as list")
+            except:
+                log.error("Exception processing detections (--dets) detlist. FATAL. ", exc_info=True)
+                print("Exception processing detections (--dets) detlist. FATAL.")
+                h5.close()
+                exit(-1)
 
         len_detlist = 0
         try:
@@ -1092,25 +1180,42 @@ def get_hdf5_detectids_to_process(args):
             #is it an old style id ... like "20180123v009_5"
             try:
                 if "v" in str(d).lower():
-                    #todo: this could represent a name .... could map to multiple detectIDs
-                    #currently called an "inputid"
-                    id  = str(d)
-                    rows = dtb.read_where("inputid==id")
-                    num = rows.size
 
-                    if num == 0:
-                        log.info("%s not found in HDF5 detections" % (id))
-                        continue
-                    elif num == 1:
-                        d_id = rows['detectid'][0]
-                        log.info("%s added to detection list as %d" % (id,d_id))
-                        detectids.append(d_id)
-                        continue
-                    else:
-                        log.info("%s inputid is not unique" % (id))
-                        # might be something else, like 20180123 ??
-                        # todo: for now, just skip it ... might consider checking something els
-                        continue
+                    if "_" in str(d): #this is a specific input
+
+                        #todo: this could represent a name .... could map to multiple detectIDs
+                        #currently called an "inputid"
+                        id  = str(d)
+                        rows = dtb.read_where("inputid==id")
+                        num = rows.size
+
+                        if num == 0:
+                            log.info("%s not found in HDF5 detections" % (id))
+                            continue
+                        elif num == 1:
+                            d_id = rows['detectid'][0]
+                            log.info("%s added to detection list as %d" % (id,d_id))
+                            detectids.append(d_id)
+                            continue
+                        else:
+                            log.info("%s inputid is not unique" % (id))
+                            # might be something else, like 20180123 ??
+                            # todo: for now, just skip it ... might consider checking something els
+                            continue
+                    else: #this is just a datevshot, get the entire shot
+                        #assumes a 20180123v009 format
+                        try:
+                            toks = str(d).lower().split('v')
+                            q_date = int(toks[0])
+                            q_shot = int(toks[0]+toks[1])
+
+                            rows = dtb.read_where("(date==q_date) & (shotid==q_shot)")
+
+                            if rows is not None:
+                                for row in rows:
+                                    detectids.append(row['detectid'])
+                        except:
+                            log.error("Invalid detection identifier: %s" %d)
 
             except:
                 pass
@@ -1359,6 +1464,46 @@ def merge(args=None):
         pass
 
 
+def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
+    #find the pdf reports that should correspond to each detction
+    #if found that detection is already done, so remove it from the list
+
+    #implement as build a new list ... just easier that way
+    if ((fcsdir_list is None) or (len(fcsdir_list) == 0)) and \
+            ((hdf5_detectid_list is None) or (len(hdf5_detectid_list) == 0)):
+        msg = "Unexpected empty lists. Cannot run in recovery mode."
+        log.error(msg)
+        print(msg)
+        return None
+
+    newlist = []
+    if (hdf5_detectid_list is not None) and (len(hdf5_detectid_list) > 0):
+
+        for d in hdf5_detectid_list:
+            #does the file exist
+            #todo: this should be made common code, so naming is consistent
+            filename = str(d)
+
+            if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + ".pdf")) or \
+                os.path.isfile(os.path.join(args.name, filename + ".pdf")):
+                log.info("Already processed %s. Will skip recovery." %(filename))
+            else:
+                log.info("Not found (%s). Will process ..." %(filename))
+                newlist.append(d)
+
+
+    else: #this is the fcsdir list
+
+        for d in fcsdir_list:
+            filename = os.path.basename(str(d))
+            if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + ".pdf")) or \
+                os.path.isfile(os.path.join(args.name, filename + ".pdf")):
+                log.info("Already processed %s. Will skip recovery." %(filename))
+            else:
+                log.info("Not found (%s). Will process ..." %(filename))
+                newlist.append(d)
+
+    return newlist
 
 
 
@@ -1392,307 +1537,384 @@ def main():
 
     if args.fcsdir is not None:
         fcsdir_list = get_fcsdir_subdirs_to_process(args) #list of rsp1 style directories to process (each represents one detection)
+        if fcsdir_list is not None:
+            log.info("Processing %d entries in FCSDIR" %(len(fcsdir_list)))
+            print("Processing %d entries in FCSDIR" %(len(fcsdir_list)))
+
     else:
         hdf5_detectid_list = get_hdf5_detectids_to_process(args)
+        if hdf5_detectid_list is not None:
+            log.info("Processing %d entries in HDF5" %(len(hdf5_detectid_list)))
+            print("Processing %d entries in HDF5" %(len(hdf5_detectid_list)))
 
-    match_list = match_summary.MatchSet()
+
 
     PDF_File(args.name, 1) #use to pre-create the output dir (just toss the returned pdf container)
 
-    # first, if hetdex info provided, build the hetdex part of the report
-    # hetedex part
-    if build_hd(args):
-        #hd_list by IFU (one hd object per IFU, pre-April 2018)
-        #each hd object can have multiple DetObjs (assigned s|t the first fiber's IFU matches the hd IFU)
-        if (len(ifu_list) > 0) and ((args.ifuslot is None) and (args.ifuid is None) and (args.specid is None)):
-
-            #sort so easier to find
-            ifu_list.sort()
-
-            for ifu in ifu_list:
-                args.ifuslot = int(ifu)
-                hd = hetdex.HETDEX(args)
-                if (hd is not None) and (hd.status != -1):
-                    hd_list.append(hd)
-        elif len(fcsdir_list) > 0: #rsp style
-            #build one hd object for each ?
-            #assume of form 20170322v011_xxx
-            obs_dict = {} #key=20170322v011  values=list of dirs
-
-            for d in fcsdir_list:
-                key = os.path.basename(d).split("_")[0]
-                if key in obs_dict:
-                    obs_dict[key].append(d)
-                else:
-                    obs_dict[key] = [d]
 
 
-            for key in obs_dict.keys():
-                hd = hetdex.HETDEX(args,fcsdir_list=obs_dict[key]) #builds out the hd object (with fibers, DetObj, etc)
-                #todo: maybe join all hd objects that have the same observation
-                # could save in loading catalogs (assuming all from the same observation)?
-                # each with then multiple detections (DetObjs)
-                if hd.status == 0:
-                    hd_list.append(hd)
-        elif len(hdf5_detectid_list) > 0: #HDF5 (DataRelease style)
-            #only one detection per hetdex object
-            for d in hdf5_detectid_list:
-                hd = hetdex.HETDEX(args,fcsdir_list=None,hdf5_detectid_list=[d])
+    #if this is a re-run (recovery run) remove any detections that have already been processed
+    master_loop_length = 1
+    master_fcsdir_list = []
+    master_hdf5_detectid_list = []
 
-                if hd.status == 0:
-                    hd_list.append(hd)
-
+    if G.RECOVERY_RUN:
+        if len(hdf5_detectid_list) > 0:
+            hdf5_detectid_list = prune_detection_list(args,None,hdf5_detectid_list)
+            if len(hdf5_detectid_list) == 0:
+                print("[RECOVERY MODE] All detections already processed. Exiting...")
+                log.info("[RECOVERY MODE] All detections already processed. Exiting...")
+                log.critical("Main complete.")
+                exit(0)
+            else:
+                master_loop_length = len(hdf5_detectid_list)
+                master_hdf5_detectid_list = hdf5_detectid_list
+                log.info("[RECOVERY] Processing %d entries in HDF5" % (len(hdf5_detectid_list)))
+                print("[RECOVERY] Processing %d entries in HDF5" % (len(hdf5_detectid_list)))
+        elif len(fcsdir_list):
+            fcsdir_list = prune_detection_list(args,fcsdir_list,None)
+            if len(fcsdir_list) == 0:
+                print("[RECOVERY MODE] All detections already processed. Exiting...")
+                log.info("[RECOVERY MODE] All detections already processed. Exiting...")
+                log.critical("Main complete.")
+                exit(0)
+            else:
+                master_loop_length = len(fcsdir_list)
+                master_fcsdir_list = fcsdir_list
+                log.info("[RECOVERY] Processing %d entries in FCSDIR" % (len(fcsdir_list)))
+                print("[RECOVERY] Processing %d entries in FCSDIR" % (len(fcsdir_list)))
         else:
-            hd = hetdex.HETDEX(args) #builds out the hd object (with fibers, DetObj, etc)
-            if hd is not None:
-                if hd.status == 0:
-                    hd_list.append(hd)
+            G.RECOVERY_RUN = False
+            log.debug("No list (hdf5 or fcsdir) of detections, so RECOVERY MODE turned off.")
 
-    if args.score:
-        #todo: future possibility that additional analysis needs to be done (beyond basic fiber info). Move as needed
+    #now, we have only the detections that have NOT been processed
+
+    for master_loop_idx in range(master_loop_length):
+
+        #stupid, but works until I can properly reorganize
+        #on each run through this loop, set the list to one element
+        if len(master_hdf5_detectid_list) > 0: #this is an hdf5 run
+            hdf5_detectid_list = [master_hdf5_detectid_list[master_loop_idx]]
+        elif len(master_fcsdir_list) > 0:
+            fcsdir_list = [master_fcsdir_list[master_loop_idx]]
+
+        #reset the other lists
+        del hd_list[:]
+        del file_list[:]
+
+        hd_list = []
+        file_list = []
+        match_list = match_summary.MatchSet()
+
+        # first, if hetdex info provided, build the hetdex part of the report
+        # hetedex part
+        if build_hd(args):
+            #hd_list by IFU (one hd object per IFU, pre-April 2018)
+            #each hd object can have multiple DetObjs (assigned s|t the first fiber's IFU matches the hd IFU)
+            if (len(ifu_list) > 0) and ((args.ifuslot is None) and (args.ifuid is None) and (args.specid is None)):
+
+                #sort so easier to find
+                ifu_list.sort()
+
+                for ifu in ifu_list:
+                    args.ifuslot = int(ifu)
+                    hd = hetdex.HETDEX(args)
+                    if (hd is not None) and (hd.status != -1):
+                        hd_list.append(hd)
+            elif len(fcsdir_list) > 0: #rsp style
+                #build one hd object for each ?
+                #assume of form 20170322v011_xxx
+                obs_dict = {} #key=20170322v011  values=list of dirs
+
+                for d in fcsdir_list:
+                    key = os.path.basename(d).split("_")[0]
+                    if key in obs_dict:
+                        obs_dict[key].append(d)
+                    else:
+                        obs_dict[key] = [d]
+
+
+                for key in obs_dict.keys():
+                    plt.close('all')
+                    hd = hetdex.HETDEX(args,fcsdir_list=obs_dict[key]) #builds out the hd object (with fibers, DetObj, etc)
+                    #todo: maybe join all hd objects that have the same observation
+                    # could save in loading catalogs (assuming all from the same observation)?
+                    # each with then multiple detections (DetObjs)
+                    if hd.status == 0:
+                        hd_list.append(hd)
+            elif len(hdf5_detectid_list) > 0: #HDF5 (DataRelease style)
+                #only one detection per hetdex object
+                for d in hdf5_detectid_list:
+                    plt.close('all')
+                    hd = hetdex.HETDEX(args,fcsdir_list=None,hdf5_detectid_list=[d])
+
+                    if hd.status == 0:
+                        hd_list.append(hd)
+
+            else:
+                hd = hetdex.HETDEX(args) #builds out the hd object (with fibers, DetObj, etc)
+                if hd is not None:
+                    if hd.status == 0:
+                        hd_list.append(hd)
+
+        if args.score:
+            #todo: future possibility that additional analysis needs to be done (beyond basic fiber info). Move as needed
+            if len(hd_list) > 0:
+                if not os.path.isdir(args.name):
+                    try:
+                        os.makedirs(args.name)
+                    except OSError as exception:
+                        if exception.errno != errno.EEXIST:
+                            print("Fatal. Cannot create pdf output directory: %s" % args.name)
+                            log.critical("Fatal. Cannot create pdf output directory: %s" % args.name, exc_info=True)
+                            exit(-1)
+                #esp. for older panacea and for cure, need data built in the data_dict to compute score
+                for hd in hd_list:
+                    for emis in hd.emis_list:
+                        emis.outdir = args.name
+                        hd.build_data_dict(emis)
+
+                write_fibers_file(os.path.join(args.name, args.name + "_fib.txt"), hd_list)
+            log.critical("Main complete.")
+            exit(0)
+
         if len(hd_list) > 0:
-            if not os.path.isdir(args.name):
-                try:
-                    os.makedirs(args.name)
-                except OSError as exception:
-                    if exception.errno != errno.EEXIST:
-                        print("Fatal. Cannot create pdf output directory: %s" % args.name)
-                        log.critical("Fatal. Cannot create pdf output directory: %s" % args.name, exc_info=True)
-                        exit(-1)
-            #esp. for older panacea and for cure, need data built in the data_dict to compute score
+            total_emis = 0
             for hd in hd_list:
-                for emis in hd.emis_list:
-                    emis.outdir = args.name
-                    hd.build_data_dict(emis)
+                if hd.status != 0:
+                    if len(hd_list) > 1:
+                        continue
+                    else:
+                        # fatal
+                        print("Fatal error. Cannot build HETDEX working object.")
+                        log.critical("Fatal error. Cannot build HETDEX working object.")
+                        log.critical("Main exit. Fatal error.")
+                        exit (-1)
 
-            write_fibers_file(os.path.join(args.name, args.name + "_fib.txt"), hd_list)
-        log.critical("Main complete.")
-        exit(0)
+                #iterate over all emission line detections
+                if len(hd.emis_list) > 0:
+                    total_emis += len(hd.emis_list)
+                    print()
+                    #first see if there are any possible matches anywhere
+                    #matched_cats = []  ... here matched_cats needs to be per each emission line (DetObj)
+                    num_hits = 0
 
-    if len(hd_list) > 0:
-        total_emis = 0
-        for hd in hd_list:
-            if hd.status != 0:
-                if len(hd_list) > 1:
-                    continue
-                else:
-                    # fatal
-                    print("Fatal error. Cannot build HETDEX working object.")
-                    log.critical("Fatal error. Cannot build HETDEX working object.")
-                    log.critical("Main exit. Fatal error.")
-                    exit (-1)
+                    for e in hd.emis_list:
+                        plt.close('all')
+                        log.info("Processing catalogs for eid(%s) ... " %str(e.entry_id))
 
-            #iterate over all emission line detections
-            if len(hd.emis_list) > 0:
-                total_emis += len(hd.emis_list)
-                print()
-                #first see if there are any possible matches anywhere
-                #matched_cats = []  ... here matched_cats needs to be per each emission line (DetObj)
-                num_hits = 0
+                        for c in cats:
+                            if (e.wra is not None) and (e.wdec is not None):  # weighted RA and Dec
+                                ra = e.wra
+                                dec = e.wdec
+                            else:
+                                ra = e.ra
+                                dec = e.dec
+                            if c.position_in_cat(ra=ra, dec=dec, error=args.error): #
+                                in_cat = True
+                                hits, _, _ = c.build_list_of_bid_targets(ra=ra, dec=dec, error=args.error)
+                                if hits < 0:
+                                    # detailed examination found that the position cannot be found in the catalogs
+                                    # this is for a tiled catalog (like SHELA or HSC) where the range is there, but
+                                    # there is no tile that covers that specific position
 
-                for e in hd.emis_list:
+                                    hits = 0
+                                    in_cat = False
 
-                    log.info("Processing catalogs for eid(%s) ... " %str(e.entry_id))
+                                num_hits += hits
+                                e.num_hits = hits #yes, for printing ... just the hits in this ONE catalog
 
-                    for c in cats:
-                        if (e.wra is not None) and (e.wdec is not None):  # weighted RA and Dec
+                                if in_cat and (c not in e.matched_cats):
+                                    e.matched_cats.append(c)
+
+                                print("%d hits in %s for Detect ID #%d" % (hits, c.name, e.id))
+                            else: #todo: don't bother printing the negative case
+                                print("Coordinates not in range of %s for Detect ID #%d" % (c.name,e.id))
+
+                        if len(e.matched_cats) == 0:
+                            e.matched_cats.append(catch_all_cat)
+
+                    if (args.annulus is None) and (not confirm(num_hits,args.force)):
+                        log.critical("Main exit. User cancel.")
+                        exit(0)
+
+                    #now build the report for each emission detection
+                    for e in hd.emis_list:
+                        pdf = PDF_File(args.name, e.entry_id, e.pdf_name)
+                        e.outdir = pdf.basename
+
+                        id = "Detect ID #" + str(e.id)
+                        if (e.wra is not None) and (e.wdec is not None): #weighted RA and Dec
                             ra = e.wra
                             dec = e.wdec
                         else:
                             ra = e.ra
                             dec = e.dec
-                        if c.position_in_cat(ra=ra, dec=dec, error=args.error): #
-                            in_cat = True
-                            hits, _, _ = c.build_list_of_bid_targets(ra=ra, dec=dec, error=args.error)
-                            if hits < 0:
-                                # detailed examination found that the position cannot be found in the catalogs
-                                # this is for a tiled catalog (like SHELA or HSC) where the range is there, but
-                                # there is no tile that covers that specific position
 
-                                hits = 0
-                                in_cat = False
 
-                            num_hits += hits
-                            e.num_hits = hits #yes, for printing ... just the hits in this ONE catalog
+                        #todo: ANNULUS STUFF HERE
+                        #todo: still use hetdex objects, but want a different hetdex section
+                        #todo: and we won't be catalog matching (though will grab images from them)
 
-                            if in_cat and (c not in e.matched_cats):
-                                e.matched_cats.append(c)
+                        if args.annulus is None:
+                            pdf.pages = build_hetdex_section(pdf.filename,hd,e.id,pdf.pages) #this is the fiber, spectra cutouts for this detect
 
-                            print("%d hits in %s for Detect ID #%d" % (hits, c.name, e.id))
-                        else: #todo: don't bother printing the negative case
-                            print("Coordinates not in range of %s for Detect ID #%d" % (c.name,e.id))
+                            match = match_summary.Match(e)
 
-                    if len(e.matched_cats) == 0:
-                        e.matched_cats.append(catch_all_cat)
+                            pdf.pages,pdf.bid_count = build_pages(pdf.filename, match, ra, dec, args.error, e.matched_cats, pdf.pages,
+                                                          num_hits=e.num_hits, idstring=id,base_count=0,target_w=e.w,
+                                                          fiber_locs=e.fiber_locs,target_flux=e.estflux)
 
-                if (args.annulus is None) and (not confirm(num_hits,args.force)):
+                            #add in lines and classification info
+                            match_list.add(match) #always add even if bids are none
+                            file_list.append(pdf)
+                        else: #todo: this is an annulus examination (fiber stacking)
+                            log.info("***** ANNULUS ***** ")
+                            pdf.pages = build_hetdex_section(pdf.filename, hd, e.id, pdf.pages, annulus=True)
+                            pdf.pages, pdf.bid_count = build_pages(pdf.filename, None, ra, dec, args.error, e.matched_cats,
+                                                                   pdf.pages, num_hits=0, idstring=id, base_count=0,
+                                                                   target_w=e.w, fiber_locs=e.fiber_locs,
+                                                                   target_flux=e.estflux, annulus=args.annulus,obs=e.syn_obs)
+                            file_list.append(pdf)
+
+            # else: #for multi calls (which are common now) this is of no use
+               #     print("\nNo emission detections meet minimum criteria for specified IFU. Exiting.\n"
+               #     log.warning("No emission detections meet minimum criteria for specified IFU. Exiting.")
+
+            if total_emis < 1:
+                log.info("No detections match input parameters.")
+                print("No detections match input parameters.")
+
+        elif (args.ra is not None) and (args.dec is not None):
+            num_hits = 0
+            num_cats = 0
+            catlist_str = ""
+            matched_cats = [] #there were no detection objects (just an RA, Dec) so use a generic, global matched_cats
+            for c in cats:
+                if c.position_in_cat(ra=args.ra,dec=args.dec,error=args.error):
+                    num_cats += 1
+                    if c not in matched_cats:
+                        matched_cats.append(c)
+                        catlist_str += c.name + ", "
+
+                    if args.error > 0:
+                        hits,_,_ = c.build_list_of_bid_targets(ra=args.ra,dec=args.dec,error=args.error)
+                        num_hits += hits
+
+                        if hits > 0:
+                            print ("%d hits in %s" %(hits,c.name))
+                        elif args.catcheck:
+                            print("%d hits in %s (*only checks closest tile)" %(hits,c.name))
+            if args.catcheck:
+                catlist_str = catlist_str[:-2]
+                print("%d overlapping catalogs (%f,%f). %s" %(num_cats,args.ra, args.dec, catlist_str))
+                exit(0)
+                #if num_cats == 0:
+                #    num_hits = -1 #will show -1 if no catalogs vs 0 if there are matching catalogs, just no matching targets
+                    #print("-1 hits. No overlapping imaging catalogs.")
+            else:
+                if not confirm(num_hits,args.force):
                     log.critical("Main exit. User cancel.")
                     exit(0)
 
-                #now build the report for each emission detection
-                for e in hd.emis_list:
-                    pdf = PDF_File(args.name, e.entry_id, e.pdf_name)
-                    e.outdir = pdf.basename
-
-                    id = "Detect ID #" + str(e.id)
-                    if (e.wra is not None) and (e.wdec is not None): #weighted RA and Dec
-                        ra = e.wra
-                        dec = e.wdec
-                    else:
-                        ra = e.ra
-                        dec = e.dec
-
-
-                    #todo: ANNULUS STUFF HERE
-                    #todo: still use hetdex objects, but want a different hetdex section
-                    #todo: and we won't be catalog matching (though will grab images from them)
-
-                    if args.annulus is None:
-                        pdf.pages = build_hetdex_section(pdf.filename,hd,e.id,pdf.pages) #this is the fiber, spectra cutouts for this detect
-
-                        match = match_summary.Match(e)
-
-                        pdf.pages,pdf.bid_count = build_pages(pdf.filename, match, ra, dec, args.error, e.matched_cats, pdf.pages,
-                                                      num_hits=e.num_hits, idstring=id,base_count=0,target_w=e.w,
-                                                      fiber_locs=e.fiber_locs,target_flux=e.estflux)
-
-                        #add in lines and classification info
-                        match_list.add(match) #always add even if bids are none
-                        file_list.append(pdf)
-                    else: #todo: this is an annulus examination (fiber stacking)
-                        log.info("***** ANNULUS ***** ")
-                        pdf.pages = build_hetdex_section(pdf.filename, hd, e.id, pdf.pages, annulus=True)
-                        pdf.pages, pdf.bid_count = build_pages(pdf.filename, None, ra, dec, args.error, e.matched_cats,
-                                                               pdf.pages, num_hits=0, idstring=id, base_count=0,
-                                                               target_w=e.w, fiber_locs=e.fiber_locs,
-                                                               target_flux=e.estflux, annulus=args.annulus,obs=e.syn_obs)
-                        file_list.append(pdf)
-
-        # else: #for multi calls (which are common now) this is of no use
-           #     print("\nNo emission detections meet minimum criteria for specified IFU. Exiting.\n"
-           #     log.warning("No emission detections meet minimum criteria for specified IFU. Exiting.")
-
-        if total_emis < 1:
-            log.info("No detections match input parameters.")
-            print("No detections match input parameters.")
-
-    elif (args.ra is not None) and (args.dec is not None):
-        num_hits = 0
-        num_cats = 0
-        catlist_str = ""
-        matched_cats = [] #there were no detection objects (just an RA, Dec) so use a generic, global matched_cats
-        for c in cats:
-            if c.position_in_cat(ra=args.ra,dec=args.dec,error=args.error):
-                num_cats += 1
-                if c not in matched_cats:
-                    matched_cats.append(c)
-                    catlist_str += c.name + ", "
-
-                if args.error > 0:
-                    hits,_,_ = c.build_list_of_bid_targets(ra=args.ra,dec=args.dec,error=args.error)
-                    num_hits += hits
-
-                    if hits > 0:
-                        print ("%d hits in %s" %(hits,c.name))
-                    elif args.catcheck:
-                        print("%d hits in %s (*only checks closest tile)" %(hits,c.name))
-        if args.catcheck:
-            catlist_str = catlist_str[:-2]
-            print("%d overlapping catalogs (%f,%f). %s" %(num_cats,args.ra, args.dec, catlist_str))
-            exit(0)
-            #if num_cats == 0:
-            #    num_hits = -1 #will show -1 if no catalogs vs 0 if there are matching catalogs, just no matching targets
-                #print("-1 hits. No overlapping imaging catalogs.")
+                pages,_ = build_pages(args.name,None,args.ra, args.dec, args.error, matched_cats, pages, idstring="# 1 of 1")
         else:
-            if not confirm(num_hits,args.force):
-                log.critical("Main exit. User cancel.")
-                exit(0)
+            print("Invalid command line call. Insufficient information to execute or No detections meet minimum criteria.")
+            exit(-1)
 
-            pages,_ = build_pages(args.name,None,args.ra, args.dec, args.error, matched_cats, pages, idstring="# 1 of 1")
-    else:
-        print("Invalid command line call. Insufficient information to execute or No detections meet minimum criteria.")
-        exit(-1)
-
-    if len(file_list) > 0:
-        for f in file_list:
-            build_report(f.pages,f.filename)
-    else:
-        build_report(pages,args.name)
-
-    if PyPDF is not None:
-        if len(file_list) > 0:
-            try:
-                for f in file_list:
-                    join_report_parts(f.filename,f.bid_count)
-                    delete_report_parts(f.filename)
-            except:
-                log.error("Joining PDF parts failed for %s" %f.filename,exc_info=True)
-        else:
-            join_report_parts(args.name)
-            delete_report_parts(args.name)
-
-    if match_list.size > 0:
-        match_list.write_file(os.path.join(args.name,args.name+"_cat.txt"))
-
-    write_fibers_file(os.path.join(args.name, args.name + "_fib.txt"),hd_list)
-
-
-    #todo: iterate over detections and make a clean sample for LyC
-    #conditions ...
-    #   exactly 1 catalog detection
-    #   all 3 P(LAE)/P(OII) of similar value (that is all > say, 10)
-    #todo: OR - record all in HDF5 and subselect later
-    #not an optimal search (lots of redundant hits, but there will only be a few and this is simple to code
-    if False:
-        for h in hd_list: #iterate over all hetdex detections
-            for e in h.emis_list:
-                for c in match_list.match_set: #iterate over all match_list detections
-                    if e.id == c.detobj.id: #internal ID (guaranteed unique)
-
-                        print("Detect ID",c.detobj.entry_id)
-                        for b in c.bid_targets:
-                            print("         ",b.p_lae_oii_ratio,b.distance)
-                        print("\n")
-
-                        if False:
-                            if len(c.bid_targets) == 2: #the HETDEX + imaging, and 1 catalog match
-                                #c.bid_targets[0] is the hetdex one
-                                #check all plae_poii
-                                if (c.detobj.p_lae_oii_ratio > 10)          and \
-                                   (c.bid_targets[0].p_lae_oii_ratio > 10) and \
-                                   (c.bid_targets[1].p_lae_oii_ratio > 10):
-                                    #meets criteria, so log
-                                    if c.bid_targets[1].distance < 1.0:
-                                        print(c.detobj.id,c.detobj.p_lae_oii_ratio,c.bid_targets[0].p_lae_oii_ratio,c.bid_targets[1].p_lae_oii_ratio )
-
-
-                        break
-
-
-
-
-
-    #temporary
-    if args.line:
-        try:
-            import shutil
-            shutil.copy(args.line,os.path.join(args.name,os.path.basename(args.line)))
-
-        except:
-            log.error("Exception copying line file: ", exc_info=True)
-
-    if args.jpg and (PyPDF is not None):
         if len(file_list) > 0:
             for f in file_list:
+                build_report(f.pages,f.filename)
+        else:
+            build_report(pages,args.name)
+
+        if PyPDF is not None:
+            if len(file_list) > 0:
                 try:
-                    convert_pdf(f.filename)
+                    for f in file_list:
+                        join_report_parts(f.filename,f.bid_count)
+                        delete_report_parts(f.filename)
+                except:
+                    log.error("Joining PDF parts failed for %s" %f.filename,exc_info=True)
+            else:
+                join_report_parts(args.name)
+                delete_report_parts(args.name)
+
+        if match_list.size > 0:
+            match_list.write_file(os.path.join(args.name,args.name+"_cat.txt"))
+
+        write_fibers_file(os.path.join(args.name, args.name + "_fib.txt"),hd_list)
+
+
+        #todo: iterate over detections and make a clean sample for LyC
+        #conditions ...
+        #   exactly 1 catalog detection
+        #   all 3 P(LAE)/P(OII) of similar value (that is all > say, 10)
+        #todo: OR - record all in HDF5 and subselect later
+        #not an optimal search (lots of redundant hits, but there will only be a few and this is simple to code
+        if False:
+            for h in hd_list: #iterate over all hetdex detections
+                for e in h.emis_list:
+                    for c in match_list.match_set: #iterate over all match_list detections
+                        if e.id == c.detobj.id: #internal ID (guaranteed unique)
+
+                            print("Detect ID",c.detobj.entry_id)
+                            for b in c.bid_targets:
+                                print("         ",b.p_lae_oii_ratio,b.distance)
+                            print("\n")
+
+                            if False:
+                                if len(c.bid_targets) == 2: #the HETDEX + imaging, and 1 catalog match
+                                    #c.bid_targets[0] is the hetdex one
+                                    #check all plae_poii
+                                    if (c.detobj.p_lae_oii_ratio > 10)          and \
+                                       (c.bid_targets[0].p_lae_oii_ratio > 10) and \
+                                       (c.bid_targets[1].p_lae_oii_ratio > 10):
+                                        #meets criteria, so log
+                                        if c.bid_targets[1].distance < 1.0:
+                                            print(c.detobj.id,c.detobj.p_lae_oii_ratio,c.bid_targets[0].p_lae_oii_ratio,c.bid_targets[1].p_lae_oii_ratio )
+
+
+                            break
+
+
+
+
+
+        #temporary
+        if args.line:
+            try:
+                import shutil
+                shutil.copy(args.line,os.path.join(args.name,os.path.basename(args.line)))
+
+            except:
+                log.error("Exception copying line file: ", exc_info=True)
+
+        if args.jpg and (PyPDF is not None):
+            if len(file_list) > 0:
+                for f in file_list:
+                    try:
+                        convert_pdf(f.filename)
+                    except:
+                        log.error("Error converting to pdf to image type: " + f.filename, exc_info=True)
+            else:
+                try:
+                    convert_pdf(args.name)
                 except:
                     log.error("Error converting to pdf to image type: " + f.filename, exc_info=True)
-        else:
-            try:
-                convert_pdf(args.name)
-            except:
-                log.error("Error converting to pdf to image type: " + f.filename, exc_info=True)
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     log.critical("Main complete.")
 

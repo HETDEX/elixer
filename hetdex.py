@@ -1,5 +1,21 @@
 
-import global_config as G
+try:
+    from elixer import global_config as G
+    from elixer import line_prob
+    from elixer import hetdex_fits
+    from elixer import fiber as elixer_fiber
+    from elixer import ifu as elixer_ifu  # only using to locate panacea files (elixer only uses individual fibers, not entire IFUs)
+    from elixer import spectrum as elixer_spectrum
+    from elixer import observation as elixer_observation
+except:
+    import global_config as G
+    import line_prob
+    import hetdex_fits
+    import fiber as elixer_fiber
+    import ifu as elixer_ifu  # only using to locate panacea files (elixer only uses individual fibers, not entire IFUs)
+    import spectrum as elixer_spectrum
+    import observation as elixer_observation
+
 import matplotlib
 #matplotlib.use('agg')
 import time
@@ -15,7 +31,7 @@ from PIL import Image
 
 from astropy.io import fits as pyfits
 from astropy.coordinates import Angle
-from astropy.stats import biweight_midvariance
+#from astropy.stats import biweight_midvariance
 from astropy.modeling.models import Moffat2D, Gaussian2D
 from astropy.visualization import ZScaleInterval
 from photutils import CircularAperture, aperture_photometry
@@ -35,13 +51,7 @@ import fnmatch
 import os.path as op
 from copy import copy, deepcopy
 
-import line_prob
 
-import hetdex_fits
-import fiber as elixer_fiber
-import ifu as elixer_ifu #only using to locate panacea files (elixer only uses individual fibers, not entire IFUs)
-import spectrum as elixer_spectrum
-import observation as elixer_observation
 
 import tables
 
