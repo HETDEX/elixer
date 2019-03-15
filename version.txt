@@ -1,5 +1,71 @@
 changes to elixer by version
 
+1.6.1a1 [2018-03-15] -- merge to master
+* major rework of imports to allow for elixer to be installable as package
+
+1.6.0a5 [2019-03-14]
+* removed import and calls to Andrews's Bayesian PLAE/POII which necessitated cosmolopy so can eliminate hard
+  python2 dependencies
+* support python2 or python3 versions of ConfigParser (configparser in python3)
+* update binding for stampede2 normal queue (KNL nodes) ... limit to 6 tasks per node and a max of 50 nodes
+
+1.6.0a4 [2019-03-13]
+* add better protection on add empty fiber list cutout (formerly unhandled exception in rare case where we have
+  entries in the detection HDF5 but no shot files and not overlapping photometry)
+* trim stampede2 time estimate down to 45 sec per report
+
+
+1.6.0a3 [2019-03-12]
+* launch tasks with mpiexec.hydra for stampede2 cluster
+* reduced max time per task (if using --recover) as it is easier to continue on timeout if underestimate time
+
+1.6.0a2 [2019-03-11]
+* fixed missing process of --dispatch for HDF5 consumption with --dets as entire shot
+
+
+1.6.0a1 [2019-03-09]
+* added --recover option
+  Reorganizes elixer.py to execute to completion one detection at a time (rather than all detections in stages)
+  If --recover is on the command line, ELiXer will first check the expected output directory for reports that
+  match the list of detections to process. Any that are found are removed from the list. The anticipated primary use
+  case is a run of many detections that ran out of time on TACC. Now, some subset of the reports will be complete and
+  they user can re-execute the sbatch command directly (or even re-run elixer) but only those detections for which a
+  PDF report does not exist will be processed.
+
+  If --recover is NOT on the command line, all detections will be processed and the files overwritten in the original
+  all or nothing process (that is, all detections are processed in stages and are all written out only at the end).
+* added --search option to split out from --error. Use is exclusively with --ra and --dec and specifies the search
+  radius in arcsecs. If not supplied, --error is used instead. This allows for a wide search area but with still a
+  small (as defined by --error) cutout window.
+
+
+1.5.0a25 [2019-03-07]
+* modified line_classifier.probs.classification_prob_leung.py to return -1 PLAE/POII ratio if calc
+  number of OII and LAEs are both zero (e.g. the priors will be zero).
+* Made use of MCMC Gauss fit of additional lines contingent on global_config.py MIN_MCMC_SNR. If set
+  to 0 it will NOT perform that additional step (and just uses the scipy least-squares fit)
+* added 'fibidx' for SHOT HDF5 (if fails, uses 'fibnum' instead)
+* updated imaging paths to point under hetdex HDR1 directory
+
+1.5.0a24 [2019-03-06]
+* fixed missing call to elixer::get_hdf5_detectids_to_process is RA, Dec not supplied (selixer.py)
+* explicitly clear matplotlib at top of each cycle of HD object processing (elixer.py)
+
+1.5.0a23 [2019-03-04]
+* fixed typo in match_summary.py that failed to separated the header text for columns 29-33
+  (the columns are present but the header text was not separated and numbered correctly)
+* fixed missing filter (column 29 .. was printing a space) for aperture magnitude (e.g. the first row
+  or 0.0 distance entry in *_cat.txt)
+* fixed 0.0 value for aperture magnitude (was not being set) in *_cat.txt for the first row (aka
+  the 0.0 distance entry)
+
+
+1.5.0a22 [2019-03-04]
+* updated cat_HSC and cat_SHELA to handle aperture magnitude calculation from 1.5.0a20
+* changed sky pixel averaging from median of 3-sigma cut to biweight
+
+1.5.0a21 [2019-02-25]
+* fixed SLURM dispatch issue going from --ra and --dec to --dispatch and --dets
 
 1.5.0a20 [2019-02-25]
 * updated the catalogs API to allow operator to specify an aperture for a magnitude calcuation and whether that
