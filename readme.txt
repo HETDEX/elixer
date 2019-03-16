@@ -2,9 +2,9 @@ HETDEX ELiXer (Emission Line eXplorer) Data Release 1 Readme
 ------------------------------------------------------------
 
 The following readme covers the installation/setup and basic usage of ELiXer as incorporated into the HETDEX
-Data Release 1. This version of ELiXer was written for and tested with Python 2.7.15. It is compatible with Python 3x
+Data Release 1. This version of ELiXer was written for and tested with Python 2.7.15. Specifc APIs are compatible with Python 3x
 (limited testing performed with Python 3.6.8) but there are deprication warnings for several packages (notably astropy
-and photutils).
+and photutils), however the PDF report generation (calls to elixer.py and selixer.py) MUST use Python 2.7 due to several compatibility issues that will be addressed in a later release.
 
 ##############################
 # Installation
