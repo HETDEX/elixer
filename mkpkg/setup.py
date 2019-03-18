@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="hetdex-elixer",
-    version="1.6.0",
+    version="1.6.1",
     author="Dustin Davis",
     author_email="dustin.davis@utexas.edu",
     description="HETDEX Emission Line eXplorer tool",
