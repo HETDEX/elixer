@@ -1,6 +1,4 @@
-include distance_list_bool.txt
-include version.txt
-include readme.txt
-include docs/example.ipynb
-include docs/readme.pdf
+include elixer/distance_list_bool.txt
+include elixer/version.txt
+recursive-include elixer/docs *
 

@@ -1,6 +1,7 @@
 1. from directory above elixer 
   - add __init__.py
   - add setup.py
+  - add MANIFEST.in
 
 (setup has version info, etc)
 
@@ -11,3 +12,5 @@
 3. copy dist/*.gz  (that is what you will install)
 
 4. run > pip install --user hetdex-elixer-1.6.0.tar.gz
+
+
