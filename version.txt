@@ -2,6 +2,8 @@ changes to elixer by version
 
 1.6.1a1 [2018-03-15] -- merge to master
 * major rework of imports to allow for elixer to be installable as package
+* various updates to switch between string/byte handling for python2 vs python3
+* added documentation
 
 1.6.0a5 [2019-03-14]
 * removed import and calls to Andrews's Bayesian PLAE/POII which necessitated cosmolopy so can eliminate hard
