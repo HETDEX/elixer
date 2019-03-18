@@ -1,23 +1,40 @@
-import global_config as G
+#import global_config as G
 
-#log = G.logging.getLogger('Cat_logger')
-#log.setLevel(G.logging.DEBUG)
-log = G.Global_Logger('cat_logger')
-log.setlevel(G.logging.DEBUG)
+
+
 
 #base class for catalogs (essentially an interface class)
 #all Catalogs classes must implement:
 
-import cat_candles_egs_stefanon_2016
-import cat_goods_n
-#import cat_goods_n_finkelstein
-import cat_egs_groth
-import cat_stack_cosmos
-import cat_shela
-import cat_hsc
-import cat_catch_all
-#import cat_ast376_shela
 
+
+try:
+    from elixer import global_config as G
+    from elixer import cat_candles_egs_stefanon_2016
+    from elixer import cat_goods_n
+    # from elixer import cat_goods_n_finkelstein
+    from elixer import cat_egs_groth
+    from elixer import cat_stack_cosmos
+    from elixer import cat_shela
+    from elixer import cat_hsc
+    from elixer import cat_catch_all
+    # from elixer import cat_ast376_shela
+except:
+    import global_config as G
+    import cat_candles_egs_stefanon_2016
+    import cat_goods_n
+    #import cat_goods_n_finkelstein
+    import cat_egs_groth
+    import cat_stack_cosmos
+    import cat_shela
+    import cat_hsc
+    import cat_catch_all
+    # from elixer import cat_ast376_shela
+
+# log = G.logging.getLogger('Cat_logger')
+# log.setLevel(G.logging.DEBUG)
+log = G.Global_Logger('cat_logger')
+log.setlevel(G.logging.DEBUG)
 
 class CatalogLibrary:
 
@@ -87,11 +104,25 @@ class CatalogLibrary:
         :param radius: half-side of square cutout in arcsecs
         :param catalogs: optional list of catalogs to search (if not provided, searches all)
         :param aperture: optional aperture radius in arcsecs inside which to calcuate an AB magnitude
-                          note: only returned IF the associated image has a magnitude function defined
+                          note: only returned IF the associated image has a magnitude function defined (None, otherwise)
                           note: will be forced to radius if radius is smaller than aperture
+                          note: a value of 99.9 means the magnitude could not be calculated (usually an error with the
+                                pixel counts or photutils)
         :param dynamic: optional - if True, the aperture provided will grow in 0.1 arcsec steps until the magnitude
                         stabalizes (similar to, but not curve of growth)
-        :return: list of dictionaries of cutouts and info
+        :return: list of dictionaries of cutouts and info,
+                one for each matching catalog FITS image that contains the requested coordinate.
+                The dictionary contains the following keys:
+
+                'cutout' = an astropy Cutout2D object (or None if there was an error)
+                'path' = the full path to the FITS image from which the cutout was made
+                'hdu' = the HDU list from the FITS image
+                'instrument' = the instrument name (like DECAM, or HSC, or HST-WFC-3)
+                'filter' = the filter name
+                'instrument' = the instrument name
+                'mag' = the calculated magnitude within the aperture radius if a conversion is available and aperture
+                        was specified
+                'aperture' = the aperture radius for the magnitude
         '''
 
         if catalogs is None:
@@ -132,7 +163,13 @@ class CatalogLibrary:
         :param position: astropy SkyCoord
         :param radius: distance in arcsecs from the provided position in which to search for catalog objects
         :param catalogs: optional list of catalogs to search (if not provided, searches all)
-        :return: list of dictionaries of cutouts and info
+        :return: list of dictionaries (one for each catalog containing the target position ... usually just one)
+                 Each dictionary contains the following keys:
+
+                'count' = the number of catalog objects within the search radius
+                'name' = the name of the catalog
+                'dataframe' = pandas dataframe containing the catalog detections. The columns available depend
+                              on the catalog but will always contain at least: 'RA','DEC', and 'distance'
         '''
 
         if catalogs is None:

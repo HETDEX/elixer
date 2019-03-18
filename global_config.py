@@ -12,7 +12,14 @@ import numpy as np
 import socket
 
 #version
-__version__ = '1.6.0a5'
+__version__ = '1.6.1a1'
+
+#python version
+import sys
+PYTHON_MAJOR_VERSION = sys.version_info[0]
+PYTHON_VERSION = sys.version_info
+
+
 
 
 HDR1 = True #set to TRUE for HDR1 release
@@ -221,9 +228,17 @@ class Global_Logger:
             print("Exception in logger....")
 
 
+def python2():
+    if PYTHON_MAJOR_VERSION == 2:
+        return True
+    else:
+        return False
+
 def getnearpos(array,value):
     idx = (np.abs(array-value)).argmin()
     return idx
+
+
 
 LyA_rest = 1216. #A 1215.668 and 1215.674
 OII_rest = 3727.

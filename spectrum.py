@@ -1,4 +1,12 @@
-import global_config as G
+try:
+    from elixer import global_config as G
+    from elixer import line_prob
+    from elixer import mcmc_gauss
+except:
+    import global_config as G
+    import line_prob
+    import mcmc_gauss
+
 import matplotlib
 #matplotlib.use('agg')
 
@@ -14,8 +22,7 @@ import io
 from scipy.stats import skew, kurtosis
 from scipy.optimize import curve_fit
 import copy
-import line_prob
-import mcmc_gauss
+
 import os.path as op
 
 
@@ -836,10 +843,17 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
                 eli.sn_pix = num_sn_pix
     except Exception as ex:
-        if ex.message.find("Optimal parameters not found") > -1:
-            log.info("Could not fit gaussian near %f" % central,exc_info=False)
-        else:
-            log.error("Could not fit gaussian near %f" % central, exc_info=True)
+        try: #bug? in Python3 ... after 3.4 message attribute is lost?
+            if ex.message.find("Optimal parameters not found") > -1:
+                log.info("Could not fit gaussian near %f" % central,exc_info=False)
+            else:
+                log.error("Could not fit gaussian near %f" % central, exc_info=True)
+        except:
+            try:
+                if ex.args[0].find("Optimal parameters not found") > -1:
+                    log.info("Could not fit gaussian near %f" % central, exc_info=False)
+            except:
+                log.error("Could not fit gaussian near %f" % central, exc_info=True)
         return None
 
     if (eli.fit_rmse > 0) and (eli.fit_sigma <= GAUSS_FIT_MAX_SIGMA) and (eli.fit_sigma >= min_sigma):

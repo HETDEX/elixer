@@ -16,11 +16,18 @@ from numpy import any as nany
 from astropy.table import Table
 from scipy.stats import norm
 from scipy.special import gammainc, gammaincc, gamma
-from line_classifier.lfs_ews.luminosity_function import LuminosityFunction, gamma_integral_limits
-from line_classifier.lfs_ews.equivalent_width import EquivalentWidthAssigner
-from line_classifier.misc.tools import read_flim_file, generate_cosmology_from_config
+try:
+    from elixer import global_config as G
+    from elixer.line_classifier.lfs_ews.luminosity_function import LuminosityFunction, gamma_integral_limits
+    from elixer.line_classifier.lfs_ews.equivalent_width import EquivalentWidthAssigner
+    from elixer.line_classifier.misc.tools import read_flim_file, generate_cosmology_from_config
+except:
+    import global_config as G
+    from line_classifier.lfs_ews.luminosity_function import LuminosityFunction, gamma_integral_limits
+    from line_classifier.lfs_ews.equivalent_width import EquivalentWidthAssigner
+    from line_classifier.misc.tools import read_flim_file, generate_cosmology_from_config
 
-import global_config as G
+
 _logger = G.Global_Logger("prob")
 _logger.setlevel(G.logging.INFO)
 
@@ -455,6 +462,7 @@ def source_prob(config, ra, dec, zs, fluxes, flux_errs, ews_obs, ew_err, c_obs, 
             return -1, 0
         else:
             return -1, 0, 0, 0, 0, 0
+
 
     # P(DATA|LAE), P(DATA|OII)
     prob_data_lae = prob_ew_lae*prob_flux_lae*prob_lines_lae

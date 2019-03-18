@@ -1,6 +1,16 @@
 from __future__ import print_function
 
-import global_config as G
+try:
+    from elixer import global_config as G
+    from elixer import science_image
+    from elixer import cat_base
+    from elixer import match_summary
+except:
+    import global_config as G
+    import science_image
+    import cat_base
+    import match_summary
+
 import os.path as op
 
 
@@ -8,7 +18,7 @@ import matplotlib
 #matplotlib.use('agg')
 
 import pandas as pd
-import science_image
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
@@ -21,9 +31,6 @@ log = G.Global_Logger('cat_logger')
 log.setlevel(G.logging.DEBUG)
 
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
-
-import cat_base
-import match_summary
 
 
 class CATCH_ALL(cat_base.Catalog):

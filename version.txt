@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.6.1a1 [2018-03-15] -- merge to master
+* major rework of imports to allow for elixer to be installable as package
+* various updates to switch between string/byte handling for python2 vs python3
+* added documentation
 
 1.6.0a5 [2019-03-14]
 * removed import and calls to Andrews's Bayesian PLAE/POII which necessitated cosmolopy so can eliminate hard
@@ -65,7 +69,7 @@ changes to elixer by version
 1.5.0a21 [2019-02-25]
 * fixed SLURM dispatch issue going from --ra and --dec to --dispatch and --dets
 
-1.5.0a20 [2019-02-25] [branched to hdr1]
+1.5.0a20 [2019-02-25]
 * updated the catalogs API to allow operator to specify an aperture for a magnitude calcuation and whether that
   aperture is dynamic
 * updated the catalogs API to take radius as arcsecs rather than degrees (though if less than 0.5, will assume degrees)

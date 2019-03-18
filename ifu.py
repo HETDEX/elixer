@@ -4,17 +4,23 @@
 #for an ifu for one observation
 #and provides some basic operations (like summing up fibers and interpolating)
 
-import global_config as G
+try:
+    from elixer import global_config as G
+    from elixer import fiber as elixer_fiber
+    from elixer import hetdex_fits
+    from elixer import spectrum as elixer_spectrum
+except:
+    import global_config as G
+    import fiber as elixer_fiber
+    import hetdex_fits
+    import spectrum as elixer_spectrum
+
 import numpy as np
 import os
 import glob
 import fnmatch
-import fiber as elixer_fiber
-import hetdex_fits
+
 from astropy.io import fits as pyfits
-
-import spectrum as elixer_spectrum
-
 
 UNITS = ['counts','cgs-17']
 

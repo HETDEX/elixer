@@ -3,7 +3,11 @@ from __future__ import print_function
 import sys
 import os
 import errno
-import elixer
+try:
+    from elixer import elixer
+except:
+    import elixer
+
 import numpy as np
 from math import ceil
 from datetime import timedelta

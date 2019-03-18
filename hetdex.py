@@ -1,5 +1,21 @@
 
-import global_config as G
+try:
+    from elixer import global_config as G
+    from elixer import line_prob
+    from elixer import hetdex_fits
+    from elixer import fiber as elixer_fiber
+    from elixer import ifu as elixer_ifu  # only using to locate panacea files (elixer only uses individual fibers, not entire IFUs)
+    from elixer import spectrum as elixer_spectrum
+    from elixer import observation as elixer_observation
+except:
+    import global_config as G
+    import line_prob
+    import hetdex_fits
+    import fiber as elixer_fiber
+    import ifu as elixer_ifu  # only using to locate panacea files (elixer only uses individual fibers, not entire IFUs)
+    import spectrum as elixer_spectrum
+    import observation as elixer_observation
+
 import matplotlib
 #matplotlib.use('agg')
 import time
@@ -35,13 +51,7 @@ import fnmatch
 import os.path as op
 from copy import copy, deepcopy
 
-import line_prob
 
-import hetdex_fits
-import fiber as elixer_fiber
-import ifu as elixer_ifu #only using to locate panacea files (elixer only uses individual fibers, not entire IFUs)
-import spectrum as elixer_spectrum
-import observation as elixer_observation
 
 import tables
 
@@ -1687,8 +1697,12 @@ class DetObj:
             #mfits_name = row['multiframe']
 
             #set the pdf name (w/o the .pdf extension
-            self.pdf_name = row['inputid']
-            self.hdf5_detectname = row['detectname']
+            if G.python2():
+                self.pdf_name = row['inputid']
+                self.hdf5_detectname = row['detectname']
+            else:
+                self.pdf_name = row['inputid'].decode()
+                self.hdf5_detectname = row['detectname'].decode()
 
 
             ############################
@@ -1811,17 +1825,31 @@ class DetObj:
 
             for row in rows:
                 count += 1
-                specid = row['specid']
-                ifuslot = row['ifuslot']
-                ifuid = row['ifuid']
-                amp = row['amp'] #missing the L or R right now...
-                date = str(row['date']) #check format
 
-                #expected to be "20180320T052104.2"
-                time_ex = row['timestamp'][9:]
-                time = time_ex[0:6] #hhmmss
-                mfits_name = row['multiframe'] #similar to multi*fits style name
-                fiber_index = row['fibnum'] -1  #1-112 #panacea index is 0-111
+                if G.python2():
+                    specid = row['specid']
+                    ifuslot = row['ifuslot']
+                    ifuid = row['ifuid']
+                    amp = row['amp']
+                    date = str(row['date'])
+
+                    #expected to be "20180320T052104.2"
+                    time_ex = row['timestamp'][9:]
+                    time = time_ex[0:6] #hhmmss
+                    mfits_name = row['multiframe'] #similar to multi*fits style name
+                    fiber_index = row['fibnum'] -1  #1-112 #panacea index is 0-111
+                else:
+                    specid = row['specid'].decode()
+                    ifuslot = row['ifuslot'].decode()
+                    ifuid = row['ifuid'].decode()
+                    amp = row['amp'].decode()
+                    date = str(row['date'])
+
+                    # expected to be "20180320T052104.2"
+                    time_ex = row['timestamp'][9:].decode()
+                    time = time_ex[0:6]  # hhmmss
+                    mfits_name = row['multiframe'].decode()  # similar to multi*fits style name
+                    fiber_index = row['fibnum'] - 1  # 1-112 #panacea index is 0-111
 
                 #print("***** ", mfits_name, specid, ifuslot, ifuid, amp, row['expnum'])
 
@@ -1841,6 +1869,7 @@ class DetObj:
                     fiber.center_x = row['x_ifu']
                     fiber.center_y = row['y_ifu']
                     fiber.raw_weight = row['weight']
+
                     subset_norm += fiber.raw_weight
                     #fiber.relative_weight = row['weight']
                     # add the fiber (still needs to load its fits file)

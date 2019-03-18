@@ -2,7 +2,18 @@ from __future__ import print_function
 #keep it simple for now. Put base class and all children in here.
 #Later, create a proper package
 
-import global_config as G
+
+try:
+    from elixer import global_config as G
+    from elixer import science_image
+    from elixer import cat_bayesian
+    from elixer import observation as elixer_observation
+except:
+    import global_config as G
+    import science_image
+    import cat_bayesian
+    import observation as elixer_observation
+
 import os.path as op
 
 import matplotlib
@@ -12,12 +23,12 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-import science_image
+
 from matplotlib.font_manager import FontProperties
 import scipy.constants
 
-import cat_bayesian
-import observation as elixer_observation
+
+
 #log = G.logging.getLogger('Cat_logger')
 #log.setLevel(G.logging.DEBUG)
 log = G.Global_Logger('cat_logger')

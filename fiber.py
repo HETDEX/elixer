@@ -1,6 +1,13 @@
-import global_config as G
+
+try:
+    from elixer import global_config as G
+    from elixer import spectrum as elixer_spectrum
+except:
+    import global_config as G
+    import spectrum as elixer_spectrum
+
+
 import numpy as np
-import spectrum as elixer_spectrum
 import os.path as op
 
 #log = G.logging.getLogger('fiber_logger')

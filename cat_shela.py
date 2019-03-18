@@ -1,6 +1,18 @@
 from __future__ import print_function
 
-import global_config as G
+try:
+    from elixer import global_config as G
+    from elixer import science_image
+    from elixer import cat_base
+    from elixer import match_summary
+    from elixer import line_prob
+except:
+    import global_config as G
+    import science_image
+    import cat_base
+    import match_summary
+    import line_prob
+
 import os.path as op
 import copy
 
@@ -9,7 +21,6 @@ import matplotlib
 #matplotlib.use('agg')
 
 import pandas as pd
-import science_image
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
@@ -19,7 +30,7 @@ import astropy.table
 #import astropy.utils.exceptions
 #import warnings
 #warnings.filterwarnings('ignore', category=astropy.utils.exceptions.AstropyUserWarning, append=True)
-import line_prob
+
 
 #log = G.logging.getLogger('Cat_logger')
 #log.setLevel(G.logging.DEBUG)
@@ -28,8 +39,6 @@ log.setlevel(G.logging.DEBUG)
 
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
-import cat_base
-import match_summary
 
 def shela_count_to_mag(count,cutout=None,headers=None):
     if count is not None:

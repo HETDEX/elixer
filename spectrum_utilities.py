@@ -5,7 +5,11 @@ Keep this simple ... no complex stucture, not a lot of error control
 
 from __future__ import print_function
 
-import global_config as G
+try:
+    from elixer import global_config as G
+except:
+    import global_config as G
+
 import numpy as np
 import astropy.units as U
 import astropy.cosmology as Cosmo

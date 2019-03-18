@@ -13,7 +13,11 @@
 # get status
 # get cutout (takes ra,dec,error) returns cutout_image (the cutout is just another science image)
 
-import global_config as G
+try:
+    from elixer import global_config as G
+except:
+    import global_config as G
+
 import gc
 from time import sleep
 import mmap
@@ -324,6 +328,7 @@ class science_image():
                     #test for wrangler
 
                     retries = 0
+                    total_sleep = 0.0
                     max_retries = 30
                     while retries < max_retries:
                         try:
@@ -373,7 +378,10 @@ class science_image():
                                 if retries >= max_retries:
                                     break
 
+                                gc.collect() #try to force an immediate clean up
+
                                 t2sleep = np.random.random_integers(0,5000)/1000. #sleep up to 5 sec
+                                total_sleep += t2sleep
                                 log.info("+++++ Memory issue? Random sleep (%d / %d) and retry (%f)s" %
                                          (retries,max_retries,t2sleep),exc_info=True)
                                 sleep(t2sleep)
@@ -396,14 +404,15 @@ class science_image():
                     if close:
                         try:
                             hdulist.close()
+                            gc.collect()  # try to force an immediate clean up
                         except:
                             log.warning("Exception attempting to close hdulist. science_image::get_cutout", exc_info=True)
 
                     if retries >= max_retries:
-                        log.info("+++++ giving up ....")
+                        log.info("+++++ giving up (%d,%f) ...." % (retries,total_sleep))
                         return None, counts, mag, radius
                     elif retries > 0:
-                        log.info("+++++ it worked (%d) ...." % retries)
+                        log.info("+++++ it worked (%d,%f) ...." % (retries,total_sleep))
 
 
 

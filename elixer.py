@@ -4,11 +4,20 @@ import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 
-import catalogs
+try:
+    from elixer import hetdex
+    from elixer import match_summary
+    from elixer import global_config as G
+    from elixer import catalogs
+except:
+    import hetdex
+    import match_summary
+    import global_config as G
+    import catalogs
+
+
 import argparse
-import hetdex
-import match_summary
-import global_config as G
+
 from astropy.coordinates import Angle
 from matplotlib.backends.backend_pdf import PdfPages
 from distutils.version import LooseVersion
@@ -34,9 +43,12 @@ import tables
 #    PyPDF = None
 
 try:
-    import pdfrw as PyPDF
-except ImportError:
-    pdfrw = None
+    import elixer.pdfrw as PyPDF
+except:
+    try:
+        import pdfrw as PyPDF
+    except ImportError:
+        pdfrw = None
 
 
 VERSION = sys.version.split()[0]

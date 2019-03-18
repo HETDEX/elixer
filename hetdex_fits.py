@@ -1,4 +1,8 @@
-import global_config as G
+try:
+    from elixer import global_config as G
+except:
+    import global_config as G
+
 import numpy as np
 import tables
 

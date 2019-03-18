@@ -7,13 +7,19 @@ except:
     from configparser import RawConfigParser
 import os
 import sys
-import line_classifier.probs.classification_prob_leung as LineClassifierPro
+
+try:
+    from elixer import global_config as G
+    import elixer.line_classifier.probs.classification_prob_leung as LineClassifierPro
+except:
+    import global_config as G
+    import line_classifier.probs.classification_prob_leung as LineClassifierPro
+
 import numpy as np
 #numpy import array
 #don't need to do this ... is performed in source_prob call
 #from line_classifier.misc.tools import generate_cosmology_from_config, read_flim_file
 
-import global_config as G
 
 MAX_PLAE_POII = 999
 UNIVERSE_CONFIG = None
@@ -298,8 +304,7 @@ def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_
 
 
     try:
-        posterior_odds, prob_lae_given_data, prob_data_lae, prob_data_oii, prior_lae, prior_oii = \
-                                                LineClassifierPro.source_prob(UNIVERSE_CONFIG,
+        posterior_odds, prob_lae_given_data = LineClassifierPro.source_prob(UNIVERSE_CONFIG,
                                                       np.array([ra]), np.array([dec]), np.array([z_LyA]),
                                                       np.array([lineFlux]), np.array([lineFlux_err]),
                                                       np.array([ew_obs]), np.array([ew_obs_err]),
@@ -307,7 +312,7 @@ def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_
                                                       addl_fluxes=np.array(extra_fluxes),
                                                       addl_fluxes_error=np.array(extra_fluxes_err),
                                                       addl_line_names=np.array(extra_fluxes_name),
-                                                      flim_file=FLUX_LIMIT_FN,extended_output=True)
+                                                      flim_file=FLUX_LIMIT_FN,extended_output=False)
 
 
         if isinstance(posterior_odds,list) or isinstance(posterior_odds,np.ndarray):
@@ -352,7 +357,10 @@ def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_
         #                                                array([0.0]), [40.], [0.0], None, None, None, None, None,
         #                                                FLUX_LIMIT_FN)
 
-        from line_classifier.misc.tools import read_flim_file
+        try:
+            from elixer.line_classifier.misc.tools import read_flim_file
+        except:
+            from line_classifier.misc.tools import read_flim_file
         flims = read_flim_file(FLUX_LIMIT_FN)
         errors = []
         for x in ["NeIII"]:

@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-import global_config as G
+from elixer import global_config as G
 import os.path as op
 import copy
 
@@ -9,12 +9,12 @@ import copy
 import matplotlib
 matplotlib.use('agg')
 
-import science_image
+from elixer import science_image
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 import matplotlib.gridspec as gridspec
-import line_prob
+from elixer import line_prob
 
 
 #log = G.logging.getLogger('Cat_logger')
@@ -24,8 +24,8 @@ log.setlevel(G.logging.DEBUG)
 
 #pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
-import cat_base
-import match_summary
+from elixer import cat_base
+from elixer import match_summary
 
 
 RA_NUDGE =  -2.5/3600.#-25./3600.
