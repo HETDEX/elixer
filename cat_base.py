@@ -245,7 +245,16 @@ class Catalog:
                 (np.cos(np.deg2rad(dec)) * (df['RA'] - ra)) ** 2 + (df['DEC'] - dec) ** 2)
 
             df['dist_prior'] = 1.0
+            df['elixer_mag'] = 99.9
+            df['elixer_filter'] = '-'
+            df['elixer_flux'] = -1.0
+            df['elixer_flux_err'] = -1.0
+
             pidx = df.columns.get_loc('dist_prior')
+            midx = df.columns.get_loc('elixer_mag')
+            fidx = df.columns.get_loc('elixer_filter')
+            fl_idx = df.columns.get_loc('elixer_flux')
+            fle_idx = df.columns.get_loc('elixer_flux_err')
 
             for i in range(len(df)):
                 filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = \
@@ -253,6 +262,10 @@ class Catalog:
                 if filter_mag is not None:
                     p = self.distance_prior.get_prior(df.iloc[i]['distance'] * 3600.0, filter_mag)
                     df.iat[i, pidx] = p
+                    df.iat[i, midx] = filter_mag
+                    df.iat[i, fidx] = filter_str
+                    df.iat[i, fl_idx] = filter_fl
+                    df.iat[i, fle_idx] = filter_fl_err
 
             self.dataframe_of_bid_targets_unique = df.sort_values(by=['dist_prior','distance'], ascending=[False,True])
 
@@ -264,7 +277,15 @@ class Catalog:
                 (np.cos(np.deg2rad(dec)) * (df['RA'] - ra)) ** 2 + (df['DEC'] - dec) ** 2)
 
             df['dist_prior'] = 1.0
+            df['elixer_mag'] = 99.9
+            df['elixer_filter'] = '-'
+            df['elixer_flux'] = -1.0
+            df['elixer_flux_err'] = -1
             pidx = df.columns.get_loc('dist_prior')
+            midx = df.columns.get_loc('elixer_mag')
+            fidx = df.columns.get_loc('elixer_filter')
+            fl_idx = df.columns.get_loc('elixer_flux')
+            fle_idx = df.columns.get_loc('elixer_flux_err')
             #note: if _unique exists, this sort here is redudant, otherwise it is needed
             for i in range(len(df)):
                 filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = \
@@ -272,6 +293,10 @@ class Catalog:
                 if filter_mag is not None:
                     p = self.distance_prior.get_prior(df.iloc[i]['distance']*3600.0,filter_mag)
                     df.iat[i,pidx] = p
+                    df.iat[i, midx] = filter_mag
+                    df.iat[i, fidx] = filter_str
+                    df.iat[i, fl_idx] = filter_fl
+                    df.iat[i, fle_idx] = filter_fl_err
 
 
             self.dataframe_of_bid_targets = df.sort_values(by=['dist_prior','distance'], ascending=[False,True])
@@ -983,7 +1008,7 @@ class Catalog:
     def get_catalog_objects(self,ra,dec,window):
         #needs to be overwritten by each catalog
 
-        d = {'count':-1,'name':None,'dataframe':None}
+        d = {'count':-1,'name':None,'dataframe':None,'get_filter_flux':None}
 
         window = window * 3600. #came in as degress, want arsec
         num, df, photoz = self.build_list_of_bid_targets(ra,dec,window)
@@ -992,6 +1017,7 @@ class Catalog:
             d['count'] = num
             d['dataframe'] = df
             d['name'] = self.name
+            d['get_filter_flux'] = self.get_filter_flux
             #very few have photoz, so lets just drop it?
 
         return d
