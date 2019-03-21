@@ -13,6 +13,10 @@ from math import ceil
 from datetime import timedelta
 import socket
 
+#python version
+PYTHON_MAJOR_VERSION = sys.version_info[0]
+PYTHON_VERSION = sys.version_info
+
 hostname = socket.gethostname()
 #print("+++++++++++++ put this BACK !!!!! ")
 #hostname = "wrangler"
@@ -67,6 +71,19 @@ if "--recover" in args:
 else:
     recover_mode = False
 
+#check for queue (optional)
+queue = None
+i = -1
+if "--queue" in args:
+    i = args.index("--queue")
+
+if i != -1:
+    try:
+        queue = sys.argv[i + 1]
+    except:
+       pass
+else:
+    pass
 
 
 if "tacc.utexas.edu" in hostname:
@@ -102,32 +119,68 @@ elif hostname == "wrangler":
         MAX_TIME_PER_TASK = 1.5 #in recover mode, can bit more agressive in timing (easier to continue if timeout)
     else:
         MAX_TIME_PER_TASK = 3.0  # MINUTES max, worst case expected time per task to execute (assumes minimal retries)
-    cores_per_node = 24 #but basically can only use 4 at a time (see note just above)
+
+    cores_per_node = 24
+
+    if PYTHON_MAJOR_VERSION < 3:
+        MAX_TASKS = 300  # point of seriously diminishing returns
+        MAX_NODES = 50  # right now, pointless to go beyond 2 nodes
+        MAX_TASKS_PER_NODE = 6  # actually, variable, encoded later
+    else:
+        MAX_TASKS = 2400
+        MAX_NODES = 100
+        MAX_TASKS_PER_NODE = 24
+
     time = "00:59:59"
     time_set = False
     email = "##SBATCH --mail-user\n##SBATCH --mail-type all"
     queue = "normal"
     tasks = 1
 elif hostname == "stampede2":
+    if queue is None:
+        queue = "skx-normal"  # SKX  ... the KNL nodes seem really slow
     #https://portal.tacc.utexas.edu/user-guides/stampede2#running
-    #KNL normal 256 nodes/17408 cores total so ... 68 cores per node
+
     print("preparing SLURM for stampede2...")
     host = HOST_STAMPEDE2 #defaulting to skx-normal
 
-    MAX_TASKS = 48 #point of seriously diminishing returns
-    MAX_NODES = 3 #right now, pointless to go beyond 2 nodes
-    #MAX_TASKS_PER_NODE = 22 #actually, variable, encoded later
+    if queue == "skx-normal":
+        cores_per_node = 48
+        if recover_mode:
+            MAX_TIME_PER_TASK = 0.75  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
+        else:
+            MAX_TIME_PER_TASK = 3.0  # MINUTES max
+
+        if PYTHON_MAJOR_VERSION < 3:
+            MAX_TASKS = 48 #point of seriously diminishing returns
+            MAX_NODES = 3 #right now, pointless to go beyond 2 nodes
+            MAX_TASKS_PER_NODE = 22 #actually, variable, encoded later
+        else:
+            MAX_TASKS = 4800
+            MAX_NODES = 100
+            MAX_TASKS_PER_NODE = 48
+    else: #knl (much slower than SKX)
+        cores_per_node = 68
+        if recover_mode:
+            MAX_TIME_PER_TASK = 5.0  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
+        else:
+            MAX_TIME_PER_TASK = 6.0  # MINUTES max
+
+        if PYTHON_MAJOR_VERSION < 3:
+            MAX_TASKS = 48 #point of seriously diminishing returns
+            MAX_NODES = 50 #right now, pointless to go beyond 2 nodes
+            MAX_TASKS_PER_NODE = 6 #actually, variable, encoded later
+        else:
+            MAX_TASKS = 6800
+            MAX_NODES = 100
+            MAX_TASKS_PER_NODE = 68
+
     TIME_OVERHEAD = 1.0  # MINUTES of overhead to get started (per task call ... just a safety)
 
-    if recover_mode:
-        MAX_TIME_PER_TASK = 0.75 #in recover mode, can bit more agressive in timing (easier to continue if timeout)
-    else:
-        MAX_TIME_PER_TASK = 3.0  # MINUTES max, worst case expected time per task to execute (assumes minimal retries)
-    cores_per_node = 68
     time = "00:59:59"
     time_set = False
     email = "##SBATCH --mail-user\n##SBATCH --mail-type all"
-    queue = "skx-normal" #SKX  ... the KNL nodes seem really slow
+
     tasks = 1
 
 elif hostname == "z50":
@@ -212,21 +265,6 @@ if i != -1:
         if (email_addr is not None) and ('@' in email_addr) and (len(email_addr) > 5):
             #assume good
             email = "#SBATCH --mail-user " + email_addr + "\n#SBATCH --mail-type all"
-    except:
-       pass
-else:
-    pass
-
-
-
-#check for queue (optional)
-i = -1
-if "--queue" in args:
-    i = args.index("--queue")
-
-if i != -1:
-    try:
-        queue = sys.argv[i + 1]
     except:
        pass
 else:
@@ -322,8 +360,16 @@ else: # multiple tasks
 
             elif host == HOST_WRANGLER:
                 #wrangler is a mess ... don't run more than 10 tasks and only on one node
-                nodes = 1
-                ntasks_per_node = 10
+
+                if PYTHON_MAJOR_VERSION < 3:
+                    nodes = 1
+                    ntasks_per_node = 10
+                else:
+                    if tasks < MAX_TASKS_PER_NODE:
+                        nodes = 1
+                    else:
+                        nodes = min(tasks // MAX_TASKS_PER_NODE, MAX_NODES)
+                        ntasks_per_node = tasks // nodes
 
             elif host == HOST_STAMPEDE2:
                 #nominal, minium retries:
@@ -331,29 +377,38 @@ else: # multiple tasks
                 #20 tasks per node up to 2 nodes  (40)
                 #16 tasks per node up to 3 nodes  (48)
 
-                if queue == "skx-normal":
-                    if tasks <= 22:
-                        ntasks_per_node = tasks
+                pre_python_cmd = " export OMP_PROC_BIND=0 ; "
+
+                if PYTHON_MAJOR_VERSION < 3:
+                    if queue == "skx-normal":
+                        if tasks <= 22:
+                            ntasks_per_node = tasks
+                            nodes = 1
+                        elif tasks <= 40:
+                            nodes = 2
+                            ntasks_per_node = tasks // nodes + tasks % nodes
+                        elif tasks <= 48: #point of seriously diminishing return
+                            nodes = 3
+                            ntasks_per_node = tasks // nodes + tasks % nodes
+                        else: #cap at 48 (or 16 tasks per 3 nodes)
+                            nodes = 3
+                            ntasks_per_node = 16
+                    else: #if queue == "normal":  # KNL
+                        if tasks <= 6:
+                            ntasks_per_node = tasks
+                        else:
+                            ntasks_per_node = 6
+
+                        nodes = min(tasks // ntasks_per_node, MAX_NODES)
+                else: #python 3 or better
+
+                    if tasks < MAX_TASKS_PER_NODE:
                         nodes = 1
-                    elif tasks <= 40:
-                        nodes = 2
-                        ntasks_per_node = tasks // nodes + tasks % nodes
-                    elif tasks <= 48: #point of seriously diminishing return
-                        nodes = 3
-                        ntasks_per_node = tasks // nodes + tasks % nodes
-                    else: #cap at 48 (or 16 tasks per 3 nodes)
-                        nodes = 3
-                        ntasks_per_node = 16
-                else: #if queue == "normal":  # KNL
-                    if tasks <= 6:
-                        ntasks_per_node = tasks
                     else:
-                        ntasks_per_node = 6
+                        nodes = min(tasks // MAX_TASKS_PER_NODE, MAX_NODES)
+                        ntasks_per_node = tasks // nodes
 
-                    nodes = min(tasks // ntasks_per_node, 50)
 
-                    pre_python_cmd = " export OMP_PROC_BIND=0 ; "
-                    MAX_TIME_PER_TASK = 5.0
             else:
                 ntasks_per_node = tasks
                 nodes = 1
@@ -377,7 +432,7 @@ else: # multiple tasks
 
         start_idx = 0
         for i in range(int(tasks)):
-            fn = "dispatch_" + str(i).zfill(3)
+            fn = "dispatch_" + str(i).zfill(4)
 
             if not os.path.isdir(fn):
                 try:
@@ -495,6 +550,12 @@ elif host == HOST_STAMPEDE2:
     #slurm += "#SBATCH -n " + str(tasks) + "                  # Total number of tasks\n"
     slurm += "#SBATCH -N " + str(nodes) + "                  # Total number of nodes requested\n"
     slurm += "#SBATCH --ntasks-per-node " + str(ntasks_per_node) + "       #Tasks per node\n"
+
+    #if PYTHON_MAJOR_VERSION < 3:
+    #    slurm += "#SBATCH --ntasks-per-node " + str(ntasks_per_node) + "       #Tasks per node\n"
+    # else:
+    #     slurm += "#SBATCH -n " + str(tasks) + "       #Total Tasks\n"
+
     slurm += "#SBATCH -p " + queue + "                 # Queue name\n"
     slurm += "#SBATCH -o ELIXER.o%j          # Name of stdout output file (%j expands to jobid)\n"
     slurm += "#SBATCH -t " + time + "            # Run time (hh:mm:ss)\n"
