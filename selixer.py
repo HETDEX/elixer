@@ -308,6 +308,8 @@ os.chdir(basename)
 path = os.path.join(os.path.dirname(sys.argv[0]),"elixer.py")
 nodes = 1
 
+#there is an issue with multiple pythons on some TACC systems, we want to run with whatever version
+#called selixer ... which might not otherwise be the same when SLURM runs
 try:
     python_cmd = sys.executable + " "
 except:
