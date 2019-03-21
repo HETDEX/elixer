@@ -308,7 +308,11 @@ os.chdir(basename)
 path = os.path.join(os.path.dirname(sys.argv[0]),"elixer.py")
 nodes = 1
 
-python_cmd = "python "
+try:
+    python_cmd = sys.executable + " "
+except:
+    python_cmd = "python "
+
 pre_python_cmd = ""
 
 if host == HOST_STAMPEDE2:
