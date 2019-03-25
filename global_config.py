@@ -12,7 +12,7 @@ import numpy as np
 import socket
 
 #version
-__version__ = '1.6.2a1'
+__version__ = '1.6.2'
 
 #python version
 import sys
@@ -27,7 +27,7 @@ HDR1 = True #set to TRUE for HDR1 release
 if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
     #base path: /work/03946/hetdex/hdr1/
 
-    HDF5_DETECT_FN = "/work/03946/hetdex/hdr1/detect/detect_cosmos.h5"
+    HDF5_DETECT_FN = "/work/03946/hetdex/hdr1/detect/detect_hdr1.h5"
     OBSERVATIONS_BASEDIR = "/work/03946/hetdex/hdr1/reduction/"
     BAD_AMP_LIST = "/work/03261/polonius/maverick/catalogs/bad_amp_list.txt"
     #CONFIG_BASEDIR = "/work/03946/hetdex/hdr1/raw"
