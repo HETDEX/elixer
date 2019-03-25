@@ -1,9 +1,11 @@
 changes to elixer by version
 
-1.6.2a1 [2018-03-20]
+1.6.2a1 [2018-03-25]
 * added elixer_mag, elixer_filter, elixer_flux, elixer_flux_err columns to dataframe when calculating and
   sorting by distance prior (so will be available as common columns in catalogs API)
 * reworking selixer batching to allow for different performance with Python3 vs Python2
+* updated user's guide
+* updated default HDF5 detection file path
 
 1.6.1a1 [2018-03-15] -- merge to master
 * major rework of imports to allow for elixer to be installable as package
