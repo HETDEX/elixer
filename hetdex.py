@@ -1128,7 +1128,10 @@ class DetObj:
 
         file = op.join(self.fcsdir, "l1")
         try:
-            out = np.genfromtxt(file, dtype=None, usecols=(4, 8))
+            if G.python2():
+                out = np.genfromtxt(file, dtype=None, usecols=(4, 8))
+            else:
+                out = np.genfromtxt(file, dtype=None, usecols=(4, 8),encoding=None)
             if out.size < 3:  # two columns ... so if the size comes back as 2, only one row in place and need to make 2d
                 a = []
                 a.append(out)
@@ -1150,8 +1153,12 @@ class DetObj:
 
         if (self.fibers is None) or (len(self.fibers) == 0):
             try:
-                out1 = np.genfromtxt(file1, dtype=None)
-                out6 = np.genfromtxt(file6, dtype=None)
+                if G.python2():
+                    out1 = np.genfromtxt(file1, dtype=None)
+                    out6 = np.genfromtxt(file6, dtype=None)
+                else:
+                    out1 = np.genfromtxt(file1, dtype=None,encoding=None)
+                    out6 = np.genfromtxt(file6, dtype=None,encoding=None)
 
                 # if len(out6.shape) == 0: #only 1D
                 # or could say if out6.size == 1:
@@ -1247,7 +1254,10 @@ class DetObj:
                 # just a simple check on the length
                 try:
 
-                    tempw = np.genfromtxt(file, dtype=np.str, usecols=0)
+                    if G.python2():
+                        tempw = np.genfromtxt(file, dtype=np.str, usecols=0)
+                    else:
+                        tempw = np.genfromtxt(file, dtype=np.str, usecols=0,encoding=None)
                     # if len(tempw.shape) == 0:
                     if tempw.size == 1:
                         a = []

@@ -172,7 +172,10 @@ class DistancePrior:
     def build_mdfs(self):
         file = op.join(op.dirname(G.__file__),DISTANCE_PRIOR_FILENAME)
         try:
-            out = np.genfromtxt(file, dtype=None,comments ="#")
+            if G.python2():
+                out = np.genfromtxt(file, dtype=None,comments ="#")
+            else:
+                out = np.genfromtxt(file, dtype=None, comments="#",encoding=None)
         except:
             log.error("Cannot read distance prior file: %s" % file, exc_info=True)
 

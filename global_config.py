@@ -12,7 +12,7 @@ import numpy as np
 import socket
 
 #version
-__version__ = '1.6.1a1'
+__version__ = '1.6.2a1'
 
 #python version
 import sys

@@ -1081,7 +1081,10 @@ def get_hdf5_detectids_to_process(args):
             try:
                 # is this a list or a file
                 if os.path.isfile(args.dispatch):
-                    detlist = np.genfromtxt(args.dispatch, dtype=None, comments='#', usecols=(0,))
+                    if G.python2():
+                        detlist = np.genfromtxt(args.dispatch, dtype=None, comments='#', usecols=(0,))
+                    else:
+                        detlist = np.genfromtxt(args.dispatch, dtype=None, comments='#', usecols=(0,),encoding=None)
                     log.debug("[dispatch] Loaded --dets as file")
                 else:
                     detlist = args.dispatch.replace(', ', ',').split(',')  # allow comma or comma-space separation
@@ -1119,11 +1122,19 @@ def get_hdf5_detectids_to_process(args):
             try:
                 #is this a list or a file
                 if os.path.isfile(args.dets):
-                    detlist = np.genfromtxt(args.dets, dtype=None,comments='#',usecols=(0,))
+                    if G.python2():
+                        detlist = np.genfromtxt(args.dets, dtype=None,comments='#',usecols=(0,))
+                    else:
+                        detlist = np.genfromtxt(args.dets, dtype=None, comments='#', usecols=(0,),
+                                                encoding=None)
                     detlist_is_file = True
                     log.debug("Loaded --dets as file")
                 elif os.path.isfile(os.path.join("..",args.dets)):
-                    detlist = np.genfromtxt(os.path.join("..",args.dets), dtype=None, comments='#', usecols=(0,))
+                    if G.python2():
+                        detlist = np.genfromtxt(os.path.join("..",args.dets), dtype=None, comments='#', usecols=(0,))
+                    else:
+                        detlist = np.genfromtxt(os.path.join("..", args.dets), dtype=None, comments='#',
+                                                usecols=(0,),encoding=None)
                     detlist_is_file = True
                     log.debug("Loaded --dets as ../<file> ")
                 else:
@@ -1251,7 +1262,10 @@ def get_fcsdir_subdirs_to_process(args):
         try:
             # is this a list or a file
             if os.path.isfile(args.dispatch):
-                detlist = np.genfromtxt(args.dispatch, dtype=None, comments='#', usecols=(0,))
+                if G.python2():
+                    detlist = np.genfromtxt(args.dispatch, dtype=None, comments='#', usecols=(0,))
+                else:
+                    detlist = np.genfromtxt(args.dispatch, dtype=None, comments='#', usecols=(0,),encoding=None)
                 log.debug("[dispatch] Loaded --dets as file")
             else:
                 detlist = args.dispatch.replace(', ', ',').split(',')  # allow comma or comma-space separation
@@ -1265,11 +1279,17 @@ def get_fcsdir_subdirs_to_process(args):
         try:
             #is this a list or a file
             if os.path.isfile(args.dets):
-                detlist = np.genfromtxt(args.dets, dtype=None,comments='#',usecols=(0,))
+                if G.python2():
+                    detlist = np.genfromtxt(args.dets, dtype=None,comments='#',usecols=(0,))
+                else:
+                    detlist = np.genfromtxt(args.dets, dtype=None, comments='#', usecols=(0,),encoding=None)
                 detlist_is_file = True
                 log.debug("Loaded --dets as file")
             elif os.path.isfile(os.path.join("..",args.dets)):
-                detlist = np.genfromtxt(os.path.join("..",args.dets), dtype=None, comments='#', usecols=(0,))
+                if G.python2():
+                    detlist = np.genfromtxt(os.path.join("..",args.dets), dtype=None, comments='#', usecols=(0,))
+                else:
+                    detlist = np.genfromtxt(os.path.join("..", args.dets), dtype=None, comments='#', usecols=(0,),encoding=None)
                 detlist_is_file = True
                 log.debug("Loaded --dets as ../<file> ")
             else:
