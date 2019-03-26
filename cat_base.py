@@ -245,16 +245,16 @@ class Catalog:
                 (np.cos(np.deg2rad(dec)) * (df['RA'] - ra)) ** 2 + (df['DEC'] - dec) ** 2)
 
             df['dist_prior'] = 1.0
-            df['elixer_mag'] = 99.9
-            df['elixer_filter'] = '-'
-            df['elixer_flux'] = -1.0
-            df['elixer_flux_err'] = -1.0
+            df['catalog_mag'] = 99.9
+            df['catalog_filter'] = '-'
+            df['catalog_flux'] = -1.0
+            df['catalog_flux_err'] = -1.0
 
             pidx = df.columns.get_loc('dist_prior')
-            midx = df.columns.get_loc('elixer_mag')
-            fidx = df.columns.get_loc('elixer_filter')
-            fl_idx = df.columns.get_loc('elixer_flux')
-            fle_idx = df.columns.get_loc('elixer_flux_err')
+            midx = df.columns.get_loc('catalog_mag')
+            fidx = df.columns.get_loc('catalog_filter')
+            fl_idx = df.columns.get_loc('catalog_flux')
+            fle_idx = df.columns.get_loc('catalog_flux_err')
 
             for i in range(len(df)):
                 filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = \
@@ -277,15 +277,15 @@ class Catalog:
                 (np.cos(np.deg2rad(dec)) * (df['RA'] - ra)) ** 2 + (df['DEC'] - dec) ** 2)
 
             df['dist_prior'] = 1.0
-            df['elixer_mag'] = 99.9
-            df['elixer_filter'] = '-'
-            df['elixer_flux'] = -1.0
-            df['elixer_flux_err'] = -1
+            df['catalog_mag'] = 99.9
+            df['catalog_filter'] = '-'
+            df['catalog_flux'] = -1.0
+            df['catalog_flux_err'] = -1
             pidx = df.columns.get_loc('dist_prior')
-            midx = df.columns.get_loc('elixer_mag')
-            fidx = df.columns.get_loc('elixer_filter')
-            fl_idx = df.columns.get_loc('elixer_flux')
-            fle_idx = df.columns.get_loc('elixer_flux_err')
+            midx = df.columns.get_loc('catalog_mag')
+            fidx = df.columns.get_loc('catalog_filter')
+            fl_idx = df.columns.get_loc('catalog_flux')
+            fle_idx = df.columns.get_loc('catalog_flux_err')
             #note: if _unique exists, this sort here is redudant, otherwise it is needed
             for i in range(len(df)):
                 filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = \
