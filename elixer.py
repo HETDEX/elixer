@@ -995,6 +995,14 @@ def convert_pdf(filename, resolution=150):
 
     #file might not exist, but this will just trap an execption
     try:
+
+        #check that the file exists (can be a timing issue on tacc)
+        if not os.path.isfile(filename):
+            log.info("Error converting (%s) to image type. File not found (may be filesystem lag. Will sleep and retry."
+                     %(filename) )
+            time.sleep(5.0) #5 sec should be plenty
+
+
         pages = Image(filename=filename, resolution=resolution)
         for i, page in enumerate(pages.sequence):
             with Image(page) as img:

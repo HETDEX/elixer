@@ -9,6 +9,8 @@ changes to elixer by version
 * added --blind option to not verify detection IDs for HDF5 reading when building the dispatch lists (speeds up
   pre-processing enormously at risk of including bad IDs ... does not work if passed in --dets are anything other
   than HDF5 detection IDs)
+* reduced stampede2 SKX-Normal to 45 cores per node (from 48)
+* add file existence check and 5 sec sleep if not found when coverting pdf to jpg
 
 1.6.1a1 [2018-03-15] -- merge to master
 * major rework of imports to allow for elixer to be installable as package
