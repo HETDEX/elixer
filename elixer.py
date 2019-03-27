@@ -218,7 +218,7 @@ def parse_commandline(auto_force=False):
                         action='store_true', default=False)
     parser.add_argument('--jpg', help='Also save report in JPEG format.', required=False,
                         action='store_true', default=False)
-    parser.add_argument('--blind', help='Do not verify detectionID. Assume it is good and add to dispatch.', required=False,
+    parser.add_argument('--blind', help='Do not verify passed in detectIDs. Applies only to HDF5 detectIDs.', required=False,
                         action='store_true', default=False)
     parser.add_argument('--allcat', help='Produce individual pages for all catalog matches if there are '
                         'more than 3 matches.', required=False, action='store_true', default=False)
