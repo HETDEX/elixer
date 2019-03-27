@@ -218,6 +218,8 @@ def parse_commandline(auto_force=False):
                         action='store_true', default=False)
     parser.add_argument('--jpg', help='Also save report in JPEG format.', required=False,
                         action='store_true', default=False)
+    parser.add_argument('--blind', help='Do not verify passed in detectIDs. Applies only to HDF5 detectIDs.', required=False,
+                        action='store_true', default=False)
     parser.add_argument('--allcat', help='Produce individual pages for all catalog matches if there are '
                         'more than 3 matches.', required=False, action='store_true', default=False)
 
@@ -1108,15 +1110,6 @@ def get_hdf5_detectids_to_process(args):
             else:
                 return []
 
-
-        h5 = tables.open_file(args.hdf5,mode="r")
-
-        #todo: keep the tables up to date
-        #todo: expect there to be a translation/name mapping table in the future
-        dtb = h5.root.Detections
-        #ftb = h5.root.Fibers
-        #stb = h5.root.Spectra
-
         #dets might be a single value or a list
         if detlist is None:
             try:
@@ -1158,6 +1151,14 @@ def get_hdf5_detectids_to_process(args):
         if len_detlist == 1 and not isinstance(detlist,list):
             # so we get a list of strings, not just a single string and not a list of characters
             detlist = [str(detlist)]
+
+        if args.blind:
+            log.info("Blindly accepting detections list")
+            return detlist
+
+        h5 = tables.open_file(args.hdf5, mode="r")
+
+        dtb = h5.root.Detections
 
         #iterate through --dets (might be detectID or some other format ... allow mixed)
         for d in detlist:
