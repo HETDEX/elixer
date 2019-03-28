@@ -120,8 +120,11 @@ class PDF_File():
                     self.filename = os.path.join(self.basename, pdf_name) + ".pdf"
 
             if self.filename is None:
-                if type(id) == int:
-                    filename = os.path.basename(self.basename) + "_" + str(id).zfill(3) + ".pdf"
+                if (type(id) == int) or (type(id) == np.int64):
+                    if id < 1e9:
+                        filename = os.path.basename(self.basename) + "_" + str(id).zfill(3) + ".pdf"
+                    else:
+                        filename = str(id) + ".pdf"
                 else:
                     filename = os.path.basename(self.basename) + "_" + str(id) + ".pdf"
 
