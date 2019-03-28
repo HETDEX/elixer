@@ -11,6 +11,8 @@ changes to elixer by version
   than HDF5 detection IDs)
 * reduced stampede2 SKX-Normal to 45 cores per node (from 48)
 * add file existence check and 5 sec sleep if not found when coverting pdf to jpg
+* add --ooops to selixer
+* cut max number of nodes on stampede to 50
 
 1.6.1a1 [2018-03-15] -- merge to master
 * major rework of imports to allow for elixer to be installable as package

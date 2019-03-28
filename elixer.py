@@ -245,6 +245,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--recover', help='Recover/continue from previous run. Will append to and NOT overwrite exsiting output.',
                         required=False, action='store_true', default=False)
 
+    parser.add_argument('--ooops', help='Load Ooops module for SLURM.', required=False,
+                        action='store_true', default=False)
+
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
 

@@ -2189,7 +2189,7 @@ class Spectrum:
             if self.identifier is None and self.plot_dir is None:
                 show_plot = False #intermediate call, not the final
             else:
-                show_plot = True
+                show_plot = G.DEBUG_SHOW_GAUSS_PLOTS
 
             eli = signal_score(wavelengths=wavelengths, values=values, errors=errors,central=central,
                                values_units=values_units, sbr=None, min_sigma=fit_min_sigma,
