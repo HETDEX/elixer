@@ -997,8 +997,24 @@ def write_fibers_file(filename,hd_list):
 def convert_pdf(filename, resolution=150):
 
     #file might not exist, but this will just trap an execption
-    try:
+    if filename is None:
+        return
 
+    try:
+        ext = filename[-4:0]
+        if ext.lower() != ".pdf":
+            try:
+                log.debug("Invalid filename passed to elixer::convert_pdf(%s)" % filename)
+            except:
+                return
+    except:
+        try:
+            log.debug("Invalid filename passed to elixer::convert_pdf(%s)" %filename)
+        except:
+            return
+
+
+    try:
         #check that the file exists (can be a timing issue on tacc)
         if not os.path.isfile(filename):
             log.info("Error converting (%s) to image type. File not found (may be filesystem lag. Will sleep and retry."
