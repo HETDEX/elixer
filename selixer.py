@@ -55,7 +55,7 @@ host = HOST_UNKNOWN
 
 ### NAMING, NOTATION
 # job == an elixer dispatch
-# task == on the cluster ...
+# task == on the cluster ... generally == number of cores on that node (maybe artificially reduced to save memory)_
 #         one line in the execution file [elixer.run]
 #         becomes the number of dispatch_xxx subdirectories created
 #         each will have one or more explicitly listed detections to process (each line in the dispatch_xxx file)
@@ -103,6 +103,9 @@ else:
 if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
+FILL_CPU_TASKS = 10 #don't add another node until each CPU on the current node(s) hit this number
+MAX_DETECTS_PER_CPU = 9999999 #do not execute this job of the dispatch_xxxx list count exceeds this value
+
 if hostname == "maverick":
     print("preparing SLURM for maverick...")
     host = HOST_MAVERICK
@@ -124,6 +127,7 @@ elif hostname == "wrangler":
     #It takes about 1 minute to run a task (lets call it 90 seconds to be safe)
     #set -N and -n s|t n/N <= 4
     print("preparing SLURM for wrangler...")
+    MAX_DETECTS_PER_CPU = 25
     host = HOST_WRANGLER
     MAX_TASKS = 10
     MAX_NODES = 1
@@ -161,6 +165,7 @@ elif hostname == "stampede2":
     python_cmd = "mpiexec.hydra -np 1 " + python_cmd
 
     if queue == "skx-normal":
+        MAX_DETECTS_PER_CPU = 40
         cores_per_node = 48
         if recover_mode:
             MAX_TIME_PER_TASK = 0.75  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
@@ -172,6 +177,7 @@ elif hostname == "stampede2":
             MAX_NODES = 3 #right now, pointless to go beyond 2 nodes
             MAX_TASKS_PER_NODE = 22 #actually, variable, encoded later
         else:
+            FILL_CPU_TASKS = 10
             MAX_TASKS = 2250
             MAX_NODES = 50
             MAX_TASKS_PER_NODE = 45 #still some memory issues ... this gives us a little more room
@@ -382,6 +388,13 @@ else: # multiple tasks
                         nodes = min(tasks // MAX_TASKS_PER_NODE, MAX_NODES)
                         ntasks_per_node = tasks // nodes
 
+                    target_nodes = int(len(subdirs) / (FILL_CPU_TASKS * MAX_TASKS_PER_NODE))
+                    target_tasks = target_nodes * MAX_TASKS_PER_NODE
+
+                    nodes = min(target_nodes, MAX_NODES)
+                    ntasks_per_node = min(target_tasks, MAX_TASKS_PER_NODE)
+                    tasks = min(target_tasks, MAX_TASKS)
+
             elif host == HOST_STAMPEDE2:
                 #nominal, minium retries:
                 #22 tasks per node up to 1 node   (22)
@@ -416,8 +429,16 @@ else: # multiple tasks
                     if tasks < MAX_TASKS_PER_NODE:
                         nodes = 1
                     else:
-                        nodes = min(tasks // MAX_TASKS_PER_NODE, MAX_NODES)
-                        ntasks_per_node = tasks // nodes
+                        #nodes = min(tasks // MAX_TASKS_PER_NODE, MAX_NODES)
+                        #ntasks_per_node = tasks // nodes
+
+                        target_nodes = int(len(subdirs)/(FILL_CPU_TASKS * MAX_TASKS_PER_NODE))
+                        target_tasks = target_nodes * MAX_TASKS_PER_NODE
+
+                        nodes = min(target_nodes,MAX_NODES)
+                        ntasks_per_node = min(target_tasks,MAX_TASKS_PER_NODE)
+                        tasks = min(target_tasks,MAX_TASKS)
+
 
 
             else:
@@ -428,13 +449,21 @@ else: # multiple tasks
             #only an issue if there is only one node requested
             ntasks_per_node = min(tasks,ntasks_per_node)
 
-            print("%d detections as %d tasks on %d nodes at %d tasks-per-node" % (len(subdirs),tasks,nodes,ntasks_per_node))
+            print("%d detections as %d tasks (dispatch_xxxx) on %d nodes at ~ %d tasks-per-node" % (len(subdirs),tasks,nodes,ntasks_per_node))
 
         #dirs_per_file == how many detections (directory holding detection info) to add to each dispatch_xxx
         if tasks == 0:
             print("No tasks to execute. Exiting ...")
             exit(0)
         dirs_per_file = len(subdirs) // tasks  # int(floor(float(len(subdirs)) / float(tasks)))
+
+        if dirs_per_file > MAX_DETECTS_PER_CPU:
+            print("Maximum allowed CPU loading exceeded. Each CPU set to process %d detections." % dirs_per_file)
+            print("The maximum configured limit is %d" % MAX_DETECTS_PER_CPU)
+            print("Reduce the number of detections input and try again.")
+            exit(0)
+
+
         remainder = len(subdirs) % tasks
         dets_per_dispatch = np.full(tasks,dirs_per_file)
         dets_per_dispatch[0:remainder] += 1 #add one more per task to cover the remainder

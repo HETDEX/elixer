@@ -1671,6 +1671,10 @@ class DetObj:
         :return:
         """
 
+        try:
+            id = int(id)
+        except:
+            log.error("Exception converting id to int type",exc_info=True)
         log.debug("Loading flux calibrated data from HDF5 ...")
         self.panacea = True #if we are here, it can only be panacea
 

@@ -1,5 +1,13 @@
 changes to elixer by version
 
+1.6.3 [2018-03-28]
+* added protection against attempting to convert a non-pdf to jpg
+* added conversion of detectID from string to int type if --blind option used
+* added extra protection for out of bounds sky mask on local sky subtraction annulus
+* added minimum loading of CPUs before adding another node (default avg of 10 detects per CPU) on TACC
+* added hard maximum number of detections to run per CPU (by machine and queue). If exceeded, selixer will
+  exit and instruct operator to reduce the number of detections
+
 1.6.2a1 [2018-03-27]
 * added elixer_mag, elixer_filter, elixer_flux, elixer_flux_err columns to dataframe when calculating and
   sorting by distance prior (so will be available as common columns in catalogs API)
