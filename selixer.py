@@ -75,6 +75,11 @@ if "--merge" in args:
     exit(0)
 
 
+if "--ooops" in args:
+    ooops_mode = True
+else:
+    ooops_mode = False
+
 if "--recover" in args:
     recover_mode = True
 else:
@@ -167,8 +172,8 @@ elif hostname == "stampede2":
             MAX_NODES = 3 #right now, pointless to go beyond 2 nodes
             MAX_TASKS_PER_NODE = 22 #actually, variable, encoded later
         else:
-            MAX_TASKS = 4500
-            MAX_NODES = 100
+            MAX_TASKS = 2250
+            MAX_NODES = 50
             MAX_TASKS_PER_NODE = 45 #still some memory issues ... this gives us a little more room
     else: #knl (much slower than SKX)
         cores_per_node = 68
@@ -533,6 +538,12 @@ elif host == HOST_WRANGLER:
     slurm += "#SBATCH -t " + time + "            # Run time (hh:mm:ss)\n"
     slurm += "#SBATCH -A Hobby-Eberly-Telesco\n"
     slurm += email + "\n"
+
+    if ooops_mode:
+        slurm += "module use /work/01255/siliu/stampede2/ooops/modulefiles/"
+        slurm += "ml ooops/1.0\n"
+        slurm += "set_io_param 1\n"
+
     #slurm += "module unload xalt \n"
     slurm += "module load launcher\n"
     slurm += "export TACC_LAUNCHER_PPN=24\n"
@@ -567,6 +578,11 @@ elif host == HOST_STAMPEDE2:
     slurm += "#SBATCH -t " + time + "            # Run time (hh:mm:ss)\n"
     slurm += "#SBATCH -A Hobby-Eberly-Telesco\n"
     slurm += email + "\n"
+
+    if ooops_mode:
+        slurm += "module use /work/01255/siliu/stampede2/ooops/modulefiles/"
+        slurm += "ml ooops/1.0\n"
+        slurm += "set_io_param 1\n"
 
     #slurm += "module unload xalt \n"
     slurm += "module load launcher\n"
