@@ -580,7 +580,7 @@ elif host == HOST_STAMPEDE2:
     slurm += email + "\n"
 
     if ooops_mode:
-        slurm += "module use /work/01255/siliu/stampede2/ooops/modulefiles/"
+        slurm += "module use /work/01255/siliu/stampede2/ooops/modulefiles/ \n"
         slurm += "ml ooops/1.0\n"
         slurm += "set_io_param 1\n"
 
