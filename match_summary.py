@@ -158,6 +158,18 @@ class Match:
                 self.all_line_obs += "%0.2f," % el.fit_x0
 
             self.all_line_obs = self.all_line_obs.rstrip(",")
+
+            if (self.all_line_obs is None) or len(self.all_line_obs) == 0:
+                self.all_line_obs = 'None'
+
+            if (self.addtl_line_names is None) or len(self.addtl_line_names) == 0:
+                self.addtl_line_names = 'None'
+
+            if (self.addtl_line_obs is None) or len(self.addtl_line_obs) == 0:
+                self.addtl_line_obs = 'None'
+
+            if (self.addtl_line_rest is None) or len(self.addtl_line_rest) == 0:
+                self.addtl_line_rest = 'None'
         else:
             self.addtl_line_names = "None"
             self.addtl_line_obs = "None"
@@ -293,7 +305,7 @@ class MatchSet:
                     f.write(sep + str(m.all_line_obs))
                     f.write(sep + str(m.addtl_line_names))
                     f.write(sep + str(m.addtl_line_rest))
-                    f.write(sep + str(m.all_line_obs))
+                    f.write(sep + str(m.addtl_line_obs))
 
                     f.write(sep + str(b.catalog_name))
                     f.write(sep + str(b.bid_ra))
