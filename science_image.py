@@ -678,12 +678,13 @@ class science_image():
                     sky_mask = sky_annulus.to_mask(method='center')[0]
 
                     #select all pixels from the cutout that are in the annulus
+                    #this sometimes gets off by 1-pixel, so trim off if out of range of the array
                     search = np.where(sky_mask.data > 0)
-                    while search[-1] > len(sky_image.data):
-                        log.debug("Trimming sky selection mask, idx[%d]" %search[-1])
-                        search = search[:-1] #trim the last element
+                    safe_search = [None]*2
+                    safe_search[0] = search[0][np.where(search[0] < sky_image.data.shape[0])]
+                    safe_search[1] = search[1][np.where(search[1] < sky_image.data.shape[1])]
 
-                    annulus_data_1d = sky_image.data[search]
+                    annulus_data_1d = sky_image.data[safe_search]
 
                     #and take the median average from a 3-sigma clip
                     #bkg_mean, bkg_median, _ = sigma_clipped_stats(annulus_data_1d,sigma=3.0) #this is the average sky per pixel
