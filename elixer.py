@@ -1025,6 +1025,13 @@ def convert_pdf(filename, resolution=150):
             time.sleep(5.0) #5 sec should be plenty
 
 
+        # wand.exceptions.PolicyError: not authorized  ....
+        #
+        # A workaround for now is to simply change the policy in
+        #           /etc/ImageMagick-6/policy.xml for PDFs to read :
+        # <policy domain="coder" rights="read" pattern="PDF" />
+
+
         pages = Image(filename=filename, resolution=resolution)
         for i, page in enumerate(pages.sequence):
             with Image(page) as img:
