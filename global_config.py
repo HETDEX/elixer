@@ -12,7 +12,7 @@ import numpy as np
 import socket
 
 #version
-__version__ = '1.6.4'
+__version__ = '1.6.5'
 
 #python version
 import sys
@@ -66,17 +66,23 @@ else:
     if socket.gethostname() == 'z50':
     #if False:
         HDF5_DETECT_FN = "/home/dustin/code/python/hdf5_learn/cache/detect_test3.h5"
-        OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
+        #OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
+        OBSERVATIONS_BASEDIR = "/work/03946/hetdex/hdr1/reduction/"
         BAD_AMP_LIST = "/home/dustin/code/python/elixer/bad_amp_list.txt"
 
         #CONFIG_BASEDIR = "/home/dustin/code/python/elixer/data/config/"
 
-        #PANACEA_RED_BASEDIR = "/home/dustin/code/python/elixer/data/config/red1/reductions/"
-        CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
-        PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
+        # #PANACEA_RED_BASEDIR = "/home/dustin/code/python/elixer/data/config/red1/reductions/"
+        # CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
+        # PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
+        # PANACEA_RED_BASEDIR_DEFAULT = PANACEA_RED_BASEDIR
+        # #PANACEA_HDF5_BASEDIR = PANACEA_RED_BASEDIR
+        # PANACEA_HDF5_BASEDIR = "/home/dustin/code/python/hdf5_learn/cache"
+
+        CONFIG_BASEDIR = "/work/03946/hetdex/hdr1/software/"
+        PANACEA_RED_BASEDIR = "/work/03946/hetdex/hdr1/raw/red1/reductions/"
         PANACEA_RED_BASEDIR_DEFAULT = PANACEA_RED_BASEDIR
-        #PANACEA_HDF5_BASEDIR = PANACEA_RED_BASEDIR
-        PANACEA_HDF5_BASEDIR = "/home/dustin/code/python/hdf5_learn/cache"
+        PANACEA_HDF5_BASEDIR = "/work/03946/hetdex/hdr1/reduction/data"
 
         CANDELS_EGS_Stefanon_2016_BASE_PATH = "/home/dustin/code/python/elixer/data/EGS"
         EGS_CFHTLS_PATH = "/home/dustin/code/python/elixer/data/CFHTLS"

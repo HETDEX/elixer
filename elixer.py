@@ -93,7 +93,7 @@ class PDF_File():
     def __init__(self,basename,id,pdf_name=None):
         self.basename = '%s' % basename
         self.filename = None
-        self.id = id
+        self.id = int(id)
         self.bid_count = 0 #rough number of bid targets included
         if self.id > 0: #i.e. otherwise, just building a single pdf file
             #make the directory

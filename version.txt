@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.6.5 [2018-03-31]
+* report newer (panacea) equivalent width in *_cat.txt
+* fixed minor type cast of id in PDF constructor
+
 1.6.4 [2018-03-29]
 * fix blank printed column 20, 23 in _cat.txt if no additional found lines reported, but one or more
   specific line matches found
