@@ -614,8 +614,12 @@ def add_to_report(pages,report):
     print("Adding to report ...")
     rows = len(pages)
 
-    for r in range(rows):
-        report.savefig(pages[r])
+    try:
+        for r in range(rows):
+            report.savefig(pages[r])
+    except:
+        log.error("Exception in elixer::add_to_report: ", exc_info=True)
+
     return
 
 
@@ -625,14 +629,24 @@ def build_report(pages,report_name):
 
     print("Finalizing report ...")
 
-    pdf = PdfPages(report_name)
-    rows = len(pages)
+    try:
 
-    for r in range(rows):
-        pdf.savefig(pages[r])
+        pdf = PdfPages(report_name)
+        rows = len(pages)
 
-    pdf.close()
-    print("File written: " + report_name)
+        for r in range(rows):
+            pdf.savefig(pages[r])
+
+        pdf.close()
+        print("File written: " + report_name)
+    except:
+        log.error("Exception in elixer::build_report: ", exc_info=True)
+        try:
+            print("PDF FAILURE: " + report_name)
+            pdf.close()
+        except:
+            pass
+
     return
 
 
@@ -646,13 +660,21 @@ def build_report_part(report_name,pages):
     G_PDF_FILE_NUM += 1
     part_name = report_name + ".part%s" % (str(G_PDF_FILE_NUM).zfill(4))
 
-    pdf = PdfPages(part_name)
-    rows = len(pages)
+    try:
+        pdf = PdfPages(part_name)
+        rows = len(pages)
 
-    for r in range(rows):
-        pdf.savefig(pages[r])
+        for r in range(rows):
+            pdf.savefig(pages[r])
 
-    pdf.close()
+        pdf.close()
+    except:
+        log.error("Exception in elixer::build_report_part: ", exc_info=True)
+        try:
+            print("PDF PART FAILURE: " + part_name)
+            pdf.close()
+        except:
+            pass
 
     return
 
