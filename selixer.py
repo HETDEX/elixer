@@ -433,7 +433,7 @@ else: # multiple tasks
                         #nodes = min(tasks // MAX_TASKS_PER_NODE, MAX_NODES)
                         #ntasks_per_node = tasks // nodes
 
-                        target_nodes = int(len(subdirs)/(FILL_CPU_TASKS * MAX_TASKS_PER_NODE))
+                        target_nodes = max(1,int(len(subdirs)/(FILL_CPU_TASKS * MAX_TASKS_PER_NODE)))
                         target_tasks = target_nodes * MAX_TASKS_PER_NODE
 
                         nodes = min(target_nodes,MAX_NODES)
