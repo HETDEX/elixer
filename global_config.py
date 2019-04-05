@@ -12,7 +12,7 @@ import numpy as np
 import socket
 
 #version
-__version__ = '1.6.5'
+__version__ = '1.6.6'
 
 #python version
 import sys
@@ -22,7 +22,7 @@ PYTHON_VERSION = sys.version_info
 
 
 
-HDR1 = True #set to TRUE for HDR1 release
+HDR1 = False #set to TRUE for HDR1 release
 
 if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
     #base path: /work/03946/hetdex/hdr1/
@@ -65,7 +65,7 @@ if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
 else:
     if socket.gethostname() == 'z50':
     #if False:
-        HDF5_DETECT_FN = "/home/dustin/code/python/hdf5_learn/cache/detect_test3.h5"
+        HDF5_DETECT_FN = "/work/03946/hetdex/hdr1/detect/detect_hdr1.h5"
         #OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
         OBSERVATIONS_BASEDIR = "/work/03946/hetdex/hdr1/reduction/"
         BAD_AMP_LIST = "/home/dustin/code/python/elixer/bad_amp_list.txt"
