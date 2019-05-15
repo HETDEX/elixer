@@ -1,15 +1,18 @@
 changes to elixer by version
 
-1.6.5 [2018-03-31]
+1.6.6 [2019-05-15]
+dummy ... test ... and fixed several 2018 (that should be 2019 in the version log below)
+
+1.6.5 [2019-03-31]
 * report newer (panacea) equivalent width in *_cat.txt
 * fixed minor type cast of id in PDF constructor
 * extra protection around PDF report and part building
 
-1.6.4 [2018-03-29]
+1.6.4 [2019-03-29]
 * fix blank printed column 20, 23 in _cat.txt if no additional found lines reported, but one or more
   specific line matches found
 
-1.6.3 [2018-03-28]
+1.6.3 [2019-03-28]
 * added protection against attempting to convert a non-pdf to jpg
 * added conversion of detectID from string to int type if --blind option used
 * added extra protection for out of bounds sky mask on local sky subtraction annulus
@@ -19,7 +22,7 @@ changes to elixer by version
 * set HDF5 pdf names to just be the 9+ digit detectionID + ".pdf"
 
 
-1.6.2a1 [2018-03-27]
+1.6.2a1 [2019-03-27]
 * added elixer_mag, elixer_filter, elixer_flux, elixer_flux_err columns to dataframe when calculating and
   sorting by distance prior (so will be available as common columns in catalogs API)
 * reworking selixer batching to allow for different performance with Python3 vs Python2
@@ -33,7 +36,7 @@ changes to elixer by version
 * add --ooops to selixer
 * cut max number of nodes on stampede to 50
 
-1.6.1a1 [2018-03-15] -- merge to master
+1.6.1a1 [2019-03-15] -- merge to master
 * major rework of imports to allow for elixer to be installable as package
 * various updates to switch between string/byte handling for python2 vs python3
 * added documentation
