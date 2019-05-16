@@ -276,16 +276,17 @@ def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_
     #iterate over all in addl_wavelengths, if +/- (1? 2? AA ... what are we using elsewhere?) assign name
     #if no match, toss the additional flux, etc
 
-    wl_unc = 1.0 #AA
+    wl_unc = 2.0 #AA
 
     if (addl_wavelengths is None) or (addl_fluxes is None) or (addl_errors is None):
         addl_wavelengths = []
         addl_fluxes = []
         addl_errors = []
 
+
     try:
         for n, w in known_lines:
-            w_oii = float(w) / (z_OII + 1.)
+            w_oii = float(w) * (z_OII + 1.)
             for i in range(len(addl_fluxes)):
                 if abs(w_oii-addl_wavelengths[i]) < wl_unc:
                     extra_fluxes.append(addl_fluxes[i])

@@ -5,6 +5,9 @@ changes to elixer by version
 * fixed non-printing of aperture P(LAE)/P(OII) (specifically for HSC)
 * added filter ID to aperture P(LAE)/P(OII) in PDF report
 * added check for duplicate fibers in HDF5 Fibers table (extra duplicate fibers are excluded, original is kept)
+* fixed incorrect and overly restrictive passing of additional fluxes (of defined, known emission line type) to
+  Bayesian classifier (still enforces that the multi-line solution ID possible line and the line must be within 2AA
+  of a Bayesian known line)
 * updated matplotlib ymin, ymax to bottom, top per deprication warning
 * fixed several 2018 (that should be 2019 in the version log below)
 
