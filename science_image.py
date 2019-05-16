@@ -29,6 +29,7 @@ from astropy.coordinates import SkyCoord
 #from astropy.coordinates import match_coordinates_sky
 from astropy.nddata import Cutout2D
 from astropy.wcs import WCS
+from astropy.wcs import Wcsprm
 from astropy.wcs.utils import skycoord_to_pixel
 from astropy.nddata.utils import NoOverlapError
 from astropy import units as ap_units
@@ -180,15 +181,25 @@ class science_image():
             hdulist = self.hdulist
 
         try:
-            self.wcs = WCS(naxis=hdulist[self.wcs_idx].header['NAXIS'])
-            self.wcs.wcs.crpix = [hdulist[self.wcs_idx].header['CRPIX1'], hdulist[self.wcs_idx].header['CRPIX2']]
-            self.wcs.wcs.crval = [hdulist[self.wcs_idx].header['CRVAL1'], hdulist[self.wcs_idx].header['CRVAL2']]
-            self.wcs.wcs.ctype = [hdulist[self.wcs_idx].header['CTYPE1'], hdulist[self.wcs_idx].header['CTYPE2']]
-            #self.wcs.wcs.cdelt = [None,None]#[hdu1[0].header['CDELT1O'],hdu1[0].header['CDELT2O']]
-            self.wcs.wcs.cd = [[hdulist[self.wcs_idx].header['CD1_1'], hdulist[self.wcs_idx].header['CD1_2']],
-                               [hdulist[self.wcs_idx].header['CD2_1'], hdulist[self.wcs_idx].header['CD2_2']]]
-            self.wcs._naxis1 = hdulist[self.wcs_idx].header['NAXIS1']
-            self.wcs._naxis2 = hdulist[self.wcs_idx].header['NAXIS2']
+            #astropy 3.1 makes _naxis? private so this no longer works
+            #instead use updated constructor that builds from header
+
+            # self.wcs = WCS(naxis=hdulist[self.wcs_idx].header['NAXIS'])
+            # self.wcs.wcs.crpix = [hdulist[self.wcs_idx].header['CRPIX1'], hdulist[self.wcs_idx].header['CRPIX2']]
+            # self.wcs.wcs.crval = [hdulist[self.wcs_idx].header['CRVAL1'], hdulist[self.wcs_idx].header['CRVAL2']]
+            # self.wcs.wcs.ctype = [hdulist[self.wcs_idx].header['CTYPE1'], hdulist[self.wcs_idx].header['CTYPE2']]
+            # #self.wcs.wcs.cdelt = [None,None]#[hdu1[0].header['CDELT1O'],hdu1[0].header['CDELT2O']]
+            # self.wcs.wcs.cd = [[hdulist[self.wcs_idx].header['CD1_1'], hdulist[self.wcs_idx].header['CD1_2']],
+            #                    [hdulist[self.wcs_idx].header['CD2_1'], hdulist[self.wcs_idx].header['CD2_2']]]
+            # self.wcs._naxis1 = hdulist[self.wcs_idx].header['NAXIS1']
+            # self.wcs._naxis2 = hdulist[self.wcs_idx].header['NAXIS2']
+
+            #since is tuple, can't do the following
+            #self.wcs.pixel_shape[0] = hdulist[self.wcs_idx].header['NAXIS1']
+            #self.wcs.pixel_shape[1] = hdulist[self.wcs_idx].header['NAXIS2']
+
+            self.wcs = WCS(hdulist[self.wcs_idx].header)
+
         except:
             log.error("Failed to build WCS manually.",exc_info=True)
             self.wcs = None

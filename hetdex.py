@@ -1836,6 +1836,7 @@ class DetObj:
 
             num_fibers = rows.size
             count = 0
+            duplicate_count = 0
 
             for row in rows:
                 count += 1
@@ -1875,6 +1876,7 @@ class DetObj:
                                            detect_id=id)
 
                 if fiber is not None:
+                    duplicate = False
                     fiber.ra = row['ra']
                     fiber.dec = row['dec']
                     fiber.obsid = int(row['obsid'])
@@ -1883,6 +1885,19 @@ class DetObj:
                     fiber.center_x = row['x_ifu']
                     fiber.center_y = row['y_ifu']
                     fiber.raw_weight = row['weight']
+
+                    #check that this is NOT a duplicate
+                    for i in range(len(self.fibers)):
+                        if fiber == self.fibers[i]:
+                            log.warning("Warning! Duplicate Fiber in detectID %s: %s . idx %d == %d. Duplicate will not be processed." %
+                                        (str(self.hdf5_detectid),fiber.idstring, i, count-1))
+                            duplicate = True
+                            duplicate_count += 1
+                            break
+
+                    if duplicate:
+                        continue #continue on to next fiber
+
 
                     subset_norm += fiber.raw_weight
                     #fiber.relative_weight = row['weight']
@@ -1925,6 +1940,10 @@ class DetObj:
 
                     self.fibers.append(fiber)
 
+
+        if duplicate_count != 0:
+            print("Warning! Duplicate Fibers found %d / %d" %(duplicate_count, count))
+            log.warning("Warning! Duplicate Fibers found %d / %d" %(duplicate_count, count))
 
         #todo: more to do here ... get the weights, etc (see load_flux_calibrated spectra)
 
@@ -5110,7 +5129,7 @@ class HETDEX:
             y_min = np.min(flux[left:right] - flux_err[left:right])
             y_max = np.max(flux[left:right] + flux_err[left:right])
             y_bump = (y_max - y_min)*0.05 #5% of the range
-            specplot.set_ylim(ymin=y_min-y_bump, ymax=y_max+y_bump)
+            specplot.set_ylim(bottom=y_min-y_bump, top=y_max+y_bump)
         except:
             log.debug("Could not set model spectra fit scale to data.", exc_info=True)
 

@@ -1,7 +1,10 @@
 changes to elixer by version
 
-1.6.6 [2019-05-15]
-dummy ... test ... and fixed several 2018 (that should be 2019 in the version log below)
+1.6.6 [2019-05-16]
+* changed manual wcs header creation (science_image.py) to use new constructor to build from FITS header
+* added check for duplicate fibers in HDF5 Fibers table (extra duplicate fibers are excluded, original is kept)
+* updated matplotlib ymin, ymax to bottom, top per deprication warning
+* fixed several 2018 (that should be 2019 in the version log below)
 
 1.6.5 [2019-03-31]
 * report newer (panacea) equivalent width in *_cat.txt
