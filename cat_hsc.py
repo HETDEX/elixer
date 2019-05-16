@@ -563,9 +563,9 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             title = self.Name + " : Possible Matches = %d (within +/- %g\")" \
                     % (len(self.dataframe_of_bid_targets_unique), error)
 
-        title += "  Minimum (no match) 3$\sigma$ rest-EW: "
-        cont_est  = -1
-        if target_flux  and self.CONT_EST_BASE:
+        cont_est = -1
+        if target_flux and self.CONT_EST_BASE:
+            title += "  Minimum (no match) 3$\sigma$ rest-EW: "
             cont_est = self.CONT_EST_BASE*3
             if cont_est != -1:
                 title += "  LyA = %g $\AA$ " % ((target_flux / cont_est) / (target_w / G.LyA_rest))
@@ -575,8 +575,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                     title = title + "  OII = N/A"
             else:
                 title += "  LyA = N/A  OII = N/A"
-        else:
-            title += "  LyA = N/A  OII = N/A"
+
 
 
         plt.subplot(gs[0, :])
@@ -635,7 +634,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
             try:  # update non-matched source line with PLAE()
-                if ((mag < 99) or (cont_est != -1)) and (target_flux is not None) and (i['filter'] == 'g'):
+                if ((mag < 99) or (cont_est != -1)) and (target_flux is not None) and (i['filter'] == 'r'):
                     # make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
                     bid_target = match_summary.BidTarget()
                     bid_target.catalog_name = self.Name
@@ -672,7 +671,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                                            sigma=None)
 
                     if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
-                        text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g" % (bid_target.p_lae_oii_ratio))
+                        text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)" % (bid_target.p_lae_oii_ratio,i['filter']))
 
                     cat_match.add_bid_target(bid_target)
             except:

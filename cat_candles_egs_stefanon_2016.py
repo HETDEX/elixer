@@ -697,8 +697,11 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                                            cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
                                            sigma=None)
 
+                    #if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
+                    #    text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g" % (bid_target.p_lae_oii_ratio))
                     if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
-                        text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g" % (bid_target.p_lae_oii_ratio))
+                        text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)"
+                        % (bid_target.p_lae_oii_ratio, i['filter']))
 
                     cat_match.add_bid_target(bid_target)
             except:
