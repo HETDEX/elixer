@@ -1884,19 +1884,29 @@ def main():
             else:
                 for c in cats:
                     if c.position_in_cat(ra=args.ra,dec=args.dec,error=args.error):
-                        num_cats += 1
-                        if c not in matched_cats:
-                            matched_cats.append(c)
-                            catlist_str += c.name + ", "
-
                         if args.error > 0:
                             hits,_,_ = c.build_list_of_bid_targets(ra=args.ra,dec=args.dec,error=args.error)
-                            num_hits += hits
+
+                            if hits < 0:
+                                #there was a problem ... usually we are in the footprint
+                                #but in a gap or missing area
+                                hits = 0
+                            else:
+                                num_hits += hits
+                                num_cats += 1
+                                if c not in matched_cats:
+                                    matched_cats.append(c)
+                                    catlist_str += c.name + ", "
 
                             if hits > 0:
                                 print ("%d hits in %s" %(hits,c.name))
                             elif args.catcheck:
                                 print("%d hits in %s (*only checks closest tile)" %(hits,c.name))
+                        else:
+                            num_cats += 1
+                            if c not in matched_cats:
+                                matched_cats.append(c)
+                                catlist_str += c.name + ", "
 
                 if G.SDSS_ALLOW and (len(matched_cats) == 0):
                     matched_cats.append(cat_sdss)

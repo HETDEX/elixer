@@ -263,9 +263,14 @@ class SDSS(cat_base.Catalog):#SDSS
                 log.info("SDSS query (%f,%f) at %f arcsec for band %s returned None" %(ra,dec,query_radius,f))
                 continue
 
-            #todo: choose the best image?
+            #todo: choose the best image? longest exp time or most NMGY?
+            best_idx = 0
+            #for i in range(len(hdulist_array)):
+
+
+
             sci = science_image.science_image(wcs_manual=wcs_manual, wcs_idx=0,
-                                        image_location=None,hdulist=hdulist_array[0])
+                                        image_location=None,hdulist=hdulist_array[best_idx])
 
             #the filters are in order, use r if g is not there
             if (f == 'r') and (sci.exptime is not None) and (exptime_cont_est == -1):
