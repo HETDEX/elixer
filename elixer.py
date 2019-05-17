@@ -1602,6 +1602,7 @@ def main():
     cat_library = catalogs.CatalogLibrary()
     cats = cat_library.get_full_catalog_list()
     catch_all_cat = cat_library.get_catch_all()
+    cat_sdss = cat_library.get_sdss()
     pages = []
 
     #if a --line file was provided ... old way (pre-April 2018)
@@ -1783,36 +1784,42 @@ def main():
                         plt.close('all')
                         log.info("Processing catalogs for eid(%s) ... " %str(e.entry_id))
 
-                        for c in cats:
-                            if (e.wra is not None) and (e.wdec is not None):  # weighted RA and Dec
-                                ra = e.wra
-                                dec = e.wdec
-                            else:
-                                ra = e.ra
-                                dec = e.dec
-                            if c.position_in_cat(ra=ra, dec=dec, error=args.error): #
-                                in_cat = True
-                                hits, _, _ = c.build_list_of_bid_targets(ra=ra, dec=dec, error=args.error)
-                                if hits < 0:
-                                    # detailed examination found that the position cannot be found in the catalogs
-                                    # this is for a tiled catalog (like SHELA or HSC) where the range is there, but
-                                    # there is no tile that covers that specific position
+                        if G.SDSS_FORCE:
+                            e.matched_cats.append(cat_sdss)
+                        else:
+                            for c in cats:
+                                if (e.wra is not None) and (e.wdec is not None):  # weighted RA and Dec
+                                    ra = e.wra
+                                    dec = e.wdec
+                                else:
+                                    ra = e.ra
+                                    dec = e.dec
+                                if c.position_in_cat(ra=ra, dec=dec, error=args.error): #
+                                    in_cat = True
+                                    hits, _, _ = c.build_list_of_bid_targets(ra=ra, dec=dec, error=args.error)
+                                    if hits < 0:
+                                        # detailed examination found that the position cannot be found in the catalogs
+                                        # this is for a tiled catalog (like SHELA or HSC) where the range is there, but
+                                        # there is no tile that covers that specific position
 
-                                    hits = 0
-                                    in_cat = False
+                                        hits = 0
+                                        in_cat = False
 
-                                num_hits += hits
-                                e.num_hits = hits #yes, for printing ... just the hits in this ONE catalog
+                                    num_hits += hits
+                                    e.num_hits = hits #yes, for printing ... just the hits in this ONE catalog
 
-                                if in_cat and (c not in e.matched_cats):
-                                    e.matched_cats.append(c)
+                                    if in_cat and (c not in e.matched_cats):
+                                        e.matched_cats.append(c)
 
-                                print("%d hits in %s for Detect ID #%d" % (hits, c.name, e.id))
-                            else: #todo: don't bother printing the negative case
-                                print("Coordinates not in range of %s for Detect ID #%d" % (c.name,e.id))
+                                    print("%d hits in %s for Detect ID #%d" % (hits, c.name, e.id))
+                                else: #todo: don't bother printing the negative case
+                                    print("Coordinates not in range of %s for Detect ID #%d" % (c.name,e.id))
 
-                        if len(e.matched_cats) == 0:
-                            e.matched_cats.append(catch_all_cat)
+                            if len(e.matched_cats) == 0:
+                                if G.SDSS_ALLOW:
+                                    e.matched_cats.append(cat_sdss)
+                                else:
+                                    e.matched_cats.append(catch_all_cat)
 
                     if (args.annulus is None) and (not confirm(num_hits,args.force)):
                         log.critical("Main exit. User cancel.")
@@ -1870,21 +1877,32 @@ def main():
             num_cats = 0
             catlist_str = ""
             matched_cats = [] #there were no detection objects (just an RA, Dec) so use a generic, global matched_cats
-            for c in cats:
-                if c.position_in_cat(ra=args.ra,dec=args.dec,error=args.error):
-                    num_cats += 1
-                    if c not in matched_cats:
-                        matched_cats.append(c)
-                        catlist_str += c.name + ", "
 
-                    if args.error > 0:
-                        hits,_,_ = c.build_list_of_bid_targets(ra=args.ra,dec=args.dec,error=args.error)
-                        num_hits += hits
+            if G.SDSS_FORCE:
+                matched_cats.append(cat_sdss)
+                catlist_str += cat_sdss.name + ", " #still need this for autoremoval of trailing ", " later
+            else:
+                for c in cats:
+                    if c.position_in_cat(ra=args.ra,dec=args.dec,error=args.error):
+                        num_cats += 1
+                        if c not in matched_cats:
+                            matched_cats.append(c)
+                            catlist_str += c.name + ", "
 
-                        if hits > 0:
-                            print ("%d hits in %s" %(hits,c.name))
-                        elif args.catcheck:
-                            print("%d hits in %s (*only checks closest tile)" %(hits,c.name))
+                        if args.error > 0:
+                            hits,_,_ = c.build_list_of_bid_targets(ra=args.ra,dec=args.dec,error=args.error)
+                            num_hits += hits
+
+                            if hits > 0:
+                                print ("%d hits in %s" %(hits,c.name))
+                            elif args.catcheck:
+                                print("%d hits in %s (*only checks closest tile)" %(hits,c.name))
+
+                if G.SDSS_ALLOW and (len(matched_cats) == 0):
+                    matched_cats.append(cat_sdss)
+                    catlist_str += cat_sdss.name + ", " #still need this for autoremoval of trailing ", " later
+
+
             if args.catcheck:
                 catlist_str = catlist_str[:-2]
                 print("%d overlapping catalogs (%f,%f). %s" %(num_cats,args.ra, args.dec, catlist_str))

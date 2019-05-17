@@ -360,3 +360,6 @@ SKY_ANNULUS_MIN_MAG = 15.0 #measure magnitude must be fainter than this to trigg
 INCLUDE_ALL_AMPS = False #ie. if true, ignore the bad amp list
 
 RECOVERY_RUN = False
+
+SDSS_ALLOW = True #if no other catalogs match, try SDSS as online query
+SDSS_FORCE = False  #ignore local catalogs and Force the use of only SDSS

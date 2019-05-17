@@ -47,7 +47,7 @@ log.setlevel(G.logging.DEBUG)
 
 class science_image():
 
-    def __init__(self, wcs_manual=False, image_location=None,frame=None, wcs_idx=0):
+    def __init__(self, wcs_manual=False, image_location=None,frame=None, wcs_idx=0, hdulist=None):
         self.image_location = None
         self.image_name = None
         self.catalog_name = None
@@ -60,7 +60,7 @@ class science_image():
 
         #self.fits = None # fits handle
 
-        self.hdulist = None
+        self.hdulist = hdulist
         self.headers = None #array of hdulist headers
 
         self.wcs = None
@@ -85,6 +85,33 @@ class science_image():
         if (image_location is not None) and (len(image_location) > 0):
             self.image_location = image_location
             self.load_image(wcs_manual=wcs_manual)
+        elif hdulist is not None:
+            self.headers = []
+            for i in range(len(hdulist)):
+                self.headers.append(hdulist[i].header)
+
+            self.wcs = WCS(hdulist[self.wcs_idx].header)
+            try:
+                self.footprint = WCS.calc_footprint(self.wcs)
+            except:
+                log.error("Unable to get on-sky footprint")
+
+            try:
+                self.exptime = float(self.hdulist[self.wcs_idx].header['EXPTIME'])
+            except:
+                try:  # if not with the wcs header, check the main (0) header
+                    self.exptime = float(self.hdulist[0].header['EXPTIME'])
+                except:
+
+                    log.warning('Warning. Could not load exposure time from %s' % self.image_location, exc_info=True)
+                    self.exptime = None
+            try:
+                self.pixel_size = self.calc_pixel_size(
+                    self.wcs)  # np.sqrt(self.wcs.wcs.cd[0, 0] ** 2 + self.wcs.wcs.cd[0, 1] ** 2) * 3600.0  # arcsec/pixel
+                log.debug("Pixel Size = %f asec/pixel" % self.pixel_size)
+            except:
+                log.error("Unable to build pixel size", exc_info=True)
+
 
 
     # def cycle_fits(self):
@@ -144,10 +171,10 @@ class science_image():
             log.error("Unable to get on-sky footprint")
 
         try:
-            self.exptime = self.hdulist[self.wcs_idx].header['EXPTIME']
+            self.exptime = float(self.hdulist[self.wcs_idx].header['EXPTIME'])
         except:
             try:#if not with the wcs header, check the main (0) header
-                self.exptime = self.hdulist[0].header['EXPTIME']
+                self.exptime = float(self.hdulist[0].header['EXPTIME'])
             except:
 
                 log.warning('Warning. Could not load exposure time from %s' %self.image_location, exc_info=True)

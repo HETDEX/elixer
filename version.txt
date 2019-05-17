@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.7.0 [2019-05-17]
+* add SDSS online query as backup to no overlap with local imaging catalogs
+
 1.6.6 [2019-05-16]
 * changed manual wcs header creation (science_image.py) to use new constructor to build from FITS header
 * fixed non-printing of aperture P(LAE)/P(OII) (specifically for HSC)
