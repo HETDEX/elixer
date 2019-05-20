@@ -89,19 +89,19 @@ class SDSS(cat_base.Catalog):#SDSS
 
     #maglimits to 95% completeness for point sources
 # u
-#     3551Å
+#     3551AA
 #     22.0
 # g
-#     4686Å
+#     4686AA
 #     22.2
 # r
-#     6165Å
+#     6165AA
 #     22.2
 # i
-#     7481Å
+#     7481AA
 #     21.3
 # z
-#     8931Å
+#     8931AA
 #     20.5
 
 
