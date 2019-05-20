@@ -43,8 +43,42 @@ pd.options.mode.chained_assignment = None  #turn off warning about setting the d
 
 
 def sdss_count_to_mag(count,cutout=None,headers=None):
-    #todo:
-    print("sdss_count_to_mag not defined yet")
+
+    try:
+        bunit = str(headers[0]['BUNIT'])
+        nmgy = float(headers[0]['NMGY'])
+        nmgyivar = float(headers[0]['NMGYIVAR'])
+
+        if bunit.lower() != "nanomaggy":
+            log.warning("Unexpected BUNIT for SDSS: %s" %(bunit))
+            return 99.9
+    except:
+        log.error("Exception in sdss_count_to_mag", exc_info=True)
+        return 99.9
+
+    if count > 0:
+
+        #I would have expected to 1e-9 nanoJy to Jy then divide by 3631, but it looks like they (SDSS) have
+        #already done that and wrapped it into the nmgy conversion, so we use the nmgy convesion and do NOT
+        #divide by 3631Jy in the log?
+        # if isinstance(count, float):
+        #     jy = nmgy * count * 3.361e-6
+        # else:
+        #     jy = nmgy * count.value * 3.361e-6
+        #return -2.5 * np.log10(jy)
+
+        #NOPE: ... SDSS is using weird units ... nanomaggy and the counts are already IN nanomaggy so
+        #you do not need to convert
+        #Per their documentation, this is the correct conversion
+        if isinstance(count, float):
+            ct_nmgy = count
+        else:
+            ct_nmgy = count.value
+
+        return 22.5 - 2.5 * np.log10(ct_nmgy)
+    else:
+        return 99.9  # need a better floor
+
     return 99.9
 
 class SDSS(cat_base.Catalog):#SDSS
@@ -249,8 +283,8 @@ class SDSS(cat_base.Catalog):#SDSS
 
             try:
                 wcs_manual = self.WCS_Manual
-                aperture = 0.0
-                mag_func = None
+                aperture = 2.0
+                mag_func = sdss_count_to_mag
             except:
                 wcs_manual = self.WCS_Manual
                 aperture = 0.0
@@ -621,8 +655,8 @@ class SDSS(cat_base.Catalog):#SDSS
 
         try:
             wcs_manual = self.WCS_Manual
-            aperture = 0.0
-            mag_func = None
+            aperture = 2.0
+            mag_func = sdss_count_to_mag
         except:
             wcs_manual = self.WCS_Manual
             aperture = 0.0

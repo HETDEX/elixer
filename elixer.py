@@ -251,6 +251,10 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--ooops', help='Load Ooops module for SLURM.', required=False,
                         action='store_true', default=False)
 
+    parser.add_argument('--sdss', help="SDSS remote query for imaging. Deny (0), Allow (1) if no other catalog available,"
+                                       " Force (2) and override any other catalog",
+                        required=False, default=1,type=int)
+
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
 
@@ -282,6 +286,22 @@ def parse_commandline(auto_force=False):
     if args.merge:
         print("Merging catalogs and fiber files (ignoring all other parameters) ... ")
         return args
+
+    if args.sdss is not None:
+        if args.sdss == 0:
+            G.SDSS_ALLOW = False
+            G.SDSS_FORCE = False
+        elif args.sdss == 1:
+            G.SDSS_ALLOW = True
+            G.SDSS_FORCE = False
+        elif args.sdss == 2:
+            G.SDSS_ALLOW = True
+            G.SDSS_FORCE = True
+        else:
+            log.warning("Ignoring invalid --sdss value (%d). Using default (Allow == 1)" %args.sdss)
+            print("Ignoring invalid --sdss value (%d). Using default (Allow == 1)" %args.sdss)
+            G.SDSS_ALLOW = True
+            G.SDSS_FORCE = False
 
     if args.annulus:
         try:
