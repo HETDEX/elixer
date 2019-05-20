@@ -85,6 +85,27 @@ class SDSS(cat_base.Catalog):#SDSS
     """
     Online, on-demand only ... There is no direct archival catalog or imaging
     """
+
+
+    #maglimits to 95% completeness for point sources
+# u
+#     3551Å
+#     22.0
+# g
+#     4686Å
+#     22.2
+# r
+#     6165Å
+#     22.2
+# i
+#     7481Å
+#     21.3
+# z
+#     8931Å
+#     20.5
+
+
+
     # class variables
     CONT_EST_BASE = None
 
