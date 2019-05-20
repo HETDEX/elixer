@@ -45,7 +45,7 @@ if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
     # GOODS_N_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/goods_north/GOODSN"
     # GOODS_N_CAT_PATH = GOODS_N_BASE_PATH
 
-    GOODS_N_BASE_PATH = "/home/dustin/code/python/elixer/data/GOODSN/"
+    GOODS_N_BASE_PATH = "/work/03564/stevenf/maverick/GOODSN"
     GOODS_N_CAT_PATH = GOODS_N_BASE_PATH
 
     STACK_COSMOS_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/cosmos/stackCOSMOS/nano/"
