@@ -46,8 +46,8 @@ def sdss_count_to_mag(count,cutout=None,headers=None):
 
     try:
         bunit = str(headers[0]['BUNIT'])
-        nmgy = float(headers[0]['NMGY'])
-        nmgyivar = float(headers[0]['NMGYIVAR'])
+        # nmgy = float(headers[0]['NMGY'])
+        # nmgyivar = float(headers[0]['NMGYIVAR'])
 
         if bunit.lower() != "nanomaggy":
             log.warning("Unexpected BUNIT for SDSS: %s" %(bunit))

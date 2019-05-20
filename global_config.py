@@ -20,8 +20,6 @@ PYTHON_MAJOR_VERSION = sys.version_info[0]
 PYTHON_VERSION = sys.version_info
 
 
-
-
 HDR1 = True #set to TRUE for HDR1 release
 
 if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
@@ -44,7 +42,10 @@ if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
     EGS_GROTH_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/candles_egs/groth"
     EGS_GROTH_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/candles_egs/groth"  # note: there is no catalog
 
-    GOODS_N_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/goods_north/GOODSN"
+    # GOODS_N_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/goods_north/GOODSN"
+    # GOODS_N_CAT_PATH = GOODS_N_BASE_PATH
+
+    GOODS_N_BASE_PATH = "/home/dustin/code/python/elixer/data/GOODSN/"
     GOODS_N_CAT_PATH = GOODS_N_BASE_PATH
 
     STACK_COSMOS_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/cosmos/stackCOSMOS/nano/"
@@ -109,13 +110,22 @@ else:
 
     else:
 
-        HDF5_DETECT_FN  = "/work/05350/ecooper/wrangler/database/detect_test3.h5"
-        OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
+        # HDF5_DETECT_FN  = "/work/05350/ecooper/wrangler/database/detect_test3.h5"
+        # OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
+        # BAD_AMP_LIST = "/work/03261/polonius/maverick/catalogs/bad_amp_list.txt"
+        # CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
+        # PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
+        # PANACEA_RED_BASEDIR_DEFAULT = PANACEA_RED_BASEDIR
+        # PANACEA_HDF5_BASEDIR = PANACEA_RED_BASEDIR
+
+        HDF5_DETECT_FN = "/work/03946/hetdex/hdr1/detect/detect_hdr1.h5"
+        OBSERVATIONS_BASEDIR = "/work/03946/hetdex/hdr1/reduction/"
         BAD_AMP_LIST = "/work/03261/polonius/maverick/catalogs/bad_amp_list.txt"
-        CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
-        PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
+        # CONFIG_BASEDIR = "/work/03946/hetdex/hdr1/raw"
+        CONFIG_BASEDIR = "/work/03946/hetdex/hdr1/software/"
+        PANACEA_RED_BASEDIR = "/work/03946/hetdex/hdr1/raw/red1/reductions/"
         PANACEA_RED_BASEDIR_DEFAULT = PANACEA_RED_BASEDIR
-        PANACEA_HDF5_BASEDIR = PANACEA_RED_BASEDIR
+        PANACEA_HDF5_BASEDIR = "/work/03946/hetdex/hdr1/reduction/data"
 
         CANDELS_EGS_Stefanon_2016_BASE_PATH = "/work/03564/stevenf/maverick/EGS"
         EGS_CFHTLS_PATH = "/work/03261/polonius/maverick/catalogs/CFHTLS"
