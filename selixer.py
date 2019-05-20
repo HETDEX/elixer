@@ -329,11 +329,12 @@ os.chdir(basename)
 ### elixer.run
 path = os.path.join(os.path.dirname(sys.argv[0]),"elixer.py")
 nodes = 1
-
+ntasks_per_node = 1 #default
 
 dets_per_dispatch =  [] #list of counts ... the number of detection directories to list in the corresponding dispatch_xxx file
 if tasks == 1:
     print("Only 1 task. Will not use dispatch.")
+    ntasks_per_node = 1
 
     run = python_cmd + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' -f \n'
     dets_per_dispatch.append(1)
