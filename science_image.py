@@ -731,14 +731,31 @@ class science_image():
                     #made an annulus in pixel, set to a "mask" where 0 = pixel not in annulus, 1 = pixel in annulus
                     sky_mask = sky_annulus.to_mask(method='center')[0]
 
+
+                    sky_mask = np.array(sky_mask)[0:sky_image.data.shape[0],0:sky_image.data.shape[1]]
                     #select all pixels from the cutout that are in the annulus
                     #this sometimes gets off by 1-pixel, so trim off if out of range of the array
-                    search = np.where(sky_mask.data > 0)
-                    safe_search = [None]*2
-                    safe_search[0] = search[0][np.where(search[0] < sky_image.data.shape[0])]
-                    safe_search[1] = search[1][np.where(search[1] < sky_image.data.shape[1])]
+                    # search = np.where(sky_mask.data > 0)
 
-                    annulus_data_1d = sky_image.data[safe_search]
+                    #the sky_mask and the sky_image share a common origin (0,0) so they have the same indexing
+                    #the sky_mask may be larger than the sky_image, so turn the mask into a 2D array (so we can slice
+                    #and slice away the mask outside the sky_image)
+
+                    search = np.where(sky_mask > 0)
+                    # safe_search = [None]*2
+                    # safe_search[0] = search[0][np.where(search[0] < sky_image.data.shape[0])]
+                    # safe_search[1] = search[1][np.where(search[1] < sky_image.data.shape[1])]
+
+                    # #todo: lets matplotlib here ... the sky_mask and the sky_image.data
+                    # import matplotlib.pyplot as plt
+                    # plt.close('all')
+                    # plt.imshow(sky_image.data,origin='lower')
+                    # plt.imshow(sky_mask,origin='lower',alpha=0.5)
+                    # plt.savefig("mask.png")
+
+            #        safe_search = np.where((search[0] < sky_image.data.shape[0]) & (search[1] < sky_image.data.shape[1]))
+
+                    annulus_data_1d = sky_image.data[search]
 
                     #and take the median average from a 3-sigma clip
                     #bkg_mean, bkg_median, _ = sigma_clipped_stats(annulus_data_1d,sigma=3.0) #this is the average sky per pixel
@@ -760,6 +777,7 @@ class science_image():
 
 
                 except:
+                    #print("Sky Mask Problem ....")
                     log.error("Exception in science_image::get_cutout () figuring sky subtraction aperture", exc_info=True)
 
         return cutout, counts, mag, radius
