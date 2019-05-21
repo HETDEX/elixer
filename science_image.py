@@ -156,6 +156,7 @@ class science_image():
             self.build_wcs_manually()
         else:
             try:
+                #self.wcs = WCS(header=self.hdulist[self.wcs_idx].header,fobj=self.image_location)
                 self.wcs = WCS(self.image_location)
             except:
                 log.error("Unable to use WCS constructor. Will attempt to build manually.", exc_info=True)
@@ -225,10 +226,10 @@ class science_image():
             #self.wcs.pixel_shape[0] = hdulist[self.wcs_idx].header['NAXIS1']
             #self.wcs.pixel_shape[1] = hdulist[self.wcs_idx].header['NAXIS2']
 
-            self.wcs = WCS(hdulist[self.wcs_idx].header)
+            self.wcs = WCS(header=hdulist[self.wcs_idx].header,fobj=hdulist)
 
         except:
-            log.error("Failed to build WCS manually. Trying alternate ....", exc_info=True)
+            log.error("Failed to build WCS from header. Trying alternate manual load ....", exc_info=True)
 
             try: #really manual
                 self.wcs = WCS(naxis=hdulist[self.wcs_idx].header['NAXIS'])

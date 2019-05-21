@@ -42,8 +42,8 @@ if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
     EGS_GROTH_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/candles_egs/groth"
     EGS_GROTH_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/candles_egs/groth"  # note: there is no catalog
 
-    # GOODS_N_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/goods_north/GOODSN"
-    # GOODS_N_CAT_PATH = GOODS_N_BASE_PATH
+    #GOODS_N_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/goods_north/GOODSN"
+    #GOODS_N_CAT_PATH = GOODS_N_BASE_PATH
 
     GOODS_N_BASE_PATH = "/work/03564/stevenf/maverick/GOODSN"
     GOODS_N_CAT_PATH = GOODS_N_BASE_PATH
