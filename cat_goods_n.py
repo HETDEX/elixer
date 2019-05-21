@@ -58,7 +58,7 @@ def goodsn_f606w_count_to_mag(count,cutout=None,headers=None):
         except:
             photoflam = 7.7265099E-20
             photozero = -2.1100000E+01
-            log.warn("Exception in goodsn_count_to_mag",exc_info=True)
+            log.warning("Exception in goodsn_count_to_mag",exc_info=True)
             #return 99.9
 
         if count > 0:

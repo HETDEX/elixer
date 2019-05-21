@@ -239,8 +239,10 @@ class science_image():
                 #self.wcs.wcs.cdelt = [None,None]#[hdu1[0].header['CDELT1O'],hdu1[0].header['CDELT2O']]
                 self.wcs.wcs.cd = [[hdulist[self.wcs_idx].header['CD1_1'], hdulist[self.wcs_idx].header['CD1_2']],
                                    [hdulist[self.wcs_idx].header['CD2_1'], hdulist[self.wcs_idx].header['CD2_2']]]
-                self.wcs._naxis1 = hdulist[self.wcs_idx].header['NAXIS1']
-                self.wcs._naxis2 = hdulist[self.wcs_idx].header['NAXIS2']
+                # self.wcs._naxis1 = hdulist[self.wcs_idx].header['NAXIS1']
+                # self.wcs._naxis2 = hdulist[self.wcs_idx].header['NAXIS2']
+
+                self.wcs.pixel_shape = (hdulist[self.wcs_idx].header['NAXIS1'],hdulist[self.wcs_idx].header['NAXIS2'])
             except:
                 log.error("Failed to build WCS manually.",exc_info=True)
                 self.wcs = None

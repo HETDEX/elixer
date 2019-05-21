@@ -2066,7 +2066,7 @@ class DetObj:
                     return True #this is an "ignore" flag, but still continue as if it were a fiber
             else:
                 pass #stop bothering with this ... it is always there
-                #log.warn("Unexpected fiber id string: %s" % fiber)
+                #log.warning("Unexpected fiber id string: %s" % fiber)
             return False
 
         newfiber = elixer_fiber.Fiber(fiber, detect_id=self.id)

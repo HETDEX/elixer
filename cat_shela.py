@@ -890,7 +890,7 @@ class SHELA(cat_base.Catalog):
                         self.master_cutout.data = np.add(self.master_cutout.data, cutout.data * sci.exptime / ref_exptime)
                         total_adjusted_exptime += sci.exptime / ref_exptime
                     except:
-                        log.warn("Unexpected exception.", exc_info=True)
+                        log.warning("Unexpected exception.", exc_info=True)
 
                 plt.subplot(gs[1:, index])
                 plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
