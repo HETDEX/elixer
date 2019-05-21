@@ -265,7 +265,7 @@ class SDSS(cat_base.Catalog):#SDSS
         #     title = self.Name + " : Possible Matches = %d (within +/- %g\")" \
         #             % (len(self.dataframe_of_bid_targets_unique), error)
 
-        title = "SDSS imaging only. "
+        title = "SDSS imaging only. (mag limit g,r ~ 22.2) "
 
         cont_est = -1
         # if target_flux and self.CONT_EST_BASE:

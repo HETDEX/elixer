@@ -226,26 +226,43 @@ class science_image():
             #self.wcs.pixel_shape[0] = hdulist[self.wcs_idx].header['NAXIS1']
             #self.wcs.pixel_shape[1] = hdulist[self.wcs_idx].header['NAXIS2']
 
-            self.wcs = WCS(header=hdulist[self.wcs_idx].header,fobj=hdulist)
+            self.wcs = WCS(naxis=hdulist[self.wcs_idx].header['NAXIS'])
+            self.wcs.wcs.crpix = [hdulist[self.wcs_idx].header['CRPIX1'], hdulist[self.wcs_idx].header['CRPIX2']]
+            self.wcs.wcs.crval = [hdulist[self.wcs_idx].header['CRVAL1'], hdulist[self.wcs_idx].header['CRVAL2']]
+            self.wcs.wcs.ctype = [hdulist[self.wcs_idx].header['CTYPE1'], hdulist[self.wcs_idx].header['CTYPE2']]
+            # self.wcs.wcs.cdelt = [None,None]#[hdu1[0].header['CDELT1O'],hdu1[0].header['CDELT2O']]
+            self.wcs.wcs.cd = [[hdulist[self.wcs_idx].header['CD1_1'], hdulist[self.wcs_idx].header['CD1_2']],
+                               [hdulist[self.wcs_idx].header['CD2_1'], hdulist[self.wcs_idx].header['CD2_2']]]
+            # self.wcs._naxis1 = hdulist[self.wcs_idx].header['NAXIS1']
+            # self.wcs._naxis2 = hdulist[self.wcs_idx].header['NAXIS2']
+
+            self.wcs.pixel_shape = (hdulist[self.wcs_idx].header['NAXIS1'], hdulist[self.wcs_idx].header['NAXIS2'])
+
+            #can't trust this next line ... it fails with SIP sometimes, esp in GOODS N, so just leave as full manual
+            #self.wcs = WCS(header=hdulist[self.wcs_idx].header,fobj=hdulist)
 
         except:
-            log.error("Failed to build WCS from header. Trying alternate manual load ....", exc_info=True)
+            log.error("Failed to build WCS manually.", exc_info=True)
+            self.wcs = None
 
-            try: #really manual
-                self.wcs = WCS(naxis=hdulist[self.wcs_idx].header['NAXIS'])
-                self.wcs.wcs.crpix = [hdulist[self.wcs_idx].header['CRPIX1'], hdulist[self.wcs_idx].header['CRPIX2']]
-                self.wcs.wcs.crval = [hdulist[self.wcs_idx].header['CRVAL1'], hdulist[self.wcs_idx].header['CRVAL2']]
-                self.wcs.wcs.ctype = [hdulist[self.wcs_idx].header['CTYPE1'], hdulist[self.wcs_idx].header['CTYPE2']]
-                #self.wcs.wcs.cdelt = [None,None]#[hdu1[0].header['CDELT1O'],hdu1[0].header['CDELT2O']]
-                self.wcs.wcs.cd = [[hdulist[self.wcs_idx].header['CD1_1'], hdulist[self.wcs_idx].header['CD1_2']],
-                                   [hdulist[self.wcs_idx].header['CD2_1'], hdulist[self.wcs_idx].header['CD2_2']]]
-                # self.wcs._naxis1 = hdulist[self.wcs_idx].header['NAXIS1']
-                # self.wcs._naxis2 = hdulist[self.wcs_idx].header['NAXIS2']
 
-                self.wcs.pixel_shape = (hdulist[self.wcs_idx].header['NAXIS1'],hdulist[self.wcs_idx].header['NAXIS2'])
-            except:
-                log.error("Failed to build WCS manually.",exc_info=True)
-                self.wcs = None
+            # log.error("Failed to build WCS from header. Trying alternate manual load ....", exc_info=True)
+            #
+            # try: #really manual
+            #     self.wcs = WCS(naxis=hdulist[self.wcs_idx].header['NAXIS'])
+            #     self.wcs.wcs.crpix = [hdulist[self.wcs_idx].header['CRPIX1'], hdulist[self.wcs_idx].header['CRPIX2']]
+            #     self.wcs.wcs.crval = [hdulist[self.wcs_idx].header['CRVAL1'], hdulist[self.wcs_idx].header['CRVAL2']]
+            #     self.wcs.wcs.ctype = [hdulist[self.wcs_idx].header['CTYPE1'], hdulist[self.wcs_idx].header['CTYPE2']]
+            #     #self.wcs.wcs.cdelt = [None,None]#[hdu1[0].header['CDELT1O'],hdu1[0].header['CDELT2O']]
+            #     self.wcs.wcs.cd = [[hdulist[self.wcs_idx].header['CD1_1'], hdulist[self.wcs_idx].header['CD1_2']],
+            #                        [hdulist[self.wcs_idx].header['CD2_1'], hdulist[self.wcs_idx].header['CD2_2']]]
+            #     # self.wcs._naxis1 = hdulist[self.wcs_idx].header['NAXIS1']
+            #     # self.wcs._naxis2 = hdulist[self.wcs_idx].header['NAXIS2']
+            #
+            #     self.wcs.pixel_shape = (hdulist[self.wcs_idx].header['NAXIS1'],hdulist[self.wcs_idx].header['NAXIS2'])
+            # except:
+            #     log.error("Failed to build WCS manually.",exc_info=True)
+            #     self.wcs = None
 
         if close:
             hdulist.close()
