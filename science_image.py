@@ -39,6 +39,7 @@ from photutils import aperture_photometry
 from astropy.stats import sigma_clipped_stats
 import astropy.stats.biweight as biweight
 
+PIXEL_APERTURE_METHOD='exact'
 
 #log = G.logging.getLogger('sciimg_logger')
 #log.setLevel(G.logging.DEBUG)
@@ -604,14 +605,14 @@ class science_image():
                         # offset (fraction of a pixel or, typically, small fractions of an arcsec)
                         try:
                             pix_aperture = CircularAperture(cutout.center_cutout,r=radius/self.pixel_size)
-                            phot_table = aperture_photometry(cutout.data, pix_aperture)
+                            phot_table = aperture_photometry(cutout.data, pix_aperture,method=PIXEL_APERTURE_METHOD)
                             counts = phot_table['aperture_sum'][0]
                         except:
                             log.info("Pixel based aperture photometry failed. Attemping sky based ... ",exc_info=True)
 
                             try:
                                 sky_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec)
-                                phot_table = aperture_photometry(image, sky_aperture)
+                                phot_table = aperture_photometry(image, sky_aperture,method=PIXEL_APERTURE_METHOD)
 #                                pix_aperture = CircularAperture(cutout.center_cutout, r=radius / self.pixel_size)
 #                                phot_table = aperture_photometry(cutout.data, pix_aperture)
                                 counts = phot_table['aperture_sum'][0]
@@ -693,14 +694,14 @@ class science_image():
 
                     try:
                         pix_aperture = CircularAperture(cutout.center_cutout, r=radius / self.pixel_size)
-                        phot_table = aperture_photometry(cutout.data, pix_aperture)
+                        phot_table = aperture_photometry(cutout.data, pix_aperture,method=PIXEL_APERTURE_METHOD)
                     except:
                         log.info("Pixel based aperture photometry failed. Attemping sky based ... ", exc_info=True)
                         #note: if we do this, photutils loads the entire fits image and that can be costly
                         #in terms of time and memory
                         try:
                             sky_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec)
-                            phot_table = aperture_photometry(image, sky_aperture)
+                            phot_table = aperture_photometry(image, sky_aperture,method=PIXEL_APERTURE_METHOD)
                         except:
                             log.info("Sky based aperture photometry failed. Will skip aperture photometery.",
                                      exc_info=True)

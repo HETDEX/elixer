@@ -1,12 +1,14 @@
 changes to elixer by version
 
-1.7.0 [2019-05-17]
+1.7.0 [2019-05-22]
 * add SDSS online query as backup to no overlap with local imaging catalogs
 * discontinued use of wcs._naxis1, _naxis2 per astropy 3.1 and replaced with pixel_shape
 * fixed handfull of log.warn() calls (should be log.warning())
 * updated science_image to force sky_mask to be cropped to the sky_image boundaries (in some cases the mask could
   extend beyond the image and then the sky pixel selection would fail)
 * updated aperture photometry in GOODS-N
+* updated aperture photometry in EGS
+* set minimum PLAE/POII to 0.01
 
 
 1.6.6 [2019-05-16]

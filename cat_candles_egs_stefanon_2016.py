@@ -59,6 +59,31 @@ def cfhtls_count_to_mag(count,cutout=None,sci_image=None):
         else:
             return 99.9  # need a better floor
 
+
+def acs_wfc_f606w_count_to_mag(count,cutout=None,headers=None):
+    if count is not None:
+        #if cutout is not None:
+        #get the conversion factor, each tile is different
+        try:
+            photoflam = float(headers[0]['PHOTFLAM']) #inverse sensitivity, ergs / cm2 / Ang / electron
+            photozero = float(headers[0]['PHOTZPT']) #/ ST magnitude zero point
+
+            if not isinstance(count, float):
+                count = count.value
+
+            if count > 0:
+                flux = photoflam * count
+                return -2.5 * np.log10(flux) + photozero
+            else:
+                return 99.9  # need a better floor
+
+        except:
+            log.warning("Exception in acs_wfc_f606w_count_to_mag",exc_info=True)
+            return 99.9
+
+
+
+
 class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
     # RA,Dec in decimal degrees
 
@@ -112,6 +137,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'image': None,
          'expanded': True,
          'wcs_manual': False,
+         'sky_subtract': True,
          'aperture': 1.0,  #if non-zero, use an aperture of this radius in arcsecs to find image based mag
          'mag_func': cfhtls_count_to_mag,
          'footprint': [[215.72182464, 52.12056378],[215.74413972, 53.23356319],
@@ -130,8 +156,9 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'image': None,
          'expanded': False,
          'wcs_manual': True,
-         'aperture': 0, #if zero, there is something odd with the header and can't use astropy apertures
-         'mag_func': None
+         'aperture': 1.0, #if zero, there is something odd with the header and can't use astropy apertures
+         'mag_func': acs_wfc_f606w_count_to_mag,
+         'sky_subtract': False
          },
         {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
          'name': 'egs_all_acs_wfc_f814w_060mas_v1.1_drz.fits',
@@ -143,7 +170,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'expanded': False,
          'wcs_manual': True,
          'aperture': 0,
-         'mag_func': None
+         'mag_func': None,
+         'sky_subtract': False
          },
         {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
          'name': 'egs_all_wfc3_ir_f105w_060mas_v1.5_drz.fits',
@@ -155,7 +183,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'expanded': False,
          'wcs_manual': True,
          'aperture': 0,
-         'mag_func': None
+         'mag_func': None,
+         'sky_subtract': False
          },
         {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
          'name': 'egs_all_wfc3_ir_f125w_060mas_v1.1_drz.fits',
@@ -167,7 +196,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'expanded': False,
          'wcs_manual': True,
          'aperture': 0,
-         'mag_func': None
+         'mag_func': None,
+         'sky_subtract': False
          },
         {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
          'name': 'egs_all_wfc3_ir_f140w_060mas_v1.1_drz.fits',
@@ -179,7 +209,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'expanded': False,
          'wcs_manual': True,
          'aperture': 0,
-         'mag_func': None
+         'mag_func': None,
+         'sky_subtract': False
          },
         {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
          'name': 'egs_all_wfc3_ir_f160w_060mas_v1.1_drz.fits',
@@ -191,7 +222,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'expanded': False,
          'wcs_manual': True,
          'aperture': 0,
-         'mag_func': None
+         'mag_func': None,
+         'sky_subtract': False
          }
     ]
 
@@ -634,6 +666,9 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         # add the bid targets
         bid_colors = self.get_bid_colors(len(bid_ras))
 
+        best_plae_poii = None
+        best_plae_poii_filter = '-'
+        bid_target = None
         index = 0 #start in the 2nd box which is index 1 (1st box is for the fiber position plot)
         for i in self.CatalogImages:  # i is a dictionary
             index += 1
@@ -642,6 +677,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 wcs_manual = i['wcs_manual']
                 aperture = i['aperture']
                 mag_func = i['mag_func']
+                do_sky_subtract = i['sky_subtract']
             except:
                 wcs_manual = self.WCS_Manual
                 aperture = 0.0
@@ -654,10 +690,12 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
             # sci.load_image(wcs_manual=True)
             cutout, pix_counts, mag, mag_radius = sci.get_cutout(ra, dec, error, window=window,
-                                                     aperture=aperture,mag_func=mag_func)
+                                                     aperture=aperture,mag_func=mag_func,do_sky_subtract=do_sky_subtract)
 
             try: #update non-matched source line with PLAE()
-                if (mag < 99) and (target_flux is not None) and (i['instrument'] == 'CFHTLS') and (i['filter'] == 'g'):
+                #if (mag < 99) and (target_flux is not None) and (i['instrument'] == 'CFHTLS') and (i['filter'] == 'g'):
+                if ((mag < 99) or (cont_est != -1)) and (target_flux is not None) \
+                            and (((i['instrument'] == 'CFHTLS') and (i['filter'] == 'g')) or (i['filter'] == 'f606w')):
                     #make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
                     bid_target = match_summary.BidTarget()
                     bid_target.catalog_name = self.Name
@@ -697,15 +735,24 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                                            cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
                                            sigma=None)
 
-                    #if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
-                    #    text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g" % (bid_target.p_lae_oii_ratio))
-                    if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
-                        text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)"
-                        % (bid_target.p_lae_oii_ratio, i['filter']))
+
+                    if best_plae_poii is None or i['filter'] == 'f606w':
+                        best_plae_poii = bid_target.p_lae_oii_ratio
+                        best_plae_poii_filter = i['filter']
+
+                    # #if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
+                    # #    text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g" % (bid_target.p_lae_oii_ratio))
+                    # if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
+                    #     text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)"
+                    #     % (bid_target.p_lae_oii_ratio, i['filter']))
 
                     cat_match.add_bid_target(bid_target)
             except:
                 log.debug('Could not build exact location photometry info.',exc_info=True)
+
+            # if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
+            #     text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)"
+            #                   % (best_plae_poii, best_plae_poii_filter))
 
 
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
@@ -744,6 +791,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
                                                       width=target_box_side, height=target_box_side,
                                                       angle=0.0, color=bc, fill=False, linewidth=1.0, zorder=1))
+
+        if (not G.ZOO) and (best_plae_poii is not None):
+            text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)"
+                          % (best_plae_poii, best_plae_poii_filter))
 
         if self.master_cutout is None:
             # cannot continue

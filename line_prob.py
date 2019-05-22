@@ -22,6 +22,7 @@ import numpy as np
 
 
 MAX_PLAE_POII = 999
+MIN_PLAE_POII = 0.01
 UNIVERSE_CONFIG = None
 FLUX_LIMIT_FN = None
 COSMOLOGY = None
@@ -389,6 +390,7 @@ def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_
 
     plgd = prob_lae_given_data
     ratio_LAE = min(MAX_PLAE_POII, posterior_odds)
+    ratio_LAE = max(ratio_LAE,MIN_PLAE_POII)
 
     #temporary -- compare results and note if the new method disagrees with the old
     # if old_ratio_LAE + ratio_LAE > 0.2: #if they are both small, don't bother
