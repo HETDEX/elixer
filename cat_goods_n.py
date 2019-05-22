@@ -15,6 +15,7 @@ except:
 
 import os.path as op
 import copy
+import scipy
 
 
 GOODS_N_BASE_PATH = G.GOODS_N_BASE_PATH
@@ -66,10 +67,11 @@ def goodsn_f606w_count_to_mag(count,cutout=None,headers=None):
             # convert from per Angstrom to per Hertz
             # F_v  = F_l * (l^2)/c ... but which lambda to use? center of the filter? ... what is the iso-lambda
             # iso = 5778.3 AA?
-            c = scipy.constants.c * 1e10 #in AA
-            flux = flux * (5778.3**2.)/c * 1e-23 #to Jansky
+            # c = scipy.constants.c * 1e10 #in AA
+            # flux = flux * (5778.3**2.)/c * 1e-23 #to Jansky
             #then
-            return -2.5 * np.log10(flux/3631.0)
+            return photozero -2.5 * np.log10(flux)
+           # return -2.5 * np.log10(flux/3631.0)
         else:
             return 99.9  # need a better floor
 
@@ -125,7 +127,7 @@ class GOODS_N(cat_base.Catalog):
          'image': None,
          'expanded': False,
          'wcs_manual': True,
-         'aperture':0.0,
+         'aperture':1.5,
          'mag_func': goodsn_f606w_count_to_mag
          },
         {'path': GOODS_N_IMAGES_PATH,
@@ -482,7 +484,7 @@ class GOODS_N(cat_base.Catalog):
         #             title = title + "  OII = N/A"
 
         plt.subplot(gs[0, :])
-        plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
+        text = plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
         plt.gca().set_frame_on(False)
         plt.gca().axis('off')
 
@@ -492,6 +494,9 @@ class GOODS_N(cat_base.Catalog):
 
         ref_exptime = None
         total_adjusted_exptime = None
+
+        best_plae_poii = None
+        best_plae_poii_filter = '-'
 
         # add the bid targets
         bid_colors = self.get_bid_colors(len(bid_ras))
@@ -518,11 +523,12 @@ class GOODS_N(cat_base.Catalog):
             # sci.load_image(wcs_manual=True)
             log.info("Reminder: aperture issue with .drz fits file, so no forced aperture magnitude.")
             cutout, pix_counts, mag, mag_radius = sci.get_cutout(ra, dec, error, window=window,
-                                                     aperture=aperture, mag_func=mag_func)
+                                                     aperture=aperture, mag_func=mag_func, do_sky_subtract=False)
 
+            bid_target = None
             try: #update non-matched source line with PLAE()
                 if ((mag < 99) or (cont_est != -1)) and (target_flux is not None)\
-                        and (i['instrument'] == 'CFHTLS') and (i['filter'] == 'g'):
+                        and (((i['instrument'] == 'CFHTLS') and (i['filter'] == 'g')) or (i['filter'] == 'f606w')) :
                     #make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
                     bid_target = match_summary.BidTarget()
                     bid_target.catalog_name = self.Name
@@ -558,17 +564,21 @@ class GOODS_N(cat_base.Catalog):
                                            cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
                                            sigma=None)
 
-                    # if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
-                    #     text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g" % (bid_target.p_lae_oii_ratio))
-                    if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
-                        text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)"
-                                      % (bid_target.p_lae_oii_ratio,i['filter']))
+                    if best_plae_poii is None or i['filter'] == 'f606w':
+                        best_plae_poii = bid_target.p_lae_oii_ratio
+                        best_plae_poii_filter = i['filter']
+
 
 
                     cat_match.add_bid_target(bid_target)
             except:
                 log.debug('Could not build exact location photometry info.',exc_info=True)
 
+            # if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
+            #     text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g" % (bid_target.p_lae_oii_ratio))
+            if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
+                text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)"
+                              % (best_plae_poii, best_plae_poii_filter))
 
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
@@ -592,6 +602,10 @@ class GOODS_N(cat_base.Catalog):
                 plt.subplot(gs[1:, index])
                 plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                            vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
+
+                if pix_counts is not None:
+                    self.add_aperture_position(plt,mag_radius,mag)
+
                 plt.title(i['instrument'] + " " + i['filter'])
                 plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
                 plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])

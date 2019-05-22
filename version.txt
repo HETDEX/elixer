@@ -6,6 +6,8 @@ changes to elixer by version
 * fixed handfull of log.warn() calls (should be log.warning())
 * updated science_image to force sky_mask to be cropped to the sky_image boundaries (in some cases the mask could
   extend beyond the image and then the sky pixel selection would fail)
+* updated aperture photometry in GOODS-N
+
 
 1.6.6 [2019-05-16]
 * changed manual wcs header creation (science_image.py) to use new constructor to build from FITS header

@@ -318,7 +318,7 @@ class science_image():
 
         return self.vmin,self.vmax
 
-    def get_cutout(self,ra,dec,error,window=None,image=None,copy=False,aperture=0,mag_func=None):
+    def get_cutout(self,ra,dec,error,window=None,image=None,copy=False,aperture=0,mag_func=None, do_sky_subtract=True):
         '''ra,dec in decimal degrees. error and window in arcsecs'''
         #error is central box (+/- from ra,dec)
         #window is the size of the entire coutout
@@ -727,7 +727,7 @@ class science_image():
 
             #if we have a magnitude and it is fainter than a minimum, subtract the sky from a surrounding annulus
             #s|t we have ~ 3x pixels in the sky annulus as in the source aperture, so 2x the radius
-            if (mag < 99) and (mag > G.SKY_ANNULUS_MIN_MAG):
+            if do_sky_subtract and (mag < 99) and (mag > G.SKY_ANNULUS_MIN_MAG):
 
                 try:
 
