@@ -1807,7 +1807,8 @@ class DetObj:
             self.sumspec_fluxerr = row['spec1d_err']
 
             try:
-                self.sdss_gmag, self.cont_cgs = elixer_spectrum.get_hetdex_gmag(self.sumspec_flux*1e-17,self.sumspec_wavelength* units.Angstrom)
+                #reminder needs erg/s/cm2/AA and sumspec_flux in ergs/s/cm2 so divied by 2AA bin width
+                self.sdss_gmag, self.cont_cgs = elixer_spectrum.get_hetdex_gmag(self.sumspec_flux/2.0*1e-17,self.sumspec_wavelength)
                 #todo: need to find a way to improve the uncertainty
                 #self.cont_cgs_unc = #need to update this estimate? as this is based on +/- 40 or 50AA around line?
                 #self.cont_cgs = c

@@ -25,6 +25,7 @@ import copy
 
 import os.path as op
 from speclite import filters as speclite_filters
+from astropy import units as units
 
 #log = G.logging.getLogger('spectrum_logger')
 #log.setLevel(G.logging.DEBUG)
@@ -120,23 +121,27 @@ FLUX_CONVERSION_f_grid = np.interp(FLUX_CONVERSION_w_grid, FLUX_CONVERSION_measu
 FLUX_CONVERSION_DICT = dict(zip(FLUX_CONVERSION_w_grid,FLUX_CONVERSION_f_grid))
 
 
-def get_hetdex_gmag(flux,wave):
-    '''
-    filter = can be any filter used in the speclite
-             package
-             https://speclite.readthedocs.io/en/latest/api.html
+def get_hetdex_gmag(flux_density,wave):
+    """
 
-    '''
-    filter_name = 'sdss2010-g'
-    filt = speclite_filters.load_filters(filter_name)
-    iso_f = 3e18 / filt.effective_wavelengths[0].value  # not quite correct ... but can't find the actual f_iso freq.
+    :param flux_density: erg/s/cm2/AA  (*** reminder, HETDEX sumspec usually a flux erg/s/cm2 NOT flux denisty)
+    :param wave: in AA
+    :return: AB mag in g-band and continuum estimate (erg/s/cm2/AA)
+    """
 
+    try:
+        filter_name = 'sdss2010-g'
+        sdss_filter = speclite_filters.load_filters(filter_name)
+        # not quite correct ... but can't find the actual f_iso freq. and f_iso lambda != f_iso freq, but
+        # we should not be terribly far off (and there are larger sources of error here anyway since this is
+        # padded HETDEX data passed through an SDSS-g filter (approximately)
+        iso_f = 3e18 / sdss_filter.effective_wavelengths[0].value
 
-    flux, wlen = filt.pad_spectrum(flux,wave)
-    mag = filt.get_ab_magnitudes(flux, wlen)[0][0]
-    cont = 3631.0 * 10**(-0.4*mag) * 1e-23 * iso_f / (5549.26 - 3782.54) #(6989.14-5415.34)#(5549.26 - 3782.54)
-
-    #cont = 3631.0 * 10 ** (-0.4 * mag) * 1e-23 * 3e18/(iso_f**2)
+        flux, wlen = sdss_filter.pad_spectrum(flux_density* (units.erg / units.s /units.cm**2/units.Angstrom),wave* units.Angstrom)
+        mag = sdss_filter.get_ab_magnitudes(flux , wlen )[0][0]
+        cont = 3631.0 * 10**(-0.4*mag) * 1e-23 * iso_f / (5549.26 - 3782.54) #that is the approximate bandpass
+    except:
+        log.warning("Exception! in spectrum::get_hetdex_gmag.",exc_info=True)
 
     return mag, cont
 
