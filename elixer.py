@@ -217,9 +217,11 @@ def parse_commandline(auto_force=False):
 
     parser.add_argument('--zoo', help='Produce image cutouts for publication on Zooniverse', required=False,
                         action='store_true', default=False)
-    parser.add_argument('--zoox', help='Redact sensitive information AND produce image cutouts for publication on Zooniverse', required=False,
-                        action='store_true', default=False)
+    parser.add_argument('--zoox', help='Redact sensitive information AND produce image cutouts for publication on Zooniverse',
+                        required=False, action='store_true', default=False)
     parser.add_argument('--jpg', help='Also save report in JPEG format.', required=False,
+                        action='store_true', default=False)
+    parser.add_argument('--png', help='Also save report in PNG format.', required=False,
                         action='store_true', default=False)
     parser.add_argument('--blind', help='Do not verify passed in detectIDs. Applies only to HDF5 detectIDs.', required=False,
                         action='store_true', default=False)
@@ -254,6 +256,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--sdss', help="SDSS remote query for imaging. Deny (0), Allow (1) if no other catalog available,"
                                        " Force (2) and override any other catalog",
                         required=False, default=1,type=int)
+
+    parser.add_argument('--nophoto', help='Turn OFF the use of archival photometric catalogs.', required=False,
+                        action='store_true', default=False)
 
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
@@ -302,6 +307,9 @@ def parse_commandline(auto_force=False):
             print("Ignoring invalid --sdss value (%d). Using default (Allow == 1)" %args.sdss)
             G.SDSS_ALLOW = True
             G.SDSS_FORCE = False
+
+    if args.nophoto:
+        G.USE_PHOTO_CATS = False
 
     if args.annulus:
         try:
@@ -584,6 +592,10 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
     cat_count = 0
 
     for c in cats:
+
+        if (c is None) or (isinstance(c,list)): #i.e. there are no cats, but it is a list with an empty list
+            continue
+
         if annulus is not None:
             cutout = c.get_stacked_cutout(ra,dec,window=annulus[1])
 
@@ -1039,14 +1051,14 @@ def write_fibers_file(filename,hd_list):
     print(msg)
 
 
-def convert_pdf(filename, resolution=150):
+def convert_pdf(filename, resolution=150, jpeg=True, png=False):
 
     #file might not exist, but this will just trap an execption
     if filename is None:
         return
 
     try:
-        ext = filename[-4:0]
+        ext = filename[-4:]
         if ext.lower() != ".pdf":
             try:
                 log.debug("Invalid filename passed to elixer::convert_pdf(%s)" % filename)
@@ -1077,12 +1089,20 @@ def convert_pdf(filename, resolution=150):
         pages = Image(filename=filename, resolution=resolution)
         for i, page in enumerate(pages.sequence):
             with Image(page) as img:
-                img.format = 'jpg'
                 img.colorspace = 'rgb'
 
-                image_name = filename.strip(".pdf") + ".jpg"
-                img.save(filename=image_name)
-                print("File written: " + image_name)
+                if jpeg:
+                    img.format = 'jpg'
+                    image_name = filename.strip(".pdf") + ".jpg"
+                    img.save(filename=image_name)
+                    print("File written: " + image_name)
+
+                if png:
+                    img.format = 'png'
+                    image_name = filename.strip(".pdf") + ".png"
+                    img.save(filename=image_name)
+                    print("File written: " + image_name)
+
     except:
         log.error("Error converting to pdf to image type: " + filename, exc_info=True)
         return
@@ -1619,10 +1639,18 @@ def main():
         merge(args)
         exit(0)
 
-    cat_library = catalogs.CatalogLibrary()
-    cats = cat_library.get_full_catalog_list()
-    catch_all_cat = cat_library.get_catch_all()
-    cat_sdss = cat_library.get_sdss()
+
+    if G.USE_PHOTO_CATS:
+        cat_library = catalogs.CatalogLibrary()
+        cats = cat_library.get_full_catalog_list()
+        catch_all_cat = cat_library.get_catch_all()
+        cat_sdss = cat_library.get_sdss()
+    else:
+        cat_library = []
+        cats = []
+        catch_all_cat = []
+        cat_sdss = []
+
     pages = []
 
     #if a --line file was provided ... old way (pre-April 2018)
@@ -1849,6 +1877,11 @@ def main():
                     for e in hd.emis_list:
                         pdf = PDF_File(args.name, e.entry_id, e.pdf_name)
                         e.outdir = pdf.basename
+                        #update pdf_name to match
+                        try:
+                            e.pdf_name = os.path.basename(pdf.filename)
+                        except:
+                            pass #not important if this fails
 
                         id = "Detect ID #" + str(e.id)
                         if (e.wra is not None) and (e.wdec is not None): #weighted RA and Dec
@@ -2018,16 +2051,16 @@ def main():
             except:
                 log.error("Exception copying line file: ", exc_info=True)
 
-        if args.jpg and (PyPDF is not None):
+        if (args.jpg or args.png) and (PyPDF is not None):
             if len(file_list) > 0:
                 for f in file_list:
                     try:
-                        convert_pdf(f.filename)
+                        convert_pdf(f.filename,jpeg=args.jpg, png=args.png)
                     except:
                         log.error("Error converting to pdf to image type: " + f.filename, exc_info=True)
             else:
                 try:
-                    convert_pdf(args.name)
+                    convert_pdf(args.name,jpeg=args.jpg, png=args.png)
                 except:
                     log.error("Error converting to pdf to image type: " + f.filename, exc_info=True)
 

@@ -18,8 +18,10 @@ def build_wcs_manually(img):
     # self.wcs.wcs.cdelt = [None,None]#[hdu1[0].header['CDELT1O'],hdu1[0].header['CDELT2O']]
     wcs.wcs.cd = [[img[0].header['CD1_1'], img[0].header['CD1_2']],
                        [img[0].header['CD2_1'], img[0].header['CD2_2']]]
-    wcs._naxis1 = img[0].header['NAXIS1']
-    wcs._naxis2 = img[0].header['NAXIS2']
+    # wcs._naxis1 = img[0].header['NAXIS1']
+    # wcs._naxis2 = img[0].header['NAXIS2']
+
+    wcs.pixel_shape = (img[0].header['NAXIS1'], img[0].header['NAXIS2'])
 
     return wcs
 
@@ -32,8 +34,9 @@ def build_wcs_manually_1(img):
     # self.wcs.wcs.cdelt = [None,None]#[hdu1[1].header['CDELT1O'],hdu1[1].header['CDELT2O']]
     wcs.wcs.cd = [[img[1].header['CD1_1'], img[1].header['CD1_2']],
                        [img[1].header['CD2_1'], img[1].header['CD2_2']]]
-    wcs._naxis1 = img[1].header['NAXIS1']
-    wcs._naxis2 = img[1].header['NAXIS2']
+    # wcs._naxis1 = img[1].header['NAXIS1']
+    # wcs._naxis2 = img[1].header['NAXIS2']
+    wcs.pixel_shape = (img[1].header['NAXIS1'], img[1].header['NAXIS2'])
 
     return wcs
 

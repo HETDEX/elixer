@@ -44,8 +44,9 @@ def build_wcs_manually(img, idx=0):
     # self.wcs.wcs.cdelt = [None,None]#[hdu1[0].header['CDELT1O'],hdu1[0].header['CDELT2O']]
     wcs.wcs.cd = [[img[idx].header['CD1_1'], img[idx].header['CD1_2']],
                        [img[0].header['CD2_1'], img[idx].header['CD2_2']]]
-    wcs._naxis1 = img[idx].header['NAXIS1']
-    wcs._naxis2 = img[idx].header['NAXIS2']
+    #wcs._naxis1 = img[idx].header['NAXIS1']
+    #wcs._naxis2 = img[idx].header['NAXIS2']
+    wcs.pixel_shape = (img[idx].header['NAXIS1'], img[idx].header['NAXIS2'])
 
     return wcs
 

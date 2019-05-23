@@ -20,7 +20,7 @@ PYTHON_MAJOR_VERSION = sys.version_info[0]
 PYTHON_VERSION = sys.version_info
 
 
-HDR1 = False #set to TRUE for HDR1 release
+HDR1 = True #set to TRUE for HDR1 release
 
 if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
     #base path: /work/03946/hetdex/hdr1/
@@ -373,3 +373,5 @@ RECOVERY_RUN = False
 
 SDSS_ALLOW = True #if no other catalogs match, try SDSS as online query
 SDSS_FORCE = False  #ignore local catalogs and Force the use of only SDSS
+
+USE_PHOTO_CATS = True  #default normal is True .... use photometry catalogs (if False only generate the top (HETDEX) part)

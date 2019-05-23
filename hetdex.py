@@ -4944,11 +4944,13 @@ class HETDEX:
 
         if G.ZOO_CUTOUTS:
             try:
+                e = datakeep['detobj']
+
                 if e.pdf_name is not None:
-                    fn = e.pdf_name.rstrip(".pdf") + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_2d_fib.png"
+                    fn = e.pdf_name.rstrip(".pdf") +  "_zoo_2d_fib.png"
                 else:
-                    fn = self.output_filename + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_2d_fib.png"
-                fn = op.join( datakeep['detobj'].outdir, fn)
+                    fn = self.output_filename + "_" + str(e.entry_id).zfill(3) + "_zoo_2d_fib.png"
+                fn = op.join( e.outdir, fn)
                 plt.savefig(fn,format="png",dpi=300)
             except:
                 log.error("Unable to write zoo_2d_fib image to disk.",exc_info=True)
@@ -5057,17 +5059,18 @@ class HETDEX:
 
             if G.ZOO_CUTOUTS:
                 try:
+                    e = datakeep['detobj']
                     zoo_num = "ccd_sub"
                     if key == "scatter_sky":
                         zoo_num = "ccd_sky"
 
                     if e.pdf_name is not None:
-                        fn = e.pdf_name.rstrip(".pdf") + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_" + zoo_num \
+                        fn = e.pdf_name.rstrip(".pdf") + "_zoo_" + zoo_num \
                          + ".png"
                     else:
-                        fn = self.output_filename + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_" + zoo_num \
+                        fn = self.output_filename + "_" + str(e.entry_id).zfill(3) + "_zoo_" + zoo_num \
                          + ".png"
-                    fn = op.join(datakeep['detobj'].outdir, fn)
+                    fn = op.join(e.outdir, fn)
                     plt.savefig(fn, format="png", dpi=300)
                 except:
                     log.error("Unable to write zoo_%s image to disk." %(zoo_num), exc_info=True)
@@ -5148,11 +5151,12 @@ class HETDEX:
 
         if G.ZOO_CUTOUTS:
             try:
+                e = datakeep['detobj']
                 if e.pdf_name is not None:
-                    fn = e.pdf_name.rstrip(".pdf") + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_1d_sum.png"
+                    fn = e.pdf_name.rstrip(".pdf") + "_zoo_1d_sum.png"
                 else:
-                    fn = self.output_filename + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_1d_sum.png"
-                fn = op.join(datakeep['detobj'].outdir, fn)
+                    fn = self.output_filename + "_" + str(e.entry_id).zfill(3) + "_zoo_1d_sum.png"
+                fn = op.join(e.outdir, fn)
                 plt.savefig(fn, format="png", dpi=300)
             except:
                 log.error("Unable to write zoo_1d_sum image to disk.", exc_info=True)
@@ -5331,11 +5335,12 @@ class HETDEX:
 
         if G.ZOO_CUTOUTS:
             try:
+                e = datakeep['detobj']
                 if e.pdf_name is not None:
-                    fn = e.pdf_name.rstrip(".pdf") + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_1d_sum.png"
+                    fn = e.pdf_name.rstrip(".pdf")  + "_zoo_1d_sum.png"
                 else:
-                    fn = self.output_filename + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_1d_sum.png"
-                fn = op.join(datakeep['detobj'].outdir, fn)
+                    fn = self.output_filename + "_" + str(e.entry_id).zfill(3) + "_zoo_1d_sum.png"
+                fn = op.join(e.outdir, fn)
                 plt.savefig(fn, format="png", dpi=300)
             except:
                 log.error("Unable to write zoo_1d_sum image to disk.", exc_info=True)
@@ -5757,10 +5762,11 @@ class HETDEX:
 
         if G.ZOO_CUTOUTS:
             try:
+                e = datakeep['detobj']
                 if e.pdf_name is not None:
-                    fn = e.pdf_name.rstrip(".pdf") + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_1d_full.png"
+                    fn = e.pdf_name.rstrip(".pdf") +  "_zoo_1d_full.png"
                 else:
-                    fn = self.output_filename + "_" + str(datakeep['detobj'].entry_id).zfill(3) + "_zoo_1d_full.png"
+                    fn = self.output_filename + "_" + str(e.entry_id).zfill(3) + "_zoo_1d_full.png"
                 fn = op.join(datakeep['detobj'].outdir, fn)
                 plt.savefig(fn, format="png", dpi=300)
             except:

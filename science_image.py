@@ -36,10 +36,11 @@ from astropy import units as ap_units
 from photutils import CircularAperture #pixel coords
 from photutils import SkyCircularAperture, SkyCircularAnnulus #sky coords
 from photutils import aperture_photometry
+from photutils import centroid_2dg
 from astropy.stats import sigma_clipped_stats
 import astropy.stats.biweight as biweight
 
-PIXEL_APERTURE_METHOD='exact'
+PIXEL_APERTURE_METHOD='exact' #'exact' 'center' 'subpixel'
 
 #log = G.logging.getLogger('sciimg_logger')
 #log.setLevel(G.logging.DEBUG)
@@ -573,6 +574,7 @@ class science_image():
         if (position is not None) and (cutout is not None) and (image is not None) \
                 and (mag_func is not None) and (aperture > 0):
 
+
             if G.DYNAMIC_MAG_APERTURE:
                 radius = max(0.5,aperture)
                 step = 0.1
@@ -693,6 +695,29 @@ class science_image():
                             radius = 1.
 
                     try:
+
+                        # try:
+                        #
+                        #     gx, gy = centroid_2dg(cutout.data)
+                        #     cx, cy = cutout.center_cutout
+                        #
+                        #     #allow the center to shift by up to 50% of the radius of the aperture
+                        #     dpix = (radius / self.pixel_size) * 0.5
+                        #
+                        #     log.debug("Delta X,Y Pixels (centroid - center) = (%0.2f,%0.2f)" % (gx - cy, gy - cy))
+                        #
+                        #     #if the centroid is very near the center, use it,
+                        #     #but if we are off by more than 2pix, use the geomtric center of the cutout
+                        #     #basically, can nudge it a bit to the 2D Gaussian center, but don't stray too far
+                        #     if (abs(gx-cx) < dpix) and (abs(gy-cy) < dpix):
+                        #         log.info("Using shifted (2D Gaussian centroid) center for circular aperture ...")
+                        #         pix_aperture = CircularAperture((gx,gy), r=radius / self.pixel_size)
+                        #     else:
+                        #         log.info("Using geometric center for circular aperture ...")
+                        #         pix_aperture = CircularAperture((cx,cy), r=radius / self.pixel_size)
+                        # except:
+                        #     pix_aperture = CircularAperture(cutout.center_cutout, r=radius / self.pixel_size)
+
                         pix_aperture = CircularAperture(cutout.center_cutout, r=radius / self.pixel_size)
                         phot_table = aperture_photometry(cutout.data, pix_aperture,method=PIXEL_APERTURE_METHOD)
                     except:
