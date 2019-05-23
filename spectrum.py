@@ -24,7 +24,7 @@ from scipy.optimize import curve_fit
 import copy
 
 import os.path as op
-
+from speclite import filters as speclite_filters
 
 #log = G.logging.getLogger('spectrum_logger')
 #log.setLevel(G.logging.DEBUG)
@@ -120,6 +120,25 @@ FLUX_CONVERSION_f_grid = np.interp(FLUX_CONVERSION_w_grid, FLUX_CONVERSION_measu
 FLUX_CONVERSION_DICT = dict(zip(FLUX_CONVERSION_w_grid,FLUX_CONVERSION_f_grid))
 
 
+def get_hetdex_gmag(flux,wave):
+    '''
+    filter = can be any filter used in the speclite
+             package
+             https://speclite.readthedocs.io/en/latest/api.html
+
+    '''
+    filter_name = 'sdss2010-g'
+    filt = speclite_filters.load_filters(filter_name)
+    iso_f = 3e18 / filt.effective_wavelengths[0].value  # not quite correct ... but can't find the actual f_iso freq.
+
+
+    flux, wlen = filt.pad_spectrum(flux,wave)
+    mag = filt.get_ab_magnitudes(flux, wlen)[0][0]
+    cont = 3631.0 * 10**(-0.4*mag) * 1e-23 * iso_f / (5549.26 - 3782.54) #(6989.14-5415.34)#(5549.26 - 3782.54)
+
+    #cont = 3631.0 * 10 ** (-0.4 * mag) * 1e-23 * 3e18/(iso_f**2)
+
+    return mag, cont
 
 
 def fit_line(wavelengths,values,errors=None):

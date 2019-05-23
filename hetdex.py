@@ -31,6 +31,7 @@ from PIL import Image
 
 from astropy.io import fits as pyfits
 from astropy.coordinates import Angle
+from astropy import units as units
 #from astropy.stats import biweight_midvariance
 from astropy.modeling.models import Moffat2D, Gaussian2D
 from astropy.visualization import ZScaleInterval
@@ -117,6 +118,8 @@ FLUX_CONVERSION_w_grid = np.arange(3000.0, 6000.0, 1.0)
 FLUX_CONVERSION_f_grid = np.interp(FLUX_CONVERSION_w_grid, FLUX_CONVERSION_measured_w, FLUX_CONVERSION_measured_f)
 
 FLUX_CONVERSION_DICT = dict(zip(FLUX_CONVERSION_w_grid,FLUX_CONVERSION_f_grid))
+
+
 
 def flux_conversion(w): #electrons to ergs at wavelength w
     if w is None:
@@ -531,6 +534,7 @@ class DetObj:
 
         self.bad_amp_dict = None
 
+        self.sdss_gmag = None #using speclite to estimate
         if emission:
             self.type = 'emis'
             # actual line number from the input file
@@ -1747,6 +1751,9 @@ class DetObj:
             self.cont_cgs = row['continuum']
             self.cont_cgs_unc = row['continuum_err']
 
+
+
+
             # mu, sigma, Amplitude, y, dx   (dx is the bin width if flux instead of flux/dx)
             #continuum does NOT get the bin scaling
             self.line_gaussfit_parms = (self.w,self.sigma,self.estflux*G.FLUX_WAVEBIN_WIDTH,self.cont_cgs,
@@ -1778,14 +1785,6 @@ class DetObj:
             self.cont_cgs *= 1e-17
             self.cont_cgs_unc *= 1e-17
 
-            #todo: should check for cong < 0? if so, try my MCMCfit?
-            if self.cont_cgs != 0:
-                self.eqw_obs = self.estflux / self.cont_cgs
-
-                self.eqw_obs_unc = abs(self.eqw_obs * np.sqrt(
-                    (self.estflux_unc / self.estflux) ** 2 +
-                    (self.cont_cgs_unc / self.cont_cgs) ** 2))
-
             #ignoring date, datevobs, fiber_num, etc that apply to the top weighted fiber or observation, etc
             #since we want ALL the fibers and will load them after the core spectra info
 
@@ -1806,6 +1805,24 @@ class DetObj:
 
             self.sumspec_flux = row['spec1d'] #DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
             self.sumspec_fluxerr = row['spec1d_err']
+
+            try:
+                self.sdss_gmag, self.cont_cgs = elixer_spectrum.get_hetdex_gmag(self.sumspec_flux*1e-17,self.sumspec_wavelength* units.Angstrom)
+                #todo: need to find a way to improve the uncertainty
+                #self.cont_cgs_unc = #need to update this estimate? as this is based on +/- 40 or 50AA around line?
+                #self.cont_cgs = c
+                #self.sdss_gmag = m
+
+            except:
+                pass
+
+            #todo: should check for cong < 0? if so, try my MCMCfit?
+            if self.cont_cgs != 0:
+                self.eqw_obs = self.estflux / self.cont_cgs
+
+                self.eqw_obs_unc = abs(self.eqw_obs * np.sqrt(
+                    (self.estflux_unc / self.estflux) ** 2 +
+                    (self.cont_cgs_unc / self.cont_cgs) ** 2))
 
             idx = elixer_spectrum.getnearpos(self.sumspec_wavelength, self.w)
             left = idx - 25  # 2AA steps so +/- 50AA
@@ -3514,13 +3531,15 @@ class HETDEX:
             if e.line_gaussfit_unc is not None:
                 #the /2.0 to deal with Karl's 2AA bin width
                 estflux_str = self.unc_str((e.line_gaussfit_parms[2]/e.line_gaussfit_parms[4] *1e-17,e.line_gaussfit_unc[2]*1e-17))
-                estcont_str = self.unc_str((e.line_gaussfit_parms[3]*1e-17,e.line_gaussfit_unc[3]*1e-17))
+                #estcont_str = self.unc_str((e.line_gaussfit_parms[3]*1e-17,e.line_gaussfit_unc[3]*1e-17))
+                estcont_str = self.unc_str((e.cont_cgs, e.line_gaussfit_unc[3] * 1e-17))
                 eqw_lya_str = self.unc_str((e.eqw_obs/(1.0 + la_z),e.eqw_obs_unc/(1.0 + la_z)))
             else:
                 log.info("e.line_gaussfit_unc is None. Cannot report uncertainties in flux or EW.")
                 # the /2.0 to deal with Karl's 2AA bin width
                 estflux_str = "%0.3g" %(e.line_gaussfit_parms[2]/e.line_gaussfit_parms[4]*1e-17)
-                estcont_str = "%0.3g" %(e.line_gaussfit_parms[3]*1e-17)
+                #estcont_str = "%0.3g" %(e.line_gaussfit_parms[3]*1e-17)
+                estcont_str = "%0.3g" % (e.cont_cgs)
 
         if self.ymd and self.obsid:
             if not G.ZOO:

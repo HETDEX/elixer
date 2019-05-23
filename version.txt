@@ -14,6 +14,7 @@ changes to elixer by version
 * added --png option to save the entire report as a PNG (independent of existing --jpg option, so can save in both
   formats on the same call)
 * tweaked zoo filenames to be more consistent with HDR1 naming
+* replaced HETDEX continuum estimate around the emission line with speclite gmag using SDSS2010-g filter
 
 
 1.6.6 [2019-05-16]
