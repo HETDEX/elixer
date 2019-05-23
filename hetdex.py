@@ -3556,8 +3556,14 @@ class HETDEX:
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
                 else:
                     title += "\n"
-                title +=  "EstCont = %s  \nEW_r(LyA) = %s$\AA$\n" \
-                    %(estcont_str, eqw_lya_str)
+                title +=  "EstCont = %s" %(estcont_str)
+
+                if e.sdss_gmag is not None:
+                    title += " (gmag %0.2f)\n" %(e.sdss_gmag)
+                else:
+                    title += "\n"
+
+                title += "EW_r(LyA) = %s$\AA$\n" %(eqw_lya_str)
 
             else:  #this if for zooniverse, don't show RA and DEC or Probabilitie
                 title += "\n" \
@@ -3572,7 +3578,16 @@ class HETDEX:
                 else:
                     title += "\n"
 
-                title += "EstCont = %s  \nEW_r(LyA) = %s$\AA$\n" % (estcont_str, eqw_lya_str)
+                title += "EstCont = %s" % (estcont_str)
+
+                if e.sdss_gmag is not None:
+                    title += " (gmag %0.2f)\n" % (e.sdss_gmag)
+                else:
+                    title += "\n"
+
+                title += "EW_r(LyA) = %s$\AA$\n" % (eqw_lya_str)
+
+               # title += "EstCont = %s  \nEW_r(LyA) = %s$\AA$\n" % (estcont_str, eqw_lya_str)
 
 
         else:
@@ -3588,7 +3603,17 @@ class HETDEX:
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
                 else:
                     title += "\n"
-                title +=  "EstCont = %s  \nEW_r(LyA) = %s$\AA$\n" % (estcont_str, eqw_lya_str)
+                #title +=  "EstCont = %s  \nEW_r(LyA) = %s$\AA$\n" % (estcont_str, eqw_lya_str)
+
+                title += "EstCont = %s" % (estcont_str)
+
+                if e.sdss_gmag is not None:
+                    title += " (gmag %0.2f)\n" % (e.sdss_gmag)
+                else:
+                    title += "\n"
+
+                title += "EW_r(LyA) = %s$\AA$\n" % (eqw_lya_str)
+
 
             else: #this if for zooniverse, don't show RA and DEC or probabilities
                 title += "\n" \
@@ -3601,8 +3626,15 @@ class HETDEX:
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
                 else:
                     title += "\n"
-                title +=  "EstCont = %s  \nEW_r(LyA) = %s$\AA$\n" % (estcont_str, eqw_lya_str)
+                #title +=  "EstCont = %s  \nEW_r(LyA) = %s$\AA$\n" % (estcont_str, eqw_lya_str)
+                title += "EstCont = %s" % (estcont_str)
 
+                if e.sdss_gmag is not None:
+                    title += " (gmag %0.2f)\n" % (e.sdss_gmag)
+                else:
+                    title += "\n"
+
+                title += "EW_r(LyA) = %s$\AA$\n" % (eqw_lya_str)
 
         if self.panacea:
             snr = e.sigma

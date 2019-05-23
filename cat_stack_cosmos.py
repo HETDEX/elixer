@@ -764,7 +764,7 @@ class STACK_COSMOS(cat_base.Catalog):
                        "Photo z\n" + \
                        "Est LyA rest-EW\n" + \
                        "Est OII rest-EW\n" + \
-                       "mag\n"
+                       "mag\n\n"
             else:
                 text = "Separation\n" + \
                        "1-p(rand)\n" + \
