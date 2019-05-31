@@ -260,6 +260,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--nophoto', help='Turn OFF the use of archival photometric catalogs.', required=False,
                         action='store_true', default=False)
 
+    parser.add_argument('--fitspec', help='Adjust y-axis range to accomodate entire sepctrum (not just emission line)', required=False,
+                        action='store_true', default=False)
+
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
 
@@ -310,6 +313,9 @@ def parse_commandline(auto_force=False):
 
     if args.nophoto:
         G.USE_PHOTO_CATS = False
+
+    if args.fitspec:
+        G.FIT_FULL_SPEC_IN_WINDOW = True
 
     if args.annulus:
         try:

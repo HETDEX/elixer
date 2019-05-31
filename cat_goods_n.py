@@ -613,7 +613,9 @@ class GOODS_N(cat_base.Catalog):
                            vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
 
                 if pix_counts is not None:
-                    self.add_aperture_position(plt,mag_radius,mag)
+                    cx = sci.last_x0_center
+                    cy = sci.last_y0_center
+                    self.add_aperture_position(plt,mag_radius,mag,cx,cy)
 
                 plt.title(i['instrument'] + " " + i['filter'])
                 plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])

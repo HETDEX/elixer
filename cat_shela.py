@@ -901,7 +901,9 @@ class SHELA(cat_base.Catalog):
                 plt.plot(0, 0, "r+")
 
                 if pix_counts is not None:
-                    self.add_aperture_position(plt,mag_radius,mag)
+                    cx = sci.last_x0_center
+                    cy = sci.last_y0_center
+                    self.add_aperture_position(plt,mag_radius,mag,cx,cy)
 
                 self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
                 x, y = sci.get_position(ra, dec, cutout)  # zero (absolute) position
@@ -1167,7 +1169,8 @@ class SHELA(cat_base.Catalog):
              'filter':catalog_image['filter'],
              'instrument':catalog_image['instrument'],
              'mag':None,
-             'aperture':None}
+             'aperture':None,
+             'ap_center':None}
 
         try:
             wcs_manual = catalog_image['wcs_manual']
@@ -1181,6 +1184,8 @@ class SHELA(cat_base.Catalog):
                 catalog_image['image'] =  science_image.science_image(wcs_manual=wcs_manual,
                                                         image_location=op.join(catalog_image['path'],
                                                                         catalog_image['name']))
+                catalog_image['image'].catalog_name = catalog_image['name']
+                catalog_image['image'].filter_name = catalog_image['filter']
 
             sci = catalog_image['image']
 
@@ -1202,6 +1207,7 @@ class SHELA(cat_base.Catalog):
                 if (mag is not None) and (mag < 999):
                     d['mag'] = mag
                     d['aperture'] = mag_radius
+                    d['ap_center'] = (sci.last_x0_center, sci.last_y0_center)
         except:
             log.error("Error in get_single_cutout.", exc_info=True)
 

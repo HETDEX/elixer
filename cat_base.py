@@ -771,13 +771,17 @@ class Catalog:
 
 
 
-    def add_aperture_position(self,plt,radius,mag=None):
+    def add_aperture_position(self,plt,radius,mag=None,cx=0,cy=0):
             # over plot a circle of radius on the center of the image (assumed to be the photo-aperture)
             if radius > 0:
                 log.debug("Plotting imaging aperture position...")
 
+                if (cx is None) or (cy is None):
+                    cx = 0
+                    cy = 0
+
                 try:
-                    plt.gca().add_patch(plt.Circle((0,0), radius=radius, color='gold', fill=False,
+                    plt.gca().add_patch(plt.Circle((cx,cy), radius=radius, color='gold', fill=False,
                                                    linestyle='solid'))
 
                     #temporary
@@ -953,7 +957,8 @@ class Catalog:
              'filter':catalog_image['filter'],
              'instrument':catalog_image['instrument'],
              'mag':None,
-             'aperture':None}
+             'aperture':None,
+             'ap_center':None}
 
         try:
             wcs_manual = catalog_image['wcs_manual']
@@ -967,6 +972,9 @@ class Catalog:
                 catalog_image['image'] = science_image.science_image(wcs_manual=wcs_manual,
                                                          image_location=op.join(catalog_image['path'],
                                                                                 catalog_image['name']))
+                catalog_image['image'].catalog_name = catalog_image['name']
+                catalog_image['image'].filter_name = catalog_image['filter']
+
             sci = catalog_image['image']
 
 
@@ -988,6 +996,7 @@ class Catalog:
                if (mag is not None) and (mag < 999):
                    d['mag'] = mag
                    d['aperture'] = mag_radius
+                   d['ap_center'] = (sci.last_x0_center, sci.last_y0_center)
         except:
             log.error("Error in get_single_cutout.",exc_info=True)
 

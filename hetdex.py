@@ -5613,7 +5613,11 @@ class HETDEX:
             specplot.plot(bigwave, F, c='b', lw=1)
 
             specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='dashed', c='k') #[0.3, 0.3, 0.3])
-            specplot.axis([left, right, mn - ran / 20, mx + ran / 20])
+
+            if G.FIT_FULL_SPEC_IN_WINDOW:
+                specplot.axis([left, right,np.min(F),np.max(F)])
+            else:
+                specplot.axis([left, right, mn - ran / 20, mx + ran / 20])
             # specplot.set_ylabel(y_label) #not honoring it, so just put in the text plot
 
             specplot.locator_params(axis='y',tight=True,nbins=4,y_label='cgs')

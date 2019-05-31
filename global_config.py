@@ -20,7 +20,7 @@ PYTHON_MAJOR_VERSION = sys.version_info[0]
 PYTHON_VERSION = sys.version_info
 
 
-HDR1 = True #set to TRUE for HDR1 release
+HDR1 = False #set to TRUE for HDR1 release
 
 if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
     #base path: /work/03946/hetdex/hdr1/
@@ -279,6 +279,7 @@ FIGURE_SZ_X = 18 #18
 #FIGURE_SZ_Y = 9 #12
 GRID_SZ_X = 3 # equivalent figure_sz_x for a grid width (e.g. one column)
 GRID_SZ_Y = 3 # equivalent figure_sz_y for a grid height (e.g. one row)
+FIT_FULL_SPEC_IN_WINDOW = False #if true, allow y-axis range to fit entire spectrum, not just the emission line
 
 SHOW_FULL_2D_SPECTRA = False #if true, plot the full width 2D spectra for each hetdex fiber in detection
 MAX_COMBINE_BID_TARGETS = 3 #if SINGLE_PAGE_PER_DETECT is true, this is the max number of bid targets that can be
@@ -356,8 +357,11 @@ MULTILINE_MIN_WEAK_SOLUTION_CONFIDENCE = 0.5
 MULTILINE_MAX_PROB_NOISE_TO_PLOT = 0.2 #plot dashed line on spectrum if p(noise) < 0.1
 MULTILINE_ALWAYS_SHOW_BEST_GUESS = True #if true, show the best guess even if it does not meet the miniumum requirements
 
-DYNAMIC_MAG_APERTURE = False  #allow aperture size to change to fit maximum magnitude
+DYNAMIC_MAG_APERTURE = True  #allow aperture size to change to fit maximum magnitude
 FIXED_MAG_APERTURE = 1.5 #radius in arcsec
+NUDGE_MAG_APERTURE_CENTER = 1.0  #allow the center of the mag aperture to drift to the 2D Gaussian centroid
+                                 #up to this distance in x and y in arcsec (if 0.0 then no drift is allowed)
+MAX_SKY_SUBTRACT_MAG = 5.0 #if local sky subtraction results in a magnitude change greater than this value, do not apply it
 
 DEBUG_SHOW_GAUSS_PLOTS = False #set on command line now --gaussplots (but keep here for compatibility with other programs)
 

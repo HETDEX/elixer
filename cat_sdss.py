@@ -416,7 +416,10 @@ class SDSS(cat_base.Catalog):#SDSS
                 plt.plot(0, 0, "r+")
 
                 if pix_counts is not None:
-                    self.add_aperture_position(plt,mag_radius,mag)
+                    cx = sci.last_x0_center
+                    cy = sci.last_y0_center
+                    self.add_aperture_position(plt,mag_radius,mag,cx,cy)
+
 
                 self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
                 x, y = sci.get_position(ra, dec, cutout)  # zero (absolute) position
@@ -672,7 +675,8 @@ class SDSS(cat_base.Catalog):#SDSS
              'filter':catalog_image['filter'],
              'instrument':catalog_image['instrument'],
              'mag':None,
-             'aperture':None}
+             'aperture':None,
+             'ap_center': None}
 
         try:
             wcs_manual = self.WCS_Manual
@@ -694,6 +698,8 @@ class SDSS(cat_base.Catalog):#SDSS
                 # todo: choose the best image?
                 sci = science_image.science_image(wcs_manual=wcs_manual, wcs_idx=0,
                                                   image_location=None, hdulist=hdulist_array[0])
+                sci.catalog_name = "SDSS"
+                sci.filter_name = filter
 
                 d['path'] = "SDSS Online"
                 d['hdu'] = sci.headers
@@ -710,6 +716,7 @@ class SDSS(cat_base.Catalog):#SDSS
                     if (mag is not None) and (mag < 999):
                         d['mag'] = mag
                         d['aperture'] = mag_radius
+                        d['ap_center'] = (sci.last_x0_center, sci.last_y0_center)
         except:
             log.error("Error in get_single_cutout.", exc_info=True)
 

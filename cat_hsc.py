@@ -279,16 +279,16 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         #do we want to find the matching catalog and see if there is an entry in it?
 
         #sanity check the image
-        try:
-            image = science_image.science_image(wcs_manual=self.WCS_Manual,wcs_idx=1,
-                                                image_location=op.join(self.HSC_IMAGE_PATH,tile))
-            if image.contains_position(ra, dec):
-                pass
-            else:
-                log.debug("position (%f, %f) is not in image. %s" % (ra, dec,tile))
-                tile = None
-        except:
-            pass
+        # try:
+        #     image = science_image.science_image(wcs_manual=self.WCS_Manual,wcs_idx=1,
+        #                                         image_location=op.join(self.HSC_IMAGE_PATH,tile))
+        #     if image.contains_position(ra, dec):
+        #         pass
+        #     else:
+        #         log.debug("position (%f, %f) is not in image. %s" % (ra, dec,tile))
+        #         tile = None
+        # except:
+        #     pass
 
         return tile, tract
 
@@ -709,7 +709,10 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 plt.plot(0, 0, "r+")
 
                 if pix_counts is not None:
-                    self.add_aperture_position(plt,mag_radius,mag)
+                    cx = sci.last_x0_center
+                    cy = sci.last_y0_center
+                    self.add_aperture_position(plt,mag_radius,mag,cx,cy)
+
 
                 self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
                 x, y = sci.get_position(ra, dec, cutout)  # zero (absolute) position
@@ -963,7 +966,8 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
              'filter':catalog_image['filter'],
              'instrument':catalog_image['instrument'],
              'mag':None,
-             'aperture':None}
+             'aperture':None,
+             'ap_center':None}
 
         try:
             wcs_manual = catalog_image['wcs_manual']
@@ -977,6 +981,8 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 catalog_image['image'] =  science_image.science_image(wcs_manual=wcs_manual,wcs_idx=1,
                                                         image_location=op.join(catalog_image['path'],
                                                                         catalog_image['name']))
+                catalog_image['image'].catalog_name = catalog_image['name']
+                catalog_image['image'].filter_name = catalog_image['filter']
 
             sci = catalog_image['image']
 
@@ -998,6 +1004,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 if (mag is not None) and (mag < 999):
                     d['mag'] = mag
                     d['aperture'] = mag_radius
+                    d['ap_center'] = (sci.last_x0_center, sci.last_y0_center)
         except:
             log.error("Error in get_single_cutout.", exc_info=True)
 

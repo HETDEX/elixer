@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.7.0 [2019-05-23]
+1.7.0 [2019-05-25]
 * add SDSS online query as backup to no overlap with local imaging catalogs
 * discontinued use of wcs._naxis1, _naxis2 per astropy 3.1 and replaced with pixel_shape
 * fixed handfull of log.warn() calls (should be log.warning())
@@ -17,6 +17,13 @@ changes to elixer by version
 * replaced HETDEX continuum estimate around the emission line with speclite gmag using SDSS2010-g filter (and added to
   upper left plot data)
 * minor spacing correction for --zoox option
+* Updates to aperture magnitude:
+  + added NUDGE_MAG_APERTURE_CENTER option to global_config to allow the photometry aperture center to shift
+    (within NUDGE_MAG_APERTURE_CENTER) to the local 2D Gaussian centroid
+  + added MAX_SKY_SUBTRACT_MAG to ignore local sky subtraction if the impact to the base aperture magnitude is
+    greater than MAX_SKY_SUBTRACT_MAG
+* added --fitspec option to allow the y-axis of the full width spectrum plot to grow to the max range of the spectrum
+  rather than limit it to the selected emission line
 
 
 1.6.6 [2019-05-16]

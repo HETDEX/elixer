@@ -683,7 +683,11 @@ class STACK_COSMOS(cat_base.Catalog):
                 plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
                 plt.plot(0, 0, "r+")
                 if pix_counts is not None:
-                    self.add_aperture_position(plt,mag_radius,mag)
+                    cx = sci.last_x0_center
+                    cy = sci.last_y0_center
+                    self.add_aperture_position(plt,mag_radius,mag,cx,cy)
+
+
                 self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
                 x, y = sci.get_position(ra, dec, cutout)  # zero (absolute) position
                 for br, bd, bc in zip(bid_ras, bid_decs, bid_colors):

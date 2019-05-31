@@ -100,7 +100,7 @@ class CatalogLibrary:
 
 
 
-    def get_cutouts(self,position,radius,catalogs=None,aperture=None,dynamic=False):
+    def get_cutouts(self,position,radius,catalogs=None,aperture=None,dynamic=False,nudge=None):
         '''
         Return a list of dictionaries of the FITS cutouts from imaging catalogs
         (does not include objects in those catalogs, just the images)
@@ -115,6 +115,9 @@ class CatalogLibrary:
                                 pixel counts or photutils)
         :param dynamic: optional - if True, the aperture provided will grow in 0.1 arcsec steps until the magnitude
                         stabalizes (similar to, but not curve of growth)
+        :param nudge: optional - if not None, specifies the amount of drift (in x and y in arcsecs) allowed for the
+                      center of the aperture to align it with the local 2D Gaussian centroid of the pixel counts. If
+                      None or 0.0, the center is not allowed to move and stays on the supplied RA and Dec (position).
         :return: list of dictionaries of cutouts and info,
                 one for each matching catalog FITS image that contains the requested coordinate.
                 The dictionary contains the following keys:
@@ -151,6 +154,9 @@ class CatalogLibrary:
         #override the default ELiXer behavior
         G.DYNAMIC_MAG_APERTURE = dynamic
         G.FIXED_MAG_APERTURE = aperture
+        if (nudge is None) or (nudge < 0):
+            nudge = 0.0
+        G.NUDGE_MAG_APERTURE_CENTER = nudge
 
         for c in catalogs:
             cutouts = c.get_cutouts(ra, dec, window=radius*2.,aperture=aperture)
