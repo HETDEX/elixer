@@ -3,7 +3,8 @@ changes to elixer by version
 1.7.0 [2019-06-02]
 * add SDSS online query as backup to no overlap with local imaging catalogs
 * discontinued use of wcs._naxis1, _naxis2 per astropy 3.1 and replaced with pixel_shape
-* fixed handfull of log.warn() calls (should be log.warning())
+* fixed handfull of log.warn() ca
+lls (should be log.warning())
 * updated science_image to force sky_mask to be cropped to the sky_image boundaries (in some cases the mask could
   extend beyond the image and then the sky pixel selection would fail)
 * updated aperture photometry in GOODS-N
@@ -26,6 +27,7 @@ changes to elixer by version
   rather than limit it to the selected emission line
 * exclude additional lines from scoring if the lines position offset (velocity offset) is greater than a configured value
 * allow asymmetric position (velocity) offsets and split LyA from other lines in scoring additional spectral lines
+* added --continuum switch to instruct elixer to use the HETDEX continuum catalog instead of the emission line catalog
 
 
 1.6.6 [2019-05-16]

@@ -263,6 +263,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--fitspec', help='Adjust y-axis range to accomodate entire sepctrum (not just emission line)', required=False,
                         action='store_true', default=False)
 
+    parser.add_argument('--continuum', help='Use HETDEX continuum catalog instead of the emission line catalog', required=False,
+                        action='store_true', default=False)
+
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
 
@@ -316,6 +319,9 @@ def parse_commandline(auto_force=False):
 
     if args.fitspec:
         G.FIT_FULL_SPEC_IN_WINDOW = True
+
+    if args.continuum:
+        args.hdf5 = G.HDF5_CONTINUUM_FN
 
     if args.annulus:
         try:

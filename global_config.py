@@ -20,12 +20,13 @@ PYTHON_MAJOR_VERSION = sys.version_info[0]
 PYTHON_VERSION = sys.version_info
 
 
-HDR1 = False #set to TRUE for HDR1 release
+HDR1 = True #set to TRUE for HDR1 release
 
 if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
     #base path: /work/03946/hetdex/hdr1/
 
     HDF5_DETECT_FN = "/work/03946/hetdex/hdr1/detect/detect_hdr1.h5"
+    HDF5_CONTINUUM_FN = "/work/03946/hetdex/hdr1/detect/continuum_sources.h5"
     OBSERVATIONS_BASEDIR = "/work/03946/hetdex/hdr1/reduction/"
     BAD_AMP_LIST = "/work/03261/polonius/maverick/catalogs/bad_amp_list.txt"
     #CONFIG_BASEDIR = "/work/03946/hetdex/hdr1/raw"
@@ -67,6 +68,8 @@ else:
     if socket.gethostname() == 'z50':
     #if False:
         HDF5_DETECT_FN = "/work/03946/hetdex/hdr1/detect/detect_hdr1.h5"
+        HDF5_CONTINUUM_FN = "/work/03946/hetdex/hdr1/detect/continuum_sources.h5"
+
         #OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
         OBSERVATIONS_BASEDIR = "/work/03946/hetdex/hdr1/reduction/"
         BAD_AMP_LIST = "/home/dustin/code/python/elixer/bad_amp_list.txt"
@@ -119,6 +122,7 @@ else:
         # PANACEA_HDF5_BASEDIR = PANACEA_RED_BASEDIR
 
         HDF5_DETECT_FN = "/work/03946/hetdex/hdr1/detect/detect_hdr1.h5"
+        HDF5_CONTINUUM_FN = "/work/03946/hetdex/hdr1/detect/continuum_sources.h5"
         OBSERVATIONS_BASEDIR = "/work/03946/hetdex/hdr1/reduction/"
         BAD_AMP_LIST = "/work/03261/polonius/maverick/catalogs/bad_amp_list.txt"
         # CONFIG_BASEDIR = "/work/03946/hetdex/hdr1/raw"
@@ -364,7 +368,7 @@ DYNAMIC_MAG_APERTURE = True  #allow aperture size to change to fit maximum magni
 FIXED_MAG_APERTURE = 1.5 #radius in arcsec
 NUDGE_MAG_APERTURE_CENTER = 1.0  #allow the center of the mag aperture to drift to the 2D Gaussian centroid
                                  #up to this distance in x and y in arcsec (if 0.0 then no drift is allowed)
-MAX_SKY_SUBTRACT_MAG = 2.0 #if local sky subtraction results in a magnitude change greater than this value, do not apply it
+MAX_SKY_SUBTRACT_MAG = 5.0 #if local sky subtraction results in a magnitude change greater than this value, do not apply it
 
 DEBUG_SHOW_GAUSS_PLOTS = False #set on command line now --gaussplots (but keep here for compatibility with other programs)
 
