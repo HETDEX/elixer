@@ -93,13 +93,20 @@ GOOD_MIN_SIGMA = 1.425 #in AA, roughly # 0.75 * pixel_size
 
 #GOOD_MIN_LINE_FLUX = 5.0e-18 #todo: this should be the HETDEX flux limit (but that depends on exposure time and wavelength)
 #combined in the score
-GOOD_MAX_DX0_MULT = 1.75 #3.8 (AA) ... now 1.75 means 1.75 * pixel_size
+
+#GOOD_MAX_DX0_MUTL .... ALL in ANGSTROMS
+MAX_LYA_VEL_OFFSET = 500.0 #km/s
+GOOD_MAX_DX0_MULT_LYA = [-7.5,2.0] #can have a sizeable velocity offset for LyA (actaully depends on z, so this is a default)
+#assumes a max velocity offset of 500km/s at 4500AA ==> 4500 * 500/c = 7.5AA
+GOOD_MAX_DX0_MULT_OTHER = [-2.0,2.0] #all others are symmetric and smaller
+
+GOOD_MAX_DX0_MULT = GOOD_MAX_DX0_MULT_OTHER#[-1.75,1.75] #3.8 (AA)
                     # #maximum error (domain freedom) in fitting to line center in AA
                     #since this is based on the fit of the extra line AND the line center error of the central line
                     #this is a compound error (assume +/- 2 AA since ~ 1.9AA/pix for each so at most 4 AA here)?
 #GOOD_MIN_H_CONT_RATIO = 1.33 #height of the peak must be at least 33% above the continuum fit level
-ADDL_LINE_SCORE_BONUS = 5.0 #add for each line at 2+ lines (so 1st line adds nothing)
-                            #this is rather "hand-wavy" but gives a nod to having more lines beyond just their score
+
+
 #todo: impose line ratios?
 #todo:  that is, if line_x is assumed and line_y is assumed, can only be valid if line_x/line_y ~ ratio??
 #todo:  i.e. [OIII(5007)] / [OIII(4959)] ~ 3.0 (2.993 +/- 0.014 ... at least in AGN)
@@ -653,6 +660,14 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     #todo:   pix_error then decreases
     #however, this error is ON TOP of the wavelength measurement error, assumed to be +/- 1 pixel?
     def pix_error(z,wavelength,error=0.001, pix_size= 2.0):
+        """
+        NOTICE ALWAYS RETURNING ZERO RIGHT NOW
+        :param z:
+        :param wavelength:
+        :param error:
+        :param pix_size:
+        :return:  error in measurement IN PIXELS (not AA)
+        """
         return 0.0
 
         try:
@@ -846,9 +861,22 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             #check the dx0
 
             p_err = pix_error(central_z,eli.fit_x0,pix_size=pix_size)
-            if (abs(eli.fit_dx0) > (GOOD_MAX_DX0_MULT * pix_size + p_err)):
+
+            #old ... here GOOD_MAX_DXO_MULT was in pixel multiples
+            #if (abs(eli.fit_dx0) > (GOOD_MAX_DX0_MULT * pix_size + p_err)):
+            #    log.debug("Failed to capture peak: dx0 = %f, pix_size = %f, wavelength = %f, pix_z_err = %f"
+            #              % (eli.fit_dx0,pix_size, eli.fit_x0,p_err))
+
+
+            #GOOD_MAX_DX0_MULT[0] is the negative direction, [1] is the positive direction
+            #but fit_dx0 is defined as the expected position - fit position, so a positive fit_dx0 has the fit position
+            # short (left) of the expected position, which corresponds to the negative offset allowance
+            if (eli.fit_dx0 > (GOOD_MAX_DX0_MULT[1] + p_err * pix_size)) or \
+               (eli.fit_dx0 < (GOOD_MAX_DX0_MULT[0] + p_err * pix_size)):
                 log.debug("Failed to capture peak: dx0 = %f, pix_size = %f, wavelength = %f, pix_z_err = %f"
                           % (eli.fit_dx0,pix_size, eli.fit_x0,p_err))
+
+
             else:
                 accept_fit = True
                 log.debug("Success: captured peak: raw = %f , fit = %f, frac = %0.2f"
@@ -1973,9 +2001,12 @@ class EmissionLine():
         self.eqw_rest = None
         self.sigma = None #gaussian fit sigma
 
+
         #a bit redundant with EmissionLineInfo
         self.line_score = 0.0
         self.prob_noise = 1.0
+        self.fit_dx0 = None #from EmissionLineInfo, but we want this for a later comparison of all other lines in the solution
+
 
         self.absorber = False #true if an abosrption line
 
@@ -1999,12 +2030,29 @@ class Classifier_Solution:
 
         self.prob_noise = 1.0
         self.lines = [] #list of EmissionLine
+        self.rejected_lines = [] #list of EmissionLines that were scored as okay, but rejected for other reasons
 
     @property
     def prob_real(self):
         #return min(1-self.prob_noise,0.999) * min(1.0, max(0.67,self.score/G.MULTILINE_MIN_SOLUTION_SCORE))
-        return min(1 - self.prob_noise, 0.999) * min(1.0, float(len(self.lines))/(G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY + 1.0))
+        return min(1 - self.prob_noise, 0.999) * min(1.0, float(len(self.lines))/(G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY))# + 1.0))
 
+
+    def calc_score(self):
+        self.score = 0.0
+        self.prob_noise = 1.0
+
+        for l in self.lines:
+            self.score += l.line_score  # score for this solution
+            self.prob_noise *= l.prob_noise
+
+        n = len(np.where([l.absorber == False for l in self.lines])[0])
+
+        if n >= G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY:
+            bonus = 0.5 * (n ** 2 - n) * G.ADDL_LINE_SCORE_BONUS  # could be negative
+            self.score += bonus
+
+        return self.score
 
 
 class PanaceaSpectrum:
@@ -2480,6 +2528,13 @@ class Spectrum:
                 else:
                     continue #impossible, can't have a negative z
 
+            if e.w_rest == G.LyA_rest:
+                #assuming a maximum expected velocity offset, we can allow the additional lines to be
+                #asymmetrically less redshifted than LyA
+                GOOD_MAX_DX0_MULT = [MAX_LYA_VEL_OFFSET / 3.0e5 * central  ,GOOD_MAX_DX0_MULT_LYA[1]]
+            else:
+                GOOD_MAX_DX0_MULT = GOOD_MAX_DX0_MULT_OTHER
+
             sol = Classifier_Solution()
             sol.z = central_z
             sol.central_rest = e.w_rest
@@ -2583,6 +2638,7 @@ class Spectrum:
                         l.line_score = eli.line_score
                         l.prob_noise = eli.prob_noise
                         l.absorber = eli.absorber
+                        l.fit_dx0 = eli.fit_dx0
 
                         total_score += eli.line_score  # cumulative score for ALL solutions
                         sol.score += eli.line_score  # score for this solution
@@ -2606,12 +2662,52 @@ class Spectrum:
                 n = len(np.where([l.absorber == False for l in sol.lines])[0])
       #          n = len(sol.lines) + 1 #+1 for the main line
                 if  n >= G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY:
-                    bonus =0.5*(n**2 - n)*ADDL_LINE_SCORE_BONUS #could be negative
+                    bonus =0.5*(n**2 - n)*G.ADDL_LINE_SCORE_BONUS #could be negative
                     #print("+++++ %s n(%d) bonus(%g)"  %(self.identifier,n,bonus))
                     sol.score += bonus
                     total_score += bonus
                 solutions.append(sol)
         #end for e in emission lines
+
+        #clean up invalid solutions (multiple lines with very different systematic velocity offsets)
+        if True:
+            for s in solutions:
+                all_dx0 = [l.fit_dx0 for l in s.lines]
+                all_score = [l.line_score for l in s.lines]
+                rescore = False
+                #enforce similar all_dx0
+                while len(all_dx0) > 1:
+                    #todo: no ... throw out the line farthest from the average and recompute ....
+                    if max(all_dx0) - min(all_dx0) > G.SPEC_MAX_OFFSET_SPREAD: #differ by more than 2 AA
+                        #throw out lowest score? or greatest dx0?
+                        i = np.argmin(all_score)
+                        log.info("Removing lowest score from solution %s (%s at %0.1f) due to extremes in fit_dx0 (%f,%f)."
+                                 " Line (%s) Score (%f)"
+                                 %(self.identifier,s.emission_line.name,s.central_rest,min(all_dx0),max(all_dx0),
+                                   s.lines[i].name, s.lines[i].score))
+
+                        s.rejected_lines.append(copy.deepcopy(s.lines[i]))
+                        del all_dx0[i]
+                        del all_score[i]
+                        del s.lines[i]
+                        rescore = True
+                    else:
+                        break
+
+
+                if rescore:
+                    #remove this solution?
+                    old_score = s.score
+                    total_score -= s.score
+
+                    s.calc_score()
+                    total_score += s.score
+
+                    log.info("Solution:  %s (%s at %0.1f) rescored due to extremes in fit_dx0. Old score (%f) New Score (%f)"
+                             %(self.identifier,s.emission_line.name,s.central_rest,old_score,s.score))
+
+
+
 
         for s in solutions:
             s.frac_score = s.score/total_score
@@ -2641,7 +2737,7 @@ class Spectrum:
         #care only about the LAE and OII solutions:
         #todo: find the LyA and OII options in the solution list and use to fill in addl_fluxes?
 
-        ratio, self.p_lae, self.p_oii = line_prob.prob_LAE(wl_obs=self.central,
+        self.p_lae_oii_ratio, self.p_lae, self.p_oii = line_prob.prob_LAE(wl_obs=self.central,
                                                            lineFlux=self.estflux,
                                                            lineFlux_err=self.estflux_unc,
                                                            ew_obs=self.eqw_obs,
@@ -2654,15 +2750,15 @@ class Spectrum:
                                                            cosmo=None, lae_priors=None,
                                                            ew_case=None, W_0=None,
                                                            z_OII=None, sigma=None)
-        if (self.p_lae is not None) and (self.p_lae > 0.0):
-            if (self.p_oii is not None) and (self.p_oii > 0.0):
-                self.p_lae_oii_ratio = self.p_lae /self.p_oii
-            else:
-                self.p_lae_oii_ratio = float('inf')
-        else:
-            self.p_lae_oii_ratio = 0.0
-
-        self.p_lae_oii_ratio = min(line_prob.MAX_PLAE_POII,self.p_lae_oii_ratio) #cap to MAX
+        # if (self.p_lae is not None) and (self.p_lae > 0.0):
+        #     if (self.p_oii is not None) and (self.p_oii > 0.0):
+        #         self.p_lae_oii_ratio = self.p_lae /self.p_oii
+        #     else:
+        #         self.p_lae_oii_ratio = float('inf')
+        # else:
+        #     self.p_lae_oii_ratio = 0.0
+        #
+        # self.p_lae_oii_ratio = min(line_prob.MAX_PLAE_POII,self.p_lae_oii_ratio) #cap to MAX
 
     def build_full_width_spectrum(self,wavelengths = None,  counts = None, errors = None, central_wavelength = None,
                                   values_units = 0, show_skylines=True, show_peaks = True, name=None,

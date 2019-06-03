@@ -776,8 +776,8 @@ class DetObj:
             sols = self.spec_obj.solutions
             # need to tune this
             # score is the sum of the observed eq widths
-            #if  (self.spec_obj.solutions[0].score >= G.MULTILINE_MIN_SOLUTION_SCORE) and \
-            if  (self.spec_obj.solutions[0].prob_real >= G.MULTILINE_MIN_SOLUTION_CONFIDENCE) and \
+            if  (self.spec_obj.solutions[0].score >= G.MULTILINE_MIN_SOLUTION_SCORE) and \
+                (self.spec_obj.solutions[0].prob_real >= G.MULTILINE_MIN_SOLUTION_CONFIDENCE) and \
                 (self.spec_obj.solutions[0].frac_score > 0.5) and \
                 (len(self.spec_obj.solutions[0].lines) >= G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY):
 
@@ -5664,6 +5664,10 @@ class HETDEX:
                         rec = plt.Rectangle((f.w_obs - hw, yl), 2 * hw, yh - yl, fill=True, lw=1,
                                             color=sol.color, alpha=0.5,zorder=1)
                         specplot.add_patch(rec)
+
+                    #don't color, but still mark rejected lines
+                    for f in sol.rejected_lines:
+                        matched_line_list.append(f.w_rest)
                 #else: #redundant log ... already logged when preparing the upper left text block
                 #    log.info("No singular, strong emission line solution.")
 

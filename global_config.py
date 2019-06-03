@@ -20,7 +20,7 @@ PYTHON_MAJOR_VERSION = sys.version_info[0]
 PYTHON_VERSION = sys.version_info
 
 
-HDR1 = True #set to TRUE for HDR1 release
+HDR1 = False #set to TRUE for HDR1 release
 
 if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
     #base path: /work/03946/hetdex/hdr1/
@@ -349,6 +349,7 @@ MAX_SCORE_ABSORPTION_LINES = 0.0 #the most an absorption line can contribute to 
 FLUX_WAVEBIN_WIDTH = 2.0 # AA
 
 CLASSIFY_WITH_OTHER_LINES = True
+SPEC_MAX_OFFSET_SPREAD = 1.0 #AA #maximum spread in (velocity) offset (but in AA) across all lines in a solution
 MIN_MCMC_SNR = 0.0 #minium SNR from an MCMC fit to accept as a real line (if 0.0, do not MCMC additional lines)
 MIN_ADDL_EMIS_LINES_FOR_CLASSIFY = 1
 MULTILINE_MIN_SOLUTION_SCORE = 25.0 #remember, this does NOT include the main line's score (about p(noise) = 0.01)
@@ -356,6 +357,8 @@ MULTILINE_MIN_SOLUTION_CONFIDENCE = 0.99
 MULTILINE_MIN_WEAK_SOLUTION_CONFIDENCE = 0.5
 MULTILINE_MAX_PROB_NOISE_TO_PLOT = 0.2 #plot dashed line on spectrum if p(noise) < 0.1
 MULTILINE_ALWAYS_SHOW_BEST_GUESS = True #if true, show the best guess even if it does not meet the miniumum requirements
+ADDL_LINE_SCORE_BONUS = 5.0 #add for each line at 2+ lines (so 1st line adds nothing)
+                            #this is rather "hand-wavy" but gives a nod to having more lines beyond just their score
 
 DYNAMIC_MAG_APERTURE = True  #allow aperture size to change to fit maximum magnitude
 FIXED_MAG_APERTURE = 1.5 #radius in arcsec
