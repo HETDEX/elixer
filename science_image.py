@@ -637,6 +637,24 @@ class science_image():
             source_aperture_area = 0.0
 
 
+
+            if False: #test out photutils
+                from photutils import find_peaks
+                mean, median, std = sigma_clipped_stats(cutout.data, sigma=3.0)
+                threshold = median + (5. * std)
+
+                cx, cy = cutout.center_cutout
+                pix = (radius / self.pixel_size)  # arcsec to pixels
+
+                #positive mask (search where TRUE)
+                mask = np.full(cutout.shape, False)
+                mask[int(round(cx - pix)):int(round(cx + pix)), int(round(cy - pix)):int(round(cy + pix))] = True
+
+                tbl = find_peaks(cutout.data,threshold,footprint=mask)
+
+                print("hi")
+
+
             if G.DYNAMIC_MAG_APERTURE:
                 #radius = max(0.5,aperture)
                 radius = 0.5
@@ -905,16 +923,17 @@ class science_image():
 
 
                     #todo: temporary
-                    with open("log.txt","a+") as logfile:
-                        marker = " "
-                        if abs(sky_mag - base_mag) > 1.0:
-                            marker = '*'
+                    if False:
+                        with open("log.txt","a+") as logfile:
+                            marker = " "
+                            if abs(sky_mag - base_mag) > 1.0:
+                                marker = '*'
 
-                        logfile.write("%s %s %s %f %f %f %f %f %f %f %f %f %f %f %f %d %f %f %f %f %f %s"
-                            %(marker, self.catalog_name, self.filter_name, base_mag-sky_mag,ra,dec,
-                              cutout.center_cutout[0],cutout.center_cutout[1], self.last_x_center, self.last_y_center,self.pixel_size,
-                              base_mag,sky_mag,source_aperture_area,base_counts,len(annulus_data_1d),bw_cen,
-                              np.sum(annulus_data_1d),np.mean(annulus_data_1d),np.median(annulus_data_1d),np.std(annulus_data_1d),"\n"))
+                            logfile.write("%s %s %s %f %f %f %f %f %f %f %f %f %f %f %f %d %f %f %f %f %f %s"
+                                %(marker, self.catalog_name, self.filter_name, base_mag-sky_mag,ra,dec,
+                                  cutout.center_cutout[0],cutout.center_cutout[1], self.last_x_center, self.last_y_center,self.pixel_size,
+                                  base_mag,sky_mag,source_aperture_area,base_counts,len(annulus_data_1d),bw_cen,
+                                  np.sum(annulus_data_1d),np.mean(annulus_data_1d),np.median(annulus_data_1d),np.std(annulus_data_1d),"\n"))
 
 
 

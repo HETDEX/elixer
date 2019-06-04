@@ -12,7 +12,7 @@ import numpy as np
 import socket
 
 #version
-__version__ = '1.7.0'
+__version__ = '1.7.0a'
 
 #python version
 import sys
@@ -368,7 +368,7 @@ DYNAMIC_MAG_APERTURE = True  #allow aperture size to change to fit maximum magni
 FIXED_MAG_APERTURE = 1.5 #radius in arcsec
 NUDGE_MAG_APERTURE_CENTER = 1.0  #allow the center of the mag aperture to drift to the 2D Gaussian centroid
                                  #up to this distance in x and y in arcsec (if 0.0 then no drift is allowed)
-MAX_SKY_SUBTRACT_MAG = 5.0 #if local sky subtraction results in a magnitude change greater than this value, do not apply it
+MAX_SKY_SUBTRACT_MAG = 2.0 #if local sky subtraction results in a magnitude change greater than this value, do not apply it
 
 DEBUG_SHOW_GAUSS_PLOTS = False #set on command line now --gaussplots (but keep here for compatibility with other programs)
 
