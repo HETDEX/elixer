@@ -28,6 +28,7 @@ lls (should be log.warning())
 * exclude additional lines from scoring if the lines position offset (velocity offset) is greater than a configured value
 * allow asymmetric position (velocity) offsets and split LyA from other lines in scoring additional spectral lines
 * added --continuum switch to instruct elixer to use the HETDEX continuum catalog instead of the emission line catalog
+* OMP_PROC_BIND seems to be no longer valid for stampede2 (so stopped including it in pre-python command line)
 
 
 1.6.6 [2019-05-16]
