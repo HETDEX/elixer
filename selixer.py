@@ -402,7 +402,9 @@ else: # multiple tasks
                 #20 tasks per node up to 2 nodes  (40)
                 #16 tasks per node up to 3 nodes  (48)
 
-                pre_python_cmd = " export OMP_PROC_BIND=0 ; "
+                #todo: now seeing an error reported from stampede2 20190601 that the value is invalid
+                #todo: so, turning this off again
+                #pre_python_cmd = " export OMP_PROC_BIND=0 ; "
 
                 if PYTHON_MAJOR_VERSION < 3:
                     if queue == "skx-normal":
