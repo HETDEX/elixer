@@ -3,8 +3,7 @@ changes to elixer by version
 1.7.0 [2019-06-02]
 * add SDSS online query as backup to no overlap with local imaging catalogs
 * discontinued use of wcs._naxis1, _naxis2 per astropy 3.1 and replaced with pixel_shape
-* fixed handfull of log.warn() ca
-lls (should be log.warning())
+* fixed handfull of log.warn() calls (should be log.warning())
 * updated science_image to force sky_mask to be cropped to the sky_image boundaries (in some cases the mask could
   extend beyond the image and then the sky pixel selection would fail)
 * updated aperture photometry in GOODS-N
@@ -15,8 +14,7 @@ lls (should be log.warning())
 * added --png option to save the entire report as a PNG (independent of existing --jpg option, so can save in both
   formats on the same call)
 * tweaked zoo filenames to be more consistent with HDR1 naming
-* replaced HETDEX continuum estimate around the emission line with speclite gmag using SDSS2010-g filter (and added to
-  upper left plot data)
+* added speclite gmag using SDSS2010-g filter to upper left plot data
 * minor spacing correction for --zoox option
 * Updates to aperture magnitude:
   + added NUDGE_MAG_APERTURE_CENTER option to global_config to allow the photometry aperture center to shift

@@ -72,7 +72,7 @@ class science_image():
         self.wcs = None
         self.vmin = None
         self.vmax = None
-        self.pixel_size = None
+        self.pixel_size = None #arcsec/pixel
         self.window = None
         self.exptime = None
 
@@ -639,7 +639,7 @@ class science_image():
 
 
             if False: #test out photutils
-                from photutils import find_peaks
+                from photutils import find_peaks, segmentation
                 mean, median, std = sigma_clipped_stats(cutout.data, sigma=3.0)
                 threshold = median + (5. * std)
 
@@ -650,9 +650,17 @@ class science_image():
                 mask = np.full(cutout.shape, False)
                 mask[int(round(cx - pix)):int(round(cx + pix)), int(round(cy - pix)):int(round(cy + pix))] = True
 
-                tbl = find_peaks(cutout.data,threshold,footprint=mask)
+                peaks_table = find_peaks(cutout.data,threshold,footprint=mask)
 
-                print("hi")
+                connected_pixels = int(min((0.5 / self.pixel_size)**2,24))+1
+                seg_img = segmentation.detect_sources(cutout.data,threshold,npixels=connected_pixels,mask=np.logical_not(mask))
+
+                if False: #reminder, this will wipe out the imaging for the ELiXer Plot
+                    import matplotlib.pyplot as plt
+                    plt.close('all')
+                    plt.imshow(seg_img,origin='lower')
+                    plt.savefig("segimg.png")
+
 
 
             if G.DYNAMIC_MAG_APERTURE:

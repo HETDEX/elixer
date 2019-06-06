@@ -364,9 +364,9 @@ MULTILINE_ALWAYS_SHOW_BEST_GUESS = True #if true, show the best guess even if it
 ADDL_LINE_SCORE_BONUS = 5.0 #add for each line at 2+ lines (so 1st line adds nothing)
                             #this is rather "hand-wavy" but gives a nod to having more lines beyond just their score
 
-DYNAMIC_MAG_APERTURE = True  #allow aperture size to change to fit maximum magnitude
+DYNAMIC_MAG_APERTURE = False  #allow aperture size to change to fit maximum magnitude
 FIXED_MAG_APERTURE = 1.5 #radius in arcsec
-NUDGE_MAG_APERTURE_CENTER = 1.0  #allow the center of the mag aperture to drift to the 2D Gaussian centroid
+NUDGE_MAG_APERTURE_CENTER = 0.0  #allow the center of the mag aperture to drift to the 2D Gaussian centroid
                                  #up to this distance in x and y in arcsec (if 0.0 then no drift is allowed)
 MAX_SKY_SUBTRACT_MAG = 2.0 #if local sky subtraction results in a magnitude change greater than this value, do not apply it
 
@@ -378,7 +378,7 @@ ANNULUS_FIGURE_SZ_Y = 12
 
 SKY_ANNULUS_MIN_MAG = 15.0 #measure magnitude must be fainter than this to trigger sky subtraction from surrounding annulus
 
-INCLUDE_ALL_AMPS = False #ie. if true, ignore the bad amp list
+INCLUDE_ALL_AMPS = True #ie. if true, ignore the bad amp list
 
 RECOVERY_RUN = False
 

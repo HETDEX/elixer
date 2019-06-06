@@ -144,6 +144,15 @@ def get_hetdex_gmag(flux_density,wave):
         # padded HETDEX data passed through an SDSS-g filter (approximately)
         iso_f = 3e18 / sdss_filter.effective_wavelengths[0].value
 
+        #sanity check flux_density
+        sel = np.where(abs(flux_density) > 1e-5) #remember, these are e-17, so that is enormous
+        if np.any(sel):
+            msg = "Warning! Absurd flux density values: [%f,%f] (normal expected values e-15 to e-19 range)" %(min(flux_density[sel]),max(flux_density[sel]))
+            print(msg)
+            log.warning(msg)
+            flux_density[sel] = 0.0
+
+
         flux, wlen = sdss_filter.pad_spectrum(flux_density* (units.erg / units.s /units.cm**2/units.Angstrom),wave* units.Angstrom)
         mag = sdss_filter.get_ab_magnitudes(flux , wlen )[0][0]
         cont = 3631.0 * 10**(-0.4*mag) * 1e-23 * iso_f / (5549.26 - 3782.54) #that is the approximate bandpass

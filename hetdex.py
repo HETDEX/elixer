@@ -1808,7 +1808,13 @@ class DetObj:
 
             try:
                 #reminder needs erg/s/cm2/AA and sumspec_flux in ergs/s/cm2 so divied by 2AA bin width
-                self.sdss_gmag, self.cont_cgs = elixer_spectrum.get_hetdex_gmag(self.sumspec_flux/2.0*1e-17,self.sumspec_wavelength)
+#                self.sdss_gmag, self.cont_cgs = elixer_spectrum.get_hetdex_gmag(self.sumspec_flux/2.0*1e-17,self.sumspec_wavelength)
+                self.sdss_gmag, gcont = elixer_spectrum.get_hetdex_gmag(self.sumspec_flux / 2.0 * 1e-17,
+                                                                                self.sumspec_wavelength)
+
+                if self.cont_cgs == -9999: #still unset ... werid?
+                    log.warning("Warning! HETDEX continuum estimate not set. Using SDSS gmag for estimate.")
+                    self.cont_cgs = gcont
                 #todo: need to find a way to improve the uncertainty
                 #self.cont_cgs_unc = #need to update this estimate? as this is based on +/- 40 or 50AA around line?
                 #self.cont_cgs = c
