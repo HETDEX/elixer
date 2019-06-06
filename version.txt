@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.7.0 [2019-06-02]
+1.7.0a [2019-06-06]
 * add SDSS online query as backup to no overlap with local imaging catalogs
 * discontinued use of wcs._naxis1, _naxis2 per astropy 3.1 and replaced with pixel_shape
 * fixed handfull of log.warn() calls (should be log.warning())
