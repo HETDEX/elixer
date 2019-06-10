@@ -1105,13 +1105,13 @@ def convert_pdf(filename, resolution=150, jpeg=True, png=False):
 
                 if jpeg:
                     img.format = 'jpg'
-                    image_name = filename.strip(".pdf") + ".jpg"
+                    image_name = filename.rstrip(".pdf") + ".jpg"
                     img.save(filename=image_name)
                     print("File written: " + image_name)
 
                 if png:
                     img.format = 'png'
-                    image_name = filename.strip(".pdf") + ".png"
+                    image_name = filename.rstrip(".pdf") + ".png"
                     img.save(filename=image_name)
                     print("File written: " + image_name)
 
