@@ -655,6 +655,8 @@ class science_image():
             self.last_y0_center = (y_center - cutout.center_cutout[1])*self.pixel_size
             source_aperture_area = 0.0
 
+            if is_cutout_empty(cutout):
+                log.debug("FYI ... cutout is empty ...")
 
 
             if False: #test out photutils
