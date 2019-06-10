@@ -29,6 +29,8 @@ changes to elixer by version
 * OMP_PROC_BIND seems to be no longer valid for stampede2 (so stopped including it in pre-python command line)
 * fixed error in elixer::convert_pdf ("strip" should be "rstrip" to remove trailing ".pdf" from name ... else treats
   as set of characters to be removed from anywhere in the string
+* fixed missing application of scale units to MCMC results (usually e-18 not e-17) .. made expected line_flux and continuum
+  appear to be off by x10
 
 
 1.6.6 [2019-05-16]

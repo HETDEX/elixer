@@ -1099,8 +1099,15 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         if values_units < 0:
             eli.mcmc_a *= 10**values_units
             eli.mcmc_y *= 10**values_units
+            eli.mcmc_continuum  *= 10**values_units
+            eli.mcmc_line_flux *= 10**values_units
+            try:
+                eli.mcmc_line_flux_tuple *= 10 ** values_units
+                eli.mcmc_continuum_tuple *= 10 ** values_units
+            except:
+                log.error("*** Exception!", exc_info=True)
 
-        #no ... this is wrong ... its all good now
+            #no ... this is wrong ... its all good now
         # if values_units == -18:  # converted from e-17, but this is an area so there are 2 factors
         #     eli.mcmc_a = tuple(np.array(eli.mcmc_a ) / [10., 1., 1.])
 
@@ -1363,6 +1370,13 @@ def run_mcmc(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLUX
     if values_units < 0:
         eli.mcmc_a *= 10 ** values_units
         eli.mcmc_y *= 10 ** values_units
+        eli.mcmc_continuum *= 10 ** values_units
+        eli.mcmc_line_flux *= 10 ** values_units
+        try:
+            eli.mcmc_line_flux_tuple *= 10 ** values_units
+            eli.mcmc_continuum_tuple *= 10 ** values_units
+        except:
+            log.error("*** Exception!",exc_info=True)
 
     # calc EW and error with approximate symmetric error on area and continuum
     if eli.mcmc_y[0] != 0 and eli.mcmc_a[0] != 0:
