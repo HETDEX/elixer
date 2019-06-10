@@ -47,6 +47,25 @@ PIXEL_APERTURE_METHOD='exact' #'exact' 'center' 'subpixel'
 log = G.Global_Logger('sciimg_logger')
 log.setlevel(G.logging.DEBUG)
 
+
+def is_cutout_empty(cutout):
+    # todo: maybe should be in science_image instead
+    rc = False
+    try:
+        std = np.nanstd(cutout.data)
+        # mean = np.nanmean(cutout.data) #no NOT mean (could legit be 0 (average of + and - values))
+        sm = np.sum(cutout.data)
+
+        log.debug("Checking for emtpy cutout: sum (%f), std (%f)" % (sm, std))
+
+        if (sm == 0) or (std == 0):
+            rc = True
+    except:
+        log.debug("*** Exception! Exception in science_image::is_cutout_empty()", exc_info=True)
+
+    return rc
+
+
 class science_image():
 
     def __init__(self, wcs_manual=False, image_location=None,frame=None, wcs_idx=0, hdulist=None):
@@ -753,6 +772,7 @@ class science_image():
                         #todo: plus our astrometry accuracy is ~ 0.5"
 
                         if mag < 99:
+                            #if now growing fainter OR the brightness increase is small, we are done
                             if (mag > max_bright) or (abs(mag-max_bright) < 0.01):#< 0.0005):
                                 break
                         elif (radius >= aperture) or (abs(radius-aperture) <1e-5):

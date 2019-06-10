@@ -695,6 +695,7 @@ class Catalog:
         return fiber_num in G.CCD_EDGE_FIBERS_ALL
 
 
+
     def add_fiber_positions(self,plt,ra,dec,fiber_locs,error,ext,cutout):
             # plot the fiber cutout
             log.debug("Plotting fiber positions...")

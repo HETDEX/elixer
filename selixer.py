@@ -120,7 +120,7 @@ if hostname == "maverick":
     time_set = False
     email = "##SBATCH --mail-user\n##SBATCH --mail-type all"
     queue = "vis"
-    tasks = 1
+    tasks = 0
 elif hostname == "wrangler":
     #!!! right now, for whatever reason, memmory is a problem for wrangler
     #and it can handle only 4 tasks per node (maximum)
@@ -153,7 +153,7 @@ elif hostname == "wrangler":
     time_set = False
     email = "##SBATCH --mail-user\n##SBATCH --mail-type all"
     queue = "normal"
-    tasks = 1
+    tasks = 0
 elif hostname == "stampede2":
     if queue is None:
         queue = "skx-normal"  # SKX  ... the KNL nodes seem really slow
@@ -203,7 +203,7 @@ elif hostname == "stampede2":
     time_set = False
     email = "##SBATCH --mail-user\n##SBATCH --mail-type all"
 
-    tasks = 1
+    tasks = 0
 
 elif hostname == "z50":
     host = HOST_LOCAL

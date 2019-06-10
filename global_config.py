@@ -19,8 +19,7 @@ import sys
 PYTHON_MAJOR_VERSION = sys.version_info[0]
 PYTHON_VERSION = sys.version_info
 
-
-HDR1 = True #set to TRUE for HDR1 release
+HDR1 = False #set to TRUE for HDR1 release
 
 if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
     #base path: /work/03946/hetdex/hdr1/
@@ -364,9 +363,9 @@ MULTILINE_ALWAYS_SHOW_BEST_GUESS = True #if true, show the best guess even if it
 ADDL_LINE_SCORE_BONUS = 5.0 #add for each line at 2+ lines (so 1st line adds nothing)
                             #this is rather "hand-wavy" but gives a nod to having more lines beyond just their score
 
-DYNAMIC_MAG_APERTURE = False  #allow aperture size to change to fit maximum magnitude
+DYNAMIC_MAG_APERTURE = True  #allow aperture size to change to fit maximum magnitude
 FIXED_MAG_APERTURE = 1.5 #radius in arcsec
-NUDGE_MAG_APERTURE_CENTER = 0.0  #allow the center of the mag aperture to drift to the 2D Gaussian centroid
+NUDGE_MAG_APERTURE_CENTER = 1.0  #allow the center of the mag aperture to drift to the 2D Gaussian centroid
                                  #up to this distance in x and y in arcsec (if 0.0 then no drift is allowed)
 MAX_SKY_SUBTRACT_MAG = 2.0 #if local sky subtraction results in a magnitude change greater than this value, do not apply it
 
