@@ -1,7 +1,8 @@
 changes to elixer by version
 
-1.7.0a [2019-06-10]
-* add SDSS online query as backup to no overlap with local imaging catalogs
+1.7.0a [2019-06-13]
+* add SDSS online query as backup to no overlap with local imaging catalogs (default disallow if in dispatch mode to keep
+  from overwhelming SDSS webserver)
 * discontinued use of wcs._naxis1, _naxis2 per astropy 3.1 and replaced with pixel_shape
 * fixed handfull of log.warn() calls (should be log.warning())
 * updated science_image to force sky_mask to be cropped to the sky_image boundaries (in some cases the mask could

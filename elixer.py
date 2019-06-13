@@ -255,7 +255,7 @@ def parse_commandline(auto_force=False):
 
     parser.add_argument('--sdss', help="SDSS remote query for imaging. Deny (0), Allow (1) if no other catalog available,"
                                        " Force (2) and override any other catalog",
-                        required=False, default=1,type=int)
+                        required=False, default=-1,type=int)
 
     parser.add_argument('--nophoto', help='Turn OFF the use of archival photometric catalogs.', required=False,
                         action='store_true', default=False)
@@ -308,6 +308,14 @@ def parse_commandline(auto_force=False):
         elif args.sdss == 2:
             G.SDSS_ALLOW = True
             G.SDSS_FORCE = True
+        elif args.sdss == -1: #basically, unless explicitly overridden, if we are in dispatch mode, don't use SDSS
+                              #since we can easily overwhelm their web interface
+            if args.dispatch is None:
+                G.SDSS_ALLOW = True
+                G.SDSS_FORCE = False
+            else:
+                G.SDSS_ALLOW = False
+                G.SDSS_FORCE = False
         else:
             log.warning("Ignoring invalid --sdss value (%d). Using default (Allow == 1)" %args.sdss)
             print("Ignoring invalid --sdss value (%d). Using default (Allow == 1)" %args.sdss)
