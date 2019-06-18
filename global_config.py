@@ -349,7 +349,7 @@ ZOO_CUTOUTS = False #produce the small zooniverse cutouts
 
 UNIQUE_DET_ID_NUM = 0
 
-DISPLAY_ABSORPTION_LINES = True
+DISPLAY_ABSORPTION_LINES = False
 MAX_SCORE_ABSORPTION_LINES = 0.0 #the most an absorption line can contribute to the score (set to 0 to turn off)
 
 
@@ -373,7 +373,7 @@ NUDGE_MAG_APERTURE_CENTER = 1.0  #allow the center of the mag aperture to drift 
                                  #up to this distance in x and y in arcsec (if 0.0 then no drift is allowed)
 MAX_SKY_SUBTRACT_MAG = 2.0 #if local sky subtraction results in a magnitude change greater than this value, do not apply it
 
-DEBUG_SHOW_GAUSS_PLOTS = True #set on command line now --gaussplots (but keep here for compatibility with other programs)
+DEBUG_SHOW_GAUSS_PLOTS = False #set on command line now --gaussplots (but keep here for compatibility with other programs)
 
 MAX_ANNULUS_RADIUS = 3600.0 #ridiculously large ... need to trim this to a reasonable size
 ANNULUS_FIGURE_SZ_X = 12
@@ -385,7 +385,7 @@ INCLUDE_ALL_AMPS = True #ie. if true, ignore the bad amp list
 
 RECOVERY_RUN = False
 
-SDSS_ALLOW = True #if no other catalogs match, try SDSS as online query
+SDSS_ALLOW = False #if no other catalogs match, try SDSS as online query
 SDSS_FORCE = False  #ignore local catalogs and Force the use of only SDSS
 
 USE_PHOTO_CATS = True  #default normal is True .... use photometry catalogs (if False only generate the top (HETDEX) part)
