@@ -310,10 +310,7 @@ def parse_commandline(auto_force=False):
             G.SDSS_FORCE = True
         elif args.sdss == -1: #basically, unless explicitly overridden, if we are in dispatch mode, don't use SDSS
                               #since we can easily overwhelm their web interface
-            if args.dispatch is None:
-                G.SDSS_ALLOW = True
-                G.SDSS_FORCE = False
-            else:
+            if not (args.dispatch is None):
                 G.SDSS_ALLOW = False
                 G.SDSS_FORCE = False
         else:

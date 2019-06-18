@@ -385,7 +385,7 @@ INCLUDE_ALL_AMPS = True #ie. if true, ignore the bad amp list
 
 RECOVERY_RUN = False
 
-SDSS_ALLOW = False #if no other catalogs match, try SDSS as online query
+SDSS_ALLOW = True #if no other catalogs match, try SDSS as online query (default if not dispatch mode)
 SDSS_FORCE = False  #ignore local catalogs and Force the use of only SDSS
 
 USE_PHOTO_CATS = True  #default normal is True .... use photometry catalogs (if False only generate the top (HETDEX) part)
