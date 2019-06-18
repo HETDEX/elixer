@@ -26,7 +26,7 @@ except:
     from line_classifier.misc.tools import generate_cosmology_from_config
 
 from astropy.table import Table
-
+import os.path as op
 
 _logger = G.Global_Logger("lae_prob")
 _logger.setlevel(G.logging.INFO)
@@ -260,8 +260,12 @@ def source_prob(config, ra, dec, zs, fluxes, flux_errs, ews_obs, ew_err, c_obs, 
 
     _logger.info("Using Hubbles Constant of {:f}".format(h*100))
 
-    lae_ew_obs = InterpolatedEW(config.get("InterpolatedEW", "lae_file"))
-    oii_ew_obs = InterpolatedEW(config.get("InterpolatedEW", "oii_file"))
+
+    #dd: update with path to the file
+    base_path = op.join(op.dirname(op.realpath(__file__)),"config")
+
+    lae_ew_obs = InterpolatedEW(  op.join(base_path,config.get("InterpolatedEW", "lae_file")))
+    oii_ew_obs = InterpolatedEW(  op.join(base_path,config.get("InterpolatedEW", "oii_file")))
     oii_ew_max = config.getfloat("InterpolatedEW", "oii_ew_max")
 
     # Cast everything to arrays
@@ -339,7 +343,15 @@ def source_prob(config, ra, dec, zs, fluxes, flux_errs, ews_obs, ew_err, c_obs, 
     noii = noii*n_lines_oii*ew_n_oii
     prob_lae_given_data = nlae/(nlae + noii)
 
-    if not extended_output:
-        return prob_lae_given_data
+    prob_oii_give_data = noii/(nlae + noii)
+    if prob_oii_give_data > 0.0:
+        posterior_odds =  prob_lae_given_data / prob_oii_give_data
+    elif prob_lae_given_data > 0.0:
+        posterior_odds = 1.0
     else:
-        return prob_lae_given_data, prob_lae_given_data_justlum, prob_lae_given_data_lum_ew, prob_lae_given_data_lum_lines  
+        posterior_odds = 0.0
+
+    if not extended_output:
+        return posterior_odds, prob_lae_given_data
+    else:
+        return posterior_odds, prob_lae_given_data, prob_lae_given_data_justlum, prob_lae_given_data_lum_ew, prob_lae_given_data_lum_lines

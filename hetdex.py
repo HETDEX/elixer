@@ -16,6 +16,9 @@ except:
     import spectrum as elixer_spectrum
     import observation as elixer_observation
 
+
+
+
 import matplotlib
 #matplotlib.use('agg')
 import time
@@ -481,7 +484,7 @@ class DetObj:
         self.snr = None
         self.snr_unc = 0.0
         self.chi2 = 0.0
-        self.chi2_unc = None
+        self.chi2_unc = 0.0
         self.chi2s = 0.0
         self.chi2w = 0.0
         self.gammq = 0.0
@@ -493,6 +496,7 @@ class DetObj:
         self.cont_cgs = -9999
         self.cont_cgs_unc = 0.0
         self.fwhm = -1.0 #in angstroms
+        self.fwhm_unc = 0.0
         self.panacea = False
 
         self.ifuslot = None
@@ -1743,7 +1747,10 @@ class DetObj:
 
             self.sigma = row['linewidth']#AA
             self.sigma_unc = row['linewidth_err']
+            if (self.sigma_unc is None) or (self.sigma_unc < 0.0):
+                self.sigma_unc = 0.0
             self.fwhm = 2.35 * self.sigma
+            self.fwhm_unc = 2.35 * self.sigma_unc
 
             self.estflux = row['flux']
             self.estflux_unc = row['flux_err']
@@ -3554,9 +3561,9 @@ class HETDEX:
                     "ObsDate %s  ObsID %s IFU %s  CAM %s\n" \
                     "Science file(s):\n%s" \
                     "RA,Dec (%f,%f) \n" \
-                    "$\lambda$ = %g$\AA$  FWHM = %g$\AA$\n" \
+                    "$\lambda$ = %g$\AA$  FWHM = %0.1f($\pm$%0.1f)$\AA$\n" \
                     "EstFlux = %s" \
-                    % (self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.w,e.fwhm,
+                    % (self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.w,e.fwhm,e.fwhm_unc,
                        estflux_str )
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
@@ -3576,9 +3583,9 @@ class HETDEX:
                 title += "\n" \
                      "ObsDate %s  ObsID %s IFU %s  CAM %s\n" \
                      "Science file(s):\n%s" \
-                     "$\lambda$ = %g$\AA$  FWHM = %g$\AA$\n" \
+                     "$\lambda$ = %g$\AA$  FWHM = %0.1f($\pm$%0.1f)$\AA$\n" \
                      "EstFlux = %s" \
-                             % (self.ymd, self.obsid, self.ifu_slot_id, self.specid, sci_files, e.w,e.fwhm,
+                             % (self.ymd, self.obsid, self.ifu_slot_id, self.specid, sci_files, e.w,e.fwhm,e.fwhm_unc,
                                 estflux_str)  # note: e.fluxfrac gauranteed to be nonzero
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux, e.fluxfrac)
@@ -3602,9 +3609,9 @@ class HETDEX:
                 title += "\n" \
                      "Primary IFU SpecID (%s) SlotID (%s)\n" \
                      "RA,Dec (%f,%f) \n" \
-                     "$\lambda$ = %g$\AA$  FWHM = %g$\AA$\n" \
+                     "$\lambda$ = %g$\AA$  FWHM = %0.1f($\pm$%0.1f)$\AA$\n" \
                      "EstFlux = %s" \
-                     % (e.fibers[0].specid, e.fibers[0].ifuslot, ra, dec, e.w,e.fwhm, estflux_str)
+                     % (e.fibers[0].specid, e.fibers[0].ifuslot, ra, dec, e.w,e.fwhm,e.fwhm_unc, estflux_str)
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
@@ -3625,9 +3632,9 @@ class HETDEX:
             else: #this if for zooniverse, don't show RA and DEC or probabilities
                 title += "\n" \
                      "Primary IFU SpecID (%s) SlotID (%s)\n" \
-                     "$\lambda$ = %g$\AA$  FWHM = %g$\AA$\n" \
+                     "$\lambda$ = %g$\AA$  FWHM = %0.1f($\pm$%0.1f)$\AA$\n" \
                      "EstFlux = %s " \
-                     % ( e.fibers[0].specid, e.fibers[0].ifuslot,e.w,e.fwhm, estflux_str)
+                     % ( e.fibers[0].specid, e.fibers[0].ifuslot,e.w,e.fwhm, e.fwhm_unc, estflux_str)
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
@@ -3645,14 +3652,16 @@ class HETDEX:
 
         if self.panacea:
             snr = e.sigma
+            snr_unc = 0.0
             if (e.snr is not None) and (e.snr != 0.0):
                 snr = e.snr
-            title += "S/N = %0.2f " % (snr)
+                snr_unc = e.snr_unc
+            title += "S/N = %0.1f($\pm$%0.1f) " % (snr,snr_unc)
         else:
             title += "$\sigma$ = %g " % (e.sigma)
 
         if (e.chi2 is not None) and (e.chi2 != 666) and (e.chi2 != 0):
-            title += " $\chi^2$ = %g" % (e.chi2)
+            title += " $\chi^2$ = %0.1f($\pm$%0.1f)" % (e.chi2,e.chi2_unc)
 
 
         #if e.dqs is None:
@@ -4746,12 +4755,14 @@ class HETDEX:
 
         #not dynamic, but if we are going to add a combined 2D spectra cutout at the top, set this to 1
         add_summed_image = 1 #note: adding w/cosmics masked out
+        frac_y_separator = 0.2 #add a separator between the colored fibers and the black (summed) fiber at this
+                               #fraction of the cell height
 
         cmap = plt.get_cmap('gray_r')
 
         colors = self.make_fiber_colors(min(4,len(datakeep['ra'])),len(datakeep['ra']))# + 2 ) #the +2 is a pad in the call
         num_fibers = len(datakeep['xi'])
-        num_to_display = min(MAX_2D_CUTOUTS,num_fibers) + add_summed_image #for the summed images
+        num_to_display = min(MAX_2D_CUTOUTS,num_fibers) + add_summed_image  #for the summed images
         bordbuff = 0.01
         borderxl = 0.05
         borderxr = 0.15
@@ -4763,7 +4774,7 @@ class HETDEX:
         dy = (1. - borderyb - borderyt) / (num_to_display)
         dx1 = (1. - borderxl - borderxr) / 3.
         dy1 = (1. - borderyb - borderyt - (num_to_display) * bordbuff) / (num_to_display)
-        Y = (yw / dy) / (xw / dx) * 5.
+        Y = (yw / dy) / (xw / dx) * 5. + frac_y_separator * dy #+ 0.2 as a separator at the top
 
         Y = max(Y,0.8) #set a minimum size
 
@@ -4836,11 +4847,17 @@ class HETDEX:
                 gauss_vmin, gauss_vmax =  self.get_vrange(summed_image, scale=contrast1)
 
             if make_display:
-                borplot = plt.axes([borderxl + 0. * dx, borderyb + grid_idx * dy, 3 * dx, dy])
-                smplot = plt.axes([borderxl + 2. * dx - bordbuff / 3., borderyb + grid_idx * dy + bordbuff / 2., dx1, dy1])
+
+                if is_a_fiber:
+                    y_separator = 0.0
+                else:
+                    y_separator = frac_y_separator * dy
+
+                borplot = plt.axes([borderxl + 0. * dx, borderyb + grid_idx * dy + y_separator, 3 * dx, dy])
+                smplot = plt.axes([borderxl + 2. * dx - bordbuff / 3., borderyb + grid_idx * dy + bordbuff / 2. + y_separator, dx1, dy1])
                 pixplot = plt.axes(
-                    [borderxl + 1. * dx + 1 * bordbuff / 3., borderyb + grid_idx * dy + bordbuff / 2., dx1, dy1])
-                imgplot = plt.axes([borderxl + 0. * dx + bordbuff / 2., borderyb + grid_idx * dy + bordbuff / 2., dx1, dy1])
+                    [borderxl + 1. * dx + 1 * bordbuff / 3., borderyb + grid_idx * dy + bordbuff / 2.  + y_separator, dx1, dy1])
+                imgplot = plt.axes([borderxl + 0. * dx + bordbuff / 2., borderyb + grid_idx * dy + bordbuff / 2. + y_separator, dx1, dy1])
                 autoAxis = borplot.axis()
 
                 rec = plt.Rectangle((autoAxis[0] + bordbuff / 2., autoAxis[2] + bordbuff / 2.),
@@ -5626,7 +5643,7 @@ class HETDEX:
                 specplot.axis([left, right, mn - ran / 20, mx + ran / 20])
             # specplot.set_ylabel(y_label) #not honoring it, so just put in the text plot
 
-            specplot.locator_params(axis='y',tight=True,nbins=4,y_label='cgs')
+            specplot.locator_params(axis='y',tight=True,nbins=4)#,y_label='cgs') #y_label deprecated?
 
             textplot = plt.axes([border_buffer, (float(num)+3) * dy, 1.0 - (2 * border_buffer), dy*2 ])
             textplot.set_xticks([])

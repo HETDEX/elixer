@@ -10,10 +10,12 @@ import sys
 
 try:
     from elixer import global_config as G
-    import elixer.line_classifier.probs.classification_prob_leung as LineClassifierPro
+    import elixer.line_classifier.probs.classification_prob as LineClassifierPro
+#    import elixer.line_classifier.probs.classification_prob_leung as LineClassifierPro_Leung
 except:
     import global_config as G
-    import line_classifier.probs.classification_prob_leung as LineClassifierPro
+    import line_classifier.probs.classification_prob as LineClassifierPro
+#    import line_classifier.probs.classification_prob_leung as LineClassifierPro_Leung
 
 import numpy as np
 #numpy import array
@@ -388,9 +390,9 @@ def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_
     else:
         pogd = 0.
 
-    plgd = prob_lae_given_data
-    ratio_LAE = min(MAX_PLAE_POII, posterior_odds)
-    ratio_LAE = max(ratio_LAE,MIN_PLAE_POII)
+    plgd = np.float(prob_lae_given_data)
+    ratio_LAE = np.float(min(MAX_PLAE_POII, posterior_odds))
+    ratio_LAE = np.float(max(ratio_LAE,MIN_PLAE_POII))
 
     #temporary -- compare results and note if the new method disagrees with the old
     # if old_ratio_LAE + ratio_LAE > 0.2: #if they are both small, don't bother

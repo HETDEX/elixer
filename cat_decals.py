@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+
 try:
     from elixer import global_config as G
     from elixer import science_image
@@ -15,11 +16,10 @@ except:
 
 import os.path as op
 import copy
+from ftplib import FTP
 
 
 import matplotlib
-import warnings
-warnings.filterwarnings("ignore",category=matplotlib.cbook.MatplotlibDeprecationWarning)
 #matplotlib.use('agg')
 
 import pandas as pd
@@ -27,12 +27,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 import matplotlib.gridspec as gridspec
-#import astropy.io.fits as fits
 import astropy.table
-#import astropy.utils.exceptions
-#import warnings
-#warnings.filterwarnings('ignore', category=astropy.utils.exceptions.AstropyUserWarning, append=True)
-
 
 #log = G.logging.getLogger('Cat_logger')
 #log.setLevel(G.logging.DEBUG)
@@ -42,289 +37,41 @@ log.setlevel(G.logging.DEBUG)
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
 
-def shela_count_to_mag(count,cutout=None,headers=None):
-    if count is not None:
-        #if cutout is not None:
-        #get the conversion factor, each tile is different
-        try:
-            #gain = float(sci_image[0].header['GAIN'])
-            #nanofact = float(sci_image[0].header['NANOFACT'])
-            magzero = float(headers[0]['MAGZERO'])
-        except:
-            #gain = 1.0
-            nanofact = 0.0
-            log.error("Exception in shela_count_to_mag",exc_info=True)
-            return 99.9
 
-        if count > 0:
-            #return -2.5 * np.log10(count*nanofact) + magzero
-            # counts for SHELA  ALREADY in nanojansky
-            if isinstance(count,float):
-                return -2.5 * np.log10(count) + magzero
-            else:
-                return -2.5 * np.log10(count.value) + magzero
-        else:
-            return 99.9  # need a better floor
+def decals_count_to_mag(count,cutout=None,headers=None):
+   return 999.9
 
-class SHELA(cat_base.Catalog):
+
+class DECALS(cat_base.Catalog):#Hyper Suprime Cam
     # class variables
-    SHELA_BASE_PATH = G.SHELA_BASE_PATH
-    SHELA_CAT_PATH = G.SHELA_CAT_PATH
-    SHELA_IMAGE_PATH = G.DECAM_IMAGE_PATH#G.SHELA_BASE_PATH
-
-    #not all tiles have all filters
-    Filters = ['u','g','r','i','z']
-    #Tiles = ['3','4','5','6']
-    SHELA_Tiles = ['B3','B4','B5','B6']
-    Tiles = ['A1','A2','A3','A4','A5','A6','A7','A8','A9','A10',
-             'B1','B2','B3','B4','B5','B6','B7','B8','B9','B10',
-             'C1','C2','C3','C4','C5','C6','C7','C8','C9','C10']
-    Img_ext = ['psfsci.fits','sci.fits'] #was psfsci.fits for just SHELA
-    Cat_ext = ['dualcat.fits','cat.fits'] #was 'dualgcat.fits'
-    loaded_cat_tiles = [] #tile lables, like "A1","C9", etc for which the catalog has already been loaded
+    DECALS_BASE_PATH = G.DECALS_BASE_PATH
+    DECALS_CAT_PATH = G.DECALS_CAT_PATH
+    DECALS_IMAGE_PATH = G.DECALS_IMAGE_PATH
 
     CONT_EST_BASE = None
 
-    PhotoZ_combined_cat = op.join(G.SHELA_PHOTO_Z_COMBINED_PATH,"shela_decam_irac_vista_combined_catalog.fits")
-    PhotoZ_master_cat = op.join(G.SHELA_PHOTO_Z_MASTER_PATH,"photz_master.zout.FITS")
-
     df = None
-    df_photoz = None
+    loaded_tracts = []
 
-    MainCatalog = "SHELA" #while there is no main catalog, this needs to be not None
-    Name = "DECAM/SHELA"
+    MainCatalog = None #there is no Main Catalog ... must load individual catalog tracts
+    Name = "DECaLS"
 
-    # if multiple images, the composite broadest range (filled in by hand)
-    Image_Coord_Range = {'RA_min': 8.50, 'RA_max': 36.51, 'Dec_min': -4.0, 'Dec_max': 4.0}
-    #approximate
-    Tile_Coord_Range = {
-                        'A1': {'RA_min':  8.50, 'RA_max': 11.31, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                        'A2': {'RA_min': 11.30, 'RA_max': 14.11, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                        'A3': {'RA_min': 14.10, 'RA_max': 16.91, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                        'A4': {'RA_min': 16.90, 'RA_max': 19.71, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                        'A5': {'RA_min': 19.70, 'RA_max': 22.51, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                        'A6': {'RA_min': 22.50, 'RA_max': 25.31, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                        'A7': {'RA_min': 25.30, 'RA_max': 28.11, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                        'A8': {'RA_min': 28.10, 'RA_max': 30.91, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                        'A9': {'RA_min': 30.90, 'RA_max': 33.71, 'Dec_min': 1.32, 'Dec_max': 4.0},
-                        'A10':{'RA_min': 33.70, 'RA_max': 36.51, 'Dec_min': 1.32, 'Dec_max': 4.0},
-
-                        'B1': {'RA_min':  8.50, 'RA_max': 11.31, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                        'B2': {'RA_min': 11.30, 'RA_max': 14.11, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                        'B3': {'RA_min': 14.10, 'RA_max': 16.91, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                        'B4': {'RA_min': 16.90, 'RA_max': 19.71, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                        'B5': {'RA_min': 19.70, 'RA_max': 22.51, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                        'B6': {'RA_min': 22.50, 'RA_max': 25.31, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                        'B7': {'RA_min': 25.30, 'RA_max': 28.11, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                        'B8': {'RA_min': 28.10, 'RA_max': 30.91, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                        'B9': {'RA_min': 30.90, 'RA_max': 33.71, 'Dec_min': -1.35, 'Dec_max': 1.34},
-                        'B10':{'RA_min': 33.70, 'RA_max': 36.51, 'Dec_min': -1.35, 'Dec_max': 1.34},
-
-                        'C1': {'RA_min':  8.50, 'RA_max': 11.31, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                        'C2': {'RA_min': 11.30, 'RA_max': 14.11, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                        'C3': {'RA_min': 14.10, 'RA_max': 16.91, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                        'C4': {'RA_min': 16.90, 'RA_max': 19.71, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                        'C5': {'RA_min': 19.70, 'RA_max': 22.51, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                        'C6': {'RA_min': 22.50, 'RA_max': 25.31, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                        'C7': {'RA_min': 25.30, 'RA_max': 28.11, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                        'C8': {'RA_min': 28.10, 'RA_max': 30.91, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                        'C9': {'RA_min': 30.90, 'RA_max': 33.71, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                        'C10':{'RA_min': 33.70, 'RA_max': 36.51, 'Dec_min': -4.0, 'Dec_max': -1.32},
-                    }
-
-
+    #Image_Coord_Range = hsc_meta.Image_Coord_Range
+    #Tile_Dict = hsc_meta.HSC_META_DICT
+    Filters = ['g','r','z'] #case is important ... needs to be lowercase
     Cat_Coord_Range = {'RA_min': None, 'RA_max': None, 'Dec_min': None, 'Dec_max': None}
 
-    WCS_Manual = False
+    WCS_Manual = True
 
     AstroTable = None
 
-# ColDefs(
-#     name = 'NUMBER'; format = '1J'; disp = 'I10'
-#     name = 'FLUXERR_ISO'; format = '1E'; unit = 'count'; disp = 'G12.7'
-#     name = 'MAG_APER'; format = '25E'; unit = 'mag'; disp = 'F8.4'
-#     name = 'MAGERR_APER'; format = '25E'; unit = 'mag'; disp = 'F8.4'
-#     name = 'FLUX_AUTO'; format = '1E'; unit = 'count'; disp = 'G12.7'
-#     name = 'FLUXERR_AUTO'; format = '1E'; unit = 'count'; disp = 'G12.7'
-#     name = 'MAG_AUTO'; format = '1E'; unit = 'mag'; disp = 'F8.4'
-#     name = 'MAGERR_AUTO'; format = '1E'; unit = 'mag'; disp = 'F8.4'
-#     name = 'KRON_RADIUS'; format = '1E'; disp = 'F5.2'
-#     name = 'THRESHOLD'; format = '1E'; unit = 'count'; disp = 'G12.7'
-#     name = 'X_IMAGE'; format = '1E'; unit = 'pixel'; disp = 'F11.4'
-#     name = 'Y_IMAGE'; format = '1E'; unit = 'pixel'; disp = 'F11.4'
-#     name = 'ALPHA_J2000'; format = '1D'; unit = 'deg'; disp = 'F11.7'
-#     name = 'DELTA_J2000'; format = '1D'; unit = 'deg'; disp = 'F11.7'
-#     name = 'A_WORLD'; format = '1E'; unit = 'deg'; disp = 'G12.7'
-#     name = 'B_WORLD'; format = '1E'; unit = 'deg'; disp = 'G12.7'
-#     name = 'FLUX_RADIUS'; format = '1E'; unit = 'pixel'; disp = 'F10.3'
-#     name = 'THETA_J2000'; format = '1E'; unit = 'deg'; disp = 'F6.2'
-#     name = 'FWHM_IMAGE'; format = '1E'; unit = 'pixel'; disp = 'F8.2'
-#     name = 'FWHM_WORLD'; format = '1E'; unit = 'deg'; disp = 'G12.7'
-#     name = 'FLAGS'; format = '1I'; disp = 'I3'
-#     name = 'IMAFLAGS_ISO'; format = '1J'; disp = 'I9'
-#     name = 'NIMAFLAGS_ISO'; format = '1J'; disp = 'I9'
-#     name = 'CLASS_STAR'; format = '1E'; disp = 'F6.3'
-# )
-
-    # photz_master.zout.FITS fields
-    # 'id',
-    # 'z_spec',
-    # 'z_a',
-    # 'z_m1',
-    # 'chi_a',
-    # 'l68',
-    # 'u68',
-    # 'l95',
-    # 'u95',
-    # 'l99',
-    # 'u99',
-    # 'nfilt',
-    # 'q_z',
-    # 'z_peak',
-    # 'peak_prob',
-    # 'z_mc'
-
-
-    #shela_decam_irac_vista_combined_catalog.fits fields
-    # 'X_IMAGE',
-    # 'Y_IMAGE',
-    # 'RA',
-    # 'DEC',
-    # 'FWHM_IMAGE',
-    # 'A_IMAGE',
-    # 'B_IMAGE',
-    # 'THETA_IMAGE',
-    # 'ISOAREA_FROM_SEGMAP',
-    # 'FLAGS',
-    # 'FLUX_APER_1_u',
-    # 'FLUX_APER_2_u',
-    # 'SIGMA_APER_1_u',
-    # 'SIGMA_APER_2_u',
-    # 'FLUX_AUTO_u',
-    # 'SIGMA_AUTO_u',
-    # 'FLUX_ISO_u',
-    # 'SIGMA_ISO_u',
-    # 'FLUX_RADIUS_u',
-    # 'KRON_RADIUS_u',
-    # 'EXP_CENTER_PIXEL_u',
-    # 'CLASS_STAR_u',
-    # 'IMAFLAGS_ISO_u',
-    # 'FLUX_APER_1_g',
-    # 'FLUX_APER_2_g',
-    # 'SIGMA_APER_1_g',
-    # 'SIGMA_APER_2_g',
-    # 'FLUX_AUTO_g',
-    # 'SIGMA_AUTO_g',
-    # 'FLUX_ISO_g',
-    # 'SIGMA_ISO_g',
-    # 'FLUX_RADIUS_g',
-    # 'KRON_RADIUS_g',
-    # 'EXP_CENTER_PIXEL_g',
-    # 'CLASS_STAR_g',
-    # 'IMAFLAGS_ISO_g',
-    # 'FLUX_APER_1_r',
-    # 'FLUX_APER_2_r',
-    # 'SIGMA_APER_1_r',
-    # 'SIGMA_APER_2_r',
-    # 'FLUX_AUTO_r',
-    # 'SIGMA_AUTO_r',
-    # 'FLUX_ISO_r',
-    # 'SIGMA_ISO_r',
-    # 'FLUX_RADIUS_r',
-    # 'KRON_RADIUS_r',
-    # 'EXP_CENTER_PIXEL_r',
-    # 'CLASS_STAR_r',
-    # 'IMAFLAGS_ISO_r',
-    # 'FLUX_APER_1_i',
-    # 'FLUX_APER_2_i',
-    # 'SIGMA_APER_1_i',
-    # 'SIGMA_APER_2_i',
-    # 'FLUX_AUTO_i',
-    # 'SIGMA_AUTO_i',
-    # 'FLUX_ISO_i',
-    # 'SIGMA_ISO_i',
-    # 'FLUX_RADIUS_i',
-    # 'KRON_RADIUS_i',
-    # 'EXP_CENTER_PIXEL_i',
-    # 'CLASS_STAR_i',
-    # 'IMAFLAGS_ISO_i',
-    # 'FLUX_APER_1_z',
-    # 'FLUX_APER_2_z',
-    # 'SIGMA_APER_1_z',
-    # 'SIGMA_APER_2_z',
-    # 'FLUX_AUTO_z',
-    # 'SIGMA_AUTO_z',
-    # 'FLUX_ISO_z',
-    # 'SIGMA_ISO_z',
-    # 'FLUX_RADIUS_z',
-    # 'KRON_RADIUS_z',
-    # 'EXP_CENTER_PIXEL_z',
-    # 'CLASS_STAR_z',
-    # 'IMAFLAGS_ISO_z',
-    # 'EBV',
-    # 'EBV_STDDEV',
-    # 'DETECT_IMG_FLUX_AUTO',
-    # 'DETECT_IMG_FLUXERR_AUTO',
-    # 'CATALOG_ID_A',
-    # 'CATALOG_ID_B',
-    # 'ch1_trflux_uJy',
-    # 'ch2_trflux_uJy',
-    # 'ch1_fluxvar_uJy',
-    # 'ch2_fluxvar_uJy',
-    # 'ch1_aper_errflux_uJy',
-    # 'ch2_aper_errflux_uJy',
-    # 'ch1_logprob',
-    # 'ch2_logprob',
-    # 'ch1_tractorflag',
-    # 'ch2_tractorflag',
-    # 'ch1_optpsf_arcs',
-    # 'ch2_optpsf_arcs',
-    # 'ch1_psfvar_arcs',
-    # 'ch2_psfvar_arcs',
-    # 'irac_ch1weightvalues',
-    # 'irac_ch2weightvalues',
-    # 'DECAM_FIELD_ID',
-    # 'MASTER_ID',
-    # 'FLUX_AUTO_K',
-    # 'SIGMA_AUTO_K',
-    # 'FLUX_AUTO_J',
-    # 'SIGMA_AUTO_J',
-    # 'VISTA_d2d_arcsec'
-
-    #NUMBER is NOT unique across Tiles (as expected)
-    #NUMBER is NOT unique within a Tile either (bummer)
-    #so ... it is essentially useless, just an index-1
-    #plus they have different entries per filter, so must match by exact RA, DEC? are they consistent??
-
-    BidCols = ['NUMBER',  # int32
-               'FLUXERR_ISO',  # ct float32
-               'MAG_APER',  # [25] mag float32
-               'MAGERR_APER',  # [25] mag float32
-               'FLUX_AUTO',  # ct float32
-               'FLUXERR_AUTO',  # ct float32
-               'MAG_AUTO',  # mag float32
-               'MAGERR_AUTO',  # mag float32
-               'KRON-RADIUS', #
-               'THRESHOLD', # ct float32
-               'X_IMAGE',  # pix float32
-               'Y_IMAGE',  # pix float32
-               'ALPHA_J2000',  # deg float64
-               'DELTA_J2000',  # deg float64
-               'A_WORLD',  # deg float32
-               'B_WORLD',  # deg float32
-               'FLUX_RADIUS',  # pix float32
-               'THETA_J2000',  #
-               'FWHM_IMAGE',  # pix float32
-               'FWHM_WORLD',  # deg float32
-               'FLAGS',  # int16
-               'IMAFLAGS_ISO',  # int32
-               'NIMAFLAGS_ISO',  # int32
-               'CLASS_STAR']  # float32
+    BidCols = [
+        ]
 
     CatalogImages = [] #built in constructor
 
     def __init__(self):
-        super(SHELA, self).__init__()
+        super(DECALS, self).__init__()
 
         self.dataframe_of_bid_targets = None
         self.dataframe_of_bid_targets_unique = None
@@ -333,216 +80,210 @@ class SHELA(cat_base.Catalog):
         self.master_cutout = None
         self.build_catalog_of_images()
 
-
     @classmethod
-    def read_catalog(cls, catalog_loc=None, name=None, tile=None): #tile is a single tile like "A3"
-        "This catalog is in a fits file"
-
-        #ignore catalog_loc and name. Must use class defined.
-        #build each tile and filter and concatenate into a single pandas dataframe
-
-        if tile is not None:
-            if tile in cls.loaded_cat_tiles:
-                log.info("Catalog tile (%s) already loaded." %tile)
-                return cls.df
-        else:
-            log.error("Cannot load catalog tile for DECAM/SHELA. No tile provided.")
-            return None
+    def read_catalog(cls, catalog_loc=None, name=None,tract=None):
 
         if name is None:
             name = cls.Name
 
-        df_master = pd.DataFrame()
-
-        for f in cls.Filters:
-            for ext in cls.Cat_ext:
-                cat_name = tile +'_'+f+'_'+ ext
-                cat_loc = op.join(cls.SHELA_CAT_PATH, cat_name)
-
-                if not op.exists(cat_loc):
-                    continue
-
-                log.debug("Building " + cls.Name + " " + cat_name + " dataframe...")
-
-                try:
-                    table = astropy.table.Table.read(cat_loc)#,format='fits')
-                except:
-                    log.error(name + " Exception attempting to open catalog file: " + cat_loc, exc_info=True)
-                    continue #try the next one  #exc_info = sys.exc_info()
-
-                # convert into a pandas dataframe ... cannot convert directly to pandas because of the [25] lists
-                # so build a pandas df with just the few columns we need for searching
-                # then pull data from full astro table as needed
-
-                try:
-                    lookup_table = astropy.table.Table([table['NUMBER'], table['ALPHA_J2000'], table['DELTA_J2000'],
-                                          table['FLUX_AUTO'],table['FLUXERR_AUTO'],table['MAG_AUTO'],table['MAGERR_AUTO']])
-                    pddf = lookup_table.to_pandas()
-                    old_names = ['NUMBER', 'ALPHA_J2000', 'DELTA_J2000']
-                    new_names = ['ID', 'RA', 'DEC']
-                    pddf.rename(columns=dict(zip(old_names, new_names)), inplace=True)
-                    pddf['TILE'] = tile
-                    pddf['FILTER'] = f
-
-                    df_master = pd.concat([df_master,pddf])
-
-                    cls.loaded_cat_tiles.append(tile)
-
-                   # cls.AstroTable = table
-                except:
-                    log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
-                    return None
-
-                break #keep only the first found matching extensions
-
-        cls.df = df_master
-        return df_master
-
-    @classmethod
-    def merge_photoz_catalogs(cls, combined_cat_file=PhotoZ_combined_cat, master_cat_file=PhotoZ_master_cat):
-        "This catalog is in a fits file"
-
-        if (0):
-            print("!!!SKIPPING PHOTOZ CATALOGS ... BE SURE TO RESTORE!!!")
-            return
-
-        log.info("Merging DECAM/SHELA PhotoZ Catalogs (this may take a while) ...")
-
-        try:
-            combined_table = astropy.table.Table.read(combined_cat_file)
-            master_table = astropy.table.Table.read(master_cat_file)
-            master_table.rename_column('id', 'MASTER_ID')
-            cls.df_photoz = astropy.table.join(master_table, combined_table, ['MASTER_ID'])
-
-            #error with .to_pandas(), so have to leave as astropy table (not as fast, but then
-            #we are just doing direct lookup, not a search)
-        except:
-            log.error("Exception attempting to open and compbine photoz catalog files: \n%s\n%s"
-                      %(combined_cat_file, master_cat_file), exc_info=True)
+        if tract is not None and (len(tract)>0): #tract may be a list
+            if set(tract).issubset(cls.loaded_tracts):
+                log.info("Catalog tract (%s) already loaded." %tract)
+                return cls.df
+        else:
+        #if tract is None:
+            log.error("Cannot load catalog tract for DECaLS. No tract provided.")
             return None
 
 
-        return cls.df_photoz
+        #todo: future more than just the R filter if any are ever added
+        for t in tract:
+            if t in cls.loaded_tracts: #skip if already loaded
+                continue
+
+            cat_name = 'R_' + t + ".dat"
+            cat_loc = op.join(cls.HSC_CAT_PATH, cat_name)
+            header = cls.BidCols
+
+            if not op.exists(cat_loc):
+                log.error("Cannot load catalog tract for DECaLS. File does not exist: %s" %cat_loc)
+
+            log.debug("Building " + cls.Name + " " + cat_name + " dataframe...")
+
+            try:
+                df = pd.read_csv(cat_loc, names=header,
+                                 delim_whitespace=True, header=None, index_col=None, skiprows=0)
+
+                old_names = ['Dec']
+                new_names = ['DEC']
+                df.rename(columns=dict(zip(old_names, new_names)), inplace=True)
+
+                df['FILTER'] = 'r' #add the FILTER to the dataframe !!! case is important. must be lowercase
+
+                if cls.df is not None:
+                    cls.df = pd.concat([cls.df, df])
+                else:
+                    cls.df = df
+                cls.loaded_tracts.append(t)
+
+            except:
+                log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
+                continue
+
+        return cls.df
 
     def build_catalog_of_images(self):
-        for t in self.Tiles:
+
+        for t in self.Tile_Dict.keys(): #tile is the key (the filename)
             for f in self.Filters:
-                #if the file exists, add it
-                for ext in self.Img_ext:
-                    name = t+'_'+f+'_'+ ext
-                    if op.exists(op.join(self.SHELA_IMAGE_PATH,name)):
-                        self.CatalogImages.append(
-                            {'path': self.SHELA_IMAGE_PATH,
-                             'name': name, #'B'+t+'_'+f+'_'+self.Img_ext,
-                             'tile': t,
-                             'filter': f,
-                             'instrument': "DECAM",
-                             'cols': [],
-                             'labels': [],
-                             'image': None,
-                             'expanded': False,
-                             'wcs_manual': False,
-                             'aperture': 1.0,
-                             'mag_func': shela_count_to_mag
-                             })
-                        break #(out of ext in self.Img_ext) keep the first name that is found
+                self.CatalogImages.append(
+                    {'path': self.HSC_IMAGE_PATH,
+                     'name': t, #filename is the tilename
+                     'tile': t,
+                     'filter': f,
+                     'instrument': "HSC",
+                     'cols': [],
+                     'labels': [],
+                     'image': None,
+                     'expanded': False,
+                     'wcs_manual': True,
+                     'aperture': 1.0,
+                     'mag_func': hsc_count_to_mag
+                     })
 
     def find_target_tile(self,ra,dec):
         #assumed to have already confirmed this target is at least in coordinate range of this catalog
+        #return at most one tile, but maybe more than one tract (for the catalog ... HSC does not completely
+        #   overlap the tracts so if multiple tiles are valid, depending on which one is selected, you may
+        #   not find matching objects for the associated tract)
         tile = None
-        for t in self.Tiles:
-
+        tract = []
+        keys = []
+        for k in self.Tile_Dict.keys():
             # don't bother to load if ra, dec not in range
             try:
-                coord_range = self.Tile_Coord_Range[t]
-                # {'RA_min': 14.09, 'RA_max': 16.91, 'Dec_min': -1.35, 'Dec_max': 1.34}
-                if not ((ra >= coord_range['RA_min']) and (ra <= coord_range['RA_max']) and
-                        (dec >= coord_range['Dec_min']) and (dec <= coord_range['Dec_max'])) :
+                if not ((ra >= self.Tile_Dict[k]['RA_min']) and (ra <= self.Tile_Dict[k]['RA_max']) and
+                        (dec >= self.Tile_Dict[k]['Dec_min']) and (dec <= self.Tile_Dict[k]['Dec_max'])) :
                     continue
+                else:
+                    keys.append(k)
             except:
                 pass
 
-            for c in self.CatalogImages:
+        if len(keys) == 0: #we're done ... did not find any
+            return None, None
+        elif len(keys) == 1: #found exactly one
+            tile = keys[0] #remember tile is a string ... there can be only one
+            tract.append(self.Tile_Dict[tile]['tract']) #remember, tract is a list (there can be more than one)
+        elif len(keys) > 1: #find the best one
+            log.info("Multiple overlapping tiles %s. Sub-selecting tile with maximum angular coverage around target." %keys)
+            min = 9e9
+            #we don't have the actual corners anymore, so just assume a rectangle
+            #so there are 2 of each min, max coords. Only need the smallest distance so just sum one
+            for k in keys:
+                tract.append(self.Tile_Dict[k]['tract'])
+                sqdist = (ra-self.Tile_Dict[k]['RA_min'])**2 + (dec-self.Tile_Dict[k]['Dec_min'])**2 + \
+                         (ra-self.Tile_Dict[k]['RA_max'])**2 + (dec-self.Tile_Dict[k]['Dec_max'])**2
+                if sqdist < min:
+                    min = sqdist
+                    tile = k
+        else: #really?? len(keys) < 0 : this is just a sanity catch
+            log.error("ERROR! len(keys) < 0 in cat_hsc::find_target_tile.")
+            return None, None
 
-                try:
-                    if ((ra < self.Tile_Coord_Range[c['tile']]['RA_min']) or \
-                       (ra > self.Tile_Coord_Range[c['tile']]['RA_max']) or \
-                       (dec < self.Tile_Coord_Range[c['tile']]['Dec_min']) or \
-                       (dec > self.Tile_Coord_Range[c['tile']]['Dec_max'])):
-                        continue
-                except:
-                    log.warning("Minor Exception in cat_shela.py:find_target_tile ", exc_info=True)
+        log.info("Selected tile: %s" % tile)
+        #now we have the tile key (filename)
+        #do we want to find the matching catalog and see if there is an entry in it?
 
-                try:
-                    image = science_image.science_image(wcs_manual=self.WCS_Manual,
-                                                        image_location=op.join(self.SHELA_IMAGE_PATH, c['name']))
-                    if image.contains_position(ra, dec):
-                        tile = t
-                    else:
-                        log.debug("position (%f, %f) is not in image. %s" % (ra, dec, c['name']))
+        #sanity check the image
+        # try:
+        #     image = science_image.science_image(wcs_manual=self.WCS_Manual,wcs_idx=1,
+        #                                         image_location=op.join(self.HSC_IMAGE_PATH,tile))
+        #     if image.contains_position(ra, dec):
+        #         pass
+        #     else:
+        #         log.debug("position (%f, %f) is not in image. %s" % (ra, dec,tile))
+        #         tile = None
+        # except:
+        #     pass
 
-                except:
-                    pass
+        return tile, tract
 
-                if tile is not None:
-                    break
-
-        return tile
-
-
-    def get_filter_flux(self,df):
+    def get_filter_flux(self, df):
 
         filter_fl = None
         filter_fl_err = None
+        filter_flag = None
         mag = None
         mag_bright = None
         mag_faint = None
-        filter_str = None
+        filter_str = 'R'
+
+        method  = None
+
+        try:
+            if df['flux.psf.flags'].values[0]:  # there is a problem
+                if df['flux.kron.flags'].values[0]:  # there is a problem
+                    if df['cmodel.flux.flags'].values[0]:  # there is a problem
+                        log.info("Flux/Mag unreliable due to errors.")
+                        return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
+                    else:
+                        method = 'cmodel'
+                else:
+                    method = 'kron'
+            else:
+                method = 'psf'
+        except:
+            log.error("Exception in cat_hsc.get_filter_flux", exc_info=True)
+            return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
+
         try:
 
-            filter_str = 'r'
-            dfx = df.loc[df['FILTER'] == filter_str]
+            if method == 'psf' or method == 'kron':
+                filter_fl = df["flux." + method].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                filter_fl_err = df["flux." + method + ".err"].values[0]
+                mag = df["mag." + method].values[0]
+                # mag_bright = mag - df["magerr."+method].values[0]
+                mag_faint = df["magerr." + method].values[0]
+                mag_bright = -1 * mag_faint
+            else:  # cmodel
+                filter_fl = df[method + ".flux"].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                filter_fl_err = df[method + ".flux.err"].values[0]
+                mag = df[method + ".mag"].values[0]
+                # mag_bright = mag - df["magerr."+method].values[0]
+                mag_faint = df[method + ".magerr"].values[0]
+                mag_bright = -1 * mag_faint
 
-            if (dfx is None) or (len(dfx) == 0):
-                filter_str = 'g'
-                dfx = df.loc[df['FILTER'] == filter_str]
+            # mag, mag_plus, mag_minus = self.micro_jansky_to_mag(filter_fl, filter_fl_err)
+        except:  # not the EGS df, try the CFHTLS
+            log.error("Exception in cat_hsc.get_filter_flux", exc_info=True)
 
-            if (dfx is None) or (len(dfx) == 0):
-                filter_str = '?'
-                log.error("Neither g-band nor r-band filter available.")
-                return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
+            # it is unclear what unit flux is in (but it is not nJy or uJy), so lets back convert from the magnitude
+            # this is used as a continuum estimate
 
-            filter_fl = dfx['FLUX_AUTO'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
-            filter_fl_err = dfx['FLUXERR_AUTO'].values[0]
-            mag = dfx['MAG_AUTO'].values[0]
-            mag_faint = dfx['MAGERR_AUTO'].values[0]
-            mag_bright = -1 * mag_faint
-
-        except: #not the EGS df, try the CFHTLS
-            pass
+        filter_fl = self.obs_mag_to_nano_Jy(mag)
+        filter_fl_err = 0.0  # set to 0 so not to be trusted
 
         return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
+
 
     def build_list_of_bid_targets(self, ra, dec, error):
         '''ra and dec in decimal degrees. error in arcsec.
         returns a pandas dataframe'''
 
-        #if self.df is None:
-        #    self.read_main_catalog()
-
         #even if not None, could be we need a different catalog, so check and append
-        tile = self.find_target_tile(ra,dec)
+        tile, tract = self.find_target_tile(ra,dec)
 
         if tile is None:
-            log.info("Could not locate tile for DECAM/SHELA. Discontinuing search of this catalog.")
+            log.info("Could not locate tile for HSC. Discontinuing search of this catalog.")
             return -1,None,None
 
         #could be none or could be not loaded yet
-        if self.df is None or not (set(tile).issubset(self.loaded_cat_tiles)):
-            self.read_catalog(tile=tile)
-
-        if self.df_photoz is None:
-            self.merge_photoz_catalogs()
+        #if self.df is None or not (self.Tile_Dict[tile]['tract'] in self.loaded_tracts):
+        if self.df is None or not (set(tract).issubset(self.loaded_tracts)):
+            #self.read_main_catalog()
+            #self.read_catalog(tract=self.Tile_Dict[tile]['tract'])
+            self.read_catalog(tract=tract)
 
         error_in_deg = np.float64(error) / 3600.0
 
@@ -579,22 +320,13 @@ class SHELA(cat_base.Catalog):
             #this could be done at construction time, but given the smaller subset I think
             #this is faster here
             self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.drop_duplicates(
-                subset=['RA','DEC','FILTER']) #keeps one of each filter
+                subset=['RA','DEC','FILTER'])
 
 
             #relying on auto garbage collection here ...
-            #want to keep FILTER='g' or FILTER='r' if possible (r is better)
+            self.dataframe_of_bid_targets_unique = self.dataframe_of_bid_targets.copy()
             self.dataframe_of_bid_targets_unique = \
-                self.dataframe_of_bid_targets[self.dataframe_of_bid_targets['FILTER']=='r']
-
-            if len(self.dataframe_of_bid_targets_unique) == 0:
-                self.dataframe_of_bid_targets_unique = \
-                    self.dataframe_of_bid_targets[self.dataframe_of_bid_targets['FILTER'] == 'g']
-
-            if len(self.dataframe_of_bid_targets_unique) == 0:
-                self.dataframe_of_bid_targets_unique = \
-                    self.dataframe_of_bid_targets_unique.drop_duplicates(subset=['RA','DEC'])#,'FILTER'])
-
+                self.dataframe_of_bid_targets_unique.drop_duplicates(subset=['RA','DEC'])#,'FILTER'])
             self.num_targets = self.dataframe_of_bid_targets_unique.iloc[:,0].count()
 
         except:
@@ -616,8 +348,10 @@ class SHELA(cat_base.Catalog):
                                  target_w=0, fiber_locs=None, target_flux=None):
 
         self.clear_pages()
-        self.build_list_of_bid_targets(target_ra, target_dec, error)
+        num_targets, _, _ = self.build_list_of_bid_targets(target_ra, target_dec, error)
+        #could be there is no matching tile, if so, the dataframe will be none
 
+        #if (num_targets == 0) or
         if (self.dataframe_of_bid_targets_unique is None):
             return None
 
@@ -630,6 +364,7 @@ class SHELA(cat_base.Catalog):
                                                   target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux)
         else:
             log.error("ERROR!!! Unexpected state of G.SINGLE_PAGE_PER_DETECT")
+
 
         if entry is not None:
             self.add_bid_entry(entry)
@@ -646,17 +381,18 @@ class SHELA(cat_base.Catalog):
 
         return self.pages
 
-    def get_stacked_cutout(self, ra, dec, window):
+
+    def get_stacked_cutout(self,ra,dec,window):
 
         stacked_cutout = None
         error = window
 
         # for a given Tile, iterate over all filters
-        tile = self.find_target_tile(ra, dec)
+        tile, tract = self.find_target_tile(ra, dec)
         if tile is None:
             # problem
-            print("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" % (ra, dec))
-            log.error("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" % (ra, dec))
+            print("No appropriate tile found in HSC for RA,DEC = [%f,%f]" % (ra, dec))
+            log.error("No appropriate tile found in HSC for RA,DEC = [%f,%f]" % (ra, dec))
             return None
 
         for f in self.Filters:
@@ -677,7 +413,7 @@ class SHELA(cat_base.Catalog):
 
             try:
                 if i['image'] is None:
-                    i['image'] = science_image.science_image(wcs_manual=wcs_manual,
+                    i['image'] = science_image.science_image(wcs_manual=wcs_manual,wcs_idx=1,
                                                              image_location=op.join(i['path'], i['name']))
                 sci = i['image']
 
@@ -693,10 +429,9 @@ class SHELA(cat_base.Catalog):
                         stacked_cutout.data = np.add(stacked_cutout.data, cutout.data * sci.exptime / ref_exptime)
                         total_adjusted_exptime += sci.exptime / ref_exptime
             except:
-                log.error("Error in get_stacked_cutout.", exc_info=True)
+                log.error("Error in get_stacked_cutout.",exc_info=True)
 
         return stacked_cutout
-
 
     def build_cat_summary_figure (self, cat_match, ra, dec, error,bid_ras, bid_decs, target_w=0,
                                   fiber_locs=None, target_flux=None):
@@ -729,12 +464,12 @@ class SHELA(cat_base.Catalog):
         font.set_size(12)
 
         # for a given Tile, iterate over all filters
-        tile = self.find_target_tile(ra, dec)
+        tile, tract = self.find_target_tile(ra, dec)
 
         if tile is None:
             # problem
-            print("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" % (ra, dec))
-            log.error("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" % (ra, dec))
+            print("No appropriate tile found in HSC for RA,DEC = [%f,%f]" % (ra, dec))
+            log.error("No appropriate tile found in HSC for RA,DEC = [%f,%f]" % (ra, dec))
             return None
 
         # All on one line now across top of plots
@@ -745,20 +480,19 @@ class SHELA(cat_base.Catalog):
             title = self.Name + " : Possible Matches = %d (within +/- %g\")" \
                     % (len(self.dataframe_of_bid_targets_unique), error)
 
-        # title += "  Minimum (no match) 3$\sigma$ rest-EW: "
-        # cont_est  = -1
-        # if target_flux  and self.CONT_EST_BASE:
-        #     cont_est = self.CONT_EST_BASE*3
-        #     if cont_est != -1:
-        #         title += "  LyA = %g $\AA$ " % ((target_flux / cont_est) / (target_w / G.LyA_rest))
-        #         if target_w >= G.OII_rest:
-        #             title = title + "  OII = %g $\AA$" % ((target_flux / cont_est) / (target_w / G.OII_rest))
-        #         else:
-        #             title = title + "  OII = N/A"
-        #     else:
-        #         title += "  LyA = N/A  OII = N/A"
-        # else:
-        #     title += "  LyA = N/A  OII = N/A"
+        cont_est = -1
+        if target_flux and self.CONT_EST_BASE:
+            title += "  Minimum (no match) 3$\sigma$ rest-EW: "
+            cont_est = self.CONT_EST_BASE*3
+            if cont_est != -1:
+                title += "  LyA = %g $\AA$ " % ((target_flux / cont_est) / (target_w / G.LyA_rest))
+                if target_w >= G.OII_rest:
+                    title = title + "  OII = %g $\AA$" % ((target_flux / cont_est) / (target_w / G.OII_rest))
+                else:
+                    title = title + "  OII = N/A"
+            else:
+                title += "  LyA = N/A  OII = N/A"
+
 
 
         plt.subplot(gs[0, :])
@@ -771,9 +505,6 @@ class SHELA(cat_base.Catalog):
         bid_colors = self.get_bid_colors(len(bid_ras))
         exptime_cont_est = -1
         index = 0 #images go in positions 1+ (0 is for the fiber positions)
-
-        best_plae_poii = None
-        best_plae_poii_filter = '-'
 
         for f in self.Filters:
             try:
@@ -802,16 +533,16 @@ class SHELA(cat_base.Catalog):
                 mag_func = None
 
             if i['image'] is None:
-                i['image'] = science_image.science_image(wcs_manual=wcs_manual,
+                i['image'] = science_image.science_image(wcs_manual=wcs_manual,wcs_idx=1,
                                                          image_location=op.join(i['path'], i['name']))
             sci = i['image']
 
-            #the filters are in order, use g if f is not there
-            if (f == 'g') and (sci.exptime is not None) and (exptime_cont_est == -1):
+            #the filters are in order, use r if g is not there
+            if (f == 'r') and (sci.exptime is not None) and (exptime_cont_est == -1):
                 exptime_cont_est = sci.exptime
 
-            # the filters are in order, so this will overwrite g
-            if (f == 'r') and (sci.exptime is not None):
+            # the filters are in order, so this will overwrite r
+            if (f == 'g') and (sci.exptime is not None):
                 exptime_cont_est = sci.exptime
 
             # sci.load_image(wcs_manual=True)
@@ -819,10 +550,8 @@ class SHELA(cat_base.Catalog):
                                                      aperture=aperture,mag_func=mag_func)
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
-            bid_target = None
-
             try:  # update non-matched source line with PLAE()
-                if (mag < 99)  and (target_flux is not None) and (i['filter'] in 'gr'):
+                if ((mag < 99) or (cont_est != -1)) and (target_flux is not None) and (i['filter'] == 'r'):
                     # make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
                     bid_target = match_summary.BidTarget()
                     bid_target.catalog_name = self.Name
@@ -858,20 +587,12 @@ class SHELA(cat_base.Catalog):
                                            cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
                                            sigma=None)
 
-                    if best_plae_poii is None or i['filter'] == 'r':
-                        best_plae_poii = bid_target.p_lae_oii_ratio
-                        best_plae_poii_filter = i['filter']
-
-                    #if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
-                    #    text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g" % (bid_target.p_lae_oii_ratio))
+                    if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
+                        text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)" % (bid_target.p_lae_oii_ratio,i['filter']))
 
                     cat_match.add_bid_target(bid_target)
             except:
                 log.debug('Could not build exact location photometry info.', exc_info=True)
-
-            if (not G.ZOO) and (bid_target is not None) and (best_plae_poii is not None):
-                text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)" % (best_plae_poii,best_plae_poii_filter))
-
 
             # 1st cutout might not be what we want for the master (could be a summary image from elsewhere)
             if self.master_cutout:
@@ -883,7 +604,7 @@ class SHELA(cat_base.Catalog):
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:
-                    self.master_cutout,_,_,_ = sci.get_cutout(ra, dec, error, window=window, copy=True)
+                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True)
                     if sci.exptime:
                         ref_exptime = sci.exptime
                     total_adjusted_exptime = 1.0
@@ -894,9 +615,11 @@ class SHELA(cat_base.Catalog):
                     except:
                         log.warning("Unexpected exception.", exc_info=True)
 
-                plt.subplot(gs[1:, index])
+                _ = plt.subplot(gs[1:, index])
+
                 plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                            vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
+
                 plt.title(i['instrument'] + " " + i['filter'])
                 plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
                 plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
@@ -907,6 +630,7 @@ class SHELA(cat_base.Catalog):
                     cy = sci.last_y0_center
                     self.add_aperture_position(plt,mag_radius,mag,cx,cy)
 
+
                 self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
                 x, y = sci.get_position(ra, dec, cutout)  # zero (absolute) position
                 for br, bd, bc in zip(bid_ras, bid_decs, bid_colors):
@@ -914,7 +638,6 @@ class SHELA(cat_base.Catalog):
                     plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
                                                       width=target_box_side, height=target_box_side,
                                                       angle=0.0, color=bc, fill=False, linewidth=1.0, zorder=1))
-
 
 
         #if False:
@@ -1023,7 +746,7 @@ class SHELA(cat_base.Catalog):
             if target_count > G.MAX_COMBINE_BID_TARGETS:
                 break
             col_idx += 1
-            try: #DO NOT WANT _unique (since that has wiped out the filters)
+            try: #DO NOT WANT _unique as that has wiped out the filters
                 df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                        (self.dataframe_of_bid_targets['DEC'] == d[0]) &
                                                        (self.dataframe_of_bid_targets['FILTER'] == 'r')]
@@ -1036,7 +759,7 @@ class SHELA(cat_base.Catalog):
                                                         (self.dataframe_of_bid_targets['DEC'] == d[0])]
 
             except:
-                log.error("Exception attempting to find object in dataframe_of_bid_targets_unique", exc_info=True)
+                log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
                 continue  # this must be here, so skip to next ra,dec
 
             if df is not None:
@@ -1050,14 +773,9 @@ class SHELA(cat_base.Catalog):
                                 % ( df['distance'].values[0] * 3600.,df['dist_prior'].values[0],
                                     df['RA'].values[0], df['DEC'].values[0])
 
-                best_fit_photo_z = 0.0 #SHELA has no photoz right now
-                #try:
-                #    best_fit_photo_z = float(df['Best-fit photo-z'].values[0])
-                #except:
-                #    pass
+                text += "N/A\nN/A\n"  #dont have specz or photoz for HSC
 
-                text += "N/A\n" + "%g\n" % best_fit_photo_z
-
+                #todo: add flux (cont est)
                 try:
                     filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = self.get_filter_flux(df)
                 except:
@@ -1114,18 +832,13 @@ class SHELA(cat_base.Catalog):
                                                                                            ew_case=None, W_0=None,
                                                                                            z_OII=None, sigma=None)
 
-                            dfx = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
-                                                                    (self.dataframe_of_bid_targets['DEC'] == d[0])]
+                            #dfx = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
+                            #                                        (self.dataframe_of_bid_targets['DEC'] == d[0])]
 
-                            for flt,flux,err in zip(dfx['FILTER'].values,
-                                                    dfx['FLUX_AUTO'].values,
-                                                    dfx['FLUXERR_AUTO'].values):
-                                try:
-                                    bid_target.add_filter('NA',flt,
-                                                          self.nano_jansky_to_cgs(flux,target_w),
-                                                          self.nano_jansky_to_cgs(err,target_w))
-                                except:
-                                    log.debug('Unable to build filter entry for bid_target.',exc_info=True)
+                            try:
+                                bid_target.add_filter('HSC','R',filter_fl_cgs,filter_fl_err)
+                            except:
+                                log.debug('Unable to build filter entry for bid_target.',exc_info=True)
 
                             cat_match.add_bid_target(bid_target)
                         except:
@@ -1135,7 +848,7 @@ class SHELA(cat_base.Catalog):
                 else:
                     text += "N/A\nN/A\n"
 
-                text = text + "%0.2f(%0.2f)%s\n" % (filter_mag, filter_mag_faint,filter_str)
+                text = text + "%0.2f(%0.2f,%0.2f)\n" % (filter_mag, filter_mag_bright, filter_mag_faint)
 
                 if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
                     text += "%0.3g\n" % (bid_target.p_lae_oii_ratio)
@@ -1161,9 +874,8 @@ class SHELA(cat_base.Catalog):
         plt.close()
         return fig
 
-
-
     def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None):
+
 
         d = {'cutout':None,
              'hdu':None,
@@ -1183,7 +895,7 @@ class SHELA(cat_base.Catalog):
 
         try:
             if catalog_image['image'] is None:
-                catalog_image['image'] =  science_image.science_image(wcs_manual=wcs_manual,
+                catalog_image['image'] =  science_image.science_image(wcs_manual=wcs_manual,wcs_idx=1,
                                                         image_location=op.join(catalog_image['path'],
                                                                         catalog_image['name']))
                 catalog_image['image'].catalog_name = catalog_image['name']
@@ -1200,7 +912,7 @@ class SHELA(cat_base.Catalog):
             # to here, window is in degrees so ...
             window = 3600. * window
 
-            cutout, pix_counts, mag, mag_radius = sci.get_cutout(ra, dec, error=window, window=window, aperture=aperture,
+            cutout,pix_counts, mag, mag_radius = sci.get_cutout(ra, dec, error=window, window=window, aperture=aperture,
                                              mag_func=mag_func,copy=True)
             # don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
 
@@ -1218,11 +930,11 @@ class SHELA(cat_base.Catalog):
     def get_cutouts(self,ra,dec,window,aperture=None):
         l = list()
 
-        tile = self.find_target_tile(ra, dec)
+        tile, tract = self.find_target_tile(ra, dec)
 
         if tile is None:
             # problem
-            log.error("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" % (ra, dec))
+            log.error("No appropriate tile found in HSC for RA,DEC = [%f,%f]" % (ra, dec))
             return None
 
         for f in self.Filters:

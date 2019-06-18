@@ -12,7 +12,7 @@ import numpy as np
 import socket
 
 #version
-__version__ = '1.7.0a'
+__version__ = '1.7.1a'
 
 #python version
 import sys
@@ -109,6 +109,10 @@ else:
         HSC_BASE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced"
         HSC_CAT_PATH = "/media/dustin/dd/hetdex/data/HSC/catalog_tracts" #"/work/04094/mshiro/maverick/HSC/S15A/reduced/catalog_tracts"
         HSC_IMAGE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced/images"
+
+        DECALS_BASE_PATH = "/media/dustin/dd/hetdex/data/decals"
+        DECALS_CAT_PATH = "/media/dustin/dd/hetdex/data/decals"
+        DECALS_IMAGE_PATH = "/media/dustin/dd/hetdex/data/decals"
 
     else:
 
@@ -369,7 +373,7 @@ NUDGE_MAG_APERTURE_CENTER = 1.0  #allow the center of the mag aperture to drift 
                                  #up to this distance in x and y in arcsec (if 0.0 then no drift is allowed)
 MAX_SKY_SUBTRACT_MAG = 2.0 #if local sky subtraction results in a magnitude change greater than this value, do not apply it
 
-DEBUG_SHOW_GAUSS_PLOTS = False #set on command line now --gaussplots (but keep here for compatibility with other programs)
+DEBUG_SHOW_GAUSS_PLOTS = True #set on command line now --gaussplots (but keep here for compatibility with other programs)
 
 MAX_ANNULUS_RADIUS = 3600.0 #ridiculously large ... need to trim this to a reasonable size
 ANNULUS_FIGURE_SZ_X = 12
