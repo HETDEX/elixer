@@ -490,7 +490,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
     # column names are catalog specific, but could map catalog specific names to generic ones and produce a dictionary?
     def build_bid_target_reports(self, cat_match, target_ra, target_dec, error, num_hits=0, section_title="", base_count=0,
-                                 target_w=0, fiber_locs=None,target_flux=None):
+                                 target_w=0, fiber_locs=None,target_flux=None,detobj=None):
 
         self.clear_pages()
         num_targets, _, _ = self.build_list_of_bid_targets(target_ra, target_dec, error)
@@ -504,7 +504,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         # display the exact (target) location
         if G.SINGLE_PAGE_PER_DETECT:
             entry = self.build_cat_summary_figure(cat_match,target_ra, target_dec, error, ras, decs,
-                                                  target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,)
+                                                  target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,
+                                                  detobj=detobj)
         else:
             log.error("ERROR!!! Unexpected state of G.SINGLE_PAGE_PER_DETECT")
 
@@ -514,7 +515,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         if G.SINGLE_PAGE_PER_DETECT:
             entry = self.build_multiple_bid_target_figures_one_line(cat_match, ras, decs, error,
                                                                         target_ra=target_ra, target_dec=target_dec,
-                                                                        target_w=target_w, target_flux=target_flux)
+                                                                        target_w=target_w, target_flux=target_flux,
+                                                                        detobj=detobj)
             if entry is not None:
                 self.add_bid_entry(entry)
 
@@ -599,7 +601,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
 
     def build_cat_summary_figure (self, cat_match,ra, dec, error,bid_ras, bid_decs, target_w=0,
-                                  fiber_locs=None, target_flux=None):
+                                  fiber_locs=None, target_flux=None,detobj=None):
         '''Builds the figure (page) the exact target location. Contains just the filter images ...
 
         Returns the matplotlib figure. Due to limitations of matplotlib pdf generation, each figure = 1 page'''
@@ -727,9 +729,27 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     #todo: calculate error on EW as flux from HETDEX (so flux_err from HETDEX) and continuum
                     #todo: from catalog (so, continuum error from catalog)
 
+                    lineFlux_err = 0.
+                    if detobj is not None:
+                        try:
+                            lineFlux_err = detobj.estflux_unc
+                        except:
+                            lineFlux_err = 0.
+
+                    #build EW error from lineFlux_err and aperture estimate error
+                    ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+                    try:
+                        ew_obs_err =  abs(ew_obs * np.sqrt(
+                                        (lineFlux_err / target_flux) ** 2 +
+                                        (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+                    except:
+                        ew_obs_err = 0.
+
                     bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii = \
-                        line_prob.prob_LAE(wl_obs=target_w, lineFlux=target_flux, lineFlux_err=0.0,
-                                           ew_obs=(target_flux / bid_target.bid_flux_est_cgs), ew_obs_err=0.0,
+                        line_prob.prob_LAE(wl_obs=target_w, lineFlux=target_flux,
+                                           ew_obs=ew_obs,
+                                           lineFlux_err= lineFlux_err,
+                                           ew_obs_err= ew_obs_err,
                                            c_obs=None, which_color=None, addl_fluxes=addl_flux,
                                            addl_wavelengths=addl_waves,addl_errors=addl_ferr,sky_area=None,
                                            cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
@@ -819,7 +839,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         return fig
 
     def build_multiple_bid_target_figures_one_line(self, cat_match, ras, decs, error, target_ra=None, target_dec=None,
-                                         target_w=0, target_flux=None):
+                                         target_w=0, target_flux=None,detobj=None):
 
 
         window = error * 2.
@@ -984,6 +1004,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                         bid_target.bid_mag = filter_mag
                         bid_target.bid_mag_err_bright = filter_mag_bright
                         bid_target.bid_mag_err_faint = filter_mag_faint
+                        bid_target.bid_flux_est_cgs_unc = filter_fl_err
 
                         addl_waves = None
                         addl_flux = None
@@ -995,10 +1016,28 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                         except:
                             pass
 
+                        lineFlux_err = 0.
+                        if detobj is not None:
+                            try:
+                                lineFlux_err = detobj.estflux_unc
+                            except:
+                                lineFlux_err = 0.
+
+                        # build EW error from lineFlux_err and aperture estimate error
+                        ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+                        try:
+                            ew_obs_err = abs(ew_obs * np.sqrt(
+                                (lineFlux_err / target_flux) ** 2 +
+                                (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+                        except:
+                            ew_obs_err = 0.
+
                         bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii = \
                             line_prob.prob_LAE(wl_obs=target_w,
                                                lineFlux=target_flux,
-                                               ew_obs=(target_flux / filter_fl_cgs),
+                                               ew_obs=ew_obs,
+                                               lineFlux_err=lineFlux_err,
+                                               ew_obs_err=ew_obs_err,
                                                c_obs=None, which_color=None, addl_wavelengths=addl_waves,
                                                addl_fluxes=addl_flux, addl_errors=addl_ferr,sky_area=None,
                                                cosmo=None, lae_priors=None,

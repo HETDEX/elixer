@@ -374,7 +374,7 @@ class GOODS_N(cat_base.Catalog):
 
     # column names are catalog specific, but could map catalog specific names to generic ones and produce a dictionary?
     def build_bid_target_reports(self, cat_match, target_ra, target_dec, error, num_hits=0, section_title="", base_count=0,
-                                 target_w=0, fiber_locs=None,target_flux=None):
+                                 target_w=0, fiber_locs=None,target_flux=None,detobj=None):
 
         self.clear_pages()
         num_targets, _, _ = self.build_list_of_bid_targets(target_ra, target_dec, error)
@@ -388,7 +388,8 @@ class GOODS_N(cat_base.Catalog):
         # display the exact (target) location
         if G.SINGLE_PAGE_PER_DETECT:
             entry = self.build_cat_summary_figure(cat_match, target_ra, target_dec, error, ras, decs,
-                                                  target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux, )
+                                                  target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,
+                                                  detobj=detobj)
         else:
             log.error("ERROR!!! Unexpected state of G.SINGLE_PAGE_PER_DETECT")
 
@@ -398,7 +399,7 @@ class GOODS_N(cat_base.Catalog):
         if G.SINGLE_PAGE_PER_DETECT:
             entry = self.build_multiple_bid_target_figures_one_line(cat_match, ras, decs, error,
                                                                     target_ra=target_ra, target_dec=target_dec,
-                                                                    target_w=target_w, target_flux=target_flux)
+                                                                    target_w=target_w, target_flux=target_flux,detobj=detobj)
             if entry is not None:
                 self.add_bid_entry(entry)
 
@@ -442,7 +443,7 @@ class GOODS_N(cat_base.Catalog):
         return stacked_cutout
 
     def build_cat_summary_figure (self, cat_match,ra, dec, error,bid_ras, bid_decs, target_w=0,
-                                  fiber_locs=None, target_flux=None):
+                                  fiber_locs=None, target_flux=None,detobj=None):
         '''Builds the figure (page) the exact target location. Contains just the filter images ...
 
         Returns the matplotlib figure. Due to limitations of matplotlib pdf generation, each figure = 1 page'''
@@ -549,6 +550,8 @@ class GOODS_N(cat_base.Catalog):
                     bid_target.bid_mag = mag
                     bid_target.bid_mag_err_bright = 0.0 #todo: right now don't have error on aperture mag
                     bid_target.bid_mag_err_faint = 0.0
+                    bid_target.bid_flux_est_cgs_unc = 0.0
+
                     if mag < 99:
                         bid_target.bid_flux_est_cgs = self.obs_mag_to_cgs_flux(mag,target_w)
                     else:
@@ -566,9 +569,27 @@ class GOODS_N(cat_base.Catalog):
                     except:
                         pass
 
+                    lineFlux_err = 0.
+                    if detobj is not None:
+                        try:
+                            lineFlux_err = detobj.estflux_unc
+                        except:
+                            lineFlux_err = 0.
+
+                    #build EW error from lineFlux_err and aperture estimate error
+                    ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+                    try:
+                        ew_obs_err =  abs(ew_obs * np.sqrt(
+                                        (lineFlux_err / target_flux) ** 2 +
+                                        (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+                    except:
+                        ew_obs_err = 0.
+
                     bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii = \
                         line_prob.prob_LAE(wl_obs=target_w, lineFlux=target_flux,
-                                           ew_obs=(target_flux / bid_target.bid_flux_est_cgs),
+                                           ew_obs=ew_obs,
+                                           lineFlux_err= lineFlux_err,
+                                           ew_obs_err= ew_obs_err,
                                            c_obs=None, which_color=None, addl_fluxes=addl_flux,
                                            addl_wavelengths=addl_waves,addl_errors=addl_ferr,sky_area=None,
                                            cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
@@ -654,7 +675,7 @@ class GOODS_N(cat_base.Catalog):
 
 
     def build_multiple_bid_target_figures_one_line(self, cat_match, ras, decs, error, target_ra=None, target_dec=None,
-                                         target_w=0, target_flux=None):
+                                         target_w=0, target_flux=None,detobj=None):
 
 
         window = error * 2.
@@ -822,6 +843,7 @@ class GOODS_N(cat_base.Catalog):
                         bid_target.bid_dec = df['DEC'].values[0]
                         bid_target.distance = df['distance'].values[0] * 3600
                         bid_target.bid_flux_est_cgs = filter_fl_cgs
+                        bid_target.bid_flux_est_cgs_unc = filter_fl_err
                         bid_target.bid_filter = filter_str
                         bid_target.bid_mag = filter_mag
                         bid_target.bid_mag_err_bright = filter_mag_bright
@@ -837,17 +859,33 @@ class GOODS_N(cat_base.Catalog):
                         except:
                             pass
 
-                        bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii = line_prob.prob_LAE(wl_obs=target_w,
-                                                                                       lineFlux=target_flux,
-                                                                                       ew_obs=(target_flux / filter_fl_cgs),
-                                                                                       c_obs=None, which_color=None,
-                                                                                       addl_wavelengths=addl_waves,
-                                                                                       addl_fluxes=addl_flux,
-                                                                                       addl_errors=addl_ferr,
-                                                                                       sky_area=None,
-                                                                                       cosmo=None, lae_priors=None,
-                                                                                       ew_case=None, W_0=None,
-                                                                                       z_OII=None, sigma=None)
+                        lineFlux_err = 0.
+                        if detobj is not None:
+                            try:
+                                lineFlux_err = detobj.estflux_unc
+                            except:
+                                lineFlux_err = 0.
+
+                        # build EW error from lineFlux_err and aperture estimate error
+                        ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+                        try:
+                            ew_obs_err = abs(ew_obs * np.sqrt(
+                                (lineFlux_err / target_flux) ** 2 +
+                                (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+                        except:
+                            ew_obs_err = 0.
+
+                        bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii = \
+                            line_prob.prob_LAE(wl_obs=target_w,
+                                               lineFlux=target_flux,
+                                               ew_obs=ew_obs,
+                                               lineFlux_err=lineFlux_err,
+                                               ew_obs_err=ew_obs_err,
+                                               c_obs=None, which_color=None, addl_wavelengths=addl_waves,
+                                               addl_fluxes=addl_flux, addl_errors=addl_ferr, sky_area=None,
+                                               cosmo=None, lae_priors=None,
+                                               ew_case=None, W_0=None,
+                                               z_OII=None, sigma=None)
 
                         for c in self.CatalogImages:
                             try:

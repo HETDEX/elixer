@@ -1,8 +1,13 @@
 changes to elixer by version
 
-1.7.1a [2019-06-18]
+1.7.1a [2019-06-21]
 * Switched from using Andrew Leung base PLAE/POII code to Danial Farrow's version (with some modifications)
   (note: some small differences in specific values of ratio, but high level of agreement)
+* Improved lineflux, continuum and equivalentwidth uncertainties passed to PLAE/POII code for:
+    + HETDEX values
+    + Aperture values (partial ... has lineflux uncertainty but not continuum uncertainty yet)
+    + Catalog values
+
 
 1.7.0a [2019-06-14]
 * add SDSS online query as backup to no overlap with local imaging catalogs (default disallow if in dispatch mode to keep

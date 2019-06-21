@@ -29,6 +29,7 @@ class BidTarget:
         self.distance = 0.0
         self.bid_filter = "?"
         self.bid_flux_est_cgs = 0.0
+        self.bid_flux_est_cgs_unc = 0.0
         self.bid_mag = 0.0
         self.bid_mag_err_bright = 0.0
         self.bid_mag_err_faint = 0.0

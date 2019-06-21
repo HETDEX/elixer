@@ -287,7 +287,8 @@ def parse_commandline(auto_force=False):
         G.RECOVERY_RUN = True
 
     #first time we need to log anything
-    G.logging.basicConfig(filename=G.LOG_FILENAME, level=G.LOG_LEVEL, filemode='w')
+    #G.logging.basicConfig(filename=G.LOG_FILENAME, level=G.LOG_LEVEL, filemode='w')
+
 
     log.info(args)
 
@@ -599,7 +600,7 @@ def build_hetdex_section(pdfname, hetdex, detect_id = 0,pages=None,annulus=False
 
 
 def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,target_w=0,fiber_locs=None,
-                 target_flux=None,annulus=None,obs=None):
+                 target_flux=None,annulus=None,obs=None,detobj=None):
     #if a report object is passed in, immediately append to it, otherwise, add to the pages list and return that
     section_title = idstring
     count = 0
@@ -629,7 +630,7 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
             try:
                 r = c.build_bid_target_reports(match,ra, dec, error,num_hits=num_hits,section_title=section_title,
                                                base_count=base_count,target_w=target_w,fiber_locs=fiber_locs,
-                                               target_flux=target_flux)
+                                               target_flux=target_flux,detobj=detobj)
             except:
                 log.error("Exception in elixer::build_pages",exc_info=True)
                 r = None
@@ -1920,7 +1921,7 @@ def main():
 
                             pdf.pages,pdf.bid_count = build_pages(pdf.filename, match, ra, dec, args.error, e.matched_cats, pdf.pages,
                                                           num_hits=e.num_hits, idstring=id,base_count=0,target_w=e.w,
-                                                          fiber_locs=e.fiber_locs,target_flux=e.estflux)
+                                                          fiber_locs=e.fiber_locs,target_flux=e.estflux,detobj=e)
 
                             #add in lines and classification info
                             match_list.add(match) #always add even if bids are none

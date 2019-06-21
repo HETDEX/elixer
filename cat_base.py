@@ -669,24 +669,24 @@ class Catalog:
         return self.pages
 
     def build_bid_target_reports(self, cat_match, target_ra, target_dec, error, num_hits=0, section_title="", base_count=0,
-                                 target_w=0, fiber_locs=None,target_flux=None):
+                                 target_w=0, fiber_locs=None,target_flux=None,detobj=None):
         #implement in child class
         pass
 
 
-    def build_cat_summary_figure (self,ra,dec,error,bid_ras,bid_decs, target_w=0, fiber_locs=None, target_flux=None):
+    def build_cat_summary_figure (self,ra,dec,error,bid_ras,bid_decs, target_w=0, fiber_locs=None, target_flux=None,detobj=None):
         #implement in child class
         pass
 
 
     def build_bid_target_figure_one_line (self,cat_match, ra, dec, error, df=None, df_photoz=None, target_ra=None,
                                           target_dec=None, section_title="", bid_number=1, target_w=0, of_number=0,
-                                          target_flux=None, color="k"):
+                                          target_flux=None, color="k",detobj=None):
         # implement in child class
         pass
 
     def build_multiple_bid_target_figures_one_line(self, cat_match, ras, decs, error, target_ra=None, target_dec=None,
-                                         target_w=0, target_flux=None):
+                                         target_w=0, target_flux=None,detobj=None):
         # implement in child class
         pass
 

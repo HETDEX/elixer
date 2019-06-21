@@ -194,6 +194,15 @@ class Global_Logger:
     def __init__(self,id): #id is a string identifier
         self.logger = logging.getLogger(id)
 
+        self.fh = logging.FileHandler(LOG_FILENAME,"w")
+        self.fh.setLevel(LOG_LEVEL)
+        self.logger.addHandler(self.fh)
+        # self.ch = logging.StreamHandler(sys.stdout)
+        # self.ch.setLevel(LOG_LEVEL)
+        # self.logger.addHandler(self.ch)
+        logging.basicConfig(filename=LOG_FILENAME, level=LOG_LEVEL, filemode='w')
+
+
     def add_time(self,msg):
 
         #if self.LOGGER_INITIALIZED == False:

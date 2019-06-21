@@ -84,7 +84,7 @@ class CATCH_ALL(cat_base.Catalog):
 
     # column names are catalog specific, but could map catalog specific names to generic ones and produce a dictionary?
     def build_bid_target_reports(self, cat_match, target_ra, target_dec, error, num_hits=0, section_title="", base_count=0,
-                                 target_w=0, fiber_locs=None,target_flux=None):
+                                 target_w=0, fiber_locs=None,target_flux=None,detobj=None):
 
         self.clear_pages()
 
@@ -93,7 +93,7 @@ class CATCH_ALL(cat_base.Catalog):
 
         # display the exact (target) location
         entry = self.build_cat_summary_figure(target_ra, target_dec, error, ras, decs,
-                                            target_w=target_w, fiber_locs=fiber_locs)
+                                            target_w=target_w, fiber_locs=fiber_locs,detobj=detobj)
 
         if entry is not None:
             self.add_bid_entry(entry)
@@ -110,11 +110,11 @@ class CATCH_ALL(cat_base.Catalog):
         return None #no cutout available
 
     def build_cat_summary_figure (self, ra, dec, error,bid_ras, bid_decs, target_w=0,
-                                  fiber_locs=None):
+                                  fiber_locs=None,detobj=None):
         return self.build_empty_cat_summary_figure(ra,dec,error,bid_ras, bid_decs, target_w=target_w,
                                   fiber_locs=fiber_locs)
 
-    def build_multiple_bid_target_figures_one_line(self):
+    def build_multiple_bid_target_figures_one_line(self,detobj=None):
 
         rows = 1
         cols = 6
