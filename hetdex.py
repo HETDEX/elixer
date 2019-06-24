@@ -1755,8 +1755,15 @@ class DetObj:
             self.estflux = row['flux']
             self.estflux_unc = row['flux_err']
 
-            self.cont_cgs = row['continuum']
+            self.cont_cgs = row['continuum'] #units of e-17 set below
             self.cont_cgs_unc = row['continuum_err']
+
+            #bad idea (leaving here just as a reminder)... setting as a small value leads to artifically
+            #huge EW (even with correspodingly huge error)
+            # if (self.cont_cgs == 0.) and (self.cont_cgs_unc != 0.):
+            #     log.debug("HETDEX continuum estimate == 0.0; setting to 0.01 e-17")
+            #     self.cont_cgs = 0.01
+
 
 
 
@@ -1819,8 +1826,11 @@ class DetObj:
                 self.sdss_gmag, gcont = elixer_spectrum.get_hetdex_gmag(self.sumspec_flux / 2.0 * 1e-17,
                                                                                 self.sumspec_wavelength)
 
-                if self.cont_cgs == -9999: #still unset ... werid?
+                if self.cont_cgs == -9999: #still unset ... weird?
                     log.warning("Warning! HETDEX continuum estimate not set. Using SDSS gmag for estimate.")
+                    self.cont_cgs = gcont
+                elif self.cont_cgs == 0.0:
+                    log.warning("Warning! HETDEX continuum 0.0. Using SDSS gmag for estimate.")
                     self.cont_cgs = gcont
                 #todo: need to find a way to improve the uncertainty
                 #self.cont_cgs_unc = #need to update this estimate? as this is based on +/- 40 or 50AA around line?

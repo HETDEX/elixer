@@ -155,7 +155,7 @@ def get_hetdex_gmag(flux_density,wave):
 
         flux, wlen = sdss_filter.pad_spectrum(flux_density* (units.erg / units.s /units.cm**2/units.Angstrom),wave* units.Angstrom)
         mag = sdss_filter.get_ab_magnitudes(flux , wlen )[0][0]
-        cont = 3631.0 * 10**(-0.4*mag) * 1e-23 * iso_f / (5549.26 - 3782.54) #that is the approximate bandpass
+        cont = 3631.0 * 10**(-0.4*mag) * 1e-23 * iso_f / (wlen[-1] - wlen[0]).value #(5549.26 - 3782.54) #that is the approximate bandpass
     except:
         log.warning("Exception! in spectrum::get_hetdex_gmag.",exc_info=True)
 
