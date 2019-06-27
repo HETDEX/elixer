@@ -12,7 +12,7 @@ import numpy as np
 import socket
 
 #version
-__version__ = '1.7.1a2'
+__version__ = '1.7.1a3'
 
 #python version
 import sys
@@ -393,6 +393,10 @@ SKY_ANNULUS_MIN_MAG = 15.0 #measure magnitude must be fainter than this to trigg
 INCLUDE_ALL_AMPS = True #ie. if true, ignore the bad amp list
 
 RECOVERY_RUN = False
+
+#note: Pan-STARRS is prioritized over SDSS (since Pan-STARRS is deeper 23.3 vs 22.0)
+PANSTARRS_ALLOW = True #if no other catalogs match, try Pan-STARRS as online query (default if not dispatch mode)
+PANSTARRS_FORCE = False  #ignore local catalogs and Force the use of only Pan-STARRS
 
 SDSS_ALLOW = True #if no other catalogs match, try SDSS as online query (default if not dispatch mode)
 SDSS_FORCE = False  #ignore local catalogs and Force the use of only SDSS

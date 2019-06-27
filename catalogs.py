@@ -18,6 +18,7 @@ try:
     from elixer import cat_shela
     from elixer import cat_hsc
     from elixer import cat_sdss
+    from elixer import cat_panstarrs
     from elixer import cat_catch_all
     # from elixer import cat_ast376_shela
 except:
@@ -31,6 +32,7 @@ except:
     import cat_hsc
     import cat_catch_all
     import cat_sdss
+    import cat_panstarrs
     # from elixer import cat_ast376_shela
 
 # log = G.logging.getLogger('Cat_logger')
@@ -77,6 +79,9 @@ class CatalogLibrary:
 
     def get_sdss(self):
         return cat_sdss.SDSS()
+
+    def get_panstarrs(self):
+        return cat_panstarrs.PANSTARRS()
 
 
     def find_catalogs(self,position):

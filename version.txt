@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.7.1a3 [2019-06-27]
+* Added in Pan-STARRS online query. Takes priority over SDSS. Has same options under --panstarrs command line parameter
+
+
 
 1.7.1a2 [2019-06-23]
 * If continuum estimate from HETDEX is zero or undet, use SDSS gmag as basis for continuum estimate (still uses

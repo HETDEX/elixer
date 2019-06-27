@@ -182,7 +182,7 @@ class science_image():
         else:
             try:
                 #self.wcs = WCS(header=self.hdulist[self.wcs_idx].header,fobj=self.image_location)
-                self.wcs = WCS(self.image_location)
+                self.wcs = WCS(self.image_location,relax = astropy.wcs.WCSHDR_CD00i00j | astropy.wcs.WCSHDR_PC00i00j)
             except:
                 log.error("Unable to use WCS constructor. Will attempt to build manually.", exc_info=True)
                 self.build_wcs_manually()
@@ -328,7 +328,14 @@ class science_image():
         return rc
 
     def calc_pixel_size(self,wcs):
-        return np.sqrt(wcs.wcs.cd[0, 0] ** 2 + wcs.wcs.cd[0, 1] ** 2) * 3600.0
+
+        if hasattr(wcs.wcs,'cd'):
+            return np.sqrt(wcs.wcs.cd[0, 0] ** 2 + wcs.wcs.cd[0, 1] ** 2) * 3600.0
+        elif hasattr(wcs.wcs,'cdelt'): #like Pan-STARRS (assume both directions are the same)
+            return wcs.wcs.cdelt[0] * 3600.0
+        else: #we have a problem
+            log.warning("Warning! Unable to determine pixel scale in science_image::calc_pixel_size. WCS does not have cd or cdelt keywords.")
+            return None
 
     def get_vrange(self,vals,contrast=0.25):
         self.vmin = None
@@ -1010,7 +1017,11 @@ class science_image():
     def get_rotation_to_celestrial_north(self,cutout):
         #counterclockwise angle in radians to celestrial north from the x-axis (so north up would be pi/2)
         try:
-            theta = np.arctan2(cutout.wcs.wcs.cd[0, 1], cutout.wcs.wcs.cd[0, 0]) - np.pi/2.
+            if hasattr(cutout.wcs.wcs, 'cd'):
+                theta = np.arctan2(cutout.wcs.wcs.cd[0, 1], cutout.wcs.wcs.cd[0, 0]) - np.pi/2.
+            elif hasattr(cutout.wcs.wcs,'pc'):
+                theta = np.arctan2(cutout.wcs.wcs.pc[0, 1], cutout.wcs.wcs.pc[0, 0]) - np.pi/2.
+
             #theta = np.pi/2. - np.arctan2(cutout.wcs.wcs.cd[0, 1], cutout.wcs.wcs.cd[0, 0])
 
             if theta < 0: # clockwise rotation

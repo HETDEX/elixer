@@ -257,6 +257,12 @@ def parse_commandline(auto_force=False):
                                        " Force (2) and override any other catalog",
                         required=False, default=-1,type=int)
 
+
+    parser.add_argument('--panstarrs', help="Pan-STARRS remote query for imaging. Deny (0), Allow (1) if no other catalog available,"
+                                       " Force (2) and override any other catalog",
+                        required=False, default=-1,type=int)
+
+
     parser.add_argument('--nophoto', help='Turn OFF the use of archival photometric catalogs.', required=False,
                         action='store_true', default=False)
 
@@ -320,6 +326,27 @@ def parse_commandline(auto_force=False):
             G.SDSS_ALLOW = True
             G.SDSS_FORCE = False
 
+    if args.panstarrs is not None:
+        if args.panstarrs == 0:
+            G.PANSTARRS_ALLOW = False
+            G.PANSTARRS_FORCE = False
+        elif args.panstarrs == 1:
+            G.PANSTARRS_ALLOW = True
+            G.PANSTARRS_FORCE = False
+        elif args.panstarrs == 2:
+            G.PANSTARRS_ALLOW = True
+            G.PANSTARRS_FORCE = True
+        elif args.panstarrs == -1: #basically, unless explicitly overridden, if we are in dispatch mode, don't use SDSS
+                              #since we can easily overwhelm their web interface
+            pass #for now, let the global default rule ... if this is a problem like SDSS, then restrict
+            # if not (args.dispatch is None):
+            #     G.PANSTARRS_ALLOW = False
+            #     G.PANSTARRS_FORCE = False
+        else:
+            log.warning("Ignoring invalid --panstarrs value (%d). Using default (Allow == 1)" %args.panstarrs)
+            print("Ignoring invalid --panstarrs value (%d). Using default (Allow == 1)" %args.panstarrs)
+            G.PANSTARRS_ALLOW = True
+            G.PANSTARRS_FORCE = False
     if args.nophoto:
         G.USE_PHOTO_CATS = False
 
@@ -1663,11 +1690,13 @@ def main():
         cats = cat_library.get_full_catalog_list()
         catch_all_cat = cat_library.get_catch_all()
         cat_sdss = cat_library.get_sdss()
+        cat_panstarrs = cat_library.get_panstarrs()
     else:
         cat_library = []
         cats = []
         catch_all_cat = []
         cat_sdss = []
+        cat_panstarrs = []
 
     pages = []
 
@@ -1850,7 +1879,9 @@ def main():
                         plt.close('all')
                         log.info("Processing catalogs for eid(%s) ... " %str(e.entry_id))
 
-                        if G.SDSS_FORCE:
+                        if G.PANSTARRS_FORCE: #prioritize PANSTARRS over SDSS
+                            e.matched_cats.append(cat_panstarrs)
+                        elif G.SDSS_FORCE:
                             e.matched_cats.append(cat_sdss)
                         else:
                             for c in cats:
@@ -1882,7 +1913,9 @@ def main():
                                     print("Coordinates not in range of %s for Detect ID #%d" % (c.name,e.id))
 
                             if len(e.matched_cats) == 0:
-                                if G.SDSS_ALLOW:
+                                if G.PANSTARRS_ALLOW: #prioritize Pan-STARRS over SDSS
+                                    e.matched_cats.append(cat_panstarrs)
+                                elif G.SDSS_ALLOW:
                                     e.matched_cats.append(cat_sdss)
                                 else:
                                     e.matched_cats.append(catch_all_cat)
@@ -1949,7 +1982,10 @@ def main():
             catlist_str = ""
             matched_cats = [] #there were no detection objects (just an RA, Dec) so use a generic, global matched_cats
 
-            if G.SDSS_FORCE:
+            if G.PANSTARRS_FORCE:
+                matched_cats.append(cat_panstarrs)
+                catlist_str += cat_panstarrs.name + ", "  # still need this for autoremoval of trailing ", " later
+            elif G.SDSS_FORCE:
                 matched_cats.append(cat_sdss)
                 catlist_str += cat_sdss.name + ", " #still need this for autoremoval of trailing ", " later
             else:
@@ -1979,9 +2015,14 @@ def main():
                                 matched_cats.append(c)
                                 catlist_str += c.name + ", "
 
-                if G.SDSS_ALLOW and (len(matched_cats) == 0):
-                    matched_cats.append(cat_sdss)
-                    catlist_str += cat_sdss.name + ", " #still need this for autoremoval of trailing ", " later
+                if (len(matched_cats) == 0):
+                    if G.PANSTARRS_ALLOW:
+                        #todo: should peek and see if panstarrs has a hit? if not then fall to SDSS?
+                        matched_cats.append(cat_panstarrs)
+                        catlist_str += cat_panstarrs.name + ", " #still need this for autoremoval of trailing ", " later
+                    elif G.SDSS_ALLOW:
+                        matched_cats.append(cat_sdss)
+                        catlist_str += cat_sdss.name + ", " #still need this for autoremoval of trailing ", " later
 
 
             if args.catcheck:
