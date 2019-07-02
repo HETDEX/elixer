@@ -8,7 +8,6 @@ changes to elixer by version
   catalog footprint as acceptable
 
 
-
 1.7.1a2 [2019-06-23]
 * If continuum estimate from HETDEX is zero or undet, use SDSS gmag as basis for continuum estimate (still uses
   HETDEX error estimate)
