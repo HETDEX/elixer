@@ -421,61 +421,62 @@ class STACK_COSMOS(cat_base.Catalog):
                                                   detobj=detobj)
         else:
             log.error("ERROR!!! Unexpected state of G.SINGLE_PAGE_PER_DETECT")
+            return None
 
         if entry is not None:
             self.add_bid_entry(entry)
 
-        # if G.SINGLE_PAGE_PER_DETECT and (len(ras) <= G.MAX_COMBINE_BID_TARGETS):
-        #    entry = self.build_multiple_bid_target_figures_one_line(cat_match,ras, decs, error,
-        #                                                       target_ra=target_ra, target_dec=target_dec,
-        #                                                       target_w=target_w, target_flux=target_flux)
-        #    if entry is not None:
-        #        self.add_bid_entry(entry)
-        # else: #each bid taget gets its own line
+            # if G.SINGLE_PAGE_PER_DETECT and (len(ras) <= G.MAX_COMBINE_BID_TARGETS):
+            #    entry = self.build_multiple_bid_target_figures_one_line(cat_match,ras, decs, error,
+            #                                                       target_ra=target_ra, target_dec=target_dec,
+            #                                                       target_w=target_w, target_flux=target_flux)
+            #    if entry is not None:
+            #        self.add_bid_entry(entry)
+            # else: #each bid taget gets its own line
 
-        if G.SINGLE_PAGE_PER_DETECT:
-            entry = self.build_multiple_bid_target_figures_one_line(cat_match, ras, decs, error,
-                                                                    target_ra=target_ra, target_dec=target_dec,
-                                                                    target_w=target_w, target_flux=target_flux,
-                                                                    detobj=detobj)
-            if entry is not None:
-                self.add_bid_entry(entry)
-
-        if (not G.FORCE_SINGLE_PAGE) and (len(ras) > G.MAX_COMBINE_BID_TARGETS):  # each bid taget gets its own line
-
-            bid_colors = self.get_bid_colors(len(ras))
-            number = 0
-            for r, d in zip(ras, decs):
-                number += 1
-                try:
-                    df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
-                                                           (self.dataframe_of_bid_targets['DEC'] == d[0])]
-
-                    idnum = df['ID'].values[0]  # to matchup in photoz catalog
-                except:
-                    log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
-                    continue  # this must be here, so skip to next ra,dec
-
-                try:
-                    # note cannot dirctly use RA,DEC as the recorded precission is different (could do a rounded match)
-                    # but the idnums match up, so just use that
-                    df_photoz = self.dataframe_of_bid_targets_photoz.loc[
-                        self.dataframe_of_bid_targets_photoz['ID'] == idnum]
-
-                    if len(df_photoz) == 0:
-                        log.debug("No conterpart found in photoz catalog; RA=%f , Dec =%f" % (r[0], d[0]))
-                        df_photoz = None
-                except:
-                    log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
-                    df_photoz = None
-
-                print("Building report for bid target %d in %s" % (base_count + number, self.Name))
-
-                if G.SINGLE_PAGE_PER_DETECT and (len(ras) <= G.MAX_COMBINE_BID_TARGETS):
-                    log.error("ERROR!!! Unexpected state of G.FORCE_SINGLE_PAGE")
-
+            if G.SINGLE_PAGE_PER_DETECT:
+                entry = self.build_multiple_bid_target_figures_one_line(cat_match, ras, decs, error,
+                                                                        target_ra=target_ra, target_dec=target_dec,
+                                                                        target_w=target_w, target_flux=target_flux,
+                                                                        detobj=detobj)
                 if entry is not None:
                     self.add_bid_entry(entry)
+
+            if (not G.FORCE_SINGLE_PAGE) and (len(ras) > G.MAX_COMBINE_BID_TARGETS):  # each bid taget gets its own line
+
+                bid_colors = self.get_bid_colors(len(ras))
+                number = 0
+                for r, d in zip(ras, decs):
+                    number += 1
+                    try:
+                        df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
+                                                               (self.dataframe_of_bid_targets['DEC'] == d[0])]
+
+                        idnum = df['ID'].values[0]  # to matchup in photoz catalog
+                    except:
+                        log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
+                        continue  # this must be here, so skip to next ra,dec
+
+                    try:
+                        # note cannot dirctly use RA,DEC as the recorded precission is different (could do a rounded match)
+                        # but the idnums match up, so just use that
+                        df_photoz = self.dataframe_of_bid_targets_photoz.loc[
+                            self.dataframe_of_bid_targets_photoz['ID'] == idnum]
+
+                        if len(df_photoz) == 0:
+                            log.debug("No conterpart found in photoz catalog; RA=%f , Dec =%f" % (r[0], d[0]))
+                            df_photoz = None
+                    except:
+                        log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
+                        df_photoz = None
+
+                    print("Building report for bid target %d in %s" % (base_count + number, self.Name))
+
+                    if G.SINGLE_PAGE_PER_DETECT and (len(ras) <= G.MAX_COMBINE_BID_TARGETS):
+                        log.error("ERROR!!! Unexpected state of G.FORCE_SINGLE_PAGE")
+
+                    if entry is not None:
+                        self.add_bid_entry(entry)
 
         return self.pages
 

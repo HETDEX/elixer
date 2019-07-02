@@ -1,7 +1,11 @@
 changes to elixer by version
 
-1.7.1a3 [2019-06-27]
+1.7.1a3 [2019-07-02]
 * Added in Pan-STARRS online query. Takes priority over SDSS. Has same options under --panstarrs command line parameter
+* Added optional (default True) enforcement of non-empty catalog image. If image is empty or a simple gradient, will
+  treat as a catalog miss and move on to the next or backup catalog (including Pan-STARRS and/or SDSS)
+* Added --allow_empty_image command line option to override the above option and accept a blank image within the
+  catalog footprint as acceptable
 
 
 

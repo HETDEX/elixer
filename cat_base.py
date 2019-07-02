@@ -931,7 +931,7 @@ class Catalog:
             font.set_size(12)
 
             # All on one line now across top of plots
-            title = "No overlapping imaging catalog."
+            title = "No overlapping imaging catalog (or image is blank)."
 
             plt.subplot(gs[0, :])
             plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)

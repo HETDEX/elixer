@@ -49,17 +49,42 @@ log.setlevel(G.logging.DEBUG)
 
 
 def is_cutout_empty(cutout):
-    # todo: maybe should be in science_image instead
+    """
+    Either all values the same or a simple horizontal or vertical gradient
+    (currently, any other gradient would be missed ... assumes perpendicular to gradient is constant, min==max)
+    :param cutout:
+    :return:
+    """
     rc = False
     try:
-        std = np.nanstd(cutout.data)
+        # std = np.nanstd(cutout.data)
         # mean = np.nanmean(cutout.data) #no NOT mean (could legit be 0 (average of + and - values))
-        sm = np.sum(cutout.data)
+        # med = np.nanmedian(cutout.data) #sort of a typical value to set a scale
+        # sm = np.sum(cutout.data)
+        # log.debug("Checking for emtpy cutout: mean (%f), median (%f), sum (%f), std (%f)" % (mean, med, sm, std))
+        #
+        # if std < 1e-5: #empty
+        #     rc = True
+        # elif (med / std) > 1e4:#prob empty or gradient
+        #     rc = True
 
-        log.debug("Checking for emtpy cutout: sum (%f), std (%f)" % (sm, std))
+        # if (sm == 0) or (std == 0):
+        #     rc = True
 
-        if (sm == 0) or (std == 0):
+        #run through the middle:
+        sp = np.shape(cutout.data)
+        hz = cutout.data[:,int(sp[1]/2)]
+        vt = cutout.data[int(sp[0]/2),:]
+
+        #are either all the same
+        if (min(hz) == max(hz)) or (min(vt) == max(vt)):
+            #gradient or all same
             rc = True
+            log.debug("Gradient or all same pixels found...")
+
+
+
+
     except:
         log.debug("*** Exception! Exception in science_image::is_cutout_empty()", exc_info=True)
 
@@ -662,9 +687,9 @@ class science_image():
             self.last_y0_center = (y_center - cutout.center_cutout[1])*self.pixel_size
             source_aperture_area = 0.0
 
-            if is_cutout_empty(cutout):
-                log.debug("FYI ... cutout is empty ...")
-
+            if (not G.ALLOW_EMPTY_IMAGE) and is_cutout_empty(cutout):
+                log.info("Cutout is empty or simple gradient. Will deliberately fail cutout request.")
+                return None, 0, 99.99, 0
 
             if False: #test out photutils
                 from photutils import find_peaks, segmentation

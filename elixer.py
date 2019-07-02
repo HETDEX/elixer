@@ -253,6 +253,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--ooops', help='Load Ooops module for SLURM.', required=False,
                         action='store_true', default=False)
 
+    parser.add_argument('--allow_empty_image', help='Allow image cutouts to be empty, otherwise, move to backup catalog.',
+                        required=False, action='store_true', default=False)
+
     parser.add_argument('--sdss', help="SDSS remote query for imaging. Deny (0), Allow (1) if no other catalog available,"
                                        " Force (2) and override any other catalog",
                         required=False, default=-1,type=int)
@@ -304,6 +307,11 @@ def parse_commandline(auto_force=False):
     if args.merge:
         print("Merging catalogs and fiber files (ignoring all other parameters) ... ")
         return args
+
+    if args.allow_empty_image is not None:
+        G.ALLOW_EMPTY_IMAGE = args.allow_empty_image
+    else:
+        G.ALLOW_EMPTY_IMAGE = False
 
     if args.sdss is not None:
         if args.sdss == 0:
@@ -635,6 +643,10 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
     log.info("Building page for %s" %pdfname)
 
     cat_count = 0
+    #extra, non-local catalogs to iterate through IF primary catalog imaging is empty (but we are in the footprint)
+    added_panstarrs = False
+    added_sdss = False
+    added_catch_all = False
 
     for c in cats:
 
@@ -673,6 +685,16 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
                 else:
                     pages = pages + r
                 count = max(0,len(r)-1) #1st page is the target page
+        else: # r was None ... no page was created, probably an empty region
+            if G.PANSTARRS_ALLOW and not added_panstarrs: #not FORCE ... that is handled differently
+                cats.append(catalogs.CatalogLibrary().get_panstarrs())
+                added_panstarrs = True
+            elif G.SDSS_ALLOW and not added_sdss:
+                cats.append(catalogs.CatalogLibrary().get_sdss())
+                added_sdss = True
+            elif not added_catch_all:
+                cats.append(catalogs.CatalogLibrary().get_catch_all())
+                added_catch_all = True
 
     return pages, count
 

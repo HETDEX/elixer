@@ -448,18 +448,22 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                                                   detobj=detobj)
         else:
             log.error("ERROR!!! Unexpected state of G.SINGLE_PAGE_PER_DETECT")
+            return None
 
 
         if entry is not None:
             self.add_bid_entry(entry)
 
-        if G.SINGLE_PAGE_PER_DETECT: # and (len(ras) <= G.MAX_COMBINE_BID_TARGETS):
-            entry = self.build_multiple_bid_target_figures_one_line(cat_match, ras, decs, error,
-                                                                    target_ra=target_ra, target_dec=target_dec,
+            if G.SINGLE_PAGE_PER_DETECT: # and (len(ras) <= G.MAX_COMBINE_BID_TARGETS):
+                entry = self.build_multiple_bid_target_figures_one_line(cat_match, ras, decs, error,
+                                                                        target_ra=target_ra, target_dec=target_dec,
                                                                     target_w=target_w, target_flux=target_flux,
                                                                     detobj=detobj)
             if entry is not None:
                 self.add_bid_entry(entry)
+        else:
+            return None
+
 #        else:  # each bid taget gets its own line
         if (not G.FORCE_SINGLE_PAGE) and (len(ras) > G.MAX_COMBINE_BID_TARGETS):  # each bid taget gets its own line
             log.error("ERROR!!! Unexpected state of G.FORCE_SINGLE_PAGE")
@@ -766,7 +770,10 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             # cannot continue
             print("No catalog image available in %s" % self.Name)
             plt.close()
+
+            return None
             # still need to plot relative fiber positions here
+
             plt.subplot(gs[1:, 0])
             return self.build_empty_cat_summary_figure(ra, dec, error, bid_ras, bid_decs, target_w=target_w,
                                                        fiber_locs=fiber_locs)

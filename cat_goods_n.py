@@ -392,16 +392,17 @@ class GOODS_N(cat_base.Catalog):
                                                   detobj=detobj)
         else:
             log.error("ERROR!!! Unexpected state of G.SINGLE_PAGE_PER_DETECT")
+            return None
 
         if entry is not None:
             self.add_bid_entry(entry)
 
-        if G.SINGLE_PAGE_PER_DETECT:
-            entry = self.build_multiple_bid_target_figures_one_line(cat_match, ras, decs, error,
-                                                                    target_ra=target_ra, target_dec=target_dec,
-                                                                    target_w=target_w, target_flux=target_flux,detobj=detobj)
-            if entry is not None:
-                self.add_bid_entry(entry)
+            if G.SINGLE_PAGE_PER_DETECT:
+                entry = self.build_multiple_bid_target_figures_one_line(cat_match, ras, decs, error,
+                                                                        target_ra=target_ra, target_dec=target_dec,
+                                                                        target_w=target_w, target_flux=target_flux,detobj=detobj)
+                if entry is not None:
+                    self.add_bid_entry(entry)
 
         if (not G.FORCE_SINGLE_PAGE) and (len(ras) > G.MAX_COMBINE_BID_TARGETS):  # each bid taget gets its own line
             log.error("ERROR!!! Unexpected state of G.FORCE_SINGLE_PAGE")

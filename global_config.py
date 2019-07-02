@@ -394,6 +394,7 @@ INCLUDE_ALL_AMPS = True #ie. if true, ignore the bad amp list
 
 RECOVERY_RUN = False
 
+ALLOW_EMPTY_IMAGE = False #do not return cutout if it is empty or a simple gradient (essentially, if it has no data)
 #note: Pan-STARRS is prioritized over SDSS (since Pan-STARRS is deeper 23.3 vs 22.0)
 PANSTARRS_ALLOW = True #if no other catalogs match, try Pan-STARRS as online query (default if not dispatch mode)
 PANSTARRS_FORCE = False  #ignore local catalogs and Force the use of only Pan-STARRS
