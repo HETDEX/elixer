@@ -6,6 +6,7 @@ changes to elixer by version
   treat as a catalog miss and move on to the next or backup catalog (including Pan-STARRS and/or SDSS)
 * Added --allow_empty_image command line option to override the above option and accept a blank image within the
   catalog footprint as acceptable
+* Changed logger instantiation to prevent imported 3rd party modules from logging excessively
 
 
 1.7.1a2 [2019-06-23]

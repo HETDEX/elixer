@@ -193,6 +193,7 @@ class Global_Logger:
 
     def __init__(self,id): #id is a string identifier
         self.logger = logging.getLogger(id)
+        self.logger.setLevel(LOG_LEVEL)
 
         self.fh = logging.FileHandler(LOG_FILENAME,"w")
         self.fh.setLevel(LOG_LEVEL)
@@ -200,7 +201,10 @@ class Global_Logger:
         # self.ch = logging.StreamHandler(sys.stdout)
         # self.ch.setLevel(LOG_LEVEL)
         # self.logger.addHandler(self.ch)
-        logging.basicConfig(filename=LOG_FILENAME, level=LOG_LEVEL, filemode='w')
+        #logging.basicConfig(filename=LOG_FILENAME, level=LOG_LEVEL, filemode='w')
+        #   #don't set the global log level, else imported packages might start loggin
+
+        logging.basicConfig(filename=LOG_FILENAME, filemode='w')
 
 
     def add_time(self,msg):
