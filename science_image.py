@@ -40,6 +40,7 @@ from photutils import centroid_2dg
 from astropy.stats import sigma_clipped_stats
 import astropy.stats.biweight as biweight
 
+
 PIXEL_APERTURE_METHOD='exact' #'exact' 'center' 'subpixel'
 
 #log = G.logging.getLogger('sciimg_logger')
@@ -223,7 +224,7 @@ class science_image():
         else:
             try:
                 #self.wcs = WCS(header=self.hdulist[self.wcs_idx].header,fobj=self.image_location)
-                self.wcs = WCS(self.image_location,relax = astropy.wcs.WCSHDR_CD00i00j | astropy.wcs.WCSHDR_PC00i00j)
+                self.wcs = WCS(self.image_location)#,relax = astropy.wcs.WCSHDR_CD00i00j | astropy.wcs.WCSHDR_PC00i00j)
             except:
                 log.error("Unable to use WCS constructor. Will attempt to build manually.", exc_info=True)
                 self.build_wcs_manually()
