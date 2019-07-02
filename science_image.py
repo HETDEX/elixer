@@ -81,25 +81,20 @@ def is_cutout_empty(cutout):
         # mn = np.min(cutout.data)
 
         #auto-correlation
-        lag = int(sp[0]/10) #say, 1/10 of the cutout size?
+        lag = max(1,int(sp[0]/10)) #say, 1/10 of the cutout size?
         #todo: what if we are on some large object that legitimately grows in a correlated fashion (centered on sphere?)
         #or the wings of a galaxy ... must be a really high correlation
         hzc = np.corrcoef(([hz[:-lag], hz[lag:]]))[0,1] #one of the off-diagonal values
         vtc = np.corrcoef(([vt[:-lag], vt[lag:]]))[0,1]
 
-        if (hzc > 0.99) and (vtc > 0.99):
+        #are either all the same
+        if (min(hz) == max(hz)) or (min(vt) == max(vt)):
+            #gradient or all same
+            rc = True
+            log.info("Gradient or all same pixels found in cutout.")
+        elif (hzc > 0.99) and (vtc > 0.99):
             rc = True
             log.info("Autocorrelation in cutout implies empty.")
-
-
-        #are either all the same
-        # if (min(hz) == max(hz)) or (min(vt) == max(vt)):
-        #     #gradient or all same
-        #     rc = True
-        #     log.info("Gradient or all same pixels found in cutout.")
-        # elif (hzc > 0.99) and (vtc > 0.99):
-        #     rc = True
-        #     log.info("Autocorrelation in cutout implies empty.")
         # elif (std > 0.0) and (mx-mn)/std < 5.0: #complete width ... like saying all of one side is less than 2.5 std
         #     rc = True
         #     log.info("Too little variation in cutout. Assume empty.")
