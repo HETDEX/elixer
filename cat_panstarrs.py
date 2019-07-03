@@ -288,6 +288,8 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                                                                     detobj=detobj)
             if entry is not None:
                 self.add_bid_entry(entry)
+            else:
+                return None
         else:
             log.error("ERROR!!! Unexpected state of G.SINGLE_PAGE_PER_DETECT")
 

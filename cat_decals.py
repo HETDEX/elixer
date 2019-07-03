@@ -377,6 +377,9 @@ class DECALS(cat_base.Catalog):#Hyper Suprime Cam
                                                                         detobj=detobj)
                 if entry is not None:
                     self.add_bid_entry(entry)
+        else:
+            return None
+
 #        else:  # each bid taget gets its own line
         if (not G.FORCE_SINGLE_PAGE) and (len(ras) > G.MAX_COMBINE_BID_TARGETS):  # each bid taget gets its own line
             log.error("ERROR!!! Unexpected state of G.FORCE_SINGLE_PAGE")

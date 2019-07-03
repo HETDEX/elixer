@@ -403,6 +403,8 @@ class GOODS_N(cat_base.Catalog):
                                                                         target_w=target_w, target_flux=target_flux,detobj=detobj)
                 if entry is not None:
                     self.add_bid_entry(entry)
+        else:
+            return None
 
         if (not G.FORCE_SINGLE_PAGE) and (len(ras) > G.MAX_COMBINE_BID_TARGETS):  # each bid taget gets its own line
             log.error("ERROR!!! Unexpected state of G.FORCE_SINGLE_PAGE")

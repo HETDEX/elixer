@@ -170,6 +170,8 @@ class SDSS(cat_base.Catalog):#SDSS
                                                                         detobj=detobj)
                 if entry is not None:
                     self.add_bid_entry(entry)
+                else:
+                    return None
             else:
                 log.error("ERROR!!! Unexpected state of G.SINGLE_PAGE_PER_DETECT")
 
