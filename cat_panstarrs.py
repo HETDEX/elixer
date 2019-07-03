@@ -72,6 +72,9 @@ def panstarrs_count_to_mag(count,cutout=None,headers=None):
     except:
         mag = 99.9
 
+    if np.isnan(mag):
+        mag = 99.9
+
     return mag
 
 
@@ -417,6 +420,9 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
         exptime_cont_est = -1
         index = 0 #images go in positions 1+ (0 is for the fiber positions)
 
+        best_plae_poii = None
+        best_plae_poii_filter = '-'
+
         #pos = coords.SkyCoord(ra,dec,unit="deg",frame='icrs')
 
         for f in self.Filters:
@@ -459,7 +465,7 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
             try:  # update non-matched source line with PLAE()
-                if ((mag < 99) or (cont_est != -1)) and (target_flux is not None) and (f == 'r'):
+                if ((mag < 99) or (cont_est != -1)) and (target_flux is not None) and (f in 'gr'):
                     # make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
                     bid_target = match_summary.BidTarget()
                     bid_target.catalog_name = self.Name
@@ -515,12 +521,19 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                                            cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
                                            sigma=None)
 
-                    if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
-                        text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)" % (bid_target.p_lae_oii_ratio,f))
+
+                    if best_plae_poii is None or f == 'r':
+                        best_plae_poii = bid_target.p_lae_oii_ratio
+                        best_plae_poii_filter = f
 
                     cat_match.add_bid_target(bid_target)
             except:
                 log.debug('Could not build exact location photometry info.', exc_info=True)
+            #
+            # if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
+            #     text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)" % (bid_target.p_lae_oii_ratio, f))
+            #
+
 
             # 1st cutout might not be what we want for the master (could be a summary image from elsewhere)
             if self.master_cutout:
@@ -568,22 +581,8 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                                                       angle=0.0, color=bc, fill=False, linewidth=1.0, zorder=1))
 
 
-        #if False:
-        #    if target_flux is not None:
-        #        #todo: get exptime from the tile (science image has it)
-        #        cont_est = self.get_f606w_max_cont(exptime_cont_est, 3,self.CONT_EST_BASE)
-        #        if cont_est != -1:
-        #            title += "Minimum (no match)\n  3$\sigma$ rest-EW:\n"
-        #            title += "  LyA = %g $\AA$\n" %  ((target_flux / cont_est) / (target_w / G.LyA_rest))
-        #            if target_w >= G.OII_rest:
-        #                title = title + "  OII = %g $\AA$\n" %  ((target_flux / cont_est) / (target_w / G.OII_rest))
-        #            else:
-        #                title = title + "  OII = N/A\n"
-
-            #plt.subplot(gs[0, 0])
-            #plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
-            #plt.gca().set_frame_on(False)
-            #plt.gca().axis('off')
+        if (not G.ZOO) and (bid_target is not None) and (best_plae_poii is not None):
+            text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)" % (best_plae_poii, best_plae_poii_filter))
 
         if self.master_cutout is None:
             # cannot continue
