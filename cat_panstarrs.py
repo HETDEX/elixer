@@ -587,10 +587,11 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
             # cannot continue
             print("No catalog image available in %s" % self.Name)
             plt.close()
+            return None  # empty (catch_all) will produce fiber locations
             # still need to plot relative fiber positions here
-            plt.subplot(gs[1:, 0])
-            return self.build_empty_cat_summary_figure(ra, dec, error, bid_ras, bid_decs, target_w=target_w,
-                                                       fiber_locs=fiber_locs)
+            # plt.subplot(gs[1:, 0])
+            # return self.build_empty_cat_summary_figure(ra, dec, error, bid_ras, bid_decs, target_w=target_w,
+            #                                            fiber_locs=fiber_locs)
         else:
             self.master_cutout.data /= total_adjusted_exptime
 
