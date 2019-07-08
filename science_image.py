@@ -704,9 +704,19 @@ class science_image():
             self.last_y0_center = (y_center - cutout.center_cutout[1])*self.pixel_size
             source_aperture_area = 0.0
 
-            if (not G.ALLOW_EMPTY_IMAGE) and is_cutout_empty(cutout):
-                log.info("Cutout is empty or simple gradient. Will deliberately fail cutout request.")
-                return None, 0, 99.99, 0
+            if is_cutout_empty(cutout):
+                if (G.ALLOW_EMPTY_IMAGE):
+                    pass
+                    #some cases seem to create problems, but forcing different values
+                    #or forcing all the same or all zero does not seem to matter
+                    #for matplotlib plot to PDF
+                    #it is an empty image anyway, and under normal configuration
+                    #this will get the default empty plot
+                    # if np.min(cutout.data) == np.max(cutout.data):
+                    #     cutout.data *= 0. #set all to exactly zero
+                else:
+                    log.info("Cutout is empty or simple gradient. Will deliberately fail cutout request.")
+                    return None, 0, 99.99, 0
 
             if False: #test out photutils
                 from photutils import find_peaks, segmentation
@@ -735,7 +745,7 @@ class science_image():
 
             if G.DYNAMIC_MAG_APERTURE:
                 #radius = max(0.5,aperture)
-                radius = 0.5
+                radius = G.MIN_DYNAMIC_MAG_RADIUS
                 step = 0.1
 
                 # try:
@@ -752,10 +762,13 @@ class science_image():
                 max_bright = 99.9
                 max_counts = 0
 
+                #last_slope = 0. #not really a slope but looking to see if there is a rapid upturn and then stop
+                #last_count = 0.
+
                 mag_list = [99.9]
                 rad_list = [0.0]
 
-                while radius <= error:
+                while radius <= min(error,G.MAX_DYNAMIC_MAG_APERTURE):
                     try:
                         #use the cutout first if possible (much smaller than image and faster)
                         #note: net difference is less than 0.1 mag at 0.5" and less than 0.01 at 1.5"
@@ -826,7 +839,13 @@ class science_image():
                             #if now growing fainter OR the brightness increase is small, we are done
                             if (mag > max_bright) or (abs(mag-max_bright) < 0.01):#< 0.0005):
                                 break
-                        elif (radius >= aperture) or (abs(radius-aperture) <1e-5):
+                            # elif last_count != 0:
+                            #     count_slope = (counts - max_counts) / last_count  # or current annulus/previous annulus
+                            #     area_slope = (2.*radius+step)/(2.*radius-step)
+                            #     if count_slope > (3. * area_slope): #should be stricly positive
+                            #         log.info("Aperture growth aborted. Unexpectedly large increase in counts.")
+                            #         break # (though, technically can have negative counts in some imaging)
+                        elif (radius >= aperture) or (abs(radius-aperture) <1e-5) or (radius > G.MAX_DYNAMIC_MAG_APERTURE):
                             #weirdness in floats, difference when "==" is non-zero ~ 1e-16
                             if max_bright > mag:
                                 max_bright = mag
@@ -837,6 +856,7 @@ class science_image():
                         max_bright = mag
                         max_counts = counts
                         max_radius = radius
+                        #last_count = counts - last_count #keeping just the counts in the current annulus
                     except:
                         log.error("Exception in science_image::get_cutout () using dynamic aperture", exc_info=True)
 

@@ -898,14 +898,13 @@ class SHELA(cat_base.Catalog):
             if (not G.ZOO) and (bid_target is not None) and (best_plae_poii is not None):
                 text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)" % (best_plae_poii,best_plae_poii_filter))
 
-
-            # 1st cutout might not be what we want for the master (could be a summary image from elsewhere)
-            if self.master_cutout:
-                if self.master_cutout.shape != cutout.shape:
-                    del self.master_cutout
-                    self.master_cutout = None
-
             if cutout is not None:  # construct master cutout
+                # 1st cutout might not be what we want for the master (could be a summary image from elsewhere)
+                if self.master_cutout:
+                    if self.master_cutout.shape != cutout.shape:
+                        del self.master_cutout
+                        self.master_cutout = None
+
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:

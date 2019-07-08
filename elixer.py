@@ -355,6 +355,12 @@ def parse_commandline(auto_force=False):
             print("Ignoring invalid --panstarrs value (%d). Using default (Allow == 1)" %args.panstarrs)
             G.PANSTARRS_ALLOW = True
             G.PANSTARRS_FORCE = False
+
+    #if there is no fall back imaging, we should allow empty imaging
+    if (G.PANSTARRS_ALLOW == False) and (G.SDSS_ALLOW == False):
+        G.ALLOW_EMPTY_IMAGE = True
+
+
     if args.nophoto:
         G.USE_PHOTO_CATS = False
 

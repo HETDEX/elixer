@@ -46,7 +46,7 @@ EXPANDED_IMAGES_PATH = G.COSMOS_EXTRA_PATH
 #todo:
 def subaru_hsc_g_count_to_mag(count,cutout=None,headers=None):
    pass
-    #image has no converion defined
+    #image has no converion defined; header very limited
 
 
 #NOTE: Depth around 26 mag or so
