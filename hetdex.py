@@ -1685,6 +1685,8 @@ class DetObj:
             log.error("Exception converting id to int type",exc_info=True)
             msg = "+++++ %s" %str(id)
             log.error(msg)
+            self.status = -1
+            return
 
 
         log.debug("Loading flux calibrated data from HDF5 ...")

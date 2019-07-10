@@ -238,69 +238,71 @@ class Catalog:
         #   so, use the _unique version to sort by distance, otherwise the same object will have multiple entries
         #   and the sort is messed up
 
-        if hasattr(self,'dataframe_of_bid_targets_unique'):
-            self.dataframe_of_bid_targets_unique['dist_prior'] = 1.0
-            df = self.dataframe_of_bid_targets_unique
-            df['distance'] = np.sqrt(
-                (np.cos(np.deg2rad(dec)) * (df['RA'] - ra)) ** 2 + (df['DEC'] - dec) ** 2)
+        try:
+            if hasattr(self,'dataframe_of_bid_targets_unique'):
+                self.dataframe_of_bid_targets_unique['dist_prior'] = 1.0
+                df = self.dataframe_of_bid_targets_unique
+                df['distance'] = np.sqrt(
+                    (np.cos(np.deg2rad(dec)) * (df['RA'] - ra)) ** 2 + (df['DEC'] - dec) ** 2)
 
-            df['dist_prior'] = 1.0
-            df['catalog_mag'] = 99.9
-            df['catalog_filter'] = '-'
-            df['catalog_flux'] = -1.0
-            df['catalog_flux_err'] = -1.0
+                df['dist_prior'] = 1.0
+                df['catalog_mag'] = 99.9
+                df['catalog_filter'] = '-'
+                df['catalog_flux'] = -1.0
+                df['catalog_flux_err'] = -1.0
 
-            pidx = df.columns.get_loc('dist_prior')
-            midx = df.columns.get_loc('catalog_mag')
-            fidx = df.columns.get_loc('catalog_filter')
-            fl_idx = df.columns.get_loc('catalog_flux')
-            fle_idx = df.columns.get_loc('catalog_flux_err')
+                pidx = df.columns.get_loc('dist_prior')
+                midx = df.columns.get_loc('catalog_mag')
+                fidx = df.columns.get_loc('catalog_filter')
+                fl_idx = df.columns.get_loc('catalog_flux')
+                fle_idx = df.columns.get_loc('catalog_flux_err')
 
-            for i in range(len(df)):
-                filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = \
-                    self.get_filter_flux(df.iloc[[i]]) #note the .iloc[[i]] so we get a dataframe not a series
-                if filter_mag is not None:
-                    p = self.distance_prior.get_prior(df.iloc[i]['distance'] * 3600.0, filter_mag)
-                    df.iat[i, pidx] = p
-                    df.iat[i, midx] = filter_mag
-                    df.iat[i, fidx] = filter_str
-                    df.iat[i, fl_idx] = filter_fl
-                    df.iat[i, fle_idx] = filter_fl_err
+                for i in range(len(df)):
+                    filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = \
+                        self.get_filter_flux(df.iloc[[i]]) #note the .iloc[[i]] so we get a dataframe not a series
+                    if filter_mag is not None:
+                        p = self.distance_prior.get_prior(df.iloc[i]['distance'] * 3600.0, filter_mag)
+                        df.iat[i, pidx] = p
+                        df.iat[i, midx] = filter_mag
+                        df.iat[i, fidx] = filter_str
+                        df.iat[i, fl_idx] = filter_fl
+                        df.iat[i, fle_idx] = filter_fl_err
 
-            self.dataframe_of_bid_targets_unique = df.sort_values(by=['dist_prior','distance'], ascending=[False,True])
-
-
-        #YES, both need to have this performed (this one always) as they are used for different purposes later
-        if hasattr(self,'dataframe_of_bid_targets'): #sanity check ... all cats have this
-            df = self.dataframe_of_bid_targets
-            df['distance'] = np.sqrt(
-                (np.cos(np.deg2rad(dec)) * (df['RA'] - ra)) ** 2 + (df['DEC'] - dec) ** 2)
-
-            df['dist_prior'] = 1.0
-            df['catalog_mag'] = 99.9
-            df['catalog_filter'] = '-'
-            df['catalog_flux'] = -1.0
-            df['catalog_flux_err'] = -1
-            pidx = df.columns.get_loc('dist_prior')
-            midx = df.columns.get_loc('catalog_mag')
-            fidx = df.columns.get_loc('catalog_filter')
-            fl_idx = df.columns.get_loc('catalog_flux')
-            fle_idx = df.columns.get_loc('catalog_flux_err')
-            #note: if _unique exists, this sort here is redudant, otherwise it is needed
-            for i in range(len(df)):
-                filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = \
-                    self.get_filter_flux(df.iloc[[i]]) #note the .iloc[[i]] so we get a dataframe not a series
-                if filter_mag is not None:
-                    p = self.distance_prior.get_prior(df.iloc[i]['distance']*3600.0,filter_mag)
-                    df.iat[i,pidx] = p
-                    df.iat[i, midx] = filter_mag
-                    df.iat[i, fidx] = filter_str
-                    df.iat[i, fl_idx] = filter_fl
-                    df.iat[i, fle_idx] = filter_fl_err
+                self.dataframe_of_bid_targets_unique = df.sort_values(by=['dist_prior','distance'], ascending=[False,True])
 
 
-            self.dataframe_of_bid_targets = df.sort_values(by=['dist_prior','distance'], ascending=[False,True])
+            #YES, both need to have this performed (this one always) as they are used for different purposes later
+            if hasattr(self,'dataframe_of_bid_targets'): #sanity check ... all cats have this
+                df = self.dataframe_of_bid_targets
+                df['distance'] = np.sqrt(
+                    (np.cos(np.deg2rad(dec)) * (df['RA'] - ra)) ** 2 + (df['DEC'] - dec) ** 2)
 
+                df['dist_prior'] = 1.0
+                df['catalog_mag'] = 99.9
+                df['catalog_filter'] = '-'
+                df['catalog_flux'] = -1.0
+                df['catalog_flux_err'] = -1
+                pidx = df.columns.get_loc('dist_prior')
+                midx = df.columns.get_loc('catalog_mag')
+                fidx = df.columns.get_loc('catalog_filter')
+                fl_idx = df.columns.get_loc('catalog_flux')
+                fle_idx = df.columns.get_loc('catalog_flux_err')
+                #note: if _unique exists, this sort here is redudant, otherwise it is needed
+                for i in range(len(df)):
+                    filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = \
+                        self.get_filter_flux(df.iloc[[i]]) #note the .iloc[[i]] so we get a dataframe not a series
+                    if filter_mag is not None:
+                        p = self.distance_prior.get_prior(df.iloc[i]['distance']*3600.0,filter_mag)
+                        df.iat[i,pidx] = p
+                        df.iat[i, midx] = filter_mag
+                        df.iat[i, fidx] = filter_str
+                        df.iat[i, fl_idx] = filter_fl
+                        df.iat[i, fle_idx] = filter_fl_err
+
+
+                self.dataframe_of_bid_targets = df.sort_values(by=['dist_prior','distance'], ascending=[False,True])
+        except:
+            log.warning("Exception in cat_base::Catalog::sort_bid_targets_by_likelihood()",exc_info=True)
 
 
     def clear_pages(self):
