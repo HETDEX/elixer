@@ -1705,7 +1705,12 @@ class DetObj:
 
             #get the multi-fits equivalent info
             #can't use "detectid==detectid" ... context is confused
-            rows = detection_table.read_where("detectid==id")
+            try:
+                rows = detection_table.read_where("detectid==id")
+            except:
+                log.error("Exception in hetdex::DetObj::load_hdf5_fluxcalibrated_spectra reading rows from detection_table",
+                          exc_info=True)
+                rows = None
 
             if (rows is None) or (rows.size != 1):
                 self.status = -1
