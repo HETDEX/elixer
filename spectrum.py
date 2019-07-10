@@ -393,6 +393,7 @@ class EmissionLineInfo:
         #!! Important: raw_wave, etc is NOT of the same scale or length of fit_wave, etc
         self.raw_wave = []
         self.raw_vals = []
+        self.raw_errs = []
         self.raw_h =  None
         self.raw_x0 = None
 
@@ -555,7 +556,16 @@ class EmissionLineInfo:
 
             #the 10.0 is just to rescale ... could make 1e17 -> 1e16, but I prefer to read it this way
 
-            self.line_score = self.snr * self.line_flux * 1e17 * \
+            above_noise = self.peak_sigma_above_noise()
+            if above_noise is None:
+                above_noise = 1.0
+            else:
+                above_noise = min(above_noise / G.MULTILINE_SCORE_NORM_ABOVE_NOISE, G.MULTILINE_SCORE_ABOVE_NOISE_MAX_BONUS)
+                # cap at 3x (so above 9x noise, we no longer graduate)
+                # that way, some hot pixel that spikes at 100x noise does not automatically get "real"
+                # but will still be throttled down due to failures with other criteria
+
+            self.line_score = self.snr * above_noise * self.line_flux * 1e17 * \
                               min(self.fit_sigma/self.pix_size,1.0) * \
                               min((self.pix_size * self.sn_pix)/21.0,1) / \
                               (10.0 * (1. + abs(self.fit_dx0 / self.pix_size)) )
@@ -628,6 +638,17 @@ class EmissionLineInfo:
             return 1.0
 
 
+    def peak_sigma_above_noise(self):
+        s = None
+        if (self.raw_errs is not None) and (len(self.raw_errs) > 0):
+            try:
+                idx = getnearpos(self.raw_wave, self.fit_x0)
+                s = self.raw_vals[idx] / self.raw_errs[idx]
+            except:
+                pass
+
+        return s
+
     def is_good(self,z=0.0):
         #(self.score > 0) and  #until score can be recalibrated, don't use it here
         #(self.sbr > 1.0) #not working the way I want. don't use it
@@ -635,7 +656,9 @@ class EmissionLineInfo:
 
         # minimum to be possibly good
         if (self.line_score >= GOOD_MIN_LINE_SCORE) and (self.fit_sigma >= GOOD_MIN_SIGMA):
-            result = True
+            s = self.peak_sigma_above_noise()
+            if (s is None) or (s > G.MULTILINE_MIN_GOOD_ABOVE_NOISE):
+                result = True
             #note: GOOD_MAX_DX0_MULT enforced in signal_score
 
         # if ((self.snr > GOOD_FULL_SNR) or ((self.snr > GOOD_MIN_SNR) and (self.sbr > GOOD_MIN_SBR))) and \
@@ -827,6 +850,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         eli.fit_wave = xfit.copy()
         eli.raw_vals = wave_counts[:]
         eli.raw_wave = wave_x[:]
+        if wave_errors is not None:
+            eli.raw_errs = wave_errors[:]
 
         #matches up with the raw data scale so can do RMSE
         rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2], parm[3])

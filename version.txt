@@ -1,6 +1,12 @@
 changes to elixer by version
 
-1.7.1a3 [2019-07-02]
+1.7.1a1 [2019-07-10]
+* Incorporated calfib errors into peak finder scoring. Line score modified by peak central flux / error at that position
+  up to a max of 3x (where multiplier is flux/error/3.0, so at 3 sigma, multiplier is 1x).
+* Mark 3-sigma in shaded region on full 1D spec plot
+* Mark in red, regions of spectrum above the 3-sigma limit
+
+1.7.1a3 [2019-07-07]
 * Added in Pan-STARRS online query. Takes priority over SDSS. Has same options under --panstarrs command line parameter
 * Added optional (default True) enforcement of non-empty catalog image. If image is empty or a simple gradient, will
   treat as a catalog miss and move on to the next or backup catalog (including Pan-STARRS and/or SDSS)

@@ -5610,10 +5610,12 @@ class HETDEX:
             j = None
             if len(datakeep['sumspec_wave']) > 0:
                 F = np.interp(bigwave, datakeep['sumspec_wave'], datakeep['sumspec_flux'])
+                E = np.interp(bigwave, datakeep['sumspec_wave'], datakeep['sumspec_ferr'])
                 y_label = "cgs" #r"cgs [$10^{-17}$]"
  #               min_y = -2
             else:
                 F = np.zeros(bigwave.shape)
+                E = np.interp(bigwave, datakeep['sumspec_wave'], datakeep['sumspec_ferr'])
                 #new way, per Karl, straight sum
                 for j in range(N - 1, stop, -1):
                     # regardless of the number if the sn is below the threshold, skip it
@@ -5653,10 +5655,20 @@ class HETDEX:
                         log.info("Exclusing spectra maximum outside 3500 - 5500 AA")
 
             ran = mx - mn
-            #specplot.step(bigwave, F, c='b', where='mid', lw=1)
-            specplot.plot(bigwave, F, c='b', lw=1)
 
-            specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='dashed', c='k') #[0.3, 0.3, 0.3])
+            #plot the Error (fill between) light grey
+            #specplot.fill_between(bigwave, 5.0 * E, -5.0 * E, facecolor='gray', alpha=0.4, zorder=4)
+            specplot.fill_between(bigwave,3.0*E,-3.0*E,facecolor='gray',alpha=0.5,zorder=5)
+
+            #red tips on peaks above 3sigma
+            where_red = np.where( (F-3.0*E) > 0.0)
+            mask = np.full(np.shape(bigwave),False)
+            mask[where_red]=True
+
+            #specplot.step(bigwave, F, c='b', where='mid', lw=1)
+            specplot.plot(bigwave, F, c='b', lw=1,zorder=8)
+            specplot.fill_between(bigwave, 3.0 * E,F,where=mask,facecolor='r',edgecolor='r', alpha=1.0, zorder=9)
+            specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], lw=0.75,ls='dashed', c='k',zorder=9) #[0.3, 0.3, 0.3])
 
             if G.FIT_FULL_SPEC_IN_WINDOW:
                 specplot.axis([left, right,np.min(F),np.max(F)])

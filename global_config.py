@@ -12,7 +12,7 @@ import numpy as np
 import socket
 
 #version
-__version__ = '1.7.1a3'
+__version__ = '1.7.2a1'
 
 #python version
 import sys
@@ -379,6 +379,10 @@ CLASSIFY_WITH_OTHER_LINES = True
 SPEC_MAX_OFFSET_SPREAD = 1.0 #AA #maximum spread in (velocity) offset (but in AA) across all lines in a solution
 MIN_MCMC_SNR = 0.0 #minium SNR from an MCMC fit to accept as a real line (if 0.0, do not MCMC additional lines)
 MIN_ADDL_EMIS_LINES_FOR_CLASSIFY = 1
+
+MULTILINE_MIN_GOOD_ABOVE_NOISE = 2.0 #below this is not consider a possibly good line
+MULTILINE_SCORE_NORM_ABOVE_NOISE = 3.0 #get full 1x score at this level
+MULTILINE_SCORE_ABOVE_NOISE_MAX_BONUS = 3.0 #maximum multiplier as max of (peak/noise/NORM, BONUS)
 MULTILINE_MIN_SOLUTION_SCORE = 25.0 #remember, this does NOT include the main line's score (about p(noise) = 0.01)
 MULTILINE_MIN_SOLUTION_CONFIDENCE = 0.99
 MULTILINE_MIN_WEAK_SOLUTION_CONFIDENCE = 0.5
@@ -387,8 +391,9 @@ MULTILINE_ALWAYS_SHOW_BEST_GUESS = True #if true, show the best guess even if it
 ADDL_LINE_SCORE_BONUS = 5.0 #add for each line at 2+ lines (so 1st line adds nothing)
                             #this is rather "hand-wavy" but gives a nod to having more lines beyond just their score
 
+
 DYNAMIC_MAG_APERTURE = True  #allow aperture size to change to fit maximum magnitude
-MIN_DYNAMIC_MAG_RADIUS = 0.5 #in arcsec
+MIN_DYNAMIC_MAG_RADIUS = 1.0 #in arcsec
 FIXED_MAG_APERTURE = 1.5 #radius in arcsec
 MAX_DYNAMIC_MAG_APERTURE = 3.0 #maximum growth in dynamic mag
 NUDGE_MAG_APERTURE_CENTER = 1.0  #allow the center of the mag aperture to drift to the 2D Gaussian centroid
