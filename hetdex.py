@@ -1683,6 +1683,10 @@ class DetObj:
             id = int(id)
         except:
             log.error("Exception converting id to int type",exc_info=True)
+            msg = "+++++ %s" %str(id)
+            log.error(msg)
+
+
         log.debug("Loading flux calibrated data from HDF5 ...")
         self.panacea = True #if we are here, it can only be panacea
 
