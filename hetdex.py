@@ -5678,7 +5678,8 @@ class HETDEX:
 
             #specplot.step(bigwave, F, c='b', where='mid', lw=1)
             specplot.plot(bigwave, F, c='b', lw=1,zorder=8)
-            specplot.fill_between(bigwave, 3.0 * E,F,where=mask,facecolor='r',edgecolor='r', alpha=1.0, zorder=9)
+            if G.SHADE_1D_SPEC_PEAKS:
+                specplot.fill_between(bigwave, 3.0 * E,F,where=mask,facecolor='r',edgecolor='r', alpha=1.0, zorder=9)
             specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], lw=0.75,ls='dashed', c='k',zorder=9) #[0.3, 0.3, 0.3])
 
             if G.FIT_FULL_SPEC_IN_WINDOW:
