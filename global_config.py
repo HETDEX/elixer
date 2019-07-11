@@ -377,6 +377,8 @@ FLUX_WAVEBIN_WIDTH = 2.0 # AA
 
 SHADE_1D_SPEC_PEAKS = True #if true, shade in red the 1D spec peaks above the NORM noise limit (see below)
 
+
+NEGATIVE_Z_ERROR = -0.001 #if compuated z is negative, but greater than this, assume == 0.0
 CLASSIFY_WITH_OTHER_LINES = True
 SPEC_MAX_OFFSET_SPREAD = 1.0 #AA #maximum spread in (velocity) offset (but in AA) across all lines in a solution
 MIN_MCMC_SNR = 0.0 #minium SNR from an MCMC fit to accept as a real line (if 0.0, do not MCMC additional lines)

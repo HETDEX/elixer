@@ -2571,7 +2571,7 @@ class Spectrum:
 
             central_z = central/e.w_rest - 1.0
             if (central_z) < 0.0:
-                if central_z > -0.01:
+                if central_z > G.NEGATIVE_Z_ERROR: #assume really z=0 and this is wavelength error
                     central_z = 0.0
                 else:
                     continue #impossible, can't have a negative z
@@ -2615,42 +2615,52 @@ class Spectrum:
                 if (eli is not None) and eli.is_good(z=sol.z):
                     #if this line is too close to another, keep the one with the better score
                     add_to_sol = True
-                    for i in range(len(sol.lines)):
-                        if abs(sol.lines[i].w_obs - eli.fit_x0) < 10.0:
 
-                            #keep the emission line over the absorption line, regardless of score, if that is the case
-                            if sol.lines[i].absorber != eli.absorber:
-                                if eli.absorber:
-                                    log.info("Emission line too close to absorption line (%s). Removing %s(%01.f) "
-                                             "from solution in favor of %s(%0.1f)"
-                                        % (self.identifier, a.name, a.w_rest, sol.lines[i].name, sol.lines[i].w_rest))
 
-                                    add_to_sol = False
-                                else:
-                                    log.info("Emission line too close to absorption line (%s). Removing %s(%01.f) "
-                                             "from solution in favor of %s(%0.1f)"
-                                        % (self.identifier, sol.lines[i].name, sol.lines[i].w_rest, a.name, a.w_rest))
-                                    # remove this solution
-                                    total_score -= sol.lines[i].line_score
-                                    sol.score -= sol.lines[i].line_score
-                                    sol.prob_noise /= sol.lines[i].prob_noise
-                                    del sol.lines[i]
-                            else: #they are are of the same type, so keep the better score
-                                if sol.lines[i].line_score < eli.line_score:
-                                    log.info("Lines too close (%s). Removing %s(%01.f) from solution in favor of %s(%0.1f)"
-                                             % (self.identifier,sol.lines[i].name, sol.lines[i].w_rest,a.name, a.w_rest))
-                                    #remove this solution
-                                    total_score -= sol.lines[i].line_score
-                                    sol.score -= sol.lines[i].line_score
-                                    sol.prob_noise /= sol.lines[i].prob_noise
-                                    del sol.lines[i]
-                                    break
-                                else:
-                                    #the new line is not as good so just skip it
-                                    log.info("Lines too close (%s). Removing %s(%01.f) from solution in favor of %s(%0.1f)"
-                                             % (self.identifier,a.name, a.w_rest,sol.lines[i].name, sol.lines[i].w_rest))
-                                    add_to_sol = False
-                                    break
+                    #check the main line first
+                    if abs(central - eli.fit_x0) < 5.0:
+                        # the new line is not as good so just skip it
+                        log.info("Emission line (%s) at (%f) close to or overlapping primary line (%f). Rejecting."
+                                 % (self.identifier, eli.fit_x0,central))
+                        add_to_sol = False
+
+                    else:
+                        for i in range(len(sol.lines)):
+                            if abs(sol.lines[i].w_obs - eli.fit_x0) < 10.0:
+
+                                #keep the emission line over the absorption line, regardless of score, if that is the case
+                                if sol.lines[i].absorber != eli.absorber:
+                                    if eli.absorber:
+                                        log.info("Emission line too close to absorption line (%s). Removing %s(%01.f) "
+                                                 "from solution in favor of %s(%0.1f)"
+                                            % (self.identifier, a.name, a.w_rest, sol.lines[i].name, sol.lines[i].w_rest))
+
+                                        add_to_sol = False
+                                    else:
+                                        log.info("Emission line too close to absorption line (%s). Removing %s(%01.f) "
+                                                 "from solution in favor of %s(%0.1f)"
+                                            % (self.identifier, sol.lines[i].name, sol.lines[i].w_rest, a.name, a.w_rest))
+                                        # remove this solution
+                                        total_score -= sol.lines[i].line_score
+                                        sol.score -= sol.lines[i].line_score
+                                        sol.prob_noise /= sol.lines[i].prob_noise
+                                        del sol.lines[i]
+                                else: #they are are of the same type, so keep the better score
+                                    if sol.lines[i].line_score < eli.line_score:
+                                        log.info("Lines too close (%s). Removing %s(%01.f) from solution in favor of %s(%0.1f)"
+                                                 % (self.identifier,sol.lines[i].name, sol.lines[i].w_rest,a.name, a.w_rest))
+                                        #remove this solution
+                                        total_score -= sol.lines[i].line_score
+                                        sol.score -= sol.lines[i].line_score
+                                        sol.prob_noise /= sol.lines[i].prob_noise
+                                        del sol.lines[i]
+                                        break
+                                    else:
+                                        #the new line is not as good so just skip it
+                                        log.info("Lines too close (%s). Removing %s(%01.f) from solution in favor of %s(%0.1f)"
+                                                 % (self.identifier,a.name, a.w_rest,sol.lines[i].name, sol.lines[i].w_rest))
+                                        add_to_sol = False
+                                        break
 
 
                     #now, before we add, if we have not run MCMC on the feature, do so now

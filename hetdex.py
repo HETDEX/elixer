@@ -5801,7 +5801,7 @@ class HETDEX:
                     continue
                 z = cwave / e.w_rest - 1.0
                 if (z < 0):
-                    if z > -0.01:
+                    if z > G.NEGATIVE_Z_ERROR:
                         z = 0.0
                     else:
                         continue

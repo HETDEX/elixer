@@ -3,7 +3,7 @@ changes to elixer by version
 1.7.1a2 [2019-07-11]
 * Fixed scaling issue in full 1D spectrum where central flux bin value is small compared to adjacent flux bins
   (i.e. flux nearest to fit line peak drops to small value ... almost like a double peak with a single bin separation)
-
+* Fixed error allowing alternate emission line to match primary line if calcuated z slightly negative (> -0.01)
 
 1.7.1a1 [2019-07-11]
 * Incorporated calfib errors into peak finder scoring. Line score modified by peak central flux / error at that position
