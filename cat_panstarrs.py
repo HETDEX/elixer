@@ -422,6 +422,7 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
 
         best_plae_poii = None
         best_plae_poii_filter = '-'
+        bid_target = None
 
         #pos = coords.SkyCoord(ra,dec,unit="deg",frame='icrs')
 
