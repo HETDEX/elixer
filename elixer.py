@@ -346,10 +346,10 @@ def parse_commandline(auto_force=False):
             G.PANSTARRS_FORCE = True
         elif args.panstarrs == -1: #basically, unless explicitly overridden, if we are in dispatch mode, don't use SDSS
                               #since we can easily overwhelm their web interface
-            pass #for now, let the global default rule ... if this is a problem like SDSS, then restrict
-            # if not (args.dispatch is None):
-            #     G.PANSTARRS_ALLOW = False
-            #     G.PANSTARRS_FORCE = False
+#            pass #for now, let the global default rule ... if this is a problem like SDSS, then restrict
+            if not (args.dispatch is None):
+                G.PANSTARRS_ALLOW = False
+                G.PANSTARRS_FORCE = False
         else:
             log.warning("Ignoring invalid --panstarrs value (%d). Using default (Allow == 1)" %args.panstarrs)
             print("Ignoring invalid --panstarrs value (%d). Using default (Allow == 1)" %args.panstarrs)

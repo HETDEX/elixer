@@ -7,6 +7,7 @@ changes to elixer by version
 * Mark in red, regions of spectrum above the 3-sigma limit (option in global_config.py)
 * Bumped up base time for stampede2 SKX nodes from 0.8 to 1.0 minutes (using ooops slows down processing a bit and
   the occassional call out to PanSTARRS also adds overhead).
+* Restrict Pan-STARRS to non-dispatch calls (like SDSS)
 
 1.7.1a3 [2019-07-07]
 * Added in Pan-STARRS online query. Takes priority over SDSS. Has same options under --panstarrs command line parameter
