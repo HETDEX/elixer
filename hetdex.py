@@ -5645,7 +5645,11 @@ class HETDEX:
 
             try:
                 peak_idx = (np.abs(datakeep['sumspec_wave'] - cwave)).argmin()
-                peak_height = datakeep['sumspec_flux'][peak_idx]
+
+                idx_left = max(0,peak_idx-2)
+                idx_right = min(len(datakeep['sumspec_wave']),peak_idx+3)
+
+                peak_height = max(datakeep['sumspec_flux'][idx_left:idx_right])
 
                 mn = max(mn,-0.2*peak_height) #at most go -20% of the peak below zero (most likely a bad sky subtraction)
                 mx = min(mx, 2.0 * peak_height)  # at most go 100% above the peak
@@ -5653,17 +5657,18 @@ class HETDEX:
                 pass
 
 
-            #flux at the cwave position
-            #todo: this is wrong F-cwave makes no sense (F is a flux array, cwave is a wavelength)
-            if True:
-                line_mx = F[(np.abs(bigwave-cwave)).argmin()]
-                if mx > 3.0*line_mx: #limit mx to a more narrow range)
-                    mx = max(F[(np.abs(bigwave-3500.0)).argmin():(np.abs(bigwave-5500.0)).argmin()])
-                    if mx > 3.0*line_mx:
-                        log.info("Truncating max spectra value...")
-                        mx = 3.0 * line_mx
-                    else:
-                        log.info("Exclusing spectra maximum outside 3500 - 5500 AA")
+            #flux nearest at the cwave position
+            #this is redundant to the block immediately above
+            # if True:
+            #     #this is the (binned) flux at position nearest the central wave peak (cwave)
+            #     line_mx = F[(np.abs(bigwave-cwave)).argmin()]
+            #     if mx > 3.0*line_mx: #limit mx to a more narrow range)
+            #         mx = max(F[(np.abs(bigwave-3500.0)).argmin():(np.abs(bigwave-5500.0)).argmin()])
+            #         if mx > 3.0*line_mx:
+            #             log.info("Truncating max spectra value...")
+            #             mx = 3.0 * line_mx
+            #         else:
+            #             log.info("Excluding spectra maximum outside 3500 - 5500 AA")
 
             ran = mx - mn
 
