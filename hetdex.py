@@ -35,6 +35,8 @@ from PIL import Image
 from astropy.io import fits as pyfits
 from astropy.coordinates import Angle
 from astropy import units as units
+from astropy.stats import sigma_clipped_stats
+
 #from astropy.stats import biweight_midvariance
 from astropy.modeling.models import Moffat2D, Gaussian2D
 from astropy.visualization import ZScaleInterval
@@ -508,6 +510,7 @@ class DetObj:
         self.fibers = []
         self.fibers_sorted = False
         self.outdir = None
+        self.calfib_noise_estimate = None
 
         #flux calibrated data (from Karl's detect and calibration)
         self.fcsdir = None
@@ -2003,7 +2006,6 @@ class DetObj:
 
                     self.fibers.append(fiber)
 
-
         if duplicate_count != 0:
             print("Warning! Duplicate Fibers found %d / %d" %(duplicate_count, count))
             log.warning("Warning! Duplicate Fibers found %d / %d" %(duplicate_count, count))
@@ -2020,6 +2022,21 @@ class DetObj:
             self.fibers = [x for x in self.fibers if x.relative_weight > 0]
         self.fibers.sort(key=lambda x: x.relative_weight, reverse=True)  # highest weight is index = 0
         self.fibers_sorted = True
+
+
+
+        #todo: build a noise estimate over the top 4 fibers (amps)?
+        try:
+            all_calfib = np.concatenate([x.fits.calfib for x in self.fibers[0:4]], axis=0)
+            mean, median, std = sigma_clipped_stats(all_calfib, axis=0, sigma=3.0)
+
+            self.calfib_noise_estimate = std
+            self.spec_obj.noise_estimate = self.calfib_noise_estimate
+            self.spec_obj.noise_estimate_wave = G.CALFIB_WAVEGRID
+        except:
+            log.info("Could not build DetObj calfib_noise_estimate", exc_info=True)
+            self.calfib_noise_estimate = np.zeros(len(G.CALFIB_WAVEGRID))
+
 
         self.spec_obj.identifier = "eid(%s)" %str(self.entry_id)
         self.spec_obj.plot_dir = self.outdir
@@ -5521,6 +5538,8 @@ class HETDEX:
     #wide (full width) spectrum
     def build_full_width_spectrum (self, datakeep, cwave):
 
+        noise_multiplier = 5.0
+
         cmap = plt.get_cmap('gray_r')
         norm = plt.Normalize()
         colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
@@ -5621,12 +5640,21 @@ class HETDEX:
             j = None
             if len(datakeep['sumspec_wave']) > 0:
                 F = np.interp(bigwave, datakeep['sumspec_wave'], datakeep['sumspec_flux'])
-                E = np.interp(bigwave, datakeep['sumspec_wave'], datakeep['sumspec_ferr'])
+                #E = np.interp(bigwave, datakeep['sumspec_wave'], datakeep['sumspec_ferr'])
+
+                try:
+                    E = np.interp(bigwave,G.CALFIB_WAVEGRID,datakeep['detobj'].calfib_noise_estimate)
+                except:
+                    E = np.zeros(len(bigwave))
                 y_label = "cgs" #r"cgs [$10^{-17}$]"
  #               min_y = -2
             else:
                 F = np.zeros(bigwave.shape)
-                E = np.interp(bigwave, datakeep['sumspec_wave'], datakeep['sumspec_ferr'])
+                #E = np.interp(bigwave, datakeep['sumspec_wave'], datakeep['sumspec_ferr'])
+                try:
+                    E = np.interp(bigwave, G.CALFIB_WAVEGRID, datakeep['detobj'].calfib_noise_estimate)
+                except:
+                    E = np.zeros(len(bigwave))
                 #new way, per Karl, straight sum
                 for j in range(N - 1, stop, -1):
                     # regardless of the number if the sn is below the threshold, skip it
@@ -5674,17 +5702,17 @@ class HETDEX:
 
             #plot the Error (fill between) light grey
             #specplot.fill_between(bigwave, 5.0 * E, -5.0 * E, facecolor='gray', alpha=0.4, zorder=4)
-            specplot.fill_between(bigwave,3.0*E,-3.0*E,facecolor='gray',alpha=0.5,zorder=5)
+            specplot.fill_between(bigwave,noise_multiplier*E,-noise_multiplier*E,facecolor='gray',alpha=0.5,zorder=5)
 
             #red tips on peaks above 3sigma
-            where_red = np.where( (F-3.0*E) > 0.0)
+            where_red = np.where( (F-noise_multiplier*E) > 0.0)
             mask = np.full(np.shape(bigwave),False)
             mask[where_red]=True
 
             #specplot.step(bigwave, F, c='b', where='mid', lw=1)
             specplot.plot(bigwave, F, c='b', lw=1,zorder=8)
             if G.SHADE_1D_SPEC_PEAKS:
-                specplot.fill_between(bigwave, 3.0 * E,F,where=mask,facecolor='r',edgecolor='r', alpha=1.0, zorder=9)
+                specplot.fill_between(bigwave, noise_multiplier * E,F,where=mask,facecolor='r',edgecolor='r', alpha=1.0, zorder=9)
             specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], lw=0.75,ls='dashed', c='k',zorder=9) #[0.3, 0.3, 0.3])
 
             if G.FIT_FULL_SPEC_IN_WINDOW:

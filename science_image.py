@@ -1023,7 +1023,7 @@ class science_image():
 
                     #todo: temporary
                     if False:
-                        with open("log.txt","a+") as logfile:
+                        with open("check_mag_log.txt","a+") as logfile:
                             marker = " "
                             if abs(sky_mag - base_mag) > 1.0:
                                 marker = '*'

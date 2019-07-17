@@ -1,5 +1,12 @@
 changes to elixer by version
 
+1.7.1a3 [2019-07-17]
+* Using 3-sigma clipped std dev from all fibers in top 4 amps/exposure contributing fibers to detection as noise
+  estimate (in 2AA CALFIB wavebins)
+* Update shading to be 5x noise (configurable in global_config.py) in full 1D spec plot
+* Update line scoring to use this noise estimate
+
+
 1.7.1a2 [2019-07-11]
 * Fixed scaling issue in full 1D spectrum where central flux bin value is small compared to adjacent flux bins
   (i.e. flux nearest to fit line peak drops to small value ... almost like a double peak with a single bin separation)

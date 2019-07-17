@@ -429,6 +429,9 @@ class EmissionLineInfo:
         self.mcmc_plot_buffer = None
         self.gauss_plot_buffer = None
 
+        self.noise_estimate = None
+        self.noise_estimate_wave = None
+
 
 
     def unc_str(self,tuple):
@@ -640,12 +643,22 @@ class EmissionLineInfo:
 
     def peak_sigma_above_noise(self):
         s = None
-        if (self.raw_errs is not None) and (len(self.raw_errs) > 0):
+
+
+        if (self.noise_estimate is not None) and (len(self.noise_estimate) > 0):
             try:
-                idx = getnearpos(self.raw_wave, self.fit_x0)
-                s = self.raw_vals[idx] / self.raw_errs[idx]
+                noise_idx = getnearpos(self.noise_estimate_wave, self.fit_x0)
+                raw_idx = getnearpos(self.raw_wave, self.fit_x0)
+                s = self.raw_vals[raw_idx] / self.noise_estimate[noise_idx]
             except:
                 pass
+
+        # elif (self.raw_errs is not None) and (len(self.raw_errs) > 0):
+        #     try:
+        #         idx = getnearpos(self.raw_wave, self.fit_x0)
+        #         s = self.raw_vals[idx] / self.raw_errs[idx]
+        #     except:
+        #         pass
 
         return s
 
@@ -852,6 +865,21 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         eli.raw_wave = wave_x[:]
         if wave_errors is not None:
             eli.raw_errs = wave_errors[:]
+
+        if spectrum is not None:
+            try:
+                #noise estimate from Spetrcum is from HDF5 and is in 10^-17 units
+                if spectrum.noise_estimate is not None:
+                    if values_units == -18:
+                        m = 10.0
+                    else:
+                        m = 1.0
+
+                    eli.noise_estimate = spectrum.noise_estimate[:] * m
+                if spectrum.noise_estimate_wave is not None:
+                    eli.noise_estimate_wave = spectrum.noise_estimate_wave[:]
+            except:
+                pass
 
         #matches up with the raw data scale so can do RMSE
         rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2], parm[3])
@@ -2211,6 +2239,9 @@ class Spectrum:
         self.errors = []
         self.values_units = 0
 
+        self.noise_estimate = None
+        self.noise_estimate_wave = None
+
         # very basic info, fit line to entire spectrum to see if there is a general slope
         #useful in identifying stars (kind of like a color U-V (ish))
         self.spectrum_linear_coeff = None #index = power so [0] = onstant, [1] = 1st .... e.g. mx+b where m=[1], b=[0]
@@ -2311,7 +2342,7 @@ class Spectrum:
             else:
                 show_plot = G.DEBUG_SHOW_GAUSS_PLOTS
 
-            eli = signal_score(wavelengths=wavelengths, values=values, errors=errors,central=central,
+            eli = signal_score(wavelengths=wavelengths, values=values, errors=errors,central=central,spectrum=self,
                                values_units=values_units, sbr=None, min_sigma=fit_min_sigma,
                                show_plot=show_plot,plot_id=self.identifier,
                                plot_path=self.plot_dir,do_mcmc=True)

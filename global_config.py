@@ -12,7 +12,7 @@ import numpy as np
 import socket
 
 #version
-__version__ = '1.7.2a2'
+__version__ = '1.7.2a3'
 
 #python version
 import sys
@@ -20,6 +20,7 @@ PYTHON_MAJOR_VERSION = sys.version_info[0]
 PYTHON_VERSION = sys.version_info
 
 HDR1 = False #set to TRUE for HDR1 release
+LAUNCH_PDF_VIEWER = None
 
 if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
     #base path: /work/03946/hetdex/hdr1/
@@ -65,6 +66,7 @@ if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
 
 else:
     if socket.gethostname() == 'z50':
+        LAUNCH_PDF_VIEWER = 'qpdfview'
     #if False:
         HDF5_DETECT_FN = "/work/03946/hetdex/hdr1/detect/detect_hdr1.h5"
         HDF5_CONTINUUM_FN = "/work/03946/hetdex/hdr1/detect/continuum_sources.h5"
@@ -316,10 +318,7 @@ MAX_COMBINE_BID_TARGETS = 3 #if SINGLE_PAGE_PER_DETECT is true, this is the max 
 #know what you are doing!!!
 SINGLE_PAGE_PER_DETECT = True #if true, a single pdf page per emission line detection is made
 FORCE_SINGLE_PAGE = True
-
-
 SHOW_SKYLINES = True
-
 
 #1 fiber (the edge-most) fiber
 CCD_EDGE_FIBERS_BOTTOM = range(1,20)
@@ -348,6 +347,7 @@ CCD_EDGE_FIBERS_ALL_2 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 
  422, 423, 424, 425, 426, 427, 428, 429, 430, 431, 432, 433, 434, 435, 436, 437, 438, 439, 440, 441, 442, 443, 444, 445,
  446, 447, 448]
 
+CALFIB_WAVEGRID = np.arange(3470.,5542.,2.0) #3470 - 5540
 
 #Detection Quality Score Values
 FULL_WEIGHT_DISTANCE = Fiber_Radius
@@ -369,23 +369,19 @@ ZOO_CUTOUTS = False #produce the small zooniverse cutouts
 
 UNIQUE_DET_ID_NUM = 0
 
-DISPLAY_ABSORPTION_LINES = False
-MAX_SCORE_ABSORPTION_LINES = 0.0 #the most an absorption line can contribute to the score (set to 0 to turn off)
-
-
 FLUX_WAVEBIN_WIDTH = 2.0 # AA
-
-SHADE_1D_SPEC_PEAKS = True #if true, shade in red the 1D spec peaks above the NORM noise limit (see below)
-
-
 NEGATIVE_Z_ERROR = -0.001 #if compuated z is negative, but greater than this, assume == 0.0
+
 CLASSIFY_WITH_OTHER_LINES = True
 SPEC_MAX_OFFSET_SPREAD = 1.0 #AA #maximum spread in (velocity) offset (but in AA) across all lines in a solution
 MIN_MCMC_SNR = 0.0 #minium SNR from an MCMC fit to accept as a real line (if 0.0, do not MCMC additional lines)
 MIN_ADDL_EMIS_LINES_FOR_CLASSIFY = 1
 
-MULTILINE_MIN_GOOD_ABOVE_NOISE = 2.0 #below this is not consider a possibly good line
-MULTILINE_SCORE_NORM_ABOVE_NOISE = 3.0 #get full 1x score at this level
+DISPLAY_ABSORPTION_LINES = False
+MAX_SCORE_ABSORPTION_LINES = 0.0 #the most an absorption line can contribute to the score (set to 0 to turn off)
+
+MULTILINE_MIN_GOOD_ABOVE_NOISE = 3.0 #below this is not consider a possibly good line
+MULTILINE_SCORE_NORM_ABOVE_NOISE = 5.0 #get full 1x score at this level
 MULTILINE_SCORE_ABOVE_NOISE_MAX_BONUS = 3.0 #maximum multiplier as max of (peak/noise/NORM, BONUS)
 MULTILINE_MIN_SOLUTION_SCORE = 25.0 #remember, this does NOT include the main line's score (about p(noise) = 0.01)
 MULTILINE_MIN_SOLUTION_CONFIDENCE = 0.99
@@ -394,10 +390,11 @@ MULTILINE_MAX_PROB_NOISE_TO_PLOT = 0.2 #plot dashed line on spectrum if p(noise)
 MULTILINE_ALWAYS_SHOW_BEST_GUESS = True #if true, show the best guess even if it does not meet the miniumum requirements
 ADDL_LINE_SCORE_BONUS = 5.0 #add for each line at 2+ lines (so 1st line adds nothing)
                             #this is rather "hand-wavy" but gives a nod to having more lines beyond just their score
+SHADE_1D_SPEC_PEAKS = True #if true, shade in red the 1D spec peaks above the NORM noise limit (see below)
 
 
 DYNAMIC_MAG_APERTURE = True  #allow aperture size to change to fit maximum magnitude
-MIN_DYNAMIC_MAG_RADIUS = 1.0 #in arcsec
+MIN_DYNAMIC_MAG_RADIUS = 0.5 #in arcsec
 FIXED_MAG_APERTURE = 1.5 #radius in arcsec
 MAX_DYNAMIC_MAG_APERTURE = 3.0 #maximum growth in dynamic mag
 NUDGE_MAG_APERTURE_CENTER = 1.0  #allow the center of the mag aperture to drift to the 2D Gaussian centroid

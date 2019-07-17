@@ -8,6 +8,8 @@ import tables
 
 from astropy.io import fits as pyfits
 from astropy.coordinates import Angle
+from astropy.stats import biweight
+from astropy.stats import sigma_clipped_stats
 import os.path as op
 
 #log = G.logging.getLogger('hetdex_logger')
@@ -72,6 +74,10 @@ class HetdexFits:
         self.fe_crval1 = None
         self.fe_cdelt1 = None
 
+        self.calfib = None #calibrated, rectified (see G.CALFIB_WAVEGRID)
+        self.calfibe = None
+
+        self.calfib_noise_est = None
         self.dither_index = dither_index
 
         self.ampname = None #specifically, Header keyword (or could come from AMPLIFIE)
@@ -93,6 +99,19 @@ class HetdexFits:
             self.read_fits(use_cosmic_cleaned=G.PreferCosmicCleaned)
             self.read_efits(use_cosmic_cleaned=G.PreferCosmicCleaned)
             self.read_fefits()
+
+
+    def build_calfib_noise_estimate(self):
+        try:
+            #todo: should we perform some sigma clipping?
+            #bw_mean = biweight.biweight_location(sigma_clipped_stats)
+            #bw_std = biweight.biweight_scale(self.calfib,axis=0)
+
+            mean, median, std  = sigma_clipped_stats(self.calfib,axis=0, sigma=3.0)
+            #todo: check the means? should be close to zero?
+            self.calfib_noise_est = std
+        except:
+            self.calfib_noise_est = np.zeros(len(G.CALFIB_WAVEGRID))
 
 
 
@@ -362,10 +381,21 @@ class HetdexFits:
                 # this way, all the downstream code stays the same, even if this is duplicate data
                 # (and, as a future todo: re-organize the code so this is not necessary)
 
+                #incase something goes wrong, we want something here, not just None or empty lists
                 self.fe_data = np.zeros((112,1032))
                 self.wave_data = np.zeros((112, 1032))
                 self.trace_data = np.zeros((112, 1032))
                 self.fiber_to_fiber = np.zeros((112, 1032))
+                self.calfib = np.zeros((112, len(G.CALFIB_WAVEGRID)))
+                self.calfibe = np.zeros((112, len(G.CALFIB_WAVEGRID)))
+
+
+                # self.fe_data = [[]]*112
+                # self.wave_data = [[]]*112
+                # self.trace_data = [[]]*112
+                # self.fiber_to_fiber = [[]]*112
+                # self.calfib = [[]]*112
+                # self.calfibe = [[]]*112
 
                 #todo: figure out what to do with error analysis
                 #self.error_analysis = np.zeros((3, 1032))
@@ -381,6 +411,9 @@ class HetdexFits:
                     self.wave_data[idx] = row['wavelength']
                     self.trace_data[idx] = row['trace']
                     self.fiber_to_fiber[idx] = row['fiber_to_fiber']
+
+                    self.calfib[idx] = row['calfib']
+                    self.calfibe[idx] = row['calfibe']
 
 
                 #todo: deal with AMP vs AMPNAME (for flip_amp() ... the pixel flats issue)
@@ -403,6 +436,8 @@ class HetdexFits:
             log.error("Could not process HDF5 multi-fits equivalent: %s" %(self.filename),exc_info=True)
             self.okay = False
             return None
+
+        self.build_calfib_noise_estimate()
 
     def read_panacea_fits(self):
         #this represents one AMP

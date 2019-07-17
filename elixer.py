@@ -275,6 +275,11 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--continuum', help='Use HETDEX continuum catalog instead of the emission line catalog', required=False,
                         action='store_true', default=False)
 
+
+    if G.LAUNCH_PDF_VIEWER is not None:
+        parser.add_argument('--viewer', help='Launch the global_config.py set PDF viewer on completion', required=False,
+                            action='store_true', default=False)
+
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
 
@@ -2156,8 +2161,13 @@ def main():
 
 
 
-
-
+    if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer:
+        import subprocess
+        cwd = os.getcwd()
+        cmdlist = [G.LAUNCH_PDF_VIEWER]
+        for f in file_list:
+            cmdlist.append(os.path.join(cwd,f.filename))
+        subprocess.Popen(cmdlist)
 
 
 
