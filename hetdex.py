@@ -2033,6 +2033,19 @@ class DetObj:
             self.calfib_noise_estimate = std
             self.spec_obj.noise_estimate = self.calfib_noise_estimate
             self.spec_obj.noise_estimate_wave = G.CALFIB_WAVEGRID
+            #
+            # mean_min = np.min(mean)
+            # mean_max = np.max(mean)
+            #
+            # median_min = np.min(median)
+            # median_max = np.max(median)
+            #
+            #
+            # if np.any(abs(mean) > )
+            #
+            # if (abs(mean) > std) or (abs(median) > std):
+            #     log.debug("Noise Estimate outside expected range: mean(%0.2f,%0.2f) median(%0.2f,%0.2f) std(%0.2f)" %(mean,median,std))
+
         except:
             log.info("Could not build DetObj calfib_noise_estimate", exc_info=True)
             self.calfib_noise_estimate = np.zeros(len(G.CALFIB_WAVEGRID))

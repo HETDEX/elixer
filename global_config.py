@@ -380,7 +380,7 @@ MIN_ADDL_EMIS_LINES_FOR_CLASSIFY = 1
 DISPLAY_ABSORPTION_LINES = False
 MAX_SCORE_ABSORPTION_LINES = 0.0 #the most an absorption line can contribute to the score (set to 0 to turn off)
 
-MULTILINE_MIN_GOOD_ABOVE_NOISE = 3.0 #below this is not consider a possibly good line
+MULTILINE_MIN_GOOD_ABOVE_NOISE = 4.0 #below this is not consider a possibly good line
 MULTILINE_SCORE_NORM_ABOVE_NOISE = 5.0 #get full 1x score at this level
 MULTILINE_SCORE_ABOVE_NOISE_MAX_BONUS = 3.0 #maximum multiplier as max of (peak/noise/NORM, BONUS)
 MULTILINE_MIN_SOLUTION_SCORE = 25.0 #remember, this does NOT include the main line's score (about p(noise) = 0.01)
@@ -390,7 +390,7 @@ MULTILINE_MAX_PROB_NOISE_TO_PLOT = 0.2 #plot dashed line on spectrum if p(noise)
 MULTILINE_ALWAYS_SHOW_BEST_GUESS = True #if true, show the best guess even if it does not meet the miniumum requirements
 ADDL_LINE_SCORE_BONUS = 5.0 #add for each line at 2+ lines (so 1st line adds nothing)
                             #this is rather "hand-wavy" but gives a nod to having more lines beyond just their score
-SHADE_1D_SPEC_PEAKS = True #if true, shade in red the 1D spec peaks above the NORM noise limit (see below)
+SHADE_1D_SPEC_PEAKS = False #if true, shade in red the 1D spec peaks above the NORM noise limit (see below)
 
 
 DYNAMIC_MAG_APERTURE = True  #allow aperture size to change to fit maximum magnitude

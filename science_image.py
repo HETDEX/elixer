@@ -666,7 +666,7 @@ class science_image():
                 if not (self.contains_position(ra,dec)):
                     log.info("science image (%s) does not contain requested position: RA=%f , Dec=%f"
                              %(self.image_location,ra,dec))
-                    return cutout, counts, mag, radius
+                    return None, counts, mag, radius
             else:
                 log.error("No fits or passed image from which to make cutout.")
                 return cutout, counts, mag, radius

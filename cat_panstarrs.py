@@ -17,6 +17,8 @@ except:
 
 import os.path as op
 import copy
+import os
+import ssl
 
 
 import matplotlib
@@ -194,6 +196,12 @@ def get_image(ra,dec,radius,filters):
     """
 
     hdulist = None
+
+    #having some issues with PanSTARRS certificate, so just ignore and do not attempt to validate the certificate
+    if (not os.environ.get('PYTHONHTTPSVERIFY', '') and
+            getattr(ssl, '_create_unverified_context', None)):
+        ssl._create_default_https_context = ssl._create_unverified_context
+
     try:
         size = arcsec2pix(radius)
         fitsurl = geturl(ra, dec, size=size, filters=filters, format="fits")
