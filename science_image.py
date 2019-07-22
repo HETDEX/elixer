@@ -237,6 +237,7 @@ class science_image():
             self.footprint = WCS.calc_footprint(self.wcs)
         except:
             log.error("Unable to get on-sky footprint")
+            self.footprint = None
 
         try:
             self.exptime = float(self.hdulist[self.wcs_idx].header['EXPTIME'])
@@ -253,6 +254,24 @@ class science_image():
             log.debug("Pixel Size = %f asec/pixel" %self.pixel_size)
         except:
             log.error("Unable to build pixel size", exc_info=True)
+
+
+        #check the footprint
+        try:
+            if (self.footprint is not None) and (self.pixel_size is not None):
+                ra_range = (max(self.footprint[:,0])-min(self.footprint[:,0])) * 3600.0
+                dec_range = (max(self.footprint[:,1])-min(self.footprint[:,1])) * 3600.0
+                #ignore keystoning from dec for now
+                footprint_area = ra_range * dec_range / (self.pixel_size**2)
+                pixel_area = self.wcs.pixel_shape[0] * self.wcs.pixel_shape[1]
+
+                #should be close in size:
+                if not (0.8 < footprint_area/pixel_area < 1.2):
+                    log.error("Significant error in footprint ( %0.2f vs %0.2f sq.pixels)" %(footprint_area,pixel_area))
+                    self.footprint = None
+        except:
+            log.error("Unable to verify footprint. Will set to None.")
+            self.footprint = None
 
         self.hdulist.close() #don't keep it open ... can be a memory problem with wrangler
         self.hdulist = None

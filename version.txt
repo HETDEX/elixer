@@ -1,11 +1,13 @@
 changes to elixer by version
 
-1.7.1a3 [2019-07-17]
+1.7.1a3 [2019-07-22]
 * Using 3-sigma clipped std dev from all fibers in top 4 amps/exposure contributing fibers to detection as noise
   estimate (in 2AA CALFIB wavebins)
 * Update shading to be 5x noise (configurable in global_config.py) in full 1D spec plot
 * Update line scoring to use this noise estimate
 * Ignore certificate errors for PanSTARRS
+* Add sanity check on imaging footprint from WCS (confirm WCS coord footprint produces the correct number of pixels
+  allowing for some error). If not, do not use the footprint as check for coordinates in range of image.
 
 1.7.1a2 [2019-07-11]
 * Fixed scaling issue in full 1D spectrum where central flux bin value is small compared to adjacent flux bins
