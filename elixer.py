@@ -1733,6 +1733,8 @@ def main():
 
     pages = []
 
+    viewer_file_list = []
+
     #if a --line file was provided ... old way (pre-April 2018)
     #always build ifu_list
     ifu_list = ifulist_from_detect_file(args)
@@ -2146,28 +2148,37 @@ def main():
         if (args.jpg or args.png) and (PyPDF is not None):
             if len(file_list) > 0:
                 for f in file_list:
+                    if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer:
+                        viewer_file_list.append(f.filename)
+
                     try:
                         convert_pdf(f.filename,jpeg=args.jpg, png=args.png)
                     except:
                         log.error("Error converting to pdf to image type: " + f.filename, exc_info=True)
             else:
+                if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer:
+                    viewer_file_list.append(args.name + ".pdf")
+
                 try:
-                    convert_pdf(args.name,jpeg=args.jpg, png=args.png)
+                    convert_pdf(args.name + ".pdf",jpeg=args.jpg, png=args.png)
                 except:
                     log.error("Error converting to pdf to image type: " + f.filename, exc_info=True)
 
 
 
-
-
-
-    if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer:
+    if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer and (len(viewer_file_list) > 0):
         import subprocess
         cwd = os.getcwd()
         cmdlist = [G.LAUNCH_PDF_VIEWER]
-        for f in file_list:
-            cmdlist.append(os.path.join(cwd,f.filename))
-        subprocess.Popen(cmdlist)
+        launch = False
+        for f in viewer_file_list:
+            fpath = os.path.join(cwd,f)
+            if os.path.exists(fpath):
+                cmdlist.append(fpath)
+                launch = True
+
+        if launch:
+            subprocess.Popen(cmdlist)
 
 
 

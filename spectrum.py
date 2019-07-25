@@ -1829,7 +1829,7 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
     """
 
     if (v is None) or (len(v) < 3):
-        return []
+        return None #cannot execute
 
     maxtab = []
     mintab = []
@@ -1843,7 +1843,7 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
     pix_size = abs(x[1] - x[0])  # aa per pix
     if pix_size == 0:
         log.error("Unexpected pixel_size in spectrum::peakdet(). Wavelength step is zero.")
-        return []
+        return None
     # want +/- 20 angstroms
     wave_side = int(round(20.0 / pix_size))  # pixels
 
@@ -1854,15 +1854,15 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
 
     if num_pix != len(x):
         log.warning('peakdet: Input vectors v and x must have same length')
-        return []
+        return None
 
     if not np.isscalar(dh):
         log.warning('peakdet: Input argument delta must be a scalar')
-        return []
+        return None
 
     if dh <= 0:
         log.warning('peakdet: Input argument delta must be positive')
-        return []
+        return None
 
 
     v_0 = v[:]
@@ -2217,10 +2217,10 @@ class Spectrum:
 
             EmissionLine("SiII".ljust(w), 1260, "gray", solution=False,display=False),
 
-            EmissionLine("HeII".ljust(w), 1640.4, "orange", solution=False,display=False),
+            EmissionLine("HeII".ljust(w), 1640.4, "orange", solution=True,display=False),
 
-            EmissionLine("NeIII".ljust(w), 3869, "pink", solution=False,display=False),
-            EmissionLine("NeIII".ljust(w), 3967, "pink", solution=False,display=False),  #very close to CaII(3970)
+            EmissionLine("NeIII".ljust(w), 3869, "pink", solution=True,display=False),
+            EmissionLine("NeIII".ljust(w), 3967, "pink", solution=True,display=False),  #very close to CaII(3970)
             EmissionLine("NeV".ljust(w), 3346.79, "pink", solution=False,display=False),
             EmissionLine("NeVI".ljust(w), 3426.85, "pink", solution=False, display=False),
 

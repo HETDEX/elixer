@@ -542,6 +542,9 @@ class DetObj:
         self.bad_amp_dict = None
 
         self.sdss_gmag = None #using speclite to estimate
+        self.sdss_cgs_cont = None
+        self.sdss_gmag_p_lae_oii_ratio = None
+
         if emission:
             self.type = 'emis'
             # actual line number from the input file
@@ -1837,15 +1840,15 @@ class DetObj:
             try:
                 #reminder needs erg/s/cm2/AA and sumspec_flux in ergs/s/cm2 so divied by 2AA bin width
 #                self.sdss_gmag, self.cont_cgs = elixer_spectrum.get_hetdex_gmag(self.sumspec_flux/2.0*1e-17,self.sumspec_wavelength)
-                self.sdss_gmag, gcont = elixer_spectrum.get_hetdex_gmag(self.sumspec_flux / 2.0 * 1e-17,
+                self.sdss_gmag, self.sdss_cgs_cont = elixer_spectrum.get_hetdex_gmag(self.sumspec_flux / 2.0 * 1e-17,
                                                                                 self.sumspec_wavelength)
 
                 if self.cont_cgs == -9999: #still unset ... weird?
                     log.warning("Warning! HETDEX continuum estimate not set. Using SDSS gmag for estimate.")
-                    self.cont_cgs = gcont
+                    self.cont_cgs = self.sdss_cgs_cont
                 elif self.cont_cgs == 0.0:
                     log.warning("Warning! HETDEX continuum 0.0. Using SDSS gmag for estimate.")
-                    self.cont_cgs = gcont
+                    self.cont_cgs = self.sdss_cgs_cont
                 #todo: need to find a way to improve the uncertainty
                 #self.cont_cgs_unc = #need to update this estimate? as this is based on +/- 40 or 50AA around line?
                 #self.cont_cgs = c
@@ -2143,6 +2146,40 @@ class DetObj:
                 self.p_lae_oii_ratio = 0.0
 
             self.p_lae_oii_ratio = min(line_prob.MAX_PLAE_POII,self.p_lae_oii_ratio) #cap to MAX
+
+        #check the sdss_gmag version
+        if self.sdss_gmag_p_lae_oii_ratio is None:
+            try:
+
+
+                if self.spec_obj:
+                    addl_wavelengths = self.spec_obj.addl_wavelengths
+                    addl_fluxes = self.spec_obj.addl_fluxes
+                    addl_errors = self.spec_obj.addl_fluxerrs
+                else:
+                    addl_wavelengths = []
+                    addl_fluxes = []
+                    addl_errors = []
+
+
+
+                sdss_ratio, sdss_p_lae, sdss_p_oii = line_prob.prob_LAE(wl_obs=self.w,
+                                                                   lineFlux=self.estflux,
+                                                                   lineFlux_err=self.estflux_unc,
+                                                                   ew_obs=self.estflux/self.sdss_cgs_cont,
+                                                                   ew_obs_err=None, #todo: get error est for sdss gmag
+                                                                   c_obs=None, which_color=None,
+                                                                   addl_fluxes=addl_fluxes,
+                                                                   addl_wavelengths=addl_wavelengths,
+                                                                   addl_errors = addl_errors,
+                                                                   sky_area=None,
+                                                                   cosmo=None, lae_priors=None,
+                                                                   ew_case=None, W_0=None,
+                                                                   z_OII=None, sigma=None)
+                self.sdss_gmag_p_lae_oii_ratio = sdss_ratio
+            except:
+                log.info("Exception in hetdex.py DetObj::get_probabilities() for sdss_gmag PLAE/POII: ", exc_info=True)
+
 
 
 
@@ -3733,6 +3770,10 @@ class HETDEX:
         if not G.ZOO:
             if e.p_lae_oii_ratio is not None:
                 title += "\nP(LAE)/P(OII) = %0.3g" % (e.p_lae_oii_ratio)
+
+                if e.sdss_gmag_p_lae_oii_ratio is not None:
+                    title += " (gmag %0.3g)" % (e.sdss_gmag_p_lae_oii_ratio)
+
             #if (e.dqs is not None) and (e.dqs_raw is not None):
             #    title += "  Score = %0.1f (%0.2f)" % (e.dqs, e.dqs_raw)
 

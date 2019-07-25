@@ -1,5 +1,12 @@
 changes to elixer by version
 
+1.7.1a4 [2019-07-24]
+* Add (in parenthesis to upper left panel) gmag based PLAE/POII ratio. This is in the PDF only and is not part
+  of the catalog.
+* Fixed bug in
+
+
+
 1.7.1a3 [2019-07-22]
 * Using 3-sigma clipped std dev from all fibers in top 4 amps/exposure contributing fibers to detection as noise
   estimate (in 2AA CALFIB wavebins)
