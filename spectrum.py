@@ -81,12 +81,12 @@ PROB_NOISE_MIN_SCORE = 2.0 #min score that makes it to the bin list
 
 
 #beyond an okay fit (see GAUSS_FIT_xxx above) is this a "good" signal
-GOOD_MIN_LINE_SCORE = 2.0 #lines are added to solution only if 'GOOD' (meaning, minimally more likely real than noise)
+GOOD_MIN_LINE_SCORE = 4.0 #lines are added to solution only if 'GOOD' (meaning, minimally more likely real than noise)
 #does not have to be the same as PROB_NOISE_MIN_SCORE, but that generally makes sense
 #GOOD_FULL_SNR = 9.0 #ignore SBR is SNR is above this
 #GOOD_MIN_SNR = 5.0 #bare-minimum; if you change the SNR ranges just above, this will also need to change
 #GOOD_MIN_SBR = 3.0 #signal to "background" noise (looks at peak height vs surrounding peaks) (only for "weak" signals0
-GOOD_MIN_SIGMA = 1.425 #in AA, roughly # 0.75 * pixel_size
+GOOD_MIN_SIGMA = 1.8 #in AA or FWHM ~ 4.2 (really too narrow, but allowing for some error)
 #GOOD_MIN_EW_OBS = 1.5 #not sure this is a good choice ... really should depend on the physics of the line and
                       # not be absolute
 #GOOD_MIN_EW_REST = 1.0 #ditto here
@@ -2219,10 +2219,10 @@ class Spectrum:
 
             EmissionLine("HeII".ljust(w), 1640.4, "orange", solution=True,display=False),
 
-            EmissionLine("NeIII".ljust(w), 3869, "pink", solution=True,display=False),
-            EmissionLine("NeIII".ljust(w), 3967, "pink", solution=True,display=False),  #very close to CaII(3970)
-            EmissionLine("NeV".ljust(w), 3346.79, "pink", solution=False,display=False),
-            EmissionLine("NeVI".ljust(w), 3426.85, "pink", solution=False, display=False),
+            EmissionLine("NeIII".ljust(w), 3869, "deeppink", solution=True,display=False),
+            EmissionLine("NeIII".ljust(w), 3967, "deeppink", solution=True,display=False),  #very close to CaII(3970)
+            EmissionLine("NeV".ljust(w), 3346.79, "deeppink", solution=False,display=False),
+            EmissionLine("NeVI".ljust(w), 3426.85, "deeppink", solution=False, display=False),
 
             EmissionLine("NaI".ljust(w),4980,"lightcoral",solution=False, display=False),  #4978.5 + 4982.8
             EmissionLine("NaI".ljust(w),5153,"lightcoral",solution=False, display=False),  #5148.8 + 5153.4
@@ -2629,7 +2629,7 @@ class Spectrum:
                     continue
 
                 a_central = a.w_rest*(sol.z+1.0)
-                if (a_central > max_w) or (a_central < min_w):
+                if (a_central > max_w) or (a_central < min_w) or (abs(a_central-central) < 5.0):
                     continue
 
                 eli = signal_score(wavelengths=wavelengths, values=values, errors=errors, central=a_central,

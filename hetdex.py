@@ -5889,7 +5889,7 @@ class HETDEX:
                         continue
                 count = 0
                 for f in self.emission_lines:
-                    if (f == e) or not (wavemin <= f.redshift(z) <= wavemax):
+                    if (f == e) or not (wavemin <= f.redshift(z) <= wavemax) or (abs(f.redshift(z) - cwave) < 5.0):
                         continue
                     elif G.DISPLAY_ABSORPTION_LINES and datakeep['detobj'].spec_obj.is_near_absorber(f.w_obs):
                         pass #print this one
