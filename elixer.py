@@ -21,6 +21,7 @@ except:
 import argparse
 
 from astropy.coordinates import Angle
+from astropy.coordinates import SkyCoord
 from matplotlib.backends.backend_pdf import PdfPages
 from distutils.version import LooseVersion
 import pyhetdex.tools.files.file_tools as ft
@@ -1724,7 +1725,7 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
     return newlist
 
 
-def build_neighborhood_map(ra=None, dec=None, distance=None):
+def build_neighborhood_map(hdf5,ra=None, dec=None, distance=None):
     if (distance is None) or (distance < 0.0) or ((ra is None) or (dec is None)):
         log.info("Invalid data passed to build_neighborhood_map")
         return None
@@ -1737,9 +1738,42 @@ def build_neighborhood_map(ra=None, dec=None, distance=None):
         log.info("No HETDEX detections found: (%f,%f) +/- %d" %(ra,dec,distance))
         return None
 
-    #todo: get the single master cutout (need to stack? or select best image?)
+    #get the single master cutout (need to stack? or select best image (best == most pixels)?)
+    cat_library = catalogs.CatalogLibrary()
+    cutouts = cat_library.get_cutouts(position=SkyCoord(ra, dec, unit='deg'), radius=error)
 
-    #todo: get the PSF weighted full 1D spectrum for each detectid
+    #find the best cutout (most pixels)
+    def sqpix(cutout):
+        try:
+            sq = cutout.wcs.pixel_shape[0]*cutout.wcs.pixel_shape[1]
+        except:
+            sq = -1.
+        return sq
+
+    master_cutout = None
+    if len(cutouts > 0):
+        try:
+            best = np.argmax([sqpix(c['cutout']) for c in cutouts])
+            master_cutout = cutouts[best]['cutout']
+        except:
+            log.debug("Exception in build_neighborhood_map:",exc_info=True)
+
+
+    #get the PSF weighted full 1D spectrum for each detectid
+    spec = []
+    wave = []
+    with tables.open_file(hdf5, mode="r") as h5_detect:
+        stb = h5_detect.root.Spectra
+        for d in detectids:
+            rows = stb.read_where("detectid==d")
+            if rows.size == 1:
+                spec.append(rows['spec1d'])
+                wave.append(rows['wave1d'])
+            else:
+                #there's a problem
+                spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
+                wave.append(G.CALFIB_WAVEGRID)
+
 
     #todo: create a new matplotlib figure, use gridspec (by number of detectids)
     #      and return the image (optionally save as PNG? or let caller worry about that)
@@ -2227,7 +2261,7 @@ def main():
     if (args.neighborhood is not None) and (args.neighborhood > 0.0):
         for h in hd_list:  # iterate over all hetdex detections
             for e in h.emis_list:
-                build_neighborhood_map(e.ra,e.dec,args.neighborhood)
+                build_neighborhood_map(args.hdf5,e.ra,e.dec,args.neighborhood)
             #todo: for each emission detection, pull in a single cutout and grab all neighbors (including the target)
 
 
