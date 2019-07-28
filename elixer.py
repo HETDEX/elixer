@@ -9,11 +9,13 @@ try:
     from elixer import match_summary
     from elixer import global_config as G
     from elixer import catalogs
+    from elixer import utilities as UTIL
 except:
     import hetdex
     import match_summary
     import global_config as G
     import catalogs
+    import utilities as UTIL
 
 
 import argparse
@@ -274,6 +276,11 @@ def parse_commandline(auto_force=False):
 
     parser.add_argument('--continuum', help='Use HETDEX continuum catalog instead of the emission line catalog', required=False,
                         action='store_true', default=False)
+
+
+    parser.add_argument('--neighborhood', help="Generate report on all HETDEX neighbors within the supplied distance in arcsec",
+                        required=False, default=-1.0,type=float)
+
 
 
     if G.LAUNCH_PDF_VIEWER is not None:
@@ -1187,7 +1194,7 @@ def convert_pdf(filename, resolution=150, jpeg=True, png=False):
 
 
 
-def get_hdf5_detectids_by_coord(hdf5,ra,dec,error):
+def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
     """
     Find all detections within +/- error from given ra and dec
 
@@ -1211,7 +1218,20 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error):
 
             if (rows is not None) and (rows.size > 0):
                 detectids = rows['detectid']
+
                 msg = "%d detection records found +/- %g\" from %f, %f" %(rows.size,error*3600.,ra,dec)
+
+                #less important, sort by distance
+                if sort and (rows.size > 1):
+                    try:
+                        ras = rows['ra']
+                        decs = rows['dec']
+                        dist = [UTIL.angular_distance(ra,dec,r,d) for r,d in zip(ras,decs)]
+
+                        detectids = [d for _,d in sorted(zip(dist, detectids))]
+                    except:
+                        log.debug("Unable to sort by distance",exc_info=True)
+
                 log.info(msg)
                 print(msg)
             else:
@@ -1704,6 +1724,26 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
     return newlist
 
 
+def build_neighborhood_map(ra=None, dec=None, distance=None):
+    if (distance is None) or (distance < 0.0) or ((ra is None) or (dec is None)):
+        log.info("Invalid data passed to build_neighborhood_map")
+        return None
+
+    #get all the detectids
+    detectids = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=distance, sort=True)
+
+    if len(detectids) == 0:
+        #nothing to do
+        log.info("No HETDEX detections found: (%f,%f) +/- %d" %(ra,dec,distance))
+        return None
+
+    #todo: get the single master cutout (need to stack? or select best image?)
+
+    #todo: get the PSF weighted full 1D spectrum for each detectid
+
+    #todo: create a new matplotlib figure, use gridspec (by number of detectids)
+    #      and return the image (optionally save as PNG? or let caller worry about that)
+
 
 def main():
 
@@ -2181,6 +2221,14 @@ def main():
             subprocess.Popen(cmdlist)
 
 
+
+
+
+    if (args.neighborhood is not None) and (args.neighborhood > 0.0):
+        for h in hd_list:  # iterate over all hetdex detections
+            for e in h.emis_list:
+                build_neighborhood_map(e.ra,e.dec,args.neighborhood)
+            #todo: for each emission detection, pull in a single cutout and grab all neighbors (including the target)
 
 
 
