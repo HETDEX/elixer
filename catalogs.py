@@ -157,6 +157,11 @@ class CatalogLibrary:
         l = list()
 
         #override the default ELiXer behavior
+
+        saved_DYNAMIC_MAG_APERTURE = G.DYNAMIC_MAG_APERTURE
+        saved_FIXED_MAG_APERTURE = G.FIXED_MAG_APERTURE
+        saved_NUDGE_MAG_APERTURE_CENTER = G.NUDGE_MAG_APERTURE_CENTER
+
         G.DYNAMIC_MAG_APERTURE = dynamic
         G.FIXED_MAG_APERTURE = aperture
         if (nudge is None) or (nudge < 0):
@@ -168,6 +173,11 @@ class CatalogLibrary:
             # since this is a half-length of a side, the window (or side) is 2x radius
             if (cutouts is not None) and (len(cutouts) > 0):
                 l.extend(cutouts)
+
+        #restore
+        G.DYNAMIC_MAG_APERTURE = saved_DYNAMIC_MAG_APERTURE
+        G.FIXED_MAG_APERTURE = saved_FIXED_MAG_APERTURE
+        G.NUDGE_MAG_APERTURE_CENTER = saved_NUDGE_MAG_APERTURE_CENTER
 
         return l
 

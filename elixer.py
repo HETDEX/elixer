@@ -1232,7 +1232,7 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
                 msg = "%d detection records found +/- %g\" from %f, %f" %(rows.size,error*3600.,ra,dec)
 
                 #less important, sort by distance
-                if sort and (rows.size > 1):
+                if sort:
                     try:
                         ras = rows['ra']
                         decs = rows['dec']
@@ -1249,6 +1249,8 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
                         # decs = [d for _,d in sorted(zip(dist, decs))]
                     except:
                         log.debug("Unable to sort by distance",exc_info=True)
+
+
 
                 log.info(msg)
                 print(msg)
@@ -1804,39 +1806,52 @@ def build_neighborhood_map(hdf5=None,detectid=None,ra=None, dec=None, distance=N
             sq = -1
         return sq
 
-    master_cutout = None
-    if len(cutouts) > 0:
-        try:
-            pix2 = np.array([sqpix(c['cutout']) for c in cutouts])
-            best = np.argmax(pix2)
-            master_cutout = copy.copy(cutouts[best]['cutout'])
 
-            #how many?
-            sel = np.where((pix2 == pix2[best]))[0]
-            if len(sel) > 1:
-                # need to sum up
-                time = np.zeros(len(pix2))
-                for i in sel:
-                    try:
-                        time[i] = cutouts[i]['hdu'][0]['EXTIME']
-                    except:
-                        pass
+    sci = science_image.science_image()  # empty ... just want for functions
 
-                total_time = max(np.sum(time),1.0)
-                master_cutout.data *= 0.0
+    def make_master(_cutouts):
+        mc = None
+        if len(_cutouts) > 0:
+            try:
+                pix2 = np.array([sqpix(c['cutout']) for c in _cutouts])
+                best = np.argmax(pix2)
+                mc = copy.copy(_cutouts[best]['cutout'])
 
-                if total_time == 1.0:
+                #how many?
+                sel = np.where((pix2 == pix2[best]))[0]
+                if len(sel) > 1:
+                    # need to sum up
+                    time = np.zeros(len(pix2))
                     for i in sel:
-                        master_cutout.data += cutouts[i]['cutout'].data
-                else:
-                    for i in sel:
-                        master_cutout.data += cutouts[i]['cutout'].data*time([i]/total_time)
-                    #time is not the best metric, but not too bad ... assumes all filters have roughly equivalent
-                    #throughputs ... should not use for any measurements, but just for making a picture it is okay
+                        try:
+                            time[i] = _cutouts[i]['hdu'][0]['EXPTIME']
+                        except:
+                            pass
 
-        except:
-            log.debug("Exception in build_neighborhood_map:",exc_info=True)
+                    total_time = max(np.sum(time),1.0)
+                    mc.data *= 0.0
 
+                    if total_time == 1.0:
+                        for i in sel:
+                            mc.data += _cutouts[i]['cutout'].data
+                    else:
+                        for i in sel:
+                            mc.data += _cutouts[i]['cutout'].data*time[i]/total_time
+                        #time is not the best metric, but not too bad ... assumes all filters have roughly equivalent
+                        #throughputs ... should not use for any measurements, but just for making a picture it is okay
+
+            except:
+                log.debug("Exception in build_neighborhood_map:",exc_info=True)
+
+            return mc
+
+    master_cutout = make_master(cutouts)
+
+    if science_image.is_cutout_empty(master_cutout):
+        log.info("build_neighborhood_map master_cutout is empty. Will try web calls for PanSTARRS and/or SDSS.")
+        #ask only for G or R band
+        ps_cutouts = catalogs.cat_panstarrs.PANSTARRS().get_cutouts(ra,dec,distance,aperture=None) #note, different than cutouts above?
+        master_cutout = make_master(ps_cutouts)
 
     #get the PSF weighted full 1D spectrum for each detectid
     spec = []
@@ -1874,7 +1889,7 @@ def build_neighborhood_map(hdf5=None,detectid=None,ra=None, dec=None, distance=N
     vmin,vmax = UTIL.get_vrange(master_cutout.data)#,contrast=0.25)
     target_box_side = 3.0 #distance / 4.0
 
-    sci = science_image.science_image()  # empty ... just want for functions
+
     x, y = sci.get_position(ra, dec, master_cutout)  # x,y of the center
 
     for i in range(num_rows):
@@ -1949,7 +1964,7 @@ def main():
         cat_sdss = []
         cat_panstarrs = []
 
-    # build_neighborhood_map(args.hdf5, 1000410886,None, None, args.neighborhood,cwave=4929.64)
+    # build_neighborhood_map(args.hdf5, 1000359619,None, None, args.neighborhood,cwave=None,fname='lycon/test_nei.png')
     # exit()
 
 

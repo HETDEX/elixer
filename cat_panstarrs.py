@@ -837,28 +837,30 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
         d = {'cutout':None,
              'hdu':None,
              'path':None,
-             'filter':catalog_image['filter'],
-             'instrument':catalog_image['instrument'],
+             'filter':None,
+             'instrument':None,
              'mag':None,
              'aperture':None,
              'ap_center': None}
 
         try:
             wcs_manual = self.WCS_Manual
-            aperture = 2.0
+            aperture = aperture
             mag_func = panstarrs_count_to_mag
         except:
             wcs_manual = self.WCS_Manual
             aperture = 0.0
             mag_func = None
 
+        query_radius = window * 1.5
+
         try:
 
-            log.info("Pan-STARRS query (%f,%f) at %f arcsec for band %s ..." % (ra, dec, query_radius, f))
-            hdulist = get_image(ra,dec,query_radius,f)
+            log.info("Pan-STARRS query (%f,%f) at %f arcsec for band %s ..." % (ra, dec, query_radius, filter))
+            hdulist = get_image(ra,dec,query_radius,filter)
 
             if hdulist is None:
-                log.info("Pan-STARRS query (%f,%f) at %f arcsec for band %s returned None" % (ra, dec, query_radius, f))
+                log.info("Pan-STARRS query (%f,%f) at %f arcsec for band %s returned None" % (ra, dec, query_radius, filter))
             else:
                 # todo: choose the best image?
                 sci = science_image.science_image(wcs_manual=wcs_manual, wcs_idx=0,
@@ -891,6 +893,6 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
         l = list()
 
         for f in self.Filters:
-            l.append(self.get_single_cutout(ra,dec,window,i,aperture,filter=f))
+            l.append(self.get_single_cutout(ra,dec,window,None,aperture,filter=f))
 
         return l
