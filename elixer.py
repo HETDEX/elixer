@@ -19,6 +19,7 @@ except:
 
 
 import argparse
+import copy
 
 from astropy.coordinates import Angle
 from astropy.coordinates import SkyCoord
@@ -1747,14 +1748,37 @@ def build_neighborhood_map(hdf5,ra=None, dec=None, distance=None):
         try:
             sq = cutout.wcs.pixel_shape[0]*cutout.wcs.pixel_shape[1]
         except:
-            sq = -1.
+            sq = -1
         return sq
 
     master_cutout = None
     if len(cutouts > 0):
         try:
-            best = np.argmax([sqpix(c['cutout']) for c in cutouts])
-            master_cutout = cutouts[best]['cutout']
+            pix2 = np.array([sqpix(c['cutout']) for c in cutouts])
+            best = np.argmax(pix2)
+            master_cutout = copy.copy(cutouts[best]['cutout'])
+
+            #how many?
+            sel = np.where((pix2 == pix2[best]))[0]
+            if len(sel) > 0:
+                # need to sum up
+                time = np.zeros(len(pix2))
+                for i in sel:
+                    try:
+                        time[i] = cutouts[i]['hdu'][0]['EXTIME']
+                    except:
+                        pass
+
+                total_time = max(np.sum(time),1.0)
+                master_cutout.data *= 0.0
+
+                if total_time == 1.0:
+                    for i in sel:
+                        master_cutout.data += cutouts[i]['cutout']
+                else:
+                    for i in sel:
+                        master_cutout.data += cutouts[i]['cutout']*time([i]/total_time)
+
         except:
             log.debug("Exception in build_neighborhood_map:",exc_info=True)
 
@@ -1777,6 +1801,9 @@ def build_neighborhood_map(hdf5,ra=None, dec=None, distance=None):
 
     #todo: create a new matplotlib figure, use gridspec (by number of detectids)
     #      and return the image (optionally save as PNG? or let caller worry about that)
+    # show 1) cutout with target position and one box for this position
+    #      2) basic data (detectid, ra, dec, distance from target)
+    #      3) 1D spectra (just wavelength lables, no emission line markers)
 
 
 def main():
