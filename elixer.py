@@ -1745,7 +1745,7 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
     return newlist
 
 
-def build_neighborhood_map(hdf5,ra=None, dec=None, distance=None, cwave=None, fname=None):
+def build_neighborhood_map(hdf5=None,detectid=None,ra=None, dec=None, distance=None, cwave=None, fname=None):
     """
 
     :param hdf5:
@@ -1756,12 +1756,34 @@ def build_neighborhood_map(hdf5,ra=None, dec=None, distance=None, cwave=None, fn
     :param fname:
     :return: PNG of the figure
     """
-    if (distance is None) or (distance < 0.0) or ((ra is None) or (dec is None)):
+    if (distance is None) or (distance < 0.0) or ((detectid is None) and ((ra is None) or (dec is None))):
         log.info("Invalid data passed to build_neighborhood_map")
         return None
 
     #get all the detectids
     error = distance/3600.0
+    if hdf5 is None:
+        hdf5 = G.HDF5_DETECT_FN
+
+    if (detectid is not None) and (ra is None):
+        try:
+            with tables.open_file(hdf5, mode="r") as h5_detect:
+                id = detectid
+                detection_table = h5_detect.root.Detections
+                rows = detection_table.read_where("detectid==id")
+                if (rows is None) or (rows.size != 1):
+                    log.info("Invalid data passed to build_neighborhood_map")
+                    return None
+                ra = rows['ra'][0]
+                dec = rows['dec'][0]
+
+                if cwave is None:
+                    cwave = rows['wave'][0]
+        except:
+            log.info("Exception. Unable to lookup detectid coordinates.",exc_info=True)
+            return None
+
+
     detectids, ras, decs, dists = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=error, sort=True)
 
     if len(detectids) == 0:
@@ -1927,7 +1949,7 @@ def main():
         cat_sdss = []
         cat_panstarrs = []
 
-    # build_neighborhood_map(args.hdf5, 11.151135, 0.019476, args.neighborhood,cwave=4929.64)
+    # build_neighborhood_map(args.hdf5, 1000410886,None, None, args.neighborhood,cwave=4929.64)
     # exit()
 
 
@@ -2398,7 +2420,7 @@ def main():
                     ra = e.ra
                     dec = e.dec
 
-                build_neighborhood_map(args.hdf5,ra,dec,args.neighborhood,cwave=e.w,
+                build_neighborhood_map(args.hdf5,detectid=None,ra=ra,dec=dec,distance=args.neighborhood,cwave=e.w,
                                        fname=os.path.join(pdf.basename,str(e.entry_id)+"nei.png"))
 
 
