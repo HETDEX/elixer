@@ -3968,7 +3968,7 @@ class HETDEX:
             vmax = vmax/scale
             log.info("HETDEX (zscale) vrange = (%f, %f) raw range = (%f, %f)" %(vmin,vmax,np.min(vals),np.max(vals)))
         except:
-            log.info("Exception in science_image::get_vrange:",exc_info =True)
+            log.info("Exception in hetdex::get_vrange:",exc_info =True)
 
         return vmin, vmax
 

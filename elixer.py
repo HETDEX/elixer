@@ -10,12 +10,14 @@ try:
     from elixer import global_config as G
     from elixer import catalogs
     from elixer import utilities as UTIL
+    from elixer import science_image
 except:
     import hetdex
     import match_summary
     import global_config as G
     import catalogs
     import utilities as UTIL
+    import science_image
 
 
 import argparse
@@ -24,6 +26,9 @@ import copy
 from astropy.coordinates import Angle
 from astropy.coordinates import SkyCoord
 from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib.gridspec as gridspec
+from matplotlib.font_manager import FontProperties
+import io
 from distutils.version import LooseVersion
 import pyhetdex.tools.files.file_tools as ft
 import sys
@@ -1207,6 +1212,9 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
     """
 
     detectids = []
+    ras = []
+    decs = []
+    dists = []
     try:
         with tables.open_file(hdf5, mode="r") as h5:
             dtb = h5.root.Detections
@@ -1230,7 +1238,15 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
                         decs = rows['dec']
                         dist = [UTIL.angular_distance(ra,dec,r,d) for r,d in zip(ras,decs)]
 
-                        detectids = [d for _,d in sorted(zip(dist, detectids))]
+                        all = sorted(zip(dist,detectids,ras,decs))
+                        dists = [x for x,_,_,_ in all]
+                        detectids = [x for _,x,_,_ in all]
+                        ras = [x for _,_,x,_ in all]
+                        decs = [x for _,_,_,x in all]
+
+                        # detectids = [d for _,d in sorted(zip(dist, detectids))]
+                        # ras = [d for _,d in sorted(zip(dist, ras))]
+                        # decs = [d for _,d in sorted(zip(dist, decs))]
                     except:
                         log.debug("Unable to sort by distance",exc_info=True)
 
@@ -1245,7 +1261,10 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
     except:
         log.error("Exception in elixer.py get_hdf5_detectids_by_coord",exc_info=True)
 
-    return detectids
+    if sort:
+        return detectids,ras,decs,dists
+    else:
+        return detectids
 
 def get_hdf5_detectids_to_process(args):
     """
@@ -1726,22 +1745,34 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
     return newlist
 
 
-def build_neighborhood_map(hdf5,ra=None, dec=None, distance=None):
+def build_neighborhood_map(hdf5,ra=None, dec=None, distance=None, cwave=None, fname=None):
+    """
+
+    :param hdf5:
+    :param ra:
+    :param dec:
+    :param distance:
+    :param cwave:
+    :param fname:
+    :return: PNG of the figure
+    """
     if (distance is None) or (distance < 0.0) or ((ra is None) or (dec is None)):
         log.info("Invalid data passed to build_neighborhood_map")
         return None
 
     #get all the detectids
-    detectids = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=distance, sort=True)
+    error = distance/3600.0
+    detectids, ras, decs, dists = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=error, sort=True)
 
     if len(detectids) == 0:
         #nothing to do
-        log.info("No HETDEX detections found: (%f,%f) +/- %d" %(ra,dec,distance))
+        log.info("No HETDEX detections found: (%f,%f) +/- %d\"" %(ra,dec,distance))
         return None
 
     #get the single master cutout (need to stack? or select best image (best == most pixels)?)
     cat_library = catalogs.CatalogLibrary()
-    cutouts = cat_library.get_cutouts(position=SkyCoord(ra, dec, unit='deg'), radius=error)
+    ext = distance * 1.5  # extent is from the 0,0 position AND we want to grab a bit more than the radius (so can see around it)
+    cutouts = cat_library.get_cutouts(position=SkyCoord(ra, dec, unit='deg'), radius=ext)
 
     #find the best cutout (most pixels)
     def sqpix(cutout):
@@ -1752,7 +1783,7 @@ def build_neighborhood_map(hdf5,ra=None, dec=None, distance=None):
         return sq
 
     master_cutout = None
-    if len(cutouts > 0):
+    if len(cutouts) > 0:
         try:
             pix2 = np.array([sqpix(c['cutout']) for c in cutouts])
             best = np.argmax(pix2)
@@ -1760,7 +1791,7 @@ def build_neighborhood_map(hdf5,ra=None, dec=None, distance=None):
 
             #how many?
             sel = np.where((pix2 == pix2[best]))[0]
-            if len(sel) > 0:
+            if len(sel) > 1:
                 # need to sum up
                 time = np.zeros(len(pix2))
                 for i in sel:
@@ -1774,10 +1805,12 @@ def build_neighborhood_map(hdf5,ra=None, dec=None, distance=None):
 
                 if total_time == 1.0:
                     for i in sel:
-                        master_cutout.data += cutouts[i]['cutout']
+                        master_cutout.data += cutouts[i]['cutout'].data
                 else:
                     for i in sel:
-                        master_cutout.data += cutouts[i]['cutout']*time([i]/total_time)
+                        master_cutout.data += cutouts[i]['cutout'].data*time([i]/total_time)
+                    #time is not the best metric, but not too bad ... assumes all filters have roughly equivalent
+                    #throughputs ... should not use for any measurements, but just for making a picture it is okay
 
         except:
             log.debug("Exception in build_neighborhood_map:",exc_info=True)
@@ -1791,8 +1824,8 @@ def build_neighborhood_map(hdf5,ra=None, dec=None, distance=None):
         for d in detectids:
             rows = stb.read_where("detectid==d")
             if rows.size == 1:
-                spec.append(rows['spec1d'])
-                wave.append(rows['wave1d'])
+                spec.append(rows['spec1d'][0])
+                wave.append(rows['wave1d'][0])
             else:
                 #there's a problem
                 spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
@@ -1804,6 +1837,68 @@ def build_neighborhood_map(hdf5,ra=None, dec=None, distance=None):
     # show 1) cutout with target position and one box for this position
     #      2) basic data (detectid, ra, dec, distance from target)
     #      3) 1D spectra (just wavelength lables, no emission line markers)
+
+    num_rows = len(detectids)
+    row_step = 10 #allow space in between
+    fig = plt.figure(figsize=(G.FIGURE_SZ_X, G.GRID_SZ_Y * num_rows))
+    plt.subplots_adjust(left=0.00, right=0.95, top=0.95, bottom=0.0)
+
+    gs = gridspec.GridSpec(row_step*num_rows,10) #rows, columns
+
+    font = FontProperties()
+    font.set_family('monospace')
+    font.set_size(12)
+
+    vmin,vmax = UTIL.get_vrange(master_cutout.data)#,contrast=0.25)
+    target_box_side = 3.0 #distance / 4.0
+
+    sci = science_image.science_image()  # empty ... just want for functions
+    x, y = sci.get_position(ra, dec, master_cutout)  # x,y of the center
+
+    for i in range(num_rows):
+        #first the cutout
+        plt.subplot(gs[i*row_step+1:(i+1)*row_step-1,0:3])
+
+        #*** remember the positioning in pixel space is based on the RA, Dec, the pixel scale and the extent scaling
+        # (everything needs to be matched up for this to work correctly)
+        plt.imshow(master_cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
+                   vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+
+        plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+        plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+
+        plt.plot(0, 0, "r+")
+
+        # add neighbor box
+        fx, fy = sci.get_position(ras[i], decs[i], master_cutout)
+        plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
+                                          width=target_box_side, height=target_box_side,
+                                          angle=0.0, color='b', fill=False, linewidth=1.0, zorder=2))
+
+        #now the text
+        # plt.subplot(gs[i*row_step:i*row_step+1,3:]) #just one grid high
+        # plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
+        # plt.gca().axis('off')
+        #
+
+        #new the 1D spectrum
+        plt.subplot(gs[i*row_step+1:(i+1)*row_step-1,3:])
+        #plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
+        plt.title("Dist: %0.1f\"  RA,Dec: (%f,%f)  DetectID: %d" %(dists[i],ras[i],decs[i],detectids[i]))
+        plt.plot(wave[i],spec[i],zorder=9,color='b')
+        if cwave is not None:
+            plt.axvline(x=cwave,linestyle="--",zorder=1,color='k',linewidth=1.0,alpha=0.5)
+        plt.xlim((G.CALFIB_WAVEGRID[0],G.CALFIB_WAVEGRID[-1]))
+
+    if fname is not None:
+        plt.savefig(fname,format='png', dpi=300)
+        print("File written: %s" %(fname))
+
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png', dpi=300)
+
+    return buf
+
 
 
 def main():
@@ -1831,6 +1926,11 @@ def main():
         catch_all_cat = []
         cat_sdss = []
         cat_panstarrs = []
+
+    # build_neighborhood_map(args.hdf5, 11.151135, 0.019476, args.neighborhood,cwave=4929.64)
+    # exit()
+
+
 
     pages = []
 
@@ -2286,11 +2386,20 @@ def main():
 
 
     if (args.neighborhood is not None) and (args.neighborhood > 0.0):
+        msg = "Building neighborhood at (%g\") for all detections ...." %(args.neighborhood)
+        log.info(msg)
+        print(msg)
         for h in hd_list:  # iterate over all hetdex detections
             for e in h.emis_list:
-                build_neighborhood_map(args.hdf5,e.ra,e.dec,args.neighborhood)
-            #todo: for each emission detection, pull in a single cutout and grab all neighbors (including the target)
+                if e.wra is not None:
+                    ra = e.wra
+                    dec = e.wdec
+                else:
+                    ra = e.ra
+                    dec = e.dec
 
+                build_neighborhood_map(args.hdf5,ra,dec,args.neighborhood,cwave=e.w,
+                                       fname=os.path.join(pdf.basename,str(e.entry_id)+"nei.png"))
 
 
 
