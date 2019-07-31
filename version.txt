@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.7.1a4 [2019-07-29]
+1.7.1a4 [2019-07-31]
 * Add (in parenthesis to upper left panel) gmag based PLAE/POII ratio. This is in the PDF only and is not part
   of the catalog.
 * Fixed bug in spectrum.py calling peakdet that forced list of additional (unlabeled) lines to always be empty

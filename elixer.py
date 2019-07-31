@@ -1792,6 +1792,18 @@ def build_neighborhood_map(hdf5=None,detectid=None,ra=None, dec=None, distance=N
         #nothing to do
         log.info("No HETDEX detections found: (%f,%f) +/- %d\"" %(ra,dec,distance))
         return None
+    elif len(detectids) > G.MAX_NEIGHBORS_IN_MAP:
+        msg = "Maximum number of reportable neighbors exceeded (%d). Will truncate to nearest %d." % (len(detectids),
+                                                                                            G.MAX_NEIGHBORS_IN_MAP)
+        log.info(msg)
+        print(msg)
+
+        detectids = detectids[:G.MAX_NEIGHBORS_IN_MAP]
+        ras = ras[:G.MAX_NEIGHBORS_IN_MAP]
+        decs = decs[:G.MAX_NEIGHBORS_IN_MAP]
+        dists = dists[:G.MAX_NEIGHBORS_IN_MAP]
+
+
 
     #get the single master cutout (need to stack? or select best image (best == most pixels)?)
     cat_library = catalogs.CatalogLibrary()
@@ -1936,11 +1948,11 @@ def build_neighborhood_map(hdf5=None,detectid=None,ra=None, dec=None, distance=N
         plt.xlim((G.CALFIB_WAVEGRID[0],G.CALFIB_WAVEGRID[-1]))
 
     if fname is not None:
-        plt.savefig(fname,format='png', dpi=300)
+        plt.savefig(fname,format='png', dpi=150)
         print("File written: %s" %(fname))
 
     buf = io.BytesIO()
-    plt.savefig(buf, format='png', dpi=300)
+    plt.savefig(buf, format='png', dpi=150)
 
     return buf
 
