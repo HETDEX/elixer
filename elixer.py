@@ -1851,7 +1851,9 @@ def build_neighborhood_map(hdf5=None,detectid=None,ra=None, dec=None, distance=N
         log.info("build_neighborhood_map master_cutout is empty. Will try web calls for PanSTARRS and/or SDSS.")
         #ask only for G or R band
         ps_cutouts = catalogs.cat_panstarrs.PANSTARRS().get_cutouts(ra,dec,distance,aperture=None) #note, different than cutouts above?
-        master_cutout = make_master(ps_cutouts)
+        mc = make_master(ps_cutouts)
+        if mc is not None:
+            master_cutout = mc
 
     #get the PSF weighted full 1D spectrum for each detectid
     spec = []
@@ -1869,12 +1871,6 @@ def build_neighborhood_map(hdf5=None,detectid=None,ra=None, dec=None, distance=N
                 wave.append(G.CALFIB_WAVEGRID)
 
 
-    #todo: create a new matplotlib figure, use gridspec (by number of detectids)
-    #      and return the image (optionally save as PNG? or let caller worry about that)
-    # show 1) cutout with target position and one box for this position
-    #      2) basic data (detectid, ra, dec, distance from target)
-    #      3) 1D spectra (just wavelength lables, no emission line markers)
-
     num_rows = len(detectids)
     row_step = 10 #allow space in between
     fig = plt.figure(figsize=(G.FIGURE_SZ_X, G.GRID_SZ_Y * num_rows))
@@ -1889,7 +1885,6 @@ def build_neighborhood_map(hdf5=None,detectid=None,ra=None, dec=None, distance=N
     vmin,vmax = UTIL.get_vrange(master_cutout.data)#,contrast=0.25)
     target_box_side = 3.0 #distance / 4.0
 
-
     x, y = sci.get_position(ra, dec, master_cutout)  # x,y of the center
 
     for i in range(num_rows):
@@ -1898,29 +1893,42 @@ def build_neighborhood_map(hdf5=None,detectid=None,ra=None, dec=None, distance=N
 
         #*** remember the positioning in pixel space is based on the RA, Dec, the pixel scale and the extent scaling
         # (everything needs to be matched up for this to work correctly)
-        plt.imshow(master_cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
-                   vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+        if master_cutout is not None:
+            plt.imshow(master_cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
+                       vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
 
-        plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-        plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+            plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+            plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
 
-        plt.plot(0, 0, "r+")
+            plt.plot(0, 0, "r+")
 
-        # add neighbor box
-        fx, fy = sci.get_position(ras[i], decs[i], master_cutout)
-        plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
-                                          width=target_box_side, height=target_box_side,
-                                          angle=0.0, color='b', fill=False, linewidth=1.0, zorder=2))
+            # add neighbor box
+            fx, fy = sci.get_position(ras[i], decs[i], master_cutout)
+            plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
+                                              width=target_box_side, height=target_box_side,
+                                              angle=0.0, color='b', fill=False, linewidth=1.0, zorder=2))
+        else:
 
-        #now the text
-        # plt.subplot(gs[i*row_step:i*row_step+1,3:]) #just one grid high
-        # plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
-        # plt.gca().axis('off')
-        #
+            fx = (ra - ras[i]) * np.cos(np.deg2rad(dec)) * 3600. #need to flip since negative RA is to the right
+            fy = (decs[i] - dec) * 3600.
 
-        #new the 1D spectrum
+            plt.imshow(np.zeros((int(ext),int(ext))), interpolation='none', cmap=plt.get_cmap('gray_r'),
+                       vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+
+            plt.gca().add_patch(plt.Rectangle((fx - target_box_side / 2.0, fy - target_box_side / 2.0),
+                                              width=target_box_side, height=target_box_side,
+                                              angle=0.0, color='b', fill=False, linewidth=1.0, zorder=2))
+
+            # plt.gca().add_patch(
+            #     plt.Circle((fx, fy), radius=target_box_side, color='b', fill=False,zorder=9))
+
+            plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+            plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+
+            plt.plot(0, 0, "r+")
+
+        #the 1D spectrum
         plt.subplot(gs[i*row_step+1:(i+1)*row_step-1,3:])
-        #plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
         plt.title("Dist: %0.1f\"  RA,Dec: (%f,%f)  DetectID: %d" %(dists[i],ras[i],decs[i],detectids[i]))
         plt.plot(wave[i],spec[i],zorder=9,color='b')
         if cwave is not None:
@@ -1964,7 +1972,8 @@ def main():
         cat_sdss = []
         cat_panstarrs = []
 
-    # build_neighborhood_map(args.hdf5, 1000359619,None, None, args.neighborhood,cwave=None,fname='lycon/test_nei.png')
+    #
+    # build_neighborhood_map(args.hdf5, 1000525650,None, None, args.neighborhood,cwave=None,fname='lycon/test_nei.png')
     # exit()
 
 

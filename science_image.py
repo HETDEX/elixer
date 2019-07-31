@@ -56,7 +56,12 @@ def is_cutout_empty(cutout):
     :param cutout:
     :return:
     """
+
+    if cutout is None:
+        return True
+
     rc = False
+
     try:
         #std = np.nanstd(cutout.data)
         # mean = np.nanmean(cutout.data) #no NOT mean (could legit be 0 (average of + and - values))
