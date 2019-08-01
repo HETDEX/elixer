@@ -14,6 +14,7 @@ except:
     import cat_bayesian
     import observation as elixer_observation
 
+
 import os.path as op
 
 import matplotlib
@@ -774,7 +775,7 @@ class Catalog:
 
 
 
-    def add_aperture_position(self,plt,radius,mag=None,cx=0,cy=0):
+    def add_aperture_position(self,plt,radius,mag=None,cx=0,cy=0,ew=None,plae=None):
             # over plot a circle of radius on the center of the image (assumed to be the photo-aperture)
             if radius > 0:
                 log.debug("Plotting imaging aperture position...")
@@ -789,8 +790,16 @@ class Catalog:
 
                     #temporary
                     if mag is not None:
-                        plt.xlabel("mag = %0.1f, %0.1f\"" % (mag,radius))
+                        label = "mag: %0.1f, %0.1f\"" % (mag,radius)
+
+                        if ew is not None:
+                            label += "\n EWr: %0.0f" %(ew)
+                            if plae is not None:
+                                label += ", PLAE: %0.3g" %(plae)
+
+                        plt.xlabel(label)
                         plt.gca().xaxis.labelpad = 0
+                        plt.subplots_adjust(bottom=0.1)
                         #plt.tight_layout()
 
                 except:

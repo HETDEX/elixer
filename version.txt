@@ -1,5 +1,15 @@
 changes to elixer by version
 
+
+1.7.1a5 [2019-08-01]
+* Removed "Est OII rest-EW" from catalog matches at report bottom
+* Added uncertainty calcuation for SDSS (HETDEX) gmag estimate (uncertainty on the sum of all flux bins)
+* Added '*' marker to gmag value in upper left for the EstCont line to indicate that the continuum estimate and error
+  comes from the SDSS gmag instead of the HETDEX local estimate (occurs when HETDEX estimate is <= 0.0)
+* Added uncertainty on catalog Est LyA EW (when possible)
+* Added LyA rest EW (as EWr) and P(LAE)/P(OII) (as PLAE) underneath each cutout that computes an aperture magnitude
+  (just for reference; due to space constraints the error is not calculated and shown)
+
 1.7.1a4 [2019-07-31]
 * Add (in parenthesis to upper left panel) gmag based PLAE/POII ratio. This is in the PDF only and is not part
   of the catalog.

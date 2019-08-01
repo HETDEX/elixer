@@ -4,6 +4,7 @@ import os.path as op
 from datetime import datetime
 import numpy as np
 
+
 #from guppy import hpy
 #HPY = hpy()
 #import gc
@@ -12,7 +13,7 @@ import numpy as np
 import socket
 
 #version
-__version__ = '1.7.2a4'
+__version__ = '1.7.2a5'
 
 #python version
 import sys
@@ -289,6 +290,7 @@ LyA_rest = 1216. #A 1215.668 and 1215.674
 OII_rest = 3727.
 
 #FLUX_CONVERSION = (1./60)*1e-17
+HETDEX_FLUX_BASE_CGS = 1e-17
 
 CONTINUUM_FLOOR_COUNTS = 6.5 #5 sigma * 6 counts / sqrt(40 angstroms/1.9 angs per pixel)
 
@@ -393,7 +395,7 @@ ADDL_LINE_SCORE_BONUS = 5.0 #add for each line at 2+ lines (so 1st line adds not
 SHADE_1D_SPEC_PEAKS = False #if true, shade in red the 1D spec peaks above the NORM noise limit (see below)
 
 
-DYNAMIC_MAG_APERTURE = True  #allow aperture size to change to fit maximum magnitude
+DYNAMIC_MAG_APERTURE = False  #allow aperture size to change to fit maximum magnitude
 MIN_DYNAMIC_MAG_RADIUS = 0.5 #in arcsec
 FIXED_MAG_APERTURE = 1.5 #radius in arcsec
 MAX_DYNAMIC_MAG_APERTURE = 3.0 #maximum growth in dynamic mag

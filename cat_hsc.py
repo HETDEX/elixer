@@ -8,6 +8,7 @@ try:
     from elixer import match_summary
     from elixer import line_prob
     from elixer import hsc_meta
+    from elixer import utilities
 except:
     import global_config as G
     import science_image
@@ -15,6 +16,7 @@ except:
     import match_summary
     import line_prob
     import hsc_meta
+    import utilities
 
 import os.path as op
 import copy
@@ -639,6 +641,9 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                                                      aperture=aperture,mag_func=mag_func)
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
+            bid_target = None
+            cutout_ewr = None
+            cutout_plae = None
             try:  # update non-matched source line with PLAE()
                 if ((mag < 99) or (cont_est != -1)) and (target_flux is not None) and (i['filter'] == 'r'):
                     # make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
@@ -696,6 +701,8 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                                            cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
                                            sigma=None)
 
+                    cutout_plae = bid_target.p_lae_oii_ratio
+                    cutout_ewr = ew_obs / (1. + target_w / G.LyA_rest)
                     if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
                         text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)" % (bid_target.p_lae_oii_ratio,i['filter']))
 
@@ -740,7 +747,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 if pix_counts is not None:
                     cx = sci.last_x0_center
                     cy = sci.last_y0_center
-                    self.add_aperture_position(plt,mag_radius,mag,cx,cy)
+                    self.add_aperture_position(plt,mag_radius,mag,cx,cy,cutout_ewr,cutout_plae)
 
 
                 self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
@@ -752,34 +759,12 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                                                       angle=0.0, color=bc, fill=False, linewidth=1.0, zorder=1))
 
 
-        #if False:
-        #    if target_flux is not None:
-        #        #todo: get exptime from the tile (science image has it)
-        #        cont_est = self.get_f606w_max_cont(exptime_cont_est, 3,self.CONT_EST_BASE)
-        #        if cont_est != -1:
-        #            title += "Minimum (no match)\n  3$\sigma$ rest-EW:\n"
-        #            title += "  LyA = %g $\AA$\n" %  ((target_flux / cont_est) / (target_w / G.LyA_rest))
-        #            if target_w >= G.OII_rest:
-        #                title = title + "  OII = %g $\AA$\n" %  ((target_flux / cont_est) / (target_w / G.OII_rest))
-        #            else:
-        #                title = title + "  OII = N/A\n"
-
-            #plt.subplot(gs[0, 0])
-            #plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
-            #plt.gca().set_frame_on(False)
-            #plt.gca().axis('off')
-
         if self.master_cutout is None:
             # cannot continue
             print("No catalog image available in %s" % self.Name)
             plt.close()
 
             return None
-            # still need to plot relative fiber positions here
-
-            # plt.subplot(gs[1:, 0])
-            # return self.build_empty_cat_summary_figure(ra, dec, error, bid_ras, bid_decs, target_w=target_w,
-            #                                            fiber_locs=fiber_locs)
         else:
             self.master_cutout.data /= total_adjusted_exptime
 
@@ -837,7 +822,6 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                    "Spec z\n" + \
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
-                   "Est OII rest-EW\n" + \
                    "mag\n\n"
         else:
             text = "Separation\n" + \
@@ -846,7 +830,6 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                    "Spec z\n" + \
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
-                   "Est OII rest-EW\n" + \
                    "mag\n" + \
                    "P(LAE)/P(OII)\n"
 
@@ -906,12 +889,22 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 if (target_flux is not None) and (filter_fl != 0.0):
                     if (filter_fl is not None):# and (filter_fl > 0):
                         filter_fl_cgs = self.nano_jansky_to_cgs(filter_fl,target_w) #filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
-                        text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
 
-                        if target_w >= G.OII_rest:
-                            text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.OII_rest))
-                        else:
-                            text = text + "N/A\n"
+                        try:
+                            ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                            ew_u = abs(ew * np.sqrt(
+                                        (detobj.estflux_unc / target_flux) ** 2 +
+                                        (filter_fl_err / filter_fl_cgs) ** 2))
+                            text = text + utilities.unc_str((ew,ew_u)) + "$\AA$\n"
+                        except:
+                            log.debug("Exception computing catalog EW: ",exc_info=True)
+                            text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+
+
+                        # if target_w >= G.OII_rest:
+                        #     text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.OII_rest))
+                        # else:
+                        #     text = text + "N/A\n"
                         try:
                             bid_target = match_summary.BidTarget()
                             bid_target.catalog_name = self.Name

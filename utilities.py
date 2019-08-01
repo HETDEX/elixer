@@ -2,6 +2,7 @@ from __future__ import print_function
 import logging
 import numpy as np
 from astropy.visualization import ZScaleInterval
+from astropy import units
 
 
 try:
@@ -52,3 +53,86 @@ def get_vrange(vals,contrast=0.25):
 #         log.info("Exception in utilities::get_vrange:",exc_info =True)
 #
 #     return vmin, vmax
+
+
+class Measurement:
+    def __init__(self):
+        self.description = "" #some text description
+
+        self.value = None
+        self.error_pos = None
+        self.error_neg = None
+
+        self.apu = None #astropy units (also joke: Auxiliary Power Unit)
+        self.power = None #the exponent as in 10^-17, this would be -17
+
+    def avg_error(self):
+        if (self.error_neg is not None) and (self.error_pos is not None):
+            return 0.5 * abs(self.error_pos) + abs(self.error_neg)
+        else:
+            return None
+
+
+    def sq_sym_err(self): #symmetric error
+        unc = self.avg_error()
+        if (unc is not None) and (self.value is not None):
+            return (unc/self.value)**2
+        else:
+            return 0.0
+
+
+    #only for errors of the form X*Y/Z
+    def compute_mult_error(self,m_array):
+        """
+        Should only be a few in m_array, and will just loop over, so it does not really matter
+        if it is a list or an array
+
+        REMINDER: this is just the sqrt part, so still need to multiply by the calculation value
+
+        :param m_array:
+        :return:
+        """
+        sum = 0.0 #*unc/val)**2
+        for m in m_array:
+            sum += m.sq_sym_err()
+
+        return np.sqrt(sum)
+
+
+
+def unc_str(tup): #helper, formats a string with exponents and uncertainty
+    s = ""
+    if len(tup) == 2:
+        tup = (tup[0],tup[1],tup[1])
+    try:
+        flux = ("%0.2g" % tup[0]).split('e')
+        unc = ("%0.2g" % (0.5 * (abs(tup[1]) + abs(tup[2])))).split('e')
+
+        if len(flux) == 2:
+            fcoef = float(flux[0])
+            fexp = float(flux[1])
+        else:
+            fcoef =  float(flux[0])
+            fexp = 0
+
+        if len(unc) == 2:
+            ucoef = float(unc[0])
+            uexp = float(unc[1])
+        else:
+            ucoef = float(unc[0])
+            uexp = 0
+
+        if (fexp < 4) and (fexp > -4):
+            s = '%0.2f($\pm$%0.2f)' % (fcoef* 10 ** (fexp), ucoef * 10 ** (uexp ))
+        else:# fexp != 0:
+            s = '%0.2f($\pm$%0.2f)e%d' % (fcoef, ucoef * 10 ** (uexp - fexp), fexp)
+        #else:
+        #    s = '%0.2f($\pm$%0.2f)' % (fcoef, ucoef * 10 ** (uexp - fexp))
+    except:
+        log.warning("Exception in unc_str()", exc_info=True)
+
+    return s
+
+    #todo: more accessors
+    # get the value * units, calculate the error with two mea
+

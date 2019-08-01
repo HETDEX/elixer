@@ -526,7 +526,7 @@ class DetObj:
         self.sumspec_wavelength = []
         self.sumspec_counts = []
         self.sumspec_flux = []
-        self.sumspec_flux_unit_scale = 1e-17 #cgs
+        self.sumspec_flux_unit_scale = G.HETDEX_FLUX_BASE_CGS #cgs
         self.sumspec_fluxerr = []
         self.sumspec_wavelength_zoom = []
         self.sumspec_counts_zoom = []
@@ -543,6 +543,8 @@ class DetObj:
 
         self.sdss_gmag = None #using speclite to estimate
         self.sdss_cgs_cont = None
+        self.sdss_cgs_cont_unc = None
+        self.using_sdss_gmag_ew = False
         self.sdss_gmag_p_lae_oii_ratio = None
 
         if emission:
@@ -1009,8 +1011,8 @@ class DetObj:
                                 self.line_gaussfit_parms = (
                                 float(toks[2]), float(toks[6]), float(toks[5])*G.FLUX_WAVEBIN_WIDTH, float(toks[7]),
                                     G.FLUX_WAVEBIN_WIDTH)
-                                self.estflux = self.line_gaussfit_parms[2]/self.line_gaussfit_parms[4] * 1e-17
-                                self.cont_cgs = self.line_gaussfit_parms[3] * 1e-17
+                                self.estflux = self.line_gaussfit_parms[2]/self.line_gaussfit_parms[4] * G.HETDEX_FLUX_BASE_CGS
+                                self.cont_cgs = self.line_gaussfit_parms[3] * G.HETDEX_FLUX_BASE_CGS
 
                                 self.fwhm = 2.35 * float(toks[6])
 
@@ -1042,11 +1044,11 @@ class DetObj:
 
                                 self.fwhm = 2.35 * float(toks[6])
 
-                                self.estflux = self.line_gaussfit_parms[2]/self.line_gaussfit_parms[4] * 1e-17
-                                self.estflux_unc = self.line_gaussfit_unc[2] * 1e-17
+                                self.estflux = self.line_gaussfit_parms[2]/self.line_gaussfit_parms[4] * G.HETDEX_FLUX_BASE_CGS
+                                self.estflux_unc = self.line_gaussfit_unc[2] * G.HETDEX_FLUX_BASE_CGS
 
-                                self.cont_cgs = self.line_gaussfit_parms[3] * 1e-17
-                                self.cont_cgs_unc = self.line_gaussfit_unc[3] * 1e-17
+                                self.cont_cgs = self.line_gaussfit_parms[3] * G.HETDEX_FLUX_BASE_CGS
+                                self.cont_cgs_unc = self.line_gaussfit_unc[3] * G.HETDEX_FLUX_BASE_CGS
 
                                 if self.cont_cgs <= 0:
                                     self.cont_cgs = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(float(toks[2]))
@@ -1809,12 +1811,12 @@ class DetObj:
             #         except:
             #             log.warning("hetdex::load_hdf5_fluxcalibrated_spectra() unable to correct pixels to AA", exc_info=True)
 
-            self.estflux *= 1e-17 #now as erg s^-1 cm^-2  .... NOT per AA
+            self.estflux *= G.HETDEX_FLUX_BASE_CGS #now as erg s^-1 cm^-2  .... NOT per AA
             #each data point IS the integrated line flux over the width of the bin
-            self.estflux_unc *= 1e-17
+            self.estflux_unc *= G.HETDEX_FLUX_BASE_CGS
 
-            self.cont_cgs *= 1e-17
-            self.cont_cgs_unc *= 1e-17
+            self.cont_cgs *= G.HETDEX_FLUX_BASE_CGS
+            self.cont_cgs_unc *= G.HETDEX_FLUX_BASE_CGS
 
             #ignoring date, datevobs, fiber_num, etc that apply to the top weighted fiber or observation, etc
             #since we want ALL the fibers and will load them after the core spectra info
@@ -1840,19 +1842,23 @@ class DetObj:
             try:
                 #reminder needs erg/s/cm2/AA and sumspec_flux in ergs/s/cm2 so divied by 2AA bin width
 #                self.sdss_gmag, self.cont_cgs = elixer_spectrum.get_hetdex_gmag(self.sumspec_flux/2.0*1e-17,self.sumspec_wavelength)
-                self.sdss_gmag, self.sdss_cgs_cont = elixer_spectrum.get_hetdex_gmag(self.sumspec_flux / 2.0 * 1e-17,
+                self.sdss_gmag, self.sdss_cgs_cont = elixer_spectrum.get_hetdex_gmag(self.sumspec_flux / 2.0 * G.HETDEX_FLUX_BASE_CGS,
                                                                                 self.sumspec_wavelength)
 
+                self.sdss_cgs_cont_unc = np.sqrt(np.sum(self.sumspec_fluxerr**2))/len(self.sumspec_fluxerr)*G.HETDEX_FLUX_BASE_CGS
+
                 if self.cont_cgs == -9999: #still unset ... weird?
-                    log.warning("Warning! HETDEX continuum estimate not set. Using SDSS gmag for estimate.")
+                    log.warning("Warning! HETDEX continuum estimate not set. Using SDSS gmag for estimate(%g,+/- %g)."
+                                %(self.sdss_cgs_cont,self.sdss_cgs_cont_unc))
                     self.cont_cgs = self.sdss_cgs_cont
-                elif self.cont_cgs == 0.0:
-                    log.warning("Warning! HETDEX continuum 0.0. Using SDSS gmag for estimate.")
+                    self.cont_cgs_unc = self.sdss_cgs_cont_unc
+                    self.using_sdss_gmag_ew = True
+                elif self.cont_cgs <= 0.0:
+                    log.warning("Warning! HETDEX continuum <= 0.0. Using SDSS gmag for estimate (%g,+/- %g)."
+                                %(self.sdss_cgs_cont,self.sdss_cgs_cont_unc))
                     self.cont_cgs = self.sdss_cgs_cont
-                #todo: need to find a way to improve the uncertainty
-                #self.cont_cgs_unc = #need to update this estimate? as this is based on +/- 40 or 50AA around line?
-                #self.cont_cgs = c
-                #self.sdss_gmag = m
+                    self.cont_cgs_unc = self.sdss_cgs_cont_unc
+                    self.using_sdss_gmag_ew = True
 
             except:
                 pass
@@ -2544,7 +2550,7 @@ class HETDEX:
             #else:
             #    s = '%0.2f($\pm$%0.2f)' % (fcoef, ucoef * 10 ** (uexp - fexp))
         except:
-            log.warning("Exception in EmissionLineInfo::flux_unc()", exc_info=True)
+            log.warning("Exception in HETDEX::unc_str()", exc_info=True)
 
         return s
 
@@ -3643,14 +3649,19 @@ class HETDEX:
         elif e.line_gaussfit_parms is not None:
             if e.line_gaussfit_unc is not None:
                 #the /2.0 to deal with Karl's 2AA bin width
-                estflux_str = self.unc_str((e.line_gaussfit_parms[2]/e.line_gaussfit_parms[4] *1e-17,e.line_gaussfit_unc[2]*1e-17))
+                estflux_str = self.unc_str((e.line_gaussfit_parms[2]/e.line_gaussfit_parms[4] *G.HETDEX_FLUX_BASE_CGS,
+                                            e.line_gaussfit_unc[2]*G.HETDEX_FLUX_BASE_CGS))
                 #estcont_str = self.unc_str((e.line_gaussfit_parms[3]*1e-17,e.line_gaussfit_unc[3]*1e-17))
-                estcont_str = self.unc_str((e.cont_cgs, e.line_gaussfit_unc[3] * 1e-17))
+
+                if e.using_sdss_gmag_ew:
+                    estcont_str = self.unc_str((e.cont_cgs, e.cont_cgs_unc))
+                else:
+                    estcont_str = self.unc_str((e.cont_cgs, e.line_gaussfit_unc[3] * G.HETDEX_FLUX_BASE_CGS))
                 eqw_lya_str = self.unc_str((e.eqw_obs/(1.0 + la_z),e.eqw_obs_unc/(1.0 + la_z)))
             else:
                 log.info("e.line_gaussfit_unc is None. Cannot report uncertainties in flux or EW.")
                 # the /2.0 to deal with Karl's 2AA bin width
-                estflux_str = "%0.3g" %(e.line_gaussfit_parms[2]/e.line_gaussfit_parms[4]*1e-17)
+                estflux_str = "%0.3g" %(e.line_gaussfit_parms[2]/e.line_gaussfit_parms[4]*G.HETDEX_FLUX_BASE_CGS)
                 #estcont_str = "%0.3g" %(e.line_gaussfit_parms[3]*1e-17)
                 estcont_str = "%0.3g" % (e.cont_cgs)
 
@@ -3672,7 +3683,10 @@ class HETDEX:
                 title +=  "EstCont = %s" %(estcont_str)
 
                 if e.sdss_gmag is not None:
-                    title += " (gmag %0.2f)\n" %(e.sdss_gmag)
+                    if e.using_sdss_gmag_ew:
+                        title += " (gmag %0.2f *)\n" % (e.sdss_gmag)
+                    else:
+                        title += " (gmag %0.2f)\n" %(e.sdss_gmag)
                 else:
                     title += "\n"
 
@@ -3694,7 +3708,10 @@ class HETDEX:
                 title += "EstCont = %s" % (estcont_str)
 
                 if e.sdss_gmag is not None:
-                    title += " (gmag %0.2f)\n" % (e.sdss_gmag)
+                    if e.using_sdss_gmag_ew:
+                        title += " (gmag %0.2f *)\n" % (e.sdss_gmag)
+                    else:
+                        title += " (gmag %0.2f)\n" %(e.sdss_gmag)
                 else:
                     title += "\n"
 
@@ -3721,7 +3738,10 @@ class HETDEX:
                 title += "EstCont = %s" % (estcont_str)
 
                 if e.sdss_gmag is not None:
-                    title += " (gmag %0.2f)\n" % (e.sdss_gmag)
+                    if e.using_sdss_gmag_ew:
+                        title += " (gmag %0.2f *)\n" % (e.sdss_gmag)
+                    else:
+                        title += " (gmag %0.2f)\n" %(e.sdss_gmag)
                 else:
                     title += "\n"
 
@@ -3743,7 +3763,10 @@ class HETDEX:
                 title += "EstCont = %s" % (estcont_str)
 
                 if e.sdss_gmag is not None:
-                    title += " (gmag %0.2f)\n" % (e.sdss_gmag)
+                    if e.using_sdss_gmag_ew:
+                        title += " (gmag %0.2f *)\n" % (e.sdss_gmag)
+                    else:
+                        title += " (gmag %0.2f)\n" %(e.sdss_gmag)
                 else:
                     title += "\n"
 
@@ -3771,7 +3794,7 @@ class HETDEX:
             if e.p_lae_oii_ratio is not None:
                 title += "\nP(LAE)/P(OII) = %0.3g" % (e.p_lae_oii_ratio)
 
-                if e.sdss_gmag_p_lae_oii_ratio is not None:
+                if (not e.using_sdss_gmag_ew) and (e.sdss_gmag_p_lae_oii_ratio is not None):
                     title += " (gmag %0.3g)" % (e.sdss_gmag_p_lae_oii_ratio)
 
             #if (e.dqs is not None) and (e.dqs_raw is not None):

@@ -6,12 +6,14 @@ try:
     from elixer import cat_base
     from elixer import match_summary
     from elixer import line_prob
+    from elixer import utilities
 except:
     import global_config as G
     import science_image
     import cat_base
     import match_summary
     import line_prob
+    import utilities
 
 import os.path as op
 import copy
@@ -540,6 +542,8 @@ class GOODS_N(cat_base.Catalog):
                                                      aperture=aperture, mag_func=mag_func, do_sky_subtract=do_sky_subtract)
 
             bid_target = None
+            cutout_ewr = None
+            cutout_plae = None
             try: #update non-matched source line with PLAE()
                 if ((mag < 99) or (cont_est != -1)) and (target_flux is not None)\
                         and (((i['instrument'] == 'CFHTLS') and (i['filter'] == 'g')) or (i['filter'] == 'f606w')) :
@@ -598,6 +602,9 @@ class GOODS_N(cat_base.Catalog):
                                            cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
                                            sigma=None)
 
+                    cutout_plae = bid_target.p_lae_oii_ratio
+                    cutout_ewr = ew_obs / (1. + target_w / G.LyA_rest)
+
                     if best_plae_poii is None or i['filter'] == 'f606w':
                         best_plae_poii = bid_target.p_lae_oii_ratio
                         best_plae_poii_filter = i['filter']
@@ -642,7 +649,7 @@ class GOODS_N(cat_base.Catalog):
                 if pix_counts is not None:
                     cx = sci.last_x0_center
                     cy = sci.last_y0_center
-                    self.add_aperture_position(plt,mag_radius,mag,cx,cy)
+                    self.add_aperture_position(plt,mag_radius,mag,cx,cy,cutout_ewr,cutout_plae)
 
                 plt.title(i['instrument'] + " " + i['filter'])
                 plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
@@ -734,7 +741,6 @@ class GOODS_N(cat_base.Catalog):
                    "Spec z\n" + \
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
-                   "Est OII rest-EW\n" + \
                    "mag\n\n"
         else:
             text = "Separation\n" + \
@@ -743,7 +749,6 @@ class GOODS_N(cat_base.Catalog):
                    "Spec z\n" + \
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
-                   "Est OII rest-EW\n" + \
                    "mag\n" + \
                    "P(LAE)/P(OII)\n"
 
@@ -836,12 +841,23 @@ class GOODS_N(cat_base.Catalog):
                 if (target_flux is not None) and (filter_fl != 0.0):
                     if (filter_fl is not None):# and (filter_fl > 0):
                         filter_fl_cgs = self.micro_jansky_to_cgs(filter_fl,target_w)#filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
-                        text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                        #text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
 
-                        if target_w >= G.OII_rest:
-                            text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.OII_rest))
-                        else:
-                            text = text + "N/A\n"
+                        try:
+                            ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                            ew_u = abs(ew * np.sqrt(
+                                        (detobj.estflux_unc / target_flux) ** 2 +
+                                        (filter_fl_err / filter_fl_cgs) ** 2))
+                            text = text + utilities.unc_str((ew,ew_u)) + "$\AA$\n"
+                        except:
+                            log.debug("Exception computing catalog EW: ",exc_info=True)
+                            text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+
+
+                        # if target_w >= G.OII_rest:
+                        #     text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.OII_rest))
+                        # else:
+                        #     text = text + "N/A\n"
 
                         # bid target info is only of value if we have a flux from the emission line
                         bid_target = match_summary.BidTarget()

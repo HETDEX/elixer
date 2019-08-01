@@ -7,11 +7,13 @@ try:
     from elixer import science_image
     from elixer import cat_base
     from elixer import match_summary
+    from elixer import utilities
 except:
     import global_config as G
     import science_image
     import cat_base
     import match_summary
+    import utilities
 
 import os.path as op
 
