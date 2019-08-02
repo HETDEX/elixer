@@ -1980,7 +1980,7 @@ class DetObj:
                     # we already know the path to it ... so do that here??
 
                     # todo: full path to the HDF5 fits equivalent (or failing that the panacea fits file?)
-                    fiber.fits_fn = fiber.find_hdf5_multifits()
+                    fiber.fits_fn = fiber.find_hdf5_multifits(loc=op.dirname(hdf5_fn))
 
                     #fiber.fits_fn = get_hetdex_multifits_path(fiber.)
 

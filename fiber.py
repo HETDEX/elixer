@@ -337,7 +337,7 @@ class Fiber:
         return hash((self.ra, self.dec, self.dither_date, self.dither_time))
 
 
-    def find_hdf5_multifits(self):
+    def find_hdf5_multifits(self,loc=None):
         """
         Find the parent HDF5 multi-fits equivalent file that houses THIS fiber
         ... depends on date, time, shot, etc
@@ -352,15 +352,22 @@ class Fiber:
             fn = None
             #todo: not sure what the naming schema is going to be, but will assume stops at a SHOT
             name = self.dither_date + "v" + str(self.obsid).zfill(3) + ".h5"
-            path = G.PANACEA_HDF5_BASEDIR #start here
-            #/work/03261/polonius/hdr1/reduction/data  ... all at top level?
-            #name == DateVShot ... i.e.: 20180123v009.h5
 
-            #todo: add to the path ... not sure yet if all the HDF5 files will be at one level or if they
-            #todo: will follow the multi*fits directory organization
-            #<BASEDIR>/20180123/virus/virus0000009/exp01/virus/<multi_xxx.fits>
+            if loc is None:
+                path = G.PANACEA_HDF5_BASEDIR #start here
+                fn = op.join(path, name)
+                #/work/03261/polonius/hdr1/reduction/data  ... all at top level?
+                #name == DateVShot ... i.e.: 20180123v009.h5
 
-            fn = op.join(path,name)
+                #todo: add to the path ... not sure yet if all the HDF5 files will be at one level or if they
+                #todo: will follow the multi*fits directory organization
+                #<BASEDIR>/20180123/virus/virus0000009/exp01/virus/<multi_xxx.fits>
+            else:
+                path = loc
+                fn = op.join(path, name)
+                if not op.isfile(fn):
+                    path = G.PANACEA_HDF5_BASEDIR  # start here
+                    fn = op.join(path, name)
 
             if not op.isfile(fn):
                 log.info("Could not locate HDF5 multi-fits equivalent file: %s" %fn)
