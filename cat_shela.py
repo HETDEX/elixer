@@ -1106,11 +1106,14 @@ class SHELA(cat_base.Catalog):
                     if (filter_fl is not None):# and (filter_fl > 0):
                         filter_fl_cgs = self.nano_jansky_to_cgs(filter_fl,target_w) #filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
                         #text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                        filter_fl_cgs_unc = self.nano_jansky_to_cgs(filter_fl_err, target_w)
+                        # assumes no error in wavelength or c
+
                         try:
                             ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
                             ew_u = abs(ew * np.sqrt(
                                         (detobj.estflux_unc / target_flux) ** 2 +
-                                        (filter_fl_err / filter_fl_cgs) ** 2))
+                                        (filter_fl_err / filter_fl) ** 2))
                             text = text + utilities.unc_str((ew,ew_u)) + "$\AA$\n"
                         except:
                             log.debug("Exception computing catalog EW: ",exc_info=True)
@@ -1131,7 +1134,7 @@ class SHELA(cat_base.Catalog):
                             bid_target.bid_mag = filter_mag
                             bid_target.bid_mag_err_bright = filter_mag_bright
                             bid_target.bid_mag_err_faint = filter_mag_faint
-                            bid_target.bid_flux_est_cgs_unc = filter_fl_err
+                            bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
 
                             addl_waves = None
                             addl_flux = None
