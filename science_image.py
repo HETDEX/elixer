@@ -520,7 +520,7 @@ class science_image():
                     close = True
                 except:
                     log.error("Unable to open science image file: %s" % self.image_location)
-                    return -1
+                    return cutout, counts, mag, radius
             else:
                 log.info("Using outer scope fits %s ..." % self.image_location)
                 hdulist = self.hdulist
@@ -612,7 +612,7 @@ class science_image():
                                     close = True
                                 except:
                                     log.error("Unable to open science image file: %s" % self.image_location)
-                                    return -1
+                                    return cutout, counts, mag, radius
                             else:
                                 log.error("Unable to open science image file: %s" % self.image_location)
                                 retries = max_retries

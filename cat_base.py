@@ -694,8 +694,14 @@ class Catalog:
         pass
 
 
-    def is_edge_fiber(self,fiber_num):
-        return fiber_num in G.CCD_EDGE_FIBERS_ALL
+    def is_edge_fiber(self,absolute_fiber_num):
+        """
+        fiber_num is the ABSOLUTE fiber number 1-448
+        NOT the per amp number (1-112)
+        :param fiber_num:
+        :return:
+        """
+        return absolute_fiber_num in G.CCD_EDGE_FIBERS_ALL
 
 
 
