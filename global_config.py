@@ -109,9 +109,14 @@ else:
         SHELA_PHOTO_Z_COMBINED_PATH = "/home/dustin/code/python/elixer/data/isak/SHELA"
         SHELA_PHOTO_Z_MASTER_PATH = "/home/dustin/code/python/elixer/data/isak/SHELA"
 
-        HSC_BASE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced"
-        HSC_CAT_PATH = "/media/dustin/dd/hetdex/data/HSC/catalog_tracts" #"/work/04094/mshiro/maverick/HSC/S15A/reduced/catalog_tracts"
-        HSC_IMAGE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced/images"
+        # 2019-08-06 (mshiro base path inaccessible)
+        # HSC_BASE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced"
+        # HSC_CAT_PATH = "/media/dustin/dd/hetdex/data/HSC/catalog_tracts" #"/work/04094/mshiro/maverick/HSC/S15A/reduced/catalog_tracts"
+        # HSC_IMAGE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced/images"
+
+        HSC_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced"
+        HSC_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts"
+        HSC_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
 
         DECALS_BASE_PATH = "/media/dustin/dd/hetdex/data/decals"
         DECALS_CAT_PATH = "/media/dustin/dd/hetdex/data/decals"
@@ -160,9 +165,15 @@ else:
         SHELA_PHOTO_Z_COMBINED_PATH = "/work/03261/polonius/maverick/catalogs/SHELA"
         SHELA_PHOTO_Z_MASTER_PATH = "/work/03261/polonius/maverick/catalogs/SHELA"
 
-        HSC_BASE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced"
-        HSC_CAT_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced/catalog_tracts"
-        HSC_IMAGE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced/images"
+
+        #2019-08-06 (mshiro base path inaccessible)
+        # HSC_BASE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced"
+        # HSC_CAT_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced/catalog_tracts"
+        # HSC_IMAGE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced/images"
+
+        HSC_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced"
+        HSC_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts"
+        HSC_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
 
 
 VIRUS_CONFIG = op.join(CONFIG_BASEDIR,"virus_config")
@@ -425,4 +436,4 @@ SDSS_FORCE = False  #ignore local catalogs and Force the use of only SDSS
 
 USE_PHOTO_CATS = True  #default normal is True .... use photometry catalogs (if False only generate the top (HETDEX) part)
 
-MAX_NEIGHBORS_IN_MAP = 20
+MAX_NEIGHBORS_IN_MAP = 25

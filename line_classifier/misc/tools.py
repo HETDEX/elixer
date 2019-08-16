@@ -21,8 +21,13 @@ def generate_cosmology_from_config(config):
     omnuh2 = config.getfloat("Cosmology", "omnuh2")
     Neff = config.getfloat("Cosmology", "Neff") # Standard model
 
+    try:
+        h = config.getfloat("Cosmology", "h_for_omegas")
+    except:
+        h = 0.67
+
     # Always divide by Planck cosmology as only want units in H=100
-    _flc = FlatLambdaCDM(hubble, (omch2 + ombh2)/(0.67*0.67))  #ignore neutrinos
+    _flc = FlatLambdaCDM(hubble, (omch2 + ombh2)/(h*h))  #ignore neutrinos
 
     return _flc
 
