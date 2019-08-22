@@ -3564,7 +3564,7 @@ class HETDEX:
         if G.SINGLE_PAGE_PER_DETECT:
             gs = gridspec.GridSpec(2, 40)
         else:
-            if G.SHOW_FULL_2D_SPECTRA:
+            if G.SHOW_ALL_1D_SPECTRA:
                 gs = gridspec.GridSpec(5, 40)#, wspace=0.25, hspace=0.5)
             else:
                 gs = gridspec.GridSpec(3, 40)
@@ -3850,6 +3850,14 @@ class HETDEX:
                 except:
                     log.warning("Failed to 2D cutout image.", exc_info=True)
 
+
+
+                if G.LyC:
+                    try:
+                        self.build_2d_LyC_image(datakeep,e.w/G.LyA_rest-1.0)
+                    except:
+                        pass
+
                 # update emission with the ra, dec of all fibers
                 # needs to be here, after build_2d_image so the 'index' and 'color' exist for assignment
                 try:
@@ -3915,7 +3923,7 @@ class HETDEX:
                     pages.append(fig)
                     plt.close('all')
                     try:
-                        if G.SHOW_FULL_2D_SPECTRA:
+                        if G.SHOW_ALL_1D_SPECTRA:
                             figure_sz_y = figure_sz_y*2.0
                         fig = plt.figure(figsize=(G.FIGURE_SZ_X, figure_sz_y))
                         plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
@@ -3928,8 +3936,24 @@ class HETDEX:
                         pages.append(fig) #append the second part to its own page to be merged later
                         plt.close()
                     except:
-                        log.warning("Failed to build full width spec/cutout image.", exc_info=True)
+                        log.warning("Failed to build full width 1D spec/cutout image.", exc_info=True)
 
+                    if G.PLOT_FULLWIDTH_2D_SPEC:
+                        try:
+                            fig = plt.figure(figsize=(G.FIGURE_SZ_X,G.GRID_SZ_Y))
+                            plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
+                            plt.gca().axis('off')
+                            buf = self.build_full_width_2D_cutouts(datakeep, e.w/(1.0+G.LyA_rest))
+
+                            buf.seek(0)
+                            im = Image.open(buf)
+                            plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
+
+                            pages.append(fig)  # append the second part to its own page to be merged later
+                            plt.close()
+
+                        except:
+                            log.warning("Failed to build full width 2D spec/cutout image.", exc_info=True)
 
                 else: #join this to the hetdex page
                     try:
@@ -4022,6 +4046,8 @@ class HETDEX:
             dd['yh'] = []
             dd['ds9_x'] = []
             dd['ds9_y'] = []
+            dd['x_2d_lyc'] = []
+            dd['y_2d_lyc'] = []
             dd['sn'] = []
             dd['fiber_sn'] = []
             #dd['wscore'] = [] #former dqs_score ... not using anymore (1.4.0a11+)
@@ -4041,7 +4067,9 @@ class HETDEX:
             dd['vmin3'] = []
             dd['vmax3'] = []
             dd['err'] = []
+            dd['fw_err'] = []
             dd['pix'] = []
+            dd['fw_pix'] = []
             dd['spec'] = []
             dd['specwave'] = []
             dd['fw_spec']  = []
@@ -4587,6 +4615,20 @@ class HETDEX:
             x_2D = np.interp(e.w,fits.wave_data[loc,:],range(len(fits.wave_data[loc,:])))
             y_2D = np.interp(x_2D,range(len(fits.trace_data[loc,:])),fits.trace_data[loc,:])
 
+            if G.LyC:
+                try:
+                    x_LyC_2D = np.interp(895.0 * e.w/G.LyA_rest, fits.wave_data[loc, :], range(len(fits.wave_data[loc, :])))
+                    y_LyC_2D = np.interp(x_LyC_2D, range(len(fits.trace_data[loc, :])), fits.trace_data[loc, :])
+
+                    x_LyC_2D = int(np.round(x_LyC_2D))
+                    y_LyC_2D = int(np.round(y_LyC_2D))
+                except:
+                    x_LyC_2D = -1
+                    y_LyC_2D = -1
+
+                datakeep['x_2d_lyc'].append(x_LyC_2D)
+                datakeep['y_2d_lyc'].append(y_LyC_2D)
+
             fiber.emis_x = int(x_2D)
             fiber.emis_y = int(y_2D)
 
@@ -4702,6 +4744,10 @@ class HETDEX:
 
             datakeep['err'].append(deepcopy(blank))
 
+            if G.LyC:
+                datakeep['fw_err'].append(deepcopy(fits.err_data[yl:yh, 0:FRAME_WIDTH_X - 1]))
+
+
             #OLD ... using side
             # pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid, fits.side))
             # #specid (cam) in filename might not have leading zeroes
@@ -4739,6 +4785,8 @@ class HETDEX:
                 (xl - blank_xl):(xl - blank_xl) + (xh - xl) + 1] = \
                     pixel_flat_buf[yl:yh + 1, xl:xh + 1]
                 datakeep['pix'].append(deepcopy(blank))
+                datakeep['fw_pix'].append(deepcopy(pixel_flat_buf[yl:yh, 0:FRAME_WIDTH_X - 1]))
+
             else:
                 load_blank = True
 
@@ -5013,6 +5061,18 @@ class HETDEX:
                                    origin="lower", cmap=plt.get_cmap('gray'),
                                    interpolation="none", vmin=vmin_pix, vmax=vmax_pix,
                                    extent=ext) #vmin=0.9, vmax=1.1
+
+
+                    #set circle here ... at center with radius 3 pix? maybe a 0.5 alpha filled circle
+                    #corresponds to the emision line position
+                    cx = (pixplot.get_xlim()[1]+pixplot.get_xlim()[0])/2.0
+                    cy = (pixplot.get_ylim()[1]+pixplot.get_ylim()[0])/2.0
+
+                    circ = mpatches.Circle((cx,cy), radius=4,
+                                                   facecolor='gold', fill=True, alpha=0.2,
+                                                   edgecolor='none', linestyle="solid")
+
+                    pixplot.add_patch(circ)
 
                 #still need to always turn off the axis
                 pixplot.set_xticks([])
@@ -5621,19 +5681,19 @@ class HETDEX:
         norm = plt.Normalize()
         colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
 
-        if G.SHOW_FULL_2D_SPECTRA:
+        if G.SHOW_ALL_1D_SPECTRA:
             num = len(datakeep['xi'])
         else:
             num = 0
         dy = 1.0/(num +5)  #+ 1 skip for legend, + 2 for double height spectra + 2 for double height labels
 
         if G.SINGLE_PAGE_PER_DETECT:
-            if G.SHOW_FULL_2D_SPECTRA:
+            if G.SHOW_ALL_1D_SPECTRA:
                 figure_sz_y = 2* G.GRID_SZ_Y
             else:
                 figure_sz_y = G.GRID_SZ_Y
         else:
-            if G.SHOW_FULL_2D_SPECTRA:
+            if G.SHOW_ALL_1D_SPECTRA:
                 figure_sz_y = 0.6 * 3 * G.GRID_SZ_Y
             else:
                 figure_sz_y = 0.25 * 3 * G.GRID_SZ_Y
@@ -6035,5 +6095,399 @@ class HETDEX:
 
         return d
 
+    # 2d spectra cutouts (one per fiber)
+    def build_2d_LyC_image(self, datakeep, z):
+
+        log.debug("+++++ LyC 2D Image .....")
+
+        # not dynamic, but if we are going to add a combined 2D spectra cutout at the top, set this to 1
+        add_summed_image = 1  # note: adding w/cosmics masked out
+        frac_y_separator = 0.2  # add a separator between the colored fibers and the black (summed) fiber at this
+        # fraction of the cell height
+
+        cmap = plt.get_cmap('gray_r')
+
+        colors = self.make_fiber_colors(min(4, len(datakeep['ra'])),
+                                        len(datakeep['ra']))  # + 2 ) #the +2 is a pad in the call
+        num_fibers = len(datakeep['xi'])
+        num_to_display = min(MAX_2D_CUTOUTS, num_fibers) + add_summed_image  # for the summed images
+        bordbuff = 0.01
+        borderxl = 0.05
+        borderxr = 0.15
+        borderyb = 0.05
+        borderyt = 0.15
+
+        # the +1 for the summed image
+        dx = (1. - borderxl - borderxr) / 3.
+        dy = (1. - borderyb - borderyt) / (num_to_display)
+        dx1 = (1. - borderxl - borderxr) / 3.
+        dy1 = (1. - borderyb - borderyt - (num_to_display) * bordbuff) / (num_to_display)
+        _xw = int(np.round((1.0 + z) * 8.0))
+        Y = (yw / dy) / (_xw / dx) * 5. + frac_y_separator * dy  # + 0.2 as a separator at the top
+
+        Y = max(Y, 0.8)  # set a minimum size
+
+        fig = plt.figure(figsize=(5, Y), frameon=True)
+        #fig = plt.figure()#figsize=(5, Y), frameon=False)
+        #plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
+
+        # previously sorted in order from largest distances to smallest
+        ind = list(range(len(datakeep['d'])))
+
+        # assume all the same shape
+        #summed_image = np.zeros(datakeep['fw_im'][ind[0]].shape)
+        summed_image = None
+
+        # need i to start at zero
+        # building from bottom up
+
+
+
+        grid_idx = -1
+        for i in range(num_fibers + add_summed_image):
+            make_display = False
+            if i < num_fibers:
+                pcolor = colors[
+                    i]  # , 0:4] #keep the 4th value (alpha value) ... need that to lower the alpha of the greys
+                datakeep['color'][ind[i]] = pcolor
+                datakeep['index'][ind[i]] = num_fibers - i
+
+                if i > (num_fibers - num_to_display):  # we are in reverse order (building the bottom cutout first)
+                    make_display = True
+                    grid_idx += 1
+                    is_a_fiber = True
+                    # ext = list(np.hstack([datakeep['xl'][ind[i]], datakeep['xh'][ind[i]],
+                    #                       datakeep['yl'][ind[i]], datakeep['yh'][ind[i]]]))
+
+                    xc = datakeep['x_2d_lyc'][ind[i]]
+                    yc = datakeep['y_2d_lyc'][ind[i]]
+
+                    if xc < 0 or yc < 0:
+                        # we're done
+                        log.error("Invalid LyC x (%f) or y (%f) coord" % (xc, yc))
+
+                    xl = xc - _xw  # note: 4.0 == integer of +/- 15 AA from center with 2.0 AA per pixel so 15/2 = 7.5, round to 8
+                    xr = xc + _xw
+                    yl = yc - yw  # standard height, same as normal 2D cutouts
+                    yr = yc + yw
+
+                    ext = list(np.hstack([xl, xr, yl, yr]))
+
+
+                    # set the hot (cosmic) pixel values to zero then employ guassian_filter
+                    a = datakeep['fw_im'][ind[i]][:,xl:xr+1]
+                    a = np.ma.masked_where(datakeep['fw_err'][ind[i]][:,xl:xr+1] == -1, a)
+                    a = np.ma.filled(a, 0.0)
+
+                    if summed_image is None:
+                        summed_image = np.zeros(a.shape)
+                    summed_image += a * datakeep['fiber_weight'][ind[i]]
+
+                    # GF = gaussian_filter(datakeep['fw_im'][ind[i]], (2, 1))
+                    GF = gaussian_filter(a, (2, 1))
+
+                    gauss_vmin = datakeep['vmin1'][ind[i]]
+                    gauss_vmax = datakeep['vmax1'][ind[i]]
+
+
+                    pix_image = datakeep['fw_pix'][ind[i]][:,xl:xr+1]
+                    image = datakeep['fw_im'][ind[i]][:,xl:xr+1]  # im can be the cosmic removed version, depends on G.PreferCosmicCleaned
+
+                    cmap1 = cmap
+                    cmap1.set_bad(color=[0.2, 1.0, 0.23])
+                    image = np.ma.masked_where(datakeep['fw_err'][ind[i]][:,xl:xr+1] == -1, image)
+                    img_vmin = datakeep['vmin2'][ind[i]]
+                    img_vmax = datakeep['vmax2'][ind[i]]
+
+                    # plot_label = str(num_fibers-i)
+                    plot_label = str("%0.2f" % datakeep['fiber_weight'][ind[i]]).lstrip(
+                        '0')  # save space, kill leading 0
+
+                    # the last one is the top one and is the primary
+                    datakeep['primary_idx'] = ind[i]
+
+            else:  # this is the top image (the sum)
+                is_a_fiber = False
+                make_display = True
+                grid_idx += 1
+                pcolor = 'k'
+                ext = None
+                pix_image = None  # blank_pixel_flat() #per Karl, just leave it blank, no pattern
+                plot_label = "SUM"
+
+                GF = gaussian_filter(summed_image, (2, 1))
+                image = summed_image
+                img_vmin, img_vmax = self.get_vrange(summed_image, scale=contrast2)
+                gauss_vmin, gauss_vmax = self.get_vrange(summed_image, scale=contrast1)
+
+            if make_display:
+
+                ds9_x = 1. + (xl + xr) / 2.
+                ds9_y = 1. + (yl + yr) / 2.
+
+                if is_a_fiber:
+                    y_separator = 0.0
+                else:
+                    y_separator = frac_y_separator * dy
+
+                borplot = plt.axes([borderxl + 0. * dx, borderyb + grid_idx * dy + y_separator, 3 * dx, dy])
+                smplot = plt.axes(
+                    [borderxl + 2. * dx - bordbuff / 3., borderyb + grid_idx * dy + bordbuff / 2. + y_separator,
+                     dx1, dy1])
+                pixplot = plt.axes(
+                    [borderxl + 1. * dx + 1 * bordbuff / 3., borderyb + grid_idx * dy + bordbuff / 2. + y_separator,
+                     dx1, dy1])
+                imgplot = plt.axes(
+                    [borderxl + 0. * dx + bordbuff / 2., borderyb + grid_idx * dy + bordbuff / 2. + y_separator,
+                     dx1, dy1])
+                autoAxis = borplot.axis()
+
+                rec = plt.Rectangle((autoAxis[0] + bordbuff / 2., autoAxis[2] + bordbuff / 2.),
+                                    (autoAxis[1] - autoAxis[0]) * (1. - bordbuff),
+                                    (autoAxis[3] - autoAxis[2]) * (1. - bordbuff), fill=False, lw=3,
+                                    color=pcolor, zorder=1)
+                rec = borplot.add_patch(rec)
+                borplot.set_xticks([])
+                borplot.set_yticks([])
+                borplot.axis('off')
+
+                smplot.imshow(GF,
+                              origin="lower", cmap=cmap,
+                              interpolation="none", vmin=gauss_vmin,
+                              vmax=gauss_vmax,
+                              extent=ext)
+
+                smplot.set_xticks([])
+                smplot.set_yticks([])
+                # smplot.axis(ext)
+                smplot.axis('off')
+
+                if pix_image is not None:
+                    vmin_pix = 0.9
+                    vmax_pix = 1.1
+                    pixplot.imshow(pix_image,
+                                   origin="lower", cmap=plt.get_cmap('gray'),
+                                   interpolation="none", vmin=vmin_pix, vmax=vmax_pix,
+                                   extent=ext)  # vmin=0.9, vmax=1.1
+
+                # still need to always turn off the axis
+                pixplot.set_xticks([])
+                pixplot.set_yticks([])
+                # pixplot.axis(ext)
+                pixplot.axis('off')
+
+                imgplot.imshow(image,
+                               origin="lower", cmap=cmap1,
+                               vmin=img_vmin,
+                               vmax=img_vmax,
+                               interpolation="none", extent=ext)
+
+                imgplot.set_xticks([])
+                imgplot.set_yticks([])
+                # imgplot.axis(ext)
+                imgplot.axis('off')
+
+                if i < num_fibers:
+                    # xi = datakeep['xi'][ind[i]]
+                    # yi = datakeep['yi'][ind[i]]
+                    # xl = int(np.round(xi - ext[0] - res[0] / 2.))
+                    # xh = int(np.round(xi - ext[0] + res[0] / 2.))
+                    # yl = int(np.round(yi - ext[2] - res[0] / 2.))
+                    # yh = int(np.round(yi - ext[2] + res[0] / 2.))
+
+                    sn = datakeep['fiber_sn'][ind[i]]
+
+                    if sn is None:
+                        if self.panacea:
+                            sn = -99  # so will fail the check and not print
+
+                        else:  # this only works (relatively well) for Cure
+                            print("What??? .... can only be panacea")
+
+                    borplot.text(-0.2, .5, plot_label,
+                                 transform=imgplot.transAxes, fontsize=10, color='k',  # colors[i, 0:3],
+                                 verticalalignment='bottom', horizontalalignment='left')
+
+                # if self.multiple_observations:
+                # add the fiber info to the right of the images
+                if not G.ZOO:
+                    if is_a_fiber:
+                        if self.panacea:
+
+                            borplot.text(1.05, .73, 'D("): %0.2f' % (datakeep['d'][ind[i]]),
+                                         transform=smplot.transAxes, fontsize=6, color='k',
+                                         verticalalignment='bottom', horizontalalignment='left')
+
+                            borplot.text(1.05, .53,
+                                         'x, y: %d, %d' % (ds9_x, ds9_y),
+                                         transform=smplot.transAxes, fontsize=6, color='k',
+                                         verticalalignment='bottom', horizontalalignment='left')
+
+                            try:
+                                l3 = datakeep['date'][ind[i]] + "_" + datakeep['obsid'][ind[i]] + "_" + \
+                                     datakeep['expid'][ind[i]]
+
+                                # !!! multi*fits is <specid>_<ifuslot>_<ifuid> !!!
+                                # !!! so do NOT change from spec_id
+                                # !!! note: having all three identifiers makes the string too long so leave as is
+                                l4 = datakeep['spec_id'][ind[i]] + "_" + datakeep['amp'][ind[i]] + "_" + \
+                                     datakeep['fib_idx1'][ind[i]]
+
+                                borplot.text(1.05, .33, l3,
+                                             transform=smplot.transAxes, fontsize=6, color='k',
+                                             verticalalignment='bottom', horizontalalignment='left')
+                                borplot.text(1.05, .13, l4,
+                                             transform=smplot.transAxes, fontsize=6, color='k',
+                                             verticalalignment='bottom', horizontalalignment='left')
+                            except:
+                                log.error("Exception building extra fiber info.", exc_info=True)
+
+                        else:
+                            print("What??? .... can only be panacea")
+                    else:
+                        borplot.text(1.05, .35, '\nWEIGHTED\nSUM',
+                                     transform=smplot.transAxes, fontsize=8, color='k',
+                                     verticalalignment='bottom', horizontalalignment='left')
+
+                if grid_idx == (num_to_display - 1):  # (num + add_summed_image - 1):
+                    smplot.text(0.5, 1.3, 'Smoothed',
+                                transform=smplot.transAxes, fontsize=8, color='k',
+                                verticalalignment='top', horizontalalignment='center')
+                    pixplot.text(0.5, 1.3, 'Pixel Flat',
+                                 transform=pixplot.transAxes, fontsize=8, color='k',
+                                 verticalalignment='top', horizontalalignment='center')
+                    imgplot.text(0.5, 1.3, '2D Spec',
+                                 transform=imgplot.transAxes, fontsize=8, color='k',
+                                 verticalalignment='top', horizontalalignment='center')
+
+        #buf = io.BytesIO()
+        # plt.tight_layout()#pad=0.1, w_pad=0.5, h_pad=1.0)
+        # plt.savefig(format='png', dpi=300)
+
+        try:
+            e = datakeep['detobj']
+
+            if e.pdf_name is not None:
+                fn = e.pdf_name.rstrip(".pdf") + "_2d_lyc_fib.png"
+            else:
+                fn = self.output_filename + "_" + str(e.entry_id).zfill(3) + "_2d_lyc_fib.png"
+            fn = op.join(e.outdir, fn)
+            plt.savefig(fn, format="png", dpi=300)
+        except:
+            log.error("Unable to write 2d_lyc_fib image to disk.", exc_info=True)
+
+        plt.close(fig)
+        return buf, Y
+        #end build_2D_LyC_image
+
+
+
+    def build_full_width_2D_cutouts(self, datakeep, z):
+        """
+        Sit just under the full 1D-Spectrum
+        Full width, summed 2D spectra and summed pixel flat
+        Same size as 1D spectra image section
+
+        :param datakeep:
+        :param z:
+        :return:
+        """
+        num = 0 #left over code from build_full_width_spectrum (says we are not plotting individual spectra)
+        dy = 1.0 / (num + 5)  # + 1 skip for legend, + 2 for double height spectra + 2 for double height labels
+
+        #figure_sz_y = G.GRID_SZ_Y
+
+        fig = plt.figure(figsize=(G.FIGURE_SZ_X,G.GRID_SZ_Y), frameon=False)
+        #fig = plt.figure()
+        plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
+        ind = list(range(len(datakeep['d'])))
+        ind.reverse() #since last indexed item is the highest weight
+
+        border_buffer = 0.025  # percent from left and right edges to leave room for the axis labels
+
+        # this is the 2D averaged spectrum
+        #specplot = plt.axes([border_buffer, float(num + 1.0) * dy, 1.0 - (2 * border_buffer), dy * 2])
+        specplot = plt.axes([border_buffer, 0.0, 1.0 - (2 * border_buffer),1.0])
+
+        # this is the pixel flat plots
+        #flatplot = plt.axes([border_buffer, float(num + 1.0) * dy, 1.0 - (2 * border_buffer), dy * 2])
+        rm = 0.2
+
+
+        #iterate over and sum, like in above
+        num_fibers = len(datakeep['xi'])
+        summed_image = np.zeros(datakeep['fw_im'][ind[0]].shape)
+        master_bad = np.zeros(summed_image.shape)
+        summed_flat  = np.zeros(summed_image.shape)
+        separator_img = np.zeros((2,summed_image.shape[1]))
+
+        #todo: question ... all fibers, or just the top 4
+        num_fibers = min(4,num_fibers)
+        for i in range(num_fibers):
+        #for i in range(num_fibers,(num_fibers-5),-1):
+            bad = np.where(datakeep['fw_err'][ind[i]] == -1)
+            master_bad[bad] = -1
+
+            #a = np.ma.masked_where(datakeep['fw_err'][ind[i]] == -1, a)
+            #a = np.ma.filled(a, 0.0)
+            summed_image += datakeep['fw_im'][ind[i]] * datakeep['fiber_weight'][ind[i]]
+
+            #todo: question ... weight the pixel flats or not?
+            #todo: question ... what about summing of flats taken at different times? would the ranges of pix values
+            #      still be compatible (on same scale)?
+            summed_flat += datakeep['fw_pix'][ind[i]] # * datakeep['fiber_weight'][ind[i]]
+
+
+
+
+
+        #plot the two stacked figures
+        image_vmin, image_vmax = self.get_vrange(summed_image, scale=contrast1)
+        flat_vmin, flat_vmax = self.get_vrange(summed_flat, scale=contrast1)
+
+        #put the bad pixels on sum
+        summed_image = np.ma.masked_where(master_bad < 0, summed_image)
+
+        #smooth the 2D image??
+        smoothed_image = gaussian_filter(summed_image, (2, 1))
+        smoothed_image = np.ma.masked_where(master_bad < 0, smoothed_image)
+
+        #adjust the flat to match vmin, vmax
+        #summed_flat = summed_flat*(image_vmin/flat_vmin)
+
+        stacked_img = np.vstack([summed_image,separator_img,summed_flat])
+
+        cmap1 = plt.get_cmap('gray_r')
+        cmap1.set_bad(color=[0.2, 1.0, 0.23])
+
+        # ext = list(np.hstack([datakeep['xl'][ind[i]], datakeep['xh'][ind[i]],
+        #                       datakeep['yl'][ind[i]], datakeep['yh'][ind[i]]]))
+
+        #image_vmin, image_vmax = self.get_vrange(smoothed_image, scale=contrast1)
+        specplot.imshow(smoothed_image[5:16,:],
+                      origin="lower", cmap=cmap1,
+                      interpolation="none", vmin=image_vmin,
+                      vmax=image_vmax)#,extent=[0,1032,0,28])
+
+
+        #plt.savefig("/home/dustin/code/python/elixer/lycon/test.png",format="png", dpi=300)
+        #end part savefig?
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=300)
+
+        # if G.ZOO_CUTOUTS:
+        #     try:
+        #         e = datakeep['detobj']
+        #         if e.pdf_name is not None:
+        #             fn = e.pdf_name.rstrip(".pdf") + "_zoo_2d_full.png"
+        #         else:
+        #             fn = self.output_filename + "_" + str(e.entry_id).zfill(3) + "_zoo_2d_full.png"
+        #         fn = op.join(datakeep['detobj'].outdir, fn)
+        #         plt.savefig(fn, format="png", dpi=300)
+        #     except:
+        #         log.error("Unable to write zoo_2d_full image to disk.", exc_info=True)
+
+        plt.close(fig)
+        return buf
 
 #end HETDEX class

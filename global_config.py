@@ -13,7 +13,7 @@ import numpy as np
 import socket
 
 #version
-__version__ = '1.7.2a5'
+__version__ = '1.7.2a6'
 
 #python version
 import sys
@@ -22,6 +22,7 @@ PYTHON_VERSION = sys.version_info
 
 HDR1 = False #set to TRUE for HDR1 release
 LAUNCH_PDF_VIEWER = None
+
 
 if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
     #base path: /work/03946/hetdex/hdr1/
@@ -321,9 +322,12 @@ FIGURE_SZ_X = 18 #18
 #FIGURE_SZ_Y = 9 #12
 GRID_SZ_X = 3 # equivalent figure_sz_x for a grid width (e.g. one column)
 GRID_SZ_Y = 3 # equivalent figure_sz_y for a grid height (e.g. one row)
-FIT_FULL_SPEC_IN_WINDOW = False #if true, allow y-axis range to fit entire spectrum, not just the emission line
 
-SHOW_FULL_2D_SPECTRA = False #if true, plot the full width 2D spectra for each hetdex fiber in detection
+LyC = False #switch for Lyman Continuum specialized code
+PLOT_FULLWIDTH_2D_SPEC = False #if true, show the combined full-width 2D spectra just under the 1D plot
+
+FIT_FULL_SPEC_IN_WINDOW = False #if true, allow y-axis range to fit entire spectrum, not just the emission line
+SHOW_ALL_1D_SPECTRA = False #if true, plot the full width 1D spectra for each hetdex fiber in detection
 MAX_COMBINE_BID_TARGETS = 3 #if SINGLE_PAGE_PER_DETECT is true, this is the max number of bid targets that can be
                             #merged on a single line. If the number is greater, each bid target gets its own line
 

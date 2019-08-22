@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.7.1a6 [2019-08-22]
+* Add low alpha (0.2) gold disc to pixel flat 2D cutouts to highlight the emission line region (to check for defects)
+
 
 1.7.1a5 [2019-08-06]
 * Removed "Est OII rest-EW" from catalog matches at report bottom
