@@ -316,6 +316,32 @@ if i != -1:
 else:
     pass
 
+
+
+#check for nodes
+max_nodes = 0
+i = -1
+if "--nodes" in args:
+    i = args.index("--nodes")
+
+if i != -1:
+    try:
+        max_nodes = int(sys.argv[i + 1])
+    except:
+       print("Exception parsing --nodes")
+
+    if max_nodes == 0:
+        print("Auto set maximum nodes ...")
+    elif (max_nodes < 1) or (max_nodes > MAX_NODES):
+        print ("Invalid --nodes value.", max_nodes)
+        exit(-1)
+    else: #max_nodes is valid, so set it as the new limit
+        MAX_NODES = max_nodes
+        print("Redfinining MAX_NODES to ", max_nodes)
+
+else:
+    pass
+
 if not os.path.isdir(basename):
     try:
         os.makedirs(basename)

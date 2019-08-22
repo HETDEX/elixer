@@ -222,6 +222,8 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--queue', help="If populated, specifies which TACC queue (vis, gpu) to use.", required=False)
     parser.add_argument('--tasks', help="If populated, specifies how many TACC tasks to use.", required=False)
 
+    parser.add_argument('--nodes', help="If populated, specifies the maximum TACC nodes to use.", required=False)
+
     parser.add_argument('--panacea_red',help="Basedir for searching for Panacea reduction files",required=False)
 
     parser.add_argument('--zoo', help='Produce image cutouts for publication on Zooniverse', required=False,
