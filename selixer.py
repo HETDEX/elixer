@@ -545,7 +545,14 @@ else: # multiple tasks
 if not time_set: #update time
     try:
         mx = np.max(dets_per_dispatch)
-        time = str(timedelta(minutes=TIME_OVERHEAD + MAX_TIME_PER_TASK * mx))
+
+        try:
+            mult = tasks / (nodes * ntasks_per_node)
+        except:
+            mult = 1.0
+
+
+        time = str(timedelta(minutes=TIME_OVERHEAD + MAX_TIME_PER_TASK * mx * mult))
         print("--time %s" %time)
 
     except Exception as e:
