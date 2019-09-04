@@ -20,7 +20,7 @@ import sys
 PYTHON_MAJOR_VERSION = sys.version_info[0]
 PYTHON_VERSION = sys.version_info
 
-HDR1 = False #set to TRUE for HDR1 release
+HDR1 = True #set to TRUE for HDR1 release
 LAUNCH_PDF_VIEWER = None
 
 
