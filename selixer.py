@@ -164,7 +164,7 @@ elif hostname == "stampede2":
 
     python_cmd = "mpiexec.hydra -np 1 " + python_cmd
 
-    if queue == "skx-normal":
+    if queue == "skx-normal": #(192GB per node)
         MAX_DETECTS_PER_CPU = 100
         cores_per_node = 48
         if recover_mode:
@@ -178,10 +178,10 @@ elif hostname == "stampede2":
             MAX_TASKS_PER_NODE = 22 #actually, variable, encoded later
         else:
             FILL_CPU_TASKS = 10
-            MAX_TASKS = 960
             MAX_NODES = 20
             MAX_TASKS_PER_NODE = 40 #still some memory issues ... this gives us a little more room
-    else: #knl (much slower than SKX)
+            MAX_TASKS = MAX_NODES * MAX_TASKS_PER_NODE #800
+    else: #knl (much slower than SKX and much less memory (96 GB per node)
         cores_per_node = 68
         if recover_mode:
             MAX_TIME_PER_TASK = 5.0  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
@@ -193,9 +193,9 @@ elif hostname == "stampede2":
             MAX_NODES = 50 #right now, pointless to go beyond 2 nodes
             MAX_TASKS_PER_NODE = 6 #actually, variable, encoded later
         else:
-            MAX_TASKS = 6800
             MAX_NODES = 100
-            MAX_TASKS_PER_NODE = 68
+            MAX_TASKS_PER_NODE = 20
+            MAX_TASKS = MAX_NODES * MAX_TASKS_PER_NODE  # 2000
 
     TIME_OVERHEAD = 4.0  # MINUTES of overhead to get started (per task call ... just a safety)
 
