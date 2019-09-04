@@ -13,7 +13,7 @@ import numpy as np
 import socket
 
 #version
-__version__ = '1.7.2a6'
+__version__ = '1.7.2a7'
 
 #python version
 import sys
@@ -323,7 +323,7 @@ FIGURE_SZ_X = 18 #18
 GRID_SZ_X = 3 # equivalent figure_sz_x for a grid width (e.g. one column)
 GRID_SZ_Y = 3 # equivalent figure_sz_y for a grid height (e.g. one row)
 
-LyC = False #switch for Lyman Continuum specialized code
+LyC = True #switch for Lyman Continuum specialized code
 PLOT_FULLWIDTH_2D_SPEC = False #if true, show the combined full-width 2D spectra just under the 1D plot
 
 FIT_FULL_SPEC_IN_WINDOW = False #if true, allow y-axis range to fit entire spectrum, not just the emission line
@@ -410,10 +410,10 @@ ADDL_LINE_SCORE_BONUS = 5.0 #add for each line at 2+ lines (so 1st line adds not
 SHADE_1D_SPEC_PEAKS = False #if true, shade in red the 1D spec peaks above the NORM noise limit (see below)
 
 
-DYNAMIC_MAG_APERTURE = False  #allow aperture size to change to fit maximum magnitude
+DYNAMIC_MAG_APERTURE = True  #allow aperture size to change to fit maximum magnitude
 MIN_DYNAMIC_MAG_RADIUS = 0.5 #in arcsec
 FIXED_MAG_APERTURE = 1.5 #radius in arcsec
-MAX_DYNAMIC_MAG_APERTURE = 3.0 #maximum growth in dynamic mag
+MAX_DYNAMIC_MAG_APERTURE = 2.0 #maximum growth in dynamic mag
 NUDGE_MAG_APERTURE_CENTER = 1.0  #allow the center of the mag aperture to drift to the 2D Gaussian centroid
                                  #up to this distance in x and y in arcsec (if 0.0 then no drift is allowed)
 MAX_SKY_SUBTRACT_MAG = 2.0 #if local sky subtraction results in a magnitude change greater than this value, do not apply it

@@ -5001,7 +5001,9 @@ class HETDEX:
                     img_vmax = datakeep['vmax2'][ind[i]]
 
                     #plot_label = str(num_fibers-i)
-                    plot_label = str("%0.2f" % datakeep['fiber_weight'][ind[i]]).lstrip('0') #save space, kill leading 0
+                    #plot_label = str("%0.2f" % datakeep['fiber_weight'][ind[i]]).lstrip('0') #save space, kill leading 0
+                    plot_label = str("%0.2f" % datakeep['fiber_weight'][ind[i]])
+                    plot_label += "\n" + str(datakeep['fib'][ind[i]]).zfill(3)
 
                     #the last one is the top one and is the primary
                     datakeep['primary_idx'] = ind[i]
@@ -5115,8 +5117,8 @@ class HETDEX:
                                 sn = 0.0
 
 
-                    borplot.text(-0.2, .5, plot_label,
-                            transform=imgplot.transAxes, fontsize=10, color='k', #colors[i, 0:3],
+                    borplot.text(-0.25, .3, plot_label,
+                            transform=imgplot.transAxes, fontsize=8, color='k', #colors[i, 0:3],
                             verticalalignment='bottom', horizontalalignment='left')
 
                 #if self.multiple_observations:
@@ -5153,7 +5155,8 @@ class HETDEX:
                                 #!!! multi*fits is <specid>_<ifuslot>_<ifuid> !!!
                                 #!!! so do NOT change from spec_id
                                 #!!! note: having all three identifiers makes the string too long so leave as is
-                                l4 = datakeep['spec_id'][ind[i]] + "_" + datakeep['amp'][ind[i]] + "_" +  datakeep['fib_idx1'][ind[i]]
+                                l4 = datakeep['spec_id'][ind[i]] + "_" + datakeep['amp'][ind[i]] + "_" + \
+                                     str(datakeep['fib_idx1'][ind[i]]).zfill(3) #+ "#" + str(datakeep['fib'][ind[i]]).zfill(3)
 
                                 borplot.text(1.05, .33, l3,
                                              transform=smplot.transAxes, fontsize=6, color='k',
