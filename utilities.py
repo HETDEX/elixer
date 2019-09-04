@@ -136,3 +136,35 @@ def unc_str(tup): #helper, formats a string with exponents and uncertainty
     #todo: more accessors
     # get the value * units, calculate the error with two mea
 
+
+def is_in_ellipse(xp,yp,xc,yc,d,D,angle):
+    #todo: test with RA,Dec ... what is the zero for the angle? (what is the zero line reference)
+    #todo: what about the seeing? (PSF) and bid object size? how much of the bid object (PSF smeared) can overlap with
+    #todo:   the ellipse?
+    """
+    :param xp: x coord of point
+    :param yp: y coord of point
+    :param xc: x coord of ellipse center
+    :param yc: y coord of ellipse center
+    :param d: minor axis
+    :param D: major axis
+    :param angle: rotation angle
+    :return:
+    """
+
+    cosa = math.cos(angle)
+    sina = math.sin(angle)
+    dd = d/2.*d/2.
+    DD = D/2.*D/2.
+
+    a = cosa*(xp-xc)+sina*(yp-yc)
+    a = a*a
+
+    b = sina*(xp-xc)-cosa*(yp-yc)
+    b = b*b
+    ellipse=(a/dd)+(b/DD)
+
+    if ellipse <= 1:
+        return True
+    else:
+        return False

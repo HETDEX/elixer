@@ -180,7 +180,7 @@ elif hostname == "stampede2":
             FILL_CPU_TASKS = 10
             MAX_TASKS = 960
             MAX_NODES = 20
-            MAX_TASKS_PER_NODE = 48 #still some memory issues ... this gives us a little more room
+            MAX_TASKS_PER_NODE = 42 #still some memory issues ... this gives us a little more room
     else: #knl (much slower than SKX)
         cores_per_node = 68
         if recover_mode:
