@@ -273,7 +273,7 @@ class Catalog:
 
 
             #YES, both need to have this performed (this one always) as they are used for different purposes later
-            if hasattr(self,'dataframe_of_bid_targets'): #sanity check ... all cats have this
+            if hasattr(self,'dataframe_of_bid_targets') and (self.dataframe_of_bid_targets is not None): #sanity check ... all cats have this
                 df = self.dataframe_of_bid_targets
                 df['distance'] = np.sqrt(
                     (np.cos(np.deg2rad(dec)) * (df['RA'] - ra)) ** 2 + (df['DEC'] - dec) ** 2)

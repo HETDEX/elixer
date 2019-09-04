@@ -1172,6 +1172,12 @@ def convert_pdf(filename, resolution=150, jpeg=True, png=False):
                      %(filename) )
             time.sleep(5.0) #5 sec should be plenty
 
+            if not os.path.isfile(filename):
+                log.info(
+                    "Error converting (%s) to image type. File still not found. Aborting conversion."
+                    % (filename))
+                return
+
 
         # wand.exceptions.PolicyError: not authorized  ....
         #
@@ -1198,7 +1204,7 @@ def convert_pdf(filename, resolution=150, jpeg=True, png=False):
                     print("File written: " + image_name)
 
     except:
-        log.error("Error converting to pdf to image type: " + filename, exc_info=True)
+        log.error("Error (1) converting pdf to image type: " + filename, exc_info=True)
         return
 
 
@@ -2415,7 +2421,7 @@ def main():
                     try:
                         convert_pdf(f.filename,jpeg=args.jpg, png=args.png)
                     except:
-                        log.error("Error converting to pdf to image type: " + f.filename, exc_info=True)
+                        log.error("Error (2) converting pdf to image type: " + f.filename, exc_info=True)
             else:
                 if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer:
                     viewer_file_list.append(args.name + ".pdf")
@@ -2423,7 +2429,7 @@ def main():
                 try:
                     convert_pdf(args.name + ".pdf",jpeg=args.jpg, png=args.png)
                 except:
-                    log.error("Error converting to pdf to image type: " + f.filename, exc_info=True)
+                    log.error("Error (3) converting pdf to image type: " + f.filename, exc_info=True)
 
 
 
