@@ -197,7 +197,7 @@ elif hostname == "stampede2":
             MAX_NODES = 100
             MAX_TASKS_PER_NODE = 68
 
-    TIME_OVERHEAD = 1.0  # MINUTES of overhead to get started (per task call ... just a safety)
+    TIME_OVERHEAD = 4.0  # MINUTES of overhead to get started (per task call ... just a safety)
 
     time = "00:59:59"
     time_set = False
