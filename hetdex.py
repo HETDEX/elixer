@@ -6184,7 +6184,10 @@ class HETDEX:
 
                     if summed_image is None:
                         summed_image = np.zeros(a.shape)
-                    summed_image += a * datakeep['fiber_weight'][ind[i]]
+                    #todo: the shapes are not necessarily the same ... should fix, but this is of limited utility
+                    #todo: so for now, if they don't match just skip
+                    if summed_image.shape == a.shape:
+                        summed_image += a * datakeep['fiber_weight'][ind[i]]
 
                     # GF = gaussian_filter(datakeep['fw_im'][ind[i]], (2, 1))
                     GF = gaussian_filter(a, (2, 1))

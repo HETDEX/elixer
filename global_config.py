@@ -20,7 +20,7 @@ import sys
 PYTHON_MAJOR_VERSION = sys.version_info[0]
 PYTHON_VERSION = sys.version_info
 
-HDR1 = True #set to TRUE for HDR1 release
+HDR1 = False #set to TRUE for HDR1 release
 LAUNCH_PDF_VIEWER = None
 
 
@@ -152,9 +152,13 @@ else:
         EGS_GROTH_BASE_PATH = "/work/03229/iwold/maverick/groth"
         EGS_GROTH_CAT_PATH = "/work/03229/iwold/maverick/groth" #note: there is no catalog
 
-        STACK_COSMOS_BASE_PATH = "/work/03229/iwold/maverick/stackCOSMOS/nano/"
-        STACK_COSMOS_CAT_PATH = "/work/03229/iwold/maverick/stackCOSMOS"
-        COSMOS_EXTRA_PATH = "/work/03261/polonius/maverick/catalogs/COSMOS/"
+        # STACK_COSMOS_BASE_PATH = "/work/03229/iwold/maverick/stackCOSMOS/nano/"
+        # STACK_COSMOS_CAT_PATH = "/work/03229/iwold/maverick/stackCOSMOS"
+        # COSMOS_EXTRA_PATH = "/work/03261/polonius/maverick/catalogs/COSMOS/"
+
+        STACK_COSMOS_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/cosmos/stackCOSMOS/nano/"
+        STACK_COSMOS_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/cosmos/stackCOSMOS"
+        COSMOS_EXTRA_PATH = "/work/03946/hetdex/hdr1/imaging/cosmos/COSMOS/"
 
         DECAM_IMAGE_PATH = "/work/03229/iwold/maverick/fall_field/stack/v2/psf/nano/"
         #SHELA_BASE_PATH = "/work/03261/polonius/maverick/catalogs/SHELA"
@@ -323,7 +327,7 @@ FIGURE_SZ_X = 18 #18
 GRID_SZ_X = 3 # equivalent figure_sz_x for a grid width (e.g. one column)
 GRID_SZ_Y = 3 # equivalent figure_sz_y for a grid height (e.g. one row)
 
-LyC = False #switch for Lyman Continuum specialized code
+LyC = True #switch for Lyman Continuum specialized code
 PLOT_FULLWIDTH_2D_SPEC = False #if true, show the combined full-width 2D spectra just under the 1D plot
 
 FIT_FULL_SPEC_IN_WINDOW = False #if true, allow y-axis range to fit entire spectrum, not just the emission line
@@ -413,7 +417,7 @@ SHADE_1D_SPEC_PEAKS = False #if true, shade in red the 1D spec peaks above the N
 DYNAMIC_MAG_APERTURE = True  #allow aperture size to change to fit maximum magnitude
 MIN_DYNAMIC_MAG_RADIUS = 0.5 #in arcsec
 FIXED_MAG_APERTURE = 1.5 #radius in arcsec
-MAX_DYNAMIC_MAG_APERTURE = 2.0 #maximum growth in dynamic mag
+MAX_DYNAMIC_MAG_APERTURE = 1.5 #maximum growth in dynamic mag
 NUDGE_MAG_APERTURE_CENTER = 1.0  #allow the center of the mag aperture to drift to the 2D Gaussian centroid
                                  #up to this distance in x and y in arcsec (if 0.0 then no drift is allowed)
 MAX_SKY_SUBTRACT_MAG = 2.0 #if local sky subtraction results in a magnitude change greater than this value, do not apply it

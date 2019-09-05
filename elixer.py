@@ -1237,7 +1237,7 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
             if (rows is not None) and (rows.size > 0):
                 detectids = rows['detectid']
 
-                msg = "%d detection records found +/- %g\" from %f, %f" %(rows.size,error*3600.,ra,dec)
+                msg = "%d detection records found +/- %g\" from %f, %f (%s)" %(rows.size,error*3600.,ra,dec,hdf5)
 
                 #less important, sort by distance
                 if sort:
@@ -1263,7 +1263,7 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
                 log.info(msg)
                 print(msg)
             else:
-                msg = "0 detection records found +/- %g\" from %f, %f" % (error * 3600., ra, dec)
+                msg = "0 detection records found +/- %g\" from %f, %f (%s)" % (error * 3600., ra, dec,hdf5)
                 log.info(msg)
                 print(msg)
 
@@ -1275,6 +1275,9 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
         return detectids,ras,decs,dists
     else:
         return detectids
+
+
+
 
 def get_hdf5_detectids_to_process(args):
     """
@@ -1755,7 +1758,7 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
     return newlist
 
 
-def build_neighborhood_map(hdf5=None,detectid=None,ra=None, dec=None, distance=None, cwave=None, fname=None):
+def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=None, distance=None, cwave=None, fname=None):
     """
 
     :param hdf5:
@@ -1774,6 +1777,7 @@ def build_neighborhood_map(hdf5=None,detectid=None,ra=None, dec=None, distance=N
     error = distance/3600.0
     if hdf5 is None:
         hdf5 = G.HDF5_DETECT_FN
+        cont_hdf5 = G.HDF5_CONTINUUM_FN
 
     if (detectid is not None) and (ra is None):
         try:
@@ -1795,13 +1799,17 @@ def build_neighborhood_map(hdf5=None,detectid=None,ra=None, dec=None, distance=N
 
 
     detectids, ras, decs, dists = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=error, sort=True)
+    cont_detectids = []
 
-    if len(detectids) == 0:
+    if cont_hdf5 is not None:
+        cont_detectids, cont_ras, cont_decs, cont_dists = get_hdf5_detectids_by_coord(cont_hdf5, ra=ra, dec=dec, error=error, sort=True)
+
+    if (len(detectids) == 0) and (len(cont_detectids)== 0):
         #nothing to do
         log.info("No HETDEX detections found: (%f,%f) +/- %d\"" %(ra,dec,distance))
         return None
     elif len(detectids) > G.MAX_NEIGHBORS_IN_MAP:
-        msg = "Maximum number of reportable neighbors exceeded (%d). Will truncate to nearest %d." % (len(detectids),
+        msg = "Maximum number of reportable (emission line) neighbors exceeded (%d). Will truncate to nearest %d." % (len(detectids),
                                                                                             G.MAX_NEIGHBORS_IN_MAP)
         log.info(msg)
         print(msg)
@@ -1891,7 +1899,29 @@ def build_neighborhood_map(hdf5=None,detectid=None,ra=None, dec=None, distance=N
                 wave.append(G.CALFIB_WAVEGRID)
 
 
-    num_rows = len(detectids)
+    #now add the continuum sources if any
+    if len(cont_detectids) > 0:
+        with tables.open_file(cont_hdf5, mode="r") as h5_detect:
+            stb = h5_detect.root.Spectra
+            for d in cont_detectids:
+                rows = stb.read_where("detectid==d")
+                if rows.size == 1:
+                    spec.append(rows['spec1d'][0])
+                    wave.append(rows['wave1d'][0])
+                else:
+                    #there's a problem
+                    spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
+                    wave.append(G.CALFIB_WAVEGRID)
+
+
+    num_rows = len(detectids) + len(cont_detectids)
+    #need to join continuum rows to emission line detectrows now
+    detectids += cont_detectids
+    ras += cont_ras
+    decs += cont_decs
+    dists += cont_dists
+
+
     row_step = 10 #allow space in between
     fig = plt.figure(figsize=(G.FIGURE_SZ_X, G.GRID_SZ_Y * num_rows))
     plt.subplots_adjust(left=0.00, right=0.95, top=0.95, bottom=0.0)
@@ -2464,7 +2494,8 @@ def main():
                     ra = e.ra
                     dec = e.dec
 
-                build_neighborhood_map(args.hdf5,detectid=None,ra=ra,dec=dec,distance=args.neighborhood,cwave=e.w,
+                build_neighborhood_map(hdf5=args.hdf5,cont_hdf5=G.HDF5_CONTINUUM_FN,
+                                       detectid=None,ra=ra,dec=dec,distance=args.neighborhood,cwave=e.w,
                                        fname=os.path.join(pdf.basename,str(e.entry_id)+"nei.png"))
 
 
