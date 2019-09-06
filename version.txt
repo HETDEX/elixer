@@ -4,6 +4,7 @@ changes to elixer by version
 * Add absolute (001-448) fiber number to left side of fiber 2d cutouts (to make it easier to note common fibers in
   detection)
 * Added check of continuum sources (in addition to emissionline source) for neighborhood if hdf5 file not specified
+* Added visual warning text to top center ("summed pixel flat cell") if duplicated fibers were found
 
 1.7.2a6 [2019-08-22]
 * Add low alpha (0.2) gold disc to pixel flat 2D cutouts to highlight the emission line region (to check for defects)

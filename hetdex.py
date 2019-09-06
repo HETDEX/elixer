@@ -547,6 +547,8 @@ class DetObj:
         self.using_sdss_gmag_ew = False
         self.sdss_gmag_p_lae_oii_ratio = None
 
+        self.duplicate_fibers_removed = 0 # -1 is detected, but not removed, 0 = none found, 1 = detected and removed
+
         if emission:
             self.type = 'emis'
             # actual line number from the input file
@@ -2018,6 +2020,7 @@ class DetObj:
         if duplicate_count != 0:
             print("Warning! Duplicate Fibers found %d / %d" %(duplicate_count, count))
             log.warning("Warning! Duplicate Fibers found %d / %d" %(duplicate_count, count))
+            self.duplicate_fibers_removed = 1
 
         #todo: more to do here ... get the weights, etc (see load_flux_calibrated spectra)
 
@@ -4932,6 +4935,8 @@ class HETDEX:
         frac_y_separator = 0.2 #add a separator between the colored fibers and the black (summed) fiber at this
                                #fraction of the cell height
 
+        detobj = datakeep['detobj']
+
         cmap = plt.get_cmap('gray_r')
 
         colors = self.make_fiber_colors(min(4,len(datakeep['ra'])),len(datakeep['ra']))# + 2 ) #the +2 is a pad in the call
@@ -5198,6 +5203,18 @@ class HETDEX:
                     pixplot.text(0.5, 1.3, 'Pixel Flat',
                                  transform=pixplot.transAxes, fontsize=8, color='k',
                                  verticalalignment='top', horizontalalignment='center')
+
+
+                    if (detobj is not None) and (detobj.duplicate_fibers_removed != 0):
+                        if detobj.duplicate_fibers_removed == -1:
+                            warnmsg = "!!!Duplicate fibers\nNOT removed!!!"
+                        elif detobj.duplicate_fibers_removed == 1:
+                            warnmsg = "Duplicate fibers\nremoved"
+
+                        pixplot.text(0.5, 0.75, warnmsg,
+                                     transform=pixplot.transAxes, fontsize=8, color='k',
+                                     verticalalignment='top', horizontalalignment='center')
+
                     imgplot.text(0.5, 1.3, '2D Spec',
                                  transform=imgplot.transAxes, fontsize=8, color='k',
                                  verticalalignment='top', horizontalalignment='center')
