@@ -19,8 +19,12 @@ __version__ = '1.7.2a7'
 import sys
 PYTHON_MAJOR_VERSION = sys.version_info[0]
 PYTHON_VERSION = sys.version_info
+if sys.byteorder == 'big':
+    BIG_ENDIAN = True
+else:
+    BIG_ENDIAN = False
 
-HDR1 = False #set to TRUE for HDR1 release
+HDR1 = True #set to TRUE for HDR1 release
 LAUNCH_PDF_VIEWER = None
 
 
@@ -69,7 +73,7 @@ if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
 else:
     if socket.gethostname() == 'z50':
         LAUNCH_PDF_VIEWER = 'qpdfview'
-    #if False:
+    if False:
         HDF5_DETECT_FN = "/work/03946/hetdex/hdr1/detect/detect_hdr1.h5"
         HDF5_CONTINUUM_FN = "/work/03946/hetdex/hdr1/detect/continuum_sources.h5"
 
@@ -327,7 +331,7 @@ FIGURE_SZ_X = 18 #18
 GRID_SZ_X = 3 # equivalent figure_sz_x for a grid width (e.g. one column)
 GRID_SZ_Y = 3 # equivalent figure_sz_y for a grid height (e.g. one row)
 
-LyC = True #switch for Lyman Continuum specialized code
+LyC = False #switch for Lyman Continuum specialized code
 PLOT_FULLWIDTH_2D_SPEC = False #if true, show the combined full-width 2D spectra just under the 1D plot
 
 FIT_FULL_SPEC_IN_WINDOW = False #if true, allow y-axis range to fit entire spectrum, not just the emission line
@@ -415,7 +419,7 @@ SHADE_1D_SPEC_PEAKS = False #if true, shade in red the 1D spec peaks above the N
 
 
 DYNAMIC_MAG_APERTURE = True  #allow aperture size to change to fit maximum magnitude
-MIN_DYNAMIC_MAG_RADIUS = 0.5 #in arcsec
+MIN_DYNAMIC_MAG_RADIUS = 1.0 #in arcsec
 FIXED_MAG_APERTURE = 1.5 #radius in arcsec
 MAX_DYNAMIC_MAG_APERTURE = 1.5 #maximum growth in dynamic mag
 NUDGE_MAG_APERTURE_CENTER = 1.0  #allow the center of the mag aperture to drift to the 2D Gaussian centroid

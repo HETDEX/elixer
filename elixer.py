@@ -1826,10 +1826,15 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     ext = distance * 1.5  # extent is from the 0,0 position AND we want to grab a bit more than the radius (so can see around it)
     cutouts = cat_library.get_cutouts(position=SkyCoord(ra, dec, unit='deg'), radius=ext)
 
+    if cutouts is not None:
+        log.debug("Neighborhood cutouts = %d" %(len(cutouts)))
+    else:
+        log.info("No neighborhood cutouts returned.")
+
     #find the best cutout (most pixels)
-    def sqpix(cutout):
+    def sqpix(_cutout):
         try:
-            sq = cutout.wcs.pixel_shape[0]*cutout.wcs.pixel_shape[1]
+            sq = _cutout.wcs.pixel_shape[0]*_cutout.wcs.pixel_shape[1]
         except:
             sq = -1
         return sq
@@ -1839,8 +1844,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
     def make_master(_cutouts):
         mc = None
-        if len(_cutouts) > 0:
-            try:
+        try:
+            if len(_cutouts) > 0:
                 pix2 = np.array([sqpix(c['cutout']) for c in _cutouts])
                 best = np.argmax(pix2)
                 mc = copy.copy(_cutouts[best]['cutout'])
@@ -1868,10 +1873,10 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                         #time is not the best metric, but not too bad ... assumes all filters have roughly equivalent
                         #throughputs ... should not use for any measurements, but just for making a picture it is okay
 
-            except:
-                log.debug("Exception in build_neighborhood_map:",exc_info=True)
+        except:
+            log.debug("Exception in build_neighborhood_map:",exc_info=True)
 
-            return mc
+        return mc
 
     master_cutout = make_master(cutouts)
 
@@ -1986,8 +1991,11 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         plt.xlim((G.CALFIB_WAVEGRID[0],G.CALFIB_WAVEGRID[-1]))
 
     if fname is not None:
-        plt.savefig(fname,format='png', dpi=150)
-        print("File written: %s" %(fname))
+        try:
+            plt.savefig(fname,format='png', dpi=150)
+            log.debug("File written: %s" %(fname))
+        except:
+            log.info("Exception attempting to save neighborhood map png.",exec_info=True)
 
     buf = io.BytesIO()
     plt.savefig(buf, format='png', dpi=150)
