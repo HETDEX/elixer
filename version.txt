@@ -1,6 +1,8 @@
 changes to elixer by version
 
-1.7.2 [2019-09-xx]
+1.7.2a8 [2019-09-10]
+
+1.7.2a7 [2019-09-09]
 * Add absolute (001-448) fiber number to left side of fiber 2d cutouts (to make it easier to note common fibers in
   detection)
 * Added check of continuum sources (in addition to emissionline source) for neighborhood if hdf5 file not specified
