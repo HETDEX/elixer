@@ -2469,6 +2469,24 @@ def main():
                 except:
                     log.error("Error (3) converting pdf to image type: " + f.filename, exc_info=True)
 
+        if (args.neighborhood is not None) and (args.neighborhood > 0.0):
+            msg = "Building neighborhood at (%g\") for all detections ...." % (args.neighborhood)
+            log.info(msg)
+            print(msg)
+            for h in hd_list:  # iterate over all hetdex detections
+                for e in h.emis_list:
+                    if e.wra is not None:
+                        ra = e.wra
+                        dec = e.wdec
+                    else:
+                        ra = e.ra
+                        dec = e.dec
+
+                    build_neighborhood_map(hdf5=args.hdf5, cont_hdf5=G.HDF5_CONTINUUM_FN,
+                                           detectid=None, ra=ra, dec=dec, distance=args.neighborhood, cwave=e.w,
+                                           fname=os.path.join(pdf.basename, str(e.entry_id) + "nei.png"))
+    #end for master_loop_idx in range(master_loop_length):
+
 
 
     if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer and (len(viewer_file_list) > 0):
@@ -2489,23 +2507,23 @@ def main():
 
 
 
-    if (args.neighborhood is not None) and (args.neighborhood > 0.0):
-        msg = "Building neighborhood at (%g\") for all detections ...." %(args.neighborhood)
-        log.info(msg)
-        print(msg)
-        for h in hd_list:  # iterate over all hetdex detections
-            for e in h.emis_list:
-                if e.wra is not None:
-                    ra = e.wra
-                    dec = e.wdec
-                else:
-                    ra = e.ra
-                    dec = e.dec
-
-                build_neighborhood_map(hdf5=args.hdf5,cont_hdf5=G.HDF5_CONTINUUM_FN,
-                                       detectid=None,ra=ra,dec=dec,distance=args.neighborhood,cwave=e.w,
-                                       fname=os.path.join(pdf.basename,str(e.entry_id)+"nei.png"))
-
+    # if (args.neighborhood is not None) and (args.neighborhood > 0.0):
+    #     msg = "Building neighborhood at (%g\") for all detections ...." %(args.neighborhood)
+    #     log.info(msg)
+    #     print(msg)
+    #     for h in hd_list:  # iterate over all hetdex detections
+    #         for e in h.emis_list:
+    #             if e.wra is not None:
+    #                 ra = e.wra
+    #                 dec = e.wdec
+    #             else:
+    #                 ra = e.ra
+    #                 dec = e.dec
+    #
+    #             build_neighborhood_map(hdf5=args.hdf5,cont_hdf5=G.HDF5_CONTINUUM_FN,
+    #                                    detectid=None,ra=ra,dec=dec,distance=args.neighborhood,cwave=e.w,
+    #                                    fname=os.path.join(pdf.basename,str(e.entry_id)+"nei.png"))
+    #
 
 
     log.critical("Main complete.")

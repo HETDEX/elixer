@@ -73,7 +73,7 @@ if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
 else:
     if socket.gethostname() == 'z50':
         LAUNCH_PDF_VIEWER = 'qpdfview'
-    if False:
+    if True:
         HDF5_DETECT_FN = "/work/03946/hetdex/hdr1/detect/detect_hdr1.h5"
         HDF5_CONTINUUM_FN = "/work/03946/hetdex/hdr1/detect/continuum_sources.h5"
 
