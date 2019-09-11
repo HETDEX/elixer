@@ -1801,8 +1801,16 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     detectids, ras, decs, dists = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=error, sort=True)
     cont_detectids = []
 
+    all_ras = ras[:]
+    all_decs = decs[:]
+
     if cont_hdf5 is not None:
         cont_detectids, cont_ras, cont_decs, cont_dists = get_hdf5_detectids_by_coord(cont_hdf5, ra=ra, dec=dec, error=error, sort=True)
+
+        if (cont_ras is not None) and (cont_decs is not None):
+            all_ras += cont_ras[:]
+            all_decs += cont_decs[:]
+
 
     if (len(detectids) == 0) and (len(cont_detectids)== 0):
         #nothing to do
@@ -1957,11 +1965,41 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
             plt.plot(0, 0, "r+")
 
-            # add neighbor box
+
+            # add all locations
+            for _ra, _dec in zip(all_ras,all_decs):
+                fx, fy = sci.get_position(_ra, _dec, master_cutout)
+                plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
+                                                  width=target_box_side, height=target_box_side,
+                                                  angle=0.0, color='white', alpha=0.75,fill=False, linewidth=1.0, zorder=2))
+
+            # add THE neighbor box for this row on top
             fx, fy = sci.get_position(ras[i], decs[i], master_cutout)
             plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
                                               width=target_box_side, height=target_box_side,
                                               angle=0.0, color='b', fill=False, linewidth=1.0, zorder=2))
+
+
+
+            # karl_coords = [(228.785690,51.266525), (228.784790,51.266094),
+            #                (228.787079,51.266685), (228.783798,51.267006),
+            #                (228.787872,51.266041), (228.784744, 51.267876),
+            #                (228.787430,51.268143), (228.787140,51.269211)]
+            # for kc in karl_coords:
+            #     karl_x, karl_y = sci.get_position(kc[0],kc[1],master_cutout)
+            #     plt.gca().add_patch(plt.Rectangle(((karl_x - x) - target_box_side / 2.0, (karl_y - y) - target_box_side / 2.0),
+            #                                       width=target_box_side, height=target_box_side,
+            #                                       angle=0.0, color='r', fill=False, linewidth=1.0, zorder=2))
+            #
+            #
+            # # add neighbor box
+            # fx, fy = sci.get_position(ras[i], decs[i], master_cutout)
+            # plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
+            #                                   width=target_box_side, height=target_box_side,
+            #                                   angle=0.0, color='b', fill=False, linewidth=1.0, zorder=2))
+            #
+
+
         else:
 
             fx = (ra - ras[i]) * np.cos(np.deg2rad(dec)) * 3600. #need to flip since negative RA is to the right
@@ -1994,6 +2032,17 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         try:
             plt.savefig(fname,format='png', dpi=150)
             log.debug("File written: %s" %(fname))
+
+
+            if True:
+                import astropy.io.fits as fits
+
+                for i in range(len(cutouts)):
+                    co = cutouts[i]['cutout']
+                    hdu = fits.PrimaryHDU(co.data)  # essentially empty header
+                    hdu.header.update(co.wcs.to_header())  # insert the cutout's WCS
+                    hdu.writeto('/home/dustin/code/python/elixer/cutouts/test_cutout_%d.fits' % i, overwrite=True)
+
         except:
             log.info("Exception attempting to save neighborhood map png.",exec_info=True)
 
