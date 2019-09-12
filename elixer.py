@@ -2008,6 +2008,15 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             plt.imshow(np.zeros((int(ext),int(ext))), interpolation='none', cmap=plt.get_cmap('gray_r'),
                        vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
 
+
+            # add all locations
+            for _ra, _dec in zip(all_ras,all_decs):
+                fx, fy = sci.get_position(_ra, _dec, master_cutout)
+                plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
+                                                  width=target_box_side, height=target_box_side,
+                                                  angle=0.0, color='white', alpha=0.75,fill=False, linewidth=1.0, zorder=2))
+
+            #add (overwrite) the highlighted location
             plt.gca().add_patch(plt.Rectangle((fx - target_box_side / 2.0, fy - target_box_side / 2.0),
                                               width=target_box_side, height=target_box_side,
                                               angle=0.0, color='b', fill=False, linewidth=1.0, zorder=2))
@@ -2034,7 +2043,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             log.debug("File written: %s" %(fname))
 
 
-            if True:
+            if False:
                 import astropy.io.fits as fits
 
                 for i in range(len(cutouts)):
@@ -2044,7 +2053,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                     hdu.writeto('/home/dustin/code/python/elixer/cutouts/test_cutout_%d.fits' % i, overwrite=True)
 
         except:
-            log.info("Exception attempting to save neighborhood map png.",exec_info=True)
+            log.info("Exception attempting to save neighborhood map png.",exc_info=True)
 
     buf = io.BytesIO()
     plt.savefig(buf, format='png', dpi=150)
