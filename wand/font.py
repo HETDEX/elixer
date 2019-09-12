@@ -5,7 +5,7 @@
 
 :class:`Font` is an object which takes the :attr:`~Font.path` of font file,
 :attr:`~Font.size`, :attr:`~Font.color`, and whether to use
-:attr:`~Font.antialias`\ ing.  If you want to use font by its name rather
+:attr:`~Font.antialias`\\ ing.  If you want to use font by its name rather
 than the file path, use TTFQuery_ package.  The font path resolution by its
 name is a very complicated problem to achieve.
 
@@ -34,12 +34,11 @@ name is a very complicated problem to achieve.
 .. _FontTools-TTX: http://sourceforge.net/projects/fonttools/
 
 """
-import numbers
-
+from . import assertions
 from .color import Color
 from .compat import string_type, text
 
-__all__ = 'Font',
+__all__ = ('Font',)
 
 
 class Font(tuple):
@@ -53,25 +52,37 @@ class Font(tuple):
     :type color: :class:`~wand.color.Color`
     :param antialias: whether to use antialiasing.  :const:`True` by default
     :type antialias: :class:`bool`
+    :param stroke_color: optional color to outline typeface.
+    :type stroke_color: :class:`~wand.color.Color`
+    :param stroke_width: optional thickness of typeface outline.
+    :type stroke_width: :class:`numbers.Real`
 
     .. versionchanged:: 0.3.9
        The ``size`` parameter becomes optional.  Its default value is
        0, which means *autosized*.
 
+    .. versionchanged:: 0.5.0
+       Added ``stroke_color`` & ``stoke_width`` paramaters.
     """
 
-    def __new__(cls, path, size=0, color=None, antialias=True):
-        if not isinstance(path, string_type):
-            raise TypeError('path must be a string, not ' + repr(path))
-        if not isinstance(size, numbers.Real):
-            raise TypeError('size must be a real number, not ' + repr(size))
+    def __new__(cls, path, size=0, color=None, antialias=True,
+                stroke_color=None, stroke_width=None):
+        assertions.assert_string(path=path)
+        assertions.assert_real(size=size)
         if color is None:
             color = Color('black')
-        elif not isinstance(color, Color):
-            raise TypeError('color must be an instance of wand.color.Color, '
-                            'not ' + repr(color))
+        elif isinstance(color, string_type):
+            color = Color(color)
+        assertions.assert_color(color=color)
+        if stroke_color:
+            if isinstance(stroke_color, string_type):
+                stroke_color = Color(stroke_color)
+            assertions.assert_color(stroke_color=stroke_color)
+        if stroke_width is not None:
+            assertions.assert_real(stroke_width=stroke_width)
         path = text(path)
-        return tuple.__new__(cls, (path, size, color, bool(antialias)))
+        return tuple.__new__(cls, (path, size, color, bool(antialias),
+                                   stroke_color, stroke_width))
 
     @property
     def path(self):
@@ -95,6 +106,16 @@ class Font(tuple):
 
         """
         return self[3]
+
+    @property
+    def stroke_color(self):
+        """(:class:`wand.color.Color`) The stroke color."""
+        return self[4]
+
+    @property
+    def stroke_width(self):
+        """(:class:`numbers.Real`) The width of the stroke line."""
+        return self[5]
 
     def __repr__(self):
         return '{0.__module__}.{0.__name__}({1})'.format(

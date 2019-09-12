@@ -4,23 +4,22 @@
 .. versionadded:: 0.3.0
 
 """
-import collections
 import contextlib
 import ctypes
 import numbers
 
 from .api import libmagick, library
-from .compat import binary, xrange
+from .compat import abc, binary, xrange
 from .image import BaseImage, ImageProperty
 from .version import MAGICK_VERSION_INFO
 
 __all__ = 'Sequence', 'SingleImage'
 
 
-class Sequence(ImageProperty, collections.MutableSequence):
+class Sequence(ImageProperty, abc.MutableSequence):
     """The list-like object that contains every :class:`SingleImage`
     in the :class:`~wand.image.Image` container.  It implements
-    :class:`collections.Sequence` prototocol.
+    :class:`collections.abc.Sequence` protocol.
 
     .. versionadded:: 0.3.0
 
@@ -181,7 +180,7 @@ class Sequence(ImageProperty, collections.MutableSequence):
                 if MAGICK_VERSION_INFO >= (6, 7, 6, 0):
                     library.MagickSetFirstIterator(self_wand)
                     library.MagickAddImage(self_wand, wand)
-                else:
+                else:  # pragma: no cover
                     self.current_index = 0
                     library.MagickAddImage(self_wand,
                                            self.image.sequence[0].wand)
@@ -249,7 +248,7 @@ class Sequence(ImageProperty, collections.MutableSequence):
         else:
             self.instances[offset:offset] = null_list
 
-    def _repr_png_(self):
+    def _repr_png_(self):  # pragma: no cover
         library.MagickResetIterator(self.image.wand)
         repr_wand = library.MagickAppendImages(self.image.wand, 1)
         length = ctypes.c_size_t()
@@ -268,11 +267,17 @@ class SingleImage(BaseImage):
     For example, it can be a frame of GIF animation.
 
     Note that all changes on single images are invisible to their
-    containers until they are :meth:`~wand.image.BaseImage.close`\ d
-    (:meth:`~wand.resource.Resource.destroy`\ ed).
+    containers unless they are altered a ``with ...`` context manager.
+
+        with Image(filename='animation.gif') as container:
+            with container.sequence[0] as frame:
+                frame.negate()
 
     .. versionadded:: 0.3.0
 
+    .. versionchanged:: 0.5.1
+       Only sync changes of a :class:`SingleImage` when exiting a ``with ...``
+       context. Not when parent :class:`~wand.image.Image` closes.
     """
 
     #: (:class:`wand.image.Image`) The container image.
@@ -324,16 +329,25 @@ class SingleImage(BaseImage):
             raise TypeError('delay must be an integer, not ' + repr(delay))
         elif delay < 0:
             raise ValueError('delay cannot be less than zero')
+        container = self.container
+        with container.sequence.index_context(self.index):
+            library.MagickSetImageDelay(container.wand, delay)
         self._delay = delay
 
-    def destroy(self):
+    def _sync_container_sequence(self):
+        """If instances was flagged as :attr:`dirty` by any manipulation
+        methods, then this instance will overwrite :attr:`container` internal
+        version at :attr:`index`.
+
+        .. versionadded:: 0.5.1
+        """
         if self.dirty:
             self.container.sequence[self.index] = self
-        if self._delay is not None:
-            container = self.container
-            with container.sequence.index_context(self.index):
-                library.MagickSetImageDelay(container.wand, self._delay)
-        super(SingleImage, self).destroy()
+            self.dirty = False  # Reset dirty flag
+
+    def __exit__(self, type_, value, traceback):
+        self._sync_container_sequence()
+        super(SingleImage, self).__exit__(type_, value, traceback)
 
     def __repr__(self):
         cls = type(self)

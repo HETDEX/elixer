@@ -2,21 +2,31 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This module provides several subtle things to support
-multiple Python versions (2.6, 2.7, 3.2--3.5) and VM implementations
+multiple Python versions (2.6, 2.7, 3.3+) and VM implementations
 (CPython, PyPy).
 
 """
+import collections
+try:
+    import collections.abc
+except ImportError:
+    pass
 import contextlib
 import io
 import sys
 import types
 
-__all__ = ('PY3', 'binary', 'binary_type', 'encode_filename', 'file_types',
-           'nested', 'string_type', 'text', 'text_type', 'xrange')
+__all__ = ('PY3', 'abc', 'binary', 'binary_type', 'encode_filename',
+           'file_types', 'nested', 'string_type', 'text', 'text_type',
+           'xrange')
 
 
 #: (:class:`bool`) Whether it is Python 3.x or not.
 PY3 = sys.version_info >= (3,)
+
+#: (:class:`module`) Module containing abstract base classes.
+#: :mod:`collections` in Python 2 and :mod:`collections.abc` in Python 3.
+abc = collections.abc if PY3 else collections
 
 #: (:class:`type`) Type for representing binary data.  :class:`str` in Python 2
 #: and :class:`bytes` in Python 3.
@@ -80,7 +90,11 @@ def encode_filename(filename):
     """If ``filename`` is a :data:`text_type`, encode it to
     :data:`binary_type` according to filesystem's default encoding.
 
+    .. versionchanged:: 0.5.3
+       Added support for PEP-519 https://github.com/emcconville/wand/pull/339
     """
+    if hasattr(filename, "__fspath__"):  # PEP 519
+        filename = filename.__fspath__()
     if isinstance(filename, text_type):
         return filename.encode(sys.getfilesystemencoding())
     return filename
@@ -102,7 +116,7 @@ except AttributeError:
                 vars.append(enter())
                 exits.append(exit)
             yield vars
-        except:
+        except:  # noqa: E722
             exc = sys.exc_info()
         finally:
             while exits:
@@ -110,7 +124,7 @@ except AttributeError:
                 try:
                     if exit(*exc):
                         exc = (None, None, None)
-                except:
+                except:  # noqa: E722
                     exc = sys.exc_info()
             if exc != (None, None, None):
                 # PEP 3109

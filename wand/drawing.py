@@ -10,12 +10,14 @@ import collections
 import ctypes
 import numbers
 
-from .api import library, MagickPixelPacket, PointInfo, AffineMatrix
+from . import assertions
+from .api import AffineMatrix, PointInfo, library
 from .color import Color
-from .compat import binary, string_type, text, text_type, xrange
-from .image import Image, COMPOSITE_OPERATORS
-from .resource import Resource
+from .compat import abc, binary, string_type, text, text_type, xrange
 from .exceptions import WandLibraryVersionError
+from .image import BaseImage, COMPOSITE_OPERATORS
+from .sequence import SingleImage
+from .resource import Resource
 
 __all__ = ('CLIP_PATH_UNITS', 'FILL_RULE_TYPES', 'FONT_METRICS_ATTRIBUTES',
            'GRAVITY_TYPES', 'LINE_CAP_TYPES', 'LINE_JOIN_TYPES',
@@ -24,7 +26,7 @@ __all__ = ('CLIP_PATH_UNITS', 'FILL_RULE_TYPES', 'FONT_METRICS_ATTRIBUTES',
            'TEXT_DIRECTION_TYPES', 'Drawing', 'FontMetrics')
 
 
-#: (:class:`collections.Sequence`) The list of clip path units
+#: (:class:`collections.abc.Sequence`) The list of clip path units
 #:
 #: - ``'undefined_path_units'``
 #: - ``'user_space'``
@@ -33,7 +35,7 @@ __all__ = ('CLIP_PATH_UNITS', 'FILL_RULE_TYPES', 'FONT_METRICS_ATTRIBUTES',
 CLIP_PATH_UNITS = ('undefined_path_units', 'user_space', 'user_space_on_use',
                    'object_bounding_box')
 
-#: (:class:`collections.Sequence`) The list of text align types.
+#: (:class:`collections.abc.Sequence`) The list of text align types.
 #:
 #: - ``'undefined'``
 #: - ``'left'``
@@ -41,7 +43,7 @@ CLIP_PATH_UNITS = ('undefined_path_units', 'user_space', 'user_space_on_use',
 #: - ``'right'``
 TEXT_ALIGN_TYPES = 'undefined', 'left', 'center', 'right'
 
-#: (:class:`collections.Sequence`) The list of text decoration types.
+#: (:class:`collections.abc.Sequence`) The list of text decoration types.
 #:
 #: - ``'undefined'``
 #: - ``'no'``
@@ -51,14 +53,14 @@ TEXT_ALIGN_TYPES = 'undefined', 'left', 'center', 'right'
 TEXT_DECORATION_TYPES = ('undefined', 'no', 'underline', 'overline',
                          'line_through')
 
-#: (:class:`collections.Sequence`) The list of text direction types.
+#: (:class:`collections.abc.Sequence`) The list of text direction types.
 #:
 #: - ``'undefined'``
 #: - ``'right_to_left'``
 #: - ``'left_to_right'``
 TEXT_DIRECTION_TYPES = ('undefined', 'right_to_left', 'left_to_right')
 
-#: (:class:`collections.Sequence`) The list of text gravity types.
+#: (:class:`collections.abc.Sequence`) The list of text gravity types.
 #:
 #: - ``'forget'``
 #: - ``'north_west'``
@@ -75,14 +77,14 @@ GRAVITY_TYPES = ('forget', 'north_west', 'north', 'north_east', 'west',
                  'center', 'east', 'south_west', 'south', 'south_east',
                  'static')
 
-#: (:class:`collections.Sequence`) The list of fill-rule types.
+#: (:class:`collections.abc.Sequence`) The list of fill-rule types.
 #:
 #: - ``'undefined'``
 #: - ``'evenodd'``
 #: - ``'nonzero'``
 FILL_RULE_TYPES = ('undefined', 'evenodd', 'nonzero')
 
-#: (:class:`collections.Sequence`) The attribute names of font metrics.
+#: (:class:`collections.abc.Sequence`) The attribute names of font metrics.
 FONT_METRICS_ATTRIBUTES = ('character_width', 'character_height', 'ascender',
                            'descender', 'text_width', 'text_height',
                            'maximum_horizontal_advance', 'x1', 'y1', 'x2',
@@ -91,7 +93,7 @@ FONT_METRICS_ATTRIBUTES = ('character_width', 'character_height', 'ascender',
 #: The tuple subtype which consists of font metrics data.
 FontMetrics = collections.namedtuple('FontMetrics', FONT_METRICS_ATTRIBUTES)
 
-#: (:class:`collections.Sequence`) The list of stretch types for fonts
+#: (:class:`collections.abc.Sequence`) The list of stretch types for fonts
 #:
 #: - ``'undefined;``
 #: - ``'normal'``
@@ -108,7 +110,7 @@ STRETCH_TYPES = ('undefined', 'normal', 'ultra_condensed', 'extra_condensed',
                  'condensed', 'semi_condensed', 'semi_expanded', 'expanded',
                  'extra_expanded', 'ultra_expanded', 'any')
 
-#: (:class:`collections.Sequence`) The list of style types for fonts
+#: (:class:`collections.abc.Sequence`) The list of style types for fonts
 #:
 #: - ``'undefined;``
 #: - ``'normal'``
@@ -117,7 +119,7 @@ STRETCH_TYPES = ('undefined', 'normal', 'ultra_condensed', 'extra_condensed',
 #: - ``'any'``
 STYLE_TYPES = ('undefined', 'normal', 'italic', 'oblique', 'any')
 
-#: (:class:`collections.Sequence`) The list of LineCap types
+#: (:class:`collections.abc.Sequence`) The list of LineCap types
 #:
 #: - ``'undefined;``
 #: - ``'butt'``
@@ -125,7 +127,7 @@ STYLE_TYPES = ('undefined', 'normal', 'italic', 'oblique', 'any')
 #: - ``'square'``
 LINE_CAP_TYPES = ('undefined', 'butt', 'round', 'square')
 
-#: (:class:`collections.Sequence`) The list of LineJoin types
+#: (:class:`collections.abc.Sequence`) The list of LineJoin types
 #:
 #: - ``'undefined'``
 #: - ``'miter'``
@@ -134,7 +136,7 @@ LINE_CAP_TYPES = ('undefined', 'butt', 'round', 'square')
 LINE_JOIN_TYPES = ('undefined', 'miter', 'round', 'bevel')
 
 
-#: (:class:`collections.Sequence`) The list of paint method types.
+#: (:class:`collections.abc.Sequence`) The list of paint method types.
 #:
 #: - ``'undefined'``
 #: - ``'point'``
@@ -181,15 +183,6 @@ class Drawing(Resource):
                 wand = library.CloneDrawingWand(drawing.resource)
             self.resource = wand
 
-    def clone(self):
-        """Copies a drawing object.
-
-        :returns: a duplication
-        :rtype: :class:`Drawing`
-
-        """
-        return type(self)(drawing=self)
-
     @property
     def border_color(self):
         """(:class:`~wand.color.Color`) the current border color. It also can
@@ -201,18 +194,17 @@ class Drawing(Resource):
         """
         pixelwand = library.NewPixelWand()
         library.DrawGetBorderColor(self.resource, pixelwand)
-        size = ctypes.sizeof(MagickPixelPacket)
-        buffer = ctypes.create_string_buffer(size)
-        library.PixelGetMagickColor(pixelwand, buffer)
-        return Color(raw=buffer)
+        color = Color.from_pixelwand(pixelwand)
+        pixelwand = library.DestroyPixelWand(pixelwand)
+        return color
 
     @border_color.setter
-    def border_color(self, border_color):
-        if not isinstance(border_color, Color):
-            raise ValueError('expected wand.color.Color, not ' +
-                             repr(border_color))
-        with border_color:
-            library.DrawSetBorderColor(self.resource, border_color.resource)
+    def border_color(self, color):
+        if isinstance(color, string_type):
+            color = Color(color)
+        assertions.assert_color(border_color=color)
+        with color:
+            library.DrawSetBorderColor(self.resource, color.resource)
 
     @property
     def clip_path(self):
@@ -230,11 +222,8 @@ class Drawing(Resource):
 
     @clip_path.setter
     def clip_path(self, path):
-        if not isinstance(path, string_type):
-            raise TypeError('expected a string, not ' + repr(path))
-        okay = library.DrawSetClipPath(self.resource, binary(path))
-        if okay == 0:
-            raise ValueError('Clip path not understood')
+        assertions.assert_string(clip_path=path)
+        library.DrawSetClipPath(self.resource, binary(path))
 
     @property
     def clip_rule(self):
@@ -248,11 +237,9 @@ class Drawing(Resource):
 
     @clip_rule.setter
     def clip_rule(self, clip_rule):
-        if not isinstance(clip_rule, string_type):
-            raise TypeError('expected a string, not ' + repr(clip_rule))
-        elif clip_rule not in FILL_RULE_TYPES:
-            raise ValueError('expected a string from FILE_RULE_TYPES, not' +
-                             repr(clip_rule))
+        assertions.string_in_list(FILL_RULE_TYPES,
+                                  'wand.drawing.FILL_RULE_TYPES',
+                                  clip_rule=clip_rule)
         library.DrawSetClipRule(self.resource,
                                 FILL_RULE_TYPES.index(clip_rule))
 
@@ -268,13 +255,65 @@ class Drawing(Resource):
 
     @clip_units.setter
     def clip_units(self, clip_unit):
-        if not isinstance(clip_unit, string_type):
-            raise TypeError('expected a string, not ' + repr(clip_unit))
-        elif clip_unit not in CLIP_PATH_UNITS:
-            raise ValueError('expected a string from CLIP_PATH_UNITS, not' +
-                             repr(clip_unit))
+        assertions.string_in_list(CLIP_PATH_UNITS,
+                                  'wand.drawing.CLIP_PATH_UNITS',
+                                  clip_unit=clip_unit)
         library.DrawSetClipUnits(self.resource,
                                  CLIP_PATH_UNITS.index(clip_unit))
+
+    @property
+    def fill_color(self):
+        """(:class:`~wand.color.Color`) The current color to fill.
+        It also can be set.
+
+        """
+        pixel = library.NewPixelWand()
+        library.DrawGetFillColor(self.resource, pixel)
+        color = Color.from_pixelwand(pixel)
+        pixel = library.DestroyPixelWand(pixel)
+        return color
+
+    @fill_color.setter
+    def fill_color(self, color):
+        if isinstance(color, string_type):
+            color = Color(color)
+        assertions.assert_color(fill_color=color)
+        with color:
+            library.DrawSetFillColor(self.resource, color.resource)
+
+    @property
+    def fill_opacity(self):
+        """(:class:`~numbers.Real`) The current fill opacity.
+        It also can be set.
+
+        .. versionadded:: 0.4.0
+        """
+        return library.DrawGetFillOpacity(self.resource)
+
+    @fill_opacity.setter
+    def fill_opacity(self, opacity):
+        assertions.assert_real(fill_opacity=opacity)
+        library.DrawSetFillOpacity(self.resource, opacity)
+
+    @property
+    def fill_rule(self):
+        """(:class:`basestring`) The current fill rule. It can also be set.
+        It's a string value from :const:`FILL_RULE_TYPES` list.
+
+        .. versionadded:: 0.4.0
+        """
+        fill_rule_index = library.DrawGetFillRule(self.resource)
+        if fill_rule_index not in FILL_RULE_TYPES:
+            self.raise_exception()
+        return text(FILL_RULE_TYPES[fill_rule_index])
+
+    @fill_rule.setter
+    def fill_rule(self, fill_rule):
+        assertions.string_in_list(FILL_RULE_TYPES,
+                                  'wand.drawing.FILL_RULE_TYPES',
+                                  fill_rule=fill_rule)
+        library.DrawSetFillRule(self.resource,
+                                FILL_RULE_TYPES.index(fill_rule))
 
     @property
     def font(self):
@@ -290,8 +329,7 @@ class Drawing(Resource):
 
     @font.setter
     def font(self, font):
-        if not isinstance(font, string_type):
-            raise TypeError('expected a string, not ' + repr(font))
+        assertions.assert_string(font=font)
         library.DrawSetFont(self.resource, binary(font))
 
     @property
@@ -310,13 +348,12 @@ class Drawing(Resource):
 
     @font_family.setter
     def font_family(self, family):
-        if not isinstance(family, string_type):
-            raise TypeError('expected a string, not ' + repr(family))
+        assertions.assert_string(font_family=family)
         library.DrawSetFontFamily(self.resource, binary(family))
 
     @property
     def font_resolution(self):
-        """(:class:`~collections.Sequence`) The current font resolution. It also
+        """(:class:`~collections.abc.Sequence`) The current font resolution. It also
         can be set.
 
         .. versionadded:: 0.4.0
@@ -329,7 +366,7 @@ class Drawing(Resource):
 
     @font_resolution.setter
     def font_resolution(self, resolution):
-        if not isinstance(resolution, collections.Sequence):
+        if not isinstance(resolution, abc.Sequence):
             raise TypeError('expected sequence, not ' + repr(resolution))
         if len(resolution) != 2:
             raise ValueError('expected sequence of 2 floats')
@@ -342,15 +379,16 @@ class Drawing(Resource):
 
     @font_size.setter
     def font_size(self, size):
-        if not isinstance(size, numbers.Real):
-            raise TypeError('expected a numbers.Real, but got ' + repr(size))
-        elif size < 0.0:
+        assertions.assert_real(font_size=size)
+        if size < 0.0:
             raise ValueError('cannot be less then 0.0, but got ' + repr(size))
         library.DrawSetFontSize(self.resource, size)
 
     @property
     def font_stretch(self):
-        """(:class:`basestring`) The current font family. It also can be set.
+        """(:class:`basestring`) The current font stretch variation.
+        It also can be set, but will only apply if the font-family or encoder
+        supports the stretch type.
 
         .. versionadded:: 0.4.0
         """
@@ -359,17 +397,17 @@ class Drawing(Resource):
 
     @font_stretch.setter
     def font_stretch(self, stretch):
-        if not isinstance(stretch, string_type):
-            raise TypeError('expected a string, not ' + repr(stretch))
-        elif stretch not in STRETCH_TYPES:
-            raise ValueError('expected a string from STRETCH_TYPES, not' +
-                             repr(stretch))
+        assertions.string_in_list(STRETCH_TYPES,
+                                  'wand.drawing.STRETCH_TYPES',
+                                  font_stretch=stretch)
         library.DrawSetFontStretch(self.resource,
                                    STRETCH_TYPES.index(stretch))
 
     @property
     def font_style(self):
-        """(:class:`basestring`) The current font style. It also can be set.
+        """(:class:`basestring`) The current font style.
+        It also can be set, but will only apply if the font-family
+        supports the style.
 
         .. versionadded:: 0.4.0
         """
@@ -378,11 +416,9 @@ class Drawing(Resource):
 
     @font_style.setter
     def font_style(self, style):
-        if not isinstance(style, string_type):
-            raise TypeError('expected a string, not ' + repr(style))
-        elif style not in STYLE_TYPES:
-            raise ValueError('expected a string from STYLE_TYPES, not' +
-                             repr(style))
+        assertions.string_in_list(STYLE_TYPES,
+                                  'wand.drawing.STYLE_TYPES',
+                                  font_style=style)
         library.DrawSetFontStyle(self.resource,
                                  STYLE_TYPES.index(style))
 
@@ -397,68 +433,27 @@ class Drawing(Resource):
 
     @font_weight.setter
     def font_weight(self, weight):
-        if not isinstance(weight, numbers.Integral):
-            raise TypeError('expected a integral, not ' + repr(weight))
+        assertions.assert_integer(font_weight=weight)
         library.DrawSetFontWeight(self.resource, weight)
 
     @property
-    def fill_color(self):
-        """(:class:`~wand.color.Color`) The current color to fill.
-        It also can be set.
+    def gravity(self):
+        """(:class:`basestring`) The text placement gravity used when
+        annotating with text.  It's a string from :const:`GRAVITY_TYPES`
+        list.  It also can be set.
 
         """
-        pixel = library.NewPixelWand()
-        library.DrawGetFillColor(self.resource, pixel)
-        size = ctypes.sizeof(MagickPixelPacket)
-        buffer = ctypes.create_string_buffer(size)
-        library.PixelGetMagickColor(pixel, buffer)
-        return Color(raw=buffer)
-
-    @fill_color.setter
-    def fill_color(self, color):
-        if not isinstance(color, Color):
-            raise TypeError('color must be a wand.color.Color object, not ' +
-                            repr(color))
-        with color:
-            library.DrawSetFillColor(self.resource, color.resource)
-
-    @property
-    def fill_opacity(self):
-        """(:class:`~numbers.Real`) The current fill opacity.
-        It also can be set.
-
-        .. versionadded:: 0.4.0
-        """
-        return library.DrawGetFillOpacity(self.resource)
-
-    @fill_opacity.setter
-    def fill_opacity(self, opacity):
-        if not isinstance(opacity, numbers.Real):
-            raise TypeError('opacity must be a double, not ' +
-                            repr(opacity))
-        library.DrawSetFillOpacity(self.resource, opacity)
-
-    @property
-    def fill_rule(self):
-        """(:class:`basestring`) The current fill rule. It can also be set.
-        It's a string value from :const:`FILL_RULE_TYPES` list.
-
-        .. versionadded:: 0.4.0
-        """
-        fill_rule_index = library.DrawGetFillRule(self.resource)
-        if fill_rule_index not in FILL_RULE_TYPES:
+        gravity_index = library.DrawGetGravity(self.resource)
+        if not gravity_index:
             self.raise_exception()
-        return text(FILL_RULE_TYPES[fill_rule_index])
+        return text(GRAVITY_TYPES[gravity_index])
 
-    @fill_rule.setter
-    def fill_rule(self, fill_rule):
-        if not isinstance(fill_rule, string_type):
-            raise TypeError('expected a string, not ' + repr(fill_rule))
-        elif fill_rule not in FILL_RULE_TYPES:
-            raise ValueError('expected a string from FILE_RULE_TYPES, not' +
-                             repr(fill_rule))
-        library.DrawSetFillRule(self.resource,
-                                FILL_RULE_TYPES.index(fill_rule))
+    @gravity.setter
+    def gravity(self, value):
+        assertions.string_in_list(GRAVITY_TYPES,
+                                  'wand.drawing.GRAVITY_TYPES',
+                                  gravity=value)
+        library.DrawSetGravity(self.resource, GRAVITY_TYPES.index(value))
 
     @property
     def opacity(self):
@@ -474,7 +469,8 @@ class Drawing(Resource):
 
     @opacity.setter
     def opacity(self, opaque):
-        library.DrawSetOpacity(self.resource, ctypes.c_double(opaque))
+        assertions.assert_real(opacity=opaque)
+        library.DrawSetOpacity(self.resource, opaque)
 
     @property
     def stroke_antialias(self):
@@ -493,7 +489,8 @@ class Drawing(Resource):
 
     @stroke_antialias.setter
     def stroke_antialias(self, stroke_antialias):
-        library.DrawSetStrokeAntialias(self.resource, bool(stroke_antialias))
+        assertions.assert_bool(stroke_antialias=stroke_antialias)
+        library.DrawSetStrokeAntialias(self.resource, stroke_antialias)
 
     @property
     def stroke_color(self):
@@ -505,22 +502,21 @@ class Drawing(Resource):
         """
         pixel = library.NewPixelWand()
         library.DrawGetStrokeColor(self.resource, pixel)
-        size = ctypes.sizeof(MagickPixelPacket)
-        buffer = ctypes.create_string_buffer(size)
-        library.PixelGetMagickColor(pixel, buffer)
-        return Color(raw=buffer)
+        color = Color.from_pixelwand(pixel)
+        pixel = library.DestroyPixelWand(pixel)
+        return color
 
     @stroke_color.setter
     def stroke_color(self, color):
-        if not isinstance(color, Color):
-            raise TypeError('color must be a wand.color.Color object, not ' +
-                            repr(color))
+        if isinstance(color, string_type):
+            color = Color(color)
+        assertions.assert_color(stroke_color=color)
         with color:
             library.DrawSetStrokeColor(self.resource, color.resource)
 
     @property
     def stroke_dash_array(self):
-        """(:class:`~collections.Sequence`) - (:class:`numbers.Real`) An array
+        """(:class:`~collections.abc.Sequence`) - (:class:`numbers.Real`) An array
         representing the pattern of dashes & gaps used to stroke paths.
         It also can be set.
 
@@ -560,7 +556,8 @@ class Drawing(Resource):
 
     @stroke_dash_offset.setter
     def stroke_dash_offset(self, offset):
-        library.DrawSetStrokeDashOffset(self.resource, float(offset))
+        assertions.assert_real(stroke_dash_offset=offset)
+        library.DrawSetStrokeDashOffset(self.resource, offset)
 
     @property
     def stroke_line_cap(self):
@@ -575,11 +572,9 @@ class Drawing(Resource):
 
     @stroke_line_cap.setter
     def stroke_line_cap(self, line_cap):
-        if not isinstance(line_cap, string_type):
-            raise TypeError('expected a string, not ' + repr(line_cap))
-        elif line_cap not in LINE_CAP_TYPES:
-            raise ValueError('expected a string from LINE_CAP_TYPES, not' +
-                             repr(line_cap))
+        assertions.string_in_list(LINE_CAP_TYPES,
+                                  'wand.drawing.LINE_CAP_TYPES',
+                                  stroke_line_cap=line_cap)
         library.DrawSetStrokeLineCap(self.resource,
                                      LINE_CAP_TYPES.index(line_cap))
 
@@ -596,11 +591,9 @@ class Drawing(Resource):
 
     @stroke_line_join.setter
     def stroke_line_join(self, line_join):
-        if not isinstance(line_join, string_type):
-            raise TypeError('expected a string, not ' + repr(line_join))
-        elif line_join not in LINE_JOIN_TYPES:
-            raise ValueError('expected a string from LINE_JOIN_TYPES, not' +
-                             repr(line_join))
+        assertions.string_in_list(LINE_JOIN_TYPES,
+                                  'wand.drawing.LINE_JOIN_TYPES',
+                                  stroke_line_join=line_join)
         library.DrawSetStrokeLineJoin(self.resource,
                                       LINE_JOIN_TYPES.index(line_join))
 
@@ -615,9 +608,7 @@ class Drawing(Resource):
 
     @stroke_miter_limit.setter
     def stroke_miter_limit(self, miter_limit):
-        if not isinstance(miter_limit, numbers.Integral):
-            raise TypeError('opacity must be a integer, not ' +
-                            repr(miter_limit))
+        assertions.assert_integer(stroke_miter_limit=miter_limit)
         library.DrawSetStrokeMiterLimit(self.resource, miter_limit)
 
     @property
@@ -631,9 +622,7 @@ class Drawing(Resource):
 
     @stroke_opacity.setter
     def stroke_opacity(self, opacity):
-        if not isinstance(opacity, numbers.Real):
-            raise TypeError('opacity must be a double, not ' +
-                            repr(opacity))
+        assertions.assert_real(stroke_opacity=opacity)
         library.DrawSetStrokeOpacity(self.resource, opacity)
 
     @property
@@ -647,9 +636,8 @@ class Drawing(Resource):
 
     @stroke_width.setter
     def stroke_width(self, width):
-        if not isinstance(width, numbers.Real):
-            raise TypeError('expected a numbers.Real, but got ' + repr(width))
-        elif width < 0.0:
+        assertions.assert_real(stroke_width=width)
+        if width < 0.0:
             raise ValueError('cannot be less then 0.0, but got ' + repr(width))
         library.DrawSetStrokeWidth(self.resource, width)
 
@@ -661,17 +649,15 @@ class Drawing(Resource):
 
         """
         text_alignment_index = library.DrawGetTextAlignment(self.resource)
-        if not text_alignment_index:
+        if not text_alignment_index:  # pragma: no cover
             self.raise_exception()
         return text(TEXT_ALIGN_TYPES[text_alignment_index])
 
     @text_alignment.setter
     def text_alignment(self, align):
-        if not isinstance(align, string_type):
-            raise TypeError('expected a string, not ' + repr(align))
-        elif align not in TEXT_ALIGN_TYPES:
-            raise ValueError('expected a string from TEXT_ALIGN_TYPES, not ' +
-                             repr(align))
+        assertions.string_in_list(TEXT_ALIGN_TYPES,
+                                  'wand.drawing.TEXT_ALIGN_TYPES',
+                                  text_alignment=align)
         library.DrawSetTextAlignment(self.resource,
                                      TEXT_ALIGN_TYPES.index(align))
 
@@ -687,7 +673,8 @@ class Drawing(Resource):
 
     @text_antialias.setter
     def text_antialias(self, value):
-        library.DrawSetTextAntialias(self.resource, bool(value))
+        assertions.assert_bool(text_antialias=value)
+        library.DrawSetTextAntialias(self.resource, value)
 
     @property
     def text_decoration(self):
@@ -696,17 +683,15 @@ class Drawing(Resource):
 
         """
         text_decoration_index = library.DrawGetTextDecoration(self.resource)
-        if not text_decoration_index:
+        if not text_decoration_index:  # pragma: no cover
             self.raise_exception()
         return text(TEXT_DECORATION_TYPES[text_decoration_index])
 
     @text_decoration.setter
     def text_decoration(self, decoration):
-        if not isinstance(decoration, string_type):
-            raise TypeError('expected a string, not ' + repr(decoration))
-        elif decoration not in TEXT_DECORATION_TYPES:
-            raise ValueError('expected a string from TEXT_DECORATION_TYPES, '
-                             'not ' + repr(decoration))
+        assertions.string_in_list(TEXT_DECORATION_TYPES,
+                                  'wand.drawing.TEXT_DECORATION_TYPES',
+                                  text_decoration=decoration)
         library.DrawSetTextDecoration(self.resource,
                                       TEXT_DECORATION_TYPES.index(decoration))
 
@@ -714,28 +699,26 @@ class Drawing(Resource):
     def text_direction(self):
         """(:class:`basestring`) The text direction setting. a string
         from :const:`TEXT_DIRECTION_TYPES` list. It also can be set."""
-        if library.DrawGetTextDirection is None:
+        if library.DrawGetTextDirection is None:  # pragma: no cover
             raise WandLibraryVersionError(
                 'the installed version of ImageMagick does not support '
                 'this feature'
             )
         text_direction_index = library.DrawGetTextDirection(self.resource)
-        if not text_direction_index:
+        if not text_direction_index:  # pragma: no cover
             self.raise_exception()
         return text(TEXT_DIRECTION_TYPES[text_direction_index])
 
     @text_direction.setter
     def text_direction(self, direction):
-        if library.DrawGetTextDirection is None:
+        if library.DrawGetTextDirection is None:  # pragma: no cover
             raise WandLibraryVersionError(
                 'The installed version of ImageMagick does not support '
                 'this feature'
             )
-        if not isinstance(direction, string_type):
-            raise TypeError('expected a string, not ' + repr(direction))
-        elif direction not in TEXT_DIRECTION_TYPES:
-            raise ValueError('expected a string from TEXT_DIRECTION_TYPES, '
-                             'not ' + repr(direction))
+        assertions.string_in_list(TEXT_DIRECTION_TYPES,
+                                  'wand.drawing.TEXT_DIRECTION_TYPES',
+                                  text_direction=direction)
         library.DrawSetTextDirection(self.resource,
                                      TEXT_DIRECTION_TYPES.index(direction))
 
@@ -754,13 +737,12 @@ class Drawing(Resource):
 
     @text_encoding.setter
     def text_encoding(self, encoding):
-        if encoding is not None and not isinstance(encoding, string_type):
-            raise TypeError('expected a string, not ' + repr(encoding))
-        elif encoding is None:
+        if encoding is None:
             # encoding specify an empty string to set text encoding
             # to system's default.
             encoding = b''
         else:
+            assertions.assert_string(text_encoding=encoding)
             encoding = binary(encoding)
         library.DrawSetTextEncoding(self.resource, encoding)
 
@@ -770,7 +752,7 @@ class Drawing(Resource):
         It also can be set.
 
         """
-        if library.DrawGetTextInterlineSpacing is None:
+        if library.DrawGetTextInterlineSpacing is None:  # pragma: no cover
             raise WandLibraryVersionError('The installed version of '
                                           'ImageMagick does not support '
                                           'this feature')
@@ -778,13 +760,11 @@ class Drawing(Resource):
 
     @text_interline_spacing.setter
     def text_interline_spacing(self, spacing):
-        if library.DrawSetTextInterlineSpacing is None:
+        if library.DrawSetTextInterlineSpacing is None:  # pragma: no cover
             raise WandLibraryVersionError('The installed version of '
                                           'ImageMagick does not support '
                                           'this feature')
-        if not isinstance(spacing, numbers.Real):
-            raise TypeError('expected a numbers.Real, but got ' +
-                            repr(spacing))
+        assertions.assert_real(text_interline_spacing=spacing)
         library.DrawSetTextInterlineSpacing(self.resource, spacing)
 
     @property
@@ -797,8 +777,7 @@ class Drawing(Resource):
 
     @text_interword_spacing.setter
     def text_interword_spacing(self, spacing):
-        if not isinstance(spacing, numbers.Real):
-            raise TypeError('expeted a numbers.Real, but got ' + repr(spacing))
+        assertions.assert_real(text_interword_spacing=spacing)
         library.DrawSetTextInterwordSpacing(self.resource, spacing)
 
     @property
@@ -811,9 +790,7 @@ class Drawing(Resource):
 
     @text_kerning.setter
     def text_kerning(self, kerning):
-        if not isinstance(kerning, numbers.Real):
-            raise TypeError('expected a numbers.Real, but got ' +
-                            repr(kerning))
+        assertions.assert_real(text_kerning=kerning)
         library.DrawSetTextKerning(self.resource, kerning)
 
     @property
@@ -824,16 +801,15 @@ class Drawing(Resource):
         """
         pixel = library.NewPixelWand()
         library.DrawGetTextUnderColor(self.resource, pixel)
-        size = ctypes.sizeof(MagickPixelPacket)
-        buffer = ctypes.create_string_buffer(size)
-        library.PixelGetMagickColor(pixel, buffer)
-        return Color(raw=buffer)
+        color = Color.from_pixelwand(pixel)
+        pixel = library.DestroyPixelWand(pixel)
+        return color
 
     @text_under_color.setter
     def text_under_color(self, color):
-        if not isinstance(color, Color):
-            raise TypeError('expected a wand.color.Color object, not ' +
-                            repr(color))
+        if isinstance(color, string_type):
+            color = Color(color)
+        assertions.assert_color(text_under_color=color)
         with color:
             library.DrawSetTextUnderColor(self.resource, color.resource)
 
@@ -868,55 +844,8 @@ class Drawing(Resource):
             vector_graphics = binary(vector_graphics)
             okay = library.DrawSetVectorGraphics(self.resource,
                                                  vector_graphics)
-            if okay == 0:
+            if okay == 0:  # pragma: no cover
                 raise ValueError("Vector graphic not understood.")
-
-    @property
-    def gravity(self):
-        """(:class:`basestring`) The text placement gravity used when
-        annotating with text.  It's a string from :const:`GRAVITY_TYPES`
-        list.  It also can be set.
-
-        """
-        gravity_index = library.DrawGetGravity(self.resource)
-        if not gravity_index:
-            self.raise_exception()
-        return text(GRAVITY_TYPES[gravity_index])
-
-    @gravity.setter
-    def gravity(self, value):
-        if not isinstance(value, string_type):
-            raise TypeError('expected a string, not ' + repr(value))
-        elif value not in GRAVITY_TYPES:
-            raise ValueError('expected a string from GRAVITY_TYPES, not ' +
-                             repr(value))
-        library.DrawSetGravity(self.resource, GRAVITY_TYPES.index(value))
-
-    def clear(self):
-        library.ClearDrawingWand(self.resource)
-
-    def draw(self, image):
-        """Renders the current drawing into the ``image``.  You can simply
-        call :class:`Drawing` instance rather than calling this method.
-        That means the following code which calls :class:`Drawing` object
-        itself::
-
-            drawing(image)
-
-        is equivalent to the following code which calls :meth:`draw()` method::
-
-            drawing.draw(image)
-
-        :param image: the image to be drawn
-        :type image: :class:`~wand.image.Image`
-
-        """
-        if not isinstance(image, Image):
-            raise TypeError('image must be a wand.image.Image instance, not ' +
-                            repr(image))
-        res = library.MagickDrawImage(image.wand, self.resource)
-        if not res:
-            self.raise_exception()
 
     def affine(self, matrix):
         """Adjusts the current affine transformation matrix with the specified
@@ -931,12 +860,12 @@ class Drawing(Resource):
 
         :param matrix: a list of :class:`~numbers.Real` to define affine
                        matrix ``[sx, rx, ry, sy, tx, ty]``
-        :type matrix: :class:`collections.Sequence`
+        :type matrix: :class:`collections.abc.Sequence`
 
         .. versionadded:: 0.4.0
 
         """
-        if not isinstance(matrix, collections.Sequence) or len(matrix) != 6:
+        if not isinstance(matrix, abc.Sequence) or len(matrix) != 6:
             raise ValueError('matrix must be a list of size Real numbers')
         for idx, val in enumerate(matrix):
             if not isinstance(val, numbers.Real):
@@ -945,7 +874,42 @@ class Drawing(Resource):
         amx = AffineMatrix(sx=matrix[0], rx=matrix[1],
                            ry=matrix[2], sy=matrix[3],
                            tx=matrix[4], ty=matrix[5])
-        library.DrawAffine(self.resource, amx)
+        library.DrawAffine(self.resource, ctypes.byref(amx))
+
+    def alpha(self, x=None, y=None, paint_method='undefined'):
+        """Paints on the image's opacity channel in order to set effected pixels
+        to transparent.
+
+         To influence the opacity of pixels. The available methods are:
+
+        - ``'undefined'``
+        - ``'point'``
+        - ``'replace'``
+        - ``'floodfill'``
+        - ``'filltoborder'``
+        - ``'reset'``
+
+        .. note::
+
+            This method replaces :meth:`matte()` in ImageMagick version 7.
+            An :class:`AttributeError` will be raised if attempting
+            to call on a library without ``DrawAlpha`` support.
+
+        .. versionadded:: 0.5.0
+
+        """
+        if library.DrawAlpha is None:
+            raise AttributeError(
+                'Method added with ImageMagick version 7. ' +
+                'Please use `wand.drawing.Drawing.matte()\' instead.'
+            )
+        if x is None or y is None:
+            raise TypeError('Both x & y coordinates need to be defined')
+        assertions.string_in_list(PAINT_METHOD_TYPES,
+                                  'wand.drawing.PAINT_METHOD_TYPES',
+                                  paint_method=paint_method)
+        library.DrawAlpha(self.resource, float(x), float(y),
+                          PAINT_METHOD_TYPES.index(paint_method))
 
     def arc(self, start, end, degree):
         """Draws a arc using the current :attr:`stroke_color`,
@@ -953,13 +917,13 @@ class Drawing(Resource):
 
         :param start: (:class:`~numbers.Real`, :class:`numbers.Real`)
                       pair which represents starting x and y of the arc
-        :type start: :class:`~collections.Sequence`
+        :type start: :class:`~collections.abc.Sequence`
         :param end: (:class:`~numbers.Real`, :class:`numbers.Real`)
                       pair which represents ending x and y of the arc
-        :type end: :class:`~collections.Sequence`
+        :type end: :class:`~collections.abc.Sequence`
         :param degree: (:class:`~numbers.Real`, :class:`numbers.Real`)
                       pair which represents starting degree, and ending degree
-        :type degree: :class:`~collections.Sequence`
+        :type degree: :class:`~collections.abc.Sequence`
 
         .. versionadded:: 0.4.0
 
@@ -972,15 +936,46 @@ class Drawing(Resource):
                         float(end_x), float(end_y),
                         float(degree_start), float(degree_end))
 
+    def bezier(self, points=None):
+        """Draws a bezier curve through a set of points on the image, using
+        the specified array of coordinates.
+
+        At least four points should be given to complete a bezier path.
+        The first & forth point being the start & end point, and the second
+        & third point controlling the direction & curve.
+
+        Example bezier on ``image`` ::
+
+            with Drawing() as draw:
+                points = [(40,10), # Start point
+                          (20,50), # First control
+                          (90,10), # Second control
+                          (70,40)] # End point
+                draw.stroke_color = Color('#000')
+                draw.fill_color = Color('#fff')
+                draw.bezier(points)
+                draw.draw(image)
+
+        :param points: list of x,y tuples
+        :type points: :class:`list`
+
+        .. versionadded:: 0.4.0
+
+        """
+
+        (points_l, points_p) = _list_to_point_info(points)
+        library.DrawBezier(self.resource, points_l,
+                           ctypes.cast(points_p, ctypes.POINTER(PointInfo)))
+
     def circle(self, origin, perimeter):
         """Draws a circle from ``origin`` to ``perimeter``
 
         :param origin: (:class:`~numbers.Real`, :class:`numbers.Real`)
                        pair which represents origin x and y of circle
-        :type origin: :class:`collections.Sequence`
+        :type origin: :class:`collections.abc.Sequence`
         :param perimeter: (:class:`~numbers.Real`, :class:`numbers.Real`)
                        pair which represents perimeter x and y of circle
-        :type perimeter: :class:`collections.Sequence`
+        :type perimeter: :class:`collections.abc.Sequence`
 
         .. versionadded:: 0.4.0
 
@@ -990,6 +985,18 @@ class Drawing(Resource):
         library.DrawCircle(self.resource,
                            float(origin_x), float(origin_y),  # origin
                            float(perimeter_x), float(perimeter_y))  # perimeter
+
+    def clear(self):
+        library.ClearDrawingWand(self.resource)
+
+    def clone(self):
+        """Copies a drawing object.
+
+        :returns: a duplication
+        :rtype: :class:`Drawing`
+
+        """
+        return type(self)(drawing=self)
 
     def color(self, x=None, y=None, paint_method='undefined'):
         """Draws a color on the image using current fill color, starting
@@ -1009,13 +1016,9 @@ class Drawing(Resource):
         """
         if x is None or y is None:
             raise TypeError('Both x & y coordinates need to be defined')
-        if not isinstance(paint_method, string_type):
-            raise TypeError('expected a string, not ' + repr(paint_method))
-        elif paint_method not in PAINT_METHOD_TYPES:
-            raise ValueError(
-                'expected a string from PAINT_METHOD_TYPES, not ' +
-                repr(paint_method)
-            )
+        assertions.string_in_list(PAINT_METHOD_TYPES,
+                                  'wand.drawing.PAINT_METHOD_TYPES',
+                                  paint_method=paint_method)
         library.DrawColor(self.resource, float(x), float(y),
                           PAINT_METHOD_TYPES.index(paint_method))
 
@@ -1027,11 +1030,10 @@ class Drawing(Resource):
 
         .. versionadded:: 0.4.0
         """
-        if message is not None and not isinstance(message, string_type):
-            raise TypeError('expected a string, not ' + repr(message))
-        elif message is None:
+        if message is None:
             message = b''
         else:
+            assertions.assert_string(message=message)
             message = binary(message)
         library.DrawComment(self.resource, message)
 
@@ -1056,17 +1058,8 @@ class Drawing(Resource):
         .. versionadded:: 0.4.0
 
         """
-        if not isinstance(operator, string_type):
-            raise TypeError('operator must be a string, not ' +
-                            repr(operator))
-        elif not isinstance(left, numbers.Real):
-            raise TypeError('left must be an integer, not ' + repr(left))
-        elif not isinstance(top, numbers.Real):
-            raise TypeError('top must be an integer, not ' + repr(left))
-        elif not isinstance(width, numbers.Real):
-            raise TypeError('width must be an integer, not ' + repr(left))
-        elif not isinstance(height, numbers.Real):
-            raise TypeError('height must be an integer, not ' + repr(left))
+        assertions.assert_string(operator=operator)
+        assertions.assert_real(left=left, top=top, width=width, height=height)
         try:
             op = COMPOSITE_OPERATORS.index(operator)
         except IndexError:
@@ -1078,20 +1071,49 @@ class Drawing(Resource):
         if okay == 0:
             self.raise_exception()
 
+    def draw(self, image):
+        """Renders the current drawing into the ``image``.  You can simply
+        call :class:`Drawing` instance rather than calling this method.
+        That means the following code which calls :class:`Drawing` object
+        itself::
+
+            drawing(image)
+
+        is equivalent to the following code which calls :meth:`draw()` method::
+
+            drawing.draw(image)
+
+        :param image: the image to be drawn
+        :type image: :class:`~wand.image.BaseImage`
+
+        """
+        if not isinstance(image, BaseImage):
+            raise TypeError('image must be a wand.image.BaseImage instance,'
+                            ' not ' + repr(image))
+        if isinstance(image, SingleImage):
+            previous = library.MagickGetIteratorIndex(image.container.wand)
+            library.MagickSetIteratorIndex(image.container.wand, image.index)
+            res = library.MagickDrawImage(image.container.wand, self.resource)
+            library.MagickSetIteratorIndex(image.container.wand, previous)
+        else:
+            res = library.MagickDrawImage(image.wand, self.resource)
+        if not res:
+            self.raise_exception()
+
     def ellipse(self, origin, radius, rotation=(0, 360)):
         """Draws a ellipse at ``origin`` with independent x & y ``radius``.
         Ellipse can be partial by setting start & end ``rotation``.
 
         :param origin: (:class:`~numbers.Real`, :class:`numbers.Real`)
                        pair which represents origin x and y of circle
-        :type origin: :class:`collections.Sequence`
+        :type origin: :class:`collections.abc.Sequence`
         :param radius: (:class:`~numbers.Real`, :class:`numbers.Real`)
                        pair which represents radius x and radius y of circle
-        :type radius: :class:`collections.Sequence`
+        :type radius: :class:`collections.abc.Sequence`
         :param rotation: (:class:`~numbers.Real`, :class:`numbers.Real`)
                          pair which represents start and end of ellipse.
                          Default (0,360)
-        :type rotation: :class:`collections.Sequence`
+        :type rotation: :class:`collections.abc.Sequence`
 
         .. versionadded:: 0.4.0
 
@@ -1104,15 +1126,51 @@ class Drawing(Resource):
                             float(radius_x), float(radius_y),  # radius
                             float(rotation_start), float(rotation_end))
 
+    def get_font_metrics(self, image, text, multiline=False):
+        """Queries font metrics from the given ``text``.
+
+        :param image: the image to be drawn
+        :type image: :class:`~wand.image.BaseImage`
+        :param text: the text string for get font metrics.
+        :type text: :class:`basestring`
+        :param multiline: text is multiline or not
+        :type multiline: `boolean`
+
+        """
+        if not isinstance(image, BaseImage):
+            raise TypeError('image must be a wand.image.BaseImage instance,'
+                            ' not ' + repr(image))
+        assertions.assert_string(text=text)
+        if multiline:
+            font_metrics_f = library.MagickQueryMultilineFontMetrics
+        else:
+            font_metrics_f = library.MagickQueryFontMetrics
+        if isinstance(text, text_type):
+            if self.text_encoding:
+                text = text.encode(self.text_encoding)
+            else:
+                text = binary(text)
+        result = font_metrics_f(image.wand, self.resource, text)
+        if not result:  # pragma: no cover
+            # Error on drawing context
+            self.raise_exception()
+            # Or error on image canvas
+            image.raise_exception()
+            # Generate a generic error if ImageMagick couldn't emit one.
+            raise ValueError('Unable to render text with current font.')
+        args = [result[i] for i in xrange(13)]
+        library.MagickRelinquishMemory(result)
+        return FontMetrics(*args)
+
     def line(self, start, end):
         """Draws a line ``start`` to ``end``.
 
         :param start: (:class:`~numbers.Integral`, :class:`numbers.Integral`)
                       pair which represents starting x and y of the line
-        :type start: :class:`collections.Sequence`
+        :type start: :class:`collections.abc.Sequence`
         :param end: (:class:`~numbers.Integral`, :class:`numbers.Integral`)
                     pair which represents ending x and y of the line
-        :type end: :class:`collections.Sequence`
+        :type end: :class:`collections.abc.Sequence`
 
         """
         start_x, start_y = start
@@ -1134,18 +1192,25 @@ class Drawing(Resource):
         - ``'filltoborder'``
         - ``'reset'``
 
+        .. note::
+
+            This method has been replace by :meth:`alpha()` in ImageMagick
+            version 7. An :class:`AttributeError` will be raised if attempting
+            to call on a library without ``DrawMatte`` support.
+
         .. versionadded:: 0.4.0
 
         """
+        if library.DrawMatte is None:
+            raise AttributeError(
+                'Method removed from ImageMagick version. ' +
+                'Please use `wand.drawing.Drawing.alpha()\' instead.'
+            )
         if x is None or y is None:
             raise TypeError('Both x & y coordinates need to be defined')
-        if not isinstance(paint_method, string_type):
-            raise TypeError('expected a string, not ' + repr(paint_method))
-        elif paint_method not in PAINT_METHOD_TYPES:
-            raise ValueError(
-                'expected a string from PAINT_METHOD_TYPES, not ' +
-                repr(paint_method)
-            )
+        assertions.string_in_list(PAINT_METHOD_TYPES,
+                                  'wand.drawing.PAINT_METHOD_TYPES',
+                                  paint_method=paint_method)
         library.DrawMatte(self.resource, float(x), float(y),
                           PAINT_METHOD_TYPES.index(paint_method))
 
@@ -1171,10 +1236,10 @@ class Drawing(Resource):
 
         :param to: (:class:`~numbers.Real`, :class:`numbers.Real`)
                    pair which represents coordinates to draw to
-        :type to: :class:`collections.Sequence`
+        :type to: :class:`collections.abc.Sequence`
         :param controls: (:class:`~numbers.Real`, :class:`numbers.Real`)
                          coordinate to used to influence curve
-        :type controls: :class:`collections.Sequence`
+        :type controls: :class:`collections.abc.Sequence`
         :param smooth: :class:`bool` assume last defined control coordinate
         :type smooth: :class:`bool`
         :param relative: treat given coordinates as relative to current point
@@ -1222,10 +1287,10 @@ class Drawing(Resource):
 
         :param to: (:class:`~numbers.Real`, :class:`numbers.Real`)
                    pair which represents coordinates to draw to
-        :type to: :class:`collections.Sequence`
+        :type to: :class:`collections.abc.Sequence`
         :param control: (:class:`~numbers.Real`, :class:`numbers.Real`)
                         coordinate to used to influence curve
-        :type control: :class:`collections.Sequence`
+        :type control: :class:`collections.abc.Sequence`
         :param smooth: assume last defined control coordinate
         :type smooth: :class:`bool`
         :param relative: treat given coordinates as relative to current point
@@ -1283,10 +1348,10 @@ class Drawing(Resource):
 
         :param to: (:class:`~numbers.Real`, :class:`numbers.Real`)
                    pair which represents coordinates to draw to
-        :type to: :class:`collections.Sequence`
+        :type to: :class:`collections.abc.Sequence`
         :param radius: (:class:`~numbers.Real`, :class:`numbers.Real`)
                        pair which represents the radii of the ellipse to draw
-        :type radius: :class:`collections.Sequence`
+        :type radius: :class:`collections.abc.Sequence`
         :param rotate: degree to rotate ellipse on x-axis
         :type rotate: :class:`~numbers.Real`
         :param large_arc: draw largest available arc
@@ -1330,31 +1395,6 @@ class Drawing(Resource):
         library.DrawPathFinish(self.resource)
         return self
 
-    def path_line(self, to=None, relative=False):
-        """Draws a line path from the current point to the given ``to``
-        coordinate. The ``to`` coordinates can be relative, or absolute, to the
-        current point by setting the ``relative`` flag. The coordinate then
-        becomes the new current point.
-
-        :param to: (:class:`~numbers.Real`, :class:`numbers.Real`)
-                      pair which represents coordinates to draw to.
-        :type to: :class:`collections.Sequence`
-        :param relative: :class:`bool`
-                    treat given coordinates as relative to current point
-        :type relative: :class:`bool`
-
-        .. versionadded:: 0.4.0
-
-        """
-        if to is None:
-            raise TypeError('to is missing')
-        x, y = to
-        if relative:
-            library.DrawPathLineToRelative(self.resource, float(x), float(y))
-        else:
-            library.DrawPathLineToAbsolute(self.resource, float(x), float(y))
-        return self
-
     def path_horizontal_line(self, x=None, relative=False):
         """Draws a horizontal line path from the current point to the target
         point. Given ``x`` parameter can be relative, or absolute, to the
@@ -1379,28 +1419,29 @@ class Drawing(Resource):
             library.DrawPathLineToHorizontalAbsolute(self.resource, float(x))
         return self
 
-    def path_vertical_line(self, y=None, relative=False):
-        """Draws a vertical line path from the current point to the target
-        point. Given ``y`` parameter can be relative, or absolute, to the
-        current point by setting the ``relative`` flag. The target point then
+    def path_line(self, to=None, relative=False):
+        """Draws a line path from the current point to the given ``to``
+        coordinate. The ``to`` coordinates can be relative, or absolute, to the
+        current point by setting the ``relative`` flag. The coordinate then
         becomes the new current point.
 
-        :param y: :class:`~numbers.Real`
-                      y-axis point to draw to.
-        :type y: :class:`~numbers.Real`
+        :param to: (:class:`~numbers.Real`, :class:`numbers.Real`)
+                      pair which represents coordinates to draw to.
+        :type to: :class:`collections.abc.Sequence`
         :param relative: :class:`bool`
-                    treat given point as relative to current point
+                    treat given coordinates as relative to current point
         :type relative: :class:`bool`
 
         .. versionadded:: 0.4.0
 
         """
-        if y is None:
-            raise TypeError('y is missing')
+        if to is None:
+            raise TypeError('to is missing')
+        x, y = to
         if relative:
-            library.DrawPathLineToVerticalRelative(self.resource, float(y))
+            library.DrawPathLineToRelative(self.resource, float(x), float(y))
         else:
-            library.DrawPathLineToVerticalAbsolute(self.resource, float(y))
+            library.DrawPathLineToAbsolute(self.resource, float(x), float(y))
         return self
 
     def path_move(self, to=None, relative=False):
@@ -1410,7 +1451,7 @@ class Drawing(Resource):
 
         :param to: (:class:`~numbers.Real`, :class:`numbers.Real`)
                       pair which represents coordinates to draw to.
-        :type to: :class:`collections.Sequence`
+        :type to: :class:`collections.abc.Sequence`
         :param relative: :class:`bool`
                     treat given coordinates as relative to current point
         :type relative: :class:`bool`
@@ -1440,6 +1481,72 @@ class Drawing(Resource):
         library.DrawPathStart(self.resource)
         return self
 
+    def path_vertical_line(self, y=None, relative=False):
+        """Draws a vertical line path from the current point to the target
+        point. Given ``y`` parameter can be relative, or absolute, to the
+        current point by setting the ``relative`` flag. The target point then
+        becomes the new current point.
+
+        :param y: :class:`~numbers.Real`
+                      y-axis point to draw to.
+        :type y: :class:`~numbers.Real`
+        :param relative: :class:`bool`
+                    treat given point as relative to current point
+        :type relative: :class:`bool`
+
+        .. versionadded:: 0.4.0
+
+        """
+        if y is None:
+            raise TypeError('y is missing')
+        if relative:
+            library.DrawPathLineToVerticalRelative(self.resource, float(y))
+        else:
+            library.DrawPathLineToVerticalAbsolute(self.resource, float(y))
+        return self
+
+    def polygon(self, points=None):
+        """Draws a polygon using the current :attr:`stroke_color`,
+        :attr:`stroke_width`, and :attr:`fill_color`, using the specified
+        array of coordinates.
+
+        Example polygon on ``image`` ::
+
+            with Drawing() as draw:
+                points = [(40,10), (20,50), (90,10), (70,40)]
+                draw.polygon(points)
+                draw.draw(image)
+
+        :param points: list of x,y tuples
+        :type points: :class:`list`
+
+        .. versionadded:: 0.4.0
+
+        """
+
+        (points_l, points_p) = _list_to_point_info(points)
+        library.DrawPolygon(self.resource, points_l,
+                            ctypes.cast(points_p, ctypes.POINTER(PointInfo)))
+
+    def polyline(self, points=None):
+        """Draws a polyline using the current :attr:`stroke_color`,
+        :attr:`stroke_width`, and :attr:`fill_color`, using the specified
+        array of coordinates.
+
+        Identical to :class:`~wand.drawing.Drawing.polygon`, but without closed
+        stroke line.
+
+        :param points: list of x,y tuples
+        :type points: :class:`list`
+
+        .. versionadded:: 0.4.0
+
+        """
+
+        (points_l, points_p) = _list_to_point_info(points)
+        library.DrawPolyline(self.resource, points_l,
+                             ctypes.cast(points_p, ctypes.POINTER(PointInfo)))
+
     def point(self, x, y):
         """Draws a point at given ``x`` and ``y``
 
@@ -1456,12 +1563,16 @@ class Drawing(Resource):
                           float(y))
 
     def pop(self):
-        """Pop destroys the current drawing wand and returns to the previously
-        pushed drawing wand. Multiple drawing wands may exist. It is an error
-        to attempt to pop more drawing wands than have been pushed, and it is
-        proper form to pop all drawing wands which have been pushed.
+        """Pop destroys the current tip of the drawing context stack,
+        and restores the parent style context.
+        See :meth:`push()` method for an example.
 
-        :returns: success of pop operation
+        .. note::
+
+            Popping the graphical context stack will not erase,
+            or alter, any previously executed drawing commands.
+
+        :returns: success of pop operation.
         :rtype: `bool`
 
         .. versionadded:: 0.4.0
@@ -1494,12 +1605,52 @@ class Drawing(Resource):
         library.DrawPopPattern(self.resource)
 
     def push(self):
-        """Push clones the current drawing wand to create a new drawing wand.
-        The original drawing wand(s) may be returned to by invoking
-        :class:`Drawing.pop`. The drawing wands are stored on a drawing wand
-        stack. For every Pop there must have already been an equivalent Push.
+        """Grows the current drawing context stack by one, and inherits
+        the previous style attributes. Use :class:`Drawing.pop` to return
+        to restore previous style attributes.
 
-        :returns: success of push operation
+        This is useful for drawing shapes with diffrent styles
+        without repeatedly setting the similar
+        :meth:`fill_color <wand.drawing.Drawing.fill_color>` &
+        :meth:`stroke_color <wand.drawing.Drawing.stroke_color>` properties.
+
+        For example::
+
+            with Drawing() as ctx:
+                ctx.fill_color = Color('GREEN')
+                ctx.stroke_color = Color('ORANGE')
+                ctx.push()
+                ctx.fill_color = Color('RED')
+                ctx.text(x1, y1, 'this is RED with ORANGE outline')
+                ctx.push()
+                ctx.stroke_color = Color('BLACK')
+                ctx.text(x2, y2, 'this is RED with BLACK outline')
+                ctx.pop()
+                ctx.pop()
+                ctx.text(x3, y3, 'this is GREEN with ORANGE outline')
+
+        Which translate to the following MVG::
+
+            push graphic-context
+                fill "GREEN"
+                stroke "ORANGE"
+                push graphic-context
+                    fill "RED"
+                    text x1,y1 "this is RED with ORANGE outline"
+                    push graphic-context
+                        stroke "BLACK"
+                        text x2,y2 "this is RED with BLACK outline"
+                    pop graphic-context
+                pop graphic-context
+                text x3,y3 "this is GREEN with ORANGE outline"
+            pop graphic-context
+
+        .. note::
+
+            Pushing graphical context does not reset any previously
+            drawn artifacts.
+
+        :returns: success of push operation.
         :rtype: `bool`
 
         .. versionadded:: 0.4.0
@@ -1554,17 +1705,8 @@ class Drawing(Resource):
         .. versionadded:: 0.4.0
 
         """
-        if not isinstance(pattern_id, string_type):
-            raise TypeError('pattern_id must be a string, not ' +
-                            repr(pattern_id))
-        elif not isinstance(left, numbers.Real):
-            raise TypeError('left must be numbers.Real, not ' + repr(left))
-        elif not isinstance(top, numbers.Real):
-            raise TypeError('top must be numbers.Real, not ' + repr(top))
-        elif not isinstance(width, numbers.Real):
-            raise TypeError('width must be numbers.Real, not ' + repr(width))
-        elif not isinstance(height, numbers.Real):
-            raise TypeError('height must be numbers.Real, not ' + repr(height))
+        assertions.assert_string(pattern_id=pattern_id)
+        assertions.assert_real(left=left, top=top, width=width, height=height)
         okay = library.DrawPushPattern(self.resource, binary(pattern_id),
                                        left, top,
                                        width, height)
@@ -1676,12 +1818,7 @@ class Drawing(Resource):
                 xradius = 0.0
             if yradius is None:
                 yradius = 0.0
-            if not isinstance(xradius, numbers.Real):
-                raise TypeError('xradius must be numbers.Real, not ' +
-                                repr(xradius))
-            if not isinstance(yradius, numbers.Real):
-                raise TypeError('yradius must be numbers.Real, not ' +
-                                repr(xradius))
+            assertions.assert_real(xradius=xradius, yradius=yradius)
             library.DrawRoundRectangle(self.resource, left, top, right, bottom,
                                        xradius, yradius)
         else:
@@ -1697,114 +1834,8 @@ class Drawing(Resource):
         .. versionadded:: 0.4.0
 
         """
-        library.DrawRotate(self.resource, float(degree))
-
-    def polygon(self, points=None):
-        """Draws a polygon using the current :attr:`stoke_color`,
-        :attr:`stroke_width`, and :attr:`fill_color`, using the specified
-        array of coordinates.
-
-        Example polygon on ``image`` ::
-
-            with Drawing() as draw:
-                points = [(40,10), (20,50), (90,10), (70,40)]
-                draw.polygon(points)
-                draw.draw(image)
-
-        :param points: list of x,y tuples
-        :type points: :class:`list`
-
-        .. versionadded:: 0.4.0
-
-        """
-
-        (points_l, points_p) = _list_to_point_info(points)
-        library.DrawPolygon(self.resource, points_l,
-                            ctypes.cast(points_p, ctypes.POINTER(PointInfo)))
-
-    def polyline(self, points=None):
-        """Draws a polyline using the current :attr:`stoke_color`,
-        :attr:`stroke_width`, and :attr:`fill_color`, using the specified
-        array of coordinates.
-
-        Identical to :class:`~wand.drawing.Drawing.polygon`, but without closed
-        stroke line.
-
-        :param points: list of x,y tuples
-        :type points: :class:`list`
-
-        .. versionadded:: 0.4.0
-
-        """
-
-        (points_l, points_p) = _list_to_point_info(points)
-        library.DrawPolyline(self.resource, points_l,
-                             ctypes.cast(points_p, ctypes.POINTER(PointInfo)))
-
-    def bezier(self, points=None):
-        """Draws a bezier curve through a set of points on the image, using
-        the specified array of coordinates.
-
-        At least four points should be given to complete a bezier path.
-        The first & forth point being the start & end point, and the second
-        & third point controlling the direction & curve.
-
-        Example bezier on ``image`` ::
-
-            with Drawing() as draw:
-                points = [(40,10), # Start point
-                          (20,50), # First control
-                          (90,10), # Second control
-                          (70,40)] # End point
-                draw.stroke_color = Color('#000')
-                draw.fill_color = Color('#fff')
-                draw.bezier(points)
-                draw.draw(image)
-
-        :param points: list of x,y tuples
-        :type points: :class:`list`
-
-        .. versionadded:: 0.4.0
-
-        """
-
-        (points_l, points_p) = _list_to_point_info(points)
-        library.DrawBezier(self.resource, points_l,
-                           ctypes.cast(points_p, ctypes.POINTER(PointInfo)))
-
-    def text(self, x, y, body):
-        """Writes a text ``body`` into (``x``, ``y``).
-
-        :param x: the left offset where to start writing a text
-        :type x: :class:`numbers.Integral`
-        :param y: the baseline where to start writing text
-        :type y: :class:`numbers.Integral`
-        :param body: the body string to write
-        :type body: :class:`basestring`
-
-        """
-        if not isinstance(x, numbers.Integral) or x < 0:
-            exc = ValueError if x < 0 else TypeError
-            raise exc('x must be a natural number, not ' + repr(x))
-        elif not isinstance(y, numbers.Integral) or y < 0:
-            exc = ValueError if y < 0 else TypeError
-            raise exc('y must be a natural number, not ' + repr(y))
-        elif not isinstance(body, string_type):
-            raise TypeError('body must be a string, not ' + repr(body))
-        elif not body:
-            raise ValueError('body string cannot be empty')
-        if isinstance(body, text_type):
-            # According to ImageMagick C API docs, we can use only UTF-8
-            # at this time, so we do hardcoding here.
-            # http://imagemagick.org/api/drawing-wand.php#DrawSetTextEncoding
-            if not self.text_encoding:
-                self.text_encoding = 'UTF-8'
-            body = body.encode(self.text_encoding)
-        body_p = ctypes.create_string_buffer(body)
-        library.DrawAnnotation(
-            self.resource, x, y,
-            ctypes.cast(body_p, ctypes.POINTER(ctypes.c_ubyte))
-        )
+        assertions.assert_real(degree=degree)
+        library.DrawRotate(self.resource, degree)
 
     def scale(self, x=None, y=None):
         """
@@ -1819,10 +1850,7 @@ class Drawing(Resource):
         .. versionadded:: 0.4.0
 
         """
-        if not isinstance(x, numbers.Real):
-            raise TypeError('expecting numbers.Real, not ' + repr(x))
-        if not isinstance(y, numbers.Real):
-            raise TypeError('expecting numbers.Real, not ' + repr(y))
+        assertions.assert_real(x=x, y=y)
         library.DrawScale(self.resource, x, y)
 
     def set_fill_pattern_url(self, url):
@@ -1837,8 +1865,7 @@ class Drawing(Resource):
         .. versionadded:: 0.4.0
 
         """
-        if not isinstance(url, string_type):
-            raise TypeError('expecting basestring, not ' + repr(url))
+        assertions.assert_string(url=url)
         if url[0] != '#':
             raise ValueError('value not a relative URL, '
                              'expecting "#identifier"')
@@ -1859,8 +1886,7 @@ class Drawing(Resource):
         .. versionadded:: 0.4.0
 
         """
-        if not isinstance(url, string_type):
-            raise TypeError('expecting basestring, not ' + repr(url))
+        assertions.assert_string(url=url)
         if url[0] != '#':
             raise ValueError('value not a relative URL, '
                              'expecting "#identifier"')
@@ -1886,6 +1912,34 @@ class Drawing(Resource):
         if y is not None:
             library.DrawSkewY(self.resource, float(y))
 
+    def text(self, x, y, body):
+        """Writes a text ``body`` into (``x``, ``y``).
+
+        :param x: the left offset where to start writing a text
+        :type x: :class:`numbers.Integral`
+        :param y: the baseline where to start writing text
+        :type y: :class:`numbers.Integral`
+        :param body: the body string to write
+        :type body: :class:`basestring`
+
+        """
+        assertions.assert_unsigned_integer(x=x, y=y)
+        assertions.assert_string(body=body)
+        if not body:
+            raise ValueError('body string cannot be empty')
+        if isinstance(body, text_type):
+            # According to ImageMagick C API docs, we can use only UTF-8
+            # at this time, so we do hardcoding here.
+            # http://imagemagick.org/api/drawing-wand.php#DrawSetTextEncoding
+            if not self.text_encoding:
+                self.text_encoding = 'UTF-8'
+            body = body.encode(self.text_encoding)
+        body_p = ctypes.create_string_buffer(body)
+        library.DrawAnnotation(
+            self.resource, x, y,
+            ctypes.cast(body_p, ctypes.POINTER(ctypes.c_ubyte))
+        )
+
     def translate(self, x=None, y=None):
         """Applies a translation to the current coordinate system which moves
         the coordinate system origin to the specified coordinate.
@@ -1900,35 +1954,6 @@ class Drawing(Resource):
         if x is None or y is None:
             raise TypeError('Both x & y coordinates need to be defined')
         library.DrawTranslate(self.resource, float(x), float(y))
-
-    def get_font_metrics(self, image, text, multiline=False):
-        """Queries font metrics from the given ``text``.
-
-        :param image: the image to be drawn
-        :type image: :class:`~wand.image.Image`
-        :param text: the text string for get font metrics.
-        :type text: :class:`basestring`
-        :param multiline: text is multiline or not
-        :type multiline: `boolean`
-
-        """
-        if not isinstance(image, Image):
-            raise TypeError('image must be a wand.image.Image instance, not ' +
-                            repr(image))
-        if not isinstance(text, string_type):
-            raise TypeError('text must be a string, not ' + repr(text))
-        if multiline:
-            font_metrics_f = library.MagickQueryMultilineFontMetrics
-        else:
-            font_metrics_f = library.MagickQueryFontMetrics
-        if isinstance(text, text_type):
-            if self.text_encoding:
-                text = text.encode(self.text_encoding)
-            else:
-                text = binary(text)
-        result = font_metrics_f(image.wand, self.resource, text)
-        args = (result[i] for i in xrange(13))
-        return FontMetrics(*args)
 
     def viewbox(self, left, top, right, bottom):
         """Viewbox sets the overall canvas size to be recorded with the drawing
@@ -1949,14 +1974,8 @@ class Drawing(Resource):
         .. versionadded:: 0.4.0
 
         """
-        if not isinstance(left, numbers.Integral):
-            raise TypeError('left must be an integer, not ' + repr(left))
-        if not isinstance(top, numbers.Integral):
-            raise TypeError('top must be an integer, not ' + repr(top))
-        if not isinstance(right, numbers.Integral):
-            raise TypeError('right must be an integer, not ' + repr(right))
-        if not isinstance(bottom, numbers.Integral):
-            raise TypeError('bottom must be an integer, not ' + repr(bottom))
+        assertions.assert_integer(left=left, top=top,
+                                  right=right, bottom=bottom)
         library.DrawSetViewbox(self.resource, left, top, right, bottom)
 
     def __call__(self, image):
@@ -1983,7 +2002,7 @@ def _list_to_point_info(points):
     point_info_size = point_length * tuple_size
     # Allocate sequence of memory
     point_info = (ctypes.c_double * point_info_size)()
-    for double_index in xrange(0, point_info_size):
+    for double_index in range(point_info_size):
         tuple_index = double_index // tuple_size
         tuple_offset = double_index % tuple_size
         point_info[double_index] = ctypes.c_double(
