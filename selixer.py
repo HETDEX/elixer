@@ -147,7 +147,7 @@ elif hostname == "wrangler":
     else:
         MAX_TASKS = 2400
         MAX_NODES = 100
-        MAX_TASKS_PER_NODE = 24
+        MAX_TASKS_PER_NODE = 20 #need extra memory (128GB/20 instead of 128GB/24)
 
     time = "00:59:59"
     time_set = False
