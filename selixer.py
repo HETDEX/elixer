@@ -145,6 +145,7 @@ elif hostname == "wrangler":
         MAX_NODES = 50  # right now, pointless to go beyond 2 nodes
         MAX_TASKS_PER_NODE = 6  # actually, variable, encoded later
     else:
+        MAX_DETECTS_PER_CPU = 50
         MAX_TASKS = 2400
         MAX_NODES = 100
         MAX_TASKS_PER_NODE = 20 #need extra memory (128GB/20 instead of 128GB/24)
