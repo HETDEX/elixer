@@ -2192,6 +2192,8 @@ class Spectrum:
             # EmissionLine("Pa$\\beta$".ljust(w),12818.0,"lightcoral",solution=True, display=True),
             # EmissionLine("Pa$\\alpha$".ljust(w),18751.0,"lightcoral",solution=True, display=True),
 
+            #solution == can be a single line solution .... if False, only counts as a possible solution if
+            # there is at least one corroborating line
 
             EmissionLine("Ly$\\alpha$".ljust(w), G.LyA_rest, 'red'),
 
@@ -2199,15 +2201,15 @@ class Spectrum:
             EmissionLine("OIII".ljust(w), 4960.295, "lime"),
             EmissionLine("OIII".ljust(w), 5008.240, "lime"),
 
-            EmissionLine("CIV".ljust(w), 1549.48, "blueviolet",display=True),  # big in AGN
+            EmissionLine("CIV".ljust(w), 1549.48, "blueviolet",solution=False,display=True),  # big in AGN
             EmissionLine("CIII".ljust(w), 1908.734, "purple",solution=False,display=True),  #big in AGN
             EmissionLine("CII".ljust(w),  2326.0, "purple",solution=False,display=False),  # in AGN
 
             EmissionLine("MgII".ljust(w), 2799.117, "magenta",solution=False,display=True),  #big in AGN
 
 
-            EmissionLine("H$\\beta$".ljust(w), 4862.68, "blue"),
-            EmissionLine("H$\\gamma$".ljust(w), 4341.68, "royalblue"),
+            EmissionLine("H$\\beta$".ljust(w), 4862.68, "blue",solution=True),
+            EmissionLine("H$\\gamma$".ljust(w), 4341.68, "royalblue",solution=False),
             EmissionLine("H$\\delta$".ljust(w), 4102, "royalblue", solution=False,display=False),
             EmissionLine("H$\\epsilon$/CaII".ljust(w), 3970, "royalblue", solution=False,display=False), #very close to CaII(3970)
             EmissionLine("H$\\zeta$".ljust(w), 3889, "royalblue", solution=False,display=False),
@@ -2597,8 +2599,9 @@ class Spectrum:
         min_w = min(wavelengths)
 
         for e in self.emission_lines:
-            if not e.solution: #if this line is not allowed to be the main line
-                continue
+            #todo: consider .solution to mean it cannot be a lone solution (that is, the line without other lines)
+            #if not e.solution: #if this line is not allowed to be the main line
+            #    continue
 
             central_z = central/e.w_rest - 1.0
             if (central_z) < 0.0:
@@ -2693,7 +2696,6 @@ class Spectrum:
                                         add_to_sol = False
                                         break
 
-
                     #now, before we add, if we have not run MCMC on the feature, do so now
                     if G.MIN_MCMC_SNR > 0:
                         if add_to_sol:
@@ -2744,18 +2746,22 @@ class Spectrum:
                                    l.sigma, l.line_score,l.prob_noise))
 
             if sol.score > 0.0:
-                #log.info("Solution p(noise) (%f) from %d additional lines" % (sol.prob_noise, len(sol.lines) - 1))
-                #bonus for each extra line over the minimum
+                # check if not a solution, has at least one other line
+                if (not e.solution) and (sol.lines is not None) and (len(sol.lines) < 2):
+                    log.debug("Line (%s, %0.1f) not allowed as single line solution." %(sol.name,sol.central_rest))
+                else:
+                    #log.info("Solution p(noise) (%f) from %d additional lines" % (sol.prob_noise, len(sol.lines) - 1))
+                    #bonus for each extra line over the minimum
 
-                #sol.lines does NOT include the main line (just the extra lines)
-                n = len(np.where([l.absorber == False for l in sol.lines])[0])
-      #          n = len(sol.lines) + 1 #+1 for the main line
-                if  n >= G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY:
-                    bonus =0.5*(n**2 - n)*G.ADDL_LINE_SCORE_BONUS #could be negative
-                    #print("+++++ %s n(%d) bonus(%g)"  %(self.identifier,n,bonus))
-                    sol.score += bonus
-                    total_score += bonus
-                solutions.append(sol)
+                    #sol.lines does NOT include the main line (just the extra lines)
+                    n = len(np.where([l.absorber == False for l in sol.lines])[0])
+          #          n = len(sol.lines) + 1 #+1 for the main line
+                    if  n >= G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY:
+                        bonus =0.5*(n**2 - n)*G.ADDL_LINE_SCORE_BONUS #could be negative
+                        #print("+++++ %s n(%d) bonus(%g)"  %(self.identifier,n,bonus))
+                        sol.score += bonus
+                        total_score += bonus
+                    solutions.append(sol)
         #end for e in emission lines
 
         #clean up invalid solutions (multiple lines with very different systematic velocity offsets)

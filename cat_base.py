@@ -777,7 +777,8 @@ class Catalog:
                 plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
 
                 #needs to be here at the end due to rescaling
-                self.add_zero_position(plt)
+                #self.add_zero_position(plt)
+                plt.plot(0, 0, "r+")
             except:
                 log.error("Unable to overplot fiber positions.",exc_info=True)
 
@@ -902,7 +903,8 @@ class Catalog:
             plt.yticks([int(-ext), int(-ext / 2.), 0, int(ext / 2.), int(ext)])
 
             #needs to be at the end
-            self.add_zero_position(plt)
+            #self.add_zero_position(plt)
+            plt.plot(0, 0, "r+")
         except:
             log.error("Exception in cat_base::add_empty_catalog_fiber_positions.",exc_info=True)
 
