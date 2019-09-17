@@ -727,8 +727,7 @@ class Catalog:
                 plt.xlabel("arcsecs")
                 plt.gca().xaxis.labelpad = 0
 
-                plt.plot(0, 0, "r+")
-
+                #plt.plot(0, 0, "r+")
                 xmin = float('inf')
                 xmax = float('-inf')
                 ymin = float('inf')
@@ -776,8 +775,48 @@ class Catalog:
 
                 plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
                 plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+
+                #needs to be here at the end due to rescaling
+                self.add_zero_position(plt)
             except:
                 log.error("Unable to overplot fiber positions.",exc_info=True)
+
+
+    def add_zero_position(self,plt):
+
+        try:
+            # over plot a reticle for the 0,0 position
+            line_frac = 0.2 #length of the line (each arm) as a fraction of the image size
+            open_frac = 0.1 #length of the open area (as a fraction of the image size) in between the arms
+            _color='r'
+            _zorder=1
+
+            #get the dimensions
+            xl,xr = plt.gca().get_xlim()
+            yl,yr = plt.gca().get_ylim()
+
+            cx = (xl + xr)/2.0
+            cy = (yl + yr)/2.0
+
+            dx = xr - xl
+            dy = yr - yl
+
+            #left arm
+            plt.hlines(cy,xmin=cx-(dx*open_frac/2.0)-dx*line_frac, xmax=cx-(dx*open_frac/2.0),colors=_color,
+                       ls='solid',lw=1.0,zorder=_zorder)
+            #right arm
+            plt.hlines(cy, xmin=cx+(dx*open_frac/2.0), xmax=cx+(dx*open_frac/2.0)+dx*line_frac, colors=_color,
+                       ls='solid', lw=1.0,zorder=_zorder)
+
+            #bottom arm
+            plt.vlines(cx,ymin=cy-(dy*open_frac/2.0)-dy*line_frac, ymax=cy-(dy*open_frac/2.0),colors=_color,
+                       ls='solid',lw=1.0,zorder=_zorder)
+            # top arm
+            plt.vlines(cx, ymin=cy+(dy*open_frac/2.0), ymax=cy+(dy*open_frac/2.0)+dy*line_frac, colors=_color,
+                       ls='solid', lw=1.0,zorder=_zorder)
+        except:
+            log.error("Exception! in cat_base::add_zero_position()",exc_info=True)
+
 
 
 
@@ -820,7 +859,7 @@ class Catalog:
 
         try:
             plt.title("Relative Fiber Positions")
-            plt.plot(0, 0, "r+")
+            #plt.plot(0, 0, "r+")
 
             xmin = float('inf')
             xmax = float('-inf')
@@ -861,6 +900,9 @@ class Catalog:
 
             plt.xticks([int(-ext), int(-ext / 2.), 0, int(ext / 2.), int(ext)])
             plt.yticks([int(-ext), int(-ext / 2.), 0, int(ext / 2.), int(ext)])
+
+            #needs to be at the end
+            self.add_zero_position(plt)
         except:
             log.error("Exception in cat_base::add_empty_catalog_fiber_positions.",exc_info=True)
 

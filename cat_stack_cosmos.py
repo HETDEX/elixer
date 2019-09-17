@@ -52,6 +52,35 @@ def subaru_hsc_g_count_to_mag(count,cutout=None,headers=None):
     #image has no converion defined; header very limited
 
 
+
+#NOTE: Depth around 26 mag or so
+def cosmos_count_to_mag(count,cutout=None,headers=None):
+    #nanofact = 334.116462522 #counts to nano-janksy from g fits header [NANOFACT]
+    magzero = 31.4
+    if count is not None:
+
+        try:
+            # gain = float(sci_image[0].header['GAIN'])
+            #nanofact = float(sci_image[0].header['NANOFACT'])
+            magzero = float(headers[0]['MAGZERO'])
+            #exptime = float(sci_image[0].header['EXPTIME'])
+        except:
+            # gain = 1.0
+            nanofact = 0.0
+            log.error("Exception in cosmos_g_count_to_mag", exc_info=True)
+            return 99.9
+
+        if count > 0:
+            #return -2.5 * np.log10(count*nanofact) + magzero
+            #counts for cosmos ALREADY in nanojansky
+            if isinstance(count, float):
+                return -2.5 * np.log10(count) + magzero
+            else:
+                return -2.5 * np.log10(count.value) + magzero
+        else:
+            return 99.9  # need a better floor
+
+
 #NOTE: Depth around 26 mag or so
 def cosmos_g_count_to_mag(count,cutout=None,headers=None):
     #nanofact = 334.116462522 #counts to nano-janksy from g fits header [NANOFACT]
@@ -66,7 +95,7 @@ def cosmos_g_count_to_mag(count,cutout=None,headers=None):
         except:
             # gain = 1.0
             nanofact = 0.0
-            log.error("Exception in shela_count_to_mag", exc_info=True)
+            log.error("Exception in cosmos_g_count_to_mag", exc_info=True)
             return 99.9
 
         if count > 0:
@@ -95,7 +124,7 @@ def cosmos_r_count_to_mag(count,cutout=None,headers=None):
         except:
             # gain = 1.0
             nanofact = 0.0
-            log.error("Exception in shela_count_to_mag", exc_info=True)
+            log.error("Exception in cosmos_r_count_to_mag", exc_info=True)
             return 99.9
 
         if count > 0:
@@ -223,7 +252,7 @@ class STACK_COSMOS(cat_base.Catalog):
          'expanded': False,
          'wcs_manual': False,
          'aperture': 1.0,
-         'mag_func': cosmos_g_count_to_mag
+         'mag_func': cosmos_count_to_mag
          #'frame': 'icrs'
         },
         {'path': STACK_COSMOS_IMAGE_PATH,
@@ -236,7 +265,7 @@ class STACK_COSMOS(cat_base.Catalog):
          'expanded': False,
          'wcs_manual': False,
          'aperture': 1.0,
-         'mag_func': cosmos_r_count_to_mag
+         'mag_func': cosmos_count_to_mag
          # 'frame': 'icrs'
          },
         {'path': STACK_COSMOS_IMAGE_PATH,
@@ -557,6 +586,8 @@ class STACK_COSMOS(cat_base.Catalog):
         font.set_family('monospace')
         font.set_size(12)
 
+
+
         #All on one line now across top of plots
         if G.ZOO:
             title = "Possible Matches = %d (within +/- %g\")" \
@@ -593,6 +624,9 @@ class STACK_COSMOS(cat_base.Catalog):
         # add the bid targets
         bid_colors = self.get_bid_colors(len(bid_ras))
 
+        best_plae_poii = None
+        best_plae_poii_filter = '-'
+
         index = 0 #start in the 2nd box which is index 1 (1st box is for the fiber position plot)
         master_is_expanded = False
         for i in self.CatalogImages:  # i is a dictionary
@@ -623,7 +657,7 @@ class STACK_COSMOS(cat_base.Catalog):
             cutout_plae = None
 
             try: #update non-matched source line with PLAE()
-                if ((mag < 99)  and (target_flux is not None) and (i['filter'] == 'r')):
+                if ((mag < 99)  and (target_flux is not None) and (i['filter'] in 'gr')):# and (i['filter'] == 'r')):
                     #make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
                     bid_target = match_summary.BidTarget()
                     bid_target.catalog_name = self.Name
@@ -683,14 +717,20 @@ class STACK_COSMOS(cat_base.Catalog):
                     cutout_plae = bid_target.p_lae_oii_ratio
                     cutout_ewr = ew_obs / (1. + target_w / G.LyA_rest)
 
-                    if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
-                        text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)"
-                                      % (bid_target.p_lae_oii_ratio,i['filter']))
+                    if best_plae_poii is None or i['filter'] == 'r':
+                        best_plae_poii = bid_target.p_lae_oii_ratio
+                        best_plae_poii_filter = i['filter']
+
+                    # if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
+                    #     text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)"
+                    #                   % (bid_target.p_lae_oii_ratio,i['filter']))
 
                     cat_match.add_bid_target(bid_target)
             except:
                 log.debug('Could not build exact location photometry info.',exc_info=True)
 
+            if (not G.ZOO) and (bid_target is not None) and (best_plae_poii is not None):
+                text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)" % (best_plae_poii,best_plae_poii_filter))
 
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
@@ -719,7 +759,8 @@ class STACK_COSMOS(cat_base.Catalog):
                 plt.title(i['instrument'] + " " + i['filter'])
                 plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
                 plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-                plt.plot(0, 0, "r+")
+                #plt.plot(0, 0, "r+")
+                self.add_zero_position(plt)
 
                 if pix_counts is not None:
                     cx = sci.last_x0_center

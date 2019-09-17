@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.7.3a1[2019-09-17]
+* fixed: COSMOS catalog only reporting r-band mag/PLAE
+* fixed: turned on CIV, etc as displayable for LyA solutions
+* replaced red + at center of imaging cutouts with open crosshair
+
 1.7.2 [2019-09-12]
 For manual classification effort.
 * Aperture photometry set to fixed 1.5" at 0,0 position for consistency with previous runs.

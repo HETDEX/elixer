@@ -655,7 +655,8 @@ class GOODS_N(cat_base.Catalog):
                 plt.title(i['instrument'] + " " + i['filter'])
                 plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
                 plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-                plt.plot(0, 0, "r+")
+                #plt.plot(0, 0, "r+")
+                self.add_zero_position(plt)
                 self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)
                 x, y = sci.get_position(ra, dec, cutout)  # zero (absolute) position
                 for br, bd, bc in zip(bid_ras, bid_decs, bid_colors):

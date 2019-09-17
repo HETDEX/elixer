@@ -2199,11 +2199,11 @@ class Spectrum:
             EmissionLine("OIII".ljust(w), 4960.295, "lime"),
             EmissionLine("OIII".ljust(w), 5008.240, "lime"),
 
-            EmissionLine("CIV".ljust(w), 1549.48, "blueviolet",display=False),  # big in AGN
-            EmissionLine("CIII".ljust(w), 1908.734, "purple",display=False),  #big in AGN
+            EmissionLine("CIV".ljust(w), 1549.48, "blueviolet",display=True),  # big in AGN
+            EmissionLine("CIII".ljust(w), 1908.734, "purple",solution=False,display=True),  #big in AGN
             EmissionLine("CII".ljust(w),  2326.0, "purple",solution=False,display=False),  # in AGN
 
-            EmissionLine("MgII".ljust(w), 2799.117, "magenta",display=False),  #big in AGN
+            EmissionLine("MgII".ljust(w), 2799.117, "magenta",solution=False,display=True),  #big in AGN
 
 
             EmissionLine("H$\\beta$".ljust(w), 4862.68, "blue"),
@@ -2213,14 +2213,14 @@ class Spectrum:
             EmissionLine("H$\\zeta$".ljust(w), 3889, "royalblue", solution=False,display=False),
             EmissionLine("H$\\eta$".ljust(w), 3835, "royalblue", solution=False,display=False),
 
-            EmissionLine("NV".ljust(w), 1240.81, "teal", solution=False,display=False),
+            EmissionLine("NV".ljust(w), 1240.81, "teal", solution=False,display=True),
 
-            EmissionLine("SiII".ljust(w), 1260, "gray", solution=False,display=False),
+            EmissionLine("SiII".ljust(w), 1260, "gray", solution=False,display=True),
 
-            EmissionLine("HeII".ljust(w), 1640.4, "orange", solution=True,display=False),
+            EmissionLine("HeII".ljust(w), 1640.4, "orange", solution=False,display=True),
 
-            EmissionLine("NeIII".ljust(w), 3869, "deeppink", solution=True,display=False),
-            EmissionLine("NeIII".ljust(w), 3967, "deeppink", solution=True,display=False),  #very close to CaII(3970)
+            EmissionLine("NeIII".ljust(w), 3869, "deeppink", solution=False,display=False),
+            EmissionLine("NeIII".ljust(w), 3967, "deeppink", solution=False,display=False),  #very close to CaII(3970)
             EmissionLine("NeV".ljust(w), 3346.79, "deeppink", solution=False,display=False),
             EmissionLine("NeVI".ljust(w), 3426.85, "deeppink", solution=False, display=False),
 

@@ -5629,67 +5629,68 @@ class HETDEX:
         plt.close(fig)
         return buf
 
-    def build_relative_fiber_locs(self, e):
-
-        fig = plt.figure(figsize=(5, 3))
-        #plt.subplots_adjust(left=0.0, right=1.0, top=1.0, bottom=0.0)
-        fibplot = plt.axes()#[0.1, 0.2, 0.8, 0.8])
-
-        fibplot.set_title("Relative Fiber Positions")
-        #fibplot.set_xlabel("arcsecs")
-        #plt.gca().xaxis.labelpad =
-
-        fibplot.plot(0, 0, "r+")
-
-        xmin = float('inf')
-        xmax = float('-inf')
-        ymin = float('inf')
-        ymax = float('-inf')
-
-        if e.wra:
-            e_ra = e.wra
-            e_dec = e.wdec
-        else:
-            e_ra = e.ra
-            e_dec = e.dec
-
-        for r, d, c, i, dist, fn in e.fiber_locs:
-            # fiber absolute position ... need relative position to plot (so fiber - zero pos)
-            fx = (r - e_ra) * np.cos(np.deg2rad(e_dec)) * 3600.
-            fy = (d - e_dec) * 3600.
-
-            xmin = min(xmin, fx)
-            xmax = max(xmax, fx)
-            ymin = min(ymin, fy)
-            ymax = max(ymax, fy)
-
-            fibplot.add_patch(plt.Circle((fx,fy), radius=G.Fiber_Radius, color=c, fill=False,
-                                           linestyle='solid',zorder=9))
-            fibplot.text(fx,fy, str(i), ha='center', va='center', fontsize='x-small', color=c)
-
-            if fn in G.CCD_EDGE_FIBERS_ALL:
-                fibplot.add_patch(
-                    plt.Circle((fx, fy), radius=G.Fiber_Radius + 0.1, color=c, fill=False,
-                               linestyle='dashed',zorder=9))
-
-        # larger of the spread of the fibers or the maximum width (in non-rotated x-y plane) of the error window
-        ext_base = max(abs(xmin), abs(xmax), abs(ymin), abs(ymax))
-        ext = ext_base + 2*G.Fiber_Radius
-
-        rec = plt.Rectangle((-ext,-ext),width=ext*2, height=ext * 2, fill=True, lw=1,
-                            color='gray', zorder=0, alpha=0.5)
-        fibplot.add_patch(rec)
-
-        fibplot.set_xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-        fibplot.set_yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-        fibplot.set_aspect('equal')
-
-        fig.tight_layout()
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', dpi=300)
-
-        plt.close(fig)
-        return buf
+    # def build_relative_fiber_locs(self, e):
+    #     #defunct
+    #
+    #     fig = plt.figure(figsize=(5, 3))
+    #     #plt.subplots_adjust(left=0.0, right=1.0, top=1.0, bottom=0.0)
+    #     fibplot = plt.axes()#[0.1, 0.2, 0.8, 0.8])
+    #
+    #     fibplot.set_title("Relative Fiber Positions")
+    #     #fibplot.set_xlabel("arcsecs")
+    #     #plt.gca().xaxis.labelpad =
+    #
+    #     fibplot.plot(0, 0, "r+")
+    #
+    #     xmin = float('inf')
+    #     xmax = float('-inf')
+    #     ymin = float('inf')
+    #     ymax = float('-inf')
+    #
+    #     if e.wra:
+    #         e_ra = e.wra
+    #         e_dec = e.wdec
+    #     else:
+    #         e_ra = e.ra
+    #         e_dec = e.dec
+    #
+    #     for r, d, c, i, dist, fn in e.fiber_locs:
+    #         # fiber absolute position ... need relative position to plot (so fiber - zero pos)
+    #         fx = (r - e_ra) * np.cos(np.deg2rad(e_dec)) * 3600.
+    #         fy = (d - e_dec) * 3600.
+    #
+    #         xmin = min(xmin, fx)
+    #         xmax = max(xmax, fx)
+    #         ymin = min(ymin, fy)
+    #         ymax = max(ymax, fy)
+    #
+    #         fibplot.add_patch(plt.Circle((fx,fy), radius=G.Fiber_Radius, color=c, fill=False,
+    #                                        linestyle='solid',zorder=9))
+    #         fibplot.text(fx,fy, str(i), ha='center', va='center', fontsize='x-small', color=c)
+    #
+    #         if fn in G.CCD_EDGE_FIBERS_ALL:
+    #             fibplot.add_patch(
+    #                 plt.Circle((fx, fy), radius=G.Fiber_Radius + 0.1, color=c, fill=False,
+    #                            linestyle='dashed',zorder=9))
+    #
+    #     # larger of the spread of the fibers or the maximum width (in non-rotated x-y plane) of the error window
+    #     ext_base = max(abs(xmin), abs(xmax), abs(ymin), abs(ymax))
+    #     ext = ext_base + 2*G.Fiber_Radius
+    #
+    #     rec = plt.Rectangle((-ext,-ext),width=ext*2, height=ext * 2, fill=True, lw=1,
+    #                         color='gray', zorder=0, alpha=0.5)
+    #     fibplot.add_patch(rec)
+    #
+    #     fibplot.set_xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+    #     fibplot.set_yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+    #     fibplot.set_aspect('equal')
+    #
+    #     fig.tight_layout()
+    #     buf = io.BytesIO()
+    #     plt.savefig(buf, format='png', dpi=300)
+    #
+    #     plt.close(fig)
+    #     return buf
 
 
     #wide (full width) spectrum

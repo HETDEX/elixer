@@ -11,9 +11,10 @@ import numpy as np
 
 #catalogs are defined at top of catalogs.py
 import socket
+hostname = socket.gethostname()
 
 #version
-__version__ = '1.7.2'
+__version__ = '1.7.3a1'
 
 #python version
 import sys
@@ -24,9 +25,11 @@ if sys.byteorder == 'big':
 else:
     BIG_ENDIAN = False
 
-HDR1 = True #set to TRUE for HDR1 release
 LAUNCH_PDF_VIEWER = None
-
+if hostname != "z50":
+    HDR1 = True #set to TRUE for HDR1 release
+else:
+    HDR1 = False
 
 if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
     #base path: /work/03946/hetdex/hdr1/
@@ -71,7 +74,7 @@ if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
     HSC_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
 
 else:
-    if socket.gethostname() == 'z50':
+    if hostname == 'z50':
         LAUNCH_PDF_VIEWER = 'qpdfview'
     if True:
         HDF5_DETECT_FN = "/work/03946/hetdex/hdr1/detect/detect_hdr1.h5"
@@ -418,11 +421,11 @@ ADDL_LINE_SCORE_BONUS = 5.0 #add for each line at 2+ lines (so 1st line adds not
 SHADE_1D_SPEC_PEAKS = False #if true, shade in red the 1D spec peaks above the NORM noise limit (see below)
 
 
-DYNAMIC_MAG_APERTURE = False  #allow aperture size to change to fit maximum magnitude
+DYNAMIC_MAG_APERTURE = True  #allow aperture size to change to fit maximum magnitude
 MIN_DYNAMIC_MAG_RADIUS = 1.0 #in arcsec
 FIXED_MAG_APERTURE = 1.5 #radius in arcsec
 MAX_DYNAMIC_MAG_APERTURE = 2.0 #maximum growth in dynamic mag
-NUDGE_MAG_APERTURE_CENTER = 0.0  #allow the center of the mag aperture to drift to the 2D Gaussian centroid
+NUDGE_MAG_APERTURE_CENTER = 1.0  #allow the center of the mag aperture to drift to the 2D Gaussian centroid
                                  #up to this distance in x and y in arcsec (if 0.0 then no drift is allowed)
 MAX_SKY_SUBTRACT_MAG = 2.0 #if local sky subtraction results in a magnitude change greater than this value, do not apply it
 
