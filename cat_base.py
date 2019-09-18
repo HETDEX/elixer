@@ -27,7 +27,7 @@ import matplotlib.gridspec as gridspec
 
 from matplotlib.font_manager import FontProperties
 import scipy.constants
-
+import io
 
 
 #log = G.logging.getLogger('Cat_logger')
@@ -705,7 +705,7 @@ class Catalog:
 
 
 
-    def add_fiber_positions(self,plt,ra,dec,fiber_locs,error,ext,cutout):
+    def add_fiber_positions(self,plt,ra,dec,fiber_locs,error,ext,cutout,unlabeled=False):
             # plot the fiber cutout
             log.debug("Plotting fiber positions...")
 
@@ -723,9 +723,13 @@ class Catalog:
                     fiber_locs = []
                     plt.title("")
                 else:
-                    plt.title("Fiber Positions")
-                plt.xlabel("arcsecs")
-                plt.gca().xaxis.labelpad = 0
+                    if unlabeled:
+                        plt.title("")
+                    else:
+                        plt.title("Fiber Positions")
+                if not unlabeled:
+                    plt.xlabel("arcsecs")
+                    plt.gca().xaxis.labelpad = 0
 
                 #plt.plot(0, 0, "r+")
                 xmin = float('inf')
@@ -768,7 +772,8 @@ class Catalog:
 
                 vmin, vmax = empty_sci.get_vrange(cutout.data)
 
-                self.add_north_box(plt, empty_sci, cutout, error, 0, 0, theta=None)
+                if not unlabeled:
+                    self.add_north_box(plt, empty_sci, cutout, error, 0, 0, theta=None)
                 plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                            vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
 
@@ -779,6 +784,12 @@ class Catalog:
                 #needs to be here at the end due to rescaling
                 #self.add_zero_position(plt)
                 plt.plot(0, 0, "r+")
+
+                if unlabeled:
+                    plt.axis("off")
+                    plt.gca().set_yticklabels([])
+                    plt.gca().set_xticklabels([])
+
             except:
                 log.error("Unable to overplot fiber positions.",exc_info=True)
 

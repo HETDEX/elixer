@@ -549,6 +549,12 @@ class DetObj:
 
         self.duplicate_fibers_removed = 0 # -1 is detected, but not removed, 0 = none found, 1 = detected and removed
 
+
+        self.image_2d_fibers_1st_col = None
+        self.image_1d_emission_fit = None
+        self.image_cutout_fiber_pos = None
+
+
         if emission:
             self.type = 'emis'
             # actual line number from the input file
@@ -3851,7 +3857,9 @@ class HETDEX:
                     im = Image.open(buf)
                     plt.imshow(im,interpolation='none') #needs to be 'none' else get blurring
 
-                    buf, img_y = self.build_2d_image_1st_column_only(datakeep)
+                    if G.ZOO_CUTOUTS:
+                        e.image_2d_fibers_1st_col, _ = self.build_2d_image_1st_column_only(datakeep)
+
 
                 except:
                     log.warning("Failed to 2D cutout image.", exc_info=True)
@@ -3920,6 +3928,10 @@ class HETDEX:
                     buf.seek(0)
                     im = Image.open(buf)
                     plt.imshow(im,interpolation='none')#needs to be 'none' else get blurring
+
+                    if G.ZOO_CUTOUTS:
+                        e.image_1d_emission_fit = self.build_spec_image(datakeep, e.w, dwave=1.0,unlabeled=True)
+
                 except:
                     log.warning("Failed to build spec image.",exc_info = True)
 
@@ -5376,7 +5388,7 @@ class HETDEX:
 
         buf = io.BytesIO()
         # plt.tight_layout()#pad=0.1, w_pad=0.5, h_pad=1.0)
-        plt.savefig(buf, format='png', dpi=300)
+        plt.savefig(buf, format='png', dpi=300,transparent=True)
 
         if G.ZOO_CUTOUTS:
             try:
@@ -5387,7 +5399,7 @@ class HETDEX:
                 else:
                     fn = self.output_filename + "_" + str(e.entry_id).zfill(3) + "_zoo_2d_fib_col1.png"
                 fn = op.join(e.outdir, fn)
-                plt.savefig(fn, format="png", dpi=300)
+                plt.savefig(fn, format="png", dpi=300,transparent=True)
             except:
                 log.error("Unable to write zoo_2d_fib image to disk.", exc_info=True)
 
@@ -5520,7 +5532,7 @@ class HETDEX:
 
 
 
-    def build_spec_image_fit_gaussian(self,datakeep,cwave,dwave=1.0):
+    def build_spec_image_fit_gaussian(self,datakeep,cwave,dwave=1.0,unlabeled=False):
 
         #scatter plot (with errors) the data points within the zoom-in region
         #and overplot the Gaussian fit from the 4 parameters
@@ -5578,8 +5590,12 @@ class HETDEX:
 
         specplot.plot(wave_grid, fit_spec, c='k', lw=2, linestyle="solid", alpha=0.7, zorder=0)
         specplot.errorbar(wave_data,flux,yerr=flux_err,fmt='.',zorder=9)
-        specplot.text(0.05,0.95,'e-17',horizontalalignment='center',
-                      verticalalignment='center', transform=specplot.transAxes)
+        if unlabeled:
+            specplot.set_yticklabels([])
+            specplot.set_xticklabels([])
+        else:
+            specplot.text(0.05, 0.95, 'e-17', horizontalalignment='center',
+                          verticalalignment='center', transform=specplot.transAxes)
 
         # log.debug("Spec Plot max count = %f , min count = %f" % (mx, mx))
         # specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='--', c=[0.3, 0.3, 0.3])
@@ -5597,7 +5613,7 @@ class HETDEX:
                 else:
                     fn = self.output_filename + "_" + str(e.entry_id).zfill(3) + "_zoo_1d_sum.png"
                 fn = op.join(e.outdir, fn)
-                plt.savefig(fn, format="png", dpi=300)
+                plt.savefig(fn, format="png", dpi=300,transparent=True)
             except:
                 log.error("Unable to write zoo_1d_sum image to disk.", exc_info=True)
 
@@ -5605,12 +5621,12 @@ class HETDEX:
         return buf
 
     #upper right panel (zoomed in spectrum image)
-    def build_spec_image(self,datakeep,cwave, dwave=1.0):
+    def build_spec_image(self,datakeep,cwave, dwave=1.0,unlabeled=False):
 
         try:
             result = None
             if datakeep['detobj'].line_gaussfit_parms is not None:
-                result =  self.build_spec_image_fit_gaussian(datakeep,cwave,dwave=1.0)
+                result =  self.build_spec_image_fit_gaussian(datakeep,cwave,dwave=1.0,unlabeled=unlabeled)
 
             #if the Gaussian fit plot worked, use it ... otherwise make the old plot
             if result is not None:
@@ -5740,6 +5756,9 @@ class HETDEX:
             specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='--', c=[0.3, 0.3, 0.3])
             specplot.axis([cwave - ww, cwave + ww, min_y, mx + ran / 20])
 
+            if unlabeled:
+                specplot.axis('off')
+
         except:
             log.warning("Unable to build cutout spec plot. Datakeep info:\n"
                         "IFUSLOTID = %s\n"
@@ -5771,7 +5790,7 @@ class HETDEX:
        #     log.error("Error building spectra plot error bar", exc_info=True)
 
         buf = io.BytesIO()
-        plt.savefig(buf, format='png', dpi=300)
+        plt.savefig(buf, format='png', dpi=300,transparent=True)
 
         if G.ZOO_CUTOUTS:
             try:
@@ -5781,7 +5800,7 @@ class HETDEX:
                 else:
                     fn = self.output_filename + "_" + str(e.entry_id).zfill(3) + "_zoo_1d_sum.png"
                 fn = op.join(e.outdir, fn)
-                plt.savefig(fn, format="png", dpi=300)
+                plt.savefig(fn, format="png", dpi=300,transparent=True)
             except:
                 log.error("Unable to write zoo_1d_sum image to disk.", exc_info=True)
 

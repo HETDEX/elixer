@@ -20,7 +20,7 @@ except:
 
 import os.path as op
 import copy
-
+import io
 
 import matplotlib
 #matplotlib.use('agg')
@@ -773,9 +773,18 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
         self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, self.master_cutout)
         #self.add_zero_position(plt)
-
         # complete the entry
         plt.close()
+
+        # get zoo style cutout as png
+        if G.ZOO_CUTOUTS and (detobj is not None):
+            plt.figure()
+            self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, self.master_cutout, unlabeled=True)
+            buf = io.BytesIO()
+            plt.savefig(buf, format='png', dpi=300,transparent=True)
+            detobj.image_cutout_fiber_pos = buf
+            plt.close()
+
         return fig
 
 

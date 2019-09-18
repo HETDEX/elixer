@@ -3,6 +3,7 @@ from __future__ import print_function
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 
 try:
     from elixer import hetdex
@@ -39,7 +40,7 @@ import errno
 import time
 import numpy as np
 #import re
-#from PIL import Image
+from PIL import Image as PIL_Image
 from wand.image import Image
 
 import tables
@@ -1758,6 +1759,104 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
     return newlist
 
 
+
+def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fiber_pos):
+    if (fname is None) or (image_2d_fiber is None) or (image_1d_fit is None) or (image_cutout_fiber_pos is None):
+        log.error("Missing required data in elixer::build_3panel_zoo_image")
+        return
+    try:
+        #note: 0,0 (for grid spec) is upper left
+        # first slice is the vertical positioning (#rows), second is the horizontal (#cols)
+
+        #plot with gridspec
+        fig = plt.figure(constrained_layout=True)#,figsize=(2,3)) #x,y or cols, rows
+        plt.subplots_adjust(wspace=0, hspace=0)
+        #plt.subplots_adjust(left=0.00, right=0.95, top=0.95, bottom=0.0)
+
+        gs = gridspec.GridSpec(200,200,figure=fig,wspace=0.0,hspace=0.0)  # rows, columns or y,x
+
+
+
+        #1d Gaussian fit
+        ax3 = fig.add_subplot(gs[115:-1,45:-1])#,gridspec_kw = {'wspace':0, 'hspace':0})
+        ax3.set_axis_off()
+        #plt.subplots_adjust(wspace=0, hspace=0)
+
+        #ax3.axis('off')
+        ax3.axes.get_xaxis().set_visible(False)
+        ax3.axes.get_yaxis().set_visible(False)
+        image_1d_fit.seek(0)
+        im3 = PIL_Image.open(image_1d_fit)
+        ax3.imshow(im3)
+
+
+        #2d fiber position / master cutout
+        ax2 = fig.add_subplot(gs[0:135,47:-1])
+        ax2.set_axis_off()
+        #fig = plt.subplot(gs[0:50,30:-1])#,gridspec_kw = {'wspace':0, 'hspace':0})
+        #plt.subplots_adjust(wspace=0, hspace=0)
+
+        #ax2.axis('off')
+        #ax2.axes.get_xaxis().set_visible(False)
+        #ax2.axes.get_yaxis().set_visible(False)
+
+        image_cutout_fiber_pos.seek(0)
+        im2 = PIL_Image.open(image_cutout_fiber_pos)
+        ax2.imshow(im2)
+
+        # is hidden
+        # 1st column 2d fiber cutouts
+        ax1 = fig.add_subplot(gs[15:191, 0:90])
+        ax1.set_axis_off()
+        # fig = plt.subplot(gs[0:-1,0:30])#,gridspec_kw = {'wspace':0, 'hspace':0})
+        # plt.subplots_adjust(wspace=0, hspace=0)
+
+        # ax1.axis('off')
+        # ax1.axes.get_xaxis().set_visible(False)
+        # ax1.axes.get_yaxis().set_visible(False)
+
+        image_2d_fiber.seek(0)
+        im1 = PIL_Image.open(image_2d_fiber)
+        ax1.imshow(im1)
+
+
+        if True:
+            buf = io.BytesIO()
+            plt.savefig(buf, format='png', dpi=300, bbox_inches='tight', transparent=True)
+            plt.close()
+
+            plt.figure()
+            buf.seek(0)
+            #im = PIL_Image.open(buf)
+            im = plt.imshow(PIL_Image.open(buf).crop((20,100,1150,1100)))
+            #patch =
+            #plt.tight_layout(rect=(0.1,0.1,0.8,0.8))
+
+            # try to trim
+            # patch = patches.Rectangle((0, 0), width=1200, height=1050, angle=0.0,transform=plt.gca().transData)
+            # im.set_clip_path(patch)
+            plt.gca().axis('off')
+
+            #fig.tight_layout()
+            plt.savefig(fname, format='png', dpi=300,bbox_inches='tight',transparent=False)
+            log.debug("File written: %s" % (fname))
+            plt.close()
+        else:
+            plt.savefig(fname, format='png', dpi=300, bbox_inches='tight', transparent=False)
+            log.debug("File written: %s" % (fname))
+            plt.close()
+
+        #alternate
+        #cvs = PIL_Image.new('RGB',(2200,2400))
+
+
+    except:
+        log.error("Exception! in elixer::build_3panel_zoo_image",exc_info=True)
+        #temporary
+        print("*** mini exception ***")
+
+
+
 def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=None, distance=None, cwave=None, fname=None):
     """
 
@@ -2544,7 +2643,16 @@ def main():
                                            detectid=None, ra=ra, dec=dec, distance=args.neighborhood, cwave=e.w,
                                            fname=os.path.join(pdf.basename, str(e.entry_id) + "nei.png"))
     #end for master_loop_idx in range(master_loop_length):
-
+    if G.ZOO_CUTOUTS:
+        msg = "Building ELiXer-lite summary images for all detections ...."
+        log.info(msg)
+        print(msg)
+        for h in hd_list:  # iterate over all hetdex detections
+            for e in h.emis_list:
+                build_3panel_zoo_image(fname=os.path.join(pdf.basename, str(e.entry_id) + "_mini.png"),
+                                       image_2d_fiber=e.image_2d_fibers_1st_col,
+                                       image_1d_fit=e.image_1d_emission_fit,
+                                       image_cutout_fiber_pos = e.image_cutout_fiber_pos)
 
 
     if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer and (len(viewer_file_list) > 0):

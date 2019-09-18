@@ -17,6 +17,7 @@ except:
 
 import os.path as op
 import copy
+import io
 
 
 CANDELS_EGS_Stefanon_2016_BASE_PATH = G.CANDELS_EGS_Stefanon_2016_BASE_PATH
@@ -849,10 +850,18 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
         plt.subplot(gs[1:, 0])
         self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, self.master_cutout)
-
-
         # complete the entry
         plt.close()
+
+        #get zoo style cutout as png
+        if G.ZOO_CUTOUTS and (detobj is not None):
+            plt.figure()
+            self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, self.master_cutout,unlabeled=True)
+            buf = io.BytesIO()
+            plt.savefig(buf, format='png', dpi=300,transparent=True)
+            detobj.image_cutout_fiber_pos = buf
+            plt.close()
+
         return fig
 
     def build_multiple_bid_target_figures_one_line(self, cat_match, ras, decs, error, target_ra=None, target_dec=None,

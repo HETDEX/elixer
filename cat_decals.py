@@ -19,6 +19,7 @@ except:
 import os.path as op
 import copy
 from ftplib import FTP
+import io
 
 
 import matplotlib
@@ -704,9 +705,18 @@ class DECALS(cat_base.Catalog):#Hyper Suprime Cam
 
         plt.subplot(gs[1:, 0])
         self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, self.master_cutout)
-
         # complete the entry
         plt.close()
+
+        # get zoo style cutout as png
+        if G.ZOO_CUTOUTS and (detobj is not None):
+            plt.figure()
+            self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, self.master_cutout, unlabeled=True)
+            buf = io.BytesIO()
+            plt.savefig(buf, format='png', dpi=300,transparent=True)
+            detobj.image_cutout_fiber_pos = buf
+            plt.close()
+
         return fig
 
 
