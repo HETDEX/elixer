@@ -3850,6 +3850,9 @@ class HETDEX:
                     buf.seek(0)
                     im = Image.open(buf)
                     plt.imshow(im,interpolation='none') #needs to be 'none' else get blurring
+
+                    buf, img_y = self.build_2d_image_1st_column_only(datakeep)
+
                 except:
                     log.warning("Failed to 2D cutout image.", exc_info=True)
 
@@ -5238,6 +5241,162 @@ class HETDEX:
 
         plt.close(fig)
         return buf, Y
+
+    # 2d spectra cutouts (one per fiber) 1st column only
+    def build_2d_image_1st_column_only(self, datakeep):
+
+        #always plot 5 (1 sum and 4 fibers ... if fibers are empty, plot as zero)
+
+        # not dynamic, but if we are going to add a combined 2D spectra cutout at the top, set this to 1
+        add_summed_image = 1  # note: adding w/cosmics masked out
+        frac_y_separator = 0.2  # add a separator between the colored fibers and the black (summed) fiber at this
+        # fraction of the cell height
+
+        detobj = datakeep['detobj']
+
+        cmap = plt.get_cmap('gray_r')
+
+        colors = self.make_fiber_colors(min(4, len(datakeep['ra'])),
+                                        len(datakeep['ra']))  # + 2 ) #the +2 is a pad in the call
+        num_fibers = len(datakeep['xi'])
+
+        num_to_display = 5 #min(MAX_2D_CUTOUTS, num_fibers) + add_summed_image  # for the summed images
+
+        borderbuff = 0.01
+
+        #just to keep the code similar to the build_2d_image from which it was cloned
+        borderxl = 0.00#0.05
+        borderxr = 0.00#0.15
+
+        borderyb = 0.00 #0.05
+        borderyt = 0.00 #0.15
+
+        # the +1 for the summed image
+        dx = 1.0
+        dy = (0.96) / num_to_display  #- 5*borderbuff #- borderbuff #0.96 so have a little extra room to separate off the summed image
+        dx1 = dx #1.0 - borderbuff
+        dy1 = dy - borderbuff #dy - 2*borderbuff #(0.96 - (num_to_display) * borderbuff ) / (num_to_display)
+        #dy1 = 1.0 / num_to_display
+        #(1. - borderyb - borderyt - (num_to_display) * bordbuff) / (num_to_display)
+        Y = 2.0
+
+        fig = plt.figure(figsize=(0.9, Y), frameon=False)
+        plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
+
+        # previously sorted in order from largest distances to smallest
+        ind = list(range(len(datakeep['d'])))
+
+        # assume all the same shape
+        summed_image = np.zeros(datakeep['im'][ind[0]].shape)
+
+        # need i to start at zero
+        # building from bottom up
+        grid_idx = -1
+        for i in range(num_fibers + add_summed_image):
+            make_display = False
+            if i < num_fibers:
+                pcolor = colors[i]
+                     # , 0:4] #keep the 4th value (alpha value) ... need that to lower the alpha of the greys
+                datakeep['color'][ind[i]] = pcolor
+                datakeep['index'][ind[i]] = num_fibers - i
+
+                if i > (num_fibers - num_to_display):  # we are in reverse order (building the bottom cutout first)
+                    make_display = True
+                    grid_idx += 1
+                    is_a_fiber = True
+                    ext = list(np.hstack([datakeep['xl'][ind[i]], datakeep['xh'][ind[i]],
+                                          datakeep['yl'][ind[i]], datakeep['yh'][ind[i]]]))
+
+                    # set the hot (cosmic) pixel values to zero then employ guassian_filter
+                    a = datakeep['im'][ind[i]]
+                    a = np.ma.masked_where(datakeep['err'][ind[i]] == -1, a)
+                    a = np.ma.filled(a, 0.0)
+
+                    summed_image += a * datakeep['fiber_weight'][ind[i]]
+
+                    image = datakeep['im'][ind[i]]
+                          # im can be the cosmic removed version, depends on G.PreferCosmicCleaned
+
+                    cmap1 = cmap
+                    cmap1.set_bad(color=[0.2, 1.0, 0.23])
+                    image = np.ma.masked_where(datakeep['err'][ind[i]] == -1, image)
+                    img_vmin = datakeep['vmin2'][ind[i]]
+                    img_vmax = datakeep['vmax2'][ind[i]]
+
+                    # plot_label = str(num_fibers-i)
+                    # plot_label = str("%0.2f" % datakeep['fiber_weight'][ind[i]]).lstrip('0') #save space, kill leading 0
+
+                    # the last one is the top one and is the primary
+                    datakeep['primary_idx'] = ind[i]
+
+            else:  # this is the top image (the sum)
+                is_a_fiber = False
+                make_display = True
+                grid_idx += 1
+                pcolor = 'k'
+                ext = None
+
+                image = summed_image
+                img_vmin, img_vmax = self.get_vrange(summed_image, scale=contrast2)
+
+            if make_display:
+
+                if is_a_fiber:
+                    y_separator = 0.0
+                else:
+                    y_separator = frac_y_separator * dy
+
+                borplot = plt.axes([borderxl + 0. * dx, borderyb + grid_idx * dy + y_separator, dx, dy])
+
+                imgplot = plt.axes(
+                    [borderxl + 0. * dx + borderbuff / 2., borderyb + grid_idx * dy + borderbuff / 2. + y_separator,
+                     dx1, dy1])
+
+                autoAxis = borplot.axis()
+
+
+                imgplot.imshow(image,
+                               origin="lower", cmap=cmap1,
+                               vmin=img_vmin,
+                               vmax=img_vmax,
+                               interpolation="none", extent=ext,zorder=1)
+
+                imgplot.set_xticks([])
+                imgplot.set_yticks([])
+                imgplot.axis('off')
+
+                rec = plt.Rectangle((autoAxis[0] + borderbuff / 2., autoAxis[2] + borderbuff / 2.),
+                                    (autoAxis[1] - autoAxis[0]) * (1. - borderbuff),
+                                    (autoAxis[3] - autoAxis[2]) * (1. - borderbuff), fill=False, lw=3,
+                                    color=pcolor, zorder=9)
+                rec = borplot.add_patch(rec)
+                borplot.set_xticks([])
+                borplot.set_yticks([])
+                borplot.axis('off')
+
+        buf = io.BytesIO()
+        # plt.tight_layout()#pad=0.1, w_pad=0.5, h_pad=1.0)
+        plt.savefig(buf, format='png', dpi=300)
+
+        if G.ZOO_CUTOUTS:
+            try:
+                e = datakeep['detobj']
+
+                if e.pdf_name is not None:
+                    fn = e.pdf_name.rstrip(".pdf") + "_zoo_2d_fib_col1.png"
+                else:
+                    fn = self.output_filename + "_" + str(e.entry_id).zfill(3) + "_zoo_2d_fib_col1.png"
+                fn = op.join(e.outdir, fn)
+                plt.savefig(fn, format="png", dpi=300)
+            except:
+                log.error("Unable to write zoo_2d_fib image to disk.", exc_info=True)
+
+        plt.close(fig)
+        return buf, Y
+        #end build_2d_image_1st_column_only
+
+
+
 
 
     # +/- 3 fiber sizes on CCD (not spacially adjacent fibers)
