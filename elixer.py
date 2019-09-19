@@ -127,24 +127,25 @@ class PDF_File():
             if pdf_name is not None:
                 #expect the id to be in the pdf_name
                 if str(id) in pdf_name:
-                    log.debug("+++++ name 1")
                     self.filename = os.path.join(self.basename, pdf_name) + ".pdf"
 
             if self.filename is None:
                 if (type(id) == int) or (type(id) == np.int64):
                     if id < 1e9:
-                        log.debug("+++++ name 2")
                         filename = os.path.basename(self.basename) + "_" + str(id).zfill(3) + ".pdf"
                     else:
-                        log.debug("+++++ name 3")
                         filename = str(id) + ".pdf"
                 else:
-                    log.debug("+++++ name 4, type (%s)" %(str(type(id))))
-                    filename = os.path.basename(self.basename) + "_" + str(id) + ".pdf"
+                    try:
+                        if (type(id) == str) and id.isnumeric() and np.int64(id) > 1e9:
+                            filename = str(id) + ".pdf"
+                        else:
+                            filename = os.path.basename(self.basename) + "_" + str(id) + ".pdf"
+                    except:
+                        filename = os.path.basename(self.basename) + "_" + str(id) + ".pdf"
 
                 self.filename = os.path.join(self.basename,filename)
         else:
-            log.debug("+++++ name 5")
             pass #keep filename as is
 
         self.pages = None
@@ -1320,6 +1321,7 @@ def get_hdf5_detectids_to_process(args):
 
     detectids = []
     detlist = None
+    check_for_numeric = False
 
     try:
 
@@ -1377,6 +1379,8 @@ def get_hdf5_detectids_to_process(args):
                 else:
                     detlist = args.dets.replace(', ',',').split(',') #allow comma or comma-space separation
                     log.debug("Loaded --dets as list")
+                    check_for_numeric = True
+
             except:
                 log.error("Exception processing detections (--dets) detlist. FATAL. ", exc_info=True)
                 print("Exception processing detections (--dets) detlist. FATAL.")
@@ -1395,6 +1399,16 @@ def get_hdf5_detectids_to_process(args):
         if len_detlist == 1 and not isinstance(detlist,list):
             # so we get a list of strings, not just a single string and not a list of characters
             detlist = [str(detlist)]
+
+        if check_for_numeric and len_detlist > 0:
+            try:
+                detlist = [np.int64(x) for x in detlist]
+                # numeric = [x.isnumeric() for x in detlist]
+                # if np.all(numeric):
+                #    detlist = [np.int64(x) for x in detlist]
+            except:
+                pass
+
 
         if args.blind:
             log.info("Blindly accepting detections list")
