@@ -815,17 +815,17 @@ class Catalog:
 
             #left arm
             plt.hlines(cy,xmin=cx-(dx*open_frac/2.0)-dx*line_frac, xmax=cx-(dx*open_frac/2.0),colors=_color,
-                       ls='solid',lw=1.0,zorder=_zorder)
+                       linestyles='solid',linewidth=1.0,zorder=_zorder)
             #right arm
             plt.hlines(cy, xmin=cx+(dx*open_frac/2.0), xmax=cx+(dx*open_frac/2.0)+dx*line_frac, colors=_color,
-                       ls='solid', lw=1.0,zorder=_zorder)
+                       linestyles='solid', linewidth=1.0,zorder=_zorder)
 
             #bottom arm
             plt.vlines(cx,ymin=cy-(dy*open_frac/2.0)-dy*line_frac, ymax=cy-(dy*open_frac/2.0),colors=_color,
-                       ls='solid',lw=1.0,zorder=_zorder)
+                       linestyles='solid',linewidth=1.0,zorder=_zorder)
             # top arm
             plt.vlines(cx, ymin=cy+(dy*open_frac/2.0), ymax=cy+(dy*open_frac/2.0)+dy*line_frac, colors=_color,
-                       ls='solid', lw=1.0,zorder=_zorder)
+                       linestyles='solid', linewidth=1.0,zorder=_zorder)
         except:
             log.error("Exception! in cat_base::add_zero_position()",exc_info=True)
 
