@@ -3857,7 +3857,7 @@ class HETDEX:
                     im = Image.open(buf)
                     plt.imshow(im,interpolation='none') #needs to be 'none' else get blurring
 
-                    if G.ZOO_CUTOUTS:
+                    if G.ZOO_MINI:
                         e.image_2d_fibers_1st_col, _ = self.build_2d_image_1st_column_only(datakeep)
 
 
@@ -3929,7 +3929,7 @@ class HETDEX:
                     im = Image.open(buf)
                     plt.imshow(im,interpolation='none')#needs to be 'none' else get blurring
 
-                    if G.ZOO_CUTOUTS:
+                    if G.ZOO_MINI:
                         e.image_1d_emission_fit = self.build_spec_image(datakeep, e.w, dwave=1.0,unlabeled=True)
 
                 except:
@@ -5406,9 +5406,6 @@ class HETDEX:
         plt.close(fig)
         return buf, Y
         #end build_2d_image_1st_column_only
-
-
-
 
 
     # +/- 3 fiber sizes on CCD (not spacially adjacent fibers)

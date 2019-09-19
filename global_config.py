@@ -409,6 +409,7 @@ PLOT_GAUSSIAN = True
 
 ZOO = False #target output for Zooniverse
 ZOO_CUTOUTS = False #produce the small zooniverse cutouts
+ZOO_MINI = False
 
 UNIQUE_DET_ID_NUM = 0
 

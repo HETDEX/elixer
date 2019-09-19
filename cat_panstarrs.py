@@ -625,7 +625,7 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
         plt.close()
 
         # get zoo style cutout as png
-        if G.ZOO_CUTOUTS and (detobj is not None):
+        if G.ZOO_MINI and (detobj is not None):
             plt.figure()
             self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, self.master_cutout, unlabeled=True)
             buf = io.BytesIO()

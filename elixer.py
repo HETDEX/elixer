@@ -227,6 +227,8 @@ def parse_commandline(auto_force=False):
 
     parser.add_argument('--panacea_red',help="Basedir for searching for Panacea reduction files",required=False)
 
+    parser.add_argument('--mini', help='Produce a mini (cellphone friendly) ELiXer image summary', required=False,
+                        action='store_true', default=False)
     parser.add_argument('--zoo', help='Produce image cutouts for publication on Zooniverse', required=False,
                         action='store_true', default=False)
     parser.add_argument('--zoox', help='Redact sensitive information AND produce image cutouts for publication on Zooniverse',
@@ -444,6 +446,11 @@ def parse_commandline(auto_force=False):
 
     if (args.allcat is not None):
         G.FORCE_SINGLE_PAGE = not args.allcat
+
+
+    if (args.mini is not None) and (args.mini):
+        #G.ZOO = False #for now, don't hide, just do the cutouts
+        G.ZOO_MINI = True
 
     if (args.zoo is not None) and (args.zoo):
         #G.ZOO = False #for now, don't hide, just do the cutouts
@@ -2641,7 +2648,7 @@ def main():
                                            detectid=None, ra=ra, dec=dec, distance=args.neighborhood, cwave=e.w,
                                            fname=os.path.join(pdf.basename, str(e.entry_id) + "nei.png"))
     #end for master_loop_idx in range(master_loop_length):
-    if G.ZOO_CUTOUTS:
+    if G.ZOO_MINI:
         msg = "Building ELiXer-lite summary images for all detections ...."
         log.info(msg)
         print(msg)
