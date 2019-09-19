@@ -14,7 +14,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.7.3a1'
+__version__ = '1.7.4a1'
 
 #python version
 import sys
@@ -69,9 +69,14 @@ if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
     SHELA_PHOTO_Z_COMBINED_PATH = "/work/03946/hetdex/hdr1/imaging/shela/SHELA"
     SHELA_PHOTO_Z_MASTER_PATH = "/work/03946/hetdex/hdr1/imaging/shela/SHELA"
 
-    HSC_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced"
-    HSC_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts"
-    HSC_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
+    if op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
+        HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
+        HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
+        HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
+    else:
+        HSC_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced"
+        HSC_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts"
+        HSC_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
 
 else:
     if hostname == 'z50':
@@ -122,9 +127,14 @@ else:
         # HSC_CAT_PATH = "/media/dustin/dd/hetdex/data/HSC/catalog_tracts" #"/work/04094/mshiro/maverick/HSC/S15A/reduced/catalog_tracts"
         # HSC_IMAGE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced/images"
 
-        HSC_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced"
-        HSC_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts"
-        HSC_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
+        if op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
+            HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
+            HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
+            HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
+        else:
+            HSC_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced"
+            HSC_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts"
+            HSC_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
 
         DECALS_BASE_PATH = "/media/dustin/dd/hetdex/data/decals"
         DECALS_CAT_PATH = "/media/dustin/dd/hetdex/data/decals"
@@ -183,9 +193,14 @@ else:
         # HSC_CAT_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced/catalog_tracts"
         # HSC_IMAGE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced/images"
 
-        HSC_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced"
-        HSC_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts"
-        HSC_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
+        if op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
+            HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
+            HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
+            HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
+        else:
+            HSC_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced"
+            HSC_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts"
+            HSC_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
 
 
 VIRUS_CONFIG = op.join(CONFIG_BASEDIR,"virus_config")

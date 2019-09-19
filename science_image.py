@@ -245,14 +245,17 @@ class science_image():
             self.footprint = None
 
         try:
-            self.exptime = float(self.hdulist[self.wcs_idx].header['EXPTIME'])
-        except:
-            try:#if not with the wcs header, check the main (0) header
+            if 'EXPTIME' in self.hdulist[self.wcs_idx].header:
+                self.exptime = float(self.hdulist[self.wcs_idx].header['EXPTIME'])
+            #if not with the wcs header, check the main (0) header
+            elif 'EXPTIME' in self.hdulist[0].header:
                 self.exptime = float(self.hdulist[0].header['EXPTIME'])
-            except:
-
-                log.warning('Warning. Could not load exposure time from %s' %self.image_location, exc_info=True)
+            else:
                 self.exptime = None
+                log.warning('Warning. [EXPTIME] not found in %s' % self.image_location)
+        except:
+            log.warning('Warning. Could not load exposure time from %s' %self.image_location, exc_info=True)
+            self.exptime = None
 
         try:
             self.pixel_size = self.calc_pixel_size(self.wcs)#np.sqrt(self.wcs.wcs.cd[0, 0] ** 2 + self.wcs.wcs.cd[0, 1] ** 2) * 3600.0  # arcsec/pixel

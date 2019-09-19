@@ -1,6 +1,20 @@
 changes to elixer by version
 
-1.7.3a1[2019-09-17]
+
+1.7.4a1 [2019-09-19]
+* Updated with new HSC data release (new format, 2x coverage)
+    -image organization different (now <...>/tract/image_file)
+    -catalog organization different (now <...>/tract/<position>.dat
+    -catalog format different (98 columns now from 20)
+        -using flux.cmodel and flux (least squares fit) as preferred
+    -FITS format different
+            -WCS idx now 0 (was 1)
+            -flux zero point not reported in header (specified as fixed in the README)
+            -exposure time not reported in header
+            -others ....
+* Added option to output an "ELiXer-lite" single image (as <detectid>_mini.png) ... uses --zoo or --zoox switch
+
+1.7.3a1 [2019-09-17]
 * fixed: COSMOS catalog only reporting r-band mag/PLAE
 * fixed: allow (solution = False) lines IFF there is at least one corroborating line
    (allows CIV, etc for LyA solutions)

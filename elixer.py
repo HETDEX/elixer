@@ -1769,13 +1769,11 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
         # first slice is the vertical positioning (#rows), second is the horizontal (#cols)
 
         #plot with gridspec
-        fig = plt.figure(constrained_layout=True)#,figsize=(2,3)) #x,y or cols, rows
+        fig = plt.figure()#constrained_layout=True)#,figsize=(2,3)) #x,y or cols, rows
         plt.subplots_adjust(wspace=0, hspace=0)
         #plt.subplots_adjust(left=0.00, right=0.95, top=0.95, bottom=0.0)
 
         gs = gridspec.GridSpec(200,200,figure=fig,wspace=0.0,hspace=0.0)  # rows, columns or y,x
-
-
 
         #1d Gaussian fit
         ax3 = fig.add_subplot(gs[115:-1,45:-1])#,gridspec_kw = {'wspace':0, 'hspace':0})

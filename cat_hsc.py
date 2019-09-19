@@ -1,6 +1,36 @@
 from __future__ import print_function
 
 
+"""
+2019-09-19
+This HSC imaging data set is consist of HSC r-band data in the HETDEX spring field
+taken in the semesters of S15A+S17A+S18A (= a total of 2 nights).
+This amounts to 150 deg2 (= 2 times wider than the S15A HSC data available in HDR1).
+
+
+The sky distribution of the reduced data is shown as green filled circles in 
+/data/04094/mshiro/HSC/dr2/check_tract.png (/work/03649/hetdex/hdr2/imaging/hsc/check_tract.png)
+
+The seeing size is =0.6-1.0 arcsec in FWHM.
+The depth is 5 sigma limiting magnitude of r = 25.5 mag for 2''.0 aperture.
+
+
+The reduced HSC images are available at:
+<...>/image_tract_patch/(tract)/calexp-HSC-R-(tract)-(patch).fits
+There are 6916 images named "calexp-HSC-R-(tract)-(patch i j ).fits" (i, j = 0,1, ..., 8).
+
+
+The coordinates of tracts and their patches are summarized in:
+<...>/check_tract/(tract).dat
+/data/04094/mshiro/HSC/dr2/check_tract/(tract).png
+
+***note: ELiXer calculate corners are slightly different than HSC reported corners (ELiXer are
+slightly wider ... assume HSC does not include the very edge/perimeter that is in the image). This
+does not matter as ELiXer only uses this to find the correct tile and that is the tile(s) for which
+the provided target RA, Dec are maximally inside the tile).
+
+"""
+
 try:
     from elixer import global_config as G
     from elixer import science_image
@@ -53,19 +83,28 @@ def hsc_count_to_mag(count,cutout=None,headers=None):
     # -2.5*log(flux_R) -48.6 = -2.5*log(count_R / FLUXMAG0)
     # --> flux_R = count_R / ( 10^(30.24) )
 
-    #note: zero point is 27 mag
-    if count is not None:
-    #if cutout is not None:
-        #get the conversion factor, each tile is different
-        try:
-            fluxmag0 = float(headers[0]['FLUXMAG0'])
-        except:
-            fluxmag0 = 0.0
-            log.error("Exception in hsc_count_to_mag",exc_info=True)
-            return 99.9
+    #note: zero point is 27 mag, tiles are no longer different?
+#release 2:
+#The magnitude zero point is R_ZP = 27.0 mag.
+# You can convert the count values in the imaging data into flux as follows:
+# -2.5*log(flux_R) -48.6 = -2.5*log(count_R) + R_ZP
+# --> flux_R = count_R / (10^(30.24))
 
+    fluxmag0 = None
+    try:
+        if 'FLUXMAG0' in headers[0]:
+            fluxmag0 = float(headers[0]['FLUXMAG0'])
+    except:
+        fluxmag0 = None
+
+    if count is not None:
         if count > 0:
-            return -2.5 * np.log10(count/fluxmag0) #+ 48.6
+            if fluxmag0 is not None:
+                return -2.5 * np.log10(count/fluxmag0) #+ 48.6
+            else:
+                return -2.5 * np.log10(count) + 27.0
+
+            return
         else:
             return 99.9  # need a better floor
 
@@ -88,47 +127,131 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
     Filters = ['r'] #case is important ... needs to be lowercase
     Cat_Coord_Range = {'RA_min': None, 'RA_max': None, 'Dec_min': None, 'Dec_max': None}
 
-    WCS_Manual = True
+    WCS_Manual = False
 
     AstroTable = None
 
-    # 1 sourceID
-    # 2 X on fits
-    # 3 Y on fits
-    # 4 RA
-    # 5 Dec
-    # 6 flux.psf
-    # 7 flux.psf.err
-    # 8 flux.psf.flags ("False" means no problems)
-    # 9 mag.psf
-    # 10 magerr.psf
-    # 11 flux.kron
-    # 12 flux.kron.err
-    # 13 flux.kron.flags ("False" means no problems)
-    # 14 mag.kron
-    # 15 magerr.kron
-    # 16 cmodel.flux
-    # 17 cmodel.flux.err
-    # 18 cmodel.flux.flags ("False" means no problems)
-    # 19 cmodel.mag
-    # 20 cmodel.magerr
-    #
-    #
-    # SOME TRACTS below have no detections,
-    # because these tract have almost no overlap with HSC pointings.
-    # Please check the tract-pointing distributions at
-    # /work/04094/mshiro/maverick/HSC/S15A/reduced/tract_pointing/tract_pointing.png
-    #
-    # --no detection tracts--
-    # R_16174.dat
-    # R_16645.dat
-    # R_16805.dat
-    # R_16963.dat
-    # R_16964.dat
-    # R_16965.dat
-    # R_16969.dat
-    # R_16972.dat
-    # R_16974.dat
+    ##----------------------------
+    ## Catalog Format
+    ##----------------------------
+
+    # 1   unique IDs
+    # 2   position in X [pixel]
+    # 3   position in Y [pixel]
+    # 4   position in RA [degree]
+    # 5   position in Dec [degree]
+
+    # 6   flux within 3.000000-pixel aperture
+    # 7   1-sigma flux uncertainty
+    # 8   General Failure Flag
+    # 9   magnitude within 3.000000-pixel aperture
+    # 10  1-sigma magnitude uncertainty
+
+    # 11  flux within 4.500000-pixel aperture
+    # 12  1-sigma flux uncertainty
+    # 13  General Failure Flag
+    # 14  magnitude within 4.500000-pixel aperture
+    # 15  1-sigma magnitude uncertainty
+
+    # 16  flux within 6.000000-pixel aperture
+    # 17  1-sigma flux uncertainty
+    # 18  General Failure Flag
+    # 19  magnitude within 6.000000-pixel aperture
+    # 20  1-sigma magnitude uncertainty
+
+    # 21  flux within 9.000000-pixel aperture
+    # 22  1-sigma flux uncertainty
+    # 23  General Failure Flag
+    # 24  magnitude within 9.000000-pixel aperture
+    # 25  1-sigma magnitude uncertainty
+
+    # 26  flux within 12.000000-pixel aperture
+    # 27  1-sigma flux uncertainty
+    # 28  General Failure Flag
+    # 29  magnitude within 12.000000-pixel aperture
+    # 30  1-sigma magnitude uncertainty
+
+    # 31  flux within 17.000000-pixel aperture
+    # 32  1-sigma flux uncertainty
+    # 33  General Failure Flag
+    # 34  magnitude within 17.000000-pixel aperture
+    # 35  1-sigma magnitude uncertainty
+
+    # 36  flux within 25.000000-pixel aperture
+    # 37  1-sigma flux uncertainty
+    # 38  General Failure Flag
+    # 39  magnitude within 25.000000-pixel aperture
+    # 40  1-sigma magnitude uncertainty
+
+    # 41  flux within 35.000000-pixel aperture
+    # 42  1-sigma flux uncertainty
+    # 43  General Failure Flag
+    # 44  magnitude within 35.000000-pixel aperture
+    # 45  1-sigma magnitude uncertainty
+
+    # 46  flux within 50.000000-pixel aperture'
+    # 47  1-sigma flux uncertainty
+    # 48  General Failure Flag
+    # 49  magnitude within 50.000000-pixel aperture
+    # 50  1-sigma magnitude uncertainty
+
+    # 51  flux within 70.000000-pixel aperture
+    # 52  1-sigma flux uncertainty
+    # 53  General Failure Flag
+    # 54  magnitude within 70.000000-pixel aperture
+    # 55  1-sigma magnitude uncertainty
+
+    # 56  flux derived from linear least-squares fit of PSF model
+    # 57  1-sigma flux uncertainty
+    # 58  General Failure Flag
+    # 59  magnitude derived from linear least-squares fit of PSF model
+    # 60  1-sigma magnitude uncertainty
+
+    # 61  convolved Kron flux: seeing 3.500000
+    # 62  1-sigma flux uncertainty
+    # 63  convolved Kron flux failed: seeing 3.500000
+    # 64  convolved magnitude: seeing 3.500000
+    # 65  1-sigma magnitude uncertainty
+
+    # 66  convolved Kron flux: seeing 5.000000
+    # 67  1-sigma flux uncertainty
+    # 68  convolved Kron flux failed: seeing 5.000000
+    # 69  convolved magnitude: seeing 5.00000
+    # 70  1-sigma magnitude uncertainty
+
+    # 71  convolved Kron flux: seeing 6.500000
+    # 72  1-sigma flux uncertainty
+    # 73  convolved Kron flux failed: seeing 6.500000
+    # 74  convolved magnitude: seeing 6.500000
+    # 75  1-sigma magnitude uncertainty
+
+    # 76  convolved Kron flux: seeing 8.000000
+    # 77  1-sigma flux uncertainty
+    # 78  convolved Kron flux failed: seeing 8.000000
+    # 79  convolved magnitude: seeing 8.000000
+    # 80  1-sigma magnitude uncertainty
+
+    # 81  flux from the final cmodel fit
+    # 82  flux uncertainty from the final cmodel fit
+    # 83  flag set if the final cmodel fit (or any previous fit) failed
+    # 84  magnitude from the final cmodel fit
+    # 85  magnitude uncertainty from the final cmodel fit
+
+    # 86  Number of children this object has (defaults to 0)
+    # 87  Source is outside usable exposure region (masked EDGE or NO_DATA)
+    # 88  Interpolated pixel in the Source center
+    # 89  Saturated pixel in the Source center
+    # 90  Cosmic ray in the Source center
+
+    # 91  Bad pixel in the Source footprint
+    # 92  Source center is close to BRIGHT_OBJECT pixels
+    # 93  Source footprint includes BRIGHT_OBJECT pixels
+    # 94  General Failure Flag
+
+    # 95  true if source is in the inner region of a coadd tract
+    # 96  true if source is in the inner region of a coadd patch
+    # 97  Number of images contributing at center, not including anyclipping
+    # 98  original seeing (Gaussian sigma) at position [pixel]
 
     BidCols = [
         'sourceID',
@@ -136,21 +259,118 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         'Y', # on fits
         'RA',
         'Dec', #reanamed 'DEC'
-        'flux.psf',
-        'flux.psf.err',
-        'flux.psf.flags',#("False" means no problems)
-        'mag.psf',
-        'magerr.psf',
-        'flux.kron',
-        'flux.kron.err',
-        'flux.kron.flags',# ("False" means no problems)
-        'mag.kron',
-        'magerr.kron',
-        'cmodel.flux',
-        'cmodel.flux.err',
-        'cmodel.flux.flags',# ("False" means no problems)
-        'cmodel.mag',
-        'cmodel.magerr'
+
+        'flux3.0',
+        'flux3.0_err',
+        'flux3.0_flags',#("False" means no problems)
+        'mag3.0',
+        'mag3.0_err',
+
+        'flux4.5',
+        'flux4.5_err',
+        'flux4.5_flags',  # ("False" means no problems)
+        'mag4.5',
+        'mag4.5_err',
+
+        'flux6.0',
+        'flux6.0_err',
+        'flux6.0_flags',  # ("False" means no problems)
+        'mag6.0',
+        'mag6.0_err',
+
+        'flux9.0',
+        'flux9.0_err',
+        'flux9.0_flags',  # ("False" means no problems)
+        'mag9.0',
+        'mag9.0_err',
+
+        'flux12.0',
+        'flux12.0_err',
+        'flux12.0_flags',  # ("False" means no problems)
+        'mag12.0',
+        'mag12.0_err',
+
+        'flux17.0',
+        'flux17.0_err',
+        'flux17.0_flags',  # ("False" means no problems)
+        'mag17.0',
+        'mag17.0_err',
+
+        'flux25.0',
+        'flux25.0_err',
+        'flux25.0_flags',  # ("False" means no problems)
+        'mag25.0',
+        'mag25.0_err',
+
+        'flux35.0',
+        'flux35.0_err',
+        'flux35.0_flags',  # ("False" means no problems)
+        'mag35.0',
+        'mag35.0_err',
+
+        'flux50.0',
+        'flux50.0_err',
+        'flux50.0_flags',  # ("False" means no problems)
+        'mag50.0',
+        'mag50.0_err',
+
+        'flux70.0',
+        'flux70.0_err',
+        'flux70.0_flags',  # ("False" means no problems)
+        'mag70.0',
+        'mag70.0_err',
+
+        'fluxlsq',
+        'fluxlsq_err',
+        'fluxlsq_flags',  # ("False" means no problems)
+        'maglsq',
+        'maglsq_err',
+
+        'flux.kron3.5',
+        'flux.kron3.5_err',
+        'flux.kron3.5_flags',# ("False" means no problems)
+        'mag.kron3.5',
+        'mag.kron3.5_err',
+
+        'flux.kron5.0',
+        'flux.kron5.0_err',
+        'flux.kron5.0_flags',  # ("False" means no problems)
+        'mag.kron5.0',
+        'mag.kron5.0_err',
+
+        'flux.kron6.5',
+        'flux.kron6.5_err',
+        'flux.kron6.5_flags',  # ("False" means no problems)
+        'mag.kron6.5',
+        'mag.kron6.5_err',
+
+        'flux.kron8.0',
+        'flux.kron8.0_err',
+        'flux.kron8.0_flags',  # ("False" means no problems)
+        'mag.kron8.0',
+        'mag.kron8.0_err',
+
+        'flux.cmodel',
+        'flux.cmodel_err',
+        'flux.cmodel_flags',# ("False" means no problems)
+        'mag.cmodel',
+        'mag.cmodel_err',
+
+        'children',
+        'outside',
+        'interpix_center',
+        'saturatedpix_center',
+        'cosmic_center',
+
+        'bad_pix',
+        'near_bright_obj',
+        'footprint_bright_obj',
+        'general_flag',
+
+        'inner_coadd_tract',
+        'inner_coadd_patch',
+        'num_images',
+        'orig_seeing' #Gaussian Sigma
         ]
 
     CatalogImages = [] #built in constructor
@@ -166,27 +386,41 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         self.build_catalog_of_images()
 
     @classmethod
-    def read_catalog(cls, catalog_loc=None, name=None,tract=None):
+    def read_catalog(cls, catalog_loc=None, name=None,tract=None,position=None):
+        """
+
+        :param catalog_loc:
+        :param name:
+        :param tract: list of string string as the HSC track id, ie. ['16814']
+        :param position: a tuple or array with exactly 2 elements as integers 0-9, i.e. (0,1) or (2,8), etc
+        :return:
+        """
 
         if name is None:
             name = cls.Name
 
-        if tract is not None and (len(tract)>0): #tract may be a list
-            if set(tract).issubset(cls.loaded_tracts):
-                log.info("Catalog tract (%s) already loaded." %tract)
-                return cls.df
+        fqtract =[] #fully qualified track (as a partial path)
+
+        if (tract is not None) and (len(tract) > 0) and (position is not None) and (len(position) == len(tract)): #should be a list of positions and the same length as tract
+            for i in range(len(tract)):
+                fqtract.append(op.join(tract[i],"R_P%d_%d.cat" %(position[i][0],position[i][1])))
         else:
-        #if tract is None:
-            log.error("Cannot load catalog tract for HSC. No tract provided.")
+            log.warning("Unexpected tract and positions in cat_hsc::read_catalogs: %s, %s" %(str(tract),str(position)))
             return None
 
 
+        if set(fqtract).issubset(cls.loaded_tracts):
+            log.info("Catalog tract (%s) already loaded." %fqtract)
+            return cls.df
+
+
+
         #todo: future more than just the R filter if any are ever added
-        for t in tract:
+        for t in fqtract:
             if t in cls.loaded_tracts: #skip if already loaded
                 continue
 
-            cat_name = 'R_' + t + ".dat"
+            cat_name = t
             cat_loc = op.join(cls.HSC_CAT_PATH, cat_name)
             header = cls.BidCols
 
@@ -222,16 +456,17 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         for t in self.Tile_Dict.keys(): #tile is the key (the filename)
             for f in self.Filters:
                 self.CatalogImages.append(
-                    {'path': self.HSC_IMAGE_PATH,
+                    {'path': op.join(self.HSC_IMAGE_PATH,self.Tile_Dict[t]['tract']),
                      'name': t, #filename is the tilename
                      'tile': t,
+                     'pos': self.Tile_Dict[t]['pos'], #the position tuple i.e. (0,3) or (2,8) ... in the name as 03 or 28
                      'filter': f,
                      'instrument': "HSC",
                      'cols': [],
                      'labels': [],
                      'image': None,
                      'expanded': False,
-                     'wcs_manual': True,
+                     'wcs_manual': False,
                      'aperture': 1.0,
                      'mag_func': hsc_count_to_mag
                      })
@@ -242,7 +477,8 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         #   overlap the tracts so if multiple tiles are valid, depending on which one is selected, you may
         #   not find matching objects for the associated tract)
         tile = None
-        tract = []
+        tracts = []
+        positions = []
         keys = []
         for k in self.Tile_Dict.keys():
             # don't bother to load if ra, dec not in range
@@ -256,25 +492,28 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 pass
 
         if len(keys) == 0: #we're done ... did not find any
-            return None, None
+            return None, None, None
         elif len(keys) == 1: #found exactly one
             tile = keys[0] #remember tile is a string ... there can be only one
-            tract.append(self.Tile_Dict[tile]['tract']) #remember, tract is a list (there can be more than one)
+            positions.append(self.Tile_Dict[tile]['pos'])
+            tracts.append(self.Tile_Dict[tile]['tract']) #remember, tract is a list (there can be more than one)
         elif len(keys) > 1: #find the best one
             log.info("Multiple overlapping tiles %s. Sub-selecting tile with maximum angular coverage around target." %keys)
             min = 9e9
             #we don't have the actual corners anymore, so just assume a rectangle
             #so there are 2 of each min, max coords. Only need the smallest distance so just sum one
             for k in keys:
-                tract.append(self.Tile_Dict[k]['tract'])
+                tracts.append(self.Tile_Dict[k]['tract'])
+                positions.append(self.Tile_Dict[k]['pos'])
                 sqdist = (ra-self.Tile_Dict[k]['RA_min'])**2 + (dec-self.Tile_Dict[k]['Dec_min'])**2 + \
                          (ra-self.Tile_Dict[k]['RA_max'])**2 + (dec-self.Tile_Dict[k]['Dec_max'])**2
                 if sqdist < min:
                     min = sqdist
                     tile = k
+
         else: #really?? len(keys) < 0 : this is just a sanity catch
             log.error("ERROR! len(keys) < 0 in cat_hsc::find_target_tile.")
-            return None, None
+            return None, None, None
 
         log.info("Selected tile: %s" % tile)
         #now we have the tile key (filename)
@@ -282,7 +521,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
         #sanity check the image
         # try:
-        #     image = science_image.science_image(wcs_manual=self.WCS_Manual,wcs_idx=1,
+        #     image = science_image.science_image(wcs_manual=self.WCS_Manual,wcs_idx=0,
         #                                         image_location=op.join(self.HSC_IMAGE_PATH,tile))
         #     if image.contains_position(ra, dec):
         #         pass
@@ -292,7 +531,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         # except:
         #     pass
 
-        return tile, tract
+        return tile, tracts, positions
 
     def get_filter_flux(self, df):
 
@@ -307,36 +546,34 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         method  = None
 
         try:
-            if df['flux.psf.flags'].values[0]:  # there is a problem
-                if df['flux.kron.flags'].values[0]:  # there is a problem
-                    if df['cmodel.flux.flags'].values[0]:  # there is a problem
-                        log.info("Flux/Mag unreliable due to errors.")
-                        return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
-                    else:
-                        method = 'cmodel'
+            if df['flux.cmodel_flags'].values[0]:  # there is a problem
+                if df['fluxlsq'].values[0]:  # there is a problem
+                #if df['flux.cmodel_flags'].values[0]:  # there is a problem
+                    log.info("Flux/Mag unreliable due to errors.")
+                    return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
                 else:
-                    method = 'kron'
+                    method = 'lsq'
             else:
-                method = 'psf'
+                method = 'cmodel'
         except:
             log.error("Exception in cat_hsc.get_filter_flux", exc_info=True)
             return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
 
         try:
 
-            if method == 'psf' or method == 'kron':
-                filter_fl = df["flux." + method].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
-                filter_fl_err = df["flux." + method + ".err"].values[0]
-                mag = df["mag." + method].values[0]
+            if method == 'lsq':# or method == 'kron':
+                filter_fl = df['fluxlsq'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                filter_fl_err = df["fluxlsq_err"].values[0]
+                mag = df["maglsq"].values[0]
                 # mag_bright = mag - df["magerr."+method].values[0]
-                mag_faint = df["magerr." + method].values[0]
+                mag_faint = df['maglsq_err'].values[0]
                 mag_bright = -1 * mag_faint
             else:  # cmodel
-                filter_fl = df[method + ".flux"].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
-                filter_fl_err = df[method + ".flux.err"].values[0]
-                mag = df[method + ".mag"].values[0]
+                filter_fl = df['flux.cmodel'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                filter_fl_err = df['flux.cmodel_err'].values[0]
+                mag = df['mag.cmodel'].values[0]
                 # mag_bright = mag - df["magerr."+method].values[0]
-                mag_faint = df[method + ".magerr"].values[0]
+                mag_faint = df['mag.cmodel_err'].values[0]
                 mag_bright = -1 * mag_faint
 
             # mag, mag_plus, mag_minus = self.micro_jansky_to_mag(filter_fl, filter_fl_err)
@@ -357,7 +594,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         returns a pandas dataframe'''
 
         #even if not None, could be we need a different catalog, so check and append
-        tile, tract = self.find_target_tile(ra,dec)
+        tile, tracts, positions = self.find_target_tile(ra,dec)
 
         if tile is None:
             log.info("Could not locate tile for HSC. Discontinuing search of this catalog.")
@@ -365,10 +602,10 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
         #could be none or could be not loaded yet
         #if self.df is None or not (self.Tile_Dict[tile]['tract'] in self.loaded_tracts):
-        if self.df is None or not (set(tract).issubset(self.loaded_tracts)):
+        if self.df is None or not (set(tracts).issubset(self.loaded_tracts)):
             #self.read_main_catalog()
             #self.read_catalog(tract=self.Tile_Dict[tile]['tract'])
-            self.read_catalog(tract=tract)
+            self.read_catalog(tract=tracts,position=positions)
 
         error_in_deg = np.float64(error) / 3600.0
 
@@ -479,7 +716,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         error = window
 
         # for a given Tile, iterate over all filters
-        tile, tract = self.find_target_tile(ra, dec)
+        tile, tracts, positions = self.find_target_tile(ra, dec)
         if tile is None:
             # problem
             print("No appropriate tile found in HSC for RA,DEC = [%f,%f]" % (ra, dec))
@@ -504,7 +741,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
             try:
                 if i['image'] is None:
-                    i['image'] = science_image.science_image(wcs_manual=wcs_manual,wcs_idx=1,
+                    i['image'] = science_image.science_image(wcs_manual=wcs_manual,wcs_idx=0,
                                                              image_location=op.join(i['path'], i['name']))
                 sci = i['image']
 
@@ -555,7 +792,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         font.set_size(12)
 
         # for a given Tile, iterate over all filters
-        tile, tract = self.find_target_tile(ra, dec)
+        tile, tracts, positions = self.find_target_tile(ra, dec)
 
         if tile is None:
             # problem
@@ -624,7 +861,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 mag_func = None
 
             if i['image'] is None:
-                i['image'] = science_image.science_image(wcs_manual=wcs_manual,wcs_idx=1,
+                i['image'] = science_image.science_image(wcs_manual=wcs_manual,wcs_idx=0,
                                                          image_location=op.join(i['path'], i['name']))
             sci = i['image']
 
@@ -1032,7 +1269,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
         try:
             if catalog_image['image'] is None:
-                catalog_image['image'] =  science_image.science_image(wcs_manual=wcs_manual,wcs_idx=1,
+                catalog_image['image'] =  science_image.science_image(wcs_manual=wcs_manual,wcs_idx=0,
                                                         image_location=op.join(catalog_image['path'],
                                                                         catalog_image['name']))
                 catalog_image['image'].catalog_name = catalog_image['name']
@@ -1067,7 +1304,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
     def get_cutouts(self,ra,dec,window,aperture=None):
         l = list()
 
-        tile, tract = self.find_target_tile(ra, dec)
+        tile, tracts, positions = self.find_target_tile(ra, dec)
 
         if tile is None:
             # problem
