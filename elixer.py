@@ -127,19 +127,24 @@ class PDF_File():
             if pdf_name is not None:
                 #expect the id to be in the pdf_name
                 if str(id) in pdf_name:
+                    log.debug("+++++ name 1")
                     self.filename = os.path.join(self.basename, pdf_name) + ".pdf"
 
             if self.filename is None:
                 if (type(id) == int) or (type(id) == np.int64):
                     if id < 1e9:
+                        log.debug("+++++ name 2")
                         filename = os.path.basename(self.basename) + "_" + str(id).zfill(3) + ".pdf"
                     else:
+                        log.debug("+++++ name 3")
                         filename = str(id) + ".pdf"
                 else:
+                    log.debug("+++++ name 4")
                     filename = os.path.basename(self.basename) + "_" + str(id) + ".pdf"
 
                 self.filename = os.path.join(self.basename,filename)
         else:
+            log.debug("+++++ name 5")
             pass #keep filename as is
 
         self.pages = None
