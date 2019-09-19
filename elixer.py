@@ -139,7 +139,7 @@ class PDF_File():
                         log.debug("+++++ name 3")
                         filename = str(id) + ".pdf"
                 else:
-                    log.debug("+++++ name 4")
+                    log.debug("+++++ name 4, type (%s)" %(str(type(id))))
                     filename = os.path.basename(self.basename) + "_" + str(id) + ".pdf"
 
                 self.filename = os.path.join(self.basename,filename)
