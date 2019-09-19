@@ -807,24 +807,25 @@ class science_image():
                         try:
                             #pix_aperture = CircularAperture(cutout.center_cutout,r=radius/self.pixel_size)
                             pix_aperture = CircularAperture((x_center,y_center), r=radius / self.pixel_size)
-                            log.debug("++++ pix_aperture type: %s" %(str(type(pix_aperture))))
-
                             phot_table = aperture_photometry(cutout.data, pix_aperture,method=PIXEL_APERTURE_METHOD)
                             counts = phot_table['aperture_sum'][0]
-                            log.debug("++++ pix_aperture type: %s" % (str(type(pix_aperture))))
-                            source_aperture_area = pix_aperture.area()
+                            try:
+                                source_aperture_area = pix_aperture.area
+                            except:
+                                source_aperture_area = pix_aperture.area()
                         except:
                             log.info("Pixel based aperture photometry failed. Attemping sky based ... ",exc_info=True)
 
                             try:
                                 sky_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec)
-                                log.debug("++++ sky_aperture type: %s" % (str(type(sky_aperture))))
                                 phot_table = aperture_photometry(image, sky_aperture,method=PIXEL_APERTURE_METHOD)
 #                                pix_aperture = CircularAperture(cutout.center_cutout, r=radius / self.pixel_size)
 #                                phot_table = aperture_photometry(cutout.data, pix_aperture)
                                 counts = phot_table['aperture_sum'][0]
-                                og.debug("++++ sky_aperture type: %s" % (str(type(sky_aperture))))
-                                source_aperture_area = sky_aperture.area()
+                                try:
+                                    source_aperture_area = sky_aperture.area
+                                except:
+                                    source_aperture_area = sky_aperture.area()
                             except:
                                 log.info("Sky based aperture photometry failed. Will skip aperture photometery.",
                                          exc_info=True)
