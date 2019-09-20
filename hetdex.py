@@ -57,8 +57,6 @@ import fnmatch
 import os.path as op
 from copy import copy, deepcopy
 
-
-
 import tables
 
 
@@ -549,11 +547,9 @@ class DetObj:
 
         self.duplicate_fibers_removed = 0 # -1 is detected, but not removed, 0 = none found, 1 = detected and removed
 
-
         self.image_2d_fibers_1st_col = None
         self.image_1d_emission_fit = None
         self.image_cutout_fiber_pos = None
-
 
         if emission:
             self.type = 'emis'
