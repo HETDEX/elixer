@@ -34,9 +34,127 @@ class Version(tables.IsDescription):
 
 class Detections(tables.IsDescription):
 #top level detections summary, one row for each ELiXer/HETDEX detection
-    detectid = tables.Int64Col(pos=0) #unique HETDEX detection ID 1e9+
-    elixer_version = tables.StringCol((16),pos=1) #version of elixer that generated this detection report
-    elixer_datetime = tables.StringCol((21),pos=1) #YYYY-MM-DD hh:mm:ss
+    p = 0
+    detectid = tables.Int64Col(pos=p); p+=1 #unique HETDEX detection ID 1e9+
+    elixer_version = tables.StringCol((16),pos=p); p+=1 #version of elixer that generated this detection report
+    elixer_datetime = tables.StringCol((21),pos=p); p+=1 #YYYY-MM-DD hh:mm:ss
+
+    #of the primary fiber ... typically, just three dithers and
+    #all from the same observation, so this would apply to all but
+    #it can be that this is built up from observations over different date/times
+    #this is mostly or entirely redundant with HETDEX HDF5 data (detections or survey)
+    shotid = tables.Int64Col(pos=p); p+=1
+    obsid = tables.Int32Col(pos=p); p+=1
+    specid = tables.StringCol((3),pos=p); p+=1
+    ifuslot = tables.StringCol((3),pos=p); p+=1
+    ifuid = tables.StringCol((3),pos=p); p+=1
+    seeing_gaussian = tables.Float32Col(pos=p); p+=1
+    seeing_moffat = tables.Float32Col(pos=p); p+=1
+    response = tables.Float32Col(pos=p); p+=1
+
+    #about the detection
+    ra = tables.Float32Col(pos=p); p+=1
+    dec = tables.Float32Col(pos=p); p+=1
+    wavelength_obs = tables.Float32Col(pos=p); p+=1
+    wavelength_obs_err = tables.Float32Col(pos=p); p+=1
+    flux_line = tables.Float32Col(pos=p); p+=1 #actual flux not flux density
+    flux_line_err = tables.Float32Col(pos=p); p+=1
+    fwhm_line = tables.Float32Col(pos=p); p+=1
+    fwhm_line_err = tables.Float32Col(pos=p); p+=1
+    sn = tables.Float32Col(pos=p); p+=1
+    sn_err = tables.Float32Col(pos=p); p+=1
+    chi2 = tables.Float32Col(pos=p); p+=1
+    chi2_err = tables.Float32Col(pos=p); p+=1
+
+    continuum_line = tables.Float32Col(pos=p); p+=1 #continuum from near the line
+    continuum_line_err = tables.Float32Col(pos=p); p+=1
+    continuum_sdss_g = tables.Float32Col(pos=p); p+=1
+    continuum_sdss_g_err = tables.Float32Col(pos=p); p+=1
+    mag_sdss_g = tables.Float32Col(pos=p); p+=1
+    mag_sdss_g_err = tables.Float32Col(pos=p); p+=1
+
+    eqw_rest_lya_line = tables.Float32Col(pos=p); p+=1
+    eqw_rest_lya_line_err = tables.Float32Col(pos=p); p+=1
+    eqw_rest_lya_sdss_g = tables.Float32Col(pos=p);p += 1
+    eqw_rest_lya_sdss_g_err = tables.Float32Col(pos=p);p += 1
+    plae_line = tables.Float32Col(pos=p); p+=1
+    plae_sdss_g = tables.Float32Col(pos=p); p+=1
+
+    #ELiXer solution based on extra lines
+    multiline_z = tables.Float32Col(pos=p); p += 1
+    multiline_rest_w = tables.Float32Col(pos=p); p += 1
+    multiline_prob = tables.Float32Col(pos=p); p += 1
+    multiline_score = tables.Float32Col(pos=p); p += 1
+
+class SpectraLines(tables.IsDescription):
+    p = 0
+    detectid = tables.Int64Col(pos=p);p += 1  # unique HETDEX detection ID 1e9+
+    wavelength = tables.Float32Col(pos=p); p+=1
+    type = tables.Int32Col(pos=p); p+=1 # 1 = emission, 0 = unknown, -1 = absorbtion
+    flux_line = tables.Float32Col(pos=p); p+=1
+    flux_line_err = tables.Float32Col(pos=p); p+=1
+    score = tables.Float32Col(pos=p); p+=1
+    sn = tables.Float32Col(pos=p); p+=1
+    used = tables.BoolCol(pos=p); p+=1 #True if used in the reported multiline solution
+
+
+
+class CalibratedSpectra(tables.IsDescription):
+    p = 0
+    detectid = tables.Int64Col(pos=p); p += 1  # unique HETDEX detection ID 1e9+
+    wavelength = tables.Float32Col(1036, pos=p); p+=1
+    flux = tables.Float32Col(1036, pos=p); p += 1
+    flux_err = tables.Float32Col(1036, pos=p); p+=1
+
+class Aperture(tables.IsDescription):
+    #one entry per aperture photometry collected
+    p = 0
+    detectid = tables.Int64Col(pos=p); p += 1
+    catalog_name = tables.StringCol((16),pos=p); p+=1
+    filter_name = tables.StringCol((16), pos=p); p+=1
+    image_depth_mag = tables.Float32Col(pos=p); p+=1
+    aperture_ra = tables.Float32Col(pos=p); p+=1
+    aperture_dec = tables.Float32Col(pos=p); p+=1
+    aperture_radius = tables.Float32Col(pos=p); p+=1 #in arcsec
+    aperture_flux = tables.Float32Col(pos=p); p+=1 #with sky already subtracted
+    aperture_flux_err = tables.Float32Col(pos=p);p += 1
+    aperture_mag = tables.Float32Col(pos=p); p+=1
+    aperture_mag_err = tables.Float32Col(pos=p); p+=1
+    aperture_area_pix = tables.Float32Col(pos=p); p+=1 #pixels
+    sky_flux = tables.Float32Col(pos=p); p+=1
+    sky_flux_err = tables.Float32Col(pos=p); p += 1
+    sky_area_pix = tables.Float32Col(pos=p); p+=1 #pixels
+    aperture_eqw_rest_lya = tables.Float32Col(pos=p); p+=1
+    aperture_eqw_rest_lya_err = tables.Float32Col(pos=p); p += 1
+    aperture_plae = tables.Float32Col(pos=p); p+=1
+
+
+class CatalogMatch(tables.IsDescription):
+    # one entry per catalog bid target
+    p = 0
+
+    detectid = tables.Int64Col(pos=p);    p += 1
+    catalog_name = tables.StringCol((16), pos=p);    p += 1
+    separation = tables.Float32Col(pos=p); p+=1 #in arcsec
+    prob_match = tables.Float32Col(pos=p); p+=1 #in arcsec
+    cat_ra = tables.Float32Col(pos=p); p+=1
+    cat_dec = tables.Float32Col(pos=p); p+=1
+    cat_specz = tables.Float32Col(pos=p); p+=1
+    cat_photz = tables.Float32Col(pos=p); p+=1
+    cat_flux = tables.Float32Col(pos=p); p+=1
+    cat_flux_err = tables.Float32Col(pos=p); p+=1
+    cat_mag = tables.Float32Col(pos=p); p+=1
+    cat_mag_err = tables.Float32Col(pos=p); p+=1
+    cat_eqw_rest_lya = tables.Float32Col(pos=p); p+=1
+    cat_eqw_rest_lya_err = tables.Float32Col(pos=p); p+=1
+    cat_plae = tables.Float32Col(pos=p); p+=1
+
+    #maybe add in the PDF of the photz ... not sure how big
+    #to make the columns ... needs to be fixed, but might
+    #vary catalog to catalog
+    #cat_photz_pdf_z = tables.Float32Col(1036, pos=p); p+=1
+    #cat_photz_pdf_p = tables.Float32Col(1036, pos=p); p+=1
+
 
 
 
