@@ -954,7 +954,10 @@ class science_image():
                         #pix_aperture = CircularAperture(cutout.center_cutout, r=radius / self.pixel_size)
                         pix_aperture = CircularAperture((x_center, y_center), r=radius / self.pixel_size)
                         phot_table = aperture_photometry(cutout.data, pix_aperture,method=PIXEL_APERTURE_METHOD)
-                        source_aperture_area = pix_aperture.area()
+                        try:
+                            source_aperture_area = pix_aperture.area()
+                        except:
+                            source_aperture_area = pix_aperture.area
                     except:
                         log.info("Pixel based aperture photometry failed. Attemping sky based ... ", exc_info=True)
                         #note: if we do this, photutils loads the entire fits image and that can be costly
@@ -962,7 +965,10 @@ class science_image():
                         try:
                             sky_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec)
                             phot_table = aperture_photometry(image, sky_aperture,method=PIXEL_APERTURE_METHOD)
-                            source_aperture_area = sky_aperture.area()
+                            try:
+                                source_aperture_area = sky_aperture.area()
+                            except:
+                                source_aperture_area = sky_aperture.area
                         except:
                             log.info("Sky based aperture photometry failed. Will skip aperture photometery.",
                                      exc_info=True)
@@ -1008,7 +1014,10 @@ class science_image():
                                                      r_out=sky_outer_radius * ap_units.arcsec).to_pixel(sky_image.wcs)
 
                     #made an annulus in pixel, set to a "mask" where 0 = pixel not in annulus, 1 = pixel in annulus
-                    sky_mask = sky_annulus.to_mask(method='center')[0]
+                    try:
+                        sky_mask = sky_annulus.to_mask(method='center')[0]
+                    except:
+                        sky_mask = sky_annulus.to_mask(method='center')
 
 
                     sky_mask = np.array(sky_mask)[0:sky_image.data.shape[0],0:sky_image.data.shape[1]]
