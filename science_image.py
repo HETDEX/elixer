@@ -810,9 +810,9 @@ class science_image():
                             phot_table = aperture_photometry(cutout.data, pix_aperture,method=PIXEL_APERTURE_METHOD)
                             counts = phot_table['aperture_sum'][0]
                             try:
-                                source_aperture_area = pix_aperture.area
+                                source_aperture_area = pix_aperture.area() #older version(s) of photutils
                             except:
-                                source_aperture_area = pix_aperture.area()
+                                source_aperture_area = pix_aperture.area
                         except:
                             log.info("Pixel based aperture photometry failed. Attemping sky based ... ",exc_info=True)
 
@@ -823,9 +823,9 @@ class science_image():
 #                                phot_table = aperture_photometry(cutout.data, pix_aperture)
                                 counts = phot_table['aperture_sum'][0]
                                 try:
-                                    source_aperture_area = sky_aperture.area
+                                    source_aperture_area = sky_aperture.area() #older version(s) of photutils
                                 except:
-                                    source_aperture_area = sky_aperture.area()
+                                    source_aperture_area = sky_aperture.area
                             except:
                                 log.info("Sky based aperture photometry failed. Will skip aperture photometery.",
                                          exc_info=True)
