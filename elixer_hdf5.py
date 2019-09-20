@@ -28,132 +28,127 @@ log.setlevel(G.logging.DEBUG)
 #make a class for each table
 class Version(tables.IsDescription):
     #version table, very basic info
-    version = tables.StringCol((16),pos=0) #this version
-    version_pytables = tables.StringCol((16),pos=1)
+    version = tables.StringCol(itemsize=16, dflt='',pos=0)
+    version_pytables = tables.StringCol(itemsize=16, dflt='',pos=1)
 
 
 class Detections(tables.IsDescription):
 #top level detections summary, one row for each ELiXer/HETDEX detection
-    p = 0
-    detectid = tables.Int64Col(pos=p); p+=1 #unique HETDEX detection ID 1e9+
-    elixer_version = tables.StringCol((16),pos=p); p+=1 #version of elixer that generated this detection report
-    elixer_datetime = tables.StringCol((21),pos=p); p+=1 #YYYY-MM-DD hh:mm:ss
+    detectid = tables.Int64Col(pos=0) #unique HETDEX detection ID 1e9+
+
+    elixer_version = tables.StringCol(itemsize=16,pos=1) #version of elixer that generated this detection report
+    elixer_datetime = tables.StringCol(itemsize=21,pos=2) #YYYY-MM-DD hh:mm:ss
 
     #of the primary fiber ... typically, just three dithers and
     #all from the same observation, so this would apply to all but
     #it can be that this is built up from observations over different date/times
     #this is mostly or entirely redundant with HETDEX HDF5 data (detections or survey)
-    shotid = tables.Int64Col(pos=p); p+=1
-    obsid = tables.Int32Col(pos=p); p+=1
-    specid = tables.StringCol((3),pos=p); p+=1
-    ifuslot = tables.StringCol((3),pos=p); p+=1
-    ifuid = tables.StringCol((3),pos=p); p+=1
-    seeing_gaussian = tables.Float32Col(pos=p); p+=1
-    seeing_moffat = tables.Float32Col(pos=p); p+=1
-    response = tables.Float32Col(pos=p); p+=1
+    shotid = tables.Int64Col()
+    obsid = tables.Int32Col()
+    specid = tables.StringCol(itemsize=3)
+    ifuslot = tables.StringCol(itemsize=3)
+    ifuid = tables.StringCol(itemsize=3)
+    seeing_gaussian = tables.Float32Col()
+    seeing_moffat = tables.Float32Col()
+    response = tables.Float32Col()
 
     #about the detection
-    ra = tables.Float32Col(pos=p); p+=1
-    dec = tables.Float32Col(pos=p); p+=1
-    wavelength_obs = tables.Float32Col(pos=p); p+=1
-    wavelength_obs_err = tables.Float32Col(pos=p); p+=1
-    flux_line = tables.Float32Col(pos=p); p+=1 #actual flux not flux density
-    flux_line_err = tables.Float32Col(pos=p); p+=1
-    fwhm_line = tables.Float32Col(pos=p); p+=1
-    fwhm_line_err = tables.Float32Col(pos=p); p+=1
-    sn = tables.Float32Col(pos=p); p+=1
-    sn_err = tables.Float32Col(pos=p); p+=1
-    chi2 = tables.Float32Col(pos=p); p+=1
-    chi2_err = tables.Float32Col(pos=p); p+=1
+    ra = tables.Float32Col()
+    dec = tables.Float32Col()
+    wavelength_obs = tables.Float32Col()
+    wavelength_obs_err = tables.Float32Col()
+    flux_line = tables.Float32Col() #actual flux not flux density
+    flux_line_err = tables.Float32Col()
+    fwhm_line = tables.Float32Col()
+    fwhm_line_err = tables.Float32Col()
+    sn = tables.Float32Col()
+    sn_err = tables.Float32Col()
+    chi2 = tables.Float32Col()
+    chi2_err = tables.Float32Col()
 
-    continuum_line = tables.Float32Col(pos=p); p+=1 #continuum from near the line
-    continuum_line_err = tables.Float32Col(pos=p); p+=1
-    continuum_sdss_g = tables.Float32Col(pos=p); p+=1
-    continuum_sdss_g_err = tables.Float32Col(pos=p); p+=1
-    mag_sdss_g = tables.Float32Col(pos=p); p+=1
-    mag_sdss_g_err = tables.Float32Col(pos=p); p+=1
+    continuum_line = tables.Float32Col() #continuum from near the line
+    continuum_line_err = tables.Float32Col()
+    continuum_sdss_g = tables.Float32Col()
+    continuum_sdss_g_err = tables.Float32Col()
+    mag_sdss_g = tables.Float32Col()
+    mag_sdss_g_err = tables.Float32Col()
 
-    eqw_rest_lya_line = tables.Float32Col(pos=p); p+=1
-    eqw_rest_lya_line_err = tables.Float32Col(pos=p); p+=1
-    eqw_rest_lya_sdss_g = tables.Float32Col(pos=p);p += 1
-    eqw_rest_lya_sdss_g_err = tables.Float32Col(pos=p);p += 1
-    plae_line = tables.Float32Col(pos=p); p+=1
-    plae_sdss_g = tables.Float32Col(pos=p); p+=1
+    eqw_rest_lya_line = tables.Float32Col()
+    eqw_rest_lya_line_err = tables.Float32Col()
+    eqw_rest_lya_sdss_g = tables.Float32Col()
+    eqw_rest_lya_sdss_g_err = tables.Float32Col()
+    plae_line = tables.Float32Col()
+    plae_sdss_g = tables.Float32Col()
 
     #ELiXer solution based on extra lines
-    multiline_z = tables.Float32Col(pos=p); p += 1
-    multiline_rest_w = tables.Float32Col(pos=p); p += 1
-    multiline_prob = tables.Float32Col(pos=p); p += 1
-    multiline_score = tables.Float32Col(pos=p); p += 1
+    multiline_z = tables.Float32Col()
+    multiline_rest_w = tables.Float32Col()
+    multiline_prob = tables.Float32Col()
+    multiline_score = tables.Float32Col()
 
 class SpectraLines(tables.IsDescription):
-    p = 0
-    detectid = tables.Int64Col(pos=p);p += 1  # unique HETDEX detection ID 1e9+
-    wavelength = tables.Float32Col(pos=p); p+=1
-    type = tables.Int32Col(pos=p); p+=1 # 1 = emission, 0 = unknown, -1 = absorbtion
-    flux_line = tables.Float32Col(pos=p); p+=1
-    flux_line_err = tables.Float32Col(pos=p); p+=1
-    score = tables.Float32Col(pos=p); p+=1
-    sn = tables.Float32Col(pos=p); p+=1
-    used = tables.BoolCol(pos=p); p+=1 #True if used in the reported multiline solution
+    detectid = tables.Int64Col(pos=0)  # unique HETDEX detection ID 1e9+
+    wavelength = tables.Float32Col()
+    type = tables.Int32Col() # 1 = emission, 0 = unknown, -1 = absorbtion
+    flux_line = tables.Float32Col()
+    flux_line_err = tables.Float32Col()
+    score = tables.Float32Col()
+    sn = tables.Float32Col()
+    used = tables.BoolCol() #True if used in the reported multiline solution
 
 
 
 class CalibratedSpectra(tables.IsDescription):
-    p = 0
-    detectid = tables.Int64Col(pos=p); p += 1  # unique HETDEX detection ID 1e9+
-    wavelength = tables.Float32Col(1036, pos=p); p+=1
-    flux = tables.Float32Col(1036, pos=p); p += 1
-    flux_err = tables.Float32Col(1036, pos=p); p+=1
+    detectid = tables.Int64Col(pos=0)  # unique HETDEX detection ID 1e9+
+    wavelength = tables.Float32Col(shape=(1036,) )
+    flux = tables.Float32Col(shape=(1036,) )
+    flux_err = tables.Float32Col(shape=(1036,) )
 
 class Aperture(tables.IsDescription):
     #one entry per aperture photometry collected
-    p = 0
-    detectid = tables.Int64Col(pos=p); p += 1
-    catalog_name = tables.StringCol((16),pos=p); p+=1
-    filter_name = tables.StringCol((16), pos=p); p+=1
-    image_depth_mag = tables.Float32Col(pos=p); p+=1
-    aperture_ra = tables.Float32Col(pos=p); p+=1
-    aperture_dec = tables.Float32Col(pos=p); p+=1
-    aperture_radius = tables.Float32Col(pos=p); p+=1 #in arcsec
-    aperture_flux = tables.Float32Col(pos=p); p+=1 #with sky already subtracted
-    aperture_flux_err = tables.Float32Col(pos=p);p += 1
-    aperture_mag = tables.Float32Col(pos=p); p+=1
-    aperture_mag_err = tables.Float32Col(pos=p); p+=1
-    aperture_area_pix = tables.Float32Col(pos=p); p+=1 #pixels
-    sky_flux = tables.Float32Col(pos=p); p+=1
-    sky_flux_err = tables.Float32Col(pos=p); p += 1
-    sky_area_pix = tables.Float32Col(pos=p); p+=1 #pixels
-    aperture_eqw_rest_lya = tables.Float32Col(pos=p); p+=1
-    aperture_eqw_rest_lya_err = tables.Float32Col(pos=p); p += 1
-    aperture_plae = tables.Float32Col(pos=p); p+=1
+    detectid = tables.Int64Col(pos=0)
+    catalog_name = tables.StringCol(itemsize=16)
+    filter_name = tables.StringCol(itemsize=16 )
+    image_depth_mag = tables.Float32Col()
+    aperture_ra = tables.Float32Col()
+    aperture_dec = tables.Float32Col()
+    aperture_radius = tables.Float32Col() #in arcsec
+    aperture_flux = tables.Float32Col() #with sky already subtracted
+    aperture_flux_err = tables.Float32Col()
+    aperture_mag = tables.Float32Col()
+    aperture_mag_err = tables.Float32Col()
+    aperture_area_pix = tables.Float32Col() #pixels
+    sky_flux = tables.Float32Col()
+    sky_flux_err = tables.Float32Col()
+    sky_area_pix = tables.Float32Col() #pixels
+    aperture_eqw_rest_lya = tables.Float32Col()
+    aperture_eqw_rest_lya_err = tables.Float32Col()
+    aperture_plae = tables.Float32Col()
 
 
 class CatalogMatch(tables.IsDescription):
     # one entry per catalog bid target
-    p = 0
-
-    detectid = tables.Int64Col(pos=p);    p += 1
-    catalog_name = tables.StringCol((16), pos=p);    p += 1
-    separation = tables.Float32Col(pos=p); p+=1 #in arcsec
-    prob_match = tables.Float32Col(pos=p); p+=1 #in arcsec
-    cat_ra = tables.Float32Col(pos=p); p+=1
-    cat_dec = tables.Float32Col(pos=p); p+=1
-    cat_specz = tables.Float32Col(pos=p); p+=1
-    cat_photz = tables.Float32Col(pos=p); p+=1
-    cat_flux = tables.Float32Col(pos=p); p+=1
-    cat_flux_err = tables.Float32Col(pos=p); p+=1
-    cat_mag = tables.Float32Col(pos=p); p+=1
-    cat_mag_err = tables.Float32Col(pos=p); p+=1
-    cat_eqw_rest_lya = tables.Float32Col(pos=p); p+=1
-    cat_eqw_rest_lya_err = tables.Float32Col(pos=p); p+=1
-    cat_plae = tables.Float32Col(pos=p); p+=1
+    detectid = tables.Int64Col(pos=0)
+    catalog_name = tables.StringCol(itemsize=16)
+    separation = tables.Float32Col() #in arcsec
+    prob_match = tables.Float32Col() #in arcsec
+    cat_ra = tables.Float32Col()
+    cat_dec = tables.Float32Col()
+    cat_specz = tables.Float32Col()
+    cat_photz = tables.Float32Col()
+    cat_flux = tables.Float32Col()
+    cat_flux_err = tables.Float32Col()
+    cat_mag = tables.Float32Col()
+    cat_mag_err = tables.Float32Col()
+    cat_eqw_rest_lya = tables.Float32Col()
+    cat_eqw_rest_lya_err = tables.Float32Col()
+    cat_plae = tables.Float32Col()
 
     #maybe add in the PDF of the photz ... not sure how big
     #to make the columns ... needs to be fixed, but might
     #vary catalog to catalog
-    #cat_photz_pdf_z = tables.Float32Col(1036, pos=p); p+=1
-    #cat_photz_pdf_p = tables.Float32Col(1036, pos=p); p+=1
+    #cat_photz_pdf_z = tables.Float32Col(1036, )
+    #cat_photz_pdf_p = tables.Float32Col(1036, )
 
 
 
@@ -194,12 +189,20 @@ def flush_all(fileh):
     if fileh is not None:
         #iterate over all tables and issue flush
 
-        vtbl = fileh.root.Version
-        dtbl = fileh.root.Detections
+        vtb = fileh.root.Version
+        dtb = fileh.root.Detections
+        ltb = fileh.root.SpectraLines
+        stb = fileh.root.CalibratedSpectra
+        atb = fileh.root.Aperture
+        ctb = fileh.root.CatalogMatch
 
 
-        vtbl.flush()
-        dtbl.flush()
+        vtb.flush()
+        dtb.flush()
+        ltb.flush()
+        stb.flush()
+        atb.flush()
+        ctb.flush()
 
     return
 
@@ -247,27 +250,68 @@ def get_hdf5_filehandle(fname,append=False):
 
             fileh = tables.open_file(fname, 'w', 'ELiXer Detection Catalog')
 
-            fileh.create_table(fileh.root, 'Version', Version,
+            vtb = fileh.create_table(fileh.root, 'Version', Version,
                                'ELiXer Detection Version Table')
-
-            vtbl = fileh.root.Version
-            row = vtbl.row
+            #vtbl = fileh.root.Version
+            row = vtb.row
             row['version'] = __version__
             row['version_pytables'] = tables.__version__
             row.append()
-
-            vtbl.flush()
+            vtb.flush()
 
             fileh.create_table(fileh.root, 'Detections', Detections,
                                'ELiXer Detection Summary Table')
 
-            #todo: create all other tables
+            fileh.create_table(fileh.root, 'SpectraLines', SpectraLines,
+                               'ELiXer Identified SpectraLines Table')
+
+            fileh.create_table(fileh.root, 'CalibratedSpectra', CalibratedSpectra,
+                               'HETDEX Flux Calibrated, PSF Weighted Summed Spectra Table')
+
+            fileh.create_table(fileh.root, 'Aperture', Aperture,
+                               'ELiXer Aperture Photometry Table')
+
+            fileh.create_table(fileh.root, 'CatalogMatch', CatalogMatch,
+                               'ELiXer Catalog Matched Objected Table')
+
+            #todo: any actual images tables? (imaging cutouts, 2D fibers, etc)??
 
     except:
         log.error("Exception! in elixer_hdf5::get_hdf5_filehandle().",exc_info=True)
 
     return fileh
 
+
+def append_entry(fileh,det):
+    """
+
+    :param fileh: file handle to the HDF5 file
+    :param det: ELiXer DetObj
+    :return:
+    """
+    try:
+        #get tables
+        dtb = fileh.root.Detections
+        ltb = fileh.root.SpectraLines
+        stb = fileh.root.CalibratedSpectra
+        atb = fileh.root.Aperture
+        ctb = fileh.root.CatalogMatch
+
+
+        row = dtb.row
+        #row[''] =
+        row['detectid'] = det.hdf5_detectid
+        row['elixer_version'] = det.elixer_version
+        row['elixer_datetime'] = det.elixer_datetime
+
+
+        row.append()
+
+
+    except:
+        log.error("Exception! in elixer_hdf5::append_entry",exc_info=True)
+
+    return
 
 
 def build_elixer_hdf5(fname,hd_list=[]):
@@ -280,10 +324,11 @@ def build_elixer_hdf5(fname,hd_list=[]):
         log.error("Unable to build ELiXer catalog.")
         return
 
-
     for h in hd_list:  # iterate over all hetdex (hd) collections
         for e in h.emis_list: #for each detection in each hd collection
-            pass
+           #todo: build up the tables here
+            append_entry(fileh,e)
+
 
     flush_all(fileh)
     fileh.close()
@@ -315,6 +360,30 @@ def merge_elixer_hdf5_files(fname,flist=[]):
 
         #todo: merge stuff ... explicit reads then writes?
         #todo: ???? can we load an entire table from merge_fh as an object and append to fileh??
+
+        #example:
+        # elif args.mergedir:
+        # files = sorted(glob.glob(op.join(args.mergedir, 'detect*.h5')))
+        #
+        # detectid_max = 1
+        #
+        # for file in files:
+        #     fileh_i = tb.open_file(file, 'r')
+        #     tableMain_i = fileh_i.root.Detections.read()
+        #     tableFibers_i = fileh_i.root.Fibers.read()
+        #     tableSpectra_i = fileh_i.root.Spectra.read()
+        #
+        #     tableMain_i['detectid'] += detectid_max
+        #     tableFibers_i['detectid'] += detectid_max
+        #     tableSpectra_i['detectid'] += detectid_max
+        #
+        #     tableMain.append(tableMain_i)
+        #     tableFibers.append(tableFibers_i)
+        #     tableSpectra.append(tableSpectra_i)
+        #
+        #     detectid_max = np.max(tableMain.cols.detectid[:]) - index_buff
+        #
+        #     fileh_i.close()
 
 
         flush_all(fileh)

@@ -455,6 +455,8 @@ class DetObj:
         #fcs_base is a basename of a single fcs directory, fcsdir is the entire FQdirname
         #fcsdir is more specific
         #skip NR (0)
+        self.elixer_version = G.__version__
+        self.elixer_datetime = time.strftime("%Y-%m-%d %H:%M:%S")
         self.matched_cats = [] #list of catalogs in which this object appears (managed outside this class, in elixer.py)
         self.status = 0
         self.annulus = None
