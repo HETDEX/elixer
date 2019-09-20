@@ -1787,6 +1787,15 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
 
 
 def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fiber_pos):
+    """
+    Note: needs matplotlib > 3.1.x to work properly
+
+    :param fname:
+    :param image_2d_fiber:
+    :param image_1d_fit:
+    :param image_cutout_fiber_pos:
+    :return:
+    """
     if (fname is None) or (image_2d_fiber is None) or (image_1d_fit is None) or (image_cutout_fiber_pos is None):
         log.error("Missing required data in elixer::build_3panel_zoo_image")
         return
@@ -1877,7 +1886,7 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
     except:
         log.error("Exception! in elixer::build_3panel_zoo_image",exc_info=True)
         #temporary
-        print("*** mini exception ***")
+        #print("*** mini exception ***")
 
 
 
