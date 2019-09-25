@@ -21,6 +21,9 @@ import tables
 import os
 
 
+UNSET_FLOAT = -999.999
+UNSET_INT = -99999
+
 log = G.Global_Logger('hdf5_logger')
 log.setlevel(G.logging.DEBUG)
 
@@ -48,53 +51,53 @@ class Detections(tables.IsDescription):
     specid = tables.StringCol(itemsize=3)
     ifuslot = tables.StringCol(itemsize=3)
     ifuid = tables.StringCol(itemsize=3)
-    seeing_gaussian = tables.Float32Col()
-    seeing_moffat = tables.Float32Col()
-    response = tables.Float32Col()
+    seeing_gaussian = tables.Float32Col(dflt=UNSET_FLOAT)
+    seeing_moffat = tables.Float32Col(dflt=UNSET_FLOAT)
+    response = tables.Float32Col(dflt=UNSET_FLOAT)
 
     #about the detection
-    ra = tables.Float32Col()
-    dec = tables.Float32Col()
-    wavelength_obs = tables.Float32Col()
-    wavelength_obs_err = tables.Float32Col()
-    flux_line = tables.Float32Col() #actual flux not flux density
-    flux_line_err = tables.Float32Col()
-    fwhm_line = tables.Float32Col()
-    fwhm_line_err = tables.Float32Col()
-    sn = tables.Float32Col()
-    sn_err = tables.Float32Col()
-    chi2 = tables.Float32Col()
-    chi2_err = tables.Float32Col()
+    ra = tables.Float32Col(dflt=UNSET_FLOAT)
+    dec = tables.Float32Col(dflt=UNSET_FLOAT)
+    wavelength_obs = tables.Float32Col(dflt=UNSET_FLOAT)
+    wavelength_obs_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    flux_line = tables.Float32Col(dflt=UNSET_FLOAT) #actual flux not flux density
+    flux_line_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    fwhm_line = tables.Float32Col(dflt=UNSET_FLOAT)
+    fwhm_line_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    sn = tables.Float32Col(dflt=UNSET_FLOAT)
+    sn_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    chi2 = tables.Float32Col(dflt=UNSET_FLOAT)
+    chi2_err = tables.Float32Col(dflt=UNSET_FLOAT)
 
-    continuum_line = tables.Float32Col() #continuum from near the line
-    continuum_line_err = tables.Float32Col()
-    continuum_sdss_g = tables.Float32Col()
-    continuum_sdss_g_err = tables.Float32Col()
-    mag_sdss_g = tables.Float32Col()
-    mag_sdss_g_err = tables.Float32Col()
+    continuum_line = tables.Float32Col(dflt=UNSET_FLOAT) #continuum from near the line
+    continuum_line_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    continuum_sdss_g = tables.Float32Col(dflt=UNSET_FLOAT)
+    continuum_sdss_g_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    mag_sdss_g = tables.Float32Col(dflt=UNSET_FLOAT)
+    mag_sdss_g_err = tables.Float32Col(dflt=UNSET_FLOAT)
 
-    eqw_rest_lya_line = tables.Float32Col()
-    eqw_rest_lya_line_err = tables.Float32Col()
-    eqw_rest_lya_sdss_g = tables.Float32Col()
-    eqw_rest_lya_sdss_g_err = tables.Float32Col()
-    plae_line = tables.Float32Col()
-    plae_sdss_g = tables.Float32Col()
+    eqw_rest_lya_line = tables.Float32Col(dflt=UNSET_FLOAT)
+    eqw_rest_lya_line_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    eqw_rest_lya_sdss_g = tables.Float32Col(dflt=UNSET_FLOAT)
+    eqw_rest_lya_sdss_g_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    plae_line = tables.Float32Col(dflt=UNSET_FLOAT)
+    plae_sdss_g = tables.Float32Col(dflt=UNSET_FLOAT)
 
     #ELiXer solution based on extra lines
-    multiline_z = tables.Float32Col()
-    multiline_rest_w = tables.Float32Col()
-    multiline_prob = tables.Float32Col()
-    multiline_score = tables.Float32Col()
+    multiline_z = tables.Float32Col(dflt=UNSET_FLOAT)
+    multiline_rest_w = tables.Float32Col(dflt=UNSET_FLOAT)
+    multiline_prob = tables.Float32Col(dflt=UNSET_FLOAT)
+    multiline_score = tables.Float32Col(dflt=UNSET_FLOAT)
 
 class SpectraLines(tables.IsDescription):
     detectid = tables.Int64Col(pos=0)  # unique HETDEX detection ID 1e9+
-    wavelength = tables.Float32Col()
-    type = tables.Int32Col() # 1 = emission, 0 = unknown, -1 = absorbtion
-    flux_line = tables.Float32Col()
-    flux_line_err = tables.Float32Col()
-    score = tables.Float32Col()
-    sn = tables.Float32Col()
-    used = tables.BoolCol() #True if used in the reported multiline solution
+    wavelength = tables.Float32Col(dflt=UNSET_FLOAT)
+    type = tables.Int32Col(dflt=UNSET_INT) # 1 = emission, 0 = unknown, -1 = absorbtion
+    flux_line = tables.Float32Col(dflt=UNSET_FLOAT)
+    flux_line_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    score = tables.Float32Col(dflt=UNSET_FLOAT)
+    sn = tables.Float32Col(dflt=UNSET_FLOAT)
+    used = tables.BoolCol(dflt=False) #True if used in the reported multiline solution
 
 
 
@@ -109,40 +112,40 @@ class Aperture(tables.IsDescription):
     detectid = tables.Int64Col(pos=0)
     catalog_name = tables.StringCol(itemsize=16)
     filter_name = tables.StringCol(itemsize=16 )
-    image_depth_mag = tables.Float32Col()
-    aperture_ra = tables.Float32Col()
-    aperture_dec = tables.Float32Col()
-    aperture_radius = tables.Float32Col() #in arcsec
-    aperture_flux = tables.Float32Col() #with sky already subtracted
-    aperture_flux_err = tables.Float32Col()
-    aperture_mag = tables.Float32Col()
-    aperture_mag_err = tables.Float32Col()
-    aperture_area_pix = tables.Float32Col() #pixels
-    sky_flux = tables.Float32Col()
-    sky_flux_err = tables.Float32Col()
-    sky_area_pix = tables.Float32Col() #pixels
-    aperture_eqw_rest_lya = tables.Float32Col()
-    aperture_eqw_rest_lya_err = tables.Float32Col()
-    aperture_plae = tables.Float32Col()
+    image_depth_mag = tables.Float32Col(dflt=UNSET_FLOAT)
+    aperture_ra = tables.Float32Col(dflt=UNSET_FLOAT)
+    aperture_dec = tables.Float32Col(dflt=UNSET_FLOAT)
+    aperture_radius = tables.Float32Col(dflt=UNSET_FLOAT) #in arcsec
+    aperture_flux = tables.Float32Col(dflt=UNSET_FLOAT) #with sky already subtracted
+    aperture_flux_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    aperture_mag = tables.Float32Col(dflt=UNSET_FLOAT)
+    aperture_mag_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    aperture_area_pix = tables.Float32Col(dflt=UNSET_FLOAT) #pixels
+    sky_flux = tables.Float32Col(dflt=UNSET_FLOAT)
+    sky_flux_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    sky_area_pix = tables.Float32Col(dflt=UNSET_FLOAT) #pixels
+    aperture_eqw_rest_lya = tables.Float32Col(dflt=UNSET_FLOAT)
+    aperture_eqw_rest_lya_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    aperture_plae = tables.Float32Col(dflt=UNSET_FLOAT)
 
 
 class CatalogMatch(tables.IsDescription):
     # one entry per catalog bid target
     detectid = tables.Int64Col(pos=0)
     catalog_name = tables.StringCol(itemsize=16)
-    separation = tables.Float32Col() #in arcsec
-    prob_match = tables.Float32Col() #in arcsec
-    cat_ra = tables.Float32Col()
-    cat_dec = tables.Float32Col()
-    cat_specz = tables.Float32Col()
-    cat_photz = tables.Float32Col()
-    cat_flux = tables.Float32Col()
-    cat_flux_err = tables.Float32Col()
-    cat_mag = tables.Float32Col()
-    cat_mag_err = tables.Float32Col()
-    cat_eqw_rest_lya = tables.Float32Col()
-    cat_eqw_rest_lya_err = tables.Float32Col()
-    cat_plae = tables.Float32Col()
+    separation = tables.Float32Col(dflt=UNSET_FLOAT) #in arcsec
+    prob_match = tables.Float32Col(dflt=UNSET_FLOAT) #in arcsec
+    cat_ra = tables.Float32Col(dflt=UNSET_FLOAT)
+    cat_dec = tables.Float32Col(dflt=UNSET_FLOAT)
+    cat_specz = tables.Float32Col(dflt=UNSET_FLOAT)
+    cat_photz = tables.Float32Col(dflt=UNSET_FLOAT)
+    cat_flux = tables.Float32Col(dflt=UNSET_FLOAT)
+    cat_flux_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    cat_mag = tables.Float32Col(dflt=UNSET_FLOAT)
+    cat_mag_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    cat_eqw_rest_lya = tables.Float32Col(dflt=UNSET_FLOAT)
+    cat_eqw_rest_lya_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    cat_plae = tables.Float32Col(dflt=UNSET_FLOAT)
 
     #maybe add in the PDF of the photz ... not sure how big
     #to make the columns ... needs to be fixed, but might
