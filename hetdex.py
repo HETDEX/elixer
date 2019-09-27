@@ -482,6 +482,9 @@ class DetObj:
         self.fluxfrac = 1.0
         self.estflux = -1
         self.estflux_unc = 0.0
+        self.estflux_h5 = -1 #from the h5 file (Karl's estimates)
+        self.estflux_h5_unc = 0.0
+
         self.sigma = 0.0 #also doubling as sn (see @property sn farther below)
         self.snr = None
         self.snr_unc = 0.0
@@ -494,9 +497,20 @@ class DetObj:
         #self.eqw = 0.0
         self.eqw_obs = 0.0
         self.eqw_obs_unc = 0.0
+
+        self.eqw_line_obs = None #uses HETDEX continuum estimate around the emission line
+        self.eqw_line_obs_unc = None
+        self.eqw_sdss_obs = None #uses HETDEX full width spectrum passed through sdss g-band filter
+        self.eqw_sdss_obs_unc = None
+
         self.cont = -9999
         self.cont_cgs = -9999
         self.cont_cgs_unc = 0.0
+        #in most cases, hetdex_xxx will be updated ... this is for explicit reporting in HDF5 file
+        #and is not used anywhere else
+        self.hetdex_cont_cgs = self.cont_cgs
+        self.hetdex_cont_cgs_unc = self.cont_cgs_unc
+
         self.fwhm = -1.0 #in angstroms
         self.fwhm_unc = 0.0
         self.panacea = False
@@ -542,6 +556,7 @@ class DetObj:
         self.bad_amp_dict = None
 
         self.sdss_gmag = None #using speclite to estimate
+        self.sdss_gmag_unc = None  # not computed anywhere yet
         self.sdss_cgs_cont = None
         self.sdss_cgs_cont_unc = None
         self.using_sdss_gmag_ew = False
@@ -552,6 +567,15 @@ class DetObj:
         self.image_2d_fibers_1st_col = None
         self.image_1d_emission_fit = None
         self.image_cutout_fiber_pos = None
+
+        #survey info
+        self.survey_shotid = None
+        self.survey_fwhm_gaussian = None
+        self.survey_fwhm_moffat = None
+        self.survey_response = None
+        self.survey_fieldname = None
+
+        self.multiline_z_minimum_flag = False #False == multiline no good solution, True = 1 good solution
 
         if emission:
             self.type = 'emis'
@@ -802,11 +826,12 @@ class DetObj:
                 if (len(self.spec_obj.solutions) == 1) or \
                     ((len(self.spec_obj.solutions) > 1) and \
                       (self.spec_obj.solutions[0].frac_score / self.spec_obj.solutions[1].frac_score > 2.0)):
-
+                    self.multiline_z_minimum_flag = True
                     return True, self.spec_obj.solutions[0].prob_real
                 #else two or more scores are too close, so cannot identify a unique solution, which means 'no solution'
 
             if G.MULTILINE_ALWAYS_SHOW_BEST_GUESS:
+                self.multiline_z_minimum_flag = False
                 return False, self.spec_obj.solutions[0].prob_real
 
         return False, 0.0
@@ -1687,6 +1712,48 @@ class DetObj:
 
     # end load_flux_calibrated_spectra
 
+    def load_hdf5_shot_info(self,hdf5_fn,shotid):
+        try:
+            id = np.int64(shotid)
+        except:
+            log.error("Exception converting shotid to int type",exc_info=True)
+            msg = "+++++ %s" %str(shotid)
+            log.error(msg)
+            self.status = -1
+            return
+
+        log.debug("Loading shot info from HDF5 ...")
+
+        with tables.open_file(hdf5_fn, mode="r") as h5_survey:
+            survey = h5_survey.root.Survey
+
+            try:
+                rows = survey.read_where("shotid==id")
+            except:
+                log.error("Exception in hetdex::DetObj::load_hdf5_shot_info reading rows from Survey table",
+                          exc_info=True)
+                rows = None
+
+            if (rows is None) or (rows.size != 1):
+                log.error("Problem loading detectid ...")
+                return
+
+            row = rows[0] #should only be the one row
+
+
+            #fill out shot info
+            self.survey_shotid = row['shotid'] #redundant, already have it
+            self.survey_fwhm_gaussian = row['fwhm_gaussian']
+            self.survey_fwhm_moffat = row['fwhm_moffat']
+            self.survey_response = row['response_4540']
+            try:
+                self.survey_fieldname = row['field'].decode()
+            except:
+                self.survey_fieldname = row['field']
+
+        return
+
+
     def load_hdf5_fluxcalibrated_spectra(self,hdf5_fn,id):
         """
 
@@ -1759,6 +1826,7 @@ class DetObj:
             self.w_unc = row['wave_err']
             self.wra = row['ra']
             self.wdec = row['dec']
+            self.survey_shotid = row['shotid']
 
             #todo: need the Sky X,Y ?
             #self.x = #Sky X (IFU-X)
@@ -1779,6 +1847,10 @@ class DetObj:
 
             self.estflux = row['flux']
             self.estflux_unc = row['flux_err']
+
+            self.estflux_h5 = self.estflux
+            self.estflux_h5_unc = self.estflux_unc
+
 
             self.cont_cgs = row['continuum'] #units of e-17 set below
             self.cont_cgs_unc = row['continuum_err']
@@ -1845,6 +1917,18 @@ class DetObj:
             self.sumspec_flux = row['spec1d'] #DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
             self.sumspec_fluxerr = row['spec1d_err']
 
+            #this is HETDEX data only (using line continuum estimate)(a bit below will optionally use sdss)
+            if self.cont_cgs != 0:
+                self.eqw_obs = self.estflux / self.cont_cgs
+
+                self.eqw_obs_unc = abs(self.eqw_obs * np.sqrt(
+                    (self.estflux_unc / self.estflux) ** 2 +
+                    (self.cont_cgs_unc / self.cont_cgs) ** 2))
+
+                #save for detailed reporting
+                self.eqw_line_obs = self.eqw_obs
+                self.eqw_line_obs_unc = self.eqw_obs_unc
+
             try:
                 #reminder needs erg/s/cm2/AA and sumspec_flux in ergs/s/cm2 so divied by 2AA bin width
 #                self.sdss_gmag, self.cont_cgs = elixer_spectrum.get_hetdex_gmag(self.sumspec_flux/2.0*1e-17,self.sumspec_wavelength)
@@ -1853,12 +1937,23 @@ class DetObj:
 
                 self.sdss_cgs_cont_unc = np.sqrt(np.sum(self.sumspec_fluxerr**2))/len(self.sumspec_fluxerr)*G.HETDEX_FLUX_BASE_CGS
 
+
+                if (self.sdss_cgs_cont is not None) and (self.sdss_cgs_cont != 0):
+                    self.eqw_sdss_obs = self.estflux / self.sdss_cgs_cont
+                    self.eqw_sdss_obs_unc = abs(self.eqw_sdss_obs * np.sqrt(
+                        (self.estflux_unc / self.estflux) ** 2 +
+                        (self.sdss_cgs_cont_unc / self.sdss_cgs_cont) ** 2))
+
+                self.hetdex_cont_cgs = self.cont_cgs
+                self.hetdex_cont_cgs_unc = self.cont_cgs_unc
+
                 if self.cont_cgs == -9999: #still unset ... weird?
                     log.warning("Warning! HETDEX continuum estimate not set. Using SDSS gmag for estimate(%g,+/- %g)."
                                 %(self.sdss_cgs_cont,self.sdss_cgs_cont_unc))
                     self.cont_cgs = self.sdss_cgs_cont
                     self.cont_cgs_unc = self.sdss_cgs_cont_unc
                     self.using_sdss_gmag_ew = True
+
                 elif self.cont_cgs <= 0.0:
                     log.warning("Warning! HETDEX continuum <= 0.0. Using SDSS gmag for estimate (%g,+/- %g)."
                                 %(self.sdss_cgs_cont,self.sdss_cgs_cont_unc))
@@ -1869,7 +1964,7 @@ class DetObj:
             except:
                 pass
 
-            #todo: should check for cong < 0? if so, try my MCMCfit?
+            #todo: should check for cont < 0? if so, try my MCMCfit?
             if self.cont_cgs != 0:
                 self.eqw_obs = self.estflux / self.cont_cgs
 
@@ -2376,11 +2471,14 @@ class HETDEX:
         self.hdf5_detectid_list = None
         self.hdf5_detect_fqfn = None  # string ... the fully qualified filename
         self.hdf5_detect = None  # the actual HDF5 representation loaded
+        self.hdf5_survey_fqfn = None
 
         if (hdf5_detectid_list is not None) and (len(hdf5_detectid_list) > 0):
             self.hdf5_detectid_list = hdf5_detectid_list
             self.hdf5_detect_fqfn = args.hdf5  #string ... the fully qualified filename
             self.hdf5_detect = None #the actual HDF5 representation loaded
+            #for now
+            self.hdf5_survey_fqfn = G.HDF5_SURVEY_FN
 
         if args.cure:
             self.panacea = False
@@ -3143,6 +3241,9 @@ class HETDEX:
                 #todo: load the HDF5 data here ...
                 #e.load_fluxcalibrated_spectra()
                 e.load_hdf5_fluxcalibrated_spectra(self.hdf5_detect_fqfn,d)
+                #need the shotid from the detection
+                _shotid = e.survey_shotid
+                e.load_hdf5_shot_info(self.hdf5_survey_fqfn, _shotid)
 
 
 
@@ -3657,7 +3758,7 @@ class HETDEX:
             if e.line_gaussfit_unc is not None:
                 #the /2.0 to deal with Karl's 2AA bin width
                 estflux_str = self.unc_str((e.line_gaussfit_parms[2]/e.line_gaussfit_parms[4] *G.HETDEX_FLUX_BASE_CGS,
-                                            e.line_gaussfit_unc[2]*G.HETDEX_FLUX_BASE_CGS))
+                                            e.line_gaussfit_unc[2]/e.line_gaussfit_parms[4]*G.HETDEX_FLUX_BASE_CGS))
                 #estcont_str = self.unc_str((e.line_gaussfit_parms[3]*1e-17,e.line_gaussfit_unc[3]*1e-17))
 
                 if e.using_sdss_gmag_ew:

@@ -361,7 +361,7 @@ class science_image():
         if close:
             hdulist.close()
 
-    def contains_position(self,ra,dec):
+    def contains_position(self,ra,dec,verify=True):
         if self.footprint is not None: #do fast check first
             if (ra  > np.max(self.footprint[:,0])) or (ra  < np.min(self.footprint[:,0])) or \
                (dec > np.max(self.footprint[:,1])) or (dec < np.min(self.footprint[:,1])):
@@ -378,18 +378,19 @@ class science_image():
                 close = True
             except:
                 log.error("Unable to open science image file: %s" % self.image_location)
-                return -1
+                return False
         else:
             log.info("Using outer scope fits %s ..." % self.image_location)
             hdulist = self.hdulist
 
         #now, it could be, so actually try a cutout to see if it will work
-        try:
-            cutout = Cutout2D(hdulist[self.wcs_idx].data, SkyCoord(ra, dec, unit="deg", frame=self.frame), (1, 1),
-                              wcs=self.wcs, copy=False)#,mode='partial')
-        except:
-            log.debug("position (%f, %f) is not in image." % (ra,dec), exc_info=False)
-            rc = False
+        if rc and verify:
+            try:
+                cutout = Cutout2D(hdulist[self.wcs_idx].data, SkyCoord(ra, dec, unit="deg", frame=self.frame), (1, 1),
+                                  wcs=self.wcs, copy=False)#,mode='partial')
+            except:
+                log.debug("position (%f, %f) is not in image." % (ra,dec), exc_info=False)
+                rc = False
 
         if close:
             hdulist.close()

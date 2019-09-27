@@ -14,7 +14,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.7.4a1'
+__version__ = '1.7.4a2'
 
 #python version
 import sys
@@ -36,6 +36,7 @@ if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
 
     HDF5_DETECT_FN = "/work/03946/hetdex/hdr1/detect/detect_hdr1.h5"
     HDF5_CONTINUUM_FN = "/work/03946/hetdex/hdr1/detect/continuum_sources.h5"
+    HDF5_SURVEY_FN = "/work/03946/hetdex/hdr1/survey/survey_hdr1.h5"
     OBSERVATIONS_BASEDIR = "/work/03946/hetdex/hdr1/reduction/"
     BAD_AMP_LIST = "/work/03261/polonius/maverick/catalogs/bad_amp_list.txt"
     #CONFIG_BASEDIR = "/work/03946/hetdex/hdr1/raw"
@@ -84,6 +85,7 @@ else:
     if True:
         HDF5_DETECT_FN = "/work/03946/hetdex/hdr1/detect/detect_hdr1.h5"
         HDF5_CONTINUUM_FN = "/work/03946/hetdex/hdr1/detect/continuum_sources.h5"
+        HDF5_SURVEY_FN = "/work/03946/hetdex/hdr1/survey/survey_hdr1.h5"
 
         #OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
         OBSERVATIONS_BASEDIR = "/work/03946/hetdex/hdr1/reduction/"
@@ -152,6 +154,7 @@ else:
 
         HDF5_DETECT_FN = "/work/03946/hetdex/hdr1/detect/detect_hdr1.h5"
         HDF5_CONTINUUM_FN = "/work/03946/hetdex/hdr1/detect/continuum_sources.h5"
+        HDF5_SURVEY_FN = "/work/03946/hetdex/hdr1/survey/survey_hdr1.h5"
         OBSERVATIONS_BASEDIR = "/work/03946/hetdex/hdr1/reduction/"
         BAD_AMP_LIST = "/work/03261/polonius/maverick/catalogs/bad_amp_list.txt"
         # CONFIG_BASEDIR = "/work/03946/hetdex/hdr1/raw"
@@ -417,7 +420,7 @@ FLUX_WAVEBIN_WIDTH = 2.0 # AA
 NEGATIVE_Z_ERROR = -0.001 #if compuated z is negative, but greater than this, assume == 0.0
 
 CLASSIFY_WITH_OTHER_LINES = True
-SPEC_MAX_OFFSET_SPREAD = 1.0 #AA #maximum spread in (velocity) offset (but in AA) across all lines in a solution
+SPEC_MAX_OFFSET_SPREAD = 2.75 #AA #maximum spread in (velocity) offset (but in AA) across all lines in a solution
 MIN_MCMC_SNR = 0.0 #minium SNR from an MCMC fit to accept as a real line (if 0.0, do not MCMC additional lines)
 MIN_ADDL_EMIS_LINES_FOR_CLASSIFY = 1
 
@@ -469,4 +472,4 @@ USE_PHOTO_CATS = True  #default normal is True .... use photometry catalogs (if 
 
 MAX_NEIGHBORS_IN_MAP = 25
 
-BUILD_HDF5_CATALOG = False
+BUILD_HDF5_CATALOG = True

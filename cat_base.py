@@ -1075,6 +1075,48 @@ class Catalog:
 
         return d
 
+    # def contains_position(self,ra,dec,window,catalog_image,aperture=None,verify=True):
+    #     #window is in DEGREES
+    #
+    #     d = {'cutout':None,
+    #          'hdu':None,
+    #          'path':None,
+    #          'filter':catalog_image['filter'],
+    #          'instrument':catalog_image['instrument'],
+    #          'mag':None,
+    #          'aperture':None,
+    #          'ap_center':None,
+    #          'found':None}
+    #     try:
+    #         wcs_manual = catalog_image['wcs_manual']
+    #         mag_func = catalog_image['mag_func']
+    #     except:
+    #         wcs_manual = self.WCS_Manual
+    #         mag_func = None
+    #
+    #     try:
+    #         if catalog_image['image'] is None:
+    #             catalog_image['image'] = science_image.science_image(wcs_manual=wcs_manual,
+    #                                                      image_location=op.join(catalog_image['path'],
+    #                                                                             catalog_image['name']))
+    #             catalog_image['image'].catalog_name = catalog_image['name']
+    #             catalog_image['image'].filter_name = catalog_image['filter']
+    #
+    #         sci = catalog_image['image']
+    #
+    #         if sci.hdulist is None:
+    #             sci.load_image(wcs_manual=wcs_manual)
+    #
+    #         d['path'] = sci.image_location
+    #         d['hdu'] = sci.headers
+    #
+    #         rc = sci.contains_position(ra,dec,verify)
+    #         d['found'] = rc
+    #     except:
+    #         log.error("Error in contains_position.",exc_info=True)
+    #
+    #     return d
+
 
     def get_cutouts(self,ra,dec,window,aperture=None):
         l = list()

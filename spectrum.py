@@ -96,9 +96,9 @@ GOOD_MIN_SIGMA = 1.8 #in AA or FWHM ~ 4.2 (really too narrow, but allowing for s
 
 #GOOD_MAX_DX0_MUTL .... ALL in ANGSTROMS
 MAX_LYA_VEL_OFFSET = 500.0 #km/s
-GOOD_MAX_DX0_MULT_LYA = [-7.5,2.0] #can have a sizeable velocity offset for LyA (actaully depends on z, so this is a default)
+GOOD_MAX_DX0_MULT_LYA = [-7.5,2.75] #can have a sizeable velocity offset for LyA (actaully depends on z, so this is a default)
 #assumes a max velocity offset of 500km/s at 4500AA ==> 4500 * 500/c = 7.5AA
-GOOD_MAX_DX0_MULT_OTHER = [-2.0,2.0] #all others are symmetric and smaller
+GOOD_MAX_DX0_MULT_OTHER = [-2.75,2.75] #all others are symmetric and smaller #using 2.75AA as 1/2 resolution for HETDEX at 5.5AA
 
 GOOD_MAX_DX0_MULT = GOOD_MAX_DX0_MULT_OTHER#[-1.75,1.75] #3.8 (AA)
                     # #maximum error (domain freedom) in fitting to line center in AA
@@ -2599,8 +2599,8 @@ class Spectrum:
         min_w = min(wavelengths)
 
         for e in self.emission_lines:
-            #todo: consider .solution to mean it cannot be a lone solution (that is, the line without other lines)
-            #if not e.solution: #if this line is not allowed to be the main line
+            #!!! consider e.solution to mean it cannot be a lone solution (that is, the line without other lines)
+            #if not e.solution: #changed!!! this line cannot be the ONLY line, but can be the main line if there are others
             #    continue
 
             central_z = central/e.w_rest - 1.0
@@ -2634,6 +2634,9 @@ class Spectrum:
                 a_central = a.w_rest*(sol.z+1.0)
                 if (a_central > max_w) or (a_central < min_w) or (abs(a_central-central) < 5.0):
                     continue
+
+                log.debug("Testing line solution. Anchor line (%s, %0.1f) at %0.1f, target line (%s, %0.1f) at %0.1f."
+                          %(e.name,e.w_rest,e.w_rest*(1.+central_z),a.name,a.w_rest,a_central))
 
                 eli = signal_score(wavelengths=wavelengths, values=values, errors=errors, central=a_central,
                                    central_z = central_z, values_units=values_units, spectrum=self,

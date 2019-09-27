@@ -84,12 +84,15 @@ class CatalogLibrary:
         return cat_panstarrs.PANSTARRS()
 
 
-    def find_catalogs(self,position):
+    def find_catalogs(self,position,verify=False):
         '''
         Build a list of catalogs whose footprint contains the position
 
         :param position: astropy SkyCoord
         :param radius: in deccimal degrees at the moment
+        :param verify: if False, checks only that the position is in the broad catalog footprint
+                       if True, verifies access to imaging files and checks for available cutouts at the position
+                       (True option can be slow depending on file size, network speed, etc)
         :return: list of catalog objects
         '''
 
@@ -99,10 +102,43 @@ class CatalogLibrary:
 
         for c in self.cats:
             if c.position_in_cat(ra=ra, dec=dec, error=0):
-                matched_cats.append(c)
+                if verify: #check that there actually exists an accessible image
+                    if self.verify_cutouts(position,c):
+                        matched_cats.append(c)
+                else: #go ahead and append
+                    matched_cats.append(c)
 
         return matched_cats
 
+    def verify_cutouts(self,position,catalog):
+        """
+        Verify that a cutout can be made in a catalog at the given position
+
+        :param position:  astropy SkyCoord
+        :param catalog: ELiXer catalog object
+        :return: True or False
+        """
+
+        if catalog is None:
+            return False
+
+        result = False
+        ra = position.ra.to_value() #decimal degrees
+        dec = position.dec.to_value()
+
+        radius = 0.0003 #downstream calls expect this in degrees #approx 1"
+        aperture = 1.0 #arcsec
+
+        r_dict = catalog.get_cutouts(ra,dec,window=radius*2.,aperture=aperture)
+
+        if (r_dict is not None) and (len(r_dict) > 0):
+            #if any cutouts are returned
+            for d in r_dict:
+                if d['cutout'] is not None and (sum(d['cutout'].shape) > 10):
+                    result = True
+                    break
+
+        return result
 
 
     def get_cutouts(self,position,radius,catalogs=None,aperture=None,dynamic=False,nudge=None):

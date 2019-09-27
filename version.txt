@@ -1,5 +1,11 @@
 changes to elixer by version
 
+1.7.4a2 [2019-09-26]
+* fixed missing (2AA) division for estimated flux uncertainty when reading from Gaussian fit parameters (vs straight
+  from HDF5 file) (*note: 2AA value is read from Gaussian fit paramter as well)
+* added verify boolean to catalogs::find_catalogs() to actually verify a cutout exists at the RA, Dec (returns list
+  of matching catalogs ... can be slow since it actually verifies the imaging files on disk and performs a cutout)
+
 
 
 1.7.4a1 [2019-09-19]
