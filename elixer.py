@@ -43,9 +43,12 @@ import time
 import numpy as np
 #import re
 from PIL import Image as PIL_Image
-from wand.image import Image
+
 use_wand = False
-from pdf2image import convert_from_path
+if use_wand:
+    from wand.image import Image
+else:
+    from pdf2image import convert_from_path
 
 import tables
 

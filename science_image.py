@@ -476,8 +476,9 @@ class science_image():
         #return a cutout
 
 
-        details = {'ra':None,'dec':None,'radius':None,'flux':None,'flux_err':None,'mag':None,'mag_err':None,
-                   'area_pix':None,'sky_flux':None,'sky_flux_err':None,'sky_area_pix':None}
+        details = {'ra':None,'dec':None,'radius':None,'mag':None,'mag_err':None,
+                   'area_pix':None,'sky_area_pix':None,
+                   'aperture_counts':None, 'sky_counts':None, 'sky_average':None}
 
         self.window = None
         self.last_x_center = None
@@ -833,6 +834,7 @@ class science_image():
                 max_radius = radius
                 max_bright = 99.9
                 max_counts = 0
+                max_area_pix = 0
 
                 #last_slope = 0. #not really a slope but looking to see if there is a rapid upturn and then stop
                 #last_count = 0.
@@ -841,6 +843,8 @@ class science_image():
                 rad_list = [0.0]
 
                 while radius <= min(error,G.MAX_DYNAMIC_MAG_APERTURE):
+
+                    source_aperture_area = 0.
                     try:
                         #use the cutout first if possible (much smaller than image and faster)
                         #note: net difference is less than 0.1 mag at 0.5" and less than 0.01 at 1.5"
@@ -929,11 +933,13 @@ class science_image():
                                 max_bright = mag
                                 max_counts = counts
                                 max_radius = radius
+                                max_area_pix = source_aperture_area
                             break
 
                         max_bright = mag
                         max_counts = counts
                         max_radius = radius
+                        max_area_pix = source_aperture_area
                         #last_count = counts - last_count #keeping just the counts in the current annulus
                     except:
                         log.error("Exception in science_image::get_cutout () using dynamic aperture", exc_info=True)
@@ -945,6 +951,12 @@ class science_image():
                 mag = max_bright
                 counts = max_counts
                 radius = max_radius
+                source_aperture_area = max_area_pix
+
+                details['radius'] = radius
+                details['mag'] = mag
+                details['aperture_counts'] = counts
+                details['area_pix'] = source_aperture_area
 
             else:
 
@@ -956,6 +968,9 @@ class science_image():
                             radius = aperture
                         else:
                             radius = 1.
+
+                    details['radius'] = radius
+                    source_aperture_area = 0.
 
                     try:
 
@@ -1034,6 +1049,10 @@ class science_image():
 
                     mag = mag_func(counts,cutout,self.headers)
 
+                    details['mag'] = mag
+                    details['aperture_counts'] = counts
+                    details['area_pix'] = source_aperture_area
+
                     log.info("Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %s Mag_AB = %g"
                              % (radius,ra,dec,str(counts),mag))
                     #print ("Counts = %s Mag %f" %(str(counts),mag))
@@ -1100,6 +1119,7 @@ class science_image():
 
                     #replace with biweight "average"
                     bw_cen = biweight.biweight_location(annulus_data_1d)
+                    sky_pix = len(annulus_data_1d)
                     sky_avg = bw_cen
 
 
@@ -1109,7 +1129,6 @@ class science_image():
                     #re-compute the magnitude
                     base_mag = mag
                     sky_mag = mag_func(counts,cutout,self.headers)
-
 
                     #todo: temporary
                     if False:
@@ -1144,6 +1163,11 @@ class science_image():
                              % (radius,ra,dec,sky_avg, sky_cts,str(counts),mag))
                     #print ("Counts = %s Mag %f" %(str(counts),mag))
 
+
+                    details['sky_area_pix'] = sky_pix
+                    details['sky_average'] = sky_avg
+                    details['sky_counts'] = sky_cts
+                    details['mag'] = mag
 
                 except:
                     #print("Sky Mask Problem ....")

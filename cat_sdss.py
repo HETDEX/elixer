@@ -344,8 +344,8 @@ class SDSS(cat_base.Catalog):#SDSS
                 exptime_cont_est = sci.exptime
 
             # sci.load_image(wcs_manual=True)
-            cutout, pix_counts, mag, mag_radius = sci.get_cutout(ra, dec, error, window=window,
-                                                     aperture=aperture,mag_func=mag_func)
+            cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error, window=window,
+                                                     aperture=aperture,mag_func=mag_func,return_details=True)
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
             bid_target = None
@@ -454,6 +454,11 @@ class SDSS(cat_base.Catalog):#SDSS
                 self.add_zero_position(plt)
 
                 if pix_counts is not None:
+                    details['catalog_name'] = self.name
+                    details['filter_name'] = f
+                    details['aperture_eqw_rest_lya'] = cutout_ewr
+                    details['aperture_plae'] = cutout_plae
+
                     cx = sci.last_x0_center
                     cy = sci.last_y0_center
                     self.add_aperture_position(plt,mag_radius,mag,cx,cy,cutout_ewr,cutout_plae)

@@ -122,17 +122,16 @@ class Aperture(tables.IsDescription):
     aperture_ra = tables.Float32Col(dflt=UNSET_FLOAT)
     aperture_dec = tables.Float32Col(dflt=UNSET_FLOAT)
     aperture_radius = tables.Float32Col(dflt=UNSET_FLOAT) #in arcsec
-    aperture_flux = tables.Float32Col(dflt=UNSET_FLOAT) #with sky already subtracted
-    aperture_flux_err = tables.Float32Col(dflt=UNSET_FLOAT)
     aperture_mag = tables.Float32Col(dflt=UNSET_FLOAT)
     aperture_mag_err = tables.Float32Col(dflt=UNSET_FLOAT)
     aperture_area_pix = tables.Float32Col(dflt=UNSET_FLOAT) #pixels
-    sky_flux = tables.Float32Col(dflt=UNSET_FLOAT)
-    sky_flux_err = tables.Float32Col(dflt=UNSET_FLOAT)
     sky_area_pix = tables.Float32Col(dflt=UNSET_FLOAT) #pixels
     aperture_eqw_rest_lya = tables.Float32Col(dflt=UNSET_FLOAT)
     aperture_eqw_rest_lya_err = tables.Float32Col(dflt=UNSET_FLOAT)
     aperture_plae = tables.Float32Col(dflt=UNSET_FLOAT)
+    aperture_counts = tables.Float32Col(dflt=UNSET_FLOAT)
+    sky_counts = tables.Float32Col(dflt=UNSET_FLOAT)
+    sky_average = tables.Float32Col(dflt=UNSET_FLOAT)
 
 
 class CatalogMatch(tables.IsDescription):
@@ -467,9 +466,26 @@ def append_entry(fileh,det):
         #Aperture Table
         #############################
 
-        for something in somethingelse:
+        for d in det.aperture_details_list:
             row = atb.row
             row['detectid'] = det.hdf5_detectid
+            row['catalog_name'] = d['catalog_name']
+            row['filter_name'] = d['filter_name']
+            #row['image_depth_mag'] = ??
+            row['aperture_ra'] = d['ra']
+            row['aperture_dec'] = d['dec']
+            row['aperture_radius'] = d['radius']
+            row['aperture_mag']=d['mag']
+            #row['aperture_mag_err'] = d['']
+            row['aperture_area_pix'] = d['area_pix']
+            row['sky_area_pix'] = d['sky_area_pix']
+            row['aperture_counts'] = d['aperture_counts']
+            row['sky_counts'] = d['sky_counts']
+            row['sky_average'] = d['sky_average']
+            row['aperture_eqw_rest_lya'] = d['aperture_eqw_rest_lya']
+            row['aperture_plae'] = d['aperture_plae']
+
+
 
             row.append()
 

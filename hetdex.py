@@ -577,6 +577,9 @@ class DetObj:
 
         self.multiline_z_minimum_flag = False #False == multiline no good solution, True = 1 good solution
 
+        self.aperture_details_list = []
+        self.bid_target_list = []
+
         if emission:
             self.type = 'emis'
             # actual line number from the input file
