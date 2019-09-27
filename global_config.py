@@ -472,4 +472,4 @@ USE_PHOTO_CATS = True  #default normal is True .... use photometry catalogs (if 
 
 MAX_NEIGHBORS_IN_MAP = 25
 
-BUILD_HDF5_CATALOG = True
+BUILD_HDF5_CATALOG = False

@@ -413,6 +413,66 @@ def append_entry(fileh,det):
         row.append()
 
 
+        #############################
+        #ELiXer Found Spectral Lines Table
+        #############################
+
+
+        for line in det.spec_obj.all_found_lines:
+            row = ltb.row
+            row['detectid'] = det.hdf5_detectid
+            if line.absorber:
+                row['type'] = -1
+            else:
+                row['type'] = 1
+
+            row['wavelength'] = line.fit_x0
+            if line.mcmc_line_flux_tuple is not None:
+                row['flux_line'] = line.mcmc_line_flux
+                row['flux_line_err']  = 0.5 * (abs(line.mcmc_line_flux_tuple[1]) + abs(line.mcmc_line_flux_tuple[2]))
+
+            else:
+                row['flux_line'] = line.fit_line_flux
+                row['flux_line_err'] = line.fit_rmse
+
+            row['score'] = line.line_score
+            if line.mcmc_snr > 0:
+                row['sn'] = line.mcmc_snr
+            else:
+                row['sn'] = line.snr
+            row['used'] = False #these are all found lines, may or may not be in solution
+
+            row.append()
+
+        for sol in det.spec_obj.solutions:
+            for line in sol.lines:
+                row = ltb.row
+                row['detectid'] = det.hdf5_detectid
+                if line.absorber:
+                    row['type'] = -1
+                else:
+                    row['type'] = 1
+
+                row['wavelength'] = line.w_obs
+                row['flux_line'] = line.flux
+                row['flux_line_err'] = 0 #should find the "found" line version to get this
+
+                row['score'] = line.line_score
+                row['sn'] = line.snr
+                row['used'] = True  # these are all found lines, may or may not be in solution
+
+                row.append()
+
+        #############################
+        #Aperture Table
+        #############################
+
+        for something in somethingelse:
+            row = atb.row
+            row['detectid'] = det.hdf5_detectid
+
+            row.append()
+
     except:
         log.error("Exception! in elixer_hdf5::append_entry",exc_info=True)
 

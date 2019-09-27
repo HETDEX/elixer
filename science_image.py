@@ -29,6 +29,7 @@ from astropy.coordinates import SkyCoord
 #from astropy.coordinates import match_coordinates_sky
 from astropy.nddata import Cutout2D
 from astropy.wcs import WCS
+from astropy.wcs import utils as wcs_utils
 from astropy.wcs import Wcsprm
 from astropy.wcs.utils import skycoord_to_pixel
 from astropy.nddata.utils import NoOverlapError
@@ -467,11 +468,16 @@ class science_image():
         return gx, gy
 
 
-    def get_cutout(self,ra,dec,error,window=None,image=None,copy=False,aperture=0,mag_func=None, do_sky_subtract=True):
+    def get_cutout(self,ra,dec,error,window=None,image=None,copy=False,aperture=0,mag_func=None,
+                   do_sky_subtract=True,return_details=False):
         '''ra,dec in decimal degrees. error and window in arcsecs'''
         #error is central box (+/- from ra,dec)
         #window is the size of the entire coutout
         #return a cutout
+
+
+        details = {'ra':None,'dec':None,'radius':None,'flux':None,'flux_err':None,'mag':None,'mag_err':None,
+                   'area_pix':None,'sky_flux':None,'sky_flux_err':None,'sky_area_pix':None}
 
         self.window = None
         self.last_x_center = None
@@ -503,7 +509,10 @@ class science_image():
 
         if (error is None or error == 0) and (window is None or window == 0):
             log.info("inavlid error box and window box")
-            return cutout, counts, mag, radius
+            if return_details:
+                return cutout, counts, mag, radius, details
+            else:
+                return cutout, counts, mag, radius
 
         if window is None or window < error:
             window = float(max(2.0*error,5.0)) #should be at least 5 arcsecs
@@ -524,7 +533,10 @@ class science_image():
                     close = True
                 except:
                     log.error("Unable to open science image file: %s" % self.image_location)
-                    return cutout, counts, mag, radius
+                    if return_details:
+                        return cutout, counts, mag, radius, details
+                    else:
+                        return cutout, counts, mag, radius
             else:
                 log.info("Using outer scope fits %s ..." % self.image_location)
                 hdulist = self.hdulist
@@ -616,7 +628,10 @@ class science_image():
                                     close = True
                                 except:
                                     log.error("Unable to open science image file: %s" % self.image_location)
-                                    return cutout, counts, mag, radius
+                                    if return_details:
+                                        return cutout, counts, mag, radius, details
+                                    else:
+                                        return cutout, counts, mag, radius
                             else:
                                 log.error("Unable to open science image file: %s" % self.image_location)
                                 retries = max_retries
@@ -634,7 +649,10 @@ class science_image():
 
                     if retries >= max_retries:
                         log.info("+++++ giving up (%d,%f) ...." % (retries,total_sleep))
-                        return None, counts, mag, radius
+                        if return_details:
+                            return None, counts, mag, radius, details
+                        else:
+                            return None, counts, mag, radius
                     elif retries > 0:
                         log.info("+++++ it worked (%d,%f) ...." % (retries,total_sleep))
 
@@ -680,7 +698,10 @@ class science_image():
                     log.info("Error (possible NoOverlapError) in science_image::get_cutout(). *** Did more than one catalog match the coordinates? ***"
                              "Target is not in range of image. RA,Dec = (%f,%f) Window = %d" % (ra, dec, pix_window))
                     print("Target is not in range of image. RA,Dec = (%f,%f) Window = %d" % (ra, dec, pix_window))
-                    return cutout, counts, mag, radius
+                    if return_details:
+                        return cutout, counts, mag, radius, details
+                    else:
+                        return cutout, counts, mag, radius
                 except:
                     #after = float(G.HPY.heap().size) /(2**20)
 
@@ -689,15 +710,24 @@ class science_image():
                     #log.debug(msg)
 
                     log.error("Exception in science_image::get_cutout (%s):" %self.image_location, exc_info=True)
-                    return cutout, counts, mag, radius
+                    if return_details:
+                        return cutout, counts, mag, radius, details
+                    else:
+                        return cutout, counts, mag, radius
 
                 if not (self.contains_position(ra,dec)):
                     log.info("science image (%s) does not contain requested position: RA=%f , Dec=%f"
                              %(self.image_location,ra,dec))
-                    return None, counts, mag, radius
+                    if return_details:
+                        return None, counts, mag, radius, details
+                    else:
+                        return None, counts, mag, radius
             else:
                 log.error("No fits or passed image from which to make cutout.")
-                return cutout, counts, mag, radius
+                if return_details:
+                    return cutout, counts, mag, radius, details
+                else:
+                    return cutout, counts, mag, radius
         else:
             #data = image.data
             #pix_size = self.calc_pixel_size(image.wcs)
@@ -719,7 +749,10 @@ class science_image():
                         pass
             except:
                 log.error("Exception in science_image::get_cutout ():" , exc_info=True)
-                return cutout, counts, mag, radius
+                if return_details:
+                    return cutout, counts, mag, radius, details
+                else:
+                    return cutout, counts, mag, radius
 
         #put down aperture on cutout at RA,Dec and get magnitude
         if (position is not None) and (cutout is not None) and (image is not None) \
@@ -728,9 +761,16 @@ class science_image():
             x_center, y_center = self.update_center(cutout,radius)
             self.last_x_center = x_center*self.pixel_size
             self.last_y_center = y_center*self.pixel_size
-            self.last_x0_center = (x_center - cutout.center_cutout[0])*self.pixel_size
+            self.last_x0_center = (x_center - cutout.center_cutout[0])*self.pixel_size #the shift in AA from center
             self.last_y0_center = (y_center - cutout.center_cutout[1])*self.pixel_size
             source_aperture_area = 0.0
+
+            try:
+                sc = wcs_utils.pixel_to_skycoord(x_center,y_center,cutout.wcs,origin=0)
+                details['ra'] = sc.ra.value
+                details['dec']= sc.dec.value
+            except:
+                log.warning("Exception! getting aperture RA,Dec.", exc_info=True)
 
             if is_cutout_empty(cutout):
                 if (G.ALLOW_EMPTY_IMAGE):
@@ -745,6 +785,10 @@ class science_image():
                 else:
                     log.info("Cutout is empty or simple gradient. Will deliberately fail cutout request.")
                     return None, 0, 99.99, 0
+                    if return_details:
+                        return None, 0, 99.99, 0, details
+                    else:
+                        return None, 0, 99.99, 0
 
             if False: #test out photutils
                 from photutils import find_peaks, segmentation
@@ -973,7 +1017,10 @@ class science_image():
                         except:
                             log.info("Sky based aperture photometry failed. Will skip aperture photometery.",
                                      exc_info=True)
-                            return cutout, counts, mag, radius
+                            if return_details:
+                                return cutout, counts, mag, radius, details
+                            else:
+                                return cutout, counts, mag, radius
 
                     counts = phot_table['aperture_sum'][0]
 
@@ -1102,7 +1149,10 @@ class science_image():
                     #print("Sky Mask Problem ....")
                     log.error("Exception in science_image::get_cutout () figuring sky subtraction aperture", exc_info=True)
 
-        return cutout, counts, mag, radius
+        if return_details:
+            return cutout, counts, mag, radius, details
+        else:
+            return cutout, counts, mag, radius
 
     def get_position(self,ra,dec,cutout):
         #this is not strictly a pixel x and y but is a meta position based on the wcs

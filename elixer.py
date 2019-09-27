@@ -44,6 +44,8 @@ import numpy as np
 #import re
 from PIL import Image as PIL_Image
 from wand.image import Image
+use_wand = False
+from pdf2image import convert_from_path
 
 import tables
 
@@ -1201,22 +1203,41 @@ def convert_pdf(filename, resolution=150, jpeg=True, png=False):
         #           /etc/ImageMagick-6/policy.xml for PDFs to read :
         # <policy domain="coder" rights="read" pattern="PDF" />
 
+        if use_wand:
+            pages = Image(filename=filename, resolution=resolution)
+            for i, page in enumerate(pages.sequence):
+                with Image(page) as img:
+                    img.colorspace = 'rgb'
 
-        pages = Image(filename=filename, resolution=resolution)
-        for i, page in enumerate(pages.sequence):
-            with Image(page) as img:
-                img.colorspace = 'rgb'
+                    if jpeg:
+                        img.format = 'jpg'
+                        image_name = filename.rstrip(".pdf") + ".jpg"
+                        img.save(filename=image_name)
+                        print("File written: " + image_name)
 
-                if jpeg:
-                    img.format = 'jpg'
-                    image_name = filename.rstrip(".pdf") + ".jpg"
-                    img.save(filename=image_name)
+                    if png:
+                        img.format = 'png'
+                        image_name = filename.rstrip(".pdf") + ".png"
+                        img.save(filename=image_name)
+                        print("File written: " + image_name)
+        else:
+            pages = convert_from_path(filename,resolution)
+            if png:
+                for i in range(len(pages)):
+                    if i > 0:
+                        image_name = filename.rstrip(".pdf") + "_p%02d.png" %i
+                    else:
+                        image_name = filename.rstrip(".pdf") + ".png"
+                    pages[i].save(image_name,"PNG")
                     print("File written: " + image_name)
 
-                if png:
-                    img.format = 'png'
-                    image_name = filename.rstrip(".pdf") + ".png"
-                    img.save(filename=image_name)
+            if jpeg:
+                for i in range(len(pages)):
+                    if i > 0:
+                        image_name = filename.rstrip(".pdf") + "_p%02d.jpg" %i
+                    else:
+                        image_name = filename.rstrip(".pdf") + ".jpg"
+                    pages[i].save(image_name,"JPEG")
                     print("File written: " + image_name)
 
     except:
