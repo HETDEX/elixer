@@ -476,9 +476,10 @@ class science_image():
         #return a cutout
 
 
-        details = {'ra':None,'dec':None,'radius':None,'mag':None,'mag_err':None,
-                   'area_pix':None,'sky_area_pix':None,
-                   'aperture_counts':None, 'sky_counts':None, 'sky_average':None}
+        details = {'catalog_name':None,'filter_name':None,'ra':None,'dec':None,'radius':None,
+                   'mag':None,'mag_err':None, 'area_pix':None,'sky_area_pix':None,
+                   'aperture_counts':None, 'sky_counts':None, 'sky_average':None,
+                   'aperture_eqw_rest_lya':None,'aperture_plae':None}
 
         self.window = None
         self.last_x_center = None

@@ -671,6 +671,9 @@ class GOODS_N(cat_base.Catalog):
                     plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
                                                       width=target_box_side, height=target_box_side,
                                                       angle=0.0, color=bc, fill=False, linewidth=1.0, zorder=1))
+            if details is not None:
+                detobj.aperture_details_list.append(details)
+
 
         if (not G.ZOO) and (best_plae_poii is not None):
             text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)"

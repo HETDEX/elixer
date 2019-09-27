@@ -467,27 +467,26 @@ def append_entry(fileh,det):
         #############################
 
         for d in det.aperture_details_list:
-            row = atb.row
-            row['detectid'] = det.hdf5_detectid
-            row['catalog_name'] = d['catalog_name']
-            row['filter_name'] = d['filter_name']
-            #row['image_depth_mag'] = ??
-            row['aperture_ra'] = d['ra']
-            row['aperture_dec'] = d['dec']
-            row['aperture_radius'] = d['radius']
-            row['aperture_mag']=d['mag']
-            #row['aperture_mag_err'] = d['']
-            row['aperture_area_pix'] = d['area_pix']
-            row['sky_area_pix'] = d['sky_area_pix']
-            row['aperture_counts'] = d['aperture_counts']
-            row['sky_counts'] = d['sky_counts']
-            row['sky_average'] = d['sky_average']
-            row['aperture_eqw_rest_lya'] = d['aperture_eqw_rest_lya']
-            row['aperture_plae'] = d['aperture_plae']
+            if d['mag'] is not None:
+                row = atb.row
+                row['detectid'] = det.hdf5_detectid
+                row['catalog_name'] = d['catalog_name']
+                row['filter_name'] = d['filter_name']
+                #row['image_depth_mag'] = ??
+                row['aperture_ra'] = d['ra']
+                row['aperture_dec'] = d['dec']
+                row['aperture_radius'] = d['radius']
+                row['aperture_mag']=d['mag']
+                #row['aperture_mag_err'] = d['']
+                row['aperture_area_pix'] = d['area_pix']
+                row['sky_area_pix'] = d['sky_area_pix']
+                row['aperture_counts'] = d['aperture_counts']
+                row['sky_counts'] = d['sky_counts']
+                row['sky_average'] = d['sky_average']
+                row['aperture_eqw_rest_lya'] = d['aperture_eqw_rest_lya']
+                row['aperture_plae'] = d['aperture_plae']
 
-
-
-            row.append()
+                row.append()
 
     except:
         log.error("Exception! in elixer_hdf5::append_entry",exc_info=True)

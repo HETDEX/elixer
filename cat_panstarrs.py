@@ -608,6 +608,8 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                                                       width=target_box_side, height=target_box_side,
                                                       angle=0.0, color=bc, fill=False, linewidth=1.0, zorder=1))
 
+            if details is not None:
+                detobj.aperture_details_list.append(details)
 
         if (not G.ZOO) and (bid_target is not None) and (best_plae_poii is not None):
             text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)" % (best_plae_poii, best_plae_poii_filter))

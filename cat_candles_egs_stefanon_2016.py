@@ -835,6 +835,9 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                                                       width=target_box_side, height=target_box_side,
                                                       angle=0.0, color=bc, fill=False, linewidth=1.0, zorder=1))
 
+            if details is not None:
+                detobj.aperture_details_list.append(details)
+
         if (not G.ZOO) and (best_plae_poii is not None):
             text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)"
                           % (best_plae_poii, best_plae_poii_filter))
