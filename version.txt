@@ -6,6 +6,7 @@ changes to elixer by version
 * added verify boolean to catalogs::find_catalogs() to actually verify a cutout exists at the RA, Dec (returns list
   of matching catalogs ... can be slow since it actually verifies the imaging files on disk and performs a cutout)
 * replace Wand with pdf2image
+* minimal y-axis scaling of neighborhood spectra plots, set box and neighbor detected emission line color to 'lime'
 
 
 

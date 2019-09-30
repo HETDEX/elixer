@@ -1956,6 +1956,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             return None
 
 
+    neighbor_color = "lime"
     detectids, ras, decs, dists = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=error, sort=True)
     cont_detectids = []
 
@@ -2057,17 +2058,30 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     #get the PSF weighted full 1D spectrum for each detectid
     spec = []
     wave = []
+    emis = []
     with tables.open_file(hdf5, mode="r") as h5_detect:
         stb = h5_detect.root.Spectra
+        dtb = h5_detect.root.Detections
         for d in detectids:
             rows = stb.read_where("detectid==d")
+
             if rows.size == 1:
                 spec.append(rows['spec1d'][0])
                 wave.append(rows['wave1d'][0])
+
+                drows = dtb.read_where("detectid==d")
+                if drows.size == 1:
+                    emis.append(drows['wave'][0])
+                else:
+                    emis.append(-1.0)
+
             else:
                 #there's a problem
                 spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
                 wave.append(G.CALFIB_WAVEGRID)
+                emis.append(-1.0)
+
+
 
 
     #now add the continuum sources if any
@@ -2079,10 +2093,12 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                 if rows.size == 1:
                     spec.append(rows['spec1d'][0])
                     wave.append(rows['wave1d'][0])
+                    emis.append(-1.0)
                 else:
                     #there's a problem
                     spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
                     wave.append(G.CALFIB_WAVEGRID)
+                    emis.append(-1.0)
 
 
     num_rows = len(detectids) + len(cont_detectids)
@@ -2135,7 +2151,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             fx, fy = sci.get_position(ras[i], decs[i], master_cutout)
             plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
                                               width=target_box_side, height=target_box_side,
-                                              angle=0.0, color='b', fill=False, linewidth=1.0, zorder=2))
+                                              angle=0.0, color=neighbor_color, fill=False, linewidth=1.0, zorder=2))
 
 
 
@@ -2177,7 +2193,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             #add (overwrite) the highlighted location
             plt.gca().add_patch(plt.Rectangle((fx - target_box_side / 2.0, fy - target_box_side / 2.0),
                                               width=target_box_side, height=target_box_side,
-                                              angle=0.0, color='b', fill=False, linewidth=1.0, zorder=2))
+                                              angle=0.0, color=neighbor_color, fill=False, linewidth=1.0, zorder=2))
 
             # plt.gca().add_patch(
             #     plt.Circle((fx, fy), radius=target_box_side, color='b', fill=False,zorder=9))
@@ -2193,7 +2209,19 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         plt.plot(wave[i],spec[i],zorder=9,color='b')
         if cwave is not None:
             plt.axvline(x=cwave,linestyle="--",zorder=1,color='k',linewidth=1.0,alpha=0.5)
+        if emis[i] != -1.0:
+            plt.axvline(x= emis[i],linestyle="--",zorder=1,color=neighbor_color,linewidth=1.0,alpha=0.5)
         plt.xlim((G.CALFIB_WAVEGRID[0],G.CALFIB_WAVEGRID[-1]))
+
+        if (3550.0 < cwave < 5450) and (3550.0 < emis[i] < 5450):
+            ymx = np.max(spec[i][40:991])
+            ymn = np.min(spec[i][40:991])
+            rn = ymx - ymn
+            plt.ylim(ymx-rn*1.1, ymn+rn*1.1)
+
+        #todo: check the specta lines (each detection's main line ... if 3600 to 5400, do not include
+        #todo: ends in the y-limit calculation (to avoid run-away range values)
+
 
     if fname is not None:
         try:
