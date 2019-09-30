@@ -103,7 +103,9 @@ class SpectraLines(tables.IsDescription):
     score = tables.Float32Col(dflt=UNSET_FLOAT)
     sn = tables.Float32Col(dflt=UNSET_FLOAT)
     used = tables.BoolCol(dflt=False) #True if used in the reported multiline solution
-    #todo: solutionID ? (zero indexed [0].[1] ...
+    sol_num = tables.Int32Col(dflt=-1) #-1 is unset, 0 is simple scan, no solution, 1+ = solution number in
+                                       #decreasing score order
+
 
 
 
@@ -204,8 +206,30 @@ def flush_all(fileh):
         atb = fileh.root.Aperture
         ctb = fileh.root.CatalogMatch
 
-
         vtb.flush()
+        dtb.flush()
+        ltb.flush()
+        stb.flush()
+        atb.flush()
+        ctb.flush()
+
+        #remove (old) index if exists
+        #vtb does not have or need an index
+        dtb.cols.detectid.remove_index()
+        ltb.cols.detectid.remove_index()
+        stb.cols.detectid.remove_index()
+        atb.cols.detectid.remove_index()
+        ctb.cols.detectid.remove_index()
+
+        #create (new) index
+        # vtb does not have or need an index
+        dtb.cols.detectid.create_csindex()
+        ltb.cols.detectid.create_csindex()
+        stb.cols.detectid.create_csindex()
+        atb.cols.detectid.create_csindex()
+        ctb.cols.detectid.create_csindex()
+
+        #vtb.flush() # no need to re-flush vtb
         dtb.flush()
         ltb.flush()
         stb.flush()
@@ -420,6 +444,7 @@ def append_entry(fileh,det):
         for line in det.spec_obj.all_found_lines:
             row = ltb.row
             row['detectid'] = det.hdf5_detectid
+            row['sol_num'] = 0
             if line.absorber:
                 row['type'] = -1
             else:
@@ -443,10 +468,13 @@ def append_entry(fileh,det):
 
             row.append()
 
+        sol_num = 0
         for sol in det.spec_obj.solutions:
             for line in sol.lines:
                 row = ltb.row
                 row['detectid'] = det.hdf5_detectid
+                sol_num += 1
+                row['sol_num'] = sol_num
                 if line.absorber:
                     row['type'] = -1
                 else:
