@@ -588,14 +588,22 @@ def merge_elixer_hdf5_files(fname,flist=[]):
 
     :param fname: the output (final/merged) HDF5 file
     :param flist:  list of all files to merge
-    :return:
+    :return: None or filename
     """
     #merging existing distinct HDF5 files w/o new additions from an active run
     fileh = get_hdf5_filehandle(fname,append=True)
 
     if fileh is None:
         log.error("Unable to merge ELiXer catalogs.")
-        return
+        return None
+
+    #set up new HDF5 tables (into which to append)
+    dtb = fileh.root.Detections
+
+    stb = fileh.root.CalibratedSpectra
+    ltb = fileh.root.SpectraLines
+    atb = fileh.root.Aperture
+    ctb = fileh.root.CatalogMatch
 
     for f in flist:
         if f == fname: #could be the output file is one of those to merge
@@ -607,40 +615,23 @@ def merge_elixer_hdf5_files(fname,flist=[]):
             log.error("Unable to merge: %s" %(f))
             continue
 
-        #todo: merge stuff ... explicit reads then writes?
-        #todo: ???? can we load an entire table from merge_fh as an object and append to fileh??
+        # m_dtb = merge_fh.root.Detections
+        # m_stb = merge_fh.root.CalibratedSpectra
+        # m_ltb = merge_fh.root.SpectraLines
+        # m_atb = merge_fh.root.Aperture
+        # m_ctb = merge_fh.root.CatalogMatch
 
-        #example:
-        # elif args.mergedir:
-        # files = sorted(glob.glob(op.join(args.mergedir, 'detect*.h5')))
-        #
-        # detectid_max = 1
-        #
-        # for file in files:
-        #     fileh_i = tb.open_file(file, 'r')
-        #     tableMain_i = fileh_i.root.Detections.read()
-        #     tableFibers_i = fileh_i.root.Fibers.read()
-        #     tableSpectra_i = fileh_i.root.Spectra.read()
-        #
-        #     tableMain_i['detectid'] += detectid_max
-        #     tableFibers_i['detectid'] += detectid_max
-        #     tableSpectra_i['detectid'] += detectid_max
-        #
-        #     tableMain.append(tableMain_i)
-        #     tableFibers.append(tableFibers_i)
-        #     tableSpectra.append(tableSpectra_i)
-        #
-        #     detectid_max = np.max(tableMain.cols.detectid[:]) - index_buff
-        #
-        #     fileh_i.close()
+        #now merge
+        dtb.append(merge_fh.root.Detections.read())
+        stb.append(merge_fh.root.CalibratedSpectra.read())
+        ltb.append(merge_fh.root.SpectraLines.read())
+        atb.append(merge_fh.root.Aperture.read())
+        ctb.append(merge_fh.root.CatalogMatch.read())
 
-
-
-
-
-        flush_all(fileh)
+        #flush_all(fileh)
         #close the merge input file
         merge_fh.close()
 
     flush_all(fileh)
     fileh.close()
+    return fname

@@ -5187,16 +5187,17 @@ class HETDEX:
                                    extent=ext) #vmin=0.9, vmax=1.1
 
 
-                    #set circle here ... at center with radius 3 pix? maybe a 0.5 alpha filled circle
-                    #corresponds to the emision line position
-                    cx = (pixplot.get_xlim()[1]+pixplot.get_xlim()[0])/2.0
-                    cy = (pixplot.get_ylim()[1]+pixplot.get_ylim()[0])/2.0
+                    if G.MARK_PIXEL_FLAT_CENTER:
+                        #set circle here ... at center with radius 3 pix? maybe a 0.5 alpha filled circle
+                        #corresponds to the emision line position
+                        cx = (pixplot.get_xlim()[1]+pixplot.get_xlim()[0])/2.0
+                        cy = (pixplot.get_ylim()[1]+pixplot.get_ylim()[0])/2.0
 
-                    circ = mpatches.Circle((cx,cy), radius=4,
-                                                   facecolor='gold', fill=True, alpha=0.2,
-                                                   edgecolor='none', linestyle="solid")
+                        circ = mpatches.Circle((cx,cy), radius=4,
+                                                       facecolor='gold', fill=True, alpha=0.2,
+                                                       edgecolor='none', linestyle="solid")
 
-                    pixplot.add_patch(circ)
+                        pixplot.add_patch(circ)
 
                 #still need to always turn off the axis
                 pixplot.set_xticks([])

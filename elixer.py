@@ -1711,7 +1711,34 @@ def get_fcsdir_subdirs_to_process(args):
     return subdirs
 
 
+def merge_hdf5(args=None):
+    """
+    Similar to merge ... replaces merge ... joins ELiXer HDF5 catlogs.
+    Does not check for duplicate entries.
+    :param args:
+    :return:
+    """
+
+    try:
+        merge_fn = "elixer_merged_cat.h5"
+        fn_list = sorted(glob.glob("*_cat.h5"))
+        fn_list.append(sorted(glob.glob("dispatch_*/*/*_cat.h5")))
+        if len(fn_list) != 0:
+            merge_fn = elixer_hdf5.merge_elixer_hdf5_files(merge_fn,fn_list)
+            if merge_fn is not None:
+                print("Done: " + merge_fn)
+            else:
+                print("Failed to write HDF5 catalog.")
+        else:
+            print("No HDF5 catalog files found. Are you in the directory with the dispatch_* subdirs?")
+    except:
+        log.error("Exception! merging HDF5 files.",exc_info=True)
+
 def merge(args=None):
+
+    merge_hdf5(args)
+    #todo: discontinue use of _cat.txt and _fib.txt ?
+
     #must be in directory with all the dispatch_xxx folders
     #for each folder, read in and join the  dispatch_xxx
 

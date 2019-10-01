@@ -449,6 +449,7 @@ NUDGE_MAG_APERTURE_CENTER = 0.0  #allow the center of the mag aperture to drift 
 MAX_SKY_SUBTRACT_MAG = 2.0 #if local sky subtraction results in a magnitude change greater than this value, do not apply it
 
 DEBUG_SHOW_GAUSS_PLOTS = False #set on command line now --gaussplots (but keep here for compatibility with other programs)
+MARK_PIXEL_FLAT_CENTER = False
 
 MAX_ANNULUS_RADIUS = 3600.0 #ridiculously large ... need to trim this to a reasonable size
 ANNULUS_FIGURE_SZ_X = 12
