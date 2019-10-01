@@ -119,7 +119,7 @@ class Aperture(tables.IsDescription):
     #one entry per aperture photometry collected
     detectid = tables.Int64Col(pos=0)
     catalog_name = tables.StringCol(itemsize=16)
-    filter_name = tables.StringCol(itemsize=16 )
+    filter_name = tables.StringCol(itemsize=16)
     image_depth_mag = tables.Float32Col(dflt=UNSET_FLOAT)
     aperture_ra = tables.Float32Col(dflt=UNSET_FLOAT)
     aperture_dec = tables.Float32Col(dflt=UNSET_FLOAT)
@@ -140,6 +140,8 @@ class CatalogMatch(tables.IsDescription):
     # one entry per catalog bid target
     detectid = tables.Int64Col(pos=0)
     catalog_name = tables.StringCol(itemsize=16)
+    filter_name = tables.StringCol(itemsize=16)
+    match_num = tables.Int32Col(dflt=-1)
     separation = tables.Float32Col(dflt=UNSET_FLOAT) #in arcsec
     prob_match = tables.Float32Col(dflt=UNSET_FLOAT) #in arcsec
     cat_ra = tables.Float32Col(dflt=UNSET_FLOAT)
@@ -513,6 +515,42 @@ def append_entry(fileh,det):
                 row['sky_average'] = d['sky_average']
                 row['aperture_eqw_rest_lya'] = d['aperture_eqw_rest_lya']
                 row['aperture_plae'] = d['aperture_plae']
+
+                row.append()
+
+        #################################
+        #Catalog Match table
+        ################################
+        match_num = 0
+        for d in det.bid_target_list:
+            if -90.0 < d.bid_dec < 90.0: #666 or 181 is the aperture info
+                match_num += 1
+                #todo: multiple filters
+                #for f in d.filters: #just using selected "best" filter
+                row = ctb.row
+                row['detectid'] = det.hdf5_detectid
+                row['match_num'] = match_num
+                row['catalog_name'] = d.catalog_name
+                row['filter_name'] = d.bid_filter
+                row['separation'] = d.distance
+                row['prob_match'] = d.prob_match
+                row['cat_ra'] = d.bid_ra
+                row['cat_dec'] = d.bid_dec
+                if (d.spec_z is not None) and (d.spec_z >= 0.0):
+                    row['cat_specz'] = d.spec_z
+                if (d.phot_z is not None) and (d.phot_z >= 0.0):
+                    row['cat_photz'] = d.phot_z
+                row['filter_name'] = d.bid_filter
+                row['cat_flux'] = d.bid_flux_est_cgs
+                row['cat_flux_err'] = d.bid_flux_est_cgs_unc
+                row['cat_mag'] = d.bid_mag
+                row['cat_mag_err'] = 0.5 * (abs(d.bid_mag_err_bright) + abs(d.bid_mag_err_faint))
+                row['cat_plae'] = d.p_lae_oii_ratio
+
+                if d.bid_ew_lya_rest is not None:
+                    row['cat_eqw_rest_lya'] = d.bid_ew_lya_rest
+                    if d.bid_ew_lya_rest_err is not None:
+                        row['cat_eqw_rest_lya_err'] = d.bid_ew_lya_rest_err
 
                 row.append()
 

@@ -543,6 +543,12 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         mag_faint = None
         filter_str = 'R'
 
+        #filter_fl now reported in counts_R, so ...
+        #per HSC documentation, counts / 10**(30.24) = flux in ergs/s/cm2/Hz then *10**23 to get to Jy and *10**9 to nJy
+        #so ...( cts / 10**(30.24) ) * 10**23 * 10**9 = cts * 10**(32-30.24) == cts * 10**(1.76)
+        cts2njy = 57.54399373 #10**1.76
+
+
         method  = None
 
         try:
@@ -562,15 +568,15 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         try:
 
             if method == 'lsq':# or method == 'kron':
-                filter_fl = df['fluxlsq'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
-                filter_fl_err = df["fluxlsq_err"].values[0]
+                filter_fl = df['fluxlsq'].values[0]  * cts2njy
+                filter_fl_err = df["fluxlsq_err"].values[0] * cts2njy
                 mag = df["maglsq"].values[0]
                 # mag_bright = mag - df["magerr."+method].values[0]
                 mag_faint = df['maglsq_err'].values[0]
                 mag_bright = -1 * mag_faint
             else:  # cmodel
-                filter_fl = df['flux.cmodel'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
-                filter_fl_err = df['flux.cmodel_err'].values[0]
+                filter_fl = df['flux.cmodel'].values[0] * cts2njy
+                filter_fl_err = df['flux.cmodel_err'].values[0] * cts2njy
                 mag = df['mag.cmodel'].values[0]
                 # mag_bright = mag - df["magerr."+method].values[0]
                 mag_faint = df['mag.cmodel_err'].values[0]
@@ -583,8 +589,9 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             # it is unclear what unit flux is in (but it is not nJy or uJy), so lets back convert from the magnitude
             # this is used as a continuum estimate
 
-        filter_fl = self.obs_mag_to_nano_Jy(mag)
-        filter_fl_err = 0.0  # set to 0 so not to be trusted
+        #with updated HSC data release 2 (Sept.2019) this is not needed
+        #filter_fl = self.obs_mag_to_nano_Jy(mag)
+        #filter_fl_err = 0.0  # set to 0 so not to be trusted
 
         return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
 
@@ -945,6 +952,10 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                         text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)" % (bid_target.p_lae_oii_ratio,i['filter']))
 
                     cat_match.add_bid_target(bid_target)
+                    try:  # no downstream edits so they can both point to same bid_target
+                        detobj.bid_target_list.append(bid_target)
+                    except:
+                        log.warning("Unable to append bid_target to detobj.", exc_info=True)
             except:
                 log.debug('Could not build exact location photometry info.', exc_info=True)
 
@@ -1150,16 +1161,16 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                         filter_fl_cgs_unc = self.nano_jansky_to_cgs(filter_fl_err, target_w)
                         # assumes no error in wavelength or c
 
-                        try:
-                            ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
-                            ew_u = abs(ew * np.sqrt(
-                                        (detobj.estflux_unc / target_flux) ** 2 +
-                                        (filter_fl_err / filter_fl) ** 2))
-                            text = text + utilities.unc_str((ew,ew_u)) + "$\AA$\n"
-                        except:
-                            log.debug("Exception computing catalog EW: ",exc_info=True)
-                            text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
-
+                        # try:
+                        #     ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                        #     ew_u = abs(ew * np.sqrt(
+                        #                 (detobj.estflux_unc / target_flux) ** 2 +
+                        #                 (filter_fl_err / filter_fl) ** 2))
+                        #     text = text + utilities.unc_str((ew,ew_u)) + "$\AA$\n"
+                        # except:
+                        #     log.debug("Exception computing catalog EW: ",exc_info=True)
+                        #     text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                        #
 
                         # if target_w >= G.OII_rest:
                         #     text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.OII_rest))
@@ -1171,12 +1182,27 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                             bid_target.bid_ra = df['RA'].values[0]
                             bid_target.bid_dec = df['DEC'].values[0]
                             bid_target.distance = df['distance'].values[0] * 3600
+                            bid_target.prob_match = df['dist_prior'].values[0]
                             bid_target.bid_flux_est_cgs = filter_fl_cgs
                             bid_target.bid_filter = filter_str
                             bid_target.bid_mag = filter_mag
                             bid_target.bid_mag_err_bright = filter_mag_bright
                             bid_target.bid_mag_err_faint = filter_mag_faint
                             bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
+
+                            try:
+                                ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                                ew_u = abs(ew * np.sqrt(
+                                    (detobj.estflux_unc / target_flux) ** 2 +
+                                    (filter_fl_err / filter_fl) ** 2))
+
+                                bid_target.bid_ew_lya_rest = ew
+                                bid_target.bid_ew_lya_rest_err = ew_u
+
+                                text = text + utilities.unc_str((ew, ew_u)) + "$\AA$\n"
+                            except:
+                                log.debug("Exception computing catalog EW: ", exc_info=True)
+                                text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
 
                             addl_waves = None
                             addl_flux = None
@@ -1224,6 +1250,10 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                                 log.debug('Unable to build filter entry for bid_target.',exc_info=True)
 
                             cat_match.add_bid_target(bid_target)
+                            try:  # no downstream edits so they can both point to same bid_target
+                                detobj.bid_target_list.append(bid_target)
+                            except:
+                                log.warning("Unable to append bid_target to detobj.", exc_info=True)
                         except:
                             log.debug('Unable to build bid_target.',exc_info=True)
 

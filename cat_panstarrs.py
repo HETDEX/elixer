@@ -763,15 +763,15 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                         # assumes no error in wavelength or c
 
 
-                        try:
-                            ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
-                            ew_u = abs(ew * np.sqrt(
-                                        (detobj.estflux_unc / target_flux) ** 2 +
-                                        (filter_fl_err / filter_fl) ** 2))
-                            text = text + utilities.unc_str((ew,ew_u)) + "$\AA$\n"
-                        except:
-                            log.debug("Exception computing catalog EW: ",exc_info=True)
-                            text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                        # try:
+                        #     ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                        #     ew_u = abs(ew * np.sqrt(
+                        #                 (detobj.estflux_unc / target_flux) ** 2 +
+                        #                 (filter_fl_err / filter_fl) ** 2))
+                        #     text = text + utilities.unc_str((ew,ew_u)) + "$\AA$\n"
+                        # except:
+                        #     log.debug("Exception computing catalog EW: ",exc_info=True)
+                        #     text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
                         # if target_w >= G.OII_rest:
                         #     text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.OII_rest))
                         # else:
@@ -782,12 +782,27 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                             bid_target.bid_ra = df['RA'].values[0]
                             bid_target.bid_dec = df['DEC'].values[0]
                             bid_target.distance = df['distance'].values[0] * 3600
+                            bid_target.prob_match = df['dist_prior'].values[0]
                             bid_target.bid_flux_est_cgs = filter_fl_cgs
                             bid_target.bid_filter = filter_str
                             bid_target.bid_mag = filter_mag
                             bid_target.bid_mag_err_bright = filter_mag_bright
                             bid_target.bid_mag_err_faint = filter_mag_faint
                             bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
+
+                            try:
+                                ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                                ew_u = abs(ew * np.sqrt(
+                                    (detobj.estflux_unc / target_flux) ** 2 +
+                                    (filter_fl_err / filter_fl) ** 2))
+
+                                bid_target.bid_ew_lya_rest = ew
+                                bid_target.bid_ew_lya_rest_err = ew_u
+
+                                text = text + utilities.unc_str((ew, ew_u)) + "$\AA$\n"
+                            except:
+                                log.debug("Exception computing catalog EW: ", exc_info=True)
+                                text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
 
                             addl_waves = None
                             addl_flux = None

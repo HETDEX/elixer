@@ -1956,7 +1956,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             return None
 
 
-    neighbor_color = "lime"
+    neighbor_color = "red"
     detectids, ras, decs, dists = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=error, sort=True)
     cont_detectids = []
 

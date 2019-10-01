@@ -615,6 +615,11 @@ class GOODS_N(cat_base.Catalog):
 
 
                     cat_match.add_bid_target(bid_target)
+
+                    try:  # no downstream edits so they can both point to same bid_target
+                        detobj.bid_target_list.append(bid_target)
+                    except:
+                        log.warning("Unable to append bid_target to detobj.", exc_info=True)
             except:
                 log.debug('Could not build exact location photometry info.',exc_info=True)
 
@@ -784,7 +789,7 @@ class GOODS_N(cat_base.Catalog):
             if target_count > G.MAX_COMBINE_BID_TARGETS:
                 break
             col_idx += 1
-            spec_z = 0.0
+            spec_z = -1.0
 
             try:
                 df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
@@ -865,15 +870,7 @@ class GOODS_N(cat_base.Catalog):
                         filter_fl_cgs_unc = self.micro_jansky_to_cgs(filter_fl_err, target_w)
                         #assumes no error in wavelength or c
 
-                        try:
-                            ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
-                            ew_u = abs(ew * np.sqrt(
-                                        (detobj.estflux_unc / target_flux) ** 2 +
-                                        (filter_fl_err / filter_fl) ** 2))
-                            text = text + utilities.unc_str((ew,ew_u)) + "$\AA$\n"
-                        except:
-                            log.debug("Exception computing catalog EW: ",exc_info=True)
-                            text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+
 
 
                         # if target_w >= G.OII_rest:
@@ -887,12 +884,35 @@ class GOODS_N(cat_base.Catalog):
                         bid_target.bid_ra = df['RA'].values[0]
                         bid_target.bid_dec = df['DEC'].values[0]
                         bid_target.distance = df['distance'].values[0] * 3600
+                        bid_target.prob_match = df['dist_prior'].values[0]
                         bid_target.bid_flux_est_cgs = filter_fl_cgs
                         bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
                         bid_target.bid_filter = filter_str
                         bid_target.bid_mag = filter_mag
                         bid_target.bid_mag_err_bright = filter_mag_bright
                         bid_target.bid_mag_err_faint = filter_mag_faint
+                        if spec_z >= 0.0:
+                            bid_target.spec_z = spec_z
+                        if (z_photoz_weighted is not None) and (z_photoz_weighted >= 0.0):
+                            bid_target.phot_z = z_photoz_weighted
+
+
+                        try:
+                            ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                            ew_u = abs(ew * np.sqrt(
+                                        (detobj.estflux_unc / target_flux) ** 2 +
+                                        (filter_fl_err / filter_fl) ** 2))
+
+                            bid_target.bid_ew_lya_rest = ew
+                            bid_target.bid_ew_lya_rest_err = ew_u
+
+                            text = text + utilities.unc_str((ew,ew_u)) + "$\AA$\n"
+                        except:
+                            log.debug("Exception computing catalog EW: ",exc_info=True)
+                            text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+
+
+
 
                         addl_waves = None
                         addl_flux = None
@@ -943,6 +963,10 @@ class GOODS_N(cat_base.Catalog):
                                 log.debug('Could not add filter info to bid_target.')
 
                         cat_match.add_bid_target(bid_target)
+                        try: # no downstream edits so they can both point to same bid_target
+                            detobj.bid_target_list.append(bid_target)
+                        except:
+                            log.warning("Unable to append bid_target to detobj.",exc_info=True)
                 else:
                     text += "N/A\nN/A\n"
 
@@ -980,7 +1004,7 @@ class GOODS_N(cat_base.Catalog):
                     plt.xlim([0, 3.6])
                     # trim axis to 0 to 3.6
 
-                    if spec_z > 0:
+                    if spec_z >= 0.0:
                         #plt.axvline(x=spec_z, color='gold', linestyle='solid', linewidth=3, zorder=0)
                         plt.scatter([spec_z,],[plt.gca().get_ylim()[1]*0.9,],zorder=9,
                                  marker="o",s=80,facecolors='none',edgecolors=bid_colors[col_idx-1])

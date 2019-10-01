@@ -27,16 +27,23 @@ class BidTarget:
         self.bid_ra = 361.00
         self.bid_dec = 181.00
         self.distance = 0.0
+        self.prob_match = None #usually as "distance_prior" in dataframe
         self.bid_filter = "?"
         self.bid_flux_est_cgs = 0.0
         self.bid_flux_est_cgs_unc = 0.0
         self.bid_mag = 0.0
         self.bid_mag_err_bright = 0.0
         self.bid_mag_err_faint = 0.0
+        self.bid_ew_lya_rest = None
+        self.bid_ew_lya_rest_err = None
         self.p_lae = None
         self.p_oii = None
         self.p_lae_oii_ratio = None
         self.catalog_name = None
+        self.spec_z = None
+        self.phot_z = None
+        #self.phot_z_pdf_pz = [] #p(z) or y-axis #todo: future use? record in HDF5 catalog?
+        #self.phot_z_pdf_z = [] #z array or x-axis
         # todo: filter exposure time??
 
         self.filters = []

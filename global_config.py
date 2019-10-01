@@ -82,7 +82,7 @@ if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
 else:
     if hostname == 'z50':
         LAUNCH_PDF_VIEWER = 'qpdfview'
-    if True:
+    if False:
         HDF5_DETECT_FN = "/work/03946/hetdex/hdr1/detect/detect_hdr1.h5"
         HDF5_CONTINUUM_FN = "/work/03946/hetdex/hdr1/detect/continuum_sources.h5"
         HDF5_SURVEY_FN = "/work/03946/hetdex/hdr1/survey/survey_hdr1.h5"
@@ -472,4 +472,4 @@ USE_PHOTO_CATS = True  #default normal is True .... use photometry catalogs (if 
 
 MAX_NEIGHBORS_IN_MAP = 25
 
-BUILD_HDF5_CATALOG = False
+BUILD_HDF5_CATALOG = True
