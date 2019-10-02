@@ -1,5 +1,11 @@
 changes to elixer by version
 
+
+1.7.5a1 [2019-10-02]
+* added KPNO imaging (does not yet have catalog). Not sure the aperture photometry mags can be trusted yet. Currently,
+  points to John Feldmeier's TACC work directory.
+
+
 1.7.4a2 [2019-10-01]
 * fixed missing (2AA) division for estimated flux uncertainty when reading from Gaussian fit parameters (vs straight
   from HDF5 file) (*note: 2AA value is read from Gaussian fit paramter as well)

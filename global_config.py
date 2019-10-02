@@ -14,7 +14,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.7.4a2'
+__version__ = '1.7.5a1'
 
 #python version
 import sys
@@ -79,6 +79,11 @@ if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
         HSC_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts"
         HSC_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
 
+    #KPNO_BASE_PATH = "/work/03261/polonius/hetdex/catalogs/KPNO_Mosaic"
+    KPNO_BASE_PATH = "/work/03233/jf5007/maverick/KMImaging/"
+    KPNO_CAT_PATH = HSC_BASE_PATH
+    KPNO_IMAGE_PATH = HSC_BASE_PATH
+
 else:
     if hostname == 'z50':
         LAUNCH_PDF_VIEWER = 'qpdfview'
@@ -142,6 +147,11 @@ else:
         DECALS_CAT_PATH = "/media/dustin/dd/hetdex/data/decals"
         DECALS_IMAGE_PATH = "/media/dustin/dd/hetdex/data/decals"
 
+        #KPNO_BASE_PATH = "/work/03261/polonius/hetdex/catalogs/KPNO_Mosaic"
+        KPNO_BASE_PATH = "/work/03233/jf5007/maverick/KMImaging/"
+        KPNO_CAT_PATH = HSC_BASE_PATH
+        KPNO_IMAGE_PATH = HSC_BASE_PATH
+
     else:
 
         # HDF5_DETECT_FN  = "/work/05350/ecooper/wrangler/database/detect_test3.h5"
@@ -204,6 +214,11 @@ else:
             HSC_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced"
             HSC_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts"
             HSC_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
+
+        #KPNO_BASE_PATH = "/work/03261/polonius/hetdex/catalogs/KPNO_Mosaic"
+        KPNO_BASE_PATH = "/work/03233/jf5007/maverick/KMImaging/"
+        KPNO_CAT_PATH = HSC_BASE_PATH
+        KPNO_IMAGE_PATH = HSC_BASE_PATH
 
 
 VIRUS_CONFIG = op.join(CONFIG_BASEDIR,"virus_config")

@@ -1,7 +1,9 @@
 from astropy.wcs import WCS
 import astropy.io.fits as fits
+import astropy
 import argparse
 import numpy as np
+import sys
 
 
 
@@ -36,6 +38,12 @@ import numpy as np
 #
 #     return wcs
 
+
+def build_wcs_automatically(fname):
+    wcs = wcs = WCS(fname,relax = astropy.wcs.WCSHDR_CD00i00j | astropy.wcs.WCSHDR_PC00i00j)
+    return wcs
+
+
 def build_wcs_manually(img, idx=0):
     wcs = WCS(naxis=img[idx].header['NAXIS'])
     wcs.wcs.crpix = [img[idx].header['CRPIX1'], img[idx].header['CRPIX2']]
@@ -66,16 +74,22 @@ def main():
 #        img.close()
 
     img = fits.open(args.file)
+    footprint = None
 
     for idx in range(len(img)):
         try:
-            footprint = WCS.calc_footprint(build_wcs_manually(img,idx))
+            #footprint = WCS.calc_footprint(build_wcs_manually(img,idx))
+            footprint = WCS.calc_footprint(build_wcs_automatically(args.file))
             break
         except:
             print("Img[%d] failed. Trying next ..." %idx)
+            print(sys.exc_info())
 
     img.close()
 
+    if footprint is None:
+        print("Unable to compute footprint")
+        exit()
 
     print("UL", footprint[1],"  UR", footprint[2])
     print("LL", footprint[0],"  LR", footprint[3])

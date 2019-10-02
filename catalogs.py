@@ -17,6 +17,7 @@ try:
     from elixer import cat_stack_cosmos
     from elixer import cat_shela
     from elixer import cat_hsc
+    from elixer import cat_kpno
     from elixer import cat_sdss
     from elixer import cat_panstarrs
     from elixer import cat_catch_all
@@ -30,6 +31,7 @@ except:
     import cat_stack_cosmos
     import cat_shela
     import cat_hsc
+    import cat_kpno
     import cat_catch_all
     import cat_sdss
     import cat_panstarrs
@@ -65,6 +67,7 @@ class CatalogLibrary:
         self.cats.append(cat_stack_cosmos.STACK_COSMOS())
         self.cats.append(cat_shela.SHELA())
         self.cats.append(cat_hsc.HSC())
+        self.cats.append(cat_kpno.KPNO())
         # self.cats.append(cat_ast376_shela.AST376_SHELA())
 
 

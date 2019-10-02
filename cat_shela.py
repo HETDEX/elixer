@@ -955,7 +955,7 @@ class SHELA(cat_base.Catalog):
                                                       width=target_box_side, height=target_box_side,
                                                       angle=0.0, color=bc, fill=False, linewidth=1.0, zorder=1))
 
-            if details is not None:
+            if (details is not None) and (detobj is not None):
                 detobj.aperture_details_list.append(details)
 
         #if False:

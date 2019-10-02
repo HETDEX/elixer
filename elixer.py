@@ -2735,6 +2735,14 @@ def main():
                     convert_pdf(args.name + ".pdf",jpeg=args.jpg, png=args.png)
                 except:
                     log.error("Error (3) converting pdf to image type: " + f.filename, exc_info=True)
+        else: #no conversion, but might still want to launch the viewer
+            if len(file_list) > 0:
+                for f in file_list:
+                    if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer:
+                        viewer_file_list.append(f.filename)
+            else:
+                if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer:
+                    viewer_file_list.append(args.name + ".pdf")
 
         if (args.neighborhood is not None) and (args.neighborhood > 0.0):
             msg = "Building neighborhood at (%g\") for all detections ...." % (args.neighborhood)
