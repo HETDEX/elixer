@@ -73,7 +73,10 @@ def panstarrs_count_to_mag(count,cutout=None,headers=None):
 
     try:
         exptime = headers[0]['EXPTIME']
-        mag = -2.5*np.log10(count) + 25.0 + 2.5*np.log10(exptime)
+        if (count > 0) and (exptime > 0):
+            mag = -2.5*np.log10(count) + 25.0 + 2.5*np.log10(exptime)
+        else:
+            mag = 99.9
     except:
         mag = 99.9
 
