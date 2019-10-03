@@ -6,6 +6,17 @@ from pdf2image import convert_from_path
 
 RESOLUTION=150 #DPI
 
+# from PIL import Image as PIL_Image
+#
+# try:
+#     import elixer.pdfrw as PyPDF
+# except:
+#     try:
+#         import pdfrw as PyPDF
+#     except ImportError:
+#         pdfrw = None
+
+
 # log = G.Global_Logger('converter')
 # log.setlevel(G.logging.DEBUG)
 
@@ -83,6 +94,7 @@ def main():
             continue
         else:
             print("Converting %s"%pdf)
+            #odd ... only system call version works from command line
             #convert_pdf(pdf,png=True,jpeg=False,resolution=RESOLUTION)
             os.system("pdftoppm %s %s -png -singlefile" %(pdf,base))
 
