@@ -106,6 +106,9 @@ if "tacc.utexas.edu" in hostname:
 FILL_CPU_TASKS = 10 #don't add another node until each CPU on the current node(s) hit this number
 MAX_DETECTS_PER_CPU = 9999999 #do not execute this job of the dispatch_xxxx list count exceeds this value
 
+#note MAX_TASKS is the maximum number of dispatchs to create
+#     MAX_TASKS_PER_NODE is effectively the number of CORES to use per node
+
 if hostname == "maverick":
     print("preparing SLURM for maverick...")
     host = HOST_MAVERICK
@@ -141,13 +144,13 @@ elif hostname == "wrangler":
     cores_per_node = 24
 
     if PYTHON_MAJOR_VERSION < 3:
-        MAX_TASKS = 300  # point of seriously diminishing returns
-        MAX_NODES = 50  # right now, pointless to go beyond 2 nodes
+        MAX_TASKS = 216  # point of seriously diminishing returns
+        MAX_NODES = 36  # right now, pointless to go beyond 2 nodes
         MAX_TASKS_PER_NODE = 6  # actually, variable, encoded later
     else:
         MAX_DETECTS_PER_CPU = 50
-        MAX_TASKS = 2400
-        MAX_NODES = 100
+        MAX_TASKS = 10000 #20*36=720, so 720 in one pass; as "dispatch" or line in .run file finishes, the next is picked up
+        MAX_NODES = 36
         MAX_TASKS_PER_NODE = 20 #need extra memory (128GB/20 instead of 128GB/24)
 
     time = "00:59:59"
