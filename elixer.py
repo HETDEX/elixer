@@ -1722,7 +1722,9 @@ def merge_hdf5(args=None):
     try:
         merge_fn = "elixer_merged_cat.h5"
         fn_list = sorted(glob.glob("*_cat.h5"))
-        fn_list.append(sorted(glob.glob("dispatch_*/*/*_cat.h5")))
+        fn_list += sorted(glob.glob("dispatch_*/*/*_cat.h5"))
+
+        #fn_list.append(sorted(glob.glob("dispatch_*/*/*_cat.h5")))
         if len(fn_list) != 0:
             merge_fn = elixer_hdf5.merge_elixer_hdf5_files(merge_fn,fn_list)
             if merge_fn is not None:
