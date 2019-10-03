@@ -2082,6 +2082,10 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         if mc is not None:
             master_cutout = mc
 
+    if master_cutout is None:
+        log.warning("Unable to make a master_cutout for neighborhood.")
+
+
     #get the PSF weighted full 1D spectrum for each detectid
     spec = []
     wave = []
@@ -2146,10 +2150,16 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     font.set_family('monospace')
     font.set_size(12)
 
-    vmin,vmax = UTIL.get_vrange(master_cutout.data)#,contrast=0.25)
-    target_box_side = 3.0 #distance / 4.0
+    target_box_side = 3.0  # distance / 4.0
 
-    x, y = sci.get_position(ra, dec, master_cutout)  # x,y of the center
+    if master_cutout is not None:
+        vmin,vmax = UTIL.get_vrange(master_cutout.data)#,contrast=0.25)
+        x, y = sci.get_position(ra, dec, master_cutout)  # x,y of the center
+    else:
+        x = ext/2.0
+        y = ext/2.0
+        vmin = None
+        vmax = None
 
     for i in range(num_rows):
         #first the cutout
