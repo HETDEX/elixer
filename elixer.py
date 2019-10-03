@@ -2773,7 +2773,7 @@ def main():
                                            image_cutout_fiber_pos=e.image_cutout_fiber_pos)
 
         if G.BUILD_HDF5_CATALOG: #change to HDF5 catalog
-            elixer_hdf5.build_elixer_hdf5(os.path.join(args.name,args.name+"_cat.h5"),hd_list)
+            elixer_hdf5.extend_elixer_hdf5(os.path.join(args.name,args.name+"_cat.h5"),hd_list)
 
     #end for master_loop_idx in range(master_loop_length):
 

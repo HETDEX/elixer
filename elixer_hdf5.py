@@ -573,7 +573,27 @@ def build_elixer_hdf5(fname,hd_list=[]):
 
     for h in hd_list:  # iterate over all hetdex (hd) collections
         for e in h.emis_list: #for each detection in each hd collection
-           #todo: build up the tables here
+            append_entry(fileh,e)
+
+
+    flush_all(fileh)
+    fileh.close()
+    print("File written: %s" %fname)
+    log.info("File written: %s" %fname)
+
+def extend_elixer_hdf5(fname,hd_list=[]):
+    #build a new HDF5 file from the current active run
+    #this is like the old ELiXer creating _cat.txt and _fib.txt
+
+    fileh = get_hdf5_filehandle(fname,append=True)
+
+    if fileh is None:
+        print("Unable to build ELiXer catalog.")
+        log.error("Unable to build ELiXer catalog.")
+        return
+
+    for h in hd_list:  # iterate over all hetdex (hd) collections
+        for e in h.emis_list: #for each detection in each hd collection
             append_entry(fileh,e)
 
 
