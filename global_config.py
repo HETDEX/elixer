@@ -154,14 +154,6 @@ else:
 
     else:
 
-        # HDF5_DETECT_FN  = "/work/05350/ecooper/wrangler/database/detect_test3.h5"
-        # OBSERVATIONS_BASEDIR = "/work/03946/hetdex/maverick/"
-        # BAD_AMP_LIST = "/work/03261/polonius/maverick/catalogs/bad_amp_list.txt"
-        # CONFIG_BASEDIR = "/work/03946/hetdex/maverick/"
-        # PANACEA_RED_BASEDIR = "/work/03946/hetdex/maverick/red1/reductions/"
-        # PANACEA_RED_BASEDIR_DEFAULT = PANACEA_RED_BASEDIR
-        # PANACEA_HDF5_BASEDIR = PANACEA_RED_BASEDIR
-
         HDF5_DETECT_FN = "/work/03946/hetdex/hdr1/detect/detect_hdr1.h5"
         HDF5_CONTINUUM_FN = "/work/03946/hetdex/hdr1/detect/continuum_sources.h5"
         HDF5_SURVEY_FN = "/work/03946/hetdex/hdr1/survey/survey_hdr1.h5"
@@ -173,38 +165,30 @@ else:
         PANACEA_RED_BASEDIR_DEFAULT = PANACEA_RED_BASEDIR
         PANACEA_HDF5_BASEDIR = "/work/03946/hetdex/hdr1/reduction/data"
 
-        CANDELS_EGS_Stefanon_2016_BASE_PATH = "/work/03564/stevenf/maverick/EGS"
-        EGS_CFHTLS_PATH = "/work/03261/polonius/maverick/catalogs/CFHTLS"
-        CFHTLS_PHOTOZ_CAT = "/work/03261/polonius/maverick/catalogs/CFHTLS/photozCFHTLS-W3_270912.out"
+        # todo: the photo-z files are now in in tar ... need to update handling
+        CANDELS_EGS_Stefanon_2016_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/candles_egs/EGS"
+        EGS_CFHTLS_PATH = "/work/03946/hetdex/hdr1/imaging/candles_egs/CFHTLS"
+        CFHTLS_PHOTOZ_CAT = "/work/03946/hetdex/hdr1/imaging/candles_egs/CFHTLS/photozCFHTLS-W3_270912.out"
+
+        EGS_GROTH_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/candles_egs/groth"
+        EGS_GROTH_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/candles_egs/groth"  # note: there is no catalog
+
+        # GOODS_N_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/goods_north/GOODSN"
+        # GOODS_N_CAT_PATH = GOODS_N_BASE_PATH
+
         GOODS_N_BASE_PATH = "/work/03564/stevenf/maverick/GOODSN"
         GOODS_N_CAT_PATH = GOODS_N_BASE_PATH
-
-        EGS_GROTH_BASE_PATH = "/work/03229/iwold/maverick/groth"
-        EGS_GROTH_CAT_PATH = "/work/03229/iwold/maverick/groth" #note: there is no catalog
-
-        # STACK_COSMOS_BASE_PATH = "/work/03229/iwold/maverick/stackCOSMOS/nano/"
-        # STACK_COSMOS_CAT_PATH = "/work/03229/iwold/maverick/stackCOSMOS"
-        # COSMOS_EXTRA_PATH = "/work/03261/polonius/maverick/catalogs/COSMOS/"
 
         STACK_COSMOS_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/cosmos/stackCOSMOS/nano/"
         STACK_COSMOS_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/cosmos/stackCOSMOS"
         COSMOS_EXTRA_PATH = "/work/03946/hetdex/hdr1/imaging/cosmos/COSMOS/"
 
-        DECAM_IMAGE_PATH = "/work/03229/iwold/maverick/fall_field/stack/v2/psf/nano/"
-        #SHELA_BASE_PATH = "/work/03261/polonius/maverick/catalogs/SHELA"
-        SHELA_BASE_PATH  = "/work/03229/iwold/maverick/fall_field/stack/v2/psf/nano/"
+        DECAM_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/shela/nano/"
+        SHELA_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/shela/nano/"
 
         SHELA_CAT_PATH = SHELA_BASE_PATH
-        #SHELA_PHOTO_Z_COMBINED_PATH = "/work/03565/stevans/maverick/software/eazy-photoz/inputs_decam1.1_irac1.5_scaled_vistajk/OUTPUT/"
-        #SHELA_PHOTO_Z_MASTER_PATH = "/work/03565/stevans/maverick/working/decam/psfmatched2017/per_field/v1.0/final_catalogs/v1.1/combined_irac_v1.5.a/with_vista/"
-        SHELA_PHOTO_Z_COMBINED_PATH = "/work/03261/polonius/maverick/catalogs/SHELA"
-        SHELA_PHOTO_Z_MASTER_PATH = "/work/03261/polonius/maverick/catalogs/SHELA"
-
-
-        #2019-08-06 (mshiro base path inaccessible)
-        # HSC_BASE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced"
-        # HSC_CAT_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced/catalog_tracts"
-        # HSC_IMAGE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced/images"
+        SHELA_PHOTO_Z_COMBINED_PATH = "/work/03946/hetdex/hdr1/imaging/shela/SHELA"
+        SHELA_PHOTO_Z_MASTER_PATH = "/work/03946/hetdex/hdr1/imaging/shela/SHELA"
 
         if op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
             HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
@@ -215,11 +199,10 @@ else:
             HSC_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts"
             HSC_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
 
-        #KPNO_BASE_PATH = "/work/03261/polonius/hetdex/catalogs/KPNO_Mosaic"
+        # KPNO_BASE_PATH = "/work/03261/polonius/hetdex/catalogs/KPNO_Mosaic"
         KPNO_BASE_PATH = "/work/03233/jf5007/maverick/KMImaging/"
         KPNO_CAT_PATH = HSC_BASE_PATH
         KPNO_IMAGE_PATH = HSC_BASE_PATH
-
 
 VIRUS_CONFIG = op.join(CONFIG_BASEDIR,"virus_config")
 FPLANE_LOC = op.join(CONFIG_BASEDIR,"virus_config/fplane")

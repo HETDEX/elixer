@@ -725,8 +725,9 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
         if r is not None and (len(r) > 1): #always adds figure for "No matching targets"
             cat_count+= 1
             if (cat_count > 1) and G.SINGLE_PAGE_PER_DETECT:
-                print("INFO: More than one catalog matched .... taking top catalog only. Skipping PDF for %s"
-                      % c.Name)
+                msg = "INFO: More than one catalog matched .... taking top catalog only. Skipping PDF for %s" % c.Name
+                print(msg)
+                log.info(msg)
             else:
                 if PyPDF is not None:
                     build_report_part(pdfname,r)
