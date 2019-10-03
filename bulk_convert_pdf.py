@@ -85,19 +85,25 @@ def main():
     #get the (existing) pngs (not the _mini.png or nei.png)
     pngs = glob.glob("dispatch_*/*/*[0-9].png")
 
+    num_to_convert = len(pdfs) - len(pngs)
+
     #for each pdf, if not found in png, convert it
-    for pdf in pdfs:
-        base = pdf.rstrip(".pdf")
-        png = pdf.rstrip(".pdf") + ".png"
+    if num_to_convert > 0:
+        ct = 0
+        for pdf in pdfs:
+            base = pdf.rstrip(".pdf")
+            png = pdf.rstrip(".pdf") + ".png"
 
-        if png in pngs:
-            continue
-        else:
-            print("Converting %s"%pdf)
-            #odd ... only system call version works from command line
-            #convert_pdf(pdf,png=True,jpeg=False,resolution=RESOLUTION)
-            os.system("pdftoppm %s %s -png -singlefile" %(pdf,base))
-
+            if png in pngs:
+                continue
+            else:
+                ct += 1
+                print("Converting (%d of %d) %s"%(ct,num_to_convert,pdf))
+                #odd ... only system call version works from command line
+                #convert_pdf(pdf,png=True,jpeg=False,resolution=RESOLUTION)
+                os.system("pdftoppm %s %s -png -singlefile" %(pdf,base))
+    else:
+        print("Nothing to convert")
 
 
 if __name__ == '__main__':
