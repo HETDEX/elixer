@@ -76,13 +76,15 @@ def main():
 
     #for each pdf, if not found in png, convert it
     for pdf in pdfs:
+        base = pdf.rstrip(".pdf")
         png = pdf.rstrip(".pdf") + ".png"
 
         if png in pngs:
             continue
         else:
             print("Converting %s"%pdf)
-            convert_pdf(pdf,png=True,jpeg=False,resolution=RESOLUTION)
+            #convert_pdf(pdf,png=True,jpeg=False,resolution=RESOLUTION)
+            os.system("pdftoppm %s %s -png -singlefile" %(pdf,base))
 
 
 
