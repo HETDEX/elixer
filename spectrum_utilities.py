@@ -248,3 +248,35 @@ def add_spectra(flux1,flux2,wave1,wave2,grid=None,eflux1=None,eflux2=None,ewave1
 
 
     return flux,wave,eflux,ewave
+
+
+def red_vs_blue(cwave,fwhm,flux,waves,flux_err):
+    """
+    Stack the spectra on the red side and blue side of the emission line (cwave) and check for consistency vs zero continuum
+    :param cwave:
+    :param flux:
+    :param waves:
+    :param flux_err:
+    :return:
+    """
+
+    #assume waves of same step size (2AA for HETDEX)
+    if (cwave is None) or (fwhm is None) or (flux is None) or (waves is None) or (flux_err is None) \
+        or (len(flux) != len(waves)) or (len(flux) != len(flux_err)) or (len(flux) < 100):
+        return None
+
+    step = waves[1]-waves[0]
+    length = len(waves)
+
+    #todo: split the spectrum into a red side (cwave + 20 AA to the end) and a blue side (end to cwave-20AA)
+    idx,lt,rt = getnearpos(waves,cwave)
+
+    blue_idx,_,_ = getnearpos(wave,cwave-2*fwhm)
+    red_idx,_,_ = getnearpos(wave,cwave+2*fwhm)
+
+    if (blue_idx <= 0) or (red_idx >= length):
+        return None
+
+    #todo: sum up flux
+    #todo: sun up flux_err in quadrature
+
