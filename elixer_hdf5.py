@@ -179,7 +179,6 @@ def version_match(fileh):
         # should be exactly one row
         rows = vtbl.read()
         if (rows is None) or (rows.size != 1):
-            self.status = -1
             log.error("Problem loading Version table ...")
             return False, None
 
@@ -327,6 +326,13 @@ def append_entry(fileh,det):
         #get tables
         dtb = fileh.root.Detections
 
+        q_detectid = det.detectid
+        rows = dtb.read_where("detectid==q_detectid")
+
+        if rows.size > 0:
+            log.info("Detection (%d) already exists in HDF5. Skipping." %(q_detectid))
+            return
+
         stb = fileh.root.CalibratedSpectra
         ltb = fileh.root.SpectraLines
         atb = fileh.root.Aperture
@@ -424,6 +430,7 @@ def append_entry(fileh,det):
             #?? other lines ... other solutions ... move into a separate table ... SpectraLines table
 
         row.append()
+        dtb.flush()
 
 
         #############################
@@ -436,6 +443,7 @@ def append_entry(fileh,det):
         row['flux'] = det.sumspec_flux[:]
         row['flux_err'] = det.sumspec_fluxerr[:]
         row.append()
+        stb.flush()
 
 
         #############################
@@ -469,6 +477,7 @@ def append_entry(fileh,det):
             row['used'] = False #these are all found lines, may or may not be in solution
 
             row.append()
+            ltb.flush()
 
         sol_num = 0
         for sol in det.spec_obj.solutions:
@@ -491,6 +500,7 @@ def append_entry(fileh,det):
                 row['used'] = True  # these are all found lines, may or may not be in solution
 
                 row.append()
+                ltb.flush()
 
         #############################
         #Aperture Table
@@ -517,6 +527,7 @@ def append_entry(fileh,det):
                 row['aperture_plae'] = d['aperture_plae']
 
                 row.append()
+                atb.flush()
 
         #################################
         #Catalog Match table
@@ -553,6 +564,7 @@ def append_entry(fileh,det):
                         row['cat_eqw_rest_lya_err'] = d.bid_ew_lya_rest_err
 
                 row.append()
+                ctb.flush()
 
     except:
         log.error("Exception! in elixer_hdf5::append_entry",exc_info=True)

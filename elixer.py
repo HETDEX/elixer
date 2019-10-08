@@ -724,6 +724,10 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
         count = 0
         if r is not None and (len(r) > 1): #always adds figure for "No matching targets"
             cat_count+= 1
+
+
+            #todo: check that we have imaging? if there is none, go ahead to the next catalog?
+
             if (cat_count > 1) and G.SINGLE_PAGE_PER_DETECT:
                 msg = "INFO: More than one catalog matched .... taking top catalog only. Skipping PDF for %s" % c.Name
                 print(msg)
