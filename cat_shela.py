@@ -1050,7 +1050,7 @@ class SHELA(cat_base.Catalog):
                    "Spec z\n" + \
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
-                   "mag\n\n"
+                   "mag\n\n\n"
         else:
             text = "Separation\n" + \
                    "1-p(rand)\n" + \
@@ -1059,7 +1059,7 @@ class SHELA(cat_base.Catalog):
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
                    "mag\n" + \
-                   "P(LAE)/P(OII)\n"
+                   "P(LAE)/P(OII)\n\n"
 
 
         plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
