@@ -2696,6 +2696,9 @@ def main():
                 join_report_parts(args.name)
                 delete_report_parts(args.name)
 
+        if G.BUILD_HDF5_CATALOG: #change to HDF5 catalog
+            elixer_hdf5.extend_elixer_hdf5(os.path.join(args.name,args.name+"_cat.h5"),hd_list)
+
         if match_list.size > 0:
             match_list.write_file(os.path.join(args.name,args.name+"_cat.txt"))
 
@@ -2768,11 +2771,6 @@ def main():
             else:
                 if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer:
                     viewer_file_list.append(args.name + ".pdf")
-
-
-        if G.BUILD_HDF5_CATALOG: #change to HDF5 catalog
-            elixer_hdf5.extend_elixer_hdf5(os.path.join(args.name,args.name+"_cat.h5"),hd_list)
-
 
         if G.ZOO_MINI:
             msg = "Building ELiXer-lite summary images for all detections ...."
