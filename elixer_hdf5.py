@@ -326,7 +326,7 @@ def append_entry(fileh,det):
         #get tables
         dtb = fileh.root.Detections
 
-        q_detectid = det.detectid
+        q_detectid = det.hdf5_detectid
         rows = dtb.read_where("detectid==q_detectid")
 
         if rows.size > 0:
@@ -647,20 +647,20 @@ def merge_elixer_hdf5_files(fname,flist=[]):
             log.error("Unable to merge: %s" %(f))
             continue
 
-        # m_dtb = merge_fh.root.Detections
-        # m_stb = merge_fh.root.CalibratedSpectra
-        # m_ltb = merge_fh.root.SpectraLines
-        # m_atb = merge_fh.root.Aperture
-        # m_ctb = merge_fh.root.CatalogMatch
+        m_dtb = merge_fh.root.Detections
+        m_stb = merge_fh.root.CalibratedSpectra
+        m_ltb = merge_fh.root.SpectraLines
+        m_atb = merge_fh.root.Aperture
+        m_ctb = merge_fh.root.CatalogMatch
 
         #now merge
-        dtb.append(merge_fh.root.Detections.read())
-        stb.append(merge_fh.root.CalibratedSpectra.read())
-        ltb.append(merge_fh.root.SpectraLines.read())
-        atb.append(merge_fh.root.Aperture.read())
-        ctb.append(merge_fh.root.CatalogMatch.read())
+        dtb.append(m_dtb.read())
+        stb.append(m_stb.read())
+        ltb.append(m_ltb.read())
+        atb.append(m_atb.read())
+        ctb.append(m_ctb.read())
 
-        #flush_all(fileh)
+        flush_all(fileh)
         #close the merge input file
         merge_fh.close()
 

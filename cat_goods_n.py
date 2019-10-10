@@ -814,10 +814,13 @@ class GOODS_N(cat_base.Catalog):
                 df_photoz = None
 
             if df_photoz is not None:
-                photoz_file = df_photoz['file'].values[0]
-                z_best = df_photoz['z_best'].values[0]
-                z_best_type = df_photoz['z_best_type'].values[0]  # s = spectral , p = photometric?
-                z_photoz_weighted = df_photoz['mFDa4_z_weight']
+                try:
+                    photoz_file = df_photoz['file'].values[0]
+                    z_best = df_photoz['z_best'].values[0]
+                    z_best_type = df_photoz['z_best_type'].values[0]  # s = spectral , p = photometric?
+                    z_photoz_weighted = df_photoz['mFDa4_z_weight'].values[0]
+                except:
+                    log.error("Exception!",exc_info=True)
 
             if df is not None:
                 text = ""
