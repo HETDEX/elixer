@@ -2763,6 +2763,22 @@ def main():
                 if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer:
                     viewer_file_list.append(args.name + ".pdf")
 
+
+        if G.BUILD_HDF5_CATALOG: #change to HDF5 catalog
+            elixer_hdf5.extend_elixer_hdf5(os.path.join(args.name,args.name+"_cat.h5"),hd_list)
+
+
+        if G.ZOO_MINI:
+            msg = "Building ELiXer-lite summary images for all detections ...."
+            log.info(msg)
+            print(msg)
+            for h in hd_list:  # iterate over all hetdex detections
+                for e in h.emis_list:
+                    build_3panel_zoo_image(fname=os.path.join(pdf.basename, str(e.entry_id) + "_mini.png"),
+                                           image_2d_fiber=e.image_2d_fibers_1st_col,
+                                           image_1d_fit=e.image_1d_emission_fit,
+                                           image_cutout_fiber_pos=e.image_cutout_fiber_pos)
+
         if (args.neighborhood is not None) and (args.neighborhood > 0.0):
             msg = "Building neighborhood at (%g\") for all detections ...." % (args.neighborhood)
             log.info(msg)
@@ -2780,19 +2796,6 @@ def main():
                                            detectid=None, ra=ra, dec=dec, distance=args.neighborhood, cwave=e.w,
                                            fname=os.path.join(pdf.basename, str(e.entry_id) + "nei.png"))
 
-        if G.ZOO_MINI:
-            msg = "Building ELiXer-lite summary images for all detections ...."
-            log.info(msg)
-            print(msg)
-            for h in hd_list:  # iterate over all hetdex detections
-                for e in h.emis_list:
-                    build_3panel_zoo_image(fname=os.path.join(pdf.basename, str(e.entry_id) + "_mini.png"),
-                                           image_2d_fiber=e.image_2d_fibers_1st_col,
-                                           image_1d_fit=e.image_1d_emission_fit,
-                                           image_cutout_fiber_pos=e.image_cutout_fiber_pos)
-
-        if G.BUILD_HDF5_CATALOG: #change to HDF5 catalog
-            elixer_hdf5.extend_elixer_hdf5(os.path.join(args.name,args.name+"_cat.h5"),hd_list)
 
     #end for master_loop_idx in range(master_loop_length):
 
