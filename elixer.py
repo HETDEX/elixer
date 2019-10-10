@@ -2053,6 +2053,12 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                 best = np.argmax(pix2)
                 mc = copy.copy(_cutouts[best]['cutout'])
 
+                if mc is None:
+                    log.warning("No cutout (None) available for neighborhood.")
+                    log.debug("Number of cutouts (%d)" %(len(_cutouts)))
+                    log.debug("Square pixel counts (%s)" %(str(pix2)))
+                    return None
+
                 #how many?
                 sel = np.where((pix2 == pix2[best]))[0]
                 if len(sel) > 1:

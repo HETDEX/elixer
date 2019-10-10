@@ -3,7 +3,7 @@ changes to elixer by version
 1.7.5a2 [2019-10-10]
 * fixed error in HDF5 catalog creation (bad DetObj::detectid ... should be hdf5_detectid)
 * fixed issue in cat_goodsn (pandas dataframe value needed for mFDa4_z_weight
-
+* additional logging for None cutouts in neighborhood
 
 1.7.5a1 [2019-10-02]
 * added KPNO imaging (does not yet have catalog). Not sure the aperture photometry mags can be trusted yet. Currently,

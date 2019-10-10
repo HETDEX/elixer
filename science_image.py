@@ -1182,6 +1182,9 @@ class science_image():
     def get_position(self,ra,dec,cutout):
         #this is not strictly a pixel x and y but is a meta position based on the wcs
         #remember pixel (0,0) is not necessarily x=0,y=0 from this call
+        if cutout is None:
+            log.warning("Supplied cutout is None (science_image::get_position)")
+            return None,None
         x,y = None,None
         try:
             pix_size = self.calc_pixel_size(cutout.wcs)
