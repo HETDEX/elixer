@@ -1398,6 +1398,7 @@ def get_hdf5_detectids_to_process(args):
                         detlist = np.genfromtxt(args.dets, dtype=None, comments='#', usecols=(0,),
                                                 encoding=None)
                     detlist_is_file = True
+                    check_for_numeric = True #since this is a file and these are HDF5 detectids they must be integers
                     log.debug("Loaded --dets as file")
                 elif os.path.isfile(os.path.join("..",args.dets)):
                     if G.python2():
@@ -1406,6 +1407,7 @@ def get_hdf5_detectids_to_process(args):
                         detlist = np.genfromtxt(os.path.join("..", args.dets), dtype=None, comments='#',
                                                 usecols=(0,),encoding=None)
                     detlist_is_file = True
+                    check_for_numeric = True
                     log.debug("Loaded --dets as ../<file> ")
                 else:
                     detlist = args.dets.replace(', ',',').split(',') #allow comma or comma-space separation
