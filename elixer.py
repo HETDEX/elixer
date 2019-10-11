@@ -2183,28 +2183,30 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         #*** remember the positioning in pixel space is based on the RA, Dec, the pixel scale and the extent scaling
         # (everything needs to be matched up for this to work correctly)
         if master_cutout is not None:
-            plt.imshow(master_cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
-                       vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+            try:
+                plt.imshow(master_cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
+                           vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
 
-            plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-            plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+                plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+                plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
 
-            plt.plot(0, 0, "r+")
+                plt.plot(0, 0, "r+")
 
 
-            # add all locations
-            for _ra, _dec in zip(all_ras,all_decs):
-                fx, fy = sci.get_position(_ra, _dec, master_cutout)
+                # add all locations
+                for _ra, _dec in zip(all_ras,all_decs):
+                    fx, fy = sci.get_position(_ra, _dec, master_cutout)
+                    plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
+                                                      width=target_box_side, height=target_box_side,
+                                                      angle=0.0, color='white', alpha=0.75,fill=False, linewidth=1.0, zorder=2))
+
+                # add THE neighbor box for this row on top
+                fx, fy = sci.get_position(ras[i], decs[i], master_cutout)
                 plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
                                                   width=target_box_side, height=target_box_side,
-                                                  angle=0.0, color='white', alpha=0.75,fill=False, linewidth=1.0, zorder=2))
-
-            # add THE neighbor box for this row on top
-            fx, fy = sci.get_position(ras[i], decs[i], master_cutout)
-            plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
-                                              width=target_box_side, height=target_box_side,
-                                              angle=0.0, color=neighbor_color, fill=False, linewidth=1.0, zorder=2))
-
+                                                  angle=0.0, color=neighbor_color, fill=False, linewidth=1.0, zorder=2))
+            except:
+                log.warning("Exception.", exc_info=True)
 
 
             # karl_coords = [(228.785690,51.266525), (228.784790,51.266094),
@@ -2228,32 +2230,36 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
         else:
 
-            fx = (ra - ras[i]) * np.cos(np.deg2rad(dec)) * 3600. #need to flip since negative RA is to the right
-            fy = (decs[i] - dec) * 3600.
+            try:
+                fx = (ra - ras[i]) * np.cos(np.deg2rad(dec)) * 3600. #need to flip since negative RA is to the right
+                fy = (decs[i] - dec) * 3600.
 
-            plt.imshow(np.zeros((int(ext),int(ext))), interpolation='none', cmap=plt.get_cmap('gray_r'),
-                       vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+                plt.imshow(np.zeros((int(ext),int(ext))), interpolation='none', cmap=plt.get_cmap('gray_r'),
+                           vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
 
 
-            # add all locations
-            for _ra, _dec in zip(all_ras,all_decs):
-                fx, fy = sci.get_position(_ra, _dec, master_cutout)
-                plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
+                # add all locations
+                for _ra, _dec in zip(all_ras,all_decs):
+                    _fx, _fy = sci.get_position(_ra, _dec, master_cutout)
+                    if (_fx is not None) and (_fy is not None):
+                        plt.gca().add_patch(plt.Rectangle(((_fx - x) - target_box_side / 2.0, (_fy - y) - target_box_side / 2.0),
+                                                      width=target_box_side, height=target_box_side,
+                                                      angle=0.0, color='white', alpha=0.75,fill=False, linewidth=1.0, zorder=2))
+
+                #add (overwrite) the highlighted location
+                plt.gca().add_patch(plt.Rectangle((fx - target_box_side / 2.0, fy - target_box_side / 2.0),
                                                   width=target_box_side, height=target_box_side,
-                                                  angle=0.0, color='white', alpha=0.75,fill=False, linewidth=1.0, zorder=2))
+                                                  angle=0.0, color=neighbor_color, fill=False, linewidth=1.0, zorder=2))
 
-            #add (overwrite) the highlighted location
-            plt.gca().add_patch(plt.Rectangle((fx - target_box_side / 2.0, fy - target_box_side / 2.0),
-                                              width=target_box_side, height=target_box_side,
-                                              angle=0.0, color=neighbor_color, fill=False, linewidth=1.0, zorder=2))
+                # plt.gca().add_patch(
+                #     plt.Circle((fx, fy), radius=target_box_side, color='b', fill=False,zorder=9))
 
-            # plt.gca().add_patch(
-            #     plt.Circle((fx, fy), radius=target_box_side, color='b', fill=False,zorder=9))
+                plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+                plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
 
-            plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-            plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-
-            plt.plot(0, 0, "r+")
+                plt.plot(0, 0, "r+")
+            except:
+                log.warning("Exception.",exc_info=True)
 
         #the 1D spectrum
         plt.subplot(gs[i*row_step+1:(i+1)*row_step-1,3:])
@@ -2796,10 +2802,12 @@ def main():
                         ra = e.ra
                         dec = e.dec
 
-                    build_neighborhood_map(hdf5=args.hdf5, cont_hdf5=G.HDF5_CONTINUUM_FN,
+                    try:
+                        build_neighborhood_map(hdf5=args.hdf5, cont_hdf5=G.HDF5_CONTINUUM_FN,
                                            detectid=None, ra=ra, dec=dec, distance=args.neighborhood, cwave=e.w,
                                            fname=os.path.join(pdf.basename, str(e.entry_id) + "nei.png"))
-
+                    except:
+                        log.warning("Exception calling build_neighborhood_map.",exc_info=True)
 
     #end for master_loop_idx in range(master_loop_length):
 
