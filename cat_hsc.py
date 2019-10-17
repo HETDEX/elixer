@@ -14,16 +14,6 @@ The sky distribution of the reduced data is shown as green filled circles in
 The seeing size is =0.6-1.0 arcsec in FWHM.
 The depth is 5 sigma limiting magnitude of r = 25.5 mag for 2''.0 aperture.
 
-
-The reduced HSC images are available at:
-<...>/image_tract_patch/(tract)/calexp-HSC-R-(tract)-(patch).fits
-There are 6916 images named "calexp-HSC-R-(tract)-(patch i j ).fits" (i, j = 0,1, ..., 8).
-
-
-The coordinates of tracts and their patches are summarized in:
-<...>/check_tract/(tract).dat
-/data/04094/mshiro/HSC/dr2/check_tract/(tract).png
-
 ***note: ELiXer calculate corners are slightly different than HSC reported corners (ELiXer are
 slightly wider ... assume HSC does not include the very edge/perimeter that is in the image). This
 does not matter as ELiXer only uses this to find the correct tile and that is the tile(s) for which
