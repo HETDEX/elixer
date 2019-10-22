@@ -786,7 +786,6 @@ class science_image():
                     #     cutout.data *= 0. #set all to exactly zero
                 else:
                     log.info("Cutout is empty or simple gradient. Will deliberately fail cutout request.")
-                    return None, 0, 99.99, 0
                     if return_details:
                         return None, 0, 99.99, 0, details
                     else:

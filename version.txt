@@ -1,6 +1,7 @@
 changes to elixer by version
 
-1.7.5a3 [tbd]
+1.7.5a3 [2019-10-22]
+* fixed missing return in science_image::get_cutout() if cutout collected is None or empty
 
 1.7.5a2 [2019-10-10]
 * fixed error in HDF5 catalog creation (bad DetObj::detectid ... should be hdf5_detectid)
