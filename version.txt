@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.7.5a5 [2019-10-24]
+* option (global_config::ALLOW_SYSTEM_CALL_PDF_CONVERSION) to allow a system call to pdftoppm if Python conversion of
+  PDF to PNG fails
+
 1.7.5a4 [2019-10-23]
 * changed --neighborhood to only mark "all" HETDEX neighbors in the first image. Each subsequent image shows only
   the center detection (+) and the current neighbor (red box)

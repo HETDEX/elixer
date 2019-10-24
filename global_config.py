@@ -14,7 +14,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.7.5a4'
+__version__ = '1.7.5a5'
 
 #python version
 import sys
@@ -472,3 +472,5 @@ USE_PHOTO_CATS = True  #default normal is True .... use photometry catalogs (if 
 MAX_NEIGHBORS_IN_MAP = 25
 
 BUILD_HDF5_CATALOG = True
+
+ALLOW_SYSTEM_CALL_PDF_CONVERSION = True #if True, if the Python PDF to PNG fails, attempt a system call to pdftoppm
