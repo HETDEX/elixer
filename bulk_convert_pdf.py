@@ -82,8 +82,14 @@ def main():
     #get the pdfs
     pdfs = glob.glob("dispatch_*/*/*.pdf")
 
-    #get the (existing) pngs (not the _mini.png or nei.png)
-    pngs = glob.glob("dispatch_*/*/*[0-9].png")
+    if len(pdfs) == 0: # we may bin in a dispactch folder
+        pdfs = glob.glob("*/*.pdf")
+
+        #get the (existing) pngs (not the _mini.png or nei.png)
+        pngs = glob.glob("*/*[0-9].png")
+    else:
+        #get the (existing) pngs (not the _mini.png or nei.png)
+        pngs = glob.glob("dispatch_*/*/*[0-9].png")
 
     num_to_convert = len(pdfs) - len(pngs)
 
