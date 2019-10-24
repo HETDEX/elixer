@@ -1252,7 +1252,7 @@ def convert_pdf(filename, resolution=150, jpeg=True, png=False):
         log.error("Error (1) converting pdf to image type: " + filename, exc_info=True)
         if G.ALLOW_SYSTEM_CALL_PDF_CONVERSION:
             try:
-                log.info("Attempting system call to convert")
+                log.info("Attempting blind system call to pdftoppm to convert ... ")
                 os.system("pdftoppm %s %s -png -singlefile" % (filename, filename.rstrip(".pdf")))
             except:
                 log.error("System call conversion failed.",exc_info=True)
