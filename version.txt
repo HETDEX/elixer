@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.7.5a4 [2019-10-23]
+* changed --neighborhood to only mark "all" HETDEX neighbors in the first image. Each subsequent image shows only
+  the center detection (+) and the current neighbor (red box)
+
+
 1.7.5a3 [2019-10-22]
 * fixed missing return in science_image::get_cutout() if cutout collected is None or empty
 

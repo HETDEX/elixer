@@ -2194,9 +2194,10 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
 
                 # add all locations
-                for _ra, _dec in zip(all_ras,all_decs):
-                    fx, fy = sci.get_position(_ra, _dec, master_cutout)
-                    plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
+                if i == 0: #only for the first box
+                   for _ra, _dec in zip(all_ras,all_decs):
+                        fx, fy = sci.get_position(_ra, _dec, master_cutout)
+                        plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
                                                       width=target_box_side, height=target_box_side,
                                                       angle=0.0, color='white', alpha=0.75,fill=False, linewidth=1.0, zorder=2))
 
@@ -2239,10 +2240,12 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
 
                 # add all locations
-                for _ra, _dec in zip(all_ras,all_decs):
-                    _fx, _fy = sci.get_position(_ra, _dec, master_cutout)
-                    if (_fx is not None) and (_fy is not None):
-                        plt.gca().add_patch(plt.Rectangle(((_fx - x) - target_box_side / 2.0, (_fy - y) - target_box_side / 2.0),
+                if i == 0:
+                    for _ra, _dec in zip(all_ras,all_decs):
+                        _fx, _fy = sci.get_position(_ra, _dec, master_cutout)
+
+                        if (_fx is not None) and (_fy is not None):
+                            plt.gca().add_patch(plt.Rectangle(((_fx - x) - target_box_side / 2.0, (_fy - y) - target_box_side / 2.0),
                                                       width=target_box_side, height=target_box_side,
                                                       angle=0.0, color='white', alpha=0.75,fill=False, linewidth=1.0, zorder=2))
 
