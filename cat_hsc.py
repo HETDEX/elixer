@@ -543,7 +543,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
         try:
             if df['flux.cmodel_flags'].values[0]:  # there is a problem
-                if df['fluxlsq'].values[0]:  # there is a problem
+                if df['fluxlsq_flags'].values[0]:  # there is a problem
                 #if df['flux.cmodel_flags'].values[0]:  # there is a problem
                     log.info("Flux/Mag unreliable due to errors.")
                     return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
