@@ -1075,7 +1075,12 @@ class STACK_COSMOS(cat_base.Catalog):
                     else:
                         text += "N/A\nN/A\n"
 
-                    text = text + "%0.2f(%0.2f,%0.2f)%s\n" % (filter_mag, filter_mag_bright,filter_mag_faint, filter_str)
+                    try:
+                        text = text + "%0.2f(%0.2f,%0.2f)%s\n" % (filter_mag, filter_mag_bright,filter_mag_faint, filter_str)
+                    except:
+                        log.warning("Magnitude info is none: mag(%s), mag_bright(%s), mag_faint(%s)"
+                                % (filter_mag, filter_mag_bright, filter_mag_faint))
+                        text += "No mag info\n"
 
                     if (not G.ZOO):
                         if (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):

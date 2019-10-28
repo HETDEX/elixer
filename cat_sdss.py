@@ -733,7 +733,13 @@ class SDSS(cat_base.Catalog):#SDSS
                 else:
                     text += "N/A\nN/A\n"
 
-                text = text + "%0.2f(%0.2f,%0.2f)\n" % (filter_mag, filter_mag_bright, filter_mag_faint)
+
+                try:
+                    text = text + "%0.2f(%0.2f,%0.2f)\n" % (filter_mag, filter_mag_bright, filter_mag_faint)
+                except:
+                    log.warning("Magnitude info is none: mag(%s), mag_bright(%s), mag_faint(%s)"
+                                % (filter_mag, filter_mag_bright, filter_mag_faint))
+                    text += "No mag info\n"
 
                 if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
                     text += "%0.3g\n" % (bid_target.p_lae_oii_ratio)

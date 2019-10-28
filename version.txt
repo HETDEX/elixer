@@ -1,5 +1,10 @@
 changes to elixer by version
 
+
+1.7.5a6 [2019-10-28]
+* fixed failure of imaging cutout if magnitude does not calcuate properly or mag info is not available
+
+
 1.7.5a5 [2019-10-24]
 * option (global_config::ALLOW_SYSTEM_CALL_PDF_CONVERSION) to allow a system call to pdftoppm if Python conversion of
   PDF to PNG fails

@@ -974,7 +974,12 @@ class GOODS_N(cat_base.Catalog):
                     text += "N/A\nN/A\n"
 
                 # if filter_mag != 0:
-                text = text + "%0.2f(%0.2f,%0.2f)\n" % (filter_mag, filter_mag_bright, filter_mag_faint)
+                try:
+                    text = text + "%0.2f(%0.2f,%0.2f)\n" % (filter_mag, filter_mag_bright, filter_mag_faint)
+                except:
+                    log.warning("Magnitude info is none: mag(%s), mag_bright(%s), mag_faint(%s)"
+                                % (filter_mag, filter_mag_bright, filter_mag_faint))
+                    text += "No mag info\n"
                 # else:
                 #    text = text + "%g(%g) $\\mu$Jy\n" % (filter_fl, filter_fl_err)
 
