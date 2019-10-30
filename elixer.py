@@ -1854,7 +1854,9 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
 
 
 
-def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fiber_pos):
+def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fiber_pos,
+                           image_cutout_neighborhood,
+                           image_cutout_fiber_pos_size=None, image_cutout_neighborhood_size=None):
     """
     Note: needs matplotlib > 3.1.x to work properly
 
@@ -1864,6 +1866,7 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
     :param image_cutout_fiber_pos:
     :return:
     """
+
     if (fname is None) or (image_2d_fiber is None) or (image_1d_fit is None) or (image_cutout_fiber_pos is None):
         log.error("Missing required data in elixer::build_3panel_zoo_image")
         return
@@ -1871,43 +1874,26 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
         #note: 0,0 (for grid spec) is upper left
         # first slice is the vertical positioning (#rows), second is the horizontal (#cols)
 
+        #scaling for the fiber POS cutout and neighborhood cutout
+        box_ratio = 0.0
+        if (image_cutout_fiber_pos_size is not None) and (image_cutout_neighborhood_size is not None) and \
+           (image_cutout_fiber_pos_size > 0) and (image_cutout_neighborhood_size > 0):
+            box_ratio = float(image_cutout_fiber_pos_size) / float(image_cutout_neighborhood_size)
+            #todo: make a box at the center box_ratio * size of neighborhood image
+
         #plot with gridspec
-        fig = plt.figure()#constrained_layout=True)#,figsize=(2,3)) #x,y or cols, rows
+        fig = plt.figure(facecolor='black',constrained_layout=False)#,figsize=(2,3)) #x,y or cols, rows
         plt.subplots_adjust(wspace=0, hspace=0)
+        #gs1 = fig.add_gridspec(ncols=1,nrows=1,figure=fig,left=0.02, right=0.30, top=0.90, bottom=0.30, wspace=0.01)
         #plt.subplots_adjust(left=0.00, right=0.95, top=0.95, bottom=0.0)
 
-        gs = gridspec.GridSpec(200,200,figure=fig,wspace=0.0,hspace=0.0)  # rows, columns or y,x
-
-        #1d Gaussian fit
-        ax3 = fig.add_subplot(gs[115:-1,45:-1])#,gridspec_kw = {'wspace':0, 'hspace':0})
-        ax3.set_axis_off()
-        #plt.subplots_adjust(wspace=0, hspace=0)
-
-        #ax3.axis('off')
-        ax3.axes.get_xaxis().set_visible(False)
-        ax3.axes.get_yaxis().set_visible(False)
-        image_1d_fit.seek(0)
-        im3 = PIL_Image.open(image_1d_fit)
-        ax3.imshow(im3)
+        gs = gridspec.GridSpec(nrows=60,ncols=20,figure=fig,wspace=0.0,hspace=0.0)  # rows, columns or y,x
 
 
-        #2d fiber position / master cutout
-        ax2 = fig.add_subplot(gs[0:135,47:-1])
-        ax2.set_axis_off()
-        #fig = plt.subplot(gs[0:50,30:-1])#,gridspec_kw = {'wspace':0, 'hspace':0})
-        #plt.subplots_adjust(wspace=0, hspace=0)
-
-        #ax2.axis('off')
-        #ax2.axes.get_xaxis().set_visible(False)
-        #ax2.axes.get_yaxis().set_visible(False)
-
-        image_cutout_fiber_pos.seek(0)
-        im2 = PIL_Image.open(image_cutout_fiber_pos)
-        ax2.imshow(im2)
 
         # is hidden
         # 1st column 2d fiber cutouts
-        ax1 = fig.add_subplot(gs[15:191, 0:90])
+        ax1 = fig.add_subplot(gs[2:45,0:10])
         ax1.set_axis_off()
         # fig = plt.subplot(gs[0:-1,0:30])#,gridspec_kw = {'wspace':0, 'hspace':0})
         # plt.subplots_adjust(wspace=0, hspace=0)
@@ -1920,16 +1906,97 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
         im1 = PIL_Image.open(image_2d_fiber)
         ax1.imshow(im1)
 
+        #gs2 = fig.add_gridspec(ncols=1, nrows=2, figure=fig, left=0.35, right=0.98,top=0.90, bottom=0.30, wspace=0.01)
 
-        if True:
+        #2d fiber position / master cutout
+        ax2 = fig.add_subplot(gs[0:26,0:])
+        ax2.set_axis_off()
+        #fig = plt.subplot(gs[0:50,30:-1])#,gridspec_kw = {'wspace':0, 'hspace':0})
+        #plt.subplots_adjust(wspace=0, hspace=0)
+
+        #ax2.axis('off')
+        #ax2.axes.get_xaxis().set_visible(False)
+        #ax2.axes.get_yaxis().set_visible(False)
+
+        image_cutout_fiber_pos.seek(0)
+        im2 = PIL_Image.open(image_cutout_fiber_pos)
+        ax2.imshow(im2)
+
+        # 2D wide (neighborhood) master cutout
+        if image_cutout_neighborhood is not None:
+
+            ax4 = fig.add_subplot(gs[22:48,0:])
+            ax4.set_axis_off()
+            # fig = plt.subplot(gs[0:50,30:-1])#,gridspec_kw = {'wspace':0, 'hspace':0})
+            # plt.subplots_adjust(wspace=0, hspace=0)
+
+            # ax2.axis('off')
+            # ax2.axes.get_xaxis().set_visible(False)
+            # ax2.axes.get_yaxis().set_visible(False)
+
+            image_cutout_neighborhood.seek(0)
+            im4 = PIL_Image.open(image_cutout_neighborhood)
+            ax4.imshow(im4)
+
+            zero_x = (ax4.get_xlim()[0] + ax4.get_xlim()[1])/2.
+            zero_y = (ax4.get_ylim()[0] + ax4.get_ylim()[1]) / 2.
+
+            rx = (zero_x * box_ratio) / 2.0
+            ry = (zero_y * box_ratio) / 2.0
+            half_side_x = rx
+            half_side_y = ry
+
+            ax4.add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=half_side_x * 2, height=half_side_y * 2,
+                                               angle=0, color='red', fill=False))
+
+            #ax4.add_patch(plt.Rectangle((zero_x - rx , zero_y + ry), width=100.0, height=100.0,
+            #                        angle=0, color='red', fill=False))
+
+        else:
+            log.info("Warning! Unable to fully populate mini report. Neighborhood cutout is None.")
+
+
+        #1d Gaussian fit
+        ax3 = fig.add_subplot(gs[46:,1:15])#,gridspec_kw = {'wspace':0, 'hspace':0})
+        ax3.set_axis_off()
+        #plt.subplots_adjust(wspace=0, hspace=0)
+
+        #ax3.axis('off')
+        ax3.axes.get_xaxis().set_visible(False)
+        ax3.axes.get_yaxis().set_visible(False)
+
+        image_1d_fit.seek(0)
+
+        x,y = PIL_Image.open(image_1d_fit).size
+        lx = 0.10 * x
+        rx = 0.03 * x
+        ty = 0.1 * y
+        by = 0.00 * y
+
+        #crop is (upper left corner ....
+        #( x, y, x + width , y + height )
+
+        im3 = PIL_Image.open(image_1d_fit).crop((lx,ty,x-(lx+rx),y-(ty+by)))
+        ax3.imshow(im3)
+
+
+        if True: #make True if want to build image then crop it, otherwise leave as False and just save the plt
             buf = io.BytesIO()
-            plt.savefig(buf, format='png', dpi=300, bbox_inches='tight', transparent=True)
+            plt.savefig(buf, format='png', dpi=300, bbox_inches='tight', transparent=True,facecolor=fig.get_facecolor())
             plt.close()
 
             plt.figure()
             buf.seek(0)
             #im = PIL_Image.open(buf)
-            im = plt.imshow(PIL_Image.open(buf).crop((20,100,1150,1100)))
+
+            x, y = PIL_Image.open(buf).size
+            lx = 0.03 * x
+            rx = 0.12 * x
+            ty = 0.06 * y
+            by = 0.00 * y
+
+            im = plt.imshow(PIL_Image.open(buf).crop((lx,ty,x-(lx+rx),y-(ty+by))))
+
             #patch =
             #plt.tight_layout(rect=(0.1,0.1,0.8,0.8))
 
@@ -1939,11 +2006,11 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
             plt.gca().axis('off')
 
             #fig.tight_layout()
-            plt.savefig(fname, format='png', dpi=300,bbox_inches='tight',transparent=False)
+            plt.savefig(fname, format='png', dpi=300,bbox_inches='tight',transparent=False,facecolor=fig.get_facecolor())
             log.debug("File written: %s" % (fname))
             plt.close()
         else:
-            plt.savefig(fname, format='png', dpi=300, bbox_inches='tight', transparent=False)
+            plt.savefig(fname, format='png', dpi=300, bbox_inches='tight', transparent=False,facecolor=fig.get_facecolor())
             log.debug("File written: %s" % (fname))
             plt.close()
 
@@ -1969,9 +2036,21 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     :param fname:
     :return: PNG of the figure
     """
-    if (distance is None) or (distance < 0.0) or ((detectid is None) and ((ra is None) or (dec is None))):
-        log.info("Invalid data passed to build_neighborhood_map")
-        return None
+
+    just_mini_cutout = False
+
+    if G.ZOO_MINI:
+        if ((detectid is None) and ((ra is None) or (dec is None))):
+            log.info("Invalid data passed to build_neighborhood_map")
+            return None, None
+
+        if (distance is None) or (distance < 0.0):
+            distance = 10.0
+            just_mini_cutout = True
+    else:
+        if (distance is None) or (distance < 0.0) or ((detectid is None) and ((ra is None) or (dec is None))):
+            log.info("Invalid data passed to build_neighborhood_map")
+            return None, None
 
     #get all the detectids
     error = distance/3600.0
@@ -1995,7 +2074,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                     cwave = rows['wave'][0]
         except:
             log.info("Exception. Unable to lookup detectid coordinates.",exc_info=True)
-            return None
+            return None, None
 
 
     neighbor_color = "red"
@@ -2016,7 +2095,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     if (len(detectids) == 0) and (len(cont_detectids)== 0):
         #nothing to do
         log.info("No HETDEX detections found: (%f,%f) +/- %d\"" %(ra,dec,distance))
-        return None
+        return None, None
     elif len(detectids) > G.MAX_NEIGHBORS_IN_MAP:
         msg = "Maximum number of reportable (emission line) neighbors exceeded (%d). Will truncate to nearest %d." % (len(detectids),
                                                                                             G.MAX_NEIGHBORS_IN_MAP)
@@ -2105,7 +2184,35 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
     if master_cutout is None:
         log.warning("Unable to make a master_cutout for neighborhood.")
+        x = ext / 2.0
+        y = ext / 2.0
+        vmin = None
+        vmax = None
+    else:
+        try:
+            vmin, vmax = UTIL.get_vrange(master_cutout.data)  # ,contrast=0.25)
+            x, y = sci.get_position(ra, dec, master_cutout)  # x,y of the center
+        except:
+            log.debug("Exception! elixer::build_neighborhood_map, vmin,vmax,x,y set to defaults.", exec_info=True)
+            x = ext / 2.0
+            y = ext / 2.0
+            vmin = None
+            vmax = None
 
+        try:
+            fig = plt.figure()
+            plt.imshow(master_cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
+                       vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+            plt.axis('off')
+            nei_buf = io.BytesIO()
+            plt.savefig(nei_buf, format='png', dpi=300, transparent=True)
+        except:
+            log.info("Exception! Unable to make mini-cutout from Neighborhood master.",exec_info)
+            nei_buf = None
+
+
+    if just_mini_cutout: #stop here
+        return None, nei_buf
 
     #get the PSF weighted full 1D spectrum for each detectid
     spec = []
@@ -2162,6 +2269,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
 
     row_step = 10 #allow space in between
+    plt.close('all')
     fig = plt.figure(figsize=(G.FIGURE_SZ_X, G.GRID_SZ_Y * num_rows))
     plt.subplots_adjust(left=0.00, right=0.95, top=0.95, bottom=0.0)
 
@@ -2173,14 +2281,14 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
     target_box_side = 3.0  # distance / 4.0
 
-    if master_cutout is not None:
-        vmin,vmax = UTIL.get_vrange(master_cutout.data)#,contrast=0.25)
-        x, y = sci.get_position(ra, dec, master_cutout)  # x,y of the center
-    else:
-        x = ext/2.0
-        y = ext/2.0
-        vmin = None
-        vmax = None
+    # if master_cutout is not None:
+    #     vmin,vmax = UTIL.get_vrange(master_cutout.data)#,contrast=0.25)
+    #     x, y = sci.get_position(ra, dec, master_cutout)  # x,y of the center
+    # else:
+    #     x = ext/2.0
+    #     y = ext/2.0
+    #     vmin = None
+    #     vmax = None
 
     for i in range(num_rows):
         #first the cutout
@@ -2311,7 +2419,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     buf = io.BytesIO()
     plt.savefig(buf, format='png', dpi=150)
 
-    return buf
+    return buf, nei_buf
 
 
 
@@ -2787,18 +2895,9 @@ def main():
                 if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer:
                     viewer_file_list.append(args.name + ".pdf")
 
-        if G.ZOO_MINI:
-            msg = "Building ELiXer-lite summary images for all detections ...."
-            log.info(msg)
-            print(msg)
-            for h in hd_list:  # iterate over all hetdex detections
-                for e in h.emis_list:
-                    build_3panel_zoo_image(fname=os.path.join(pdf.basename, str(e.entry_id) + "_mini.png"),
-                                           image_2d_fiber=e.image_2d_fibers_1st_col,
-                                           image_1d_fit=e.image_1d_emission_fit,
-                                           image_cutout_fiber_pos=e.image_cutout_fiber_pos)
-
-        if (args.neighborhood is not None) and (args.neighborhood > 0.0):
+        #do neighborhood 1st so can use broad cutout for --mini
+        nei_mini_buf = None
+        if ((args.neighborhood is not None) and (args.neighborhood > 0.0)) or G.ZOO_MINI:
             msg = "Building neighborhood at (%g\") for all detections ...." % (args.neighborhood)
             log.info(msg)
             print(msg)
@@ -2812,11 +2911,29 @@ def main():
                         dec = e.dec
 
                     try:
-                        build_neighborhood_map(hdf5=args.hdf5, cont_hdf5=G.HDF5_CONTINUUM_FN,
+                        _, nei_mini_buf = build_neighborhood_map(hdf5=args.hdf5, cont_hdf5=G.HDF5_CONTINUUM_FN,
                                            detectid=None, ra=ra, dec=dec, distance=args.neighborhood, cwave=e.w,
                                            fname=os.path.join(pdf.basename, str(e.entry_id) + "nei.png"))
                     except:
                         log.warning("Exception calling build_neighborhood_map.",exc_info=True)
+
+
+
+        if G.ZOO_MINI:
+            msg = "Building ELiXer-lite summary images for all detections ...."
+            log.info(msg)
+            print(msg)
+            for h in hd_list:  # iterate over all hetdex detections
+                for e in h.emis_list:
+                    build_3panel_zoo_image(fname=os.path.join(pdf.basename, str(e.entry_id) + "_mini.png"),
+                                           image_2d_fiber=e.image_2d_fibers_1st_col,
+                                           image_1d_fit=e.image_1d_emission_fit,
+                                           image_cutout_fiber_pos=e.image_cutout_fiber_pos,
+                                           image_cutout_neighborhood=nei_mini_buf,
+                                           image_cutout_fiber_pos_size=args.error,
+                                           image_cutout_neighborhood_size=args.neighborhood)
+
+
 
     #end for master_loop_idx in range(master_loop_length):
 
