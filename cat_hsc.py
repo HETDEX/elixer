@@ -542,18 +542,23 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         method  = None
 
         try:
-            if df['flux.cmodel_flags'].values[0]:  # there is a problem
-                if df['fluxlsq_flags'].values[0]:  # there is a problem
-                #if df['flux.cmodel_flags'].values[0]:  # there is a problem
-                    log.info("Flux/Mag unreliable due to errors.")
-                    return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
+            if df['fluxlsq_flags'].values[0]:  # there is a problem
+                if df['flux3.0_flags'].values[0]:
+                    if df['flux.cmodel_flags'].values[0]:  # there is a problem
+                    #if df['flux.cmodel_flags'].values[0]:  # there is a problem
+                        log.info("Flux/Mag unreliable due to errors.")
+                        return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
+                    else:
+                        method = 'cmodel'
                 else:
-                    method = 'lsq'
+                    method = '3.0'
             else:
-                method = 'cmodel'
+                method = 'lsq'
         except:
             log.error("Exception in cat_hsc.get_filter_flux", exc_info=True)
             return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
+
+        log.debug("HSC mag model: %s" %method)
 
         try:
 
@@ -563,6 +568,13 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 mag = df["maglsq"].values[0]
                 # mag_bright = mag - df["magerr."+method].values[0]
                 mag_faint = df['maglsq_err'].values[0]
+                mag_bright = -1 * mag_faint
+            elif method == '3.0':
+                filter_fl = df['flux3.0'].values[0]  * cts2njy
+                filter_fl_err = df["flux3.0_err"].values[0] * cts2njy
+                mag = df["mag3.0"].values[0]
+                # mag_bright = mag - df["magerr."+method].values[0]
+                mag_faint = df['mag3.0_err'].values[0]
                 mag_bright = -1 * mag_faint
             else:  # cmodel
                 filter_fl = df['flux.cmodel'].values[0] * cts2njy
@@ -1027,6 +1039,21 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         if G.ZOO_MINI and (detobj is not None):
             plt.figure()
             self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, self.master_cutout, unlabeled=True)
+
+            plt.gca().set_axis_off()
+
+            box_ratio = 1.0#0.99
+            # add window outline
+            xl, xr = plt.gca().get_xlim()
+            yb, yt = plt.gca().get_ylim()
+            zero_x = (xl + xr) / 2.
+            zero_y = (yb + yt) / 2.
+            rx = (xr - xl) * box_ratio / 2.0
+            ry = (yt - yb) * box_ratio / 2.0
+
+            plt.gca().add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=rx * 2, height=ry * 2,
+                                              angle=0, color='red', fill=False,linewidth=3))
+
             buf = io.BytesIO()
             plt.savefig(buf, format='png', dpi=300,transparent=True)
             detobj.image_cutout_fiber_pos = buf

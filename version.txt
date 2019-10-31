@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.7.5a7 [2019-10-31]
+* update --mini option (black background, neighborhood image, re-organize)
+* changed HSC magnitude order: lsq,3.0,model
 
 1.7.5a6 [2019-10-28]
 * fixed failure of imaging cutout if magnitude does not calcuate properly or mag info is not available

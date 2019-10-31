@@ -718,6 +718,21 @@ class DECALS(cat_base.Catalog):#Hyper Suprime Cam
         if G.ZOO_MINI and (detobj is not None):
             plt.figure()
             self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, self.master_cutout, unlabeled=True)
+
+            plt.gca().set_axis_off()
+
+            box_ratio = 1.0#0.99
+            # add window outline
+            xl, xr = plt.gca().get_xlim()
+            yb, yt = plt.gca().get_ylim()
+            zero_x = (xl + xr) / 2.
+            zero_y = (yb + yt) / 2.
+            rx = (xr - xl) * box_ratio / 2.0
+            ry = (yt - yb) * box_ratio / 2.0
+
+            plt.gca().add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=rx * 2, height=ry * 2,
+                                              angle=0, color='red', fill=False,linewidth=3))
+
             buf = io.BytesIO()
             plt.savefig(buf, format='png', dpi=300,transparent=True)
             detobj.image_cutout_fiber_pos = buf

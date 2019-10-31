@@ -1881,6 +1881,38 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
             box_ratio = float(image_cutout_fiber_pos_size) / float(image_cutout_neighborhood_size)
             #todo: make a box at the center box_ratio * size of neighborhood image
 
+
+
+        #update pos cutout with outline
+        #this just does not seem to work right
+        # image_cutout_fiber_pos_frame = None
+        # try:
+        #     plt.close('all')
+        #     plt.figure()
+        #     plt.gca().set_axis_off()
+        #     image_cutout_fiber_pos.seek(0)
+        #     plt.imshow(PIL_Image.open(image_cutout_fiber_pos))
+        #
+        #     #add window outline
+        #     scale_ratio = 0.75
+        #     xl,xr = plt.gca().get_xlim()
+        #     yb,yt = plt.gca().get_ylim()
+        #     zero_x = (xl + xr) / 2.
+        #     zero_y = (yb + yt) / 2.
+        #     rx = (xr - xl) * scale_ratio / 2.0
+        #     ry = (yt - yb) * scale_ratio / 2.0
+        #
+        #     plt.gca().add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=rx * 2, height=ry * 2,
+        #                                       angle=0, color='red', fill=False))
+        #     image_cutout_fiber_pos_frame = io.BytesIO()
+        #     plt.savefig(image_cutout_fiber_pos_frame, format='png', dpi=300, transparent=True)
+        #     plt.close('all')
+        # except:
+        #     log.debug("Exception! adding outline box to fiber POS plot in for mini report.",exc_info=True)
+        #
+
+
+
         #plot with gridspec
         fig = plt.figure(facecolor='black',constrained_layout=False)#,figsize=(2,3)) #x,y or cols, rows
         plt.subplots_adjust(wspace=0, hspace=0)
@@ -1918,6 +1950,15 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
         #ax2.axes.get_xaxis().set_visible(False)
         #ax2.axes.get_yaxis().set_visible(False)
 
+        # if image_cutout_fiber_pos_frame is not None:
+        #     image_cutout_fiber_pos_frame.seek(0)
+        #     im2 = PIL_Image.open(image_cutout_fiber_pos_frame)
+        #     ax2.imshow(im2)
+        # else:
+        #     image_cutout_fiber_pos.seek(0)
+        #     im2 = PIL_Image.open(image_cutout_fiber_pos)
+        #     ax2.imshow(im2)
+
         image_cutout_fiber_pos.seek(0)
         im2 = PIL_Image.open(image_cutout_fiber_pos)
         ax2.imshow(im2)
@@ -1938,19 +1979,20 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
             im4 = PIL_Image.open(image_cutout_neighborhood)
             ax4.imshow(im4)
 
-            zero_x = (ax4.get_xlim()[0] + ax4.get_xlim()[1])/2.
-            zero_y = (ax4.get_ylim()[0] + ax4.get_ylim()[1]) / 2.
+            if False:
+                zero_x = (ax4.get_xlim()[0] + ax4.get_xlim()[1])/2.
+                zero_y = (ax4.get_ylim()[0] + ax4.get_ylim()[1]) / 2.
 
-            rx = (zero_x * box_ratio) / 2.0
-            ry = (zero_y * box_ratio) / 2.0
-            half_side_x = rx
-            half_side_y = ry
+                rx = (zero_x * box_ratio) / 2.0
+                ry = (zero_y * box_ratio) / 2.0
+                half_side_x = rx
+                half_side_y = ry
 
-            ax4.add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=half_side_x * 2, height=half_side_y * 2,
-                                               angle=0, color='red', fill=False))
+                ax4.add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=half_side_x * 2, height=half_side_y * 2,
+                                                   angle=0, color='blue', fill=False))
 
-            #ax4.add_patch(plt.Rectangle((zero_x - rx , zero_y + ry), width=100.0, height=100.0,
-            #                        angle=0, color='red', fill=False))
+                #ax4.add_patch(plt.Rectangle((zero_x - rx , zero_y + ry), width=100.0, height=100.0,
+                #                        angle=0, color='red', fill=False))
 
         else:
             log.info("Warning! Unable to fully populate mini report. Neighborhood cutout is None.")
@@ -1992,8 +2034,8 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
             x, y = PIL_Image.open(buf).size
             lx = 0.03 * x
             rx = 0.12 * x
-            ty = 0.06 * y
-            by = 0.00 * y
+            ty = 0.0 * y
+            by = 0.0 * y
 
             im = plt.imshow(PIL_Image.open(buf).crop((lx,ty,x-(lx+rx),y-(ty+by))))
 
@@ -2025,7 +2067,8 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
 
 
 
-def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=None, distance=None, cwave=None, fname=None):
+def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=None, distance=None, cwave=None,
+                           fname=None,original_distance=None):
     """
 
     :param hdf5:
@@ -2034,6 +2077,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     :param distance:
     :param cwave:
     :param fname:
+    :param original_distance: e.g. args.error ... the normal cutout window size
     :return: PNG of the figure
     """
 
@@ -2044,7 +2088,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             log.info("Invalid data passed to build_neighborhood_map")
             return None, None
 
-        if (distance is None) or (distance < 0.0):
+        if (distance is None) or (distance <= 0.0):
             distance = 10.0
             just_mini_cutout = True
     else:
@@ -2054,6 +2098,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
     #get all the detectids
     error = distance/3600.0
+
+
     if hdf5 is None:
         hdf5 = G.HDF5_DETECT_FN
         cont_hdf5 = G.HDF5_CONTINUUM_FN
@@ -2076,36 +2122,36 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             log.info("Exception. Unable to lookup detectid coordinates.",exc_info=True)
             return None, None
 
+    if not just_mini_cutout:
+        neighbor_color = "red"
+        detectids, ras, decs, dists = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=error, sort=True)
+        cont_detectids = []
 
-    neighbor_color = "red"
-    detectids, ras, decs, dists = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=error, sort=True)
-    cont_detectids = []
+        all_ras = ras[:]
+        all_decs = decs[:]
 
-    all_ras = ras[:]
-    all_decs = decs[:]
+        if cont_hdf5 is not None:
+            cont_detectids, cont_ras, cont_decs, cont_dists = get_hdf5_detectids_by_coord(cont_hdf5, ra=ra, dec=dec, error=error, sort=True)
 
-    if cont_hdf5 is not None:
-        cont_detectids, cont_ras, cont_decs, cont_dists = get_hdf5_detectids_by_coord(cont_hdf5, ra=ra, dec=dec, error=error, sort=True)
-
-        if (cont_ras is not None) and (cont_decs is not None):
-            all_ras += cont_ras[:]
-            all_decs += cont_decs[:]
+            if (cont_ras is not None) and (cont_decs is not None):
+                all_ras += cont_ras[:]
+                all_decs += cont_decs[:]
 
 
-    if (len(detectids) == 0) and (len(cont_detectids)== 0):
-        #nothing to do
-        log.info("No HETDEX detections found: (%f,%f) +/- %d\"" %(ra,dec,distance))
-        return None, None
-    elif len(detectids) > G.MAX_NEIGHBORS_IN_MAP:
-        msg = "Maximum number of reportable (emission line) neighbors exceeded (%d). Will truncate to nearest %d." % (len(detectids),
-                                                                                            G.MAX_NEIGHBORS_IN_MAP)
-        log.info(msg)
-        print(msg)
+        if (len(detectids) == 0) and (len(cont_detectids)== 0):
+            #nothing to do
+            log.info("No HETDEX detections found: (%f,%f) +/- %d\"" %(ra,dec,distance))
+            return None, None
+        elif len(detectids) > G.MAX_NEIGHBORS_IN_MAP:
+            msg = "Maximum number of reportable (emission line) neighbors exceeded (%d). Will truncate to nearest %d." % (len(detectids),
+                                                                                                G.MAX_NEIGHBORS_IN_MAP)
+            log.info(msg)
+            print(msg)
 
-        detectids = detectids[:G.MAX_NEIGHBORS_IN_MAP]
-        ras = ras[:G.MAX_NEIGHBORS_IN_MAP]
-        decs = decs[:G.MAX_NEIGHBORS_IN_MAP]
-        dists = dists[:G.MAX_NEIGHBORS_IN_MAP]
+            detectids = detectids[:G.MAX_NEIGHBORS_IN_MAP]
+            ras = ras[:G.MAX_NEIGHBORS_IN_MAP]
+            decs = decs[:G.MAX_NEIGHBORS_IN_MAP]
+            dists = dists[:G.MAX_NEIGHBORS_IN_MAP]
 
 
 
@@ -2204,6 +2250,30 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             plt.imshow(master_cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                        vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
             plt.axis('off')
+
+            if original_distance is not None and original_distance > 0:
+
+            #add zoom window
+                try:
+
+                    box_ratio = original_distance / distance
+
+                    xl,xr = plt.gca().get_xlim()
+                    yb,yt = plt.gca().get_ylim()
+
+                    zero_x = (xl+xr) / 2.
+                    zero_y = (yb+yt) / 2.
+
+                    rx = ((xr-xl) * box_ratio) / 2.0
+                    ry = ((yt-yb) * box_ratio) / 2.0
+
+                    plt.gca().add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=rx * 2, height=ry * 2,
+                                                       angle=0, color='red', fill=False))
+                except:
+                    log.debug("Exception! adding zoom box to mini-cutout.",exc_info=True)
+
+
+
             nei_buf = io.BytesIO()
             plt.savefig(nei_buf, format='png', dpi=300, transparent=True)
         except:
@@ -2897,10 +2967,11 @@ def main():
 
         #do neighborhood 1st so can use broad cutout for --mini
         nei_mini_buf = None
-        if ((args.neighborhood is not None) and (args.neighborhood > 0.0)) or G.ZOO_MINI:
-            msg = "Building neighborhood at (%g\") for all detections ...." % (args.neighborhood)
-            log.info(msg)
-            print(msg)
+        if G.ZOO_MINI or ((args.neighborhood is not None) and (args.neighborhood > 0.0)):
+            if ((args.neighborhood is not None) and (args.neighborhood > 0.0)):
+                msg = "Building neighborhood at (%g\") for all detections ...." % (args.neighborhood)
+                log.info(msg)
+                print(msg)
             for h in hd_list:  # iterate over all hetdex detections
                 for e in h.emis_list:
                     if e.wra is not None:
@@ -2913,7 +2984,8 @@ def main():
                     try:
                         _, nei_mini_buf = build_neighborhood_map(hdf5=args.hdf5, cont_hdf5=G.HDF5_CONTINUUM_FN,
                                            detectid=None, ra=ra, dec=dec, distance=args.neighborhood, cwave=e.w,
-                                           fname=os.path.join(pdf.basename, str(e.entry_id) + "nei.png"))
+                                           fname=os.path.join(pdf.basename, str(e.entry_id) + "nei.png"),
+                                           original_distance=args.error)
                     except:
                         log.warning("Exception calling build_neighborhood_map.",exc_info=True)
 
