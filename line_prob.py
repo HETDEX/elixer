@@ -23,7 +23,7 @@ import numpy as np
 #from line_classifier.misc.tools import generate_cosmology_from_config, read_flim_file
 
 
-MAX_PLAE_POII = 999
+MAX_PLAE_POII = 1000
 MIN_PLAE_POII = 0.001
 UNIVERSE_CONFIG = None
 FLUX_LIMIT_FN = None

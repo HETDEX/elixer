@@ -2,10 +2,12 @@ try:
     from elixer import global_config as G
     from elixer import line_prob
     from elixer import mcmc_gauss
+    from elixer import spectrum_utilities as SU
 except:
     import global_config as G
     import line_prob
     import mcmc_gauss
+    import spectrum_utilities as SU
 
 import matplotlib
 #matplotlib.use('agg')
@@ -2582,7 +2584,6 @@ class Spectrum:
                 self.all_found_absorbs = peakdet(wavelengths, invert_spectrum(wavelengths,values),errors,
                                                  values_units=values_units,absorber=True)
                 self.clean_absorbers()
-
 
 
         solutions = []

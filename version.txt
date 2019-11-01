@@ -1,8 +1,13 @@
 changes to elixer by version
 
-1.7.5a7 [2019-10-31]
+1.7.5a7 [2019-11-01]
 * update --mini option (black background, neighborhood image, re-organize)
 * changed HSC magnitude order: lsq,3.0,model
+* changed max PLAE/POII from 999 to 1000 to avoid confusion with common non-value
+* implementing pseduo-color from HETDEX calfib spectrum (red_vs_blue)
+  +  pseudo_color, pseudo_color_min, pseudo_color_max, pseudo_color_flag added to ELiXer HDF5 Detections table
+  + global_config option (DISPLAY_PSEUDO_COLOR) to display pseduo_color in upper left text block
+
 
 1.7.5a6 [2019-10-28]
 * fixed failure of imaging cutout if magnitude does not calcuate properly or mag info is not available

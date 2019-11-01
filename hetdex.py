@@ -7,6 +7,7 @@ try:
     from elixer import ifu as elixer_ifu  # only using to locate panacea files (elixer only uses individual fibers, not entire IFUs)
     from elixer import spectrum as elixer_spectrum
     from elixer import observation as elixer_observation
+    from elixer import spectrum_utilities as SU
 except:
     import global_config as G
     import line_prob
@@ -15,6 +16,7 @@ except:
     import ifu as elixer_ifu  # only using to locate panacea files (elixer only uses individual fibers, not entire IFUs)
     import spectrum as elixer_spectrum
     import observation as elixer_observation
+    import spectrum_utilities as SU
 
 
 
@@ -547,6 +549,7 @@ class DetObj:
         self.sumspec_flux_zoom = []
         self.sumspec_fluxerr_zoom = []
         self.sumspec_2d_zoom = []
+        self.rvb = None #spectrum_utilities pseudo color dictionary (see red_vs_blue(...))
         self.spec_obj = elixer_spectrum.Spectrum() #use for classification, etc
 
         self.p_lae = None #from Andrew Leung
@@ -2200,6 +2203,10 @@ class DetObj:
                     log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra")
 
             self.spec_obj.classify() #solutions can be returned, also stored in spec_obj.solutions
+
+            self.rvb = SU.red_vs_blue(self.w,self.sumspec_wavelength,self.sumspec_flux/2.0*G.HETDEX_FLUX_BASE_CGS,
+                                 self.sumspec_fluxerr/2.0*G.HETDEX_FLUX_BASE_CGS,self.fwhm)
+
 
         else:
             self.syn_obs = elixer_observation.SyntheticObservation()
@@ -3907,6 +3914,15 @@ class HETDEX:
 
                 if (not e.using_sdss_gmag_ew) and (e.sdss_gmag_p_lae_oii_ratio is not None):
                     title += " (gmag %0.3g)" % (e.sdss_gmag_p_lae_oii_ratio)
+
+                if G.DISPLAY_PSEUDO_COLOR:
+                    if e.rvb is not None:
+                        #debug version
+                        # title += "\nColor = %0.03g (%0.3g,%0.3g) [%0.3g,%0.3g] {%d}" \
+                        #          %(e.rvb['color'],e.rvb['color_err'][0],e.rvb['color_err'][1],
+                        #            e.rvb['color_range'][0],e.rvb['color_range'][1],e.rvb['flag'])
+                        title += "\nColor = %0.03g [%0.3g,%0.3g]" \
+                             % (e.rvb['color'], e.rvb['color_range'][0], e.rvb['color_range'][1])
 
             #if (e.dqs is not None) and (e.dqs_raw is not None):
             #    title += "  Score = %0.1f (%0.2f)" % (e.dqs, e.dqs_raw)

@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.0.1' #catalog version ... can merge if version numbers are the same or in special circumstances
+__version__ = '0.0.2' #catalog version ... can merge if version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -19,6 +19,7 @@ except:
 import numpy as np
 import tables
 import os
+import time
 
 
 UNSET_FLOAT = -999.999
@@ -93,6 +94,12 @@ class Detections(tables.IsDescription):
     multiline_raw_score = tables.Float32Col(dflt=UNSET_FLOAT)
     multiline_frac_score = tables.Float32Col(dflt=UNSET_FLOAT)
     multiline_name = tables.StringCol(itemsize=16)
+
+    pseudo_color = tables.Float32Col(dflt=UNSET_FLOAT)
+    pseudo_color_min = tables.Float32Col(dflt=UNSET_FLOAT)
+    pseudo_color_max = tables.Float32Col(dflt=UNSET_FLOAT)
+    pseudo_color_flag = tables.Int64Col(dflt=0)
+
 
 class SpectraLines(tables.IsDescription):
     detectid = tables.Int64Col(pos=0)  # unique HETDEX detection ID 1e9+
@@ -184,9 +191,9 @@ def version_match(fileh):
 
         existing_version = rows[0]['version'].decode()
         if existing_version != __version__:
-            return False, __version__
+            return False, existing_version
         else:
-            return True, __version__
+            return True, existing_version
     except:
         log.error("Exception! in elixer_hdf5::version_match().",exc_info=True)
         return False, None
@@ -268,7 +275,11 @@ def get_hdf5_filehandle(fname,append=False):
                     log.error('ELiXer HDF5 Catalog (%s) already exists and does not match the current version. (%s != %s)'
                               %(fname,existing_version,__version__))
                     fileh.close()
-                    return None
+
+                    #make under a different name?
+                    make_new = True
+                    fname += "_" + str(int(time.time())) + ".h5"
+                    log.error('Making alternate ELiXer HDF5 Catalog (%s).' %(fname))
                 else:
                     log.debug("ELiXer HDF5 exists (%s). Versions match (%s), will append." %(fname,__version__))
                     return fileh
@@ -428,6 +439,12 @@ def append_entry(fileh,det):
             row['multiline_frac_score'] = det.spec_obj.solutions[0].frac_score
             row['multiline_prob'] = det.spec_obj.solutions[0].prob_real
             #?? other lines ... other solutions ... move into a separate table ... SpectraLines table
+
+        if (det.rvb is not None):
+            row['pseudo_color'] = det.rvb['color']
+            row['pseudo_color_min'] = det.rvb['color_range'][0]
+            row['pseudo_color_max'] = det.rvb['color_range'][1]
+            row['pseudo_color_flag'] = det.rvb['flag']
 
         row.append()
         dtb.flush()

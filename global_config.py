@@ -87,7 +87,7 @@ if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
 else:
     if hostname == 'z50':
         LAUNCH_PDF_VIEWER = 'qpdfview'
-    if False:
+    if True:
         HDF5_DETECT_FN = "/work/03946/hetdex/hdr1/detect/detect_hdr1.h5"
         HDF5_CONTINUUM_FN = "/work/03946/hetdex/hdr1/detect/continuum_sources.h5"
         HDF5_SURVEY_FN = "/work/03946/hetdex/hdr1/survey/survey_hdr1.h5"
@@ -474,3 +474,5 @@ MAX_NEIGHBORS_IN_MAP = 25
 BUILD_HDF5_CATALOG = True
 
 ALLOW_SYSTEM_CALL_PDF_CONVERSION = True #if True, if the Python PDF to PNG fails, attempt a system call to pdftoppm
+
+DISPLAY_PSEUDO_COLOR = True #display in upper left the pseudo-color from the HETDEX spectrum

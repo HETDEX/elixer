@@ -11,6 +11,7 @@ except:
     import global_config as G
 
 import numpy as np
+import astropy.constants
 import astropy.units as U
 import astropy.cosmology as Cosmo
 
@@ -19,6 +20,26 @@ SU_H0 = 70.
 SU_Omega_m0 = 0.3
 SU_T_CMB = 2.73
 
+log = G.Global_Logger('spectrum_utils')
+log.setlevel(G.logging.DEBUG)
+
+def ujy2cgs(ujy,lam): #micro-jansky to erg/s/cm2/AA
+    conv = None
+    try:
+        c = (astropy.constants.c * (1e10 * U.AA / U.m)).value
+        conv =  ujy * 1e-29 * c / (lam*lam)
+    except:
+        log.info("Exception! in ujy2cgs.",exc_info=True)
+    return conv
+
+def cgs2ujy(cgs,lam): #erg/s/cm2/AA to micro-jansky
+    conv = None
+    try:
+        c = (astropy.constants.c * (1e10 * U.AA / U.m)).value
+        conv = cgs * 1e29 / c * lam*lam
+    except:
+        log.info("Exception! in cgs2ujy.", exc_info=True)
+    return conv
 
 def getnearpos(array,value):
     """
@@ -250,33 +271,191 @@ def add_spectra(flux1,flux2,wave1,wave2,grid=None,eflux1=None,eflux2=None,ewave1
     return flux,wave,eflux,ewave
 
 
-def red_vs_blue(cwave,fwhm,flux,waves,flux_err):
+def red_vs_blue(cwave,wave,flux,flux_err,fwhm=None):
     """
-    Stack the spectra on the red side and blue side of the emission line (cwave) and check for consistency vs zero continuum
+    Stack the spectra on the red side and blue side of the emission line (cwave) and check for consistency vs zero continuum.
+
+    LAE should be very red color by this (little contiuum to blue , more to the red side of LyA)
+    but OII should be red also (less to blue, a bit more to red, approaching the Balmer break),
+    so this may be a matter of degree OR detection to red but not to blue?)
+
     :param cwave:
-    :param flux:
-    :param waves:
+    :param flux: in CGS as flux density (erg/s/cm2/AA)
+    :param waves: in AA
     :param flux_err:
-    :return:
+    :return: dictionary
     """
+    min_bins = 20 #have to have at least min_bins on each size to compute
+    min_detect_sigma = 1.0 #what multiple above err must the detection be to be used?
 
-    #assume waves of same step size (2AA for HETDEX)
-    if (cwave is None) or (fwhm is None) or (flux is None) or (waves is None) or (flux_err is None) \
-        or (len(flux) != len(waves)) or (len(flux) != len(flux_err)) or (len(flux) < 100):
+    try:
+        #assume waves of same step size (2AA for HETDEX)
+        if (cwave is None) or (flux is None) or (wave is None) or (flux_err is None) \
+            or (len(flux) != len(wave)) or (len(flux) != len(flux_err)) or (len(flux) < 100):
+            log.debug("RvB Invalid parameters")
+            return None
+
+        step = wave[1]-wave[0]
+        length = len(wave)
+
+        #split the spectrum into a red side (cwave + 20 AA to the end) and a blue side (end to cwave-20AA)
+        idx,lt,rt = getnearpos(wave,cwave)
+
+        if fwhm is not None and fwhm > 0.0:
+            blue_idx,_,_ = getnearpos(wave,cwave-2*fwhm)
+            red_idx,_,_ = getnearpos(wave,cwave+2*fwhm)
+        else: #if no fwhm go +/- 20AA from central wave
+            blue_idx,_,_ = getnearpos(wave,cwave-20.0)
+            red_idx,_,_ = getnearpos(wave,cwave+20.0)
+
+        if (blue_idx <= 0) or (red_idx >= length):
+            log.debug("RvB color, unusable index (b: %d), (r: %d)" %(blue_idx,red_idx))
+            return None
+
+        if ((blue_idx+1) < min_bins) or ((len(wave)-red_idx) < min_bins):
+            log.debug("RvB color, insufficient bins. Indicies: (b: %d), (r: %d)" % (blue_idx, red_idx))
+            return None
+
+        #sum up flux
+        #sum up flux_err in quadrature
+
+        blue_bins = blue_idx + 1
+        blue_width = blue_bins * step
+        blue_mid_wave = wave[int(blue_idx/2)]
+        blue_side = np.array(flux[0:blue_idx+1])
+        blue_flux = np.sum(blue_side)
+        blue_err = np.sqrt(np.sum(np.array(flux_err[0:blue_idx+1])**2))
+        blue_flux_density = blue_flux / blue_bins
+        blue_flux_density_err = blue_err / blue_bins
+        #now to jansky
+        blue_flux_density_ujy = cgs2ujy(blue_flux_density,blue_mid_wave)
+        blue_flux_density_err_ujy = cgs2ujy(blue_flux_density_err,blue_mid_wave)
+
+
+        red_bins = (len(wave) - red_idx)
+        red_width = red_bins * step
+        red_mid_wave = wave[int((len(wave)+red_idx) / 2)]
+        red_side = np.array(flux[red_idx:])
+        red_flux = np.sum(red_side)
+        red_err = np.sqrt(np.sum(np.array(flux_err[0:red_idx]) ** 2))
+        red_flux_density = red_flux / red_bins
+        red_flux_density_err = red_err / red_bins
+        # now to jansky
+        red_flux_density_ujy = cgs2ujy(red_flux_density, red_mid_wave)
+        red_flux_density_err_ujy = cgs2ujy(red_flux_density_err, red_mid_wave)
+
+        rvb = {}
+        rvb['blue_flux_density'] = blue_flux_density
+        rvb['blue_flux_density_err'] = blue_flux_density_err
+        rvb['blue_width'] = blue_width
+        rvb['blue_flux_density_ujy'] = blue_flux_density_ujy
+        rvb['blue_flux_density_err_ujy'] = blue_flux_density_err_ujy
+
+
+        rvb['red_flux_density'] = red_flux_density
+        rvb['red_flux_density_err'] = red_flux_density_err
+        rvb['red_width'] = red_width
+        rvb['red_flux_density_ujy'] = red_flux_density_ujy
+        rvb['red_flux_density_err_ujy'] = red_flux_density_err_ujy
+
+        # if False: #as CGS ... remember though, these are per AA
+        # ...so would need to then have (x_flux_denisty * x_wave / (y_flux_density * y_wave)) * (x_wave/y_wave)
+        # or the ratio * (x_wave/y_wave)**2   (remember per lambda is inverse to energy where frequency is not)
+        #     if (red_flux_density != 0) and (blue_flux_density != 0):
+        #         ratio = blue_flux_density / red_flux_density
+        #         ratio_err = abs(ratio) * np.sqrt((blue_flux_density_err/blue_flux_density)**2 +
+        #                                     (red_flux_density_err/red_flux_density)**2)
+        #     else:
+        #         ratio = 1.0
+        #         ratio_err = 0.0
+        # else: #as uJy
+
+
+        #can not have nan's (all log arguments here are stictly positive?)
+        rvb['blue'] = -2.5*np.log10(blue_flux_density_ujy)
+        rvb['blue_err'] = -2.5*np.log10(blue_flux_density_err_ujy)
+        rvb['red'] = -2.5*np.log10(red_flux_density_ujy)
+        rvb['red_err'] = -2.5*np.log10(red_flux_density_err_ujy)
+
+        #check for detection ... if signal is below the error (min_detect_sigma), replace
+        #the signal with the 1-sigma error (max value) and treat as a limit on the color
+
+        log.debug("Spectrum (pseudo) blue = (%f,+/-%f) uJy" % (blue_flux_density_ujy,blue_flux_density_err_ujy) )
+        log.debug("Spectrum (pseudo)  red = (%f,+/-%f) uJy" % (red_flux_density_ujy, red_flux_density_err_ujy))
+
+        #blue side detection
+        flag = 0 #bit-wise:   01 = blue limit, 10 = red limit, 11 = both (meaningless then?)
+        if blue_flux_density_ujy / blue_flux_density_err_ujy < min_detect_sigma:
+            blue_flux_density_ujy = blue_flux_density_err_ujy #1-sigma limit
+            flag = 1 #blue-side sigma limit
+
+        #red side detection
+        if red_flux_density_ujy / red_flux_density_err_ujy < min_detect_sigma:
+            red_flux_density_ujy = red_flux_density_err_ujy #1-sigma limit
+            flag += 2 #red-side sigma limit
+
+
+        rvb['flag'] = flag
+        if flag == 0:
+            rvb['flag_str'] = "good"
+        elif flag == 1:
+            rvb['flag_str'] = "lower limit"
+        elif flag == 2:
+            rvb['flag_str'] = "upper limit"
+        else: #flag == 3
+            rvb['flag_str'] = "non-detect"
+
+
+        if (red_flux_density_ujy != 0) and (blue_flux_density_ujy != 0):
+            ratio = blue_flux_density_ujy / red_flux_density_ujy
+            ratio_err = abs(ratio) * np.sqrt((blue_flux_density_err_ujy/blue_flux_density_ujy)**2 +
+                                        (red_flux_density_err_ujy/red_flux_density_ujy)**2)
+        else:
+            ratio = 1.0
+            ratio_err = 0.0
+
+
+        rvb['ratio'] = ratio #blue over red so the color is correct
+        rvb['ratio_err'] = ratio_err
+
+
+
+        #todo: non detections ... enforce at least 30 datapoints to either side
+        #todo: if one side is detected, use the error of the other as a limit
+        #i.e. blue = 0 +/- 0.1  red = 10 +/-1  use red/blue as 10/0.1 as 1 sigma limit
+        #todo: color -2.5 log (r/b)
+
+        rvb['color'] = -2.5 *np.log10(ratio)
+        #error is +/- ... so add 1st index (gets more red, i.e the reported color is a lower limit)
+        #                    add 2nd index (gets more blue, i.e. the reported color is an upper limit)
+
+        if flag: #any problems
+            if flag == 1:
+                max_red  = 999
+                max_blue = rvb['color']
+            elif flag == 2:
+                max_red = rvb['color']
+                max_blue = -999
+            else:
+                max_red = 999
+                max_blue = -999
+        else: #all good
+            max_red  = np.nan_to_num(-2.5 * np.log10(ratio - ratio_err))
+            max_blue = np.nan_to_num(-2.5 * np.log10(ratio + ratio_err))
+
+
+        rvb['color_err'] = (max_red-rvb['color'],max_blue-rvb['color']) #or (redder, bluer) or (larger number, smaller number)
+        rvb['color_range'] = (max_blue, max_red)
+
+        log.debug("Spectrum (pseudo) color = %0.03g (%0.3g,%0.3g) [%0.3g,%0.3g] flag: %d" \
+                             %(rvb['color'],rvb['color_err'][0],rvb['color_err'][1],
+                               rvb['color_range'][0],rvb['color_range'][1],flag))
+
+        # rvb['color_err_b'] = -2.5 *np.log10(ratio + ratio_err) #more on red or less on blue ... color gets more RED
+        # rvb['color_err_r'] = -2.5 * np.log10(ratio - ratio_err)#less on red or more on blue ... color gets more BLUE
+
+    except:
+        log.info("Exception! in spectrum_utilities red_vs_blue.",exc_info=True)
         return None
 
-    step = waves[1]-waves[0]
-    length = len(waves)
-
-    #todo: split the spectrum into a red side (cwave + 20 AA to the end) and a blue side (end to cwave-20AA)
-    idx,lt,rt = getnearpos(waves,cwave)
-
-    blue_idx,_,_ = getnearpos(wave,cwave-2*fwhm)
-    red_idx,_,_ = getnearpos(wave,cwave+2*fwhm)
-
-    if (blue_idx <= 0) or (red_idx >= length):
-        return None
-
-    #todo: sum up flux
-    #todo: sun up flux_err in quadrature
-
+    return rvb
