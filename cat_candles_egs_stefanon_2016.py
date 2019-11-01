@@ -843,7 +843,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 detobj.aperture_details_list.append(details)
 
         if (not G.ZOO) and (best_plae_poii is not None):
-            text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)"
+            text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)"
                           % (best_plae_poii, best_plae_poii_filter))
 
         if self.master_cutout is None:
@@ -1158,7 +1158,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 #    text = text + "%g(%g) $\\mu$Jy\n" % (filter_fl, filter_fl_err)
 
                 if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
-                    text += "%0.3g\n" % (bid_target.p_lae_oii_ratio)
+                    text += "%0.4g\n" % (bid_target.p_lae_oii_ratio)
                 else:
                     text += "\n"
             else:

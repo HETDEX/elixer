@@ -3910,10 +3910,10 @@ class HETDEX:
 
         if not G.ZOO:
             if e.p_lae_oii_ratio is not None:
-                title += "\nP(LAE)/P(OII) = %0.3g" % (e.p_lae_oii_ratio)
+                title += "\nP(LAE)/P(OII) = %0.4g" % (e.p_lae_oii_ratio)
 
                 if (not e.using_sdss_gmag_ew) and (e.sdss_gmag_p_lae_oii_ratio is not None):
-                    title += " (gmag %0.3g)" % (e.sdss_gmag_p_lae_oii_ratio)
+                    title += " (gmag %0.4g)" % (e.sdss_gmag_p_lae_oii_ratio)
 
                 if G.DISPLAY_PSEUDO_COLOR:
                     if e.rvb is not None:

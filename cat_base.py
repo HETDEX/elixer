@@ -852,7 +852,7 @@ class Catalog:
                         if ew is not None:
                             label += "\n EWr: %0.0f" %(ew)
                             if plae is not None:
-                                label += ", PLAE: %0.3g" %(plae)
+                                label += ", PLAE: %0.4g" %(plae)
 
                         plt.xlabel(label)
                         plt.gca().xaxis.labelpad = 0

@@ -735,7 +735,7 @@ class STACK_COSMOS(cat_base.Catalog):
                 log.debug('Could not build exact location photometry info.',exc_info=True)
 
             if (not G.ZOO) and (bid_target is not None) and (best_plae_poii is not None):
-                text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)" % (best_plae_poii,best_plae_poii_filter))
+                text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)" % (best_plae_poii,best_plae_poii_filter))
 
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
@@ -1099,7 +1099,7 @@ class STACK_COSMOS(cat_base.Catalog):
 
                     if (not G.ZOO):
                         if (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
-                            text += "%0.3g\n" % (bid_target.p_lae_oii_ratio)
+                            text += "%0.4g\n" % (bid_target.p_lae_oii_ratio)
                         else:
                             text += "\n"
 

@@ -347,7 +347,7 @@ def source_prob(config, ra, dec, zs, fluxes, flux_errs, ews_obs, ew_err, c_obs, 
     if prob_oii_give_data > 0.0:
         posterior_odds =  prob_lae_given_data / prob_oii_give_data
     elif prob_lae_given_data > 0.0:
-        posterior_odds = 999.0 #max value
+        posterior_odds = 1000.0 #max value
     else:
         posterior_odds = 0.0 #undetermined
 
