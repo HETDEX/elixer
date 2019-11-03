@@ -346,20 +346,20 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         'mag.cmodel',
         'mag.cmodel_err',
 
-        'children',
-        'outside',
-        'interpix_center',
-        'saturatedpix_center',
-        'cosmic_center',
+        'children', #86
+        'outside', #87
+        'interpix_center', #88
+        'saturatedpix_center', #89
+        'cosmic_center', #90
 
-        'bad_pix',
-        'near_bright_obj',
-        'footprint_bright_obj',
-        'general_flag',
+        'bad_pix', #91
+        'near_bright_obj', #92
+        'footprint_bright_obj', #93
+        'general_flag', #94
 
-        'inner_coadd_tract',
-        'inner_coadd_patch',
-        'num_images',
+        'inner_coadd_tract', #95
+        'inner_coadd_patch', #96
+        'num_images', #97
         'orig_seeing' #Gaussian Sigma
         ]
 
@@ -642,7 +642,14 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         try:
             self.dataframe_of_bid_targets = \
                 self.df[(self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max) &
-                        (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)].copy()
+                        (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max) &
+                        (self.df['children'] == 0) & (self.df['outside'] == False) &
+                        (self.df['interpix_center'] == False) & (self.df['saturatedpix_center'] == False) &
+                        (self.df['cosmic_center'] == False) & (self.df['bad_pix'] == False) &
+                        (self.df['near_bright_obj'] == False) & (self.df['footprint_bright_obj'] == False) &
+                        (self.df['general_flag'] == False) &
+                        (self.df['inner_coadd_tract'] == True) & (self.df['inner_coadd_patch'] == True) &
+                        (self.df['num_images'] > 2) ].copy()
             #may contain duplicates (across tiles)
             #remove duplicates (assuming same RA,DEC between tiles has same data)
             #so, different tiles that have the same ra,dec and filter get dropped (keep only 1)

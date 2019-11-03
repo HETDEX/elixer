@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.7.5a8 [2019-11-03]
+* Updated HSC bid target selection to include multiple condition enforcement per HSC README to
+  eliminate duplicates and unreliable detections
+
 1.7.5a7 [2019-11-01]
 * update --mini option (black background, neighborhood image, re-organize)
 * changed HSC magnitude order: lsq,3.0,model
