@@ -344,7 +344,7 @@ def parse_commandline(auto_force=False):
     if auto_force:
         args.force = True #forced to be true in dispatch mode
 
-    if args.merge:
+    if args.merge or args.merge_unique:
         print("Merging catalogs and fiber files (ignoring all other parameters) ... ")
         return args
 

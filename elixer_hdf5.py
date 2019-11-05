@@ -262,10 +262,13 @@ def get_hdf5_filehandle(fname,append=False,allow_overwrite=True,must_exist=False
     make_new = False
     try:
         if os.path.exists(fname):
-            if append:
+            if append or must_exist:
                 #log.debug("ELiXer HDF5 exists (%s). Will append if versions allow." %(fname))
                 fileh = tables.open_file(fname, 'a', 'ELiXer Detection Catalog')
                 #check the version
+
+                if must_exist and not append:
+                    return fileh
 
                 version_okay, existing_version = version_match(fileh)
                 if not version_okay:
@@ -681,9 +684,12 @@ def merge_unique(newfile,file1,file2):
         dtb1 = file1_handle.root.Detections
         dtb2 = file2_handle.root.Detections
 
-
         detectids = dtb1.read()['detectid']
         detectids = np.concatenate((detectids,dtb2.read()['detectid']))
+
+        detectids = sorted(detectids)
+
+        log.debug("Merging %d detections ..." %len(detectids))
 
         for d in detectids:
             try:
@@ -692,6 +698,10 @@ def merge_unique(newfile,file1,file2):
                 date1 = dtb1.read_where('detectid==d')['elixer_datetime']
                 date2 = dtb2.read_where('detectid==d')['elixer_datetime']
                 q_date = None
+
+                #temporary
+                # if (date1.size > 0) and (date2.size > 0):
+                #     print("Duplicates",d)
 
                 #choose nearest date
                 if date1.size == 0:
@@ -733,7 +743,7 @@ def merge_unique(newfile,file1,file2):
                 atb_src = source_h.root.Aperture
                 ctb_src = source_h.root.CatalogMatch
 
-                dtb_new.append(dtb_src.read_where("(detectid==d) & (elixer_datetime==q_date"))
+                dtb_new.append(dtb_src.read_where("(detectid==d) & (elixer_datetime==q_date)"))
                 #unfortunately, have to assume following data is unique
                 stb_new.append(stb_src.read_where("(detectid==d)"))
                 ltb_new.append(ltb_src.read_where("(detectid==d)"))
