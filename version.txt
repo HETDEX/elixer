@@ -1,5 +1,10 @@
 changes to elixer by version
 
+
+1.7.5a9 [2019-11-05]
+* Added --merge_unique switch to merge exactly 2 ELiXer HDF5 catalogs, keeping only the most recent detectid
+  if there are duplicates
+
 1.7.5a8 [2019-11-03]
 * Updated HSC bid target selection to include multiple condition enforcement per HSC README to
   eliminate duplicates and unreliable detections

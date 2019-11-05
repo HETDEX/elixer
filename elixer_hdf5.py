@@ -248,7 +248,7 @@ def flush_all(fileh):
 
 
 
-def get_hdf5_filehandle(fname,append=False):
+def get_hdf5_filehandle(fname,append=False,allow_overwrite=True,must_exist=False):
     """
     Return a file handle to work on. Create if does not exist, return existing handle if already present and versions
     are compatible (and append is requested).
@@ -284,10 +284,18 @@ def get_hdf5_filehandle(fname,append=False):
                     log.debug("ELiXer HDF5 exists (%s). Versions match (%s), will append." %(fname,__version__))
                     return fileh
             else:
-                make_new = True
-                log.info("ELiXer HDF5 exists (%s). Append not requested. Will overwrite." % (fname))
+                if allow_overwrite:
+                    make_new = True
+                    log.info("ELiXer HDF5 exists (%s). Append not requested. Will overwrite." % (fname))
+                else:
+                    make_new = False
+                    log.info("ELiXer HDF5 exists (%s). Append not requested. New not allowd. Will fail." % (fname))
         else:
-            make_new = True
+            if must_exist:
+                make_new = False
+                log.info("ELiXer HDF5 does not exist (%s). Must-exist enforced. Will fail." % (fname))
+            else:
+                make_new = True
 
         if make_new:
             log.debug("Creating new ELiXer HDF5 catalog (%s)" % (fname))
@@ -630,6 +638,124 @@ def extend_elixer_hdf5(fname,hd_list=[]):
     fileh.close()
     print("File written: %s" %fname)
     log.info("File written: %s" %fname)
+
+
+
+def merge_unique(newfile,file1,file2):
+    """
+    Merge, detectID by detectID file1 and file2 into newfile, keeping only the most recent detectID if
+    there are duplicates.
+
+    :param newfile: file name of new file to create as merge of file1 and file2
+    :param file1:  either of the two files to merge
+    :param file2:  other file to merge
+    :return:
+    """
+
+    try:
+        newfile_handle = get_hdf5_filehandle(newfile,append=False,allow_overwrite=False,must_exist=False)
+
+        if newfile_handle is None:
+            log.info("Unable to create destination file for merge_unique.")
+            return False
+
+        file1_handle = get_hdf5_filehandle(file1,append=False,allow_overwrite=False,must_exist=True)
+        file2_handle = get_hdf5_filehandle(file2, append=False, allow_overwrite=False, must_exist=True)
+
+        if (file1_handle is None) or (file2_handle is None):
+            log.info("Unable to open source file(s) for merge_unique.")
+            return False
+    except:
+        log.error("Exception! in elixer_hdf5::merge_unique",exc_info=True)
+
+    #todo: enforce version matching?? since creating new file, these should be backward compatible with defaults for
+    #todo: missing columns
+
+    try:
+        dtb_new = newfile_handle.root.Detections
+        stb_new = newfile_handle.root.CalibratedSpectra
+        ltb_new = newfile_handle.root.SpectraLines
+        atb_new = newfile_handle.root.Aperture
+        ctb_new = newfile_handle.root.CatalogMatch
+
+        dtb1 = file1_handle.root.Detections
+        dtb2 = file2_handle.root.Detections
+
+
+        detectids = dtb1.read()['detectid']
+        detectids = np.concatenate((detectids,dtb2.read()['detectid']))
+
+        for d in detectids:
+            try:
+                source_h = None
+
+                date1 = dtb1.read_where('detectid==d')['elixer_datetime']
+                date2 = dtb2.read_where('detectid==d')['elixer_datetime']
+                q_date = None
+
+                #choose nearest date
+                if date1.size == 0:
+                    if date2.size == 0: #this is impossible for both
+                        log.error("Impossible ... both dates returned no rows: detectid (%d)" %d)
+                        continue
+                    elif date2.size > 1: #file2 to be used, file1 has not entry
+                        #pick newest date
+                        source_h = file2_handle
+                        q_date = max(date2)
+                    else:
+                        source_h = file2_handle
+                        q_date = date2[0]
+                elif date2.size == 0:  #file1 to be used, file2 has no entry
+                    if date1.size > 1:
+                        source_h = file1_handle
+                        q_date = max(date1)
+                    else:
+                        source_h = file1_handle
+                        q_date = date1[0]
+                else: #both have entries
+                    best_date1 = max(date1)
+                    best_date2 = max(date2)
+
+                    if best_date1 > best_date2:
+                        source_h = file1_handle
+                        q_date = best_date1
+                    else:
+                        source_h = file2_handle
+                        q_date = best_date2
+
+
+                if source_h is None:
+                    continue
+
+                dtb_src = source_h.root.Detections
+                stb_src = source_h.root.CalibratedSpectra
+                ltb_src = source_h.root.SpectraLines
+                atb_src = source_h.root.Aperture
+                ctb_src = source_h.root.CatalogMatch
+
+                dtb_new.append(dtb_src.read_where("(detectid==d) & (elixer_datetime==q_date"))
+                #unfortunately, have to assume following data is unique
+                stb_new.append(stb_src.read_where("(detectid==d)"))
+                ltb_new.append(ltb_src.read_where("(detectid==d)"))
+                atb_new.append(atb_src.read_where("(detectid==d)"))
+                ctb_new.append(ctb_src.read_where("(detectid==d)"))
+
+                #flush_all(newfile_handle) #don't think we need to flush every time
+
+            except:
+                log.error("Exception! merging detectid (%d)" %d,exc_info=True)
+        # end for loop
+
+        flush_all(newfile_handle)
+        newfile_handle.close()
+        file2_handle.close()
+        file1_handle.close()
+
+    except:
+        log.error("Exception! conducting merge in elixer_hdf5::merge_unique", exc_info=True)
+        return False
+
+    return True
 
 
 def merge_elixer_hdf5_files(fname,flist=[]):

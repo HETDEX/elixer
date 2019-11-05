@@ -263,6 +263,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--merge', help='Merge all cat and fib txt files',
                         required=False, action='store_true', default=False)
 
+    parser.add_argument('--merge_unique', help='Merge two ELiXer HDF5 files into a new file keeping the more recent '
+                                               'detection. Format: new-file,file1,file2', required=False)
+
     parser.add_argument('--annulus', help="Inner and outer radii in arcsec (e.g. (10.0,35.2) )", required=False)
     parser.add_argument('--wavelength', help="Target wavelength (observed) in angstroms for annulus", required=False,
                         type=float)
@@ -1724,6 +1727,26 @@ def get_fcsdir_subdirs_to_process(args):
     return subdirs
 
 
+def merge_unique(args=None):
+
+    try:
+        #tokenize
+        toks = args.merge_unique.split(',')
+        if len(toks) != 3:
+            print("Invalid parameters for merge_unique (%s)"%args.merge_unique)
+            log.error("Invalid parameters for merge_unique (%s)"%args.merge_unique)
+            return
+
+        result = elixer_hdf5.merge_unique(toks[0],toks[1],toks[2])
+
+        if result:
+            print("Success. File = %s" %toks[0])
+        else:
+            print("FAIL.")
+    except:
+        log.error("Exception! merging HDF5 files in merge_unique",exc_info=True)
+
+
 def merge_hdf5(args=None):
     """
     Similar to merge ... replaces merge ... joins ELiXer HDF5 catlogs.
@@ -2500,6 +2523,10 @@ def main():
     #G.gc.enable()
     #G.gc.set_debug(G.gc.DEBUG_LEAK)
     args = parse_commandline()
+
+    if args.merge_unique:
+        merge_unique(args)
+        exit(0)
 
     if args.merge:
         merge(args)
