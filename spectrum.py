@@ -570,10 +570,15 @@ class EmissionLineInfo:
                 # that way, some hot pixel that spikes at 100x noise does not automatically get "real"
                 # but will still be throttled down due to failures with other criteria
 
+            if GOOD_MAX_DX0_MULT[0] < self.fit_dx0 < GOOD_MAX_DX0_MULT[1]:
+                adjusted_dx0_error = 0.0
+            else:
+                adjusted_dx0_error = self.fit_dx0
+
             self.line_score = self.snr * above_noise * self.line_flux * 1e17 * \
                               min(self.fit_sigma/self.pix_size,1.0) * \
                               min((self.pix_size * self.sn_pix)/21.0,1) / \
-                              (10.0 * (1. + abs(self.fit_dx0 / self.pix_size)) )
+                              (10.0 * (1. + abs(adjusted_dx0_error / self.pix_size)) )
 
             if self.absorber:
                 if G.MAX_SCORE_ABSORPTION_LINES: #if not scoring absorption, should never actually get here ... this is a safety
@@ -2813,6 +2818,16 @@ class Spectrum:
 
         #sort by score
         solutions.sort(key=lambda x: x.score, reverse=True)
+
+        #check for display vs non-display (aka primary emission line solution)
+        if len(solutions) > 1:
+            if (solutions[0].frac_score / solutions[1].frac_score) < 2.0:
+                if (solutions[0].emission_line.display is False) and (solutions[1].emission_line.display is True):
+                    #flip them
+                    log.debug("Flipping top solutions to favor display line over non-display line")
+                    temp_sol = solutions[0]
+                    solutions[0] = solutions[1]
+                    solutions[1] = temp_sol
 
         for s in solutions:
             ll =""

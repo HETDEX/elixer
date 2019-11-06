@@ -1,5 +1,7 @@
 changes to elixer by version
 
+1.7.5a10 [2019-11-06]
+* Tweak to favor display flag emission line solutions over non-display (if top solutions are close in score)
 
 1.7.5a9 [2019-11-05]
 * Added --merge_unique switch to merge exactly 2 ELiXer HDF5 catalogs, keeping only the most recent detectid

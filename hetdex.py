@@ -834,7 +834,11 @@ class DetObj:
                       (self.spec_obj.solutions[0].frac_score / self.spec_obj.solutions[1].frac_score > 2.0)):
                     self.multiline_z_minimum_flag = True
                     return True, self.spec_obj.solutions[0].prob_real
-                #else two or more scores are too close, so cannot identify a unique solution, which means 'no solution'
+                #not a clear winner, but the top is a display (or primary) line and the second is not, so use the first
+                elif (self.spec_obj.solutions[0].emission_line.display is True) and (self.spec_obj.solutions[0].emission_line.display is False):
+                    log.debug("multiline_solution_score, using display line over non-display line")
+                    self.multiline_z_minimum_flag = True
+                    return True, self.spec_obj.solutions[0].prob_real
 
             if G.MULTILINE_ALWAYS_SHOW_BEST_GUESS:
                 self.multiline_z_minimum_flag = False
