@@ -74,10 +74,12 @@ if HDR1: #set these paths as appropriate for HETDEX DATA RELEASE-1
         HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
         HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
         HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
+        HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
     else:
         HSC_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced"
         HSC_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts"
         HSC_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
+        HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
 
     #KPNO_BASE_PATH = "/work/03261/polonius/hetdex/catalogs/KPNO_Mosaic"
     KPNO_BASE_PATH = "/work/03233/jf5007/maverick/KMImaging/"
@@ -138,10 +140,12 @@ else:
             HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
             HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
             HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
+            HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
         else:
             HSC_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced"
             HSC_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts"
             HSC_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
+            HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
 
         DECALS_BASE_PATH = "/media/dustin/dd/hetdex/data/decals"
         DECALS_CAT_PATH = "/media/dustin/dd/hetdex/data/decals"
@@ -194,10 +198,12 @@ else:
             HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
             HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
             HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
+            HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
         else:
             HSC_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced"
             HSC_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts"
             HSC_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
+            HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
 
         # KPNO_BASE_PATH = "/work/03261/polonius/hetdex/catalogs/KPNO_Mosaic"
         KPNO_BASE_PATH = "/work/03233/jf5007/maverick/KMImaging/"
@@ -475,4 +481,4 @@ BUILD_HDF5_CATALOG = True
 
 ALLOW_SYSTEM_CALL_PDF_CONVERSION = True #if True, if the Python PDF to PNG fails, attempt a system call to pdftoppm
 
-DISPLAY_PSEUDO_COLOR = False  #display in upper left the pseudo-color from the HETDEX spectrum
+DISPLAY_PSEUDO_COLOR = True  #display in upper left the pseudo-color from the HETDEX spectrum

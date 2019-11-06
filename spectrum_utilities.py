@@ -14,6 +14,8 @@ import numpy as np
 import astropy.constants
 import astropy.units as U
 import astropy.cosmology as Cosmo
+import astropy.stats.biweight as biweight
+import weighted_biweight_git as weighted_biweight
 
 #SU = Simple Universe (concordance)
 SU_H0 = 70.
@@ -325,8 +327,31 @@ def red_vs_blue(cwave,wave,flux,flux_err,fwhm=None):
         blue_side = np.array(flux[0:blue_idx+1])
         blue_flux = np.sum(blue_side)
         blue_err = np.sqrt(np.sum(np.array(flux_err[0:blue_idx+1])**2))
-        blue_flux_density = blue_flux / blue_bins
-        blue_flux_density_err = blue_err / blue_bins
+
+        # #as mean (with error)
+        # blue_flux_density = blue_flux / blue_bins
+        # blue_flux_density_err = blue_err / blue_bins
+        #
+        # #or as median
+        # blue_flux_density = np.median(blue_side)
+        # blue_flux_density_err = np.std(blue_side)/np.sqrt(blue_bins)
+        #
+        # #or as biweight
+        # blue_flux_density = biweight.biweight_location(blue_side)
+        # blue_flux_density_err = biweight.biweight_scale(blue_side)/np.sqrt(blue_bins)
+
+        #todo: probably won't matter much, but should we force blue and red to both be weighted or un-weighted?
+        #should be a very rare (if ever) case
+        #or as weighted biweight
+        try:
+            blue_flux_density = weighted_biweight.biweight_location_weights(blue_side,weights=flux_err[0:blue_idx+1])
+            blue_flux_density_err = biweight.biweight_scale(blue_side)/np.sqrt(blue_bins)
+        except:
+            log.info("Weighted_biweight failed. Switching to normal biweight")
+            blue_flux_density = biweight.biweight_location(blue_side)
+            blue_flux_density_err = biweight.biweight_scale(blue_side)/np.sqrt(blue_bins)
+
+
         #now to jansky
         blue_flux_density_ujy = cgs2ujy(blue_flux_density,blue_mid_wave)
         blue_flux_density_err_ujy = cgs2ujy(blue_flux_density_err,blue_mid_wave)
@@ -337,9 +362,29 @@ def red_vs_blue(cwave,wave,flux,flux_err,fwhm=None):
         red_mid_wave = wave[int((len(wave)+red_idx) / 2)]
         red_side = np.array(flux[red_idx:])
         red_flux = np.sum(red_side)
-        red_err = np.sqrt(np.sum(np.array(flux_err[0:red_idx]) ** 2))
-        red_flux_density = red_flux / red_bins
-        red_flux_density_err = red_err / red_bins
+        red_err = np.sqrt(np.sum(np.array(flux_err[red_idx:]) ** 2))
+
+        # #as mean with error
+        # red_flux_density = red_flux / red_bins
+        # red_flux_density_err = red_err / red_bins
+        #
+        # #or as median
+        # red_flux_density = np.median(red_side)
+        # red_flux_density_err = np.std(red_side)/np.sqrt(red_bins)
+        #
+        # # or as biweight
+        # red_flux_density = biweight.biweight_location(red_side)
+        # red_flux_density_err = biweight.biweight_scale(red_side) / np.sqrt(red_bins)
+
+        # or as weighted biweight
+        try:
+            red_flux_density = weighted_biweight.biweight_location_weights(red_side,weights=flux_err[red_idx:])
+            red_flux_density_err = biweight.biweight_scale(red_side) / np.sqrt(red_bins)
+        except:
+            log.info("Weighted_biweight failed. Switching to normal biweight")
+            red_flux_density = biweight.biweight_location(red_side)
+            red_flux_density_err = biweight.biweight_scale(red_side) / np.sqrt(red_bins)
+
         # now to jansky
         red_flux_density_ujy = cgs2ujy(red_flux_density, red_mid_wave)
         red_flux_density_err_ujy = cgs2ujy(red_flux_density_err, red_mid_wave)
@@ -407,7 +452,7 @@ def red_vs_blue(cwave,wave,flux,flux_err,fwhm=None):
 
 
         if (red_flux_density_ujy != 0) and (blue_flux_density_ujy != 0):
-            ratio = blue_flux_density_ujy / red_flux_density_ujy
+            ratio = red_flux_density_ujy / blue_flux_density_ujy
             ratio_err = abs(ratio) * np.sqrt((blue_flux_density_err_ujy/blue_flux_density_ujy)**2 +
                                         (red_flux_density_err_ujy/red_flux_density_ujy)**2)
         else:
@@ -418,14 +463,12 @@ def red_vs_blue(cwave,wave,flux,flux_err,fwhm=None):
         rvb['ratio'] = ratio #blue over red so the color is correct
         rvb['ratio_err'] = ratio_err
 
-
-
         #todo: non detections ... enforce at least 30 datapoints to either side
         #todo: if one side is detected, use the error of the other as a limit
         #i.e. blue = 0 +/- 0.1  red = 10 +/-1  use red/blue as 10/0.1 as 1 sigma limit
-        #todo: color -2.5 log (r/b)
+        #todo: color 2.5 log (r/b)   (or -2.5 log(b/r)
 
-        rvb['color'] = -2.5 *np.log10(ratio)
+        rvb['color'] = 2.5 *np.log10(ratio)
         #error is +/- ... so add 1st index (gets more red, i.e the reported color is a lower limit)
         #                    add 2nd index (gets more blue, i.e. the reported color is an upper limit)
 
@@ -440,8 +483,8 @@ def red_vs_blue(cwave,wave,flux,flux_err,fwhm=None):
                 max_red = 999
                 max_blue = -999
         else: #all good
-            max_red  = np.nan_to_num(-2.5 * np.log10(ratio - ratio_err))
-            max_blue = np.nan_to_num(-2.5 * np.log10(ratio + ratio_err))
+            max_red  = np.nan_to_num(2.5 * np.log10(ratio - ratio_err))
+            max_blue = np.nan_to_num(2.5 * np.log10(ratio + ratio_err))
 
 
         rvb['color_err'] = (max_red-rvb['color'],max_blue-rvb['color']) #or (redder, bluer) or (larger number, smaller number)

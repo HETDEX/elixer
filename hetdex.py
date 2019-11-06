@@ -2208,8 +2208,9 @@ class DetObj:
 
             self.spec_obj.classify() #solutions can be returned, also stored in spec_obj.solutions
 
-            self.rvb = SU.red_vs_blue(self.w,self.sumspec_wavelength,self.sumspec_flux/2.0*G.HETDEX_FLUX_BASE_CGS,
-                                 self.sumspec_fluxerr/2.0*G.HETDEX_FLUX_BASE_CGS,self.fwhm)
+            self.rvb = SU.red_vs_blue(self.w,self.sumspec_wavelength,
+                                      self.sumspec_flux/G.FLUX_WAVEBIN_WIDTH*G.HETDEX_FLUX_BASE_CGS,
+                                      self.sumspec_fluxerr/G.FLUX_WAVEBIN_WIDTH*G.HETDEX_FLUX_BASE_CGS,self.fwhm)
 
 
         else:
@@ -3925,8 +3926,13 @@ class HETDEX:
                         # title += "\nColor = %0.03g (%0.3g,%0.3g) [%0.3g,%0.3g] {%d}" \
                         #          %(e.rvb['color'],e.rvb['color_err'][0],e.rvb['color_err'][1],
                         #            e.rvb['color_range'][0],e.rvb['color_range'][1],e.rvb['flag'])
-                        title += "\nColor = %0.03g [%0.3g,%0.3g]" \
-                             % (e.rvb['color'], e.rvb['color_range'][0], e.rvb['color_range'][1])
+                        # title += "\nColor = %0.03g [%0.3g,%0.3g]" \
+                        #      % (e.rvb['color'], e.rvb['color_range'][0], e.rvb['color_range'][1])
+
+                        title += "\nr/b: %0.3g(%0.3g), %0.3g(%0.3g), %0.3g(%0.3g)" \
+                                 % (e.rvb['red_flux_density_ujy'],e.rvb['red_flux_density_err_ujy'],
+                                    e.rvb['blue_flux_density_ujy'],e.rvb['blue_flux_density_err_ujy'],
+                                    e.rvb['ratio'],e.rvb['ratio_err'])
 
             #if (e.dqs is not None) and (e.dqs_raw is not None):
             #    title += "  Score = %0.1f (%0.2f)" % (e.dqs, e.dqs_raw)
