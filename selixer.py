@@ -172,7 +172,7 @@ elif hostname == "stampede2":
         MAX_DETECTS_PER_CPU = 100
         cores_per_node = 48
         if recover_mode:
-            MAX_TIME_PER_TASK = 1.0  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
+            MAX_TIME_PER_TASK = 1.2  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
         else:
             MAX_TIME_PER_TASK = 3.0  # MINUTES max
 

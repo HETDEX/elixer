@@ -3929,7 +3929,7 @@ class HETDEX:
                         # title += "\nColor = %0.03g [%0.3g,%0.3g]" \
                         #      % (e.rvb['color'], e.rvb['color_range'][0], e.rvb['color_range'][1])
 
-                        title += "\nr/b: %0.3g(%0.3g), %0.3g(%0.3g), %0.3g(%0.3g)" \
+                        title += "\nr/b: %0.3g($\pm$%0.3g),%0.3g($\pm$%0.3g),%0.3g($\pm$%0.3g)" \
                                  % (e.rvb['red_flux_density_ujy'],e.rvb['red_flux_density_err_ujy'],
                                     e.rvb['blue_flux_density_ujy'],e.rvb['blue_flux_density_err_ujy'],
                                     e.rvb['ratio'],e.rvb['ratio_err'])
