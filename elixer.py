@@ -366,7 +366,7 @@ def parse_commandline(auto_force=False):
         elif args.sdss == -1: #basically, unless explicitly overridden, if we are in dispatch mode, don't use SDSS
                               #since we can easily overwhelm their web interface
             if args.dispatch is not None:
-                if (args.nodes is not None) and (args.nodes > 1):
+                if (args.nodes is not None) and (int(args.nodes) > 1):
                     G.SDSS_ALLOW = False
                     G.SDSS_FORCE = False
                     print("***notice: --sdss NOT specified. Dispatch is ON. SDSS NOT allowed by default.")
@@ -393,7 +393,7 @@ def parse_commandline(auto_force=False):
                               #since we can easily overwhelm their web interface
 #            pass #for now, let the global default rule ... if this is a problem like SDSS, then restrict
             if args.dispatch is not None:
-                if (args.nodes is not None) and (args.nodes > 1):
+                if (args.nodes is not None) and (int(args.nodes) > 1):
                     G.PANSTARRS_ALLOW = False
                     G.PANSTARRS_FORCE = False
                     print("***notice: --panstarrs NOT specified. Dispatch is ON. PanSTARRS NOT allowed by default.")
