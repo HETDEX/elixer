@@ -368,6 +368,8 @@ def parse_commandline(auto_force=False):
             if not (args.dispatch is None):
                 G.SDSS_ALLOW = False
                 G.SDSS_FORCE = False
+                print("***notice: --sdss NOT specified. Dispatch is ON. SDSS NOT allowed by default.")
+                log.info("***notice: --sdss NOT specified. Dispatch is ON. SDSS NOT allowed by default.")
         else:
             log.warning("Ignoring invalid --sdss value (%d). Using default (Allow == 1)" %args.sdss)
             print("Ignoring invalid --sdss value (%d). Using default (Allow == 1)" %args.sdss)
@@ -390,6 +392,8 @@ def parse_commandline(auto_force=False):
             if not (args.dispatch is None):
                 G.PANSTARRS_ALLOW = False
                 G.PANSTARRS_FORCE = False
+                print("***notice: --panstarrs NOT specified. Dispatch is ON. PanSTARRS NOT allowed by default.")
+                log.info("***notice: --panstarrs NOT specified. Dispatch is ON. PanSTARRS NOT allowed by default.")
         else:
             log.warning("Ignoring invalid --panstarrs value (%d). Using default (Allow == 1)" %args.panstarrs)
             print("Ignoring invalid --panstarrs value (%d). Using default (Allow == 1)" %args.panstarrs)
@@ -2765,10 +2769,16 @@ def main():
                                         e.matched_cats.append(c)
 
                                     print("%d hits in %s for Detect ID #%d" % (hits, c.name, e.id))
+                                    log.info("%d hits in %s for Detect ID #%d" % (hits, c.name, e.id))
                                 else: #todo: don't bother printing the negative case
                                     print("Coordinates not in range of %s for Detect ID #%d" % (c.name,e.id))
+                                    log.info("Coordinates not in range of %s for Detect ID #%d" % (c.name, e.id))
 
                             if len(e.matched_cats) == 0:
+
+                                log.info("No catalog overlap. PANSTARRS_ALLOW (%s), SDSS_ALLOW (%s)"
+                                         % (str(G.PANSTARRS_ALLOW), str(G.SDSS_ALLOW) ))
+
                                 if G.PANSTARRS_ALLOW: #prioritize Pan-STARRS over SDSS
                                     e.matched_cats.append(cat_panstarrs)
                                 elif G.SDSS_ALLOW:
