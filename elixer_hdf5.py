@@ -477,8 +477,8 @@ def append_entry(fileh,det):
             row['pseudo_color_blue_flux_err'] = det.rvb['blue_flux_density_err_ujy']
             row['pseudo_color_red_flux'] = det.rvb['red_flux_density_ujy']
             row['pseudo_color_red_flux_err'] = det.rvb['red_flux_density_err_ujy']
-            row['pseudo_color_rb_ratio'] = det.rvb['ratio']
-            row['pseudo_color_rb_ratio_err'] = det.rvb['ratio_err']
+            row['pseudo_color_rvb_ratio'] = det.rvb['ratio']
+            row['pseudo_color_rvb_ratio_err'] = det.rvb['ratio_err']
 
             row['pseudo_color_flag'] = det.rvb['flag']
 
@@ -878,8 +878,8 @@ def temp_append_dtb_002_to_003(row,old_row):
         row['pseudo_color_blue_flux_err'] = old_row['pseudo_color_blue_flux_err']
         row['pseudo_color_red_flux'] = old_row['pseudo_color_red_flux']
         row['pseudo_color_red_flux_err'] = old_row['pseudo_color_red_flux_err']
-        row['pseudo_color_rb_ratio'] = old_row['pseudo_color_rb_ratio']
-        row['pseudo_color_rb_ratio_err'] = old_row['pseudo_color_rb_ratio_err']
+        row['pseudo_color_rvb_ratio'] = old_row['pseudo_color_rb_ratio']
+        row['pseudo_color_rvb_ratio_err'] = old_row['pseudo_color_rb_ratio_err']
 
         row['pseudo_color_flag'] = old_row['pseudo_color_flag']
     except:
