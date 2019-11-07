@@ -365,11 +365,14 @@ def parse_commandline(auto_force=False):
             G.SDSS_FORCE = True
         elif args.sdss == -1: #basically, unless explicitly overridden, if we are in dispatch mode, don't use SDSS
                               #since we can easily overwhelm their web interface
-            if not (args.dispatch is None):
-                G.SDSS_ALLOW = False
-                G.SDSS_FORCE = False
-                print("***notice: --sdss NOT specified. Dispatch is ON. SDSS NOT allowed by default.")
-                log.info("***notice: --sdss NOT specified. Dispatch is ON. SDSS NOT allowed by default.")
+            if args.dispatch is not None:
+                if (args.nodes is not None) and (args.nodes > 1):
+                    G.SDSS_ALLOW = False
+                    G.SDSS_FORCE = False
+                    print("***notice: --sdss NOT specified. Dispatch is ON. SDSS NOT allowed by default.")
+                    log.info("--sdss NOT specified. Dispatch is ON. SDSS NOT allowed by default.")
+                else:
+                    log.info("--sdss NOT specificed. Dispatch is ON but is only on 1 node. Defaults allowed.")
         else:
             log.warning("Ignoring invalid --sdss value (%d). Using default (Allow == 1)" %args.sdss)
             print("Ignoring invalid --sdss value (%d). Using default (Allow == 1)" %args.sdss)
@@ -389,11 +392,14 @@ def parse_commandline(auto_force=False):
         elif args.panstarrs == -1: #basically, unless explicitly overridden, if we are in dispatch mode, don't use SDSS
                               #since we can easily overwhelm their web interface
 #            pass #for now, let the global default rule ... if this is a problem like SDSS, then restrict
-            if not (args.dispatch is None):
-                G.PANSTARRS_ALLOW = False
-                G.PANSTARRS_FORCE = False
-                print("***notice: --panstarrs NOT specified. Dispatch is ON. PanSTARRS NOT allowed by default.")
-                log.info("***notice: --panstarrs NOT specified. Dispatch is ON. PanSTARRS NOT allowed by default.")
+            if args.dispatch is not None:
+                if (args.nodes is not None) and (args.nodes > 1):
+                    G.PANSTARRS_ALLOW = False
+                    G.PANSTARRS_FORCE = False
+                    print("***notice: --panstarrs NOT specified. Dispatch is ON. PanSTARRS NOT allowed by default.")
+                    log.info("--panstarrs NOT specified. Dispatch is ON. PanSTARRS NOT allowed by default.")
+                else:
+                    log.info("--panstarrs NOT specificed. Dispatch is ON but is only on 1 node. Defaults allowed.")
         else:
             log.warning("Ignoring invalid --panstarrs value (%d). Using default (Allow == 1)" %args.panstarrs)
             print("Ignoring invalid --panstarrs value (%d). Using default (Allow == 1)" %args.panstarrs)
@@ -2249,11 +2255,25 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
     if science_image.is_cutout_empty(master_cutout):
         log.info("build_neighborhood_map master_cutout is empty. Will try web calls for PanSTARRS and/or SDSS.")
-        #ask only for G or R band
-        ps_cutouts = catalogs.cat_panstarrs.PANSTARRS().get_cutouts(ra,dec,distance,aperture=None) #note, different than cutouts above?
-        mc = make_master(ps_cutouts)
-        if mc is not None:
-            master_cutout = mc
+
+        #todo: limit to G or R band request?
+        if G.PANSTARRS_ALLOW:
+            log.info("Calling PanSTARRs ...")
+            ps_cutouts = catalogs.cat_panstarrs.PANSTARRS().get_cutouts(ra,dec,distance,aperture=None)
+            #note, different than cutouts above?
+            mc = make_master(ps_cutouts)
+            if mc is not None:
+                master_cutout = mc
+        elif G.SDSS_ALLOW:
+            log.info("Calling SDSS ...")
+            sdss_cutouts = catalogs.cat_sdss.SDSS().get_cutouts(ra,dec,distance,aperture=None)
+            #note, different than cutouts above?
+            mc = make_master(sdss_cutouts)
+            if mc is not None:
+                master_cutout = mc
+        else:
+            log.info("PanSTARRS and SDSS not allowed.")
+
 
     if master_cutout is None:
         log.warning("Unable to make a master_cutout for neighborhood.")

@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.0.2' #catalog version ... can merge if version numbers are the same or in special circumstances
+__version__ = '0.0.3' #catalog version ... can merge if version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -95,10 +95,17 @@ class Detections(tables.IsDescription):
     multiline_frac_score = tables.Float32Col(dflt=UNSET_FLOAT)
     multiline_name = tables.StringCol(itemsize=16)
 
-    pseudo_color = tables.Float32Col(dflt=UNSET_FLOAT)
-    pseudo_color_min = tables.Float32Col(dflt=UNSET_FLOAT)
-    pseudo_color_max = tables.Float32Col(dflt=UNSET_FLOAT)
+    # pseudo_color = tables.Float32Col(dflt=UNSET_FLOAT)
+    # pseudo_color_min = tables.Float32Col(dflt=UNSET_FLOAT)
+    # pseudo_color_max = tables.Float32Col(dflt=UNSET_FLOAT)
     pseudo_color_flag = tables.Int64Col(dflt=0)
+
+    pseudo_color_blue_flux = tables.Float32Col(dflt=UNSET_FLOAT) #all un uJy
+    pseudo_color_blue_flux_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    pseudo_color_red_flux = tables.Float32Col(dflt=UNSET_FLOAT)
+    pseudo_color_red_flux_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    pseudo_color_rvb_ratio = tables.Float32Col(dflt=UNSET_FLOAT)
+    pseudo_color_rvb_ratio_err = tables.Float32Col(dflt=UNSET_FLOAT)
 
 
 class SpectraLines(tables.IsDescription):
@@ -190,10 +197,20 @@ def version_match(fileh):
             return False, None
 
         existing_version = rows[0]['version'].decode()
-        if existing_version != __version__:
-            return False, existing_version
-        else:
+        if existing_version == __version__:
             return True, existing_version
+        else: #three decimal strings
+            try:
+                ex_version = existing_version.split(".")
+                this_version = __version__.split(".")
+
+                if ex_version[0] == this_version[0]:
+                    if ex_version[1] == this_version[1]:
+                        return True, existing_version #only differ in engineering version
+            except:
+                return False, existing_version
+
+            return False, existing_version #differ in major or minor version
     except:
         log.error("Exception! in elixer_hdf5::version_match().",exc_info=True)
         return False, None
@@ -455,6 +472,14 @@ def append_entry(fileh,det):
             row['pseudo_color'] = det.rvb['color']
             row['pseudo_color_min'] = det.rvb['color_range'][0]
             row['pseudo_color_max'] = det.rvb['color_range'][1]
+
+            row['pseudo_color_blue_flux'] = det.rvb['blue_flux_density_ujy']
+            row['pseudo_color_blue_flux_err'] = det.rvb['blue_flux_density_err_ujy']
+            row['pseudo_color_red_flux'] = det.rvb['red_flux_density_ujy']
+            row['pseudo_color_red_flux_err'] = det.rvb['red_flux_density_err_ujy']
+            row['pseudo_color_rb_ratio'] = det.rvb['ratio']
+            row['pseudo_color_rb_ratio_err'] = det.rvb['ratio_err']
+
             row['pseudo_color_flag'] = det.rvb['flag']
 
         row.append()
@@ -687,7 +712,8 @@ def merge_unique(newfile,file1,file2):
         detectids = dtb1.read()['detectid']
         detectids = np.concatenate((detectids,dtb2.read()['detectid']))
 
-        detectids = sorted(detectids)
+        detectids = sorted(set(detectids)) #'set' so they are unique
+
 
         log.debug("Merging %d detections ..." %len(detectids))
 
@@ -744,6 +770,17 @@ def merge_unique(newfile,file1,file2):
                 ctb_src = source_h.root.CatalogMatch
 
                 dtb_new.append(dtb_src.read_where("(detectid==d) & (elixer_datetime==q_date)"))
+                #################################
+                #manual merge of defunct version
+                #################################
+                #if False:
+                #   old_row = dtb_src.read_where("(detectid==d) & (elixer_datetime==q_date)")[0]
+                #   new_row = dtb_new.row
+                #   temp_append_dtb_002_to_003(new_row,old_row)
+
+
+
+
                 #unfortunately, have to assume following data is unique
                 stb_new.append(stb_src.read_where("(detectid==d)"))
                 ltb_new.append(ltb_src.read_where("(detectid==d)"))
@@ -766,6 +803,90 @@ def merge_unique(newfile,file1,file2):
         return False
 
     return True
+
+def temp_append_dtb_002_to_003(row,old_row):
+    #############################
+    # Detection (summary) table
+    #############################
+    # row[''] =
+    row['detectid'] = old_row['detectid']
+    row['detectname'] = old_row['detectname'].tostring()
+    row['elixer_version'] = old_row['elixer_version'].tostring()
+    row['elixer_datetime'] = old_row['elixer_datetime'].tostring() # timestamp when base DetObj is built (note: is different than
+    # the timestamp in the PDF which is set when the PDF is built)
+
+    row['shotid'] = old_row['shotid']  # this is int64 YYYYMMDDsss  where sss is the 3 digit shot (observation) ID
+    row['obsid'] = old_row['obsid']
+    row['specid'] = old_row['specid'].tostring()
+    row['ifuslot'] = old_row['ifuslot'].tostring()
+    row['ifuid'] = old_row['ifuid'].tostring()
+    row['seeing_gaussian'] = old_row['seeing_gaussian']
+    row['seeing_moffat'] = old_row['seeing_moffat']
+    row['response'] = old_row['response']
+    row['fieldname'] =  old_row['fieldname'].tostring()
+
+    row['ra'] = old_row['ra']
+    row['dec'] = old_row['dec']
+    row['wavelength_obs'] = old_row['wavelength_obs']
+    row['wavelength_obs_err'] = old_row['wavelength_obs_err']
+
+
+    row['flux_line'] = old_row['flux_line']
+    row['flux_line_err'] =  old_row['flux_line_err']
+
+    row['fwhm_line_aa'] =old_row['fwhm_line_aa']
+    row['fwhm_line_aa_err'] = old_row['fwhm_line_aa_err']
+    row['sn'] = old_row['sn']
+    row['sn_err'] = old_row['sn_err']
+
+    row['chi2'] = old_row['chi2']
+    row['chi2_err'] = old_row['chi2_err']
+
+    row['continuum_line'] = old_row['continuum_line']
+    row['continuum_line_err'] = old_row['continuum_line_err']
+
+    row['continuum_sdss_g'] = old_row['continuum_sdss_g']
+    row['continuum_sdss_g_err'] = old_row['continuum_sdss_g_err']
+    row['mag_sdss_g'] = old_row['mag_sdss_g']
+    row['mag_sdss_g_err'] = old_row['mag_sdss_g_err']
+
+    row['eqw_rest_lya_line'] = old_row['eqw_rest_lya_line']
+    row['eqw_rest_lya_line_err'] = old_row['eqw_rest_lya_line_err']
+
+    row['eqw_rest_lya_sdss_g'] = old_row['eqw_rest_lya_sdss_g']
+
+    row['eqw_rest_lya_sdss_g_err'] = old_row['eqw_rest_lya_sdss_g_err']
+
+    row['plae_line'] = old_row['plae_line']
+    row['plae_sdss_g'] = old_row['plae_sdss_g']
+    row['multiline_flag'] = old_row['multiline_flag']
+    row['multiline_z'] = old_row['multiline_z']
+    row['multiline_rest_w'] = old_row['multiline_rest_w']
+    row['multiline_name'] = old_row['multiline_name'].tostring()
+
+    row['multiline_raw_score'] = old_row['multiline_raw_score']
+    row['multiline_frac_score'] =old_row['multiline_frac_score']
+    row['multiline_prob'] =old_row['multiline_prob']
+        # ?? other lines ... other solutions ... move into a separate table ... SpectraLines table
+
+    try:
+        #row['pseudo_color'] = det.rvb['color']
+        #row['pseudo_color_min'] = det.rvb['color_range'][0]
+        #row['pseudo_color_max'] = det.rvb['color_range'][1]
+
+        row['pseudo_color_blue_flux'] = old_row['pseudo_color_blue_flux']
+        row['pseudo_color_blue_flux_err'] = old_row['pseudo_color_blue_flux_err']
+        row['pseudo_color_red_flux'] = old_row['pseudo_color_red_flux']
+        row['pseudo_color_red_flux_err'] = old_row['pseudo_color_red_flux_err']
+        row['pseudo_color_rb_ratio'] = old_row['pseudo_color_rb_ratio']
+        row['pseudo_color_rb_ratio_err'] = old_row['pseudo_color_rb_ratio_err']
+
+        row['pseudo_color_flag'] = old_row['pseudo_color_flag']
+    except:
+        pass
+
+
+    row.append()
 
 
 def merge_elixer_hdf5_files(fname,flist=[]):

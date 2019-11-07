@@ -1,7 +1,18 @@
 changes to elixer by version
 
+
+1.7.5a11 [2019-11-07]
+* Clarify when PanSTARRS and SDSS are allowed and enforce condition on neighborhood build. Alert user at runtime if auto
+  configuration has disallowed PanSTARRS or SDSS.
+* added red and blue pseduo color fluxes (and error, and ratio) to ELiXer HDF5 (0.0.3)
+* allow ELiXer HDF5 merging if differ in only engineering version
+* temp merge_unique addition to deal with column changes from 0.0.2 to 0.0.3 in ELiXer HDF5
+
+
+
 1.7.5a10 [2019-11-06]
 * Tweak to favor display flag emission line solutions over non-display (if top solutions are close in score)
+
 
 1.7.5a9 [2019-11-05]
 * Added --merge_unique switch to merge exactly 2 ELiXer HDF5 catalogs, keeping only the most recent detectid
