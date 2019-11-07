@@ -469,9 +469,9 @@ def append_entry(fileh,det):
             #?? other lines ... other solutions ... move into a separate table ... SpectraLines table
 
         if (det.rvb is not None):
-            row['pseudo_color'] = det.rvb['color']
-            row['pseudo_color_min'] = det.rvb['color_range'][0]
-            row['pseudo_color_max'] = det.rvb['color_range'][1]
+            # row['pseudo_color'] = det.rvb['color']
+            # row['pseudo_color_min'] = det.rvb['color_range'][0]
+            # row['pseudo_color_max'] = det.rvb['color_range'][1]
 
             row['pseudo_color_blue_flux'] = det.rvb['blue_flux_density_ujy']
             row['pseudo_color_blue_flux_err'] = det.rvb['blue_flux_density_err_ujy']
