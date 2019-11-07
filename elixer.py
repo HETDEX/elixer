@@ -709,6 +709,11 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
     added_sdss = False
     added_catch_all = False
 
+    if cats is not None:
+        log.debug("Checking imagaing catalogs (%s)" %(str(cats)))
+    else:
+        log.debug("Imaging catalogs is None")
+
     for c in cats:
 
         if (c is None) or (isinstance(c,list)): #i.e. there are no cats, but it is a list with an empty list
