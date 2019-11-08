@@ -481,4 +481,4 @@ BUILD_HDF5_CATALOG = True
 
 ALLOW_SYSTEM_CALL_PDF_CONVERSION = True #if True, if the Python PDF to PNG fails, attempt a system call to pdftoppm
 
-DISPLAY_PSEUDO_COLOR = True  #display in upper left the pseudo-color from the HETDEX spectrum
+DISPLAY_PSEUDO_COLOR = False  #display in upper left the pseudo-color from the HETDEX spectrum

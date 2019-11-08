@@ -3929,10 +3929,13 @@ class HETDEX:
                         # title += "\nColor = %0.03g [%0.3g,%0.3g]" \
                         #      % (e.rvb['color'], e.rvb['color_range'][0], e.rvb['color_range'][1])
 
-                        title += "\nr/b: %0.3g($\pm$%0.3g),%0.3g($\pm$%0.3g),%0.3g($\pm$%0.3g)" \
-                                 % (e.rvb['red_flux_density_ujy'],e.rvb['red_flux_density_err_ujy'],
-                                    e.rvb['blue_flux_density_ujy'],e.rvb['blue_flux_density_err_ujy'],
-                                    e.rvb['ratio'],e.rvb['ratio_err'])
+                        title += "\nr/b: %0.2f($\pm$%0.2f),%0.2f($\pm$%0.2f),%0.2f($\pm$%0.2f)" \
+                                 % (min(e.rvb['red_flux_density_ujy'],999),
+                                    min(e.rvb['red_flux_density_err_ujy'],999),
+                                    min(e.rvb['blue_flux_density_ujy'],999),
+                                    min(e.rvb['blue_flux_density_err_ujy'],999),
+                                    min(e.rvb['ratio'],999),
+                                    min(e.rvb['ratio_err'],999))
 
             #if (e.dqs is not None) and (e.dqs_raw is not None):
             #    title += "  Score = %0.1f (%0.2f)" % (e.dqs, e.dqs_raw)
