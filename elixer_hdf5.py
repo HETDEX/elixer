@@ -354,7 +354,7 @@ def get_hdf5_filehandle(fname,append=False,allow_overwrite=True,must_exist=False
     return fileh
 
 
-def append_entry(fileh,det):
+def append_entry(fileh,det,overwrite=False):
     """
 
     :param fileh: file handle to the HDF5 file
@@ -364,19 +364,30 @@ def append_entry(fileh,det):
     try:
         #get tables
         dtb = fileh.root.Detections
-
-        q_detectid = det.hdf5_detectid
-        rows = dtb.read_where("detectid==q_detectid")
-
-        if rows.size > 0:
-            log.info("Detection (%d) already exists in HDF5. Skipping." %(q_detectid))
-            return
-
         stb = fileh.root.CalibratedSpectra
         ltb = fileh.root.SpectraLines
         atb = fileh.root.Aperture
         ctb = fileh.root.CatalogMatch
 
+        list_tables = [dtb,stb,ltb,atb,ctb]
+
+        q_detectid = det.hdf5_detectid
+        rows = dtb.read_where("detectid==q_detectid")
+
+        if rows.size > 0:
+            if overwrite:
+                log.info("Detection (%d) already exists in HDF5. Will replace." % (q_detectid))
+                try:
+                    for t in list_tables:
+                        idx = t.get_where_list("detectid==q_detectid")
+                        for i in np.flip(idx): #index gets updated, so delete in reverse order
+                            t.remove_row(i)
+                except:
+                    log.info("Remove row(s) failed for %d. Skipping remainder." %(q_detectid),exc_info=True)
+                    return
+            else:
+                log.info("Detection (%d) already exists in HDF5. Skipping." %(q_detectid))
+                return
 
         #############################
         #Detection (summary) table
@@ -534,10 +545,10 @@ def append_entry(fileh,det):
 
         sol_num = 0
         for sol in det.spec_obj.solutions:
+            sol_num += 1
             for line in sol.lines:
                 row = ltb.row
                 row['detectid'] = det.hdf5_detectid
-                sol_num += 1
                 row['sol_num'] = sol_num
                 if line.absorber:
                     row['type'] = -1
@@ -625,7 +636,14 @@ def append_entry(fileh,det):
     return
 
 
-def build_elixer_hdf5(fname,hd_list=[]):
+def build_elixer_hdf5(fname,hd_list=[],overwrite=False):
+    """
+
+    :param fname:
+    :param hd_list:
+    :param overwrite:  if TRUE, "remove" matching entries and replace with new ones per detectid
+    :return:
+    """
     #build a new HDF5 file from the current active run
     #this is like the old ELiXer creating _cat.txt and _fib.txt
 
@@ -638,7 +656,7 @@ def build_elixer_hdf5(fname,hd_list=[]):
 
     for h in hd_list:  # iterate over all hetdex (hd) collections
         for e in h.emis_list: #for each detection in each hd collection
-            append_entry(fileh,e)
+            append_entry(fileh,e,overwrite)
 
 
     flush_all(fileh)
@@ -646,7 +664,14 @@ def build_elixer_hdf5(fname,hd_list=[]):
     print("File written: %s" %fname)
     log.info("File written: %s" %fname)
 
-def extend_elixer_hdf5(fname,hd_list=[]):
+def extend_elixer_hdf5(fname,hd_list=[],overwrite=False):
+    """
+
+    :param fname:
+    :param hd_list:
+    :param overwrite: if TRUE, "remove" matching entries and replace with new ones per detectid
+    :return:
+    """
     #build a new HDF5 file from the current active run
     #this is like the old ELiXer creating _cat.txt and _fib.txt
 
@@ -659,7 +684,7 @@ def extend_elixer_hdf5(fname,hd_list=[]):
 
     for h in hd_list:  # iterate over all hetdex (hd) collections
         for e in h.emis_list: #for each detection in each hd collection
-            append_entry(fileh,e)
+            append_entry(fileh,e,overwrite)
 
 
     flush_all(fileh)

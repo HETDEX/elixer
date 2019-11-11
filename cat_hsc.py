@@ -543,9 +543,21 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
         try:
             if df['fluxlsq_flags'].values[0]:  # there is a problem
+                try:
+                    log.debug("HSC fluxlsq flagged. mag = %f" %df["maglsq"].values[0])
+                except:
+                    pass
                 if df['flux3.0_flags'].values[0]:
+                    try:
+                        log.debug("HSC flux3.0 flagged. mag = %f" % df["mag3.0"].values[0])
+                    except:
+                        pass
                     if df['flux.cmodel_flags'].values[0]:  # there is a problem
                     #if df['flux.cmodel_flags'].values[0]:  # there is a problem
+                        try:
+                            log.debug("HSC cmodel flagged. mag = %f" % df["mag.cmodel"].values[0])
+                        except:
+                            pass
                         log.info("Flux/Mag unreliable due to errors.")
                         return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
                     else:
@@ -557,8 +569,6 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         except:
             log.error("Exception in cat_hsc.get_filter_flux", exc_info=True)
             return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
-
-        log.debug("HSC mag model: %s" %method)
 
         try:
 
@@ -594,6 +604,11 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         #with updated HSC data release 2 (Sept.2019) this is not needed
         #filter_fl = self.obs_mag_to_nano_Jy(mag)
         #filter_fl_err = 0.0  # set to 0 so not to be trusted
+
+        try:
+            log.debug("HSC selected method = %s , mag = %f" %(method,mag))
+        except:
+            pass
 
         return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
 
@@ -641,15 +656,21 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
         try:
             self.dataframe_of_bid_targets = \
-                self.df[(self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max) &
-                        (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max) &
-                        (self.df['children'] == 0) & (self.df['outside'] == False) &
-                        (self.df['interpix_center'] == False) & (self.df['saturatedpix_center'] == False) &
-                        (self.df['cosmic_center'] == False) & (self.df['bad_pix'] == False) &
-                        (self.df['near_bright_obj'] == False) & (self.df['footprint_bright_obj'] == False) &
-                        (self.df['general_flag'] == False) &
-                        (self.df['inner_coadd_tract'] == True) & (self.df['inner_coadd_patch'] == True) &
-                        (self.df['num_images'] > 2) ].copy()
+                self.df[  (self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max)
+                        & (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)
+                        & (self.df['children'] == 0)
+                        & (self.df['outside'] == False)
+                        & (self.df['interpix_center'] == False)
+                        & (self.df['saturatedpix_center'] == False)
+                        & (self.df['cosmic_center'] == False)
+                        & (self.df['bad_pix'] == False)
+                        & (self.df['near_bright_obj'] == False)
+                        & (self.df['footprint_bright_obj'] == False)
+                        & (self.df['general_flag'] == False)
+                        & (self.df['inner_coadd_tract'] == True)
+                        & (self.df['inner_coadd_patch'] == True)
+                        & (self.df['num_images'] > 2)
+                        ].copy()
             #may contain duplicates (across tiles)
             #remove duplicates (assuming same RA,DEC between tiles has same data)
             #so, different tiles that have the same ra,dec and filter get dropped (keep only 1)

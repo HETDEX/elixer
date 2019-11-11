@@ -1,5 +1,11 @@
 changes to elixer by version
 
+1.7.5a12 [2019-11-10]
+* fixed non-standard multi-line solution NOT showing labels on matched lines to the solution
+* allow option on HDF5 catalog extension (append_entry) to skip existing entries OR overwrite with
+  newer row(s)
+* fixed error where HDF5 SpectralLines table was incrementing sol_num with each emission line found
+  instead of with each solution
 
 1.7.5a11 [2019-11-07]
 * Clarify when PanSTARRS and SDSS are allowed and enforce condition on neighborhood build. Alert user at runtime if auto

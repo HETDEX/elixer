@@ -2952,7 +2952,7 @@ def main():
                 delete_report_parts(args.name)
 
         if G.BUILD_HDF5_CATALOG: #change to HDF5 catalog
-            elixer_hdf5.extend_elixer_hdf5(os.path.join(args.name,args.name+"_cat.h5"),hd_list)
+            elixer_hdf5.extend_elixer_hdf5(os.path.join(args.name,args.name+"_cat.h5"),hd_list,overwrite=True)
 
         if match_list.size > 0:
             match_list.write_file(os.path.join(args.name,args.name+"_cat.txt"))

@@ -6206,11 +6206,13 @@ class HETDEX:
 
             matched_line_list = [] #use farther down to display line labels otherwise marked as not to be displayed
 
+            the_solution_rest_wave = -1.0
             if not G.ZOO:
                 good, p_real = datakeep['detobj'].multiline_solution_score()
                 if (p_real > G.MULTILINE_MIN_WEAK_SOLUTION_CONFIDENCE):
                     #a solution
                     sol = datakeep['detobj'].spec_obj.solutions[0]
+                    the_solution_rest_wave = sol.central_rest
                     y_pos = textplot.axis()[2]
 
                     if good:
@@ -6290,7 +6292,7 @@ class HETDEX:
             name_waves = []
             obs_waves = []
             for e in self.emission_lines:
-                if not e.solution:
+                if (not e.solution) and (e.w_rest != the_solution_rest_wave): #if not a normal solution BUT it is THE solution, label it
                     continue
                 z = cwave / e.w_rest - 1.0
                 if (z < 0):

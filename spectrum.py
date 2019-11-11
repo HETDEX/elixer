@@ -2205,8 +2205,8 @@ class Spectrum:
             EmissionLine("Ly$\\alpha$".ljust(w), G.LyA_rest, 'red'),
 
             EmissionLine("OII".ljust(w), G.OII_rest, 'green'),
-            EmissionLine("OIII".ljust(w), 4960.295, "lime"),
-            EmissionLine("OIII".ljust(w), 5008.240, "lime"),
+            EmissionLine("OIII".ljust(w), 4960.295, "lime"),#4960.295 (vacuum) 4958.911 (air)
+            EmissionLine("OIII".ljust(w), 5008.240, "lime"), #5008.240 (vacuum) 5006.843 (air)
 
             EmissionLine("CIV".ljust(w), 1549.48, "blueviolet",solution=False,display=True),  # big in AGN
             EmissionLine("CIII".ljust(w), 1908.734, "purple",solution=False,display=True),  #big in AGN
@@ -2215,7 +2215,7 @@ class Spectrum:
             EmissionLine("MgII".ljust(w), 2799.117, "magenta",solution=False,display=True),  #big in AGN
 
 
-            EmissionLine("H$\\beta$".ljust(w), 4862.68, "blue",solution=True),
+            EmissionLine("H$\\beta$".ljust(w), 4862.68, "blue",solution=True), #4862.68 (vacuum) 4861.363 (air)
             EmissionLine("H$\\gamma$".ljust(w), 4341.68, "royalblue",solution=False),
             EmissionLine("H$\\delta$".ljust(w), 4102, "royalblue", solution=False,display=False),
             EmissionLine("H$\\epsilon$/CaII".ljust(w), 3970, "royalblue", solution=False,display=False), #very close to CaII(3970)
