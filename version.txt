@@ -6,6 +6,7 @@ changes to elixer by version
   newer row(s)
 * fixed error where HDF5 SpectralLines table was incrementing sol_num with each emission line found
   instead of with each solution
+* add explicit notation to Gaussian fit plot and full 1D spectra to show /2AA bins
 
 1.7.5a11 [2019-11-07]
 * Clarify when PanSTARRS and SDSS are allowed and enforce condition on neighborhood build. Alert user at runtime if auto
