@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.8.0a1 [2019-11-12]
+* new parameters to catalogs::get_cutouts ... filter and first
+* new interface to catalogs get_filters()
+
 1.7.5a12 [2019-11-10]
 * fixed non-standard multi-line solution NOT showing labels on matched lines to the solution
 * allow option on HDF5 catalog extension (append_entry) to skip existing entries OR overwrite with

@@ -1118,14 +1118,73 @@ class Catalog:
     #     return d
 
 
-    def get_cutouts(self,ra,dec,window,aperture=None):
+    #generic, can be used by most catalogs (like CANDELS), only override if necessary
+    def get_filters(self,ra=None,dec=None):
+        '''
+        Return list of (unique) filters included in this catalog (regardless of RA, Dec)
+
+        :param ra: not used at this time
+        :param dec:
+        :return:
+        '''
+        #todo: future ... see if ra, dec are in the filter? that could be very time consuming
+
+        try:
+            cat_filters = list(set([x['filter'] for x in self.CatalogImages]))
+        except:
+            cat_filters = None
+
+        return list(set(cat_filters))
+
+    #generic, can be used by most catalogs (like CANDELS), only override if necessary
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False):
         l = list()
 
-        for i in self.CatalogImages:  # i is a dictionary
-            #note: this works, but can be grossly inefficient and
-            #should be overwritten by the child-class
-            l.append(self.get_single_cutout(ra,dec,window,i,aperture))
+        #not every catalog has a list of filters, and some contain multiples
 
+        try:
+            cat_filters = list(set([x['filter'] for x in self.CatalogImages]))
+        except:
+            cat_filters = None
+
+        if filter:
+            outer = filter
+            inner = cat_filters
+        else:
+            outer = cat_filters
+            inner = None
+
+        if outer:
+            for f in outer:
+                try:
+                    if inner and (f not in inner):  # if filter list provided but the image is NOT in the filter list go to next one
+                        continue
+
+                    i = self.CatalogImages[
+                        next(i for (i, d) in enumerate(self.CatalogImages)
+                             if ((d['filter'] == f)))]
+
+                    cutout = self.get_single_cutout(ra, dec, window, i, aperture)
+
+                    if first:
+                        if cutout['cutout'] is not None:
+                            l.append(cutout)
+                            break
+                    else:
+                        # if we are not escaping on the first hit, append ALL cutouts (even if no image was collected)
+                        l.append(cutout)
+                except:
+                    log.error("Exception! collecting image cutouts.",exc_info=True)
+        else:
+            for i in self.CatalogImages:  # i is a dictionary
+                # note: this works, but can be grossly inefficient and
+                # should be overwritten by the child-class
+                try:
+                    l.append(self.get_single_cutout(ra, dec, window, i, aperture))
+                    if first:
+                        break
+                except:
+                    log.error("Exception! collecting image cutouts.", exc_info=True)
         return l
 
     #todo:

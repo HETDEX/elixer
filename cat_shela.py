@@ -450,11 +450,10 @@ class SHELA(cat_base.Catalog):
                              })
                         break #(out of ext in self.Img_ext) keep the first name that is found
 
-    def find_target_tile(self,ra,dec):
+    def find_target_tile(self,ra,dec,verify=True):
         #assumed to have already confirmed this target is at least in coordinate range of this catalog
         tile = None
         for t in self.Tiles:
-
             # don't bother to load if ra, dec not in range
             try:
                 coord_range = self.Tile_Coord_Range[t]
@@ -466,8 +465,10 @@ class SHELA(cat_base.Catalog):
                 pass
 
             for c in self.CatalogImages:
+                if c['tile'] != t:
+                    continue
 
-                try:
+                try: #really a redundant check
                     if ((ra < self.Tile_Coord_Range[c['tile']]['RA_min']) or \
                        (ra > self.Tile_Coord_Range[c['tile']]['RA_max']) or \
                        (dec < self.Tile_Coord_Range[c['tile']]['Dec_min']) or \
@@ -476,19 +477,25 @@ class SHELA(cat_base.Catalog):
                 except:
                     log.warning("Minor Exception in cat_shela.py:find_target_tile ", exc_info=True)
 
-                try:
-                    image = science_image.science_image(wcs_manual=self.WCS_Manual,
-                                                        image_location=op.join(self.SHELA_IMAGE_PATH, c['name']))
-                    if image.contains_position(ra, dec):
-                        tile = t
-                    else:
-                        log.debug("position (%f, %f) is not in image. %s" % (ra, dec, c['name']))
+                if verify: #collect image and confirm position is there
+                    try:
+                        image = science_image.science_image(wcs_manual=self.WCS_Manual,
+                                                            image_location=op.join(self.SHELA_IMAGE_PATH, c['name']))
+                        if image.contains_position(ra, dec):
+                            tile = t
+                        else:
+                            log.debug("position (%f, %f) is not in image. %s" % (ra, dec, c['name']))
 
-                except:
-                    pass
+                    except:
+                        pass
+                else:
+                    tile = t
 
-                if tile is not None:
+                if tile is not None: #break out of catalog search
                     break
+
+            if tile is not None: #break out of tile search
+                break
 
         return tile
 
@@ -1326,27 +1333,50 @@ class SHELA(cat_base.Catalog):
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False):
         l = list()
 
-        tile = self.find_target_tile(ra, dec)
+        tile = self.find_target_tile(ra, dec,verify=False)
 
         if tile is None:
             # problem
             log.error("No appropriate tile found in SHELA for RA,DEC = [%f,%f]" % (ra, dec))
             return None
 
-        for f in self.Filters:
+        if filter:
+            outer = filter
+            inner = self.Filters
+        else:
+            outer = self.Filters
+            inner = None
+
+
+        for f in outer:
             try:
-                i = self.CatalogImages[
-                    next(i for (i, d) in enumerate(self.CatalogImages)
-                         if ((d['filter'] == f) and (d['tile'] == tile)))]
+                if inner and (f not in inner): #if filter list provided but the image is NOT in the filter list go to next one
+                    continue
+
+                try:
+                    i = self.CatalogImages[
+                        next(i for (i, d) in enumerate(self.CatalogImages)
+                             if ((d['filter'] == f) and (d['tile'] == tile)))]
+                except:
+                    i = None
+
+                if i is None:
+                    continue
+
+                cutout = self.get_single_cutout(ra, dec, window, i, aperture)
+
+                if first:
+                    if cutout['cutout'] is not None:
+                        l.append(cutout)
+                        break
+                else:
+                    # if we are not escaping on the first hit, append ALL cutouts (even if no image was collected)
+                    l.append(cutout)
+
             except:
-                i = None
-
-            if i is None:
-                continue
-
-            l.append(self.get_single_cutout(ra,dec,window,i,aperture))
+                log.error("Exception! collecting filter cutout.",exc_info=True)
 
         return l

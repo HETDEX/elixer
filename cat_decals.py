@@ -1037,27 +1037,64 @@ class DECALS(cat_base.Catalog):#Hyper Suprime Cam
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False):
         l = list()
 
         tile, tract = self.find_target_tile(ra, dec)
 
         if tile is None:
             # problem
-            log.error("No appropriate tile found in HSC for RA,DEC = [%f,%f]" % (ra, dec))
+            log.error("No appropriate tile found in DECALS for RA,DEC = [%f,%f]" % (ra, dec))
             return None
 
-        for f in self.Filters:
-            try:
-                i = self.CatalogImages[
-                    next(i for (i, d) in enumerate(self.CatalogImages)
-                         if ((d['filter'] == f) and (d['tile'] == tile)))]
-            except:
-                i = None
+        try:
+            cat_filters = list(set([x['filter'] for x in self.CatalogImages]))
+        except:
+            cat_filters = None
 
-            if i is None:
-                continue
+        if filter:
+            outer = filter
+            inner = cat_filters
+        else:
+            outer = cat_filters
+            inner = None
 
-            l.append(self.get_single_cutout(ra,dec,window,i,aperture))
+        if outer:
+            for f in outer:
+                try:
+                    # if filter list provided but the image is NOT in the filter list go to next one
+                    if inner and (f not in inner):
+                        continue
+
+                    i = self.CatalogImages[
+                        next(i for (i, d) in enumerate(self.CatalogImages)
+                             if ((d['filter'] == f) and (d['tile'] == tile)))]
+
+                    if i is not None:
+                        cutout = self.get_single_cutout(ra, dec, window, i, aperture)
+
+                        if first:
+                            if cutout['cutout'] is not None:
+                                l.append(cutout)
+                                break
+                        else:
+                            # if we are not escaping on the first hit, append ALL cutouts (even if no image was collected)
+                            l.append(cutout)
+                except:
+                    log.error("Exception! collecting image cutouts.", exc_info=True)
+        else:
+            for f in self.Filters:
+                try:
+                    i = self.CatalogImages[
+                        next(i for (i, d) in enumerate(self.CatalogImages)
+                             if ((d['filter'] == f) and (d['tile'] == tile)))]
+                except:
+                    i = None
+
+                if i is None:
+                    continue
+
+                l.append(self.get_single_cutout(ra, dec, window, i, aperture))
 
         return l
+

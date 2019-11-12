@@ -836,10 +836,49 @@ class SDSS(cat_base.Catalog):#SDSS
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=None):
         l = list()
 
-        for f in self.Filters:
-            l.append(self.get_single_cutout(ra,dec,window,i,aperture,filter=f))
+        #filters are fixed
+
+        if filter:
+            outer = filter
+            inner = self.Filters
+        else:
+            outer = self.Filters
+            inner = None
+
+        if outer:
+            for f in outer:
+                try:
+                    # if filter list provided but the image is NOT in the filter list go to next one
+                    if inner and (f not in inner):
+                        continue
+
+                    cutout = self.get_single_cutout(ra, dec, window, None, aperture,filter=f)
+                    if first:
+                        if cutout['cutout'] is not None:
+                                l.append(cutout)
+                                break
+                        else:
+                            # if we are not escaping on the first hit, append ALL cutouts (even if no image was collected)
+                            l.append(cutout)
+                except:
+                    log.error("Exception! collecting image cutouts.", exc_info=True)
+        else:
+            for f in self.Filters:
+                try:
+                    l.append(self.get_single_cutout(ra,dec,window,None,aperture,filter=f))
+                except:
+                    log.error("Exception! collecting image cutouts.", exc_info=True)
+
 
         return l
+
+    # def get_cutouts(self,ra,dec,window,aperture=None):
+    #     l = list()
+    #
+    #     for f in self.Filters:
+    #         l.append(self.get_single_cutout(ra,dec,window,i,aperture,filter=f))
+    #
+    #     return l

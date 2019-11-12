@@ -143,8 +143,41 @@ class CatalogLibrary:
 
         return result
 
+    def get_filters(self,position=None,catalogs=None):
+        '''
+        Get dictionary of available filters per catalog.
 
-    def get_cutouts(self,position,radius,catalogs=None,aperture=None,dynamic=False,nudge=None):
+        :param position: used to select catalog(s) IF catalogs is not specified
+        :param catalogs: look up only those catalogs in this list
+        :return: dictionary of catalog name [key] and list of available catalog filters [value] (at this time there is
+                 no check to see if the position is covered by each filter, only that the catalog has the filter)
+        '''
+
+        filters = {}  # name is the key, filter_list is the value
+
+        try:
+            if catalogs is None:
+                catalogs = self.find_catalogs(position)
+
+            if (catalogs is None) or (len(catalogs) == 0):
+                return []
+
+            # if position:
+            #     ra = position.ra.to_value() #decimal degrees
+            #     dec = position.dec.to_value()
+            # else:
+            #     ra = None
+            #     dec = None
+
+            for c in catalogs:
+                filters[c.name] = c.get_filters(ra=None,dec=None)
+
+        except:
+            log.error("Exception! Unable to get filters.",exc_info=True)
+
+        return filters
+
+    def get_cutouts(self,position,radius,catalogs=None,aperture=None,dynamic=False,nudge=None,filter=None,first=False):
         '''
         Return a list of dictionaries of the FITS cutouts from imaging catalogs
         (does not include objects in those catalogs, just the images)
@@ -162,6 +195,11 @@ class CatalogLibrary:
         :param nudge: optional - if not None, specifies the amount of drift (in x and y in arcsecs) allowed for the
                       center of the aperture to align it with the local 2D Gaussian centroid of the pixel counts. If
                       None or 0.0, the center is not allowed to move and stays on the supplied RA and Dec (position).
+        :param filter: optional - if not None is a LIST of filter name(s) (as strings), specifying which cutouts to get
+                        (can be used with the catalogs parameter)
+        :param first: optional - if True and filter is specified, return only the first cutout found. If filter is specified,
+                        return the first cutout found that matches a filter in the filter list parameter in the order
+                        specified in the list
         :return: list of dictionaries of cutouts and info,
                 one for each matching catalog FITS image that contains the requested coordinate.
                 The dictionary contains the following keys:
@@ -208,7 +246,7 @@ class CatalogLibrary:
         G.NUDGE_MAG_APERTURE_CENTER = nudge
 
         for c in catalogs:
-            cutouts = c.get_cutouts(ra, dec, window=radius*2.,aperture=aperture)
+            cutouts = c.get_cutouts(ra, dec, window=radius*2.,aperture=aperture,filter=filter,first=first)
             # since this is a half-length of a side, the window (or side) is 2x radius
             if (cutouts is not None) and (len(cutouts) > 0):
                 l.extend(cutouts)
