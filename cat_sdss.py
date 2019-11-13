@@ -16,7 +16,7 @@ except:
     import line_prob
     import utilities
 
-
+from astropy.coordinates import SkyCoord
 import os.path as op
 import copy
 import io
@@ -125,8 +125,10 @@ class SDSS(cat_base.Catalog):#SDSS
         self.num_targets = 0
         self.master_cutout = None
 
-    def get_filter_flux(self, df):
+    def get_filters(self,ra=None,dec=None):
+        return ['u','g', 'r', 'i', 'z']
 
+    def get_filter_flux(self, df):
         #todo:
         print("get_filter_flux not defined yet")
         return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
@@ -786,8 +788,8 @@ class SDSS(cat_base.Catalog):#SDSS
         d = {'cutout':None,
              'hdu':None,
              'path':None,
-             'filter':catalog_image['filter'],
-             'instrument':catalog_image['instrument'],
+             'filter':filter,
+             'instrument':'SDSS',
              'mag':None,
              'aperture':None,
              'ap_center': None}
@@ -801,13 +803,17 @@ class SDSS(cat_base.Catalog):#SDSS
             aperture = 0.0
             mag_func = None
 
+        query_radius = max(window*1.5, 30.0)
+
+        pos = SkyCoord(ra,dec,unit='deg')
+
         try:
 
-            log.info("SDSS query (%f,%f) at %f arcsec for band %s ..." % (ra, dec, query_radius, f))
+            log.info("SDSS query (%f,%f) at %f arcsec for band %s ..." % (ra, dec, query_radius, filter))
             hdulist_array = SDSS_API.get_images(coordinates=pos, radius=query_radius * u.arcsec, band=filter)
 
             if hdulist_array is None:
-                log.info("SDSS query (%f,%f) at %f arcsec for band %s returned None" % (ra, dec, query_radius, f))
+                log.info("SDSS query (%f,%f) at %f arcsec for band %s returned None" % (ra, dec, query_radius, filter))
             else:
                 # todo: choose the best image?
                 sci = science_image.science_image(wcs_manual=wcs_manual, wcs_idx=0,
@@ -848,21 +854,26 @@ class SDSS(cat_base.Catalog):#SDSS
             outer = self.Filters
             inner = None
 
+        wild = False
+
         if outer:
             for f in outer:
                 try:
-                    # if filter list provided but the image is NOT in the filter list go to next one
-                    if inner and (f not in inner):
-                        continue
+                    if not wild:  # once '*' is found, all filters match
+                        if f == '*':
+                            wild = True
+                        elif inner and (f not in inner):
+                            # if filter list provided but the image is NOT in the filter list go to next one
+                            continue
 
                     cutout = self.get_single_cutout(ra, dec, window, None, aperture,filter=f)
                     if first:
                         if cutout['cutout'] is not None:
                                 l.append(cutout)
                                 break
-                        else:
-                            # if we are not escaping on the first hit, append ALL cutouts (even if no image was collected)
-                            l.append(cutout)
+                    else:
+                        # if we are not escaping on the first hit, append ALL cutouts (even if no image was collected)
+                        l.append(cutout)
                 except:
                     log.error("Exception! collecting image cutouts.", exc_info=True)
         else:

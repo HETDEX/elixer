@@ -260,6 +260,9 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
         self.num_targets = 0
         self.master_cutout = None
 
+    def get_filters(self,ra=None,dec=None):
+        return ['g', 'r', 'i', 'z', 'y']
+
     def get_filter_flux(self, df):
 
         #todo:
@@ -912,8 +915,8 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
         d = {'cutout':None,
              'hdu':None,
              'path':None,
-             'filter':None,
-             'instrument':None,
+             'filter':filter,
+             'instrument':"PanSTARRS",
              'mag':None,
              'aperture':None,
              'ap_center': None}
@@ -927,7 +930,10 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
             aperture = 0.0
             mag_func = None
 
-        query_radius = window * 1.5
+        if window < 1.0: #window could be in degrees but PanSTARRS wants arcsec
+            query_radius = window * 1.5 * 3600.0
+        else:
+            query_radius = window * 1.5
 
         try:
 
@@ -976,21 +982,26 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
             outer = self.Filters
             inner = None
 
+        wild = False
+
         if outer:
             for f in outer:
                 try:
-                    # if filter list provided but the image is NOT in the filter list go to next one
-                    if inner and (f not in inner):
-                        continue
+                    if not wild:  # once '*' is found, all filters match
+                        if f == '*':
+                            wild = True
+                        elif inner and (f not in inner):
+                            # if filter list provided but the image is NOT in the filter list go to next one
+                            continue
 
                     cutout = self.get_single_cutout(ra, dec, window, None, aperture,filter=f)
                     if first:
                         if cutout['cutout'] is not None:
                                 l.append(cutout)
                                 break
-                        else:
-                            # if we are not escaping on the first hit, append ALL cutouts (even if no image was collected)
-                            l.append(cutout)
+                    else:
+                        # if we are not escaping on the first hit, append ALL cutouts (even if no image was collected)
+                        l.append(cutout)
                 except:
                     log.error("Exception! collecting image cutouts.", exc_info=True)
         else:

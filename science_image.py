@@ -498,6 +498,9 @@ class science_image():
             else:
                 max_aperture = G.FIXED_MAG_APERTURE
 
+            if max_aperture is None: #can happen if called from catalogs and the defaults get overwritten
+                max_aperture = 1.5 #safety check (arcsec)
+
             sky_outer_radius = max_aperture * 10. #this is the maximum it can be
             sky_inner_radius = max_aperture * 5.
         else:

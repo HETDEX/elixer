@@ -196,7 +196,7 @@ class CatalogLibrary:
                       center of the aperture to align it with the local 2D Gaussian centroid of the pixel counts. If
                       None or 0.0, the center is not allowed to move and stays on the supplied RA and Dec (position).
         :param filter: optional - if not None is a LIST of filter name(s) (as strings), specifying which cutouts to get
-                        (can be used with the catalogs parameter)
+                        (can be used with the catalogs parameter). The '*' is the wildcard and will match ANY catalog filter.
         :param first: optional - if True and filter is specified, return only the first cutout found. If filter is specified,
                         return the first cutout found that matches a filter in the filter list parameter in the order
                         specified in the list

@@ -1154,11 +1154,17 @@ class Catalog:
             outer = cat_filters
             inner = None
 
+        wild = False
+
         if outer:
             for f in outer:
                 try:
-                    if inner and (f not in inner):  # if filter list provided but the image is NOT in the filter list go to next one
-                        continue
+                    if not wild:  # once '*' is found, all filters match
+                        if f == '*':
+                            wild = True
+                        elif inner and (f not in inner):
+                            # if filter list provided but the image is NOT in the filter list go to next one
+                            continue
 
                     i = self.CatalogImages[
                         next(i for (i, d) in enumerate(self.CatalogImages)

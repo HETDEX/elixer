@@ -1350,11 +1350,16 @@ class SHELA(cat_base.Catalog):
             outer = self.Filters
             inner = None
 
+        wild = False
 
         for f in outer:
             try:
-                if inner and (f not in inner): #if filter list provided but the image is NOT in the filter list go to next one
-                    continue
+                if not wild: #once '*' is found, all filters match
+                    if f == '*':
+                        wild = True
+                    elif inner and (f not in inner):
+                        #if filter list provided but the image is NOT in the filter list go to next one
+                        continue
 
                 try:
                     i = self.CatalogImages[
