@@ -1130,7 +1130,7 @@ class Catalog:
         #todo: future ... see if ra, dec are in the filter? that could be very time consuming
 
         try:
-            cat_filters = list(set([x['filter'] for x in self.CatalogImages]))
+            cat_filters = list(set([x['filter'].lower() for x in self.CatalogImages]))
         except:
             cat_filters = None
 
@@ -1143,7 +1143,7 @@ class Catalog:
         #not every catalog has a list of filters, and some contain multiples
 
         try:
-            cat_filters = list(set([x['filter'] for x in self.CatalogImages]))
+            cat_filters = list(set([x['filter'].lower() for x in self.CatalogImages]))
         except:
             cat_filters = None
 

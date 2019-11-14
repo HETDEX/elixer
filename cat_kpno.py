@@ -994,7 +994,7 @@ class KPNO(cat_base.Catalog):#Kit Peak
             return None
 
         try:
-            cat_filters = list(set([x['filter'] for x in self.CatalogImages]))
+            cat_filters = list(set([x['filter'].lower() for x in self.CatalogImages]))
         except:
             cat_filters = None
 

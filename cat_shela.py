@@ -1345,7 +1345,7 @@ class SHELA(cat_base.Catalog):
 
         if filter:
             outer = filter
-            inner = self.Filters
+            inner = [x.lower() for x in self.Filters]
         else:
             outer = self.Filters
             inner = None

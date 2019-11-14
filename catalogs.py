@@ -245,6 +245,12 @@ class CatalogLibrary:
             nudge = 0.0
         G.NUDGE_MAG_APERTURE_CENTER = nudge
 
+        if filter: #filternames are are lowercase, so force input to lowercase for matching
+            try:
+                filter = [x.lower() for x in filter]
+            except:
+                pass
+
         for c in catalogs:
             cutouts = c.get_cutouts(ra, dec, window=radius*2.,aperture=aperture,filter=filter,first=first)
             # since this is a half-length of a side, the window (or side) is 2x radius

@@ -1400,7 +1400,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             return None
 
         try:
-            cat_filters = list(set([x['filter'] for x in self.CatalogImages]))
+            cat_filters = list(set([x['filter'].lower() for x in self.CatalogImages]))
         except:
             cat_filters = None
 
