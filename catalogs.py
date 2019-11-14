@@ -181,11 +181,16 @@ class CatalogLibrary:
         '''
         Return a list of dictionaries of the FITS cutouts from imaging catalogs
         (does not include objects in those catalogs, just the images).
+
         position and one of radius or side MUST be provided
 
+        0.5 arcsecs to 0.5 degrees
+
         :param position: astropy SkyCoord
-        :param radius: half-side of square cutout in arcsecs multiplied by 1.5 (returned (square) cutout size is radius x 3)
-        :param side: use instead of (takes priority over) radius and is the width of the side of square cutout requested
+        :param radius: half-side of square cutout multiplied by 1.5 (returned (square) cutout size is radius x 3)
+                       units are assumed to be arcsecs if the value is greater than 0.5 and in decimal degrees otherwise
+        :param side: may be used instead of (takes priority over) radius and is the width of the side of square cutout
+                     requested. Units are assumed to be arcsecs if the value is greater than 0.5 and in decimal degrees otherwise
         :param catalogs: optional list of catalogs to search (if not provided, searches all)
         :param aperture: optional aperture radius in arcsecs inside which to calcuate an AB magnitude
                           note: only returned IF the associated image has a magnitude function defined (None, otherwise)
@@ -215,6 +220,8 @@ class CatalogLibrary:
                 'mag' = the calculated magnitude within the aperture radius if a conversion is available and aperture
                         was specified
                 'aperture' = the aperture radius for the magnitude
+                'ap_center' = the displacment of the center of the aperture from the center of the image (if 'nudge' was
+                              specified)
         '''
 
         if catalogs is None:
@@ -225,7 +232,7 @@ class CatalogLibrary:
             return []
 
         if not (side or radius):
-            log.error("Insufficient information to process. Neither side or radius specified.")
+            log.error("Insufficient information to process. Neither side nor radius specified.")
             return []
 
         if side:
