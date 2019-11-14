@@ -177,13 +177,15 @@ class CatalogLibrary:
 
         return filters
 
-    def get_cutouts(self,position,radius,catalogs=None,aperture=None,dynamic=False,nudge=None,filter=None,first=False):
+    def get_cutouts(self,position,radius=None,side=None,catalogs=None,aperture=None,dynamic=False,nudge=None,filter=None,first=False):
         '''
         Return a list of dictionaries of the FITS cutouts from imaging catalogs
-        (does not include objects in those catalogs, just the images)
+        (does not include objects in those catalogs, just the images).
+        position and one of radius or side MUST be provided
 
         :param position: astropy SkyCoord
-        :param radius: half-side of square cutout in arcsecs
+        :param radius: half-side of square cutout in arcsecs multiplied by 1.5 (returned (square) cutout size is radius x 3)
+        :param side: use instead of (takes priority over) radius and is the width of the side of square cutout requested
         :param catalogs: optional list of catalogs to search (if not provided, searches all)
         :param aperture: optional aperture radius in arcsecs inside which to calcuate an AB magnitude
                           note: only returned IF the associated image has a magnitude function defined (None, otherwise)
@@ -219,7 +221,15 @@ class CatalogLibrary:
             catalogs = self.find_catalogs(position)
 
         if (catalogs is None) or (len(catalogs) == 0):
+            log.error("No catalogs available.")
             return []
+
+        if not (side or radius):
+            log.error("Insufficient information to process. Neither side or radius specified.")
+            return []
+
+        if side:
+            radius = side/3.0
 
         ra = position.ra.to_value() #decimal degrees
         dec = position.dec.to_value()
