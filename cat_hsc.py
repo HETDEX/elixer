@@ -1399,29 +1399,31 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             log.error("No appropriate tile found in HSC for RA,DEC = [%f,%f]" % (ra, dec))
             return None
 
-        try:
-            cat_filters = list(set([x['filter'].lower() for x in self.CatalogImages]))
-        except:
-            cat_filters = None
+        # try:
+        #     #cat_filters = list(set([x['filter'].lower() for x in self.CatalogImages]))
+        #     cat_filters = list(dict((x['filter'], {}) for x in self.CatalogImages).keys())
+        # except:
+        #     cat_filters = None
 
         if filter:
             outer = filter
-            inner = cat_filters
+            inner = [x.lower() for x in self.Filters]
         else:
-            outer = cat_filters
+            outer = [x.lower() for x in self.Filters]
             inner = None
 
-        wild = False
+        wild_filters = iter([x.lower() for x in self.Filters])
 
         if outer:
             for f in outer:
                 try:
-                    if not wild:  # once '*' is found, all filters match
-                        if f == '*':
-                            wild = True
-                        elif inner and (f not in inner):
-                            # if filter list provided but the image is NOT in the filter list go to next one
-                            continue
+                    if f == '*':
+                        f = next(wild_filters, None)
+                        if f is None:
+                            break
+                    elif inner and (f not in inner):
+                        # if filter list provided but the image is NOT in the filter list go to next one
+                        continue
 
                     i = self.CatalogImages[
                         next(i for (i, d) in enumerate(self.CatalogImages)

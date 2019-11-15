@@ -1141,9 +1141,9 @@ class Catalog:
         l = list()
 
         #not every catalog has a list of filters, and some contain multiples
-
         try:
-            cat_filters = list(set([x['filter'].lower() for x in self.CatalogImages]))
+            cat_filters = list(dict((x['filter'], {}) for x in self.CatalogImages).keys())
+            #cat_filters = list(set([x['filter'].lower() for x in self.CatalogImages]))
         except:
             cat_filters = None
 
@@ -1154,20 +1154,21 @@ class Catalog:
             outer = cat_filters
             inner = None
 
-        wild = False
+        wild_filters = iter(cat_filters)
 
         if outer:
             for f in outer:
                 try:
-                    if not wild:  # once '*' is found, all filters match
-                        if f == '*':
-                            wild = True
-                        elif inner and (f not in inner):
-                            # if filter list provided but the image is NOT in the filter list go to next one
-                            continue
+                    if f == '*':
+                        f = next(wild_filters, None)
+                        if f is None:
+                            break
+                    elif inner and (f not in inner):
+                        # if filter list provided but the image is NOT in the filter list go to next one
+                        continue
 
                     i = self.CatalogImages[
-                        next(i for (i, d) in enumerate(self.CatalogImages)
+                            next(i for (i, d) in enumerate(self.CatalogImages)
                              if ((d['filter'] == f)))]
 
                     cutout = self.get_single_cutout(ra, dec, window, i, aperture)

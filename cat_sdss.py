@@ -854,17 +854,18 @@ class SDSS(cat_base.Catalog):#SDSS
             outer = self.Filters
             inner = None
 
-        wild = False
+        wild_filters = iter(self.Filters)
 
         if outer:
             for f in outer:
                 try:
-                    if not wild:  # once '*' is found, all filters match
-                        if f == '*':
-                            wild = True
-                        elif inner and (f not in inner):
-                            # if filter list provided but the image is NOT in the filter list go to next one
-                            continue
+                    if f == '*':
+                        f = next(wild_filters, None)
+                        if f is None:
+                            break
+                    elif inner and (f not in inner):
+                        # if filter list provided but the image is NOT in the filter list go to next one
+                        continue
 
                     cutout = self.get_single_cutout(ra, dec, window, None, aperture,filter=f)
                     if first:
