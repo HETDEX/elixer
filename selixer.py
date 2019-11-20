@@ -150,7 +150,7 @@ elif hostname == "wrangler":
     else:
         MAX_DETECTS_PER_CPU = 50
         MAX_TASKS = 10000 #20*36=720, so 720 in one pass; as "dispatch" or line in .run file finishes, the next is picked up
-        MAX_NODES = 36
+        MAX_NODES = 32
         MAX_TASKS_PER_NODE = 20 #need extra memory (128GB/20 instead of 128GB/24)
 
     time = "00:59:59"
@@ -558,7 +558,7 @@ if not time_set: #update time
             mult = 1.0
 
 
-        time = str(timedelta(minutes=TIME_OVERHEAD + MAX_TIME_PER_TASK * mx * mult))
+        time = str(timedelta(minutes=int(TIME_OVERHEAD + MAX_TIME_PER_TASK * mx * mult)))
         print("--time %s" %time)
 
     except Exception as e:
