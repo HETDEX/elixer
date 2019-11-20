@@ -1952,7 +1952,11 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
 
 
         #plot with gridspec
-        fig = plt.figure(facecolor='black',constrained_layout=False)#,figsize=(2,3)) #x,y or cols, rows
+        #background color requested
+        #HEX: 1C1C1E
+        #RGB: 28, 28, 30
+        #RGBA: 26, 28, 30, 1
+        fig = plt.figure(facecolor='#1c1c1e',constrained_layout=False)#,figsize=(2,3)) #x,y or cols, rows
         plt.subplots_adjust(wspace=0, hspace=0)
         #gs1 = fig.add_gridspec(ncols=1,nrows=1,figure=fig,left=0.02, right=0.30, top=0.90, bottom=0.30, wspace=0.01)
         #plt.subplots_adjust(left=0.00, right=0.95, top=0.95, bottom=0.0)
