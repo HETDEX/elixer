@@ -477,7 +477,8 @@ class science_image():
 
 
         details = {'catalog_name':None,'filter_name':None,'ra':None,'dec':None,'radius':None,
-                   'mag':None,'mag_err':None, 'area_pix':None,'sky_area_pix':None,
+                   'mag':None,'mag_err':None, 'mag_bright':None,'mag_faint':None,
+                   'area_pix':None,'sky_area_pix':None,
                    'aperture_counts':None, 'sky_counts':None, 'sky_average':None,
                    'aperture_eqw_rest_lya':None,'aperture_plae':None}
 
@@ -501,8 +502,10 @@ class science_image():
             if max_aperture is None: #can happen if called from catalogs and the defaults get overwritten
                 max_aperture = 1.5 #safety check (arcsec)
 
-            sky_outer_radius = max_aperture * 10. #this is the maximum it can be
-            sky_inner_radius = max_aperture * 5.
+            sky_outer_radius = max_aperture * 4.0#10. #this is the maximum it can be
+            sky_inner_radius = max_aperture * 2.0#5.
+            #so ... 4**2 - 2** = 16-4 = 12x sky pixels than aperture pixels at reasonably localized (assuming
+            #point sources only)
         else:
             radius = 0.0
             sky_outer_radius = 0.
@@ -1122,8 +1125,14 @@ class science_image():
 
                     #replace with biweight "average"
                     bw_cen = biweight.biweight_location(annulus_data_1d)
+                    bw_scale = biweight.biweight_scale(annulus_data_1d)
                     sky_pix = len(annulus_data_1d)
                     sky_avg = bw_cen
+                    #set sky N to number of pixels within 1 sd (or bw_scale, in this case)
+                    #not strictly correct, but we are not including other error sources so this
+                    #will nudge toward a larger error (which would be more appropriate)
+                    N = len(np.where(abs(annulus_data_1d-bw_cen) < bw_scale)[0])
+                    sky_err = bw_scale/np.sqrt(N)
 
 
                     sky_cts = sky_avg * source_aperture_area
@@ -1132,6 +1141,17 @@ class science_image():
                     #re-compute the magnitude
                     base_mag = mag
                     sky_mag = mag_func(counts,cutout,self.headers)
+
+                    sky_mag_bright = mag_func(base_counts - (sky_avg - sky_err) * source_aperture_area,
+                             cutout, self.headers)
+
+                    sky_mag_faint = mag_func(base_counts - (sky_avg + sky_err) * source_aperture_area,
+                             cutout, self.headers)
+
+                    if sky_mag_faint < 99:
+                        mag_err = max((sky_mag_faint-sky_mag),(sky_mag-sky_mag_bright))
+                    else:
+                        mag_err = sky_mag-sky_mag_bright
 
                     #todo: temporary
                     if False:
@@ -1171,6 +1191,9 @@ class science_image():
                     details['sky_average'] = sky_avg
                     details['sky_counts'] = sky_cts
                     details['mag'] = mag
+                    details['mag_err'] = mag_err
+                    details['mag_bright'] = sky_mag_bright
+                    details['mag_faint'] = sky_mag_faint
 
                 except:
                     #print("Sky Mask Problem ....")

@@ -13,7 +13,7 @@ Daniel Farrow 2018 (MPE)
 from __future__ import absolute_import
 
 import json
-from numpy import log, exp, sqrt, square, copy, log10, isfinite, digitize, array, zeros, trapz
+from numpy import log, exp, sqrt, square, copy, log10, isfinite, digitize, array, zeros, trapz, isnan
 from numpy.random import uniform, seed
 from scipy.integrate import quad
 from scipy.interpolate import interp1d, RegularGridInterpolator 
@@ -80,12 +80,12 @@ class InterpolatedEW(object):
          znew = copy(z)
          ewnew = copy(ew)
 
-         znew[z < self.minz] = self.minz
-         znew[z > self.maxz] = self.maxz
+         znew[z < self.minz] = 1.00001*self.minz
+         znew[z > self.maxz] = 0.99999*self.maxz
 
-         ewnew[ew < self.minew] = self.minew
-         ewnew[ew > self.maxew] = self.maxew
-
+         ewnew[ew < self.minew] = 1.00001*self.minew
+         ewnew[ew > self.maxew] = 0.99999*self.maxew
+ 
          interp_vals = self.interpolator((znew, log10(ewnew)))
 
          return interp_vals

@@ -168,3 +168,14 @@ def is_in_ellipse(xp,yp,xc,yc,d,D,angle):
         return True
     else:
         return False
+
+def saferound(value,precision,fail=0):
+    try:
+        if value is None:
+            return fail
+        elif np.isnan(value):
+            return fail
+        else:
+            return np.round(value,precision)
+    except:
+        return fail

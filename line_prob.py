@@ -211,7 +211,7 @@ def fiber_area_in_sqdeg(num_fibers=1):
 
 def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_obs=None, which_color=None, addl_wavelengths=None,
              addl_fluxes=None,addl_errors=None, sky_area=None, cosmo=None, lae_priors=None, ew_case=None, W_0=None,
-             z_OII=None, sigma=None):
+             z_OII=None, sigma=None,estimate_error=False):
 
 
 #temporarary ... call both and compare
@@ -238,8 +238,8 @@ def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_
             log.warning("Exception loading LAE/OII discriminator config",exc_info=True)
             print("Exception loading LAE/OII discriminator config")
 
-    posterior_odds = 0.0
-    prob_lae_given_data = 0.0
+    # posterior_odds = 0.0
+    # prob_lae_given_data = 0.0
 
     #build up parameters (need to be numpy arrays for the call)
     ra = None #have no meaning in this case? could set to [100.0] and [0.0] per example?
@@ -304,36 +304,54 @@ def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_
                     break
     except:
         log.error("Exception building extra line fluxes in line_prob.py.", exc_info=True)
-        return 0,0,0
+        if estimate_error:
+            return 0,0,0,{}
+        else:
+            return 0,0,0
+
+    plae_errors = {} #call classifier multiple times and get an error estimate on the PLAE/POII ratio
+
+    #at least for now, just call for EqW ... that is the biggest error source
+    #flux_array_range = [lineFlux]
+
+    if estimate_error and ew_obs_err:
+        ew_list = [ew_obs,ew_obs-ew_obs_err,ew_obs+ew_obs_err] # so: value, -error, +error
+    else:
+        ew_list = [ew_obs]
+
+    posterior_odds_list = []
+    prob_lae_given_data_list = []
+
+    for e in ew_list:
+        try:
+            posterior_odds, prob_lae_given_data = LineClassifierPro.source_prob(UNIVERSE_CONFIG,
+                                                          np.array([ra]), np.array([dec]), np.array([z_LyA]),
+                                                          np.array([lineFlux]), np.array([lineFlux_err]),
+                                                          np.array([e]), np.array([ew_obs_err]),
+                                                          c_obs=None, which_color=None,
+                                                          addl_fluxes=np.array(extra_fluxes),
+                                                          addl_fluxes_error=np.array(extra_fluxes_err),
+                                                          addl_line_names=np.array(extra_fluxes_name),
+                                                          flim_file=FLUX_LIMIT_FN,extended_output=False)
 
 
-    try:
-        posterior_odds, prob_lae_given_data = LineClassifierPro.source_prob(UNIVERSE_CONFIG,
-                                                      np.array([ra]), np.array([dec]), np.array([z_LyA]),
-                                                      np.array([lineFlux]), np.array([lineFlux_err]),
-                                                      np.array([ew_obs]), np.array([ew_obs_err]),
-                                                      c_obs=None, which_color=None,
-                                                      addl_fluxes=np.array(extra_fluxes),
-                                                      addl_fluxes_error=np.array(extra_fluxes_err),
-                                                      addl_line_names=np.array(extra_fluxes_name),
-                                                      flim_file=FLUX_LIMIT_FN,extended_output=False)
+            if isinstance(posterior_odds,list) or isinstance(posterior_odds,np.ndarray):
+                if len(posterior_odds) == 1:
+                    posterior_odds = posterior_odds[0]
+                else:
+                    log.info("Weird. posterior_odds %s" %(posterior_odds))
 
+            if isinstance(prob_lae_given_data,list) or isinstance(prob_lae_given_data,np.ndarray):
+                if len(prob_lae_given_data) == 1:
+                    prob_lae_given_data = prob_lae_given_data[0]
+                else:
+                    log.info("Weird. prob_lae_given_data %s" %(prob_lae_given_data))
 
-        if isinstance(posterior_odds,list) or isinstance(posterior_odds,np.ndarray):
-            if len(posterior_odds) == 1:
-                posterior_odds = posterior_odds[0]
-            else:
-                log.info("Weird. posterior_odds %s" %(posterior_odds))
+            posterior_odds_list.append(posterior_odds)
+            prob_lae_given_data_list.append(prob_lae_given_data)
 
-        if isinstance(prob_lae_given_data,list) or isinstance(prob_lae_given_data,np.ndarray):
-            if len(prob_lae_given_data) == 1:
-                prob_lae_given_data = prob_lae_given_data[0]
-            else:
-                log.info("Weird. prob_lae_given_data %s" %(prob_lae_given_data))
-
-
-    except:
-        log.error("Exception calling LineClassifierPro::source_prob()", exc_info=True)
+        except:
+            log.error("Exception calling LineClassifierPro::source_prob()", exc_info=True)
 
     ###############################
     #just testing ....
@@ -384,15 +402,24 @@ def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_
     # end testing
     ###############################
 
+    pogd_list = []
+    plgd_list = []
+    ratio_LAE_list = []
 
-    if (posterior_odds is not None) and (posterior_odds != 0):
-        pogd = prob_lae_given_data / posterior_odds
-    else:
-        pogd = 0.
+    for posterior_odds in posterior_odds_list:
 
-    plgd = np.float(prob_lae_given_data)
-    ratio_LAE = np.float(min(MAX_PLAE_POII, posterior_odds))
-    ratio_LAE = np.float(max(ratio_LAE,MIN_PLAE_POII))
+        if (posterior_odds is not None) and (posterior_odds != 0):
+            pogd = prob_lae_given_data / posterior_odds
+        else:
+            pogd = 0.
+
+        plgd = np.float(prob_lae_given_data)
+        ratio_LAE = np.float(min(MAX_PLAE_POII, posterior_odds))
+        ratio_LAE = np.float(max(ratio_LAE,MIN_PLAE_POII))
+
+        ratio_LAE_list.append(ratio_LAE)
+        plgd_list.append(plgd)
+        pogd_list.append(pogd)
 
     #temporary -- compare results and note if the new method disagrees with the old
     # if old_ratio_LAE + ratio_LAE > 0.2: #if they are both small, don't bother
@@ -404,5 +431,7 @@ def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_
     #         log.warning("***" + msg)
     #         #print(msg)
 
-
-    return ratio_LAE, plgd, pogd
+    if estimate_error:
+        return ratio_LAE_list[0], plgd_list[0], pogd_list[0], {'ratio':ratio_LAE_list,'plgd':plgd_list,'pogd':pogd_list}
+    else:
+        return ratio_LAE_list[0], plgd_list[0], pogd_list[0]

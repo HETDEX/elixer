@@ -1,5 +1,12 @@
 changes to elixer by version
 
+1.8.0a3 [2019-11-22]
+* repeat calls to generate PLAE/POII for range of EW values (nominal, min, max) and
+ report in HDF5
+* changed sky annulus for sky-subtraction from 5x-10x to 2x-4x of the aperture radius
+  (was previously far too large and maybe not local enough)
+
+
 1.8.0a2 [2019-11-20]
 * changed background of _mini.png to dark gray (0x1c1c1e)
 * add "low" to set_io_param for ooops in SLURM file

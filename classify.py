@@ -14,7 +14,7 @@ log.setlevel(G.logging.DEBUG)
 G.logging.basicConfig(filename="elixer_classify.log", level=G.LOG_LEVEL, filemode='w')
 
 def plae_poii(line_wave,line_flux,line_flux_err, eqw_obs, eqw_obs_err,
-              addl_wave = [], addl_flux = [], addl_flux_err = []):
+              addl_wave = [], addl_flux = [], addl_flux_err = [], estimate_error=False):
     """
     Returns the Bayesian P(LAE)/P(OII) from EW distributions of LAEs and OII galaxies from
     Leung+ 2017
@@ -32,22 +32,39 @@ def plae_poii(line_wave,line_flux,line_flux_err, eqw_obs, eqw_obs_err,
     :param addl_wave: array of additional emission line wavelengths in angstroms
     :param addl_flux: array of additional emission line fluxes (cgs)
     :param addl_flux_err: array of additional emission line flux errors (cgs)
+    :param estimate_error: optional boolean. If TRUE, an error estimate on the PLAE/POII ratio will be made
+                           and an extra return will be populated (plae_details)
     :return: P(LAE)/P(OII), P(LAE|data), P(OII|data) a zero value is an unknown
+             plae_details (optional) dictionary if estimate_error is True
+                key:"ratio"  value: list of floats [PLAE/POII, Minimum PLAE/POII, Maximum PLAE/POII]
+                key: "plgd"  value: list of floats [P(LAE|Data), Minimum P(LAE|Data), Maximum P(LAE|Data)]
+                key: "pogd"  value: list of floats [P(OII|Data), Minimum P(OII|Data), Maximum P(OII|Data)]
     """
 
 
-    ratio, p_lae, p_oii = line_prob.prob_LAE(wl_obs=line_wave,
-                                             lineFlux=line_flux,
-                                             lineFlux_err=line_flux_err,
-                                             ew_obs=eqw_obs,
-                                             ew_obs_err=eqw_obs_err,
-                                             addl_wavelengths=addl_wave,
-                                             addl_fluxes=addl_flux,
-                                             addl_errors=addl_flux_err)
+    if estimate_error:
+        ratio, p_lae, p_oii, plae_details = line_prob.prob_LAE(wl_obs=line_wave,
+                                                 lineFlux=line_flux,
+                                                 lineFlux_err=line_flux_err,
+                                                 ew_obs=eqw_obs,
+                                                 ew_obs_err=eqw_obs_err,
+                                                 addl_wavelengths=addl_wave,
+                                                 addl_fluxes=addl_flux,
+                                                 addl_errors=addl_flux_err,
+                                                 estimate_error=True)
+        return ratio, p_lae, p_oii, plae_details
+    else:
+        ratio, p_lae, p_oii = line_prob.prob_LAE(wl_obs=line_wave,
+                                                 lineFlux=line_flux,
+                                                 lineFlux_err=line_flux_err,
+                                                 ew_obs=eqw_obs,
+                                                 ew_obs_err=eqw_obs_err,
+                                                 addl_wavelengths=addl_wave,
+                                                 addl_fluxes=addl_flux,
+                                                 addl_errors=addl_flux_err,
+                                                 estimate_error=False)
 
-
-    #todo: any logging, etc?
-    return ratio, p_lae, p_oii
+        return ratio, p_lae, p_oii
 
 
 

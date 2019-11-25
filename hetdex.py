@@ -555,6 +555,7 @@ class DetObj:
         self.p_lae = None #from Andrew Leung
         self.p_oii = None
         self.p_lae_oii_ratio = None
+        self.p_lae_oii_ratio_range = None
 
         self.bad_amp_dict = None
 
@@ -564,6 +565,7 @@ class DetObj:
         self.sdss_cgs_cont_unc = None
         self.using_sdss_gmag_ew = False
         self.sdss_gmag_p_lae_oii_ratio = None
+        self.sdss_gmag_p_lae_oii_ratio_range = None
 
         self.duplicate_fibers_removed = 0 # -1 is detected, but not removed, 0 = none found, 1 = detected and removed
 
@@ -2240,6 +2242,7 @@ class DetObj:
             self.p_lae = self.spec_obj.p_lae
             self.p_oii = self.spec_obj.p_oii
             self.p_lae_oii_ratio = self.spec_obj.p_lae_oii_ratio
+            self.p_lae_oii_ratio_range = self.spec_obj.p_lae_oii_ratio_range
 
         #otherwise, build with what we've got (note: does not have additional lines, in this case)
         elif self.w < 10: #really < 3500 is nonsense
@@ -2249,7 +2252,7 @@ class DetObj:
             self.p_oii = -1
             self.p_lae_oii_ratio = -1
         else:
-            ratio, self.p_lae, self.p_oii = line_prob.prob_LAE(wl_obs=self.w,
+            ratio, self.p_lae, self.p_oii, plae_errors = line_prob.prob_LAE(wl_obs=self.w,
                                                                lineFlux=self.estflux,
                                                                lineFlux_err=self.estflux_unc,
                                                                ew_obs=self.eqw_obs,
@@ -2259,7 +2262,7 @@ class DetObj:
                                                                sky_area=None,
                                                                cosmo=None, lae_priors=None,
                                                                ew_case=None, W_0=None,
-                                                               z_OII=None, sigma=None)
+                                                               z_OII=None, sigma=None,estimate_error=True)
             if (self.p_lae is not None) and (self.p_lae > 0.0):
                 if (self.p_oii is not None) and (self.p_oii > 0.0):
                     self.p_lae_oii_ratio = self.p_lae /self.p_oii
@@ -2269,6 +2272,12 @@ class DetObj:
                 self.p_lae_oii_ratio = 0.0
 
             self.p_lae_oii_ratio = min(line_prob.MAX_PLAE_POII,self.p_lae_oii_ratio) #cap to MAX
+            try:
+                if plae_errors:
+                        self.p_lae_oii_ratio_range = plae_errors['ratio']
+            except:
+                pass
+
 
         #check the sdss_gmag version
         if self.sdss_gmag_p_lae_oii_ratio is None:
@@ -2286,7 +2295,7 @@ class DetObj:
 
 
 
-                sdss_ratio, sdss_p_lae, sdss_p_oii = line_prob.prob_LAE(wl_obs=self.w,
+                sdss_ratio, sdss_p_lae, sdss_p_oii, plae_errors = line_prob.prob_LAE(wl_obs=self.w,
                                                                    lineFlux=self.estflux,
                                                                    lineFlux_err=self.estflux_unc,
                                                                    ew_obs=self.estflux/self.sdss_cgs_cont,
@@ -2298,8 +2307,15 @@ class DetObj:
                                                                    sky_area=None,
                                                                    cosmo=None, lae_priors=None,
                                                                    ew_case=None, W_0=None,
-                                                                   z_OII=None, sigma=None)
+                                                                   z_OII=None, sigma=None, estimate_error=True)
                 self.sdss_gmag_p_lae_oii_ratio = sdss_ratio
+                try:
+                    if plae_errors and (len(plae_errors['ratio'])==3):
+                        self.sdss_gmag_p_lae_oii_ratio_range = plae_errors['ratio']
+                except:
+                    pass
+
+
             except:
                 log.info("Exception in hetdex.py DetObj::get_probabilities() for sdss_gmag PLAE/POII: ", exc_info=True)
 
@@ -3915,10 +3931,10 @@ class HETDEX:
 
         if not G.ZOO:
             if e.p_lae_oii_ratio is not None:
-                title += "\nP(LAE)/P(OII) = %0.4g" % (e.p_lae_oii_ratio)
+                title += "\nP(LAE)/P(OII) = %.4g" % round(e.p_lae_oii_ratio,3)
 
                 if (not e.using_sdss_gmag_ew) and (e.sdss_gmag_p_lae_oii_ratio is not None):
-                    title += " (gmag %0.4g)" % (e.sdss_gmag_p_lae_oii_ratio)
+                    title += " (gmag %.4g)" % round(e.sdss_gmag_p_lae_oii_ratio,3)
 
                 if G.DISPLAY_PSEUDO_COLOR:
                     if e.rvb is not None:

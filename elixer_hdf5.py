@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.0.3' #catalog version ... can merge if version numbers are the same or in special circumstances
+__version__ = '0.0.4' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -84,7 +84,11 @@ class Detections(tables.IsDescription):
     eqw_rest_lya_sdss_g = tables.Float32Col(dflt=UNSET_FLOAT)
     eqw_rest_lya_sdss_g_err = tables.Float32Col(dflt=UNSET_FLOAT)
     plae_line = tables.Float32Col(dflt=UNSET_FLOAT)
+    plae_line_max = tables.Float32Col(dflt=UNSET_FLOAT)
+    plae_line_min = tables.Float32Col(dflt=UNSET_FLOAT)
     plae_sdss_g = tables.Float32Col(dflt=UNSET_FLOAT)
+    plae_sdss_g_max = tables.Float32Col(dflt=UNSET_FLOAT)
+    plae_sdss_g_min = tables.Float32Col(dflt=UNSET_FLOAT)
 
     #ELiXer solution based on extra lines
     multiline_flag = tables.BoolCol(dflt=False) #True if s a single "good" solution
@@ -145,6 +149,8 @@ class Aperture(tables.IsDescription):
     aperture_eqw_rest_lya = tables.Float32Col(dflt=UNSET_FLOAT)
     aperture_eqw_rest_lya_err = tables.Float32Col(dflt=UNSET_FLOAT)
     aperture_plae = tables.Float32Col(dflt=UNSET_FLOAT)
+    aperture_plae_max = tables.Float32Col(dflt=UNSET_FLOAT)
+    aperture_plae_min = tables.Float32Col(dflt=UNSET_FLOAT)
     aperture_counts = tables.Float32Col(dflt=UNSET_FLOAT)
     sky_counts = tables.Float32Col(dflt=UNSET_FLOAT)
     sky_average = tables.Float32Col(dflt=UNSET_FLOAT)
@@ -169,6 +175,8 @@ class CatalogMatch(tables.IsDescription):
     cat_eqw_rest_lya = tables.Float32Col(dflt=UNSET_FLOAT)
     cat_eqw_rest_lya_err = tables.Float32Col(dflt=UNSET_FLOAT)
     cat_plae = tables.Float32Col(dflt=UNSET_FLOAT)
+    cat_plae_max = tables.Float32Col(dflt=UNSET_FLOAT)
+    cat_plae_min = tables.Float32Col(dflt=UNSET_FLOAT)
 
     #maybe add in the PDF of the photz ... not sure how big
     #to make the columns ... needs to be fixed, but might
@@ -467,6 +475,22 @@ def append_entry(fileh,det,overwrite=False):
 
         row['plae_line'] = det.p_lae_oii_ratio
         row['plae_sdss_g'] = det.sdss_gmag_p_lae_oii_ratio
+
+        try:
+            if det.p_lae_oii_ratio_range:
+                row['plae_line_min'] = det.p_lae_oii_ratio_range[1]
+                row['plae_line_max'] = det.p_lae_oii_ratio_range[2]
+        except:
+            pass
+
+        try:
+            if det.sdss_gmag_p_lae_oii_ratio_range:
+                row['plae_sdss_g_min'] = det.sdss_gmag_p_lae_oii_ratio_range[1]
+                row['plae_sdss_g_max'] = det.sdss_gmag_p_lae_oii_ratio_range[2]
+        except:
+            pass
+
+
         #
         if (det.spec_obj is not None) and (det.spec_obj.solutions is not None) and (len(det.spec_obj.solutions) > 0):
             row['multiline_flag'] = det.multiline_z_minimum_flag
@@ -581,14 +605,22 @@ def append_entry(fileh,det,overwrite=False):
                 row['aperture_dec'] = d['dec']
                 row['aperture_radius'] = d['radius']
                 row['aperture_mag']=d['mag']
-                #row['aperture_mag_err'] = d['']
+                row['aperture_mag_err'] = d['mag_err']
                 row['aperture_area_pix'] = d['area_pix']
                 row['sky_area_pix'] = d['sky_area_pix']
                 row['aperture_counts'] = d['aperture_counts']
                 row['sky_counts'] = d['sky_counts']
                 row['sky_average'] = d['sky_average']
                 row['aperture_eqw_rest_lya'] = d['aperture_eqw_rest_lya']
+                row['aperture_eqw_rest_lya_err'] = d['aperture_eqw_rest_lya_err']
                 row['aperture_plae'] = d['aperture_plae']
+                try: #key might not exist
+                    row['aperture_plae_max'] = d['aperture_plae_max']
+                    row['aperture_plae_min'] = d['aperture_plae_min']
+                except:
+                    pass
+
+
 
                 row.append()
                 atb.flush()
@@ -621,6 +653,12 @@ def append_entry(fileh,det,overwrite=False):
                 row['cat_mag'] = d.bid_mag
                 row['cat_mag_err'] = 0.5 * (abs(d.bid_mag_err_bright) + abs(d.bid_mag_err_faint))
                 row['cat_plae'] = d.p_lae_oii_ratio
+
+                try: #var might not exist
+                    row['cat_plae_max'] = d.p_lae_oii_ratio_max
+                    row['cat_plae_min'] = d.p_lae_oii_ratio_min
+                except:
+                    pass
 
                 if d.bid_ew_lya_rest is not None:
                     row['cat_eqw_rest_lya'] = d.bid_ew_lya_rest

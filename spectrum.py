@@ -2274,6 +2274,7 @@ class Spectrum:
         self.p_lae = None
         self.p_oii = None
         self.p_lae_oii_ratio = None
+        self.p_lae_oii_ratio_range = None #[ratio, max ratio, min ratio]
 
         self.identifier = None #optional string to help identify in the log
         self.plot_dir = None
@@ -2851,7 +2852,7 @@ class Spectrum:
         #care only about the LAE and OII solutions:
         #todo: find the LyA and OII options in the solution list and use to fill in addl_fluxes?
 
-        self.p_lae_oii_ratio, self.p_lae, self.p_oii = line_prob.prob_LAE(wl_obs=self.central,
+        self.p_lae_oii_ratio, self.p_lae, self.p_oii, plae_errors = line_prob.prob_LAE(wl_obs=self.central,
                                                            lineFlux=self.estflux,
                                                            lineFlux_err=self.estflux_unc,
                                                            ew_obs=self.eqw_obs,
@@ -2863,7 +2864,13 @@ class Spectrum:
                                                            sky_area=None,
                                                            cosmo=None, lae_priors=None,
                                                            ew_case=None, W_0=None,
-                                                           z_OII=None, sigma=None)
+                                                           z_OII=None, sigma=None, estimate_error=True)
+
+        try:
+            if plae_errors:
+                self.p_lae_oii_ratio_range = plae_errors['ratio']
+        except:
+            pass
         # if (self.p_lae is not None) and (self.p_lae > 0.0):
         #     if (self.p_oii is not None) and (self.p_oii > 0.0):
         #         self.p_lae_oii_ratio = self.p_lae /self.p_oii

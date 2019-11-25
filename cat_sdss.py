@@ -370,8 +370,33 @@ class SDSS(cat_base.Catalog):#SDSS
 
                     if mag < 99:
                         bid_target.bid_flux_est_cgs = self.obs_mag_to_cgs_flux(mag, target_w)
+                        try:
+                            flux_faint = None
+                            flux_bright = None
+
+                            if details['mag_faint'] < 99:
+                                flux_faint = self.obs_mag_to_cgs_flux(details['mag_faint'], target_w)
+
+                            if details['mag_bright'] < 99:
+                                flux_bright = self.obs_mag_to_cgs_flux(details['mag_bright'], target_w)
+
+                            if flux_bright and flux_faint:
+                                bid_target.bid_flux_est_cgs_unc = max((bid_target.bid_flux_est_cgs - flux_faint),
+                                                                      (flux_bright - bid_target.bid_flux_est_cgs))
+                            elif flux_bright:
+                                bid_target.bid_flux_est_cgs_unc = flux_bright - bid_target.bid_flux_est_cgs
+
+                        except:
+                            pass
+
                     else:
                         bid_target.bid_flux_est_cgs = cont_est
+
+                    try:
+                        bid_target.bid_mag_err_bright = mag - details['mag_bright']
+                        bid_target.bid_mag_err_faint = details['mag_faint'] - mag
+                    except:
+                        pass
 
                     bid_target.add_filter("SDSS", f, bid_target.bid_flux_est_cgs, -1)
 
@@ -401,7 +426,7 @@ class SDSS(cat_base.Catalog):#SDSS
                     except:
                         ew_obs_err = 0.
 
-                    bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii = \
+                    bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii,plae_errors = \
                         line_prob.prob_LAE(wl_obs=target_w, lineFlux=target_flux,
                                            ew_obs=ew_obs,
                                            lineFlux_err= lineFlux_err,
@@ -409,10 +434,18 @@ class SDSS(cat_base.Catalog):#SDSS
                                            c_obs=None, which_color=None, addl_fluxes=addl_flux,
                                            addl_wavelengths=addl_waves,addl_errors=addl_ferr,sky_area=None,
                                            cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
-                                           sigma=None)
+                                           sigma=None,estimate_error=True)
+
+                    try:
+                        if plae_errors:
+                            bid_target.p_lae_oii_ratio_min = plae_errors['ratio'][1]
+                            bid_target.p_lae_oii_ratio_max = plae_errors['ratio'][2]
+                    except:
+                        pass
 
                     cutout_plae = bid_target.p_lae_oii_ratio
                     cutout_ewr = ew_obs / (1. + target_w / G.LyA_rest)
+                    cutout_ewr_err = ew_obs_err / (1. + target_w / G.LyA_rest)
 
                     if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
                         text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)" % (bid_target.p_lae_oii_ratio,f))
@@ -459,7 +492,15 @@ class SDSS(cat_base.Catalog):#SDSS
                     details['catalog_name'] = self.name
                     details['filter_name'] = f
                     details['aperture_eqw_rest_lya'] = cutout_ewr
+                    details['aperture_eqw_rest_lya_err'] = cutout_ewr_err
                     details['aperture_plae'] = cutout_plae
+                    try:
+                        if plae_errors:
+                            details['aperture_plae_min'] = plae_errors['ratio'][1]
+                            details['aperture_plae_max'] = plae_errors['ratio'][2]
+                    except:
+                        details['aperture_plae_min'] = None
+                        details['aperture_plae_max'] = None
 
                     cx = sci.last_x0_center
                     cy = sci.last_y0_center
@@ -723,7 +764,7 @@ class SDSS(cat_base.Catalog):#SDSS
                             except:
                                 ew_obs_err = 0.
 
-                            bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii = \
+                            bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii, plae_errors = \
                                 line_prob.prob_LAE(wl_obs=target_w,
                                                    lineFlux=target_flux,
                                                    ew_obs=ew_obs,
@@ -733,9 +774,16 @@ class SDSS(cat_base.Catalog):#SDSS
                                                    addl_fluxes=addl_flux, addl_errors=addl_ferr, sky_area=None,
                                                    cosmo=None, lae_priors=None,
                                                    ew_case=None, W_0=None,
-                                                   z_OII=None, sigma=None)
+                                                   z_OII=None, sigma=None, estimate_error=True)
                             #dfx = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                             #                                        (self.dataframe_of_bid_targets['DEC'] == d[0])]
+
+                            try:
+                                if plae_errors:
+                                    bid_target.p_lae_oii_ratio_min = plae_errors['ratio'][1]
+                                    bid_target.p_lae_oii_ratio_max = plae_errors['ratio'][2]
+                            except:
+                                pass
 
                             try:
                                 bid_target.add_filter('HSC','R',filter_fl_cgs,filter_fl_err)

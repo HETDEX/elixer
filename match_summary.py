@@ -39,6 +39,8 @@ class BidTarget:
         self.p_lae = None
         self.p_oii = None
         self.p_lae_oii_ratio = None
+        self.p_lae_oii_ratio_max = None
+        self.p_lae_oii_ratio_min = None
         self.catalog_name = None
         self.spec_z = None
         self.phot_z = None
