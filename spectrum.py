@@ -83,6 +83,10 @@ PROB_NOISE_MIN_SCORE = 2.0 #min score that makes it to the bin list
 
 
 #beyond an okay fit (see GAUSS_FIT_xxx above) is this a "good" signal
+GOOD_BROADLINE_SIGMA = 6.0 #getting broad
+GOOD_BROADLINE_SNR = 11.0 # upshot ... protect against neighboring "noise" that fits a broad line ...
+                          # if big sigma, better have big SNR
+GOOD_MIN_LINE_SNR = 4.0
 GOOD_MIN_LINE_SCORE = 4.0 #lines are added to solution only if 'GOOD' (meaning, minimally more likely real than noise)
 #does not have to be the same as PROB_NOISE_MIN_SCORE, but that generally makes sense
 #GOOD_FULL_SNR = 9.0 #ignore SBR is SNR is above this
@@ -577,7 +581,7 @@ class EmissionLineInfo:
 
             self.line_score = self.snr * above_noise * self.line_flux * 1e17 * \
                               min(self.fit_sigma/self.pix_size,1.0) * \
-                              min((self.pix_size * self.sn_pix)/21.0,1) / \
+                              min((self.pix_size * self.sn_pix)/21.0,1.0) / \
                               (10.0 * (1. + abs(adjusted_dx0_error / self.pix_size)) )
 
             if self.absorber:
@@ -674,11 +678,20 @@ class EmissionLineInfo:
         #(self.sbr > 1.0) #not working the way I want. don't use it
         result = False
 
+        def ratty(snr,sigma):
+            if (sigma > GOOD_BROADLINE_SIGMA) and (snr < GOOD_BROADLINE_SNR):
+                log.debug("Ratty fit on emission line.")
+                return True
+            else:
+                return False
+
         # minimum to be possibly good
         if (self.line_score >= GOOD_MIN_LINE_SCORE) and (self.fit_sigma >= GOOD_MIN_SIGMA):
-            s = self.peak_sigma_above_noise()
-            if (s is None) or (s > G.MULTILINE_MIN_GOOD_ABOVE_NOISE):
-                result = True
+        #if(self.snr >= GOOD_MIN_LINE_SNR) and (self.fit_sigma >= GOOD_MIN_SIGMA):
+            if not ratty(self.snr,self.fit_sigma):
+                s = self.peak_sigma_above_noise()
+                if (s is None) or (s > G.MULTILINE_MIN_GOOD_ABOVE_NOISE):
+                    result = True
             #note: GOOD_MAX_DX0_MULT enforced in signal_score
 
         # if ((self.snr > GOOD_FULL_SNR) or ((self.snr > GOOD_MIN_SNR) and (self.sbr > GOOD_MIN_SBR))) and \

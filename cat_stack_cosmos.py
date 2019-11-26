@@ -222,7 +222,8 @@ class STACK_COSMOS(cat_base.Catalog):
          'image': None,
          'expanded': True,
          'wcs_manual': False,
-         'aperture': 1.0,  # if non-zero, use an aperture of this radius in arcsecs to find image based mag
+         'aperture': 1.0 * 0.5 + 0.5,# since a radius, half the FWHM + 0.5" for astrometric error,
+                     # Subaru mean seeing ~ 1.0"
          'mag_func': None,
          'footprint': [[151.35, 0.915], [151.35, 3.49],
                        [148.90, 3.49], [148.90, 0.915]],
@@ -240,7 +241,7 @@ class STACK_COSMOS(cat_base.Catalog):
          'image': None,
          'expanded': False,
          'wcs_manual': False,
-         'aperture': 1.0
+         'aperture': 1.0 * 0.5 + 0.5,# since a radius, half the FWHM + 0.5" for astrometric error,
          # 'frame': 'icrs'
          },
         {'path': STACK_COSMOS_IMAGE_PATH,
@@ -252,7 +253,7 @@ class STACK_COSMOS(cat_base.Catalog):
          'image': None,
          'expanded': False,
          'wcs_manual': False,
-         'aperture': 1.0,
+         'aperture':1.0 * 0.5 + 0.5,# since a radius, half the FWHM + 0.5" for astrometric error,
          'mag_func': cosmos_count_to_mag
          #'frame': 'icrs'
         },
@@ -265,7 +266,7 @@ class STACK_COSMOS(cat_base.Catalog):
          'image': None,
          'expanded': False,
          'wcs_manual': False,
-         'aperture': 1.0,
+         'aperture': 1.0 * 0.5 + 0.5,# since a radius, half the FWHM + 0.5" for astrometric error,
          'mag_func': cosmos_count_to_mag
          # 'frame': 'icrs'
          },
@@ -278,7 +279,7 @@ class STACK_COSMOS(cat_base.Catalog):
          'image': None,
          'expanded': False,
          'wcs_manual': False,
-         'aperture': 1.0
+         'aperture': 1.0 * 0.5 + 0.5,# since a radius, half the FWHM + 0.5" for astrometric error,
          # 'frame': 'icrs'
          },
         {'path': STACK_COSMOS_IMAGE_PATH,
@@ -290,7 +291,7 @@ class STACK_COSMOS(cat_base.Catalog):
          'image': None,
          'expanded': False,
          'wcs_manual': False,
-         'aperture': 1.0
+         'aperture': 1.0 * 0.5 + 0.5,# since a radius, half the FWHM + 0.5" for astrometric error,
          # 'frame': 'icrs'
          }
     ]

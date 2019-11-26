@@ -446,9 +446,11 @@ SHADE_1D_SPEC_PEAKS = False #if true, shade in red the 1D spec peaks above the N
 
 DYNAMIC_MAG_APERTURE = False  #allow aperture size to change to fit maximum magnitude
 MIN_DYNAMIC_MAG_RADIUS = 1.0 #in arcsec
-FIXED_MAG_APERTURE = 1.5 #radius in arcsec
+FIXED_MAG_APERTURE = 1.5 #radius in arcsec (default: each catalog can set its own per image)
 MAX_DYNAMIC_MAG_APERTURE = 2.0 #maximum growth in dynamic mag
-NUDGE_MAG_APERTURE_CENTER = 0.0  #allow the center of the mag aperture to drift to the 2D Gaussian centroid
+
+NUDGE_MAG_APERTURE_MAX_DATE = 20180601 #nudge center only BEFORE this date (using as a proxy for the number of active IFUs)
+NUDGE_MAG_APERTURE_CENTER = 1.0  #allow the center of the mag aperture to drift to the 2D Gaussian centroid
                                  #up to this distance in x and y in arcsec (if 0.0 then no drift is allowed)
 MAX_SKY_SUBTRACT_MAG = 2.0 #if local sky subtraction results in a magnitude change greater than this value, do not apply it
 

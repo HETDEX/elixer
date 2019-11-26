@@ -697,6 +697,26 @@ def build_hetdex_section(pdfname, hetdex, detect_id = 0,pages=None,annulus=False
 
 def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,target_w=0,fiber_locs=None,
                  target_flux=None,annulus=None,obs=None,detobj=None):
+
+    _NUDGE_MAG_APERTURE_CENTER_SAVED = G.NUDGE_MAG_APERTURE_CENTER
+
+    def update_aperture_rules(restore_nudge=0.0):
+        """
+        This is a very clumsy way to do this, but it is fast to implement and currently safe since we execute
+        only one detection at a time.
+        :return:
+        """
+        try:
+            if detobj is not None:
+                if detobj.fibers is not None:
+                    if int(detobj.fibers[0].dither_date) > G.NUDGE_MAG_APERTURE_MAX_DATE:
+                        G.NUDGE_MAG_APERTURE_CENTER = 0.0
+                        log.info("Aperture nudge dis-allowed (0.0)")
+                    else:
+                        log.info("Aperture nudge allowed (%f)" %G.NUDGE_MAG_APERTURE_CENTER)
+        except:
+            log.debug("Aperture rules NOT updated.",exc_info=True)
+
     #if a report object is passed in, immediately append to it, otherwise, add to the pages list and return that
     section_title = idstring
     count = 0
@@ -733,16 +753,17 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
 
         else:
             try:
+                update_aperture_rules(_NUDGE_MAG_APERTURE_CENTER_SAVED)
                 r = c.build_bid_target_reports(match,ra, dec, error,num_hits=num_hits,section_title=section_title,
                                                base_count=base_count,target_w=target_w,fiber_locs=fiber_locs,
                                                target_flux=target_flux,detobj=detobj)
             except:
                 log.error("Exception in elixer::build_pages",exc_info=True)
                 r = None
+
         count = 0
         if r is not None and (len(r) > 1): #always adds figure for "No matching targets"
             cat_count+= 1
-
 
             #todo: check that we have imaging? if there is none, go ahead to the next catalog?
 
@@ -767,6 +788,7 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
                 cats.append(catalogs.CatalogLibrary().get_catch_all())
                 added_catch_all = True
 
+    G.NUDGE_MAG_APERTURE_CENTER = _NUDGE_MAG_APERTURE_CENTER_SAVED
     return pages, count
 
 

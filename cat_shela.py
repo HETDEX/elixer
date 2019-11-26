@@ -97,6 +97,8 @@ class SHELA(cat_base.Catalog):
     MainCatalog = "SHELA" #while there is no main catalog, this needs to be not None
     Name = "DECAM/SHELA"
 
+    mean_FWHM = 1.0  # average 0.7 to about 1.0
+
     # if multiple images, the composite broadest range (filled in by hand)
     Image_Coord_Range = {'RA_min': 8.50, 'RA_max': 36.51, 'Dec_min': -4.0, 'Dec_max': 4.0}
     #approximate
@@ -445,7 +447,7 @@ class SHELA(cat_base.Catalog):
                              'image': None,
                              'expanded': False,
                              'wcs_manual': False,
-                             'aperture': 1.0,
+                             'aperture': self.mean_FWHM*0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
                              'mag_func': shela_count_to_mag
                              })
                         break #(out of ext in self.Img_ext) keep the first name that is found

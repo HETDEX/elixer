@@ -140,7 +140,7 @@ class DECALS(cat_base.Catalog):#Hyper Suprime Cam
         for t in self.Tile_Dict.keys(): #tile is the key (the filename)
             for f in self.Filters:
                 self.CatalogImages.append(
-                    {'path': self.HSC_IMAGE_PATH,
+                    {'path': "",#self.HSC_IMAGE_PATH,
                      'name': t, #filename is the tilename
                      'tile': t,
                      'filter': f,
@@ -150,8 +150,9 @@ class DECALS(cat_base.Catalog):#Hyper Suprime Cam
                      'image': None,
                      'expanded': False,
                      'wcs_manual': True,
-                     'aperture': 1.0,
-                     'mag_func': hsc_count_to_mag
+                     'aperture': 1.3 * 0.5 + 0.5, #mean seeing in g-band is 1.3"
+                                                  # since a radius, half the FWHM + 0.5" for astrometric error
+                     'mag_func': decals_count_to_mag
                      })
 
     def find_target_tile(self,ra,dec):

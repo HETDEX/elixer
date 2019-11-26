@@ -5,6 +5,10 @@ changes to elixer by version
  report in HDF5
 * changed sky annulus for sky-subtraction from 5x-10x to 2x-4x of the aperture radius
   (was previously far too large and maybe not local enough)
+* added in per catalog average FWHM and using that as default aperture size + 0.5" for HETDEX astrometric error
+* added in "ratty" line fit check (broad sigma, but moderate or low SNR) to exclude adjacent noise as emission line detections
+* added NUDGE_MAG_APERTURE_MAX_DATE (20180601). If observation before this date, can nudge the aperture center up to
+  NUDGE_MAG_APERTURE_CENTER amount to nearest Gaussian peak. If after this date, center remains fixed at detection coords.
 
 
 1.8.0a2 [2019-11-20]

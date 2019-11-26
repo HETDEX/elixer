@@ -436,14 +436,13 @@ class science_image():
         cx = -1
         cy = -1
         if play is None:
-            play = radius
-
-        play = min(radius,G.NUDGE_MAG_APERTURE_CENTER)
+            play = min(radius,G.NUDGE_MAG_APERTURE_CENTER)
 
         try:
             cx, cy = cutout.center_cutout
 
             if play <= 0.0:
+                log.debug("No aperture play allowed.")
                 return cy,cy
 
             pix = (radius / self.pixel_size) #arcsec to pixels
@@ -454,10 +453,18 @@ class science_image():
 
             gx, gy = centroid_2dg(cutout.data,mask=mask)
 
+            dist = -1.0
+            try:
+                dist = np.sqrt((gx - cx)*(gx - cx) + (gy - cy)*(gy - cy))
+                dist = dist * self.pixel_size
+            except:
+                pass
+
             if (abs(gx - cx) < dpix) and (abs(gy - cy) < dpix):
-                log.info("Centroid (%f,%f) found within acceptable range of geometric center (%f,%f)" % (gx, gy, cx, cy))
+                log.info("Centroid (%f,%f) found within acceptable range of geometric center (%f,%f). Dist = %f arcsec"
+                         % (gx, gy, cx, cy, dist))
             else:
-                log.info("Centroid (%f,%f) too far from geometric center (%f,%f)" %(gx,gy,cx,cy))
+                log.info("Centroid (%f,%f) too far from geometric center (%f,%f). Dist = %f arcsec" %(gx,gy,cx,cy,dist))
                 gx = cx
                 gy = cy
 
@@ -766,7 +773,7 @@ class science_image():
         if (position is not None) and (cutout is not None) and (image is not None) \
                 and (mag_func is not None) and (aperture > 0):
 
-            x_center, y_center = self.update_center(cutout,radius)
+            x_center, y_center = self.update_center(cutout,radius,play=G.NUDGE_MAG_APERTURE_CENTER)
             self.last_x_center = x_center*self.pixel_size
             self.last_y_center = y_center*self.pixel_size
             self.last_x0_center = (x_center - cutout.center_cutout[0])*self.pixel_size #the shift in AA from center
@@ -820,11 +827,15 @@ class science_image():
                     plt.imshow(seg_img,origin='lower')
                     plt.savefig("segimg.png")
 
-
-
             if G.DYNAMIC_MAG_APERTURE:
-                #radius = max(0.5,aperture)
-                radius = G.MIN_DYNAMIC_MAG_RADIUS
+                if aperture and (aperture > 0.0):
+                    radius = aperture
+                elif G.MIN_DYNAMIC_MAG_RADIUS is not None:
+                    radius = G.MIN_DYNAMIC_MAG_RADIUS
+                else:
+                    radius = 1.5  # failsafe
+
+                radius = min(radius,G.MAX_DYNAMIC_MAG_APERTURE,error)
                 step = 0.1
 
                 # try:
@@ -967,13 +978,12 @@ class science_image():
             else:
 
                 try:
-                    if G.FIXED_MAG_APERTURE is not None:
+                    if aperture and (aperture > 0.0):
+                        radius = aperture
+                    elif G.FIXED_MAG_APERTURE is not None:
                         radius = G.FIXED_MAG_APERTURE
                     else:
-                        if (type(aperture) is float) or (type(aperture) is int):
-                            radius = aperture
-                        else:
-                            radius = 1.
+                        radius = 1.5 #failsafe
 
                     details['radius'] = radius
                     source_aperture_area = 0.

@@ -250,6 +250,7 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
     Name = "Pan-STARRS"
     Filters = ['g','r','i','z','y'] #case is important ... needs to be lowercase
     WCS_Manual = True
+    mean_FWHM = 1.4 #0.9 to 1.4
 
     def __init__(self):
         super(PANSTARRS, self).__init__()
@@ -452,7 +453,7 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
 
             try:
                 wcs_manual = self.WCS_Manual
-                aperture = 2.0
+                aperture = self.mean_FWHM * 0.5 + 0.5 # since a radius, half the FWHM + 0.5" for astrometric error
                 mag_func = panstarrs_count_to_mag
             except:
                 wcs_manual = self.WCS_Manual
@@ -970,7 +971,8 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
 
         try:
             wcs_manual = self.WCS_Manual
-            aperture = aperture
+            if aperture is None:
+                aperture = self.mean_FWHM * 0.5 + 0.5 # since a radius, half the FWHM + 0.5" for astrometric error
             mag_func = panstarrs_count_to_mag
         except:
             wcs_manual = self.WCS_Manual

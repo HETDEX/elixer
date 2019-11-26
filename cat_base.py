@@ -103,6 +103,7 @@ class Catalog:
     df = None  # pandas dataframe ... all instances share the same frame
     df_photoz = None
     status = -1
+    mean_FWHM = 1.5 #sort of generic seeing ... each implemented catalog should overwrite this
 
     def __init__(self):
         self.pages = None #list of bid entries (rows in the pdf)

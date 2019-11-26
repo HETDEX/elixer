@@ -86,6 +86,8 @@ class GOODS_N(cat_base.Catalog):
     # class variables
     MainCatalog = GOODS_N_CAT
     Name = "GOODS-N"
+    mean_FWHM = 0.15 #typical use for photometric aperture, but is too good here ... objects that are point
+                    #sources may be resolved with HST
 
     # if multiple images, the composite broadest range (filled in by hand)
     Cat_Coord_Range = {'RA_min': 188.915597, 'RA_max': 189.563471, 'Dec_min': 62.091438, 'Dec_max': 62.388316}
@@ -133,7 +135,7 @@ class GOODS_N(cat_base.Catalog):
          'image': None,
          'expanded': False,
          'wcs_manual': True,
-         'aperture':1.5,
+         'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': goodsn_f606w_count_to_mag,
          'sky_subtract': False
          },

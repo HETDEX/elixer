@@ -114,6 +114,9 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
     #updated with CFHTLS extended coverage
     Cat_Coord_Range = {'RA_min': 208.559, 'RA_max': 220.391, 'Dec_min': 51.2113, 'Dec_max': 57.8033}
 
+    mean_FWHM = 0.15 #typical use for photometric aperture, but is too good here ... objects that are point
+                    #sources may be resolved with HST
+
     WCS_Manual = False#True
     EXPTIME_F606W = 289618.0
     CONT_EST_BASE = 3.3e-21
@@ -141,7 +144,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'expanded': True,
          'wcs_manual': False,
          'sky_subtract': True,
-         'aperture': 1.0,  #if non-zero, use an aperture of this radius in arcsecs to find image based mag
+         'aperture': 0.9*0.5 + 0.5,  #if non-zero, use an aperture of this radius in arcsecs to find image based mag
+                                     # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': cfhtls_count_to_mag,
          'footprint': [[215.72182464, 52.12056378],[215.74413972, 53.23356319],
                        [213.97033408, 53.23356319],[213.99264916, 52.12056378]],
@@ -149,7 +153,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'RA_max': 215.744140,
          'Dec_min': 52.120564,
          'Dec_max': 53.233563
-         },
+         }, #mean FWHM for CFHTLS is better than 0.9"
         {'path': CANDELS_EGS_Stefanon_2016_IMAGES_PATH,
          'name': 'egs_all_acs_wfc_f606w_060mas_v1.1_drz.fits',
          'filter': 'f606w',
@@ -159,7 +163,9 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
          'image': None,
          'expanded': False,
          'wcs_manual': True,
-         'aperture': 1.0, #if zero, there is something odd with the header and can't use astropy apertures
+         'aperture': mean_FWHM * 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
+                             # , #if zero, there is something odd with the header and can't use astropy apertures
+                             #normally would be the FWHM/2, but these tend to be resolved and NOT point sources
          'mag_func': acs_wfc_f606w_count_to_mag,
          'sky_subtract': False
          },

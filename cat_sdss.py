@@ -111,6 +111,7 @@ class SDSS(cat_base.Catalog):#SDSS
     # class variables
     CONT_EST_BASE = None
 
+    mean_FWHM = 1.67 #at 75% quartile for g-band ... varies also by filter, but this is good middle of the road limit
     MainCatalog = None #there is no Main Catalog ... must load individual catalog tracts
     Name = "SDSS"
     Filters = ['u','g','r','i','z'] #case is important ... needs to be lowercase
@@ -314,7 +315,7 @@ class SDSS(cat_base.Catalog):#SDSS
 
             try:
                 wcs_manual = self.WCS_Manual
-                aperture = 2.0
+                aperture = self.mean_FWHM*0.5 + 0.5 # since a radius, half the FWHM + 0.5" for astrometric error
                 mag_func = sdss_count_to_mag
             except:
                 wcs_manual = self.WCS_Manual
@@ -844,7 +845,8 @@ class SDSS(cat_base.Catalog):#SDSS
 
         try:
             wcs_manual = self.WCS_Manual
-            aperture = 2.0
+            if aperture is None:
+                aperture = self.mean_FWHM * 0.5 + 0.5 # since a radius, half the FWHM + 0.5" for astrometric error
             mag_func = sdss_count_to_mag
         except:
             wcs_manual = self.WCS_Manual

@@ -71,6 +71,7 @@ class KPNO(cat_base.Catalog):#Kit Peak
     MainCatalog = None #there is no Main Catalog ... must load individual catalog tracts
     Name = "KPNO"
 
+    mean_FWHM = 1.0 #typically better, but this is an okay worst case
     Image_Coord_Range = kpno_meta.Image_Coord_Range
     Tile_Dict = kpno_meta.KPNO_META_DICT
     Filters = ['g'] #case is important ... needs to be lowercase
@@ -134,7 +135,7 @@ class KPNO(cat_base.Catalog):#Kit Peak
                      'image': None,
                      'expanded': False,
                      'wcs_manual': False,
-                     'aperture': 1.0,
+                     'aperture': self.mean_FWHM * 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
                      'mag_func': kpno_count_to_mag
                      })
 

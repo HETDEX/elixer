@@ -104,6 +104,8 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
     HSC_CAT_PATH = G.HSC_CAT_PATH
     HSC_IMAGE_PATH = G.HSC_IMAGE_PATH
 
+    mean_FWHM = 1.0 #average 0.6 to 1.0
+
     CONT_EST_BASE = None
 
     df = None
@@ -457,7 +459,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                      'image': None,
                      'expanded': False,
                      'wcs_manual': False,
-                     'aperture': 1.0,
+                     'aperture': self.mean_FWHM * 0.5 + 0.5, #since a radius, half the FWHM + 0.5" for astrometric error
                      'mag_func': hsc_count_to_mag
                      })
 
