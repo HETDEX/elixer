@@ -1,10 +1,9 @@
 changes to elixer by version
 
 1.8.0a3 [2019-11-22]
-* repeat calls to generate PLAE/POII for range of EW values (nominal, min, max) and
- report in HDF5
-* changed sky annulus for sky-subtraction from 5x-10x to 2x-4x of the aperture radius
-  (was previously far too large and maybe not local enough)
+* repeat calls to generate PLAE/POII for range of EW values (nominal, min, max) and report in HDF5
+* changed sky annulus for sky-subtraction from 5x-10x to 2x-4x of the aperture radius (for ~12x sky pixels to aperture pixels)
+  (was previously far too large, letting in broad gradients and increased chance of bright stars/wings)
 * added in per catalog average FWHM and using that as default aperture size + 0.5" for HETDEX astrometric error
 * added in "ratty" line fit check (broad sigma, but moderate or low SNR) to exclude adjacent noise as emission line detections
 * added NUDGE_MAG_APERTURE_MAX_DATE (20180601). If observation before this date, can nudge the aperture center up to

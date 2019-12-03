@@ -485,6 +485,7 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
 
             bid_target = None
             cutout_ewr = None
+            cutout_ewr_err = None
             cutout_plae = None
 
             try:  # update non-matched source line with PLAE()

@@ -5739,7 +5739,7 @@ class HETDEX:
             specplot.set_yticklabels([])
             specplot.set_xticklabels([])
         else:
-            specplot.text(0.075, 0.95, r"e$^{-17}$/2$\AA$", horizontalalignment='center',
+            specplot.text(0.075, 0.95, r"e$^{-17}$x2$\AA$", horizontalalignment='center',
                           verticalalignment='center', transform=specplot.transAxes)
 
         # log.debug("Spec Plot max count = %f , min count = %f" % (mx, mx))
@@ -6212,7 +6212,7 @@ class HETDEX:
 
             #if this is flux, not counts, add a ersatz scale label for y axis
             if len( datakeep['sumspec_wave']) > 0:
-                textplot.text(3500, textplot.axis()[2], r"e$^{-17}$/2$\AA$", rotation=0, ha='left', va='bottom',
+                textplot.text(3500, textplot.axis()[2], r"e$^{-17}$x2$\AA$", rotation=0, ha='left', va='bottom',
                           fontsize=10, color='k')  # use the e color for this family
 
 

@@ -504,7 +504,9 @@ class KPNO(cat_base.Catalog):#Kit Peak
 
             bid_target = None
             cutout_ewr = None
+            cutout_ewr_err = None
             cutout_plae = None
+
             try:  # update non-matched source line with PLAE()
                 if ((mag < 99) or (cont_est != -1)) and (target_flux is not None) and (i['filter'] == 'g'):
                     # make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)

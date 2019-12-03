@@ -708,7 +708,9 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                                                      do_sky_subtract=do_sky_subtract,return_details=True)
             bid_target = None
             cutout_ewr = None
+            cutout_ewr_err = None
             cutout_plae = None
+
             try: #update non-matched source line with PLAE()
                 #if (mag < 99) and (target_flux is not None) and (i['instrument'] == 'CFHTLS') and (i['filter'] == 'g'):
                 if ((mag < 99) or (cont_est != -1)) and (target_flux is not None) \

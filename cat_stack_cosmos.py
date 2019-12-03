@@ -656,6 +656,7 @@ class STACK_COSMOS(cat_base.Catalog):
 
             bid_target = None
             cutout_ewr = None
+            cutout_ewr_err = None
             cutout_plae = None
 
             try: #update non-matched source line with PLAE()
