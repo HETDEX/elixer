@@ -448,8 +448,9 @@ class science_image():
             pix = (radius / self.pixel_size) #arcsec to pixels
             dpix = (play / self.pixel_size)
 
+            pix = max(pix,dpix) #for masking use the larger area of the aperture (pix) or the play radius (dpix)
             mask = np.full(cutout.shape,True)
-            mask[int(round(cx-pix)):int(round(cx+pix)),int(round(cy-pix)):int(round(cy+pix))] = False
+            mask[int(round(cx-pix-1)):int(round(cx+pix+1)),int(round(cy-pix-1)):int(round(cy+pix+1))] = False
 
             gx, gy = centroid_2dg(cutout.data,mask=mask)
 
@@ -461,10 +462,10 @@ class science_image():
                 pass
 
             if (abs(gx - cx) < dpix) and (abs(gy - cy) < dpix):
-                log.info("Centroid (%f,%f) found within acceptable range of geometric center (%f,%f). Dist = %f arcsec"
-                         % (gx, gy, cx, cy, dist))
+                log.info("Centroid (%f,%f) found within acceptable range of geometric center (%f,%f). Dist = %f arcsec, Allowed = %f arcsec"
+                         % (gx, gy, cx, cy, dist, play))
             else:
-                log.info("Centroid (%f,%f) too far from geometric center (%f,%f). Dist = %f arcsec" %(gx,gy,cx,cy,dist))
+                log.info("Centroid (%f,%f) too far from geometric center (%f,%f). Dist = %f arcsec, Allowed = %f arcsec" %(gx,gy,cx,cy,dist,play))
                 gx = cx
                 gy = cy
 

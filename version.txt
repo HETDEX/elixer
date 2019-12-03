@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.8.0a3 [2019-11-22]
+1.8.0a3 [2019-12-03]
 * repeat calls to generate PLAE/POII for range of EW values (nominal, min, max) and report in HDF5
 * changed sky annulus for sky-subtraction from 5x-10x to 2x-4x of the aperture radius (for ~12x sky pixels to aperture pixels)
   (was previously far too large, letting in broad gradients and increased chance of bright stars/wings)
@@ -8,7 +8,8 @@ changes to elixer by version
 * added in "ratty" line fit check (broad sigma, but moderate or low SNR) to exclude adjacent noise as emission line detections
 * added NUDGE_MAG_APERTURE_MAX_DATE (20180601). If observation before this date, can nudge the aperture center up to
   NUDGE_MAG_APERTURE_CENTER amount to nearest Gaussian peak. If after this date, center remains fixed at detection coords.
-
+* fixed bug in NUDGE (science_image::update_center) which was using the aperture radius to mask the Gaussian peak finder
+  region on the cutout instead of the allowed play (NUDGE) radius
 
 1.8.0a2 [2019-11-20]
 * changed background of _mini.png to dark gray (0x1c1c1e)
