@@ -498,6 +498,7 @@ class science_image():
         cutout = None
         counts = None #raw data counts in aperture
         mag = 999.9 #aperture converted to mag_AB
+
         if (aperture is not None) and (mag_func is not None):
             radius = aperture
 
@@ -839,6 +840,8 @@ class science_image():
                 radius = min(radius,G.MAX_DYNAMIC_MAG_APERTURE,error)
                 step = 0.1
 
+                sky_avg, sky_err, sky_pix, sd_sky_pix = self.get_local_sky(sky_image,position,G.MAX_DYNAMIC_MAG_APERTURE*2.0,G.MAX_DYNAMIC_MAG_APERTURE*4.0)
+
                 # try:
                 #     ps = cutout.wcs.pixel_scale_matrix[0][0] * 3600.0 #approx pix-scale
                 #     step = ps/2. #half-pixel steps in terms of arcsec
@@ -853,6 +856,7 @@ class science_image():
                 max_bright = 99.9
                 max_counts = 0
                 max_area_pix = 0
+                expected_count_growth = 0.0 #number of new pixels * sky
 
                 #last_slope = 0. #not really a slope but looking to see if there is a rapid upturn and then stop
                 #last_count = 0.
@@ -861,7 +865,6 @@ class science_image():
                 rad_list = [0.0]
 
                 while radius <= min(error,G.MAX_DYNAMIC_MAG_APERTURE):
-
                     source_aperture_area = 0.
                     try:
                         #use the cutout first if possible (much smaller than image and faster)
@@ -897,6 +900,14 @@ class science_image():
                                 log.info("Sky based aperture photometry failed. Will skip aperture photometery.",
                                          exc_info=True)
                                 break
+
+                        try:
+                            delta_pix = source_aperture_area - max_area_pix
+                            expected_count_growth = delta_pix*sky_avg
+                            #assume sd as error and add in quadrature
+                            expected_count_growth += np.sqrt(delta_pix)*sky_err
+                        except:
+                            expected_count_growth = 0.0
 
 
                         #log.info("+++++ %s, %s" %(counts.__repr__(), type(counts)))
@@ -937,7 +948,10 @@ class science_image():
 
                         if mag < 99:
                             #if now growing fainter OR the brightness increase is small, we are done
-                            if (mag > max_bright) or (abs(mag-max_bright) < 0.01):#< 0.0005):
+                            if expected_count_growth is not None:
+                                if (mag > max_bright) or (counts-max_counts) < expected_count_growth:
+                                    break
+                            elif (mag > max_bright) or (abs(mag-max_bright) < 0.01):#< 0.0005):
                                 break
                             # elif last_count != 0:
                             #     count_slope = (counts - max_counts) / last_count  # or current annulus/previous annulus
@@ -1214,6 +1228,65 @@ class science_image():
             return cutout, counts, mag, radius, details
         else:
             return cutout, counts, mag, radius
+
+
+    def get_local_sky(self,image,position,inner_radius,outer_radius):
+
+        try:
+            # todo: note in photutils, pixel x,y is the CENTER of the pixel and [0,0] is the center of the
+            # todo: lower-left pixel
+            # it should not really matter if the pixel position is the center of the pixel or at a corner
+            # given the typically small pixels the set of pixels will not change much one way or the other
+            # and we are going to take a median average (and not use partial pixels), at least not in this 1st
+            # revision
+
+            # to take a median value and subtract off the counts from the original aperture
+            # yes, against the new cutout (which is just a super set of the smaller cutout
+            # source_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec).to_pixel(sky_image.wcs)
+
+            sky_annulus = SkyCircularAnnulus(position, r_in=inner_radius * ap_units.arcsec,
+                                             r_out=outer_radius * ap_units.arcsec).to_pixel(image.wcs)
+
+            # made an annulus in pixel, set to a "mask" where 0 = pixel not in annulus, 1 = pixel in annulus
+            try:
+                sky_mask = sky_annulus.to_mask(method='center')[0]
+            except:
+                sky_mask = sky_annulus.to_mask(method='center')
+
+            sky_mask = np.array(sky_mask)[0:image.data.shape[0], 0:image.data.shape[1]]
+            # select all pixels from the cutout that are in the annulus
+            # this sometimes gets off by 1-pixel, so trim off if out of range of the array
+            # search = np.where(sky_mask.data > 0)
+
+            # the sky_mask and the sky_image share a common origin (0,0) so they have the same indexing
+            # the sky_mask may be larger than the sky_image, so turn the mask into a 2D array (so we can slice
+            # and slice away the mask outside the sky_image)
+
+            search = np.where(sky_mask > 0)
+            annulus_data_1d = image.data[search]
+
+            # and take the median average from a 3-sigma clip
+            # bkg_mean, bkg_median, _ = sigma_clipped_stats(annulus_data_1d,sigma=3.0) #this is the average sky per pixel
+            # sky_avg = bkg_median
+            # #bkg_median * source_aperture.area() #total (sky) to subtract is averager sky per pix * number pix in source aperture
+
+            # replace with biweight "average"
+            bw_cen = biweight.biweight_location(annulus_data_1d)
+            bw_scale = biweight.biweight_scale(annulus_data_1d)
+            sky_pix = len(annulus_data_1d)
+            sky_avg = bw_cen
+            # set sky N to number of pixels within 1 sd (or bw_scale, in this case)
+            # not strictly correct, but we are not including other error sources so this
+            # will nudge toward a larger error (which would be more appropriate)
+            N = len(np.where(abs(annulus_data_1d - bw_cen) < bw_scale)[0])
+            sky_err = bw_scale / np.sqrt(N)
+
+
+        except:
+            log.error("Exception! ",exc_info=True)
+            return None,None,None,None
+
+        return sky_avg, sky_err, sky_pix, N
 
     def get_position(self,ra,dec,cutout):
         #this is not strictly a pixel x and y but is a meta position based on the wcs
