@@ -3,6 +3,7 @@ import logging
 import numpy as np
 from astropy.visualization import ZScaleInterval
 from astropy import units
+import math
 
 
 try:
@@ -137,34 +138,40 @@ def unc_str(tup): #helper, formats a string with exponents and uncertainty
     # get the value * units, calculate the error with two mea
 
 
-def is_in_ellipse(xp,yp,xc,yc,d,D,angle):
-    #todo: test with RA,Dec ... what is the zero for the angle? (what is the zero line reference)
-    #todo: what about the seeing? (PSF) and bid object size? how much of the bid object (PSF smeared) can overlap with
-    #todo:   the ellipse?
+def is_in_ellipse(xp,yp,xc,yc,a,b,angle):
     """
     :param xp: x coord of point
     :param yp: y coord of point
     :param xc: x coord of ellipse center
     :param yc: y coord of ellipse center
-    :param d: minor axis
-    :param D: major axis
-    :param angle: rotation angle
+    :param a: major axis (radius)
+    :param b: minor axis (radius)
+    :param angle: rotation angle in radians from positive x axis (counter clockwise)
+    Assumes lower left is 0,0
     :return:
     """
 
+    #translate to center ellipse at 0,0
+    xp = xp - xc
+    yp = yp - yc
+    xc,yc = 0,0
+
+    #rotate to major axis along x
+    angle = 2.*math.pi - angle   #want in clock-wise from positive x axis (rotation matrix below is clock-wise)
     cosa = math.cos(angle)
     sina = math.sin(angle)
-    dd = d/2.*d/2.
-    DD = D/2.*D/2.
 
-    a = cosa*(xp-xc)+sina*(yp-yc)
-    a = a*a
+    #xt = transformed xp coord where major axis is positive x-axis and minor is positive y-axis
+    #yt = transformed yp coord
+    xt = xp*cosa-yp*sina
+    yt = xp*sina+yp*cosa
 
-    b = sina*(xp-xc)-cosa*(yp-yc)
-    b = b*b
-    ellipse=(a/dd)+(b/DD)
+    #np.sqrt(xt+yt) would now be the distance from the center
+    #essentially stretching x and y axis s|t ellipse becomes a unit circle, then if the distance (or distance squared,
+    #as coded here) is less than 1 it is inside (if == 1 it is on the ellipse or circle)
+    inside=((xt*xt)/(a*a))+((yt*yt)/(b*b))
 
-    if ellipse <= 1:
+    if inside <= 1:
         return True
     else:
         return False
