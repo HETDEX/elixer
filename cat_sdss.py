@@ -506,7 +506,11 @@ class SDSS(cat_base.Catalog):#SDSS
 
                     cx = sci.last_x0_center
                     cy = sci.last_y0_center
-                    self.add_aperture_position(plt,mag_radius,mag,cx,cy,cutout_ewr,cutout_plae)
+                    if details['sep_objects'] is not None:
+                        self.add_elliptical_aperture_positions(plt, details['sep_objects'], details['sep_obj_idx'],
+                                                               mag, cx, cy, cutout_ewr, cutout_plae)
+                    else:
+                        self.add_aperture_position(plt, mag_radius, mag, cx, cy, cutout_ewr, cutout_plae)
 
 
                 self.add_north_box(plt, sci, cutout, error, 0, 0, theta=None)

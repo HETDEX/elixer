@@ -444,6 +444,8 @@ ADDL_LINE_SCORE_BONUS = 5.0 #add for each line at 2+ lines (so 1st line adds not
 SHADE_1D_SPEC_PEAKS = False #if true, shade in red the 1D spec peaks above the NORM noise limit (see below)
 
 
+USE_SOURCE_EXTRACTOR = True #use source extractor to ID objects and get magnitudes ... fall back to circular aperture
+                             #if source extractor code fails
 DYNAMIC_MAG_APERTURE = True  #allow aperture size to change to fit maximum magnitude
 MIN_DYNAMIC_MAG_RADIUS = 1.0 #in arcsec
 FIXED_MAG_APERTURE = 1.5 #radius in arcsec (default: each catalog can set its own per image)

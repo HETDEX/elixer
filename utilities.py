@@ -199,6 +199,8 @@ def dist_to_ellipse(xp,yp,xc,yc,a,b,angle):
 
     try:
         #translate to center ellipse at 0,0
+        original_xc = xc
+        original_yc = yc
         xp = xp - xc
         yp = yp - yc
         xc,yc = 0,0
@@ -256,6 +258,15 @@ def dist_to_ellipse(xp,yp,xc,yc,a,b,angle):
         pt_on_curve =  (math.copysign(a * tx, xt), math.copysign(b * ty, yt))
         curve_to_barycenter = np.sqrt(pt_on_curve[0] * pt_on_curve[0] + pt_on_curve[1] * pt_on_curve[1])
         dist_to_curve = dist_to_barycenter - curve_to_barycenter
+
+        #transform pt_on_curve back to ORIGINAL coordinate system
+        #inverse rotation
+        xt = pt_on_curve[0]*cosa+pt_on_curve[1]*sina
+        yt = -1*pt_on_curve[0]*sina+pt_on_curve[1]*cosa
+        #translate back
+        xt += original_xc
+        yt += original_yc
+        pt_on_curve = (xt,yt)
 
         return not inside, dist_to_curve,dist_to_barycenter,pt_on_curve
     except:

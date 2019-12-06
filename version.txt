@@ -10,6 +10,7 @@ changes to elixer by version
   NUDGE_MAG_APERTURE_CENTER amount to nearest Gaussian peak. If after this date, center remains fixed at detection coords.
 * fixed bug in NUDGE (science_image::update_center) which was using the aperture radius to mask the Gaussian peak finder
   region on the cutout instead of the allowed play (NUDGE) radius
+* add distance for point to ellipse and check for point in ellipse (for use with source extractor elliptical apertures)
 
 1.8.0a2 [2019-11-20]
 * changed background of _mini.png to dark gray (0x1c1c1e)

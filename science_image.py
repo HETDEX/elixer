@@ -15,8 +15,10 @@
 
 try:
     from elixer import global_config as G
+    from elixer import utilities
 except:
     import global_config as G
+    import utilities
 
 import gc
 from time import sleep
@@ -41,6 +43,7 @@ from photutils import centroid_2dg
 from astropy.stats import sigma_clipped_stats
 import astropy.stats.biweight as biweight
 import astropy.wcs #need constants
+import sep #source extractor python module
 
 PIXEL_APERTURE_METHOD='exact' #'exact' 'center' 'subpixel'
 
@@ -475,6 +478,98 @@ class science_image():
 
         return gx, gy
 
+    def find_sep_objects(self,cutout,max_dist=None):
+        """
+
+        :param cutout:
+        :param max_dist: in arcsec (max distance to the ellipse allowed) ... does not apply if INSIDE an ellipse
+        :return: array of source extractor objects and (selected_idx, flux(cts), fluxerr(cts), flag)
+        """
+
+        objects = None
+        try:
+            if (cutout is None) or (cutout.data is None):
+                return None, None
+
+            cx, cy = cutout.center_cutout
+
+            if not G.BIG_ENDIAN:
+                data = cutout.data.byteswap().newbyteorder()
+            bkg = sep.Background(data)
+            data_sub = data - bkg
+            objects = sep.extract(data_sub, 1.5, err=bkg.globalrms)
+
+            selected_idx = -1
+            inside_objs = []  # (index, dist_to_barycenter)
+            outside_objs = []  # (index, dist_to_barycenter, dist_to_curve)
+
+            idx = -1
+            for obj in objects:
+                idx += 1
+                # NOTE: #3.* applied for the same reason as above ... a & b are given in kron isophotal diameters
+                # so 6a/2 == 3a == radius needed for function
+                success, dist2curve, dist2bary, pt = utilities.dist_to_ellipse(cx, cy, obj['x'], obj['y'], 3. * obj['a'],
+                                                                         3. * obj['b'], obj['theta'])
+
+                if success:  # this is outside
+                    outside_objs.append((idx, dist2bary, dist2curve))
+                elif dist2bary is not None:
+                    inside_objs.append((idx, dist2bary))
+
+            # now, choose
+            dist_to_curve_aa = 0.0
+            if len(inside_objs) != 0:  # there are objects to which the HETDEX point is interior
+                # sort by distance to barycenter
+                inside_objs = sorted(inside_objs, key=lambda x: x[1])
+                selected_idx = inside_objs[0][0]
+            elif len(outside_objs) != 0:  # all outside
+                # sort by distance to the curve
+                outside_objs = sorted(outside_objs, key=lambda x: x[2])
+                selected_idx = outside_objs[0][0]
+                dist_to_curve_aa = outside_objs[0][2] * self.pixel_size #need to covert to arcsec
+            else:  # none found at all, so we would use the old-style cicular aperture
+                # todo: aperture stuff
+                log.info("No (source extractor) objects found")
+                return None, None
+
+            obj = objects[selected_idx]
+            #check max distance
+            if dist_to_curve_aa > max_dist:
+                log.info("Dist to nearest source extractor oject (%f) exceeds max allowed (%f)"
+                         %(dist_to_curve_aa,max_dist))
+                return None, None
+
+            # for obj in objects:
+            # now, get the flux
+
+            kronrad, krflag = sep.kron_radius(data_sub, obj['x'], obj['y'],
+                                              obj['a'], obj['b'], obj['theta'], r=6.0)
+            # r=6 == 6 isophotal radii ... source extractor always uses 6
+
+            # minimum diameter = 3.5 (1.75 radius)
+            radius = kronrad * np.sqrt(obj['a'] * obj['b'])
+            if radius < 1.75:
+                radius = 1.75
+                flux, fluxerr, flag = sep.sum_circle(data_sub, obj['x'], obj['y'],
+                                                     radius, subpix=1)
+            else:
+                flux, fluxerr, flag = sep.sum_ellipse(data_sub, obj['x'], obj['y'],
+                                                      obj['a'], obj['b'], obj['theta'],
+                                                      2.5 * kronrad, subpix=1)
+
+            for obj in objects:
+                # convert to image center as 0,0 (needed later in plotting) and to arcsecs
+                obj['x'] = (obj['x'] - cx) * self.pixel_size
+                obj['y'] = (obj['y'] - cy) * self.pixel_size
+                # the 6.* factor is from source extractor using 6 isophotal diameters
+                obj['a'] = 6. * obj['a'] * self.pixel_size
+                obj['b'] = 6. * obj['b'] * self.pixel_size
+
+            return objects,(selected_idx,flux,fluxerr,flag)
+        except:
+            log.error("Source Extractor call failed.",exc_info=True)
+
+        return objects
 
     def get_cutout(self,ra,dec,error,window=None,image=None,copy=False,aperture=0,mag_func=None,
                    do_sky_subtract=True,return_details=False):
@@ -488,7 +583,7 @@ class science_image():
                    'mag':None,'mag_err':None, 'mag_bright':None,'mag_faint':None,
                    'area_pix':None,'sky_area_pix':None,
                    'aperture_counts':None, 'sky_counts':None, 'sky_average':None,
-                   'aperture_eqw_rest_lya':None,'aperture_plae':None}
+                   'aperture_eqw_rest_lya':None,'aperture_plae':None,'sep_objects':None,'sep_obj_idx':None}
 
         self.window = None
         self.last_x_center = None
@@ -774,6 +869,46 @@ class science_image():
         #put down aperture on cutout at RA,Dec and get magnitude
         if (position is not None) and (cutout is not None) and (image is not None) \
                 and (mag_func is not None) and (aperture > 0):
+
+
+            #if source extractor works, use it else, proceed as before with circular aperture photometry
+            if G.USE_SOURCE_EXTRACTOR:
+                source_objects,sep_info = self.find_sep_objects(cutout,G.NUDGE_MAG_APERTURE_CENTER)
+
+                if (source_objects is not None) and (len(source_objects) > 0):
+
+                    selected_obj_idx = sep_info[0]
+                    counts = sep_info[1]
+                    count_err = sep_info[2]
+
+
+                    mag = mag_func(counts, cutout, self.headers)
+                    mag_faint = mag_func(counts-count_err, cutout, self.headers)
+                    mag_bright = mag_func(counts+count_err, cutout, self.headers)
+
+                    if mag_faint < 99:
+                        mag_err = max(mag_faint-mag, mag-mag_bright)
+                    else:
+                        mag_err = mag-mag_bright
+
+                    details['radius'] = radius
+
+                    details['aperture_counts'] = counts
+                    #todo: modify find_sep_objects to get this extra info
+                    details['area_pix'] = None
+
+                    details['sky_area_pix'] = None
+                    details['sky_average'] = None
+                    details['sky_counts'] = None
+                    details['mag'] = mag
+                    details['mag_err'] = mag_err
+                    details['mag_bright'] = mag_bright
+                    details['mag_faint'] = mag_faint
+
+                    #matplotlib plotting later needs these in sky units (arcsec) not pixels
+                    details['sep_objects']  = source_objects
+                    details['sep_obj_idx'] = selected_obj_idx
+                    return cutout, counts, mag, radius, details
 
             x_center, y_center = self.update_center(cutout,radius,play=G.NUDGE_MAG_APERTURE_CENTER)
             self.last_x_center = x_center*self.pixel_size

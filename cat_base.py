@@ -24,6 +24,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from matplotlib.patches import Ellipse
 
 from matplotlib.font_manager import FontProperties
 import scipy.constants
@@ -831,8 +832,6 @@ class Catalog:
             log.error("Exception! in cat_base::add_zero_position()",exc_info=True)
 
 
-
-
     def add_aperture_position(self,plt,radius,mag=None,cx=0,cy=0,ew=None,plae=None):
             # over plot a circle of radius on the center of the image (assumed to be the photo-aperture)
             if radius > 0:
@@ -862,6 +861,57 @@ class Catalog:
 
                 except:
                     log.error("Unable to overplot aperture position.",exc_info=True)
+
+
+    def add_elliptical_aperture_positions(self,plt,ellipse_objs,selected_idx=0, mag=None,cx=0,cy=0,ew=None,plae=None):
+            # over plot a circle of radius on the center of the image (assumed to be the photo-aperture)
+            try:
+                log.debug("Plotting imaging (elliptical) aperture position...")
+
+                if (cx is None) or (cy is None):
+                    cx = 0
+                    cy = 0
+
+                for i in range(len(ellipse_objs)):
+                    a = ellipse_objs['a'][i]
+                    b = ellipse_objs['b'][i]
+                    radius = np.sqrt(a*a+b*b)/2. #approximate radius (treat ellipse like a circle)
+
+                    if selected_idx == i:
+                        color = 'yellow'
+                        alpha = 1.0
+                        zorder = 2
+                        ls='solid'
+                    else:
+                        color = 'white'
+                        alpha = 0.8
+                        zorder = 1
+                        ls = ':'
+
+                    e = Ellipse(xy=(ellipse_objs['x'][i], ellipse_objs['y'][i]),
+                                width=a,  # diameter with (*6 is for *6 kron isophotal units)?
+                                height=b,
+                                angle=ellipse_objs['theta'][i] * 180. / np.pi,
+                                facecolor='none',
+                                edgecolor=color, alpha=alpha,zorder=zorder,linestyle=ls)
+
+                    #plt.gca().add_artist(e)
+                    plt.gca().add_patch(e)
+
+                    if mag is not None:
+                        label = "mag: %0.1f, %0.1f\"" % (mag,radius)
+
+                        if ew is not None:
+                            label += "\n EWr: %0.0f" %(ew)
+                            if plae is not None:
+                                label += ", PLAE: %0.4g" %(plae)
+
+                        plt.xlabel(label)
+                        plt.gca().xaxis.labelpad = 0
+                        plt.subplots_adjust(bottom=0.1)
+            except:
+                log.error("Unable to overplot (elliptical) aperture position.",exc_info=True)
+
 
 
     def add_empty_catalog_fiber_positions(self, plt,fig,ra,dec,fiber_locs):

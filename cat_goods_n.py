@@ -707,7 +707,11 @@ class GOODS_N(cat_base.Catalog):
 
                     cx = sci.last_x0_center
                     cy = sci.last_y0_center
-                    self.add_aperture_position(plt,mag_radius,mag,cx,cy,cutout_ewr,cutout_plae)
+                    if details['sep_objects'] is not None:
+                        self.add_elliptical_aperture_positions(plt, details['sep_objects'], details['sep_obj_idx'],
+                                                               mag, cx, cy, cutout_ewr, cutout_plae)
+                    else:
+                        self.add_aperture_position(plt, mag_radius, mag, cx, cy, cutout_ewr, cutout_plae)
 
                 plt.title(i['instrument'] + " " + i['filter'])
                 plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
