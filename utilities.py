@@ -148,33 +148,120 @@ def is_in_ellipse(xp,yp,xc,yc,a,b,angle):
     :param b: minor axis (radius)
     :param angle: rotation angle in radians from positive x axis (counter clockwise)
     Assumes lower left is 0,0
-    :return:
+    :return: True/False, distance to barycenter
     """
 
-    #translate to center ellipse at 0,0
-    xp = xp - xc
-    yp = yp - yc
-    xc,yc = 0,0
+    try:
+        #translate to center ellipse at 0,0
+        xp = xp - xc
+        yp = yp - yc
+        xc,yc = 0,0
 
-    #rotate to major axis along x
-    angle = 2.*math.pi - angle   #want in clock-wise from positive x axis (rotation matrix below is clock-wise)
-    cosa = math.cos(angle)
-    sina = math.sin(angle)
+        #rotate to major axis along x
+        angle = 2.*math.pi - angle   #want in clock-wise from positive x axis (rotation matrix below is clock-wise)
+        cosa = math.cos(angle)
+        sina = math.sin(angle)
 
-    #xt = transformed xp coord where major axis is positive x-axis and minor is positive y-axis
-    #yt = transformed yp coord
-    xt = xp*cosa-yp*sina
-    yt = xp*sina+yp*cosa
+        #xt = transformed xp coord where major axis is positive x-axis and minor is positive y-axis
+        #yt = transformed yp coord
+        xt = xp*cosa-yp*sina
+        yt = xp*sina+yp*cosa
 
-    #np.sqrt(xt+yt) would now be the distance from the center
-    #essentially stretching x and y axis s|t ellipse becomes a unit circle, then if the distance (or distance squared,
-    #as coded here) is less than 1 it is inside (if == 1 it is on the ellipse or circle)
-    inside=((xt*xt)/(a*a))+((yt*yt)/(b*b))
+        dist_to_barycenter = np.sqrt(xt*xt+yt*yt)
 
-    if inside <= 1:
-        return True
-    else:
-        return False
+        #np.sqrt(xt+yt) would now be the distance from the center
+        #essentially stretching x and y axis s|t ellipse becomes a unit circle, then if the distance (or distance squared,
+        #as coded here) is less than 1 it is inside (if == 1 it is on the ellipse or circle)
+        inside=((xt*xt)/(a*a))+((yt*yt)/(b*b))
+
+        return inside <= 1, dist_to_barycenter
+
+    except:
+        log.debug("Exception in utilities.",exc_info=True)
+        return None, None
+
+
+def dist_to_ellipse(xp,yp,xc,yc,a,b,angle):
+    """
+    Find the distance to the nearest point ON the ellipse for point OUTSIDE the ellipse.
+
+    :param xp: x coord of point
+    :param yp: y coord of point
+    :param xc: x coord of ellipse center
+    :param yc: y coord of ellipse center
+    :param a: major axis (radius)
+    :param b: minor axis (radius)
+    :param angle: rotation angle in radians from positive x axis (counter clockwise)
+    Assumes lower left is 0,0
+    :return: outside (True/False), distance to curve, distance to barycenter, nearest point on curve as (x,y)
+            where outside also proxies for success ... if True, this should have worked, if False, not
+    """
+
+    try:
+        #translate to center ellipse at 0,0
+        xp = xp - xc
+        yp = yp - yc
+        xc,yc = 0,0
+
+        #rotate to major axis along x
+        angle = 2.*math.pi - angle   #want in clock-wise from positive x axis (rotation matrix below is clock-wise)
+        cosa = math.cos(angle)
+        sina = math.sin(angle)
+
+        #xt = transformed xp coord where major axis is positive x-axis and minor is positive y-axis
+        #yt = transformed yp coord
+        xt = xp*cosa-yp*sina
+        yt = xp*sina+yp*cosa
+
+
+        dist_to_barycenter = np.sqrt(xt*xt+yt*yt)
+        dist_to_curve = None
+        inside = (((xt * xt) / (a * a)) + ((yt * yt) / (b * b))) <= 1
+
+        if inside:
+            log.info("Point to ellipse, point is INSIDE the ellipse.")
+            return not inside, None,dist_to_barycenter,(None,None)
+
+        #calculate and return distance
+        #no analytical solution? so approximate
+        #modified from Johannes Peter (https://gist.github.com/JohannesMP)
+        px = abs(xt)
+        py = abs(yt)
+
+        tx = 0.707
+        ty = 0.707
+
+        for x in range(0, 3):
+            x = a * tx
+            y = b * ty
+
+            ex = (a * a - b * b) * tx ** 3 / a
+            ey = (b * b - a * a) * ty ** 3 / b
+
+            rx = x - ex
+            ry = y - ey
+
+            qx = px - ex
+            qy = py - ey
+
+            r = math.hypot(rx, ry)
+            q = math.hypot(qx, qy)
+
+            tx = min(1, max(0, (qx * r / q + ex) / a))
+            ty = min(1, max(0, (qy * r / q + ey) / b))
+            t = math.hypot(tx, ty)
+            tx /= t
+            ty /= t
+
+        pt_on_curve =  (math.copysign(a * tx, xt), math.copysign(b * ty, yt))
+        curve_to_barycenter = np.sqrt(pt_on_curve[0] * pt_on_curve[0] + pt_on_curve[1] * pt_on_curve[1])
+        dist_to_curve = dist_to_barycenter - curve_to_barycenter
+
+        return not inside, dist_to_curve,dist_to_barycenter,pt_on_curve
+    except:
+        log.debug("Exception in utilities.",exc_info=True)
+        return False,None, None, None
+
 
 def saferound(value,precision,fail=0):
     try:
