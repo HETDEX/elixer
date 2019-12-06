@@ -557,6 +557,14 @@ class science_image():
                                                       obj['a'], obj['b'], obj['theta'],
                                                       2.5 * kronrad, subpix=1)
 
+            try: #flux, fluxerr, flag may be ndarrays but of size zero (a bit weird)
+                flux = float(flux)
+                fluxerr = float(fluxerr)
+                flag = int(flag)
+            except:
+                log.debug("Exception casting results from sep.sum",exc_info=True)
+
+
             for obj in objects:
                 # convert to image center as 0,0 (needed later in plotting) and to arcsecs
                 obj['x'] = (obj['x'] - cx) * self.pixel_size

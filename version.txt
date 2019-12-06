@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.8.0a3 [2019-12-03]
+1.8.0a3 [2019-12-06]
 * repeat calls to generate PLAE/POII for range of EW values (nominal, min, max) and report in HDF5
 * changed sky annulus for sky-subtraction from 5x-10x to 2x-4x of the aperture radius (for ~12x sky pixels to aperture pixels)
   (was previously far too large, letting in broad gradients and increased chance of bright stars/wings)
@@ -11,6 +11,9 @@ changes to elixer by version
 * fixed bug in NUDGE (science_image::update_center) which was using the aperture radius to mask the Gaussian peak finder
   region on the cutout instead of the allowed play (NUDGE) radius
 * add distance for point to ellipse and check for point in ellipse (for use with source extractor elliptical apertures)
+* add option (current=True) to use source extractor instead circular aperture (fall back on aperture if source extactor
+  fails). global_config USE_SOURCE_EXTRACTOR
+
 
 1.8.0a2 [2019-11-20]
 * changed background of _mini.png to dark gray (0x1c1c1e)
