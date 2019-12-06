@@ -486,6 +486,12 @@ class science_image():
         :return: array of source extractor objects and (selected_idx, flux(cts), fluxerr(cts), flag)
         """
 
+        #todo:
+        # details['area_pix'] = None
+        # details['sky_area_pix'] = None
+        # details['sky_average'] = None
+        # details['sky_counts'] = None
+
         objects = None
         try:
             if (cutout is None) or (cutout.data is None):
@@ -904,7 +910,6 @@ class science_image():
                     details['aperture_counts'] = counts
                     #todo: modify find_sep_objects to get this extra info
                     details['area_pix'] = None
-
                     details['sky_area_pix'] = None
                     details['sky_average'] = None
                     details['sky_counts'] = None
@@ -916,6 +921,17 @@ class science_image():
                     #matplotlib plotting later needs these in sky units (arcsec) not pixels
                     details['sep_objects']  = source_objects
                     details['sep_obj_idx'] = selected_obj_idx
+
+                    try:
+                        #this assumes lower-left is 0,0 but the object x,y uses center as 0,0
+                        sc = wcs_utils.pixel_to_skycoord(source_objects[selected_obj_idx]['x'] + cutout.center_cutout[0],
+                                                         source_objects[selected_obj_idx]['y'] + cutout.center_cutout[1],
+                                                         cutout.wcs, origin=0)
+                        details['ra'] = sc.ra.value
+                        details['dec'] = sc.dec.value
+                    except:
+                        log.debug("Exception converting source extrator x,y to RA, Dec", exc_info=True)
+
                     return cutout, counts, mag, radius, details
 
             x_center, y_center = self.update_center(cutout,radius,play=G.NUDGE_MAG_APERTURE_CENTER)
