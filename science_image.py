@@ -486,6 +486,7 @@ class science_image():
         :return: array of source extractor objects and (selected_idx, flux(cts), fluxerr(cts), flag)
         """
 
+        log.debug("Scanning cutout with source extractor ...")
         #todo:
         # details['area_pix'] = None
         # details['sky_area_pix'] = None
@@ -932,7 +933,10 @@ class science_image():
                     except:
                         log.debug("Exception converting source extrator x,y to RA, Dec", exc_info=True)
 
-                    return cutout, counts, mag, radius, details
+                    if return_details:
+                        return cutout, counts, mag, radius, details
+                    else:
+                        return cutout, counts, mag, radius
 
             x_center, y_center = self.update_center(cutout,radius,play=G.NUDGE_MAG_APERTURE_CENTER)
             self.last_x_center = x_center*self.pixel_size
