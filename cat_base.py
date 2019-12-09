@@ -878,7 +878,7 @@ class Catalog:
                     radius = np.sqrt(a*a+b*b)/2. #approximate radius (treat ellipse like a circle)
 
                     if selected_idx == i:
-                        color = 'yellow'
+                        color = 'gold'
                         alpha = 1.0
                         zorder = 2
                         ls='solid'
