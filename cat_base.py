@@ -872,12 +872,12 @@ class Catalog:
                     cx = 0
                     cy = 0
 
-                for i in range(len(ellipse_objs)):
-                    a = ellipse_objs['a'][i]
-                    b = ellipse_objs['b'][i]
-                    radius = np.sqrt(a*a+b*b)/2. #approximate radius (treat ellipse like a circle)
+                for eobj in ellipse_objs:
+                    a = eobj['a']
+                    b = eobj['b']
+                    radius = 0.5*(a+b) #approximate radius (treat ellipse like a circle)
 
-                    if selected_idx == i:
+                    if eobj['selected']:
                         color = 'gold'
                         alpha = 1.0
                         zorder = 2
@@ -888,10 +888,10 @@ class Catalog:
                         zorder = 1
                         ls = ':'
 
-                    e = Ellipse(xy=(ellipse_objs['x'][i], ellipse_objs['y'][i]),
+                    e = Ellipse(xy=(eobj['x'], eobj['y']),
                                 width=a,  # diameter with (*6 is for *6 kron isophotal units)?
                                 height=b,
-                                angle=ellipse_objs['theta'][i] * 180. / np.pi,
+                                angle=eobj['theta'] * 180. / np.pi,
                                 facecolor='none',
                                 edgecolor=color, alpha=alpha,zorder=zorder,linestyle=ls)
 

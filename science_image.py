@@ -483,8 +483,34 @@ class science_image():
 
         :param cutout:
         :param max_dist: in arcsec (max distance to the ellipse allowed) ... does not apply if INSIDE an ellipse
-        :return: array of source extractor objects and (selected_idx, flux(cts), fluxerr(cts), flag)
+        :return: ##array of source extractor objects and (selected_idx, flux(cts), fluxerr(cts), flag)
+                array of dictionary img_objects translated to ELiXer units, index of selected object or None
         """
+
+        def initialize_dict():
+            d = {}
+            d['idx'] = None
+            d['x'] = None
+            d['y'] = None
+            d['ra'] = None
+            d['dec'] = None
+            d['a'] = None
+            d['b'] = None
+            d['theta'] = None
+            d['background'] = None
+            d['background_rms'] = None
+            d['dist_baryctr'] = None
+            d['dist_curve'] = None
+            d['flux_cts'] = None
+            d['flux_cts_err'] = None
+            d['flags'] = None
+            d['mag'] = None
+            d['mag_faint'] = None
+            d['mag_bright'] = None
+            d['mag_err'] = None
+            d['selected'] = False
+
+            return d
 
         log.debug("Scanning cutout with source extractor ...")
         #todo:
@@ -493,10 +519,11 @@ class science_image():
         # details['sky_average'] = None
         # details['sky_counts'] = None
 
+        img_objects = [] #array of dictionaries ... a translation from sep objects to what ELiXer wants
         objects = None
         try:
             if (cutout is None) or (cutout.data is None):
-                return None, None
+                return img_objects, None
 
             cx, cy = cutout.center_cutout
 
@@ -517,6 +544,52 @@ class science_image():
                 # so 6a/2 == 3a == radius needed for function
                 success, dist2curve, dist2bary, pt = utilities.dist_to_ellipse(cx, cy, obj['x'], obj['y'], 3. * obj['a'],
                                                                          3. * obj['b'], obj['theta'])
+                #copy to ELiXer img_objects
+                d = initialize_dict()
+                d['idx'] = idx
+                # convert to image center as 0,0 (needed later in plotting) and to arcsecs
+                d['x'] = (obj['x'] - cx) * self.pixel_size
+                d['y'] = (obj['y'] - cy) * self.pixel_size
+                # the 6.* factor is from source extractor using 6 isophotal diameters
+                d['a'] = 6. * obj['a'] * self.pixel_size
+                d['b'] = 6. * obj['b'] * self.pixel_size
+                d['theta'] = obj['theta']
+                d['background'] = bkg.globalback
+                d['background_rms'] = bkg.globalrms
+                d['dist_baryctr'] = dist2bary * self.pixel_size
+                if success:
+                    d['dist_curve'] = dist2curve * self.pixel_size
+                else:
+                    d['dist_curve'] = -1.0
+
+                # now, get the flux
+                kronrad, krflag = sep.kron_radius(data_sub, obj['x'], obj['y'],
+                                                  obj['a'], obj['b'], obj['theta'], r=6.0)
+                # r=6 == 6 isophotal radii ... source extractor always uses 6
+                # minimum diameter = 3.5 (1.75 radius)
+                radius = kronrad * np.sqrt(obj['a'] * obj['b'])
+                if radius < 1.75:
+                    radius = 1.75
+                    flux, fluxerr, flag = sep.sum_circle(data_sub, obj['x'], obj['y'],
+                                                         radius, subpix=1)
+                else:
+                    flux, fluxerr, flag = sep.sum_ellipse(data_sub, obj['x'], obj['y'],
+                                                          obj['a'], obj['b'], obj['theta'],
+                                                          2.5 * kronrad, subpix=1)
+
+                try:  # flux, fluxerr, flag may be ndarrays but of size zero (a bit weird)
+                    flux = float(flux)
+                    fluxerr = float(fluxerr)
+                    flag = int(flag)
+                except:
+                    log.debug("Exception casting results from sep.sum", exc_info=True)
+
+                d['flux_cts'] = flux
+                d['flux_cts_err'] = fluxerr
+                d['flags'] = flag
+                d['selected'] = False
+
+                img_objects.append(d)
 
                 if success:  # this is outside
                     outside_objs.append((idx, dist2bary, dist2curve))
@@ -537,54 +610,58 @@ class science_image():
             else:  # none found at all, so we would use the old-style cicular aperture
                 # todo: aperture stuff
                 log.info("No (source extractor) objects found")
-                return None, None
+                return img_objects, None
 
             obj = objects[selected_idx]
             #check max distance
             if dist_to_curve_aa > max_dist:
                 log.info("Dist to nearest source extractor oject (%f) exceeds max allowed (%f)"
                          %(dist_to_curve_aa,max_dist))
-                return None, None
+                return img_objects, None
 
+            #mark selected item
+            img_objects[selected_idx]['selected'] = True
+            return img_objects, selected_idx
+
+            # # for obj in objects:
+            # # now, get the flux
+            #
+            # kronrad, krflag = sep.kron_radius(data_sub, obj['x'], obj['y'],
+            #                                   obj['a'], obj['b'], obj['theta'], r=6.0)
+            # # r=6 == 6 isophotal radii ... source extractor always uses 6
+            #
+            # # minimum diameter = 3.5 (1.75 radius)
+            # radius = kronrad * np.sqrt(obj['a'] * obj['b'])
+            # if radius < 1.75:
+            #     radius = 1.75
+            #     flux, fluxerr, flag = sep.sum_circle(data_sub, obj['x'], obj['y'],
+            #                                          radius, subpix=1)
+            # else:
+            #     flux, fluxerr, flag = sep.sum_ellipse(data_sub, obj['x'], obj['y'],
+            #                                           obj['a'], obj['b'], obj['theta'],
+            #                                           2.5 * kronrad, subpix=1)
+            #
+            # try: #flux, fluxerr, flag may be ndarrays but of size zero (a bit weird)
+            #     flux = float(flux)
+            #     fluxerr = float(fluxerr)
+            #     flag = int(flag)
+            # except:
+            #     log.debug("Exception casting results from sep.sum",exc_info=True)
+            #
+            #
             # for obj in objects:
-            # now, get the flux
+            #     # convert to image center as 0,0 (needed later in plotting) and to arcsecs
+            #     obj['x'] = (obj['x'] - cx) * self.pixel_size
+            #     obj['y'] = (obj['y'] - cy) * self.pixel_size
+            #     # the 6.* factor is from source extractor using 6 isophotal diameters
+            #     obj['a'] = 6. * obj['a'] * self.pixel_size
+            #     obj['b'] = 6. * obj['b'] * self.pixel_size
 
-            kronrad, krflag = sep.kron_radius(data_sub, obj['x'], obj['y'],
-                                              obj['a'], obj['b'], obj['theta'], r=6.0)
-            # r=6 == 6 isophotal radii ... source extractor always uses 6
-
-            # minimum diameter = 3.5 (1.75 radius)
-            radius = kronrad * np.sqrt(obj['a'] * obj['b'])
-            if radius < 1.75:
-                radius = 1.75
-                flux, fluxerr, flag = sep.sum_circle(data_sub, obj['x'], obj['y'],
-                                                     radius, subpix=1)
-            else:
-                flux, fluxerr, flag = sep.sum_ellipse(data_sub, obj['x'], obj['y'],
-                                                      obj['a'], obj['b'], obj['theta'],
-                                                      2.5 * kronrad, subpix=1)
-
-            try: #flux, fluxerr, flag may be ndarrays but of size zero (a bit weird)
-                flux = float(flux)
-                fluxerr = float(fluxerr)
-                flag = int(flag)
-            except:
-                log.debug("Exception casting results from sep.sum",exc_info=True)
-
-
-            for obj in objects:
-                # convert to image center as 0,0 (needed later in plotting) and to arcsecs
-                obj['x'] = (obj['x'] - cx) * self.pixel_size
-                obj['y'] = (obj['y'] - cy) * self.pixel_size
-                # the 6.* factor is from source extractor using 6 isophotal diameters
-                obj['a'] = 6. * obj['a'] * self.pixel_size
-                obj['b'] = 6. * obj['b'] * self.pixel_size
-
-            return objects,(selected_idx,flux,fluxerr,flag)
+            #return objects,(selected_idx,flux,fluxerr,flag)
         except:
             log.error("Source Extractor call failed.",exc_info=True)
 
-        return objects
+        return img_objects, None
 
     def get_cutout(self,ra,dec,error,window=None,image=None,copy=False,aperture=0,mag_func=None,
                    do_sky_subtract=True,return_details=False):
@@ -885,53 +962,74 @@ class science_image():
         if (position is not None) and (cutout is not None) and (image is not None) \
                 and (mag_func is not None) and (aperture > 0):
 
-
             #if source extractor works, use it else, proceed as before with circular aperture photometry
             if G.USE_SOURCE_EXTRACTOR:
-                source_objects,sep_info = self.find_sep_objects(cutout,G.NUDGE_MAG_APERTURE_CENTER)
+                source_objects,selected_obj_idx = self.find_sep_objects(cutout,G.NUDGE_MAG_APERTURE_CENTER)
 
                 if (source_objects is not None) and (len(source_objects) > 0):
 
-                    selected_obj_idx = sep_info[0]
-                    counts = sep_info[1]
-                    count_err = sep_info[2]
+                    #get the mag for all
+                    for sobj in source_objects:
+                    #selected_obj_idx = sep_info[0]
+                        counts = sobj['flux_cts'] #sep_info[1]
+                        count_err = sobj['flux_cts_err'] #sep_info[2]
 
+                        mag, mag_faint, mag_bright,mag_err = None, None, None, None
+                        try:
+                            mag = mag_func(counts, cutout, self.headers)
+                            mag_faint = mag_func(counts-count_err, cutout, self.headers)
+                            mag_bright = mag_func(counts+count_err, cutout, self.headers)
+                            if mag_faint < 99:
+                                mag_err = max(mag_faint - mag, mag - mag_bright)
+                            else:
+                                mag_err = mag - mag_bright
+                        except:
+                            log.error("Exception calling mag_func.",exc_info=True)
 
-                    mag = mag_func(counts, cutout, self.headers)
-                    mag_faint = mag_func(counts-count_err, cutout, self.headers)
-                    mag_bright = mag_func(counts+count_err, cutout, self.headers)
+                        sobj['mag'] = mag
+                        sobj['mag_faint'] = mag_faint
+                        sobj['mag_bright'] = mag_bright
+                        sobj['mag_err'] = mag_err
 
-                    if mag_faint < 99:
-                        mag_err = max(mag_faint-mag, mag-mag_bright)
-                    else:
-                        mag_err = mag-mag_bright
+                        try:
+                            #this assumes lower-left is 0,0 but the object x,y uses center as 0,0
+                            sc = wcs_utils.pixel_to_skycoord(sobj['x'] + cutout.center_cutout[0],
+                                                             sobj['y'] + cutout.center_cutout[1],
+                                                             cutout.wcs, origin=0)
+                            sobj['ra'] = sc.ra.value
+                            sobj['dec'] = sc.dec.value
+                        except:
+                            log.debug("Exception converting source extrator x,y to RA, Dec", exc_info=True)
 
-                    details['radius'] = radius
+                        if sobj['selected']:
+                            details['radius'] = radius
 
-                    details['aperture_counts'] = counts
-                    #todo: modify find_sep_objects to get this extra info
-                    details['area_pix'] = None
-                    details['sky_area_pix'] = None
-                    details['sky_average'] = None
-                    details['sky_counts'] = None
-                    details['mag'] = mag
-                    details['mag_err'] = mag_err
-                    details['mag_bright'] = mag_bright
-                    details['mag_faint'] = mag_faint
+                            details['aperture_counts'] = counts
+                            #todo: modify find_sep_objects to get this extra info
+                            details['area_pix'] = None
+                            details['sky_area_pix'] = None
+                            details['sky_average'] = None
+                            details['sky_counts'] = None
+                            details['mag'] = mag
+                            details['mag_err'] = mag_err
+                            details['mag_bright'] = mag_bright
+                            details['mag_faint'] = mag_faint
+                            details['ra'] = sobj['ra']
+                            details['dec'] = sobj['dec']
 
-                    #matplotlib plotting later needs these in sky units (arcsec) not pixels
+                            #matplotlib plotting later needs these in sky units (arcsec) not pixels
                     details['sep_objects']  = source_objects
                     details['sep_obj_idx'] = selected_obj_idx
 
-                    try:
-                        #this assumes lower-left is 0,0 but the object x,y uses center as 0,0
-                        sc = wcs_utils.pixel_to_skycoord(source_objects[selected_obj_idx]['x'] + cutout.center_cutout[0],
-                                                         source_objects[selected_obj_idx]['y'] + cutout.center_cutout[1],
-                                                         cutout.wcs, origin=0)
-                        details['ra'] = sc.ra.value
-                        details['dec'] = sc.dec.value
-                    except:
-                        log.debug("Exception converting source extrator x,y to RA, Dec", exc_info=True)
+                    # try:
+                    #     #this assumes lower-left is 0,0 but the object x,y uses center as 0,0
+                    #     sc = wcs_utils.pixel_to_skycoord(source_objects[selected_obj_idx]['x'] + cutout.center_cutout[0],
+                    #                                      source_objects[selected_obj_idx]['y'] + cutout.center_cutout[1],
+                    #                                      cutout.wcs, origin=0)
+                    #     details['ra'] = sc.ra.value
+                    #     details['dec'] = sc.dec.value
+                    # except:
+                    #     log.debug("Exception converting source extrator x,y to RA, Dec", exc_info=True)
 
                     if return_details:
                         return cutout, counts, mag, radius, details
