@@ -531,6 +531,7 @@ class science_image():
                 data = cutout.data.byteswap().newbyteorder()
             bkg = sep.Background(data)
             data_sub = data - bkg
+            data_err = bkg.globalrms #use the background RMS as the error (assume sky dominated)
             objects = sep.extract(data_sub, 1.5, err=bkg.globalrms)
 
             selected_idx = -1
@@ -571,11 +572,11 @@ class science_image():
                 if radius < 1.75:
                     radius = 1.75
                     flux, fluxerr, flag = sep.sum_circle(data_sub, obj['x'], obj['y'],
-                                                         radius, subpix=1)
+                                                         radius, subpix=1,err=data_err)
                 else:
                     flux, fluxerr, flag = sep.sum_ellipse(data_sub, obj['x'], obj['y'],
                                                           obj['a'], obj['b'], obj['theta'],
-                                                          2.5 * kronrad, subpix=1)
+                                                          2.5 * kronrad, subpix=1,err=data_err)
 
                 try:  # flux, fluxerr, flag may be ndarrays but of size zero (a bit weird)
                     flux = float(flux)

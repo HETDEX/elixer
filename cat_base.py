@@ -832,6 +832,15 @@ class Catalog:
             log.error("Exception! in cat_base::add_zero_position()",exc_info=True)
 
 
+    def add_catalog_position(self,plt,x,y,size,color):
+        try:
+            plt.gca().add_patch(plt.Rectangle((x,y), width=size, height=size,
+                                              angle=0.0, color=color, fill=False, linewidth=1.0, zorder=2))
+        except:
+            log.info("Exception!",exc_info=True)
+
+
+
     def add_aperture_position(self,plt,radius,mag=None,cx=0,cy=0,ew=None,plae=None):
             # over plot a circle of radius on the center of the image (assumed to be the photo-aperture)
             if radius > 0:
@@ -864,7 +873,7 @@ class Catalog:
 
 
     def add_elliptical_aperture_positions(self,plt,ellipse_objs,selected_idx=0, mag=None,cx=0,cy=0,ew=None,plae=None):
-            # over plot a circle of radius on the center of the image (assumed to be the photo-aperture)
+
             try:
                 log.debug("Plotting imaging (elliptical) aperture position...")
 
@@ -872,31 +881,35 @@ class Catalog:
                     cx = 0
                     cy = 0
 
+                image_width = plt.gca().get_xlim()[1]*2.0 #center is at 0,0; this is a square so x == y
+
                 for eobj in ellipse_objs:
-                    a = eobj['a']
+                    use_circle = False
+                    a = eobj['a'] #major axis diameter in arcsec
                     b = eobj['b']
-                    radius = 0.5*(a+b) #approximate radius (treat ellipse like a circle)
+                    radius = 0.5*np.sqrt(a*b) #approximate radius (treat ellipse like a circle)
 
                     if eobj['selected']:
                         color = 'gold'
                         alpha = 1.0
-                        zorder = 2
+                        zorder = 3
                         ls='solid'
                     else:
                         color = 'white'
                         alpha = 0.8
                         zorder = 1
-                        ls = ':'
+                        ls = '--'
 
-                    e = Ellipse(xy=(eobj['x'], eobj['y']),
+                    if radius/image_width < 0.1:
+                        log.debug("Ellipse too small. Using larger circle to highlight.")
+                        a = b = 0.1 * image_width
+
+                    plt.gca().add_artist(Ellipse(xy=(eobj['x'], eobj['y']),
                                 width=a,  # diameter with (*6 is for *6 kron isophotal units)?
                                 height=b,
                                 angle=eobj['theta'] * 180. / np.pi,
                                 facecolor='none',
-                                edgecolor=color, alpha=alpha,zorder=zorder,linestyle=ls)
-
-                    #plt.gca().add_artist(e)
-                    plt.gca().add_patch(e)
+                                edgecolor=color, alpha=alpha,zorder=zorder,linestyle=ls))
 
                     if mag is not None:
                         label = "mag: %0.1f, %0.1f\"" % (mag,radius)

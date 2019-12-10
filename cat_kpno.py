@@ -673,9 +673,13 @@ class KPNO(cat_base.Catalog):#Kit Peak
                 x, y = sci.get_position(ra, dec, cutout)  # zero (absolute) position
                 for br, bd, bc in zip(bid_ras, bid_decs, bid_colors):
                     fx, fy = sci.get_position(br, bd, cutout)
-                    plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
-                                                      width=target_box_side, height=target_box_side,
-                                                      angle=0.0, color=bc, fill=False, linewidth=1.0, zorder=1))
+                    self.add_catalog_position(plt,
+                                              x=(fx-x)-target_box_side / 2.0,
+                                              y=(fy-y)-target_box_side / 2.0,
+                                              size=target_box_side, color=bc)
+                    # plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
+                    #                                   width=target_box_side, height=target_box_side,
+                    #                                   angle=0.0, color=bc, fill=False, linewidth=1.0, zorder=1))
 
             if (details is not None) and (detobj is not None):
                 detobj.aperture_details_list.append(details)

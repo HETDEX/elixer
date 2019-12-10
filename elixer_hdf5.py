@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.0.4' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.0.5' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -124,9 +124,6 @@ class SpectraLines(tables.IsDescription):
     sol_num = tables.Int32Col(dflt=-1) #-1 is unset, 0 is simple scan, no solution, 1+ = solution number in
                                        #decreasing score order
 
-
-
-
 class CalibratedSpectra(tables.IsDescription):
     detectid = tables.Int64Col(pos=0)  # unique HETDEX detection ID 1e9+
     wavelength = tables.Float32Col(shape=(1036,) )
@@ -136,11 +133,11 @@ class CalibratedSpectra(tables.IsDescription):
 class Aperture(tables.IsDescription):
     #one entry per aperture photometry collected
     detectid = tables.Int64Col(pos=0)
+    aperture_ra = tables.Float32Col(pos=1,dflt=UNSET_FLOAT)
+    aperture_dec = tables.Float32Col(pos=2,dflt=UNSET_FLOAT)
     catalog_name = tables.StringCol(itemsize=16)
     filter_name = tables.StringCol(itemsize=16)
     image_depth_mag = tables.Float32Col(dflt=UNSET_FLOAT)
-    aperture_ra = tables.Float32Col(dflt=UNSET_FLOAT)
-    aperture_dec = tables.Float32Col(dflt=UNSET_FLOAT)
     aperture_radius = tables.Float32Col(dflt=UNSET_FLOAT) #in arcsec
     aperture_mag = tables.Float32Col(dflt=UNSET_FLOAT)
     aperture_mag_err = tables.Float32Col(dflt=UNSET_FLOAT)
@@ -155,17 +152,41 @@ class Aperture(tables.IsDescription):
     sky_counts = tables.Float32Col(dflt=UNSET_FLOAT)
     sky_average = tables.Float32Col(dflt=UNSET_FLOAT)
 
+class ExtractedObjects(tables.IsDescription):
+    #one entry per aperture photometry collected
+    detectid = tables.Int64Col(pos=0)
+    ra = tables.Float32Col(pos=1,dflt=UNSET_FLOAT) #decimal degrees of center
+    dec = tables.Float32Col(pos=2,dflt=UNSET_FLOAT)
+    catalog_name = tables.StringCol(itemsize=16)
+    filter_name = tables.StringCol(itemsize=16)
+    selected = tables.BoolCol(dflt=False)
+    major = tables.Float32Col(dflt=UNSET_FLOAT) #major axis (diameter) 'a' in arcsec
+    minor = tables.Float32Col(dflt=UNSET_FLOAT) #'b'
+    theta = tables.Float32Col(dflt=0.0) #radians counter-clockwise from x-axis
+    mag = tables.Float32Col(dflt=UNSET_FLOAT)
+    mag_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    flags = tables.Int32Col(dflt=0)
+    # flag ... bit mask
+    # 01 sep.OBJ_MERGED	      object is result of deblending
+    # 02 sep.OBJ_TRUNC	      object is truncated at image boundary
+    # 08 sep.OBJ_SINGU	      x, y fully correlated in object
+    # 10 sep.APER_TRUNC	      aperture truncated at image boundary
+    # 20 sep.APER_HASMASKED	  aperture contains one or more masked pixels
+    # 40 sep.APER_ALLMASKED	  aperture contains only masked pixels
+    # 80 sep.APER_NONPOSITIVE aperture sum is negative in kron_radius
+
+
 
 class CatalogMatch(tables.IsDescription):
     # one entry per catalog bid target
     detectid = tables.Int64Col(pos=0)
+    cat_ra = tables.Float32Col(pos=1,dflt=UNSET_FLOAT)
+    cat_dec = tables.Float32Col(pos=2,dflt=UNSET_FLOAT)
     catalog_name = tables.StringCol(itemsize=16)
     filter_name = tables.StringCol(itemsize=16)
     match_num = tables.Int32Col(dflt=-1)
     separation = tables.Float32Col(dflt=UNSET_FLOAT) #in arcsec
     prob_match = tables.Float32Col(dflt=UNSET_FLOAT) #in arcsec
-    cat_ra = tables.Float32Col(dflt=UNSET_FLOAT)
-    cat_dec = tables.Float32Col(dflt=UNSET_FLOAT)
     cat_specz = tables.Float32Col(dflt=UNSET_FLOAT)
     cat_photz = tables.Float32Col(dflt=UNSET_FLOAT)
     cat_flux = tables.Float32Col(dflt=UNSET_FLOAT)
@@ -239,12 +260,14 @@ def flush_all(fileh):
         atb = fileh.root.Aperture
         ctb = fileh.root.CatalogMatch
 
+
         vtb.flush()
         dtb.flush()
         ltb.flush()
         stb.flush()
         atb.flush()
         ctb.flush()
+
 
         #remove (old) index if exists
         #vtb does not have or need an index
@@ -254,6 +277,7 @@ def flush_all(fileh):
         atb.cols.detectid.remove_index()
         ctb.cols.detectid.remove_index()
 
+
         #create (new) index
         # vtb does not have or need an index
         dtb.cols.detectid.create_csindex()
@@ -262,12 +286,23 @@ def flush_all(fileh):
         atb.cols.detectid.create_csindex()
         ctb.cols.detectid.create_csindex()
 
+
         #vtb.flush() # no need to re-flush vtb
         dtb.flush()
         ltb.flush()
         stb.flush()
         atb.flush()
         ctb.flush()
+
+
+        try:
+            etb = fileh.root.ExtractedObjects
+            etb.flush()
+            etb.cols.detectid.remove_index()
+            etb.cols.detectid.create_csindex()
+            etb.flush()
+        except:
+            pass
 
     return
 
@@ -354,6 +389,9 @@ def get_hdf5_filehandle(fname,append=False,allow_overwrite=True,must_exist=False
             fileh.create_table(fileh.root, 'CatalogMatch', CatalogMatch,
                                'ELiXer Catalog Matched Objected Table')
 
+            fileh.create_table(fileh.root, 'ExtractedObjects',ExtractedObjects,
+                               'ELiXer Image Extracted Objects Table')
+
             #todo: any actual images tables? (imaging cutouts, 2D fibers, etc)??
 
     except:
@@ -376,6 +414,12 @@ def append_entry(fileh,det,overwrite=False):
         ltb = fileh.root.SpectraLines
         atb = fileh.root.Aperture
         ctb = fileh.root.CatalogMatch
+        try:
+            etb = fileh.root.ExtractedObjects
+        except:
+            fileh.create_table(fileh.root, 'ExtractedObjects',ExtractedObjects,
+                               'ELiXer Image Extracted Objects Table')
+            etb = fileh.root.ExtractedObjects
 
         list_tables = [dtb,stb,ltb,atb,ctb]
 
@@ -625,6 +669,32 @@ def append_entry(fileh,det,overwrite=False):
                 row.append()
                 atb.flush()
 
+        ################################
+        # ExtractedObjects
+        ###############################
+        for d in det.aperture_details_list:
+            if d['sep_objects'] is None:
+                continue
+            for s in d['sep_objects']:
+                row = etb.row
+                row['detectid'] = det.hdf5_detectid
+                row['catalog_name'] = d['catalog_name']
+                row['filter_name'] = d['filter_name']
+
+                row['selected'] = s['selected']
+                row['ra'] = s['ra']
+                row['dec'] = s['dec']
+                row['major'] = s['a']
+                row['minor'] = s['b']
+                row['theta'] = s['theta']
+                row['mag'] = s['mag']
+                row['mag_err'] = s['mag_err']
+                row['flags'] = s['flags']
+
+                row.append()
+                etb.flush()
+
+
         #################################
         #Catalog Match table
         ################################
@@ -667,6 +737,7 @@ def append_entry(fileh,det,overwrite=False):
 
                 row.append()
                 ctb.flush()
+
 
     except:
         log.error("Exception! in elixer_hdf5::append_entry",exc_info=True)
@@ -768,6 +839,7 @@ def merge_unique(newfile,file1,file2):
         ltb_new = newfile_handle.root.SpectraLines
         atb_new = newfile_handle.root.Aperture
         ctb_new = newfile_handle.root.CatalogMatch
+        etb_new = newfile_handle.root.ExtractedObjects #new MUST have this table
 
         dtb1 = file1_handle.root.Detections
         dtb2 = file2_handle.root.Detections
@@ -841,14 +913,16 @@ def merge_unique(newfile,file1,file2):
                 #   new_row = dtb_new.row
                 #   temp_append_dtb_002_to_003(new_row,old_row)
 
-
-
-
                 #unfortunately, have to assume following data is unique
                 stb_new.append(stb_src.read_where("(detectid==d)"))
                 ltb_new.append(ltb_src.read_where("(detectid==d)"))
                 atb_new.append(atb_src.read_where("(detectid==d)"))
                 ctb_new.append(ctb_src.read_where("(detectid==d)"))
+                try:
+                    etb_src = source_h.root.ExtractedObjects
+                    etb_new.append(etb_src.read_where("(detectid==d)"))
+                except:
+                    pass
 
                 #flush_all(newfile_handle) #don't think we need to flush every time
 
@@ -973,6 +1047,7 @@ def merge_elixer_hdf5_files(fname,flist=[]):
     ltb = fileh.root.SpectraLines
     atb = fileh.root.Aperture
     ctb = fileh.root.CatalogMatch
+    etb = fileh.root.ExtractedObjects
 
     for f in flist:
         if f == fname: #could be the output file is one of those to merge
@@ -990,12 +1065,19 @@ def merge_elixer_hdf5_files(fname,flist=[]):
         m_atb = merge_fh.root.Aperture
         m_ctb = merge_fh.root.CatalogMatch
 
+
         #now merge
         dtb.append(m_dtb.read())
         stb.append(m_stb.read())
         ltb.append(m_ltb.read())
         atb.append(m_atb.read())
         ctb.append(m_ctb.read())
+
+        try: #might not have ExtractedObjects table
+            m_etb = merge_fh.root.ExtractedObjects
+            etb.append(m_etb.read())
+        except:
+            pass
 
         flush_all(fileh)
         #close the merge input file
