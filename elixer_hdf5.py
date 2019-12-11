@@ -138,6 +138,7 @@ class Aperture(tables.IsDescription):
     catalog_name = tables.StringCol(itemsize=16)
     filter_name = tables.StringCol(itemsize=16)
     image_depth_mag = tables.Float32Col(dflt=UNSET_FLOAT)
+    pixel_scale = tables.Float32Col(dflt=UNSET_FLOAT)
     aperture_radius = tables.Float32Col(dflt=UNSET_FLOAT) #in arcsec
     aperture_mag = tables.Float32Col(dflt=UNSET_FLOAT)
     aperture_mag_err = tables.Float32Col(dflt=UNSET_FLOAT)
@@ -159,12 +160,17 @@ class ExtractedObjects(tables.IsDescription):
     dec = tables.Float32Col(pos=2,dflt=UNSET_FLOAT)
     catalog_name = tables.StringCol(itemsize=16)
     filter_name = tables.StringCol(itemsize=16)
-    selected = tables.BoolCol(dflt=False)
+    pixel_scale = tables.Float32Col(dflt=UNSET_FLOAT) #arcsec/pixel
+    selected = tables.BoolCol(dflt=False) #if True this is the object used for the aperture PLAE/OII, etc (see above table)
     major = tables.Float32Col(dflt=UNSET_FLOAT) #major axis (diameter) 'a' in arcsec
     minor = tables.Float32Col(dflt=UNSET_FLOAT) #'b'
     theta = tables.Float32Col(dflt=0.0) #radians counter-clockwise from x-axis
     mag = tables.Float32Col(dflt=UNSET_FLOAT)
     mag_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    background_cts = tables.Float32Col(dflt=UNSET_FLOAT)
+    background_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    flux_cts = tables.Float32Col(dflt=UNSET_FLOAT)
+    flux_err = tables.Float32Col(dflt=UNSET_FLOAT)
     flags = tables.Int32Col(dflt=0)
     # flag ... bit mask
     # 01 sep.OBJ_MERGED	      object is result of deblending
@@ -252,7 +258,6 @@ def flush_all(fileh):
 
     if fileh is not None:
         #iterate over all tables and issue flush
-
         vtb = fileh.root.Version
         dtb = fileh.root.Detections
         ltb = fileh.root.SpectraLines
@@ -664,6 +669,11 @@ def append_entry(fileh,det,overwrite=False):
                 except:
                     pass
 
+                try: #added in 0.0.5
+                    row['pixel_scale'] = d['pixel_scale']
+                except:
+                    pass
+
 
 
                 row.append()
@@ -680,7 +690,7 @@ def append_entry(fileh,det,overwrite=False):
                 row['detectid'] = det.hdf5_detectid
                 row['catalog_name'] = d['catalog_name']
                 row['filter_name'] = d['filter_name']
-
+                row['pixel_scale'] = d['pixel_scale']
                 row['selected'] = s['selected']
                 row['ra'] = s['ra']
                 row['dec'] = s['dec']
@@ -689,11 +699,14 @@ def append_entry(fileh,det,overwrite=False):
                 row['theta'] = s['theta']
                 row['mag'] = s['mag']
                 row['mag_err'] = s['mag_err']
+                row['background_cts'] = s['background']
+                row['background_err'] = s['background_rms']
+                row['flux_cts'] = s['flux']
+                row['flux_err'] = s['fluxerr']
                 row['flags'] = s['flags']
 
                 row.append()
                 etb.flush()
-
 
         #################################
         #Catalog Match table

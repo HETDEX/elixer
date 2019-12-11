@@ -673,10 +673,11 @@ class science_image():
 
 
         details = {'catalog_name':None,'filter_name':None,'ra':None,'dec':None,'radius':None,
-                   'mag':None,'mag_err':None, 'mag_bright':None,'mag_faint':None,
+                   'mag':None,'mag_err':None, 'mag_bright':None,'mag_faint':None, 'pixel_scale':None,
                    'area_pix':None,'sky_area_pix':None,
                    'aperture_counts':None, 'sky_counts':None, 'sky_average':None,
                    'aperture_eqw_rest_lya':None,'aperture_plae':None,'sep_objects':None,'sep_obj_idx':None}
+        #pixel_scale = arcsex/pixel
 
         self.window = None
         self.last_x_center = None
@@ -959,6 +960,8 @@ class science_image():
                 else:
                     return cutout, counts, mag, radius
 
+
+        details['pixel_scale'] = self.pixel_size
         #put down aperture on cutout at RA,Dec and get magnitude
         if (position is not None) and (cutout is not None) and (image is not None) \
                 and (mag_func is not None) and (aperture > 0):
