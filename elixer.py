@@ -266,6 +266,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--merge_unique', help='Merge two ELiXer HDF5 files into a new file keeping the more recent '
                                                'detection. Format: new-file,file1,file2', required=False)
 
+    parser.add_argument('--upgrade_hdf5', help='Copy HDF5 file into new format/version. Formate old_file,new_file',
+                        required=False)
+
     parser.add_argument('--annulus', help="Inner and outer radii in arcsec (e.g. (10.0,35.2) )", required=False)
     parser.add_argument('--wavelength', help="Target wavelength (observed) in angstroms for annulus", required=False,
                         type=float)
@@ -343,6 +346,11 @@ def parse_commandline(auto_force=False):
 
     if auto_force:
         args.force = True #forced to be true in dispatch mode
+
+    if args.upgrade_hdf5:
+        print("Upgrading catalog file (ignoring all other parameters) ... ")
+        return args
+
 
     if args.merge or args.merge_unique:
         print("Merging catalogs and fiber files (ignoring all other parameters) ... ")
@@ -706,6 +714,7 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
         only one detection at a time.
         :return:
         """
+        return
         try:
             if detobj is not None:
                 if detobj.fibers is not None:
@@ -1763,6 +1772,25 @@ def get_fcsdir_subdirs_to_process(args):
 
     return subdirs
 
+def upgrade_hdf5(args=None):
+
+    try:
+        #tokenize
+        toks = args.upgrade_hdf5.split(',')
+        if len(toks) != 2:
+            print("Invalid parameters for upgrade_hdf5 (%s)"%args.upgrade_hdf5)
+            log.error("Invalid parameters for upgrade_hdf5 (%s)"%args.upgrade_hdf5)
+            return
+
+        result = elixer_hdf5.upgrade_hdf5(toks[0],toks[1])
+
+        if result:
+            print("Success. File = %s" %toks[1])
+        else:
+            print("FAIL.")
+    except:
+        log.error("Exception! upgrading HDF5 file in upgrade_hdf5",exc_info=True)
+
 
 def merge_unique(args=None):
 
@@ -2578,6 +2606,10 @@ def main():
     #G.gc.enable()
     #G.gc.set_debug(G.gc.DEBUG_LEAK)
     args = parse_commandline()
+
+    if args.upgrade_hdf5:
+        upgrade_hdf5(args)
+        exit(0)
 
     if args.merge_unique:
         merge_unique(args)

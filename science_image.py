@@ -968,7 +968,7 @@ class science_image():
 
             #if source extractor works, use it else, proceed as before with circular aperture photometry
             if G.USE_SOURCE_EXTRACTOR:
-                source_objects,selected_obj_idx = self.find_sep_objects(cutout,G.NUDGE_MAG_APERTURE_CENTER)
+                source_objects,selected_obj_idx = self.find_sep_objects(cutout,G.NUDGE_SEP_MAX_DIST)
 
                 if (source_objects is not None) and (len(source_objects) > 0):
 

@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.8.0a3 [2019-12-06]
+1.8.0a3 [2019-12-11]
 * repeat calls to generate PLAE/POII for range of EW values (nominal, min, max) and report in HDF5
 * changed sky annulus for sky-subtraction from 5x-10x to 2x-4x of the aperture radius (for ~12x sky pixels to aperture pixels)
   (was previously far too large, letting in broad gradients and increased chance of bright stars/wings)
@@ -13,6 +13,9 @@ changes to elixer by version
 * add distance for point to ellipse and check for point in ellipse (for use with source extractor elliptical apertures)
 * add option (current=True) to use source extractor instead circular aperture (fall back on aperture if source extactor
   fails). global_config USE_SOURCE_EXTRACTOR
+* add command line switch --upgrade_hdf5 to upgrade an ELiXer HDF5 file to newer version
+* new tables (ExtractedObjects) in HDF5 file
+* made naming more uniform in column names in HDF5 file (now version 0.1.0)
 
 
 1.8.0a2 [2019-11-20]

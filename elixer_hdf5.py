@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.0.5' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.1.0' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -133,24 +133,24 @@ class CalibratedSpectra(tables.IsDescription):
 class Aperture(tables.IsDescription):
     #one entry per aperture photometry collected
     detectid = tables.Int64Col(pos=0)
-    aperture_ra = tables.Float32Col(pos=1,dflt=UNSET_FLOAT)
-    aperture_dec = tables.Float32Col(pos=2,dflt=UNSET_FLOAT)
+    ra = tables.Float32Col(pos=1,dflt=UNSET_FLOAT) #was aperture_ra
+    dec = tables.Float32Col(pos=2,dflt=UNSET_FLOAT) #was aperture_dec
     catalog_name = tables.StringCol(itemsize=16)
     filter_name = tables.StringCol(itemsize=16)
     image_depth_mag = tables.Float32Col(dflt=UNSET_FLOAT)
     pixel_scale = tables.Float32Col(dflt=UNSET_FLOAT)
-    aperture_radius = tables.Float32Col(dflt=UNSET_FLOAT) #in arcsec
-    aperture_mag = tables.Float32Col(dflt=UNSET_FLOAT)
-    aperture_mag_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    radius = tables.Float32Col(dflt=UNSET_FLOAT) #in arcsec , #was aperture_radius
+    mag = tables.Float32Col(dflt=UNSET_FLOAT) #was aperture_mag
+    mag_err = tables.Float32Col(dflt=UNSET_FLOAT) #was  aperture_mag_err
     aperture_area_pix = tables.Float32Col(dflt=UNSET_FLOAT) #pixels
     sky_area_pix = tables.Float32Col(dflt=UNSET_FLOAT) #pixels
-    aperture_eqw_rest_lya = tables.Float32Col(dflt=UNSET_FLOAT)
-    aperture_eqw_rest_lya_err = tables.Float32Col(dflt=UNSET_FLOAT)
-    aperture_plae = tables.Float32Col(dflt=UNSET_FLOAT)
-    aperture_plae_max = tables.Float32Col(dflt=UNSET_FLOAT)
-    aperture_plae_min = tables.Float32Col(dflt=UNSET_FLOAT)
-    aperture_counts = tables.Float32Col(dflt=UNSET_FLOAT)
-    sky_counts = tables.Float32Col(dflt=UNSET_FLOAT)
+    eqw_rest_lya = tables.Float32Col(dflt=UNSET_FLOAT) #was  aperture_eqw_rest_lya
+    eqw_rest_lya_err = tables.Float32Col(dflt=UNSET_FLOAT) #was  aperture_eqw_rest_lya_err
+    plae = tables.Float32Col(dflt=UNSET_FLOAT) #was  aperture_plae
+    plae_max = tables.Float32Col(dflt=UNSET_FLOAT) #was  aperture_plae_max
+    plae_min = tables.Float32Col(dflt=UNSET_FLOAT) #was  aperture_plae_min
+    aperture_cts = tables.Float32Col(dflt=UNSET_FLOAT) #was aperture_counts
+    sky_cts = tables.Float32Col(dflt=UNSET_FLOAT)
     sky_average = tables.Float32Col(dflt=UNSET_FLOAT)
 
 class ExtractedObjects(tables.IsDescription):
@@ -186,24 +186,24 @@ class ExtractedObjects(tables.IsDescription):
 class CatalogMatch(tables.IsDescription):
     # one entry per catalog bid target
     detectid = tables.Int64Col(pos=0)
-    cat_ra = tables.Float32Col(pos=1,dflt=UNSET_FLOAT)
-    cat_dec = tables.Float32Col(pos=2,dflt=UNSET_FLOAT)
+    ra = tables.Float32Col(pos=1,dflt=UNSET_FLOAT) #was cat_ra
+    dec = tables.Float32Col(pos=2,dflt=UNSET_FLOAT) #was cat_dec
     catalog_name = tables.StringCol(itemsize=16)
     filter_name = tables.StringCol(itemsize=16)
     match_num = tables.Int32Col(dflt=-1)
     separation = tables.Float32Col(dflt=UNSET_FLOAT) #in arcsec
     prob_match = tables.Float32Col(dflt=UNSET_FLOAT) #in arcsec
-    cat_specz = tables.Float32Col(dflt=UNSET_FLOAT)
-    cat_photz = tables.Float32Col(dflt=UNSET_FLOAT)
-    cat_flux = tables.Float32Col(dflt=UNSET_FLOAT)
-    cat_flux_err = tables.Float32Col(dflt=UNSET_FLOAT)
-    cat_mag = tables.Float32Col(dflt=UNSET_FLOAT)
-    cat_mag_err = tables.Float32Col(dflt=UNSET_FLOAT)
-    cat_eqw_rest_lya = tables.Float32Col(dflt=UNSET_FLOAT)
-    cat_eqw_rest_lya_err = tables.Float32Col(dflt=UNSET_FLOAT)
-    cat_plae = tables.Float32Col(dflt=UNSET_FLOAT)
-    cat_plae_max = tables.Float32Col(dflt=UNSET_FLOAT)
-    cat_plae_min = tables.Float32Col(dflt=UNSET_FLOAT)
+    specz = tables.Float32Col(dflt=UNSET_FLOAT) #was cat_specz
+    photz = tables.Float32Col(dflt=UNSET_FLOAT) #was cat_photz
+    flux = tables.Float32Col(dflt=UNSET_FLOAT) #was  cat_flux
+    flux_err = tables.Float32Col(dflt=UNSET_FLOAT) #was cat_flux_err
+    mag = tables.Float32Col(dflt=UNSET_FLOAT) #was  cat_mag
+    mag_err = tables.Float32Col(dflt=UNSET_FLOAT) #was cat_mag_err
+    eqw_rest_lya = tables.Float32Col(dflt=UNSET_FLOAT) #was cat_eqw_rest_lya
+    eqw_rest_lya_err = tables.Float32Col(dflt=UNSET_FLOAT) #was cat_eqw_rest_lya_err
+    plae = tables.Float32Col(dflt=UNSET_FLOAT) #was  cat_plae
+    plae_max = tables.Float32Col(dflt=UNSET_FLOAT) #was cat_plae_max
+    plae_min = tables.Float32Col(dflt=UNSET_FLOAT) #was cat_plae_min
 
     #maybe add in the PDF of the photz ... not sure how big
     #to make the columns ... needs to be fixed, but might
@@ -236,12 +236,16 @@ def version_match(fileh):
             return True, existing_version
         else: #three decimal strings
             try:
-                ex_version = existing_version.split(".")
-                this_version = __version__.split(".")
 
-                if ex_version[0] == this_version[0]:
-                    if ex_version[1] == this_version[1]:
-                        return True, existing_version #only differ in engineering version
+                if upgrade(fileh,existing_version,__version__):
+                    return True, __version__
+                else:
+                    ex_version = existing_version.split(".")
+                    this_version = __version__.split(".")
+
+                    if ex_version[0] == this_version[0]:
+                        if ex_version[1] == this_version[1]:
+                            return True, existing_version #only differ in engineering version
             except:
                 return False, existing_version
 
@@ -650,22 +654,22 @@ def append_entry(fileh,det,overwrite=False):
                 row['catalog_name'] = d['catalog_name']
                 row['filter_name'] = d['filter_name']
                 #row['image_depth_mag'] = ??
-                row['aperture_ra'] = d['ra']
-                row['aperture_dec'] = d['dec']
-                row['aperture_radius'] = d['radius']
-                row['aperture_mag']=d['mag']
-                row['aperture_mag_err'] = d['mag_err']
+                row['ra'] = d['ra']
+                row['dec'] = d['dec']
+                row['radius'] = d['radius']
+                row['mag']=d['mag']
+                row['mag_err'] = d['mag_err']
                 row['aperture_area_pix'] = d['area_pix']
                 row['sky_area_pix'] = d['sky_area_pix']
-                row['aperture_counts'] = d['aperture_counts']
-                row['sky_counts'] = d['sky_counts']
+                row['aperture_cts'] = d['aperture_counts']
+                row['sky_cts'] = d['sky_counts']
                 row['sky_average'] = d['sky_average']
-                row['aperture_eqw_rest_lya'] = d['aperture_eqw_rest_lya']
-                row['aperture_eqw_rest_lya_err'] = d['aperture_eqw_rest_lya_err']
-                row['aperture_plae'] = d['aperture_plae']
+                row['eqw_rest_lya'] = d['aperture_eqw_rest_lya']
+                row['eqw_rest_lya_err'] = d['aperture_eqw_rest_lya_err']
+                row['plae'] = d['aperture_plae']
                 try: #key might not exist
-                    row['aperture_plae_max'] = d['aperture_plae_max']
-                    row['aperture_plae_min'] = d['aperture_plae_min']
+                    row['plae_max'] = d['aperture_plae_max']
+                    row['plae_min'] = d['aperture_plae_min']
                 except:
                     pass
 
@@ -701,8 +705,8 @@ def append_entry(fileh,det,overwrite=False):
                 row['mag_err'] = s['mag_err']
                 row['background_cts'] = s['background']
                 row['background_err'] = s['background_rms']
-                row['flux_cts'] = s['flux']
-                row['flux_err'] = s['fluxerr']
+                row['flux_cts'] = s['flux_cts']
+                row['flux_err'] = s['flux_cts_err']
                 row['flags'] = s['flags']
 
                 row.append()
@@ -724,29 +728,29 @@ def append_entry(fileh,det,overwrite=False):
                 row['filter_name'] = d.bid_filter
                 row['separation'] = d.distance
                 row['prob_match'] = d.prob_match
-                row['cat_ra'] = d.bid_ra
-                row['cat_dec'] = d.bid_dec
+                row['ra'] = d.bid_ra
+                row['dec'] = d.bid_dec
                 if (d.spec_z is not None) and (d.spec_z >= 0.0):
-                    row['cat_specz'] = d.spec_z
+                    row['specz'] = d.spec_z
                 if (d.phot_z is not None) and (d.phot_z >= 0.0):
-                    row['cat_photz'] = d.phot_z
+                    row['photz'] = d.phot_z
                 row['filter_name'] = d.bid_filter
-                row['cat_flux'] = d.bid_flux_est_cgs
-                row['cat_flux_err'] = d.bid_flux_est_cgs_unc
-                row['cat_mag'] = d.bid_mag
-                row['cat_mag_err'] = 0.5 * (abs(d.bid_mag_err_bright) + abs(d.bid_mag_err_faint))
-                row['cat_plae'] = d.p_lae_oii_ratio
+                row['flux'] = d.bid_flux_est_cgs
+                row['flux_err'] = d.bid_flux_est_cgs_unc
+                row['mag'] = d.bid_mag
+                row['mag_err'] = 0.5 * (abs(d.bid_mag_err_bright) + abs(d.bid_mag_err_faint))
+                row['plae'] = d.p_lae_oii_ratio
 
                 try: #var might not exist
-                    row['cat_plae_max'] = d.p_lae_oii_ratio_max
-                    row['cat_plae_min'] = d.p_lae_oii_ratio_min
+                    row['plae_max'] = d.p_lae_oii_ratio_max
+                    row['plae_min'] = d.p_lae_oii_ratio_min
                 except:
                     pass
 
                 if d.bid_ew_lya_rest is not None:
-                    row['cat_eqw_rest_lya'] = d.bid_ew_lya_rest
+                    row['eqw_rest_lya'] = d.bid_ew_lya_rest
                     if d.bid_ew_lya_rest_err is not None:
-                        row['cat_eqw_rest_lya_err'] = d.bid_ew_lya_rest_err
+                        row['eqw_rest_lya_err'] = d.bid_ew_lya_rest_err
 
                 row.append()
                 ctb.flush()
@@ -954,6 +958,103 @@ def merge_unique(newfile,file1,file2):
 
     return True
 
+
+def merge_elixer_hdf5_files(fname,flist=[]):
+    """
+
+    :param fname: the output (final/merged) HDF5 file
+    :param flist:  list of all files to merge
+    :return: None or filename
+    """
+    #merging existing distinct HDF5 files w/o new additions from an active run
+    fileh = get_hdf5_filehandle(fname,append=True)
+
+    if fileh is None:
+        log.error("Unable to merge ELiXer catalogs.")
+        return None
+
+    #set up new HDF5 tables (into which to append)
+    dtb = fileh.root.Detections
+
+    stb = fileh.root.CalibratedSpectra
+    ltb = fileh.root.SpectraLines
+    atb = fileh.root.Aperture
+    ctb = fileh.root.CatalogMatch
+    etb = fileh.root.ExtractedObjects
+
+    for f in flist:
+        if f == fname: #could be the output file is one of those to merge
+            continue #just skip and move on
+
+        merge_fh = get_hdf5_filehandle(f,append=True)
+
+        if merge_fh is None:
+            log.error("Unable to merge: %s" %(f))
+            continue
+
+        m_dtb = merge_fh.root.Detections
+        m_stb = merge_fh.root.CalibratedSpectra
+        m_ltb = merge_fh.root.SpectraLines
+        m_atb = merge_fh.root.Aperture
+        m_ctb = merge_fh.root.CatalogMatch
+
+
+        #now merge
+        dtb.append(m_dtb.read())
+        stb.append(m_stb.read())
+        ltb.append(m_ltb.read())
+        atb.append(m_atb.read())
+        ctb.append(m_ctb.read())
+
+        try: #might not have ExtractedObjects table
+            m_etb = merge_fh.root.ExtractedObjects
+            etb.append(m_etb.read())
+        except:
+            pass
+
+        flush_all(fileh)
+        #close the merge input file
+        merge_fh.close()
+
+    flush_all(fileh)
+    fileh.close()
+    return fname
+
+
+
+#######################################
+# Version migrations
+#######################################
+
+def upgrade(fileh,old_version, new_version):
+    #is there an upgrade for fileh to version?
+    done = False
+
+    func_list = []
+    max_version = old_version
+
+    while not done:
+        if max_version == '0.0.4':
+            func_list.append(upgrade_0p0p4_to_0p1p0)
+            max_version = "0.1.0"
+        elif max_version == '0.0.5': #either way go to 0.1.0
+            func_list.append(upgrade_0p0p4_to_0p1p0)
+            max_version = "0.1.0"
+        else:
+            done = True
+
+    if max_version == new_version:
+        for f in func_list:
+            result = f(fileh)
+            if not result:
+                return False
+
+        return True
+    else:
+        return False
+
+
+
 def temp_append_dtb_002_to_003(row,old_row):
     #############################
     # Detection (summary) table
@@ -1035,67 +1136,302 @@ def temp_append_dtb_002_to_003(row,old_row):
     except:
         pass
 
-
     row.append()
 
 
-def merge_elixer_hdf5_files(fname,flist=[]):
-    """
 
-    :param fname: the output (final/merged) HDF5 file
-    :param flist:  list of all files to merge
-    :return: None or filename
-    """
-    #merging existing distinct HDF5 files w/o new additions from an active run
-    fileh = get_hdf5_filehandle(fname,append=True)
+# def upgrade_0p0p4_to_0p0p5(fileh):
+#     from_version = "0.0.4"
+#     to_version = "0.0.5"
+#
+#     try:
+#         log.info("Upgrading %s to %s ..." %(from_version,to_version))
+#
+#
+#
+#
+#         #lastly update the version
+#         vtb = fileh.root.Version
+#         for row in vtb:  # should be only one
+#             row['version'] = to_version
+#             row['version_pytables'] = tables.__version__
+#             row.update()
+#         vtb.flush()
+#         return True
+#     except:
+#         log.error("Upgrade failed %s to %s:" %(from_version,to_version),exc_info=True)
+#         return False
 
-    if fileh is None:
-        log.error("Unable to merge ELiXer catalogs.")
-        return None
+def upgrade_0p0p4_to_0p0p5(fileh):
+    from_version = "0.0.4"
+    to_version = "0.0.5"
 
-    #set up new HDF5 tables (into which to append)
-    dtb = fileh.root.Detections
-
-    stb = fileh.root.CalibratedSpectra
-    ltb = fileh.root.SpectraLines
-    atb = fileh.root.Aperture
-    ctb = fileh.root.CatalogMatch
-    etb = fileh.root.ExtractedObjects
-
-    for f in flist:
-        if f == fname: #could be the output file is one of those to merge
-            continue #just skip and move on
-
-        merge_fh = get_hdf5_filehandle(f,append=True)
-
-        if merge_fh is None:
-            log.error("Unable to merge: %s" %(f))
-            continue
-
-        m_dtb = merge_fh.root.Detections
-        m_stb = merge_fh.root.CalibratedSpectra
-        m_ltb = merge_fh.root.SpectraLines
-        m_atb = merge_fh.root.Aperture
-        m_ctb = merge_fh.root.CatalogMatch
+    try:
+        log.info("Upgrading %s to %s ..." %(from_version,to_version))
 
 
-        #now merge
-        dtb.append(m_dtb.read())
-        stb.append(m_stb.read())
-        ltb.append(m_ltb.read())
-        atb.append(m_atb.read())
-        ctb.append(m_ctb.read())
 
-        try: #might not have ExtractedObjects table
-            m_etb = merge_fh.root.ExtractedObjects
-            etb.append(m_etb.read())
+
+        #lastly update the version
+        vtb = fileh.root.Version
+        for row in vtb:  # should be only one
+            row['version'] = to_version
+            row['version_pytables'] = tables.__version__
+            row.update()
+        vtb.flush()
+        return True
+    except:
+        log.error("Upgrade failed %s to %s:" %(from_version,to_version),exc_info=True)
+        return False
+
+
+
+def upgrade_0p0px_to_0p1p0(oldfile_handle,newfile_handle):
+    from_version = "0.0.x"
+    to_version = "0.1.0"
+
+    try:
+        log.info("Upgrading %s to %s ..." %(from_version,to_version))
+
+        dtb_new = newfile_handle.root.Detections
+        stb_new = newfile_handle.root.CalibratedSpectra
+        ltb_new = newfile_handle.root.SpectraLines
+        atb_new = newfile_handle.root.Aperture
+        ctb_new = newfile_handle.root.CatalogMatch
+        etb_new = newfile_handle.root.ExtractedObjects
+
+        dtb_old = oldfile_handle.root.Detections
+        stb_old = oldfile_handle.root.CalibratedSpectra
+        ltb_old = oldfile_handle.root.SpectraLines
+        atb_old = oldfile_handle.root.Aperture
+        ctb_old = oldfile_handle.root.CatalogMatch
+        try:
+            etb_old = oldfile_handle.root.ExtractedObjects #this is a new table
         except:
             pass
 
-        flush_all(fileh)
-        #close the merge input file
-        merge_fh.close()
+        #new columns in Detections
+        for old_row in dtb_old.read():
+            new_row = dtb_new.row
+            for n in dtb_new.colnames:
+                try: #can be missing name (new columns)
+                    new_row[n] = old_row[n]
+                except:
+                    log.debug("Detections column failed (%s)"%n)
+            new_row.append()
+            dtb_new.flush()
 
-    flush_all(fileh)
-    fileh.close()
-    return fname
+
+        # old_rows = dtb_old.read()
+        # for old_row in old_rows:
+        #     new_row = dtb_new.row
+        #     new_row['detectid'] = old_row['detectid']
+        #     new_row['detectname'] =
+        #     new_row['elixer_version'] =
+        #     new_row['elixer_datetime'] =
+        #     new_row['shotid'] =
+        #     new_row['obsid'] =
+        #     new_row['specid'] =
+        #     new_row['ifuslot'] =
+        #     new_row['ifuid'] =
+        #     new_row['seeing_gaussian'] =
+        #     new_row['seeing_moffat'] =
+        #     new_row['response'] =
+        #     new_row['fieldname'] =
+        #     new_row['ra'] =
+        #     new_row['dec'] =
+        #     new_row['wavelength_obs'] =
+        #     new_row['wavelength_obs_err'] =
+        #     new_row['flux_line'] =
+        #     new_row['flux_line_err'] =
+        #     new_row['fwhm_line_aa'] =
+        #     new_row['fwhm_line_aa_err'] =
+        #     new_row['sn'] =
+        #     new_row['sn_err'] =
+        #     new_row['chi2'] =
+        #     new_row['chi2_err'] =
+        #     new_row['continuum_line'] =
+        #     new_row['continuum_line_err'] =
+        #     new_row['continuum_sdss_g'] =
+        #     new_row['continuum_sdss_g_err'] =
+        #     new_row['mag_sdss_g'] =
+        #     new_row['mag_sdss_g_err'] =
+        #     new_row['eqw_rest_lya_line'] =
+        #     new_row['eqw_rest_lya_line_err'] =
+        #     new_row['eqw_rest_lya_sdss_g'] =
+        #     new_row['eqw_rest_lya_sdss_g_err'] =
+        #     new_row['plae_line'] =
+        #     new_row['plae_line_max'] =
+        #     new_row['plae_line_min'] =
+        #     new_row['plae_sdss_g'] =
+        #     new_row['plae_sdss_g_max'] =
+        #     new_row['plae_sdss_g_min'] =
+        #     new_row['multiline_flag'] =
+        #     new_row['multiline_z'] =
+        #     new_row['multiline_rest_w'] =
+        #     new_row['multiline_prob'] =
+        #     new_row['multiline_raw_score'] =
+        #     new_row['multiline_frac_score'] =
+        #     new_row['multiline_name'] =
+        #
+        #
+        #     new_row['pseudo_color_flag'] =
+        #     new_row['pseudo_color_blue_flux'] =
+        #     new_row['pseudo_color_blue_flux_err'] =
+        #     new_row['pseudo_color_red_flux'] =
+        #     new_row['pseudo_color_red_flux_err'] =
+        #     new_row['pseudo_color_rvb_ratio'] =
+        #     new_row['pseudo_color_rvb_ratio_err'] =
+
+        #no change to CalibratedSpectra
+        stb_new.append(stb_old.read())
+        stb_new.flush()
+
+        #no change to SpectraLines
+        ltb_new.append(ltb_old.read())
+        ltb_new.flush()
+
+        #Aperture ... renames
+        old_rows = atb_old.read()
+        for old_row in old_rows:
+            new_row = atb_new.row
+            new_row['detectid'] = old_row['detectid']
+            new_row['ra'] = old_row['aperture_ra']
+            new_row['dec'] = old_row['aperture_dec']
+            new_row['catalog_name'] = old_row['catalog_name']
+            new_row['filter_name'] = old_row['filter_name']
+            new_row['image_depth_mag'] = old_row['image_depth_mag']
+            try: #might not have pixel scale
+                new_row['pixel_scale'] = old_row['pixel_scale']
+            except:
+                pass
+            new_row['radius'] = old_row['aperture_radius']
+            new_row['mag'] = old_row['aperture_mag']
+            new_row['mag_err'] = old_row['aperture_mag_err']
+            new_row['aperture_area_pix'] = old_row['aperture_area_pix']
+            new_row['sky_area_pix'] = old_row['sky_area_pix']
+            new_row['eqw_rest_lya'] = old_row['aperture_eqw_rest_lya']
+            new_row['eqw_rest_lya_err'] = old_row['aperture_eqw_rest_lya_err']
+            new_row['plae'] = old_row['aperture_plae']
+            try: #old record may not have these
+                new_row['plae_max'] = old_row['aperture_plae_max']
+                new_row['plae_min'] = old_row['aperture_plae_min']
+            except:
+                pass
+            new_row['aperture_cts'] = old_row['aperture_counts']
+            new_row['sky_cts'] = old_row['sky_counts']
+            new_row['sky_average'] = old_row['sky_average']
+
+            new_row.append()
+            atb_new.flush()
+
+
+        #catalog match
+        old_rows = ctb_old.read()
+        for old_row in old_rows:
+            new_row = ctb_new.row
+            new_row['detectid'] = old_row['detectid']
+            new_row['ra'] = old_row['cat_ra']
+            new_row['dec'] = old_row['cat_dec']
+            new_row['catalog_name'] = old_row['catalog_name']
+            new_row['filter_name'] = old_row['filter_name']
+            new_row['match_num'] = old_row['match_num']
+            new_row['separation'] = old_row['separation']
+            new_row['prob_match'] = old_row['prob_match']
+            new_row['specz'] = old_row['cat_specz']
+            new_row['photz'] = old_row['cat_photz']
+            new_row['flux'] = old_row['cat_flux']
+            new_row['flux_err'] = old_row['cat_flux_err']
+            new_row['mag'] = old_row['cat_mag']
+            new_row['mag_err'] = old_row['cat_mag_err']
+            new_row['eqw_rest_lya'] = old_row['cat_eqw_rest_lya']
+            new_row['eqw_rest_lya_err'] = old_row['cat_eqw_rest_lya_err']
+            new_row['plae'] = old_row['cat_plae']
+            try: #old record may not have these
+                new_row['plae_max'] = old_row['cat_plae_max']
+                new_row['plae_min'] = old_row['cat_plae_min']
+            except:
+                pass
+
+
+            new_row.append()
+            ctb_new.flush()
+
+
+        #ExtractedObjects might not exist
+        try:
+            etb_new.append(etb_old.read())
+            etb_new.flush()
+        except:
+            pass
+
+
+        flush_all(newfile_handle)
+        # close the merge input file
+        newfile_handle.close()
+        oldfile_handle.close()
+
+        return True
+    except:
+        log.error("Upgrade failed %s to %s:" %(from_version,to_version),exc_info=True)
+        return False
+
+def upgrade_hdf5(oldfile,newfile):
+    """
+    Primarily here because pytables does not allow for renaming of column names
+
+    :param oldfile:
+    :param newfile:
+    :return:
+    """
+
+    try:
+        newfile_handle = get_hdf5_filehandle(newfile,append=False,allow_overwrite=False,must_exist=False)
+
+        if newfile_handle is None:
+            log.info("Unable to create destination file for upgrade_hdf5.")
+            return False
+
+        oldfile_handle = get_hdf5_filehandle(oldfile,append=False,allow_overwrite=False,must_exist=True)
+
+        if (oldfile_handle is None):
+            log.info("Unable to open source file(s) for upgrade_hdf5.")
+            return False
+
+        old_version = oldfile_handle.root.Version.read()['version'][0].decode()
+        if old_version == __version__:
+            print("Already at latest version (%s)." %old_version)
+            log.info("Already at latest version (%s)." %old_version)
+            return False
+    except:
+        log.error("Exception! in elixer_hdf5::upgrade_hdf5",exc_info=True)
+
+
+    try:
+        done = False
+        func_list = []
+        max_version = old_version
+
+        while not done:
+            if (max_version == '0.0.3') or (max_version == '0.0.4') or (max_version == '0.0.5'):
+                func_list.append(upgrade_0p0px_to_0p1p0)
+                max_version = "0.1.0"
+            #elif ():
+            else:
+                done = True
+
+        if max_version == __version__:
+            for f in func_list:
+                result = f(oldfile_handle,newfile_handle)
+                if not result:
+                    return False
+
+            return True
+        else:
+            print("No viable upgrade path from %s to %s" %(old_version,__version__))
+            log.info("No viable upgrade path from %s to %s" %(old_version,__version__))
+
+    except:
+        log.error("Exception! in elixer_hdf5::upgrade_hdf5",exc_info=True)
+
+    return True
