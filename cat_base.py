@@ -8,12 +8,13 @@ try:
     from elixer import science_image
     from elixer import cat_bayesian
     from elixer import observation as elixer_observation
+    #from elixer import utilities
 except:
     import global_config as G
     import science_image
     import cat_bayesian
     import observation as elixer_observation
-
+    #import utilities
 
 import os.path as op
 
@@ -230,6 +231,31 @@ class Catalog:
         if cls.df is None:
             cls.status = -1
         return
+
+
+
+    # def sort_bid_targets_by_aperture(self, ra, dec, xc, yc, a, b, angle ):
+    # PROBLEM: as currently organized, sorting by "likelihood" occurs well before SEP is run and is static
+    # (and needs to be static) for all filters and only some filters will get apertures (and the apertures from SEP
+    # can change filter to filter) so ... say, u-band may have no apertures and has the sorted bid-targets plotted,
+    # then g-band gets apertures and would re-sort, but this throws off what has already gone before ...
+    # This has to be abandoned UNTIL/UNLESS a significant re-organization is done
+    #     """
+    #     Similar to sort_bid_targets_by_likelihood .... this resorts to select the single best match
+    #     based on the bid-target being within the selected imaging aperture
+    #     """
+    #
+    #
+    #     try:
+    #         if hasattr(self, 'dataframe_of_bid_targets_unique'):
+    #             pass
+    #
+    #         # YES, both need to have this performed (this one always) as they are used for different purposes later
+    #         if hasattr(self, 'dataframe_of_bid_targets') and (
+    #                 self.dataframe_of_bid_targets is not None):  # sanity check ... all cats have this
+    #             pass
+    #     except:
+    #         log.warning("Exception in cat_base::Catalog::sort_bid_targets_by_aperture()", exc_info=True)
 
     def sort_bid_targets_by_likelihood(self,ra,dec):
         #right now, just by euclidean distance (ra,dec are of target) (don't forget to adjust RA coord difference
@@ -911,7 +937,7 @@ class Catalog:
                                 facecolor='none',
                                 edgecolor=color, alpha=alpha,zorder=zorder,linestyle=ls))
 
-                    if mag is not None:
+                    if (eobj['selected']) and (mag is not None):
                         label = "mag: %0.1f, %0.1f\"" % (mag,radius)
 
                         if ew is not None:

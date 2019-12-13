@@ -1036,9 +1036,13 @@ class science_image():
                     #     log.debug("Exception converting source extrator x,y to RA, Dec", exc_info=True)
 
                     if return_details:
-                        return cutout, counts, mag, radius, details
+                        return cutout, counts, details['sep_objects'][selected_obj_idx]['mag'], \
+                               np.sqrt(details['sep_objects'][selected_obj_idx]['a']*
+                                       details['sep_objects'][selected_obj_idx]['b'])*0.5, details
                     else:
-                        return cutout, counts, mag, radius
+                        return cutout, counts, details['sep_objects'][selected_obj_idx]['mag'], \
+                               np.sqrt(details['sep_objects'][selected_obj_idx]['a']*
+                                       details['sep_objects'][selected_obj_idx]['b'])*0.5
 
             x_center, y_center = self.update_center(cutout,radius,play=G.NUDGE_MAG_APERTURE_CENTER)
             self.last_x_center = x_center*self.pixel_size
