@@ -662,7 +662,7 @@ class KPNO(cat_base.Catalog):#Kit Peak
 
                     cx = sci.last_x0_center
                     cy = sci.last_y0_center
-                    if details['sep_objects'] is not None:
+                    if (details['sep_objects'] is not None) and (details['sep_obj_idx'] is not None):
                         self.add_elliptical_aperture_positions(plt, details['sep_objects'], details['sep_obj_idx'],
                                                                mag, cx, cy, cutout_ewr, cutout_plae)
                     else:

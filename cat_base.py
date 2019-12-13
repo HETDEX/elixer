@@ -898,7 +898,7 @@ class Catalog:
                     log.error("Unable to overplot aperture position.",exc_info=True)
 
 
-    def add_elliptical_aperture_positions(self,plt,ellipse_objs,selected_idx=0, mag=None,cx=0,cy=0,ew=None,plae=None):
+    def add_elliptical_aperture_positions(self,plt,ellipse_objs,selected_idx=None, mag=None,cx=0,cy=0,ew=None,plae=None):
 
             try:
                 log.debug("Plotting imaging (elliptical) aperture position...")
