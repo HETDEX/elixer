@@ -898,7 +898,7 @@ class Catalog:
                     log.error("Unable to overplot aperture position.",exc_info=True)
 
 
-    def add_elliptical_aperture_positions(self,plt,ellipse_objs,selected_idx=None, mag=None,cx=0,cy=0,ew=None,plae=None):
+    def add_elliptical_aperture_positions(self,plt,ellipse_objs,selected_idx=None,radius=None,mag=None,cx=0,cy=0,ew=None,plae=None):
 
             try:
                 log.debug("Plotting imaging (elliptical) aperture position...")
@@ -913,7 +913,7 @@ class Catalog:
                     use_circle = False
                     a = eobj['a'] #major axis diameter in arcsec
                     b = eobj['b']
-                    radius = 0.5*np.sqrt(a*b) #approximate radius (treat ellipse like a circle)
+                    ellipse_radius = 0.5*np.sqrt(a*b) #approximate radius (treat ellipse like a circle)
 
                     if eobj['selected']:
                         color = 'gold'
@@ -926,7 +926,7 @@ class Catalog:
                         zorder = 1
                         ls = '--'
 
-                    if radius/image_width < 0.1:
+                    if ellipse_radius/image_width < 0.1:
                         log.debug("Ellipse too small. Using larger circle to highlight.")
                         a = b = 0.1 * image_width
 
@@ -938,7 +938,7 @@ class Catalog:
                                 edgecolor=color, alpha=alpha,zorder=zorder,linestyle=ls))
 
                     if (eobj['selected']) and (mag is not None):
-                        label = "mag: %0.1f, %0.1f\"" % (mag,radius)
+                        label = "mag: %0.1f, %0.1f\"" % (mag,ellipse_radius)
 
                         if ew is not None:
                             label += "\n EWr: %0.0f" %(ew)
@@ -951,6 +951,8 @@ class Catalog:
             except:
                 log.error("Unable to overplot (elliptical) aperture position.",exc_info=True)
 
+            if (selected_idx is None) and (radius is not None):
+                return self.add_aperture_position(plt,radius,mag,cx,cy,ew,plae)
 
 
     def add_empty_catalog_fiber_positions(self, plt,fig,ra,dec,fiber_locs):
