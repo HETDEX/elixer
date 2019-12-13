@@ -672,12 +672,17 @@ class science_image():
         #return a cutout
 
 
-        details = {'catalog_name':None,'filter_name':None,'ra':None,'dec':None,'radius':None,
-                   'mag':None,'mag_err':None, 'mag_bright':None,'mag_faint':None, 'pixel_scale':None,
+        details = {'catalog_name':None,'filter_name':None,'ra':None,'dec':None,
+                   'radius':None, #effective radius, sqrt(a*b) IF ellipse
+                   'mag':None,'mag_err':None, 'mag_bright':None,'mag_faint':None,
+                   'pixel_scale':None, #pixel_scale = arcsex/pixel
                    'area_pix':None,'sky_area_pix':None,
-                   'aperture_counts':None, 'sky_counts':None, 'sky_average':None,
-                   'aperture_eqw_rest_lya':None,'aperture_plae':None,'sep_objects':None,'sep_obj_idx':None}
-        #pixel_scale = arcsex/pixel
+                   'aperture_counts':None, #adjusted ... sky subtracted If applicable
+                   'sky_counts':None, 'sky_average':None,
+                   'aperture_eqw_rest_lya':None,'aperture_plae':None,
+                   'elixer_apertures':None,'elixer_aper_idx':None,
+                   'sep_objects':None,'sep_obj_idx':None}
+
 
         self.window = None
         self.last_x_center = None
@@ -700,7 +705,7 @@ class science_image():
             if max_aperture is None: #can happen if called from catalogs and the defaults get overwritten
                 max_aperture = 1.5 #safety check (arcsec)
 
-            sky_outer_radius = max_aperture * 4.0#10. #this is the maximum it can be
+            sky_outer_radius = max_aperture * 3.0#10. #this is the maximum it can be
             sky_inner_radius = max_aperture * 2.0#5.
             #so ... 4**2 - 2** = 16-4 = 12x sky pixels than aperture pixels at reasonably localized (assuming
             #point sources only)
@@ -962,11 +967,18 @@ class science_image():
 
 
         details['pixel_scale'] = self.pixel_size
+
+        #We have the cutout info, now get aperture photometry
+
         #put down aperture on cutout at RA,Dec and get magnitude
         if (position is not None) and (cutout is not None) and (image is not None) \
                 and (mag_func is not None) and (aperture > 0):
 
             #if source extractor works, use it else, proceed as before with circular aperture photometry
+
+            return_mag = None #the configured magnitude source (ELiXer Ap at a radius or SEP, etc)
+            return_radius = None #the effective radius for that magnitude
+
             if G.USE_SOURCE_EXTRACTOR:
                 source_objects,selected_obj_idx = self.find_sep_objects(cutout,G.NUDGE_SEP_MAX_DIST)
 
@@ -1015,7 +1027,7 @@ class science_image():
 
                             details['radius'] = radius
 
-                            details['aperture_counts'] = counts
+                            details['aperture_counts'] = counts #Already Sky subtracted
                             #todo: modify find_sep_objects to get this extra info
                             details['area_pix'] = None
                             details['sky_area_pix'] = None
@@ -1032,411 +1044,397 @@ class science_image():
                     details['sep_objects']  = source_objects
                     details['sep_obj_idx'] = selected_obj_idx
 
-                    # try:
-                    #     #this assumes lower-left is 0,0 but the object x,y uses center as 0,0
-                    #     sc = wcs_utils.pixel_to_skycoord(source_objects[selected_obj_idx]['x'] + cutout.center_cutout[0],
-                    #                                      source_objects[selected_obj_idx]['y'] + cutout.center_cutout[1],
-                    #                                      cutout.wcs, origin=0)
-                    #     details['ra'] = sc.ra.value
-                    #     details['dec'] = sc.dec.value
-                    # except:
-                    #     log.debug("Exception converting source extrator x,y to RA, Dec", exc_info=True)
-
                     if selected_obj_idx is not None:
-                        if return_details:
-                            return cutout, counts, details['sep_objects'][selected_obj_idx]['mag'], \
-                                   np.sqrt(details['sep_objects'][selected_obj_idx]['a']*
-                                           details['sep_objects'][selected_obj_idx]['b'])*0.5, details
-                        else:
-                            return cutout, counts, details['sep_objects'][selected_obj_idx]['mag'], \
-                                   np.sqrt(details['sep_objects'][selected_obj_idx]['a']*
-                                           details['sep_objects'][selected_obj_idx]['b'])*0.5
+                        return_counts = details['aperture_counts']
+                        return_mag = details['sep_objects'][selected_obj_idx]['mag']
+                        return_radius = np.sqrt(details['sep_objects'][selected_obj_idx]['a']*
+                                               details['sep_objects'][selected_obj_idx]['b'])*0.5
 
-            x_center, y_center = self.update_center(cutout,radius,play=G.NUDGE_MAG_APERTURE_CENTER)
-            self.last_x_center = x_center*self.pixel_size
-            self.last_y_center = y_center*self.pixel_size
-            self.last_x0_center = (x_center - cutout.center_cutout[0])*self.pixel_size #the shift in AA from center
-            self.last_y0_center = (y_center - cutout.center_cutout[1])*self.pixel_size
-            source_aperture_area = 0.0
-
-            try:
-                sc = wcs_utils.pixel_to_skycoord(x_center,y_center,cutout.wcs,origin=0)
-                details['ra'] = sc.ra.value
-                details['dec']= sc.dec.value
-            except:
-                log.warning("Exception! getting aperture RA,Dec.", exc_info=True)
-
-            if is_cutout_empty(cutout):
-                if (G.ALLOW_EMPTY_IMAGE):
-                    pass
-                    #some cases seem to create problems, but forcing different values
-                    #or forcing all the same or all zero does not seem to matter
-                    #for matplotlib plot to PDF
-                    #it is an empty image anyway, and under normal configuration
-                    #this will get the default empty plot
-                    # if np.min(cutout.data) == np.max(cutout.data):
-                    #     cutout.data *= 0. #set all to exactly zero
-                else:
-                    log.info("Cutout is empty or simple gradient. Will deliberately fail cutout request.")
-                    if return_details:
-                        return None, 0, 99.99, 0, details
-                    else:
-                        return None, 0, 99.99, 0
-
-            if False: #test out photutils
-                from photutils import find_peaks, segmentation
-                mean, median, std = sigma_clipped_stats(cutout.data, sigma=3.0)
-                threshold = median + (5. * std)
-
-                cx, cy = cutout.center_cutout
-                pix = (radius / self.pixel_size)  # arcsec to pixels
-
-                #positive mask (search where TRUE)
-                mask = np.full(cutout.shape, False)
-                mask[int(round(cx - pix)):int(round(cx + pix)), int(round(cy - pix)):int(round(cy + pix))] = True
-
-                peaks_table = find_peaks(cutout.data,threshold,footprint=mask)
-
-                connected_pixels = int(min((0.5 / self.pixel_size)**2,24))+1
-                seg_img = segmentation.detect_sources(cutout.data,threshold,npixels=connected_pixels,mask=np.logical_not(mask))
-
-                if False: #reminder, this will wipe out the imaging for the ELiXer Plot
-                    import matplotlib.pyplot as plt
-                    plt.close('all')
-                    plt.imshow(seg_img,origin='lower')
-                    plt.savefig("segimg.png")
-
-            if G.DYNAMIC_MAG_APERTURE:
-                if aperture and (aperture > 0.0):
-                    radius = aperture
-                elif G.MIN_DYNAMIC_MAG_RADIUS is not None:
-                    radius = G.MIN_DYNAMIC_MAG_RADIUS
-                else:
-                    radius = 1.5  # failsafe
-
-                radius = min(radius,G.MAX_DYNAMIC_MAG_APERTURE,error)
-                step = 0.1
-
-                sky_avg, sky_err, sky_pix, sd_sky_pix = self.get_local_sky(sky_image,position,G.MAX_DYNAMIC_MAG_APERTURE*2.0,G.MAX_DYNAMIC_MAG_APERTURE*4.0)
-
-                # try:
-                #     ps = cutout.wcs.pixel_scale_matrix[0][0] * 3600.0 #approx pix-scale
-                #     step = ps/2. #half-pixel steps in terms of arcsec
-                #     if step > radius:
-                #         radius = step
-                # except:
-                #     step = 0.1
-
-                log.debug("science_image::get_cutout() mag aperture radius step size = %f" %step)
-
-                max_radius = radius
-                max_bright = 99.9
-                max_counts = 0
-                max_area_pix = 0
-                expected_count_growth = 0.0 #number of new pixels * sky
-
-                #last_slope = 0. #not really a slope but looking to see if there is a rapid upturn and then stop
-                #last_count = 0.
-
-                mag_list = [99.9]
-                rad_list = [0.0]
-
-                while radius <= min(error,G.MAX_DYNAMIC_MAG_APERTURE):
-                    source_aperture_area = 0.
-                    try:
-                        #use the cutout first if possible (much smaller than image and faster)
-                        #note: net difference is less than 0.1 mag at 0.5" and less than 0.01 at 1.5"
-                        #I believe the source of the difference is the center position ... in the pixel mode
-                        #we center on the center pixel as reported by the center of the cutout. In sky mode
-                        #we center on an RA, Dec position and the slight difference between the two centers
-                        # (itself, less than one pixel) yields slightly different counts as the area covered is slightly
-                        # offset (fraction of a pixel or, typically, small fractions of an arcsec)
-                        try:
-                            #pix_aperture = CircularAperture(cutout.center_cutout,r=radius/self.pixel_size)
-                            pix_aperture = CircularAperture((x_center,y_center), r=radius / self.pixel_size)
-                            phot_table = aperture_photometry(cutout.data, pix_aperture,method=PIXEL_APERTURE_METHOD)
-                            counts = phot_table['aperture_sum'][0]
-                            try:
-                                source_aperture_area = pix_aperture.area() #older version(s) of photutils
-                            except:
-                                source_aperture_area = pix_aperture.area
-                        except:
-                            log.info("Pixel based aperture photometry failed. Attemping sky based ... ",exc_info=True)
-
-                            try:
-                                sky_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec)
-                                phot_table = aperture_photometry(image, sky_aperture,method=PIXEL_APERTURE_METHOD)
-#                                pix_aperture = CircularAperture(cutout.center_cutout, r=radius / self.pixel_size)
-#                                phot_table = aperture_photometry(cutout.data, pix_aperture)
-                                counts = phot_table['aperture_sum'][0]
-                                try:
-                                    source_aperture_area = sky_aperture.area() #older version(s) of photutils
-                                except:
-                                    source_aperture_area = sky_aperture.area
-                            except:
-                                log.info("Sky based aperture photometry failed. Will skip aperture photometery.",
-                                         exc_info=True)
-                                break
-
-                        try:
-                            delta_pix = source_aperture_area - max_area_pix
-                            expected_count_growth = delta_pix*sky_avg
-                            #assume sd as error and add in quadrature
-                            expected_count_growth += np.sqrt(delta_pix)*sky_err
-                        except:
-                            expected_count_growth = 0.0
+                    # todo: DO NOT RETURN HERE, we ALSO want to get the ELiXer aperture photometry
+                    # if selected_obj_idx is not None:
+                    #     if return_details:
+                    #         return cutout, counts, return_mag, return_radius, details
+                    #     else:
+                    #         return cutout, counts, return_mag, return_radius
 
 
-                        #log.info("+++++ %s, %s" %(counts.__repr__(), type(counts)))
-                        #log.info("+++++\n %s" %(phot_table.__repr__()))
-                        #counts might now be a quantity type and not just a float
-                        #if isinstance(counts,astropy.units.quantity.Quantity):
-                        if not isinstance(counts, float):
-                            log.info("Attempting to strip units from counts (%s) ..." %(type(counts)))
-                            try:
-                                counts = counts.value
+            #TODO: !!!!!
+            cutout, counts, mag, radius, details = self.get_circular_aperture_photometry(cutout,ra,dec,error,mag_func,
+                                                    position,image,do_sky_subtract,sky_image,
+                                                    sky_inner_radius,sky_outer_radius,aperture,
+                                                    details,return_details)
 
-                                if not isinstance(counts, float):
-                                    log.warning(
-                                        "Cannot cast counts as float. Will not attempt aperture magnitude calculation")
-                                    break
+            #now which one (counts, mag, radius) to use???
+            #todo: do we need to specify if it was from elixer_apertures or sep_objects?
 
-                            except:
-                                log.info("Failed to strip units. Cannot cast to float. "
-                                         "Will not attempt aperture magnitude calculation",exc_info=True)
-                                break
-
-                        mag = mag_func(counts, cutout, self.headers)
-
-                        # pix_mag = mag_func(pix_counts, cutout, self.fits)
-                        # log.info("++++++ pix_mag (%f) sky_mag(%f)" %(pix_mag,mag))
-                        # log.info("++++++ pix_radius (%f)  sky_radius (%f)" % (radius / self.pixel_size, radius))
-                        # log.info("++++++ pix_counts (%f)  sky_counts (%f)" % (pix_counts, counts))
-
-                        log.info("Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %g mag = %g dmag = %g"
-                                 % (radius, ra, dec, counts, mag, mag - mag_list[-1]))
-
-                        mag_list.append(mag)
-                        rad_list.append(radius)
-
-                        #todo: if mag == 99.9 at radius == 0.5" maybe just stop or limit to 1" total?
-                        #todo: don't want to catch somthing on the edge and then expand
-                        #todo: plus our astrometry accuracy is ~ 0.5"
-
-                        if mag < 99:
-                            #if now growing fainter OR the brightness increase is small, we are done
-                            if expected_count_growth is not None:
-                                if (mag > max_bright) or (counts-max_counts) < expected_count_growth:
-                                    break
-                            elif (mag > max_bright) or (abs(mag-max_bright) < 0.01):#< 0.0005):
-                                break
-                            # elif last_count != 0:
-                            #     count_slope = (counts - max_counts) / last_count  # or current annulus/previous annulus
-                            #     area_slope = (2.*radius+step)/(2.*radius-step)
-                            #     if count_slope > (3. * area_slope): #should be stricly positive
-                            #         log.info("Aperture growth aborted. Unexpectedly large increase in counts.")
-                            #         break # (though, technically can have negative counts in some imaging)
-                        elif (radius >= aperture) or (abs(radius-aperture) <1e-5) or (radius > G.MAX_DYNAMIC_MAG_APERTURE):
-                            #weirdness in floats, difference when "==" is non-zero ~ 1e-16
-                            if max_bright > mag:
-                                max_bright = mag
-                                max_counts = counts
-                                max_radius = radius
-                                max_area_pix = source_aperture_area
-                            break
-
-                        max_bright = mag
-                        max_counts = counts
-                        max_radius = radius
-                        max_area_pix = source_aperture_area
-                        #last_count = counts - last_count #keeping just the counts in the current annulus
-                    except:
-                        log.error("Exception in science_image::get_cutout () using dynamic aperture", exc_info=True)
-
-
-                    radius += step
-                    #end while loop
-
-                mag = max_bright
-                counts = max_counts
-                radius = max_radius
-                source_aperture_area = max_area_pix
-
-                details['radius'] = radius
-                details['mag'] = mag
-                details['aperture_counts'] = counts
-                details['area_pix'] = source_aperture_area
-
-            else:
-
+            if return_mag is None: #it was not set by SEP objects
+                log.info("Using ELiXer circular aperture as reported aperture.")
+                return_mag = mag
+                return_radius = radius
+                return_counts = counts
+            else: #the SEP object will be the "aperture" chosen ... so clear the selected flag from the circular aperture
+                log.info("Using SEP selected object as reported aperture.")
                 try:
-                    if aperture and (aperture > 0.0):
-                        radius = aperture
-                    elif G.FIXED_MAG_APERTURE is not None:
-                        radius = G.FIXED_MAG_APERTURE
-                    else:
-                        radius = 1.5 #failsafe
+                    details['elixer_apertures'][details['elixer_aper_idx']]['selected'] = False
+                except:
+                    pass
 
-                    details['radius'] = radius
-                    source_aperture_area = 0.
+            if return_details:
+                return cutout, return_counts, return_mag, return_radius, details
+            else:
+                return cutout, return_counts, return_mag, return_radius
 
+        # DEAD CODE (1)
+
+        if return_details:
+            return cutout, counts, mag, radius, details
+        else:
+            return cutout, counts, mag, radius
+
+    # TODO: !!!!!
+    def get_circular_aperture_photometry(self,cutout,ra,dec,error,mag_func,position,do_sky_subtract,
+                                         image,sky_image,sky_inner_radius,sky_outer_radius,aperture,
+                                         details,return_details):
+        """
+
+        :param position:
+        :param image:
+        :param sky_image:
+        :param radius: (set already from calling func, get_cutout
+        :return:
+
+        radius, mag, counts (that will be vs return_mag, radius, counts
+        """
+        def initialize_dict():
+            return {'idx':None,'ra':None,'dec':None,'radius':None,'area_pix':None,'aperture_counts':None,
+                           'sky_area_pix':None,'sky_average':None,'sky_counts':None,'sky_err':None,
+                           'mag':None,'mag_err':None,'mag_bright':None,'mag_faint':None,'selected':None }
+
+        x_center, y_center = self.update_center(cutout, aperture, play=G.NUDGE_MAG_APERTURE_CENTER)
+        self.last_x_center = x_center * self.pixel_size
+        self.last_y_center = y_center * self.pixel_size
+        self.last_x0_center = (x_center - cutout.center_cutout[0]) * self.pixel_size  # the shift in AA from center
+        self.last_y0_center = (y_center - cutout.center_cutout[1]) * self.pixel_size
+        source_aperture_area = 0.0
+
+        elixer_aperture_list = []
+        elixer_aper_idx = None #the selected index
+
+
+        if is_cutout_empty(cutout):
+            if (G.ALLOW_EMPTY_IMAGE):
+                pass
+                # some cases seem to create problems, but forcing different values
+                # or forcing all the same or all zero does not seem to matter
+                # for matplotlib plot to PDF
+                # it is an empty image anyway, and under normal configuration
+                # this will get the default empty plot
+                # if np.min(cutout.data) == np.max(cutout.data):
+                #     cutout.data *= 0. #set all to exactly zero
+            else:
+                log.info("Cutout is empty or simple gradient. Will deliberately fail cutout request.")
+                if return_details:
+                    details['elixer_apertures'] = elixer_aperture_list
+                    details['elixer_aper_idx'] = elixer_aper_idx
+                    return None, 0, 99.99, 0, details
+                else:
+                    return None, 0, 99.99, 0
+
+
+        #todo: for now, there is only ONE, but this is the basic framework to allow multiples (esp for dynamic aperture)
+
+        try:
+            sky_coord_center = wcs_utils.pixel_to_skycoord(x_center, y_center, cutout.wcs, origin=0)
+        except:
+            log.warning("Exception! getting aperture RA,Dec.", exc_info=True)
+
+        if G.DYNAMIC_MAG_APERTURE:
+            if aperture and (aperture > 0.0):
+                radius = aperture
+            elif G.MIN_DYNAMIC_MAG_RADIUS is not None:
+                radius = G.MIN_DYNAMIC_MAG_RADIUS
+            else:
+                radius = 1.5  # failsafe
+
+            radius = min(radius, G.MAX_DYNAMIC_MAG_APERTURE, error)
+            step = 0.1
+
+            sky_avg, sky_err, sky_pix, sd_sky_pix = self.get_local_sky(sky_image, position,
+                                                                       G.MAX_DYNAMIC_MAG_APERTURE * 2.0,
+                                                                       G.MAX_DYNAMIC_MAG_APERTURE * 4.0)
+
+            log.debug("science_image::get_cutout() mag aperture radius step size = %f" % step)
+
+            max_radius = radius
+            max_bright = 99.9
+            max_counts = 0
+            max_area_pix = 0
+            expected_count_growth = 0.0  # number of new pixels * sky
+
+            mag_list = [99.9]
+            rad_list = [0.0]
+            elixer_aper_idx = -1
+            while radius <= min(error, G.MAX_DYNAMIC_MAG_APERTURE):
+                elixer_aper_idx += 1
+                source_aperture_area = 0.
+                try:
+                    # use the cutout first if possible (much smaller than image and faster)
+                    # note: net difference is less than 0.1 mag at 0.5" and less than 0.01 at 1.5"
+                    # I believe the source of the difference is the center position ... in the pixel mode
+                    # we center on the center pixel as reported by the center of the cutout. In sky mode
+                    # we center on an RA, Dec position and the slight difference between the two centers
+                    # (itself, less than one pixel) yields slightly different counts as the area covered is slightly
+                    # offset (fraction of a pixel or, typically, small fractions of an arcsec)
                     try:
-
-                        # try:
-                        #     cx, cy = cutout.center_cutout
-                        #     pix = (radius / self.pixel_size)
-                        #
-                        #     mask = np.full(cutout.shape,True)
-                        #     mask[int(round(cx-pix)):int(round(cx+pix)),int(round(cy-pix)):int(round(cy+pix))] = False
-                        #
-                        #     gx, gy = centroid_2dg(cutout.data,mask=mask)
-                        #
-                        #
-                        #     # import matplotlib.pyplot as plt
-                        #     # plt.close('all')
-                        #     # plt.imshow(cutout.data,origin="lower")
-                        #     # plt.plot(cx,cy,marker="+",color="r")
-                        #     # plt.plot(gx,gy,marker="x",color="y")
-                        #     # plt.plot(mask,alpha=0.5)
-                        #     # #plt.show()
-                        #     # plt.savefig("pos.png")
-                        #
-                        #     #allow the center to shift by up to 50% of the radius of the aperture
-                        #     dpix = pix #* 0.5
-                        #
-                        #     log.debug("Delta X,Y Pixels (centroid - center) = (%0.2f,%0.2f), arcsec = (%0.2f,%0.2f)"
-                        #               % (gx - cy, gy - cy, (gx - cy)*self.pixel_size, (gy - cy)*self.pixel_size))
-                        #
-                        #     #if the centroid is very near the center, use it,
-                        #     #but if we are off by more than 2pix, use the geomtric center of the cutout
-                        #     #basically, can nudge it a bit to the 2D Gaussian center, but don't stray too far
-                        #     if (abs(gx-cx) < dpix) and (abs(gy-cy) < dpix):
-                        #         log.info("Using shifted (2D Gaussian centroid) center for circular aperture ...")
-                        #         pix_aperture = CircularAperture((gx,gy), r=radius / self.pixel_size)
-                        #     else:
-                        #         log.info("Using geometric center for circular aperture ...")
-                        #         pix_aperture = CircularAperture((cx,cy), r=radius / self.pixel_size)
-                        # except:
-                        #     pix_aperture = CircularAperture(cutout.center_cutout, r=radius / self.pixel_size)
-
-                        #pix_aperture = CircularAperture(cutout.center_cutout, r=radius / self.pixel_size)
                         pix_aperture = CircularAperture((x_center, y_center), r=radius / self.pixel_size)
-                        phot_table = aperture_photometry(cutout.data, pix_aperture,method=PIXEL_APERTURE_METHOD)
+                        phot_table = aperture_photometry(cutout.data, pix_aperture, method=PIXEL_APERTURE_METHOD)
+                        counts = phot_table['aperture_sum'][0]
                         try:
-                            source_aperture_area = pix_aperture.area()
+                            source_aperture_area = pix_aperture.area()  # older version(s) of photutils
                         except:
                             source_aperture_area = pix_aperture.area
                     except:
                         log.info("Pixel based aperture photometry failed. Attemping sky based ... ", exc_info=True)
-                        #note: if we do this, photutils loads the entire fits image and that can be costly
-                        #in terms of time and memory
+
                         try:
                             sky_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec)
-                            phot_table = aperture_photometry(image, sky_aperture,method=PIXEL_APERTURE_METHOD)
+                            phot_table = aperture_photometry(image, sky_aperture, method=PIXEL_APERTURE_METHOD)
+                            counts = phot_table['aperture_sum'][0]
                             try:
-                                source_aperture_area = sky_aperture.area()
+                                source_aperture_area = sky_aperture.area()  # older version(s) of photutils
                             except:
                                 source_aperture_area = sky_aperture.area
                         except:
                             log.info("Sky based aperture photometry failed. Will skip aperture photometery.",
                                      exc_info=True)
-                            if return_details:
-                                return cutout, counts, mag, radius, details
-                            else:
-                                return cutout, counts, mag, radius
+                            break
 
-                    counts = phot_table['aperture_sum'][0]
+                    try:
+                        delta_pix = source_aperture_area - max_area_pix
+                        expected_count_growth = delta_pix * sky_avg
+                        # assume sd as error and add in quadrature
+                        expected_count_growth += np.sqrt(delta_pix) * sky_err
+                    except:
+                        expected_count_growth = 0.0
 
                     if not isinstance(counts, float):
                         log.info("Attempting to strip units from counts (%s) ..." % (type(counts)))
                         try:
                             counts = counts.value
+
+                            if not isinstance(counts, float):
+                                log.warning(
+                                    "Cannot cast counts as float. Will not attempt aperture magnitude calculation")
+                                break
+
                         except:
                             log.info("Failed to strip units. Cannot cast to float. "
                                      "Will not attempt aperture magnitude calculation", exc_info=True)
+                            break
 
-                    mag = mag_func(counts,cutout,self.headers)
+                    mag = mag_func(counts, cutout, self.headers)
 
-                    details['mag'] = mag
-                    details['aperture_counts'] = counts
-                    details['area_pix'] = source_aperture_area
+                    log.info(
+                        "Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %g mag = %g dmag = %g"
+                        % (radius, ra, dec, counts, mag, mag - mag_list[-1]))
 
-                    log.info("Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %s Mag_AB = %g"
-                             % (radius,ra,dec,str(counts),mag))
-                    #print ("Counts = %s Mag %f" %(str(counts),mag))
+                    mag_list.append(mag)
+                    rad_list.append(radius)
+
+                    # todo: if mag == 99.9 at radius == 0.5" maybe just stop or limit to 1" total?
+                    # todo: don't want to catch somthing on the edge and then expand
+                    # todo: plus our astrometry accuracy is ~ 0.5"
+
+                    # intermediate steps
+                    elixer_aperture = initialize_dict()
+                    elixer_aperture['idx'] = elixer_aper_idx
+                    elixer_aperture['selected'] = False #will be set to True later if appropriate
+                    elixer_aperture['ra'] = sky_coord_center.ra.value
+                    elixer_aperture['dec'] = sky_coord_center.dec.value
+                    elixer_aperture['radius'] = radius
+                    elixer_aperture['mag'] = mag
+                    elixer_aperture['aperture_counts'] = counts
+                    elixer_aperture['area_pix'] = source_aperture_area
+                    elixer_aperture_list.append(elixer_aperture)
+                    #don't set the elixer_aper_idx yet, this one might not be accepted
+
+                    if mag < 99:
+                        # if now growing fainter OR the brightness increase is small, we are done
+                        if expected_count_growth is not None:
+                            if (mag > max_bright) or (counts - max_counts) < expected_count_growth:
+                                break
+                        elif (mag > max_bright) or (abs(mag - max_bright) < 0.01):  # < 0.0005):
+                            break
+
+                    elif (radius >= aperture) or (abs(radius - aperture) < 1e-5) or (
+                            radius > G.MAX_DYNAMIC_MAG_APERTURE):
+                        # weirdness in floats, difference when "==" is non-zero ~ 1e-16
+                        if max_bright > mag:
+                            max_bright = mag
+                            max_counts = counts
+                            max_radius = radius
+                            max_area_pix = source_aperture_area
+                        break
+
+                    max_bright = mag
+                    max_counts = counts
+                    max_radius = radius
+                    max_area_pix = source_aperture_area
+                    details['elixer_aper_idx'] = elixer_aperture['idx'] #so far, this one is still okay
                 except:
-                    log.error("Exception in science_image::get_cutout () using aperture", exc_info=True)
+                    log.error("Exception in science_image::get_cutout () using dynamic aperture", exc_info=True)
 
+                radius += step
+                # end while loop
 
-            #if we have a magnitude and it is fainter than a minimum, subtract the sky from a surrounding annulus
-            #s|t we have ~ 3x pixels in the sky annulus as in the source aperture, so 2x the radius
-            if do_sky_subtract and (mag < 99) and (mag > G.SKY_ANNULUS_MIN_MAG):
+            mag = max_bright
+            counts = max_counts
+            radius = max_radius
+            source_aperture_area = max_area_pix
+            # selected from HERE, but might not be the final reported aperture from the outer caller
+            elixer_aperture_list[details['elixer_aper_idx']]['selected'] = True
+            details['elixer_apertures'] = elixer_aperture_list
+            #elixer_aper_idx is already set
+
+        else: #NOT allowing Dynamic Aperture growth
+            try:
+                if aperture and (aperture > 0.0):
+                    radius = aperture
+                elif G.FIXED_MAG_APERTURE is not None:
+                    radius = G.FIXED_MAG_APERTURE
+                else:
+                    radius = 1.5  # failsafe
+
+                elixer_aperture = initialize_dict()
+                elixer_aperture['idx'] = 0
+                elixer_aperture['selected'] = True
+                elixer_aperture['ra'] = sky_coord_center.ra.value
+                elixer_aperture['dec'] = sky_coord_center.dec.value
+                elixer_aperture['radius'] = radius
+
+                source_aperture_area = 0.
 
                 try:
-
-                    #todo: note in photutils, pixel x,y is the CENTER of the pixel and [0,0] is the center of the
-                    #todo: lower-left pixel
-                    #it should not really matter if the pixel position is the center of the pixel or at a corner
-                    #given the typically small pixels the set of pixels will not change much one way or the other
-                    #and we are going to take a median average (and not use partial pixels), at least not in this 1st
-                    #revision
-
-                    # to take a median value and subtract off the counts from the original aperture
-                    # yes, against the new cutout (which is just a super set of the smaller cutout
-                    #source_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec).to_pixel(sky_image.wcs)
-
-                    sky_annulus = SkyCircularAnnulus(position, r_in=sky_inner_radius * ap_units.arcsec,
-                                                     r_out=sky_outer_radius * ap_units.arcsec).to_pixel(sky_image.wcs)
-
-                    #made an annulus in pixel, set to a "mask" where 0 = pixel not in annulus, 1 = pixel in annulus
+                    pix_aperture = CircularAperture((x_center, y_center), r=radius / self.pixel_size)
+                    phot_table = aperture_photometry(cutout.data, pix_aperture, method=PIXEL_APERTURE_METHOD)
                     try:
-                        sky_mask = sky_annulus.to_mask(method='center')[0]
+                        source_aperture_area = pix_aperture.area()
                     except:
-                        sky_mask = sky_annulus.to_mask(method='center')
+                        source_aperture_area = pix_aperture.area
+                except:
+                    log.info("Pixel based aperture photometry failed. Attemping sky based ... ", exc_info=True)
+                    # note: if we do this, photutils loads the entire fits image and that can be costly
+                    # in terms of time and memory
+                    try:
+                        sky_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec)
+                        phot_table = aperture_photometry(image, sky_aperture, method=PIXEL_APERTURE_METHOD)
+                        try:
+                            source_aperture_area = sky_aperture.area()
+                        except:
+                            source_aperture_area = sky_aperture.area
+                    except:
+                        log.info("Sky based aperture photometry failed. Will skip aperture photometery.",
+                                 exc_info=True)
+                        if return_details:
+                            details['elixer_apertures'] = elixer_aperture_list
+                            details['elixer_aper_idx'] = elixer_aperture['idx']
+                            return cutout, counts, mag, radius, details
+                        else:
+                            return cutout, counts, mag, radius
+
+                counts = phot_table['aperture_sum'][0]
+
+                if not isinstance(counts, float):
+                    log.info("Attempting to strip units from counts (%s) ..." % (type(counts)))
+                    try:
+                        counts = counts.value
+                    except:
+                        log.info("Failed to strip units. Cannot cast to float. "
+                                 "Will not attempt aperture magnitude calculation", exc_info=True)
+
+                mag = mag_func(counts, cutout, self.headers)
+
+                elixer_aperture['mag'] = mag
+                elixer_aperture['aperture_counts'] = counts
+                elixer_aperture['area_pix'] = source_aperture_area
+                details['elixer_aper_idx'] = elixer_aperture['idx']
+                details['elixer_apertures'] = elixer_aperture_list
+
+                log.info("Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %s Mag_AB = %g"
+                         % (radius, ra, dec, str(counts), mag))
+                # print ("Counts = %s Mag %f" %(str(counts),mag))
+            except:
+                log.error("Exception in science_image::get_cutout () using aperture", exc_info=True)
 
 
-                    sky_mask = np.array(sky_mask)[0:sky_image.data.shape[0],0:sky_image.data.shape[1]]
-                    #select all pixels from the cutout that are in the annulus
-                    #this sometimes gets off by 1-pixel, so trim off if out of range of the array
-                    # search = np.where(sky_mask.data > 0)
+        #if we have a magnitude and it is fainter than a minimum, subtract the sky from a surrounding annulus
+        #s|t we have ~ 3x pixels in the sky annulus as in the source aperture, so 2x the radius
+        if do_sky_subtract and (mag < 99) and (mag > G.SKY_ANNULUS_MIN_MAG):
+            try:
 
-                    #the sky_mask and the sky_image share a common origin (0,0) so they have the same indexing
-                    #the sky_mask may be larger than the sky_image, so turn the mask into a 2D array (so we can slice
-                    #and slice away the mask outside the sky_image)
+                #todo: note in photutils, pixel x,y is the CENTER of the pixel and [0,0] is the center of the
+                #todo: lower-left pixel
+                #it should not really matter if the pixel position is the center of the pixel or at a corner
+                #given the typically small pixels the set of pixels will not change much one way or the other
+                #and we are going to take a median average (and not use partial pixels), at least not in this 1st
+                #revision
 
-                    search = np.where(sky_mask > 0)
-                    # safe_search = [None]*2
-                    # safe_search[0] = search[0][np.where(search[0] < sky_image.data.shape[0])]
-                    # safe_search[1] = search[1][np.where(search[1] < sky_image.data.shape[1])]
+                # to take a median value and subtract off the counts from the original aperture
+                # yes, against the new cutout (which is just a super set of the smaller cutout
+                #source_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec).to_pixel(sky_image.wcs)
 
-                    # #todo: lets matplotlib here ... the sky_mask and the sky_image.data
-                    # import matplotlib.pyplot as plt
-                    # plt.close('all')
-                    # plt.imshow(sky_image.data,origin='lower')
-                    # plt.imshow(sky_mask,origin='lower',alpha=0.5)
-                    # plt.savefig("mask.png")
+                sky_outer_radius = radius * 3.0  # 10. #this is the maximum it can be
+                sky_inner_radius = radius * 2.0  # 5.
+                sky_annulus = SkyCircularAnnulus(position, r_in=sky_inner_radius * ap_units.arcsec,
+                                                 r_out=sky_outer_radius * ap_units.arcsec).to_pixel(sky_image.wcs)
 
-            #        safe_search = np.where((search[0] < sky_image.data.shape[0]) & (search[1] < sky_image.data.shape[1]))
-
-                    annulus_data_1d = sky_image.data[search]
-
-                    #and take the median average from a 3-sigma clip
-                    #bkg_mean, bkg_median, _ = sigma_clipped_stats(annulus_data_1d,sigma=3.0) #this is the average sky per pixel
-                    #sky_avg = bkg_median
-                    # #bkg_median * source_aperture.area() #total (sky) to subtract is averager sky per pix * number pix in source aperture
-
-                    #replace with biweight "average"
-                    bw_cen = biweight.biweight_location(annulus_data_1d)
-                    bw_scale = biweight.biweight_scale(annulus_data_1d)
-                    sky_pix = len(annulus_data_1d)
-                    sky_avg = bw_cen
-                    #set sky N to number of pixels within 1 sd (or bw_scale, in this case)
-                    #not strictly correct, but we are not including other error sources so this
-                    #will nudge toward a larger error (which would be more appropriate)
-                    N = len(np.where(abs(annulus_data_1d-bw_cen) < bw_scale)[0])
-                    sky_err = bw_scale/np.sqrt(N)
+                #made an annulus in pixel, set to a "mask" where 0 = pixel not in annulus, 1 = pixel in annulus
+                try:
+                    sky_mask = sky_annulus.to_mask(method='center')[0]
+                except:
+                    sky_mask = sky_annulus.to_mask(method='center')
 
 
+                sky_mask = np.array(sky_mask)[0:sky_image.data.shape[0],0:sky_image.data.shape[1]]
+                #select all pixels from the cutout that are in the annulus
+                #this sometimes gets off by 1-pixel, so trim off if out of range of the array
+                # search = np.where(sky_mask.data > 0)
+
+                #the sky_mask and the sky_image share a common origin (0,0) so they have the same indexing
+                #the sky_mask may be larger than the sky_image, so turn the mask into a 2D array (so we can slice
+                #and slice away the mask outside the sky_image)
+
+                search = np.where(sky_mask > 0)
+                annulus_data_1d = sky_image.data[search]
+                sky_pix = len(annulus_data_1d)
+
+                #and take the median average from a 3-sigma clip
+                #if going to sigma clip, probably should iterate (clip, cut out pixels | | > clip, clip again ... ) until stable?
+                # bkg_mean, bkg_median, bkg_std = sigma_clipped_stats(annulus_data_1d,sigma=3.0) #this is the average sky per pixel
+                # sky_avg = bkg_median
+                # # #bkg_median * source_aperture.area() #total (sky) to subtract is averager sky per pix * number pix in source aperture
+                # log.debug("Sigma clipping sky pixels (%f). Inner (%f), outer (%f). Sum (%f) Avg (%f) "
+                #           % (sky_pix, sky_inner_radius, sky_outer_radius, np.sum(annulus_data_1d), sky_avg))
+                #
+                # annulus_data_1d = annulus_data_1d[np.where(abs(annulus_data_1d-bkg_median) < 3.0*bkg_std)]
+
+                #replace with biweight "average"
+                bw_cen = biweight.biweight_location(annulus_data_1d)
+                bw_scale = biweight.biweight_scale(annulus_data_1d)
+                sky_avg = bw_cen
+                #set sky N to number of pixels within 1 sd (or bw_scale, in this case)
+                #not strictly correct, but we are not including other error sources so this
+                #will nudge toward a larger error (which would be more appropriate)
+                N = len(np.where(abs(annulus_data_1d-bw_cen) < bw_scale)[0])
+                sky_err = bw_scale/np.sqrt(N)
+
+                log.debug("Sky pixels (%f). Inner (%f), outer (%f). Sum (%f) Avg (%f) "
+                          %(sky_pix,sky_inner_radius,sky_outer_radius,np.sum(annulus_data_1d),sky_avg))
+
+                #todo: here loop over all elixer_apertures (may be only one if not Dynamic, or may be many)
+                for elixer_aperture in elixer_aperture_list:
+                    source_aperture_area = elixer_aperture['area_pix']
+                    counts = elixer_aperture['aperture_counts']
                     sky_cts = sky_avg * source_aperture_area
                     base_counts = counts
                     counts -= sky_cts
@@ -1455,23 +1453,6 @@ class science_image():
                     else:
                         mag_err = sky_mag-sky_mag_bright
 
-                    #todo: temporary
-                    if False:
-                        with open("check_mag_log.txt","a+") as logfile:
-                            marker = " "
-                            if abs(sky_mag - base_mag) > 1.0:
-                                marker = '*'
-
-                            logfile.write("%s %s %s %f %f %f %f %f %f %f %f %f %f %f %f %d %f %f %f %f %f %s"
-                                %(marker, self.catalog_name, self.filter_name, base_mag-sky_mag,ra,dec,
-                                  cutout.center_cutout[0],cutout.center_cutout[1], self.last_x_center, self.last_y_center,self.pixel_size,
-                                  base_mag,sky_mag,source_aperture_area,base_counts,len(annulus_data_1d),bw_cen,
-                                  np.sum(annulus_data_1d),np.mean(annulus_data_1d),np.median(annulus_data_1d),np.std(annulus_data_1d),"\n"))
-
-
-
-
-
                     #mag should now be fainter (usually ... could have slightly negative sky?)
                     #the photometry should have pretty good sky subtration ... but what if we are on a faint object
                     #that is near large object ... could be we don't get enough sky pixels or the average is skewed high
@@ -1485,27 +1466,28 @@ class science_image():
                         mag = sky_mag
 
                     log.info("Sky subtracted imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Sky = (%f/pix %f tot). Counts = %s Mag_AB = %g"
-                             % (radius,ra,dec,sky_avg, sky_cts,str(counts),mag))
+                             % (elixer_aperture['radius'],ra,dec,sky_avg, sky_cts,str(counts),mag))
                     #print ("Counts = %s Mag %f" %(str(counts),mag))
 
+                    elixer_aperture['aperture_counts'] = counts #update to sky subtracted counts to be consistent
+                    elixer_aperture['sky_area_pix'] = sky_pix
+                    elixer_aperture['sky_average'] = sky_avg
+                    elixer_aperture['sky_counts'] = sky_cts #sky_average * aperture area (in pixels)
+                    elixer_aperture['sky_err'] = sky_err
+                    elixer_aperture['mag'] = mag
+                    elixer_aperture['mag_err'] = mag_err
+                    elixer_aperture['mag_bright'] = sky_mag_bright
+                    elixer_aperture['mag_faint'] = sky_mag_faint
 
-                    details['sky_area_pix'] = sky_pix
-                    details['sky_average'] = sky_avg
-                    details['sky_counts'] = sky_cts
-                    details['mag'] = mag
-                    details['mag_err'] = mag_err
-                    details['mag_bright'] = sky_mag_bright
-                    details['mag_faint'] = sky_mag_faint
+            except:
+                #print("Sky Mask Problem ....")
+                log.error("Exception in science_image::get_cutout () figuring sky subtraction aperture", exc_info=True)
 
-                except:
-                    #print("Sky Mask Problem ....")
-                    log.error("Exception in science_image::get_cutout () figuring sky subtraction aperture", exc_info=True)
-
-        if return_details:
+        if return_details: #elixer_aperture in details is ALREADY set
             return cutout, counts, mag, radius, details
         else:
             return cutout, counts, mag, radius
-
+    #end get_circular_aperture_photometry
 
     def get_local_sky(self,image,position,inner_radius,outer_radius):
 
@@ -1633,3 +1615,455 @@ class science_image():
         except:
             return False
         return False
+
+
+#DEAD CODE (1)
+#           #DEAD CODE (1)
+#             x_center, y_center = self.update_center(cutout,radius,play=G.NUDGE_MAG_APERTURE_CENTER)
+#             self.last_x_center = x_center*self.pixel_size
+#             self.last_y_center = y_center*self.pixel_size
+#             self.last_x0_center = (x_center - cutout.center_cutout[0])*self.pixel_size #the shift in AA from center
+#             self.last_y0_center = (y_center - cutout.center_cutout[1])*self.pixel_size
+#             source_aperture_area = 0.0
+#
+#             try:
+#                 sc = wcs_utils.pixel_to_skycoord(x_center,y_center,cutout.wcs,origin=0)
+#                 details['ra'] = sc.ra.value
+#                 details['dec']= sc.dec.value
+#             except:
+#                 log.warning("Exception! getting aperture RA,Dec.", exc_info=True)
+#
+#             if is_cutout_empty(cutout):
+#                 if (G.ALLOW_EMPTY_IMAGE):
+#                     pass
+#                     #some cases seem to create problems, but forcing different values
+#                     #or forcing all the same or all zero does not seem to matter
+#                     #for matplotlib plot to PDF
+#                     #it is an empty image anyway, and under normal configuration
+#                     #this will get the default empty plot
+#                     # if np.min(cutout.data) == np.max(cutout.data):
+#                     #     cutout.data *= 0. #set all to exactly zero
+#                 else:
+#                     log.info("Cutout is empty or simple gradient. Will deliberately fail cutout request.")
+#                     if return_details:
+#                         return None, 0, 99.99, 0, details
+#                     else:
+#                         return None, 0, 99.99, 0
+#
+#             if False: #test out photutils
+#                 from photutils import find_peaks, segmentation
+#                 mean, median, std = sigma_clipped_stats(cutout.data, sigma=3.0)
+#                 threshold = median + (5. * std)
+#
+#                 cx, cy = cutout.center_cutout
+#                 pix = (radius / self.pixel_size)  # arcsec to pixels
+#
+#                 #positive mask (search where TRUE)
+#                 mask = np.full(cutout.shape, False)
+#                 mask[int(round(cx - pix)):int(round(cx + pix)), int(round(cy - pix)):int(round(cy + pix))] = True
+#
+#                 peaks_table = find_peaks(cutout.data,threshold,footprint=mask)
+#
+#                 connected_pixels = int(min((0.5 / self.pixel_size)**2,24))+1
+#                 seg_img = segmentation.detect_sources(cutout.data,threshold,npixels=connected_pixels,mask=np.logical_not(mask))
+#
+#                 if False: #reminder, this will wipe out the imaging for the ELiXer Plot
+#                     import matplotlib.pyplot as plt
+#                     plt.close('all')
+#                     plt.imshow(seg_img,origin='lower')
+#                     plt.savefig("segimg.png")
+#
+#             if G.DYNAMIC_MAG_APERTURE:
+#                 if aperture and (aperture > 0.0):
+#                     radius = aperture
+#                 elif G.MIN_DYNAMIC_MAG_RADIUS is not None:
+#                     radius = G.MIN_DYNAMIC_MAG_RADIUS
+#                 else:
+#                     radius = 1.5  # failsafe
+#
+#                 radius = min(radius,G.MAX_DYNAMIC_MAG_APERTURE,error)
+#                 step = 0.1
+#
+#                 sky_avg, sky_err, sky_pix, sd_sky_pix = self.get_local_sky(sky_image,position,G.MAX_DYNAMIC_MAG_APERTURE*2.0,G.MAX_DYNAMIC_MAG_APERTURE*4.0)
+#
+#                 # try:
+#                 #     ps = cutout.wcs.pixel_scale_matrix[0][0] * 3600.0 #approx pix-scale
+#                 #     step = ps/2. #half-pixel steps in terms of arcsec
+#                 #     if step > radius:
+#                 #         radius = step
+#                 # except:
+#                 #     step = 0.1
+#
+#                 log.debug("science_image::get_cutout() mag aperture radius step size = %f" %step)
+#
+#                 max_radius = radius
+#                 max_bright = 99.9
+#                 max_counts = 0
+#                 max_area_pix = 0
+#                 expected_count_growth = 0.0 #number of new pixels * sky
+#
+#                 #last_slope = 0. #not really a slope but looking to see if there is a rapid upturn and then stop
+#                 #last_count = 0.
+#
+#                 mag_list = [99.9]
+#                 rad_list = [0.0]
+#
+#                 while radius <= min(error,G.MAX_DYNAMIC_MAG_APERTURE):
+#                     source_aperture_area = 0.
+#                     try:
+#                         #use the cutout first if possible (much smaller than image and faster)
+#                         #note: net difference is less than 0.1 mag at 0.5" and less than 0.01 at 1.5"
+#                         #I believe the source of the difference is the center position ... in the pixel mode
+#                         #we center on the center pixel as reported by the center of the cutout. In sky mode
+#                         #we center on an RA, Dec position and the slight difference between the two centers
+#                         # (itself, less than one pixel) yields slightly different counts as the area covered is slightly
+#                         # offset (fraction of a pixel or, typically, small fractions of an arcsec)
+#                         try:
+#                             #pix_aperture = CircularAperture(cutout.center_cutout,r=radius/self.pixel_size)
+#                             pix_aperture = CircularAperture((x_center,y_center), r=radius / self.pixel_size)
+#                             phot_table = aperture_photometry(cutout.data, pix_aperture,method=PIXEL_APERTURE_METHOD)
+#                             counts = phot_table['aperture_sum'][0]
+#                             try:
+#                                 source_aperture_area = pix_aperture.area() #older version(s) of photutils
+#                             except:
+#                                 source_aperture_area = pix_aperture.area
+#                         except:
+#                             log.info("Pixel based aperture photometry failed. Attemping sky based ... ",exc_info=True)
+#
+#                             try:
+#                                 sky_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec)
+#                                 phot_table = aperture_photometry(image, sky_aperture,method=PIXEL_APERTURE_METHOD)
+# #                                pix_aperture = CircularAperture(cutout.center_cutout, r=radius / self.pixel_size)
+# #                                phot_table = aperture_photometry(cutout.data, pix_aperture)
+#                                 counts = phot_table['aperture_sum'][0]
+#                                 try:
+#                                     source_aperture_area = sky_aperture.area() #older version(s) of photutils
+#                                 except:
+#                                     source_aperture_area = sky_aperture.area
+#                             except:
+#                                 log.info("Sky based aperture photometry failed. Will skip aperture photometery.",
+#                                          exc_info=True)
+#                                 break
+#
+#                         try:
+#                             delta_pix = source_aperture_area - max_area_pix
+#                             expected_count_growth = delta_pix*sky_avg
+#                             #assume sd as error and add in quadrature
+#                             expected_count_growth += np.sqrt(delta_pix)*sky_err
+#                         except:
+#                             expected_count_growth = 0.0
+#
+#
+#                         #log.info("+++++ %s, %s" %(counts.__repr__(), type(counts)))
+#                         #log.info("+++++\n %s" %(phot_table.__repr__()))
+#                         #counts might now be a quantity type and not just a float
+#                         #if isinstance(counts,astropy.units.quantity.Quantity):
+#                         if not isinstance(counts, float):
+#                             log.info("Attempting to strip units from counts (%s) ..." %(type(counts)))
+#                             try:
+#                                 counts = counts.value
+#
+#                                 if not isinstance(counts, float):
+#                                     log.warning(
+#                                         "Cannot cast counts as float. Will not attempt aperture magnitude calculation")
+#                                     break
+#
+#                             except:
+#                                 log.info("Failed to strip units. Cannot cast to float. "
+#                                          "Will not attempt aperture magnitude calculation",exc_info=True)
+#                                 break
+#
+#                         mag = mag_func(counts, cutout, self.headers)
+#
+#                         # pix_mag = mag_func(pix_counts, cutout, self.fits)
+#                         # log.info("++++++ pix_mag (%f) sky_mag(%f)" %(pix_mag,mag))
+#                         # log.info("++++++ pix_radius (%f)  sky_radius (%f)" % (radius / self.pixel_size, radius))
+#                         # log.info("++++++ pix_counts (%f)  sky_counts (%f)" % (pix_counts, counts))
+#
+#                         log.info("Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %g mag = %g dmag = %g"
+#                                  % (radius, ra, dec, counts, mag, mag - mag_list[-1]))
+#
+#                         mag_list.append(mag)
+#                         rad_list.append(radius)
+#
+#                         #todo: if mag == 99.9 at radius == 0.5" maybe just stop or limit to 1" total?
+#                         #todo: don't want to catch somthing on the edge and then expand
+#                         #todo: plus our astrometry accuracy is ~ 0.5"
+#
+#                         if mag < 99:
+#                             #if now growing fainter OR the brightness increase is small, we are done
+#                             if expected_count_growth is not None:
+#                                 if (mag > max_bright) or (counts-max_counts) < expected_count_growth:
+#                                     break
+#                             elif (mag > max_bright) or (abs(mag-max_bright) < 0.01):#< 0.0005):
+#                                 break
+#                             # elif last_count != 0:
+#                             #     count_slope = (counts - max_counts) / last_count  # or current annulus/previous annulus
+#                             #     area_slope = (2.*radius+step)/(2.*radius-step)
+#                             #     if count_slope > (3. * area_slope): #should be stricly positive
+#                             #         log.info("Aperture growth aborted. Unexpectedly large increase in counts.")
+#                             #         break # (though, technically can have negative counts in some imaging)
+#                         elif (radius >= aperture) or (abs(radius-aperture) <1e-5) or (radius > G.MAX_DYNAMIC_MAG_APERTURE):
+#                             #weirdness in floats, difference when "==" is non-zero ~ 1e-16
+#                             if max_bright > mag:
+#                                 max_bright = mag
+#                                 max_counts = counts
+#                                 max_radius = radius
+#                                 max_area_pix = source_aperture_area
+#                             break
+#
+#                         max_bright = mag
+#                         max_counts = counts
+#                         max_radius = radius
+#                         max_area_pix = source_aperture_area
+#                         #last_count = counts - last_count #keeping just the counts in the current annulus
+#                     except:
+#                         log.error("Exception in science_image::get_cutout () using dynamic aperture", exc_info=True)
+#
+#
+#                     radius += step
+#                     #end while loop
+#
+#                 mag = max_bright
+#                 counts = max_counts
+#                 radius = max_radius
+#                 source_aperture_area = max_area_pix
+#
+#                 details['radius'] = radius
+#                 details['mag'] = mag
+#                 details['aperture_counts'] = counts
+#                 details['area_pix'] = source_aperture_area
+#
+#             else:
+#
+#                 try:
+#                     if aperture and (aperture > 0.0):
+#                         radius = aperture
+#                     elif G.FIXED_MAG_APERTURE is not None:
+#                         radius = G.FIXED_MAG_APERTURE
+#                     else:
+#                         radius = 1.5 #failsafe
+#
+#                     details['radius'] = radius
+#                     source_aperture_area = 0.
+#
+#                     try:
+#
+#                         # try:
+#                         #     cx, cy = cutout.center_cutout
+#                         #     pix = (radius / self.pixel_size)
+#                         #
+#                         #     mask = np.full(cutout.shape,True)
+#                         #     mask[int(round(cx-pix)):int(round(cx+pix)),int(round(cy-pix)):int(round(cy+pix))] = False
+#                         #
+#                         #     gx, gy = centroid_2dg(cutout.data,mask=mask)
+#                         #
+#                         #
+#                         #     # import matplotlib.pyplot as plt
+#                         #     # plt.close('all')
+#                         #     # plt.imshow(cutout.data,origin="lower")
+#                         #     # plt.plot(cx,cy,marker="+",color="r")
+#                         #     # plt.plot(gx,gy,marker="x",color="y")
+#                         #     # plt.plot(mask,alpha=0.5)
+#                         #     # #plt.show()
+#                         #     # plt.savefig("pos.png")
+#                         #
+#                         #     #allow the center to shift by up to 50% of the radius of the aperture
+#                         #     dpix = pix #* 0.5
+#                         #
+#                         #     log.debug("Delta X,Y Pixels (centroid - center) = (%0.2f,%0.2f), arcsec = (%0.2f,%0.2f)"
+#                         #               % (gx - cy, gy - cy, (gx - cy)*self.pixel_size, (gy - cy)*self.pixel_size))
+#                         #
+#                         #     #if the centroid is very near the center, use it,
+#                         #     #but if we are off by more than 2pix, use the geomtric center of the cutout
+#                         #     #basically, can nudge it a bit to the 2D Gaussian center, but don't stray too far
+#                         #     if (abs(gx-cx) < dpix) and (abs(gy-cy) < dpix):
+#                         #         log.info("Using shifted (2D Gaussian centroid) center for circular aperture ...")
+#                         #         pix_aperture = CircularAperture((gx,gy), r=radius / self.pixel_size)
+#                         #     else:
+#                         #         log.info("Using geometric center for circular aperture ...")
+#                         #         pix_aperture = CircularAperture((cx,cy), r=radius / self.pixel_size)
+#                         # except:
+#                         #     pix_aperture = CircularAperture(cutout.center_cutout, r=radius / self.pixel_size)
+#
+#                         #pix_aperture = CircularAperture(cutout.center_cutout, r=radius / self.pixel_size)
+#                         pix_aperture = CircularAperture((x_center, y_center), r=radius / self.pixel_size)
+#                         phot_table = aperture_photometry(cutout.data, pix_aperture,method=PIXEL_APERTURE_METHOD)
+#                         try:
+#                             source_aperture_area = pix_aperture.area()
+#                         except:
+#                             source_aperture_area = pix_aperture.area
+#                     except:
+#                         log.info("Pixel based aperture photometry failed. Attemping sky based ... ", exc_info=True)
+#                         #note: if we do this, photutils loads the entire fits image and that can be costly
+#                         #in terms of time and memory
+#                         try:
+#                             sky_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec)
+#                             phot_table = aperture_photometry(image, sky_aperture,method=PIXEL_APERTURE_METHOD)
+#                             try:
+#                                 source_aperture_area = sky_aperture.area()
+#                             except:
+#                                 source_aperture_area = sky_aperture.area
+#                         except:
+#                             log.info("Sky based aperture photometry failed. Will skip aperture photometery.",
+#                                      exc_info=True)
+#                             if return_details:
+#                                 return cutout, counts, mag, radius, details
+#                             else:
+#                                 return cutout, counts, mag, radius
+#
+#                     counts = phot_table['aperture_sum'][0]
+#
+#                     if not isinstance(counts, float):
+#                         log.info("Attempting to strip units from counts (%s) ..." % (type(counts)))
+#                         try:
+#                             counts = counts.value
+#                         except:
+#                             log.info("Failed to strip units. Cannot cast to float. "
+#                                      "Will not attempt aperture magnitude calculation", exc_info=True)
+#
+#                     mag = mag_func(counts,cutout,self.headers)
+#
+#                     details['mag'] = mag
+#                     details['aperture_counts'] = counts
+#                     details['area_pix'] = source_aperture_area
+#
+#                     log.info("Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %s Mag_AB = %g"
+#                              % (radius,ra,dec,str(counts),mag))
+#                     #print ("Counts = %s Mag %f" %(str(counts),mag))
+#                 except:
+#                     log.error("Exception in science_image::get_cutout () using aperture", exc_info=True)
+#
+#
+#             #if we have a magnitude and it is fainter than a minimum, subtract the sky from a surrounding annulus
+#             #s|t we have ~ 3x pixels in the sky annulus as in the source aperture, so 2x the radius
+#             if do_sky_subtract and (mag < 99) and (mag > G.SKY_ANNULUS_MIN_MAG):
+#
+#                 try:
+#
+#                     #todo: note in photutils, pixel x,y is the CENTER of the pixel and [0,0] is the center of the
+#                     #todo: lower-left pixel
+#                     #it should not really matter if the pixel position is the center of the pixel or at a corner
+#                     #given the typically small pixels the set of pixels will not change much one way or the other
+#                     #and we are going to take a median average (and not use partial pixels), at least not in this 1st
+#                     #revision
+#
+#                     # to take a median value and subtract off the counts from the original aperture
+#                     # yes, against the new cutout (which is just a super set of the smaller cutout
+#                     #source_aperture = SkyCircularAperture(position, r=radius * ap_units.arcsec).to_pixel(sky_image.wcs)
+#
+#                     sky_annulus = SkyCircularAnnulus(position, r_in=sky_inner_radius * ap_units.arcsec,
+#                                                      r_out=sky_outer_radius * ap_units.arcsec).to_pixel(sky_image.wcs)
+#
+#                     #made an annulus in pixel, set to a "mask" where 0 = pixel not in annulus, 1 = pixel in annulus
+#                     try:
+#                         sky_mask = sky_annulus.to_mask(method='center')[0]
+#                     except:
+#                         sky_mask = sky_annulus.to_mask(method='center')
+#
+#
+#                     sky_mask = np.array(sky_mask)[0:sky_image.data.shape[0],0:sky_image.data.shape[1]]
+#                     #select all pixels from the cutout that are in the annulus
+#                     #this sometimes gets off by 1-pixel, so trim off if out of range of the array
+#                     # search = np.where(sky_mask.data > 0)
+#
+#                     #the sky_mask and the sky_image share a common origin (0,0) so they have the same indexing
+#                     #the sky_mask may be larger than the sky_image, so turn the mask into a 2D array (so we can slice
+#                     #and slice away the mask outside the sky_image)
+#
+#                     search = np.where(sky_mask > 0)
+#                     # safe_search = [None]*2
+#                     # safe_search[0] = search[0][np.where(search[0] < sky_image.data.shape[0])]
+#                     # safe_search[1] = search[1][np.where(search[1] < sky_image.data.shape[1])]
+#
+#                     # #todo: lets matplotlib here ... the sky_mask and the sky_image.data
+#                     # import matplotlib.pyplot as plt
+#                     # plt.close('all')
+#                     # plt.imshow(sky_image.data,origin='lower')
+#                     # plt.imshow(sky_mask,origin='lower',alpha=0.5)
+#                     # plt.savefig("mask.png")
+#
+#             #        safe_search = np.where((search[0] < sky_image.data.shape[0]) & (search[1] < sky_image.data.shape[1]))
+#
+#                     annulus_data_1d = sky_image.data[search]
+#
+#                     #and take the median average from a 3-sigma clip
+#                     #bkg_mean, bkg_median, _ = sigma_clipped_stats(annulus_data_1d,sigma=3.0) #this is the average sky per pixel
+#                     #sky_avg = bkg_median
+#                     # #bkg_median * source_aperture.area() #total (sky) to subtract is averager sky per pix * number pix in source aperture
+#
+#                     #replace with biweight "average"
+#                     bw_cen = biweight.biweight_location(annulus_data_1d)
+#                     bw_scale = biweight.biweight_scale(annulus_data_1d)
+#                     sky_pix = len(annulus_data_1d)
+#                     sky_avg = bw_cen
+#                     #set sky N to number of pixels within 1 sd (or bw_scale, in this case)
+#                     #not strictly correct, but we are not including other error sources so this
+#                     #will nudge toward a larger error (which would be more appropriate)
+#                     N = len(np.where(abs(annulus_data_1d-bw_cen) < bw_scale)[0])
+#                     sky_err = bw_scale/np.sqrt(N)
+#
+#
+#                     sky_cts = sky_avg * source_aperture_area
+#                     base_counts = counts
+#                     counts -= sky_cts
+#                     #re-compute the magnitude
+#                     base_mag = mag
+#                     sky_mag = mag_func(counts,cutout,self.headers)
+#
+#                     sky_mag_bright = mag_func(base_counts - (sky_avg - sky_err) * source_aperture_area,
+#                              cutout, self.headers)
+#
+#                     sky_mag_faint = mag_func(base_counts - (sky_avg + sky_err) * source_aperture_area,
+#                              cutout, self.headers)
+#
+#                     if sky_mag_faint < 99:
+#                         mag_err = max((sky_mag_faint-sky_mag),(sky_mag-sky_mag_bright))
+#                     else:
+#                         mag_err = sky_mag-sky_mag_bright
+#
+#                     #todo: temporary
+#                     if False:
+#                         with open("check_mag_log.txt","a+") as logfile:
+#                             marker = " "
+#                             if abs(sky_mag - base_mag) > 1.0:
+#                                 marker = '*'
+#
+#                             logfile.write("%s %s %s %f %f %f %f %f %f %f %f %f %f %f %f %d %f %f %f %f %f %s"
+#                                 %(marker, self.catalog_name, self.filter_name, base_mag-sky_mag,ra,dec,
+#                                   cutout.center_cutout[0],cutout.center_cutout[1], self.last_x_center, self.last_y_center,self.pixel_size,
+#                                   base_mag,sky_mag,source_aperture_area,base_counts,len(annulus_data_1d),bw_cen,
+#                                   np.sum(annulus_data_1d),np.mean(annulus_data_1d),np.median(annulus_data_1d),np.std(annulus_data_1d),"\n"))
+#
+#
+#
+#
+#
+#                     #mag should now be fainter (usually ... could have slightly negative sky?)
+#                     #the photometry should have pretty good sky subtration ... but what if we are on a faint object
+#                     #that is near large object ... could be we don't get enough sky pixels or the average is skewed high
+#                     #so if we make much of a change, at least log a warning
+#                     if abs(sky_mag - base_mag) > G.MAX_SKY_SUBTRACT_MAG:
+#                        # print("Warning! Unexepectedly large sky subtraction impact to magnitude: %0.2f to %0.2f at (%f,%f)"
+#                        #             %(base_mag,sky_mag,ra,dec))
+#                         log.warning("Warning! Unexepectedly large sky subtraction impact to magnitude: %0.2f to %0.2f at (%f,%f)"
+#                                     %(base_mag,sky_mag,ra,dec))
+#                     else: #todo: !!!! temporary ... just to see what happens if we keep the original base mag
+#                         mag = sky_mag
+#
+#                     log.info("Sky subtracted imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Sky = (%f/pix %f tot). Counts = %s Mag_AB = %g"
+#                              % (radius,ra,dec,sky_avg, sky_cts,str(counts),mag))
+#                     #print ("Counts = %s Mag %f" %(str(counts),mag))
+#
+#                     details['aperture_counts'] = counts #update to sky subtracted counts to be consistent
+#                     details['sky_area_pix'] = sky_pix
+#                     details['sky_average'] = sky_avg
+#                     details['sky_counts'] = sky_cts
+#                     details['mag'] = mag
+#                     details['mag_err'] = mag_err
+#                     details['mag_bright'] = sky_mag_bright
+#                     details['mag_faint'] = sky_mag_faint
+#
+#                 except:
+#                     #print("Sky Mask Problem ....")
+#                     log.error("Exception in science_image::get_cutout () figuring sky subtraction aperture", exc_info=True)

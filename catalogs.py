@@ -222,6 +222,8 @@ class CatalogLibrary:
                 'aperture' = the aperture radius for the magnitude
                 'ap_center' = the displacment of the center of the aperture from the center of the image (if 'nudge' was
                               specified)
+                'details' = dictionary of detailed information about the aperture and source extractor (if available) photometry
+
         '''
 
         if catalogs is None:

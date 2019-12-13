@@ -153,6 +153,34 @@ class Aperture(tables.IsDescription):
     sky_cts = tables.Float32Col(dflt=UNSET_FLOAT)
     sky_average = tables.Float32Col(dflt=UNSET_FLOAT)
 
+class ElixerApertures(tables.IsDescription):
+    #one entry per aperture photometry collected
+    detectid = tables.Int64Col(pos=0)
+    ra = tables.Float32Col(pos=1,dflt=UNSET_FLOAT) #decimal degrees of center
+    dec = tables.Float32Col(pos=2,dflt=UNSET_FLOAT)
+    catalog_name = tables.StringCol(itemsize=16)
+    filter_name = tables.StringCol(itemsize=16)
+    pixel_scale = tables.Float32Col(dflt=UNSET_FLOAT) #arcsec/pixel
+    selected = tables.BoolCol(dflt=False) #if True this is the object used for the aperture PLAE/OII, etc (see above table)
+    radius = tables.Float32Col(dflt=UNSET_FLOAT) #major axis (diameter) 'a' in arcsec
+    mag = tables.Float32Col(dflt=UNSET_FLOAT)
+    mag_err = tables.Float32Col(dflt=UNSET_FLOAT)
+
+    # sky_total_cts = tables.Float32Col(dflt=UNSET_FLOAT) #sky_counts
+    # sky_total_pix = tables.Float32Col(dflt=UNSET_FLOAT) #sky_average
+    # sky_cts = tables.Float32Col(dflt=UNSET_FLOAT) #sky_average
+    # sky_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    # aperture_cts = tables.Float32Col(dflt=UNSET_FLOAT) #aperture_counts
+    # aperture_cts_err = tables.Float32Col(dflt=UNSET_FLOAT)  #
+    #
+    #
+    background_cts = tables.Float32Col(dflt=UNSET_FLOAT) #sky_average
+    background_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    flux_cts = tables.Float32Col(dflt=UNSET_FLOAT)
+    flux_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    flags = tables.Int32Col(dflt=0)
+
+
 class ExtractedObjects(tables.IsDescription):
     #one entry per aperture photometry collected
     detectid = tables.Int64Col(pos=0)
@@ -313,6 +341,15 @@ def flush_all(fileh):
         except:
             pass
 
+        try:
+            xtb = fileh.root.ElixerApertures
+            xtb.flush()
+            xtb.cols.detectid.remove_index()
+            xtb.cols.detectid.create_csindex()
+            xtb.flush()
+        except:
+            pass
+
     return
 
 
@@ -401,6 +438,9 @@ def get_hdf5_filehandle(fname,append=False,allow_overwrite=True,must_exist=False
             fileh.create_table(fileh.root, 'ExtractedObjects',ExtractedObjects,
                                'ELiXer Image Extracted Objects Table')
 
+            fileh.create_table(fileh.root, 'ElixerApertures', ElixerApertures,
+                               'ELiXer Image Circular Apertures Table')
+
             #todo: any actual images tables? (imaging cutouts, 2D fibers, etc)??
 
     except:
@@ -429,6 +469,13 @@ def append_entry(fileh,det,overwrite=False):
             fileh.create_table(fileh.root, 'ExtractedObjects',ExtractedObjects,
                                'ELiXer Image Extracted Objects Table')
             etb = fileh.root.ExtractedObjects
+
+        try:
+            xtb = fileh.root.ElixerApertures
+        except:
+            fileh.create_table(fileh.root, 'ElixerApertures', ElixerApertures,
+                               'ELiXer Image Circular Apertures Table')
+            xtb = fileh.root.ElixerApertures
 
         list_tables = [dtb,stb,ltb,atb,ctb]
 
@@ -684,6 +731,33 @@ def append_entry(fileh,det,overwrite=False):
                 atb.flush()
 
         ################################
+        # ElixerApertures
+        ###############################
+        for d in det.aperture_details_list:
+            if d['elixer_apertures'] is None:
+                continue
+            for s in d['elixer_apertures']:
+                row = xtb.row
+                row['detectid'] = det.hdf5_detectid
+                row['catalog_name'] = d['catalog_name']
+                row['filter_name'] = d['filter_name']
+                row['pixel_scale'] = d['pixel_scale']
+                row['selected'] = s['selected']
+                row['ra'] = s['ra']
+                row['dec'] = s['dec']
+                row['radius'] = s['radius']
+                row['mag'] = s['mag']
+                row['mag_err'] = s['mag_err']
+                row['background_cts'] = s['sky_average']
+                row['background_err'] = s['sky_err']
+                row['flux_cts'] = s['aperture_counts']#/s['area_pix']
+                #row['flux_err'] = s['flux_cts_err']
+                #row['flags'] = s['flags']
+
+                row.append()
+                xtb.flush()
+
+        ################################
         # ExtractedObjects
         ###############################
         for d in det.aperture_details_list:
@@ -857,6 +931,7 @@ def merge_unique(newfile,file1,file2):
         atb_new = newfile_handle.root.Aperture
         ctb_new = newfile_handle.root.CatalogMatch
         etb_new = newfile_handle.root.ExtractedObjects #new MUST have this table
+        xtb_new = newfile_handle.root.ElixerApertures
 
         dtb1 = file1_handle.root.Detections
         dtb2 = file2_handle.root.Detections
@@ -941,6 +1016,12 @@ def merge_unique(newfile,file1,file2):
                 except:
                     pass
 
+                try:
+                    xtb_src = source_h.root.ElixerApertures
+                    xtb_new.append(xtb_src,read_where("(detectid==d"))
+                except:
+                    pass
+
                 #flush_all(newfile_handle) #don't think we need to flush every time
 
             except:
@@ -981,6 +1062,7 @@ def merge_elixer_hdf5_files(fname,flist=[]):
     atb = fileh.root.Aperture
     ctb = fileh.root.CatalogMatch
     etb = fileh.root.ExtractedObjects
+    xtb = fileh.root.ElixerApertures
 
     for f in flist:
         if f == fname: #could be the output file is one of those to merge
@@ -1009,6 +1091,12 @@ def merge_elixer_hdf5_files(fname,flist=[]):
         try: #might not have ExtractedObjects table
             m_etb = merge_fh.root.ExtractedObjects
             etb.append(m_etb.read())
+        except:
+            pass
+
+        try: #might not have ElixerApertures table
+            m_xtb = merge_fh.root.ElixerApertures
+            xtb.append(m_xtb.read())
         except:
             pass
 
@@ -1199,6 +1287,7 @@ def upgrade_0p0px_to_0p1p0(oldfile_handle,newfile_handle):
         atb_new = newfile_handle.root.Aperture
         ctb_new = newfile_handle.root.CatalogMatch
         etb_new = newfile_handle.root.ExtractedObjects
+        xtb_new = newfile_handle.root.ElixerApertures
 
         dtb_old = oldfile_handle.root.Detections
         stb_old = oldfile_handle.root.CalibratedSpectra
@@ -1207,6 +1296,11 @@ def upgrade_0p0px_to_0p1p0(oldfile_handle,newfile_handle):
         ctb_old = oldfile_handle.root.CatalogMatch
         try:
             etb_old = oldfile_handle.root.ExtractedObjects #this is a new table
+        except:
+            pass
+
+        try:
+            xtb_old = oldfile_handle.root.ElixerApertures #this is a new table
         except:
             pass
 
@@ -1362,6 +1456,12 @@ def upgrade_0p0px_to_0p1p0(oldfile_handle,newfile_handle):
         try:
             etb_new.append(etb_old.read())
             etb_new.flush()
+        except:
+            pass
+
+        try:
+            xtb_new.append(xtb_old.read())
+            xtb_new.flush()
         except:
             pass
 
