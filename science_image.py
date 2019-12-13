@@ -1006,6 +1006,13 @@ class science_image():
                             log.debug("Exception converting source extrator x,y to RA, Dec", exc_info=True)
 
                         if sobj['selected']:
+                            # the shift in AA from center
+                            self.last_x0_center = sobj['x'] * self.pixel_size
+                            self.last_y0_center = sobj['y'] * self.pixel_size
+                            # the shift in AA from lower left
+                            self.last_x_center = (sobj['x'] + cutout.center_cutout[0]) * self.pixel_size
+                            self.last_y_center = (sobj['y'] + cutout.center_cutout[1]) * self.pixel_size
+
                             details['radius'] = radius
 
                             details['aperture_counts'] = counts
