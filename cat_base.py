@@ -1123,7 +1123,8 @@ class Catalog:
              'instrument':catalog_image['instrument'],
              'mag':None,
              'aperture':None,
-             'ap_center':None}
+             'ap_center':None,
+             'details': None}
 
         try:
             wcs_manual = catalog_image['wcs_manual']
@@ -1152,8 +1153,8 @@ class Catalog:
             #to here, window is in degrees so ...
             window = 3600.*window
 
-            cutout, pix_counts, mag, mag_radius = sci.get_cutout(ra, dec, error=window, window=window, aperture=aperture,
-                                             mag_func=mag_func,copy=True)
+            cutout,pix_counts, mag, mag_radius,details = sci.get_cutout(ra, dec, error=window, window=window, aperture=aperture,
+                                             mag_func=mag_func,copy=True,return_details=True)
             #don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
 
             if cutout is not None:  # construct master cutout
@@ -1162,6 +1163,7 @@ class Catalog:
                    d['mag'] = mag
                    d['aperture'] = mag_radius
                    d['ap_center'] = (sci.last_x0_center, sci.last_y0_center)
+                   d['details'] = details
         except:
             log.error("Error in get_single_cutout.",exc_info=True)
 
