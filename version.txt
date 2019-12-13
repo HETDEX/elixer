@@ -19,6 +19,7 @@ changes to elixer by version
 * new table (ExtractedObjects) in HDF5 file
 * new table (ElixerApertures) in HDF5 file
 * made naming more uniform in column names in HDF5 file (now version 0.1.0)
+* minor lable change under imaging. Aperture radius (circular) marked as "rc" and effective radius of ellipse as "re"
 
 
 1.8.0a2 [2019-11-20]

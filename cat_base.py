@@ -861,7 +861,7 @@ class Catalog:
     def add_catalog_position(self,plt,x,y,size,color):
         try:
             plt.gca().add_patch(plt.Rectangle((x,y), width=size, height=size,
-                                              angle=0.0, color=color, fill=False, linewidth=1.0, zorder=2))
+                                              angle=0.0, color=color, fill=False, linewidth=1.0, zorder=3))
         except:
             log.info("Exception!",exc_info=True)
 
@@ -882,7 +882,7 @@ class Catalog:
 
                     #temporary
                     if mag is not None:
-                        label = "mag: %0.1f, %0.1f\"" % (mag,radius)
+                        label = "mag: %0.1f rc: %0.1f\"" % (mag,radius)
 
                         if ew is not None:
                             label += "\n EWr: %0.0f" %(ew)
@@ -918,7 +918,7 @@ class Catalog:
                     if eobj['selected']:
                         color = 'gold'
                         alpha = 1.0
-                        zorder = 3
+                        zorder = 2
                         ls='solid'
                     else:
                         color = 'white'
@@ -926,9 +926,10 @@ class Catalog:
                         zorder = 1
                         ls = '--'
 
-                    if ellipse_radius/image_width < 0.1:
-                        log.debug("Ellipse too small. Using larger circle to highlight.")
-                        a = b = 0.1 * image_width
+                    if ellipse_radius/image_width < 0.1: #1/9" ... typical ... want close to 1"
+                        log.debug("Ellipse too small (r ~ %0.2g). Using larger circle to highlight." %(ellipse_radius))
+                        a = b = 0.1 * image_width * 2. #a,b are diameters so 2x
+                        ls = '--'
 
                     plt.gca().add_artist(Ellipse(xy=(eobj['x'], eobj['y']),
                                 width=a,  # diameter with (*6 is for *6 kron isophotal units)?
@@ -938,7 +939,7 @@ class Catalog:
                                 edgecolor=color, alpha=alpha,zorder=zorder,linestyle=ls))
 
                     if (eobj['selected']) and (mag is not None):
-                        label = "mag: %0.1f, %0.1f\"" % (mag,ellipse_radius)
+                        label = "mag: %0.1f  re: %0.1f\"" % (mag,ellipse_radius)
 
                         if ew is not None:
                             label += "\n EWr: %0.0f" %(ew)

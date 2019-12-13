@@ -1072,6 +1072,21 @@ class science_image():
                 return_mag = mag
                 return_radius = radius
                 return_counts = counts
+
+                ap = details['elixer_apertures'][details['elixer_aper_idx']]
+                details['radius'] = ap['radius']
+                details['aperture_counts'] = ap['aperture_counts']
+                details['area_pix'] = ap['area_pix']
+                details['sky_area_pix'] = ap['sky_area_pix']
+                details['sky_average'] = ap['sky_average']
+                details['sky_counts'] = ap['sky_counts']
+                details['mag'] = ap['mag']
+                details['mag_err'] = ap['mag_err']
+                details['mag_bright'] = ap['mag_bright']
+                details['mag_faint'] = ap['mag_faint']
+                details['ra'] = ap['ra']
+                details['dec'] = ap['dec']
+
             else: #the SEP object will be the "aperture" chosen ... so clear the selected flag from the circular aperture
                 log.info("Using SEP selected object as reported aperture.")
                 try:
@@ -1358,6 +1373,7 @@ class science_image():
                 elixer_aperture['aperture_counts'] = counts
                 elixer_aperture['area_pix'] = source_aperture_area
                 details['elixer_aper_idx'] = elixer_aperture['idx']
+                elixer_aperture_list.append(elixer_aperture)
                 details['elixer_apertures'] = elixer_aperture_list
 
                 log.info("Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %s Mag_AB = %g"
