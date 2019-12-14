@@ -89,9 +89,9 @@ GOOD_BROADLINE_SNR = 11.0 # upshot ... protect against neighboring "noise" that 
 GOOD_MIN_LINE_SNR = 4.0
 GOOD_MIN_LINE_SCORE = 4.0 #lines are added to solution only if 'GOOD' (meaning, minimally more likely real than noise)
 #does not have to be the same as PROB_NOISE_MIN_SCORE, but that generally makes sense
-#GOOD_FULL_SNR = 9.0 #ignore SBR is SNR is above this
+GOOD_FULL_SNR = 9.0 #ignore SBR is SNR is above this
 #GOOD_MIN_SNR = 5.0 #bare-minimum; if you change the SNR ranges just above, this will also need to change
-#GOOD_MIN_SBR = 3.0 #signal to "background" noise (looks at peak height vs surrounding peaks) (only for "weak" signals0
+GOOD_MIN_SBR = 6.0 #signal to "background" noise (looks at peak height vs surrounding peaks) (only for "weak" signals0
 GOOD_MIN_SIGMA = 1.8 #in AA or FWHM ~ 4.2 (really too narrow, but allowing for some error)
 #GOOD_MIN_EW_OBS = 1.5 #not sure this is a good choice ... really should depend on the physics of the line and
                       # not be absolute
@@ -692,6 +692,10 @@ class EmissionLineInfo:
                 s = self.peak_sigma_above_noise()
                 if (s is None) or (s > G.MULTILINE_MIN_GOOD_ABOVE_NOISE):
                     result = True
+                else:
+                    if (self.snr > GOOD_FULL_SNR) or (self.sbr > GOOD_MIN_SBR):
+                        result = True
+
             #note: GOOD_MAX_DX0_MULT enforced in signal_score
 
         # if ((self.snr > GOOD_FULL_SNR) or ((self.snr > GOOD_MIN_SNR) and (self.sbr > GOOD_MIN_SBR))) and \
