@@ -1073,19 +1073,22 @@ class science_image():
                 return_radius = radius
                 return_counts = counts
 
-                ap = details['elixer_apertures'][details['elixer_aper_idx']]
-                details['radius'] = ap['radius']
-                details['aperture_counts'] = ap['aperture_counts']
-                details['area_pix'] = ap['area_pix']
-                details['sky_area_pix'] = ap['sky_area_pix']
-                details['sky_average'] = ap['sky_average']
-                details['sky_counts'] = ap['sky_counts']
-                details['mag'] = ap['mag']
-                details['mag_err'] = ap['mag_err']
-                details['mag_bright'] = ap['mag_bright']
-                details['mag_faint'] = ap['mag_faint']
-                details['ra'] = ap['ra']
-                details['dec'] = ap['dec']
+                try:
+                    ap = details['elixer_apertures'][details['elixer_aper_idx']]
+                    details['radius'] = ap['radius']
+                    details['aperture_counts'] = ap['aperture_counts']
+                    details['area_pix'] = ap['area_pix']
+                    details['sky_area_pix'] = ap['sky_area_pix']
+                    details['sky_average'] = ap['sky_average']
+                    details['sky_counts'] = ap['sky_counts']
+                    details['mag'] = ap['mag']
+                    details['mag_err'] = ap['mag_err']
+                    details['mag_bright'] = ap['mag_bright']
+                    details['mag_faint'] = ap['mag_faint']
+                    details['ra'] = ap['ra']
+                    details['dec'] = ap['dec']
+                except:
+                    log.info("Exception.",exc_info=True)
 
             else: #the SEP object will be the "aperture" chosen ... so clear the selected flag from the circular aperture
                 log.info("Using SEP selected object as reported aperture.")
@@ -1307,7 +1310,10 @@ class science_image():
             radius = max_radius
             source_aperture_area = max_area_pix
             # selected from HERE, but might not be the final reported aperture from the outer caller
-            elixer_aperture_list[details['elixer_aper_idx']]['selected'] = True
+            try:
+                elixer_aperture_list[details['elixer_aper_idx']]['selected'] = True
+            except:
+                pass
             details['elixer_apertures'] = elixer_aperture_list
             #elixer_aper_idx is already set
 
