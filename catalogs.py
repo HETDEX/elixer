@@ -94,7 +94,8 @@ class CatalogLibrary:
         :param position: astropy SkyCoord
         :param radius: in deccimal degrees at the moment
         :param verify: if False, checks only that the position is in the broad catalog footprint
-                       if True, verifies access to imaging files and checks for available cutouts at the position
+                       if True, verifies access to imaging files and checks for available cutouts at the
+                       position
                        (True option can be slow depending on file size, network speed, etc)
         :return: list of catalog objects
         '''
@@ -149,8 +150,9 @@ class CatalogLibrary:
 
         :param position: used to select catalog(s) IF catalogs is not specified
         :param catalogs: look up only those catalogs in this list
-        :return: dictionary of catalog name [key] and list of available catalog filters [value] (at this time there is
-                 no check to see if the position is covered by each filter, only that the catalog has the filter)
+        :return: dictionary of catalog name [key] and list of available catalog filters [value]
+                 (at this time there is no check to see if the position is covered by each filter,
+                 only that the catalog has the filter)
         '''
 
         filters = {}  # name is the key, filter_list is the value
@@ -177,7 +179,8 @@ class CatalogLibrary:
 
         return filters
 
-    def get_cutouts(self,position,radius=None,side=None,catalogs=None,aperture=None,dynamic=False,nudge=None,filter=None,first=False):
+    def get_cutouts(self,position,radius=None,side=None,catalogs=None,aperture=None,dynamic=False,
+                    nudge=None,filter=None,first=False):
         '''
         Return a list of dictionaries of the FITS cutouts from imaging catalogs
         (does not include objects in those catalogs, just the images).
@@ -187,26 +190,31 @@ class CatalogLibrary:
         0.5 arcsecs to 0.5 degrees
 
         :param position: astropy SkyCoord
-        :param radius: half-side of square cutout multiplied by 1.5 (returned (square) cutout size is radius x 3)
-                       units are assumed to be arcsecs if the value is greater than 0.5 and in decimal degrees otherwise
-        :param side: may be used instead of (takes priority over) radius and is the width of the side of square cutout
-                     requested. Units are assumed to be arcsecs if the value is greater than 0.5 and in decimal degrees otherwise
+        :param radius: half-side of square cutout x1.5 (returned (square) cutout size is radius x3)
+                       units are assumed to be arcsecs if the value is greater than 0.5 and in decimal
+                       degrees otherwise
+        :param side: may be used instead of (takes priority over) radius and is the width of the side of
+                     square cutout requested. Units are assumed to be arcsecs if the value is greater than
+                     0.5 and in decimal degrees otherwise
         :param catalogs: optional list of catalogs to search (if not provided, searches all)
         :param aperture: optional aperture radius in arcsecs inside which to calcuate an AB magnitude
-                          note: only returned IF the associated image has a magnitude function defined (None, otherwise)
+                          note: only returned IF the associated image has a magnitude function defined
+                          (None, otherwise)
                           note: will be forced to radius if radius is smaller than aperture
-                          note: a value of 99.9 means the magnitude could not be calculated (usually an error with the
-                                pixel counts or photutils)
-        :param dynamic: optional - if True, the aperture provided will grow in 0.1 arcsec steps until the magnitude
-                        stabalizes (similar to, but not curve of growth)
-        :param nudge: optional - if not None, specifies the amount of drift (in x and y in arcsecs) allowed for the
-                      center of the aperture to align it with the local 2D Gaussian centroid of the pixel counts. If
-                      None or 0.0, the center is not allowed to move and stays on the supplied RA and Dec (position).
-        :param filter: optional - if not None is a LIST of filter name(s) (as strings), specifying which cutouts to get
-                        (can be used with the catalogs parameter). The '*' is the wildcard and will match ANY catalog filter.
-        :param first: optional - if True and filter is specified, return only the first cutout found. If filter is specified,
-                        return the first cutout found that matches a filter in the filter list parameter in the order
-                        specified in the list
+                          note: a value of 99.9 means the magnitude could not be calculated (usually an
+                            error with the pixel counts or photutils)
+        :param dynamic: optional - if True, the aperture provided will grow in 0.1 arcsec steps until the
+                        magnitude stabalizes (similar to, but not curve of growth)
+        :param nudge: optional - if not None, specifies the amount of drift (in x and y in arcsecs) allowed
+                      for the center of the aperture to align it with the local 2D Gaussian centroid of the
+                      pixel counts. If None or 0.0, the center is not allowed to move and stays on the
+                      supplied RA and Dec (position).
+        :param filter: optional - if not None is a LIST of filter name(s) (as strings), specifying which
+                       cutouts to get (can be used with the catalogs parameter). The '*' is the wildcard
+                       and will match ANY catalog filter.
+        :param first: optional - if True and filter is specified, return only the first cutout found. If
+                      filter is specified, return the first cutout found that matches a filter in the filter
+                      list parameter in the order specified in the list
         :return: list of dictionaries of cutouts and info,
                 one for each matching catalog FITS image that contains the requested coordinate.
                 The dictionary contains the following keys:
@@ -217,12 +225,13 @@ class CatalogLibrary:
                 'instrument' = the instrument name (like DECAM, or HSC, or HST-WFC-3)
                 'filter' = the filter name
                 'instrument' = the instrument name
-                'mag' = the calculated magnitude within the aperture radius if a conversion is available and aperture
-                        was specified
+                'mag' = the calculated magnitude within the aperture radius if a conversion is available
+                        and aperture was specified
                 'aperture' = the aperture radius for the magnitude
-                'ap_center' = the displacment of the center of the aperture from the center of the image (if 'nudge' was
-                              specified)
-                'details' = dictionary of detailed information about the aperture and source extractor (if available) photometry
+                'ap_center' = the displacment of the center of the aperture from the center of the image
+                              (if 'nudge' was specified)
+                'details' = dictionary of detailed information about the aperture and source extractor
+                            (if available) photometry
 
         '''
 
@@ -291,12 +300,12 @@ class CatalogLibrary:
         :param position: astropy SkyCoord
         :param radius: distance in arcsecs from the provided position in which to search for catalog objects
         :param catalogs: optional list of catalogs to search (if not provided, searches all)
-        :return: list of dictionaries (one for each catalog containing the target position ... usually just one)
+        :return: list of dictionaries (one for each catalog containing the target position; usually just one)
                  Each dictionary contains the following keys:
 
                 'count' = the number of catalog objects within the search radius
                 'name' = the name of the catalog
-                'dataframe' = pandas dataframe containing the catalog detections. The columns available depend
+                'dataframe' = pandas dataframe containing the catalog detections. Available columns depend
                               on the catalog but will always contain at least: 'RA','DEC', and 'distance'
         '''
 
