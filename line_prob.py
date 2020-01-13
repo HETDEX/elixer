@@ -409,7 +409,7 @@ def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_
     for posterior_odds in posterior_odds_list:
 
         if (posterior_odds is not None) and (posterior_odds != 0):
-            pogd = prob_lae_given_data / posterior_odds
+            pogd = np.float(prob_lae_given_data) / posterior_odds
         else:
             pogd = 0.
 

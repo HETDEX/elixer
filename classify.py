@@ -101,7 +101,8 @@ def solution_finder(waves, flux, flux_err, line_wave=None):
                 'score': (float) ELiXer solution score,
                 'frac_score': (float) fractional score = this solution score / sum of all solution scores,
                 'lines': list of lines included in the solution,
-                'rejected_lines': list of found lines removed from the solution (too poor, too close to another line)
+                'rejected_lines': list of found lines removed from the solution (too poor, too close to
+                                  another line)
 
             'lines' and 'rejected_lines' dictionaries contain:
                  'wave_obs': (float) observed wavelength,
