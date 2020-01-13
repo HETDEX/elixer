@@ -119,6 +119,11 @@ def solution_finder(waves, flux, flux_err, line_wave=None):
 
     spec = elixer_spectrum.Spectrum()
     spec.set_spectra(wavelengths=waves,values=flux,errors=flux_err,central=line_wave,values_units=-17)
+
+    if line_wave is None or line_wave == 0.0:
+        line_wave = spec.find_central_wavelength(waves,flux,flux_err,values_units=-17)
+        spec.set_spectra(wavelengths=waves, values=flux, errors=flux_err, central=line_wave, values_units=-17)
+
     solutions = spec.classify()
 
     spec_dict = {'primary_wave': spec.central,
