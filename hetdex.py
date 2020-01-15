@@ -5728,6 +5728,13 @@ class HETDEX:
             right = int(width/2) + int(width/4) + 1
             y_min = np.min(flux[left:right] - flux_err[left:right])
             y_max = np.max(flux[left:right] + flux_err[left:right])
+
+            #for adding the zero line for reference
+            if y_min > 0:
+                y_min = 0
+            elif y_max < 0: #really bad
+                y_max = 0
+
             y_bump = (y_max - y_min)*0.05 #5% of the range
             specplot.set_ylim(bottom=y_min-y_bump, top=y_max+y_bump)
         except:
@@ -5735,6 +5742,8 @@ class HETDEX:
 
         specplot.plot(wave_grid, fit_spec, c='k', lw=2, linestyle="solid", alpha=0.7, zorder=0)
         specplot.errorbar(wave_data,flux,yerr=flux_err,fmt='.',zorder=9)
+        #add the zero line
+        specplot.axhline(y=0,linestyle='solid',alpha=0.5,color='k',zorder=9)
         if unlabeled:
             specplot.set_yticklabels([])
             specplot.set_xticklabels([])
@@ -6196,6 +6205,10 @@ class HETDEX:
                 specplot.fill_between(bigwave, noise_multiplier * E,F,where=mask,facecolor='r',edgecolor='r', alpha=1.0, zorder=9)
             specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], lw=0.75,ls='dashed', c='k',zorder=9) #[0.3, 0.3, 0.3])
 
+
+            #add the zero reference line
+            specplot.axhline(y=0,color='k',alpha=0.5)
+
             if G.FIT_FULL_SPEC_IN_WINDOW:
                 specplot.axis([left, right,np.min(F),np.max(F)])
             else:
@@ -6241,6 +6254,13 @@ class HETDEX:
                     #highlight the matched lines
 
                     yl, yh = specplot.get_ylim()
+
+                    #adjust if necessary for zero reference line
+                    if yl > 0:
+                        yl = 0
+                    elif yh < 0: #this would be bad
+                        yh = 0
+
                     for f in sol.lines:
                         matched_line_list.append(f.w_rest)
                         hw = 3.0 * f.sigma #highlight half-width
