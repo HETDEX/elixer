@@ -298,6 +298,9 @@ def parse_commandline(auto_force=False):
                                        " Force (2) and override any other catalog",
                         required=False, default=-1,type=int)
 
+    parser.add_argument('--decals', help="DECaLS remote query for imaging. Deny (0), Allow (1) if no other catalog available,"
+                                       " Force (2) and override any other catalog",
+                        required=False, default=-1,type=int)
 
     parser.add_argument('--nophoto', help='Turn OFF the use of archival photometric catalogs.', required=False,
                         action='store_true', default=False)
@@ -414,8 +417,35 @@ def parse_commandline(auto_force=False):
             G.PANSTARRS_ALLOW = True
             G.PANSTARRS_FORCE = False
 
+        if args.decals is not None:
+            if args.decals == 0:
+                G.DECALS_WEB_ALLOW = False
+                G.DECALS_WEB_FORCE = False
+            elif args.decals == 1:
+                G.DECALS_WEB_ALLOW = True
+                G.DECALS_WEB_FORCE = False
+            elif args.decals == 2:
+                G.DECALS_WEB_ALLOW = True
+                G.DECALS_WEB_FORCE = True
+            elif args.decals == -1:  # basically, unless explicitly overridden, if we are in dispatch mode, don't use SDSS
+                # since we can easily overwhelm their web interface
+                #            pass #for now, let the global default rule ... if this is a problem like SDSS, then restrict
+                if args.dispatch is not None:
+                    if (args.nodes is not None) and (int(args.nodes) > 1):
+                        G.DECALS_WEB_ALLOW = False
+                        G.DECALS_WEB_FORCE = False
+                        print("***notice: --decals NOT specified. Dispatch is ON. DECaLS (web) NOT allowed by default.")
+                        log.info("--decals NOT specified. Dispatch is ON. DECaLS (web) NOT allowed by default.")
+                    else:
+                        log.info("--decals NOT specificed. Dispatch is ON but is only on 1 node. Defaults allowed.")
+            else:
+                log.warning("Ignoring invalid --decals value (%d). Using default (Allow == 1)" % args.decals)
+                print("Ignoring invalid --decals value (%d). Using default (Allow == 1)" % args.decals)
+                G.DECALS_WEB_ALLOW = True
+                G.DECALS_WEB_FORCE = False
+
     #if there is no fall back imaging, we should allow empty imaging
-    if (G.PANSTARRS_ALLOW == False) and (G.SDSS_ALLOW == False):
+    if (G.DECALS_WEB_ALLOW == False) and (G.PANSTARRS_ALLOW == False) and (G.SDSS_ALLOW == False):
         G.ALLOW_EMPTY_IMAGE = True
 
 
@@ -734,6 +764,7 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
 
     cat_count = 0
     #extra, non-local catalogs to iterate through IF primary catalog imaging is empty (but we are in the footprint)
+    added_decals = False
     added_panstarrs = False
     added_sdss = False
     added_catch_all = False
@@ -787,7 +818,10 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
                     pages = pages + r
                 count = max(0,len(r)-1) #1st page is the target page
         else: # r was None ... no page was created, probably an empty region
-            if G.PANSTARRS_ALLOW and not added_panstarrs: #not FORCE ... that is handled differently
+            if G.DECALS_WEB_ALLOW and not added_decals: #not FORCE ... that is handled differently
+                cats.append(catalogs.CatalogLibrary().get_decals_web())
+                added_decals = True
+            elif G.PANSTARRS_ALLOW and not added_panstarrs: #not FORCE ... that is handled differently
                 cats.append(catalogs.CatalogLibrary().get_panstarrs())
                 added_panstarrs = True
             elif G.SDSS_ALLOW and not added_sdss:
@@ -2313,10 +2347,17 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     master_cutout = make_master(cutouts)
 
     if science_image.is_cutout_empty(master_cutout):
-        log.info("build_neighborhood_map master_cutout is empty. Will try web calls for PanSTARRS and/or SDSS.")
+        log.info("build_neighborhood_map master_cutout is empty. Will try web calls for DECaLS, PanSTARRS, and/or SDSS.")
 
-        #todo: limit to G or R band request?
-        if G.PANSTARRS_ALLOW:
+        #todo: maybe limit to G or R band request?
+        if G.DECALS_WEB_ALLOW:
+            log.info("Calling DECaLS (web) ...")
+            ps_cutouts = catalogs.cat_decals_web.DECaLS().get_cutouts(ra,dec,distance,aperture=None)
+            #note, different than cutouts above?
+            mc = make_master(ps_cutouts)
+            if mc is not None:
+                master_cutout = mc
+        elif G.PANSTARRS_ALLOW:
             log.info("Calling PanSTARRs ...")
             ps_cutouts = catalogs.cat_panstarrs.PANSTARRS().get_cutouts(ra,dec,distance,aperture=None)
             #note, different than cutouts above?
@@ -2331,7 +2372,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             if mc is not None:
                 master_cutout = mc
         else:
-            log.info("PanSTARRS and SDSS not allowed.")
+            log.info("DECaLS, PanSTARRS, and SDSS not allowed.")
 
 
     if master_cutout is None:
@@ -2626,12 +2667,14 @@ def main():
         catch_all_cat = cat_library.get_catch_all()
         cat_sdss = cat_library.get_sdss()
         cat_panstarrs = cat_library.get_panstarrs()
+        cat_decals_web = cat_library.get_decals_web()
     else:
         cat_library = []
         cats = []
         catch_all_cat = []
         cat_sdss = []
         cat_panstarrs = []
+        cat_decals_web = []
 
     #
     # build_neighborhood_map(args.hdf5, 1000525650,None, None, args.neighborhood,cwave=None,fname='lycon/test_nei.png')
@@ -2822,7 +2865,9 @@ def main():
                         plt.close('all')
                         log.info("Processing catalogs for eid(%s) ... " %str(e.entry_id))
 
-                        if G.PANSTARRS_FORCE: #prioritize PANSTARRS over SDSS
+                        if G.DECALS_WEB_FORCE: #prioritize DECaLS over PANSTARRS
+                            e.matched_cats.append(cat_decals_web)
+                        elif G.PANSTARRS_FORCE: #prioritize PANSTARRS over SDSS
                             e.matched_cats.append(cat_panstarrs)
                         elif G.SDSS_FORCE:
                             e.matched_cats.append(cat_sdss)
@@ -2859,10 +2904,12 @@ def main():
 
                             if len(e.matched_cats) == 0:
 
-                                log.info("No catalog overlap. PANSTARRS_ALLOW (%s), SDSS_ALLOW (%s)"
-                                         % (str(G.PANSTARRS_ALLOW), str(G.SDSS_ALLOW) ))
+                                log.info("No catalog overlap. DECALS_WEB_ALLOW (%s), PANSTARRS_ALLOW (%s), SDSS_ALLOW (%s)"
+                                         % (str(G.DECALS_WEB_ALLOW), str(G.PANSTARRS_ALLOW), str(G.SDSS_ALLOW) ))
 
-                                if G.PANSTARRS_ALLOW: #prioritize Pan-STARRS over SDSS
+                                if G.DECALS_WEB_ALLOW:  # prioritize DECaLS over PANSTARRS
+                                    e.matched_cats.append(cat_decals_web)
+                                elif G.PANSTARRS_ALLOW:  # prioritize PANSTARRS over SDSS
                                     e.matched_cats.append(cat_panstarrs)
                                 elif G.SDSS_ALLOW:
                                     e.matched_cats.append(cat_sdss)
@@ -2931,7 +2978,10 @@ def main():
             catlist_str = ""
             matched_cats = [] #there were no detection objects (just an RA, Dec) so use a generic, global matched_cats
 
-            if G.PANSTARRS_FORCE:
+            if G.DECALS_WEB_FORCE:
+                matched_cats.append(cat_decals_web)
+                catlist_str += cat_decals_web.name + ", "
+            elif G.PANSTARRS_FORCE:
                 matched_cats.append(cat_panstarrs)
                 catlist_str += cat_panstarrs.name + ", "  # still need this for autoremoval of trailing ", " later
             elif G.SDSS_FORCE:
@@ -2965,7 +3015,10 @@ def main():
                                 catlist_str += c.name + ", "
 
                 if (len(matched_cats) == 0):
-                    if G.PANSTARRS_ALLOW:
+                    if G.DECALS_WEB_ALLOW:
+                        matched_cats.append(cat_decals_web)
+                        catlist_str += cat_decals_web.name + ", "
+                    elif G.PANSTARRS_ALLOW:
                         #todo: should peek and see if panstarrs has a hit? if not then fall to SDSS?
                         matched_cats.append(cat_panstarrs)
                         catlist_str += cat_panstarrs.name + ", " #still need this for autoremoval of trailing ", " later

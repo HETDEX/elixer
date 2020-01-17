@@ -21,6 +21,7 @@ try:
     from elixer import cat_sdss
     from elixer import cat_panstarrs
     from elixer import cat_catch_all
+    from elixer import cat_decals_web
     # from elixer import cat_ast376_shela
 except:
     import global_config as G
@@ -35,6 +36,7 @@ except:
     import cat_catch_all
     import cat_sdss
     import cat_panstarrs
+    import cat_decals_web
     # from elixer import cat_ast376_shela
 
 # log = G.logging.getLogger('Cat_logger')
@@ -68,6 +70,7 @@ class CatalogLibrary:
         self.cats.append(cat_shela.SHELA())
         self.cats.append(cat_hsc.HSC())
         self.cats.append(cat_kpno.KPNO())
+        # self.cats.append(cat_decals_web.DECaLS())
         # self.cats.append(cat_ast376_shela.AST376_SHELA())
 
 
@@ -85,6 +88,9 @@ class CatalogLibrary:
 
     def get_panstarrs(self):
         return cat_panstarrs.PANSTARRS()
+
+    def get_decals_web(self):
+        return cat_decals_web.DECaLS()
 
 
     def find_catalogs(self,position,verify=False):

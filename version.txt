@@ -1,8 +1,15 @@
 changes to elixer by version
 
 
-1.8.1a1 [2020-01-15]
+1.8.1a2 [2020-01-17]
+* add in DECaLS web-based imaging, used much like PanSTARRS and SDSS
+    + includes --decals command line option (0,1,2 = disallow, allow, force ... just like PanSTARRS and SDSS)
+
+
+1.8.1a1 [2020-01-16]
 * add zero reference line to Gaussian and full-1d plots
+* flip upper left labels (Entry#-> ID and Dectect ID -> Entry#)
+
 
 
 1.8.0 [2020-01-13]

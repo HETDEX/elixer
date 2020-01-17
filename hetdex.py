@@ -3581,7 +3581,7 @@ class HETDEX:
         title += "Obs: Synthetic (%0.2f to %0.2f\")\n" %(e.annulus[0],e.annulus[1])
 
         if (e.entry_id is not None) and (e.id is not None):
-            title += "Entry# (%s), Detect ID (%d)" % (str(e.entry_id), e.id)
+            title += "ID (%s), Entry# (%d)" % (str(e.entry_id), e.id)
             if e.line_number is not None:
                 title += ", Line# (%d)" % (e.line_number)
 
@@ -3735,7 +3735,7 @@ class HETDEX:
             log.debug("Exception building observation string.",exc_info=True)
 
         if (e.entry_id is not None) and (e.id is not None):
-            title += "Entry# (%s), Detect ID (%d)" %(str(e.entry_id), e.id)
+            title += "ID (%s), Entry# (%d)" %(str(e.entry_id), e.id)
             if e.line_number is not None:
                 title += ", Line# (%d)" % (e.line_number)
 
