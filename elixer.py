@@ -2274,6 +2274,10 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             log.info(msg)
             print(msg)
 
+            #temporary
+            # for d in detectids:
+            #     print(d)
+
             detectids = detectids[:G.MAX_NEIGHBORS_IN_MAP]
             ras = ras[:G.MAX_NEIGHBORS_IN_MAP]
             decs = decs[:G.MAX_NEIGHBORS_IN_MAP]
@@ -2608,7 +2612,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             plt.axvline(x= emis[i],linestyle="--",zorder=1,color=neighbor_color,linewidth=1.0,alpha=0.5)
         plt.xlim((G.CALFIB_WAVEGRID[0],G.CALFIB_WAVEGRID[-1]))
 
-        if (3550.0 < cwave < 5450) and (3550.0 < emis[i] < 5450):
+        if (cwave is not None) and (3550.0 < cwave < 5450) and (3550.0 < emis[i] < 5450):
             ymx = np.max(spec[i][40:991])
             ymn = np.min(spec[i][40:991])
             rn = ymx - ymn
@@ -3161,6 +3165,17 @@ def main():
                         _, nei_mini_buf = build_neighborhood_map(hdf5=args.hdf5, cont_hdf5=G.HDF5_CONTINUUM_FN,
                                            detectid=None, ra=ra, dec=dec, distance=args.neighborhood, cwave=e.w,
                                            fname=os.path.join(pdf.basename, str(e.entry_id) + "nei.png"),
+                                           original_distance=args.error)
+                    except:
+                        log.warning("Exception calling build_neighborhood_map.",exc_info=True)
+
+            if len(hd_list) == 0: #there were not any hetdex detections to anchor, just use RA, Dec?
+                if (args.ra is not None) and (args.dec is not None):
+                    try:
+                        _, nei_mini_buf = build_neighborhood_map(hdf5=args.hdf5, cont_hdf5=G.HDF5_CONTINUUM_FN,
+                                           detectid=None, ra=args.ra, dec=args.dec, distance=args.neighborhood,
+                                           cwave=None,
+                                           fname=os.path.join(args.name, args.name + "_nei.png"),
                                            original_distance=args.error)
                     except:
                         log.warning("Exception calling build_neighborhood_map.",exc_info=True)

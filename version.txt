@@ -12,7 +12,8 @@ changes to elixer by version
     extent to match that of the returned image cutout. (Currently only fixed in neighborhood where the extent could be large
     and not yet checking in catalog cutouts where the extent is typically only a few arcsec). Note: for DECaLS the issue
     occurs at extents greater than 67 arcsec on a side (256x256 pixels at 0.262 arcsec/pixel scale)
-
+* allow neighborhood to be generated even if the elixer call did not produce any HETEDEX detections (i.e. if an RA, Dec
+    only was on the call and no detections within search window). File name will be the supplied --name
 
 1.8.1a1 [2020-01-16]
 * add zero reference line to Gaussian and full-1d plots
