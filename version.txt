@@ -11,9 +11,9 @@ changes to elixer by version
 * flip upper left labels (Entry#-> ID and Dectect ID -> Entry#)
 
 
-
 1.8.0 [2020-01-13]
 * promote 1.8.0a3 to 1.8.0
+
 
 1.8.0a3 [2019-12-13]
 * repeat calls to generate PLAE/POII for range of EW values (nominal, min, max) and report in HDF5

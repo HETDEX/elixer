@@ -275,6 +275,10 @@ class DECaLS(cat_base.Catalog):#DECaLS
 
         pos = coords.SkyCoord(ra,dec,unit="deg",frame='icrs')
 
+        best_plae_poii = None
+        best_plae_poii_filter = '-'
+        bid_target = None
+
         for f in self.Filters:
             index += 1
 
@@ -356,7 +360,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
             cutout_plae = None
 
             try:  # update non-matched source line with PLAE()
-                if ((mag < 99) or (cont_est != -1)) and (target_flux is not None) and (f == 'r'):
+                if ((mag < 99) or (cont_est != -1)) and (target_flux is not None) and (f in 'gr'):
                     # make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
                     bid_target = match_summary.BidTarget()
                     bid_target.catalog_name = self.Name
@@ -448,8 +452,12 @@ class DECaLS(cat_base.Catalog):#DECaLS
                     cutout_ewr = ew_obs / (1. + target_w / G.LyA_rest)
                     cutout_ewr_err = ew_obs_err / (1. + target_w / G.LyA_rest)
 
-                    if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
-                        text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)" % (bid_target.p_lae_oii_ratio,f))
+                    if best_plae_poii is None or f == 'r':
+                        best_plae_poii = bid_target.p_lae_oii_ratio
+                        best_plae_poii_filter = f
+
+                    # if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
+                    #     text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)" % (bid_target.p_lae_oii_ratio,f))
 
                     cat_match.add_bid_target(bid_target)
             except:
@@ -526,6 +534,10 @@ class DECaLS(cat_base.Catalog):#DECaLS
 
             if (details is not None) and (detobj is not None):
                 detobj.aperture_details_list.append(details)
+
+        if (not G.ZOO) and (best_plae_poii is not None):
+            text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)" % (best_plae_poii, best_plae_poii_filter))
+
         #if False:
         #    if target_flux is not None:
         #        #todo: get exptime from the tile (science image has it)
