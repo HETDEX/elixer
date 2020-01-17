@@ -179,7 +179,7 @@ class science_image():
                     self.exptime = float(self.hdulist[0].header['EXPTIME'])
                 except:
 
-                    log.warning('Warning. Could not load exposure time from %s' % self.image_location, exc_info=True)
+                    log.warning('Warning. Could not load exposure time from %s' % self.image_location)#, exc_info=True)
                     self.exptime = None
             try:
                 self.pixel_size = self.calc_pixel_size(

@@ -2284,7 +2284,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     #get the single master cutout (need to stack? or select best image (best == most pixels)?)
     cat_library = catalogs.CatalogLibrary()
     ext = distance * 1.5  # extent is from the 0,0 position AND we want to grab a bit more than the radius (so can see around it)
-    cutouts = cat_library.get_cutouts(position=SkyCoord(ra, dec, unit='deg'), radius=ext)
+    cutouts = cat_library.get_cutouts(position=SkyCoord(ra, dec, unit='deg'), radius=ext,allow_web=True)
 
     if cutouts is not None:
         log.debug("Neighborhood cutouts = %d" %(len(cutouts)))
@@ -2383,6 +2383,9 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         vmax = None
     else:
         try:
+            #update extent ... the requested size might not match, if extent is stretched differently than the actual
+            #image, the positions marked will be wrong
+            ext = ext * master_cutout.shape[0] / master_cutout.shape_input[0]
             vmin, vmax = UTIL.get_vrange(master_cutout.data)  # ,contrast=0.25)
             x, y = sci.get_position(ra, dec, master_cutout)  # x,y of the center
         except:

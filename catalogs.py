@@ -70,7 +70,6 @@ class CatalogLibrary:
         self.cats.append(cat_shela.SHELA())
         self.cats.append(cat_hsc.HSC())
         self.cats.append(cat_kpno.KPNO())
-        # self.cats.append(cat_decals_web.DECaLS())
         # self.cats.append(cat_ast376_shela.AST376_SHELA())
 
 
@@ -186,7 +185,7 @@ class CatalogLibrary:
         return filters
 
     def get_cutouts(self,position,radius=None,side=None,catalogs=None,aperture=None,dynamic=False,
-                    nudge=None,filter=None,first=False):
+                    nudge=None,filter=None,first=False,allow_web=False):
         '''
         Return a list of dictionaries of the FITS cutouts from imaging catalogs
         (does not include objects in those catalogs, just the images).
@@ -221,6 +220,8 @@ class CatalogLibrary:
         :param first: optional - if True and filter is specified, return only the first cutout found. If
                       filter is specified, return the first cutout found that matches a filter in the filter
                       list parameter in the order specified in the list
+        :param allow_web: optional - if True, will attempt to collect cutouts from web interface from DECaLS,
+                        PanSTARRS, and SDSS (in that order, until success or interfaces exhausted)
         :return: list of dictionaries of cutouts and info,
                 one for each matching catalog FITS image that contains the requested coordinate.
                 The dictionary contains the following keys:
@@ -244,7 +245,7 @@ class CatalogLibrary:
         if catalogs is None:
             catalogs = self.find_catalogs(position)
 
-        if (catalogs is None) or (len(catalogs) == 0):
+        if ((catalogs is None) or (len(catalogs) == 0)) and (allow_web == False):
             log.error("No catalogs available.")
             return []
 
@@ -290,6 +291,34 @@ class CatalogLibrary:
             # since this is a half-length of a side, the window (or side) is 2x radius
             if (cutouts is not None) and (len(cutouts) > 0):
                 l.extend(cutouts)
+
+        if (len(l) == 0) and (allow_web): #no imaging was found ...
+            try:
+                while True:
+                    #DECaLS
+                    cutouts = self.get_decals_web().get_cutouts(ra, dec, window=radius * 2., aperture=aperture,
+                                                                filter=filter, first=first)
+                    if (cutouts is not None) and (len(cutouts) > 0):
+                        l.extend(cutouts)
+                        break
+
+                    #PanSTARRS
+                    cutouts = self.get_panstarrs().get_cutouts(ra, dec, window=radius * 2., aperture=aperture,
+                                                                    filter=filter, first=first)
+                    if (cutouts is not None) and (len(cutouts) > 0):
+                        l.extend(cutouts)
+                        break
+
+                    #SDSS
+                    cutouts = self.get_sdss().get_cutouts(ra, dec, window=radius * 2., aperture=aperture,
+                                                               filter=filter, first=first)
+                    if (cutouts is not None) and (len(cutouts) > 0):
+                        l.extend(cutouts)
+                        break
+
+                    break #regardless, exit the "loop"
+            except:
+                pass
 
         #restore
         G.DYNAMIC_MAG_APERTURE = saved_DYNAMIC_MAG_APERTURE

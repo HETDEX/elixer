@@ -4,6 +4,14 @@ changes to elixer by version
 1.8.1a2 [2020-01-17]
 * add in DECaLS web-based imaging, used much like PanSTARRS and SDSS
     + includes --decals command line option (0,1,2 = disallow, allow, force ... just like PanSTARRS and SDSS)
+* updated catalogs::get_cutouts(...) with new allow_web parameter. If True, will check, in order (DECaLS, PanSTARRS, and
+    SDSS) to get cutouts IF the supplied local catalogs did not return any cutouts
+* fixed bug in elixer::build_neighborhood_map(...) where the returned cutout (manifest only for DECaLS, but could be possible
+    for others) is smaller than request (but without an error). The extent was still set to the requested size, so the
+    coordinate grid would NOT match the actual image and positions would be off. An explicit check now corrects the
+    extent to match that of the returned image cutout. (Currently only fixed in neighborhood where the extent could be large
+    and not yet checking in catalog cutouts where the extent is typically only a few arcsec). Note: for DECaLS the issue
+    occurs at extents greater than 67 arcsec on a side (256x256 pixels at 0.262 arcsec/pixel scale)
 
 
 1.8.1a1 [2020-01-16]

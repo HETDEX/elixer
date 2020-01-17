@@ -80,7 +80,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
     MainCatalog = None #there is no Main Catalog ... must load individual catalog tracts
     Name = "DECaLS"
     Filters = ['g','r','z'] #case is important ... needs to be lowercase
-    WCS_Manual = True
+    WCS_Manual = False
 
     # Cat_Coord_Range = {'RA_min': 188.915597, 'RA_max': 192.563471, 'Dec_min': 0.091438, 'Dec_max': 2.388316}
     # Image_Coord_Range = {'RA_min': 0.0, 'RA_max': 358.9563471, 'Dec_min': -80.0, 'Dec_max': 80.0}
@@ -93,6 +93,28 @@ class DECaLS(cat_base.Catalog):#DECaLS
         self.dataframe_of_bid_targets_photoz = None
         self.num_targets = 0
         self.master_cutout = None
+
+    def get_coadd_factor(self,filter):
+        """
+        based on ratios of 5 sigma imaging depth reported by DECaLS
+        g = 24    -> 1 / limiting flux ~ 10^9.602   -> 0.550 as a fraction of total
+        r = 23.4                       ~ 10^9.357   -> 0.313
+        z = 22.5                       ~ 10^9       -> 0.137
+
+
+        :param filter: g r or z
+        :return:
+        """
+        factor = 1.0
+        if filter == 'g':
+            factor = 0.550
+        elif filter == 'r':
+            factor = 0.313
+        elif filter == 'z':
+            factor = 0.137
+        else:
+            factor = 0.0
+        return factor
 
     def get_filters(self,ra=None,dec=None):
         #return ['u','g', 'r', 'i', 'z']
@@ -296,8 +318,6 @@ class DECaLS(cat_base.Catalog):#DECaLS
                 mag_func = None
 
             log.info("DECaLS query (%f,%f) at %f arcsec for band %s ..." % (ra, dec, query_radius, f))
-            # hdulist_array = SDSS_API.get_images(coordinates=pos, radius=query_radius*u.arcsec,band=f)
-
 
             #build up the request URL
             url = "http://legacysurvey.org/viewer/fits-cutout?ra=%f&dec=%f&layer=%s&bands=%s" %(ra,dec,"dr8",f)
@@ -334,9 +354,6 @@ class DECaLS(cat_base.Catalog):#DECaLS
 
             #todo: choose the best image? longest exp time or most NMGY?
             best_idx = 0
-            #for i in range(len(hdulist_array)):
-
-
 
             sci = science_image.science_image(wcs_manual=wcs_manual, wcs_idx=0,
                                         image_location=None,hdulist=hdulist_array[best_idx])
@@ -463,8 +480,6 @@ class DECaLS(cat_base.Catalog):#DECaLS
             except:
                 log.debug('Could not build exact location photometry info.', exc_info=True)
 
-
-
             if cutout is not None:  # construct master cutout
                 # 1st cutout might not be what we want for the master (could be a summary image from elsewhere)
                 if self.master_cutout:
@@ -478,11 +493,17 @@ class DECaLS(cat_base.Catalog):#DECaLS
                     self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True)
                     if sci.exptime:
                         ref_exptime = sci.exptime
+                    else:
+                        ref_exptime = self.get_coadd_factor(f)
                     total_adjusted_exptime = 1.0
                 else:
                     try:
-                        self.master_cutout.data = np.add(self.master_cutout.data, cutout.data * sci.exptime / ref_exptime)
-                        total_adjusted_exptime += sci.exptime / ref_exptime
+                        if sci.exptime is not None:
+                            self.master_cutout.data = np.add(self.master_cutout.data, cutout.data * sci.exptime / ref_exptime)
+                            total_adjusted_exptime += sci.exptime / ref_exptime
+                        else:
+                            self.master_cutout.data = np.add(self.master_cutout.data, cutout.data * self.get_coadd_factor(f) / ref_exptime)
+                            total_adjusted_exptime += self.get_coadd_factor(f) / ref_exptime
                     except:
                         log.warning("Unexpected exception.", exc_info=True)
 
