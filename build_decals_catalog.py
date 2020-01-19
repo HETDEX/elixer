@@ -3,7 +3,8 @@ from astropy.table import Table, vstack
 from astropy.io import fits, ascii
 import requests
 import io
-
+import os
+import datetime
 
 #load the list of bricks
 # BRICKNAME	char[8]	Name of the brick.
@@ -21,7 +22,8 @@ import io
 #ra_str = 'RA'
 #dec_str = 'DEC'
 #brickname_str = 'BRICKNAME'
-bricks_fn = "/home/dustin/temp/survey-bricks-dr8-south.fits" #DR8 (south only) ... the spring field should be empty
+#bricks_fn = "/home/dustin/temp/survey-bricks-dr8-south.fits" #DR8 (south only) ... the spring field should be empty
+bricks_fn = "survey-bricks-dr8-south.fits"
 ra_str = 'ra'
 dec_str = 'dec'
 brickname_str = 'brickname'
@@ -43,39 +45,68 @@ master_table = Table()
 
 total_sz = len(spring_bricks) + len(fall_bricks)
 ct = 0
+start_time = datetime.datetime.now()
+last_iter_time = start_time
+
 for field in [spring_bricks,fall_bricks]:
     for bn in field[brickname_str]: #like : 0051m067
         try:
+            split_time = datetime.datetime.now()
+            elapsed_time = split_time-start_time
+            split_time = split_time-last_iter_time
+            remaining_time = datetime.timedelta(seconds=(total_sz-ct)*split_time.total_seconds())
+
+            last_iter_time = datetime.datetime.now() #mark this time for the next loop
+
             ct += 1
             dir1 = bn[0:3] #this is the 000 to 359 (the first 3 chars of the brickname
             fn = "tractor-%s.fits" %bn
             url = base_url + dir1 + "/" + fn
 
-            print("%d / %d : %s " %(ct,total_sz,fn))
+            file_obj = None
 
-            response = requests.get(url, allow_redirects=True)
+            try:
+                if (os.path.isfile(fn)):
+                    print("%d / %d : %s ***ALREADY DOWNLOADED*** split %f  elapsed %f  remaining %s" %
+                          (ct,total_sz,fn,split_time.total_seconds(),elapsed_time.total_seconds(),str(remaining_time)))
+                    file_obj = open(fn,"rb")
+                else:
+                    print("%d / %d : %s  split %f  elapsed %f  remaining %s" %
+                          (ct, total_sz, fn, split_time.total_seconds(), elapsed_time.total_seconds(),str(remaining_time)))
 
-            if response.status_code == 200:  # "OK" response
-                #rather than write out the whole catalog file, lets trim to the columns I want to save ?
-                #there are a lot of files, so,maybe go ahead and (at least temporarily write out)
-                open(fn,'wb').write(response.content)
+                    response = requests.get(url, allow_redirects=True)
 
-                t = Table.read(io.BytesIO(response.content))
+                    if response.status_code == 200:  # "OK" response
+                        # rather than write out the whole catalog file, lets trim to the columns I want to save ?
+                        # there are a lot of files, so,maybe go ahead and (at least temporarily write out)
+                        open(fn, 'wb').write(response.content)
+                        file_obj = io.BytesIO(response.content)
+                    else:
+                        print("DECaLS http response code = %d (%s)" % (response.status_code, response.reason))
+                        file_obj = None
+
+            except:
+                print("%d / %d : %s ***EXCEPTION***" %(ct,total_sz,fn))
+
+            if file_obj:
+                t = Table.read(file_obj)
+                file_obj.close()
                 for name in t.colnames:
                     if name not in keep_columns:
                         t.remove_column(name)
 
+                #write back out with reduced columns
+                t.write(fn,overwrite=True, format="fits")
+
                 #todo: what about checking for duplicates?
                 master_table = vstack([master_table, t])
-                #write at each step??
-                master_table.write(outfile, overwrite=True, format="fits")
-            else:
-                print("DECaLS http response code = %d (%s)" % (response.status_code, response.reason))
+                #write at each step?? #too costly, but we will have the files, so can recreate if this fails along the way
+                #master_table.write(outfile, overwrite=True, format="fits")
 
         except Exception as e:
             print(e)
 
-#write once at the end?
+#write once at the end? #should be of order 4-5 GB
 master_table.write(outfile,overwrite=True,format="fits")
 
 
