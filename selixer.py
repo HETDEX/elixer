@@ -612,9 +612,16 @@ elif host == HOST_WRANGLER:
     slurm += email + "\n"
 
     if ooops_mode:
+        # slurm += "module use /work/01255/siliu/stampede2/ooops/modulefiles/ \n"
+        # slurm += "ml ooops/1.0\n"
+        # slurm += "set_io_param 1 low\n"
+
+        #updated 01-23-2020
+        slurm += "module use /work/01255/siliu/launcher/modulefiles/ \n"
+        slurm += "module load launcher/3.5 \n"
         slurm += "module use /work/01255/siliu/stampede2/ooops/modulefiles/ \n"
-        slurm += "ml ooops/1.0\n"
-        slurm += "set_io_param 1 low\n"
+        slurm += "module load ooops/1.0 \n"
+        slurm += "set_io_param 1 45.00, 35.00, 20.00, 50.00 \n"
 
     #slurm += "module unload xalt \n"
     slurm += "module load launcher\n"
@@ -652,9 +659,15 @@ elif host == HOST_STAMPEDE2:
     slurm += email + "\n"
 
     if ooops_mode:
+        # slurm += "module use /work/01255/siliu/stampede2/ooops/modulefiles/ \n"
+        # slurm += "ml ooops/1.0\n"
+        # slurm += "set_io_param 1\n"
+
+        #updated 01-23-2020
         slurm += "module use /work/01255/siliu/stampede2/ooops/modulefiles/ \n"
-        slurm += "ml ooops/1.0\n"
-        slurm += "set_io_param 1\n"
+        slurm += "module load ooops \n"
+        slurm += "export IO_LIMIT_CONFIG=/work/01255/siliu/stampede2/ooops/1.0/conf/config_low \n"
+        slurm += "set_io_param 0 low \n"
 
     #slurm += "module unload xalt \n"
     slurm += "module load launcher\n"
@@ -673,6 +686,9 @@ elif host == HOST_STAMPEDE2:
 
 else:
     pass
+
+#added per https://portal.tacc.utexas.edu/tutorials/managingio#ooops
+slurm += "export LD_PRELOAD=/work/00410/huang/share/patch/myopen.so \n"
 
 #add the common logging/basic error checking to the end
 slurm += "\
@@ -840,7 +856,10 @@ if False: #old way
     #                          - dynamic:\n\
     #                              process k executes first available unclaimed line\n\
     #--------------------------------------------------------\n\
-    \n\
+    \n"
+
+    slurm += "export LD_PRELOAD=/work/00410/huang/share/patch/myopen.so \n"
+    slurm += "\
     #----------------\n\
     # Error Checking\n\
     #----------------\n\

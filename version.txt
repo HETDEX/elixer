@@ -6,6 +6,7 @@ changes to elixer by version
     + repeated random sample lineflux and continuum from Gaussian (assuming errors are Gaussian and independent (though
       that is not strictly true)) over configurable number of tries (default = 1000)
     + take Biweight location and confidence interval (configurable, default 95%) as PLAE/POII and error
+* (minor?) updates to --ooops for wrangler and stampede2 in SLURM script
 
 
 1.8.1a2 [2020-01-17]
