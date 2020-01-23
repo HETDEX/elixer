@@ -141,6 +141,15 @@ class MCMC_Gauss:
         return -np.inf  # -999999999 #-np.inf #roughly ln(0) == -inf
 
     def lnprob(self, theta, x, y, yerr):
+        """
+        ln(probability)
+
+        :param theta: parameters to check
+        :param x:  THE data (x axis or wavelengths, in this case)
+        :param y: THE data (y axis or flux counts, in this case)
+        :param yerr:  The error on the y axis data flux counts
+        :return:
+        """
         lp = self.lnprior(theta)
         if not np.isfinite(lp):
             return -np.inf
@@ -202,6 +211,7 @@ class MCMC_Gauss:
             #todo: incorporate self.err_x ? (realistically, do we have significant uncertainty in x?)
             self.sampler = emcee.EnsembleSampler(self.walkers, ndim, self.lnprob,
                                             args=(self.data_x,self.data_y, self.err_y))
+            #args are the positional args AFTER theta for self.lnprob function
 
             with warnings.catch_warnings(): #ignore the occassional warnings from the walkers (NaNs, etc that reject step)
                 warnings.simplefilter("ignore")

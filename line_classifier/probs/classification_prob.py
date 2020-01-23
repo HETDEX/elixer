@@ -198,7 +198,8 @@ def n_additional_line(line_fluxes, line_flux_errors, addl_fluxes, addl_fluxes_er
 
 
 def source_prob(config, ra, dec, zs, fluxes, flux_errs, ews_obs, ew_err, c_obs, which_color, 
-                addl_fluxes, addl_fluxes_error, addl_line_names, flim_file, h=0.67, extended_output=False):
+                addl_fluxes, addl_fluxes_error, addl_line_names, flim_file, h=0.67, extended_output=False,
+                setup=None):
     """
     Return P(LAE|DATA)/P(DATA) and P(DATA|LAE)P(LAE)/(P(DATA|OII)P(OII)) given 
 
@@ -250,42 +251,121 @@ def source_prob(config, ra, dec, zs, fluxes, flux_errs, ews_obs, ew_err, c_obs, 
         in other emission lines
     """
 
-    lae_ew = EquivalentWidthAssigner.from_config(config, 'LAE_EW')
-    oii_ew = EquivalentWidthAssigner.from_config(config, "OII_EW")
-    lf_lae = LuminosityFunction.from_config(config, "LAE_LF", ew_assigner=lae_ew)
-    lf_oii = LuminosityFunction.from_config(config, "OII_LF")
-    cosmo = generate_cosmology_from_config(config)
+    setup_done = False
+    if (setup is not None) and len(setup) > 0:
+        try:
+            lae_ew = setup['lae_ew'] #EquivalentWidthAssigner.from_config(config, 'LAE_EW')
+            oii_ew = setup['oii_ew'] #EquivalentWidthAssigner.from_config(config, "OII_EW")
+            lf_lae = setup['lf_lae'] #LuminosityFunction.from_config(config, "LAE_LF", ew_assigner=lae_ew)
+            lf_oii = setup['lf_oii'] #LuminosityFunction.from_config(config, "OII_LF")
+            cosmo = setup['cosmo'] #generate_cosmology_from_config(config)
 
-    oii_zlim = config.getfloat("General", "oii_zlim")
+            oii_zlim = setup['oii_zlim'] #config.getfloat("General", "oii_zlim")
 
-    _logger.info("Using Hubbles Constant of {:f}".format(h*100))
+            # dd: update with path to the file
+            base_path = setup['base_path'] #op.join(op.dirname(op.realpath(__file__)), "config")
+
+            lae_ew_obs = setup['lae_ew_obs'] #InterpolatedEW(op.join(base_path, config.get("InterpolatedEW", "lae_file")))
+            oii_ew_obs = setup['oii_ew_obs'] #InterpolatedEW(op.join(base_path, config.get("InterpolatedEW", "oii_file")))
+            oii_ew_max = setup['oii_ew_max'] #config.getfloat("InterpolatedEW", "oii_ew_max")
+
+            # Cast everything to arrays
+            ra = setup['ra'] #array(ra)
+            dec = setup['dec'] #array(dec)
+            zs = setup['zs'] #array(zs)
+            #fluxes = setup['fluxes'] #this changes each time
+            #ews_obs = array(ews_obs) #this changes each time
+            c_obs = setup['c_obs'] # array(c_obs)
+
+            wls = setup['wls']  #(zs + 1.0) * config.getfloat("wavelengths", "LAE")
+            zs_oii = setup['zs_oii']  #wls / config.getfloat("wavelengths", "OII") - 1.0
+
+            # Compute the volume elements
+            dvol_lae = setup['dvol_lae']  # return_delta_volume(wls, config.getfloat("wavelengths", "LAE"), cosmo,
+                                     #      wl_lae=config.getfloat("wavelengths", "LAE"))
+            dvol_oii = setup['dvol_oii']  # return_delta_volume(wls, config.getfloat("wavelengths", "OII"), cosmo,
+                                     #      wl_lae=config.getfloat("wavelengths", "LAE"))
+
+            # Remove source too close to be mistaken for LAEs and therefore removed
+            # from catalogue (follows argument used for Leung+ 2017)
+            #dvol_oii[zs_oii < oii_zlim] = 0.0
+            setup_done = True
+        except:
+            _logger.info("Exception in line_classifer::classification_prob",exec_info=True)
+
+    if not setup_done:
+
+        lae_ew = EquivalentWidthAssigner.from_config(config, 'LAE_EW')
+        oii_ew = EquivalentWidthAssigner.from_config(config, "OII_EW")
+        lf_lae = LuminosityFunction.from_config(config, "LAE_LF", ew_assigner=lae_ew)
+        lf_oii = LuminosityFunction.from_config(config, "OII_LF")
+        cosmo = generate_cosmology_from_config(config)
+
+        oii_zlim = config.getfloat("General", "oii_zlim")
+
+        _logger.info("Using Hubbles Constant of {:f}".format(h*100))
 
 
-    #dd: update with path to the file
-    base_path = op.join(op.dirname(op.realpath(__file__)),"config")
+        #dd: update with path to the file
+        base_path = op.join(op.dirname(op.realpath(__file__)),"config")
 
-    lae_ew_obs = InterpolatedEW(  op.join(base_path,config.get("InterpolatedEW", "lae_file")))
-    oii_ew_obs = InterpolatedEW(  op.join(base_path,config.get("InterpolatedEW", "oii_file")))
-    oii_ew_max = config.getfloat("InterpolatedEW", "oii_ew_max")
+        lae_ew_obs = InterpolatedEW(  op.join(base_path,config.get("InterpolatedEW", "lae_file")))
+        oii_ew_obs = InterpolatedEW(  op.join(base_path,config.get("InterpolatedEW", "oii_file")))
+        oii_ew_max = config.getfloat("InterpolatedEW", "oii_ew_max")
 
-    # Cast everything to arrays
-    ra = array(ra)
-    dec = array(dec)
-    zs = array(zs)
-    fluxes = array(fluxes)
+        # Cast everything to arrays
+        ra = array(ra)
+        dec = array(dec)
+        zs = array(zs)
+        fluxes = array(fluxes)
+        ews_obs = array(ews_obs)
+        c_obs = array(c_obs)
+
+        wls = (zs + 1.0)*config.getfloat("wavelengths", "LAE")
+        zs_oii = wls/config.getfloat("wavelengths", "OII") - 1.0
+
+        # Compute the volume elements
+        dvol_lae = return_delta_volume(wls, config.getfloat("wavelengths", "LAE"), cosmo, wl_lae=config.getfloat("wavelengths", "LAE"))
+        dvol_oii = return_delta_volume(wls, config.getfloat("wavelengths", "OII"), cosmo, wl_lae=config.getfloat("wavelengths", "LAE") )
+
+        # Remove source too close to be mistaken for LAEs and therefore removed
+        # from catalogue (follows argument used for Leung+ 2017)
+        dvol_oii[zs_oii < oii_zlim] = 0.0
+
+        if type(setup) is dict:
+            setup['lae_ew'] = lae_ew
+            setup['oii_ew'] = oii_ew
+            setup['lf_lae'] = lf_lae
+            setup['lf_oii']  = lf_oii
+            setup['cosmo'] = cosmo
+
+            setup['oii_zlim'] = oii_zlim
+
+            # dd: update with path to the file
+            setup['base_path'] = base_path
+
+            setup['lae_ew_obs'] = lae_ew_obs
+            setup['oii_ew_obs'] = oii_ew_obs
+            setup['oii_ew_max'] = oii_ew_max
+
+            # Cast everything to arrays
+            setup['ra'] = ra
+            setup['dec'] = dec
+            setup['zs'] = zs
+            #setup['fluxes'] = fluxes #changes each time
+            #ews_obs = array(ews_obs) #changes each time
+            setup['c_obs'] = c_obs
+
+            setup['wls'] = wls
+            setup['zs_oii'] = zs_oii
+
+            # Compute the volume elements
+            setup['dvol_lae'] = dvol_lae
+            setup['dvol_oii'] = dvol_oii
+
+    #these two change each time
     ews_obs = array(ews_obs)
-    c_obs = array(c_obs)
-
-    wls = (zs + 1.0)*config.getfloat("wavelengths", "LAE")
-    zs_oii = wls/config.getfloat("wavelengths", "OII") - 1.0
-
-    # Compute the volume elements 
-    dvol_lae = return_delta_volume(wls, config.getfloat("wavelengths", "LAE"), cosmo, wl_lae=config.getfloat("wavelengths", "LAE"))
-    dvol_oii = return_delta_volume(wls, config.getfloat("wavelengths", "OII"), cosmo, wl_lae=config.getfloat("wavelengths", "LAE") )
-
-    # Remove source too close to be mistaken for LAEs and therefore removed
-    # from catalogue (follows argument used for Leung+ 2017)
-    dvol_oii[zs_oii < oii_zlim] = 0.0
+    fluxes = array(fluxes)
 
     # EW factors
     ew_n_lae = return_ew_n(ews_obs, zs, lae_ew_obs)
@@ -353,7 +433,15 @@ def source_prob(config, ra, dec, zs, fluxes, flux_errs, ews_obs, ew_err, c_obs, 
     else:
         posterior_odds = 0.0 #undetermined
 
-    if not extended_output:
-        return posterior_odds, prob_lae_given_data
+    if setup is None:
+        if not extended_output:
+            return posterior_odds, prob_lae_given_data
+        else:
+            return posterior_odds, prob_lae_given_data, prob_lae_given_data_justlum, \
+                   prob_lae_given_data_lum_ew, prob_lae_given_data_lum_lines
     else:
-        return posterior_odds, prob_lae_given_data, prob_lae_given_data_justlum, prob_lae_given_data_lum_ew, prob_lae_given_data_lum_lines
+        if not extended_output:
+            return posterior_odds, prob_lae_given_data, setup
+        else:
+            return posterior_odds, prob_lae_given_data, prob_lae_given_data_justlum, \
+                   prob_lae_given_data_lum_ew, prob_lae_given_data_lum_lines, setup

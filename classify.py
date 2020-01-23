@@ -43,15 +43,31 @@ def plae_poii(line_wave,line_flux,line_flux_err, eqw_obs, eqw_obs_err,
 
 
     if estimate_error:
-        ratio, p_lae, p_oii, plae_details = line_prob.prob_LAE(wl_obs=line_wave,
-                                                 lineFlux=line_flux,
-                                                 lineFlux_err=line_flux_err,
-                                                 ew_obs=eqw_obs,
-                                                 ew_obs_err=eqw_obs_err,
-                                                 addl_wavelengths=addl_wave,
-                                                 addl_fluxes=addl_flux,
-                                                 addl_errors=addl_flux_err,
-                                                 estimate_error=True)
+        # ratio, p_lae, p_oii, plae_details = line_prob.prob_LAE(wl_obs=line_wave,
+        #                                          lineFlux=line_flux,
+        #                                          lineFlux_err=line_flux_err,
+        #                                          ew_obs=eqw_obs,
+        #                                          ew_obs_err=eqw_obs_err,
+        #                                          addl_wavelengths=addl_wave,
+        #                                          addl_fluxes=addl_flux,
+        #                                          addl_errors=addl_flux_err,
+        #                                          estimate_error=True)
+        ratio, p_lae, p_oii, plae_details =  line_prob.mc_prob_LAE(wl_obs=line_wave,
+                                                        lineFlux=line_flux,
+                                                        lineFlux_err=line_flux_err,
+                                                        ew_obs=eqw_obs,
+                                                        ew_obs_err=eqw_obs_err,
+                                                        # continuum=bid_target.bid_flux_est_cgs,
+                                                        # continuum_err=bid_target.bid_flux_est_cgs_unc,
+                                                        c_obs=None, which_color=None,
+                                                        addl_wavelengths=addl_wave,
+                                                        addl_fluxes=addl_flux,
+                                                        addl_errors=addl_flux_err,
+                                                        sky_area=None,
+                                                        cosmo=None, lae_priors=None,
+                                                        ew_case=None, W_0=None,
+                                                        z_OII=None, sigma=None)
+
         return ratio, p_lae, p_oii, plae_details
     else:
         ratio, p_lae, p_oii = line_prob.prob_LAE(wl_obs=line_wave,

@@ -2275,6 +2275,8 @@ class Spectrum:
         self.central = None
         self.estflux = None
         self.estflux_unc = None
+        self.estcont = None
+        self.estcont_unc = None
         self.eqw_obs = None
         self.eqw_obs_unc = None
 
@@ -2344,7 +2346,7 @@ class Spectrum:
 
 
     def set_spectra(self,wavelengths, values, errors, central, values_units = 0, estflux=None, estflux_unc=None,
-                    eqw_obs=None, eqw_obs_unc=None, fit_min_sigma=GAUSS_FIT_MIN_SIGMA):
+                    eqw_obs=None, eqw_obs_unc=None, fit_min_sigma=GAUSS_FIT_MIN_SIGMA,estcont=None,estcont_unc=None):
         self.wavelengths = []
         self.values = []
         self.errors = []
@@ -2387,6 +2389,9 @@ class Spectrum:
                     estflux = eli.mcmc_line_flux
                     estflux_unc = a_unc
 
+                    estcont = eli.mcmc_continuum
+                    estcont_unc = eli.y_unc
+
                     eqw_obs = abs(estflux / eli.mcmc_continuum)
                     eqw_obs_unc = abs(eqw_obs) * np.sqrt((a_unc / estflux) ** 2 + (y_unc / eli.mcmc_continuum) ** 2)
                 else: #not from mcmc, so we have no error
@@ -2419,6 +2424,8 @@ class Spectrum:
         self.estflux_unc = estflux_unc
         self.eqw_obs = eqw_obs
         self.eqw_obs_unc = eqw_obs_unc
+        self.estcont = estcont
+        self.estcont_unc = estcont_unc
         #if self.snr is None:
         #    self.snr = 0
 
@@ -2869,11 +2876,26 @@ class Spectrum:
         #care only about the LAE and OII solutions:
         #todo: find the LyA and OII options in the solution list and use to fill in addl_fluxes?
 
-        self.p_lae_oii_ratio, self.p_lae, self.p_oii, plae_errors = line_prob.prob_LAE(wl_obs=self.central,
+        # self.p_lae_oii_ratio, self.p_lae, self.p_oii, plae_errors = line_prob.prob_LAE(wl_obs=self.central,
+        #                                                    lineFlux=self.estflux,
+        #                                                    lineFlux_err=self.estflux_unc,
+        #                                                    ew_obs=self.eqw_obs,
+        #                                                    ew_obs_err=self.eqw_obs_unc,
+        #                                                    c_obs=None, which_color=None,
+        #                                                    addl_wavelengths=addl_wavelengths,
+        #                                                    addl_fluxes=addl_fluxes,
+        #                                                    addl_errors=addl_errors,
+        #                                                    sky_area=None,
+        #                                                    cosmo=None, lae_priors=None,
+        #                                                    ew_case=None, W_0=None,
+        #                                                    z_OII=None, sigma=None, estimate_error=True)
+
+
+        self.p_lae_oii_ratio, self.p_lae, self.p_oii, plae_errors = line_prob.mc_prob_LAE(wl_obs=self.central,
                                                            lineFlux=self.estflux,
                                                            lineFlux_err=self.estflux_unc,
-                                                           ew_obs=self.eqw_obs,
-                                                           ew_obs_err=self.eqw_obs_unc,
+                                                           continuum=self.estcont,
+                                                           continuum_err=self.estcont_unc,
                                                            c_obs=None, which_color=None,
                                                            addl_wavelengths=addl_wavelengths,
                                                            addl_fluxes=addl_fluxes,
@@ -2881,7 +2903,7 @@ class Spectrum:
                                                            sky_area=None,
                                                            cosmo=None, lae_priors=None,
                                                            ew_case=None, W_0=None,
-                                                           z_OII=None, sigma=None, estimate_error=True)
+                                                           z_OII=None, sigma=None)
 
         try:
             if plae_errors:

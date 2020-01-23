@@ -1,5 +1,12 @@
 changes to elixer by version
 
+1.8.1a3 [2020-01-23]
+* Add MC-style error to PLAE/POII to ALL PLAE calls
+    + wrapped D.Farrow LineClassifierPro.source_prob() (keeping setup across calls for performance)
+    + repeated random sample lineflux and continuum from Gaussian (assuming errors are Gaussian and independent (though
+      that is not strictly true)) over configurable number of tries (default = 1000)
+    + take Biweight location and confidence interval (configurable, default 95%) as PLAE/POII and error
+
 
 1.8.1a2 [2020-01-17]
 * add in DECaLS web-based imaging, used much like PanSTARRS and SDSS

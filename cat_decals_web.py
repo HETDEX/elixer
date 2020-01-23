@@ -448,15 +448,30 @@ class DECaLS(cat_base.Catalog):#DECaLS
                     except:
                         ew_obs_err = 0.
 
-                    bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii,plae_errors = \
-                        line_prob.prob_LAE(wl_obs=target_w, lineFlux=target_flux,
-                                           ew_obs=ew_obs,
-                                           lineFlux_err= lineFlux_err,
-                                           ew_obs_err= ew_obs_err,
-                                           c_obs=None, which_color=None, addl_fluxes=addl_flux,
-                                           addl_wavelengths=addl_waves,addl_errors=addl_ferr,sky_area=None,
-                                           cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
-                                           sigma=None,estimate_error=True)
+                    # bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii,plae_errors = \
+                    #     line_prob.prob_LAE(wl_obs=target_w, lineFlux=target_flux,
+                    #                        ew_obs=ew_obs,
+                    #                        lineFlux_err= lineFlux_err,
+                    #                        ew_obs_err= ew_obs_err,
+                    #                        c_obs=None, which_color=None, addl_fluxes=addl_flux,
+                    #                        addl_wavelengths=addl_waves,addl_errors=addl_ferr,sky_area=None,
+                    #                        cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
+                    #                        sigma=None,estimate_error=True)
+                    bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii, plae_errors = \
+                        line_prob.mc_prob_LAE(
+                            wl_obs=target_w,
+                            lineFlux=target_flux,
+                            lineFlux_err=lineFlux_err,
+                            continuum=bid_target.bid_flux_est_cgs,
+                            continuum_err=bid_target.bid_flux_est_cgs_unc,
+                            c_obs=None, which_color=None,
+                            addl_wavelengths=addl_waves,
+                            addl_fluxes=addl_flux,
+                            addl_errors=addl_ferr,
+                            sky_area=None,
+                            cosmo=None, lae_priors=None,
+                            ew_case=None, W_0=None,
+                            z_OII=None, sigma=None)
 
                     try:
                         if plae_errors:
@@ -806,17 +821,32 @@ class DECaLS(cat_base.Catalog):#DECaLS
                             except:
                                 ew_obs_err = 0.
 
+                            # bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii, plae_errors = \
+                            #     line_prob.prob_LAE(wl_obs=target_w,
+                            #                        lineFlux=target_flux,
+                            #                        ew_obs=ew_obs,
+                            #                        lineFlux_err=lineFlux_err,
+                            #                        ew_obs_err=ew_obs_err,
+                            #                        c_obs=None, which_color=None, addl_wavelengths=addl_waves,
+                            #                        addl_fluxes=addl_flux, addl_errors=addl_ferr, sky_area=None,
+                            #                        cosmo=None, lae_priors=None,
+                            #                        ew_case=None, W_0=None,
+                            #                        z_OII=None, sigma=None, estimate_error=True)
                             bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii, plae_errors = \
-                                line_prob.prob_LAE(wl_obs=target_w,
-                                                   lineFlux=target_flux,
-                                                   ew_obs=ew_obs,
-                                                   lineFlux_err=lineFlux_err,
-                                                   ew_obs_err=ew_obs_err,
-                                                   c_obs=None, which_color=None, addl_wavelengths=addl_waves,
-                                                   addl_fluxes=addl_flux, addl_errors=addl_ferr, sky_area=None,
-                                                   cosmo=None, lae_priors=None,
-                                                   ew_case=None, W_0=None,
-                                                   z_OII=None, sigma=None, estimate_error=True)
+                                line_prob.mc_prob_LAE(
+                                    wl_obs=target_w,
+                                    lineFlux=target_flux,
+                                    lineFlux_err=lineFlux_err,
+                                    continuum=bid_target.bid_flux_est_cgs,
+                                    continuum_err=bid_target.bid_flux_est_cgs_unc,
+                                    c_obs=None, which_color=None,
+                                    addl_wavelengths=addl_waves,
+                                    addl_fluxes=addl_flux,
+                                    addl_errors=addl_ferr,
+                                    sky_area=None,
+                                    cosmo=None, lae_priors=None,
+                                    ew_case=None, W_0=None,
+                                    z_OII=None, sigma=None)
                             #dfx = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                             #                                        (self.dataframe_of_bid_targets['DEC'] == d[0])]
 

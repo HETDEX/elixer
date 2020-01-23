@@ -2180,7 +2180,8 @@ class DetObj:
         if self.annulus is None:
             self.spec_obj.set_spectra(self.sumspec_wavelength,self.sumspec_flux,self.sumspec_fluxerr, self.w,
                                       values_units=-17, estflux=self.estflux, estflux_unc=self.estflux_unc,
-                                      eqw_obs=self.eqw_obs,eqw_obs_unc=self.eqw_obs_unc)
+                                      eqw_obs=self.eqw_obs,eqw_obs_unc=self.eqw_obs_unc,
+                                      estcont=self.cont_cgs,estcont_unc=self.cont_cgs_unc)
             # print("DEBUG ... spectrum peak finder")
             # if G.DEBUG_SHOW_GAUSS_PLOTS:
             #    self.spec_obj.build_full_width_spectrum(show_skylines=True, show_peaks=True, name="testsol")
@@ -2252,17 +2253,30 @@ class DetObj:
             self.p_oii = -1
             self.p_lae_oii_ratio = -1
         else:
-            ratio, self.p_lae, self.p_oii, plae_errors = line_prob.prob_LAE(wl_obs=self.w,
+            ratio, self.p_lae, self.p_oii, plae_errors = line_prob.mc_prob_LAE(wl_obs=self.w,
                                                                lineFlux=self.estflux,
                                                                lineFlux_err=self.estflux_unc,
-                                                               ew_obs=self.eqw_obs,
-                                                               ew_obs_err=self.eqw_obs_unc,
+                                                               continuum=self.cont_cgs,
+                                                               continuum_err=self.cont_cgs_unc,
                                                                c_obs=None, which_color=None,
                                                                addl_fluxes=[], addl_wavelengths=[],
                                                                sky_area=None,
                                                                cosmo=None, lae_priors=None,
                                                                ew_case=None, W_0=None,
-                                                               z_OII=None, sigma=None,estimate_error=True)
+                                                               z_OII=None, sigma=None)
+
+            # ratio, self.p_lae, self.p_oii, plae_errors = line_prob.prob_LAE(wl_obs=self.w,
+            #                                                    lineFlux=self.estflux,
+            #                                                    lineFlux_err=self.estflux_unc,
+            #                                                    ew_obs=self.eqw_obs,
+            #                                                    ew_obs_err=self.eqw_obs_unc,
+            #                                                    c_obs=None, which_color=None,
+            #                                                    addl_fluxes=[], addl_wavelengths=[],
+            #                                                    sky_area=None,
+            #                                                    cosmo=None, lae_priors=None,
+            #                                                    ew_case=None, W_0=None,
+            #                                                    z_OII=None, sigma=None,estimate_error=True)
+
             if (self.p_lae is not None) and (self.p_lae > 0.0):
                 if (self.p_oii is not None) and (self.p_oii > 0.0):
                     self.p_lae_oii_ratio = self.p_lae /self.p_oii
@@ -2295,19 +2309,32 @@ class DetObj:
 
 
 
-                sdss_ratio, sdss_p_lae, sdss_p_oii, plae_errors = line_prob.prob_LAE(wl_obs=self.w,
-                                                                   lineFlux=self.estflux,
-                                                                   lineFlux_err=self.estflux_unc,
-                                                                   ew_obs=self.estflux/self.sdss_cgs_cont,
-                                                                   ew_obs_err=None, #todo: get error est for sdss gmag
-                                                                   c_obs=None, which_color=None,
-                                                                   addl_fluxes=addl_fluxes,
-                                                                   addl_wavelengths=addl_wavelengths,
-                                                                   addl_errors = addl_errors,
-                                                                   sky_area=None,
-                                                                   cosmo=None, lae_priors=None,
-                                                                   ew_case=None, W_0=None,
-                                                                   z_OII=None, sigma=None, estimate_error=True)
+                # sdss_ratio, sdss_p_lae, sdss_p_oii, plae_errors = line_prob.prob_LAE(wl_obs=self.w,
+                #                                                    lineFlux=self.estflux,
+                #                                                    lineFlux_err=self.estflux_unc,
+                #                                                    ew_obs=self.estflux/self.sdss_cgs_cont,
+                #                                                    ew_obs_err=None, #todo: get error est for sdss gmag
+                #                                                    c_obs=None, which_color=None,
+                #                                                    addl_fluxes=addl_fluxes,
+                #                                                    addl_wavelengths=addl_wavelengths,
+                #                                                    addl_errors = addl_errors,
+                #                                                    sky_area=None,
+                #                                                    cosmo=None, lae_priors=None,
+                #                                                    ew_case=None, W_0=None,
+                #                                                    z_OII=None, sigma=None, estimate_error=True)
+
+                sdss_ratio, sdss_p_lae, sdss_p_oii, plae_errors = line_prob.mc_prob_LAE(wl_obs=self.w,
+                                                                                   lineFlux=self.estflux,
+                                                                                   lineFlux_err=self.estflux_unc,
+                                                                                   continuum=self.sdss_cgs_cont,
+                                                                                   continuum_err=0.0, #todo: get error est for sdss gmag
+                                                                                   c_obs=None, which_color=None,
+                                                                                   addl_fluxes=[], addl_wavelengths=[],
+                                                                                   sky_area=None,
+                                                                                   cosmo=None, lae_priors=None,
+                                                                                   ew_case=None, W_0=None,
+                                                                                   z_OII=None, sigma=None)
+
                 self.sdss_gmag_p_lae_oii_ratio = sdss_ratio
                 try:
                     if plae_errors and (len(plae_errors['ratio'])==3):

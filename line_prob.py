@@ -8,6 +8,10 @@ except:
 import os
 import sys
 
+import astropy.stats.biweight as biweight
+import matplotlib.pyplot as plt
+from scipy.stats import bayes_mvs
+
 try:
     from elixer import global_config as G
     import elixer.line_classifier.probs.classification_prob as LineClassifierPro
@@ -33,6 +37,33 @@ COSMOLOGY = None
 #log.setLevel(G.logging.DEBUG)
 log = G.Global_Logger('line_prob_logger')
 log.setlevel(G.logging.DEBUG)
+
+
+def conf_interval(num_samples,sd,conf=0.95):
+    """
+    mean +/- error  ... this is the +/- error part as 95% (or other) confidence interval (assuming normal distro)
+
+    :param num_samples:
+    :param sd: standard deviation
+    :param conf:
+    :return:
+    """
+
+    if num_samples < 30:
+        return None
+
+    #todo: put in other values
+    if conf == 0.68:
+        t = 1.0
+    elif conf == 0.95:
+        t = 1.96
+    elif conf == 0.99:
+        t = 2.576
+    else:
+        log.debug("todo: need to handle other confidence intervals: ", conf)
+        return None
+
+    return t * sd / np.sqrt(num_samples)
 
 
 
@@ -208,6 +239,151 @@ def fiber_area_in_sqdeg(num_fibers=1):
 #         P(LAE|DATA) = P(DATA|LAE)*P(LAE)/(P(DATA|LAE)*P(LAE) + P(DATA|OII)*P(OII))
 #
 #     """
+
+#
+# def xxx_bootstrap_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err=None, c_obs=None, which_color=None,
+#             addl_wavelengths=None, addl_fluxes=None,addl_errors=None, sky_area=None, cosmo=None, lae_priors=None, ew_case=None, W_0=None,
+#              z_OII=None, sigma=None, num_bootstraps=10000, confidence=0.68):
+#     """
+#
+#     :param wl_obs:
+#     :param lineFlux:
+#     :param lineFlux_err:
+#     :param continuum:
+#     :param continuum_err:
+#     :param c_obs:
+#     :param which_color:
+#     :param addl_wavelengths:
+#     :param addl_fluxes:
+#     :param addl_errors:
+#     :param sky_area:
+#     :param cosmo:
+#     :param lae_priors:
+#     :param ew_case:
+#     :param W_0:
+#     :param z_OII:
+#     :param sigma:
+#     :param num_bootstraps:
+#     :param confidence: confidence interval ... commonly 0.68 or 0.95 or 0.99, etc
+#     :return:
+#     """
+#     #sanity check
+#     if confidence < 0 or confidence > 1.0:
+#         log.debug("Nonsense confidence (%f) in bootstrap_prob_LAE" %(confidence))
+#         return None, None, None, None
+#
+#     lineflux_array = np.random.normal(lineFlux,lineFlux_err,num_bootstraps)
+#     continuum_array = np.random.normal(continuum,continuum_err,num_bootstraps)
+#     ew_obs_array = lineflux_array / continuum_array
+#
+#     lae_oii_ratio_list = []
+#     p_lae_list = []
+#     p_oii_list = []
+#
+#     for lf,ew in zip(lineflux_array,ew_obs_array):
+#         try:
+#             lae_oii_ratio, p_lae, p_oii  = prob_LAE(wl_obs=wl_obs,
+#                                    lineFlux=lf,
+#                                    ew_obs=ew,
+#                                    lineFlux_err=0,
+#                                    ew_obs_err=0,
+#                                    c_obs=None, which_color=None, addl_wavelengths=addl_wavelengths,
+#                                    addl_fluxes=addl_fluxes, addl_errors=addl_errors, sky_area=None,
+#                                    cosmo=None, lae_priors=None,
+#                                    ew_case=None, W_0=None,
+#                                    z_OII=None, sigma=None, estimate_error=False)
+#
+#             lae_oii_ratio_list.append(lae_oii_ratio)
+#             p_lae_list.append(p_lae)
+#             p_oii_list.append(p_oii)
+#
+#         except:
+#             log.debug("Exception calling prob_LAE in bootstrap_prob_LAE",exc_info=True)
+#
+#         #now the "original" single call at the "exact" values for the flux and ew
+#     try:
+#         lae_oii_ratio, p_lae, p_oii = prob_LAE(wl_obs=wl_obs,
+#                                                lineFlux=lineFlux,
+#                                                ew_obs=lineFlux/continuum,
+#                                                lineFlux_err=0,
+#                                                ew_obs_err=0,
+#                                                c_obs=None, which_color=None, addl_wavelengths=addl_wavelengths,
+#                                                addl_fluxes=addl_fluxes, addl_errors=addl_errors, sky_area=None,
+#                                                cosmo=None, lae_priors=None,
+#                                                ew_case=None, W_0=None,
+#                                                z_OII=None, sigma=None, estimate_error=False)
+#     except:
+#         log.debug("Exception calling standard prob_LAE in bootstrap_prob_LAE", exc_info=True)
+#         return None, None, None, None
+#
+#     try:
+#         #using biweight
+#         loc = biweight.biweight_location(lae_oii_ratio_list) #the "average"
+#         scale = biweight.biweight_scale(lae_oii_ratio_list)
+#         ci = conf_interval(len(lae_oii_ratio_list),scale,conf=0.68)
+#         ratio_LAE_list = [loc,loc-ci,loc+ci]
+#         # temp:
+#         #import matplotlib.pyplot as plt
+#         plt.close('all')
+#         plt.figure()
+#         vals, bins, _ = plt.hist(lae_oii_ratio_list, bins="auto")
+#         plt.title("%0.3g (%0.3g, %0.3g) bins (%d)\n min (%0.3g) max (%0.3g)"
+#                   % (ratio_LAE_list[0], ratio_LAE_list[1], ratio_LAE_list[2], len(bins) - 1, min(vals), max(vals)))
+#         plt.savefig("plae_bw_hist_%d.png" %num_bootstraps)
+#     except:
+#         log.debug("Exception calling biweight or conf_interval in bootstap_prob_LAE", exc_info=True)
+#         return lae_oii_ratio, p_lae, p_oii, None
+#
+#
+#
+#     try:
+#         if True:
+#             mean_cntr, var_cntr, std_cntr = bayes_mvs(lae_oii_ratio_list, alpha=0.68)
+#             ratio_LAE_list = [lae_oii_ratio, None, None]
+#             if not np.isnan(mean_cntr[0]):
+#                 ratio_LAE_list[0] = mean_cntr[0]
+#                 ratio_LAE_list[1] = mean_cntr[1][0]
+#                 ratio_LAE_list[2] = mean_cntr[1][1]
+#                 #temp:
+#                 #import matplotlib.pyplot as plt
+#                 plt.close('all')
+#                 plt.figure()
+#                 vals, bins, _ = plt.hist(lae_oii_ratio_list,bins="auto")
+#                 plt.title("%0.3g (%0.3g, %0.3g) bins (%d)\n min (%0.3g) max (%0.3g)"
+#                           % (ratio_LAE_list[0], ratio_LAE_list[1], ratio_LAE_list[2],len(bins)-1,min(vals),max(vals)))
+#                 plt.savefig("plae_mean_hist_%d.png" %num_bootstraps)
+#             else:
+#                 ratio_LAE_list[1] = lae_oii_ratio
+#                 ratio_LAE_list[2] = lae_oii_ratio
+#
+#         mean_cntr, var_cntr, std_cntr = bayes_mvs(p_lae_list, alpha=0.68)
+#         plgd_list = [p_lae,None,None]
+#         if not np.isnan(mean_cntr[0]):
+#             plgd_list[0] = mean_cntr[0]
+#             plgd_list[1] = mean_cntr[1][0]
+#             plgd_list[2] = mean_cntr[1][1]
+#         else:
+#             plgd_list[1] = p_lae
+#             plgd_list[2] = p_lae
+#
+#         mean_cntr, var_cntr, std_cntr = bayes_mvs(p_oii_list, alpha=0.68)
+#         pogd_list = [p_oii,None,None]
+#         if not np.isnan(mean_cntr[0]):
+#             pogd_list[0] = mean_cntr[0]
+#             pogd_list[1] = mean_cntr[1][0]
+#             pogd_list[2] = mean_cntr[1][1]
+#         else:
+#             pogd_list[1] = p_oii
+#             pogd_list[2] = p_oii
+#     except:
+#         log.debug("Exception calling bayes_mvs in bootstrap_prob_LAE", exc_info=True)
+#         return lae_oii_ratio, p_lae, p_oii, None
+#
+#     log.info("Bootstrap PLAE: %0.4g (%0.4g, %0.4g) " %(ratio_LAE_list[0],ratio_LAE_list[1],ratio_LAE_list[2]))
+#
+#     return lae_oii_ratio, p_lae, p_oii, {'ratio':ratio_LAE_list,'plgd':plgd_list,'pogd':pogd_list}
+#
+#
 
 def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_obs=None, which_color=None, addl_wavelengths=None,
              addl_fluxes=None,addl_errors=None, sky_area=None, cosmo=None, lae_priors=None, ew_case=None, W_0=None,
@@ -419,7 +595,10 @@ def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_
 
         ratio_LAE_list.append(ratio_LAE)
         plgd_list.append(plgd)
-        pogd_list.append(pogd)
+        if type(pogd) != float:
+            pogd_list.append(pogd.value)
+        else:
+            pogd_list.append(pogd)
 
     #temporary -- compare results and note if the new method disagrees with the old
     # if old_ratio_LAE + ratio_LAE > 0.2: #if they are both small, don't bother
@@ -435,3 +614,251 @@ def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_
         return ratio_LAE_list[0], plgd_list[0], pogd_list[0], {'ratio':ratio_LAE_list,'plgd':plgd_list,'pogd':pogd_list}
     else:
         return ratio_LAE_list[0], plgd_list[0], pogd_list[0]
+
+
+def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err=None, ew_obs=None, ew_obs_err=None,
+                c_obs=None, which_color=None, addl_wavelengths=None, addl_fluxes=None,addl_errors=None, sky_area=None,
+                cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None, sigma=None,
+                num_mc=G.MC_PLAE_SAMPLE_SIZE, confidence=G.MC_PLAE_CONF_INTVL):
+    """
+
+    :param wl_obs:
+    :param lineFlux:
+    :param lineFlux_err:
+    :param continuum:
+    :param continuum_err:
+    :param ew_obs: reconstruct continuum if not provided
+    :param ew_obs_err: reconstruct continuum_err if not provided
+    :param c_obs:
+    :param which_color:
+    :param addl_wavelengths:
+    :param addl_fluxes:
+    :param addl_errors:
+    :param sky_area:
+    :param cosmo:
+    :param lae_priors:
+    :param ew_case:
+    :param W_0:
+    :param z_OII:
+    :param sigma:
+    :param num_mc:
+    :param confidence: confidence interval ... commonly 0.68 or 0.95 or 0.99, etc
+    :return:
+    """
+    #sanity check
+    if confidence < 0 or confidence > 1.0:
+        log.debug("Nonsense confidence (%f) in mc_prob_LAE" %(confidence))
+        return None, None, None, None
+
+    if (continuum is None):
+        if (ew_obs is None):
+            log.debug("Insufficient info for mc_prob_LAE, continuum and ew_obs not provided")
+            return None, None, None, None
+        else: #build continuum and continuum error from ew
+            continuum = lineFlux / ew_obs
+            if (ew_obs_err is not None) and (ew_obs_err != 0):
+                continuum_err = continuum * np.sqrt((ew_obs_err/ew_obs)**2 - (lineFlux_err/lineFlux)**2)
+            else:
+                continuum_err = 0.0
+
+
+    log.debug("Sampling (%d) PLAE/POII ... " %(num_mc))
+    lineflux_array = np.random.normal(lineFlux,lineFlux_err,num_mc)
+    continuum_array = np.random.normal(continuum,continuum_err,num_mc)
+    ew_obs_array = lineflux_array / continuum_array
+
+    lae_oii_ratio_list = []
+    p_lae_list = []
+    p_oii_list = []
+
+    global UNIVERSE_CONFIG, FLUX_LIMIT_FN
+    if UNIVERSE_CONFIG is None:
+        try:
+            config_fn = os.path.join(os.path.dirname(os.path.realpath(__file__)), G.RELATIVE_PATH_UNIVERSE_CONFIG)
+            UNIVERSE_CONFIG = RawConfigParser()
+            UNIVERSE_CONFIG.read(config_fn)
+            log.debug("Load universe config for LAE/OII discriminator: %s" %config_fn)
+
+            FLUX_LIMIT_FN = os.path.join(os.path.dirname(os.path.realpath(__file__)),G.RELATIVE_PATH_FLUX_LIM_FN)
+            log.debug("Load flux limit filename for LAE/OII discriminator: %s" % FLUX_LIMIT_FN)
+
+            # don't need to do this ... is performed in source_prob call
+            #COSMOLOGY = generate_cosmology_from_config(UNIVERSE_CONFIG)
+        except:
+            log.warning("Exception loading LAE/OII discriminator config",exc_info=True)
+            print("Exception loading LAE/OII discriminator config")
+
+    # posterior_odds = 0.0
+    # prob_lae_given_data = 0.0
+
+    #build up parameters (need to be numpy arrays for the call)
+    ra = None #have no meaning in this case? could set to [100.0] and [0.0] per example?
+    dec = None
+    z_LyA = wl_obs / G.LyA_rest - 1.0
+    z_OII = wl_obs / G.OII_rest - 1.0
+
+    #convert additional wavelengths into names for the call
+    #from the UNIVERSE_CONFIG file
+    known_lines = UNIVERSE_CONFIG.items("wavelengths") #array of tuples (name,wavelength)
+
+    extra_fluxes = []
+    extra_fluxes_err = []
+    extra_fluxes_name = []
+
+    #all the extra lines used by the Bayes code are visible in our range only if OII is the primary
+    #so assume OII and shift to rest frame
+
+    # LAE = 1215.668
+    # OII = 3727.45
+    # NeIII = 3869.00
+    # H_beta = 4861.32
+    # OIII4959 = 4958.91
+    # OIII5007 = 5006.84
+
+    #iterate over all in addl_wavelengths, if +/- (1? 2? AA ... what are we using elsewhere?) assign name
+    #if no match, toss the additional flux, etc
+
+    wl_unc = 2.0 #AA
+
+    if (addl_wavelengths is None) or (addl_fluxes is None) or (addl_errors is None):
+        addl_wavelengths = []
+        addl_fluxes = []
+        addl_errors = []
+
+
+    try:
+        for n, w in known_lines:
+            w_oii = float(w) * (z_OII + 1.)
+            for i in range(len(addl_fluxes)):
+                if abs(w_oii-addl_wavelengths[i]) < wl_unc:
+                    extra_fluxes.append(addl_fluxes[i])
+                    extra_fluxes_name.append(n)
+                    try:
+                        extra_fluxes_err.append(addl_errors[i])
+                    except:
+                        extra_fluxes_err.append(0.0)
+                        log.warning("Exception (non-fatal) building extra line fluxes in line_prob.py. " + \
+                                    "Unable to set flux uncertainty.", exc_info=True)
+
+                    break
+    except:
+        log.error("Exception building extra line fluxes in line_prob.py.", exc_info=True)
+        if estimate_error:
+            return 0,0,0,{}
+        else:
+            return 0,0,0
+
+    plae_errors = {} #call classifier multiple times and get an error estimate on the PLAE/POII ratio
+
+    #at least for now, just call for EqW ... that is the biggest error source
+    #flux_array_range = [lineFlux]
+
+    posterior_odds_list = []
+    prob_lae_given_data_list = []
+
+    setup = {} #first run setup date for the LineClassifierPro ... will be populated by source_prob on first call
+               #then passed in on subsequent calls to speed up processing
+    #ct = 0
+    for lf,ew in zip(lineflux_array,ew_obs_array):
+        try:
+            #ct += 1
+            #log.debug("%d"%ct)
+            posterior_odds, prob_lae_given_data,setup  = LineClassifierPro.source_prob(UNIVERSE_CONFIG,
+                                                                                np.array([ra]), np.array([dec]),
+                                                                                np.array([z_LyA]),
+                                                                                np.array([lf]),
+                                                                                np.array([0.0]),
+                                                                                np.array([ew]), np.array([0.0]),
+                                                                                c_obs=None, which_color=None,
+                                                                                addl_fluxes=np.array(extra_fluxes),
+                                                                                addl_fluxes_error=np.array(
+                                                                                    extra_fluxes_err),
+                                                                                addl_line_names=np.array(
+                                                                                    extra_fluxes_name),
+                                                                                flim_file=FLUX_LIMIT_FN,
+                                                                                extended_output=False,
+                                                                                setup=setup)
+
+
+            if isinstance(posterior_odds,list) or isinstance(posterior_odds,np.ndarray):
+                if len(posterior_odds) == 1:
+                    posterior_odds = posterior_odds[0]
+                else:
+                    log.info("Weird. posterior_odds %s" %(posterior_odds))
+
+            if isinstance(prob_lae_given_data,list) or isinstance(prob_lae_given_data,np.ndarray):
+                if len(prob_lae_given_data) == 1:
+                    prob_lae_given_data = prob_lae_given_data[0]
+                else:
+                    log.info("Weird. prob_lae_given_data %s" %(prob_lae_given_data))
+
+            if (posterior_odds is not None) and (posterior_odds != 0):
+                pogd = np.float(prob_lae_given_data) / posterior_odds
+            else:
+                pogd = 0.
+
+            plgd = np.float(prob_lae_given_data)
+            pogd = np.float(pogd)
+
+            # if type(pogd) != float:
+            #     pogd_list.append(pogd.value)
+            # else:
+            #     pogd_list.append(pogd)
+
+            lae_oii_ratio_list.append(float(posterior_odds))
+            p_lae_list.append(plgd)
+            p_oii_list.append(pogd)
+
+        except:
+            log.debug("Exception calling prob_LAE in mc_prob_LAE",exc_info=True)
+
+
+    try:
+        #lae_oii_ratio_list = np.array(lae_oii_ratio_list)
+        #using biweight
+        log.debug("Biweight ...")
+        loc = biweight.biweight_location(lae_oii_ratio_list) #the "average"
+        scale = biweight.biweight_scale(lae_oii_ratio_list)
+        ci = conf_interval(len(lae_oii_ratio_list),scale,conf=confidence)
+        ratio_LAE_list = [loc,loc-ci,loc+ci]
+        log.debug("Raw Biweight: %0.4g (%0.4g, %0.4g), min (%0.4g) max (%0.4g), Q1 (%0.4g) Q2 (%0.4g) Q3 (%0.4g)"
+                  % (ratio_LAE_list[0], ratio_LAE_list[1], ratio_LAE_list[2], min(lae_oii_ratio_list), max(lae_oii_ratio_list),
+                     np.quantile(lae_oii_ratio_list,0.25),np.quantile(lae_oii_ratio_list,0.50),np.quantile(lae_oii_ratio_list,0.75))
+                  )
+
+        try:
+            mean_cntr, var_cntr, std_cntr = bayes_mvs(lae_oii_ratio_list, alpha=confidence)
+            log.debug("Bayes MVS: %0.4g (%0.4g, %0.4g), min (%0.4g) max (%0.4g), Q1 (%0.4g) Q2 (%0.4g) Q3 (%0.4g)"
+                      % (mean_cntr[0], mean_cntr[1][0], mean_cntr[1][1], min(lae_oii_ratio_list), max(lae_oii_ratio_list),
+                         np.quantile(lae_oii_ratio_list,0.25),np.quantile(lae_oii_ratio_list,0.50),np.quantile(lae_oii_ratio_list,0.75))
+                      )
+        except:
+            pass
+
+        for i in range(len(ratio_LAE_list)): #force the range to be between MIN_PLAE_POII and MAX_PLAE_POII
+            ratio_LAE_list[i] = max(min(MAX_PLAE_POII,ratio_LAE_list[i]),MIN_PLAE_POII)
+
+        # log.debug("Limited Biweight: %0.3g (%0.3g, %0.3g) min (%0.3g) max (%0.3g)"
+        #           % (ratio_LAE_list[0], ratio_LAE_list[1], ratio_LAE_list[2], min(lae_oii_ratio_list),
+        #              max(lae_oii_ratio_list)))
+
+        # temp:
+        if False:
+            log.debug("plotting ..." )
+            plt.close('all')
+            #plt.figure()
+            vals, bins, _ = plt.hist(lae_oii_ratio_list, bins="auto")
+            plt.title("%0.3g (%0.3g, %0.3g) bins (%d)\n min (%0.3g) max (%0.3g) "
+                      % (ratio_LAE_list[0], ratio_LAE_list[1], ratio_LAE_list[2], len(bins) - 1, min(vals), max(vals)))
+            plt.savefig("plae_bw_hist_%d.png" %num_mc)
+    except:
+        log.debug("Exception calling biweight or conf_interval in mc_prob_LAE", exc_info=True)
+        return lae_oii_ratio, p_lae, p_oii, None
+
+    log.debug("Sampling (%d) PLAE/POII ... done" % (num_mc))
+    return ratio_LAE_list[0], p_lae_list[0], p_oii_list[0], {'ratio':ratio_LAE_list,'plgd':p_lae_list,'pogd':p_oii_list}
+
+
+
+
+
