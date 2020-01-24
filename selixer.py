@@ -665,9 +665,9 @@ elif host == HOST_STAMPEDE2:
 
         #updated 01-23-2020
         slurm += "module use /work/01255/siliu/stampede2/ooops/modulefiles/ \n"
-        slurm += "module load ooops \n"
+        slurm += "module load ooops/1.0 \n"
         slurm += "export IO_LIMIT_CONFIG=/work/01255/siliu/stampede2/ooops/1.0/conf/config_low \n"
-        slurm += "set_io_param 0 low \n"
+        slurm += "/work/01255/siliu/stampede2/ooops/1.0/bin/set_io_param 1 low \n"
 
     #slurm += "module unload xalt \n"
     slurm += "module load launcher\n"
