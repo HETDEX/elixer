@@ -970,7 +970,9 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                 log.debug("Success: captured peak: raw = %f , fit = %f, frac = %0.2f"
                           % (raw_peak, fit_peak, abs(raw_peak - fit_peak) / raw_peak))
 
-                num_sn_pix = int(round(max(GAUSS_SNR_SIGMA * eli.fit_sigma, GAUSS_SNR_NUM_AA)/pix_size)) #half-width in AA
+                #num_sn_pix = int(round(max(GAUSS_SNR_SIGMA * eli.fit_sigma, GAUSS_SNR_NUM_AA)/pix_size)) #half-width in AA
+                num_sn_pix = int(round(max(GAUSS_SNR_SIGMA * eli.fit_sigma, GAUSS_SNR_NUM_AA))) #don't divi by pix_size
+                    #at this point, the pixel units or width don't matter ... everything is per pixel
                 num_sn_pix = int(round(min(num_sn_pix,len(wave_counts)/2 - 1))) #don't go larger than the actual array
 
                 #?rms just under the part of the plot with signal (not the entire fit part) so, maybe just a few AA or pix
@@ -981,7 +983,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
                 #test
                 #chi2, _ = SU.chi_sqr(wave_counts,rms_wave,error=wave_errors,c=1.0)
-
+                #*2 +1 because the rmse is figures as +/- the "num_sn_pix" from the center pixel (so total width is *2 + 1)
                 num_sn_pix = num_sn_pix * 2 + 1 #need full width later (still an integer)
 
                 eli.sn_pix = num_sn_pix
