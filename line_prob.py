@@ -650,22 +650,34 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
         log.debug("Nonsense confidence (%f) in mc_prob_LAE" %(confidence))
         return None, None, None, None
 
+
+
     if (continuum is None):
         if (ew_obs is None):
             log.debug("Insufficient info for mc_prob_LAE, continuum and ew_obs not provided")
             return None, None, None, None
         else: #build continuum and continuum error from ew
-            continuum = lineFlux / ew_obs
-            if (ew_obs_err is not None) and (ew_obs_err != 0):
-                continuum_err = continuum * np.sqrt((ew_obs_err/ew_obs)**2 - (lineFlux_err/lineFlux)**2)
+            if ew_obs > 0:
+                continuum = lineFlux / ew_obs
+                if (ew_obs_err is not None) and (ew_obs_err != 0):
+                    #this can be negative if the ew error is unreasonably small compared to the lineflux error
+                    #in which case the sqrt fails, but set it to 0.0 and the error will be dominated by the lineflux anyway
+                    continuum_err = continuum * np.sqrt(max(0.0,(ew_obs_err/ew_obs)**2 - (lineFlux_err/lineFlux)**2))
+                else:
+                    continuum_err = 0.0
             else:
-                continuum_err = 0.0
+                log.debug("Invalid lineflux or continuum or ew_obs")
+                return None, None, None, None
 
+    if (lineFlux <= 0) or (continuum <= 0):
+        log.debug("Invalid lineflux or continuum")
+        return None, None, None, None
 
+    _max_sample_retry = 10 #number of attemps to get a valid lineflux and continuum (both must be positive)
     log.debug("Sampling (%d) PLAE/POII ... " %(num_mc))
-    lineflux_array = np.random.normal(lineFlux,lineFlux_err,num_mc)
-    continuum_array = np.random.normal(continuum,continuum_err,num_mc)
-    ew_obs_array = lineflux_array / continuum_array
+    # lineflux_array = np.random.normal(lineFlux,lineFlux_err,num_mc)
+    # continuum_array = np.random.normal(continuum,continuum_err,num_mc)
+    # ew_obs_array = lineflux_array / continuum_array
 
     lae_oii_ratio_list = []
     p_lae_list = []
@@ -759,7 +771,25 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
     setup = {} #first run setup date for the LineClassifierPro ... will be populated by source_prob on first call
                #then passed in on subsequent calls to speed up processing
     #ct = 0
-    for lf,ew in zip(lineflux_array,ew_obs_array):
+    #for lf,ew in zip(lineflux_array,ew_obs_array):
+    for i in range(num_mc):
+        tryagain = 0
+        lf = 0
+        cn = 0
+        ew = 0
+        while tryagain < _max_sample_retry:
+            lf = np.random.normal(lineFlux, lineFlux_err)
+            cn = np.random.normal(continuum, continuum_err)
+            if lf > 0 and cn > 0:
+                ew  = lf / cn
+                break
+            else:
+                tryagain += 1
+
+        if not (tryagain < _max_sample_retry):
+            log.info("Failed to properly sample lineflux and/or continuum. Cannot continue.")
+            break
+
         try:
             #ct += 1
             #log.debug("%d"%ct)
@@ -800,11 +830,6 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
             plgd = np.float(prob_lae_given_data)
             pogd = np.float(pogd)
 
-            # if type(pogd) != float:
-            #     pogd_list.append(pogd.value)
-            # else:
-            #     pogd_list.append(pogd)
-
             lae_oii_ratio_list.append(float(posterior_odds))
             p_lae_list.append(plgd)
             p_oii_list.append(pogd)
@@ -812,6 +837,53 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
         except:
             log.debug("Exception calling prob_LAE in mc_prob_LAE",exc_info=True)
 
+    #we were unable to get a sampling, so just call once with the exact values
+    if len(lae_oii_ratio_list) == 0:
+        try:
+            lf = lineFlux
+            ew = lineFlux/continuum
+            posterior_odds, prob_lae_given_data,setup  = LineClassifierPro.source_prob(UNIVERSE_CONFIG,
+                                                                                np.array([ra]), np.array([dec]),
+                                                                                np.array([z_LyA]),
+                                                                                np.array([lf]),
+                                                                                np.array([0.0]),
+                                                                                np.array([ew]), np.array([0.0]),
+                                                                                c_obs=None, which_color=None,
+                                                                                addl_fluxes=np.array(extra_fluxes),
+                                                                                addl_fluxes_error=np.array(
+                                                                                    extra_fluxes_err),
+                                                                                addl_line_names=np.array(
+                                                                                    extra_fluxes_name),
+                                                                                flim_file=FLUX_LIMIT_FN,
+                                                                                extended_output=False,
+                                                                                setup=setup)
+
+
+            if isinstance(posterior_odds,list) or isinstance(posterior_odds,np.ndarray):
+                if len(posterior_odds) == 1:
+                    posterior_odds = posterior_odds[0]
+                else:
+                    log.info("Weird. posterior_odds %s" %(posterior_odds))
+
+            if isinstance(prob_lae_given_data,list) or isinstance(prob_lae_given_data,np.ndarray):
+                if len(prob_lae_given_data) == 1:
+                    prob_lae_given_data = prob_lae_given_data[0]
+                else:
+                    log.info("Weird. prob_lae_given_data %s" %(prob_lae_given_data))
+
+            if (posterior_odds is not None) and (posterior_odds != 0):
+                pogd = np.float(prob_lae_given_data) / posterior_odds
+            else:
+                pogd = 0.
+
+            plgd = np.float(prob_lae_given_data)
+            pogd = np.float(pogd)
+
+            log.debug("Sampling (%d) PLAE/POII ... done. Unable to sample. No details returned." % (num_mc))
+            return float(posterior_odds), plgd, pogd, None
+
+        except:
+            log.debug("Exception calling prob_LAE in mc_prob_LAE",exc_info=True)
 
     try:
         #lae_oii_ratio_list = np.array(lae_oii_ratio_list)
@@ -819,7 +891,11 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
         log.debug("Biweight ...")
         loc = biweight.biweight_location(lae_oii_ratio_list) #the "average"
         scale = biweight.biweight_scale(lae_oii_ratio_list)
-        ci = conf_interval(len(lae_oii_ratio_list),scale,conf=confidence)
+
+        #??? should the 'scale' by multiplied by sqrt(# samples) to be consistent?
+        #??? I think the sigma_mc == true sigma / sqrt(# samples) (kind of backward from sample vs population)
+        #ci = conf_interval(len(lae_oii_ratio_list), scale, conf=confidence)
+        ci = conf_interval(len(lae_oii_ratio_list),scale*np.sqrt(num_mc),conf=confidence)
         ratio_LAE_list = [loc,loc-ci,loc+ci]
         log.debug("Raw Biweight: %0.4g (%0.4g, %0.4g), min (%0.4g) max (%0.4g), Q1 (%0.4g) Q2 (%0.4g) Q3 (%0.4g)"
                   % (ratio_LAE_list[0], ratio_LAE_list[1], ratio_LAE_list[2], min(lae_oii_ratio_list), max(lae_oii_ratio_list),
@@ -853,7 +929,7 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
             plt.savefig("plae_bw_hist_%d.png" %num_mc)
     except:
         log.debug("Exception calling biweight or conf_interval in mc_prob_LAE", exc_info=True)
-        return lae_oii_ratio, p_lae, p_oii, None
+        return None, None, None, None
 
     log.debug("Sampling (%d) PLAE/POII ... done" % (num_mc))
     return ratio_LAE_list[0], p_lae_list[0], p_oii_list[0], {'ratio':ratio_LAE_list,'plgd':p_lae_list,'pogd':p_oii_list}

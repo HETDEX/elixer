@@ -74,6 +74,43 @@ def getnearpos(array,value):
 
     return idx, lt, gt
 
+
+def chi_sqr(obs, exp, error=None, c=None):
+    """
+
+    :param obs: (data)
+    :param exp: (model)
+    :param error: (error on the data)
+    :param c: can pass in a fixed c (in most cases, should just be 1.0)
+    :return: chi2 and c (best level)
+    """
+
+    obs = np.array(obs) #aka data
+    exp = np.array(exp) #aka model
+
+    x = len(obs)
+
+    if error is not None:
+        error = np.array(error)
+
+    if (error is not None) and (c is None):
+        c = np.sum((obs*exp)/(error*error)) / np.sum((exp*exp)/(error*error))
+    elif c is None:
+        c = 1.0
+
+    chisqr = 0
+    if error is None:
+        error=np.zeros(np.shape(obs))
+        error += 1.0
+
+    chisqr = np.sum(((obs - c*exp)/(error))**2)
+
+    # for i in range(x):
+    #         #chisqr = chisqr + ((obs[i]-c*exp[i])**2)/(error[i]**2)
+    #         chisqr = chisqr + ((obs[i] - c * exp[i]) ** 2) / (exp[i])
+
+    return chisqr,c
+
 def build_cosmology(H0 = SU_H0, Omega_m0 = SU_Omega_m0, T_CMB = SU_T_CMB):
     cosmo = Cosmo.FlatLambdaCDM(H0=H0,Om0=Omega_m0,Tcmb0=T_CMB)
     return cosmo

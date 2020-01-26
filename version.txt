@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.8.1a4 [2020-01-24]
+* Update multiline solution score to use a scaled_score based on weighting scheme (including the solution score, the
+    fraction of the total score, and the probablity that the solution is "real" (composed of "real" lines))
+
 1.8.1a3 [2020-01-23]
 * Add MC-style error to PLAE/POII to ALL PLAE calls
     + wrapped D.Farrow LineClassifierPro.source_prob() (keeping setup across calls for performance)

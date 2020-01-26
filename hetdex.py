@@ -822,29 +822,33 @@ class DetObj:
         '''
         #todo: gradiate score a bit and add other conditions
         #todo: a better way of some kind rather than a by-hand scoring
+
         if (self.spec_obj is not None) and (len(self.spec_obj.solutions) > 0):
             sols = self.spec_obj.solutions
             # need to tune this
             # score is the sum of the observed eq widths
             if  (self.spec_obj.solutions[0].score >= G.MULTILINE_MIN_SOLUTION_SCORE) and \
-                (self.spec_obj.solutions[0].prob_real >= G.MULTILINE_MIN_SOLUTION_CONFIDENCE) and \
+                (self.spec_obj.solutions[0].scale_score >= G.MULTILINE_MIN_SOLUTION_CONFIDENCE) and \
                 (self.spec_obj.solutions[0].frac_score > 0.5) and \
                 (len(self.spec_obj.solutions[0].lines) >= G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY):
 
                 if (len(self.spec_obj.solutions) == 1) or \
                     ((len(self.spec_obj.solutions) > 1) and \
-                      (self.spec_obj.solutions[0].frac_score / self.spec_obj.solutions[1].frac_score > 2.0)):
+                      (self.spec_obj.solutions[0].score / self.spec_obj.solutions[1].score > G.MULTILINE_MIN_NEIGHBOR_SCORE_RATIO)):
+
                     self.multiline_z_minimum_flag = True
-                    return True, self.spec_obj.solutions[0].prob_real
+                    return True, self.spec_obj.solutions[0].scale_score
                 #not a clear winner, but the top is a display (or primary) line and the second is not, so use the first
-                elif (self.spec_obj.solutions[0].emission_line.display is True) and (self.spec_obj.solutions[0].emission_line.display is False):
+                elif (self.spec_obj.solutions[0].emission_line.display is True) and \
+                        (self.spec_obj.solutions[0].emission_line.display is False):
+
                     log.debug("multiline_solution_score, using display line over non-display line")
                     self.multiline_z_minimum_flag = True
-                    return True, self.spec_obj.solutions[0].prob_real
+                    return True, self.spec_obj.solutions[0].scale_score
 
             if G.MULTILINE_ALWAYS_SHOW_BEST_GUESS:
                 self.multiline_z_minimum_flag = False
-                return False, self.spec_obj.solutions[0].prob_real
+                return False, self.spec_obj.solutions[0].scale_score
 
         return False, 0.0
 
@@ -3994,18 +3998,18 @@ class HETDEX:
                 title = title + "  OII z = N/A"
 
         if not G.ZOO:
-            good, p_good = e.multiline_solution_score()
+            good, scale_score = e.multiline_solution_score()
             if ( good ):
                 # strong solution
                 sol = datakeep['detobj'].spec_obj.solutions[0]
-                title += "\n*(%0.3f) %s(%d) z = %0.4f  EW_r = %0.1f$\AA$" %(p_good, sol.name, int(sol.central_rest),sol.z,
+                title += "\n*(%0.3f) %s(%d) z = %0.4f  EW_r = %0.1f$\AA$" %(scale_score, sol.name, int(sol.central_rest),sol.z,
                                                                         e.eqw_obs/(1.0+sol.z))
-            elif (p_good > G.MULTILINE_MIN_WEAK_SOLUTION_CONFIDENCE):
+            elif (scale_score > G.MULTILINE_MIN_WEAK_SOLUTION_CONFIDENCE):
                 #weak solution ... for display only, not acceptabale as a solution
                 #do not set the solution (sol) to be recorded
                 sol = datakeep['detobj'].spec_obj.solutions[0]
                 title += "\n(%0.3f) %s(%d) z = %0.4f  EW_r = %0.1f$\AA$" % \
-                         ( p_good, sol.name, int(sol.central_rest), sol.z,e.eqw_obs / (1.0 + sol.z))
+                         ( scale_score, sol.name, int(sol.central_rest), sol.z,e.eqw_obs / (1.0 + sol.z))
             #else:
             #    log.info("No singular, strong emission line solution.")
 
@@ -6264,8 +6268,8 @@ class HETDEX:
 
             the_solution_rest_wave = -1.0
             if not G.ZOO:
-                good, p_real = datakeep['detobj'].multiline_solution_score()
-                if (p_real > G.MULTILINE_MIN_WEAK_SOLUTION_CONFIDENCE):
+                good, scale_score = datakeep['detobj'].multiline_solution_score()
+                if (scale_score > G.MULTILINE_MIN_WEAK_SOLUTION_CONFIDENCE):
                     #a solution
                     sol = datakeep['detobj'].spec_obj.solutions[0]
                     the_solution_rest_wave = sol.central_rest

@@ -21,7 +21,7 @@ import io
 #from scipy.stats import gmean
 #from scipy import signal
 #from scipy.integrate import simps
-from scipy.stats import skew, kurtosis
+from scipy.stats import skew, kurtosis,chisquare
 from scipy.optimize import curve_fit
 import copy
 
@@ -384,6 +384,7 @@ class EmissionLineInfo:
         self.fit_h = None #max of the fit (the peak) #relative height
         self.fit_rh = None #fraction of fit height / raw peak height
         self.fit_rmse = -999
+        self.fit_chi2 = None
         self.fit_norm_rmse = -999
         self.fit_bin_dx = 1.0 #default to 1.0 for no effect (bin-width of flux bins if flux instead of flux/dx)
 
@@ -429,6 +430,7 @@ class EmissionLineInfo:
         self.mcmc_continuum = None #ditto for continuum
         self.mcmc_line_flux_tuple = None #3-tuple version of mcmc_a / mcmc_dx
         self.mcmc_continuum_tuple = None #3-tuple version of mcmc_y / mcmc_dx
+        self.mcmc_chi2 = None
 
         self.absorber = False #set to True if this is an absorption line
 
@@ -976,6 +978,9 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                              norm=True)
                 eli.fit_rmse = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, eli.fit_x0 ), hw_pix=num_sn_pix,
                              norm=False)
+
+                #test
+                #chi2, _ = SU.chi_sqr(wave_counts,rms_wave,error=wave_errors,c=1.0)
 
                 num_sn_pix = num_sn_pix * 2 + 1 #need full width later (still an integer)
 
@@ -2122,6 +2127,7 @@ class Classifier_Solution:
     def __init__(self):
         self.score = 0.0
         self.frac_score = 0.0
+        self.scale_score = -1.0 #right now, not computed until the end, in hetdex.py multiline_solution_score()
         self.z = 0.0
         self.central_rest = 0.0
         self.name = ""
@@ -2840,9 +2846,12 @@ class Spectrum:
 
         for s in solutions:
             s.frac_score = s.score/total_score
+            s.scale_score = s.prob_real * G.MULTILINE_WEIGHT_PROB_REAL + \
+                          min(1.0, s.score / G.MULTILINE_FULL_SOLUTION_SCORE) *  G.MULTILINE_WEIGHT_SOLUTION_SCORE + \
+                          s.frac_score * G.MULTILINE_WEIGHT_FRAC_SCORE
 
         #sort by score
-        solutions.sort(key=lambda x: x.score, reverse=True)
+        solutions.sort(key=lambda x: x.scale_score, reverse=True)
 
         #check for display vs non-display (aka primary emission line solution)
         if len(solutions) > 1:
@@ -2858,9 +2867,9 @@ class Spectrum:
             ll =""
             for l in s.lines:
                 ll += " %s(%0.1f at %0.1f)," %(l.name,l.w_rest,l.w_obs)
-            msg = "Possible Solution %s (%0.3f): %s (%0.1f at %0.1f), Frac = %0.2f, Score = %0.1f, z = %0.5f, +lines=%d %s"\
+            msg = "Possible Solution %s (%0.3f): %s (%0.1f at %0.1f), Frac = %0.2f, Score = %0.1f (%0.3f), z = %0.5f, +lines=%d %s"\
                     % (self.identifier, s.prob_real,s.emission_line.name,s.central_rest,s.central_rest*(1.0+s.z), s.frac_score,
-                       s.score,s.z, len(s.lines),ll )
+                       s.score,s.scale_score,s.z, len(s.lines),ll )
             log.info(msg)
             #
             if G.DEBUG_SHOW_GAUSS_PLOTS:
