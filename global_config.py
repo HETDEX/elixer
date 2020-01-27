@@ -423,7 +423,7 @@ UNIQUE_DET_ID_NUM = 0
 FLUX_WAVEBIN_WIDTH = 2.0 # AA
 NEGATIVE_Z_ERROR = -0.001 #if compuated z is negative, but greater than this, assume == 0.0
 
-MC_PLAE_SAMPLE_SIZE = 1000 #number of random samples to run
+MC_PLAE_SAMPLE_SIZE = 250 #number of random samples to run
 MC_PLAE_CONF_INTVL = 0.68 #currently supported 0.68, 0.95, 0.99
 
 CLASSIFY_WITH_OTHER_LINES = True

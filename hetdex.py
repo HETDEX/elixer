@@ -1948,10 +1948,15 @@ class DetObj:
             try:
                 #reminder needs erg/s/cm2/AA and sumspec_flux in ergs/s/cm2 so divied by 2AA bin width
 #                self.sdss_gmag, self.cont_cgs = elixer_spectrum.get_hetdex_gmag(self.sumspec_flux/2.0*1e-17,self.sumspec_wavelength)
-                self.sdss_gmag, self.sdss_cgs_cont = elixer_spectrum.get_hetdex_gmag(self.sumspec_flux / 2.0 * G.HETDEX_FLUX_BASE_CGS,
-                                                                                self.sumspec_wavelength)
+                if False:
+                    self.sdss_gmag, self.sdss_cgs_cont = elixer_spectrum.get_hetdex_gmag(self.sumspec_flux / 2.0 * G.HETDEX_FLUX_BASE_CGS,
+                                                                                    self.sumspec_wavelength)
+                    self.sdss_cgs_cont_unc = np.sqrt(np.sum(self.sumspec_fluxerr**2))/len(self.sumspec_fluxerr)*G.HETDEX_FLUX_BASE_CGS
 
-                self.sdss_cgs_cont_unc = np.sqrt(np.sum(self.sumspec_fluxerr**2))/len(self.sumspec_fluxerr)*G.HETDEX_FLUX_BASE_CGS
+                else:
+                    self.sdss_gmag, self.sdss_cgs_cont, self.sdss_gmag_unc, self.sdss_cgs_cont_unc =\
+                        elixer_spectrum.get_hetdex_gmag(self.sumspec_flux / 2.0 * G.HETDEX_FLUX_BASE_CGS, self.sumspec_wavelength,
+                                                        self.sumspec_fluxerr / 2.0 * G.HETDEX_FLUX_BASE_CGS)
 
 
                 if (self.sdss_cgs_cont is not None) and (self.sdss_cgs_cont != 0):

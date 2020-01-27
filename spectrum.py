@@ -23,6 +23,7 @@ import io
 #from scipy.integrate import simps
 from scipy.stats import skew, kurtosis,chisquare
 from scipy.optimize import curve_fit
+import astropy.stats.biweight as biweight
 import copy
 
 import os.path as op
@@ -134,15 +135,56 @@ FLUX_CONVERSION_f_grid = np.interp(FLUX_CONVERSION_w_grid, FLUX_CONVERSION_measu
 FLUX_CONVERSION_DICT = dict(zip(FLUX_CONVERSION_w_grid,FLUX_CONVERSION_f_grid))
 
 
-def get_hetdex_gmag(flux_density,wave):
+def conf_interval(num_samples,sd,conf=0.95):
+    """
+    mean +/- error  ... this is the +/- error part as 95% (or other) confidence interval (assuming normal distro)
+
+    :param num_samples:
+    :param sd: standard deviation
+    :param conf:
+    :return:
+    """
+
+    if num_samples < 30:
+        return None
+
+    #todo: put in other values
+    if conf == 0.68:
+        t = 1.0
+    elif conf == 0.95:
+        t = 1.96
+    elif conf == 0.99:
+        t = 2.576
+    else:
+        log.debug("todo: need to handle other confidence intervals: ", conf)
+        return None
+
+    return t * sd / np.sqrt(num_samples)
+
+
+def get_hetdex_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZE, confidence=G.MC_PLAE_CONF_INTVL):
     """
 
     :param flux_density: erg/s/cm2/AA  (*** reminder, HETDEX sumspec usually a flux erg/s/cm2 NOT flux denisty)
     :param wave: in AA
+    :param flux_err: error array for flux_density (if None, then no error is computed)
+    :param num_mc: number of MC samples to run
+    :param confidence:  confidence interval to report
     :return: AB mag in g-band and continuum estimate (erg/s/cm2/AA)
+            if flux_err is specified then also returns error on mag and error on the flux (continuum)
     """
 
     try:
+        mag = None
+        cont = None
+        mag_err = None
+        cont_err = None
+        if flux_err is None:
+            no_error = True
+
+        # num_mc = G.MC_PLAE_SAMPLE_SIZE #good enough for this (just use the same as the MC for the PLAE/POII
+        # confidence = G.MC_PLAE_CONF_INTVL
+
         filter_name = 'sdss2010-g'
         sdss_filter = speclite_filters.load_filters(filter_name)
         # not quite correct ... but can't find the actual f_iso freq. and f_iso lambda != f_iso freq, but
@@ -158,14 +200,59 @@ def get_hetdex_gmag(flux_density,wave):
             log.warning(msg)
             flux_density[sel] = 0.0
 
+        #if flux_err is specified, assume it is Gaussian and sample, repeatedly building up spectra
+        if flux_err is not None:
+            try:
+                mag_list = []
+                cont_list = []
+                for i in range(num_mc):
+                    flux_sample = np.random.normal(flux_density, flux_err)
 
-        flux, wlen = sdss_filter.pad_spectrum(flux_density* (units.erg / units.s /units.cm**2/units.Angstrom),wave* units.Angstrom)
-        mag = sdss_filter.get_ab_magnitudes(flux , wlen )[0][0]
-        cont = 3631.0 * 10**(-0.4*mag) * 1e-23 * iso_f / (wlen[-1] - wlen[0]).value #(5549.26 - 3782.54) #that is the approximate bandpass
+                    flux, wlen = sdss_filter.pad_spectrum(
+                        flux_sample * (units.erg / units.s / units.cm ** 2 / units.Angstrom), wave * units.Angstrom)
+                    mag = sdss_filter.get_ab_magnitudes(flux, wlen)[0][0]
+                    cont = 3631.0 * 10 ** (-0.4 * mag) * 1e-23 * iso_f / (wlen[-1] - wlen[0]).value  # (5549.26 - 3782.54) #that is the approximate bandpass
+
+                    mag_list.append(mag)
+                    cont_list.append(cont)
+
+                mag_list = np.array(mag_list)
+                cont_list = np.array(cont_list)
+
+                #clean the nans
+                mag_list  = mag_list[~np.isnan(mag_list)]
+                cont_list = cont_list[~np.isnan(cont_list)]
+
+                loc = biweight.biweight_location(mag_list)  # the "average"
+                scale = biweight.biweight_scale(mag_list)
+                ci = conf_interval(len(mag_list), scale * np.sqrt(num_mc), conf=confidence)
+                mag = loc
+                mag_err = ci
+
+                loc = biweight.biweight_location(cont_list)  # the "average"
+                scale = biweight.biweight_scale(cont_list)
+                ci = conf_interval(len(cont_list), scale * np.sqrt(num_mc), conf=confidence)
+                cont = loc
+                cont_err = ci
+
+                no_error = False
+            except:
+                log.info("Exception in spectrum::get_hetdex_gmag()",exc_info=True)
+                no_error = True
+
+        if no_error: #if we cannot compute the error, the just call once (no MC sampling)
+            flux, wlen = sdss_filter.pad_spectrum(flux_density* (units.erg / units.s /units.cm**2/units.Angstrom),wave* units.Angstrom)
+            mag = sdss_filter.get_ab_magnitudes(flux , wlen )[0][0]
+            cont = 3631.0 * 10**(-0.4*mag) * 1e-23 * iso_f / (wlen[-1] - wlen[0]).value #(5549.26 - 3782.54) #that is the approximate bandpass
+            mag_err = None
+            cont_err = None
     except:
         log.warning("Exception! in spectrum::get_hetdex_gmag.",exc_info=True)
 
-    return mag, cont
+    if flux_err is not None: #even if this failed, the caller expects the extra two returns
+        return mag, cont, mag_err, cont_err
+    else:
+        return mag, cont
 
 
 def fit_line(wavelengths,values,errors=None):
@@ -2842,8 +2929,6 @@ class Spectrum:
 
                     log.info("Solution:  %s (%s at %0.1f) rescored due to extremes in fit_dx0. Old score (%f) New Score (%f)"
                              %(self.identifier,s.emission_line.name,s.central_rest,old_score,s.score))
-
-
 
 
         for s in solutions:
