@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.8.1a4 [2020-01-24]
+1.8.1a4 [2020-01-29]
 * Update multiline solution score to use a scaled_score based on weighting scheme (including the solution score, the
     fraction of the total score, and the probablity that the solution is "real" (composed of "real" lines))
 
