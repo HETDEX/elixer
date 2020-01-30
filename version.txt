@@ -1,8 +1,14 @@
 changes to elixer by version
 
+1.8.1a5 [2020-xx-xx]
+* add in --hdr optional parameter on command line to specify which HETDEX Data Release version to use. If not specified,
+    the current default is used. [Note: does NOT yet support other than default for importing
+    classify and catalog modules]
+
 1.8.1a4 [2020-01-29]
 * Update multiline solution score to use a scaled_score based on weighting scheme (including the solution score, the
     fraction of the total score, and the probablity that the solution is "real" (composed of "real" lines))
+* Fix bug in PLAE/POII error calculation when flux or continuum are (erroneously) negative
 
 1.8.1a3 [2020-01-23]
 * Add MC-style error to PLAE/POII to ALL PLAE calls

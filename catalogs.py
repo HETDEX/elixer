@@ -46,8 +46,16 @@ log.setlevel(G.logging.DEBUG)
 
 class CatalogLibrary:
 
-    def __init__(self):
+    def __init__(self, hdr_version=None):
         self.cats = None
+        if hdr_version is not None:
+            #self.set_hdr_version(hdr_version)
+            if not G.select_hdr_version(hdr_version):
+                try:
+                    log.error("Invalid HDR version (%s) requested" %(str(hdr_version)))
+                except:
+                    print("Invalid HDR version (%s) requested" %(str(hdr_version)))
+
         self.build_catalog_list()
 
         try:
@@ -55,6 +63,25 @@ class CatalogLibrary:
         except:
             # first time we need to log anything
             G.logging.basicConfig(filename=G.LOG_FILENAME, level=G.LOG_LEVEL, filemode='w')
+
+
+    def get_hdr_version(self):
+        return G.HDR_Version
+
+    # do not allow post constructor setting of the HDR version
+    # as the various catalog constructors can depend on paths and versions and changing this
+    # after the fact can result in inconsistent definitions
+    #
+    # def set_hdr_version(self,version=None):
+    #     if version is not None:
+    #         if not G.select_hdr_version(version):
+    #             try:
+    #                 log.error("Invalid HDR version (%s) requested" %(str(version)))
+    #             except:
+    #                 print("Invalid HDR version (%s) requested" %(str(version)))
+    #             return False
+    #         return True
+    #     return True #you get the default (nothing was done)
 
     def build_catalog_list(self):
         # build list of all catalogs below

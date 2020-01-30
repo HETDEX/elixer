@@ -311,10 +311,11 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--continuum', help='Use HETDEX continuum catalog instead of the emission line catalog', required=False,
                         action='store_true', default=False)
 
-
     parser.add_argument('--neighborhood', help="Generate report on all HETDEX neighbors within the supplied distance in arcsec",
                         required=False, default=-1.0,type=float)
 
+    parser.add_argument('--hdr', help="Override the default HETDEX Data Release version. Specify an integer > 0",
+                        required=False, default= 0,type=int)
 
 
     if G.LAUNCH_PDF_VIEWER is not None:
