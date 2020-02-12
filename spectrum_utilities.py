@@ -15,7 +15,7 @@ import astropy.constants
 import astropy.units as U
 import astropy.cosmology as Cosmo
 import astropy.stats.biweight as biweight
-import weighted_biweight_git as weighted_biweight
+import weighted_biweight as weighted_biweight
 
 #SU = Simple Universe (concordance)
 SU_H0 = 70.
@@ -381,7 +381,7 @@ def red_vs_blue(cwave,wave,flux,flux_err,fwhm=None):
         #should be a very rare (if ever) case
         #or as weighted biweight
         try:
-            blue_flux_density = weighted_biweight.biweight_location_weights(blue_side,weights=flux_err[0:blue_idx+1])
+            blue_flux_density = weighted_biweight.biweight_location_errors(blue_side,errors=flux_err[0:blue_idx+1])
             blue_flux_density_err = biweight.biweight_scale(blue_side)/np.sqrt(blue_bins)
         except:
             log.info("Weighted_biweight failed. Switching to normal biweight")
@@ -415,7 +415,7 @@ def red_vs_blue(cwave,wave,flux,flux_err,fwhm=None):
 
         # or as weighted biweight
         try:
-            red_flux_density = weighted_biweight.biweight_location_weights(red_side,weights=flux_err[red_idx:])
+            red_flux_density = weighted_biweight.biweight_location_errors(red_side,errors=flux_err[red_idx:])
             red_flux_density_err = biweight.biweight_scale(red_side) / np.sqrt(red_bins)
         except:
             log.info("Weighted_biweight failed. Switching to normal biweight")

@@ -1,9 +1,14 @@
 changes to elixer by version
 
-1.8.1a5 [2020-xx-xx]
+1.8.1a6 [2020-02-12]
+* minor clean up
+* minor update to selixer (parameter tweek for --ooops module)
+
+1.8.1a5 [2020-01-30]
 * add in --hdr optional parameter on command line to specify which HETDEX Data Release version to use. If not specified,
-    the current default is used. [Note: does NOT yet support other than default for importing
-    classify and catalog modules]
+    the current default is used.
+    + also add in constructor parameter for CatalogLibrary() to specify which version to use (default is system default)
+
 
 1.8.1a4 [2020-01-29]
 * Update multiline solution score to use a scaled_score based on weighting scheme (including the solution score, the

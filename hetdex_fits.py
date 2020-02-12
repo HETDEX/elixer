@@ -437,7 +437,8 @@ class HetdexFits:
             self.okay = False
             return None
 
-        self.build_calfib_noise_estimate()
+        #not used at this level ("noise" on an amp)
+        #self.build_calfib_noise_estimate()
 
     def read_panacea_fits(self):
         #this represents one AMP

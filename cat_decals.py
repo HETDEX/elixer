@@ -45,7 +45,7 @@ def decals_count_to_mag(count,cutout=None,headers=None):
    return 999.9
 
 
-class DECALS(cat_base.Catalog):#Hyper Suprime Cam
+class DECALS(cat_base.Catalog):
     # class variables
     DECALS_BASE_PATH = G.DECALS_BASE_PATH
     DECALS_CAT_PATH = G.DECALS_CAT_PATH

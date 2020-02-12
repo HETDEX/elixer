@@ -617,11 +617,17 @@ elif host == HOST_WRANGLER:
         # slurm += "set_io_param 1 low\n"
 
         #updated 01-23-2020
-        slurm += "module use /work/01255/siliu/launcher/modulefiles/ \n"
-        slurm += "module load launcher/3.5 \n"
+        # slurm += "module use /work/01255/siliu/launcher/modulefiles/ \n"
+        # slurm += "module load launcher/3.5 \n"
+        # slurm += "module use /work/01255/siliu/stampede2/ooops/modulefiles/ \n"
+        # slurm += "module load ooops/1.0 \n"
+        # slurm += "set_io_param 1 45.00, 35.00, 20.00, 50.00 \n"
+
+        # updated 02-12-2020 to match stamped2
         slurm += "module use /work/01255/siliu/stampede2/ooops/modulefiles/ \n"
-        slurm += "module load ooops/1.0 \n"
-        slurm += "set_io_param 1 45.00, 35.00, 20.00, 50.00 \n"
+        slurm += "module load ooops \n" #"/1.0 \n"
+        slurm += "export IO_LIMIT_CONFIG=/work/01255/siliu/stampede2/ooops/1.0/conf/config_low \n"
+        slurm += "set_io_param 0 low"
 
     #slurm += "module unload xalt \n"
     slurm += "module load launcher\n"
@@ -665,9 +671,10 @@ elif host == HOST_STAMPEDE2:
 
         #updated 01-23-2020
         slurm += "module use /work/01255/siliu/stampede2/ooops/modulefiles/ \n"
-        slurm += "module load ooops/1.0 \n"
+        slurm += "module load ooops \n" #"/1.0 \n"
         slurm += "export IO_LIMIT_CONFIG=/work/01255/siliu/stampede2/ooops/1.0/conf/config_low \n"
-        slurm += "/work/01255/siliu/stampede2/ooops/1.0/bin/set_io_param 1 low \n"
+        slurm += "set_io_param 0 low"
+        #slurm += "/work/01255/siliu/stampede2/ooops/1.0/bin/set_io_param 0 low \n"
 
     #slurm += "module unload xalt \n"
     slurm += "module load launcher\n"

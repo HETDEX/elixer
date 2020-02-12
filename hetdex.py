@@ -8,6 +8,7 @@ try:
     from elixer import spectrum as elixer_spectrum
     from elixer import observation as elixer_observation
     from elixer import spectrum_utilities as SU
+    from elixer import weighted_biweight
 except:
     import global_config as G
     import line_prob
@@ -17,9 +18,7 @@ except:
     import spectrum as elixer_spectrum
     import observation as elixer_observation
     import spectrum_utilities as SU
-
-
-
+    import weighted_biweight
 
 import matplotlib
 #matplotlib.use('agg')
@@ -2159,9 +2158,22 @@ class DetObj:
 
         #todo: build a noise estimate over the top 4 fibers (amps)?
         try:
-            all_calfib = np.concatenate([x.fits.calfib for x in self.fibers[0:4]], axis=0)
-            mean, median, std = sigma_clipped_stats(all_calfib, axis=0, sigma=3.0)
 
+            all_calfib = np.concatenate([x.fits.calfib for x in self.fibers[0:4]], axis=0)
+            # all_calfibe = np.concatenate([x.fits.calfibe for x in self.fibers[0:4]], axis=0)
+            # try:
+            #     #should not use the biweight here ... most fibers would be sky and so, the
+            #     #biwieght loc should be close to zero
+            #     n = np.shape(all_calfib)[1] #along the wavelength direction
+            #     std = np.zeros(n)
+            #     for w in range(n):
+            #         std[w] = weighted_biweight.biweight_location_errors(all_calfib[:,w],all_calfibe[:,w]) #using "std" as bw.location
+            # except:
+            #     log.info("Spectrum noise from biweight failed. Reverting to sigma clipped std. dev",exc_info=True)
+            #     mean, median, std = sigma_clipped_stats(all_calfib, axis=0, sigma=3.0)
+
+            #use the std dev of all "mostly empty" (hence sigma=3.0) or "sky" fibers as the error
+            mean, median, std = sigma_clipped_stats(all_calfib, axis=0, sigma=3.0)
             self.calfib_noise_estimate = std
             self.spec_obj.noise_estimate = self.calfib_noise_estimate
             self.spec_obj.noise_estimate_wave = G.CALFIB_WAVEGRID
