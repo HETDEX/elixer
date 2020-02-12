@@ -3979,10 +3979,26 @@ class HETDEX:
 
         if not G.ZOO:
             if e.p_lae_oii_ratio is not None:
-                title += "\nP(LAE)/P(OII) = %.4g" % round(e.p_lae_oii_ratio,3)
+                # title += r"\nP(LAE)/P(OII) = %.4g $^{%.4g}_{%.4g}$" % \
+                #          (round(e.p_lae_oii_ratio,3),round(e.p_lae_oii_ratio_range[2],3),round(e.p_lae_oii_ratio_range[1],3))
+
+                try:
+                    title += "\n" + r'P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$' % (round(e.p_lae_oii_ratio_range[0], 3),
+                                                                                round(e.p_lae_oii_ratio_range[2], 3),
+                                                                                round(e.p_lae_oii_ratio_range[1], 3))
+                except:
+                    title += "\n" + "\nP(LAE)/P(OII): %.4g" % (round(e.p_lae_oii_ratio,3))
 
                 if (not e.using_sdss_gmag_ew) and (e.sdss_gmag_p_lae_oii_ratio is not None):
-                    title += " (gmag %.4g)" % round(e.sdss_gmag_p_lae_oii_ratio,3)
+                    try:
+                        title += " (gmag: $%.4g\ ^{%.4g}_{%.4g}$)" % (round(e.sdss_gmag_p_lae_oii_ratio_range[0], 3),
+                                                                      round(e.sdss_gmag_p_lae_oii_ratio_range[2], 3),
+                                                                      round(e.sdss_gmag_p_lae_oii_ratio_range[1], 3))
+                    except:
+                        log.debug("SDSS gmag PLAE title exception",exc_info=True)
+                        title += " (gmag %.4g)" % round(e.sdss_gmag_p_lae_oii_ratio,3)
+
+
 
                 if G.DISPLAY_PSEUDO_COLOR:
                     if e.rvb is not None:

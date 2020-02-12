@@ -1,6 +1,7 @@
 changes to elixer by version
 
 1.8.1a6 [2020-02-12]
+* add high and low PLAE/POII error range to all report PLAE/POII positions (default 68% confidence interval)
 * minor clean up
 * minor update to selixer (parameter tweek for --ooops module)
 

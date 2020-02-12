@@ -441,6 +441,7 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
         best_plae_poii = None
         best_plae_poii_filter = '-'
         bid_target = None
+        best_plae_range = None
 
         #pos = coords.SkyCoord(ra,dec,unit="deg",frame='icrs')
 
@@ -599,6 +600,11 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                     if best_plae_poii is None or f == 'r':
                         best_plae_poii = bid_target.p_lae_oii_ratio
                         best_plae_poii_filter = f
+                        if plae_errors:
+                            try:
+                                best_plae_range = plae_errors['ratio']
+                            except:
+                                pass
 
                     cat_match.add_bid_target(bid_target)
             except:
@@ -607,9 +613,6 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
             # if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
             #     text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)" % (bid_target.p_lae_oii_ratio, f))
             #
-
-
-
 
             if cutout is not None:  # construct master cutout
 
@@ -682,8 +685,20 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
             if (details is not None) and (detobj is not None):
                 detobj.aperture_details_list.append(details)
 
-        if (not G.ZOO) and (best_plae_poii is not None):
-            text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)" % (best_plae_poii, best_plae_poii_filter))
+        # if (not G.ZOO) and (best_plae_poii is not None):
+        #     text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)" % (best_plae_poii, best_plae_poii_filter))
+
+        if (not G.ZOO) and (bid_target is not None) and (best_plae_poii is not None):
+            try:
+                text.set_text(
+                    text.get_text() + "  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$ (%s)" %
+                    (round(best_plae_poii, 3),
+                     round(best_plae_range[2], 3),
+                     round(best_plae_range[1], 3),
+                     best_plae_poii_filter))
+            except:
+                log.debug("Exception adding PLAE with range", exc_info=True)
+                text.set_text(text.get_text() + "  P(LAE)/P(OII): %0.4g (%s)" % (best_plae_poii, best_plae_poii_filter))
 
         if self.master_cutout is None:
             # cannot continue

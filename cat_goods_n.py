@@ -516,6 +516,7 @@ class GOODS_N(cat_base.Catalog):
 
         best_plae_poii = None
         best_plae_poii_filter = '-'
+        best_plae_range = None
 
         # add the bid targets
         bid_colors = self.get_bid_colors(len(bid_ras))
@@ -663,8 +664,11 @@ class GOODS_N(cat_base.Catalog):
                     if best_plae_poii is None or i['filter'] == 'f606w':
                         best_plae_poii = bid_target.p_lae_oii_ratio
                         best_plae_poii_filter = i['filter']
-
-
+                        if plae_errors:
+                            try:
+                                best_plae_range = plae_errors['ratio']
+                            except:
+                                pass
 
                     cat_match.add_bid_target(bid_target)
 
@@ -681,8 +685,6 @@ class GOODS_N(cat_base.Catalog):
             #                   % (best_plae_poii, best_plae_poii_filter))
 
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
-
-
 
             if cutout is not None:  # construct master cutout
 
@@ -750,9 +752,21 @@ class GOODS_N(cat_base.Catalog):
                 detobj.aperture_details_list.append(details)
 
 
-        if (not G.ZOO) and (best_plae_poii is not None):
-            text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)"
-                          % (best_plae_poii, best_plae_poii_filter))
+        # if (not G.ZOO) and (best_plae_poii is not None):
+        #     text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)"
+        #                   % (best_plae_poii, best_plae_poii_filter))
+
+        if (not G.ZOO) and (bid_target is not None) and (best_plae_poii is not None):
+            try:
+                text.set_text(
+                    text.get_text() + "  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$ (%s)" %
+                    (round(best_plae_poii, 3),
+                     round(best_plae_range[2], 3),
+                     round(best_plae_range[1], 3),
+                     best_plae_poii_filter))
+            except:
+                log.debug("Exception adding PLAE with range", exc_info=True)
+                text.set_text(text.get_text() + "  P(LAE)/P(OII): %0.4g (%s)" % (best_plae_poii, best_plae_poii_filter))
 
         if self.master_cutout is None:
             # cannot continue

@@ -615,8 +615,21 @@ class KPNO(cat_base.Catalog):#Kit Peak
                     cutout_ewr = ew_obs / (1. + target_w / G.LyA_rest)
                     cutout_ewr_err = ew_obs_err / (1. + target_w / G.LyA_rest)
 
+                    # if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
+                    #     text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)" % (bid_target.p_lae_oii_ratio,i['filter']))
+
                     if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
-                        text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)" % (bid_target.p_lae_oii_ratio,i['filter']))
+                        try:
+                            text.set_text(
+                                text.get_text() + "  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$ (%s)" %
+                                (round(bid_target.p_lae_oii_ratio, 3),
+                                 round(bid_target.p_lae_oii_ratio_max, 3),
+                                 round(bid_target.p_lae_oii_ratio_min, 3),
+                                 f))
+                        except:
+                            log.debug("Exception adding PLAE with range", exc_info=True)
+                            text.set_text(
+                                text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)" % (bid_target.p_lae_oii_ratio, f))
 
                     cat_match.add_bid_target(bid_target)
                     try:  # no downstream edits so they can both point to same bid_target

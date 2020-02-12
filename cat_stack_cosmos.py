@@ -628,6 +628,7 @@ class STACK_COSMOS(cat_base.Catalog):
 
         best_plae_poii = None
         best_plae_poii_filter = '-'
+        best_plae_range = None
 
         index = 0 #start in the 2nd box which is index 1 (1st box is for the fiber position plot)
         master_is_expanded = False
@@ -771,6 +772,11 @@ class STACK_COSMOS(cat_base.Catalog):
                     if best_plae_poii is None or i['filter'] == 'r':
                         best_plae_poii = bid_target.p_lae_oii_ratio
                         best_plae_poii_filter = i['filter']
+                        if plae_errors:
+                            try:
+                                best_plae_range = plae_errors['ratio']
+                            except:
+                                pass
 
                     # if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
                     #     text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.3g (%s)"
@@ -785,7 +791,17 @@ class STACK_COSMOS(cat_base.Catalog):
                 log.debug('Could not build exact location photometry info.',exc_info=True)
 
             if (not G.ZOO) and (bid_target is not None) and (best_plae_poii is not None):
-                text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)" % (best_plae_poii,best_plae_poii_filter))
+                try:
+                    text.set_text(
+                        text.get_text() + "  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$ (%s)" %
+                            (round(best_plae_poii, 3),
+                             round(best_plae_range[2], 3),
+                             round(best_plae_range[1], 3),
+                             best_plae_poii_filter))
+                except:
+                    log.debug("Exception adding PLAE with range",exc_info=True)
+                    text.set_text(text.get_text() + "  P(LAE)/P(OII): %0.4g (%s)" % (best_plae_poii,best_plae_poii_filter))
+
 
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
