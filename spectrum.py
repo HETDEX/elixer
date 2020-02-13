@@ -93,7 +93,7 @@ GOOD_MIN_LINE_SCORE = 4.0 #lines are added to solution only if 'GOOD' (meaning, 
 GOOD_FULL_SNR = 9.0 #ignore SBR is SNR is above this
 #GOOD_MIN_SNR = 5.0 #bare-minimum; if you change the SNR ranges just above, this will also need to change
 GOOD_MIN_SBR = 6.0 #signal to "background" noise (looks at peak height vs surrounding peaks) (only for "weak" signals0
-GOOD_MIN_SIGMA = 1.8 #in AA or FWHM ~ 4.2 (really too narrow, but allowing for some error)
+GOOD_MIN_SIGMA = 1.35 #1.8 #in AA or FWHM ~ 4.2 (really too narrow, but allowing for some error)
 #GOOD_MIN_EW_OBS = 1.5 #not sure this is a good choice ... really should depend on the physics of the line and
                       # not be absolute
 #GOOD_MIN_EW_REST = 1.0 #ditto here
@@ -1439,6 +1439,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     if accept_fit:
         eli.raw_score = score
         eli.score = signal_calc_scaled_score(score)
+        log.info(f"Fit not rejected. eli score: {eli.score} line score: {eli.line_score}")
         return eli
     else:
         log.info("Fit rejected")
