@@ -407,9 +407,9 @@ class SHELA(cat_base.Catalog):
     def merge_photoz_catalogs(cls, combined_cat_file=PhotoZ_combined_cat, master_cat_file=PhotoZ_master_cat):
         "This catalog is in a fits file"
 
-        if (0):
-            print("!!!SKIPPING PHOTOZ CATALOGS ... BE SURE TO RESTORE!!!")
-            return
+        # if (0):
+        #     print("!!!SKIPPING PHOTOZ CATALOGS ... BE SURE TO RESTORE!!!")
+        #     return
 
         log.info("Merging DECAM/SHELA PhotoZ Catalogs (this may take a while) ...")
 
@@ -1422,7 +1422,7 @@ class SHELA(cat_base.Catalog):
 
             sci = catalog_image['image']
 
-            if sci.hdulist is None:
+            if (sci.headers is None) or (len(sci.headers) == 0): #the catalog_image['image'] is no good? reload?
                 sci.load_image(wcs_manual=wcs_manual)
 
             d['path'] = sci.image_location

@@ -285,8 +285,9 @@ class science_image():
             log.error("Unable to verify footprint. Will set to None.")
             self.footprint = None
 
-        self.hdulist.close() #don't keep it open ... can be a memory problem with wrangler
-        self.hdulist = None
+      # 02-13-2020 ... this is no longer necessary to close the list  (the memory problem was resovled with Python3)
+      #  self.hdulist.close() #don't keep it open ... can be a memory problem with wrangler
+      #  self.hdulist = None
         return 0
     #end load_image
 

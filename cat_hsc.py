@@ -1487,7 +1487,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
             sci = catalog_image['image']
 
-            if sci.hdulist is None:
+            if (sci.headers is None) or (len(sci.headers) == 0): #the catalog_image['image'] is no good? reload?
                 sci.load_image(wcs_manual=wcs_manual)
 
             d['path'] = sci.image_location

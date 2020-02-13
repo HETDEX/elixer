@@ -571,47 +571,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
         return stacked_cutout
 
-
-    # def get_single_cutout(self,ra,dec,window,catalog_image):
-    #
-    #     d = {'cutout':None,'path':None,'filter':catalog_image['filter'], 'instrument':catalog_image['instrument']}
-    #
-    #     try:
-    #         wcs_manual = catalog_image['wcs_manual']
-    #     except:
-    #         wcs_manual = self.WCS_Manual
-    #
-    #     try:
-    #         if catalog_image['image'] is None:
-    #             catalog_image['image'] = science_image.science_image(wcs_manual=wcs_manual,
-    #                                                      image_location=op.join(catalog_image['path'],
-    #                                                                             catalog_image['name']))
-    #         sci = catalog_image['image']
-    #
-    #         d['path'] = sci.image_location
-    #
-    #         cutout, _, _, _ = sci.get_cutout(ra, dec, error=window, window=window, aperture=None, mag_func=None)
-    #         #don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
-    #
-    #         if cutout is not None:  # construct master cutout
-    #            d['cutout'] = cutout
-    #     except:
-    #         log.error("Error in get_single_cutout.",exc_info=True)
-    #
-    #     return d
-    #
-    #
-    #
-    # def get_cutouts(self,ra,dec,window):
-    #     l = list()
-    #
-    #     for i in self.CatalogImages:  # i is a dictionary
-    #         l.append(self.get_single_cutout(ra,decc,window,i))
-    #
-    #     return l
-
-
-
     def build_cat_summary_figure (self, cat_match,ra, dec, error,bid_ras, bid_decs, target_w=0,
                                   fiber_locs=None, target_flux=None,detobj=None):
         '''Builds the figure (page) the exact target location. Contains just the filter images ...
