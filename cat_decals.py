@@ -1066,9 +1066,10 @@ class DECALS(cat_base.Catalog):
 
                 if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
                     try:
-                        text += "%0.4g (%0.4g,%0.4g)\n" % (utilities.saferound(bid_target.p_lae_oii_ratio, 3),
-                                                           utilities.saferound(bid_target.p_lae_oii_ratio_min, 3),
-                                                           utilities.saferound(bid_target.p_lae_oii_ratio_max, 3))
+                        text += r"$%0.4g\ ^{%.4g}_{%.4g}$" % (utilities.saferound(bid_target.p_lae_oii_ratio, 3),
+                                                              utilities.saferound(bid_target.p_lae_oii_ratio_max, 3),
+                                                              utilities.saferound(bid_target.p_lae_oii_ratio_min, 3))
+                        text += "\n"
                     except:
                         text += "%0.4g\n" % (utilities.saferound(bid_target.p_lae_oii_ratio, 3))
                 else:
