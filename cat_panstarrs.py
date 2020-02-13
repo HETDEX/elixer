@@ -989,7 +989,12 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                     text += "No mag info\n"
 
                 if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
-                    text += "%0.4g\n" % (bid_target.p_lae_oii_ratio)
+                    try:
+                        text += "%0.4g (%0.4g,%0.4g)\n" % (utilities.saferound(bid_target.p_lae_oii_ratio, 3),
+                                                           utilities.saferound(bid_target.p_lae_oii_ratio_min, 3),
+                                                           utilities.saferound(bid_target.p_lae_oii_ratio_max, 3))
+                    except:
+                        text += "%0.4g\n" % (bid_target.p_lae_oii_ratio)
                 else:
                     text += "\n"
             else:

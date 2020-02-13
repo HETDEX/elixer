@@ -1272,7 +1272,12 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 #    text = text + "%g(%g) $\\mu$Jy\n" % (filter_fl, filter_fl_err)
 
                 if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
-                    text += "%0.4g\n" % (bid_target.p_lae_oii_ratio)
+                    try:
+                        text += "%0.4g (%0.4g,%0.4g)\n" % (utilities.saferound(bid_target.p_lae_oii_ratio, 3),
+                                                           utilities.saferound(bid_target.p_lae_oii_ratio_min, 3),
+                                                           utilities.saferound(bid_target.p_lae_oii_ratio_max, 3))
+                    except:
+                        text += "%0.4g\n" % (utilities.saferound(bid_target.p_lae_oii_ratio, 3))
                 else:
                     text += "\n"
             else:
