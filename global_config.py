@@ -70,8 +70,6 @@ KPNO_BASE_PATH = None
 KPNO_CAT_PATH = None
 KPNO_IMAGE_PATH = None
 
-ZEROTH_ROW_HEADER = True
-
 if hostname == "z50":  # primary author test box
     HDR_Version = 0
     LAUNCH_PDF_VIEWER = 'qpdfview'
@@ -668,3 +666,6 @@ ALLOW_SYSTEM_CALL_PDF_CONVERSION = True #if True, if the Python PDF to PNG fails
 
 DISPLAY_PSEUDO_COLOR = False  #display in upper left the pseudo-color from the HETDEX spectrum
 
+COMBINE_PLAE = True # combine (all?) PLAE/POII ratio data into a single estimate
+AGGREGATE_PLAE_CLASSIFICATION = True # and combine with other data to make a single p(LAE) estimate (0.0 - 1.0)
+ZEROTH_ROW_HEADER = True # and put this in the zeroth row header

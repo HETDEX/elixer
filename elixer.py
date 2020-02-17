@@ -3083,25 +3083,26 @@ def main():
             exit(-1)
 
         #need to combine PLAE/POII and other classification data before joining report parts
-        for h in hd_list:
-            for e in h.emis_list: #todo: do something with this ....
-                plae, plae_sd, size_in_psf = e.combine_all_plae()
-                #print(f"{e.entry_id} Combined PLAE/POII: {plae} +/- {plae_sd}")
-                #combine with other info (ELiXer solution finder, etc) to make a judgement?
-                scale_plae  = e.aggregate_classification()
+        if G.COMBINE_PLAE:
+            for h in hd_list:
+                for e in h.emis_list: #todo: do something with this ....
+                    plae, plae_sd, size_in_psf = e.combine_all_plae()
+                    #print(f"{e.entry_id} Combined PLAE/POII: {plae} +/- {plae_sd}")
+                    #combine with other info (ELiXer solution finder, etc) to make a judgement?
+                    if G.AGGREGATE_PLAE_CLASSIFICATION:
+                        scale_plae  = e.aggregate_classification()
 
-                if G.ZEROTH_ROW_HEADER:
-                    header_text = ""
-                    if scale_plae is not None:
+                    if G.ZEROTH_ROW_HEADER:
+                        header_text = ""
+                        if (scale_plae is not None) and (not np.isnan(scale_plae)):
+                            try:
+                                header_text = f"Combined Classification P(LAE): {scale_plae * 100.:0.2f}%"
+                            except:
+                                pass
                         try:
-                            header_text = f"Combined Classification P(LAE): {scale_plae * 100.:0.2f}%"
+                            build_report_part(os.path.join(e.outdir, e.pdf_name),[make_zeroth_row_header(header_text)],0)
                         except:
-                            pass
-
-                    try:
-                        build_report_part(os.path.join(e.outdir, e.pdf_name),[make_zeroth_row_header(header_text)],0)
-                    except:
-                        log.debug("Exception calling build_report_part",exc_info=True)
+                            log.debug("Exception calling build_report_part",exc_info=True)
 
         if len(file_list) > 0:
             for f in file_list:

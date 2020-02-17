@@ -584,7 +584,10 @@ class DetObj:
         self.aperture_details_list = []
         self.bid_target_list = []
 
-        self.classification_dict = {} #to be filled in with info to help make a classification judgement
+        self.classification_dict = {'scaled_plae':None,
+                                    'plae_hat':None,
+                                    'plae_hat_sd':None,
+                                    'size_in_psf':None} #to be filled in with info to help make a classification judgement
 
         if emission:
             self.type = 'emis'
@@ -846,7 +849,7 @@ class DetObj:
         # Mostly a BOOLEAN value (yes or no, LAE)
         try:
             #basiclly, 0 to 0.5 (if size > 5x PSF, probability that is LAE --> 0, if < 2x PSF holds at 0.5)
-            if self.classification_dict['size_in_psf'] > 2.0: #greater than twice a "sloppy" PSF, inconsistent with point source
+            if (self.classification_dict['size_in_psf'] is not None) and (self.classification_dict['size_in_psf'] > 2.0): #greater than twice a "sloppy" PSF, inconsistent with point source
                 scale = 0.5 * (1.0 - (self.classification_dict['size_in_psf'] - 2.0) / (3.0))
                 if scale < 0.01:
                     scale = 0.01
@@ -897,22 +900,21 @@ class DetObj:
         #
         # Mostly a distribution value
         try:
-            #scale ranges from 0.999 (LAE) to 0.001 (not LAE)
-            #logic is simple based on PLAE/POII interpreations to mean #LAE/(#LAE + #OII) where #LAE is a fraction and #OII == 1
-            #so PLAE/POII = 1000 --> 1000/(1000+1) = 0.999, PLAE/POII == 1.0 --> (1/(1+1)) = 0.5, PLAE/POII = 0.001 --> 0.001/(0.001 +1) = 0.001
-            scale_plae_hat = self.classification_dict['plae_hat'] / (self.classification_dict['plae_hat'] + 1.0)
-            lower_plae = self.classification_dict['plae_hat']-self.classification_dict['plae_hat_sd']
-            scale_plae_sd =  scale_plae_hat - lower_plae/ (lower_plae + 1.0)
+            if (self.classification_dict['plae_hat'] is not None) and (self.classification_dict['plae_hat_sd'] is not None):
+                #scale ranges from 0.999 (LAE) to 0.001 (not LAE)
+                #logic is simple based on PLAE/POII interpreations to mean #LAE/(#LAE + #OII) where #LAE is a fraction and #OII == 1
+                #so PLAE/POII = 1000 --> 1000/(1000+1) = 0.999, PLAE/POII == 1.0 --> (1/(1+1)) = 0.5, PLAE/POII = 0.001 --> 0.001/(0.001 +1) = 0.001
+                scale_plae_hat = self.classification_dict['plae_hat'] / (self.classification_dict['plae_hat'] + 1.0)
+                lower_plae = self.classification_dict['plae_hat']-self.classification_dict['plae_hat_sd']
+                scale_plae_sd =  scale_plae_hat - lower_plae/ (lower_plae + 1.0)
 
-            likelihood.append(scale_plae_hat)
-            prior.append(base_assumption)
-            weight.append(0.7)  # opinion, not quite as strong as multiple lines
-            var.append(1)  # todo: use the sd (scaled?)
+                likelihood.append(scale_plae_hat)
+                prior.append(base_assumption)
+                weight.append(0.7)  # opinion, not quite as strong as multiple lines
+                var.append(1)  # todo: use the sd (scaled?)
 
-            #todo: handle the uncertainty on plae_hat
-            #plae_hat_sd = self.classification_dict['plae_hat_sd']
-
-
+                #todo: handle the uncertainty on plae_hat
+                #plae_hat_sd = self.classification_dict['plae_hat_sd']
         except:
             log.debug("Exception in aggregate_classification for best PLAE/POII",exc_info=True)
 
@@ -929,9 +931,11 @@ class DetObj:
         v2 = var * var
 
         try:
-            scaled_prob_lae = np.sum(likelihood*weight/v2)/np.sum(weight/v2) / len(likelihood)
-            log.info(f"{self.entry_id} Scaled Prob(LAE) {scaled_prob_lae:0.4f}")
-            #print(f"{self.entry_id} Scaled Prob(LAE) {scaled_prob_lae:0.4f}")
+            if len(likelihood) > 0:
+                scaled_prob_lae = np.sum(likelihood*weight/v2)/np.sum(weight/v2) / len(likelihood)
+                self.classification_dict['scaled_plae'] = scaled_prob_lae
+                log.info(f"{self.entry_id} Scaled Prob(LAE) {scaled_prob_lae:0.4f}")
+                #print(f"{self.entry_id} Scaled Prob(LAE) {scaled_prob_lae:0.4f}")
         except:
             log.debug("Exception in aggregate_classification final combination",exc_info=True)
 
@@ -1033,17 +1037,18 @@ class DetObj:
             filters = ['f606w','g','r']
             for a in self.aperture_details_list: #has both forced aperture and sextractor
                 try:
-                    if a['filter_name'] in filters:
+                    if (a['filter_name'] is not None) and (a['filter_name'] in filters):
                         #todo: ELiXer force aperture (no PLAE/POII right now, just counts and mag
                         # this would be forced_aperture = a['elixer_apertures'][a['elixer_aper_idx']]
 
                         try:
                             #use the first radius for the aperture (x2 for diameter)
                             #is based on the reported average PSF, so this is marginally okay
-                            base_psf.append(a['elixer_apertures'][0]['radius']*2.0) #not quite the PSF, but similar
-                            log.debug(f"{self.entry_id} Combine ALL PLAE: Added base psf: "
-                                      f"{a['elixer_apertures'][0]['radius']*2.0} arcsec,"
-                                      f" filter ({a['filter_name']})")
+                            if a['elixer_apertures'] is not None:
+                                base_psf.append(a['elixer_apertures'][0]['radius']*2.0) #not quite the PSF, but similar
+                                log.debug(f"{self.entry_id} Combine ALL PLAE: Added base psf: "
+                                          f"{a['elixer_apertures'][0]['radius']*2.0} arcsec,"
+                                          f" filter ({a['filter_name']})")
                         except:
                             log.debug("Exception handling base_psf in DetObj:combin_all_plae", exc_info=True)
 
@@ -1053,24 +1058,26 @@ class DetObj:
 
                         #todo: this should be re-done in terms of the imaging catalog PSF
                         try:
-                            best_guess_extent.append(a['sep_objects'][a['sep_obj_idx']]['a'])
-                            log.debug(f"{self.entry_id} Combine ALL PLAE: Added best guess extent added: "
+                            if (a['sep_objects'] is not None) and (a['sep_obj_idx'] is not None):
+                                best_guess_extent.append(a['sep_objects'][a['sep_obj_idx']]['a'])
+                                log.debug(f"{self.entry_id} Combine ALL PLAE: Added best guess extent added: "
                                       f"{a['sep_objects'][a['sep_obj_idx']]['a']:#.2g} arcsec,"
                                       f" filter ({a['filter_name']})")
                         except:
                             log.debug("Exception handling best_guess_extent in DetObj:combin_all_plae",exc_info=True)
 
                         #for now, just using the "best" selected by ELiXer
-                        p = a['aperture_plae']
-                        v = avg_var(a['aperture_plae'],a['aperture_plae_min'],a['aperture_plae_max'])
-                        w = 1.0
+                        if  a['aperture_plae'] is not None:
+                            p = a['aperture_plae']
+                            v = avg_var(a['aperture_plae'],a['aperture_plae_min'],a['aperture_plae_max'])
+                            w = 1.0
 
-                        #only add if p and v both successful
-                        plae.append(p)
-                        variance.append(v)
-                        weight.append(w)
-                        log.debug(f"{self.entry_id} Combine ALL PLAE: Added best guess filter: plae({p:#.4g}) "
-                                  f"var({v:#.4g}) weight({w:#.2f}) filter({a['filter_name']})")
+                            #only add if p and v both successful
+                            plae.append(p)
+                            variance.append(v)
+                            weight.append(w)
+                            log.debug(f"{self.entry_id} Combine ALL PLAE: Added best guess filter: plae({p:#.4g}) "
+                                      f"var({v:#.4g}) weight({w:#.2f}) filter({a['filter_name']})")
                 except:
                     log.debug("Exception handling individual forced aperture photometry PLAE/POII in DetObj:combine_all_plae",
                               exc_info=True)
@@ -1083,8 +1090,8 @@ class DetObj:
             best_guess_extent = np.array(best_guess_extent)
             base_psf = np.array(base_psf)
 
-            size_in_psf = np.mean(best_guess_extent/base_psf) #usually only 1 or 2, so std makes no sense
-
+            if len(best_guess_extent) == len(base_psf) > 0:
+                size_in_psf = np.mean(best_guess_extent/base_psf) #usually only 1 or 2, so std makes no sense
         except:
             pass
 
@@ -1108,9 +1115,8 @@ class DetObj:
             #todo: slope of whole spectra or spectral features that would preclude LAE?
             #todo: ELiXer line finder strongly suggesting mutlitple lines and NOT LAE?
 
-            log.debug(f"{self.entry_id} Combine ALL PLAE: Final estimate: plae_hat({plae_hat:#.4g}) plae_hat_sd({plae_hat_sd:#.4g}) "
-                      f"size in psf ({size_in_psf:#.2g})")
-
+            log.debug(f"{self.entry_id} Combine ALL PLAE: Final estimate: plae_hat({plae_hat}) plae_hat_sd({plae_hat_sd}) "
+                      f"size in psf ({size_in_psf})")
 
             self.classification_dict['plae_hat'] = plae_hat
             self.classification_dict['plae_hat_sd'] = plae_hat_sd
@@ -1118,8 +1124,8 @@ class DetObj:
 
             return plae_hat, plae_hat_sd, size_in_psf
         except:
-            log.debug("Exception handling estimation in DetObj:combine_all_plae",
-                      exc_info=True)
+
+            log.debug("Exception handling estimation in DetObj:combine_all_plae", exc_info=True)
 
         return None, None, None
 

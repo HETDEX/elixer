@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.1.0' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.1.1' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -110,6 +110,11 @@ class Detections(tables.IsDescription):
     pseudo_color_red_flux_err = tables.Float32Col(dflt=UNSET_FLOAT)
     pseudo_color_rvb_ratio = tables.Float32Col(dflt=UNSET_FLOAT)
     pseudo_color_rvb_ratio_err = tables.Float32Col(dflt=UNSET_FLOAT)
+
+    #ELiXer combined (rules, inv variance, weights and Bayes) classification info
+    combined_plae = tables.Float32Col(dflt=UNSET_FLOAT)
+    combined_plae_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    plae_classification = tables.Float32Col(dflt=UNSET_FLOAT)
 
 
 class SpectraLines(tables.IsDescription):
@@ -614,6 +619,15 @@ def append_entry(fileh,det,overwrite=False):
             row['pseudo_color_rvb_ratio_err'] = det.rvb['ratio_err']
 
             row['pseudo_color_flag'] = det.rvb['flag']
+
+        if (det.classification_dict is not None):
+            try:
+                row['combined_plae'] = det.classification_dict['plae_hat']
+                row['combined_plae_err'] = det.classification_dict['plae_hat_sd']
+                row['plae_classification'] = det.classification_dict['scaled_plae']
+
+            except:
+                pass
 
         row.append()
         dtb.flush()
@@ -1219,6 +1233,13 @@ def temp_append_dtb_002_to_003(row,old_row):
         row['pseudo_color_rvb_ratio_err'] = old_row['pseudo_color_rb_ratio_err']
 
         row['pseudo_color_flag'] = old_row['pseudo_color_flag']
+    except:
+        pass
+
+    try:
+        row['combined_plae'] = old_row['combined_plae']
+        row['combined_plae_err'] = old_row['combined_plae_err']
+        row['plae_classification'] = old_row['plae_classification']
     except:
         pass
 
