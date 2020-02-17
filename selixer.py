@@ -627,7 +627,7 @@ elif host == HOST_WRANGLER:
         slurm += "module use /work/01255/siliu/stampede2/ooops/modulefiles/ \n"
         slurm += "module load ooops \n" #"/1.0 \n"
         slurm += "export IO_LIMIT_CONFIG=/work/01255/siliu/stampede2/ooops/1.0/conf/config_low \n"
-        slurm += "set_io_param 0 low"
+        slurm += "set_io_param 0 low\n"
 
     #slurm += "module unload xalt \n"
     slurm += "module load launcher\n"
@@ -673,7 +673,7 @@ elif host == HOST_STAMPEDE2:
         slurm += "module use /work/01255/siliu/stampede2/ooops/modulefiles/ \n"
         slurm += "module load ooops \n" #"/1.0 \n"
         slurm += "export IO_LIMIT_CONFIG=/work/01255/siliu/stampede2/ooops/1.0/conf/config_low \n"
-        slurm += "set_io_param 0 low"
+        slurm += "set_io_param 0 low\n"
         #slurm += "/work/01255/siliu/stampede2/ooops/1.0/bin/set_io_param 0 low \n"
 
     #slurm += "module unload xalt \n"
