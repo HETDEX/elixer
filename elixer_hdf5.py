@@ -240,11 +240,6 @@ class CatalogMatch(tables.IsDescription):
     #cat_photz_pdf_p = tables.Float32Col(1036, )
 
 
-# class ReportImages(tables.IsDescription):
-#     detectid = tables.Int64Col(pos=0)
-#     bytesize = tables.Int64Col(pos=1)
-#     imagearray =
-
 def version_match(fileh):
     """
     Checks an existing HDF5 file to see if the version is compatible for appending

@@ -584,6 +584,8 @@ class DetObj:
         self.aperture_details_list = []
         self.bid_target_list = []
 
+        self.classification_dict = {} #to be filled in with info to help make a classification judgement
+
         if emission:
             self.type = 'emis'
             # actual line number from the input file
@@ -812,6 +814,315 @@ class DetObj:
         else:
             return self.sigma
 
+
+    def aggregate_classification(self):
+        """
+        Use all info available, weighted, to make a classification as to LAE or not LAE
+        ?map to 0.0 (not LAE) to 1.0 (LAE)
+        :return:
+        """
+
+        #assume this IS an LAE (so that's the NULL)
+
+        #using some Bayesian language, but not really Bayesian, yet
+        #assume roughly half of all detections are LAEs (is that reasonable?)
+        base_assumption = 0.5
+        likelihood = []
+        weight = []
+        var = []
+        prior = []
+
+        scaled_prob_lae = None
+        fig = None
+
+        # self.classification_dict['plae_hat'] = plae_hat
+        # self.classification_dict['plae_hat_sd'] = plae_hat_sd
+        # self.classification_dict['size_in_psf'] = size_in_psf
+
+        #rules based
+
+        #
+        #object extent in terms of approximate PSF ... if very inconsistent with PSF, then not likely to be LAE
+        # Mostly a BOOLEAN value (yes or no, LAE)
+        try:
+            #basiclly, 0 to 0.5 (if size > 5x PSF, probability that is LAE --> 0, if < 2x PSF holds at 0.5)
+            if self.classification_dict['size_in_psf'] > 2.0: #greater than twice a "sloppy" PSF, inconsistent with point source
+                scale = 0.5 * (1.0 - (self.classification_dict['size_in_psf'] - 2.0) / (3.0))
+                if scale < 0.01:
+                    scale = 0.01
+                    weight.append(0.5) #opinion ... if not consistent with point-source, very unlikley to be LAE
+                    var.append(1) #no variance to use
+                elif scale > 0.5:
+                    scale = 0.5
+                    weight.append(0.1)  # opinion ... if consistent with point-source, does not really mean anything
+                    var.append(1)  # no variance to use
+
+
+                likelihood.append(scale)
+                prior.append(base_assumption)
+            else:
+                likelihood.append(0.5)
+                prior.append(base_assumption)
+        except:
+            log.debug("Exception in aggregate_classification for size_in_psf",exc_info=True)
+
+        #
+        # Elixer solution finder
+        # not just a best solution, but look at all (could be, say, both OIII (5007) and HBeta are really high, so
+        # can't distinguish between them, but in either case, is very inconsistent with LAE
+        # Mostly a BOOLEAN value (yes or no, LAE)
+        try:
+            if (self.spec_obj is not None) and (self.spec_obj.solutions is not None):
+                for s in self.spec_obj.solutions:
+                    if s.score > G.MULTILINE_MIN_SOLUTION_SCORE: #only consider somewhat probable scores
+                        #split between z > 1.8 ==> LAE and < 1.8 ==>not LAE
+                        if s.z  > 1.8: #suggesting LAE consistent
+                            likelihood.append(s.scale_score)
+                            weight.append(0.8)  # opinion ... has multiple lines, so the score is reasonable
+                            #must also have CIV or HeII, etc as possible matches
+                            var.append(1)  #todo: ? could do something like the spectrum noise?
+                            prior.append(base_assumption)
+                        else: #suggesting NOT LAE consistent
+                            likelihood.append(1-s.scale_score)
+                            weight.append(0.9)  # opinion ... has multiple lines, so the score is reasonable
+                            var.append(1)  #todo: ? could do something like the spectrum noise?
+                            prior.append(base_assumption)
+        except:
+            log.debug("Exception in aggregate_classification for ELiXer solution finder",exc_info=True)
+
+
+
+
+        #
+        # best PLAE/POII
+        #
+        # Mostly a distribution value
+        try:
+            #scale ranges from 0.999 (LAE) to 0.001 (not LAE)
+            #logic is simple based on PLAE/POII interpreations to mean #LAE/(#LAE + #OII) where #LAE is a fraction and #OII == 1
+            #so PLAE/POII = 1000 --> 1000/(1000+1) = 0.999, PLAE/POII == 1.0 --> (1/(1+1)) = 0.5, PLAE/POII = 0.001 --> 0.001/(0.001 +1) = 0.001
+            scale_plae_hat = self.classification_dict['plae_hat'] / (self.classification_dict['plae_hat'] + 1.0)
+            lower_plae = self.classification_dict['plae_hat']-self.classification_dict['plae_hat_sd']
+            scale_plae_sd =  scale_plae_hat - lower_plae/ (lower_plae + 1.0)
+
+            likelihood.append(scale_plae_hat)
+            prior.append(base_assumption)
+            weight.append(0.7)  # opinion, not quite as strong as multiple lines
+            var.append(1)  # todo: use the sd (scaled?)
+
+            #todo: handle the uncertainty on plae_hat
+            #plae_hat_sd = self.classification_dict['plae_hat_sd']
+
+
+        except:
+            log.debug("Exception in aggregate_classification for best PLAE/POII",exc_info=True)
+
+
+
+        #
+        # Combine them all
+        #
+
+        likelihood = np.array(likelihood)
+        weight = np.array(weight)
+        var = np.array(var)
+        prior = np.array(prior)
+        v2 = var * var
+
+        try:
+            scaled_prob_lae = np.sum(likelihood*weight/v2)/np.sum(weight/v2) / len(likelihood)
+            log.info(f"Scaled Prob(LAE) {scaled_prob_lae:0.4f}")
+            #print(f"{self.entry_id} Scaled Prob(LAE) {scaled_prob_lae:0.4f}")
+        except:
+            log.debug("Exception in aggregate_classification final combination",exc_info=True)
+
+
+        return scaled_prob_lae
+
+
+    def combine_all_plae(self):
+        """
+        Combine (all) PLAE/POII ratios into a single, best 'guess' value with errors
+
+        "Average" using ~ inverse variance* AND rules weighting
+
+        * these are not normal distros (those near 1000 and 0.001 are truncated AND they can be highly skewed, so we
+        are using the averaged (68%) confidence interval for each as a proxy for (std dev)
+
+        #todo: consider combining in Bayesian fashion and include extra info if available (like spec-z, phot-z for catalog matches?)
+
+        :return:
+        """
+
+        def avg_var(plae,plae_min, plae_max):
+            #can be truncated near 1000 or 0.001
+            pseduo_sd = 0.5 * ((plae-plae_min) + (plae_max - plae_min))
+            if pseduo_sd == 0:
+                return 1.
+            else:
+                return pseduo_sd*pseduo_sd
+
+        plae = [] #plae/poii ratio
+        variance = [] #variance or variance proxy
+        weight = [] #rules based weights
+
+        best_guess_extent = [] #from source extractor (f606w, g, r only)
+        base_psf = []
+        size_in_psf = None #estimate of extent in terms of PSF (sort-of)
+
+        #todo: evaluate each PLAE/POII ratio available and set the variance (proxy) and weight before summing up
+
+        #HETDEX PLAE
+        #what criteria to set weight? maybe really low chi^2 is good weight?
+        try:
+            hetdex_cont_limit = 2.0e-18 #don't trust below this
+            if (self.hetdex_cont_cgs - self.hetdex_cont_cgs_unc) > hetdex_cont_limit:
+                w = 0.5 #never very high
+                p = self.p_lae_oii_ratio_range[0]
+                v = avg_var(self.p_lae_oii_ratio_range[0], self.p_lae_oii_ratio_range[1], self.p_lae_oii_ratio_range[2])
+
+                # only add if p and v both successful
+                plae.append(p)
+                variance.append(v)
+                weight.append(w)
+                log.debug(f"Combine ALL PLAE: Added HETDEX: plae({p:#.4g}) var({v:#.4g}) weight({w:#.2f})")
+            else:
+                log.debug("Combine ALL PLAE: Failed HETDEX estimate")
+            #else:
+            #    w = 0.0 #don't trust it
+        except:
+            log.debug("Exception handling HETDEX PLAE/POII in DetObj:combine_all_plae",exc_info=True)
+
+
+        #SDSS gmag PLAE
+        try:
+            # set weight to zero if gmag > 24.5
+            # set to low value if gmag > 24
+            # set to good value if gmag < 24
+            cgs_24 = 1.35e-18  #1.35e-18 cgs ~ 24.0 mag in g-band
+            cgs_24p5 = 8.52e-19 #8.52e-19 cgs ~ 24.5 mag in g-band, get full marks at 24mag and fall to zero by 24.5
+            if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_24p5:
+                frac = (self.sdss_cgs_cont - cgs_24)/(cgs_24 - cgs_24p5)
+                # at 24mag this is zero, fainter goes negative, at 24.5 it is -1.0
+                if frac > 0: #full weight
+                    w = 1.0
+                else:
+                    w = 1.0 + frac #linear drop to zero at 8.52e-19
+            else:
+                w = 0.0
+
+            if w > 0.0:
+                p = self.sdss_gmag_p_lae_oii_ratio_range[0]
+                v = avg_var(self.sdss_gmag_p_lae_oii_ratio_range[0],
+                            self.sdss_gmag_p_lae_oii_ratio_range[1], self.sdss_gmag_p_lae_oii_ratio_range[2])
+
+                # only add if p and v both successful
+                plae.append(p)
+                variance.append(v)
+                weight.append(w)
+                log.debug(f"Combine ALL PLAE: Added SDSS gmag: plae({p:#.4g}) var({v:#.4g}) weight({w:#.2f})")
+            else:
+                log.debug("Combine ALL PLAE: Failed SDSS gmag estimate")
+
+        except:
+            log.debug("Exception handling SDSS gmag PLAE/POII in DetObj:combine_all_plae", exc_info=True)
+
+        #Best forced aperture PLAE
+        #how to set?? maybe always the same?
+        #iterate over all, g,r,606w all count with equal weight
+        try:
+            filters = ['f606w','g','r']
+            for a in self.aperture_details_list: #has both forced aperture and sextractor
+                try:
+                    if a['filter_name'] in filters:
+                        #todo: ELiXer force aperture (no PLAE/POII right now, just counts and mag
+                        # this would be forced_aperture = a['elixer_apertures'][a['elixer_aper_idx']]
+
+                        try:
+                            #use the first radius for the aperture (x2 for diameter)
+                            #is based on the reported average PSF, so this is marginally okay
+                            base_psf.append(a['elixer_apertures'][0]['radius']*2.0) #not quite the PSF, but similar
+                            log.debug(f"Combine ALL PLAE: Added base psf: "
+                                      f"{a['elixer_apertures'][0]['radius']*2.0} arcsec,"
+                                      f" filter ({a['filter_name']})")
+                        except:
+                            log.debug("Exception handling base_psf in DetObj:combin_all_plae", exc_info=True)
+
+                        #todo: source extractor objects (no PLAE/POII right now, just counts and mag
+                        # this would be sextractor = a['sep_objects'][a['sep_obj_idx']]
+                        # adjust weight based on distance to barycenter if inside ellipse or to edge of ellipse if not
+
+                        #todo: this should be re-done in terms of the imaging catalog PSF
+                        try:
+                            best_guess_extent.append(a['sep_objects'][a['sep_obj_idx']]['a'])
+                            log.debug(f"Combine ALL PLAE: Added best guess extent added: "
+                                      f"{a['sep_objects'][a['sep_obj_idx']]['a']:#.2g} arcsec,"
+                                      f" filter ({a['filter_name']})")
+                        except:
+                            log.debug("Exception handling best_guess_extent in DetObj:combin_all_plae",exc_info=True)
+
+                        #for now, just using the "best" selected by ELiXer
+                        p = a['aperture_plae']
+                        v = avg_var(a['aperture_plae'],a['aperture_plae_min'],a['aperture_plae_max'])
+                        w = 1.0
+
+                        #only add if p and v both successful
+                        plae.append(p)
+                        variance.append(v)
+                        weight.append(w)
+                        log.debug(f"Combine ALL PLAE: Added best guess filter: plae({p:#.4g}) "
+                                  f"var({v:#.4g}) weight({w:#.2f}) filter({a['filter_name']})")
+                except:
+                    log.debug("Exception handling individual forced aperture photometry PLAE/POII in DetObj:combine_all_plae",
+                              exc_info=True)
+        except:
+            log.debug("Exception handling forced aperture photometry PLAE/POII in DetObj:combine_all_plae", exc_info=True)
+
+        #?? Best catalog match PLAE ?? #do I even want to try to use this one?
+
+        try:
+            best_guess_extent = np.array(best_guess_extent)
+            base_psf = np.array(base_psf)
+
+            size_in_psf = np.mean(best_guess_extent/base_psf) #usually only 1 or 2, so std makes no sense
+
+        except:
+            pass
+
+        #sum up
+        try:
+            plae = np.array(plae)
+            variance = np.array(variance)
+            weight = np.array(weight)
+            v2 = variance*variance
+
+            plae_hat = np.sum(plae * weight / v2) / np.sum(weight / v2)
+            plae_hat_sd = np.sqrt(np.sum(weight*variance)/np.sum(weight))
+
+            #todo: what about plae_hat uncertainty?
+            #todo: should I (instead of inverse variance) sample all like 250-1000 times from random distro
+            #todo: and sum only on weights, then take the mean and std, of the resulting histogram as the plae_hat and sd?
+
+
+            #todo: what about extra info now for Bayesian analysis? update our "beliefs" based on
+            #todo: obect extent? (consistent or inconsistent with PSF and thus with a point-source?)
+            #todo: slope of whole spectra or spectral features that would preclude LAE?
+            #todo: ELiXer line finder strongly suggesting mutlitple lines and NOT LAE?
+
+            log.debug(f"Combine ALL PLAE: Final estimate: plae_hat({plae_hat:#.4g}) plae_hat_sd({plae_hat_sd:#.4g}) "
+                      f"size in psf ({size_in_psf:#.2g})")
+
+
+            self.classification_dict['plae_hat'] = plae_hat
+            self.classification_dict['plae_hat_sd'] = plae_hat_sd
+            self.classification_dict['size_in_psf'] = size_in_psf
+
+            return plae_hat, plae_hat_sd, size_in_psf
+        except:
+            log.debug("Exception handling estimation in DetObj:combine_all_plae",
+                      exc_info=True)
+
+        return None, None, None
 
     def multiline_solution_score(self):
         '''
@@ -3660,9 +3971,11 @@ class HETDEX:
         except:
             log.error("Exception setting title.",exc_info=True)
 
+
         plt.subplot(gs[0,0]) #all (again, probably won't end up using grid_spec for this case)
         plt.text(0, 1.0, title, ha='left', va='top', fontproperties=font)
-        plt.suptitle(time.strftime("%Y-%m-%d %H:%M:%S") +
+        if not G.ZEROTH_ROW_HEADER:
+            plt.suptitle(time.strftime("%Y-%m-%d %H:%M:%S") +
                      "  Version " + G.__version__ +"  ", fontsize=8,x=1.0,y=0.98,
                      horizontalalignment='right',verticalalignment='top')
         plt.gca().set_frame_on(False)
@@ -4050,7 +4363,8 @@ class HETDEX:
         #plt.subplot(gs[0:2, 0:3])
         plt.subplot(gs[0:2, 0:10])
         plt.text(0, 0.5, title, ha='left', va='center', fontproperties=font)
-        plt.suptitle(time.strftime("%Y-%m-%d %H:%M:%S") +
+        if not G.ZEROTH_ROW_HEADER:
+            plt.suptitle(time.strftime("%Y-%m-%d %H:%M:%S") +
                      "  Version " + G.__version__ +"  ", fontsize=8,x=1.0,y=0.98,
                      horizontalalignment='right',verticalalignment='top')
         plt.gca().set_frame_on(False)

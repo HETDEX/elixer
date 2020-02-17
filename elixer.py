@@ -159,6 +159,33 @@ class PDF_File():
 
 
 
+def make_zeroth_row_header(left_text,show_version=True):
+    try:
+        # make a .pdf file
+        plt.close('all')
+        fig = plt.figure(figsize=(G.FIGURE_SZ_X, 0.5))
+        gs = gridspec.GridSpec(1, 2)  # one row, 2 columns
+        plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
+
+        font = FontProperties()
+        font.set_family('monospace')
+        font.set_size(12)
+
+        plt.subplot(gs[0, 0])
+        plt.gca().axis('off')
+        plt.text(0, 0.5, left_text, ha='left', va='bottom', fontproperties=font)
+
+        if show_version:
+            plt.subplot(gs[0, 1])
+            plt.gca().axis('off')
+            title = time.strftime("%Y-%m-%d %H:%M:%S") + "  Version " + G.__version__  # + "  "
+            plt.text(1.0, 0.5, title, ha='right', va='bottom', fontproperties=font)
+            # plt.suptitle(, fontsize=8, x=1.0, y=0.98,
+            #              horizontalalignment='right', verticalalignment='bottom')
+
+    except:
+        log.debug("Exception in make_zeroth_row_header final combination", exc_info=True)
+
 def parse_commandline(auto_force=False):
     desc = "(Version %s) Search multiple catalogs for possible object matches.\n\nNote: if (--ra), (--dec), (--par) supplied in " \
            "addition to (--dither),(--line), the supplied RA, Dec, and Parangle will be used instead of the " \
@@ -887,16 +914,19 @@ def build_report(pages,report_name):
 
 
 
-def build_report_part(report_name,pages):
-    if (pages is None) or (len(pages) == 0):
-        return
-
-    global G_PDF_FILE_NUM
-
-    G_PDF_FILE_NUM += 1
-    part_name = report_name + ".part%s" % (str(G_PDF_FILE_NUM).zfill(4))
-
+def build_report_part(report_name,pages,page_num=None):
     try:
+        if (pages is None) or (len(pages) == 0):
+            return
+
+        global G_PDF_FILE_NUM
+
+        if page_num is None:
+            G_PDF_FILE_NUM += 1
+            part_name = report_name + ".part%s" % (str(G_PDF_FILE_NUM).zfill(4))
+        else:
+            part_name = report_name + ".part%s" % (str(page_num).zfill(4))
+
         pdf = PdfPages(part_name)
         rows = len(pages)
 
@@ -938,11 +968,11 @@ def join_report_parts(report_name, bid_count=0):
 
             first_page = True
 
-            for i in range(G_PDF_FILE_NUM):
+            for i in range(G_PDF_FILE_NUM+1): #there may be a zeroth image
                 #use this rather than glob since glob sometimes messes up the ordering
                 #and this needs to be in the correct order
                 #(though this is a bit ineffecient since we iterate over all the parts every time)
-                part_name = report_name+".part%s" % str(i+1).zfill(4)
+                part_name = report_name+".part%s" % str(i).zfill(4)
                 if os.path.isfile(part_name):
                     pages = PyPDF.PdfReader(part_name).pages
                     if first_page:
@@ -3052,6 +3082,24 @@ def main():
             print("Invalid command line call. Insufficient information to execute or No detections meet minimum criteria.")
             exit(-1)
 
+        #need to combine PLAE/POII and other classification data before joining report parts
+        for h in hd_list:
+            for e in h.emis_list: #todo: do something with this ....
+                plae, plae_sd, size_in_psf = e.combine_all_plae()
+                #print(f"{e.entry_id} Combined PLAE/POII: {plae} +/- {plae_sd}")
+                #combine with other info (ELiXer solution finder, etc) to make a judgement?
+                scale_plae  = e.aggregate_classification()
+
+                if G.ZEROTH_ROW_HEADER:
+                    header_text = ""
+                    if scale_plae is not None:
+                        try:
+                            header_text = f"Combined Classification P(LAE): {scale_plae * 100.:0.2f}%"
+                        except:
+                            pass
+
+                    build_report_part(pdf.filename,[make_zeroth_row_header(header_text)],0)
+
         if len(file_list) > 0:
             for f in file_list:
                 build_report(f.pages,f.filename)
@@ -3070,8 +3118,13 @@ def main():
                 join_report_parts(args.name)
                 delete_report_parts(args.name)
 
+
+
         if G.BUILD_HDF5_CATALOG: #change to HDF5 catalog
-            elixer_hdf5.extend_elixer_hdf5(os.path.join(args.name,args.name+"_cat.h5"),hd_list,overwrite=True)
+            try:
+                elixer_hdf5.extend_elixer_hdf5(os.path.join(args.name,args.name+"_cat.h5"),hd_list,overwrite=True)
+            except:
+                log.error("Exception building HDF5 catalog",exc_info=True)
 
         if match_list.size > 0:
             match_list.write_file(os.path.join(args.name,args.name+"_cat.txt"))
@@ -3106,16 +3159,12 @@ def main():
                                         #meets criteria, so log
                                         if c.bid_targets[1].distance < 1.0:
                                             print(c.detobj.id,c.detobj.p_lae_oii_ratio,c.bid_targets[0].p_lae_oii_ratio,c.bid_targets[1].p_lae_oii_ratio )
-
-
                             break
-
 
         if args.line:
             try:
                 import shutil
                 shutil.copy(args.line,os.path.join(args.name,os.path.basename(args.line)))
-
             except:
                 log.error("Exception copying line file: ", exc_info=True)
 

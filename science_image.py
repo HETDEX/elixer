@@ -1075,19 +1075,24 @@ class science_image():
                 return_counts = counts
 
                 try:
-                    ap = details['elixer_apertures'][details['elixer_aper_idx']]
-                    details['radius'] = ap['radius']
-                    details['aperture_counts'] = ap['aperture_counts']
-                    details['area_pix'] = ap['area_pix']
-                    details['sky_area_pix'] = ap['sky_area_pix']
-                    details['sky_average'] = ap['sky_average']
-                    details['sky_counts'] = ap['sky_counts']
-                    details['mag'] = ap['mag']
-                    details['mag_err'] = ap['mag_err']
-                    details['mag_bright'] = ap['mag_bright']
-                    details['mag_faint'] = ap['mag_faint']
-                    details['ra'] = ap['ra']
-                    details['dec'] = ap['dec']
+                    if details['elixer_aper_idx'] is None: #not set above? probably mag = 99.9
+                        if (details['elixer_apertures']) is not None and len(details['elixer_apertures']) > 0:
+                            details['elixer_aper_idx'] = len(details['elixer_apertures'])-1
+
+                    if details['elixer_aper_idx'] is not None:
+                        ap = details['elixer_apertures'][details['elixer_aper_idx']]
+                        details['radius'] = ap['radius']
+                        details['aperture_counts'] = ap['aperture_counts']
+                        details['area_pix'] = ap['area_pix']
+                        details['sky_area_pix'] = ap['sky_area_pix']
+                        details['sky_average'] = ap['sky_average']
+                        details['sky_counts'] = ap['sky_counts']
+                        details['mag'] = ap['mag']
+                        details['mag_err'] = ap['mag_err']
+                        details['mag_bright'] = ap['mag_bright']
+                        details['mag_faint'] = ap['mag_faint']
+                        details['ra'] = ap['ra']
+                        details['dec'] = ap['dec']
                 except:
                     log.info("Exception.",exc_info=True)
 

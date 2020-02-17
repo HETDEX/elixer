@@ -36,7 +36,9 @@ log = G.Global_Logger('spectrum_logger')
 log.setlevel(G.logging.DEBUG)
 
 #these are for the older peak finder (based on direction change)
-MIN_FWHM = 2 #AA (must xlat to pixels)
+MIN_FWHM = 2.0 #AA (must xlat to pixels) (really too small to be realistic, but is a floor)
+MAX_FWHM = 20.0 #booming LyA are around 15-16; real lines can be larger, but tend to be not what we are looking for
+                # and these are more likly continuum between two abosrpotion features that is mistaken for a line
 MIN_ELI_SNR = 3.0 #bare minium SNR to even remotely consider a signal as real
 MIN_ELI_SIGMA = 1.0 #bare minium (expect this to be more like 2+)
 MIN_HEIGHT = 10
@@ -93,7 +95,8 @@ GOOD_MIN_LINE_SCORE = 4.0 #lines are added to solution only if 'GOOD' (meaning, 
 GOOD_FULL_SNR = 9.0 #ignore SBR is SNR is above this
 #GOOD_MIN_SNR = 5.0 #bare-minimum; if you change the SNR ranges just above, this will also need to change
 GOOD_MIN_SBR = 6.0 #signal to "background" noise (looks at peak height vs surrounding peaks) (only for "weak" signals0
-GOOD_MIN_SIGMA = 1.35 #1.8 #in AA or FWHM ~ 4.2 (really too narrow, but allowing for some error)
+GOOD_MIN_SIGMA = 1.35 #very narrow, but due to measurement error, could be possible (should be around 2 at a minimum, but with error ...)
+#1.8 #in AA or FWHM ~ 4.2 (really too narrow, but allowing for some error)
 #GOOD_MIN_EW_OBS = 1.5 #not sure this is a good choice ... really should depend on the physics of the line and
                       # not be absolute
 #GOOD_MIN_EW_REST = 1.0 #ditto here
@@ -668,7 +671,7 @@ class EmissionLineInfo:
             else:
                 adjusted_dx0_error = self.fit_dx0
 
-            if (self.fwhm is None) or (self.fwhm < 20.0):
+            if (self.fwhm is None) or (self.fwhm < MAX_FWHM):
                 self.line_score = self.snr * above_noise * self.line_flux * 1e17 * \
                               min(self.fit_sigma/self.pix_size,1.0) * \
                               min((self.pix_size * self.sn_pix)/21.0,1.0) / \

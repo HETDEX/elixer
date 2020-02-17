@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.8.1a7 [2020-02-17]
+* experiment: combine PLAE/POII (excluding catalog match) and then combine with spatial extent and multi-line
+    solutions to make a single classification call (PLAE or not)
+
 1.8.1a6 [2020-02-12]
 * add high and low PLAE/POII error range to all report PLAE/POII positions (default 68% confidence interval)
 * removed unnecessary double read of some photometric images (as left-over from Python2/astropy memory problem)
