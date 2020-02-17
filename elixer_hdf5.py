@@ -563,18 +563,25 @@ def append_entry(fileh,det,overwrite=False):
 
         _lya_1pz = det.w / G.LyA_rest #no sense is doing -1.0 then +1.0
 
-        if det.eqw_line_obs is not None:
-            row['eqw_rest_lya_line'] = det.eqw_line_obs / _lya_1pz
-            row['eqw_rest_lya_line_err'] = det.eqw_line_obs_unc / _lya_1pz
-        else:
-            row['eqw_rest_lya_line'] = det.eqw_obs / _lya_1pz
-            row['eqw_rest_lya_line_err'] = det.eqw_obs_unc / _lya_1pz
-        #hetdex line flux / sdss continuum flux
+        try:
+            if det.eqw_line_obs is not None:
+                row['eqw_rest_lya_line'] = det.eqw_line_obs / _lya_1pz
+                row['eqw_rest_lya_line_err'] = det.eqw_line_obs_unc / _lya_1pz
+            else:
+                row['eqw_rest_lya_line'] = det.eqw_obs / _lya_1pz
+                row['eqw_rest_lya_line_err'] = det.eqw_obs_unc / _lya_1pz
+        except:
+            pass
 
-        if det.eqw_sdss_obs is not None:
-            row['eqw_rest_lya_sdss_g'] = det.eqw_sdss_obs / _lya_1pz
-        if det.eqw_sdss_obs_unc / _lya_1pz is not None:
-            row['eqw_rest_lya_sdss_g_err'] = det.eqw_sdss_obs_unc / _lya_1pz
+        #hetdex line flux / sdss continuum flux
+        try: #it is odd, but possible to have eqw_sdss_obs but NOT the _unc
+            if det.eqw_sdss_obs is not None:
+                row['eqw_rest_lya_sdss_g'] = det.eqw_sdss_obs / _lya_1pz
+
+            if det.eqw_sdss_obs_unc / _lya_1pz is not None:
+                row['eqw_rest_lya_sdss_g_err'] = det.eqw_sdss_obs_unc / _lya_1pz
+        except:
+            pass
 
         row['plae_line'] = det.p_lae_oii_ratio
         row['plae_sdss_g'] = det.sdss_gmag_p_lae_oii_ratio

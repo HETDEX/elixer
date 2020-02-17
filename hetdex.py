@@ -978,54 +978,56 @@ class DetObj:
         #HETDEX PLAE
         #what criteria to set weight? maybe really low chi^2 is good weight?
         try:
-            hetdex_cont_limit = 2.0e-18 #don't trust below this
-            if (self.hetdex_cont_cgs - self.hetdex_cont_cgs_unc) > hetdex_cont_limit:
-                w = 0.5 #never very high
-                p = self.p_lae_oii_ratio_range[0]
-                v = avg_var(self.p_lae_oii_ratio_range[0], self.p_lae_oii_ratio_range[1], self.p_lae_oii_ratio_range[2])
+            if (self.hetdex_cont_cgs is not None) and (self.hetdex_cont_cgs_unc is not None):
+                hetdex_cont_limit = 2.0e-18 #don't trust below this
+                if (self.hetdex_cont_cgs - self.hetdex_cont_cgs_unc) > hetdex_cont_limit:
+                    w = 0.5 #never very high
+                    p = self.p_lae_oii_ratio_range[0]
+                    v = avg_var(self.p_lae_oii_ratio_range[0], self.p_lae_oii_ratio_range[1], self.p_lae_oii_ratio_range[2])
 
-                # only add if p and v both successful
-                plae.append(p)
-                variance.append(v)
-                weight.append(w)
-                log.debug(f"{self.entry_id} Combine ALL PLAE: Added HETDEX: plae({p:#.4g}) var({v:#.4g}) weight({w:#.2f})")
-            else:
-                log.debug(f"{self.entry_id} Combine ALL PLAE: Failed HETDEX estimate")
-            #else:
-            #    w = 0.0 #don't trust it
+                    # only add if p and v both successful
+                    plae.append(p)
+                    variance.append(v)
+                    weight.append(w)
+                    log.debug(f"{self.entry_id} Combine ALL PLAE: Added HETDEX: plae({p:#.4g}) var({v:#.4g}) weight({w:#.2f})")
+                else:
+                    log.debug(f"{self.entry_id} Combine ALL PLAE: Failed HETDEX estimate")
+                #else:
+                #    w = 0.0 #don't trust it
         except:
             log.debug("Exception handling HETDEX PLAE/POII in DetObj:combine_all_plae",exc_info=True)
 
 
         #SDSS gmag PLAE
         try:
-            # set weight to zero if gmag > 24.5
-            # set to low value if gmag > 24
-            # set to good value if gmag < 24
-            cgs_24 = 1.35e-18  #1.35e-18 cgs ~ 24.0 mag in g-band
-            cgs_24p5 = 8.52e-19 #8.52e-19 cgs ~ 24.5 mag in g-band, get full marks at 24mag and fall to zero by 24.5
-            if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_24p5:
-                frac = (self.sdss_cgs_cont - cgs_24)/(cgs_24 - cgs_24p5)
-                # at 24mag this is zero, fainter goes negative, at 24.5 it is -1.0
-                if frac > 0: #full weight
-                    w = 1.0
+            if (self.sdss_cgs_cont is not None) and (self.sdss_cgs_cont_unc is not None):
+                # set weight to zero if gmag > 24.5
+                # set to low value if gmag > 24
+                # set to good value if gmag < 24
+                cgs_24 = 1.35e-18  #1.35e-18 cgs ~ 24.0 mag in g-band
+                cgs_24p5 = 8.52e-19 #8.52e-19 cgs ~ 24.5 mag in g-band, get full marks at 24mag and fall to zero by 24.5
+                if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_24p5:
+                    frac = (self.sdss_cgs_cont - cgs_24)/(cgs_24 - cgs_24p5)
+                    # at 24mag this is zero, fainter goes negative, at 24.5 it is -1.0
+                    if frac > 0: #full weight
+                        w = 1.0
+                    else:
+                        w = 1.0 + frac #linear drop to zero at 8.52e-19
                 else:
-                    w = 1.0 + frac #linear drop to zero at 8.52e-19
-            else:
-                w = 0.0
+                    w = 0.0
 
-            if w > 0.0:
-                p = self.sdss_gmag_p_lae_oii_ratio_range[0]
-                v = avg_var(self.sdss_gmag_p_lae_oii_ratio_range[0],
-                            self.sdss_gmag_p_lae_oii_ratio_range[1], self.sdss_gmag_p_lae_oii_ratio_range[2])
+                if w > 0.0:
+                    p = self.sdss_gmag_p_lae_oii_ratio_range[0]
+                    v = avg_var(self.sdss_gmag_p_lae_oii_ratio_range[0],
+                                self.sdss_gmag_p_lae_oii_ratio_range[1], self.sdss_gmag_p_lae_oii_ratio_range[2])
 
-                # only add if p and v both successful
-                plae.append(p)
-                variance.append(v)
-                weight.append(w)
-                log.debug(f"{self.entry_id} Combine ALL PLAE: Added SDSS gmag: plae({p:#.4g}) var({v:#.4g}) weight({w:#.2f})")
-            else:
-                log.debug(f"{self.entry_id} Combine ALL PLAE: Failed SDSS gmag estimate")
+                    # only add if p and v both successful
+                    plae.append(p)
+                    variance.append(v)
+                    weight.append(w)
+                    log.debug(f"{self.entry_id} Combine ALL PLAE: Added SDSS gmag: plae({p:#.4g}) var({v:#.4g}) weight({w:#.2f})")
+                else:
+                    log.debug(f"{self.entry_id} Combine ALL PLAE: Failed SDSS gmag estimate")
 
         except:
             log.debug("Exception handling SDSS gmag PLAE/POII in DetObj:combine_all_plae", exc_info=True)
@@ -4296,7 +4298,7 @@ class HETDEX:
       #  title += "  Score = %0.1f (%0.2f)" % (e.dqs,e.dqs_raw)
 
         if not G.ZOO:
-            if e.p_lae_oii_ratio is not None:
+            if e.p_lae_oii_ratio_range is not None:
                 # title += r"\nP(LAE)/P(OII) = %.4g $^{%.4g}_{%.4g}$" % \
                 #          (round(e.p_lae_oii_ratio,3),round(e.p_lae_oii_ratio_range[2],3),round(e.p_lae_oii_ratio_range[1],3))
 
@@ -4307,7 +4309,7 @@ class HETDEX:
                 except:
                     title += "\n" + "\nP(LAE)/P(OII): %.4g" % (round(e.p_lae_oii_ratio,3))
 
-                if (not e.using_sdss_gmag_ew) and (e.sdss_gmag_p_lae_oii_ratio is not None):
+                if (not e.using_sdss_gmag_ew) and (e.sdss_gmag_p_lae_oii_ratio_range is not None):
                     try:
                         title += " (gmag: $%.4g\ ^{%.4g}_{%.4g}$)" % (round(e.sdss_gmag_p_lae_oii_ratio_range[0], 3),
                                                                       round(e.sdss_gmag_p_lae_oii_ratio_range[2], 3),

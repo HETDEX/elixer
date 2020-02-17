@@ -1368,6 +1368,7 @@ def convert_pdf(filename, resolution=150, jpeg=True, png=False):
             try:
                 log.info("Attempting blind system call to pdftoppm to convert ... ")
                 os.system("pdftoppm %s %s -png -singlefile" % (filename, filename.rstrip(".pdf")))
+                log.info("No immediate error reported on pdftoppm call ... ")
             except:
                 log.error("System call conversion failed.",exc_info=True)
         return
