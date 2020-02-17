@@ -855,12 +855,19 @@ class DetObj:
                     scale = 0.01
                     weight.append(0.5) #opinion ... if not consistent with point-source, very unlikley to be LAE
                     var.append(1) #no variance to use
+                    likelihood.append(scale)
+                    prior.append(base_assumption)
                 elif scale > 0.5:
                     scale = 0.5 #max at 0.5 (basically no info ... as likely to be LAE as not)
                     weight.append(0.1)  # opinion ... if consistent with point-source, does not really mean anything
                     var.append(1.)  # no variance to use
-                likelihood.append(scale)
-                prior.append(base_assumption)
+                    likelihood.append(scale)
+                    prior.append(base_assumption)
+                else: #scale is between 0.01 and 0.5
+                    var.append(1.)
+                    weight.append(0.5)
+                    likelihood.append(scale)
+                    prior.append(base_assumption)
             else:
                 #really adds no information ... as likely to be OII as LAE if consistent with point-source
                 pass
