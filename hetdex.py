@@ -932,7 +932,7 @@ class DetObj:
                 prior.append(base_assumption)
                 #scale the weight by the difference between the scaled PLAE and one SD below (or above)
                 # the closer they are to each other, the closer to the full weight you'd get)
-                weight.append(0.7 * (1.0 - scale_plae_sd) )  # opinion, not quite as strong as multiple lines
+                weight.append(0.7 * (1.0 - scale_plae_sd))  # opinion, not quite as strong as multiple lines
                 var.append(1)  # todo: use the sd (scaled?)
 
                 #todo: handle the uncertainty on plae_hat
@@ -4213,9 +4213,22 @@ class HETDEX:
 
                 if e.sdss_gmag is not None:
                     if e.using_sdss_gmag_ew:
-                        title += " (gmag %0.2f *)\n" % (e.sdss_gmag)
+                        #title += " (gmag %0.2f *)\n" % (e.sdss_gmag)
+                        if e.sdss_gmag_unc:
+                            title += r" (gmag $%0.2f\ ^{%0.2f}_{%0.2f}$ *)" % (e.sdss_gmag,
+                                                                                e.sdss_gmag+e.sdss_gmag_unc,
+                                                                                e.sdss_gmag-e.sdss_gmag_unc)
+                        else:
+                            title += " (gmag %0.2f *)" % (e.sdss_gmag)
                     else:
-                        title += " (gmag %0.2f)\n" %(e.sdss_gmag)
+                        #title += " (gmag %0.2f)\n" %(e.sdss_gmag)
+                        if e.sdss_gmag_unc:
+                            title += r" (gmag $%0.2f\ ^{%0.2f}_{%0.2f}$)" % (
+                            e.sdss_gmag, e.sdss_gmag + e.sdss_gmag_unc, e.sdss_gmag - e.sdss_gmag_unc)
+                        else:
+                            title += " (gmag %0.2f)" %(e.sdss_gmag)
+                    title += "\n"
+
                 else:
                     title += "\n"
 
@@ -4238,9 +4251,23 @@ class HETDEX:
 
                 if e.sdss_gmag is not None:
                     if e.using_sdss_gmag_ew:
-                        title += " (gmag %0.2f *)\n" % (e.sdss_gmag)
+                        #title += " (gmag %0.2f *)\n" % (e.sdss_gmag)
+                        if e.sdss_gmag_unc:
+                            title += r" (gmag $%0.2f\ ^{%0.2f}_{%0.2f}$ *)" % (e.sdss_gmag,
+                                                                                e.sdss_gmag + e.sdss_gmag_unc,
+                                                                                e.sdss_gmag - e.sdss_gmag_unc)
+                        else:
+                            title += " (gmag %0.2f *)" % (e.sdss_gmag)
                     else:
-                        title += " (gmag %0.2f)\n" %(e.sdss_gmag)
+                        #title += " (gmag %0.2f)\n" %(e.sdss_gmag)
+                        if e.sdss_gmag_unc:
+                            title += r" (gmag $%0.2f\ ^{%0.2f}_{%0.2f}$)" % (e.sdss_gmag,
+                                                                                e.sdss_gmag + e.sdss_gmag_unc,
+                                                                                e.sdss_gmag - e.sdss_gmag_unc)
+                        else:
+                            title += " (gmag %0.2f)" % (e.sdss_gmag)
+
+                    title += "\n"
                 else:
                     title += "\n"
 
@@ -4268,9 +4295,22 @@ class HETDEX:
 
                 if e.sdss_gmag is not None:
                     if e.using_sdss_gmag_ew:
-                        title += " (gmag %0.2f *)\n" % (e.sdss_gmag)
+                        #title += " (gmag %0.2f *)\n" % (e.sdss_gmag)
+                        if e.sdss_gmag_unc:
+                            title += r" (gmag $%0.2f\ ^{%0.2f}_{%0.2f}$ *)" % (e.sdss_gmag,
+                                                                                e.sdss_gmag + e.sdss_gmag_unc,
+                                                                                e.sdss_gmag - e.sdss_gmag_unc)
+                        else:
+                            title += " (gmag %0.2f *)" % (e.sdss_gmag)
                     else:
-                        title += " (gmag %0.2f)\n" %(e.sdss_gmag)
+                        #title += " (gmag %0.2f)\n" %(e.sdss_gmag)
+                        if e.sdss_gmag_unc:
+                            title += r" (gmag $%0.2f\ ^{%0.2f}_{%0.2f}$)" % (e.sdss_gmag,
+                                                                                e.sdss_gmag + e.sdss_gmag_unc,
+                                                                                e.sdss_gmag - e.sdss_gmag_unc)
+                        else:
+                            title += " (gmag %0.2f)" % (e.sdss_gmag)
+                    title += "\n"
                 else:
                     title += "\n"
 
@@ -4293,9 +4333,22 @@ class HETDEX:
 
                 if e.sdss_gmag is not None:
                     if e.using_sdss_gmag_ew:
-                        title += " (gmag %0.2f *)\n" % (e.sdss_gmag)
+                        #title += " (gmag %0.2f *)\n" % (e.sdss_gmag)
+                        if e.sdss_gmag_unc:
+                            title += r" (gmag $%0.2f\ ^{%0.2f}_{%0.2f}$ *)" % (e.sdss_gmag,
+                                                                                e.sdss_gmag + e.sdss_gmag_unc,
+                                                                                e.sdss_gmag - e.sdss_gmag_unc)
+                        else:
+                            title += " (gmag %0.2f *)" % (e.sdss_gmag)
                     else:
-                        title += " (gmag %0.2f)\n" %(e.sdss_gmag)
+                        #title += " (gmag %0.2f)\n" %(e.sdss_gmag)
+                        if e.sdss_gmag_unc:
+                            title += r" (gmag $%0.2f\ ^{%0.2f}_{%0.2f}$)" % (e.sdss_gmag,
+                                                                                e.sdss_gmag + e.sdss_gmag_unc,
+                                                                                e.sdss_gmag - e.sdss_gmag_unc)
+                        else:
+                            title += " (gmag %0.2f)" % (e.sdss_gmag)
+                    title += "\n"
                 else:
                     title += "\n"
 
@@ -4339,8 +4392,6 @@ class HETDEX:
                     except:
                         log.debug("SDSS gmag PLAE title exception",exc_info=True)
                         title += " (gmag %.4g)" % round(e.sdss_gmag_p_lae_oii_ratio,3)
-
-
 
                 if G.DISPLAY_PSEUDO_COLOR:
                     if e.rvb is not None:

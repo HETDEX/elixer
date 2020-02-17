@@ -193,7 +193,8 @@ def get_hetdex_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_S
         # not quite correct ... but can't find the actual f_iso freq. and f_iso lambda != f_iso freq, but
         # we should not be terribly far off (and there are larger sources of error here anyway since this is
         # padded HETDEX data passed through an SDSS-g filter (approximately)
-        iso_f = 3e18 / sdss_filter.effective_wavelengths[0].value
+        #iso_f = 3e18 / sdss_filter.effective_wavelengths[0].value
+        iso_lam = sdss_filter.effective_wavelengths[0].value
 
         #sanity check flux_density
         sel = np.where(abs(flux_density) > 1e-5) #remember, these are e-17, so that is enormous
@@ -214,7 +215,9 @@ def get_hetdex_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_S
                     flux, wlen = sdss_filter.pad_spectrum(
                         flux_sample * (units.erg / units.s / units.cm ** 2 / units.Angstrom), wave * units.Angstrom)
                     mag = sdss_filter.get_ab_magnitudes(flux, wlen)[0][0]
-                    cont = 3631.0 * 10 ** (-0.4 * mag) * 1e-23 * iso_f / (wlen[-1] - wlen[0]).value  # (5549.26 - 3782.54) #that is the approximate bandpass
+                    #cont = 3631.0 * 10 ** (-0.4 * mag) * 1e-23 * iso_f / (wlen[-1] - wlen[0]).value  # (5549.26 - 3782.54) #that is the approximate bandpass
+
+                    cont = 3631.0 * 10 ** (-0.4 * mag) * 1e-23 * 3e18 / (iso_lam * iso_lam)
 
                     mag_list.append(mag)
                     cont_list.append(cont)
@@ -246,7 +249,8 @@ def get_hetdex_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_S
         if no_error: #if we cannot compute the error, the just call once (no MC sampling)
             flux, wlen = sdss_filter.pad_spectrum(flux_density* (units.erg / units.s /units.cm**2/units.Angstrom),wave* units.Angstrom)
             mag = sdss_filter.get_ab_magnitudes(flux , wlen )[0][0]
-            cont = 3631.0 * 10**(-0.4*mag) * 1e-23 * iso_f / (wlen[-1] - wlen[0]).value #(5549.26 - 3782.54) #that is the approximate bandpass
+            #cont = 3631.0 * 10**(-0.4*mag) * 1e-23 * iso_f / (wlen[-1] - wlen[0]).value
+            cont = 3631.0 * 10 ** (-0.4 * mag) * 1e-23 * 3e18 / (iso_lam * iso_lam)#(5549.26 - 3782.54) #that is the approximate bandpass
             mag_err = None
             cont_err = None
     except:
