@@ -899,6 +899,19 @@ class DetObj:
                             weight.append(0.9)  # opinion ... has multiple lines, so the score is reasonable
                             var.append(1)  #todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
+                    else: #low score, but can still impact
+                        w = s.score / G.MULTILINE_MIN_SOLUTION_SCORE
+                        if s.z > 1.8:  # suggesting LAE consistent
+                            likelihood.append(s.scale_score)
+                            weight.append(0.8 * w)  # opinion ... has multiple lines, so the score is reasonable
+                            # must also have CIV or HeII, etc as possible matches
+                            var.append(1)  # todo: ? could do something like the spectrum noise?
+                            prior.append(base_assumption)
+                        else:  # suggesting NOT LAE consistent
+                            likelihood.append(1 - s.scale_score)
+                            weight.append(0.9 * w)  # opinion ... has multiple lines, so the score is reasonable
+                            var.append(1)  # todo: ? could do something like the spectrum noise?
+                            prior.append(base_assumption)
         except:
             log.debug("Exception in aggregate_classification for ELiXer solution finder",exc_info=True)
 
@@ -917,7 +930,9 @@ class DetObj:
 
                 likelihood.append(scale_plae_hat)
                 prior.append(base_assumption)
-                weight.append(0.7)  # opinion, not quite as strong as multiple lines
+                #scale the weight by the difference between the scaled PLAE and one SD below (or above)
+                # the closer they are to each other, the closer to the full weight you'd get)
+                weight.append(0.7 * (1.0 - scale_plae_sd) )  # opinion, not quite as strong as multiple lines
                 var.append(1)  # todo: use the sd (scaled?)
 
                 #todo: handle the uncertainty on plae_hat
