@@ -853,16 +853,18 @@ class DetObj:
                     weight.append(0.5) #opinion ... if not consistent with point-source, very unlikley to be LAE
                     var.append(1) #no variance to use
                 elif scale > 0.5:
-                    scale = 0.5
+                    scale = 0.5 #max at 0.5 (basically no info ... as likely to be LAE as not)
                     weight.append(0.1)  # opinion ... if consistent with point-source, does not really mean anything
-                    var.append(1)  # no variance to use
-
-
+                    var.append(1.)  # no variance to use
                 likelihood.append(scale)
                 prior.append(base_assumption)
             else:
-                likelihood.append(0.5)
-                prior.append(base_assumption)
+                #really adds no information ... as likely to be OII as LAE if consistent with point-source
+                pass
+                # likelihood.append(0.5)
+                # var.append(1.)
+                # weight.append(0.1)
+                # prior.append(base_assumption)
         except:
             log.debug("Exception in aggregate_classification for size_in_psf",exc_info=True)
 
@@ -889,9 +891,6 @@ class DetObj:
                             prior.append(base_assumption)
         except:
             log.debug("Exception in aggregate_classification for ELiXer solution finder",exc_info=True)
-
-
-
 
         #
         # best PLAE/POII
@@ -931,7 +930,7 @@ class DetObj:
 
         try:
             scaled_prob_lae = np.sum(likelihood*weight/v2)/np.sum(weight/v2) / len(likelihood)
-            log.info(f"Scaled Prob(LAE) {scaled_prob_lae:0.4f}")
+            log.info(f"{self.entry_id} Scaled Prob(LAE) {scaled_prob_lae:0.4f}")
             #print(f"{self.entry_id} Scaled Prob(LAE) {scaled_prob_lae:0.4f}")
         except:
             log.debug("Exception in aggregate_classification final combination",exc_info=True)
@@ -985,9 +984,9 @@ class DetObj:
                 plae.append(p)
                 variance.append(v)
                 weight.append(w)
-                log.debug(f"Combine ALL PLAE: Added HETDEX: plae({p:#.4g}) var({v:#.4g}) weight({w:#.2f})")
+                log.debug(f"{self.entry_id} Combine ALL PLAE: Added HETDEX: plae({p:#.4g}) var({v:#.4g}) weight({w:#.2f})")
             else:
-                log.debug("Combine ALL PLAE: Failed HETDEX estimate")
+                log.debug(f"{self.entry_id} Combine ALL PLAE: Failed HETDEX estimate")
             #else:
             #    w = 0.0 #don't trust it
         except:
@@ -1020,9 +1019,9 @@ class DetObj:
                 plae.append(p)
                 variance.append(v)
                 weight.append(w)
-                log.debug(f"Combine ALL PLAE: Added SDSS gmag: plae({p:#.4g}) var({v:#.4g}) weight({w:#.2f})")
+                log.debug(f"{self.entry_id} Combine ALL PLAE: Added SDSS gmag: plae({p:#.4g}) var({v:#.4g}) weight({w:#.2f})")
             else:
-                log.debug("Combine ALL PLAE: Failed SDSS gmag estimate")
+                log.debug(f"{self.entry_id} Combine ALL PLAE: Failed SDSS gmag estimate")
 
         except:
             log.debug("Exception handling SDSS gmag PLAE/POII in DetObj:combine_all_plae", exc_info=True)
@@ -1042,7 +1041,7 @@ class DetObj:
                             #use the first radius for the aperture (x2 for diameter)
                             #is based on the reported average PSF, so this is marginally okay
                             base_psf.append(a['elixer_apertures'][0]['radius']*2.0) #not quite the PSF, but similar
-                            log.debug(f"Combine ALL PLAE: Added base psf: "
+                            log.debug(f"{self.entry_id} Combine ALL PLAE: Added base psf: "
                                       f"{a['elixer_apertures'][0]['radius']*2.0} arcsec,"
                                       f" filter ({a['filter_name']})")
                         except:
@@ -1055,7 +1054,7 @@ class DetObj:
                         #todo: this should be re-done in terms of the imaging catalog PSF
                         try:
                             best_guess_extent.append(a['sep_objects'][a['sep_obj_idx']]['a'])
-                            log.debug(f"Combine ALL PLAE: Added best guess extent added: "
+                            log.debug(f"{self.entry_id} Combine ALL PLAE: Added best guess extent added: "
                                       f"{a['sep_objects'][a['sep_obj_idx']]['a']:#.2g} arcsec,"
                                       f" filter ({a['filter_name']})")
                         except:
@@ -1070,7 +1069,7 @@ class DetObj:
                         plae.append(p)
                         variance.append(v)
                         weight.append(w)
-                        log.debug(f"Combine ALL PLAE: Added best guess filter: plae({p:#.4g}) "
+                        log.debug(f"{self.entry_id} Combine ALL PLAE: Added best guess filter: plae({p:#.4g}) "
                                   f"var({v:#.4g}) weight({w:#.2f}) filter({a['filter_name']})")
                 except:
                     log.debug("Exception handling individual forced aperture photometry PLAE/POII in DetObj:combine_all_plae",
@@ -1109,7 +1108,7 @@ class DetObj:
             #todo: slope of whole spectra or spectral features that would preclude LAE?
             #todo: ELiXer line finder strongly suggesting mutlitple lines and NOT LAE?
 
-            log.debug(f"Combine ALL PLAE: Final estimate: plae_hat({plae_hat:#.4g}) plae_hat_sd({plae_hat_sd:#.4g}) "
+            log.debug(f"{self.entry_id} Combine ALL PLAE: Final estimate: plae_hat({plae_hat:#.4g}) plae_hat_sd({plae_hat_sd:#.4g}) "
                       f"size in psf ({size_in_psf:#.2g})")
 
 

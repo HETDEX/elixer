@@ -70,7 +70,7 @@ KPNO_BASE_PATH = None
 KPNO_CAT_PATH = None
 KPNO_IMAGE_PATH = None
 
-ZEROTH_ROW_HEADER = False
+ZEROTH_ROW_HEADER = True
 
 if hostname == "z50":  # primary author test box
     HDR_Version = 0

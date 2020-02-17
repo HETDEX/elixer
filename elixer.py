@@ -3098,7 +3098,10 @@ def main():
                         except:
                             pass
 
-                    build_report_part(pdf.filename,[make_zeroth_row_header(header_text)],0)
+                    try:
+                        build_report_part(os.path.join(e.outdir, e.pdf_name),[make_zeroth_row_header(header_text)],0)
+                    except:
+                        log.debug("Exception calling build_report_part",exc_info=True)
 
         if len(file_list) > 0:
             for f in file_list:
