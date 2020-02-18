@@ -954,7 +954,7 @@ class DetObj:
 
         try:
             if len(likelihood) > 0:
-                scaled_prob_lae = np.sum(likelihood*weight/var)/np.sum(weight/var) / len(likelihood)
+                scaled_prob_lae = np.sum(likelihood*weight/var)/np.sum(weight/var) #/ len(likelihood)
                 self.classification_dict['scaled_plae'] = scaled_prob_lae
                 log.info(f"{self.entry_id} Scaled Prob(LAE) {scaled_prob_lae:0.4f}")
                 #print(f"{self.entry_id} Scaled Prob(LAE) {scaled_prob_lae:0.4f}")
