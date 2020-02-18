@@ -950,11 +950,11 @@ class DetObj:
         weight = np.array(weight)
         var = np.array(var)
         prior = np.array(prior)
-        v2 = var * var
+        #v2 = var * var
 
         try:
             if len(likelihood) > 0:
-                scaled_prob_lae = np.sum(likelihood*weight/v2)/np.sum(weight/v2) / len(likelihood)
+                scaled_prob_lae = np.sum(likelihood*weight/var)/np.sum(weight/var) / len(likelihood)
                 self.classification_dict['scaled_plae'] = scaled_prob_lae
                 log.info(f"{self.entry_id} Scaled Prob(LAE) {scaled_prob_lae:0.4f}")
                 #print(f"{self.entry_id} Scaled Prob(LAE) {scaled_prob_lae:0.4f}")
@@ -1003,7 +1003,7 @@ class DetObj:
             if (self.hetdex_cont_cgs is not None) and (self.hetdex_cont_cgs_unc is not None):
                 hetdex_cont_limit = 2.0e-18 #don't trust below this
                 if (self.hetdex_cont_cgs - self.hetdex_cont_cgs_unc) > hetdex_cont_limit:
-                    w = 0.5 #never very high
+                    w = 0.2 #never very high
                     p = self.p_lae_oii_ratio_range[0]
                     v = avg_var(self.p_lae_oii_ratio_range[0], self.p_lae_oii_ratio_range[1], self.p_lae_oii_ratio_range[2])
 
@@ -1023,13 +1023,16 @@ class DetObj:
         #SDSS gmag PLAE
         try:
             if (self.sdss_cgs_cont is not None) and (self.sdss_cgs_cont_unc is not None):
-                # set weight to zero if gmag > 24.5
+                # set weight to zero if gmag > 25
                 # set to low value if gmag > 24
                 # set to good value if gmag < 24
                 cgs_24 = 1.35e-18  #1.35e-18 cgs ~ 24.0 mag in g-band
                 cgs_24p5 = 8.52e-19 #8.52e-19 cgs ~ 24.5 mag in g-band, get full marks at 24mag and fall to zero by 24.5
-                if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_24p5:
-                    frac = (self.sdss_cgs_cont - cgs_24)/(cgs_24 - cgs_24p5)
+                cgs_25 = 5.38e-19
+                #if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_24p5:
+                #    frac = (self.sdss_cgs_cont - cgs_24)/(cgs_24 - cgs_24p5)
+                if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_25:
+                    frac = (self.sdss_cgs_cont - cgs_24) / (cgs_24 - cgs_25)
                     # at 24mag this is zero, fainter goes negative, at 24.5 it is -1.0
                     if frac > 0: #full weight
                         w = 1.0
@@ -1124,9 +1127,9 @@ class DetObj:
             plae = np.array(plae)
             variance = np.array(variance)
             weight = np.array(weight)
-            v2 = variance*variance
+            #v2 = variance*variance
 
-            plae_hat = np.sum(plae * weight / v2) / np.sum(weight / v2)
+            plae_hat = np.sum(plae * weight / variance) / np.sum(weight / variance)
             plae_hat_sd = np.sqrt(np.sum(weight*variance)/np.sum(weight))
 
             #todo: what about plae_hat uncertainty?
@@ -2071,7 +2074,7 @@ class DetObj:
         try:
             id = np.int64(shotid)
         except:
-            log.error("Exception converting shotid to int type",exc_info=True)
+            log.error(f"Exception converting shotid {shotid} to int type",exc_info=True)
             msg = "+++++ %s" %str(shotid)
             log.error(msg)
             self.status = -1
