@@ -981,7 +981,8 @@ class DetObj:
 
         def avg_var(plae,plae_min, plae_max):
             #can be truncated near 1000 or 0.001
-            pseduo_sd = 0.5 * ((plae-plae_min) + (plae_max - plae))
+            #pseduo_sd = 0.5 * ((plae-plae_min) + (plae_max - plae))
+            pseduo_sd = np.sqrt(0.5 * abs(plae_max-plae_min))
             if pseduo_sd == 0:
                 return 1.
             else:
