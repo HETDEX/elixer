@@ -925,7 +925,7 @@ class DetObj:
                 #logic is simple based on PLAE/POII interpreations to mean #LAE/(#LAE + #OII) where #LAE is a fraction and #OII == 1
                 #so PLAE/POII = 1000 --> 1000/(1000+1) = 0.999, PLAE/POII == 1.0 --> (1/(1+1)) = 0.5, PLAE/POII = 0.001 --> 0.001/(0.001 +1) = 0.001
                 scale_plae_hat = self.classification_dict['plae_hat'] / (self.classification_dict['plae_hat'] + 1.0)
-                lower_plae = self.classification_dict['plae_hat']-self.classification_dict['plae_hat_sd']
+                lower_plae = max(0.001,self.classification_dict['plae_hat']-self.classification_dict['plae_hat_sd'])
                 scale_plae_sd =  scale_plae_hat - lower_plae/ (lower_plae + 1.0)
 
                 likelihood.append(scale_plae_hat)
