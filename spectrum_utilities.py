@@ -25,6 +25,20 @@ SU_T_CMB = 2.73
 log = G.Global_Logger('spectrum_utils')
 log.setlevel(G.logging.DEBUG)
 
+
+def mag2cgs(mag,lam):
+    """
+    :param mag:   AB mag
+    :param lam: central wavelength or (better) f_lam_iso
+    :return:
+    """
+
+    try:
+        c = (astropy.constants.c * (1e10 * U.AA / U.m)).value
+        return 3631. * 1e-23 * 10**(-0.4 * mag) * c / (lam * lam)
+    except:
+        return 0
+
 def ujy2cgs(ujy,lam): #micro-jansky to erg/s/cm2/AA
     conv = None
     try:

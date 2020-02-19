@@ -896,7 +896,7 @@ class DetObj:
                             prior.append(base_assumption)
                         else: #suggesting NOT LAE consistent
                             likelihood.append(1-s.scale_score)
-                            weight.append(0.9)  # opinion ... has multiple lines, so the score is reasonable
+                            weight.append(1.0)  # opinion ... has multiple lines, so the score is reasonable
                             var.append(1)  #todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
                     else: #low score, but can still impact
@@ -908,8 +908,8 @@ class DetObj:
                             var.append(1)  # todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
                         else:  # suggesting NOT LAE consistent
-                            likelihood.append(1 - s.scale_score)
-                            weight.append(0.9 * w)  # opinion ... has multiple lines, so the score is reasonable
+                            likelihood.append(1. - s.scale_score)
+                            weight.append(1.0 * w)  # opinion ... has multiple lines, so the score is reasonable
                             var.append(1)  # todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
         except:
@@ -933,7 +933,8 @@ class DetObj:
                 #scale the weight by the difference between the scaled PLAE and one SD below (or above)
                 # the closer they are to each other, the closer to the full weight you'd get)
                 weight.append(0.7 * (1.0 - scale_plae_sd))  # opinion, not quite as strong as multiple lines
-                var.append(1)  # todo: use the sd (scaled?)
+                var.append(1)  # todo: use the sd (scaled?) #can't use straight up here since the variances are not
+                               # on the same scale
 
                 #todo: handle the uncertainty on plae_hat
                 #plae_hat_sd = self.classification_dict['plae_hat_sd']
@@ -982,11 +983,39 @@ class DetObj:
         def avg_var(plae,plae_min, plae_max):
             #can be truncated near 1000 or 0.001
             #pseduo_sd = 0.5 * ((plae-plae_min) + (plae_max - plae))
-            pseduo_sd = np.sqrt(0.5 * abs(plae_max-plae_min))
+            pseduo_sd = 0.5 * (plae_max-plae_min)
             if pseduo_sd == 0:
-                return 1.
+                return 1. #we're going to divide by this, so just set to 1
             else:
                 return pseduo_sd*pseduo_sd
+
+
+
+        continuum_hat, continuum_sd_hat, size_in_psf = self.combine_all_continuum()
+
+
+        #feed into MC PLAE
+        p_lae_oii_ratio, p_lae, p_oii, plae_errors =  line_prob.mc_prob_LAE(
+                                                        wl_obs=self.w,
+                                                        lineFlux=self.estflux,lineFlux_err=self.estflux_unc,
+                                                        continuum=continuum_hat,continuum_err=continuum_sd_hat,
+                                                        c_obs=None, which_color=None,
+                                                        addl_fluxes=[], addl_wavelengths=[],
+                                                        sky_area=None,cosmo=None, lae_priors=None,
+                                                        ew_case=None, W_0=None,z_OII=None, sigma=None)
+
+
+
+
+        plae_sd = np.sqrt(avg_var(plae_errors['ratio'][0],plae_errors['ratio'][1],plae_errors['ratio'][2]))
+        log.debug(f"{self.entry_id} Combine ALL PLAE: MC plae({p_lae_oii_ratio:#.4g}) sd({plae_sd:#.4g})")
+
+        self.classification_dict['plae_hat'] = p_lae_oii_ratio
+        self.classification_dict['plae_hat_sd'] = plae_sd
+        self.classification_dict['size_in_psf'] = size_in_psf
+
+        return p_lae_oii_ratio, plae_sd, size_in_psf
+
 
         plae = [] #plae/poii ratio
         variance = [] #variance or variance proxy
@@ -1154,6 +1183,220 @@ class DetObj:
         except:
 
             log.debug("Exception handling estimation in DetObj:combine_all_plae", exc_info=True)
+
+        return None, None, None
+
+
+
+    def combine_all_continuum(self):
+        """
+        Combine (all) continuum estimates into a single, best 'guess' value with errors
+
+        "Average" using ~ inverse variance* AND rules weighting
+
+        * these are not normal distros (those near 1000 and 0.001 are truncated AND they can be highly skewed, so we
+        are using the averaged (68%) confidence interval for each as a proxy for (std dev)
+
+        #todo: consider combining in Bayesian fashion and include extra info if available (like spec-z, phot-z for catalog matches?)
+
+        :return:
+        """
+
+        def avg_var(val,val_min, val_max):
+            # assumes 1-sigma error and symmetric (Gaussian-like) error
+            pseduo_sd = 0.5 * abs(val_max-val_min)
+            if pseduo_sd == 0:
+                return 1. #we're going to divide by this, so just set to 1
+            else:
+                return pseduo_sd*pseduo_sd
+
+        continuum = []
+        variance = [] #variance or variance proxy
+        weight = [] #rules based weights
+
+        best_guess_extent = [] #from source extractor (f606w, g, r only)
+        base_psf = []
+        size_in_psf = None #estimate of extent in terms of PSF (sort-of)
+
+        #todo: evaluate each PLAE/POII ratio available and set the variance (proxy) and weight before summing up
+
+        #HETDEX Continuum
+        try:
+            if (self.hetdex_cont_cgs is not None) and (self.hetdex_cont_cgs_unc is not None):
+                hetdex_cont_limit = 2.0e-18 #don't trust below this
+                if (self.hetdex_cont_cgs - self.hetdex_cont_cgs_unc) > hetdex_cont_limit:
+                    continuum.append(self.hetdex_cont_cgs)
+                    variance.append(self.hetdex_cont_cgs_unc*self.hetdex_cont_cgs_unc)
+                    weight.append(0.2) #never very high
+                    log.debug(f"{self.entry_id} Combine ALL Continuum: Added HETDEX estimate ({continuum[-1]:#.4g}) "
+                              f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
+                else: #set as lower limit
+                    continuum.append(hetdex_cont_limit)
+                    if self.hetdex_cont_cgs_unc > 0:
+                        variance.append(self.hetdex_cont_cgs_unc*self.hetdex_cont_cgs_unc)
+                    else:
+                        variance.append(hetdex_cont_limit * hetdex_cont_limit) #set to itself as a big error
+                    weight.append(0.2) #never very high
+                    log.debug(f"{self.entry_id} Combine ALL Continuum: Failed HETDEX estimate, setting to lower limit  ({continuum[-1]:#.4g}) "
+                              f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
+
+        except:
+            log.debug("Exception handling HETDEX continuum in DetObj:combine_all_continuum",exc_info=True)
+
+
+        #SDSS gmag continuum
+        try:
+            if (self.sdss_cgs_cont is not None) and (self.sdss_cgs_cont_unc is not None):
+                # set weight to zero if gmag > 25
+                # set to low value if gmag > 24
+                # set to good value if gmag < 24
+                cgs_24 = 1.35e-18  #1.35e-18 cgs ~ 24.0 mag in g-band
+                cgs_24p5 = 8.52e-19 #8.52e-19 cgs ~ 24.5 mag in g-band, get full marks at 24mag and fall to zero by 24.5
+                cgs_25 = 5.38e-19
+                #if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_24p5:
+                #    frac = (self.sdss_cgs_cont - cgs_24)/(cgs_24 - cgs_24p5)
+                if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_25:
+                    frac = (self.sdss_cgs_cont - cgs_24) / (cgs_24 - cgs_25)
+                    # at 24mag this is zero, fainter goes negative, at 24.5 it is -1.0
+                    if frac > 0: #full weight
+                        w = 1.0
+                    else:
+                        w = max(0.2,1.0 + frac) #linear drop to zero at 8.52e-19
+
+                    continuum.append(self.sdss_cgs_cont)
+                    variance.append(self.sdss_cgs_cont_unc * self.sdss_cgs_cont_unc)
+                    weight.append(w)
+
+                    log.debug(f"{self.entry_id} Combine ALL Continuum: Added SDSS gmag estimate ({continuum[-1]:#.4g}) "
+                              f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
+                else: #going to use the lower limit
+                    continuum.append(cgs_25)
+                    if self.sdss_cgs_cont_unc > 0:
+                        variance.append(self.sdss_cgs_cont_unc * self.sdss_cgs_cont_unc)
+                    else:
+                        variance.append(cgs_25 * cgs_25)  # set to itself as a big error
+                    weight.append(0.2)  # never very high
+
+                    log.debug(f"{self.entry_id} Combine ALL Continuum: Failed SDSS gmag estimate, setting to lower limit "
+                              f"({continuum[-1]:#.4g}) "
+                              f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
+        except:
+            log.debug("Exception handling SDSS gmag continuum in DetObj:combine_all_continuum", exc_info=True)
+
+        #Best forced aperture PLAE
+        #how to set?? maybe always the same?
+        #iterate over all, g,r,606w all count with equal weight
+        try:
+            filters = ['f606w','g','r']
+            for a in self.aperture_details_list: #has both forced aperture and sextractor
+                try:
+                    if (a['filter_name'] is not None) and (a['filter_name'] in filters):
+                        #todo: ELiXer force aperture (no PLAE/POII right now, just counts and mag
+                        # this would be forced_aperture = a['elixer_apertures'][a['elixer_aper_idx']]
+
+                        try:
+                            #use the first radius for the aperture (x2 for diameter)
+                            #is based on the reported average PSF, so this is marginally okay
+                            if a['elixer_apertures'] is not None:
+                                base_psf.append(a['elixer_apertures'][0]['radius']*2.0) #not quite the PSF, but similar
+                                log.debug(f"{self.entry_id} Combine ALL Continuum: Added base psf: "
+                                          f"{a['elixer_apertures'][0]['radius']*2.0} arcsec,"
+                                          f" filter ({a['filter_name']})")
+                        except:
+                            log.debug("Exception handling base_psf in DetObj:combin_all_continuum", exc_info=True)
+
+                        #todo: source extractor objects (no PLAE/POII right now, just counts and mag
+                        # this would be sextractor = a['sep_objects'][a['sep_obj_idx']]
+                        # adjust weight based on distance to barycenter if inside ellipse or to edge of ellipse if not
+
+                        #todo: this should be re-done in terms of the imaging catalog PSF
+                        try:
+                            if (a['sep_objects'] is not None) and (a['sep_obj_idx'] is not None):
+                                best_guess_extent.append(a['sep_objects'][a['sep_obj_idx']]['a'])
+                                log.debug(f"{self.entry_id} Combine ALL Continuum: Added best guess extent added: "
+                                      f"{a['sep_objects'][a['sep_obj_idx']]['a']:#.2g} arcsec,"
+                                      f" filter ({a['filter_name']})")
+                        except:
+                            log.debug("Exception handling best_guess_extent in DetObj:combin_all_plae",exc_info=True)
+
+                        if a['mag'] is not None:
+                            # if a['filter_name'] == 'f606w':
+                            #     lam = 5777. #AA
+                            # elif  a['filter_name'] == 'g':
+                            #     lam = 4770.
+                            # elif a['filter_name'] == 'r':
+                            #         lam = 6231.
+                            # else:
+                            #     log.error(f"Unexpected filter {a['mag']} in DetObj::combine_all_continuum")
+                            #     lam = 4500. #set to HETDEX mid-point
+
+
+                            #technically this is *WRONG* ... the wavelength should be the filter's iso wavelength
+                            #and this is especially off when using 'r' band, but this is how the PLAE/POII is used
+                            #(with the continuum based at the observed wavelength)
+                            lam = self.w #to be consistent with the use in PLAE/POII
+
+                            cont = SU.mag2cgs(a['mag'],lam)
+                            cont_hi = SU.mag2cgs(a['mag_bright'],lam)
+                            cont_lo = SU.mag2cgs(a['mag_faint'],lam)
+                            cont_var = avg_var(cont,cont_lo,cont_hi)
+
+                            continuum.append(cont)
+                            variance.append(cont_var)
+                            weight.append(1.0)
+
+                            log.debug(
+                                f"{self.entry_id} Combine ALL Continuum: Added imaging estimate ({continuum[-1]:#.4g}) "
+                                f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f}) filter({a['filter_name']})")
+                except:
+                    log.debug("Exception handling individual forced aperture photometry continuum in DetObj:combine_all_continuum",
+                              exc_info=True)
+        except:
+            log.debug("Exception handling forced aperture photometry continuum in DetObj:combine_all_continuum", exc_info=True)
+
+        #?? Best catalog match PLAE ?? #do I even want to try to use this one?
+
+
+        try:
+            best_guess_extent = np.array(best_guess_extent)
+            base_psf = np.array(base_psf)
+
+            if len(best_guess_extent) == len(base_psf) > 0:
+                size_in_psf = np.mean(best_guess_extent/base_psf) #usually only 1 or 2, so std makes no sense
+        except:
+            pass
+
+        #sum up
+        try:
+            continuum = np.array(continuum)
+            variance = np.array(variance)
+            weight = np.array(weight)
+            #v2 = variance*variance
+
+            continuum_hat = np.sum(continuum * weight / variance) / np.sum(weight / variance)
+            continuum_sd_hat = np.sqrt(np.sum(weight*variance)/np.sum(weight))
+
+            #todo: what about plae_hat uncertainty?
+            #todo: should I (instead of inverse variance) sample all like 250-1000 times from random distro
+            #todo: and sum only on weights, then take the mean and std, of the resulting histogram as the plae_hat and sd?
+
+
+            #todo: what about extra info now for Bayesian analysis? update our "beliefs" based on
+            #todo: obect extent? (consistent or inconsistent with PSF and thus with a point-source?)
+            #todo: slope of whole spectra or spectral features that would preclude LAE?
+            #todo: ELiXer line finder strongly suggesting mutlitple lines and NOT LAE?
+
+            log.debug(f"{self.entry_id} Combine ALL Continuum: Final estimate: continuum_hat({continuum_hat}) continuum_sd_hat({continuum_sd_hat}) "
+                      f"size in psf ({size_in_psf})")
+
+            self.classification_dict['continuum_hat'] = continuum_hat
+            self.classification_dict['continuum_sd_hat'] = continuum_sd_hat
+            self.classification_dict['size_in_psf'] = size_in_psf
+
+            return continuum_hat, continuum_sd_hat, size_in_psf
+        except:
+
+            log.debug("Exception handling estimation in DetObj:combine_all_continuum", exc_info=True)
 
         return None, None, None
 
