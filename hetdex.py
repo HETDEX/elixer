@@ -966,7 +966,7 @@ class DetObj:
         return scaled_prob_lae
 
 
-    def combine_all_plae(self):
+    def combine_all_plae(self,use_continuum=True):
         """
         Combine (all) PLAE/POII ratios into a single, best 'guess' value with errors
 
@@ -991,30 +991,31 @@ class DetObj:
 
 
 
-        continuum_hat, continuum_sd_hat, size_in_psf = self.combine_all_continuum()
+        if use_continuum:
+            continuum_hat, continuum_sd_hat, size_in_psf = self.combine_all_continuum()
 
 
-        #feed into MC PLAE
-        p_lae_oii_ratio, p_lae, p_oii, plae_errors =  line_prob.mc_prob_LAE(
-                                                        wl_obs=self.w,
-                                                        lineFlux=self.estflux,lineFlux_err=self.estflux_unc,
-                                                        continuum=continuum_hat,continuum_err=continuum_sd_hat,
-                                                        c_obs=None, which_color=None,
-                                                        addl_fluxes=[], addl_wavelengths=[],
-                                                        sky_area=None,cosmo=None, lae_priors=None,
-                                                        ew_case=None, W_0=None,z_OII=None, sigma=None)
+            #feed into MC PLAE
+            p_lae_oii_ratio, p_lae, p_oii, plae_errors =  line_prob.mc_prob_LAE(
+                                                            wl_obs=self.w,
+                                                            lineFlux=self.estflux,lineFlux_err=self.estflux_unc,
+                                                            continuum=continuum_hat,continuum_err=continuum_sd_hat,
+                                                            c_obs=None, which_color=None,
+                                                            addl_fluxes=[], addl_wavelengths=[],
+                                                            sky_area=None,cosmo=None, lae_priors=None,
+                                                            ew_case=None, W_0=None,z_OII=None, sigma=None)
 
 
 
 
-        plae_sd = np.sqrt(avg_var(plae_errors['ratio'][0],plae_errors['ratio'][1],plae_errors['ratio'][2]))
-        log.debug(f"{self.entry_id} Combine ALL PLAE: MC plae({p_lae_oii_ratio:#.4g}) sd({plae_sd:#.4g})")
+            plae_sd = np.sqrt(avg_var(plae_errors['ratio'][0],plae_errors['ratio'][1],plae_errors['ratio'][2]))
+            log.debug(f"{self.entry_id} Combine ALL PLAE: MC plae({p_lae_oii_ratio:#.4g}) sd({plae_sd:#.4g})")
 
-        self.classification_dict['plae_hat'] = p_lae_oii_ratio
-        self.classification_dict['plae_hat_sd'] = plae_sd
-        self.classification_dict['size_in_psf'] = size_in_psf
+            self.classification_dict['plae_hat'] = p_lae_oii_ratio
+            self.classification_dict['plae_hat_sd'] = plae_sd
+            self.classification_dict['size_in_psf'] = size_in_psf
 
-        return p_lae_oii_ratio, plae_sd, size_in_psf
+            return p_lae_oii_ratio, plae_sd, size_in_psf
 
 
         plae = [] #plae/poii ratio
