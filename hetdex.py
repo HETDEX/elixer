@@ -1206,8 +1206,9 @@ class DetObj:
         def avg_var(val,val_min, val_max):
             # assumes 1-sigma error and symmetric (Gaussian-like) error
             pseduo_sd = 0.5 * abs(val_max-val_min)
-            if pseduo_sd == 0:
-                return 1. #we're going to divide by this, so just set to 1
+            if pseduo_sd == 0: #assume a 33% std deviation (or (.1*var) ... so variance == (0.1*val)**2)
+                log.debug("pseudo-sd == 0, so setting to 1/3 of value")
+                return 0.11 * val * val #0.11 is ~ 0.33**2
             else:
                 return pseduo_sd*pseduo_sd
 
