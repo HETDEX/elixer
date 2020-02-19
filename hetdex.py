@@ -558,6 +558,13 @@ class DetObj:
 
         self.bad_amp_dict = None
 
+        #computed directly from HETDEX spectrum (3600AA-5400AA)
+        self.hetdex_gmag = None
+        self.hetdex_gmag_unc = None
+        self.hetdex_gmag_cgs_cont = None
+        self.hetdex_gmag_cgs_cont_unc = None
+
+
         self.sdss_gmag = None #using speclite to estimate
         self.sdss_gmag_unc = None  # not computed anywhere yet
         self.sdss_cgs_cont = None
@@ -1222,7 +1229,7 @@ class DetObj:
 
         #todo: evaluate each PLAE/POII ratio available and set the variance (proxy) and weight before summing up
 
-        #HETDEX Continuum
+        #HETDEX Continuum (near emission line)
         try:
             if (self.hetdex_cont_cgs is not None) and (self.hetdex_cont_cgs_unc is not None):
                 hetdex_cont_limit = 2.0e-18 #don't trust below this
@@ -1245,20 +1252,59 @@ class DetObj:
         except:
             log.debug("Exception handling HETDEX continuum in DetObj:combine_all_continuum",exc_info=True)
 
+        #for use with SDSS gmag and HETDEX full width gmag
+        # set weight to zero if gmag > 25
+        # set to low value if gmag > 24
+        # set to good value if gmag < 24
+        cgs_24 = 1.35e-18  # 1.35e-18 cgs ~ 24.0 mag in g-band
+        cgs_24p5 = 8.52e-19  # 8.52e-19 cgs ~ 24.5 mag in g-band, get full marks at 24mag and fall to zero by 24.5
+        cgs_25 = 5.38e-19
+
+        # HETDEX full width gmag continuum
+        try:
+            cgs_limit = cgs_24p5
+            if (self.hetdex_gmag_cgs_cont is not None) and (self.hetdex_gmag_cgs_cont_unc is not None):
+                # if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_24p5:
+                #    frac = (self.sdss_cgs_cont - cgs_24)/(cgs_24 - cgs_24p5)
+                if (self.hetdex_gmag_cgs_cont - self.hetdex_gmag_cgs_cont_unc) > cgs_limit:
+                    frac = (self.hetdex_gmag_cgs_cont - cgs_24) / (cgs_24 - cgs_limit)
+                    # at 24mag this is zero, fainter goes negative, at 24.5 it is -1.0
+                    if frac > 0:  # full weight
+                        w = 1.0
+                    else:
+                        w = max(0.2, 1.0 + frac)  # linear drop to zero at 8.52e-19
+
+                    continuum.append(self.hetdex_gmag_cgs_cont)
+                    variance.append(self.hetdex_gmag_cgs_cont_unc * self.hetdex_gmag_cgs_cont_unc)
+                    weight.append(w)
+
+                    log.debug(
+                        f"{self.entry_id} Combine ALL Continuum: Added full HETDEX gmag estimate ({continuum[-1]:#.4g}) "
+                        f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
+                else:  # going to use the lower limit
+                    continuum.append(cgs_limit)
+                    variance.append(0.11 * cgs_limit * cgs_limit)  # ie. sd of ~ 1/3 * cgs_limit
+                    # if self.hetdex_gmag_cgs_cont_unc > 0:
+                    #     variance.append(self.hetdex_gmag_cgs_cont_unc * self.hetdex_gmag_cgs_cont_unc)
+                    # else:
+                    #     variance.append(cgs_limit * cgs_24p5)  # set to itself as a big error
+                    weight.append(0.2)  # never very high
+
+                    log.debug(
+                        f"{self.entry_id} Combine ALL Continuum: Failed full HETDEX gmag estimate, setting to lower limit "
+                        f"({continuum[-1]:#.4g}) "
+                        f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
+        except:
+            log.debug("Exception handling fullwidth HETDEX gmag continuum in DetObj:combine_all_continuum", exc_info=True)
 
         #SDSS gmag continuum
         try:
+            cgs_limit = cgs_24p5
             if (self.sdss_cgs_cont is not None) and (self.sdss_cgs_cont_unc is not None):
-                # set weight to zero if gmag > 25
-                # set to low value if gmag > 24
-                # set to good value if gmag < 24
-                cgs_24 = 1.35e-18  #1.35e-18 cgs ~ 24.0 mag in g-band
-                cgs_24p5 = 8.52e-19 #8.52e-19 cgs ~ 24.5 mag in g-band, get full marks at 24mag and fall to zero by 24.5
-                cgs_25 = 5.38e-19
                 #if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_24p5:
                 #    frac = (self.sdss_cgs_cont - cgs_24)/(cgs_24 - cgs_24p5)
-                if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_25:
-                    frac = (self.sdss_cgs_cont - cgs_24) / (cgs_24 - cgs_25)
+                if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_limit:
+                    frac = (self.sdss_cgs_cont - cgs_24) / (cgs_24 - cgs_limit)
                     # at 24mag this is zero, fainter goes negative, at 24.5 it is -1.0
                     if frac > 0: #full weight
                         w = 1.0
@@ -1272,11 +1318,12 @@ class DetObj:
                     log.debug(f"{self.entry_id} Combine ALL Continuum: Added SDSS gmag estimate ({continuum[-1]:#.4g}) "
                               f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
                 else: #going to use the lower limit
-                    continuum.append(cgs_25)
-                    if self.sdss_cgs_cont_unc > 0:
-                        variance.append(self.sdss_cgs_cont_unc * self.sdss_cgs_cont_unc)
-                    else:
-                        variance.append(cgs_25 * cgs_25)  # set to itself as a big error
+                    continuum.append(cgs_limit)
+                    variance.append(0.11 * cgs_limit * cgs_limit) # ie. sd of ~ 1/3 * cgs_limit
+                    # if self.sdss_cgs_cont_unc > 0:
+                    #     variance.append(self.sdss_cgs_cont_unc * self.sdss_cgs_cont_unc)
+                    # else:
+                    #     variance.append(cgs_limit * cgs_limit)  # set to itself as a big error
                     weight.append(0.2)  # never very high
 
                     log.debug(f"{self.entry_id} Combine ALL Continuum: Failed SDSS gmag estimate, setting to lower limit "
@@ -2533,19 +2580,36 @@ class DetObj:
                 self.eqw_line_obs = self.eqw_obs
                 self.eqw_line_obs_unc = self.eqw_obs_unc
 
+
+            try:
+                self.hetdex_gmag, self.hetdex_gmag_cgs_cont, self.hetdex_gmag_unc,self.hetdex_gmag_cgs_cont_unc = \
+                    elixer_spectrum.get_hetdex_gmag(self.sumspec_flux / 2.0 * G.HETDEX_FLUX_BASE_CGS,
+                                                    self.sumspec_wavelength,
+                                                    self.sumspec_fluxerr / 2.0 * G.HETDEX_FLUX_BASE_CGS)
+
+                log.debug(f"HETDEX spectrum gmag {self.hetdex_gmag} +/- {self.hetdex_gmag_unc}")
+                log.debug(f"HETDEX spectrum cont {self.hetdex_gmag_cgs_cont} +/- {self.hetdex_gmag_cgs_cont_unc}")
+            except:
+                log.error("Exception computing HETDEX spectrum gmag",exc_info=True)
+
             try:
                 #reminder needs erg/s/cm2/AA and sumspec_flux in ergs/s/cm2 so divied by 2AA bin width
-#                self.sdss_gmag, self.cont_cgs = elixer_spectrum.get_hetdex_gmag(self.sumspec_flux/2.0*1e-17,self.sumspec_wavelength)
+#                self.sdss_gmag, self.cont_cgs = elixer_spectrum.get_sdss_gmag(self.sumspec_flux/2.0*1e-17,self.sumspec_wavelength)
                 if False:
-                    self.sdss_gmag, self.sdss_cgs_cont = elixer_spectrum.get_hetdex_gmag(self.sumspec_flux / 2.0 * G.HETDEX_FLUX_BASE_CGS,
+                    self.sdss_gmag, self.sdss_cgs_cont = elixer_spectrum.get_sdss_gmag(self.sumspec_flux / 2.0 * G.HETDEX_FLUX_BASE_CGS,
                                                                                     self.sumspec_wavelength)
                     self.sdss_cgs_cont_unc = np.sqrt(np.sum(self.sumspec_fluxerr**2))/len(self.sumspec_fluxerr)*G.HETDEX_FLUX_BASE_CGS
 
+                    log.debug(f"SDSS spectrum gmag {self.sdss_gmag} +/- {self.sdss_gmag_unc}")
+                    log.debug(f"SDSS spectrum cont {self.sdss_cgs_cont} +/- {self.sdss_cgs_cont_unc}")
+
                 else:
                     self.sdss_gmag, self.sdss_cgs_cont, self.sdss_gmag_unc, self.sdss_cgs_cont_unc =\
-                        elixer_spectrum.get_hetdex_gmag(self.sumspec_flux / 2.0 * G.HETDEX_FLUX_BASE_CGS, self.sumspec_wavelength,
+                        elixer_spectrum.get_sdss_gmag(self.sumspec_flux / 2.0 * G.HETDEX_FLUX_BASE_CGS, self.sumspec_wavelength,
                                                         self.sumspec_fluxerr / 2.0 * G.HETDEX_FLUX_BASE_CGS)
 
+                    log.debug(f"SDSS spectrum gmag {self.sdss_gmag} +/- {self.sdss_gmag_unc}")
+                    log.debug(f"SDSS spectrum cont {self.sdss_cgs_cont} +/- {self.sdss_cgs_cont_unc}")
 
                 if (self.sdss_cgs_cont is not None) and (self.sdss_cgs_cont != 0):
                     self.eqw_sdss_obs = self.estflux / self.sdss_cgs_cont

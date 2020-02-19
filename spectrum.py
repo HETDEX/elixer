@@ -165,7 +165,7 @@ def conf_interval(num_samples,sd,conf=0.95):
     return t * sd / np.sqrt(num_samples)
 
 
-def get_hetdex_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZE, confidence=G.MC_PLAE_CONF_INTVL):
+def get_sdss_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZE, confidence=G.MC_PLAE_CONF_INTVL):
     """
 
     :param flux_density: erg/s/cm2/AA  (*** reminder, HETDEX sumspec usually a flux erg/s/cm2 NOT flux denisty)
@@ -243,7 +243,7 @@ def get_hetdex_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_S
 
                 no_error = False
             except:
-                log.info("Exception in spectrum::get_hetdex_gmag()",exc_info=True)
+                log.info("Exception in spectrum::get_sdss_gmag()",exc_info=True)
                 no_error = True
 
         if no_error: #if we cannot compute the error, the just call once (no MC sampling)
@@ -254,12 +254,77 @@ def get_hetdex_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_S
             mag_err = None
             cont_err = None
     except:
-        log.warning("Exception! in spectrum::get_hetdex_gmag.",exc_info=True)
+        log.warning("Exception! in spectrum::get_sdss_gmag.",exc_info=True)
 
     if flux_err is not None: #even if this failed, the caller expects the extra two returns
         return mag, cont, mag_err, cont_err
     else:
         return mag, cont
+
+
+
+def get_hetdex_gmag(flux_density, wave, flux_density_err=None):
+    """
+    Similar to get_sdss_gmag, but this uses ONLY the HETDEX spectrum and its errors
+
+    :param flux_density: erg/s/cm2/AA  (*** reminder, HETDEX sumspec usually a flux erg/s/cm2 NOT flux denisty)
+    :param wave: in AA
+    :param flux_err: error array for flux_density (if None, then no error is computed)
+    :return: AB mag in g-band and continuum estimate (erg/s/cm2/AA)
+            if flux_err is specified then also returns error on mag and error on the flux (continuum)
+    """
+
+    try:
+
+        f_lam_iso = 4500.0  # middle of the range #not really the "true" f_lam_iso, but prob. intrudces small error compared to others
+        mag = None
+        cont = None
+        mag_err = None
+        cont_err = None
+        if (flux_density_err is None) or (len(flux_density_err) == 0):
+            flux_density_err = np.zeros(len(wave))
+
+        #sanity check flux_density
+        sel = np.where(abs(flux_density) > 1e-5) #remember, these are e-17, so that is enormous
+        if np.any(sel):
+            msg = "Warning! Absurd flux density values: [%f,%f] (normal expected values e-15 to e-19 range)" %(min(flux_density[sel]),max(flux_density[sel]))
+            print(msg)
+            log.warning(msg)
+            flux_density[sel] = 0.0
+
+
+        #trim off the ends (only use 3600-5400)
+        idx_3600,*_ = SU.getnearpos(wave,3600.)
+        idx_5400,*_ = SU.getnearpos(wave,5400.)
+
+        fluxbins = np.array(flux_density[idx_3600:idx_5400+1]) * G.FLUX_WAVEBIN_WIDTH
+        fluxerrs = np.array(flux_density_err[idx_3600:idx_5400+1]) * G.FLUX_WAVEBIN_WIDTH
+        integrated_flux = np.sum(fluxbins)
+        integrated_errs = np.sqrt(np.sum(fluxerrs*fluxerrs))
+
+        #This already been thoughput adjusted? (Yes? I think)
+        #so there is no need to adjust for transmission
+        band_flux_density = integrated_flux/(wave[idx_5400]-wave[idx_3600])
+        band_flux_density_err = integrated_errs/(wave[idx_5400]-wave[idx_3600])
+
+
+        if band_flux_density > 0:
+            mag = -2.5*np.log10(SU.cgs2ujy(band_flux_density,f_lam_iso) / 1e6 / 3631.)
+            mag_bright = -2.5 * np.log10(SU.cgs2ujy(band_flux_density+band_flux_density_err, f_lam_iso) / 1e6 / 3631.)
+            mag_faint = -2.5 * np.log10(SU.cgs2ujy(band_flux_density-band_flux_density_err, f_lam_iso) / 1e6 / 3631.)
+            mag_err = 0.5 * (mag_faint-mag_bright) #not symmetric, but this is roughly close enough
+        else:
+            log.info("HETDEX full width gmag, continuum estimate below flux limit. Setting None.")
+            return None, band_flux_density, None, band_flux_density_err
+
+
+        #todo: technically, should remove the emission lines to better fit actual contiuum, rather than just use band_flux_density
+        # but I think this is okay and appropriate and matches the other uses as the "band-pass" continuum
+        return mag, band_flux_density, mag_err, band_flux_density_err
+
+    except:
+        log.warning("Exception! in spectrum::get_hetdex_gmag.",exc_info=True)
+        return None, None, None, None
 
 
 def fit_line(wavelengths,values,errors=None):
