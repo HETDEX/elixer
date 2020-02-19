@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.1.1' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.1.2' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -74,21 +74,37 @@ class Detections(tables.IsDescription):
 
     continuum_line = tables.Float32Col(dflt=UNSET_FLOAT) #continuum from near the line
     continuum_line_err = tables.Float32Col(dflt=UNSET_FLOAT)
+
     continuum_sdss_g = tables.Float32Col(dflt=UNSET_FLOAT)
     continuum_sdss_g_err = tables.Float32Col(dflt=UNSET_FLOAT)
     mag_sdss_g = tables.Float32Col(dflt=UNSET_FLOAT)
     mag_sdss_g_err = tables.Float32Col(dflt=UNSET_FLOAT)
 
+
     eqw_rest_lya_line = tables.Float32Col(dflt=UNSET_FLOAT)
     eqw_rest_lya_line_err = tables.Float32Col(dflt=UNSET_FLOAT)
-    eqw_rest_lya_sdss_g = tables.Float32Col(dflt=UNSET_FLOAT)
-    eqw_rest_lya_sdss_g_err = tables.Float32Col(dflt=UNSET_FLOAT)
     plae_line = tables.Float32Col(dflt=UNSET_FLOAT)
     plae_line_max = tables.Float32Col(dflt=UNSET_FLOAT)
     plae_line_min = tables.Float32Col(dflt=UNSET_FLOAT)
+
+    eqw_rest_lya_sdss_g = tables.Float32Col(dflt=UNSET_FLOAT)
+    eqw_rest_lya_sdss_g_err = tables.Float32Col(dflt=UNSET_FLOAT)
     plae_sdss_g = tables.Float32Col(dflt=UNSET_FLOAT)
     plae_sdss_g_max = tables.Float32Col(dflt=UNSET_FLOAT)
     plae_sdss_g_min = tables.Float32Col(dflt=UNSET_FLOAT)
+
+
+    # from the full width spectrum (but not passed through SDSS filter)
+    continuum_full_spec = tables.Float32Col(dflt=UNSET_FLOAT)
+    continuum_full_spec_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    mag_full_spec = tables.Float32Col(dflt=UNSET_FLOAT)
+    mag_full_spec_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    eqw_rest_lya_full_spec = tables.Float32Col(dflt=UNSET_FLOAT)
+    eqw_rest_lya_full_spec_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    plae_full_spec = tables.Float32Col(dflt=UNSET_FLOAT)
+    plae_full_spec_max = tables.Float32Col(dflt=UNSET_FLOAT)
+    plae_full_spec_min = tables.Float32Col(dflt=UNSET_FLOAT)
+
 
     #ELiXer solution based on extra lines
     multiline_flag = tables.BoolCol(dflt=False) #True if s a single "good" solution
@@ -600,6 +616,37 @@ def append_entry(fileh,det,overwrite=False):
         except:
             pass
 
+
+        #full width (hetdex) specturm mag and related
+        try:
+            row['continuum_full_spec'] = det.hetdex_gmag_cgs_cont
+            row['continuum_full_spec_err'] = det.hetdex_gmag_cgs_cont_unc
+            row['mag_full_spec'] = det.hetdex_gmag
+
+            row['plae_full_spec'] = det.hetdex_gmag_p_lae_oii_ratio
+            if det.hetdex_gmag_unc is not None:
+                row['mag_full_spec_err'] = det.hetdex_gmag_unc
+
+            # hetdex line flux / sdss continuum flux
+            try:  # it is odd, but possible to have eqw_sdss_obs but NOT the _unc
+                if det.eqw_hetdex_gmag_obs is not None:
+                    row['eqw_rest_lya_full_spec'] = det.eqw_hetdex_gmag_obs / _lya_1pz
+
+                if det.eqw_hetdex_gmag_obs_unc / _lya_1pz is not None:
+                    row['eqw_rest_lya_full_spec_err'] = det.eqw_hetdex_gmag_obs_unc / _lya_1pz
+            except:
+                pass
+
+            try:
+                if det.hetdex_gmag_p_lae_oii_ratio:
+                    row['plae_full_spec_min'] = det.hetdex_gmag_p_lae_oii_ratio_range[1]
+                    row['plae_full_spec_max'] = det.hetdex_gmag_p_lae_oii_ratio_range[2]
+            except:
+                pass
+
+
+        except:
+            pass
 
         #
         if (det.spec_obj is not None) and (det.spec_obj.solutions is not None) and (len(det.spec_obj.solutions) > 0):
@@ -1212,11 +1259,19 @@ def temp_append_dtb_002_to_003(row,old_row):
     row['eqw_rest_lya_line_err'] = old_row['eqw_rest_lya_line_err']
 
     row['eqw_rest_lya_sdss_g'] = old_row['eqw_rest_lya_sdss_g']
-
     row['eqw_rest_lya_sdss_g_err'] = old_row['eqw_rest_lya_sdss_g_err']
 
     row['plae_line'] = old_row['plae_line']
     row['plae_sdss_g'] = old_row['plae_sdss_g']
+
+    try:
+        row['plae_line_max'] = old_row['plae_line_max']
+        row['plae_line_min'] = old_row['plae_line_min']
+        row['plae_sdss_g_max'] = old_row['plae_sdss_g_max']
+        row['plae_sdss_g_min'] = old_row['plae_sdss_g_min']
+    except:
+        pass
+
     row['multiline_flag'] = old_row['multiline_flag']
     row['multiline_z'] = old_row['multiline_z']
     row['multiline_rest_w'] = old_row['multiline_rest_w']
@@ -1247,6 +1302,20 @@ def temp_append_dtb_002_to_003(row,old_row):
         row['combined_plae'] = old_row['combined_plae']
         row['combined_plae_err'] = old_row['combined_plae_err']
         row['plae_classification'] = old_row['plae_classification']
+    except:
+        pass
+
+    try:
+        row['continuum_full_spec'] = old_row['continuum_full_spec']
+        row['continuum_full_spec_err'] = old_row['continuum_full_spec_err']
+        row['mag_full_spec'] = old_row['mag_full_spec']
+        row['mag_full_spec_err'] = old_row['mag_full_spec_err']
+        row['eqw_rest_lya_full_spec'] = old_row['eqw_rest_lya_full_spec']
+        row['eqw_rest_lya_full_spec_err'] = old_row['eqw_rest_lya_full_spec_err']
+        row['plae_full_spec'] = old_row['plae_full_spec']
+        row['plae_full_spec_max'] = old_row['plae_full_spec_max']
+        row['plae_full_spec_min'] = old_row['plae_full_spec_min']
+
     except:
         pass
 

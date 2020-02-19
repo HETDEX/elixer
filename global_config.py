@@ -498,6 +498,7 @@ OII_rest = 3727.
 
 #FLUX_CONVERSION = (1./60)*1e-17
 HETDEX_FLUX_BASE_CGS = 1e-17
+HETDEX_CONTINUUM_MAG_LIMIT = 25.0 #generous, truth is closer to 24.few
 
 CONTINUUM_FLOOR_COUNTS = 6.5 #5 sigma * 6 counts / sqrt(40 angstroms/1.9 angs per pixel)
 

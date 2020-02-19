@@ -304,8 +304,9 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None):
 
         #This already been thoughput adjusted? (Yes? I think)
         #so there is no need to adjust for transmission
-        band_flux_density = integrated_flux/(wave[idx_5400]-wave[idx_3600])
-        band_flux_density_err = integrated_errs/(wave[idx_5400]-wave[idx_3600])
+        # remeber to add one more bin (bin 2 - bin 1 != 1 bin it is 2 bins, not 1 as both bins are included)
+        band_flux_density = integrated_flux/(wave[idx_5400]-wave[idx_3600]+G.FLUX_WAVEBIN_WIDTH)
+        band_flux_density_err = integrated_errs/(wave[idx_5400]-wave[idx_3600]+G.FLUX_WAVEBIN_WIDTH)
 
 
         if band_flux_density > 0:

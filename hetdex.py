@@ -563,15 +563,29 @@ class DetObj:
         self.hetdex_gmag_unc = None
         self.hetdex_gmag_cgs_cont = None
         self.hetdex_gmag_cgs_cont_unc = None
-
+        self.eqw_hetdex_gmag_obs = None
+        self.eqw_hetdex_gmag_obs_unc = None
+        self.hetdex_gmag_p_lae_oii_ratio = None
+        self.hetdex_gmag_p_lae_oii_ratio_range = None
 
         self.sdss_gmag = None #using speclite to estimate
         self.sdss_gmag_unc = None  # not computed anywhere yet
         self.sdss_cgs_cont = None
         self.sdss_cgs_cont_unc = None
-        self.using_sdss_gmag_ew = False
         self.sdss_gmag_p_lae_oii_ratio = None
         self.sdss_gmag_p_lae_oii_ratio_range = None
+
+        #chosen from one of the above
+        self.best_gmag = None
+        self.best_gmag_unc = None
+        self.best_gmag_cgs_cont = None
+        self.best_gmag_cgs_cont_unc = None
+        self.best_eqw_gmag_obs = None
+        self.best_eqw_gmag_obs_unc = None
+        self.best_gmag_p_lae_oii_ratio = None
+        self.best_gmag_p_lae_oii_ratio_range = None
+        self.using_best_gmag_ew = False
+        self.selected_best_gmag = "" #to be filled in with sdss or hetdex later
 
         self.duplicate_fibers_removed = 0 # -1 is detected, but not removed, 0 = none found, 1 = detected and removed
 
@@ -1260,26 +1274,24 @@ class DetObj:
         cgs_24p5 = 8.52e-19  # 8.52e-19 cgs ~ 24.5 mag in g-band, get full marks at 24mag and fall to zero by 24.5
         cgs_25 = 5.38e-19
 
-        # HETDEX full width gmag continuum
+        # Best full width gmag continuum (HETDEX full width or SDSS gmag)
         try:
             cgs_limit = cgs_24p5
-            if (self.hetdex_gmag_cgs_cont is not None) and (self.hetdex_gmag_cgs_cont_unc is not None):
-                # if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_24p5:
-                #    frac = (self.sdss_cgs_cont - cgs_24)/(cgs_24 - cgs_24p5)
-                if (self.hetdex_gmag_cgs_cont - self.hetdex_gmag_cgs_cont_unc) > cgs_limit:
-                    frac = (self.hetdex_gmag_cgs_cont - cgs_24) / (cgs_24 - cgs_limit)
+            if (self.best_gmag_cgs_cont is not None) and (self.best_gmag_cgs_cont_unc is not None):
+                if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_limit:
+                    frac = (self.best_gmag_cgs_cont - cgs_24) / (cgs_24 - cgs_limit)
                     # at 24mag this is zero, fainter goes negative, at 24.5 it is -1.0
                     if frac > 0:  # full weight
                         w = 1.0
                     else:
                         w = max(0.2, 1.0 + frac)  # linear drop to zero at 8.52e-19
 
-                    continuum.append(self.hetdex_gmag_cgs_cont)
-                    variance.append(self.hetdex_gmag_cgs_cont_unc * self.hetdex_gmag_cgs_cont_unc)
+                    continuum.append(self.best_gmag_cgs_cont)
+                    variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
                     weight.append(w)
 
                     log.debug(
-                        f"{self.entry_id} Combine ALL Continuum: Added full HETDEX gmag estimate ({continuum[-1]:#.4g}) "
+                        f"{self.entry_id} Combine ALL Continuum: Added best spectrum gmag estimate ({continuum[-1]:#.4g}) "
                         f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
                 else:  # going to use the lower limit
                     continuum.append(cgs_limit)
@@ -1291,46 +1303,83 @@ class DetObj:
                     weight.append(0.2)  # never very high
 
                     log.debug(
-                        f"{self.entry_id} Combine ALL Continuum: Failed full HETDEX gmag estimate, setting to lower limit "
+                        f"{self.entry_id} Combine ALL Continuum: Failed best spectrum gmag estimate, setting to lower limit "
                         f"({continuum[-1]:#.4g}) "
                         f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
         except:
-            log.debug("Exception handling fullwidth HETDEX gmag continuum in DetObj:combine_all_continuum", exc_info=True)
+            log.debug("Exception handling best spectrum gmag continuum in DetObj:combine_all_continuum",
+                      exc_info=True)
 
-        #SDSS gmag continuum
-        try:
-            cgs_limit = cgs_24p5
-            if (self.sdss_cgs_cont is not None) and (self.sdss_cgs_cont_unc is not None):
-                #if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_24p5:
-                #    frac = (self.sdss_cgs_cont - cgs_24)/(cgs_24 - cgs_24p5)
-                if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_limit:
-                    frac = (self.sdss_cgs_cont - cgs_24) / (cgs_24 - cgs_limit)
-                    # at 24mag this is zero, fainter goes negative, at 24.5 it is -1.0
-                    if frac > 0: #full weight
-                        w = 1.0
-                    else:
-                        w = max(0.2,1.0 + frac) #linear drop to zero at 8.52e-19
+        if False:
+            # HETDEX full width gmag continuum
+            try:
+                cgs_limit = cgs_24p5
+                if (self.hetdex_gmag_cgs_cont is not None) and (self.hetdex_gmag_cgs_cont_unc is not None):
+                    if (self.hetdex_gmag_cgs_cont - self.hetdex_gmag_cgs_cont_unc) > cgs_limit:
+                        frac = (self.hetdex_gmag_cgs_cont - cgs_24) / (cgs_24 - cgs_limit)
+                        # at 24mag this is zero, fainter goes negative, at 24.5 it is -1.0
+                        if frac > 0:  # full weight
+                            w = 1.0
+                        else:
+                            w = max(0.2, 1.0 + frac)  # linear drop to zero at 8.52e-19
 
-                    continuum.append(self.sdss_cgs_cont)
-                    variance.append(self.sdss_cgs_cont_unc * self.sdss_cgs_cont_unc)
-                    weight.append(w)
+                        continuum.append(self.hetdex_gmag_cgs_cont)
+                        variance.append(self.hetdex_gmag_cgs_cont_unc * self.hetdex_gmag_cgs_cont_unc)
+                        weight.append(w)
 
-                    log.debug(f"{self.entry_id} Combine ALL Continuum: Added SDSS gmag estimate ({continuum[-1]:#.4g}) "
-                              f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
-                else: #going to use the lower limit
-                    continuum.append(cgs_limit)
-                    variance.append(0.11 * cgs_limit * cgs_limit) # ie. sd of ~ 1/3 * cgs_limit
-                    # if self.sdss_cgs_cont_unc > 0:
-                    #     variance.append(self.sdss_cgs_cont_unc * self.sdss_cgs_cont_unc)
-                    # else:
-                    #     variance.append(cgs_limit * cgs_limit)  # set to itself as a big error
-                    weight.append(0.2)  # never very high
+                        log.debug(
+                            f"{self.entry_id} Combine ALL Continuum: Added full HETDEX gmag estimate ({continuum[-1]:#.4g}) "
+                            f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
+                    else:  # going to use the lower limit
+                        continuum.append(cgs_limit)
+                        variance.append(0.11 * cgs_limit * cgs_limit)  # ie. sd of ~ 1/3 * cgs_limit
+                        # if self.hetdex_gmag_cgs_cont_unc > 0:
+                        #     variance.append(self.hetdex_gmag_cgs_cont_unc * self.hetdex_gmag_cgs_cont_unc)
+                        # else:
+                        #     variance.append(cgs_limit * cgs_24p5)  # set to itself as a big error
+                        weight.append(0.2)  # never very high
 
-                    log.debug(f"{self.entry_id} Combine ALL Continuum: Failed SDSS gmag estimate, setting to lower limit "
-                              f"({continuum[-1]:#.4g}) "
-                              f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
-        except:
-            log.debug("Exception handling SDSS gmag continuum in DetObj:combine_all_continuum", exc_info=True)
+                        log.debug(
+                            f"{self.entry_id} Combine ALL Continuum: Failed full HETDEX gmag estimate, setting to lower limit "
+                            f"({continuum[-1]:#.4g}) "
+                            f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
+            except:
+                log.debug("Exception handling fullwidth HETDEX gmag continuum in DetObj:combine_all_continuum", exc_info=True)
+
+            #SDSS gmag continuum
+            try:
+                cgs_limit = cgs_24p5
+                if (self.sdss_cgs_cont is not None) and (self.sdss_cgs_cont_unc is not None):
+                    #if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_24p5:
+                    #    frac = (self.sdss_cgs_cont - cgs_24)/(cgs_24 - cgs_24p5)
+                    if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_limit:
+                        frac = (self.sdss_cgs_cont - cgs_24) / (cgs_24 - cgs_limit)
+                        # at 24mag this is zero, fainter goes negative, at 24.5 it is -1.0
+                        if frac > 0: #full weight
+                            w = 1.0
+                        else:
+                            w = max(0.2,1.0 + frac) #linear drop to zero at 8.52e-19
+
+                        continuum.append(self.sdss_cgs_cont)
+                        variance.append(self.sdss_cgs_cont_unc * self.sdss_cgs_cont_unc)
+                        weight.append(w)
+
+                        log.debug(f"{self.entry_id} Combine ALL Continuum: Added SDSS gmag estimate ({continuum[-1]:#.4g}) "
+                                  f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
+                    else: #going to use the lower limit
+                        continuum.append(cgs_limit)
+                        variance.append(0.11 * cgs_limit * cgs_limit) # ie. sd of ~ 1/3 * cgs_limit
+                        # if self.sdss_cgs_cont_unc > 0:
+                        #     variance.append(self.sdss_cgs_cont_unc * self.sdss_cgs_cont_unc)
+                        # else:
+                        #     variance.append(cgs_limit * cgs_limit)  # set to itself as a big error
+                        weight.append(0.2)  # never very high
+
+                        log.debug(f"{self.entry_id} Combine ALL Continuum: Failed SDSS gmag estimate, setting to lower limit "
+                                  f"({continuum[-1]:#.4g}) "
+                                  f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
+            except:
+                log.debug("Exception handling SDSS gmag continuum in DetObj:combine_all_continuum", exc_info=True)
 
         #Best forced aperture PLAE
         #how to set?? maybe always the same?
@@ -2581,6 +2630,11 @@ class DetObj:
                 self.eqw_line_obs_unc = self.eqw_obs_unc
 
 
+            #used just below to choose between the two
+            sdss_okay = 0
+            hetdex_okay = 0
+
+            # sum over entire HETDEX spectrum to estimate g-band magnitude
             try:
                 self.hetdex_gmag, self.hetdex_gmag_cgs_cont, self.hetdex_gmag_unc,self.hetdex_gmag_cgs_cont_unc = \
                     elixer_spectrum.get_hetdex_gmag(self.sumspec_flux / 2.0 * G.HETDEX_FLUX_BASE_CGS,
@@ -2589,9 +2643,27 @@ class DetObj:
 
                 log.debug(f"HETDEX spectrum gmag {self.hetdex_gmag} +/- {self.hetdex_gmag_unc}")
                 log.debug(f"HETDEX spectrum cont {self.hetdex_gmag_cgs_cont} +/- {self.hetdex_gmag_cgs_cont_unc}")
+
+
+                if (self.hetdex_gmag_cgs_cont is not None) and (self.hetdex_gmag_cgs_cont != 0):
+                    if (self.hetdex_gmag_cgs_cont_unc is None) or np.isnan(self.hetdex_gmag_cgs_cont_unc):
+                        self.hetdex_gmag_cgs_cont_unc = 0.0
+                        hetdex_okay = 1
+                    else:
+                        hetdex_okay = 2
+
+                    self.eqw_hetdex_gmag_obs = self.estflux / self.hetdex_gmag_cgs_cont
+                    self.eqw_hetdex_gmag_obs_unc = abs(self.eqw_hetdex_gmag_obs * np.sqrt(
+                        (self.estflux_unc / self.estflux) ** 2 +
+                        (self.hetdex_gmag_cgs_cont_unc / self.hetdex_gmag_cgs_cont_unc) ** 2))
+
+                if (self.hetdex_gmag is None) or np.isnan(self.hetdex_gmag):
+                    hetdex_okay = 0
             except:
+                hetdex_okay = 0
                 log.error("Exception computing HETDEX spectrum gmag",exc_info=True)
 
+            #feed HETDEX spectrum through SDSS gband filter
             try:
                 #reminder needs erg/s/cm2/AA and sumspec_flux in ergs/s/cm2 so divied by 2AA bin width
 #                self.sdss_gmag, self.cont_cgs = elixer_spectrum.get_sdss_gmag(self.sumspec_flux/2.0*1e-17,self.sumspec_wavelength)
@@ -2612,27 +2684,66 @@ class DetObj:
                     log.debug(f"SDSS spectrum cont {self.sdss_cgs_cont} +/- {self.sdss_cgs_cont_unc}")
 
                 if (self.sdss_cgs_cont is not None) and (self.sdss_cgs_cont != 0):
+                    if (self.sdss_cgs_cont_unc is None) or np.isnan(self.sdss_cgs_cont_unc):
+                        self.sdss_cgs_cont_unc = 0.0
+                        sdss_okay = 1
+                    else:
+                        sdss_okay = 2
+
                     self.eqw_sdss_obs = self.estflux / self.sdss_cgs_cont
                     self.eqw_sdss_obs_unc = abs(self.eqw_sdss_obs * np.sqrt(
                         (self.estflux_unc / self.estflux) ** 2 +
                         (self.sdss_cgs_cont_unc / self.sdss_cgs_cont) ** 2))
 
+                if (self.sdss_gmag is None) or np.isnan(self.sdss_gmag):
+                    sdss_okay = 0
+
+            except:
+                sdss_okay = 0
+                log.error("Exception computing SDSS g-mag",exc_info=True)
+
+
+            #choose the best
+            if sdss_okay >= hetdex_okay:
+                self.selected_best_gmag = 'sdss'
+                self.best_gmag = self.sdss_gmag
+                self.best_gmag_unc = self.sdss_gmag_unc
+                self.best_gmag_cgs_cont = self.sdss_cgs_cont
+                self.best_gmag_cgs_cont_unc = self.sdss_cgs_cont_unc
+                self.best_eqw_gmag_obs = self.eqw_sdss_obs
+                self.best_eqw_gmag_obs_unc = self.eqw_sdss_obs_unc
+                log.debug("Using SDSS gmag over HETDEX full width gmag")
+            else:
+                self.selected_best_gmag = 'hetdex'
+                self.best_gmag = self.hetdex_gmag
+                self.best_gmag_unc = self.hetdex_gmag_unc
+                self.best_gmag_cgs_cont = self.hetdex_gmag_cgs_cont
+                self.best_gmag_cgs_cont_unc = self.hetdex_gmag_cgs_cont_unc
+                self.best_eqw_gmag_obs = self.eqw_hetdex_gmag_obs
+                self.best_eqw_gmag_obs_unc = self.eqw_hetdex_gmag_obs_unc
+                log.debug("Using HETDEX full width gmag over SDSS gmag.")
+
+            try:
                 self.hetdex_cont_cgs = self.cont_cgs
                 self.hetdex_cont_cgs_unc = self.cont_cgs_unc
 
                 if self.cont_cgs == -9999: #still unset ... weird?
-                    log.warning("Warning! HETDEX continuum estimate not set. Using SDSS gmag for estimate(%g,+/- %g)."
-                                %(self.sdss_cgs_cont,self.sdss_cgs_cont_unc))
-                    self.cont_cgs = self.sdss_cgs_cont
-                    self.cont_cgs_unc = self.sdss_cgs_cont_unc
-                    self.using_sdss_gmag_ew = True
+                    log.warning("Warning! HETDEX continuum estimate not set. Using best gmag for estimate(%g,+/- %g)."
+                                %(self.best_gmag_cgs_cont,self.best_gmag_cgs_cont_unc))
+
+                    if self.best_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT:
+                        self.cont_cgs = self.best_gmag_cgs_cont
+                        self.cont_cgs_unc = self.best_gmag_cgs_cont_unc
+                        self.using_best_gmag_ew = True
 
                 elif self.cont_cgs <= 0.0:
-                    log.warning("Warning! HETDEX continuum <= 0.0. Using SDSS gmag for estimate (%g,+/- %g)."
-                                %(self.sdss_cgs_cont,self.sdss_cgs_cont_unc))
-                    self.cont_cgs = self.sdss_cgs_cont
-                    self.cont_cgs_unc = self.sdss_cgs_cont_unc
-                    self.using_sdss_gmag_ew = True
+                    log.warning("Warning! HETDEX continuum <= 0.0. Using best gmag for estimate (%g,+/- %g)."
+                                %(self.best_gmag_cgs_cont,self.best_gmag_cgs_cont_unc))
+
+                    if self.best_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT:
+                        self.cont_cgs = self.best_gmag_cgs_cont
+                        self.cont_cgs_unc = self.best_gmag_cgs_cont_unc
+                        self.using_best_gmag_ew = True
 
             except:
                 pass
@@ -2939,18 +3050,6 @@ class DetObj:
                                                                ew_case=None, W_0=None,
                                                                z_OII=None, sigma=None)
 
-            # ratio, self.p_lae, self.p_oii, plae_errors = line_prob.prob_LAE(wl_obs=self.w,
-            #                                                    lineFlux=self.estflux,
-            #                                                    lineFlux_err=self.estflux_unc,
-            #                                                    ew_obs=self.eqw_obs,
-            #                                                    ew_obs_err=self.eqw_obs_unc,
-            #                                                    c_obs=None, which_color=None,
-            #                                                    addl_fluxes=[], addl_wavelengths=[],
-            #                                                    sky_area=None,
-            #                                                    cosmo=None, lae_priors=None,
-            #                                                    ew_case=None, W_0=None,
-            #                                                    z_OII=None, sigma=None,estimate_error=True)
-
             if (self.p_lae is not None) and (self.p_lae > 0.0):
                 if (self.p_oii is not None) and (self.p_oii > 0.0):
                     self.p_lae_oii_ratio = self.p_lae /self.p_oii
@@ -2981,27 +3080,11 @@ class DetObj:
                     addl_fluxes = []
                     addl_errors = []
 
-
-
-                # sdss_ratio, sdss_p_lae, sdss_p_oii, plae_errors = line_prob.prob_LAE(wl_obs=self.w,
-                #                                                    lineFlux=self.estflux,
-                #                                                    lineFlux_err=self.estflux_unc,
-                #                                                    ew_obs=self.estflux/self.sdss_cgs_cont,
-                #                                                    ew_obs_err=None, #todo: get error est for sdss gmag
-                #                                                    c_obs=None, which_color=None,
-                #                                                    addl_fluxes=addl_fluxes,
-                #                                                    addl_wavelengths=addl_wavelengths,
-                #                                                    addl_errors = addl_errors,
-                #                                                    sky_area=None,
-                #                                                    cosmo=None, lae_priors=None,
-                #                                                    ew_case=None, W_0=None,
-                #                                                    z_OII=None, sigma=None, estimate_error=True)
-
                 sdss_ratio, sdss_p_lae, sdss_p_oii, plae_errors = line_prob.mc_prob_LAE(wl_obs=self.w,
                                                                                    lineFlux=self.estflux,
                                                                                    lineFlux_err=self.estflux_unc,
                                                                                    continuum=self.sdss_cgs_cont,
-                                                                                   continuum_err=0.0, #todo: get error est for sdss gmag
+                                                                                   continuum_err=self.sdss_cgs_cont_unc,
                                                                                    c_obs=None, which_color=None,
                                                                                    addl_fluxes=[], addl_wavelengths=[],
                                                                                    sky_area=None,
@@ -3019,6 +3102,55 @@ class DetObj:
 
             except:
                 log.info("Exception in hetdex.py DetObj::get_probabilities() for sdss_gmag PLAE/POII: ", exc_info=True)
+
+        # check the sdss_gmag version
+        if self.hetdex_gmag_p_lae_oii_ratio is None:
+            try:
+
+                if self.spec_obj:
+                    addl_wavelengths = self.spec_obj.addl_wavelengths
+                    addl_fluxes = self.spec_obj.addl_fluxes
+                    addl_errors = self.spec_obj.addl_fluxerrs
+                else:
+                    addl_wavelengths = []
+                    addl_fluxes = []
+                    addl_errors = []
+
+                hetdex_ratio, hetdex_p_lae, hetdex_p_oii, plae_errors = line_prob.mc_prob_LAE(wl_obs=self.w,
+                                                                                        lineFlux=self.estflux,
+                                                                                        lineFlux_err=self.estflux_unc,
+                                                                                        continuum=self.hetdex_gmag_cgs_cont,
+                                                                                        continuum_err=self.hetdex_gmag_cgs_cont_unc,
+                                                                                        # todo: get error est for sdss gmag
+                                                                                        c_obs=None,
+                                                                                        which_color=None,
+                                                                                        addl_fluxes=[],
+                                                                                        addl_wavelengths=[],
+                                                                                        sky_area=None,
+                                                                                        cosmo=None,
+                                                                                        lae_priors=None,
+                                                                                        ew_case=None, W_0=None,
+                                                                                        z_OII=None, sigma=None)
+
+                self.hetdex_gmag_p_lae_oii_ratio = hetdex_ratio
+                try:
+                    if plae_errors and (len(plae_errors['ratio']) == 3):
+                        self.hetdex_gmag_p_lae_oii_ratio_range = plae_errors['ratio']
+                except:
+                    pass
+
+
+            except:
+                log.info("Exception in hetdex.py DetObj::get_probabilities() for hetdex full width PLAE/POII: ",
+                         exc_info=True)
+
+        #assign the "best"
+        if self.selected_best_gmag == "sdss":
+            self.best_gmag_p_lae_oii_ratio = self.sdss_gmag_p_lae_oii_ratio
+            self.best_gmag_p_lae_oii_ratio_range =  self.sdss_gmag_p_lae_oii_ratio_range
+        else:
+            self.best_gmag_p_lae_oii_ratio = self.hetdex_gmag_p_lae_oii_ratio
+            self.best_gmag_p_lae_oii_ratio_range =  self.hetdex_gmag_p_lae_oii_ratio_range
 
 
 
@@ -4495,7 +4627,7 @@ class HETDEX:
                                             e.line_gaussfit_unc[2]/e.line_gaussfit_parms[4]*G.HETDEX_FLUX_BASE_CGS))
                 #estcont_str = self.unc_str((e.line_gaussfit_parms[3]*1e-17,e.line_gaussfit_unc[3]*1e-17))
 
-                if e.using_sdss_gmag_ew:
+                if e.using_best_gmag_ew:
                     estcont_str = self.unc_str((e.cont_cgs, e.cont_cgs_unc))
                 else:
                     estcont_str = self.unc_str((e.cont_cgs, e.line_gaussfit_unc[3] * G.HETDEX_FLUX_BASE_CGS))
@@ -4524,22 +4656,22 @@ class HETDEX:
                     title += "\n"
                 title +=  "EstCont = %s" %(estcont_str)
 
-                if e.sdss_gmag is not None:
-                    if e.using_sdss_gmag_ew:
-                        #title += " (gmag %0.2f *)\n" % (e.sdss_gmag)
-                        if e.sdss_gmag_unc:
-                            title += r" (gmag $%0.2f\ ^{%0.2f}_{%0.2f}$ *)" % (e.sdss_gmag,
-                                                                                e.sdss_gmag+e.sdss_gmag_unc,
-                                                                                e.sdss_gmag-e.sdss_gmag_unc)
+                if e.best_gmag is not None:
+                    if e.using_best_gmag_ew:
+                        #title += " (gmag %0.2f *)\n" % (e.best_gmag)
+                        if e.best_gmag_unc:
+                            title += r" (gmag $%0.2f\ ^{%0.2f}_{%0.2f}$ *)" % (e.best_gmag,
+                                                                                e.best_gmag+e.best_gmag_unc,
+                                                                                e.best_gmag-e.best_gmag_unc)
                         else:
-                            title += " (gmag %0.2f *)" % (e.sdss_gmag)
+                            title += " (gmag %0.2f *)" % (e.best_gmag)
                     else:
-                        #title += " (gmag %0.2f)\n" %(e.sdss_gmag)
-                        if e.sdss_gmag_unc:
+                        #title += " (gmag %0.2f)\n" %(e.best_gmag)
+                        if e.best_gmag_unc:
                             title += r" (gmag $%0.2f\ ^{%0.2f}_{%0.2f}$)" % (
-                            e.sdss_gmag, e.sdss_gmag + e.sdss_gmag_unc, e.sdss_gmag - e.sdss_gmag_unc)
+                            e.best_gmag, e.best_gmag + e.best_gmag_unc, e.best_gmag - e.best_gmag_unc)
                         else:
-                            title += " (gmag %0.2f)" %(e.sdss_gmag)
+                            title += " (gmag %0.2f)" %(e.best_gmag)
                     title += "\n"
 
                 else:
@@ -4562,23 +4694,23 @@ class HETDEX:
 
                 title += "EstCont = %s" % (estcont_str)
 
-                if e.sdss_gmag is not None:
-                    if e.using_sdss_gmag_ew:
-                        #title += " (gmag %0.2f *)\n" % (e.sdss_gmag)
-                        if e.sdss_gmag_unc:
-                            title += r" (gmag $%0.2f\ ^{%0.2f}_{%0.2f}$ *)" % (e.sdss_gmag,
-                                                                                e.sdss_gmag + e.sdss_gmag_unc,
-                                                                                e.sdss_gmag - e.sdss_gmag_unc)
+                if e.best_gmag is not None:
+                    if e.using_best_gmag_ew:
+                        #title += " (gmag %0.2f *)\n" % (e.best_gmag)
+                        if e.best_gmag_unc:
+                            title += r" (gmag $%0.2f\ ^{%0.2f}_{%0.2f}$ *)" % (e.best_gmag,
+                                                                                e.best_gmag + e.best_gmag_unc,
+                                                                                e.best_gmag - e.best_gmag_unc)
                         else:
-                            title += " (gmag %0.2f *)" % (e.sdss_gmag)
+                            title += " (gmag %0.2f *)" % (e.best_gmag)
                     else:
-                        #title += " (gmag %0.2f)\n" %(e.sdss_gmag)
-                        if e.sdss_gmag_unc:
-                            title += r" (gmag $%0.2f\ ^{%0.2f}_{%0.2f}$)" % (e.sdss_gmag,
-                                                                                e.sdss_gmag + e.sdss_gmag_unc,
-                                                                                e.sdss_gmag - e.sdss_gmag_unc)
+                        #title += " (gmag %0.2f)\n" %(e.best_gmag)
+                        if e.best_gmag_unc:
+                            title += r" (gmag $%0.2f\ ^{%0.2f}_{%0.2f}$)" % (e.best_gmag,
+                                                                                e.best_gmag + e.best_gmag_unc,
+                                                                                e.best_gmag - e.best_gmag_unc)
                         else:
-                            title += " (gmag %0.2f)" % (e.sdss_gmag)
+                            title += " (gmag %0.2f)" % (e.best_gmag)
 
                     title += "\n"
                 else:
@@ -4606,23 +4738,23 @@ class HETDEX:
 
                 title += "EstCont = %s" % (estcont_str)
 
-                if e.sdss_gmag is not None:
-                    if e.using_sdss_gmag_ew:
-                        #title += " (gmag %0.2f *)\n" % (e.sdss_gmag)
-                        if e.sdss_gmag_unc:
-                            title += r" (gmag $%0.2f\ ^{%0.2f}_{%0.2f}$ *)" % (e.sdss_gmag,
-                                                                                e.sdss_gmag + e.sdss_gmag_unc,
-                                                                                e.sdss_gmag - e.sdss_gmag_unc)
+                if e.best_gmag is not None:
+                    if e.using_best_gmag_ew:
+                        #title += " (gmag %0.2f *)\n" % (e.best_gmag)
+                        if e.best_gmag_unc:
+                            title += r" (gmag $%0.2f\ ^{%0.2f}_{%0.2f}$ *)" % (e.best_gmag,
+                                                                                e.best_gmag + e.best_gmag_unc,
+                                                                                e.best_gmag - e.best_gmag_unc)
                         else:
-                            title += " (gmag %0.2f *)" % (e.sdss_gmag)
+                            title += " (gmag %0.2f *)" % (e.best_gmag)
                     else:
-                        #title += " (gmag %0.2f)\n" %(e.sdss_gmag)
-                        if e.sdss_gmag_unc:
-                            title += r" (gmag $%0.2f\ ^{%0.2f}_{%0.2f}$)" % (e.sdss_gmag,
-                                                                                e.sdss_gmag + e.sdss_gmag_unc,
-                                                                                e.sdss_gmag - e.sdss_gmag_unc)
+                        #title += " (gmag %0.2f)\n" %(e.best_gmag)
+                        if e.best_gmag_unc:
+                            title += r" (gmag $%0.2f\ ^{%0.2f}_{%0.2f}$)" % (e.best_gmag,
+                                                                                e.best_gmag + e.best_gmag_unc,
+                                                                                e.best_gmag - e.best_gmag_unc)
                         else:
-                            title += " (gmag %0.2f)" % (e.sdss_gmag)
+                            title += " (gmag %0.2f)" % (e.best_gmag)
                     title += "\n"
                 else:
                     title += "\n"
@@ -4644,23 +4776,23 @@ class HETDEX:
                 #title +=  "EstCont = %s  \nEW_r(LyA) = %s$\AA$\n" % (estcont_str, eqw_lya_str)
                 title += "EstCont = %s" % (estcont_str)
 
-                if e.sdss_gmag is not None:
-                    if e.using_sdss_gmag_ew:
-                        #title += " (gmag %0.2f *)\n" % (e.sdss_gmag)
-                        if e.sdss_gmag_unc:
-                            title += r" (gmag $%0.2f\ ^{%0.2f}_{%0.2f}$ *)" % (e.sdss_gmag,
-                                                                                e.sdss_gmag + e.sdss_gmag_unc,
-                                                                                e.sdss_gmag - e.sdss_gmag_unc)
+                if e.best_gmag is not None:
+                    if e.using_best_gmag_ew:
+                        #title += " (gmag %0.2f *)\n" % (e.best_gmag)
+                        if e.best_gmag_unc:
+                            title += r" (gmag $%0.2f\ ^{%0.2f}_{%0.2f}$ *)" % (e.best_gmag,
+                                                                                e.best_gmag + e.best_gmag_unc,
+                                                                                e.best_gmag - e.best_gmag_unc)
                         else:
-                            title += " (gmag %0.2f *)" % (e.sdss_gmag)
+                            title += " (gmag %0.2f *)" % (e.best_gmag)
                     else:
-                        #title += " (gmag %0.2f)\n" %(e.sdss_gmag)
-                        if e.sdss_gmag_unc:
-                            title += r" (gmag $%0.2f\ ^{%0.2f}_{%0.2f}$)" % (e.sdss_gmag,
-                                                                                e.sdss_gmag + e.sdss_gmag_unc,
-                                                                                e.sdss_gmag - e.sdss_gmag_unc)
+                        #title += " (gmag %0.2f)\n" %(e.best_gmag)
+                        if e.best_gmag_unc:
+                            title += r" (gmag $%0.2f\ ^{%0.2f}_{%0.2f}$)" % (e.best_gmag,
+                                                                                e.best_gmag + e.best_gmag_unc,
+                                                                                e.best_gmag - e.best_gmag_unc)
                         else:
-                            title += " (gmag %0.2f)" % (e.sdss_gmag)
+                            title += " (gmag %0.2f)" % (e.best_gmag)
                     title += "\n"
                 else:
                     title += "\n"
@@ -4697,14 +4829,14 @@ class HETDEX:
                 except:
                     title += "\n" + "\nP(LAE)/P(OII): %.4g" % (round(e.p_lae_oii_ratio,3))
 
-                if (not e.using_sdss_gmag_ew) and (e.sdss_gmag_p_lae_oii_ratio_range is not None):
+                if (not e.using_best_gmag_ew) and (e.best_gmag_p_lae_oii_ratio_range is not None):
                     try:
-                        title += " (gmag: $%.4g\ ^{%.4g}_{%.4g}$)" % (round(e.sdss_gmag_p_lae_oii_ratio_range[0], 3),
-                                                                      round(e.sdss_gmag_p_lae_oii_ratio_range[2], 3),
-                                                                      round(e.sdss_gmag_p_lae_oii_ratio_range[1], 3))
+                        title += " (gmag: $%.4g\ ^{%.4g}_{%.4g}$)" % (round(e.best_gmag_p_lae_oii_ratio_range[0], 3),
+                                                                      round(e.best_gmag_p_lae_oii_ratio_range[2], 3),
+                                                                      round(e.best_gmag_p_lae_oii_ratio_range[1], 3))
                     except:
                         log.debug("SDSS gmag PLAE title exception",exc_info=True)
-                        title += " (gmag %.4g)" % round(e.sdss_gmag_p_lae_oii_ratio,3)
+                        title += " (gmag %.4g)" % round(e.best_gmag_p_lae_oii_ratio,3)
 
                 if G.DISPLAY_PSEUDO_COLOR:
                     if e.rvb is not None:
