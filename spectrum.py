@@ -313,7 +313,11 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None):
             mag = -2.5*np.log10(SU.cgs2ujy(band_flux_density,f_lam_iso) / 1e6 / 3631.)
             mag_bright = -2.5 * np.log10(SU.cgs2ujy(band_flux_density+band_flux_density_err, f_lam_iso) / 1e6 / 3631.)
             mag_faint = -2.5 * np.log10(SU.cgs2ujy(band_flux_density-band_flux_density_err, f_lam_iso) / 1e6 / 3631.)
-            mag_err = 0.5 * (mag_faint-mag_bright) #not symmetric, but this is roughly close enough
+            if np.isnan(mag_faint):
+                log.debug("Warning. HETDEX full spectrum mag estimate is invalid on the faint end.")
+                mag_err = mag - mag_bright
+            else:
+                mag_err = 0.5 * (mag_faint-mag_bright) #not symmetric, but this is roughly close enough
         else:
             log.info("HETDEX full width gmag, continuum estimate below flux limit. Setting None.")
             return None, band_flux_density, None, band_flux_density_err

@@ -2713,7 +2713,7 @@ class DetObj:
                 self.best_eqw_gmag_obs = self.eqw_sdss_obs
                 self.best_eqw_gmag_obs_unc = self.eqw_sdss_obs_unc
                 log.debug("Using SDSS gmag over HETDEX full width gmag")
-            else:
+            elif hetdex_okay > 0:
                 self.selected_best_gmag = 'hetdex'
                 self.best_gmag = self.hetdex_gmag
                 self.best_gmag_unc = self.hetdex_gmag_unc
@@ -2722,28 +2722,35 @@ class DetObj:
                 self.best_eqw_gmag_obs = self.eqw_hetdex_gmag_obs
                 self.best_eqw_gmag_obs_unc = self.eqw_hetdex_gmag_obs_unc
                 log.debug("Using HETDEX full width gmag over SDSS gmag.")
+            else:
+                log.debug("No full width spectrum g-mag estimate is valid.")
+                self.selected_best_gmag = 'limit'
+                self.best_gmag = G.HETDEX_CONTINUUM_MAG_LIMIT
+                self.best_gmag_unc = 0
+                self.best_gmag_cgs_cont = G.HETDEX_CONTINUUM_FLUX_LIMIT
+                self.best_gmag_cgs_cont_unc = 0
+                self.best_eqw_gmag_obs =  self.estflux / self.best_gmag_cgs_cont
+                self.best_eqw_gmag_obs_unc = 0
 
             try:
                 self.hetdex_cont_cgs = self.cont_cgs
                 self.hetdex_cont_cgs_unc = self.cont_cgs_unc
 
                 if self.cont_cgs == -9999: #still unset ... weird?
-                    log.warning("Warning! HETDEX continuum estimate not set. Using best gmag for estimate(%g,+/- %g)."
+                    log.warning("Warning! HETDEX continuum estimate not set. Using best gmag for estimate(%g +/- %g)."
                                 %(self.best_gmag_cgs_cont,self.best_gmag_cgs_cont_unc))
 
-                    if self.best_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT:
-                        self.cont_cgs = self.best_gmag_cgs_cont
-                        self.cont_cgs_unc = self.best_gmag_cgs_cont_unc
-                        self.using_best_gmag_ew = True
+                    self.cont_cgs = self.best_gmag_cgs_cont
+                    self.cont_cgs_unc = self.best_gmag_cgs_cont_unc
+                    self.using_best_gmag_ew = True
 
                 elif self.cont_cgs <= 0.0:
-                    log.warning("Warning! HETDEX continuum <= 0.0. Using best gmag for estimate (%g,+/- %g)."
+                    log.warning("Warning! HETDEX continuum <= 0.0. Using best gmag for estimate (%g +/- %g)."
                                 %(self.best_gmag_cgs_cont,self.best_gmag_cgs_cont_unc))
 
-                    if self.best_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT:
-                        self.cont_cgs = self.best_gmag_cgs_cont
-                        self.cont_cgs_unc = self.best_gmag_cgs_cont_unc
-                        self.using_best_gmag_ew = True
+                    self.cont_cgs = self.best_gmag_cgs_cont
+                    self.cont_cgs_unc = self.best_gmag_cgs_cont_unc
+                    self.using_best_gmag_ew = True
 
             except:
                 pass
