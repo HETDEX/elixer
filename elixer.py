@@ -997,6 +997,7 @@ def join_report_parts(report_name, bid_count=0):
 
             scale = 1.0 #full scale
             y_offset = 0
+
             #need to count backward ... position 0,0 is the bottom of the page
             #each additional "page" is advanced in y by the y height of the previous "page"
             for i in range(len(merge_page) - 1, -1, -1):
@@ -1004,7 +1005,10 @@ def join_report_parts(report_name, bid_count=0):
                 page.scale(scale)
                 page.x = 0
                 page.y = y_offset
-                y_offset = scale* page.box[3] #box is [x0,y0,x_top, y_top]
+                if (i == 1) and (G.ZEROTH_ROW_HEADER):
+                    y_offset = scale * (page.box[3] - 20.0) #trim excess vertical space from the zeroth row header
+                else:
+                    y_offset = scale* page.box[3] #box is [x0,y0,x_top, y_top]
 
             if not report_name.endswith(".pdf"):
                 report_name += ".pdf"
@@ -3086,21 +3090,20 @@ def main():
         #need to combine PLAE/POII and other classification data before joining report parts
         if G.COMBINE_PLAE:
             for h in hd_list:
-                for e in h.emis_list: #todo: do something with this ....
-
-
-                    if False:
-                        plae, plae_sd, size_in_psf = e.combine_all_plae()
-                        #print(f"{e.entry_id} Combined PLAE/POII: {plae} +/- {plae_sd}")
-                        #combine with other info (ELiXer solution finder, etc) to make a judgement?
+                for e in h.emis_list:
+                    if True:
+                        plae, plae_sd, size_in_psf = e.combine_all_plae(use_continuum=True)
                         if G.AGGREGATE_PLAE_CLASSIFICATION:
                             scale_plae = e.aggregate_classification()
+
+                            if (scale_plae is None) or np.isnan(scale_plae):
+                                scale_plae = -99.0
 
                         if G.ZEROTH_ROW_HEADER:
                             header_text = ""
                             if (scale_plae is not None) and (not np.isnan(scale_plae)):
                                 try:
-                                    header_text = f"Combined Classification P(LAE): {scale_plae * 100.:0.2f}%"
+                                    header_text = f"Combined Classification P(LAE): {scale_plae :0.4f}"
                                 except:
                                     pass
                             try:

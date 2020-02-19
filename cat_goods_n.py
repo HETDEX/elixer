@@ -756,7 +756,7 @@ class GOODS_N(cat_base.Catalog):
         #     text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)"
         #                   % (best_plae_poii, best_plae_poii_filter))
 
-        if (not G.ZOO) and (bid_target is not None) and (best_plae_poii is not None):
+        if (not G.ZOO) and (best_plae_poii is not None):
             try:
                 text.set_text(
                     text.get_text() + "  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$ (%s)" %

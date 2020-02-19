@@ -497,6 +497,19 @@ class DECaLS(cat_base.Catalog):#DECaLS
                     # if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
                     #     text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)" % (bid_target.p_lae_oii_ratio,f))
 
+                    if (not G.ZOO) and (best_plae_poii is not None):
+                        try:
+                            text.set_text(
+                                text.get_text() + "  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$ (%s)" %
+                                (round(best_plae_poii, 3),
+                                 round(best_plae_range[2], 3),
+                                 round(best_plae_range[1], 3),
+                                 best_plae_poii_filter))
+                        except:
+                            log.debug("Exception adding PLAE with range", exc_info=True)
+                            text.set_text(text.get_text() + "  P(LAE)/P(OII): %0.4g (%s)" % (
+                            best_plae_poii, best_plae_poii_filter))
+
                     cat_match.add_bid_target(bid_target)
             except:
                 log.debug('Could not build exact location photometry info.', exc_info=True)
