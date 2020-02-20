@@ -1438,11 +1438,14 @@ class DetObj:
                             lam = self.w #to be consistent with the use in PLAE/POII
 
                             cont = SU.mag2cgs(a['mag'],lam)
-                            cont_hi = SU.mag2cgs(a['mag']-a['mag_err'],lam)#SU.mag2cgs(a['mag_bright'],lam)
-                            cont_lo =  SU.mag2cgs(a['mag']+a['mag_err'],lam)#SU.mag2cgs(a['mag_faint'],lam)
-                            cont_var = avg_var(cont,cont_lo,cont_hi)
+                            if a['mag_err'] is not None:
+                                cont_hi = SU.mag2cgs(a['mag']-a['mag_err'],lam)#SU.mag2cgs(a['mag_bright'],lam)
+                                cont_lo =  SU.mag2cgs(a['mag']+a['mag_err'],lam)#SU.mag2cgs(a['mag_faint'],lam)
+                                cont_var = avg_var(cont,cont_lo,cont_hi)
+                            else:
+                                cont_var = avg_var(cont, cont, cont) #treat as a bogus zero error
 
-                            if a['mag_err']==0:
+                            if (a['mag_err'] is None) or (a['mag_err']==0):
                                 weight.append(0.2) #probably below the flux limit, so weight low
                             else:
                                 weight.append(1.0)

@@ -778,7 +778,10 @@ def append_entry(fileh,det,overwrite=False):
                 row['sky_cts'] = d['sky_counts']
                 row['sky_average'] = d['sky_average']
                 row['eqw_rest_lya'] = d['aperture_eqw_rest_lya']
-                row['eqw_rest_lya_err'] = d['aperture_eqw_rest_lya_err']
+                try:
+                    row['eqw_rest_lya_err'] = d['aperture_eqw_rest_lya_err']
+                except:
+                    pass
                 row['plae'] = d['aperture_plae']
                 try: #key might not exist
                     row['plae_max'] = d['aperture_plae_max']
