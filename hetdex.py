@@ -585,7 +585,7 @@ class DetObj:
         self.best_gmag_p_lae_oii_ratio = None
         self.best_gmag_p_lae_oii_ratio_range = None
         self.using_best_gmag_ew = False
-        self.selected_best_gmag = "" #to be filled in with sdss or hetdex later
+        self.best_gmag_selected = "" #to be filled in with sdss or hetdex later
 
         self.duplicate_fibers_removed = 0 # -1 is detected, but not removed, 0 = none found, 1 = detected and removed
 
@@ -1435,8 +1435,8 @@ class DetObj:
                             lam = self.w #to be consistent with the use in PLAE/POII
 
                             cont = SU.mag2cgs(a['mag'],lam)
-                            cont_hi = SU.mag2cgs(a['mag_bright'],lam)
-                            cont_lo = SU.mag2cgs(a['mag_faint'],lam)
+                            cont_hi = SU.mag2cgs(a['mag']-a['mag_err'],lam)#SU.mag2cgs(a['mag_bright'],lam)
+                            cont_lo =  SU.mag2cgs(a['mag']+a['mag_err'],lam)#SU.mag2cgs(a['mag_faint'],lam)
                             cont_var = avg_var(cont,cont_lo,cont_hi)
 
                             continuum.append(cont)
@@ -2705,7 +2705,7 @@ class DetObj:
 
             #choose the best
             if sdss_okay >= hetdex_okay:
-                self.selected_best_gmag = 'sdss'
+                self.best_gmag_selected = 'sdss'
                 self.best_gmag = self.sdss_gmag
                 self.best_gmag_unc = self.sdss_gmag_unc
                 self.best_gmag_cgs_cont = self.sdss_cgs_cont
@@ -2714,7 +2714,7 @@ class DetObj:
                 self.best_eqw_gmag_obs_unc = self.eqw_sdss_obs_unc
                 log.debug("Using SDSS gmag over HETDEX full width gmag")
             elif hetdex_okay > 0:
-                self.selected_best_gmag = 'hetdex'
+                self.best_gmag_selected = 'hetdex'
                 self.best_gmag = self.hetdex_gmag
                 self.best_gmag_unc = self.hetdex_gmag_unc
                 self.best_gmag_cgs_cont = self.hetdex_gmag_cgs_cont
@@ -2724,7 +2724,7 @@ class DetObj:
                 log.debug("Using HETDEX full width gmag over SDSS gmag.")
             else:
                 log.debug("No full width spectrum g-mag estimate is valid.")
-                self.selected_best_gmag = 'limit'
+                self.best_gmag_selected = 'limit'
                 self.best_gmag = G.HETDEX_CONTINUUM_MAG_LIMIT
                 self.best_gmag_unc = 0
                 self.best_gmag_cgs_cont = G.HETDEX_CONTINUUM_FLUX_LIMIT
@@ -3152,7 +3152,7 @@ class DetObj:
                          exc_info=True)
 
         #assign the "best"
-        if self.selected_best_gmag == "sdss":
+        if self.best_gmag_selected == "sdss":
             self.best_gmag_p_lae_oii_ratio = self.sdss_gmag_p_lae_oii_ratio
             self.best_gmag_p_lae_oii_ratio_range =  self.sdss_gmag_p_lae_oii_ratio_range
         else:

@@ -1311,10 +1311,25 @@ class science_image():
                 radius += step
                 # end while loop
 
-            mag = max_bright
-            counts = max_counts
-            radius = max_radius
-            source_aperture_area = max_area_pix
+            if max_bright > 99 and len(mag_list) == 2:
+                #this only had one aperture, but the max did not get updated as was an immediate exit
+                try:
+                    mag = elixer_aperture_list[-1]['mag']
+                    counts = elixer_aperture_list[-1]['aperture_counts']
+                    radius = elixer_aperture_list[-1]['radius']
+                    source_aperture_area = elixer_aperture_list[-1]['area_pix']
+                    details['elixer_aper_idx']=elixer_aperture_list[-1]['idx']
+
+                except:
+                    mag = max_bright
+                    counts = max_counts
+                    radius = max_radius
+                    source_aperture_area = max_area_pix
+            else:
+                mag = max_bright
+                counts = max_counts
+                radius = max_radius
+                source_aperture_area = max_area_pix
             # selected from HERE, but might not be the final reported aperture from the outer caller
             try:
                 elixer_aperture_list[details['elixer_aper_idx']]['selected'] = True
@@ -1478,8 +1493,10 @@ class science_image():
 
                     if sky_mag_faint < 99:
                         mag_err = max((sky_mag_faint-sky_mag),(sky_mag-sky_mag_bright))
-                    else:
+                    elif sky_mag < 99:
                         mag_err = sky_mag-sky_mag_bright
+                    else: #can't get mag on the sky only ... below limit
+                        mag_err = 5.0 #something kind of reasonable, 100 orders of magnitdue
 
                     #mag should now be fainter (usually ... could have slightly negative sky?)
                     #the photometry should have pretty good sky subtration ... but what if we are on a faint object
@@ -1504,8 +1521,8 @@ class science_image():
                     elixer_aperture['sky_err'] = sky_err
                     elixer_aperture['mag'] = mag
                     elixer_aperture['mag_err'] = mag_err
-                    elixer_aperture['mag_bright'] = sky_mag_bright
-                    elixer_aperture['mag_faint'] = sky_mag_faint
+                    elixer_aperture['mag_bright'] = min(sky_mag_bright,mag)
+                    elixer_aperture['mag_faint'] = max(sky_mag_faint,mag)
 
             except:
                 #print("Sky Mask Problem ....")
