@@ -655,7 +655,7 @@ class STACK_COSMOS(cat_base.Catalog):
             # sci.load_image(wcs_manual=True)
             cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error, window=window,
                                                      aperture=aperture,mag_func=mag_func,return_details=True)
-            if self.MAG_LIMIT < mag < 100:
+            if (self.MAG_LIMIT < mag < 100) and (mag_radius > 0):
                 log.warning(f"Cutout mag {mag} greater than limit {self.MAG_LIMIT}. Setting to limit.")
                 mag = self.MAG_LIMIT
                 if details:
@@ -779,7 +779,7 @@ class STACK_COSMOS(cat_base.Catalog):
                     cutout_ewr = ew_obs / (1. + target_w / G.LyA_rest)
                     cutout_ewr_err = ew_obs_err / (1. + target_w / G.LyA_rest)
 
-                    if best_plae_poii is None or i['filter'] == 'r':
+                    if best_plae_poii is None or i['filter'] == 'g': #favor g over r
                         best_plae_poii = bid_target.p_lae_oii_ratio
                         best_plae_poii_filter = i['filter']
                         if plae_errors:

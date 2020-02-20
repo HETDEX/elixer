@@ -558,7 +558,7 @@ class DECALS(cat_base.Catalog):
             # sci.load_image(wcs_manual=True)
             cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error, window=window,
                                                      aperture=aperture,mag_func=mag_func,return_details=True)
-            if mag > self.MAG_LIMIT:
+            if (self.MAG_LIMIT < mag < 100) and (mag_radius > 0):
                 log.warning(f"Cutout mag {mag} greater than limit {self.MAG_LIMIT}. Setting to limit.")
                 mag = self.MAG_LIMIT
                 if details:

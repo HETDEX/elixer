@@ -680,7 +680,7 @@ class science_image():
                    'area_pix':None,'sky_area_pix':None,
                    'aperture_counts':None, #adjusted ... sky subtracted If applicable
                    'sky_counts':None, 'sky_average':None,
-                   'aperture_eqw_rest_lya':None,'aperture_plae':None,
+                   'aperture_eqw_rest_lya':None,'aperture_eqw_rest_lya_err':None,'aperture_plae':None,
                    'elixer_apertures':None,'elixer_aper_idx':None,
                    'sep_objects':None,'sep_obj_idx':None}
 

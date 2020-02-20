@@ -838,7 +838,7 @@ class SHELA(cat_base.Catalog):
             cutout, pix_counts, mag, mag_radius,details = sci.get_cutout(ra, dec, error, window=window,
                                                      aperture=aperture,mag_func=mag_func,return_details=True)
 
-            if mag > self.MAG_LIMIT:
+            if (self.MAG_LIMIT < mag < 100) and (mag_radius > 0):
                 log.warning(f"Cutout mag {mag} greater than limit {self.MAG_LIMIT}. Setting to limit.")
                 mag = self.MAG_LIMIT
                 if details:
@@ -964,7 +964,7 @@ class SHELA(cat_base.Catalog):
                     cutout_ewr = ew_obs / (1. + target_w / G.LyA_rest)
                     cutout_ewr_err = ew_obs_err / (1. + target_w / G.LyA_rest)
 
-                    if best_plae_poii is None or i['filter'] == 'r':
+                    if best_plae_poii is None or i['filter'] == 'g': #favor g over r
                         best_plae_poii = bid_target.p_lae_oii_ratio
                         best_plae_poii_filter = i['filter']
                         if plae_errors:
@@ -980,17 +980,19 @@ class SHELA(cat_base.Catalog):
             except:
                 log.debug('Could not build exact location photometry info.', exc_info=True)
 
-            if (not G.ZOO) and (bid_target is not None) and (best_plae_poii is not None):
+            if (not G.ZOO) and (bid_target is not None) and (i['filter'] in 'gr'):
                 try:
                     text.set_text(
                         text.get_text() + "  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$ (%s)" %
-                            (round(best_plae_poii, 3),
-                             round(best_plae_range[2], 3),
-                             round(best_plae_range[1], 3),
-                             best_plae_poii_filter))
+                            (round(bid_target.p_lae_oii_ratio, 3),
+                             round(bid_target.p_lae_oii_ratio_max, 3),
+                             round(bid_target.p_lae_oii_ratio_min, 3),
+                             i['filter']))
                 except:
                     log.debug("Exception adding PLAE with range",exc_info=True)
-                    text.set_text(text.get_text() + "  P(LAE)/P(OII): %0.4g (%s)" % (best_plae_poii,best_plae_poii_filter))
+                    text.set_text(text.get_text() + "  P(LAE)/P(OII): %0.4g (%s)" %
+                                  (bid_target.p_lae_oii_ratio,i['filter']))
+
 
             if cutout is not None:  # construct master cutout
                 # 1st cutout might not be what we want for the master (could be a summary image from elsewhere)

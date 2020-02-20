@@ -548,7 +548,7 @@ class GOODS_N(cat_base.Catalog):
                                                      aperture=aperture, mag_func=mag_func,
                                                     do_sky_subtract=do_sky_subtract,return_details=True)
 
-            if mag > self.MAG_LIMIT:
+            if (self.MAG_LIMIT < mag < 100) and (mag_radius > 0):
                 log.warning(f"Cutout mag {mag} greater than limit {self.MAG_LIMIT}. Setting to limit.")
                 mag = self.MAG_LIMIT
                 if details:
