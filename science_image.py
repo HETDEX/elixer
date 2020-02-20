@@ -692,7 +692,7 @@ class science_image():
         self.last_y0_center = None
         cutout = None
         counts = None #raw data counts in aperture
-        mag = 999.9 #aperture converted to mag_AB
+        mag = 10000. #aperture converted to mag_AB
 
         if (aperture is not None) and (mag_func is not None):
             radius = aperture
