@@ -117,6 +117,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
     mean_FWHM = 0.15 #typical use for photometric aperture, but is too good here ... objects that are point
                     #sources may be resolved with HST
 
+    MAG_LIMIT = 29.0 #not quite
     WCS_Manual = False#True
     EXPTIME_F606W = 289618.0
     CONT_EST_BASE = 3.3e-21
@@ -666,6 +667,16 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             cutout, pix_counts, mag, mag_radius,details = sci.get_cutout(ra, dec, error, window=window,
                                                      aperture=aperture,mag_func=mag_func,
                                                      do_sky_subtract=do_sky_subtract,return_details=True)
+            if mag > self.MAG_LIMIT:
+                log.warning(f"Cutout mag {mag} greater than limit {self.MAG_LIMIT}. Setting to limit.")
+                mag = self.MAG_LIMIT
+                if details:
+                    details['mag'] = mag
+                    try:
+                        details['mag_bright'] = min(mag,details['mag_bright'])
+                    except:
+                        pass
+
             bid_target = None
             cutout_ewr = None
             cutout_ewr_err = None

@@ -81,6 +81,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
     Name = "DECaLS"
     Filters = ['g','r','z'] #case is important ... needs to be lowercase
     WCS_Manual = False
+    MAG_LIMIT = 24.5 #closer to 24 for g (23.few for r)
 
     # Cat_Coord_Range = {'RA_min': 188.915597, 'RA_max': 192.563471, 'Dec_min': 0.091438, 'Dec_max': 2.388316}
     # Image_Coord_Range = {'RA_min': 0.0, 'RA_max': 358.9563471, 'Dec_min': -80.0, 'Dec_max': 80.0}
@@ -370,6 +371,17 @@ class DECaLS(cat_base.Catalog):#DECaLS
             # sci.load_image(wcs_manual=True)
             cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error, window=window,
                                                      aperture=aperture,mag_func=mag_func,return_details=True)
+
+            if mag > self.MAG_LIMIT:
+                log.warning(f"Cutout mag {mag} greater than limit {self.MAG_LIMIT}. Setting to limit.")
+                mag = self.MAG_LIMIT
+                if details:
+                    details['mag'] = mag
+                    try:
+                        details['mag_bright'] = min(mag,details['mag_bright'])
+                    except:
+                        pass
+
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
             bid_target = None

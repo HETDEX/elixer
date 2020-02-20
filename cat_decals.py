@@ -51,6 +51,7 @@ class DECALS(cat_base.Catalog):
     DECALS_CAT_PATH = G.DECALS_CAT_PATH
     DECALS_IMAGE_PATH = G.DECALS_IMAGE_PATH
 
+    MAG_LIMIT = 24.5 #closer to 24 for g ans 23.few for r
     CONT_EST_BASE = None
 
     df = None
@@ -557,6 +558,16 @@ class DECALS(cat_base.Catalog):
             # sci.load_image(wcs_manual=True)
             cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error, window=window,
                                                      aperture=aperture,mag_func=mag_func,return_details=True)
+            if mag > self.MAG_LIMIT:
+                log.warning(f"Cutout mag {mag} greater than limit {self.MAG_LIMIT}. Setting to limit.")
+                mag = self.MAG_LIMIT
+                if details:
+                    details['mag'] = mag
+                    try:
+                        details['mag_bright'] = min(mag,details['mag_bright'])
+                    except:
+                        pass
+
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
             bid_target = None

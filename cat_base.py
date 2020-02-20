@@ -115,6 +115,7 @@ class Catalog:
 
         #blue, red, green, white
         self.colormap = [[0, 0, 1,1], [1, 0, 0,1], [0, .85, 0,1], [1, 1, 1,0.7]]
+        MAG_LIMIT = 33.0 #just to set a value
 
 
     @property

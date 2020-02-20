@@ -174,6 +174,7 @@ class STACK_COSMOS(cat_base.Catalog):
     STACK_COSMOS_CAT = op.join(G.STACK_COSMOS_CAT_PATH, "cat_g.fits")
     STACK_COSMOS_IMAGE_PATH = G.STACK_COSMOS_BASE_PATH
     #STACK_COSMOS_IMAGE = op.join(STACK_COSMOS_IMAGE_PATH, "COSMOS_g_sci.fits")
+    MAG_LIMIT = 27.0 #very generous
 
     MainCatalog = STACK_COSMOS_CAT
     Name = "STACK_COSMOS"
@@ -654,6 +655,15 @@ class STACK_COSMOS(cat_base.Catalog):
             # sci.load_image(wcs_manual=True)
             cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error, window=window,
                                                      aperture=aperture,mag_func=mag_func,return_details=True)
+            if mag > self.MAG_LIMIT:
+                log.warning(f"Cutout mag {mag} greater than limit {self.MAG_LIMIT}. Setting to limit.")
+                mag = self.MAG_LIMIT
+                if details:
+                    details['mag'] = mag
+                    try:
+                        details['mag_bright'] = min(mag,details['mag_bright'])
+                    except:
+                        pass
 
             bid_target = None
             cutout_ewr = None

@@ -1,9 +1,10 @@
 changes to elixer by version
 
-1.8.1a7 [2020-02-17]
-* experiment: combine PLAE/POII (excluding catalog match) and then combine with spatial extent and multi-line
+1.8.1a7 [2020-02-20]
+* 1st generation: combine PLAE/POII (excluding catalog match) and then combine with spatial extent and multi-line
     solutions to make a single classification call (PLAE or not)
 * corrected (fairly small) bug in sdss gmag to continuum conversion
+* set (generous) mag limits as a safety catch
 
 1.8.1a6 [2020-02-12]
 * add high and low PLAE/POII error range to all report PLAE/POII positions (default 68% confidence interval)

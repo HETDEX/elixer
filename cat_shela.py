@@ -74,6 +74,7 @@ class SHELA(cat_base.Catalog):
     SHELA_BASE_PATH = G.SHELA_BASE_PATH
     SHELA_CAT_PATH = G.SHELA_CAT_PATH
     SHELA_IMAGE_PATH = G.DECAM_IMAGE_PATH#G.SHELA_BASE_PATH
+    MAG_LIMIT = 25.0 #closer to 24.7
 
     #not all tiles have all filters
     Filters = ['u','g','r','i','z']
@@ -836,6 +837,17 @@ class SHELA(cat_base.Catalog):
             # sci.load_image(wcs_manual=True)
             cutout, pix_counts, mag, mag_radius,details = sci.get_cutout(ra, dec, error, window=window,
                                                      aperture=aperture,mag_func=mag_func,return_details=True)
+
+            if mag > self.MAG_LIMIT:
+                log.warning(f"Cutout mag {mag} greater than limit {self.MAG_LIMIT}. Setting to limit.")
+                mag = self.MAG_LIMIT
+                if details:
+                    details['mag'] = mag
+                    try:
+                        details['mag_bright'] = min(mag,details['mag_bright'])
+                    except:
+                        pass
+
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
             bid_target = None

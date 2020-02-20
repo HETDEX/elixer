@@ -104,6 +104,8 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
     HSC_CAT_PATH = G.HSC_CAT_PATH
     HSC_IMAGE_PATH = G.HSC_IMAGE_PATH
 
+    MAG_LIMIT = 27.0 #generous, closer to 26.5
+
     mean_FWHM = 1.0 #average 0.6 to 1.0
 
     CONT_EST_BASE = None
@@ -915,6 +917,16 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             # sci.load_image(wcs_manual=True)
             cutout, pix_counts, mag, mag_radius,details = sci.get_cutout(ra, dec, error, window=window,
                                                      aperture=aperture,mag_func=mag_func,return_details=True)
+
+            if mag > self.MAG_LIMIT:
+                log.warning(f"Cutout mag {mag} greater than limit {self.MAG_LIMIT}. Setting to limit.")
+                mag = self.MAG_LIMIT
+                if details:
+                    details['mag'] = mag
+                    try:
+                        details['mag_bright'] = min(mag,details['mag_bright'])
+                    except:
+                        pass
 
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 

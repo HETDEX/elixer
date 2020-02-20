@@ -1226,12 +1226,15 @@ class DetObj:
 
         def avg_var(val,val_min, val_max):
             # assumes 1-sigma error and symmetric (Gaussian-like) error
-            pseduo_sd = 0.5 * abs(val_max-val_min)
-            if pseduo_sd == 0: #assume a 33% std deviation (or (.1*var) ... so variance == (0.1*val)**2)
-                log.debug("pseudo-sd == 0, so setting to 1/3 of value")
-                return 0.11 * val * val #0.11 is ~ 0.33**2
-            else:
-                return pseduo_sd*pseduo_sd
+            try:
+                pseduo_sd = 0.5 * abs(val_max-val_min)
+                if (pseduo_sd == 0) or (abs(np.log10(val)-np.log10(pseduo_sd)) > 3.): #assume a 33% std deviation (or (.1*var) ... so variance == (0.1*val)**2)
+                    log.debug("hetdex::combine_all_continuum, pseudo-sd == 0, so setting to value")
+                    return val * val #0.11 is ~ 0.33**2
+                else:
+                    return pseduo_sd*pseduo_sd
+            except:
+                return val * val #0.11 is ~ 0.33**2
 
         continuum = []
         variance = [] #variance or variance proxy
@@ -1373,7 +1376,7 @@ class DetObj:
                         #     variance.append(self.sdss_cgs_cont_unc * self.sdss_cgs_cont_unc)
                         # else:
                         #     variance.append(cgs_limit * cgs_limit)  # set to itself as a big error
-                        weight.append(0.2)  # never very high
+                        weight.append(0.5)  # below limit
 
                         log.debug(f"{self.entry_id} Combine ALL Continuum: Failed SDSS gmag estimate, setting to lower limit "
                                   f"({continuum[-1]:#.4g}) "
@@ -1439,9 +1442,12 @@ class DetObj:
                             cont_lo =  SU.mag2cgs(a['mag']+a['mag_err'],lam)#SU.mag2cgs(a['mag_faint'],lam)
                             cont_var = avg_var(cont,cont_lo,cont_hi)
 
-                            continuum.append(cont)
+                            if a['mag_err']==0:
+                                weight.append(0.2) #probably below the flux limit, so weight low
+                            else:
+                                weight.append(1.0)
                             variance.append(cont_var)
-                            weight.append(1.0)
+                            continuum.append(cont)
 
                             log.debug(
                                 f"{self.entry_id} Combine ALL Continuum: Added imaging estimate ({continuum[-1]:#.4g}) "

@@ -1116,8 +1116,8 @@ class science_image():
             return cutout, counts, mag, radius
 
     # TODO: !!!!!
-    def get_circular_aperture_photometry(self,cutout,ra,dec,error,mag_func,position,do_sky_subtract,
-                                         image,sky_image,sky_inner_radius,sky_outer_radius,aperture,
+    def get_circular_aperture_photometry(self,cutout,ra,dec,error,mag_func,position,image,do_sky_subtract,
+                                         sky_image,sky_inner_radius,sky_outer_radius,aperture,
                                          details,return_details):
         """
 
@@ -1496,7 +1496,8 @@ class science_image():
                     elif sky_mag < 99:
                         mag_err = sky_mag-sky_mag_bright
                     else: #can't get mag on the sky only ... below limit
-                        mag_err = 5.0 #something kind of reasonable, 100 orders of magnitdue
+                        #todo: this should be related to the mag limit of the imaging
+                        mag_err = 0.0 #something kind of reasonable, 100x in flux?
 
                     #mag should now be fainter (usually ... could have slightly negative sky?)
                     #the photometry should have pretty good sky subtration ... but what if we are on a faint object
