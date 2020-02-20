@@ -920,6 +920,11 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
             if (self.MAG_LIMIT < mag < 100) and (mag_radius > 0):
                 log.warning(f"Cutout mag {mag} greater than limit {self.MAG_LIMIT}. Setting to limit.")
+                details['fail_mag_limit'] = True
+                details['raw_mag'] = mag
+                details['raw_mag_bright'] = details['mag_bright']
+                details['raw_mag_faint'] = details['mag_faint']
+                details['raw_mag_err'] = details['mag_err']
                 mag = self.MAG_LIMIT
                 if details:
                     details['mag'] = mag

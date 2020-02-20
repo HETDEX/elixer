@@ -682,7 +682,8 @@ class science_image():
                    'sky_counts':None, 'sky_average':None,
                    'aperture_eqw_rest_lya':None,'aperture_eqw_rest_lya_err':None,'aperture_plae':None,
                    'elixer_apertures':None,'elixer_aper_idx':None,
-                   'sep_objects':None,'sep_obj_idx':None}
+                   'sep_objects':None,'sep_obj_idx':None,
+                   'fail_mag_limit':False,'raw_mag':None,'raw_mag_bright':None,'raw_mag_faint':None,'raw_mag_err':None}
 
 
         self.window = None

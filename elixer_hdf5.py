@@ -770,8 +770,14 @@ def append_entry(fileh,det,overwrite=False):
                 row['ra'] = d['ra']
                 row['dec'] = d['dec']
                 row['radius'] = d['radius']
-                row['mag']=d['mag']
-                row['mag_err'] = d['mag_err']
+
+                try:
+                    if d['fail_mag_limit']:
+                        row['mag'] = d['raw_mag']
+                        row['mag_err'] = d['raw_mag_err']
+                except:
+                    row['mag']=d['mag']
+                    row['mag_err'] = d['mag_err']
                 row['aperture_area_pix'] = d['area_pix']
                 row['sky_area_pix'] = d['sky_area_pix']
                 row['aperture_cts'] = d['aperture_counts']
@@ -815,8 +821,13 @@ def append_entry(fileh,det,overwrite=False):
                 row['ra'] = s['ra']
                 row['dec'] = s['dec']
                 row['radius'] = s['radius']
-                row['mag'] = s['mag']
-                row['mag_err'] = s['mag_err']
+                try:
+                    if s['fail_mag_limit']:
+                        row['mag'] = s['raw_mag']
+                        row['mag_err'] = s['raw_mag_err']
+                except:
+                    row['mag']=s['mag']
+                    row['mag_err'] = s['mag_err']
                 row['background_cts'] = s['sky_average']
                 row['background_err'] = s['sky_err']
                 row['flux_cts'] = s['aperture_counts']#/s['area_pix']
@@ -844,8 +855,14 @@ def append_entry(fileh,det,overwrite=False):
                 row['major'] = s['a']
                 row['minor'] = s['b']
                 row['theta'] = s['theta']
-                row['mag'] = s['mag']
-                row['mag_err'] = s['mag_err']
+                try:
+                    if s['fail_mag_limit']:
+                        row['mag'] = s['raw_mag']
+                        row['mag_err'] = s['raw_mag_err']
+                except:
+                    row['mag']=s['mag']
+                    row['mag_err'] = s['mag_err']
+
                 row['background_cts'] = s['background']
                 row['background_err'] = s['background_rms']
                 row['flux_cts'] = s['flux_cts']

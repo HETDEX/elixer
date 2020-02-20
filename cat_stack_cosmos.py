@@ -656,6 +656,11 @@ class STACK_COSMOS(cat_base.Catalog):
             cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error, window=window,
                                                      aperture=aperture,mag_func=mag_func,return_details=True)
             if (self.MAG_LIMIT < mag < 100) and (mag_radius > 0):
+                details['fail_mag_limit'] = True
+                details['raw_mag'] = mag
+                details['raw_mag_bright'] = details['mag_bright']
+                details['raw_mag_faint'] = details['mag_faint']
+                details['raw_mag_err'] = details['mag_err']
                 log.warning(f"Cutout mag {mag} greater than limit {self.MAG_LIMIT}. Setting to limit.")
                 mag = self.MAG_LIMIT
                 if details:
