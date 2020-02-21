@@ -281,10 +281,22 @@ def select_hdr_version(version):
         SHELA_PHOTO_Z_COMBINED_PATH = op.join(HDR_BASEPATH, "imaging/shela/SHELA")
         SHELA_PHOTO_Z_MASTER_PATH = op.join(HDR_BASEPATH, "imaging/shela/SHELA")
 
-        HSC_BASE_PATH = op.join(HDR_BASEPATH, "imaging/hsc/S15A/reduced")
-        HSC_CAT_PATH = op.join(HDR_BASEPATH, "imaging/hsc/S15A/reduced/catalog_tracts")
-        HSC_IMAGE_PATH = op.join(HDR_BASEPATH, "imaging/hsc/S15A/reduced/images")
-        HSC_AUX_IMAGE_PATH = op.join(HDR_BASEPATH, "imaging/hsc/S15A/reduced/images")
+        if op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
+            HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
+            HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
+            HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
+            HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
+        else:
+            HSC_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced"
+            HSC_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts"
+            HSC_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
+            HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
+
+        #temporary
+        # HSC_BASE_PATH = op.join(HDR_BASEPATH, "imaging/hsc/S15A/reduced")
+        # HSC_CAT_PATH = op.join(HDR_BASEPATH, "imaging/hsc/S15A/reduced/catalog_tracts")
+        # HSC_IMAGE_PATH = op.join(HDR_BASEPATH, "imaging/hsc/S15A/reduced/images")
+        # HSC_AUX_IMAGE_PATH = op.join(HDR_BASEPATH, "imaging/hsc/S15A/reduced/images")
 
         # KPNO_BASE_PATH = "/work/03261/polonius/hetdex/catalogs/KPNO_Mosaic"
         KPNO_BASE_PATH = "/work/03233/jf5007/maverick/KMImaging/"
