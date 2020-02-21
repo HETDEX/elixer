@@ -1447,20 +1447,45 @@ class DetObj:
                             #(with the continuum based at the observed wavelength)
                             lam = self.w #to be consistent with the use in PLAE/POII
 
-                            cont = SU.mag2cgs(a['mag'],lam)
-                            if a['mag_err'] is not None:
-                                cont_hi = SU.mag2cgs(a['mag']-a['mag_err'],lam)#SU.mag2cgs(a['mag_bright'],lam)
-                                cont_lo =  SU.mag2cgs(a['mag']+a['mag_err'],lam)#SU.mag2cgs(a['mag_faint'],lam)
-                                cont_var = avg_var(cont,cont_lo,cont_hi)
-                            else:
-                                cont_var = avg_var(cont, cont, cont) #treat as a bogus zero error
+                            if a['fail_mag_limit']:
+                                #mag is set to the (safety) mag limit
+                                if a['mag'] < 24.0:
+                                    #no useful information
+                                    log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit brighter than 24,"
+                                             f" no useful information.")
+                                    #just skip it
+                                else:
+                                    log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit fainter than 24,"
+                                             f" scaled weight applied.")
 
-                            if (a['mag_err'] is None) or (a['mag_err']==0):
-                                weight.append(0.2) #probably below the flux limit, so weight low
+                                    cont = SU.mag2cgs(a['mag'], lam)
+                                    cont_var = avg_var(cont, cont, cont)  # treat as a bogus zero error
+
+                                    #scaled to 0-1.0 from mag24 (==0) to mag25(==1.0)
+                                    #if negative then mag is fainter than 25 and get full weight
+                                    w = min((cont - cgs_25) / (cgs_24-cgs_25),1.0)
+                                    if w < 0:
+                                        w = 1.0
+
+                                    variance.append(cont_var)
+                                    continuum.append(cont)
+                                    weight.append(w)
+
                             else:
-                                weight.append(1.0)
-                            variance.append(cont_var)
-                            continuum.append(cont)
+                                cont = SU.mag2cgs(a['mag'],lam)
+                                if a['mag_err'] is not None:
+                                    cont_hi = SU.mag2cgs(a['mag']-a['mag_err'],lam)#SU.mag2cgs(a['mag_bright'],lam)
+                                    cont_lo =  SU.mag2cgs(a['mag']+a['mag_err'],lam)#SU.mag2cgs(a['mag_faint'],lam)
+                                    cont_var = avg_var(cont,cont_lo,cont_hi)
+                                else:
+                                    cont_var = avg_var(cont, cont, cont) #treat as a bogus zero error
+
+                                if (a['mag_err'] is None) or (a['mag_err']==0):
+                                    weight.append(0.2) #probably below the flux limit, so weight low
+                                else:
+                                    weight.append(1.0)
+                                variance.append(cont_var)
+                                continuum.append(cont)
 
                             log.debug(
                                 f"{self.entry_id} Combine ALL Continuum: Added imaging estimate ({continuum[-1]:#.4g}) "
