@@ -318,12 +318,27 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         idx = []
         header = []
         skip = 0
+        keep_f = False
         try:
             f = open(catalog_loc, mode='r')
         except:
             log.error(name + " Exception attempting to open catalog file: " + catalog_loc, exc_info=True)
             return None
 
+            # print("!!!!! TEMPORARY TEST !!!!!!")
+            # import sqlite_utils as sql
+            # from io import StringIO
+            # keep_f = True
+            #
+            # f = sql.fetch_zpdf("/home/dustin/code/python/sqlite/zPDF/blob.db",fn=op.basename(catalog_loc))
+            #
+            # if f is None:
+            #     log.error(name + " Exception attempting to open catalog file: " + catalog_loc, exc_info=True)
+            #     return None
+
+            # f = StringIO(f.decode())
+
+        #build up the header for Pandas
         line = f.readline()
         while '#' in line:
             skip += 1
@@ -333,14 +348,23 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 header.append(toks[2])
             line = f.readline()
 
-        f.close()
+        if not keep_f:
+            f.close()
 
         try:
-            df = pd.read_csv(catalog_loc, names=header,
+            if keep_f:
+                df = pd.read_csv(f, names=header,
+                             delim_whitespace=True, header=None, index_col=None, skiprows=0)
+            else:
+                df = pd.read_csv(catalog_loc, names=header,
                              delim_whitespace=True, header=None, index_col=None, skiprows=skip)
         except:
             log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
+            if keep_f:
+                f.close()
             return None
+        if keep_f:
+            f.close()
 
         return df
 

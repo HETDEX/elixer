@@ -4,7 +4,11 @@ import numpy as np
 from astropy.visualization import ZScaleInterval
 from astropy import units
 import math
+import os.path as op
+import tarfile as tar
 
+import sqlite3
+from sqlite3 import Error
 
 try:
     from elixer import global_config as G
@@ -284,3 +288,79 @@ def saferound(value,precision,fail=0):
             return np.round(value,precision)
     except:
         return fail
+
+
+
+#this is very painful (time costly)
+def open_file_from_tar(tarfn,fqfn=None,fn=None):
+    """
+
+    one of fqfn must be supplied
+
+    :param tarfn: tar filename (fully qualified if necessary
+    :param fqfn: fully qualified filename inside the tarfile
+    :param fn:  filename only inside the tarfile (i.e. tar-file internal path is unknown)
+    :return:
+    """
+
+    try:
+
+        if fqfn is None and fn is None:
+            log.debug(f"utilities, open tarfile, no subfile specified")
+            return None
+
+        if not op.exists(tarfn):
+            log.debug(f"utilities, open tarfile {tarfn} does not exist")
+            return None
+
+        if not tar.is_tarfile(tarfn):
+            log.debug(f"utilities, open tarfile {tarfn} is not a tar file")
+            return None
+
+        tarfile = tar.open(name=tarfn)
+
+        if fqfn is not None:
+            file = tarfile.extractfile(fqfn)
+        elif fn is not None:
+            file = tarfile.extractfile(fn)
+
+        if file is not None:
+            return file
+
+    except:
+        log.debug(f"Exception attempting to fetch sub-file {fqfn} or {fn} from {tarfn}")
+        return None
+
+
+def open_sqlite_file(sqlfn,key):
+    """
+
+    :param sqlfn:
+    :param key:
+    :return:
+    """
+
+    try:
+        conn = None
+        try:
+            conn = sqlite3.connect(sqlfn)
+        except:
+            log.info(f"Exception attempting to fetch file {key} from {sqlfn}",exc_info=True)
+
+        if conn is None:
+            log.info(f"Error. SQLite connection is invalid")
+
+        cursor = conn.cursor()
+
+        sql_read_blob = """SELECT blobvalue from blobtable where blobname = ?"""
+
+        cursor.execute(sql_read_blob, (str(blobname),))
+        blobvalue = cursor.fetchall()
+        # get back a list of tuples (each list entry is one row, the tuple is the row, so
+        # we want the 1st entry (detectid is unique, so should be one or none, and the second column which is the image)
+        cursor.close()
+        conn.close()
+
+        return blobvalue
+    except:
+        log.info(f"Exception attempting to fetch file {key} from {sqlfn}",exc_info=True)

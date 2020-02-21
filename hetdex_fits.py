@@ -11,6 +11,7 @@ from astropy.coordinates import Angle
 from astropy.stats import biweight
 from astropy.stats import sigma_clipped_stats
 import os.path as op
+import tarfile as tar
 
 #log = G.logging.getLogger('hetdex_logger')
 #log.setLevel(G.logging.DEBUG)

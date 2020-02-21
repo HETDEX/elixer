@@ -1286,7 +1286,7 @@ class DetObj:
                 if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_limit: #good, full marks
                     continuum.append(self.best_gmag_cgs_cont)
                     variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
-                    weight.append(w)
+                    weight.append(1.0)
 
                     log.debug(
                         f"{self.entry_id} Combine ALL Continuum: Added best spectrum gmag estimate ({continuum[-1]:#.4g}) "
