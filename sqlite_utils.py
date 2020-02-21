@@ -5,6 +5,7 @@ except:
 
 import sqlite3
 import os.path as op
+import gzip
 
 log = G.Global_Logger('sqlite_logger')
 log.setlevel(G.logging.DEBUG)
@@ -48,7 +49,7 @@ def fetch_blob(db_file,key,tablename="blobtable",keyname="blobname"):
 
         if blob is not None:
             if len(blob) == 1:
-                return blob[0][1] #dictionary [0][0] is the key, [0][1] is the payload
+                return gzip.decompress(blob[0][1]) #dictionary [0][0] is the key, [0][1] is the payload
             elif len(blob) == 0:
                 log.info("No matching blob found")
                 return None
@@ -95,7 +96,7 @@ def fetch_zpdf(db_file,key=None,fn=None):
 
         if blob is not None:
             if len(blob) == 1:
-                return blob[0][0]
+                return gzip.decompress(blob[0][0])
             elif len(blob) == 0:
                 log.info("No matching blob found")
                 return None

@@ -18,6 +18,7 @@ except:
 import os.path as op
 import copy
 import io
+import sqlite_utils as sql
 
 
 CANDELS_EGS_Stefanon_2016_BASE_PATH = G.CANDELS_EGS_Stefanon_2016_BASE_PATH
@@ -319,24 +320,23 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         header = []
         skip = 0
         keep_f = False
-        try:
-            f = open(catalog_loc, mode='r')
-        except:
-            log.error(name + " Exception attempting to open catalog file: " + catalog_loc, exc_info=True)
-            return None
 
-            # print("!!!!! TEMPORARY TEST !!!!!!")
-            # import sqlite_utils as sql
-            # from io import StringIO
-            # keep_f = True
-            #
-            # f = sql.fetch_zpdf("/home/dustin/code/python/sqlite/zPDF/blob.db",fn=op.basename(catalog_loc))
-            #
-            # if f is None:
-            #     log.error(name + " Exception attempting to open catalog file: " + catalog_loc, exc_info=True)
-            #     return None
-
-            # f = StringIO(f.decode())
+        if op.exists(catalog_loc):
+            try:
+                f = open(catalog_loc, mode='r')
+            except:
+                log.error(name + " Exception attempting to open catalog file: " + catalog_loc, exc_info=True)
+                return None
+        else: #see if sql db is there
+            db_loc = op.join(op.dirname(catalog_loc),"zPDF.db")
+            if op.exists(db_loc):
+                try:
+                    f = sql.fetch_zpdf(db_loc, fn=op.basename(catalog_loc))
+                    f = io.StringIO(f.decode()) #treat as a text stream (but still has the \t and \n un-translated
+                    keep_f = True
+                except:
+                    log.error(name + " Exception attempting to open catalog zPDF Db: " + db_loc, exc_info=True)
+                    return None
 
         #build up the header for Pandas
         line = f.readline()

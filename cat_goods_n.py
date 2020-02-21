@@ -270,11 +270,24 @@ class GOODS_N(cat_base.Catalog):
         idx = []
         header = []
         skip = 0
-        try:
-            f = open(catalog_loc, mode='r')
-        except:
-            log.error(name + " Exception attempting to open catalog file: " + catalog_loc, exc_info=True)
-            return None
+        keep_f = False
+
+        if op.exists(catalog_loc):
+            try:
+                f = open(catalog_loc, mode='r')
+            except:
+                log.error(name + " Exception attempting to open catalog file: " + catalog_loc, exc_info=True)
+                return None
+        else:  # see if sql db is there
+            db_loc = op.join(op.dirname(catalog_loc), "zPDF.db")
+            if op.exists(db_loc):
+                try:
+                    f = sql.fetch_zpdf(db_loc, fn=op.basename(catalog_loc))
+                    f = io.StringIO(f.decode())  # treat as a text stream (but still has the \t and \n un-translated
+                    keep_f = True
+                except:
+                    log.error(name + " Exception attempting to open catalog zPDF Db: " + db_loc, exc_info=True)
+                    return None
 
         line = f.readline()
         while '#' in line:
@@ -285,11 +298,16 @@ class GOODS_N(cat_base.Catalog):
                 header.append(toks[2])
             line = f.readline()
 
-        f.close()
+        if not keep_f:
+            f.close()
 
         try:
-            df = pd.read_csv(catalog_loc, names=header,
-                             delim_whitespace=True, header=None, index_col=None, skiprows=skip)
+            if keep_f:
+                df = pd.read_csv(f, names=header,
+                                 delim_whitespace=True, header=None, index_col=None, skiprows=0)
+            else:
+                df = pd.read_csv(catalog_loc, names=header,
+                                 delim_whitespace=True, header=None, index_col=None, skiprows=skip)
 
             old_names = ['ID (H-band SExtractor ID)', 'IAU_Name','RA (J2000, H-band)', 'DEC (J2000, H-band)']
             new_names = ['ID', 'IAU_designation','RA', 'DEC']
@@ -298,6 +316,9 @@ class GOODS_N(cat_base.Catalog):
         except:
             log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
             return None
+
+        if keep_f:
+            f.close()
 
         return df
 
