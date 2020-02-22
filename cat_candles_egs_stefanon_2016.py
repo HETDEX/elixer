@@ -329,6 +329,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 return None
         else: #see if sql db is there
             db_loc = op.join(op.dirname(catalog_loc),"zPDF.db")
+            log.debug(f"Checking zPDF database {db_loc} ...")
             if op.exists(db_loc):
                 try:
                     f = sql.fetch_zpdf(db_loc, fn=op.basename(catalog_loc))
@@ -337,6 +338,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 except:
                     log.error(name + " Exception attempting to open catalog zPDF Db: " + db_loc, exc_info=True)
                     return None
+            else:
+                log.debug(f"zPDF database {db_loc} does not exist")
 
         #build up the header for Pandas
         line = f.readline()
@@ -926,7 +929,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         #     text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)"
         #                   % (best_plae_poii, best_plae_poii_filter))
 
-        if (not G.ZOO) and (bid_target is not None) and (best_plae_poii is not None):
+        if (not G.ZOO) and (best_plae_poii is not None):
             try:
                 text.set_text(
                     text.get_text() + "  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$ (%s)" %

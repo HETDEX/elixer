@@ -798,7 +798,7 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
     added_catch_all = False
 
     if cats is not None:
-        log.debug("Checking imagaing catalogs (%s)" %(str(cats)))
+        log.debug("Checking imaging catalogs (%s)" %(str(cats)))
     else:
         log.debug("Imaging catalogs is None")
 
