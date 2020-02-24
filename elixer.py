@@ -1006,7 +1006,7 @@ def join_report_parts(report_name, bid_count=0):
                 page.x = 0
                 page.y = y_offset
                 if (i == 1) and (G.ZEROTH_ROW_HEADER):
-                    y_offset = scale * (page.box[3] - 20.0) #trim excess vertical space from the zeroth row header
+                    y_offset = scale * (page.box[3] - 18.0) #trim excess vertical space from the zeroth row header
                 else:
                     y_offset = scale* page.box[3] #box is [x0,y0,x_top, y_top]
 
@@ -3103,7 +3103,20 @@ def main():
                             header_text = ""
                             if (scale_plae is not None) and (not np.isnan(scale_plae)):
                                 try:
-                                    header_text = f"Combined Classification P(LAE): {scale_plae :0.4f}"
+
+                                    try:
+                                        plae_high = min(1000.0,plae+plae_sd)
+                                    except:
+                                        plae_high = -1
+
+                                    try:
+                                        plae_low = max(0.001,plae-plae_sd)
+                                    except:
+                                        plae_low = -1
+
+                                    header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(LAE): %0.4f" \
+                                                  % (plae,plae_high,plae_low,scale_plae)
+#                                    header_text = f"Combined P(LAE)/P(OII): {}  P(LAE): {scale_plae :0.4f}"
                                 except:
                                     pass
                             try:

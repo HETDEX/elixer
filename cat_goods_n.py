@@ -280,6 +280,7 @@ class GOODS_N(cat_base.Catalog):
                 return None
         else:  # see if sql db is there
             db_loc = op.join(op.dirname(catalog_loc), "zPDF.db")
+            log.debug(f"Checking zPDF database {db_loc} ...")
             if op.exists(db_loc):
                 try:
                     f = sql.fetch_zpdf(db_loc, fn=op.basename(catalog_loc))
@@ -288,6 +289,8 @@ class GOODS_N(cat_base.Catalog):
                 except:
                     log.error(name + " Exception attempting to open catalog zPDF Db: " + db_loc, exc_info=True)
                     return None
+            else:
+                log.debug(f"zPDF database {db_loc} does not exist")
 
         line = f.readline()
         while '#' in line:
