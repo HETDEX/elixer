@@ -3115,7 +3115,7 @@ def main():
                                         plae_low = -1
 
                                     header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(LAE): %0.4f" \
-                                                  % (round(plae, 3),round(plae_high, 3),round(scale_plae, 3))
+                                                  % (round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae)
                                 except:
                                     pass
                             try:
