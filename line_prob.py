@@ -28,7 +28,7 @@ import numpy as np
 #from line_classifier.misc.tools import generate_cosmology_from_config, read_flim_file
 
 
-MAX_PLAE_POII = 1000
+MAX_PLAE_POII = 1000.
 MIN_PLAE_POII = 0.001
 UNIVERSE_CONFIG = None
 FLUX_LIMIT_FN = None
@@ -38,6 +38,44 @@ COSMOLOGY = None
 #log.setLevel(G.logging.DEBUG)
 log = G.Global_Logger('line_prob_logger')
 log.setlevel(G.logging.DEBUG)
+
+def conf_interval_asym(data,avg,conf=0.95):
+    """
+
+    :param data:
+    :param avg:
+    :param conf:
+    :return:
+    """
+
+    high, low = None, None
+    try:
+        size = len(data)
+        if size < 10:
+            log.info(f"conf_interval_asym, data size too small {size}")
+            return None, None
+
+        step = int(round(conf/2. * size))
+        s = np.array(sorted(data))
+
+        idx = (np.abs(s - avg)).argmin()
+        if (idx == 0) or (idx == size-1):
+            #there is a problem or the list is all essentially identical
+            if np.std(s) < 1e-5: #effectively zero, the average has no error and the ci is avg +/- 0
+                return s[idx], s[idx]
+
+        #what if many of the same value, want to put our position in the center of that run
+        same_idx = np.where(s==s[idx])[0]
+        if len(same_idx) > 1:
+            log.debug(f"conf_interval_asym, multiple matches ({len(same_idx)}) to avg {avg}")
+            idx = int(np.nanmedian(same_idx))
+
+        low = s[max(0,idx-step)]
+        high = s[min(size-1,idx+step)]
+    except:
+        log.debug("Exception in conf_interval_asym",exc_info=True)
+
+    return high, low
 
 
 def conf_interval(num_samples,sd,conf=0.95):
@@ -831,6 +869,13 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
             plgd = np.float(prob_lae_given_data)
             pogd = np.float(pogd)
 
+            #the base code can limit this to 1000.0 (explicitly) if P(OII|Data) == 0,
+            #so we DO need to force these to the max of 1000.0 (which could otherwise be exceeded
+            #if P(OII|data) > 0 but very small)
+
+            posterior_odds = float(posterior_odds)
+            posterior_odds = max(MIN_PLAE_POII,min(MAX_PLAE_POII,posterior_odds))
+
             lae_oii_ratio_list.append(float(posterior_odds))
             p_lae_list.append(plgd)
             p_oii_list.append(pogd)
@@ -891,17 +936,39 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
         #using biweight
         log.debug("Biweight ...")
 
-        try: #this data is often skewed, so run bootstraps to normalize and take the confidence interval there
-            loc,ci = elixer_biweight.bootstrap_confidence_interval(lae_oii_ratio_list,confidence=confidence)
-            if (loc is None) or (ci is None):
-                log.debug("Unable to perform confidence interval via bootstrap. Reverting to old method.")
+
+        try:
+            loc = biweight.biweight_location(lae_oii_ratio_list)
+            hi,lo = conf_interval_asym(lae_oii_ratio_list,loc)
+            if (hi is None) or (lo is None):
+                log.debug("Unable to perform direct asym confidence interval. Reverting to old method.")
                 loc = biweight.biweight_location(lae_oii_ratio_list)  # the "average"
                 scale = biweight.biweight_scale(lae_oii_ratio_list)
                 ci = conf_interval(len(lae_oii_ratio_list), scale * np.sqrt(num_mc), conf=confidence)
-        except: #if it fails, fall back to the old way (and assume a normal distribution)
+                ratio_LAE_list = [loc, loc - ci, loc + ci]
+            else:
+                ratio_LAE_list = [loc, lo, hi]
+        except:
+            log.debug("Unable to perform direct asym confidence interval. Reverting to old method.")
             loc = biweight.biweight_location(lae_oii_ratio_list)  # the "average"
             scale = biweight.biweight_scale(lae_oii_ratio_list)
             ci = conf_interval(len(lae_oii_ratio_list), scale * np.sqrt(num_mc), conf=confidence)
+            ratio_LAE_list = [loc, loc - ci, loc + ci]
+
+        if False:
+            try: #this data is often skewed, so run bootstraps to normalize and take the confidence interval there
+                loc,ci = elixer_biweight.bootstrap_confidence_interval(lae_oii_ratio_list,confidence=confidence)
+                if (loc is None) or (ci is None):
+                    log.debug("Unable to perform confidence interval via bootstrap. Reverting to old method.")
+                    loc = biweight.biweight_location(lae_oii_ratio_list)  # the "average"
+                    scale = biweight.biweight_scale(lae_oii_ratio_list)
+                    ci = conf_interval(len(lae_oii_ratio_list), scale * np.sqrt(num_mc), conf=confidence)
+                    ratio_LAE_list = [loc, loc - ci, loc + ci]
+            except: #if it fails, fall back to the old way (and assume a normal distribution)
+                loc = biweight.biweight_location(lae_oii_ratio_list)  # the "average"
+                scale = biweight.biweight_scale(lae_oii_ratio_list)
+                ci = conf_interval(len(lae_oii_ratio_list), scale * np.sqrt(num_mc), conf=confidence)
+                ratio_LAE_list = [loc, loc - ci, loc + ci]
 
 
         #??? should the 'scale' by multiplied by sqrt(# samples) to be consistent?
@@ -909,8 +976,6 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
         #ci = conf_interval(len(lae_oii_ratio_list), scale, conf=confidence)
         #ci = conf_interval(len(lae_oii_ratio_list),scale*np.sqrt(num_mc),conf=confidence)
 
-
-        ratio_LAE_list = [loc,loc-ci,loc+ci]
         log.debug("Raw Biweight: %0.4g (%0.4g, %0.4g), min (%0.4g) max (%0.4g), Q1 (%0.4g) Q2 (%0.4g) Q3 (%0.4g)"
                   % (ratio_LAE_list[0], ratio_LAE_list[1], ratio_LAE_list[2], min(lae_oii_ratio_list), max(lae_oii_ratio_list),
                      np.quantile(lae_oii_ratio_list,0.25),np.quantile(lae_oii_ratio_list,0.50),np.quantile(lae_oii_ratio_list,0.75))

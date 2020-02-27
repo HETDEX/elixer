@@ -1,7 +1,8 @@
 changes to elixer by version
 
 1.8.1a8 [2020-02-27]
-* use bootstrapping to get confidence interval from skewed distribution (i.e. from MC PLAE/POII data)
+* added function for bootstrapping to get confidence interval from skewed distribution (i.e. from MC PLAE/POII data)
+* added function for explicit direct confidence interval from skewed distribution
 
 1.8.1a7 [2020-02-20]
 * 1st generation: combine PLAE/POII (excluding catalog match) and then combine with spatial extent and multi-line
