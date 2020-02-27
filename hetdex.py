@@ -1006,7 +1006,10 @@ class DetObj:
             #pseduo_sd = 0.5 * ((plae-plae_min) + (plae_max - plae))
             pseduo_sd = 0.5 * (plae_max-plae_min)
             if pseduo_sd == 0: #min==max
-                return 0.00001 #minimum truncated value squared
+                if plae_max > 999 or plae_max < 0.002: #same, but truncated to be the same
+                    return 0.00001 #minimum truncated value squared
+                else:
+                    return plae * plae
             else:
                 return pseduo_sd*pseduo_sd
 

@@ -11,6 +11,7 @@ import sys
 import astropy.stats.biweight as biweight
 import matplotlib.pyplot as plt
 from scipy.stats import bayes_mvs
+import weighted_biweight as elixer_biweight
 
 try:
     from elixer import global_config as G
@@ -889,13 +890,26 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
         #lae_oii_ratio_list = np.array(lae_oii_ratio_list)
         #using biweight
         log.debug("Biweight ...")
-        loc = biweight.biweight_location(lae_oii_ratio_list) #the "average"
-        scale = biweight.biweight_scale(lae_oii_ratio_list)
+
+        try: #this data is often skewed, so run bootstraps to normalize and take the confidence interval there
+            loc,ci = elixer_biweight.bootstrap_confidence_interval(lae_oii_ratio_list,confidence=confidence)
+            if (loc is None) or (ci is None):
+                log.debug("Unable to perform confidence interval via bootstrap. Reverting to old method.")
+                loc = biweight.biweight_location(lae_oii_ratio_list)  # the "average"
+                scale = biweight.biweight_scale(lae_oii_ratio_list)
+                ci = conf_interval(len(lae_oii_ratio_list), scale * np.sqrt(num_mc), conf=confidence)
+        except: #if it fails, fall back to the old way (and assume a normal distribution)
+            loc = biweight.biweight_location(lae_oii_ratio_list)  # the "average"
+            scale = biweight.biweight_scale(lae_oii_ratio_list)
+            ci = conf_interval(len(lae_oii_ratio_list), scale * np.sqrt(num_mc), conf=confidence)
+
 
         #??? should the 'scale' by multiplied by sqrt(# samples) to be consistent?
         #??? I think the sigma_mc == true sigma / sqrt(# samples) (kind of backward from sample vs population)
         #ci = conf_interval(len(lae_oii_ratio_list), scale, conf=confidence)
-        ci = conf_interval(len(lae_oii_ratio_list),scale*np.sqrt(num_mc),conf=confidence)
+        #ci = conf_interval(len(lae_oii_ratio_list),scale*np.sqrt(num_mc),conf=confidence)
+
+
         ratio_LAE_list = [loc,loc-ci,loc+ci]
         log.debug("Raw Biweight: %0.4g (%0.4g, %0.4g), min (%0.4g) max (%0.4g), Q1 (%0.4g) Q2 (%0.4g) Q3 (%0.4g)"
                   % (ratio_LAE_list[0], ratio_LAE_list[1], ratio_LAE_list[2], min(lae_oii_ratio_list), max(lae_oii_ratio_list),

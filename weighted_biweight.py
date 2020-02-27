@@ -13,7 +13,80 @@ import numpy as np
 #from astropy.stats.funcs import median_absolute_deviation
 import random
 import astropy.units as u
-from astropy.stats import biweight_location, biweight_midvariance, median_absolute_deviation
+from astropy.stats import biweight_location, biweight_midvariance, median_absolute_deviation, biweight_scale
+from scipy.stats import bayes_mvs
+
+
+
+def conf_interval(num_samples,sd,conf=0.95):
+    """
+    mean +/- error  ... this is the +/- error part as 95% (or other) confidence interval (assuming normal distro)
+
+    :param num_samples:
+    :param sd: standard deviation
+    :param conf:
+    :return:
+    """
+
+    if num_samples < 30:
+        return None
+
+    #todo: put in other values
+    if conf == 0.68:
+        t = 1.0
+    elif conf == 0.95:
+        t = 1.96
+    elif conf == 0.99:
+        t = 2.576
+    else:
+        log.debug("todo: need to handle other confidence intervals: ", conf)
+        return None
+
+    return t * sd / np.sqrt(num_samples)
+
+
+def bootstrap_confidence_interval(data,confidence=0.68,num_bootstraps=-1, boostrap_selection_size=-1):
+    """
+    bootstrap the data (usually from an MC run) to normalize about a bw "avg" and take confidence interval of that
+    (the MC run for PLAE/POII is often very skewed)
+
+    :param data:
+    :param confidence:
+    :param num_bootstraps:
+    :return: avg of averages (bw loc) and confidence interval
+    """
+
+    try:
+        datasize = len(data)
+
+        if num_bootstraps < 1:
+            num_bootstraps = datasize
+
+        if boostrap_selection_size < 1:
+            boostrap_selection_size = datasize
+
+        log.debug(f"Bootstrap confidence interval. elements: {len(data)}, conf: {confidence}, "
+                 f"num bootstraps: {num_bootstraps}, selection size: {boostrap_selection_size}")
+        #bw_scale = []
+        bw_loc = []
+
+        for i in range(num_bootstraps):
+            try:
+                subset = np.random.choice(data, boostrap_selection_size, replace=True)
+                bw_loc.append(biweight_location(subset)) #avg
+                #bw_scale.append(biweight_location(subset))
+            except:
+                log.debug("Exception (1) in bootstrap_confidence_interval",exc_info=True)
+
+        loc = biweight_location(bw_loc)
+        scale = biweight_scale(bw_loc)
+        ci = conf_interval(len(bw_loc),scale*np.sqrt(num_bootstraps),conf=confidence)
+        log.debug(f"Boostrap confidence interval results: bw_loc: {loc}  ci: {ci}")
+
+        return loc,ci
+    except:
+        log.debug("Exception (2) in bootstrap_confidence_interval",exc_info=True)
+        return None,None
 
 
 def biweight_location_errors(data, errors, c=6.0, M=None, axis=None):
