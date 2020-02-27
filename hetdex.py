@@ -1005,8 +1005,8 @@ class DetObj:
             #can be truncated near 1000 or 0.001
             #pseduo_sd = 0.5 * ((plae-plae_min) + (plae_max - plae))
             pseduo_sd = 0.5 * (plae_max-plae_min)
-            if pseduo_sd == 0:
-                return 1. #we're going to divide by this, so just set to 1
+            if pseduo_sd == 0: #min==max
+                return 0.00001 #minimum truncated value squared
             else:
                 return pseduo_sd*pseduo_sd
 
