@@ -333,14 +333,37 @@ def flush_all(fileh):
         atb.cols.detectid.remove_index()
         ctb.cols.detectid.remove_index()
 
+        dtb.flush()
+        ltb.flush()
+        stb.flush()
+        atb.flush()
+        ctb.flush()
 
         #create (new) index
         # vtb does not have or need an index
-        dtb.cols.detectid.create_csindex()
-        ltb.cols.detectid.create_csindex()
-        stb.cols.detectid.create_csindex()
-        atb.cols.detectid.create_csindex()
-        ctb.cols.detectid.create_csindex()
+        try:
+            dtb.cols.detectid.create_csindex()
+        except:
+            pass
+        try:
+            ltb.cols.detectid.create_csindex()
+        except:
+            pass
+
+        try:
+            stb.cols.detectid.create_csindex()
+        except:
+            pass
+
+        try:
+            atb.cols.detectid.create_csindex()
+        except:
+            pass
+
+        try:
+            ctb.cols.detectid.create_csindex()
+        except:
+            pass
 
 
         #vtb.flush() # no need to re-flush vtb

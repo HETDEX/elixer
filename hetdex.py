@@ -1058,6 +1058,10 @@ class DetObj:
             return p_lae_oii_ratio, plae_sd, size_in_psf
 
 
+        #
+        # older method comparing PLAE/POII instead of using composit spectrum as continuum estimate
+        #
+
         plae = [] #plae/poii ratio
         variance = [] #variance or variance proxy
         weight = [] #rules based weights
@@ -1076,7 +1080,10 @@ class DetObj:
                 if (self.hetdex_cont_cgs - self.hetdex_cont_cgs_unc) > hetdex_cont_limit:
                     w = 0.2 #never very high
                     p = self.p_lae_oii_ratio_range[0]
-                    v = avg_var(self.p_lae_oii_ratio_range[0], self.p_lae_oii_ratio_range[1], self.p_lae_oii_ratio_range[2])
+                    if len(self.p_lae_oii_ratio_range > 3):
+                        v = self.p_lae_oii_ratio_range[3] * self.p_lae_oii_ratio_range[3]
+                    else:
+                        v = avg_var(self.p_lae_oii_ratio_range[0], self.p_lae_oii_ratio_range[1], self.p_lae_oii_ratio_range[2])
 
                     # only add if p and v both successful
                     plae.append(p)
@@ -1114,7 +1121,11 @@ class DetObj:
 
                 if w > 0.0:
                     p = self.sdss_gmag_p_lae_oii_ratio_range[0]
-                    v = avg_var(self.sdss_gmag_p_lae_oii_ratio_range[0],
+
+                    if len(self.sdss_gmag_p_lae_oii_ratio_range > 3):
+                        v = self.sdss_gmag_p_lae_oii_ratio_range[3] * self.sdss_gmag_p_lae_oii_ratio_range[3]
+                    else:
+                        v = avg_var(self.sdss_gmag_p_lae_oii_ratio_range[0],
                                 self.sdss_gmag_p_lae_oii_ratio_range[1], self.sdss_gmag_p_lae_oii_ratio_range[2])
 
                     # only add if p and v both successful
@@ -1272,7 +1283,7 @@ class DetObj:
                 if (self.hetdex_cont_cgs - self.hetdex_cont_cgs_unc) > hetdex_cont_limit:
                     continuum.append(self.hetdex_cont_cgs)
                     variance.append(self.hetdex_cont_cgs_unc*self.hetdex_cont_cgs_unc)
-                    weight.append(0.3) #never very high
+                    weight.append(0.2) #never very high
                     log.debug(f"{self.entry_id} Combine ALL Continuum: Added HETDEX estimate ({continuum[-1]:#.4g}) "
                               f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
                 else: #set as lower limit
@@ -1281,7 +1292,7 @@ class DetObj:
                         variance.append(self.hetdex_cont_cgs_unc*self.hetdex_cont_cgs_unc)
                     else:
                         variance.append(hetdex_cont_limit * hetdex_cont_limit) #set to itself as a big error
-                    weight.append(0.15) #never very high
+                    weight.append(0.1) #never very high
                     log.debug(f"{self.entry_id} Combine ALL Continuum: Failed HETDEX estimate, setting to lower limit  ({continuum[-1]:#.4g}) "
                               f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
 
@@ -1298,7 +1309,7 @@ class DetObj:
 
         # Best full width gmag continuum (HETDEX full width or SDSS gmag)
         try:
-            cgs_limit = cgs_24p5
+            cgs_limit = cgs_25
             if (self.best_gmag_cgs_cont is not None) and (self.best_gmag_cgs_cont_unc is not None):
                 #if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_limit:
 
@@ -1316,7 +1327,7 @@ class DetObj:
                     if frac > 0:  # full weight
                         w = 1.0
                     else: #going to get at least 0.3
-                        w = max(0.3, 1.0 + frac)  # linear drop to zero at cgs_limit
+                        w = max(0.5, 1.0 + frac)  # linear drop to zero at cgs_limit
 
                     continuum.append(self.best_gmag_cgs_cont)
                     variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
@@ -1332,7 +1343,7 @@ class DetObj:
                     #     variance.append(self.hetdex_gmag_cgs_cont_unc * self.hetdex_gmag_cgs_cont_unc)
                     # else:
                     #     variance.append(cgs_limit * cgs_24p5)  # set to itself as a big error
-                    weight.append(0.2)  # never very high (a little better than HETDEX narrow continuum weight)
+                    weight.append(0.5)  # never very high (a little better than HETDEX narrow continuum weight)
 
                     log.debug(
                         f"{self.entry_id} Combine ALL Continuum: Failed best spectrum gmag estimate, setting to lower limit "
@@ -1341,77 +1352,6 @@ class DetObj:
         except:
             log.debug("Exception handling best spectrum gmag continuum in DetObj:combine_all_continuum",
                       exc_info=True)
-
-        if False: #old way, considering both HETDEX full width summed continuum and SDSS g-mag, but using both is redundant and over countinng
-            # HETDEX full width gmag continuum
-            try:
-                cgs_limit = cgs_24p5
-                if (self.hetdex_gmag_cgs_cont is not None) and (self.hetdex_gmag_cgs_cont_unc is not None):
-                    if (self.hetdex_gmag_cgs_cont - self.hetdex_gmag_cgs_cont_unc) > cgs_limit:
-                        frac = (self.hetdex_gmag_cgs_cont - cgs_24) / (cgs_24 - cgs_limit)
-                        # at 24mag this is zero, fainter goes negative, at 24.5 it is -1.0
-                        if frac > 0:  # full weight
-                            w = 1.0
-                        else:
-                            w = max(0.2, 1.0 + frac)  # linear drop to zero at 8.52e-19
-
-                        continuum.append(self.hetdex_gmag_cgs_cont)
-                        variance.append(self.hetdex_gmag_cgs_cont_unc * self.hetdex_gmag_cgs_cont_unc)
-                        weight.append(w)
-
-                        log.debug(
-                            f"{self.entry_id} Combine ALL Continuum: Added full HETDEX gmag estimate ({continuum[-1]:#.4g}) "
-                            f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
-                    else:  # going to use the lower limit
-                        continuum.append(cgs_limit)
-                        variance.append(0.11 * cgs_limit * cgs_limit)  # ie. sd of ~ 1/3 * cgs_limit
-                        # if self.hetdex_gmag_cgs_cont_unc > 0:
-                        #     variance.append(self.hetdex_gmag_cgs_cont_unc * self.hetdex_gmag_cgs_cont_unc)
-                        # else:
-                        #     variance.append(cgs_limit * cgs_24p5)  # set to itself as a big error
-                        weight.append(0.2)  # never very high
-
-                        log.debug(
-                            f"{self.entry_id} Combine ALL Continuum: Failed full HETDEX gmag estimate, setting to lower limit "
-                            f"({continuum[-1]:#.4g}) "
-                            f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
-            except:
-                log.debug("Exception handling fullwidth HETDEX gmag continuum in DetObj:combine_all_continuum", exc_info=True)
-
-            #SDSS gmag continuum
-            try:
-                cgs_limit = cgs_24p5
-                if (self.sdss_cgs_cont is not None) and (self.sdss_cgs_cont_unc is not None):
-                    #if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_24p5:
-                    #    frac = (self.sdss_cgs_cont - cgs_24)/(cgs_24 - cgs_24p5)
-                    if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_limit:
-                        frac = (self.sdss_cgs_cont - cgs_24) / (cgs_24 - cgs_limit)
-                        # at 24mag this is zero, fainter goes negative, at 24.5 it is -1.0
-                        if frac > 0: #full weight
-                            w = 1.0
-                        else:
-                            w = max(0.2,1.0 + frac) #linear drop to zero at 8.52e-19
-
-                        continuum.append(self.sdss_cgs_cont)
-                        variance.append(self.sdss_cgs_cont_unc * self.sdss_cgs_cont_unc)
-                        weight.append(w)
-
-                        log.debug(f"{self.entry_id} Combine ALL Continuum: Added SDSS gmag estimate ({continuum[-1]:#.4g}) "
-                                  f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
-                    else: #going to use the lower limit
-                        continuum.append(cgs_limit)
-                        variance.append(0.11 * cgs_limit * cgs_limit) # ie. sd of ~ 1/3 * cgs_limit
-                        # if self.sdss_cgs_cont_unc > 0:
-                        #     variance.append(self.sdss_cgs_cont_unc * self.sdss_cgs_cont_unc)
-                        # else:
-                        #     variance.append(cgs_limit * cgs_limit)  # set to itself as a big error
-                        weight.append(0.5)  # below limit
-
-                        log.debug(f"{self.entry_id} Combine ALL Continuum: Failed SDSS gmag estimate, setting to lower limit "
-                                  f"({continuum[-1]:#.4g}) "
-                                  f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
-            except:
-                log.debug("Exception handling SDSS gmag continuum in DetObj:combine_all_continuum", exc_info=True)
 
         #Best forced aperture PLAE
         #how to set?? maybe always the same?
@@ -3164,7 +3104,7 @@ class DetObj:
 
                 self.sdss_gmag_p_lae_oii_ratio = sdss_ratio
                 try:
-                    if plae_errors and (len(plae_errors['ratio'])==3):
+                    if plae_errors and (len(plae_errors['ratio']) > 2):
                         self.sdss_gmag_p_lae_oii_ratio_range = plae_errors['ratio']
                 except:
                     pass

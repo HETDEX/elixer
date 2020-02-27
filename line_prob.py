@@ -943,20 +943,24 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
         try:
             loc = biweight.biweight_location(lae_oii_ratio_list)
             hi,lo = conf_interval_asym(lae_oii_ratio_list,loc)
+            #the actual std can be huge and is dodgy to compute since we are capped 1000 - 0.001
+            #so, use the quantiles in the middle 0.68 (rouhgly +/- 1sd IF this were normal distro
+            adj_std = 0.5 * (np.quantile(lae_oii_ratio_list,0.16) + np.quantile(lae_oii_ratio_list,0.84))
             if (hi is None) or (lo is None):
                 log.debug("Unable to perform direct asym confidence interval. Reverting to old method.")
                 loc = biweight.biweight_location(lae_oii_ratio_list)  # the "average"
                 scale = biweight.biweight_scale(lae_oii_ratio_list)
                 ci = conf_interval(len(lae_oii_ratio_list), scale * np.sqrt(num_mc), conf=confidence)
-                ratio_LAE_list = [loc, loc - ci, loc + ci,np.nanstd(lae_oii_ratio_list)]
+                ratio_LAE_list = [loc, loc - ci, loc + ci,adj_std] #np.nanstd(lae_oii_ratio_list)]
             else:
-                ratio_LAE_list = [loc, lo, hi,np.nanstd(lae_oii_ratio_list)]
+                ratio_LAE_list = [loc, lo, hi,adj_std] #np.nanstd(lae_oii_ratio_list)]
         except:
             log.debug("Unable to perform direct asym confidence interval. Reverting to old method.")
             loc = biweight.biweight_location(lae_oii_ratio_list)  # the "average"
             scale = biweight.biweight_scale(lae_oii_ratio_list)
             ci = conf_interval(len(lae_oii_ratio_list), scale * np.sqrt(num_mc), conf=confidence)
-            ratio_LAE_list = [loc, loc - ci, loc + ci,np.nanstd(lae_oii_ratio_list)]
+            adj_std = 0.5 * (np.quantile(lae_oii_ratio_list, 0.16) + np.quantile(lae_oii_ratio_list, 0.84))
+            ratio_LAE_list = [loc, loc - ci, loc + ci,adj_std]#np.nanstd(lae_oii_ratio_list)]
 
         if False:
             try: #this data is often skewed, so run bootstraps to normalize and take the confidence interval there
