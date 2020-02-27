@@ -607,6 +607,8 @@ class DetObj:
 
         self.classification_dict = {'scaled_plae':None,
                                     'plae_hat':None,
+                                    'plae_hat_hi':None, #+ confidence interval (usually .68)
+                                    'plae_hat_lo':None, #- confidence interval (usually .68)
                                     'plae_hat_sd':None,
                                     'size_in_psf':None} #to be filled in with info to help make a classification judgement
 
@@ -868,7 +870,7 @@ class DetObj:
         #
         #object extent in terms of approximate PSF ... if very inconsistent with PSF, then not likely to be LAE
         # Mostly a BOOLEAN value (yes or no, LAE)
-        try:
+        try: #todo: use assumed redshift (OII vs LyA) and translate to physical size
             #basiclly, 0 to 0.5 (if size > 5x PSF, probability that is LAE --> 0, if < 2x PSF holds at 0.5)
             if (self.classification_dict['size_in_psf'] is not None) and (self.classification_dict['size_in_psf'] > 2.0): #greater than twice a "sloppy" PSF, inconsistent with point source
                 scale = 0.5 * (1.0 - (self.classification_dict['size_in_psf'] - 2.0) / (3.0))
@@ -910,27 +912,31 @@ class DetObj:
                     if s.score > G.MULTILINE_MIN_SOLUTION_SCORE: #only consider somewhat probable scores
                         #split between z > 1.8 ==> LAE and < 1.8 ==>not LAE
                         if s.z  > 1.8: #suggesting LAE consistent
-                            likelihood.append(s.scale_score)
-                            weight.append(0.8)  # opinion ... has multiple lines, so the score is reasonable
+                            likelihood.append(1.0) #s.scale_score)
+                            weight.append(s.scale_score)#0.8)  # opinion ... has multiple lines, so the score is reasonable
                             #must also have CIV or HeII, etc as possible matches
                             var.append(1)  #todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
                         else: #suggesting NOT LAE consistent
-                            likelihood.append(1-s.scale_score)
-                            weight.append(1.0)  # opinion ... has multiple lines, so the score is reasonable
+                            likelihood.append(0.0) #1-s.scale_score)
+                            weight.append(s.scale_score) #1.0)  # opinion ... has multiple lines, so the score is reasonable
                             var.append(1)  #todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
                     else: #low score, but can still impact
                         w = s.score / G.MULTILINE_MIN_SOLUTION_SCORE
                         if s.z > 1.8:  # suggesting LAE consistent
-                            likelihood.append(s.scale_score)
-                            weight.append(0.8 * w)  # opinion ... has multiple lines, so the score is reasonable
+                           # likelihood.append(s.scale_score)
+                           # weight.append(0.8 * w)  # opinion ... has multiple lines, so the score is reasonable
+                            likelihood.append(1.0)  # s.scale_score)
+                            weight.append(s.scale_score)
                             # must also have CIV or HeII, etc as possible matches
                             var.append(1)  # todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
                         else:  # suggesting NOT LAE consistent
-                            likelihood.append(1. - s.scale_score)
-                            weight.append(1.0 * w)  # opinion ... has multiple lines, so the score is reasonable
+                            #likelihood.append(1. - s.scale_score)
+                            #weight.append(1.0 * w)  # opinion ... has multiple lines, so the score is reasonable
+                            likelihood.append(0.0)  # 1-s.scale_score)
+                            weight.append(s.scale_score)
                             var.append(1)  # todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
         except:
@@ -946,8 +952,13 @@ class DetObj:
                 #logic is simple based on PLAE/POII interpreations to mean #LAE/(#LAE + #OII) where #LAE is a fraction and #OII == 1
                 #so PLAE/POII = 1000 --> 1000/(1000+1) = 0.999, PLAE/POII == 1.0 --> (1/(1+1)) = 0.5, PLAE/POII = 0.001 --> 0.001/(0.001 +1) = 0.001
                 scale_plae_hat = self.classification_dict['plae_hat'] / (self.classification_dict['plae_hat'] + 1.0)
-                lower_plae = max(0.001,self.classification_dict['plae_hat']-self.classification_dict['plae_hat_sd'])
-                scale_plae_sd =  scale_plae_hat - lower_plae/ (lower_plae + 1.0)
+                lower_plae = max(0.001, self.classification_dict['plae_hat_lo'])#self.classification_dict['plae_hat']-self.classification_dict['plae_hat_sd'])
+                scale_plae_lo =  scale_plae_hat - lower_plae / (lower_plae + 1.0)
+
+                higher_plae = min(1000.0, self.classification_dict['plae_hat_hi'])#self.classification_dict['plae_hat']-self.classification_dict['plae_hat_sd'])
+                scale_plae_hi = higher_plae / (higher_plae + 1.0) - scale_plae_hat
+
+                scale_plae_sd = 0.5 * (scale_plae_hi + scale_plae_lo)
 
                 likelihood.append(scale_plae_hat)
                 prior.append(base_assumption)
@@ -1032,10 +1043,15 @@ class DetObj:
 
 
 
-            plae_sd = np.sqrt(avg_var(plae_errors['ratio'][0],plae_errors['ratio'][1],plae_errors['ratio'][2]))
+            try:
+                plae_sd = plae_errors['ratio'][3]
+            except:
+                plae_sd = np.sqrt(avg_var(plae_errors['ratio'][0],plae_errors['ratio'][1],plae_errors['ratio'][2]))
             log.debug(f"{self.entry_id} Combine ALL PLAE: MC plae({p_lae_oii_ratio:#.4g}) sd({plae_sd:#.4g})")
 
             self.classification_dict['plae_hat'] = p_lae_oii_ratio
+            self.classification_dict['plae_hat_hi'] = plae_errors['ratio'][2]
+            self.classification_dict['plae_hat_lo'] = plae_errors['ratio'][1]
             self.classification_dict['plae_hat_sd'] = plae_sd
             self.classification_dict['size_in_psf'] = size_in_psf
 

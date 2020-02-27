@@ -39,7 +39,7 @@ COSMOLOGY = None
 log = G.Global_Logger('line_prob_logger')
 log.setlevel(G.logging.DEBUG)
 
-def conf_interval_asym(data,avg,conf=0.95):
+def conf_interval_asym(data,avg,conf=0.68):
     """
 
     :param data:
@@ -72,6 +72,9 @@ def conf_interval_asym(data,avg,conf=0.95):
 
         low = s[max(0,idx-step)]
         high = s[min(size-1,idx+step)]
+
+        log.debug(f"Asym Confidence interval: high: {high}, low: {low}, ci: {conf}, len: {size}")
+
     except:
         log.debug("Exception in conf_interval_asym",exc_info=True)
 
@@ -945,15 +948,15 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
                 loc = biweight.biweight_location(lae_oii_ratio_list)  # the "average"
                 scale = biweight.biweight_scale(lae_oii_ratio_list)
                 ci = conf_interval(len(lae_oii_ratio_list), scale * np.sqrt(num_mc), conf=confidence)
-                ratio_LAE_list = [loc, loc - ci, loc + ci]
+                ratio_LAE_list = [loc, loc - ci, loc + ci,np.nanstd(lae_oii_ratio_list)]
             else:
-                ratio_LAE_list = [loc, lo, hi]
+                ratio_LAE_list = [loc, lo, hi,np.nanstd(lae_oii_ratio_list)]
         except:
             log.debug("Unable to perform direct asym confidence interval. Reverting to old method.")
             loc = biweight.biweight_location(lae_oii_ratio_list)  # the "average"
             scale = biweight.biweight_scale(lae_oii_ratio_list)
             ci = conf_interval(len(lae_oii_ratio_list), scale * np.sqrt(num_mc), conf=confidence)
-            ratio_LAE_list = [loc, loc - ci, loc + ci]
+            ratio_LAE_list = [loc, loc - ci, loc + ci,np.nanstd(lae_oii_ratio_list)]
 
         if False:
             try: #this data is often skewed, so run bootstraps to normalize and take the confidence interval there
@@ -963,12 +966,12 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
                     loc = biweight.biweight_location(lae_oii_ratio_list)  # the "average"
                     scale = biweight.biweight_scale(lae_oii_ratio_list)
                     ci = conf_interval(len(lae_oii_ratio_list), scale * np.sqrt(num_mc), conf=confidence)
-                    ratio_LAE_list = [loc, loc - ci, loc + ci]
+                    ratio_LAE_list = [loc, loc - ci, loc + ci,np.nanstd(lae_oii_ratio_list)]
             except: #if it fails, fall back to the old way (and assume a normal distribution)
                 loc = biweight.biweight_location(lae_oii_ratio_list)  # the "average"
                 scale = biweight.biweight_scale(lae_oii_ratio_list)
                 ci = conf_interval(len(lae_oii_ratio_list), scale * np.sqrt(num_mc), conf=confidence)
-                ratio_LAE_list = [loc, loc - ci, loc + ci]
+                ratio_LAE_list = [loc, loc - ci, loc + ci,np.nanstd(lae_oii_ratio_list)]
 
 
         #??? should the 'scale' by multiplied by sqrt(# samples) to be consistent?
@@ -976,22 +979,22 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
         #ci = conf_interval(len(lae_oii_ratio_list), scale, conf=confidence)
         #ci = conf_interval(len(lae_oii_ratio_list),scale*np.sqrt(num_mc),conf=confidence)
 
-        log.debug("Raw Biweight: %0.4g (%0.4g, %0.4g), min (%0.4g) max (%0.4g), Q1 (%0.4g) Q2 (%0.4g) Q3 (%0.4g)"
-                  % (ratio_LAE_list[0], ratio_LAE_list[1], ratio_LAE_list[2], min(lae_oii_ratio_list), max(lae_oii_ratio_list),
+        log.debug("Raw Biweight: %0.4g (%0.4g, %0.4g), min (%0.4g) max (%0.4g) std (%0.4g), Q1 (%0.4g) Q2 (%0.4g) Q3 (%0.4g)"
+                  % (ratio_LAE_list[0], ratio_LAE_list[1], ratio_LAE_list[2], min(lae_oii_ratio_list), max(lae_oii_ratio_list),ratio_LAE_list[3],
                      np.quantile(lae_oii_ratio_list,0.25),np.quantile(lae_oii_ratio_list,0.50),np.quantile(lae_oii_ratio_list,0.75))
                   )
 
         try:
             mean_cntr, var_cntr, std_cntr = bayes_mvs(lae_oii_ratio_list, alpha=confidence)
-            log.debug("Bayes MVS: %0.4g (%0.4g, %0.4g), min (%0.4g) max (%0.4g), Q1 (%0.4g) Q2 (%0.4g) Q3 (%0.4g)"
-                      % (mean_cntr[0], mean_cntr[1][0], mean_cntr[1][1], min(lae_oii_ratio_list), max(lae_oii_ratio_list),
+            log.debug("Bayes MVS: %0.4g (%0.4g, %0.4g), min (%0.4g) max (%0.4g) std(%0.4g), Q1 (%0.4g) Q2 (%0.4g) Q3 (%0.4g)"
+                      % (mean_cntr[0], mean_cntr[1][0], mean_cntr[1][1], min(lae_oii_ratio_list), max(lae_oii_ratio_list), std_cntr[0],
                          np.quantile(lae_oii_ratio_list,0.25),np.quantile(lae_oii_ratio_list,0.50),np.quantile(lae_oii_ratio_list,0.75))
                       )
         except:
             pass
 
-        for i in range(len(ratio_LAE_list)): #force the range to be between MIN_PLAE_POII and MAX_PLAE_POII
-            ratio_LAE_list[i] = max(min(MAX_PLAE_POII,ratio_LAE_list[i]),MIN_PLAE_POII)
+        # for i in range(len(ratio_LAE_list)): #force the range to be between MIN_PLAE_POII and MAX_PLAE_POII
+        #     ratio_LAE_list[i] = max(min(MAX_PLAE_POII,ratio_LAE_list[i]),MIN_PLAE_POII)
 
         # log.debug("Limited Biweight: %0.3g (%0.3g, %0.3g) min (%0.3g) max (%0.3g)"
         #           % (ratio_LAE_list[0], ratio_LAE_list[1], ratio_LAE_list[2], min(lae_oii_ratio_list),

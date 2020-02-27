@@ -3105,12 +3105,12 @@ def main():
                                 try:
 
                                     try:
-                                        plae_high = min(1000.0,plae+plae_sd)
+                                        plae_high = min(1000.0,e.classification_dict['plae_hat_hi'])
                                     except:
                                         plae_high = -1
 
                                     try:
-                                        plae_low = max(0.001,plae-plae_sd)
+                                        plae_low = max(0.001,e.classification_dict['plae_hat_lo'])
                                     except:
                                         plae_low = -1
 
