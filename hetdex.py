@@ -9,6 +9,7 @@ try:
     from elixer import observation as elixer_observation
     from elixer import spectrum_utilities as SU
     from elixer import weighted_biweight
+    from elixer import utilities as utils
 except:
     import global_config as G
     import line_prob
@@ -19,6 +20,7 @@ except:
     import observation as elixer_observation
     import spectrum_utilities as SU
     import weighted_biweight
+    import utilities as utils
 
 import matplotlib
 #matplotlib.use('agg')
@@ -1460,7 +1462,40 @@ class DetObj:
         except:
             log.debug("Exception handling forced aperture photometry continuum in DetObj:combine_all_continuum", exc_info=True)
 
-        #?? Best catalog match PLAE ?? #do I even want to try to use this one?
+        #todo: ?? Best catalog match PLAE ?? #do I even want to try to use this one?
+        try:
+            #which aperture filter?
+            coord_dict = {} #key = catalog +_ + filter  values: ra, dec
+            for a in self.aperture_details_list:
+                coord_dict[a['catalog_name']+'_'+a['filter_name']] = {'ra': a['ra'],'dec':a['dec']}
+
+
+            if len(self.bid_target_list) > 1:
+                for b in self.bid_target_list[1:]:
+                    for f in b.filters:
+                        key = b.catalog_name + "_" + f.filter.lower()
+
+                        if key in coord_dict.keys():
+                            if utils.angular_distance(b.bid_ra,b.bid_dec,coord_dict[key]['ra'],coord_dict[key]['dec']) < 0.5:
+                                if b.bid_flux_est_cgs is not None:
+                                    cont = b.bid_flux_est_cgs
+                                    if b.bid_flux_est_cgs_unc is not None:
+                                        cont_var = b.bid_flux_est_cgs_unc * b.bid_flux_est_cgs_unc
+                                    else:
+                                        cont_var = cont * cont
+
+                                    weight.append(1.0)
+                                    variance.append(cont_var)
+                                    continuum.append(cont)
+
+                                    log.debug(
+                                        f"{self.entry_id} Combine ALL Continuum: Added catalog bid target estimate"
+                                        f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
+                                        f"weight({weight[-1]:#.2f}) filter({key})")
+
+        except:
+            log.debug("Exception handling catalog bid-target continuum in DetObj:combine_all_continuum", exc_info=True)
+
 
 
         try:
