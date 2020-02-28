@@ -612,7 +612,8 @@ class DetObj:
                                     'plae_hat_hi':None, #+ confidence interval (usually .68)
                                     'plae_hat_lo':None, #- confidence interval (usually .68)
                                     'plae_hat_sd':None,
-                                    'size_in_psf':None} #to be filled in with info to help make a classification judgement
+                                    'size_in_psf':None, #to be filled in with info to help make a classification judgement
+                                    'diam_in_arcsec':None}  #to be filled in with info to help make a classification judgement
 
         if emission:
             self.type = 'emis'
@@ -854,25 +855,83 @@ class DetObj:
 
         #using some Bayesian language, but not really Bayesian, yet
         #assume roughly half of all detections are LAEs (is that reasonable?)
-        base_assumption = 0.5
+        base_assumption = 0.5 #not used yet
         likelihood = []
         weight = []
-        var = []
-        prior = []
+        var = [] #right now, this is just weight based, all variances are set to 1
+        prior = [] #not using Bayes yet, so this is ignored
+
+        #both are lists of dictionaries with keys: kpc, weight, likelihood
+        diameter_lae = [] #physical units assuming a redshift consistent with LAE
+        diameter_not_lae = [] #physical units assuming a redshift NOT consistend with LAE
 
         scaled_prob_lae = None
         fig = None
-
-        # self.classification_dict['plae_hat'] = plae_hat
-        # self.classification_dict['plae_hat_sd'] = plae_hat_sd
-        # self.classification_dict['size_in_psf'] = size_in_psf
 
         #rules based
 
         #
         #object extent in terms of approximate PSF ... if very inconsistent with PSF, then not likely to be LAE
         # Mostly a BOOLEAN value (yes or no, LAE)
-        try: #todo: use assumed redshift (OII vs LyA) and translate to physical size
+
+        # todo: use assumed redshift (OII vs LyA) and translate to physical size
+        try: #similar to what follows, if the size in psf is not at least 1 (then it is smaller than the psf and the
+             # size cannot be (properly) determined (limited by psf)
+            if isinstance(self.classification_dict['size_in_psf'],float) and \
+                 isinstance(self.classification_dict['diam_in_arcsec'],float):
+
+                 #get all z
+                lae_z = [self.w / G.LyA_rest - 1.0]
+                not_lae_z = [self.w / G.OII_rest - 1.0]
+
+                if (self.spec_obj is not None) and (self.spec_obj.solutions is not None):
+                    for s in self.spec_obj.solutions:
+                        if s.z > 1.8:  # suggesting LAE consistent
+                            lae_z.append(s.z)
+                        else:
+                            not_lae_z.append(s.z)
+
+
+                for z in lae_z:
+                    if z in [x['z'] for x in diameter_lae]:
+                        #no need to add it again, but might re-evaluate the weight
+                        continue
+
+                    diam = SU.physical_diameter(z ,self.classification_dict['diam_in_arcsec'])
+                    if diam is not None and diam > 0:
+                        #todo: set the likelihood (need distro of sizes)
+                        lk = 0.0
+                        #set a base weight (will be adjusted later)
+                        w = 0.5
+                        diameter_lae.append({"z":z,"kpc":diam,"weight":w,"likelihood":lk})
+                        log.debug(
+                             f"{self.entry_id} Aggregate Classification, added phsyical size:"
+                             f" z({z:#.4g}) kpc({diam:#.4g}) weight({w:#.2g}) likelihood({lk:#.2g})")
+
+                for z in not_lae_z:
+                    if z in [x['z'] for x in diameter_not_lae]:
+                        #no need to add it again, but might re-evaluate the weight
+                        continue
+
+                    diam = SU.physical_diameter(z, self.classification_dict['diam_in_arcsec'])
+                    if diam is not None and diam > 0:
+                        # todo: set the likelihood (need distro of sizes)
+                        lk = 0.0
+                        #set a base weight (will be adjusted later)
+                        w = 0.5
+                        diameter_not_lae.append({"z":z,"kpc":diam,"weight":w,"likelihood":lk})
+                        log.debug(
+                            f"{self.entry_id} Aggregate Classification, added phsyical size:"
+                            f" z({z:#.4g}) kpc({diam:#.4g}) weight({w:#.2g}) likelihood({lk:#.2g})")
+
+
+                #weights and likihoods updated below with additional info
+                 #then a winner in each class is chosen near the end
+        except:
+            log.debug("Aggregate Classification exception.",exc_info=True)
+
+
+        try:
             #basiclly, 0 to 0.5 (if size > 5x PSF, probability that is LAE --> 0, if < 2x PSF holds at 0.5)
             scale = 0.5 #no info ... 50/50 chance of LAE
             consistent_with_lae_psf = 1.5
@@ -924,6 +983,7 @@ class DetObj:
                             #must also have CIV or HeII, etc as possible matches
                             var.append(1)  #todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
+
                         else: #suggesting NOT LAE consistent
                             likelihood.append(0.0) #1-s.scale_score)
                             weight.append(s.scale_score) #1.0)  # opinion ... has multiple lines, so the score is reasonable
@@ -946,6 +1006,22 @@ class DetObj:
                             weight.append(s.scale_score)
                             var.append(1)  # todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
+
+                    # does this match with a physical size from above?
+                    try:
+                        idx = np.where([x['z'] for x in diameter_lae] == s.z)[0]  # should be exactly one
+                        if (idx is not None) and (len(idx) == 1):
+                            idx = idx[0]
+                            diameter_lae[idx]['weight'] = weight[-1]
+                            log.debug(
+                                f"{self.entry_id} Aggregate Classification, updated phsyical size: "
+                                f"z({diameter_lae[idx]['z']:#.4g}) "
+                                f"kpc({diameter_lae[idx]['kpc']:#.4g}) "
+                                f"weight({diameter_lae[idx]['weight']:#.2g}) "
+                                f"likelihood({diameter_lae[idx]['likelihood']:#.2g})")
+                    except:
+                        log.debug("Aggregate Classification exception", exc_info=True)
+
         except:
             log.debug("Exception in aggregate_classification for ELiXer solution finder",exc_info=True)
 
@@ -981,6 +1057,9 @@ class DetObj:
             log.debug("Exception in aggregate_classification for best PLAE/POII",exc_info=True)
 
 
+        # update the physical size weights
+        # now add to the global likelihood and weight
+        # choose the best weight in each class ... if a tie, choose the higher likelihood
 
         #
         # Combine them all
@@ -988,9 +1067,8 @@ class DetObj:
 
         likelihood = np.array(likelihood)
         weight = np.array(weight)
-        var = np.array(var)
-        prior = np.array(prior)
-        #v2 = var * var
+        var = np.array(var) #right now, this is just weight based, all variances are set to 1
+        prior = np.array(prior) #not using Bayes yet, so this is ignored
 
         try:
             if len(likelihood) > 0:
@@ -1034,7 +1112,7 @@ class DetObj:
 
 
         if use_continuum:
-            continuum_hat, continuum_sd_hat, size_in_psf = self.combine_all_continuum()
+            continuum_hat, continuum_sd_hat, size_in_psf, diam_in_arcsec = self.combine_all_continuum()
 
 
             #feed into MC PLAE
@@ -1061,8 +1139,9 @@ class DetObj:
             self.classification_dict['plae_hat_lo'] = plae_errors['ratio'][1]
             self.classification_dict['plae_hat_sd'] = plae_sd
             self.classification_dict['size_in_psf'] = size_in_psf
+            self.classification_dict['diam_in_arcsec'] = diam_in_arcsec
 
-            return p_lae_oii_ratio, plae_sd, size_in_psf
+            return p_lae_oii_ratio, plae_sd, size_in_psf, diam_in_arcsec
 
 
         #
@@ -1208,6 +1287,8 @@ class DetObj:
 
             if len(best_guess_extent) == len(base_psf) > 0:
                 size_in_psf = np.mean(best_guess_extent/base_psf) #usually only 1 or 2, so std makes no sense
+                best_guess_extent = np.mean(best_guess_extent)
+
         except:
             pass
 
@@ -1237,13 +1318,14 @@ class DetObj:
             self.classification_dict['plae_hat'] = plae_hat
             self.classification_dict['plae_hat_sd'] = plae_hat_sd
             self.classification_dict['size_in_psf'] = size_in_psf
+            self.classification_dict['diam_in_arcsec'] = best_guess_extent
 
-            return plae_hat, plae_hat_sd, size_in_psf
+            return plae_hat, plae_hat_sd, size_in_psf, best_guess_extent
         except:
 
             log.debug("Exception handling estimation in DetObj:combine_all_plae", exc_info=True)
 
-        return None, None, None
+        return None, None, None, None
 
 
 
@@ -1467,16 +1549,21 @@ class DetObj:
             #which aperture filter?
             coord_dict = {} #key = catalog +_ + filter  values: ra, dec
             for a in self.aperture_details_list:
-                coord_dict[a['catalog_name']+'_'+a['filter_name']] = {'ra': a['ra'],'dec':a['dec']}
-
+                if (a['catalog_name'] is None) or (a['filter_name'] is None):
+                    continue
+                else:
+                    coord_dict[a['catalog_name']+'_'+a['filter_name']] = {'ra': a['ra'],'dec':a['dec']}
 
             if len(self.bid_target_list) > 1:
                 for b in self.bid_target_list[1:]:
                     for f in b.filters:
+                        if (b.catalog_name is None) or (f.filter is None):
+                            continue
+
                         key = b.catalog_name + "_" + f.filter.lower()
 
                         if key in coord_dict.keys():
-                            if utils.angular_distance(b.bid_ra,b.bid_dec,coord_dict[key]['ra'],coord_dict[key]['dec']) < 0.5:
+                            if utils.angular_distance(b.bid_ra,b.bid_dec,coord_dict[key]['ra'],coord_dict[key]['dec']) < 1.0:
                                 if b.bid_flux_est_cgs is not None:
                                     cont = b.bid_flux_est_cgs
                                     if b.bid_flux_est_cgs_unc is not None:
@@ -1504,6 +1591,7 @@ class DetObj:
 
             if len(best_guess_extent) == len(base_psf) > 0:
                 size_in_psf = np.mean(best_guess_extent/base_psf) #usually only 1 or 2, so std makes no sense
+                best_guess_extent = np.mean(best_guess_extent)
         except:
             pass
 
@@ -1533,13 +1621,14 @@ class DetObj:
             self.classification_dict['continuum_hat'] = continuum_hat
             self.classification_dict['continuum_sd_hat'] = continuum_sd_hat
             self.classification_dict['size_in_psf'] = size_in_psf
+            self.classification_dict['diam_in_arcsec'] = best_guess_extent
 
-            return continuum_hat, continuum_sd_hat, size_in_psf
+            return continuum_hat, continuum_sd_hat, size_in_psf, best_guess_extent
         except:
 
             log.debug("Exception handling estimation in DetObj:combine_all_continuum", exc_info=True)
 
-        return None, None, None
+        return None, None, None, None
 
     def multiline_solution_score(self):
         '''

@@ -3,6 +3,9 @@ changes to elixer by version
 1.8.1a8 [2020-02-27]
 * added function for bootstrapping to get confidence interval from skewed distribution (i.e. from MC PLAE/POII data)
 * added function for explicit direct confidence interval from skewed distribution
+* added catalog bid target matched object(s) continuum estimate  (same catalog and filter, if center w/in 0.5" of
+    best aperture center)
+
 
 1.8.1a7 [2020-02-20]
 * 1st generation: combine PLAE/POII (excluding catalog match) and then combine with spatial extent and multi-line

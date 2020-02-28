@@ -142,6 +142,25 @@ def luminosity_distance(z,cosmology=None):
 
     return cosmology.luminosity_distance(z)
 
+
+def physical_diameter(z,a,cosmology=None):
+    """
+    :param cosmology:
+    :param z:
+    :param a: size (diameter) in arcsec
+    :return:  lumiosity distance as astropy units
+    """
+
+    if cosmology is None:
+        cosmology = build_cosmology() #use the defaults
+
+    apk = cosmology.arcsec_per_kpc_proper(z)
+
+    if apk > 0:
+        return  (a / apk).value #strip units?
+    else:
+        return None
+
 def shift_to_restframe(z, flux, wave, ez=0.0, eflux=None, ewave=None):
     """
     We are assuming no (or insignificant) error in wavelength and z ...

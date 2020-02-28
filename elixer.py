@@ -3092,7 +3092,7 @@ def main():
             for h in hd_list:
                 for e in h.emis_list:
                     if True:
-                        plae, plae_sd, size_in_psf = e.combine_all_plae(use_continuum=True)
+                        plae, plae_sd, size_in_psf, diam_in_arcsec = e.combine_all_plae(use_continuum=True)
                         if G.AGGREGATE_PLAE_CLASSIFICATION:
                             scale_plae = e.aggregate_classification()
 
