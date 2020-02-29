@@ -1,0 +1,693 @@
+changes to elixer by version
+
+1.8.1a8 [2020-02-27]
+* added function for bootstrapping to get confidence interval from skewed distribution (i.e. from MC PLAE/POII data)
+* added function for explicit direct confidence interval from skewed distribution
+* added catalog bid target matched object(s) continuum estimate  (same catalog and filter, if center w/in 0.5" of
+    best aperture center)
+
+
+1.8.1a7 [2020-02-20]
+* 1st generation: combine PLAE/POII (excluding catalog match) and then combine with spatial extent and multi-line
+    solutions to make a single classification call (PLAE or not)
+* corrected (fairly small) bug in sdss gmag to continuum conversion
+* set (generous) mag limits as a safety catch
+
+1.8.1a6 [2020-02-12]
+* add high and low PLAE/POII error range to all report PLAE/POII positions (default 68% confidence interval)
+* removed unnecessary double read of some photometric images (as left-over from Python2/astropy memory problem)
+* minor clean up
+* minor update to selixer (parameter tweek for --ooops module)
+
+1.8.1a5 [2020-01-30]
+* add in --hdr optional parameter on command line to specify which HETDEX Data Release version to use. If not specified,
+    the current default is used.
+    + also add in constructor parameter for CatalogLibrary() to specify which version to use (default is system default)
+
+
+1.8.1a4 [2020-01-29]
+* Update multiline solution score to use a scaled_score based on weighting scheme (including the solution score, the
+    fraction of the total score, and the probablity that the solution is "real" (composed of "real" lines))
+* Fix bug in PLAE/POII error calculation when flux or continuum are (erroneously) negative
+
+1.8.1a3 [2020-01-23]
+* Add MC-style error to PLAE/POII to ALL PLAE calls
+    + wrapped D.Farrow LineClassifierPro.source_prob() (keeping setup across calls for performance)
+    + repeated random sample lineflux and continuum from Gaussian (assuming errors are Gaussian and independent (though
+      that is not strictly true)) over configurable number of tries (default = 1000)
+    + take Biweight location and confidence interval (configurable, default 95%) as PLAE/POII and error
+* (minor?) updates to --ooops for wrangler and stampede2 in SLURM script
+
+
+1.8.1a2 [2020-01-17]
+* add in DECaLS web-based imaging, used much like PanSTARRS and SDSS
+    + includes --decals command line option (0,1,2 = disallow, allow, force ... just like PanSTARRS and SDSS)
+* updated catalogs::get_cutouts(...) with new allow_web parameter. If True, will check, in order (DECaLS, PanSTARRS, and
+    SDSS) to get cutouts IF the supplied local catalogs did not return any cutouts
+* fixed bug in elixer::build_neighborhood_map(...) where the returned cutout (manifest only for DECaLS, but could be possible
+    for others) is smaller than request (but without an error). The extent was still set to the requested size, so the
+    coordinate grid would NOT match the actual image and positions would be off. An explicit check now corrects the
+    extent to match that of the returned image cutout. (Currently only fixed in neighborhood where the extent could be large
+    and not yet checking in catalog cutouts where the extent is typically only a few arcsec). Note: for DECaLS the issue
+    occurs at extents greater than 67 arcsec on a side (256x256 pixels at 0.262 arcsec/pixel scale)
+* allow neighborhood to be generated even if the elixer call did not produce any HETEDEX detections (i.e. if an RA, Dec
+    only was on the call and no detections within search window). File name will be the supplied --name
+
+1.8.1a1 [2020-01-16]
+* add zero reference line to Gaussian and full-1d plots
+* flip upper left labels (Entry#-> ID and Dectect ID -> Entry#)
+
+
+1.8.0 [2020-01-13]
+* promote 1.8.0a3 to 1.8.0
+
+
+1.8.0a3 [2019-12-13]
+* repeat calls to generate PLAE/POII for range of EW values (nominal, min, max) and report in HDF5
+* changed sky annulus for sky-subtraction from 5x-10x to 2x-4x of the aperture radius (for ~12x sky pixels to aperture pixels)
+  (was previously far too large, letting in broad gradients and increased chance of bright stars/wings)
+* added in per catalog average FWHM and using that as default aperture size + 0.5" for HETDEX astrometric error
+* added in "ratty" line fit check (broad sigma, but moderate or low SNR) to exclude adjacent noise as emission line detections
+* added NUDGE_MAG_APERTURE_MAX_DATE (20180601). If observation before this date, can nudge the aperture center up to
+  NUDGE_MAG_APERTURE_CENTER amount to nearest Gaussian peak. If after this date, center remains fixed at detection coords.
+* fixed bug in NUDGE (science_image::update_center) which was using the aperture radius to mask the Gaussian peak finder
+  region on the cutout instead of the allowed play (NUDGE) radius
+* add distance for point to ellipse and check for point in ellipse (for use with source extractor elliptical apertures)
+* add option (current=True) to use source extractor instead circular aperture (fall back on aperture if source extactor
+  fails). global_config USE_SOURCE_EXTRACTOR
+* always run ELiXer circular aperture (as configured) and choose "best" between it and sextractor;
+  record all calculated apertures in HDF5
+* add command line switch --upgrade_hdf5 to upgrade an ELiXer HDF5 file to newer version
+* new table (ExtractedObjects) in HDF5 file
+* new table (ElixerApertures) in HDF5 file
+* made naming more uniform in column names in HDF5 file (now version 0.1.0)
+* minor lable change under imaging. Aperture radius (circular) marked as "rc" and effective radius of ellipse as "re"
+
+
+1.8.0a2 [2019-11-20]
+* changed background of _mini.png to dark gray (0x1c1c1e)
+* add "low" to set_io_param for ooops in SLURM file
+
+1.8.0a1 [2019-11-12]
+* new parameters to catalogs::get_cutouts ... filter and first
+* new interface to catalogs get_filters()
+
+1.7.5a12 [2019-11-10]
+* fixed non-standard multi-line solution NOT showing labels on matched lines to the solution
+* allow option on HDF5 catalog extension (append_entry) to skip existing entries OR overwrite with
+  newer row(s)
+* fixed error where HDF5 SpectralLines table was incrementing sol_num with each emission line found
+  instead of with each solution
+* add explicit notation to Gaussian fit plot and full 1D spectra to show /2AA bins
+
+1.7.5a11 [2019-11-07]
+* Clarify when PanSTARRS and SDSS are allowed and enforce condition on neighborhood build. Alert user at runtime if auto
+  configuration has disallowed PanSTARRS or SDSS.
+* added red and blue pseduo color fluxes (and error, and ratio) to ELiXer HDF5 (0.0.3)
+* allow ELiXer HDF5 merging if differ in only engineering version
+* temp merge_unique addition to deal with column changes from 0.0.2 to 0.0.3 in ELiXer HDF5
+
+
+
+1.7.5a10 [2019-11-06]
+* Tweak to favor display flag emission line solutions over non-display (if top solutions are close in score)
+
+
+1.7.5a9 [2019-11-05]
+* Added --merge_unique switch to merge exactly 2 ELiXer HDF5 catalogs, keeping only the most recent detectid
+  if there are duplicates
+
+1.7.5a8 [2019-11-03]
+* Updated HSC bid target selection to include multiple condition enforcement per HSC README to
+  eliminate duplicates and unreliable detections
+
+1.7.5a7 [2019-11-01]
+* update --mini option (black background, neighborhood image, re-organize)
+* changed HSC magnitude order: lsq,3.0,model
+* changed max PLAE/POII from 999 to 1000 to avoid confusion with common non-value
+* implementing pseduo-color from HETDEX calfib spectrum (red_vs_blue)
+  +  pseudo_color, pseudo_color_min, pseudo_color_max, pseudo_color_flag added to ELiXer HDF5 Detections table
+  + global_config option (DISPLAY_PSEUDO_COLOR) to display pseduo_color in upper left text block
+
+
+1.7.5a6 [2019-10-28]
+* fixed failure of imaging cutout if magnitude does not calcuate properly or mag info is not available
+
+
+1.7.5a5 [2019-10-24]
+* option (global_config::ALLOW_SYSTEM_CALL_PDF_CONVERSION) to allow a system call to pdftoppm if Python conversion of
+  PDF to PNG fails
+
+1.7.5a4 [2019-10-23]
+* changed --neighborhood to only mark "all" HETDEX neighbors in the first image. Each subsequent image shows only
+  the center detection (+) and the current neighbor (red box)
+
+
+1.7.5a3 [2019-10-22]
+* fixed missing return in science_image::get_cutout() if cutout collected is None or empty
+
+1.7.5a2 [2019-10-10]
+* fixed error in HDF5 catalog creation (bad DetObj::detectid ... should be hdf5_detectid)
+* fixed issue in cat_goodsn (pandas dataframe value needed for mFDa4_z_weight
+* additional logging for None cutouts in neighborhood
+
+1.7.5a1 [2019-10-02]
+* added KPNO imaging (does not yet have catalog). Not sure the aperture photometry mags can be trusted yet. Currently,
+  points to John Feldmeier's TACC work directory.
+
+
+1.7.4a2 [2019-10-01]
+* fixed missing (2AA) division for estimated flux uncertainty when reading from Gaussian fit parameters (vs straight
+  from HDF5 file) (*note: 2AA value is read from Gaussian fit paramter as well)
+* added verify boolean to catalogs::find_catalogs() to actually verify a cutout exists at the RA, Dec (returns list
+  of matching catalogs ... can be slow since it actually verifies the imaging files on disk and performs a cutout)
+* replace Wand with pdf2image
+* minimal y-axis scaling of neighborhood spectra plots, set box and neighbor detected emission line color to 'lime'
+* added HDF5 catalog output
+* turn off disc in pixel flat, made configurable in global_config with MARK_PIXEL_FLAT_CENTER
+
+
+
+1.7.4a1 [2019-09-19]
+* Updated with new HSC data release (new format, 2x coverage)
+    -image organization different (now <...>/tract/image_file)
+    -catalog organization different (now <...>/tract/<position>.dat
+    -catalog format different (98 columns now from 20)
+        -using flux.cmodel and flux (least squares fit) as preferred
+    -FITS format different
+            -WCS idx now 0 (was 1)
+            -flux zero point not reported in header (specified as fixed in the README)
+            -exposure time not reported in header
+            -others ....
+* Added option to output an "ELiXer-lite" single image (as <detectid>_mini.png) ... uses --mini switch (independent
+  of --zoo)
+
+1.7.3a1 [2019-09-17]
+* fixed: COSMOS catalog only reporting r-band mag/PLAE
+* fixed: allow (solution = False) lines IFF there is at least one corroborating line
+   (allows CIV, etc for LyA solutions)
+* replaced red + at center of imaging cutouts with open crosshair
+  (leave the fiber position cutout with the "+" as the more exact position is useful for that graphic)
+
+1.7.2 [2019-09-12]
+For manual classification effort.
+* Aperture photometry set to fixed 1.5" at 0,0 position for consistency with previous runs.
+
+1.7.2a8 [2019-09-11]
+* Mark all (in range) HETDEX detections (continuum and emission line) in neighborhood map with white squares and
+the current (row) with blue. Includes detections that exceed the configured limit.
+
+1.7.2a7 [2019-09-09]
+* Add absolute (001-448) fiber number to left side of fiber 2d cutouts (to make it easier to note common fibers in
+  detection)
+* Added check of continuum sources (in addition to emissionline source) for neighborhood if hdf5 file not specified
+* Added visual warning text to top center ("summed pixel flat cell") if duplicated fibers were found
+
+1.7.2a6 [2019-08-22]
+* Add low alpha (0.2) gold disc to pixel flat 2D cutouts to highlight the emission line region (to check for defects)
+* Add --nodes to commandline to set a maximum node limit on TACC (if not set or set to zero, the cluster specific
+  configured maximum is used)
+
+
+1.7.2a5 [2019-08-06]
+* Removed "Est OII rest-EW" from catalog matches at report bottom
+* Added uncertainty calcuation for SDSS (HETDEX) gmag estimate (uncertainty on the sum of all flux bins)
+* Added '*' marker to gmag value in upper left for the EstCont line to indicate that the continuum estimate and error
+  comes from the SDSS gmag instead of the HETDEX local estimate (occurs when HETDEX estimate is <= 0.0)
+* Added uncertainty on catalog Est LyA EW (when possible)
+* Added LyA rest EW (as EWr) and P(LAE)/P(OII) (as PLAE) underneath each cutout that computes an aperture magnitude
+  (just for reference; due to space constraints the error is not calculated and shown)
+* Search HDF5 detection file directory for the shot (multi_fits) file first, if not there, then go to the default location
+* Correct uncertainty propagation in filter flux for individual catalogs
+
+
+1.7.2a4 [2019-07-31]
+* Add (in parenthesis to upper left panel) gmag based PLAE/POII ratio. This is in the PDF only and is not part
+  of the catalog.
+* Fixed bug in spectrum.py calling peakdet that forced list of additional (unlabeled) lines to always be empty
+* Added elixer::build_neighoborhood_map() to scan all HETDEX detections within a provided distance and plot a wide
+  imaging cutout and 1D spectra for each
+
+
+1.7.2a3 [2019-07-22]
+* Using 3-sigma clipped std dev from all fibers in top 4 amps/exposure contributing fibers to detection as noise
+  estimate (in 2AA CALFIB wavebins)
+* Update shading to be 5x noise (configurable in global_config.py) in full 1D spec plot
+* Update line scoring to use this noise estimate
+* Ignore certificate errors for PanSTARRS
+* Add sanity check on imaging footprint from WCS (confirm WCS coord footprint produces the correct number of pixels
+  allowing for some error). If not, do not use the footprint as check for coordinates in range of image.
+
+1.7.2a2 [2019-07-11]
+* Fixed scaling issue in full 1D spectrum where central flux bin value is small compared to adjacent flux bins
+  (i.e. flux nearest to fit line peak drops to small value ... almost like a double peak with a single bin separation)
+* Fixed error allowing alternate emission line to match primary line if calcuated z slightly negative (> -0.01)
+
+1.7.2a1 [2019-07-11]
+* Incorporated calfib errors into peak finder scoring. Line score modified by peak central flux / error at that position
+  up to a max of 3x (where multiplier is flux/error/3.0, so at 3 sigma, multiplier is 1x).
+* Mark 3-sigma in shaded region on full 1D spec plot
+* Mark in red, regions of spectrum above the 3-sigma limit (option in global_config.py)
+* Bumped up base time for stampede2 SKX nodes from 0.8 to 1.0 minutes (using ooops slows down processing a bit and
+  the occassional call out to PanSTARRS also adds overhead).
+* Restrict Pan-STARRS to non-dispatch calls (like SDSS)
+
+1.7.1a3 [2019-07-07]
+* Added in Pan-STARRS online query. Takes priority over SDSS. Has same options under --panstarrs command line parameter
+* Added optional (default True) enforcement of non-empty catalog image. If image is empty or a simple gradient, will
+  treat as a catalog miss and move on to the next or backup catalog (including Pan-STARRS and/or SDSS)
+* Added --allow_empty_image command line option to override the above option and accept a blank image within the
+  catalog footprint as acceptable
+* Changed logger instantiation to prevent imported 3rd party modules from logging excessively
+
+
+1.7.1a2 [2019-06-23]
+* If continuum estimate from HETDEX is zero or undet, use SDSS gmag as basis for continuum estimate (still uses
+  HETDEX error estimate)
+
+1.7.1a [2019-06-21]
+* Switched from using Andrew Leung base PLAE/POII code to Danial Farrow's version (with some modifications)
+  (note: some small differences in specific values of ratio, but high level of agreement)
+* Improved lineflux, continuum and equivalentwidth uncertainties passed to PLAE/POII code for:
+    + HETDEX values
+    + Aperture values (partial ... has lineflux uncertainty but not continuum uncertainty yet)
+    + Catalog values
+
+1.7.0a [2019-06-14]
+* add SDSS online query as backup to no overlap with local imaging catalogs (default disallow if in dispatch mode to keep
+  from overwhelming SDSS webserver)
+* discontinued use of wcs._naxis1, _naxis2 per astropy 3.1 and replaced with pixel_shape
+* fixed handfull of log.warn() calls (should be log.warning())
+* updated science_image to force sky_mask to be cropped to the sky_image boundaries (in some cases the mask could
+  extend beyond the image and then the sky pixel selection would fail)
+* updated aperture photometry in GOODS-N
+* updated aperture photometry in EGS
+* set minimum PLAE/POII to 0.001
+* added --nophoto option to explicitly turn off the use of the archival photometric catalogs (will only generate the
+  top (HETDEX) part of the ELiXer report)
+* added --png option to save the entire report as a PNG (independent of existing --jpg option, so can save in both
+  formats on the same call)
+* tweaked zoo filenames to be more consistent with HDR1 naming
+* added speclite gmag using SDSS2010-g filter to upper left plot data
+* minor spacing correction for --zoox option
+* Updates to aperture magnitude:
+  + added NUDGE_MAG_APERTURE_CENTER option to global_config to allow the photometry aperture center to shift
+    (within NUDGE_MAG_APERTURE_CENTER) to the local 2D Gaussian centroid
+  + added MAX_SKY_SUBTRACT_MAG to ignore local sky subtraction if the impact to the base aperture magnitude is
+    greater than MAX_SKY_SUBTRACT_MAG
+* added --fitspec option to allow the y-axis of the full width spectrum plot to grow to the max range of the spectrum
+  rather than limit it to the selected emission line
+* exclude additional lines from scoring if the lines position offset (velocity offset) is greater than a configured value
+* allow asymmetric position (velocity) offsets and split LyA from other lines in scoring additional spectral lines
+* added --continuum switch to instruct elixer to use the HETDEX continuum catalog instead of the emission line catalog
+* OMP_PROC_BIND seems to be no longer valid for stampede2 (so stopped including it in pre-python command line)
+* fixed error in elixer::convert_pdf ("strip" should be "rstrip" to remove trailing ".pdf" from name ... else treats
+  as set of characters to be removed from anywhere in the string
+* fixed missing application of scale units to MCMC results (usually e-18 not e-17) .. made expected line_flux and continuum
+  appear to be off by x10
+* added uncertainties to FWHM, SNR, and Chi2
+* added small y-separator to 2D fiber cutouts (separate the sum from the individual fibers)
+
+
+1.6.6 [2019-05-16]
+* changed manual wcs header creation (science_image.py) to use new constructor to build from FITS header
+* fixed non-printing of aperture P(LAE)/P(OII) (specifically for HSC)
+* added filter ID to aperture P(LAE)/P(OII) in PDF report
+* added check for duplicate fibers in HDF5 Fibers table (extra duplicate fibers are excluded, original is kept)
+* fixed incorrect and overly restrictive passing of additional fluxes (of defined, known emission line type) to
+  Bayesian classifier (still enforces that the multi-line solution ID possible line and the line must be within 2AA
+  of a Bayesian known line)
+* updated matplotlib ymin, ymax to bottom, top per deprication warning
+* fixed several 2018 (that should be 2019 in the version log below)
+
+1.6.5 [2019-03-31]
+* report newer (panacea) equivalent width in *_cat.txt
+* fixed minor type cast of id in PDF constructor
+* extra protection around PDF report and part building
+
+1.6.4 [2019-03-29]
+* fix blank printed column 20, 23 in _cat.txt if no additional found lines reported, but one or more
+  specific line matches found
+
+1.6.3 [2019-03-28]
+* added protection against attempting to convert a non-pdf to jpg
+* added conversion of detectID from string to int type if --blind option used
+* added extra protection for out of bounds sky mask on local sky subtraction annulus
+* added minimum loading of CPUs before adding another node (default avg of 10 detects per CPU) on TACC
+* added hard maximum number of detections to run per CPU (by machine and queue). If exceeded, selixer will
+  exit and instruct operator to reduce the number of detections
+* set HDF5 pdf names to just be the 9+ digit detectionID + ".pdf"
+
+
+1.6.2a1 [2019-03-27]
+* added elixer_mag, elixer_filter, elixer_flux, elixer_flux_err columns to dataframe when calculating and
+  sorting by distance prior (so will be available as common columns in catalogs API)
+* reworking selixer batching to allow for different performance with Python3 vs Python2
+* updated user's guide
+* updated default HDF5 detection file path
+* added --blind option to not verify detection IDs for HDF5 reading when building the dispatch lists (speeds up
+  pre-processing enormously at risk of including bad IDs ... does not work if passed in --dets are anything other
+  than HDF5 detection IDs)
+* reduced stampede2 SKX-Normal to 45 cores per node (from 48)
+* add file existence check and 5 sec sleep if not found when coverting pdf to jpg
+* add --ooops to selixer
+* cut max number of nodes on stampede to 50
+
+1.6.1a1 [2019-03-15] -- merge to master
+* major rework of imports to allow for elixer to be installable as package
+* various updates to switch between string/byte handling for python2 vs python3
+* added documentation
+
+1.6.0a5 [2019-03-14]
+* removed import and calls to Andrews's Bayesian PLAE/POII which necessitated cosmolopy so can eliminate hard
+  python2 dependencies
+* support python2 or python3 versions of ConfigParser (configparser in python3)
+* update binding for stampede2 normal queue (KNL nodes) ... limit to 6 tasks per node and a max of 50 nodes
+
+1.6.0a4 [2019-03-13]
+* add better protection on add empty fiber list cutout (formerly unhandled exception in rare case where we have
+  entries in the detection HDF5 but no shot files and not overlapping photometry)
+* trim stampede2 time estimate down to 45 sec per report
+
+
+1.6.0a3 [2019-03-12]
+* launch tasks with mpiexec.hydra for stampede2 cluster
+* reduced max time per task (if using --recover) as it is easier to continue on timeout if underestimate time
+
+1.6.0a2 [2019-03-11]
+* fixed missing process of --dispatch for HDF5 consumption with --dets as entire shot
+
+
+1.6.0a1 [2019-03-09]
+* added --recover option
+  Reorganizes elixer.py to execute to completion one detection at a time (rather than all detections in stages)
+  If --recover is on the command line, ELiXer will first check the expected output directory for reports that
+  match the list of detections to process. Any that are found are removed from the list. The anticipated primary use
+  case is a run of many detections that ran out of time on TACC. Now, some subset of the reports will be complete and
+  they user can re-execute the sbatch command directly (or even re-run elixer) but only those detections for which a
+  PDF report does not exist will be processed.
+
+  If --recover is NOT on the command line, all detections will be processed and the files overwritten in the original
+  all or nothing process (that is, all detections are processed in stages and are all written out only at the end).
+* added --search option to split out from --error. Use is exclusively with --ra and --dec and specifies the search
+  radius in arcsecs. If not supplied, --error is used instead. This allows for a wide search area but with still a
+  small (as defined by --error) cutout window.
+
+
+1.5.0a25 [2019-03-07]
+* modified line_classifier.probs.classification_prob_leung.py to return -1 PLAE/POII ratio if calc
+  number of OII and LAEs are both zero (e.g. the priors will be zero).
+* Made use of MCMC Gauss fit of additional lines contingent on global_config.py MIN_MCMC_SNR. If set
+  to 0 it will NOT perform that additional step (and just uses the scipy least-squares fit)
+* added 'fibidx' for SHOT HDF5 (if fails, uses 'fibnum' instead)
+* updated imaging paths to point under hetdex HDR1 directory
+
+1.5.0a24 [2019-03-06]
+* fixed missing call to elixer::get_hdf5_detectids_to_process is RA, Dec not supplied (selixer.py)
+* explicitly clear matplotlib at top of each cycle of HD object processing (elixer.py)
+
+1.5.0a23 [2019-03-04]
+* fixed typo in match_summary.py that failed to separated the header text for columns 29-33
+  (the columns are present but the header text was not separated and numbered correctly)
+* fixed missing filter (column 29 .. was printing a space) for aperture magnitude (e.g. the first row
+  or 0.0 distance entry in *_cat.txt)
+* fixed 0.0 value for aperture magnitude (was not being set) in *_cat.txt for the first row (aka
+  the 0.0 distance entry)
+
+
+1.5.0a22 [2019-03-04]
+* updated cat_HSC and cat_SHELA to handle aperture magnitude calculation from 1.5.0a20
+* changed sky pixel averaging from median of 3-sigma cut to biweight
+
+1.5.0a21 [2019-02-25]
+* fixed SLURM dispatch issue going from --ra and --dec to --dispatch and --dets
+
+1.5.0a20 [2019-02-25]
+* updated the catalogs API to allow operator to specify an aperture for a magnitude calcuation and whether that
+  aperture is dynamic
+* updated the catalogs API to take radius as arcsecs rather than degrees (though if less than 0.5, will assume degrees)
+* fixed bug in calcuation of sky subtraction annulus (outer radius) into pixel space
+* updated --ra --dec --error on command line to search for HDF5 detections and perform full ELiXer report on each
+
+
+1.5.0a19 [2019-02-20]
+* bumped local sky annulus for forced aperture photometry to 5x (inner) to 10x (outer) of the aperture radius
+  (roughly 75x more sky pixels than source pixels) ... makes very little difference in magnitude (order 0.1 - 0.2 mag)
+  (I think becuase the images are already well sky subtracted)
+
+1.5.0.a18 [2019-02-19]
+* fixed left-over 'sci_image' reference in cat_xxx.py count_to_mag functions
+* add HDF5 support (path to multi-fits still hardcoded)
+* scale upper right (model fit) plot to the central 50% of the datapoints
+* explicitly cast x and y data to scipy.curve_fit as np.float64 to deal with precision issue in scipy implementation
+* moved bin width (for flux vs flux/dx) as part of Gaussian parameters to track model area vs actual line_flux separately
+
+
+1.5.0.a17 [2019-02-03]
+* updates to selixer.py to deal with (minimum func) wrangler and stampede2
+* added API for imaging catalogs (cutouts and catalog detections)
+  + add cut2fits.py as command line python app to save cutouts as FITS
+* reworked catalogs to minimize memory usage on loading larger FITS for imaging cutouts and add retries
+
+
+1.5.0a16 [2019-01-02]
+* incorporated Daniel Farrow's version of the Bayesian line discriminator (currently calling both versions and logging
+    a warning if there is a > 1% discrepency between them)
+* including line flux and eq.width uncertainties in calls the Bayesian discriminator for HETDEX data (not yet including
+    uncertainties from external imaging catalogs as (1) do not have error frames and (2) assuming Poisson error at
+    the pixel level might not be appropriate)
+* fixed error in propogating line flux and continuum uncertainties into equivalent width uncertainty if using local
+  MCMC fit
+* updated SLURM wrapper to allow for maverick or wrangler
+* fixed missing columns in dataframe for stack_cosmos (was missing the FLUX_AUTO and FLUXERR_AUTO) to add per filter
+  flux to the catalog
+
+
+1.5.0a15 [2018-12-14]
+* changed IFUSLOT_ID back to SPECID in the text to the right of the 2D cutouts (the multi*fits are named starting
+  with the SPECID so that makes the file easier to find)
+* dispaly (top left) SpecID and SlotID of the primary fiber's IFU
+* added command line option --include_all_amps which overrides the Bad Amp List and forces all amps to be processed
+* fixed string representation of value +/- uncertainties for small exponents (upper left text)
+
+1.5.0a14 [2018-12-13]
+* if aperture magnitude fainter than global_config::SKY_ANNULUS_MIN_MAG, then compute local sky in 2x radius annulus
+   around the original source, subtract sky and recompute magnitude
+* add DS9 x,y back to the data to the right of the 2D CCD cutouts (top center),
+  changed last line to be IFUSLOT_ID AMP Fiber_Index  (was SPECID AMP Fiber_Index),
+  and made font black for all data
+* add support for bad_amp_list (consists of ifuslot amp start_date stop_date)
+* fixed typo in header for *_fibs.txt (was not printing the 16th column header correctly as the number of fibers)
+
+1.5.0a13 [2018-12-10]
+* fixed bug for non-measured continuum and reporting of P(LAE)/P(OII) in cat_shela
+
+1.5.0a12 [2018-12-07]
+* made photometry aperture fixed at 1.5" (not yet configurable on command line, but is set in global_config.py)
+* switching preferred filter to compute continuum estimate to r-band
+* fix missing SNR (col 13) in *_cat.txt
+
+1.5.0a11 [2018-11-28]
+* corrected error in hetdex.py load_fluxcalibrated_spectra (wrong column being used for sigma from fitres *.res files)
+
+1.5.0a10 [2018-11-13]
+* added fullname / PDF name to catalogs as 1st column
+* if fcsdir is provided and the final node directory is an rspxxx output, will build PDF filename from the dirname
+
+1.5.0a9 [2018-11-08]
+* changed entry ID to allow it to be a string (if just numerical, will still treat as an integer)
+* hetdex.py::load_fluxcalibrated_spectra deal with l1,l6 files of only one line (ndarray.size issue vs len())
+
+1.5.0a8 [2018-11-08]
+* changed search for an entry ID from the fcsdir detection file path to use the last token that is an integer
+
+1.5.0a7 [2018-11-07]
+* removed Sky X, Y (weighted X,Y of the source in the IFU) from *_fib.txt
+* added IFU X, Y (X,Y of the center of the fiber in the IFU) for each fiber in *_fib.txt
+
+1.5.0a6 [2018-11-06]
+* adjust rspxxx Gauss fit of line flux by 2x (pixels to angstroms correction)
+* replace upper right dataplot as scatter with error vs line with error
+
+1.5.0a5[2018-10-25]
+* use local *.res (if fails, check for ../fitres/*.res (hetdex::load_fluxcalibrated_spectra)
+* incorporate AMPLIFIE or AMPNAME for additional flip logic for pixel flats
+* more work on ANNULUS
+
+
+1.5.0a4 [2018-10-19]
+* updating for changes to rsp output
+* moved initialization of logger to after check for --help
+* fixed summing problem with Cutout2D.data in catalogs get_stacked_cutout
+* added global option to use (or not) ELiXer internal MCMC fit for main line and uncertainties
+
+
+1.5.0a3 [2018-10-17]
+* allow --fcsdir directory building with --dets to continue if individual directories are bad
+* changed upper right panel to display best Gaussian fit instead of summed fibers if fit parameters are available
+* added Subarau HSC g-band COSMOS image to stackCOSMOS catalog
+* zero out regions in 2D CCD cutouts where pixel flat is < 0
+
+1.5.0a2 [2018-10-10]
+* updated to new rsp1xx output (*specf.dat), remove *spece.dat
+* use internal MCMC for uncertainties
+* working on incorporating per wavelength noise model for simulated noise only spectra
+
+
+1.5.0a1 [2018-08-30]
+* support for stacking empty fibers (diffuse/extended emission search)
+* adding in --annulus, --wavelength
+
+
+1.4.0 [2018-08-11] promoted version 1.4.0a11 to release to avoid active user collisions
+
+1.4.0a11 [2018-07-30]
+* still produce full sized PDF even if multi*fits files cannot be located or imported (use empty spacing)
+
+* support for tar (reduced data)
+
+* building toward summing fibers (for diffuse emission).
+    Add: SyntheticObservation (observation.py)
+
+* added (somewhat hand-wavy) absorption line features to scoring by inverting the spectra and fitting for emission.
+  Scores from these features down-scaled to 80% of an equivalent (true) emission line
+
+* added MCMC output (corner plot) of fit paramters of main line (as mcmc_eid(*)_*.png )
+
+* added overplot of MCMC fit to main line gauss*.png (as a 'highlight')
+
+* added --tasks option to allow for multiple tasks in TACC SLURM call
+
+
+1.4.0a10 [2018-07-27]
+* changing project name (and supporting files/references) from voltron to elixer
+
+
+1.4.0a9 [2018-07-27]
+* add MCMC fitting of gaussian (can be used on any line, but currently just on main line and currently only logged)
+  (note: testing shows close agreement with scipy curve_fit, so for the additional lines, just use curve_fit as it
+   is much faster ... for the main line use MCMC as it provides the estimated distribution (uncertainties) in the
+   parameters)
+
+* fixed bug where rsp1 calculated line flux data was being read in units of e-18 instead of e-17
+
+* modified Bayes.basyesian.prob_data_given_OII and prob_data_given_LAE to incorporate uncertainties in the lineflux and
+  EqW_obs if known (otherwise defaults back to the previous +/- 5%)
+
+
+1.4.0a8 [2018-07-05]
+* Updated with Isak's new SHELA cats and images
+
+* Updated to cat_shela to only load one tile at a time (as needed) rather than all tiles up front
+  (note: photoZ catalog is not by tile, however, and is loaded up front and still takes a while)
+
+* Updated science_image.py to deal with change in astropy and photutils adding units to aperture counts
+
+* Updated science_image.py to use pixel based aperture photometry first (much faster) and switch to sky coord based
+  (needs the whole image for WCS) if it fails.
+
+
+1.4.0a7 [2018-06-25]
+* fixed bug where CFHTLS catalog magnitude was not being calculated from flux (resulting in exception in print statement)
+
+* fixed bug where list of matched catalogs was not being tracked per emission line object (could cause empty cutouts if
+  detections are from different sky regions with separate catalogs)
+
+* reduced overlapping emission line labels in full 1D plot (only display "major" lines and those that have a match in
+  the multiline solution)
+
+
+1.4.0a6 [2018-06-19]
+* add 1 - probability of noise "confidence" to multiline solution
+    - use skewed Gaussian noise model with 1e5 samples
+    - use SNR * Line_flux as score
+    - for 1.0 wide score bins for each emission line, get the prob that it is noise
+    - solution confidence = 1.0 - product of each emission line prob(noise)
+    - (note: noise only ... does not explicitly deal with partially removed cosmic rays, etc)
+
+* update cat_bayesian (probability of random catalog match) to allow caller selection of MDF vs pseudo-PDF and
+  whether or not to integrate over the distance +/- astrometry error (and bin-width).
+  Default is pseduo-PDF with integration and assumed error of 0.5"
+
+
+
+1.4.0a5 [2018-06-12]
+* added dashed lines to indicate possible emission lines in full 1D spectra plot
+
+* fixed bug where PDF displayed EW_rest was EW_obs/z instead of EW_obs/(1+z)
+
+* improvements and tuning on matching detected peaks to additional line positions based on primary emission line
+
+* added best_z, best_confidence, lists of all lines, lines used in classification to *_cat.txt
+
+1.4.0a4 [2018-06-08]
+* fit sigmoid and variable degree polynomial (default=3 and better fit) to probability of random alignment
+  by magnitude matrix (may want to get more data and more refined bins)
+
+* updated peakfinder (boxcar smoothing w/3x pixels to reduce jitter, boost S/N) then fit with gaussian
+  to the original spectra at peak points
+    - additional lines (a few NaI, NeV, NeVI)
+
+* reworked multi-line solution finder
+  - solution accepted if it dominates the score of all solutions with 2+ additional lines detect of significant quality
+        (obs_EW, total flux, etc)
+  - added large emission line name and colored highlights to full 1D spectrum plot if a strong multiline solution is found
+  - added name, rest wavelength, z, and EW to last line of stats text (upper left)
+  (still tbd include this information in a text catalog)
+
+* added hatch marks to skylines to disambiguate from possible emission line highlights
+
+* fixed problem with HSC tract catalogs (entries in tracts corresponding to overlapping tiles do not correctly
+  overlap (objects that appear in the overlap region are not necessarily recorded in the overlapping tracts).
+  Now keeps all overlapping tracts, not just the one corresponding to the selected image tile.
+
+* allow pdf to still be produced even if rsp1 (*2d.res file) is empty (or all zeroes). Data may be junk, but
+  the pdf will still be produced.
+
+* for classification scoring, feed in fluxes as e-18 (rather than e-17) ... the scaling is then very close to
+  counts and the downstream logic can remain unchanged
+
+
+
+
+1.4.0a3 [2018-05-25]
+* add cat_bayesian package to handle Bayesian treatment of bid catalog objects (priors on likelihood of match to
+    observation)
+    - initial version of likelihood of being not random (as MDF based on Yaswant's work)
+    - sorting possible matches by this prob then distance
+    - added to top 3 bid match summaries
+
+* change reported flux for bid catalog objects to magnitude for easier comparison
+    (note: in some catalogs, the mag is provided by the catalog, in some it is calculated from the flux)
+    uses v,g,r bands (in that order, when present)
+
+* add global option DYNAMIC_MAG_APERTURE that, when true, allows the forced aperture placed on the imaging to calculate
+    the magnitude to grow until the magnitude stabilizes or reaches the maximum of the error window. Currently set
+    to a minimum of 0.5". Stabilization defined by either an increase in magnitude (dimming) or a change of less than
+    0.05 mag. The aperture is sized to match on the cutout and the radius is reported next to the magnitude beneath the
+    plot.
+
+* update summing of spectra (upper right) to use RSP1 output when present
+
+* update summed spectra plotting (upper right and full spectra, center) to standard plot (from step plotting)
+
+* fixed(?) stackedCOSMOS and SHELA magnitude calcuations. Imaging counts are already in nJy and do not need to be
+    converted.
+
+* update contrast stretching for summed 2D cutout for better readability
+
+* update SHELA and COSMOS aperture magnitude calculations (pixels are already in nJy and do not need conversion)
+   (there is still some mismatch between reported mag and aperture mag, but it is closer)
+
+* fixed missing S/N in upper left stats
+
+* remove chi2 if not present (upper left stats)
+
+* (temporarily?) turned off quality score until it can be re-scaled to flux (from counts)
+
+* removed dead code from catalog classes (older versions that optionally produced individual pages for each bid catalog
+    match, etc)
+
+
+[older versions]
+* changes not listed. See GitHub version control check-in comments

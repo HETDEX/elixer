@@ -1,0 +1,6 @@
+include elixer/distance_list_bool.txt
+include elixer/version.txt
+include elixer/line_classifier/universe.cfg
+include elixer/line_classifier/Line_flux_limit_5_sigma_baseline.dat
+recursive-include elixer/docs *
+

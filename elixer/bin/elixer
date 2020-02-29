@@ -1,0 +1,3 @@
+export PYTHONDONTWRITEBYTECODE=1
+
+python /work/03946/hetdex/hdr1/software/elixer/elixer.py "$@"
