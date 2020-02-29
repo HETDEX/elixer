@@ -11,15 +11,17 @@ import sys
 import astropy.stats.biweight as biweight
 import matplotlib.pyplot as plt
 from scipy.stats import bayes_mvs
-import weighted_biweight as elixer_biweight
+
 
 try:
     from elixer import global_config as G
+    from elixer import weighted_biweight as elixer_biweight
     import elixer.line_classifier.probs.classification_prob as LineClassifierPro
 #    import elixer.line_classifier.probs.classification_prob_leung as LineClassifierPro_Leung
 except:
     import global_config as G
     import line_classifier.probs.classification_prob as LineClassifierPro
+    import weighted_biweight as elixer_biweight
 #    import line_classifier.probs.classification_prob_leung as LineClassifierPro_Leung
 
 import numpy as np

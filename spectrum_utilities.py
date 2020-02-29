@@ -7,15 +7,17 @@ from __future__ import print_function
 
 try:
     from elixer import global_config as G
+    from elixer import weighted_biweight as weighted_biweight
 except:
     import global_config as G
+    import weighted_biweight as weighted_biweight
 
 import numpy as np
 import astropy.constants
 import astropy.units as U
 import astropy.cosmology as Cosmo
 import astropy.stats.biweight as biweight
-import weighted_biweight as weighted_biweight
+
 
 #SU = Simple Universe (concordance)
 SU_H0 = 70.

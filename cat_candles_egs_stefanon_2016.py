@@ -7,6 +7,7 @@ try:
     from elixer import cat_base
     from elixer import match_summary
     from elixer import utilities
+    from elixer import sqlite_utils as sql
 except:
     import global_config as G
     import science_image
@@ -14,11 +15,12 @@ except:
     import cat_base
     import match_summary
     import utilities
+    import sqlite_utils as sql
 
 import os.path as op
 import copy
 import io
-import sqlite_utils as sql
+
 
 
 CANDELS_EGS_Stefanon_2016_BASE_PATH = G.CANDELS_EGS_Stefanon_2016_BASE_PATH
