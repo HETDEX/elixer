@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.8.1 [2020-02-29]
+* reworked directory structure
+* merge into master (start prep for HDR2)
+
 1.8.1a8 [2020-02-29]
 * added function for bootstrapping to get confidence interval from skewed distribution (i.e. from MC PLAE/POII data)
 * added function for explicit direct confidence interval from skewed distribution

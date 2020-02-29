@@ -14,7 +14,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.8.1a8'
+__version__ = '1.8.1'
 
 #python version
 import sys
