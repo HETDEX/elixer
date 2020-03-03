@@ -2,14 +2,16 @@ from __future__ import print_function
 
 try:
     from elixer import global_config as G
+    from elixer import corner
 except:
     import global_config as G
+    import corner
 
 import numpy as np
 import io
 import matplotlib.pyplot as plt
 import emcee
-import corner
+
 import warnings
 
 log = G.Global_Logger('mcmc_logger')

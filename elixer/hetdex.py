@@ -882,7 +882,10 @@ class DetObj:
 
                  #get all z
                 lae_z = [self.w / G.LyA_rest - 1.0]
-                not_lae_z = [self.w / G.OII_rest - 1.0]
+                if self.w >= G.OII_rest:
+                    not_lae_z = [self.w / G.OII_rest - 1.0]
+                else:
+                    not_lae_z = []
 
                 if (self.spec_obj is not None) and (self.spec_obj.solutions is not None):
                     for s in self.spec_obj.solutions:
@@ -900,9 +903,26 @@ class DetObj:
                     diam = SU.physical_diameter(z ,self.classification_dict['diam_in_arcsec'])
                     if diam is not None and diam > 0:
                         #todo: set the likelihood (need distro of sizes)
-                        lk = 0.0
+                        #typical half-light radius of order 1kpc (so full diamter something like 4-6 kpc and up)
+                        #if AGN maybe up to 30-40kpc
+                        if diam > 40.0:  #just too big
+                            lk = 0.1
+                            w = 0.7
+                        elif 10.0 < diam <= 40:
+                            #pretty big, maybe favors OII at lower-z, but not very definitive
+                            lk = 0.5
+                            w = 0.1
+                        elif 4.0 < diam < 10.0:
+                            lk = 0.9
+                            w = 0.1 #does not add much info, but is consistent
+                        else:
+                            lk = 0.9
+                            w = 0.5
+
+                        likelihood.append(lk)
+                        weight.append(w)
+                        var.append(1)
                         #set a base weight (will be adjusted later)
-                        w = 0.5
                         diameter_lae.append({"z":z,"kpc":diam,"weight":w,"likelihood":lk})
                         log.debug(
                              f"{self.entry_id} Aggregate Classification, added phsyical size:"
@@ -916,9 +936,19 @@ class DetObj:
                     diam = SU.physical_diameter(z, self.classification_dict['diam_in_arcsec'])
                     if diam is not None and diam > 0:
                         # todo: set the likelihood (need distro of sizes)
-                        lk = 0.0
+                        if diam < 0.1:  #just too small
+                            lk = 0.9 # ***(this is likelihood of LAE, so 1-likelihood not LAE)
+                            #so saying here that is very UNLIKELY this is a low-z object based on small physical size
+                            #so it is more LIKELY it is a high-z object
+                            w = 0.7
+                        else:
+                            lk = 0.1
+                            w = 0.1
                         #set a base weight (will be adjusted later)
-                        w = 0.5
+
+                        likelihood.append(lk)
+                        weight.append(w)
+                        var.append(1)
                         diameter_not_lae.append({"z":z,"kpc":diam,"weight":w,"likelihood":lk})
                         log.debug(
                             f"{self.entry_id} Aggregate Classification, added phsyical size:"
@@ -1057,7 +1087,7 @@ class DetObj:
             log.debug("Exception in aggregate_classification for best PLAE/POII",exc_info=True)
 
 
-        # update the physical size weights
+        # todo: update the physical size weights
         # now add to the global likelihood and weight
         # choose the best weight in each class ... if a tie, choose the higher likelihood
 

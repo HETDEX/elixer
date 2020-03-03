@@ -267,6 +267,8 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None):
     """
     Similar to get_sdss_gmag, but this uses ONLY the HETDEX spectrum and its errors
 
+    Simple mean over spectrum ... should use something else? Median or Biweight?
+
     :param flux_density: erg/s/cm2/AA  (*** reminder, HETDEX sumspec usually a flux erg/s/cm2 NOT flux denisty)
     :param wave: in AA
     :param flux_err: error array for flux_density (if None, then no error is computed)
