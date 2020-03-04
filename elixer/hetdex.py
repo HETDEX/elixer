@@ -870,11 +870,14 @@ class DetObj:
 
         #rules based
 
-        #
-        #object extent in terms of approximate PSF ... if very inconsistent with PSF, then not likely to be LAE
-        # Mostly a BOOLEAN value (yes or no, LAE)
+
 
         # todo: use assumed redshift (OII vs LyA) and translate to physical size
+        #
+        # setup ... most of range is consistent with either, so If consistent, weight as zero (adds nothing)
+        # if INCONSISTENT, weight in favor of the other solution
+        #
+
         try: #similar to what follows, if the size in psf is not at least 1 (then it is smaller than the psf and the
              # size cannot be (properly) determined (limited by psf)
             if isinstance(self.classification_dict['size_in_psf'],float) and \
@@ -905,19 +908,19 @@ class DetObj:
                         #todo: set the likelihood (need distro of sizes)
                         #typical half-light radius of order 1kpc (so full diamter something like 4-6 kpc and up)
                         #if AGN maybe up to 30-40kpc
-                        if diam > 40.0:  #just too big
+                        if diam > 40.0:  #just too big, favor not LAE
                             lk = 0.1
                             w = 0.7
                         elif 10.0 < diam <= 40:
                             #pretty big, maybe favors OII at lower-z, but not very definitive
                             lk = 0.5
-                            w = 0.1
+                            w = 0.0
                         elif 4.0 < diam < 10.0:
                             lk = 0.9
-                            w = 0.1 #does not add much info, but is consistent
-                        else:
+                            w = 0.0 #does not add much info, but is consistent
+                        else: #very small, highly consistent with LAE (small boost)
                             lk = 0.9
-                            w = 0.5
+                            w = 0.1
 
                         likelihood.append(lk)
                         weight.append(w)
@@ -936,14 +939,14 @@ class DetObj:
                     diam = SU.physical_diameter(z, self.classification_dict['diam_in_arcsec'])
                     if diam is not None and diam > 0:
                         # todo: set the likelihood (need distro of sizes)
-                        if diam < 0.1:  #just too small
+                        if diam < 0.1:  #just too small, favor LAE
                             lk = 0.9 # ***(this is likelihood of LAE, so 1-likelihood not LAE)
                             #so saying here that is very UNLIKELY this is a low-z object based on small physical size
                             #so it is more LIKELY it is a high-z object
                             w = 0.7
-                        else:
+                        else: #no info, favors either
                             lk = 0.1
-                            w = 0.1
+                            w = 0.0
                         #set a base weight (will be adjusted later)
 
                         likelihood.append(lk)
@@ -961,6 +964,9 @@ class DetObj:
             log.debug("Aggregate Classification exception.",exc_info=True)
 
 
+        #
+        #object extent in terms of approximate PSF ... if very inconsistent with PSF, then not likely to be LAE
+        # Mostly a BOOLEAN value (yes or no, LAE)
         try:
             #basiclly, 0 to 0.5 (if size > 5x PSF, probability that is LAE --> 0, if < 2x PSF holds at 0.5)
             scale = 0.5 #no info ... 50/50 chance of LAE
@@ -976,17 +982,22 @@ class DetObj:
                     weight.append(0.5) #opinion ... if not consistent with point-source, very unlikley to be LAE
                     var.append(1) #no variance to use
                     prior.append(base_assumption)
+                    log.debug(f"Aggregate Classification: PSF scale inconsistent with point source: lk({likelihood[-1]}) weight({weight[-1]})")
                 elif scale > 0.5: #completely consistent with point source
                     scale = 0.5 #max at 0.5 (basically no info ... as likely to be LAE as not)
                     likelihood.append(scale)
                     weight.append(0.01)  # opinion ... if consistent with point-source, does not really mean anything
                     var.append(1.)  # no variance to use
                     prior.append(base_assumption)
+                    log.debug(
+                        f"Aggregate Classification: PSF scale fully consistent with point source: lk({likelihood[-1]}) weight({weight[-1]})")
                 else: #scale is between 0.01 and 0.5,
                     var.append(1.)
                     likelihood.append(scale)
                     weight.append(0.5-scale)
                     prior.append(base_assumption)
+                    log.debug(
+                        f"Aggregate Classification: PSF scale marginally inconsistent with point source: lk({likelihood[-1]}) weight({weight[-1]})")
             else:
                 #really adds no information ... as likely to be OII as LAE if consistent with point-source
                 pass
@@ -1013,29 +1024,41 @@ class DetObj:
                             #must also have CIV or HeII, etc as possible matches
                             var.append(1)  #todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
+                            log.debug(
+                                f"Aggregate Classification: high-z solution: z({s.z}) lk({likelihood[-1]}) "
+                                f"weight({weight[-1]}) score({s.score}) scaled score({s.scale_score})")
 
                         else: #suggesting NOT LAE consistent
                             likelihood.append(0.0) #1-s.scale_score)
                             weight.append(s.scale_score) #1.0)  # opinion ... has multiple lines, so the score is reasonable
                             var.append(1)  #todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
+                            log.debug(
+                                f"Aggregate Classification: low-z solution: z({s.z}) lk({likelihood[-1]}) "
+                                f"weight({weight[-1]}) score({s.score}) scaled score({s.scale_score})")
                     else: #low score, but can still impact
-                        w = s.score / G.MULTILINE_MIN_SOLUTION_SCORE
+                        w = min(s.score / G.MULTILINE_MIN_SOLUTION_SCORE, s.scale_score)
                         if s.z > 1.8:  # suggesting LAE consistent
                            # likelihood.append(s.scale_score)
                            # weight.append(0.8 * w)  # opinion ... has multiple lines, so the score is reasonable
                             likelihood.append(1.0)  # s.scale_score)
-                            weight.append(s.scale_score)
+                            weight.append(w)
                             # must also have CIV or HeII, etc as possible matches
                             var.append(1)  # todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
+                            log.debug(
+                                f"Aggregate Classification: high-z weak solution: z({s.z}) lk({likelihood[-1]}) "
+                                f"weight({weight[-1]}) score({s.score}) scaled score({s.scale_score})")
                         else:  # suggesting NOT LAE consistent
                             #likelihood.append(1. - s.scale_score)
                             #weight.append(1.0 * w)  # opinion ... has multiple lines, so the score is reasonable
                             likelihood.append(0.0)  # 1-s.scale_score)
-                            weight.append(s.scale_score)
+                            weight.append(w)
                             var.append(1)  # todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
+                            log.debug(
+                                f"Aggregate Classification: low-z weak solution: z({s.z}) lk({likelihood[-1]}) "
+                                f"weight({weight[-1]}) score({s.score}) scaled score({s.scale_score})")
 
                     # does this match with a physical size from above?
                     try:
@@ -1393,9 +1416,19 @@ class DetObj:
         base_psf = []
         size_in_psf = None #estimate of extent in terms of PSF (sort-of)
 
+        gmag_at_limit = False
+
+        #
+        # separation between LAE and OII is around 24 mag (so if flux limit is reached below that, there
+        # really is no information to be gained).
+        # For now, setting weight to zero if well below 24mag (could alternately kick the error way up
+        # since the true value could be at the limit out to say, 28 mag or so)
+        #
+        #
+
         #todo: evaluate each PLAE/POII ratio available and set the variance (proxy) and weight before summing up
 
-        #HETDEX Continuum (near emission line)
+        #HETDEX Continuum (near emission line), not very reliable
         try:
             if (self.hetdex_cont_cgs is not None) and (self.hetdex_cont_cgs_unc is not None):
                 hetdex_cont_limit = 2.0e-18 #don't trust below this
@@ -1411,7 +1444,7 @@ class DetObj:
                         variance.append(self.hetdex_cont_cgs_unc*self.hetdex_cont_cgs_unc)
                     else:
                         variance.append(hetdex_cont_limit * hetdex_cont_limit) #set to itself as a big error
-                    weight.append(0.1) #never very high
+                    weight.append(0.0) #never very high
                     log.debug(f"{self.entry_id} Combine ALL Continuum: Failed HETDEX estimate, setting to lower limit  ({continuum[-1]:#.4g}) "
                               f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
 
@@ -1456,6 +1489,7 @@ class DetObj:
                         f"{self.entry_id} Combine ALL Continuum: Added best spectrum gmag estimate ({continuum[-1]:#.4g}) "
                         f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
                 else:  # going to use the lower limit, totally out of range
+                    gmag_at_limit = True
                     continuum.append(cgs_limit)
                     variance.append(cgs_limit * cgs_limit)  # ie. sd of ~ 1/3 * cgs_limit
                     # if self.hetdex_gmag_cgs_cont_unc > 0:
@@ -1558,10 +1592,24 @@ class DetObj:
                                 else:
                                     cont_var = avg_var(cont, cont, cont) #treat as a bogus zero error
 
+                                w = 1.0
                                 if (a['mag_err'] is None) or (a['mag_err']==0):
-                                    weight.append(0.2) #probably below the flux limit, so weight low
+                                    w = 0.2 #probably below the flux limit, so weight low
                                 else:
-                                    weight.append(1.0)
+                                    #what about ELiXer Aperture that is huge where SDSS/HETDEX gmag at limit?
+                                    #
+                                    # Basically, the gmag is below flux limit, and the apertures are not increasing
+                                    # in mag as they grow, so we are on something faint, maybe near a bright object
+                                    # so lots of sky; can't use this estimate for continuum so toss it out
+                                    if gmag_at_limit and (a['sep_obj_idx'] is None) and \
+                                            (a['radius'] is not None) and (a['radius'] > 2.0):
+                                        #check the radii and see if there is much change in the first few
+                                        if (a['elixer_apertures'] is not None) and len(a['elixer_apertures']) > 5:
+                                            if np.nanstd([x['mag'] for x in a['elixer_apertures']][0:5]) < 0.1:
+                                                #it is just not growing
+                                                #most likely this is just sky or nearby neighbor, down weight as unreliable
+                                                w = 0.0
+                                weight.append(w)
                                 variance.append(cont_var)
                                 continuum.append(cont)
 
@@ -2807,7 +2855,7 @@ class DetObj:
                 log.debug(f"HETDEX spectrum cont {self.hetdex_gmag_cgs_cont} +/- {self.hetdex_gmag_cgs_cont_unc}")
 
 
-                if (self.hetdex_gmag_cgs_cont is not None) and (self.hetdex_gmag_cgs_cont != 0):
+                if (self.hetdex_gmag_cgs_cont is not None) and (self.hetdex_gmag_cgs_cont != 0) and not np.isnan(self.hetdex_gmag_cgs_cont):
                     if (self.hetdex_gmag_cgs_cont_unc is None) or np.isnan(self.hetdex_gmag_cgs_cont_unc):
                         self.hetdex_gmag_cgs_cont_unc = 0.0
                         hetdex_okay = 1
@@ -2845,7 +2893,7 @@ class DetObj:
                     log.debug(f"SDSS spectrum gmag {self.sdss_gmag} +/- {self.sdss_gmag_unc}")
                     log.debug(f"SDSS spectrum cont {self.sdss_cgs_cont} +/- {self.sdss_cgs_cont_unc}")
 
-                if (self.sdss_cgs_cont is not None) and (self.sdss_cgs_cont != 0):
+                if (self.sdss_cgs_cont is not None) and (self.sdss_cgs_cont != 0) and not np.isnan(self.sdss_cgs_cont):
                     if (self.sdss_cgs_cont_unc is None) or np.isnan(self.sdss_cgs_cont_unc):
                         self.sdss_cgs_cont_unc = 0.0
                         sdss_okay = 1
@@ -4598,7 +4646,7 @@ class HETDEX:
             title += "\nRA,Dec (%f,%f)\n$\lambda$ = %g$\AA$ \n" % (e.syn_obs.ra, e.syn_obs.dec, e.syn_obs.w)
 
             if e.spec_obj.estflux is not None:
-                title += "EstFlux = %0.3g  \n" % e.spec_obj.estflux
+                title += "LineFlux = %0.3g  \n" % e.spec_obj.estflux
 
             if e.spec_obj.eqw_obs is not None:
                 title += "EW_obs = %g$\AA$ \n" % e.spec_obj.eqw_obs
@@ -4726,22 +4774,23 @@ class HETDEX:
 
         title = r""
         if e.pdf_name is not None:
-            title = "\n%s\n" % (e.pdf_name)
+            title = "\nID: %s (%s)\n" % (str(e.entry_id),e.pdf_name)
         elif self.output_filename is not None:
-            title += "%s_%s.pdf\n" % (self.output_filename, str(e.entry_id).zfill(3))
+            title += "ID: %s (%s_%s.pdf)\n" % (str(e.entry_id),self.output_filename, str(e.entry_id).zfill(3))
         #else:
             #title += "" #todo: start with filename
 
         try:
             title += "Obs: " + e.fibers[0].dither_date + "v" + str(e.fibers[0].obsid).zfill(3) + "_" + \
-            str(e.fibers[0].detect_id) + "\n"
+            str(e.fibers[0].detect_id)
         except:
             log.debug("Exception building observation string.",exc_info=True)
 
-        if (e.entry_id is not None) and (e.id is not None):
-            title += "ID (%s), Entry# (%d)" %(str(e.entry_id), e.id)
-            if e.line_number is not None:
-                title += ", Line# (%d)" % (e.line_number)
+        #really pointless ... the id is plainly available above
+        # if (e.entry_id is not None) and (e.id is not None):
+        #     title += "ID (%s), Entry# (%d)" %(str(e.entry_id), e.id)
+        #     if e.line_number is not None:
+        #         title += ", Line# (%d)" % (e.line_number)
 
         #if e.entry_id is not None:
         #    title += " (Line #%d)" % e.entry_id
@@ -4776,6 +4825,12 @@ class HETDEX:
         estflux_str = "%0.3g" %(e.estflux)
         estcont_str = "%0.3g" %(e.cont_cgs)
         eqw_lya_str = "%0.3g" %(e.eqw_obs/(1.0+la_z))
+        try:
+            estcont_gmag_str = self.unc_str((e.best_gmag_cgs_cont, e.best_gmag_cgs_cont_unc))
+            eqw_lya_gmag_str = "w: " + self.unc_str((e.best_eqw_gmag_obs/(1.0 + la_z),e.best_eqw_gmag_obs_unc/(1.0 + la_z)))
+        except:
+            estcont_gmag_str = None
+            eqw_lya_gmag_str = None
 
         if G.REPORT_ELIXER_MCMC_FIT:
             try:
@@ -4815,7 +4870,7 @@ class HETDEX:
                     "Science file(s):\n%s" \
                     "RA,Dec (%f,%f) \n" \
                     "$\lambda$ = %g$\AA$  FWHM = %0.1f($\pm$%0.1f)$\AA$\n" \
-                    "EstFlux = %s" \
+                    "LineFlux = %s" \
                     % (self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.w,e.fwhm,e.fwhm_unc,
                        estflux_str )
 
@@ -4823,7 +4878,10 @@ class HETDEX:
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
                 else:
                     title += "\n"
-                title +=  "EstCont = %s" %(estcont_str)
+
+                title +=  "Cont(n) = %s" %(estcont_str)
+                if estcont_gmag_str:
+                    title += "\nCont(w) = %s" %(estcont_gmag_str)
 
                 if e.best_gmag is not None:
                     if e.using_best_gmag_ew:
@@ -4846,14 +4904,17 @@ class HETDEX:
                 else:
                     title += "\n"
 
-                title += "EW_r(LyA) = %s$\AA$\n" %(eqw_lya_str)
+                if eqw_lya_gmag_str:
+                    title += "EWr = %s (%s)$\AA$\n" % (eqw_lya_str,eqw_lya_gmag_str)
+                else:
+                    title += "EWr = %s$\AA$\n" %(eqw_lya_str)
 
             else:  #this if for zooniverse, don't show RA and DEC or Probabilitie
                 title += "\n" \
                      "ObsDate %s  ObsID %s IFU %s  CAM %s\n" \
                      "Science file(s):\n%s" \
                      "$\lambda$ = %g$\AA$  FWHM = %0.1f($\pm$%0.1f)$\AA$\n" \
-                     "EstFlux = %s" \
+                     "LineFlux = %s" \
                              % (self.ymd, self.obsid, self.ifu_slot_id, self.specid, sci_files, e.w,e.fwhm,e.fwhm_unc,
                                 estflux_str)  # note: e.fluxfrac gauranteed to be nonzero
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
@@ -4861,7 +4922,9 @@ class HETDEX:
                 else:
                     title += "\n"
 
-                title += "EstCont = %s" % (estcont_str)
+                title += "Cont(n) = %s" % (estcont_str)
+                if estcont_gmag_str:
+                    title += "\nCont(w) = %s" %(estcont_gmag_str)
 
                 if e.best_gmag is not None:
                     if e.using_best_gmag_ew:
@@ -4885,7 +4948,10 @@ class HETDEX:
                 else:
                     title += "\n"
 
-                title += "EW_r(LyA) = %s$\AA$\n" % (eqw_lya_str)
+                if eqw_lya_gmag_str:
+                    title += "EWr = %s (%s)$\AA$\n" % (eqw_lya_str,eqw_lya_gmag_str)
+                else:
+                    title += "EWr = %s$\AA$\n" %(eqw_lya_str)
 
                # title += "EstCont = %s  \nEW_r(LyA) = %s$\AA$\n" % (estcont_str, eqw_lya_str)
 
@@ -4896,7 +4962,7 @@ class HETDEX:
                      "Primary IFU SpecID (%s) SlotID (%s)\n" \
                      "RA,Dec (%f,%f) \n" \
                      "$\lambda$ = %g$\AA$  FWHM = %0.1f($\pm$%0.1f)$\AA$\n" \
-                     "EstFlux = %s" \
+                     "LineFlux = %s" \
                      % (e.fibers[0].specid, e.fibers[0].ifuslot, ra, dec, e.w,e.fwhm,e.fwhm_unc, estflux_str)
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
@@ -4905,7 +4971,9 @@ class HETDEX:
                     title += "\n"
                 #title +=  "EstCont = %s  \nEW_r(LyA) = %s$\AA$\n" % (estcont_str, eqw_lya_str)
 
-                title += "EstCont = %s" % (estcont_str)
+                title += "Cont(n) = %s" % (estcont_str)
+                if estcont_gmag_str:
+                    title += "\nCont(w) = %s" %(estcont_gmag_str)
 
                 if e.best_gmag is not None:
                     if e.using_best_gmag_ew:
@@ -4928,14 +4996,17 @@ class HETDEX:
                 else:
                     title += "\n"
 
-                title += "EW_r(LyA) = %s$\AA$\n" % (eqw_lya_str)
+                if eqw_lya_gmag_str:
+                    title += "EWr = %s (%s)$\AA$\n" % (eqw_lya_str,eqw_lya_gmag_str)
+                else:
+                    title += "EWr = %s$\AA$\n" %(eqw_lya_str)
 
 
             else: #this if for zooniverse, don't show RA and DEC or probabilities
                 title += "\n" \
                      "Primary IFU SpecID (%s) SlotID (%s)\n" \
                      "$\lambda$ = %g$\AA$  FWHM = %0.1f($\pm$%0.1f)$\AA$\n" \
-                     "EstFlux = %s " \
+                     "LineFlux = %s " \
                      % ( e.fibers[0].specid, e.fibers[0].ifuslot,e.w,e.fwhm, e.fwhm_unc, estflux_str)
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
@@ -4943,7 +5014,9 @@ class HETDEX:
                 else:
                     title += "\n"
                 #title +=  "EstCont = %s  \nEW_r(LyA) = %s$\AA$\n" % (estcont_str, eqw_lya_str)
-                title += "EstCont = %s" % (estcont_str)
+                title += "Cont(n) = %s" % (estcont_str)
+                if estcont_gmag_str:
+                    title += "\nCont(w) = %s" %(estcont_gmag_str)
 
                 if e.best_gmag is not None:
                     if e.using_best_gmag_ew:
@@ -4966,7 +5039,11 @@ class HETDEX:
                 else:
                     title += "\n"
 
-                title += "EW_r(LyA) = %s$\AA$\n" % (eqw_lya_str)
+                #title += "EW_r(LyA) = %s$\AA$\n" % (eqw_lya_str)
+                if eqw_lya_gmag_str:
+                    title += "EWr = %s (%s)$\AA$\n" % (eqw_lya_str,eqw_lya_gmag_str)
+                else:
+                    title += "EWr = %s$\AA$\n" %(eqw_lya_str)
 
         if self.panacea:
             snr = e.sigma
@@ -5000,12 +5077,12 @@ class HETDEX:
 
                 if (not e.using_best_gmag_ew) and (e.best_gmag_p_lae_oii_ratio_range is not None):
                     try:
-                        title += " (gmag: $%.4g\ ^{%.4g}_{%.4g}$)" % (round(e.best_gmag_p_lae_oii_ratio_range[0], 3),
+                        title += " (w: $%.4g\ ^{%.4g}_{%.4g}$)" % (round(e.best_gmag_p_lae_oii_ratio_range[0], 3),
                                                                       round(e.best_gmag_p_lae_oii_ratio_range[2], 3),
                                                                       round(e.best_gmag_p_lae_oii_ratio_range[1], 3))
                     except:
                         log.debug("SDSS gmag PLAE title exception",exc_info=True)
-                        title += " (gmag %.4g)" % round(e.best_gmag_p_lae_oii_ratio,3)
+                        title += " (w %.4g)" % round(e.best_gmag_p_lae_oii_ratio,3)
 
                 if G.DISPLAY_PSEUDO_COLOR:
                     if e.rvb is not None:
