@@ -1,8 +1,11 @@
 changes to elixer by version
 
+1.8.2a2 [2020-03-06]
+* use faint mag limit of 29 to calculate an approximate variance for contiuum measures below flux limit
+
 1.8.2a1 [2020-03-03]
 * physical size condition for LAE vs NOT LAE
-* changes to upper left panel (separate lines for COni
+* changes to upper left panel
 
 1.8.1 [2020-02-29]
 * reworked directory structure

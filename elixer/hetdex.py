@@ -1419,6 +1419,19 @@ class DetObj:
 
         gmag_at_limit = False
 
+        # set weight to zero if gmag > 25
+        # set to low value if gmag > 24
+        # set to good value if gmag < 24
+        cgs_24 = 1.35e-18  # 1.35e-18 cgs ~ 24.0 mag in g-band
+        cgs_24p5 = 8.52e-19  # 8.52e-19 cgs ~ 24.5 mag in g-band, get full marks at 24mag and fall to zero by 24.5
+        cgs_25 = 5.38e-19
+        cgs_26 = 2.14e-19
+        cgs_27 = 8.52e-20
+        cgs_28 = 3.39e-20
+        cgs_29 = 1.35e-20
+        cgs_30 = 5.38e-21
+        cgs_faint_limit = cgs_29
+
         #
         # separation between LAE and OII is around 24 mag (so if flux limit is reached below that, there
         # really is no information to be gained).
@@ -1439,7 +1452,7 @@ class DetObj:
                     weight.append(0.2) #never very high
                     log.debug(f"{self.entry_id} Combine ALL Continuum: Added HETDEX estimate ({continuum[-1]:#.4g}) "
                               f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
-                else: #set as lower limit
+                else: #set as lower limit ... too far to be meaningful
                     continuum.append(hetdex_cont_limit)
                     if self.hetdex_cont_cgs_unc > 0:
                         variance.append(self.hetdex_cont_cgs_unc*self.hetdex_cont_cgs_unc)
@@ -1453,12 +1466,7 @@ class DetObj:
             log.debug("Exception handling HETDEX continuum in DetObj:combine_all_continuum",exc_info=True)
 
         #for use with SDSS gmag and HETDEX full width gmag
-        # set weight to zero if gmag > 25
-        # set to low value if gmag > 24
-        # set to good value if gmag < 24
-        cgs_24 = 1.35e-18  # 1.35e-18 cgs ~ 24.0 mag in g-band
-        cgs_24p5 = 8.52e-19  # 8.52e-19 cgs ~ 24.5 mag in g-band, get full marks at 24mag and fall to zero by 24.5
-        cgs_25 = 5.38e-19
+
 
         # Best full width gmag continuum (HETDEX full width or SDSS gmag)
         try:
@@ -1492,11 +1500,7 @@ class DetObj:
                 else:  # going to use the lower limit, totally out of range
                     gmag_at_limit = True
                     continuum.append(cgs_limit)
-                    variance.append(cgs_limit * cgs_limit)  # ie. sd of ~ 1/3 * cgs_limit
-                    # if self.hetdex_gmag_cgs_cont_unc > 0:
-                    #     variance.append(self.hetdex_gmag_cgs_cont_unc * self.hetdex_gmag_cgs_cont_unc)
-                    # else:
-                    #     variance.append(cgs_limit * cgs_24p5)  # set to itself as a big error
+                    variance.append((cgs_limit-cgs_faint_limit)**2)  # ie. sd of ~ 1/3 * cgs_limit
                     weight.append(0.5)  # never very high (a little better than HETDEX narrow continuum weight)
 
                     log.debug(
@@ -1572,7 +1576,17 @@ class DetObj:
                                              f" scaled weight applied.")
 
                                     cont = SU.mag2cgs(a['mag'], lam)
-                                    cont_var = avg_var(cont, cont, cont)  # treat as a bogus zero error
+                                    if a['mag_err'] is not None:
+                                        cont_hi = SU.mag2cgs(a['mag'] - a['mag_err'],
+                                                             lam)  # SU.mag2cgs(a['mag_bright'],lam)
+                                        cont_lo = SU.mag2cgs(a['mag'] + a['mag_err'],
+                                                             lam)  # SU.mag2cgs(a['mag_faint'],lam)
+                                        cont_var = avg_var(cont, cont_lo, cont_hi)
+                                    else:
+                                        #assume could be at limit or out to mag 30? mag 29?
+                                        count_lo = cgs_faint_limit
+                                        cont_hi = SU.mag2cgs(a['mag']-1.0,lam)
+                                        cont_var = avg_var(cont, count_lo, cont_hi)  # treat as a bogus zero error
 
                                     #scaled to 0-1.0 from mag24 (==0) to mag25(==1.0)
                                     #if negative then mag is fainter than 25 and get full weight
