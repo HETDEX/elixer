@@ -1038,7 +1038,10 @@ class DetObj:
                                 f"Aggregate Classification: low-z solution: z({s.z}) lk({likelihood[-1]}) "
                                 f"weight({weight[-1]}) score({s.score}) scaled score({s.scale_score})")
                     else: #low score, but can still impact
-                        w = min(s.score / G.MULTILINE_MIN_SOLUTION_SCORE, s.scale_score)
+                        #this can be a problem for items like 1000637691 which get reduced score, but is clearly a non-LAE multi-line
+                        #like an HII region; in theory clustering of emission lines would catch this
+                        w = s.scale_score #min(s.score / G.MULTILINE_MIN_SOLUTION_SCORE, s.scale_score)
+
                         if s.z > 1.8:  # suggesting LAE consistent
                            # likelihood.append(s.scale_score)
                            # weight.append(0.8 * w)  # opinion ... has multiple lines, so the score is reasonable
