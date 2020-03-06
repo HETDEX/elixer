@@ -967,46 +967,47 @@ class DetObj:
         #
         #object extent in terms of approximate PSF ... if very inconsistent with PSF, then not likely to be LAE
         # Mostly a BOOLEAN value (yes or no, LAE)
-        try:
-            #basiclly, 0 to 0.5 (if size > 5x PSF, probability that is LAE --> 0, if < 2x PSF holds at 0.5)
-            scale = 0.5 #no info ... 50/50 chance of LAE
-            consistent_with_lae_psf = 1.5
-            inconsistent_with_lae_psf = 5.0
-            if (self.classification_dict['size_in_psf'] is not None) and \
-                    (self.classification_dict['size_in_psf'] > consistent_with_lae_psf): #greater than twice a "sloppy" PSF, inconsistent with point source
-                scale = scale * (1.0 - (self.classification_dict['size_in_psf'] - consistent_with_lae_psf) /
-                                        (inconsistent_with_lae_psf-consistent_with_lae_psf))
-                if scale < 0.01: #completely inconsistent with point source
-                    scale = 0.01
-                    likelihood.append(scale)
-                    weight.append(0.5) #opinion ... if not consistent with point-source, very unlikley to be LAE
-                    var.append(1) #no variance to use
-                    prior.append(base_assumption)
-                    log.debug(f"Aggregate Classification: PSF scale inconsistent with point source: lk({likelihood[-1]}) weight({weight[-1]})")
-                elif scale > 0.5: #completely consistent with point source
-                    scale = 0.5 #max at 0.5 (basically no info ... as likely to be LAE as not)
-                    likelihood.append(scale)
-                    weight.append(0.01)  # opinion ... if consistent with point-source, does not really mean anything
-                    var.append(1.)  # no variance to use
-                    prior.append(base_assumption)
-                    log.debug(
-                        f"Aggregate Classification: PSF scale fully consistent with point source: lk({likelihood[-1]}) weight({weight[-1]})")
-                else: #scale is between 0.01 and 0.5,
-                    var.append(1.)
-                    likelihood.append(scale)
-                    weight.append(0.5-scale)
-                    prior.append(base_assumption)
-                    log.debug(
-                        f"Aggregate Classification: PSF scale marginally inconsistent with point source: lk({likelihood[-1]}) weight({weight[-1]})")
-            else:
-                #really adds no information ... as likely to be OII as LAE if consistent with point-source
-                pass
-                # likelihood.append(0.5)
-                # var.append(1.)
-                # weight.append(0.1)
-                # prior.append(base_assumption)
-        except:
-            log.debug("Exception in aggregate_classification for size_in_psf",exc_info=True)
+        if False: #todo: discontinue this? now replaced with physical size
+            try:
+                #basiclly, 0 to 0.5 (if size > 5x PSF, probability that is LAE --> 0, if < 2x PSF holds at 0.5)
+                scale = 0.5 #no info ... 50/50 chance of LAE
+                consistent_with_lae_psf = 1.5
+                inconsistent_with_lae_psf = 5.0
+                if (self.classification_dict['size_in_psf'] is not None) and \
+                        (self.classification_dict['size_in_psf'] > consistent_with_lae_psf): #greater than twice a "sloppy" PSF, inconsistent with point source
+                    scale = scale * (1.0 - (self.classification_dict['size_in_psf'] - consistent_with_lae_psf) /
+                                            (inconsistent_with_lae_psf-consistent_with_lae_psf))
+                    if scale < 0.01: #completely inconsistent with point source
+                        scale = 0.01
+                        likelihood.append(scale)
+                        weight.append(0.5) #opinion ... if not consistent with point-source, very unlikley to be LAE
+                        var.append(1) #no variance to use
+                        prior.append(base_assumption)
+                        log.debug(f"Aggregate Classification: PSF scale inconsistent with point source: lk({likelihood[-1]}) weight({weight[-1]})")
+                    elif scale > 0.5: #completely consistent with point source
+                        scale = 0.5 #max at 0.5 (basically no info ... as likely to be LAE as not)
+                        likelihood.append(scale)
+                        weight.append(0.01)  # opinion ... if consistent with point-source, does not really mean anything
+                        var.append(1.)  # no variance to use
+                        prior.append(base_assumption)
+                        log.debug(
+                            f"Aggregate Classification: PSF scale fully consistent with point source: lk({likelihood[-1]}) weight({weight[-1]})")
+                    else: #scale is between 0.01 and 0.5,
+                        var.append(1.)
+                        likelihood.append(scale)
+                        weight.append(0.5-scale)
+                        prior.append(base_assumption)
+                        log.debug(
+                            f"Aggregate Classification: PSF scale marginally inconsistent with point source: lk({likelihood[-1]}) weight({weight[-1]})")
+                else:
+                    #really adds no information ... as likely to be OII as LAE if consistent with point-source
+                    pass
+                    # likelihood.append(0.5)
+                    # var.append(1.)
+                    # weight.append(0.1)
+                    # prior.append(base_assumption)
+            except:
+                log.debug("Exception in aggregate_classification for size_in_psf",exc_info=True)
 
         #
         # Elixer solution finder
