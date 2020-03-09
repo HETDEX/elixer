@@ -106,9 +106,11 @@ GOOD_MIN_SIGMA = 1.35 #very narrow, but due to measurement error, could be possi
 
 #GOOD_MAX_DX0_MUTL .... ALL in ANGSTROMS
 MAX_LYA_VEL_OFFSET = 500.0 #km/s
-GOOD_MAX_DX0_MULT_LYA = [-7.5,2.75] #can have a sizeable velocity offset for LyA (actaully depends on z, so this is a default)
+NOMINAL_MAX_OFFSET_AA =3.0 # 2.75  #using 2.75AA as 1/2 resolution for HETDEX at 5.5AA
+                           # ... maybe 3.0 to give a little wiggle room for fit?
+GOOD_MAX_DX0_MULT_LYA = [-7.5,NOMINAL_MAX_OFFSET_AA] #can have a sizeable velocity offset for LyA (actaully depends on z, so this is a default)
 #assumes a max velocity offset of 500km/s at 4500AA ==> 4500 * 500/c = 7.5AA
-GOOD_MAX_DX0_MULT_OTHER = [-2.75,2.75] #all others are symmetric and smaller #using 2.75AA as 1/2 resolution for HETDEX at 5.5AA
+GOOD_MAX_DX0_MULT_OTHER = [-1.*NOMINAL_MAX_OFFSET_AA,NOMINAL_MAX_OFFSET_AA] #all others are symmetric and smaller
 
 GOOD_MAX_DX0_MULT = GOOD_MAX_DX0_MULT_OTHER#[-1.75,1.75] #3.8 (AA)
                     # #maximum error (domain freedom) in fitting to line center in AA
@@ -605,7 +607,7 @@ class EmissionLineInfo:
 
         self.noise_estimate = None
         self.noise_estimate_wave = None
-
+        self.unique = None #is this peak unique, alone in its immediate vacinity
 
 
     def unc_str(self,tuple):
@@ -734,6 +736,8 @@ class EmissionLineInfo:
             #the 10.0 is just to rescale ... could make 1e17 -> 1e16, but I prefer to read it this way
 
             above_noise = self.peak_sigma_above_noise()
+            #this can fail to behave as expected for large galaxies (where much/all of IFU is covered)
+            #since all the lines are represented in many fibers, that appears to be "noise"
             if above_noise is None:
                 above_noise = 1.0
             else:
@@ -742,13 +746,21 @@ class EmissionLineInfo:
                 # that way, some hot pixel that spikes at 100x noise does not automatically get "real"
                 # but will still be throttled down due to failures with other criteria
 
+            if self.unique == True:
+                unique_mul = 1.0 #boost a bit (this line stands alone)?
+            elif self.unique == False:
+                unique_mul = 0.5 #knock it down (it is mixed in with others)
+            else: #None
+                unique_mul = 1.0
+
+            #def unique_peak(spec, wave, cwave, fwhm, width=10.0, frac=0.9):
             if GOOD_MAX_DX0_MULT[0] < self.fit_dx0 < GOOD_MAX_DX0_MULT[1]:
                 adjusted_dx0_error = 0.0
             else:
                 adjusted_dx0_error = self.fit_dx0
 
             if (self.fwhm is None) or (self.fwhm < MAX_FWHM):
-                self.line_score = self.snr * above_noise * self.line_flux * 1e17 * \
+                self.line_score = self.snr * above_noise * unique_mul * self.line_flux * 1e17 * \
                               min(self.fit_sigma/self.pix_size,1.0) * \
                               min((self.pix_size * self.sn_pix)/21.0,1.0) / \
                               (10.0 * (1. + abs(adjusted_dx0_error / self.pix_size)) )
@@ -1177,6 +1189,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #then we'd be looking at something like 1/N * Sum (sigma_i **2) ... BUT , there are so few pixels
         #  typically around 10 and there really should be at least 30  to approximate the gaussian shape
         eli.snr = eli.fit_a/(np.sqrt(num_sn_pix)*eli.fit_rmse)
+        eli.unique = unique_peak(values,wavelengths,central,eli.fit_sigma*2.355)
         eli.build(values_units=values_units)
         #eli.snr = max(eli.fit_vals) / (np.sqrt(num_sn_pix) * eli.fit_rmse)
         snr = eli.snr
@@ -1238,11 +1251,12 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         if (0.75 < rh < 1.25) and (error < 0.2): # 1 bad pixel in each fiber is okay, but no more
 
             #central peak position
-            if abs(dx0) > pix_size:# 1.9:  #+/- one pixel (in AA)  from center
-                val = (abs(dx0) - pix_size)** 2
-                score -= val
-                log.debug("Penalty for excessive error in X0: %f" % (val))
-
+            #2020-03-09 turn off ... being off in dx0 is handled elsewhere and there are valid physical reasons this can be so
+            # if abs(dx0) > pix_size:# 1.9:  #+/- one pixel (in AA)  from center
+            #     val = (abs(dx0) - pix_size)** 2
+            #     score -= val
+            #     log.debug("Penalty for excessive error in X0: %f" % (val))
+            #
 
             #sigma scoring
             if si < 2.0: # and ku < 2.0: #narrow and not huge tails
@@ -1266,15 +1280,18 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
             #only check the skew for smaller sigma
             #skew scoring
-            if si < 2.5:
-                if sk < -0.5: #skew wrong directionn
-                    val = min(1.0,mx_norm*min(0.5,abs(sk)-0.5))
-                    score -= val
-                    log.debug("Penalty for low sigma and negative skew: %f" % (val))
-                if (sk > 2.0): #skewed a bit red, a bit peaky, with outlier influence
-                    val = min(0.5,sk-2.0)
-                    score += val
-                    log.debug("Bonus for low sigma and positive skew: %f" % (val))
+
+            #2020-03-09 turn off ... noise can be high enough that this is not a valid test
+            #plus this gets applied to ALL lines, not just LyA, so this is not a valid check in most cases
+            # if si < 2.5:
+            #     if sk < -0.5: #skew wrong directionn
+            #         val = min(1.0,mx_norm*min(0.5,abs(sk)-0.5))
+            #         score -= val
+            #         log.debug("Penalty for low sigma and negative skew: %f" % (val))
+            #     if (sk > 2.0): #skewed a bit red, a bit peaky, with outlier influence
+            #         val = min(0.5,sk-2.0)
+            #         score += val
+            #         log.debug("Bonus for low sigma and positive skew: %f" % (val))
 
             base_msg = "Fit dX0 = %g(AA), RH = %0.2f, rms = %0.2f, Sigma = %g(AA), Skew = %g , Kurtosis = %g "\
                    % (dx0, rh, error, si, sk, ku)
@@ -1874,6 +1891,43 @@ def est_signal(wavelengths,values,central,xw=None,zero=0.0):
 def est_noise():
     pass
 
+
+def unique_peak(spec,wave,cwave,fwhm,width=10.0,frac=0.9):
+    """
+    Is the peak at cwave relatively unique (is it the hightest within some range
+    :param spec:
+    :param wave:
+    :param cwave:
+    :param fwhm:
+    :param width: number of angstroms to look to either side of the peak (and sd)
+    :param frac: fraction of peak value to compare
+    :return:
+    """
+
+    try:
+        peak_val = max(spec[list(SU.getnearpos(wave,cwave))]) #could be +/-1 to either side (depending on binning), so use all returns
+        blue_stop, *_ = SU.getnearpos(wave,cwave-fwhm)
+        red_start, *_ = SU.getnearpos(wave,cwave+fwhm)
+
+        blue_start,*_ = SU.getnearpos(wave,cwave-fwhm - width)
+        red_stop, *_ = SU.getnearpos(wave,cwave+fwhm + width)
+
+        region = np.concatenate((spec[blue_start:blue_stop+1],spec[red_start:red_stop+1]))
+        hits = np.where(region > (frac * peak_val))[0]
+
+        if len(hits) == 0:
+            return True
+        else:
+            log.debug(f"Peak {cwave} appears to be in noise.")
+            return False
+
+
+    except:
+        log.debug("Exception in spectrum::unique_peak.",exc_info=True)
+        return False
+
+
+
 def est_peak_strength(wavelengths,values,central,values_units=0,dw=DEFAULT_BACKGROUND_WIDTH,peaks=None,valleys=None):
     """
 
@@ -2261,7 +2315,7 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
 
 
 class EmissionLine():
-    def __init__(self,name,w_rest,plot_color,solution=True,display=True,z=0,score=0.0):
+    def __init__(self,name,w_rest,plot_color,solution=True,display=True,z=0,score=0.0,rank=0):
         self.name = name
         self.w_rest = w_rest
         self.w_obs = w_rest * (1.0 + z)
@@ -2269,6 +2323,11 @@ class EmissionLine():
         self.color = plot_color
         self.solution = solution #True = can consider this as the target lines
         self.display = display #True = plot label on full 1D plot
+        self.rank = rank #indicator of the rank in solutions (from 1 to x, with 1 being high, like LyA)
+                       #roughly corresponds to expected line strength (1= high, 4= low)
+                       #the base idea is that if the emission line center is a "low" rank, but there are high ranks
+                       #in the wavelength range that are not found, the line may not be real
+
 
         #can be filled in later if a specific instance is created and a model fit to it
         self.score = score
@@ -2398,42 +2457,42 @@ class Spectrum:
             #solution == can be a single line solution .... if False, only counts as a possible solution if
             # there is at least one corroborating line
 
-            EmissionLine("Ly$\\alpha$".ljust(w), G.LyA_rest, 'red'),
+            EmissionLine("Ly$\\alpha$".ljust(w), G.LyA_rest, 'red',rank=1),
 
-            EmissionLine("OII".ljust(w), G.OII_rest, 'green'),
-            EmissionLine("OIII".ljust(w), 4958.911, "lime"),#4960.295 (vacuum) 4958.911 (air)
-            EmissionLine("OIII".ljust(w), 5006.843, "lime"), #5008.240 (vacuum) 5006.843 (air)
+            EmissionLine("OII".ljust(w), G.OII_rest, 'green',rank=2),
+            EmissionLine("OIII".ljust(w), 4958.911, "lime",rank=2),#4960.295 (vacuum) 4958.911 (air)
+            EmissionLine("OIII".ljust(w), 5006.843, "lime",rank=1), #5008.240 (vacuum) 5006.843 (air)
 
-            EmissionLine("CIV".ljust(w), 1549.48, "blueviolet",solution=False,display=True),  # big in AGN
-            EmissionLine("CIII".ljust(w), 1908.734, "purple",solution=False,display=True),  #big in AGN
-            EmissionLine("CII".ljust(w),  2326.0, "purple",solution=False,display=False),  # in AGN
+            EmissionLine("CIV".ljust(w), 1549.48, "blueviolet",solution=False,display=True,rank=3),  # big in AGN
+            EmissionLine("CIII".ljust(w), 1908.734, "purple",solution=False,display=True,rank=3),  #big in AGN
+            EmissionLine("CII".ljust(w),  2326.0, "purple",solution=False,display=False,rank=4),  # in AGN
 
-            EmissionLine("MgII".ljust(w), 2799.117, "magenta",solution=False,display=True),  #big in AGN
+            EmissionLine("MgII".ljust(w), 2799.117, "magenta",solution=False,display=True,rank=3),  #big in AGN
 
 
-            EmissionLine("H$\\beta$".ljust(w), 4861.363, "blue",solution=True), #4862.68 (vacuum) 4861.363 (air)
-            EmissionLine("H$\\gamma$".ljust(w), 4340.462, "royalblue",solution=False),
-            EmissionLine("H$\\delta$".ljust(w), 4101.74, "royalblue", solution=False,display=False),
-            EmissionLine("H$\\epsilon$/CaII".ljust(w), 3970, "royalblue", solution=False,display=False), #very close to CaII(3970)
-            EmissionLine("H$\\zeta$".ljust(w), 3889, "royalblue", solution=False,display=False),
-            EmissionLine("H$\\eta$".ljust(w), 3835, "royalblue", solution=False,display=False),
+            EmissionLine("H$\\beta$".ljust(w), 4861.363, "blue",solution=True,rank=3), #4862.68 (vacuum) 4861.363 (air)
+            EmissionLine("H$\\gamma$".ljust(w), 4340.462, "royalblue",solution=False,rank=3),
+            EmissionLine("H$\\delta$".ljust(w), 4101.74, "royalblue", solution=False,display=False,rank=4),
+            EmissionLine("H$\\epsilon$/CaII".ljust(w), 3970, "royalblue", solution=False,display=False,rank=4), #very close to CaII(3970)
+            EmissionLine("H$\\zeta$".ljust(w), 3889, "royalblue", solution=False,display=False,rank=4),
+            EmissionLine("H$\\eta$".ljust(w), 3835, "royalblue", solution=False,display=False,rank=4),
 
-            EmissionLine("NV".ljust(w), 1240.81, "teal", solution=False,display=True),
+            EmissionLine("NV".ljust(w), 1240.81, "teal", solution=False,display=True,rank=3),
 
-            EmissionLine("SiII".ljust(w), 1260, "gray", solution=False,display=True),
+            EmissionLine("SiII".ljust(w), 1260, "gray", solution=False,display=True,rank=4),
 
-            EmissionLine("HeII".ljust(w), 1640.4, "orange", solution=False,display=True),
+            EmissionLine("HeII".ljust(w), 1640.4, "orange", solution=False,display=True,rank=3),
 
-            EmissionLine("NeIII".ljust(w), 3869, "deeppink", solution=False,display=False),
-            EmissionLine("NeIII".ljust(w), 3967, "deeppink", solution=False,display=False),  #very close to CaII(3970)
-            EmissionLine("NeV".ljust(w), 3346.79, "deeppink", solution=False,display=False),
-            EmissionLine("NeVI".ljust(w), 3426.85, "deeppink", solution=False, display=False),
+            EmissionLine("NeIII".ljust(w), 3869, "deeppink", solution=False,display=False,rank=4),
+            EmissionLine("NeIII".ljust(w), 3967, "deeppink", solution=False,display=False,rank=4),  #very close to CaII(3970)
+            EmissionLine("NeV".ljust(w), 3346.79, "deeppink", solution=False,display=False,rank=4),
+            EmissionLine("NeVI".ljust(w), 3426.85, "deeppink", solution=False, display=False,rank=4),
 
-            EmissionLine("NaI".ljust(w),4980,"lightcoral",solution=False, display=False),  #4978.5 + 4982.8
-            EmissionLine("NaI".ljust(w),5153,"lightcoral",solution=False, display=False),  #5148.8 + 5153.4
+            EmissionLine("NaI".ljust(w),4980,"lightcoral",solution=False, display=False,rank=4),  #4978.5 + 4982.8
+            EmissionLine("NaI".ljust(w),5153,"lightcoral",solution=False, display=False,rank=4),  #5148.8 + 5153.4
 
             #stars
-            EmissionLine("CaII".ljust(w), 3935, "skyblue", solution=False, display=False)
+            EmissionLine("CaII".ljust(w), 3935, "skyblue", solution=False, display=False,rank=4)
 
             #merged CaII(3970) with H\$epsilon$(3970)
             #EmissionLine("CaII".ljust(w), 3970, "skyblue", solution=False, display=False)  #very close to NeIII(3967)
@@ -2956,7 +3015,9 @@ class Spectrum:
                         log.info("Accepting %s line (%s): %s(%0.1f at %01.f) snr = %0.1f  MCMC_snr = %0.1f  "
                                  "line_flux = %0.1g  sigma = %0.1f  line_score = %0.1f  p(noise) = %g"
                                  %(line_type, self.identifier,l.name,l.w_rest,l.w_obs,l.snr, eli.mcmc_snr, l.flux,
-                                   l.sigma, l.line_score,l.prob_noise))
+                                  l.sigma, l.line_score,l.prob_noise))
+                else: #is not good
+                    log.debug("Line rejected (failed is_good).")
 
             if sol.score > 0.0:
                 # check if not a solution, has at least one other line

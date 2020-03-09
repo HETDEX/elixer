@@ -1017,11 +1017,17 @@ class DetObj:
         try:
             if (self.spec_obj is not None) and (self.spec_obj.solutions is not None):
                 for s in self.spec_obj.solutions:
+                    bonus_weight = 1.0 #multiplier
+                    #if this is a really high score and there are 3 or more additional lines, this
+                    #basically wins (boost the weight way up)
+                    if s.score / G.MULTILINE_FULL_SOLUTION_SCORE > 4 and (len(s.lines) > 2):
+                        bonus_weight = s.score / G.MULTILINE_FULL_SOLUTION_SCORE  # so if 2x then get +0.2 bonus
+
                     if s.score > G.MULTILINE_MIN_SOLUTION_SCORE: #only consider somewhat probable scores
                         #split between z > 1.8 ==> LAE and < 1.8 ==>not LAE
                         if s.z  > 1.8: #suggesting LAE consistent
                             likelihood.append(1.0) #s.scale_score)
-                            weight.append(s.scale_score)#0.8)  # opinion ... has multiple lines, so the score is reasonable
+                            weight.append(s.scale_score * bonus_weight)#0.8)  # opinion ... has multiple lines, so the score is reasonable
                             #must also have CIV or HeII, etc as possible matches
                             var.append(1)  #todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
@@ -1031,7 +1037,7 @@ class DetObj:
 
                         else: #suggesting NOT LAE consistent
                             likelihood.append(0.0) #1-s.scale_score)
-                            weight.append(s.scale_score) #1.0)  # opinion ... has multiple lines, so the score is reasonable
+                            weight.append(s.scale_score * bonus_weight) #1.0)  # opinion ... has multiple lines, so the score is reasonable
                             var.append(1)  #todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
                             log.debug(
@@ -1046,7 +1052,7 @@ class DetObj:
                            # likelihood.append(s.scale_score)
                            # weight.append(0.8 * w)  # opinion ... has multiple lines, so the score is reasonable
                             likelihood.append(1.0)  # s.scale_score)
-                            weight.append(w)
+                            weight.append(w * bonus_weight)
                             # must also have CIV or HeII, etc as possible matches
                             var.append(1)  # todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
@@ -1057,7 +1063,7 @@ class DetObj:
                             #likelihood.append(1. - s.scale_score)
                             #weight.append(1.0 * w)  # opinion ... has multiple lines, so the score is reasonable
                             likelihood.append(0.0)  # 1-s.scale_score)
-                            weight.append(w)
+                            weight.append(w * bonus_weight)
                             var.append(1)  # todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
                             log.debug(
@@ -1092,13 +1098,16 @@ class DetObj:
                 #logic is simple based on PLAE/POII interpreations to mean #LAE/(#LAE + #OII) where #LAE is a fraction and #OII == 1
                 #so PLAE/POII = 1000 --> 1000/(1000+1) = 0.999, PLAE/POII == 1.0 --> (1/(1+1)) = 0.5, PLAE/POII = 0.001 --> 0.001/(0.001 +1) = 0.001
                 scale_plae_hat = self.classification_dict['plae_hat'] / (self.classification_dict['plae_hat'] + 1.0)
-                lower_plae = max(0.001, self.classification_dict['plae_hat_lo'])#self.classification_dict['plae_hat']-self.classification_dict['plae_hat_sd'])
-                scale_plae_lo =  scale_plae_hat - lower_plae / (lower_plae + 1.0)
+                # lower_plae = max(0.001, self.classification_dict['plae_hat_lo'])#self.classification_dict['plae_hat']-self.classification_dict['plae_hat_sd'])
+                # scale_plae_lo =  scale_plae_hat - lower_plae / (lower_plae + 1.0)
+                #
+                # higher_plae = min(1000.0, self.classification_dict['plae_hat_hi'])#self.classification_dict['plae_hat']-self.classification_dict['plae_hat_sd'])
+                # scale_plae_hi = higher_plae / (higher_plae + 1.0) - scale_plae_hat
+                # scale_plae_sd = 0.5 * (scale_plae_hi + scale_plae_lo)
 
-                higher_plae = min(1000.0, self.classification_dict['plae_hat_hi'])#self.classification_dict['plae_hat']-self.classification_dict['plae_hat_sd'])
-                scale_plae_hi = higher_plae / (higher_plae + 1.0) - scale_plae_hat
-
-                scale_plae_sd = 0.5 * (scale_plae_hi + scale_plae_lo)
+                scale_plae_lo = self.classification_dict['plae_hat_lo'] / (self.classification_dict['plae_hat_lo'] + 1.0)
+                scale_plae_hi = self.classification_dict['plae_hat_hi'] / (self.classification_dict['plae_hat_hi'] + 1.0)
+                scale_plae_sd = 0.5 * (scale_plae_hi - scale_plae_lo)
 
                 likelihood.append(scale_plae_hat)
                 prior.append(base_assumption)
