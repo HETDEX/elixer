@@ -4,6 +4,7 @@ changes to elixer by version
 * check nearby (+/- 10AA from line center (+/- FWHM) for similarly size peaks ( > 0.9 * peak); if found, suggests peak
     is lucky hit inside some noise and gets down weighted
 * turn off some scoring penalties and bonuses from old line fitting specific to LyA (since now applied to all lines)
+* added SNR peak finder (augment to existing peakfinder)
 
 1.8.2a2 [2020-03-06]
 * use faint mag limit of 29 to calculate an approximate variance for contiuum measures below flux limit

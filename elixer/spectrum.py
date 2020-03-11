@@ -2034,6 +2034,101 @@ def simple_peaks(x, v, h=None, delta_v=None, values_units=0):
     return np.array(maxtab), np.array(mintab)
 
 
+
+def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
+            enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False,do_mcmc=False):
+    """
+
+    :param wave: x-values (wavelength)
+    :param spec: v-values (spectrum values)
+    :param spec_err: error on v (treat as 'noise')
+    :param dx: minimum number of x-bins to trigger a possible line detection
+    :param rx: like dx but just for rise and fall
+    :param dv:  minimum height in value (in s/n, not native values) to trigger counting of bins
+    :param dvmx: at least one point though must be >= to this in S/N
+    :param values_units:
+    :param enforce_good:
+    :param min_sigma:
+    :param absorber:
+    :return:
+    """
+
+    eli_list = []
+
+    try:
+
+        if not (len(wave) == len(spec) == len(spec_err)):
+            log.info("Bad call to sn_peakdet(). Lengths of arrays do not match")
+            return []
+
+        x = np.array(wave)
+        v = np.array(spec)
+        e = np.array(spec_err)
+        sn = v/e
+        hvi = np.where(sn > dv)[0] #hvi high v indicies (where > dv)
+
+        pos = [] #positions to search (indicies into original wave array)
+        run = [hvi[0],]
+        rise = [hvi[0],] #assume start with a rise
+        fall = []
+
+
+        #two ways to trigger a peak:
+        #several bins in a row above the SNR cut, then one below
+        #or many bins in a row, that rise then fall with lengths of rise and fall above the dx length
+        for h in hvi:
+            if (h-1) == run[-1]: #the are adjacent in the original arrays
+                #what about sharp drops in value? like multiple peaks above continuum?
+                if v[h] >= v[run[-1]]: #rising
+                    rise.append(h)
+                    if len(rise) >= rx:
+                        rise_trigger = True
+                        fall = []
+                else: #falling
+                    fall.append(h)
+                    if len(fall) >= rx: #assume the end of a line and trigger a new run
+                        fall_trigger = True
+                        rise = []
+                if rise_trigger and fall_trigger: #call this a peak, start a new run
+                    if len(run) >= dx and np.any(sn[run] >= dvmx):
+                        mx = np.argmax(v[run])  # find largest value in the original arrays from these indicies
+                        pos.append(mx + run[0])  # append that position to pos
+                    run = [h]  # start a new run
+                    rise = [h]
+                    fall = []
+                    fall_trigger = False
+                    rise_trigger = False
+                else:
+                    run.append(h)
+
+            else: #not adjacent, are there enough in run to append?
+                if len(run) >= dx and np.any(sn[run] >= dvmx):
+                    mx = np.argmax(v[run]) #find largest value in the original arrays from these indicies
+                    pos.append(mx+run[0]) #append that position to pos
+                run = [h] #start a new run
+                rise = [h]
+                fall = []
+                fall_trigger = False
+                rise_trigger = False
+
+        #now pos has the indicies in the original arrays of the highest values in runs of high S/N bins
+        for p in pos:
+            try:
+                eli = signal_score(wave, spec, spec_err, wave[p], values_units=values_units, min_sigma=min_sigma,
+                               absorber=absorber,do_mcmc=do_mcmc)
+
+                # if (eli is not None) and (eli.score > 0) and (eli.snr > 7.0) and (eli.fit_sigma > 1.6) and (eli.eqw_obs > 5.0):
+                if (eli is not None) and ((not enforce_good) or eli.is_good()):
+                    eli_list.append(eli)
+            except:
+                log.error("Exception calling signal_score in sn_peakdet",exc_info=True)
+
+    except:
+        log.error("Exception in sn_peakdet",exc_info=True)
+        return []
+
+    return eli_list
+
 def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,values_units=0,
             enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False):
 
@@ -2087,11 +2182,16 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
     if (v is None) or (len(v) < 3):
         return None #cannot execute
 
+
     maxtab = []
     mintab = []
     emistab = []
     eli_list = []
     delta = dh
+
+    #testing
+    eli_list = sn_peakdet(x,v,err,values_units=values_units,enforce_good=enforce_good,min_sigma=min_sigma,absorber=absorber)
+
 
     if x is None:
         x = np.arange(len(v))
@@ -2273,20 +2373,26 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
         #check vs minimum width
         if not (pix_width < dw):
             #see if too close to prior peak (these are in increasing wavelength order)
-            eli = signal_score(x_0, v_0, err, px,values_units=values_units_0,min_sigma=min_sigma,absorber=absorber)
+            already_found = np.array([e.fit_x0 for e in eli_list])
 
-            #if (eli is not None) and (eli.score > 0) and (eli.snr > 7.0) and (eli.fit_sigma > 1.6) and (eli.eqw_obs > 5.0):
-            if (eli is not None) and ((not enforce_good) or eli.is_good()):
-                eli_list.append(eli)
-                if len(emistab) > 0:
-                    if (px - emistab[-1][1]) > 6.0:
-                        emistab.append((pi, px, pv,pix_width,centroid_pos,eli.eqw_obs,eli.snr))
-                    else: #too close ... keep the higher peak
-                        if pv > emistab[-1][2]:
-                            emistab.pop()
-                            emistab.append((pi, px, pv, pix_width, centroid_pos,eli.eqw_obs,eli.snr))
-                else:
-                    emistab.append((pi, px, pv, pix_width, centroid_pos,eli.eqw_obs,eli.snr))
+            if np.any(abs(already_found-px) < 2.0):
+                pass #skip and move on
+            else:
+                eli = signal_score(x_0, v_0, err, px,values_units=values_units_0,min_sigma=min_sigma,absorber=absorber)
+
+                #if (eli is not None) and (eli.score > 0) and (eli.snr > 7.0) and (eli.fit_sigma > 1.6) and (eli.eqw_obs > 5.0):
+                if (eli is not None) and ((not enforce_good) or eli.is_good()):
+                    eli_list.append(eli)
+                    log.debug("*** old peakdet added new ELI")
+                    if len(emistab) > 0:
+                        if (px - emistab[-1][1]) > 6.0:
+                            emistab.append((pi, px, pv,pix_width,centroid_pos,eli.eqw_obs,eli.snr))
+                        else: #too close ... keep the higher peak
+                            if pv > emistab[-1][2]:
+                                emistab.pop()
+                                emistab.append((pi, px, pv, pix_width, centroid_pos,eli.eqw_obs,eli.snr))
+                    else:
+                        emistab.append((pi, px, pv, pix_width, centroid_pos,eli.eqw_obs,eli.snr))
 
 
     #return np.array(maxtab), np.array(mintab)
