@@ -749,7 +749,10 @@ class EmissionLineInfo:
             if self.unique == True:
                 unique_mul = 1.0 #boost a bit (this line stands alone)?
             elif self.unique == False:
-                unique_mul = 0.5 #knock it down (it is mixed in with others)
+                if self.fwhm < 6.5:
+                    #resolution is around 5.5, so if this is less than about 7AA, it could be noise?
+                    unique_mul = 0.5 #knock it down (it is mixed in with others)
+                #else it is broad enough that we don't care about possible nearby lines as noise
             else: #None
                 unique_mul = 1.0
 
@@ -1894,7 +1897,7 @@ def est_noise():
 
 def unique_peak(spec,wave,cwave,fwhm,width=10.0,frac=0.9):
     """
-    Is the peak at cwave relatively unique (is it the hightest within some range
+    Is the peak at cwave relatively unique (is it the highest within some range
     :param spec:
     :param wave:
     :param cwave:
@@ -1915,7 +1918,7 @@ def unique_peak(spec,wave,cwave,fwhm,width=10.0,frac=0.9):
         region = np.concatenate((spec[blue_start:blue_stop+1],spec[red_start:red_stop+1]))
         hits = np.where(region > (frac * peak_val))[0]
 
-        if len(hits) == 0:
+        if len(hits) < 3: #1 or 2 hits could be a barely resolved doublet (or at least adjacent lines)
             return True
         else:
             log.debug(f"Peak {cwave} appears to be in noise.")
