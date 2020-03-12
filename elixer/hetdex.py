@@ -1088,6 +1088,24 @@ class DetObj:
         except:
             log.debug("Exception in aggregate_classification for ELiXer solution finder",exc_info=True)
 
+
+        #unmatched solutions scoring
+        try:
+            if (self.spec_obj is not None) and (self.spec_obj.unmatched_solution_score > G.MAX_OK_UNMATCHED_LINES_SCORE) \
+                and (self.spec_obj.unmatched_solution_count > G.MAX_OK_UNMATCHED_LINES):
+                #there are significant unaccounted for lines ... this pushes DOWN the possibility that this is LAE
+                #but does not impact Non-LAE solutions
+                #(assumes LyA is the only line ... if CIV or other detected, there will be a bonus from the above code
+                var.append(1.)
+                likelihood.append(0.0) #so, NOT LAE
+                weight.append(min(1.0,self.spec_obj.unmatched_solution_score/G.MULTILINE_FULL_SOLUTION_SCORE)) #up to 1.0
+                prior.append(base_assumption)
+                log.debug(
+                    f"Aggregate Classification: Significant unmatched lines penalize LAE: lk({likelihood[-1]}) weight({weight[-1]})")
+
+        except:
+            log.debug("Exception in aggregate_classification",exc_info=True)
+
         #
         # best PLAE/POII
         #

@@ -14,7 +14,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.8.2a3'
+__version__ = '1.8.2a4'
 
 #python version
 import sys
@@ -829,3 +829,7 @@ DISPLAY_PSEUDO_COLOR = False  #display in upper left the pseudo-color from the H
 COMBINE_PLAE = True # combine (all?) PLAE/POII ratio data into a single estimate
 AGGREGATE_PLAE_CLASSIFICATION = True # and combine with other data to make a single p(LAE) estimate (0.0 - 1.0)
 ZEROTH_ROW_HEADER = True # and put this in the zeroth row header
+
+#penalties for solutions that fail to account for all lines
+MAX_OK_UNMATCHED_LINES = 0
+MAX_OK_UNMATCHED_LINES_SCORE = MULTILINE_MIN_SOLUTION_SCORE #25.0

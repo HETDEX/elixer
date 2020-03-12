@@ -2462,12 +2462,12 @@ class EmissionLine():
 
 
 class Classifier_Solution:
-    def __init__(self):
+    def __init__(self,w=0.0):
         self.score = 0.0
         self.frac_score = 0.0
         self.scale_score = -1.0 #right now, not computed until the end, in hetdex.py multiline_solution_score()
         self.z = 0.0
-        self.central_rest = 0.0
+        self.central_rest = w
         self.name = ""
         self.color = None
         self.emission_line = None
@@ -2627,6 +2627,8 @@ class Spectrum:
         self.central_eli = None
 
         self.solutions = []
+        self.unmatched_solution_count = 0
+        self.unmatched_solution_score = 0
         self.all_found_lines = None #EmissionLineInfo objs (want None here ... if no lines, then peakdet returns [])
         self.all_found_absorbs = None
 
@@ -2843,6 +2845,13 @@ class Spectrum:
         solutions = self.classify_with_additional_lines(wavelengths,values,errors,central,values_units)
         self.solutions = solutions
 
+        #set the unmatched solution
+        try:
+            self.unmatched_solution_count, self.unmatched_solution_score = self.unmatched_lines_score(Classifier_Solution(self.central))
+            log.debug(f"Unmatched solution line count {self.unmatched_solution_count} and score {self.unmatched_solution_score}")
+        except:
+            log.debug("Exception computing unmatched solution count and score",exc_info=True)
+
         #get the LAE and OII solutions and send to Bayesian to check p_LAE/p_OII
         self.addl_fluxes = []
         self.addl_wavelengths = []
@@ -2881,6 +2890,36 @@ class Spectrum:
                 break
 
         return wavelength
+
+    def unmatched_lines_score(self,solution,aa=4.0):
+        """
+        Return the lines and summed line scores for unmatched lines associated with a solution
+        :param solutions:
+        :param aa:
+        :return:
+        """
+
+        if (self.all_found_lines is None):
+            self.all_found_lines = peakdet(self.wavelengths, self.values, self.errors,values_units=self.values_units)
+
+        if self.all_found_lines is None or len(self.all_found_lines)==0:
+            return 0,0
+
+        unmatched_score_list = [x.line_score for x in self.all_found_lines]
+        unmatched_wave_list = [x.fit_x0 for x in self.all_found_lines]
+        solution_wave_list = [solution.central_rest * (1.+solution.z)] + [x.w_obs for x in solution.lines]
+
+        for line in solution_wave_list:
+            idx = np.where(abs(unmatched_wave_list-line) <= aa)[0]
+            if idx is not None and len(idx) > 0: #should usually be just 0 or 1
+                #remove from unmatched_list as these are now matched
+                idx = idx[::-1]
+                for i in idx:
+                    del unmatched_wave_list[i]
+                    del unmatched_score_list[i]
+
+        #what is left over
+        return len(unmatched_score_list), np.nansum(unmatched_score_list)
 
     def is_near_absorber(self,w,aa=4.0):#pix_size=1.9): #is the provided wavelength near one of the found peaks (+/- few AA or pixels)
 
@@ -3124,6 +3163,17 @@ class Spectrum:
                                   l.sigma, l.line_score,l.prob_noise))
                 else: #is not good
                     log.debug("Line rejected (failed is_good).")
+
+            #now apply penalty for unmatched lines?
+            try:
+                unmatched_count, unmatched_score = self.unmatched_lines_score(sol)
+
+                if unmatched_count > G.MAX_OK_UNMATCHED_LINES and unmatched_score > G.MAX_OK_UNMATCHED_LINES_SCORE:
+                    log.info(f"Solution penalized for excessive unmatched lines. Old score: {sol.score}, "
+                             f"Penalty {unmatched_score} on {unmatched_count} lines")
+                    sol.score -= unmatched_score
+            except:
+                log.info("Exception adjusting solution score for unmatched lines",exc_info=True)
 
             if sol.score > 0.0:
                 # check if not a solution, has at least one other line
