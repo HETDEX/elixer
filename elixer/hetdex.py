@@ -1086,7 +1086,7 @@ class DetObj:
                         log.debug("Aggregate Classification exception", exc_info=True)
 
         except:
-            log.debug("Exception in aggregate_classification for ELiXer solution finder",exc_info=True)
+            log.debug("Exception in aggregate_classification for ELiXer Combine ALL Continuumsolution finder",exc_info=True)
 
 
         #unmatched solutions scoring

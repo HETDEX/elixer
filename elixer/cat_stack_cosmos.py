@@ -7,6 +7,7 @@ try:
     from elixer import match_summary
     from elixer import line_prob
     from elixer import utilities
+    from elixer import spectrum_utilities as SU
 except:
     import global_config as G
     import science_image
@@ -14,6 +15,7 @@ except:
     import match_summary
     import line_prob
     import utilities
+    import spectrum_utilities as SU
 
 import os.path as op
 import copy
@@ -690,16 +692,16 @@ class STACK_COSMOS(cat_base.Catalog):
                     bid_target.bid_flux_est_cgs_unc = 0.0
 
                     if mag < 99:
-                        bid_target.bid_flux_est_cgs = self.obs_mag_to_cgs_flux(mag, target_w)
+                        bid_target.bid_flux_est_cgs = self.obs_mag_to_cgs_flux(mag, SU.filter_iso(i['filter'],target_w))
                         try:
                             flux_faint = None
                             flux_bright = None
 
                             if details['mag_faint'] < 99:
-                                flux_faint = self.obs_mag_to_cgs_flux(details['mag_faint'], target_w)
+                                flux_faint = self.obs_mag_to_cgs_flux(details['mag_faint'], SU.filter_iso(i['filter'],target_w))
 
                             if details['mag_bright'] < 99:
-                                flux_bright = self.obs_mag_to_cgs_flux(details['mag_bright'], target_w)
+                                flux_bright = self.obs_mag_to_cgs_flux(details['mag_bright'], SU.filter_iso(i['filter'],target_w))
 
                             if flux_bright and flux_faint:
                                 bid_target.bid_flux_est_cgs_unc = max((bid_target.bid_flux_est_cgs - flux_faint),
@@ -1075,9 +1077,9 @@ class STACK_COSMOS(cat_base.Catalog):
                     if (target_flux is not None) and (filter_fl != 0.0):
                         if (filter_fl is not None):  # and (filter_fl > 0):
                             filter_fl_cgs = self.micro_jansky_to_cgs(filter_fl,
-                                                                     target_w)  # filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
+                                                                     SU.filter_iso(filter_str,target_w))  # filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
                             #text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
-                            filter_fl_cgs_unc = self.micro_jansky_to_cgs(filter_fl_err, target_w)
+                            filter_fl_cgs_unc = self.micro_jansky_to_cgs(filter_fl_err, SU.filter_iso(filter_str,target_w))
                             # assumes no error in wavelength or c
 
                             # try:
@@ -1192,9 +1194,9 @@ class STACK_COSMOS(cat_base.Catalog):
                                 try:
                                     bid_target.add_filter(c['instrument'], c['filter'],
                                                           self.micro_jansky_to_cgs(df[c['cols'][0]].values[0],
-                                                                                   target_w),
+                                                                                   SU.filter_iso(filter_str,target_w)),
                                                           self.micro_jansky_to_cgs(df[c['cols'][1]].values[0],
-                                                                                   target_w))
+                                                                                   SU.filter_iso(filter_str,target_w)))
                                 except: #there can be several images that do not have this info, so will get out of range
                                     try:
                                         log.debug('Could not add instrument (%s) and filter (%s) info to bid_target.'

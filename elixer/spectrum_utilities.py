@@ -28,6 +28,35 @@ log = G.Global_Logger('spectrum_utils')
 log.setlevel(G.logging.DEBUG)
 
 
+filter_iso_dict = {'u': 3650.0,
+                   'b': 4450.0,
+                   'g': 4640.0,
+                   'v': 5510.0,
+                   'r': 6580.0,
+                   'i': 8060.0,
+                   'z': 9000.0,
+                   'y': 10200.0,
+                   'f606w': 6000.0,}
+
+def filter_iso(filtername, lam):
+    """
+    Approximate iso wavelength lookup by filter. If not found, just returns the wavelenght passed in.
+    :param filtername:
+    :param lam:
+    :return:
+    """
+    global filter_iso_dict
+    try:
+        if filtername.lower() in filter_iso_dict.keys():
+            return filter_iso_dict[filtername.lower()]
+        else:
+            return lam
+    except:
+        log.debug("Exception is spectrum_utilities::filter_iso",exc_info=True)
+        return lam
+
+
+
 def mag2cgs(mag,lam):
     """
     :param mag:   AB mag

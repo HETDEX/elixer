@@ -1,7 +1,8 @@
 changes to elixer by version
 
-1.8.2.a4 [2020-03-12]
+1.8.2.a4 [2020-03-13]
 * added in basic multiline solution penalties for unmatched lines, still needs tuning
+* updated filter to cgs flux conversions to use approximate filter iso instead of emission line wavelength
 
 1.8.2.a3 [2020-03-11]
 * check nearby (+/- 10AA from line center (+/- FWHM) for similarly size peaks ( > 0.9 * peak); if found, suggests peak

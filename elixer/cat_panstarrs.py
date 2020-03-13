@@ -8,6 +8,7 @@ try:
     from elixer import match_summary
     from elixer import line_prob
     from elixer import utilities
+    from elixer import spectrum_utilities as SU
 except:
     import global_config as G
     import science_image
@@ -15,6 +16,7 @@ except:
     import match_summary
     import line_prob
     import utilities
+    import spectrum_utilities as SU
 
 
 import os.path as op
@@ -522,16 +524,16 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                     bid_target.bid_flux_est_cgs_unc = 0.0
 
                     if mag < 99:
-                        bid_target.bid_flux_est_cgs = self.obs_mag_to_cgs_flux(mag, target_w)
+                        bid_target.bid_flux_est_cgs = self.obs_mag_to_cgs_flux(mag, SU.filter_iso(f,target_w))
                         try:
                             flux_faint = None
                             flux_bright = None
 
                             if details['mag_faint'] < 99:
-                                flux_faint = self.obs_mag_to_cgs_flux(details['mag_faint'], target_w)
+                                flux_faint = self.obs_mag_to_cgs_flux(details['mag_faint'], SU.filter_iso(f,target_w))
 
                             if details['mag_bright'] < 99:
-                                flux_bright = self.obs_mag_to_cgs_flux(details['mag_bright'], target_w)
+                                flux_bright = self.obs_mag_to_cgs_flux(details['mag_bright'], SU.filter_iso(f,target_w))
 
                             if flux_bright and flux_faint:
                                 bid_target.bid_flux_est_cgs_unc = max((bid_target.bid_flux_est_cgs - flux_faint),
@@ -876,9 +878,9 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
 
                 if (target_flux is not None) and (filter_fl != 0.0):
                     if (filter_fl is not None):# and (filter_fl > 0):
-                        filter_fl_cgs = self.nano_jansky_to_cgs(filter_fl,target_w) #filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
+                        filter_fl_cgs = self.nano_jansky_to_cgs(filter_fl,SU.filter_iso(filter_str,target_w)) #filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
                         #text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
-                        filter_fl_cgs_unc = self.nano_jansky_to_cgs(filter_fl_err, target_w)
+                        filter_fl_cgs_unc = self.nano_jansky_to_cgs(filter_fl_err, SU.filter_iso(filter_str,target_w))
                         # assumes no error in wavelength or c
 
 

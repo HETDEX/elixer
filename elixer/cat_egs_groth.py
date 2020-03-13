@@ -8,12 +8,14 @@ try:
     from elixer import cat_base
     from elixer import match_summary
     from elixer import utilities
+    from elixer import spectrum_utilities as SU
 except:
     import global_config as G
     import science_image
     import cat_base
     import match_summary
     import utilities
+    import spectrum_utilities as SU
 
 import os.path as op
 
