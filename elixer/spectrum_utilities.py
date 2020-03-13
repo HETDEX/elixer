@@ -36,7 +36,9 @@ filter_iso_dict = {'u': 3650.0,
                    'i': 8060.0,
                    'z': 9000.0,
                    'y': 10200.0,
-                   'f606w': 6000.0,}
+                   'f606w': 6000.0,
+                   'acs_f606w_flux':6000.0, #name sometimes set this way from catalog
+                   }
 
 def filter_iso(filtername, lam):
     """

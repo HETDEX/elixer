@@ -509,6 +509,9 @@ class DetObj:
         self.cont = -9999
         self.cont_cgs = -9999
         self.cont_cgs_unc = 0.0
+
+        self.cont_cgs_narrow = -9999 #kept for reporting, not used elsewhere
+        self.cont_cgs_narrow_unc = 0.0 #kept for reporting, not used elsewhere
         #in most cases, hetdex_xxx will be updated ... this is for explicit reporting in HDF5 file
         #and is not used anywhere else
         self.hetdex_cont_cgs = self.cont_cgs
@@ -2995,18 +2998,19 @@ class DetObj:
                     log.warning("Warning! HETDEX continuum estimate not set. Using best gmag for estimate(%g +/- %g)."
                                 %(self.best_gmag_cgs_cont,self.best_gmag_cgs_cont_unc))
 
+                    self.cont_cgs_narrow = self.cont_cgs
+                    self.cont_cgs_narrow_unc = self.cong_cgs_unc
                     self.cont_cgs = self.best_gmag_cgs_cont
                     self.cont_cgs_unc = self.best_gmag_cgs_cont_unc
                     self.using_best_gmag_ew = True
-
                 elif self.cont_cgs <= 0.0:
                     log.warning("Warning! HETDEX continuum <= 0.0. Using best gmag for estimate (%g +/- %g)."
                                 %(self.best_gmag_cgs_cont,self.best_gmag_cgs_cont_unc))
-
+                    self.cont_cgs_narrow = self.cont_cgs
+                    self.cont_cgs_narrow_unc = self.cong_cgs_unc
                     self.cont_cgs = self.best_gmag_cgs_cont
                     self.cont_cgs_unc = self.best_gmag_cgs_cont_unc
                     self.using_best_gmag_ew = True
-
             except:
                 pass
 
@@ -4908,6 +4912,13 @@ class HETDEX:
                 estflux_str = "%0.3g" %(e.line_gaussfit_parms[2]/e.line_gaussfit_parms[4]*G.HETDEX_FLUX_BASE_CGS)
                 #estcont_str = "%0.3g" %(e.line_gaussfit_parms[3]*1e-17)
                 estcont_str = "%0.3g" % (e.cont_cgs)
+
+        if e.using_best_gmag_ew: 
+            #using as an indicator that the narrow cgs flux was not valid (probably negative)
+            #and was replaced throughout with the wider estimate, but we will fall back and report the
+            #original narrow estimate here
+            estcont_str = self.unc_str(e.cont_cgs_narrow,e.cont_cgs_narrow_unc)
+            #estcont_str = "N/A"
 
         if self.ymd and self.obsid:
             if not G.ZOO:
