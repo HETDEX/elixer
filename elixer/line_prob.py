@@ -718,12 +718,15 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
         return None, None, None, None
 
     if (lineFlux_err is None):
+        log.debug("LineFlux error is None")
         lineFlux_err = 0
 
     if (continuum_err is None):
+        log.debug("Continuum error is None")
         continuum_err = 0
 
     if continuum_err == lineFlux_err == 0:
+        log.debug("Continuum error and Lineflux error set to zero. Single run only (no mc).")
         num_mc = 1
 
     _max_sample_retry = 10 #number of attemps to get a valid lineflux and continuum (both must be positive)

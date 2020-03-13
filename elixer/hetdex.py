@@ -3041,7 +3041,7 @@ class DetObj:
             #   idstring=None,specid=None,ifuslot=None,ifuid=None,amp=None,date=None,time=None,time_ex=None,
              #    panacea_fiber_index=-1, detect_id = -1):
 
-            log.debug("Loading base fiber data from HDF5 ...")
+            log.debug(f"Loading base fiber data from HDF5 ({id})...")
             rows = fiber_table.read_where("detectid == id")
             subset_norm = 0.0 #for the relative weights
 
@@ -3755,6 +3755,9 @@ class HETDEX:
         if len(tuple) == 2:
             tuple = (tuple[0],tuple[1],tuple[1])
         try:
+            if np.isnan(tuple[0]) or tuple[0] is None:
+                return 'nan'
+
             flux = ("%0.2g" % tuple[0]).split('e')
             unc = ("%0.2g" % (0.5 * (abs(tuple[1]) + abs(tuple[2])))).split('e')
 
@@ -4872,8 +4875,8 @@ class HETDEX:
             estcont_gmag_str = self.unc_str((e.best_gmag_cgs_cont, e.best_gmag_cgs_cont_unc))
             eqw_lya_gmag_str = "w: " + self.unc_str((e.best_eqw_gmag_obs/(1.0 + la_z),e.best_eqw_gmag_obs_unc/(1.0 + la_z)))
         except:
-            estcont_gmag_str = None
-            eqw_lya_gmag_str = None
+            estcont_gmag_str = 'nan'
+            eqw_lya_gmag_str = 'nan'
 
         if G.REPORT_ELIXER_MCMC_FIT:
             try:
