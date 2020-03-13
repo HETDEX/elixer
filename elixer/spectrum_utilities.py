@@ -50,6 +50,7 @@ def filter_iso(filtername, lam):
         if filtername.lower() in filter_iso_dict.keys():
             return filter_iso_dict[filtername.lower()]
         else:
+            log.info(f"Unable to match filter {filtername} to iso wavelength")
             return lam
     except:
         log.debug("Exception is spectrum_utilities::filter_iso",exc_info=True)
