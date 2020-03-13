@@ -3331,8 +3331,6 @@ class DetObj:
         #check the sdss_gmag version
         if self.sdss_gmag_p_lae_oii_ratio is None:
             try:
-
-
                 if self.spec_obj:
                     addl_wavelengths = self.spec_obj.addl_wavelengths
                     addl_fluxes = self.spec_obj.addl_fluxes

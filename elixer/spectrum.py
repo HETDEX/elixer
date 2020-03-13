@@ -746,15 +746,11 @@ class EmissionLineInfo:
                 # that way, some hot pixel that spikes at 100x noise does not automatically get "real"
                 # but will still be throttled down due to failures with other criteria
 
-            if self.unique == True:
-                unique_mul = 1.0 #boost a bit (this line stands alone)?
-            elif self.unique == False:
-                if self.fwhm < 6.5:
-                    #resolution is around 5.5, so if this is less than about 7AA, it could be noise?
-                    unique_mul = 0.5 #knock it down (it is mixed in with others)
+            unique_mul = 1.0 #normal
+            if (self.unique == False) and (self.fwhm < 6.5):
+                #resolution is around 5.5, so if this is less than about 7AA, it could be noise?
+                unique_mul = 0.5 #knock it down (it is mixed in with others)
                 #else it is broad enough that we don't care about possible nearby lines as noise
-            else: #None
-                unique_mul = 1.0
 
             #def unique_peak(spec, wave, cwave, fwhm, width=10.0, frac=0.9):
             if GOOD_MAX_DX0_MULT[0] < self.fit_dx0 < GOOD_MAX_DX0_MULT[1]:
@@ -2902,27 +2898,31 @@ class Spectrum:
         :return:
         """
 
-        if (self.all_found_lines is None):
-            self.all_found_lines = peakdet(self.wavelengths, self.values, self.errors,values_units=self.values_units)
+        try:
+            if (self.all_found_lines is None):
+                self.all_found_lines = peakdet(self.wavelengths, self.values, self.errors,values_units=self.values_units)
 
-        if self.all_found_lines is None or len(self.all_found_lines)==0:
+            if self.all_found_lines is None or len(self.all_found_lines)==0:
+                return 0,0
+
+            unmatched_score_list = np.array([x.line_score for x in self.all_found_lines])
+            unmatched_wave_list = np.array([x.fit_x0 for x in self.all_found_lines])
+            solution_wave_list = np.array([solution.central_rest * (1.+solution.z)] + [x.w_obs for x in solution.lines])
+
+            for line in solution_wave_list:
+                idx = np.where(abs(unmatched_wave_list-line) <= aa)[0]
+                if idx is not None and len(idx) > 0: #should usually be just 0 or 1
+                    #remove from unmatched_list as these are now matched
+                    idx = idx[::-1]
+                    for i in idx:
+                        unmatched_wave_list = np.delete(unmatched_wave_list,i)
+                        unmatched_score_list = np.delete(unmatched_score_list,i)
+
+            #what is left over
+            return len(unmatched_score_list), np.nansum(unmatched_score_list)
+        except:
+            log.debug("Exception in spectrum::unmatched_line_score",exc_info=True)
             return 0,0
-
-        unmatched_score_list = [x.line_score for x in self.all_found_lines]
-        unmatched_wave_list = [x.fit_x0 for x in self.all_found_lines]
-        solution_wave_list = [solution.central_rest * (1.+solution.z)] + [x.w_obs for x in solution.lines]
-
-        for line in solution_wave_list:
-            idx = np.where(abs(unmatched_wave_list-line) <= aa)[0]
-            if idx is not None and len(idx) > 0: #should usually be just 0 or 1
-                #remove from unmatched_list as these are now matched
-                idx = idx[::-1]
-                for i in idx:
-                    del unmatched_wave_list[i]
-                    del unmatched_score_list[i]
-
-        #what is left over
-        return len(unmatched_score_list), np.nansum(unmatched_score_list)
 
     def is_near_absorber(self,w,aa=4.0):#pix_size=1.9): #is the provided wavelength near one of the found peaks (+/- few AA or pixels)
 

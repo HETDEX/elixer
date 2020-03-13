@@ -717,6 +717,15 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
         log.debug("Invalid lineflux or continuum")
         return None, None, None, None
 
+    if (lineFlux_err is None):
+        lineFlux_err = 0
+
+    if (continuum_err is None):
+        continuum_err = 0
+
+    if continuum_err == lineFlux_err == 0:
+        num_mc = 1
+
     _max_sample_retry = 10 #number of attemps to get a valid lineflux and continuum (both must be positive)
     log.debug("Sampling (%d) PLAE/POII ... " %(num_mc))
     # lineflux_array = np.random.normal(lineFlux,lineFlux_err,num_mc)
