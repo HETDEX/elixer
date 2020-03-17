@@ -363,7 +363,31 @@ class HetdexFits:
                 #    There will be redundant data
                 #########################################
 
-                rows = fibers_table.read_where("(multiframe==q_multiframe) & (expnum==q_expnum)")
+
+
+                # if need to use Data.FiberIndex table
+                # know that FiberIndex table is supposed to be in the same order as Fibers
+                #    so the indices should match up (FiberIndex has same number of rows but
+                #    less data than Fibers, so it is faster to query w/o an indexed column)
+                # so ...
+                # mf = fiber_index_table.col('multiframe') #this will be in b'xxxx' format
+                # idx = np.where(mf == b'q_multiframe') #these will be for ALL expIDs as well though
+                # rows = fiber_table.read_coordinates(idx[0]) # again, note you'll get ALL 3 expIDs
+
+                try:
+                    directquery = 'multiframe' in fibers_table.colindexes.keys()
+                except:
+                    directquery = False
+
+                if directquery: #other table read and try to match up indexes as above comment
+                    rows = fibers_table.read_where("(multiframe==q_multiframe) & (expnum==q_expnum)")
+                else:
+                    mfcol = h5_multifits.root.Data.FiberIndex.col('multiframe')
+                    idx = np.where(mfcol==q_multiframe.encode()) #encode because in b'xxx' format
+                    allexp = fibers_table.read_coordinates(idx[0],field='expnum')
+                    allrows = fibers_table.read_coordinates(idx[0])
+                    idx = np.where(allexp==q_expnum)
+                    rows = allrows[idx[0]]
 
                 #expect there to be 112 fibers (though maybe fewer if some are dead)
                 if (rows is None) or (rows.size == 0):

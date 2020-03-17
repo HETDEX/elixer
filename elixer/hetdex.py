@@ -2701,8 +2701,20 @@ class DetObj:
 
             #fill out shot info
             self.survey_shotid = row['shotid'] #redundant, already have it
-            self.survey_fwhm_gaussian = row['fwhm_gaussian']
-            self.survey_fwhm_moffat = row['fwhm_moffat']
+
+            try: #new in HDR2
+                self.survey_fwhm_gaussian = row['fwhm_virus']
+            except:
+                try: #older HDR1
+                    self.survey_fwhm_gaussian = row['fwhm_gaussian']
+                except:
+                    pass
+
+            try:
+                self.survey_fwhm_moffat = row['fwhm_moffat']
+            except:
+                pass
+
             self.survey_response = row['response_4540']
             try:
                 self.survey_fieldname = row['field'].decode()
@@ -2771,10 +2783,16 @@ class DetObj:
             #set the pdf name (w/o the .pdf extension
             if G.python2():
                 self.pdf_name = row['inputid']
-                self.hdf5_detectname = row['detectname']
+                try:
+                    self.hdf5_detectname = row['detectname']
+                except:
+                    pass  #unimportant, but some versions don't have this column
             else:
                 self.pdf_name = row['inputid'].decode()
-                self.hdf5_detectname = row['detectname'].decode()
+                try:
+                    self.hdf5_detectname = row['detectname'].decode()
+                except:
+                    pass #unimportant, but some versions don't have this column
 
 
             ############################
