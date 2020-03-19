@@ -234,16 +234,16 @@ class MCMC_Gauss:
                 self.mcmc_snr = -1
                 log.warning("Exception calculating MCMC SNR: ", exc_info=True)
 
-            log.info("MCMC mu: i[%0.5g] (%0.5g, +%0.5g, -%0.5g)" %
+            log.info("MCMC mu: initial[%0.5g] mcmc(%0.5g, +%0.5g, -%0.5g)" %
                      (self.initial_mu, self.mcmc_mu[0],self.mcmc_mu[1],self.mcmc_mu[2]))
-            log.info("MCMC sigma: i[%0.5g] (%0.5g, +%0.5g, -%0.5g)" %
+            log.info("MCMC sigma: initial[%0.5g] mcmc(%0.5g, +%0.5g, -%0.5g)" %
                      (self.initial_sigma, self.mcmc_sigma[0],self.mcmc_sigma[1],self.mcmc_sigma[2]))
-            log.info("MCMC A: i[%0.5g] (%0.5g, +%0.5g, -%0.5g)" %
+            log.info("MCMC A: initial[%0.5g] mcmc(%0.5g, +%0.5g, -%0.5g) *usually over 2AA bins" %
                      (self.initial_A, self.mcmc_A[0],self.mcmc_A[1],self.mcmc_A[2] ))
-            log.info("MCMC y: i[%0.5g] (%0.5g, +%0.5g, -%0.5g)"%
+            log.info("MCMC y: initial[%0.5g] mcmc(%0.5g, +%0.5g, -%0.5g)"%
                      (self.initial_y, self.mcmc_y[0],self.mcmc_y[1],self.mcmc_y[2]))
             log.info("MCMC SNR: %0.5g" % self.mcmc_snr)
-            log.info("MCMC f: i[%0.5g] (%0.5g, +%0.5g, -%0.5g)" %
+            log.info("MCMC f: initial[%0.5g] mcmc(%0.5g, +%0.5g, -%0.5g)" %
                      (0.0, mcmc_f[0], mcmc_f[1], mcmc_f[2]))
         except:
             log.error("Exception in mcmc_gauss::run_mcmc",exc_info=True)

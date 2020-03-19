@@ -325,6 +325,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         skip = 0
         keep_f = False
 
+        f = None
         if op.exists(catalog_loc):
             try:
                 f = open(catalog_loc, mode='r')
@@ -346,6 +347,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 log.debug(f"zPDF database {db_loc} does not exist")
 
         #build up the header for Pandas
+        if f is None:
+            log.debug("Could not open database file")
+            return None
+
         line = f.readline()
         while '#' in line:
             skip += 1

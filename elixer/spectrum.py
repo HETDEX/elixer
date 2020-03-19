@@ -1331,7 +1331,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         mcmc.initial_y = eli.fit_y  # / adjust
         mcmc.initial_peak = raw_peak  # / adjust
         mcmc.data_x = narrow_wave_x
-        mcmc.data_y = narrow_wave_counts  # / adjust
+        mcmc.data_y = narrow_wave_counts # / adjust
         mcmc.err_y = narrow_wave_errors  # not the 1./err*err .... that is done in the mcmc likelihood function
 
         # if using the scipy::curve_fit, 50-100 burn-in and ~1000 main run is plenty

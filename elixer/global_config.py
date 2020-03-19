@@ -309,25 +309,33 @@ def select_hdr_version(version):
         # Imaging Data Paths
         #
 
-        CANDELS_EGS_Stefanon_2016_BASE_PATH = op.join(HDR_BASEPATH, "imaging/candles_egs/EGS")
-        EGS_CFHTLS_PATH = op.join(HDR_BASEPATH, "imaging/candles_egs/CFHTLS")
-        CFHTLS_PHOTOZ_CAT = op.join(HDR_BASEPATH, "imaging/candles_egs/CFHTLS/photozCFHTLS-W3_270912.out")
+        #see if HDR2 exists yet
+        if op.exists(op.join(HDR_BASEPATH, "imaging/candles_egs/EGS")):
+            hdr_imaging_basepath = HDR_BASEPATH
+        else: #temporary code back to HDR1
+            print("***** using hdr1 path for imaging *****")
+            hdr_imaging_basepath = "/work/03946/hetdex/hdr1/"
 
-        EGS_GROTH_BASE_PATH = op.join(HDR_BASEPATH, "imaging/candles_egs/groth")
-        EGS_GROTH_CAT_PATH = op.join(HDR_BASEPATH, "imaging/candles_egs/groth")  # note: there is no catalog
+
+        CANDELS_EGS_Stefanon_2016_BASE_PATH = op.join(hdr_imaging_basepath, "imaging/candles_egs/EGS")
+        EGS_CFHTLS_PATH = op.join(hdr_imaging_basepath, "imaging/candles_egs/CFHTLS")
+        CFHTLS_PHOTOZ_CAT = op.join(hdr_imaging_basepath, "imaging/candles_egs/CFHTLS/photozCFHTLS-W3_270912.out")
+
+        EGS_GROTH_BASE_PATH = op.join(hdr_imaging_basepath, "imaging/candles_egs/groth")
+        EGS_GROTH_CAT_PATH = op.join(hdr_imaging_basepath, "imaging/candles_egs/groth")  # note: there is no catalog
 
         GOODS_N_BASE_PATH = "/work/03564/stevenf/maverick/GOODSN"
         GOODS_N_CAT_PATH = GOODS_N_BASE_PATH
 
-        STACK_COSMOS_BASE_PATH = op.join(HDR_BASEPATH, "imaging/cosmos/stackCOSMOS/nano/")
-        STACK_COSMOS_CAT_PATH = op.join(HDR_BASEPATH, "imaging/cosmos/stackCOSMOS")
-        COSMOS_EXTRA_PATH = op.join(HDR_BASEPATH, "imaging/cosmos/COSMOS/")
+        STACK_COSMOS_BASE_PATH = op.join(hdr_imaging_basepath, "imaging/cosmos/stackCOSMOS/nano/")
+        STACK_COSMOS_CAT_PATH = op.join(hdr_imaging_basepath, "imaging/cosmos/stackCOSMOS")
+        COSMOS_EXTRA_PATH = op.join(hdr_imaging_basepath, "imaging/cosmos/COSMOS/")
 
-        DECAM_IMAGE_PATH = op.join(HDR_BASEPATH, "imaging/shela/nano/")
-        SHELA_BASE_PATH = op.join(HDR_BASEPATH, "imaging/shela/nano/")
+        DECAM_IMAGE_PATH = op.join(hdr_imaging_basepath, "imaging/shela/nano/")
+        SHELA_BASE_PATH = op.join(hdr_imaging_basepath, "imaging/shela/nano/")
         SHELA_CAT_PATH = SHELA_BASE_PATH
-        SHELA_PHOTO_Z_COMBINED_PATH = op.join(HDR_BASEPATH, "imaging/shela/SHELA")
-        SHELA_PHOTO_Z_MASTER_PATH = op.join(HDR_BASEPATH, "imaging/shela/SHELA")
+        SHELA_PHOTO_Z_COMBINED_PATH = op.join(hdr_imaging_basepath, "imaging/shela/SHELA")
+        SHELA_PHOTO_Z_MASTER_PATH = op.join(hdr_imaging_basepath, "imaging/shela/SHELA")
 
         if op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
             HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
@@ -365,6 +373,9 @@ FPLANE_LOC = op.join(CONFIG_BASEDIR,"virus_config/fplane")
 IFUCEN_LOC = op.join(CONFIG_BASEDIR,"virus_config/IFUcen_files")
 DIST_LOC = op.join(CONFIG_BASEDIR,"virus_config/DeformerDefaults")
 PIXFLT_LOC = op.join(CONFIG_BASEDIR,"virus_config/PixelFlats")
+
+print("***** temporary hard code pixel flat location *****")
+PIXFLT_LOC = "/data/00115/gebhardt/lib_calib/lib_pflat"
 
 REPORT_ELIXER_MCMC_FIT = False
 
