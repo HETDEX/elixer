@@ -37,7 +37,7 @@ LAUNCH_PDF_VIEWER = None
 
 valid_HDR_Versions = [1,2]
 
-HDR_Version = 1
+HDR_Version = 2
 
 HDR_DATA_BASEPATH = "/data/03946/hetdex"
 HDR_WORK_BASEPATH = "/work/03946/hetdex/"
