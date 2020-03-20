@@ -2724,6 +2724,7 @@ def main():
     # exit()
 
 
+    log.critical(f"***** HETDEX DATA RELEASE {G.HDR_Version} *****")
 
     pages = []
 
