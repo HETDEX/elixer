@@ -376,23 +376,36 @@ class HetdexFits:
 
                 try:
                     directquery = 'multiframe' in fibers_table.colindexes.keys()
+                    #log.debug("read_hdf5, Fibers table has multiframe index. Will use direct query.")
                 except:
                     directquery = False
+                    #log.debug("read_hdf5, Fibers table missing multiframe index. Will use indirect query via FiberIndex table.")
 
                 if directquery: #other table read and try to match up indexes as above comment
                     rows = fibers_table.read_where("(multiframe==q_multiframe) & (expnum==q_expnum)")
                 else:
                     mfcol = h5_multifits.root.Data.FiberIndex.col('multiframe')
-                    idx = np.where(mfcol==q_multiframe.encode()) #encode because in b'xxx' format
-                    allexp = fibers_table.read_coordinates(idx[0],field='expnum')
-                    allrows = fibers_table.read_coordinates(idx[0])
-                    idx = np.where(allexp==q_expnum)
-                    rows = allrows[idx[0]]
+                    mfidx = np.where(mfcol==q_multiframe.encode()) #encode because in b'xxx' format
+                    try: #if the expnum col exists, get it also
+                        #and then get the indices for matches vs the multiframe AND the expnum
+                        expcol = h5_multifits.root.Data.FiberIndex.col('expnum')
+                        expidx = np.where(expcol==q_expnum)
+                        joinidx = np.intersect1d(mfidx,expidx)
+                        rows = fibers_table.read_coordinates(joinidx)
+                    except: #expnum col does not exist so query all multiframe, then trim to expnum
+                        allexp = fibers_table.read_coordinates(mfidx[0],field='expnum')
+                        allrows = fibers_table.read_coordinates(mfidx[0])
+                        idx = np.where(allexp==q_expnum)
+                        rows = allrows[idx[0]]
+
+                    ###
+                    #rows = fibers_table.read_where("(multiframe==q_multiframe) & (expnum==q_expnum)",field=expnum)
+
 
                 #expect there to be 112 fibers (though maybe fewer if some are dead)
                 if (rows is None) or (rows.size == 0):
                     self.okay = False
-                    log.error("Problem loading multi-fits HDF5 equivalant. No fibers for request IFU, AMP, EXP, etc")
+                    log.error(f"Problem loading multi-fits HDF5 equivalant. No fibers found. {q_multiframe} expnum ({q_expnum})")
                     return
 
                 # todo: maybe build up the arrays, as if they were read from a multi-fits file?

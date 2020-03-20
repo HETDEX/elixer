@@ -3206,8 +3206,11 @@ class DetObj:
 
         #todo: build a noise estimate over the top 4 fibers (amps)?
         try:
+            good_idx = np.where([x.fits for x in self.fibers])[0] #some might be None, so get those that are not
+            good_idx = good_idx[0:min(len(good_idx),4)]
 
-            all_calfib = np.concatenate([x.fits.calfib for x in self.fibers[0:4]], axis=0)
+            all_calfib = np.concatenate([self.fibers[i].fits.calfib for i in good_idx],axis=0)
+            #all_calfib = np.concatenate([x.fits.calfib for x in self.fibers[good_idx]], axis=0)
             # all_calfibe = np.concatenate([x.fits.calfibe for x in self.fibers[0:4]], axis=0)
             # try:
             #     #should not use the biweight here ... most fibers would be sky and so, the
