@@ -888,7 +888,7 @@ class Catalog:
                         if ew is not None:
                             label += "\n EWr: %0.0f" %(ew)
                             if plae is not None:
-                                label += ", PLAE: %0.4g" %(plae)
+                                label += ", PLAE: %0.4g" %(round(plae, 3))
 
                         plt.xlabel(label)
                         plt.gca().xaxis.labelpad = 0
@@ -945,7 +945,7 @@ class Catalog:
                         if ew is not None:
                             label += "\n EWr: %0.0f" %(ew)
                             if plae is not None:
-                                label += ", PLAE: %0.4g" %(plae)
+                                label += ", PLAE: %0.4g" %(round(plae, 3))
 
                         plt.xlabel(label)
                         plt.gca().xaxis.labelpad = 0
