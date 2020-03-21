@@ -564,20 +564,24 @@ class science_image():
                 else:
                     d['dist_curve'] = -1.0
 
-                # now, get the flux
-                kronrad, krflag = sep.kron_radius(data_sub, obj['x'], obj['y'],
-                                                  obj['a'], obj['b'], obj['theta'], r=6.0)
-                # r=6 == 6 isophotal radii ... source extractor always uses 6
-                # minimum diameter = 3.5 (1.75 radius)
-                radius = kronrad * np.sqrt(obj['a'] * obj['b'])
-                if radius < 1.75:
-                    radius = 1.75
-                    flux, fluxerr, flag = sep.sum_circle(data_sub, obj['x'], obj['y'],
-                                                         radius, subpix=1,err=data_err)
-                else:
-                    flux, fluxerr, flag = sep.sum_ellipse(data_sub, obj['x'], obj['y'],
-                                                          obj['a'], obj['b'], obj['theta'],
-                                                          2.5 * kronrad, subpix=1,err=data_err)
+                try:
+                    # now, get the flux
+                    kronrad, krflag = sep.kron_radius(data_sub, obj['x'], obj['y'],
+                                                      obj['a'], obj['b'], obj['theta'], r=6.0)
+                    # r=6 == 6 isophotal radii ... source extractor always uses 6
+                    # minimum diameter = 3.5 (1.75 radius)
+                    radius = kronrad * np.sqrt(obj['a'] * obj['b'])
+                    if radius < 1.75:
+                        radius = 1.75
+                        flux, fluxerr, flag = sep.sum_circle(data_sub, obj['x'], obj['y'],
+                                                             radius, subpix=1,err=data_err)
+                    else:
+                        flux, fluxerr, flag = sep.sum_ellipse(data_sub, obj['x'], obj['y'],
+                                                              obj['a'], obj['b'], obj['theta'],
+                                                              2.5 * kronrad, subpix=1,err=data_err)
+                except:
+                    log.warning("Exception with source extractor",exc_info=True)
+                    continue
 
                 try:  # flux, fluxerr, flag may be ndarrays but of size zero (a bit weird)
                     flux = float(flux)

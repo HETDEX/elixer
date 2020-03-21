@@ -2055,7 +2055,6 @@ def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
     eli_list = []
 
     try:
-
         if not (len(wave) == len(spec) == len(spec_err)):
             log.info("Bad call to sn_peakdet(). Lengths of arrays do not match")
             return []
@@ -2066,11 +2065,14 @@ def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
         sn = v/e
         hvi = np.where(sn > dv)[0] #hvi high v indicies (where > dv)
 
+        if len(hvi) < 1:
+            log.debug(f"sn_peak - no bins above minimum snr {dv}")
+            return []
+
         pos = [] #positions to search (indicies into original wave array)
         run = [hvi[0],]
         rise = [hvi[0],] #assume start with a rise
         fall = []
-
 
         #two ways to trigger a peak:
         #several bins in a row above the SNR cut, then one below

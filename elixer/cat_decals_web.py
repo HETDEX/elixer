@@ -338,13 +338,13 @@ class DECaLS(cat_base.Catalog):#DECaLS
                     log.debug("DECaLS http response code = %d (%s)" %(response.status_code,response.reason))
                     continue
                 if len(response.content) < 5000: #should normally be 200k+
-                    log.debug("Bad response (no image?) from DECaLS")
+                    log.debug("Bad (short) response (no image?) from DECaLS")
                     continue
 
                 hdulist = fits.open(io.BytesIO(response.content))
 
                 if hdulist[0].header['NAXIS'] != 2:
-                    log.debug("Bad response (no image?) from DECaLS")
+                    log.debug("Bad response (no image?) from DECaLS. Missing NAXIS in header.")
                     continue
 
                 hdulist_array = [hdulist]

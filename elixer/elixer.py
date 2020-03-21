@@ -1394,6 +1394,13 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
     decs = []
     dists = []
     try:
+        if not os.path.exists(hdf5):
+            log.error(f"File not found: {hdf5}")
+            if sort:
+                return detectids, ras, decs, dists
+            else:
+                return detectids
+
         with tables.open_file(hdf5, mode="r") as h5:
             dtb = h5.root.Detections
 
@@ -1439,7 +1446,7 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
 
 
     except:
-        log.error("Exception in elixer.py get_hdf5_detectids_by_coord",exc_info=True)
+        log.error(f"Exception in elixer.py get_hdf5_detectids_by_coord",exc_info=True)
 
     if sort:
         return detectids,ras,decs,dists
@@ -2244,6 +2251,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     """
 
     just_mini_cutout = False
+    nei_buf = None
 
     if G.ZOO_MINI:
         if ((detectid is None) and ((ra is None) or (dec is None))):
@@ -2467,7 +2475,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             nei_buf = io.BytesIO()
             plt.savefig(nei_buf, format='png', dpi=300, transparent=True)
         except:
-            log.info("Exception! Unable to make mini-cutout from Neighborhood master.",exec_info)
+            log.info("Exception! Unable to make mini-cutout from Neighborhood master.",exc_info=True)
             nei_buf = None
 
 
