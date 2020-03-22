@@ -25,6 +25,7 @@ h5.close()
 
 
 for d in missing:
+    print("Removing " + str(d) + "...")
     files = glob.glob("dispatch_*/*/"+str(d)+"*")
     for f in files:
         try:
