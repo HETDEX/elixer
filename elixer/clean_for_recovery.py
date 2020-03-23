@@ -46,22 +46,25 @@ for d in alldets:
 
 h5.close()
 
-
-for d in missing:
-    files = glob.glob("dispatch_*/*/"+str(d)+"*")
-    if len(files) > 0:
-        if remove_no_imaging:
+if remove_no_imaging:
+    for d in missing:
+        files = glob.glob("dispatch_*/*/"+str(d)+"*")
+        if len(files) > 0:
             print("Removing " + str(d) + "...")
             for f in files:
                 try:
                     os.remove(f)
                 except:
                     pass
+else:
+    print(f"{len(missing)} reports without imaging: ")
+    for d in missing:
+        files = glob.glob("dispatch_*/*/" + str(d) + ".pdf")
+        if len(files) == 1:
+            print(d,files[0])
         else:
-            print(f"{len(files)} reports without imaging: ")
-            for f in files:
-                print(f)
-            print(f"{len(files)} reports without imaging")
+            print(d)
+    print(f"{len(missing)} reports without imaging")
 
 
 #find pdfs without pngs

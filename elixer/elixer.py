@@ -318,16 +318,15 @@ def parse_commandline(auto_force=False):
 
     parser.add_argument('--sdss', help="SDSS remote query for imaging. Deny (0), Allow (1) if no other catalog available,"
                                        " Force (2) and override any other catalog",
-                        required=False, default=-1,type=int)
-
+                        required=False, default=1,type=int)  #default to -1 auto shuts off if in dispatch mode
 
     parser.add_argument('--panstarrs', help="Pan-STARRS remote query for imaging. Deny (0), Allow (1) if no other catalog available,"
                                        " Force (2) and override any other catalog",
-                        required=False, default=-1,type=int)
+                        required=False, default=1,type=int)  #default to -1 auto shuts off if in dispatch mode
 
     parser.add_argument('--decals', help="DECaLS remote query for imaging. Deny (0), Allow (1) if no other catalog available,"
                                        " Force (2) and override any other catalog",
-                        required=False, default=-1,type=int)
+                        required=False, default=1,type=int) #default to -1 auto shuts off if in dispatch mode
 
     parser.add_argument('--nophoto', help='Turn OFF the use of archival photometric catalogs.', required=False,
                         action='store_true', default=False)
@@ -445,32 +444,32 @@ def parse_commandline(auto_force=False):
             G.PANSTARRS_ALLOW = True
             G.PANSTARRS_FORCE = False
 
-        if args.decals is not None:
-            if args.decals == 0:
-                G.DECALS_WEB_ALLOW = False
-                G.DECALS_WEB_FORCE = False
-            elif args.decals == 1:
-                G.DECALS_WEB_ALLOW = True
-                G.DECALS_WEB_FORCE = False
-            elif args.decals == 2:
-                G.DECALS_WEB_ALLOW = True
-                G.DECALS_WEB_FORCE = True
-            elif args.decals == -1:  # basically, unless explicitly overridden, if we are in dispatch mode, don't use SDSS
-                # since we can easily overwhelm their web interface
-                #            pass #for now, let the global default rule ... if this is a problem like SDSS, then restrict
-                if args.dispatch is not None:
-                    if (args.nodes is not None) and (int(args.nodes) > 1):
-                        G.DECALS_WEB_ALLOW = False
-                        G.DECALS_WEB_FORCE = False
-                        print("***notice: --decals NOT specified. Dispatch is ON. DECaLS (web) NOT allowed by default.")
-                        log.info("--decals NOT specified. Dispatch is ON. DECaLS (web) NOT allowed by default.")
-                    else:
-                        log.info("--decals NOT specificed. Dispatch is ON but is only on 1 node. Defaults allowed.")
-            else:
-                log.warning("Ignoring invalid --decals value (%d). Using default (Allow == 1)" % args.decals)
-                print("Ignoring invalid --decals value (%d). Using default (Allow == 1)" % args.decals)
-                G.DECALS_WEB_ALLOW = True
-                G.DECALS_WEB_FORCE = False
+    if args.decals is not None:
+        if args.decals == 0:
+            G.DECALS_WEB_ALLOW = False
+            G.DECALS_WEB_FORCE = False
+        elif args.decals == 1:
+            G.DECALS_WEB_ALLOW = True
+            G.DECALS_WEB_FORCE = False
+        elif args.decals == 2:
+            G.DECALS_WEB_ALLOW = True
+            G.DECALS_WEB_FORCE = True
+        elif args.decals == -1:  # basically, unless explicitly overridden, if we are in dispatch mode, don't use SDSS
+            # since we can easily overwhelm their web interface
+            #            pass #for now, let the global default rule ... if this is a problem like SDSS, then restrict
+            if args.dispatch is not None:
+                if (args.nodes is not None) and (int(args.nodes) > 1):
+                    G.DECALS_WEB_ALLOW = False
+                    G.DECALS_WEB_FORCE = False
+                    print("***notice: --decals NOT specified. Dispatch is ON. DECaLS (web) NOT allowed by default.")
+                    log.info("--decals NOT specified. Dispatch is ON. DECaLS (web) NOT allowed by default.")
+                else:
+                    log.info("--decals NOT specificed. Dispatch is ON but is only on 1 node. Defaults allowed.")
+        else:
+            log.warning("Ignoring invalid --decals value (%d). Using default (Allow == 1)" % args.decals)
+            print("Ignoring invalid --decals value (%d). Using default (Allow == 1)" % args.decals)
+            G.DECALS_WEB_ALLOW = True
+            G.DECALS_WEB_FORCE = False
 
     #if there is no fall back imaging, we should allow empty imaging
     if (G.DECALS_WEB_ALLOW == False) and (G.PANSTARRS_ALLOW == False) and (G.SDSS_ALLOW == False):
