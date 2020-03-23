@@ -17,7 +17,11 @@ import os
 
 check_nei = False
 check_mini = False
+remove_no_imaging = False
 
+i = input("Remove if no imaging (y/n)?")
+if len(i) > 0 and i.upper() == "Y":
+    remove_no_imaging = True
 
 i = input("Check for nei.png (y/n)?")
 if len(i) > 0 and i.upper() == "Y":
@@ -46,12 +50,19 @@ h5.close()
 for d in missing:
     files = glob.glob("dispatch_*/*/"+str(d)+"*")
     if len(files) > 0:
-        print("Removing " + str(d) + "...")
-        for f in files:
-            try:
-                os.remove(f)
-            except:
-                pass
+        if remove_no_imaging:
+            print("Removing " + str(d) + "...")
+            for f in files:
+                try:
+                    os.remove(f)
+                except:
+                    pass
+        else:
+            print(f"{len(files)} reports without imaging: ")
+            for f in files:
+                print(f)
+            print(f"{len(files)} reports without imaging")
+
 
 #find pdfs without pngs
 print("Checking for missing .png files ...")
