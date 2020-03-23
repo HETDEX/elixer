@@ -28,7 +28,10 @@ def main():
 
     if args.mv2dir:
         if os.path.exists(args.mv2dir):
-            shutil.move(args.db_name, args.mv2dir)
+            if not os.path.exists(os.path.join(args.mv2dir,args.db_name)):
+                shutil.move(args.db_name, args.mv2dir)
+            else:
+                print(f"{args.db_name} alread exists in mv2dir {args.mv2dir}. Will NOT overwrite.")
         else:
             print(f"{args.mv2dir} does not exist. Cannot move {args.db_name}.")
 

@@ -21,7 +21,3 @@ do
   python3 make_report_db.py --db_name "$db_dir$rpt$i$mini.db" --img_dir  $imgdir  --img_name "$i*[0-9]mini.png" --mv2dir $cp2dir &
 
 done
-
-
-#catch all
-mv *.db $cp2dir 
