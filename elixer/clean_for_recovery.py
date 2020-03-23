@@ -82,12 +82,13 @@ for d in alldets:
 
     if not (mini_okay and nei_okay):
         #remove the report for recovery
-        print("Removing " + str(d) + " ...")
-        for f in files:
-            try:
-                os.remove(f)
-            except:
-                pass
+        if len(files) > 0:
+            print("Removing " + str(d) + " ...")
+            for f in files:
+                try:
+                    os.remove(f)
+                except:
+                    pass
     elif not png_okay:
         #try to build png from os call
         print("OS call to pdftoppm for " + str(d) + "...")
