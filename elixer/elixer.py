@@ -310,6 +310,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--recover', help='Recover/continue from previous run. Will append to and NOT overwrite exsiting output.',
                         required=False, action='store_true', default=False)
 
+    parser.add_argument('--prep_recover', help='Clean output directories for recovery run. Executes an interactive script.',
+                        required=False, action='store_true', default=False)
+
     parser.add_argument('--ooops', help='Load Ooops module for SLURM.', required=False,
                         action='store_true', default=False)
 
@@ -385,6 +388,18 @@ def parse_commandline(auto_force=False):
     if args.merge or args.merge_unique:
         print("Merging catalogs and fiber files (ignoring all other parameters) ... ")
         return args
+
+    if args.prep_recover:
+        print("Attempting to run clean_for_recovery script ... ")
+        try:
+            from elixer import clean_for_recovery
+        except:
+            try:
+                import clean_for_recovery
+            except:
+                print("Unable to run clean_for_recovery script")
+        print("prep_recover complete; exiting ...")
+        exit()
 
     if args.allow_empty_image is not None:
         G.ALLOW_EMPTY_IMAGE = args.allow_empty_image
