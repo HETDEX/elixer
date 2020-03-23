@@ -1,12 +1,12 @@
 #cp2dir="/data/03261/polonius/image_db_staging/"
 imgdir="all_pngs"
-db_dir="/data/03261/polonius/image_db_staging/"
+db_dir=""
 rpt="elixer_reports_"
 nei="_nei"
 mini="_mini"
 
 echo Running prefixes 0 to 12
-echo This is an UPDATE (append and replace). No file copy performed.
+echo This is an UPDATE \(append and replace\). No file copy performed.
 
 read -p "Press enter to continue"
 
