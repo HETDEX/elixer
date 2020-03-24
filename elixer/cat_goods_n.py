@@ -8,6 +8,7 @@ try:
     from elixer import line_prob
     from elixer import utilities
     from elixer import spectrum_utilities as SU
+    from elixer import sqlite_utils as sql
 except:
     import global_config as G
     import science_image
@@ -16,6 +17,7 @@ except:
     import line_prob
     import utilities
     import spectrum_utilities as SU
+    import sqlite_utils as sql
 
 import os.path as op
 import copy
