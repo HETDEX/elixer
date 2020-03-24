@@ -326,7 +326,7 @@ def select_hdr_version(version):
         EGS_GROTH_CAT_PATH = op.join(hdr_imaging_basepath, "imaging/candles_egs/groth")  # note: there is no catalog
 
         #GOODS_N_BASE_PATH = "/work/03564/stevenf/maverick/GOODSN"
-        GOODS_N_BASE_PATH = op.join(hdr_imaging_basepath,"goods_north/GOODSN")
+        GOODS_N_BASE_PATH = op.join(hdr_imaging_basepath,"imaging/goods_north/GOODSN")
         GOODS_N_CAT_PATH = GOODS_N_BASE_PATH
 
         STACK_COSMOS_BASE_PATH = op.join(hdr_imaging_basepath, "imaging/cosmos/stackCOSMOS/nano/")
