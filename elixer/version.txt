@@ -1,9 +1,10 @@
 changes to elixer by version
 
+1.8.2 [2020-03-23]
+* promote to release, set as HDR2 baseline
 
 1.8.2a6 [2020-03-21]
 * HDR2 Testing
-
 
 1.8.2a5 [2020-03-20]
 * pull base config paths from hetdex_api, where possible.
