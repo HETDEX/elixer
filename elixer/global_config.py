@@ -316,7 +316,7 @@ def select_hdr_version(version):
             #print("***** using hdr1 path for imaging *****")
             #hdr_imaging_basepath = "/work/03946/hetdex/hdr1/"
             print("***** using /data/03261/polonius/hdr2 for imaging *****")
-            hdr_imaging_basepath = "/data/03261/polonuis/hdr2"
+            hdr_imaging_basepath = "/data/03261/polonuis/hdr2/"
 
         CANDELS_EGS_Stefanon_2016_BASE_PATH = op.join(hdr_imaging_basepath, "imaging/candles_egs/EGS")
         EGS_CFHTLS_PATH = op.join(hdr_imaging_basepath, "imaging/candles_egs/CFHTLS")
@@ -325,7 +325,8 @@ def select_hdr_version(version):
         EGS_GROTH_BASE_PATH = op.join(hdr_imaging_basepath, "imaging/candles_egs/groth")
         EGS_GROTH_CAT_PATH = op.join(hdr_imaging_basepath, "imaging/candles_egs/groth")  # note: there is no catalog
 
-        GOODS_N_BASE_PATH = "/work/03564/stevenf/maverick/GOODSN"
+        #GOODS_N_BASE_PATH = "/work/03564/stevenf/maverick/GOODSN"
+        GOODS_N_BASE_PATH = op.join(hdr_imaging_basepath,"goods_north/GOODSN")
         GOODS_N_CAT_PATH = GOODS_N_BASE_PATH
 
         STACK_COSMOS_BASE_PATH = op.join(hdr_imaging_basepath, "imaging/cosmos/stackCOSMOS/nano/")
@@ -356,7 +357,10 @@ def select_hdr_version(version):
         # HSC_AUX_IMAGE_PATH = op.join(HDR_BASEPATH, "imaging/hsc/S15A/reduced/images")
 
         # KPNO_BASE_PATH = "/work/03261/polonius/hetdex/catalogs/KPNO_Mosaic"
-        KPNO_BASE_PATH = "/work/03233/jf5007/maverick/KMImaging/"
+        if op.exists(op.join(hdr_imaging_basepath, "imaging/KMImaging")):
+            KPNO_BASE_PATH = op.join(hdr_imaging_basepath, "imaging/KMImaging")
+        else:
+            KPNO_BASE_PATH = "/work/03233/jf5007/maverick/KMImaging/"
         KPNO_CAT_PATH = HSC_BASE_PATH
         KPNO_IMAGE_PATH = HSC_BASE_PATH
 
