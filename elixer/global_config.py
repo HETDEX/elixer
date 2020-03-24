@@ -316,7 +316,7 @@ def select_hdr_version(version):
             #print("***** using hdr1 path for imaging *****")
             #hdr_imaging_basepath = "/work/03946/hetdex/hdr1/"
             print("***** using /data/03261/polonius/hdr2 for imaging *****")
-            hdr_imaging_basepath = "/data/03261/polonuis/hdr2/"
+            hdr_imaging_basepath = "/data/03261/polonius/hdr2/"
 
         CANDELS_EGS_Stefanon_2016_BASE_PATH = op.join(hdr_imaging_basepath, "imaging/candles_egs/EGS")
         EGS_CFHTLS_PATH = op.join(hdr_imaging_basepath, "imaging/candles_egs/CFHTLS")
@@ -341,6 +341,11 @@ def select_hdr_version(version):
 
         if op.exists(op.join(hdr_imaging_basepath,"imaging/hsc")):
             HSC_BASE_PATH = op.join(hdr_imaging_basepath,"imaging/hsc")
+            HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
+            HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
+            #HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
+        elif op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
+            HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
             HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
             HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
             #HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
