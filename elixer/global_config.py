@@ -313,9 +313,10 @@ def select_hdr_version(version):
         if op.exists(op.join(HDR_BASEPATH, "imaging/candles_egs/EGS")):
             hdr_imaging_basepath = HDR_BASEPATH
         else: #temporary code back to HDR1
-            print("***** using hdr1 path for imaging *****")
-            hdr_imaging_basepath = "/work/03946/hetdex/hdr1/"
-
+            #print("***** using hdr1 path for imaging *****")
+            #hdr_imaging_basepath = "/work/03946/hetdex/hdr1/"
+            print("***** using /data/03261/polonius/hdr2 for imaging *****")
+            hdr_imaging_basepath = "/data/03261/polonuis/hdr2"
 
         CANDELS_EGS_Stefanon_2016_BASE_PATH = op.join(hdr_imaging_basepath, "imaging/candles_egs/EGS")
         EGS_CFHTLS_PATH = op.join(hdr_imaging_basepath, "imaging/candles_egs/CFHTLS")
