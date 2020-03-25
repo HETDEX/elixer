@@ -131,6 +131,8 @@ class Detections(tables.IsDescription):
     combined_plae = tables.Float32Col(dflt=UNSET_FLOAT)   #combination of all PLAE/POII
     combined_plae_err = tables.Float32Col(dflt=UNSET_FLOAT)
     plae_classification = tables.Float32Col(dflt=UNSET_FLOAT) #final, combine P(LAE) (0.0 - 1.0)
+    combined_continuum = tables.Float32Col(dflt=UNSET_FLOAT)   #combination of all continuum estimates
+    combined_continuum_err = tables.Float32Col(dflt=UNSET_FLOAT)
 
 
 class SpectraLines(tables.IsDescription):
@@ -709,6 +711,9 @@ def append_entry(fileh,det,overwrite=False):
                 row['combined_plae'] = det.classification_dict['plae_hat']
                 row['combined_plae_err'] = det.classification_dict['plae_hat_sd']
                 row['plae_classification'] = det.classification_dict['scaled_plae']
+                #last two are new
+                row['combined_continuum'] = det.classification_dict['continuum_hat']
+                row['combined_continuum_err'] = det.classification_dict['continuum_hat_err']
 
             except:
                 pass

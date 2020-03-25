@@ -1227,6 +1227,8 @@ class DetObj:
             self.classification_dict['plae_hat_sd'] = plae_sd
             self.classification_dict['size_in_psf'] = size_in_psf
             self.classification_dict['diam_in_arcsec'] = diam_in_arcsec
+            self.classification_dict['continuum_hat'] = continuum_hat
+            self.classification_dict['continuum_hat_err'] = continuum_sd_hat
 
             return p_lae_oii_ratio, plae_sd, size_in_psf, diam_in_arcsec
 

@@ -3145,24 +3145,24 @@ def main():
                                 build_report_part(os.path.join(e.outdir, e.pdf_name),[make_zeroth_row_header(header_text)],0)
                             except:
                                 log.debug("Exception calling build_report_part",exc_info=True)
-                    else: #try both
-
-                         # method 1 (PLAE direct)
-                        plae, plae_sd, size_in_psf = e.combine_all_plae(use_continuum=False)
-                        scale_plae1 = e.aggregate_classification()
-                        if (scale_plae1 is None) or np.isnan(scale_plae1):
-                             scale_plae1 = -99.0
-                        # method 2 (re-do PLAE with continuum)
-                        plae, plae_sd, size_in_psf = e.combine_all_plae(use_continuum=True)
-                        scale_plae2 = e.aggregate_classification()
-                        if (scale_plae2 is None) or np.isnan(scale_plae2):
-                            scale_plae2 = -99.0
-
-                        header_text = f"Classification P(LAE): Method(1) {scale_plae1 * 100.:0.2f}%  Method(2) {scale_plae2 * 100.:0.2f}%"
-                        try:
-                            build_report_part(os.path.join(e.outdir, e.pdf_name), [make_zeroth_row_header(header_text)], 0)
-                        except:
-                            log.debug("Exception calling build_report_part", exc_info=True)
+                    # else: #try both
+                    #
+                    #      # method 1 (PLAE direct)
+                    #     plae, plae_sd, size_in_psf = e.combine_all_plae(use_continuum=False)
+                    #     scale_plae1 = e.aggregate_classification()
+                    #     if (scale_plae1 is None) or np.isnan(scale_plae1):
+                    #          scale_plae1 = -99.0
+                    #     # method 2 (re-do PLAE with continuum)
+                    #     plae, plae_sd, size_in_psf = e.combine_all_plae(use_continuum=True)
+                    #     scale_plae2 = e.aggregate_classification()
+                    #     if (scale_plae2 is None) or np.isnan(scale_plae2):
+                    #         scale_plae2 = -99.0
+                    #
+                    #     header_text = f"Classification P(LAE): Method(1) {scale_plae1 * 100.:0.2f}%  Method(2) {scale_plae2 * 100.:0.2f}%"
+                    #     try:
+                    #         build_report_part(os.path.join(e.outdir, e.pdf_name), [make_zeroth_row_header(header_text)], 0)
+                    #     except:
+                    #         log.debug("Exception calling build_report_part", exc_info=True)
 
         if len(file_list) > 0:
             for f in file_list:
