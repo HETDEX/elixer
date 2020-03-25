@@ -394,8 +394,9 @@ IFUCEN_LOC = op.join(CONFIG_BASEDIR,"virus_config/IFUcen_files")
 DIST_LOC = op.join(CONFIG_BASEDIR,"virus_config/DeformerDefaults")
 PIXFLT_LOC = op.join(CONFIG_BASEDIR,"virus_config/PixelFlats")
 
-print("***** temporary hard code pixel flat location *****")
-PIXFLT_LOC = "/data/00115/gebhardt/lib_calib/lib_pflat"
+if HDR_Version != 1:
+    print("***** temporary hard code pixel flat location *****")
+    PIXFLT_LOC = "/data/00115/gebhardt/lib_calib/lib_pflat"
 
 REPORT_ELIXER_MCMC_FIT = False
 
