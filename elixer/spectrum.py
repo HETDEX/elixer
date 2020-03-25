@@ -2575,7 +2575,7 @@ class Spectrum:
             EmissionLine("CII".ljust(w),  2326.0, "purple",solution=False,display=False,rank=4),  # in AGN
 
             EmissionLine("MgII".ljust(w), 2799.117, "magenta",solution=False,display=True,rank=3),  #big in AGN
-
+            #this MgII is a doublet, 2795, 2802
 
             EmissionLine("H$\\beta$".ljust(w), 4861.363, "blue",solution=True,rank=3), #4862.68 (vacuum) 4861.363 (air)
             EmissionLine("H$\\gamma$".ljust(w), 4340.462, "royalblue",solution=False,rank=3),
