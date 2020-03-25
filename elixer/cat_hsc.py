@@ -249,6 +249,8 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
     # 97  Number of images contributing at center, not including anyclipping
     # 98  original seeing (Gaussian sigma) at position [pixel]
 
+
+
     BidCols = [
         'sourceID',
         'X', # on fits
@@ -369,6 +371,35 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         'orig_seeing' #Gaussian Sigma
         ]
 
+
+    try: #old columns
+        if G.HSC_S15A:
+            BidCols = [
+                'sourceID',
+                'X', # on fits
+                'Y', # on fits
+                'RA',
+                'Dec', #reanamed 'DEC'
+                'flux.psf',
+                'flux.psf.err',
+                'flux.psf.flags',#("False" means no problems)
+                'mag.psf',
+                'magerr.psf',
+                'flux.kron',
+                'flux.kron.err',
+                'flux.kron.flags',# ("False" means no problems)
+                'mag.kron',
+                'magerr.kron',
+                'cmodel.flux',
+                'cmodel.flux.err',
+                'cmodel.flux.flags',# ("False" means no problems)
+                'cmodel.mag',
+                'cmodel.magerr'
+                ]
+    except:
+        pass
+
+
     CatalogImages = [] #built in constructor
 
     def __init__(self):
@@ -395,11 +426,23 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         if name is None:
             name = cls.Name
 
+        s15a = False
+        try:
+            if G.HSC_S15A:
+                s15a = True
+        except:
+            pass
+
         fqtract =[] #fully qualified track (as a partial path)
 
         if (tract is not None) and (len(tract) > 0) and (position is not None) and (len(position) == len(tract)): #should be a list of positions and the same length as tract
-            for i in range(len(tract)):
-                fqtract.append(op.join(tract[i],"R_P%d_%d.cat" %(position[i][0],position[i][1])))
+            if s15a:
+                for i in range(len(tract)):
+                  #cat_name = 'R_' + t + ".dat"
+                  fqtract.append(op.join("R_%s.dat" % (tract[i])))
+            else:
+                for i in range(len(tract)):
+                    fqtract.append(op.join(tract[i],"R_P%d_%d.cat" %(position[i][0],position[i][1])))
         else:
             log.warning("Unexpected tract and positions in cat_hsc::read_catalogs: %s, %s" %(str(tract),str(position)))
             return None
@@ -451,9 +494,25 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
         for t in self.Tile_Dict.keys(): #tile is the key (the filename)
             for f in self.Filters:
+                try:
+                    if G.HSC_S15A:
+                        path = self.HSC_IMAGE_PATH
+                        wcs_manual = True
+                        toks = t.split('-')
+                        t1,t2 = toks[4][0],toks[4][1]
+                        name = toks[0] + "-" + toks[1] + "-" + toks[2] + "-" + toks[3] + "-" + t1 + "," + t2 +".fits"
+                    else:
+                        path = op.join(self.HSC_IMAGE_PATH,self.Tile_Dict[t]['tract'])
+                        name = t
+                        wcs_manual = False
+                except:
+                    path = op.join(self.HSC_IMAGE_PATH,self.Tile_Dict[t]['tract'])
+                    name = t
+                    wcs_manual = False
+
                 self.CatalogImages.append(
-                    {'path': op.join(self.HSC_IMAGE_PATH,self.Tile_Dict[t]['tract']),
-                     'name': t, #filename is the tilename
+                    {'path': path,
+                     'name': name, #filename is the tilename
                      'tile': t,
                      'pos': self.Tile_Dict[t]['pos'], #the position tuple i.e. (0,3) or (2,8) ... in the name as 03 or 28
                      'filter': f,
@@ -462,7 +521,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                      'labels': [],
                      'image': None,
                      'expanded': False,
-                     'wcs_manual': False,
+                     'wcs_manual': wcs_manual,
                      'aperture': self.mean_FWHM * 0.5 + 0.5, #since a radius, half the FWHM + 0.5" for astrometric error
                      'mag_func': hsc_count_to_mag
                      })
@@ -529,7 +588,72 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
         return tile, tracts, positions
 
+
+    def get_filter_flux_s15a(self, df):
+
+        filter_fl = None
+        filter_fl_err = None
+        filter_flag = None
+        mag = None
+        mag_bright = None
+        mag_faint = None
+        filter_str = 'R'
+
+        method  = None
+
+        try:
+            if df['flux.psf.flags'].values[0]:  # there is a problem
+                if df['flux.kron.flags'].values[0]:  # there is a problem
+                    if df['cmodel.flux.flags'].values[0]:  # there is a problem
+                        log.info("Flux/Mag unreliable due to errors.")
+                        return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
+                    else:
+                        method = 'cmodel'
+                else:
+                    method = 'kron'
+            else:
+                method = 'psf'
+        except:
+            log.error("Exception in cat_hsc.get_filter_flux", exc_info=True)
+            return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
+
+        try:
+
+            if method == 'psf' or method == 'kron':
+                filter_fl = df["flux." + method].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                filter_fl_err = df["flux." + method + ".err"].values[0]
+                mag = df["mag." + method].values[0]
+                # mag_bright = mag - df["magerr."+method].values[0]
+                mag_faint = df["magerr." + method].values[0]
+                mag_bright = -1 * mag_faint
+            else:  # cmodel
+                filter_fl = df[method + ".flux"].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                filter_fl_err = df[method + ".flux.err"].values[0]
+                mag = df[method + ".mag"].values[0]
+                # mag_bright = mag - df["magerr."+method].values[0]
+                mag_faint = df[method + ".magerr"].values[0]
+                mag_bright = -1 * mag_faint
+
+            # mag, mag_plus, mag_minus = self.micro_jansky_to_mag(filter_fl, filter_fl_err)
+        except:  # not the EGS df, try the CFHTLS
+            log.error("Exception in cat_hsc.get_filter_flux", exc_info=True)
+
+            # it is unclear what unit flux is in (but it is not nJy or uJy), so lets back convert from the magnitude
+            # this is used as a continuum estimate
+
+        filter_fl = self.obs_mag_to_nano_Jy(mag)
+        filter_fl_err = 0.0  # set to 0 so not to be trusted
+
+        return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
+
+
     def get_filter_flux(self, df):
+
+        try:
+            if G.HSC_S15A:
+                return self.get_filter_flux_s15a(df)
+        except:
+            pass
 
         filter_fl = None
         filter_fl_err = None
@@ -660,9 +784,22 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         log.info(self.Name + " searching for bid targets in range: RA [%f +/- %f], Dec [%f +/- %f] ..."
                  % (ra, error_in_deg, dec, error_in_deg))
 
+        s15a = False
         try:
-            self.dataframe_of_bid_targets = \
-                self.df[  (self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max)
+            if G.HSC_S15A:
+                s15a = True
+        except:
+            pass
+
+        try:
+
+            if s15a:
+                self.dataframe_of_bid_targets = \
+                    self.df[(self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max) &
+                        (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)].copy()
+            else:
+                self.dataframe_of_bid_targets = \
+                    self.df[  (self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max)
                         & (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)
                         & (self.df['children'] == 0)
                         & (self.df['outside'] == False)
@@ -783,8 +920,16 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 wcs_manual = self.WCS_Manual
 
             try:
+                if G.HSC_S15A:
+                    wcs_idx = 1
+                else:
+                    wcs_idx = 0
+            except:
+                wcs_idx = 0
+
+            try:
                 if i['image'] is None:
-                    i['image'] = science_image.science_image(wcs_manual=wcs_manual,wcs_idx=0,
+                    i['image'] = science_image.science_image(wcs_manual=wcs_manual,wcs_idx=wcs_idx,
                                                              image_location=op.join(i['path'], i['name']))
                 sci = i['image']
 
@@ -903,8 +1048,16 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 aperture = 0.0
                 mag_func = None
 
+            try:
+                if G.HSC_S15A:
+                    wcs_idx = 1
+                else:
+                    wcs_idx = 0
+            except:
+                wcs_idx = 0
+
             if i['image'] is None:
-                i['image'] = science_image.science_image(wcs_manual=wcs_manual,wcs_idx=0,
+                i['image'] = science_image.science_image(wcs_manual=wcs_manual,wcs_idx=wcs_idx,
                                                          image_location=op.join(i['path'], i['name']))
             sci = i['image']
 
@@ -1498,8 +1651,16 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             mag_func = None
 
         try:
+            if G.HSC_S15A:
+                wcs_idx = 1
+            else:
+                wcs_idx = 0
+        except:
+            wcs_idx = 0
+
+        try:
             if catalog_image['image'] is None:
-                catalog_image['image'] =  science_image.science_image(wcs_manual=wcs_manual,wcs_idx=0,
+                catalog_image['image'] =  science_image.science_image(wcs_manual=wcs_manual,wcs_idx=wcs_idx,
                                                         image_location=op.join(catalog_image['path'],
                                                                         catalog_image['name']))
                 catalog_image['image'].catalog_name = catalog_image['name']

@@ -1696,6 +1696,8 @@ class DetObj:
                                     cont = b.bid_flux_est_cgs
                                     if b.bid_flux_est_cgs_unc is not None:
                                         cont_var = b.bid_flux_est_cgs_unc * b.bid_flux_est_cgs_unc
+                                        if cont_var == 0:
+                                            cont_var = cont * cont
                                     else:
                                         cont_var = cont * cont
 

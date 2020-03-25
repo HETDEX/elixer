@@ -201,6 +201,7 @@ def select_hdr_version(version):
     global HSC_BASE_PATH
     global HSC_CAT_PATH
     global HSC_IMAGE_PATH
+    global HSC_S15A
     #global HSC_AUX_IMAGE_PATH
 
     global KPNO_BASE_PATH
@@ -339,16 +340,18 @@ def select_hdr_version(version):
         SHELA_PHOTO_Z_COMBINED_PATH = op.join(hdr_imaging_basepath, "imaging/shela/SHELA")
         SHELA_PHOTO_Z_MASTER_PATH = op.join(hdr_imaging_basepath, "imaging/shela/SHELA")
 
+        HSC_S15A = False
         if op.exists(op.join(hdr_imaging_basepath,"imaging/hsc")):
             if HDR_Version == 1:
-                if op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
+                if False: #op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
                     HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
                     HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
                     HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
-                else:
+                else: #us the actual HSC data available at HDR1 time
                     HSC_BASE_PATH = op.join(hdr_imaging_basepath, "imaging/hsc/S15A/reduced")
-                    HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
-                    HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
+                    HSC_CAT_PATH = HSC_BASE_PATH + "/catalog_tracts"
+                    HSC_IMAGE_PATH = HSC_BASE_PATH + "/images"
+                    HSC_S15A = True
             else:
                 HSC_BASE_PATH = op.join(hdr_imaging_basepath,"imaging/hsc")
                 HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
