@@ -128,9 +128,9 @@ class Detections(tables.IsDescription):
     pseudo_color_rvb_ratio_err = tables.Float32Col(dflt=UNSET_FLOAT)
 
     #ELiXer combined (rules, inv variance, weights and Bayes) classification info
-    combined_plae = tables.Float32Col(dflt=UNSET_FLOAT)
+    combined_plae = tables.Float32Col(dflt=UNSET_FLOAT)   #combination of all PLAE/POII
     combined_plae_err = tables.Float32Col(dflt=UNSET_FLOAT)
-    plae_classification = tables.Float32Col(dflt=UNSET_FLOAT)
+    plae_classification = tables.Float32Col(dflt=UNSET_FLOAT) #final, combine P(LAE) (0.0 - 1.0)
 
 
 class SpectraLines(tables.IsDescription):
@@ -805,6 +805,9 @@ def append_entry(fileh,det,overwrite=False):
                     if d['fail_mag_limit']:
                         row['mag'] = d['raw_mag']
                         row['mag_err'] = d['raw_mag_err']
+                    else:
+                        row['mag'] = s['mag']
+                        row['mag_err'] = s['mag_err']
                 except:
                     row['mag']=d['mag']
                     row['mag_err'] = d['mag_err']
@@ -855,6 +858,9 @@ def append_entry(fileh,det,overwrite=False):
                     if s['fail_mag_limit']:
                         row['mag'] = s['raw_mag']
                         row['mag_err'] = s['raw_mag_err']
+                    else:
+                        row['mag'] = s['mag']
+                        row['mag_err'] = s['mag_err']
                 except:
                     row['mag']=s['mag']
                     row['mag_err'] = s['mag_err']
@@ -889,6 +895,9 @@ def append_entry(fileh,det,overwrite=False):
                     if s['fail_mag_limit']:
                         row['mag'] = s['raw_mag']
                         row['mag_err'] = s['raw_mag_err']
+                    else:
+                        row['mag'] = s['mag']
+                        row['mag_err'] = s['mag_err']
                 except:
                     row['mag']=s['mag']
                     row['mag_err'] = s['mag_err']
