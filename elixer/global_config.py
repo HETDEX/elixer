@@ -340,9 +340,14 @@ def select_hdr_version(version):
         SHELA_PHOTO_Z_MASTER_PATH = op.join(hdr_imaging_basepath, "imaging/shela/SHELA")
 
         if op.exists(op.join(hdr_imaging_basepath,"imaging/hsc")):
-            HSC_BASE_PATH = op.join(hdr_imaging_basepath,"imaging/hsc")
-            HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
-            HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
+            if HDR_Version == 1:
+                HSC_BASE_PATH = op.join(hdr_imaging_basepath, "imaging/hsc/S15A/reduced")
+                HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
+                HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
+            else:
+                HSC_BASE_PATH = op.join(hdr_imaging_basepath,"imaging/hsc")
+                HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
+                HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
             #HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
         elif op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
             HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
