@@ -307,7 +307,7 @@ def version_match(fileh):
 
 
 
-def flush_all(fileh):
+def flush_all(fileh,reindex=True):
 
     if fileh is not None:
         #iterate over all tables and issue flush
@@ -326,6 +326,9 @@ def flush_all(fileh):
         atb.flush()
         ctb.flush()
 
+
+        if not reindex:
+            return #we're done
 
         #remove (old) index if exists
         #vtb does not have or need an index
@@ -1230,11 +1233,11 @@ def merge_elixer_hdf5_files(fname,flist=[]):
         except:
             pass
 
-        flush_all(fileh)
+        flush_all(fileh,reindex=False)
         #close the merge input file
         merge_fh.close()
 
-    flush_all(fileh)
+    flush_all(fileh,reindex=True)
     fileh.close()
     return fname
 
