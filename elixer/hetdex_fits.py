@@ -16,7 +16,7 @@ import tarfile as tar
 #log = G.logging.getLogger('hetdex_logger')
 #log.setLevel(G.logging.DEBUG)
 log = G.Global_Logger('hetdex_logger')
-log.setlevel(G.logging.DEBUG)
+log.setlevel(G.LOG_LEVEL)
 
 class HetdexFits:
     '''A single HETDEX fits file ... 2D spectra, expected to be science file'''

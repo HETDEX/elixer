@@ -14,7 +14,7 @@ from scipy.integrate import quad
 from scipy.optimize import curve_fit
 
 log = G.Global_Logger('cat_logger')
-log.setlevel(G.logging.DEBUG)
+log.setlevel(G.LOG_LEVEL)
 
 
 #todo: read in distance information, for now convert to mdf

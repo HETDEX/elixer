@@ -13,7 +13,7 @@ import os.path as op
 #log = G.logging.getLogger('fiber_logger')
 #log.setLevel(G.logging.DEBUG)
 log = G.Global_Logger('fiber_logger')
-log.setlevel(G.logging.DEBUG)
+log.setlevel(G.LOG_LEVEL)
 
 SIDE = ["L", "R"]
 

@@ -25,7 +25,7 @@ SU_Omega_m0 = 0.3
 SU_T_CMB = 2.73
 
 log = G.Global_Logger('spectrum_utils')
-log.setlevel(G.logging.DEBUG)
+log.setlevel(G.LOG_LEVEL)
 
 
 filter_iso_dict = {'u': 3650.0,

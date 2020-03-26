@@ -72,7 +72,7 @@ import tables
 #log.setLevel(G.logging.DEBUG)
 
 log = G.Global_Logger('hetdex_logger')
-log.setlevel(G.logging.DEBUG)
+log.setlevel(G.LOG_LEVEL)
 
 CONFIG_BASEDIR = G.CONFIG_BASEDIR
 VIRUS_CONFIG = G.VIRUS_CONFIG #op.join(CONFIG_BASEDIR,"virus_config")

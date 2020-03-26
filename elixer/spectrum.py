@@ -33,7 +33,7 @@ from astropy import units as units
 #log = G.logging.getLogger('spectrum_logger')
 #log.setLevel(G.logging.DEBUG)
 log = G.Global_Logger('spectrum_logger')
-log.setlevel(G.logging.DEBUG)
+log.setlevel(G.LOG_LEVEL)
 
 #these are for the older peak finder (based on direction change)
 MIN_FWHM = 2.0 #AA (must xlat to pixels) (really too small to be realistic, but is a floor)
@@ -1017,7 +1017,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             return None
     except:
         #this can fail if on very edge, but if so, we would not use it anyway
-        log.info("Raw Peak value failure for wavelength (%f) at index (%d). Cannot fit to gaussian. " %(central,peak_pos))
+        log.debug("Raw Peak value failure for wavelength (%f) at index (%d). Cannot fit to gaussian. " %(central,peak_pos))
         return None
 
     fit_peak = None
@@ -1171,13 +1171,13 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     except Exception as ex:
         try: #bug? in Python3 ... after 3.4 message attribute is lost?
             if ex.message.find("Optimal parameters not found") > -1:
-                log.info("Could not fit gaussian near %f" % central,exc_info=False)
+                log.debug("Could not fit gaussian near %f" % central,exc_info=False)
             else:
                 log.error("Could not fit gaussian near %f" % central, exc_info=True)
         except:
             try:
                 if ex.args[0].find("Optimal parameters not found") > -1:
-                    log.info("Could not fit gaussian near %f" % central, exc_info=False)
+                    log.debug("Could not fit gaussian near %f" % central, exc_info=False)
             except:
                 log.error("Could not fit gaussian near %f" % central, exc_info=True)
         return None
@@ -1239,7 +1239,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         if height_pix > 0:
             rh = height_fit/height_pix
         else:
-            log.info("Minimum peak height (%f) too small. Score zeroed." % (height_pix))
+            log.debug("Minimum peak height (%f) too small. Score zeroed." % (height_pix))
             dqs_raw = 0.0
             score = 0.0
             rh = 0.0
@@ -1294,7 +1294,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
             base_msg = "Fit dX0 = %g(AA), RH = %0.2f, rms = %0.2f, Sigma = %g(AA), Skew = %g , Kurtosis = %g "\
                    % (dx0, rh, error, si, sk, ku)
-            log.info(base_msg)
+            log.debug(base_msg)
         elif rh > 0.0:
             #todo: based on rh and error give a penalty?? maybe scaled by maximum pixel value? (++val = ++penalty)
 
@@ -1311,10 +1311,10 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                 score -= val
                 log.debug("Penalty for excessively overshoot peak: %f" % (val))
         else:
-            log.info("Too many bad pixels or failure to fit peak or overall bad fit. ")
+            log.debug("Too many bad pixels or failure to fit peak or overall bad fit. ")
             score = 0.0
     else:
-        log.info("Unable to fit gaussian. ")
+        log.debug("Unable to fit gaussian. ")
         score = 0.0
 
     mcmc = None
@@ -1392,8 +1392,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
 
         eli.mcmc_ew_obs = [ew, ew_err, ew_err]
-        log.info("MCMC Peak height = %f" % (max(narrow_wave_counts)))
-        log.info("MCMC calculated EW_obs for main line = %0.3g +/- %0.3g" % (ew, ew_err))
+        log.debug("MCMC Peak height = %f" % (max(narrow_wave_counts)))
+        log.debug("MCMC calculated EW_obs for main line = %0.3g +/- %0.3g" % (ew, ew_err))
 
 
     if show_plot or G.DEBUG_SHOW_GAUSS_PLOTS:# or eli.snr > 40.0:
@@ -1534,10 +1534,10 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     if accept_fit:
         eli.raw_score = score
         eli.score = signal_calc_scaled_score(score)
-        log.info(f"Fit not rejected. eli score: {eli.score} line score: {eli.line_score}")
+        log.debug(f"Fit not rejected. eli score: {eli.score} line score: {eli.line_score}")
         return eli
     else:
-        log.info("Fit rejected")
+        log.debug("Fit rejected")
         return None
 
 
@@ -1586,7 +1586,7 @@ def run_mcmc(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLUX
             return eli
     except:
         # this can fail if on very edge, but if so, we would not use it anyway
-        log.info(
+        log.debug(
             "Raw Peak value failure for wavelength (%f) at index (%d). Cannot fit to gaussian. " % (central, peak_pos))
         return eli
 
@@ -1659,8 +1659,8 @@ def run_mcmc(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLUX
         ew_err = mcmc.approx_symmetric_error(eli.mcmc_a)
 
     eli.mcmc_ew_obs = [ew, ew_err, ew_err]
-    log.info("MCMC Peak height = %f" % (max(narrow_wave_counts)))
-    log.info("MCMC calculated EW_obs for main line = %0.3g +/- %0.3g" % (ew, ew_err))
+    log.debug("MCMC Peak height = %f" % (max(narrow_wave_counts)))
+    log.debug("MCMC calculated EW_obs for main line = %0.3g +/- %0.3g" % (ew, ew_err))
 
 
 
@@ -1955,7 +1955,7 @@ def est_peak_strength(wavelengths,values,central,values_units=0,dw=DEFAULT_BACKG
             peak_str = max(values[peak_pos - 1:peak_pos + 2]) - zero
         except:
             # this can fail if on very edge, but if so, we would not use it anyway
-            log.info("Raw Peak value failure for wavelength (%f) at index (%d). Cannot calculate SBR. "
+            log.debug("Raw Peak value failure for wavelength (%f) at index (%d). Cannot calculate SBR. "
                      % (central, peak_pos))
             return 0
 
@@ -2056,7 +2056,7 @@ def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
 
     try:
         if not (len(wave) == len(spec) == len(spec_err)):
-            log.info("Bad call to sn_peakdet(). Lengths of arrays do not match")
+            log.debug("Bad call to sn_peakdet(). Lengths of arrays do not match")
             return []
 
         x = np.array(wave)
@@ -3076,7 +3076,7 @@ class Spectrum:
                     #check the main line first
                     if abs(central - eli.fit_x0) < 5.0:
                         # the new line is not as good so just skip it
-                        log.info("Emission line (%s) at (%f) close to or overlapping primary line (%f). Rejecting."
+                        log.debug("Emission line (%s) at (%f) close to or overlapping primary line (%f). Rejecting."
                                  % (self.identifier, eli.fit_x0,central))
                         add_to_sol = False
 
@@ -3087,13 +3087,13 @@ class Spectrum:
                                 #keep the emission line over the absorption line, regardless of score, if that is the case
                                 if sol.lines[i].absorber != eli.absorber:
                                     if eli.absorber:
-                                        log.info("Emission line too close to absorption line (%s). Removing %s(%01.f) "
+                                        log.debug("Emission line too close to absorption line (%s). Removing %s(%01.f) "
                                                  "from solution in favor of %s(%0.1f)"
                                             % (self.identifier, a.name, a.w_rest, sol.lines[i].name, sol.lines[i].w_rest))
 
                                         add_to_sol = False
                                     else:
-                                        log.info("Emission line too close to absorption line (%s). Removing %s(%01.f) "
+                                        log.debug("Emission line too close to absorption line (%s). Removing %s(%01.f) "
                                                  "from solution in favor of %s(%0.1f)"
                                             % (self.identifier, sol.lines[i].name, sol.lines[i].w_rest, a.name, a.w_rest))
                                         # remove this solution
@@ -3103,7 +3103,7 @@ class Spectrum:
                                         del sol.lines[i]
                                 else: #they are are of the same type, so keep the better score
                                     if sol.lines[i].line_score < eli.line_score:
-                                        log.info("Lines too close (%s). Removing %s(%01.f) from solution in favor of %s(%0.1f)"
+                                        log.debug("Lines too close (%s). Removing %s(%01.f) from solution in favor of %s(%0.1f)"
                                                  % (self.identifier,sol.lines[i].name, sol.lines[i].w_rest,a.name, a.w_rest))
                                         #remove this solution
                                         total_score -= sol.lines[i].line_score
@@ -3113,7 +3113,7 @@ class Spectrum:
                                         break
                                     else:
                                         #the new line is not as good so just skip it
-                                        log.info("Lines too close (%s). Removing %s(%01.f) from solution in favor of %s(%0.1f)"
+                                        log.debug("Lines too close (%s). Removing %s(%01.f) from solution in favor of %s(%0.1f)"
                                                  % (self.identifier,a.name, a.w_rest,sol.lines[i].name, sol.lines[i].w_rest))
                                         add_to_sol = False
                                         break
@@ -3127,10 +3127,10 @@ class Spectrum:
                             #and now validate the MCMC SNR (reminder:  MCMC SNR is line flux (e.g. Area) / (1sigma uncertainty)
                             if eli.mcmc_snr is None:
                                 add_to_sol = False
-                                log.info("Line (at %f) rejected due to missing MCMC SNR" %(a_central))
+                                log.debug("Line (at %f) rejected due to missing MCMC SNR" %(a_central))
                             elif eli.mcmc_snr < G.MIN_MCMC_SNR:
                                 add_to_sol = False
-                                log.info("Line (at %f) rejected due to poor MCMC SNR (%f)" % (a_central,eli.mcmc_snr))
+                                log.debug("Line (at %f) rejected due to poor MCMC SNR (%f)" % (a_central,eli.mcmc_snr))
                             #todo: should we recalculate the score with the MCMC data (flux, SNR, etc)??
                             #todo: or, at this point, is this a binary condition ... the line is there, or not
                             #todo: .... still with multiple solutions possible, we must meet the minimum and then the best

@@ -39,7 +39,7 @@ INTERPOLATION_AA_PER_PIX = 2.0
 #log = G.logging.getLogger('ifu_logger')
 #log.setLevel(G.logging.DEBUG)
 log = G.Global_Logger('ifu_logger')
-log.setlevel(G.logging.DEBUG)
+log.setlevel(G.LOG_LEVEL)
 
 
 def find_first_file(pattern, path):

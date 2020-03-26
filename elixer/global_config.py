@@ -406,7 +406,28 @@ REPORT_ELIXER_MCMC_FIT = False
 RELATIVE_PATH_UNIVERSE_CONFIG = "line_classifier/universe.cfg"
 RELATIVE_PATH_FLUX_LIM_FN = "line_classifier/Line_flux_limit_5_sigma_baseline.dat"
 
-LOG_LEVEL = logging.DEBUG
+LOG_LEVEL = logging.INFO #logging.DEBUG
+
+if "--log" in args: #overide default if specified on command line
+    try:
+        i = args.index("--log")
+        if i != -1:
+            log_level = str(sys.argv[i + 1]).lower()
+
+        if log_level == "debug":
+            LOG_LEVEL = logging.DEBUG
+        elif log_level == "info":
+            LOG_LEVEL = logging.INFO
+        elif log_level == "error":
+            LOG_LEVEL = logging.ERROR
+        elif log_level == "critical":
+            LOG_LEVEL = logging.CRITICAL
+        else:
+            pass # leave as is
+    except:
+        pass
+
+
 
 ##log initialization moved to elixer.py to incorporate --name into filename
 # reminder to self ... this is pointless with SLURM given the bash wraper (which does not know about the

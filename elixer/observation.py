@@ -15,7 +15,7 @@ import os.path as op
 
 
 log = G.Global_Logger('obs_logger')
-log.setlevel(G.logging.DEBUG)
+log.setlevel(G.LOG_LEVEL)
 
 
 def angular_distance(ra1,dec1,ra2,dec2):

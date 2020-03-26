@@ -9,7 +9,7 @@ import os
 #log = G.logging.getLogger('match_summary_logger')
 #log.setLevel(G.logging.DEBUG)
 log = G.Global_Logger('match_summary_logger')
-log.setlevel(G.logging.DEBUG)
+log.setlevel(G.LOG_LEVEL)
 
 
 class Filter:

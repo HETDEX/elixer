@@ -8,7 +8,7 @@ import os.path as op
 import gzip
 
 log = G.Global_Logger('sqlite_logger')
-log.setlevel(G.logging.DEBUG)
+log.setlevel(G.LOG_LEVEL)
 
 
 def create_connection(db_file):

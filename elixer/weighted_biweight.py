@@ -7,7 +7,7 @@ except:
     import global_config as G
 
 log = G.Global_Logger('logger')
-log.setlevel(G.logging.DEBUG)
+log.setlevel(G.LOG_LEVEL)
 
 import numpy as np
 #from astropy.stats.funcs import median_absolute_deviation

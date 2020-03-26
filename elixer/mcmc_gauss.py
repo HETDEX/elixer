@@ -15,7 +15,7 @@ import emcee
 import warnings
 
 log = G.Global_Logger('mcmc_logger')
-log.setlevel(G.logging.DEBUG)
+log.setlevel(G.LOG_LEVEL)
 
 
 class MCMC_Gauss:

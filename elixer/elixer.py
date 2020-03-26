@@ -76,7 +76,7 @@ G_PDF_FILE_NUM = 0
 #log = G.logging.getLogger('main_logger')
 #log.setLevel(G.logging.DEBUG)
 log = G.Global_Logger('main_logger')
-log.setlevel(G.logging.DEBUG)
+log.setlevel(G.LOG_LEVEL)
 
 def get_input(prompt):
     if LooseVersion(VERSION) >= LooseVersion('3.0'):
@@ -345,6 +345,8 @@ def parse_commandline(auto_force=False):
 
     parser.add_argument('--hdr', help="Override the default HETDEX Data Release version. Specify an integer > 0",
                         required=False, default= 0,type=int)
+
+    parser.add_argument('--log', help="Logging level. Default (info). Choose: debug, info, error, critical", required=False)
 
 
     if G.LAUNCH_PDF_VIEWER is not None:

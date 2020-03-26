@@ -9,7 +9,7 @@ except:
     import spectrum as elixer_spectrum
 
 log = G.Global_Logger('classify_logger')
-log.setlevel(G.logging.DEBUG)
+log.setlevel(G.LOG_LEVEL)
 
 G.logging.basicConfig(filename="elixer_classify.log", level=G.LOG_LEVEL, filemode='w')
 

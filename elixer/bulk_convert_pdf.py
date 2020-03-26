@@ -18,7 +18,7 @@ RESOLUTION=150 #DPI
 
 
 # log = G.Global_Logger('converter')
-# log.setlevel(G.logging.DEBUG)
+# log.setlevel(G.LOG_LEVEL)
 
 def convert_pdf(filename, resolution=150, jpeg=True, png=False):
 

@@ -16,7 +16,7 @@ except:
     import global_config as G
 
 log = G.Global_Logger('utilities')
-log.setlevel(G.logging.DEBUG)
+log.setlevel(G.LOG_LEVEL)
 
 def angular_distance(ra1,dec1,ra2,dec2):
     #distances are expected to be relatively small, so will use the median between the decs for curvature

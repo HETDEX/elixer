@@ -50,7 +50,7 @@ PIXEL_APERTURE_METHOD='exact' #'exact' 'center' 'subpixel'
 #log = G.logging.getLogger('sciimg_logger')
 #log.setLevel(G.logging.DEBUG)
 log = G.Global_Logger('sciimg_logger')
-log.setlevel(G.logging.DEBUG)
+log.setlevel(G.LOG_LEVEL)
 
 
 def is_cutout_empty(cutout):

@@ -26,7 +26,7 @@ UNSET_FLOAT = -999.999
 UNSET_INT = -99999
 
 log = G.Global_Logger('hdf5_logger')
-log.setlevel(G.logging.DEBUG)
+log.setlevel(G.LOG_LEVEL)
 
 
 #make a class for each table

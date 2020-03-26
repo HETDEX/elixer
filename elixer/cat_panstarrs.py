@@ -43,7 +43,7 @@ from astropy.io import fits
 #log = G.logging.getLogger('Cat_logger')
 #log.setLevel(G.logging.DEBUG)
 log = G.Global_Logger('cat_logger')
-log.setlevel(G.logging.DEBUG)
+log.setlevel(G.LOG_LEVEL)
 
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
