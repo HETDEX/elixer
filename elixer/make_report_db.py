@@ -1,7 +1,7 @@
-import sys
-sys.path.append("/home/dustin/code/python/hetdex_api/hetdex_api")
-sys.path.append("/work/03261/polonius/wrangler/code/hetdex_api/hetdex_api")
-import sqlite_utils as sql
+#import sys
+#sys.path.append("/home/dustin/code/python/hetdex_api/hetdex_api")
+#sys.path.append("/work/03261/polonius/wrangler/code/hetdex_api/hetdex_api")
+from hetdex_api import sqlite_utils as sql
 import argparse
 import shutil
 import os
