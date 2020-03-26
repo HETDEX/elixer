@@ -63,14 +63,14 @@ if remove_no_imaging:
                 except:
                     pass
 else:
-    print(f"{len(missing)} reports without imaging: ")
+    print(f"{len(missing)} reports without imaging ... ")
     for d in missing:
         files = glob.glob("dispatch_*/*/" + str(d) + ".pdf")
         if len(files) == 1:
             print(d,files[0])
         else:
             print(d)
-    print(f"{len(missing)} reports without imaging")
+    print(f"{len(missing)} reports without imaging removed")
 
 
 
