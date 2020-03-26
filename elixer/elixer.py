@@ -1938,58 +1938,58 @@ def merge(args=None):
     #must be in directory with all the dispatch_xxx folders
     #for each folder, read in and join the  dispatch_xxx
 
-    #cat file first
-    try:
-        first = True
-        merge_fn = None
-        merge = None
-        for fn in sorted(glob.glob("dispatch_*/*/*_cat.txt")):
-            if first:
-                first = False
-                merge_fn = os.path.basename(fn)
-                merge = open(merge_fn, 'w')
+    if False: #stop merging fib and cat.txt files
+        #cat file first
+        try:
+            first = True
+            merge_fn = None
+            merge = None
+            for fn in sorted(glob.glob("dispatch_*/*/*_cat.txt")):
+                if first:
+                    first = False
+                    merge_fn = os.path.basename(fn)
+                    merge = open(merge_fn, 'w')
 
-                with open(fn,'r') as f:
-                    merge.writelines(l for l in f)
+                    with open(fn,'r') as f:
+                        merge.writelines(l for l in f)
+                else:
+                    with open(fn,'r') as f:
+                        merge.writelines(l for l in f if l[0] != '#')
+
+            if merge is not None:
+                merge.close()
+                print("Done: " + merge_fn)
             else:
-                with open(fn,'r') as f:
-                    merge.writelines(l for l in f if l[0] != '#')
+                print("No catalog files found. Are you in the directory with the dispatch_* subdirs?")
 
-        if merge is not None:
-            merge.close()
-            print("Done: " + merge_fn)
-        else:
-            print("No catalog files found. Are you in the directory with the dispatch_* subdirs?")
+        except:
+            pass
 
-    except:
-        pass
+        #fib file
+        try:
+            first = True
+            merge_fn = None
+            merge = None
+            for fn in sorted(glob.glob("dispatch_*/*/*_fib.txt")):
+                if first:
+                    first = False
+                    merge_fn = os.path.basename(fn)
+                    merge = open(merge_fn, 'w')
 
-    #fib file
-    try:
-        first = True
-        merge_fn = None
-        merge = None
-        for fn in sorted(glob.glob("dispatch_*/*/*_fib.txt")):
-            if first:
-                first = False
-                merge_fn = os.path.basename(fn)
-                merge = open(merge_fn, 'w')
+                    with open(fn,'r') as f:
+                        merge.writelines(l for l in f)
+                else:
+                    with open(fn,'r') as f:
+                        merge.writelines(l for l in f if l[0] != '#')
 
-                with open(fn,'r') as f:
-                    merge.writelines(l for l in f)
+            if merge is not None:
+                merge.close()
+                print("Done: " + merge_fn)
             else:
-                with open(fn,'r') as f:
-                    merge.writelines(l for l in f if l[0] != '#')
+                print("No fiber files found. Are you in the directory with the dispatch_* subdirs?")
 
-        if merge is not None:
-            merge.close()
-            print("Done: " + merge_fn)
-        else:
-            print("No fiber files found. Are you in the directory with the dispatch_* subdirs?")
-
-
-    except:
-        pass
+        except:
+            pass
 
 
 def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
@@ -3192,10 +3192,11 @@ def main():
             except:
                 log.error("Exception building HDF5 catalog",exc_info=True)
 
-        if match_list.size > 0:
-            match_list.write_file(os.path.join(args.name,args.name+"_cat.txt"))
+        if False: #turn off fib and cat.txt files
+            if match_list.size > 0:
+                match_list.write_file(os.path.join(args.name,args.name+"_cat.txt"))
 
-        write_fibers_file(os.path.join(args.name, args.name + "_fib.txt"),hd_list)
+            write_fibers_file(os.path.join(args.name, args.name + "_fib.txt"),hd_list)
 
 
         #todo: iterate over detections and make a clean sample for LyC
