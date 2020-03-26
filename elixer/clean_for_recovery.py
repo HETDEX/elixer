@@ -85,9 +85,11 @@ for d in alldets:
         if f[-3:] == 'pdf':
             pdf_file = f
 
-    if check_mini and (str(d)+"mini.png" not in justfn):
+    #_mini ... has the leading '_'
+    if check_mini and (str(d)+"_mini.png" not in justfn):
         mini_okay = False
 
+    #nei does NOT have leading '_
     if check_nei and (str(d)+"nei.png" not in justfn):
         nei_okay = False
 

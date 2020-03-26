@@ -12,6 +12,6 @@ mx_prefix = int(max(alldets)/1e5)
 mn_prefix = int(min(alldets)/1e5)
 
 for i in range(mn_prefix,mx_prefix+1):
-    sel = np.where(alldets < (i+1)*1e5)
+    sel = np.where((alldets < (i+1)*1e5) & (alldets > i*1e5))
     np.savetxt(f"dets{i}",alldets[sel],fmt="%d")
     print(f"dets{i} : entries = {len(sel[0])}")
