@@ -13,6 +13,19 @@ else just make a system call to make the png
 import tables
 import glob
 import os
+import numpy as np
+import sys
+
+alldets = None
+args = list(map(str.lower,sys.argv))
+if "--dets" in args: #overide default if specified on command line
+    try:
+        i = args.index("--dets")
+        if i != -1:
+            dets_file = str(sys.argv[i + 1])
+            alldets = np.loadtxt(dets_file,dtype=int)
+    except:
+        pass
 
 
 check_nei = False
@@ -31,12 +44,14 @@ i = input("Check for mini.png (y/n)?")
 if len(i) > 0 and i.upper() == "Y":
     check_mini = True
 
-h5 = tables.open_file("elixer_merged_cat.h5","r")
+if remove_no_imaging:
+    h5 = tables.open_file("elixer_merged_cat.h5","r")
 
-dtb = h5.root.Detections
-apt = h5.root.Aperture
+    dtb = h5.root.Detections
+    apt = h5.root.Aperture
 
-alldets = dtb.read(field="detectid")
+    alldets = dtb.read(field="detectid")
+
 missing = []
 
 ct_no_imaging = 0
@@ -44,15 +59,15 @@ ct_no_png = 0
 ct_no_nei = 0
 ct_no_mini = 0
 
-for d in alldets:
-    rows = apt.read_where("detectid==d",field="detectid")
-    if rows.size==0:
-        missing.append(d)
-
-ct_no_imaging = len(missing)
-h5.close()
-
 if remove_no_imaging:
+    for d in alldets:
+        rows = apt.read_where("detectid==d",field="detectid")
+        if rows.size==0:
+            missing.append(d)
+
+    ct_no_imaging = len(missing)
+    h5.close()
+
     for d in missing:
         files = glob.glob("dispatch_*/*/"+str(d)+"*")
         if len(files) > 0:
@@ -62,16 +77,15 @@ if remove_no_imaging:
                     os.remove(f)
                 except:
                     pass
-else:
-    print(f"{len(missing)} reports without imaging ... ")
-    for d in missing:
-        files = glob.glob("dispatch_*/*/" + str(d) + ".pdf")
-        if len(files) == 1:
-            print(d,files[0])
-        else:
-            print(d)
-    print(f"{len(missing)} reports without imaging removed")
-
+# else:
+#     print(f"{len(missing)} reports without imaging ... ")
+#     for d in missing:
+#         files = glob.glob("dispatch_*/*/" + str(d) + ".pdf")
+#         if len(files) == 1:
+#             print(d,files[0])
+#         else:
+#             print(d)
+#     print(f"{len(missing)} reports without imaging removed")
 
 
 
@@ -198,44 +212,3 @@ print(f"Missing imaging: {ct_no_imaging}")
 print(f"Missing report png: {ct_no_png}")
 print(f"Missing nei png: {ct_no_nei}")
 print(f"Missing mini png: {ct_no_mini}")
-
-    # #files = glob.glob("dispatch_*/*/"+str(d)+"*"
-    # justfn = []
-    # for f in files:
-    #     justfn.append(os.path.basename(f))
-    #     if f[-3:] == 'pdf':
-    #         pdf_file = f
-    #
-    # #_mini ... has the leading '_'
-    # if str(d)+"_mini.png" not in justfn:
-    #     ct_no_mini += 1
-    #     if check_mini:
-    #         mini_okay = False
-    #
-    # #nei does NOT have leading '_
-    # if str(d)+"nei.png" not in justfn:
-    #     ct_no_nei += 1
-    #     if check_nei:
-    #         nei_okay = False
-    #
-    # if str(d)+".png" not in justfn:
-    #     ct_no_png += 1
-    #     png_okay = False
-    #
-    # if not (mini_okay and nei_okay):
-    #     #remove the report for recovery
-    #     if len(files) > 0:
-    #         print("Removing " + str(d) + " ...")
-    #         for f in files:
-    #             try:
-    #                 os.remove(f)
-    #             except:
-    #                 pass
-    # elif not png_okay:
-    #     #try to build png from os call
-    #     print("OS call to pdftoppm for " + str(d) + "...")
-    #     try:
-    #         os.system("pdftoppm %s %s -png -singlefile" % (pdf_file, pdf_file.rstrip(".pdf")))
-    #     except Exception as e:
-    #         print(e)
-
