@@ -176,7 +176,7 @@ for d in alldets:
         except:
            pass
 
-    elif not png_okay:
+    elif not png_okay and (pdf_idx > -1):
         #try to build png from os call
         print("OS call to pdftoppm for " + str(d) + "...")
         try:
