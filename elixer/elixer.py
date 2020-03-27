@@ -1927,7 +1927,8 @@ def merge_hdf5(args=None):
                 print("Failed to write HDF5 catalog.")
         else:
             print("No HDF5 catalog files found. Are you in the directory with the dispatch_* subdirs?")
-    except:
+    except Exception as e:
+        print(e)
         log.error("Exception! merging HDF5 files.",exc_info=True)
 
 def merge(args=None):

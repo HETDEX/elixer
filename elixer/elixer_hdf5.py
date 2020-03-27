@@ -1233,7 +1233,7 @@ def merge_elixer_hdf5_files(fname,flist=[]):
         except:
             pass
 
-        flush_all(fileh,reindex=False)
+        flush_all(fileh,reindex=True) #for now, just to be safe, reindex anyway
         #close the merge input file
         merge_fh.close()
 
