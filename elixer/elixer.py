@@ -2491,6 +2491,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
             nei_buf = io.BytesIO()
             plt.savefig(nei_buf, format='png', dpi=300, transparent=True)
+            #plt.savefig(nei_buf, format='jpg', dpi=150, quality=90,optimize=True,transparent=True)
         except:
             log.info("Exception! Unable to make mini-cutout from Neighborhood master.",exc_info=True)
             nei_buf = None
@@ -2685,7 +2686,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
     if fname is not None:
         try:
-            plt.savefig(fname,format='png', dpi=150)
+            plt.savefig(fname,format='png', dpi=75)
             log.debug("File written: %s" %(fname))
 
 
