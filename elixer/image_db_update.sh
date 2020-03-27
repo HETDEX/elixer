@@ -1,3 +1,4 @@
+set -o noglob
 imgdir="all_pngs"
 db_dir="./"
 rpt="elixer_reports_"

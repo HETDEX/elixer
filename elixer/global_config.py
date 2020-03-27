@@ -406,7 +406,10 @@ REPORT_ELIXER_MCMC_FIT = False
 RELATIVE_PATH_UNIVERSE_CONFIG = "line_classifier/universe.cfg"
 RELATIVE_PATH_FLUX_LIM_FN = "line_classifier/Line_flux_limit_5_sigma_baseline.dat"
 
-LOG_LEVEL = logging.INFO #logging.DEBUG
+if hostname == "z50":  # primary author test box
+    LOG_LEVEL = logging.DEBUG
+else:
+    LOG_LEVEL = logging.INFO
 
 if "--log" in args: #overide default if specified on command line
     try:

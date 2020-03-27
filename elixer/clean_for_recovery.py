@@ -58,6 +58,7 @@ ct_no_imaging = 0
 ct_no_png = 0
 ct_no_nei = 0
 ct_no_mini = 0
+ct_no_pdf = 0
 
 if remove_no_imaging:
     for d in alldets:
@@ -124,6 +125,15 @@ for d in alldets:
     pdf_path = None
 
     try:
+        pdf_idx = names_pdf.index(str(d) + ".pdf")
+        pdf_path = all_pdf[pdf_idx]
+    except:
+        pdf_idx = -1
+        ct_no_pdf += 1
+        #the pdf is missing, so no need to go further for this one
+        continue
+
+    try:
         mini_idx = names_mini.index(str(d)+"_mini.png")
         mini_path = all_mini[mini_idx]
     except:
@@ -148,13 +158,6 @@ for d in alldets:
         rpt_idx = -1
         ct_no_png += 1
         png_okay = False
-
-    try:
-        pdf_idx = names_pdf.index(str(d) + ".pdf")
-        pdf_path = all_pdf[pdf_idx]
-    except:
-        pdf_idx = -1
-
 
 
     if not (mini_okay and nei_okay):
@@ -184,6 +187,14 @@ for d in alldets:
             os.system("pdftoppm %s %s -png -singlefile" % (pdf_file, pdf_file.rstrip(".pdf")))
         except Exception as e:
             print(e)
+    elif (pdf_idx == -1) and png_okay:
+        #the pdf was not found, but there is a png? weird, should not happen:
+        #there is a png BUT it is of the wrong PDF?
+        print(f"PDF/PNG mismatch: {d}")
+        try:
+            os.remove(rpt_path)
+        except:
+            pass
 
         #todo: should we add these to a list to check again at the end (after a pause to complete?)
 
@@ -208,6 +219,7 @@ for d in alldets:
         print(e)
 
 
+print(f"Missing PDF: {ct_no_pdf}")
 print(f"Missing imaging: {ct_no_imaging}")
 print(f"Missing report png: {ct_no_png}")
 print(f"Missing nei png: {ct_no_nei}")

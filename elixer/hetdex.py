@@ -454,7 +454,7 @@ class Dither():
 class DetObj:
     '''mostly a container for an emission line or continuum detection from detect_line.dat or detect_cont.dat file'''
 
-    def __init__(self,tokens,emission=True,line_number=None,fcs_base=None,fcsdir=None):
+    def __init__(self,tokens,emission=True,line_number=None,fcs_base=None,fcsdir=None,basic_only=False):
         #fcs_base is a basename of a single fcs directory, fcsdir is the entire FQdirname
         #fcsdir is more specific
         #skip NR (0)
@@ -2728,7 +2728,7 @@ class DetObj:
         return
 
 
-    def load_hdf5_fluxcalibrated_spectra(self,hdf5_fn,id):
+    def load_hdf5_fluxcalibrated_spectra(self,hdf5_fn,id,basic_only=False):
         """
 
         :return:
@@ -2807,6 +2807,9 @@ class DetObj:
             self.wra = row['ra']
             self.wdec = row['dec']
             self.survey_shotid = row['shotid']
+
+            if basic_only: #we're done, this is all we need
+                return
 
             #todo: need the Sky X,Y ?
             #self.x = #Sky X (IFU-X)
@@ -3517,7 +3520,7 @@ class FitsSorter:
 
 class HETDEX:
 
-    def __init__(self,args,fcsdir_list=None,hdf5_detectid_list=[]):
+    def __init__(self,args,fcsdir_list=None,hdf5_detectid_list=[],basic_only=False):
         #fcsdir may be a single dir or a list
         if args is None:
             log.error("Cannot construct HETDEX object. No arguments provided.")
@@ -3675,7 +3678,7 @@ class HETDEX:
             self.read_fcsdirs()
             build_fits_list = False
         elif (self.hdf5_detectid_list is not None):
-            self.read_hdf5_detect()
+            self.read_hdf5_detect(basic_only=basic_only)
             build_fits_list = False
 
 
@@ -4366,7 +4369,7 @@ class HETDEX:
             return False
 
 
-    def read_hdf5_detect(self):
+    def read_hdf5_detect(self,basic_only=False):
         """
         Consume the HDF5 version of detections for the list of detections passed in
         (though there should only be one detectID at this point)
@@ -4379,7 +4382,7 @@ class HETDEX:
 
         for d in self.hdf5_detectid_list:
             #build an empty Detect Object and then populate
-            e = DetObj(None, emission=True)
+            e = DetObj(None, emission=True,basic_only=basic_only)
             if e is not None:
                 e.entry_id = d #aka detect_id from HDF5
                 e.annulus = self.annulus
@@ -4396,7 +4399,7 @@ class HETDEX:
 
                 #todo: load the HDF5 data here ...
                 #e.load_fluxcalibrated_spectra()
-                e.load_hdf5_fluxcalibrated_spectra(self.hdf5_detect_fqfn,d)
+                e.load_hdf5_fluxcalibrated_spectra(self.hdf5_detect_fqfn,d,basic_only=basic_only)
                 #need the shotid from the detection
                 _shotid = e.survey_shotid
                 e.load_hdf5_shot_info(self.hdf5_survey_fqfn, _shotid)

@@ -1,4 +1,5 @@
-cp2dir="/data/03261/polonius/image_db_staging/"
+set -o noglob
+cp2dir="/data/03261/polonius/hdr2.run/detect/staging/"
 db_dir="./"
 imgdir="all_pngs"
 rpt="elixer_reports_"

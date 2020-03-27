@@ -343,6 +343,10 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--neighborhood', help="Generate report on all HETDEX neighbors within the supplied distance in arcsec",
                         required=False, default=-1.0,type=float)
 
+    parser.add_argument('--neighborhood_only', help="Only generate neighborhood map. Do NOT generate ELiXer report."
+                                                    "Value is distance in arcsec for the neighborhood map",
+                        required=False, default=-1.0,type=float)
+
     parser.add_argument('--hdr', help="Override the default HETDEX Data Release version. Specify an integer > 0",
                         required=False, default= 0,type=int)
 
@@ -402,6 +406,9 @@ def parse_commandline(auto_force=False):
                 print("Unable to run clean_for_recovery script")
         print("prep_recover complete; exiting ...")
         exit()
+
+    if not (args.neighborhood_only > 0):
+        args.neighborhood_only = False
 
     if args.allow_empty_image is not None:
         G.ALLOW_EMPTY_IMAGE = args.allow_empty_image
@@ -2713,6 +2720,7 @@ def main():
 
     global G_PDF_FILE_NUM
 
+    log.critical(f"log level {G.LOG_LEVEL}")
     #G.gc.enable()
     #G.gc.set_debug(G.gc.DEBUG_LEAK)
     args = parse_commandline()
@@ -2728,6 +2736,11 @@ def main():
     if args.merge:
         merge(args)
         exit(0)
+
+    #later, below most of the processing will be skipped and only the neighborhood map is generated
+    if args.neighborhood_only:
+        args.neighborhood = args.neighborhood_only
+
 
 
     if G.USE_PHOTO_CATS:
@@ -2843,6 +2856,12 @@ def main():
         if build_hd(args):
             #hd_list by IFU (one hd object per IFU, pre-April 2018)
             #each hd object can have multiple DetObjs (assigned s|t the first fiber's IFU matches the hd IFU)
+
+            if args.neighborhood_only:
+                basic_only=True
+            else:
+                basic_only=False
+
             if (len(ifu_list) > 0) and ((args.ifuslot is None) and (args.ifuid is None) and (args.specid is None)):
 
                 #sort so easier to find
@@ -2850,7 +2869,7 @@ def main():
 
                 for ifu in ifu_list:
                     args.ifuslot = int(ifu)
-                    hd = hetdex.HETDEX(args)
+                    hd = hetdex.HETDEX(args,basic_only=basic_only)
                     if (hd is not None) and (hd.status != -1):
                         hd_list.append(hd)
             elif len(fcsdir_list) > 0: #rsp style
@@ -2868,7 +2887,7 @@ def main():
 
                 for key in obs_dict.keys():
                     plt.close('all')
-                    hd = hetdex.HETDEX(args,fcsdir_list=obs_dict[key]) #builds out the hd object (with fibers, DetObj, etc)
+                    hd = hetdex.HETDEX(args,fcsdir_list=obs_dict[key],basic_only=basic_only) #builds out the hd object (with fibers, DetObj, etc)
                     #todo: maybe join all hd objects that have the same observation
                     # could save in loading catalogs (assuming all from the same observation)?
                     # each with then multiple detections (DetObjs)
@@ -2878,391 +2897,393 @@ def main():
                 #only one detection per hetdex object
                 for d in hdf5_detectid_list:
                     plt.close('all')
-                    hd = hetdex.HETDEX(args,fcsdir_list=None,hdf5_detectid_list=[d])
+                    hd = hetdex.HETDEX(args,fcsdir_list=None,hdf5_detectid_list=[d],basic_only=basic_only)
 
                     if hd.status == 0:
                         hd_list.append(hd)
 
             else:
-                hd = hetdex.HETDEX(args) #builds out the hd object (with fibers, DetObj, etc)
+                hd = hetdex.HETDEX(args,basic_only=basic_only) #builds out the hd object (with fibers, DetObj, etc)
                 if hd is not None:
                     if hd.status == 0:
                         hd_list.append(hd)
 
-        if args.score:
-            #todo: future possibility that additional analysis needs to be done (beyond basic fiber info). Move as needed
-            if len(hd_list) > 0:
-                if not os.path.isdir(args.name):
-                    try:
-                        os.makedirs(args.name)
-                    except OSError as exception:
-                        if exception.errno != errno.EEXIST:
-                            print("Fatal. Cannot create pdf output directory: %s" % args.name)
-                            log.critical("Fatal. Cannot create pdf output directory: %s" % args.name, exc_info=True)
-                            exit(-1)
-                #esp. for older panacea and for cure, need data built in the data_dict to compute score
-                for hd in hd_list:
-                    for emis in hd.emis_list:
-                        emis.outdir = args.name
-                        hd.build_data_dict(emis)
+        if not args.neighborhood_only:
 
-                write_fibers_file(os.path.join(args.name, args.name + "_fib.txt"), hd_list)
-            log.critical("Main complete.")
-            exit(0)
-
-        if len(hd_list) > 0:
-            total_emis = 0
-            for hd in hd_list:
-                if hd.status != 0:
-                    if len(hd_list) > 1:
-                        continue
-                    else:
-                        # fatal
-                        print("Fatal error. Cannot build HETDEX working object.")
-                        log.critical("Fatal error. Cannot build HETDEX working object.")
-                        log.critical("Main exit. Fatal error.")
-                        exit (-1)
-
-                #iterate over all emission line detections
-                if len(hd.emis_list) > 0:
-                    total_emis += len(hd.emis_list)
-                    print()
-                    #first see if there are any possible matches anywhere
-                    #matched_cats = []  ... here matched_cats needs to be per each emission line (DetObj)
-                    num_hits = 0
-
-                    for e in hd.emis_list:
-                        plt.close('all')
-                        log.info("Processing catalogs for eid(%s) ... " %str(e.entry_id))
-
-                        if G.DECALS_WEB_FORCE: #prioritize DECaLS over PANSTARRS
-                            e.matched_cats.append(cat_decals_web)
-                        elif G.PANSTARRS_FORCE: #prioritize PANSTARRS over SDSS
-                            e.matched_cats.append(cat_panstarrs)
-                        elif G.SDSS_FORCE:
-                            e.matched_cats.append(cat_sdss)
-                        else:
-                            for c in cats:
-                                if (e.wra is not None) and (e.wdec is not None):  # weighted RA and Dec
-                                    ra = e.wra
-                                    dec = e.wdec
-                                else:
-                                    ra = e.ra
-                                    dec = e.dec
-                                if c.position_in_cat(ra=ra, dec=dec, error=args.error): #
-                                    in_cat = True
-                                    hits, _, _ = c.build_list_of_bid_targets(ra=ra, dec=dec, error=args.error)
-                                    if hits < 0:
-                                        # detailed examination found that the position cannot be found in the catalogs
-                                        # this is for a tiled catalog (like SHELA or HSC) where the range is there, but
-                                        # there is no tile that covers that specific position
-
-                                        hits = 0
-                                        in_cat = False
-
-                                    num_hits += hits
-                                    e.num_hits = hits #yes, for printing ... just the hits in this ONE catalog
-
-                                    if in_cat and (c not in e.matched_cats):
-                                        e.matched_cats.append(c)
-
-                                    print("%d hits in %s for Detect ID #%d" % (hits, c.name, e.id))
-                                    log.info("%d hits in %s for Detect ID #%d" % (hits, c.name, e.id))
-                                else: #todo: don't bother printing the negative case
-                                    print("Coordinates not in range of %s for Detect ID #%d" % (c.name,e.id))
-                                    log.info("Coordinates not in range of %s for Detect ID #%d" % (c.name, e.id))
-
-                            if len(e.matched_cats) == 0:
-
-                                log.info("No catalog overlap. DECALS_WEB_ALLOW (%s), PANSTARRS_ALLOW (%s), SDSS_ALLOW (%s)"
-                                         % (str(G.DECALS_WEB_ALLOW), str(G.PANSTARRS_ALLOW), str(G.SDSS_ALLOW) ))
-
-                                if G.DECALS_WEB_ALLOW:  # prioritize DECaLS over PANSTARRS
-                                    e.matched_cats.append(cat_decals_web)
-                                elif G.PANSTARRS_ALLOW:  # prioritize PANSTARRS over SDSS
-                                    e.matched_cats.append(cat_panstarrs)
-                                elif G.SDSS_ALLOW:
-                                    e.matched_cats.append(cat_sdss)
-                                else:
-                                    e.matched_cats.append(catch_all_cat)
-
-                    if (args.annulus is None) and (not confirm(num_hits,args.force)):
-                        log.critical("Main exit. User cancel.")
-                        exit(0)
-
-                    #now build the report for each emission detection
-                    for e in hd.emis_list:
-                        pdf = PDF_File(args.name, e.entry_id, e.pdf_name)
-                        e.outdir = pdf.basename
-                        #update pdf_name to match
+            if args.score:
+                #todo: future possibility that additional analysis needs to be done (beyond basic fiber info). Move as needed
+                if len(hd_list) > 0:
+                    if not os.path.isdir(args.name):
                         try:
-                            e.pdf_name = os.path.basename(pdf.filename)
-                        except:
-                            pass #not important if this fails
+                            os.makedirs(args.name)
+                        except OSError as exception:
+                            if exception.errno != errno.EEXIST:
+                                print("Fatal. Cannot create pdf output directory: %s" % args.name)
+                                log.critical("Fatal. Cannot create pdf output directory: %s" % args.name, exc_info=True)
+                                exit(-1)
+                    #esp. for older panacea and for cure, need data built in the data_dict to compute score
+                    for hd in hd_list:
+                        for emis in hd.emis_list:
+                            emis.outdir = args.name
+                            hd.build_data_dict(emis)
 
-                        id = "Detect ID #" + str(e.id)
-                        if (e.wra is not None) and (e.wdec is not None): #weighted RA and Dec
-                            ra = e.wra
-                            dec = e.wdec
+                    write_fibers_file(os.path.join(args.name, args.name + "_fib.txt"), hd_list)
+                log.critical("Main complete.")
+                exit(0)
+
+            if len(hd_list) > 0:
+                total_emis = 0
+                for hd in hd_list:
+                    if hd.status != 0:
+                        if len(hd_list) > 1:
+                            continue
                         else:
-                            ra = e.ra
-                            dec = e.dec
+                            # fatal
+                            print("Fatal error. Cannot build HETDEX working object.")
+                            log.critical("Fatal error. Cannot build HETDEX working object.")
+                            log.critical("Main exit. Fatal error.")
+                            exit (-1)
 
+                    #iterate over all emission line detections
+                    if len(hd.emis_list) > 0:
+                        total_emis += len(hd.emis_list)
+                        print()
+                        #first see if there are any possible matches anywhere
+                        #matched_cats = []  ... here matched_cats needs to be per each emission line (DetObj)
+                        num_hits = 0
 
-                        #todo: ANNULUS STUFF HERE
-                        #todo: still use hetdex objects, but want a different hetdex section
-                        #todo: and we won't be catalog matching (though will grab images from them)
+                        for e in hd.emis_list:
+                            plt.close('all')
+                            log.info("Processing catalogs for eid(%s) ... " %str(e.entry_id))
 
-                        if args.annulus is None:
-                            pdf.pages = build_hetdex_section(pdf.filename,hd,e.id,pdf.pages) #this is the fiber, spectra cutouts for this detect
-
-                            match = match_summary.Match(e)
-
-                            pdf.pages,pdf.bid_count = build_pages(pdf.filename, match, ra, dec, args.error, e.matched_cats, pdf.pages,
-                                                          num_hits=e.num_hits, idstring=id,base_count=0,target_w=e.w,
-                                                          fiber_locs=e.fiber_locs,target_flux=e.estflux,detobj=e)
-
-                            #add in lines and classification info
-                            match_list.add(match) #always add even if bids are none
-                            file_list.append(pdf)
-                        else: #todo: this is an annulus examination (fiber stacking)
-                            log.info("***** ANNULUS ***** ")
-                            pdf.pages = build_hetdex_section(pdf.filename, hd, e.id, pdf.pages, annulus=True)
-                            pdf.pages, pdf.bid_count = build_pages(pdf.filename, None, ra, dec, args.error, e.matched_cats,
-                                                                   pdf.pages, num_hits=0, idstring=id, base_count=0,
-                                                                   target_w=e.w, fiber_locs=e.fiber_locs,
-                                                                   target_flux=e.estflux, annulus=args.annulus,obs=e.syn_obs)
-                            file_list.append(pdf)
-
-            # else: #for multi calls (which are common now) this is of no use
-               #     print("\nNo emission detections meet minimum criteria for specified IFU. Exiting.\n"
-               #     log.warning("No emission detections meet minimum criteria for specified IFU. Exiting.")
-
-            if total_emis < 1:
-                log.info("No detections match input parameters.")
-                print("No detections match input parameters.")
-
-        elif (args.ra is not None) and (args.dec is not None):
-            num_hits = 0
-            num_cats = 0
-            catlist_str = ""
-            matched_cats = [] #there were no detection objects (just an RA, Dec) so use a generic, global matched_cats
-
-            if G.DECALS_WEB_FORCE:
-                matched_cats.append(cat_decals_web)
-                catlist_str += cat_decals_web.name + ", "
-            elif G.PANSTARRS_FORCE:
-                matched_cats.append(cat_panstarrs)
-                catlist_str += cat_panstarrs.name + ", "  # still need this for autoremoval of trailing ", " later
-            elif G.SDSS_FORCE:
-                matched_cats.append(cat_sdss)
-                catlist_str += cat_sdss.name + ", " #still need this for autoremoval of trailing ", " later
-            else:
-                for c in cats:
-                    if c.position_in_cat(ra=args.ra,dec=args.dec,error=args.error):
-                        if args.error > 0:
-                            hits,_,_ = c.build_list_of_bid_targets(ra=args.ra,dec=args.dec,error=args.error)
-
-                            if hits < 0:
-                                #there was a problem ... usually we are in the footprint
-                                #but in a gap or missing area
-                                hits = 0
+                            if G.DECALS_WEB_FORCE: #prioritize DECaLS over PANSTARRS
+                                e.matched_cats.append(cat_decals_web)
+                            elif G.PANSTARRS_FORCE: #prioritize PANSTARRS over SDSS
+                                e.matched_cats.append(cat_panstarrs)
+                            elif G.SDSS_FORCE:
+                                e.matched_cats.append(cat_sdss)
                             else:
-                                num_hits += hits
+                                for c in cats:
+                                    if (e.wra is not None) and (e.wdec is not None):  # weighted RA and Dec
+                                        ra = e.wra
+                                        dec = e.wdec
+                                    else:
+                                        ra = e.ra
+                                        dec = e.dec
+                                    if c.position_in_cat(ra=ra, dec=dec, error=args.error): #
+                                        in_cat = True
+                                        hits, _, _ = c.build_list_of_bid_targets(ra=ra, dec=dec, error=args.error)
+                                        if hits < 0:
+                                            # detailed examination found that the position cannot be found in the catalogs
+                                            # this is for a tiled catalog (like SHELA or HSC) where the range is there, but
+                                            # there is no tile that covers that specific position
+
+                                            hits = 0
+                                            in_cat = False
+
+                                        num_hits += hits
+                                        e.num_hits = hits #yes, for printing ... just the hits in this ONE catalog
+
+                                        if in_cat and (c not in e.matched_cats):
+                                            e.matched_cats.append(c)
+
+                                        print("%d hits in %s for Detect ID #%d" % (hits, c.name, e.id))
+                                        log.info("%d hits in %s for Detect ID #%d" % (hits, c.name, e.id))
+                                    else: #todo: don't bother printing the negative case
+                                        print("Coordinates not in range of %s for Detect ID #%d" % (c.name,e.id))
+                                        log.info("Coordinates not in range of %s for Detect ID #%d" % (c.name, e.id))
+
+                                if len(e.matched_cats) == 0:
+
+                                    log.info("No catalog overlap. DECALS_WEB_ALLOW (%s), PANSTARRS_ALLOW (%s), SDSS_ALLOW (%s)"
+                                             % (str(G.DECALS_WEB_ALLOW), str(G.PANSTARRS_ALLOW), str(G.SDSS_ALLOW) ))
+
+                                    if G.DECALS_WEB_ALLOW:  # prioritize DECaLS over PANSTARRS
+                                        e.matched_cats.append(cat_decals_web)
+                                    elif G.PANSTARRS_ALLOW:  # prioritize PANSTARRS over SDSS
+                                        e.matched_cats.append(cat_panstarrs)
+                                    elif G.SDSS_ALLOW:
+                                        e.matched_cats.append(cat_sdss)
+                                    else:
+                                        e.matched_cats.append(catch_all_cat)
+
+                        if (args.annulus is None) and (not confirm(num_hits,args.force)):
+                            log.critical("Main exit. User cancel.")
+                            exit(0)
+
+                        #now build the report for each emission detection
+                        for e in hd.emis_list:
+                            pdf = PDF_File(args.name, e.entry_id, e.pdf_name)
+                            e.outdir = pdf.basename
+                            #update pdf_name to match
+                            try:
+                                e.pdf_name = os.path.basename(pdf.filename)
+                            except:
+                                pass #not important if this fails
+
+                            id = "Detect ID #" + str(e.id)
+                            if (e.wra is not None) and (e.wdec is not None): #weighted RA and Dec
+                                ra = e.wra
+                                dec = e.wdec
+                            else:
+                                ra = e.ra
+                                dec = e.dec
+
+
+                            #todo: ANNULUS STUFF HERE
+                            #todo: still use hetdex objects, but want a different hetdex section
+                            #todo: and we won't be catalog matching (though will grab images from them)
+
+                            if args.annulus is None:
+                                pdf.pages = build_hetdex_section(pdf.filename,hd,e.id,pdf.pages) #this is the fiber, spectra cutouts for this detect
+
+                                match = match_summary.Match(e)
+
+                                pdf.pages,pdf.bid_count = build_pages(pdf.filename, match, ra, dec, args.error, e.matched_cats, pdf.pages,
+                                                              num_hits=e.num_hits, idstring=id,base_count=0,target_w=e.w,
+                                                              fiber_locs=e.fiber_locs,target_flux=e.estflux,detobj=e)
+
+                                #add in lines and classification info
+                                match_list.add(match) #always add even if bids are none
+                                file_list.append(pdf)
+                            else: #todo: this is an annulus examination (fiber stacking)
+                                log.info("***** ANNULUS ***** ")
+                                pdf.pages = build_hetdex_section(pdf.filename, hd, e.id, pdf.pages, annulus=True)
+                                pdf.pages, pdf.bid_count = build_pages(pdf.filename, None, ra, dec, args.error, e.matched_cats,
+                                                                       pdf.pages, num_hits=0, idstring=id, base_count=0,
+                                                                       target_w=e.w, fiber_locs=e.fiber_locs,
+                                                                       target_flux=e.estflux, annulus=args.annulus,obs=e.syn_obs)
+                                file_list.append(pdf)
+
+                # else: #for multi calls (which are common now) this is of no use
+                   #     print("\nNo emission detections meet minimum criteria for specified IFU. Exiting.\n"
+                   #     log.warning("No emission detections meet minimum criteria for specified IFU. Exiting.")
+
+                if total_emis < 1:
+                    log.info("No detections match input parameters.")
+                    print("No detections match input parameters.")
+
+            elif (args.ra is not None) and (args.dec is not None):
+                num_hits = 0
+                num_cats = 0
+                catlist_str = ""
+                matched_cats = [] #there were no detection objects (just an RA, Dec) so use a generic, global matched_cats
+
+                if G.DECALS_WEB_FORCE:
+                    matched_cats.append(cat_decals_web)
+                    catlist_str += cat_decals_web.name + ", "
+                elif G.PANSTARRS_FORCE:
+                    matched_cats.append(cat_panstarrs)
+                    catlist_str += cat_panstarrs.name + ", "  # still need this for autoremoval of trailing ", " later
+                elif G.SDSS_FORCE:
+                    matched_cats.append(cat_sdss)
+                    catlist_str += cat_sdss.name + ", " #still need this for autoremoval of trailing ", " later
+                else:
+                    for c in cats:
+                        if c.position_in_cat(ra=args.ra,dec=args.dec,error=args.error):
+                            if args.error > 0:
+                                hits,_,_ = c.build_list_of_bid_targets(ra=args.ra,dec=args.dec,error=args.error)
+
+                                if hits < 0:
+                                    #there was a problem ... usually we are in the footprint
+                                    #but in a gap or missing area
+                                    hits = 0
+                                else:
+                                    num_hits += hits
+                                    num_cats += 1
+                                    if c not in matched_cats:
+                                        matched_cats.append(c)
+                                        catlist_str += c.name + ", "
+
+                                if hits > 0:
+                                    print ("%d hits in %s" %(hits,c.name))
+                                elif args.catcheck:
+                                    print("%d hits in %s (*only checks closest tile)" %(hits,c.name))
+                            else:
                                 num_cats += 1
                                 if c not in matched_cats:
                                     matched_cats.append(c)
                                     catlist_str += c.name + ", "
 
-                            if hits > 0:
-                                print ("%d hits in %s" %(hits,c.name))
-                            elif args.catcheck:
-                                print("%d hits in %s (*only checks closest tile)" %(hits,c.name))
-                        else:
-                            num_cats += 1
-                            if c not in matched_cats:
-                                matched_cats.append(c)
-                                catlist_str += c.name + ", "
-
-                if (len(matched_cats) == 0):
-                    if G.DECALS_WEB_ALLOW:
-                        matched_cats.append(cat_decals_web)
-                        catlist_str += cat_decals_web.name + ", "
-                    elif G.PANSTARRS_ALLOW:
-                        #todo: should peek and see if panstarrs has a hit? if not then fall to SDSS?
-                        matched_cats.append(cat_panstarrs)
-                        catlist_str += cat_panstarrs.name + ", " #still need this for autoremoval of trailing ", " later
-                    elif G.SDSS_ALLOW:
-                        matched_cats.append(cat_sdss)
-                        catlist_str += cat_sdss.name + ", " #still need this for autoremoval of trailing ", " later
+                    if (len(matched_cats) == 0):
+                        if G.DECALS_WEB_ALLOW:
+                            matched_cats.append(cat_decals_web)
+                            catlist_str += cat_decals_web.name + ", "
+                        elif G.PANSTARRS_ALLOW:
+                            #todo: should peek and see if panstarrs has a hit? if not then fall to SDSS?
+                            matched_cats.append(cat_panstarrs)
+                            catlist_str += cat_panstarrs.name + ", " #still need this for autoremoval of trailing ", " later
+                        elif G.SDSS_ALLOW:
+                            matched_cats.append(cat_sdss)
+                            catlist_str += cat_sdss.name + ", " #still need this for autoremoval of trailing ", " later
 
 
-            if args.catcheck:
-                catlist_str = catlist_str[:-2]
-                print("%d overlapping catalogs (%f,%f). %s" %(num_cats,args.ra, args.dec, catlist_str))
-                exit(0)
-                #if num_cats == 0:
-                #    num_hits = -1 #will show -1 if no catalogs vs 0 if there are matching catalogs, just no matching targets
-                    #print("-1 hits. No overlapping imaging catalogs.")
-            else:
-                if not confirm(num_hits,args.force):
-                    log.critical("Main exit. User cancel.")
+                if args.catcheck:
+                    catlist_str = catlist_str[:-2]
+                    print("%d overlapping catalogs (%f,%f). %s" %(num_cats,args.ra, args.dec, catlist_str))
                     exit(0)
+                    #if num_cats == 0:
+                    #    num_hits = -1 #will show -1 if no catalogs vs 0 if there are matching catalogs, just no matching targets
+                        #print("-1 hits. No overlapping imaging catalogs.")
+                else:
+                    if not confirm(num_hits,args.force):
+                        log.critical("Main exit. User cancel.")
+                        exit(0)
 
-                pages,_ = build_pages(args.name,None,args.ra, args.dec, args.error, matched_cats, pages, idstring="# 1 of 1")
-        else:
-            print("Invalid command line call. Insufficient information to execute or No detections meet minimum criteria.")
-            exit(-1)
-
-        #need to combine PLAE/POII and other classification data before joining report parts
-        if G.COMBINE_PLAE:
-            for h in hd_list:
-                for e in h.emis_list:
-                    if True:
-                        plae, plae_sd, size_in_psf, diam_in_arcsec = e.combine_all_plae(use_continuum=True)
-                        if G.AGGREGATE_PLAE_CLASSIFICATION:
-                            scale_plae = e.aggregate_classification()
-
-                            if (scale_plae is None) or np.isnan(scale_plae):
-                                scale_plae = -99.0
-
-                        if G.ZEROTH_ROW_HEADER:
-                            header_text = ""
-                            if (scale_plae is not None) and (not np.isnan(scale_plae)):
-                                try:
-
-                                    try:
-                                        plae_high = min(1000.0,e.classification_dict['plae_hat_hi'])
-                                    except:
-                                        plae_high = -1
-
-                                    try:
-                                        plae_low = max(0.001,e.classification_dict['plae_hat_lo'])
-                                    except:
-                                        plae_low = -1
-
-                                    header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(LAE): %0.3f" \
-                                                  % (round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae)
-                                except:
-                                    pass
-                            try:
-                                build_report_part(os.path.join(e.outdir, e.pdf_name),[make_zeroth_row_header(header_text)],0)
-                            except:
-                                log.debug("Exception calling build_report_part",exc_info=True)
-                    # else: #try both
-                    #
-                    #      # method 1 (PLAE direct)
-                    #     plae, plae_sd, size_in_psf = e.combine_all_plae(use_continuum=False)
-                    #     scale_plae1 = e.aggregate_classification()
-                    #     if (scale_plae1 is None) or np.isnan(scale_plae1):
-                    #          scale_plae1 = -99.0
-                    #     # method 2 (re-do PLAE with continuum)
-                    #     plae, plae_sd, size_in_psf = e.combine_all_plae(use_continuum=True)
-                    #     scale_plae2 = e.aggregate_classification()
-                    #     if (scale_plae2 is None) or np.isnan(scale_plae2):
-                    #         scale_plae2 = -99.0
-                    #
-                    #     header_text = f"Classification P(LAE): Method(1) {scale_plae1 * 100.:0.2f}%  Method(2) {scale_plae2 * 100.:0.2f}%"
-                    #     try:
-                    #         build_report_part(os.path.join(e.outdir, e.pdf_name), [make_zeroth_row_header(header_text)], 0)
-                    #     except:
-                    #         log.debug("Exception calling build_report_part", exc_info=True)
-
-        if len(file_list) > 0:
-            for f in file_list:
-                build_report(f.pages,f.filename)
-        else:
-            build_report(pages,args.name)
-
-        if PyPDF is not None:
-            if len(file_list) > 0:
-                try:
-                    for f in file_list:
-                        join_report_parts(f.filename,f.bid_count)
-                        delete_report_parts(f.filename)
-                except:
-                    log.error("Joining PDF parts failed for %s" %f.filename,exc_info=True)
+                    pages,_ = build_pages(args.name,None,args.ra, args.dec, args.error, matched_cats, pages, idstring="# 1 of 1")
             else:
-                join_report_parts(args.name)
-                delete_report_parts(args.name)
+                print("Invalid command line call. Insufficient information to execute or No detections meet minimum criteria.")
+                exit(-1)
 
+            #need to combine PLAE/POII and other classification data before joining report parts
+            if G.COMBINE_PLAE:
+                for h in hd_list:
+                    for e in h.emis_list:
+                        if True:
+                            plae, plae_sd, size_in_psf, diam_in_arcsec = e.combine_all_plae(use_continuum=True)
+                            if G.AGGREGATE_PLAE_CLASSIFICATION:
+                                scale_plae = e.aggregate_classification()
 
+                                if (scale_plae is None) or np.isnan(scale_plae):
+                                    scale_plae = -99.0
 
-        if G.BUILD_HDF5_CATALOG: #change to HDF5 catalog
-            try:
-                elixer_hdf5.extend_elixer_hdf5(os.path.join(args.name,args.name+"_cat.h5"),hd_list,overwrite=True)
-            except:
-                log.error("Exception building HDF5 catalog",exc_info=True)
+                            if G.ZEROTH_ROW_HEADER:
+                                header_text = ""
+                                if (scale_plae is not None) and (not np.isnan(scale_plae)):
+                                    try:
 
-        if False: #turn off fib and cat.txt files
-            if match_list.size > 0:
-                match_list.write_file(os.path.join(args.name,args.name+"_cat.txt"))
+                                        try:
+                                            plae_high = min(1000.0,e.classification_dict['plae_hat_hi'])
+                                        except:
+                                            plae_high = -1
 
-            write_fibers_file(os.path.join(args.name, args.name + "_fib.txt"),hd_list)
+                                        try:
+                                            plae_low = max(0.001,e.classification_dict['plae_hat_lo'])
+                                        except:
+                                            plae_low = -1
 
+                                        header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(LAE): %0.3f" \
+                                                      % (round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae)
+                                    except:
+                                        pass
+                                try:
+                                    build_report_part(os.path.join(e.outdir, e.pdf_name),[make_zeroth_row_header(header_text)],0)
+                                except:
+                                    log.debug("Exception calling build_report_part",exc_info=True)
+                        # else: #try both
+                        #
+                        #      # method 1 (PLAE direct)
+                        #     plae, plae_sd, size_in_psf = e.combine_all_plae(use_continuum=False)
+                        #     scale_plae1 = e.aggregate_classification()
+                        #     if (scale_plae1 is None) or np.isnan(scale_plae1):
+                        #          scale_plae1 = -99.0
+                        #     # method 2 (re-do PLAE with continuum)
+                        #     plae, plae_sd, size_in_psf = e.combine_all_plae(use_continuum=True)
+                        #     scale_plae2 = e.aggregate_classification()
+                        #     if (scale_plae2 is None) or np.isnan(scale_plae2):
+                        #         scale_plae2 = -99.0
+                        #
+                        #     header_text = f"Classification P(LAE): Method(1) {scale_plae1 * 100.:0.2f}%  Method(2) {scale_plae2 * 100.:0.2f}%"
+                        #     try:
+                        #         build_report_part(os.path.join(e.outdir, e.pdf_name), [make_zeroth_row_header(header_text)], 0)
+                        #     except:
+                        #         log.debug("Exception calling build_report_part", exc_info=True)
 
-        #todo: iterate over detections and make a clean sample for LyC
-        #conditions ...
-        #   exactly 1 catalog detection
-        #   all 3 P(LAE)/P(OII) of similar value (that is all > say, 10)
-        #todo: OR - record all in HDF5 and subselect later
-        #not an optimal search (lots of redundant hits, but there will only be a few and this is simple to code
-        if False:
-            for h in hd_list: #iterate over all hetdex detections
-                for e in h.emis_list:
-                    for c in match_list.match_set: #iterate over all match_list detections
-                        if e.id == c.detobj.id: #internal ID (guaranteed unique)
-
-                            print("Detect ID",c.detobj.entry_id)
-                            for b in c.bid_targets:
-                                print("         ",b.p_lae_oii_ratio,b.distance)
-                            print("\n")
-
-                            if False:
-                                if len(c.bid_targets) == 2: #the HETDEX + imaging, and 1 catalog match
-                                    #c.bid_targets[0] is the hetdex one
-                                    #check all plae_poii
-                                    if (c.detobj.p_lae_oii_ratio > 10)          and \
-                                       (c.bid_targets[0].p_lae_oii_ratio > 10) and \
-                                       (c.bid_targets[1].p_lae_oii_ratio > 10):
-                                        #meets criteria, so log
-                                        if c.bid_targets[1].distance < 1.0:
-                                            print(c.detobj.id,c.detobj.p_lae_oii_ratio,c.bid_targets[0].p_lae_oii_ratio,c.bid_targets[1].p_lae_oii_ratio )
-                            break
-
-        if args.line:
-            try:
-                import shutil
-                shutil.copy(args.line,os.path.join(args.name,os.path.basename(args.line)))
-            except:
-                log.error("Exception copying line file: ", exc_info=True)
-
-        if (args.jpg or args.png) and (PyPDF is not None):
             if len(file_list) > 0:
                 for f in file_list:
+                    build_report(f.pages,f.filename)
+            else:
+                build_report(pages,args.name)
+
+            if PyPDF is not None:
+                if len(file_list) > 0:
+                    try:
+                        for f in file_list:
+                            join_report_parts(f.filename,f.bid_count)
+                            delete_report_parts(f.filename)
+                    except:
+                        log.error("Joining PDF parts failed for %s" %f.filename,exc_info=True)
+                else:
+                    join_report_parts(args.name)
+                    delete_report_parts(args.name)
+
+
+
+            if G.BUILD_HDF5_CATALOG: #change to HDF5 catalog
+                try:
+                    elixer_hdf5.extend_elixer_hdf5(os.path.join(args.name,args.name+"_cat.h5"),hd_list,overwrite=True)
+                except:
+                    log.error("Exception building HDF5 catalog",exc_info=True)
+
+            if False: #turn off fib and cat.txt files
+                if match_list.size > 0:
+                    match_list.write_file(os.path.join(args.name,args.name+"_cat.txt"))
+
+                write_fibers_file(os.path.join(args.name, args.name + "_fib.txt"),hd_list)
+
+
+            #todo: iterate over detections and make a clean sample for LyC
+            #conditions ...
+            #   exactly 1 catalog detection
+            #   all 3 P(LAE)/P(OII) of similar value (that is all > say, 10)
+            #todo: OR - record all in HDF5 and subselect later
+            #not an optimal search (lots of redundant hits, but there will only be a few and this is simple to code
+            if False:
+                for h in hd_list: #iterate over all hetdex detections
+                    for e in h.emis_list:
+                        for c in match_list.match_set: #iterate over all match_list detections
+                            if e.id == c.detobj.id: #internal ID (guaranteed unique)
+
+                                print("Detect ID",c.detobj.entry_id)
+                                for b in c.bid_targets:
+                                    print("         ",b.p_lae_oii_ratio,b.distance)
+                                print("\n")
+
+                                if False:
+                                    if len(c.bid_targets) == 2: #the HETDEX + imaging, and 1 catalog match
+                                        #c.bid_targets[0] is the hetdex one
+                                        #check all plae_poii
+                                        if (c.detobj.p_lae_oii_ratio > 10)          and \
+                                           (c.bid_targets[0].p_lae_oii_ratio > 10) and \
+                                           (c.bid_targets[1].p_lae_oii_ratio > 10):
+                                            #meets criteria, so log
+                                            if c.bid_targets[1].distance < 1.0:
+                                                print(c.detobj.id,c.detobj.p_lae_oii_ratio,c.bid_targets[0].p_lae_oii_ratio,c.bid_targets[1].p_lae_oii_ratio )
+                                break
+
+            if args.line:
+                try:
+                    import shutil
+                    shutil.copy(args.line,os.path.join(args.name,os.path.basename(args.line)))
+                except:
+                    log.error("Exception copying line file: ", exc_info=True)
+
+            if (args.jpg or args.png) and (PyPDF is not None):
+                if len(file_list) > 0:
+                    for f in file_list:
+                        if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer:
+                            viewer_file_list.append(f.filename)
+
+                        try:
+                            convert_pdf(f.filename,jpeg=args.jpg, png=args.png)
+                        except:
+                            log.error("Error (2) converting pdf to image type: " + f.filename, exc_info=True)
+                else:
                     if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer:
-                        viewer_file_list.append(f.filename)
+                        viewer_file_list.append(args.name + ".pdf")
 
                     try:
-                        convert_pdf(f.filename,jpeg=args.jpg, png=args.png)
+                        convert_pdf(args.name + ".pdf",jpeg=args.jpg, png=args.png)
                     except:
-                        log.error("Error (2) converting pdf to image type: " + f.filename, exc_info=True)
-            else:
-                if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer:
-                    viewer_file_list.append(args.name + ".pdf")
-
-                try:
-                    convert_pdf(args.name + ".pdf",jpeg=args.jpg, png=args.png)
-                except:
-                    log.error("Error (3) converting pdf to image type: " + f.filename, exc_info=True)
-        else: #no conversion, but might still want to launch the viewer
-            if len(file_list) > 0:
-                for f in file_list:
+                        log.error("Error (3) converting pdf to image type: " + f.filename, exc_info=True)
+            else: #no conversion, but might still want to launch the viewer
+                if len(file_list) > 0:
+                    for f in file_list:
+                        if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer:
+                            viewer_file_list.append(f.filename)
+                else:
                     if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer:
-                        viewer_file_list.append(f.filename)
-            else:
-                if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer:
-                    viewer_file_list.append(args.name + ".pdf")
+                        viewer_file_list.append(args.name + ".pdf")
 
         #do neighborhood 1st so can use broad cutout for --mini
         nei_mini_buf = None
@@ -3273,6 +3294,15 @@ def main():
                 print(msg)
             for h in hd_list:  # iterate over all hetdex detections
                 for e in h.emis_list:
+                    if args.neighborhood_only:
+                        pdf = PDF_File(args.name, e.entry_id, e.pdf_name)
+                        e.outdir = pdf.basename
+                        # update pdf_name to match
+                        try:
+                            e.pdf_name = os.path.basename(pdf.filename)
+                        except:
+                            pass  # not important if this fails
+
                     if e.wra is not None:
                         ra = e.wra
                         dec = e.wdec
@@ -3301,7 +3331,7 @@ def main():
 
 
 
-        if G.ZOO_MINI:
+        if G.ZOO_MINI and not args.neighborhood_only:
             msg = "Building ELiXer-lite summary images for all detections ...."
             log.info(msg)
             print(msg)
@@ -3320,7 +3350,7 @@ def main():
     #end for master_loop_idx in range(master_loop_length):
 
 
-    if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer and (len(viewer_file_list) > 0):
+    if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer and (len(viewer_file_list) > 0) and not args.neighborhood_only:
         import subprocess
         cwd = os.getcwd()
         cmdlist = [G.LAUNCH_PDF_VIEWER]
