@@ -31,6 +31,12 @@ if "--dets" in args: #overide default if specified on command line
 check_nei = False
 check_mini = False
 remove_no_imaging = False
+remove_no_png = False
+
+
+i = input("Remove if no report png (y/n)?")
+if len(i) > 0 and i.upper() == "Y":
+    remove_no_png = True
 
 i = input("Remove if no imaging (y/n)?")
 if len(i) > 0 and i.upper() == "Y":
@@ -170,7 +176,7 @@ for d in alldets:
                 print(f"Warning! No pdf path for {d}: {pdf_path}")
 
             if rpt_path:
-                os.remove((rpt_path))
+                os.remove(rpt_path)
             if nei_path:
                 os.remove(nei_path)
             if mini_path:
@@ -180,13 +186,20 @@ for d in alldets:
            pass
 
     elif not png_okay and (pdf_idx > -1):
-        #try to build png from os call
-        print("OS call to pdftoppm for " + str(d) + "...")
-        try:
-            pdf_file = all_pdf[pdf_idx]
-            os.system("pdftoppm %s %s -png -singlefile" % (pdf_file, pdf_file.rstrip(".pdf")))
-        except Exception as e:
-            print(e)
+        if remove_no_png:
+            print("Removing " + str(d) + " ...")
+            try:
+                os.remove(pdf_path)
+            except:
+                pass
+        else:
+            #try to build png from os call
+            print("OS call to pdftoppm for " + str(d) + "...")
+            try:
+                pdf_file = all_pdf[pdf_idx]
+                os.system("pdftoppm %s %s -png -singlefile" % (pdf_file, pdf_file.rstrip(".pdf")))
+            except Exception as e:
+                print(e)
     elif (pdf_idx == -1) and png_okay:
         #the pdf was not found, but there is a png? weird, should not happen:
         #there is a png BUT it is of the wrong PDF?
