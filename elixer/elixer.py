@@ -2013,6 +2013,10 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
         return None
 
     newlist = []
+    if args.neighborhood_only:
+        extension = "nei.png"
+    else:
+        extension = ".pdf"
     if (hdf5_detectid_list is not None) and (len(hdf5_detectid_list) > 0):
 
         for d in hdf5_detectid_list:
@@ -2020,8 +2024,8 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
             #todo: this should be made common code, so naming is consistent
             filename = str(d)
 
-            if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + ".pdf")) or \
-                os.path.isfile(os.path.join(args.name, filename + ".pdf")):
+            if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + extension)) or \
+                os.path.isfile(os.path.join(args.name, filename + extension)):
                 log.info("Already processed %s. Will skip recovery." %(filename))
             else:
                 log.info("Not found (%s). Will process ..." %(filename))
@@ -2032,8 +2036,8 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
 
         for d in fcsdir_list:
             filename = os.path.basename(str(d))
-            if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + ".pdf")) or \
-                os.path.isfile(os.path.join(args.name, filename + ".pdf")):
+            if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + extension)) or \
+                os.path.isfile(os.path.join(args.name, filename + extension)):
                 log.info("Already processed %s. Will skip recovery." %(filename))
             else:
                 log.info("Not found (%s). Will process ..." %(filename))
