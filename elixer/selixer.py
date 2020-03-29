@@ -144,12 +144,12 @@ elif hostname == "wrangler":
     TIME_OVERHEAD = 2.0  # MINUTES of overhead to get started (per task call ... just a safety)
     if recover_mode:
         if neighborhood_only:
-            MAX_TIME_PER_TASK = 0.5
+            MAX_TIME_PER_TASK = 0.25
         else:
             MAX_TIME_PER_TASK = 1.5 #in recover mode, can bit more agressive in timing (easier to continue if timeout)
     else:
         if neighborhood_only:
-            MAX_TIME_PER_TASK = 1.5
+            MAX_TIME_PER_TASK = 0.5
         else:
             MAX_TIME_PER_TASK = 5.0  # MINUTES max, worst case expected time per task to execute (assumes minimal retries)
 
@@ -185,12 +185,12 @@ elif hostname == "stampede2":
         cores_per_node = 48
         if recover_mode:
             if neighborhood_only:
-                MAX_TIME_PER_TASK = 0.5
+                MAX_TIME_PER_TASK = 0.25
             else:
                 MAX_TIME_PER_TASK = 1.25  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
         else:
             if neighborhood_only:
-                MAX_TIME_PER_TASK = 1.5
+                MAX_TIME_PER_TASK = 0.5
             else:
                 MAX_TIME_PER_TASK = 3.0  # MINUTES max
 
@@ -206,9 +206,15 @@ elif hostname == "stampede2":
     else: #knl (much slower than SKX and much less memory (96 GB per node)
         cores_per_node = 68
         if recover_mode:
-            MAX_TIME_PER_TASK = 5.0  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
+            if neighborhood_only:
+                MAX_TIME_PER_TASK = 0.5
+            else:
+                MAX_TIME_PER_TASK = 5.0  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
         else:
-            MAX_TIME_PER_TASK = 6.0  # MINUTES max
+            if neighborhood_only:
+                MAX_TIME_PER_TASK = 1.5
+            else:
+                MAX_TIME_PER_TASK = 6.0  # MINUTES max
 
         if PYTHON_MAJOR_VERSION < 3:
             MAX_TASKS = 48 #point of seriously diminishing returns
