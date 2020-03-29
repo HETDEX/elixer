@@ -85,6 +85,12 @@ if "--recover" in args:
 else:
     recover_mode = False
 
+
+if "--neighborhood_only" in args:
+    neighborhood_only = True
+else:
+    neighborhood_only = False
+
 #check for queue (optional)
 queue = None
 i = -1
@@ -137,9 +143,15 @@ elif hostname == "wrangler":
     #MAX_TASKS_PER_NODE = 10 #actually, variable, encoded later
     TIME_OVERHEAD = 2.0  # MINUTES of overhead to get started (per task call ... just a safety)
     if recover_mode:
-        MAX_TIME_PER_TASK = 1.5 #in recover mode, can bit more agressive in timing (easier to continue if timeout)
+        if neighborhood_only:
+            MAX_TIME_PER_TASK = 0.5
+        else:
+            MAX_TIME_PER_TASK = 1.5 #in recover mode, can bit more agressive in timing (easier to continue if timeout)
     else:
-        MAX_TIME_PER_TASK = 5.0  # MINUTES max, worst case expected time per task to execute (assumes minimal retries)
+        if neighborhood_only:
+            MAX_TIME_PER_TASK = 1.5
+        else:
+            MAX_TIME_PER_TASK = 5.0  # MINUTES max, worst case expected time per task to execute (assumes minimal retries)
 
     cores_per_node = 24
 
@@ -172,9 +184,15 @@ elif hostname == "stampede2":
         MAX_DETECTS_PER_CPU = 100
         cores_per_node = 48
         if recover_mode:
-            MAX_TIME_PER_TASK = 1.25  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
+            if neighborhood_only:
+                MAX_TIME_PER_TASK = 0.5
+            else:
+                MAX_TIME_PER_TASK = 1.25  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
         else:
-            MAX_TIME_PER_TASK = 3.0  # MINUTES max
+            if neighborhood_only:
+                MAX_TIME_PER_TASK = 1.5
+            else:
+                MAX_TIME_PER_TASK = 3.0  # MINUTES max
 
         if PYTHON_MAJOR_VERSION < 3:
             MAX_TASKS = 48 #point of seriously diminishing returns
