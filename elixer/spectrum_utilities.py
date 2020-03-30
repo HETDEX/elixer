@@ -564,7 +564,7 @@ def red_vs_blue(cwave,wave,flux,flux_err,fwhm=None):
             ratio_err = 0.0
 
 
-        rvb['ratio'] = ratio #blue over red so the color is correct
+        rvb['ratio'] = ratio
         rvb['ratio_err'] = ratio_err
 
         #todo: non detections ... enforce at least 30 datapoints to either side
