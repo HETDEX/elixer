@@ -39,13 +39,15 @@ if len(i) > 0 and i.upper() == "Y":
     check_mini = True
 
 
-
+print("Reading detecth5 file ...")
 hetdex_h5 = tables.open_file(cfg.detecth5,"r")
 dtb = hetdex_h5.root.Detections
 alldets = dtb.read(field="detectid")
 hetdex_h5.close()
 
-elixer_h5 = tables.open_file(cfg.elixerh5,"r") #"elixer_merged_cat.h5","r")
+print("Reading elixerh5 file ...")
+#elixer_h5 = tables.open_file(cfg.elixerh5,"r") #"elixer_merged_cat.h5","r")
+elixer_h5 = tables.open_file("/data/03261/polonius/hdr2/detect/elixer.h5","r")
 dtb = elixer_h5.root.Detections
 apt = elixer_h5.root.Aperture
 
@@ -55,9 +57,9 @@ ct_no_nei = 0
 ct_no_mini = 0
 
 missing = []
-no_nei = []
-no_mini = []
-no_imaging = []
+# no_nei = []
+# no_mini = []
+# no_imaging = []
 
 all_rpts = []
 all_nei = []
@@ -68,11 +70,11 @@ all_mini = []
 #todo: add some error control
 db_path = "/data/03261/polonius/hdr2/detect/image_db/"
 #main reports
-SQL_QUERY = "SELECT detectid from report"
+SQL_QUERY = "SELECT detectid from report;"
 
-dbs = glob.glob(os.path.join(db_path,"elixer_reports_2*[0-9].db"))
+dbs = sorted(glob.glob(os.path.join(db_path,"elixer_reports_2*[0-9].db")))
 for db in dbs:
-    conn = sqlite3.connect(db_name)
+    conn = sqlite3.connect(db)
     cursor = conn.cursor()
     cursor.execute(SQL_QUERY)
     dets = cursor.fetchall()
@@ -80,9 +82,9 @@ for db in dbs:
     conn.close()
     all_rpts.extend([x[0] for x in dets])
 
-dbs = glob.glob(os.path.join(db_path,"elixer_reports_2*nei.db"))
+dbs = sorted(glob.glob(os.path.join(db_path,"elixer_reports_2*nei.db")))
 for db in dbs:
-    conn = sqlite3.connect(db_name)
+    conn = sqlite3.connect(db)
     cursor = conn.cursor()
     cursor.execute(SQL_QUERY)
     dets = cursor.fetchall()
@@ -90,9 +92,9 @@ for db in dbs:
     conn.close()
     all_nei.extend([x[0] for x in dets])
 
-dbs = glob.glob(os.path.join(db_path,"elixer_reports_2*mini.db"))
+dbs = sorted(glob.glob(os.path.join(db_path,"elixer_reports_2*mini.db")))
 for db in dbs:
-    conn = sqlite3.connect(db_name)
+    conn = sqlite3.connect(db)
     cursor = conn.cursor()
     cursor.execute(SQL_QUERY)
     dets = cursor.fetchall()
@@ -100,37 +102,49 @@ for db in dbs:
     conn.close()
     all_mini.extend([x[0] for x in dets])
 
-
+#this is slow enough, that the prints don't make an impact
+#and they are a good progress indicator
 for d in alldets:
 
     #check if exists
     if not (d in all_rpts):
         #does not exist
-        print(f"{d} missing report")
+        print(f"{d} missing report: png ({ct_no_png}), nei ({ct_no_nei}), mini ({ct_no_mini}), img ({ct_no_imaging})")
         missing.append(d)
+        ct_no_png += 1
         continue #already added so no need to check further
 
     if check_nei:
         if not (d in all_nei):
             # does not exist
-            print(f"{d} missing neighborhood")
+            print(f"{d} missing neighborhood: png ({ct_no_png}), nei ({ct_no_nei}), mini ({ct_no_mini}), img ({ct_no_imaging})")
             missing.append(d)
+            ct_no_nei += 1
             continue  # already added so no need to check further
 
     if check_mini:
         if not (d in all_mini):
             # does not exist
-            print(f"{d} missing mini")
+            print(f"{d} missing mini: png ({ct_no_png}), nei ({ct_no_nei}), mini ({ct_no_mini}), img ({ct_no_imaging})")
             missing.append(d)
+            ct_no_mini += 1
             continue  # already added so no need to check further
 
+    #most involved, so do this one last (since one of the above checks may have
+    #already marked this one to be rerun)
     if check_imaging:
         rows = apt.read_where("detectid==d",field="detectid")
         if rows.size==0:
-            print(f"{d} missing imaging")
+            print(f"{d} missing imaging: png ({ct_no_png}), nei ({ct_no_nei}), mini ({ct_no_mini}), img ({ct_no_imaging})")
             missing.append(d)
+            ct_no_imaging += 1
 
 elixer_h5.close()
 
 print(f"{len(missing)} to be re-run")
+print(f"{ct_no_png} no png")
+print(f"{ct_no_nei} no nei")
+print(f"{ct_no_mini} no mini")
+print(f"{ct_no_imaging} no imaging")
 np.savetxt("dets.rerun",missing,fmt="%d")
+
