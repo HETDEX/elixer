@@ -53,6 +53,7 @@ CONFIG_BASEDIR = None
 PANACEA_RED_BASEDIR = None
 PANACEA_RED_BASEDIR_DEFAULT = None
 PANACEA_HDF5_BASEDIR = None
+PIXFLT_LOC = None
 
 CANDELS_EGS_Stefanon_2016_BASE_PATH = None
 EGS_CFHTLS_PATH = None
@@ -176,6 +177,7 @@ def select_hdr_version(version):
     global PANACEA_RED_BASEDIR
     global PANACEA_RED_BASEDIR_DEFAULT
     global PANACEA_HDF5_BASEDIR
+    global PIXFLT_LOC
 
     global CANDELS_EGS_Stefanon_2016_BASE_PATH
     global EGS_CFHTLS_PATH
@@ -292,6 +294,7 @@ def select_hdr_version(version):
             CONFIG_BASEDIR = HETDEX_API_CONFIG.software_dir
             HDF5_RAW_DIR = HETDEX_API_CONFIG.raw_dir #local to this function only
             HDF5_REDUCTION_DIR = HETDEX_API_CONFIG.red_dir #local to this function only
+            PIXFLT_LOC = HETDEX_API_CONFIG.pixflat_dir
 
         else:
             HDF5_DETECT_FN = op.join(HDR_BASEPATH, "detect/detect_hdr1.h5")
@@ -311,37 +314,47 @@ def select_hdr_version(version):
         #
 
         #see if HDR2 exists yet
-        if op.exists(op.join(HDR_BASEPATH, "imaging/candles_egs/EGS")):
-            hdr_imaging_basepath = HDR_BASEPATH
-        else: #temporary code back to HDR1
-            #print("***** using hdr1 path for imaging *****")
-            #hdr_imaging_basepath = "/work/03946/hetdex/hdr1/"
+        # if op.exists(op.join(HDR_BASEPATH, "imaging/candles_egs/EGS")):
+        #     hdr_imaging_basepath = op.join(HDR_BASEPATH,"imaging")
+        # else: #temporary code back to HDR1
+        #     #print("***** using hdr1 path for imaging *****")
+        #     #hdr_imaging_basepath = "/work/03946/hetdex/hdr1/"
+        #     print("***** using /data/03261/polonius/hdr2 for imaging *****")
+        #     hdr_imaging_basepath = "/data/03261/polonius/hdr2/"
+
+        if HETDEX_API_CONFIG:
+            try:
+                hdr_imaging_basepath = HETDEX_API_CONFIG.imaging_dir
+            except:
+                print("***** using /data/03261/polonius/hdr2 for imaging *****")
+                hdr_imaging_basepath = "/data/03261/polonius/hdr2/"
+        else:
             print("***** using /data/03261/polonius/hdr2 for imaging *****")
             hdr_imaging_basepath = "/data/03261/polonius/hdr2/"
 
-        CANDELS_EGS_Stefanon_2016_BASE_PATH = op.join(hdr_imaging_basepath, "imaging/candles_egs/EGS")
-        EGS_CFHTLS_PATH = op.join(hdr_imaging_basepath, "imaging/candles_egs/CFHTLS")
-        CFHTLS_PHOTOZ_CAT = op.join(hdr_imaging_basepath, "imaging/candles_egs/CFHTLS/photozCFHTLS-W3_270912.out")
+        CANDELS_EGS_Stefanon_2016_BASE_PATH = op.join(hdr_imaging_basepath, "candles_egs/EGS")
+        EGS_CFHTLS_PATH = op.join(hdr_imaging_basepath, "candles_egs/CFHTLS")
+        CFHTLS_PHOTOZ_CAT = op.join(hdr_imaging_basepath, "candles_egs/CFHTLS/photozCFHTLS-W3_270912.out")
 
-        EGS_GROTH_BASE_PATH = op.join(hdr_imaging_basepath, "imaging/candles_egs/groth")
-        EGS_GROTH_CAT_PATH = op.join(hdr_imaging_basepath, "imaging/candles_egs/groth")  # note: there is no catalog
+        EGS_GROTH_BASE_PATH = op.join(hdr_imaging_basepath, "candles_egs/groth")
+        EGS_GROTH_CAT_PATH = op.join(hdr_imaging_basepath, "candles_egs/groth")  # note: there is no catalog
 
         #GOODS_N_BASE_PATH = "/work/03564/stevenf/maverick/GOODSN"
-        GOODS_N_BASE_PATH = op.join(hdr_imaging_basepath,"imaging/goods_north/GOODSN")
+        GOODS_N_BASE_PATH = op.join(hdr_imaging_basepath,"goods_north/GOODSN")
         GOODS_N_CAT_PATH = GOODS_N_BASE_PATH
 
-        STACK_COSMOS_BASE_PATH = op.join(hdr_imaging_basepath, "imaging/cosmos/stackCOSMOS/nano/")
-        STACK_COSMOS_CAT_PATH = op.join(hdr_imaging_basepath, "imaging/cosmos/stackCOSMOS")
-        COSMOS_EXTRA_PATH = op.join(hdr_imaging_basepath, "imaging/cosmos/COSMOS/")
+        STACK_COSMOS_BASE_PATH = op.join(hdr_imaging_basepath, "cosmos/stackCOSMOS/nano/")
+        STACK_COSMOS_CAT_PATH = op.join(hdr_imaging_basepath, "cosmos/stackCOSMOS")
+        COSMOS_EXTRA_PATH = op.join(hdr_imaging_basepath, "cosmos/COSMOS/")
 
-        DECAM_IMAGE_PATH = op.join(hdr_imaging_basepath, "imaging/shela/nano/")
-        SHELA_BASE_PATH = op.join(hdr_imaging_basepath, "imaging/shela/nano/")
+        DECAM_IMAGE_PATH = op.join(hdr_imaging_basepath, "shela/nano/")
+        SHELA_BASE_PATH = op.join(hdr_imaging_basepath, "shela/nano/")
         SHELA_CAT_PATH = SHELA_BASE_PATH
-        SHELA_PHOTO_Z_COMBINED_PATH = op.join(hdr_imaging_basepath, "imaging/shela/SHELA")
-        SHELA_PHOTO_Z_MASTER_PATH = op.join(hdr_imaging_basepath, "imaging/shela/SHELA")
+        SHELA_PHOTO_Z_COMBINED_PATH = op.join(hdr_imaging_basepath, "shela/SHELA")
+        SHELA_PHOTO_Z_MASTER_PATH = op.join(hdr_imaging_basepath, "shela/SHELA")
 
         HSC_S15A = False
-        if op.exists(op.join(hdr_imaging_basepath,"imaging/hsc")):
+        if op.exists(op.join(hdr_imaging_basepath,"hsc")):
             if HDR_Version == 1:
                 if False: #op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
                     HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
@@ -353,7 +366,7 @@ def select_hdr_version(version):
                     HSC_IMAGE_PATH = HSC_BASE_PATH + "/images"
                     HSC_S15A = True
             else:
-                HSC_BASE_PATH = op.join(hdr_imaging_basepath,"imaging/hsc")
+                HSC_BASE_PATH = op.join(hdr_imaging_basepath,"hsc")
                 HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
                 HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
             #HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
@@ -375,8 +388,8 @@ def select_hdr_version(version):
         # HSC_AUX_IMAGE_PATH = op.join(HDR_BASEPATH, "imaging/hsc/S15A/reduced/images")
 
         # KPNO_BASE_PATH = "/work/03261/polonius/hetdex/catalogs/KPNO_Mosaic"
-        if op.exists(op.join(hdr_imaging_basepath, "imaging/KMImaging")):
-            KPNO_BASE_PATH = op.join(hdr_imaging_basepath, "imaging/KMImaging")
+        if op.exists(op.join(hdr_imaging_basepath, "KMImaging")):
+            KPNO_BASE_PATH = op.join(hdr_imaging_basepath, "KMImaging")
         else:
             KPNO_BASE_PATH = "/work/03233/jf5007/maverick/KMImaging/"
         KPNO_CAT_PATH = HSC_BASE_PATH
@@ -395,11 +408,14 @@ VIRUS_CONFIG = op.join(CONFIG_BASEDIR,"virus_config")
 FPLANE_LOC = op.join(CONFIG_BASEDIR,"virus_config/fplane")
 IFUCEN_LOC = op.join(CONFIG_BASEDIR,"virus_config/IFUcen_files")
 DIST_LOC = op.join(CONFIG_BASEDIR,"virus_config/DeformerDefaults")
-PIXFLT_LOC = op.join(CONFIG_BASEDIR,"virus_config/PixelFlats")
 
-if HDR_Version != 1:
-    print("***** temporary hard code pixel flat location *****")
-    PIXFLT_LOC = "/data/00115/gebhardt/lib_calib/lib_pflat"
+if PIXFLT_LOC is None:
+    if HDR_Version != 1:
+        print("***** temporary hard code pixel flat location *****")
+        PIXFLT_LOC = "/data/00115/gebhardt/lib_calib/lib_pflat"
+    else:
+        PIXFLT_LOC = op.join(CONFIG_BASEDIR, "virus_config/PixelFlats")
+
 
 REPORT_ELIXER_MCMC_FIT = False
 

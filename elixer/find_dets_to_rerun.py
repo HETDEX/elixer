@@ -9,7 +9,7 @@ It looks for detections in the entire data release and returns a list of detecti
 
 """
 
-
+import sys
 import numpy as np
 import tables
 import glob
@@ -17,6 +17,34 @@ import os
 from hetdex_api.config import HDRconfig
 import sqlite3
 #from hetdex_api import sqlite_utils as sql
+
+
+STARTID = 2000000000
+STOPID =  2001200000
+AUTO = False
+
+args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
+
+if "--start" in args: #overide default if specified on command line
+    try:
+        i = args.index("--start")
+        if i != -1:
+            STARTID = int(sys.argv[i + 1])
+            AUTO = True
+    except:
+        pass
+
+if "--stop" in args: #overide default if specified on command line
+    try:
+        i = args.index("--stop")
+        if i != -1:
+            STOPID = int(sys.argv[i + 1])
+            AUTO = True
+    except:
+        pass
+
+
+
 
 #todo: make configurable (which hdr version)
 cfg = HDRconfig(survey="hdr2")
@@ -26,17 +54,22 @@ check_mini = False
 check_imaging = False
 
 
-i = input("Check for no imaging (y/n)?")
-if len(i) > 0 and i.upper() == "Y":
-    check_imaging = True
+if not AUTO:
+    i = input("Check for no imaging (y/n)?")
+    if len(i) > 0 and i.upper() == "Y":
+        check_imaging = True
 
-i = input("Check for nei.png (y/n)?")
-if len(i) > 0 and i.upper() == "Y":
+    i = input("Check for nei.png (y/n)?")
+    if len(i) > 0 and i.upper() == "Y":
+        check_nei = True
+
+    i = input("Check for mini.png (y/n)?")
+    if len(i) > 0 and i.upper() == "Y":
+        check_mini = True
+else:
     check_nei = True
-
-i = input("Check for mini.png (y/n)?")
-if len(i) > 0 and i.upper() == "Y":
     check_mini = True
+    check_imaging = True
 
 
 print("Reading detecth5 file ...")
@@ -45,11 +78,12 @@ dtb = hetdex_h5.root.Detections
 alldets = dtb.read(field="detectid")
 hetdex_h5.close()
 
-print("Reading elixerh5 file ...")
-#elixer_h5 = tables.open_file(cfg.elixerh5,"r") #"elixer_merged_cat.h5","r")
-elixer_h5 = tables.open_file("/data/03261/polonius/hdr2/detect/elixer.h5","r")
-dtb = elixer_h5.root.Detections
-apt = elixer_h5.root.Aperture
+#this is slow enough, that the prints don't make an impact
+#and they are a good progress indicator
+sel = np.where(alldets >= STARTID)
+alldets = alldets[sel]
+sel = np.where(alldets <= STOPID)
+alldets = alldets[sel]
 
 ct_no_imaging = 0
 ct_no_png = 0
@@ -74,7 +108,7 @@ SQL_QUERY = "SELECT detectid from report;"
 
 dbs = sorted(glob.glob(os.path.join(db_path,"elixer_reports_2*[0-9].db")))
 for db in dbs:
-    conn = sqlite3.connect(db)
+    conn = sqlite3.connect("file:" + db + "?mode=ro",uri=True)
     cursor = conn.cursor()
     cursor.execute(SQL_QUERY)
     dets = cursor.fetchall()
@@ -84,7 +118,7 @@ for db in dbs:
 
 dbs = sorted(glob.glob(os.path.join(db_path,"elixer_reports_2*nei.db")))
 for db in dbs:
-    conn = sqlite3.connect(db)
+    conn = sqlite3.connect("file:" + db + "?mode=ro",uri=True)
     cursor = conn.cursor()
     cursor.execute(SQL_QUERY)
     dets = cursor.fetchall()
@@ -94,7 +128,7 @@ for db in dbs:
 
 dbs = sorted(glob.glob(os.path.join(db_path,"elixer_reports_2*mini.db")))
 for db in dbs:
-    conn = sqlite3.connect(db)
+    conn = sqlite3.connect("file:" + db + "?mode=ro",uri=True)
     cursor = conn.cursor()
     cursor.execute(SQL_QUERY)
     dets = cursor.fetchall()
@@ -102,8 +136,6 @@ for db in dbs:
     conn.close()
     all_mini.extend([x[0] for x in dets])
 
-#this is slow enough, that the prints don't make an impact
-#and they are a good progress indicator
 for d in alldets:
 
     #check if exists
@@ -112,6 +144,8 @@ for d in alldets:
         print(f"{d} missing report: png ({ct_no_png}), nei ({ct_no_nei}), mini ({ct_no_mini}), img ({ct_no_imaging})")
         missing.append(d)
         ct_no_png += 1
+        with open("dets.rerun","a+") as f:
+            f.write(f"{d}\n")
         continue #already added so no need to check further
 
     if check_nei:
@@ -120,6 +154,8 @@ for d in alldets:
             print(f"{d} missing neighborhood: png ({ct_no_png}), nei ({ct_no_nei}), mini ({ct_no_mini}), img ({ct_no_imaging})")
             missing.append(d)
             ct_no_nei += 1
+            with open("dets.rerun", "a+") as f:
+                f.write(f"{d}\n")
             continue  # already added so no need to check further
 
     if check_mini:
@@ -128,23 +164,29 @@ for d in alldets:
             print(f"{d} missing mini: png ({ct_no_png}), nei ({ct_no_nei}), mini ({ct_no_mini}), img ({ct_no_imaging})")
             missing.append(d)
             ct_no_mini += 1
+            with open("dets.rerun", "a+") as f:
+                f.write(f"{d}\n")
             continue  # already added so no need to check further
 
     #most involved, so do this one last (since one of the above checks may have
     #already marked this one to be rerun)
     if check_imaging:
+        # elixer_h5 = tables.open_file(cfg.elixerh5,"r") #"elixer_merged_cat.h5","r")
+        elixer_h5 = tables.open_file("/data/03261/polonius/hdr2/detect/elixer.h5", "r")
+        apt = elixer_h5.root.Aperture
         rows = apt.read_where("detectid==d",field="detectid")
         if rows.size==0:
             print(f"{d} missing imaging: png ({ct_no_png}), nei ({ct_no_nei}), mini ({ct_no_mini}), img ({ct_no_imaging})")
             missing.append(d)
+            with open("dets.rerun", "a+") as f:
+                f.write(f"{d}\n")
             ct_no_imaging += 1
-
-elixer_h5.close()
+        elixer_h5.close()
 
 print(f"{len(missing)} to be re-run")
 print(f"{ct_no_png} no png")
 print(f"{ct_no_nei} no nei")
 print(f"{ct_no_mini} no mini")
 print(f"{ct_no_imaging} no imaging")
-np.savetxt("dets.rerun",missing,fmt="%d")
+np.savetxt("dets_all.rerun",missing,fmt="%d")
 
