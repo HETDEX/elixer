@@ -729,6 +729,10 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
         log.debug("Continuum error is None")
         continuum_err = 0
 
+    if (continuum_err < 0):
+        log.debug("Continuum error < 0")
+        continuum_err = 0
+
     if continuum_err == lineFlux_err == 0:
         log.debug("Continuum error and Lineflux error set to zero. Single run only (no mc).")
         num_mc = 1
