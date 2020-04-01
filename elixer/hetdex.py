@@ -6291,8 +6291,11 @@ class HETDEX:
 
                     #make Karl's 2d cutout the shame shape, keeping its zero
                     #y_2D, x_2D = np.shape(blank)
-            except:
-                log.error("Exception building datakeep",exc_info=True)
+            except Exception as ex:
+                if type(ex) is ValueError:
+                    log.error(f"Exception building datakeep. Not fatal (ValueError). {e.entry_id}", exc_info=False)
+                else:
+                    log.error("Exception building datakeep. Not fatal.",exc_info=True)
         #end for loop
 
         return datakeep
