@@ -1152,7 +1152,7 @@ def merge_unique(newfile,file1,file2):
 
                 try:
                     xtb_src = source_h.root.ElixerApertures
-                    xtb_new.append(xtb_src,read_where("(detectid==d"))
+                    xtb_new.append(xtb_src.read_where("(detectid==d"))
                 except Exception as e:
                     print(f"ElixerApertures merge failed {d}")
                     print(e)
