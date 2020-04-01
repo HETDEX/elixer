@@ -817,8 +817,12 @@ class STACK_COSMOS(cat_base.Catalog):
                              i['filter']))
                 except:
                     log.debug("Exception adding PLAE with range",exc_info=True)
-                    text.set_text(text.get_text() + "  P(LAE)/P(OII): %0.4g (%s)" %
+                    try:
+                        text.set_text(text.get_text() + "  P(LAE)/P(OII): %0.4g (%s)" %
                                   (bid_target.p_lae_oii_ratio,i['filter']))
+                    except:
+                        text.set_text(text.get_text() + "  P(LAE)/P(OII): (%s) (%s)" %
+                                  ("---",i['filter']))
 
 
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2

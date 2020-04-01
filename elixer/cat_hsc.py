@@ -1219,8 +1219,12 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                                  f))
                         except:
                             log.debug("Exception adding PLAE with range", exc_info=True)
-                            text.set_text(
-                                text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)" % (bid_target.p_lae_oii_ratio, f))
+                            try:
+                                text.set_text(
+                                    text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)" % (bid_target.p_lae_oii_ratio, f))
+                            except:
+                                text.set_text(
+                                    text.get_text() + "  P(LAE)/P(OII): (%s) (%s)" % ("---", f))
                         # text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.4g [%0.4g:%0.4g] (%s)"
                         #               %(utilities.saferound(bid_target.p_lae_oii_ratio,3),
                         #                 utilities.saferound(bid_target.p_lae_oii_ratio_min,3),

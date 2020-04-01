@@ -948,7 +948,11 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                      best_plae_poii_filter))
             except:
                 log.debug("Exception adding PLAE with range", exc_info=True)
-                text.set_text(text.get_text() + "  P(LAE)/P(OII): %0.4g (%s)" % (best_plae_poii, best_plae_poii_filter))
+                try:
+                    text.set_text(text.get_text() + "  P(LAE)/P(OII): %0.4g (%s)" % (best_plae_poii, best_plae_poii_filter))
+                except:
+                    text.set_text(
+                        text.get_text() + "  P(LAE)/P(OII): (%s) (%s)" % ("---", best_plae_poii_filter))
 
         if self.master_cutout is None:
             # cannot continue

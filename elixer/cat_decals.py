@@ -703,8 +703,12 @@ class DECALS(cat_base.Catalog):
                                  f))
                         except:
                             log.debug("Exception adding PLAE with range", exc_info=True)
-                            text.set_text(
-                                text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)" % (bid_target.p_lae_oii_ratio, f))
+                            try:
+                                text.set_text(
+                                    text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)" % (bid_target.p_lae_oii_ratio, f))
+                            except:
+                                text.set_text(
+                                    text.get_text() + "  P(LAE)/P(OII): (%s) (%s)" % ("---", f))
 
 
                     cat_match.add_bid_target(bid_target)

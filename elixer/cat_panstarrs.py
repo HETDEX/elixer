@@ -718,7 +718,11 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                      best_plae_poii_filter))
             except:
                 log.debug("Exception adding PLAE with range", exc_info=True)
-                text.set_text(text.get_text() + "  P(LAE)/P(OII): %0.4g (%s)" % (best_plae_poii, best_plae_poii_filter))
+                try:
+                    text.set_text(text.get_text() + "  P(LAE)/P(OII): %0.4g (%s)" % (best_plae_poii, best_plae_poii_filter))
+                except:
+                    text.set_text(
+                        text.get_text() + "  P(LAE)/P(OII): (%s) (%s)" % ("---", best_plae_poii_filter))
 
         if self.master_cutout is None:
             # cannot continue

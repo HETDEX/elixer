@@ -1389,15 +1389,21 @@ def convert_pdf(filename, resolution=150, jpeg=True, png=False):
                     pages[i].save(image_name,"JPEG")
                     print("File written: " + image_name)
 
-    except:
-        log.error("Error (1) converting pdf to image type: " + filename, exc_info=True)
+    except Exception as e:
+        if type(e) is OSError:
+            log.error("Error (1) converting pdf to image type: (OSError: probably memory)" + filename, exc_info=False)
+        else:
+            log.error("Error (1) converting pdf to image type: " + filename, exc_info=True)
         if G.ALLOW_SYSTEM_CALL_PDF_CONVERSION:
             try:
                 log.info("Attempting blind system call to pdftoppm to convert ... ")
                 os.system("pdftoppm %s %s -png -singlefile" % (filename, filename.rstrip(".pdf")))
                 log.info("No immediate error reported on pdftoppm call ... ")
-            except:
-                log.error("System call conversion failed.",exc_info=True)
+            except Exception as e:
+                if type(e) is pdf2image.exceptions.PDFInfoNotInstalledError:
+                    log.error("System call conversion failed (PDFInfoNotInstalledError).", exc_info=False)
+                else:
+                    log.error("System call conversion failed.",exc_info=True)
         return
 
 

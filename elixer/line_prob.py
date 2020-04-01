@@ -721,6 +721,10 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
         log.debug("LineFlux error is None")
         lineFlux_err = 0
 
+    if (lineFlux_err < 0):
+        log.debug("LineFlux error < 0")
+        lineFlux_err = 0
+
     if (continuum_err is None):
         log.debug("Continuum error is None")
         continuum_err = 0
@@ -953,7 +957,6 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
         #using biweight
         log.debug("Biweight ...")
 
-
         try:
             loc = biweight.biweight_location(lae_oii_ratio_list)
             hi,lo = conf_interval_asym(lae_oii_ratio_list,loc)
@@ -965,7 +968,11 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
                 loc = biweight.biweight_location(lae_oii_ratio_list)  # the "average"
                 scale = biweight.biweight_scale(lae_oii_ratio_list)
                 ci = conf_interval(len(lae_oii_ratio_list), scale * np.sqrt(num_mc), conf=confidence)
-                ratio_LAE_list = [loc, loc - ci, loc + ci,adj_std] #np.nanstd(lae_oii_ratio_list)]
+                if ci is not None:
+                    ratio_LAE_list = [loc, loc - ci, loc + ci, adj_std]  # np.nanstd(lae_oii_ratio_list)]
+                else:
+                    log.warning("Confidence Interval is None in line_prob::mc_prob_LAE (p1)")
+                    ratio_LAE_list = [loc, 0.001, 1000.0, adj_std]
             else:
                 ratio_LAE_list = [loc, lo, hi,adj_std] #np.nanstd(lae_oii_ratio_list)]
         except:
@@ -974,7 +981,11 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
             scale = biweight.biweight_scale(lae_oii_ratio_list)
             ci = conf_interval(len(lae_oii_ratio_list), scale * np.sqrt(num_mc), conf=confidence)
             adj_std = 0.5 * (np.quantile(lae_oii_ratio_list, 0.16) + np.quantile(lae_oii_ratio_list, 0.84))
-            ratio_LAE_list = [loc, loc - ci, loc + ci,adj_std]#np.nanstd(lae_oii_ratio_list)]
+            if ci is not None:
+                ratio_LAE_list = [loc, loc - ci, loc + ci,adj_std]#np.nanstd(lae_oii_ratio_list)]
+            else:
+                log.warning("Confidence Interval is None in line_prob::mc_prob_LAE (p2)")
+                ratio_LAE_list = [loc,0.001,1000.0,adj_std]
 
         if False:
             try: #this data is often skewed, so run bootstraps to normalize and take the confidence interval there

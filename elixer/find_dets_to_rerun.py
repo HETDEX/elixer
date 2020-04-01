@@ -85,6 +85,11 @@ alldets = alldets[sel]
 sel = np.where(alldets <= STOPID)
 alldets = alldets[sel]
 
+#get a unique set of prefixes for the start-stop range
+#and later only read in the dbs that correspond to this list
+prefix = list(set((np.array(alldets)/1e5).astype(int)))
+
+
 ct_no_imaging = 0
 ct_no_png = 0
 ct_no_nei = 0
@@ -108,6 +113,17 @@ SQL_QUERY = "SELECT detectid from report;"
 
 dbs = sorted(glob.glob(os.path.join(db_path,"elixer_reports_2*[0-9].db")))
 for db in dbs:
+    okay = True #only read in those dbs that have a prefix that is in our start-stop range
+    try:
+        pr = int(os.path.basename(db).split('_')[2].split('.')[0])
+        if not (pr in prefix):
+            okay = False
+    except:
+        pass
+
+    if not okay:
+        continue
+
     conn = sqlite3.connect("file:" + db + "?mode=ro",uri=True)
     cursor = conn.cursor()
     cursor.execute(SQL_QUERY)
@@ -118,6 +134,17 @@ for db in dbs:
 
 dbs = sorted(glob.glob(os.path.join(db_path,"elixer_reports_2*nei.db")))
 for db in dbs:
+    okay = True
+    try:
+        pr = int(os.path.basename(db).split('_')[2].split('.')[0])
+        if not (pr in prefix):
+            okay = False
+    except:
+        pass
+
+    if not okay:
+        continue
+
     conn = sqlite3.connect("file:" + db + "?mode=ro",uri=True)
     cursor = conn.cursor()
     cursor.execute(SQL_QUERY)
@@ -128,6 +155,17 @@ for db in dbs:
 
 dbs = sorted(glob.glob(os.path.join(db_path,"elixer_reports_2*mini.db")))
 for db in dbs:
+    okay = True
+    try:
+        pr = int(os.path.basename(db).split('_')[2].split('.')[0])
+        if not (pr in prefix):
+            okay = False
+    except:
+        pass
+
+    if not okay:
+        continue
+
     conn = sqlite3.connect("file:" + db + "?mode=ro",uri=True)
     cursor = conn.cursor()
     cursor.execute(SQL_QUERY)
@@ -136,7 +174,13 @@ for db in dbs:
     conn.close()
     all_mini.extend([x[0] for x in dets])
 
+#todo: is it worth the overhead to remove 'd' from the various all_xxx lists
+# once it has been checked (so that the next check has a shorter list?)
+# maybe run d in alldets backward (or the all_xxx lists backward) so always
+# removing from the end?
 for d in alldets:
+    with open("dets.progress", "a+") as progress:
+        progress.write(f"{d}\n")
 
     #check if exists
     if not (d in all_rpts):
@@ -182,6 +226,7 @@ for d in alldets:
                 f.write(f"{d}\n")
             ct_no_imaging += 1
         elixer_h5.close()
+
 
 print(f"{len(missing)} to be re-run")
 print(f"{ct_no_png} no png")

@@ -374,8 +374,11 @@ class SHELA(cat_base.Catalog):
 
                 try:
                     table = astropy.table.Table.read(cat_loc)#,format='fits')
-                except:
-                    log.error(name + " Exception attempting to open catalog file: " + cat_loc, exc_info=True)
+                except Exception as e:
+                    if type(e) is astropy.io.registry.IORegistryError:
+                        log.error(name + " Exception attempting to open catalog file: (IORegistryError, bad format)" + cat_loc, exc_info=False)
+                    else:
+                        log.error(name + " Exception attempting to open catalog file: " + cat_loc, exc_info=True)
                     continue #try the next one  #exc_info = sys.exc_info()
 
                 # convert into a pandas dataframe ... cannot convert directly to pandas because of the [25] lists
@@ -424,9 +427,13 @@ class SHELA(cat_base.Catalog):
 
             #error with .to_pandas(), so have to leave as astropy table (not as fast, but then
             #we are just doing direct lookup, not a search)
-        except:
-            log.error("Exception attempting to open and compbine photoz catalog files: \n%s\n%s"
-                      %(combined_cat_file, master_cat_file), exc_info=True)
+        except Exception as e:
+            if type(e) is MemoryError:
+                log.error("Exception (Memory) attempting to open and compbine photoz catalog files: \n%s\n%s"
+                          %(combined_cat_file, master_cat_file), exc_info=False)
+            else:
+                log.error("Exception attempting to open and compbine photoz catalog files: \n%s\n%s"
+                          %(combined_cat_file, master_cat_file), exc_info=True)
             return None
 
 
@@ -997,8 +1004,12 @@ class SHELA(cat_base.Catalog):
                              i['filter']))
                 except:
                     log.debug("Exception adding PLAE with range",exc_info=True)
-                    text.set_text(text.get_text() + "  P(LAE)/P(OII): %0.4g (%s)" %
+                    try:
+                        text.set_text(text.get_text() + "  P(LAE)/P(OII): %0.4g (%s)" %
                                   (bid_target.p_lae_oii_ratio,i['filter']))
+                    except:
+                        text.set_text(
+                            text.get_text() + "  P(LAE)/P(OII): (%s) (%s)" % ("---", i['filter']))
 
 
             if cutout is not None:  # construct master cutout
