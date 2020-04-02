@@ -856,8 +856,11 @@ class science_image():
                         except NoOverlapError:
                             log.info("Unable to load cutout (NoOverlapError).", exc_info=False)
                             retries = max_retries
-                        except:
-                            log.error("Exception. Unable to load cutout.",exc_info=True)
+                        except Exception as ex:
+                            if "Arrays do not overlap" in str(ex):
+                                log.info("Unable to load cutout (NoOverlapError")
+                            else:
+                                log.error("Exception. Unable to load cutout.",exc_info=True)
                             retries = max_retries
 
 
