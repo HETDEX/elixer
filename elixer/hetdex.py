@@ -5929,367 +5929,374 @@ class HETDEX:
 
         #for loc in locations:
         for item in sort_list:
-            fits = item.fits
+            try:
+                fits = item.fits
 
-            if not fits:
-                #something is very wrong
-                log.error("Unexpected None fits in hetdex::build_panacea_hetdex_data_dict")
+                if not fits:
+                    #something is very wrong
+                    log.error("Unexpected None fits in hetdex::build_panacea_hetdex_data_dict")
 
-            dither = fits.dither_index  # 0,1,2 or more
-            loc = item.loc
-            fiber = item.fiber
+                dither = fits.dither_index  # 0,1,2 or more
+                loc = item.loc
+                fiber = item.fiber
 
-            if fiber is None: # did not find it? impossible?
-                log.error("Error! Cannot identify fiber in HETDEX:build_panacea_hetdex_data_dict().")
-                fiber = elixer_fiber.Fiber(0,0,0,0,'XX',"","","",-1,-1)
+                if fiber is None: # did not find it? impossible?
+                    log.error("Error! Cannot identify fiber in HETDEX:build_panacea_hetdex_data_dict().")
+                    fiber = elixer_fiber.Fiber(0,0,0,0,'XX',"","","",-1,-1)
 
 
-            log.debug("Building data dict for " + fits.filename)
-            datakeep['date'].append(fiber.dither_date) #already a str
+                log.debug("Building data dict for " + fits.filename)
+                datakeep['date'].append(fiber.dither_date) #already a str
 
-            #reminder fiber might not have obsid or expid set (fiber is built before fits files are found)
-            #and in some versions of the line file, obsid and expid are not available until after fits are found
-            if fiber.obsid:
-                datakeep['obsid'].append(str(fiber.obsid))
-            else:
-                fiber.obsid = self.obsid
-                datakeep['obsid'].append(str(self.obsid))
+                #reminder fiber might not have obsid or expid set (fiber is built before fits files are found)
+                #and in some versions of the line file, obsid and expid are not available until after fits are found
+                if fiber.obsid:
+                    datakeep['obsid'].append(str(fiber.obsid))
+                else:
+                    fiber.obsid = self.obsid
+                    datakeep['obsid'].append(str(self.obsid))
 
-            if fiber.expid:
-                datakeep['expid'].append(str(fiber.expid))
-            else:
-                fiber.expid = dither + 1
-                datakeep['expid'].append(str(fiber.expid))
+                if fiber.expid:
+                    datakeep['expid'].append(str(fiber.expid))
+                else:
+                    fiber.expid = dither + 1
+                    datakeep['expid'].append(str(fiber.expid))
 
-            datakeep['fib_idx1'].append(str(fiber.panacea_idx+1))
-            datakeep['ifu_slot_id'].append(str(fiber.ifuslot).zfill(3))
-            datakeep['ifu_id'].append(str(fiber.ifuid).zfill(3))
-            datakeep['spec_id'].append(str(fiber.specid).zfill(3))
-            datakeep['fiber_sn'].append(item.fiber_sn)
+                datakeep['fib_idx1'].append(str(fiber.panacea_idx+1))
+                datakeep['ifu_slot_id'].append(str(fiber.ifuslot).zfill(3))
+                datakeep['ifu_id'].append(str(fiber.ifuid).zfill(3))
+                datakeep['spec_id'].append(str(fiber.specid).zfill(3))
+                datakeep['fiber_sn'].append(item.fiber_sn)
 
-            max_y, max_x = fits.data.shape
+                max_y, max_x = fits.data.shape
 
-            # used laterrange(len(fits.wave_data[loc,:]))
-            datakeep['color'].append(None)
-            datakeep['index'].append(None)
-            datakeep['dit'].append(dither + 1)
+                # used laterrange(len(fits.wave_data[loc,:]))
+                datakeep['color'].append(None)
+                datakeep['index'].append(None)
+                datakeep['dit'].append(dither + 1)
 
-            datakeep['side'].append(fits.side)
-            datakeep['amp'].append(fits.amp)
+                datakeep['side'].append(fits.side)
+                datakeep['amp'].append(fits.amp)
 
-            #lowest number fiber is at the top, not the bottom
-            #loc runs from the bottom and is zero based
-            #so flip ... nominally:  112 - (loc+1) + offset for the amp
-            if fiber.number_in_ccd == -1:
-                fiber.number_in_ccd = len(fits.fe_data) - (loc+1) + AMP_OFFSET[fits.amp]
-            datakeep['fib'].append(fiber.number_in_ccd)
+                #lowest number fiber is at the top, not the bottom
+                #loc runs from the bottom and is zero based
+                #so flip ... nominally:  112 - (loc+1) + offset for the amp
+                if fiber.number_in_ccd == -1:
+                    fiber.number_in_ccd = len(fits.fe_data) - (loc+1) + AMP_OFFSET[fits.amp]
+                datakeep['fib'].append(fiber.number_in_ccd)
 
-            if fiber.ra is None: #then there must be a dither file
-                xfiber = fits.fiber_centers[loc][0] + self.dither.dx[dither]
-                yfiber = fits.fiber_centers[loc][1] + self.dither.dy[dither]
-                xfiber += self.ifuy  # yes this is correct xfiber gets ifuy
-                yfiber += self.ifux
-                #ra and dec of the center of the fiber (loc)
-                ra, dec = self.tangentplane.xy2raDec(xfiber, yfiber)
-                datakeep['ra'].append(ra)
-                datakeep['dec'].append(dec)
-                fiber.ra = ra
-                fiber.dec = dec
-            else: #only true in some panacea cases (if provided in detect line file)
-                datakeep['ra'].append(fiber.ra)
-                datakeep['dec'].append(fiber.dec)
+                if fiber.ra is None: #then there must be a dither file
+                    xfiber = fits.fiber_centers[loc][0] + self.dither.dx[dither]
+                    yfiber = fits.fiber_centers[loc][1] + self.dither.dy[dither]
+                    xfiber += self.ifuy  # yes this is correct xfiber gets ifuy
+                    yfiber += self.ifux
+                    #ra and dec of the center of the fiber (loc)
+                    ra, dec = self.tangentplane.xy2raDec(xfiber, yfiber)
+                    datakeep['ra'].append(ra)
+                    datakeep['dec'].append(dec)
+                    fiber.ra = ra
+                    fiber.dec = dec
+                else: #only true in some panacea cases (if provided in detect line file)
+                    datakeep['ra'].append(fiber.ra)
+                    datakeep['dec'].append(fiber.dec)
 
-            d = self.emis_to_fiber_distance(e,fiber)
-            if d is not None:
-                datakeep['d'].append(d)
-            else:
-                datakeep['d'].append(item.dist)
+                d = self.emis_to_fiber_distance(e,fiber)
+                if d is not None:
+                    datakeep['d'].append(d)
+                else:
+                    datakeep['d'].append(item.dist)
 
-            # if e.wra:
-            #     fiber.dqs_score(e.wra, e.wdec)
-            # else:
-            #     fiber.dqs_score(e.ra, e.dec)
-            # datakeep['wscore'].append(fiber.dqs)
+                # if e.wra:
+                #     fiber.dqs_score(e.wra, e.wdec)
+                # else:
+                #     fiber.dqs_score(e.ra, e.dec)
+                # datakeep['wscore'].append(fiber.dqs)
 
-            #don't think I am going to need any cutouts from the fits files, so lets save time and space and not load any
-            #if e.syn_obs is None: #no .. actually need some of this ...
-            #REMINDER: we are going from x,y to row, column (so x coord is the column number, and y is row)
-            x_2D = np.interp(e.w,fits.wave_data[loc,:],range(len(fits.wave_data[loc,:])))
-            y_2D = np.interp(x_2D,range(len(fits.trace_data[loc,:])),fits.trace_data[loc,:])
+                #don't think I am going to need any cutouts from the fits files, so lets save time and space and not load any
+                #if e.syn_obs is None: #no .. actually need some of this ...
+                #REMINDER: we are going from x,y to row, column (so x coord is the column number, and y is row)
+                x_2D = np.interp(e.w,fits.wave_data[loc,:],range(len(fits.wave_data[loc,:])))
+                y_2D = np.interp(x_2D,range(len(fits.trace_data[loc,:])),fits.trace_data[loc,:])
 
-            if G.LyC:
+                if G.LyC:
+                    try:
+                        x_LyC_2D = np.interp(895.0 * e.w/G.LyA_rest, fits.wave_data[loc, :], range(len(fits.wave_data[loc, :])))
+                        y_LyC_2D = np.interp(x_LyC_2D, range(len(fits.trace_data[loc, :])), fits.trace_data[loc, :])
+
+                        x_LyC_2D = int(np.round(x_LyC_2D))
+                        y_LyC_2D = int(np.round(y_LyC_2D))
+                    except:
+                        x_LyC_2D = -1
+                        y_LyC_2D = -1
+
+                    datakeep['x_2d_lyc'].append(x_LyC_2D)
+                    datakeep['y_2d_lyc'].append(y_LyC_2D)
+
+                fiber.emis_x = int(x_2D)
+                fiber.emis_y = int(y_2D)
+
                 try:
-                    x_LyC_2D = np.interp(895.0 * e.w/G.LyA_rest, fits.wave_data[loc, :], range(len(fits.wave_data[loc, :])))
-                    y_LyC_2D = np.interp(x_LyC_2D, range(len(fits.trace_data[loc, :])), fits.trace_data[loc, :])
-
-                    x_LyC_2D = int(np.round(x_LyC_2D))
-                    y_LyC_2D = int(np.round(y_LyC_2D))
+                    log.info("Detect # %d, Fiber %s, Cam(%s), ExpID(%d) CCD X,Y = (%d,%d)" %
+                             (e.id,fiber.idstring,fiber.specid,fiber.expid,int(x_2D),int(y_2D)))
                 except:
-                    x_LyC_2D = -1
-                    y_LyC_2D = -1
-
-                datakeep['x_2d_lyc'].append(x_LyC_2D)
-                datakeep['y_2d_lyc'].append(y_LyC_2D)
-
-            fiber.emis_x = int(x_2D)
-            fiber.emis_y = int(y_2D)
-
-            try:
-                log.info("Detect # %d, Fiber %s, Cam(%s), ExpID(%d) CCD X,Y = (%d,%d)" %
-                         (e.id,fiber.idstring,fiber.specid,fiber.expid,int(x_2D),int(y_2D)))
-            except:
-                pass
+                    pass
 
 
-            xl = int(np.round(x_2D - xw))
-            xh = int(np.round(x_2D + xw))
-            yl = int(np.round(y_2D - yw))
-            yh = int(np.round(y_2D + yw))
-            datakeep['ds9_x'].append(1. + (xl + xh) / 2.)
-            datakeep['ds9_y'].append(1. + (yl + yh) / 2.)
+                xl = int(np.round(x_2D - xw))
+                xh = int(np.round(x_2D + xw))
+                yl = int(np.round(y_2D - yw))
+                yh = int(np.round(y_2D + yw))
+                datakeep['ds9_x'].append(1. + (xl + xh) / 2.)
+                datakeep['ds9_y'].append(1. + (yl + yh) / 2.)
 
-            #################################################
-            #load pixel flat ... needed to modify data image
-            # more pixel flat stuff a bit later on, to make the smaller cutout images
-            #################################################
-            pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid, fits.amp))
-            # specid (cam) in filename might not have leading zeroes
-            if not op.exists(pix_fn) and (fits.specid[0] == '0'):
-                log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
-                pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid.lstrip("0"), fits.amp))
+                #################################################
+                #load pixel flat ... needed to modify data image
+                # more pixel flat stuff a bit later on, to make the smaller cutout images
+                #################################################
+                pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid, fits.amp))
+                # specid (cam) in filename might not have leading zeroes
+                if not op.exists(pix_fn) and (fits.specid[0] == '0'):
+                    log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
+                    pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid.lstrip("0"), fits.amp))
 
-            if op.exists(pix_fn):
-                pixel_flat_buf = flip_amp(fits.amp, fits.ampname, pyfits.open(pix_fn)[0].data)
-                #per Karl 20181012, zero out where the pixel flat is less than zero (indicates an error and a
-                #section to be ignored ... don't want it showing up as 'hot' data later on
-                if pixel_flat_buf is not None:
-                    fits.data_sky[np.where(pixel_flat_buf <= 0)] = 0
-                    fits.data[np.where(pixel_flat_buf <= 0)] = 0
-            else:
-                pixel_flat_buf = None
-                load_blank = True
+                if op.exists(pix_fn):
+                    pixel_flat_buf = flip_amp(fits.amp, fits.ampname, pyfits.open(pix_fn)[0].data)
+                    #per Karl 20181012, zero out where the pixel flat is less than zero (indicates an error and a
+                    #section to be ignored ... don't want it showing up as 'hot' data later on
+                    if pixel_flat_buf is not None:
+                        fits.data_sky[np.where(pixel_flat_buf <= 0)] = 0
+                        fits.data[np.where(pixel_flat_buf <= 0)] = 0
+                else:
+                    pixel_flat_buf = None
+                    load_blank = True
 
-            blank_xl = xl
-            blank_xh = xh
-            blank_yl = yl
-            blank_yh = yh
-            blank = np.zeros((yh-yl+1,xh-xl+1))
-            scatter_blank = np.zeros((yh - yl + 1 + 10*yw, xh - xl + 1)) #10*yw because +/- 5*yw in height
+                blank_xl = xl
+                blank_xh = xh
+                blank_yl = yl
+                blank_yh = yh
+                blank = np.zeros((yh-yl+1,xh-xl+1))
+                scatter_blank = np.zeros((yh - yl + 1 + 10*yw, xh - xl + 1)) #10*yw because +/- 5*yw in height
 
-            xl = max(xl, 0)
-            xh = min(xh, max_x-1)
-            yl = max(yl, 0)
-            yh = min(yh, max_y-1)
+                xl = max(xl, 0)
+                xh = min(xh, max_x-1)
+                yl = max(yl, 0)
+                yh = min(yh, max_y-1)
 
-            scatter_blank_bot = 5 * yw - (yl - max(0, yl - 5 * yw)) #start copy position in scatter_blank
-            scatter_blank_height = min(max_y-1, yh + 5 * yw) - max(0, yl - 5 * yw)   #number of pixels to copy
+                scatter_blank_bot = 5 * yw - (yl - max(0, yl - 5 * yw)) #start copy position in scatter_blank
+                scatter_blank_height = min(max_y-1, yh + 5 * yw) - max(0, yl - 5 * yw)   #number of pixels to copy
 
-            scatter_blank[scatter_blank_bot:scatter_blank_bot + scatter_blank_height +1,
-                         (xl - blank_xl):(xl - blank_xl) + (xh - xl) + 1] = \
-                fits.data[max(0, yl - 5 * yw):min(max_y-1, yh + 5 * yw) + 1, xl:xh + 1]
+                scatter_blank[scatter_blank_bot:scatter_blank_bot + scatter_blank_height +1,
+                             (xl - blank_xl):(xl - blank_xl) + (xh - xl) + 1] = \
+                    fits.data[max(0, yl - 5 * yw):min(max_y-1, yh + 5 * yw) + 1, xl:xh + 1]
 
-            datakeep['scatter'].append(deepcopy(scatter_blank))
-
-
-            #now with the sky NOT subtracted ... the indices are the same, just a different fits image
-            scatter_blank[scatter_blank_bot:scatter_blank_bot + scatter_blank_height + 1,
-                            (xl - blank_xl):(xl - blank_xl) + (xh - xl) + 1] = \
-                fits.data_sky[max(0, yl - 5 * yw):min(max_y - 1, yh + 5 * yw) + 1, xl:xh + 1]
-            datakeep['scatter_sky'].append(deepcopy(scatter_blank))
-
-            datakeep['xi'].append(x_2D)
-            datakeep['yi'].append(y_2D)
-
-            datakeep['xl'].append(blank_xl)
-            datakeep['yl'].append(blank_yl)
-            datakeep['xh'].append(blank_xh)
-            datakeep['yh'].append(blank_yh)
-
-            datakeep['fxl'].append(0)
-            datakeep['fxh'].append(FRAME_WIDTH_X - 1)
-
-            datakeep['sn'].append(e.sigma)
-
-            blank[(yl-blank_yl):(yl-blank_yl)+(yh-yl)+1, (xl-blank_xl):(xl-blank_xl)+(xh-xl)+1] = \
-                fits.data[yl:yh+1, xl:xh+1]
-
-            datakeep['im'].append(deepcopy(blank))
-            datakeep['fw_im'].append(fits.data[yl:yh, 0:FRAME_WIDTH_X - 1])
-
-            z1, z2 = self.get_vrange(fits.data[yl:yh, xl:xh],scale=contrast1)
-            log.debug("2D cutout zscale1 (smoothed) = %f, %f  for D,S,F = %d, %s, %d"
-                      %(z1,z2,dither+1,fits.side,fiber.number_in_ccd))
-
-            # z1,z2 = self.get_vrange(sci.data[yl:yh,xl:xh])
-            datakeep['vmin1'].append(z1)
-            datakeep['vmax1'].append(z2)
-
-            z1, z2 = self.get_vrange(fits.data[yl:yh, xl:xh],scale=contrast2)
-            log.debug("2D cutout zscale2 (image) = %f, %f  for D,S,F = %d, %s, %d"
-                      %(z1,z2,dither+1,fits.side,fiber.number_in_ccd))
-
-            datakeep['vmin2'].append(z1)
-            datakeep['vmax2'].append(z2)
-
-            try:
-                z1, z2 = self.get_vrange(fits.data_sky[yl:yh, xl:xh], scale=contrast3)
-                log.debug("2D cutout zscale3 (image) = %f, %f  for D,S,F = %d, %s, %d"
-                          % (z1, z2, dither + 1, fits.side, fiber.number_in_ccd))
-
-                datakeep['vmin3'].append(z1)
-                datakeep['vmax3'].append(z2)
-            except:
-                log.error("Could net get contrast stretch for sky NOT subtracted 2D spectra")
-
-            blank[(yl-blank_yl):(yl-blank_yl)+(yh-yl)+1,(xl-blank_xl):(xl-blank_xl)+(xh-xl)+1] = \
-                fits.err_data[yl:yh + 1,xl:xh + 1]
-
-            datakeep['err'].append(deepcopy(blank))
-
-            if G.LyC:
-                datakeep['fw_err'].append(deepcopy(fits.err_data[yl:yh, 0:FRAME_WIDTH_X - 1]))
+                datakeep['scatter'].append(deepcopy(scatter_blank))
 
 
-            #OLD ... using side
-            # pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid, fits.side))
-            # #specid (cam) in filename might not have leading zeroes
-            # if not op.exists(pix_fn) and (fits.specid[0] == '0'):
-            #     log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
-            #     pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid.lstrip("0"), fits.side))
-            #
-            # if op.exists(pix_fn):
-            #     blank[(yl - blank_yl):(yl - blank_yl) + yh + 1, (xl - blank_xl):(xl - blank_xl) + (xh-xl) + 1] = \
-            #         pyfits.open(pix_fn)[0].data[yl:yh + 1, xl:xh + 1]
-            #
-            #     datakeep['pix'].append(deepcopy(blank))
-            # else:
-            #     #todo: this is really sloppy ... make a better/more efficient pattern
-            #     log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
-            #     pix_x = xh - xl + 1
-            #     pix_y = yh - yl + 1
-            #     pix_blank = np.zeros((pix_y, pix_x))
-            #     try:
-            #         for x in range(pix_x/2):
-            #             for y in range (pix_y/2):
-            #                 pix_blank[y*2,x*2] = 999
-            #     except:
-            #         pass
-            #     datakeep['pix'].append(deepcopy(pix_blank))
+                #now with the sky NOT subtracted ... the indices are the same, just a different fits image
+                scatter_blank[scatter_blank_bot:scatter_blank_bot + scatter_blank_height + 1,
+                                (xl - blank_xl):(xl - blank_xl) + (xh - xl) + 1] = \
+                    fits.data_sky[max(0, yl - 5 * yw):min(max_y - 1, yh + 5 * yw) + 1, xl:xh + 1]
+                datakeep['scatter_sky'].append(deepcopy(scatter_blank))
+
+                datakeep['xi'].append(x_2D)
+                datakeep['yi'].append(y_2D)
+
+                datakeep['xl'].append(blank_xl)
+                datakeep['yl'].append(blank_yl)
+                datakeep['xh'].append(blank_xh)
+                datakeep['yh'].append(blank_yh)
+
+                datakeep['fxl'].append(0)
+                datakeep['fxh'].append(FRAME_WIDTH_X - 1)
+
+                datakeep['sn'].append(e.sigma)
+
+                blank[(yl-blank_yl):(yl-blank_yl)+(yh-yl)+1, (xl-blank_xl):(xl-blank_xl)+(xh-xl)+1] = \
+                    fits.data[yl:yh+1, xl:xh+1]
+
+                datakeep['im'].append(deepcopy(blank))
+                datakeep['fw_im'].append(fits.data[yl:yh, 0:FRAME_WIDTH_X - 1])
+
+                z1, z2 = self.get_vrange(fits.data[yl:yh, xl:xh],scale=contrast1)
+                log.debug("2D cutout zscale1 (smoothed) = %f, %f  for D,S,F = %d, %s, %d"
+                          %(z1,z2,dither+1,fits.side,fiber.number_in_ccd))
+
+                # z1,z2 = self.get_vrange(sci.data[yl:yh,xl:xh])
+                datakeep['vmin1'].append(z1)
+                datakeep['vmax1'].append(z2)
+
+                z1, z2 = self.get_vrange(fits.data[yl:yh, xl:xh],scale=contrast2)
+                log.debug("2D cutout zscale2 (image) = %f, %f  for D,S,F = %d, %s, %d"
+                          %(z1,z2,dither+1,fits.side,fiber.number_in_ccd))
+
+                datakeep['vmin2'].append(z1)
+                datakeep['vmax2'].append(z2)
+
+                try:
+                    z1, z2 = self.get_vrange(fits.data_sky[yl:yh, xl:xh], scale=contrast3)
+                    log.debug("2D cutout zscale3 (image) = %f, %f  for D,S,F = %d, %s, %d"
+                              % (z1, z2, dither + 1, fits.side, fiber.number_in_ccd))
+
+                    datakeep['vmin3'].append(z1)
+                    datakeep['vmax3'].append(z2)
+                except:
+                    log.error("Could net get contrast stretch for sky NOT subtracted 2D spectra")
+
+                blank[(yl-blank_yl):(yl-blank_yl)+(yh-yl)+1,(xl-blank_xl):(xl-blank_xl)+(xh-xl)+1] = \
+                    fits.err_data[yl:yh + 1,xl:xh + 1]
+
+                datakeep['err'].append(deepcopy(blank))
+
+                if G.LyC:
+                    datakeep['fw_err'].append(deepcopy(fits.err_data[yl:yh, 0:FRAME_WIDTH_X - 1]))
 
 
-            #########################################################
-            # pixel flats continued ... build smaller cutout piece
-            #########################################################
-            load_blank = False
-
-            if pixel_flat_buf is not None: #loaded a few dozen lines above
-                blank[(yl - blank_yl):(yl - blank_yl) + (yh - yl) + 1,
-                (xl - blank_xl):(xl - blank_xl) + (xh - xl) + 1] = \
-                    pixel_flat_buf[yl:yh + 1, xl:xh + 1]
-                datakeep['pix'].append(deepcopy(blank))
-                datakeep['fw_pix'].append(deepcopy(pixel_flat_buf[yl:yh, 0:FRAME_WIDTH_X - 1]))
-
-            else:
-                load_blank = True
-
-            if load_blank:
-                # todo: this is really sloppy ... make a better/more efficient pattern
-                log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
-                datakeep['pix'].append(deepcopy(blank_pixel_flat(xh, xl, yh, yl)))
-
-
-
-
-
-            #1D spectrum (spec is counts, specwave is the corresponding wavelength)
-            wave = fits.wave_data[loc,:]
-            # this sometimes produces arrays of different lengths (+/- 1) [due to rounding?]
-            # which causes problems later on, so just get the nearst point to the target wavelenght
-            # and a fixed number of surrounding pixels
-
-            #Fe_indl = np.searchsorted(wave, e.w - ww, side='left')
-            #Fe_indh = np.searchsorted(wave, e.w + ww, side='right')
-            #want say, approx +/- 50 angstroms
-
-            center = np.searchsorted(wave, e.w, side='left')
-            Fe_indl = center - int(round(ww))
-            Fe_indh = center + int(round(ww))
-
-            max_y, max_x = fits.fe_data.shape
-            Fe_indl = max(Fe_indl, 0)
-            Fe_indh = min(Fe_indh, max_x)
-
-            #fe_data is "sky_subtracted" ... the counts
-            #wave is "wavelength" ... the corresponding wavelength
-
-            if len(fiber.fluxcal_central_emis_wavelengths) > 0:
-                log.info("Using flux-calibrated spectra for central emission.")
-                datakeep['spec'].append(fiber.fluxcal_central_emis_counts)
-                datakeep['specwave'].append(fiber.fluxcal_central_emis_wavelengths)
+                #OLD ... using side
+                # pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid, fits.side))
+                # #specid (cam) in filename might not have leading zeroes
+                # if not op.exists(pix_fn) and (fits.specid[0] == '0'):
+                #     log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
+                #     pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid.lstrip("0"), fits.side))
+                #
+                # if op.exists(pix_fn):
+                #     blank[(yl - blank_yl):(yl - blank_yl) + yh + 1, (xl - blank_xl):(xl - blank_xl) + (xh-xl) + 1] = \
+                #         pyfits.open(pix_fn)[0].data[yl:yh + 1, xl:xh + 1]
+                #
+                #     datakeep['pix'].append(deepcopy(blank))
+                # else:
+                #     #todo: this is really sloppy ... make a better/more efficient pattern
+                #     log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
+                #     pix_x = xh - xl + 1
+                #     pix_y = yh - yl + 1
+                #     pix_blank = np.zeros((pix_y, pix_x))
+                #     try:
+                #         for x in range(pix_x/2):
+                #             for y in range (pix_y/2):
+                #                 pix_blank[y*2,x*2] = 999
+                #     except:
+                #         pass
+                #     datakeep['pix'].append(deepcopy(pix_blank))
 
 
-            else:
-                log.info("Using panacea fiber-extracted data for central emission.")
-                datakeep['spec'].append(fits.fe_data[loc, Fe_indl:(Fe_indh+1)])
-                datakeep['specwave'].append(wave[Fe_indl:(Fe_indh+1)])
+                #########################################################
+                # pixel flats continued ... build smaller cutout piece
+                #########################################################
+                load_blank = False
 
-            if fiber:
-                Fe_indl = center - PEAK_PIXELS
-                Fe_indh = center + PEAK_PIXELS
-
-                if (Fe_indl) < 0:
-                    fiber.central_wave_pixels_bad = abs(Fe_indl)
-                    fiber.central_emis_counts = np.zeros(fiber.central_wave_pixels_bad)
-                    fiber.central_emis_wavelengths = np.zeros(fiber.central_wave_pixels_bad)
-
-                    fiber.central_emis_counts = np.concatenate(
-                        (fiber.central_emis_counts,fits.fe_data[loc,0:(Fe_indh+1)]))
-                    fiber.central_emis_wavelengths = np.concatenate(
-                        (fiber.central_emis_wavelengths, wave[0:(Fe_indh + 1)]))
-                elif Fe_indh >= max_x:
-                    fiber.central_wave_pixels_bad = Fe_indh - max_x + 1
-                    fiber.central_emis_counts = np.zeros(fiber.central_wave_pixels_bad)
-                    fiber.central_emis_wavelengths = np.zeros(fiber.central_wave_pixels_bad)
-                    fiber.central_emis_counts = np.concatenate(
-                        (fits.fe_data[loc, Fe_indl:(max_x)],fiber.central_emis_counts))
-                    fiber.central_emis_wavelengths = np.concatenate(
-                    (wave[Fe_indl:(max_x)], fiber.central_emis_wavelengths))
-
-                #if (Fe_indh == (max_x)) or (Fe_indl == 0):
-                #    log.info("Peak too close to wavelength edge for fiber %s" % fiber.idstring)
+                if pixel_flat_buf is not None: #loaded a few dozen lines above
+                    blank[(yl - blank_yl):(yl - blank_yl) + (yh - yl) + 1,
+                    (xl - blank_xl):(xl - blank_xl) + (xh - xl) + 1] = \
+                        pixel_flat_buf[yl:yh + 1, xl:xh + 1]
+                    datakeep['pix'].append(deepcopy(blank))
+                    datakeep['fw_pix'].append(deepcopy(pixel_flat_buf[yl:yh, 0:FRAME_WIDTH_X - 1]))
 
                 else:
-                    fiber.central_emis_counts = fits.fe_data[loc,Fe_indl:(Fe_indh+1)]
-                    fiber.central_emis_wavelengths = wave[Fe_indl:(Fe_indh+1)]
+                    load_blank = True
 
-            datakeep['fw_spec'].append(fits.fe_data[loc, :])
-            datakeep['fw_specwave'].append(wave[:])
+                if load_blank:
+                    # todo: this is really sloppy ... make a better/more efficient pattern
+                    log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
+                    datakeep['pix'].append(deepcopy(blank_pixel_flat(xh, xl, yh, yl)))
 
-            #todo: set the weights correctly
-            datakeep['fiber_weight'].append(fiber.relative_weight)
-            datakeep['thruput'].append(fiber.fluxcal_central_emis_thru)
 
-            datakeep['fluxcal_wave'].append(fiber.fluxcal_central_emis_wavelengths)
-            datakeep['fluxcal_cnts'].append(fiber.fluxcal_central_emis_counts)
-            datakeep['fluxcal_flux'].append(fiber.fluxcal_central_emis_flux)
-            datakeep['fluxcal_fluxerr'].append(fiber.fluxcal_central_emis_fluxerr)
-            datakeep['fluxcal_cont'].append(fiber.fluxcal_emis_cont)
 
-            if len(datakeep['sumspec_wave']) == 0:
-                # there is only ONE summed fluxcalibrated spectra for the entire detection (not one per fiber)
-                datakeep['sumspec_wave'] = e.sumspec_wavelength
-                datakeep['sumspec_cnts'] = e.sumspec_counts
-                datakeep['sumspec_flux'] = e.sumspec_flux
-                datakeep['sumspec_ferr'] = e.sumspec_fluxerr
 
-                datakeep['sumspec_2d'] = e.sumspec_2d_zoom
-                datakeep['sumspec_cnts_zoom'] = e.sumspec_counts_zoom
-                datakeep['sumspec_wave_zoom'] = e.sumspec_wavelength_zoom
-                datakeep['sumspec_flux_zoom'] = e.sumspec_flux_zoom
-                datakeep['sumspec_ferr_zoom'] = e.sumspec_fluxerr_zoom
 
-                #make Karl's 2d cutout the shame shape, keeping its zero
-                #y_2D, x_2D = np.shape(blank)
+                #1D spectrum (spec is counts, specwave is the corresponding wavelength)
+                wave = fits.wave_data[loc,:]
+                # this sometimes produces arrays of different lengths (+/- 1) [due to rounding?]
+                # which causes problems later on, so just get the nearst point to the target wavelenght
+                # and a fixed number of surrounding pixels
+
+                #Fe_indl = np.searchsorted(wave, e.w - ww, side='left')
+                #Fe_indh = np.searchsorted(wave, e.w + ww, side='right')
+                #want say, approx +/- 50 angstroms
+
+                center = np.searchsorted(wave, e.w, side='left')
+                Fe_indl = center - int(round(ww))
+                Fe_indh = center + int(round(ww))
+
+                max_y, max_x = fits.fe_data.shape
+                Fe_indl = max(Fe_indl, 0)
+                Fe_indh = min(Fe_indh, max_x)
+
+                #fe_data is "sky_subtracted" ... the counts
+                #wave is "wavelength" ... the corresponding wavelength
+
+                if len(fiber.fluxcal_central_emis_wavelengths) > 0:
+                    log.info("Using flux-calibrated spectra for central emission.")
+                    datakeep['spec'].append(fiber.fluxcal_central_emis_counts)
+                    datakeep['specwave'].append(fiber.fluxcal_central_emis_wavelengths)
+
+
+                else:
+                    log.info("Using panacea fiber-extracted data for central emission.")
+                    datakeep['spec'].append(fits.fe_data[loc, Fe_indl:(Fe_indh+1)])
+                    datakeep['specwave'].append(wave[Fe_indl:(Fe_indh+1)])
+
+                if fiber:
+                    Fe_indl = center - PEAK_PIXELS
+                    Fe_indh = center + PEAK_PIXELS
+
+                    if (Fe_indl) < 0:
+                        fiber.central_wave_pixels_bad = abs(Fe_indl)
+                        fiber.central_emis_counts = np.zeros(fiber.central_wave_pixels_bad)
+                        fiber.central_emis_wavelengths = np.zeros(fiber.central_wave_pixels_bad)
+
+                        fiber.central_emis_counts = np.concatenate(
+                            (fiber.central_emis_counts,fits.fe_data[loc,0:(Fe_indh+1)]))
+                        fiber.central_emis_wavelengths = np.concatenate(
+                            (fiber.central_emis_wavelengths, wave[0:(Fe_indh + 1)]))
+                    elif Fe_indh >= max_x:
+                        fiber.central_wave_pixels_bad = Fe_indh - max_x + 1
+                        fiber.central_emis_counts = np.zeros(fiber.central_wave_pixels_bad)
+                        fiber.central_emis_wavelengths = np.zeros(fiber.central_wave_pixels_bad)
+                        fiber.central_emis_counts = np.concatenate(
+                            (fits.fe_data[loc, Fe_indl:(max_x)],fiber.central_emis_counts))
+                        fiber.central_emis_wavelengths = np.concatenate(
+                        (wave[Fe_indl:(max_x)], fiber.central_emis_wavelengths))
+
+                    #if (Fe_indh == (max_x)) or (Fe_indl == 0):
+                    #    log.info("Peak too close to wavelength edge for fiber %s" % fiber.idstring)
+
+                    else:
+                        fiber.central_emis_counts = fits.fe_data[loc,Fe_indl:(Fe_indh+1)]
+                        fiber.central_emis_wavelengths = wave[Fe_indl:(Fe_indh+1)]
+
+                datakeep['fw_spec'].append(fits.fe_data[loc, :])
+                datakeep['fw_specwave'].append(wave[:])
+
+                #todo: set the weights correctly
+                datakeep['fiber_weight'].append(fiber.relative_weight)
+                datakeep['thruput'].append(fiber.fluxcal_central_emis_thru)
+
+                datakeep['fluxcal_wave'].append(fiber.fluxcal_central_emis_wavelengths)
+                datakeep['fluxcal_cnts'].append(fiber.fluxcal_central_emis_counts)
+                datakeep['fluxcal_flux'].append(fiber.fluxcal_central_emis_flux)
+                datakeep['fluxcal_fluxerr'].append(fiber.fluxcal_central_emis_fluxerr)
+                datakeep['fluxcal_cont'].append(fiber.fluxcal_emis_cont)
+
+                if len(datakeep['sumspec_wave']) == 0:
+                    # there is only ONE summed fluxcalibrated spectra for the entire detection (not one per fiber)
+                    datakeep['sumspec_wave'] = e.sumspec_wavelength
+                    datakeep['sumspec_cnts'] = e.sumspec_counts
+                    datakeep['sumspec_flux'] = e.sumspec_flux
+                    datakeep['sumspec_ferr'] = e.sumspec_fluxerr
+
+                    datakeep['sumspec_2d'] = e.sumspec_2d_zoom
+                    datakeep['sumspec_cnts_zoom'] = e.sumspec_counts_zoom
+                    datakeep['sumspec_wave_zoom'] = e.sumspec_wavelength_zoom
+                    datakeep['sumspec_flux_zoom'] = e.sumspec_flux_zoom
+                    datakeep['sumspec_ferr_zoom'] = e.sumspec_fluxerr_zoom
+
+                    #make Karl's 2d cutout the shame shape, keeping its zero
+                    #y_2D, x_2D = np.shape(blank)
+            except Exception as ex:
+                if type(ex) is ValueError:
+                    log.error(f"Exception building datakeep. Not fatal (ValueError). {e.entry_id}", exc_info=False)
+                else:
+                    log.error("Exception building datakeep. Not fatal.",exc_info=True)
+        #end for loop
 
         return datakeep
 
