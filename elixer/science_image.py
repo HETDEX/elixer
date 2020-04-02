@@ -852,9 +852,14 @@ class science_image():
                             else:
                                 log.error("Unable to open science image file: %s" % self.image_location)
                                 retries = max_retries
+
+                        except NoOverlapError:
+                            log.info("Unable to load cutout (NoOverlapError).", exc_info=False)
+                            retries = max_retries
                         except:
                             log.error("Exception. Unable to load cutout.",exc_info=True)
                             retries = max_retries
+
 
 
                     if close:
@@ -955,7 +960,7 @@ class science_image():
                 pix_window = float(window) / self.calc_pixel_size(image.wcs)  # now in pixels
                 cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=image.wcs, copy=copy)
                 self.get_vrange(cutout.data)
-            except NoOverlapError as e:
+            except NoOverlapError:
                 log.info("Warning (NoOverlapError) in science_image::get_cutout(). "
                         "Target is not in range of image. RA,Dec = (%f,%f) Window = %d" % (ra, dec, pix_window))
                 #print("Target is not in range of image. RA,Dec = (%f,%f) Window = %d" % (ra, dec, pix_window))

@@ -1222,7 +1222,11 @@ class DetObj:
                     plae_sd = np.sqrt(avg_var(plae_errors['ratio'][0],plae_errors['ratio'][1],plae_errors['ratio'][2]))
                 except:
                     plae_sd = None
-            log.debug(f"{self.entry_id} Combine ALL PLAE: MC plae({p_lae_oii_ratio:#.4g}) sd({plae_sd:#.4g})")
+
+                try:
+                    log.debug(f"{self.entry_id} Combine ALL PLAE: MC plae({p_lae_oii_ratio:#.4g}) sd({plae_sd:#.4g})")
+                except:
+                    log.debug(f"{self.entry_id} Combine ALL PLAE: MC plae({p_lae_oii_ratio}) sd({plae_sd})")
 
             self.classification_dict['plae_hat'] = p_lae_oii_ratio
             self.classification_dict['plae_hat_hi'] = plae_errors['ratio'][2]

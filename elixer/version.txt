@@ -1,8 +1,11 @@
 changes to elixer by version
 
-1.8.2 [2020-03-23]
+1.8.3a1
+* explicitly trap NoOverlap error so it does not generate an exception report in the log
+
+
+1.8.2 [2020-04-01]
 * promote to release, set as HDR2 baseline
-- one pending change (directory path change to point from HDR1 image catalog path once they are moved)
 
 1.8.2a6 [2020-03-21]
 * HDR2 Testing
