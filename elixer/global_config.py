@@ -294,7 +294,11 @@ def select_hdr_version(version):
             CONFIG_BASEDIR = HETDEX_API_CONFIG.software_dir
             HDF5_RAW_DIR = HETDEX_API_CONFIG.raw_dir #local to this function only
             HDF5_REDUCTION_DIR = HETDEX_API_CONFIG.red_dir #local to this function only
-            PIXFLT_LOC = HETDEX_API_CONFIG.pixflat_dir
+
+            if HDR_Version == 1:
+                PIXFLT_LOC = op.join(CONFIG_BASEDIR, "virus_config/PixelFlats")
+            else:
+                PIXFLT_LOC = HETDEX_API_CONFIG.pixflat_dir
 
         else:
             HDF5_DETECT_FN = op.join(HDR_BASEPATH, "detect/detect_hdr1.h5")
@@ -356,7 +360,7 @@ def select_hdr_version(version):
         HSC_S15A = False
         if op.exists(op.join(hdr_imaging_basepath,"hsc")):
             if HDR_Version == 1:
-                if False: #op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
+                if op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
                     HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
                     HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
                     HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
