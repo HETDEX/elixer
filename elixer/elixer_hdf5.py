@@ -1077,58 +1077,72 @@ def remove_duplicates(file):
                 #maybe it is reindexing after each removal, so I guess we have to do this with remove_rows
                 #Detections table is one row per (one per detectid)
                 rows = dtb.get_where_list("detectid==d")
+                log.info(f"{d} Detections rows indicies: {rows}")
                 if rows.size > 1:
+                    log.info(f"Removing {rows[1]},{rows[-1]+1}")
                     dtb.remove_rows(rows[1],rows[-1]+1)
                     dtb.flush()
 
                 #CalibratedSpectra (one per detectid)
                 rows = stb.get_where_list("detectid==d")
+                log.info(f"{d} CalibratedSpectra rows indicies: {rows}")
                 if rows.size > 1:
+                    log.info(f"Removing {rows[1]},{rows[-1] + 1}")
                     stb.remove_rows(rows[1],rows[-1]+1)
                     stb.flush()
 
                 #SpectraLines
                 rows = ltb.get_where_list("detectid==d")
+                log.info(f"{d} SpectraLines rows indicies: {rows}")
                 if rows.size > 1:
                     start = rows.size / c
                     if start.is_integer():
                         start = int(start)
+                        log.info(f"Removing {rows[start]},{rows[-1] + 1}")
                         ltb.remove_rows(rows[start],rows[-1]+1)
                         ltb.flush()
 
                 #Aperture
                 rows = atb.get_where_list("detectid==d")
+                log.info(f"{d} Aperture rows indicies: {rows}")
                 if rows.size > 1:
                     start = rows.size / c
                     if start.is_integer():
                         start = int(start)
+                        log.info(f"Removing {rows[start]},{rows[-1] + 1}")
                         atb.remove_rows(rows[start],rows[-1]+1)
                         atb.flush()
 
                 #CatalogMatch
                 rows = ctb.get_where_list("detectid==d")
+                log.info(f"{d} CatalogMatch rows indicies: {rows}")
                 if rows.size > 1:
                     start = rows.size / c
                     if start.is_integer():
                         start = int(start)
+                        log.info(f"Removing {rows[start]},{rows[-1] + 1}")
                         ctb.remove_rows(rows[start], rows[-1] + 1)
                         ctb.flush()
 
                 #ExtractedObjects
                 rows = etb.get_where_list("detectid==d")
+                log.info(f"{d} ExtractedObjects rows indicies: {rows}")
                 if rows.size > 1:
                     start = rows.size / c
                     if start.is_integer():
                         start = int(start)
+                        log.info(f"Removing {rows[start]},{rows[-1] + 1}")
                         etb.remove_rows(rows[start], rows[-1] + 1)
                         etb.flush()
 
                 #ElixerApertures
                 rows = xtb.get_where_list("detectid==d")
+                log.info(f"{d} ElixerApertures rows indicies: {rows}")
                 if rows.size > 1:
                     start = rows.size / c
                     if start.is_integer():
                         start = int(start)
+                        log.info(f"Removing {rows[start]},{rows[-1] + 1}")
                         xtb.remove_rows(rows[start], rows[-1] + 1)
                         xtb.flush()
 
