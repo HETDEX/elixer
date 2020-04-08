@@ -1142,6 +1142,7 @@ def remove_duplicates(file):
                         xtb.remove_row(rowidx)
                     xtb.flush()
 
+                flush_all(h5)
             except:
                 log.error(f"Exception removing rows for {d}")
 
