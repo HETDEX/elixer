@@ -393,7 +393,7 @@ def parse_commandline(auto_force=False):
         print("Upgrading catalog file (ignoring all other parameters) ... ")
         return args
 
-    if arge.remove_duplicates:
+    if args.remove_duplicates:
         print("Removing HDF5 duplicate rows (ignoring all other parameters) ... ")
         return args
 
