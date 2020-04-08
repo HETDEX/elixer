@@ -1034,7 +1034,7 @@ def remove_duplicates(file):
     """
 
     try:
-        h5 = get_hdf5_filehandle(file1, append=True, allow_overwrite=True, must_exist=True)
+        h5 = get_hdf5_filehandle(file, append=True, allow_overwrite=True, must_exist=True)
 
         if h5 is None:
             log.info("Unable to open source file for remove_duplicates.")
