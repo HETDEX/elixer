@@ -1089,43 +1089,48 @@ def remove_duplicates(file):
 
                 #SpectraLines
                 rows = ltb.get_where_list("detectid==d")
-                start = rows.size / c
-                if start.is_integer():
-                    start = int(start)
-                    ltb.remove_rows(rows[start],rows[-1]+1)
-                    ltb.flush()
+                if rows.size > 1:
+                    start = rows.size / c
+                    if start.is_integer():
+                        start = int(start)
+                        ltb.remove_rows(rows[start],rows[-1]+1)
+                        ltb.flush()
 
                 #Aperture
                 rows = atb.get_where_list("detectid==d")
-                start = rows.size / c
-                if start.is_integer():
-                    start = int(start)
-                    atb.remove_rows(rows[start],rows[-1]+1)
-                    atb.flush()
+                if rows.size > 1:
+                    start = rows.size / c
+                    if start.is_integer():
+                        start = int(start)
+                        atb.remove_rows(rows[start],rows[-1]+1)
+                        atb.flush()
 
                 #CatalogMatch
                 rows = ctb.get_where_list("detectid==d")
-                start = rows.size / c
-                if start.is_integer():
-                    start = int(start)
-                    ctb.remove_rows(rows[start], rows[-1] + 1)
-                    ctb.flush()
+                if rows.size > 1:
+                    start = rows.size / c
+                    if start.is_integer():
+                        start = int(start)
+                        ctb.remove_rows(rows[start], rows[-1] + 1)
+                        ctb.flush()
 
                 #ExtractedObjects
                 rows = etb.get_where_list("detectid==d")
-                start = rows.size / c
-                if start.is_integer():
-                    start = int(start)
-                    etb.remove_rows(rows[start], rows[-1] + 1)
-                    etb.flush()
+                if rows.size > 1:
+                    start = rows.size / c
+                    if start.is_integer():
+                        start = int(start)
+                        etb.remove_rows(rows[start], rows[-1] + 1)
+                        etb.flush()
 
                 #ElixerApertures
                 rows = xtb.get_where_list("detectid==d")
-                start = rows.size / c
-                if start.is_integer():
-                    start = int(start)
-                    xtb.remove_rows(rows[start], rows[-1] + 1)
-                    xtb.flush()
+                if rows.size > 1:
+                    start = rows.size / c
+                    if start.is_integer():
+                        start = int(start)
+                        xtb.remove_rows(rows[start], rows[-1] + 1)
+                        xtb.flush()
 
 
 
