@@ -1079,12 +1079,14 @@ def remove_duplicates(file):
                 if rows.size > 1:
                     for rowidx in rows[1:]: #keep the first one
                         dtb.remove_row(rowidx)
+                        dtb.flush()
 
                 #CalibratedSpectra (one per detectid)
                 rows = stb.get_where_list("detectid==d")
                 if rows.size > 1:
                     for rowidx in rows[1:]:  # keep the first one
                         stb.remove_row(rowidx)
+                        stb.flush()
 
                 #SpectraLines
                 rows = ltb.get_where_list("detectid==d")
@@ -1093,6 +1095,7 @@ def remove_duplicates(file):
                     start = int(start)
                     for rowidx in rows[start:]:  # keep the first one
                         ltb.remove_row(rowidx)
+                        ltb.flush()
 
                 #Aperture
                 rows = atb.get_where_list("detectid==d")
@@ -1101,6 +1104,7 @@ def remove_duplicates(file):
                     start = int(start)
                     for rowidx in rows[start:]:  # keep the first one
                         atb.remove_row(rowidx)
+                        atb.flush()
 
                 #CatalogMatch
                 rows = ctb.get_where_list("detectid==d")
@@ -1109,6 +1113,7 @@ def remove_duplicates(file):
                     start = int(start)
                     for rowidx in rows[start:]:  # keep the first one
                         ctb.remove_row(rowidx)
+                        ctb.flush()
 
                 #ExtractedObjects
                 rows = etb.get_where_list("detectid==d")
@@ -1117,6 +1122,7 @@ def remove_duplicates(file):
                     start = int(start)
                     for rowidx in rows[start:]:  # keep the first one
                         etb.remove_row(rowidx)
+                        etb.flush()
 
                 #ElixerApertures
                 rows = xtb.get_where_list("detectid==d")
@@ -1125,6 +1131,7 @@ def remove_duplicates(file):
                     start = int(start)
                     for rowidx in rows[start:]:  # keep the first one
                         xtb.remove_row(rowidx)
+                        xtb.flush()
 
             except:
                 log.error(f"Exception removing rows for {d}")

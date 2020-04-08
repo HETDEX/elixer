@@ -391,11 +391,11 @@ def parse_commandline(auto_force=False):
 
     if args.upgrade_hdf5:
         print("Upgrading catalog file (ignoring all other parameters) ... ")
-        print("This can take a long time depending on total number of records.")
         return args
 
     if args.remove_duplicates:
         print("Removing HDF5 duplicate rows (ignoring all other parameters) ... ")
+        print("This can take a long time depending on total number of records.")
         return args
 
     if args.merge or args.merge_unique:
