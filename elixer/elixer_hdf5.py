@@ -1082,7 +1082,7 @@ def remove_duplicates(file):
                     rows = np.flip(rows) #flip
                     for rowidx in rows[:-1]: #keep the first one
                         dtb.remove_row(rowidx)
-                        dtb.flush()
+                    dtb.flush()
 
                 #CalibratedSpectra (one per detectid)
                 rows = stb.get_where_list("detectid==d")
@@ -1090,7 +1090,7 @@ def remove_duplicates(file):
                     rows = np.flip(rows)  # flip
                     for rowidx in rows[:-1]:  # keep the first one
                         stb.remove_row(rowidx)
-                        stb.flush()
+                    stb.flush()
 
                 #SpectraLines
                 rows = ltb.get_where_list("detectid==d")
@@ -1100,7 +1100,7 @@ def remove_duplicates(file):
                     rows = np.flip(rows)  # flip
                     for rowidx in rows[:-stop]:
                         ltb.remove_row(rowidx)
-                        ltb.flush()
+                    ltb.flush()
 
                 #Aperture
                 rows = atb.get_where_list("detectid==d")
@@ -1110,7 +1110,7 @@ def remove_duplicates(file):
                     rows = np.flip(rows)  # flip
                     for rowidx in rows[:-stop]:
                         atb.remove_row(rowidx)
-                        atb.flush()
+                    atb.flush()
 
                 #CatalogMatch
                 rows = ctb.get_where_list("detectid==d")
@@ -1120,7 +1120,7 @@ def remove_duplicates(file):
                     rows = np.flip(rows)  # flip
                     for rowidx in rows[:-stop]:
                         ctb.remove_row(rowidx)
-                        ctb.flush()
+                    ctb.flush()
 
                 #ExtractedObjects
                 rows = etb.get_where_list("detectid==d")
@@ -1130,7 +1130,7 @@ def remove_duplicates(file):
                     rows = np.flip(rows)  # flip
                     for rowidx in rows[:-stop]:
                         etb.remove_row(rowidx)
-                        etb.flush()
+                    etb.flush()
 
                 #ElixerApertures
                 rows = xtb.get_where_list("detectid==d")
@@ -1140,7 +1140,7 @@ def remove_duplicates(file):
                     rows = np.flip(rows)  # flip
                     for rowidx in rows[:-stop]:
                         xtb.remove_row(rowidx)
-                        xtb.flush()
+                    xtb.flush()
 
             except:
                 log.error(f"Exception removing rows for {d}")
