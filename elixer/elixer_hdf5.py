@@ -1025,7 +1025,112 @@ def extend_elixer_hdf5(fname,hd_list=[],overwrite=False):
     print("File written: %s" %fname)
     log.info("File written: %s" %fname)
 
+def remove_duplicates(file):
+    """
+    Scan the Detections table for duplicate detectIDs and then remove the duplicate rows in all tables.
 
+    :param file:
+    :return:
+    """
+
+    try:
+        h5 = get_hdf5_filehandle(file1, append=True, allow_overwrite=True, must_exist=True)
+
+        if h5 is None:
+            log.info("Unable to open source file for remove_duplicates.")
+            return False
+
+    except:
+        log.error("Exception! in elixer_hdf5::remove_duplicates", exc_info=True)
+
+
+    try:
+        dtb = h5.root.Detections
+        stb = h5.root.CalibratedSpectra
+        ltb = h5.root.SpectraLines
+        atb = h5.root.Aperture
+        ctb = h5.root.CatalogMatch
+        etb = h5.root.ExtractedObjects #new MUST have this table
+        xtb = h5.root.ElixerApertures
+
+        detectids = dtb.read()['detectid']
+
+        #identify the duplicates
+        u, uidx, ucts = np.unique(detectids, return_index=True, return_counts=True)
+        sel = np.where(ucts > 1)
+        dups = detectids[sel]
+        cts = ucts[sel]
+        idx = uidx[sel]
+
+        log.info(f"Removing duplicates for {len(dups)} detections ...")
+
+        #find the rows in each table for the duplicates
+        for d,c,i in zip(dups,cts,idx):
+            try:
+
+                log.info(f"Removing {c-1} duplicates for {d} ...")
+
+                #Detections table is one row per (one per detectid)
+                rows = dtb.get_where_list("detectid==d")
+                if rows.size > 1:
+                    for rowidx in rows[1:]: #keep the first one
+                        dtb.remove_row(rowidx)
+
+                #CalibratedSpectra (one per detectid)
+                rows = stb.get_where_list("detectid==d")
+                if rows.size > 1:
+                    for rowidx in rows[1:]:  # keep the first one
+                        stb.remove_row(rowidx)
+
+                #SpectraLines
+                rows = ltb.get_where_list("detectid==d")
+                start = rows.size / c
+                if start.is_integer():
+                    start = int(start)
+                    for rowidx in rows[start:]:  # keep the first one
+                        ltb.remove_row(rowidx)
+
+                #Aperture
+                rows = atb.get_where_list("detectid==d")
+                start = rows.size / c
+                if start.is_integer():
+                    start = int(start)
+                    for rowidx in rows[start:]:  # keep the first one
+                        atb.remove_row(rowidx)
+
+                #CatalogMatch
+                rows = ctb.get_where_list("detectid==d")
+                start = rows.size / c
+                if start.is_integer():
+                    start = int(start)
+                    for rowidx in rows[start:]:  # keep the first one
+                        ctb.remove_row(rowidx)
+
+                #ExtractedObjects
+                rows = etb.get_where_list("detectid==d")
+                start = rows.size / c
+                if start.is_integer():
+                    start = int(start)
+                    for rowidx in rows[start:]:  # keep the first one
+                        etb.remove_row(rowidx)
+
+                #ElixerApertures
+                rows = xtb.get_where_list("detectid==d")
+                start = rows.size / c
+                if start.is_integer():
+                    start = int(start)
+                    for rowidx in rows[start:]:  # keep the first one
+                        xtb.remove_row(rowidx)
+
+            except:
+                log.error(f"Exception removing rows for {d}")
+
+        flush_all(h5)
+        h5.close()
+
+    except:
+        log.error("Exception! conducting merge in elixer_hdf5::merge_unique", exc_info=True)
+        return False
 
 def merge_unique(newfile,file1,file2):
     """

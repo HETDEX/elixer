@@ -290,6 +290,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--merge', help='Merge all cat and fib txt files',
                         required=False, action='store_true', default=False)
 
+    parser.add_argument('--remove_duplicates', help='Remove duplicate rows in specified elixer HDF5 catalog file.',
+                        required=False)
+
     parser.add_argument('--merge_unique', help='Merge two ELiXer HDF5 files into a new file keeping the more recent '
                                                'detection. Format: new-file,file1,file2', required=False)
 
@@ -1898,6 +1901,13 @@ def upgrade_hdf5(args=None):
         log.error("Exception! upgrading HDF5 file in upgrade_hdf5",exc_info=True)
 
 
+def remove_h5_duplicate_rows(args=None):
+    try:
+        result = elixer_hdf5.remove_duplicates(args.remove_duplicates)
+    except:
+        log.error("Exception! merging HDF5 files in merge_unique", exc_info=True)
+
+
 def merge_unique(args=None):
 
     try:
@@ -2737,6 +2747,10 @@ def main():
 
     if args.upgrade_hdf5:
         upgrade_hdf5(args)
+        exit(0)
+
+    if args.remove_duplicates:
+        remove_h5_duplicate_rows(args)
         exit(0)
 
     if args.merge_unique:
