@@ -1199,7 +1199,7 @@ def remove_duplicates(file):
 
                 flush_all(h5)
             except:
-                log.error(f"Exception removing rows for {d}")
+                log.error(f"Exception removing rows for {d}",exc_info=True)
 
         log.info("Remove duplicate rows complete. Flushing the file ...")
         flush_all(h5)
