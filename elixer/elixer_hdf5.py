@@ -1100,7 +1100,7 @@ def remove_duplicates(file):
                 start = rows.size / c
                 if start.is_integer():
                     start = int(start)
-                    atb.remove_row(rows[start],rows[-1]+1)
+                    atb.remove_rows(rows[start],rows[-1]+1)
                     atb.flush()
 
                 #CatalogMatch
@@ -1108,7 +1108,7 @@ def remove_duplicates(file):
                 start = rows.size / c
                 if start.is_integer():
                     start = int(start)
-                    ctb.remove_row(rows[start], rows[-1] + 1)
+                    ctb.remove_rows(rows[start], rows[-1] + 1)
                     ctb.flush()
 
                 #ExtractedObjects
@@ -1116,7 +1116,7 @@ def remove_duplicates(file):
                 start = rows.size / c
                 if start.is_integer():
                     start = int(start)
-                    etb.remove_row(rows[start], rows[-1] + 1)
+                    etb.remove_rows(rows[start], rows[-1] + 1)
                     etb.flush()
 
                 #ElixerApertures
@@ -1124,7 +1124,7 @@ def remove_duplicates(file):
                 start = rows.size / c
                 if start.is_integer():
                     start = int(start)
-                    xtb.remove_row(rows[start], rows[-1] + 1)
+                    xtb.remove_rows(rows[start], rows[-1] + 1)
                     xtb.flush()
 
 
