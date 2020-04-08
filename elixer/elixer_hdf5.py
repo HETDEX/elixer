@@ -1070,6 +1070,10 @@ def remove_duplicates(file):
 
                 log.info(f"Removing {c-1} duplicates for {d} ...")
 
+                #assuming the rows are in order, but may not be continguous
+                #that is, all the rows belonging to the first instance of the detectID appear before any other
+                #duplicate rows, BUT, there could be different detectID rows interspersed, so we delete one row at a time
+
                 #Detections table is one row per (one per detectid)
                 rows = dtb.get_where_list("detectid==d")
                 if rows.size > 1:
@@ -1125,8 +1129,10 @@ def remove_duplicates(file):
             except:
                 log.error(f"Exception removing rows for {d}")
 
+        log.info("Remove duplicate rows complete. Flushing the file ...")
         flush_all(h5)
         h5.close()
+        log.info("Remove duplicates complete. Done.")
 
     except:
         log.error("Exception! conducting merge in elixer_hdf5::merge_unique", exc_info=True)
