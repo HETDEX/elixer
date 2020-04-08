@@ -1064,6 +1064,10 @@ def remove_duplicates(file):
 
         log.info(f"Removing duplicates for {len(dups)} detections ...")
 
+        for d in dups:
+            rows = dtb.get_where_list("detectid==d")
+            log.info(f"Sanity check: {d} Detections rows indicies: {rows}")
+
         #find the rows in each table for the duplicates
         for d,c in zip(dups,cts):
             try:
@@ -1081,7 +1085,7 @@ def remove_duplicates(file):
                 if rows.size > 1:
                     log.info(f"Removing {rows[1]},{rows[-1]+1}")
                     dtb.remove_rows(rows[1],rows[-1]+1)
-                    dtb.flush()
+                    #dtb.flush()
 
                 #CalibratedSpectra (one per detectid)
                 rows = stb.get_where_list("detectid==d")
@@ -1089,7 +1093,7 @@ def remove_duplicates(file):
                 if rows.size > 1:
                     log.info(f"Removing {rows[1]},{rows[-1] + 1}")
                     stb.remove_rows(rows[1],rows[-1]+1)
-                    stb.flush()
+                    #stb.flush()
 
                 #SpectraLines
                 rows = ltb.get_where_list("detectid==d")
@@ -1100,7 +1104,7 @@ def remove_duplicates(file):
                         start = int(start)
                         log.info(f"Removing {rows[start]},{rows[-1] + 1}")
                         ltb.remove_rows(rows[start],rows[-1]+1)
-                        ltb.flush()
+                        #ltb.flush()
 
                 #Aperture
                 rows = atb.get_where_list("detectid==d")
@@ -1111,7 +1115,7 @@ def remove_duplicates(file):
                         start = int(start)
                         log.info(f"Removing {rows[start]},{rows[-1] + 1}")
                         atb.remove_rows(rows[start],rows[-1]+1)
-                        atb.flush()
+                        #atb.flush()
 
                 #CatalogMatch
                 rows = ctb.get_where_list("detectid==d")
@@ -1122,7 +1126,7 @@ def remove_duplicates(file):
                         start = int(start)
                         log.info(f"Removing {rows[start]},{rows[-1] + 1}")
                         ctb.remove_rows(rows[start], rows[-1] + 1)
-                        ctb.flush()
+                        #ctb.flush()
 
                 #ExtractedObjects
                 rows = etb.get_where_list("detectid==d")
@@ -1133,7 +1137,7 @@ def remove_duplicates(file):
                         start = int(start)
                         log.info(f"Removing {rows[start]},{rows[-1] + 1}")
                         etb.remove_rows(rows[start], rows[-1] + 1)
-                        etb.flush()
+                        #etb.flush()
 
                 #ElixerApertures
                 rows = xtb.get_where_list("detectid==d")
@@ -1144,7 +1148,7 @@ def remove_duplicates(file):
                         start = int(start)
                         log.info(f"Removing {rows[start]},{rows[-1] + 1}")
                         xtb.remove_rows(rows[start], rows[-1] + 1)
-                        xtb.flush()
+                        #xtb.flush()
 
 
 
@@ -1216,7 +1220,7 @@ def remove_duplicates(file):
                 #         xtb.remove_row(rowidx)
                 #     xtb.flush()
 
-                flush_all(h5)
+                #flush_all(h5)
             except:
                 log.error(f"Exception removing rows for {d}",exc_info=True)
 
