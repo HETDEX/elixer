@@ -1074,62 +1074,71 @@ def remove_duplicates(file):
                 #that is, all the rows belonging to the first instance of the detectID appear before any other
                 #duplicate rows, BUT, there could be different detectID rows interspersed, so we delete one row at a time
 
+                #row count changes with each remove, so work in reverse order
+
                 #Detections table is one row per (one per detectid)
                 rows = dtb.get_where_list("detectid==d")
                 if rows.size > 1:
-                    for rowidx in rows[1:]: #keep the first one
+                    rows = np.flip(rows) #flip
+                    for rowidx in rows[:-1]: #keep the first one
                         dtb.remove_row(rowidx)
                         dtb.flush()
 
                 #CalibratedSpectra (one per detectid)
                 rows = stb.get_where_list("detectid==d")
                 if rows.size > 1:
-                    for rowidx in rows[1:]:  # keep the first one
+                    rows = np.flip(rows)  # flip
+                    for rowidx in rows[:-1]:  # keep the first one
                         stb.remove_row(rowidx)
                         stb.flush()
 
                 #SpectraLines
                 rows = ltb.get_where_list("detectid==d")
-                start = rows.size / c
-                if start.is_integer():
-                    start = int(start)
-                    for rowidx in rows[start:]:  # keep the first one
+                stop = rows.size / c
+                if stop.is_integer():
+                    stop = int(stop)
+                    rows = np.flip(rows)  # flip
+                    for rowidx in rows[:-stop]:
                         ltb.remove_row(rowidx)
                         ltb.flush()
 
                 #Aperture
                 rows = atb.get_where_list("detectid==d")
-                start = rows.size / c
-                if start.is_integer():
-                    start = int(start)
-                    for rowidx in rows[start:]:  # keep the first one
+                stop = rows.size / c
+                if stop.is_integer():
+                    stop = int(stop)
+                    rows = np.flip(rows)  # flip
+                    for rowidx in rows[:-stop]:
                         atb.remove_row(rowidx)
                         atb.flush()
 
                 #CatalogMatch
                 rows = ctb.get_where_list("detectid==d")
-                start = rows.size / c
-                if start.is_integer():
-                    start = int(start)
-                    for rowidx in rows[start:]:  # keep the first one
+                stop = rows.size / c
+                if stop.is_integer():
+                    stop = int(stop)
+                    rows = np.flip(rows)  # flip
+                    for rowidx in rows[:-stop]:
                         ctb.remove_row(rowidx)
                         ctb.flush()
 
                 #ExtractedObjects
                 rows = etb.get_where_list("detectid==d")
-                start = rows.size / c
-                if start.is_integer():
-                    start = int(start)
-                    for rowidx in rows[start:]:  # keep the first one
+                stop = rows.size / c
+                if stop.is_integer():
+                    stop = int(stop)
+                    rows = np.flip(rows)  # flip
+                    for rowidx in rows[:-stop]:
                         etb.remove_row(rowidx)
                         etb.flush()
 
                 #ElixerApertures
                 rows = xtb.get_where_list("detectid==d")
-                start = rows.size / c
-                if start.is_integer():
-                    start = int(start)
-                    for rowidx in rows[start:]:  # keep the first one
+                stop = rows.size / c
+                if stop.is_integer():
+                    stop = int(stop)
+                    rows = np.flip(rows)  # flip
+                    for rowidx in rows[:-stop]:
                         xtb.remove_row(rowidx)
                         xtb.flush()
 
