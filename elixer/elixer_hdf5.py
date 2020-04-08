@@ -1083,6 +1083,7 @@ def merge_unique(newfile,file1,file2):
 
                 date1 = dtb1.read_where('detectid==d')['elixer_datetime']
                 date2 = dtb2.read_where('detectid==d')['elixer_datetime']
+                date_new = dtb_new.read_where('detectid==d')['elixer_datetime']
                 q_date = None
 
                 #temporary
@@ -1118,6 +1119,25 @@ def merge_unique(newfile,file1,file2):
                     else:
                         source_h = file2_handle
                         q_date = best_date2
+
+                #now check the that NEW file does not already have this
+                if date_new.size == 0: #it does not, so proceed
+                    pass
+                elif date_new.size == 1:
+                    if date_new < q_date:
+                        #the "new" file is already out of date (from a previous trip through this loop)
+                        #really, this should not happen either and for now, just alarm and move on
+                        print(f"Elixer merge_unique, new file already found for {d}")
+                        log.error(f"Elixer merge_unique, new file already found for {d}")
+                        continue
+                    else: #already good
+                        print(f"Elixer merge_unique, new file already found for {d}. Date is good. Keeping ...")
+                        log.info(f"Elixer merge_unique, new file already found for {d}. Date is good. Keeping ...")
+                        continue
+                else: #this should be impossible
+                    print(f"Elixer merge_unique, multiple entries ({date_new.size}) in new file already found for {d}")
+                    log.error(f"Elixer merge_unique, multiple entries ({date_new.size}) in new file already found for {d}")
+                    continue
 
 
                 if source_h is None:
