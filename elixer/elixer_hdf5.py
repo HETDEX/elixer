@@ -1058,14 +1058,14 @@ def remove_duplicates(file):
         #identify the duplicates
         u, uidx, ucts = np.unique(detectids, return_index=True, return_counts=True)
         sel = np.where(ucts > 1)
-        dups = detectids[sel]
-        cts = ucts[sel]
-        idx = uidx[sel]
+        dups = detectids[sel][:] #need to be fixed at this time, so make a copy
+        cts = ucts[sel][:]
+        #idx = uidx[sel][:]
 
         log.info(f"Removing duplicates for {len(dups)} detections ...")
 
         #find the rows in each table for the duplicates
-        for d,c,i in zip(dups,cts,idx):
+        for d,c in zip(dups,cts):
             try:
 
                 log.info(f"Removing {c-1} duplicates for {d} ...")
