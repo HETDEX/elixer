@@ -1737,6 +1737,18 @@ class DetObj:
             continuum = np.array(continuum)
             variance = np.array(variance)
             weight = np.array(weight)
+
+            #clean up: don't use if sd (or sqrt variance) is larger than the actual measurement
+            for i in range(len(continuum)):
+                try:
+                    if np.sqrt(variance[i]) > continuum[i]:
+                        weight[i] = 0
+                        log.debug(f"Error (sd) ({np.sqrt(variance[i])}): {variance[i]} too high vs continuum {continuum[i]}. Weight zeroed.")
+
+                except:
+                    weight[i] = 0
+                    log.debug(f"Exception checking variance {variance[i]} vs continuum {continuum[i]}. Weight zeroed.")
+
             #v2 = variance*variance
 
             continuum_hat = np.sum(continuum * weight / variance) / np.sum(weight / variance)
