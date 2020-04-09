@@ -1,7 +1,7 @@
 changes to elixer by version
 
 
-1.8.3a1 [2020-04-09]
+1.8.3a2 [2020-04-09]
 * fix error in source extractor ellipse effective radius (was reporting the starting ciruclar radius, not
   the computed
 * when computing combined continuum estimate, disregard estimates whose error is larger than the measurement
