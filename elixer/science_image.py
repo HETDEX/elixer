@@ -1039,7 +1039,11 @@ class science_image():
                             self.last_x_center = (sobj['x'] + cutout.center_cutout[0]) * self.pixel_size
                             self.last_y_center = (sobj['y'] + cutout.center_cutout[1]) * self.pixel_size
 
-                            details['radius'] = radius
+                            #details['radius'] = radius
+                            try:
+                                details['radius'] = 0.5*np.sqrt(sobj['a']*sobj['b']) #0.5 * because a,b are diameters, not radii
+                            except:
+                                details['radius'] = -1.0
 
                             details['aperture_counts'] = counts #Already Sky subtracted
                             #todo: modify find_sep_objects to get this extra info

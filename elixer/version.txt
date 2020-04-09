@@ -1,8 +1,13 @@
 changes to elixer by version
 
-1.8.3a1
-* explicitly trap NoOverlap error so it does not generate an exception report in the log
 
+1.8.3a1 [2020-04-09]
+* fix error in source extractor ellipse effective radius (was reporting the starting ciruclar radius, not
+  the computed
+
+
+1.8.3a1 [2020-04-02]
+* explicitly trap NoOverlap error so it does not generate an exception report in the log
 
 1.8.2 [2020-04-01]
 * promote to release, set as HDR2 baseline
