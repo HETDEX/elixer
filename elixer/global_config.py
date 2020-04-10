@@ -749,4 +749,4 @@ ZEROTH_ROW_HEADER = True # and put this in the zeroth row header
 MAX_OK_UNMATCHED_LINES = 0
 MAX_OK_UNMATCHED_LINES_SCORE = MULTILINE_MIN_SOLUTION_SCORE #25.0
 
-MIN_PIXEL_FLAT_CENTER_RATIO = 0.80 #if less than this, the center is bad and may create a false emission line
+MIN_PIXEL_FLAT_CENTER_RATIO = 0.85 #if less than this, the center is bad and may create a false emission line
