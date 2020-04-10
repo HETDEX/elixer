@@ -169,6 +169,7 @@ class Fiber:
         self.multi = None
         self.raw_weight = 1.0 #raw weight from Karl
         self.relative_weight = 1.0 #spatially calculated, so one for entire fiber
+        self.pixel_flat_center_ratio = 1.0 #ratio of the position of emission line to the rest of the pixel flat
         # to sum fibers need relative_weight*thuput at each wavelength
 
         #full length CALIBRATED (labeled 'central' but this is the whole length)

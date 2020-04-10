@@ -717,8 +717,11 @@ INCLUDE_ALL_AMPS = True #ie. if true, ignore the bad amp list
 RECOVERY_RUN = False
 
 ALLOW_EMPTY_IMAGE = False #do not return cutout if it is empty or a simple gradient (essentially, if it has no data)
-#note: Pan-STARRS is prioritized over SDSS (since Pan-STARRS is deeper 23.3 vs 22.0)
+FRAC_UNIQUE_PIXELS_NOT_EMPTY = 0.1 #less than --> empty
+FRAC_UNIQUE_PIXELS_AUTOCORRELATE = 0.66 #less than --> empty (with an autocorrelation)
+FRAC_NONZERO_PIXELS = 0.66 #less than --> empty
 
+#note: Pan-STARRS is prioritized over SDSS (since Pan-STARRS is deeper 23.3 vs 22.0)
 DECALS_WEB_ALLOW = True #if no other catalogs match, try DECaLS as online query (default if not dispatch mode)
 DECALS_WEB_FORCE = False #ignore local catalogs and Force the use of only DECaLS
 
@@ -745,3 +748,5 @@ ZEROTH_ROW_HEADER = True # and put this in the zeroth row header
 #penalties for solutions that fail to account for all lines
 MAX_OK_UNMATCHED_LINES = 0
 MAX_OK_UNMATCHED_LINES_SCORE = MULTILINE_MIN_SOLUTION_SCORE #25.0
+
+MIN_PIXEL_FLAT_CENTER_RATIO = 0.80 #if less than this, the center is bad and may create a false emission line

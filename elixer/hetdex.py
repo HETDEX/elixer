@@ -1148,23 +1148,48 @@ class DetObj:
         # now add to the global likelihood and weight
         # choose the best weight in each class ... if a tie, choose the higher likelihood
 
-        #
-        # Combine them all
-        #
 
-        likelihood = np.array(likelihood)
-        weight = np.array(weight)
-        var = np.array(var) #right now, this is just weight based, all variances are set to 1
-        prior = np.array(prior) #not using Bayes yet, so this is ignored
 
-        try:
-            if len(likelihood) > 0:
-                scaled_prob_lae = np.sum(likelihood*weight/var)/np.sum(weight/var) #/ len(likelihood)
-                self.classification_dict['scaled_plae'] = scaled_prob_lae
-                log.info(f"{self.entry_id} Scaled Prob(LAE) {scaled_prob_lae:0.4f}")
-                #print(f"{self.entry_id} Scaled Prob(LAE) {scaled_prob_lae:0.4f}")
-        except:
-            log.debug("Exception in aggregate_classification final combination",exc_info=True)
+        #check for bad pixel flats
+        bad_pixflt_weight = 0
+        for fidx in range(len(self.fibers)): #are in decreasing order of weight
+            if self.fibers[fidx].pixel_flat_center_ratio < G.MIN_PIXEL_FLAT_CENTER_RATIO:
+                bad_pixflt_weight += self.fibers[fidx].relative_weight
+                likelihood.append(0)
+                weight.append(1.0 + self.fibers[fidx].relative_weight) #more central fibers make this more likely to trigger
+                var.append(1)
+                prior.append(0)
+                log.info(f"Aggregate Classification: bad pixel flat for fiber #{fidx+1}. lk({likelihood[-1]}) weight({weight[-1]})")
+
+
+
+        #don't just drive down the PLAE, make it negative as a flag
+        if bad_pixflt_weight > 0.5:
+            # likelihood.append(-1)
+            # weight.append(999)  # more central fibers make this more likely to trigger
+            # var.append(1)
+            # prior.append(0)
+            scaled_prob_lae = -1
+            self.classification_dict['scaled_plae'] = scaled_prob_lae
+            log.info(f"Aggregate Classification: bad pixel flat dominates. Setting PLAE to -1 (spurious)")
+        else:
+            #
+            # Combine them all
+            #
+
+            likelihood = np.array(likelihood)
+            weight = np.array(weight)
+            var = np.array(var) #right now, this is just weight based, all variances are set to 1
+            prior = np.array(prior) #not using Bayes yet, so this is ignored
+
+            try:
+                if len(likelihood) > 0:
+                    scaled_prob_lae = np.sum(likelihood*weight/var)/np.sum(weight/var) #/ len(likelihood)
+                    self.classification_dict['scaled_plae'] = scaled_prob_lae
+                    log.info(f"{self.entry_id} Scaled Prob(LAE) {scaled_prob_lae:0.4f}")
+                    #print(f"{self.entry_id} Scaled Prob(LAE) {scaled_prob_lae:0.4f}")
+            except:
+                log.debug("Exception in aggregate_classification final combination",exc_info=True)
 
 
         return scaled_prob_lae
@@ -6206,6 +6231,8 @@ class HETDEX:
                     datakeep['pix'].append(deepcopy(blank))
                     datakeep['fw_pix'].append(deepcopy(pixel_flat_buf[yl:yh, 0:FRAME_WIDTH_X - 1]))
 
+                    #note: check for bad flat in the plot creation where the owning fiber is better known
+
                 else:
                     load_blank = True
 
@@ -6213,9 +6240,6 @@ class HETDEX:
                     # todo: this is really sloppy ... make a better/more efficient pattern
                     log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
                     datakeep['pix'].append(deepcopy(blank_pixel_flat(xh, xl, yh, yl)))
-
-
-
 
 
                 #1D spectrum (spec is counts, specwave is the corresponding wavelength)
@@ -6420,6 +6444,22 @@ class HETDEX:
 
                     pix_image = datakeep['pix'][ind[i]]
                     image = datakeep['im'][ind[i]]  # im can be the cosmic removed version, depends on G.PreferCosmicCleaned
+
+
+                    # check for bad flat in the center (where emission line would be)
+                    # check 9 central pixels (using "blank")
+                    try:
+                        cy,cx = np.array(np.shape(pix_image))//2
+                        cntr = pix_image[cy-1:cy+2,cx-1:cx+2]
+                        #yes, I want mean for cntr and median for the whole cutout
+                        cntr_ratio = np.nanmean(cntr) / np.nanmedian(pix_image)
+                        #sorting is different, need to reverse
+                        detobj.fibers[len(detobj.fibers)-i-1].pixel_flat_center_ratio = cntr_ratio
+                        if cntr_ratio < G.MIN_PIXEL_FLAT_CENTER_RATIO:
+                            #could be bad
+                            log.info("Possible bad pixel flat at emission line position")
+                    except:
+                        log.debug("Exception checking for bad pixel flat",exc_info=True)
 
                     cmap1 = cmap
                     cmap1.set_bad(color=[0.2, 1.0, 0.23])

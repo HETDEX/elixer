@@ -1,11 +1,17 @@
 changes to elixer by version
 
 
-1.8.3a2 [2020-04-09]
+1.8.3a2 [2020-04-10]
 * fix error in source extractor ellipse effective radius (was reporting the starting ciruclar radius, not
   the computed
 * when computing combined continuum estimate, disregard estimates whose error is larger than the measurement
-
+* enforce non-empty cutout before calling source extractor
+* add unique pixel check to cutout (must have > 10% unique pixels to be considered usable) [configurable in
+    global_config.py as FRAC_UNIQUE_PIXELS_NOT_EMPTY]
+* add zero value pixel check to cutout (must have more than 2/3 non-zero value pixels) [configurable in
+    global_config.py as FRAC_NONZERO_PIXELS]
+* added check for bad pixel flat to push down aggregate PLAE; if more than 50% of fiber weight with bad pixel flat,
+    the plae_classification is set to -1 (spurious)
 
 1.8.3a1 [2020-04-02]
 * explicitly trap NoOverlap error so it does not generate an exception report in the log

@@ -101,16 +101,38 @@ def is_cutout_empty(cutout):
         if (min(hz) == max(hz)) or (min(vt) == max(vt)):
             #gradient or all same
             rc = True
-            log.info("Gradient or all same pixels found in cutout.")
+            log.warning("Gradient or all same pixels found in cutout.")
         elif (hzc > 0.99) and (vtc > 0.99):
             rc = True
-            log.info("Autocorrelation in cutout implies empty.")
+            log.warning("Autocorrelation in cutout implies empty.")
         # elif (std > 0.0) and (mx-mn)/std < 5.0: #complete width ... like saying all of one side is less than 2.5 std
         #     rc = True
         #     log.info("Too little variation in cutout. Assume empty.")
 
-
-
+        #check unique values
+        #u,uidx,ucts = np.unique(detectids,return_index=True,return_counts=True)
+        if not rc:
+            try:
+                flat = cutout.data.flatten()
+                frac_nonzero = len(np.where(flat!=0)[0])/len(flat)
+                #sat = np.where(flat==) #what is saturated? (depends on each cutout)
+                frac_uniq = len(np.unique(flat)) / len(flat)
+                if frac_uniq < G.FRAC_UNIQUE_PIXELS_NOT_EMPTY:
+                    log.warning(f"Fraction of unique pixels ({frac_uniq}) < ({G.FRAC_UNIQUE_PIXELS_NOT_EMPTY})."
+                             f" Assume cutout is empty or simple pattern.")
+                    rc = True
+                elif ((hzc > 0.99) or (vtc > 0.99)) and (frac_uniq < G.FRAC_UNIQUE_PIXELS_AUTOCORRELATE):
+                    log.warning(f"Fraction of unique pixels ({frac_uniq}) small AND horizontal or vertical "
+                             f"auto-correlaction. Assume cutout is empty or simple pattern.")
+                    rc = True
+                elif frac_nonzero < G.FRAC_NONZERO_PIXELS:
+                    log.warning(f"Fraction of zero pixels ({frac_nonzero}) < ({G.FRAC_NONZERO_PIXELS}). Assume cutout is empty or simple pattern.")
+                    rc = True
+                elif frac_uniq < 0.9:
+                    log.info(f"Low fraction of unique pixels ({frac_uniq}). Image may be bad.")
+                    #print(f"Low fraction of unique pixels ({frac_uniq}). Image may be bad.")
+            except:
+                log.debug("*** Exception! Exception in science_image::is_cutout_empty()", exc_info=True)
     except:
         log.debug("*** Exception! Exception in science_image::is_cutout_empty()", exc_info=True)
 
@@ -984,6 +1006,27 @@ class science_image():
 
         #We have the cutout info, now get aperture photometry
 
+        if is_cutout_empty(cutout):
+            if (G.ALLOW_EMPTY_IMAGE):
+                pass
+                # some cases seem to create problems, but forcing different values
+                # or forcing all the same or all zero does not seem to matter
+                # for matplotlib plot to PDF
+                # it is an empty image anyway, and under normal configuration
+                # this will get the default empty plot
+                # if np.min(cutout.data) == np.max(cutout.data):
+                #     cutout.data *= 0. #set all to exactly zero
+            else:
+                print(
+                    f"Cutout is empty or simple gradient. Will deliberately fail cutout request. {self.image_location}")
+                log.warning(f"Cutout is empty or simple gradient. Will deliberately fail cutout request. {self.image_location}")
+                if return_details:
+                    details['elixer_apertures'] = []
+                    details['elixer_aper_idx'] = None
+                    return None, 0, 99.99, 0, details
+                else:
+                    return None, 0, 99.99, 0
+
         #put down aperture on cutout at RA,Dec and get magnitude
         if (position is not None) and (cutout is not None) and (image is not None) \
                 and (mag_func is not None) and (aperture > 0):
@@ -1080,7 +1123,8 @@ class science_image():
             cutout, counts, mag, radius, details = self.get_circular_aperture_photometry(cutout,ra,dec,error,mag_func,
                                                     position,image,do_sky_subtract,sky_image,
                                                     sky_inner_radius,sky_outer_radius,aperture,
-                                                    details,return_details)
+                                                    details,return_details,check_cutout_empty=False)
+                                                     #cutout empty already checked above
 
             #now which one (counts, mag, radius) to use???
             #todo: do we need to specify if it was from elixer_apertures or sep_objects?
@@ -1132,16 +1176,16 @@ class science_image():
         else:
             return cutout, counts, mag, radius
 
-    # TODO: !!!!!
     def get_circular_aperture_photometry(self,cutout,ra,dec,error,mag_func,position,image,do_sky_subtract,
                                          sky_image,sky_inner_radius,sky_outer_radius,aperture,
-                                         details,return_details):
+                                         details,return_details,check_cutout_empty=True):
         """
 
         :param position:
         :param image:
         :param sky_image:
         :param radius: (set already from calling func, get_cutout
+        :param check_cutout_empty (can set to False IF already checked in caller)
         :return:
 
         radius, mag, counts (that will be vs return_mag, radius, counts
@@ -1162,7 +1206,7 @@ class science_image():
         elixer_aper_idx = None #the selected index
 
 
-        if is_cutout_empty(cutout):
+        if check_cutout_empty and is_cutout_empty(cutout):
             if (G.ALLOW_EMPTY_IMAGE):
                 pass
                 # some cases seem to create problems, but forcing different values
