@@ -852,13 +852,14 @@ class DetObj:
         """
         Use all info available, weighted, to make a classification as to LAE or not LAE
         ?map to 0.0 (not LAE) to 1.0 (LAE)
-        :return:
+        :return: plae, reason string
         """
 
         #assume this IS an LAE (so that's the NULL)
 
         #using some Bayesian language, but not really Bayesian, yet
         #assume roughly half of all detections are LAEs (is that reasonable?)
+        reason = ""
         base_assumption = 0.5 #not used yet
         likelihood = []
         weight = []
@@ -1177,9 +1178,16 @@ class DetObj:
             # weight.append(999)  # more central fibers make this more likely to trigger
             # var.append(1)
             # prior.append(0)
+            reason = "(bad pixel flat)"
             scaled_prob_lae = -1
             self.classification_dict['scaled_plae'] = scaled_prob_lae
             log.info(f"Aggregate Classification: bad pixel flat dominates. Setting PLAE to -1 (spurious)")
+        # check for duplicate pixel positions
+        elif self.num_duplicate_central_pixels > G.MAX_NUM_DUPLICATE_CENTRAL_PIXELS:  # out of the top (usually 4) fibers
+            reason = "(duplicate pixels)"
+            scaled_prob_lae = -1
+            self.classification_dict['scaled_plae'] = scaled_prob_lae
+            log.info(f"Aggregate Classification: bad duplicate central pixels. Setting PLAE to -1 (spurious)")
         else:
             #
             # Combine them all
@@ -1200,7 +1208,7 @@ class DetObj:
                 log.debug("Exception in aggregate_classification final combination",exc_info=True)
 
 
-        return scaled_prob_lae
+        return scaled_prob_lae, reason
 
 
     def combine_all_plae(self,use_continuum=True):

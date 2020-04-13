@@ -3170,7 +3170,7 @@ def main():
                         if True:
                             plae, plae_sd, size_in_psf, diam_in_arcsec = e.combine_all_plae(use_continuum=True)
                             if G.AGGREGATE_PLAE_CLASSIFICATION:
-                                scale_plae = e.aggregate_classification()
+                                scale_plae, reason = e.aggregate_classification()
 
                                 if (scale_plae is None) or np.isnan(scale_plae):
                                     scale_plae = -99.0
@@ -3190,7 +3190,12 @@ def main():
                                         except:
                                             plae_low = -1
 
-                                        header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(LAE): %0.3f" \
+                                        if scale_plae < 0:
+                                            header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(LAE): %d %s" \
+                                                          % (round(plae, 3), round(plae_high, 3), round(plae_low, 3),
+                                                             int(scale_plae), reason)
+                                        else:
+                                            header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(LAE): %0.3f" \
                                                       % (round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae)
                                     except:
                                         pass
