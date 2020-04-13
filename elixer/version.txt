@@ -12,6 +12,8 @@ changes to elixer by version
     global_config.py as FRAC_NONZERO_PIXELS]
 * added check for bad pixel flat to push down aggregate PLAE; if more than 50% of fiber weight with bad pixel flat,
     the plae_classification is set to -1 (spurious)
+* added check for duplicate central pixels in top (usually 4) displayed 2D fiber cutouts (if found,
+    sets plae_classification to -1 (spurious))
 
 1.8.3a1 [2020-04-02]
 * explicitly trap NoOverlap error so it does not generate an exception report in the log

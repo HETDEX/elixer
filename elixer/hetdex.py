@@ -531,6 +531,7 @@ class DetObj:
         self.fibers_sorted = False
         self.outdir = None
         self.calfib_noise_estimate = None
+        self.num_duplicate_central_pixels = 0 #used in classification, if the number is high, more likely to be spurious
 
         #flux calibrated data (from Karl's detect and calibration)
         self.fcsdir = None
@@ -1161,7 +1162,14 @@ class DetObj:
                 prior.append(0)
                 log.info(f"Aggregate Classification: bad pixel flat for fiber #{fidx+1}. lk({likelihood[-1]}) weight({weight[-1]})")
 
-
+        #check for duplicate pixel positions
+        if self.num_duplicate_central_pixels > G.MAX_NUM_DUPLICATE_CENTRAL_PIXELS: #out of the top (usually 4) fibers
+            likelihood.append(0)
+            weight.append(self.num_duplicate_central_pixels)  # more central fibers make this more likely to trigger
+            var.append(1)
+            prior.append(0)
+            log.info(
+                f"Aggregate Classification: bad duplicate central pixels: {self.num_duplicate_central_pixels}. lk({likelihood[-1]}) weight({weight[-1]})")
 
         #don't just drive down the PLAE, make it negative as a flag
         if bad_pixflt_weight > 0.5:
@@ -6414,6 +6422,8 @@ class HETDEX:
 
         #need i to start at zero
         #building from bottom up
+
+        top_pixels = []
         grid_idx = -1
         for i in range(num_fibers+add_summed_image):
             make_display = False
@@ -6460,6 +6470,11 @@ class HETDEX:
                             log.info("Possible bad pixel flat at emission line position")
                     except:
                         log.debug("Exception checking for bad pixel flat",exc_info=True)
+
+
+                    #check for same pixel (as a string for easy compare (all integer values)
+                    #after the loop, make sure they are unique
+                    top_pixels.append(f"{datakeep['ds9_x'][ind[i]]},{datakeep['ds9_y'][ind[i]]}" )
 
                     cmap1 = cmap
                     cmap1.set_bad(color=[0.2, 1.0, 0.23])
@@ -6681,6 +6696,17 @@ class HETDEX:
                     imgplot.text(0.5, 1.3, '2D Spec',
                                  transform=imgplot.transAxes, fontsize=8, color='k',
                                  verticalalignment='top', horizontalalignment='center')
+
+
+
+        #check for unique pixels
+        try:
+            if len(top_pixels) > 1:
+                u,c = np.unique(top_pixels,return_counts=True)
+                # save that info for the classifier
+                detobj.num_duplicate_central_pixels = np.sum(c[np.where(c>1)])
+        except:
+            pass
 
         buf = io.BytesIO()
        # plt.tight_layout()#pad=0.1, w_pad=0.5, h_pad=1.0)
