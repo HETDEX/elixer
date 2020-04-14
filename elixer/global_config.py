@@ -22,7 +22,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.8.3a2'
+__version__ = '1.8.3a3'
 
 #python version
 import sys
@@ -668,7 +668,7 @@ MIN_ADDL_EMIS_LINES_FOR_CLASSIFY = 1
 DISPLAY_ABSORPTION_LINES = False
 MAX_SCORE_ABSORPTION_LINES = 0.0 #the most an absorption line can contribute to the score (set to 0 to turn off)
 
-MULTILINE_MIN_GOOD_ABOVE_NOISE = 4.0 #below this is not consider a possibly good line
+MULTILINE_MIN_GOOD_ABOVE_NOISE = 3.0 #below this is not consider a possibly good line
 MULTILINE_SCORE_NORM_ABOVE_NOISE = 5.0 #get full 1x score at this level
 MULTILINE_SCORE_ABOVE_NOISE_MAX_BONUS = 3.0 #maximum multiplier as max of (peak/noise/NORM, BONUS)
 MULTILINE_MIN_SOLUTION_SCORE = 25.0  #remember, this does NOT include the main line's score (about p(noise) = 0.01)

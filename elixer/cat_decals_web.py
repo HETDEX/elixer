@@ -534,6 +534,10 @@ class DECaLS(cat_base.Catalog):#DECaLS
                                     text.get_text() + "  P(LAE)/P(OII): (%s) (%s)" % ("---", best_plae_poii_filter))
 
                     cat_match.add_bid_target(bid_target)
+                    try:  # no downstream edits so they can both point to same bid_target
+                        detobj.bid_target_list.append(bid_target)
+                    except:
+                        log.warning("Unable to append bid_target to detobj.", exc_info=True)
             except:
                 log.debug('Could not build exact location photometry info.', exc_info=True)
 
@@ -918,6 +922,10 @@ class DECaLS(cat_base.Catalog):#DECaLS
                                 log.debug('Unable to build filter entry for bid_target.',exc_info=True)
 
                             cat_match.add_bid_target(bid_target)
+                            try:  # no downstream edits so they can both point to same bid_target
+                                detobj.bid_target_list.append(bid_target)
+                            except:
+                                log.warning("Unable to append bid_target to detobj.", exc_info=True)
                         except:
                             log.debug('Unable to build bid_target.',exc_info=True)
 

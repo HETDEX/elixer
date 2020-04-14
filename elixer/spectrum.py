@@ -56,7 +56,7 @@ GAUSS_FIT_AA_RANGE = 40.0 #AA to either side of the line center to include in th
                           #a bit of an art here; too wide and the general noise and continuum kills the fit (too wide)
                           #too narrow and fit hard to find if the line center is off by more than about 2 AA
                           #40 seems (based on testing) to be about right (50 leaves too many clear, but weak signals behind)
-GAUSS_FIT_PIX_ERROR = 2.0 #error (freedom) in pixels: have to allow at least 2 pixels of error
+GAUSS_FIT_PIX_ERROR = 4.0 #error (freedom) in pixels (usually  wavebins): have to allow at least 2 pixels of error
                           # (if aa/pix is small, _AA_ERROR takes over)
 GAUSS_FIT_AA_ERROR = 1.0 #error (freedom) in line center in AA, still considered to be okay
 GAUSS_SNR_SIGMA = 5.0 #check at least these pixels (pix*sigma) to either side of the fit line for SNR
@@ -90,7 +90,7 @@ GOOD_BROADLINE_SIGMA = 6.0 #getting broad
 GOOD_BROADLINE_SNR = 11.0 # upshot ... protect against neighboring "noise" that fits a broad line ...
                           # if big sigma, better have big SNR
 GOOD_MIN_LINE_SNR = 4.0
-GOOD_MIN_LINE_SCORE = 4.0 #lines are added to solution only if 'GOOD' (meaning, minimally more likely real than noise)
+GOOD_MIN_LINE_SCORE = 3.0 #lines are added to solution only if 'GOOD' (meaning, minimally more likely real than noise)
 #does not have to be the same as PROB_NOISE_MIN_SCORE, but that generally makes sense
 GOOD_FULL_SNR = 9.0 #ignore SBR is SNR is above this
 #GOOD_MIN_SNR = 5.0 #bare-minimum; if you change the SNR ranges just above, this will also need to change
@@ -106,9 +106,9 @@ GOOD_MIN_SIGMA = 1.35 #very narrow, but due to measurement error, could be possi
 
 #GOOD_MAX_DX0_MUTL .... ALL in ANGSTROMS
 MAX_LYA_VEL_OFFSET = 500.0 #km/s
-NOMINAL_MAX_OFFSET_AA =3.0 # 2.75  #using 2.75AA as 1/2 resolution for HETDEX at 5.5AA
+NOMINAL_MAX_OFFSET_AA =8.0 # 2.75  #using 2.75AA as 1/2 resolution for HETDEX at 5.5AA
                            # ... maybe 3.0 to give a little wiggle room for fit?
-GOOD_MAX_DX0_MULT_LYA = [-7.5,NOMINAL_MAX_OFFSET_AA] #can have a sizeable velocity offset for LyA (actaully depends on z, so this is a default)
+GOOD_MAX_DX0_MULT_LYA = [-8.0,NOMINAL_MAX_OFFSET_AA] #can have a sizeable velocity offset for LyA (actaully depends on z, so this is a default)
 #assumes a max velocity offset of 500km/s at 4500AA ==> 4500 * 500/c = 7.5AA
 GOOD_MAX_DX0_MULT_OTHER = [-1.*NOMINAL_MAX_OFFSET_AA,NOMINAL_MAX_OFFSET_AA] #all others are symmetric and smaller
 
@@ -513,13 +513,20 @@ def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
         left = cw_pix - hw_pix
         right = cw_pix + hw_pix
 
+        #due to rounding of pixels this can be off +/- 2 pix
+        if -2 <= left < 0:
+            left = 0
+
+        if len(data) < right <= (len(data) +2):
+            right = len(data)
+
         if (left < 0) or (right > len(data)):
             log.error("Invalid range supplied for rms. Data len = %d. Central Idx = %d , Half-width= %d"
                       % (len(data),cw_pix,hw_pix))
             return -999
 
-        d = d[cw_pix-hw_pix:cw_pix+hw_pix+1]
-        f = f[cw_pix-hw_pix:cw_pix+hw_pix+1]
+        d = d[left:right+1]
+        f = f[left:right+1]
 
     return np.sqrt(((f - d) ** 2).mean())
 
@@ -838,7 +845,6 @@ class EmissionLineInfo:
     def peak_sigma_above_noise(self):
         s = None
 
-
         if (self.noise_estimate is not None) and (len(self.noise_estimate) > 0):
             try:
                 noise_idx = getnearpos(self.noise_estimate_wave, self.fit_x0)
@@ -846,13 +852,6 @@ class EmissionLineInfo:
                 s = self.raw_vals[raw_idx] / self.noise_estimate[noise_idx]
             except:
                 pass
-
-        # elif (self.raw_errs is not None) and (len(self.raw_errs) > 0):
-        #     try:
-        #         idx = getnearpos(self.raw_wave, self.fit_x0)
-        #         s = self.raw_vals[idx] / self.raw_errs[idx]
-        #     except:
-        #         pass
 
         return s
 
@@ -1188,7 +1187,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #then we'd be looking at something like 1/N * Sum (sigma_i **2) ... BUT , there are so few pixels
         #  typically around 10 and there really should be at least 30  to approximate the gaussian shape
         eli.snr = eli.fit_a/(np.sqrt(num_sn_pix)*eli.fit_rmse)
-        eli.unique = unique_peak(values,wavelengths,central,eli.fit_sigma*2.355)
+        eli.unique = unique_peak(values,wavelengths,eli.fit_x0,eli.fit_sigma*2.355)
         eli.build(values_units=values_units)
         #eli.snr = max(eli.fit_vals) / (np.sqrt(num_sn_pix) * eli.fit_rmse)
         snr = eli.snr
@@ -1199,7 +1198,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         eli.line_score = 0.0
         eli.line_flux = 0.0
 
-    log.debug("SNR at %0.2f = %0.2f"%(central,snr))
+    log.debug("SNR (fit rmse)  at %0.2f (fiducial = %0.2f) = %0.2f"%(eli.fit_x0,central,snr))
+    #log.debug("SNR (vs fibers) at %0.2f (fiducial = %0.2f) = %0.2f"%(eli.fit_x0,central,eli.peak_sigma_above_noise()))
 
     title = ""
 

@@ -1739,6 +1739,9 @@ class DetObj:
                         if (b.catalog_name is None) or (f.filter is None):
                             continue
 
+                        if f.filter.lower() not in ['g','r','f606w']: #should only use one ...
+                            continue
+
                         key = b.catalog_name + "_" + f.filter.lower()
 
                         if key in coord_dict.keys():
@@ -1760,6 +1763,7 @@ class DetObj:
                                         f"{self.entry_id} Combine ALL Continuum: Added catalog bid target estimate"
                                         f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
                                         f"weight({weight[-1]:#.2f}) filter({key})")
+                                break #only use one
 
         except:
             log.debug("Exception handling catalog bid-target continuum in DetObj:combine_all_continuum", exc_info=True)
