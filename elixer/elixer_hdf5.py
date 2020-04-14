@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.1.2' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.2.0' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -24,6 +24,7 @@ import time
 
 UNSET_FLOAT = -999.999
 UNSET_INT = -99999
+UNSET_STR = ""
 
 log = G.Global_Logger('hdf5_logger')
 log.setlevel(G.LOG_LEVEL)
@@ -131,6 +132,7 @@ class Detections(tables.IsDescription):
     combined_plae = tables.Float32Col(dflt=UNSET_FLOAT)   #combination of all PLAE/POII
     combined_plae_err = tables.Float32Col(dflt=UNSET_FLOAT)
     plae_classification = tables.Float32Col(dflt=UNSET_FLOAT) #final, combine P(LAE) (0.0 - 1.0)
+    spurious_reason = tables.StringCol(itemsize=32,dflt=UNSET_STR)
     combined_continuum = tables.Float32Col(dflt=UNSET_FLOAT)   #combination of all continuum estimates
     combined_continuum_err = tables.Float32Col(dflt=UNSET_FLOAT)
 
@@ -223,6 +225,8 @@ class ExtractedObjects(tables.IsDescription):
     flux_cts = tables.Float32Col(dflt=UNSET_FLOAT)
     flux_err = tables.Float32Col(dflt=UNSET_FLOAT)
     flags = tables.Int32Col(dflt=0)
+    dist_curve = tables.Float32Col(dflt=UNSET_FLOAT)
+    dist_baryctr = tables.Float32Col(dflt=UNSET_FLOAT)
     # flag ... bit mask
     # 01 sep.OBJ_MERGED	      object is result of deblending
     # 02 sep.OBJ_TRUNC	      object is truncated at image boundary
@@ -721,6 +725,12 @@ def append_entry(fileh,det,overwrite=False):
             except:
                 pass
 
+            try:
+                if det.classification_dict['spurious_reason'] is not None:
+                    row['spurious_reason'] = det.classification_dict['spurious_reason']
+            except:
+                pass
+
         row.append()
         dtb.flush()
 
@@ -915,6 +925,11 @@ def append_entry(fileh,det,overwrite=False):
                 row['flux_cts'] = s['flux_cts']
                 row['flux_err'] = s['flux_cts_err']
                 row['flags'] = s['flags']
+                try:
+                    row['dist_curve'] = s['dist_curve']
+                    row['dist_baryctr'] = s['dist_baryctr']
+                except:
+                    pass
 
                 row.append()
                 etb.flush()
@@ -1136,78 +1151,6 @@ def remove_duplicates(file):
                         start = int(start)
                         xtb.remove_rows(rows[start], rows[-1] + 1)
                         #xtb.flush()
-
-
-
-                #row count changes with each remove, so work in reverse order
-                #
-                # #Detections table is one row per (one per detectid)
-                # rows = dtb.get_where_list("detectid==d")
-                # if rows.size > 1:
-                #     rows = np.flip(rows) #flip
-                #     for rowidx in rows[:-1]: #keep the first one
-                #         dtb.remove_row(rowidx)
-                #     dtb.flush()
-                #
-                # #CalibratedSpectra (one per detectid)
-                # rows = stb.get_where_list("detectid==d")
-                # if rows.size > 1:
-                #     rows = np.flip(rows)  # flip
-                #     for rowidx in rows[:-1]:  # keep the first one
-                #         stb.remove_row(rowidx)
-                #     stb.flush()
-                #
-                # #SpectraLines
-                # rows = ltb.get_where_list("detectid==d")
-                # stop = rows.size / c
-                # if stop.is_integer():
-                #     stop = int(stop)
-                #     rows = np.flip(rows)  # flip
-                #     for rowidx in rows[:-stop]:
-                #         ltb.remove_row(rowidx)
-                #     ltb.flush()
-                #
-                # #Aperture
-                # rows = atb.get_where_list("detectid==d")
-                # stop = rows.size / c
-                # if stop.is_integer():
-                #     stop = int(stop)
-                #     rows = np.flip(rows)  # flip
-                #     for rowidx in rows[:-stop]:
-                #         atb.remove_row(rowidx)
-                #     atb.flush()
-                #
-                # #CatalogMatch
-                # rows = ctb.get_where_list("detectid==d")
-                # stop = rows.size / c
-                # if stop.is_integer():
-                #     stop = int(stop)
-                #     rows = np.flip(rows)  # flip
-                #     for rowidx in rows[:-stop]:
-                #         ctb.remove_row(rowidx)
-                #     ctb.flush()
-                #
-                # #ExtractedObjects
-                # rows = etb.get_where_list("detectid==d")
-                # stop = rows.size / c
-                # if stop.is_integer():
-                #     stop = int(stop)
-                #     rows = np.flip(rows)  # flip
-                #     for rowidx in rows[:-stop]:
-                #         etb.remove_row(rowidx)
-                #     etb.flush()
-                #
-                # #ElixerApertures
-                # rows = xtb.get_where_list("detectid==d")
-                # stop = rows.size / c
-                # if stop.is_integer():
-                #     stop = int(stop)
-                #     rows = np.flip(rows)  # flip
-                #     for rowidx in rows[:-stop]:
-                #         xtb.remove_row(rowidx)
-                #     xtb.flush()
-
-                #flush_all(h5)
             except:
                 log.error(f"Exception removing rows for {d}",exc_info=True)
 
@@ -1236,6 +1179,7 @@ def merge_unique(newfile,file1,file2):
         newfile_handle = get_hdf5_filehandle(newfile,append=False,allow_overwrite=False,must_exist=False)
 
         if newfile_handle is None:
+            print("Unable to create destination file for merge_unique. File may already exist.")
             log.info("Unable to create destination file for merge_unique.")
             return False
 
@@ -1243,6 +1187,7 @@ def merge_unique(newfile,file1,file2):
         file2_handle = get_hdf5_filehandle(file2, append=False, allow_overwrite=False, must_exist=True)
 
         if (file1_handle is None) or (file2_handle is None):
+            print("Unable to open source file(s) for merge_unique.")
             log.info("Unable to open source file(s) for merge_unique.")
             return False
     except:
@@ -1856,6 +1801,94 @@ def upgrade_0p0px_to_0p1p0(oldfile_handle,newfile_handle):
         log.error("Upgrade failed %s to %s:" %(from_version,to_version),exc_info=True)
         return False
 
+
+
+
+def upgrade_0p1px_to_0p2p0(oldfile_handle,newfile_handle):
+    """
+    new column in Detections (spurious_reason)
+    new column in ExtractedObjects (dist_curve)
+    new column in ExtractedObjects (dist_barycntr)
+    :param oldfile_handle:
+    :param newfile_handle:
+    :return:
+    """
+    from_version = "0.1.x"
+    to_version = "0.2.0"
+
+    try:
+        log.info("Upgrading %s to %s ..." %(from_version,to_version))
+
+        dtb_new = newfile_handle.root.Detections
+        stb_new = newfile_handle.root.CalibratedSpectra
+        ltb_new = newfile_handle.root.SpectraLines
+        atb_new = newfile_handle.root.Aperture
+        ctb_new = newfile_handle.root.CatalogMatch
+        etb_new = newfile_handle.root.ExtractedObjects
+        xtb_new = newfile_handle.root.ElixerApertures
+
+        dtb_old = oldfile_handle.root.Detections
+        stb_old = oldfile_handle.root.CalibratedSpectra
+        ltb_old = oldfile_handle.root.SpectraLines
+        atb_old = oldfile_handle.root.Aperture
+        ctb_old = oldfile_handle.root.CatalogMatch
+        etb_old = oldfile_handle.root.ExtractedObjects
+        xtb_old = oldfile_handle.root.ElixerApertures
+
+        #new columns in Detections
+        for old_row in dtb_old.read():
+            new_row = dtb_new.row
+            for n in dtb_new.colnames:
+                try: #can be missing name (new columns)
+                    new_row[n] = old_row[n]
+                except:
+                    log.debug("Detections column failed (%s). Default set."%n)
+            new_row.append()
+            dtb_new.flush()
+
+        #new columns in Detections
+        for old_row in etb_old.read():
+            new_row = etb_new.row
+            for n in etb_new.colnames:
+                try: #can be missing name (new columns)
+                    new_row[n] = old_row[n]
+                except:
+                    log.debug("Extracted objects column failed (%s). Default set."%n)
+            new_row.append()
+            dtb_new.flush()
+
+
+        #no change to CalibratedSpectra
+        stb_new.append(stb_old.read())
+        stb_new.flush()
+
+        #no change to SpectraLines
+        ltb_new.append(ltb_old.read())
+        ltb_new.flush()
+
+        #no change to Aperture
+        atb_new.append(atb_old.read())
+        atb_new.flush()
+
+        #no change to CatalogMatch
+        ctb_new.append(ctb_old.read())
+        ctb_new.flush()
+
+        #no change to ElixerApertures
+        xtb_new.append(xtb_old.read())
+        xtb_new.flush()
+
+        flush_all(newfile_handle)
+        # close the merge input file
+        newfile_handle.close()
+        oldfile_handle.close()
+
+        return True
+    except:
+        log.error("Upgrade failed %s to %s:" %(from_version,to_version),exc_info=True)
+        return False
+
+
 def upgrade_hdf5(oldfile,newfile):
     """
     Primarily here because pytables does not allow for renaming of column names
@@ -1869,12 +1902,14 @@ def upgrade_hdf5(oldfile,newfile):
         newfile_handle = get_hdf5_filehandle(newfile,append=False,allow_overwrite=False,must_exist=False)
 
         if newfile_handle is None:
+            print("Unable to create destination file for upgrade_hdf5. File may alread exist.")
             log.info("Unable to create destination file for upgrade_hdf5.")
             return False
 
         oldfile_handle = get_hdf5_filehandle(oldfile,append=False,allow_overwrite=False,must_exist=True)
 
         if (oldfile_handle is None):
+            print("Unable to source file(s) for upgrade_hdf5.")
             log.info("Unable to open source file(s) for upgrade_hdf5.")
             return False
 
@@ -1896,7 +1931,9 @@ def upgrade_hdf5(oldfile,newfile):
             if (max_version == '0.0.3') or (max_version == '0.0.4') or (max_version == '0.0.5'):
                 func_list.append(upgrade_0p0px_to_0p1p0)
                 max_version = "0.1.0"
-            #elif ():
+            elif (max_version == '0.1.0') or (max_version == '0.1.1') or (max_version == '0.1.2'):
+                func_list.append(upgrade_0p1px_to_0p2p0)
+                max_version = "0.2.0"
             else:
                 done = True
 

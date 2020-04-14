@@ -617,7 +617,8 @@ class DetObj:
                                     'plae_hat_lo':None, #- confidence interval (usually .68)
                                     'plae_hat_sd':None,
                                     'size_in_psf':None, #to be filled in with info to help make a classification judgement
-                                    'diam_in_arcsec':None}  #to be filled in with info to help make a classification judgement
+                                    'diam_in_arcsec':None, #to be filled in with info to help make a classification judgement
+                                    'spurious_reason': None}
 
         if emission:
             self.type = 'emis'
@@ -1181,12 +1182,14 @@ class DetObj:
             reason = "(bad pixel flat)"
             scaled_prob_lae = -1
             self.classification_dict['scaled_plae'] = scaled_prob_lae
+            self.classification_dict['spurious_reason'] = reason
             log.info(f"Aggregate Classification: bad pixel flat dominates. Setting PLAE to -1 (spurious)")
         # check for duplicate pixel positions
         elif self.num_duplicate_central_pixels > G.MAX_NUM_DUPLICATE_CENTRAL_PIXELS:  # out of the top (usually 4) fibers
             reason = "(duplicate pixels)"
             scaled_prob_lae = -1
             self.classification_dict['scaled_plae'] = scaled_prob_lae
+            self.classification_dict['spurious_reason'] = reason
             log.info(f"Aggregate Classification: bad duplicate central pixels. Setting PLAE to -1 (spurious)")
         else:
             #

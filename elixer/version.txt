@@ -1,5 +1,11 @@
 changes to elixer by version
 
+1.8.3a3 [2020-04-14]
+* updated elixer HDF5 file to version 0.2.0: Must upgrade any 0.1.x and below before merging
+    + added to Detections: spurious_reason (string 32)
+    + added to ExtractebObjects: dist_curve (float32)
+                                 dist_baryctr (float32)
+
 
 1.8.3a2 [2020-04-10]
 * fix error in source extractor ellipse effective radius (was reporting the starting ciruclar radius, not
