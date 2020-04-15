@@ -1861,7 +1861,7 @@ class DetObj:
                     #for logging
                     sel = np.where(diff >= 1.5)
                     if len(sel[0]) > 0:
-                        log.debug(f"Removed estimates {original_continuum[sel]}. (clipped at {sigma} sigma)")
+                        log.debug(f"Removed {len(sel[0])} estimate(s) {original_continuum[sel]} sigma({diff[sel]}). (clipped at {sigma} sigma)")
 
                     #then inverse variance
                     continuum_hat = np.sum(continuum * weight / variance) / np.sum(weight / variance)
