@@ -1843,7 +1843,7 @@ class DetObj:
             #if more than 3, use weighted biweight to down play any outliers (even if lower variance)
             if len(continuum) > 3:
                 try:
-                    log.debug("Using biweight clipping in hetdex::combin_all_continuum()...")
+                    log.debug(f"{self.entry_id} Using biweight clipping in hetdex::combin_all_continuum()...")
 
                     #first, regular biweight
                     continuum_hat = weighted_biweight.biweight_location(continuum)
@@ -1861,11 +1861,15 @@ class DetObj:
                     #for logging
                     sel = np.where(diff >= 1.5)
                     if len(sel[0]) > 0:
-                        log.debug(f"Removed {len(sel[0])} estimate(s) {original_continuum[sel]} sigma({diff[sel]}). (clipped at {sigma} sigma)")
+                        log.debug(f"{self.entry_id} Removed {len(sel[0])} estimate(s) {original_continuum[sel]} sigma({diff[sel]}). (clipped at {sigma} sigma)")
 
                     #then inverse variance
                     continuum_hat = np.sum(continuum * weight / variance) / np.sum(weight / variance)
                     continuum_sd_hat = np.sqrt(np.sum(weight * variance) / np.sum(weight))
+
+
+                    ## or do we just want to average as Gaussians
+                    # which would be sum of mu and sum of the variances  (divided by N for mean?)
 
                     # continuum_hat = weighted_biweight.biweight_location_errors(continuum, errors=variance)
                     # continuum_sd_hat = weighted_biweight.biweight_scale(continuum)
@@ -1876,7 +1880,7 @@ class DetObj:
                     continuum_sd_hat = np.sqrt(np.sum(weight * variance) / np.sum(weight))
             else:
                 #v2 = variance*variance
-                log.debug("Using inverse variance in hetdex::combin_all_continuum()...")
+                log.debug(f"{self.entry_id} Using inverse variance in hetdex::combin_all_continuum()...")
                 continuum_hat = np.sum(continuum * weight / variance) / np.sum(weight / variance)
                 continuum_sd_hat = np.sqrt(np.sum(weight*variance)/np.sum(weight))
 
