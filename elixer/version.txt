@@ -1,11 +1,15 @@
 changes to elixer by version
 
-1.8.3a3 [2020-04-14]
+1.8.3a3 [2020-04-15]
 * updated elixer HDF5 file to version 0.2.0: Must upgrade any 0.1.x and below before merging
     + added to Detections: spurious_reason (string 32)
     + added to ExtractebObjects: dist_curve (float32)
                                  dist_baryctr (float32)
 * fix spectrum::unique_peak(), should be checking from the fit position, not the baseline search position
+* update hetdex::combine_continuum to kick out "outlier" continuum estimtes If there are 4 or more estimates
+    (using biweight loc and scale and rejecting (like a sigma clip) estimates 1.5+ away from biweight avg)
+    then perform standard inverse variance averaging (objective is to remove very low reported error but
+    outlier measures and prevent them from dominating the average)
 
 1.8.3a2 [2020-04-10]
 * fix error in source extractor ellipse effective radius (was reporting the starting ciruclar radius, not

@@ -1600,6 +1600,7 @@ class DetObj:
         #Best forced aperture PLAE
         #how to set?? maybe always the same?
         #iterate over all, g,r,606w all count with equal weight
+        aperture_radius = 0.0
         try:
             filters = ['f606w','g','r']
             for a in self.aperture_details_list: #has both forced aperture and sextractor
@@ -1683,6 +1684,7 @@ class DetObj:
                                     variance.append(cont_var)
                                     continuum.append(cont)
                                     weight.append(w)
+                                    aperture_radius = a['radius']
 
                             else:
                                 cont = SU.mag2cgs(a['mag'],lam)
@@ -1713,6 +1715,7 @@ class DetObj:
                                 weight.append(w)
                                 variance.append(cont_var)
                                 continuum.append(cont)
+                                aperture_radius = a['radius']
 
                             log.debug(
                                 f"{self.entry_id} Combine ALL Continuum: Added imaging estimate ({continuum[-1]:#.4g}) "
@@ -1733,37 +1736,72 @@ class DetObj:
                 else:
                     coord_dict[a['catalog_name']+'_'+a['filter_name']] = {'ra': a['ra'],'dec':a['dec']}
 
-            if len(self.bid_target_list) > 1:
-                for b in self.bid_target_list[1:]:
-                    for f in b.filters:
-                        if (b.catalog_name is None) or (f.filter is None):
-                            continue
 
-                        if f.filter.lower() not in ['g','r','f606w']: #should only use one ...
-                            continue
+            #set the weight = 1.0 / number of possible matches
+            sel = np.where(np.array([x.bid_dec for x in self.bid_target_list]) != 666)
+            sel = np.where(np.array([x.distance for x in np.array(self.bid_target_list)[sel]]) < aperture_radius)
 
-                        key = b.catalog_name + "_" + f.filter.lower()
+            if len(sel[0]) > 1:
+                catmatch_weight = 1.0/len(sel[0])
+            else:
+                catmatch_weight = 1.0
 
-                        if key in coord_dict.keys():
-                            if utils.angular_distance(b.bid_ra,b.bid_dec,coord_dict[key]['ra'],coord_dict[key]['dec']) < 1.0:
-                                if b.bid_flux_est_cgs is not None:
-                                    cont = b.bid_flux_est_cgs
-                                    if b.bid_flux_est_cgs_unc is not None:
-                                        cont_var = b.bid_flux_est_cgs_unc * b.bid_flux_est_cgs_unc
-                                        if cont_var == 0:
-                                            cont_var = cont * cont
-                                    else:
+            for b in self.bid_target_list:
+                if (b.bid_dec == 666): #this is a measured aperture, not a catalog match
+                    continue
+
+                #if there are multiple bid targets, which one(s) to use?
+                #center could be off (large object), so distance is not ideal, nor is the prob_match
+                #maybe IF the center is INSIDE the selected ExtractedObject?
+
+                if b.distance < aperture_radius:
+                    #"best" filter already chosen, so just use it
+
+                    if (b.bid_flux_est_cgs is not None) and (b.bid_flux_est_cgs_unc is not None) and \
+                        (b.bid_flux_est_cgs > 0) and (b.bid_flux_est_cgs_unc > 0):
+
+                        weight.append(catmatch_weight)
+                        #b.bid_flux_est_cgs_unc is the s.d. so need to square for variance
+                        variance.append(b.bid_flux_est_cgs_unc*b.bid_flux_est_cgs_unc)
+                        continuum.append(b.bid_flux_est_cgs)
+                        log.debug(
+                            f"{self.entry_id} Combine ALL Continuum: Added catalog bid target estimate"
+                            f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
+                            f"weight({weight[-1]:#.2f}) filter({b.bid_filter}) dist({b.distance})")
+
+                #old
+
+                #just use b.bid_filter info? b.bid_flux_est_cgs, b.bid_flux_est_cgs_unc?
+                if False:
+                ##for f in b.filters:
+                    if (b.catalog_name is None) or (f.filter is None):
+                        continue
+
+                    if f.filter.lower() not in ['g','r','f606w']: #should only use one ...
+                        continue
+
+                    key = b.catalog_name + "_" + f.filter.lower()
+
+                    if key in coord_dict.keys():
+                        if utils.angular_distance(b.bid_ra,b.bid_dec,coord_dict[key]['ra'],coord_dict[key]['dec']) < 1.0:
+                            if b.bid_flux_est_cgs is not None:
+                                cont = b.bid_flux_est_cgs
+                                if b.bid_flux_est_cgs_unc is not None:
+                                    cont_var = b.bid_flux_est_cgs_unc * b.bid_flux_est_cgs_unc
+                                    if cont_var == 0:
                                         cont_var = cont * cont
+                                else:
+                                    cont_var = cont * cont
 
-                                    weight.append(1.0)
-                                    variance.append(cont_var)
-                                    continuum.append(cont)
+                                weight.append(1.0)
+                                variance.append(cont_var)
+                                continuum.append(cont)
 
-                                    log.debug(
-                                        f"{self.entry_id} Combine ALL Continuum: Added catalog bid target estimate"
-                                        f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
-                                        f"weight({weight[-1]:#.2f}) filter({key})")
-                                break #only use one
+                                log.debug(
+                                    f"{self.entry_id} Combine ALL Continuum: Added catalog bid target estimate"
+                                    f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
+                                    f"weight({weight[-1]:#.2f}) filter({key})")
+                            break #only use one
 
         except:
             log.debug("Exception handling catalog bid-target continuum in DetObj:combine_all_continuum", exc_info=True)
@@ -1792,15 +1830,55 @@ class DetObj:
                     if np.sqrt(variance[i]) > continuum[i]:
                         weight[i] = 0
                         log.debug(f"Error (sd) ({np.sqrt(variance[i])}): {variance[i]} too high vs continuum {continuum[i]}. Weight zeroed.")
-
                 except:
                     weight[i] = 0
                     log.debug(f"Exception checking variance {variance[i]} vs continuum {continuum[i]}. Weight zeroed.")
 
-            #v2 = variance*variance
+            #remove any zero weights
+            sel = np.where(weight==0)
+            continuum = np.delete(continuum,sel)
+            variance = np.delete(variance,sel)
+            weight = np.delete(weight,sel)
 
-            continuum_hat = np.sum(continuum * weight / variance) / np.sum(weight / variance)
-            continuum_sd_hat = np.sqrt(np.sum(weight*variance)/np.sum(weight))
+            #if more than 3, use weighted biweight to down play any outliers (even if lower variance)
+            if len(continuum) > 3:
+                try:
+                    log.debug("Using biweight clipping in hetdex::combin_all_continuum()...")
+
+                    #first, regular biweight
+                    continuum_hat = weighted_biweight.biweight_location(continuum)
+                    continuum_sd_hat = weighted_biweight.biweight_scale(continuum)
+
+                    #then clip (pretty aggressively)
+                    diff = abs(continuum - continuum_hat)/continuum_sd_hat
+                    original_continuum = continuum[:] #for logging below
+                    sigma = 1.5
+                    sel = np.where(diff < sigma)
+                    continuum = continuum[sel]
+                    weight = weight[sel]
+                    variance = variance[sel]
+
+                    #for logging
+                    sel = np.where(diff >= 1.5)
+                    if len(sel[0]) > 0:
+                        log.debug(f"Removed estimates {original_continuum[sel]}. (clipped at {sigma} sigma)")
+
+                    #then inverse variance
+                    continuum_hat = np.sum(continuum * weight / variance) / np.sum(weight / variance)
+                    continuum_sd_hat = np.sqrt(np.sum(weight * variance) / np.sum(weight))
+
+                    # continuum_hat = weighted_biweight.biweight_location_errors(continuum, errors=variance)
+                    # continuum_sd_hat = weighted_biweight.biweight_scale(continuum)
+                except:
+                    log.debug("Exception using biweight clipping in hetdex::combine_all_contiuum(). "
+                              "Switching to full array inverse variance",exc_info=True)
+                    continuum_hat = np.sum(continuum * weight / variance) / np.sum(weight / variance)
+                    continuum_sd_hat = np.sqrt(np.sum(weight * variance) / np.sum(weight))
+            else:
+                #v2 = variance*variance
+                log.debug("Using inverse variance in hetdex::combin_all_continuum()...")
+                continuum_hat = np.sum(continuum * weight / variance) / np.sum(weight / variance)
+                continuum_sd_hat = np.sqrt(np.sum(weight*variance)/np.sum(weight))
 
             #todo: what about plae_hat uncertainty?
             #todo: should I (instead of inverse variance) sample all like 250-1000 times from random distro

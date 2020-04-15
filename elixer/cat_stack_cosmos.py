@@ -360,7 +360,7 @@ class STACK_COSMOS(cat_base.Catalog):
         filter_str = None
         try:
 
-            filter_str = 'r'
+            filter_str = 'g'
             dfx = df
             #dfx = df.loc[df['FILTER']==filter_str]
             #
