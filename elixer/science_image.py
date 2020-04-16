@@ -116,9 +116,21 @@ def is_cutout_empty(cutout):
                 flat = cutout.data.flatten()
                 frac_nonzero = len(np.where(flat!=0)[0])/len(flat)
                 #sat = np.where(flat==) #what is saturated? (depends on each cutout)
-                frac_uniq = len(np.unique(flat)) / len(flat)
-                if frac_uniq < G.FRAC_UNIQUE_PIXELS_NOT_EMPTY:
-                    log.warning(f"Fraction of unique pixels ({frac_uniq}) < ({G.FRAC_UNIQUE_PIXELS_NOT_EMPTY})."
+                uniq_array, uniq_counts = np.unique(flat,return_counts=True)
+                frac_uniq = len(uniq_array) / len(flat)
+
+                if len(uniq_counts) > 10:
+                    top_duplicates = np.sum(sorted(uniq_counts,reverse=True)[0:3])
+                else:
+                    top_duplicates = np.max(uniq_counts)
+
+                frac_top_duplicates = top_duplicates/len(flat)
+
+                if (frac_uniq < G.FRAC_UNIQUE_PIXELS_NOT_EMPTY) and (frac_top_duplicates > G.FRAC_DUPLICATE_PIXELS) \
+                        and (uniq_array[np.argmax(uniq_counts)] < 5000.0):
+                    log.warning(f"Fraction of unique pixels ({frac_uniq}) < ({G.FRAC_UNIQUE_PIXELS_NOT_EMPTY}) "
+                                f"and fraction of top duplicates ({frac_top_duplicates}) > ({G.FRAC_DUPLICATE_PIXELS}) "
+                                f"and not saturated."
                              f" Assume cutout is empty or simple pattern.")
                     rc = True
                 elif ((hzc > 0.99) or (vtc > 0.99)) and (frac_uniq < G.FRAC_UNIQUE_PIXELS_AUTOCORRELATE):
