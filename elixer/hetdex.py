@@ -917,13 +917,17 @@ class DetObj:
                         if diam > 40.0:  #just too big, favor not LAE
                             lk = 0.1
                             w = 0.7
-                        elif 10.0 < diam <= 40:
+                        elif 30.0 < diam <= 40:
                             #pretty big, maybe favors OII at lower-z, but not very definitive
+                            lk = 0.1
+                            w = 0.1
+                        elif 10.0 < diam <= 30:
+                            #moderately big, maybe favors OII at lower-z, but not very definitive
                             lk = 0.5
-                            w = 0.0
+                            w = 0.1
                         elif 4.0 < diam < 10.0:
                             lk = 0.9
-                            w = 0.0 #does not add much info, but is consistent
+                            w = 0.01 #does not add much info, but is consistent
                         else: #very small, highly consistent with LAE (small boost)
                             lk = 0.9
                             w = 0.1
@@ -951,7 +955,7 @@ class DetObj:
                             #so it is more LIKELY it is a high-z object
                             w = 0.7
                         else: #no info, favors either
-                            lk = 0.1
+                            lk = 0.5
                             w = 0.0
                         #set a base weight (will be adjusted later)
 
@@ -1140,6 +1144,9 @@ class DetObj:
                 weight.append(0.7 * (1.0 - scale_plae_sd))  # opinion, not quite as strong as multiple lines
                 var.append(1)  # todo: use the sd (scaled?) #can't use straight up here since the variances are not
                                # on the same scale
+
+                log.debug(
+                    f"Aggregate Classification: MC PLAE/POII from combined continuum: lk({likelihood[-1]}) weight({weight[-1]})")
 
                 #todo: handle the uncertainty on plae_hat
                 #plae_hat_sd = self.classification_dict['plae_hat_sd']
@@ -1498,6 +1505,7 @@ class DetObj:
         continuum = []
         variance = [] #variance or variance proxy
         weight = [] #rules based weights
+        type = [] #what was the input
 
         best_guess_extent = [] #from source extractor (f606w, g, r only)
         base_psf = []
@@ -1518,6 +1526,9 @@ class DetObj:
         cgs_30 = 5.38e-21
         cgs_faint_limit = cgs_29
 
+        num_cat_match = 0 #number of catalog matched objects
+        cat_idx = -1
+
         #
         # separation between LAE and OII is around 24 mag (so if flux limit is reached below that, there
         # really is no information to be gained).
@@ -1536,6 +1547,7 @@ class DetObj:
                     continuum.append(self.hetdex_cont_cgs)
                     variance.append(self.hetdex_cont_cgs_unc*self.hetdex_cont_cgs_unc)
                     weight.append(0.2) #never very high
+                    type.append('hdn') #HETDE-narrow
                     log.debug(f"{self.entry_id} Combine ALL Continuum: Added HETDEX estimate ({continuum[-1]:#.4g}) "
                               f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
                 else: #set as lower limit ... too far to be meaningful
@@ -1545,8 +1557,9 @@ class DetObj:
                     else:
                         variance.append(hetdex_cont_limit * hetdex_cont_limit) #set to itself as a big error
                     weight.append(0.0) #never very high
-                    log.debug(f"{self.entry_id} Combine ALL Continuum: Failed HETDEX estimate, setting to lower limit  ({continuum[-1]:#.4g}) "
-                              f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
+                    type.append('hdn')
+                    log.debug(f"{self.entry_id} Combine ALL Continuum: Failed HETDEX estimate, setting to lower limit  "
+                              f"({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
 
         except:
             log.debug("Exception handling HETDEX continuum in DetObj:combine_all_continuum",exc_info=True)
@@ -1563,7 +1576,14 @@ class DetObj:
                 if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_limit: #good, full marks
                     continuum.append(self.best_gmag_cgs_cont)
                     variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
-                    weight.append(1.0)
+                    if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_24:
+                        weight.append(4.0) #best measure of flux (right on top of our target) so boost
+                        #typically 4 other estiamtes: narrow, wide (this one), 1+ forced photometery, 1+ catalog
+                        #so make this one 4x to dominated (aside from big error)
+                    else:
+                        weight.append(1.0)
+
+                    type.append('hdw') #HETDEX wide
 
                     log.debug(
                         f"{self.entry_id} Combine ALL Continuum: Added best spectrum gmag estimate ({continuum[-1]:#.4g}) "
@@ -1579,6 +1599,7 @@ class DetObj:
                     continuum.append(self.best_gmag_cgs_cont)
                     variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
                     weight.append(w)
+                    type.append('hdw')  # HETDEX wide
 
                     log.debug(
                         f"{self.entry_id} Combine ALL Continuum: Added best spectrum gmag estimate ({continuum[-1]:#.4g}) "
@@ -1588,6 +1609,7 @@ class DetObj:
                     continuum.append(cgs_limit)
                     variance.append((cgs_limit-cgs_faint_limit)**2)  # ie. sd of ~ 1/3 * cgs_limit
                     weight.append(0.5)  # never very high (a little better than HETDEX narrow continuum weight)
+                    type.append('hdw')  # HETDEX wide
 
                     log.debug(
                         f"{self.entry_id} Combine ALL Continuum: Failed best spectrum gmag estimate, setting to lower limit "
@@ -1684,6 +1706,7 @@ class DetObj:
                                     variance.append(cont_var)
                                     continuum.append(cont)
                                     weight.append(w)
+                                    type.append("a"+a['filter_name'])
                                     aperture_radius = a['radius']
 
                             else:
@@ -1715,6 +1738,7 @@ class DetObj:
                                 weight.append(w)
                                 variance.append(cont_var)
                                 continuum.append(cont)
+                                type.append("a" + a['filter_name'])
                                 aperture_radius = a['radius']
 
                             log.debug(
@@ -1727,6 +1751,7 @@ class DetObj:
             log.debug("Exception handling forced aperture photometry continuum in DetObj:combine_all_continuum", exc_info=True)
 
         #todo: ?? Best catalog match PLAE ?? #do I even want to try to use this one?
+
         try:
             #which aperture filter?
             coord_dict = {} #key = catalog +_ + filter  values: ra, dec
@@ -1741,7 +1766,9 @@ class DetObj:
             sel = np.where(np.array([x.bid_dec for x in self.bid_target_list]) != 666)
             sel = np.where(np.array([x.distance for x in np.array(self.bid_target_list)[sel]]) < aperture_radius)
 
-            if len(sel[0]) > 1:
+            num_cat_match = len(sel[0])
+
+            if num_cat_match > 1:
                 catmatch_weight = 1.0/len(sel[0])
             else:
                 catmatch_weight = 1.0
@@ -1764,6 +1791,7 @@ class DetObj:
                         #b.bid_flux_est_cgs_unc is the s.d. so need to square for variance
                         variance.append(b.bid_flux_est_cgs_unc*b.bid_flux_est_cgs_unc)
                         continuum.append(b.bid_flux_est_cgs)
+                        type.append("c" + a['filter_name'])
                         log.debug(
                             f"{self.entry_id} Combine ALL Continuum: Added catalog bid target estimate"
                             f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
@@ -1797,6 +1825,8 @@ class DetObj:
                                 variance.append(cont_var)
                                 continuum.append(cont)
 
+                                cat_idx = len(continuum)
+
                                 log.debug(
                                     f"{self.entry_id} Combine ALL Continuum: Added catalog bid target estimate"
                                     f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
@@ -1817,6 +1847,7 @@ class DetObj:
                 best_guess_extent = np.mean(best_guess_extent)
         except:
             pass
+
 
         #sum up
         try:
@@ -1841,7 +1872,7 @@ class DetObj:
             weight = np.delete(weight,sel)
 
             #if more than 3, use weighted biweight to down play any outliers (even if lower variance)
-            if len(continuum) > 3:
+            if len(continuum) > 2:
                 try:
                     log.debug(f"{self.entry_id} Using biweight clipping in hetdex::combin_all_continuum()...")
 
@@ -1854,16 +1885,20 @@ class DetObj:
                     original_continuum = continuum[:] #for logging below
                     sigma = 1.5
                     sel = np.where(diff < sigma)
-                    continuum = continuum[sel]
-                    weight = weight[sel]
-                    variance = variance[sel]
 
-                    #for logging
-                    sel = np.where(diff >= 1.5)
-                    if len(sel[0]) > 0:
-                        log.debug(f"{self.entry_id} Removed {len(sel[0])} estimate(s) {original_continuum[sel]} sigma({diff[sel]}). (clipped at {sigma} sigma)")
+                    if len(sel[0]) > 1: #keep at least 2 of 3 (or 2 of 4)
+                        continuum = continuum[sel]
+                        weight = weight[sel]
+                        variance = variance[sel]
 
-                    #then inverse variance
+                        #for logging
+                        sel = np.where(diff >= 1.5)
+                        if len(sel[0]) > 0:
+                            log.debug(f"{self.entry_id} Removed {len(sel[0])} estimate(s) {original_continuum[sel]} sigma({diff[sel]}). (clipped at {sigma} sigma)")
+                    else:
+                        log.debug(f"{self.entry_id} cut too severe. Unable to remove any.")
+
+                    #then (standard) inverse variance
                     continuum_hat = np.sum(continuum * weight / variance) / np.sum(weight / variance)
                     continuum_sd_hat = np.sqrt(np.sum(weight * variance) / np.sum(weight))
 

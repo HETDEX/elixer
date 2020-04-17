@@ -22,7 +22,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.8.3a3'
+__version__ = '1.8.3a4'
 
 #python version
 import sys

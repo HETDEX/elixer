@@ -300,8 +300,16 @@ def parse_commandline(auto_force=False):
                         required=False)
 
     parser.add_argument('--annulus', help="Inner and outer radii in arcsec (e.g. (10.0,35.2) )", required=False)
-    parser.add_argument('--wavelength', help="Target wavelength (observed) in angstroms for annulus", required=False,
-                        type=float)
+
+    parser.add_argument('--aperture', help="Source extraction aperture (in arcsec) for manual extraction. Must be provided"
+                                           " for explicit (re)extraction.", required=False,  type=float)
+
+    parser.add_argument('--wavelength', help="Target wavelength (observed) in angstroms. Used with --annulus or --aperture",
+                        required=False, type=float)
+
+    parser.add_argument('--shotid', help="Integer shotid [YYYYMMDDiii] (optional). Otherwise, searches all.", required=False,
+                        type=int)
+
 
     parser.add_argument('--include_all_amps', help='Override bad amp list and process all amps',
                         required=False, action='store_true', default=False)
@@ -2769,8 +2777,6 @@ def main():
     if args.neighborhood_only:
         args.neighborhood = args.neighborhood_only
 
-
-
     if G.USE_PHOTO_CATS:
         cat_library = catalogs.CatalogLibrary()
         cats = cat_library.get_full_catalog_list()
@@ -2808,7 +2814,11 @@ def main():
     fcsdir_list = []
     hdf5_detectid_list = []
 
-    if args.fcsdir is not None:
+    #is this an explicit extraction?
+    if args.aperture and args.ra and args.dec:
+        #args.wavelength, args.shotid are optional
+        print("Explicit extraction ...")
+    elif args.fcsdir is not None:
         fcsdir_list = get_fcsdir_subdirs_to_process(args) #list of rsp1 style directories to process (each represents one detection)
         if fcsdir_list is not None:
             log.info("Processing %d entries in FCSDIR" %(len(fcsdir_list)))

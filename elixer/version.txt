@@ -1,5 +1,13 @@
 changes to elixer by version
 
+1.8.3a4 [2020-04-17]
+* tweak combined_continuum to favor the wide-spectrum g-band IF it is brighter than 24mag (gets 4x weight which makes
+  it roughly equal to combined weight of the other measures, but does NOT modify the variance, so smaller error
+  measures still win out)
+* tweak the physical size PLAE weights just a bit to boost to center (0.1) at weight (0.1) if the high z physical size
+  is 30-40 kpc (so slightly favor OII) and (0.5) at weight (0.1) if 10-30kpc
+
+
 1.8.3a3 [2020-04-15]
 * updated elixer HDF5 file to version 0.2.0: Must upgrade any 0.1.x and below before merging
     + added to Detections: spurious_reason (string 32)
