@@ -5342,33 +5342,36 @@ class HETDEX:
                                                                                 round(e.p_lae_oii_ratio_range[2], 3),
                                                                                 round(e.p_lae_oii_ratio_range[1], 3))
                 except:
-                    title += "\n" + "\nP(LAE)/P(OII): %.4g" % (round(e.p_lae_oii_ratio,3))
+                    title += "\n" + "P(LAE)/P(OII): %.4g" % (round(e.p_lae_oii_ratio,3))
+            else:
+                title += "\n" + r'P(LAE)/P(OII): $N/A\ ^{N/A}_{N/A}$'
 
-                if (not e.using_best_gmag_ew) and (e.best_gmag_p_lae_oii_ratio_range is not None):
-                    try:
-                        title += " (w: $%.4g\ ^{%.4g}_{%.4g}$)" % (round(e.best_gmag_p_lae_oii_ratio_range[0], 3),
-                                                                      round(e.best_gmag_p_lae_oii_ratio_range[2], 3),
-                                                                      round(e.best_gmag_p_lae_oii_ratio_range[1], 3))
-                    except:
-                        log.debug("SDSS gmag PLAE title exception",exc_info=True)
-                        title += " (w %.4g)" % round(e.best_gmag_p_lae_oii_ratio,3)
 
-                if G.DISPLAY_PSEUDO_COLOR:
-                    if e.rvb is not None:
-                        #debug version
-                        # title += "\nColor = %0.03g (%0.3g,%0.3g) [%0.3g,%0.3g] {%d}" \
-                        #          %(e.rvb['color'],e.rvb['color_err'][0],e.rvb['color_err'][1],
-                        #            e.rvb['color_range'][0],e.rvb['color_range'][1],e.rvb['flag'])
-                        # title += "\nColor = %0.03g [%0.3g,%0.3g]" \
-                        #      % (e.rvb['color'], e.rvb['color_range'][0], e.rvb['color_range'][1])
+            if (not e.using_best_gmag_ew) and (e.best_gmag_p_lae_oii_ratio_range is not None):
+                try:
+                    title += " (w: $%.4g\ ^{%.4g}_{%.4g}$)" % (round(e.best_gmag_p_lae_oii_ratio_range[0], 3),
+                                                                  round(e.best_gmag_p_lae_oii_ratio_range[2], 3),
+                                                                  round(e.best_gmag_p_lae_oii_ratio_range[1], 3))
+                except:
+                    log.debug("SDSS gmag PLAE title exception",exc_info=True)
+                    title += " (w %.4g)" % round(e.best_gmag_p_lae_oii_ratio,3)
 
-                        title += "\nr/b: %0.2f($\pm$%0.2f),%0.2f($\pm$%0.2f),%0.2f($\pm$%0.2f)" \
-                                 % (min(e.rvb['red_flux_density_ujy'],999),
-                                    min(e.rvb['red_flux_density_err_ujy'],999),
-                                    min(e.rvb['blue_flux_density_ujy'],999),
-                                    min(e.rvb['blue_flux_density_err_ujy'],999),
-                                    min(e.rvb['ratio'],999),
-                                    min(e.rvb['ratio_err'],999))
+            if G.DISPLAY_PSEUDO_COLOR:
+                if e.rvb is not None:
+                    #debug version
+                    # title += "\nColor = %0.03g (%0.3g,%0.3g) [%0.3g,%0.3g] {%d}" \
+                    #          %(e.rvb['color'],e.rvb['color_err'][0],e.rvb['color_err'][1],
+                    #            e.rvb['color_range'][0],e.rvb['color_range'][1],e.rvb['flag'])
+                    # title += "\nColor = %0.03g [%0.3g,%0.3g]" \
+                    #      % (e.rvb['color'], e.rvb['color_range'][0], e.rvb['color_range'][1])
+
+                    title += "\nr/b: %0.2f($\pm$%0.2f),%0.2f($\pm$%0.2f),%0.2f($\pm$%0.2f)" \
+                             % (min(e.rvb['red_flux_density_ujy'],999),
+                                min(e.rvb['red_flux_density_err_ujy'],999),
+                                min(e.rvb['blue_flux_density_ujy'],999),
+                                min(e.rvb['blue_flux_density_err_ujy'],999),
+                                min(e.rvb['ratio'],999),
+                                min(e.rvb['ratio_err'],999))
 
             #if (e.dqs is not None) and (e.dqs_raw is not None):
             #    title += "  Score = %0.1f (%0.2f)" % (e.dqs, e.dqs_raw)
