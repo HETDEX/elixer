@@ -13,6 +13,9 @@ changes to elixer by version
 * fix issue in catalogs where web catalogs would not be checked if any other catalogs matched the coordinates (even if
   the image cutout was None)
 * remove check for duplicate central pixels (1.8.3a2) as there are valid cases where this can occur
+* fixed extent rescaling issue for DECaLS in the neighborhood map (where DECaLS "original" size is reported as the
+  entire image size, not the cutout size vs the other catalogs where it is the cutout size). This caused the image
+  display extent to be tiny and the tick marks and positions (other than 0,0) were very wrong
 
 1.8.3a3 [2020-04-15]
 * updated elixer HDF5 file to version 0.2.0: Must upgrade any 0.1.x and below before merging

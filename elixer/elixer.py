@@ -2388,7 +2388,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     #get the single master cutout (need to stack? or select best image (best == most pixels)?)
     cat_library = catalogs.CatalogLibrary()
     ext = distance * 1.5  # extent is from the 0,0 position AND we want to grab a bit more than the radius (so can see around it)
-    cutouts = cat_library.get_cutouts(position=SkyCoord(ra, dec, unit='deg'), radius=ext,allow_web=True)
+    cutouts = cat_library.get_cutouts(position=SkyCoord(ra, dec, unit='deg'),radius=ext,allow_web=True)
 
     if cutouts is not None:
         log.debug("Neighborhood cutouts = %d" %(len(cutouts)))
@@ -2456,7 +2456,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         #todo: maybe limit to G or R band request?
         if G.DECALS_WEB_ALLOW:
             log.info("Calling DECaLS (web) ...")
-            ps_cutouts = catalogs.cat_decals_web.DECaLS().get_cutouts(ra,dec,distance,aperture=None)
+            ps_cutouts = catalogs.cat_decals_web.DECaLS().get_cutouts(ra,dec,distance,aperture=None,filter=['g','r'],first=True)
             #note, different than cutouts above?
             mc = make_master(ps_cutouts)
             if mc is not None:
@@ -2489,7 +2489,12 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         try:
             #update extent ... the requested size might not match, if extent is stretched differently than the actual
             #image, the positions marked will be wrong
-            ext = ext * master_cutout.shape[0] / master_cutout.shape_input[0]
+            #DECaLs is a problem as the shape_input reported is the entire size of the original image,
+            #so this stretch can be VERY wrong
+            ext_rescale = master_cutout.shape[0] / master_cutout.shape_input[0]
+            if ext_rescale < 0.5: #should only be a small change, so if very different (like in DECaLS) use the xmaax
+                ext_rescale =  master_cutout.xmax_cutout / master_cutout.xmax_original
+            ext = ext * ext_rescale
             vmin, vmax = UTIL.get_vrange(master_cutout.data)  # ,contrast=0.25)
             x, y = sci.get_position(ra, dec, master_cutout)  # x,y of the center
         except:
