@@ -1279,14 +1279,34 @@ class DetObj:
                 except:
                     log.debug(f"{self.entry_id} Combine ALL PLAE: MC plae({p_lae_oii_ratio}) sd({plae_sd})")
 
-            self.classification_dict['plae_hat'] = p_lae_oii_ratio
-            self.classification_dict['plae_hat_hi'] = plae_errors['ratio'][2]
-            self.classification_dict['plae_hat_lo'] = plae_errors['ratio'][1]
-            self.classification_dict['plae_hat_sd'] = plae_sd
-            self.classification_dict['size_in_psf'] = size_in_psf
-            self.classification_dict['diam_in_arcsec'] = diam_in_arcsec
-            self.classification_dict['continuum_hat'] = continuum_hat
-            self.classification_dict['continuum_hat_err'] = continuum_sd_hat
+            try:
+                self.classification_dict['plae_hat'] = p_lae_oii_ratio
+                self.classification_dict['plae_hat_hi'] = plae_errors['ratio'][2]
+                self.classification_dict['plae_hat_lo'] = plae_errors['ratio'][1]
+                self.classification_dict['plae_hat_sd'] = plae_sd
+            except:
+                log.debug("Exception in hetdex::combine_all_plae()",exc_info=True)
+                self.classification_dict['plae_hat'] = -1
+                self.classification_dict['plae_hat_hi'] = -1
+                self.classification_dict['plae_hat_lo'] = -1
+                self.classification_dict['plae_hat_sd'] = -1
+
+            try:
+                self.classification_dict['size_in_psf'] = size_in_psf
+                self.classification_dict['diam_in_arcsec'] = diam_in_arcsec
+            except:
+                log.debug("Exception in hetdex::combine_all_plae()", exc_info=True)
+                self.classification_dict['size_in_psf'] = -1
+                self.classification_dict['diam_in_arcsec'] = -1
+
+            try:
+                self.classification_dict['continuum_hat'] = continuum_hat
+                self.classification_dict['continuum_hat_err'] = continuum_sd_hat
+            except:
+                log.debug("Exception in hetdex::combine_all_plae()", exc_info=True)
+                self.classification_dict['continuum_hat'] = -1
+                self.classification_dict['continuum_hat_err'] = -1
+
 
             return p_lae_oii_ratio, plae_sd, size_in_psf, diam_in_arcsec
 
@@ -1858,7 +1878,8 @@ class DetObj:
             #clean up: don't use if sd (or sqrt variance) is larger than the actual measurement
             for i in range(len(continuum)):
                 try:
-                    if np.sqrt(variance[i]) > continuum[i]:
+                    #let it be a little larger, mostly the sampling will still work and give positive values
+                    if np.sqrt(variance[i]) > (1.3 *continuum[i]):
                         weight[i] = 0
                         log.debug(f"Error (sd) ({np.sqrt(variance[i])}): {variance[i]} too high vs continuum {continuum[i]}. Weight zeroed.")
                 except:

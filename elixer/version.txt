@@ -8,6 +8,8 @@ changes to elixer by version
   is 30-40 kpc (so slightly favor OII) and (0.5) at weight (0.1) if 10-30kpc
 * fix bug where PLAE/POII (upper left text block) was not being displayed if the narrow continuum results in an invalid
     PLAE/POII (even if the wide continuum estimate is good)
+* add option to catalogs.get_cutouts (allow_bad_image) to toggle return of cutouts that may be corrupt or empty
+* fix error where failure to combine PLAE/POII at the end results in no report
 
 1.8.3a3 [2020-04-15]
 * updated elixer HDF5 file to version 0.2.0: Must upgrade any 0.1.x and below before merging

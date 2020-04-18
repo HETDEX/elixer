@@ -1,12 +1,11 @@
 import sys
-sys.path.append('/work/03261/polonius/wrangler/science/sciscripts/elixer.wrangler')
-
 try:
     from elixer import catalogs
 except:
     import catalogs
 
 from astropy.coordinates import SkyCoord
+from astropy import units as u
 import astropy.io.fits as fits
 import logging
 
@@ -24,14 +23,14 @@ name = None
 
 if "--ra" in args:
     i = args.index("--ra")
-    ra = sys.argv[i + 1]
+    ra = float(sys.argv[i + 1])
 else: #we're done
     print("Missing mandatory parameter: --ra")
     exit(0)
 
 if "--dec" in args:
     i = args.index("--dec")
-    dec = sys.argv[i + 1]
+    dec = float(sys.argv[i + 1])
 else: #we're done
     print("Missing mandatory parameter: --dec")
     exit(0)
@@ -53,9 +52,12 @@ else:  # we're done
 
 catlib = catalogs.CatalogLibrary()
 
-coord = SkyCoord(ra,dec)
+coord = SkyCoord(ra*u.degree,dec*u.degree)
+#filters = catlib.get_filters(coord,catalogs=None)
+#cutouts =  catlib.get_cutouts(coord,side=radius*3.,filter=['*','r','g','F606W','*'], first=False,nudge=0.0,aperture=1.5)#[0]
+cutouts =  catlib.get_cutouts(coord,side=radius*3.,filter=['*'], first=False,nudge=0.0,aperture=1.5)#[0]
 
-cutouts = catlib.get_cutouts(coord,radius*2./3600.)
+#cutouts = catlib.get_cutouts(coord,radius*2./3600.*u.degree)
 #radius*2. s|t the given value becomes a side of the square
 #/3600.0 because the bash wrapper assumes arcesec but we pass in as decimal degreees
 

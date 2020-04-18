@@ -212,7 +212,7 @@ class CatalogLibrary:
         return filters
 
     def get_cutouts(self,position,radius=None,side=None,catalogs=None,aperture=None,dynamic=False,
-                    nudge=None,filter=None,first=False,allow_web=False):
+                    nudge=None,filter=None,first=False,allow_web=False,allow_bad_image=True):
         '''
         Return a list of dictionaries of the FITS cutouts from imaging catalogs
         (does not include objects in those catalogs, just the images).
@@ -249,6 +249,8 @@ class CatalogLibrary:
                       list parameter in the order specified in the list
         :param allow_web: optional - if True, will attempt to collect cutouts from web interface from DECaLS,
                         PanSTARRS, and SDSS (in that order, until success or interfaces exhausted)
+        :param allow_bad_image: optional - if True, all cutouts will be returned. If False, cutouts that do not pass
+                        a basic quality check are not returned
         :return: list of dictionaries of cutouts and info,
                 one for each matching catalog FITS image that contains the requested coordinate.
                 The dictionary contains the following keys:
@@ -300,7 +302,9 @@ class CatalogLibrary:
         saved_DYNAMIC_MAG_APERTURE = G.DYNAMIC_MAG_APERTURE
         saved_FIXED_MAG_APERTURE = G.FIXED_MAG_APERTURE
         saved_NUDGE_MAG_APERTURE_CENTER = G.NUDGE_MAG_APERTURE_CENTER
+        save_ALLOW_EMPTY_IMAGE = G.ALLOW_EMPTY_IMAGE
 
+        G.ALLOW_EMPTY_IMAGE = allow_bad_image
         G.DYNAMIC_MAG_APERTURE = dynamic
         G.FIXED_MAG_APERTURE = aperture
         if (nudge is None) or (nudge < 0):
@@ -351,6 +355,7 @@ class CatalogLibrary:
         G.DYNAMIC_MAG_APERTURE = saved_DYNAMIC_MAG_APERTURE
         G.FIXED_MAG_APERTURE = saved_FIXED_MAG_APERTURE
         G.NUDGE_MAG_APERTURE_CENTER = saved_NUDGE_MAG_APERTURE_CENTER
+        G.ALLOW_EMPTY_IMAGE = save_ALLOW_EMPTY_IMAGE
 
         return l
 
