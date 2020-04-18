@@ -1,12 +1,7 @@
-#import global_config as G
-
-
-
-
 #base class for catalogs (essentially an interface class)
 #all Catalogs classes must implement:
 
-
+import numpy as np
 
 try:
     from elixer import global_config as G
@@ -323,7 +318,12 @@ class CatalogLibrary:
             if (cutouts is not None) and (len(cutouts) > 0):
                 l.extend(cutouts)
 
-        if (len(l) == 0) and (allow_web): #no imaging was found ...
+        try:
+            num_cutouts = len(np.where([x['cutout'] for x in l])[0])
+        except:
+            num_cutouts = len(l) #best guess otherwise
+
+        if (num_cutouts == 0) and (allow_web): #no imaging was found ...
             try:
                 while True:
                     #DECaLS

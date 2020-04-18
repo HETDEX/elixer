@@ -126,7 +126,11 @@ def is_cutout_empty(cutout):
 
                 frac_top_duplicates = top_duplicates/len(flat)
 
-                if (frac_uniq < G.FRAC_UNIQUE_PIXELS_NOT_EMPTY) and (frac_top_duplicates > G.FRAC_DUPLICATE_PIXELS) \
+                if frac_uniq < G.FRAC_UNIQUE_PIXELS_MINIMUM:
+                    log.warning(f"Fraction of (minimum) unique pixels ({frac_uniq}) < ({G.FRAC_UNIQUE_PIXELS_MINIMUM}) "
+                                f" Assume cutout is empty or simple pattern.")
+                    rc = True
+                elif (frac_uniq < G.FRAC_UNIQUE_PIXELS_NOT_EMPTY) and (frac_top_duplicates > G.FRAC_DUPLICATE_PIXELS) \
                         and (uniq_array[np.argmax(uniq_counts)] < 5000.0):
                     log.warning(f"Fraction of unique pixels ({frac_uniq}) < ({G.FRAC_UNIQUE_PIXELS_NOT_EMPTY}) "
                                 f"and fraction of top duplicates ({frac_top_duplicates}) > ({G.FRAC_DUPLICATE_PIXELS}) "
