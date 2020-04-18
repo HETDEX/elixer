@@ -1194,12 +1194,12 @@ class DetObj:
             self.classification_dict['spurious_reason'] = reason
             log.info(f"Aggregate Classification: bad pixel flat dominates. Setting PLAE to -1 (spurious)")
         # check for duplicate pixel positions
-        elif self.num_duplicate_central_pixels > G.MAX_NUM_DUPLICATE_CENTRAL_PIXELS:  # out of the top (usually 4) fibers
-            reason = "(duplicate pixels)"
-            scaled_prob_lae = -1
-            self.classification_dict['scaled_plae'] = scaled_prob_lae
-            self.classification_dict['spurious_reason'] = reason
-            log.info(f"Aggregate Classification: bad duplicate central pixels. Setting PLAE to -1 (spurious)")
+        # elif self.num_duplicate_central_pixels > G.MAX_NUM_DUPLICATE_CENTRAL_PIXELS:  # out of the top (usually 4) fibers
+        #     reason = "(duplicate pixels)"
+        #     scaled_prob_lae = -1
+        #     self.classification_dict['scaled_plae'] = scaled_prob_lae
+        #     self.classification_dict['spurious_reason'] = reason
+        #     log.info(f"Aggregate Classification: bad duplicate central pixels. Setting PLAE to -1 (spurious)")
         else:
             #
             # Combine them all
@@ -6857,7 +6857,7 @@ class HETDEX:
 
 
 
-        #check for unique pixels
+        #check for unique pixels (could be useful at some point in the future)
         try:
             if len(top_pixels) > 1:
                 u,c = np.unique(top_pixels,return_counts=True)
