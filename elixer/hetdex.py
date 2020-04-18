@@ -1172,13 +1172,15 @@ class DetObj:
                 log.info(f"Aggregate Classification: bad pixel flat for fiber #{fidx+1}. lk({likelihood[-1]}) weight({weight[-1]})")
 
         #check for duplicate pixel positions
-        if self.num_duplicate_central_pixels > G.MAX_NUM_DUPLICATE_CENTRAL_PIXELS: #out of the top (usually 4) fibers
-            likelihood.append(0)
-            weight.append(self.num_duplicate_central_pixels)  # more central fibers make this more likely to trigger
-            var.append(1)
-            prior.append(0)
-            log.info(
-                f"Aggregate Classification: bad duplicate central pixels: {self.num_duplicate_central_pixels}. lk({likelihood[-1]}) weight({weight[-1]})")
+        #NO! there are valid (good) conditions where there ARE duplicate positions but it is good and correct
+        #(dithering CAN produce different fibers on the same pixel where this is good signal in each dither)
+        # if self.num_duplicate_central_pixels > G.MAX_NUM_DUPLICATE_CENTRAL_PIXELS: #out of the top (usually 4) fibers
+        #     likelihood.append(0)
+        #     weight.append(self.num_duplicate_central_pixels)  # more central fibers make this more likely to trigger
+        #     var.append(1)
+        #     prior.append(0)
+        #     log.info(
+        #         f"Aggregate Classification: bad duplicate central pixels: {self.num_duplicate_central_pixels}. lk({likelihood[-1]}) weight({weight[-1]})")
 
         #don't just drive down the PLAE, make it negative as a flag
         if bad_pixflt_weight > 0.5:
