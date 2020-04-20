@@ -88,10 +88,10 @@ KPNO_IMAGE_PATH = None
 HETDEX_API_CONFIG = None
 
 if hostname == "z50":  # primary author test box
-    HDR_Version = 1
+    HDR_Version = 2
     LAUNCH_PDF_VIEWER = 'qpdfview'
 else:
-    HDR_Version = 1  # default HDR Version if not specified
+    HDR_Version = 2  # default HDR Version if not specified
 
 
 #look specifically (and only) for HDR version on call
@@ -281,8 +281,8 @@ def select_hdr_version(version):
 
             # KPNO_BASE_PATH = "/work/03261/polonius/hetdex/catalogs/KPNO_Mosaic"
             KPNO_BASE_PATH = "/work/03233/jf5007/maverick/KMImaging/"
-            KPNO_CAT_PATH = HSC_BASE_PATH
-            KPNO_IMAGE_PATH = HSC_BASE_PATH
+            KPNO_CAT_PATH = KPNO_BASE_PATH
+            KPNO_IMAGE_PATH = KPNO_BASE_PATH
 
     if normal_build:
 
@@ -396,8 +396,8 @@ def select_hdr_version(version):
             KPNO_BASE_PATH = op.join(hdr_imaging_basepath, "KMImaging")
         else:
             KPNO_BASE_PATH = "/work/03233/jf5007/maverick/KMImaging/"
-        KPNO_CAT_PATH = HSC_BASE_PATH
-        KPNO_IMAGE_PATH = HSC_BASE_PATH
+        KPNO_CAT_PATH = KPNO_BASE_PATH
+        KPNO_IMAGE_PATH = KPNO_BASE_PATH
 
     return True  # end select_hdr_version
 

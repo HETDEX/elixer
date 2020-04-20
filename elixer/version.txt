@@ -16,6 +16,8 @@ changes to elixer by version
 * fixed extent rescaling issue for DECaLS in the neighborhood map (where DECaLS "original" size is reported as the
   entire image size, not the cutout size vs the other catalogs where it is the cutout size). This caused the image
   display extent to be tiny and the tick marks and positions (other than 0,0) were very wrong
+* fixed bug in KPNO where imaging base path was not getting updated correctly (if it moved)
+* updated default (non-ELiXer call) HETDEX Data Release version to 2
 
 1.8.3a3 [2020-04-15]
 * updated elixer HDF5 file to version 0.2.0: Must upgrade any 0.1.x and below before merging

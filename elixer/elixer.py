@@ -840,7 +840,9 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
     else:
         log.debug("Imaging catalogs is None")
 
+    num_remaining_cats = len(cats)
     for c in cats:
+        num_remaining_cats -= 1
 
         if (c is None) or (isinstance(c,list)): #i.e. there are no cats, but it is a list with an empty list
             continue
@@ -883,7 +885,7 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
                 else:
                     pages = pages + r
                 count = max(0,len(r)-1) #1st page is the target page
-        else: # r was None ... no page was created, probably an empty region
+        elif num_remaining_cats < 1: # r was None ... no page was created, probably an empty region
             if G.DECALS_WEB_ALLOW and not added_decals: #not FORCE ... that is handled differently
                 cats.append(catalogs.CatalogLibrary().get_decals_web())
                 added_decals = True

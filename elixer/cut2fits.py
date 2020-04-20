@@ -97,7 +97,7 @@ cat_decals = catlib.get_decals_web()
 coord = SkyCoord(ra*u.degree,dec*u.degree)
 #filters = catlib.get_filters(coord,catalogs=None)
 #cutouts =  catlib.get_cutouts(coord,side=radius*3.,filter=['*','r','g','F606W','*'], first=False,nudge=0.0,aperture=1.5)#[0]
-cutouts =  catlib.get_cutouts(coord,side=radius*3.,first=False, allow_bad_image=allow_empty,allow_web=True)#[0]
+cutouts = catlib.get_cutouts(coord,side=radius*3.,first=False, allow_bad_image=allow_empty,allow_web=True)#[0]
 
 #cutouts = catlib.get_cutouts(coord,radius*2./3600.*u.degree)
 #radius*2. s|t the given value becomes a side of the square
