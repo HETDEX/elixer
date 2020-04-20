@@ -1056,12 +1056,12 @@ class DetObj:
                     else: #low score, but can still impact
                         #this can be a problem for items like 1000637691 which get reduced score, but is clearly a non-LAE multi-line
                         #like an HII region; in theory clustering of emission lines would catch this
-                        w = s.scale_score #min(s.score / G.MULTILINE_MIN_SOLUTION_SCORE, s.scale_score)
+                        w = 0.5 * s.scale_score #min(s.score / G.MULTILINE_MIN_SOLUTION_SCORE, s.scale_score)
 
                         if s.z > 1.8:  # suggesting LAE consistent
                            # likelihood.append(s.scale_score)
                            # weight.append(0.8 * w)  # opinion ... has multiple lines, so the score is reasonable
-                            likelihood.append(1.0)  # s.scale_score)
+                            likelihood.append(0.8)  # s.scale_score)
                             weight.append(w * bonus_weight)
                             # must also have CIV or HeII, etc as possible matches
                             var.append(1)  # todo: ? could do something like the spectrum noise?
@@ -1072,7 +1072,7 @@ class DetObj:
                         else:  # suggesting NOT LAE consistent
                             #likelihood.append(1. - s.scale_score)
                             #weight.append(1.0 * w)  # opinion ... has multiple lines, so the score is reasonable
-                            likelihood.append(0.0)  # 1-s.scale_score)
+                            likelihood.append(0.2)  # weak solution so push likelihood "down" but not zero (maybe 0.2 or 0.25)?
                             weight.append(w * bonus_weight)
                             var.append(1)  # todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
@@ -1154,11 +1154,9 @@ class DetObj:
             log.debug("Exception in aggregate_classification for best PLAE/POII",exc_info=True)
 
 
-        # todo: update the physical size weights
-        # now add to the global likelihood and weight
-        # choose the best weight in each class ... if a tie, choose the higher likelihood
-
-
+        #todo: chi2 vs S/N  (is it a real line)
+        #  need to include (for poor S/N) if there is a faint catalog object right under the reticle (say within 0.5")
+        #a question of fit ...
 
         #check for bad pixel flats
         bad_pixflt_weight = 0

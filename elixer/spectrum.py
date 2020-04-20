@@ -323,7 +323,7 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None):
             else:
                 mag_err = 0.5 * (mag_faint-mag_bright) #not symmetric, but this is roughly close enough
         else:
-            log.info("HETDEX full width gmag, continuum estimate below flux limit. Setting None.")
+            log.info(f"HETDEX full width gmag, continuum estimate ({band_flux_density:0.3g}) below flux limit. Setting mag to None.")
             return None, band_flux_density, None, band_flux_density_err
 
 
