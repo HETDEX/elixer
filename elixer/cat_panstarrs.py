@@ -498,9 +498,13 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                 if details:
                     details['mag'] = mag
                     try:
-                        details['mag_bright'] = min(mag,details['mag_bright'])
+                        details['mag_bright'] = np.min(mag,details['mag_bright'])
                     except:
-                        pass
+                        details['mag_bright'] = mag
+                    try:
+                        details['mag_faint'] = np.max(mag,G.MAX_MAG_FAINT)
+                    except:
+                        details['mag_faint'] = G.MAX_MAG_FAINT
 
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 

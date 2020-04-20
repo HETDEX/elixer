@@ -18,6 +18,7 @@ changes to elixer by version
   display extent to be tiny and the tick marks and positions (other than 0,0) were very wrong
 * fixed bug in KPNO where imaging base path was not getting updated correctly (if it moved)
 * updated default (non-ELiXer call) HETDEX Data Release version to 2
+* set faint mag limit of 28.0 (configurable in global_config.py) when at flux limit for imaging catalogs
 
 1.8.3a3 [2020-04-15]
 * updated elixer HDF5 file to version 0.2.0: Must upgrade any 0.1.x and below before merging
