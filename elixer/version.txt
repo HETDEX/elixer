@@ -21,8 +21,9 @@ changes to elixer by version
 * set faint mag limit of 28.0 (configurable in global_config.py) when at flux limit for imaging catalogs
 * changed minumum allowed unique pixels in cutout to 70%
 * added median, (negative) std from zero, skewtest to image "good" check
-* added marking of pixels more than x signam (3 by default) from the mean in a pixel flat in red (see global_config.py
+* added marking of pixels more than x sigma (3 by default) from the mean in a pixel flat in red (see global_config.py
   MARK_PIXEL_FLAT_DEVIATION)
+* small improvement to scaling (uses interior 2/3 of image to set zscale contrast rather than whole image)
 
 1.8.3a3 [2020-04-15]
 * updated elixer HDF5 file to version 0.2.0: Must upgrade any 0.1.x and below before merging

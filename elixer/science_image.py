@@ -121,9 +121,14 @@ def is_cutout_empty(cutout):
                 uniq_array, uniq_counts = np.unique(flat,return_counts=True)
                 frac_uniq = len(uniq_array) / len(flat)
 
+                #uniq_max = np.max(uniq_array)
+
                 if len(uniq_counts) > 10:
+                    #sum of top 3 counts
                     top_duplicates = np.sum(sorted(uniq_counts,reverse=True)[0:3])
+                 #   uniq_max_sum = top_duplicates
                 else:
+                    #just the single top count
                     top_duplicates = np.max(uniq_counts)
 
                 frac_top_duplicates = top_duplicates/len(flat)
@@ -149,11 +154,10 @@ def is_cutout_empty(cutout):
                     log.warning(f"Fraction of (minimum) unique pixels ({frac_uniq}) < ({G.FRAC_UNIQUE_PIXELS_MINIMUM}) "
                                 f" Assume cutout is empty or simple pattern.")
                     rc = True
-                elif (frac_uniq < G.FRAC_UNIQUE_PIXELS_NOT_EMPTY) and (frac_top_duplicates > G.FRAC_DUPLICATE_PIXELS) \
-                        and (uniq_array[np.argmax(uniq_counts)] < 5000.0):
+                elif (frac_uniq < G.FRAC_UNIQUE_PIXELS_NOT_EMPTY) and (frac_top_duplicates > G.FRAC_DUPLICATE_PIXELS):
+                        #and (uniq_array[np.argmax(uniq_counts)] < 5000.0):
                     log.warning(f"Fraction of unique pixels ({frac_uniq}) < ({G.FRAC_UNIQUE_PIXELS_NOT_EMPTY}) "
                                 f"and fraction of top duplicates ({frac_top_duplicates}) > ({G.FRAC_DUPLICATE_PIXELS}) "
-                                f"and not saturated."
                              f" Assume cutout is empty or simple pattern.")
                     rc = True
                 elif ((hzc > 0.99) or (vtc > 0.99)) and (frac_uniq < G.FRAC_UNIQUE_PIXELS_AUTOCORRELATE):
@@ -493,9 +497,18 @@ class science_image():
         self.vmin = None
         self.vmax = None
 
+        cpvals = vals[:]
+
+        #use the interior ~2/3
+        try:
+            y,x = np.shape(cpvals)
+            cpvals = cpvals[int(0.17*y):int(0.83*y),int(0.17*x):int(0.83*x)]
+        except:
+            pass #just use the whole width
+
         try:
             zscale = ZScaleInterval(contrast=contrast,krej=2.5) #nsamples=len(vals)
-            self.vmin, self.vmax = zscale.get_limits(values=vals )
+            self.vmin, self.vmax = zscale.get_limits(values=cpvals)
             log.info("Vrange = %f, %f" %(self.vmin,self.vmax))
         except:
             log.info("Exception in science_image::get_vrange:",exc_info =True)
