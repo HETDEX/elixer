@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.8.3a4 [2020-04-17]
+1.8.3a4 [2020-04-21]
 * tweak combined_continuum to favor the wide-spectrum g-band IF it is brighter than 24mag (gets 4x weight which makes
   it roughly equal to combined weight of the other measures, but does NOT modify the variance, so smaller error
   measures still win out)
@@ -19,6 +19,8 @@ changes to elixer by version
 * fixed bug in KPNO where imaging base path was not getting updated correctly (if it moved)
 * updated default (non-ELiXer call) HETDEX Data Release version to 2
 * set faint mag limit of 28.0 (configurable in global_config.py) when at flux limit for imaging catalogs
+* changed minumum allowed unique pixels in cutout to 70%
+* added mean, skew, skewtest (if very negative and very inconsistent with normal distribution) assume the image is bad
 
 1.8.3a3 [2020-04-15]
 * updated elixer HDF5 file to version 0.2.0: Must upgrade any 0.1.x and below before merging

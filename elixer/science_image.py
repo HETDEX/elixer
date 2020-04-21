@@ -45,6 +45,8 @@ import astropy.stats.biweight as biweight
 import astropy.wcs #need constants
 import sep #source extractor python module
 
+import scipy.stats as stats
+
 PIXEL_APERTURE_METHOD='exact' #'exact' 'center' 'subpixel'
 
 #log = G.logging.getLogger('sciimg_logger')
@@ -126,6 +128,10 @@ def is_cutout_empty(cutout):
 
                 frac_top_duplicates = top_duplicates/len(flat)
 
+                skew = stats.skew(flat)
+                skew_zscore, skew_pval = stats.skewtest(flat)
+                mean = np.mean(flat)
+
                 if frac_uniq < G.FRAC_UNIQUE_PIXELS_MINIMUM:
                     log.warning(f"Fraction of (minimum) unique pixels ({frac_uniq}) < ({G.FRAC_UNIQUE_PIXELS_MINIMUM}) "
                                 f" Assume cutout is empty or simple pattern.")
@@ -142,7 +148,12 @@ def is_cutout_empty(cutout):
                              f"auto-correlaction. Assume cutout is empty or simple pattern.")
                     rc = True
                 elif frac_nonzero < G.FRAC_NONZERO_PIXELS:
-                    log.warning(f"Fraction of zero pixels ({frac_nonzero}) < ({G.FRAC_NONZERO_PIXELS}). Assume cutout is empty or simple pattern.")
+                    log.warning(f"Fraction of zero pixels ({frac_nonzero}) < ({G.FRAC_NONZERO_PIXELS}). "
+                                f"Assume cutout is empty or simple pattern.")
+                    rc = True
+                elif (mean < 0) and (skew < -1.0) and (skew_pval < 1e-9):
+                    log.warning(f"Negative mean ({mean}, very negative skew ({skew}), and very inconsistent with normal (pval {skew_pval}). "
+                               f"Assume cutout is empty or simple pattern or junk.")
                     rc = True
                 elif frac_uniq < 0.9:
                     log.info(f"Low fraction of unique pixels ({frac_uniq}). Image may be bad.")
