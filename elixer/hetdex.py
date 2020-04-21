@@ -6609,24 +6609,34 @@ class HETDEX:
                     gauss_vmax = datakeep['vmax1'][ind[i]]
 
                     pix_image = datakeep['pix'][ind[i]]
+                    #bad_pix_image = datakeep['pix'][ind[i]][:]
                     image = datakeep['im'][ind[i]]  # im can be the cosmic removed version, depends on G.PreferCosmicCleaned
-
+                    bad_pix_value = -99999
 
                     # check for bad flat in the center (where emission line would be)
                     # check 9 central pixels (using "blank")
                     try:
-                        cy,cx = np.array(np.shape(pix_image))//2
-                        cntr = pix_image[cy-1:cy+2,cx-1:cx+2]
-                        #yes, I want mean for cntr and median for the whole cutout
-                        cntr_ratio = np.nanmean(cntr) / np.nanmedian(pix_image)
-                        #sorting is different, need to reverse
-                        detobj.fibers[len(detobj.fibers)-i-1].pixel_flat_center_ratio = cntr_ratio
-                        if cntr_ratio < G.MIN_PIXEL_FLAT_CENTER_RATIO:
-                            #could be bad
-                            log.info("Possible bad pixel flat at emission line position")
+                        flat = pix_image.flatten()
+                        nonzero = len(np.where(flat != 0)[0])
+                        if nonzero > 0 and float(nonzero)/float(len(flat)) > 0.5:
+                            #bad_pix_value = np.nanmedian(pix_image) * G.MIN_PIXEL_FLAT_CENTER_RATIO
+                            mask_pix_image = np.ma.masked_where(pix_image == 0, pix_image)
+                            bad_pix_value = np.nanmedian(mask_pix_image) - G.MARK_PIXEL_FLAT_DEVIATION*np.std(mask_pix_image)
+
+                            cy,cx = np.array(np.shape(pix_image))//2
+                            cntr = pix_image[cy-1:cy+2,cx-1:cx+2]
+                            #yes, I want mean for cntr and median for the whole cutout
+                            cntr_ratio = np.nanmean(cntr) / np.nanmedian(pix_image)
+                            #sorting is different, need to reverse
+                            detobj.fibers[len(detobj.fibers)-i-1].pixel_flat_center_ratio = cntr_ratio
+                            if cntr_ratio < G.MIN_PIXEL_FLAT_CENTER_RATIO:
+                                #could be bad
+                                log.info("Possible bad pixel flat at emission line position")
                     except:
                         log.debug("Exception checking for bad pixel flat",exc_info=True)
 
+                    #update pix_image to a mask to use later when ploting
+                    pix_image = np.ma.masked_where((pix_image < bad_pix_value) & (pix_image != 0), pix_image)
 
                     #check for same pixel (as a string for easy compare (all integer values)
                     #after the loop, make sure they are unique
@@ -6697,8 +6707,10 @@ class HETDEX:
                 if pix_image is not None:
                     vmin_pix = 0.9
                     vmax_pix = 1.1
+                    pix_cmap = plt.get_cmap('gray')
+                    pix_cmap.set_bad(color=[1.0, 0.2, 0.2])
                     pixplot.imshow(pix_image,
-                                   origin="lower", cmap=plt.get_cmap('gray'),
+                                   origin="lower", cmap=pix_cmap,
                                    interpolation="none", vmin=vmin_pix, vmax=vmax_pix,
                                    extent=ext) #vmin=0.9, vmax=1.1
 

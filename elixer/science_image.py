@@ -129,9 +129,21 @@ def is_cutout_empty(cutout):
                 frac_top_duplicates = top_duplicates/len(flat)
 
                 skew = stats.skew(flat)
-                skew_zscore, skew_pval = stats.skewtest(flat)
+                # very non normal (alone) is great (means signal)
+                # skew could be + or -  and still have signal?
+                # remember: skew is from the mean, not zero
+                skew_zscore, skew_pval = stats.skewtest(flat) 
                 mean = np.mean(flat)
                 median = np.median(flat)
+                std = np.std(flat)
+                bwloc = biweight.biweight_location(flat)
+                bwscale = biweight.biweight_scale(flat)
+
+                zero_std = median / std # looking for a negative value, more negative than -1 (s|t median is more than
+                                        # one std dev less than zero
+
+                log.debug(f"mean ({mean}), median ({median}), std ({std}), bwloc ({bwloc}), bwscale ({bwscale}), "
+                          f"skew ({skew}), skew_pval ({skew_pval}), zero_std ({zero_std})")
 
                 if frac_uniq < G.FRAC_UNIQUE_PIXELS_MINIMUM:
                     log.warning(f"Fraction of (minimum) unique pixels ({frac_uniq}) < ({G.FRAC_UNIQUE_PIXELS_MINIMUM}) "
@@ -152,15 +164,25 @@ def is_cutout_empty(cutout):
                     log.warning(f"Fraction of zero pixels ({frac_nonzero}) < ({G.FRAC_NONZERO_PIXELS}). "
                                 f"Assume cutout is empty or simple pattern.")
                     rc = True
-                elif (mean < 0) and (skew < -1.0) and (skew_pval < 1e-20):
-                    log.warning(f"Negative mean ({mean}, very negative skew ({skew}), and very inconsistent with normal (pval {skew_pval}). "
-                               f"Assume cutout is empty or simple pattern or junk.")
-                    rc = True
-                elif (median < mean) and (mean < 0) and (skew < -1.0) and (skew_pval < 1e-20):
-                    log.warning(f"Negative median ({median} < negative mean ({mean}), very negative skew ({skew}), "
+
+
+                elif (median < 0) and (zero_std < -1.0) and (skew_pval < 1e-20):
+                    log.warning(f"Negative median ({median},  ({zero_std}) from zero,"
                                 f"and very inconsistent with normal (pval {skew_pval}). "
                                f"Assume cutout is empty or simple pattern or junk.")
                     rc = True
+
+
+                #no ... these can trap signal (real) sources and good images
+                # elif (mean < 0) and (skew < -1.0) and (skew_pval < 1e-20):
+                #     log.warning(f"Negative mean ({mean}, very negative skew ({skew}), and very inconsistent with normal (pval {skew_pval}). "
+                #                f"Assume cutout is empty or simple pattern or junk.")
+                #     rc = True
+                # elif (median < mean) and (mean < 0) and (skew < 0.0) and (skew_pval < 1e-20):
+                #     log.warning(f"Negative median ({median} < negative mean ({mean}), very negative skew ({skew}), "
+                #                 f"and very inconsistent with normal (pval {skew_pval}). "
+                #                f"Assume cutout is empty or simple pattern or junk.")
+                #     rc = True
                 elif frac_uniq < 0.9:
                     log.info(f"Low fraction of unique pixels ({frac_uniq}). Image may be bad.")
                     #print(f"Low fraction of unique pixels ({frac_uniq}). Image may be bad.")
