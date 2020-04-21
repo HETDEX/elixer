@@ -156,8 +156,9 @@ def is_cutout_empty(cutout):
                     log.warning(f"Negative mean ({mean}, very negative skew ({skew}), and very inconsistent with normal (pval {skew_pval}). "
                                f"Assume cutout is empty or simple pattern or junk.")
                     rc = True
-                elif (median < mean) and (mean < 0) and (skew_pval < 1e-20):
-                    log.warning(f"Negative median ({median} < negative mean ({mean}), and very inconsistent with normal (pval {skew_pval}). "
+                elif (median < mean) and (mean < 0) and (skew < -1.0) and (skew_pval < 1e-20):
+                    log.warning(f"Negative median ({median} < negative mean ({mean}), very negative skew ({skew}), "
+                                f"and very inconsistent with normal (pval {skew_pval}). "
                                f"Assume cutout is empty or simple pattern or junk.")
                     rc = True
                 elif frac_uniq < 0.9:
