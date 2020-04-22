@@ -155,11 +155,12 @@ def is_cutout_empty(cutout):
                 sc_mean, sc_median, sc_std = sigma_clipped_stats(flat, sigma=3.0)
                 clip = sigma_clip(flat,sigma=3.0,masked=False)
                 sc_skew = stats.skew(clip)
+                sc_kurt = stats.kurtosis(clip)
                 sc_skew_zscore, sc_skew_pval = stats.skewtest(clip)
                 sc_zero_std = sc_median / sc_std
                 sc_run = np.max(clip)-np.min(clip)
-                log.debug(f"sc_mean ({sc_mean}), sc_median ({sc_median}), sc_std ({sc_std}), sc_skew ({sc_skew}), "
-                          f"sc_skew_pval ({sc_skew_pval}), sc_zero_std ({sc_zero_std})")
+                log.debug(f"sc_mean ({sc_mean}), sc_median ({sc_median}), sc_std ({sc_std})")
+                log.debug (f"sc_skew ({sc_skew}), sc_skew_pval ({sc_skew_pval}), sc_zero_std ({sc_zero_std}), sc_kurt ({sc_kurt}), sc_run ({sc_run})")
 
                 if frac_uniq < G.FRAC_UNIQUE_PIXELS_MINIMUM:
                     log.warning(f"Fraction of (minimum) unique pixels ({frac_uniq}) < ({G.FRAC_UNIQUE_PIXELS_MINIMUM}) "
@@ -179,11 +180,13 @@ def is_cutout_empty(cutout):
                     log.warning(f"Fraction of zero pixels ({frac_nonzero}) < ({G.FRAC_NONZERO_PIXELS}). "
                                 f"Assume cutout is empty or simple pattern.")
                     rc = True
-
-
-                elif (sc_zero_std < -3.0) and (sc_skew_pval < 1e-20):
+                elif (sc_zero_std < -2.5) and (sc_skew_pval < 1e-20):
                     log.warning(f"Negative median ({sc_median},  ({sc_zero_std}) from zero,"
                                 f"and very inconsistent with normal (pval {sc_skew_pval}) post sigma-clip. "
+                               f"Assume cutout is empty or simple pattern or junk.")
+                    rc = True
+                elif sc_zero_std < -10.0 : #absurdly low (basically, small std dev and all values are very negative)
+                    log.warning(f"Very negative values, ({sc_zero_std}) std from zero,"
                                f"Assume cutout is empty or simple pattern or junk.")
                     rc = True
 
