@@ -40,7 +40,7 @@ from photutils import CircularAperture #pixel coords
 from photutils import SkyCircularAperture, SkyCircularAnnulus #sky coords
 from photutils import aperture_photometry
 from photutils import centroid_2dg
-from astropy.stats import sigma_clipped_stats
+from astropy.stats import sigma_clipped_stats, sigma_clip
 import astropy.stats.biweight as biweight
 import astropy.wcs #need constants
 import sep #source extractor python module
@@ -147,8 +147,19 @@ def is_cutout_empty(cutout):
                 zero_std = median / std # looking for a negative value, more negative than -1 (s|t median is more than
                                         # one std dev less than zero
 
+
+
                 log.debug(f"mean ({mean}), median ({median}), std ({std}), bwloc ({bwloc}), bwscale ({bwscale}), "
                           f"skew ({skew}), skew_pval ({skew_pval}), zero_std ({zero_std})")
+
+                sc_mean, sc_median, sc_std = sigma_clipped_stats(flat, sigma=3.0)
+                clip = sigma_clip(flat,sigma=3.0,masked=False)
+                sc_skew = stats.skew(clip)
+                sc_skew_zscore, sc_skew_pval = stats.skewtest(clip)
+                sc_zero_std = sc_median / sc_std
+                sc_run = np.max(clip)-np.min(clip)
+                log.debug(f"sc_mean ({sc_mean}), sc_median ({sc_median}), sc_std ({sc_std}), sc_skew ({sc_skew}), "
+                          f"sc_skew_pval ({sc_skew_pval}), sc_zero_std ({sc_zero_std})")
 
                 if frac_uniq < G.FRAC_UNIQUE_PIXELS_MINIMUM:
                     log.warning(f"Fraction of (minimum) unique pixels ({frac_uniq}) < ({G.FRAC_UNIQUE_PIXELS_MINIMUM}) "
@@ -170,9 +181,9 @@ def is_cutout_empty(cutout):
                     rc = True
 
 
-                elif (median < 0) and (zero_std < -1.0) and (skew_pval < 1e-20):
-                    log.warning(f"Negative median ({median},  ({zero_std}) from zero,"
-                                f"and very inconsistent with normal (pval {skew_pval}). "
+                elif (sc_zero_std < -3.0) and (sc_skew_pval < 1e-20):
+                    log.warning(f"Negative median ({sc_median},  ({sc_zero_std}) from zero,"
+                                f"and very inconsistent with normal (pval {sc_skew_pval}) post sigma-clip. "
                                f"Assume cutout is empty or simple pattern or junk.")
                     rc = True
 
