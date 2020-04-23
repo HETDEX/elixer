@@ -2961,6 +2961,20 @@ class DetObj:
             self.sumspec_fluxerr = np.nan_to_num(apt['spec_err'][0], nan=0.000) * G.FLUX_WAVEBIN_WIDTH
             self.sumspec_wavelength = np.array(apt['wavelength'][0])
 
+            if self.w is None or self.w == 0:
+                # find the "best" wavelength to use as the central peak
+                spectrum = elixer_spectrum.Spectrum()
+                w = spectrum.find_central_wavelength(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr,
+                                                     -17)
+                if w is not None and (3400.0 < w < 5600.0):
+                    self.w = w
+                    self.target_wavelength = w
+                else:
+                    print("Cannot identify a suitable target wavelength. Arbitrarly setting to 4500.0 for report.")
+                    log.info("Cannot identify a suitable target wavelength. Arbitrarly setting to 4500.0 for report.")
+                    self.w = 4500.0
+                    self.target_wavelength = 4500.0
+
             idx = elixer_spectrum.getnearpos(self.sumspec_wavelength, self.w)
             left = idx - 25  # 2AA steps so +/- 50AA
             right = idx + 25
@@ -3121,18 +3135,6 @@ class DetObj:
 
             #my own fitting
             try:
-                if self.w is None or self.w == 0:
-                    #find the "best" wavelength to use as the central peak
-                    spectrum = elixer_spectrum.Spectrum()
-                    w = spectrum.find_central_wavelength(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr,-17)
-                    if w is not None and (3400.0 < w < 5600.0):
-                        self.w = w
-                        self.target_wavelength = w
-                    else:
-                        print("Cannot identify a suitable target wavelength. Arbitrarly setting to 4500.0 for report.")
-                        log.info("Cannot identify a suitable target wavelength. Arbitrarly setting to 4500.0 for report.")
-                        self.w = 4500.0
-                        self.target_wavelength = 4500.0
 
                 self.spec_obj.set_spectra(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr, self.w,
                                           values_units=-17, estflux=self.estflux, estflux_unc=self.estflux_unc,
@@ -5021,6 +5023,9 @@ class HETDEX:
 
                 if e.status >= 0:
                     self.emis_list.append(e)
+                    if self.target_wavelength is None or self.target_wavelength == 0:
+                        self.target_wavelength = e.target_wavelength
+
                 else:
                     log.info("Unable to continue with eid(%s). No report will be generated." % (str(e.entry_id)))
         except:
