@@ -3119,9 +3119,20 @@ class DetObj:
                 log.info("Could not build DetObj calfib_noise_estimate", exc_info=True)
                 self.calfib_noise_estimate = np.zeros(len(G.CALFIB_WAVEGRID))
 
-            #todo: my own fitting
+            #my own fitting
             try:
-
+                if self.w is None or self.w == 0:
+                    #find the "best" wavelength to use as the central peak
+                    spectrum = elixer_spectrum.Spectrum()
+                    w = spectrum.find_central_wavelength(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr,-17)
+                    if w is not None and (3400.0 < w < 5600.0):
+                        self.w = w
+                        self.target_wavelength = w
+                    else:
+                        print("Cannot identify a suitable target wavelength. Arbitrarly setting to 4500.0 for report.")
+                        log.info("Cannot identify a suitable target wavelength. Arbitrarly setting to 4500.0 for report.")
+                        self.w = 4500.0
+                        self.target_wavelength = 4500.0
 
                 self.spec_obj.set_spectra(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr, self.w,
                                           values_units=-17, estflux=self.estflux, estflux_unc=self.estflux_unc,
