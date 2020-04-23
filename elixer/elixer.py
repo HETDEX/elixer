@@ -310,9 +310,7 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--wavelength', help="Target wavelength (observed) in angstroms. Used with --annulus or --aperture",
                         required=False, type=float)
 
-    parser.add_argument('--shotid', help="Integer shotid [YYYYMMDDiii] (optional). Otherwise, searches all.", required=False,
-                        type=int)
-
+    parser.add_argument('--shotid', help="Integer shotid [YYYYMMDDiii] (optional). Otherwise, searches all.", required=False)
 
     parser.add_argument('--include_all_amps', help='Override bad amp list and process all amps',
                         required=False, action='store_true', default=False)
@@ -427,6 +425,20 @@ def parse_commandline(auto_force=False):
 
     if not (args.neighborhood_only > 0):
         args.neighborhood_only = False
+
+    if args.shotid is not None:
+        try:
+            #put into YYYYMMDDxxx as integer format; could be received as YYYYMMDDvXXX
+            if 'v' in args.shotid and len(args.shotid)==12:
+                args.shotid = int(args.shotid[0:8]+args.shotid[9:])
+            else:
+                args.shotid = int(args.shotid)
+        except:
+            print("Invalid --shotid. Must be of form (example): 20191129v045 or 20191129045)")
+            exit(-1)
+
+
+
 
     if args.allow_empty_image is not None:
         G.ALLOW_EMPTY_IMAGE = args.allow_empty_image
