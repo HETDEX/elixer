@@ -563,6 +563,9 @@ class EmissionLineInfo:
         self.fit_norm_rmse = -999
         self.fit_bin_dx = 1.0 #default to 1.0 for no effect (bin-width of flux bins if flux instead of flux/dx)
 
+        self.y_unc = None
+        self.a_unc = None
+
         self.fit_line_flux = None #has units applied
         self.fit_continuum = None #has units applied
 
@@ -606,6 +609,7 @@ class EmissionLineInfo:
         self.mcmc_line_flux_tuple = None #3-tuple version of mcmc_a / mcmc_dx
         self.mcmc_continuum_tuple = None #3-tuple version of mcmc_y / mcmc_dx
         self.mcmc_chi2 = None
+
 
         self.absorber = False #set to True if this is an absorption line
 
@@ -1383,7 +1387,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
         # calc EW and error with approximate symmetric error on area and continuum
         if eli.mcmc_y[0] != 0 and eli.mcmc_a[0] != 0:
-            ew = abs(eli.mcmc_a[0] / eli.mcmc_y[0])
+            ew = eli.mcmc_a[0] / eli.mcmc_y[0]
             ew_err = ew * np.sqrt((mcmc.approx_symmetric_error(eli.mcmc_a) / eli.mcmc_a[0]) ** 2 +
                                   (mcmc.approx_symmetric_error(eli.mcmc_y) / eli.mcmc_y[0]) ** 2)
         else:
@@ -1651,7 +1655,7 @@ def run_mcmc(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLUX
 
     # calc EW and error with approximate symmetric error on area and continuum
     if eli.mcmc_y[0] != 0 and eli.mcmc_a[0] != 0:
-        ew = abs(eli.mcmc_a[0] / eli.mcmc_y[0])
+        ew = eli.mcmc_a[0] / eli.mcmc_y[0]
         ew_err = ew * np.sqrt((mcmc.approx_symmetric_error(eli.mcmc_a) / eli.mcmc_a[0]) ** 2 +
                               (mcmc.approx_symmetric_error(eli.mcmc_y) / eli.mcmc_y[0]) ** 2)
     else:
@@ -2727,7 +2731,7 @@ class Spectrum:
             eli = None
 
         if eli:
-            if (estflux is None) or (eqw_obs is None):
+            if (estflux is None) or (eqw_obs is None) or (estflux == -1) or (eqw_obs <= 0.0):
                 #basically ... if I did not get this from Karl, use my own measure
                 if (eli.mcmc_a is not None) and (eli.mcmc_y is not None):
                     a_unc = 0.5 * (abs(eli.mcmc_a[1]) + abs(eli.mcmc_a[2])) / eli.mcmc_dx
@@ -2737,7 +2741,7 @@ class Spectrum:
                     estflux_unc = a_unc
 
                     estcont = eli.mcmc_continuum
-                    estcont_unc = eli.y_unc
+                    estcont_unc = y_unc
 
                     eqw_obs = abs(estflux / eli.mcmc_continuum)
                     eqw_obs_unc = abs(eqw_obs) * np.sqrt((a_unc / estflux) ** 2 + (y_unc / eli.mcmc_continuum) ** 2)

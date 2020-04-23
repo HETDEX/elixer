@@ -304,6 +304,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--aperture', help="Source extraction aperture (in arcsec) for manual extraction. Must be provided"
                                            " for explicit (re)extraction.", required=False,  type=float)
 
+    parser.add_argument('--ffsky', help='Use Full Field sky subtraction. Default=False.',
+                        required=False,action='store_true', default=False)
+
     parser.add_argument('--wavelength', help="Target wavelength (observed) in angstroms. Used with --annulus or --aperture",
                         required=False, type=float)
 
@@ -2825,6 +2828,9 @@ def main():
     if args.aperture and args.ra and args.dec:
         #args.wavelength, args.shotid are optional
         print("Explicit extraction ...")
+        if args.shotid is None:
+            print("--shotid required")
+            exit(-1)
     elif args.fcsdir is not None:
         fcsdir_list = get_fcsdir_subdirs_to_process(args) #list of rsp1 style directories to process (each represents one detection)
         if fcsdir_list is not None:

@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.9.0a1 [2020-04-23]
+* [in progress] adding option for forced re-extraction (--aperture --shotid) plus (--ra --dec --wavelength)
+
 1.8.3a4 [2020-04-21]
 * tweak combined_continuum to favor the wide-spectrum g-band IF it is brighter than 24mag (gets 4x weight which makes
   it roughly equal to combined weight of the other measures, but does NOT modify the variance, so smaller error

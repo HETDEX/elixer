@@ -139,6 +139,7 @@ class Fiber:
 
         self.ra = None
         self.dec = None
+        self.distance = None #distance to target_ra and dec (filled in by caller)
 
         #as of 1.4.0a11+ no longer using dqs
         # self.dqs = None  # detection quality score for this fiber (as part of the DetObj owner)
@@ -355,14 +356,17 @@ class Fiber:
             name = self.dither_date + "v" + str(self.obsid).zfill(3) + ".h5"
 
             if loc is None:
-                path = G.PANACEA_HDF5_BASEDIR #start here
-                fn = op.join(path, name)
-                #/work/03261/polonius/hdr1/reduction/data  ... all at top level?
-                #name == DateVShot ... i.e.: 20180123v009.h5
+                #first try cwd
+                if not op.isfile(name): #if it IS in cwd, it will be sent back
+                    path = G.PANACEA_HDF5_BASEDIR #start here
+                    fn = op.join(path, name)
 
-                #todo: add to the path ... not sure yet if all the HDF5 files will be at one level or if they
-                #todo: will follow the multi*fits directory organization
-                #<BASEDIR>/20180123/virus/virus0000009/exp01/virus/<multi_xxx.fits>
+                    #/work/03261/polonius/hdr1/reduction/data  ... all at top level?
+                    #name == DateVShot ... i.e.: 20180123v009.h5
+
+                    #todo: add to the path ... not sure yet if all the HDF5 files will be at one level or if they
+                    #todo: will follow the multi*fits directory organization
+                    #<BASEDIR>/20180123/virus/virus0000009/exp01/virus/<multi_xxx.fits>
             else:
                 path = loc
                 fn = op.join(path, name)

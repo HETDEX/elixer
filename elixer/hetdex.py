@@ -22,6 +22,13 @@ except:
     import weighted_biweight
     import utilities as utils
 
+
+from hetdex_tools.get_spec import get_spectra as hda_get_spectra
+from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
+
+from astropy.coordinates import SkyCoord
+import astropy.units as U
+
 import matplotlib
 #matplotlib.use('agg')
 import time
@@ -489,6 +496,7 @@ class DetObj:
         self.estflux_h5_unc = 0.0
 
         self.sigma = 0.0 #also doubling as sn (see @property sn farther below)
+        self.sigma_unc = 0.0
         self.snr = None
         self.snr_unc = 0.0
         self.chi2 = 0.0
@@ -537,6 +545,7 @@ class DetObj:
         self.fcsdir = None
         self.pdf_name = None
         self.hdf5_detectname = None #detectname column in HDF5 representation (just for reference)
+        self.hdf5_shot_dir = None #used only in the forced extraction, otherwise is specified as part of data release
         #the hdf5_detectid is the same as the self.entry_id, (see propert hdf5_detectid())
 
         self.line_gaussfit_parms = None #in load_fluxcalibrated_spectra becomes a 4 tuple (mu, sigma, Amplitude, y, dx)
@@ -619,6 +628,9 @@ class DetObj:
                                     'size_in_psf':None, #to be filled in with info to help make a classification judgement
                                     'diam_in_arcsec':None, #to be filled in with info to help make a classification judgement
                                     'spurious_reason': None}
+
+        self.extraction_aperture=None
+        self.extraction_ffsky=False
 
         if emission:
             self.type = 'emis'
@@ -1974,7 +1986,7 @@ class DetObj:
         #todo: gradiate score a bit and add other conditions
         #todo: a better way of some kind rather than a by-hand scoring
 
-        if (self.spec_obj is not None) and (len(self.spec_obj.solutions) > 0):
+        if (self.spec_obj is not None) and (self.spec_obj.solutions is not None) and (len(self.spec_obj.solutions) > 0):
             sols = self.spec_obj.solutions
             # need to tune this
             # score is the sum of the observed eq widths
@@ -2933,6 +2945,370 @@ class DetObj:
         return
 
 
+    def forced_extraction(self):
+        """
+
+        :param basic_only:
+        :return:
+        """
+        try:
+            coord = SkyCoord(ra=self.ra * U.deg, dec=self.dec * U.deg)
+            apt = hda_get_spectra(coord, survey="hdr2", shotid=self.survey_shotid,ffsky=self.extraction_ffsky,
+                              multiprocess=False, rad=self.extraction_aperture)
+
+            # returned from get_spectra as flux density (per AA), so multiply by wavebin width to match the HDF5 reads
+            self.sumspec_flux = np.nan_to_num(apt['spec'][0], nan=0.000) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
+            self.sumspec_fluxerr = np.nan_to_num(apt['spec_err'][0], nan=0.000) * G.FLUX_WAVEBIN_WIDTH
+            self.sumspec_wavelength = np.array(apt['wavelength'][0])
+
+            idx = elixer_spectrum.getnearpos(self.sumspec_wavelength, self.w)
+            left = idx - 25  # 2AA steps so +/- 50AA
+            right = idx + 25
+
+            if left < 0:
+                left = 0
+            if right > len(self.sumspec_flux):
+                right = len(self.sumspec_flux)
+
+            # these are on the 2AA grid (old spece had 2AA steps but, the grid was centered on the main wavelength)
+            # this grid is not centered but is on whole 2AA (i.e. 3500.00, 3502.00, ... not 3500.4192, 3502.3192, ...)
+            self.sumspec_wavelength_zoom = self.sumspec_wavelength[left:right]
+            self.sumspec_flux_zoom = self.sumspec_flux[left:right]
+            self.sumspec_fluxerr_zoom = self.sumspec_fluxerr[left:right]
+            self.sumspec_counts_zoom = self.sumspec_counts[left:right]
+
+
+            #set basic spec_obj info
+            self.spec_obj.identifier = "eid(%s)" % str(self.entry_id)
+            self.spec_obj.plot_dir = self.outdir
+
+            #need individual fibers so can set noise
+            #at some point this may come from get_spectra
+            #for now, lets just get the closest fibers to RA, Dec and sort by distance
+
+            if self.survey_shotid is None:
+                #get shot for RA, Dec
+                log.error("Required survey_shotid is None in DetObj::forced_extraction")
+                self.status = -1
+                return
+
+            ftb = hda_get_fibers_table(self.survey_shotid,coord,
+                                       radius=self.extraction_aperture * U.arcsec,
+                                       #radius=60.0 * U.arcsec,
+                                       survey=f"hdr{G.HDR_Version}")
+
+            #build list of fibers and sort by distance (as proxy for weight)
+            count = 0
+            num_fibers = len(ftb)
+            for row in ftb:
+                count += 1
+                specid = row['specid']
+                ifuslot = row['ifuslot']
+                ifuid = row['ifuid']
+                amp = row['amp']
+                #date = str(row['date'])
+
+                # expected to be "20180320T052104.2"
+                #time_ex = row['timestamp'][9:]
+                #time = time_ex[0:6]  # hhmmss
+
+                #yyyymmddxxx
+                date = str(self.survey_shotid//1000) #chop off the shotid part and keep the date part
+                time = "000000"
+                time_ex = "000000.0"
+
+
+                mfits_name = row['multiframe']  # similar to multi*fits style name
+                #fiber_index is a string here: '20190104025_3_multi_315_021_073_RL_030'
+                fiber_index = row['fibidx'] #int(row['fiber_id'][-3:])  (fiber_id is a number, fibidx is index)
+                obsid = row['fiber_id'][8:11]
+
+                idstring = date + "v" + time_ex + "_" + specid + "_" + ifuslot + "_" + ifuid + "_" + amp + "_" #leave off the fiber for the moment
+
+                log.debug("Building fiber %d of %d (%s e%d) ..." % (count, num_fibers,idstring + str(fiber_index+1),int(row['expnum'])))
+                idstring += str(fiber_index) #add the fiber index (zero based)
+
+                fiber = elixer_fiber.Fiber(idstring=idstring,specid=specid,ifuslot=ifuslot,ifuid=ifuid,amp=amp,
+                                           date=date,time=time,time_ex=time_ex, panacea_fiber_index=fiber_index,
+                                           detect_id=self.id)
+
+                if fiber is not None:
+                    duplicate = False
+                    fiber.ra = row['ra']
+                    fiber.dec = row['dec']
+                    fiber.obsid = obsid #int(row['obsind']) #notice: obsind vs obsid
+                    fiber.expid = int(row['expnum'])  # integer now
+                    fiber.detect_id = self.id
+                    fiber.center_x = row['ifux']
+                    fiber.center_y = row['ifuy']
+
+                    #don't have weights used, so use distance to the provided RA, Dec as a sorting substitute
+                    #fiber.raw_weight = row['weight']
+                    fiber.distance = utils.angular_distance(fiber.ra,fiber.dec,self.ra,self.dec)
+
+                    # check that this is NOT a duplicate
+                    for i in range(len(self.fibers)):
+                        if fiber == self.fibers[i]:
+                            log.warning(
+                                "Warning! Duplicate Fiber in detectID %s: %s . idx %d == %d. Duplicate will not be processed." %
+                                (str(self.hdf5_detectid), fiber.idstring, i, count - 1))
+                            duplicate = True
+                            duplicate_count += 1
+                            break
+
+                    if duplicate:
+                        continue  # continue on to next fiber
+
+                    # fiber.relative_weight = row['weight']
+                    # add the fiber (still needs to load its fits file)
+                    # we already know the path to it ... so do that here??
+
+                    # full path to the HDF5 fits equivalent (or failing that the panacea fits file?)
+                    fiber.fits_fn = fiber.find_hdf5_multifits(loc=self.hdf5_shot_dir)
+
+                    # fiber.fits_fn = get_hetdex_multifits_path(fiber.)
+
+                    # now, get the corresponding FITS or FITS equivalent (HDF5)
+                    if self.annulus is None:
+                        fits = hetdex_fits.HetdexFits(empty=True)
+                        # populate the data we need to read the HDF5 file
+                        fits.filename = fiber.fits_fn  # mfits_name #todo: fix to the corect path
+                        fits.multiframe = mfits_name
+                        fits.panacea = True
+                        fits.hdf5 = True
+
+                        fits.obsid = str(fiber.obsid).zfill(3)
+                        fits.expid = int(fiber.expid)
+                        fits.specid = str(fiber.specid).zfill(3)
+                        fits.ifuslot = str(fiber.ifuslot).zfill(3)
+                        fits.ifuid = str(fiber.ifuid).zfill(3)
+                        fits.amp = fiber.amp
+                        fits.side = fiber.amp[0]
+
+                        fits.obs_date = fiber.dither_date
+                        fits.obs_ymd = fits.obs_date
+
+                        # now read the HDF5 equivalent
+                        fits.read_hdf5()
+                        # check if it is okay
+
+                        if fits.okay:
+                            fiber.fits = fits
+                        else:
+                            log.error("HDF5 multi-fits equivalent is not okay ...")
+
+                    self.fibers.append(fiber)
+
+            self.fibers.sort(key=lambda x: x.distance, reverse=False)  # highest weight is index = 0
+            self.fibers_sorted = True
+
+            # todo: build a noise estimate over the top 4 fibers (amps)?
+            try:
+                good_idx = np.where([x.fits for x in self.fibers])[0]  # some might be None, so get those that are not
+                good_idx = good_idx[0:min(len(good_idx), 4)]
+
+                all_calfib = np.concatenate([self.fibers[i].fits.calfib for i in good_idx], axis=0)
+
+                # use the std dev of all "mostly empty" (hence sigma=3.0) or "sky" fibers as the error
+                mean, median, std = sigma_clipped_stats(all_calfib, axis=0, sigma=3.0)
+                self.calfib_noise_estimate = std
+                self.spec_obj.noise_estimate = self.calfib_noise_estimate
+                self.spec_obj.noise_estimate_wave = G.CALFIB_WAVEGRID
+
+            except:
+                log.info("Could not build DetObj calfib_noise_estimate", exc_info=True)
+                self.calfib_noise_estimate = np.zeros(len(G.CALFIB_WAVEGRID))
+
+            #todo: my own fitting
+            try:
+
+
+                self.spec_obj.set_spectra(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr, self.w,
+                                          values_units=-17, estflux=self.estflux, estflux_unc=self.estflux_unc,
+                                          eqw_obs=self.eqw_obs, eqw_obs_unc=self.eqw_obs_unc,
+                                          estcont=self.cont_cgs, estcont_unc=self.cont_cgs_unc)
+
+                self.estflux = self.spec_obj.central_eli.mcmc_line_flux
+                self.estflux_unc = 0.5 * (self.spec_obj.central_eli.mcmc_line_flux_tuple[1] +
+                                          self.spec_obj.central_eli.mcmc_line_flux_tuple[2])
+
+                self.eqw_obs = self.spec_obj.central_eli.mcmc_ew_obs[0]
+                self.eqw_obs_unc = 0.5 * (self.spec_obj.central_eli.mcmc_ew_obs[1] +
+                                          self.spec_obj.central_eli.mcmc_ew_obs[2])
+
+                self.cont_cgs = self.spec_obj.central_eli.mcmc_continuum
+                self.cont_cgs_unc = 0.5*(self.spec_obj.central_eli.mcmc_continuum_tuple[1] +
+                                         self.spec_obj.central_eli.mcmc_continuum_tuple[2])
+                # self.snr = self.spec_obj.central_eli.mcmc_snr
+                self.snr = self.spec_obj.central_eli.mcmc_snr
+
+                self.spec_obj.estflux = self.estflux
+                self.spec_obj.eqw_obs = self.eqw_obs
+
+                self.chi2 = self.spec_obj.central_eli.fit_chi2
+                self.chi2_unc = 0.0
+
+                self.snr = self.spec_obj.central_eli.snr #row['sn']
+                self.snr_unc = 0.0 #row['sn_err']
+
+                self.sigma = self.spec_obj.central_eli.fit_sigma #row['linewidth']  # AA
+                self.sigma_unc = 0.0 #row['linewidth_err']
+                if (self.sigma_unc is None) or (self.sigma_unc < 0.0):
+                    self.sigma_unc = 0.0
+                self.fwhm = 2.35 * self.sigma
+                self.fwhm_unc = 2.35 * self.sigma_unc
+
+                self.estflux_h5 = self.estflux
+                self.estflux_h5_unc = self.estflux_unc
+
+            except:
+                log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra")
+
+
+
+
+            #todo: then update the values on record
+            # mu, sigma, Amplitude, y, dx   (dx is the bin width if flux instead of flux/dx)
+            #continuum does NOT get the bin scaling
+            self.line_gaussfit_parms = (self.w,self.sigma,self.estflux*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
+                                        self.cont_cgs/G.HETDEX_FLUX_BASE_CGS,
+                                        G.FLUX_WAVEBIN_WIDTH) #*2.0 for Karl's bin width
+            self.line_gaussfit_unc = (self.w_unc,self.sigma_unc,self.estflux_unc*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
+                                      self.cont_cgs_unc/G.HETDEX_FLUX_BASE_CGS, 0.0)
+
+            # used just below to choose between the two
+            sdss_okay = 0
+            hetdex_okay = 0
+
+            # sum over entire HETDEX spectrum to estimate g-band magnitude
+            try:
+                self.hetdex_gmag, self.hetdex_gmag_cgs_cont, self.hetdex_gmag_unc, self.hetdex_gmag_cgs_cont_unc = \
+                    elixer_spectrum.get_hetdex_gmag(self.sumspec_flux / 2.0 * G.HETDEX_FLUX_BASE_CGS,
+                                                    self.sumspec_wavelength,
+                                                    self.sumspec_fluxerr / 2.0 * G.HETDEX_FLUX_BASE_CGS)
+
+                log.debug(f"HETDEX spectrum gmag {self.hetdex_gmag} +/- {self.hetdex_gmag_unc}")
+                log.debug(f"HETDEX spectrum cont {self.hetdex_gmag_cgs_cont} +/- {self.hetdex_gmag_cgs_cont_unc}")
+
+                if (self.hetdex_gmag_cgs_cont is not None) and (self.hetdex_gmag_cgs_cont != 0) and not np.isnan(
+                        self.hetdex_gmag_cgs_cont):
+                    if (self.hetdex_gmag_cgs_cont_unc is None) or np.isnan(self.hetdex_gmag_cgs_cont_unc):
+                        self.hetdex_gmag_cgs_cont_unc = 0.0
+                        hetdex_okay = 1
+                    else:
+                        hetdex_okay = 2
+
+                    self.eqw_hetdex_gmag_obs = self.estflux / self.hetdex_gmag_cgs_cont
+                    self.eqw_hetdex_gmag_obs_unc = abs(self.eqw_hetdex_gmag_obs * np.sqrt(
+                        (self.estflux_unc / self.estflux) ** 2 +
+                        (self.hetdex_gmag_cgs_cont_unc / self.hetdex_gmag_cgs_cont_unc) ** 2))
+
+                if (self.hetdex_gmag is None) or np.isnan(self.hetdex_gmag):
+                    hetdex_okay = 0
+            except:
+                hetdex_okay = 0
+                log.error("Exception computing HETDEX spectrum gmag", exc_info=True)
+
+            # feed HETDEX spectrum through SDSS gband filter
+            try:
+                # reminder needs erg/s/cm2/AA and sumspec_flux in ergs/s/cm2 so divied by 2AA bin width
+                #                self.sdss_gmag, self.cont_cgs = elixer_spectrum.get_sdss_gmag(self.sumspec_flux/2.0*1e-17,self.sumspec_wavelength)
+                if False:
+                    self.sdss_gmag, self.sdss_cgs_cont = elixer_spectrum.get_sdss_gmag(
+                        self.sumspec_flux / 2.0 * G.HETDEX_FLUX_BASE_CGS,
+                        self.sumspec_wavelength)
+                    self.sdss_cgs_cont_unc = np.sqrt(np.sum(self.sumspec_fluxerr ** 2)) / len(
+                        self.sumspec_fluxerr) * G.HETDEX_FLUX_BASE_CGS
+
+                    log.debug(f"SDSS spectrum gmag {self.sdss_gmag} +/- {self.sdss_gmag_unc}")
+                    log.debug(f"SDSS spectrum cont {self.sdss_cgs_cont} +/- {self.sdss_cgs_cont_unc}")
+
+                else:
+                    self.sdss_gmag, self.sdss_cgs_cont, self.sdss_gmag_unc, self.sdss_cgs_cont_unc = \
+                        elixer_spectrum.get_sdss_gmag(self.sumspec_flux / 2.0 * G.HETDEX_FLUX_BASE_CGS,
+                                                      self.sumspec_wavelength,
+                                                      self.sumspec_fluxerr / 2.0 * G.HETDEX_FLUX_BASE_CGS)
+
+                    log.debug(f"SDSS spectrum gmag {self.sdss_gmag} +/- {self.sdss_gmag_unc}")
+                    log.debug(f"SDSS spectrum cont {self.sdss_cgs_cont} +/- {self.sdss_cgs_cont_unc}")
+
+                if (self.sdss_cgs_cont is not None) and (self.sdss_cgs_cont != 0) and not np.isnan(self.sdss_cgs_cont):
+                    if (self.sdss_cgs_cont_unc is None) or np.isnan(self.sdss_cgs_cont_unc):
+                        self.sdss_cgs_cont_unc = 0.0
+                        sdss_okay = 1
+                    else:
+                        sdss_okay = 2
+
+                    self.eqw_sdss_obs = self.estflux / self.sdss_cgs_cont
+                    self.eqw_sdss_obs_unc = abs(self.eqw_sdss_obs * np.sqrt(
+                        (self.estflux_unc / self.estflux) ** 2 +
+                        (self.sdss_cgs_cont_unc / self.sdss_cgs_cont) ** 2))
+
+                if (self.sdss_gmag is None) or np.isnan(self.sdss_gmag):
+                    sdss_okay = 0
+
+            except:
+                sdss_okay = 0
+                log.error("Exception computing SDSS g-mag", exc_info=True)
+
+            # choose the best
+            if sdss_okay >= hetdex_okay:
+                self.best_gmag_selected = 'sdss'
+                self.best_gmag = self.sdss_gmag
+                self.best_gmag_unc = self.sdss_gmag_unc
+                self.best_gmag_cgs_cont = self.sdss_cgs_cont
+                self.best_gmag_cgs_cont_unc = self.sdss_cgs_cont_unc
+                self.best_eqw_gmag_obs = self.eqw_sdss_obs
+                self.best_eqw_gmag_obs_unc = self.eqw_sdss_obs_unc
+                log.debug("Using SDSS gmag over HETDEX full width gmag")
+            elif hetdex_okay > 0:
+                self.best_gmag_selected = 'hetdex'
+                self.best_gmag = self.hetdex_gmag
+                self.best_gmag_unc = self.hetdex_gmag_unc
+                self.best_gmag_cgs_cont = self.hetdex_gmag_cgs_cont
+                self.best_gmag_cgs_cont_unc = self.hetdex_gmag_cgs_cont_unc
+                self.best_eqw_gmag_obs = self.eqw_hetdex_gmag_obs
+                self.best_eqw_gmag_obs_unc = self.eqw_hetdex_gmag_obs_unc
+                log.debug("Using HETDEX full width gmag over SDSS gmag.")
+            else:
+                log.debug("No full width spectrum g-mag estimate is valid.")
+                self.best_gmag_selected = 'limit'
+                self.best_gmag = G.HETDEX_CONTINUUM_MAG_LIMIT
+                self.best_gmag_unc = 0
+                self.best_gmag_cgs_cont = G.HETDEX_CONTINUUM_FLUX_LIMIT
+                self.best_gmag_cgs_cont_unc = 0
+                self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
+                self.best_eqw_gmag_obs_unc = 0
+
+            try:
+                self.hetdex_cont_cgs = self.cont_cgs
+                self.hetdex_cont_cgs_unc = self.cont_cgs_unc
+
+                if self.cont_cgs == -9999:  # still unset ... weird?
+                    log.warning("Warning! HETDEX continuum estimate not set. Using best gmag for estimate(%g +/- %g)."
+                                % (self.best_gmag_cgs_cont, self.best_gmag_cgs_cont_unc))
+
+                    self.cont_cgs_narrow = self.cont_cgs
+                    self.cont_cgs_narrow_unc = self.cont_cgs_unc
+                    self.cont_cgs = self.best_gmag_cgs_cont
+                    self.cont_cgs_unc = self.best_gmag_cgs_cont_unc
+                    self.using_best_gmag_ew = True
+                elif self.cont_cgs <= 0.0:
+                    log.warning("Warning! (narrow) continuum <= 0.0. Using best gmag for estimate (%g +/- %g)."
+                                % (self.best_gmag_cgs_cont, self.best_gmag_cgs_cont_unc))
+                    self.cont_cgs_narrow = self.cont_cgs
+                    self.cont_cgs_narrow_unc = self.cont_cgs_unc
+                    self.cont_cgs = self.best_gmag_cgs_cont
+                    self.cont_cgs_unc = self.best_gmag_cgs_cont_unc
+                    self.using_best_gmag_ew = True
+            except:
+                pass
+
+        except:
+            log.error("Exception in hetdex.py forced_extraction.",exc_info=True)
+            self.status = -1
+
+
     def load_hdf5_fluxcalibrated_spectra(self,hdf5_fn,id,basic_only=False):
         """
 
@@ -3229,7 +3605,7 @@ class DetObj:
                                 %(self.best_gmag_cgs_cont,self.best_gmag_cgs_cont_unc))
 
                     self.cont_cgs_narrow = self.cont_cgs
-                    self.cont_cgs_narrow_unc = self.cong_cgs_unc
+                    self.cont_cgs_narrow_unc = self.cont_cgs_unc
                     self.cont_cgs = self.best_gmag_cgs_cont
                     self.cont_cgs_unc = self.best_gmag_cgs_cont_unc
                     self.using_best_gmag_ew = True
@@ -3237,7 +3613,7 @@ class DetObj:
                     log.warning("Warning! HETDEX continuum <= 0.0. Using best gmag for estimate (%g +/- %g)."
                                 %(self.best_gmag_cgs_cont,self.best_gmag_cgs_cont_unc))
                     self.cont_cgs_narrow = self.cont_cgs
-                    self.cont_cgs_narrow_unc = self.cong_cgs_unc
+                    self.cont_cgs_narrow_unc = self.cont_cgs_unc
                     self.cont_cgs = self.best_gmag_cgs_cont
                     self.cont_cgs_unc = self.best_gmag_cgs_cont_unc
                     self.using_best_gmag_ew = True
@@ -3754,6 +4130,11 @@ class HETDEX:
         self.target_dec = args.dec
         self.target_err = args.error
 
+        if args.aperture and args.ra and args.dec:
+            self.explicit_extraction = True
+        else:
+            self.explicit_extraction = False
+
         if args.ra is not None:
             self.tel_ra = args.ra
         else:
@@ -3885,9 +4266,14 @@ class HETDEX:
         elif (self.hdf5_detectid_list is not None):
             self.read_hdf5_detect(basic_only=basic_only)
             build_fits_list = False
+        elif self.explicit_extraction:
+            self.hdf5_detect_fqfn = args.hdf5  #string ... the fully qualified filename
+            self.hdf5_detect = None #the actual HDF5 representation loaded
+            self.hdf5_survey_fqfn = G.HDF5_SURVEY_FN
+            self.make_extraction(args.aperture,args.ffsky,args.shotid,basic_only=basic_only)
+            build_fits_list = False
 
-
-        if build_fits_list:
+        if build_fits_list and not self.explicit_extraction:
             if (args.obsdate is None):
                 if self.build_multi_observation_panacea_fits_list():
                     self.multiple_observations = True
@@ -4574,6 +4960,63 @@ class HETDEX:
             return False
 
 
+
+    def make_extraction(self,aperture,ffsky=False,shotid=None,basic_only=False):
+        """
+
+        :param basic_only:
+        :return:
+        """
+        try:
+            e = DetObj(None, emission=True, basic_only=basic_only)
+            if e is not None:
+
+                e.annulus = self.annulus
+                e.target_wavelength = self.target_wavelength
+                e.ra = self.target_ra
+                e.dec = self.target_dec
+                e.survey_shotid = shotid
+                e.extraction_aperture = aperture
+                e.extraction_ffsky = ffsky
+                if (self.target_wavelength is not None) and (3400 < self.target_wavelength < 5600):
+                    e.w = self.target_wavelength
+
+                # just internal (ELiXer) numbering here
+                G.UNIQUE_DET_ID_NUM += 1
+                e.id = G.UNIQUE_DET_ID_NUM
+                e.entry_id = e.id  # don't have an official one
+
+                if e.outdir is None:
+                    e.outdir = self.output_filename
+
+                #a place to check for multiframe files if local and HDR locations fail
+                #overloading use of --hdf5 invocation parameter (since this is a forced extraction
+                # the detection file that would have been specified in --hdf5 is meaningless, so using
+                # that paramater, if provided, as the possible path
+                if self.hdf5_detect_fqfn is not None:
+                    if op.isfile(self.hdf5_detect_fqfn):
+                        e.hdf5_shot_dir = op.dirname(self.hdf5_detect_fqfn)
+                    elif op.isdir(self.hdf5_detect_fqfn):
+                        e.hdf5_shot_dir = self.hdf5_detect_fqfn
+
+                if basic_only:
+                    return
+
+                e.forced_extraction()
+
+                if e.survey_shotid and (e.status >= 0):
+                    _shotid = e.survey_shotid
+                    e.load_hdf5_shot_info(self.hdf5_survey_fqfn, _shotid)
+
+                if e.status >= 0:
+                    self.emis_list.append(e)
+                else:
+                    log.info("Unable to continue with eid(%s). No report will be generated." % (str(e.entry_id)))
+        except:
+            log.error("Exception in hetdex.py make_extraction.",exc_info=True)
+            self.status = -1
+
+
     def read_hdf5_detect(self,basic_only=False):
         """
         Consume the HDF5 version of detections for the list of detections passed in
@@ -4608,8 +5051,6 @@ class HETDEX:
                 #need the shotid from the detection
                 _shotid = e.survey_shotid
                 e.load_hdf5_shot_info(self.hdf5_survey_fqfn, _shotid)
-
-
 
                 if e.status >= 0:
                     self.emis_list.append(e)
@@ -5150,7 +5591,7 @@ class HETDEX:
             #using as an indicator that the narrow cgs flux was not valid (probably negative)
             #and was replaced throughout with the wider estimate, but we will fall back and report the
             #original narrow estimate here
-            estcont_str = self.unc_str(e.cont_cgs_narrow,e.cont_cgs_narrow_unc)
+            estcont_str = self.unc_str((e.cont_cgs_narrow,e.cont_cgs_narrow_unc))
             #estcont_str = "N/A"
 
         if self.ymd and self.obsid:
@@ -6870,7 +7311,7 @@ class HETDEX:
         #check for unique pixels (could be useful at some point in the future)
         try:
             if len(top_pixels) > 1:
-                u,c = np.unique(top_pixels,return_counts=True)
+                _,c = np.unique(top_pixels,return_counts=True)
                 # save that info for the classifier
                 detobj.num_duplicate_central_pixels = np.sum(c[np.where(c>1)])
         except:
