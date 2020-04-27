@@ -2956,6 +2956,12 @@ class DetObj:
             apt = hda_get_spectra(coord, survey="hdr2", shotid=self.survey_shotid,ffsky=self.extraction_ffsky,
                               multiprocess=False, rad=self.extraction_aperture)
 
+            if len(apt) == 0:
+                print(f"No spectra for ra ({self.ra}) dec ({self.dec})")
+                log.info(f"No spectra for ra ({self.ra}) dec ({self.dec})")
+                self.status = -1
+                return
+
             # returned from get_spectra as flux density (per AA), so multiply by wavebin width to match the HDF5 reads
             self.sumspec_flux = np.nan_to_num(apt['spec'][0], nan=0.000) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
             self.sumspec_fluxerr = np.nan_to_num(apt['spec_err'][0], nan=0.000) * G.FLUX_WAVEBIN_WIDTH
