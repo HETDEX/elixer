@@ -2874,7 +2874,9 @@ class DetObj:
                     log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra")
 
             self.spec_obj.classify()  # solutions can be returned, also stored in spec_obj.solutions
-
+            self.rvb = SU.red_vs_blue(self.w, self.sumspec_wavelength,
+                                      self.sumspec_flux / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS,
+                                      self.sumspec_fluxerr / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS, self.fwhm)
         else:
             self.syn_obs = elixer_observation.SyntheticObservation()
             if self.wra:
@@ -3322,6 +3324,13 @@ class DetObj:
                     self.using_best_gmag_ew = True
             except:
                 pass
+
+            self.spec_obj.classify()  # solutions can be returned, also stored in spec_obj.solutions
+
+            self.rvb = SU.red_vs_blue(self.w, self.sumspec_wavelength,
+                                      self.sumspec_flux / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS,
+                                      self.sumspec_fluxerr / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS, self.fwhm)
+
 
         except:
             log.error("Exception in hetdex.py forced_extraction.",exc_info=True)
