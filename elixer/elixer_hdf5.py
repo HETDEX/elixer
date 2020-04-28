@@ -782,7 +782,7 @@ def append_entry(fileh,det,overwrite=False):
             ltb.flush()
 
         sol_num = 0
-        if det.spec_obj is not None:
+        if (det.spec_obj is not None) and (det.spec_obj.solutions is not None):
             for sol in det.spec_obj.solutions:
                 sol_num += 1
                 for line in sol.lines:
