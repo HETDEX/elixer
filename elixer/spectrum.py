@@ -2801,7 +2801,7 @@ class Spectrum:
         values,values_units = norm_values(values,values_units)
 
         #does not need errors for this purpose
-        peaks = peakdet(wavelengths,values,errors,values_units=values_units) #as of 2018-06-11 these are EmissionLineInfo objects
+        peaks = peakdet(wavelengths,values,errors,values_units=values_units,enforce_good=False) #as of 2018-06-11 these are EmissionLineInfo objects
         max_v = -np.inf
         #find the largest flux
         for p in peaks:
