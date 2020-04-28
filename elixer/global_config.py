@@ -559,7 +559,7 @@ def getnearpos(array,value):
     return idx
 
 
-
+FOV_RADIUS_DEGREE = 0.16 #HETDEX FOV (radius) in degrees (approximately)
 LyA_rest = 1216. #A 1215.668 and 1215.674
 OII_rest = 3727.
 

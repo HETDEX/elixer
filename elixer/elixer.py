@@ -3145,7 +3145,7 @@ def main():
                     # need to give it a big radius to search that covers the focal plane
                     # if centered (and it should be) no ifu edge is more than 12 acrmin away
                     shotlist = survey.get_shotlist(SkyCoord(args.ra, args.dec, unit='deg', frame='icrs'),
-                                                   radius=12 * U.arcmin)
+                                                   radius=G.FOV_RADIUS_DEGREE * U.deg)
                     for s in shotlist:
                         args.shotid = s
                         hd = hetdex.HETDEX(args, basic_only=basic_only)
