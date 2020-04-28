@@ -235,7 +235,7 @@ elif hostname == "stampede2":
 
 elif hostname == "z50":
     host = HOST_LOCAL
-    MAX_TASKS = 1 #
+    MAX_TASKS = 100 # #dummy value just for testing
     TIME_OVERHEAD = 1.0  # MINUTES of overhead to get started (per task call ... just a safety)
     MAX_TIME_PER_TASK = 5.0  # MINUTES max, worst case expected time per task to execute (assumes minimal retries)
     cores_per_node = 1
@@ -405,9 +405,15 @@ else: # multiple tasks
         args = elixer.parse_commandline(auto_force=True)
         print("Parsing directories to process. This may take a little while ...\n")
 
+        subdirs = [] #this is a list of detectids OR RA and Decs (the length of the list is used and each "row" is written out later)
         if args.fcsdir is not None:
             subdirs = elixer.get_fcsdir_subdirs_to_process(args)
+        # elif args.aperture is not None:
+        #     #need to work on this here
+        #     print("SLURM/dispatch (re)extraction not yet ready....")
+        #     exit(0)
         else: #if (args.ra is not None):
+            #either a --dets list or a --coords list, but either way, get a list of HETDEX detectids to process
             subdirs = elixer.get_hdf5_detectids_to_process(args)
 
         if tasks != 0:
@@ -545,8 +551,12 @@ else: # multiple tasks
 
             #start_idx = i * dirs_per_file
             stop_idx = start_idx + dets_per_dispatch[i] #min(start_idx + dirs_per_file,len(subdirs))
-            for j in range(start_idx,stop_idx):
-                df.write(str(subdirs[j]) + "\n")
+            if isinstance(subdirs[start_idx],np.ndarray):
+                for j in range(start_idx,stop_idx):
+                    df.write(" ".join(subdirs[j].astype(str)) + "\n") #space separated
+            else:
+                for j in range(start_idx,stop_idx):
+                    df.write(str(subdirs[j]) + "\n")
 
             df.close()
 
@@ -715,8 +725,9 @@ elif host == HOST_STAMPEDE2:
 
     launch_str = "$TACC_LAUNCHER_DIR/paramrun\n"
 
-else:
-    pass
+elif host == HOST_LOCAL:
+    slurm = "HOST_LOCAL ignored"
+    launch_str = "nothing to launch"
 
 #added per https://portal.tacc.utexas.edu/tutorials/managingio#ooops
 slurm += "export LD_PRELOAD=/work/00410/huang/share/patch/myopen.so \n"
@@ -943,10 +954,9 @@ except:
     exit(-1)
 
 
-
-
-
+############################
 #execute system command
+############################
 print ("Calling SLURM queue ...")
 if host == HOST_LOCAL:
     print("Here we will call: sbatch elixer.slurm")

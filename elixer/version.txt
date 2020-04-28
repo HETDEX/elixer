@@ -1,7 +1,15 @@
 changes to elixer by version
 
+
+1.9.0a2 [2020-04-28]
+* added --coords commandline parameter to specify a file listing RA, Dec, shotid triples (whitespace separated) to use with
+  dispatch (SLURM) mode and with or without specifying --aperture
+  + if --aperture specified, then perform explicit extraction at RA and Dec
+  + if --aperture NOT specified, find nearest HETDEX detections to RA and Dec (within specified --search or --error)
+    - in this case, the shotid is ignored and can be excluded from the file or set to 0 or other value
+
 1.9.0a1 [2020-04-23]
-* [in progress] adding option for forced re-extraction (--aperture --shotid) plus (--ra --dec --wavelength)
+* added option for forced re-extraction (--aperture --shotid) plus (--ra --dec --wavelength)
 
 1.8.3a4 [2020-04-21]
 * tweak combined_continuum to favor the wide-spectrum g-band IF it is brighter than 24mag (gets 4x weight which makes

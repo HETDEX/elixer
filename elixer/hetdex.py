@@ -69,7 +69,6 @@ from copy import copy, deepcopy
 
 import tables
 
-
 #todo: write a class wrapper for log
 #an instance called log that has functions .Info, .Debug, etc
 #they all take a string (the message) and the exc_info flag
@@ -2925,6 +2924,7 @@ class DetObj:
 
             try: #new in HDR2
                 self.survey_fwhm_gaussian = row['fwhm_virus']
+                self.survey_fwhm_moffat = row['fwhm_virus']
             except:
                 try: #older HDR1
                     self.survey_fwhm_gaussian = row['fwhm_gaussian']
@@ -4142,6 +4142,12 @@ class HETDEX:
         #     self.plot_dqs_fit = False
 
         self.output_filename = args.name
+        self.dispatch_id = None
+        if args.dispatch is not None:
+            try:
+                self.dispatch_id = int(args.dispatch.split("_")[1])
+            except:
+                pass
 
         self.multiple_observations = False #set if multiple observations are used (rather than a single obsdate,obsid)
         self.ymd = None
@@ -5002,7 +5008,12 @@ class HETDEX:
 
                 # just internal (ELiXer) numbering here
                 G.UNIQUE_DET_ID_NUM += 1
-                e.id = G.UNIQUE_DET_ID_NUM
+
+                if self.dispatch_id is not None:
+                    e.id = np.int64(99e8 + self.dispatch_id * 1e4 + G.UNIQUE_DET_ID_NUM)
+                    #so, like a hetdex detectid but starting with 99
+                else:
+                    e.id = G.UNIQUE_DET_ID_NUM
                 e.entry_id = e.id  # don't have an official one
 
                 if e.outdir is None:

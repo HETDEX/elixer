@@ -22,12 +22,14 @@ except:
     import science_image
     import elixer_hdf5
 
+from hetdex_api import survey as hda_survey
 
 import argparse
 import copy
 
 from astropy.coordinates import Angle
 from astropy.coordinates import SkyCoord
+from astropy import units as U
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.gridspec as gridspec
 from matplotlib.font_manager import FontProperties
@@ -240,6 +242,12 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--dets', help="List of detections (of form '20170314v011_005') or subdirs under fscdir "
                         "(wildcards okay) or file containing a list of detections (one per line)", required=False)
 
+    parser.add_argument('--coords', help="File containing a list of RA and Decs (one pair per line). Used optionally"
+                                         "with --aperture. If --aperture specified, will (re)extract at the exact"
+                                         "position. If not specified, will find HETDEX detections within specified"
+                                         "--search (first) or --error.",
+                        required=False)
+
     parser.add_argument('--dispatch', help="Dispatched list of directories to process. Auto-created. DO NOT SET MANUALLY",
                         required=False)
 
@@ -437,6 +445,9 @@ def parse_commandline(auto_force=False):
             print("Invalid --shotid. Must be of form (example): 20191129v045 or 20191129045)")
             exit(-1)
 
+    if (args.dets is not None) and (args.coords is not None):
+        print("Invalid combination of parameters. Cannot specify both --dets and --coords")
+        exit(-1)
 
 
 
@@ -608,11 +619,17 @@ def parse_commandline(auto_force=False):
 
     if args.dispatch is not None:
         if args.ra is not None: #then this is from selixer and dispatch needs to be the dets list
+            #must run from a list (hence the --dets) ... RA, Dec are single use and must be ignored
             args.ra = None
             args.dec = None
-            args.dets = args.dispatch
 
-            log.info("Command line: --dets set to --dispatch and ignoring --ra and --dec")
+            if args.coords is not None:
+                args.coords = args.dispatch
+                log.info("Command line: --coords set to --dispatch and ignoring explicit --ra and --dec")
+            else:
+                args.dets = args.dispatch
+                log.info("Command line: --dets set to --dispatch and ignoring --ra and --dec")
+
 
     if args.ra is not None:
         if ":" in args.ra:
@@ -1553,11 +1570,30 @@ def get_hdf5_detectids_to_process(args):
             try:
                 # is this a list or a file
                 if os.path.isfile(args.dispatch):
-                    if G.python2():
+                    if args.aperture:  # this is an extraction
+                        detlist = [] #will be a list of lists
+                        with open(args.dispatch) as f:
+                            for line in f:
+                                try:
+                                    toks = line.split()
+                                    row = [float(toks[0]),float(toks[1])]
+                                    if len(toks) == 3:
+                                        shot = toks[2].lower()
+                                        row.append(int(shot.replace('v','')))
+                                    else:
+                                        row.append(None)
+
+                                    detlist.append(row)
+                                except:
+                                    log.error(f"Invalid --coords file line format: {line}")
+
+                        return detlist
+                    elif G.python2():
                         detlist = np.genfromtxt(args.dispatch, dtype=None, comments='#', usecols=(0,))
                     else:
                         detlist = np.genfromtxt(args.dispatch, dtype=None, comments='#', usecols=(0,),encoding=None)
-                    log.debug("[dispatch] Loaded --dets as file")
+
+                    log.debug("[dispatch] Loaded as file")
                 else:
                     detlist = args.dispatch.replace(', ', ',').split(',')  # allow comma or comma-space separation
                     log.debug("[dispatch] Loaded --dets as list")
@@ -1567,10 +1603,37 @@ def get_hdf5_detectids_to_process(args):
                 exit(-1)
 
         elif args.dets is None:
-            # maybe an ra and dec ?
-            if (args.ra is not None) and (args.dec is not None) and (args.error is not None):
-                # args.ra and dec are now guaranteed to be decimal degrees. args.error is in arcsecs
+            # maybe an ra and dec  OR a list of RA and Decs
+            if args.coords is not None:
+                if args.aperture is None: #then this is a list of RA, Dec to find nearest HETDEX detections
+                    #need to iterate over coords
+                    if args.search is not None:
+                        error = args.search
+                    else:
+                        error = args.error
 
+                    try:
+                        ras,decs,_ = read_coords_file(args.coords,args) #shotids don't matter here
+                        for r,d in zip (ras,decs):
+                            dlist = get_hdf5_detectids_by_coord(args.hdf5,r,d,error/3600.)
+                            if len(dlist) > 0:
+                                detectids.extend(dlist)
+                    except:
+                        log.error("Unable to read in --coords specified file.",exc_info=True)
+                        return []
+
+                    return detectids
+                else: #these are re-extractions
+                    try:
+                        rows = read_coords_file(args.coords,args,as_rows=True) #shotids don't matter here
+                    except:
+                        log.error("Unable to read in --coords specified file.",exc_info=True)
+                        return []
+
+                    return rows
+
+            elif (args.ra is not None) and (args.dec is not None) and ((args.error is not None) or (args.search is not None)):
+                # args.ra and dec are now guaranteed to be decimal degrees. args.error is in arcsecs
                 if args.search is not None:
                     error = args.search
                 else:
@@ -1729,6 +1792,55 @@ def get_hdf5_detectids_to_process(args):
         exit(-1)
 
     return detectids
+
+
+def read_coords_file(filename,args=None,as_rows=False):
+    """
+    try to read in a coords file (of form  ra dec shotid
+    for future use, may allow shotid to be '0'
+    (for nearest HETDEX match, shotid is ignored)
+    """
+
+    #could be at this cwd or up one level (if this is from a SLURM call)
+
+    if os.path.isfile(filename):
+        pass
+    elif os.path.isfile(os.path.join("..", filename)):
+        filename = os.path.join("..", filename)
+    else:
+        #filename does not exist (where expected)
+        print(f"Unable to find {filename} .")
+        log.error(f"Unable to find {filename} .")
+        if as_rows:
+            return []
+        else:
+            return [], [], []
+
+    ras, decs, shots, rows = [],[],[],[]
+    try:
+        if (args is not None) and (args.aperture is None):
+            if as_rows:
+                rows = np.loadtxt(filename, unpack=False, usecols=(0, 1))  # ignore shotids
+            else:
+                ras, decs = np.loadtxt(filename, unpack=True,usecols=(0,1)) #ignore shotids
+                shots = np.zeros(len(ras))
+        else:
+            if as_rows:
+                rows = np.loadtxt(filename, unpack=False)
+            else:
+                ras, decs, shots = np.loadtxt(filename, unpack=True)
+    except:
+        log.error("Unable to read in --coords specified file.", exc_info=True)
+        if as_rows:
+            return []
+        else:
+            return [],[],[]
+
+    if as_rows:
+        return rows
+    else:
+        return ras, decs, shots
+
 
 
 def get_fcsdir_subdirs_to_process(args):
@@ -2835,14 +2947,12 @@ def main():
 
     fcsdir_list = []
     hdf5_detectid_list = []
-
+    explicit_extraction = False
     #is this an explicit extraction?
     if args.aperture and args.ra and args.dec:
         #args.wavelength, args.shotid are optional
-        print("Explicit extraction ...")
-        if args.shotid is None:
-            print("--shotid required")
-            exit(-1)
+        print("Explicit extraction ...") #single explicit extraction
+        explicit_extraction = True
     elif args.fcsdir is not None:
         fcsdir_list = get_fcsdir_subdirs_to_process(args) #list of rsp1 style directories to process (each represents one detection)
         if fcsdir_list is not None:
@@ -2850,6 +2960,10 @@ def main():
             print("Processing %d entries in FCSDIR" %(len(fcsdir_list)))
 
     else:
+        if args.aperture: #still
+            explicit_extraction = True
+            print("Explicit extraction ...") #list of explicit extractions
+
         hdf5_detectid_list = get_hdf5_detectids_to_process(args)
         if hdf5_detectid_list is not None:
             log.info("Processing %d entries in HDF5" %(len(hdf5_detectid_list)))
@@ -2947,7 +3061,6 @@ def main():
                     else:
                         obs_dict[key] = [d]
 
-
                 for key in obs_dict.keys():
                     plt.close('all')
                     hd = hetdex.HETDEX(args,fcsdir_list=obs_dict[key],basic_only=basic_only) #builds out the hd object (with fibers, DetObj, etc)
@@ -2957,19 +3070,91 @@ def main():
                     if hd.status == 0:
                         hd_list.append(hd)
             elif len(hdf5_detectid_list) > 0: #HDF5 (DataRelease style)
-                #only one detection per hetdex object
-                for d in hdf5_detectid_list:
-                    plt.close('all')
-                    hd = hetdex.HETDEX(args,fcsdir_list=None,hdf5_detectid_list=[d],basic_only=basic_only)
+                if explicit_extraction:      #only one detection per hetdex object
+                    survey = None
+                    for d in hdf5_detectid_list:
+                        plt.close('all')
+                        #update the args with the ra dec and shot to build an appropriate hetdex object for extraction
+                        try:
+                            if len(d) == 2:
+                                args.ra = d[0]
+                                args.dec = d[1]
+                                args.shotid = None
+                            elif len(d) == 3:
+                                args.ra = d[0]
+                                args.dec = d[1]
+                                args.shotid = d[2]
+                            else:
+                                #something wrong
+                                log.error(f"Unable to build hetdex object for entry d: ({d})")
+                                print(f"Unable to build hetdex object for entry d: ({d})")
 
-                    if hd.status == 0:
-                        hd_list.append(hd)
+                            if not args.shotid: #must fill this in, so look for all shots and add a hetdex obj for each
+                                #todo: fill in shots here
+                                print("Todo: fill in unspecified shotids")
+                                if not survey:
+                                    survey = hda_survey.Survey(survey="hdr%d"%G.HDR_Version)
+                                    if not survey:
+                                        log.error(f"Cannot build hetdex_api survey object to determine shotid for {d}")
+                                        continue
 
-            else:
-                hd = hetdex.HETDEX(args,basic_only=basic_only) #builds out the hd object (with fibers, DetObj, etc)
-                if hd is not None:
-                    if hd.status == 0:
-                        hd_list.append(hd)
+                                #this is only looking at the pointing, not checking individual fibers, so
+                                #need to give it a big radius to search that covers the focal plane
+                                #if centered (and it should be) no ifu edge is more than 12 acrmin away
+                                shotlist = survey.get_shotlist(SkyCoord(args.ra, args.dec, unit='deg',frame='icrs'),
+                                                               radius=12*U.arcmin)
+                                for s in shotlist:
+                                    args.shotid = s
+                                    hd = hetdex.HETDEX(args, basic_only=basic_only)
+                                    if hd.status == 0:
+                                        hd_list.append(hd)
+                            else:
+                                hd = hetdex.HETDEX(args,basic_only=basic_only)
+                                if hd.status == 0:
+                                    hd_list.append(hd)
+                        except:
+                            log.error(f"Unable to build hetdex object for ra ({args.ra}), dec ({args.dec}), shot ({args.shotid})")
+                            print(f"Unable to build hetdex object for ra ({args.ra}), dec ({args.dec}), shot ({args.shotid})")
+                            args.ra = None
+                            args.dec = None
+                            args.shotid = None
+                else:
+                    #only one detection per hetdex object
+                    for d in hdf5_detectid_list:
+                        plt.close('all')
+                        hd = hetdex.HETDEX(args,fcsdir_list=None,hdf5_detectid_list=[d],basic_only=basic_only)
+
+                        if hd.status == 0:
+                            hd_list.append(hd)
+
+            elif explicit_extraction:
+
+                if args.shotid:
+                    hd = hetdex.HETDEX(args,basic_only=basic_only) #builds out the hd object (with fibers, DetObj, etc)
+                    if hd is not None:
+                        if hd.status == 0:
+                            hd_list.append(hd)
+                else:
+                    survey = hda_survey.Survey(survey="hdr%d" % G.HDR_Version)
+                    if not survey:
+                        log.error(f"Cannot build hetdex_api survey object to determine shotid for {d}")
+                        print(f"Cannot build hetdex_api survey object to determine shotid for {d}")
+                        exit(-1)
+
+                    # this is only looking at the pointing, not checking individual fibers, so
+                    # need to give it a big radius to search that covers the focal plane
+                    # if centered (and it should be) no ifu edge is more than 12 acrmin away
+                    shotlist = survey.get_shotlist(SkyCoord(args.ra, args.dec, unit='deg', frame='icrs'),
+                                                   radius=12 * U.arcmin)
+                    for s in shotlist:
+                        args.shotid = s
+                        hd = hetdex.HETDEX(args, basic_only=basic_only)
+                        if hd.status == 0:
+                            hd_list.append(hd)
+
+            else: #this should not happen
+                print("Something wrong with master_loop. Unexpected condition. Exiting.")
+                exit(-1)
 
         if not args.neighborhood_only:
 

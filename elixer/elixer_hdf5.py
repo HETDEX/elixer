@@ -782,27 +782,28 @@ def append_entry(fileh,det,overwrite=False):
             ltb.flush()
 
         sol_num = 0
-        for sol in det.spec_obj.solutions:
-            sol_num += 1
-            for line in sol.lines:
-                row = ltb.row
-                row['detectid'] = det.hdf5_detectid
-                row['sol_num'] = sol_num
-                if line.absorber:
-                    row['type'] = -1
-                else:
-                    row['type'] = 1
+        if det.spec_obj is not None:
+            for sol in det.spec_obj.solutions:
+                sol_num += 1
+                for line in sol.lines:
+                    row = ltb.row
+                    row['detectid'] = det.hdf5_detectid
+                    row['sol_num'] = sol_num
+                    if line.absorber:
+                        row['type'] = -1
+                    else:
+                        row['type'] = 1
 
-                row['wavelength'] = line.w_obs
-                row['flux_line'] = line.flux
-                row['flux_line_err'] = 0 #should find the "found" line version to get this
+                    row['wavelength'] = line.w_obs
+                    row['flux_line'] = line.flux
+                    row['flux_line_err'] = 0 #should find the "found" line version to get this
 
-                row['score'] = line.line_score
-                row['sn'] = line.snr
-                row['used'] = True  # these are all found lines, may or may not be in solution
+                    row['score'] = line.line_score
+                    row['sn'] = line.snr
+                    row['used'] = True  # these are all found lines, may or may not be in solution
 
-                row.append()
-                ltb.flush()
+                    row.append()
+                    ltb.flush()
 
         #############################
         #Aperture Table
