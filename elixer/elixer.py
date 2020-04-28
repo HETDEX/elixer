@@ -3153,8 +3153,10 @@ def main():
                             hd_list.append(hd)
 
             else: #this should not happen
-                print("Something wrong with master_loop. Unexpected condition. Exiting.")
-                exit(-1)
+                hd = hetdex.HETDEX(args) #builds out the hd object (with fibers, DetObj, etc)
+                if hd is not None:
+                    if hd.status == 0:
+                        hd_list.append(hd)
 
         if not args.neighborhood_only:
 
