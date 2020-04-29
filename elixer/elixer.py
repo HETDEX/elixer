@@ -2981,7 +2981,11 @@ def main():
     master_hdf5_detectid_list = []
 
     if G.RECOVERY_RUN:
-        if len(hdf5_detectid_list) > 0:
+        if args.aperture is not None:
+            G.RECOVERY_RUN = False
+            log.info("Forced extraction does not support RECOVERY MODE (so mode turned off).")
+            print("Forced extraction does not support RECOVERY MODE (so mode turned off).")
+        elif len(hdf5_detectid_list) > 0:
             hdf5_detectid_list = prune_detection_list(args,None,hdf5_detectid_list)
             if len(hdf5_detectid_list) == 0:
                 print("[RECOVERY MODE] All detections already processed. Exiting...")
