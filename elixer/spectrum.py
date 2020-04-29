@@ -2371,9 +2371,9 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
 
         #minimum height above the local gm_average
         #note: can be a problem for adjacent peaks?
-        if False:
-            if pv < (2.0 * np.mean(np.concatenate((sub_left,sub_right)))):
-                continue
+        # if False:
+        #     if pv < (2.0 * np.mean(np.concatenate((sub_left,sub_right)))):
+        #         continue
 
         #check vs minimum width
         if not (pix_width < dw):
@@ -2409,18 +2409,18 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
     ################
     #DEBUG
     ################
-    if False:
-        so = Spectrum()
-        eli = []
-        for p in eli_list:
-            e = EmissionLineInfo()
-            e.raw_x0 = p.raw_x0
-            e.raw_h = p.raw_h / 10.0
-            eli.append(e)
-        so.build_full_width_spectrum(wavelengths=x_0, counts=v_0, errors=None, central_wavelength=0,
-                                     show_skylines=False, show_peaks=True, name="peaks_trimmed",
-                                     dw=MIN_FWHM, h=MIN_HEIGHT, dh=MIN_DELTA_HEIGHT, zero=0.0, peaks=eli,
-                                     annotate=False)
+    # if False:
+    #     so = Spectrum()
+    #     eli = []
+    #     for p in eli_list:
+    #         e = EmissionLineInfo()
+    #         e.raw_x0 = p.raw_x0
+    #         e.raw_h = p.raw_h / 10.0
+    #         eli.append(e)
+    #     so.build_full_width_spectrum(wavelengths=x_0, counts=v_0, errors=None, central_wavelength=0,
+    #                                  show_skylines=False, show_peaks=True, name="peaks_trimmed",
+    #                                  dw=MIN_FWHM, h=MIN_HEIGHT, dh=MIN_DELTA_HEIGHT, zero=0.0, peaks=eli,
+    #                                  annotate=False)
 
     return eli_list
 
@@ -2802,7 +2802,7 @@ class Spectrum:
 
         #does not need errors for this purpose
         peaks = peakdet(wavelengths,values,errors,values_units=values_units,enforce_good=False) #as of 2018-06-11 these are EmissionLineInfo objects
-        max_v = -np.inf
+        max_score = -np.inf
         #find the largest flux
         for p in peaks:
             #  0   1   2   3          4
@@ -2810,8 +2810,8 @@ class Spectrum:
             #if p[2] > max_v:
             #    max_v = p[2]
             #    central = p[4]
-            if p.line_flux > max_v:
-                max_v = p.line_flux
+            if p.line_score > max_score:
+                max_score = p.line_score
                 central = p.fit_x0
 
         if update_self:

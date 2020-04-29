@@ -1,5 +1,7 @@
 changes to elixer by version
 
+1.9.0a3 [2020-04-29]
+* changed spectrum::find_central_wave to optimize for total line_score instead of just integrated line flux
 
 1.9.0a2 [2020-04-28]
 * added --coords commandline parameter to specify a file listing RA, Dec, shotid triples (whitespace separated) to use with
