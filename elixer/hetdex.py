@@ -2959,7 +2959,7 @@ class DetObj:
                               multiprocess=False, rad=self.extraction_aperture)
 
             if len(apt) == 0:
-                print(f"No spectra for ra ({self.ra}) dec ({self.dec})")
+                #print(f"No spectra for ra ({self.ra}) dec ({self.dec})")
                 log.info(f"No spectra for ra ({self.ra}) dec ({self.dec})")
                 self.status = -1
                 return
