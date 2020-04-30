@@ -2969,7 +2969,7 @@ class DetObj:
             self.sumspec_fluxerr = np.nan_to_num(apt['spec_err'][0], nan=0.000) * G.FLUX_WAVEBIN_WIDTH
             self.sumspec_wavelength = np.array(apt['wavelength'][0])
 
-            if self.w is None or self.w == 0:
+            if not self.w:
                 # find the "best" wavelength to use as the central peak
                 spectrum = elixer_spectrum.Spectrum()
                 w = spectrum.find_central_wavelength(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr,

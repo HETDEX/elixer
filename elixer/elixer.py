@@ -285,8 +285,15 @@ def parse_commandline(auto_force=False):
                         action='store_true', default=False)
     parser.add_argument('--png', help='Also save report in PNG format.', required=False,
                         action='store_true', default=False)
-    parser.add_argument('--blind', help='Do not verify passed in detectIDs. Applies only to HDF5 detectIDs.', required=False,
-                        action='store_true', default=False)
+
+    #1.9.0a3 keeping this around for backward compatibility (if anyone passes it on the call
+    #the default behavior now IS blind, so add a not_blind switch to force validation
+    parser.add_argument('--blind', help='Do not verify passed in detectIDs. Applies only to HDF5 detectIDs.',
+                        required=False, action='store_true', default=True)
+
+    parser.add_argument('--not_blind', help='Explicitly verify passed in detectIDs before processing. Applies only to HDF5 detectIDs.',
+                        required=False, action='store_true', default=False)
+
     parser.add_argument('--allcat', help='Produce individual pages for all catalog matches if there are '
                         'more than 3 matches.', required=False, action='store_true', default=False)
 
@@ -307,7 +314,7 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--upgrade_hdf5', help='Copy HDF5 file into new format/version. Formate old_file,new_file',
                         required=False)
 
-    parser.add_argument('--annulus', help="Inner and outer radii in arcsec (e.g. (10.0,35.2) )", required=False)
+    parser.add_argument('--annulus', help="Inner and outer radii in arcsec (e.g. 10.0,35.2 )", required=False)
 
     parser.add_argument('--aperture', help="Source extraction aperture (in arcsec) for manual extraction. Must be provided"
                                            " for explicit (re)extraction.", required=False,  type=float)
@@ -449,7 +456,8 @@ def parse_commandline(auto_force=False):
         print("Invalid combination of parameters. Cannot specify both --dets and --coords")
         exit(-1)
 
-
+    if args.not_blind:
+        args.blind = False
 
     if args.allow_empty_image is not None:
         G.ALLOW_EMPTY_IMAGE = args.allow_empty_image
@@ -552,7 +560,8 @@ def parse_commandline(auto_force=False):
 
     if args.annulus:
         try:
-            args.annulus = tuple(map(float, args.annulus.translate(None, '( )').split(',')))
+            #args.annulus = tuple(map(float, args.annulus.translate(None, '( )').split(',')))
+            args.annulus = tuple(map(float, args.annulus.split(',')))
 
             if len(args.annulus)==0:
                 print("Fatal. Inavlid annulus.")
@@ -1703,6 +1712,7 @@ def get_hdf5_detectids_to_process(args):
             log.info("Blindly accepting detections list")
             return detlist
 
+        #else ... verify the entries are valid detectIDs
         h5 = tables.open_file(args.hdf5, mode="r")
 
         dtb = h5.root.Detections
