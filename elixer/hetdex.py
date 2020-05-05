@@ -2853,7 +2853,7 @@ class DetObj:
             #    self.spec_obj.build_full_width_spectrum(show_skylines=True, show_peaks=True, name="testsol")
             # print("DEBUG ... spectrum peak finder DONE")
 
-            # todo: update with MY FIT results?
+            # update with MY FIT results?
             if G.REPORT_ELIXER_MCMC_FIT or self.eqw_obs == 0:
                 log.info("Using ELiXer MCMC Fit for line flux, continuum, EW, and SNR")
                 try:
@@ -2887,8 +2887,12 @@ class DetObj:
                 self.syn_obs.dec = self.dec
             self.syn_obs.target_wavelength = self.target_wavelength
             self.syn_obs.annulus = self.annulus
-            self.syn_obs.fibers_all = self.fibers
             self.syn_obs.w = self.target_wavelength
+            self.syn_obs.survey_shotid = self.survey_shotid
+
+            #get all the fibers inside the outer annulus radius
+            self.syn_obs.get_aperture_fibers()
+
 
     # end load_flux_calibrated_spectra
 
@@ -2955,7 +2959,7 @@ class DetObj:
         """
         try:
             coord = SkyCoord(ra=self.ra * U.deg, dec=self.dec * U.deg)
-            apt = hda_get_spectra(coord, survey="hdr2", shotid=self.survey_shotid,ffsky=self.extraction_ffsky,
+            apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,ffsky=self.extraction_ffsky,
                               multiprocess=False, rad=self.extraction_aperture)
 
             if len(apt) == 0:
@@ -2972,16 +2976,21 @@ class DetObj:
             if not self.w:
                 # find the "best" wavelength to use as the central peak
                 spectrum = elixer_spectrum.Spectrum()
-                w = spectrum.find_central_wavelength(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr,
-                                                     -17)
+                w = spectrum.find_central_wavelength(self.sumspec_wavelength,self.sumspec_flux,self.sumspec_fluxerr,-17)
                 if w is not None and (3400.0 < w < 5600.0):
                     self.w = w
                     self.target_wavelength = w
                 else:
-                    print("Cannot identify a suitable target wavelength. Arbitrarly setting to 4500.0 for report.")
-                    log.info("Cannot identify a suitable target wavelength. Arbitrarly setting to 4500.0 for report.")
-                    self.w = 4500.0
-                    self.target_wavelength = 4500.0
+
+                    try:
+                        self.w = np.nanmax(self.sumspec_flux)
+                        self.target_wavelength = self.w
+                        log.info(f"Cannot identify a suitable target wavelength. Setting to maximum flux value ({self.w}).")
+                    except:
+                        #print("Cannot identify a suitable target wavelength. Arbitrarly setting to 4500.0 for report.")
+                        log.info("Cannot identify a suitable target wavelength. Arbitrarly setting to 4500.0 for report.")
+                        self.w = 4500.0
+                        self.target_wavelength = 4500.0
 
             idx = elixer_spectrum.getnearpos(self.sumspec_wavelength, self.w)
             left = idx - 25  # 2AA steps so +/- 50AA
@@ -3124,7 +3133,7 @@ class DetObj:
             self.fibers.sort(key=lambda x: x.distance, reverse=False)  # highest weight is index = 0
             self.fibers_sorted = True
 
-            # todo: build a noise estimate over the top 4 fibers (amps)?
+            #build a noise estimate over the top 4 fibers (amps)?
             try:
                 good_idx = np.where([x.fits for x in self.fibers])[0]  # some might be None, so get those that are not
                 good_idx = good_idx[0:min(len(good_idx), 4)]
@@ -3331,6 +3340,21 @@ class DetObj:
                                       self.sumspec_flux / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS,
                                       self.sumspec_fluxerr / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS, self.fwhm)
 
+
+
+            if self.annulus:
+                self.syn_obs = elixer_observation.SyntheticObservation()
+                if self.wra:
+                    self.syn_obs.ra = self.wra
+                    self.syn_obs.dec = self.wdec
+                else:
+                    self.syn_obs.ra = self.ra
+                    self.syn_obs.dec = self.dec
+
+                self.syn_obs.target_wavelength = self.target_wavelength
+                self.syn_obs.annulus = self.annulus
+                self.syn_obs.fibers_all = self.fibers
+                self.syn_obs.w = self.target_wavelength
 
         except:
             log.error("Exception in hetdex.py forced_extraction.",exc_info=True)
@@ -3764,13 +3788,14 @@ class DetObj:
                     # add the fiber (still needs to load its fits file)
                     # we already know the path to it ... so do that here??
 
-                    # todo: full path to the HDF5 fits equivalent (or failing that the panacea fits file?)
+                    #full path to the HDF5 fits equivalent (or failing that the panacea fits file?)
                     fiber.fits_fn = fiber.find_hdf5_multifits(loc=op.dirname(hdf5_fn))
 
                     #fiber.fits_fn = get_hetdex_multifits_path(fiber.)
 
                     #now, get the corresponding FITS or FITS equivalent (HDF5)
-                    if self.annulus is None:
+                    #if self.annulus is None:
+                    if True: #may want this anyway to plot up the central object
                         fits = hetdex_fits.HetdexFits(empty=True)
                         #populate the data we need to read the HDF5 file
                         fits.filename = fiber.fits_fn #mfits_name #todo: fix to the corect path
@@ -3805,67 +3830,41 @@ class DetObj:
             log.warning("Warning! Duplicate Fibers found %d / %d" %(duplicate_count, count))
             self.duplicate_fibers_removed = 1
 
-        #todo: more to do here ... get the weights, etc (see load_flux_calibrated spectra)
-
-        if self.annulus is None:
-            for f in self.fibers:
-                if subset_norm != 0:
+        #more to do here ... get the weights, etc (see load_flux_calibrated spectra)
+        if True: #go ahead and do this anyway, may want to plot central object info/spectra
+        #if self.annulus is None: #the weights are meaningless for an annulus report
+            if subset_norm != 0:
+                for f in self.fibers:
                     f.relative_weight = f.raw_weight/subset_norm
 
-        #sort the fibers by weight
-        if self.annulus is None:
+            #sort the fibers by weight
             self.fibers = [x for x in self.fibers if x.relative_weight > 0]
-        self.fibers.sort(key=lambda x: x.relative_weight, reverse=True)  # highest weight is index = 0
-        self.fibers_sorted = True
+            self.fibers.sort(key=lambda x: x.relative_weight, reverse=True)  # highest weight is index = 0
+            self.fibers_sorted = True
 
+            #build a noise estimate over the top 4 fibers (amps)?
+            try:
+                good_idx = np.where([x.fits for x in self.fibers])[0] #some might be None, so get those that are not
+                good_idx = good_idx[0:min(len(good_idx),4)]
 
+                all_calfib = np.concatenate([self.fibers[i].fits.calfib for i in good_idx],axis=0)
 
-        #todo: build a noise estimate over the top 4 fibers (amps)?
-        try:
-            good_idx = np.where([x.fits for x in self.fibers])[0] #some might be None, so get those that are not
-            good_idx = good_idx[0:min(len(good_idx),4)]
+                #use the std dev of all "mostly empty" (hence sigma=3.0) or "sky" fibers as the error
+                mean, median, std = sigma_clipped_stats(all_calfib, axis=0, sigma=3.0)
+                self.calfib_noise_estimate = std
+                self.spec_obj.noise_estimate = self.calfib_noise_estimate
+                self.spec_obj.noise_estimate_wave = G.CALFIB_WAVEGRID
 
-            all_calfib = np.concatenate([self.fibers[i].fits.calfib for i in good_idx],axis=0)
-            #all_calfib = np.concatenate([x.fits.calfib for x in self.fibers[good_idx]], axis=0)
-            # all_calfibe = np.concatenate([x.fits.calfibe for x in self.fibers[0:4]], axis=0)
-            # try:
-            #     #should not use the biweight here ... most fibers would be sky and so, the
-            #     #biwieght loc should be close to zero
-            #     n = np.shape(all_calfib)[1] #along the wavelength direction
-            #     std = np.zeros(n)
-            #     for w in range(n):
-            #         std[w] = weighted_biweight.biweight_location_errors(all_calfib[:,w],all_calfibe[:,w]) #using "std" as bw.location
-            # except:
-            #     log.info("Spectrum noise from biweight failed. Reverting to sigma clipped std. dev",exc_info=True)
-            #     mean, median, std = sigma_clipped_stats(all_calfib, axis=0, sigma=3.0)
-
-            #use the std dev of all "mostly empty" (hence sigma=3.0) or "sky" fibers as the error
-            mean, median, std = sigma_clipped_stats(all_calfib, axis=0, sigma=3.0)
-            self.calfib_noise_estimate = std
-            self.spec_obj.noise_estimate = self.calfib_noise_estimate
-            self.spec_obj.noise_estimate_wave = G.CALFIB_WAVEGRID
-            #
-            # mean_min = np.min(mean)
-            # mean_max = np.max(mean)
-            #
-            # median_min = np.min(median)
-            # median_max = np.max(median)
-            #
-            #
-            # if np.any(abs(mean) > )
-            #
-            # if (abs(mean) > std) or (abs(median) > std):
-            #     log.debug("Noise Estimate outside expected range: mean(%0.2f,%0.2f) median(%0.2f,%0.2f) std(%0.2f)" %(mean,median,std))
-
-        except:
-            log.info("Could not build DetObj calfib_noise_estimate", exc_info=True)
-            self.calfib_noise_estimate = np.zeros(len(G.CALFIB_WAVEGRID))
+            except:
+                log.info("Could not build DetObj calfib_noise_estimate", exc_info=True)
+                self.calfib_noise_estimate = np.zeros(len(G.CALFIB_WAVEGRID))
 
 
         self.spec_obj.identifier = "eid(%s)" %str(self.entry_id)
         self.spec_obj.plot_dir = self.outdir
 
-        if self.annulus is None:
+        if True: #go ahead and do this anyway, may want to plot central object info/spectra
+        #if self.annulus is None:
             self.spec_obj.set_spectra(self.sumspec_wavelength,self.sumspec_flux,self.sumspec_fluxerr, self.w,
                                       values_units=-17, estflux=self.estflux, estflux_unc=self.estflux_unc,
                                       eqw_obs=self.eqw_obs,eqw_obs_unc=self.eqw_obs_unc,
@@ -3877,7 +3876,7 @@ class DetObj:
 
 
 
-            #todo: update with MY FIT results?
+            #update with MY FIT results?
             if G.REPORT_ELIXER_MCMC_FIT or self.eqw_obs == 0:
                 log.info("Using ELiXer MCMC Fit for line flux, continuum, EW, and SNR")
                 try:
@@ -3903,25 +3902,26 @@ class DetObj:
                                       self.sumspec_flux/G.FLUX_WAVEBIN_WIDTH*G.HETDEX_FLUX_BASE_CGS,
                                       self.sumspec_fluxerr/G.FLUX_WAVEBIN_WIDTH*G.HETDEX_FLUX_BASE_CGS,self.fwhm)
 
-
-        else:
+        if self.annulus:
             self.syn_obs = elixer_observation.SyntheticObservation()
+            self.syn_obs.extraction_ffsky = self.extraction_ffsky
             if self.wra:
                 self.syn_obs.ra = self.wra
                 self.syn_obs.dec = self.wdec
             else:
                 self.syn_obs.ra = self.ra
                 self.syn_obs.dec = self.dec
+
             self.syn_obs.target_wavelength = self.target_wavelength
             self.syn_obs.annulus = self.annulus
-            self.syn_obs.fibers_all = self.fibers
+            #self.syn_obs.fibers_all = self.fibers
             self.syn_obs.w = self.target_wavelength
+            self.syn_obs.survey_shotid = self.survey_shotid
+            #get all the fibers inside the outer annulus radius
+            self.syn_obs.get_aperture_fibers()
 
         return
     #nd load_hdf5
-
-
-
 
     def get_probabilities(self):
 
@@ -4163,6 +4163,10 @@ class HETDEX:
         self.target_ra = args.ra
         self.target_dec = args.dec
         self.target_err = args.error
+        if args.ffsky:
+            self.extraction_ffsky = args.ffsky
+        else:
+            self.extraction_ffsky = False
 
         if args.aperture and args.ra and args.dec:
             self.explicit_extraction = True
@@ -5079,6 +5083,7 @@ class HETDEX:
                 e.target_wavelength = self.target_wavelength
                 e.ra = self.target_ra
                 e.dec = self.target_dec
+                e.extraction_ffsky = self.extraction_ffsky
 
                 #just internal (ELiXer) numbering here
                 G.UNIQUE_DET_ID_NUM += 1
@@ -5317,7 +5322,9 @@ class HETDEX:
             outer_radius = radii_vector[i]
             inner_radius = e.annulus[0] #todo: option to also shift the inner_radius
 
-            e.syn_obs.annulus_fibers(inner_radius=inner_radius,outer_radius=outer_radius,empty=True,
+            e.syn_obs.annulus_fibers(inner_radius=inner_radius,outer_radius=outer_radius,
+                                     #empty=True,
+                                     empty=False,
                                      central_wavelength=self.target_wavelength)
 
             # now sub select the annulus fibers (without signal) (populate obs.fibers_work

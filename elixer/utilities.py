@@ -364,3 +364,50 @@ def open_sqlite_file(sqlfn,key):
         return blobvalue
     except:
         log.info(f"Exception attempting to fetch file {key} from {sqlfn}",exc_info=True)
+
+
+def intersection_area(R_in, R_out,d, r=G.Fiber_Radius):
+    """
+    Get the overlap area of fiber and annulus. All units are arcsec
+
+    credit: mostly taken from:
+    https://scipython.com/book/chapter-8-scipy/problems/p84/overlapping-circles/
+
+    :param R_in:
+    :param R_out:
+    :param d: fiber center distance to center of annulus (arcsec)
+    :param r: fiber radius
+    :return:
+    """
+
+    def overlap(R,d,r=G.Fiber_Radius):
+        """
+        Treat one Radius of the annulus as a circle
+        :param R: Annulus radius (inner or outer)
+        :param d: fiber center distance to center of annulus (arcsec)
+        :param r: fiber radius
+        :return:
+        """
+
+        if d <= abs(R-r):
+            # One circle is entirely enclosed in the other.
+            return np.pi * min(R, r)**2
+        if d >= r + R:
+            # The circles don't overlap at all.
+            return 0
+
+        r2, R2, d2 = r**2, R**2, d**2
+        alpha = np.arccos((d2 + r2 - R2) / (2*d*r))
+        beta = np.arccos((d2 + R2 - r2) / (2*d*R))
+        return (r2*alpha + R2*beta - 0.5*(r2*np.sin(2*alpha) + R2 * np.sin(2*beta)))
+
+        try:
+            area = overlap(R_out,d,r) - overlap(R_in,d,r)
+        except:
+            #just assume the whole (r could be junk)
+            try:
+                area = np.pi *r *r
+            except:
+                area = 0.0
+
+        return area

@@ -17,6 +17,7 @@ except:
     #import utilities
 
 import os.path as op
+import copy
 
 import matplotlib
 #matplotlib.use('agg')
@@ -1308,9 +1309,32 @@ class Catalog:
 
         return d
 
-    def get_stacked_cutout(self,ra,dec,window):
-        #implement in child class
-        pass
+    def get_stacked_cutout(self, ra, dec, window):
+
+        stacked_cutout = None
+        error = window
+
+        cutouts = self.get_cutouts(ra, dec, window)
+
+        stacked_cutout = None
+
+        for c in cutouts:
+            cutout = c['cutout']
+            try:
+                exptime = c['hdu']['exptime']
+            except:
+                exptime = 1.0
+            if cutout is not None:  # construct master cutout
+                if stacked_cutout is None:
+                    stacked_cutout = copy.deepcopy(cutout)
+                    ref_exptime = exptime
+                    total_adjusted_exptime = 1.0
+                else:
+                    stacked_cutout.data = np.add(stacked_cutout.data, cutout.data * exptime / ref_exptime)
+                    total_adjusted_exptime += exptime / ref_exptime
+
+        return stacked_cutout
+
 
     # def write_cutout_as_fits(self,cutout,filename):
     #     '''write a cutout as a fits file'''

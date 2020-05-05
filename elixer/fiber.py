@@ -193,6 +193,17 @@ class Fiber:
         self.d_prob_noise = None #probability that this "signal" is just noise (generally will be high, given, by
                                  #definition, the low flux (and correlated low SNR) we are seeking
 
+        # PSF applied to the center of the annulus (or no PSF applied??)
+        self.d_aperture_local_calfib = []
+        self.d_aperture_calfibe = []
+        self.d_aperture_ffsky_calfib = []
+
+        # PSF applied to the center of the fiber (radius = 0.75")
+        self.d_fiber_sumspec_flux = []
+        self.d_fiber_sumspec_fluxerr = []
+
+        #waves are always the 2AA rectified grid *NOT* the "native" wavebins
+
         try:
             self.panacea_idx = int(panacea_fiber_index)
             self.number_in_amp = 112 - self.panacea_idx

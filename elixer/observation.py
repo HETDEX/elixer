@@ -4,15 +4,23 @@ try:
     from elixer import global_config as G
     from elixer import fiber as elixer_fiber
     from elixer import spectrum as elixer_spectrum
+    from elixer import utilities as utils
+    from elixer import hetdex_fits
 except:
     import global_config as G
     import fiber as elixer_fiber
     import spectrum as elixer_spectrum
+    import utilities as utils
+    import hetdex_fits
 
 import numpy as np
 import os.path as op
-
-
+from astropy.coordinates import SkyCoord
+from astropy import units as U
+from astropy.stats import sigma_clipped_stats
+from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
+from hetdex_tools.get_spec import get_spectra as hda_get_spectra
+#import copy
 
 log = G.Global_Logger('obs_logger')
 log.setlevel(G.LOG_LEVEL)
@@ -43,6 +51,7 @@ class SyntheticObservation():
         self.target_wavelength = None
         self.annulus = None
         self.best_radius = None
+        self.extraction_ffsky = None
 
         self.fibers_all = [] #one fiber object for each
         self.eli_dict = {} #everytime we call signal_score on a fiber, it should be added here so as to not repeat
@@ -60,6 +69,181 @@ class SyntheticObservation():
         self.fwhm = 0
         self.estflux = 0
         self.snr = 0
+
+        self.calfib_noise_estimate = np.zeros(len(G.CALFIB_WAVEGRID))
+        self.survey_shotid = None
+
+
+    def get_aperture_fibers(self):
+        """
+        Get all the fibers that contribute to the *aperture* (so fiber centers at a distance of 0.0 out to the outer radius + 0.75")
+        :param basic_only:
+        :return:
+        """
+        try:
+            coord = SkyCoord(ra=self.ra * U.deg, dec=self.dec * U.deg)
+
+            if self.survey_shotid is None:
+                #get shot for RA, Dec
+                log.error("Required survey_shotid is None in SyntheticObservation::get_aperture_fibers")
+                self.status = -1
+                return
+
+            ftb = hda_get_fibers_table(self.survey_shotid,coord,
+                                       radius=(self.annulus[1] + G.Fiber_Radius) * U.arcsec, #use the outer radius
+                                       survey=f"hdr{G.HDR_Version}")
+
+            #build list of fibers and sort by distance (as proxy for weight)
+            count = 0
+            num_fibers = len(ftb)
+            for row in ftb:
+                count += 1
+                specid = row['specid']
+                ifuslot = row['ifuslot']
+                ifuid = row['ifuid']
+                amp = row['amp']
+                #date = str(row['date'])
+
+                # expected to be "20180320T052104.2"
+                #time_ex = row['timestamp'][9:]
+                #time = time_ex[0:6]  # hhmmss
+
+                #yyyymmddxxx
+                date = str(self.survey_shotid//1000) #chop off the shotid part and keep the date part
+                time = "000000"
+                time_ex = "000000.0"
+
+
+                mfits_name = row['multiframe']  # similar to multi*fits style name
+                #fiber_index is a string here: '20190104025_3_multi_315_021_073_RL_030'
+                fiber_index = row['fibidx'] #int(row['fiber_id'][-3:])  (fiber_id is a number, fibidx is index)
+                obsid = row['fiber_id'][8:11]
+
+                idstring = date + "v" + time_ex + "_" + specid + "_" + ifuslot + "_" + ifuid + "_" + amp + "_" #leave off the fiber for the moment
+
+                log.debug("Building fiber %d of %d (%s e%d) ..." % (count, num_fibers,idstring + str(fiber_index+1),int(row['expnum'])))
+                idstring += str(fiber_index) #add the fiber index (zero based)
+
+                fiber = elixer_fiber.Fiber(idstring=idstring,specid=specid,ifuslot=ifuslot,ifuid=ifuid,amp=amp,
+                                           date=date,time=time,time_ex=time_ex, panacea_fiber_index=fiber_index,
+                                           detect_id=0)
+
+                if fiber is not None:
+                    duplicate = False
+                    fiber.ra = row['ra']
+                    fiber.dec = row['dec']
+                    fiber.obsid = obsid #int(row['obsind']) #notice: obsind vs obsid
+                    fiber.expid = int(row['expnum'])  # integer now
+                    fiber.detect_id = 0
+                    fiber.center_x = row['ifux']
+                    fiber.center_y = row['ifuy']
+
+                    #don't have weights used, so use distance to the provided RA, Dec as a sorting substitute
+                    #fiber.raw_weight = row['weight']
+                    fiber.distance = utils.angular_distance(fiber.ra,fiber.dec,self.ra,self.dec)
+
+                    # check that this is NOT a duplicate
+                    for i in range(len(self.fibers_all)):
+                        if fiber == self.fibers_all[i]:
+                            log.warning(
+                                "Warning! Duplicate Fiber : %s . idx %d == %d. Duplicate will not be processed." %
+                                (fiber.idstring, i, count - 1))
+                            duplicate = True
+                            duplicate_count += 1
+                            break
+
+                    if duplicate:
+                        continue  # continue on to next fiber
+
+                    #don't need this HERE
+                    #we have all the data we need in the ftb (fiber table) from above
+                    #todo: need to load up the fiber data (wavelengths, flux, etc)
+                    # ['wavelength']  ['calfib'] OR ['spec_fullsky_sub'] (need to know the --ffsky parameter) and ['calfibe']
+
+                    fiber.d_aperture_local_calfib = row['calfib']
+                    fiber.d_aperture_calfibe =  row['calfibe']
+                    fiber.d_aperture_ffsky_calfib =  row['spec_fullsky_sub']
+
+
+
+
+                    if False:
+                        #todo: later? extract exactly on each fiber center individually
+                        #  this really is not right. ... this would be as if there were a single point source at the center
+                        #  of each fiber (and nothing else around it) would be the line flux of that point source (spread out
+                        #  over the PSF)
+                        fcoord = SkyCoord(ra=fiber.ra * U.deg, dec=fiber.dec * U.deg)
+                        #technically, this is grabbing the specific fiber and its 6 adjacent neighbors (but with PSF convulution
+                        #with an average PSF around 2", this is necessary and correct to get the light in this fiber)
+                        #BUT this returns MUCH bigger values (sum) than the other two
+                        apt = hda_get_spectra(fcoord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
+                                              ffsky=self.extraction_ffsky, multiprocess=False, rad=2.25*G.Fiber_Radius)
+                                                #2.25 so fiber centers can be off a little and still get the necessary 7 fibers
+
+                        if len(apt) == 1: #should be a single fiber
+                            # print(f"No spectra for ra ({self.ra}) dec ({self.dec})")
+                            fiber.d_fiber_sumspec_flux = np.nan_to_num(apt['spec'][0],
+                                                              nan=0.000) * G.FLUX_WAVEBIN_WIDTH  # in 1e-17 units (like HDF5 read)
+                            fiber.d_fiber_sumspec_fluxerr = np.nan_to_num(apt['spec_err'][0], nan=0.000) * G.FLUX_WAVEBIN_WIDTH
+
+                           # self.sumspec_wavelength = np.array(apt['wavelength'][0])
+                        else:
+                            log.info(f"Unexpected number of spectra ({len(apt)}) returned for fiber at ra ({fiber.ra}) dec ({fiber.dec})")
+
+
+
+                    if False:
+                        # fiber.relative_weight = row['weight']
+                        # add the fiber (still needs to load its fits file)
+                        # we already know the path to it ... so do that here??
+
+                        # full path to the HDF5 fits equivalent (or failing that the panacea fits file?)
+                        fiber.fits_fn = fiber.find_hdf5_multifits()
+
+                        # now, get the corresponding FITS or FITS equivalent (HDF5)
+                        fits = hetdex_fits.HetdexFits(empty=True)
+                        # populate the data we need to read the HDF5 file
+                        fits.filename = fiber.fits_fn  # mfits_name #todo: fix to the corect path
+                        fits.multiframe = mfits_name
+                        fits.panacea = True
+                        fits.hdf5 = True
+
+                        fits.obsid = str(fiber.obsid).zfill(3)
+                        fits.expid = int(fiber.expid)
+                        fits.specid = str(fiber.specid).zfill(3)
+                        fits.ifuslot = str(fiber.ifuslot).zfill(3)
+                        fits.ifuid = str(fiber.ifuid).zfill(3)
+                        fits.amp = fiber.amp
+                        fits.side = fiber.amp[0]
+
+                        fits.obs_date = fiber.dither_date
+                        fits.obs_ymd = fits.obs_date
+
+                        # now read the HDF5 equivalent
+                        fits.read_hdf5()
+                        # check if it is okay
+
+                        if fits.okay:
+                            fiber.fits = fits
+                        else:
+                            log.error("HDF5 multi-fits equivalent is not okay ...")
+
+                    self.fibers_all.append(fiber)
+
+            #build a noise estimate over the top 4 fibers (amps)?
+            # try:
+            #     good_idx = np.where([x.fits for x in self.fibers_all])[0]  # some might be None, so get those that are not
+            #
+            #     all_calfib = np.concatenate([self.fibers_all[i].fits.calfib for i in good_idx], axis=0)
+            #
+            #     # use the std dev of all "mostly empty" (hence sigma=3.0) or "sky" fibers as the error
+            #     mean, median, std = sigma_clipped_stats(all_calfib, axis=0, sigma=3.0)
+            #     self.calfib_noise_estimate = std
+            #
+            # except:
+            #     log.info("Could not build SyntheticObservation calfib_noise_estimate", exc_info=True)
+        except:
+            log.info("Could not get fibers in SyntheticObservation::get_aperture_fibers()", exc_info=True)
 
     def build_complete_emission_line_info_dict(self):
         for f in self.fibers_all:
@@ -115,17 +299,19 @@ class SyntheticObservation():
         #self.fibers_work = all[np.where(inner_radius < angular_distance(ra,dec,f.ra,f.dec) < outer_radius)]
 
         if inner_radius < outer_radius:
-            for f in self.fibers_all:
-                if inner_radius < angular_distance(ra, dec, f.ra, f.dec) < outer_radius:
-                    if (not empty) or (empty and f.is_empty(wavelengths=f.fluxcal_central_emis_wavelengths,
-                               values=f.fluxcal_central_emis_flux, errors=f.fluxcal_central_emis_fluxerr,
-                                units=self.units, max_score=10.0,max_snr=5.0,force=False,
-                                                            central_wavelength=central_wavelength)):
-                        #previous max_score = 2.0 , max_snr = 2.0 in effort to keep out signal
-                        self.fibers_work.append(f)
+            for f in self.fibers_all: #any portion of the fiber between (not just the center)
+                if (inner_radius - G.Fiber_Radius) < angular_distance(ra, dec, f.ra, f.dec) < (outer_radius + G.Fiber_Radius):
+                    self.fibers_work.append(f)
+                    # if (not empty) or (empty and f.is_empty(wavelengths=f.fluxcal_central_emis_wavelengths,
+                    #            values=f.fluxcal_central_emis_flux, errors=f.fluxcal_central_emis_fluxerr,
+                    #             units=self.units, max_score=10.0,max_snr=5.0,force=False,
+                    #                                         central_wavelength=central_wavelength)):
+                    #     #previous max_score = 2.0 , max_snr = 2.0 in effort to keep out signal
+                    #     self.fibers_work.append(f)
         else:
             log.warning("Observation::annulus_fibers Invalid radii (inner = %f, outer = %f)" % (inner_radius, outer_radius))
 
+        #todo: how best to figure the contribution from these fibers....
         for f in self.fibers_work:
             if not (f in self.eli_dict):
                 #can be None and that is okay

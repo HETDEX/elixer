@@ -2567,37 +2567,41 @@ class Spectrum:
 
             #solution == can be a single line solution .... if False, only counts as a possible solution if
             # there is at least one corroborating line
+            # see (among others) https://ned.ipac.caltech.edu/level5/Netzer/Netzer2_1.html
 
             EmissionLine("Ly$\\alpha$".ljust(w), G.LyA_rest, 'red',rank=1),
 
             EmissionLine("OII".ljust(w), G.OII_rest, 'green',rank=2),
-            EmissionLine("OIII".ljust(w), 4958.911, "lime",rank=2),#4960.295 (vacuum) 4958.911 (air)
-            EmissionLine("OIII".ljust(w), 5006.843, "lime",rank=1), #5008.240 (vacuum) 5006.843 (air)
+            EmissionLine("OIII".ljust(w), 4959, "lime",rank=2),#4960.295 (vacuum) 4958.911 (air)
+            EmissionLine("OIII".ljust(w), 5007, "lime",rank=1), #5008.240 (vacuum) 5006.843 (air)
+            #EmissionLine("OIV".ljust(w), 1400, "lime", solution=False, display=True, rank=4),  # or 1393-1403 also OIV]
+            EmissionLine("OVI".ljust(w), 1035, "lime",solution=False,display=True,rank=3),
 
-            EmissionLine("CIV".ljust(w), 1549.48, "blueviolet",solution=False,display=True,rank=3),  # big in AGN
-            EmissionLine("CIII".ljust(w), 1908.734, "purple",solution=False,display=True,rank=3),  #big in AGN
-            EmissionLine("CII".ljust(w),  2326.0, "purple",solution=False,display=False,rank=4),  # in AGN
+            EmissionLine("CIV".ljust(w), 1549, "blueviolet",solution=False,display=True,rank=3),  # big in AGN
+            EmissionLine("CIII".ljust(w), 1909, "purple",solution=False,display=True,rank=3),  #big in AGN
+            EmissionLine("CII".ljust(w),  2326, "purple",solution=False,display=False,rank=4),  # in AGN
 
-            EmissionLine("MgII".ljust(w), 2799.117, "magenta",solution=False,display=True,rank=3),  #big in AGN
+            EmissionLine("MgII".ljust(w), 2799, "magenta",solution=False,display=True,rank=3),  #big in AGN
             #this MgII is a doublet, 2795, 2802
 
-            EmissionLine("H$\\beta$".ljust(w), 4861.363, "blue",solution=True,rank=3), #4862.68 (vacuum) 4861.363 (air)
-            EmissionLine("H$\\gamma$".ljust(w), 4340.462, "royalblue",solution=False,rank=3),
-            EmissionLine("H$\\delta$".ljust(w), 4101.74, "royalblue", solution=False,display=False,rank=4),
+            EmissionLine("H$\\beta$".ljust(w), 4861, "blue",solution=True,rank=3), #4862.68 (vacuum) 4861.363 (air)
+            EmissionLine("H$\\gamma$".ljust(w), 4340, "royalblue",solution=False,rank=3),
+            EmissionLine("H$\\delta$".ljust(w), 4101, "royalblue", solution=False,display=False,rank=4),
             EmissionLine("H$\\epsilon$/CaII".ljust(w), 3970, "royalblue", solution=False,display=False,rank=4), #very close to CaII(3970)
             EmissionLine("H$\\zeta$".ljust(w), 3889, "royalblue", solution=False,display=False,rank=4),
             EmissionLine("H$\\eta$".ljust(w), 3835, "royalblue", solution=False,display=False,rank=4),
 
-            EmissionLine("NV".ljust(w), 1240.81, "teal", solution=False,display=True,rank=3),
+            EmissionLine("NV".ljust(w), 1241, "teal", solution=False,display=True,rank=3),
 
             EmissionLine("SiII".ljust(w), 1260, "gray", solution=False,display=True,rank=4),
+            EmissionLine("SiIV".ljust(w), 1400, "gray", solution=False, display=True, rank=4), #or 1393-1403 also OIV]
 
-            EmissionLine("HeII".ljust(w), 1640.4, "orange", solution=False,display=True,rank=3),
+            EmissionLine("HeII".ljust(w), 1640, "orange", solution=False,display=True,rank=3),
 
             EmissionLine("NeIII".ljust(w), 3869, "deeppink", solution=False,display=False,rank=4),
             EmissionLine("NeIII".ljust(w), 3967, "deeppink", solution=False,display=False,rank=4),  #very close to CaII(3970)
-            EmissionLine("NeV".ljust(w), 3346.79, "deeppink", solution=False,display=False,rank=4),
-            EmissionLine("NeVI".ljust(w), 3426.85, "deeppink", solution=False, display=False,rank=4),
+            EmissionLine("NeV".ljust(w), 3347, "deeppink", solution=False,display=False,rank=4),
+            EmissionLine("NeVI".ljust(w), 3427, "deeppink", solution=False, display=False,rank=4),
 
             EmissionLine("NaI".ljust(w),4980,"lightcoral",solution=False, display=False,rank=4),  #4978.5 + 4982.8
             EmissionLine("NaI".ljust(w),5153,"lightcoral",solution=False, display=False,rank=4),  #5148.8 + 5153.4

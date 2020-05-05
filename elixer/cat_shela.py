@@ -418,6 +418,7 @@ class SHELA(cat_base.Catalog):
         #     return
 
         log.info("Merging DECAM/SHELA PhotoZ Catalogs (this may take a while) ...")
+        print("Merging DECAM/SHELA PhotoZ Catalogs (this may take a while) ...")
 
         try:
             combined_table = astropy.table.Table.read(combined_cat_file)

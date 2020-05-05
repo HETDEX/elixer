@@ -590,6 +590,11 @@ def parse_commandline(auto_force=False):
                 log.error("Fatal. Inavlid annulus. Excessively large value.")
                 exit(-1)
 
+            if not args.wavelength:
+                print("--wavelength required with --annulus")
+                log.error("--wavelength required with --annulus")
+                exit(-1)
+
         except: #if annulus provided, this is a fatal exception
             print ("Fatal. Failed to map annulus to tuple.")
             log.error("Fatal. Failed to map annulus to tuple.", exc_info=True)

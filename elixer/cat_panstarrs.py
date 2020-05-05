@@ -323,57 +323,31 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
 
         return self.pages
 
-
-    def get_stacked_cutout(self,ra,dec,window):
-
-        stacked_cutout = None
-        error = window
-
-        # for a given Tile, iterate over all filters
-        tile, tract = self.find_target_tile(ra, dec)
-        if tile is None:
-            # problem
-            print("No appropriate tile found in HSC for RA,DEC = [%f,%f]" % (ra, dec))
-            log.error("No appropriate tile found in HSC for RA,DEC = [%f,%f]" % (ra, dec))
-            return None
-
-        for f in self.Filters:
-            try:
-                i = self.CatalogImages[
-                    next(i for (i, d) in enumerate(self.CatalogImages)
-                         if ((d['filter'] == f) and (d['tile'] == tile)))]
-            except:
-                i = None
-
-            if i is None:
-                continue
-
-            try:
-                wcs_manual = i['wcs_manual']
-            except:
-                wcs_manual = self.WCS_Manual
-
-            try:
-                if i['image'] is None:
-                    i['image'] = science_image.science_image(wcs_manual=wcs_manual,wcs_idx=1,
-                                                             image_location=op.join(i['path'], i['name']))
-                sci = i['image']
-
-                cutout, _, _, _ = sci.get_cutout(ra, dec, error, window=window, aperture=None, mag_func=None)
-                #don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
-
-                if cutout is not None:  # construct master cutout
-                    if stacked_cutout is None:
-                        stacked_cutout = copy.deepcopy(cutout)
-                        ref_exptime = sci.exptime
-                        total_adjusted_exptime = 1.0
-                    else:
-                        stacked_cutout.data = np.add(stacked_cutout.data, cutout.data * sci.exptime / ref_exptime)
-                        total_adjusted_exptime += sci.exptime / ref_exptime
-            except:
-                log.error("Error in get_stacked_cutout.",exc_info=True)
-
-        return stacked_cutout
+    # def get_stacked_cutout(self, ra, dec, window):
+    #
+    #     stacked_cutout = None
+    #     error = window
+    #
+    #     cutouts = self.get_cutouts(ra, dec, window)
+    #
+    #     stacked_cutout = None
+    #
+    #     for c in cutouts:
+    #         cutout = c['cutout']
+    #         try:
+    #             exptime = c['hdu']['exptime']
+    #         except:
+    #             exptime = 1.0
+    #         if cutout is not None:  # construct master cutout
+    #             if stacked_cutout is None:
+    #                 stacked_cutout = copy.deepcopy(cutout)
+    #                 ref_exptime = exptime
+    #                 total_adjusted_exptime = 1.0
+    #             else:
+    #                 stacked_cutout.data = np.add(stacked_cutout.data, cutout.data * exptime / ref_exptime)
+    #                 total_adjusted_exptime += exptime / ref_exptime
+    #
+    #     return stacked_cutout
 
     def build_cat_summary_figure (self, cat_match, ra, dec, error, bid_ras, bid_decs, target_w=0,
                                   fiber_locs=None, target_flux=None,detobj=None):
