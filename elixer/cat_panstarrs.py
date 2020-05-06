@@ -794,14 +794,14 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
 
         if G.ZOO:
             text = "Separation\n" + \
-                   "1-p(rand)\n" + \
+                   "Match score\n" + \
                    "Spec z\n" + \
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
                    "mag\n"
         else:
             text = "Separation\n" + \
-                   "1-p(rand)\n" + \
+                   "Match score\n" + \
                    "RA, Dec\n" + \
                    "Spec z\n" + \
                    "Photo z\n" + \

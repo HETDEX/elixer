@@ -692,14 +692,14 @@ class DECaLS(cat_base.Catalog):#DECaLS
 
         if G.ZOO:
             text = "Separation\n" + \
-                   "1-p(rand)\n" + \
+                   "Match score\n" + \
                    "Spec z\n" + \
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
                    "mag\n"
         else:
             text = "Separation\n" + \
-                   "1-p(rand)\n" + \
+                   "Match score\n" + \
                    "RA, Dec\n" + \
                    "Spec z\n" + \
                    "Photo z\n" + \

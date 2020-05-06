@@ -281,7 +281,7 @@ class DistancePrior:
         else:
             p_rand_match = self.mdf_matrix[idist, imag]
 
-        log.info("Using MDF for distance prior: mag = %f , dist = %f, 1-p(rand) = %f" %
+        log.info("Using MDF for distance prior: mag = %f , dist = %f, Match score = %f" %
                  (mag, dist, 1. - p_rand_match))
 
         return p_rand_match
@@ -336,7 +336,7 @@ class DistancePrior:
                                 # simple function call (lookup)
                                 p_rand_match = sigmoid(dist, *(self.pdf_sigmoid_parms[imag]))
 
-                            log.info("Using sigmoid PDF for distance prior: mag = %f , dist = %f, 1-p(rand) = %f" %
+                            log.info("Using sigmoid PDF for distance prior: mag = %f , dist = %f, Match score = %f" %
                                      (mag, dist,1. - p_rand_match))
                     elif self.pdf_model == "poly":
                         if (self.pdf_poly_parms is not None) and (len(self.pdf_poly_parms) >  imag) and \
@@ -351,7 +351,7 @@ class DistancePrior:
                                 #simple function call (lookup)
                                 p_rand_match = polynomial(dist,self.pdf_poly_parms[imag])
 
-                            log.info("Using polynomial PDF for distance prior: mag = %f , dist = %f, 1-p(rand) = %f" %
+                            log.info("Using polynomial PDF for distance prior: mag = %f , dist = %f, Match score = %f" %
                                      (mag, dist,1. - p_rand_match))
 
                     if p_rand_match == -1 :  # use the mdf_matrix
@@ -366,7 +366,7 @@ class DistancePrior:
                         else:
                             p_rand_match = self.mdf_matrix[idist, imag]
 
-                        log.info("Using MDF for distance prior: mag = %f , dist = %f, 1-p(rand) = %f" %
+                        log.info("Using MDF for distance prior: mag = %f , dist = %f, Match score = %f" %
                                  (mag, dist, 1. - p_rand_match))
         except:
             log.warning("Cannot sample distance mdf. Will return p = 1.0",exc_info=True)
