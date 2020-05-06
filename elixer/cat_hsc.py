@@ -1403,14 +1403,14 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
         if G.ZOO:
             text = "Separation\n" + \
-                   "1-p(rand)\n" + \
+                   "Match score\n" + \
                    "Spec z\n" + \
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
                    "mag\n\n"
         else:
             text = "Separation\n" + \
-                   "1-p(rand)\n" + \
+                   "Match score\n" + \
                    "RA, Dec\n" + \
                    "Spec z\n" + \
                    "Photo z\n" + \

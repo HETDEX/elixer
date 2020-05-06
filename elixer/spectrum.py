@@ -490,7 +490,7 @@ def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
 
     :param data: (raw) data
     :param fit:  fitted data (on the same scale)
-    :param cw_pix: (nearest) pixel (index) of the central peak
+    :param cw_pix: (nearest) pixel (index) of the central peak (could be +/- 1 pix (bin)
     :param hw_pix: half-width (in pixels from the cw_pix) overwhich to calculate rmse (i.e. cw_pix +/- hw_pix)
     :param norm: T/F whether or not to divide by the peak of the raw data
     :return:
@@ -513,15 +513,17 @@ def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
         left = cw_pix - hw_pix
         right = cw_pix + hw_pix
 
-        #due to rounding of pixels this can be off +/- 2 pix
-        if -2 <= left < 0:
+        #due to rounding of pixels (bins) from the caller (the central index +/- 2 and the half-width to either side +/- 2)
+        # either left or right can be off by a max total of 4 pix
+        rounding_error = 4
+        if -1*rounding_error <= left < 0:
             left = 0
 
-        if len(data) < right <= (len(data) +2):
+        if len(data) < right <= (len(data) +rounding_error):
             right = len(data)
 
         if (left < 0) or (right > len(data)):
-            log.error("Invalid range supplied for rms. Data len = %d. Central Idx = %d , Half-width= %d"
+            log.warning("Invalid range supplied for rms. Data len = %d. Central Idx = %d , Half-width= %d"
                       % (len(data),cw_pix,hw_pix))
             return -999
 

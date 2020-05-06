@@ -3585,9 +3585,13 @@ def main():
                         dec = e.dec
 
                     try:
+                        if e.entry_id >= 1e9:
+                            nei_name = os.path.join(pdf.basename, str(e.entry_id) + "_nei.png")
+                        else:
+                            nei_name = os.path.join(pdf.basename, e.pdf_name.rstrip(".pdf") + "_nei.png")
                         _, nei_mini_buf = build_neighborhood_map(hdf5=args.hdf5, cont_hdf5=G.HDF5_CONTINUUM_FN,
                                            detectid=None, ra=ra, dec=dec, distance=args.neighborhood, cwave=e.w,
-                                           fname=os.path.join(pdf.basename, str(e.entry_id) + "nei.png"),
+                                           fname=nei_name,
                                            original_distance=args.error)
                     except:
                         log.warning("Exception calling build_neighborhood_map.",exc_info=True)
@@ -3611,7 +3615,11 @@ def main():
             print(msg)
             for h in hd_list:  # iterate over all hetdex detections
                 for e in h.emis_list:
-                    build_3panel_zoo_image(fname=os.path.join(pdf.basename, str(e.entry_id) + "_mini.png"),
+                    if e.entry_id >= 1e9:
+                        mini_name = os.path.join(pdf.basename, str(e.entry_id) + "_mini.png")
+                    else:
+                        mini_name = os.path.join(pdf.basename, e.pdf_name.rstrip(".pdf") + "_mini.png")
+                    build_3panel_zoo_image(fname=mini_name,
                                            image_2d_fiber=e.image_2d_fibers_1st_col,
                                            image_1d_fit=e.image_1d_emission_fit,
                                            image_cutout_fiber_pos=e.image_cutout_fiber_pos,

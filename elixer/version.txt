@@ -1,12 +1,14 @@
 changes to elixer by version
 
-1.9.0a3 [2020-04-29]
+1.9.0a3 [2020-05-06]
 * changed spectrum::find_central_wave to optimize for total line_score instead of just integrated line flux
 * disallow (turn off) RECOVERY MODE (--recover) for forced extraction (e.g. if --aperture specified)
   [note: forced extraction IDs are not unique across instances so current recovery mechanism cannot track them]
 * make --blind the default behavior (so the switch is essentially meaningless now). Added --not_blind to negate the
   behavior and force pre-validation of passed in detectIDs
 * fixed catalog get_stacked_cutout() for KPNO, DECaLS, PanSTARRS and SDSS (to use base function)
+* fix naming error for *nei.png and *mini.png for forced extraction (was just <local id>nei.png and is now
+    <fullname>_nei.png)
 
 1.9.0a2 [2020-04-28]
 * added --coords commandline parameter to specify a file listing RA, Dec, shotid triples (whitespace separated) to use with
