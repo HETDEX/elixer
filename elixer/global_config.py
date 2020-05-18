@@ -22,7 +22,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.9.0a3'
+__version__ = '1.9.0a4'
 
 #python version
 import sys
@@ -631,7 +631,10 @@ CCD_EDGE_FIBERS_ALL_2 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 
  422, 423, 424, 425, 426, 427, 428, 429, 430, 431, 432, 433, 434, 435, 436, 437, 438, 439, 440, 441, 442, 443, 444, 445,
  446, 447, 448]
 
-CALFIB_WAVEGRID = np.arange(3470.,5542.,2.0) #3470 - 5540
+WAVEGRID_BLUE_LIMIT = 3470.
+WAVEGRID_RED_LIMIT = 5540.
+WAVEGRID_NUM_BINS = 1036
+CALFIB_WAVEGRID = np.linspace(WAVEGRID_BLUE_LIMIT,WAVEGRID_RED_LIMIT,WAVEGRID_NUM_BINS) #np.arange(3470.,5542.,2.0) #3470 - 5540
 
 #Detection Quality Score Values
 FULL_WEIGHT_DISTANCE = Fiber_Radius

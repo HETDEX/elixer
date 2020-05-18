@@ -15,9 +15,14 @@ except:
 import numpy as np
 import astropy.constants
 import astropy.units as U
+from astropy.coordinates import SkyCoord
 import astropy.cosmology as Cosmo
 import astropy.stats.biweight as biweight
 
+from scipy.optimize import curve_fit
+
+from hetdex_tools.get_spec import get_spectra as hda_get_spectra
+#from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
 
 #SU = Simple Universe (concordance)
 SU_H0 = 70.
@@ -606,3 +611,238 @@ def red_vs_blue(cwave,wave,flux,flux_err,fwhm=None):
         return None
 
     return rvb
+
+
+def velocity_offset(wave1,wave2):
+    """
+    Return the velocity offset from wave1 to wave2
+    (negative values = blue shift = wave2 is blue of wave1)
+    :param wave1: wavelength 1 (unitless or units must match)
+    :param wave2: wavelength 2 (unitless or units must match)
+    :return: velocity offset as quantity
+    """
+
+    try:
+        return astropy.constants.c.to(U.km/U.s) * (1 - wave1/wave2)
+    except:
+        return None
+
+def wavelength_offset(wave,velocity):
+    """
+    Return change in wavelength (observered) for a given base wavelength and velocity offset
+    (reminder, negative velocity is toward or blue shifted and the return will be negative)
+    :param wave: wavelength 1 (unitless or units must match)
+    :param velocity: in km/s
+    :return: wavelength (same units as wave)
+    """
+    try:
+        if isinstance(velocity, U.Quantity):
+            return wave - wave * (1.0 - velocity/astropy.constants.c.to(U.km/U.s))
+        else:
+            return wave - wave * (1.0 - velocity / astropy.constants.c.to(U.km / U.s).value)
+    except:
+        return None
+
+
+
+def extract_at_position(ra,dec,aperture,shotid,ffsky=False):
+    """
+
+    :param ra:
+    :param dec:
+    :param aperture:
+    :param shotid:
+    :param ffsky:
+    :return:
+    """
+
+    return_dict = {}
+    return_dict['flux'] = None
+    return_dict['fluxerr'] = None
+    return_dict['wave'] = None
+    return_dict['ra'] = ra
+    return_dict['dec'] = dec
+    return_dict['shot'] = shotid
+
+    try:
+        coord = SkyCoord(ra=ra * U.deg, dec=dec * U.deg)
+        apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=shotid,ffsky=ffsky,
+                          multiprocess=False, rad=aperture)
+
+        if len(apt) == 0:
+            #print(f"No spectra for ra ({self.ra}) dec ({self.dec})")
+            log.info(f"No spectra for ra ({ra}) dec ({dec})")
+            return return_dict
+
+        # returned from get_spectra as flux density (per AA), so multiply by wavebin width to match the HDF5 reads
+        return_dict['flux'] = np.nan_to_num(apt['spec'][0], nan=0.000) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
+        return_dict['fluxerr'] = np.nan_to_num(apt['spec_err'][0], nan=0.000) * G.FLUX_WAVEBIN_WIDTH
+        return_dict['wave'] = np.array(apt['wavelength'][0])
+        return_dict['ra'] = ra
+        return_dict['dec'] = dec
+    except Exception as E:
+        print(f"Exception in Elixer::spectrum_utilities::extract_at_position",E)
+        log.info(f"Exception in Elixer::spectrum_utilities::extract_at_position",exc_info=True)
+
+    return return_dict
+
+def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
+    """
+
+    :param data: (raw) data
+    :param fit:  fitted data (on the same scale)
+    :param cw_pix: (nearest) pixel (index) of the central peak (could be +/- 1 pix (bin)
+    :param hw_pix: half-width (in pixels from the cw_pix) overwhich to calculate rmse (i.e. cw_pix +/- hw_pix)
+    :param norm: T/F whether or not to divide by the peak of the raw data
+    :return:
+    """
+    #sanity check
+    if (data is None) or (fit is None) or (len(data) != len(fit)) or any(np.isnan(data)) or any(np.isnan(fit)):
+        return -999
+
+    if norm:
+        mx = max(data)
+        if mx < 0:
+            return -999
+    else:
+        mx = 1.0
+
+    d = np.array(data)/mx
+    f = np.array(fit)/mx
+
+    if ((cw_pix is not None) and (hw_pix is not None)):
+        left = cw_pix - hw_pix
+        right = cw_pix + hw_pix
+
+        #due to rounding of pixels (bins) from the caller (the central index +/- 2 and the half-width to either side +/- 2)
+        # either left or right can be off by a max total of 4 pix
+        rounding_error = 4
+        if -1*rounding_error <= left < 0:
+            left = 0
+
+        if len(data) < right <= (len(data) +rounding_error):
+            right = len(data)
+
+        if (left < 0) or (right > len(data)):
+            log.warning("Invalid range supplied for rms. Data len = %d. Central Idx = %d , Half-width= %d"
+                      % (len(data),cw_pix,hw_pix))
+            return -999
+
+        d = d[left:right+1]
+        f = f[left:right+1]
+
+    return np.sqrt(((f - d) ** 2).mean())
+
+def gaussian(x, x0, sigma, a=1.0, y=0.0):
+    if (x is None) or (x0 is None) or (sigma is None):
+        return None
+
+    return a * (np.exp(-np.power((x - x0) / sigma, 2.) / 2.) / np.sqrt(2 * np.pi * sigma ** 2)) + y
+
+def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=1500.0):
+    """
+    Simple curve_fit to gaussian; lsq "best"
+
+    :param values:
+    :param errors:
+    :param wavelengths:
+    :param central:
+    :param wave_slop_kms:
+    :return:
+    """
+
+    return_dict = {}
+    return_dict['x0'] = None
+    return_dict['intflux'] = 0.0
+    return_dict['continuum_level'] = 0.0
+    return_dict['velocity_offset'] = 0.0
+    return_dict['sigma'] = 0.0
+    return_dict['rmse'] = 0.0
+    return_dict['snr'] = 0.0
+    return_dict['score'] = 0.0
+
+    if (values is None) or (len(values) == 0):
+        return return_dict
+
+    try:
+        min_sigma = 1.5 #FWHM  ~ 3.5AA (w/o error, best measure would be about 5AA)
+        wave_slop = wavelength_offset(central,wave_slop_kms) #for HETDEX, in AA
+        wave_side = int(round(max(40,2*wave_slop) / G.FLUX_WAVEBIN_WIDTH)) #at least 40AA to either side or twice the slop
+        idx,_,_ = getnearpos(wavelengths,central)
+        min_idx = max(0,idx-wave_side)
+        max_idx = min(len(values),idx+wave_side)
+
+        narrow_wave_x = wavelengths[min_idx:max_idx+1]
+        narrow_wave_counts = values[min_idx:max_idx+1]
+
+        if (errors is not None) and (len(errors) == len(wavelengths)):
+            narrow_wave_errors = errors[min_idx:max_idx+1]
+            #replace any 0 with 1
+            narrow_wave_errors[np.where(narrow_wave_errors == 0)] = 1
+            narrow_wave_err_sigma = 1. / (narrow_wave_errors * narrow_wave_errors)
+        else:
+            narrow_wave_errors = None
+            narrow_wave_err_sigma = None
+
+        try:
+
+            parm, pcov = curve_fit(gaussian, np.float64(narrow_wave_x), np.float64(narrow_wave_counts),
+                                   p0=(central, 1.5, 1.0, 0.0),
+                                   bounds=((central - wave_slop, min_sigma, 0.0, -100.0),
+                                           (central + wave_slop, np.inf, np.inf, np.inf)),
+                                   # sigma=1./(narrow_wave_errors*narrow_wave_errors)
+                                   sigma=narrow_wave_err_sigma  # , #handles the 1./(err*err)
+                                   # note: if sigma == None, then curve_fit uses array of all 1.0
+                                   # method='trf'
+                                   )
+
+            try:
+                if not np.any(pcov):  # all zeros ... something wrong
+                    log.info("Something very wrong with curve_fit")
+            except Exception as E:
+                print(E)
+                return return_dict
+
+            perr = np.sqrt(np.diag(pcov))
+
+            x0 = parm[0]
+            sigma = parm[1]
+            A = parm[2]
+            Y = parm[3]
+            intflux = A / G.FLUX_WAVEBIN_WIDTH
+            continuum_level = Y
+            vel_offset = velocity_offset(central, x0).value
+
+            #sn_pix to either side of the peak
+            num_sn_pix = int(round(min(20, len(narrow_wave_counts) / 2 - 1)))  # don't go larger than the actual array
+
+            rms_wave = gaussian(narrow_wave_x, parm[0], parm[1], parm[2], parm[3])
+            fit_rmse = rms(narrow_wave_counts, rms_wave, cw_pix=getnearpos(narrow_wave_x, x0 )[0], hw_pix=num_sn_pix,
+                                 norm=False)
+
+            num_sn_pix = num_sn_pix * 2 + 1 #update to full counting of sn_pix (each side + 1 for the peak bin)
+            snr = A / (np.sqrt(num_sn_pix) * fit_rmse)
+
+            return_dict['x0'] = x0
+            return_dict['intflux'] = intflux
+            return_dict['continuum_level'] = continuum_level
+            return_dict['velocity_offset'] = vel_offset
+            return_dict['sigma']=sigma
+            return_dict['rmse'] = fit_rmse
+            return_dict['snr'] = snr
+
+        except Exception as E:
+            print(E)
+
+    except Exception as E:
+        print(E)
+
+    return return_dict
+
+
+# def line_score(snr,line_flux,fit_sigma):
+#
+#     line_score = snr * above_noise * unique_mul * line_flux * 1e17 * \
+#                       min(fit_sigma / pix_size, 1.0) * \
+#                       min((pix_size * sn_pix) / 21.0, 1.0) / \
+#                       (10.0 * (1. + abs(adjusted_dx0_error / pix_size)))
