@@ -1375,6 +1375,17 @@ def write_fibers_file(filename,hd_list):
     print(msg)
 
 
+def which(file):
+    try:
+        path = os.getenv('PATH')
+        for p in path.split(os.path.pathsep):
+            p = os.path.join(p, file)
+            if os.path.exists(p) and os.access(p, os.X_OK):
+                return p
+    except:
+        log.info("Exception in which",exc_info=True)
+        return None
+
 def convert_pdf(filename, resolution=150, jpeg=True, png=False):
 
     #file might not exist, but this will just trap an execption
@@ -1458,15 +1469,31 @@ def convert_pdf(filename, resolution=150, jpeg=True, png=False):
         else:
             log.error("Error (1) converting pdf to image type: " + filename, exc_info=True)
         if G.ALLOW_SYSTEM_CALL_PDF_CONVERSION:
-            try:
-                log.info("Attempting blind system call to pdftoppm to convert ... ")
-                os.system("pdftoppm %s %s -png -singlefile" % (filename, filename.rstrip(".pdf")))
-                log.info("No immediate error reported on pdftoppm call ... ")
-            except Exception as e:
-                if type(e) is pdf2image.exceptions.PDFInfoNotInstalledError:
-                    log.error("System call conversion failed (PDFInfoNotInstalledError).", exc_info=False)
-                else:
-                    log.error("System call conversion failed.",exc_info=True)
+            #try pdftoppm or convert
+            if which("pdftoppm") is not None:
+                try:
+                    log.info("Attempting blind system call to pdftoppm to convert ... ")
+                    os.system("pdftoppm %s %s -png -singlefile" % (filename, filename.rstrip(".pdf")))
+                    #alternate call for wrangler
+                    #base is really 150 dpi but have to set convert to 200 to mimic resolution
+                    os.system("convert -density 200 %s %s" % (filename, filename.rstrip(".pdf")+".png"))
+                    log.info("No immediate error reported on pdftoppm call ... ")
+                except Exception as e:
+                    if type(e) is pdf2image.exceptions.PDFInfoNotInstalledError:
+                        log.error("System call conversion failed (PDFInfoNotInstalledError).", exc_info=False)
+                    else:
+                        log.error("System call conversion failed.",exc_info=True)
+            elif which ("convert") is not None:
+                try:
+                    log.info("Attempting blind system call to convert ... ")
+                    # alternate call for wrangler
+                    # base is really 150 dpi but have to set convert to 200 to mimic resolution
+                    os.system("convert -density 200 %s %s" % (filename, filename.rstrip(".pdf") + ".png"))
+                    log.info("No immediate error reported on convert call ... ")
+                except Exception as e:
+                    log.error("System call conversion failed.", exc_info=True)
+            else:
+                log.error("No viable system call available to convert PDF to PNG")
         return
 
 
