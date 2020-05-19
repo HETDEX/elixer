@@ -3055,7 +3055,10 @@ class DetObj:
                 try:
                     obsid = row['fiber_id'][8:11]
                 except:
-                    obsid = str(int(row['obsind'])).zfill(3) #obsind is an index? so +1 for the ID
+                    try:
+                        obsid = str(self.survey_shotid)[8:11]
+                    except:
+                        log.error("Unable to determin observation ID.")
 
                 idstring = date + "v" + time_ex + "_" + specid + "_" + ifuslot + "_" + ifuid + "_" + amp + "_" #leave off the fiber for the moment
 
