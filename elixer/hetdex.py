@@ -3052,7 +3052,10 @@ class DetObj:
                 mfits_name = row['multiframe']  # similar to multi*fits style name
                 #fiber_index is a string here: '20190104025_3_multi_315_021_073_RL_030'
                 fiber_index = row['fibidx'] #int(row['fiber_id'][-3:])  (fiber_id is a number, fibidx is index)
-                obsid = row['fiber_id'][8:11]
+                try:
+                    obsid = row['fiber_id'][8:11]
+                except:
+                    obsid = str(row['obsid']+1).zfill(3) #obsind is an index? so +1 for the ID
 
                 idstring = date + "v" + time_ex + "_" + specid + "_" + ifuslot + "_" + ifuid + "_" + amp + "_" #leave off the fiber for the moment
 
