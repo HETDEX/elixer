@@ -1,11 +1,15 @@
 changes to elixer by version
 
+1.9.0a5 [2020-05-19]
+* tweak rmse central pix position to be the center of the array IF the FWHM of the fit is greater than 1/2 width of the
+  array
+* added spectrum_utilities raster search and plotting options
+* updated scoring for really broad lines (i.e. AGN) and corrected unmatched lines error for LyA
+
 1.9.0a4 [2020-05-18]
 * boost allowed line fit FWHM to 40AA, but require SNR > 25 for FWHM > 20AA
 * check for 'pdftoppm' then 'convert' to execute system PDF to PNG conversion
-* tweak rmse central pix position to be the center of the array IF the FWHM of the fit is greater than 1/2 width of the
-  array
-* added
+
 
 1.9.0a3 [2020-05-06]
 * changed spectrum::find_central_wave to optimize for total line_score instead of just integrated line flux

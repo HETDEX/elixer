@@ -774,8 +774,8 @@ class EmissionLineInfo:
 
             if (self.fwhm is None) or (self.fwhm < MAX_FWHM):
                 if (self.fwhm > MAX_NORMAL_FWHM) and (self.snr < MIN_HUGE_FWHM_SNR):  # todo: check for SNR (is it noisy?)
-                    log.debug(f"Huge fwhm {self.fwhm} with relatively poor SNR {self.snr} < required SNR {MIN_HUGE_FWHM_SNR}"
-                              "probably bad fit or merged lines. Rejecting score.")
+                    log.debug(f"Huge fwhm {self.fwhm} with relatively poor SNR {self.snr} < required SNR {MIN_HUGE_FWHM_SNR} "
+                              "Probably bad fit or merged lines. Rejecting score.")
                     self.line_score = 0
                 else:
                     self.line_score = self.snr * above_noise * unique_mul * self.line_flux * 1e17 * \
@@ -783,7 +783,7 @@ class EmissionLineInfo:
                               min((self.pix_size * self.sn_pix)/21.0,1.0) / \
                               (10.0 * (1. + abs(adjusted_dx0_error / self.pix_size)) )
             else:
-                log.debug(f"Huge fwhm {self.fwhm}, probably bad fit or merged lines. Rejecting score.")
+                log.debug(f"Huge fwhm {self.fwhm}, Probably bad fit or merged lines. Rejecting score.")
                 self.line_score = 0
 
             if self.absorber:
@@ -2146,7 +2146,7 @@ def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
         log.error("Exception in sn_peakdet",exc_info=True)
         return []
 
-    return eli_list
+    return combine_lines(eli_list)
 
 def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,values_units=0,
             enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False):
@@ -2208,9 +2208,7 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
     eli_list = []
     delta = dh
 
-    #testing
     eli_list = sn_peakdet(x,v,err,values_units=values_units,enforce_good=enforce_good,min_sigma=min_sigma,absorber=absorber)
-
 
     if x is None:
         x = np.arange(len(v))
@@ -2436,7 +2434,37 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
     #                                  dw=MIN_FWHM, h=MIN_HEIGHT, dh=MIN_DELTA_HEIGHT, zero=0.0, peaks=eli,
     #                                  annotate=False)
 
-    return eli_list
+    return combine_lines(eli_list)
+
+
+
+def combine_lines(eli_list,sep=1.0):
+    """
+
+    :param eli_list:
+    :param sep: max peak separation in AA (for peakdet values, true duplicates are very close, sub AA close)
+    :return:
+    """
+
+    def is_dup(wave1,wave2,sep):
+        if abs(wave1-wave2) < sep:
+            return True
+        else:
+            return False
+
+    keep_list = []
+    for e in eli_list:
+        add = True
+        for i in range(len(keep_list)):
+            if (e.fit_x0 - keep_list[i].fit_x0) < sep:
+                add = False
+                if e.line_score > keep_list[i].fit_x0:
+                    keep_list[i] = copy.deepcopy(e)
+        if add:
+            keep_list.append(copy.deepcopy(e))
+
+    return keep_list
+
 
 
 class EmissionLine():
@@ -2494,6 +2522,10 @@ class Classifier_Solution:
         self.prob_noise = 1.0
         self.lines = [] #list of EmissionLine
         self.rejected_lines = [] #list of EmissionLines that were scored as okay, but rejected for other reasons
+
+        #self.unmatched_lines = [] #not bothering to track the specific lines after computing score & count
+        self.unmatched_lines_score = 0
+        self.unmatched_lines_count = 0
 
     @property
     def prob_real(self):
@@ -2602,8 +2634,8 @@ class Spectrum:
             EmissionLine("H$\\gamma$".ljust(w), 4340, "royalblue",solution=False,rank=3),
             EmissionLine("H$\\delta$".ljust(w), 4101, "royalblue", solution=False,display=False,rank=4),
             EmissionLine("H$\\epsilon$/CaII".ljust(w), 3970, "royalblue", solution=False,display=False,rank=4), #very close to CaII(3970)
-            EmissionLine("H$\\zeta$".ljust(w), 3889, "royalblue", solution=False,display=False,rank=4),
-            EmissionLine("H$\\eta$".ljust(w), 3835, "royalblue", solution=False,display=False,rank=4),
+            EmissionLine("H$\\zeta$".ljust(w), 3889, "royalblue", solution=False,display=False,rank=5),
+            EmissionLine("H$\\eta$".ljust(w), 3835, "royalblue", solution=False,display=False,rank=5),
 
             EmissionLine("NV".ljust(w), 1241, "teal", solution=False,display=True,rank=3),
 
@@ -2868,7 +2900,8 @@ class Spectrum:
         solutions = self.classify_with_additional_lines(wavelengths,values,errors,central,values_units)
         self.solutions = solutions
 
-        #set the unmatched solution
+        #set the unmatched solution (i.e. the solution score IF all the extra lines were unmatched, not
+        #the unmatched score for the best solution) #instead, find the LyA solution and check it specifically
         try:
             self.unmatched_solution_count, self.unmatched_solution_score = self.unmatched_lines_score(Classifier_Solution(self.central))
             log.debug(f"Unmatched solution line count {self.unmatched_solution_count} and score {self.unmatched_solution_score}")
@@ -2942,10 +2975,20 @@ class Spectrum:
                         unmatched_wave_list = np.delete(unmatched_wave_list,i)
                         unmatched_score_list = np.delete(unmatched_score_list,i)
 
+            #now check based on line FWHM (broad lines found differently could be off in peak position, but overlap)
+            for i in range(len(unmatched_wave_list)-1,-1,-1):
+                for line in solution.lines:
+                    if abs(line.w_obs - unmatched_wave_list[i]) < (2*line.sigma):
+                        unmatched_wave_list = np.delete(unmatched_wave_list,i)
+                        unmatched_score_list = np.delete(unmatched_score_list,i)
+                        break
+
             #what is left over
+            if len(unmatched_score_list) > 0:
+                log.debug("Unmatched lines: (wave,score): " + str([(w,s) for w,s in zip(unmatched_wave_list,unmatched_score_list)]))
             return len(unmatched_score_list), np.nansum(unmatched_score_list)
         except:
-            log.debug("Exception in spectrum::unmatched_line_score",exc_info=True)
+            log.debug("Exception in spectrum::unmatched_lines_score",exc_info=True)
             return 0,0
 
     def is_near_absorber(self,w,aa=4.0):#pix_size=1.9): #is the provided wavelength near one of the found peaks (+/- few AA or pixels)
@@ -3043,6 +3086,9 @@ class Spectrum:
             #!!! consider e.solution to mean it cannot be a lone solution (that is, the line without other lines)
             #if not e.solution: #changed!!! this line cannot be the ONLY line, but can be the main line if there are others
             #    continue
+
+            if e.rank > 4: #above rank 4, don't even consider as a main line (but it can still be a supporting line)
+                continue
 
             central_z = central/e.w_rest - 1.0
             if (central_z) < 0.0:
@@ -3193,12 +3239,12 @@ class Spectrum:
 
             #now apply penalty for unmatched lines?
             try:
-                unmatched_count, unmatched_score = self.unmatched_lines_score(sol)
+                sol.unmatched_lines_count, sol.unmatched_lines_score = self.unmatched_lines_score(sol)
 
-                if unmatched_count > G.MAX_OK_UNMATCHED_LINES and unmatched_score > G.MAX_OK_UNMATCHED_LINES_SCORE:
-                    log.info(f"Solution penalized for excessive unmatched lines. Old score: {sol.score}, "
-                             f"Penalty {unmatched_score} on {unmatched_count} lines")
-                    sol.score -= unmatched_score
+                if sol.unmatched_lines_count > G.MAX_OK_UNMATCHED_LINES and sol.unmatched_lines_score > G.MAX_OK_UNMATCHED_LINES_SCORE:
+                    log.info(f"Solution ({sol.name} {sol.central_rest} at {sol.central_rest * (1+sol.z)}) penalized for excessive unmatched lines. Old score: {sol.score}, "
+                             f"Penalty {sol.unmatched_lines_score} on {sol.unmatched_lines_count} lines")
+                    sol.score -= sol.unmatched_lines_score
             except:
                 log.info("Exception adjusting solution score for unmatched lines",exc_info=True)
 

@@ -1039,10 +1039,12 @@ class DetObj:
             if (self.spec_obj is not None) and (self.spec_obj.solutions is not None):
                 for s in self.spec_obj.solutions:
                     bonus_weight = 1.0 #multiplier
-                    #if this is a really high score and there are 3 or more additional lines, this
-                    #basically wins (boost the weight way up)
-                    if s.score / G.MULTILINE_FULL_SOLUTION_SCORE > 4 and (len(s.lines) > 2):
-                        bonus_weight = s.score / G.MULTILINE_FULL_SOLUTION_SCORE  # so if 2x then get +0.2 bonus
+                    #if this is a really high score and there are 2 or more additional lines (3+ total with the main line)
+                    #or a slightly lower score and more lines, then
+                    # this basically wins (boost the weight way up)
+                    if (s.score / G.MULTILINE_FULL_SOLUTION_SCORE > 8 and (len(s.lines) > 1)) or \
+                       (s.score / G.MULTILINE_FULL_SOLUTION_SCORE > 4 and (len(s.lines) > 2)):
+                        bonus_weight = min(s.score / G.MULTILINE_FULL_SOLUTION_SCORE,10.0)  #up to 10x bonus
 
                     if s.score > G.MULTILINE_MIN_SOLUTION_SCORE: #only consider somewhat probable scores
                         #split between z > 1.8 ==> LAE and < 1.8 ==>not LAE
@@ -1110,16 +1112,18 @@ class DetObj:
             log.debug("Exception in aggregate_classification for ELiXer Combine ALL Continuumsolution finder",exc_info=True)
 
 
-        #unmatched solutions scoring
+        #unmatched solutions scoring (basically any lines other than LyA)
         try:
-            if (self.spec_obj is not None) and (self.spec_obj.unmatched_solution_score > G.MAX_OK_UNMATCHED_LINES_SCORE) \
-                and (self.spec_obj.unmatched_solution_count > G.MAX_OK_UNMATCHED_LINES):
+            #should only (and always) be exactly one
+            lya_sol = self.spec_obj.solutions[np.where(np.array([x.central_rest for x in self.spec_obj.solutions]) == G.LyA_rest)[0][0]]
+
+            if (lya_sol.unmatched_lines_score > G.MAX_OK_UNMATCHED_LINES_SCORE) \
+                and (lya_sol.unmatched_lines_count > G.MAX_OK_UNMATCHED_LINES):
                 #there are significant unaccounted for lines ... this pushes DOWN the possibility that this is LAE
                 #but does not impact Non-LAE solutions
-                #(assumes LyA is the only line ... if CIV or other detected, there will be a bonus from the above code
                 var.append(1.)
                 likelihood.append(0.0) #so, NOT LAE
-                weight.append(min(1.0,self.spec_obj.unmatched_solution_score/G.MULTILINE_FULL_SOLUTION_SCORE)) #up to 1.0
+                weight.append(min(1.0,lya_sol.unmatched_lines_score/G.MULTILINE_FULL_SOLUTION_SCORE)) #up to 1.0
                 prior.append(base_assumption)
                 log.debug(
                     f"Aggregate Classification: Significant unmatched lines penalize LAE: lk({likelihood[-1]}) weight({weight[-1]})")
@@ -1279,6 +1283,12 @@ class DetObj:
 
             try:
                 plae_sd = plae_errors['ratio'][3]
+
+                try:
+                    log.debug(f"{self.entry_id} Combine ALL PLAE: MC plae({p_lae_oii_ratio:#.4g}) sd({plae_sd:#.4g})")
+                except:
+                    log.debug(f"{self.entry_id} Combine ALL PLAE: MC plae({p_lae_oii_ratio}) sd({plae_sd})")
+
             except:
                 try:
                     plae_sd = np.sqrt(avg_var(plae_errors['ratio'][0],plae_errors['ratio'][1],plae_errors['ratio'][2]))
