@@ -22,7 +22,14 @@ import astropy.stats.biweight as biweight
 from scipy.optimize import curve_fit
 
 from hetdex_tools.get_spec import get_spectra as hda_get_spectra
+from hetdex_api import survey as hda_survey
 #from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
+
+import copy
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
+from matplotlib import cm
+from matplotlib.ticker import LinearLocator, FormatStrFormatter,MaxNLocator
 
 #SU = Simple Universe (concordance)
 SU_H0 = 70.
@@ -697,12 +704,32 @@ def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
     :return:
     """
     #sanity check
-    if (data is None) or (fit is None) or (len(data) != len(fit)) or any(np.isnan(data)) or any(np.isnan(fit)):
+    min_pix = 5  # want at least 5 pix (bins) to left and right
+
+    if (data is None):
+        log.warning("Invalid data (None) supplied for rms.")
+        return -999
+    elif (fit is None):
+        log.warning("Invalid data (fit=None) supplied for rms.")
+        return -999
+    elif (len(data) != len(fit)):
+        log.warning("Invalid data supplied for rms, length of fit <> data.")
+        return -999
+    elif any(np.isnan(data)):
+        log.warning("Invalid data supplied for rms, NaNs in data.")
+        return -999
+    elif any(np.isnan(fit)):
+        log.warning("Invalid data supplied for rms, NaNs in fit.")
+        return -999
+    elif not (min_pix < cw_pix < (len(data) - min_pix)):
+        # could be highly skewed (esp think of large asym in LyA, with big velocity disp. (booming AGN)
+        log.warning("Invalid data supplied for rms. Minimum distance from array edge not met.")
         return -999
 
     if norm:
         mx = max(data)
         if mx < 0:
+            log.warning("Invalid data supplied for rms. max data < 0")
             return -999
     else:
         mx = 1.0
@@ -711,17 +738,18 @@ def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
     f = np.array(fit)/mx
 
     if ((cw_pix is not None) and (hw_pix is not None)):
-        left = cw_pix - hw_pix
-        right = cw_pix + hw_pix
+        left = max(cw_pix - hw_pix,0)
+        right = min(cw_pix + hw_pix,len(data))
 
         #due to rounding of pixels (bins) from the caller (the central index +/- 2 and the half-width to either side +/- 2)
         # either left or right can be off by a max total of 4 pix
-        rounding_error = 4
-        if -1*rounding_error <= left < 0:
-            left = 0
+        # rounding_error = 4
+        # if -1*rounding_error <= left < 0:
+        #     left = 0
+        #
+        # if len(data) < right <= (len(data) +rounding_error):
+        #     right = len(data)
 
-        if len(data) < right <= (len(data) +rounding_error):
-            right = len(data)
 
         if (left < 0) or (right > len(data)):
             log.warning("Invalid range supplied for rms. Data len = %d. Central Idx = %d , Half-width= %d"
@@ -739,7 +767,7 @@ def gaussian(x, x0, sigma, a=1.0, y=0.0):
 
     return a * (np.exp(-np.power((x - x0) / sigma, 2.) / 2.) / np.sqrt(2 * np.pi * sigma ** 2)) + y
 
-def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=1500.0):
+def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=1000.0):
     """
     Simple curve_fit to gaussian; lsq "best"
 
@@ -747,7 +775,7 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=1500.0):
     :param errors:
     :param wavelengths:
     :param central:
-    :param wave_slop_kms:
+    :param wave_slop_kms: +/- from central wavelength in km/s (default of 1000 km/s ~ +/-13AA at 4500AA)
     :return:
     """
 
@@ -814,10 +842,15 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=1500.0):
             vel_offset = velocity_offset(central, x0).value
 
             #sn_pix to either side of the peak
-            num_sn_pix = int(round(min(20, len(narrow_wave_counts) / 2 - 1)))  # don't go larger than the actual array
+            num_sn_pix = int(round(min(20, len(narrow_wave_counts)// 2 - 1)))  # don't go larger than the actual array
 
             rms_wave = gaussian(narrow_wave_x, parm[0], parm[1], parm[2], parm[3])
-            fit_rmse = rms(narrow_wave_counts, rms_wave, cw_pix=getnearpos(narrow_wave_x, x0 )[0], hw_pix=num_sn_pix,
+            if (2 * sigma * 2.355) > (len(narrow_wave_counts)):
+                #could be very skewed and broad, so don't center on the emission peak, but center on the array
+                fit_rmse = rms(narrow_wave_counts, rms_wave, cw_pix=len(narrow_wave_counts) // 2, hw_pix=num_sn_pix,
+                           norm=False)
+            else:
+                fit_rmse = rms(narrow_wave_counts, rms_wave, cw_pix=getnearpos(narrow_wave_x, x0 )[0], hw_pix=num_sn_pix,
                                  norm=False)
 
             num_sn_pix = num_sn_pix * 2 + 1 #update to full counting of sn_pix (each side + 1 for the peak bin)
@@ -840,9 +873,356 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=1500.0):
     return return_dict
 
 
-# def line_score(snr,line_flux,fit_sigma):
-#
-#     line_score = snr * above_noise * unique_mul * line_flux * 1e17 * \
-#                       min(fit_sigma / pix_size, 1.0) * \
-#                       min((pix_size * sn_pix) / 21.0, 1.0) / \
-#                       (10.0 * (1. + abs(adjusted_dx0_error / pix_size)))
+def make_raster_grid(ra,dec,width,resolution):
+    """
+    Make the RA and Dec meshgrid for rastering. Centered on provided ra, dec.
+    :param ra: decimal degrees
+    :param dec:  decimal degrees
+    :param width: arcsec
+    :param resolution:arcsec
+    :return: ra_meshgrid  (RAs for each Dec) and dec_meshgrid (Decs for each RA)
+    """
+    try:
+        width /= 3600.
+        resolution /= 3600.
+
+        # todo note: generally expected to be small enough at low enough DEC that curvature is ignored?
+        #  or should I adjust the RA accordingly?
+
+        ra_grid = np.concatenate((np.flip(np.arange(ra-resolution,ra -width-resolution,-1*resolution)),
+                                  np.arange(ra, ra + width + resolution, resolution)))
+
+        dec_grid = np.concatenate((np.flip(np.arange(dec-resolution,dec-width-resolution, -1*resolution)),
+                                   np.arange(dec, dec + width + resolution, resolution)))
+        ra_meshgrid, dec_meshgrid = np.meshgrid(ra_grid, dec_grid)
+        return ra_meshgrid, dec_meshgrid
+    except:
+        log.error("Exception in spectrum_utilities::make_raster_grid",exc_info=True)
+        return None, None
+
+
+def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity=1500.0):
+    """
+    Iterate over the supplied meshgrids and force extract at each point
+    :param ra_meshgrid: (see make_raster_grid)
+    :param dec_meshgrid:
+    :param shotlist: (must be a list, so if just one shot, pass as [shot]
+    :param cw: central wavelength (search/extract around this wavelength
+    :param aperture: in arcsec
+    :param max_velocity: in km/s (max allowance to either side of the specified <cw> to fit)
+    :return: meshgrid of (extraction) dictionaries with location and extraction info
+    """
+
+    try:
+        edict = np.zeros_like(ra_meshgrid, dtype=dict)
+        ct = 0
+        wct = 0
+
+        #for s in [shotlist[1]]:
+        # bw_events = 0
+        # max_bw_ct = 0
+        # min_bw_ct = 9999
+        # wbw_events = 0
+
+        msg = f"Raster extracting emission. RA x Dec x Shots " \
+                 f"({np.shape(ra_meshgrid)[1]}x{np.shape(ra_meshgrid)[0]}x{len(shotlist)}) = " \
+                 f"{np.shape(ra_meshgrid)[1] * np.shape(ra_meshgrid)[0] * len(shotlist)} extractions."
+        log.info(msg)
+        print(msg)
+
+        for r in range(np.shape(ra_meshgrid)[1]): #columns (x or RA values)
+            for d in range(np.shape(ra_meshgrid)[0]): #rows (y or Dec values)
+                exlist = []
+                for s in shotlist:
+                    #print("Shot = ", s)
+                    ct += 1
+                    #print(ct)
+                    ex = extract_at_position(ra_meshgrid[d,r], dec_meshgrid[d,r], aperture, s)
+
+                    if ex['flux'] is None:
+                        continue
+
+                    exlist.append(ex)
+
+                if len(exlist) == 0:
+                    continue
+                elif len(exlist) == 1:
+                    avg_f = exlist[0]['flux']
+                    avg_fe = exlist[0]['fluxerr']
+
+                elif len(exlist) > 1:
+                    #make a new ex dictionary with the weighted biweight average of the data and run simple fit
+                    flux = []
+                    fluxe = []
+                    #waves are all the same
+                    for ex in exlist:
+                        flux.append(ex['flux'])
+                        fluxe.append(ex['fluxerr'])
+
+                    flux = np.array(flux)
+                    fluxe = np.array(fluxe)
+
+                    #now weighted biweight
+                    avg_f  = np.zeros(len(flux[0]))
+                    avg_fe = np.zeros(len(flux[0]))
+
+                    # if len(flux[0]) > max_bw_ct:
+                    #     max_bw_ct = len(flux[0])
+                    #
+                    # if len(flux[0]) < min_bw_ct:
+                    #     min_bw_ct = len(flux[0])
+
+                    for i in range(len(flux[0])):
+
+                        wslice_err = np.array([m[i] for m in fluxe])  # all rows, ith index
+                        wslice = np.array([m[i] for m in flux])  # all rows, ith index
+
+                        wslice_err = wslice_err[np.where(wslice != -999)]  # so same as wslice, since these need to line up
+                        wslice = wslice[np.where(wslice != -999)]  # git rid of the out of range interp values
+
+                        # git rid of any nans
+                        wslice_err = wslice_err[~np.isnan(wslice)]  # err first so the wslice is not modified
+                        wslice = wslice[~np.isnan(wslice)]
+
+                        try:
+                            f = weighted_biweight.biweight_location_errors(wslice, errors=wslice_err)
+                            #not really using the errors, but this is good enough?
+                            fe = weighted_biweight.biweight_scale(wslice) / np.sqrt(len(wslice))
+                            #wbw_events += 1
+                        except:
+                            #log.info("Weighted_biweight failed. Switching to normal biweight")
+                            f = weighted_biweight.biweight_location(wslice)
+                            fe = weighted_biweight.biweight_scale(wslice) /np.sqrt(len(wslice))
+                            #bw_events += 1
+
+                        if np.isnan(f):
+                            avg_f[i] = 0
+                            avg_fe[i] = 0
+                        elif np.isnan(fe):
+                            avg_f[i] = f
+                            avg_fe[i] = 0
+                        else:
+                            avg_f[i] = f
+                            avg_fe[i] = fe
+                else:
+                    #something very wrong
+                    #print("********** unexpectedly zero spectra???????")
+                    continue
+                #end if
+
+                #now, fit to Gaussian
+                ex['fit'] = simple_fit_wave(avg_f,
+                                               avg_fe,
+                                               exlist[0]['wave'],
+                                               cw,
+                                               wave_slop_kms=max_velocity)
+
+                # kill off bad fits based on snr, rmse, sigma, continuum
+                # overly? generous sigma ... maybe make similar to original?
+                if (1.0 < ex['fit']['sigma'] < 20.0) and \
+                        (3.0 < ex['fit']['snr'] < 1000.0):
+                    if ex['fit']['intflux'] > 0:
+                        #print("Winner")
+                        wct += 1
+                else:  # is bad, wipe out
+                    #print("bad fit")
+                    ex['bad_fit'] = copy.copy(ex['fit'])
+                    ex['fit']['snr'] = 0
+                    ex['fit']['intflux'] = 0
+                    ex['fit']['continuum_level'] = 0
+                    ex['fit']['velocity_offset'] = 0
+                    ex['fit']['rmse'] = 0
+                    ex['fit']['x0'] = 0
+                    ex['fit']['sigma'] = 0
+
+                edict[r, d] = ex
+
+        log.info(f"Raster 'good' emission fits ({wct}) / ({ct})")
+        #print("Good fits:", wct)
+        #print(f"Biweights: max_ct ({max_bw_ct}), min_ct ({min_bw_ct}), wbw ({wbw_events}), bw ({bw_events})")
+
+        return edict
+    except:
+        log.error("Exception in spectrum_utilities::raster_search", exc_info=True)
+        return None
+
+
+
+def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.coolwarm,save=None,show=False):
+    """
+    Make 3 plots (an interactive (if show is true) 3D plot, a contour plot and a color meshplot (like a heatmap)
+    :param dict_meshgrid: meshgrid of dictionaries for the RA, Dec
+    :param ra_meshgrid:
+    :param dec_meshgrid:
+    :param cw: central wavelength
+    :param key: one of "intflux" (integrated line flux), "velocity_offset", "continuum_level"
+    :param colormap: matplotlib color map to use for scale
+    :param save: filename base to save the plots (the files as saved as <save>_3d.png, <save>_contour.png, <save>_mesh.png
+    :param show: if True, display the plots interactively
+    :return: returns a mesh grid of the values selected by <key>
+    """
+
+    #3D mesh apperently does not support masked arrays correctly, so cannot mask bad values
+    # colomap.set_bad(color=[0.2, 1.0, 0.23]) #green
+
+    try:
+
+        #set RA, DEC as central position of the meshgrids
+        r,c = np.shape(ra_meshgrid)
+        RA = ra_meshgrid[0,(c-1)//2]
+
+        r, c = np.shape(dec_meshgrid)
+        DEC = dec_meshgrid[(r-1)//2,0]
+
+
+        plt.close('all')
+        ##########################
+        #as interactive 3D
+        ##########################
+        bad_value = 0
+        z = np.full(ra_meshgrid.shape,bad_value,dtype=float)
+        for r in range(np.shape(ra_meshgrid)[1]):  # columns (x or RA values)
+            for d in range(np.shape(ra_meshgrid)[0]):  # rows (y or Dec values)
+                try:
+                    z[d,r]=dict_meshgrid[d,r]['fit'][key]
+                except:
+                    z[d,r] = 0 #3D plot does not handle masked arrays #nothing there, so leave the 'bad value' in place
+
+        #3D Plot (interactive)
+        fig = plt.figure()
+        ax = fig.gca(projection='3d')
+        #because this plots as X,Y,Z, and we're using a meshgrid, the x-coords (the RA's are in the dec_meshgrid,
+        # that is, all the RAs  (X's) for each given Dec)
+        # in otherwords, though, the RAs are values of X coords, but first parameter are the ROWS (row-major)
+        # which are along the vertical (each row contains the list of all RAs (x's) for that row
+        surf = ax.plot_surface((dec_meshgrid-DEC)*3600.0, (ra_meshgrid-RA)*3600.0, z, cmap=colormap,
+                               linewidth=0, antialiased=False)
+
+        #get the x-range, then reverse so East is to the left
+        xlim = ax.get_xlim()
+        ax.set_xlim(xlim[1],xlim[0])
+
+        ax.set_title(f"RA ({RA}) Dec ({DEC}) Wave ({cw})")
+        ax.set_xlabel(r'$\Delta$RA"')
+        ax.set_ylabel(r'$\Delta$Dec"')
+        ax.set_zlabel(key)
+        fig.colorbar(surf, shrink=0.5, aspect=5,label=key)
+
+        if save is not None: #interactive does not work
+            #pickle.dump(plt.gcf(),open(save+".fig.pickle","wb"))
+            plt.savefig(save + "_3d.png")
+
+        if show:
+            plt.show()
+
+
+
+        ########################
+        #as a contour
+        ########################
+
+        #z for integrated flux
+        #colomap.set_bad(color=[0.2, 1.0, 0.23]) #green
+        colormap.set_bad(color=[1.0, 1.0, 1.0]) #white
+        bad_value = -1e9
+        z = np.full(ra_meshgrid.shape,bad_value,dtype=float)
+        for r in range(np.shape(ra_meshgrid)[1]):  # columns (x or RA values)
+            for d in range(np.shape(ra_meshgrid)[0]):  # rows (y or Dec values)
+                try:
+                    if 'bad_fit' in dict_meshgrid[d, r].keys():
+                        pass # no fit, assume same as "no-data"
+                    else:
+                        z[d,r] = dict_meshgrid[d, r]['fit'][key]
+                except:
+                    pass  # nothing there, so leave the 'bad value' in place
+
+        z = np.ma.masked_where(z == bad_value, z)
+
+        fig = plt.figure()
+        ax = plt.gca()
+        num_levels = np.max(ra_meshgrid.shape)
+        levels = MaxNLocator(nbins=num_levels).tick_values(z.min(), z.max())
+        surf = ax.contourf((dec_meshgrid-DEC)*3600.0,(ra_meshgrid-RA)*3600.0, z, cmap=colormap, levels=levels)
+
+        #get the x-range, then reverse so East is to the left
+        xlim = ax.get_xlim()
+        ax.set_xlim(xlim[1],xlim[0])
+
+        ax.set_title(f"RA ({RA}) Dec ({DEC}) Wave ({cw})")
+        ax.set_xlabel(r'$\Delta$RA"')
+        ax.set_ylabel(r'$\Delta$Dec"')
+        fig.colorbar(surf, shrink=0.5, aspect=5,label=key)
+
+        if save:
+            plt.savefig(save + "_contour.png")
+
+        if show:
+            fig.show()
+
+
+        ######################
+        # as a color mesh
+        ######################
+        fig = plt.figure()
+        ax = plt.gca()
+        #notice here, ra & dec are in the other order vs 3D plot
+        surf = ax.pcolormesh((dec_meshgrid-DEC)*3600.0, (ra_meshgrid-RA)*3600.0, z, cmap=colormap)
+        #get the x-range, then reverse so East is to the left
+        xlim = ax.get_xlim()
+        ax.set_xlim(xlim[1],xlim[0])
+
+        ax.set_title(f"RA ({RA}) Dec ({DEC}) Wave ({cw})")
+        ax.set_xlabel(r'$\Delta$RA"')
+        ax.set_ylabel(r'$\Delta$Dec"')
+        fig.colorbar(surf, shrink=0.5, aspect=5,label=key)
+
+        if save:
+            plt.savefig(save + "_mesh.png")
+
+        if show:
+            fig.show()
+
+        return z
+    except:
+        log.error("Exception in spectrum_utilities::make_raster_plots",exc_info=True)
+        return None
+
+def get_shotids(ra,dec,hdr_version=G.HDR_Version):
+    """
+
+    :param ra: decimal degrees
+    :param dec: decimal degrees
+    :param hdr_version: 1,2, etc. default is the current ELiXer data release default
+    :return: list of integer shotids that overlap the provided ra and dec
+    """
+
+    try:
+        survey = hda_survey.Survey(survey="hdr%d" % hdr_version)
+        if not survey:
+            log.info(f"Cannot build hetdex_api survey object to determine shotid")
+            return []
+
+        # this is only looking at the pointing, not checking individual fibers, so
+        # need to give it a big radius to search that covers the focal plane
+        # if centered (and it should be) no ifu edge is more than 12 acrmin away
+        shotlist = survey.get_shotlist(SkyCoord(ra, dec, unit='deg', frame='icrs'),
+                                           radius=G.FOV_RADIUS_DEGREE * U.deg)
+
+        log.debug(f"{len(shotlist)} shots near ({ra},{dec})")
+
+        return shotlist
+    except:
+        log.error("Exception in spectrum_utilities::get_shotids", exc_info=True)
+        return []
+
+####################################
+# example of using raster search
+###################################
+# from elixer import spectrum_utilities as SU
+# RA = 214.629608
+# DEC  =  52.544327
+# cw = 3819.0
+# shotlist = SU.get_shotids(RA,DEC)
+# ra_meshgrid, dec_meshgrid = SU.make_raster_grid(RA,DEC,3.0,0.4)
+# edict = SU.raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,max_velocity=2000,aperture=3.0)
+# z = SU.make_raster_plots(edict,ra_meshgrid,dec_meshgrid,cw,"intflux",show=True)

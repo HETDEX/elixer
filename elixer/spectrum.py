@@ -482,55 +482,57 @@ def gaussian_unc(x, mu, mu_u, sigma, sigma_u, A, A_u, y, y_u ):
 
 
     return f, np.sqrt(variance)
-
-
-def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
-    """
-
-    :param data: (raw) data
-    :param fit:  fitted data (on the same scale)
-    :param cw_pix: (nearest) pixel (index) of the central peak (could be +/- 1 pix (bin)
-    :param hw_pix: half-width (in pixels from the cw_pix) overwhich to calculate rmse (i.e. cw_pix +/- hw_pix)
-    :param norm: T/F whether or not to divide by the peak of the raw data
-    :return:
-    """
-    #sanity check
-    if (data is None) or (fit is None) or (len(data) != len(fit)) or any(np.isnan(data)) or any(np.isnan(fit)):
-        return -999
-
-    if norm:
-        mx = max(data)
-        if mx < 0:
-            return -999
-    else:
-        mx = 1.0
-
-    d = np.array(data)/mx
-    f = np.array(fit)/mx
-
-    if ((cw_pix is not None) and (hw_pix is not None)):
-        left = cw_pix - hw_pix
-        right = cw_pix + hw_pix
-
-        #due to rounding of pixels (bins) from the caller (the central index +/- 2 and the half-width to either side +/- 2)
-        # either left or right can be off by a max total of 4 pix
-        rounding_error = 4
-        if -1*rounding_error <= left < 0:
-            left = 0
-
-        if len(data) < right <= (len(data) +rounding_error):
-            right = len(data)
-
-        if (left < 0) or (right > len(data)):
-            log.warning("Invalid range supplied for rms. Data len = %d. Central Idx = %d , Half-width= %d"
-                      % (len(data),cw_pix,hw_pix))
-            return -999
-
-        d = d[left:right+1]
-        f = f[left:right+1]
-
-    return np.sqrt(((f - d) ** 2).mean())
-
+#
+#
+#
+# DEFUNCT: moved to spectrum_utilities.py
+# def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
+#     """
+#
+#     :param data: (raw) data
+#     :param fit:  fitted data (on the same scale)
+#     :param cw_pix: (nearest) pixel (index) of the central peak (could be +/- 1 pix (bin)
+#     :param hw_pix: half-width (in pixels from the cw_pix) overwhich to calculate rmse (i.e. cw_pix +/- hw_pix)
+#     :param norm: T/F whether or not to divide by the peak of the raw data
+#     :return:
+#     """
+#     #sanity check
+#     if (data is None) or (fit is None) or (len(data) != len(fit)) or any(np.isnan(data)) or any(np.isnan(fit)):
+#         return -999
+#
+#     if norm:
+#         mx = max(data)
+#         if mx < 0:
+#             return -999
+#     else:
+#         mx = 1.0
+#
+#     d = np.array(data)/mx
+#     f = np.array(fit)/mx
+#
+#     if ((cw_pix is not None) and (hw_pix is not None)):
+#         left = cw_pix - hw_pix
+#         right = cw_pix + hw_pix
+#
+#         #due to rounding of pixels (bins) from the caller (the central index +/- 2 and the half-width to either side +/- 2)
+#         # either left or right can be off by a max total of 4 pix
+#         rounding_error = 4
+#         if -1*rounding_error <= left < 0:
+#             left = 0
+#
+#         if len(data) < right <= (len(data) +rounding_error):
+#             right = len(data)
+#
+#         if (left < 0) or (right > len(data)):
+#             log.warning("Invalid range supplied for rms. Data len = %d. Central Idx = %d , Half-width= %d"
+#                       % (len(data),cw_pix,hw_pix))
+#             return -999
+#
+#         d = d[left:right+1]
+#         f = f[left:right+1]
+#
+#     return np.sqrt(((f - d) ** 2).mean())
+#
 
 #def fit_gaussian(x,y):
 #    yfit = None
@@ -1165,10 +1167,16 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                     #at this point, the pixel units or width don't matter ... everything is per pixel
                 num_sn_pix = int(round(min(num_sn_pix,len(wave_counts)/2 - 1))) #don't go larger than the actual array
 
+                # if (2 * sigma * 2.355) > (len(narrow_wave_counts)):
+                #     # could be very skewed and broad, so don't center on the emission peak, but center on the array
+                #     cw_idx = len(narrow_wave_counts) // 2
+                # else:
+                cw_idx = getnearpos(wave_x, eli.fit_x0 )
+
                 #?rms just under the part of the plot with signal (not the entire fit part) so, maybe just a few AA or pix
-                eli.fit_norm_rmse = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, eli.fit_x0 ), hw_pix=num_sn_pix,
+                eli.fit_norm_rmse = SU.rms(wave_counts, rms_wave, cw_pix=cw_idx, hw_pix=num_sn_pix,
                              norm=True)
-                eli.fit_rmse = rms(wave_counts, rms_wave, cw_pix=getnearpos(wave_x, eli.fit_x0 ), hw_pix=num_sn_pix,
+                eli.fit_rmse = SU.rms(wave_counts, rms_wave, cw_pix=cw_idx, hw_pix=num_sn_pix,
                              norm=False)
 
                 #test
