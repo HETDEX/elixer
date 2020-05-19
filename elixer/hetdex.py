@@ -5091,6 +5091,11 @@ class HETDEX:
             del self.emis_list[:]
 
         for d in self.hdf5_detectid_list:
+            try:
+                d = np.int64(d)
+            except:
+                log.error(f"Skipping invalid detectid: {d}")
+                continue
             #build an empty Detect Object and then populate
             e = DetObj(None, emission=True,basic_only=basic_only)
             if e is not None:
