@@ -3055,7 +3055,7 @@ class DetObj:
                 try:
                     obsid = row['fiber_id'][8:11]
                 except:
-                    obsid = str(row['obsind']+1).zfill(3) #obsind is an index? so +1 for the ID
+                    obsid = str(row['obsind']).zfill(3) #obsind is an index? so +1 for the ID
 
                 idstring = date + "v" + time_ex + "_" + specid + "_" + ifuslot + "_" + ifuid + "_" + amp + "_" #leave off the fiber for the moment
 
