@@ -1115,19 +1115,40 @@ class DetObj:
         #unmatched solutions scoring (basically any lines other than LyA)
         try:
             #should only (and always) be exactly one
-            lya_sol = self.spec_obj.solutions[np.where(np.array([x.central_rest for x in self.spec_obj.solutions]) == G.LyA_rest)[0][0]]
+            try:
+                lya_sol = self.spec_obj.solutions[np.where(np.array(
+                    [x.central_rest for x in self.spec_obj.solutions]) == G.LyA_rest)[0][0]]
 
-            if (lya_sol.unmatched_lines_score > G.MAX_OK_UNMATCHED_LINES_SCORE) \
-                and (lya_sol.unmatched_lines_count > G.MAX_OK_UNMATCHED_LINES):
-                #there are significant unaccounted for lines ... this pushes DOWN the possibility that this is LAE
-                #but does not impact Non-LAE solutions
-                var.append(1.)
-                likelihood.append(0.0) #so, NOT LAE
-                weight.append(min(1.0,lya_sol.unmatched_lines_score/G.MULTILINE_FULL_SOLUTION_SCORE)) #up to 1.0
-                prior.append(base_assumption)
-                log.debug(
-                    f"Aggregate Classification: Significant unmatched lines penalize LAE: lk({likelihood[-1]}) weight({weight[-1]})")
+                if (lya_sol.unmatched_lines_score > G.MAX_OK_UNMATCHED_LINES_SCORE) \
+                    and (lya_sol.unmatched_lines_count > G.MAX_OK_UNMATCHED_LINES):
+                    #there are significant unaccounted for lines ... this pushes DOWN the possibility that this is LAE
+                    #but does not impact Non-LAE solutions
+                    var.append(1.)
+                    likelihood.append(0.0) #so, NOT LAE
+                    weight.append(min(1.0,lya_sol.unmatched_lines_score/G.MULTILINE_FULL_SOLUTION_SCORE)) #up to 1.0
+                    prior.append(base_assumption)
+                    log.debug(
+                        f"Aggregate Classification: Significant unmatched lines penalize LAE: lk({likelihood[-1]})"
+                        f" weight({weight[-1]})")
+            except:
+                try:
+                    if (self.spec_obj is not None) and \
+                            (self.spec_obj.unmatched_solution_score > G.MAX_OK_UNMATCHED_LINES_SCORE) \
+                            and (self.spec_obj.unmatched_solution_count > G.MAX_OK_UNMATCHED_LINES):
+                        # there are significant unaccounted for lines ... this pushes DOWN the possibility that this is LAE
+                        # but does not impact Non-LAE solutions
+                        # (assumes LyA is the only line ... if CIV or other detected, there will be a bonus from the above code
+                        var.append(1.)
+                        likelihood.append(0.0)  # so, NOT LAE
+                        weight.append(min(1.0,
+                                          self.spec_obj.unmatched_solution_score / G.MULTILINE_FULL_SOLUTION_SCORE))  # up to 1.0
+                        prior.append(base_assumption)
+                        log.debug(
+                            f"Aggregate Classification: Significant unmatched lines penalize LAE: lk({likelihood[-1]})"
+                            f" weight({weight[-1]})")
 
+                except:
+                    log.debug("Exception in aggregate_classification", exc_info=True)
         except:
             log.debug("Exception in aggregate_classification",exc_info=True)
 
@@ -1809,10 +1830,19 @@ class DetObj:
 
             num_cat_match = len(sel[0])
 
+
+
+            #todo: this is a problem:
+            # you can have, say 3 matches inside the aperture, one near the center --- bright, clearly OII
+            # two others inside the aperture, but faint, possibly LAEs
+            # even pushing down the weights, if the two faint ones have low variance, they will dominate
             if num_cat_match > 1:
                 catmatch_weight = 1.0/len(sel[0])
             else:
                 catmatch_weight = 1.0
+
+            #nearest (that is not the explicit aperture position)
+            nearest_distance = np.min([x.distance for x in self.bid_target_list if x.bid_dec != 666])
 
             for b in self.bid_target_list:
                 if (b.bid_dec == 666): #this is a measured aperture, not a catalog match
@@ -1827,8 +1857,10 @@ class DetObj:
 
                     if (b.bid_flux_est_cgs is not None) and (b.bid_flux_est_cgs_unc is not None) and \
                         (b.bid_flux_est_cgs > 0) and (b.bid_flux_est_cgs_unc > 0):
-
-                        weight.append(catmatch_weight)
+                        
+                        #push down the weight as ratio of nearest_distance to the current match distance
+                        #the closest gets full share of its weight and the others scale down from there
+                        weight.append(catmatch_weight*nearest_distance/b.distance)
                         #b.bid_flux_est_cgs_unc is the s.d. so need to square for variance
                         variance.append(b.bid_flux_est_cgs_unc*b.bid_flux_est_cgs_unc)
                         continuum.append(b.bid_flux_est_cgs)

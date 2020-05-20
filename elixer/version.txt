@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.9.0a6 [2020-05-19]
+* reduce weight of possible catalog matches to continuum estimate by the ratio of the nearest object to the current distance
+  to emphasize the nearest object and down play those farther away
+
 1.9.0a5 [2020-05-19]
 * tweak rmse central pix position to be the center of the array IF the FWHM of the fit is greater than 1/2 width of the
   array
