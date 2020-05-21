@@ -647,6 +647,108 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
 
 
+    def old_get_filter_flux(self, df):
+
+        try:
+            if G.HSC_S15A:
+                return self.get_filter_flux_s15a(df)
+        except:
+            pass
+
+        filter_fl = None
+        filter_fl_err = None
+        filter_flag = None
+        mag = None
+        mag_bright = None
+        mag_faint = None
+        filter_str = 'R'
+
+        #filter_fl now reported in counts_R, so ...
+        #per HSC documentation, counts / 10**(30.24) = flux in ergs/s/cm2/Hz then *10**23 to get to Jy and *10**9 to nJy
+        #so ...( cts / 10**(30.24) ) * 10**23 * 10**9 = cts * 10**(32-30.24) == cts * 10**(1.76)
+        cts2njy = 57.54399373 #10**1.76
+
+
+        method  = None
+
+
+        # NOTICE: HSC apertures defined by num of pixels at 0.168 "/pix scale
+        # so flux3.0 is not 3" but 3 pixels or ~ 0.5"
+        # so for 3", want 17.8" or flux17
+        try:
+            if df['fluxlsq_flags'].values[0]:  # there is a problem
+                try:
+                    log.debug("HSC fluxlsq flagged. mag = %f" %df["maglsq"].values[0])
+                except:
+                    pass
+                if df['flux17.0_flags'].values[0]:
+                    try:
+                        log.debug("HSC flux17.0 flagged. mag = %f" % df["mag17.0"].values[0])
+                    except:
+                        pass
+                    if df['flux.cmodel_flags'].values[0]:  # there is a problem
+                    #if df['flux.cmodel_flags'].values[0]:  # there is a problem
+                        try:
+                            log.debug("HSC cmodel flagged. mag = %f" % df["mag.cmodel"].values[0])
+                        except:
+                            pass
+                        log.info("Flux/Mag unreliable due to errors.")
+                        return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
+                    else:
+                        method = 'cmodel'
+                else:
+                    method = '17.0'  #17 pixels, ~ 3"
+            else:
+                method = 'lsq'
+        except:
+            log.error("Exception in cat_hsc.get_filter_flux", exc_info=True)
+            return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
+
+        try:
+
+            if method == 'lsq':# or method == 'kron':
+                filter_fl = df['fluxlsq'].values[0]  * cts2njy
+                filter_fl_err = df["fluxlsq_err"].values[0] * cts2njy
+                mag = df["maglsq"].values[0]
+                # mag_bright = mag - df["magerr."+method].values[0]
+                mag_faint = df['maglsq_err'].values[0]
+                mag_bright = -1 * mag_faint
+            elif method == '17.0': #17 pixels ~ 3"
+                filter_fl = df['flux17.0'].values[0]  * cts2njy
+                filter_fl_err = df["flux17.0_err"].values[0] * cts2njy
+                mag = df["mag17.0"].values[0]
+                # mag_bright = mag - df["magerr."+method].values[0]
+                mag_faint = df['mag17.0_err'].values[0]
+                mag_bright = -1 * mag_faint
+            else:  # cmodel
+                filter_fl = df['flux.cmodel'].values[0] * cts2njy
+                filter_fl_err = df['flux.cmodel_err'].values[0] * cts2njy
+                mag = df['mag.cmodel'].values[0]
+                # mag_bright = mag - df["magerr."+method].values[0]
+                mag_faint = df['mag.cmodel_err'].values[0]
+                mag_bright = -1 * mag_faint
+
+            # mag, mag_plus, mag_minus = self.micro_jansky_to_mag(filter_fl, filter_fl_err)
+        except:  # not the EGS df, try the CFHTLS
+            log.error("Exception in cat_hsc.get_filter_flux", exc_info=True)
+
+            # it is unclear what unit flux is in (but it is not nJy or uJy), so lets back convert from the magnitude
+            # this is used as a continuum estimate
+
+        #with updated HSC data release 2 (Sept.2019) this is not needed
+        #filter_fl = self.obs_mag_to_nano_Jy(mag)
+        #filter_fl_err = 0.0  # set to 0 so not to be trusted
+
+        try:
+            log.debug("HSC selected method = %s , mag = %f" %(method,mag))
+        except:
+            pass
+
+        return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
+
+
+
+    #reworked as average of 3" (17pix), lsq and model mags
     def get_filter_flux(self, df):
 
         try:
@@ -671,72 +773,82 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
         method  = None
 
+        flux_list = []
+        flux_err_list = []
+        # mag_list = []
+        # mag_err_list = []
+        methods = []
+
         try:
-            if df['fluxlsq_flags'].values[0]:  # there is a problem
-                try:
-                    log.debug("HSC fluxlsq flagged. mag = %f" %df["maglsq"].values[0])
-                except:
-                    pass
-                if df['flux3.0_flags'].values[0]:
-                    try:
-                        log.debug("HSC flux3.0 flagged. mag = %f" % df["mag3.0"].values[0])
-                    except:
-                        pass
-                    if df['flux.cmodel_flags'].values[0]:  # there is a problem
-                    #if df['flux.cmodel_flags'].values[0]:  # there is a problem
-                        try:
-                            log.debug("HSC cmodel flagged. mag = %f" % df["mag.cmodel"].values[0])
-                        except:
-                            pass
-                        log.info("Flux/Mag unreliable due to errors.")
-                        return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
-                    else:
-                        method = 'cmodel'
-                else:
-                    method = '3.0'
+            if df['fluxlsq_flags'].values[0] == 0: #no flags, is good:
+                flux_list.append(df['fluxlsq'].values[0] * cts2njy)
+                flux_err_list.append(df["fluxlsq_err"].values[0] * cts2njy)
+                #mag_list.append(df["maglsq"].values[0])
+                #mag_err_list.append(df['maglsq_err'].values[0])
+                methods.append('lsq')
+
+
+            if df['flux17.0_flags'].values[0] == 0: #no flags, is good:
+                flux_list.append(df['flux17.0'].values[0] * cts2njy)
+                flux_err_list.append(df["flux17.0_err"].values[0] * cts2njy)
+                # mag_list.append(df["mag17.0"].values[0])
+                # mag_err_list.append(df['mag17.0_err'].values[0])
+                methods.append('flux17.0')
+
+            if df['flux.cmodel_flags'].values[0] == 0: #no flags, is good:
+                flux_list.append(df['flux.cmodel'].values[0] * cts2njy)
+                flux_err_list.append(df['flux.cmodel_err'].values[0] * cts2njy)
+                # mag_list.append(df['mag.cmodel'].values[0])
+                # mag_err_list.append(df['mag.cmodel_err'].values[0])
+                methods.append('cmodel')
+
+            if df['flux.kron3.5_flags'].values[0] == 0: #no flags, is good:
+                flux_list.append(df['flux.kron3.5'].values[0] * cts2njy)
+                flux_err_list.append(df['flux.kron3.5_err'].values[0] * cts2njy)
+                # mag_list.append(df['mag.cmodel'].values[0])
+                # mag_err_list.append(df['mag.cmodel_err'].values[0])
+                methods.append('kron3.5')
+
+            flux_list = np.array(flux_list)
+            flux_err_list = np.array(flux_err_list)
+            avg_method = "none"
+
+            if len(flux_list) == 0:
+                log.info("Unable to get non-flagged catalog flux for HSC object.")
             else:
-                method = 'lsq'
+                if len(flux_list) < 3:
+                    filter_fl = np.mean(flux_list)
+                    filter_fl_err = np.sqrt(np.sum(flux_err_list*flux_err_list))
+                    avg_method = "mean"
+                else:
+                    try: #weighted biweight
+                        filter_fl = SU.weighted_biweight.biweight_location_errors(flux_list, errors=flux_err_list)
+                        filter_fl_err = SU.weighted_biweight.biweight_scale(flux_list) / np.sqrt(len(flux_err_list))
+                        avg_method = "weighted biweight"
+                    except:
+                        try: #standard biweigth
+                            filter_fl = SU.weighted_biweight.biweight_location(flux_list, errors=flux_err_list)
+                            filter_fl_err = SU.weighted_biweight.biweight_scale(flux_list) / np.sqrt(len(flux_err_list))
+                            avg_method = "biweight"
+                        except:
+                            # lets average (inverse variance)
+                            variance_list = flux_err_list ** 2  # std dev
+                            filter_fl = np.sum(flux_list / variance_list) / np.sum(1 / variance_list)
+                            filter_fl_err = np.sqrt(
+                                np.sum(flux_err_list * flux_err_list) / (len(flux_list) * len(flux_list)))
+                            avg_method = "inverse variance"
+
+
+                mag = -2.5*np.log10(filter_fl*1e-9/3631.)
+                mag_bright = -2.5*np.log10((filter_fl+filter_fl_err)*1e-9/3631.)
+                mag_faint = -2.5 * np.log10((filter_fl - filter_fl_err) * 1e-9 / 3631.)
+
         except:
             log.error("Exception in cat_hsc.get_filter_flux", exc_info=True)
             return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
 
         try:
-
-            if method == 'lsq':# or method == 'kron':
-                filter_fl = df['fluxlsq'].values[0]  * cts2njy
-                filter_fl_err = df["fluxlsq_err"].values[0] * cts2njy
-                mag = df["maglsq"].values[0]
-                # mag_bright = mag - df["magerr."+method].values[0]
-                mag_faint = df['maglsq_err'].values[0]
-                mag_bright = -1 * mag_faint
-            elif method == '3.0':
-                filter_fl = df['flux3.0'].values[0]  * cts2njy
-                filter_fl_err = df["flux3.0_err"].values[0] * cts2njy
-                mag = df["mag3.0"].values[0]
-                # mag_bright = mag - df["magerr."+method].values[0]
-                mag_faint = df['mag3.0_err'].values[0]
-                mag_bright = -1 * mag_faint
-            else:  # cmodel
-                filter_fl = df['flux.cmodel'].values[0] * cts2njy
-                filter_fl_err = df['flux.cmodel_err'].values[0] * cts2njy
-                mag = df['mag.cmodel'].values[0]
-                # mag_bright = mag - df["magerr."+method].values[0]
-                mag_faint = df['mag.cmodel_err'].values[0]
-                mag_bright = -1 * mag_faint
-
-            # mag, mag_plus, mag_minus = self.micro_jansky_to_mag(filter_fl, filter_fl_err)
-        except:  # not the EGS df, try the CFHTLS
-            log.error("Exception in cat_hsc.get_filter_flux", exc_info=True)
-
-            # it is unclear what unit flux is in (but it is not nJy or uJy), so lets back convert from the magnitude
-            # this is used as a continuum estimate
-
-        #with updated HSC data release 2 (Sept.2019) this is not needed
-        #filter_fl = self.obs_mag_to_nano_Jy(mag)
-        #filter_fl_err = 0.0  # set to 0 so not to be trusted
-
-        try:
-            log.debug("HSC selected method = %s , mag = %f" %(method,mag))
+            log.debug("HSC averaged (%s) mag = %f. Methods used = %s" %(avg_method,mag,str(methods)))
         except:
             pass
 
