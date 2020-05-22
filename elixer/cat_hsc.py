@@ -127,6 +127,30 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
     AstroTable = None
 
+    #Masks (bitmapped) (from *_mask.fits headers)
+    MP_BAD = 0
+    MP_SAT = 2
+    MP_INTRP = 4
+    MP_CR = 8
+    MP_EDGE = 16
+    MP_DETECTED = 32
+    MP_DETECTED_NEGATIVE = 64
+    MP_SUSPECT = 128
+    MP_NO_DATA = 256
+    MP_BRIGHT_OBJECT = 512
+    MP_CROSSTALK = 1024
+    MP_NOT_DEBLENDED = 2048
+    MP_UNMASKEDNAN = 4096
+    MP_REJECTED = 8192
+    MP_CLIPPED = 16384
+    MP_SENSOR_EDGE = 32768
+    MP_INEXACT_PSF = 65536
+
+    #
+    # Notice: sizes in pixels at 0.168" and are diameters
+    # so 17.0 is 17 pixel diameter aperture (~ 2.86" diamter or 1.4" radius (about 2 touching HETDEX fibers))
+    #
+
     ##----------------------------
     ## Catalog Format
     ##----------------------------
@@ -589,6 +613,35 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         return tile, tracts, positions
 
 
+    def get_mask_cutout(self,tile,ra,dec,error):
+        """
+        Given an image tile, get the corresponding mask tile
+
+        :param tile:
+        :return:
+        """
+
+        mask_cutout = None
+        try:
+            #modify name for mask
+            mask_tile_name = tile.rstrip(".fits") +"_mask.fits"
+
+            # Find in Tile Dict for the path
+            path = self.Tile_Dict[tile]['path']
+            path = path.replace('image_tract_patch','mask_tract_patch')
+            path = path.replace(tile,mask_tile_name)
+
+            #now get the fits image cutout (don't use get_cutout as that is strictly for images)
+            mask_image = science_image.science_image(wcs_manual=self.WCS_Manual,wcs_idx=0, image_location=path)
+
+            mask_cutout = mask_image.get_mask_cutout(ra,dec,error,path)
+
+        except:
+            log.info(f"Could not get mask cutout for tile ({tile})",exc_info=True)
+
+        return mask_cutout
+
+
     def get_filter_flux_s15a(self, df):
 
         filter_fl = None
@@ -674,7 +727,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
     #
     #     # NOTICE: HSC apertures defined by num of pixels at 0.168 "/pix scale
     #     # so flux3.0 is not 3" but 3 pixels or ~ 0.5"
-    #     # so for 3", want 17.8" or flux17
+    #     # so for 3", want 17.8" or flux17 (that is about a 3" DIAMETER aperture)
     #     try:
     #         if df['fluxlsq_flags'].values[0]:  # there is a problem
     #             try:
@@ -779,6 +832,12 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         # mag_err_list = []
         methods = []
 
+        # NOTICE: HSC apertures defined by num of pixels at 0.168 "/pix scale
+        # so flux3.0 is not 3" but 3 pixels or ~ 0.5"
+        # so for 3", want 17.8" or flux17 (that is about a 3" DIAMETER aperture)
+        # flux35.0 would be roughtly 3" RADIUS aperture
+        #
+
         try:
             if df['fluxlsq_flags'].values[0] == 0: #no flags, is good:
                 flux_list.append(df['fluxlsq'].values[0] * cts2njy)
@@ -787,13 +846,23 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 #mag_err_list.append(df['maglsq_err'].values[0])
                 methods.append('lsq')
 
-
+            #about 3" DIAMETER (1.5" RADIUS ... pretty common for the ELiXer Aperture)
             if df['flux17.0_flags'].values[0] == 0: #no flags, is good:
                 flux_list.append(df['flux17.0'].values[0] * cts2njy)
                 flux_err_list.append(df["flux17.0_err"].values[0] * cts2njy)
                 # mag_list.append(df["mag17.0"].values[0])
                 # mag_err_list.append(df['mag17.0_err'].values[0])
                 methods.append('flux17.0')
+
+            #todo: do I actually want to go out this wide?
+            # this would cover around 15 HETDEX fibers (3" radius, 6" diameter)
+            # or most of the default search box
+            # if df['flux35.0_flags'].values[0] == 0: #no flags, is good:
+            #     flux_list.append(df['flux35.0'].values[0] * cts2njy)
+            #     flux_err_list.append(df["flux35.0_err"].values[0] * cts2njy)
+            #     # mag_list.append(df["mag35.0"].values[0])
+            #     # mag_err_list.append(df['mag35.0_err'].values[0])
+            #     methods.append('flux35.0')
 
             if df['flux.cmodel_flags'].values[0] == 0: #no flags, is good:
                 flux_list.append(df['flux.cmodel'].values[0] * cts2njy)
@@ -1184,6 +1253,10 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             # sci.load_image(wcs_manual=True)
             cutout, pix_counts, mag, mag_radius,details = sci.get_cutout(ra, dec, error, window=window,
                                                      aperture=aperture,mag_func=mag_func,return_details=True)
+
+            #just a test ...
+            #todo: how do I want to use the mask?
+            #mask_cutout = self.get_mask_cutout(tile,ra,dec,error)
 
             if (self.MAG_LIMIT < mag < 100) and (mag_radius > 0):
                 log.warning(f"Cutout mag {mag} greater than limit {self.MAG_LIMIT}. Setting to limit.")
@@ -1751,8 +1824,15 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         return fig
 
     def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None):
+        """
 
-
+        :param ra:
+        :param dec:
+        :param window:
+        :param catalog_image:
+        :param aperture:
+        :return:
+        """
         d = {'cutout':None,
              'hdu':None,
              'path':None,

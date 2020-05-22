@@ -773,6 +773,31 @@ class science_image():
 
         return img_objects, None
 
+
+    def get_mask_cutout(self,ra,dec,error,path):
+        """
+
+        :param ra:
+        :param dec:
+        :param error:
+        :return:
+        """
+        cutout = None
+        try:
+            position = SkyCoord(ra, dec, unit="deg", frame=self.frame)
+            pix_window = int(np.ceil(error / self.pixel_size))
+
+            hdulist = fits.open(path, memmap=False, lazy_load_hdus=True)
+
+            cutout = Cutout2D(hdulist[self.wcs_idx].data, position, (pix_window, pix_window),
+                                   wcs=self.wcs, copy=False)
+
+            hdulist.close()
+        except:
+            log.info(f"Could not get mask cutout", exc_info=True)
+
+        return cutout
+
     def get_cutout(self,ra,dec,error,window=None,image=None,copy=False,aperture=0,mag_func=None,
                    do_sky_subtract=True,return_details=False):
         '''ra,dec in decimal degrees. error and window in arcsecs'''
