@@ -37,7 +37,7 @@ from astropy.wcs.utils import skycoord_to_pixel
 from astropy.nddata.utils import NoOverlapError
 from astropy import units as ap_units
 from photutils import CircularAperture #pixel coords
-from photutils import SkyCircularAperture, SkyCircularAnnulus #sky coords
+from photutils import SkyCircularAperture, SkyCircularAnnulus,SkyEllipticalAperture #sky coords
 from photutils import aperture_photometry
 from photutils import centroid_2dg
 from astropy.stats import sigma_clipped_stats, sigma_clip
@@ -1760,6 +1760,58 @@ class science_image():
             return None,None,None,None
 
         return sky_avg, sky_err, sky_pix, N
+
+
+
+    def get_pixels_under_aperture(self,cutout,ra,dec,semi_major,semi_minor,angle,north_angle=np.pi/2.):
+        """
+        Get the pixels under an aperture (ellipse ... for circle major=minor)
+
+        :param cutout:
+        :param ra: decimal degrees (of center of aperture) (unitless float)
+        :param dec: decimal degrees (of center of aperture) (unitless float)
+        :param major: semi major axis ('radius') in arcsec (unitless float)
+        :param minor: semi minor axis ('radius') in arcsec (unitless float)
+        :param angle: rotation from 0, counter clockwise in radians (unitless float)
+        :param north_angle: angle to north, counter clockwise from positive x-axsis (unitless float)
+        :return: array of pixels (values)
+        """
+
+        #notice. these are from source extractor which does not use the WCS and its zero angle is the positive x-axis
+
+        pixels = None
+        try:
+            ap_center = SkyCoord(ra, dec, unit="deg")
+            a = semi_major*ap_units.arcsec
+            b = semi_minor*ap_units.arcsec
+            theta = ((angle - north_angle) * 180. / np.pi)*ap_units.deg
+
+            #test use to_pixel to convert to pixel coords and overplot just to be sure
+            aperture = SkyEllipticalAperture(ap_center,a,b,theta).to_pixel(cutout.wcs)
+
+            try:
+                sky_mask = aperture.to_mask(method='center')[0]
+            except:
+                sky_mask = aperture.to_mask(method='center')
+
+            sky_mask = np.array(sky_mask)[0:cutout.data.shape[0], 0:cutout.data.shape[1]]
+            # select all pixels from the cutout that are in the annulus
+            # this sometimes gets off by 1-pixel, so trim off if out of range of the array
+            # search = np.where(sky_mask.data > 0)
+
+            # the sky_mask and the sky_image share a common origin (0,0) so they have the same indexing
+            # the sky_mask may be larger than the sky_image, so turn the mask into a 2D array (so we can slice
+            # and slice away the mask outside the sky_image)
+
+            search = np.where(sky_mask > 0)
+            pixels = cutout.data[search].astype(int) #want as integer (bitmapped mask), not float
+
+        except:
+            log.info("Exception in science_image::get_pixels_under_aperture",exc_info=True)
+
+        return pixels
+
+
 
     def get_position(self,ra,dec,cutout):
         #this is not strictly a pixel x and y but is a meta position based on the wcs

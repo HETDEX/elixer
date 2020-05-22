@@ -5,6 +5,8 @@ changes to elixer by version
   to emphasize the nearest object and down play those farther away
 * updated with HSC release 3
   + changed catalog magnitude from "best" selection to an average of lsq, cmode, kron3.5, and flux17.0 (~3" aperture)
+  + add 'image_flags' to ElixerApertures and ExtractedObjects tables (distinct from 'flags' which are tied to the
+    aperture extraction). These 'image_flags' are tied to the image pipeline and are defined per each catalog.
 
 1.9.0a5 [2020-05-19]
 * tweak rmse central pix position to be the center of the array IF the FWHM of the fit is greater than 1/2 width of the

@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.2.0' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.2.1' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -203,7 +203,8 @@ class ElixerApertures(tables.IsDescription):
     background_err = tables.Float32Col(dflt=UNSET_FLOAT)
     flux_cts = tables.Float32Col(dflt=UNSET_FLOAT)
     flux_err = tables.Float32Col(dflt=UNSET_FLOAT)
-    flags = tables.Int32Col(dflt=0)
+    flags = tables.Int32Col(dflt=0) #aperture flags
+    image_flags = tables.Int64Col(dflt=0) #separate from the aperture flags, these are ties to the image reduction pipeline
 
 
 class ExtractedObjects(tables.IsDescription):
@@ -227,6 +228,7 @@ class ExtractedObjects(tables.IsDescription):
     flags = tables.Int32Col(dflt=0)
     dist_curve = tables.Float32Col(dflt=UNSET_FLOAT)
     dist_baryctr = tables.Float32Col(dflt=UNSET_FLOAT)
+    image_flags = tables.Int64Col(dflt=0) #separate from the aperture flags, these are ties to the image reduction pipeline
     # flag ... bit mask
     # 01 sep.OBJ_MERGED	      object is result of deblending
     # 02 sep.OBJ_TRUNC	      object is truncated at image boundary
@@ -889,6 +891,11 @@ def append_entry(fileh,det,overwrite=False):
                 #row['flux_err'] = s['flux_cts_err']
                 #row['flags'] = s['flags']
 
+                try:
+                    row['image_flags'] = s['image_flags']
+                except:
+                    row['image_flags'] = 0
+
                 row.append()
                 xtb.flush()
 
@@ -931,6 +938,11 @@ def append_entry(fileh,det,overwrite=False):
                     row['dist_baryctr'] = s['dist_baryctr']
                 except:
                     pass
+
+                try:
+                    row['image_flags'] = s['image_flags']
+                except:
+                    row['image_flags'] = 0
 
                 row.append()
                 etb.flush()

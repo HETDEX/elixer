@@ -128,9 +128,9 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
     AstroTable = None
 
     #Masks (bitmapped) (from *_mask.fits headers)
-    MP_BAD = 0
-    MP_SAT = 2
-    MP_INTRP = 4
+    MP_BAD = 0  #2**0
+    MP_SAT = 2  #2**1
+    MP_INTRP = 4  #2**2
     MP_CR = 8
     MP_EDGE = 16
     MP_DETECTED = 32
@@ -144,7 +144,8 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
     MP_REJECTED = 8192
     MP_CLIPPED = 16384
     MP_SENSOR_EDGE = 32768
-    MP_INEXACT_PSF = 65536
+    MP_INEXACT_PSF = 65536  #2**16
+    MASK_LENGTH = 17
 
     #
     # Notice: sizes in pixels at 0.168" and are diameters
@@ -1254,10 +1255,6 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             cutout, pix_counts, mag, mag_radius,details = sci.get_cutout(ra, dec, error, window=window,
                                                      aperture=aperture,mag_func=mag_func,return_details=True)
 
-            #just a test ...
-            #todo: how do I want to use the mask?
-            #mask_cutout = self.get_mask_cutout(tile,ra,dec,error)
-
             if (self.MAG_LIMIT < mag < 100) and (mag_radius > 0):
                 log.warning(f"Cutout mag {mag} greater than limit {self.MAG_LIMIT}. Setting to limit.")
                 details['fail_mag_limit'] = True
@@ -1500,6 +1497,39 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                     #                                   angle=0.0, color=bc, fill=False, linewidth=1.0, zorder=1))
 
             if (details is not None) and (detobj is not None):
+                #check for flags
+                #get the mask cutout
+                mask_cutout = self.get_mask_cutout(tile,ra,dec,error)
+                if mask_cutout is not None:
+                    #iterate over the Elixer Apertures and the SEP apertures
+                    if details['elixer_apertures']:
+                        for a in details['elixer_apertures']:
+                            # get the masks under the aperture
+                            # do this for each step (increase in size)
+                            pixels = sci.get_pixels_under_aperture(mask_cutout,a['ra'],a['dec'],
+                                                               a['radius'],a['radius'],
+                                                               angle= 0., north_angle=np.pi/2.)
+
+                            mask_frac = self.update_mask_counts(pixels,None) / len(pixels)
+
+                            #check the mask for any counts > 10% of total pixels
+                            trip_mask = np.where(mask_frac > 0.10)[0]
+                            # not all flags are 'bad' (i.e. 32 = detection)
+                            a['image_flags'] = np.sum([2**x for x in trip_mask])
+
+                    if details['sep_objects']:
+                        for a in details['sep_objects']:
+                            mask_frac = None
+                            pixels = sci.get_pixels_under_aperture(mask_cutout, a['ra'], a['dec'],
+                                                                   a['a'], a['b'],
+                                                                   angle=a['theta'], north_angle=np.pi / 2.)
+
+                            mask_frac = self.update_mask_counts(pixels, None)
+                            # check the mask for any counts > 10% of total pixels
+                            trip_mask = np.where(mask_frac > 0.10)[0]
+                            #not all flags are 'bad' (i.e. 32 = detection)
+                            a['image_flags'] = np.sum([2 ** x for x in trip_mask])
+
                 detobj.aperture_details_list.append(details)
 
 
@@ -1545,6 +1575,35 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
         return fig
 
+
+    def update_mask_counts(self,pixels=None,mask_counts=None):
+        """
+
+        :param pixels:
+        :param mask:
+        :return:
+        """
+
+        try:
+            if mask_counts is None:
+                mask_counts = np.zeros(self.MASK_LENGTH,dtype=int)
+
+            if pixels is None:
+                return mask_counts
+
+            if type(pixels) is list:
+                pixels = np.array(pixels)
+
+            for i in range(len(mask_counts)):
+                try:
+                    num_pix = len(np.where(pixels & 2**i)[0])
+                    mask_counts[i] += num_pix
+                except:
+                    pass
+        except:
+            pass
+
+        return mask_counts
 
     def build_multiple_bid_target_figures_one_line(self, cat_match, ras, decs, error, target_ra=None, target_dec=None,
                                          target_w=0, target_flux=None,detobj=None):
