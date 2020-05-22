@@ -10,7 +10,8 @@ import os
 import glob2 #easier to search for files
 
 #basepath = "/work/04094/mshiro/maverick/HSC/S15A/reduced/"
-basepath = "/work/03946/hetdex/hdr2/imaging/hsc/"
+#basepath = "/work/03946/hetdex/hdr2/imaging/hsc/"
+basepath = "/data/03261/polonius/hdr2/imaging/hsc/"
 
 
 def build_wcs_automatically(fname):

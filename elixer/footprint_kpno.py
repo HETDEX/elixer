@@ -11,7 +11,8 @@ import glob2 #easier to search for files
 
 
 #basepath = "/work/03261/polonius/hetdex/catalogs/KPNO_Mosaic/" #needs to end with "/" as coded
-basepath = "/work/03233/jf5007/maverick/KMImaging/"
+#basepath = "/work/03233/jf5007/maverick/KMImaging/"
+basepath = "/data/03261/polonius/hdr2/imaging/KMImaging/"
 
 def build_wcs_automatically(fname):
     wcs = wcs = WCS(fname,relax = astropy.wcs.WCSHDR_CD00i00j | astropy.wcs.WCSHDR_PC00i00j)
