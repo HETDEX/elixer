@@ -13,6 +13,7 @@ try:
     from elixer import utilities as UTIL
     from elixer import science_image
     from elixer import elixer_hdf5
+    from elixer import spectrum_utilities as SU
 except:
     import hetdex
     import match_summary
@@ -21,6 +22,7 @@ except:
     import utilities as UTIL
     import science_image
     import elixer_hdf5
+    import spectrum_utilities as SU
 
 from hetdex_api import survey as hda_survey
 
@@ -379,6 +381,9 @@ def parse_commandline(auto_force=False):
 
     parser.add_argument('--log', help="Logging level. Default (info). Choose: debug, info, error, critical", required=False)
 
+
+    parser.add_argument('--gridsearch', help='', required=False,
+                        action='store_true', default=False)
 
     if G.LAUNCH_PDF_VIEWER is not None:
         parser.add_argument('--viewer', help='Launch the global_config.py set PDF viewer on completion', required=False,
@@ -3654,8 +3659,33 @@ def main():
                                            image_cutout_fiber_pos_size=args.error,
                                            image_cutout_neighborhood_size=args.neighborhood)
 
+        if args.gridsearch:
+            for h in hd_list:  # iterate over all hetdex detections
+                for e in h.emis_list:
+                    try:
+                        if e.wra:
+                            ra = e.wra
+                            dec  = e.wdec
+                        else:
+                            ra = e.ra
+                            dec  = e.dec
+                        cw = e.w
+                        savefn=os.path.join(pdf.basename, str(e.entry_id))
+                        shotlist = SU.get_shotids(ra,dec)
+                        ra_meshgrid, dec_meshgrid = SU.make_raster_grid(ra,dec,3.0,0.4)
 
+                        x,y = np.shape(ra_meshgrid)
+                        log.info(f"{e.entry_id} gridsearch ({ra},{dec},{cw}) at {x}x{y}x{len(shotlist)}")
 
+                        edict = SU.raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,max_velocity=1500,aperture=3.0)
+                        z = SU.make_raster_plots(edict,ra_meshgrid,dec_meshgrid,cw,
+                                                 "intflux",show=False,save=savefn)
+                        z = SU.make_raster_plots(edict,ra_meshgrid,dec_meshgrid,cw,
+                                                 "velocity_offset",show=False,save=savefn)
+                        z = SU.make_raster_plots(edict,ra_meshgrid,dec_meshgrid,cw,
+                                                 "continuum_level",show=False,save=savefn)
+                    except:
+                        log.info(f"Exception grid search {e.entry_id}",exc_info=True)
     #end for master_loop_idx in range(master_loop_length):
 
 

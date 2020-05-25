@@ -674,7 +674,7 @@ def extract_at_position(ra,dec,aperture,shotid,ffsky=False):
     try:
         coord = SkyCoord(ra=ra * U.deg, dec=dec * U.deg)
         apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=shotid,ffsky=ffsky,
-                          multiprocess=False, rad=aperture)
+                          multiprocess=False, rad=aperture,tpmin=0.0)
 
         if len(apt) == 0:
             #print(f"No spectra for ra ({self.ra}) dec ({self.dec})")
@@ -914,7 +914,7 @@ def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity
     """
 
     try:
-        edict = np.zeros_like(ra_meshgrid, dtype=dict)
+        edict = np.transpose(np.zeros_like(ra_meshgrid, dtype=dict)) #need to transpose since addressing as dec,ra
         ct = 0
         wct = 0
 
@@ -1110,7 +1110,7 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
 
         if save is not None: #interactive does not work
             #pickle.dump(plt.gcf(),open(save+".fig.pickle","wb"))
-            plt.savefig(save + "_3d.png")
+            plt.savefig(save + "_" + key + "_3d.png")
 
         if show:
             plt.show()
@@ -1154,7 +1154,7 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
         fig.colorbar(surf, shrink=0.5, aspect=5,label=key)
 
         if save:
-            plt.savefig(save + "_contour.png")
+            plt.savefig(save +  "_" + key + "_contour.png")
 
         if show:
             fig.show()
@@ -1177,7 +1177,7 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
         fig.colorbar(surf, shrink=0.5, aspect=5,label=key)
 
         if save:
-            plt.savefig(save + "_mesh.png")
+            plt.savefig(save +  "_" + key + "_mesh.png")
 
         if show:
             fig.show()
