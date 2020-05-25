@@ -1,12 +1,16 @@
 changes to elixer by version
 
-1.9.0a6 [2020-05-22]
+1.9.0a6 [2020-05-25]
 * reduce weight of possible catalog matches to continuum estimate by the ratio of the nearest object to the current distance
   to emphasize the nearest object and down play those farther away
 * updated with HSC release 3
   + changed catalog magnitude from "best" selection to an average of lsq, cmode, kron3.5, and flux17.0 (~3" aperture)
   + add 'image_flags' to ElixerApertures and ExtractedObjects tables (distinct from 'flags' which are tied to the
     aperture extraction). These 'image_flags' are tied to the image pipeline and are defined per each catalog.
+* add (limited use) --gridsearch command line option (interactive or non-interactive) to perform a grid search on
+  the specified range and step size around the RA, Dec and wavelength. Produces 3 types of plots (3D interactive,
+  2D contour, and 2D meshgrid) for each of integrated flux, velocity offset (from the given wavelength), and continuum.
+  Increases SLURM time by 3x (on average).
 
 1.9.0a5 [2020-05-19]
 * tweak rmse central pix position to be the center of the array IF the FWHM of the fit is greater than 1/2 width of the

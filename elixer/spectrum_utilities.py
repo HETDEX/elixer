@@ -1066,7 +1066,6 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
     # colomap.set_bad(color=[0.2, 1.0, 0.23]) #green
 
     try:
-
         #set RA, DEC as central position of the meshgrids
         r,c = np.shape(ra_meshgrid)
         RA = ra_meshgrid[0,(c-1)//2]
@@ -1074,48 +1073,11 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
         r, c = np.shape(dec_meshgrid)
         DEC = dec_meshgrid[(r-1)//2,0]
 
-
         plt.close('all')
-        ##########################
-        #as interactive 3D
-        ##########################
-        bad_value = 0
-        z = np.full(ra_meshgrid.shape,bad_value,dtype=float)
-        for r in range(np.shape(ra_meshgrid)[1]):  # columns (x or RA values)
-            for d in range(np.shape(ra_meshgrid)[0]):  # rows (y or Dec values)
-                try:
-                    z[d,r]=dict_meshgrid[d,r]['fit'][key]
-                except:
-                    z[d,r] = 0 #3D plot does not handle masked arrays #nothing there, so leave the 'bad value' in place
-
-        #3D Plot (interactive)
-        fig = plt.figure()
-        ax = fig.gca(projection='3d')
-        #because this plots as X,Y,Z, and we're using a meshgrid, the x-coords (the RA's are in the dec_meshgrid,
-        # that is, all the RAs  (X's) for each given Dec)
-        # in otherwords, though, the RAs are values of X coords, but first parameter are the ROWS (row-major)
-        # which are along the vertical (each row contains the list of all RAs (x's) for that row
-        surf = ax.plot_surface((dec_meshgrid-DEC)*3600.0, (ra_meshgrid-RA)*3600.0, z, cmap=colormap,
-                               linewidth=0, antialiased=False)
-
-        #get the x-range, then reverse so East is to the left
-        xlim = ax.get_xlim()
-        ax.set_xlim(xlim[1],xlim[0])
-
-        ax.set_title(f"RA ({RA}) Dec ({DEC}) Wave ({cw})")
-        ax.set_xlabel(r'$\Delta$RA"')
-        ax.set_ylabel(r'$\Delta$Dec"')
-        ax.set_zlabel(key)
-        fig.colorbar(surf, shrink=0.5, aspect=5,label=key)
-
-        if save is not None: #interactive does not work
-            #pickle.dump(plt.gcf(),open(save+".fig.pickle","wb"))
-            plt.savefig(save + "_" + key + "_3d.png")
-
+        old_backend = None
         if show:
-            plt.show()
-
-
+            old_backend = plt.get_backend()
+            plt.switch_backend('TkAgg')
 
         ########################
         #as a contour
@@ -1148,7 +1110,7 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
         xlim = ax.get_xlim()
         ax.set_xlim(xlim[1],xlim[0])
 
-        ax.set_title(f"RA ({RA}) Dec ({DEC}) Wave ({cw})")
+        ax.set_title(f"RA ({RA:0.5f}) Dec ({DEC:0.5f}) Wave ({cw:0.2f})")
         ax.set_xlabel(r'$\Delta$RA"')
         ax.set_ylabel(r'$\Delta$Dec"')
         fig.colorbar(surf, shrink=0.5, aspect=5,label=key)
@@ -1171,7 +1133,7 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
         xlim = ax.get_xlim()
         ax.set_xlim(xlim[1],xlim[0])
 
-        ax.set_title(f"RA ({RA}) Dec ({DEC}) Wave ({cw})")
+        ax.set_title(f"RA ({RA:0.5f}) Dec ({DEC:0.5f}) Wave ({cw:0.2f})")
         ax.set_xlabel(r'$\Delta$RA"')
         ax.set_ylabel(r'$\Delta$Dec"')
         fig.colorbar(surf, shrink=0.5, aspect=5,label=key)
@@ -1181,6 +1143,50 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
 
         if show:
             fig.show()
+
+        ##########################
+        # as interactive 3D
+        # do this one last so can interact and see the other two
+        ##########################
+        bad_value = 0
+        z = np.full(ra_meshgrid.shape, bad_value, dtype=float)
+        for r in range(np.shape(ra_meshgrid)[1]):  # columns (x or RA values)
+            for d in range(np.shape(ra_meshgrid)[0]):  # rows (y or Dec values)
+                try:
+                    z[d, r] = dict_meshgrid[d, r]['fit'][key]
+                except:
+                    z[d, r] = 0  # 3D plot does not handle masked arrays #nothing there, so leave the 'bad value' in place
+
+        # 3D Plot (interactive)
+        fig = plt.figure()
+        ax = fig.gca(projection='3d')
+        # because this plots as X,Y,Z, and we're using a meshgrid, the x-coords (the RA's are in the dec_meshgrid,
+        # that is, all the RAs  (X's) for each given Dec)
+        # in otherwords, though, the RAs are values of X coords, but first parameter are the ROWS (row-major)
+        # which are along the vertical (each row contains the list of all RAs (x's) for that row
+        surf = ax.plot_surface((dec_meshgrid - DEC) * 3600.0, (ra_meshgrid - RA) * 3600.0, z, cmap=colormap,
+                               linewidth=0, antialiased=False)
+
+        # get the x-range, then reverse so East is to the left
+        xlim = ax.get_xlim()
+        ax.set_xlim(xlim[1], xlim[0])
+
+        ax.set_title(f"RA ({RA:0.5f}) Dec ({DEC:0.5f}) Wave ({cw:0.2f})")
+        ax.set_xlabel(r'$\Delta$RA"')
+        ax.set_ylabel(r'$\Delta$Dec"')
+        ax.set_zlabel(key)
+        fig.colorbar(surf, shrink=0.5, aspect=5, label=key)
+
+        if save is not None:  # interactive does not work
+            # pickle.dump(plt.gcf(),open(save+".fig.pickle","wb"))
+            plt.savefig(save + "_" + key + "_3d.png")
+
+        if show:
+            plt.show()
+
+        #restore the original backend
+        if old_backend:
+            plt.switch_backend(old_backend)
 
         return z
     except:

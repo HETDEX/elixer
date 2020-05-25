@@ -105,6 +105,10 @@ if i != -1:
 else:
     pass
 
+base_time_multiplier = 1.0
+if "--gridsearch" in args:
+    base_time_multiplier = 3.0
+    #just an average guess; the actual time depends on the grid width, cell size and number of shots
 
 if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
@@ -592,7 +596,7 @@ if not time_set: #update time
             mult = 1.0
 
 
-        time = str(timedelta(minutes=int(TIME_OVERHEAD + MAX_TIME_PER_TASK * mx * mult)))
+        time = str(timedelta(minutes=int(TIME_OVERHEAD + MAX_TIME_PER_TASK * mx * mult * base_time_multiplier)))
         print("--time %s" %time)
 
     except Exception as e:
