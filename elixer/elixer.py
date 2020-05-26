@@ -3670,7 +3670,7 @@ def main():
                                            image_cutout_fiber_pos_size=args.error,
                                            image_cutout_neighborhood_size=args.neighborhood)
 
-        #really has to be here, otherwise the "recover" will not work
+        # really has to be here (hd_list is reset on each loop and the "recover" will not work otherwise)
         # (if we run all of them at the end, since "--recover" looks at the .pdf results, these will not run
         # if the pdf was complete, but these plots were not)
         # even so (and this is true of the neighborhood and mini as well, but to a lesser extent as they are faster)
