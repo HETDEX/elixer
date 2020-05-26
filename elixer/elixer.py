@@ -611,7 +611,12 @@ def parse_commandline(auto_force=False):
             if args.gridsearch[2] == 0:
                 args.gridsearch = (args.gridsearch[0],args.gridsearch[1],False)
             else:
-                args.gridsearch = (args.gridsearch[0], args.gridsearch[1],True)
+                if args.dispatch is None:
+                    args.gridsearch = (args.gridsearch[0], args.gridsearch[1],True)
+                else:
+                    log.info("Gridsearch interaction overwritten to False due to dispatch (SLURM) mode.")
+                    print("Gridsearch interaction overwritten to False due to dispatch (SLURM) mode.")
+                    args.gridsearch = (args.gridsearch[0], args.gridsearch[1], False)
         except:
             log.info("Exception parsing --gridsearch. Setting to default (3.0,0.4,False)",exc_info=True)
             args.gridsearch = (3.0,0.4,False)
