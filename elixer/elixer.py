@@ -3731,6 +3731,8 @@ def main():
                     savefn = os.path.join(pdf.basename, str(e.entry_id))
                     if args.shotid:
                         shotlist = [args.shotid]
+                    elif e.survey_shotid:
+                        shotlist = [e.survey_shotid]
                     else:
                         shotlist = SU.get_shotids(ra, dec)
                     ra_meshgrid, dec_meshgrid = SU.make_raster_grid(ra, dec, args.gridsearch[0], args.gridsearch[1])
