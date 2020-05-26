@@ -3670,36 +3670,50 @@ def main():
                                            image_cutout_fiber_pos_size=args.error,
                                            image_cutout_neighborhood_size=args.neighborhood)
 
-        # if args.gridsearch:
-        #     for h in hd_list:  # iterate over all hetdex detections
-        #         for e in h.emis_list:
-        #             try:
-        #                 if e.wra:
-        #                     ra = e.wra
-        #                     dec  = e.wdec
-        #                 else:
-        #                     ra = e.ra
-        #                     dec  = e.dec
-        #                 cw = e.w
-        #                 savefn=os.path.join(pdf.basename, str(e.entry_id))
-        #                 if args.shotid:
-        #                     shotlist = [args.shotid]
-        #                 else:
-        #                     shotlist = SU.get_shotids(ra,dec)
-        #                 ra_meshgrid, dec_meshgrid = SU.make_raster_grid(ra,dec,args.gridsearch[0],args.gridsearch[1])
-        #
-        #                 x,y = np.shape(ra_meshgrid)
-        #                 log.info(f"{e.entry_id} gridsearch ({ra},{dec},{cw}) at {x}x{y}x{len(shotlist)}")
-        #
-        #                 edict = SU.raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,max_velocity=1500,aperture=3.0)
-        #                 z = SU.make_raster_plots(edict,ra_meshgrid,dec_meshgrid,cw,
-        #                                          "intflux",show=args.gridsearch[2],save=savefn)
-        #                 z = SU.make_raster_plots(edict,ra_meshgrid,dec_meshgrid,cw,
-        #                                          "velocity_offset",show=args.gridsearch[2],save=savefn)
-        #                 z = SU.make_raster_plots(edict,ra_meshgrid,dec_meshgrid,cw,
-        #                                          "continuum_level",show=args.gridsearch[2],save=savefn)
-        #             except:
-        #                 log.info(f"Exception grid search {e.entry_id}",exc_info=True)
+        #really has to be here, otherwise the "recover" will not work
+        # (if we run all of them at the end, since "--recover" looks at the .pdf results, these will not run
+        # if the pdf was complete, but these plots were not)
+        # even so (and this is true of the neighborhood and mini as well, but to a lesser extent as they are faster)
+        # for the last PDF to be completed, if SLURM times out, this would be missed and not re-run
+        if args.gridsearch:
+            if len(args.gridsearch) != 3:
+                log.warning(f"Invalid gridsearch parameter ({args.gridsearch})")
+            else:
+                log.debug("Preparing for gridsearch ...")
+                for h in hd_list:  # iterate over all hetdex detections
+                    for e in h.emis_list:
+                        try:
+                            if e.wra:
+                                ra = e.wra
+                                dec = e.wdec
+                            else:
+                                ra = e.ra
+                                dec = e.dec
+                            cw = e.w
+                            savefn = os.path.join(e.outdir, str(e.entry_id))
+                            if args.shotid:
+                                shotlist = [args.shotid]
+                            elif e.survey_shotid:
+                                shotlist = [e.survey_shotid]
+                            else:
+                                shotlist = SU.get_shotids(ra, dec)
+                            ra_meshgrid, dec_meshgrid = SU.make_raster_grid(ra, dec, args.gridsearch[0],
+                                                                            args.gridsearch[1])
+
+                            x, y = np.shape(ra_meshgrid)
+                            log.info(f"{e.entry_id} gridsearch ({ra},{dec},{cw}) at {x}x{y}x{len(shotlist)}")
+
+                            edict = SU.raster_search(ra_meshgrid, dec_meshgrid, shotlist, cw, max_velocity=1500,
+                                                     aperture=3.0)
+                            z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,
+                                                     "intflux", show=args.gridsearch[2], save=savefn)
+                            z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,
+                                                     "velocity_offset", show=args.gridsearch[2], save=savefn)
+                            z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,
+                                                     "continuum_level", show=args.gridsearch[2], save=savefn)
+                        except:
+                            log.info(f"Exception grid search {e.entry_id}", exc_info=True)
+
     #end for master_loop_idx in range(master_loop_length):
 
 
@@ -3716,43 +3730,6 @@ def main():
 
         if launch:
             subprocess.Popen(cmdlist)
-
-    if args.gridsearch:
-        if len(args.gridsearch) != 3:
-            log.warning(f"Invalid gridsearch parameter ({args.gridsearch})")
-        else:
-            log.debug("Preparing for gridsearch ...")
-            for h in hd_list:  # iterate over all hetdex detections
-                for e in h.emis_list:
-                    try:
-                        if e.wra:
-                            ra = e.wra
-                            dec = e.wdec
-                        else:
-                            ra = e.ra
-                            dec = e.dec
-                        cw = e.w
-                        savefn = os.path.join(e.outdir, str(e.entry_id))
-                        if args.shotid:
-                            shotlist = [args.shotid]
-                        elif e.survey_shotid:
-                            shotlist = [e.survey_shotid]
-                        else:
-                            shotlist = SU.get_shotids(ra, dec)
-                        ra_meshgrid, dec_meshgrid = SU.make_raster_grid(ra, dec, args.gridsearch[0], args.gridsearch[1])
-
-                        x, y = np.shape(ra_meshgrid)
-                        log.info(f"{e.entry_id} gridsearch ({ra},{dec},{cw}) at {x}x{y}x{len(shotlist)}")
-
-                        edict = SU.raster_search(ra_meshgrid, dec_meshgrid, shotlist, cw, max_velocity=1500, aperture=3.0)
-                        z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,
-                                                 "intflux", show=args.gridsearch[2], save=savefn)
-                        z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,
-                                                 "velocity_offset", show=args.gridsearch[2], save=savefn)
-                        z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,
-                                                 "continuum_level", show=args.gridsearch[2], save=savefn)
-                    except:
-                        log.info(f"Exception grid search {e.entry_id}", exc_info=True)
 
 
 
