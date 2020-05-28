@@ -5,6 +5,8 @@ changes to elixer by version
   of probabilities (that the HETDEX object is an LAE + that each bid object is the HETDEX object) and (2) even using
   the "best" matched object causes a double contribution of continuum (ostensibly the aperture measure and the catalog
   object measure are the same, or, at least come from the same data source (the photometric image))
+* add a Gaussian weighting to the combined PLAE/POII as applied to the aggregate PLAE classification that sets the
+  weight to 0 for PLAE/POII = 1 and is Gaussian to either side with sigma = 5.0 (set in gloals PLAE_POII_GAUSSIAN_WEIGHT_SIGMA)
 
 1.9.0a6 [2020-05-25]
 * reduce weight of possible catalog matches to continuum estimate by the ratio of the nearest object to the current distance

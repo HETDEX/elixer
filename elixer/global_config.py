@@ -762,3 +762,5 @@ MAX_NUM_DUPLICATE_CENTRAL_PIXELS = 2 #if more than this, flag as spurious
 #note: 2 means there is one set of duplicates: ie. [1,2,1,3] would be 2 (1 and 1 are duplicated)
 
 MAX_MAG_FAINT = 28.0 #set as nominal "faint" mag if flux limit reached
+
+PLAE_POII_GAUSSIAN_WEIGHT_SIGMA = 5.0

@@ -871,6 +871,18 @@ class DetObj:
 
         #using some Bayesian language, but not really Bayesian, yet
         #assume roughly half of all detections are LAEs (is that reasonable?)
+
+
+        def plae_gaussian_weight(plae_poii):
+            #p
+            if plae_poii < 1:
+                plae_poii = 1.0/plae_poii
+
+            #just for clarity
+            mu = 1.0
+            sigma = G.PLAE_POII_GAUSSIAN_WEIGHT_SIGMA #5.0 #s|t by 0.1 or 10 you get 80% weight but near 1 you gain nothing
+            return 1-np.exp(-((plae_poii - mu)/(np.sqrt(2)*sigma))**2.)
+
         reason = ""
         base_assumption = 0.5 #not used yet
         likelihood = []
@@ -1177,7 +1189,8 @@ class DetObj:
                 prior.append(base_assumption)
                 #scale the weight by the difference between the scaled PLAE and one SD below (or above)
                 # the closer they are to each other, the closer to the full weight you'd get)
-                weight.append(0.7 * (1.0 - scale_plae_sd))  # opinion, not quite as strong as multiple lines
+                #weight.append(0.7 * (1.0 - scale_plae_sd))  # opinion, not quite as strong as multiple lines
+                weight.append(plae_gaussian_weight(self.classification_dict['plae_hat']) * (1.0 - scale_plae_sd))
                 var.append(1)  # todo: use the sd (scaled?) #can't use straight up here since the variances are not
                                # on the same scale
 
