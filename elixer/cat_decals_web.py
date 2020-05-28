@@ -81,8 +81,8 @@ class DECaLS(cat_base.Catalog):#DECaLS
     mean_FWHM = 1.67 #at 75% quartile for g-band ... varies also by filter, but this is good middle of the road limit
     MainCatalog = None #there is no Main Catalog ... must load individual catalog tracts
     Name = "DECaLS"
-    #Filters = ['g','r','z'] #case is important ... needs to be lowercase
-    Filters = ['g','z'] #case is important ... needs to be lowercase
+    Filters = ['g','r','z'] #case is important ... needs to be lowercase
+    #Filters = ['g','z'] #case is important ... needs to be lowercase
     #Filters = ['r','z'] #case is important ... needs to be lowercase
     WCS_Manual = False
     MAG_LIMIT = 24.5 #closer to 24 for g (23.few for r)
