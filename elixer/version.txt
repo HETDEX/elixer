@@ -1,5 +1,11 @@
 changes to elixer by version
 
+1.9.0a7 [2020-05-28]
+* turn off use of bid catalog object continuum estimates from the combined continuum estimate as it is (1) a mixing
+  of probabilities (that the HETDEX object is an LAE + that each bid object is the HETDEX object) and (2) even using
+  the "best" matched object causes a double contribution of continuum (ostensibly the aperture measure and the catalog
+  object measure are the same, or, at least come from the same data source (the photometric image))
+
 1.9.0a6 [2020-05-25]
 * reduce weight of possible catalog matches to continuum estimate by the ratio of the nearest object to the current distance
   to emphasize the nearest object and down play those farther away

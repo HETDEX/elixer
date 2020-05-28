@@ -1813,103 +1813,114 @@ class DetObj:
             log.debug("Exception handling forced aperture photometry continuum in DetObj:combine_all_continuum", exc_info=True)
 
         #todo: ?? Best catalog match PLAE ?? #do I even want to try to use this one?
+        #todo: this is a problem:
+        # you can have, say 3 matches inside the aperture, one near the center --- bright, clearly OII
+        # two others inside the aperture, but faint, possibly LAEs
+        # even pushing down the weights, if the two faint ones have low variance, they will dominate
+        #
+        #todo: Furthermore, this is really a blending of probabilities ... we want the probability that our object
+        # is an LAE, but *THIS* combines that with the probability that each catalog object is our object, so
+        # it is not a clean probability anymore (though the invidual probabilities that a catalog object is our
+        # object are independent)
+        #
+        #todo: So, the most correct thing to do is report each independently, or select the single best one, or
+        # ignore all of them and just use the aperture (which may be best anyway since, if we do choose the best one
+        # it effectively brings that magnitude estimate in twice (once for the aperture and once for the catalog object
+        # that ostensibly used that (or similar) aperture
 
-        try:
-            #which aperture filter?
-            coord_dict = {} #key = catalog +_ + filter  values: ra, dec
-            for a in self.aperture_details_list:
-                if (a['catalog_name'] is None) or (a['filter_name'] is None):
-                    continue
-                else:
-                    coord_dict[a['catalog_name']+'_'+a['filter_name']] = {'ra': a['ra'],'dec':a['dec']}
-
-
-            #set the weight = 1.0 / number of possible matches
-            sel = np.where(np.array([x.bid_dec for x in self.bid_target_list]) != 666)
-            sel = np.where(np.array([x.distance for x in np.array(self.bid_target_list)[sel]]) < aperture_radius)
-
-            num_cat_match = len(sel[0])
-
-
-
-            #todo: this is a problem:
-            # you can have, say 3 matches inside the aperture, one near the center --- bright, clearly OII
-            # two others inside the aperture, but faint, possibly LAEs
-            # even pushing down the weights, if the two faint ones have low variance, they will dominate
-            if num_cat_match > 1:
-                catmatch_weight = 1.0/len(sel[0])
-            else:
-                catmatch_weight = 1.0
-
-            #nearest (that is not the explicit aperture position)
-            catalog_target_list_distances = [x.distance for x in self.bid_target_list if x.bid_dec != 666]
-            if len(catalog_target_list_distances) > 0:
-                nearest_distance = np.min(catalog_target_list_distances)
-
-                for b in self.bid_target_list:
-                    if (b.bid_dec == 666): #this is a measured aperture, not a catalog match
+        if False: #choosing the last argument as this is a mix of probabilites and even in the "best" case is an over counting
+            try:
+                #which aperture filter?
+                coord_dict = {} #key = catalog +_ + filter  values: ra, dec
+                for a in self.aperture_details_list:
+                    if (a['catalog_name'] is None) or (a['filter_name'] is None):
                         continue
+                    else:
+                        coord_dict[a['catalog_name']+'_'+a['filter_name']] = {'ra': a['ra'],'dec':a['dec']}
 
-                    #if there are multiple bid targets, which one(s) to use?
-                    #center could be off (large object), so distance is not ideal, nor is the prob_match
-                    #maybe IF the center is INSIDE the selected ExtractedObject?
+                #set the weight = 1.0 / number of possible matches
+                sel = np.where(np.array([x.bid_dec for x in self.bid_target_list]) != 666)
+                sel = np.where(np.array([x.distance for x in np.array(self.bid_target_list)[sel]]) < aperture_radius)
 
-                    if b.distance < aperture_radius:
-                        #"best" filter already chosen, so just use it
+                num_cat_match = len(sel[0])
 
-                        if (b.bid_flux_est_cgs is not None) and (b.bid_flux_est_cgs_unc is not None) and \
-                            (b.bid_flux_est_cgs > 0) and (b.bid_flux_est_cgs_unc > 0):
+                if num_cat_match > 1:
+                    catmatch_weight = 1.0/len(sel[0])
+                else:
+                    catmatch_weight = 1.0
 
-                            #push down the weight as ratio of nearest_distance to the current match distance
-                            #the closest gets full share of its weight and the others scale down from there
-                            weight.append(catmatch_weight*nearest_distance/b.distance)
-                            #b.bid_flux_est_cgs_unc is the s.d. so need to square for variance
-                            variance.append(b.bid_flux_est_cgs_unc*b.bid_flux_est_cgs_unc)
-                            continuum.append(b.bid_flux_est_cgs)
-                            type.append("c" + a['filter_name'])
-                            log.debug(
-                                f"{self.entry_id} Combine ALL Continuum: Added catalog bid target estimate"
-                                f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
-                                f"weight({weight[-1]:#.2f}) filter({b.bid_filter}) dist({b.distance})")
+                #nearest (that is not the explicit aperture position)
+                catalog_target_list_distances = [x.distance for x in self.bid_target_list if x.bid_dec != 666]
+                if len(catalog_target_list_distances) > 0:
+                    nearest_distance = np.min(catalog_target_list_distances)
 
-                    #old
-
-                    #just use b.bid_filter info? b.bid_flux_est_cgs, b.bid_flux_est_cgs_unc?
-                    if False:
-                    ##for f in b.filters:
-                        if (b.catalog_name is None) or (f.filter is None):
+                    for b in self.bid_target_list:
+                        if (b.bid_dec == 666): #this is a measured aperture, not a catalog match
                             continue
 
-                        if f.filter.lower() not in ['g','r','f606w']: #should only use one ...
-                            continue
+                        #if there are multiple bid targets, which one(s) to use?
+                        #center could be off (large object), so distance is not ideal, nor is the prob_match
+                        #maybe IF the center is INSIDE the selected ExtractedObject?
 
-                        key = b.catalog_name + "_" + f.filter.lower()
+                        if b.distance < aperture_radius:
+                            #"best" filter already chosen, so just use it
 
-                        if key in coord_dict.keys():
-                            if utils.angular_distance(b.bid_ra,b.bid_dec,coord_dict[key]['ra'],coord_dict[key]['dec']) < 1.0:
-                                if b.bid_flux_est_cgs is not None:
-                                    cont = b.bid_flux_est_cgs
-                                    if b.bid_flux_est_cgs_unc is not None:
-                                        cont_var = b.bid_flux_est_cgs_unc * b.bid_flux_est_cgs_unc
-                                        if cont_var == 0:
+                            if (b.bid_flux_est_cgs is not None) and (b.bid_flux_est_cgs_unc is not None) and \
+                                (b.bid_flux_est_cgs > 0) and (b.bid_flux_est_cgs_unc > 0):
+
+                                #push down the weight as ratio of nearest_distance to the current match distance
+                                #the closest gets full share of its weight and the others scale down from there
+                                weight.append(catmatch_weight*nearest_distance/b.distance)
+
+                                #set a minimum variance of ~ 20% for ground (maybe less for hubble)
+                                #b.bid_flux_est_cgs_unc is the s.d. so need to square for variance
+                                variance.append(max( b.bid_flux_est_cgs*b.bid_flux_est_cgs*0.04,
+                                                        b.bid_flux_est_cgs_unc*b.bid_flux_est_cgs_unc))
+                                continuum.append(b.bid_flux_est_cgs)
+                                type.append("c" + a['filter_name'])
+                                log.debug(
+                                    f"{self.entry_id} Combine ALL Continuum: Added catalog bid target estimate"
+                                    f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
+                                    f"weight({weight[-1]:#.2f}) filter({b.bid_filter}) dist({b.distance})")
+
+                        #old
+
+                        #just use b.bid_filter info? b.bid_flux_est_cgs, b.bid_flux_est_cgs_unc?
+                        if False:
+                        ##for f in b.filters:
+                            if (b.catalog_name is None) or (f.filter is None):
+                                continue
+
+                            if f.filter.lower() not in ['g','r','f606w']: #should only use one ...
+                                continue
+
+                            key = b.catalog_name + "_" + f.filter.lower()
+
+                            if key in coord_dict.keys():
+                                if utils.angular_distance(b.bid_ra,b.bid_dec,coord_dict[key]['ra'],coord_dict[key]['dec']) < 1.0:
+                                    if b.bid_flux_est_cgs is not None:
+                                        cont = b.bid_flux_est_cgs
+                                        if b.bid_flux_est_cgs_unc is not None:
+                                            cont_var = b.bid_flux_est_cgs_unc * b.bid_flux_est_cgs_unc
+                                            if cont_var == 0:
+                                                cont_var = cont * cont
+                                        else:
                                             cont_var = cont * cont
-                                    else:
-                                        cont_var = cont * cont
 
-                                    weight.append(1.0)
-                                    variance.append(cont_var)
-                                    continuum.append(cont)
+                                        weight.append(1.0)
+                                        variance.append(cont_var)
+                                        continuum.append(cont)
 
-                                    cat_idx = len(continuum)
+                                        cat_idx = len(continuum)
 
-                                    log.debug(
-                                        f"{self.entry_id} Combine ALL Continuum: Added catalog bid target estimate"
-                                        f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
-                                        f"weight({weight[-1]:#.2f}) filter({key})")
-                                break #only use one
+                                        log.debug(
+                                            f"{self.entry_id} Combine ALL Continuum: Added catalog bid target estimate"
+                                            f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
+                                            f"weight({weight[-1]:#.2f}) filter({key})")
+                                    break #only use one
 
-        except:
-            log.debug("Exception handling catalog bid-target continuum in DetObj:combine_all_continuum", exc_info=True)
+            except:
+                log.debug("Exception handling catalog bid-target continuum in DetObj:combine_all_continuum", exc_info=True)
 
 
 
