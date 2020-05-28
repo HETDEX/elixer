@@ -82,7 +82,8 @@ class DECaLS(cat_base.Catalog):#DECaLS
     MainCatalog = None #there is no Main Catalog ... must load individual catalog tracts
     Name = "DECaLS"
     #Filters = ['g','r','z'] #case is important ... needs to be lowercase
-    Filters = ['r','z'] #case is important ... needs to be lowercase
+    Filters = ['g','z'] #case is important ... needs to be lowercase
+    #Filters = ['r','z'] #case is important ... needs to be lowercase
     WCS_Manual = False
     MAG_LIMIT = 24.5 #closer to 24 for g (23.few for r)
 

@@ -2948,6 +2948,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 def main():
 
     global G_PDF_FILE_NUM
+    
+    already_launched_viewer = False #skip the PDF viewer laun
 
     log.critical(f"log level {G.LOG_LEVEL}")
     #G.gc.enable()
@@ -3675,6 +3677,7 @@ def main():
                                            image_cutout_fiber_pos_size=args.error,
                                            image_cutout_neighborhood_size=args.neighborhood)
 
+
         # really has to be here (hd_list is reset on each loop and the "recover" will not work otherwise)
         # (if we run all of them at the end, since "--recover" looks at the .pdf results, these will not run
         # if the pdf was complete, but these plots were not)
@@ -3685,6 +3688,27 @@ def main():
                 log.warning(f"Invalid gridsearch parameter ({args.gridsearch})")
             else:
                 log.debug("Preparing for gridsearch ...")
+
+                # work around for local launcher when using gridsearch
+                # normally this executes for all at the end, but assuming that we are only running one or a few,
+                # we the auto-viewer to pop up before the gridsearch plots so we have a reference
+                if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer and (
+                        len(viewer_file_list) > 0) and not args.neighborhood_only:
+                    import subprocess
+                    already_launched_viewer = True
+                    cwd = os.getcwd()
+                    cmdlist = [G.LAUNCH_PDF_VIEWER]
+                    launch = False
+                    for f in viewer_file_list:
+                        fpath = os.path.join(cwd, f)
+                        if os.path.exists(fpath):
+                            cmdlist.append(fpath)
+                            launch = True
+
+                    if launch:
+                        subprocess.Popen(cmdlist)
+
+
                 for h in hd_list:  # iterate over all hetdex detections
                     for e in h.emis_list:
                         try:
@@ -3694,7 +3718,11 @@ def main():
                             else:
                                 ra = e.ra
                                 dec = e.dec
-                            cw = e.w
+
+                            if args.wavelength:
+                                cw = args.wavelength
+                            else:
+                                cw = e.w
                             savefn = os.path.join(e.outdir, str(e.entry_id))
                             if args.shotid:
                                 shotlist = [args.shotid]
@@ -3711,18 +3739,23 @@ def main():
                             edict = SU.raster_search(ra_meshgrid, dec_meshgrid, shotlist, cw, max_velocity=1500,
                                                      aperture=3.0)
                             z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,
-                                                     "intflux", show=args.gridsearch[2], save=savefn)
+                                                     "intflux", show=args.gridsearch[2], save=None,savepy=savefn)
+                            #don't know how meaningful this really is, given that this is a single source (not a stack)
+                            #and the f900 would be at the 0.01 S/N level
+                            # z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,
+                            #                          "f900", show=args.gridsearch[2], save=savefn)
                             z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,
-                                                     "velocity_offset", show=args.gridsearch[2], save=savefn)
+                                                     "velocity_offset", show=args.gridsearch[2], save=None,savepy=savefn)
                             z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,
-                                                     "continuum_level", show=args.gridsearch[2], save=savefn)
+                                                     "continuum_level", show=args.gridsearch[2], save=None,savepy=savefn)
                         except:
                             log.info(f"Exception grid search {e.entry_id}", exc_info=True)
 
     #end for master_loop_idx in range(master_loop_length):
 
 
-    if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer and (len(viewer_file_list) > 0) and not args.neighborhood_only:
+    if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer and (len(viewer_file_list) > 0) \
+            and not args.neighborhood_only and not already_launched_viewer:
         import subprocess
         cwd = os.getcwd()
         cmdlist = [G.LAUNCH_PDF_VIEWER]

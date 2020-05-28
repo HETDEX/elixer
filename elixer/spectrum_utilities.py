@@ -13,6 +13,8 @@ except:
     import weighted_biweight as weighted_biweight
 
 import numpy as np
+import pickle
+import os.path as op
 import astropy.constants
 import astropy.units as U
 from astropy.coordinates import SkyCoord
@@ -864,6 +866,18 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=1000.0):
             return_dict['rmse'] = fit_rmse
             return_dict['snr'] = snr
 
+
+            #assume fit line is LyA and get the sum around rest 880-910
+            try:
+                lyc_obs = (880.0 * (1.+x0/G.LyA_rest), 910.0 * (1.+x0/G.LyA_rest))
+                lyc_idx = blue,_,_ = getnearpos(wavelengths,lyc_obs[0])
+                lyc_idx = red, _, _ = getnearpos(wavelengths, lyc_obs[1])
+                return_dict['f900'] = cgs2ujy(np.sum(values[blue,red+1])/(lyc_obs[1]-lyc_obs[0]),900.0)
+                return_dict['f900e'] = cgs2ujy(np.sum(errors[blue,red+1])/(lyc_obs[1]-lyc_obs[0]),900.0)
+            except:
+                return_dict['f900'] = -999
+                return_dict['f900e'] = -999
+
         except Exception as E:
             print(E)
 
@@ -1048,16 +1062,18 @@ def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity
 
 
 
-def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.coolwarm,save=None,show=False):
+def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.coolwarm,save=None,savepy=None,show=False):
     """
     Make 3 plots (an interactive (if show is true) 3D plot, a contour plot and a color meshplot (like a heatmap)
     :param dict_meshgrid: meshgrid of dictionaries for the RA, Dec
     :param ra_meshgrid:
     :param dec_meshgrid:
     :param cw: central wavelength
-    :param key: one of "intflux" (integrated line flux), "velocity_offset", "continuum_level"
+    :param key: one of "intflux" (integrated line flux), "f900", "velocity_offset", "continuum_level"
     :param colormap: matplotlib color map to use for scale
+    ##:param lyc: if True, assume the cw is LyA and produce an extra intflux plot around rest-900AA
     :param save: filename base to save the plots (the files as saved as <save>_3d.png, <save>_contour.png, <save>_mesh.png
+    :param savepy: save a pickle and a python file to load it and launche interactive plots
     :param show: if True, display the plots interactively
     :return: returns a mesh grid of the values selected by <key>
     """
@@ -1187,6 +1203,37 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
         #restore the original backend
         if old_backend:
             plt.switch_backend(old_backend)
+
+
+        if savepy is not None:
+            try:
+                #save a pickle of the parameters and a python file to run?
+                parms_dict = {}
+                parms_dict['dict_meshgrid'] = dict_meshgrid
+                parms_dict['ra_meshgrid'] = ra_meshgrid
+                parms_dict['dec_meshgrid'] = dec_meshgrid
+                parms_dict['cw'] = cw
+                parms_dict['key'] = key
+                parms_dict['colormap'] = colormap
+
+                fn = savepy + "_" + key + "_plots"
+                pickle.dump(parms_dict,open(fn+".pickle","wb"))
+
+                pyfilestr = "from elixer import spectrum_utilities as SU\n"
+                pyfilestr += "import pickle\n"
+                pyfilestr += f"parms_dict = pickle.load(open('{op.basename(fn)+'.pickle'}','rb'))\n"
+                pyfilestr += "SU.make_raster_plots(parms_dict['dict_meshgrid']," \
+                             "parms_dict['ra_meshgrid']," \
+                             "parms_dict['dec_meshgrid']," \
+                             "parms_dict['cw']," \
+                             "parms_dict['key']," \
+                             "parms_dict['colormap']," \
+                             "show=True,save=None,savepy=None)\n"
+
+                with open(fn+".py","w") as f:
+                    f.write(pyfilestr)
+            except Exception as e:
+                print("Unable to save interactive py plots",e)
 
         return z
     except:
