@@ -108,6 +108,8 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
     HSC_CAT_PATH = G.HSC_CAT_PATH
     HSC_IMAGE_PATH = G.HSC_IMAGE_PATH
 
+    INCLUDE_KPNO_G = True
+
     MAG_LIMIT = 27.0 #generous, closer to 26.5
 
     mean_FWHM = 1.0 #average 0.6 to 1.0
@@ -1206,120 +1208,121 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         exptime_cont_est = -1
         index = 0 #images go in positions 1+ (0 is for the fiber positions)
 
-        try:
+        if self.INCLUDE_KPNO_G:
+            try:
 
-            #IF KPNO g-band is available,
-            #   advance the index by 1 and insert the KPNO g-band image in 1st position AFTER the "master" cutout (made
-            #   from only HSC)
+                #IF KPNO g-band is available,
+                #   advance the index by 1 and insert the KPNO g-band image in 1st position AFTER the "master" cutout (made
+                #   from only HSC)
 
-            kpno = cat_kpno.KPNO()
-            kpno_cuts = kpno.get_cutouts(ra,dec,window/3600.0,aperture=kpno.mean_FWHM * 0.5 + 0.5,filter='g',first=True)
+                kpno = cat_kpno.KPNO()
+                kpno_cuts = kpno.get_cutouts(ra,dec,window/3600.0,aperture=kpno.mean_FWHM * 0.5 + 0.5,filter='g',first=True)
 
-            if (kpno_cuts is not None) and (len(kpno_cuts) == 1):
-                index += 1
-                _ = plt.subplot(gs[1:, index])
+                if (kpno_cuts is not None) and (len(kpno_cuts) == 1):
+                    index += 1
+                    _ = plt.subplot(gs[1:, index])
 
-                sci = science_image.science_image()
+                    sci = science_image.science_image()
 
-                vmin, vmax = sci.get_vrange(kpno_cuts[0]['cutout'].data)
-                pix_size = sci.calc_pixel_size(kpno_cuts[0]['cutout'].wcs)
-                ext = kpno_cuts[0]['cutout'].shape[0] * pix_size / 2.
+                    vmin, vmax = sci.get_vrange(kpno_cuts[0]['cutout'].data)
+                    pix_size = sci.calc_pixel_size(kpno_cuts[0]['cutout'].wcs)
+                    ext = kpno_cuts[0]['cutout'].shape[0] * pix_size / 2.
 
-                plt.imshow(kpno_cuts[0]['cutout'].data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
-                           vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+                    plt.imshow(kpno_cuts[0]['cutout'].data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
+                               vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
 
-                #plt.title(i['instrument'] + " " + i['filter'])
-                plt.title("(" + kpno.name + " g)")
-                plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-                plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-                # plt.plot(0, 0, "r+")
-                self.add_zero_position(plt)
+                    #plt.title(i['instrument'] + " " + i['filter'])
+                    plt.title("(" + kpno.name + " g)")
+                    plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+                    plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+                    # plt.plot(0, 0, "r+")
+                    self.add_zero_position(plt)
 
-                if kpno_cuts[0]['details'] is not None:
-                    #this will happen anyway under KPNO itself
-                    # (note: the "details" are actually populated in the independent KPNO catalog calls)
+                    if kpno_cuts[0]['details'] is not None:
+                        #this will happen anyway under KPNO itself
+                        # (note: the "details" are actually populated in the independent KPNO catalog calls)
 
-                    #build up the needed parameters from the kpno_cuts
-                    cx = kpno_cuts[0]['ap_center'][0]
-                    cy = kpno_cuts[0]['ap_center'][1]
+                        #build up the needed parameters from the kpno_cuts
+                        cx = kpno_cuts[0]['ap_center'][0]
+                        cy = kpno_cuts[0]['ap_center'][1]
 
-                    #and need to get an EW and PLAE/POII
+                        #and need to get an EW and PLAE/POII
 
-                    if detobj is not None:
+                        if detobj is not None:
+                            try:
+                                lineFlux_err = detobj.estflux_unc
+                            except:
+                                lineFlux_err = 0.
+
+                        bid_flux_est_cgs = self.obs_mag_to_cgs_flux(kpno_cuts[0]['details']['mag'],
+                                                                    SU.filter_iso('g', target_w))
                         try:
-                            lineFlux_err = detobj.estflux_unc
+                            flux_faint = None
+                            flux_bright = None
+
+                            if kpno_cuts[0]['details']['mag_faint'] < 99:
+                                flux_faint = self.obs_mag_to_cgs_flux(kpno_cuts[0]['details']['mag_faint'],
+                                                                      SU.filter_iso('g', target_w))
+
+                            if kpno_cuts[0]['details']['mag_bright'] < 99:
+                                flux_bright = self.obs_mag_to_cgs_flux(kpno_cuts[0]['details']['mag_bright'],
+                                                                       SU.filter_iso('g', target_w))
+
+                            if flux_bright and flux_faint:
+                                bid_flux_est_cgs_unc = max((bid_flux_est_cgs - flux_faint),
+                                                                      (flux_bright - bid_flux_est_cgs))
+                            elif flux_bright:
+                                bid_flux_est_cgs_unc = flux_bright - bid_flux_est_cgs
+
                         except:
-                            lineFlux_err = 0.
+                            pass
 
-                    bid_flux_est_cgs = self.obs_mag_to_cgs_flux(kpno_cuts[0]['details']['mag'],
-                                                                SU.filter_iso('g', target_w))
-                    try:
-                        flux_faint = None
-                        flux_bright = None
+                        addl_waves = None
+                        addl_flux = None
+                        addl_ferr = None
+                        try:
+                            addl_waves = cat_match.detobj.spec_obj.addl_wavelengths
+                            addl_flux = cat_match.detobj.spec_obj.addl_fluxes
+                            addl_ferr = cat_match.detobj.spec_obj.addl_fluxerrs
+                        except:
+                            pass
 
-                        if kpno_cuts[0]['details']['mag_faint'] < 99:
-                            flux_faint = self.obs_mag_to_cgs_flux(kpno_cuts[0]['details']['mag_faint'],
-                                                                  SU.filter_iso('g', target_w))
+                        p_lae_oii_ratio, p_lae, p_oii, plae_errors = \
+                            line_prob.mc_prob_LAE(
+                                wl_obs=target_w,
+                                lineFlux=target_flux,
+                                lineFlux_err=lineFlux_err,
+                                continuum=bid_flux_est_cgs,
+                                continuum_err=bid_flux_est_cgs_unc,
+                                c_obs=None, which_color=None,
+                                addl_wavelengths=addl_waves,
+                                addl_fluxes=addl_flux,
+                                addl_errors=addl_ferr,
+                                sky_area=None,
+                                cosmo=None, lae_priors=None,
+                                ew_case=None, W_0=None,
+                                z_OII=None, sigma=None)
 
-                        if kpno_cuts[0]['details']['mag_bright'] < 99:
-                            flux_bright = self.obs_mag_to_cgs_flux(kpno_cuts[0]['details']['mag_bright'],
-                                                                   SU.filter_iso('g', target_w))
+                        ew_obs = (target_flux / bid_flux_est_cgs)
+                        cutout_ewr = ew_obs / (1. + target_w / G.LyA_rest)
+                        cutout_plae = p_lae_oii_ratio
 
-                        if flux_bright and flux_faint:
-                            bid_flux_est_cgs_unc = max((bid_flux_est_cgs - flux_faint),
-                                                                  (flux_bright - bid_flux_est_cgs))
-                        elif flux_bright:
-                            bid_flux_est_cgs_unc = flux_bright - bid_flux_est_cgs
+                        if (kpno_cuts[0]['details']['sep_objects'] is not None):  # and (details['sep_obj_idx'] is not None):
+                            self.add_elliptical_aperture_positions(plt, kpno_cuts[0]['details']['sep_objects'],
+                                                                   kpno_cuts[0]['details']['sep_obj_idx'],
+                                                                   kpno_cuts[0]['details']['radius'],
+                                                                   kpno_cuts[0]['details']['mag'],
+                                                                   cx, cy, cutout_ewr, cutout_plae)
+                        else:
+                            self.add_aperture_position(plt, kpno_cuts[0]['details']['radius'],
+                                                       kpno_cuts[0]['details']['mag'],
+                                                       cx, cy, cutout_ewr, cutout_plae)
 
-                    except:
-                        pass
+                    self.add_north_box(plt, sci, kpno_cuts[0]['cutout'], error, 0, 0, theta=None)
+                    #don't want KPNO catalog objects, just the HSC ones
 
-                    addl_waves = None
-                    addl_flux = None
-                    addl_ferr = None
-                    try:
-                        addl_waves = cat_match.detobj.spec_obj.addl_wavelengths
-                        addl_flux = cat_match.detobj.spec_obj.addl_fluxes
-                        addl_ferr = cat_match.detobj.spec_obj.addl_fluxerrs
-                    except:
-                        pass
-
-                    p_lae_oii_ratio, p_lae, p_oii, plae_errors = \
-                        line_prob.mc_prob_LAE(
-                            wl_obs=target_w,
-                            lineFlux=target_flux,
-                            lineFlux_err=lineFlux_err,
-                            continuum=bid_flux_est_cgs,
-                            continuum_err=bid_flux_est_cgs_unc,
-                            c_obs=None, which_color=None,
-                            addl_wavelengths=addl_waves,
-                            addl_fluxes=addl_flux,
-                            addl_errors=addl_ferr,
-                            sky_area=None,
-                            cosmo=None, lae_priors=None,
-                            ew_case=None, W_0=None,
-                            z_OII=None, sigma=None)
-
-                    ew_obs = (target_flux / bid_flux_est_cgs)
-                    cutout_ewr = ew_obs / (1. + target_w / G.LyA_rest)
-                    cutout_plae = p_lae_oii_ratio
-
-                    if (kpno_cuts[0]['details']['sep_objects'] is not None):  # and (details['sep_obj_idx'] is not None):
-                        self.add_elliptical_aperture_positions(plt, kpno_cuts[0]['details']['sep_objects'],
-                                                               kpno_cuts[0]['details']['sep_obj_idx'],
-                                                               kpno_cuts[0]['details']['radius'],
-                                                               kpno_cuts[0]['details']['mag'],
-                                                               cx, cy, cutout_ewr, cutout_plae)
-                    else:
-                        self.add_aperture_position(plt, kpno_cuts[0]['details']['radius'],
-                                                   kpno_cuts[0]['details']['mag'],
-                                                   cx, cy, cutout_ewr, cutout_plae)
-
-                self.add_north_box(plt, sci, kpno_cuts[0]['cutout'], error, 0, 0, theta=None)
-                #don't want KPNO catalog objects, just the HSC ones
-
-        except:
-            log.warning("Exception adding KPNO to HSC report",exc_info=True)
+            except:
+                log.warning("Exception adding KPNO to HSC report",exc_info=True)
 
         for f in self.Filters:
             try:

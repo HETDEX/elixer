@@ -458,6 +458,7 @@ def parse_commandline(auto_force=False):
     #the forced extraction aperture specified, increase the error (window) size
     if args.aperture and args.error:
         if args.aperture > args.error:
+            log.info(f"Increasing --error ({args.error}) to accomodate --aperture ({args.aperture})")
             args.error = args.aperture
 
     if not (args.neighborhood_only > 0):

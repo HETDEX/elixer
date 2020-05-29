@@ -92,6 +92,8 @@ class CatalogLibrary:
         self.cats.append(cat_shela.SHELA())
         self.cats.append(cat_hsc.HSC())
         self.cats.append(cat_kpno.KPNO())
+        # if comment out KPNO turn off KPNO inclusion in HSC
+        # self.cats[-1].INCLUDE_KPNO_G = False
         # self.cats.append(cat_ast376_shela.AST376_SHELA())
 
 
