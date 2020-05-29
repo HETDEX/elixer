@@ -109,6 +109,15 @@ def parse_astrometry(file):
 
     return ra,dec,par
 
+def xlat_shotid(raw):
+    try:
+        shot = int(float(str(raw).lower().replace('v','')))
+        if shot == 0:
+            return None
+        else:
+            return shot
+    except:
+        log.error(f"Exception translating shotid ({raw})",exc_info=True)
 
 class PDF_File():
     def __init__(self,basename,id,pdf_name=None):
@@ -244,7 +253,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--dets', help="List of detections (of form '20170314v011_005') or subdirs under fscdir "
                         "(wildcards okay) or file containing a list of detections (one per line)", required=False)
 
-    parser.add_argument('--coords', help="File containing a list of RA and Decs (one pair per line). Used optionally"
+    parser.add_argument('--coords', help="File containing a list (in order) of RA and Decs (one pair per line)"
+                                         " and optionally a shotid and wavelength (use 0 as a placeholder for"
+                                         " unspecified shotid or wavelength). Used optionally "
                                          "with --aperture. If --aperture specified, will (re)extract at the exact"
                                          "position. If not specified, will find HETDEX detections within specified"
                                          "--search (first) or --error.",
@@ -1638,10 +1649,12 @@ def get_hdf5_detectids_to_process(args):
                                 try:
                                     toks = line.split()
                                     row = [float(toks[0]),float(toks[1])]
-                                    if len(toks) == 3:
-                                        shot = toks[2].lower()
-                                        #could be a float representation
-                                        row.append(int(float(shot.replace('v',''))))
+                                    if len(toks) >= 3: #shotid
+                                        # shot = toks[2].lower()
+                                        # row.append(int(float(shot.replace('v',''))))
+                                        row.append(xlat_shotid(toks[2]))
+                                        if len(toks) == 4: #wavelength (in AA)
+                                            row.append(float(toks[3]))
                                     else:
                                         row.append(None)
 
@@ -1675,7 +1688,7 @@ def get_hdf5_detectids_to_process(args):
                         error = args.error
 
                     try:
-                        ras,decs,_ = read_coords_file(args.coords,args) #shotids don't matter here
+                        ras,decs,*_ = read_coords_file(args.coords,args) #shotids don't matter here
                         for r,d in zip (ras,decs):
                             dlist = get_hdf5_detectids_by_coord(args.hdf5,r,d,error/3600.)
                             if len(dlist) > 0:
@@ -1877,9 +1890,9 @@ def read_coords_file(filename,args=None,as_rows=False):
         if as_rows:
             return []
         else:
-            return [], [], []
+            return [], [], [], []
 
-    ras, decs, shots, rows = [],[],[],[]
+    ras, decs, shots, waves, rows = [],[],[],[],[]
     try:
         if (args is not None) and (args.aperture is None):
             if as_rows:
@@ -1887,22 +1900,32 @@ def read_coords_file(filename,args=None,as_rows=False):
             else:
                 ras, decs = np.loadtxt(filename, unpack=True,usecols=(0,1)) #ignore shotids
                 shots = np.zeros(len(ras))
+                waves = np.zeros(len(ras))
         else:
             if as_rows:
                 rows = np.loadtxt(filename, unpack=False)
             else:
-                ras, decs, shots = np.loadtxt(filename, unpack=True)
+                try: #4 values
+                    ras, decs, shots, waves = np.loadtxt(filename, unpack=True)
+                except:
+                    try: #3 values
+                        ras, decs, shots = np.loadtxt(filename, unpack=True)
+                        wave = np.zeros(len(ras))
+                    except: #2 values
+                        ras, decs = np.loadtxt(filename, unpack=True)
+                        wave = np.zeros(len(ras))
+                        shots = np.zeros(len(ras))
     except:
         log.error("Unable to read in --coords specified file.", exc_info=True)
         if as_rows:
             return []
         else:
-            return [],[],[]
+            return [],[],[],[]
 
     if as_rows:
         return rows
     else:
-        return ras, decs, shots
+        return ras, decs, shots, waves
 
 
 
@@ -3152,7 +3175,14 @@ def main():
                             elif len(d) == 3:
                                 args.ra = d[0]
                                 args.dec = d[1]
-                                args.shotid = d[2]
+                                args.shotid = xlat_shotid(d[2])
+                            elif len(d) == 4:
+                                args.ra = d[0]
+                                args.dec = d[1]
+                                args.shotid = xlat_shotid(d[2])
+                                args.wavelength = float(d[3])
+                                if args.wavelength == 0:
+                                    args.wavelength = None
                             else:
                                 #something wrong
                                 log.error(f"Unable to build hetdex object for entry d: ({d})")
