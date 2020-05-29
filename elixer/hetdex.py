@@ -2025,12 +2025,16 @@ class DetObj:
 
 
             #todo: what about extra info now for Bayesian analysis? update our "beliefs" based on
-            #todo: obect extent? (consistent or inconsistent with PSF and thus with a point-source?)
+            #todo: object extent? (consistent or inconsistent with PSF and thus with a point-source?)
             #todo: slope of whole spectra or spectral features that would preclude LAE?
             #todo: ELiXer line finder strongly suggesting mutlitple lines and NOT LAE?
 
             log.debug(f"{self.entry_id} Combine ALL Continuum: Final estimate: continuum_hat({continuum_hat}) continuum_sd_hat({continuum_sd_hat}) "
                       f"size in psf ({size_in_psf})")
+
+            log.debug(f"{self.entry_id} Combine ALL Continuum: Final estimate (mag @ 5500AA):"
+                      f" {-2.5*np.log10(SU.cgs2ujy(continuum_hat,5500.0)/(3631.0*1e6))} ")
+
 
             self.classification_dict['continuum_hat'] = continuum_hat
             self.classification_dict['continuum_sd_hat'] = continuum_sd_hat

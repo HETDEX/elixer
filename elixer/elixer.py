@@ -1627,7 +1627,6 @@ def get_hdf5_detectids_to_process(args):
     check_for_numeric = False
 
     try:
-
         if args.dispatch is not None:  # from multi-task SLURM only
             try:
                 # is this a list or a file
@@ -1641,7 +1640,8 @@ def get_hdf5_detectids_to_process(args):
                                     row = [float(toks[0]),float(toks[1])]
                                     if len(toks) == 3:
                                         shot = toks[2].lower()
-                                        row.append(int(shot.replace('v','')))
+                                        #could be a float representation
+                                        row.append(int(float(shot.replace('v',''))))
                                     else:
                                         row.append(None)
 
