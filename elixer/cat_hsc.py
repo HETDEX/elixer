@@ -1229,7 +1229,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                            vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
 
                 #plt.title(i['instrument'] + " " + i['filter'])
-                plt.title(kpno.name + " g")
+                plt.title("(" + kpno.name + " g)")
                 plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
                 plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
                 # plt.plot(0, 0, "r+")

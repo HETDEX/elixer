@@ -789,9 +789,10 @@ class Catalog:
                                        linestyle='dashed'))
 
                 # larger of the spread of the fibers or the maximum width (in non-rotated x-y plane) of the error window
-                ext_base = max(abs(xmin), abs(xmax), abs(ymin), abs(ymax))
-                if ext_base != np.inf:
-                    ext = max(ext_base + G.Fiber_Radius, ext)
+                #can't do this ... if you just rescale for the fibers, the underlying coordinate system becomes invalid
+                # ext_base = max(abs(xmin), abs(xmax), abs(ymin), abs(ymax))
+                # if ext_base != np.inf:
+                #     ext = max(ext_base + G.Fiber_Radius, ext)
 
 
                 # need a new cutout since we rescaled the ext (and window) size

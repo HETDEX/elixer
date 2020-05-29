@@ -454,6 +454,12 @@ def parse_commandline(auto_force=False):
         print("prep_recover complete; exiting ...")
         exit()
 
+    #if the cutout size (driven by args.error) is smaller than
+    #the forced extraction aperture specified, increase the error (window) size
+    if args.aperture and args.error:
+        if args.aperture > args.error:
+            args.error = args.aperture
+
     if not (args.neighborhood_only > 0):
         args.neighborhood_only = False
 

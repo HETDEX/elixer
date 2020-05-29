@@ -3,6 +3,9 @@ changes to elixer by version
 1.9.0a8 [2020-05-29]
 * add KPNO g-band to HSC (r-band) where coverage overlaps (was already contributing to PLAE/POII, but now explicitly
   add the KPNO cutout image to HSC catalog reports)
+* fix issue when --aperture is larger than --error (was rescaling the cutout image w/o making a larger cutout, so the
+  underlying WCS became incorrectly scaled). Now will force the cutout size to adapt to the --aperture IF the --aperture
+  is larger than the requested cutout size
 
 1.9.0a7 [2020-05-28]
 * turn off use of bid catalog object continuum estimates from the combined continuum estimate as it is (1) a mixing
