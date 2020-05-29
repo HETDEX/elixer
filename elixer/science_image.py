@@ -864,6 +864,15 @@ class science_image():
             window = float(max(2.0*error,5.0)) #should be at least 5 arcsecs
 
         self.window = window
+        #sanity check (shouold be of order few to maybe 100 arcsec, certainly no more than a few arcmin
+        #so, greater than that implies a bad degree to arcsec conversion (degree assumed when arcsec passed)
+        if window > 1000:
+            msg = f"Unexpectedly high cutout size requested ({window}AA). Assume AA passed instead of degrees " \
+                        f"and will convert back to AA. Changing to ({window/3600.0})AA"
+            log.warning(msg)
+            print(msg)
+            window /= 3600.0
+            self.window = window
 
         #data = None
         #pix_size = None

@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.9.0a8 [2020-05-29]
+* add KPNO g-band to HSC (r-band) where coverage overlaps (was already contributing to PLAE/POII, but now explicitly
+  add the KPNO cutout image to HSC catalog reports)
+
 1.9.0a7 [2020-05-28]
 * turn off use of bid catalog object continuum estimates from the combined continuum estimate as it is (1) a mixing
   of probabilities (that the HETDEX object is an LAE + that each bid object is the HETDEX object) and (2) even using
