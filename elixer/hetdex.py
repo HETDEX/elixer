@@ -4236,6 +4236,11 @@ class HETDEX:
             except:
                 pass
 
+        if args.recover:
+            self.recover = True
+        else:
+            self.recover = False
+
         self.multiple_observations = False #set if multiple observations are used (rather than a single obsdate,obsid)
         self.ymd = None
         self.target_ra = args.ra
@@ -5666,7 +5671,8 @@ class HETDEX:
             dec = e.dec
 
         datakeep = self.build_data_dict(e)
-        if datakeep is None:
+        if (datakeep is None) or ((datakeep['status'] < 0) and self.recover):
+            e.status = -1
             return None
 
         e.get_probabilities()
@@ -6206,6 +6212,7 @@ class HETDEX:
                 del dd[k][:]
         else:
             dd = {}
+            dd['status'] =  0
             dd['detobj'] =  None
             dd['dit'] = []
             dd['side'] = []
@@ -6704,6 +6711,15 @@ class HETDEX:
             # sort from farthest to nearest ... yes, weird, but necessary for compatibility with
             # some cloned code f
             sort_list.sort(key=lambda x: x.dist,reverse=True)
+
+
+
+        if len(sort_list) == 0: #nothing available (this should not happen normally, but is seen sometimes with filesystem problems)
+        #if True:
+         #   print("***** DEBUG ***** TURN THIS OFF *****")
+            e.status = -1
+            datakeep['status'] = -1
+            return datakeep
 
         #for loc in locations:
         for item in sort_list:

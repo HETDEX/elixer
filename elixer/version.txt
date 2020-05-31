@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.9.0a9 [2020-05-31]
+* Do not build out a report if fibers are not found (may be a filesystem problem) AND we are in --recover mode (so that
+  on the next run, this report will be re-attempted). Implementation is a little wasteful, but is setup to allow for
+  a special (future) generation of the report anyway, but flagged s|t  --recover will work.
+
 1.9.0a8 [2020-05-29]
 * add KPNO g-band to HSC (r-band) where coverage overlaps (was already contributing to PLAE/POII, but now explicitly
   add the KPNO cutout image to HSC catalog reports)

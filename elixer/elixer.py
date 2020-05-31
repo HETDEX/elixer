@@ -125,6 +125,7 @@ class PDF_File():
         self.filename = None
         self.id = int(id)
         self.bid_count = 0 #rough number of bid targets included
+        self.status = 0
         if self.id > 0: #i.e. otherwise, just building a single pdf file
             #make the directory
             if not os.path.isdir(self.basename):
@@ -1081,6 +1082,12 @@ def join_report_parts(report_name, bid_count=0):
         Author="HETDEX, Univ. of Texas",
         Keywords='ELiXer Version = ' + G.__version__)
 
+    error = False
+    if report_name[-1] == '!': #this is a problem report (still generate, but there is an error we want to recover later)
+        report_name = report_name.rstrip('!')
+        error = True
+        return #for now, don't write anything
+
     if G.SINGLE_PAGE_PER_DETECT:
         #part0001 is the hetdex part (usually 2 pages)
         #part0002 is the catalog part (at least 2 pages, but if greater than MAX_COMBINED_BID_TARGETS
@@ -1137,6 +1144,8 @@ def join_report_parts(report_name, bid_count=0):
 
             if not report_name.endswith(".pdf"):
                 report_name += ".pdf"
+            if error:
+                report_name = "FAIL_" + report_name
             writer = PyPDF.PdfWriter(report_name)
 
             try:
@@ -1193,6 +1202,9 @@ def join_report_parts(report_name, bid_count=0):
 
             if not report_name.endswith(".pdf"):
                 report_name += ".pdf"
+            if error:
+                report_name = "FAIL_" + report_name
+
             writer = PyPDF.PdfWriter(report_name)
             writer.addPage(merge_page.render())
 
@@ -1226,12 +1238,17 @@ def join_report_parts(report_name, bid_count=0):
                 writer.addpages(PyPDF.PdfReader(part_name).pages)
 
         writer.trailer.Info = metadata
+        if error:
+            report_name = "FAIL_" + report_name
+
         writer.write(report_name)
 
     print("File written: " + report_name)
 
 
 def delete_report_parts(report_name):
+    if report_name[-1] == "!": #remove error marker, if present
+        report_name = report_name.rstrip("!")
     for f in glob.glob(report_name+".part*"):
         os.remove(f)
 
@@ -3393,6 +3410,10 @@ def main():
                             if args.annulus is None:
                                 pdf.pages = build_hetdex_section(pdf.filename,hd,e.id,pdf.pages) #this is the fiber, spectra cutouts for this detect
 
+                                # if e.status < 0:
+                                #     log.error(f"{e.id} Unable to build HETDEX section.")
+                                #     continue
+
                                 match = match_summary.Match(e)
 
                                 pdf.pages,pdf.bid_count = build_pages(pdf.filename, match, ra, dec, args.error, e.matched_cats, pdf.pages,
@@ -3401,14 +3422,26 @@ def main():
 
                                 #add in lines and classification info
                                 match_list.add(match) #always add even if bids are none
+                                if e.status < 0:
+                                    pdf.status = -1
+                                    pdf.filename += "!"
                                 file_list.append(pdf)
                             else: #todo: this is an annulus examination (fiber stacking)
                                 log.info("***** ANNULUS ***** ")
                                 pdf.pages = build_hetdex_section(pdf.filename, hd, e.id, pdf.pages, annulus=True)
+
+                                # if e.status < 0:
+                                #     log.error(f"{e.id} Unable to build HETDEX section.")
+                                #     continue
+
                                 pdf.pages, pdf.bid_count = build_pages(pdf.filename, None, ra, dec, args.error, e.matched_cats,
                                                                        pdf.pages, num_hits=0, idstring=id, base_count=0,
                                                                        target_w=e.w, fiber_locs=e.fiber_locs,
                                                                        target_flux=e.estflux, annulus=args.annulus,obs=e.syn_obs)
+                                if e.status < 0:
+                                    pdf.filename += "!"
+                                    pdf.status = -1
+
                                 file_list.append(pdf)
 
                 # else: #for multi calls (which are common now) this is of no use
@@ -3495,7 +3528,7 @@ def main():
             if G.COMBINE_PLAE:
                 for h in hd_list:
                     for e in h.emis_list:
-                        if True:
+                        if e.status >= 0:
                             plae, plae_sd, size_in_psf, diam_in_arcsec = e.combine_all_plae(use_continuum=True)
                             if G.AGGREGATE_PLAE_CLASSIFICATION:
                                 scale_plae, reason = e.aggregate_classification()
