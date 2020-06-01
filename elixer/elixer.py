@@ -638,7 +638,7 @@ def parse_commandline(auto_force=False):
                     args.gridsearch = (args.gridsearch[0], args.gridsearch[1], False)
         except:
             log.info("Exception parsing --gridsearch. Setting to default (3.0,0.4,False)",exc_info=True)
-            args.gridsearch = (3.0,0.4,False)
+            args.gridsearch = (3.0,0.2,False)
 
     if args.wavelength:
         try:
@@ -3808,16 +3808,17 @@ def main():
 
                             edict = SU.raster_search(ra_meshgrid, dec_meshgrid, shotlist, cw, max_velocity=1500,
                                                      aperture=3.0)
+                            #show most common (others are available via direct call to the saved py file)
                             z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,
-                                                     "intflux", show=args.gridsearch[2], save=None,savepy=savefn)
+                                                         "intflux", show=args.gridsearch[2], save=None,savepy=savefn)
                             #don't know how meaningful this really is, given that this is a single source (not a stack)
                             #and the f900 would be at the 0.01 S/N level
                             # z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,
                             #                          "f900", show=args.gridsearch[2], save=savefn)
-                            z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,
-                                                     "velocity_offset", show=args.gridsearch[2], save=None,savepy=savefn)
-                            z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,
-                                                     "continuum_level", show=args.gridsearch[2], save=None,savepy=savefn)
+                            # z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,
+                            #                          "velocity_offset", show=args.gridsearch[2], save=None,savepy=savefn)
+                            # z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,
+                            #                          "continuum_level", show=args.gridsearch[2], save=None,savepy=savefn)
                         except:
                             log.info(f"Exception grid search {e.entry_id}", exc_info=True)
 

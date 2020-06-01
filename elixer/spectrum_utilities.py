@@ -672,6 +672,8 @@ def extract_at_position(ra,dec,aperture,shotid,ffsky=False):
     return_dict['ra'] = ra
     return_dict['dec'] = dec
     return_dict['shot'] = shotid
+    return_dict['aperture'] = aperture
+    return_dict['ffsky'] = ffsky
 
     try:
         coord = SkyCoord(ra=ra * U.deg, dec=dec * U.deg)
@@ -789,7 +791,7 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=1000.0):
     return_dict['sigma'] = 0.0
     return_dict['rmse'] = 0.0
     return_dict['snr'] = 0.0
-    return_dict['score'] = 0.0
+    #return_dict['score'] = 0.0
 
     if (values is None) or (len(values) == 0):
         return return_dict
@@ -865,6 +867,7 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=1000.0):
             return_dict['sigma']=sigma
             return_dict['rmse'] = fit_rmse
             return_dict['snr'] = snr
+            #return_dict['score'] = line_score
 
 
             #assume fit line is LyA and get the sum around rest 880-910
@@ -1209,26 +1212,60 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
             try:
                 #save a pickle of the parameters and a python file to run?
                 parms_dict = {}
+
+                #make these small?? (drop the details?)
+                # cp_dict = copy.copy(dict_meshgrid)
+                # for c in np.ndarray.flatten(cp_dict):
+                #     try:
+                #         c['flux'] =[]
+                #         c['fluxerr'] = []
+                #         c['wave'] = []
+                #     except: #entry might be empty (0) and not hold a dictionary
+                #         pass
+                # parms_dict['dict_meshgrid'] = cp_dict
+
+                #or dump the whole data (keeping the spectra at each point?) could be usefull?
                 parms_dict['dict_meshgrid'] = dict_meshgrid
+
                 parms_dict['ra_meshgrid'] = ra_meshgrid
                 parms_dict['dec_meshgrid'] = dec_meshgrid
                 parms_dict['cw'] = cw
-                parms_dict['key'] = key
                 parms_dict['colormap'] = colormap
 
-                fn = savepy + "_" + key + "_plots"
+                fn = savepy + "_grid"
+                #subsequent calls to other plots will overwrite the pickle, but it is the same data
                 pickle.dump(parms_dict,open(fn+".pickle","wb"))
 
                 pyfilestr = "from elixer import spectrum_utilities as SU\n"
                 pyfilestr += "import pickle\n"
+                pyfilestr += "import sys\n"
+                pyfilestr += "import numpy as np\n"
+                pyfilestr += "args = list(map(str.lower, sys.argv))\n"
                 pyfilestr += f"parms_dict = pickle.load(open('{op.basename(fn)+'.pickle'}','rb'))\n"
+                pyfilestr += "data = np.ndarray.flatten(parms_dict['dict_meshgrid'])\n"
+                pyfilestr += "idx = np.where(data != 0)[0]\n"
+                pyfilestr += "try:\n"
+                pyfilestr += "    allkeys = data[idx[0]]['fit'].keys()\n"
+                pyfilestr += "except:\n"
+                pyfilestr += "    allkeys = data[idx[0]]['bad_fit'].keys()\n"
+                pyfilestr += "if (len(args) > 1):\n"
+                pyfilestr += "    if args[1] in allkeys:\n"
+                pyfilestr += "        key = args[1] \n"
+                pyfilestr += "    else:\n"
+                pyfilestr += "        print(f'Available keys to plot: {allkeys}')\n"
+                pyfilestr += "        exit(0)\n"
+                pyfilestr += "else:\n"
+                pyfilestr += "    print('Assuming intflux plot')\n"
+                pyfilestr += "    print(f'Available keys to plot: {allkeys}')\n"
+                pyfilestr += "    key = 'intflux'\n"
                 pyfilestr += "SU.make_raster_plots(parms_dict['dict_meshgrid']," \
                              "parms_dict['ra_meshgrid']," \
                              "parms_dict['dec_meshgrid']," \
                              "parms_dict['cw']," \
-                             "parms_dict['key']," \
+                             "key," \
                              "parms_dict['colormap']," \
                              "show=True,save=None,savepy=None)\n"
+
 
                 with open(fn+".py","w") as f:
                     f.write(pyfilestr)
