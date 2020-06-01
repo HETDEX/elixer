@@ -3178,7 +3178,8 @@ class DetObj:
                     # fiber.fits_fn = get_hetdex_multifits_path(fiber.)
 
                     # now, get the corresponding FITS or FITS equivalent (HDF5)
-                    if self.annulus is None:
+                    #if self.annulus is None:
+                    if True:
                         fits = hetdex_fits.HetdexFits(empty=True)
                         # populate the data we need to read the HDF5 file
                         fits.filename = fiber.fits_fn  # mfits_name #todo: fix to the corect path
@@ -3433,6 +3434,9 @@ class DetObj:
                 self.syn_obs.annulus = self.annulus
                 self.syn_obs.fibers_all = self.fibers
                 self.syn_obs.w = self.target_wavelength
+                self.syn_obs.survey_shotid = self.survey_shotid
+                # get all the fibers inside the outer annulus radius
+                self.syn_obs.get_aperture_fibers()
 
         except:
             log.error("Exception in hetdex.py forced_extraction.",exc_info=True)

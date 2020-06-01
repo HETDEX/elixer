@@ -1316,3 +1316,5 @@ def get_shotids(ra,dec,hdr_version=G.HDR_Version):
 # ra_meshgrid, dec_meshgrid = SU.make_raster_grid(RA,DEC,3.0,0.4)
 # edict = SU.raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,max_velocity=2000,aperture=3.0)
 # z = SU.make_raster_plots(edict,ra_meshgrid,dec_meshgrid,cw,"intflux",show=True)
+# notice:  in the above call, to save static images, specify a filename base in the "save" parameter
+#          or for interactive images, in the "savepy" parameter

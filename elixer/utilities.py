@@ -373,11 +373,11 @@ def intersection_area(R_in, R_out,d, r=G.Fiber_Radius):
     credit: mostly taken from:
     https://scipython.com/book/chapter-8-scipy/problems/p84/overlapping-circles/
 
-    :param R_in:
-    :param R_out:
+    :param R_in: inner radius of the annulus (arcsec)
+    :param R_out: outer radius of the annulus (arcsec)
     :param d: fiber center distance to center of annulus (arcsec)
     :param r: fiber radius
-    :return:
+    :return: area (in arcsec**2) of fiber inside the annulus
     """
 
     def overlap(R,d,r=G.Fiber_Radius):
@@ -401,13 +401,26 @@ def intersection_area(R_in, R_out,d, r=G.Fiber_Radius):
         beta = np.arccos((d2 + R2 - r2) / (2*d*R))
         return (r2*alpha + R2*beta - 0.5*(r2*np.sin(2*alpha) + R2 * np.sin(2*beta)))
 
+    try:
+        area = overlap(R_out,d,r) - overlap(R_in,d,r)
+    except:
+        #just assume the whole (r could be junk)
         try:
-            area = overlap(R_out,d,r) - overlap(R_in,d,r)
+            area = np.pi *r *r
         except:
-            #just assume the whole (r could be junk)
-            try:
-                area = np.pi *r *r
-            except:
-                area = 0.0
+            area = 0.0
 
-        return area
+    return area
+
+def intersection_fraction(R_in, R_out,d, r=G.Fiber_Radius):
+    """
+    Get the fractional overlap area of fiber and annulus. All units are arcsec
+
+    :param R_in: inner radius of the annulus (arcsec)
+    :param R_out: outer radius of the annulus (arcsec)
+    :param d: fiber center distance to center of annulus (arcsec)
+    :param r: fiber radius
+    :return: fraction of the fiber area inside the annulus
+    """
+
+    return intersection_area(R_in, R_out,d,r) / (np.pi *r *r)

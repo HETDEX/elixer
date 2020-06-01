@@ -95,6 +95,7 @@ class SyntheticObservation():
 
             #build list of fibers and sort by distance (as proxy for weight)
             count = 0
+            duplicate_count = 0
             num_fibers = len(ftb)
             for row in ftb:
                 count += 1
