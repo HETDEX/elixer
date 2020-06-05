@@ -359,6 +359,7 @@ if "--nodes" in args:
 if i != -1:
     try:
         max_nodes = int(sys.argv[i + 1])
+        print(f"--nodes {max_nodes}")
     except:
        print("Exception parsing --nodes")
 
