@@ -56,7 +56,7 @@ filter_iso_dict = {'u': 3650.0,
 
 def filter_iso(filtername, lam):
     """
-    Approximate iso wavelength lookup by filter. If not found, just returns the wavelenght passed in.
+    Approximate iso wavelength lookup by filter. If not found, just returns the wavelength passed in.
     :param filtername:
     :param lam:
     :return:

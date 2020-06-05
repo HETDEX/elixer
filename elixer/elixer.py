@@ -111,6 +111,9 @@ def parse_astrometry(file):
 
 def xlat_shotid(raw):
     try:
+        if raw is None:
+            return None
+
         shot = int(float(str(raw).lower().replace('v','')))
         if shot == 0:
             return None

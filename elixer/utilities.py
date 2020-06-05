@@ -3,6 +3,7 @@ import logging
 import numpy as np
 from astropy.visualization import ZScaleInterval
 from astropy import units
+from astropy.coordinates import SkyCoord
 import math
 import os.path as op
 import tarfile as tar
@@ -18,16 +19,24 @@ except:
 log = G.Global_Logger('utilities')
 log.setlevel(G.LOG_LEVEL)
 
-def angular_distance(ra1,dec1,ra2,dec2):
-    #distances are expected to be relatively small, so will use the median between the decs for curvature
-    dist = -1.
-    try:
-        dec_avg = 0.5*(dec1 + dec2)
-        dist = np.sqrt((np.cos(np.deg2rad(dec_avg)) * (ra2 - ra1)) ** 2 + (dec2 - dec1) ** 2)
-    except:
-        log.debug("Invalid angular distance.",exc_info=True)
 
-    return dist * 3600. #in arcsec
+def angular_distance(ra1,dec1,ra2,dec2):
+    """
+    :param ra1: decimal degrees
+    :param dec1: decimal degrees
+    :param ra2:  decimal degrees
+    :param dec2: decimal degrees
+    :return:  distance between the two positions (in decimal arcsec)
+    """
+    dist = -1
+    try:
+        c1 = SkyCoord(ra=ra1 * units.deg, dec=dec1* units.deg)
+        c2 = SkyCoord(ra=ra2 * units.deg, dec=dec2* units.deg)
+        dist = c1.separation(c2).value * 3600.
+    except:
+        log.info("Exception in utilities::angular_distance:",exc_info =True)
+
+    return dist #in arcsec
 
 def get_vrange(vals,contrast=0.25):
     vmin = None
