@@ -297,6 +297,9 @@ class DistancePrior:
             # technically this would put the right edge in with the lower bin
             # but for an early, quick and dirty experiment, is okay
             dist_bin = round(float(dist) / self.dist_bin_width) * self.dist_bin_width
+            if mag is None or np.isnan(mag):
+                log.info("cat_bayesaian::get_prior() mag is None or NaN. Returning prand = 0.5")
+                return 0.5 #arbitrary
             mag_bin = round(float(mag))
 
             #find the corresponding indicies
@@ -370,7 +373,7 @@ class DistancePrior:
                                  (mag, dist, 1. - p_rand_match))
         except:
             log.warning("Cannot sample distance mdf. Will return p = 1.0",exc_info=True)
-            p_rand_match = 1.0
+            p_rand_match = 0.5 #arbitrary
 
 
         p_rand_match = min(1.0,abs(p_rand_match))
