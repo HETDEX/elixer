@@ -5119,6 +5119,17 @@ class HETDEX:
                 if e.outdir is None:
                     e.outdir = self.output_filename
 
+                if self.recover: #this is a recover operation and we can now check for the .pdf
+                    try:
+                        if os.path.isfile(os.path.join(e.outdir, str(e.id) + ".pdf")) or \
+                           os.path.isfile(os.path.join(e.outdir,e.outdir + "_" + str(e.id).zfill(3) + ".pdf")):
+
+                            log.info(f"Already processed ({e.ra},{e.dec}) shot ({e.survey_shotid}). Will skip (recovery)." )
+                            e.status = -1
+                            return
+                    except:
+                        log.info("Exception checking reovery path. Will (re)build forced extraction report.")
+
                 #a place to check for multiframe files if local and HDR locations fail
                 #overloading use of --hdf5 invocation parameter (since this is a forced extraction
                 # the detection file that would have been specified in --hdf5 is meaningless, so using

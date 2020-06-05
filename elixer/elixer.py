@@ -3100,9 +3100,12 @@ def main():
 
     if G.RECOVERY_RUN:
         if args.aperture is not None:
-            G.RECOVERY_RUN = False
-            log.info("Forced extraction does not support RECOVERY MODE (so mode turned off).")
-            print("Forced extraction does not support RECOVERY MODE (so mode turned off).")
+            #G.RECOVERY_RUN = False
+            log.info("Forced extraction does not fully support RECOVERY MODE (behavior may be unexpected).")
+            print("Forced extraction does not fully support RECOVERY MODE (behavior may be unexpected).")
+            #still want the master loop, though
+            master_loop_length = len(hdf5_detectid_list)
+            master_hdf5_detectid_list = hdf5_detectid_list
         elif len(hdf5_detectid_list) > 0:
             hdf5_detectid_list = prune_detection_list(args,None,hdf5_detectid_list)
             if len(hdf5_detectid_list) == 0:
@@ -3220,7 +3223,7 @@ def main():
 
                             if not args.shotid: #must fill this in, so look for all shots and add a hetdex obj for each
                                 #todo: fill in shots here
-                                print("Todo: fill in unspecified shotids")
+                                #print("Todo: fill in unspecified shotids")
                                 if not survey:
                                     survey = hda_survey.Survey(survey="hdr%d"%G.HDR_Version)
                                     if not survey:
