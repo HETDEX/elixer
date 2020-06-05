@@ -622,8 +622,9 @@ if not time_set: #update time
         except:
             mult = 1.0
 
-
-        time = str(timedelta(minutes=int(TIME_OVERHEAD + MAX_TIME_PER_TASK * mx * mult * base_time_multiplier)))
+        # set a minimum time ... always AT LEAST 5 or 10 minutes requested?
+        minutes = int(TIME_OVERHEAD + MAX_TIME_PER_TASK * mx * mult * base_time_multiplier)
+        time = str(timedelta(minutes=max(minutes,10.0)))
         print("--time %s" %time)
 
     except Exception as e:
@@ -636,6 +637,7 @@ if not time_set: #update time
 
 #a little less efficient, but easier to read ... dump all the unncessary, human readable comments
 #and just prep the machine used code
+
 
 launch_str = None
 
