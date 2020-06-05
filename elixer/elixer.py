@@ -286,7 +286,10 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--email', help="If populated, sends SLURM status to this email address", required=False)
 
     parser.add_argument('--queue', help="If populated, specifies which TACC queue (vis, gpu) to use.", required=False)
+
     parser.add_argument('--tasks', help="If populated, specifies how many TACC tasks to use.", required=False)
+
+    parser.add_argument('--ntasks_per_node', help="If populated, specifies the (max) TACC ntasks_per_node to use.", required=False)
 
     parser.add_argument('--nodes', help="If populated, specifies the maximum TACC nodes to use.", required=False)
 

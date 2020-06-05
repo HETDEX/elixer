@@ -350,6 +350,32 @@ else:
 
 
 
+#check for ntasks_per_node (optional)
+i = -1
+ntasks_per_node = 0
+if "--ntasks_per_node" in args:
+    i = args.index("--ntasks_per_node")
+else:
+    print(f"--ntasks_per_node NOT specified. Defaulting to {hostname} {MAX_TASKS_PER_NODE}")
+
+if i != -1:
+    try:
+        ntasks_per_node = int(sys.argv[i + 1])
+    except:
+       print("Exception parsing --ntasks_per_node")
+
+    if ntasks_per_node == 0:
+        print("Auto set maximum ntasks_per_node ...")
+        if not time_set: #updated later on when we know the number of tasks per CPU
+            time = "00:10:00" #10 minutes (no known elixer call takes more than 1 minute, give lots of slop
+    elif (ntasks_per_node < 1) or (ntasks_per_node > MAX_TASKS_PER_NODE):
+        print (f"Invalid --ntasks_per_node value. Must be 0 (auto-max) or between 1 to {MAX_TASKS_PER_NODE} inclusive.")
+        exit(-1)
+    else:
+        MAX_TASKS_PER_NODE = ntasks_per_node
+else:
+    pass
+
 #check for nodes
 max_nodes = 0
 i = -1
@@ -387,7 +413,8 @@ os.chdir(basename)
 ### elixer.run
 path = os.path.join(os.path.dirname(sys.argv[0]),"elixer.py")
 nodes = 1
-ntasks_per_node = 1 #default
+if ntasks_per_node < 1:
+    ntasks_per_node = 1
 
 dets_per_dispatch =  [] #list of counts ... the number of detection directories to list in the corresponding dispatch_xxx file
 if tasks == 1:
