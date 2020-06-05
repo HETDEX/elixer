@@ -363,7 +363,7 @@ if i != -1:
        print("Exception parsing --nodes")
 
     if max_nodes == 0:
-        print("Auto set maximum nodes ...")
+        print(f"Auto set maximum nodes {hostname}:{MAX_NODES} ...")
     elif (max_nodes < 1) or (max_nodes > MAX_NODES):
         print ("Invalid --nodes value.", max_nodes)
         exit(-1)
