@@ -3,6 +3,7 @@ changes to elixer by version
 1.9.0a10 [2020-06-05]
 * add --ntasks_per_node switch to explicitly override the per host system default for TACC SLURM runs
 * add limited support for --recover mode for explicit (re)extractions
+* make --recover mode default ON for SLURM (can override and force off with --no_recover)
 
 1.9.0a9 [2020-05-31]
 * Do not build out a report if fibers are not found (may be a filesystem problem) AND we are in --recover mode (so that

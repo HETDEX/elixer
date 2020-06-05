@@ -357,6 +357,10 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--recover', help='Recover/continue from previous run. Will append to and NOT overwrite exsiting output.',
                         required=False, action='store_true', default=False)
 
+    parser.add_argument('--no_recover', help='Explicitly override the default (--recover) for dispatch mode.',
+                        required=False, action='store_true', default=False)
+
+
     parser.add_argument('--prep_recover', help='Clean output directories for recovery run. Executes an interactive script.',
                         required=False, action='store_true', default=False)
 
@@ -424,8 +428,9 @@ def parse_commandline(auto_force=False):
     #regardless of setting, --multi must now always be true
     args.multi = True
 
-    if args.recover:
+    if args.recover or ((args.dispatch is not None) and not args.no_recover):
         G.RECOVERY_RUN = True
+        args.recover = True
 
     #first time we need to log anything
     #G.logging.basicConfig(filename=G.LOG_FILENAME, level=G.LOG_LEVEL, filemode='w')
