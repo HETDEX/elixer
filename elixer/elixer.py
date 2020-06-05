@@ -399,7 +399,7 @@ def parse_commandline(auto_force=False):
                         required=False, default=-1.0,type=float)
 
     parser.add_argument('--hdr', help="Override the default HETDEX Data Release version. Specify an integer > 0",
-                        required=False, default= 0,type=int)
+                        required=False, default= 0,type=float)
 
     parser.add_argument('--log', help="Logging level. Default (info). Choose: debug, info, error, critical", required=False)
 

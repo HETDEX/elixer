@@ -35,7 +35,7 @@ else:
 
 LAUNCH_PDF_VIEWER = None
 
-valid_HDR_Versions = [1,2]
+valid_HDR_Versions = [1,2,2.1]
 
 HDR_Version = 2
 
@@ -101,7 +101,9 @@ if "--hdr" in args: #overide default if specified on command line
     try:
         i = args.index("--hdr")
         if i != -1:
-            HDR_Version = int(sys.argv[i + 1]) #todo: will this ever not be an integer?
+            HDR_Version = float(sys.argv[i + 1]) #this could be an integer or a float or a string?
+            if HDR_Version.is_integer():
+                HDR_Version = int(HDR_Version)
     except:
         pass
 
