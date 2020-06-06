@@ -1259,6 +1259,8 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                         try:
                             flux_faint = None
                             flux_bright = None
+                            bid_flux_est_cgs_unc = None
+
 
                             if kpno_cuts[0]['details']['mag_faint'] < 99:
                                 flux_faint = self.obs_mag_to_cgs_flux(kpno_cuts[0]['details']['mag_faint'],
@@ -1267,7 +1269,6 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                             if kpno_cuts[0]['details']['mag_bright'] < 99:
                                 flux_bright = self.obs_mag_to_cgs_flux(kpno_cuts[0]['details']['mag_bright'],
                                                                        SU.filter_iso('g', target_w))
-
                             if flux_bright and flux_faint:
                                 bid_flux_est_cgs_unc = max((bid_flux_est_cgs - flux_faint),
                                                                       (flux_bright - bid_flux_est_cgs))
