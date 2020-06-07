@@ -301,7 +301,11 @@ class HetdexFits:
 
                 if (rows is None) or (rows.size != 1):
                     self.okay = False
-                    log.error("Problem loading multi-fits HDF5 equivalant. Bad Shot table.")
+                    if (rows is None):
+                        reason = "(rows is None)"
+                    else:
+                        reason = f"(rows size is {rows.size}, expected 1)"
+                    log.error("Problem loading multi-fits HDF5 equivalant. Bad Shot table." + reason)
                     return
 
                 row = rows[0]

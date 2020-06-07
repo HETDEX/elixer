@@ -337,11 +337,11 @@ class DECaLS(cat_base.Catalog):#DECaLS
                 if details:
                     details['mag'] = mag
                     try:
-                        details['mag_bright'] = np.min(mag,details['mag_bright'])
+                        details['mag_bright'] = min(mag,details['mag_bright'])
                     except:
                         details['mag_bright'] = mag
                     try:
-                        details['mag_faint'] = np.max(mag,G.MAX_MAG_FAINT)
+                        details['mag_faint'] = max(mag,G.MAX_MAG_FAINT)
                     except:
                         details['mag_faint'] = G.MAX_MAG_FAINT
 

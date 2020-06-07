@@ -1239,6 +1239,26 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                     self.add_zero_position(plt)
 
                     if kpno_cuts[0]['details'] is not None:
+                        try:
+                            if (kpno.MAG_LIMIT < kpno_cuts[0]['details']['mag'] < 100) and (kpno_cuts[0]['details']['radius'] > 0):
+                                kpno_cuts[0]['details']['fail_mag_limit'] = True
+                                kpno_cuts[0]['details']['raw_mag'] = kpno_cuts[0]['details']['mag']
+                                kpno_cuts[0]['details']['raw_mag_bright'] = kpno_cuts[0]['details']['mag_bright']
+                                kpno_cuts[0]['details']['raw_mag_faint'] = kpno_cuts[0]['details']['mag_faint']
+                                kpno_cuts[0]['details']['raw_mag_err'] = kpno_cuts[0]['details']['mag_err']
+                                log.warning(f"Cutout mag {kpno_cuts[0]['details']['mag']} greater than limit {kpno.MAG_LIMIT}. Setting to limit.")
+
+                                kpno_cuts[0]['details']['mag'] = kpno.MAG_LIMIT
+                                try:
+                                    kpno_cuts[0]['details']['mag_bright'] = min(kpno.MAG_LIMIT, kpno_cuts[0]['details']['mag_bright'])
+                                except:
+                                    kpno_cuts[0]['details']['mag_bright'] = kpno.MAG_LIMIT
+                                try:
+                                    kpno_cuts[0]['details']['mag_faint'] = max(kpno.MAG_LIMIT, G.MAX_MAG_FAINT)
+                                except:
+                                    kpno_cuts[0]['details']['mag_faint'] = G.MAX_MAG_FAINT
+                        except:
+                            pass
                         #this will happen anyway under KPNO itself
                         # (note: the "details" are actually populated in the independent KPNO catalog calls)
 
@@ -1254,26 +1274,28 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                             except:
                                 lineFlux_err = 0.
 
-                        bid_flux_est_cgs = self.obs_mag_to_cgs_flux(kpno_cuts[0]['details']['mag'],
-                                                                    SU.filter_iso('g', target_w))
                         try:
                             flux_faint = None
                             flux_bright = None
                             bid_flux_est_cgs_unc = None
+                            bid_flux_est_cgs = None
 
+                            if kpno_cuts[0]['details']['mag'] < 99:
+                                bid_flux_est_cgs = self.obs_mag_to_cgs_flux(kpno_cuts[0]['details']['mag'],
+                                                                            SU.filter_iso('g', target_w))
 
-                            if kpno_cuts[0]['details']['mag_faint'] < 99:
-                                flux_faint = self.obs_mag_to_cgs_flux(kpno_cuts[0]['details']['mag_faint'],
-                                                                      SU.filter_iso('g', target_w))
+                                if kpno_cuts[0]['details']['mag_faint'] < 99:
+                                    flux_faint = self.obs_mag_to_cgs_flux(kpno_cuts[0]['details']['mag_faint'],
+                                                                          SU.filter_iso('g', target_w))
 
-                            if kpno_cuts[0]['details']['mag_bright'] < 99:
-                                flux_bright = self.obs_mag_to_cgs_flux(kpno_cuts[0]['details']['mag_bright'],
-                                                                       SU.filter_iso('g', target_w))
-                            if flux_bright and flux_faint:
-                                bid_flux_est_cgs_unc = max((bid_flux_est_cgs - flux_faint),
-                                                                      (flux_bright - bid_flux_est_cgs))
-                            elif flux_bright:
-                                bid_flux_est_cgs_unc = flux_bright - bid_flux_est_cgs
+                                if kpno_cuts[0]['details']['mag_bright'] < 99:
+                                    flux_bright = self.obs_mag_to_cgs_flux(kpno_cuts[0]['details']['mag_bright'],
+                                                                           SU.filter_iso('g', target_w))
+                                if flux_bright and flux_faint:
+                                    bid_flux_est_cgs_unc = max((bid_flux_est_cgs - flux_faint),
+                                                                          (flux_bright - bid_flux_est_cgs))
+                                elif flux_bright:
+                                    bid_flux_est_cgs_unc = flux_bright - bid_flux_est_cgs
 
                         except:
                             pass
@@ -1387,11 +1409,11 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 if details:
                     details['mag'] = mag
                     try:
-                        details['mag_bright'] = np.min(mag,details['mag_bright'])
+                        details['mag_bright'] = min(mag,details['mag_bright'])
                     except:
                         details['mag_bright'] = mag
                     try:
-                        details['mag_faint'] = np.max(mag,G.MAX_MAG_FAINT)
+                        details['mag_faint'] = max(mag,G.MAX_MAG_FAINT)
                     except:
                         details['mag_faint'] = G.MAX_MAG_FAINT
 
