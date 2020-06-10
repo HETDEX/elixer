@@ -5146,6 +5146,7 @@ class HETDEX:
                         e.hdf5_shot_dir = self.hdf5_detect_fqfn
 
                 if basic_only:
+                    self.emis_list.append(e) #still need to append to list so the neighborhood report will generate
                     return
 
                 e.forced_extraction()
