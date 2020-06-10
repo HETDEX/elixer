@@ -489,9 +489,9 @@ class DetObj:
         self.dataflux = 0.0
         self.modflux = 0.0
         self.fluxfrac = 1.0
-        self.estflux = -1
+        self.estflux = -1.0#-1
         self.estflux_unc = 0.0
-        self.estflux_h5 = -1 #from the h5 file (Karl's estimates)
+        self.estflux_h5 = -1.0 #from the h5 file (Karl's estimates)
         self.estflux_h5_unc = 0.0
 
         self.sigma = 0.0 #also doubling as sn (see @property sn farther below)
@@ -1169,7 +1169,8 @@ class DetObj:
         #
         # Mostly a distribution value
         try:
-            if (self.classification_dict['plae_hat'] is not None) and (self.classification_dict['plae_hat_sd'] is not None):
+            if (self.classification_dict['plae_hat'] is not None) and (self.classification_dict['plae_hat'] != -1) \
+            and (self.classification_dict['plae_hat_sd'] is not None):
                 #scale ranges from 0.999 (LAE) to 0.001 (not LAE)
                 #logic is simple based on PLAE/POII interpreations to mean #LAE/(#LAE + #OII) where #LAE is a fraction and #OII == 1
                 #so PLAE/POII = 1000 --> 1000/(1000+1) = 0.999, PLAE/POII == 1.0 --> (1/(1+1)) = 0.5, PLAE/POII = 0.001 --> 0.001/(0.001 +1) = 0.001
@@ -1340,7 +1341,8 @@ class DetObj:
                 self.classification_dict['plae_hat_lo'] = plae_errors['ratio'][1]
                 self.classification_dict['plae_hat_sd'] = plae_sd
             except:
-                log.debug("Exception in hetdex::combine_all_plae()",exc_info=True)
+                #log.debug("Exception in hetdex::combine_all_plae()",exc_info=True)
+                log.info(f"Unusable classifiction_dict in hetdex::combine_all_plae(). {self.classification_dict}")
                 self.classification_dict['plae_hat'] = -1
                 self.classification_dict['plae_hat_hi'] = -1
                 self.classification_dict['plae_hat_lo'] = -1
@@ -3237,38 +3239,41 @@ class DetObj:
                                           eqw_obs=self.eqw_obs, eqw_obs_unc=self.eqw_obs_unc,
                                           estcont=self.cont_cgs, estcont_unc=self.cont_cgs_unc)
 
-                self.estflux = self.spec_obj.central_eli.mcmc_line_flux
-                self.estflux_unc = 0.5 * (self.spec_obj.central_eli.mcmc_line_flux_tuple[1] +
-                                          self.spec_obj.central_eli.mcmc_line_flux_tuple[2])
+                if self.spec_obj.central_eli is not None:
+                    self.estflux = self.spec_obj.central_eli.mcmc_line_flux
+                    self.estflux_unc = 0.5 * (self.spec_obj.central_eli.mcmc_line_flux_tuple[1] +
+                                              self.spec_obj.central_eli.mcmc_line_flux_tuple[2])
 
-                self.eqw_obs = self.spec_obj.central_eli.mcmc_ew_obs[0]
-                self.eqw_obs_unc = 0.5 * (self.spec_obj.central_eli.mcmc_ew_obs[1] +
-                                          self.spec_obj.central_eli.mcmc_ew_obs[2])
+                    self.eqw_obs = self.spec_obj.central_eli.mcmc_ew_obs[0]
+                    self.eqw_obs_unc = 0.5 * (self.spec_obj.central_eli.mcmc_ew_obs[1] +
+                                              self.spec_obj.central_eli.mcmc_ew_obs[2])
 
-                self.cont_cgs = self.spec_obj.central_eli.mcmc_continuum
-                self.cont_cgs_unc = 0.5*(self.spec_obj.central_eli.mcmc_continuum_tuple[1] +
-                                         self.spec_obj.central_eli.mcmc_continuum_tuple[2])
-                # self.snr = self.spec_obj.central_eli.mcmc_snr
-                self.snr = self.spec_obj.central_eli.mcmc_snr
+                    self.cont_cgs = self.spec_obj.central_eli.mcmc_continuum
+                    self.cont_cgs_unc = 0.5*(self.spec_obj.central_eli.mcmc_continuum_tuple[1] +
+                                             self.spec_obj.central_eli.mcmc_continuum_tuple[2])
+                    # self.snr = self.spec_obj.central_eli.mcmc_snr
+                    self.snr = self.spec_obj.central_eli.mcmc_snr
 
-                self.spec_obj.estflux = self.estflux
-                self.spec_obj.eqw_obs = self.eqw_obs
+                    self.spec_obj.estflux = self.estflux
+                    self.spec_obj.eqw_obs = self.eqw_obs
 
-                self.chi2 = self.spec_obj.central_eli.fit_chi2
-                self.chi2_unc = 0.0
+                    self.chi2 = self.spec_obj.central_eli.fit_chi2
+                    self.chi2_unc = 0.0
 
-                self.snr = self.spec_obj.central_eli.snr #row['sn']
-                self.snr_unc = 0.0 #row['sn_err']
+                    self.snr = self.spec_obj.central_eli.snr #row['sn']
+                    self.snr_unc = 0.0 #row['sn_err']
 
-                self.sigma = self.spec_obj.central_eli.fit_sigma #row['linewidth']  # AA
-                self.sigma_unc = 0.0 #row['linewidth_err']
-                if (self.sigma_unc is None) or (self.sigma_unc < 0.0):
-                    self.sigma_unc = 0.0
-                self.fwhm = 2.35 * self.sigma
-                self.fwhm_unc = 2.35 * self.sigma_unc
+                    self.sigma = self.spec_obj.central_eli.fit_sigma #row['linewidth']  # AA
+                    self.sigma_unc = 0.0 #row['linewidth_err']
+                    if (self.sigma_unc is None) or (self.sigma_unc < 0.0):
+                        self.sigma_unc = 0.0
+                    self.fwhm = 2.35 * self.sigma
+                    self.fwhm_unc = 2.35 * self.sigma_unc
 
-                self.estflux_h5 = self.estflux
-                self.estflux_h5_unc = self.estflux_unc
+                    self.estflux_h5 = self.estflux
+                    self.estflux_h5_unc = self.estflux_unc
+                else:
+                    log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra(). spec_obj.central_eli is None.")
 
             except:
                 log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra")

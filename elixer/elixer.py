@@ -900,6 +900,8 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
                  target_flux=None,annulus=None,obs=None,detobj=None):
 
     _NUDGE_MAG_APERTURE_CENTER_SAVED = G.NUDGE_MAG_APERTURE_CENTER
+    if (target_flux is None) or (target_flux < 0):
+        target_flux = 0.0
 
     def update_aperture_rules(restore_nudge=0.0):
         """
