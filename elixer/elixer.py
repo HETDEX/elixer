@@ -3822,7 +3822,7 @@ def main():
                             x, y = np.shape(ra_meshgrid)
                             log.info(f"{e.entry_id} gridsearch ({ra},{dec},{cw}) at {x}x{y}x{len(shotlist)}")
 
-                            edict = SU.raster_search(ra_meshgrid, dec_meshgrid, shotlist, cw, max_velocity=1500,
+                            edict = SU.raster_search(ra_meshgrid, dec_meshgrid, shotlist, cw, max_velocity=500,
                                                      aperture=3.0)
                             #show most common (others are available via direct call to the saved py file)
                             z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,
