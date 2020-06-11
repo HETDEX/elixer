@@ -245,7 +245,8 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--ifuslot', help="IFU SLOT ID (integer)  "
                                           "If not specified, all are used (may be restricted by --specid or --ifusid)", required=False, type=int)
 
-    parser.add_argument('-e', '--error', help="Error (+/-) in RA and Dec in arcsecs.", required=False, type=float)
+    parser.add_argument('-e', '--error', help="Error (+/-) in RA and Dec in arcsecs.", required=False, type=float,
+                        default=3.0)
 
     parser.add_argument('--search', help="Search window (+/-) in RA and Dec in arcsecs (for use only with --ra and --dec).", required=False, type=float)
 
