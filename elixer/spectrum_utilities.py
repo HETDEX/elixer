@@ -73,7 +73,6 @@ def filter_iso(filtername, lam):
         return lam
 
 
-
 def mag2cgs(mag,lam):
     """
     :param mag:   AB mag
@@ -104,6 +103,27 @@ def cgs2ujy(cgs,lam): #erg/s/cm2/AA to micro-jansky
     except:
         log.info("Exception! in cgs2ujy.", exc_info=True)
     return conv
+
+
+def ujy2mag(ujy): #micro-jansky to erg/s/cm2/AA
+    conv = None
+    try:
+        conv = -2.5 * np.log10(ujy / 1e6 / 3631.)
+    except:
+        log.info("Exception! in ujy2mag.",exc_info=True)
+    return conv
+
+
+def cgs2mag(cgs,lam):
+    """
+    :param cgs:   erg/s/cm2/AA
+    :return:
+    """
+    try:
+       return ujy2mag(cgs2ujy(cgs,lam))
+    except:
+        return 0
+
 
 def getnearpos(array,value):
     """

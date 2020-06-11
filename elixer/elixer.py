@@ -3825,8 +3825,8 @@ def main():
                             edict = SU.raster_search(ra_meshgrid, dec_meshgrid, shotlist, cw, max_velocity=1500,
                                                      aperture=3.0)
                             #show most common (others are available via direct call to the saved py file)
-                            z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,
-                                                         "intflux", show=args.gridsearch[2], save=None,savepy=savefn)
+                            z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,"intflux",
+                                                          save=None,savepy=savefn,show=args.gridsearch[2])
                             #don't know how meaningful this really is, given that this is a single source (not a stack)
                             #and the f900 would be at the 0.01 S/N level
                             # z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,
