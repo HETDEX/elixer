@@ -114,11 +114,19 @@ def xlat_shotid(raw):
         if raw is None:
             return None
 
-        shot = int(float(str(raw).lower().replace('v','')))
-        if shot == 0:
-            return None
-        else:
+        if len(np.shape(raw)) == 1: #this is an array or list
+            #shot = [float(str(r).lower().replace('v','')) for r in raw]
+            shot = [xlat_shotid(s) for s in raw]
             return shot
+        else: #single value
+            shot = float(str(raw).lower().replace('v',''))
+            if shot == 0:
+                return None
+            elif 3400. < shot < 5700.: #assume to be a HETDEX wavelength, not a shot
+                return shot #as a float
+            else:
+                return int(shot)
+
     except:
         log.error(f"Exception translating shotid ({raw})",exc_info=True)
 
@@ -1692,6 +1700,8 @@ def get_hdf5_detectids_to_process(args):
                                         row.append(xlat_shotid(toks[2]))
                                         if len(toks) == 4: #wavelength (in AA)
                                             row.append(float(toks[3]))
+
+                                        #if shotid and wavelength are flipped, it should be caught later?
                                     else:
                                         row.append(None)
 
@@ -1745,13 +1755,28 @@ def get_hdf5_detectids_to_process(args):
                     return rows
 
             elif (args.ra is not None) and (args.dec is not None) and ((args.error is not None) or (args.search is not None)):
-                # args.ra and dec are now guaranteed to be decimal degrees. args.error is in arcsecs
-                if args.search is not None:
-                    error = args.search
-                else:
-                    error = args.error
 
-                return get_hdf5_detectids_by_coord(args.hdf5, args.ra, args.dec, error / 3600.)
+                if args.aperture: #this is a re-extraction request
+                    if args.shotid:
+                        shot = xlat_shotid(args.shotid)
+                    else:
+                        shot = "0"
+
+                    if args.wavelength:
+                        wave = args.wavelength
+                    else:
+                        wave = "0"
+
+                    line = str(args.ra) + " " + str(args.dec) + " " + str(shot) + " " + str(wave)
+                    return [line]
+                else:
+                    # args.ra and dec are now guaranteed to be decimal degrees. args.error is in arcsecs
+                    if args.search is not None:
+                        error = args.search
+                    else:
+                        error = args.error
+
+                    return get_hdf5_detectids_by_coord(args.hdf5, args.ra, args.dec, error / 3600.)
             else:
                 return []
 
@@ -1939,19 +1964,32 @@ def read_coords_file(filename,args=None,as_rows=False):
                 shots = np.zeros(len(ras))
                 waves = np.zeros(len(ras))
         else:
+
+            #     #rows = open(filename, "r").read().splitlines()
+            #     rows = np.loadtxt(filename, unpack=False)
+            #     try:
+            #         if np.shape(rows)[1] > 2:
+            #             rows[:,2] = xlat_shotid(rows[:,2])
+            #     except:
+            #         pass
+            #
+            # else:
+            try: #4 values
+                ras, decs, shots, waves = np.loadtxt(filename, unpack=True)
+                shots = xlat_shotid(shots)
+            except:
+                try: #3 values
+                    ras, decs, shots = np.loadtxt(filename, unpack=True)
+                    shots = xlat_shotid(shots)
+                    waves = np.zeros(len(ras))
+                except: #2 values
+                    ras, decs = np.loadtxt(filename, unpack=True)
+                    shots = np.zeros(len(ras))
+                    waves = np.zeros(len(ras))
             if as_rows:
-                rows = np.loadtxt(filename, unpack=False)
-            else:
-                try: #4 values
-                    ras, decs, shots, waves = np.loadtxt(filename, unpack=True)
-                except:
-                    try: #3 values
-                        ras, decs, shots = np.loadtxt(filename, unpack=True)
-                        wave = np.zeros(len(ras))
-                    except: #2 values
-                        ras, decs = np.loadtxt(filename, unpack=True)
-                        wave = np.zeros(len(ras))
-                        shots = np.zeros(len(ras))
+                #yes this is a weird way to do this
+                #but numpy forces its arrays to all be of the same type and we prefer the shots to be integers
+                rows = [list(a) for a in zip(ras,decs,shots,waves)]
     except:
         log.error("Unable to read in --coords specified file.", exc_info=True)
         if as_rows:
@@ -3216,11 +3254,18 @@ def main():
                                 args.ra = d[0]
                                 args.dec = d[1]
                                 args.shotid = xlat_shotid(d[2])
+                                if 3400. < args.shotid < 5700.: #assume this is really a wavelength
+                                    args.wavelength = args.shotid
+                                    args.shotid = None
                             elif len(d) == 4:
                                 args.ra = d[0]
                                 args.dec = d[1]
                                 args.shotid = xlat_shotid(d[2])
-                                args.wavelength = float(d[3])
+                                if 3400. < args.shotid < 5700.:  # assume this is really a wavelength and shotid is flipped with wavelength
+                                    args.wavelength = args.shotid
+                                    args.shotid = xlat_shotid(d[3])
+                                else:
+                                    args.wavelength = float(d[3])
                                 if args.wavelength == 0:
                                     args.wavelength = None
                             else:

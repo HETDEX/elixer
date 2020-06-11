@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.9.0a11 [2020-06-11]
+* allow --coords file to flip the 3rd and 4th columns (shotid and wavelength), by assuming that values 3400 to 5700 are
+  wavelengths (in AA) and not shotids (very limited logic and very little error checking)
+
+
 1.9.0a10 [2020-06-10]
 * add --ntasks_per_node switch to explicitly override the per host system default for TACC SLURM runs
 * add limited support for --recover mode for explicit (re)extractions

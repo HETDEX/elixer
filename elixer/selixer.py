@@ -115,6 +115,8 @@ if "tacc.utexas.edu" in hostname:
 
 FILL_CPU_TASKS = 10 #don't add another node until each CPU on the current node(s) hit this number
 MAX_DETECTS_PER_CPU = 9999999 #do not execute this job of the dispatch_xxxx list count exceeds this value
+MAX_TASKS_PER_NODE =1 #default (local machine)
+MAX_NODES=1
 
 #note MAX_TASKS is the maximum number of dispatchs to create
 #     MAX_TASKS_PER_NODE is effectively the number of CORES to use per node
