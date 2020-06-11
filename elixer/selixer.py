@@ -174,7 +174,8 @@ elif hostname == "wrangler":
     time = "00:59:59"
     time_set = False
     email = "##SBATCH --mail-user\n##SBATCH --mail-type all"
-    queue = "normal"
+    if queue is None:
+        queue = "normal"
     tasks = 0
 elif hostname == "stampede2":
     if queue is None:
