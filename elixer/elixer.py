@@ -1966,30 +1966,31 @@ def read_coords_file(filename,args=None,as_rows=False):
         else:
 
             #     #rows = open(filename, "r").read().splitlines()
-            #     rows = np.loadtxt(filename, unpack=False)
+            if as_rows:
+                rows = np.loadtxt(filename, unpack=False)
             #     try:
             #         if np.shape(rows)[1] > 2:
             #             rows[:,2] = xlat_shotid(rows[:,2])
             #     except:
             #         pass
             #
-            # else:
-            try: #4 values
-                ras, decs, shots, waves = np.loadtxt(filename, unpack=True)
-                shots = xlat_shotid(shots)
-            except:
-                try: #3 values
-                    ras, decs, shots = np.loadtxt(filename, unpack=True)
+            else:
+                try: #4 values
+                    ras, decs, shots, waves = np.loadtxt(filename, unpack=True)
                     shots = xlat_shotid(shots)
-                    waves = np.zeros(len(ras))
-                except: #2 values
-                    ras, decs = np.loadtxt(filename, unpack=True)
-                    shots = np.zeros(len(ras))
-                    waves = np.zeros(len(ras))
-            if as_rows:
-                #yes this is a weird way to do this
-                #but numpy forces its arrays to all be of the same type and we prefer the shots to be integers
-                rows = [list(a) for a in zip(ras,decs,shots,waves)]
+                except:
+                    try: #3 values
+                        ras, decs, shots = np.loadtxt(filename, unpack=True)
+                        shots = xlat_shotid(shots)
+                        waves = np.zeros(len(ras))
+                    except: #2 values
+                        ras, decs = np.loadtxt(filename, unpack=True)
+                        shots = np.zeros(len(ras))
+                        waves = np.zeros(len(ras))
+            # if as_rows: #this doest NOT work the way I want ... produces a string that has [,,,,]
+            #     #yes this is a weird way to do this
+            #     #but numpy forces its arrays to all be of the same type and we prefer the shots to be integers
+            #     rows = [str(list(a)) for a in zip(ras,decs,shots,waves)]
     except:
         log.error("Unable to read in --coords specified file.", exc_info=True)
         if as_rows:
