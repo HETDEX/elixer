@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.9.0a12 [2020-06-16]
+* incorporate update to hetdex_api and add fiber weights to forced/(re) extractions
+
 1.9.0a11 [2020-06-11]
 * allow --coords file to flip the 3rd and 4th columns (shotid and wavelength), by assuming that values 3400 to 5700 are
   wavelengths (in AA) and not shotids (very limited logic and very little error checking)

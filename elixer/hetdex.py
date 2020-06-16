@@ -3033,8 +3033,9 @@ class DetObj:
         """
         try:
             coord = SkyCoord(ra=self.ra * U.deg, dec=self.dec * U.deg)
-            apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,ffsky=self.extraction_ffsky,
-                              multiprocess=False, rad=self.extraction_aperture,tpmin=0.0)
+            apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
+                                  ffsky=self.extraction_ffsky, multiprocess=False, rad=self.extraction_aperture,
+                                  tpmin=0.0)
 
             if len(apt) == 0:
                 #print(f"No spectra for ra ({self.ra}) dec ({self.dec})")
@@ -3046,6 +3047,14 @@ class DetObj:
             self.sumspec_flux = np.nan_to_num(apt['spec'][0], nan=0.000) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
             self.sumspec_fluxerr = np.nan_to_num(apt['spec_err'][0], nan=0.000) * G.FLUX_WAVEBIN_WIDTH
             self.sumspec_wavelength = np.array(apt['wavelength'][0])
+
+
+            #get fiber weights if available
+            fiber_weights = None
+            try:
+                fiber_weights = apt['fiber_weights'][0] #as array of ra,dec,weight
+            except:
+                pass
 
             if not self.w:
                 # find the "best" wavelength to use as the central peak
@@ -3104,6 +3113,7 @@ class DetObj:
 
             #build list of fibers and sort by distance (as proxy for weight)
             count = 0
+            subset_norm_weight = 0
             num_fibers = len(ftb)
             for row in ftb:
                 count += 1
@@ -3156,6 +3166,17 @@ class DetObj:
                     #don't have weights used, so use distance to the provided RA, Dec as a sorting substitute
                     #fiber.raw_weight = row['weight']
                     fiber.distance = utils.angular_distance(fiber.ra,fiber.dec,self.ra,self.dec)
+
+                    try:
+                        #in degrees, so this is less than 0.1"
+                        fw_idx = np.where( (abs(fiber_weights[:,0] - fiber.ra) < 0.00003) &
+                                       (abs(fiber_weights[:,1] - fiber.dec) < 0.00003 ))[0]
+
+                        if len(fw_idx) == 1:
+                            fiber.raw_weight = fiber_weights[fw_idx,2]
+                            subset_norm_weight += fiber.raw_weight
+                    except:
+                        pass
 
                     # check that this is NOT a duplicate
                     for i in range(len(self.fibers)):
@@ -3211,7 +3232,15 @@ class DetObj:
 
                     self.fibers.append(fiber)
 
-            self.fibers.sort(key=lambda x: x.distance, reverse=False)  # highest weight is index = 0
+
+            if subset_norm_weight > 0:
+                for f in self.fibers:
+                    f.relative_weight = f.raw_weight / subset_norm_weight
+
+                self.fibers.sort(key=lambda x: x.relative_weight, reverse=True)  # highest weight is index =
+            else:
+                self.fibers.sort(key=lambda x: x.distance, reverse=False)  # highest weight is index = 0
+
             self.fibers_sorted = True
 
             #build a noise estimate over the top 4 fibers (amps)?
