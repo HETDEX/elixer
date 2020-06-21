@@ -413,8 +413,8 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--log', help="Logging level. Default (info). Choose: debug, info, error, critical", required=False)
 
 
-    parser.add_argument('--gridsearch', help='Search a grid around the RA, Dec. '
-                                             'Specify (+/- arcsec, grid size (arcsec), 0=plot, 1=interactive)', required=False)
+    parser.add_argument('--gridsearch', help='Search a grid around the RA, Dec. 4-tuple.'
+                                             'Specify (+/- arcsec, grid size (arcsec), velocity offset (km/s), 0=plot, 1=interactive)', required=False)
 
     if G.LAUNCH_PDF_VIEWER is not None:
         parser.add_argument('--viewer', help='Launch the global_config.py set PDF viewer on completion', required=False,
@@ -647,18 +647,22 @@ def parse_commandline(auto_force=False):
     if args.gridsearch:
         try:
             args.gridsearch = tuple(map(float, args.gridsearch.split(',')))
-            if args.gridsearch[2] == 0:
-                args.gridsearch = (args.gridsearch[0],args.gridsearch[1],False)
+
+            if len(args.gridsearch) == 3: #old version, does not have the velocity offset max
+                args.gridsearch = (args.gridsearch[0],args.gridsearch[1],1500.0,args.gridsearch[2])
+
+            if args.gridsearch[3] == 0:
+                args.gridsearch = (args.gridsearch[0],args.gridsearch[1],args.gridsearch[2],False)
             else:
                 if args.dispatch is None:
-                    args.gridsearch = (args.gridsearch[0], args.gridsearch[1],True)
+                    args.gridsearch = (args.gridsearch[0], args.gridsearch[1],args.gridsearch[2],True)
                 else:
                     log.info("Gridsearch interaction overwritten to False due to dispatch (SLURM) mode.")
                     print("Gridsearch interaction overwritten to False due to dispatch (SLURM) mode.")
-                    args.gridsearch = (args.gridsearch[0], args.gridsearch[1], False)
+                    args.gridsearch = (args.gridsearch[0], args.gridsearch[1], args.gridsearch[2], False)
         except:
-            log.info("Exception parsing --gridsearch. Setting to default (3.0,0.4,False)",exc_info=True)
-            args.gridsearch = (3.0,0.2,False)
+            log.info("Exception parsing --gridsearch. Setting to default (3.0,0.4,1500.0,False)",exc_info=True)
+            args.gridsearch = (3.0,0.2,1500.0,False)
 
     if args.wavelength:
         try:
@@ -3817,7 +3821,7 @@ def main():
         # even so (and this is true of the neighborhood and mini as well, but to a lesser extent as they are faster)
         # for the last PDF to be completed, if SLURM times out, this would be missed and not re-run
         if args.gridsearch:
-            if len(args.gridsearch) != 3:
+            if len(args.gridsearch) != 4:
                 log.warning(f"Invalid gridsearch parameter ({args.gridsearch})")
             else:
                 log.debug("Preparing for gridsearch ...")
@@ -3869,19 +3873,19 @@ def main():
                             x, y = np.shape(ra_meshgrid)
                             log.info(f"{e.entry_id} gridsearch ({ra},{dec},{cw}) at {x}x{y}x{len(shotlist)}")
 
-                            edict = SU.raster_search(ra_meshgrid, dec_meshgrid, shotlist, cw, max_velocity=1500,
-                                                     aperture=3.0)
+                            edict = SU.raster_search(ra_meshgrid, dec_meshgrid, shotlist, cw,
+                                                     max_velocity=args.gridsearch[2],aperture=3.0)
                             #show most common (others are available via direct call to the saved py file)
                             z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,"intflux",
-                                                          save=None,savepy=savefn,show=args.gridsearch[2])
+                                                          save=savefn,savepy=savefn,show=args.gridsearch[3])
                             #don't know how meaningful this really is, given that this is a single source (not a stack)
                             #and the f900 would be at the 0.01 S/N level
                             # z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,
-                            #                          "f900", show=args.gridsearch[2], save=savefn)
+                            #                          "f900", show=args.gridsearch[3], save=savefn)
                             # z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,
-                            #                          "velocity_offset", show=args.gridsearch[2], save=None,savepy=savefn)
+                            #                          "velocity_offset", show=args.gridsearch[3], save=None,savepy=savefn)
                             # z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,
-                            #                          "continuum_level", show=args.gridsearch[2], save=None,savepy=savefn)
+                            #                          "continuum_level", show=args.gridsearch[3], save=None,savepy=savefn)
                         except:
                             log.info(f"Exception grid search {e.entry_id}", exc_info=True)
 

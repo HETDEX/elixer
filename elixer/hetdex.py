@@ -7294,6 +7294,12 @@ class HETDEX:
 
                     #the last one is the top one and is the primary
                     datakeep['primary_idx'] = ind[i]
+                else: #not one of the top 4 ... but still add to the sum
+                    a = datakeep['im'][ind[i]]
+                    a = np.ma.masked_where(datakeep['err'][ind[i]] == -1, a)
+                    a = np.ma.filled(a, 0.0)
+
+                    summed_image += a * datakeep['fiber_weight'][ind[i]]
 
             else: #this is the top image (the sum)
                 is_a_fiber = False
