@@ -97,7 +97,7 @@ def main():
 
         if len(merge_list) > 0:
             if os.path.exists("elixer_merged_cat.h5"):
-                merge_list.index(0,"elixer_merged_cat.h5")
+                merge_list.insert(0,"elixer_merged_cat.h5")
             #do the merging
             merge_hdf5(merge_list,"elixer_merged_cat.h5")
 
