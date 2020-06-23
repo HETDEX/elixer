@@ -5,8 +5,10 @@ import os
 import errno
 try:
     from elixer import elixer
+    from elixer import smerge
 except:
     import elixer
+    import smerge
 
 import numpy as np
 from math import ceil
@@ -69,10 +71,16 @@ host = HOST_UNKNOWN
 args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
 
 #check for --merge (if so just call elixer
+MERGE = False
 if "--merge" in args:
-    print("Calling ELiXer to merge catalogs and fiber files (ignoring all other parameters) ... ")
-    elixer.merge()
-    exit(0)
+    if hostname == "z50":
+        print("Testing SLURM merge ... remove z50 check")
+        MERGE = True
+        hostname = 'wrangler'
+    else:
+        print("Calling ELiXer to merge catalogs and fiber files (ignoring all other parameters) ... ")
+        elixer.merge()
+        exit(0)
 
 
 if "--ooops" in args:
@@ -109,6 +117,9 @@ base_time_multiplier = 1.0
 if "--gridsearch" in args:
     base_time_multiplier = 3.0
     #just an average guess; the actual time depends on the grid width, cell size and number of shots
+
+if MERGE:
+    base_time_multiplier = 0.2
 
 if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
@@ -281,7 +292,7 @@ if i != -1:
     except:
         print ("Error! Cannot find mandatory parameter --name")
         exit(-1)
-else:
+elif not MERGE:
     print("Error! Cannot find mandatory parameter --name")
     exit(-1)
 
@@ -402,19 +413,22 @@ if i != -1:
 else:
     print(f"--nodes not specified. Auto set maximum nodes {hostname}:{MAX_NODES} ...")
 
+if not MERGE:
+    if not os.path.isdir(basename):
+        try:
+            os.makedirs(basename)
+        except OSError as exception:
+            if exception.errno != errno.EEXIST:
+                print("Error! Cannot create output directory: %s" % basename)
+                exit(-1)
 
-if not os.path.isdir(basename):
-    try:
-        os.makedirs(basename)
-    except OSError as exception:
-        if exception.errno != errno.EEXIST:
-            print("Error! Cannot create output directory: %s" % basename)
-            exit(-1)
-
-os.chdir(basename)
+    os.chdir(basename)
 
 ### elixer.run
-path = os.path.join(os.path.dirname(sys.argv[0]),"elixer.py")
+if not MERGE:
+    path = os.path.join(os.path.dirname(sys.argv[0]),"elixer.py")
+else:
+    path = os.path.join(os.path.dirname(sys.argv[0]),"smerge.py")
 nodes = 1
 if ntasks_per_node < 1:
     ntasks_per_node = 1
@@ -440,22 +454,29 @@ else: # multiple tasks
         print("Parsing directories to process. This may take a little while ...\n")
 
         subdirs = [] #this is a list of detectids OR RA and Decs (the length of the list is used and each "row" is written out later)
-        if args.fcsdir is not None:
-            subdirs = elixer.get_fcsdir_subdirs_to_process(args)
-        # elif args.aperture is not None:
-        #     #need to work on this here
-        #     print("SLURM/dispatch (re)extraction not yet ready....")
-        #     exit(0)
-        else: #if (args.ra is not None):
-            #either a --dets list or a --coords list, but either way, get a list of HETDEX detectids to process
-            subdirs = elixer.get_hdf5_detectids_to_process(args)
+
+        if MERGE:
+            subdirs = smerge.get_base_merge_files()
+        else:
+            if args.fcsdir is not None:
+                subdirs = elixer.get_fcsdir_subdirs_to_process(args)
+            # elif args.aperture is not None:
+            #     #need to work on this here
+            #     print("SLURM/dispatch (re)extraction not yet ready....")
+            #     exit(0)
+            else: #if (args.ra is not None):
+                #either a --dets list or a --coords list, but either way, get a list of HETDEX detectids to process
+                subdirs = elixer.get_hdf5_detectids_to_process(args)
 
         if tasks != 0:
             if tasks > len(subdirs):  # problem too many tasks requestd
                 print("Error! Too many tasks (%d) requested. Only %d directories to process." % (tasks, len(subdirs)))
                 exit(-1)
         else:
-            tasks = min(MAX_TASKS,len(subdirs))
+            if MERGE:
+                tasks = min(MAX_TASKS, len(subdirs)//2)
+            else:
+                tasks = min(MAX_TASKS,len(subdirs))
 
             if host == HOST_MAVERICK:
                 #maverick forces 20 tasks per node, does not use --ntasks-per-node
@@ -546,8 +567,13 @@ else: # multiple tasks
             #fix the minimum (don't ask for more tasks per node than you have actual tasks to run)
             #only an issue if there is only one node requested
             ntasks_per_node = min(tasks,ntasks_per_node)
+            if not MERGE:
+                print("%d detections as %d tasks (dispatch_xxxx) on %d nodes at ~ %d tasks-per-node" %
+                      (len(subdirs),tasks,nodes,ntasks_per_node))
+            else:
+                print("%d catalogs to merge as %d tasks (dispatch_xxxx) on %d nodes at ~ %d tasks-per-node" %
+                      (len(subdirs),tasks,nodes,ntasks_per_node))
 
-            print("%d detections as %d tasks (dispatch_xxxx) on %d nodes at ~ %d tasks-per-node" % (len(subdirs),tasks,nodes,ntasks_per_node))
 
         #dirs_per_file == how many detections (directory holding detection info) to add to each dispatch_xxx
         if tasks == 0:
@@ -566,11 +592,19 @@ else: # multiple tasks
         dets_per_dispatch = np.full(tasks,dirs_per_file)
         dets_per_dispatch[0:remainder] += 1 #add one more per task to cover the remainder
 
-        f = open("elixer.run", 'w')
+        if not MERGE:
+            f = open("elixer.run", 'w')
+        else:
+            f = open("elixer_merge.run", 'w')
 
         start_idx = 0
         for i in range(int(tasks)):
+
             fn = "dispatch_" + str(i).zfill(4)
+            if MERGE:
+                fn2 = "merge_" + str(i).zfill(4)
+            else:
+                fn2 = fn
 
             if not os.path.isdir(fn):
                 try:
@@ -580,7 +614,7 @@ else: # multiple tasks
                         print ("Fatal. Cannot create output directory: %s" % fn)
                         exit(-1)
 
-            df = open(os.path.join(fn,fn), 'w')
+            df = open(os.path.join(fn,fn2), 'w')
             #content = ""
 
             #start_idx = i * dirs_per_file
@@ -603,7 +637,19 @@ else: # multiple tasks
 
             #parms = remove_ra_dec(sys.argv[1:])
             #run = "cd " + fn + " ; python " + path + ' ' + ' ' + ' '.join(parms) + ' --dispatch ' + fn + ' -f ; cd .. \n'
-            run = "cd " + fn + " ; " + pre_python_cmd + python_cmd + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' --dispatch ' + fn + ' -f ; cd .. \n'
+            if not MERGE:
+                run = "cd " + fn + " ; " + pre_python_cmd + python_cmd + path + ' ' + ' ' + ' '.join(sys.argv[1:]) + ' --dispatch ' + fn + ' -f ; cd .. \n'
+            else:
+                run = "cd " + fn + " ; " + pre_python_cmd + python_cmd + path + ' ' + ' ' + \
+                      ' '.join(sys.argv[1:]) + ' --dispatch ' + fn2 + ' -f ; cd .. \n'
+
+            f.write(run)
+
+        if MERGE:
+            #need to add one more task line for the top-level final merge
+            #this runs from the top (no directory change)
+            run = + pre_python_cmd + python_cmd + path + ' ' + ' ' + \
+                  ' '.join(sys.argv[1:]) + ' --dispatch final' + ' -f \n'
             f.write(run)
 
         f.close()
@@ -658,7 +704,11 @@ if host == HOST_MAVERICK:
     slurm += "module load launcher\n"
     slurm += "export EXECUTABLE=$TACC_LAUNCHER_DIR/init_launcher\n"
     slurm += "export WORKDIR=. \n"
-    slurm += "export CONTROL_FILE=elixer.run\n"
+    if MERGE:
+        slurm += "export CONTROL_FILE=elixer_merge.run\n"
+    else:
+        slurm += "export CONTROL_FILE=elixer.run\n"
+#    slurm += "export CONTROL_FILE=elixer.run\n"
     slurm += "export TACC_LAUNCHER_NPHI=0\n"
     slurm += "export TACC_LAUNCHER_PHI_PPN=8\n"
     slurm += "export PHI_WORKDIR=.\n"
@@ -705,7 +755,10 @@ elif host == HOST_WRANGLER:
     slurm += "export EXECUTABLE=$TACC_LAUNCHER_DIR/init_launcher\n"
     # note: wranger says WORKDIR and CONTROL_FILE deprecated, so replace with LAUNCHER_WORKDIR, LAUNCHER_JOB_FILE
     slurm += "export LAUNCHER_WORKDIR=$(pwd)\n"
-    slurm += "export LAUNCHER_JOB_FILE=elixer.run\n"
+    if MERGE:
+        slurm += "export LAUNCHER_JOB_FILE=elixer_merge.run\n"
+    else:
+        slurm += "export LAUNCHER_JOB_FILE=elixer.run\n"
     # just so the bottom part work as is and print w/o error
     slurm += "WORKDIR=$LAUNCHER_WORKDIR\n"
     slurm += "CONTROL_FILE=$LAUNCHER_JOB_FILE\n"
@@ -751,7 +804,11 @@ elif host == HOST_STAMPEDE2:
     slurm += "export LAUNCHER_PLUGIN_DIR=$TACC_LAUNCHER_DIR/plugins\n"
     slurm += "export LAUNCHER_RMI=SLURM\n"
     slurm += "export LAUNCHER_WORKDIR=$(pwd)\n"
-    slurm += "export LAUNCHER_JOB_FILE=elixer.run\n"
+    if MERGE:
+        slurm += "export LAUNCHER_JOB_FILE=elixer_merge.run\n"
+    else:
+        slurm += "export LAUNCHER_JOB_FILE=elixer.run\n"
+    #slurm += "export LAUNCHER_JOB_FILE=elixer.run\n"
     # just so the bottom part work as is and print w/o error
     slurm += "WORKDIR=$LAUNCHER_WORKDIR\n"
     slurm += "CONTROL_FILE=$LAUNCHER_JOB_FILE\n"
@@ -813,180 +870,15 @@ slurm += "echo \" \"\n"
 slurm += "echo \" Parameteric Job Complete\"\n"
 slurm += "echo \" \" "
 
-
-
-
-if False: #old way
-    slurm = "\
-    #!/bin/bash \n\
-    #\
-    # Simple SLURM script for submitting multiple serial\n\
-    # jobs (e.g. parametric studies) using a script wrapper\n\
-    # to launch the jobs.\n\
-    #\n\
-    # To use, build the launcher executable and your\n\
-    # serial application(s) and place them in your WORKDIR\n\
-    # directory.  Then, edit the CONTROL_FILE to specify \n\
-    # each executable per process.\n\
-    #-------------------------------------------------------\n\
-    #-------------------------------------------------------\n\
-    # \n\
-    #------------------Scheduler Options--------------------\n\
-    #SBATCH -J ELiXer              # Job name\n\
-    #SBATCH -n " + str(tasks) + "                  # Total number of tasks\n"
-
-    slurm += "#SBATCH -N " + str(nodes) + "                  # Total number of nodes requested\n"
-    slurm += "\
-    #SBATCH -p " + queue +"                 # Queue name\n\
-    #SBATCH -o ELIXER.o%j          # Name of stdout output file (%j expands to jobid)\n\
-    #SBATCH -t " + time + "            # Run time (hh:mm:ss)\n\
-    #SBATCH -A Hobby-Eberly-Telesco\n"
-    slurm += email + "\n"
-    slurm += "\
-    #------------------------------------------------------\n\
-    #\n\
-    # Usage:\n\
-    #	#$ -pe <parallel environment> <number of slots> \n\
-    #	#$ -l h_rt=hours:minutes:seconds to specify run time limit\n\
-    # 	#$ -N <job name>\n\
-    # 	#$ -q <queue name>\n\
-    # 	#$ -o <job output file>\n\
-    #	   NOTE: The env variable $JOB_ID contains the job id. \n\
-    #\n\
-    #------------------------------------------------------\n\
-    \n\
-    #------------------General Options---------------------\n"
-
-    if host == HOST_MAVERICK:
-        slurm += "module unload xalt \n"
-        slurm += "module load launcher\n"
-        slurm += "export EXECUTABLE=$TACC_LAUNCHER_DIR/init_launcher\n"
-        slurm += "export WORKDIR=.\n"
-        slurm += "export CONTROL_FILE=elixer.run\n"
-
-    elif host == HOST_WRANGLER:
-        slurm += "module load launcher\n"
-        slurm += "export TACC_LAUNCHER_PPN=24\n"
-        slurm += "export EXECUTABLE=$TACC_LAUNCHER_DIR/init_launcher\n"
-        #note: wranger says WORKDIR and CONTROL_FILE deprecated, so replace with LAUNCHER_WORKDIR, LAUNCHER_JOB_FILE
-        slurm += "export LAUNCHER_WORKDIR=$(pwd)\n"
-        slurm += "export LAUNCHER_JOB_FILE=elixer.run\n"
-        #just so the bottom part work as is and print w/o error
-        slurm += "WORKDIR=$LAUNCHER_WORKDIR\n"
-        slurm += "CONTROL_FILE=$LAUNCHER_JOB_FILE\n"
-
-    elif host == HOST_STAMPEDE2:
-        slurm += "module load launcher\n"
-        slurm += "export EXECUTABLE=$TACC_LAUNCHER_DIR/init_launcher\n"
-        # note: wranger says WORKDIR and CONTROL_FILE deprecated, so replace with LAUNCHER_WORKDIR, LAUNCHER_JOB_FILE
-        slurm += "export LAUNCHER_WORKDIR=$(pwd)\n"
-        slurm += "export LAUNCHER_JOB_FILE=elixer.run\n"
-        # just so the bottom part work as is and print w/o error
-        slurm += "WORKDIR=$LAUNCHER_WORKDIR\n"
-        slurm += "CONTROL_FILE=$LAUNCHER_JOB_FILE\n"
-    else:
-        slurm += "module load launcher\n"
-        slurm += "export EXECUTABLE=$TACC_LAUNCHER_DIR/init_launcher\n"
-        slurm += "export WORKDIR=. \n"
-        slurm += "export CONTROL_FILE=elixer.run\n"
-
-    slurm += "\
-    \n\
-    # Variable descriptions:\n\
-    #\n\
-    #  TACC_LAUNCHER_PPN = number of simultaneous processes per host\n\
-    #                      - if this variable is not set, value is\n\
-    #                        determined by the process density/wayness\n\
-    #                        specified in 'Scheduler Options'\n\
-    #  EXECUTABLE        = full path to the job launcher executable\n\
-    #  WORKDIR           = location of working directory\n\
-    #  CONTROL_FILE      = text input file which specifies\n\
-    #                      executable for each process\n\
-    #                      (should be located in WORKDIR)\n\
-    #------------------------------------------------------\n\
-    \n\
-    #--------- Intel Xeon Phi Options (EXPERIMENTAL) -------------\n\
-    export TACC_LAUNCHER_NPHI=0\n\
-    export TACC_LAUNCHER_PHI_PPN=8\n\
-    export PHI_WORKDIR=.\n\
-    export PHI_CONTROL_FILE=phiparamlist\n\
-    \n\
-    # Variable descriptions:\n\
-    #  TACC_LAUNCHER_NPHI    = number of Intel Xeon Phi cards to use per node\n\
-    #                          (use 0 to disable use of Xeon Phi cards)\n\
-    #  TACC_LAUNCHER_PHI_PPN = number of simultaneous processes per Xeon Phi card\n\
-    #  PHI_WORKDIR           = location of working directory for Intel Xeon Phi jobs\n\
-    #  PHI_CONTROL_FILE      = text input file which specifies executable\n\
-    #                          for each process to be run on Intel Xeon Phi\n\
-    #                          (should be located in PHI_WORKDIR)\n\
-    #------------------------------------------------------\n\
-    \n\
-    #------------ Task Scheduling Options -----------------\n\
-    export TACC_LAUNCHER_SCHED=interleaved\n\
-    \n\
-    # Variable descriptions:\n\
-    #  TACC_LAUNCHER_SCHED = scheduling method for lines in CONTROL_FILE\n\
-    #                        options (k=process, n=num. lines, p=num. procs):\n\
-    #                          - interleaved (default): \n\
-    #                              process k executes every k+nth line\n\
-    #                          - block:\n\
-    #                              process k executes lines [ k(n/p)+1 , (k+1)(n/p) ]\n\
-    #                          - dynamic:\n\
-    #                              process k executes first available unclaimed line\n\
-    #--------------------------------------------------------\n\
-    \n"
-
-    slurm += "export LD_PRELOAD=/work/00410/huang/share/patch/myopen.so \n"
-    slurm += "\
-    #----------------\n\
-    # Error Checking\n\
-    #----------------\n\
-    \n\
-    if [ ! -d $WORKDIR ]; then \n\
-            echo \" \" \n\
-        echo \"Error: unable to change to working directory.\" \n\
-        echo \"       $WORKDIR\" \n\
-        echo \" \" \n\
-        echo \"Job not submitted.\"\n\
-        exit\n\
-    fi\n\
-    \n\
-    if [ ! -x $EXECUTABLE ]; then\n\
-        echo \" \"\n\
-        echo \"Error: unable to find launcher executable $EXECUTABLE.\"\n\
-        echo \" \"\n\
-        echo \"Job not submitted.\"\n\
-        exit\n\
-    fi\n\
-    \n\
-    if [ ! -e $WORKDIR/$CONTROL_FILE ]; then\n\
-        echo \" \"\n\
-        echo \"Error: unable to find input control file $CONTROL_FILE.\"\n\
-        echo \" \"\n\
-        echo \"Job not submitted.\"\n\
-        exit\n\
-    fi\n\
-    \n\
-    #----------------\n\
-    # Job Submission\n\
-    #----------------\n\
-    \n\
-    cd $WORKDIR/ \n\
-    echo \" WORKING DIR:   $WORKDIR/\"\n\
-    \n\
-    $TACC_LAUNCHER_DIR/paramrun SLURM $EXECUTABLE $WORKDIR $CONTROL_FILE $PHI_WORKDIR $PHI_CONTROL_FILE\n\
-    \n\
-    echo \" \"\n\
-    echo \" Parameteric Job Complete \"\n \
-    echo \" \" "
-#end old way
-
 try:
-    f = open("elixer.slurm", 'w')
+    if MERGE:
+        f = open("elixer_merge.slurm", 'w')
+    else:
+        f = open("elixer.slurm", 'w')
     f.write(slurm)
     f.close()
 except:
-    print("Error! Cannot create elixer.slurm")
+    print("Error! Cannot create SLURM file")
     exit(-1)
 
 
@@ -997,7 +889,10 @@ print ("Calling SLURM queue ...")
 if host == HOST_LOCAL:
     print("Here we will call: sbatch elixer.slurm")
 else:
-    os.system('sbatch elixer.slurm')
+    if MERGE:
+        os.system('sbatch elixer_merge.slurm')
+    else:
+        os.system('sbatch elixer.slurm')
 #
 
 
