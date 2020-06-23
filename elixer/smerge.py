@@ -58,6 +58,19 @@ def merge_hdf5(fn_list=None,merge_fn="elixer_intermediate_merge.working"):
     except Exception as e:
         print(e)
 
+def merge_unique(newfile,file1,file2):
+    try:
+        result = elixer_hdf5.merge_unique(newfile,file1,file2)
+
+        if result:
+            print("Merge Unique: Success. File = %s" %newfile)
+        else:
+            print("Merge Unique: FAIL.")
+    except Exception as e:
+        print(e)
+
+
+
 def main():
 
     merge_list_fn = None
@@ -96,10 +109,16 @@ def main():
                 still_waiting = False
 
         if len(merge_list) > 0:
+            needs_unique = False
+
             if os.path.exists("elixer_merged_cat.h5"):
-                merge_list.insert(0,"elixer_merged_cat.h5")
-            #do the merging
-            merge_hdf5(merge_list,"elixer_merged_cat.h5")
+                needs_unique = True
+                merge_hdf5(merge_list, "elixer_merged_cat_new.h5")
+                os.rename("elixer_merged_cat.h5","elixer_merged_cat_old.h5")
+                merge_unique("elixer_merged_cat.h5","elixer_merged_cat_old.h5","elixer_merged_cat_new.h5")
+                #merge_list.insert(0,"elixer_merged_cat.h5")
+            else:
+                merge_hdf5(merge_list, "elixer_merged_cat.h5")
 
             #clean up
             print("Cleaning up ...")
@@ -107,6 +126,12 @@ def main():
                 if file != "elixer_merged_cat.h5":
                     print(f"Removing {file}")
                     os.remove(file)
+
+            if os.path.exists("elixer_merged_cat_new.h5"):
+                os.remove("elixer_merged_cat_new.h5")
+
+            if os.path.exists("elixer_merged_cat_old.h5"):
+                os.remove("elixer_merged_cat_old.h5")
 
     else: #this is a generational merge
         try:
