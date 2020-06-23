@@ -112,7 +112,7 @@ def main():
         try:
             with open(merge_list_fn) as f:
                 for line in f:
-                    merge_list.append("../"+line) #based on being one level above dispatch_xxxx
+                    merge_list.append("../"+line.rstrip("\n")) #based on being one level above dispatch_xxxx
 
         except Exception as e:
             print("Could not open merge_list file")
