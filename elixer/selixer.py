@@ -649,7 +649,7 @@ else: # multiple tasks
         if MERGE:
             #need to add one more task line for the top-level final merge
             #this runs from the top (no directory change)
-            run = + pre_python_cmd + python_cmd + path + ' ' + ' ' + \
+            run = pre_python_cmd + python_cmd + path + ' ' + ' ' + \
                   ' '.join(sys.argv[1:]) + ' --dispatch final' + ' -f \n'
             f.write(run)
 
