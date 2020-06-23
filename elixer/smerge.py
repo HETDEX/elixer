@@ -102,8 +102,10 @@ def main():
             merge_hdf5(merge_list,"elixer_merged_cat.h5")
 
             #clean up
+            print("Cleaning up ...")
             for file in merge_list:
                 if file != "elixer_merged_cat.h5":
+                    print(f"Removing {file}")
                     os.remove(file)
 
     else: #this is a generational merge
@@ -122,6 +124,7 @@ def main():
             exit(0)
 
         print(f"Merging {len(merge_list)} files ... ")
+        print(merge_list)
         merge_hdf5(merge_list)
         print("Intermediate merge complete")
 
