@@ -13,6 +13,11 @@ import os
 import sys
 import time
 
+try:
+    from elixer import elixer_hdf5
+except:
+    import elixer_hdf5
+
 def get_base_merge_files(topdir=".",pattern="dispatch_*/*/*_cat.h5"):
     """
     Scan for all _cat.h5 files to merge
@@ -52,7 +57,6 @@ def merge_hdf5(fn_list=None,merge_fn="elixer_intermediate_merge.working"):
             print("No HDF5 catalog files found. Are you in the directory with the dispatch_* subdirs?")
     except Exception as e:
         print(e)
-        log.error("Exception! merging HDF5 files.",exc_info=True)
 
 def main():
 
