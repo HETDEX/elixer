@@ -219,7 +219,7 @@ class CatalogLibrary:
         0.5 arcsecs to 0.5 degrees
 
         :param position: astropy SkyCoord
-        :param radius: half-side of square cutout x1.5 (returned (square) cutout size is radius x3)
+        :param radius: half-side of square cutout (returned (square) cutout size is radius x2)
                        units are assumed to be arcsecs if the value is greater than 0.5 and in decimal
                        degrees otherwise
         :param side: may be used instead of (takes priority over) radius and is the width of the side of
@@ -280,7 +280,7 @@ class CatalogLibrary:
             return []
 
         if side:
-            radius = side/3.0
+            radius = side/2.0
 
         ra = position.ra.to_value() #decimal degrees
         dec = position.dec.to_value()

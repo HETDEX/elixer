@@ -1,7 +1,9 @@
 changes to elixer by version
 
-1.9.0a13 [2020-06-21]
+1.9.0a13 [2020-06-23]
 * add velocity offset to --gridsearch as 3rd parameter
+* fix documentation and side->radius conversion in catalogs.py get_cutouts() to correct for removal of
+  1.5x boost to radius in collecting image cutouts
 
 1.9.0a12 [2020-06-16]
 * incorporate update to hetdex_api and add fiber weights to forced/(re) extractions
