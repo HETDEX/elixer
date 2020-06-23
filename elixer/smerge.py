@@ -119,6 +119,7 @@ def main():
 
         print(f"Merging {len(merge_list)} files ... ")
         merge_hdf5(merge_list)
+        print("Intermediate merge complete")
 
 
 if __name__ == '__main__':

@@ -73,14 +73,15 @@ args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need t
 #check for --merge (if so just call elixer
 MERGE = False
 if "--merge" in args:
-    if hostname == "z50":
-        print("Testing SLURM merge ... remove z50 check")
-        MERGE = True
-        hostname = 'wrangler'
-    else:
-        print("Calling ELiXer to merge catalogs and fiber files (ignoring all other parameters) ... ")
-        elixer.merge()
-        exit(0)
+    MERGE = True
+    # if hostname == "z50":
+    #     print("Testing SLURM merge ... remove z50 check")
+    #     MERGE = True
+    #     hostname = 'wrangler'
+    # else:
+    #     print("Calling ELiXer to merge catalogs and fiber files (ignoring all other parameters) ... ")
+    #     elixer.merge()
+    #     exit(0)
 
 
 if "--ooops" in args:
