@@ -430,6 +430,9 @@ def parse_commandline(auto_force=False):
 
     if args.version:
         print(f"ELiXer version {G.__version__}")
+        cl_args = list(map(str.lower, sys.argv))
+        if len(cl_args) < 3:
+            exit(0)
 
     #reminder to self ... this is pointless with SLURM given the bash wraper (which does not know about the
     #speccific dir name and just builds elixer.run
@@ -468,6 +471,11 @@ def parse_commandline(auto_force=False):
     if args.merge or args.merge_unique:
         print("Merging catalogs (ignoring all other parameters) ... ")
         return args
+
+    #don't really use id any more, but pass it into dets
+    if args.id is not None:
+        print("Note: old '--id' parameter overriding '--dets'")
+        args.dets = args.id
 
     if args.prep_recover:
         print("Attempting to run clean_for_recovery script ... ")
@@ -762,8 +770,11 @@ def parse_commandline(auto_force=False):
             if (args.ra is not None) and (args.dec is not None):
                 prompt = "Looking for targets +/- %f\" from RA=%f DEC=%f\nProceed (y/n ENTER=YES)?" \
                               % (args.error, args.ra, args.dec)
+            elif args.id is not None:
+                prompt = "Looking for targets +/- %f\" from ID %s.\nProceed (y/n ENTER=YES)?" \
+                         % (args.error,args.id)
             elif (args.dets):
-                prompt = "Looking for targets +/- %f\" from detections listed in file.\nProceed (y/n ENTER=YES)?" \
+                prompt = "Looking for targets +/- %f\" from detection(s).\nProceed (y/n ENTER=YES)?" \
                             % args.error
             else:
                 exit(0)
@@ -3066,7 +3077,11 @@ def main():
     log.critical(f"log level {G.LOG_LEVEL}")
     #G.gc.enable()
     #G.gc.set_debug(G.gc.DEBUG_LEAK)
-    args = parse_commandline()
+    try:
+        args = parse_commandline()
+    except:
+        log.critical("Exception in command line.",exc_info=True)
+        exit(0)
 
     if args.upgrade_hdf5:
         upgrade_hdf5(args)

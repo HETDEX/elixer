@@ -70,6 +70,10 @@ host = HOST_UNKNOWN
 
 args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
 
+if ("--help" in args) or ("--version" in args):
+    elixer.parse_commandline(auto_force=True)
+    exit(0)
+
 #check for --merge (if so just call elixer
 MERGE = False
 if "--merge" in args:
