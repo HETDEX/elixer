@@ -416,6 +416,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--gridsearch', help='Search a grid around the RA, Dec. 4-tuple.'
                                              'Specify (+/- arcsec, grid size (arcsec), velocity offset (km/s), 0=plot, 1=interactive)', required=False)
 
+    parser.add_argument('--version', help='Print the version to screen.',
+                        required=False, action='store_true', default=False)
+
     if G.LAUNCH_PDF_VIEWER is not None:
         parser.add_argument('--viewer', help='Launch the global_config.py set PDF viewer on completion', required=False,
                             action='store_true', default=False)
@@ -424,6 +427,9 @@ def parse_commandline(auto_force=False):
     #                    required=False, action='store_true', default=False)
 
     args = parser.parse_args()
+
+    if args.version:
+        print(f"ELiXer version {G.__version__}")
 
     #reminder to self ... this is pointless with SLURM given the bash wraper (which does not know about the
     #speccific dir name and just builds elixer.run
@@ -756,9 +762,11 @@ def parse_commandline(auto_force=False):
             if (args.ra is not None) and (args.dec is not None):
                 prompt = "Looking for targets +/- %f\" from RA=%f DEC=%f\nProceed (y/n ENTER=YES)?" \
                               % (args.error, args.ra, args.dec)
-            else:
+            elif (args.dets):
                 prompt = "Looking for targets +/- %f\" from detections listed in file.\nProceed (y/n ENTER=YES)?" \
                             % args.error
+            else:
+                exit(0)
 
             i = get_input(prompt)
 
