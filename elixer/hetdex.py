@@ -2998,7 +2998,6 @@ class DetObj:
 
             row = rows[0] #should only be the one row
 
-
             #fill out shot info
             self.survey_shotid = row['shotid'] #redundant, already have it
 
@@ -6307,6 +6306,8 @@ class HETDEX:
             dd['fw_err'] = []
             dd['pix'] = []
             dd['fw_pix'] = []
+            dd['fiber_chi2'] = []
+            dd['fiber_rms']= []
             dd['spec'] = []
             dd['specwave'] = []
             dd['fw_spec']  = []
@@ -7056,6 +7057,15 @@ class HETDEX:
                 #want say, approx +/- 50 angstroms
 
                 center = np.searchsorted(wave, e.w, side='left')
+
+                #for the chi2 and rms of the fiber profile
+                #grab center pixel (wavelength) +/- 2
+                ch_indl = max(center - 2, 0)
+                ch_indh = min(center + 2, max_x)
+
+                datakeep['fiber_chi2'].append(fits.fiber_chi2[loc, ch_indl:(ch_indh + 1)])
+                datakeep['fiber_rms'].append(fits.fiber_rms[loc, ch_indl:(ch_indh + 1)])
+
                 Fe_indl = center - int(round(ww))
                 Fe_indh = center + int(round(ww))
 
@@ -7191,11 +7201,11 @@ class HETDEX:
         colors = self.make_fiber_colors(min(4,len(datakeep['ra'])),len(datakeep['ra']))# + 2 ) #the +2 is a pad in the call
         num_fibers = len(datakeep['xi'])
         num_to_display = min(MAX_2D_CUTOUTS,num_fibers) + add_summed_image  #for the summed images
-        bordbuff = 0.01
-        borderxl = 0.05
-        borderxr = 0.15
-        borderyb = 0.05
-        borderyt = 0.15
+        bordbuff = 0.005
+        borderxl = 0.06
+        borderxr = 0.16
+        borderyb = 0.06
+        borderyt = 0.16
 
         #the +1 for the summed image
         dx = (1. - borderxl - borderxr) / 3.
@@ -7220,8 +7230,12 @@ class HETDEX:
 
         top_pixels = []
         grid_idx = -1
+        plot_label = ""
+        plot_label_color = "k"
         for i in range(num_fibers+add_summed_image):
             make_display = False
+            plot_label = ""
+            plot_lable_color = "k"
             if i < num_fibers:
                 pcolor = colors[i] #, 0:4] #keep the 4th value (alpha value) ... need that to lower the alpha of the greys
                 datakeep['color'][ind[i]] = pcolor
@@ -7289,8 +7303,16 @@ class HETDEX:
 
                     #plot_label = str(num_fibers-i)
                     #plot_label = str("%0.2f" % datakeep['fiber_weight'][ind[i]]).lstrip('0') #save space, kill leading 0
-                    plot_label = str("%0.2f" % datakeep['fiber_weight'][ind[i]])
-                    plot_label += "\n" + str(datakeep['fib'][ind[i]]).zfill(3)
+                    plot_label = str(" %0.2f" % datakeep['fiber_weight'][ind[i]])
+                    plot_label_color = 'k'
+                    try:
+                        max_chi2 = max(datakeep['fiber_chi2'][ind[i]])
+                        if max_chi2 > 4.0:
+                            plot_label_color = 'red'
+                        plot_label += "\n"+ r"$\chi^2$" + "%0.1f " % max_chi2
+                    except:
+                        pass
+                    plot_label += "\n" + "#" + str(datakeep['fib'][ind[i]]).zfill(3)
 
                     #the last one is the top one and is the primary
                     datakeep['primary_idx'] = ind[i]
@@ -7413,8 +7435,8 @@ class HETDEX:
                                 sn = 0.0
 
 
-                    borplot.text(-0.25, .3, plot_label,
-                            transform=imgplot.transAxes, fontsize=8, color='k', #colors[i, 0:3],
+                    borplot.text(-0.265, .2, plot_label,
+                            transform=imgplot.transAxes, fontsize=8, color=plot_label_color, #colors[i, 0:3],
                             verticalalignment='bottom', horizontalalignment='left')
 
                 #if self.multiple_observations:

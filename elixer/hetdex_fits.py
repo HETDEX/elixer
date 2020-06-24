@@ -78,6 +78,9 @@ class HetdexFits:
         self.calfib = None #calibrated, rectified (see G.CALFIB_WAVEGRID)
         self.calfibe = None
 
+        self.fiber_chi2 = None #fiber profile chi2
+        self.fiber_rms = None
+
         self.calfib_noise_est = None
         self.dither_index = dither_index
 
@@ -430,6 +433,8 @@ class HetdexFits:
                 self.fiber_to_fiber = np.zeros((112, 1032))
                 self.calfib = np.zeros((112, len(G.CALFIB_WAVEGRID)))
                 self.calfibe = np.zeros((112, len(G.CALFIB_WAVEGRID)))
+                self.fiber_chi2 = np.zeros((112, 1032))
+                self.fiber_rms = np.zeros((112, 1032))
 
 
                 # self.fe_data = [[]]*112
@@ -456,6 +461,11 @@ class HetdexFits:
 
                     self.calfib[idx] = row['calfib']
                     self.calfibe[idx] = row['calfibe']
+                    try:
+                        self.fiber_chi2[idx] = row['chi2']
+                        self.fiber_rms[idx] = row['rms']
+                    except:
+                        pass #older versions may not have these columns
 
 
                 #todo: deal with AMP vs AMPNAME (for flip_amp() ... the pixel flats issue)
