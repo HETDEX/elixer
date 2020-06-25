@@ -3648,11 +3648,11 @@ def main():
                                             plae_low = -1
 
                                         if scale_plae < 0:
-                                            header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(LAE): %d %s" \
+                                            header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(Ly$\alpha$): %d %s" \
                                                           % (round(plae, 3), round(plae_high, 3), round(plae_low, 3),
                                                              int(scale_plae), reason)
                                         else:
-                                            header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(LAE): %0.3f" \
+                                            header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(Ly$\alpha$): %0.3f" \
                                                       % (round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae)
                                     except:
                                         pass

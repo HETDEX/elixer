@@ -6067,7 +6067,11 @@ class HETDEX:
             img_y = None
             if datakeep['xi']:
                 try:
-                    plt.subplot(gs[0:2,10:24])
+                    if G.LyC: #want this in a different position
+                        plt.subplot(gs[0:2,26:])
+                    else:
+                        plt.subplot(gs[0:2,10:24])
+
                     plt.gca().axis('off')
                     buf,img_y = self.build_2d_image(datakeep)
 
@@ -6077,18 +6081,14 @@ class HETDEX:
 
                     if G.ZOO_MINI:
                         e.image_2d_fibers_1st_col, _ = self.build_2d_image_1st_column_only(datakeep)
-
-
                 except:
-                    log.warning("Failed to 2D cutout image.", exc_info=True)
+                    log.warning("Failed to build 2D cutout image.", exc_info=True)
 
-
-
-                if G.LyC:
-                    try:
-                        self.build_2d_LyC_image(datakeep,e.w/G.LyA_rest-1.0)
-                    except:
-                        pass
+                # if G.LyC:
+                #     try:
+                #         self.build_2d_LyC_image(datakeep,e.w/G.LyA_rest-1.0)
+                #     except:
+                #         pass
 
                 # update emission with the ra, dec of all fibers
                 # needs to be here, after build_2d_image so the 'index' and 'color' exist for assignment
@@ -6099,59 +6099,73 @@ class HETDEX:
                 except:
                     log.error("Error building fiber_locs", exc_info=True)
 
-                try:
-                    plt.subplot(gs[0:2,24:27])
-                    plt.gca().axis('off')
-                    if img_y is not None:
-                        buf = self.build_scattered_light_image(datakeep,img_y,key='scatter_sky')
-                    else:
-                        buf = self.build_scattered_light_image(datakeep,key='scatter_sky')
+                if G.LyC:
+                    try:
+                        plt.subplot(gs[0:2,12:26])
+                        plt.gca().axis('off')
 
-                    buf.seek(0)
-                    im = Image.open(buf)
-                    plt.imshow(im,interpolation='none') #needs to be 'none' else get blurring
-                except:
-                    log.warning("Failed to 2D cutout image.", exc_info=True)
+                        buf,_ = self.build_2d_LyC_image(datakeep,e.w/G.LyA_rest-1.0)
+
+                        buf.seek(0)
+                        im = Image.open(buf)
+                        plt.imshow(im, interpolation='none')
+                    except:
+                        log.warning("Failed to build (LyCon) 2D cutout image.", exc_info=True)
+                else:
+
+                    try:
+                        plt.subplot(gs[0:2,24:27])
+                        plt.gca().axis('off')
+                        if img_y is not None:
+                            buf = self.build_scattered_light_image(datakeep,img_y,key='scatter_sky')
+                        else:
+                            buf = self.build_scattered_light_image(datakeep,key='scatter_sky')
+
+                        buf.seek(0)
+                        im = Image.open(buf)
+                        plt.imshow(im,interpolation='none') #needs to be 'none' else get blurring
+                    except:
+                        log.warning("Failed to 2D cutout image.", exc_info=True)
 
 
-                try:
-                    plt.subplot(gs[0:2,27:30])
-                    plt.gca().axis('off')
-                    if img_y is not None:
-                        buf = self.build_scattered_light_image(datakeep,img_y,key='scatter')
-                    else:
-                        buf = self.build_scattered_light_image(datakeep,key='scatter')
+                    try:
+                        plt.subplot(gs[0:2,27:30])
+                        plt.gca().axis('off')
+                        if img_y is not None:
+                            buf = self.build_scattered_light_image(datakeep,img_y,key='scatter')
+                        else:
+                            buf = self.build_scattered_light_image(datakeep,key='scatter')
 
-                    buf.seek(0)
-                    im = Image.open(buf)
-                    plt.imshow(im,interpolation='none') #needs to be 'none' else get blurring
-                except:
-                    log.warning("Failed to 2D cutout image.", exc_info=True)
+                        buf.seek(0)
+                        im = Image.open(buf)
+                        plt.imshow(im,interpolation='none') #needs to be 'none' else get blurring
+                    except:
+                        log.warning("Failed to 2D cutout image.", exc_info=True)
 
-                #try:
-                #    plt.subplot(gs[0:2, 58:80])
-                #    plt.gca().axis('off')
-                #
-                #    buf = self.build_relative_fiber_locs(e)
-                #    buf.seek(0)
-                #    im = Image.open(buf)
-                #    plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
-                #except:
-                #    log.warning("Failed to build relative fiber positions image.", exc_info=True)
+                    #try:
+                    #    plt.subplot(gs[0:2, 58:80])
+                    #    plt.gca().axis('off')
+                    #
+                    #    buf = self.build_relative_fiber_locs(e)
+                    #    buf.seek(0)
+                    #    im = Image.open(buf)
+                    #    plt.imshow(im, interpolation='none')  # needs to be 'none' else get blurring
+                    #except:
+                    #    log.warning("Failed to build relative fiber positions image.", exc_info=True)
 
-                try:
-                    plt.subplot(gs[0:2,30:])
-                    plt.gca().axis('off')
-                    buf = self.build_spec_image(datakeep,e.w, dwave=1.0)
-                    buf.seek(0)
-                    im = Image.open(buf)
-                    plt.imshow(im,interpolation='none')#needs to be 'none' else get blurring
+                    try:
+                        plt.subplot(gs[0:2,30:])
+                        plt.gca().axis('off')
+                        buf = self.build_spec_image(datakeep,e.w, dwave=1.0)
+                        buf.seek(0)
+                        im = Image.open(buf)
+                        plt.imshow(im,interpolation='none')#needs to be 'none' else get blurring
 
-                    if G.ZOO_MINI:
-                        e.image_1d_emission_fit = self.build_spec_image(datakeep, e.w, dwave=1.0,unlabeled=True)
+                        if G.ZOO_MINI:
+                            e.image_1d_emission_fit = self.build_spec_image(datakeep, e.w, dwave=1.0,unlabeled=True)
 
-                except:
-                    log.warning("Failed to build spec image.",exc_info = True)
+                    except:
+                        log.warning("Failed to build spec image.",exc_info = True)
 
 
                 if G.SINGLE_PAGE_PER_DETECT:
@@ -8843,9 +8857,10 @@ class HETDEX:
                         else:  # this only works (relatively well) for Cure
                             print("What??? .... can only be panacea")
 
-                    borplot.text(-0.2, .5, plot_label,
-                                 transform=imgplot.transAxes, fontsize=10, color='k',  # colors[i, 0:3],
-                                 verticalalignment='bottom', horizontalalignment='left')
+                    #fiber weights (irrelevenat here)
+                    # borplot.text(-0.2, .5, plot_label,
+                    #              transform=imgplot.transAxes, fontsize=10, color='k',  # colors[i, 0:3],
+                    #              verticalalignment='bottom', horizontalalignment='left')
 
                 # if self.multiple_observations:
                 # add the fiber info to the right of the images
@@ -8899,21 +8914,21 @@ class HETDEX:
                                  transform=imgplot.transAxes, fontsize=8, color='k',
                                  verticalalignment='top', horizontalalignment='center')
 
-        #buf = io.BytesIO()
+        buf = io.BytesIO()
         # plt.tight_layout()#pad=0.1, w_pad=0.5, h_pad=1.0)
-        # plt.savefig(format='png', dpi=300)
+        plt.savefig(buf,format='png', dpi=300)
 
-        try:
-            e = datakeep['detobj']
-
-            if e.pdf_name is not None:
-                fn = e.pdf_name.rstrip(".pdf") + "_2d_lyc_fib.png"
-            else:
-                fn = self.output_filename + "_" + str(e.entry_id).zfill(3) + "_2d_lyc_fib.png"
-            fn = op.join(e.outdir, fn)
-            plt.savefig(fn, format="png", dpi=300)
-        except:
-            log.error("Unable to write 2d_lyc_fib image to disk.", exc_info=True)
+        # try:
+        #     e = datakeep['detobj']
+        #
+        #     if e.pdf_name is not None:
+        #         fn = e.pdf_name.rstrip(".pdf") + "_2d_lyc_fib.png"
+        #     else:
+        #         fn = self.output_filename + "_" + str(e.entry_id).zfill(3) + "_2d_lyc_fib.png"
+        #     fn = op.join(e.outdir, fn)
+        #     plt.savefig(fn, format="png", dpi=300)
+        # except:
+        #     log.error("Unable to write 2d_lyc_fib image to disk.", exc_info=True)
 
         plt.close(fig)
         return buf, Y
