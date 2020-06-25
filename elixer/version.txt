@@ -1,11 +1,14 @@
 changes to elixer by version
 
-1.9.0a14 [2020-06-25]
-* add max of fiber chi2 (+/-2 pix from fit wave center) to left of 2D fiber cutouts. Color text as 'red' if > 4.0.
+1.9.0a15 [2020-06-25]
 * don't enforce 'empty image' restriction on SDSS
 * add spectral_slope, spectral_slope_err to cat.h5 file Detection table
 * add --lyc switch to produce Lyman Continuum focused version of ELiXer report
 * changed P(LAE) label at the top to P(LyA) (to reduce confusion with P(LAE)/P(OII))
+
+1.9.0a14 [2020-06-24]
+* add max of fiber chi2 (+/-2 pix from fit wave center) to left of 2D fiber cutouts. Color text as 'red' if > 4.0.
+
 
 1.9.0a13 [2020-06-23]
 * add velocity offset to --gridsearch as 3rd parameter
