@@ -2670,6 +2670,8 @@ class Spectrum:
         # very basic info, fit line to entire spectrum to see if there is a general slope
         #useful in identifying stars (kind of like a color U-V (ish))
         self.spectrum_linear_coeff = None #index = power so [0] = onstant, [1] = 1st .... e.g. mx+b where m=[1], b=[0]
+        self.spectrum_slope = None
+        self.spectrum_slope_err = None
 
         self.central = None
         self.estflux = None
@@ -2809,9 +2811,14 @@ class Spectrum:
             self.central_eli = copy.deepcopy(eli)
 
             # get very basic info (line fit)
-            coeff = fit_line(wavelengths, values, errors)  # flipped order ... coeff[0] = 0th, coeff[1]=1st
-            self.spectrum_linear_coeff = coeff
-            log.info("%s Spectrum basic info (mx+b): %f(x) + %f" %(self.identifier,coeff[1],coeff[0]))
+            # coeff = fit_line(wavelengths, values, errors)  # flipped order ... coeff[0] = 0th, coeff[1]=1st
+            # self.spectrum_linear_coeff = coeff
+
+            # also get the overall slope
+            self.spectrum_slope, self.spectrum_slope_err = SU.simple_fit_slope(wavelengths, values, errors)
+
+            log.info("%s Spectrum basic slope: %g +/- %g"
+                     %(self.identifier,self.spectrum_slope,self.spectrum_slope_err))
             #todo: maybe also a basic parabola? (if we capture an overall peak? like for a star black body peak?
         else:
             log.warning("Warning! Did not successfully compute signal_score on main emission line.")
@@ -2827,6 +2834,10 @@ class Spectrum:
         self.eqw_obs_unc = eqw_obs_unc
         self.estcont = estcont
         self.estcont_unc = estcont_unc
+
+
+        #also get the overall slope
+        self.spectrum_slope, self.spectrum_slope_err = SU.simple_fit_slope(wavelengths, values, errors)
         #if self.snr is None:
         #    self.snr = 0
 

@@ -419,6 +419,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--version', help='Print the version to screen.',
                         required=False, action='store_true', default=False)
 
+    parser.add_argument('--lyc', help='Toggle [ON] Lyman Continuum special switch. Do not use unless you know what you are doing.',
+                        required=False, action='store_true', default=False)
+
     if G.LAUNCH_PDF_VIEWER is not None:
         parser.add_argument('--viewer', help='Launch the global_config.py set PDF viewer on completion', required=False,
                             action='store_true', default=False)
@@ -433,6 +436,9 @@ def parse_commandline(auto_force=False):
         cl_args = list(map(str.lower, sys.argv))
         if len(cl_args) < 3:
             exit(0)
+
+    if args.lyc:
+        G.LyC = True
 
     #reminder to self ... this is pointless with SLURM given the bash wraper (which does not know about the
     #speccific dir name and just builds elixer.run

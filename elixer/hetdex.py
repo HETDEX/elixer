@@ -113,6 +113,7 @@ contrast3 = 0.8  # regular image still has sky
 
 res = [3, 9]
 ww = xw * 1.9  # wavelength width
+lyc_ww = 34 * 1.9 #for LyC wavelength width (2D cutouts)  = 1/2*(68AA wide) * 1.9 AA per pix at z=3.5
 
 # number of pixels to either side of peak to fit to gaussian
 #this value comes from looking at many detections and all but the widest will fit (and even the wide ones will
@@ -8553,6 +8554,14 @@ class HETDEX:
         rec = plt.Rectangle((cwave - ww, yl), 2 * ww, yh - yl, fill=True, lw=1, color='y', zorder=1)
         specplot.add_patch(rec)
 
+        if G.LyC and (cwave >= 4860.):
+            #draw rectangle (highlight) Lyman Continuum region
+
+            lyc_left = (cwave/G.LyA_rest) * 880.  #i.e. (1+z) * 880  where z == obs/rest -1  ... so obs/rest -1 +1
+            lyc_width = (cwave/G.LyA_rest) * 30.
+
+            rec = plt.Rectangle((lyc_left, yl), 2 * lyc_width, yh - yl, fill=True, lw=1, color='red', alpha=0.5, zorder=1)
+            specplot.add_patch(rec)
 
         if G.SHOW_SKYLINES:
             try:
@@ -8638,11 +8647,11 @@ class HETDEX:
                                         len(datakeep['ra']))  # + 2 ) #the +2 is a pad in the call
         num_fibers = len(datakeep['xi'])
         num_to_display = min(MAX_2D_CUTOUTS, num_fibers) + add_summed_image  # for the summed images
-        bordbuff = 0.01
-        borderxl = 0.05
-        borderxr = 0.15
-        borderyb = 0.05
-        borderyt = 0.15
+        bordbuff = 0.005
+        borderxl = 0.06
+        borderxr = 0.16
+        borderyb = 0.06
+        borderyt = 0.16
 
         # the +1 for the summed image
         dx = (1. - borderxl - borderxr) / 3.

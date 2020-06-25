@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.2.1' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.2.2' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -136,6 +136,8 @@ class Detections(tables.IsDescription):
     combined_continuum = tables.Float32Col(dflt=UNSET_FLOAT)   #combination of all continuum estimates
     combined_continuum_err = tables.Float32Col(dflt=UNSET_FLOAT)
 
+    spectral_slope = tables.Float32Col(dflt=UNSET_FLOAT)
+    spectral_slope_err = tables.Float32Col(dflt=0.0)
 
 class SpectraLines(tables.IsDescription):
     detectid = tables.Int64Col(pos=0)  # unique HETDEX detection ID 1e9+
@@ -730,6 +732,13 @@ def append_entry(fileh,det,overwrite=False):
             try:
                 if det.classification_dict['spurious_reason'] is not None:
                     row['spurious_reason'] = det.classification_dict['spurious_reason']
+            except:
+                pass
+
+        if (det.spec_obj is not None) and (det.spec_obj.spectrum_slope is not None):
+            try:
+                row['spectral_slope'] = det.spec_obj.spectrum_slope
+                row['spectral_slope_err'] = det.spec_obj.spectrum_slope_err
             except:
                 pass
 

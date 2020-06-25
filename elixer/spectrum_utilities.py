@@ -791,6 +791,55 @@ def gaussian(x, x0, sigma, a=1.0, y=0.0):
 
     return a * (np.exp(-np.power((x - x0) / sigma, 2.) / 2.) / np.sqrt(2 * np.pi * sigma ** 2)) + y
 
+
+
+def simple_fit_slope (wavelengths, values, errors=None,trim=True):
+    """
+    Just a least squares fit, no MCMC
+    Trim off the blue and red-most regions that are a bit dodgy
+
+    :param wavelengths: unitless floats (but generally in AA)
+    :param values: unitless floats (but generally in erg/s/cm2 over 2AA e-17) (HETDEX standard)
+    :param errors: unitless floats (same as values)
+    :param trim: Trim off the blue and red-most regions that are a bit dodgy
+    :return: slope, slope_error
+    """
+
+    slope = None
+    slope_error = None
+    if (wavelengths is None) or (values is None) or (len(wavelengths)==0) or (len(values)==0) \
+            or (len(wavelengths) != len(values)):
+        log.warning("Zero length (or None) spectrum passed to simple_fit_slope().")
+        return slope, slope_error
+
+    try:
+        if trim  and (len(wavelengths) == 1036): #assumes HETDEX standard rectified 2AA wide bins 3470-5540
+            idx_lt = 65  #3600AA
+            idx_rt = 966 #5400AA (technically 965+1 so it is included in the slice)
+        else:
+            idx_lt = 0
+            idx_rt = -1
+
+        #check the slope
+        if errors is not None and len(errors)==len(values):
+            weights = 1./np.array(errors[idx_lt:idx_rt])
+        else:
+            weights = None
+
+        coeff, cov  = np.polyfit(wavelengths[idx_lt:idx_rt], values[idx_lt:idx_rt],
+                                 w=weights,cov=True,deg=1)
+        if coeff is not None:
+            slope = coeff[0]
+
+        if cov is not None:
+            slope_error = np.sqrt(np.diag(cov))[0]
+
+    except:
+        log.debug("Exception in simple_fit_slope() ", exc_info=True)
+
+    return slope, slope_error
+
+
 def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=1000.0):
     """
     Simple curve_fit to gaussian; lsq "best"

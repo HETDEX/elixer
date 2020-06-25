@@ -324,8 +324,16 @@ class SDSS(cat_base.Catalog):#SDSS
                 exptime_cont_est = sci.exptime
 
             # sci.load_image(wcs_manual=True)
+
+            # if we are down to SDSS, take what you can get (plus the SDSS resolution is low to the point
+            # the we can trip the empty image condition when it is not warranted
+            save_ALLOW_EMPTY_IMAGE = G.ALLOW_EMPTY_IMAGE
+            G.ALLOW_EMPTY_IMAGE = True
+
             cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error, window=window,
                                                      aperture=aperture,mag_func=mag_func,return_details=True)
+
+            G.ALLOW_EMPTY_IMAGE = save_ALLOW_EMPTY_IMAGE
 
             if (self.MAG_LIMIT < mag < 100) and (mag_radius > 0):
                 details['fail_mag_limit'] = True
@@ -502,7 +510,15 @@ class SDSS(cat_base.Catalog):#SDSS
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:
+                    # if we are down to SDSS, take what you can get (plus the SDSS resolution is low to the point
+                    # the we can trip the empty image condition when it is not warranted
+                    save_ALLOW_EMPTY_IMAGE = G.ALLOW_EMPTY_IMAGE
+                    G.ALLOW_EMPTY_IMAGE = True
+
                     self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True)
+
+                    G.ALLOW_EMPTY_IMAGE = save_ALLOW_EMPTY_IMAGE
+
                     if sci.exptime:
                         ref_exptime = sci.exptime
                     total_adjusted_exptime = 1.0
@@ -947,10 +963,17 @@ class SDSS(cat_base.Catalog):#SDSS
                 # to here, window is in degrees so ...
                 window = 3600. * window
 
+                #if we are down to SDSS, take what you can get (plus the SDSS resolution is low to the point
+                #the we can trip the empty image condition when it is not warranted
+                save_ALLOW_EMPTY_IMAGE = G.ALLOW_EMPTY_IMAGE
+                G.ALLOW_EMPTY_IMAGE = True
+
                 cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error=window, window=window,
                                                                               aperture=aperture,
                                                                               mag_func=mag_func, copy=True,
                                                                               return_details=True)
+
+                G.ALLOW_EMPTY_IMAGE = save_ALLOW_EMPTY_IMAGE
                 # don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
 
                 if cutout is not None:  # construct master cutout
