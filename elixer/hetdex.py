@@ -5664,12 +5664,12 @@ class HETDEX:
         #text, 2D cutous, scattered light, 1D (small) plot
         #column groups are not the same size
         if G.SINGLE_PAGE_PER_DETECT:
-            gs = gridspec.GridSpec(2, 40)
+            gs = gridspec.GridSpec(2, 100)
         else:
             if G.SHOW_ALL_1D_SPECTRA:
-                gs = gridspec.GridSpec(5, 40)#, wspace=0.25, hspace=0.5)
+                gs = gridspec.GridSpec(5, 100)#, wspace=0.25, hspace=0.5)
             else:
-                gs = gridspec.GridSpec(3, 40)
+                gs = gridspec.GridSpec(3, 100)
 
         font = FontProperties()
         font.set_family('monospace')
@@ -6054,7 +6054,7 @@ class HETDEX:
 
 
         #plt.subplot(gs[0:2, 0:3])
-        plt.subplot(gs[0:2, 0:10])
+        plt.subplot(gs[0:2, 0:25])
         plt.text(0, 0.5, title, ha='left', va='center', fontproperties=font)
         if not G.ZEROTH_ROW_HEADER:
             plt.suptitle(time.strftime("%Y-%m-%d %H:%M:%S") +
@@ -6068,9 +6068,9 @@ class HETDEX:
             if datakeep['xi']:
                 try:
                     if G.LyC: #want this in a different position
-                        plt.subplot(gs[0:2,25:37])
+                        plt.subplot(gs[0:2,64:91])
                     else:
-                        plt.subplot(gs[0:2,10:25])
+                        plt.subplot(gs[0:2,25:64])
 
                     plt.gca().axis('off')
                     buf,img_y = self.build_2d_image(datakeep)
@@ -6078,6 +6078,7 @@ class HETDEX:
                     buf.seek(0)
                     im = Image.open(buf)
                     plt.imshow(im,interpolation='none') #needs to be 'none' else get blurring
+                    #gs.tight_layout()
 
                     if G.ZOO_MINI:
                         e.image_2d_fibers_1st_col, _ = self.build_2d_image_1st_column_only(datakeep)
@@ -6101,7 +6102,7 @@ class HETDEX:
 
                 if G.LyC:
                     try:
-                        plt.subplot(gs[0:2,11:25])
+                        plt.subplot(gs[0:2,27:64])
                         plt.gca().axis('off')
 
                         buf,_ = self.build_2d_LyC_image(datakeep,e.w/G.LyA_rest-1.0)
@@ -6114,7 +6115,7 @@ class HETDEX:
 
 
                     try:
-                        plt.subplot(gs[0:2,37:])
+                        plt.subplot(gs[0:2,91:])
                         plt.gca().axis('off')
                         if img_y is not None:
                             buf = self.build_scattered_light_image(datakeep,img_y,key='scatter_lyc')
@@ -6130,7 +6131,7 @@ class HETDEX:
                 else:
 
                     try:
-                        plt.subplot(gs[0:2,25:28])
+                        plt.subplot(gs[0:2,64:71])
                         plt.gca().axis('off')
                         if img_y is not None:
                             buf = self.build_scattered_light_image(datakeep,img_y,key='scatter_sky')
@@ -6145,7 +6146,7 @@ class HETDEX:
 
 
                     try:
-                        plt.subplot(gs[0:2,28:31])
+                        plt.subplot(gs[0:2,71:78])
                         plt.gca().axis('off')
                         if img_y is not None:
                             buf = self.build_scattered_light_image(datakeep,img_y,key='scatter')
@@ -6170,7 +6171,7 @@ class HETDEX:
                     #    log.warning("Failed to build relative fiber positions image.", exc_info=True)
 
                     try:
-                        plt.subplot(gs[0:2,31:])
+                        plt.subplot(gs[0:2,78:])
                         plt.gca().axis('off')
                         buf = self.build_spec_image(datakeep,e.w, dwave=1.0)
                         buf.seek(0)
@@ -8738,11 +8739,17 @@ class HETDEX:
                                         len(datakeep['ra']))  # + 2 ) #the +2 is a pad in the call
         num_fibers = len(datakeep['xi'])
         num_to_display = min(MAX_2D_CUTOUTS, num_fibers) + add_summed_image  # for the summed images
-        bordbuff = 0.005
+        # bordbuff = 0.005
+        # borderxl = 0.06
+        # borderxr = 0.16
+        # borderyb = 0.06
+        # borderyt = 0.16
+
+        bordbuff = 0.01
         borderxl = 0.06
         borderxr = 0.16
-        borderyb = 0.06
-        borderyt = 0.16
+        borderyb = 0.00
+        borderyt = 0.15
 
         # the +1 for the summed image
         dx = (1. - borderxl - borderxr) / 3.
