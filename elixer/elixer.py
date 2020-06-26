@@ -189,7 +189,7 @@ def make_zeroth_row_header(left_text,show_version=True):
         # make a .pdf file
         plt.close('all')
         fig = plt.figure(figsize=(G.FIGURE_SZ_X, 0.5))
-        gs = gridspec.GridSpec(1, 2)  # one row, 2 columns
+        gs = gridspec.GridSpec(1, 3)  # one row, 2 columns
         plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
 
         font = FontProperties()
@@ -200,8 +200,13 @@ def make_zeroth_row_header(left_text,show_version=True):
         plt.gca().axis('off')
         plt.text(0, 0.5, left_text, ha='left', va='bottom', fontproperties=font)
 
-        if show_version:
+        if G.LyC:
             plt.subplot(gs[0, 1])
+            plt.gca().axis('off')
+            plt.text(0.5, 0.5, "Lyman Continuum Focus", ha='center', va='bottom', fontproperties=font)
+
+        if show_version:
+            plt.subplot(gs[0, 2])
             plt.gca().axis('off')
             title = time.strftime("%Y-%m-%d %H:%M:%S") + "  Version " + G.__version__  # + "  "
             plt.text(1.0, 0.5, title, ha='right', va='bottom', fontproperties=font)
