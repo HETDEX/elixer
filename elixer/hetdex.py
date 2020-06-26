@@ -6070,7 +6070,7 @@ class HETDEX:
                     if G.LyC: #want this in a different position
                         plt.subplot(gs[0:2,64:91])
                     else:
-                        plt.subplot(gs[0:2,25:64])
+                        plt.subplot(gs[0:2,28:59])
 
                     plt.gca().axis('off')
                     buf,img_y = self.build_2d_image(datakeep)
@@ -6131,7 +6131,7 @@ class HETDEX:
                 else:
 
                     try:
-                        plt.subplot(gs[0:2,64:71])
+                        plt.subplot(gs[0:2,59:67])
                         plt.gca().axis('off')
                         if img_y is not None:
                             buf = self.build_scattered_light_image(datakeep,img_y,key='scatter_sky')
@@ -6146,7 +6146,7 @@ class HETDEX:
 
 
                     try:
-                        plt.subplot(gs[0:2,71:78])
+                        plt.subplot(gs[0:2,67:75])
                         plt.gca().axis('off')
                         if img_y is not None:
                             buf = self.build_scattered_light_image(datakeep,img_y,key='scatter')
@@ -6171,7 +6171,7 @@ class HETDEX:
                     #    log.warning("Failed to build relative fiber positions image.", exc_info=True)
 
                     try:
-                        plt.subplot(gs[0:2,78:])
+                        plt.subplot(gs[0:2,75:])
                         plt.gca().axis('off')
                         buf = self.build_spec_image(datakeep,e.w, dwave=1.0)
                         buf.seek(0)
@@ -7279,9 +7279,9 @@ class HETDEX:
         # borderyb = 0.06
         # borderyt = 0.16 #leave room at the top for labels
 
-        bordbuff = 0.005
+        bordbuff = 0.01
         borderxl = 0.06
-        borderxr = 0.15
+        borderxr = 0.12
         borderyb = 0.00
         borderyt = 0.15
 
@@ -7381,16 +7381,21 @@ class HETDEX:
 
                     #plot_label = str(num_fibers-i)
                     #plot_label = str("%0.2f" % datakeep['fiber_weight'][ind[i]]).lstrip('0') #save space, kill leading 0
-                    plot_label = str(" %0.2f" % datakeep['fiber_weight'][ind[i]])
+                    plot_label = str("%0.2f" % datakeep['fiber_weight'][ind[i]])
                     plot_label_color = 'k'
                     try:
                         max_chi2 = max(datakeep['fiber_chi2'][ind[i]])
                         if max_chi2 > 4.0:
                             plot_label_color = 'red'
-                        plot_label += "\n"+ r"$\chi^2$" + "%0.1f " % max_chi2
+                        #plot_label += "\n"+ r"$\chi^2$" + "%0.1f " % max_chi2
+                        if max_chi2 > 10.0:
+                            plot_label += "\n" + "%0.1f " % max_chi2
+                        else:
+                            plot_label += "\n" + "%0.2f " % max_chi2
                     except:
                         pass
-                    plot_label += "\n" + "#" + str(datakeep['fib'][ind[i]]).zfill(3)
+                    #plot_label += "\n" + "#" + str(datakeep['fib'][ind[i]]).zfill(3)
+                    plot_label += "\n" + str(datakeep['fib'][ind[i]]).zfill(3)
 
                     #the last one is the top one and is the primary
                     datakeep['primary_idx'] = ind[i]
@@ -7537,16 +7542,19 @@ class HETDEX:
 
                             # distance (in arcsec) of fiber center from object center
 
-                            borplot.text(1.05, .73, 'D("): %0.2f' % (datakeep['d'][ind[i]]),
+                            borplot.text(1.05, .85, '%0.2f"' % (datakeep['d'][ind[i]]),
                                          transform=smplot.transAxes, fontsize=6, color='k',
                                          verticalalignment='bottom', horizontalalignment='left')
 
-                            borplot.text(1.05, .53, 'x, y: %d, %d' % (datakeep['ds9_x'][ind[i]], datakeep['ds9_y'][ind[i]]),
+                            borplot.text(1.05, .65, '(%d, %d)' % (datakeep['ds9_x'][ind[i]], datakeep['ds9_y'][ind[i]]),
                                          transform=smplot.transAxes, fontsize=6, color='k',
                                          verticalalignment='bottom', horizontalalignment='left')
 
                             try:
-                                l3 = datakeep['date'][ind[i]] + "-" + datakeep['obsid'][ind[i]] + "-" + datakeep['expid'][ind[i]]
+                                #l3 = datakeep['date'][ind[i]] + "-" + datakeep['obsid'][ind[i]] + "-" + datakeep['expid'][ind[i]]
+
+                                l3 = datakeep['date'][ind[i]] + "\nv" + str(datakeep['obsid'][ind[i]]).zfill(3) + "_" + \
+                                     str(datakeep['expid'][ind[i]]).zfill(2)
 
                                 #!!! multi*fits is <specid>_<ifuslot>_<ifuid> !!!
                                 #!!! so do NOT change from spec_id
@@ -7554,10 +7562,10 @@ class HETDEX:
                                 l4 = datakeep['spec_id'][ind[i]] + "_" + datakeep['amp'][ind[i]] + "_" + \
                                      str(datakeep['fib_idx1'][ind[i]]).zfill(3) #+ "#" + str(datakeep['fib'][ind[i]]).zfill(3)
 
-                                borplot.text(1.05, .33, l3,
+                                borplot.text(1.05, .25, l3,
                                              transform=smplot.transAxes, fontsize=6, color='k',
                                              verticalalignment='bottom', horizontalalignment='left')
-                                borplot.text(1.05, .13, l4,
+                                borplot.text(1.05, .05, l4,
                                              transform=smplot.transAxes, fontsize=6, color='k',
                                              verticalalignment='bottom', horizontalalignment='left')
                             except:
@@ -7583,7 +7591,7 @@ class HETDEX:
                                         transform=smplot.transAxes, fontsize=6, color='b',
                                         verticalalignment='bottom', horizontalalignment='left')
                     else:
-                        borplot.text(1.05, .35, '\nWEIGHTED\nSUM',
+                        borplot.text(1.05, .35, '\nWeighted\nSum',
                                      transform=smplot.transAxes, fontsize=8, color='k',
                                      verticalalignment='bottom', horizontalalignment='left')
 
@@ -7947,6 +7955,7 @@ class HETDEX:
 
         fig = plt.figure(figsize=(5, 3))
         plt.subplots_adjust(left=0.0, right=1.0, top=1.0, bottom=0.0)
+        #plt.title("Fitted Emission")
 
         rm = 0.2
         specplot = plt.axes([0.1, 0.1, 0.8, 0.8])
@@ -8048,6 +8057,7 @@ class HETDEX:
 
         fig = plt.figure(figsize=(5, 3))
         plt.subplots_adjust(left=0.0, right=1.0, top=1.0, bottom=0.0)
+        #plt.gca().set_title("Fitted Emission")
         #norm = plt.Normalize()
         #colors = plt.cm.hsv(norm(np.arange(len(datakeep['ra']) + 2)))
         colors = self.make_fiber_colors(min(4, len(datakeep['ra'])),

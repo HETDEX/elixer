@@ -6,6 +6,7 @@ changes to elixer by version
 * add --lyc switch to produce Lyman Continuum focused version of ELiXer report
 * changed P(LAE) label at the top to P(LyA) (to reduce confusion with P(LAE)/P(OII))
 * fix PDF part merging for just imaging cutouts (no HETDEX part)
+* tweaked spacing (made text to right of 2D fiber cutouts 5 lines (split up the DatevShot_exp) and dropped labels
 
 1.9.0a14 [2020-06-24]
 * add max of fiber chi2 (+/-2 pix from fit wave center) to left of 2D fiber cutouts. Color text as 'red' if > 4.0.
