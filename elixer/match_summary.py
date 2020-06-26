@@ -135,6 +135,9 @@ class Match:
             self.bid_targets.append(bid)
 
     def update_classification(self,emis): #emis is a DetObj
+        if emis is None:
+            return
+
         if emis.spec_obj is None:
             self.addtl_line_names = "None"
             self.addtl_line_obs = "None"

@@ -998,10 +998,19 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
 
         else:
             try:
+                if match is None: #just for down-stream compatibility
+                    reset_match = True
+                    match = match_summary.Match()
+                else:
+                    reset_match = False
+
                 update_aperture_rules(_NUDGE_MAG_APERTURE_CENTER_SAVED)
                 r = c.build_bid_target_reports(match,ra, dec, error,num_hits=num_hits,section_title=section_title,
                                                base_count=base_count,target_w=target_w,fiber_locs=fiber_locs,
                                                target_flux=target_flux,detobj=detobj)
+
+                if reset_match:
+                    match = None
             except:
                 log.error("Exception in elixer::build_pages",exc_info=True)
                 r = None
@@ -1188,7 +1197,7 @@ def join_report_parts(report_name, bid_count=0):
                 page.scale(scale)
                 page.x = 0
                 page.y = y_offset
-                if (i == 1) and (G.ZEROTH_ROW_HEADER):
+                if (i == 1) and (G.ZEROTH_ROW_HEADER) and (len(merge_page) > 2):
                     y_offset = scale * (page.box[3] - 18.0) #trim excess vertical space from the zeroth row header
                 else:
                     y_offset = scale* page.box[3] #box is [x0,y0,x_top, y_top]

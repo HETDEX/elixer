@@ -606,7 +606,8 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
 
                     cat_match.add_bid_target(bid_target)
                     try:  # no downstream edits so they can both point to same bid_target
-                        detobj.bid_target_list.append(bid_target)
+                        if detobj is not None:
+                            detobj.bid_target_list.append(bid_target)
                     except:
                         log.warning("Unable to append bid_target to detobj.", exc_info=True)
             except:
