@@ -6070,7 +6070,7 @@ class HETDEX:
                     if G.LyC: #want this in a different position
                         plt.subplot(gs[0:2,25:37])
                     else:
-                        plt.subplot(gs[0:2,10:24])
+                        plt.subplot(gs[0:2,10:25])
 
                     plt.gca().axis('off')
                     buf,img_y = self.build_2d_image(datakeep)
@@ -6130,7 +6130,7 @@ class HETDEX:
                 else:
 
                     try:
-                        plt.subplot(gs[0:2,24:27])
+                        plt.subplot(gs[0:2,25:28])
                         plt.gca().axis('off')
                         if img_y is not None:
                             buf = self.build_scattered_light_image(datakeep,img_y,key='scatter_sky')
@@ -6145,7 +6145,7 @@ class HETDEX:
 
 
                     try:
-                        plt.subplot(gs[0:2,27:30])
+                        plt.subplot(gs[0:2,28:31])
                         plt.gca().axis('off')
                         if img_y is not None:
                             buf = self.build_scattered_light_image(datakeep,img_y,key='scatter')
@@ -6170,7 +6170,7 @@ class HETDEX:
                     #    log.warning("Failed to build relative fiber positions image.", exc_info=True)
 
                     try:
-                        plt.subplot(gs[0:2,30:])
+                        plt.subplot(gs[0:2,31:])
                         plt.gca().axis('off')
                         buf = self.build_spec_image(datakeep,e.w, dwave=1.0)
                         buf.seek(0)
@@ -7272,11 +7272,17 @@ class HETDEX:
         colors = self.make_fiber_colors(min(4,len(datakeep['ra'])),len(datakeep['ra']))# + 2 ) #the +2 is a pad in the call
         num_fibers = len(datakeep['xi'])
         num_to_display = min(MAX_2D_CUTOUTS,num_fibers) + add_summed_image  #for the summed images
+        # bordbuff = 0.005
+        # borderxl = 0.06 #leave room on the left for labels (weight, chi2, fiber#)
+        # borderxr = 0.16 #leave room on right for position and fiber info
+        # borderyb = 0.06
+        # borderyt = 0.16 #leave room at the top for labels
+
         bordbuff = 0.005
         borderxl = 0.06
-        borderxr = 0.16
-        borderyb = 0.06
-        borderyt = 0.16
+        borderxr = 0.15
+        borderyb = 0.00
+        borderyt = 0.15
 
         #the +1 for the summed image
         dx = (1. - borderxl - borderxr) / 3.
@@ -7539,7 +7545,7 @@ class HETDEX:
                                          verticalalignment='bottom', horizontalalignment='left')
 
                             try:
-                                l3 = datakeep['date'][ind[i]] + "_" + datakeep['obsid'][ind[i]] + "_" + datakeep['expid'][ind[i]]
+                                l3 = datakeep['date'][ind[i]] + "-" + datakeep['obsid'][ind[i]] + "-" + datakeep['expid'][ind[i]]
 
                                 #!!! multi*fits is <specid>_<ifuslot>_<ifuid> !!!
                                 #!!! so do NOT change from spec_id
@@ -7834,12 +7840,16 @@ class HETDEX:
                 log.error("Invalid key for build_scattered_light_image: %s" % key)
                 return None
 
+            # bordbuff = 0.01
+            # borderxl = 0.05
+            # borderxr = 0.15
+            # borderyb = 0.05
+            # borderyt = 0.15
+
             bordbuff = 0.01
-
-            borderxl = 0.05
-            borderxr = 0.15
-
-            borderyb = 0.05
+            borderxl = 0.00
+            borderxr = 0.00
+            borderyb = 0.00
             borderyt = 0.15
 
             dx = (1. - borderxl - borderxr)
