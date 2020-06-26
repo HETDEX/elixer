@@ -6068,7 +6068,7 @@ class HETDEX:
             if datakeep['xi']:
                 try:
                     if G.LyC: #want this in a different position
-                        plt.subplot(gs[0:2,26:])
+                        plt.subplot(gs[0:2,25:37])
                     else:
                         plt.subplot(gs[0:2,10:24])
 
@@ -6101,7 +6101,7 @@ class HETDEX:
 
                 if G.LyC:
                     try:
-                        plt.subplot(gs[0:2,12:26])
+                        plt.subplot(gs[0:2,11:25])
                         plt.gca().axis('off')
 
                         buf,_ = self.build_2d_LyC_image(datakeep,e.w/G.LyA_rest-1.0)
@@ -6111,6 +6111,22 @@ class HETDEX:
                         plt.imshow(im, interpolation='none')
                     except:
                         log.warning("Failed to build (LyCon) 2D cutout image.", exc_info=True)
+
+
+                    try:
+                        plt.subplot(gs[0:2,37:])
+                        plt.gca().axis('off')
+                        if img_y is not None:
+                            buf = self.build_scattered_light_image(datakeep,img_y,key='scatter_lyc')
+                        else:
+                            buf = self.build_scattered_light_image(datakeep,key='scatter_lyc')
+
+                        buf.seek(0)
+                        im = Image.open(buf)
+                        plt.imshow(im,interpolation='none') #needs to be 'none' else get blurring
+                    except:
+                        log.warning("Failed to 2D cutout image.", exc_info=True)
+
                 else:
 
                     try:
@@ -6297,6 +6313,8 @@ class HETDEX:
             dd['yh'] = []
             dd['ds9_x'] = []
             dd['ds9_y'] = []
+            dd['ds9_x_lyc'] = []
+            dd['ds9_y_lyc'] = []
             dd['x_2d_lyc'] = []
             dd['y_2d_lyc'] = []
             dd['sn'] = []
@@ -6304,6 +6322,7 @@ class HETDEX:
             #dd['wscore'] = [] #former dqs_score ... not using anymore (1.4.0a11+)
             dd['scatter'] = []
             dd['scatter_sky'] = []
+            dd['scatter_lyc'] = []
             dd['d'] = []
             dd['dx'] = []
             dd['dy'] = []
@@ -6930,12 +6949,49 @@ class HETDEX:
                     pixel_flat_buf = None
                     load_blank = True
 
+                # blank_xl = xl
+                # blank_xh = xh
+                # blank_yl = yl
+                # blank_yh = yh
+                # blank = np.zeros((yh-yl+1,xh-xl+1))
+                # scatter_blank = np.zeros((yh - yl + 1 + 10*yw, xh - xl + 1)) #10*yw because +/- 5*yw in height
+
+                if G.LyC:
+
+                    xl_lyc = int(np.round(x_LyC_2D - xw)) #This IS a position
+                    xh_lyc = int(np.round(x_LyC_2D + xw))
+                    yl_lyc = int(np.round(y_LyC_2D - yw))
+                    yh_lyc = int(np.round(y_LyC_2D + yw))
+                    datakeep['ds9_x_lyc'].append(1. + (xl_lyc + xh_lyc) / 2.)
+                    datakeep['ds9_y_lyc'].append(1. + (yl_lyc + yh_lyc) / 2.)
+
+                    blank_xl = xl_lyc
+                    blank_xh = xh_lyc
+                    blank_yl = yl_lyc
+                    blank_yh = yh_lyc
+                    blank = np.zeros((yh_lyc - yl_lyc + 1, xh_lyc - xl_lyc + 1))
+                    scatter_blank = np.zeros((yh_lyc - yl_lyc + 1 + 10 * yw, xh_lyc - xl_lyc + 1))  # 10*yw because +/- 5*yw in height
+
+                    xl_lyc = max(xl_lyc, 0)
+                    xh_lyc = min(xh_lyc, max_x - 1)
+                    yl_lyc = max(yl_lyc, 0)
+                    yh_lyc = min(yh_lyc, max_y - 1)
+
+                    scatter_blank_bot = 5 * yw - (yl_lyc - max(0, yl_lyc - 5 * yw))  # start copy position in scatter_blank
+                    scatter_blank_height = min(max_y - 1, yh_lyc + 5 * yw) - max(0, yl_lyc - 5 * yw)  # number of pixels to copy
+
+                    scatter_blank[scatter_blank_bot:scatter_blank_bot + scatter_blank_height + 1,
+                    (xl_lyc - blank_xl):(xl_lyc - blank_xl) + (xh_lyc - xl_lyc) + 1] = \
+                        fits.data[max(0, yl_lyc - 5 * yw):min(max_y - 1, yh_lyc + 5 * yw) + 1, xl_lyc:xh_lyc + 1]
+
+                    datakeep['scatter_lyc'].append(deepcopy(scatter_blank))
+
                 blank_xl = xl
                 blank_xh = xh
                 blank_yl = yl
                 blank_yh = yh
-                blank = np.zeros((yh-yl+1,xh-xl+1))
-                scatter_blank = np.zeros((yh - yl + 1 + 10*yw, xh - xl + 1)) #10*yw because +/- 5*yw in height
+                blank = np.zeros((yh - yl + 1, xh - xl + 1))
+                scatter_blank = np.zeros((yh - yl + 1 + 10 * yw, xh - xl + 1))  # 10*yw because +/- 5*yw in height
 
                 xl = max(xl, 0)
                 xh = min(xh, max_x-1)
@@ -7735,7 +7791,7 @@ class HETDEX:
     # +/- 3 fiber sizes on CCD (not spacially adjacent fibers)
     def build_scattered_light_image(self, datakeep, img_y = 3, key='scatter'):
 
-            if not key in ['scatter','scatter_sky']:
+            if not key in ['scatter','scatter_sky','scatter_lyc']:
                 log.error("Invalid key for build_scattered_light_image: %s" % key)
                 return None
 
@@ -7769,6 +7825,11 @@ class HETDEX:
                 vmin = datakeep['vmin3'][ind[datakeep_idx]]
                 vmax = datakeep['vmax3'][ind[datakeep_idx]]
                 title = "With Sky"
+            elif key == 'scatter_lyc':
+                cmap = plt.get_cmap('gray_r')
+                vmin = datakeep['vmin2'][ind[datakeep_idx]]
+                vmax = datakeep['vmax2'][ind[datakeep_idx]]
+                title = "Cleaned (LyC)"
             else: #not possible ... just here for sanity and future expansion
                 log.error("Invalid key for build_scattered_light_image: %s" % key)
                 return None
@@ -7797,8 +7858,14 @@ class HETDEX:
 
             if not G.ZOO:
                 #plt.title("CCD Region of Main Fiber\n(%d,%d)"
-                plt.title("%s\nx, y: %d, %d"
-                          % (title,datakeep['ds9_x'][ind[datakeep_idx]], datakeep['ds9_y'][ind[datakeep_idx]]), fontsize=12)
+                if key == 'scatter_lyc':
+                    plt.title("%s\nx, y: %d, %d"
+                              % (title, datakeep['ds9_x_lyc'][ind[datakeep_idx]], datakeep['ds9_y_lyc'][ind[datakeep_idx]]),
+                              fontsize=12)
+                else:
+                    plt.title("%s\nx, y: %d, %d"
+                          % (title,datakeep['ds9_x'][ind[datakeep_idx]], datakeep['ds9_y'][ind[datakeep_idx]]),
+                              fontsize=12)
             else:
                 plt.title("%s" % (title), fontsize=12)
 
