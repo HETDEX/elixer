@@ -854,16 +854,21 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=1000.0):
 
     return_dict = {}
     return_dict['x0'] = None
-    return_dict['intflux'] = 0.0
+    return_dict['fitflux'] = 0.0
     return_dict['continuum_level'] = 0.0
     return_dict['velocity_offset'] = 0.0
     return_dict['sigma'] = 0.0
     return_dict['rmse'] = 0.0
     return_dict['snr'] = 0.0
+    return_dict['meanflux_density'] = 0.0
+    return_dict['velocity_offset_limit'] = wave_slop_kms  # not memory efficient to store the same value
+    # repeatedly, but, thinking ahead to maybe allowing the max velocity limit to vary by coordinate
     #return_dict['score'] = 0.0
 
     if (values is None) or (len(values) == 0):
         return return_dict
+
+
 
     try:
         min_sigma = 1.5 #FWHM  ~ 3.5AA (w/o error, best measure would be about 5AA)
@@ -875,6 +880,11 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=1000.0):
 
         narrow_wave_x = wavelengths[min_idx:max_idx+1]
         narrow_wave_counts = values[min_idx:max_idx+1]
+
+        return_dict['meanflux_density'] = np.nansum(values[min_idx:max_idx+1])/\
+                                         (wavelengths[max_idx+1]-wavelengths[min_idx])
+        #reminder, max_idx+1 since we want to include the WIDTH of the last bin in the sum
+        #also, assumes input is in flux units and the wavebins are the same width
 
         if (errors is not None) and (len(errors) == len(wavelengths)):
             narrow_wave_errors = errors[min_idx:max_idx+1]
@@ -910,7 +920,7 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=1000.0):
             sigma = parm[1]
             A = parm[2]
             Y = parm[3]
-            intflux = A / G.FLUX_WAVEBIN_WIDTH
+            fitflux = A / G.FLUX_WAVEBIN_WIDTH
             continuum_level = Y
             vel_offset = velocity_offset(central, x0).value
 
@@ -930,7 +940,7 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=1000.0):
             snr = A / (np.sqrt(num_sn_pix) * fit_rmse)
 
             return_dict['x0'] = x0
-            return_dict['intflux'] = intflux
+            return_dict['fitflux'] = fitflux
             return_dict['continuum_level'] = continuum_level
             return_dict['velocity_offset'] = vel_offset
             return_dict['sigma']=sigma
@@ -1107,14 +1117,14 @@ def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity
                 # overly? generous sigma ... maybe make similar to original?
                 if (1.0 < ex['fit']['sigma'] < 20.0) and \
                         (3.0 < ex['fit']['snr'] < 1000.0):
-                    if ex['fit']['intflux'] > 0:
+                    if ex['fit']['fitflux'] > 0:
                         #print("Winner")
                         wct += 1
                 else:  # is bad, wipe out
                     #print("bad fit")
                     ex['bad_fit'] = copy.copy(ex['fit'])
                     ex['fit']['snr'] = 0
-                    ex['fit']['intflux'] = 0
+                    ex['fit']['fitflux'] = 0
                     ex['fit']['continuum_level'] = 0
                     ex['fit']['velocity_offset'] = 0
                     ex['fit']['rmse'] = 0
@@ -1141,9 +1151,9 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
     :param ra_meshgrid:
     :param dec_meshgrid:
     :param cw: central wavelength
-    :param key: one of "intflux" (integrated line flux), "f900", "velocity_offset", "continuum_level"
+    :param key: one of "fitflux" (integrated line flux), "f900", "velocity_offset", "continuum_level"
     :param colormap: matplotlib color map to use for scale
-    ##:param lyc: if True, assume the cw is LyA and produce an extra intflux plot around rest-900AA
+    ##:param lyc: if True, assume the cw is LyA and produce an extra fitflux plot around rest-900AA
     :param save: filename base to save the plots (the files as saved as <save>_3d.png, <save>_contour.png, <save>_mesh.png
     :param savepy: save a pickle and a python file to load it and launche interactive plots
     :param show: if True, display the plots interactively
@@ -1179,7 +1189,7 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
         for r in range(np.shape(ra_meshgrid)[1]):  # columns (x or RA values)
             for d in range(np.shape(ra_meshgrid)[0]):  # rows (y or Dec values)
                 try:
-                    if 'bad_fit' in dict_meshgrid[d, r].keys():
+                    if key != 'meanflux_density' and 'bad_fit' in dict_meshgrid[d, r].keys():
                         pass # no fit, assume same as "no-data"
                     else:
                         z[d,r] = dict_meshgrid[d, r]['fit'][key]
@@ -1187,6 +1197,13 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
                     pass  # nothing there, so leave the 'bad value' in place
 
         z = np.ma.masked_where(z == bad_value, z)
+
+        try:
+            max_aa_offset = dict_meshgrid[0][0]['fit']['velocity_offset_limit'] #in km/s
+            max_aa_offset = cw * max_aa_offset / (astropy.constants.c.to('km/s')).value
+        except:
+           max_aa_offset = None
+           # max_aa_offset = cw * 1500.00 / (astropy.constants.c.to('km/s')).value
 
         fig = plt.figure()
         ax = plt.gca()
@@ -1198,7 +1215,12 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
         xlim = ax.get_xlim()
         ax.set_xlim(xlim[1],xlim[0])
 
-        ax.set_title(f"RA ({RA:0.5f}) Dec ({DEC:0.5f}) Wave ({cw:0.2f})")
+        if max_aa_offset is not None:
+            info_title = fr"$\alpha$ ({RA:0.5f}) $\delta$ ({DEC:0.5f}) $\lambda$ ({cw:0.2f} +/- {max_aa_offset:0.2f})"
+        else:
+            info_title = fr"$\alpha$ ({RA:0.5f}) $\delta$ ({DEC:0.5f}) $\lambda$ ({cw:0.2f})"
+
+        ax.set_title(info_title)
         ax.set_xlabel(r'$\Delta$RA"')
         ax.set_ylabel(r'$\Delta$Dec"')
         fig.colorbar(surf, shrink=0.5, aspect=5,label=key)
@@ -1221,7 +1243,7 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
         xlim = ax.get_xlim()
         ax.set_xlim(xlim[1],xlim[0])
 
-        ax.set_title(f"RA ({RA:0.5f}) Dec ({DEC:0.5f}) Wave ({cw:0.2f})")
+        ax.set_title(info_title)
         ax.set_xlabel(r'$\Delta$RA"')
         ax.set_ylabel(r'$\Delta$Dec"')
         fig.colorbar(surf, shrink=0.5, aspect=5,label=key)
@@ -1259,7 +1281,7 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
         xlim = ax.get_xlim()
         ax.set_xlim(xlim[1], xlim[0])
 
-        ax.set_title(f"RA ({RA:0.5f}) Dec ({DEC:0.5f}) Wave ({cw:0.2f})")
+        ax.set_title(info_title)
         ax.set_xlabel(r'$\Delta$RA"')
         ax.set_ylabel(r'$\Delta$Dec"')
         ax.set_zlabel(key)
@@ -1313,6 +1335,9 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
                 pyfilestr += f"parms_dict = pickle.load(open('{op.basename(fn)+'.pickle'}','rb'))\n"
                 pyfilestr += "data = np.ndarray.flatten(parms_dict['dict_meshgrid'])\n"
                 pyfilestr += "idx = np.where(data != 0)[0]\n"
+                pyfilestr += "if (idx is None) or len(idx)==0:\n"
+                pyfilestr += "  print('No emission line was able to be fit with provided parameters.')\n"
+                pyfilestr += "  exit(0)\n"
                 pyfilestr += "try:\n"
                 pyfilestr += "    allkeys = data[idx[0]]['fit'].keys()\n"
                 pyfilestr += "except:\n"
@@ -1324,9 +1349,9 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
                 pyfilestr += "        print(f'Available keys to plot: {allkeys}')\n"
                 pyfilestr += "        exit(0)\n"
                 pyfilestr += "else:\n"
-                pyfilestr += "    print('Assuming intflux plot')\n"
+                pyfilestr += "    print('Assuming fitflux plot')\n"
                 pyfilestr += "    print(f'Available keys to plot: {allkeys}')\n"
-                pyfilestr += "    key = 'intflux'\n"
+                pyfilestr += "    key = 'fitflux'\n"
                 pyfilestr += "SU.make_raster_plots(parms_dict['dict_meshgrid']," \
                              "parms_dict['ra_meshgrid']," \
                              "parms_dict['dec_meshgrid']," \
@@ -1384,6 +1409,6 @@ def get_shotids(ra,dec,hdr_version=G.HDR_Version):
 # shotlist = SU.get_shotids(RA,DEC)
 # ra_meshgrid, dec_meshgrid = SU.make_raster_grid(RA,DEC,3.0,0.4)
 # edict = SU.raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,max_velocity=2000,aperture=3.0)
-# z = SU.make_raster_plots(edict,ra_meshgrid,dec_meshgrid,cw,"intflux",show=True)
+# z = SU.make_raster_plots(edict,ra_meshgrid,dec_meshgrid,cw,"fitflux",show=True)
 # notice:  in the above call, to save static images, specify a filename base in the "save" parameter
 #          or for interactive images, in the "savepy" parameter

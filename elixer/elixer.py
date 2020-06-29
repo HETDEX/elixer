@@ -2683,6 +2683,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             log.info("Exception. Unable to lookup detectid coordinates.",exc_info=True)
             return None, None
 
+    total_detectids = 0
     if not just_mini_cutout:
         neighbor_color = "red"
         detectids, ras, decs, dists = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=error, sort=True)
@@ -2698,6 +2699,10 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                 all_ras += cont_ras[:]
                 all_decs += cont_decs[:]
 
+        if detectids is not None:
+            total_detectids += len(detectids)
+        if cont_detectids is not None:
+            total_detectids += len(cont_detectids)
 
         if (len(detectids) == 0) and (len(cont_detectids)== 0):
             #nothing to do
@@ -3045,7 +3050,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
         #the 1D spectrum
         plt.subplot(gs[i*row_step+1:(i+1)*row_step-1,3:])
-        plt.title("Dist: %0.1f\"  RA,Dec: (%f,%f)  DetectID: %d" %(dists[i],ras[i],decs[i],detectids[i]))
+        plt.suptitle(f"{total_detectids} HETDEX detections found nearby. Showing nearest {len(detectids)}.",fontsize=32)
+        plt.title(r'Dist: %0.1f"  RA,Dec: (%f,%f)   $\lambda$: %0.2f   DetectID: %d' %(dists[i],ras[i],decs[i],emis[i],detectids[i]))
         plt.plot(wave[i],spec[i],zorder=9,color='b')
         if cwave is not None:
             plt.axvline(x=cwave,linestyle="--",zorder=1,color='k',linewidth=1.0,alpha=0.5)
@@ -3082,7 +3088,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             log.info("Exception attempting to save neighborhood map png.",exc_info=True)
 
     buf = io.BytesIO()
-    plt.savefig(buf, format='png', dpi=150)
+    #plt.tight_layout()
+    plt.savefig(buf, format='png', dpi=150)#,bbox_inches = 'tight', pad_inches = 0)
 
     return buf, nei_buf
 
@@ -3919,7 +3926,7 @@ def main():
                             edict = SU.raster_search(ra_meshgrid, dec_meshgrid, shotlist, cw,
                                                      max_velocity=args.gridsearch[2],aperture=3.0)
                             #show most common (others are available via direct call to the saved py file)
-                            z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,"intflux",
+                            z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,"fitflux",
                                                           save=savefn,savepy=savefn,show=args.gridsearch[3])
                             #don't know how meaningful this really is, given that this is a single source (not a stack)
                             #and the f900 would be at the 0.01 S/N level

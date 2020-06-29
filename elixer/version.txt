@@ -1,5 +1,12 @@
 changes to elixer by version
 
+1.9.0a16 [2020-06-29]
+* added check for no returned idx (no emission line fit) in spectrum_utilities::make_raster_plots
+  + changed 'intflux' to 'fitflux' (as this is a fitted (model) flux not an integrated flux)
+  + added 'meanflux_density' (as sum over flux bins / wavelength range)
+  + added wavelength fit range to titles
+* update neighborhood map to include suptitle with total count and entry titles with wavelength
+
 1.9.0a15 [2020-06-26]
 * don't enforce 'empty image' restriction on SDSS
 * add spectral_slope, spectral_slope_err to cat.h5 file Detection table
