@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.9.0a17 [2020-06-30]
+* fixed bug in spectrum::peakdet that returns a None instead of empty list []
+
 1.9.0a16 [2020-06-29]
 * added check for no returned idx (no emission line fit) in spectrum_utilities::make_raster_plots
   + changed 'intflux' to 'fitflux' (as this is a fitted (model) flux not an integrated flux)

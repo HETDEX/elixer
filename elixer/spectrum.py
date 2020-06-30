@@ -2199,7 +2199,7 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
     """
 
     if (v is None) or (len(v) < 3):
-        return None #cannot execute
+        return [] #cannot execute
 
 
     maxtab = []
@@ -2216,7 +2216,7 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
     pix_size = abs(x[1] - x[0])  # aa per pix
     if pix_size == 0:
         log.error("Unexpected pixel_size in spectrum::peakdet(). Wavelength step is zero.")
-        return None
+        return []
     # want +/- 20 angstroms
     wave_side = int(round(20.0 / pix_size))  # pixels
 
@@ -2227,15 +2227,15 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
 
     if num_pix != len(x):
         log.warning('peakdet: Input vectors v and x must have same length')
-        return None
+        return []
 
     if not np.isscalar(dh):
         log.warning('peakdet: Input argument delta must be a scalar')
-        return None
+        return []
 
     if dh <= 0:
         log.warning('peakdet: Input argument delta must be positive')
-        return None
+        return []
 
 
     v_0 = v[:]
@@ -2864,6 +2864,10 @@ class Spectrum:
         #does not need errors for this purpose
         peaks = peakdet(wavelengths,values,errors,values_units=values_units,enforce_good=False) #as of 2018-06-11 these are EmissionLineInfo objects
         max_score = -np.inf
+        if peaks is None:
+            log.info("No viable emission lines found.")
+            return 0.0
+
         #find the largest flux
         for p in peaks:
             #  0   1   2   3          4
