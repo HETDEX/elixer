@@ -75,8 +75,9 @@ class HetdexFits:
         self.fe_crval1 = None
         self.fe_cdelt1 = None
 
-        self.calfib = None #calibrated, rectified (see G.CALFIB_WAVEGRID)
+        self.calfib = None #calibrated, rectified (see G.CALFIB_WAVEGRID) (local sky subtraction)
         self.calfibe = None
+        self.ffsky_calfib = None #fullfrield sky version of calfib
 
         self.fiber_chi2 = None #fiber profile chi2
         self.fiber_rms = None
@@ -433,6 +434,7 @@ class HetdexFits:
                 self.fiber_to_fiber = np.zeros((112, 1032))
                 self.calfib = np.zeros((112, len(G.CALFIB_WAVEGRID)))
                 self.calfibe = np.zeros((112, len(G.CALFIB_WAVEGRID)))
+                self.ffsky_calfib = np.zeros((112, len(G.CALFIB_WAVEGRID)))
                 self.fiber_chi2 = np.zeros((112, 1032))
                 self.fiber_rms = np.zeros((112, 1032))
 
@@ -461,6 +463,10 @@ class HetdexFits:
 
                     self.calfib[idx] = row['calfib']
                     self.calfibe[idx] = row['calfibe']
+                    try:
+                        self.ffsky_calfib[idx] = row['spec_fullsky_sub']
+                    except:
+                        pass #older versions may not have this column
                     try:
                         self.fiber_chi2[idx] = row['chi2']
                         self.fiber_rms[idx] = row['rms']

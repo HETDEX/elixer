@@ -522,7 +522,7 @@ class DetObj:
         self.cont_cgs_narrow_unc = 0.0 #kept for reporting, not used elsewhere
         #in most cases, hetdex_xxx will be updated ... this is for explicit reporting in HDF5 file
         #and is not used anywhere else
-        self.hetdex_cont_cgs = self.cont_cgs
+        self.hetdex_cont_cgs = self.cont_cgs #as read from the detections file (right around the emission line)
         self.hetdex_cont_cgs_unc = self.cont_cgs_unc
 
         self.fwhm = -1.0 #in angstroms
@@ -3222,13 +3222,23 @@ class DetObj:
                         fits.obs_ymd = fits.obs_date
 
                         # now read the HDF5 equivalent
-                        fits.read_hdf5()
-                        # check if it is okay
+                        #if we don't already have it
+                        already_read = False
+                        for fi in self.fibers:
+                            #same filename (same DateVshot + observation) + same (IFU address) + same exposure
+                            if (fi.fits.filename == fits.filename) and (fi.fits.multiframe == fits.multiframe) \
+                                and (fi.fits.expid == fits.expid):
+                                fiber.fits = fi.fits
+                                already_read = True
+                                break
 
-                        if fits.okay:
-                            fiber.fits = fits
-                        else:
-                            log.error("HDF5 multi-fits equivalent is not okay ...")
+                        if not already_read:
+                            fits.read_hdf5()
+                             # check if it is okay
+                            if fits.okay:
+                                fiber.fits = fits
+                            else:
+                                log.error("HDF5 multi-fits equivalent is not okay ...")
 
                     self.fibers.append(fiber)
 

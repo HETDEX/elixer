@@ -681,7 +681,7 @@ def parse_commandline(auto_force=False):
 
     if args.gridsearch:
 
-        #first git rid of parenthesis that are not supposed to be there, but are commonly typed in
+        #first get rid of parenthesis that are not supposed to be there, but are commonly typed in
         try:
             args.gridsearch = args.gridsearch.replace(')','')
             args.gridsearch = args.gridsearch.replace('(','')
