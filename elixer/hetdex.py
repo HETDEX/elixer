@@ -537,6 +537,13 @@ class DetObj:
 
         self.fibers = []
         self.fibers_sorted = False
+
+        # list of fibers that are adjacent to the detection fibers (in self.fibers)
+        # over all included amps and exposures BUT are not included in fibers itself
+        # (it has no overlap with self.fibers)
+        self.ccd_adjacent_fibers = []
+
+
         self.outdir = None
         self.calfib_noise_estimate = None
         self.num_duplicate_central_pixels = 0 #used in classification, if the number is high, more likely to be spurious
@@ -3025,6 +3032,16 @@ class DetObj:
         return
 
 
+
+    def find_ccd_adjacent_fibers(self):
+        """
+        Iterate over the self.fibers list of fibers and build up self.ccd_adjacent_fibers
+
+        :return:
+        """
+        #todo:
+        pass
+
     def forced_extraction(self):
         """
 
@@ -3462,8 +3479,6 @@ class DetObj:
             self.rvb = SU.red_vs_blue(self.w, self.sumspec_wavelength,
                                       self.sumspec_flux / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS,
                                       self.sumspec_fluxerr / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS, self.fwhm)
-
-
 
             if self.annulus:
                 self.syn_obs = elixer_observation.SyntheticObservation()
@@ -3940,14 +3955,24 @@ class DetObj:
                         fits.obs_date = fiber.dither_date
                         fits.obs_ymd = fits.obs_date
 
-                        #now read the HDF5 equivalent
-                        fits.read_hdf5()
-                        #check if it is okay
+                        # now read the HDF5 equivalent
+                        #if we don't already have it
+                        already_read = False
+                        for fi in self.fibers:
+                            #same filename (same DateVshot + observation) + same (IFU address) + same exposure
+                            if (fi.fits.filename == fits.filename) and (fi.fits.multiframe == fits.multiframe) \
+                                and (fi.fits.expid == fits.expid):
+                                fiber.fits = fi.fits
+                                already_read = True
+                                break
 
-                        if fits.okay:
-                            fiber.fits = fits
-                        else:
-                            log.error("HDF5 multi-fits equivalent is not okay ...")
+                        if not already_read:
+                            fits.read_hdf5()
+                             # check if it is okay
+                            if fits.okay:
+                                fiber.fits = fits
+                            else:
+                                log.error("HDF5 multi-fits equivalent is not okay ...")
 
                     self.fibers.append(fiber)
 
@@ -5195,12 +5220,14 @@ class HETDEX:
                     e.load_hdf5_shot_info(self.hdf5_survey_fqfn, _shotid)
 
                 if e.status >= 0:
-                    self.emis_list.append(e)
+                    self.emis_list.append(e)# moved higher up to always be appended
                     if self.target_wavelength is None or self.target_wavelength == 0:
                         self.target_wavelength = e.target_wavelength
 
                 else:
-                    log.info("Unable to continue with eid(%s). No report will be generated." % (str(e.entry_id)))
+                    # regardless of the result, still append the DetObj so we will get the imaging cutouts
+                    self.emis_list.append(e)
+                    log.info("Unable to build full report for eid(%s). HETDEX section will not be generated." % (str(e.entry_id)))
         except:
             log.error("Exception in hetdex.py make_extraction.",exc_info=True)
             self.status = -1
@@ -5448,6 +5475,10 @@ class HETDEX:
             log.error("Could not identify correct emission to plot. Detect ID = %d" % detectid)
             return None
 
+        if e.status < 0:
+            log.info(f"Bad DetObj status ({e.status}). Will not build HETDEX report section.")
+            return None
+
         print ("Bulding HETDEX annulus header for Detect ID #%d" %detectid)
 
         e.syn_obs.build_complete_emission_line_info_dict()
@@ -5653,6 +5684,10 @@ class HETDEX:
         e = self.get_emission_detect(detectid) #this is a DetObj
         if e is None:
             log.error("Could not identify correct emission to plot. Detect ID = %d" % detectid)
+            return None
+
+        if e.status < 0:
+            log.info(f"Bad DetObj status ({e.status}). Will not build HETDEX report section.")
             return None
 
         print ("Bulding HETDEX header for Detect ID #%d" %detectid)

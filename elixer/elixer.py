@@ -1169,7 +1169,7 @@ def join_report_parts(report_name, bid_count=0):
     if report_name[-1] == '!': #this is a problem report (still generate, but there is an error we want to recover later)
         report_name = report_name.rstrip('!')
         error = True
-        return #for now, don't write anything
+        #return #for now, don't write anything
 
     if G.SINGLE_PAGE_PER_DETECT:
         #part0001 is the hetdex part (usually 2 pages)
@@ -1227,8 +1227,11 @@ def join_report_parts(report_name, bid_count=0):
 
             if not report_name.endswith(".pdf"):
                 report_name += ".pdf"
-            if error:
-                report_name = "FAIL_" + report_name
+
+            # if error:
+            #     report_name = report_name.replace(".pdf", "_FAIL.pdf")
+            # if error:
+            #     report_name = "FAIL_" + report_name
             writer = PyPDF.PdfWriter(report_name)
 
             try:
@@ -1285,8 +1288,9 @@ def join_report_parts(report_name, bid_count=0):
 
             if not report_name.endswith(".pdf"):
                 report_name += ".pdf"
-            if error:
-                report_name = "FAIL_" + report_name
+
+            # if error:
+            #     report_name = report_name.replace(".pdf", "_FAIL.pdf")
 
             writer = PyPDF.PdfWriter(report_name)
             writer.addPage(merge_page.render())
@@ -1321,8 +1325,9 @@ def join_report_parts(report_name, bid_count=0):
                 writer.addpages(PyPDF.PdfReader(part_name).pages)
 
         writer.trailer.Info = metadata
-        if error:
-            report_name = "FAIL_" + report_name
+
+        # if error:
+        #     report_name = report_name.replace(".pdf", "_FAIL.pdf")
 
         writer.write(report_name)
 
@@ -1530,6 +1535,9 @@ def convert_pdf(filename, resolution=150, jpeg=True, png=False):
     #file might not exist, but this will just trap an execption
     if filename is None:
         return
+
+    if filename[-1] == "!":
+        filename = filename.rstrip("!")
 
     try:
         ext = filename[-4:]
@@ -2960,6 +2968,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     plt.close('all')
     fig = plt.figure(figsize=(G.FIGURE_SZ_X, G.GRID_SZ_Y * num_rows))
     plt.subplots_adjust(left=0.00, right=0.95, top=0.95, bottom=0.0)
+    if num_rows > G.MAX_NEIGHBORS_IN_MAP:
+        plt.suptitle(f"{total_detectids} HETDEX detections found nearby. Showing nearest {len(detectids)}.", fontsize=32)
 
     gs = gridspec.GridSpec(row_step*num_rows,10) #rows, columns
 
@@ -3068,7 +3078,6 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
         #the 1D spectrum
         plt.subplot(gs[i*row_step+1:(i+1)*row_step-1,3:])
-        plt.suptitle(f"{total_detectids} HETDEX detections found nearby. Showing nearest {len(detectids)}.",fontsize=32)
         plt.title(r'Dist: %0.1f"  RA,Dec: (%f,%f)   $\lambda$: %0.2f   DetectID: %d' %(dists[i],ras[i],decs[i],emis[i],detectids[i]))
         plt.plot(wave[i],spec[i],zorder=9,color='b')
         if cwave is not None:
@@ -3453,6 +3462,20 @@ def main():
                             exit (-1)
 
                     #iterate over all emission line detections
+                    #this is not really the best solution
+                    # if len(hd.emis_list) == 0: #none were found in HETDEX, but still make imaging cutouts
+                    #    try:
+                    #        #make a dummy emission object just to get the catalog position cutouts
+                    #        e = hetdex.DetObj(None, emission=True, basic_only=True)
+                    #        if e is not None:
+                    #            G.UNIQUE_DET_ID_NUM += 1
+                    #            e.id = G.UNIQUE_DET_ID_NUM
+                    #            e.ra = hd.target_ra
+                    #            e.dec = hd.target_dec
+                    #            hd.emis_list.append(e)
+                    #    except:
+                    #        pass
+
                     if len(hd.emis_list) > 0:
                         total_emis += len(hd.emis_list)
                         print()

@@ -1026,7 +1026,8 @@ def build_elixer_hdf5(fname,hd_list=[],overwrite=False):
 
     for h in hd_list:  # iterate over all hetdex (hd) collections
         for e in h.emis_list: #for each detection in each hd collection
-            append_entry(fileh,e,overwrite)
+            if e.status >= 0:
+                append_entry(fileh,e,overwrite)
 
 
     flush_all(fileh)
@@ -1054,7 +1055,8 @@ def extend_elixer_hdf5(fname,hd_list=[],overwrite=False):
 
     for h in hd_list:  # iterate over all hetdex (hd) collections
         for e in h.emis_list: #for each detection in each hd collection
-            append_entry(fileh,e,overwrite)
+            if e.status >= 0:
+                append_entry(fileh,e,overwrite)
 
 
     flush_all(fileh)

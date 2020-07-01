@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.9.0a18 [2020-07-01]
+* still produce imaging cutout section of main report if the forced extraction fails (i.e. if there is no
+  matching HETDEX shot, etc).
+
 1.9.0a17 [2020-07-01]
 * fixed bug in spectrum::peakdet that returns a None instead of empty list []
 * improve specturm_utilites::simple_fit_slope() to clean the input data for NaNs and INFs
