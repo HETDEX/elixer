@@ -680,6 +680,14 @@ def parse_commandline(auto_force=False):
             exit(-1)
 
     if args.gridsearch:
+
+        #first git rid of parenthesis that are not supposed to be there, but are commonly typed in
+        try:
+            args.gridsearch = args.gridsearch.replace(')','')
+            args.gridsearch = args.gridsearch.replace('(','')
+        except:
+            pass
+
         try:
             args.gridsearch = tuple(map(float, args.gridsearch.split(',')))
 

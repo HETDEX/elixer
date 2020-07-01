@@ -5,6 +5,7 @@ changes to elixer by version
 * improve specturm_utilites::simple_fit_slope() to clean the input data for NaNs and INFs
 * allow --id (if less than HETDEX detectID value) to specify the start of the internal ID numbering
 * fix --gridsearch naming convention of .py and .pickle to match the ELiXer pdf_name
+* allow --gridsearch to have parenthesis on command line (commonly typed that way)
 
 1.9.0a16 [2020-06-29]
 * added check for no returned idx (no emission line fit) in spectrum_utilities::make_raster_plots
