@@ -823,10 +823,24 @@ def simple_fit_slope (wavelengths, values, errors=None,trim=True):
         #check the slope
         if errors is not None and len(errors)==len(values):
             weights = 1./np.array(errors[idx_lt:idx_rt])
+            #clear any nans or infs
+            weights[np.isnan(weights)] = 0.0
+            weights[np.isinf(weights)] = 0.0
         else:
             weights = None
 
-        coeff, cov  = np.polyfit(wavelengths[idx_lt:idx_rt], values[idx_lt:idx_rt],
+        #local copy to protect values
+        _values = values[idx_lt:idx_rt]
+        #get rid of the NaNs and the +/- inf
+        weights[np.isnan(_values)] = 0.0 #zero out their weights
+        weights[np.isinf(_values)] = 0.0 #zero out their weights
+
+        #set to innocuous values
+        _values[np.isnan(_values)] = 0.0
+        _values[np.isneginf(_values)] = np.min(_values[np.invert(np.isinf(_values))])
+        _values[np.isposinf(_values)] = np.max(_values[np.invert(np.isinf(_values))])
+
+        coeff, cov  = np.polyfit(wavelengths[idx_lt:idx_rt], _values,
                                  w=weights,cov=True,deg=1)
         if coeff is not None:
             slope = coeff[0]

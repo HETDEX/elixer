@@ -485,8 +485,18 @@ def parse_commandline(auto_force=False):
 
     #don't really use id any more, but pass it into dets
     if args.id is not None:
-        print("Note: old '--id' parameter overriding '--dets'")
-        args.dets = args.id
+        #if it is a small number, assume we want to start the local IDs at that number
+        #if it is in the HETDEX range, replace --dets with that value (assuming a lookup is being requested)
+        try:
+            _i = int(args.id)
+            if 0 < _i < int(1e9):
+                G.UNIQUE_DET_ID_NUM = _i - 1
+            else:
+                print("Note: old '--id' parameter overriding '--dets'")
+                args.dets = args.id
+        except:
+            print("Note: old '--id' parameter overriding '--dets'")
+            args.dets = args.id
 
     if args.prep_recover:
         print("Attempting to run clean_for_recovery script ... ")
@@ -3910,7 +3920,11 @@ def main():
                                 cw = args.wavelength
                             else:
                                 cw = e.w
-                            savefn = os.path.join(e.outdir, str(e.entry_id))
+
+                            if e.pdf_name:
+                                savefn = os.path.join(e.outdir, e.pdf_name.rstrip(".pdf"))
+                            else:
+                                savefn = os.path.join(e.outdir, str(e.entry_id))
                             if args.shotid:
                                 shotlist = [args.shotid]
                             elif e.survey_shotid:
