@@ -2654,7 +2654,7 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
 
 
 def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=None, distance=None, cwave=None,
-                           fname=None,original_distance=None):
+                           fname=None,original_distance=None,this_detection=None):
     """
 
     :param hdf5:
@@ -2730,7 +2730,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         if cont_detectids is not None:
             total_detectids += len(cont_detectids)
 
-        if (len(detectids) == 0) and (len(cont_detectids)== 0):
+        if (len(detectids) == 0) and (len(cont_detectids)== 0) and (this_detection is None):
             #nothing to do
             log.info("No HETDEX detections found: (%f,%f) +/- %d\"" %(ra,dec,distance))
             return None, None
@@ -2963,6 +2963,17 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     decs += cont_decs
     dists += cont_dists
 
+    #todo: here add THIS detection IF this is a re-extraction
+    if this_detection is not None:
+        #prepend THIS detection to:
+        num_rows += 1
+        detectids.insert(0,this_detection.entry_id)
+        ras.insert(0,this_detection.ra)
+        decs.insert(0,this_detection.dec)
+        dists.insert(0,0.0)
+        spec.insert(0,this_detection.sumspec_flux / 2.0) #assume HETDEX 2AA and put into /1AA
+        wave.insert(0,G.CALFIB_WAVEGRID)
+        emis.insert(0,this_detection.target_wavelength)
 
     row_step = 10 #allow space in between
     plt.close('all')
@@ -2987,6 +2998,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     #     y = ext/2.0
     #     vmin = None
     #     vmax = None
+
+
 
     for i in range(num_rows):
         #first the cutout
@@ -3870,7 +3883,8 @@ def main():
                         _, nei_mini_buf = build_neighborhood_map(hdf5=args.hdf5, cont_hdf5=G.HDF5_CONTINUUM_FN,
                                            detectid=None, ra=ra, dec=dec, distance=args.neighborhood, cwave=e.w,
                                            fname=nei_name,
-                                           original_distance=args.error)
+                                           original_distance=args.error,
+                                            this_detection=e if explicit_extraction else None)
                     except:
                         log.warning("Exception calling build_neighborhood_map.",exc_info=True)
 
@@ -3881,7 +3895,8 @@ def main():
                                            detectid=None, ra=args.ra, dec=args.dec, distance=args.neighborhood,
                                            cwave=None,
                                            fname=os.path.join(args.name, args.name + "_nei.png"),
-                                           original_distance=args.error)
+                                           original_distance=args.error,
+                                           this_detection=e if explicit_extraction else None)
                     except:
                         log.warning("Exception calling build_neighborhood_map.",exc_info=True)
 

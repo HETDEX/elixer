@@ -6,6 +6,8 @@ changes to elixer by version
 * add (brightest) single fiber magnitude for fibers adjacent to the detection fibers on the CCD, and single central
   fiber magnitude as possible flagging for scattered light (i.e. if CCD neighboring fiber is bright (< 23?) and the
   central fiber is much fainter, there is a good chance of scattered light contributing to the detection
+* always add explicit (forced) extraction (if performed) as the top entry for neighborhood map
+
 
 1.9.0a17 [2020-07-01]
 * fixed bug in spectrum::peakdet that returns a None instead of empty list []
