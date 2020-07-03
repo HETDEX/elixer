@@ -3,6 +3,9 @@ changes to elixer by version
 1.9.0a18 [2020-07-01]
 * still produce imaging cutout section of main report if the forced extraction fails (i.e. if there is no
   matching HETDEX shot, etc).
+* add (brightest) single fiber magnitude for fibers adjacent to the detection fibers on the CCD, and single central
+  fiber magnitude as possible flagging for scattered light (i.e. if CCD neighboring fiber is bright (< 23?) and the
+  central fiber is much fainter, there is a good chance of scattered light contributing to the detection
 
 1.9.0a17 [2020-07-01]
 * fixed bug in spectrum::peakdet that returns a None instead of empty list []

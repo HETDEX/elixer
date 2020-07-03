@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.2.2' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.2.3' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -138,6 +138,10 @@ class Detections(tables.IsDescription):
 
     spectral_slope = tables.Float32Col(dflt=UNSET_FLOAT)
     spectral_slope_err = tables.Float32Col(dflt=0.0)
+
+    ccd_adjacent_mag = tables.Float32Col(dflt=99.9) #ccd adjacent, single fiber brightest mag
+    central_single_fiber_mag = tables.Float32Col(dflt=99.9) #ccd adjacent, single fiber brightest mag
+
 
 class SpectraLines(tables.IsDescription):
     detectid = tables.Int64Col(pos=0)  # unique HETDEX detection ID 1e9+
@@ -741,6 +745,19 @@ def append_entry(fileh,det,overwrite=False):
                 row['spectral_slope_err'] = det.spec_obj.spectrum_slope_err
             except:
                 pass
+
+        if det.ccd_adjacent_single_fiber_brightest_mag is not None:
+            try:
+                row['ccd_adjacent_mag'] = det.ccd_adjacent_single_fiber_brightest_mag
+            except:
+                pass
+
+        if det.central_single_fiber_mag is not None:
+            try:
+                row['central_single_fiber_mag'] = det.central_single_fiber_mag
+            except:
+                pass
+
 
         row.append()
         dtb.flush()

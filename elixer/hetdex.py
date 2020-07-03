@@ -542,7 +542,8 @@ class DetObj:
         # over all included amps and exposures BUT are not included in fibers itself
         # (it has no overlap with self.fibers)
         self.ccd_adjacent_fibers = []
-
+        self.ccd_adjacent_single_fiber_brightest_mag = None
+        self.central_single_fiber_mag = None
 
         self.outdir = None
         self.calfib_noise_estimate = None
@@ -3035,12 +3036,260 @@ class DetObj:
 
     def find_ccd_adjacent_fibers(self):
         """
-        Iterate over the self.fibers list of fibers and build up self.ccd_adjacent_fibers
+        Iterate over the self.fibers list of fibers and build up self.ccd_adjacent_fibers,
+        by shot and exposure
 
+        :return: list of dictionaries with basic fiber info and flux and error
+        """
+
+        #return self.dummy_find_ccd_adjacent_fibers()
+
+        adjacent_fibers = []
+
+        all_shots = np.unique(np.array([f.shotid for f in self.fibers]))
+        for shot in all_shots:
+            fibers_in_shot = np.array(self.fibers)[np.where([f.shotid == shot for f in self.fibers])]
+            all_exposures = np.unique([f.expid for f in fibers_in_shot])
+            for exp in all_exposures:
+                _fibers = np.array(fibers_in_shot)[np.where([f.expid == exp for f in fibers_in_shot])]
+                if len(_fibers) == 0:
+                    continue
+
+                base_multiframe = _fibers[0].multi[:-6] #strip off the amp and fiber
+
+                #IFU info for all is the same now (amp could be different, but IFUID, SLOTID, etc same)
+
+                #first build detection fibers
+                det_fiber_nums = np.unique(np.array([f.number_in_ccd for f in self.fibers]))
+                adjacent_fiber_numbers = []
+                for fibnum in det_fiber_nums:
+                    plus_one = fibnum + 1
+                    minus_one = fibnum - 1
+
+                    if not (plus_one in det_fiber_nums) and not (plus_one in adjacent_fiber_numbers) and (plus_one < 449):
+                        #adjacent fiber
+                        f112, amp = elixer_fiber.ccd_fiber_number_to_amp(plus_one)
+                        adj_multiframe = base_multiframe + amp
+
+                        #get the calfib, calfibe, ffsky_calfib from _fibers[x].fits
+                        #will need to match to the multiframe and use f112-1 as the index
+                        all_fits = [f.fits for f in _fibers if f.fits.multiframe == adj_multiframe]
+                        #there can be multiples returned, but they all point to the same fits
+                        try:
+                            calfib = all_fits[0].calfib[f112-1]
+                            calfibe = all_fits[0].calfibe[f112-1]
+                            ffsky_calfib = all_fits[0].ffsky_calfib[f112 - 1] #number -1 == index
+                        except:
+                            log.warning(f"Unable to collect CCD-adjacent fiber info for {adj_multiframe} {f112}")
+                            calfib = []
+                            calfibe = []
+                            ffsky_calfib = []
+
+                        adjacent_fibers.append({"shotid":shot,"expid":exp,
+                                                "f448":plus_one,"f112":f112,
+                                                "amp":amp,"multiframe": adj_multiframe,
+                                                "calfib":calfib,"calfibe":calfibe,"ffsky_calfib":ffsky_calfib})
+                        adjacent_fiber_numbers.append(plus_one)
+
+                    if not (minus_one in det_fiber_nums) and not (minus_one in adjacent_fiber_numbers) and (minus_one > 0):
+                        # adjacent fiber
+                        f112, amp = elixer_fiber.ccd_fiber_number_to_amp(minus_one)
+                        adj_multiframe = base_multiframe + amp
+
+                        # get the calfib, calfibe, ffsky_calfib from _fibers[x].fits
+                        # will need to match to the multiframe and use f112-1 as the index
+                        all_fits = [f.fits for f in _fibers if f.fits.multiframe == adj_multiframe]
+                        # there can be multiples returned, but they all point to the same fits
+                        try:
+                            calfib = all_fits[0].calfib[f112 - 1]
+                            calfibe = all_fits[0].calfibe[f112 - 1]
+                            ffsky_calfib = all_fits[0].ffsky_calfib[f112 - 1]
+                        except:
+                            log.warning(f"Unable to collect CCD-adjacent fiber info for {adj_multiframe} {f112}")
+                            calfib = []
+                            calfibe = []
+                            ffsky_calfib = []
+
+                        adjacent_fibers.append({"shotid":shot, "expid":exp,
+                                                "f448":minus_one, "f112":f112,
+                                                "amp":amp,"multiframe": adj_multiframe,
+                                                "calfib":calfib,"calfibe":calfibe,"ffsky_calfib":ffsky_calfib})
+
+
+                        adjacent_fiber_numbers.append(minus_one)
+
+
+                # plus_one = det_fiber_nums + 1
+                # minus_one = det_fiber_nums -1
+                # plus_one[np.where(plus_one > 448)] = 448
+                # minus_one[np.where(minus_one < 1)] = 1
+                # adjacent_fibers = np.unique(np.append(plus_one,minus_one))
+                # adjacent_fibers = adjacent_fibers[~np.in1d(adjacent_fibers,det_fiber_nums)]
+
+        #now we have our adjacent fibers to check for continuum
+
+
+        #todo: now, add ? fiber objects or just the wave, calfib, calfibe, and ffsky arrays to the dicts
+        #since that is all we will need to check for continuum??
+
+        #todo: will record, out of all the adjacent fibers,
+        # the maximum (almost) full-width average flux density? (sum up and divide by 2xAA) ... since
+        # we only care about BRIGHT ones, this is okay ... Or we could use the magnitude
+        # call it : ccd_adjacent_max_single_fiber_magnitude
+        #todo: also maybe the max 5 bin flux density (try to catch a bright emission line?) would want to know the wavelength?
+        # what if there are multiple bright lines ... do they leak?
+        #todo: do we want to check for any specifically in the LyC region
+        # ANYWAY add these to the exiler_h5 file? (only if LyC? or always?)
+
+        #maybe a new function ... check_for_ccd_adjacent_bright_fiber() returns true/flase or fiber info if found?
+
+        return adjacent_fibers
+
+
+
+    def dummy_find_ccd_adjacent_fibers(self):
+        """
+        Iterate over the self.fibers list of fibers and build up self.ccd_adjacent_fibers,
+        by shot and exposure
+
+        :return: list of dictionaries with basic fiber info and flux and error
+        """
+        adjacent_fibers = []
+
+        all_shots = np.unique(np.array([f.shotid for f in self.fibers]))
+
+        for shot in all_shots:
+            fibers_in_shot = np.array(self.fibers)[np.where([f.shotid == shot for f in self.fibers])]
+            all_exposures = np.unique([f.expid for f in fibers_in_shot])
+            for exp in all_exposures:
+                _fibers = np.array(fibers_in_shot)[np.where([f.expid == exp for f in fibers_in_shot])]
+                if len(_fibers) == 0:
+                    continue
+
+                base_multiframe = _fibers[0].multi[:-6] #strip off the amp and fiber
+
+                #IFU info for all is the same now (amp could be different, but IFUID, SLOTID, etc same)
+
+                #first build detection fibers
+                det_fiber_nums = np.unique(np.array([f.number_in_ccd for f in self.fibers]))
+                adjacent_fiber_numbers = []
+                amp = "LU"
+                adj_multiframe = base_multiframe + "LU"
+
+                # get the calfib, calfibe, ffsky_calfib from _fibers[x].fits
+                # will need to match to the multiframe and use f112-1 as the index
+                all_fits = [f.fits for f in _fibers if f.fits.multiframe == adj_multiframe]
+                for fibnum in np.arange(0,112):
+                    plus_one = fibnum
+                    f112 = fibnum
+
+                    try:
+                        calfib = all_fits[0].calfib[fibnum]
+                        calfibe = all_fits[0].calfibe[fibnum]
+                        ffsky_calfib = all_fits[0].ffsky_calfib[fibnum]  # number -1 == index
+                    except:
+                        log.warning(f"Unable to collect CCD-adjacent fiber info for {adj_multiframe} {fibnum}",exc_info=True)
+                        calfib = []
+                        calfibe = []
+                        ffsky_calfib = []
+
+                    adjacent_fibers.append({"shotid": shot, "expid": exp,
+                                            "f448": plus_one, "f112": f112,
+                                            "amp": amp, "multiframe": adj_multiframe,
+                                            "calfib": calfib, "calfibe": calfibe, "ffsky_calfib": ffsky_calfib})
+
+        return adjacent_fibers
+
+
+    def calc_ccd_adjacent_fiber_magnitudes(self,fiber_dict_array,ffsky=False):
+        """
+
+        :param fiber_dict_array:
+        :param ffsky:
         :return:
         """
-        #todo:
-        pass
+
+        if ffsky:
+            flux_key = 'ffsky_calfib'
+        else:
+            flux_key = 'calfib'
+        bright_mag = 99.9
+        try:
+            for f in fiber_dict_array:
+                try:
+                    f["gmag"], f["cgs_cont"], f["gmag_unc"], f["cgs_cont_unc"] = \
+                                    elixer_spectrum.get_hetdex_gmag(f[flux_key] / 2.0 * G.HETDEX_FLUX_BASE_CGS,
+                                                                    G.CALFIB_WAVEGRID,
+                                                                    f['calfibe'] / 2.0 * G.HETDEX_FLUX_BASE_CGS)
+                except:
+                    f["gmag"] = 99.9
+                    f["cgs_cont"] = 0.0
+                    f["gmag_unc"] = 0.0
+                    f["cgs_cont_unc"] = 0.0
+        except:
+            return None, None
+
+        #and find the brightest
+        try:
+            #cgs is always populated, but gmag might not be
+            all_cgs = [f["cgs_cont"] for f in fiber_dict_array]
+            bright_mag = -2.5 * np.log10(SU.cgs2ujy(max(all_cgs),4500)/(3631*1e6))
+
+            # for f in fiber_dict_array:
+            #     if f['expid'] == 2 and f['cgs_cont'] > 0:
+            #         print(f['f448'],-2.5 * np.log10(SU.cgs2ujy(f['cgs_cont'],4500)/(3631*1e6)) )
+
+
+        except:
+            pass
+
+        log.debug(f"CCD adjacent single fiber brightest mag {bright_mag}")
+        return fiber_dict_array, bright_mag
+
+
+    def calc_central_single_fiber_magnitude(self,ffsky=False):
+        """
+
+        :param fiber_dict_array:
+        :param ffsky:
+        :return:
+        """
+
+        central_fiber = None
+        gmag = 99.9
+        try:
+
+            #find the central (highest weighted fiber)
+            #fibers should already be sorted
+            if self.fibers_sorted:
+                central_fiber = self.fibers[0]
+            else:
+                try:
+                    central_fiber = self.fibers[np.argmax([x.raw_weight for x in self.fibers])]
+                except:
+                    log.debug("Could not locate central fiber")
+                    return mag
+
+            try:
+                if ffsky:
+                    flux  = central_fiber.fits.ffsky_calfib[central_fiber.panacea_idx]
+                else:
+                    flux  = central_fiber.fits.calfib[central_fiber.panacea_idx]
+
+                calfibe = central_fiber.fits.calfibe[central_fiber.panacea_idx]
+
+                gmag, cgs_cont, gmag_unc, cgs_cont_unc = \
+                                elixer_spectrum.get_hetdex_gmag(flux / 2.0 * G.HETDEX_FLUX_BASE_CGS,
+                                                                G.CALFIB_WAVEGRID,
+                                                                calfibe/ 2.0 * G.HETDEX_FLUX_BASE_CGS)
+
+                log.debug(f"Central single fiber brightest mag {gmag}")
+            except:
+                log.warning("Failed to get single central fiber magnitude",exc_info=True)
+        except:
+            log.warning("Failed to get single central fiber magnitude", exc_info=True)
+
+        return gmag
 
     def forced_extraction(self):
         """
@@ -3175,6 +3424,7 @@ class DetObj:
                     fiber.ra = row['ra']
                     fiber.dec = row['dec']
                     fiber.obsid = obsid #int(row['obsind']) #notice: obsind vs obsid
+                    fiber.shotid = date + obsid #both strings
                     fiber.expid = int(row['expnum'])  # integer now
                     fiber.detect_id = self.id
                     fiber.center_x = row['ifux']
@@ -3500,6 +3750,17 @@ class DetObj:
         except:
             log.error("Exception in hetdex.py forced_extraction.",exc_info=True)
             self.status = -1
+
+        try:
+            try:
+                self.ccd_adjacent_fibers, self.ccd_adjacent_single_fiber_brightest_mag = \
+                        self.calc_ccd_adjacent_fiber_magnitudes(self.find_ccd_adjacent_fibers())
+
+                self.central_single_fiber_mag = self.calc_central_single_fiber_magnitude()
+            except:
+                pass
+        except:
+            pass
 
 
     def load_hdf5_fluxcalibrated_spectra(self,hdf5_fn,id,basic_only=False):
@@ -3905,7 +4166,9 @@ class DetObj:
                     fiber.ra = row['ra']
                     fiber.dec = row['dec']
                     fiber.obsid = int(row['obsid'])
+                    fiber.shotid = date + str(fiber.obsid).zfill(3)
                     fiber.expid = int(row['expnum']) # integer now
+                    #fiber.shotid =
                     fiber.detect_id = id
                     fiber.center_x = row['x_ifu']
                     fiber.center_y = row['y_ifu']
@@ -4070,6 +4333,13 @@ class DetObj:
             self.syn_obs.survey_shotid = self.survey_shotid
             #get all the fibers inside the outer annulus radius
             self.syn_obs.get_aperture_fibers()
+
+        try:
+            self.ccd_adjacent_fibers, self.ccd_adjacent_single_fiber_brightest_mag = \
+                self.calc_ccd_adjacent_fiber_magnitudes(self.find_ccd_adjacent_fibers())
+            self.central_single_fiber_mag = self.calc_central_single_fiber_magnitude()
+        except:
+            pass
 
         return
     #nd load_hdf5

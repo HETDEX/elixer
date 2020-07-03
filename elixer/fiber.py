@@ -26,6 +26,27 @@ MIN_WAVELENGTH = 3500.0
 MAX_WAVELENGTH = 5500.0
 INTERPOLATION_AA_PER_PIX = 2.0
 
+def ccd_fiber_number_to_amp(fiber_number):
+    """
+    Takes a fiber number (1-448) and returns the fiber number in amp and the amp
+    :param fiber_number:
+    :return: fiber number (1-112) and amp string
+    """
+    ### panacea runs backward (111 - 0) though so the index is 112-(fiber# -1)
+    # fiber idx (0) = fiber id (1) = panacea idx 111
+    # BUT this returns fiber NUMBER to fiber NUMBER so, dont include the (fiber# -1) [-1 part
+
+    if fiber_number < 113:
+        return 112 - fiber_number , "LU"
+    elif fiber_number < 225:
+        return 112 - (fiber_number- 112), "LL"
+    elif fiber_number < 337:
+        return 112 - (fiber_number - 224), "RL"
+    elif fiber_number < 449:
+        return 112 - (fiber_number - 336), "RU"
+    else:
+        return None, None
+
 def fit_line(wavelengths,values,errors=None):
 #super simple line fit ... very basic
 #rescale x so that we start at x = 0
@@ -121,6 +142,7 @@ class Fiber:
         self.dither_time_extended = time_ex
         self.obsid = None
         self.expid = None
+        self.shotid = None
         self.sn = None
         self.fits_fn = None #full path to the fits file
         self.fits = None #HetdexFits object that includes this fiber
