@@ -3045,6 +3045,7 @@ class DetObj:
         #return self.dummy_find_ccd_adjacent_fibers()
 
         adjacent_fibers = []
+        adjacent_amp_fits = []
 
         all_shots = np.unique(np.array([f.shotid for f in self.fibers]))
         for shot in all_shots:
@@ -3074,7 +3075,47 @@ class DetObj:
                         #get the calfib, calfibe, ffsky_calfib from _fibers[x].fits
                         #will need to match to the multiframe and use f112-1 as the index
                         all_fits = [f.fits for f in _fibers if f.fits.multiframe == adj_multiframe]
+
+                        if len(all_fits) == 0:
+                            #try the adjacent_fits
+                            all_fits = [f for f in adjacent_amp_fits if f.multiframe == adj_multiframe]
+
                         #there can be multiples returned, but they all point to the same fits
+                        if len(all_fits) == 0: #we don't have this one already (probably moved to another amp)
+                            try:
+                                #so, go get this one
+                                #must be on the same CCD so get a fits we have already loaded
+                                #(just match w/o the amp)
+                                all_fits = [f.fits for f in _fibers if f.fits.multiframe[:-3] == adj_multiframe[:-3]]
+                                if len(all_fits) == 0:
+                                    #this should not ever happen, but just log and move on
+                                    log.warning("Unexpected! unable to find CCD in hetdex::DetObj::find_ccd_adjacent_fibers")
+                                    continue
+
+                                #we have at least on on the same CCD
+                                fits = hetdex_fits.HetdexFits(empty=True)
+                                fits.filename = all_fits[0].filename  # mfits_name #todo: fix to the corect path
+                                fits.multiframe = adj_multiframe
+                                fits.panacea = True
+                                fits.hdf5 = True
+                                fits.obsid = all_fits[0].obsid
+                                fits.expid = all_fits[0].expid
+                                fits.specid = all_fits[0].specid
+                                fits.ifuslot = all_fits[0].ifuslot
+                                fits.ifuid = all_fits[0].ifuid
+                                fits.amp = amp
+                                fits.side = amp[0]
+
+                                #now read
+                                fits.read_hdf5()
+                                if fits.okay:
+                                    all_fits = [fits]
+                                    adjacent_amp_fits.append(fits)
+                                else:
+                                    continue
+
+                            except:
+                                continue
                         try:
                             calfib = all_fits[0].calfib[f112-1]
                             calfibe = all_fits[0].calfibe[f112-1]
@@ -3100,6 +3141,47 @@ class DetObj:
                         # will need to match to the multiframe and use f112-1 as the index
                         all_fits = [f.fits for f in _fibers if f.fits.multiframe == adj_multiframe]
                         # there can be multiples returned, but they all point to the same fits
+
+                        if len(all_fits) == 0:
+                            #try the adjacent_fits
+                            all_fits = [f for f in adjacent_amp_fits if f.multiframe == adj_multiframe]
+
+                        #there can be multiples returned, but they all point to the same fits
+                        if len(all_fits) == 0: #we don't have this one already (probably moved to another amp)
+                            try:
+                                #so, go get this one
+                                #must be on the same CCD so get a fits we have already loaded
+                                #(just match w/o the amp)
+                                all_fits = [f.fits for f in _fibers if f.fits.multiframe[:-3] == adj_multiframe[:-3]]
+                                if len(all_fits) == 0:
+                                    #this should not ever happen, but just log and move on
+                                    log.warning("Unexpected! unable to find CCD in hetdex::DetObj::find_ccd_adjacent_fibers")
+                                    continue
+
+                                #we have at least on on the same CCD
+                                fits = hetdex_fits.HetdexFits(empty=True)
+                                fits.filename = all_fits[0].filename  # mfits_name #todo: fix to the corect path
+                                fits.multiframe = adj_multiframe
+                                fits.panacea = True
+                                fits.hdf5 = True
+                                fits.obsid = all_fits[0].obsid
+                                fits.expid = all_fits[0].expid
+                                fits.specid = all_fits[0].specid
+                                fits.ifuslot = all_fits[0].ifuslot
+                                fits.ifuid = all_fits[0].ifuid
+                                fits.amp = amp
+                                fits.side = amp[0]
+
+                                #now read
+                                fits.read_hdf5()
+                                if fits.okay:
+                                    all_fits = [fits]
+                                    adjacent_amp_fits.append(fits)
+                                else:
+                                    continue
+
+                            except:
+                                continue
                         try:
                             calfib = all_fits[0].calfib[f112 - 1]
                             calfibe = all_fits[0].calfibe[f112 - 1]
@@ -3117,31 +3199,6 @@ class DetObj:
 
 
                         adjacent_fiber_numbers.append(minus_one)
-
-
-                # plus_one = det_fiber_nums + 1
-                # minus_one = det_fiber_nums -1
-                # plus_one[np.where(plus_one > 448)] = 448
-                # minus_one[np.where(minus_one < 1)] = 1
-                # adjacent_fibers = np.unique(np.append(plus_one,minus_one))
-                # adjacent_fibers = adjacent_fibers[~np.in1d(adjacent_fibers,det_fiber_nums)]
-
-        #now we have our adjacent fibers to check for continuum
-
-
-        #todo: now, add ? fiber objects or just the wave, calfib, calfibe, and ffsky arrays to the dicts
-        #since that is all we will need to check for continuum??
-
-        #todo: will record, out of all the adjacent fibers,
-        # the maximum (almost) full-width average flux density? (sum up and divide by 2xAA) ... since
-        # we only care about BRIGHT ones, this is okay ... Or we could use the magnitude
-        # call it : ccd_adjacent_max_single_fiber_magnitude
-        #todo: also maybe the max 5 bin flux density (try to catch a bright emission line?) would want to know the wavelength?
-        # what if there are multiple bright lines ... do they leak?
-        #todo: do we want to check for any specifically in the LyC region
-        # ANYWAY add these to the exiler_h5 file? (only if LyC? or always?)
-
-        #maybe a new function ... check_for_ccd_adjacent_bright_fiber() returns true/flase or fiber info if found?
 
         return adjacent_fibers
 
