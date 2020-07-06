@@ -141,6 +141,7 @@ class Detections(tables.IsDescription):
 
     ccd_adjacent_mag = tables.Float32Col(dflt=99.9) #ccd adjacent, single fiber brightest mag
     central_single_fiber_mag = tables.Float32Col(dflt=99.9) #ccd adjacent, single fiber brightest mag
+    ffsky_subtraction = tables.BoolCol(dflt=False) #ccd adjacent, single fiber brightest mag
 
 
 class SpectraLines(tables.IsDescription):
@@ -741,6 +742,9 @@ def append_entry(fileh,det,overwrite=False):
 
         if (det.spec_obj is not None) and (det.spec_obj.spectrum_slope is not None):
             try:
+                #note: y-axis is 2AA wide flux (per standard HETDEX)
+                #so .. units would be (rise/run) erg/s/cm^2 / AA  [units flux / units of AA == units of flux density ]
+                #not an actual flux density [i.e. just a change in flux per change in wavelength]
                 row['spectral_slope'] = det.spec_obj.spectrum_slope
                 row['spectral_slope_err'] = det.spec_obj.spectrum_slope_err
             except:
@@ -757,6 +761,11 @@ def append_entry(fileh,det,overwrite=False):
                 row['central_single_fiber_mag'] = det.central_single_fiber_mag
             except:
                 pass
+
+        try:
+            row['ffsky_subtraction'] = det.extraction_ffsky #False by default, only true on re-extraction if --ffsky
+        except:
+            pass
 
 
         row.append()
