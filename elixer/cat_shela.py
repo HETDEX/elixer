@@ -1251,7 +1251,8 @@ class SHELA(cat_base.Catalog):
                 #except:
                 #    pass
 
-                text += "N/A\n" + "%g\n" % best_fit_photo_z
+                #text += "N/A\n" + "%g\n" % best_fit_photo_z
+                text += "N/A\nN/A\n"
 
                 try:
                     filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = self.get_filter_flux(df)
@@ -1416,7 +1417,7 @@ class SHELA(cat_base.Catalog):
                     except:
                         text += "%0.4g\n" % (bid_target.p_lae_oii_ratio)
                 else:
-                    text += "\n"
+                    text += "\n\n"
             else:
                 text = "%s\n%f\n%f\n" % ("--",r, d)
 

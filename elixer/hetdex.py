@@ -9064,6 +9064,16 @@ class HETDEX:
             except:
                 pass
 
+        try:
+            if datakeep['detobj'].extraction_ffsky:
+                x_pos_min,x_pos_max, y_pos_min, _ = textplot.axis()
+                textplot.text(x_pos_max + 0.01 *(x_pos_max-x_pos_min), y_pos_min, "ff",
+                     fontsize=10, color='k',
+                     verticalalignment='bottom', horizontalalignment='right')
+
+        except:
+            log.debug("Minor exception in build_full_width_spectrum",exc_info=True)
+
         buf = io.BytesIO()
         plt.savefig(buf, format='png', dpi=300)
 

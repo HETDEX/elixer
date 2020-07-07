@@ -848,8 +848,11 @@ def simple_fit_slope (wavelengths, values, errors=None,trim=True):
         if cov is not None:
             slope_error = np.sqrt(np.diag(cov))[0]
 
+
+        log.debug(f"Fit slope: {slope:0.3g} +/- {slope_error:0.3g}")
     except:
         log.debug("Exception in simple_fit_slope() ", exc_info=True)
+
 
     return slope, slope_error
 

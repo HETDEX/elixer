@@ -3432,6 +3432,27 @@ def main():
                         if hd.status == 0:
                             hd_list.append(hd)
 
+                    #keep at least one even if all detections are bad (status < 0), but toss any bad ones otherwise
+                    #NOTICE: hd_list in this case is comprised ONLY of targets at ONE coordinate set
+                    #so this logic is okay ... IF hd_list is cumulative over multiple coordiantes, this is WRONG !!!
+                    try:
+                        status_list = [y.status for sub in [x.emis_list for x in hd_list] for y in sub]
+                        if len(status_list) > 1 and min(status_list) < 0:
+                            if max(status_list) >=0: #at least one is good, remove all the bad ones
+                                #clean out any bad status detects as we already have the position covered
+                                for h in reversed(hd_list):
+                                    for e in reversed(h.emis_list):
+                                        if e.status < 0:
+                                            h.emis_list.remove(e)
+                                    if len(h.emis_list) == 0:
+                                        hd_list.remove(h)
+                            else: #all are bad, so just keep one
+                                hd_list = [hd_list[0]]
+                                hd_list[0].emis_list =  [hd_list[0].emis_list[0]]
+                    except:
+                        log.debug("(minor) Unable to clean hd list.",exc_info=True)
+
+
             else: #this should not happen
                 hd = hetdex.HETDEX(args) #builds out the hd object (with fibers, DetObj, etc)
                 if hd is not None:
