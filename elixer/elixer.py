@@ -2741,8 +2741,6 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     if not just_mini_cutout:
         cont_detectids = []
         broad_detectids = []
-        if detectids is not None:
-            total_detectids += len(detectids)
 
         neighbor_color = "red"
         detectids, ras, decs, dists = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=error, sort=True)
@@ -2750,6 +2748,9 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
         all_ras = ras[:]
         all_decs = decs[:]
+
+        if detectids is not None:
+            total_detectids += len(detectids)
 
         ###########################
         #Broadline sources
