@@ -54,8 +54,11 @@ class Detections(tables.IsDescription):
     specid = tables.StringCol(itemsize=3)
     ifuslot = tables.StringCol(itemsize=3)
     ifuid = tables.StringCol(itemsize=3)
-    seeing_gaussian = tables.Float32Col(dflt=UNSET_FLOAT)
-    seeing_moffat = tables.Float32Col(dflt=UNSET_FLOAT)
+    if G.HDR_Version == 1:
+        seeing_gaussian = tables.Float32Col(dflt=UNSET_FLOAT)
+        seeing_moffat = tables.Float32Col(dflt=UNSET_FLOAT)
+    else:
+        seeing_fwhm = tables.Float32Col(dflt=UNSET_FLOAT)
     response = tables.Float32Col(dflt=UNSET_FLOAT)
     fieldname = tables.StringCol(itemsize=32)
 
@@ -573,14 +576,21 @@ def append_entry(fileh,det,overwrite=False):
         row['specid'] = det.fibers[0].specid
         row['ifuslot'] = det.fibers[0].ifuslot
         row['ifuid'] = det.fibers[0].ifuid
-        try:
-            row['seeing_gaussian'] = det.survey_fwhm_gaussian
-        except:
-            row['seeing_gaussian'] = UNSET_FLOAT
-        try:
-            row['seeing_moffat'] = det.survey_fwhm_moffat
-        except:
-            row['seeing_moffat'] = UNSET_FLOAT
+
+        if G.HDR_Version == 1:
+            try:
+                row['seeing_gaussian'] = det.survey_fwhm_gaussian
+            except:
+                row['seeing_gaussian'] = UNSET_FLOAT
+            try:
+                row['seeing_moffat'] = det.survey_fwhm_moffat
+            except:
+                row['seeing_moffat'] = UNSET_FLOAT
+        else:
+            try:
+                row['seeing_fwhm'] = det.survey_fwhm
+            except:
+                row['seeing_fwhm'] = UNSET_FLOAT
 
         row['response'] = det.survey_response
         row['fieldname'] = det.survey_fieldname

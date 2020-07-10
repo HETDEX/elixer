@@ -402,7 +402,12 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--fitspec', help='Adjust y-axis range to accomodate entire sepctrum (not just emission line)', required=False,
                         action='store_true', default=False)
 
-    parser.add_argument('--continuum', help='Use HETDEX continuum catalog instead of the emission line catalog', required=False,
+    parser.add_argument('--continuum', help='Use HETDEX continuum catalog instead of the standard emission line catalog.'
+                                            'Mutually exclusive with --broadline', required=False,
+                        action='store_true', default=False)
+
+    parser.add_argument('--broadline', help='Use HETDEX broad emission line catalog instead of the standard emission line catalog.'
+                                            'Mutually exclusive with --continuum', required=False,
                         action='store_true', default=False)
 
     parser.add_argument('--neighborhood', help="Generate report on all HETDEX neighbors within the supplied distance in arcsec",
@@ -634,8 +639,13 @@ def parse_commandline(auto_force=False):
     if args.fitspec:
         G.FIT_FULL_SPEC_IN_WINDOW = True
 
-    if args.continuum:
+    if args.continuum and args.broadline:
+        print("Illegal combination of options. Cannot specify both --continuum and --broadline")
+        exit(-1)
+    elif args.continuum:
         args.hdf5 = G.HDF5_CONTINUUM_FN
+    elif args.broadline:
+        args.hdf5 = G.HDF5_BROAD_DETECT_FN
 
     if args.annulus:
         try:
@@ -1660,7 +1670,7 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
     decs = []
     dists = []
     try:
-        if not os.path.exists(hdf5):
+        if (hdf5 is None) or (not os.path.exists(hdf5)):
             log.error(f"File not found: {hdf5}")
             if sort:
                 return detectids, ras, decs, dists
@@ -2654,7 +2664,7 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
 
 
 def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=None, distance=None, cwave=None,
-                           fname=None,original_distance=None,this_detection=None):
+                           fname=None,original_distance=None,this_detection=None,broad_hdf5=None):
     """
 
     :param hdf5:
@@ -2689,7 +2699,25 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
     if hdf5 is None:
         hdf5 = G.HDF5_DETECT_FN
+
+    if broad_hdf5 is None:
+        broad_hdf5 = G.HDF5_BROAD_DETECT_FN
+
+    if cont_hdf5 is None:
         cont_hdf5 = G.HDF5_CONTINUUM_FN
+
+    #sanity check and prevent duplication
+    try:
+        if broad_hdf5 == hdf5:
+            broad_hdf5 = None
+    except:
+        pass
+
+    try:
+        if cont_hdf5 == hdf5:
+            cont_hdf5 = None
+    except:
+        pass
 
     if (detectid is not None) and (ra is None):
         try:
@@ -2711,6 +2739,11 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
     total_detectids = 0
     if not just_mini_cutout:
+        cont_detectids = []
+        broad_detectids = []
+        if detectids is not None:
+            total_detectids += len(detectids)
+
         neighbor_color = "red"
         detectids, ras, decs, dists = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=error, sort=True)
         cont_detectids = []
@@ -2718,6 +2751,23 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         all_ras = ras[:]
         all_decs = decs[:]
 
+        ###########################
+        #Broadline sources
+        ###########################
+        if broad_hdf5 is not None:
+            broad_detectids, broad_ras, broad_decs, broad_dists = get_hdf5_detectids_by_coord(broad_hdf5,ra=ra, dec=dec,
+                                                                                          error=error, sort=True)
+
+            if (broad_ras is not None) and (broad_decs is not None):
+                all_ras += broad_ras[:]
+                all_decs += broad_decs[:]
+
+            if broad_detectids is not None:
+                total_detectids += len(broad_detectids)
+
+        ##########################
+        # Continuum sources
+        ##########################
         if cont_hdf5 is not None:
             cont_detectids, cont_ras, cont_decs, cont_dists = get_hdf5_detectids_by_coord(cont_hdf5, ra=ra, dec=dec, error=error, sort=True)
 
@@ -2725,12 +2775,14 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                 all_ras += cont_ras[:]
                 all_decs += cont_decs[:]
 
-        if detectids is not None:
-            total_detectids += len(detectids)
-        if cont_detectids is not None:
-            total_detectids += len(cont_detectids)
+            if cont_detectids is not None:
+                total_detectids += len(cont_detectids)
 
-        if (len(detectids) == 0) and (len(cont_detectids)== 0) and (this_detection is None):
+
+        ###############################
+        #check for any sources to plot
+        ###############################
+        if (len(detectids) == 0) and (len(broad_detectids)== 0) and (len(cont_detectids)== 0) and (this_detection is None):
             #nothing to do
             log.info("No HETDEX detections found: (%f,%f) +/- %d\"" %(ra,dec,distance))
             return None, None
@@ -2748,7 +2800,6 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             ras = ras[:G.MAX_NEIGHBORS_IN_MAP]
             decs = decs[:G.MAX_NEIGHBORS_IN_MAP]
             dists = dists[:G.MAX_NEIGHBORS_IN_MAP]
-
 
 
     #get the single master cutout (need to stack? or select best image (best == most pixels)?)
@@ -3903,9 +3954,9 @@ def main():
                             nei_name = os.path.join(pdf.basename, e.pdf_name.rstrip(".pdf") + "_nei.png")
                         _, nei_mini_buf = build_neighborhood_map(hdf5=args.hdf5, cont_hdf5=G.HDF5_CONTINUUM_FN,
                                            detectid=None, ra=ra, dec=dec, distance=args.neighborhood, cwave=e.w,
-                                           fname=nei_name,
-                                           original_distance=args.error,
-                                            this_detection=e if explicit_extraction else None)
+                                           fname=nei_name, original_distance=args.error,
+                                           this_detection=e if explicit_extraction else None,
+                                           broad_hdf5=G.HDF5_BROAD_DETECT_FN)
                     except:
                         log.warning("Exception calling build_neighborhood_map.",exc_info=True)
 
@@ -3917,7 +3968,8 @@ def main():
                                            cwave=None,
                                            fname=os.path.join(args.name, args.name + "_nei.png"),
                                            original_distance=args.error,
-                                           this_detection=e if explicit_extraction else None)
+                                           this_detection=e if explicit_extraction else None,
+                                           broad_hdf5=G.HDF5_BROAD_DETECT_FN)
                     except:
                         log.warning("Exception calling build_neighborhood_map.",exc_info=True)
 

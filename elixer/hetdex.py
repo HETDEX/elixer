@@ -618,8 +618,9 @@ class DetObj:
 
         #survey info
         self.survey_shotid = None
-        self.survey_fwhm_gaussian = None
-        self.survey_fwhm_moffat = None
+        self.survey_fwhm_gaussian = None #HDR1
+        self.survey_fwhm_moffat = None #HDR1
+        self.survey_fwhm = None #HDR2+
         self.survey_response = None
         self.survey_fieldname = None
 
@@ -3011,8 +3012,7 @@ class DetObj:
             self.survey_shotid = row['shotid'] #redundant, already have it
 
             try: #new in HDR2
-                self.survey_fwhm_gaussian = row['fwhm_virus']
-                self.survey_fwhm_moffat = row['fwhm_virus']
+                self.survey_fwhm = row['fwhm_virus']
             except:
                 try: #older HDR1
                     self.survey_fwhm_gaussian = row['fwhm_gaussian']

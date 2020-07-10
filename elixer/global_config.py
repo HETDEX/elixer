@@ -11,8 +11,6 @@ except:
     print("Defaulting to local ELiXer configuration")
 
 
-
-
 #from guppy import hpy
 #HPY = hpy()
 #import gc
@@ -22,7 +20,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.9.0a19'
+__version__ = '1.9.0a20'
 
 #python version
 import sys
@@ -46,6 +44,7 @@ HDR_BASEPATH = HDR_WORK_BASEPATH
 
 HDF5_DETECT_FN = None
 HDF5_CONTINUUM_FN = None
+HDF5_BROAD_DETECT_FN = None
 HDF5_SURVEY_FN = None
 OBSERVATIONS_BASEDIR = None
 BAD_AMP_LIST = None
@@ -171,6 +170,7 @@ def select_hdr_version(version):
     global valid_HDR_Versions
 
     global HDF5_DETECT_FN
+    global HDF5_BROAD_DETECT_FN
     global HDF5_CONTINUUM_FN
     global HDF5_SURVEY_FN
     global OBSERVATIONS_BASEDIR
@@ -290,6 +290,11 @@ def select_hdr_version(version):
 
         if HETDEX_API_CONFIG:
             HDF5_DETECT_FN = HETDEX_API_CONFIG.detecth5
+            try:
+                HDF5_BROAD_DETECT_FN = HETDEX_API_CONFIG.detectbroadh5
+            except:
+                HDF5_BROAD_DETECT_FN = None
+
             HDF5_CONTINUUM_FN = HETDEX_API_CONFIG.contsourceh5
             HDF5_SURVEY_FN = HETDEX_API_CONFIG.surveyh5
             OBSERVATIONS_BASEDIR = HETDEX_API_CONFIG.red_dir
@@ -302,8 +307,9 @@ def select_hdr_version(version):
             else:
                 PIXFLT_LOC = HETDEX_API_CONFIG.pixflat_dir
 
-        else:
+        else: #defunct
             HDF5_DETECT_FN = op.join(HDR_BASEPATH, "detect/detect_hdr1.h5")
+            HDF5_BROAD_DETECT_FN = None
             HDF5_CONTINUUM_FN = op.join(HDR_BASEPATH, "detect/continuum_sources.h5")
             HDF5_SURVEY_FN = op.join(HDR_BASEPATH, "survey/survey_hdr1.h5")
             OBSERVATIONS_BASEDIR = op.join(HDR_BASEPATH, "reduction/")

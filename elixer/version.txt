@@ -1,11 +1,17 @@
 changes to elixer by version
 
+1.9.0a20 [2020-07-010]
+* added --broadline parameter to specify use of the HETDEX broadline catalog. In future versions, ELiXer may auto-swap
+  catalogs based on the HETDEX detectID prefix, but for now the switch is manual and singular. The neighborhood map
+  feature does check all three catalogs at this time.
+
 1.9.0a19 [2020-07-07]
 * if there are multiple shots for a forced extraction only produce reports for those with available
   spectra (good status DetectionObjects) OR exactly one (without the HETDEX data section) if there
   are no good status DetectionObjects (i.e. so you do not get multiple, effectively duplicated reports
   with just the imaging cutouts of the same RA, Dec)
 * added small "ff" label to upper right of fullwidth 1D spec when fullfield sky subtraction was used
+* replaced elixer.h5 Detections table "seeing_gaussian" and "seeing_moffat" with (single) "seeing_fwhm"
 
 1.9.0a18 [2020-07-06]
 * still produce imaging cutout section of main report if the forced extraction fails (i.e. if there is no
