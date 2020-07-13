@@ -1,9 +1,12 @@
 changes to elixer by version
 
-1.9.0a20 [2020-07-010]
+1.9.0a20 [2020-07-12]
 * added --broadline parameter to specify use of the HETDEX broadline catalog. In future versions, ELiXer may auto-swap
   catalogs based on the HETDEX detectID prefix, but for now the switch is manual and singular. The neighborhood map
   feature does check all three catalogs at this time.
+* changed logic for --neighborhood_only if --aperture also provided. Since --neighborhood_only specified, will
+  not perform a forced extraction and will produce only a single neighborhood map (with the top place where
+  the forced extraction would have been set to zeroes)
 
 1.9.0a19 [2020-07-07]
 * if there are multiple shots for a forced extraction only produce reports for those with available

@@ -3019,13 +3019,26 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     if this_detection is not None:
         #prepend THIS detection to:
         num_rows += 1
-        detectids.insert(0,this_detection.entry_id)
         ras.insert(0,this_detection.ra)
         decs.insert(0,this_detection.dec)
         dists.insert(0,0.0)
-        spec.insert(0,this_detection.sumspec_flux / 2.0) #assume HETDEX 2AA and put into /1AA
         wave.insert(0,G.CALFIB_WAVEGRID)
-        emis.insert(0,this_detection.target_wavelength)
+
+        try:
+            if (this_detection.sumspec_flux is not None) and \
+                len(this_detection.sumspec_flux) == len(G.CALFIB_WAVEGRID):
+                spec.insert(0, this_detection.sumspec_flux / 2.0)  # assume HETDEX 2AA and put into /1AA
+                emis.insert(0, this_detection.target_wavelength)
+                detectids.insert(0, this_detection.entry_id)
+            else: #probably this was a neighborhood_only call
+                spec.insert(0, np.zeros(len(G.CALFIB_WAVEGRID)))
+                emis.insert(0, 0)
+                detectids.insert(0, this_detection.entry_id)
+        except:
+            log.info("No sumspec_flux to add for 'this_detection'.",exc_info=True)
+            spec.insert(0,np.zeros(len(G.CALFIB_WAVEGRID)))
+            emis.insert(0, 0)
+            detectids.insert(0, this_detection.entry_id)
 
     row_step = 10 #allow space in between
     plt.close('all')
@@ -3143,7 +3156,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
         #the 1D spectrum
         plt.subplot(gs[i*row_step+1:(i+1)*row_step-1,3:])
-        plt.title(r'Dist: %0.1f"  RA,Dec: (%f,%f)   $\lambda$: %0.2f   DetectID: %d' %(dists[i],ras[i],decs[i],emis[i],detectids[i]))
+        plt.title(r'Dist: %0.1f"  RA,Dec: (%f,%f)   $\lambda$: %0.2f   DetectID: %s'
+                  %(dists[i],ras[i],decs[i],emis[i],str(detectids[i])))
         plt.plot(wave[i],spec[i],zorder=9,color='b')
         if cwave is not None:
             plt.axvline(x=cwave,linestyle="--",zorder=1,color='k',linewidth=1.0,alpha=0.5)
@@ -3466,6 +3480,11 @@ def main():
                     if hd is not None:
                         if hd.status == 0:
                             hd_list.append(hd)
+                elif args.neighborhood_only:
+                    args.shotid = "00000000000"
+                    hd = hetdex.HETDEX(args, basic_only=basic_only)
+                    if hd.status == 0:
+                        hd_list.append(hd)
                 else:
                     survey = hda_survey.Survey(survey="hdr%d" % G.HDR_Version)
                     if not survey:

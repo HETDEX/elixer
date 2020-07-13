@@ -17,10 +17,25 @@ import os
 from hetdex_api.config import HDRconfig
 import sqlite3
 #from hetdex_api import sqlite_utils as sql
+HDRVERSION = "hdr2.1"
+which_catalog = 0 #0 = standard, 6 = broad, 9 = continuum
+db_path = "/data/03261/polonius/hdr2.1.run/detect/image_db/"
 
+if which_catalog == 0:
+    STARTID = 2100000000
+    STOPID =  2102000000  #2 million (overkill)
+    report_prefix = "210"
+elif  which_catalog == 6:
+    STARTID = 2160000000
+    STOPID =  2161000000 #1 million (overkill)
+    report_prefix = "216"
+elif  which_catalog == 9:
+    STARTID = 2190000000
+    STOPID =  2191000000 #1 million (overkill)
+    report_prefix = "219"
+else:
+    print("Bad catalog selected",which_catalog)
 
-STARTID = 2000000000
-STOPID =  2001200000
 AUTO = False
 
 args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
@@ -47,7 +62,7 @@ if "--stop" in args: #overide default if specified on command line
 
 
 #todo: make configurable (which hdr version)
-cfg = HDRconfig(survey="hdr2")
+cfg = HDRconfig(survey=HDRVERSION)
 
 check_nei = False
 check_mini = False
@@ -73,7 +88,14 @@ else:
 
 
 print("Reading detecth5 file ...")
-hetdex_h5 = tables.open_file(cfg.detecth5,"r")
+if which_catalog == 0:
+    hetdex_h5 = tables.open_file(cfg.detecth5,"r")
+elif which_catalog == 6:
+    hetdex_h5 = tables.open_file(cfg.detectbroadh5,"r")
+elif which_catalog == 9:
+    hetdex_h5 = tables.open_file(cfg.contsourceh5,"r")
+else:
+    print("Bad catalog selected:",which_catalog)
 dtb = hetdex_h5.root.Detections
 alldets = dtb.read(field="detectid")
 hetdex_h5.close()
@@ -107,11 +129,11 @@ all_mini = []
 #todo: open the various sqlite dbs and get the list of all detectids they have
 #todo: make file locations automatic
 #todo: add some error control
-db_path = "/data/03261/polonius/hdr2/detect/image_db/"
+
 #main reports
 SQL_QUERY = "SELECT detectid from report;"
 
-dbs = sorted(glob.glob(os.path.join(db_path,"elixer_reports_2*[0-9].db")))
+dbs = sorted(glob.glob(os.path.join(db_path,"elixer_reports_" + report_prefix + "*[0-9].db")))
 for db in dbs:
     okay = True #only read in those dbs that have a prefix that is in our start-stop range
     try:
@@ -132,7 +154,7 @@ for db in dbs:
     conn.close()
     all_rpts.extend([x[0] for x in dets])
 
-dbs = sorted(glob.glob(os.path.join(db_path,"elixer_reports_2*nei.db")))
+dbs = sorted(glob.glob(os.path.join(db_path,"elixer_reports_" + report_prefix + "*nei.db")))
 for db in dbs:
     okay = True
     try:
@@ -153,7 +175,7 @@ for db in dbs:
     conn.close()
     all_nei.extend([x[0] for x in dets])
 
-dbs = sorted(glob.glob(os.path.join(db_path,"elixer_reports_2*mini.db")))
+dbs = sorted(glob.glob(os.path.join(db_path,"elixer_reports_" + report_prefix + "*mini.db")))
 for db in dbs:
     okay = True
     try:
@@ -233,5 +255,5 @@ print(f"{ct_no_png} no png")
 print(f"{ct_no_nei} no nei")
 print(f"{ct_no_mini} no mini")
 print(f"{ct_no_imaging} no imaging")
-np.savetxt("dets_all.rerun",missing,fmt="%d")
+np.savetxt("dets_all"+ report_prefix +".rerun",missing,fmt="%d")
 
