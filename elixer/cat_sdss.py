@@ -686,7 +686,7 @@ class SDSS(cat_base.Catalog):#SDSS
                    "Spec z\n" + \
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
-                   "mag\n"
+                   "mag\n\n"
         else:
             text = "Separation\n" + \
                    "Match score\n" + \

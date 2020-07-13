@@ -35,7 +35,7 @@ LAUNCH_PDF_VIEWER = None
 
 valid_HDR_Versions = [1,2,2.1]
 
-HDR_Version = 2
+HDR_Version = 2.1
 
 HDR_DATA_BASEPATH = "/data/03946/hetdex"
 HDR_WORK_BASEPATH = "/work/03946/hetdex/"
@@ -86,11 +86,13 @@ KPNO_IMAGE_PATH = None
 
 HETDEX_API_CONFIG = None
 
-if hostname == "z50":  # primary author test box
-    HDR_Version = 2
+LOCAL_DEV_HOSTNAME = "z50"
+
+if hostname == LOCAL_DEV_HOSTNAME:  # primary author test box
+    HDR_Version = 2.1
     LAUNCH_PDF_VIEWER = 'qpdfview'
 else:
-    HDR_Version = 2  # default HDR Version if not specified
+    HDR_Version = 2.1  # default HDR Version if not specified
 
 
 #look specifically (and only) for HDR version on call
@@ -127,7 +129,7 @@ def set_hdr_basepath(version=None):
     if HETDEX_API_CONFIG is None:
         if version != 0:
             strHDRVersion = f"hdr{version}"
-        elif hostname == "z50":
+        elif hostname == LOCAL_DEV_HOSTNAME:
             strHDRVersion = f"hdr{HDR_Version}"
         else: #this is a problem
             print("Invalid HDRversion configuration")
@@ -146,7 +148,7 @@ def set_hdr_basepath(version=None):
         HDR_SCRATCH_BASEPATH = op.join(HDR_SCRATCH_BASEPATH,hdr_dir)
         HDR_WORK_BASEPATH = op.join(HDR_WORK_BASEPATH,hdr_dir)
         HDR_BASEPATH = op.join(HDR_BASEPATH,hdr_dir)
-    elif hostname == "z50": #author test box
+    elif hostname == LOCAL_DEV_HOSTNAME: #author test box
         hdr_dir = "hdr1"
         print(f"*** using {hdr_dir}")
         HDR_DATA_BASEPATH = op.join(HDR_DATA_BASEPATH, hdr_dir)
@@ -227,67 +229,66 @@ def select_hdr_version(version):
     BAD_AMP_LIST = "/work/03261/polonius/maverick/catalogs/bad_amp_list.txt" #not really used anymore
 
     normal_build = True
-    if (hostname == "z50") and (version == 0):  #author test box:
-        if False: #for debugging
-            normal_build = False
-            HDF5_DETECT_FN = "/work/03946/hetdex/hdr1/detect/detect_hdr1.h5"
-            HDF5_CONTINUUM_FN = "/work/03946/hetdex/hdr1/detect/continuum_sources.h5"
-            HDF5_SURVEY_FN = "/work/03946/hetdex/hdr1/survey/survey_hdr1.h5"
-
-            OBSERVATIONS_BASEDIR = "/work/03946/hetdex/hdr1/reduction/"
-            BAD_AMP_LIST = "/home/dustin/code/python/elixer/bad_amp_list.txt"
-
-            CONFIG_BASEDIR = "/work/03946/hetdex/hdr1/software/"
-            PANACEA_RED_BASEDIR = "/work/03946/hetdex/hdr1/raw/red1/reductions/"
-            PANACEA_RED_BASEDIR_DEFAULT = PANACEA_RED_BASEDIR
-            PANACEA_HDF5_BASEDIR = "/work/03946/hetdex/hdr1/reduction/data"
-
-            CANDELS_EGS_Stefanon_2016_BASE_PATH = "/home/dustin/code/python/elixer/data/EGS"
-            EGS_CFHTLS_PATH = "/home/dustin/code/python/elixer/data/CFHTLS"
-            CFHTLS_PHOTOZ_CAT = "/home/dustin/code/python/elixer/data/CFHTLS/photozCFHTLS-W3_270912.out"
-            GOODS_N_BASE_PATH = "/home/dustin/code/python/elixer/data/GOODSN/"
-            GOODS_N_CAT_PATH = GOODS_N_BASE_PATH
-
-            EGS_GROTH_BASE_PATH = "/home/dustin/code/python/elixer/data/isak"
-            EGS_GROTH_CAT_PATH = EGS_GROTH_BASE_PATH  # note: there is no catalog
-
-            STACK_COSMOS_BASE_PATH = "/home/dustin/code/python/elixer/data/isak"
-            STACK_COSMOS_CAT_PATH = "/home/dustin/code/python/elixer/data/isak"
-            COSMOS_EXTRA_PATH = "/home/dustin/code/python/elixer/data/"
-
-            SHELA_BASE_PATH = "/media/dustin/dd/hetdex/data/SHELA"  # "/home/dustin/code/python/elixer/data/isak/SHELA"
-            DECAM_IMAGE_PATH = SHELA_BASE_PATH  # "/media/dustin/dd/hetdex/data/decam/images"
-            SHELA_CAT_PATH = "/media/dustin/dd/hetdex/data/SHELA"  # "/home/dustin/code/python/elixer/data/isak/SHELA"
-            SHELA_PHOTO_Z_COMBINED_PATH = "/home/dustin/code/python/elixer/data/isak/SHELA"
-            SHELA_PHOTO_Z_MASTER_PATH = "/home/dustin/code/python/elixer/data/isak/SHELA"
-
-            # 2019-08-06 (mshiro base path inaccessible)
-            # HSC_BASE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced"
-            # HSC_CAT_PATH = "/media/dustin/dd/hetdex/data/HSC/catalog_tracts" #"/work/04094/mshiro/maverick/HSC/S15A/reduced/catalog_tracts"
-            # HSC_IMAGE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced/images"
-
-            if op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
-                HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
-                HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
-                HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
-                #HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
-            else:
-                HSC_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced"
-                HSC_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts"
-                HSC_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
-                #HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
-
-            DECALS_BASE_PATH = "/media/dustin/dd/hetdex/data/decals"
-            DECALS_CAT_PATH = "/media/dustin/dd/hetdex/data/decals"
-            DECALS_IMAGE_PATH = "/media/dustin/dd/hetdex/data/decals"
-
-            # KPNO_BASE_PATH = "/work/03261/polonius/hetdex/catalogs/KPNO_Mosaic"
-            KPNO_BASE_PATH = "/work/03233/jf5007/maverick/KMImaging/"
-            KPNO_CAT_PATH = KPNO_BASE_PATH
-            KPNO_IMAGE_PATH = KPNO_BASE_PATH
+    # if (hostname == LOCAL_DEV_HOSTNAME) and (version == 0):  #author test box:
+    #     if False: #for debugging
+    #         normal_build = False
+    #         HDF5_DETECT_FN = "/work/03946/hetdex/hdr1/detect/detect_hdr1.h5"
+    #         HDF5_CONTINUUM_FN = "/work/03946/hetdex/hdr1/detect/continuum_sources.h5"
+    #         HDF5_SURVEY_FN = "/work/03946/hetdex/hdr1/survey/survey_hdr1.h5"
+    #
+    #         OBSERVATIONS_BASEDIR = "/work/03946/hetdex/hdr1/reduction/"
+    #         BAD_AMP_LIST = "/home/dustin/code/python/elixer/bad_amp_list.txt"
+    #
+    #         CONFIG_BASEDIR = "/work/03946/hetdex/hdr1/software/"
+    #         PANACEA_RED_BASEDIR = "/work/03946/hetdex/hdr1/raw/red1/reductions/"
+    #         PANACEA_RED_BASEDIR_DEFAULT = PANACEA_RED_BASEDIR
+    #         PANACEA_HDF5_BASEDIR = "/work/03946/hetdex/hdr1/reduction/data"
+    #
+    #         CANDELS_EGS_Stefanon_2016_BASE_PATH = "/home/dustin/code/python/elixer/data/EGS"
+    #         EGS_CFHTLS_PATH = "/home/dustin/code/python/elixer/data/CFHTLS"
+    #         CFHTLS_PHOTOZ_CAT = "/home/dustin/code/python/elixer/data/CFHTLS/photozCFHTLS-W3_270912.out"
+    #         GOODS_N_BASE_PATH = "/home/dustin/code/python/elixer/data/GOODSN/"
+    #         GOODS_N_CAT_PATH = GOODS_N_BASE_PATH
+    #
+    #         EGS_GROTH_BASE_PATH = "/home/dustin/code/python/elixer/data/isak"
+    #         EGS_GROTH_CAT_PATH = EGS_GROTH_BASE_PATH  # note: there is no catalog
+    #
+    #         STACK_COSMOS_BASE_PATH = "/home/dustin/code/python/elixer/data/isak"
+    #         STACK_COSMOS_CAT_PATH = "/home/dustin/code/python/elixer/data/isak"
+    #         COSMOS_EXTRA_PATH = "/home/dustin/code/python/elixer/data/"
+    #
+    #         SHELA_BASE_PATH = "/media/dustin/dd/hetdex/data/SHELA"  # "/home/dustin/code/python/elixer/data/isak/SHELA"
+    #         DECAM_IMAGE_PATH = SHELA_BASE_PATH  # "/media/dustin/dd/hetdex/data/decam/images"
+    #         SHELA_CAT_PATH = "/media/dustin/dd/hetdex/data/SHELA"  # "/home/dustin/code/python/elixer/data/isak/SHELA"
+    #         SHELA_PHOTO_Z_COMBINED_PATH = "/home/dustin/code/python/elixer/data/isak/SHELA"
+    #         SHELA_PHOTO_Z_MASTER_PATH = "/home/dustin/code/python/elixer/data/isak/SHELA"
+    #
+    #         # 2019-08-06 (mshiro base path inaccessible)
+    #         # HSC_BASE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced"
+    #         # HSC_CAT_PATH = "/media/dustin/dd/hetdex/data/HSC/catalog_tracts" #"/work/04094/mshiro/maverick/HSC/S15A/reduced/catalog_tracts"
+    #         # HSC_IMAGE_PATH = "/work/04094/mshiro/maverick/HSC/S15A/reduced/images"
+    #
+    #         if op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
+    #             HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
+    #             HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
+    #             HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
+    #             #HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
+    #         else:
+    #             HSC_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced"
+    #             HSC_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts"
+    #             HSC_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
+    #             #HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
+    #
+    #         DECALS_BASE_PATH = "/media/dustin/dd/hetdex/data/decals"
+    #         DECALS_CAT_PATH = "/media/dustin/dd/hetdex/data/decals"
+    #         DECALS_IMAGE_PATH = "/media/dustin/dd/hetdex/data/decals"
+    #
+    #         # KPNO_BASE_PATH = "/work/03261/polonius/hetdex/catalogs/KPNO_Mosaic"
+    #         KPNO_BASE_PATH = "/work/03233/jf5007/maverick/KMImaging/"
+    #         KPNO_CAT_PATH = KPNO_BASE_PATH
+    #         KPNO_IMAGE_PATH = KPNO_BASE_PATH
 
     if normal_build:
-
         if HETDEX_API_CONFIG:
             HDF5_DETECT_FN = HETDEX_API_CONFIG.detecth5
             try:
@@ -325,15 +326,6 @@ def select_hdr_version(version):
         # Imaging Data Paths
         #
 
-        #see if HDR2 exists yet
-        # if op.exists(op.join(HDR_BASEPATH, "imaging/candles_egs/EGS")):
-        #     hdr_imaging_basepath = op.join(HDR_BASEPATH,"imaging")
-        # else: #temporary code back to HDR1
-        #     #print("***** using hdr1 path for imaging *****")
-        #     #hdr_imaging_basepath = "/work/03946/hetdex/hdr1/"
-        #     print("***** using /data/03261/polonius/hdr2 for imaging *****")
-        #     hdr_imaging_basepath = "/data/03261/polonius/hdr2/"
-
         if HETDEX_API_CONFIG:
             try:
                 hdr_imaging_basepath = HETDEX_API_CONFIG.imaging_dir
@@ -343,6 +335,13 @@ def select_hdr_version(version):
         else:
             print("***** using /data/03261/polonius/hdr2 for imaging *****")
             hdr_imaging_basepath = "/data/03261/polonius/hdr2/"
+
+        try:
+            if (hostname == LOCAL_DEV_HOSTNAME) and op.exists("/media/dustin/Seagate8TB/hetdex/hdr2/imaging/"):
+                print("***** using /media/dustin/Seagate8TB/hetdex/hdr2/imaging/ for base imaging *****")
+                hdr_imaging_basepath = "/media/dustin/Seagate8TB/hetdex/hdr2/imaging/"
+        except:
+            pass #do nothing
 
         CANDELS_EGS_Stefanon_2016_BASE_PATH = op.join(hdr_imaging_basepath, "candles_egs/EGS")
         EGS_CFHTLS_PATH = op.join(hdr_imaging_basepath, "candles_egs/CFHTLS")
@@ -366,38 +365,37 @@ def select_hdr_version(version):
         SHELA_PHOTO_Z_MASTER_PATH = op.join(hdr_imaging_basepath, "shela/SHELA")
 
         HSC_S15A = False
-        if op.exists(op.join(hdr_imaging_basepath,"hsc")):
-            if HDR_Version == 1:
-                if op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
-                    HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
+        if HDR_Version < 2:
+            if op.exists(op.join(hdr_imaging_basepath,"hsc")):
+                if HDR_Version == 1:
+                    if op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
+                        HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
+                        HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
+                        HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
+                    else: #us the actual HSC data available at HDR1 time
+                        HSC_BASE_PATH = op.join(hdr_imaging_basepath, "imaging/hsc/S15A/reduced")
+                        HSC_CAT_PATH = HSC_BASE_PATH + "/catalog_tracts"
+                        HSC_IMAGE_PATH = HSC_BASE_PATH + "/images"
+                        HSC_S15A = True
+                else:
+                    HSC_BASE_PATH = op.join(hdr_imaging_basepath,"hsc")
                     HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
                     HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
-                else: #us the actual HSC data available at HDR1 time
-                    HSC_BASE_PATH = op.join(hdr_imaging_basepath, "imaging/hsc/S15A/reduced")
-                    HSC_CAT_PATH = HSC_BASE_PATH + "/catalog_tracts"
-                    HSC_IMAGE_PATH = HSC_BASE_PATH + "/images"
-                    HSC_S15A = True
-            else:
-                HSC_BASE_PATH = op.join(hdr_imaging_basepath,"hsc")
+                #HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
+            elif op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
+                HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
                 HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
                 HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
-            #HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
-        elif op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
-            HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
+                #HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
+            else:
+                HSC_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced"
+                HSC_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts"
+                HSC_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
+                #HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
+        else:
+            HSC_BASE_PATH = op.join(hdr_imaging_basepath,"hsc")
             HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
             HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
-            #HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
-        else:
-            HSC_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced"
-            HSC_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts"
-            HSC_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
-            #HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
-
-        #temporary
-        # HSC_BASE_PATH = op.join(HDR_BASEPATH, "imaging/hsc/S15A/reduced")
-        # HSC_CAT_PATH = op.join(HDR_BASEPATH, "imaging/hsc/S15A/reduced/catalog_tracts")
-        # HSC_IMAGE_PATH = op.join(HDR_BASEPATH, "imaging/hsc/S15A/reduced/images")
-        # HSC_AUX_IMAGE_PATH = op.join(HDR_BASEPATH, "imaging/hsc/S15A/reduced/images")
 
         # KPNO_BASE_PATH = "/work/03261/polonius/hetdex/catalogs/KPNO_Mosaic"
         if op.exists(op.join(hdr_imaging_basepath, "KMImaging")):
@@ -434,7 +432,7 @@ REPORT_ELIXER_MCMC_FIT = False
 RELATIVE_PATH_UNIVERSE_CONFIG = "line_classifier/universe.cfg"
 RELATIVE_PATH_FLUX_LIM_FN = "line_classifier/Line_flux_limit_5_sigma_baseline.dat"
 
-if hostname == "z50":  # primary author test box
+if hostname == LOCAL_DEV_HOSTNAME:  # primary author test box
     LOG_LEVEL = logging.DEBUG
 else:
     LOG_LEVEL = logging.INFO

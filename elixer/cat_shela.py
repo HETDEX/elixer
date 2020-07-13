@@ -1196,7 +1196,7 @@ class SHELA(cat_base.Catalog):
                    "Spec z\n" + \
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
-                   "mag\n\n\n"
+                   "mag\n\n"
         else:
             text = "Separation\n" + \
                    "Match score\n" + \
@@ -1205,7 +1205,7 @@ class SHELA(cat_base.Catalog):
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
                    "mag\n" + \
-                   "P(LAE)/P(OII)\n\n"
+                   "P(LAE)/P(OII)\n"
 
 
         plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)

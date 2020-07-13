@@ -1,3 +1,8 @@
+"""
+underlying photometric catalog from Isak Wold (2016)
+(? based on COSMOS2015, Laigle et al, 2016?)
+"""
+
 from __future__ import print_function
 
 try:

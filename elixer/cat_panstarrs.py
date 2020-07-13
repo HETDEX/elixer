@@ -799,7 +799,7 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                    "Spec z\n" + \
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
-                   "mag\n"
+                   "mag\n\n"
         else:
             text = "Separation\n" + \
                    "Match score\n" + \
