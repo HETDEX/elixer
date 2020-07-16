@@ -53,12 +53,22 @@ if len(i) > 0 and i.upper() == "Y":
     check_mini = True
 
 if remove_no_imaging:
-    h5 = tables.open_file("elixer_merged_cat.h5","r")
+    try:
+        h5 = tables.open_file("elixer_merged_cat.h5","r")
+        dtb = h5.root.Detections
+        apt = h5.root.Aperture
 
-    dtb = h5.root.Detections
-    apt = h5.root.Aperture
+        alldets = dtb.read(field="detectid")
+    except Exception as e:
+        print(e)
+        print("elixer_merged_cat.h5 is needed. You must run elixer --merge first")
+        exit(-1)
+else: #is there another way to get the alldets?
+    globdets = glob.glob("dispatch_*/*/*.pdf")
+    alldets = []
+    for g in globdets:
+        alldets.append(np.int64(g.rstrip(".pdf").split("/")[-1]))
 
-    alldets = dtb.read(field="detectid")
 
 missing = []
 
