@@ -2906,7 +2906,14 @@ class Spectrum:
         #if central wavelength not provided, find the peaks and use the largest
         #for now, largest means highest value
         if (central is None) or (central == 0.0):
-            central = self.find_central_wavelength(wavelengths,values,errors,values_units=values_units)
+            try:
+                if G.CONTINUUM_RULES:
+                    central = wavelengths[np.argmax(values)]
+                    self.central = central
+                else:
+                    central = self.find_central_wavelength(wavelengths,values,errors,values_units=values_units)
+            except:
+                pass
 
         if (central is None) or (central == 0.0):
             log.warning("Cannot classify. No central wavelength specified or found.")

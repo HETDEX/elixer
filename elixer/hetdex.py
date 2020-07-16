@@ -4369,6 +4369,13 @@ class DetObj:
 
             self.spec_obj.classify() #solutions can be returned, also stored in spec_obj.solutions
 
+        if (self.w is None or self.w == 0) and (self.spec_obj is not None):
+            try:
+                self.w = self.spec_obj.central
+            except:
+                pass
+
+
             self.rvb = SU.red_vs_blue(self.w,self.sumspec_wavelength,
                                       self.sumspec_flux/G.FLUX_WAVEBIN_WIDTH*G.HETDEX_FLUX_BASE_CGS,
                                       self.sumspec_fluxerr/G.FLUX_WAVEBIN_WIDTH*G.HETDEX_FLUX_BASE_CGS,self.fwhm)
