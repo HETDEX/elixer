@@ -507,11 +507,13 @@ def parse_commandline(auto_force=False):
         print("Attempting to run clean_for_recovery script ... ")
         try:
             from elixer import clean_for_recovery
-        except:
+        except Exception as e:
+            print("Failed to import ... try again:",e)
             try:
                 import clean_for_recovery
-            except:
+            except Exception as e:
                 print("Unable to run clean_for_recovery script")
+                print(e)
         print("prep_recover complete; exiting ...")
         exit()
 
