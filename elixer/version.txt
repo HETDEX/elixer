@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.9.0 [2020-07-16]
+* promote to 1.9.0 (HDR2.1)
+
 1.9.0a20 [2020-07-13]
 * added --broadline parameter to specify use of the HETDEX broadline catalog. In future versions, ELiXer may auto-swap
   catalogs based on the HETDEX detectID prefix, but for now the switch is manual and singular. The neighborhood map
