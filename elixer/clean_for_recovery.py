@@ -99,7 +99,7 @@ if remove_no_imaging:
 #find pdfs without pngs
 print("Checking for missing .png files ...")
 
-all_nei = glob.glob("dispatch_*/*/*nei.png")
+all_nei = glob.glob("dispatch_*/*/*_nei.png")
 all_mini = glob.glob("dispatch_*/*/*_mini.png")
 all_rpt = glob.glob("dispatch_*/*/*[0-9].png")
 all_pdf = glob.glob("dispatch_*/*/*.pdf")
@@ -149,7 +149,7 @@ for d in alldets:
             mini_okay = False
 
     try:
-        nei_idx = names_nei.index(str(d)+"nei.png")
+        nei_idx = names_nei.index(str(d)+"_nei.png")
         nei_path = all_nei[nei_idx]
     except:
         nei_idx = -1
