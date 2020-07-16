@@ -2777,7 +2777,13 @@ class DetObj:
 
                 # get the zoomed in part (slice around the central wavelength)
 
-                idx = elixer_spectrum.getnearpos(self.sumspec_wavelength, self.w)
+                if self.w is not None and self.w != 0:
+                    idx = elixer_spectrum.getnearpos(self.sumspec_wavelength, self.w)
+                else:
+                    try:
+                        idx = np.argmax(self.sumspec_flux)
+                    except:
+                        idx = 0
 
                 left = idx - 25  # 2AA steps so +/- 50AA
                 right = idx + 25
@@ -3398,7 +3404,13 @@ class DetObj:
                         self.w = 4500.0
                         self.target_wavelength = 4500.0
 
-            idx = elixer_spectrum.getnearpos(self.sumspec_wavelength, self.w)
+            if self.w is not None and self.w != 0:
+                idx = elixer_spectrum.getnearpos(self.sumspec_wavelength, self.w)
+            else:
+                try:
+                    idx = np.argmax(self.sumspec_flux)
+                except:
+                    idx = 0
             left = idx - 25  # 2AA steps so +/- 50AA
             right = idx + 25
 
@@ -4139,7 +4151,13 @@ class DetObj:
                     (self.estflux_unc / self.estflux) ** 2 +
                     (self.cont_cgs_unc / self.cont_cgs) ** 2))
 
-            idx = elixer_spectrum.getnearpos(self.sumspec_wavelength, self.w)
+            if self.w is not None and self.w != 0:
+                idx = elixer_spectrum.getnearpos(self.sumspec_wavelength, self.w)
+            else:
+                try:
+                    idx = np.argmax(self.sumspec_flux)
+                except:
+                    idx = 0
             left = idx - 25  # 2AA steps so +/- 50AA
             right = idx + 25
 
