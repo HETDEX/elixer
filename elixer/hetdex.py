@@ -8798,15 +8798,19 @@ class HETDEX:
             mx = np.max(F)
 
             try:
-                peak_idx = (np.abs(datakeep['sumspec_wave'] - cwave)).argmin()
+                if G.CONTINUUM_RULES:
+                    mn = min(F)
+                    mx = max(F)
+                else:
+                    peak_idx = (np.abs(datakeep['sumspec_wave'] - cwave)).argmin()
 
-                idx_left = max(0,peak_idx-2)
-                idx_right = min(len(datakeep['sumspec_wave']),peak_idx+3)
+                    idx_left = max(0,peak_idx-2)
+                    idx_right = min(len(datakeep['sumspec_wave']),peak_idx+3)
 
-                peak_height = max(datakeep['sumspec_flux'][idx_left:idx_right])
+                    peak_height = max(datakeep['sumspec_flux'][idx_left:idx_right])
 
-                mn = max(mn,-0.2*peak_height) #at most go -20% of the peak below zero (most likely a bad sky subtraction)
-                mx = min(mx, 2.0 * peak_height)  # at most go 100% above the peak
+                    mn = max(mn,-0.2*peak_height) #at most go -20% of the peak below zero (most likely a bad sky subtraction)
+                    mx = min(mx, 2.0 * peak_height)  # at most go 100% above the peak
             except:
                 pass
 

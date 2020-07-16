@@ -44,6 +44,7 @@ HDR_BASEPATH = HDR_WORK_BASEPATH
 
 HDF5_DETECT_FN = None
 HDF5_CONTINUUM_FN = None
+CONTINUUM_RULES = False #use continuum rules instead of emission line rules
 HDF5_BROAD_DETECT_FN = None
 HDF5_SURVEY_FN = None
 OBSERVATIONS_BASEDIR = None

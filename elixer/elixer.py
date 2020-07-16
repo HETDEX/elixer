@@ -644,6 +644,7 @@ def parse_commandline(auto_force=False):
         exit(-1)
     elif args.continuum:
         args.hdf5 = G.HDF5_CONTINUUM_FN
+        G.CONTINUUM_RULES = True
     elif args.broadline:
         args.hdf5 = G.HDF5_BROAD_DETECT_FN
 
@@ -2739,12 +2740,9 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
     total_detectids = 0
     if not just_mini_cutout:
-        cont_detectids = []
-        broad_detectids = []
-
         neighbor_color = "red"
         detectids, ras, decs, dists = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=error, sort=True)
-        cont_detectids = []
+
 
         all_ras = ras[:]
         all_decs = decs[:]
@@ -2755,6 +2753,10 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         ###########################
         #Broadline sources
         ###########################
+        broad_detectids = []
+        broad_ras = []
+        broad_decs = []
+        broad_dists = []
         if broad_hdf5 is not None:
             broad_detectids, broad_ras, broad_decs, broad_dists = get_hdf5_detectids_by_coord(broad_hdf5,ra=ra, dec=dec,
                                                                                           error=error, sort=True)
@@ -2769,6 +2771,10 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         ##########################
         # Continuum sources
         ##########################
+        cont_detectids = []
+        cont_ras = []
+        cont_decs = []
+        cont_dists = []
         if cont_hdf5 is not None:
             cont_detectids, cont_ras, cont_decs, cont_dists = get_hdf5_detectids_by_coord(cont_hdf5, ra=ra, dec=dec, error=error, sort=True)
 
@@ -2778,6 +2784,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
             if cont_detectids is not None:
                 total_detectids += len(cont_detectids)
+
 
 
         ###############################
@@ -2989,23 +2996,24 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                 emis.append(-1.0)
 
 
-
-
     #now add the continuum sources if any
     if len(cont_detectids) > 0:
-        with tables.open_file(cont_hdf5, mode="r") as h5_detect:
-            stb = h5_detect.root.Spectra
-            for d in cont_detectids:
-                rows = stb.read_where("detectid==d")
-                if rows.size == 1:
-                    spec.append(rows['spec1d'][0])
-                    wave.append(rows['wave1d'][0])
-                    emis.append(-1.0)
-                else:
-                    #there's a problem
-                    spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
-                    wave.append(G.CALFIB_WAVEGRID)
-                    emis.append(-1.0)
+        try:
+            with tables.open_file(cont_hdf5, mode="r") as h5_detect:
+                stb = h5_detect.root.Spectra
+                for d in cont_detectids:
+                    rows = stb.read_where("detectid==d")
+                    if rows.size == 1:
+                        spec.append(rows['spec1d'][0])
+                        wave.append(rows['wave1d'][0])
+                        emis.append(-1.0)
+                    else:
+                        #there's a problem
+                        spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
+                        wave.append(G.CALFIB_WAVEGRID)
+                        emis.append(-1.0)
+        except:
+            pass
 
 
     num_rows = len(detectids) + len(cont_detectids)
@@ -3014,6 +3022,34 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     ras += cont_ras
     decs += cont_decs
     dists += cont_dists
+
+
+    #now add the BROAD LINE sources if any
+    if len(broad_detectids) > 0:
+        try:
+            with tables.open_file(broad_hdf5, mode="r") as h5_detect:
+                stb = h5_detect.root.Spectra
+                for d in broad_detectids:
+                    rows = stb.read_where("detectid==d")
+                    if rows.size == 1:
+                        spec.append(rows['spec1d'][0])
+                        wave.append(rows['wave1d'][0])
+                        emis.append(-1.0)
+                    else:
+                        #there's a problem
+                        spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
+                        wave.append(G.CALFIB_WAVEGRID)
+                        emis.append(-1.0)
+        except:
+            pass
+
+    num_rows = len(detectids) + len(broad_detectids)
+    #need to join continuum rows to emission line detectrows now
+    detectids += broad_detectids
+    ras += broad_ras
+    decs += broad_decs
+    dists += broad_dists
+
 
     #todo: here add THIS detection IF this is a re-extraction
     if this_detection is not None:
@@ -3788,7 +3824,7 @@ def main():
                 exit(-1)
 
             #need to combine PLAE/POII and other classification data before joining report parts
-            if G.COMBINE_PLAE:
+            if G.COMBINE_PLAE and not G.CONTINUUM_RULES:
                 for h in hd_list:
                     for e in h.emis_list:
                         if e.status >= 0:
@@ -3845,6 +3881,12 @@ def main():
                         #         build_report_part(os.path.join(e.outdir, e.pdf_name), [make_zeroth_row_header(header_text)], 0)
                         #     except:
                         #         log.debug("Exception calling build_report_part", exc_info=True)
+            elif G.CONTINUUM_RULES:
+                header_text = "Continuum Source"
+                try:
+                    build_report_part(os.path.join(e.outdir, e.pdf_name), [make_zeroth_row_header(header_text)], 0)
+                except:
+                    log.debug("Exception calling build_report_part", exc_info=True)
 
             if len(file_list) > 0:
                 for f in file_list:
