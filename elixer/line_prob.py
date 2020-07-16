@@ -697,12 +697,10 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
             log.debug("Nonsense confidence (%f) in mc_prob_LAE" %(confidence))
             return None, None, None, None
 
-
-
         if (continuum is None):
             if (ew_obs is None):
                 log.debug("Insufficient info for mc_prob_LAE, continuum and ew_obs not provided")
-                return None, None, None, None
+                return 0, 0, 0, {'ratio':[0,0,0],'plgd':[0],'pogd':[0]}
             else: #build continuum and continuum error from ew
                 if ew_obs > 0:
                     continuum = lineFlux / ew_obs
@@ -714,11 +712,11 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
                         continuum_err = 0.0
                 else:
                     log.debug("Invalid lineflux or continuum or ew_obs")
-                    return None, None, None, None
+                    return 0, 0, 0, {'ratio':[0,0,0],'plgd':[0],'pogd':[0]}
 
         if (lineFlux <= 0) or (continuum <= 0):
             log.debug("Invalid lineflux or continuum")
-            return None, None, None, None
+            return 0, 0, 0, {'ratio':[0,0,0],'plgd':[0],'pogd':[0]}
 
         if (lineFlux_err is None):
             log.debug("LineFlux error is None")
@@ -823,7 +821,7 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
         except:
             log.error("Exception building extra line fluxes in line_prob.py.", exc_info=True)
             if estimate_error:
-                return 0,0,0,{}
+                return 0, 0, 0, {'ratio':[0,0,0],'plgd':[0],'pogd':[0]}
             else:
                 return 0,0,0
 
