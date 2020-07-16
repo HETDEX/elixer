@@ -40,7 +40,9 @@ if len(i) > 0 and i.upper() == "Y":
 
 i = input("Remove if no imaging (y/n)?")
 if len(i) > 0 and i.upper() == "Y":
-    remove_no_imaging = True
+    i = input("**** Are you sure? This version of imaging check is not reliable (yes/no) [full word response]?")
+    if len(i) > 0 and i.upper() == "YES":
+        remove_no_imaging = True
 
 i = input("Check for nei.png (y/n)?")
 if len(i) > 0 and i.upper() == "Y":
@@ -69,6 +71,7 @@ ct_no_pdf = 0
 if remove_no_imaging:
     for d in alldets:
         rows = apt.read_where("detectid==d",field="detectid")
+        #hmm ... that is not 100% accurate ... there are reasons this might be zero even with imaging
         if rows.size==0:
             missing.append(d)
 
