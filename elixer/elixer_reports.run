@@ -1,0 +1,3 @@
+python3 make_report_db.py --db_name ./elixer_reports_21900_slurm.db --img_dir all_pngs --img_name 21900*[0-9].png --mv2dir /data/03261/polonius/hdr2.1.run/detect/image_db/staging
+python3 make_report_db.py --db_name ./elixer_reports_21900_nei_slurm.db --img_dir all_pngs --img_name 21900*[0-9]_nei.png --mv2dir /data/03261/polonius/hdr2.1.run/detect/image_db/staging
+python3 make_report_db.py --db_name ./elixer_reports_21900_mini_slurm.db --img_dir all_pngs --img_name 21900*[0-9]_mini.png --mv2dir /data/03261/polonius/hdr2.1.run/detect/image_db/staging
