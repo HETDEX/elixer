@@ -2699,6 +2699,26 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     #get all the detectids
     error = distance/3600.0
 
+    #use as a backup, but as of 20200718, always attempting to check ALL HETDEX detection catalogs, not
+    #just what was passed in
+    param_hdf5 = hdf5
+    param_broad_hdf5 = broad_hdf5
+    param_cont_hdf5 = cont_hdf5
+
+    if G.HETDEX_API_CONFIG:
+        try:
+            hdf5 = G.HETDEX_API_CONFIG.detecth5
+        except:
+            hdf5 = param_hdf5
+        try:
+            broad_hdf5 = G.HETDEX_API_CONFIG.detectbroadh5
+        except:
+            broad_hdf5 = param_broad_hdf5
+
+        try:
+            cont_hdf5 = G.HETDEX_API_CONFIG.contsourceh5
+        except:
+            cont_hdf5 = param_cont_hdf5
 
     if hdf5 is None:
         hdf5 = G.HDF5_DETECT_FN
