@@ -40,10 +40,10 @@ mini="_mini"
 for i in {21000..21012}
 do
 
-  echo python3 make_report_db.py --db_name "$db_dir$rpt$i.db" --img_dir $imgdir --img_name "$i*[0-9].png" --mv2dir $cp2dir &
+  echo python3 make_report_db.py --db_name "$db_dir$rpt$i.db" --img_dir $imgdir --img_name "$i*[0-9].png" --mv2dir $cp2dir
 
-  echo python3 make_report_db.py --db_name "$db_dir$rpt$i$nei.db" --img_dir  $imgdir  --img_name "$i*[0-9]_nei.png" --mv2dir $cp2dir &
+  echo python3 make_report_db.py --db_name "$db_dir$rpt$i$nei.db" --img_dir  $imgdir  --img_name "$i*[0-9]_nei.png" --mv2dir $cp2dir
 
-  echo python3 make_report_db.py --db_name "$db_dir$rpt$i$mini.db" --img_dir  $imgdir  --img_name "$i*[0-9]_mini.png" --mv2dir $cp2dir &
+  echo python3 make_report_db.py --db_name "$db_dir$rpt$i$mini.db" --img_dir  $imgdir  --img_name "$i*[0-9]_mini.png" --mv2dir $cp2dir
 
 done
