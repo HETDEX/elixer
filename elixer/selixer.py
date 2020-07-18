@@ -184,10 +184,11 @@ elif hostname == "wrangler":
     else:
         MAX_DETECTS_PER_CPU = 50
         MAX_TASKS = 10000 #20*36=720, so 720 in one pass; as "dispatch" or line in .run file finishes, the next is picked up
-        MAX_NODES = 32
         if MERGE:
+            MAX_NODES = 4
             MAX_TASKS_PER_NODE = 24
         else:
+            MAX_NODES = 32
             MAX_TASKS_PER_NODE = 20 #need extra memory (128GB/20 instead of 128GB/24)
 
     time = "00:59:59"
@@ -226,10 +227,11 @@ elif hostname == "stampede2":
             MAX_TASKS_PER_NODE = 22 #actually, variable, encoded later
         else:
             FILL_CPU_TASKS = 10
-            MAX_NODES = 20
             if MERGE:
+                MAX_NODES = 2
                 MAX_TASKS_PER_NODE = 48
             else:
+                MAX_NODES = 20
                 MAX_TASKS_PER_NODE = 40 #still some memory issues ... this gives us a little more room
             MAX_TASKS = MAX_NODES * MAX_TASKS_PER_NODE #800
     else: #knl (much slower than SKX and much less memory (96 GB per node)
@@ -250,10 +252,12 @@ elif hostname == "stampede2":
             MAX_NODES = 50 #right now, pointless to go beyond 2 nodes
             MAX_TASKS_PER_NODE = 6 #actually, variable, encoded later
         else:
-            MAX_NODES = 100
+
             if MERGE:
+                MAX_NODES = 2
                 MAX_TASKS_PER_NODE = 50 #memory can be a problem, even for merge
             else:
+                MAX_NODES = 100
                 MAX_TASKS_PER_NODE = 20
             MAX_TASKS = MAX_NODES * MAX_TASKS_PER_NODE  # 2000
 
