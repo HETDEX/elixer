@@ -124,7 +124,7 @@ if "--gridsearch" in args:
     #just an average guess; the actual time depends on the grid width, cell size and number of shots
 
 if MERGE:
-    base_time_multiplier = 0.2
+    base_time_multiplier = 0.15
 
 if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
@@ -183,11 +183,12 @@ elif hostname == "wrangler":
         MAX_TASKS_PER_NODE = 6  # actually, variable, encoded later
     else:
         MAX_DETECTS_PER_CPU = 50
-        MAX_TASKS = 10000 #20*36=720, so 720 in one pass; as "dispatch" or line in .run file finishes, the next is picked up
         if MERGE:
+            MAX_TASKS = 100
             MAX_NODES = 4
             MAX_TASKS_PER_NODE = 24
         else:
+            MAX_TASKS = 10000  # 20*36=720, so 720 in one pass; as "dispatch" or line in .run file finishes, the next is picked up
             MAX_NODES = 32
             MAX_TASKS_PER_NODE = 20 #need extra memory (128GB/20 instead of 128GB/24)
 
@@ -228,12 +229,14 @@ elif hostname == "stampede2":
         else:
             FILL_CPU_TASKS = 10
             if MERGE:
+                MAX_TASKS = 100
                 MAX_NODES = 2
                 MAX_TASKS_PER_NODE = 48
             else:
+                MAX_TASKS = 10000
                 MAX_NODES = 20
                 MAX_TASKS_PER_NODE = 40 #still some memory issues ... this gives us a little more room
-            MAX_TASKS = MAX_NODES * MAX_TASKS_PER_NODE #800
+            #MAX_TASKS = MAX_NODES * MAX_TASKS_PER_NODE #800
     else: #knl (much slower than SKX and much less memory (96 GB per node)
         cores_per_node = 68
         if recover_mode:
@@ -254,12 +257,14 @@ elif hostname == "stampede2":
         else:
 
             if MERGE:
+                MAX_TASKS = 100
                 MAX_NODES = 2
                 MAX_TASKS_PER_NODE = 50 #memory can be a problem, even for merge
             else:
+                MAX_TASKS = 10000
                 MAX_NODES = 100
                 MAX_TASKS_PER_NODE = 20
-            MAX_TASKS = MAX_NODES * MAX_TASKS_PER_NODE  # 2000
+            #MAX_TASKS = MAX_NODES * MAX_TASKS_PER_NODE  # 2000
 
     TIME_OVERHEAD = 4.0  # MINUTES of overhead to get started (per task call ... just a safety)
 
