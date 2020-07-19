@@ -4052,7 +4052,7 @@ def main():
                                            cwave=None,
                                            fname=os.path.join(args.name, args.name + "_nei.png"),
                                            original_distance=args.error,
-                                           this_detection=e if explicit_extraction else None,
+                                           this_detection=None,
                                            broad_hdf5=G.HDF5_BROAD_DETECT_FN)
                     except:
                         log.warning("Exception calling build_neighborhood_map.",exc_info=True)
