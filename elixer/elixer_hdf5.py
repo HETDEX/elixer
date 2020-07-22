@@ -144,7 +144,7 @@ class Detections(tables.IsDescription):
 
     ccd_adjacent_mag = tables.Float32Col(dflt=99.9) #ccd adjacent, single fiber brightest mag
     central_single_fiber_mag = tables.Float32Col(dflt=99.9) #ccd adjacent, single fiber brightest mag
-    ffsky_subtraction = tables.BoolCol(dflt=False) #ccd adjacent, single fiber brightest mag
+    ffsky_subtraction = tables.BoolCol(dflt=False) #if true, this detection used the full-field sky subtraction
 
 
 class SpectraLines(tables.IsDescription):

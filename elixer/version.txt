@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.9.0 [2020-07-16]
+1.9.0 [2020-07-21]
 * promote to 1.9.0 (HDR2.1)
 
 1.9.0a20 [2020-07-13]
@@ -98,7 +98,7 @@ changes to elixer by version
   the "best" matched object causes a double contribution of continuum (ostensibly the aperture measure and the catalog
   object measure are the same, or, at least come from the same data source (the photometric image))
 * add a Gaussian weighting to the combined PLAE/POII as applied to the aggregate PLAE classification that sets the
-  weight to 0 for PLAE/POII = 1 and is Gaussian to either side with sigma = 5.0 (set in gloals PLAE_POII_GAUSSIAN_WEIGHT_SIGMA)
+  weight to 0 for PLAE/POII = 1 and is Gaussian to either side with sigma = 5.0 (set in globals PLAE_POII_GAUSSIAN_WEIGHT_SIGMA)
 * fix issue in --coords file to handle shotid as a float
 * expand --coords file with optional wavelength as the 4th column (use 0 for omitted shotid and/or wavelength)
 

@@ -16,6 +16,8 @@ import os
 import numpy as np
 import sys
 
+MINIMUM_PDF_FILESIZE = 100000 #100k bytes
+
 alldets = None
 args = list(map(str.lower,sys.argv))
 if "--dets" in args: #overide default if specified on command line
@@ -32,7 +34,12 @@ check_nei = False
 check_mini = False
 remove_no_imaging = False
 remove_no_png = False
+remove_pdf_too_small = False
 
+
+i = input("Remove if PDF too small (y/n)?")
+if len(i) > 0 and i.upper() == "Y":
+    remove_pdf_too_small = True
 
 i = input("Remove if no report png (y/n)?")
 if len(i) > 0 and i.upper() == "Y":
@@ -151,6 +158,22 @@ for d in alldets:
         ct_no_pdf += 1
         #the pdf is missing, so no need to go further for this one
         continue
+
+    #check the PDF filesize ... if too small, it was generated but missing data
+    #is that ever okay?
+    if remove_pdf_too_small:
+        try:
+            if os.path.getsize(pdf_path) < MINIMUM_PDF_FILESIZE:
+                #this is a problem ... the main reports should be 500k-1000k or so
+                pdf_idx = -1
+                ct_no_pdf += 1
+                # the pdf is missing, so no need to go further for this one
+                continue
+        except:
+            pdf_idx = -1
+            ct_no_pdf += 1
+            #the pdf is missing, so no need to go further for this one
+            continue
 
     try:
         mini_idx = names_mini.index(str(d)+"_mini.png")
