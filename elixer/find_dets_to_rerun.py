@@ -23,7 +23,7 @@ db_path = "/data/03261/polonius/hdr2.1.run/detect/image_db/"
 
 if which_catalog == 0:
     STARTID = 2100000000
-    STOPID =  2102000000  #2 million (overkill)
+    STOPID =  2103000000  #3 million (overkill)
     report_prefix = "210"
 elif  which_catalog == 6:
     STARTID = 2160000000
