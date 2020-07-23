@@ -604,7 +604,7 @@ else: # multiple tasks
             exit(0)
         dirs_per_file = len(subdirs) // tasks  # int(floor(float(len(subdirs)) / float(tasks)))
 
-        if dirs_per_file > MAX_DETECTS_PER_CPU:
+        if not MERGE and (dirs_per_file > MAX_DETECTS_PER_CPU):
             print("Maximum allowed CPU loading exceeded. Each CPU set to process %d detections." % dirs_per_file)
             print("The maximum configured limit is %d" % MAX_DETECTS_PER_CPU)
             print("Reduce the number of detections input and try again.")
