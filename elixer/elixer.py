@@ -2325,6 +2325,7 @@ def merge_hdf5(args=None):
     try:
         merge_fn = "elixer_merged_cat.h5"
         fn_list = sorted(glob.glob("*_cat.h5"))
+        fn_list += sorted(glob.glob("*_cat_*.h5"))
         fn_list += sorted(glob.glob("dispatch_*/*/*_cat.h5"))
 
         #fn_list.append(sorted(glob.glob("dispatch_*/*/*_cat.h5")))
