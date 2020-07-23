@@ -1,7 +1,12 @@
+#the noglob is IMPORTANT and it will stick after this is run IF you source
+# (if you bash instead it will not stick)
+# if running in SLURM, the environment from which you launched must have had
+# the noglob applied otherwise the SLURM launcher will expand the '*' in the call and
+# not pass them as parameters
 set -o noglob
 
-imgdir="/data/03261/polonius/hdr2.run/rxx/dispatch*/*/"
-db_dir="/data.03261/poloniu/hdr2.run/detect/image_db/"
+imgdir="/data/03261/polonius/hdr2.1.run/elixer/r210xx/dispatch*/*/"
+db_dir="/data/03261/polonius/hdr2.1.run/detect/image_db/"
 rpt="elixer_reports_"
 
 
@@ -41,7 +46,7 @@ rpt="elixer_reports_"
 # elixer_reports.slurm file
 ####################################
 
-for i in {20000..20012}
+for i in {21000..21000}
 do
 
   echo python3 make_report_db.py --db_name "${db_dir}${rpt}${i}.db" --img_dir $imgdir --img_name "${i}*[0-9].png"
