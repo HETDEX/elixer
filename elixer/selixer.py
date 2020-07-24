@@ -124,7 +124,7 @@ if "--gridsearch" in args:
     #just an average guess; the actual time depends on the grid width, cell size and number of shots
 
 if MERGE:
-    base_time_multiplier = 0.15
+    base_time_multiplier = 0.05
 
 if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
