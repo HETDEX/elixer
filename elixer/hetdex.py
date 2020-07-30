@@ -4298,11 +4298,14 @@ class DetObj:
                         already_read = False
                         for fi in self.fibers:
                             #same filename (same DateVshot + observation) + same (IFU address) + same exposure
-                            if (fi.fits.filename == fits.filename) and (fi.fits.multiframe == fits.multiframe) \
-                                and (fi.fits.expid == fits.expid):
-                                fiber.fits = fi.fits
-                                already_read = True
-                                break
+                            try:
+                                if (fi.fits is not None) and (fi.fits.filename == fits.filename) and \
+                                   (fi.fits.multiframe == fits.multiframe) and (fi.fits.expid == fits.expid):
+                                    fiber.fits = fi.fits
+                                    already_read = True
+                                    break
+                            except:
+                                log.error("Exception in DetObj.load_hdf5_fluxcalibrated_spectra",exc_info=True)
 
                         if not already_read:
                             fits.read_hdf5()

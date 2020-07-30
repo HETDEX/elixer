@@ -19,7 +19,7 @@ import sqlite3
 #from hetdex_api import sqlite_utils as sql
 HDRVERSION = "hdr2.1"
 which_catalog = 0 #0 = standard, 6 = broad, 9 = continuum
-db_path = "/data/03261/polonius/hdr2.1.run/detect/image_db/staging/"
+db_path = "/data/03261/polonius/hdr2.1.run/detect/image_db/"
 elixer_h5_path = "/data/03261/polonius/hdr2.1.run/detect/elixer.h5"
 
 
@@ -326,8 +326,12 @@ print(f"{len(missing_rpt)} no png")
 print(f"{len(missing_nei)} no nei")
 print(f"{len(missing_mini)} no mini")
 #print(f"{ct_no_imaging} no imaging (aperture)")
+np.savetxt("dets_missing_mini"+ report_prefix +".rerun",missing_mini,fmt="%d")
+np.savetxt("dets_missing_nei"+ report_prefix +".rerun",missing_nei,fmt="%d")
+np.savetxt("dets_missing_rpt"+ report_prefix +".rerun",missing_rpt,fmt="%d")
+np.savetxt("dets_missing_aperture"+ report_prefix +".rerun",missing_aperture,fmt="%d")
 np.savetxt("dets_all"+ report_prefix +".rerun",missing,fmt="%d")
-np.savetxt("dets_all_aperture"+ report_prefix +".rerun",missing_aperture,fmt="%d")
+
 
 
 if elixer_h5 is not None:
