@@ -1591,6 +1591,8 @@ def merge_elixer_hdf5_files(fname,flist=[]):
     etb = fileh.root.ExtractedObjects
     xtb = fileh.root.ElixerApertures
 
+    log.info(f"Merging approximately {max_dets} in {len(flist)} files ...")
+
     for f in flist:
         if f == fname: #could be the output file is one of those to merge
             continue #just skip and move on
