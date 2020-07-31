@@ -1260,7 +1260,7 @@ def delete_entries(file,delete_list):
         log.info(f"Removing entries for {len(detectids)} detections ...")
 
         #find the rows in each table for the duplicates
-        for ct, d in enumerate(detectids):
+        for c, d in enumerate(detectids):
             try:
 
                 log.info(f"Removing #{c+1} ({d}) ...")
