@@ -3364,7 +3364,7 @@ class DetObj:
             coord = SkyCoord(ra=self.ra * U.deg, dec=self.dec * U.deg)
             apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
                                   ffsky=self.extraction_ffsky, multiprocess=False, rad=self.extraction_aperture,
-                                  tpmin=0.0)
+                                  tpmin=0.0,fiberweights=True)
 
             if len(apt) == 0:
                 #print(f"No spectra for ra ({self.ra}) dec ({self.dec})")
