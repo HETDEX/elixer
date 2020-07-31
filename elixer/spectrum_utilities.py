@@ -698,7 +698,7 @@ def extract_at_position(ra,dec,aperture,shotid,ffsky=False):
     try:
         coord = SkyCoord(ra=ra * U.deg, dec=dec * U.deg)
         apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=shotid,ffsky=ffsky,
-                          multiprocess=False, rad=aperture,tpmin=0.0)
+                          multiprocess=False, rad=aperture,tpmin=0.0,fiberweights=True)
 
         if len(apt) == 0:
             #print(f"No spectra for ra ({self.ra}) dec ({self.dec})")
