@@ -1255,6 +1255,18 @@ def delete_entries(file,delete_list):
         etb = h5.root.ExtractedObjects #new MUST have this table
         xtb = h5.root.ElixerApertures
 
+        dtb.cols.detectid.remove_index()
+        ltb.cols.detectid.remove_index()
+        stb.cols.detectid.remove_index()
+        atb.cols.detectid.remove_index()
+        ctb.cols.detectid.remove_index()
+
+        dtb.flush()
+        ltb.flush()
+        stb.flush()
+        atb.flush()
+        ctb.flush()
+
         detectids = delete_list
 
         log.info(f"Removing entries for {len(detectids)} detections ...")
