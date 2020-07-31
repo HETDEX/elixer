@@ -417,7 +417,8 @@ def flush_all(fileh,reindex=True):
 
 
 
-def get_hdf5_filehandle(fname,append=False,allow_overwrite=True,must_exist=False):
+def get_hdf5_filehandle(fname,append=False,allow_overwrite=True,must_exist=False,
+                        estimated_dets=tables.parameters.EXPECTED_ROWS_TABLE):
     """
     Return a file handle to work on. Create if does not exist, return existing handle if already present and versions
     are compatible (and append is requested).
@@ -427,6 +428,8 @@ def get_hdf5_filehandle(fname,append=False,allow_overwrite=True,must_exist=False
     :return:
     """
 
+    if estimated_dets < tables.parameters.EXPECTED_ROWS_TABLE:
+        estimated_dets = tables.parameters.EXPECTED_ROWS_TABLE
     fileh = None
     make_new = False
     try:
@@ -484,25 +487,32 @@ def get_hdf5_filehandle(fname,append=False,allow_overwrite=True,must_exist=False
             vtb.flush()
 
             fileh.create_table(fileh.root, 'Detections', Detections,
-                               'ELiXer Detection Summary Table')
+                               'ELiXer Detection Summary Table',
+                               expectedrows=estimated_dets)
 
             fileh.create_table(fileh.root, 'SpectraLines', SpectraLines,
-                               'ELiXer Identified SpectraLines Table')
+                               'ELiXer Identified SpectraLines Table',
+                               expectedrows=estimated_dets)
 
             fileh.create_table(fileh.root, 'CalibratedSpectra', CalibratedSpectra,
-                               'HETDEX Flux Calibrated, PSF Weighted Summed Spectra Table')
+                               'HETDEX Flux Calibrated, PSF Weighted Summed Spectra Table',
+                               expectedrows=estimated_dets)
 
             fileh.create_table(fileh.root, 'Aperture', Aperture,
-                               'ELiXer Aperture Photometry Table')
+                               'ELiXer Aperture Photometry Table',
+                               expectedrows=estimated_dets*3) #mostly a g and r aperture, sometimes more
 
             fileh.create_table(fileh.root, 'CatalogMatch', CatalogMatch,
-                               'ELiXer Catalog Matched Objected Table')
+                               'ELiXer Catalog Matched Objected Table',
+                               expectedrows=estimated_dets*3)
 
             fileh.create_table(fileh.root, 'ExtractedObjects',ExtractedObjects,
-                               'ELiXer Image Extracted Objects Table')
+                               'ELiXer Image Extracted Objects Table',
+                               expectedrows=estimated_dets*30) #multiple filters, many objects
 
             fileh.create_table(fileh.root, 'ElixerApertures', ElixerApertures,
-                               'ELiXer Image Circular Apertures Table')
+                               'ELiXer Image Circular Apertures Table',
+                               expectedrows=estimated_dets*3) #mostly a g and r aperture, sometimes more
 
             #todo: any actual images tables? (imaging cutouts, 2D fibers, etc)??
 
@@ -1378,20 +1388,25 @@ def merge_unique(newfile,file1,file2):
     """
 
     try:
-        newfile_handle = get_hdf5_filehandle(newfile,append=False,allow_overwrite=False,must_exist=False)
+        file1_handle = get_hdf5_filehandle(file1,append=False,allow_overwrite=False,must_exist=True)
+        file2_handle = get_hdf5_filehandle(file2, append=False, allow_overwrite=False, must_exist=True)
+
+
+        if (file1_handle is None) or (file2_handle is None):
+            print("Unable to open source file(s) for merge_unique.")
+            log.info("Unable to open source file(s) for merge_unique.")
+            return False
+
+        max_dets = len(file1_handle.root.Detections) + len(file2_handle.root.Detections)
+
+        newfile_handle = get_hdf5_filehandle(newfile,append=False,allow_overwrite=False,must_exist=False,
+                                             estimated_dets=max_dets)
 
         if newfile_handle is None:
             print("Unable to create destination file for merge_unique. File may already exist.")
             log.info("Unable to create destination file for merge_unique.")
             return False
 
-        file1_handle = get_hdf5_filehandle(file1,append=False,allow_overwrite=False,must_exist=True)
-        file2_handle = get_hdf5_filehandle(file2, append=False, allow_overwrite=False, must_exist=True)
-
-        if (file1_handle is None) or (file2_handle is None):
-            print("Unable to open source file(s) for merge_unique.")
-            log.info("Unable to open source file(s) for merge_unique.")
-            return False
     except:
         log.error("Exception! in elixer_hdf5::merge_unique",exc_info=True)
 
@@ -1545,8 +1560,22 @@ def merge_elixer_hdf5_files(fname,flist=[]):
     :param flist:  list of all files to merge
     :return: None or filename
     """
+
+    #first, estimate the number of detections
+    max_dets = 0
+    for f in flist:
+        if f == fname: #could be the output file is one of those to merge
+            continue #just skip and move on
+
+        fh = get_hdf5_filehandle(f,append=False,allow_overwrite=False,must_exist=True)
+
+        if fh is None:
+            continue
+        else:
+            max_dets += len(fh.root.Detections)
+
     #merging existing distinct HDF5 files w/o new additions from an active run
-    fileh = get_hdf5_filehandle(fname,append=True)
+    fileh = get_hdf5_filehandle(fname,append=True,estimated_dets=max_dets)
 
     if fileh is None:
         log.error("Unable to merge ELiXer catalogs.")
