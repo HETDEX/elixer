@@ -10,7 +10,7 @@ extras = {}
 
 setuptools.setup(
     name="elixer",
-    version="1.8.2",
+    version="1.9.0",
     author="Dustin Davis",
     author_email="dustin.davis@utexas.edu",
     description="HETDEX Emission Line eXplorer tool",
