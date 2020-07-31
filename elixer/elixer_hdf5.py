@@ -1224,6 +1224,136 @@ def remove_duplicates(file):
         log.error("Exception! conducting merge in elixer_hdf5::merge_unique", exc_info=True)
         return False
 
+
+
+
+def delete_entries(file,delete_list):
+    """
+    Mark detectIDs (in all tables) from the delete_list as deleted (remove_row)
+
+    :param file:
+    :return:
+    """
+
+    try:
+        h5 = get_hdf5_filehandle(file, append=True, allow_overwrite=True, must_exist=True)
+
+        if h5 is None:
+            log.info("Unable to open source file for remove_duplicates.")
+            return False
+
+    except:
+        log.error("Exception! in elixer_hdf5::delete_entries", exc_info=True)
+
+
+    try:
+        dtb = h5.root.Detections
+        stb = h5.root.CalibratedSpectra
+        ltb = h5.root.SpectraLines
+        atb = h5.root.Aperture
+        ctb = h5.root.CatalogMatch
+        etb = h5.root.ExtractedObjects #new MUST have this table
+        xtb = h5.root.ElixerApertures
+
+        detectids = delete_list
+
+        log.info(f"Removing entries for {len(detectids)} detections ...")
+
+        #find the rows in each table for the duplicates
+        for ct, d in enumerate(detectids):
+            try:
+
+                log.info(f"Removing #{c+1} ({d}) ...")
+
+                #assuming the rows are in order, but may not be continguous
+                #that is, all the rows belonging to the first instance of the detectID appear before any other
+                #duplicate rows, BUT, there could be different detectID rows interspersed, so we delete one row at a time
+
+                #maybe it is reindexing after each removal, so I guess we have to do this with remove_rows
+                #Detections table is one row per (one per detectid)
+                rows = dtb.get_where_list("detectid==d")
+                for r in rows:
+                    dtb.remove_row(r)
+                # if rows.size > 1:
+                #     dtb.remove_rows(rows[1],rows[-1]+1)
+                #     #dtb.flush()
+
+                #CalibratedSpectra (one per detectid)
+                rows = stb.get_where_list("detectid==d")
+                for r in rows:
+                    stb.remove_row(r)
+                # if rows.size > 1:
+                #     stb.remove_rows(rows[1],rows[-1]+1)
+                #     #stb.flush()
+
+                #SpectraLines
+                rows = ltb.get_where_list("detectid==d")
+                for r in rows:
+                    ltb.remove_row(r)
+                # if rows.size > 1:
+                #     start = rows.size / c
+                #     if start.is_integer():
+                #         start = int(start)
+                #         ltb.remove_rows(rows[start],rows[-1]+1)
+                        #ltb.flush()
+
+                #Aperture
+                rows = atb.get_where_list("detectid==d")
+                for r in rows:
+                    atb.remove_row(r)
+                # if rows.size > 1:
+                #     start = rows.size / c
+                #     if start.is_integer():
+                #         start = int(start)
+                #         atb.remove_rows(rows[start],rows[-1]+1)
+                #         #atb.flush()
+
+                #CatalogMatch
+                rows = ctb.get_where_list("detectid==d")
+                for r in rows:
+                    ctb.remove_row(r)
+                # if rows.size > 1:
+                #     start = rows.size / c
+                #     if start.is_integer():
+                #         start = int(start)
+                #         ctb.remove_rows(rows[start], rows[-1] + 1)
+                        #ctb.flush()
+
+                #ExtractedObjects
+                rows = etb.get_where_list("detectid==d")
+                for r in rows:
+                    etb.remove_row(r)
+                # if rows.size > 1:
+                #     start = rows.size / c
+                #     if start.is_integer():
+                #         start = int(start)
+                #         etb.remove_rows(rows[start], rows[-1] + 1)
+                #         #etb.flush()
+
+                #ElixerApertures
+                rows = xtb.get_where_list("detectid==d")
+                for r in rows:
+                    xtb.remove_row(r)
+                # if rows.size > 1:
+                #     start = rows.size / c
+                #     if start.is_integer():
+                #         start = int(start)
+                #         xtb.remove_rows(rows[start], rows[-1] + 1)
+                #         #xtb.flush()
+            except:
+                log.error(f"Exception removing rows for {d}",exc_info=True)
+
+        log.info("Remove duplicate rows complete. Flushing the file ...")
+        flush_all(h5)
+        h5.close()
+        log.info("Remove duplicates complete. Done.")
+        return True
+
+    except:
+        log.error("Exception! conducting merge in elixer_hdf5::merge_unique", exc_info=True)
+        return False
+
+
 def merge_unique(newfile,file1,file2):
     """
     Merge, detectID by detectID file1 and file2 into newfile, keeping only the most recent detectID if

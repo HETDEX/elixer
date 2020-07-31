@@ -3879,6 +3879,7 @@ class DetObj:
 
             if (rows is None) or (rows.size != 1):
                 self.status = -1
+
                 log.error("Problem loading detectid ...")
                 return
 
