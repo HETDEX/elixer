@@ -1430,7 +1430,7 @@ def merge_unique(newfile,file1,file2):
         detectids = dtb1.read()['detectid']
         detectids = np.concatenate((detectids,dtb2.read()['detectid']))
 
-        detectids = sorted(set(detectids)) #'set' so they are unique
+        detectids = np.array(sorted(set(detectids))) #'set' so they are unique
 
         #break into chunks of 100,000
         num_chunks = int(len(detectids)/chunk_size)+1
