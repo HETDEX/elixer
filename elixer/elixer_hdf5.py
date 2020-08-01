@@ -1388,7 +1388,7 @@ def merge_unique(newfile,file1,file2):
     """
     import glob
 
-    chunk_size = int(1e5)
+    chunk_size = 25000 #25k
     try:
         file1_handle = get_hdf5_filehandle(file1,append=False,allow_overwrite=False,must_exist=True)
         file2_handle = get_hdf5_filehandle(file2, append=False, allow_overwrite=False, must_exist=True)
