@@ -1399,15 +1399,15 @@ def merge_unique(newfile,file1,file2):
             log.info("Unable to open source file(s) for merge_unique.")
             return False
 
-        max_dets = len(file1_handle.root.Detections) + len(file2_handle.root.Detections)
-
-        newfile_handle = get_hdf5_filehandle(newfile,append=False,allow_overwrite=False,must_exist=False,
-                                             estimated_dets=max_dets)
-
-        if newfile_handle is None:
-            print("Unable to create destination file for merge_unique. File may already exist.")
-            log.info("Unable to create destination file for merge_unique.")
-            return False
+        # max_dets = len(file1_handle.root.Detections) + len(file2_handle.root.Detections)
+        #
+        # newfile_handle = get_hdf5_filehandle(newfile,append=False,allow_overwrite=False,must_exist=False,
+        #                                      estimated_dets=max_dets)
+        #
+        # if newfile_handle is None:
+        #     print("Unable to create destination file for merge_unique. File may already exist.")
+        #     log.info("Unable to create destination file for merge_unique.")
+        #     return False
 
     except:
         log.error("Exception! in elixer_hdf5::merge_unique",exc_info=True)
