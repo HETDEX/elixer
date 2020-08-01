@@ -1416,13 +1416,6 @@ def merge_unique(newfile,file1,file2):
     #todo: missing columns
 
     try:
-        dtb_new = newfile_handle.root.Detections
-        stb_new = newfile_handle.root.CalibratedSpectra
-        ltb_new = newfile_handle.root.SpectraLines
-        atb_new = newfile_handle.root.Aperture
-        ctb_new = newfile_handle.root.CatalogMatch
-        etb_new = newfile_handle.root.ExtractedObjects #new MUST have this table
-        xtb_new = newfile_handle.root.ElixerApertures
 
         dtb1 = file1_handle.root.Detections
         dtb2 = file2_handle.root.Detections
@@ -1450,6 +1443,13 @@ def merge_unique(newfile,file1,file2):
                 log.info(f"Unable to create destination file {newfile_chunk} for merge_unique.")
                 return False
 
+            dtb_new = newfile_handle.root.Detections
+            stb_new = newfile_handle.root.CalibratedSpectra
+            ltb_new = newfile_handle.root.SpectraLines
+            atb_new = newfile_handle.root.Aperture
+            ctb_new = newfile_handle.root.CatalogMatch
+            etb_new = newfile_handle.root.ExtractedObjects  # new MUST have this table
+            xtb_new = newfile_handle.root.ElixerApertures
 
             for d in chunk:
                 try:
