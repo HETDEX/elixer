@@ -1453,6 +1453,8 @@ def merge_unique(newfile,file1,file2):
 
             for d in chunk:
                 try:
+                    log.debug(f"Merging {d}")
+
                     source_h = None
 
                     date1 = dtb1.read_where('detectid==d')['elixer_datetime']
