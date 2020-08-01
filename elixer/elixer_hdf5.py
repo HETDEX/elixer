@@ -1440,6 +1440,7 @@ def merge_unique(newfile,file1,file2):
 
         for chunk in detect_chunks:
             #make a new receiving h5 file
+            log.info(f"Merging for chunk starting at {chunk[0]}")
             newfile_chunk = newfile + f".chunk{chunk[0]}"
             newfile_handle = get_hdf5_filehandle(newfile_chunk, append=False, allow_overwrite=True, must_exist=False,
                                                  estimated_dets=chunk_size)
@@ -1565,6 +1566,7 @@ def merge_unique(newfile,file1,file2):
         file1_handle.close()
 
         #now glob all the chunks and regular merge (already know they are unique)
+        log.info("Chunking done. Calling merge_elixer_hdf5_files ...")
         merge_elixer_hdf5_files(newfile,glob.glob(newfile+".chunk*"))
 
     except:
