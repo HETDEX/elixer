@@ -1569,7 +1569,12 @@ def merge_unique(newfile,file1,file2):
 
         #now glob all the chunks and regular merge (already know they are unique)
         log.info("Chunking done. Calling merge_elixer_hdf5_files ...")
-        merge_elixer_hdf5_files(newfile,glob.glob(newfile+".chunk*"))
+        chunk_files = glob.glob(newfile + ".chunk*")
+        merge_elixer_hdf5_files(newfile,chunk_files)
+
+        #now, cleanup the chunks
+        for cf in chunk_files:
+            os.remove(cf)
 
     except:
         log.error("Exception! conducting merge in elixer_hdf5::merge_unique", exc_info=True)
