@@ -3498,7 +3498,7 @@ def main():
                                 #todo: fill in shots here
                                 #print("Todo: fill in unspecified shotids")
                                 if not survey:
-                                    survey = hda_survey.Survey(survey="hdr%d"%G.HDR_Version)
+                                    survey = hda_survey.Survey(survey=f"hdr{G.HDR_Version}")
                                     if not survey:
                                         log.error(f"Cannot build hetdex_api survey object to determine shotid for {d}")
                                         continue
@@ -3545,7 +3545,7 @@ def main():
                     if hd.status == 0:
                         hd_list.append(hd)
                 else:
-                    survey = hda_survey.Survey(survey="hdr%d" % G.HDR_Version)
+                    survey = hda_survey.Survey(survey=f"hdr{G.HDR_Version}")
                     if not survey:
                         log.error(f"Cannot build hetdex_api survey object to determine shotid for {d}")
                         print(f"Cannot build hetdex_api survey object to determine shotid for {d}")
