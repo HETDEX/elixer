@@ -1231,7 +1231,7 @@ def remove_duplicates(file):
         return True
 
     except:
-        log.error("Exception! conducting merge in elixer_hdf5::merge_unique", exc_info=True)
+        log.error("Exception! conducting merge in elixer_hdf5::remove_duplicates", exc_info=True)
         return False
 
 

@@ -1398,7 +1398,7 @@ def get_shotids(ra,dec,hdr_version=G.HDR_Version):
     """
 
     try:
-        survey = hda_survey.Survey(survey="hdr%d" % hdr_version)
+        survey = hda_survey.Survey(survey=f"hdr{hdr_version}")
         if not survey:
             log.info(f"Cannot build hetdex_api survey object to determine shotid")
             return []
