@@ -1434,7 +1434,7 @@ def merge_unique(newfile,file1,file2):
 
         #break into chunks of 100,000
         num_chunks = int(len(detectids)/chunk_size)+1
-        detect_chunks = np.split(detectids,num_chunks)
+        detect_chunks = np.array_split(detectids,num_chunks)
 
         log.debug("Merging %d detections ..." %len(detectids))
 
