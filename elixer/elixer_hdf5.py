@@ -1386,7 +1386,9 @@ def merge_unique(newfile,file1,file2):
     :param file2:  other file to merge
     :return:
     """
+    import glob
 
+    chunk_size = int(1e5)
     try:
         file1_handle = get_hdf5_filehandle(file1,append=False,allow_overwrite=False,must_exist=True)
         file2_handle = get_hdf5_filehandle(file2, append=False, allow_overwrite=False, must_exist=True)
@@ -1430,121 +1432,140 @@ def merge_unique(newfile,file1,file2):
 
         detectids = sorted(set(detectids)) #'set' so they are unique
 
+        #break into chunks of 100,000
+        num_chunks = int(len(detectids)/chunk_size)+1
+        detect_chunks = np.split(detectids,num_chunks)
 
         log.debug("Merging %d detections ..." %len(detectids))
 
-        for d in detectids:
-            try:
-                source_h = None
+        for chunk in detect_chunks:
+            #make a new receiving h5 file
+            newfile_chunk = newfile + f".chunk{chunk[0]}"
+            newfile_handle = get_hdf5_filehandle(newfile_chunk, append=False, allow_overwrite=True, must_exist=False,
+                                                 estimated_dets=chunk_size)
 
-                date1 = dtb1.read_where('detectid==d')['elixer_datetime']
-                date2 = dtb2.read_where('detectid==d')['elixer_datetime']
-                date_new = dtb_new.read_where('detectid==d')['elixer_datetime']
-                q_date = None
-
-                #temporary
-                # if (date1.size > 0) and (date2.size > 0):
-                #     print("Duplicates",d)
-
-                #choose nearest date
-                if date1.size == 0:
-                    if date2.size == 0: #this is impossible for both
-                        log.error("Impossible ... both dates returned no rows: detectid (%d)" %d)
-                        continue
-                    elif date2.size > 1: #file2 to be used, file1 has not entry
-                        #pick newest date
-                        source_h = file2_handle
-                        q_date = max(date2)
-                    else:
-                        source_h = file2_handle
-                        q_date = date2[0]
-                elif date2.size == 0:  #file1 to be used, file2 has no entry
-                    if date1.size > 1:
-                        source_h = file1_handle
-                        q_date = max(date1)
-                    else:
-                        source_h = file1_handle
-                        q_date = date1[0]
-                else: #both have entries
-                    best_date1 = max(date1)
-                    best_date2 = max(date2)
-
-                    if best_date1 > best_date2:
-                        source_h = file1_handle
-                        q_date = best_date1
-                    else:
-                        source_h = file2_handle
-                        q_date = best_date2
-
-                #now check the that NEW file does not already have this
-                if date_new.size == 0: #it does not, so proceed
-                    pass
-                elif date_new.size == 1:
-                    if date_new < q_date:
-                        #the "new" file is already out of date (from a previous trip through this loop)
-                        #really, this should not happen either and for now, just alarm and move on
-                        print(f"Elixer merge_unique, new file already found for {d}")
-                        log.error(f"Elixer merge_unique, new file already found for {d}")
-                        continue
-                    else: #already good
-                        print(f"Elixer merge_unique, new file already found for {d}. Date is good. Keeping ...")
-                        log.info(f"Elixer merge_unique, new file already found for {d}. Date is good. Keeping ...")
-                        continue
-                else: #this should be impossible
-                    print(f"Elixer merge_unique, multiple entries ({date_new.size}) in new file already found for {d}")
-                    log.error(f"Elixer merge_unique, multiple entries ({date_new.size}) in new file already found for {d}")
-                    continue
+            if newfile_handle is None:
+                print(f"Unable to create destination file {newfile_chunk} for merge_unique. File may already exist.")
+                log.info(f"Unable to create destination file {newfile_chunk} for merge_unique.")
+                return False
 
 
-                if source_h is None:
-                    continue
-
-                dtb_src = source_h.root.Detections
-                stb_src = source_h.root.CalibratedSpectra
-                ltb_src = source_h.root.SpectraLines
-                atb_src = source_h.root.Aperture
-                ctb_src = source_h.root.CatalogMatch
-
-                dtb_new.append(dtb_src.read_where("(detectid==d) & (elixer_datetime==q_date)"))
-                #################################
-                #manual merge of defunct version
-                #################################
-                #if False:
-                #   old_row = dtb_src.read_where("(detectid==d) & (elixer_datetime==q_date)")[0]
-                #   new_row = dtb_new.row
-                #   temp_append_dtb_002_to_003(new_row,old_row)
-
-                #unfortunately, have to assume following data is unique
-                stb_new.append(stb_src.read_where("(detectid==d)"))
-                ltb_new.append(ltb_src.read_where("(detectid==d)"))
-                atb_new.append(atb_src.read_where("(detectid==d)"))
-                ctb_new.append(ctb_src.read_where("(detectid==d)"))
+            for d in chunk:
                 try:
-                    etb_src = source_h.root.ExtractedObjects
-                    etb_new.append(etb_src.read_where("(detectid==d)"))
+                    source_h = None
+
+                    date1 = dtb1.read_where('detectid==d')['elixer_datetime']
+                    date2 = dtb2.read_where('detectid==d')['elixer_datetime']
+                    date_new = dtb_new.read_where('detectid==d')['elixer_datetime']
+                    q_date = None
+
+                    #temporary
+                    # if (date1.size > 0) and (date2.size > 0):
+                    #     print("Duplicates",d)
+
+                    #choose nearest date
+                    if date1.size == 0:
+                        if date2.size == 0: #this is impossible for both
+                            log.error("Impossible ... both dates returned no rows: detectid (%d)" %d)
+                            continue
+                        elif date2.size > 1: #file2 to be used, file1 has not entry
+                            #pick newest date
+                            source_h = file2_handle
+                            q_date = max(date2)
+                        else:
+                            source_h = file2_handle
+                            q_date = date2[0]
+                    elif date2.size == 0:  #file1 to be used, file2 has no entry
+                        if date1.size > 1:
+                            source_h = file1_handle
+                            q_date = max(date1)
+                        else:
+                            source_h = file1_handle
+                            q_date = date1[0]
+                    else: #both have entries
+                        best_date1 = max(date1)
+                        best_date2 = max(date2)
+
+                        if best_date1 > best_date2:
+                            source_h = file1_handle
+                            q_date = best_date1
+                        else:
+                            source_h = file2_handle
+                            q_date = best_date2
+
+                    #now check the that NEW file does not already have this
+                    if date_new.size == 0: #it does not, so proceed
+                        pass
+                    elif date_new.size == 1:
+                        if date_new < q_date:
+                            #the "new" file is already out of date (from a previous trip through this loop)
+                            #really, this should not happen either and for now, just alarm and move on
+                            print(f"Elixer merge_unique, new file already found for {d}")
+                            log.error(f"Elixer merge_unique, new file already found for {d}")
+                            continue
+                        else: #already good
+                            print(f"Elixer merge_unique, new file already found for {d}. Date is good. Keeping ...")
+                            log.info(f"Elixer merge_unique, new file already found for {d}. Date is good. Keeping ...")
+                            continue
+                    else: #this should be impossible
+                        print(f"Elixer merge_unique, multiple entries ({date_new.size}) in new file already found for {d}")
+                        log.error(f"Elixer merge_unique, multiple entries ({date_new.size}) in new file already found for {d}")
+                        continue
+
+
+                    if source_h is None:
+                        continue
+
+                    dtb_src = source_h.root.Detections
+                    stb_src = source_h.root.CalibratedSpectra
+                    ltb_src = source_h.root.SpectraLines
+                    atb_src = source_h.root.Aperture
+                    ctb_src = source_h.root.CatalogMatch
+
+                    dtb_new.append(dtb_src.read_where("(detectid==d) & (elixer_datetime==q_date)"))
+                    #################################
+                    #manual merge of defunct version
+                    #################################
+                    #if False:
+                    #   old_row = dtb_src.read_where("(detectid==d) & (elixer_datetime==q_date)")[0]
+                    #   new_row = dtb_new.row
+                    #   temp_append_dtb_002_to_003(new_row,old_row)
+
+                    #unfortunately, have to assume following data is unique
+                    stb_new.append(stb_src.read_where("(detectid==d)"))
+                    ltb_new.append(ltb_src.read_where("(detectid==d)"))
+                    atb_new.append(atb_src.read_where("(detectid==d)"))
+                    ctb_new.append(ctb_src.read_where("(detectid==d)"))
+                    try:
+                        etb_src = source_h.root.ExtractedObjects
+                        etb_new.append(etb_src.read_where("(detectid==d)"))
+                    except Exception as e:
+                        print(f"ExtractedObjects merge failed {d}")
+                        print(e)
+
+                    try:
+                        xtb_src = source_h.root.ElixerApertures
+                        xtb_new.append(xtb_src.read_where("(detectid==d)"))
+                    except Exception as e:
+                        print(f"ElixerApertures merge failed {d}")
+                        print(e)
+
+
+                    #flush_all(newfile_handle) #don't think we need to flush every time
+
                 except Exception as e:
-                    print(f"ExtractedObjects merge failed {d}")
-                    print(e)
+                    print(f"Exception! merging detectid {d} : {e}")
+                    log.error("Exception! merging detectid (%d): (%s)" %(d,s))
+             # end for loop
+            flush_all(newfile_handle)
+            newfile_handle.close()
 
-                try:
-                    xtb_src = source_h.root.ElixerApertures
-                    xtb_new.append(xtb_src.read_where("(detectid==d)"))
-                except Exception as e:
-                    print(f"ElixerApertures merge failed {d}")
-                    print(e)
-
-
-                #flush_all(newfile_handle) #don't think we need to flush every time
-
-            except Exception as e:
-                print(f"Exception! merging detectid {d} : {e}")
-                log.error("Exception! merging detectid (%d): (%s)" %(d,s))
-        # end for loop
-
-        flush_all(newfile_handle)
-        newfile_handle.close()
+        #end for loop (chunks)
         file2_handle.close()
         file1_handle.close()
+
+        #now glob all the chunks and regular merge (already know they are unique)
+        merge_elixer_hdf5_files(newfile,glob.glob(newfile+".chunk*"))
 
     except:
         log.error("Exception! conducting merge in elixer_hdf5::merge_unique", exc_info=True)
