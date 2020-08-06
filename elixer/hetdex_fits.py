@@ -330,6 +330,7 @@ class HetdexFits:
                 #########################################
                 rows = images_table.read_where("(multiframe==q_multiframe) & (expnum==q_expnum)")
 
+
                 if (rows is None):
                     self.okay = False
                     log.error("Problem loading multi-fits HDF5 equivalant. Bad Images table (0 rows returned).")
@@ -363,6 +364,15 @@ class HetdexFits:
                 if self.data_sky.shape != (1032, 1032):
                     log.error("ERROR!! Unexpected data shape for [0] (data_sky). Expected (1032,1032), got (%d,%d)"
                           % (self.data_sky.shape))
+
+                #temp:
+                # im_max = np.max(self.data_sky)
+                # im_min = np.min(self.data_sky)
+                # num_zero = len(np.where(self.data_sky==0)[0])
+                # num_not_zero = len(np.where(self.data_sky != 0)[0])
+                # frac = num_zero/(num_not_zero+num_zero)
+                #
+                # print(q_multiframe,q_expnum,im_min,im_max,num_zero,num_not_zero,frac)
 
                 #########################################
                 #fiber info (and amp, etc)

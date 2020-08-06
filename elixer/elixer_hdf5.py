@@ -1558,7 +1558,7 @@ def merge_unique(newfile,file1,file2):
 
                 except Exception as e:
                     print(f"Exception! merging detectid {d} : {e}")
-                    log.error("Exception! merging detectid (%d): (%s)" %(d,s))
+                    log.error("Exception! merging detectid (%d): (%s)" %(d,e))
              # end for loop
             flush_all(newfile_handle)
             newfile_handle.close()
