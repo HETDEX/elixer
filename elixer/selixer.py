@@ -118,6 +118,22 @@ if i != -1:
 else:
     pass
 
+
+
+#check for dependency (optional)
+slurm_id_dependency = None
+i = -1
+if "--dependency" in args:
+    i = args.index("--dependency")
+
+if i != -1:
+    try:
+        slurm_id_dependency = sys.argv[i + 1]
+    except:
+       pass
+else:
+    pass
+
 base_time_multiplier = 1.0
 if "--gridsearch" in args:
     base_time_multiplier = 3.0
@@ -914,6 +930,8 @@ if host == HOST_LOCAL:
 else:
     if MERGE:
         os.system('sbatch elixer_merge.slurm')
+    elif slurm_id_dependency is not None:
+        os.system(f'sbatch elixer.slurm --dependency {slurm_id_dependency}')
     else:
         os.system('sbatch elixer.slurm')
 #
