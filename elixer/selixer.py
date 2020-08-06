@@ -934,9 +934,3 @@ else:
         os.system(f'sbatch --dependency afterok:{slurm_id_dependency} elixer.slurm ')
     else:
         os.system('sbatch elixer.slurm')
-#
-
-
-
-
-
