@@ -170,32 +170,51 @@ def blank_pixel_flat(xh=48,xl=0,yh=20,yl=0,vmin_pix = 0.9,vmax_pix = 1.1):
     return pix_blank
 
 
-def flip_amp(amp=None,ampname=None, buf=None):
+def flip_amp(amp=None, ampname=None, buf=None):
+    """
+    With HDR2 + only applies to pixel flats
+
+    REMINDER: python is row, column (not X,Y) and orders from the "top down"
+    so fliplr (left-right) is the second index (columns) which is the x coord
+    and flipud (up-down) is the first index (row) or the y coord
+    (row = Y, column = X)
+
+    :param amp:
+    :param ampname:
+    :param buf:
+    :return:
+    """
+
     if (amp is None) or (buf is None):
         log.error("Amp designation or buffer is None.")
         return None
 
-    #sanity check buf for correct size
-    y,x = np.shape(buf)
+    try:
+        #sanity check buf for correct size
+        y,x = np.shape(buf)
 
-    if (x != 1032) and (y != 1032):
-        log.error('Amp buffer wrrong shape: (%d,%d). Expecting (1032,1032).' %(x,y))
+        if (x != 1032) and (y != 1032):
+            log.error('Amp buffer wrrong shape: (%d,%d). Expecting (1032,1032).' %(x,y))
+            return None
+
+        if (amp.upper() == 'LL') or (amp.upper() == 'RU'):
+            pass #no need to bother logging
+            #log.debug('Will not flip amp (%s). Already in correct orientation.' % amp)
+        elif (amp.upper() == 'LU') or (amp.upper() == 'RL'):
+            log.debug('Will flip amp (%s). Reverse X and Reverse Y.' % amp)
+            buf =  np.fliplr(np.flipud(buf))
+        else:
+            log.warning("Unexpected AMP designation: %s" % amp)
+            return None
+
+        #this is essentially the  Config0 vs Config1 ... info
+        #AMPNAME is not the same as the AMP (it comes from either [AMPNAME] or [AMPLIFIE] and has a somewhat different meaning
+        if (ampname is not None) and ((ampname.upper() == 'LR') or (ampname.upper() == 'UL')):
+            log.debug('Will flip amp (%s), ampname(%s). Reverse Y [config 0/1].' % (amp,ampname))
+            buf = np.fliplr(buf)
+    except:
+        log.error("Exception in flip_amp.",exc_info=True)
         return None
-
-    if (amp.upper() == 'LL') or (amp.upper() == 'RU'):
-        log.debug('Will not flip amp (%s). Already in correct orientation.' % amp)
-    elif (amp.upper() == 'LU') or (amp.upper() == 'RL'):
-        log.debug('Will flip amp (%s). Reverse X and Reverse Y.' % amp)
-        buf =  np.fliplr(np.flipud(buf))
-    else:
-        log.warning("Unexpected AMP designation: %s" % amp)
-        return None
-
-    #this is essentially the  Config0 vs Config1 ... info
-    #AMPNAME is not the same as the AMP (it comes from either [AMPNAME] or [AMPLIFIE] and has a somewhat different meaning
-    if (ampname is not None) and ((ampname.upper() == 'LR') or (ampname.upper() == 'UL')):
-        log.debug('Will flip amp (%s). Reverse Y.' % amp)
-        buf = np.fliplr(buf)
 
     return buf
 
@@ -2988,7 +3007,7 @@ class DetObj:
 
     def load_hdf5_shot_info(self,hdf5_fn,shotid):
         try:
-            id = np.int64(shotid)
+            id = np.int64(copy(shotid))
         except:
             log.error(f"Exception converting shotid {shotid} to int type",exc_info=True)
             msg = "+++++ %s" %str(shotid)
@@ -3877,10 +3896,13 @@ class DetObj:
                           exc_info=True)
                 rows = None
 
-            if (rows is None) or (rows.size != 1):
+            if rows is None:
                 self.status = -1
-
-                log.error("Problem loading detectid ...")
+                log.error(f"Problem loading detectid {id}. None returned.")
+                return
+            elif rows.size != 1:
+                self.status = -1
+                log.error(f"Problem loading detectid {id}. {rows.size} rows returned.")
                 return
 
             row = rows[0] #should only be the one row
@@ -5572,8 +5594,7 @@ class HETDEX:
                 e.forced_extraction()
 
                 if e.survey_shotid and (e.status >= 0):
-                    _shotid = e.survey_shotid
-                    e.load_hdf5_shot_info(self.hdf5_survey_fqfn, _shotid)
+                    e.load_hdf5_shot_info(self.hdf5_survey_fqfn,  e.survey_shotid)
 
                 if e.status >= 0:
                     self.emis_list.append(e)# moved higher up to always be appended
@@ -5627,8 +5648,8 @@ class HETDEX:
                 #e.load_fluxcalibrated_spectra()
                 e.load_hdf5_fluxcalibrated_spectra(self.hdf5_detect_fqfn,d,basic_only=basic_only)
                 #need the shotid from the detection
-                _shotid = e.survey_shotid
-                e.load_hdf5_shot_info(self.hdf5_survey_fqfn, _shotid)
+                if e.survey_shotid and (e.status >= 0):
+                    e.load_hdf5_shot_info(self.hdf5_survey_fqfn, e.survey_shotid)
 
                 if e.status >= 0:
                     self.emis_list.append(e)
@@ -6997,6 +7018,7 @@ class HETDEX:
 
 
             load_blank = False
+
             pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (sci.specid, amp))
             # specid (cam) in filename might not have leading zeroes
             if not op.exists(pix_fn) and (sci.specid[0] == '0'):
@@ -7334,19 +7356,65 @@ class HETDEX:
                 #load pixel flat ... needed to modify data image
                 # more pixel flat stuff a bit later on, to make the smaller cutout images
                 #################################################
-                pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid, fits.amp))
+
+                #temporary hardcoded special cases for HDR2.1
+                if (int(fits.specid) == 38):
+                    log.info("PixelFlat special case for CAM038...")
+                    # special case, the date matters
+                    if fits.obs_ymd <= 20170101:
+                        pix_fn = op.join(PIXFLT_LOC, 'cam038_20170101/pixelflat_cam%s_%s.fits' % (fits.specid, fits.amp))
+                    elif fits.obs_ymd <= 20181001:
+                        pix_fn = op.join(PIXFLT_LOC, 'cam038_20181001/pixelflat_cam%s_%s.fits' % (fits.specid, fits.amp))
+                    else:
+                        pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid, fits.amp))
+
+                elif (int(fits.specid == 51)):
+                    # special case, the date matters
+                    log.info("PixelFlat special case for CAM051...")
+                    if fits.obs_ymd <= 20170101:
+                        pix_fn = op.join(PIXFLT_LOC, 'cam051_20170101/pixelflat_cam%s_%s.fits' % (fits.specid, fits.amp))
+                    elif fits.obs_ymd <= 20180705:
+                        pix_fn = op.join(PIXFLT_LOC, 'cam051_20180705/pixelflat_cam%s_%s.fits' % (fits.specid, fits.amp))
+                    else:
+                        pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid, fits.amp))
+
+                else:
+                    pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid, fits.amp))
                 # specid (cam) in filename might not have leading zeroes
                 if not op.exists(pix_fn) and (fits.specid[0] == '0'):
                     log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
                     pix_fn = op.join(PIXFLT_LOC, 'pixelflat_cam%s_%s.fits' % (fits.specid.lstrip("0"), fits.amp))
 
                 if op.exists(pix_fn):
-                    pixel_flat_buf = flip_amp(fits.amp, fits.ampname, pyfits.open(pix_fn)[0].data)
+                    try:
+                        pixflat_hdu = pyfits.open(pix_fn)
+                        if pixflat_hdu:
+                            try:
+                                ampname = pixflat_hdu[0].header['ampname']
+                            except:
+                                log.info("AMPNAME missing from pixel flat header. Do not know if config 0/1 issue...")
+                                ampname = None
+
+                            pixel_flat_buf = flip_amp(fits.amp, ampname,pixflat_hdu[0].data)
+                            pixflat_hdu.close()
+                        else:
+                            pixel_flat_buf = None
+                            load_blank = True
+
+                    except:
+                        log.info("AMPNAME missing from pixel flat header. Do not know if config 0/1 issue...")
+                        pixel_flat_buf = None
+                        load_blank = True
+
+
+
                     #per Karl 20181012, zero out where the pixel flat is less than zero (indicates an error and a
                     #section to be ignored ... don't want it showing up as 'hot' data later on
-                    if pixel_flat_buf is not None:
-                        fits.data_sky[np.where(pixel_flat_buf <= 0)] = 0
-                        fits.data[np.where(pixel_flat_buf <= 0)] = 0
+
+                    #20200803 ... this is no longer necessary (do NOT mask out data due to pixel flat)
+                    # if pixel_flat_buf is not None:
+                    #     fits.data_sky[np.where(pixel_flat_buf <= 0)] = 0
+                    #     fits.data[np.where(pixel_flat_buf <= 0)] = 0
                 else:
                     pixel_flat_buf = None
                     load_blank = True
@@ -7509,7 +7577,6 @@ class HETDEX:
                     datakeep['fw_pix'].append(deepcopy(pixel_flat_buf[yl:yh, 0:FRAME_WIDTH_X - 1]))
 
                     #note: check for bad flat in the plot creation where the owning fiber is better known
-
                 else:
                     load_blank = True
 

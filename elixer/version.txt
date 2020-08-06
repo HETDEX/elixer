@@ -1,5 +1,13 @@
 changes to elixer by version
 
+
+1.9.1 [2020-08-06]
+* promote to 1.9.1 (HDR2.1) - redeux
+* fix for issue with pixel flats no longer being flipped for config 0/1 issues (due to missing
+  AMPNAME or AMPLIFIE in pixel flat headers ... previously was using science fits header for this
+  purpose, but that info was no longer relevant to the h5 shot files which handled the flips on
+  ingestion).
+
 1.9.0 [2020-07-21]
 * promote to 1.9.0 (HDR2.1)
 
