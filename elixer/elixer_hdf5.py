@@ -745,7 +745,10 @@ def append_entry(fileh,det,overwrite=False):
         if (det.classification_dict is not None):
             try:
                 row['combined_plae'] = det.classification_dict['plae_hat']
-                row['combined_plae_err'] = det.classification_dict['plae_hat_sd']
+                try:
+                    row['combined_plae_err'] = det.classification_dict['plae_hat_err']
+                except:
+                    row['combined_plae_err'] = det.classification_dict['plae_hat_sd']
                 row['plae_classification'] = det.classification_dict['scaled_plae']
                 #last two are new
                 row['combined_continuum'] = det.classification_dict['continuum_hat']
