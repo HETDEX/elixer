@@ -931,6 +931,6 @@ else:
     if MERGE:
         os.system('sbatch elixer_merge.slurm')
     elif slurm_id_dependency is not None:
-        os.system(f'sbatch --dependency afterok:{slurm_id_dependency} elixer.slurm ')
+        os.system(f'sbatch --dependency afterany:{slurm_id_dependency} elixer.slurm ')
     else:
         os.system('sbatch elixer.slurm')
