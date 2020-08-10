@@ -432,6 +432,10 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--lyc', help='Toggle [ON] Lyman Continuum special switch. Do not use unless you know what you are doing.',
                         required=False, action='store_true', default=False)
 
+    parser.add_argument('--dependency', help="For use with SLURM only. Set optional condition and SLURM_ID of job to "
+                                             "finish prior to this one starting. e.g: afterok:123456  or afterany:123456",
+                        required=False)
+
     if G.LAUNCH_PDF_VIEWER is not None:
         parser.add_argument('--viewer', help='Launch the global_config.py set PDF viewer on completion', required=False,
                             action='store_true', default=False)

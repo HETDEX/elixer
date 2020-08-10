@@ -1369,6 +1369,8 @@ class DetObj:
                 self.classification_dict['plae_hat_hi'] = plae_errors['ratio'][2]
                 self.classification_dict['plae_hat_lo'] = plae_errors['ratio'][1]
                 self.classification_dict['plae_hat_sd'] = plae_sd
+                self.classification_dict['plae_hat_err'] = max((plae_errors['ratio'][2] - p_lae_oii_ratio),
+                                                               (p_lae_oii_ratio - plae_errors['ratio'][1]))
             except:
                 #log.debug("Exception in hetdex::combine_all_plae()",exc_info=True)
                 log.info(f"Unusable classifiction_dict in hetdex::combine_all_plae(). {self.classification_dict}")
@@ -1376,7 +1378,7 @@ class DetObj:
                 self.classification_dict['plae_hat_hi'] = -1
                 self.classification_dict['plae_hat_lo'] = -1
                 self.classification_dict['plae_hat_sd'] = -1
-
+                self.classification_dict['plae_hat_err'] = -1
             try:
                 self.classification_dict['size_in_psf'] = size_in_psf
                 self.classification_dict['diam_in_arcsec'] = diam_in_arcsec
