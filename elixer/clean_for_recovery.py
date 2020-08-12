@@ -36,6 +36,10 @@ remove_no_imaging = False
 remove_no_png = False
 remove_pdf_too_small = False
 
+if os.path.exists("elixer_merged_cat.h5"):
+    print("elixer_merged_cat.h5 exists ... will compare with PDFs")
+
+
 
 i = input("Remove if PDF too small (y/n)?")
 if len(i) > 0 and i.upper() == "Y":
@@ -59,6 +63,14 @@ i = input("Check for mini.png (y/n)?")
 if len(i) > 0 and i.upper() == "Y":
     check_mini = True
 
+
+globdets = glob.glob("dispatch_*/*/*.pdf")
+allpdf_dets = []
+for g in globdets:
+    allpdf_dets.append(np.int64(g.rstrip(".pdf").split("/")[-1]))
+allpdf_dets = np.array(allpdf_dets)
+
+all_h5_dets = None
 if remove_no_imaging:
     try:
         h5 = tables.open_file("elixer_merged_cat.h5","r")
@@ -66,15 +78,32 @@ if remove_no_imaging:
         apt = h5.root.Aperture
 
         alldets = dtb.read(field="detectid")
+        all_h5_dets = dtb.read(field="detectid")
     except Exception as e:
         print(e)
         print("elixer_merged_cat.h5 is needed. You must run elixer --merge first")
         exit(-1)
-else: #is there another way to get the alldets?
-    globdets = glob.glob("dispatch_*/*/*.pdf")
-    alldets = []
-    for g in globdets:
-        alldets.append(np.int64(g.rstrip(".pdf").split("/")[-1]))
+elif os.path.exists("elixer_merged_cat.h5"):
+    try:
+        h5 = tables.open_file("elixer_merged_cat.h5", "r")
+        dtb = h5.root.Detections
+        alldets = dtb.read(field="detectid")
+        all_h5_dets = dtb.read(field="detectid")
+    except Exception as e:
+        print(e)
+        print("elixer_merged_cat.h5 error reading. You must run elixer --merge first or remove elixer_mergded_cat.h5")
+        exit(-1)
+else:
+    alldets = allpdf_dets
+#is there another way to get the alldets?
+
+if alldets != allpdf_dets:
+    alldets = np.unique(np.concatenate((alldets,allpdf_dets)))
+
+if all_h5_dets is not None:
+    missing_h5_entries = np.setdiff1d(alldets,all_h5_dets)
+else:
+    missing_h5_entries = []
 
 
 missing = []
@@ -138,6 +167,8 @@ for d in alldets:
     mini_okay = True #was found or don't care
     nei_okay = True #was found or don't care
     png_okay = True
+    h5_okay = True #was found in h5 file
+    pdf_okay = True
     pdf_file = None
 
     mini_idx = -1
@@ -159,20 +190,25 @@ for d in alldets:
         #the pdf is missing, so no need to go further for this one
         continue
 
+
+    #checking for no h5 entry
+    try:
+        if d in missing_h5_entries:
+            h5_okay = False
+    except:
+        pass
+
     #check the PDF filesize ... if too small, it was generated but missing data
     #is that ever okay?
     if remove_pdf_too_small:
         try:
             if os.path.getsize(pdf_path) < MINIMUM_PDF_FILESIZE:
                 #this is a problem ... the main reports should be 500k-1000k or so
-                pdf_idx = -1
-                ct_no_pdf += 1
-                # the pdf is missing, so no need to go further for this one
-                continue
+                pdf_okay = False
         except:
             pdf_idx = -1
             ct_no_pdf += 1
-            #the pdf is missing, so no need to go further for this one
+            #the pdf is already missing, so no need to go further for this one
             continue
 
     try:
@@ -202,7 +238,7 @@ for d in alldets:
         png_okay = False
 
 
-    if not (mini_okay and nei_okay):
+    if not (mini_okay and nei_okay and pdf_okay and h5_okay):
         #remove the report for recovery
         print("Removing " + str(d) + " ...")
         try:
@@ -268,6 +304,7 @@ for d in alldets:
         print(e)
 
 
+print(f"Missing h5 entry: {len(missing_h5_entries)}")
 print(f"Missing PDF: {ct_no_pdf}")
 print(f"Missing imaging: {ct_no_imaging}")
 print(f"Missing report png: {ct_no_png}")
