@@ -19,8 +19,8 @@ import sqlite3
 #from hetdex_api import sqlite_utils as sql
 HDRVERSION = "hdr2.1"
 which_catalog = 0 #0 = standard, 6 = broad, 9 = continuum
-db_path = "/data/03261/polonius/hdr2.1.run/detect/image_db/"
-elixer_h5_path = "/data/03261/polonius/hdr2.1.run/detect/elixer.h5"
+db_path = "/data/03261/polonius/hdr2.1/detect/image_db/"
+elixer_h5_path = "/data/03261/polonius/hdr2.1/detect/elixer.h5"
 
 
 if which_catalog == 0:
@@ -118,6 +118,17 @@ else:
 
 
 print(f"len(alldets) == {len(alldets)}")
+
+print ("Reading ELiXer h5 file ...")
+elixer_h5 = tables.open_file(elixer_h5_path, "r")
+dtb = elixer_h5.root.Detections
+elixer_dets = dtb.read(field="detectid")
+missing_elixer_dets = np.setdiff1d(alldets,elixer_dets)
+
+print(f"{len(missing_elixer_dets)} with no elixer.h5 entry")
+#print(f"{ct_no_imaging} no imaging (aperture)")
+np.savetxt("dets_missing_elixer_entry"+ report_prefix +".rerun",missing_elixer_dets,fmt="%d")
+
 
 #get a unique set of prefixes for the start-stop range
 #and later only read in the dbs that correspond to this list
@@ -230,6 +241,8 @@ sel = np.where((STARTID <= alldets) & (alldets < STOPID))[0]
 alldets = alldets[sel]
 aperture_dets = []
 missing_aperture
+
+
 
 #costly upfront, but much faster overall
 if check_imaging:
