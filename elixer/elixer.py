@@ -822,6 +822,9 @@ def parse_commandline(auto_force=False):
             elif (args.dets):
                 prompt = "Looking for targets +/- %f\" from detection(s).\nProceed (y/n ENTER=YES)?" \
                             % args.error
+            elif (args.coords):
+                prompt = "Looking for targets +/- %f\" from detection(s).\nProceed (y/n ENTER=YES)?" \
+                            % args.error
             else:
                 exit(0)
 
@@ -3479,14 +3482,14 @@ def main():
                                 args.ra = d[0]
                                 args.dec = d[1]
                                 args.shotid = xlat_shotid(d[2])
-                                if 3400. < args.shotid < 5700.: #assume this is really a wavelength
+                                if (args.shotid is not None) and (3400. < args.shotid < 5700.): #assume this is really a wavelength
                                     args.wavelength = args.shotid
                                     args.shotid = None
                             elif len(d) == 4:
                                 args.ra = d[0]
                                 args.dec = d[1]
                                 args.shotid = xlat_shotid(d[2])
-                                if 3400. < args.shotid < 5700.:  # assume this is really a wavelength and shotid is flipped with wavelength
+                                if (args.shotid is not None) and (3400. < args.shotid < 5700.):  # assume this is really a wavelength and shotid is flipped with wavelength
                                     args.wavelength = args.shotid
                                     args.shotid = xlat_shotid(d[3])
                                 else:
