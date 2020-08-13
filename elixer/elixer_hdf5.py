@@ -1113,6 +1113,28 @@ def extend_elixer_hdf5(fname,hd_list=[],overwrite=False):
     print("File written: %s" %fname)
     log.info("File written: %s" %fname)
 
+def detectid_in_file(fname,det_id):
+    """
+
+    :param fname:
+    :param det_id:
+    :return:
+    """
+    try:
+        fileh = get_hdf5_filehandle(fname, must_exist=True, allow_overwrite=False, append=False)
+        if fileh:
+            dtb = fileh.root.Detection
+            rows = dtb.read_where("detectid==det_id")
+            if rows is None or len(rows) == 0:
+                return 0
+            else:
+                return len(rows)
+        else:
+            return -1
+    except:
+        log.error("Exception in elixer_hdf5::detectid_in_file",exc_info=True)
+        return -1
+
 def remove_duplicates(file):
     """
     Scan the Detections table for duplicate detectIDs and then remove the duplicate rows in all tables.
