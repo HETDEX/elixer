@@ -87,7 +87,8 @@ elif os.path.exists("elixer_merged_cat.h5"):
     try:
         h5 = tables.open_file("elixer_merged_cat.h5", "r")
         dtb = h5.root.Detections
-        alldets = dtb.read(field="detectid")
+        if (alldets is None) or len(alldets) == 0:
+            alldets = dtb.read(field="detectid")
         all_h5_dets = dtb.read(field="detectid")
     except Exception as e:
         print(e)

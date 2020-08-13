@@ -519,7 +519,7 @@ def parse_commandline(auto_force=False):
                 print("Unable to run clean_for_recovery script")
                 print(e)
         print("prep_recover complete; exiting ...")
-        exit()
+        exit(0)
 
     #if the cutout size (driven by args.error) is smaller than
     #the forced extraction aperture specified, increase the error (window) size
