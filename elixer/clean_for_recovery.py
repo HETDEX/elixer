@@ -97,7 +97,7 @@ else:
     alldets = allpdf_dets
 #is there another way to get the alldets?
 
-if alldets != allpdf_dets:
+if np.array_equal(alldets, allpdf_dets):
     alldets = np.unique(np.concatenate((alldets,allpdf_dets)))
 
 if all_h5_dets is not None:

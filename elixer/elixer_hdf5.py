@@ -550,7 +550,7 @@ def append_entry(fileh,det,overwrite=False):
                                'ELiXer Image Circular Apertures Table')
             xtb = fileh.root.ElixerApertures
 
-        list_tables = [dtb,stb,ltb,atb,ctb]
+        list_tables = [dtb,stb,ltb,atb,ctb,etb,xtb]
 
         q_detectid = det.hdf5_detectid
         rows = dtb.read_where("detectid==q_detectid")
