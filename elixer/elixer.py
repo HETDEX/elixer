@@ -3938,16 +3938,19 @@ def main():
                 try:
                     h5name = os.path.join(args.name, args.name + "_cat.h5")
                     elixer_hdf5.extend_elixer_hdf5(h5name,hd_list,overwrite=True)
-                    for d_id in hd_list:
-                        entry_ct = elixer_hdf5.detectid_in_file(h5name,d_id)
-                        if entry_ct != 1:
-                            log.warning(f"Unexpected number of entries in h5 file for detectid {d_id}, file {h5name}")
-                            if entry_ct == 0:
-                                log.warning(f"Retry insertion into h5 file. detectid = {d_id}")
-                                elixer_hdf5.extend_elixer_hdf5(h5name, [d_id], overwrite=True)
-                                entry_ct = elixer_hdf5.detectid_in_file(h5name, d_id)
+                    for hd in hd_list:
+                        for e in hd:
+                            if e.status >=0:
+                                d_id = e.hdf5_detectid
+                                entry_ct = elixer_hdf5.detectid_in_file(h5name,d_id)
                                 if entry_ct != 1:
-                                    log.warning(f"No retry: Unexpected number of entries in h5 file for detectid {d_id}, file {h5name}")
+                                    log.warning(f"Unexpected number of entries in h5 file for detectid {d_id}, file {h5name}")
+                                    if entry_ct == 0:
+                                        log.warning(f"Retry insertion into h5 file. detectid = {d_id}")
+                                        elixer_hdf5.extend_elixer_hdf5(h5name, [d_id], overwrite=True)
+                                        entry_ct = elixer_hdf5.detectid_in_file(h5name, d_id)
+                                        if entry_ct != 1:
+                                            log.warning(f"No retry: Unexpected number of entries in h5 file for detectid {d_id}, file {h5name}")
                 except:
                     log.error("Exception building HDF5 catalog",exc_info=True)
 
