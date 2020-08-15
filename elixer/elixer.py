@@ -3942,7 +3942,7 @@ def main():
                     h5name = os.path.join(args.name, args.name + "_cat.h5")
                     elixer_hdf5.extend_elixer_hdf5(h5name,hd_list,overwrite=True)
                     for hd in hd_list:
-                        for e in hd:
+                        for e in hd.emis_list:
                             if e.status >=0:
                                 d_id = e.hdf5_detectid
                                 entry_ct = elixer_hdf5.detectid_in_file(h5name,d_id)

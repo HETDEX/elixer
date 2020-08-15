@@ -630,6 +630,7 @@ class DetObj:
         self.best_gmag_selected = "" #to be filled in with sdss or hetdex later
 
         self.duplicate_fibers_removed = 0 # -1 is detected, but not removed, 0 = none found, 1 = detected and removed
+        self.duplicate_fiber_cutout_pair_weight =0 #any two of top 3 fiber 2D cutouts are identical
 
         self.image_2d_fibers_1st_col = None
         self.image_1d_emission_fit = None
@@ -1270,6 +1271,13 @@ class DetObj:
             self.classification_dict['scaled_plae'] = scaled_prob_lae
             self.classification_dict['spurious_reason'] = reason
             log.info(f"Aggregate Classification: bad pixel flat dominates. Setting PLAE to -1 (spurious)")
+        elif self.duplicate_fiber_cutout_pair_weight > 0.0:
+            reason = "(duplicate 2D fibers)"
+            scaled_prob_lae = -1
+            self.classification_dict['scaled_plae'] = scaled_prob_lae
+            self.classification_dict['spurious_reason'] = reason
+            log.info(f"Aggregate Classification: duplicate 2D fibers "
+                     f"(min weight {self.duplicate_fiber_cutout_pair_weight}). Setting PLAE to -1 (spurious)")
         # check for duplicate pixel positions
         # elif self.num_duplicate_central_pixels > G.MAX_NUM_DUPLICATE_CENTRAL_PIXELS:  # out of the top (usually 4) fibers
         #     reason = "(duplicate pixels)"
@@ -7772,6 +7780,31 @@ class HETDEX:
 
         #assume all the same shape
         summed_image = np.zeros(datakeep['im'][ind[0]].shape)
+
+
+
+        #sanity check for the top few fiber cutouts as identical
+        duplicate_weight = 0
+        try:
+            #trip on any one of the top 3 as identical, checked in weight order
+            if not np.any(datakeep['im'][-1] - datakeep['im'][-2]):
+                #blue and green fiber cutouts are the same
+                log.info("Probable spurious detection. Duplicate fiber cutouts detected (blue and green).")
+                duplicate_weight += datakeep['fiber_weight'][-1] + datakeep['fiber_weight'][-2]
+            elif not np.any(datakeep['im'][-1] - datakeep['im'][-3]):
+                #blue and yellow fiber cutouts are the same
+                log.info("Probable spurious detection. Duplicate fiber cutouts detected (blue and yellow).")
+                duplicate_weight += datakeep['fiber_weight'][-1] + datakeep['fiber_weight'][-3]
+            elif not np.any(datakeep['im'][-2] - datakeep['im'][-3]):
+                #green and yellow fiber cutouts are the same
+                log.info("Probable spurious detection. Duplicate fiber cutouts detected (green and yellow).")
+                duplicate_weight += datakeep['fiber_weight'][-2] + datakeep['fiber_weight'][-3]
+
+            if duplicate_weight != 0:
+                detobj.duplicate_fiber_cutout_pair_weight = duplicate_weight
+
+        except:
+            log.warning("Excpetion comparing fiber cutouts in hetdex.py build_2d_image()",exc_info=True)
 
         #need i to start at zero
         #building from bottom up

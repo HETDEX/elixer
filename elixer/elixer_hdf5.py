@@ -1123,7 +1123,7 @@ def detectid_in_file(fname,det_id):
     try:
         fileh = get_hdf5_filehandle(fname, must_exist=True, allow_overwrite=False, append=False)
         if fileh:
-            dtb = fileh.root.Detection
+            dtb = fileh.root.Detections
             rows = dtb.read_where("detectid==det_id")
             if rows is None or len(rows) == 0:
                 return 0
