@@ -9,9 +9,9 @@ import numpy as np
 
 h5 = tables.open_file(shot_file,"r")
 itb = h5.root.Data.Images
-
-dupfile = open(op.basename(shot_file).rstrip((".h5"))+".dup","w")
-errfile = open(op.basename(shot_file).rstrip((".h5"))+".err","w")
+shot = op.basename(shot_file).rstrip((".h5"))
+dupfile = open(shot +".dup","w")
+errfile = open(shot +".err","w")
 
 multiframes = itb.read(field='multiframe')
 
@@ -20,7 +20,7 @@ for mf in multiframes:
         images = itb.read_where("multiframe==mf", field='image')
         exposures = itb.read_where("multiframe==mf", field='expnum')
 
-        line = f"{mf} "
+        line = f"{shot} {mf}"
         has_dups = False
 
         for i in range(len(exposures)):
@@ -29,7 +29,7 @@ for mf in multiframes:
                     pass #all good, they are not identical
                 else:
                     has_dups = True
-                    line += f" ({exposures[i]},{exposures[j]}) "
+                    line += f" ({exposures[i]},{exposures[j]})"
 
         if has_dups:
             line += "\n"
