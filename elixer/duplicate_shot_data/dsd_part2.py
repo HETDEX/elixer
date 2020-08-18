@@ -7,9 +7,10 @@ import os.path as op
 import tables
 import numpy as np
 
+shot_file = sys.argv[1]
 h5 = tables.open_file(shot_file,"r")
 itb = h5.root.Data.Images
-shot = op.basename(shot_file).rstrip((".h5"))
+shot = op.basename(shot_file)[:-3]
 dupfile = open(shot +".dup","w")
 errfile = open(shot +".err","w")
 
@@ -29,7 +30,10 @@ for mf in multiframes:
                     pass #all good, they are not identical
                 else:
                     has_dups = True
-                    line += f" ({exposures[i]},{exposures[j]})"
+                    if np.any(images[i]):
+                        line += f" ({exposures[i]},{exposures[j]})"
+                    else: #the same, but the buffer (amp) is all zeroes
+                        line += f" ({exposures[i]},{exposures[j]})*"
 
         if has_dups:
             line += "\n"

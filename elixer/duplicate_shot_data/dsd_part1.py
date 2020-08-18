@@ -11,6 +11,6 @@ shot_files = glob.glob(shot_path)
 
 with open("dsd.run","w") as f:
     for s in shot_files:
-        shot = op.basename(s).rstrip(".h5")
-        f.write(f"mkdir {shot}; cd {shot}; python3 ../dsd_part2.py {s}\n")
+        shot = op.basename(s)[:-3] #strip the .h5
+        f.write(f"mkdir {shot}; cd {shot}; python3 ../dsd_part2.py {s} ; cd ..\n")
 
