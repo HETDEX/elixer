@@ -1279,7 +1279,7 @@ class DetObj:
 
         for fidx in range(len(self.fibers)): #are in decreasing order of weight
 
-            if self.fibers[fidx].pixel_flat_center_ratio < comparison_value:
+            if self.fibers[fidx].pixel_flat_center < comparison_value:
                 bad_pixflt_weight += self.fibers[fidx].relative_weight
                 likelihood.append(0)
                 weight.append(1.0 + self.fibers[fidx].relative_weight) #more central fibers make this more likely to trigger
@@ -7923,21 +7923,22 @@ class HETDEX:
                             mask_pix_image = np.ma.masked_where(pix_image == 0, pix_image)
                             if G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE > -1: #based on a fixed value
                                 bad_pix_value = G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE
-                                #yes, I want mean for cntr and median for the whole cutout
-                                cntr_ratio = np.nanmean(cntr) - np.nanstd(pix_image)
+                                #yes, I want mean and 2x std dev (as nominal worst case [95%])
+                                cntr_avg = np.nanmean(cntr) - 2.0*np.nanstd(cntr)
                                 #sorting is different, need to reverse
-                                detobj.fibers[len(detobj.fibers)-i-1].pixel_flat_center_ratio = cntr_ratio
-                                if cntr_ratio < G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE:
+                                detobj.fibers[len(detobj.fibers)-i-1].pixel_flat_center = cntr_avg
+                                if cntr_avg < G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE:
                                     #could be bad
                                     log.info("Possible bad pixel flat at emission line position")
 
                             else: #based on standard deviation
-                                bad_pix_value = np.nanmedian(mask_pix_image) - G.MARK_PIXEL_FLAT_DEVIATION*np.std(mask_pix_image)
+                                bad_pix_value = np.nanmedian(mask_pix_image) - \
+                                                G.MARK_PIXEL_FLAT_DEVIATION*np.nanstd(mask_pix_image)
 
                                 #yes, I want mean for cntr and median for the whole cutout
                                 cntr_ratio = np.nanmean(cntr) / np.nanmedian(pix_image)
                                 #sorting is different, need to reverse
-                                detobj.fibers[len(detobj.fibers)-i-1].pixel_flat_center_ratio = cntr_ratio
+                                detobj.fibers[len(detobj.fibers)-i-1].pixel_flat_center = cntr_ratio
                                 if cntr_ratio < G.MIN_PIXEL_FLAT_CENTER_RATIO:
                                     #could be bad
                                     log.info("Possible bad pixel flat at emission line position")

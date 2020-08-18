@@ -6,11 +6,15 @@ import sys
 import os.path as op
 import tables
 import numpy as np
+from astropy.table import Table
 
 shot_file = sys.argv[1]
+t = Table.read("/data/05350/ecooper/hdr2.1/survey/amp_flag.fits")
+
 h5 = tables.open_file(shot_file,"r")
 itb = h5.root.Data.Images
 shot = op.basename(shot_file)[:-3]
+shotid = int(shot.replace("v",""))
 dupfile = open(shot +".dup","w")
 errfile = open(shot +".err","w")
 
@@ -18,6 +22,19 @@ multiframes = itb.read(field='multiframe')
 
 for mf in multiframes:
     try:
+        search = ((t['shotid']==shotid) & (t['multiframe']==mf.decode()))
+        flag = t[search]['flag']
+        if len(flag) == 1:
+            if flag[0] == 0:
+                #bad shot/amp so skip it
+                print(f"{shot} {mf} flag is 0. Assume bad. Skipping.")
+                continue
+        elif len(flag) > 1:
+            errfile.write(f"{shot} {mf} too many flags {len(flag)}")
+            errfile.write("\n")
+        else: #zero length
+            print(f"{shot} {mf} no flag entry.")
+
         images = itb.read_where("multiframe==mf", field='image')
         exposures = itb.read_where("multiframe==mf", field='expnum')
 
@@ -44,6 +61,6 @@ for mf in multiframes:
         errfile.write(e)
         errfile.write("\n")
 
-
+h5.close()
 dupfile.close()
 errfile.close()
