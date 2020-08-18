@@ -564,6 +564,8 @@ class DetObj:
         self.ccd_adjacent_single_fiber_brightest_mag = None
         self.central_single_fiber_mag = None
 
+        self.grossly_negative_spec = False
+
         self.outdir = None
         self.calfib_noise_estimate = None
         self.num_duplicate_central_pixels = 0 #used in classification, if the number is high, more likely to be spurious
@@ -1240,8 +1242,14 @@ class DetObj:
 
         #check for bad pixel flats
         bad_pixflt_weight = 0
+        if G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE > -1:
+            comparison_value = G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE
+        else:
+            comparison_value = G.MIN_PIXEL_FLAT_CENTER_RATIO
+
         for fidx in range(len(self.fibers)): #are in decreasing order of weight
-            if self.fibers[fidx].pixel_flat_center_ratio < G.MIN_PIXEL_FLAT_CENTER_RATIO:
+
+            if self.fibers[fidx].pixel_flat_center_ratio < comparison_value:
                 bad_pixflt_weight += self.fibers[fidx].relative_weight
                 likelihood.append(0)
                 weight.append(1.0 + self.fibers[fidx].relative_weight) #more central fibers make this more likely to trigger
@@ -1278,6 +1286,13 @@ class DetObj:
             self.classification_dict['spurious_reason'] = reason
             log.info(f"Aggregate Classification: duplicate 2D fibers "
                      f"(min weight {self.duplicate_fiber_cutout_pair_weight}). Setting PLAE to -1 (spurious)")
+        elif self.grossly_negative_spec:
+            reason = "(negative spectrum)"
+            scaled_prob_lae = -1
+            self.classification_dict['scaled_plae'] = scaled_prob_lae
+            self.classification_dict['spurious_reason'] = reason
+            log.info(f"Aggregate Classification: grossly negative spectrum. Setting PLAE to -1 (spurious)")
+
         # check for duplicate pixel positions
         # elif self.num_duplicate_central_pixels > G.MAX_NUM_DUPLICATE_CENTRAL_PIXELS:  # out of the top (usually 4) fibers
         #     reason = "(duplicate pixels)"
@@ -3628,12 +3643,20 @@ class DetObj:
                 # use the std dev of all "mostly empty" (hence sigma=3.0) or "sky" fibers as the error
                 mean, median, std = sigma_clipped_stats(all_calfib, axis=0, sigma=3.0)
                 self.calfib_noise_estimate = std
-                self.spec_obj.noise_estimate = self.calfib_noise_estimate
-                self.spec_obj.noise_estimate_wave = G.CALFIB_WAVEGRID
+                if not G.MULTILINE_USE_ERROR_SPECTRUM_AS_NOISE:
+                    self.spec_obj.noise_estimate = self.calfib_noise_estimate
+                    self.spec_obj.noise_estimate_wave = G.CALFIB_WAVEGRID
 
             except:
                 log.info("Could not build DetObj calfib_noise_estimate", exc_info=True)
                 self.calfib_noise_estimate = np.zeros(len(G.CALFIB_WAVEGRID))
+
+                try:
+                    log.info("Setting spectrum noise estimate to error spectrum")
+                    self.spec_obj.noise_estimate = self.sumspec_fluxerr
+                    self.spec_obj.noise_estimate_wave = G.CALFIB_WAVEGRID
+                except:
+                    log.info("Could not set spectrum noise_estimate to sumpsec_fluxerr", exc_info=True)
 
             #my own fitting
             try:
@@ -4037,6 +4060,15 @@ class DetObj:
             self.sumspec_flux = row['spec1d'] #DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
             self.sumspec_fluxerr = row['spec1d_err']
 
+
+            #sanity check:
+            try:
+                sel = np.where(np.array(self.sumspec_flux) > 0)[0]
+                if len(sel) < (0.1 * len(self.sumspec_flux )): #pretty weak check, but if it fails something is very wrong
+                    self.grossly_negative_spec = True
+            except:
+                pass
+
             #this is HETDEX data only (using line continuum estimate)(a bit below will optionally use sdss)
             if self.cont_cgs != 0:
                 self.eqw_obs = self.estflux / self.cont_cgs
@@ -4377,8 +4409,9 @@ class DetObj:
                 #use the std dev of all "mostly empty" (hence sigma=3.0) or "sky" fibers as the error
                 mean, median, std = sigma_clipped_stats(all_calfib, axis=0, sigma=3.0)
                 self.calfib_noise_estimate = std
-                self.spec_obj.noise_estimate = self.calfib_noise_estimate
-                self.spec_obj.noise_estimate_wave = G.CALFIB_WAVEGRID
+                if not G.MULTILINE_USE_ERROR_SPECTRUM_AS_NOISE:
+                    self.spec_obj.noise_estimate = self.calfib_noise_estimate
+                    self.spec_obj.noise_estimate_wave = G.CALFIB_WAVEGRID
 
             except:
                 log.info("Could not build DetObj calfib_noise_estimate", exc_info=True)
@@ -7853,19 +7886,31 @@ class HETDEX:
                         flat = pix_image.flatten()
                         nonzero = len(np.where(flat != 0)[0])
                         if nonzero > 0 and float(nonzero)/float(len(flat)) > 0.5:
-                            #bad_pix_value = np.nanmedian(pix_image) * G.MIN_PIXEL_FLAT_CENTER_RATIO
-                            mask_pix_image = np.ma.masked_where(pix_image == 0, pix_image)
-                            bad_pix_value = np.nanmedian(mask_pix_image) - G.MARK_PIXEL_FLAT_DEVIATION*np.std(mask_pix_image)
-
                             cy,cx = np.array(np.shape(pix_image))//2
                             cntr = pix_image[cy-1:cy+2,cx-1:cx+2]
-                            #yes, I want mean for cntr and median for the whole cutout
-                            cntr_ratio = np.nanmean(cntr) / np.nanmedian(pix_image)
-                            #sorting is different, need to reverse
-                            detobj.fibers[len(detobj.fibers)-i-1].pixel_flat_center_ratio = cntr_ratio
-                            if cntr_ratio < G.MIN_PIXEL_FLAT_CENTER_RATIO:
-                                #could be bad
-                                log.info("Possible bad pixel flat at emission line position")
+
+                            #bad_pix_value = np.nanmedian(pix_image) * G.MIN_PIXEL_FLAT_CENTER_RATIO
+                            mask_pix_image = np.ma.masked_where(pix_image == 0, pix_image)
+                            if G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE > -1: #based on a fixed value
+                                bad_pix_value = G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE
+                                #yes, I want mean for cntr and median for the whole cutout
+                                cntr_ratio = np.nanmean(cntr) - np.nanstd(pix_image)
+                                #sorting is different, need to reverse
+                                detobj.fibers[len(detobj.fibers)-i-1].pixel_flat_center_ratio = cntr_ratio
+                                if cntr_ratio < G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE:
+                                    #could be bad
+                                    log.info("Possible bad pixel flat at emission line position")
+
+                            else: #based on standard deviation
+                                bad_pix_value = np.nanmedian(mask_pix_image) - G.MARK_PIXEL_FLAT_DEVIATION*np.std(mask_pix_image)
+
+                                #yes, I want mean for cntr and median for the whole cutout
+                                cntr_ratio = np.nanmean(cntr) / np.nanmedian(pix_image)
+                                #sorting is different, need to reverse
+                                detobj.fibers[len(detobj.fibers)-i-1].pixel_flat_center_ratio = cntr_ratio
+                                if cntr_ratio < G.MIN_PIXEL_FLAT_CENTER_RATIO:
+                                    #could be bad
+                                    log.info("Possible bad pixel flat at emission line position")
                     except:
                         log.debug("Exception checking for bad pixel flat",exc_info=True)
 

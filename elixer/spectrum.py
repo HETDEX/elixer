@@ -2753,10 +2753,15 @@ class Spectrum:
         self.wavelengths = []
         self.values = []
         self.errors = []
+
         self.all_found_lines = None
         self.all_found_absorbs = None
         self.solutions = None
         self.central_eli = None
+
+        if self.noise_estimate is None or len(self.noise_estimate) == 0:
+            self.noise_estimate = errors[:]
+            self.noise_estimate_wave = wavelengths[:]
 
         if central is None:
             self.wavelengths = wavelengths

@@ -20,7 +20,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.9.1'
+__version__ = '1.9.2a'
 
 #python version
 import sys
@@ -678,6 +678,7 @@ MIN_ADDL_EMIS_LINES_FOR_CLASSIFY = 1
 DISPLAY_ABSORPTION_LINES = False
 MAX_SCORE_ABSORPTION_LINES = 0.0 #the most an absorption line can contribute to the score (set to 0 to turn off)
 
+MULTILINE_USE_ERROR_SPECTRUM_AS_NOISE = False #if False, uses the whole amp to estimate noise, if possible
 MULTILINE_MIN_GOOD_ABOVE_NOISE = 3.0 #below this is not consider a possibly good line
 MULTILINE_SCORE_NORM_ABOVE_NOISE = 5.0 #get full 1x score at this level
 MULTILINE_SCORE_ABOVE_NOISE_MAX_BONUS = 3.0 #maximum multiplier as max of (peak/noise/NORM, BONUS)
@@ -766,6 +767,8 @@ MAX_OK_UNMATCHED_LINES_SCORE = MULTILINE_MIN_SOLUTION_SCORE #25.0
 MARK_PIXEL_FLAT_DEVIATION = 3.0 #if > 3.0 sigma from mean, then mark as bad well (set to large value to not mark)
 MIN_PIXEL_FLAT_CENTER_RATIO = 0.85 #if less than this, the center is bad and may create a false emission line
 MAX_NUM_DUPLICATE_CENTRAL_PIXELS = 2 #if more than this, flag as spurious
+PIXEL_FLAT_ABSOLUTE_BAD_VALUE = 0.8 #values at or below this in the flat are "bad" and can artificially create emission
+                                    #a -1 turns it off (code will ignore this global)
 #note: 2 means there is one set of duplicates: ie. [1,2,1,3] would be 2 (1 and 1 are duplicated)
 
 MAX_MAG_FAINT = 28.0 #set as nominal "faint" mag if flux limit reached
