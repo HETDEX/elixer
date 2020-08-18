@@ -8972,7 +8972,6 @@ class HETDEX:
             #peak_height = near get the approximate peak height
             mn = np.min(F)
             mx = np.max(F)
-
             try:
                 if G.CONTINUUM_RULES:
                     mn = min(F)
@@ -8982,14 +8981,18 @@ class HETDEX:
 
                     idx_left = max(0,peak_idx-2)
                     idx_right = min(len(datakeep['sumspec_wave']),peak_idx+3)
-
                     peak_height = max(datakeep['sumspec_flux'][idx_left:idx_right])
 
-                    mn = max(mn,-0.2*peak_height) #at most go -20% of the peak below zero (most likely a bad sky subtraction)
+                    mn = max(mn, -0.2 * peak_height)
                     mx = min(mx, 2.0 * peak_height)  # at most go 100% above the peak
             except:
                 pass
 
+
+            if mn > mx: #handle purely negative case
+                tmp = mn
+                mn = mx
+                mx = tmp
 
             #flux nearest at the cwave position
             #this is redundant to the block immediately above

@@ -1,11 +1,12 @@
 changes to elixer by version
 
-1.9.2a [2020-08-17]
+1.9.2a [2020-08-18]
 * explicit check for NaN in lineflux and continuum for PLAE (MCMC)
 * check for identical 2D spec cutouts in top 3 fibers
 * check for grossly negative spectrum (less than 10% of wavebins with positive flux), mark as spurious
 * add global option (PIXEL_FLAT_ABSOLUTE_BAD_VALUE) to use an aboslution pixel flat bad pixel value instead of the
   (usually 3x, set by MARK_PIXEL_FLAT_DEVIATION) standard deviation
+* check for completely negative spectrum and not invert (flip min and max so orients correctly)
 
 
 1.9.1 [2020-08-06]

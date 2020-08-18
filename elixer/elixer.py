@@ -198,7 +198,10 @@ def make_zeroth_row_header(left_text,show_version=True):
 
         plt.subplot(gs[0, 0])
         plt.gca().axis('off')
-        plt.text(0, 0.5, left_text, ha='left', va='bottom', fontproperties=font)
+        if ": -1 (" in left_text: #ie: P(LyA): -1 (negative spectrum)
+            plt.text(0, 0.5, left_text, ha='left', va='bottom', fontproperties=font,color='r')
+        else:
+            plt.text(0, 0.5, left_text, ha='left', va='bottom', fontproperties=font)
 
         if G.LyC:
             plt.subplot(gs[0, 1])

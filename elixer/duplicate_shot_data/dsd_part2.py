@@ -25,15 +25,16 @@ for mf in multiframes:
         has_dups = False
 
         for i in range(len(exposures)):
-            for j in range(i+1,len(exposures),1):
-                if np.any(images[i]-images[j]):
-                    pass #all good, they are not identical
-                else:
-                    has_dups = True
-                    if np.any(images[i]):
-                        line += f" ({exposures[i]},{exposures[j]})"
-                    else: #the same, but the buffer (amp) is all zeroes
-                        line += f" ({exposures[i]},{exposures[j]})*"
+            if np.any(images[i]) and (np.shape(images[i]) == (1032,1032)) \
+                    and (len(np.unique(images[i])) > 500):
+                for j in range(i+1,len(exposures),1):
+                    if np.any(images[j]) and (np.shape(images[j]) == (1032,1032))  \
+                    and (len(np.unique(images[j])) > 500):
+                        if np.any(images[i]-images[j]):
+                            pass #all good, they are not identical
+                        else:
+                            has_dups = True
+                            line += f" ({exposures[i]},{exposures[j]})"
 
         if has_dups:
             line += "\n"
