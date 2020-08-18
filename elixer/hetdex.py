@@ -1236,6 +1236,36 @@ class DetObj:
             log.debug("Exception in aggregate_classification for best PLAE/POII",exc_info=True)
 
 
+        #basic magnitude sanity checks
+        if self.best_gmag < 18.0: #the VERY BRIGHTEST QSOs in the 2 < z < 4 are 17-18 mag
+            likelihood.append(0.1)  # weak solution so push likelihood "down" but not zero (maybe 0.2 or 0.25)?
+            weight.append(max(2.0,max(weight)))
+            var.append(1)  # todo: ? could do something like the spectrum noise?
+            prior.append(base_assumption)
+            log.debug(f"Aggregate Classification: gmag too bright: z({s.z}) lk({likelihood[-1]}) "
+                f"weight({weight[-1]})")
+        elif self.best_gmag < 23.5:
+            try:
+                min_fwhm = self.fwhm - 0 if ((self.fwhm_unc is None) or (np.isnan(self.fwhm_unc))) else self.fwhm_unc
+                min_thresh = max( ((23.5 - self.best_gmag) + 10.0), 10.0) #just in case something weird
+
+                #the -25.0 and -0.8 are from some trial and error plotting to get the shape I want
+                #runs 0 to 1.0 and drops off very fast from 1.0 toward 0.0
+                # (by ratio of 0.8 were at y=0.5, by 0.6 y ~ 0.0)
+                sigmoid = 1.0 / (1.0 + np.exp(-25.0 * (min_fwhm/min_thresh - 0.8)))
+                if min_fwhm < min_thresh:
+                    #unless this is an AGN, this is very unlikely
+                    likelihood.append(0.5 * sigmoid)  # weak solution so push likelihood "down" but not zero (maybe 0.2 or 0.25)?
+                    weight.append(max(2.0, max(weight) * (1.0-sigmoid)))
+                    var.append(1)  # todo: ? could do something like the spectrum noise?
+                    prior.append(base_assumption)
+                    log.debug(f"Aggregate Classification: gmag too bright: z({s.z}) lk({likelihood[-1]}) "
+                              f"weight({weight[-1]})")
+            except:
+                log.debug("Exception in aggregate_classification for best PLAE/POII", exc_info=True)
+
+
+
         #todo: chi2 vs S/N  (is it a real line)
         #  need to include (for poor S/N) if there is a faint catalog object right under the reticle (say within 0.5")
         #a question of fit ...

@@ -7,6 +7,8 @@ changes to elixer by version
 * add global option (PIXEL_FLAT_ABSOLUTE_BAD_VALUE) to use an aboslution pixel flat bad pixel value instead of the
   (usually 3x, set by MARK_PIXEL_FLAT_DEVIATION) standard deviation
 * check for completely negative spectrum and not invert (flip min and max so orients correctly)
+* add magnitude check for LyA in hetdex::aggregate_classification (basically as g-mag brightens from 23.5, the line fwhm
+  must get increasingly large (e.g. like an AGN) to not get LyA probability squashed down
 
 
 1.9.1 [2020-08-06]
