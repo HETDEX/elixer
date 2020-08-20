@@ -7920,7 +7920,6 @@ class HETDEX:
                             cntr = pix_image[cy-1:cy+2,cx-1:cx+2]
 
                             #bad_pix_value = np.nanmedian(pix_image) * G.MIN_PIXEL_FLAT_CENTER_RATIO
-                            mask_pix_image = np.ma.masked_where(pix_image == 0, pix_image)
                             if G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE > -1: #based on a fixed value
                                 bad_pix_value = G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE
                                 #yes, I want mean and 2x std dev (as nominal worst case [95%])
@@ -7932,8 +7931,9 @@ class HETDEX:
                                     log.info("Possible bad pixel flat at emission line position")
 
                             else: #based on standard deviation
-                                bad_pix_value = np.nanmedian(mask_pix_image) - \
-                                                G.MARK_PIXEL_FLAT_DEVIATION*np.nanstd(mask_pix_image)
+                                mask_pix_image = np.ma.masked_where((pix_image == 0)|(np.isnan(pix_image)), pix_image)
+                                bad_pix_value = np.ma.median(mask_pix_image) - \
+                                                G.MARK_PIXEL_FLAT_DEVIATION*np.ma.std(mask_pix_image)
 
                                 #yes, I want mean for cntr and median for the whole cutout
                                 cntr_ratio = np.nanmean(cntr) / np.nanmedian(pix_image)
@@ -7946,7 +7946,8 @@ class HETDEX:
                         log.debug("Exception checking for bad pixel flat",exc_info=True)
 
                     #update pix_image to a mask to use later when ploting
-                    pix_image = np.ma.masked_where((pix_image < bad_pix_value) & (pix_image != 0), pix_image)
+                    #pix_image = np.ma.masked_where((pix_image < bad_pix_value) & (pix_image != 0), pix_image)
+                    pix_image = np.ma.masked_where(pix_image < bad_pix_value, pix_image)
 
                     #check for same pixel (as a string for easy compare (all integer values)
                     #after the loop, make sure they are unique

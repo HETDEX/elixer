@@ -9,6 +9,8 @@ changes to elixer by version
 * check for completely negative spectrum and not invert (flip min and max so orients correctly)
 * add magnitude check for LyA in hetdex::aggregate_classification (basically as g-mag brightens from 23.5, the line fwhm
   must get increasingly large (e.g. like an AGN) to not get LyA probability squashed down
+* allow MgII (2799AA) to be an single line solution
+* mark pixel flat pixels in red if below the threshold even if they are masked
 
 
 1.9.1 [2020-08-06]
