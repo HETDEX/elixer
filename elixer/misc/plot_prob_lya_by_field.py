@@ -170,6 +170,13 @@ if reload:
     np.save("plot_plae_poii",plae_poii)
     np.save("plot_agree",agreement)
 
+    # Nan
+    if len(nan_plae_poii) > 0:
+        np.savetxt("nan_plae_poii.list", nan_plae_poii, fmt="%d")
+
+    if len(nan_p_lya) > 0:
+        np.savetxt("nan_plae_poii.list", nan_p_lya, fmt="%d")
+
 #sanity check
 if not (len(detectids) == len(catalogs) == len(fieldnames) == len(p_lya) == len(plae_poii) == len(agreement)):
     print(f"WFT?? array lengths mismatch {len(detectids)} vs {len(catalogs)} vs {len(fieldnames)}"
@@ -184,29 +191,27 @@ if not (len(detectids) == len(catalogs) == len(fieldnames) == len(p_lya) == len(
 #     exit()
 
 
-#Nan
-if len(nan_plae_poii) > 0:
-    np.savetxt("nan_plae_poii.list", nan_plae_poii, fmt="%d")
-
-if len(nan_p_lya) > 0:
-    np.savetxt("nan_plae_poii.list", nan_p_lya, fmt="%d")
-
 
 
 #search for disagrements:
 sel1 = np.where(agreement == -1)[0]
-sel2 = np.where(p_lya < 0.25)[0]
-sel3 = np.where(p_lya < 0.75)[0]
+
 #todo: split into two list: high PLAE vs low PlyA and the other way round
 if sel1 is not None and len(sel1)>0:
+    sel_bottom = np.where(p_lya < 0.25)[0]
+    sel_top = np.where(p_lya > 0.75)[0]
+    sel_left = np.where(plae_poii < 0.01)[0]
+    sel_right = np.where(plae_poii > 100.0)[0]
 
-    agreement_top_left = np.intersect1d(sel1,sel3)
-    agreement_bottom_right = np.intersect1d(sel1,sel2)
+    agreement_top_left = np.intersect1d(sel_top, sel_left)
+    agreement_bottom_right = np.intersect1d(sel_bottom,sel_right)
+
+    #agreement_top_left = np.intersect1d(np.intersect1d(sel1,sel_top), sel_left)
+    #agreement_bottom_right = np.intersect1d(np.intersect1d(sel1,sel_bottom),sel_right)
 
     np.savetxt("agreement_0.list",detectids[sel1],fmt="%d")
     np.savetxt("agreement_top_left.list", detectids[agreement_top_left], fmt="%d")
     np.savetxt("agreement_bottom_right.list", detectids[agreement_bottom_right], fmt="%d")
-
 
 
 

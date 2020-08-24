@@ -47,6 +47,8 @@ import sep #source extractor python module
 
 import scipy.stats as stats
 
+import copy as cp
+
 PIXEL_APERTURE_METHOD='exact' #'exact' 'center' 'subpixel'
 
 #log = G.logging.getLogger('sciimg_logger')
@@ -511,7 +513,7 @@ class science_image():
         self.vmin = None
         self.vmax = None
 
-        cpvals = vals[:]
+        cpvals = cp.copy(vals)
 
         #use the interior ~2/3
         try:

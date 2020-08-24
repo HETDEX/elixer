@@ -1168,9 +1168,8 @@ def remove_duplicates(file):
         #identify the duplicates
         u, uidx, ucts = np.unique(detectids, return_index=True, return_counts=True)
         sel = np.where(ucts > 1)
-        dups = u[sel][:] #need to be fixed at this time, so make a copy
+        dups = u[sel][:]
         cts = ucts[sel][:]
-        #idx = uidx[sel][:]
 
         if len(dups)==0:
             log.info("No duplicates found.")

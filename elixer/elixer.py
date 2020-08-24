@@ -3475,6 +3475,14 @@ def main():
                     survey = None
                     for d in hdf5_detectid_list:
                         plt.close('all')
+
+                        if isinstance(d,np.int64): #this is a detetid, not list of values RA, Dec, ...
+                            hd = hetdex.HETDEX(args, fcsdir_list=None, hdf5_detectid_list=[d], basic_only=basic_only)
+                            if hd.status == 0:
+                                hd_list.append(hd)
+                            continue
+
+                        #otherwise this a a list of RA, Dec, ...
                         #update the args with the ra dec and shot to build an appropriate hetdex object for extraction
                         try:
                             if len(d) == 2:

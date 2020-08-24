@@ -6,12 +6,19 @@ changes to elixer by version
 * check for grossly negative spectrum (less than 10% of wavebins with positive flux), mark as spurious
 * add global option (PIXEL_FLAT_ABSOLUTE_BAD_VALUE) to use an aboslution pixel flat bad pixel value instead of the
   (usually 3x, set by MARK_PIXEL_FLAT_DEVIATION) standard deviation
+  + pixelflat wells now defined as EITHER the center mean being less than 85% (MIN_PIXEL_FLAT_CENTER_RATIO) of the median of the rest
+    OR the center mean being below the PIXEL_FLAT_ABSOLUTE_BAD_VALUE
 * check for completely negative spectrum and not invert (flip min and max so orients correctly)
 * add magnitude check for LyA in hetdex::aggregate_classification (basically as g-mag brightens from 23.5, the line fwhm
   must get increasingly large (e.g. like an AGN) to not get LyA probability squashed down
 * allow MgII (2799AA) to be an single line solution
+* allow CIV (1549AA) to be a single line solution
 * mark pixel flat pixels in red if below the threshold even if they are masked
-
+* allow (re)extraction of an existing HETDEX ID (pass the detectID as before with --aperture switch)
+* (starting on) framework for line ratio comparisions and consistency with various objects (AGN, OII emitters, Stars, etc)
+    + when active, will probably bump minor version number
+* added some rank 3 emission lines as single line sol (for AGN) if their fwhm is large (12+AA) and they are in an observed
+    wavelength range where we might expect to see only that line (because other lines are not in ranger or are weak)
 
 1.9.1 [2020-08-06]
 * promote to 1.9.1 (HDR2.1) - redeux

@@ -1246,7 +1246,7 @@ class DetObj:
                 f"weight({weight[-1]})")
         elif self.best_gmag < 23.5:
             try:
-                min_fwhm = self.fwhm - 0 if ((self.fwhm_unc is None) or (np.isnan(self.fwhm_unc))) else self.fwhm_unc
+                min_fwhm = self.fwhm - (0 if ((self.fwhm_unc is None) or (np.isnan(self.fwhm_unc))) else self.fwhm_unc)
                 min_thresh = max( ((23.5 - self.best_gmag) + 10.0), 10.0) #just in case something weird
 
                 #the -25.0 and -0.8 are from some trial and error plotting to get the shape I want
@@ -1272,20 +1272,17 @@ class DetObj:
 
         #check for bad pixel flats
         bad_pixflt_weight = 0
-        if G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE > -1:
-            comparison_value = G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE
-        else:
-            comparison_value = G.MIN_PIXEL_FLAT_CENTER_RATIO
-
         for fidx in range(len(self.fibers)): #are in decreasing order of weight
 
-            if self.fibers[fidx].pixel_flat_center < comparison_value:
+            if (self.fibers[fidx].pixel_flat_center_ratio < G.MIN_PIXEL_FLAT_CENTER_RATIO) or \
+               (self.fibers[fidx].pixel_flat_center_avg < G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE):
                 bad_pixflt_weight += self.fibers[fidx].relative_weight
                 likelihood.append(0)
                 weight.append(1.0 + self.fibers[fidx].relative_weight) #more central fibers make this more likely to trigger
                 var.append(1)
                 prior.append(0)
-                log.info(f"Aggregate Classification: bad pixel flat for fiber #{fidx+1}. lk({likelihood[-1]}) weight({weight[-1]})")
+                log.info(f"Aggregate Classification: bad pixel flat for fiber #{fidx+1}. lk({likelihood[-1]}) "
+                         f"weight({weight[-1]}) relative fiber weight({self.fibers[fidx].relative_weight})")
 
         #check for duplicate pixel positions
         #NO! there are valid (good) conditions where there ARE duplicate positions but it is good and correct
@@ -1679,13 +1676,13 @@ class DetObj:
         # set to good value if gmag < 24
         cgs_24 = 1.35e-18  # 1.35e-18 cgs ~ 24.0 mag in g-band
         cgs_24p5 = 8.52e-19  # 8.52e-19 cgs ~ 24.5 mag in g-band, get full marks at 24mag and fall to zero by 24.5
-        cgs_25 = 5.38e-19
+        cgs_25 = 5.38e-19 #
         cgs_26 = 2.14e-19
         cgs_27 = 8.52e-20
         cgs_28 = 3.39e-20
         cgs_29 = 1.35e-20
         cgs_30 = 5.38e-21
-        cgs_faint_limit = cgs_29
+        cgs_faint_limit = cgs_28
 
         num_cat_match = 0 #number of catalog matched objects
         cat_idx = -1
@@ -1703,8 +1700,8 @@ class DetObj:
         #HETDEX Continuum (near emission line), not very reliable
         try:
             if (self.hetdex_cont_cgs is not None) and (self.hetdex_cont_cgs_unc is not None):
-                hetdex_cont_limit = 2.0e-18 #don't trust below this
-                if (self.hetdex_cont_cgs - self.hetdex_cont_cgs_unc) > hetdex_cont_limit:
+                #hetdex_cont_limit = 2.0e-18 #don't trust below this
+                if (self.hetdex_cont_cgs - self.hetdex_cont_cgs_unc) > G.HETDEX_CONTINUUM_FLUX_LIMIT:
                     continuum.append(self.hetdex_cont_cgs)
                     variance.append(self.hetdex_cont_cgs_unc*self.hetdex_cont_cgs_unc)
                     weight.append(0.2) #never very high
@@ -1712,11 +1709,17 @@ class DetObj:
                     log.debug(f"{self.entry_id} Combine ALL Continuum: Added HETDEX estimate ({continuum[-1]:#.4g}) "
                               f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
                 else: #set as lower limit ... too far to be meaningful
-                    continuum.append(hetdex_cont_limit)
-                    if self.hetdex_cont_cgs_unc > 0:
-                        variance.append(self.hetdex_cont_cgs_unc*self.hetdex_cont_cgs_unc)
-                    else:
-                        variance.append(hetdex_cont_limit * hetdex_cont_limit) #set to itself as a big error
+                    continuum.append(G.HETDEX_CONTINUUM_FLUX_LIMIT)
+                    # set to itself as a big error (basically, 100% error)
+                    variance.append(G.HETDEX_CONTINUUM_FLUX_LIMIT * G.HETDEX_CONTINUUM_FLUX_LIMIT)
+
+                    #does it make any sense to attempt to use the calculated error in this case? it is the
+                    #error on a value that is rejected as meaningless (below the limit or negative)
+                    # if self.hetdex_cont_cgs_unc > 0:
+                    #     variance.append(self.hetdex_cont_cgs_unc*self.hetdex_cont_cgs_unc)
+                    # else:
+                    #     variance.append(G.HETDEX_CONTINUUM_FLUX_LIMIT * G.HETDEX_CONTINUUM_FLUX_LIMIT) #set to itself as a big error
+
                     weight.append(0.0) #never very high
                     type.append('hdn')
                     log.debug(f"{self.entry_id} Combine ALL Continuum: Failed HETDEX estimate, setting to lower limit  "
@@ -1731,9 +1734,11 @@ class DetObj:
         # Best full width gmag continuum (HETDEX full width or SDSS gmag)
         try:
             cgs_limit = cgs_25
-            if (self.best_gmag_cgs_cont is not None) and (self.best_gmag_cgs_cont_unc is not None):
+            if (self.best_gmag_cgs_cont is not None) and (self.best_gmag_cgs_cont_unc is not None) and \
+               (self.best_gmag_cgs_cont > 0) and (self.best_gmag_cgs_cont_unc > 0):
                 #if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_limit:
 
+                #estimate - error is still better than the limit, so it gets full marks
                 if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_limit: #good, full marks
                     continuum.append(self.best_gmag_cgs_cont)
                     variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
@@ -1749,6 +1754,8 @@ class DetObj:
                     log.debug(
                         f"{self.entry_id} Combine ALL Continuum: Added best spectrum gmag estimate ({continuum[-1]:#.4g}) "
                         f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
+
+                #estimate is better than the limit, but with error hits the limit, so reduced marks
                 elif (self.best_gmag_cgs_cont > cgs_limit): #mean value is in range, but with error is out of range
                     frac = (self.best_gmag_cgs_cont - cgs_24) / (cgs_24 - cgs_25)
                     # at 24mag this is zero, fainter goes negative, at 24.5 it is -1.0
@@ -2068,7 +2075,7 @@ class DetObj:
 
                     #then clip (pretty aggressively)
                     diff = abs(continuum - continuum_hat)/continuum_sd_hat
-                    original_continuum = continuum[:] #for logging below
+                    original_continuum = copy(continuum) #for logging below
                     sigma = 1.5
                     sel = np.where(diff < sigma)
 
@@ -3823,7 +3830,9 @@ class DetObj:
                 log.error("Exception computing SDSS g-mag", exc_info=True)
 
             # choose the best
-            if sdss_okay >= hetdex_okay:
+            #even IF okay == 0, still record the probably bogus value (when
+            #actually using the values elsewhere they are compared to a limit and the limit is used if needed
+            if sdss_okay >= hetdex_okay and not np.isnan(self.sdss_cgs_cont) and (self.sdss_cgs_cont is not None):
                 self.best_gmag_selected = 'sdss'
                 self.best_gmag = self.sdss_gmag
                 self.best_gmag_unc = self.sdss_gmag_unc
@@ -3832,7 +3841,7 @@ class DetObj:
                 self.best_eqw_gmag_obs = self.eqw_sdss_obs
                 self.best_eqw_gmag_obs_unc = self.eqw_sdss_obs_unc
                 log.debug("Using SDSS gmag over HETDEX full width gmag")
-            elif hetdex_okay > 0:
+            elif hetdex_okay > 0 and not np.isnan(self.hetdex_gmag_cgs_cont) and (self.hetdex_gmag_cgs_cont is not None):
                 self.best_gmag_selected = 'hetdex'
                 self.best_gmag = self.hetdex_gmag
                 self.best_gmag_unc = self.hetdex_gmag_unc
@@ -3841,7 +3850,7 @@ class DetObj:
                 self.best_eqw_gmag_obs = self.eqw_hetdex_gmag_obs
                 self.best_eqw_gmag_obs_unc = self.eqw_hetdex_gmag_obs_unc
                 log.debug("Using HETDEX full width gmag over SDSS gmag.")
-            else:
+            else: #something catastrophically bad
                 log.debug("No full width spectrum g-mag estimate is valid.")
                 self.best_gmag_selected = 'limit'
                 self.best_gmag = G.HETDEX_CONTINUUM_MAG_LIMIT
@@ -4186,7 +4195,9 @@ class DetObj:
 
 
             #choose the best
-            if sdss_okay >= hetdex_okay:
+            # even IF okay == 0, still record the probably bogus value (when
+            # actually using the values elsewhere they are compared to a limit and the limit is used if needed
+            if sdss_okay >= hetdex_okay and not np.isnan(self.sdss_cgs_cont) and (self.sdss_cgs_cont is not None):
                 self.best_gmag_selected = 'sdss'
                 self.best_gmag = self.sdss_gmag
                 self.best_gmag_unc = self.sdss_gmag_unc
@@ -4195,7 +4206,7 @@ class DetObj:
                 self.best_eqw_gmag_obs = self.eqw_sdss_obs
                 self.best_eqw_gmag_obs_unc = self.eqw_sdss_obs_unc
                 log.debug("Using SDSS gmag over HETDEX full width gmag")
-            elif hetdex_okay > 0:
+            elif hetdex_okay > 0 and not np.isnan(self.hetdex_gmag_cgs_cont) and (self.hetdex_gmag_cgs_cont is not None):
                 self.best_gmag_selected = 'hetdex'
                 self.best_gmag = self.hetdex_gmag
                 self.best_gmag_unc = self.hetdex_gmag_unc
@@ -4456,7 +4467,8 @@ class DetObj:
             self.spec_obj.set_spectra(self.sumspec_wavelength,self.sumspec_flux,self.sumspec_fluxerr, self.w,
                                       values_units=-17, estflux=self.estflux, estflux_unc=self.estflux_unc,
                                       eqw_obs=self.eqw_obs,eqw_obs_unc=self.eqw_obs_unc,
-                                      estcont=self.cont_cgs,estcont_unc=self.cont_cgs_unc)
+                                      estcont=self.cont_cgs,estcont_unc=self.cont_cgs_unc,
+                                      fwhm=self.fwhm,fwhm_unc=self.fwhm_unc)
             # print("DEBUG ... spectrum peak finder")
             # if G.DEBUG_SHOW_GAUSS_PLOTS:
             #    self.spec_obj.build_full_width_spectrum(show_skylines=True, show_peaks=True, name="testsol")
@@ -7179,8 +7191,8 @@ class HETDEX:
                         fiber.central_emis_counts = sci.fe_data[loc, Fe_indl:(Fe_indh + 1)]
                         fiber.central_emis_wavelengths = wave[Fe_indl:(Fe_indh + 1)]
 
-                datakeep['fw_spec'].append(sci.fe_data[loc,:])
-                datakeep['fw_specwave'].append(wave[:])
+                datakeep['fw_spec'].append(sci.fe_data[loc,:]) #never modified downstream
+                datakeep['fw_specwave'].append(wave[:]) #never modified downstream
 
                 # todo: set the weights correctly
                 datakeep['fiber_weight'].append(1.0)
@@ -7917,17 +7929,35 @@ class HETDEX:
                         nonzero = len(np.where(flat != 0)[0])
                         if nonzero > 0 and float(nonzero)/float(len(flat)) > 0.5:
                             cy,cx = np.array(np.shape(pix_image))//2
-                            cntr = pix_image[cy-1:cy+2,cx-1:cx+2]
+                            #cntr = pix_image[cy - 1:cy + 2, cx - 2:cx + 3]  # center 3 high, 5 wide
+                            #cntr = pix_image[cy-2:cy+3,cx-2:cx+3]   #center 25
+                            #cntr = pix_image[cy - 3:cy + 4, cx - 3:cx + 4]  # center 49
+                            cntr = pix_image[cy - 1:cy + 2, cx - 1:cx + 2]  # center 9 (3x3)
+
+                            # nan_pix_image = copy(pix_image) #makes no difference to 4 or 5 decimal places
+                            # nan_pix_image[cy - 1:cy + 2, cx - 1:cx + 2] = np.nan
 
                             #bad_pix_value = np.nanmedian(pix_image) * G.MIN_PIXEL_FLAT_CENTER_RATIO
                             if G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE > -1: #based on a fixed value
                                 bad_pix_value = G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE
-                                #yes, I want mean and 2x std dev (as nominal worst case [95%])
-                                cntr_avg = np.nanmean(cntr) - 2.0*np.nanstd(cntr)
-                                #sorting is different, need to reverse
-                                detobj.fibers[len(detobj.fibers)-i-1].pixel_flat_center = cntr_avg
+
+                                #Either condition below will trip bad flat
+                                #if the average of the center (-the error) is below the absolute bad value
+                                #OR if the mean of the center is less than a fraction of the median of the rest
+
+                                #mean - 1std dev ... should it be -2x std dev?
+                                cntr_avg = np.nanmean(cntr) - np.nanstd(cntr)
+                                detobj.fibers[len(detobj.fibers) - i - 1].pixel_flat_center_avg = cntr_avg
                                 if cntr_avg < G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE:
                                     #could be bad
+                                    log.info("Possible bad pixel flat at emission line position")
+
+                                # yes, I want mean for cntr and median for the whole cutout
+                                cntr_ratio = np.nanmean(cntr) / np.nanmedian(pix_image)
+                                detobj.fibers[len(detobj.fibers) - i - 1].pixel_flat_center_ratio = cntr_ratio
+                                # sorting is different, need to reverse
+                                if cntr_ratio < G.MIN_PIXEL_FLAT_CENTER_RATIO:
+                                    # could be bad
                                     log.info("Possible bad pixel flat at emission line position")
 
                             else: #based on standard deviation
@@ -7935,10 +7965,14 @@ class HETDEX:
                                 bad_pix_value = np.ma.median(mask_pix_image) - \
                                                 G.MARK_PIXEL_FLAT_DEVIATION*np.ma.std(mask_pix_image)
 
+                                #here, just for reference
+                                cntr_avg = np.nanmean(cntr) - np.nanstd(cntr)
+                                detobj.fibers[len(detobj.fibers) - i - 1].pixel_flat_center_avg = cntr_avg
+
                                 #yes, I want mean for cntr and median for the whole cutout
                                 cntr_ratio = np.nanmean(cntr) / np.nanmedian(pix_image)
                                 #sorting is different, need to reverse
-                                detobj.fibers[len(detobj.fibers)-i-1].pixel_flat_center = cntr_ratio
+                                detobj.fibers[len(detobj.fibers)-i-1].pixel_flat_center_ratio = cntr_ratio
                                 if cntr_ratio < G.MIN_PIXEL_FLAT_CENTER_RATIO:
                                     #could be bad
                                     log.info("Possible bad pixel flat at emission line position")
@@ -8035,8 +8069,10 @@ class HETDEX:
                 smplot.axis('off')
 
                 if pix_image is not None:
-                    vmin_pix = 0.9
-                    vmax_pix = 1.1
+                    #symmetric about 1.0 (even though nominal max is just over 1 and the lower can be very low)
+                    #AND yes, these are fixed values ... we want the pixel flats to be uniform across all reports
+                    vmin_pix = 0.8
+                    vmax_pix = 1.2
                     pix_cmap = plt.get_cmap('gray')
                     pix_cmap.set_bad(color=[1.0, 0.2, 0.2])
                     pixplot.imshow(pix_image,
@@ -9178,7 +9214,15 @@ class HETDEX:
             legend = []
             name_waves = []
             obs_waves = []
-            for e in self.emission_lines:
+
+            try:
+                #use THIS detection's spectrum object's modified emission_lines list IF there is one,
+                #otherwise, use the default list
+                emission_line_list = datakeep['detobj'].spec_obj.emission_lines
+            except:
+                emission_line_list = self.emission_lines
+
+            for e in emission_line_list:
                 if (not e.solution) and (e.w_rest != the_solution_rest_wave): #if not a normal solution BUT it is THE solution, label it
                     continue
                 z = cwave / e.w_rest - 1.0
@@ -9188,7 +9232,7 @@ class HETDEX:
                     else:
                         continue
                 count = 0
-                for f in self.emission_lines:
+                for f in emission_line_list:
                     if (f == e) or not (wavemin <= f.redshift(z) <= wavemax) or (abs(f.redshift(z) - cwave) < 5.0):
                         continue
                     elif G.DISPLAY_ABSORPTION_LINES and datakeep['detobj'].spec_obj.is_near_absorber(f.w_obs):
