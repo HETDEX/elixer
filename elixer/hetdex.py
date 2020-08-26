@@ -891,6 +891,86 @@ class DetObj:
         else:
             return self.sigma
 
+    def check_for_meteor(self):
+        """
+        examine the exposures (individually), stacking the calibrated spectra (over each fiber) in each exposure
+        and check the residual (max - (sum of the others))
+        I expect a normal detection to have nothing significant, but a meteor is bright and will appear in only one exposure
+        :return:
+        """
+
+        #biweight stack or median or mean or sum?
+        #since we really want this to stand out, I'm thinking sum
+
+        #how many exposures? usually 3, but not always
+        try:
+            num_exp = len(np.unique([f.expid for f in self.fibers]))
+            if num_exp < 2:
+                return 0
+
+            exp = np.zeros((num_exp,len(G.CALFIB_WAVEGRID)))
+            exp_err = np.zeros((num_exp,len(G.CALFIB_WAVEGRID)))
+
+            for f in self.fibers:
+                idx = f.panacea_idx
+                exp[f.expid-1] += f.fits.calfib[idx]
+                exp_err[f.expid-1] += f.fits.calfibe[idx]
+
+            #now, just sum across each (expect 1 exposure to stand out
+            sum = np.zeros(num_exp)
+            for i in range(num_exp):
+                sum[i] = np.nansum(exp[i])
+
+            #which exposure has the maximum
+            mx_expid = np.argmax(sum)+1
+            mx_sum = sum[mx_expid-1]
+
+            #sum over wavebins
+            others_combined = np.zeros(len(G.CALFIB_WAVEGRID))
+            sel = np.where(np.arange(num_exp)!=(mx_expid-1))[0]
+            for i in sel:
+                others_combined += exp[i]
+
+            others_sum = np.nansum(others_combined)
+
+            #how does highest sum [-1] it compare to the next highest [-2]
+            #next_largest = sorted(sum)[-2]
+
+            if others_sum == 0: #almost impossible unless there is a problem
+                log.debug("DetObj::check_for_meteor zero sums")
+                return 0
+
+            if mx_sum > others_sum > 0:
+                if (mx_sum / others_sum > 5 ):
+                    #check for emission lines in mx_sum?
+                    #this is either likely a meteor OR some problem that occured in the exposures
+                    pos = elixer_spectrum.sn_peakdet_no_fit(G.CALFIB_WAVEGRID,exp[mx_expid - 1],exp_err[mx_expid - 1],
+                                                            dx=3,rx=2,dv=3.0,dvmx=5.0)
+                    if len(pos) > 3: #so 4 or more possible lines above noise, likely a meteor and not an error
+                        self.spec_obj.add_classification_label("Meteor")
+                        pos = np.array(pos)
+                        log.info(f"Meteor: Detection likely a meteor. Exp# {mx_expid} at x{mx_sum / others_sum:0.1f}, lines at {G.CALFIB_WAVEGRID[pos]}")
+            elif mx_sum < 0:
+                return 0
+            else: #next_largest < 0
+                return 0
+
+            #for test
+            if False:
+                plt.plot(G.CALFIB_WAVEGRID,exp[0])
+                plt.plot(G.CALFIB_WAVEGRID, exp[1])
+                plt.plot(G.CALFIB_WAVEGRID, exp[2])
+                plt.savefig("meteor_test.png")
+
+                plt.figure(figsize=(15, 2))
+                plt.plot(G.CALFIB_WAVEGRID, exp[mx_expid - 1] - others_combined)
+                for p in pos:
+                    plt.axvline(G.CALFIB_WAVEGRID[p])
+                plt.savefig("meteor_test_sub.png")
+
+        except:
+            log.debug("Exception in hetdex::DetObj::check_for_meteor",exc_info=True)
+
 
     def aggregate_classification(self):
         """
@@ -993,7 +1073,7 @@ class DetObj:
                         #set a base weight (will be adjusted later)
                         diameter_lae.append({"z":z,"kpc":diam,"weight":w,"likelihood":lk})
                         log.debug(
-                             f"{self.entry_id} Aggregate Classification, added phsyical size:"
+                             f"{self.entry_id} Aggregate Classification, added physical size:"
                              f" z({z:#.4g}) kpc({diam:#.4g}) weight({w:#.2g}) likelihood({lk:#.2g})")
 
                 for z in not_lae_z:
@@ -1019,7 +1099,7 @@ class DetObj:
                         var.append(1)
                         diameter_not_lae.append({"z":z,"kpc":diam,"weight":w,"likelihood":lk})
                         log.debug(
-                            f"{self.entry_id} Aggregate Classification, added phsyical size:"
+                            f"{self.entry_id} Aggregate Classification, added physical size:"
                             f" z({z:#.4g}) kpc({diam:#.4g}) weight({w:#.2g}) likelihood({lk:#.2g})")
 
 
@@ -1087,12 +1167,14 @@ class DetObj:
                     #or a slightly lower score and more lines, then
                     # this basically wins (boost the weight way up)
                     if (s.score / G.MULTILINE_FULL_SOLUTION_SCORE > 8 and (len(s.lines) > 1)) or \
-                       (s.score / G.MULTILINE_FULL_SOLUTION_SCORE > 4 and (len(s.lines) > 2)):
+                       (s.score / G.MULTILINE_FULL_SOLUTION_SCORE > 4 and (len(s.lines) > 2)) or \
+                       (G.MULTILINE_USE_CONSISTENCY_CHECKS and (s.score / G.MULTILINE_FULL_SOLUTION_SCORE > 2) and (s.frac_score > 0.75)):# and s):
                         bonus_weight = min(s.score / G.MULTILINE_FULL_SOLUTION_SCORE,10.0)  #up to 10x bonus
 
                     if s.score > G.MULTILINE_MIN_SOLUTION_SCORE: #only consider somewhat probable scores
                         #split between z > 1.8 ==> LAE and < 1.8 ==>not LAE
-                        if s.z  > 1.8: #suggesting LAE consistent
+                        #if s.z  > 1.8: #suggesting LAE consistent
+                        if s.central_rest == G.LyA_rest:
                             likelihood.append(1.0) #s.scale_score)
                             weight.append(s.scale_score * bonus_weight)#0.8)  # opinion ... has multiple lines, so the score is reasonable
                             #must also have CIV or HeII, etc as possible matches
@@ -1115,7 +1197,8 @@ class DetObj:
                         #like an HII region; in theory clustering of emission lines would catch this
                         w = 0.5 * s.scale_score #min(s.score / G.MULTILINE_MIN_SOLUTION_SCORE, s.scale_score)
 
-                        if s.z > 1.8:  # suggesting LAE consistent
+                        if s.central_rest == G.LyA_rest:
+                        #if s.z > 1.8:  # suggesting LAE consistent
                            # likelihood.append(s.scale_score)
                            # weight.append(0.8 * w)  # opinion ... has multiple lines, so the score is reasonable
                             likelihood.append(0.8)  # s.scale_score)
@@ -1144,7 +1227,7 @@ class DetObj:
                             idx = idx[0]
                             diameter_lae[idx]['weight'] = weight[-1]
                             log.debug(
-                                f"{self.entry_id} Aggregate Classification, updated phsyical size: "
+                                f"{self.entry_id} Aggregate Classification, updated physical size: "
                                 f"z({diameter_lae[idx]['z']:#.4g}) "
                                 f"kpc({diameter_lae[idx]['kpc']:#.4g}) "
                                 f"weight({diameter_lae[idx]['weight']:#.2g}) "
@@ -5682,6 +5765,9 @@ class HETDEX:
                     e.load_hdf5_shot_info(self.hdf5_survey_fqfn,  e.survey_shotid)
 
                 if e.status >= 0:
+                    if G.CHECK_FOR_METEOR:
+                        e.check_for_meteor()
+
                     self.emis_list.append(e)# moved higher up to always be appended
                     if self.target_wavelength is None or self.target_wavelength == 0:
                         self.target_wavelength = e.target_wavelength
@@ -5737,7 +5823,11 @@ class HETDEX:
                     e.load_hdf5_shot_info(self.hdf5_survey_fqfn, e.survey_shotid)
 
                 if e.status >= 0:
+                    if G.CHECK_FOR_METEOR:
+                        e.check_for_meteor()
+
                     self.emis_list.append(e)
+
                 else:
                     log.info("Unable to continue with eid(%s). No report will be generated." % (str(e.entry_id)))
 
@@ -5771,6 +5861,9 @@ class HETDEX:
                         e.outdir = self.output_filename
                     e.load_fluxcalibrated_spectra()
                     if e.status >= 0:
+                        if G.CHECK_FOR_METEOR:
+                            e.check_for_meteor()
+
                         self.emis_list.append(e)
                     else:
                         log.info("Unable to continue with eid(%s). No report will be generated." %(str(e.entry_id)))
@@ -5789,6 +5882,9 @@ class HETDEX:
                 e.id = G.UNIQUE_DET_ID_NUM
                 e.load_fluxcalibrated_spectra()
                 if e.status >= 0:
+                    if G.CHECK_FOR_METEOR:
+                        e.check_for_meteor()
+
                     self.emis_list.append(e)
 
 
@@ -5849,14 +5945,26 @@ class HETDEX:
                         if str(e.id) in self.emis_det_id:
                             if (self.ifu_slot_id is not None):
                                 if (str(e.ifuslot) == str(self.ifu_slot_id)):
+                                    if G.CHECK_FOR_METEOR:
+                                        e.check_for_meteor()
+
                                     self.emis_list.append(e)
                             else: #if is 'none' so they all go here ... must assume same IFU
+                                if G.CHECK_FOR_METEOR:
+                                    e.check_for_meteor()
+
                                 self.emis_list.append(e)
                     else:
                         if (self.ifu_slot_id is not None):
                             if (str(e.ifuslot) == str(self.ifu_slot_id)):
+                                if G.CHECK_FOR_METEOR:
+                                    e.check_for_meteor()
+
                                 self.emis_list.append(e)
                         else:
+                            if G.CHECK_FOR_METEOR:
+                                e.check_for_meteor()
+
                             self.emis_list.append(e)
         except:
             log.error("Cannot read continuum objects.", exc_info=True)
@@ -5894,15 +6002,27 @@ class HETDEX:
                         if str(e.id) in self.emis_det_id:
                             if (self.ifu_slot_id is not None):
                                 if (str(e.ifuslot) == str(self.ifu_slot_id)):
+                                    if G.CHECK_FOR_METEOR:
+                                        e.check_for_meteor()
+
                                     self.emis_list.append(e)
                             else: #if is 'none' so they all go here ... must assume same IFU
+                                if G.CHECK_FOR_METEOR:
+                                    e.check_for_meteor()
+
                                 self.emis_list.append(e)
                     else:
                         if (e.sigma >= self.sigma) and (e.chi2 <= self.chi2):
                             if (self.ifu_slot_id is not None):
                                 if (str(e.ifuslot) == str(self.ifu_slot_id)):
+                                    if G.CHECK_FOR_METEOR:
+                                        e.check_for_meteor()
+
                                     self.emis_list.append(e)
                             else:
+                                if G.CHECK_FOR_METEOR:
+                                    e.check_for_meteor()
+
                                 self.emis_list.append(e)
         except:
             log.error("Cannot read emission line objects.", exc_info=True)

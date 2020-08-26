@@ -1724,8 +1724,6 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
                     except:
                         log.debug("Unable to sort by distance",exc_info=True)
 
-
-
                 log.info(msg)
                 print(msg)
             else:
@@ -3898,6 +3896,12 @@ def main():
                                         else:
                                             header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(Ly$\alpha$): %0.3f" \
                                                       % (round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae)
+
+                                        try:
+                                            if len(e.spec_obj.classification_label) > 0:
+                                                header_text += "     " + e.spec_obj.classification_label.rstrip(",")
+                                        except:
+                                            pass
                                     except:
                                         pass
                                 try:

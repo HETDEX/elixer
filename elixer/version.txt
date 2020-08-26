@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.9.2a [2020-08-18]
+1.10.0a [2020-08-25]
 * explicit check for NaN in lineflux and continuum for PLAE (MCMC)
 * check for identical 2D spec cutouts in top 3 fibers
 * check for grossly negative spectrum (less than 10% of wavebins with positive flux), mark as spurious
@@ -15,10 +15,13 @@ changes to elixer by version
 * allow CIV (1549AA) to be a single line solution
 * mark pixel flat pixels in red if below the threshold even if they are masked
 * allow (re)extraction of an existing HETDEX ID (pass the detectID as before with --aperture switch)
-* (starting on) framework for line ratio comparisions and consistency with various objects (AGN, OII emitters, Stars, etc)
+* framework for line ratio comparisions and consistency with various objects (AGN, OII emitters, Stars, etc)
     + when active, will probably bump minor version number
 * added some rank 3 emission lines as single line sol (for AGN) if their fwhm is large (12+AA) and they are in an observed
     wavelength range where we might expect to see only that line (because other lines are not in ranger or are weak)
+* added detection for meteors (if exactly one exposure significantly above the others and shows the 4 or more possible lines
+    then is marked as possible meteor)
+* add classification_label to spectrum object and to elixer HDF5 file
 
 1.9.1 [2020-08-06]
 * promote to 1.9.1 (HDR2.1) - redeux

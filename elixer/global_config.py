@@ -20,7 +20,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.9.2a'
+__version__ = '1.10.0a'
 
 #python version
 import sys
@@ -685,6 +685,7 @@ MULTILINE_SCORE_ABOVE_NOISE_MAX_BONUS = 3.0 #maximum multiplier as max of (peak/
 MULTILINE_MIN_SOLUTION_SCORE = 25.0  #remember, this does NOT include the main line's score (about p(noise) = 0.01)
 MULTILINE_FULL_SOLUTION_SCORE = 50.0 #scores at or above get full credit for the weight
 MULTILINE_MIN_WEAK_SOLUTION_CONFIDENCE = 0.5
+MULTILINE_USE_CONSISTENCY_CHECKS = True #if True, apply consistency checks (line ratios for AGN, vs low-z, etc)
 
 MULTILINE_WEIGHT_PROB_REAL = 0.4 #probabilty of real (0-.999) makes up 40% of score
 MULTILINE_WEIGHT_SOLUTION_SCORE = 0.5 #related to probability of real, makes 50% of score
@@ -697,6 +698,10 @@ MULTILINE_MAX_PROB_NOISE_TO_PLOT = 0.2 #plot dashed line on spectrum if p(noise)
 MULTILINE_ALWAYS_SHOW_BEST_GUESS = True #if true, show the best guess even if it does not meet the miniumum requirements
 ADDL_LINE_SCORE_BONUS = 5.0 #add for each line at 2+ lines (so 1st line adds nothing)
                             #this is rather "hand-wavy" but gives a nod to having more lines beyond just their score
+
+
+
+
 SHADE_1D_SPEC_PEAKS = False #if true, shade in red the 1D spec peaks above the NORM noise limit (see below)
 
 
@@ -774,3 +779,5 @@ PIXEL_FLAT_ABSOLUTE_BAD_VALUE = 0.7 #values at or below this in the flat are "ba
 MAX_MAG_FAINT = 28.0 #set as nominal "faint" mag if flux limit reached
 
 PLAE_POII_GAUSSIAN_WEIGHT_SIGMA = 5.0
+
+CHECK_FOR_METEOR = True #if true, check the exposure fiber data for meteor pattern

@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.2.3' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.2.4' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -146,6 +146,8 @@ class Detections(tables.IsDescription):
     central_single_fiber_mag = tables.Float32Col(dflt=99.9) #ccd adjacent, single fiber brightest mag
     ffsky_subtraction = tables.BoolCol(dflt=False) #if true, this detection used the full-field sky subtraction
 
+    #added version 0.2.4
+    classification_labels = tables.StringCol(itemsize=32,dflt="")
 
 class SpectraLines(tables.IsDescription):
     detectid = tables.Int64Col(pos=0)  # unique HETDEX detection ID 1e9+
@@ -790,6 +792,10 @@ def append_entry(fileh,det,overwrite=False):
         except:
             pass
 
+        try: #added in version 0.2.4
+            row['classification_labels'] = det.spec_obj.classification_label.rstrip(",")
+        except:
+            pass
 
         row.append()
         dtb.flush()
@@ -1697,6 +1703,28 @@ def merge_elixer_hdf5_files(fname,flist=[]):
 # Version migrations
 #######################################
 
+def add_column(table, ColClass, collabel, colvalues):
+    # Step 1: Adjust table description
+    d = table.description._v_colobjects.copy()  # original description
+    d[collabel] = ColClass#()  # add column
+
+    # Step 2: Create new temporary table:
+    newtable = tables.Table(table._v_file.root, '_temp_table', d, filters=table.filters)  # new table
+    ###Step 2a: Copy attributes:
+    table.attrs._f_copy(newtable)
+    ###Step 2b: Copy table rows, also add new column values:
+    for row, value in zip(table, colvalues):
+        newtable.append([tuple(list(row[:]) + [value])])
+    newtable.flush()
+
+    # Step 3: Move temporary table to original location:
+    parent = table._v_parent  # original table location
+    name = table._v_name  # original table name
+    table.remove()  # remove original table
+    newtable.move(parent, name)  # move temporary table to original location
+
+    return newtable
+
 def upgrade(fileh,old_version, new_version):
     #is there an upgrade for fileh to version?
     done = False
@@ -1711,6 +1739,10 @@ def upgrade(fileh,old_version, new_version):
         elif max_version == '0.0.5': #either way go to 0.1.0
             func_list.append(upgrade_0p0p4_to_0p1p0)
             max_version = "0.1.0"
+        elif max_version == "0.2.3":
+            func_list.append(upgrade_0p2p3_to_0p2p4)
+            max_version = "0.2.4"
+
         else:
             done = True
 
@@ -1838,6 +1870,33 @@ def temp_append_dtb_002_to_003(row,old_row):
 
     row.append()
 
+
+def upgrade_0p2p3_to_0p2p4(fileh):
+    from_version = "0.2.3"
+    to_version = "0.2.4"
+
+    try:
+        log.info("Upgrading %s to %s ..." %(from_version,to_version))
+
+
+        table = fileh.root.Detections  # table to which column is to be appended
+        ColClass =  tables.StringCol(itemsize=32, dflt="")  # new column class
+        collabel = 'classification_labels'  # new column label
+        colvalues = np.full(len(table),"")  # new column values
+        newtable = add_column(table, ColClass, collabel, colvalues)
+        #print(fileh.root.mytable[:])  # "table" is gone and "newtable" is now fileh.root.mytable
+
+        #lastly update the version
+        vtb = fileh.root.Version
+        for row in vtb:  # should be only one
+            row['version'] = to_version
+            row['version_pytables'] = tables.__version__
+            row.update()
+        vtb.flush()
+        return True
+    except:
+        log.error("Upgrade failed %s to %s:" %(from_version,to_version),exc_info=True)
+        return False
 
 
 # def upgrade_0p0p4_to_0p0p5(fileh):

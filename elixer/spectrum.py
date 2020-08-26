@@ -2052,6 +2052,84 @@ def simple_peaks(x, v, h=None, delta_v=None, values_units=0):
 
 
 
+
+def sn_peakdet_no_fit(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0):
+    """
+
+    :param wave: x-values (wavelength)
+    :param spec: v-values (spectrum values)
+    :param spec_err: error on v (treat as 'noise')
+    :param dx: minimum number of x-bins to trigger a possible line detection
+    :param rx: like dx but just for rise and fall
+    :param dv:  minimum height in value (in s/n, not native values) to trigger counting of bins
+    :param dvmx: at least one point though must be >= to this in S/N
+    :return:
+    """
+
+    try:
+        if not (len(wave) == len(spec) == len(spec_err)):
+            log.debug("Bad call to sn_peakdet(). Lengths of arrays do not match")
+            return []
+
+        x = np.array(wave)
+        v = np.array(spec)
+        e = np.array(spec_err)
+        sn = v/e
+        hvi = np.where(sn > dv)[0] #hvi high v indicies (where > dv)
+
+        if len(hvi) < 1:
+            log.debug(f"sn_peak - no bins above minimum snr {dv}")
+            return []
+
+        pos = [] #positions to search (indicies into original wave array)
+        run = [hvi[0],]
+        rise = [hvi[0],] #assume start with a rise
+        fall = []
+
+        #two ways to trigger a peak:
+        #several bins in a row above the SNR cut, then one below
+        #or many bins in a row, that rise then fall with lengths of rise and fall above the dx length
+        for h in hvi:
+            if (h-1) == run[-1]: #the are adjacent in the original arrays
+                #what about sharp drops in value? like multiple peaks above continuum?
+                if v[h] >= v[run[-1]]: #rising
+                    rise.append(h)
+                    if len(rise) >= rx:
+                        rise_trigger = True
+                        fall = []
+                else: #falling
+                    fall.append(h)
+                    if len(fall) >= rx: #assume the end of a line and trigger a new run
+                        fall_trigger = True
+                        rise = []
+                if rise_trigger and fall_trigger: #call this a peak, start a new run
+                    if len(run) >= dx and np.any(sn[run] >= dvmx):
+                        mx = np.argmax(v[run])  # find largest value in the original arrays from these indicies
+                        pos.append(mx + run[0])  # append that position to pos
+                    run = [h]  # start a new run
+                    rise = [h]
+                    fall = []
+                    fall_trigger = False
+                    rise_trigger = False
+                else:
+                    run.append(h)
+
+            else: #not adjacent, are there enough in run to append?
+                if len(run) >= dx and np.any(sn[run] >= dvmx):
+                    mx = np.argmax(v[run]) #find largest value in the original arrays from these indicies
+                    pos.append(mx+run[0]) #append that position to pos
+                run = [h] #start a new run
+                rise = [h]
+                fall = []
+                fall_trigger = False
+                rise_trigger = False
+    except:
+        log.error("Exception in sn_peakdet",exc_info=True)
+        return []
+
+    return pos
+
+
 def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
             enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False,do_mcmc=False):
     """
@@ -2632,7 +2710,7 @@ class Spectrum:
                          min_fwhm=12.0,min_obs_wave=4861.0,max_obs_wave=5540.0),
 
             # big in AGN (never alone in our range)
-            EmissionLine("CIV".ljust(w), 1549, "blueviolet",solution=False,display=True,rank=3),
+            EmissionLine("CIV".ljust(w), 1549, "blueviolet",solution=True,display=True,rank=3),
             # big in AGN (alone before CIV enters from blue and after MgII exits to red) [HeII too unreliable to set max_obs_wave]
             EmissionLine("CIII".ljust(w), 1909, "purple",solution=False,display=True,rank=3,
                          min_fwhm=12.0,min_obs_wave=3751,max_obs_wave=4313),
@@ -2707,6 +2785,7 @@ class Spectrum:
         self.unmatched_solution_score = 0
         self.all_found_lines = None #EmissionLineInfo objs (want None here ... if no lines, then peakdet returns [])
         self.all_found_absorbs = None
+        self.classification_label = "" #string of possible classification applied (i.e. "AGN", "low-z","star", "meteor", etc)
 
 
         self.addl_fluxes = []
@@ -2722,6 +2801,13 @@ class Spectrum:
 
         #from HDF5
 
+    def add_classification_label(self,label=""):
+        try:
+            toks = self.classification_label.split(",")
+            if label not in toks:
+                 self.classification_label += label + ","
+        except:
+            log.warning("Unexpected exception",exc_info=True)
 
     def scale_consistency_score_to_solution_score_factor(self,consistency_score):
         """
@@ -2732,8 +2818,57 @@ class Spectrum:
         :return:
         """
         #todo: figure out what this should be;
+        #todo: set a true upper limit (2-3x or so)
 
-        return max(1. + consistency_score, 0.0)
+        upper_limit = 3.0
+
+        return min(max(1. + consistency_score, 0.0), upper_limit)
+
+    # todo:
+    def solution_consistent_with_meteor(self, solution):
+        """
+
+        if there is (positive) consistency (lines match and ratios match) you get a boost
+        if there is no consistency (that is, the lines don't match up) you get no change
+        if there is anti-consistency (the lines match up but are inconsistent by ratio, you can get a score decrease)
+
+
+        :param solution:
+        :return: +1 point for each pair of lines that are consistent (or -1 for ones that are anti-consistent)
+        """
+
+        # check the lines, are they consistent with low z OII galaxy?
+        try:
+            pass
+        except:
+            log.info("Exception in Spectrum::solution_consistent_with_meteor", exc_info=True)
+            return 0
+
+        return 0
+
+    #todo:
+    def solution_consistent_with_star(self,solution):
+        """
+
+        if there is (positive) consistency (lines match and ratios match) you get a boost
+        if there is no consistency (that is, the lines don't match up) you get no change
+        if there is anti-consistency (the lines match up but are inconsistent by ratio, you can get a score decrease)
+
+
+        :param solution:
+        :return: +1 point for each pair of lines that are consistent (or -1 for ones that are anti-consistent)
+        """
+
+        # check the lines, are they consistent with low z OII galaxy?
+        try:
+            pass
+        except:
+            log.info("Exception in Spectrum::solution_consistent_with_star", exc_info=True)
+            return 0
+
+        return 0
+
+
 
     def solution_consistent_with_low_z(self,solution):
         """
@@ -2746,6 +2881,107 @@ class Spectrum:
         :param solution:
         :return: +1 point for each pair of lines that are consistent (or -1 for ones that are anti-consistent)
         """
+
+        # check the lines, are they consistent with low z OII galaxy?
+        try:
+            #compared to OII (3272) EW: so line ew / OII EW; a value of 0 means no info
+            #               OII      NeV  NeIV H_eta   -NeIII-   H_zeta  CaII  H_eps  H_del  H_gam H_beta   -NaI-     -OIII-
+            #rest_waves = [G.OII_rest,3347,3427,3835,  3869,3967, 3889,   3935, 3970,  4101,  4340, 4861,  4980,5153, 4959,5007]
+            #               OII       H_eta  H_zeta H_eps H_del  H_gam H_beta   -OIII-
+            rest_waves = [G.OII_rest, 3835,  3889,  3970, 4101,  4340, 4861,  4959, 5007]
+
+            #OIII 4960 / OIII 5007 ~ 1/3
+            #using as rough reference https://watermark.silverchair.com/stt151.pdf (MNRAS 430, 35103536 (2013))
+
+            # note that H_beta and OIII can be more intense than OII
+            # pretty loose since the Hx lines can really be large compared to OII in very metal poor objects
+            #                                      CaII
+            #             OII   H_eta      H_zeta  H_eps  H_del H_gam  H_beta  -OIII-
+            min_ratios = [1,     0.01,      0.05,  0.05,  0.1, 0.15,   0.4,    0.1, 1.3]
+            max_ratios = [1,     0.06,      0.20,  1.20,  0.5, 1.50,   3.3,    7.0, 20.0]
+
+            #min_ratios = [1, 0, 0, 0.01, 0.03, 0, 0.05, 0, 0.05, 0.10, 0.15, 0.4, 0, 0, 0.1, 1.3]
+           # max_ratios = [1, 0, 0, 0.06, 0.90, 0, 0.20, 0, 1.20, 0.33, 2.2, 3.3, 0, 0, 7.0, 20.0]
+
+            sel = np.where(np.array([l.absorber for l in solution.lines]) == False)[0]
+            sol_lines = np.array(solution.lines)[sel]
+            line_waves = [solution.central_rest] + [l.w_rest for l in sol_lines]
+            #line_ew = [self.eqw_obs / (1 + solution.z)] + [l.eqw_rest for l in sol_lines]
+            #line_flux is maybe more reliable ... the continuum estimates for line_ew can go wrong and give horrible results
+            line_flux = [self.estflux] + [l.flux for l in sol_lines]
+            line_fwhm = [self.fwhm] + [l.sigma * 2.355 for l in sol_lines]
+
+            overlap, rest_idx, line_idx = np.intersect1d(rest_waves, line_waves, return_indices=True)
+
+
+            central_fwhm =  self.fwhm
+            central_fwhm_err = self.fwhm_unc
+            #todo: get samples and see if there is a correlation with slope
+            #slope = self.spectrum_slope
+            #slope_err = self.spectrum_slope_err
+
+            if len(overlap) < 2:  # done (0 or 1) if only 1 line, can't go any farther with comparison
+                #todo: any fwhm that would imply low-z? more narrow?
+                return 0
+
+            score = 0
+            # compare all pairs of lines
+
+            for i in range(len(overlap)):
+                for j in range(i+1,len(overlap)):
+                    if (line_flux[line_idx[i]] != 0):
+                        if (min_ratios[rest_idx[i]] != 0) and (min_ratios[rest_idx[j]] != 0) and \
+                           (max_ratios[rest_idx[i]] != 0) and (max_ratios[rest_idx[j]] != 0):
+
+                            ratio = line_flux[line_idx[j]] / line_flux[line_idx[i]]
+                            min_ratio = min_ratios[rest_idx[j]]/min_ratios[rest_idx[i]]
+                            max_ratio = max_ratios[rest_idx[j]] / max_ratios[rest_idx[i]]
+
+                            if min_ratio > max_ratio: #order is backward, so flip
+                                min_ratio, max_ratio = max_ratio, min_ratio
+
+                            if min_ratio <= ratio <= max_ratio:
+                                #now check fwhm is compatible
+                                fwhm_i = line_fwhm[line_idx[i]]
+                                fwhm_j = line_fwhm[line_idx[j]]
+                                avg_fwhm = 0.5* (fwhm_i + fwhm_j)
+                                diff_fwhm = abs(fwhm_i - fwhm_j)
+                                if avg_fwhm > 0 and diff_fwhm/avg_fwhm < 0.5:
+                                    score += 1
+                                    log.debug(f"Ratio match (+1) for solution = {solution.central_rest}: "
+                                              f"rest {overlap[j]} to {overlap[i]}: {min_ratio} < {ratio} < {max_ratio} "
+                                              f"FWHM {fwhm_j}, {fwhm_i}")
+
+                                    if rest_waves[rest_idx[j]] == 3727 and rest_waves[rest_idx[i]] == 5007:
+                                        if 1/ratio > 5.0:
+                                            self.add_classification_label("+O3/O2")
+                                    elif rest_waves[rest_idx[j]] == 5007 and rest_waves[rest_idx[i]] == 3727:
+                                        if ratio > 5.0:
+                                            self.add_classification_label("+O3/O2")
+
+                                else:
+                                    log.debug(f"FWHM no match (0) for solution = {solution.central_rest}: "
+                                              f"rest {overlap[j]} to {overlap[i]}: FWHM {fwhm_j}, {fwhm_i}")
+                            else:
+                                if ratio < min_ratio:
+                                    frac = (min_ratio - ratio) / min_ratio
+                                else:
+                                    frac = (ratio - max_ratio) / max_ratio
+
+                                if 0.5 < frac < 250.0: #if more than 250 more likely there is something wrong
+                                    score -= 1
+                                    log.debug(
+                                        f"Ratio mismatch (-1) for solution = {solution.central_rest}: "
+                                        f"rest {overlap[j]} to {overlap[i]}:  {min_ratio} !< {ratio} !< {max_ratio}")
+
+            # todo: sther stuff??
+            # if score > 0:
+            #     self.add_classification_label("LzG") #Low-z Galaxy
+            return score
+
+        except:
+            log.info("Exception in Spectrum::solution_consistent_with_low_z", exc_info=True)
+            return 0
 
         return 0
 
@@ -2770,39 +3006,81 @@ class Spectrum:
             #todo: need info/citation on this
             #todo: might have to make a matrix if can't reliably compare to LyA
             #todo:   e.g. if can only say like NV < MgII or CIV > CIII, etc
-            #            #LyA, CIV,  CIII, CII,  MgII,  NV,  SiII, SiIV,  HeII, OVI
-            min_ratios = [1.0, 0.05, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00]
-            max_ratios = [1.0, 0.50, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00]
+
+            # using as a very rough guide: https://ned.ipac.caltech.edu/level5/Netzer/Netzer2_1.html
+            #            #LyA, CIV,  CIII, CII,  MgII,  NV,     SiII, SiIV,  HeII,  OVI
+            min_ratios = [1.0, 0.05, 0.05, 0.01,  0.05, 0.05,  0.00, 0.03,   0.03,  0.03]
+            max_ratios = [1.0, 0.65, 0.30, 0.10,  0.40, 0.40,  0.00, 0.20,   0.20,  0.40]
 
             sel = np.where(np.array([l.absorber for l in solution.lines])==False)[0]
             sol_lines = np.array(solution.lines)[sel]
             line_waves = [solution.central_rest] + [l.w_rest for l in sol_lines]
-            line_ew = [self.eqw_obs/(1+solution.z)] + [l.eqw_rest for l in sol_lines]
+            #line_ew = [self.eqw_obs/(1+solution.z)] + [l.eqw_rest for l in sol_lines]
+            # line_flux is maybe more reliable ... the continuum estimates for line_ew can go wrong and give horrible results
+            line_flux = [self.estflux] + [l.flux for l in sol_lines]
+            line_fwhm = [self.fwhm] + [l.sigma*2.355 for l in sol_lines]
 
             overlap, rest_idx, line_idx = np.intersect1d(rest_waves,line_waves,return_indices=True)
 
+            central_fwhm =  self.fwhm
+            central_fwhm_err = self.fwhm_unc
+            #todo: get samples and see if there is a correlation with slope
+            #slope = self.spectrum_slope
+            #slope_err = self.spectrum_slope_err
+
             if len(overlap) < 2: #done (0 or 1) if only 1 line, can't go any farther with comparision
-                return 0
+                if central_fwhm - central_fwhm_err > 12.0:
+                    #self.add_classification_label("AGN")
+                    return 0.25 #still give a little boost to AGN classification?
+                else:
+                    return 0
 
             score = 0
             #compare all pairs of lines
-            # i, and j are indices into line_wave or line_ew
-            # sel[i], sel[j] are the indices into the min and max_ratios
             for i in range(len(overlap)):
                 for j in range(i+1,len(overlap)):
-                    if (line_ew[line_idx[i]] != 0):
-                        ratio = line_ew[line_idx[j]]/line_ew[line_idx[i]]
-                        if (min_ratios[rest_idx[i]] != 0) and (min_ratios[rest_idx[j]] != 0):
-                            if ratio >= (min_ratios[rest_idx[j]]/min_ratios[rest_idx[i]]):
-                                if (max_ratios[rest_idx[i]] != 0) and (max_ratios[rest_idx[j]] != 0):
-                                    if ratio <= (max_ratios[rest_idx[j]] / max_ratios[rest_idx[i]]):
-                                        score += 1
-                                    else:
-                                        score -= 1
+                    if (line_flux[line_idx[i]] != 0):
+                        if (min_ratios[rest_idx[i]] != 0) and (min_ratios[rest_idx[j]] != 0) and \
+                           (max_ratios[rest_idx[i]] != 0) and (max_ratios[rest_idx[j]] != 0):
+
+                            ratio = line_flux[line_idx[j]] / line_flux[line_idx[i]]
+                            min_ratio = min_ratios[rest_idx[j]]/min_ratios[rest_idx[i]]
+                            max_ratio = max_ratios[rest_idx[j]] / max_ratios[rest_idx[i]]
+
+                            if min_ratio > max_ratio: #order is backward, so flip
+                                min_ratio, max_ratio = max_ratio, min_ratio
+
+                            if min_ratio <= ratio <= max_ratio:
+                                #now check fwhm is compatible
+                                fwhm_i = line_fwhm[line_idx[i]]
+                                fwhm_j = line_fwhm[line_idx[j]]
+                                avg_fwhm = 0.5* (fwhm_i + fwhm_j)
+                                diff_fwhm = abs(fwhm_i - fwhm_j)
+                                if avg_fwhm > 0 and diff_fwhm/avg_fwhm < 0.5:
+                                    score += 1
+                                    log.debug(f"Ratio match (+1) for solution = {solution.central_rest}: "
+                                              f"rest {overlap[j]} to {overlap[i]}: {min_ratio} < {ratio} < {max_ratio} "
+                                              f"FWHM {fwhm_j}, {fwhm_i}")
+                                else:
+                                    log.debug(f"FWHM no match (0) for solution = {solution.central_rest}: "
+                                              f"rest {overlap[j]} to {overlap[i]}: FWHM {fwhm_j}, {fwhm_i}")
+
                             else:
-                                score -= 1
+                                if ratio < min_ratio:
+                                    frac = (min_ratio-ratio)/min_ratio
+                                else:
+                                    frac = (ratio - max_ratio)/max_ratio
+
+                                if frac > 0.5:
+                                    score -= 1
+                                    log.debug(f"Ratio mismatch (-1) for solution = {solution.central_rest}: "
+                                              f"rest {overlap[j]} to {overlap[i]}:  {min_ratio} !< {ratio} !< {max_ratio}")
+
 
             #todo: sther stuff
+            # like spectral slope?
+            #if score > 0:
+            #    self.add_classification_label("AGN")
             return score
 
         except:
@@ -3240,7 +3518,7 @@ class Spectrum:
                 if not (e.solution) and (e.min_obs_wave < central < e.max_obs_wave) and (self.fwhm >= e.min_fwhm):
                     e.solution = True #this change applies only to THIS instance of a spectrum, so it is safe
             except: #could be a weird issue
-                log.debug("Unexpected excpetion in specturm::classify_with_additional_lines",exc_info=True)
+                log.debug("Unexpected exception in specturm::classify_with_additional_lines",exc_info=True)
 
             central_z = central/e.w_rest - 1.0
             if (central_z) < 0.0:
@@ -3485,31 +3763,46 @@ class Spectrum:
         #??consistent with meteor #this may need to be elsewhere and probably involves check individual exposures
         #                          #since it would only show up in one exposure
 
-        for s in solutions:
-            #todo: iterate over all types of objects
-            #if there is no consistency (that is, the lines don't match up) you get no change
-            #if there is anti-consistency (the lines match up but are inconsistent by ratio, you can get a score decrease)
+        if G.MULTILINE_USE_CONSISTENCY_CHECKS:
+            for s in solutions:
 
-            #AGN
-            boost = self.scale_consistency_score_to_solution_score_factor(self.solution_consistent_with_agn(s))
+                #don't bother examining week solutions
+                if s.score < G.MULTILINE_MIN_SOLUTION_SCORE:
+                    continue
 
-            if boost != 1.0:
-                log.info(f"Solution: {s.name} score modified by x{boost} for consistency with AGN")
+                #todo: iterate over all types of objects
+                #if there is no consistency (that is, the lines don't match up) you get no change
+                #if there is anti-consistency (the lines match up but are inconsistent by ratio, you can get a score decrease)
 
-                per_line_total_score -= s.score
-                s.score = boost * s.score
-                per_line_total_score += s.score
+                #AGN
+                boost = self.scale_consistency_score_to_solution_score_factor(self.solution_consistent_with_agn(s))
+
+                if boost != 1.0:
+                    log.info(f"Solution: {s.name} score {s.score} to be modified by x{boost} for consistency with AGN")
+
+                    #for the labeling, need to check vs the TOTAL score (so include the primary line)
+                    if ( (s.score + self.central_eli.line_score) > G.MULTILINE_FULL_SOLUTION_SCORE) and \
+                            (boost > 1.0): #check BEFORE the boost
+                        self.add_classification_label("AGN")
+
+                    per_line_total_score -= s.score
+                    s.score = boost * s.score
+                    per_line_total_score += s.score
 
 
-            # low-z galaxy
-            boost = self.scale_consistency_score_to_solution_score_factor(self.solution_consistent_with_low_z(s))
+                # low-z galaxy
+                boost = self.scale_consistency_score_to_solution_score_factor(self.solution_consistent_with_low_z(s))
 
-            if boost != 1.0:
-                log.info(f"Solution: {s.name} score modified by x{boost} for consistency with low-z galaxy")
+                if boost != 1.0:
+                    log.info(f"Solution: {s.name} score {s.score} to be modified by x{boost} for consistency with low-z galaxy")
 
-                per_line_total_score -= s.score
-                s.score = boost * s.score
-                per_line_total_score += s.score
+                    if ((s.score + self.central_eli.line_score) > G.MULTILINE_FULL_SOLUTION_SCORE) and \
+                            (boost > 1.0):  # check BEFORE the boost
+                        self.add_classification_label("LzG") #Low-z Galaxy
+
+                    per_line_total_score -= s.score
+                    s.score = boost * s.score
+                    per_line_total_score += s.score
 
 
 
