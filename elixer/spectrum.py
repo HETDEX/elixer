@@ -2821,8 +2821,13 @@ class Spectrum:
         #todo: set a true upper limit (2-3x or so)
 
         upper_limit = 3.0
+        if consistency_score < 0:
+            #already negative so, a -1 --> 1/2, -2 --> 1/3 and so on
+            consistency_score = -1./(consistency_score-1.)
+        else:
+            consistency_score += 1.0
 
-        return min(max(1. + consistency_score, 0.0), upper_limit)
+        return min(max(consistency_score, 0.0), upper_limit)
 
     # todo:
     def solution_consistent_with_meteor(self, solution):
@@ -3801,7 +3806,7 @@ class Spectrum:
                         self.add_classification_label("LzG") #Low-z Galaxy
 
                     per_line_total_score -= s.score
-                    s.score = boost * s.score
+                    s.score =  boost * s.score
                     per_line_total_score += s.score
 
 
