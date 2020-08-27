@@ -2897,7 +2897,7 @@ class Spectrum:
             # pretty loose since the Hx lines can really be large compared to OII in very metal poor objects
             #                                      CaII
             #             OII   H_eta      H_zeta  H_eps  H_del H_gam  H_beta  -OIII-
-            min_ratios = [1,     0.01,      0.05,  0.05,  0.1, 0.15,   0.4,    0.1, 1.3]
+            min_ratios = [1,     0.01,      0.05,  0.05,  0.1, 0.15,   0.4,    0.1, 0.3]
             max_ratios = [1,     0.06,      0.20,  1.20,  0.5, 1.50,   3.3,    7.0, 20.0]
 
             #min_ratios = [1, 0, 0, 0.01, 0.03, 0, 0.05, 0, 0.05, 0.10, 0.15, 0.4, 0, 0, 0.1, 1.3]
