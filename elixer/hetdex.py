@@ -1325,12 +1325,12 @@ class DetObj:
             weight.append(max(2.0,max(weight)))
             var.append(1)  # todo: ? could do something like the spectrum noise?
             prior.append(base_assumption)
-            log.debug(f"Aggregate Classification: gmag too bright: z({s.z}) lk({likelihood[-1]}) "
+            log.debug(f"Aggregate Classification: gmag too bright {self.best_gmag} to be LAE (AGN): lk({likelihood[-1]}) "
                 f"weight({weight[-1]})")
-        elif self.best_gmag < 23.5:
+        elif self.best_gmag < 23.0:
             try:
                 min_fwhm = self.fwhm - (0 if ((self.fwhm_unc is None) or (np.isnan(self.fwhm_unc))) else self.fwhm_unc)
-                min_thresh = max( ((23.5 - self.best_gmag) + 10.0), 10.0) #just in case something weird
+                min_thresh = max( ((23.0 - self.best_gmag) + 10.0), 10.0) #just in case something weird
 
                 #the -25.0 and -0.8 are from some trial and error plotting to get the shape I want
                 #runs 0 to 1.0 and drops off very fast from 1.0 toward 0.0
@@ -1338,11 +1338,11 @@ class DetObj:
                 sigmoid = 1.0 / (1.0 + np.exp(-25.0 * (min_fwhm/min_thresh - 0.8)))
                 if min_fwhm < min_thresh:
                     #unless this is an AGN, this is very unlikely
-                    likelihood.append(0.5 * sigmoid)  # weak solution so push likelihood "down" but not zero (maybe 0.2 or 0.25)?
-                    weight.append(max(2.0, max(weight) * (1.0-sigmoid)))
+                    likelihood.append(min(0.5, sigmoid))  # weak solution so push likelihood "down" but not zero (maybe 0.2 or 0.25)?
+                    weight.append(1.0 * (1.0-sigmoid))
                     var.append(1)  # todo: ? could do something like the spectrum noise?
                     prior.append(base_assumption)
-                    log.debug(f"Aggregate Classification: gmag too bright: z({s.z}) lk({likelihood[-1]}) "
+                    log.debug(f"Aggregate Classification: gmag too bright {self.best_gmag} for fwhm {self.fwhm}: lk({likelihood[-1]}) "
                               f"weight({weight[-1]})")
             except:
                 log.debug("Exception in aggregate_classification for best PLAE/POII", exc_info=True)
@@ -8110,6 +8110,7 @@ class HETDEX:
                     cmap1 = cmap
                     cmap1.set_bad(color=[0.2, 1.0, 0.23])
                     image = np.ma.masked_where(datakeep['err'][ind[i]] == -1, image)
+                    #image = np.ma.masked_where(datakeep['im'][ind[i]] == 0, image) #just testing
                     img_vmin = datakeep['vmin2'][ind[i]]
                     img_vmax = datakeep['vmax2'][ind[i]]
 

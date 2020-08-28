@@ -3347,6 +3347,7 @@ class Spectrum:
                         self.addl_wavelengths.append((l.w_obs))
                         #todo: get real error (don't have that unless I run mcmc and right now, only running on main line)
                         self.addl_fluxerrs.append(0.0)
+                       # self.addl_fluxerrs.append(l.flux*.3)
 
         #if len(addl_fluxes) > 0:
         self.get_bayes_probabilities(addl_wavelengths=self.addl_wavelengths,addl_fluxes=self.addl_fluxes,
