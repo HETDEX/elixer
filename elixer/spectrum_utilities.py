@@ -1654,6 +1654,8 @@ def combo_fit_wave(peak_func,values,errors,wavelengths,central,wave_slop_kms=500
                     return_dict['f900e'] = -999
 
                 return return_dict
+        else:
+            try_simple_fit = True
 
     except:
         log.info("Exception in spectrum_utilites::combo_fit_wave",exc_info=True)
