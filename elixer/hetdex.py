@@ -936,6 +936,9 @@ class DetObj:
             #how does highest sum [-1] it compare to the next highest [-2]
             #next_largest = sorted(sum)[-2]
 
+            if others_sum > 1000.0: #sort of arbitrarily large value to exclude stars
+                return 0
+
             if others_sum == 0: #almost impossible unless there is a problem
                 log.debug("DetObj::check_for_meteor zero sums")
                 return 0
@@ -943,6 +946,7 @@ class DetObj:
             if others_sum < 0: #just slide up
                 mx_sum += abs(others_sum) + 1.0
                 others_sum = 1.0
+
 
             if mx_sum > others_sum > 0:
                 spec_ratio = mx_sum / others_sum
@@ -966,10 +970,10 @@ class DetObj:
                     #            MgI  at 5173,5184
                     #            FeI  at 5330  (weak)
 
-                    if (spec_ratio > 4) and (len(pos) > 1): #so 2 or more possible lines above noise, likely a meteor and not an error
+                    if (spec_ratio > 4) and (len(pos) > 1) and (len(pos) < 30): #so 2 or more possible lines above noise, likely a meteor and not an error
                         meteor = True
                         #if that much greater, there must be extra lines found (as it goes fainter, maybe fewer lines)
-                    elif (spec_ratio < 4) and len(bright_mg_line) > 0:
+                    elif (spec_ratio < 4) and (0 < len(bright_mg_line) < 3):
                         meteor = True
                     elif len(common_lines) > 3: #hit most of the common lines
                         meteor = True #so ratio > 2 AND the MgI line appears to be present

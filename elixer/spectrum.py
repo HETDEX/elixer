@@ -3066,7 +3066,11 @@ class Spectrum:
             #slope_err = self.spectrum_slope_err
 
             if len(overlap) < 2: #done (0 or 1) if only 1 line, can't go any farther with comparision
-                if central_fwhm - central_fwhm_err > 12.0:
+                #for FWHM nudge to AGN, the one line MUST at least be on the list of AGN lines
+                if (len(overlap) > 0) and (central_fwhm - central_fwhm_err > 12.0) and \
+                    ((self.spectrum_slope + self.spectrum_slope_err) < 0.02 )      and \
+                    ((self.spectrum_slope - self.spectrum_slope_err) > -0.02 ):
+                    #the slope is just a guess ... trying to separate out most stars
                     #self.add_classification_label("AGN")
                     return 0.25 #still give a little boost to AGN classification?
                 else:
