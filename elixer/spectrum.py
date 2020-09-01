@@ -2829,27 +2829,28 @@ class Spectrum:
 
         return min(max(consistency_score, 0.0), upper_limit)
 
-    # todo:
-    def solution_consistent_with_meteor(self, solution):
-        """
-
-        if there is (positive) consistency (lines match and ratios match) you get a boost
-        if there is no consistency (that is, the lines don't match up) you get no change
-        if there is anti-consistency (the lines match up but are inconsistent by ratio, you can get a score decrease)
-
-
-        :param solution:
-        :return: +1 point for each pair of lines that are consistent (or -1 for ones that are anti-consistent)
-        """
-
-        # check the lines, are they consistent with low z OII galaxy?
-        try:
-            pass
-        except:
-            log.info("Exception in Spectrum::solution_consistent_with_meteor", exc_info=True)
-            return 0
-
-        return 0
+    # # actually impemented in hetdex.py DetObj.check_for_meteor() as it is more convenient to do so there
+    # # were the individual exposures and fibers are readily available
+    # def solution_consistent_with_meteor(self, solution):
+    #     """
+    #
+    #     if there is (positive) consistency (lines match and ratios match) you get a boost
+    #     if there is no consistency (that is, the lines don't match up) you get no change
+    #     if there is anti-consistency (the lines match up but are inconsistent by ratio, you can get a score decrease)
+    #
+    #
+    #     :param solution:
+    #     :return: +1 point for each pair of lines that are consistent (or -1 for ones that are anti-consistent)
+    #     """
+    #
+    #     # check the lines, are they consistent with low z OII galaxy?
+    #     try:
+    #         pass
+    #     except:
+    #         log.info("Exception in Spectrum::solution_consistent_with_meteor", exc_info=True)
+    #         return 0
+    #
+    #     return 0
 
     #todo:
     def solution_consistent_with_star(self,solution):
@@ -2893,7 +2894,9 @@ class Spectrum:
             #               OII      NeV  NeIV H_eta   -NeIII-   H_zeta  CaII  H_eps  H_del  H_gam H_beta   -NaI-     -OIII-
             #rest_waves = [G.OII_rest,3347,3427,3835,  3869,3967, 3889,   3935, 3970,  4101,  4340, 4861,  4980,5153, 4959,5007]
             #               OII       H_eta  H_zeta H_eps H_del  H_gam H_beta   -OIII-
-            rest_waves = [G.OII_rest, 3835,  3889,  3970, 4101,  4340, 4861,  4959, 5007]
+            rest_waves = np.array([G.OII_rest, 3835,  3889,  3970, 4101,  4340, 4861,  4959, 5007])
+            #                         0         1      2      3     4     5     6      7     8
+            obs_waves  = rest_waves * (1. + solution.z)
 
             #OIII 4960 / OIII 5007 ~ 1/3
             #using as rough reference https://watermark.silverchair.com/stt151.pdf (MNRAS 430, 35103536 (2013))
@@ -2904,6 +2907,19 @@ class Spectrum:
             #             OII   H_eta      H_zeta  H_eps  H_del H_gam  H_beta  -OIII-
             min_ratios = [1,     0.01,      0.05,  0.05,  0.1, 0.15,   0.4,    0.1, 0.3]
             max_ratios = [1,     0.06,      0.20,  1.20,  0.5, 1.50,   3.3,    7.0, 20.0]
+
+            #required match matrix ... if line (x) is found and line(y) is in range, it MUST be found too
+            #this is in order of the lines in rest_waves
+            match_matrix =[[1,0,0,0,0,0,0,0,0],  #0 [OII]
+                           [0,1,1,1,1,1,1,0,0],  #1 H_eta
+                           [0,0,1,1,1,1,1,0,0],  #2 H_zeta
+                           [0,0,0,1,1,1,1,0,0],  #3 H_epsilon
+                           [0,0,0,0,1,1,1,0,0],  #4 H_delta
+                           [0,0,0,0,0,1,1,0,0],  #5 H_gamma
+                           [0,0,0,0,0,0,1,0,0],  #6 H_beta
+                           [0,0,0,0,0,0,0,1,1],  #7 OIII 4959
+                           [0,0,0,0,0,0,0,0,1]]  #8 OIII 5007
+            match_matrix = np.array(match_matrix)
 
             #min_ratios = [1, 0, 0, 0.01, 0.03, 0, 0.05, 0, 0.05, 0.10, 0.15, 0.4, 0, 0, 0.1, 1.3]
            # max_ratios = [1, 0, 0, 0.06, 0.90, 0, 0.20, 0, 1.20, 0.33, 2.2, 3.3, 0, 0, 7.0, 20.0]
@@ -2929,7 +2945,21 @@ class Spectrum:
                 #todo: any fwhm that would imply low-z? more narrow?
                 return 0
 
-            score = 0
+
+            #check the match_matrix
+            missing = []
+            in_range = np.where((obs_waves > 3500.) & (obs_waves < 5500.))[0]
+            for i in range(len(overlap)):
+                if np.sum(match_matrix[rest_idx[i]]) > 1:
+                    #at least one other line must be found (IF the obs_wave is in the HETDEX range)
+                    sel = np.intersect1d(in_range,np.where(match_matrix[rest_idx[i]])[0])
+                    missing = np.union1d(missing,np.setdiff1d(sel,rest_idx)).astype(int)
+
+            score = -1 * len(missing)
+
+            if score < 0:
+                log.info(f"LzG consistency failure. Initial Score = {score}. "
+                         f"Missing expected lines {[z for z in zip(rest_waves[missing],obs_waves[missing])]}. ")
             # compare all pairs of lines
 
             for i in range(len(overlap)):
@@ -3004,8 +3034,9 @@ class Spectrum:
 
         #check the lines, are they consistent with AGN?
         try:
-            rest_waves = [G.LyA_rest,1549.,1909.,2326.,2799.,1241.,1260.,1400.,1640.,1035.]
-            #aka                LyA, CIV, CIII, CII,   MgII,  NV,  SiII, SiIV,  HeII, OVI
+            rest_waves = np.array([G.LyA_rest,1549.,1909.,2326.,2799.,1241.,1260.,1400.,1640.,1035.])
+            #aka                     LyA, CIV, CIII, CII,   MgII,  NV,  SiII, SiIV,  HeII, OVI
+            obs_waves = rest_waves * (1. + solution.z)
 
             # compared to LyA EW: so line ew/ LyA EW; a value of 0 means no info
             #todo: need info/citation on this

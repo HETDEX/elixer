@@ -940,16 +940,44 @@ class DetObj:
                 log.debug("DetObj::check_for_meteor zero sums")
                 return 0
 
+            if others_sum < 0: #just slide up
+                mx_sum += abs(others_sum) + 1.0
+                others_sum = 1.0
+
             if mx_sum > others_sum > 0:
-                if (mx_sum / others_sum > 5 ):
+                spec_ratio = mx_sum / others_sum
+                if (spec_ratio > 2 ): #maybe need more checking
                     #check for emission lines in mx_sum?
                     #this is either likely a meteor OR some problem that occured in the exposures
                     pos = elixer_spectrum.sn_peakdet_no_fit(G.CALFIB_WAVEGRID,exp[mx_expid - 1],exp_err[mx_expid - 1],
                                                             dx=3,rx=2,dv=3.0,dvmx=5.0)
-                    if len(pos) > 3: #so 4 or more possible lines above noise, likely a meteor and not an error
+
+                    meteor = False
+                    waves = G.CALFIB_WAVEGRID[pos]
+                    bright_mg_line = np.where( (waves >= 3834) & (waves <= 3840))[0]
+                    common_lines = np.where( ((waves >= 3834) & (waves <= 3840)) |   #MgI lines are 3832,3838 though 3838 is strong
+                                             ((waves >= 3966) & (waves <= 3970)) |   #Al ?
+                                             ((waves >= 3932) & (waves <= 3936)) |   #CaII
+                                             ((waves >= 4224) & (waves <= 4230)) |   #CaI
+                                             ((waves >= 5170) & (waves <= 5186))  )[0]  #MgI
+                    #other lines CaII at 3934
+                    #            Al    around 3968 (or Al and FeI 3962,3978)? (kinda weak)
+                    #            CaI  at 4227
+                    #            MgI  at 5173,5184
+                    #            FeI  at 5330  (weak)
+
+                    if (spec_ratio > 4) and (len(pos) > 1): #so 2 or more possible lines above noise, likely a meteor and not an error
+                        meteor = True
+                        #if that much greater, there must be extra lines found (as it goes fainter, maybe fewer lines)
+                    elif (spec_ratio < 4) and len(bright_mg_line) > 0:
+                        meteor = True
+                    elif len(common_lines) > 3: #hit most of the common lines
+                        meteor = True #so ratio > 2 AND the MgI line appears to be present
+
+                    if meteor:
                         self.spec_obj.add_classification_label("Meteor")
                         pos = np.array(pos)
-                        log.info(f"Meteor: Detection likely a meteor. Exp# {mx_expid} at x{mx_sum / others_sum:0.1f}, lines at {G.CALFIB_WAVEGRID[pos]}")
+                        log.info(f"Meteor: Detection likely a meteor. Exp# {mx_expid} at x{spec_ratio:0.1f}, lines at {G.CALFIB_WAVEGRID[pos]}")
             elif mx_sum < 0:
                 return 0
             else: #next_largest < 0
