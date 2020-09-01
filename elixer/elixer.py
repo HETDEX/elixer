@@ -652,6 +652,7 @@ def parse_commandline(auto_force=False):
         print("Illegal combination of options. Cannot specify both --continuum and --broadline")
         exit(-1)
     elif args.continuum:
+        log.info("Setting CONTINUUM_RULES (args.continuum is set)")
         args.hdf5 = G.HDF5_CONTINUUM_FN
         G.CONTINUUM_RULES = True
     elif args.broadline:
