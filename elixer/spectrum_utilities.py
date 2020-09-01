@@ -1844,7 +1844,7 @@ def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity
                 edict[r, d] = ex
 
                 #todo: REMOVE ME
-                if True: #extra debugging
+                if False: #extra debugging
                     print("**********Remove me**********")
                     plt.close('all')
                     plt.figure(figsize=(6,3))
