@@ -1376,6 +1376,16 @@ class DetObj:
                 log.debug("Exception in aggregate_classification for best PLAE/POII", exc_info=True)
 
 
+        #check for specific incompatible classification labels
+        if "Meteor" in self.spec_obj.classification_label:
+            likelihood.append(0.0)
+            weight.append(1.0)
+            var.append(1)  # todo: ? could do something like the spectrum noise?
+            prior.append(base_assumption)
+            log.debug( f"Aggregate Classification: Meteor indicated: lk({likelihood[-1]}) weight({weight[-1]})")
+
+        #todo: "Star"
+
 
         #todo: chi2 vs S/N  (is it a real line)
         #  need to include (for poor S/N) if there is a faint catalog object right under the reticle (say within 0.5")
