@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.10.0a [2020-08-25]
+1.10.0a [2020-08-31]
 * explicit check for NaN in lineflux and continuum for PLAE (MCMC)
 * check for identical 2D spec cutouts in top 3 fibers
 * check for grossly negative spectrum (less than 10% of wavebins with positive flux), mark as spurious
@@ -22,6 +22,9 @@ changes to elixer by version
 * added detection for meteors (if exactly one exposure significantly above the others and shows the 4 or more possible lines
     then is marked as possible meteor)
 * add classification_label to spectrum object and to elixer HDF5 file
+* restored missig call to peakdet in spectrum.set_spectra
+* changed --gridsearch to use (more robust) spectrum.peakdet instead of spectrum_utilities.simple_fit_wave and fall back
+  to simple_fit_wave if there is a failure in peakdet
 
 1.9.1 [2020-08-06]
 * promote to 1.9.1 (HDR2.1) - redeux

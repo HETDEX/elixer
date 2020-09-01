@@ -1058,7 +1058,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         parm, pcov = curve_fit(gaussian, np.float64(narrow_wave_x), np.float64(narrow_wave_counts),
                                 p0=(central,1.5,1.0,0.0),
                                 bounds=((central-fit_range_AA, min_sigma, 0.0, -100.0),
-                                        (central+fit_range_AA, np.inf, np.inf, np.inf)),
+                                        (central+fit_range_AA, 20.0, 1e5, 1e4)),
                                 #sigma=1./(narrow_wave_errors*narrow_wave_errors)
                                 sigma=narrow_wave_err_sigma#, #handles the 1./(err*err)
                                #note: if sigma == None, then curve_fit uses array of all 1.0
@@ -2707,18 +2707,18 @@ class Spectrum:
             #EmissionLine("OIV".ljust(w), 1400, "lime", solution=False, display=True, rank=4),  # or 1393-1403 also OIV]
             # (alone after LyA falls off red end, no max wave)
             EmissionLine("OVI".ljust(w), 1035, "lime",solution=False,display=True,rank=3,
-                         min_fwhm=12.0,min_obs_wave=4861.0,max_obs_wave=5540.0),
+                         min_fwhm=12.0,min_obs_wave=4861.0-20.,max_obs_wave=5540.0+20.),
 
             # big in AGN (never alone in our range)
             EmissionLine("CIV".ljust(w), 1549, "blueviolet",solution=True,display=True,rank=3),
             # big in AGN (alone before CIV enters from blue and after MgII exits to red) [HeII too unreliable to set max_obs_wave]
             EmissionLine("CIII".ljust(w), 1909, "purple",solution=False,display=True,rank=3,
-                         min_fwhm=12.0,min_obs_wave=3751,max_obs_wave=4313),
+                         min_fwhm=12.0,min_obs_wave=3751.0-20.0,max_obs_wave=4313.0+20.0),
             #big in AGN (too weak to be alone)
             EmissionLine("CII".ljust(w),  2326, "purple",solution=False,display=True,rank=4),  # in AGN
             #big in AGN (alone before CIII enters from the blue )  this MgII is a doublet, 2795, 2802
             EmissionLine("MgII".ljust(w), 2799, "magenta",solution=False,display=True,rank=3,
-                         min_fwhm=12.0,min_obs_wave=3500., max_obs_wave=5131.0),
+                         min_fwhm=12.0,min_obs_wave=3500.0-20.0, max_obs_wave=5131.0+20.0),
 
             #thse H_x lines are never alone (OIII or OII are always present)
             EmissionLine("H$\\beta$".ljust(w), 4861, "blue",solution=True,rank=3), #4862.68 (vacuum) 4861.363 (air)
@@ -3016,6 +3016,7 @@ class Spectrum:
             #            #LyA, CIV,  CIII, CII,  MgII,  NV,     SiII, SiIV,  HeII,  OVI
             min_ratios = [1.0, 0.05, 0.05, 0.01,  0.05, 0.05,  0.00, 0.03,   0.03,  0.03]
             max_ratios = [1.0, 0.65, 0.30, 0.10,  0.40, 0.40,  0.00, 0.20,   0.20,  0.40]
+            #                                            *** apparently NV can be huge .. bigger than CIV even see 2101164104
 
             sel = np.where(np.array([l.absorber for l in solution.lines])==False)[0]
             sol_lines = np.array(solution.lines)[sel]
@@ -3166,6 +3167,12 @@ class Spectrum:
                 self.fwhm_unc = fwhm_unc #might be None
             else:
                 self.fwhm_unc = 0
+
+        #scan for lines
+        try:
+            self.all_found_lines = peakdet(wavelengths, values, errors, values_units=values_units, enforce_good=True)
+        except:
+            log.warning("Exception in spectum::set_spectra()",exc_info=True)
 
         #run MCMC on this one ... the main line
         try:
@@ -3769,7 +3776,7 @@ class Spectrum:
         #??consistent with meteor #this may need to be elsewhere and probably involves check individual exposures
         #                          #since it would only show up in one exposure
 
-        if G.MULTILINE_USE_CONSISTENCY_CHECKS:
+        if G.MULTILINE_USE_CONSISTENCY_CHECKS and (self.central_eli is not None):
             for s in solutions:
 
                 #don't bother examining week solutions

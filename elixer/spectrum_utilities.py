@@ -38,6 +38,39 @@ SU_H0 = 70.
 SU_Omega_m0 = 0.3
 SU_T_CMB = 2.73
 
+#
+# #these are for the older peak finder (based on direction change)
+# MIN_FWHM = 2.0 #AA (must xlat to pixels) (really too small to be realistic, but is a floor)
+# MAX_FWHM = 40.0 #booming LyA are around 15-16; real lines can be larger, but tend to be not what we are looking for
+#                 # and these are more likly continuum between two abosrpotion features that is mistaken for a line
+#                 #AGN seen with almost 25AA with CIV and NV around 35AA
+# MAX_NORMAL_FWHM = 20.0 #above this, need some extra info to accept
+# MIN_HUGE_FWHM_SNR = 25.0 #if the FWHM is above the MAX_NORMAL_FWHM, then then SNR needs to be above this value
+# MIN_ELI_SNR = 3.0 #bare minium SNR to even remotely consider a signal as real
+# MIN_ELI_SIGMA = 1.0 #bare minium (expect this to be more like 2+)
+# MIN_HEIGHT = 10
+# MIN_DELTA_HEIGHT = 2 #to be a peak, must be at least this high above next adjacent point to the left
+# DEFAULT_BACKGROUND = 6.0
+# DEFAULT_BACKGROUND_WIDTH = 100.0 #pixels
+# DEFAULT_MIN_WIDTH_FROM_CENTER_FOR_BACKGROUND = 10.0 #pixels
+#
+# GAUSS_FIT_MAX_SIGMA = 17.0 #maximum width (pixels) for fit gaussian to signal (greater than this, is really not a fit)
+# GAUSS_FIT_MIN_SIGMA = 1.0 #roughly 1/2 pixel where pixel = 1.9AA (#note: "GOOD_MIN_SIGMA" below provides post
+#                           # check and is more strict) ... allowed to fit a more narrow sigma, but will be rejected later
+#                           # as not a good signal .... should these actually be the same??
+# GAUSS_FIT_AA_RANGE = 40.0 #AA to either side of the line center to include in the gaussian fit attempt
+#                           #a bit of an art here; too wide and the general noise and continuum kills the fit (too wide)
+#                           #too narrow and fit hard to find if the line center is off by more than about 2 AA
+#                           #40 seems (based on testing) to be about right (50 leaves too many clear, but weak signals behind)
+# GAUSS_FIT_PIX_ERROR = 4.0 #error (freedom) in pixels (usually  wavebins): have to allow at least 2 pixels of error
+#                           # (if aa/pix is small, _AA_ERROR takes over)
+# GAUSS_FIT_AA_ERROR = 1.0 #error (freedom) in line center in AA, still considered to be okay
+# GAUSS_SNR_SIGMA = 5.0 #check at least these pixels (pix*sigma) to either side of the fit line for SNR
+#                       # (larger of this or GAUSS_SNR_NUM_AA) *note: also capped to a max of 40AA or so (the size of the
+#                       # 'cutout' of the signal (i.e. GAUSS_FIT_AA_RANGE)
+# GAUSS_SNR_NUM_AA = 5.0 #check at least this num of AA to either side (2x +1 total) of the fit line for SNR in gaussian fit
+#                        # (larger of this or GAUSS_SNR_SIGMA
+
 log = G.Global_Logger('spectrum_utils')
 log.setlevel(G.LOG_LEVEL)
 
@@ -666,9 +699,9 @@ def wavelength_offset(wave,velocity):
     """
     try:
         if isinstance(velocity, U.Quantity):
-            return wave - wave * (1.0 - velocity/astropy.constants.c.to(U.km/U.s))
+            return wave *  velocity/astropy.constants.c.to(U.km/U.s)
         else:
-            return wave - wave * (1.0 - velocity / astropy.constants.c.to(U.km / U.s).value)
+            return wave *  velocity / astropy.constants.c.to(U.km / U.s).value
     except:
         return None
 
@@ -682,7 +715,7 @@ def extract_at_position(ra,dec,aperture,shotid,ffsky=False):
     :param aperture:
     :param shotid:
     :param ffsky:
-    :return:
+    :return: in flux e-17 (just like HETDEX standard) (NOT flux density)
     """
 
     return_dict = {}
@@ -856,8 +889,568 @@ def simple_fit_slope (wavelengths, values, errors=None,trim=True):
 
     return slope, slope_error
 
+# def norm_values(values,values_units):
+#     '''
+#     Basically, make spectra values either counts or cgs x10^-18 (whose magnitdues are pretty close to counts) and the
+#     old logic and parameters can stay the same
+#     :param values:
+#     :param values_units:
+#     :return:
+#     '''
+#
+#     #return values, values_units
+#     if values is not None:
+#         values = np.array(values)
+#
+#     if values_units == 0: #counts
+#         return values, values_units
+#     elif values_units == 1:
+#         return values * 1e18, -18
+#     elif values_units == -17:
+#         return values * 10.0, -18
+#     elif values_units == -18:
+#         return values, values_units
+#     else:
+#         log.warning("!!! Problem. Unexpected values_units = %s" % str(values_units))
+#         return values, values_units
+#
+#
+# def find_central_wavelength(self,wavelengths = None,values = None, errors=None,values_units=0):
+#     """
+#
+#     :param self:
+#     :param wavelengths:
+#     :param values:
+#     :param errors:
+#     :param values_units:
+#     :return:
+#     """
+#     central = 0.0
+#
+#     #find the peaks and use the largest
+#     #for now, largest means highest value
+#
+#     # if values_are_flux:
+#     #     #!!!!! do not do values *= 10.0 (will overwrite)
+#     #     # assumes fluxes in e-17 .... making e-18 ~= counts so logic can stay the same
+#     #     values = values * 10.0
+#
+#     values,values_units = norm_values(values,values_units)
+#
+#     #does not need errors for this purpose
+#     peaks = peakdet(wavelengths,values,errors,values_units=values_units,enforce_good=False) #as of 2018-06-11 these are EmissionLineInfo objects
+#     max_score = -np.inf
+#     if peaks is None:
+#         log.info("No viable emission lines found.")
+#         return 0.0
+#
+#     #find the largest flux
+#     for p in peaks:
+#         if p.line_score > max_score:
+#             max_score = p.line_score
+#             central = p.fit_x0
+#
+#     if update_self:
+#         self.central = central
+#
+#     log.info("Central wavelength = %f" %central)
+#
+#     return central
+#
+# def sn_peakdet_no_fit(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0):
+#     """
+#
+#     :param wave: x-values (wavelength)
+#     :param spec: v-values (spectrum values)
+#     :param spec_err: error on v (treat as 'noise')
+#     :param dx: minimum number of x-bins to trigger a possible line detection
+#     :param rx: like dx but just for rise and fall
+#     :param dv:  minimum height in value (in s/n, not native values) to trigger counting of bins
+#     :param dvmx: at least one point though must be >= to this in S/N
+#     :return:
+#     """
+#
+#     try:
+#         if not (len(wave) == len(spec) == len(spec_err)):
+#             log.debug("Bad call to sn_peakdet(). Lengths of arrays do not match")
+#             return []
+#
+#         x = np.array(wave)
+#         v = np.array(spec)
+#         e = np.array(spec_err)
+#         sn = v/e
+#         hvi = np.where(sn > dv)[0] #hvi high v indicies (where > dv)
+#
+#         if len(hvi) < 1:
+#             log.debug(f"sn_peak - no bins above minimum snr {dv}")
+#             return []
+#
+#         pos = [] #positions to search (indicies into original wave array)
+#         run = [hvi[0],]
+#         rise = [hvi[0],] #assume start with a rise
+#         fall = []
+#
+#         #two ways to trigger a peak:
+#         #several bins in a row above the SNR cut, then one below
+#         #or many bins in a row, that rise then fall with lengths of rise and fall above the dx length
+#         for h in hvi:
+#             if (h-1) == run[-1]: #the are adjacent in the original arrays
+#                 #what about sharp drops in value? like multiple peaks above continuum?
+#                 if v[h] >= v[run[-1]]: #rising
+#                     rise.append(h)
+#                     if len(rise) >= rx:
+#                         rise_trigger = True
+#                         fall = []
+#                 else: #falling
+#                     fall.append(h)
+#                     if len(fall) >= rx: #assume the end of a line and trigger a new run
+#                         fall_trigger = True
+#                         rise = []
+#                 if rise_trigger and fall_trigger: #call this a peak, start a new run
+#                     if len(run) >= dx and np.any(sn[run] >= dvmx):
+#                         mx = np.argmax(v[run])  # find largest value in the original arrays from these indicies
+#                         pos.append(mx + run[0])  # append that position to pos
+#                     run = [h]  # start a new run
+#                     rise = [h]
+#                     fall = []
+#                     fall_trigger = False
+#                     rise_trigger = False
+#                 else:
+#                     run.append(h)
+#
+#             else: #not adjacent, are there enough in run to append?
+#                 if len(run) >= dx and np.any(sn[run] >= dvmx):
+#                     mx = np.argmax(v[run]) #find largest value in the original arrays from these indicies
+#                     pos.append(mx+run[0]) #append that position to pos
+#                 run = [h] #start a new run
+#                 rise = [h]
+#                 fall = []
+#                 fall_trigger = False
+#                 rise_trigger = False
+#     except:
+#         log.error("Exception in sn_peakdet",exc_info=True)
+#         return []
+#
+#     return pos
+#
+#
+# def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
+#             enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False,do_mcmc=False):
+#     """
+#
+#     :param wave: x-values (wavelength)
+#     :param spec: v-values (spectrum values)
+#     :param spec_err: error on v (treat as 'noise')
+#     :param dx: minimum number of x-bins to trigger a possible line detection
+#     :param rx: like dx but just for rise and fall
+#     :param dv:  minimum height in value (in s/n, not native values) to trigger counting of bins
+#     :param dvmx: at least one point though must be >= to this in S/N
+#     :param values_units:
+#     :param enforce_good:
+#     :param min_sigma:
+#     :param absorber:
+#     :return:
+#     """
+#
+#     eli_list = []
+#
+#     try:
+#         if not (len(wave) == len(spec) == len(spec_err)):
+#             log.debug("Bad call to sn_peakdet(). Lengths of arrays do not match")
+#             return []
+#
+#         x = np.array(wave)
+#         v = np.array(spec)
+#         e = np.array(spec_err)
+#         sn = v/e
+#         hvi = np.where(sn > dv)[0] #hvi high v indicies (where > dv)
+#
+#         if len(hvi) < 1:
+#             log.debug(f"sn_peak - no bins above minimum snr {dv}")
+#             return []
+#
+#         pos = [] #positions to search (indicies into original wave array)
+#         run = [hvi[0],]
+#         rise = [hvi[0],] #assume start with a rise
+#         fall = []
+#
+#         #two ways to trigger a peak:
+#         #several bins in a row above the SNR cut, then one below
+#         #or many bins in a row, that rise then fall with lengths of rise and fall above the dx length
+#         for h in hvi:
+#             if (h-1) == run[-1]: #the are adjacent in the original arrays
+#                 #what about sharp drops in value? like multiple peaks above continuum?
+#                 if v[h] >= v[run[-1]]: #rising
+#                     rise.append(h)
+#                     if len(rise) >= rx:
+#                         rise_trigger = True
+#                         fall = []
+#                 else: #falling
+#                     fall.append(h)
+#                     if len(fall) >= rx: #assume the end of a line and trigger a new run
+#                         fall_trigger = True
+#                         rise = []
+#                 if rise_trigger and fall_trigger: #call this a peak, start a new run
+#                     if len(run) >= dx and np.any(sn[run] >= dvmx):
+#                         mx = np.argmax(v[run])  # find largest value in the original arrays from these indicies
+#                         pos.append(mx + run[0])  # append that position to pos
+#                     run = [h]  # start a new run
+#                     rise = [h]
+#                     fall = []
+#                     fall_trigger = False
+#                     rise_trigger = False
+#                 else:
+#                     run.append(h)
+#
+#             else: #not adjacent, are there enough in run to append?
+#                 if len(run) >= dx and np.any(sn[run] >= dvmx):
+#                     mx = np.argmax(v[run]) #find largest value in the original arrays from these indicies
+#                     pos.append(mx+run[0]) #append that position to pos
+#                 run = [h] #start a new run
+#                 rise = [h]
+#                 fall = []
+#                 fall_trigger = False
+#                 rise_trigger = False
+#
+#         #now pos has the indicies in the original arrays of the highest values in runs of high S/N bins
+#         for p in pos:
+#             try:
+#                 eli = signal_score(wave, spec, spec_err, wave[p], values_units=values_units, min_sigma=min_sigma,
+#                                absorber=absorber,do_mcmc=do_mcmc)
+#
+#                 # if (eli is not None) and (eli.score > 0) and (eli.snr > 7.0) and (eli.fit_sigma > 1.6) and (eli.eqw_obs > 5.0):
+#                 if (eli is not None) and ((not enforce_good) or eli.is_good()):
+#                     eli_list.append(eli)
+#             except:
+#                 log.error("Exception calling signal_score in sn_peakdet",exc_info=True)
+#
+#     except:
+#         log.error("Exception in sn_peakdet",exc_info=True)
+#         return []
+#
+#     return combine_lines(eli_list)
+#
+# def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,values_units=0,
+#             enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False):
+#
+#     """
+#
+#     :param x:
+#     :param v:
+#     :param dw:
+#     :param h:
+#     :param dh:
+#     :param zero:
+#     :return: array of [ pi, px, pv, pix_width, centroid_pos, eli.score, eli.snr]
+#     """
+#
+#     #peakind = signal.find_peaks_cwt(v, [2,3,4,5],min_snr=4.0) #indexes of peaks
+#
+#     #emis = zip(peakind,x[peakind],v[peakind])
+#     #emistab.append((pi, px, pv, pix_width, centroid))
+#     #return emis
+#
+#
+#
+#     #dh (formerly, delta)
+#     #dw (minimum width (as a fwhm) for a peak, else is noise and is ignored) IN PIXELS
+#     # todo: think about jagged peaks (e.g. a wide peak with many subpeaks)
+#     #zero is the count level zero (nominally zero, but with noise might raise or lower)
+#     """
+#     Converted from MATLAB script at http://billauer.co.il/peakdet.html
+#
+#
+#     function [maxtab, mintab]=peakdet(v, delta, x)
+#     %PEAKDET Detect peaks in a vector
+#     %        [MAXTAB, MINTAB] = PEAKDET(V, DELTA) finds the local
+#     %        maxima and minima ("peaks") in the vector V.
+#     %        MAXTAB and MINTAB consists of two columns. Column 1
+#     %        contains indices in V, and column 2 the found values.
+#     %
+#     %        With [MAXTAB, MINTAB] = PEAKDET(V, DELTA, X) the indices
+#     %        in MAXTAB and MINTAB are replaced with the corresponding
+#     %        X-values.
+#     %
+#     %        A point is considered a maximum peak if it has the maximal
+#     %        value, and was preceded (to the left) by a value lower by
+#     %        DELTA.
+#
+#     % Eli Billauer, 3.4.05 (Explicitly not copyrighted).
+#     % This function is released to the public domain; Any use is allowed.
+#
+#     """
+#
+#     if (v is None) or (len(v) < 3):
+#         return [] #cannot execute
+#
+#
+#     maxtab = []
+#     mintab = []
+#     emistab = []
+#     eli_list = []
+#     delta = dh
+#
+#     eli_list = sn_peakdet(x,v,err,values_units=values_units,enforce_good=enforce_good,min_sigma=min_sigma,absorber=absorber)
+#
+#     if x is None:
+#         x = np.arange(len(v))
+#
+#     pix_size = abs(x[1] - x[0])  # aa per pix
+#     if pix_size == 0:
+#         log.error("Unexpected pixel_size in spectrum::peakdet(). Wavelength step is zero.")
+#         return []
+#     # want +/- 20 angstroms
+#     wave_side = int(round(20.0 / pix_size))  # pixels
+#
+#     dw = int(dw / pix_size) #want round down (i.e. 2.9 -> 2) so this is fine
+#
+#     v = np.asarray(v)
+#     num_pix = len(v)
+#
+#     if num_pix != len(x):
+#         log.warning('peakdet: Input vectors v and x must have same length')
+#         return []
+#
+#     if not np.isscalar(dh):
+#         log.warning('peakdet: Input argument delta must be a scalar')
+#         return []
+#
+#     if dh <= 0:
+#         log.warning('peakdet: Input argument delta must be positive')
+#         return []
+#
+#
+#     v_0 = copy.copy(v)# v[:] #slicing copies if list, but not if array
+#     x_0 = copy.copy(x)#x[:]
+#     values_units_0 = values_units
+#
+#     #if values_are_flux:
+#     #    v = v * 10.0
+#
+#     #don't need to normalize errors for peakdet ... will be handled in signal_score
+#     v,values_units = norm_values(v,values_units)
+#
+#     #smooth v and rescale x,
+#     #the peak positions are unchanged but some of the jitter is smoothed out
+#     #v = v[:-2] + v[1:-1] + v[2:]
+#     v = v[:-4] + v[1:-3] + v[2:-2] + v[3:-1] + v[4:]
+#     #v = v[:-6] + v[1:-5] + v[2:-4] + v[3:-3] + v[4:-2] + v[5:-1] + v[6:]
+#     v /= 5.0
+#     x = x[2:-2]
+#
+#     minv, maxv = np.Inf, -np.Inf
+#     minpos, maxpos = np.NaN, np.NaN
+#
+#     lookformax = True
+#
+#     for i in np.arange(len(v)):
+#         thisv = v[i]
+#         if thisv > maxv:
+#             maxv = thisv
+#             maxpos = x[i]
+#             maxidx = i
+#         if thisv < minv:
+#             minv = thisv
+#             minpos = x[i]
+#             minidx = i
+#         if lookformax:
+#             if (thisv >= h) and (thisv < maxv - delta):
+#                 #i-1 since we are now on the right side of the peak and want the index associated with max
+#                 maxtab.append((maxidx,maxpos, maxv))
+#                 minv = thisv
+#                 minpos = x[i]
+#                 lookformax = False
+#         else:
+#             if thisv > minv + delta:
+#                 mintab.append((minidx,minpos, minv))
+#                 maxv = thisv
+#                 maxpos = x[i]
+#                 lookformax = True
+#
+#
+#     if len(maxtab) < 1:
+#         log.warning("No peaks found with given conditions: mininum:  fwhm = %f, height = %f, delta height = %f" \
+#                 %(dw,h,dh))
+#         return []
+#
+#     #make an array, slice out the 3rd column
+#     #gm = gmean(np.array(maxtab)[:,2])
+#     peaks = np.array(maxtab)[:, 2]
+#     gm = np.mean(peaks)
+#     std = np.std(peaks)
+#
+#
+#     ################
+#     #DEBUG
+#     ################
+#
+#     if False:
+#         so = Spectrum()
+#         eli = []
+#         for p in maxtab:
+#             e = EmissionLineInfo()
+#             e.raw_x0 = p[1] #xposition p[0] is the index
+#             e.raw_h = v_0[p[0]+2] #v_0[getnearpos(x_0,p[1])]
+#             eli.append(e)
+#
+#         so.build_full_width_spectrum(wavelengths=x_0, counts=v_0, errors=None, central_wavelength=0,
+#                                       show_skylines=False, show_peaks=True, name="peaks",
+#                                       dw=MIN_FWHM, h=MIN_HEIGHT, dh=MIN_DELTA_HEIGHT, zero=0.0,peaks=eli,annotate=False)
+#
+#
+#
+#     #now, throw out anything waaaaay above the mean (toss out the outliers and recompute mean)
+#     if False:
+#         sub = peaks[np.where(abs(peaks - gm) < (3.0*std))[0]]
+#         if len(sub) < 3:
+#             sub = peaks
+#         gm = np.mean(sub)
+#
+#     for pi,px,pv in maxtab:
+#         #check fwhm (assume 0 is the continuum level)
+#
+#         #minium height above the mean of the peaks (w/o outliers)
+#         if False:
+#             if (pv < 1.333 * gm):
+#                 continue
+#
+#         hm = float((pv - zero) / 2.0)
+#         pix_width = 0
+#
+#         #for centroid (though only down to fwhm)
+#         sum_pos_val = x[pi] * v[pi]
+#         sum_pos = x[pi]
+#         sum_val = v[pi]
+#
+#         #check left
+#         pix_idx = pi -1
+#
+#         try:
+#             while (pix_idx >=0) and (v[pix_idx] >= hm):
+#                 sum_pos += x[pix_idx]
+#                 sum_pos_val += x[pix_idx] * v[pix_idx]
+#                 sum_val += v[pix_idx]
+#                 pix_width += 1
+#                 pix_idx -= 1
+#
+#         except:
+#             pass
+#
+#         #check right
+#         pix_idx = pi + 1
+#
+#         try:
+#             while (pix_idx < num_pix) and (v[pix_idx] >= hm):
+#                 sum_pos += x[pix_idx]
+#                 sum_pos_val += x[pix_idx] * v[pix_idx]
+#                 sum_val += v[pix_idx]
+#                 pix_width += 1
+#                 pix_idx += 1
+#         except:
+#             pass
+#
+#         #check local region around centroid
+#         centroid_pos = sum_pos_val / sum_val #centroid is an index
+#
+#         #what is the average value in the vacinity of the peak (exlcuding the area under the peak)
+#         #should be 20 AA not 20 pix
+#         side_pix = max(wave_side,pix_width)
+#         left = max(0,(pi - pix_width)-side_pix)
+#         sub_left = v[left:(pi - pix_width)]
+#    #     gm_left = np.mean(v[left:(pi - pix_width)])
+#
+#         right = min(num_pix,pi+pix_width+side_pix+1)
+#         sub_right = v[(pi + pix_width):right]
+#    #     gm_right = np.mean(v[(pi + pix_width):right])
+#
+#         #minimum height above the local gm_average
+#         #note: can be a problem for adjacent peaks?
+#         # if False:
+#         #     if pv < (2.0 * np.mean(np.concatenate((sub_left,sub_right)))):
+#         #         continue
+#
+#         #check vs minimum width
+#         if not (pix_width < dw):
+#             #see if too close to prior peak (these are in increasing wavelength order)
+#             already_found = np.array([e.fit_x0 for e in eli_list])
+#
+#             if np.any(abs(already_found-px) < 2.0):
+#                 pass #skip and move on
+#             else:
+#                 eli = signal_score(x_0, v_0, err, px,values_units=values_units_0,min_sigma=min_sigma,absorber=absorber)
+#
+#                 #if (eli is not None) and (eli.score > 0) and (eli.snr > 7.0) and (eli.fit_sigma > 1.6) and (eli.eqw_obs > 5.0):
+#                 if (eli is not None) and ((not enforce_good) or eli.is_good()):
+#                     eli_list.append(eli)
+#                     log.debug("*** old peakdet added new ELI")
+#                     if len(emistab) > 0:
+#                         if (px - emistab[-1][1]) > 6.0:
+#                             emistab.append((pi, px, pv,pix_width,centroid_pos,eli.eqw_obs,eli.snr))
+#                         else: #too close ... keep the higher peak
+#                             if pv > emistab[-1][2]:
+#                                 emistab.pop()
+#                                 emistab.append((pi, px, pv, pix_width, centroid_pos,eli.eqw_obs,eli.snr))
+#                     else:
+#                         emistab.append((pi, px, pv, pix_width, centroid_pos,eli.eqw_obs,eli.snr))
+#
+#
+#     #return np.array(maxtab), np.array(mintab)
+#     #print("DEBUG ... peak count = %d" %(len(emistab)))
+#     #for i in range(len(emistab)):
+#     #    print(emistab[i][1],emistab[i][2], emistab[i][5])
+#     #return emistab
+#
+#     ################
+#     #DEBUG
+#     ################
+#     # if False:
+#     #     so = Spectrum()
+#     #     eli = []
+#     #     for p in eli_list:
+#     #         e = EmissionLineInfo()
+#     #         e.raw_x0 = p.raw_x0
+#     #         e.raw_h = p.raw_h / 10.0
+#     #         eli.append(e)
+#     #     so.build_full_width_spectrum(wavelengths=x_0, counts=v_0, errors=None, central_wavelength=0,
+#     #                                  show_skylines=False, show_peaks=True, name="peaks_trimmed",
+#     #                                  dw=MIN_FWHM, h=MIN_HEIGHT, dh=MIN_DELTA_HEIGHT, zero=0.0, peaks=eli,
+#     #                                  annotate=False)
+#
+#     return combine_lines(eli_list)
+#
+#
+#
+# def combine_lines(eli_list,sep=1.0):
+#     """
+#
+#     :param eli_list:
+#     :param sep: max peak separation in AA (for peakdet values, true duplicates are very close, sub AA close)
+#     :return:
+#     """
+#
+#     def is_dup(wave1,wave2,sep):
+#         if abs(wave1-wave2) < sep:
+#             return True
+#         else:
+#             return False
+#
+#     keep_list = []
+#     for e in eli_list:
+#         add = True
+#         for i in range(len(keep_list)):
+#             if (e.fit_x0 - keep_list[i].fit_x0) < sep:
+#                 add = False
+#                 if e.line_score > keep_list[i].fit_x0:
+#                     keep_list[i] = copy.deepcopy(e)
+#         if add:
+#             keep_list.append(copy.deepcopy(e))
+#
+#     return keep_list
+#
+#
 
-def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=1000.0):
+
+def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=500.0,max_fwhm=15.0):
     """
     Simple curve_fit to gaussian; lsq "best"
 
@@ -866,6 +1459,7 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=1000.0):
     :param wavelengths:
     :param central:
     :param wave_slop_kms: +/- from central wavelength in km/s (default of 1000 km/s ~ +/-13AA at 4500AA)
+    :param max_fwhm: in AA
     :return:
     """
 
@@ -885,10 +1479,9 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=1000.0):
     if (values is None) or (len(values) == 0):
         return return_dict
 
-
-
     try:
         min_sigma = 1.5 #FWHM  ~ 3.5AA (w/o error, best measure would be about 5AA)
+        max_sigma = max_fwhm/2.355
         wave_slop = wavelength_offset(central,wave_slop_kms) #for HETDEX, in AA
         wave_side = int(round(max(40,2*wave_slop) / G.FLUX_WAVEBIN_WIDTH)) #at least 40AA to either side or twice the slop
         idx,_,_ = getnearpos(wavelengths,central)
@@ -917,7 +1510,7 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=1000.0):
             parm, pcov = curve_fit(gaussian, np.float64(narrow_wave_x), np.float64(narrow_wave_counts),
                                    p0=(central, 1.5, 1.0, 0.0),
                                    bounds=((central - wave_slop, min_sigma, 0.0, -100.0),
-                                           (central + wave_slop, np.inf, np.inf, np.inf)),
+                                           (central + wave_slop, max_sigma, np.inf, np.inf)),
                                    # sigma=1./(narrow_wave_errors*narrow_wave_errors)
                                    sigma=narrow_wave_err_sigma  # , #handles the 1./(err*err)
                                    # note: if sigma == None, then curve_fit uses array of all 1.0
@@ -986,6 +1579,98 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=1000.0):
     return return_dict
 
 
+def combo_fit_wave(peak_func,values,errors,wavelengths,central,wave_slop_kms=500.0,max_fwhm=15.0):
+    """
+    try scanning for lines and if that fails call simple_fit_wave
+    :param values:
+    :param errors:
+    :param wavelengths:
+    :param central:
+    :param wave_slop_kms:
+    :param max_fwhm:
+    :return:
+    """
+    return_dict = {}
+    return_dict['x0'] = None
+    return_dict['fitflux'] = 0.0
+    return_dict['continuum_level'] = 0.0
+    return_dict['velocity_offset'] = 0.0
+    return_dict['sigma'] = 0.0
+    return_dict['rmse'] = 0.0
+    return_dict['snr'] = 0.0
+    return_dict['meanflux_density'] = 0.0
+    return_dict['velocity_offset_limit'] = wave_slop_kms
+
+    try_simple_fit = False
+    try:
+
+        wave_slop = wavelength_offset(central, wave_slop_kms)
+        #extra +/-5 just for safety in being able to fit a line
+        _,min_w,_ = getnearpos(wavelengths,central-wave_slop-max_fwhm/2.0)
+        _,_,max_w = getnearpos(wavelengths,central+wave_slop+max_fwhm/2.0)
+
+        #extraction puts these in HETDEX e-17 units (as integrated flux, so over x2.0AA bins)
+        all_found_lines = peak_func(wavelengths[min_w:max_w+1], values[min_w:max_w+1], errors[min_w:max_w+1],
+                                     values_units=-17)
+
+        if all_found_lines is not None and len(all_found_lines) > 0:
+            #there a line in the range
+            if len(all_found_lines) == 1:
+                idx = 0
+            else: #get nearest
+                all_found_lines.sort(key=lambda x: x.fit_x0, reverse=False)
+                idx,_,_ = getnearpos([x.fit_x0 for x in all_found_lines])
+
+            #If we are always going to call simple_fit_wave, then flip the True/False logic here
+            if True:
+                central = all_found_lines[idx].fit_x0
+                max_fwhm = all_found_lines[idx].fit_sigma*2.355*1.1 #give an exta 10% for slop
+                wave_slop_kms = 0.5/central * astropy.constants.c.to(U.km/U.s).value #keep it small now that we have an identified wavelength
+                try_simple_fit = True
+            else:
+                return_dict['x0'] = all_found_lines[idx].fit_x0
+                return_dict['fitflux'] = all_found_lines[idx].line_flux * 1e17
+                return_dict['continuum_level'] =  all_found_lines[idx].cont * 1e17
+                return_dict['velocity_offset'] = velocity_offset(central, all_found_lines[idx].fit_x0).value
+                return_dict['sigma'] = all_found_lines[idx].fit_sigma
+                return_dict['rmse'] = all_found_lines[idx].fit_rmse
+                return_dict['snr'] = all_found_lines[idx].snr
+
+                #now w/o the extra padding
+                _, min_w, _ = getnearpos(wavelengths, central - wave_slop)
+                _, _, max_w = getnearpos(wavelengths, central + wave_slop)
+                return_dict['meanflux_density'] = np.nansum(values[min_w:max_w + 1]) / \
+                                                  (wavelengths[max_w + 1] - wavelengths[min_w])
+
+                #assume fit line is LyA and get the sum around rest 880-910
+                try:
+                    lyc_obs = (880.0 * (1.+x0/G.LyA_rest), 910.0 * (1.+all_found_lines[idx].fit_x0/G.LyA_rest))
+                    lyc_idx = blue,_,_ = getnearpos(wavelengths,lyc_obs[0])
+                    lyc_idx = red, _, _ = getnearpos(wavelengths, lyc_obs[1])
+                    return_dict['f900'] = cgs2ujy(np.sum(values[blue,red+1])/(lyc_obs[1]-lyc_obs[0]),900.0)
+                    return_dict['f900e'] = cgs2ujy(np.sum(errors[blue,red+1])/(lyc_obs[1]-lyc_obs[0]),900.0)
+                except:
+                    return_dict['f900'] = -999
+                    return_dict['f900e'] = -999
+
+                return return_dict
+
+    except:
+        log.info("Exception in spectrum_utilites::combo_fit_wave",exc_info=True)
+        try_simple_fit = True
+
+    #now run simple fit
+    if try_simple_fit:
+        try:
+            return simple_fit_wave(values, errors, wavelengths, central,
+                            wave_slop_kms=wave_slop_kms, max_fwhm=max_fwhm)
+
+        except:
+            log.info("Exception in spectrum_utilites::combo_fit_wave", exc_info=True)
+
+    return return_dict
+
+
 def make_raster_grid(ra,dec,width,resolution):
     """
     Make the RA and Dec meshgrid for rastering. Centered on provided ra, dec.
@@ -1014,7 +1699,7 @@ def make_raster_grid(ra,dec,width,resolution):
         return None, None
 
 
-def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity=1500.0):
+def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity=500.0,max_fwhm=15.0):
     """
     Iterate over the supplied meshgrids and force extract at each point
     :param ra_meshgrid: (see make_raster_grid)
@@ -1025,6 +1710,11 @@ def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity
     :param max_velocity: in km/s (max allowance to either side of the specified <cw> to fit)
     :return: meshgrid of (extraction) dictionaries with location and extraction info
     """
+
+    try:
+        from elixer import spectrum as SP
+    except:
+        import spectrum as SP
 
     try:
         edict = np.transpose(np.zeros_like(ra_meshgrid, dtype=dict)) #need to transpose since addressing as dec,ra
@@ -1124,19 +1814,22 @@ def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity
                 #end if
 
                 #now, fit to Gaussian
-                ex['fit'] = simple_fit_wave(avg_f,
+                ex['fit'] = combo_fit_wave(SP.peakdet,avg_f,
                                                avg_fe,
                                                exlist[0]['wave'],
                                                cw,
-                                               wave_slop_kms=max_velocity)
+                                               wave_slop_kms=max_velocity,
+                                               max_fwhm=max_fwhm)
 
                 # kill off bad fits based on snr, rmse, sigma, continuum
                 # overly? generous sigma ... maybe make similar to original?
+                test_good = False
                 if (1.0 < ex['fit']['sigma'] < 20.0) and \
                         (3.0 < ex['fit']['snr'] < 1000.0):
                     if ex['fit']['fitflux'] > 0:
                         #print("Winner")
                         wct += 1
+                        test_good = True
                 else:  # is bad, wipe out
                     #print("bad fit")
                     ex['bad_fit'] = copy.copy(ex['fit'])
@@ -1149,6 +1842,29 @@ def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity
                     ex['fit']['sigma'] = 0
 
                 edict[r, d] = ex
+
+                #todo: REMOVE ME
+                if True: #extra debugging
+                    print("**********Remove me**********")
+                    plt.close('all')
+                    plt.figure(figsize=(6,3))
+
+                    plt.axvline(cw,color='k',alpha=0.5)
+                    plt.axvline(cw-cw*max_velocity/3e5,ls="dashed",color='k',alpha=0.5)
+                    plt.axvline(cw+cw*max_velocity/3e5,ls="dashed",color='k',alpha=0.5)
+                    try:
+                        plt.axvline(ex['fit']['x0'],color="r")
+                    except:
+                        pass
+
+                    plt.plot(G.CALFIB_WAVEGRID, avg_f)
+                    plt.xlim(cw-2*cw*max_velocity/3e5,cw+2*cw*max_velocity/3e5)
+
+                    plt.title(f"Good {test_good}: r({r}) d({d}) RA: {ra_meshgrid[d,r]:0.6f}  Dec: {dec_meshgrid[d,r]:0.6f}\n"
+                              f"fwhm = {ex['fit']['sigma']*2.355:0.2f}, flux = {ex['fit']['fitflux']:0.2f}, snr = {ex['fit']['snr']:0.2f}")
+                    plt.tight_layout()
+                    plt.savefig(f"ip_r{str(r).zfill(3)}_d{str(d).zfill(3)}.png")
+
 
         log.info(f"Raster 'good' emission fits ({wct}) / ({ct})")
         #print("Good fits:", wct)
