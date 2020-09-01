@@ -2959,10 +2959,10 @@ class Spectrum:
 
                                     if rest_waves[rest_idx[j]] == 3727 and rest_waves[rest_idx[i]] == 5007:
                                         if 1/ratio > 5.0:
-                                            self.add_classification_label("+O3/O2")
+                                            self.add_classification_label("o32")
                                     elif rest_waves[rest_idx[j]] == 5007 and rest_waves[rest_idx[i]] == 3727:
                                         if ratio > 5.0:
-                                            self.add_classification_label("+O3/O2")
+                                            self.add_classification_label("o32")
 
                                 else:
                                     log.debug(f"FWHM no match (0) for solution = {solution.central_rest}: "
@@ -3796,7 +3796,7 @@ class Spectrum:
                     #for the labeling, need to check vs the TOTAL score (so include the primary line)
                     if ( (s.score + self.central_eli.line_score) > G.MULTILINE_FULL_SOLUTION_SCORE) and \
                             (boost > 1.0): #check BEFORE the boost
-                        self.add_classification_label("AGN")
+                        self.add_classification_label("agn")
 
                     per_line_total_score -= s.score
                     s.score = boost * s.score
@@ -3811,7 +3811,7 @@ class Spectrum:
 
                     if ((s.score + self.central_eli.line_score) > G.MULTILINE_FULL_SOLUTION_SCORE) and \
                             (boost > 1.0):  # check BEFORE the boost
-                        self.add_classification_label("LzG") #Low-z Galaxy
+                        self.add_classification_label("lzg") #Low-z Galaxy
 
                     per_line_total_score -= s.score
                     s.score =  boost * s.score
