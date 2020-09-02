@@ -910,8 +910,8 @@ class DetObj:
 
             #indices that cover common meteor lines (MgI, Al, CaI, CaII) into CALFIB_WAVEGRID
             common_line_waves = np.concatenate( (np.arange(3830,3844,2),
-                                                 np.arange(3960,3976,2),
                                                  np.arange(3926,3942,2),
+                                                 np.arange(3960,3976,2),
                                                  np.arange(4220,4234,2),
                                                  np.arange(5166,5190,2)))
 
@@ -950,6 +950,7 @@ class DetObj:
             cn2_expid = np.argmax(strip_sum) + 1
             cn2_sum = common_sum[cn2_expid - 1]
 
+            near_bright_obj = False
 
             if True:
                 #this can be tripped up by being near a bright object and exposures that move
@@ -995,8 +996,9 @@ class DetObj:
                 #make sure the two methods ID the same
                 # BUT we could be near a bright object and then its scattered light could flip these around
                 # so ignore this and just use the 'common' values at the end
-                # if (cmx_expid != mx_expid) or (cmn_expid != mn_expid):
-                #     log.info("DetObj::check_for_meteor expids do not match.")
+                if (cmx_expid != mx_expid) or (cmn_expid != mn_expid):
+                    log.info("DetObj::check_for_meteor expids do not match. Assume near a bright object.")
+                    near_bright_obj = True
                 #     return 0
 
             if False:
@@ -1042,15 +1044,24 @@ class DetObj:
                     log.debug("DetObj::check_for_meteor negative second sum")
                     return 0
 
+
+            try:
+                if (cmx_sum / common_sume[cmx_expid-1]) < 2.0:
+                    log.debug(f"DetObj:check_for_meteor sum error too high {cmx_sum} +/- {common_sume[cmx_expid-1]}")
+                    return 0
+            except:
+                log.debug(f"DetObj:check_for_meteor sum error too high {cmx_sum} +/- {common_sume[cmx_expid - 1]}")
+                return 0
+
             meteor = 0
             if cmx_sum > cn2_sum > 0:
-                #full_ratio = mx_sum / n2_sum
-                #common_ratio = cmx_sum / cn2_sum
+                full_ratio = mx_sum / n2_sum
+                common_ratio = cmx_sum / cn2_sum
                 #spec_ratio = max(full_ratio,common_ratio)
                 #spec_ratio = std_above
                 spec_ratio = cmx_sum / cn2_sum
                # if ((full_ratio > 2 ) or (common_ratio > 4)): #maybe need more checking
-                if (spec_ratio > 10 ): #maybe need more checking
+                if (spec_ratio > 4 ): #maybe need more checking
                     #check for emission lines in mx_sum?
                     #this is either likely a meteor OR some problem that occured in the exposures
                     pos = elixer_spectrum.sn_peakdet_no_fit(G.CALFIB_WAVEGRID,exp[cmx_expid - 1],exp_err[cmx_expid - 1],
