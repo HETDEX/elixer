@@ -1003,7 +1003,7 @@ class DetObj:
 
                 others_sum = n2_sum
 
-            meteor = False
+            meteor = 0
             if mx_sum > others_sum > 0:
                 spec_ratio = mx_sum / others_sum
                 #spec_ratio = std_above
@@ -1044,16 +1044,19 @@ class DetObj:
                     #     meteor = True
                     #if ((spec_ratio > 4) or (std_above > 3)):
                     if (spec_ratio > 5) and (len(pos) > 2) and (len(pos) < 30):
-                        meteor = True
+                        meteor = 5
                     elif (spec_ratio > 3) and (0 < len(bright_mg_line) < 3):
-                        meteor = True
-                    elif len(common_lines) > 3:  # hit most of the common lines
-                        meteor = True  # so ratio > 2 AND the MgI line appears to be present
+                        meteor = 4
                     elif (spec_ratio > 5) and (len(common_lines) > 0):
-                        meteor = True
+                        meteor = 4
+                    elif len(common_lines) > 3:  # hit most of the common lines
+                        meteor = 3  # so ratio > 2 AND the MgI line appears to be present
+                    elif (0 < len(bright_mg_line) < 3) and (len(common_lines) > 1):
+                        meteor = 1
 
-                    if meteor:
+                    if meteor > 0:
                         self.spec_obj.add_classification_label("Meteor")
+                        self.spec_obj.meteor_strength = meteor
                         pos = np.array(pos)
                         log.info(f"Meteor: Detection likely a meteor. Exp# {mx_expid} at x{spec_ratio:0.1f}, lines at {G.CALFIB_WAVEGRID[pos]}")
                         return 1
@@ -1456,7 +1459,7 @@ class DetObj:
         #check for specific incompatible classification labels
         if "Meteor" in self.spec_obj.classification_label:
             likelihood.append(0.0)
-            weight.append(1.0)
+            weight.append(self.spec_obj.meteor_strength)
             var.append(1)  # todo: ? could do something like the spectrum noise?
             prior.append(base_assumption)
             log.debug( f"Aggregate Classification: Meteor indicated: lk({likelihood[-1]}) weight({weight[-1]})")

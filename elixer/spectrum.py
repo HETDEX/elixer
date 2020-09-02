@@ -2786,7 +2786,7 @@ class Spectrum:
         self.all_found_lines = None #EmissionLineInfo objs (want None here ... if no lines, then peakdet returns [])
         self.all_found_absorbs = None
         self.classification_label = "" #string of possible classification applied (i.e. "AGN", "low-z","star", "meteor", etc)
-
+        self.meteor_strength = 0 #qualitative strength of meteor classification
 
         self.addl_fluxes = []
         self.addl_wavelengths = []
