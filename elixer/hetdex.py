@@ -918,20 +918,43 @@ class DetObj:
 
             #now, just sum across each (expect 1 exposure to stand out
             sum = np.zeros(num_exp)
+            sume = np.zeros(num_exp)
             for i in range(num_exp):
                 sum[i] = np.nansum(exp[i])
+                sume[i] = np.sqrt(np.nansum(exp_err[i]**2))
 
             #which exposure has the maximum
             mx_expid = np.argmax(sum)+1
             mx_sum = sum[mx_expid-1]
 
+            #median and std for later
+            med = np.median(sum)
+            std = np.std(sum)
+            #effectively, this is the num of std the maximum is above the next hightest (which will be the
+            #median of the three values
+            if std != 0:
+                std_above = (mx_sum-med)/std
+            else:
+                std_above = 0
+
             #sum over wavebins
             others_combined = np.zeros(len(G.CALFIB_WAVEGRID))
+            others_combined_err = np.zeros(len(G.CALFIB_WAVEGRID))
             sel = np.where(np.arange(num_exp)!=(mx_expid-1))[0]
-            for i in sel:
-                others_combined += exp[i]
+            #others_combined += sum[i]
 
-            others_sum = np.nansum(others_combined)
+            #"maximum" case others
+            others_sum = np.nansum(sum[sel])
+            others_sum_err = np.sqrt(np.nansum(sume[sel]**2))
+
+            if others_sum < 0: #just slide up
+                #the 50 is partly arbitrary and partly experimental
+                others_sum += others_sum_err
+                mx_sum += others_sum_err #or maybe the mx_sum's own error?
+                if others_sum < 0: #still less than zero
+                    others_sum = others_sum_err #assume should be zero + error
+
+            #others_sum = np.nansum(others_combined)
 
             #how does highest sum [-1] it compare to the next highest [-2]
             #next_largest = sorted(sum)[-2]
@@ -943,14 +966,10 @@ class DetObj:
                 log.debug("DetObj::check_for_meteor zero sums")
                 return 0
 
-            if others_sum < 0: #just slide up
-                mx_sum += abs(others_sum) + 1.0
-                others_sum = 1.0
-
-
             if mx_sum > others_sum > 0:
                 spec_ratio = mx_sum / others_sum
-                if (spec_ratio > 2 ): #maybe need more checking
+                #spec_ratio = std_above
+                if ((spec_ratio > 2 ) or (std_above > 2)): #maybe need more checking
                     #check for emission lines in mx_sum?
                     #this is either likely a meteor OR some problem that occured in the exposures
                     pos = elixer_spectrum.sn_peakdet_no_fit(G.CALFIB_WAVEGRID,exp[mx_expid - 1],exp_err[mx_expid - 1],
@@ -970,13 +989,13 @@ class DetObj:
                     #            MgI  at 5173,5184
                     #            FeI  at 5330  (weak)
 
-                    if (spec_ratio) > 20:
-                        meteor = True
-                    elif (spec_ratio > 4) and (len(pos) > 1) and (len(pos) < 30): #so 2 or more possible lines above noise, likely a meteor and not an error
-                        meteor = True
-                        #if that much greater, there must be extra lines found (as it goes fainter, maybe fewer lines)
-                    elif (spec_ratio > 4) and ((0 < len(bright_mg_line) < 3) or (3834 <= self.w <= 3480)):
-                        meteor = True
+                    # if (spec_ratio) > 100:
+                    #     meteor = True
+                    if ((spec_ratio > 4) or (std_above > 3)):
+                        if (len(pos) > 2) and (len(pos) < 30): #so 2 or more possible lines above noise, likely a meteor and not an error
+                            meteor = True
+                        elif ((0 < len(bright_mg_line) < 3) or (3834 <= self.w <= 3480)):
+                            meteor = True
                     elif len(common_lines) > 3: #hit most of the common lines
                         meteor = True #so ratio > 2 AND the MgI line appears to be present
 
