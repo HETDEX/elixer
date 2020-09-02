@@ -917,33 +917,40 @@ class DetObj:
                 exp_err[f.expid-1] += f.fits.calfibe[idx]
 
             #now, just sum across each (expect 1 exposure to stand out
-            sum = np.zeros(num_exp)
-            sume = np.zeros(num_exp)
+            ssum = np.zeros(num_exp)
+            ssume = np.zeros(num_exp)
             for i in range(num_exp):
-                sum[i] = np.nansum(exp[i])
-                sume[i] = np.sqrt(np.nansum(exp_err[i]**2))
+                ssum[i] = np.nansum(exp[i])
+                ssume[i] = np.sqrt(np.nansum(exp_err[i]**2))
+
+            #which has the minimum (so can subtract off)
+            ssum -= min(ssum)
+            # mn_expid = np.argmin(ssum)+1
+            # mn_sum = ssum[mn_expid-1]
+            #
+            # #adjust all (subtract off the minimum sum as the zero
+            # for i in range(num_exp):
+            #     ssum[i] -= mn_sum
 
             #which exposure has the maximum
-            mx_expid = np.argmax(sum)+1
-            mx_sum = sum[mx_expid-1]
+            mx_expid = np.argmax(ssum)+1
+            mx_sum = ssum[mx_expid-1]
 
             #which has the minimum
-            mn_expid = np.argmin(sum)+1
-            mn_sum = sum[mn_expid-1]
+            mn_expid = np.argmin(ssum)+1
+            mn_sum = ssum[mn_expid-1]
 
             #which is second highest (normally, the only one left, but there could be more than 3 exposures
-            strip_sum = copy(sum)
+            strip_sum = copy(ssum)
             strip_sum[mx_expid-1] = -99999.
             n2_expid = np.argmax(strip_sum)+1
-            n2_sum = sum[n2_expid-1]
+            n2_sum = ssum[n2_expid-1]
 
-            #adjust all (subtract off the minimum sum as the zero
-            for i in range(num_exp):
-                sum[i] -= mn_sum
+
 
             #median and std for later
-            med = np.median(sum)
-            std = np.std(sum)
+            med = np.median(ssum)
+            std = np.std(ssum)
             #effectively, this is the num of std the maximum is above the next hightest (which will be the
             #median of the three values
             if std != 0:
@@ -956,11 +963,11 @@ class DetObj:
                 others_combined = np.zeros(len(G.CALFIB_WAVEGRID))
                 others_combined_err = np.zeros(len(G.CALFIB_WAVEGRID))
                 sel = np.where(np.arange(num_exp)!=(mx_expid-1))[0]
-                #others_combined += sum[i]
+                #others_combined += ssum[i]
 
                 #"maximum" case others
-                others_sum = np.nansum(sum[sel])
-                others_sum_err = np.sqrt(np.nansum(sume[sel]**2))
+                others_sum = np.nansum(ssum[sel])
+                others_sum_err = np.sqrt(np.nansum(ssume[sel]**2))
 
                 if others_sum < 0: #just slide up
                     #the 50 is partly arbitrary and partly experimental
@@ -972,7 +979,7 @@ class DetObj:
                 #others_sum = np.nansum(others_combined)
 
                 #how does highest sum [-1] it compare to the next highest [-2]
-                #next_largest = sorted(sum)[-2]
+                #next_largest = sorted(ssum)[-2]
 
                 if others_sum > 1000.0: #sort of arbitrarily large value to exclude stars
                     return 0
@@ -1034,10 +1041,7 @@ class DetObj:
                         self.spec_obj.add_classification_label("Meteor")
                         pos = np.array(pos)
                         log.info(f"Meteor: Detection likely a meteor. Exp# {mx_expid} at x{spec_ratio:0.1f}, lines at {G.CALFIB_WAVEGRID[pos]}")
-            elif mx_sum < 0:
-                return 0
-            else: #next_largest < 0
-                return 0
+                        return 1
 
             #for test
             if False:
@@ -1054,6 +1058,8 @@ class DetObj:
 
         except:
             log.debug("Exception in hetdex::DetObj::check_for_meteor",exc_info=True)
+
+        return 0
 
 
     def aggregate_classification(self):
