@@ -1050,7 +1050,7 @@ class DetObj:
                 #spec_ratio = std_above
                 spec_ratio = cmx_sum / cn2_sum
                # if ((full_ratio > 2 ) or (common_ratio > 4)): #maybe need more checking
-                if (spec_ratio > 2 ): #maybe need more checking
+                if (spec_ratio > 10 ): #maybe need more checking
                     #check for emission lines in mx_sum?
                     #this is either likely a meteor OR some problem that occured in the exposures
                     pos = elixer_spectrum.sn_peakdet_no_fit(G.CALFIB_WAVEGRID,exp[cmx_expid - 1],exp_err[cmx_expid - 1],
