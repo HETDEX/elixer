@@ -1103,7 +1103,7 @@ class DetObj:
                         meteor = 0
                     elif len(common_lines) > 3: #got most of the common lines
                         if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
-                            meteor = 5
+                            meteor = 5 #common trigger
                             log.debug("+++++ meteor condition 7")
                         elif len(waves) < 20:  # getting close to shotgun
                             meteor = 3
@@ -1113,14 +1113,14 @@ class DetObj:
                         #one or more of the Mg lines and  2 or more common lines (which can include MgI)
                         if (len(bright_mg_line) > 0) and (len(common_lines) > 1):
                             if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
-                                meteor = 3
+                                meteor = 3 #common trigger
                                 log.debug("+++++ meteor condition 1")
                             elif len(waves) < 20: #getting close to shotgun
                                 meteor = 2
                                 log.debug("+++++ meteor condition 2")
                         elif (len(bright_mg_line) > 0): #only got a bright line
                             if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
-                                meteor = 2
+                                meteor = 2 #occasional trigger
                                 log.debug("+++++ meteor condition 3")
                             elif len(waves) < 20:  # getting close to shotgun
                                 meteor = 1
@@ -1153,21 +1153,17 @@ class DetObj:
                                 meteor = 0 #don't trust it
 
                     #final check
-                    if (meteor == 0) and (spec_ratio > 20) and (full_ratio > 5):
-                        if len(common_lines) > 0: #got at least one
-                            meteor = 1 #going to get kicked up again just below
-                            log.debug("+++++ meteor condition 1c")
-                        else:
-                            meteor = 0.5
-                            log.debug("+++++ meteor condition 1d")
+                    #CANNOT DO THIS : far too easy for AGN to fall into this
+                    # if (meteor == 0) and (spec_ratio > 20) and (full_ratio > 5):
+                    #     if len(common_lines) > 0: #got at least one
+                    #         meteor = 1 #going to get kicked up again just below
+                    #         log.debug("+++++ meteor condition 1c")
+                    #     else:
+                    #         meteor = 0.5
+                    #         log.debug("+++++ meteor condition 1d")
 
 
                     if meteor > 0:
-                        if spec_ratio > 10:
-                            meteor += 1
-                        if spec_ratio > 20:
-                            meteor += 1
-
                         self.spec_obj.add_classification_label("Meteor")
                         self.spec_obj.meteor_strength = meteor
                         pos = np.array(pos)
