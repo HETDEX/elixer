@@ -1086,10 +1086,10 @@ class DetObj:
 
                     waves = np.array(waves)
 
-                    bright_mg_line = np.where( (waves >= 3834) & (waves <= 3840) | ((waves >= 5170) & (waves <= 5186)))[0]
-                    common_lines = np.where( ((waves >= 3834) & (waves <= 3840)) |
-                                             ((waves >= 3965) & (waves <= 3971)) |
+                    bright_mg_line = np.where( (waves >= 3832) & (waves <= 3840) | ((waves >= 5170) & (waves <= 5186)))[0]
+                    common_lines = np.where( ((waves >= 3832) & (waves <= 3840)) |
                                              ((waves >= 3931) & (waves <= 3937)) |
+                                             ((waves >= 3965) & (waves <= 3971)) |
                                              ((waves >= 4224) & (waves <= 4230)) |
                                              ((waves >= 5170) & (waves <= 5186))  )[0]
                     #other lines CaII at 3934
@@ -1113,10 +1113,10 @@ class DetObj:
                         #one or more of the Mg lines and  2 or more common lines (which can include MgI)
                         if (len(bright_mg_line) > 0) and (len(common_lines) > 1):
                             if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
-                                meteor = 5
+                                meteor = 3
                                 log.debug("+++++ meteor condition 1")
                             elif len(waves) < 20: #getting close to shotgun
-                                meteor = 3
+                                meteor = 2
                                 log.debug("+++++ meteor condition 2")
                         elif (len(bright_mg_line) > 0): #only got a bright line
                             if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
@@ -1133,27 +1133,41 @@ class DetObj:
                     elif near_bright_obj and (spec_ratio > 3):
                         if (len(bright_mg_line) > 0) and (len(common_lines) > 1):
                             if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
-                                meteor = 3
+                                meteor = 2
                                 log.debug("+++++ meteor condition 1b")
                             elif len(waves) < 20:
-                                meteor = 2
+                                meteor = 1
                                 log.debug("+++++ meteor condition 2b")
                         elif (len(bright_mg_line) > 0):  # only got a bright line
                             if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
-                                meteor = 2
+                                meteor = 1.5
                                 log.debug("+++++ meteor condition 3b")
                             elif len(waves) < 20:  # getting close to shotgun
-                                meteor = 1
+                                meteor = 0.5
                                 log.debug("+++++ meteor condition 4b")
                         elif len(common_lines) > 1: #no bright lines, but 2+ common lines
                             if len(waves) < 10:
-                                meteor = 1
+                                meteor = 0.5
                                 log.debug("+++++ meteor condition 5b")
                             else:
                                 meteor = 0 #don't trust it
 
+                    #final check
+                    if (meteor == 0) and (spec_ratio > 20) and (full_ratio > 5):
+                        if len(common_lines) > 0: #got at least one
+                            meteor = 1 #going to get kicked up again just below
+                            log.debug("+++++ meteor condition 1c")
+                        else:
+                            meteor = 0.5
+                            log.debug("+++++ meteor condition 1d")
+
 
                     if meteor > 0:
+                        if spec_ratio > 10:
+                            meteor += 1
+                        if spec_ratio > 20:
+                            meteor += 1
+
                         self.spec_obj.add_classification_label("Meteor")
                         self.spec_obj.meteor_strength = meteor
                         pos = np.array(pos)
