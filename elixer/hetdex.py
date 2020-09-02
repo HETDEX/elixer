@@ -1003,7 +1003,7 @@ class DetObj:
 
                 others_sum = n2_sum
 
-
+            meteor = False
             if mx_sum > others_sum > 0:
                 spec_ratio = mx_sum / others_sum
                 #spec_ratio = std_above
@@ -1012,13 +1012,23 @@ class DetObj:
                     #this is either likely a meteor OR some problem that occured in the exposures
                     pos = elixer_spectrum.sn_peakdet_no_fit(G.CALFIB_WAVEGRID,exp[mx_expid - 1],exp_err[mx_expid - 1],
                                                             dx=3,rx=2,dv=3.0,dvmx=5.0)
+                    quick_waves = G.CALFIB_WAVEGRID[pos]
 
-                    meteor = False
-                    waves = G.CALFIB_WAVEGRID[pos]
+                    #merge in with the existing all found lines
+                    try:
+                        waves = [x.fit_x0 for x in self.spec_obj.all_found_lines]
+                        for q in quick_waves:
+                            if not np.any(np.isclose(q, waves, atol=6.0)):
+                                waves.append(q)
+                    except:
+                        waves = quick_waves
+
+                    waves = np.array(waves)
+
                     bright_mg_line = np.where( (waves >= 3834) & (waves <= 3840))[0]
                     common_lines = np.where( ((waves >= 3834) & (waves <= 3840)) |
-                                             ((waves >= 3966) & (waves <= 3970)) |
-                                             ((waves >= 3932) & (waves <= 3936)) |
+                                             ((waves >= 3965) & (waves <= 3971)) |
+                                             ((waves >= 3931) & (waves <= 3937)) |
                                              ((waves >= 4224) & (waves <= 4230)) |
                                              ((waves >= 5170) & (waves <= 5186))  )[0]
                     #other lines CaII at 3934
