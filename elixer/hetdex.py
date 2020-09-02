@@ -927,6 +927,20 @@ class DetObj:
             mx_expid = np.argmax(sum)+1
             mx_sum = sum[mx_expid-1]
 
+            #which has the minimum
+            mn_expid = np.argmin(sum)+1
+            mn_sum = sum[mn_expid-1]
+
+            #which is second highest (normally, the only one left, but there could be more than 3 exposures
+            strip_sum = copy(sum)
+            strip_sum[mx_expid-1] = -99999.
+            n2_expid = np.argmax(strip_sum)+1
+            n2_sum = sum[n2_expid-1]
+
+            #adjust all (subtract off the minimum sum as the zero
+            for i in range(num_exp):
+                sum[i] -= mn_sum
+
             #median and std for later
             med = np.median(sum)
             std = np.std(sum)
@@ -937,34 +951,51 @@ class DetObj:
             else:
                 std_above = 0
 
-            #sum over wavebins
-            others_combined = np.zeros(len(G.CALFIB_WAVEGRID))
-            others_combined_err = np.zeros(len(G.CALFIB_WAVEGRID))
-            sel = np.where(np.arange(num_exp)!=(mx_expid-1))[0]
-            #others_combined += sum[i]
+            if False:
+                #sum over wavebins
+                others_combined = np.zeros(len(G.CALFIB_WAVEGRID))
+                others_combined_err = np.zeros(len(G.CALFIB_WAVEGRID))
+                sel = np.where(np.arange(num_exp)!=(mx_expid-1))[0]
+                #others_combined += sum[i]
 
-            #"maximum" case others
-            others_sum = np.nansum(sum[sel])
-            others_sum_err = np.sqrt(np.nansum(sume[sel]**2))
+                #"maximum" case others
+                others_sum = np.nansum(sum[sel])
+                others_sum_err = np.sqrt(np.nansum(sume[sel]**2))
 
-            if others_sum < 0: #just slide up
-                #the 50 is partly arbitrary and partly experimental
-                others_sum += others_sum_err
-                mx_sum += others_sum_err #or maybe the mx_sum's own error?
-                if others_sum < 0: #still less than zero
-                    others_sum = others_sum_err #assume should be zero + error
+                if others_sum < 0: #just slide up
+                    #the 50 is partly arbitrary and partly experimental
+                    others_sum += others_sum_err
+                    mx_sum += others_sum_err #or maybe the mx_sum's own error?
+                    if others_sum < 0: #still less than zero
+                        others_sum = others_sum_err #assume should be zero + error
 
-            #others_sum = np.nansum(others_combined)
+                #others_sum = np.nansum(others_combined)
 
-            #how does highest sum [-1] it compare to the next highest [-2]
-            #next_largest = sorted(sum)[-2]
+                #how does highest sum [-1] it compare to the next highest [-2]
+                #next_largest = sorted(sum)[-2]
 
-            if others_sum > 1000.0: #sort of arbitrarily large value to exclude stars
-                return 0
+                if others_sum > 1000.0: #sort of arbitrarily large value to exclude stars
+                    return 0
 
-            if others_sum == 0: #almost impossible unless there is a problem
-                log.debug("DetObj::check_for_meteor zero sums")
-                return 0
+                if others_sum == 0: #almost impossible unless there is a problem
+                    log.debug("DetObj::check_for_meteor zero sums")
+                    return 0
+            else:
+                #use the second highest as reference ... should be no way for it to be less than zero
+                #since we subtract off the lowest sum
+                if n2_sum > 1000.0:  # sort of arbitrarily large value to exclude stars
+                    return 0
+
+                if n2_sum == 0:  # almost impossible unless there is a problem
+                    log.debug("DetObj::check_for_meteor zero sums")
+                    return 0
+
+                if n2_sum < 0:  #impossible?
+                    log.debug("DetObj::check_for_meteor negative second sum")
+                    return 0
+
+                others_sum = n2_sum
+
 
             if mx_sum > others_sum > 0:
                 spec_ratio = mx_sum / others_sum
@@ -978,11 +1009,11 @@ class DetObj:
                     meteor = False
                     waves = G.CALFIB_WAVEGRID[pos]
                     bright_mg_line = np.where( (waves >= 3834) & (waves <= 3840))[0]
-                    common_lines = np.where( ((waves >= 3834) & (waves <= 3840)) |   #MgI lines are 3832,3838 though 3838 is strong
-                                             ((waves >= 3966) & (waves <= 3970)) |   #Al ?
-                                             ((waves >= 3932) & (waves <= 3936)) |   #CaII
-                                             ((waves >= 4224) & (waves <= 4230)) |   #CaI
-                                             ((waves >= 5170) & (waves <= 5186))  )[0]  #MgI
+                    common_lines = np.where( ((waves >= 3834) & (waves <= 3840)) |
+                                             ((waves >= 3966) & (waves <= 3970)) |
+                                             ((waves >= 3932) & (waves <= 3936)) |
+                                             ((waves >= 4224) & (waves <= 4230)) |
+                                             ((waves >= 5170) & (waves <= 5186))  )[0]
                     #other lines CaII at 3934
                     #            Al    around 3968 (or Al and FeI 3962,3978)? (kinda weak)
                     #            CaI  at 4227
