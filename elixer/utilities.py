@@ -433,3 +433,21 @@ def intersection_fraction(R_in, R_out,d, r=G.Fiber_Radius):
     """
 
     return intersection_area(R_in, R_out,d,r) / (np.pi *r *r)
+
+
+def reformat_input_id(input_id):
+    """
+    take an input_id string and convert to the form used in the h5 files
+    :param input_id:
+    :return:
+    """
+
+    try:
+        toks = input_id.split("_")
+
+        id = toks[0].replace('v','')[0:8] + "v" + toks[0].replace('v','')[8:] + "_" + str(int(toks[1])).zfill(3) + \
+             "_" + str(int(toks[2])).zfill(3) + "_" + str(int(toks[3])).zfill(3) + "_" + str(int(toks[4])).zfill(3)
+
+        return id
+    except:
+        return None
