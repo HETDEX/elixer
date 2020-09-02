@@ -1045,7 +1045,7 @@ class DetObj:
                     return 0
 
 
-            try:
+            try: #if the errors are too big, just cannot trust anything
                 if (cmx_sum / common_sume[cmx_expid-1]) < 2.0:
                     log.debug(f"DetObj:check_for_meteor sum error too high {cmx_sum} +/- {common_sume[cmx_expid-1]}")
                     return 0
@@ -1061,24 +1061,28 @@ class DetObj:
                 #spec_ratio = std_above
                 spec_ratio = cmx_sum / cn2_sum
                # if ((full_ratio > 2 ) or (common_ratio > 4)): #maybe need more checking
+                #minimum gate check, just to warrant addtional steps
                 if (spec_ratio > 4 ): #maybe need more checking
-                    #check for emission lines in mx_sum?
-                    #this is either likely a meteor OR some problem that occured in the exposures
-                    pos = elixer_spectrum.sn_peakdet_no_fit(G.CALFIB_WAVEGRID,exp[cmx_expid - 1],exp_err[cmx_expid - 1],
-                                                            dx=3,rx=2,dv=3.0,dvmx=5.0)
-                    quick_waves = G.CALFIB_WAVEGRID[pos]
-
                     #merge in with the existing all found lines
                     try:
                         waves = [x.fit_x0 for x in self.spec_obj.all_found_lines]
-                        for q in quick_waves:
-                            if not np.any(np.isclose(q, waves, atol=6.0)):
-                                waves.append(q)
+                        #if we already have 4 or more lines from the PSF weighted spectra, these
+                        #are going to be the brighter/stronger lines anyway,
+                        #there is no need to run the "no fit" lines and risk a shotgun match
+                        if len(waves) < 4:
+                            pos = elixer_spectrum.sn_peakdet_no_fit(G.CALFIB_WAVEGRID, exp[cmx_expid - 1],
+                                                                    exp_err[cmx_expid - 1],
+                                                                    dx=3, rx=2, dv=3.0, dvmx=5.0)
+                            quick_waves = G.CALFIB_WAVEGRID[pos]
+                            for q in quick_waves:
+                                if not np.any(np.isclose(q, waves, atol=6.0)):
+                                    waves.append(q)
 
-                        if not np.any(np.isclose(self.w,waves,atol=6.0)):
-                            waves.append(self.w)
+                            if not np.any(np.isclose(self.w,waves,atol=6.0)):
+                                waves.append(self.w)
                     except:
-                        waves = quick_waves
+                        log.info("Exception in DetObj::check_for_meteor()",exc_info=True)
+                        waves = [] #this will basically fail out below
 
                     waves = np.array(waves)
 
@@ -1094,11 +1098,14 @@ class DetObj:
                     #            MgI  at 5173,5184
                     #            FeI  at 5330  (weak)
 
-                    # if (spec_ratio) > 100:
-                    #     meteor = True
-                    #if ((spec_ratio > 4) or (std_above > 3)):
-                    if (spec_ratio > 5) and (len(pos) > 2) and (len(pos) < 30):
-                        meteor = 5
+                    if len(waves) > 20:
+                        #too many to trust
+                        meteor = 0
+                    elif (spec_ratio > 5) and (len(bright_mg_line) > 0) and (len(common_lines) > 1):
+                        if (len(waves) < 10): #check for total waves (too many results in shotgun match)
+                            meteor = 5
+                        elif len(waves) < 20:
+                            meteor = 3
                     elif (spec_ratio > 3) and (0 < len(bright_mg_line) < 3):
                         meteor = 4
                     elif (spec_ratio > 5) and (len(common_lines) > 0):
