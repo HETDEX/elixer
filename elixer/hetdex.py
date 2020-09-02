@@ -1062,7 +1062,7 @@ class DetObj:
                 spec_ratio = cmx_sum / cn2_sum
                # if ((full_ratio > 2 ) or (common_ratio > 4)): #maybe need more checking
                 #minimum gate check, just to warrant addtional steps
-                if (spec_ratio > 4 ): #maybe need more checking
+                if ((spec_ratio > 5 ) or (near_bright_obj and (spec_ratio > 3))): #maybe need more checking
                     #merge in with the existing all found lines
                     try:
                         waves = [x.fit_x0 for x in self.spec_obj.all_found_lines]
