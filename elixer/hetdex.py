@@ -917,6 +917,22 @@ class DetObj:
 
             common_line_idx = np.searchsorted(G.CALFIB_WAVEGRID, common_line_waves)
 
+            #planning ahead a bit, not quite sure how to use this yet
+            #this is a an average flux density in areas not commonly covered by meteor emission lines
+            #so this can indicate a lot of continuum
+            # a REAALY bright meteor would have continuum too, but this is from the PSF weighted spectra and the other
+            # contributing exposures would normally have very little
+            exclude_common_line_idx = np.setdiff1d(np.arange(len(G.CALFIB_WAVEGRID)),common_line_idx)
+            avg_exclude_flux_density = np.sum(self.sumspec_flux[exclude_common_line_idx])/(G.FLUX_WAVEBIN_WIDTH*len(exclude_common_line_idx))
+            avg_exclude_flux_density_err = np.sum(self.sumspec_fluxerr[exclude_common_line_idx])/(G.FLUX_WAVEBIN_WIDTH*len(exclude_common_line_idx))
+            min_avg_exclude_flux_density = avg_exclude_flux_density - avg_exclude_flux_density_err
+
+            if min_avg_exclude_flux_density > 6.0: #erg/s/cm2/AA  #> 10e-17 in HETDEX CGS
+                #definite detection of continuum
+                log.info("DetObj::check_for_meteor(). Bright continuum excluding common meteor lines. Not a meteor.")
+                return 0
+
+
             exp = np.zeros((num_exp,len(G.CALFIB_WAVEGRID)))
             exp_err = np.zeros((num_exp,len(G.CALFIB_WAVEGRID)))
 
@@ -1153,11 +1169,11 @@ class DetObj:
                                 meteor = 0 #don't trust it
 
                     #final check
-                    #CANNOT DO THIS : far too easy for AGN to fall into this
-                    # if (meteor == 0) and (spec_ratio > 20) and (full_ratio > 5):
-                    #     if len(common_lines) > 0: #got at least one
-                    #         meteor = 1 #going to get kicked up again just below
-                    #         log.debug("+++++ meteor condition 1c")
+                    if (meteor == 0) and (spec_ratio > 20) and (full_ratio > 5):
+                        if len(common_lines) > 0: #got at least one
+                            meteor = 1
+                            log.debug("+++++ meteor condition 1c")
+                    # CANNOT DO THIS : far too easy for AGN to fall into this
                     #     else:
                     #         meteor = 0.5
                     #         log.debug("+++++ meteor condition 1d")
