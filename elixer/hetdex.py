@@ -927,7 +927,7 @@ class DetObj:
             avg_exclude_flux_density_err = np.sum(self.sumspec_fluxerr[exclude_common_line_idx])/(G.FLUX_WAVEBIN_WIDTH*len(exclude_common_line_idx))
             min_avg_exclude_flux_density = avg_exclude_flux_density - avg_exclude_flux_density_err
 
-            if min_avg_exclude_flux_density > 6.0: #erg/s/cm2/AA  #> 10e-17 in HETDEX CGS
+            if min_avg_exclude_flux_density > 2.0: #erg/s/cm2/AA  #> 10e-17 in HETDEX CGS
                 #definite detection of continuum
                 log.info("DetObj::check_for_meteor(). Bright continuum excluding common meteor lines. Not a meteor.")
                 return 0
@@ -1169,7 +1169,7 @@ class DetObj:
                                 meteor = 0 #don't trust it
 
                     #final check
-                    if (meteor == 0) and (spec_ratio > 20) and (full_ratio > 5):
+                    if (meteor == 0) and (spec_ratio > 20) and (full_ratio > 5) and (len(waves) <= 20):
                         if len(common_lines) > 0: #got at least one
                             meteor = 1
                             log.debug("+++++ meteor condition 1c")
