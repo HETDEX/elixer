@@ -991,11 +991,11 @@ class DetObj:
 
                     # if (spec_ratio) > 100:
                     #     meteor = True
-                    if ((spec_ratio > 4) or (std_above > 3)):
-                        if (len(pos) > 2) and (len(pos) < 30): #so 2 or more possible lines above noise, likely a meteor and not an error
-                            meteor = True
-                        elif ((0 < len(bright_mg_line) < 3) or (3834 <= self.w <= 3480)):
-                            meteor = True
+                    #if ((spec_ratio > 4) or (std_above > 3)):
+                    if (len(pos) > 2) and (len(pos) < 30): #so 2 or more possible lines above noise, likely a meteor and not an error
+                        meteor = True
+                    elif ((0 < len(bright_mg_line) < 3) or (3834 <= self.w <= 3840)):
+                        meteor = True
                     elif len(common_lines) > 3: #hit most of the common lines
                         meteor = True #so ratio > 2 AND the MgI line appears to be present
 
