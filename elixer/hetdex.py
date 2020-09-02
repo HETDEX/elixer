@@ -1101,19 +1101,57 @@ class DetObj:
                     if len(waves) > 20:
                         #too many to trust
                         meteor = 0
-                    elif (spec_ratio > 5) and (len(bright_mg_line) > 0) and (len(common_lines) > 1):
-                        if (len(waves) < 10): #check for total waves (too many results in shotgun match)
+                    elif len(common_lines) > 3: #got most of the common lines
+                        if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
                             meteor = 5
-                        elif len(waves) < 20:
+                            log.debug("+++++ meteor condition 7")
+                        elif len(waves) < 20:  # getting close to shotgun
                             meteor = 3
-                    elif (spec_ratio > 3) and (0 < len(bright_mg_line) < 3):
-                        meteor = 4
-                    elif (spec_ratio > 5) and (len(common_lines) > 0):
-                        meteor = 4
-                    elif len(common_lines) > 3:  # hit most of the common lines
-                        meteor = 3  # so ratio > 2 AND the MgI line appears to be present
-                    elif (0 < len(bright_mg_line) < 3) and (len(common_lines) > 1):
-                        meteor = 1
+                            log.debug("+++++ meteor condition 8")
+                    #full ratio in one exposure
+                    elif (spec_ratio > 5):
+                        #one or more of the Mg lines and  2 or more common lines (which can include MgI)
+                        if (len(bright_mg_line) > 0) and (len(common_lines) > 1):
+                            if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
+                                meteor = 5
+                                log.debug("+++++ meteor condition 1")
+                            elif len(waves) < 20: #getting close to shotgun
+                                meteor = 3
+                                log.debug("+++++ meteor condition 2")
+                        elif (len(bright_mg_line) > 0): #only got a bright line
+                            if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
+                                meteor = 2
+                                log.debug("+++++ meteor condition 3")
+                            elif len(waves) < 20:  # getting close to shotgun
+                                meteor = 1
+                                log.debug("+++++ meteor condition 4")
+                        elif len(common_lines) > 1: #no bright lines, but 2+ common lines
+                                meteor = 1
+                                log.debug("+++++ meteor condition 5")
+
+                    #reduced ratio but near a bright object
+                    elif near_bright_obj and (spec_ratio > 3):
+                        if (len(bright_mg_line) > 0) and (len(common_lines) > 1):
+                            if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
+                                meteor = 3
+                                log.debug("+++++ meteor condition 1b")
+                            elif len(waves) < 20:
+                                meteor = 2
+                                log.debug("+++++ meteor condition 2b")
+                        elif (len(bright_mg_line) > 0):  # only got a bright line
+                            if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
+                                meteor = 2
+                                log.debug("+++++ meteor condition 3b")
+                            elif len(waves) < 20:  # getting close to shotgun
+                                meteor = 1
+                                log.debug("+++++ meteor condition 4b")
+                        elif len(common_lines) > 1: #no bright lines, but 2+ common lines
+                            if len(waves) < 10:
+                                meteor = 1
+                                log.debug("+++++ meteor condition 5b")
+                            else:
+                                meteor = 0 #don't trust it
+
 
                     if meteor > 0:
                         self.spec_obj.add_classification_label("Meteor")
