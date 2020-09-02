@@ -1020,12 +1020,15 @@ class DetObj:
                         for q in quick_waves:
                             if not np.any(np.isclose(q, waves, atol=6.0)):
                                 waves.append(q)
+
+                        if not np.any(np.isclose(self.w,waves,atol=6.0)):
+                            waves.append(self.w)
                     except:
                         waves = quick_waves
 
                     waves = np.array(waves)
 
-                    bright_mg_line = np.where( (waves >= 3834) & (waves <= 3840))[0]
+                    bright_mg_line = np.where( (waves >= 3834) & (waves <= 3840) | ((waves >= 5170) & (waves <= 5186)))[0]
                     common_lines = np.where( ((waves >= 3834) & (waves <= 3840)) |
                                              ((waves >= 3965) & (waves <= 3971)) |
                                              ((waves >= 3931) & (waves <= 3937)) |
@@ -1040,12 +1043,14 @@ class DetObj:
                     # if (spec_ratio) > 100:
                     #     meteor = True
                     #if ((spec_ratio > 4) or (std_above > 3)):
-                    if (len(pos) > 2) and (len(pos) < 30): #so 2 or more possible lines above noise, likely a meteor and not an error
+                    if (spec_ratio > 5) and (len(pos) > 2) and (len(pos) < 30):
                         meteor = True
-                    elif ((0 < len(bright_mg_line) < 3) or (3834 <= self.w <= 3840)):
+                    elif (spec_ratio > 3) and (0 < len(bright_mg_line) < 3):
                         meteor = True
-                    elif len(common_lines) > 3: #hit most of the common lines
-                        meteor = True #so ratio > 2 AND the MgI line appears to be present
+                    elif len(common_lines) > 3:  # hit most of the common lines
+                        meteor = True  # so ratio > 2 AND the MgI line appears to be present
+                    elif (spec_ratio > 5) and (len(common_lines) > 0):
+                        meteor = True
 
                     if meteor:
                         self.spec_obj.add_classification_label("Meteor")
