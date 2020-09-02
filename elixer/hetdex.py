@@ -908,6 +908,15 @@ class DetObj:
             if num_exp < 2:
                 return 0
 
+            #indices that cover common meteor lines (MgI, Al, CaI, CaII) into CALFIB_WAVEGRID
+            common_line_waves = np.concatenate( (np.arange(3830,3844,2),
+                                                 np.arange(3960,3976,2),
+                                                 np.arange(3926,3942,2),
+                                                 np.arange(4220,4234,2),
+                                                 np.arange(5166,5190,2)))
+
+            common_line_idx = np.searchsorted(G.CALFIB_WAVEGRID, common_line_waves)
+
             exp = np.zeros((num_exp,len(G.CALFIB_WAVEGRID)))
             exp_err = np.zeros((num_exp,len(G.CALFIB_WAVEGRID)))
 
@@ -916,47 +925,79 @@ class DetObj:
                 exp[f.expid-1] += f.fits.calfib[idx]
                 exp_err[f.expid-1] += f.fits.calfibe[idx]
 
-            #now, just sum across each (expect 1 exposure to stand out
-            ssum = np.zeros(num_exp)
-            ssume = np.zeros(num_exp)
+
+            #sum over JUST the COMMON areas
+            common_sum = np.zeros(num_exp)
+            common_sume = np.zeros(num_exp)
             for i in range(num_exp):
-                ssum[i] = np.nansum(exp[i])
-                ssume[i] = np.sqrt(np.nansum(exp_err[i]**2))
+                common_sum[i] = np.nansum(exp[i][common_line_idx])
+                common_sume[i] = np.sqrt(np.nansum(exp_err[i][common_line_idx]**2))
 
-            #which has the minimum (so can subtract off)
-            ssum -= min(ssum)
-            # mn_expid = np.argmin(ssum)+1
-            # mn_sum = ssum[mn_expid-1]
-            #
-            # #adjust all (subtract off the minimum sum as the zero
-            # for i in range(num_exp):
-            #     ssum[i] -= mn_sum
+            # which has the minimum (so can subtract off)
+            common_sum -= min(common_sum)
 
-            #which exposure has the maximum
-            mx_expid = np.argmax(ssum)+1
-            mx_sum = ssum[mx_expid-1]
+            # which exposure has the maximum
+            cmx_expid = np.argmax(common_sum) + 1
+            cmx_sum = common_sum[cmx_expid - 1]
 
-            #which has the minimum
-            mn_expid = np.argmin(ssum)+1
-            mn_sum = ssum[mn_expid-1]
+            # which has the minimum
+            cmn_expid = np.argmin(common_sum) + 1
+            cmn_sum = common_sum[cmn_expid - 1]
 
-            #which is second highest (normally, the only one left, but there could be more than 3 exposures
-            strip_sum = copy(ssum)
-            strip_sum[mx_expid-1] = -99999.
-            n2_expid = np.argmax(strip_sum)+1
-            n2_sum = ssum[n2_expid-1]
+            # which is second highest (normally, the only one left, but there could be more than 3 exposures
+            strip_sum = copy(common_sum)
+            strip_sum[cmx_expid - 1] = -99999.
+            cn2_expid = np.argmax(strip_sum) + 1
+            cn2_sum = common_sum[cn2_expid - 1]
 
 
+            if True:
+                #this can be tripped up by being near a bright object and exposures that move
+                #closer to it can then become the largest (overall) just from continuum
+                ###############################
+                # Now for the entire spectrum
+                ###############################
 
-            #median and std for later
-            med = np.median(ssum)
-            std = np.std(ssum)
-            #effectively, this is the num of std the maximum is above the next hightest (which will be the
-            #median of the three values
-            if std != 0:
-                std_above = (mx_sum-med)/std
-            else:
-                std_above = 0
+                #now, just sum across each (expect 1 exposure to stand out
+                ssum = np.zeros(num_exp)
+                ssume = np.zeros(num_exp)
+                for i in range(num_exp):
+                    ssum[i] = np.nansum(exp[i])
+                    ssume[i] = np.sqrt(np.nansum(exp_err[i]**2))
+
+                #which has the minimum (so can subtract off)
+                ssum -= min(ssum)
+
+                #which exposure has the maximum
+                mx_expid = np.argmax(ssum)+1
+                mx_sum = ssum[mx_expid-1]
+
+                #which has the minimum
+                mn_expid = np.argmin(ssum)+1
+                mn_sum = ssum[mn_expid-1]
+
+                #which is second highest (normally, the only one left, but there could be more than 3 exposures
+                strip_sum = copy(ssum)
+                strip_sum[mx_expid-1] = -99999.
+                n2_expid = np.argmax(strip_sum)+1
+                n2_sum = ssum[n2_expid-1]
+
+                #median and std for later
+                # med = np.median(ssum)
+                # std = np.std(ssum)
+                # #effectively, this is the num of std the maximum is above the next hightest (which will be the
+                # #median of the three values
+                # if std != 0:
+                #     std_above = (mx_sum-med)/std
+                # else:
+                #     std_above = 0
+
+                #make sure the two methods ID the same
+                # BUT we could be near a bright object and then its scattered light could flip these around
+                # so ignore this and just use the 'common' values at the end
+                # if (cmx_expid != mx_expid) or (cmn_expid != mn_expid):
+                #     log.info("DetObj::check_for_meteor expids do not match.")
+                #     return 0
 
             if False:
                 #sum over wavebins
@@ -981,7 +1022,7 @@ class DetObj:
                 #how does highest sum [-1] it compare to the next highest [-2]
                 #next_largest = sorted(ssum)[-2]
 
-                if others_sum > 1000.0: #sort of arbitrarily large value to exclude stars
+                if others_sum > 25000.0: #sort of arbitrarily large value to exclude stars
                     return 0
 
                 if others_sum == 0: #almost impossible unless there is a problem
@@ -990,7 +1031,7 @@ class DetObj:
             else:
                 #use the second highest as reference ... should be no way for it to be less than zero
                 #since we subtract off the lowest sum
-                if n2_sum > 1000.0:  # sort of arbitrarily large value to exclude stars
+                if n2_sum > 25000.0:  # sort of arbitrarily large value to exclude stars
                     return 0
 
                 if n2_sum == 0:  # almost impossible unless there is a problem
@@ -1001,16 +1042,18 @@ class DetObj:
                     log.debug("DetObj::check_for_meteor negative second sum")
                     return 0
 
-                others_sum = n2_sum
-
             meteor = 0
-            if mx_sum > others_sum > 0:
-                spec_ratio = mx_sum / others_sum
+            if cmx_sum > cn2_sum > 0:
+                #full_ratio = mx_sum / n2_sum
+                #common_ratio = cmx_sum / cn2_sum
+                #spec_ratio = max(full_ratio,common_ratio)
                 #spec_ratio = std_above
-                if ((spec_ratio > 2 ) or (std_above > 2)): #maybe need more checking
+                spec_ratio = cmx_sum / cn2_sum
+               # if ((full_ratio > 2 ) or (common_ratio > 4)): #maybe need more checking
+                if (spec_ratio > 2 ): #maybe need more checking
                     #check for emission lines in mx_sum?
                     #this is either likely a meteor OR some problem that occured in the exposures
-                    pos = elixer_spectrum.sn_peakdet_no_fit(G.CALFIB_WAVEGRID,exp[mx_expid - 1],exp_err[mx_expid - 1],
+                    pos = elixer_spectrum.sn_peakdet_no_fit(G.CALFIB_WAVEGRID,exp[cmx_expid - 1],exp_err[cmx_expid - 1],
                                                             dx=3,rx=2,dv=3.0,dvmx=5.0)
                     quick_waves = G.CALFIB_WAVEGRID[pos]
 
