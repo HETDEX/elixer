@@ -1016,7 +1016,7 @@ class DetObj:
                 # BUT we could be near a bright object and then its scattered light could flip these around
                 # so ignore this and just use the 'common' values at the end
                 if (cmx_expid != mx_expid) or (cmn_expid != mn_expid):
-                    log.info("DetObj::check_for_meteor expids do not match. Assume near a bright object.")
+                    log.info("DetObj::check_for_meteor expids do not match. Could be near a bright object OR not a meteor.")
                     near_bright_obj = True
                 #     return 0
 

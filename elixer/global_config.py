@@ -68,6 +68,8 @@ GOODS_N_CAT_PATH = None
 STACK_COSMOS_BASE_PATH = None
 STACK_COSMOS_CAT_PATH = None
 COSMOS_EXTRA_PATH = None
+COSMOS_LAIGLE_BASE_PATH = None
+COSMOS_LAIGLE_CAT_PATH = None
 
 DECAM_IMAGE_PATH = None
 SHELA_BASE_PATH = None
@@ -197,6 +199,8 @@ def select_hdr_version(version):
     global STACK_COSMOS_BASE_PATH
     global STACK_COSMOS_CAT_PATH
     global COSMOS_EXTRA_PATH
+    global COSMOS_LAIGLE_BASE_PATH
+    global COSMOS_LAIGLE_CAT_PATH
 
     global DECAM_IMAGE_PATH
     global SHELA_BASE_PATH
@@ -358,6 +362,10 @@ def select_hdr_version(version):
         STACK_COSMOS_BASE_PATH = op.join(hdr_imaging_basepath, "cosmos/stackCOSMOS/nano/")
         STACK_COSMOS_CAT_PATH = op.join(hdr_imaging_basepath, "cosmos/stackCOSMOS")
         COSMOS_EXTRA_PATH = op.join(hdr_imaging_basepath, "cosmos/COSMOS/")
+
+        COSMOS_LAIGLE_BASE_PATH = op.join(hdr_imaging_basepath, "cosmos/laigle2015")
+        COSMOS_LAIGLE_CAT_PATH = op.join(hdr_imaging_basepath, "cosmos/laigle2015")
+
 
         DECAM_IMAGE_PATH = op.join(hdr_imaging_basepath, "shela/nano/")
         SHELA_BASE_PATH = op.join(hdr_imaging_basepath, "shela/nano/")
