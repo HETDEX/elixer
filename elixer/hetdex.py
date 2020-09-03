@@ -909,11 +909,14 @@ class DetObj:
                 return 0
 
             #indices that cover common meteor lines (MgI, Al, CaI, CaII) into CALFIB_WAVEGRID
+            #these are a bit broader ranges than the more specific waves that are list later on in this function
+            #and are used just to check the exposure vs exposure ratios
             common_line_waves = np.concatenate( (np.arange(3830,3844,2),
                                                  np.arange(3926,3942,2),
                                                  np.arange(3960,3976,2),
-                                                 np.arange(4220,4234,2),
-                                                 np.arange(5166,5190,2)))
+                                                 np.arange(4210,4250,2),
+                                                 np.arange(4400,4450,2),
+                                                 np.arange(5160,5220,2)))
 
             common_line_idx = np.searchsorted(G.CALFIB_WAVEGRID, common_line_waves)
 
@@ -1102,9 +1105,10 @@ class DetObj:
 
                     waves = np.array(waves)
 
-                    bright_mg_line = np.where( (waves >= 3832) & (waves <= 3840) | ((waves >= 5170) & (waves <= 5186)))[0]
+                    bright_mg_line = np.where(  ((waves >= 3832) & (waves <= 3840)) |
+                                                ((waves >= 5170) & (waves <= 5186)))[0]
                     common_lines = np.where( ((waves >= 3832) & (waves <= 3840)) |
-                                             ((waves >= 3931) & (waves <= 3937)) |
+                                             ((waves >= 3928) & (waves <= 3937)) |
                                              ((waves >= 3965) & (waves <= 3971)) |
                                              ((waves >= 4224) & (waves <= 4230)) |
                                              ((waves >= 5170) & (waves <= 5186))  )[0]
@@ -1114,7 +1118,7 @@ class DetObj:
                     #            MgI  at 5173,5184
                     #            FeI  at 5330  (weak)
 
-                    if len(waves) > 20:
+                    if len(waves) > 30:
                         #too many to trust
                         meteor = 0
                     elif len(common_lines) > 3: #got most of the common lines
@@ -1123,6 +1127,9 @@ class DetObj:
                             log.debug("+++++ meteor condition 7")
                         elif len(waves) < 20:  # getting close to shotgun
                             meteor = 3
+                            log.debug("+++++ meteor condition 8")
+                        elif len(waves) < 30:  # getting close to shotgun
+                            meteor = 2
                             log.debug("+++++ meteor condition 8")
                     #full ratio in one exposure
                     elif (spec_ratio > 5):
@@ -1134,12 +1141,18 @@ class DetObj:
                             elif len(waves) < 20: #getting close to shotgun
                                 meteor = 2
                                 log.debug("+++++ meteor condition 2")
+                            elif len(waves) < 30: #getting close to shotgun
+                                meteor = 1
+                                log.debug("+++++ meteor condition 2")
                         elif (len(bright_mg_line) > 0): #only got a bright line
                             if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
                                 meteor = 2 #occasional trigger
                                 log.debug("+++++ meteor condition 3")
                             elif len(waves) < 20:  # getting close to shotgun
                                 meteor = 1
+                                log.debug("+++++ meteor condition 4")
+                            elif len(waves) < 30:  # getting close to shotgun
+                                meteor = 0.5
                                 log.debug("+++++ meteor condition 4")
                         elif len(common_lines) > 1: #no bright lines, but 2+ common lines
                                 meteor = 1
@@ -1154,6 +1167,8 @@ class DetObj:
                             elif len(waves) < 20:
                                 meteor = 1
                                 log.debug("+++++ meteor condition 2b")
+                            elif len(waves) < 30:
+                                meteor = 0.5
                         elif (len(bright_mg_line) > 0):  # only got a bright line
                             if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
                                 meteor = 1.5
@@ -1161,9 +1176,14 @@ class DetObj:
                             elif len(waves) < 20:  # getting close to shotgun
                                 meteor = 0.5
                                 log.debug("+++++ meteor condition 4b")
+                            elif len(waves) < 30:
+                                meteor = 0.25
                         elif len(common_lines) > 1: #no bright lines, but 2+ common lines
                             if len(waves) < 10:
                                 meteor = 0.5
+                                log.debug("+++++ meteor condition 5b")
+                            elif len(waves) < 30:
+                                meteor = 0.25
                                 log.debug("+++++ meteor condition 5b")
                             else:
                                 meteor = 0 #don't trust it
