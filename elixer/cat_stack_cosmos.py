@@ -401,7 +401,34 @@ class STACK_COSMOS(cat_base.Catalog):
             mag, mag_bright, mag_faint= self.micro_jansky_to_mag(filter_fl,filter_fl_err)
 
         except: #not the EGS df, try the CFHTLS
-            pass
+            #could be Laigle
+            try:
+                try:
+                    mag = dfx['r_MAG_AUTO'].values[0]
+                    mag_faint = dfx['r_MAGERR_AUTO'].values[0]
+                    filter_fl = dfx['r_FLUX_APER3'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                    filter_fl_err = dfx['r_FLUXERR_APER3'].values[0]
+                    filter_str = 'r'
+                except:
+                    try:
+                        mag = dfx['V_MAG_AUTO'].values[0]
+                        mag_faint = dfx['V_MAGERR_AUTO'].values[0]
+                        filter_fl = dfx['V_FLUX_APER3'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                        filter_fl_err = dfx['V_FLUXERR_APER3'].values[0]
+                        filter_str = 'v'
+                    except:
+                        try:
+                            mag = dfx['B_MAG_AUTO'].values[0]
+                            mag_faint = dfx['B_MAGERR_AUTO'].values[0]
+                            filter_fl = dfx['B_FLUX_APER3'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                            filter_fl_err = dfx['B_FLUXERR_APER3'].values[0]
+                            filter_str = 'b'
+                        except:
+                            pass
+
+                mag_bright = -1 * mag_faint
+            except:
+                pass
 
         return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
 
@@ -436,15 +463,15 @@ class STACK_COSMOS(cat_base.Catalog):
 
         query_stack_catalog = True
         #first see if in Laigle+2015
-        # try:
-        #     self.dataframe_of_bid_targets, self.dataframe_of_photoz_pdf = self.Laigle2015.query_catalog(ra,dec,error)
-        #     if len(self.dataframe_of_bid_targets) > 0:
-        #         self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.to_pandas()
-        #         query_stack_catalog = False
-        # except:
-        #     self.dataframe_of_bid_targets = None
-        #     self.dataframe_of_photoz_pdf = None
-        #     query_stack_catalog = True
+        try:
+            self.dataframe_of_bid_targets, self.dataframe_of_photoz_pdf = self.Laigle2015.query_catalog(ra,dec,error)
+            if len(self.dataframe_of_bid_targets) > 0:
+                self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.to_pandas()
+                query_stack_catalog = False
+        except:
+            self.dataframe_of_bid_targets = None
+            self.dataframe_of_photoz_pdf = None
+            query_stack_catalog = True
 
 
         if query_stack_catalog:
@@ -1059,7 +1086,14 @@ class STACK_COSMOS(cat_base.Catalog):
                     log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
                     continue  # this must be here, so skip to next ra,dec
 
-                df_photoz = None
+                try:
+                    df_photoz = df['PHOTOZ'].values[0]
+                    z_best_type = 'p'
+                    z_best = df_photoz
+                    z_photoz_weighted = df_photoz
+
+                except:
+                    df_photoz = None
                 # try: #don't have photoz???
                 #     # note cannot dirctly use RA,DEC as the recorded precission is different (could do a rounded match)
                 #     # but the idnums match up, so just use that
@@ -1271,10 +1305,8 @@ class STACK_COSMOS(cat_base.Catalog):
                                 text += "\n"
                             except:
                                 text += "%0.4g\n" % (bid_target.p_lae_oii_ratio)
-
                         else:
                             text += "\n"
-
                 else:
                     text = "%s\n%f\n%f\n" % ("--", r, d)
 
@@ -1291,38 +1323,42 @@ class STACK_COSMOS(cat_base.Catalog):
                 # overplot photo z lines
 
                 if df_photoz is not None:
-                    z_cat = self.read_catalog(op.join(self.SupportFilesLocation, photoz_file), "z_cat")
-                    if z_cat is not None:
-                        x = z_cat['z'].values
-                        y = z_cat['mFDa4'].values
-                        plt.subplot(gs[0, 4:])
-                        plt.plot(x, y, color=bid_colors[col_idx - 1])
-                        plt.xlim([0, 3.6])
-                        # trim axis to 0 to 3.6
+                    try:
+                        if self.dataframe_of_photoz_pdf is not None:
+                            ids = [x[0] for x in self.dataframe_of_photoz_pdf]
+                            sel = np.where(ids==idnum)[0]
+                            if len(sel) == 1:
+                                y = self.dataframe_of_photoz_pdf[sel[0]][1:] #trim off the leading value (as the idnumber)
+                                x = np.arange(0,len(y)/100,0.01)
 
-                        if spec_z >= 0.0:
-                            # plt.axvline(x=spec_z, color='gold', linestyle='solid', linewidth=3, zorder=0)
-                            plt.scatter([spec_z, ], [plt.gca().get_ylim()[1] * 0.9, ], zorder=9,
-                                        marker="o", s=80, facecolors='none', edgecolors=bid_colors[col_idx - 1])
+                                plt.subplot(gs[0, 4:])
+                                plt.plot(x, y, color=bid_colors[col_idx - 1])
+                                plt.xlim([0, 3.6])
+                                # trim axis to 0 to 3.6
 
-                        if col_idx == 1:
-                            legend = []
-                            if target_w > 0:
-                                la_z = target_w / G.LyA_rest - 1.0
-                                oii_z = target_w / G.OII_rest - 1.0
-                                if (oii_z > 0):
-                                    h = plt.axvline(x=oii_z, color='g', linestyle='--', zorder=9,
-                                                    label="OII z(virus) = % g" % oii_z)
-                                    legend.append(h)
-                                h = plt.axvline(x=la_z, color='r', linestyle='--', zorder=9,
-                                                label="LyA z (VIRUS) = %g" % la_z)
-                                legend.append(h)
+                                if spec_z >= 0.0:
+                                    # plt.axvline(x=spec_z, color='gold', linestyle='solid', linewidth=3, zorder=0)
+                                    plt.scatter([spec_z, ], [plt.gca().get_ylim()[1] * 0.9, ], zorder=9,
+                                                marker="o", s=80, facecolors='none', edgecolors=bid_colors[col_idx - 1])
 
-                                plt.gca().legend(handles=legend, loc='lower center', ncol=len(legend), frameon=False,
-                                                 fontsize='small', borderaxespad=0, bbox_to_anchor=(0.5, -0.25))
+                                if col_idx == 1:
+                                    legend = []
+                                    if target_w > 0:
+                                        la_z = target_w / G.LyA_rest - 1.0
+                                        oii_z = target_w / G.OII_rest - 1.0
+                                        if (oii_z > 0):
+                                            h = plt.axvline(x=oii_z, color='g', linestyle='--', zorder=9,
+                                                            label="OII z(virus) = % g" % oii_z)
+                                            legend.append(h)
+                                        h = plt.axvline(x=la_z, color='r', linestyle='--', zorder=9,
+                                                        label="LyA z (VIRUS) = %g" % la_z)
+                                        legend.append(h)
 
-                        plt.title("Photo z PDF")
-                        plt.gca().yaxis.set_visible(False)
+                                        plt.gca().legend(handles=legend, loc='lower center', ncol=len(legend), frameon=False,
+                                                         fontsize='small', borderaxespad=0, bbox_to_anchor=(0.5, -0.25))
+
+                                plt.title("Photo z PDF")
+                                plt.gca().yaxis.set_visible(False)
                         # plt.xlabel("z")
 
                         #  if len(legend) > 0:
@@ -1331,6 +1367,8 @@ class STACK_COSMOS(cat_base.Catalog):
 
 
                         # fig holds the entire page
+                    except:
+                        log.info("Exception plotting P(z)",exc_info=True)
             plt.close()
             return fig
 

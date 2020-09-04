@@ -439,6 +439,9 @@ def parse_commandline(auto_force=False):
                                              "finish prior to this one starting. e.g: afterok:123456  or afterany:123456",
                         required=False)
 
+    parser.add_argument('--ylim', help='Fixed y-axis limits for full-width 1D plot as (lower,upper)', required=False,type=str)
+
+
     if G.LAUNCH_PDF_VIEWER is not None:
         parser.add_argument('--viewer', help='Launch the global_config.py set PDF viewer on completion', required=False,
                             action='store_true', default=False)
@@ -699,6 +702,24 @@ def parse_commandline(auto_force=False):
             print ("Fatal. Failed to map annulus to tuple.")
             log.error("Fatal. Failed to map annulus to tuple.", exc_info=True)
             exit(-1)
+
+    if args.ylim: #should be a tuple
+        try:
+            args.ylim = args.ylim.replace(')', '')
+            args.ylim = args.ylim.replace('(', '')
+        except:
+            pass
+
+        try:
+            args.ylim = tuple(map(float, args.ylim.split(',')))
+            if len(args.ylim) != 2:
+                print(f"Non-fatal. Invalid ylim parameters: {args.ylim}. Will ignore.")
+                log.error(f"Non-fatal. Invalid ylim parameters: {args.ylim}. Will ignore.")
+                args.ylim = None
+        except:
+            print("Non-fatal. Invalid ylim parameters. Will ignore.")
+            log.error("Non-fatal. Invalid ylim parameters. Will ignore.")
+            args.ylim = None
 
     if args.gridsearch:
 
@@ -3370,7 +3391,8 @@ def main():
             log.info("Processing %d entries in HDF5" %(len(hdf5_detectid_list)))
             print("Processing %d entries in HDF5" %(len(hdf5_detectid_list)))
 
-
+    #add as a payload to args so can easily check later
+    args.explicit_extraction = explicit_extraction
 
     PDF_File(args.name, 1) #use to pre-create the output dir (just toss the returned pdf container)
 

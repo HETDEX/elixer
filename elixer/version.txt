@@ -25,6 +25,12 @@ changes to elixer by version
 * restored missig call to peakdet in spectrum.set_spectra
 * changed --gridsearch to use (more robust) spectrum.peakdet instead of spectrum_utilities.simple_fit_wave and fall back
   to simple_fit_wave if there is a failure in peakdet
+* fixed error in peakdet that would only merge in other detected lines IF peakdet also found a line (if it did not
+  it would return no lines found)
+* force re-extraction on existing HETDEX detect IDS if --aperture supplied on command call
+* add --ylim option to command line arguments so can force the 1D spectrum plot limits (for exploration)
+
+
 
 1.9.1 [2020-08-06]
 * promote to 1.9.1 (HDR2.1) - redeux

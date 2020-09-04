@@ -136,9 +136,11 @@ class LAIGLE2015(cat_base.Catalog):
             pdz_rows = []
 
             if self.CAT_Table:
-                cat_rows = self.CAT_Table["NUMBER","ALPHA_J2000","DELTA_J2000","B_MAG_AUTO","B_MAGERR_AUTO",
-                                      "V_MAG_AUTO","V_MAGERR_AUTO","r_MAG_AUTO","r_MAGERR_AUTO",
-                                      "PHOTOZ"][idx]
+                cat_rows = self.CAT_Table["NUMBER","ALPHA_J2000","DELTA_J2000",
+                                          "B_MAG_AUTO","B_MAGERR_AUTO","B_FLUX_APER3","B_FLUXERR_APER3",
+                                          "V_MAG_AUTO","V_MAGERR_AUTO","V_FLUX_APER3","V_FLUXERR_APER3",
+                                          "r_MAG_AUTO","r_MAGERR_AUTO","r_FLUX_APER3","r_FLUXERR_APER3",
+                                           "PHOTOZ"][idx]
                 cat_rows.rename_column('ALPHA_J2000','RA')
                 cat_rows.rename_column('DELTA_J2000','DEC')
                 cat_rows.rename_column("NUMBER","ID")

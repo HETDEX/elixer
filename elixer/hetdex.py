@@ -5133,10 +5133,13 @@ class HETDEX:
         else:
             self.extraction_ffsky = False
 
-        if args.aperture and args.ra and args.dec:
-            self.explicit_extraction = True
-        else:
-            self.explicit_extraction = False
+        try:
+            self.explicit_extraction = args.explicit_extraction
+        except:
+            if args.aperture and args.ra and args.dec:
+                self.explicit_extraction = True
+            else:
+                self.explicit_extraction = False
 
         if args.ra is not None:
             self.tel_ra = args.ra
@@ -5230,7 +5233,10 @@ class HETDEX:
         else:
             self.panacea = True
 
-
+        if args.ylim is not None:
+            self.ylim = args.ylim  # for full 1D plot
+        else:
+            self.ylim = None
         self.emission_lines = elixer_spectrum.Spectrum().emission_lines
 
         # self.emission_lines = [EmissionLine("Ly$\\alpha$ ",1216,'red'),
@@ -5258,7 +5264,13 @@ class HETDEX:
 
         # read the detect line file if specified. Build a list of targets based on sigma and chi2 cuts
         build_fits_list = True
-        if (args.obsdate is None) and (self.detectline_fn is not None):  # this is optional
+        if self.explicit_extraction: #needs to come first for logic to work
+            self.hdf5_detect_fqfn = args.hdf5  #string ... the fully qualified filename
+            self.hdf5_detect = None #the actual HDF5 representation loaded
+            self.hdf5_survey_fqfn = G.HDF5_SURVEY_FN
+            self.make_extraction(args.aperture,args.ffsky,args.shotid,basic_only=basic_only)
+            build_fits_list = False
+        elif (args.obsdate is None) and (self.detectline_fn is not None):  # this is optional
             self.read_detectline(force=True)
         elif (self.fcsdir is not None) or (len(self.fcsdir_list) > 0):
             #we have either fcsdir and fcs_base or fcsdir_list
@@ -5266,14 +5278,8 @@ class HETDEX:
             #DetObj(s) will be built here (as they are built, downstream from self.read_detectline() above
             self.read_fcsdirs()
             build_fits_list = False
-        elif (self.hdf5_detectid_list is not None):
+        elif (self.hdf5_detectid_list is not None):  #Usual case option (but needs to come last for logic to work)
             self.read_hdf5_detect(basic_only=basic_only)
-            build_fits_list = False
-        elif self.explicit_extraction:
-            self.hdf5_detect_fqfn = args.hdf5  #string ... the fully qualified filename
-            self.hdf5_detect = None #the actual HDF5 representation loaded
-            self.hdf5_survey_fqfn = G.HDF5_SURVEY_FN
-            self.make_extraction(args.aperture,args.ffsky,args.shotid,basic_only=basic_only)
             build_fits_list = False
 
         if build_fits_list and not self.explicit_extraction:
@@ -5971,6 +5977,7 @@ class HETDEX:
         :return:
         """
         try:
+
             e = DetObj(None, emission=True, basic_only=basic_only)
             if e is not None:
 
@@ -5987,11 +5994,34 @@ class HETDEX:
                 # just internal (ELiXer) numbering here
                 G.UNIQUE_DET_ID_NUM += 1
 
+                if len(self.hdf5_detectid_list)==1:
+                    try:
+                        d = np.int64(self.hdf5_detectid_list[0])
+                        e.entry_id = d
+                        e.id = d
+                        #only get basic info to populate coords, etc
+                        e.load_hdf5_fluxcalibrated_spectra(self.hdf5_detect_fqfn, d, basic_only=True)
+                        e.ra = e.wra
+                        e.dec = e.wdec
+                        #keep the target wavelength, if provided
+                        if (self.target_wavelength is not None) and (3460 < self.target_wavelength < 5540):
+                            e.w = self.target_wavelength
+                            e.target_wavelength = self.target_wavelength
+                    except:
+                        log.error(f"Skipping invalid detectid: {d}")
+                        return None
+                elif len(self.hdf5_detectid_list)==0: #also expected, could just be an ra, dec
+                    pass
+                else: #unexpdected
+                    print(f"Unexpected # of detectids: {self.hdf5_detectid_list}")
+
+
                 if self.dispatch_id is not None:
                     e.id = np.int64(99e8 + self.dispatch_id * 1e4 + G.UNIQUE_DET_ID_NUM)
                     #so, like a hetdex detectid but starting with 99
-                else:
+                elif e.entry_id is None:
                     e.id = G.UNIQUE_DET_ID_NUM
+
                 e.entry_id = e.id  # don't have an official one
 
                 if e.outdir is None:
@@ -6584,6 +6614,12 @@ class HETDEX:
         try:
             title += "Obs: " + e.fibers[0].dither_date + "v" + str(e.fibers[0].obsid).zfill(3) + "_" + \
             str(e.fibers[0].detect_id)
+            if e.extraction_aperture is not None: #this was a forced extraction
+                title += f" ({e.extraction_aperture:0.1f}\""
+                if e.extraction_ffsky:
+                    title += " ff)"
+                else:
+                    title += " lo)"
         except:
             log.debug("Exception building observation string.",exc_info=True)
 
@@ -9458,6 +9494,12 @@ class HETDEX:
             #             mx = 3.0 * line_mx
             #         else:
             #             log.info("Excluding spectra maximum outside 3500 - 5500 AA")
+
+            #override the auto set limits
+            if self.ylim is not None:
+                log.debug(f"Override the auto y-axis limits {mn},{mx} to {self.ylim[0]},{self.ylim[1]}")
+                mn = self.ylim[0]
+                mx = self.ylim[1]
 
             ran = mx - mn
 

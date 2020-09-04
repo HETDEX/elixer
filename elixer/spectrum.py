@@ -2131,8 +2131,7 @@ def sn_peakdet_no_fit(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0):
 
 
 def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
-            enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False,do_mcmc=False,
-               return_best_score=False):
+            enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False,do_mcmc=False):
     """
 
     :param wave: x-values (wavelength)
@@ -2228,7 +2227,7 @@ def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
     return combine_lines(eli_list)
 
 def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,values_units=0,
-            enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False,return_best_score=False):
+            enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False):
 
     """
 
@@ -3568,7 +3567,9 @@ class Spectrum:
                 if not (e.solution) and (e.min_obs_wave < central < e.max_obs_wave) and (self.fwhm >= e.min_fwhm):
                     e.solution = True #this change applies only to THIS instance of a spectrum, so it is safe
             except: #could be a weird issue
-                log.debug("Unexpected exception in specturm::classify_with_additional_lines",exc_info=True)
+                if self.fwhm is not None:
+                    log.debug("Unexpected exception in specturm::classify_with_additional_lines",exc_info=True)
+                #else: #likely because we could not get a fit at that position
 
             central_z = central/e.w_rest - 1.0
             if (central_z) < 0.0:
@@ -3738,7 +3739,7 @@ class Spectrum:
                 elif (e.solution): #only 1 line
                     allow_solution = True
                 #need fwhm and obs line range
-                elif (self.fwhm >= e.min_fwhm):
+                elif (self.fwhm is not None) and (self.fwhm >= e.min_fwhm): #can be None if no good fit
                     allow_solution = True
                 #technically, this condition should not trigger as if we are in the single line range, there IS NO SECOND LINE
                 elif (e.min_obs_wave < central < e.max_obs_wave) :
@@ -3746,8 +3747,6 @@ class Spectrum:
                     allow_solution = True
                 else:
                     allow_solution = False
-
-
 
                 if allow_solution:
                     # log.info("Solution p(noise) (%f) from %d additional lines" % (sol.prob_noise, len(sol.lines) - 1))
