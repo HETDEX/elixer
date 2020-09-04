@@ -1722,9 +1722,9 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
         log.info("Searching for records by RA, Dec + error (this may take a while) ... ")
         with tables.open_file(hdf5, mode="r") as h5:
             dtb = h5.root.Detections
-
-            ra1 = ra - error
-            ra2 = ra + error
+            dec_correction = np.cos(np.deg2rad(dec))
+            ra1 = ra - error/dec_correction
+            ra2 = ra + error/dec_correction
             dec1 = dec - error
             dec2 = dec + error
 
@@ -1732,8 +1732,6 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
 
             if (rows is not None) and (rows.size > 0):
                 detectids = rows['detectid']
-
-                msg = "%d detection records found +/- %g\" from %f, %f (%s)" %(rows.size,error*3600.,ra,dec,hdf5)
 
                 #less important, sort by distance
                 if sort:
@@ -1743,10 +1741,17 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
                         dist = [UTIL.angular_distance(ra,dec,r,d) for r,d in zip(ras,decs)]
 
                         all = sorted(zip(dist,detectids,ras,decs))
-                        dists = [x for x,_,_,_ in all]
-                        detectids = [x for _,x,_,_ in all]
-                        ras = [x for _,_,x,_ in all]
-                        decs = [x for _,_,_,x in all]
+                        dists = np.array([x for x,_,_,_ in all])
+                        detectids = np.array([x for _,x,_,_ in all])
+                        ras = np.array([x for _,_,x,_ in all])
+                        decs = np.array([x for _,_,_,x in all])
+
+                        #trim those at corners that are actually out of range
+                        sel = np.where(dists <= (error*3600.0))
+                        dists=dists[sel]
+                        detectids=detectids[sel]
+                        ras=ras[sel]
+                        decs=decs[sel]
 
                         # detectids = [d for _,d in sorted(zip(dist, detectids))]
                         # ras = [d for _,d in sorted(zip(dist, ras))]
@@ -1754,6 +1759,7 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
                     except:
                         log.debug("Unable to sort by distance",exc_info=True)
 
+                msg = "%d detection records found +/- %g\" from %f, %f (%s)" % (len(detectids), error * 3600., ra, dec, hdf5)
                 log.info(msg)
                 print(msg)
             else:
