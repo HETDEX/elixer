@@ -1698,6 +1698,7 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
             else:
                 return detectids
 
+        log.info("Searching for records by RA, Dec + error (this may take a while) ... ")
         with tables.open_file(hdf5, mode="r") as h5:
             dtb = h5.root.Detections
 

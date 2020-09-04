@@ -9,6 +9,7 @@ try:
     from elixer import global_config as G
     from elixer import science_image
     from elixer import cat_base
+    from elixer import cat_laigle2015
     from elixer import match_summary
     from elixer import line_prob
     from elixer import utilities
@@ -17,6 +18,7 @@ except:
     import global_config as G
     import science_image
     import cat_base
+    import cat_laigle2015
     import match_summary
     import line_prob
     import utilities
@@ -193,6 +195,7 @@ class STACK_COSMOS(cat_base.Catalog):
     CONT_EST_BASE = 0.0
 
     AstroTable = None
+    Laigle2015 = None
 
     BidCols = ['NUMBER',  # int32
                'FLUXERR_ISO',  # ct float32
@@ -309,6 +312,7 @@ class STACK_COSMOS(cat_base.Catalog):
 
         self.dataframe_of_bid_targets = None
         self.dataframe_of_bid_targets_photoz = None
+        self.dataframe_of_photoz_pdf = None #not really a dataframe, just list of arrays
         # self.table_of_bid_targets = None
         self.num_targets = 0
 
@@ -345,6 +349,13 @@ class STACK_COSMOS(cat_base.Catalog):
         except:
             log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
             return None
+
+        try:
+            log.debug("Loading Laigle+2015")
+            cls.Laigle2015 = cat_laigle2015.LAIGLE2015()
+            cls.Laigle2015.read_catalog()
+        except:
+            cls.Laigle2015 = None
 
         return df
 
@@ -423,17 +434,34 @@ class STACK_COSMOS(cat_base.Catalog):
         log.info(self.Name + " searching for bid targets in range: RA [%f +/- %f], Dec [%f +/- %f] ..."
                  % (ra, error_in_deg, dec, error_in_deg))
 
-        try:
-            self.dataframe_of_bid_targets = \
-                self.df[(self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max) &
-                        (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)].copy()
+        query_stack_catalog = True
+        #first see if in Laigle+2015
+        # try:
+        #     self.dataframe_of_bid_targets, self.dataframe_of_photoz_pdf = self.Laigle2015.query_catalog(ra,dec,error)
+        #     if len(self.dataframe_of_bid_targets) > 0:
+        #         self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.to_pandas()
+        #         query_stack_catalog = False
+        # except:
+        #     self.dataframe_of_bid_targets = None
+        #     self.dataframe_of_photoz_pdf = None
+        #     query_stack_catalog = True
 
-        except:
-            log.error(self.Name + " Exception in build_list_of_bid_targets", exc_info=True)
+
+        if query_stack_catalog:
+            try:
+                self.dataframe_of_bid_targets = \
+                    self.df[(self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max) &
+                            (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)].copy()
+
+            except:
+                log.error(self.Name + " Exception in build_list_of_bid_targets", exc_info=True)
 
         if self.dataframe_of_bid_targets is not None:
             self.num_targets = self.dataframe_of_bid_targets.iloc[:, 0].count()
             self.sort_bid_targets_by_likelihood(ra, dec)
+
+            # if (self.num_targets > 1) and (self.dataframe_of_photoz_pdf is not None):
+            #     #make sure the orders are aligned?
 
             log.info(
                 self.Name + " searching for objects in [%f - %f, %f - %f] " % (ra_min, ra_max, dec_min, dec_max) +

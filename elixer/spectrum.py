@@ -2131,7 +2131,8 @@ def sn_peakdet_no_fit(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0):
 
 
 def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
-            enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False,do_mcmc=False):
+            enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False,do_mcmc=False,
+               return_best_score=False):
     """
 
     :param wave: x-values (wavelength)
@@ -2227,7 +2228,7 @@ def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
     return combine_lines(eli_list)
 
 def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,values_units=0,
-            enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False):
+            enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False,return_best_score=False):
 
     """
 
@@ -2286,7 +2287,8 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
     eli_list = []
     delta = dh
 
-    eli_list = sn_peakdet(x,v,err,values_units=values_units,enforce_good=enforce_good,min_sigma=min_sigma,absorber=absorber)
+    eli_list = sn_peakdet(x,v,err,values_units=values_units,enforce_good=enforce_good,min_sigma=min_sigma,
+                          absorber=absorber)
 
     if x is None:
         x = np.arange(len(v))
@@ -2367,7 +2369,7 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
     if len(maxtab) < 1:
         log.warning("No peaks found with given conditions: mininum:  fwhm = %f, height = %f, delta height = %f" \
                 %(dw,h,dh))
-        return []
+        return eli_list
 
     #make an array, slice out the 3rd column
     #gm = gmean(np.array(maxtab)[:,2])

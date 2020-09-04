@@ -107,7 +107,8 @@ class LAIGLE2015(cat_base.Catalog):
         :param ra: in decimal degrees
         :param dec:  in decimal degrees
         :param error: in arcsec
-        :return:
+        :return: astropy table (with subset of columns),
+                 list of arrays where [0] of each array is the 'ID' or 'NUMBER' matching the table
         """
 
         try:
@@ -138,16 +139,19 @@ class LAIGLE2015(cat_base.Catalog):
                 cat_rows = self.CAT_Table["NUMBER","ALPHA_J2000","DELTA_J2000","B_MAG_AUTO","B_MAGERR_AUTO",
                                       "V_MAG_AUTO","V_MAGERR_AUTO","r_MAG_AUTO","r_MAGERR_AUTO",
                                       "PHOTOZ"][idx]
+                cat_rows.rename_column('ALPHA_J2000','RA')
+                cat_rows.rename_column('DELTA_J2000','DEC')
+                cat_rows.rename_column("NUMBER","ID")
                 cat_rows['distance'] = 999.9 #needs to be a float type
                 for i in range(len(cat_rows)):
                     cat_rows['distance'][i] = utilities.angular_distance(ra,dec,
-                                                cat_rows["ALPHA_J2000"][i],cat_rows["DELTA_J2000"][i])
+                                                cat_rows["RA"][i],cat_rows["DEC"][i])
 
             if self.PDZ_Table:
                 for i in idx: #a list of 400 columns per row (z0.00 to z4.00)
-                    pdz_rows.append(np.array(list(self.PDZ_Table[i])[74:474]))
-
-            #now compbine cat_rows, and pdz_pdfs and return
+                    pdz_rows.append(np.concatenate(([i+1],np.array(list(self.PDZ_Table[i])[74:474]))))
+                    #note: cannot have array as a column
+                    #but may consider addig the "NUMBER" as the [0] value in array, just for safety
 
             return cat_rows, pdz_rows #just for the moment
 
