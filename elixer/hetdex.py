@@ -5994,26 +5994,27 @@ class HETDEX:
                 # just internal (ELiXer) numbering here
                 G.UNIQUE_DET_ID_NUM += 1
 
-                if len(self.hdf5_detectid_list)==1:
-                    try:
-                        d = np.int64(self.hdf5_detectid_list[0])
-                        e.entry_id = d
-                        e.id = d
-                        #only get basic info to populate coords, etc
-                        e.load_hdf5_fluxcalibrated_spectra(self.hdf5_detect_fqfn, d, basic_only=True)
-                        e.ra = e.wra
-                        e.dec = e.wdec
-                        #keep the target wavelength, if provided
-                        if (self.target_wavelength is not None) and (3460 < self.target_wavelength < 5540):
-                            e.w = self.target_wavelength
-                            e.target_wavelength = self.target_wavelength
-                    except:
-                        log.error(f"Skipping invalid detectid: {d}")
-                        return None
-                elif len(self.hdf5_detectid_list)==0: #also expected, could just be an ra, dec
-                    pass
-                else: #unexpdected
-                    print(f"Unexpected # of detectids: {self.hdf5_detectid_list}")
+                if self.hdf5_detectid_list is not None:
+                    if len(self.hdf5_detectid_list)==1:
+                        try:
+                            d = np.int64(self.hdf5_detectid_list[0])
+                            e.entry_id = d
+                            e.id = d
+                            #only get basic info to populate coords, etc
+                            e.load_hdf5_fluxcalibrated_spectra(self.hdf5_detect_fqfn, d, basic_only=True)
+                            e.ra = e.wra
+                            e.dec = e.wdec
+                            #keep the target wavelength, if provided
+                            if (self.target_wavelength is not None) and (3460 < self.target_wavelength < 5540):
+                                e.w = self.target_wavelength
+                                e.target_wavelength = self.target_wavelength
+                        except:
+                            log.error(f"Skipping invalid detectid: {d}")
+                            return None
+                    elif len(self.hdf5_detectid_list)==0: #also expected, could just be an ra, dec
+                        pass
+                    else: #unexpdected
+                        print(f"Unexpected # of detectids: {self.hdf5_detectid_list}")
 
 
                 if self.dispatch_id is not None:
