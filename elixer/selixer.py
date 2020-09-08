@@ -149,7 +149,7 @@ if "--gridsearch" in args:
         gridsearch = tuple(map(float, gridsearch.split(',')))
         # technically there are 2x of these, but they do not add nearly as much time as a full elixer output
         # so we take the the half-side and scale down by another 1/2 (so divide by 2 instead of multiply by 2)
-        gridsearch_task_boost = gridsearch[0]/gridsearch[1]/2.0
+        gridsearch_task_boost = int(gridsearch[0]/gridsearch[1]/2.0)
         base_time_multiplier = 1.0
 
     except:
