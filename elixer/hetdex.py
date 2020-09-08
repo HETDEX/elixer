@@ -9687,7 +9687,10 @@ class HETDEX:
                 if self.known_z is None:
                     z = cwave / e.w_rest - 1.0
                 else:
+                    sol_z = cwave / e.w_rest - 1.0
                     z = self.known_z
+                    if abs(sol_z - z) > 0.05:
+                        continue
 
                 if (z < 0):
                     if z > G.NEGATIVE_Z_ERROR:

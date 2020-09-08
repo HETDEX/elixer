@@ -4,6 +4,8 @@ changes to elixer by version
 * fixed issue where args.shotid would be (correctly) overwritten with per DetObj shotids, but when running --gridsearch
   at the end, only the last shotid was available in args.shotid. Now uses DetObj specific shotid first and then
   falls back to the ORIGINAL commandline shotid if the DetObj shotid is invalid.
+* added --known_z command line parameter so caller can set a fixed z for the solutions (solutions w/in z +/- 0.05 are
+  considered)
 
 1.10.0a [2020-08-31]
 * explicit check for NaN in lineflux and continuum for PLAE (MCMC)

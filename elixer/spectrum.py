@@ -3791,7 +3791,7 @@ class Spectrum:
                 else:
                     allow_solution = False
 
-                if allow_solution:
+                if allow_solution or (known_z is not None):
                     # log.info("Solution p(noise) (%f) from %d additional lines" % (sol.prob_noise, len(sol.lines) - 1))
                     # bonus for each extra line over the minimum
 
