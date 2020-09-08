@@ -139,7 +139,6 @@ if "--gridsearch" in args:
     try:
         i = args.index("--gridsearch")
         parms = sys.argv[i+1]
-        gridsearch
         try:
             gridsearch = parms.replace(')','')
             gridsearch = parms.replace('(','')
@@ -154,7 +153,7 @@ if "--gridsearch" in args:
 
     except:
         base_time_multiplier = 3.0 #just to put something in
-        num_extracts = None
+        gridsearch_task_boost = None
     #just an average guess; the actual time depends on the grid width, cell size and number of shots
 
 if MERGE:
