@@ -3368,7 +3368,7 @@ class Spectrum:
 
         return central
 
-    def classify(self,wavelengths = None,values = None, errors=None, central = None, values_units=0):
+    def classify(self,wavelengths = None,values = None, errors=None, central = None, values_units=0,known_z=None):
         #for now, just with additional lines
         #todo: later add in continuum
         #todo: later add in bayseian stuff
@@ -3401,7 +3401,7 @@ class Spectrum:
             log.warning("Cannot classify. No central wavelength specified or found.")
             return []
 
-        solutions = self.classify_with_additional_lines(wavelengths,values,errors,central,values_units)
+        solutions = self.classify_with_additional_lines(wavelengths,values,errors,central,values_units,known_z=known_z)
         self.solutions = solutions
 
         #set the unmatched solution (i.e. the solution score IF all the extra lines were unmatched, not
@@ -3531,7 +3531,7 @@ class Spectrum:
 
 
     def classify_with_additional_lines(self,wavelengths = None,values = None,errors=None,central = None,
-                                       values_units=0):
+                                       values_units=0,known_z=None):
         """
         using the main line
         for each possible classification of the main line
@@ -3596,16 +3596,6 @@ class Spectrum:
             #if not e.solution: #changed!!! this line cannot be the ONLY line, but can be the main line if there are others
             #    continue
 
-            if e.rank > 4: #above rank 4, don't even consider as a main line (but it can still be a supporting line)
-                continue
-
-            try:
-                if not (e.solution) and (e.min_obs_wave < central < e.max_obs_wave) and (self.fwhm >= e.min_fwhm):
-                    e.solution = True #this change applies only to THIS instance of a spectrum, so it is safe
-            except: #could be a weird issue
-                if self.fwhm is not None:
-                    log.debug("Unexpected exception in specturm::classify_with_additional_lines",exc_info=True)
-                #else: #likely because we could not get a fit at that position
 
             central_z = central/e.w_rest - 1.0
             if (central_z) < 0.0:
@@ -3613,6 +3603,23 @@ class Spectrum:
                     central_z = 0.0
                 else:
                     continue #impossible, can't have a negative z
+
+            if known_z is not None:
+                if abs(central_z-known_z) > 0.05:
+                    log.info(f"Known z {known_z:0.2f} invalidates solution for {e.name} at z = {central_z:0.2f}")
+                    continue
+            else:
+                #normal rules apply only allow major lines or lines marked as allowing a solution
+                if e.rank > 4:  # above rank 4, don't even consider as a main line (but it can still be a supporting line)
+                    continue
+
+                try:
+                    if not (e.solution) and (e.min_obs_wave < central < e.max_obs_wave) and (self.fwhm >= e.min_fwhm):
+                        e.solution = True  # this change applies only to THIS instance of a spectrum, so it is safe
+                except:  # could be a weird issue
+                    if self.fwhm is not None:
+                        log.debug("Unexpected exception in specturm::classify_with_additional_lines", exc_info=True)
+                    # else: #likely because we could not get a fit at that position
 
             if e.w_rest == G.LyA_rest:
                 #assuming a maximum expected velocity offset, we can allow the additional lines to be

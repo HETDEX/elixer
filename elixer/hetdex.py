@@ -3391,7 +3391,7 @@ class DetObj:
                 except:
                     log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra")
 
-            self.spec_obj.classify()  # solutions can be returned, also stored in spec_obj.solutions
+            self.spec_obj.classify(known_z=self.known_z)  # solutions can be returned, also stored in spec_obj.solutions
             self.rvb = SU.red_vs_blue(self.w, self.sumspec_wavelength,
                                       self.sumspec_flux / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS,
                                       self.sumspec_fluxerr / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS, self.fwhm)
@@ -4231,7 +4231,7 @@ class DetObj:
             except:
                 pass
 
-            self.spec_obj.classify()  # solutions can be returned, also stored in spec_obj.solutions
+            self.spec_obj.classify(known_z=self.known_z)  # solutions can be returned, also stored in spec_obj.solutions
 
             self.rvb = SU.red_vs_blue(self.w, self.sumspec_wavelength,
                                       self.sumspec_flux / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS,
@@ -4843,7 +4843,7 @@ class DetObj:
                 except:
                     log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra")
 
-            self.spec_obj.classify() #solutions can be returned, also stored in spec_obj.solutions
+            self.spec_obj.classify(known_z=self.known_z) #solutions can be returned, also stored in spec_obj.solutions
 
         if (self.w is None or self.w == 0) and (self.spec_obj is not None):
             try:
@@ -5991,7 +5991,7 @@ class HETDEX:
                 e.target_wavelength = self.target_wavelength
                 e.ra = self.target_ra
                 e.dec = self.target_dec
-                if self.known_z is not none:
+                if self.known_z is not None:
                     e.known_z = self.known_z
 
                 e.survey_shotid = shotid
@@ -6104,7 +6104,7 @@ class HETDEX:
             #build an empty Detect Object and then populate
             e = DetObj(None, emission=True,basic_only=basic_only)
             if e is not None:
-                if self.known_z is not none:
+                if self.known_z is not None:
                     e.known_z = self.known_z
 
                 e.entry_id = d #aka detect_id from HDF5
@@ -6154,7 +6154,7 @@ class HETDEX:
                 e = DetObj(toks, emission=True, fcsdir=d)
 
                 if e is not None:
-                    if self.known_z is not none:
+                    if self.known_z is not None:
                         e.known_z = self.known_z
                     e.annulus = self.annulus
                     e.target_wavelength = self.target_wavelength
@@ -9683,7 +9683,12 @@ class HETDEX:
             for e in emission_line_list:
                 if (not e.solution) and (e.w_rest != the_solution_rest_wave): #if not a normal solution BUT it is THE solution, label it
                     continue
-                z = cwave / e.w_rest - 1.0
+
+                if self.known_z is None:
+                    z = cwave / e.w_rest - 1.0
+                else:
+                    z = self.known_z
+
                 if (z < 0):
                     if z > G.NEGATIVE_Z_ERROR:
                         z = 0.0
