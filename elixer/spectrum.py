@@ -37,11 +37,13 @@ log.setlevel(G.LOG_LEVEL)
 
 #these are for the older peak finder (based on direction change)
 MIN_FWHM = 2.0 #AA (must xlat to pixels) (really too small to be realistic, but is a floor)
-MAX_FWHM = 40.0 #booming LyA are around 15-16; real lines can be larger, but tend to be not what we are looking for
+MAX_FWHM = 40.0 #big LyA are around 15-16; booming can get into the 20s, real lines can be larger,
+                # but tend to be not what we are looking for
                 # and these are more likly continuum between two abosrpotion features that is mistaken for a line
                 #AGN seen with almost 25AA with CIV and NV around 35AA
 MAX_NORMAL_FWHM = 20.0 #above this, need some extra info to accept
-MIN_HUGE_FWHM_SNR = 25.0 #if the FWHM is above the MAX_NORMAL_FWHM, then then SNR needs to be above this value
+MIN_HUGE_FWHM_SNR = 19.0 #if the FWHM is above the MAX_NORMAL_FWHM, then then SNR needs to be above this value
+                        #would say "20.0 AA" but want some room for error
 MIN_ELI_SNR = 3.0 #bare minium SNR to even remotely consider a signal as real
 MIN_ELI_SIGMA = 1.0 #bare minium (expect this to be more like 2+)
 MIN_HEIGHT = 10
@@ -3036,7 +3038,7 @@ class Spectrum:
         #check the lines, are they consistent with AGN?
         try:
             rest_waves = np.array([G.LyA_rest,1549.,1909.,2326.,2799.,1241.,1260.,1400.,1640.,1035.])
-            #aka                     LyA, CIV, CIII, CII,   MgII,  NV,  SiII, SiIV,  HeII, OVI
+            #aka                     LyA,      CIV, CIII, CII,   MgII,  NV,  SiII, SiIV, HeII, OVI
             obs_waves = rest_waves * (1. + solution.z)
 
             # compared to LyA EW: so line ew/ LyA EW; a value of 0 means no info
@@ -3045,10 +3047,44 @@ class Spectrum:
             #todo:   e.g. if can only say like NV < MgII or CIV > CIII, etc
 
             # using as a very rough guide: https://ned.ipac.caltech.edu/level5/Netzer/Netzer2_1.html
+            # and manual HETDEX spectra
             #            #LyA, CIV,  CIII, CII,  MgII,  NV,     SiII, SiIV,  HeII,  OVI
-            min_ratios = [1.0, 0.05, 0.05, 0.01,  0.05, 0.05,  0.00, 0.03,   0.03,  0.03]
-            max_ratios = [1.0, 0.65, 0.30, 0.10,  0.40, 0.40,  0.00, 0.20,   0.20,  0.40]
+            min_ratios = [1.0, 0.07, 0.02, 0.01,  0.05, 0.05,  0.00, 0.03,   0.01,  0.03]
+            max_ratios = [1.0, 0.70, 0.30, 0.10,  0.40, 0.40,  0.00, 0.20,   0.20,  0.40]
             #                                            *** apparently NV can be huge .. bigger than CIV even see 2101164104
+
+            #todo: 2 matrices (min and max ratios) so can put each line vs other line
+            # like the match_matrix in the low-z galaxy check (but with floats) as row/column
+            # INCOMPLETE ... not in USE YET
+
+            #row/column (is mininum, where lines are smallest compared to LyA)
+            # the inverse is still the minimum just the inverted ratio)
+            min_ratio_matrix = \
+            [ [1.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  #LyA
+              [0.00, 1.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 6.66, 0.00],  #CIV
+              [0.00, 0.00, 1.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  #CIII
+              [0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  #CII
+              [0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00, 0.00, 0.00],  #MgII
+              [0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00, 0.00],  #NV
+              [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00],  #SiIII
+              [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00],  #SiIV
+              [0.00, 0.15, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 0.00],  #HeII
+              [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00] ] #OVI
+             # LyA   CI V  CIII  CII   MgII   NV   SiIII SiVI  HeII   OVI
+
+            #row/column (is maximum ... where lines are the largest compared to LyA)
+            max_ratio_matrix = \
+            [ [1.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  #LyA
+              [0.00, 1.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.66, 0.00],  #CIV
+              [0.00, 0.00, 1.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  #CIII
+              [0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  #CII
+              [0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00, 0.00, 0.00],  #MgII
+              [0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00, 0.00],  #NV
+              [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00],  #SiIII
+              [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00],  #SiIV
+              [0.00, 0.60, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 0.00],  #HeII
+              [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00] ] #OVI
+             # LyA    CIV  CIII   CII  MgII   NV   SiIII SiVI  HeII   OVI
 
             sel = np.where(np.array([l.absorber for l in solution.lines])==False)[0]
             sol_lines = np.array(solution.lines)[sel]

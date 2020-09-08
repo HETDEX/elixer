@@ -236,6 +236,7 @@ def parse_commandline(auto_force=False):
                                             , required=False)
     parser.add_argument('--dec', help='Target Dec (as decimal degrees or d:m:s.as (end with \'d\') '
                                             'Examples: --dec 52.921167    or  --dec 52:55:16.20d', required=False)
+
     #parser.add_argument('--rot',help="Rotation (as decimal degrees). NOT THE PARANGLE.",required=False,type=float)
     parser.add_argument('--par', help="The Parangle in decimal degrees.", required=False, type=float)
     parser.add_argument('--rot', help="The rotation in decimal degrees. (Superceeds use of --par)", required=False, type=float)
@@ -442,6 +443,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--ylim', help='Fixed y-axis limits for full-width 1D plot as (lower,upper)', required=False,type=str)
 
 
+    parser.add_argument('--known_z', help="Produce plots using this value for redshift", required=False, type=float)
+
+
     if G.LAUNCH_PDF_VIEWER is not None:
         parser.add_argument('--viewer', help='Launch the global_config.py set PDF viewer on completion', required=False,
                             action='store_true', default=False)
@@ -544,9 +548,16 @@ def parse_commandline(auto_force=False):
                 args.shotid = int(args.shotid[0:8]+args.shotid[9:])
             else:
                 args.shotid = int(args.shotid)
+
+            args.command_line_shotid = args.shotid
         except:
             print("Invalid --shotid. Must be of form (example): 20191129v045 or 20191129045)")
             exit(-1)
+
+    try: #the shotid can be modified in the normal operation
+        args.command_line_shotid = args.shotid
+    except:
+        pass
 
     if (args.dets is not None) and (args.coords is not None):
         print("Invalid combination of parameters. Cannot specify both --dets and --coords")
@@ -720,6 +731,13 @@ def parse_commandline(auto_force=False):
             print("Non-fatal. Invalid ylim parameters. Will ignore.")
             log.error("Non-fatal. Invalid ylim parameters. Will ignore.")
             args.ylim = None
+
+    if args.known_z is not None:
+        if args.known_z < 0:
+            print(f"Non-fatal. Invalid known_z {args.known_z} (must be > 0). Will ignore.")
+            log.debug(f"Non-fatal. Invalid known_z {args.known_z} (must be > 0). Will ignore.")
+            args.known_z = None
+            args.known_z = None
 
     if args.gridsearch:
 
@@ -3319,6 +3337,12 @@ def main():
         log.critical("Exception in command line.",exc_info=True)
         exit(0)
 
+    try: #may be used for refrerence later
+         #several arguments can be modified during runtime and the original may need to be references
+        original_command_line_args = copy.deepcopy(args)
+    except:
+        pass
+
     if args.upgrade_hdf5:
         upgrade_hdf5(args)
         exit(0)
@@ -4201,12 +4225,17 @@ def main():
                                 savefn = os.path.join(e.outdir, e.pdf_name.rstrip(".pdf"))
                             else:
                                 savefn = os.path.join(e.outdir, str(e.entry_id))
-                            if args.shotid:
-                                shotlist = [args.shotid]
-                            elif e.survey_shotid:
+
+                            if e.survey_shotid: #use the shot from the DetObj
                                 shotlist = [e.survey_shotid]
+                            elif args.command_line_shotid:
+                                #this could have been modified upstream and may not be the original
+                                #(note: this is not exactly as it appears on the command line, but is immediatelu
+                                #after it has been transformed into the common, integer format
+                                shotlist = [args.command_line_shotid]
                             else:
                                 shotlist = SU.get_shotids(ra, dec)
+
                             ra_meshgrid, dec_meshgrid = SU.make_raster_grid(ra, dec, args.gridsearch[0],
                                                                             args.gridsearch[1])
 

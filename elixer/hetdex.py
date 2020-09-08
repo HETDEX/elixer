@@ -9714,6 +9714,9 @@ class HETDEX:
         rec = plt.Rectangle((cwave - ww, yl), 2 * ww, yh - yl, fill=True, lw=1, color='y', zorder=1)
         specplot.add_patch(rec)
 
+        #add specific ticks
+        specplot.set_xticks(np.arange(3500,5600,100))
+
         if G.LyC and (cwave >= 4860.):
             #draw rectangle (highlight) Lyman Continuum region
 
