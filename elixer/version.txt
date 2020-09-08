@@ -6,6 +6,8 @@ changes to elixer by version
   falls back to the ORIGINAL commandline shotid if the DetObj shotid is invalid.
 * added --known_z command line parameter so caller can set a fixed z for the solutions (solutions w/in z +/- 0.05 are
   considered)
+* remove explicit restriction against rank 4 emission lines as possible solutions (still require at least one additional
+  line)
 
 1.10.0a [2020-08-31]
 * explicit check for NaN in lineflux and continuum for PLAE (MCMC)

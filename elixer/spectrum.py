@@ -3610,8 +3610,11 @@ class Spectrum:
                     continue
             else:
                 #normal rules apply only allow major lines or lines marked as allowing a solution
-                if e.rank > 4:  # above rank 4, don't even consider as a main line (but it can still be a supporting line)
-                    continue
+
+                #2020-09-08 DD take out the check for rank 4; extra comparisons later make this no longer necessary
+                #to filter out noisy matches
+                # if e.rank > 4:  # above rank 4, don't even consider as a main line (but it can still be a supporting line)
+                #    continue
 
                 try:
                     if not (e.solution) and (e.min_obs_wave < central < e.max_obs_wave) and (self.fwhm >= e.min_fwhm):
@@ -3777,7 +3780,7 @@ class Spectrum:
 
                 allow_solution = False
 
-                if (sol.lines is not None) and (len(sol.lines) > 2):
+                if (sol.lines is not None) and (len(sol.lines) > 1): #anything with 2 or more lines is "allowed"
                     allow_solution = True
                 elif (e.solution): #only 1 line
                     allow_solution = True
