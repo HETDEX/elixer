@@ -136,7 +136,25 @@ else:
 
 base_time_multiplier = 1.0
 if "--gridsearch" in args:
-    base_time_multiplier = 3.0
+    try:
+        i = args.index("--gridsearch")
+        parms = sys.argv[i+1]
+        gridsearch
+        try:
+            gridsearch = parms.replace(')','')
+            gridsearch = parms.replace('(','')
+        except:
+            pass
+
+        gridsearch = tuple(map(float, gridsearch.split(',')))
+        # technically there are 2x of these, but they do not add nearly as much time as a full elixer output
+        # so we take the the half-side and scale down by another 1/2 (so divide by 2 instead of multiply by 2)
+        gridsearch_task_boost = gridsearch[0]/gridsearch[1]/2.0
+        base_time_multiplier = 1.0
+
+    except:
+        base_time_multiplier = 3.0 #just to put something in
+        num_extracts = None
     #just an average guess; the actual time depends on the grid width, cell size and number of shots
 
 if MERGE:
@@ -709,6 +727,9 @@ if not time_set: #update time
             mult = tasks / (nodes * ntasks_per_node)
         except:
             mult = 1.0
+
+        if gridsearch_task_boost is not None:
+            mx += gridsearch_task_boost
 
         # set a minimum time ... always AT LEAST 5 or 10 minutes requested?
         minutes = int(TIME_OVERHEAD + MAX_TIME_PER_TASK * mx * mult * base_time_multiplier)

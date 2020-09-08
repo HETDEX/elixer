@@ -502,6 +502,7 @@ class DetObj:
         #still in place for CURE calls
         self.x = None  #sky x and y?
         self.y = None
+        self.known_z = None #a fixed, "known" redshift passed in on the command line
 
         self.w = 0.0
         self.w_unc = 0.0
@@ -5134,6 +5135,11 @@ class HETDEX:
             self.extraction_ffsky = False
 
         try:
+            self.known_z = args.known_z
+        except:
+            self.known_z = None
+
+        try:
             self.explicit_extraction = args.explicit_extraction
         except:
             if args.aperture and args.ra and args.dec:
@@ -5985,6 +5991,9 @@ class HETDEX:
                 e.target_wavelength = self.target_wavelength
                 e.ra = self.target_ra
                 e.dec = self.target_dec
+                if self.known_z is not none:
+                    e.known_z = self.known_z
+
                 e.survey_shotid = shotid
                 e.extraction_aperture = aperture
                 e.extraction_ffsky = ffsky
@@ -6095,6 +6104,9 @@ class HETDEX:
             #build an empty Detect Object and then populate
             e = DetObj(None, emission=True,basic_only=basic_only)
             if e is not None:
+                if self.known_z is not none:
+                    e.known_z = self.known_z
+
                 e.entry_id = d #aka detect_id from HDF5
                 e.annulus = self.annulus
                 e.target_wavelength = self.target_wavelength
@@ -6140,11 +6152,15 @@ class HETDEX:
                 #build up the tokens that DetObj needs
                 toks = None
                 e = DetObj(toks, emission=True, fcsdir=d)
-                e.annulus = self.annulus
-                e.target_wavelength = self.target_wavelength
-                e.ra = self.target_ra
-                e.dec = self.target_dec
+
                 if e is not None:
+                    if self.known_z is not none:
+                        e.known_z = self.known_z
+                    e.annulus = self.annulus
+                    e.target_wavelength = self.target_wavelength
+                    e.ra = self.target_ra
+                    e.dec = self.target_dec
+
                     G.UNIQUE_DET_ID_NUM += 1
                     #for consistency with Karl's namine, the entry_id is the _xxx number at the end
                     if e.entry_id is None or e.entry_id == 0:
@@ -6164,11 +6180,15 @@ class HETDEX:
         elif (self.fcs_base is not None and self.fcsdir is not None): #not the usual case
             toks = None
             e = DetObj(toks, emission=True, fcs_base=self.fcs_base,fcsdir=self.fcsdir)
-            e.annulus = self.annulus
-            e.target_wavelength = self.target_wavelength
-            e.ra = self.target_ra
-            e.dec = self.target_dec
+
             if e is not None:
+                if self.known_z is not None:
+                    e.known_z = self.known_z
+                e.annulus = self.annulus
+                e.target_wavelength = self.target_wavelength
+                e.ra = self.target_ra
+                e.dec = self.target_dec
+
                 G.UNIQUE_DET_ID_NUM += 1
                 if e.entry_id is None or e.entry_id == 0:
                     e.entry_id = G.UNIQUE_DET_ID_NUM
@@ -6227,6 +6247,11 @@ class HETDEX:
                 for l in f:
                     toks = l.split()
                     e = DetObj(toks,emission=False,fcs_base=self.fcs_base)
+                    if e is None:
+                        continue
+
+                    if self.known_z is not None:
+                        e.known_z = self.known_z
 
                     if e.ifuslot is not None:
                         if e.ifuslot != self.ifu_slot_id:
@@ -6276,6 +6301,12 @@ class HETDEX:
                     line_counter += 1
                     toks = l.split()
                     e = DetObj(toks,emission=True,line_number=line_counter,fcs_base=self.fcs_base)
+
+                    if e is None:
+                        continue
+
+                    if self.known_z is not None:
+                        e.known_z = self.known_z
 
                     #e.plot_dqs_fit = self.plot_dqs_fit
 
