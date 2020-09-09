@@ -1748,7 +1748,7 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
 
             rows = dtb.read_where("(ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2)")
 
-            if (rows is not None) and (rows.size > 0):
+            if (rows is not None) and (len(rows) > 0):
                 detectids = rows['detectid']
 
                 #less important, sort by distance
@@ -1835,22 +1835,30 @@ def get_hdf5_detectids_to_process(args):
                     if args.aperture:  # this is an extraction
                         detlist = [] #will be a list of lists
                         with open(args.dispatch) as f:
-                            for line in f:
+                            for line in f:  #these COULD be ra dec shot wave OR just a detectid
                                 try:
                                     toks = line.split()
-                                    row = [float(toks[0]),float(toks[1])]
-                                    if len(toks) >= 3: #shotid
-                                        # shot = toks[2].lower()
-                                        # row.append(int(float(shot.replace('v',''))))
-                                        row.append(xlat_shotid(toks[2]))
-                                        if len(toks) == 4: #wavelength (in AA)
-                                            row.append(float(toks[3]))
+                                    if len(toks)==1: #this is probably just a detectid
+                                        try:
+                                            did = np.int64(toks[0])
+                                            detlist.append(did)
+                                        except:
+                                            log.error(f"Invalid --coords / --dets file line format: {line}")
 
-                                        #if shotid and wavelength are flipped, it should be caught later?
-                                    else:
-                                        row.append(None)
+                                    else: #this is a set of coords
+                                        row = [float(toks[0]),float(toks[1])]
+                                        if len(toks) >= 3: #shotid
+                                            # shot = toks[2].lower()
+                                            # row.append(int(float(shot.replace('v',''))))
+                                            row.append(xlat_shotid(toks[2]))
+                                            if len(toks) == 4: #wavelength (in AA)
+                                                row.append(float(toks[3]))
 
-                                    detlist.append(row)
+                                            #if shotid and wavelength are flipped, it should be caught later?
+                                        else:
+                                            row.append(None)
+
+                                        detlist.append(row)
                                 except:
                                     log.error(f"Invalid --coords file line format: {line}")
 

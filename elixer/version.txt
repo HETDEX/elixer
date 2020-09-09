@@ -8,6 +8,8 @@ changes to elixer by version
   considered)
 * remove explicit restriction against rank 4 emission lines as possible solutions (still require at least one additional
   line)
+* adjusted the SLURM auto run-time setting to better fit with --gridsearch (based on the gridwidth and step size, but
+  does not know about multiple shots)
 
 1.10.0a [2020-08-31]
 * explicit check for NaN in lineflux and continuum for PLAE (MCMC)
