@@ -135,6 +135,7 @@ else:
     pass
 
 base_time_multiplier = 1.0
+gridsearch_task_boost = 0.0
 if "--gridsearch" in args:
     try:
         i = args.index("--gridsearch")
