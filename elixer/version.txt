@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.10.0a2 [2020-09-08]
+1.10.0a2 [2020-09-10]
 * fixed issue where args.shotid would be (correctly) overwritten with per DetObj shotids, but when running --gridsearch
   at the end, only the last shotid was available in args.shotid. Now uses DetObj specific shotid first and then
   falls back to the ORIGINAL commandline shotid if the DetObj shotid is invalid.
@@ -10,6 +10,7 @@ changes to elixer by version
   line)
 * adjusted the SLURM auto run-time setting to better fit with --gridsearch (based on the gridwidth and step size, but
   does not know about multiple shots)
+* add shot seeing (FWHM), Throughput, and dither Normalization to 4th line of upper left text
 
 1.10.0a [2020-08-31]
 * explicit check for NaN in lineflux and continuum for PLAE (MCMC)

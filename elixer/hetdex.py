@@ -645,6 +645,8 @@ class DetObj:
         self.survey_fwhm_moffat = None #HDR1
         self.survey_fwhm = None #HDR2+
         self.survey_response = None
+        self.dither_norm = 0.0 #todo: max/min for dithers?
+        self.amp_stats = 0.0 #todo:???
         self.survey_fieldname = None
 
         self.multiline_z_minimum_flag = False #False == multiline no good solution, True = 1 good solution
@@ -3463,6 +3465,15 @@ class DetObj:
                 self.survey_fieldname = row['field'].decode()
             except:
                 self.survey_fieldname = row['field']
+
+            self.dither_norm = 0.0
+            try:
+                relflux_virus = row['relflux_virus']
+                self.dither_norm = np.max(relflux_virus) / np.min(relflux_virus)
+            except:
+                pass
+
+            #relflux_virus
 
         return
 
@@ -6835,12 +6846,30 @@ class HETDEX:
 
         else:
             if not G.ZOO:
-                title += "\n" \
-                     "Primary IFU SpecID (%s) SlotID (%s)\n" \
-                     "RA,Dec (%f,%f) \n" \
+                title += "\nPrimary IFU SpecID (%s) SlotID (%s)\n" % (e.fibers[0].specid, e.fibers[0].ifuslot)
+
+                if e.survey_fwhm > 3.0:
+                    title += f"F=*{e.survey_fwhm:0.1f}\"*  "
+                else:
+                    title += f"F={e.survey_fwhm:0.1f}\"  "
+
+                if e.survey_response < 0.08:
+                    title +=f"T=*{e.survey_response:0.3f}!  "
+                else:
+                    title += f"T={e.survey_response:0.3f}  "
+
+                if e.dither_norm > 2.0:
+                    title += f"N=*{e.dither_norm:0.2f}!  "
+                else:
+                    title += f"N={e.dither_norm:0.2f}  "
+
+                #title += f"A={e.amp_stats:0.2f}"
+                title += "\n"
+
+                title += "RA,Dec (%f,%f) \n" \
                      "$\lambda$ = %g$\AA$  FWHM = %0.1f($\pm$%0.1f)$\AA$\n" \
                      "LineFlux = %s" \
-                     % (e.fibers[0].specid, e.fibers[0].ifuslot, ra, dec, e.w,e.fwhm,e.fwhm_unc, estflux_str)
+                     %(ra, dec, e.w,e.fwhm,e.fwhm_unc, estflux_str)
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
@@ -6880,11 +6909,30 @@ class HETDEX:
 
 
             else: #this if for zooniverse, don't show RA and DEC or probabilities
-                title += "\n" \
-                     "Primary IFU SpecID (%s) SlotID (%s)\n" \
-                     "$\lambda$ = %g$\AA$  FWHM = %0.1f($\pm$%0.1f)$\AA$\n" \
-                     "LineFlux = %s " \
-                     % ( e.fibers[0].specid, e.fibers[0].ifuslot,e.w,e.fwhm, e.fwhm_unc, estflux_str)
+
+                title += "\nPrimary IFU SpecID (%s) SlotID (%s)\n" % (e.fibers[0].specid, e.fibers[0].ifuslot)
+
+                if e.survey_fwhm > 3.0:
+                    title += f"F=*{e.survey_fwhm:0.1f}\"*  "
+                else:
+                    title += f"F={e.survey_fwhm:0.1f}\"  "
+
+                if e.survey_response < 0.08:
+                    title +=f"T=*{e.survey_response:0.3f}!  "
+                else:
+                    title += f"T={e.survey_response:0.3f}  "
+
+                if e.dither_norm > 2.0:
+                    title += f"N=*{e.dither_norm:0.2f}!  "
+                else:
+                    title += f"N={e.dither_norm:0.2f}  "
+
+                # title += f"A={e.amp_stats:0.2f}"
+                title += "\n"
+
+                title += "$\lambda$ = %g$\AA$  FWHM = %0.1f($\pm$%0.1f)$\AA$\n" \
+                         "LineFlux = %s" \
+                         % (e.w, e.fwhm, e.fwhm_unc, estflux_str)
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
