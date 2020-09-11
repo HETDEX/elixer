@@ -1668,6 +1668,31 @@ class DetObj:
             self.classification_dict['scaled_plae'] = scaled_prob_lae
             self.classification_dict['spurious_reason'] = reason
             log.info(f"Aggregate Classification: grossly negative spectrum. Setting PLAE to -1 (spurious)")
+        #shot conditions
+        elif (self.survey_response < 0.08) or (self.survey_fwhm > 3.0) or \
+                (np.isnan(self.dither_norm) or (self.dither_norm > 2.0)):
+            if self.survey_response < 0.05: #this alone means we're done
+                 reason = "(poor throughput)"
+                 scaled_prob_lae = -1
+                 self.classification_dict['scaled_plae'] = scaled_prob_lae
+                 self.classification_dict['spurious_reason'] = reason
+                 log.info(f"Aggregate Classification: poor throughput {self.survey_response}. Setting PLAE to -1 (spurious)")
+            elif (np.isnan(self.dither_norm) or (self.dither_norm > 2.0)):
+                reason = "(bad dither norm)"
+                scaled_prob_lae = -1
+                self.classification_dict['scaled_plae'] = scaled_prob_lae
+                self.classification_dict['spurious_reason'] = reason
+                log.info(
+                    f"Aggregate Classification: poor throughput {self.survey_response}. Setting PLAE to -1 (spurious)")
+            else:
+                bool_sum  = (self.survey_response < 0.08) + (self.survey_fwhm > 3.0) +  (np.isnan(self.dither_norm) or (self.dither_norm > 2.0))
+                if bool_sum > 1:
+                    reason = "(poor shot)"
+                    scaled_prob_lae = -1
+                    self.classification_dict['scaled_plae'] = scaled_prob_lae
+                    self.classification_dict['spurious_reason'] = reason
+                    log.info(
+                        f"Aggregate Classification: poor shot F: {self.survey_fwhm} T: {self.survey_response}  N:{self.dither_norm}. Setting PLAE to -1 (spurious)")
 
         # check for duplicate pixel positions
         # elif self.num_duplicate_central_pixels > G.MAX_NUM_DUPLICATE_CENTRAL_PIXELS:  # out of the top (usually 4) fibers
@@ -3466,12 +3491,12 @@ class DetObj:
             except:
                 self.survey_fieldname = row['field']
 
-            self.dither_norm = 0.0
+            self.dither_norm = -1.0
             try:
                 relflux_virus = row['relflux_virus']
                 self.dither_norm = np.max(relflux_virus) / np.min(relflux_virus)
             except:
-                pass
+                self.dither_norm = -1.0
 
             #relflux_virus
 
@@ -9729,10 +9754,9 @@ class HETDEX:
                 emission_line_list = self.emission_lines
 
             for e in emission_line_list:
-                if (not e.solution) and (e.w_rest != the_solution_rest_wave): #if not a normal solution BUT it is THE solution, label it
-                    continue
-
                 if self.known_z is None:
+                    if (not e.solution) and (e.w_rest != the_solution_rest_wave): #if not a normal solution BUT it is THE solution, label it
+                        continue
                     z = cwave / e.w_rest - 1.0
                 else:
                     sol_z = cwave / e.w_rest - 1.0

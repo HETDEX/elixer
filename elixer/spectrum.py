@@ -2924,8 +2924,31 @@ class Spectrum:
                            [0,0,0,0,0,0,0,0,1]]  #8 OIII 5007
             match_matrix = np.array(match_matrix)
 
-            #min_ratios = [1, 0, 0, 0.01, 0.03, 0, 0.05, 0, 0.05, 0.10, 0.15, 0.4, 0, 0, 0.1, 1.3]
-           # max_ratios = [1, 0, 0, 0.06, 0.90, 0, 0.20, 0, 1.20, 0.33, 2.2, 3.3, 0, 0, 7.0, 20.0]
+            #row/column (is mininum, where lines are smallest compared to LyA)
+            # the inverse is still the minimum just the inverted ratio)
+            min_ratio_matrix = \
+            [ [1.00, None, None, None, None, None, None, None, None],  #OII
+              [None, 1.00, None, None, None, None, None, None, None],  #H_eta
+              [None, None, 1.00, None, None, None, None, None, None],  #H_zeta
+              [None, None, None, 1.00, None, None, None, None, None],  #H_eps
+              [None, None, None, None, 1.00, None, None, None, None],  #H_del
+              [None, None, None, None, None, 1.00, None, None, None],  #H_gamma
+              [None, None, None, None, None, None, 1.00, None, None],  #H_beta
+              [None, None, None, None, None, None, None, 1.00, None],  #OIII 4959
+              [None, None, None, None, None, None, None, None, 1.00]]  #OIII 5007
+             # OII   H_eta H_zet H_eps H_del H_gam H_bet  OIII OIII
+
+            max_ratio_matrix = \
+            [ [1.00, None, None, None, None, None, None, None, None],  #OII
+              [None, 1.00, None, None, None, None, None, None, None],  #H_eta
+              [None, None, 1.00, None, None, None, None, None, None],  #H_zeta
+              [None, None, None, 1.00, None, None, None, None, None],  #H_eps
+              [None, None, None, None, 1.00, None, None, None, None],  #H_del
+              [None, None, None, None, None, 1.00, None, None, None],  #H_gamma
+              [None, None, None, None, None, None, 1.00, None, None],  #H_beta
+              [None, None, None, None, None, None, None, 1.00, None],  #OIII 4959
+              [None, None, None, None, None, None, None, None, 1.00]]  #OIII 5007
+             # OII   H_eta H_zet H_eps H_del H_gam H_bet  OIII OIII
 
             sel = np.where(np.array([l.absorber for l in solution.lines]) == False)[0]
             sol_lines = np.array(solution.lines)[sel]
@@ -2972,8 +2995,14 @@ class Spectrum:
                            (max_ratios[rest_idx[i]] != 0) and (max_ratios[rest_idx[j]] != 0):
 
                             ratio = line_flux[line_idx[j]] / line_flux[line_idx[i]]
-                            min_ratio = min_ratios[rest_idx[j]]/min_ratios[rest_idx[i]]
-                            max_ratio = max_ratios[rest_idx[j]] / max_ratios[rest_idx[i]]
+                            # try the matrices first (if they are zero, they are not populated yet
+                            # so fall back to the list)
+                            min_ratio = min_ratio_matrix[rest_idx[j]][rest_idx[i]]
+                            max_ratio = max_ratio_matrix[rest_idx[j]][rest_idx[i]]
+
+                            if (min_ratio is None) or (max_ratio is None):
+                                min_ratio = min_ratios[rest_idx[j]] / min_ratios[rest_idx[i]]
+                                max_ratio = max_ratios[rest_idx[j]] / max_ratios[rest_idx[i]]
 
                             if min_ratio > max_ratio: #order is backward, so flip
                                 min_ratio, max_ratio = max_ratio, min_ratio
@@ -2999,7 +3028,8 @@ class Spectrum:
 
                                 else:
                                     log.debug(f"FWHM no match (0) for solution = {solution.central_rest}: "
-                                              f"rest {overlap[j]} to {overlap[i]}: FWHM {fwhm_j}, {fwhm_i}")
+                                              f"rest {overlap[j]} to {overlap[i]}: FWHM {fwhm_j}, {fwhm_i}, "
+                                              f"ratios: {min_ratio} < {ratio} < {max_ratio}")
                             else:
                                 if ratio < min_ratio:
                                     frac = (min_ratio - ratio) / min_ratio
@@ -3011,6 +3041,10 @@ class Spectrum:
                                     log.debug(
                                         f"Ratio mismatch (-1) for solution = {solution.central_rest}: "
                                         f"rest {overlap[j]} to {overlap[i]}:  {min_ratio} !< {ratio} !< {max_ratio}")
+                                # else:
+                                #     log.debug(
+                                #         f"Ratio no match (0) for solution = {solution.central_rest}: "
+                                #         f"rest {overlap[j]} to {overlap[i]}:  {min_ratio} !< {ratio} !< {max_ratio}")
 
             # todo: sther stuff??
             # if score > 0:
@@ -3060,30 +3094,30 @@ class Spectrum:
             #row/column (is mininum, where lines are smallest compared to LyA)
             # the inverse is still the minimum just the inverted ratio)
             min_ratio_matrix = \
-            [ [1.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  #LyA
-              [0.00, 1.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 6.66, 0.00],  #CIV
-              [0.00, 0.00, 1.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  #CIII
-              [0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  #CII
-              [0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00, 0.00, 0.00],  #MgII
-              [0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00, 0.00],  #NV
-              [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00],  #SiIII
-              [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00],  #SiIV
-              [0.00, 0.15, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 0.00],  #HeII
-              [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00] ] #OVI
+            [ [1.00, None, None, None, None, None, None, None, None, None],  #LyA
+              [None, 1.00, None, None, None, None, None, None, 6.66, None],  #CIV
+              [None, None, 1.00, None, None, None, None, None, None, None],  #CIII
+              [None, None, None, 1.00, None, None, None, None, None, None],  #CII
+              [None, None, None, None, 1.00, None, None, None, None, None],  #MgII
+              [None, None, None, None, None, 1.00, None, None, None, None],  #NV
+              [None, None, None, None, None, None, 1.00, None, None, None],  #SiIII
+              [None, None, None, None, None, None, None, 1.00, None, None],  #SiIV
+              [None, 0.15, None, None, None, None, None, None, 1.00, None],  #HeII
+              [None, None, None, None, None, None, None, None, None, 1.00] ] #OVI
              # LyA   CI V  CIII  CII   MgII   NV   SiIII SiVI  HeII   OVI
 
             #row/column (is maximum ... where lines are the largest compared to LyA)
             max_ratio_matrix = \
-            [ [1.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  #LyA
-              [0.00, 1.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.66, 0.00],  #CIV
-              [0.00, 0.00, 1.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  #CIII
-              [0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  #CII
-              [0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00, 0.00, 0.00],  #MgII
-              [0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00, 0.00],  #NV
-              [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00],  #SiIII
-              [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00],  #SiIV
-              [0.00, 0.60, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 0.00],  #HeII
-              [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00] ] #OVI
+            [ [1.00, None, None, None, None, None, None, None, None, None],  #LyA
+              [None, 1.00, None, None, None, None, None, None, 1.43, None],  #CIV
+              [None, None, 1.00, None, None, None, None, None, None, None],  #CIII
+              [None, None, None, 1.00, None, None, None, None, None, None],  #CII
+              [None, None, None, None, 1.00, None, None, None, None, None],  #MgII
+              [None, None, None, None, None, 1.00, None, None, None, None],  #NV
+              [None, None, None, None, None, None, 1.00, None, None, None],  #SiIII
+              [None, None, None, None, None, None, None, 1.00, None, None],  #SiIV
+              [None, 0.70, None, None, None, None, None, None, 1.00, None],  #HeII
+              [None, None, None, None, None, None, None, None, None, 1.00] ] #OVI
              # LyA    CIV  CIII   CII  MgII   NV   SiIII SiVI  HeII   OVI
 
             sel = np.where(np.array([l.absorber for l in solution.lines])==False)[0]
@@ -3122,8 +3156,15 @@ class Spectrum:
                            (max_ratios[rest_idx[i]] != 0) and (max_ratios[rest_idx[j]] != 0):
 
                             ratio = line_flux[line_idx[j]] / line_flux[line_idx[i]]
-                            min_ratio = min_ratios[rest_idx[j]]/min_ratios[rest_idx[i]]
-                            max_ratio = max_ratios[rest_idx[j]] / max_ratios[rest_idx[i]]
+
+                            #try the matrices first (if they are zero, they are not populated yet
+                            # so fall back to the list)
+                            min_ratio = min_ratio_matrix[rest_idx[j]][rest_idx[i]]
+                            max_ratio = max_ratio_matrix[rest_idx[j]][rest_idx[i]]
+
+                            if (min_ratio is None) or (max_ratio is None):
+                                min_ratio = min_ratios[rest_idx[j]]/min_ratios[rest_idx[i]]
+                                max_ratio = max_ratios[rest_idx[j]] / max_ratios[rest_idx[i]]
 
                             if min_ratio > max_ratio: #order is backward, so flip
                                 min_ratio, max_ratio = max_ratio, min_ratio
@@ -3141,7 +3182,8 @@ class Spectrum:
                                               f"FWHM {fwhm_j}, {fwhm_i}")
                                 else:
                                     log.debug(f"FWHM no match (0) for solution = {solution.central_rest}: "
-                                              f"rest {overlap[j]} to {overlap[i]}: FWHM {fwhm_j}, {fwhm_i}")
+                                              f"rest {overlap[j]} to {overlap[i]}: FWHM {fwhm_j}, {fwhm_i}: "
+                                              f"ratios: {min_ratio} < {ratio} < {max_ratio}")
 
                             else:
                                 if ratio < min_ratio:
