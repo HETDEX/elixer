@@ -2836,7 +2836,6 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         neighbor_color = "red"
         detectids, ras, decs, dists = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=error, sort=True)
 
-
         all_ras = ras[:]
         all_decs = decs[:]
 
@@ -2855,8 +2854,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                                                                                           error=error, sort=True)
 
             if (broad_ras is not None) and (broad_decs is not None):
-                all_ras += broad_ras[:]
-                all_decs += broad_decs[:]
+                np.concatenate((all_ras,broad_ras))
+                np.concatenate((all_decs,broad_decs))
 
             if broad_detectids is not None:
                 total_detectids += len(broad_detectids)
@@ -2872,8 +2871,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             cont_detectids, cont_ras, cont_decs, cont_dists = get_hdf5_detectids_by_coord(cont_hdf5, ra=ra, dec=dec, error=error, sort=True)
 
             if (cont_ras is not None) and (cont_decs is not None):
-                all_ras += cont_ras[:]
-                all_decs += cont_decs[:]
+                np.concatenate((all_ras,cont_ras))
+                np.concatenate((all_decs,cont_decs))
 
             if cont_detectids is not None:
                 total_detectids += len(cont_detectids)
@@ -3066,6 +3065,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     spec = []
     wave = []
     emis = []
+    shot = []
     with tables.open_file(hdf5, mode="r") as h5_detect:
         stb = h5_detect.root.Spectra
         dtb = h5_detect.root.Detections
@@ -3079,14 +3079,17 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                 drows = dtb.read_where("detectid==d")
                 if drows.size == 1:
                     emis.append(drows['wave'][0])
+                    shot.append(drows['shotid'][0])
                 else:
                     emis.append(-1.0)
+                    shot.append(0)
 
             else:
                 #there's a problem
                 spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
                 wave.append(G.CALFIB_WAVEGRID)
                 emis.append(-1.0)
+                shot.append(0)
 
 
     #now add the continuum sources if any
@@ -3094,6 +3097,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         try:
             with tables.open_file(cont_hdf5, mode="r") as h5_detect:
                 stb = h5_detect.root.Spectra
+                dtb = h5_detect.root.Detections
                 for d in cont_detectids:
                     rows = stb.read_where("detectid==d")
                     if rows.size == 1:
@@ -3105,16 +3109,27 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                         spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
                         wave.append(G.CALFIB_WAVEGRID)
                         emis.append(-1.0)
+
+                    drows = dtb.read_where("detectid==d")
+                    if drows.size == 1:
+                        shot.append(drows['shotid'][0])
+                    else:
+                        shot.append(0)
         except:
             pass
 
 
     num_rows = len(detectids) + len(cont_detectids)
     #need to join continuum rows to emission line detectrows now
-    detectids += cont_detectids
-    ras += cont_ras
-    decs += cont_decs
-    dists += cont_dists
+    # detectids += cont_detectids
+    # ras += cont_ras
+    # decs += cont_decs
+    # dists += cont_dists
+    detectids = np.concatenate((detectids,cont_detectids))
+    ras = np.concatenate((ras,cont_ras))
+    decs = np.concatenate((decs,cont_decs))
+    dists = np.concatenate((dists,cont_dists))
+
 
 
     #now add the BROAD LINE sources if any
@@ -3122,6 +3137,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         try:
             with tables.open_file(broad_hdf5, mode="r") as h5_detect:
                 stb = h5_detect.root.Spectra
+                dtb = h5_detect.root.Detections
                 for d in broad_detectids:
                     rows = stb.read_where("detectid==d")
                     if rows.size == 1:
@@ -3133,16 +3149,25 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                         spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
                         wave.append(G.CALFIB_WAVEGRID)
                         emis.append(-1.0)
+
+                    drows = dtb.read_where("detectid==d")
+                    if drows.size == 1:
+                        shot.append(drows['shotid'][0])
+                    else:
+                        shot.append(0)
         except:
             pass
 
     num_rows = len(detectids) + len(broad_detectids)
     #need to join continuum rows to emission line detectrows now
-    detectids += broad_detectids
-    ras += broad_ras
-    decs += broad_decs
-    dists += broad_dists
-
+    # detectids += broad_detectids
+    # ras += broad_ras
+    # decs += broad_decs
+    # dists += broad_dists
+    detectids = np.concatenate((detectids,broad_detectids))
+    ras = np.concatenate((ras,broad_ras))
+    decs = np.concatenate((decs,broad_decs))
+    dists = np.concatenate((dists,broad_dists))
 
     #todo: here add THIS detection IF this is a re-extraction
     if this_detection is not None:
@@ -3152,6 +3177,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         decs.insert(0,this_detection.dec)
         dists.insert(0,0.0)
         wave.insert(0,G.CALFIB_WAVEGRID)
+        shot.insert(0,this_detection.shotid)
 
         try:
             if (this_detection.sumspec_flux is not None) and \
@@ -3285,8 +3311,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
         #the 1D spectrum
         plt.subplot(gs[i*row_step+1:(i+1)*row_step-1,3:])
-        plt.title(r'Dist: %0.1f"  RA,Dec: (%f,%f)   $\lambda$: %0.2f   DetectID: %s'
-                  %(dists[i],ras[i],decs[i],emis[i],str(detectids[i])))
+        plt.title(r'Dist: %0.1f"  RA,Dec: (%0.5f,%0.5f)   $\lambda$: %0.2f   DetectID: %s  Shot: %s'
+                  %(dists[i],ras[i],decs[i],emis[i],str(int(detectids[i])), str(shot[i])))
         plt.plot(wave[i],spec[i],zorder=9,color='b')
         if cwave is not None:
             plt.axvline(x=cwave,linestyle="--",zorder=1,color='k',linewidth=1.0,alpha=0.5)
@@ -3309,15 +3335,14 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             plt.savefig(fname,format='png', dpi=75)
             log.debug("File written: %s" %(fname))
 
-
-            if False:
-                import astropy.io.fits as fits
-
-                for i in range(len(cutouts)):
-                    co = cutouts[i]['cutout']
-                    hdu = fits.PrimaryHDU(co.data)  # essentially empty header
-                    hdu.header.update(co.wcs.to_header())  # insert the cutout's WCS
-                    hdu.writeto('/home/dustin/code/python/elixer/cutouts/test_cutout_%d.fits' % i, overwrite=True)
+            # if False:
+            #     import astropy.io.fits as fits
+            #
+            #     for i in range(len(cutouts)):
+            #         co = cutouts[i]['cutout']
+            #         hdu = fits.PrimaryHDU(co.data)  # essentially empty header
+            #         hdu.header.update(co.wcs.to_header())  # insert the cutout's WCS
+            #         hdu.writeto('/home/dustin/code/python/elixer/cutouts/test_cutout_%d.fits' % i, overwrite=True)
 
         except:
             log.info("Exception attempting to save neighborhood map png.",exc_info=True)
