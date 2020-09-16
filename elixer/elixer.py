@@ -2886,7 +2886,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             #nothing to do
             log.info("No HETDEX detections found: (%f,%f) +/- %d\"" %(ra,dec,distance))
             return None, None
-        elif len(detectids) > G.MAX_NEIGHBORS_IN_MAP:
+
+        if len(detectids) > G.MAX_NEIGHBORS_IN_MAP:
             msg = "Maximum number of reportable (emission line) neighbors exceeded (%d). Will truncate to nearest %d." % (len(detectids),
                                                                                                 G.MAX_NEIGHBORS_IN_MAP)
             log.info(msg)
@@ -2900,6 +2901,28 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             ras = ras[:G.MAX_NEIGHBORS_IN_MAP]
             decs = decs[:G.MAX_NEIGHBORS_IN_MAP]
             dists = dists[:G.MAX_NEIGHBORS_IN_MAP]
+
+        if len(cont_detectids) > G.MAX_NEIGHBORS_IN_MAP:
+            msg = "Maximum number of reportable (continuum) neighbors exceeded (%d). Will truncate to nearest %d." % (len(detectids),
+                                                                                                G.MAX_NEIGHBORS_IN_MAP)
+            log.info(msg)
+            print(msg)
+
+            cont_detectids = cont_detectids[:G.MAX_NEIGHBORS_IN_MAP]
+            cont_ras = cont_ras[:G.MAX_NEIGHBORS_IN_MAP]
+            cont_decs = cont_decs[:G.MAX_NEIGHBORS_IN_MAP]
+            cont_dists = cont_dists[:G.MAX_NEIGHBORS_IN_MAP]
+
+        if len(broad_detectids) > G.MAX_NEIGHBORS_IN_MAP:
+            msg = "Maximum number of reportable (broad) neighbors exceeded (%d). Will truncate to nearest %d." % (len(detectids),
+                                                                                                G.MAX_NEIGHBORS_IN_MAP)
+            log.info(msg)
+            print(msg)
+
+            broad_detectids = broad_detectids[:G.MAX_NEIGHBORS_IN_MAP]
+            broad_ras = broad_ras[:G.MAX_NEIGHBORS_IN_MAP]
+            broad_decs = broad_decs[:G.MAX_NEIGHBORS_IN_MAP]
+            broad_dists = broad_dists[:G.MAX_NEIGHBORS_IN_MAP]
 
 
     #get the single master cutout (need to stack? or select best image (best == most pixels)?)

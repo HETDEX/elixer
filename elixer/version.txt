@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.10.0a3 [2020-09-16]
+* add a last check for possible OIII-5007 as a single line in hetdex::aggregate_classification (currently based on wavelength
+  greater than 5006.5, with narrow FWHM (+error) < 6AA and high EqW (35 for narrow, 100 for wide continuum estiamte)
+*
+
 1.10.0a2 [2020-09-10]
 * fixed issue where args.shotid would be (correctly) overwritten with per DetObj shotids, but when running --gridsearch
   at the end, only the last shotid was available in args.shotid. Now uses DetObj specific shotid first and then

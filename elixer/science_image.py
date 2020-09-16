@@ -868,9 +868,15 @@ class science_image():
         self.window = window
         #sanity check (shouold be of order few to maybe 100 arcsec, certainly no more than a few arcmin
         #so, greater than that implies a bad degree to arcsec conversion (degree assumed when arcsec passed)
-        if window > 1000:
-            msg = f"Unexpectedly high cutout size requested ({window}AA). Assume AA passed instead of degrees " \
-                        f"and will convert back to AA. Changing to ({window/3600.0})AA"
+
+        #e.g. arcsecs are expected here, but from another location degrees are expected. IF the initial paramter was
+        #passed as arcsec where degrees were expected, and then converted to arcsecs there would be an extra
+        #factor of x3600 and this number would be huge, so, divide by 3600 if that seems to be the case
+        #THAT is:  degrees wanted but arcsec passed in -> "degree"x3600 to get to arcsec (so now was arcsec x3600) ->
+        #the number is huge now, but really was arcsec to begin with, so /3600
+        if window > 1000: #so the max expected is 999 arcsec (given that the window is 3x the request, 333 arcsec is max)
+            msg = f"Unexpectedly high cutout size requested ({window} ). Assume arcsec passed instead of degrees " \
+                        f"and will convert back to degrees. Changing to ({window/3600.0}) degrees"
             log.warning(msg)
             print(msg)
             window /= 3600.0

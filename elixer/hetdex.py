@@ -1328,7 +1328,7 @@ class DetObj:
                         var.append(1)
                         #set a base weight (will be adjusted later)
                         diameter_lae.append({"z":z,"kpc":diam,"weight":w,"likelihood":lk})
-                        log.debug(
+                        log.info(
                              f"{self.entry_id} Aggregate Classification, added physical size:"
                              f" z({z:#.4g}) kpc({diam:#.4g}) weight({w:#.2g}) likelihood({lk:#.2g})")
 
@@ -1354,7 +1354,7 @@ class DetObj:
                         weight.append(w)
                         var.append(1)
                         diameter_not_lae.append({"z":z,"kpc":diam,"weight":w,"likelihood":lk})
-                        log.debug(
+                        log.info(
                             f"{self.entry_id} Aggregate Classification, added physical size:"
                             f" z({z:#.4g}) kpc({diam:#.4g}) weight({w:#.2g}) likelihood({lk:#.2g})")
 
@@ -1391,14 +1391,14 @@ class DetObj:
                         weight.append(0.01)  # opinion ... if consistent with point-source, does not really mean anything
                         var.append(1.)  # no variance to use
                         prior.append(base_assumption)
-                        log.debug(
+                        log.info(
                             f"Aggregate Classification: PSF scale fully consistent with point source: lk({likelihood[-1]}) weight({weight[-1]})")
                     else: #scale is between 0.01 and 0.5,
                         var.append(1.)
                         likelihood.append(scale)
                         weight.append(0.5-scale)
                         prior.append(base_assumption)
-                        log.debug(
+                        log.info(
                             f"Aggregate Classification: PSF scale marginally inconsistent with point source: lk({likelihood[-1]}) weight({weight[-1]})")
                 else:
                     #really adds no information ... as likely to be OII as LAE if consistent with point-source
@@ -1436,7 +1436,7 @@ class DetObj:
                             #must also have CIV or HeII, etc as possible matches
                             var.append(1)  #todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
-                            log.debug(
+                            log.info(
                                 f"Aggregate Classification: high-z solution: z({s.z}) lk({likelihood[-1]}) "
                                 f"weight({weight[-1]}) score({s.score}) scaled score({s.scale_score})")
 
@@ -1445,7 +1445,7 @@ class DetObj:
                             weight.append(s.scale_score * bonus_weight) #1.0)  # opinion ... has multiple lines, so the score is reasonable
                             var.append(1)  #todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
-                            log.debug(
+                            log.info(
                                 f"Aggregate Classification: low-z solution: z({s.z}) lk({likelihood[-1]}) "
                                 f"weight({weight[-1]}) score({s.score}) scaled score({s.scale_score})")
                     else: #low score, but can still impact
@@ -1462,7 +1462,7 @@ class DetObj:
                             # must also have CIV or HeII, etc as possible matches
                             var.append(1)  # todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
-                            log.debug(
+                            log.info(
                                 f"Aggregate Classification: high-z weak solution: z({s.z}) lk({likelihood[-1]}) "
                                 f"weight({weight[-1]}) score({s.score}) scaled score({s.scale_score})")
                         else:  # suggesting NOT LAE consistent
@@ -1472,7 +1472,7 @@ class DetObj:
                             weight.append(w * bonus_weight)
                             var.append(1)  # todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
-                            log.debug(
+                            log.info(
                                 f"Aggregate Classification: low-z weak solution: z({s.z}) lk({likelihood[-1]}) "
                                 f"weight({weight[-1]}) score({s.score}) scaled score({s.scale_score})")
 
@@ -1482,7 +1482,7 @@ class DetObj:
                         if (idx is not None) and (len(idx) == 1):
                             idx = idx[0]
                             diameter_lae[idx]['weight'] = weight[-1]
-                            log.debug(
+                            log.info(
                                 f"{self.entry_id} Aggregate Classification, updated physical size: "
                                 f"z({diameter_lae[idx]['z']:#.4g}) "
                                 f"kpc({diameter_lae[idx]['kpc']:#.4g}) "
@@ -1510,7 +1510,7 @@ class DetObj:
                     likelihood.append(0.0) #so, NOT LAE
                     weight.append(min(1.0,lya_sol.unmatched_lines_score/G.MULTILINE_FULL_SOLUTION_SCORE)) #up to 1.0
                     prior.append(base_assumption)
-                    log.debug(
+                    log.info(
                         f"Aggregate Classification: Significant unmatched lines penalize LAE: lk({likelihood[-1]})"
                         f" weight({weight[-1]})")
             except:
@@ -1526,7 +1526,7 @@ class DetObj:
                         weight.append(min(1.0,
                                           self.spec_obj.unmatched_solution_score / G.MULTILINE_FULL_SOLUTION_SCORE))  # up to 1.0
                         prior.append(base_assumption)
-                        log.debug(
+                        log.info(
                             f"Aggregate Classification: Significant unmatched lines penalize LAE: lk({likelihood[-1]})"
                             f" weight({weight[-1]})")
 
@@ -1566,7 +1566,7 @@ class DetObj:
                 var.append(1)  # todo: use the sd (scaled?) #can't use straight up here since the variances are not
                                # on the same scale
 
-                log.debug(
+                log.info(
                     f"Aggregate Classification: MC PLAE/POII from combined continuum: lk({likelihood[-1]}) weight({weight[-1]})")
 
                 #todo: handle the uncertainty on plae_hat
@@ -1581,7 +1581,7 @@ class DetObj:
             weight.append(max(2.0,max(weight)))
             var.append(1)  # todo: ? could do something like the spectrum noise?
             prior.append(base_assumption)
-            log.debug(f"Aggregate Classification: gmag too bright {self.best_gmag} to be LAE (AGN): lk({likelihood[-1]}) "
+            log.info(f"Aggregate Classification: gmag too bright {self.best_gmag} to be LAE (AGN): lk({likelihood[-1]}) "
                 f"weight({weight[-1]})")
         elif self.best_gmag < 23.0:
             try:
@@ -1598,19 +1598,49 @@ class DetObj:
                     weight.append(1.0 * (1.0-sigmoid))
                     var.append(1)  # todo: ? could do something like the spectrum noise?
                     prior.append(base_assumption)
-                    log.debug(f"Aggregate Classification: gmag too bright {self.best_gmag} for fwhm {self.fwhm}: lk({likelihood[-1]}) "
+                    log.info(f"Aggregate Classification: gmag too bright {self.best_gmag} for fwhm {self.fwhm}: lk({likelihood[-1]}) "
                               f"weight({weight[-1]})")
             except:
                 log.debug("Exception in aggregate_classification for best PLAE/POII", exc_info=True)
 
-
+        ########################################################
         #check for specific incompatible classification labels
+        ########################################################
+
         if "Meteor" in self.spec_obj.classification_label:
             likelihood.append(0.0)
             weight.append(self.spec_obj.meteor_strength)
             var.append(1)  # todo: ? could do something like the spectrum noise?
             prior.append(base_assumption)
-            log.debug( f"Aggregate Classification: Meteor indicated: lk({likelihood[-1]}) weight({weight[-1]})")
+            log.info( f"Aggregate Classification: Meteor indicated: lk({likelihood[-1]}) weight({weight[-1]})")
+
+        ##########################
+        # single line OIII 5007
+        ##########################
+        try:
+            #5006.83 in air
+            #basically, tend to be very narrow with a fair amount of flux (so moderately high eqw)
+            #this is a safety against possible OIII-5007 as a single line,
+            # (which is NOT part of the PLAE/POII comparision)
+            if (self.spec_obj is not None) and (len(self.spec_obj.solutions) == 0) and (self.w > 5006.5):
+                if self.spec_obj.fwhm + self.spec_obj.fwhm_unc < 6.0: #getting suspicious
+                    if (self.eqw_hetdex_gmag_obs) and (not np.isnan(self.eqw_hetdex_gmag_obs)) and \
+                        self.eqw_hetdex_gmag_obs / (self.w/1216.) > 100.0:
+                        if (self.eqw_line_obs) and (not np.isnan(self.eqw_line_obs)) and \
+                        self.eqw_line_obs / (self.w/1216.) > 35.0:
+                            #todo: need other / better criteria (maybe an EW distro for OIII 5007) from HETDEX?
+                            #todo: masking (of low-z galaxies could also help a lot)
+
+                            likelihood.append(0.0)
+                            weight.append(1.0)
+                            var.append(1)
+                            prior.append(base_assumption)
+                            log.info(
+                                f"Aggregate Classification: OIII-5007 possible: lk({likelihood[-1]}) weight({weight[-1]})")
+
+
+        except:
+            pass
 
         #todo: "Star"
 
