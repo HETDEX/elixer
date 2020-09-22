@@ -4,6 +4,7 @@ changes to elixer by version
 * add specific check for 3:1 ratio OIII 5007/4959 (allow comparison even if potential 4959 line is very weak and boost
   solution score to minimum if ratio is a fit)
 * adding in broadline fitting (very experimental)
+* allow specific lines to be very broad
 
 1.10.0a2 [2020-09-10]
 * fixed issue where args.shotid would be (correctly) overwritten with per DetObj shotids, but when running --gridsearch

@@ -722,7 +722,7 @@ class EmissionLineInfo:
 
         return snr
 
-    def build(self,values_units=0):
+    def build(self,values_units=0,allow_broad=False):
         if self.snr > MIN_ELI_SNR and self.fit_sigma > MIN_ELI_SIGMA:
             if self.fit_sigma is not None:
                 self.fwhm = 2.355 * self.fit_sigma  # e.g. 2*sqrt(2*ln(2))* sigma
@@ -811,7 +811,12 @@ class EmissionLineInfo:
             else:
                 adjusted_dx0_error = self.fit_dx0
 
-            if (self.fwhm is None) or (self.fwhm < MAX_FWHM):
+            if allow_broad:
+                max_fwhm = MAX_FWHM * 1.5
+            else:
+                max_fwhm = MAX_FWHM
+
+            if (self.fwhm is None) or (self.fwhm < max_fwhm):
                 if (self.fwhm > MAX_NORMAL_FWHM) and ( (self.snr < MIN_HUGE_FWHM_SNR) and (self.raw_snr() < GOOD_BROADLINE_RAW_SNR)):
                     log.debug(f"Huge fwhm {self.fwhm} with relatively poor SNR {self.snr} < required SNR {MIN_HUGE_FWHM_SNR} and "
                               f"{self.raw_snr()} < {GOOD_BROADLINE_RAW_SNR}. "
@@ -952,7 +957,7 @@ class EmissionLineInfo:
 #really should change this to use kwargs
 def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=None,values_units=0, sbr=None,
                  min_sigma=GAUSS_FIT_MIN_SIGMA,show_plot=False,plot_id=None,plot_path=None,do_mcmc=False,absorber=False,
-                 force_score=False,values_dx=G.FLUX_WAVEBIN_WIDTH):
+                 force_score=False,values_dx=G.FLUX_WAVEBIN_WIDTH,allow_broad=False):
 
     #values_dx is the bin width for the values if multiplied out (s|t) values are flux and not flux/dx
     #   by default, Karl's data is on a 2.0 AA bin width
@@ -1250,14 +1255,20 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                 log.error("Could not fit gaussian near %f" % central, exc_info=True)
         return None
 
-    if (eli.fit_rmse > 0) and (eli.fit_sigma <= GAUSS_FIT_MAX_SIGMA) and (eli.fit_sigma >= min_sigma):
+    #if there is a large anchor sigma (the sigma of the "main" line), then the max_sigma can be allowed to go higher
+    # if anchor_sigma is not None and anchor_sigma > 6.0:
+    #     max_sigma = GAUSS_FIT_MAX_SIGMA
+    # else:
+    #     max_sigma = GAUSS_FIT_MAX_SIGMA
+
+    if (eli.fit_rmse > 0) and ((eli.fit_sigma-eli.fit_sigma_err) <= GAUSS_FIT_MAX_SIGMA) and (eli.fit_sigma >= min_sigma):
 
         #this snr makes sense IF we assume the noise is distributed as a gaussian (which is reasonable)
         #then we'd be looking at something like 1/N * Sum (sigma_i **2) ... BUT , there are so few pixels
         #  typically around 10 and there really should be at least 30  to approximate the gaussian shape
         eli.snr = eli.fit_a/(np.sqrt(num_sn_pix)*eli.fit_rmse)
         eli.unique = unique_peak(values,wavelengths,eli.fit_x0,eli.fit_sigma*2.355)
-        eli.build(values_units=values_units)
+        eli.build(values_units=values_units,allow_broad=allow_broad)
         #eli.snr = max(eli.fit_vals) / (np.sqrt(num_sn_pix) * eli.fit_rmse)
         snr = eli.snr
     else:
@@ -2618,7 +2629,7 @@ def combine_lines(eli_list,sep=4.0):
 
 class EmissionLine():
     def __init__(self,name,w_rest,plot_color,solution=True,display=True,z=0,score=0.0,rank=0,
-                 min_fwhm=999.0,min_obs_wave=9999.0,max_obs_wave=9999.0):
+                 min_fwhm=999.0,min_obs_wave=9999.0,max_obs_wave=9999.0,broad=False):
         self.name = name
         self.w_rest = w_rest
         self.w_obs = w_rest * (1.0 + z)
@@ -2654,6 +2665,7 @@ class EmissionLine():
         self.fit_dx0 = None #from EmissionLineInfo, but we want this for a later comparison of all other lines in the solution
 
         self.absorber = False #true if an abosrption line
+        self.broad = broad #this can be a potentially very broad line (i.e. may be with an AGN)
 
     def redshift(self,z):
         self.z = z
@@ -2770,7 +2782,7 @@ class Spectrum:
             # there is at least one corroborating line
             # see (among others) https://ned.ipac.caltech.edu/level5/Netzer/Netzer2_1.html
 
-            EmissionLine("Ly$\\alpha$".ljust(w), G.LyA_rest, 'red',rank=1),
+            EmissionLine("Ly$\\alpha$".ljust(w), G.LyA_rest, 'red',rank=1,broad=True),
 
             EmissionLine("OII".ljust(w), G.OII_rest, 'green',rank=2),
             EmissionLine("OIII".ljust(w), 4959, "lime",rank=2),#4960.295 (vacuum) 4958.911 (air)
@@ -2781,14 +2793,14 @@ class Spectrum:
                          min_fwhm=12.0,min_obs_wave=4861.0-20.,max_obs_wave=5540.0+20.),
 
             # big in AGN (never alone in our range)
-            EmissionLine("CIV".ljust(w), 1549, "blueviolet",solution=True,display=True,rank=3),
+            EmissionLine("CIV".ljust(w), 1549, "blueviolet",solution=True,display=True,rank=3,broad=True),
             # big in AGN (alone before CIV enters from blue and after MgII exits to red) [HeII too unreliable to set max_obs_wave]
-            EmissionLine("CIII".ljust(w), 1909, "purple",solution=False,display=True,rank=3,
+            EmissionLine("CIII".ljust(w), 1909, "purple",solution=False,display=True,rank=3,broad=True,
                          min_fwhm=12.0,min_obs_wave=3751.0-20.0,max_obs_wave=4313.0+20.0),
             #big in AGN (too weak to be alone)
-            EmissionLine("CII".ljust(w),  2326, "purple",solution=False,display=True,rank=4),  # in AGN
+            EmissionLine("CII".ljust(w),  2326, "purple",solution=False,display=True,rank=4,broad=True),  # in AGN
             #big in AGN (alone before CIII enters from the blue )  this MgII is a doublet, 2795, 2802
-            EmissionLine("MgII".ljust(w), 2799, "magenta",solution=False,display=True,rank=3,
+            EmissionLine("MgII".ljust(w), 2799, "magenta",solution=False,display=True,rank=3,broad=True,
                          min_fwhm=12.0,min_obs_wave=3500.0-20.0, max_obs_wave=5131.0+20.0),
 
             #thse H_x lines are never alone (OIII or OII are always present)
@@ -3815,7 +3827,8 @@ class Spectrum:
 
                 eli = signal_score(wavelengths=wavelengths, values=values, errors=errors, central=a_central,
                                    central_z = central_z, values_units=values_units, spectrum=self,
-                                   show_plot=False, do_mcmc=False)
+                                   show_plot=False, do_mcmc=False,
+                                   allow_broad= a.broad and e.broad)
 
 
                 #try as absorber
