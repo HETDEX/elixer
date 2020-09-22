@@ -1427,7 +1427,7 @@ class DetObj:
                        (G.MULTILINE_USE_CONSISTENCY_CHECKS and (s.score / G.MULTILINE_FULL_SOLUTION_SCORE > 2) and (s.frac_score > 0.75)):# and s):
                         bonus_weight = min(s.score / G.MULTILINE_FULL_SOLUTION_SCORE,10.0)  #up to 10x bonus
 
-                    if s.score > G.MULTILINE_MIN_SOLUTION_SCORE: #only consider somewhat probable scores
+                    if s.score >= G.MULTILINE_MIN_SOLUTION_SCORE: #only consider somewhat probable scores
                         #split between z > 1.8 ==> LAE and < 1.8 ==>not LAE
                         #if s.z  > 1.8: #suggesting LAE consistent
                         if s.central_rest == G.LyA_rest:
@@ -1616,31 +1616,33 @@ class DetObj:
 
         ##########################
         # single line OIII 5007
+        # * replaced by special handling in spectrum::classify_with_additional_lines
         ##########################
-        try:
-            #5006.83 in air
-            #basically, tend to be very narrow with a fair amount of flux (so moderately high eqw)
-            #this is a safety against possible OIII-5007 as a single line,
-            # (which is NOT part of the PLAE/POII comparision)
-            if (self.spec_obj is not None) and (len(self.spec_obj.solutions) == 0) and (self.w > 5006.5):
-                if self.spec_obj.fwhm + self.spec_obj.fwhm_unc < 6.0: #getting suspicious
-                    if (self.eqw_hetdex_gmag_obs) and (not np.isnan(self.eqw_hetdex_gmag_obs)) and \
-                        self.eqw_hetdex_gmag_obs / (self.w/1216.) > 100.0:
-                        if (self.eqw_line_obs) and (not np.isnan(self.eqw_line_obs)) and \
-                        self.eqw_line_obs / (self.w/1216.) > 35.0:
-                            #todo: need other / better criteria (maybe an EW distro for OIII 5007) from HETDEX?
-                            #todo: masking (of low-z galaxies could also help a lot)
 
-                            likelihood.append(0.0)
-                            weight.append(1.0)
-                            var.append(1)
-                            prior.append(base_assumption)
-                            log.info(
-                                f"Aggregate Classification: OIII-5007 possible: lk({likelihood[-1]}) weight({weight[-1]})")
-
-
-        except:
-            pass
+        # try:
+        #     #5006.83 in air
+        #     #basically, tend to be very narrow with a fair amount of flux (so moderately high eqw)
+        #     #this is a safety against possible OIII-5007 as a single line,
+        #     # (which is NOT part of the PLAE/POII comparision)
+        #     if (self.spec_obj is not None) and (len(self.spec_obj.solutions) == 0) and (self.w > 5006.5):
+        #         if self.spec_obj.fwhm + self.spec_obj.fwhm_unc < 6.0: #getting suspicious
+        #             if (self.eqw_hetdex_gmag_obs) and (not np.isnan(self.eqw_hetdex_gmag_obs)) and \
+        #                 self.eqw_hetdex_gmag_obs / (self.w/1216.) > 100.0:
+        #                 if (self.eqw_line_obs) and (not np.isnan(self.eqw_line_obs)) and \
+        #                 self.eqw_line_obs / (self.w/1216.) > 35.0:
+        #                     #todo: need other / better criteria (maybe an EW distro for OIII 5007) from HETDEX?
+        #                     #todo: masking (of low-z galaxies could also help a lot)
+        #
+        #                     likelihood.append(0.0)
+        #                     weight.append(1.0)
+        #                     var.append(1)
+        #                     prior.append(base_assumption)
+        #                     log.info(
+        #                         f"Aggregate Classification: OIII-5007 possible: lk({likelihood[-1]}) weight({weight[-1]})")
+        #
+        #
+        # except:
+        #     pass
 
         #todo: "Star"
 

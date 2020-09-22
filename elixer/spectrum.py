@@ -23,6 +23,7 @@ import io
 #from scipy.integrate import simps
 from scipy.stats import skew, kurtosis,chisquare
 from scipy.optimize import curve_fit
+from scipy.signal import medfilt
 import astropy.stats.biweight as biweight
 import copy
 
@@ -94,9 +95,11 @@ PROB_NOISE_MIN_SCORE = 2.0 #min score that makes it to the bin list
 GOOD_BROADLINE_SIGMA = 6.0 #getting broad
 GOOD_BROADLINE_SNR = 11.0 # upshot ... protect against neighboring "noise" that fits a broad line ...
                           # if big sigma, better have big SNR
+GOOD_BROADLINE_RAW_SNR = 4.0 # litteraly signal/noise (flux values / error values +/- 3 sigma from peak)
 GOOD_MIN_LINE_SNR = 4.0
 GOOD_MIN_LINE_SCORE = 3.0 #lines are added to solution only if 'GOOD' (meaning, minimally more likely real than noise)
 #does not have to be the same as PROB_NOISE_MIN_SCORE, but that generally makes sense
+GOOD_BROADLINE_MIN_LINE_SCORE = 20.0 #if we have a special broad-line match, the score MUST be higher to accept
 GOOD_FULL_SNR = 9.0 #ignore SBR is SNR is above this
 #GOOD_MIN_SNR = 5.0 #bare-minimum; if you change the SNR ranges just above, this will also need to change
 GOOD_MIN_SBR = 6.0 #signal to "background" noise (looks at peak height vs surrounding peaks) (only for "weak" signals0
@@ -557,10 +560,14 @@ class EmissionLineInfo:
 
         #unless noted, these are without units
         self.fit_a = None #expected in counts or in x10^-18 cgs [notice!!! -18 not -17]
+        self.fit_a_err = 0.
         self.fit_x0 = None #central peak (x) position in AA
+        self.fit_x0_err = 0.
         self.fit_dx0 = None #difference in fit_x0 and the target wavelength in AA, like bias: target-fit
         self.fit_sigma = 0.0
+        self.fit_sigma_err = 0.0
         self.fit_y = None #y offset for the fit (essentially, the continuum estimate)
+        self.fit_y_err = 0.0
         self.fit_h = None #max of the fit (the peak) #relative height
         self.fit_rh = None #fraction of fit height / raw peak height
         self.fit_rmse = -999
@@ -572,7 +579,9 @@ class EmissionLineInfo:
         self.a_unc = None
 
         self.fit_line_flux = None #has units applied
+        self.fit_line_flux_err = 0.0 #has units applied
         self.fit_continuum = None #has units applied
+        self.fit_continuum_err = 0.0 #has units applied
 
         self.fit_wave = []
         self.fit_vals = []
@@ -587,8 +596,10 @@ class EmissionLineInfo:
         self.raw_h =  None
         self.raw_x0 = None
 
-        self.line_flux = -999 #the line flux
-        self.cont = -999
+        self.line_flux = -999. #the line flux
+        self.line_flux_err = 0. #the line flux
+        self.cont = -999.
+        self.cont_err = 0.
 
         self.snr = 0.0
         self.sbr = 0.0
@@ -616,6 +627,7 @@ class EmissionLineInfo:
         self.mcmc_chi2 = None
 
 
+        self.broadfit = False #set to TRUE if a broadfit conditions were applied to the fit
         self.absorber = False #set to True if this is an absorption line
 
         self.mcmc_plot_buffer = None
@@ -689,6 +701,27 @@ class EmissionLineInfo:
 
         return s
 
+    def raw_snr(self):
+        """
+        return the SNR (litterly as the flux values / noise values) over the 3sigma with of the line
+        :return:
+        """
+        snr = 0.0
+        try:
+            idx = getnearpos(self.raw_wave,self.fit_x0) #single value version of getnearpos
+            width = int(self.fit_sigma * 3.0)
+            left = max(0,idx-width)
+            right = max(len(self.raw_wave)-1,idx+width)
+
+            signal = np.nansum(self.raw_vals[left::right+1])
+            error = np.nansum(self.raw_errs[left::right+1])
+
+            snr = signal/error
+        except:
+            log.info("Exception in EmissionLineInfo::raw_snr",exc_info=True)
+
+        return snr
+
     def build(self,values_units=0):
         if self.snr > MIN_ELI_SNR and self.fit_sigma > MIN_ELI_SIGMA:
             if self.fit_sigma is not None:
@@ -714,8 +747,10 @@ class EmissionLineInfo:
                     # self.fit_h *= unit
 
                     self.line_flux = self.fit_a / self.fit_bin_dx * unit
+                    self.line_flux_err = self.fit_a_err / self.fit_bin_dx * unit
                     self.fit_line_flux = self.line_flux
                     self.cont = self.fit_y * unit
+                    self.cont_err = self.fit_y_err * unit
                     self.fit_continuum = self.cont
 
                     #fix fit_h
@@ -728,9 +763,11 @@ class EmissionLineInfo:
                         #todo: AND ... need to know units of flux (if passed from signal_score are in x10^-18 not -17
                         self.line_flux = self.fit_a / self.fit_bin_dx * flux_conversion(self.fit_x0)  # cgs units
                         self.fit_line_flux = self.line_flux
+                        self.line_flux_err = self.fit_a_err / self.fit_bin_dx * flux_conversion(self.fit_x0)
 
                     if (self.fit_y is not None) and (self.fit_y > G.CONTINUUM_FLOOR_COUNTS):
                         self.cont = self.fit_y * flux_conversion(self.fit_x0)
+                        self.cont_err = self.fit_y_err * flux_conversion(self.fit_x0)
                     else:
                         self.cont = G.CONTINUUM_FLOOR_COUNTS * flux_conversion(self.fit_x0)
                     self.fit_continuum = self.cont
@@ -775,8 +812,9 @@ class EmissionLineInfo:
                 adjusted_dx0_error = self.fit_dx0
 
             if (self.fwhm is None) or (self.fwhm < MAX_FWHM):
-                if (self.fwhm > MAX_NORMAL_FWHM) and (self.snr < MIN_HUGE_FWHM_SNR):  # todo: check for SNR (is it noisy?)
-                    log.debug(f"Huge fwhm {self.fwhm} with relatively poor SNR {self.snr} < required SNR {MIN_HUGE_FWHM_SNR} "
+                if (self.fwhm > MAX_NORMAL_FWHM) and ( (self.snr < MIN_HUGE_FWHM_SNR) and (self.raw_snr() < GOOD_BROADLINE_RAW_SNR)):
+                    log.debug(f"Huge fwhm {self.fwhm} with relatively poor SNR {self.snr} < required SNR {MIN_HUGE_FWHM_SNR} and "
+                              f"{self.raw_snr()} < {GOOD_BROADLINE_RAW_SNR}. "
                               "Probably bad fit or merged lines. Rejecting score.")
                     self.line_score = 0
                 else:
@@ -874,15 +912,17 @@ class EmissionLineInfo:
         #(self.sbr > 1.0) #not working the way I want. don't use it
         result = False
 
-        def ratty(snr,sigma):
-            if (sigma > GOOD_BROADLINE_SIGMA) and (snr < GOOD_BROADLINE_SNR):
+        def ratty(snr,sigma): #a bit redundant vs similar check under self.build()
+            if (sigma > GOOD_BROADLINE_SIGMA) and ((snr < GOOD_BROADLINE_SNR) and (self.raw_snr() < GOOD_BROADLINE_RAW_SNR)):
                 log.debug("Ratty fit on emission line.")
                 return True
             else:
                 return False
 
+        if (self.fit_sigma > GOOD_BROADLINE_SIGMA) and (self.line_score < GOOD_BROADLINE_MIN_LINE_SCORE):
+            result = False
         # minimum to be possibly good
-        if (self.line_score >= GOOD_MIN_LINE_SCORE) and (self.fit_sigma >= GOOD_MIN_SIGMA):
+        elif (self.line_score >= GOOD_MIN_LINE_SCORE) and (self.fit_sigma >= GOOD_MIN_SIGMA):
         #if(self.snr >= GOOD_MIN_LINE_SNR) and (self.fit_sigma >= GOOD_MIN_SIGMA):
             if not ratty(self.snr,self.fit_sigma):
                 s = self.peak_sigma_above_noise()
@@ -1059,8 +1099,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
         parm, pcov = curve_fit(gaussian, np.float64(narrow_wave_x), np.float64(narrow_wave_counts),
                                 p0=(central,1.5,1.0,0.0),
-                                bounds=((central-fit_range_AA, min_sigma, 0.0, -100.0),
-                                        (central+fit_range_AA, 20.0, 1e5, 1e4)),
+                                bounds=((central-fit_range_AA, 1.0, 0.0, -100.0),
+                                        (central+fit_range_AA, 25.0, 1e5, 1e4)),
                                 #sigma=1./(narrow_wave_errors*narrow_wave_errors)
                                 sigma=narrow_wave_err_sigma#, #handles the 1./(err*err)
                                #note: if sigma == None, then curve_fit uses array of all 1.0
@@ -1079,6 +1119,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         except:
             pass
 
+        #gaussian(x, x0, sigma, a=1.0, y=0.0):
         eli.fit_vals = gaussian(xfit, parm[0], parm[1], parm[2], parm[3])
         eli.fit_wave = xfit.copy()
         eli.raw_vals = wave_counts[:]
@@ -1105,21 +1146,29 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         rms_wave = gaussian(wave_x, parm[0], parm[1], parm[2], parm[3])
 
         eli.fit_x0 = parm[0]
+        eli.fit_x0_err = perr[0]
         eli.fit_dx0 = central - eli.fit_x0
         scaled_fit_h = max(eli.fit_vals)
         eli.fit_h = scaled_fit_h
         eli.fit_rh = eli.fit_h / raw_peak
         eli.fit_sigma = parm[1] #units of AA not pixels
+        eli.fit_sigma_err = perr[1]
         eli.fit_a = parm[2] #this is an AREA so there are 2 powers of 10.0 in it (hx10 * wx10) if in e-18 units
+        eli.fit_a_err = perr[2]
         eli.fit_y = parm[3]
+        eli.fit_y_err = perr[3]
 
         if (values_dx is not None) and (values_dx > 0):
             eli.fit_bin_dx = values_dx
             eli.fit_line_flux = eli.fit_a / eli.fit_bin_dx
+            eli.fit_line_flux_err = eli.fit_a_err/eli.fit_bin_dx #assumes no error in fit_bin_dx (and that is true)
             eli.fit_continuum = eli.fit_y / eli.fit_bin_dx
+            eli.fit_continuum_err = eli.fit_y_err / eli.fit_bin_dx
         else:
             eli.fit_line_flux = eli.fit_a
+            eli.fit_line_flux_err = eli.fit_a_err
             eli.fit_continuum = eli.fit_y
+            eli.fit_continuum_err = eli.fit_y_err
 
 
         raw_idx = getnearpos(eli.raw_wave, eli.fit_x0)
@@ -1291,10 +1340,11 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                 log.debug("Bonus for large sigma: %f" % (val))
             elif si < 15.0:
                 pass #unexpected, but lets not penalize just yet
-            else: #very wrong
-                val = np.sqrt(si-15.0)
-                score -= val
-                log.debug("Penalty for excessive sigma: %f" % (val))
+            else: #very wrong (could be a broadline hit)
+                if si > (5*min_sigma): #if a large min_sigma is passed in, this can be allowed to be larger w/o penalty
+                    val = np.sqrt(si-15.0)
+                    score -= val
+                    log.debug("Penalty for excessive sigma: %f" % (val))
 
 
             #only check the skew for smaller sigma
@@ -1343,7 +1393,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         mcmc.initial_mu = eli.fit_x0
 
         if bad_curve_fit:
-            mcmc.initial_sigma = min_sigma
+            mcmc.initial_sigma = 1.0
             mcmc.initial_A = raw_peak * 2.35 * mcmc.initial_sigma  # / adjust
         else:
             mcmc.initial_sigma = eli.fit_sigma
@@ -2218,6 +2268,8 @@ def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
 
                 # if (eli is not None) and (eli.score > 0) and (eli.snr > 7.0) and (eli.fit_sigma > 1.6) and (eli.eqw_obs > 5.0):
                 if (eli is not None) and ((not enforce_good) or eli.is_good()):
+                    #extra check for broadlines the score must be higher than usual
+                    #if (min_sigma < 4.0) or ((min_sigma >= 4.0) and (eli.line_score > 25.0)):
                     eli_list.append(eli)
             except:
                 log.error("Exception calling signal_score in sn_peakdet",exc_info=True)
@@ -2290,6 +2342,21 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
 
     eli_list = sn_peakdet(x,v,err,values_units=values_units,enforce_good=enforce_good,min_sigma=min_sigma,
                           absorber=absorber)
+
+
+    if True:
+        try:
+            #repeat with median filter and kick up the minimum sigma for a broadfit
+            medfilter_eli_list = sn_peakdet(x,medfilt(v,5),medfilt(err,5),values_units=values_units,
+                                            enforce_good=enforce_good,min_sigma=GOOD_BROADLINE_SIGMA,absorber=absorber)
+
+            for m in medfilter_eli_list:
+                m.broadfit = True
+
+            if medfilter_eli_list and len(medfilter_eli_list) > 0:
+                eli_list += medfilter_eli_list
+        except:
+            log.debug("Exception in peakdet with median filter",exc_info=True)
 
     if x is None:
         x = np.arange(len(v))
@@ -2519,7 +2586,7 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
 
 
 
-def combine_lines(eli_list,sep=1.0):
+def combine_lines(eli_list,sep=4.0):
     """
 
     :param eli_list:
@@ -2537,8 +2604,9 @@ def combine_lines(eli_list,sep=1.0):
     for e in eli_list:
         add = True
         for i in range(len(keep_list)):
-            if (e.fit_x0 - keep_list[i].fit_x0) < sep:
+            if abs(e.fit_x0 - keep_list[i].fit_x0) < sep:
                 add = False
+                #keep the larger score
                 if e.line_score > keep_list[i].fit_x0:
                     keep_list[i] = copy.deepcopy(e)
         if add:
@@ -2574,16 +2642,16 @@ class EmissionLine():
         self.snr = None
         self.sbr = None
         self.flux = None
+        self.flux_err = 0.0
         self.eqw_obs = None
         self.eqw_rest = None
         self.sigma = None #gaussian fit sigma
-
+        self.sigma_err = 0.0
 
         #a bit redundant with EmissionLineInfo
         self.line_score = 0.0
         self.prob_noise = 1.0
         self.fit_dx0 = None #from EmissionLineInfo, but we want this for a later comparison of all other lines in the solution
-
 
         self.absorber = False #true if an abosrption line
 
@@ -2909,7 +2977,7 @@ class Spectrum:
             #                                      CaII
             #             OII   H_eta      H_zeta  H_eps  H_del H_gam  H_beta  -OIII-
             min_ratios = [1,     0.01,      0.05,  0.05,  0.1, 0.15,   0.4,    0.1, 0.3]
-            max_ratios = [1,     0.06,      0.20,  1.20,  0.5, 1.50,   3.3,    7.0, 20.0]
+            max_ratios = [1,     0.06,      0.20,  1.20,  0.5, 1.50,   3.3,    6.5, 20.0]
 
             #required match matrix ... if line (x) is found and line(y) is in range, it MUST be found too
             #this is in order of the lines in rest_waves
@@ -2934,8 +3002,8 @@ class Spectrum:
               [None, None, None, None, 1.00, None, None, None, None],  #H_del
               [None, None, None, None, None, 1.00, None, None, None],  #H_gamma
               [None, None, None, None, None, None, 1.00, None, None],  #H_beta
-              [None, None, None, None, None, None, None, 1.00, None],  #OIII 4959
-              [None, None, None, None, None, None, None, None, 1.00]]  #OIII 5007
+              [None, None, None, None, None, None, None, 1.00, 0.33],  #OIII 4959
+              [None, None, None, None, None, None, None, 3.00, 1.00]]  #OIII 5007
              # OII   H_eta H_zet H_eps H_del H_gam H_bet  OIII OIII
 
             max_ratio_matrix = \
@@ -2946,8 +3014,8 @@ class Spectrum:
               [None, None, None, None, 1.00, None, None, None, None],  #H_del
               [None, None, None, None, None, 1.00, None, None, None],  #H_gamma
               [None, None, None, None, None, None, 1.00, None, None],  #H_beta
-              [None, None, None, None, None, None, None, 1.00, None],  #OIII 4959
-              [None, None, None, None, None, None, None, None, 1.00]]  #OIII 5007
+              [None, None, None, None, None, None, None, 1.00, 0.33],  #OIII 4959
+              [None, None, None, None, None, None, None, 3.00, 1.00]]  #OIII 5007
              # OII   H_eta H_zet H_eps H_del H_gam H_bet  OIII OIII
 
             sel = np.where(np.array([l.absorber for l in solution.lines]) == False)[0]
@@ -2956,7 +3024,9 @@ class Spectrum:
             #line_ew = [self.eqw_obs / (1 + solution.z)] + [l.eqw_rest for l in sol_lines]
             #line_flux is maybe more reliable ... the continuum estimates for line_ew can go wrong and give horrible results
             line_flux = [self.estflux] + [l.flux for l in sol_lines]
+            line_flux_err = [self.estflux_unc] + [l.flux_err for l in sol_lines]
             line_fwhm = [self.fwhm] + [l.sigma * 2.355 for l in sol_lines]
+            line_fwhm_err = [self.fwhm_unc] + [l.sigma_err * 2.355 for l in sol_lines]
 
             overlap, rest_idx, line_idx = np.intersect1d(rest_waves, line_waves, return_indices=True)
 
@@ -2995,6 +3065,8 @@ class Spectrum:
                            (max_ratios[rest_idx[i]] != 0) and (max_ratios[rest_idx[j]] != 0):
 
                             ratio = line_flux[line_idx[j]] / line_flux[line_idx[i]]
+                            ratio_err = abs(ratio) * np.sqrt((line_flux_err[line_idx[j]] /line_flux[line_idx[j]]) ** 2 +
+                                                             (line_flux_err[line_idx[i]] / line_flux[line_idx[i]]) ** 2)
                             # try the matrices first (if they are zero, they are not populated yet
                             # so fall back to the list)
                             min_ratio = min_ratio_matrix[rest_idx[j]][rest_idx[i]]
@@ -3007,7 +3079,7 @@ class Spectrum:
                             if min_ratio > max_ratio: #order is backward, so flip
                                 min_ratio, max_ratio = max_ratio, min_ratio
 
-                            if min_ratio <= ratio <= max_ratio:
+                            if min_ratio <= (ratio+ratio_err) and (ratio-ratio_err) <= max_ratio:
                                 #now check fwhm is compatible
                                 fwhm_i = line_fwhm[line_idx[i]]
                                 fwhm_j = line_fwhm[line_idx[j]]
@@ -3016,7 +3088,8 @@ class Spectrum:
                                 if avg_fwhm > 0 and diff_fwhm/avg_fwhm < 0.5:
                                     score += 1
                                     log.debug(f"Ratio match (+1) for solution = {solution.central_rest}: "
-                                              f"rest {overlap[j]} to {overlap[i]}: {min_ratio} < {ratio} < {max_ratio} "
+                                              f"rest {overlap[j]} to {overlap[i]}: "
+                                              f"{min_ratio:0.2f} < {ratio:0.2f} +/- {ratio_err:0.2f} < {max_ratio:0.2f} "
                                               f"FWHM {fwhm_j}, {fwhm_i}")
 
                                     if rest_waves[rest_idx[j]] == 3727 and rest_waves[rest_idx[i]] == 5007:
@@ -3029,7 +3102,7 @@ class Spectrum:
                                 else:
                                     log.debug(f"FWHM no match (0) for solution = {solution.central_rest}: "
                                               f"rest {overlap[j]} to {overlap[i]}: FWHM {fwhm_j}, {fwhm_i}, "
-                                              f"ratios: {min_ratio} < {ratio} < {max_ratio}")
+                                              f"ratios {min_ratio:0.2f} < {ratio:0.2f} +/- {ratio_err:0.2f} < {max_ratio:0.2f}")
                             else:
                                 if ratio < min_ratio:
                                     frac = (min_ratio - ratio) / min_ratio
@@ -3040,7 +3113,8 @@ class Spectrum:
                                     score -= 1
                                     log.debug(
                                         f"Ratio mismatch (-1) for solution = {solution.central_rest}: "
-                                        f"rest {overlap[j]} to {overlap[i]}:  {min_ratio} !< {ratio} !< {max_ratio}")
+                                        f"rest {overlap[j]} to {overlap[i]}: "
+                                        f"{min_ratio:0.2f} !< {ratio:0.2f} +/- {ratio_err:0.2f} !< {max_ratio:0.2f} ")
                                 # else:
                                 #     log.debug(
                                 #         f"Ratio no match (0) for solution = {solution.central_rest}: "
@@ -3069,6 +3143,10 @@ class Spectrum:
         :return: +1 point for each pair of lines that are consistent (or -1 for ones that are anti-consistent)
         """
 
+        #
+        # note: MgII alone (as broad line) not necessarily AGN ... can be from outflows?
+        #
+
         #check the lines, are they consistent with AGN?
         try:
             rest_waves = np.array([G.LyA_rest,1549.,1909.,2326.,2799.,1241.,1260.,1400.,1640.,1035.])
@@ -3087,6 +3165,24 @@ class Spectrum:
             max_ratios = [1.0, 0.70, 0.30, 0.10,  0.40, 0.40,  0.00, 0.20,   0.20,  0.40]
             #                                            *** apparently NV can be huge .. bigger than CIV even see 2101164104
 
+
+            #required match matrix ... if line (x) is found and line(y) is in range, it MUST be found too
+            #this is in order of the lines in rest_waves
+            #in ALL cases, LyA better be found IF it is in range (so making it a 2 ... need 2 other matched lines to overcome missing LyA)
+            match_matrix =[[1,0,0,0,0,0,0,0,0,0],  #0 LyA
+                           [1,1,0,0,0,0,0,0,0,0],  #1 CIV
+                           [1,0,1,0,0,0,0,0,0,0],  #2 CIII
+                           [1,0,0,1,0,0,0,0,0,0],  #3 CII
+                           [1,0,0,0,1,0,0,0,0,0],  #4 MgII
+                           [1,0,0,0,0,1,0,0,0,0],  #5 NV
+                           [1,0,0,0,0,0,1,0,0,0],  #6 SiII
+                           [1,0,0,0,0,0,0,1,0,0],  #7 SiIV
+                           [1,0,0,0,0,0,0,0,1,0],  #8 HeII
+                           [1,0,0,0,0,0,0,0,0,1]]  #9 OVI
+            match_matrix = np.array(match_matrix)
+
+            match_matrix_weights = np.array([3,1,1,0.5,1,1,0.5,0.5,1,1])
+
             #todo: 2 matrices (min and max ratios) so can put each line vs other line
             # like the match_matrix in the low-z galaxy check (but with floats) as row/column
             # INCOMPLETE ... not in USE YET
@@ -3095,30 +3191,30 @@ class Spectrum:
             # the inverse is still the minimum just the inverted ratio)
             min_ratio_matrix = \
             [ [1.00, None, None, None, None, None, None, None, None, None],  #LyA
-              [None, 1.00, None, None, None, None, None, None, 6.66, None],  #CIV
+              [None, 1.00, None, None, None, None, 4.00, None, 6.66, None],  #CIV
               [None, None, 1.00, None, None, None, None, None, None, None],  #CIII
               [None, None, None, 1.00, None, None, None, None, None, None],  #CII
               [None, None, None, None, 1.00, None, None, None, None, None],  #MgII
               [None, None, None, None, None, 1.00, None, None, None, None],  #NV
-              [None, None, None, None, None, None, 1.00, None, None, None],  #SiIII
+              [None, 0.25, None, None, None, None, 1.00, None, None, None],  #SiII
               [None, None, None, None, None, None, None, 1.00, None, None],  #SiIV
               [None, 0.15, None, None, None, None, None, None, 1.00, None],  #HeII
               [None, None, None, None, None, None, None, None, None, 1.00] ] #OVI
-             # LyA   CI V  CIII  CII   MgII   NV   SiIII SiVI  HeII   OVI
+             # LyA   CIV   CIII  CII   MgII   NV   SiII  SiVI  HeII   OVI
 
             #row/column (is maximum ... where lines are the largest compared to LyA)
             max_ratio_matrix = \
             [ [1.00, None, None, None, None, None, None, None, None, None],  #LyA
-              [None, 1.00, None, None, None, None, None, None, 1.43, None],  #CIV
+              [None, 1.00, None, None, None, None, 0.10, None, 1.43, None],  #CIV
               [None, None, 1.00, None, None, None, None, None, None, None],  #CIII
               [None, None, None, 1.00, None, None, None, None, None, None],  #CII
               [None, None, None, None, 1.00, None, None, None, None, None],  #MgII
               [None, None, None, None, None, 1.00, None, None, None, None],  #NV
-              [None, None, None, None, None, None, 1.00, None, None, None],  #SiIII
+              [None, 10.0, None, None, None, None, 1.00, None, None, None],  #SiII
               [None, None, None, None, None, None, None, 1.00, None, None],  #SiIV
               [None, 0.70, None, None, None, None, None, None, 1.00, None],  #HeII
               [None, None, None, None, None, None, None, None, None, 1.00] ] #OVI
-             # LyA    CIV  CIII   CII  MgII   NV   SiIII SiVI  HeII   OVI
+             # LyA    CIV  CIII   CII  MgII   NV   SiII  SiVI  HeII   OVI
 
             sel = np.where(np.array([l.absorber for l in solution.lines])==False)[0]
             sol_lines = np.array(solution.lines)[sel]
@@ -3126,7 +3222,9 @@ class Spectrum:
             #line_ew = [self.eqw_obs/(1+solution.z)] + [l.eqw_rest for l in sol_lines]
             # line_flux is maybe more reliable ... the continuum estimates for line_ew can go wrong and give horrible results
             line_flux = [self.estflux] + [l.flux for l in sol_lines]
-            line_fwhm = [self.fwhm] + [l.sigma*2.355 for l in sol_lines]
+            line_flux_err = [self.estflux_unc] + [l.flux_err for l in sol_lines]
+            line_fwhm = [self.fwhm] + [l.sigma * 2.355 for l in sol_lines]
+            line_fwhm_err = [self.fwhm_unc] + [l.sigma_err * 2.355 for l in sol_lines]
 
             overlap, rest_idx, line_idx = np.intersect1d(rest_waves,line_waves,return_indices=True)
 
@@ -3135,6 +3233,24 @@ class Spectrum:
             #todo: get samples and see if there is a correlation with slope
             #slope = self.spectrum_slope
             #slope_err = self.spectrum_slope_err
+
+            score = 0
+
+            # check the match_matrix
+            missing = []
+            in_range = np.where((obs_waves > 3500.) & (obs_waves < 5500.))[0]
+            for i in range(len(overlap)):
+                if np.sum(match_matrix[rest_idx[i]]) > 1:
+                    # at least one other line must be found (IF the obs_wave is in the HETDEX range)
+                    sel = np.intersect1d(in_range, np.where(match_matrix[rest_idx[i]])[0])
+                    missing = np.union1d(missing, np.setdiff1d(sel, rest_idx)).astype(int)
+
+            # score = -1 * len(missing)
+            score = -1 * np.sum(match_matrix_weights[missing])
+
+            if score < 0:
+                log.info(f"AGN consistency failure. Initial Score = {score}. "
+                         f"Missing expected lines {[z for z in zip(rest_waves[missing], obs_waves[missing])]}. ")
 
             if len(overlap) < 2: #done (0 or 1) if only 1 line, can't go any farther with comparision
                 #for FWHM nudge to AGN, the one line MUST at least be on the list of AGN lines
@@ -3147,7 +3263,7 @@ class Spectrum:
                 else:
                     return 0
 
-            score = 0
+
             #compare all pairs of lines
             for i in range(len(overlap)):
                 for j in range(i+1,len(overlap)):
@@ -3156,6 +3272,8 @@ class Spectrum:
                            (max_ratios[rest_idx[i]] != 0) and (max_ratios[rest_idx[j]] != 0):
 
                             ratio = line_flux[line_idx[j]] / line_flux[line_idx[i]]
+                            ratio_err = abs(ratio) * np.sqrt((line_flux_err[line_idx[j]] /line_flux[line_idx[j]]) ** 2 +
+                                                             (line_flux_err[line_idx[i]] / line_flux[line_idx[i]]) ** 2)
 
                             #try the matrices first (if they are zero, they are not populated yet
                             # so fall back to the list)
@@ -3169,7 +3287,7 @@ class Spectrum:
                             if min_ratio > max_ratio: #order is backward, so flip
                                 min_ratio, max_ratio = max_ratio, min_ratio
 
-                            if min_ratio <= ratio <= max_ratio:
+                            if min_ratio <= (ratio+ratio_err) and (ratio-ratio_err) <= max_ratio:
                                 #now check fwhm is compatible
                                 fwhm_i = line_fwhm[line_idx[i]]
                                 fwhm_j = line_fwhm[line_idx[j]]
@@ -3178,12 +3296,13 @@ class Spectrum:
                                 if avg_fwhm > 0 and diff_fwhm/avg_fwhm < 0.5:
                                     score += 1
                                     log.debug(f"Ratio match (+1) for solution = {solution.central_rest}: "
-                                              f"rest {overlap[j]} to {overlap[i]}: {min_ratio} < {ratio} < {max_ratio} "
+                                              f"rest {overlap[j]} to {overlap[i]}: "
+                                              f"{min_ratio:0.2f} < {ratio:0.2f} +/- {ratio_err:0.2f} < {max_ratio:0.2f} "
                                               f"FWHM {fwhm_j}, {fwhm_i}")
                                 else:
                                     log.debug(f"FWHM no match (0) for solution = {solution.central_rest}: "
                                               f"rest {overlap[j]} to {overlap[i]}: FWHM {fwhm_j}, {fwhm_i}: "
-                                              f"ratios: {min_ratio} < {ratio} < {max_ratio}")
+                                              f"ratios: {min_ratio:0.2f} < {ratio:0.2f} +/- {ratio_err:0.2f} < {max_ratio:0.2f}")
 
                             else:
                                 if ratio < min_ratio:
@@ -3194,7 +3313,8 @@ class Spectrum:
                                 if frac > 0.5:
                                     score -= 1
                                     log.debug(f"Ratio mismatch (-1) for solution = {solution.central_rest}: "
-                                              f"rest {overlap[j]} to {overlap[i]}:  {min_ratio} !< {ratio} !< {max_ratio}")
+                                              f"rest {overlap[j]} to {overlap[i]}: "
+                                              f"{min_ratio:0.2f} !< {ratio:0.2f} +/- {ratio_err:0.2f} !< {max_ratio:0.2f} ")
 
 
             #todo: sther stuff
@@ -3638,7 +3758,6 @@ class Spectrum:
             #if not e.solution: #changed!!! this line cannot be the ONLY line, but can be the main line if there are others
             #    continue
 
-
             central_z = central/e.w_rest - 1.0
             if (central_z) < 0.0:
                 if central_z > G.NEGATIVE_Z_ERROR: #assume really z=0 and this is wavelength error
@@ -3705,7 +3824,30 @@ class Spectrum:
                                        central_z=central_z, values_units=values_units, spectrum=self,
                                        show_plot=False, do_mcmc=False,absorber=True)
 
+
+                good = False
                 if (eli is not None) and eli.is_good(z=sol.z):
+                    good = True
+
+                #specifically check for 5007 and 4959 as nasty LAE contaminatant
+                if eli and not good:
+                    if (np.isclose(a.w_rest,4959,atol=1.0) and np.isclose(e.w_rest,5007,atol=1.0)):
+                        ratio = self.central_eli.fit_a / eli.fit_a
+                        ratio_err = abs(ratio) * np.sqrt( (eli.fit_a_err / eli.fit_a) ** 2 +
+                                                (self.central_eli.fit_a_err / self.central_eli.fit_a) ** 2)
+
+                        if (ratio - ratio_err) < 3 < (ratio + ratio_err):
+                            good = True
+
+                    elif (np.isclose(a.w_rest,5007,atol=1.0) and np.isclose(e.w_rest,4959,atol=1.0)):
+                        ratio = eli.fit_a / self.central_eli.fit_a
+                        ratio_err = abs(ratio) * np.sqrt( (eli.fit_a_err / eli.fit_a) ** 2 +
+                                                (self.central_eli.fit_a_err / self.central_eli.fit_a) ** 2)
+
+                        if (ratio - ratio_err) < 3 < (ratio + ratio_err):
+                            good = True
+
+                if good:
                     #if this line is too close to another, keep the one with the better score
                     add_to_sol = True
 
@@ -3784,7 +3926,9 @@ class Spectrum:
                         l.eqw_obs = eli.eqw_obs
                         l.eqw_rest = l.eqw_obs / (1.0 + l.z)
                         l.flux = eli.line_flux
+                        l.flux_err = eli.line_flux_err
                         l.sigma = eli.fit_sigma
+                        l.sigma_err = eli.fit_sigma_err
                         l.line_score = eli.line_score
                         l.prob_noise = eli.prob_noise
                         l.absorber = eli.absorber
@@ -3903,8 +4047,11 @@ class Spectrum:
         if G.MULTILINE_USE_CONSISTENCY_CHECKS and (self.central_eli is not None):
             for s in solutions:
 
-                #don't bother examining week solutions
-                if s.score < G.MULTILINE_MIN_SOLUTION_SCORE:
+                # the pair of lines being checked are 4959 and 5007
+                oiii_lines = (np.isclose(s.central_rest,4959,atol=1.0) or np.isclose(s.central_rest,5007,atol=1.0))
+
+                # don't bother examining week solutions (except for 4659/5007)
+                if s.score < G.MULTILINE_MIN_SOLUTION_SCORE and not oiii_lines:
                     continue
 
                 #todo: iterate over all types of objects
@@ -3939,6 +4086,10 @@ class Spectrum:
 
                     per_line_total_score -= s.score
                     s.score =  boost * s.score
+                    if s.score < G.MULTILINE_MIN_SOLUTION_SCORE and oiii_lines:
+                        log.info(f"Solution: {s.name} score {s.score} raised to minimum {G.MULTILINE_MIN_SOLUTION_SCORE} for 4959+5007")
+                        s.score = G.MULTILINE_MIN_SOLUTION_SCORE
+
                     per_line_total_score += s.score
 
 
