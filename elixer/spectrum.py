@@ -93,6 +93,7 @@ PROB_NOISE_MIN_SCORE = 2.0 #min score that makes it to the bin list
 
 #beyond an okay fit (see GAUSS_FIT_xxx above) is this a "good" signal
 GOOD_BROADLINE_SIGMA = 6.0 #getting broad
+LIMIT_BROAD_SIGMA = 9.0 #above this the emission line must specifically allow "broad"
 GOOD_BROADLINE_SNR = 11.0 # upshot ... protect against neighboring "noise" that fits a broad line ...
                           # if big sigma, better have big SNR
 GOOD_BROADLINE_RAW_SNR = 4.0 # litteraly signal/noise (flux values / error values +/- 3 sigma from peak)
@@ -912,7 +913,7 @@ class EmissionLineInfo:
 
         return s
 
-    def is_good(self,z=0.0):
+    def is_good(self,z=0.0,allow_broad=False):
         #(self.score > 0) and  #until score can be recalibrated, don't use it here
         #(self.sbr > 1.0) #not working the way I want. don't use it
         result = False
@@ -924,7 +925,9 @@ class EmissionLineInfo:
             else:
                 return False
 
-        if (self.fit_sigma > GOOD_BROADLINE_SIGMA) and (self.line_score < GOOD_BROADLINE_MIN_LINE_SCORE):
+        if not (allow_broad or self.broadfit) and (self.fit_sigma >= LIMIT_BROAD_SIGMA):
+            return False
+        elif (self.fit_sigma > GOOD_BROADLINE_SIGMA) and (self.line_score < GOOD_BROADLINE_MIN_LINE_SCORE):
             result = False
         # minimum to be possibly good
         elif (self.line_score >= GOOD_MIN_LINE_SCORE) and (self.fit_sigma >= GOOD_MIN_SIGMA):
@@ -1256,12 +1259,12 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         return None
 
     #if there is a large anchor sigma (the sigma of the "main" line), then the max_sigma can be allowed to go higher
-    # if anchor_sigma is not None and anchor_sigma > 6.0:
-    #     max_sigma = GAUSS_FIT_MAX_SIGMA
-    # else:
-    #     max_sigma = GAUSS_FIT_MAX_SIGMA
+    if allow_broad:
+        max_sigma = GAUSS_FIT_MAX_SIGMA * 1.5
+    else:
+        max_sigma = GAUSS_FIT_MAX_SIGMA
 
-    if (eli.fit_rmse > 0) and ((eli.fit_sigma-eli.fit_sigma_err) <= GAUSS_FIT_MAX_SIGMA) and (eli.fit_sigma >= min_sigma):
+    if (eli.fit_rmse > 0) and (eli.fit_sigma >= min_sigma) and ((eli.fit_sigma-eli.fit_sigma_err) <= max_sigma):
 
         #this snr makes sense IF we assume the noise is distributed as a gaussian (which is reasonable)
         #then we'd be looking at something like 1/N * Sum (sigma_i **2) ... BUT , there are so few pixels
@@ -1351,7 +1354,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                 log.debug("Bonus for large sigma: %f" % (val))
             elif si < 15.0:
                 pass #unexpected, but lets not penalize just yet
-            else: #very wrong (could be a broadline hit)
+            elif not allow_broad: #very wrong (could be a broadline hit)
                 if si > (5*min_sigma): #if a large min_sigma is passed in, this can be allowed to be larger w/o penalty
                     val = np.sqrt(si-15.0)
                     score -= val
@@ -1481,7 +1484,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         if error is None:
             error = -1
 
-        g = eli.is_good(z=central_z)
+        g = eli.is_good(z=central_z,allow_broad=allow_broad)
         a = accept_fit
 
         # title += "%0.2f z_guess=%0.4f A(%d) G(%d)\n" \
@@ -2665,7 +2668,10 @@ class EmissionLine():
         self.fit_dx0 = None #from EmissionLineInfo, but we want this for a later comparison of all other lines in the solution
 
         self.absorber = False #true if an abosrption line
-        self.broad = broad #this can be a potentially very broad line (i.e. may be with an AGN)
+        if G.ALLOW_BROADLINE_FIT:
+            self.broad = broad #this can be a potentially very broad line (i.e. may be with an AGN)
+        else:
+            self.broad = False
 
     def redshift(self,z):
         self.z = z
@@ -2976,7 +2982,7 @@ class Spectrum:
             #compared to OII (3272) EW: so line ew / OII EW; a value of 0 means no info
             #               OII      NeV  NeIV H_eta   -NeIII-   H_zeta  CaII  H_eps  H_del  H_gam H_beta   -NaI-     -OIII-
             #rest_waves = [G.OII_rest,3347,3427,3835,  3869,3967, 3889,   3935, 3970,  4101,  4340, 4861,  4980,5153, 4959,5007]
-            #               OII       H_eta  H_zeta H_eps H_del  H_gam H_beta   -OIII-
+            #                       OII       H_eta  H_zeta H_eps H_del  H_gam H_beta   -OIII-
             rest_waves = np.array([G.OII_rest, 3835,  3889,  3970, 4101,  4340, 4861,  4959, 5007])
             #                         0         1      2      3     4     5     6      7     8
             obs_waves  = rest_waves * (1. + solution.z)
@@ -3095,6 +3101,14 @@ class Spectrum:
                                 #now check fwhm is compatible
                                 fwhm_i = line_fwhm[line_idx[i]]
                                 fwhm_j = line_fwhm[line_idx[j]]
+
+                                #none of the low-z lines can be super broad
+                                if (fwhm_i > (LIMIT_BROAD_SIGMA * 2.355)) or (fwhm_j > (LIMIT_BROAD_SIGMA * 2.355)):
+                                    score -=1
+                                    log.debug(f"Ratio mis-match (-1) for solution = {solution.central_rest}: "
+                                              f"FWHM {fwhm_j:0.2f}, {fwhm_i:0.2f} exceed max allowed {2.355 *LIMIT_BROAD_SIGMA} ")
+                                    continue
+
                                 avg_fwhm = 0.5* (fwhm_i + fwhm_j)
                                 diff_fwhm = abs(fwhm_i - fwhm_j)
                                 if avg_fwhm > 0 and diff_fwhm/avg_fwhm < 0.5:
@@ -3301,6 +3315,9 @@ class Spectrum:
 
                             if min_ratio <= (ratio+ratio_err) and (ratio-ratio_err) <= max_ratio:
                                 #now check fwhm is compatible
+                                #todo: consider using the fwhm error (is the difference consistent with zero? or
+                                # maybe is the ratio consistent with less than 50% difference? or
+                                # maybe if both are greater than 12 or 14AA, just call them equivalent
                                 fwhm_i = line_fwhm[line_idx[i]]
                                 fwhm_j = line_fwhm[line_idx[j]]
                                 avg_fwhm = 0.5* (fwhm_i + fwhm_j)
@@ -3828,7 +3845,14 @@ class Spectrum:
                 eli = signal_score(wavelengths=wavelengths, values=values, errors=errors, central=a_central,
                                    central_z = central_z, values_units=values_units, spectrum=self,
                                    show_plot=False, do_mcmc=False,
-                                   allow_broad= a.broad and e.broad)
+                                   allow_broad= (a.broad and e.broad))
+
+                if eli and a.broad and e.broad and (eli.fit_sigma < eli.fit_sigma_err) and \
+                    ((eli.fit_sigma + eli.fit_sigma_err) > GOOD_BROADLINE_SIGMA):
+                        #try again with medfilter fit
+                        eli = signal_score(wavelengths=wavelengths, values=medfilt(values, 5), errors=medfilt(errors, 5),
+                            central=a_central, central_z = central_z, values_units=values_units, spectrum=self,
+                            show_plot=False, do_mcmc=False, allow_broad= (a.broad and e.broad))
 
 
                 #try as absorber
@@ -3839,7 +3863,7 @@ class Spectrum:
 
 
                 good = False
-                if (eli is not None) and eli.is_good(z=sol.z):
+                if (eli is not None) and eli.is_good(z=sol.z,allow_broad=(e.broad and a.broad)):
                     good = True
 
                 #specifically check for 5007 and 4959 as nasty LAE contaminatant

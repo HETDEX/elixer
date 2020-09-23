@@ -789,3 +789,5 @@ MAX_MAG_FAINT = 28.0 #set as nominal "faint" mag if flux limit reached
 PLAE_POII_GAUSSIAN_WEIGHT_SIGMA = 5.0
 
 CHECK_FOR_METEOR = True #if true, check the exposure fiber data for meteor pattern
+
+ALLOW_BROADLINE_FIT = True
