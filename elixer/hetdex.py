@@ -914,7 +914,8 @@ class DetObj:
             #indices that cover common meteor lines (MgI, Al, CaI, CaII) into CALFIB_WAVEGRID
             #these are a bit broader ranges than the more specific waves that are list later on in this function
             #and are used just to check the exposure vs exposure ratios
-            common_line_waves = np.concatenate( (np.arange(3830,3844,2),
+            common_line_waves = np.concatenate( (np.arange(3725,3745,2),
+                                                 np.arange(3824,3844,2),
                                                  np.arange(3926,3942,2),
                                                  np.arange(3960,3976,2),
                                                  np.arange(4210,4250,2),
@@ -1076,6 +1077,9 @@ class DetObj:
                 return 0
 
             meteor = 0
+            spec_ratio_trigger = 5.0
+            bright_obj_spec_ratio_trigger = 3.0
+
             if cmx_sum > cn2_sum > 0:
                 full_ratio = mx_sum / n2_sum
                 common_ratio = cmx_sum / cn2_sum
@@ -1084,7 +1088,7 @@ class DetObj:
                 spec_ratio = cmx_sum / cn2_sum
                # if ((full_ratio > 2 ) or (common_ratio > 4)): #maybe need more checking
                 #minimum gate check, just to warrant addtional steps
-                if ((spec_ratio > 5 ) or (near_bright_obj and (spec_ratio > 3))): #maybe need more checking
+                if ((spec_ratio > spec_ratio_trigger ) or (near_bright_obj and (spec_ratio > bright_obj_spec_ratio_trigger))): #maybe need more checking
                     #merge in with the existing all found lines
                     try:
                         waves = [x.fit_x0 for x in self.spec_obj.all_found_lines]
@@ -1108,9 +1112,10 @@ class DetObj:
 
                     waves = np.array(waves)
 
-                    bright_mg_line = np.where(  ((waves >= 3832) & (waves <= 3840)) |
+                    bright_mg_line = np.where(  ((waves >= 3826) & (waves <= 3840)) |
                                                 ((waves >= 5170) & (waves <= 5186)))[0]
-                    common_lines = np.where( ((waves >= 3832) & (waves <= 3840)) |
+                    common_lines = np.where( ((waves >= 3728) & (waves <= 3740)) |
+                                             ((waves >= 3826) & (waves <= 3840)) |
                                              ((waves >= 3928) & (waves <= 3937)) |
                                              ((waves >= 3965) & (waves <= 3971)) |
                                              ((waves >= 4224) & (waves <= 4230)) |
@@ -1135,7 +1140,7 @@ class DetObj:
                             meteor = 2
                             log.debug("+++++ meteor condition 8")
                     #full ratio in one exposure
-                    elif (spec_ratio > 5):
+                    elif (spec_ratio > spec_ratio_trigger):
                         #one or more of the Mg lines and  2 or more common lines (which can include MgI)
                         if (len(bright_mg_line) > 0) and (len(common_lines) > 1):
                             if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
@@ -1162,7 +1167,7 @@ class DetObj:
                                 log.debug("+++++ meteor condition 5")
 
                     #reduced ratio but near a bright object
-                    elif near_bright_obj and (spec_ratio > 3):
+                    elif near_bright_obj and (spec_ratio > bright_obj_spec_ratio_trigger):
                         if (len(bright_mg_line) > 0) and (len(common_lines) > 1):
                             if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
                                 meteor = 2
@@ -1206,7 +1211,10 @@ class DetObj:
                         self.spec_obj.add_classification_label("Meteor")
                         self.spec_obj.meteor_strength = meteor
                         pos = np.array(pos)
-                        log.info(f"Meteor: Detection likely a meteor. Exp# {mx_expid} at x{spec_ratio:0.1f}, lines at {G.CALFIB_WAVEGRID[pos]}")
+                        if len(pos) > 0:
+                            log.info(f"Meteor: Detection likely a meteor. Exp# {mx_expid} at x{spec_ratio:0.1f}, lines at {G.CALFIB_WAVEGRID[pos]}")
+                        else:
+                            log.info(f"Meteor: Detection likely a meteor. Exp# {mx_expid} at x{spec_ratio:0.1f}")
                         return 1
 
             #for test
@@ -4854,6 +4862,14 @@ class DetObj:
             self.fibers = [x for x in self.fibers if x.relative_weight > 0]
             self.fibers.sort(key=lambda x: x.relative_weight, reverse=True)  # highest weight is index = 0
             self.fibers_sorted = True
+
+            # self.fibers.sort(key=lambda x: x.relative_weight, reverse=False)  # highest weight is index = 0
+            # for f in self.fibers:
+            #     print(f"{f.ra:0.5f} {f.dec:0.5f} \t ----- \t {f.raw_weight:0.2f} \t {f.relative_weight:0.2f}")
+            #
+            #
+
+
 
             #build a noise estimate over the top 4 fibers (amps)?
             try:
