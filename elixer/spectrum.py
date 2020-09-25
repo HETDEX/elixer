@@ -1270,11 +1270,20 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #this snr makes sense IF we assume the noise is distributed as a gaussian (which is reasonable)
         #then we'd be looking at something like 1/N * Sum (sigma_i **2) ... BUT , there are so few pixels
         #  typically around 10 and there really should be at least 30  to approximate the gaussian shape
+
         eli.snr = eli.fit_a/(np.sqrt(num_sn_pix)*eli.fit_rmse)
         eli.unique = unique_peak(values,wavelengths,eli.fit_x0,eli.fit_sigma*2.355)
-        eli.build(values_units=values_units,allow_broad=allow_broad)
-        #eli.snr = max(eli.fit_vals) / (np.sqrt(num_sn_pix) * eli.fit_rmse)
-        snr = eli.snr
+
+        if not eli.unique and ((eli.fit_a_err / eli.fit_a) > 0.5) and (eli.fit_sigma > GAUSS_FIT_MAX_SIGMA):
+            accept_fit = False
+            snr = 0.0
+            eli.snr = 0.0
+            eli.line_score = 0.0
+            eli.line_flux = 0.0
+        else:
+            eli.build(values_units=values_units,allow_broad=allow_broad)
+            #eli.snr = max(eli.fit_vals) / (np.sqrt(num_sn_pix) * eli.fit_rmse)
+            snr = eli.snr
     else:
         accept_fit = False
         snr = 0.0
@@ -2806,7 +2815,9 @@ class Spectrum:
                          min_fwhm=12.0,min_obs_wave=3751.0-20.0,max_obs_wave=4313.0+20.0),
             #big in AGN (too weak to be alone)
             EmissionLine("CII".ljust(w),  2326, "purple",solution=False,display=True,rank=4,broad=True),  # in AGN
-            #big in AGN (alone before CIII enters from the blue )  this MgII is a doublet, 2795, 2802
+
+            #big in AGN (alone before CIII enters from the blue )  this MgII is a doublet, 2795, 2802 ... can sometimes
+            #  see the doublet in the HETDEX spectrum
             EmissionLine("MgII".ljust(w), 2799, "magenta",solution=False,display=True,rank=3,broad=True,
                          min_fwhm=12.0,min_obs_wave=3500.0-20.0, max_obs_wave=5131.0+20.0),
 
