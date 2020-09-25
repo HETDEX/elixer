@@ -1264,7 +1264,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     else:
         max_sigma = GAUSS_FIT_MAX_SIGMA
 
-    if (eli.fit_rmse > 0) and (eli.fit_sigma >= min_sigma) and ((eli.fit_sigma-eli.fit_sigma_err) <= max_sigma):
+    if (eli.fit_rmse > 0) and (eli.fit_sigma >= min_sigma) and ( 0 < (eli.fit_sigma-eli.fit_sigma_err) <= max_sigma) and \
+        (eli.fit_a_err < eli.fit_a ):
 
         #this snr makes sense IF we assume the noise is distributed as a gaussian (which is reasonable)
         #then we'd be looking at something like 1/N * Sum (sigma_i **2) ... BUT , there are so few pixels
@@ -4084,8 +4085,15 @@ class Spectrum:
         if G.MULTILINE_USE_CONSISTENCY_CHECKS and (self.central_eli is not None):
             for s in solutions:
 
-                # the pair of lines being checked are 4959 and 5007
-                oiii_lines = (np.isclose(s.central_rest,4959,atol=1.0) or np.isclose(s.central_rest,5007,atol=1.0))
+                # the pair of lines being checked are 4959 and 5007 (or the solution contains those pair of lines)
+                try:
+                    if (np.isclose(s.central_rest,4959,atol=1.0) or np.isclose(s.central_rest,5007,atol=1.0)) and \
+                        np.any([(np.isclose(x.w_rest,4959,atol=1.0) or np.isclose(x.w_rest,5007,atol=1.0)) for x in s.lines]):
+                        oiii_lines = True
+                    else:
+                        oiii_lines = False
+                except:
+                    oiii_lines = False
 
                 # don't bother examining week solutions (except for 4659/5007)
                 if s.score < G.MULTILINE_MIN_SOLUTION_SCORE and not oiii_lines:

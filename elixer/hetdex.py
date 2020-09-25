@@ -1250,7 +1250,9 @@ class DetObj:
 
 
         def plae_gaussian_weight(plae_poii):
-            #p
+            #the idea here as the the closer the PLAE/POII is to 1 (a 50/50 chance) the lower the weight (tends to 0)
+            # but extreme values (getting closer to 0.001 or 1000) the weight goes closer to a full value of 1
+            # by a value of 20 (or 1/20) essentially at 1.0
             if plae_poii < 1:
                 plae_poii = 1.0/plae_poii
 
