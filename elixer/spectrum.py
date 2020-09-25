@@ -3869,21 +3869,24 @@ class Spectrum:
 
                 #specifically check for 5007 and 4959 as nasty LAE contaminatant
                 if eli and not good:
-                    if (np.isclose(a.w_rest,4959,atol=1.0) and np.isclose(e.w_rest,5007,atol=1.0)):
-                        ratio = self.central_eli.fit_a / eli.fit_a
-                        ratio_err = abs(ratio) * np.sqrt( (eli.fit_a_err / eli.fit_a) ** 2 +
-                                                (self.central_eli.fit_a_err / self.central_eli.fit_a) ** 2)
+                    try:
+                        if (np.isclose(a.w_rest,4959,atol=1.0) and np.isclose(e.w_rest,5007,atol=1.0)):
+                            ratio = self.central_eli.fit_a / eli.fit_a
+                            ratio_err = abs(ratio) * np.sqrt( (eli.fit_a_err / eli.fit_a) ** 2 +
+                                                    (self.central_eli.fit_a_err / self.central_eli.fit_a) ** 2)
 
-                        if (ratio - ratio_err) < 3 < (ratio + ratio_err):
-                            good = True
+                            if (ratio - ratio_err) < 3 < (ratio + ratio_err):
+                                good = True
 
-                    elif (np.isclose(a.w_rest,5007,atol=1.0) and np.isclose(e.w_rest,4959,atol=1.0)):
-                        ratio = eli.fit_a / self.central_eli.fit_a
-                        ratio_err = abs(ratio) * np.sqrt( (eli.fit_a_err / eli.fit_a) ** 2 +
-                                                (self.central_eli.fit_a_err / self.central_eli.fit_a) ** 2)
+                        elif (np.isclose(a.w_rest,5007,atol=1.0) and np.isclose(e.w_rest,4959,atol=1.0)):
+                            ratio = eli.fit_a / self.central_eli.fit_a
+                            ratio_err = abs(ratio) * np.sqrt( (eli.fit_a_err / eli.fit_a) ** 2 +
+                                                    (self.central_eli.fit_a_err / self.central_eli.fit_a) ** 2)
 
-                        if (ratio - ratio_err) < 3 < (ratio + ratio_err):
-                            good = True
+                            if (ratio - ratio_err) < 3 < (ratio + ratio_err):
+                                good = True
+                    except:
+                        pass
 
                 if good:
                     #if this line is too close to another, keep the one with the better score
