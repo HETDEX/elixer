@@ -1735,6 +1735,10 @@ class DetObj:
                     self.classification_dict['spurious_reason'] = reason
                     log.info(
                         f"Aggregate Classification: poor shot F: {self.survey_fwhm} T: {self.survey_response}  N:{self.dither_norm}. Setting PLAE to -1 (spurious)")
+                else:
+                    log.info(
+                        f"Aggregate Classification: poor shot F: {self.survey_fwhm} T: {self.survey_response}  N:{self.dither_norm}, but did not trigger spurious.")
+
 
         # check for duplicate pixel positions
         # elif self.num_duplicate_central_pixels > G.MAX_NUM_DUPLICATE_CENTRAL_PIXELS:  # out of the top (usually 4) fibers
@@ -1743,7 +1747,8 @@ class DetObj:
         #     self.classification_dict['scaled_plae'] = scaled_prob_lae
         #     self.classification_dict['spurious_reason'] = reason
         #     log.info(f"Aggregate Classification: bad duplicate central pixels. Setting PLAE to -1 (spurious)")
-        else:
+
+        if scaled_prob_lae != -1:
             #
             # Combine them all
             #
