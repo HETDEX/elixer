@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.10.0a4 [2020-09-30]
+* add distance to barycenter under photometric cutouts (as s:#.#") and changed mag: to m: to save space
+* correct matched (multiline) solution EW_r to use the wide continuum estimates if available
+* fix missing re-try for broadline if solution fails with no emission line info object
+
 1.10.0a3 [2020-09-22]
 * add specific check for 3:1 ratio OIII 5007/4959 (allow comparison even if potential 4959 line is very weak and boost
   solution score to minimum if ratio is a fit)

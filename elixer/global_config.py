@@ -20,7 +20,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.10.0a3'
+__version__ = '1.10.0a4'
 
 #python version
 import sys
@@ -791,3 +791,6 @@ PLAE_POII_GAUSSIAN_WEIGHT_SIGMA = 5.0
 CHECK_FOR_METEOR = True #if true, check the exposure fiber data for meteor pattern
 
 ALLOW_BROADLINE_FIT = True
+
+SUBTRACT_HETDEX_SKY_RESIDUAL = True #if true compute a per-shot sky residual, convolve with per-shot PSF and subtract
+                                    # from the HETDEX spectrum (only applies to re-extractions (forced extractions))

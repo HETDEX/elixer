@@ -2818,6 +2818,7 @@ class Spectrum:
 
             #big in AGN (alone before CIII enters from the blue )  this MgII is a doublet, 2795, 2802 ... can sometimes
             #  see the doublet in the HETDEX spectrum
+            # What about when combined with OII 3277 (MgII maybe broad, but OII is not?)
             EmissionLine("MgII".ljust(w), 2799, "magenta",solution=False,display=True,rank=3,broad=True,
                          min_fwhm=12.0,min_obs_wave=3500.0-20.0, max_obs_wave=5131.0+20.0),
 
@@ -3865,7 +3866,10 @@ class Spectrum:
                         eli = signal_score(wavelengths=wavelengths, values=medfilt(values, 5), errors=medfilt(errors, 5),
                             central=a_central, central_z = central_z, values_units=values_units, spectrum=self,
                             show_plot=False, do_mcmc=False, allow_broad= (a.broad and e.broad))
-
+                elif eli is None and a.broad and e.broad:
+                    eli = signal_score(wavelengths=wavelengths, values=medfilt(values, 5), errors=medfilt(errors, 5),
+                                       central=a_central, central_z=central_z, values_units=values_units, spectrum=self,
+                                       show_plot=False, do_mcmc=False, allow_broad=(a.broad and e.broad))
 
                 #try as absorber
                 if G.MAX_SCORE_ABSORPTION_LINES and eli is None and self.is_near_absorber(a_central):

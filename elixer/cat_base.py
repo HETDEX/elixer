@@ -885,7 +885,7 @@ class Catalog:
 
                     #temporary
                     if mag is not None:
-                        label = "mag: %0.1f rc: %0.1f\"" % (mag,radius)
+                        label = "m:%0.1f rc:%0.1f\"  s:0.0\"" % (mag,radius)
 
                         if ew is not None:
                             label += "\n EWr: %0.0f" %(ew)
@@ -942,7 +942,7 @@ class Catalog:
                                 edgecolor=color, alpha=alpha,zorder=zorder,linestyle=ls))
 
                     if (eobj['selected']) and (mag is not None):
-                        label = "mag: %0.1f  re: %0.1f\"" % (mag,ellipse_radius)
+                        label = "m:%0.1f  re:%0.1f\"  s:%0.1f\"" % (mag,ellipse_radius,eobj['dist_baryctr'])
 
                         if ew is not None:
                             label += "\n EWr: %0.0f" %(ew)

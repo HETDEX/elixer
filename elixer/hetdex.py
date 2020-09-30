@@ -7124,17 +7124,28 @@ class HETDEX:
 
         if not G.ZOO:
             good, scale_score = e.multiline_solution_score()
+
+            #pick best eqw observered to use
+            if (e.eqw_sdss_obs is not None) and (e.eqw_sdss_obs_unc is not None):
+                l_eqw_obs =  e.eqw_sdss_obs
+            elif (e.eqw_hetdex_gmag_obs is not None) and (e.eqw_hetdex_gmag_obs_unc is not None):
+                l_eqw_obs =  e.eqw_hetdex_gmag_obs
+            elif (e.eqw_line_obs is not None) and (e.eqw_line_obs_unc is not None):
+                l_eqw_obs = e.eqw_line_obs
+            else:
+                l_eqw_obs = e.eqw_obs
+
             if ( good ):
                 # strong solution
                 sol = datakeep['detobj'].spec_obj.solutions[0]
                 title += "\n*(%0.3f) %s(%d) z = %0.4f  EW_r = %0.1f$\AA$" %(scale_score, sol.name, int(sol.central_rest),sol.z,
-                                                                        e.eqw_obs/(1.0+sol.z))
+                                                                            l_eqw_obs/(1.0+sol.z))
             elif (scale_score > G.MULTILINE_MIN_WEAK_SOLUTION_CONFIDENCE):
                 #weak solution ... for display only, not acceptabale as a solution
                 #do not set the solution (sol) to be recorded
                 sol = datakeep['detobj'].spec_obj.solutions[0]
                 title += "\n(%0.3f) %s(%d) z = %0.4f  EW_r = %0.1f$\AA$" % \
-                         ( scale_score, sol.name, int(sol.central_rest), sol.z,e.eqw_obs / (1.0 + sol.z))
+                         ( scale_score, sol.name, int(sol.central_rest), sol.z,l_eqw_obs / (1.0 + sol.z))
             #else:
             #    log.info("No singular, strong emission line solution.")
 
