@@ -1092,6 +1092,7 @@ class DetObj:
                 spec_ratio = cmx_sum / cn2_sum
                # if ((full_ratio > 2 ) or (common_ratio > 4)): #maybe need more checking
                 #minimum gate check, just to warrant addtional steps
+                pos = []
                 if ((spec_ratio > spec_ratio_trigger ) or (near_bright_obj and (spec_ratio > bright_obj_spec_ratio_trigger))): #maybe need more checking
                     #merge in with the existing all found lines
                     try:

@@ -325,10 +325,10 @@ class Catalog:
                     if filter_mag is not None:
                         p = self.distance_prior.get_prior(df.iloc[i]['distance']*3600.0,filter_mag)
                         df.iat[i,pidx] = p
-                        df.iat[i, midx] = filter_mag
+                        df.iat[i, midx] = 99 if np.isnan(filter_mag) else filter_mag
                         df.iat[i, fidx] = filter_str
-                        df.iat[i, fl_idx] = filter_fl
-                        df.iat[i, fle_idx] = filter_fl_err
+                        df.iat[i, fl_idx] = 0 if np.isnan(filter_fl) else filter_fl
+                        df.iat[i, fle_idx] = 0 if np.isnan(filter_fl_err) else filter_fl_err
 
 
                 self.dataframe_of_bid_targets = df.sort_values(by=['dist_prior','distance'], ascending=[False,True])
