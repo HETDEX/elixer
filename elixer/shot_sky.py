@@ -16,9 +16,7 @@ log.setlevel(G.LOG_LEVEL)
 #shot_path = G.PANACEA_HDF5_BASEDIR #"/data/05350/ecooper/hdr2.1/reduction/data/"
 AMP_FLAG_TABLE = None
 
-
-
-
+STACKING_AVG_METHOD = "biweight" #"mean_68" "mean_95", "mean_std", "median" "biweight" "weighted_biweight"
 
 class DEX_Fiber:
     """
@@ -352,7 +350,7 @@ def stack_sky_spectra(spectra, ffsky=True,straight_error=False):
 
 
         if len(wslice_err) > 0:
-            if straight_error or (LYC_AVG == 'mean_95'):
+            if straight_error or (STACKING_AVG_METHOD == 'mean_95'):
                 try:
                     mean_cntr, var_cntr, std_cntr = scipy.stats.bayes_mvs(wslice, alpha=0.95)
                     if np.isnan(mean_cntr[0]):
@@ -368,7 +366,7 @@ def stack_sky_spectra(spectra, ffsky=True,straight_error=False):
                         stack_err[i] = SU.biweight_scale(wslice)#* 2. #2 sigma ~ 95%
                     except:
                         log.info("Exception in shot_sky",exc_info=True)
-            elif straight_error or (LYC_AVG == 'mean_68'):
+            elif straight_error or (STACKING_AVG_METHOD == 'mean_68'):
                 try:
                     mean_cntr, var_cntr, std_cntr = scipy.stats.bayes_mvs(wslice, alpha=0.68)
                     if np.isnan(mean_cntr[0]):
@@ -384,7 +382,7 @@ def stack_sky_spectra(spectra, ffsky=True,straight_error=False):
                         stack_err[i] = SU.biweight_scale(wslice)   # * 2. #2 sigma ~ 95%
                     except:
                         log.info("Exception in shot_sky", exc_info=True)
-            elif (LYC_AVG == 'mean_std'):
+            elif (STACKING_AVG_METHOD == 'mean_std'):
                 try:
                     stack_flux[i] = np.nanmean(wslice)
                     # an average error
@@ -398,7 +396,7 @@ def stack_sky_spectra(spectra, ffsky=True,straight_error=False):
                     except:
                         log.info("Exception in shot_sky", exc_info=True)
 
-            elif (LYC_AVG == 'median'):
+            elif (STACKING_AVG_METHOD == 'median'):
                 try:
                     stack_flux[i] = np.nanmedian(wslice)
                     #an average error
@@ -413,7 +411,7 @@ def stack_sky_spectra(spectra, ffsky=True,straight_error=False):
                     except:
                         log.info("Exception in shot_sky", exc_info=True)
 
-            elif (LYC_AVG == 'biweight'):
+            elif (STACKING_AVG_METHOD == 'biweight'):
                 try:
                     stack_flux[i] = SU.biweight_location(wslice)
                     stack_err[i] = SU.biweight_scale(wslice) / np.sqrt(len(wslice))
