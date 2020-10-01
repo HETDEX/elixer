@@ -3207,27 +3207,27 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     if this_detection is not None:
         #prepend THIS detection to:
         num_rows += 1
-        ras.insert(0,this_detection.ra)
-        decs.insert(0,this_detection.dec)
-        dists.insert(0,0.0)
-        wave.insert(0,G.CALFIB_WAVEGRID)
-        shot.insert(0,this_detection.shotid)
+        ras = np.insert(ras,0,this_detection.ra)
+        decs = np.insert(decs,0,this_detection.dec)
+        dists = np.insert(dists,0,0.0)
+        wave = np.insert(wave,0,G.CALFIB_WAVEGRID)
+        shot = np.insert(shot,0,this_detection.shotid)
 
         try:
             if (this_detection.sumspec_flux is not None) and \
                 len(this_detection.sumspec_flux) == len(G.CALFIB_WAVEGRID):
-                spec.insert(0, this_detection.sumspec_flux / 2.0)  # assume HETDEX 2AA and put into /1AA
-                emis.insert(0, this_detection.target_wavelength)
-                detectids.insert(0, this_detection.entry_id)
+                spec=np.insert(spec,0, this_detection.sumspec_flux / 2.0)  # assume HETDEX 2AA and put into /1AA
+                emis=np.insert(emis,0, this_detection.target_wavelength)
+                detectids=np.insert(detectids,0, this_detection.entry_id)
             else: #probably this was a neighborhood_only call
-                spec.insert(0, np.zeros(len(G.CALFIB_WAVEGRID)))
-                emis.insert(0, 0)
-                detectids.insert(0, this_detection.entry_id)
+                spec=np.insert(spec,0, np.zeros(len(G.CALFIB_WAVEGRID)))
+                emis=np.insert(emis,0, 0)
+                detectids=np.insert(detectids,0, this_detection.entry_id)
         except:
             log.info("No sumspec_flux to add for 'this_detection'.",exc_info=True)
-            spec.insert(0,np.zeros(len(G.CALFIB_WAVEGRID)))
-            emis.insert(0, 0)
-            detectids.insert(0, this_detection.entry_id)
+            spec=np.insert(spec,0,np.zeros(len(G.CALFIB_WAVEGRID)))
+            emis=np.insert(emis,0, 0)
+            detectids=np.insert(detectids,0, this_detection.entry_id)
 
     row_step = 10 #allow space in between
     plt.close('all')
