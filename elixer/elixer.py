@@ -3211,7 +3211,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         decs = np.insert(decs,0,this_detection.dec)
         dists = np.insert(dists,0,0.0)
         wave = np.insert(wave,0,G.CALFIB_WAVEGRID)
-        shot = np.insert(shot,0,this_detection.shotid)
+        shot = np.insert(shot,0,this_detection.survey_shotid)
 
         try:
             if (this_detection.sumspec_flux is not None) and \
