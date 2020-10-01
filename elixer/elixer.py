@@ -3210,22 +3210,24 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         ras = np.insert(ras,0,this_detection.ra)
         decs = np.insert(decs,0,this_detection.dec)
         dists = np.insert(dists,0,0.0)
-        wave = np.insert(wave,0,G.CALFIB_WAVEGRID)
+
+
+        wave = np.insert(wave,0,G.CALFIB_WAVEGRID,axis=0)
         shot = np.insert(shot,0,this_detection.survey_shotid)
 
         try:
             if (this_detection.sumspec_flux is not None) and \
                 len(this_detection.sumspec_flux) == len(G.CALFIB_WAVEGRID):
-                spec=np.insert(spec,0, this_detection.sumspec_flux / 2.0)  # assume HETDEX 2AA and put into /1AA
+                spec=np.insert(spec,0, this_detection.sumspec_flux / 2.0,axis=0)  # assume HETDEX 2AA and put into /1AA
                 emis=np.insert(emis,0, this_detection.target_wavelength)
                 detectids=np.insert(detectids,0, this_detection.entry_id)
             else: #probably this was a neighborhood_only call
-                spec=np.insert(spec,0, np.zeros(len(G.CALFIB_WAVEGRID)))
+                spec=np.insert(spec,0, np.zeros(len(G.CALFIB_WAVEGRID)),axis=0)
                 emis=np.insert(emis,0, 0)
                 detectids=np.insert(detectids,0, this_detection.entry_id)
         except:
             log.info("No sumspec_flux to add for 'this_detection'.",exc_info=True)
-            spec=np.insert(spec,0,np.zeros(len(G.CALFIB_WAVEGRID)))
+            spec=np.insert(spec,0,np.zeros(len(G.CALFIB_WAVEGRID)),axis=0)
             emis=np.insert(emis,0, 0)
             detectids=np.insert(detectids,0, this_detection.entry_id)
 
