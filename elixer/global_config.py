@@ -49,6 +49,7 @@ HDF5_BROAD_DETECT_FN = None
 HDF5_SURVEY_FN = None
 OBSERVATIONS_BASEDIR = None
 BAD_AMP_LIST = None
+BAD_AMP_TABLE = None
 CONFIG_BASEDIR = None
 PANACEA_RED_BASEDIR = None
 PANACEA_RED_BASEDIR_DEFAULT = None
@@ -180,6 +181,7 @@ def select_hdr_version(version):
     global HDF5_SURVEY_FN
     global OBSERVATIONS_BASEDIR
     global BAD_AMP_LIST
+    global BAD_AMP_TABLE
     global CONFIG_BASEDIR
     global PANACEA_RED_BASEDIR
     global PANACEA_RED_BASEDIR_DEFAULT
@@ -303,6 +305,7 @@ def select_hdr_version(version):
 
             HDF5_CONTINUUM_FN = HETDEX_API_CONFIG.contsourceh5
             HDF5_SURVEY_FN = HETDEX_API_CONFIG.surveyh5
+            BAD_AMP_TABLE = HETDEX_API_CONFIG.badamp
             OBSERVATIONS_BASEDIR = HETDEX_API_CONFIG.red_dir
             CONFIG_BASEDIR = HETDEX_API_CONFIG.software_dir
             HDF5_RAW_DIR = HETDEX_API_CONFIG.raw_dir #local to this function only
@@ -792,5 +795,6 @@ CHECK_FOR_METEOR = True #if true, check the exposure fiber data for meteor patte
 
 ALLOW_BROADLINE_FIT = True
 
-SUBTRACT_HETDEX_SKY_RESIDUAL = True #if true compute a per-shot sky residual, convolve with per-shot PSF and subtract
-                                    # from the HETDEX spectrum (only applies to re-extractions (forced extractions))
+SUBTRACT_HETDEX_SKY_RESIDUAL = False #if true compute a per-shot sky residual, convolve with per-shot PSF and subtract
+# from the HETDEX spectrum (only applies to re-extractions (forced extractions) with ffsky
+# requires --aperture xx  --ffsky --sky_residual

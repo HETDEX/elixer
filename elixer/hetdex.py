@@ -10,6 +10,7 @@ try:
     from elixer import spectrum_utilities as SU
     from elixer import weighted_biweight
     from elixer import utilities as utils
+    from elixer import shot_sky
 except:
     import global_config as G
     import line_prob
@@ -21,6 +22,7 @@ except:
     import spectrum_utilities as SU
     import weighted_biweight
     import utilities as utils
+    import shot_sky
 
 
 from hetdex_tools.get_spec import get_spectra as hda_get_spectra
@@ -914,8 +916,10 @@ class DetObj:
             #indices that cover common meteor lines (MgI, Al, CaI, CaII) into CALFIB_WAVEGRID
             #these are a bit broader ranges than the more specific waves that are list later on in this function
             #and are used just to check the exposure vs exposure ratios
-            common_line_waves = np.concatenate( (np.arange(3725,3745,2),
+            common_line_waves = np.concatenate( (np.arange(3570,3590,2),
+                                                 np.arange(3715,3745,2),
                                                  np.arange(3824,3844,2),
+                                                 np.arange(3852,3864,2),
                                                  np.arange(3926,3942,2),
                                                  np.arange(3960,3976,2),
                                                  np.arange(4210,4250,2),
@@ -1114,8 +1118,10 @@ class DetObj:
 
                     bright_mg_line = np.where(  ((waves >= 3826) & (waves <= 3840)) |
                                                 ((waves >= 5170) & (waves <= 5186)))[0]
-                    common_lines = np.where( ((waves >= 3728) & (waves <= 3740)) |
+                    common_lines = np.where( ((waves >= 3570) & (waves <= 3590)) |
+                                             ((waves >= 3715) & (waves <= 3740)) |
                                              ((waves >= 3826) & (waves <= 3840)) |
+                                             ((waves >= 3852) & (waves <= 3864)) |
                                              ((waves >= 3928) & (waves <= 3937)) |
                                              ((waves >= 3965) & (waves <= 3971)) |
                                              ((waves >= 4224) & (waves <= 4230)) |
@@ -3895,6 +3901,11 @@ class DetObj:
                 fiber_weights = apt['fiber_weights'][0] #as array of ra,dec,weight
             except:
                 pass
+
+
+            #get the per shot sky residual (if configured to do so)
+            if G.SUBTRACT_HETDEX_SKY_RESIDUAL:
+                residual_spec, residual_spec_err = shot_sky.get_shot_sky_residual(self.survey_shotid)
 
             if not self.w:
                 # find the "best" wavelength to use as the central peak

@@ -741,8 +741,12 @@ def parse_commandline(auto_force=False):
             args.known_z = None
             args.known_z = None
 
-    if args.sky_residual or args.lyc:
-        G.SUBTRACT_HETDEX_SKY_RESIDUAL = True
+    if args.sky_residual:
+        if args.ffsky:
+            G.SUBTRACT_HETDEX_SKY_RESIDUAL = True
+        else:
+            print("Warning! --sky_residual requested but --ffsky missing. Will not substract extra sky residual from spectra.")
+            G.SUBTRACT_HETDEX_SKY_RESIDUAL = False
     else:
         G.SUBTRACT_HETDEX_SKY_RESIDUAL = False
 

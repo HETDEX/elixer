@@ -1,9 +1,12 @@
 changes to elixer by version
 
-1.10.0a4 [2020-09-30]
+1.10.0a4 [2020-10-01]
 * add distance to barycenter under photometric cutouts (as s:#.#") and changed mag: to m: to save space
 * correct matched (multiline) solution EW_r to use the wide continuum estimates if available
 * fix missing re-try for broadline if solution fails with no emission line info object
+* added two more meteor emission lines
+* add optional parameter --sky_residual (also requires --ffsky and --aperture) to subtract off left over sky residual for
+  the specific shot when re-extracting on an aperture (note: can be CPU time costly)
 
 1.10.0a3 [2020-09-22]
 * add specific check for 3:1 ratio OIII 5007/4959 (allow comparison even if potential 4959 line is very weak and boost

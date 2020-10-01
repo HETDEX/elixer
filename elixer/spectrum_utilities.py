@@ -25,6 +25,7 @@ from scipy.optimize import curve_fit
 
 from hetdex_tools.get_spec import get_spectra as hda_get_spectra
 from hetdex_api import survey as hda_survey
+from hetdex_api.extract import Extract
 #from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
 
 import copy
@@ -1671,6 +1672,65 @@ def combo_fit_wave(peak_func,values,errors,wavelengths,central,wave_slop_kms=500
             log.info("Exception in spectrum_utilites::combo_fit_wave", exc_info=True)
 
     return return_dict
+
+
+
+
+def apply_psf(spec,err,coord,shotid,fwhm,radius=3.0,ffsky=True,hdrversion="hdr2.1"):
+    """
+    Apply the shot specific PSF to the provided spec and error.
+
+    This is for use in applying the same PSF, weights and mask that was used for a
+    matching detection to the sky residuals defined for the shot
+
+    (spec and err assumed to be on 1036 (Calfib) grid)
+
+    :param spec: spectrum (flux or flux_density) values
+    :param err: error on the spectrum
+    :param fwhm: seeing for the shot
+    :return:
+
+    *** RETURN is in the SAME UNITS as passed in  ... so for LyCon, normally passed in as flux over 2AA bins
+    *** so it stays that way (erg/s/cm2  x2AA) and is NOT per AA (as would normally be returned from hetdex_api)
+    """
+
+    spectrum_conv_psf = None
+    error_conv_psf = None
+    try:
+        E = Extract()
+
+        if radius == None or radius <= 0:
+            radius = 3.0
+
+        E.load_shot(shotid, fibers=True, survey=hdrversion)
+
+        if fwhm is None or fwhm <= 0:
+            q_shotid = shotid
+            fwhm = E.shoth5.root.Shot.read_where("shotid==q_shotid", field="fwhm_virus")[0]
+
+
+        info_result = E.get_fiberinfo_for_coord(coord, radius=radius, ffsky=ffsky)
+
+        if info_result is not None:
+            ifux, ifuy, xc, yc, ra, dec, fiber_data, fiber_error, mask = info_result
+
+            #replace the fiber data and error with arrays of (sky residual) spec and err
+            #but use the same mask
+            data = np.full(fiber_data.shape,spec)
+            error = np.full(fiber_data.shape,err)
+
+            moffat = E.moffat_psf(fwhm, 10.5, 0.25)
+            weights = E.build_weights(xc, yc, ifux, ifuy, moffat)
+            result = E.get_spectrum(data, error, mask, weights)
+
+            spectrum_conv_psf, error_conv_psf = [res for res in result]
+
+        E.shoth5.close()
+
+    except Exception as e:
+        print(e)
+
+    return spectrum_conv_psf, error_conv_psf
 
 
 def make_raster_grid(ra,dec,width,resolution):
