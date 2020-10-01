@@ -961,7 +961,12 @@ class DetObj:
                 common_sume[i] = np.sqrt(np.nansum(exp_err[i][common_line_idx]**2))
 
             # which has the minimum (so can subtract off)
-            common_sum -= min(common_sum)
+            #forces the lowest to be zero and keeps everything non-negative
+            #but can really inflate the max/#2 ratio if #2 and #3 are really close s|t #2-#3 is a small number
+            #and #1 is just a little larger, can start down the meteor path erroneously
+            #SO .... only do this IF the min is negative
+            if min(common_sum) < 0:
+                common_sum -= min(common_sum)
 
             # which exposure has the maximum
             cmx_expid = np.argmax(common_sum) + 1
