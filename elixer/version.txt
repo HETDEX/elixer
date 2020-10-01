@@ -5,7 +5,8 @@ changes to elixer by version
 * correct matched (multiline) solution EW_r to use the wide continuum estimates if available
 * fix missing re-try for broadline if solution fails with no emission line info object
 * added two more meteor emission lines
-* add optional parameter --sky_residual (also requires --ffsky and --aperture) to subtract off left over sky residual for
+* [pending, residual calculation is far too expensive, need to store in a FITS or Db and just read at runtime]
+  add optional parameter --sky_residual (also requires --ffsky and --aperture) to subtract off left over sky residual for
   the specific shot when re-extracting on an aperture (note: can be CPU time costly)
 
 1.10.0a3 [2020-09-22]

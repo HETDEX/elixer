@@ -445,8 +445,8 @@ def parse_commandline(auto_force=False):
 
     parser.add_argument('--known_z', help="Produce plots using this value for redshift", required=False, type=float)
 
-    parser.add_argument('--sky_residual', help='Toggle [ON] shot-specific sky residual subtraction for forced-extracions.',
-                        required=False, action='store_true', default=False)
+    # parser.add_argument('--sky_residual', help='Toggle [ON] shot-specific sky residual subtraction for forced-extracions.',
+    #                     required=False, action='store_true', default=False)
 
     if G.LAUNCH_PDF_VIEWER is not None:
         parser.add_argument('--viewer', help='Launch the global_config.py set PDF viewer on completion', required=False,
@@ -741,14 +741,14 @@ def parse_commandline(auto_force=False):
             args.known_z = None
             args.known_z = None
 
-    if args.sky_residual:
-        if args.ffsky:
-            G.SUBTRACT_HETDEX_SKY_RESIDUAL = True
-        else:
-            print("Warning! --sky_residual requested but --ffsky missing. Will not substract extra sky residual from spectra.")
-            G.SUBTRACT_HETDEX_SKY_RESIDUAL = False
-    else:
-        G.SUBTRACT_HETDEX_SKY_RESIDUAL = False
+    # if args.sky_residual:
+    #     if args.ffsky:
+    #         G.SUBTRACT_HETDEX_SKY_RESIDUAL = True
+    #     else:
+    #         print("Warning! --sky_residual requested but --ffsky missing. Will not substract extra sky residual from spectra.")
+    #         G.SUBTRACT_HETDEX_SKY_RESIDUAL = False
+    # else:
+    #     G.SUBTRACT_HETDEX_SKY_RESIDUAL = False
 
     if args.gridsearch:
 
