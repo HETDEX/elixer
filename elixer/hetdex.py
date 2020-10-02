@@ -1220,7 +1220,10 @@ class DetObj:
 
 
                     if meteor > 0:
-                        self.spec_obj.add_classification_label("Meteor")
+                        if spec_ratio > 5.0 or full_ratio > 3.0:
+                            self.spec_obj.add_classification_label("meteor",prepend=True)
+                        else:
+                            self.spec_obj.add_classification_label("meteor",replace=True)
                         self.spec_obj.meteor_strength = meteor
                         pos = np.array(pos)
                         if len(pos) > 0:

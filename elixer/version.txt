@@ -8,6 +8,10 @@ changes to elixer by version
 * [pending, residual calculation is far too expensive, need to store in a FITS or Db and just read at runtime]
   add optional parameter --sky_residual (also requires --ffsky and --aperture) to subtract off left over sky residual for
   the specific shot when re-extracting on an aperture (note: can be CPU time costly)
+* fix bug where scoring penality for unmatched lines was not being re-applied after a poor fit (dx0) line removal
+  score correction
+* move "meteor" label as first if multiples are applied
+* made "meteor" label lowercase to be consistent with others
 
 1.10.0a3 [2020-09-22]
 * add specific check for 3:1 ratio OIII 5007/4959 (allow comparison even if potential 4959 line is very weak and boost

@@ -93,7 +93,7 @@ PROB_NOISE_MIN_SCORE = 2.0 #min score that makes it to the bin list
 
 #beyond an okay fit (see GAUSS_FIT_xxx above) is this a "good" signal
 GOOD_BROADLINE_SIGMA = 6.0 #getting broad
-LIMIT_BROAD_SIGMA = 9.0 #above this the emission line must specifically allow "broad"
+LIMIT_BROAD_SIGMA = 7.0 #above this the emission line must specifically allow "broad"
 GOOD_BROADLINE_SNR = 11.0 # upshot ... protect against neighboring "noise" that fits a broad line ...
                           # if big sigma, better have big SNR
 GOOD_BROADLINE_RAW_SNR = 4.0 # litteraly signal/noise (flux values / error values +/- 3 sigma from peak)
@@ -2903,11 +2903,17 @@ class Spectrum:
 
         #from HDF5
 
-    def add_classification_label(self,label=""):
+    def add_classification_label(self,label="",prepend=False,replace=False):
         try:
-            toks = self.classification_label.split(",")
-            if label not in toks:
-                 self.classification_label += label + ","
+            if replace or self.classification_label is None:
+                self.classification_label = label
+            else:
+                toks = self.classification_label.split(",")
+                if label not in toks:
+                    if prepend:
+                        self.classification_label = label + "," + self.classification_label
+                    else:
+                        self.classification_label += label + ","
         except:
             log.warning("Unexpected exception",exc_info=True)
 
@@ -4011,8 +4017,8 @@ class Spectrum:
                 sol.unmatched_lines_count, sol.unmatched_lines_score = self.unmatched_lines_score(sol)
 
                 if sol.unmatched_lines_count > G.MAX_OK_UNMATCHED_LINES and sol.unmatched_lines_score > G.MAX_OK_UNMATCHED_LINES_SCORE:
-                    log.info(f"Solution ({sol.name} {sol.central_rest} at {sol.central_rest * (1+sol.z)}) penalized for excessive unmatched lines. Old score: {sol.score}, "
-                             f"Penalty {sol.unmatched_lines_score} on {sol.unmatched_lines_count} lines")
+                    log.info(f"Solution ({sol.name} {sol.central_rest:0.2f} at {sol.central_rest * (1+sol.z)}) penalized for excessive unmatched lines. Old score: {sol.score:0.2f}, "
+                             f"Penalty {sol.unmatched_lines_score:0.2f} on {sol.unmatched_lines_count} lines")
                     sol.score -= sol.unmatched_lines_score
             except:
                 log.info("Exception adjusting solution score for unmatched lines",exc_info=True)
@@ -4087,6 +4093,21 @@ class Spectrum:
 
                     s.calc_score()
                     per_line_total_score += s.score
+
+                    # HAVE to REAPPLY
+                    # now apply penalty for unmatched lines?
+                    try:
+                        s.unmatched_lines_count, s.unmatched_lines_score = self.unmatched_lines_score(s)
+
+                        if s.unmatched_lines_count > G.MAX_OK_UNMATCHED_LINES and s.unmatched_lines_score > G.MAX_OK_UNMATCHED_LINES_SCORE:
+                            log.info("Re-apply unmatched lines after rescoring....")
+                            log.info(
+                                f"Solution ({s.name} {s.central_rest:0.2f} at {s.central_rest * (1 + s.z)}) penalized for excessive unmatched lines. Old score: {s.score:0.2f}, "
+                                f"Penalty {s.unmatched_lines_score:0.2f} on {s.unmatched_lines_count} lines")
+                            s.score -= s.unmatched_lines_score
+                    except:
+                        log.info("Exception adjusting solution score for unmatched lines", exc_info=True)
+
 
                     log.info("Solution:  %s (%s at %0.1f) rescored due to extremes in fit_dx0. Old score (%f) New Score (%f)"
                              %(self.identifier,s.emission_line.name,s.central_rest,old_score,s.score))
