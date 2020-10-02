@@ -141,13 +141,17 @@ class LAIGLE2015(cat_base.Catalog):
                                           "V_MAG_AUTO","V_MAGERR_AUTO","V_FLUX_APER3","V_FLUXERR_APER3",
                                           "r_MAG_AUTO","r_MAGERR_AUTO","r_FLUX_APER3","r_FLUXERR_APER3",
                                            "PHOTOZ"][idx]
-                cat_rows.rename_column('ALPHA_J2000','RA')
-                cat_rows.rename_column('DELTA_J2000','DEC')
-                cat_rows.rename_column("NUMBER","ID")
-                cat_rows['distance'] = 999.9 #needs to be a float type
-                for i in range(len(cat_rows)):
-                    cat_rows['distance'][i] = utilities.angular_distance(ra,dec,
-                                                cat_rows["RA"][i],cat_rows["DEC"][i])
+
+
+                if cat_rows is not None:
+                    cat_rows.rename_column('ALPHA_J2000','RA')
+                    cat_rows.rename_column('DELTA_J2000','DEC')
+                    cat_rows.rename_column("NUMBER","ID")
+                    if len(cat_rows) > 0:
+                        cat_rows['distance'] = 999.9 #needs to be a float type
+                        for i in range(len(cat_rows)):
+                            cat_rows['distance'][i] = utilities.angular_distance(ra,dec,
+                                                        cat_rows["RA"][i],cat_rows["DEC"][i])
 
             if self.PDZ_Table:
                 for i in idx: #a list of 400 columns per row (z0.00 to z4.00)

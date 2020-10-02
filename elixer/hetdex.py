@@ -4911,9 +4911,15 @@ class DetObj:
                     self.spec_obj.noise_estimate = self.calfib_noise_estimate
                     self.spec_obj.noise_estimate_wave = G.CALFIB_WAVEGRID
 
-            except:
-                log.info("Could not build DetObj calfib_noise_estimate", exc_info=True)
+            except Exception as e:
                 self.calfib_noise_estimate = np.zeros(len(G.CALFIB_WAVEGRID))
+                try:
+                    if e.args[0].find("ValueError: need at least one array to concatenate"):
+                        log.info("Could not build DetObj calfib_noise_estimate")
+                    else:
+                        log.info(f"Could not build DetObj calfib_noise_estimate: {e}" )
+                except:
+                    log.info("Could not build DetObj calfib_noise_estimate", exc_info=True)
 
 
         self.spec_obj.identifier = "eid(%s)" %str(self.entry_id)
