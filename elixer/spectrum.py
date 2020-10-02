@@ -4193,12 +4193,25 @@ class Spectrum:
                         s.score = G.MULTILINE_MIN_SOLUTION_SCORE
 
                     per_line_total_score += s.score
-
-            #remove and zeroed scores
+        else: #still check for invalid solutions (no valid central emission line)
+            if self.central_eli is None:
+                for s in solutions:
+                    if (s is not None) and (s.lines is not None) and (len(s.lines) > 1):
+                        pass #still okay there are 2+ other lines
+                    else:
+                        log.info(f"Solution {s.name} rejected. No central fit and few lines. Zeroing score.")
+                        s.score = 0.0
+                        s.scale_score = 0.0
+                        s.frac_score = 0.0
+                        continue
+        #remove and zeroed scores
+        try:
             if solutions is not None and len(solutions)>0:
                 for i in range(len(solutions)-1,-1,-1):
                     if solutions[i].score <= 0:
                         del solutions[i]
+        except:
+            log.debug("Exception clearing solutions",exc_info=True)
 
 
 
