@@ -1333,22 +1333,27 @@ class DetObj:
                         #typical half-light radius of order 1kpc (so full diamter something like 4-6 kpc and up)
                         #if AGN maybe up to 30-40kpc
                         if diam > 40.0:  #just too big, favor not LAE
-                            lk = 0.1
-                            w = 0.7
-                        elif 30.0 < diam <= 40:
-                            #pretty big, maybe favors OII at lower-z, but not very definitive
-                            lk = 0.1
-                            w = 0.1
-                        elif 10.0 < diam <= 30:
+                            lk = 0.0
+                            w = 1.0
+                        elif 25.0 < diam <= 40:
+                            #pretty big, favors OII at lower-z, but not very definitive
+                            #could maybe get some QSO in here?
+                            lk = 0.0
+                            w = 0.5
+                        elif 10.0 < diam <= 25:
                             #moderately big, maybe favors OII at lower-z, but not very definitive
-                            lk = 0.5
-                            w = 0.1
-                        elif 4.0 < diam < 10.0:
+                            #could get some QSO in here (brightness/width would help over rule this)
+                            lk = 0.25
+                            w = 0.5
+                        elif 5.0 < diam <=10.0:
                             lk = 0.9
-                            w = 0.01 #does not add much info, but is consistent
+                            w = 0.1 #does not add much info, but is consistent
+                        elif 3.0 < diam <= 5.0:
+                            lk = 0.9
+                            w = 0.5
                         else: #very small, highly consistent with LAE (small boost)
-                            lk = 0.9
-                            w = 0.1
+                            lk = 1.0
+                            w = 0.75
 
                         likelihood.append(lk)
                         weight.append(w)
@@ -1602,18 +1607,24 @@ class DetObj:
             log.debug("Exception in aggregate_classification for best PLAE/POII",exc_info=True)
 
 
+        try:
+            lower_mag = self.best_gmag + self.best_gmag_unc #want best value + the error (so on the fainter side)
+        except:
+            lower_mag  = 99
+
+
         #basic magnitude sanity checks
-        if self.best_gmag < 18.0: #the VERY BRIGHTEST QSOs in the 2 < z < 4 are 17-18 mag
+        if lower_mag < 18.0: #the VERY BRIGHTEST QSOs in the 2 < z < 4 are 17-18 mag
             likelihood.append(0.1)  # weak solution so push likelihood "down" but not zero (maybe 0.2 or 0.25)?
             weight.append(max(2.0,max(weight)))
             var.append(1)  # todo: ? could do something like the spectrum noise?
             prior.append(base_assumption)
             log.info(f"Aggregate Classification: gmag too bright {self.best_gmag} to be LAE (AGN): lk({likelihood[-1]}) "
                 f"weight({weight[-1]})")
-        elif self.best_gmag < 23.0:
+        elif lower_mag < 24.0:
             try:
                 min_fwhm = self.fwhm - (0 if ((self.fwhm_unc is None) or (np.isnan(self.fwhm_unc))) else self.fwhm_unc)
-                min_thresh = max( ((23.0 - self.best_gmag) + 10.0), 10.0) #just in case something weird
+                min_thresh = max( ((24.0 - lower_mag) + 8.0), 8.0) #just in case something weird
 
                 #the -25.0 and -0.8 are from some trial and error plotting to get the shape I want
                 #runs 0 to 1.0 and drops off very fast from 1.0 toward 0.0

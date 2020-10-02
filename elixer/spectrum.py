@@ -3299,12 +3299,20 @@ class Spectrum:
 
             if len(overlap) < 2: #done (0 or 1) if only 1 line, can't go any farther with comparision
                 #for FWHM nudge to AGN, the one line MUST at least be on the list of AGN lines
-                if (len(overlap) > 0) and (central_fwhm - central_fwhm_err > 12.0) and \
+                if (score > 0) and (len(overlap) > 0) and (central_fwhm - central_fwhm_err > 12.0) and \
                     ((self.spectrum_slope + self.spectrum_slope_err) < 0.02 )      and \
                     ((self.spectrum_slope - self.spectrum_slope_err) > -0.02 ):
                     #the slope is just a guess ... trying to separate out most stars
                     #self.add_classification_label("AGN")
-                    return 0.25 #still give a little boost to AGN classification?
+                    try:
+                        if (np.mean([line_fwhm[i] for i in line_idx]) > 12.0) and\
+                                len(np.intersect1d(overlap,np.array([G.LyA_rest,1549.,1909.,2799.])) > 0):
+                            #allowed singles: LyA, MgII, CIV, CIII (and really not CIV by itself in our range)
+                            return 0.25  # still give a little boost to AGN classification?
+                    except:
+                        pass
+
+                    return 0
                 else:
                     return 0
 
@@ -3913,6 +3921,23 @@ class Spectrum:
                     #if this line is too close to another, keep the one with the better score
                     add_to_sol = True
 
+                    # BASIC FWHM check (by rank)
+                    # higher ranks are stronger lines and must have similar or greater fwhm (or sigma)
+                    #rank 1 is highest, 4 lowest; a is the line being tested, e is the solution anchor line
+                    if a.rank < e.rank:
+                        try:
+                            if -0.5 < (2 * (eli.fit_sigma - self.central_eli.fit_sigma) /
+                                        (eli.fit_sigma + self.central_eli.fit_sigma)) < 0.5:
+                                    # delta sigma is okay, the higher rank is larger sigma (negative result) or within 50%
+                                pass
+                            else:
+                                log.debug(f"Sigma sanity check failed {self.identifier}. Disallowing {a.name} at sigma {eli.fit_sigma:0.2f} "
+                                          f" vs anchor sigma {self.central_eli.fit_sigma:0.2f}")
+                                add_to_sol = False
+                                # this line should not be part of the solution
+                        except:
+                            pass
+
 
                     #check the main line first
                     if abs(central - eli.fit_x0) < 5.0:
@@ -4209,6 +4234,8 @@ class Spectrum:
             if solutions is not None and len(solutions)>0:
                 for i in range(len(solutions)-1,-1,-1):
                     if solutions[i].score <= 0:
+                        del solutions[i]
+                    elif solutions[i].emission_line.rank > 3 and min([x.rank for x in solutions[i].lines]) > 3:
                         del solutions[i]
         except:
             log.debug("Exception clearing solutions",exc_info=True)
