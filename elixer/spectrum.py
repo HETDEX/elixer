@@ -4121,8 +4121,26 @@ class Spectrum:
         #??consistent with meteor #this may need to be elsewhere and probably involves check individual exposures
         #                          #since it would only show up in one exposure
 
-        if G.MULTILINE_USE_CONSISTENCY_CHECKS and (self.central_eli is not None):
+        if G.MULTILINE_USE_CONSISTENCY_CHECKS:# and (self.central_eli is not None):
+            if self.central_eli is None:
+                #could  not fit the central line, so no solution is valid if it relies on the central
+                #(can still be valid if there are mulitple other lines)
+                central_eli = EmissionLineInfo()
+                central_eli.line_score = 0.0
+            else:
+                central_eli = self.central_eli
+
             for s in solutions:
+
+                if (central_eli.line_score == 0):
+                    if (s is not None) and (s.lines is not None) and (len(s.lines) > 1):
+                        pass #still okay there are 2+ other lines
+                    else:
+                        log.info(f"Solution {s.name} rejected. No central fit and few lines. Zeroing score.")
+                        s.score = 0.0
+                        s.scale_score = 0.0
+                        s.frac_score = 0.0
+                        continue
 
                 # the pair of lines being checked are 4959 and 5007 (or the solution contains those pair of lines)
                 try:
@@ -4149,7 +4167,7 @@ class Spectrum:
                     log.info(f"Solution: {s.name} score {s.score} to be modified by x{boost} for consistency with AGN")
 
                     #for the labeling, need to check vs the TOTAL score (so include the primary line)
-                    if ( (s.score + self.central_eli.line_score) > G.MULTILINE_FULL_SOLUTION_SCORE) and \
+                    if ( (s.score + central_eli.line_score) > G.MULTILINE_FULL_SOLUTION_SCORE) and \
                             (boost > 1.0): #check BEFORE the boost
                         self.add_classification_label("agn")
 
@@ -4164,7 +4182,7 @@ class Spectrum:
                 if boost != 1.0:
                     log.info(f"Solution: {s.name} score {s.score} to be modified by x{boost} for consistency with low-z galaxy")
 
-                    if ((s.score + self.central_eli.line_score) > G.MULTILINE_FULL_SOLUTION_SCORE) and \
+                    if ((s.score + central_eli.line_score) > G.MULTILINE_FULL_SOLUTION_SCORE) and \
                             (boost > 1.0):  # check BEFORE the boost
                         self.add_classification_label("lzg") #Low-z Galaxy
 
@@ -4175,6 +4193,12 @@ class Spectrum:
                         s.score = G.MULTILINE_MIN_SOLUTION_SCORE
 
                     per_line_total_score += s.score
+
+            #remove and zeroed scores
+            if solutions is not None and len(solutions)>0:
+                for i in range(len(solutions)-1,-1,-1):
+                    if solutions[i].score <= 0:
+                        del solutions[i]
 
 
 

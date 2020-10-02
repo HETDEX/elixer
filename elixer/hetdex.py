@@ -1220,7 +1220,7 @@ class DetObj:
 
 
                     if meteor > 0:
-                        if spec_ratio > 5.0 or full_ratio > 3.0:
+                        if spec_ratio > 5.0 or full_ratio > 3.0 or meteor >= 2:
                             self.spec_obj.add_classification_label("meteor",prepend=True)
                         else:
                             self.spec_obj.add_classification_label("meteor",replace=True)
