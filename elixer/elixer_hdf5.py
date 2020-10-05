@@ -727,7 +727,11 @@ def append_entry(fileh,det,overwrite=False):
 
             row['multiline_raw_score'] = det.spec_obj.solutions[0].score
             row['multiline_frac_score'] = det.spec_obj.solutions[0].frac_score
-            row['multiline_prob'] = det.spec_obj.solutions[0].prob_real
+            try:
+                _,row['multiline_prob'] = det.multiline_solution_score()
+                #row['multiline_prob'] = det.spec_obj.solutions[0].prob_real
+            except:
+                row['multiline_prob'] = -999
             #?? other lines ... other solutions ... move into a separate table ... SpectraLines table
 
         if (det.rvb is not None):

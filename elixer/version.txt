@@ -17,6 +17,8 @@ changes to elixer by version
     + solution cannot consist solely of rank 4 or weaker lines
     + stronger rank lines must be within 50% of sigma (line-width) of weaker anchor line (modified by the allowed
       "broad" status of the line)
+* change elixer.h5 file "multiline_prob" to be the scaled solution score for the top solution (0-1) as more meaningful
+  than just the base probability that the line (and the solution) is random noise
 
 1.10.0a3 [2020-09-22]
 * add specific check for 3:1 ratio OIII 5007/4959 (allow comparison even if potential 4959 line is very weak and boost
