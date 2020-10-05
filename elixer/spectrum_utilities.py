@@ -220,6 +220,7 @@ def chi_sqr(obs, exp, error=None, c=None):
         error += 1.0
 
     chisqr = np.sum(((obs - c*exp)/(error))**2)
+    #chisqr = np.sum( ((obs - c*exp)**2)/(error**2))
 
     # for i in range(x):
     #         #chisqr = chisqr + ((obs[i]-c*exp[i])**2)/(error[i]**2)

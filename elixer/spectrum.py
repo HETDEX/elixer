@@ -1239,7 +1239,9 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                              norm=False)
 
                 #test
-                #chi2, _ = SU.chi_sqr(wave_counts,rms_wave,error=wave_errors,c=1.0)
+                # chi2, _ = SU.chi_sqr(wave_counts,rms_wave,error=wave_errors,c=1.0)
+                # scipy_chi2,scipy_pval = chisquare(wave_counts,rms_wave)
+
                 #*2 +1 because the rmse is figures as +/- the "num_sn_pix" from the center pixel (so total width is *2 + 1)
                 num_sn_pix = num_sn_pix * 2 + 1 #need full width later (still an integer)
 
@@ -1275,6 +1277,12 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         eli.unique = unique_peak(values,wavelengths,eli.fit_x0,eli.fit_sigma*2.355)
 
         if not eli.unique and ((eli.fit_a_err / eli.fit_a) > 0.5) and (eli.fit_sigma > GAUSS_FIT_MAX_SIGMA):
+            accept_fit = False
+            snr = 0.0
+            eli.snr = 0.0
+            eli.line_score = 0.0
+            eli.line_flux = 0.0
+        elif (eli.fit_a_err / eli.fit_a > 0.34) and (eli.fit_h/eli.fit_y < 1.66): #error on the area is just to great to trust
             accept_fit = False
             snr = 0.0
             eli.snr = 0.0
@@ -3490,10 +3498,15 @@ class Spectrum:
             else:
                 show_plot = G.DEBUG_SHOW_GAUSS_PLOTS
 
+            try:
+                allow_broad = (self.fwhm + self.fwhm_unc) > (GOOD_BROADLINE_SIGMA * 2.355)
+            except:
+                allow_broad = False
+
             eli = signal_score(wavelengths=wavelengths, values=values, errors=errors,central=central,spectrum=self,
                                values_units=values_units, sbr=None, min_sigma=fit_min_sigma,
                                show_plot=show_plot,plot_id=self.identifier,
-                               plot_path=self.plot_dir,do_mcmc=True)
+                               plot_path=self.plot_dir,do_mcmc=True,allow_broad=allow_broad)
         except:
             log.error("Exception in spectrum::set_spectra calling signal_score().",exc_info=True)
             eli = None
@@ -3955,10 +3968,9 @@ class Spectrum:
                             if (a.broad == e.broad):
                                 adjust = 1.0 #they should be similar (both broad or narrow)
                             elif (a.broad):
-                                adjust = 2.0 #the central line can be more narrow
+                                adjust = 3.0 #the central line can be more narrow
                             elif (e.broad):
-                                adjust = 0.5 #the central line can be more broad
-
+                                adjust = 0.33 #the central line can be more broad
 
                             fwhm_comp = adjust * 2.0 * (eli.fit_sigma - self.central_eli.fit_sigma)  / \
                                         (eli.fit_sigma + self.central_eli.fit_sigma)
