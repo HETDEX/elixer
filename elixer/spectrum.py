@@ -1282,7 +1282,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             eli.snr = 0.0
             eli.line_score = 0.0
             eli.line_flux = 0.0
-        elif (eli.fit_a_err / eli.fit_a > 0.34) and (eli.fit_h/eli.fit_y < 1.66): #error on the area is just to great to trust
+        elif (eli.fit_a_err / eli.fit_a > 0.34) and ((eli.fit_y > 0) and (eli.fit_h/eli.fit_y < 1.66)):
+            #error on the area is just to great to trust along with very low peak height (and these are already broad)
             accept_fit = False
             snr = 0.0
             eli.snr = 0.0
