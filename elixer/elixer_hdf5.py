@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.2.4' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.2.5' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
