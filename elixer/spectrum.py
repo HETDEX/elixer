@@ -2845,7 +2845,7 @@ class Spectrum:
             #big in AGN (alone before CIII enters from the blue )  this MgII is a doublet, 2795, 2802 ... can sometimes
             #  see the doublet in the HETDEX spectrum
             # What about when combined with OII 3277 (MgII maybe broad, but OII is not?)
-            EmissionLine("MgII".ljust(w), 2799, "magenta",solution=False,display=True,rank=3,broad=True,
+            EmissionLine("MgII".ljust(w), 2799, "magenta",solution=True,display=True,rank=3,broad=True,
                          min_fwhm=12.0,min_obs_wave=3500.0-20.0, max_obs_wave=5131.0+20.0),
 
             #thse H_x lines are never alone (OIII or OII are always present)
@@ -3875,6 +3875,9 @@ class Spectrum:
                 if abs(central_z-known_z) > 0.05:
                     log.info(f"Known z {known_z:0.2f} invalidates solution for {e.name} at z = {central_z:0.2f}")
                     continue
+            elif (self.fwhm) and (self.fwhm_unc) and (((self.fwhm-self.fwhm_unc)/2.355 > LIMIT_BROAD_SIGMA) and not e.broad):
+                log.info(f"FWHM ({self.fwhm},+/- {self.fwhm_unc}) too broad for {e.name}. Solution disallowed.")
+                continue
             else:
                 #normal rules apply only allow major lines or lines marked as allowing a solution
 
