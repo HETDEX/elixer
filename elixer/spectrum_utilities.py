@@ -191,13 +191,14 @@ def getnearpos(array,value):
     return idx, lt, gt
 
 
-def chi_sqr(obs, exp, error=None, c=None):
+def chi_sqr(obs, exp, error=None, c=None,dof=None):
     """
 
     :param obs: (data)
     :param exp: (model)
     :param error: (error on the data)
     :param c: can pass in a fixed c (in most cases, should just be 1.0)
+    :param dof: aka number of parameters to fit (for our Gaussian, that's 3 (sigma, mu, y))
     :return: chi2 and c (best level)
     """
 
@@ -219,7 +220,10 @@ def chi_sqr(obs, exp, error=None, c=None):
         error=np.zeros(np.shape(obs))
         error += 1.0
 
-    chisqr = np.sum(((obs - c*exp)/(error))**2)
+    if dof is not None:
+        chisqr =  1./(len(obs)-dof) * np.sum(((obs - c * exp) / error) ** 2)
+    else:
+        chisqr = np.sum( ((obs - c*exp)/error)**2 )
     #chisqr = np.sum( ((obs - c*exp)**2)/(error**2))
 
     # for i in range(x):
