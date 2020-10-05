@@ -1090,6 +1090,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     num_sn_pix = 0
 
     bad_curve_fit = False
+    max_fit_sigma = GAUSS_FIT_MAX_SIGMA *1.5 + 1.0 # allow a model fit bigger than what is actually acceptable
+                                                   # so can throw out reall poor broad fits
     #use ONLY narrow fit
     try:
 
@@ -1108,7 +1110,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         parm, pcov = curve_fit(gaussian, np.float64(narrow_wave_x), np.float64(narrow_wave_counts),
                                 p0=(central,1.5,1.0,0.0),
                                 bounds=((central-fit_range_AA, 1.0, 0.0, -100.0),
-                                        (central+fit_range_AA, 25.0, 1e5, 1e4)),
+                                        (central+fit_range_AA, max_fit_sigma, 1e5, 1e4)),
                                 #sigma=1./(narrow_wave_errors*narrow_wave_errors)
                                 sigma=narrow_wave_err_sigma#, #handles the 1./(err*err)
                                #note: if sigma == None, then curve_fit uses array of all 1.0
