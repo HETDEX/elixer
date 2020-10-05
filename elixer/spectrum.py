@@ -1090,8 +1090,11 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     num_sn_pix = 0
 
     bad_curve_fit = False
-    max_fit_sigma = GAUSS_FIT_MAX_SIGMA *1.5 + 1.0 # allow a model fit bigger than what is actually acceptable
-                                                   # so can throw out reall poor broad fits
+    if allow_broad:
+        max_fit_sigma = GAUSS_FIT_MAX_SIGMA *1.5 + 1.0 # allow a model fit bigger than what is actually acceptable
+    else:                                              # so can throw out reall poor broad fits
+        max_fit_sigma = GAUSS_FIT_MAX_SIGMA + 1.0
+
     #use ONLY narrow fit
     try:
 
@@ -3201,6 +3204,7 @@ class Spectrum:
 
     def solution_consistent_with_agn(self,solution):
         """
+        REALLY AGN or higher z (should not actually include MgII)
 
         if there is (positive) consistency (lines match and ratios match) you get a boost
         if there is no consistency (that is, the lines don't match up) you get no change
@@ -4260,8 +4264,10 @@ class Spectrum:
                         #however, only apply the label if at least one line is broad
                         line_fwhm = np.array([central_eli.fit_sigma*2.355] + [l.sigma * 2.355 for l in s.lines])
                         line_fwhm_err = np.array([central_eli.fit_sigma_err*2.355] + [l.sigma_err * 2.355 for l in s.lines])
-                        if max(line_fwhm+line_fwhm_err) > 14.0:
+                        if max(line_fwhm+line_fwhm_err) > 14.0 and s.emission_line.w_rest != 2799:
                             self.add_classification_label("agn")
+                        else:
+                            log.info(f"Solution: {s.name} 'agn' label omitted, but boost applied.")
 
                     per_line_total_score -= s.score
                     s.score = boost * s.score
