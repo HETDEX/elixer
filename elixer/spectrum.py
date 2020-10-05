@@ -3193,9 +3193,9 @@ class Spectrum:
         #
 
         #check the lines, are they consistent with AGN?
-        try:
-            rest_waves = np.array([G.LyA_rest,1549.,1909.,2326.,2799.,1241.,1260.,1400.,1640.,1035.])
-            #aka                     LyA,      CIV, CIII, CII,   MgII,  NV,  SiII, SiIV, HeII, OVI
+        try: #todo: for MgII, OII can also be present
+            rest_waves = np.array([G.LyA_rest,1549.,1909.,2326.,2799.,1241.,1260.,1400.,1640.,1035., G.OII_rest])
+            #aka                     LyA,      CIV, CIII, CII,   MgII,  NV,  SiII, SiIV, HeII, OVI,  OII
             obs_waves = rest_waves * (1. + solution.z)
 
             # compared to LyA EW: so line ew/ LyA EW; a value of 0 means no info
@@ -3205,25 +3205,29 @@ class Spectrum:
 
             # using as a very rough guide: https://ned.ipac.caltech.edu/level5/Netzer/Netzer2_1.html
             # and manual HETDEX spectra
-            #            #LyA, CIV,  CIII, CII,  MgII,  NV,     SiII, SiIV,  HeII,  OVI
-            min_ratios = [1.0, 0.07, 0.02, 0.01,  0.05, 0.05,  0.00, 0.03,   0.01,  0.03]
-            max_ratios = [1.0, 0.70, 0.30, 0.10,  0.40, 0.40,  0.00, 0.20,   0.20,  0.40]
-            #                                            *** apparently NV can be huge .. bigger than CIV even see 2101164104
+            #            #LyA, CIV,  CIII, CII,  MgII,  NV,     SiII, SiIV,  HeII,  OVI   OII
+            min_ratios = [1.0, 0.07, 0.02, 0.01,  0.05, 0.05,  0.00, 0.03,   0.01,  0.03, 0.01]
+            max_ratios = [1.0, 0.70, 0.30, 0.10,  0.40, 0.40,  0.00, 0.20,   0.20,  0.40, 9.99]
+            #            *** apparently NV can be huge .. bigger than CIV even see 2101164104
+            #            *** OII entries just to pass logic below (only appears on our range for some MgII)
 
 
             #required match matrix ... if line (x) is found and line(y) is in range, it MUST be found too
             #this is in order of the lines in rest_waves
             #in ALL cases, LyA better be found IF it is in range (so making it a 2 ... need 2 other matched lines to overcome missing LyA)
-            match_matrix =[[1,0,0,0,0,0,0,0,0,0],  #0 LyA
-                           [1,1,0,0,0,0,0,0,0,0],  #1 CIV
-                           [1,0,1,0,0,0,0,0,0,0],  #2 CIII
-                           [1,0,0,1,0,0,0,0,0,0],  #3 CII
-                           [1,0,0,0,1,0,0,0,0,0],  #4 MgII
-                           [1,0,0,0,0,1,0,0,0,0],  #5 NV
-                           [1,0,0,0,0,0,1,0,0,0],  #6 SiII
-                           [1,0,0,0,0,0,0,1,0,0],  #7 SiIV
-                           [1,0,0,0,0,0,0,0,1,0],  #8 HeII
-                           [1,0,0,0,0,0,0,0,0,1]]  #9 OVI
+            match_matrix =[[1,0,0,0,0,0,0,0,0,0,0],  #0 LyA
+                           [1,1,0,0,0,0,0,0,0,0,0],  #1 CIV
+                           [1,0,1,0,0,0,0,0,0,0,0],  #2 CIII
+                           [1,0,0,1,0,0,0,0,0,0,0],  #3 CII
+                           [1,0,0,0,1,0,0,0,0,0,0],  #4 MgII
+                           [1,0,0,0,0,1,0,0,0,0,0],  #5 NV
+                           [1,0,0,0,0,0,1,0,0,0,0],  #6 SiII
+                           [1,0,0,0,0,0,0,1,0,0,0],  #7 SiIV
+                           [1,0,0,0,0,0,0,0,1,0,0],  #8 HeII
+                           [1,0,0,0,0,0,0,0,0,1,0],  #9 OVI
+                           [0,0,0,0,1,0,0,0,0,0,1] ] #10 OII (just with MgII)
+                         #  0 1 2 3 4 5 6 7 8 9 10
+
             match_matrix = np.array(match_matrix)
 
             match_matrix_weights = np.array([3,1,1,0.5,1,1,0.5,0.5,1,1])
@@ -3235,31 +3239,33 @@ class Spectrum:
             #row/column (is mininum, where lines are smallest compared to LyA)
             # the inverse is still the minimum just the inverted ratio)
             min_ratio_matrix = \
-            [ [1.00, None, None, None, None, None, None, None, None, None],  #LyA
-              [None, 1.00, None, None, None, None, 4.00, None, 6.66, None],  #CIV
-              [None, None, 1.00, None, None, None, None, None, None, None],  #CIII
-              [None, None, None, 1.00, None, None, None, None, None, None],  #CII
-              [None, None, None, None, 1.00, None, None, None, None, None],  #MgII
-              [None, None, None, None, None, 1.00, None, None, None, None],  #NV
-              [None, 0.25, None, None, None, None, 1.00, None, None, None],  #SiII
-              [None, None, None, None, None, None, None, 1.00, None, None],  #SiIV
-              [None, 0.15, None, None, None, None, None, None, 1.00, None],  #HeII
-              [None, None, None, None, None, None, None, None, None, 1.00] ] #OVI
-             # LyA   CIV   CIII  CII   MgII   NV   SiII  SiVI  HeII   OVI
+            [ [1.00, None, None, None, None, None, None, None, None, None, None],  #LyA
+              [None, 1.00, None, None, None, None, 4.00, None, 6.66, None, None],  #CIV
+              [None, None, 1.00, None, None, None, None, None, None, None, None],  #CIII
+              [None, None, None, 1.00, None, None, None, None, None, None, None],  #CII
+              [None, None, None, None, 1.00, None, None, None, None, None, 20.0],  #MgII
+              [None, None, None, None, None, 1.00, None, None, None, None, None],  #NV
+              [None, 0.25, None, None, None, None, 1.00, None, None, None, None],  #SiII
+              [None, None, None, None, None, None, None, 1.00, None, None, None],  #SiIV
+              [None, 0.15, None, None, None, None, None, None, 1.00, None, None],  #HeII
+              [None, None, None, None, None, None, None, None, None, 1.00, None],  #OVI
+              [None, None, None, None, 0.05, None, None, None, None, None, 1.00 ]] #OII
+             # LyA   CIV   CIII  CII   MgII   NV   SiII  SiVI  HeII   OVI  OII
 
             #row/column (is maximum ... where lines are the largest compared to LyA)
             max_ratio_matrix = \
-            [ [1.00, None, None, None, None, None, None, None, None, None],  #LyA
-              [None, 1.00, None, None, None, None, 0.10, None, 1.43, None],  #CIV
-              [None, None, 1.00, None, None, None, None, None, None, None],  #CIII
-              [None, None, None, 1.00, None, None, None, None, None, None],  #CII
-              [None, None, None, None, 1.00, None, None, None, None, None],  #MgII
-              [None, None, None, None, None, 1.00, None, None, None, None],  #NV
-              [None, 10.0, None, None, None, None, 1.00, None, None, None],  #SiII
-              [None, None, None, None, None, None, None, 1.00, None, None],  #SiIV
-              [None, 0.70, None, None, None, None, None, None, 1.00, None],  #HeII
-              [None, None, None, None, None, None, None, None, None, 1.00] ] #OVI
-             # LyA    CIV  CIII   CII  MgII   NV   SiII  SiVI  HeII   OVI
+            [ [1.00, None, None, None, None, None, None, None, None, None, None],  #LyA
+              [None, 1.00, None, None, None, None, 0.10, None, 1.43, None, None],  #CIV
+              [None, None, 1.00, None, None, None, None, None, None, None, None],  #CIII
+              [None, None, None, 1.00, None, None, None, None, None, None, None],  #CII
+              [None, None, None, None, 1.00, None, None, None, None, None, 2.00],  #MgII
+              [None, None, None, None, None, 1.00, None, None, None, None, None],  #NV
+              [None, 10.0, None, None, None, None, 1.00, None, None, None, None],  #SiII
+              [None, None, None, None, None, None, None, 1.00, None, None, None],  #SiIV
+              [None, 0.70, None, None, None, None, None, None, 1.00, None, None],  #HeII
+              [None, None, None, None, None, None, None, None, None, 1.00, None],  #OVI
+              [None, None, None, None, 0.50, None, None, None, None, None, 1.00] ] #OII
+             # LyA    CIV  CIII   CII  MgII   NV   SiII  SiVI  HeII   OVI  OII
 
             sel = np.where(np.array([l.absorber for l in solution.lines])==False)[0]
             sol_lines = np.array(solution.lines)[sel]
@@ -3270,6 +3276,7 @@ class Spectrum:
             line_flux_err = [self.estflux_unc] + [l.flux_err for l in sol_lines]
             line_fwhm = [self.fwhm] + [l.sigma * 2.355 for l in sol_lines]
             line_fwhm_err = [self.fwhm_unc] + [l.sigma_err * 2.355 for l in sol_lines]
+            line_broad = [solution.emission_line.broad] + [l.broad for l in sol_lines] #can they be broad
 
             overlap, rest_idx, line_idx = np.intersect1d(rest_waves,line_waves,return_indices=True)
 
@@ -3318,6 +3325,9 @@ class Spectrum:
 
 
             #compare all pairs of lines
+            #
+            # REMINDER: line_idx[i] indexes based on the overlap (should see only with line_xxx[] lists)
+            #           rest_idx[i] indexes based on the fixed list of rest_wavelengths (maps overlap to rest)
             for i in range(len(overlap)):
                 for j in range(i+1,len(overlap)):
                     if (line_flux[line_idx[i]] != 0):
@@ -3349,7 +3359,15 @@ class Spectrum:
                                 fwhm_j = line_fwhm[line_idx[j]]
                                 avg_fwhm = 0.5* (fwhm_i + fwhm_j)
                                 diff_fwhm = abs(fwhm_i - fwhm_j)
-                                if avg_fwhm > 0 and diff_fwhm/avg_fwhm < 0.5:
+
+                                if (line_broad[line_idx[i]] == line_broad[line_idx[j]]):
+                                    adjust = 1.0  # they should be similar (both broad or narrow)
+                                elif (line_broad[line_idx[j]]):
+                                    adjust = 2.0  #
+                                elif (line_broad[line_idx[i]]):
+                                    adjust = 0.5  #
+
+                                if avg_fwhm > 0 and adjust*diff_fwhm/avg_fwhm < 0.5:
                                     score += 1
                                     log.debug(f"Ratio match (+1) for solution = {solution.central_rest}: "
                                               f"rest {overlap[j]} to {overlap[i]}: "
@@ -3925,9 +3943,27 @@ class Spectrum:
                     # higher ranks are stronger lines and must have similar or greater fwhm (or sigma)
                     #rank 1 is highest, 4 lowest; a is the line being tested, e is the solution anchor line
                     if a.rank < e.rank:
-                        try:
-                            if -0.5 < (2 * (eli.fit_sigma - self.central_eli.fit_sigma) /
-                                        (eli.fit_sigma + self.central_eli.fit_sigma)) < 0.5:
+
+                        try: #todo: something similar in the specific consistency checks? (not sure here anyway since fwhm is related to lineflux)
+                            #maybe fit_h is a better, more independent factor?
+                            #but needs to be height above continuum, so now we are looking at EqW
+                            #and we're just going in circles. Emprically, line_flux seems to work better than the others
+                            # adjust = eli.line_flux / self.central_eli.line_flux
+                            # #adjust = (eli.fit_h-eli.fit_y) / (self.central_eli.fit_h - self.central_eli.fit_y)
+                            # adjust = min(adjust,1.0/adjust)
+
+                            if (a.broad == e.broad):
+                                adjust = 1.0 #they should be similar (both broad or narrow)
+                            elif (a.broad):
+                                adjust = 2.0 #the central line can be more narrow
+                            elif (e.broad):
+                                adjust = 0.5 #the central line can be more broad
+
+
+                            fwhm_comp = adjust * 2.0 * (eli.fit_sigma - self.central_eli.fit_sigma)  / \
+                                        (eli.fit_sigma + self.central_eli.fit_sigma)
+
+                            if -0.5 < fwhm_comp  < 0.5:
                                     # delta sigma is okay, the higher rank is larger sigma (negative result) or within 50%
                                 pass
                             else:
@@ -4192,9 +4228,13 @@ class Spectrum:
                     log.info(f"Solution: {s.name} score {s.score} to be modified by x{boost} for consistency with AGN")
 
                     #for the labeling, need to check vs the TOTAL score (so include the primary line)
-                    if ( (s.score + central_eli.line_score) > G.MULTILINE_FULL_SOLUTION_SCORE) and \
-                            (boost > 1.0): #check BEFORE the boost
-                        self.add_classification_label("agn")
+                    if ( (s.score + central_eli.line_score) > G.MULTILINE_FULL_SOLUTION_SCORE) and (boost > 1.0):
+                        #check BEFORE the boost
+                        #however, only apply the label if at least one line is broad
+                        line_fwhm = np.array([central_eli.fit_sigma*2.355] + [l.sigma * 2.355 for l in s.lines])
+                        line_fwhm_err = np.array([central_eli.fit_sigma_err*2.355] + [l.sigma_err * 2.355 for l in s.lines])
+                        if max(line_fwhm+line_fwhm_err) > 14.0:
+                            self.add_classification_label("agn")
 
                     per_line_total_score -= s.score
                     s.score = boost * s.score
