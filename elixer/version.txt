@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.10.0a5 [2020-10-16]
+* fixed "/data" path from KPNO and HSC meta data (now replaced in all cases with the appropriate, dynamic basepath)
+
+
 1.10.0a4 [2020-10-05]
 * add distance to barycenter under photometric cutouts (as s:#.#") and changed mag: to m: to save space
 * correct matched (multiline) solution EW_r to use the wide continuum estimates if available

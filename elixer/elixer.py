@@ -3486,7 +3486,7 @@ def main():
             log.info("Processing %d entries in FCSDIR" %(len(fcsdir_list)))
             print("Processing %d entries in FCSDIR" %(len(fcsdir_list)))
 
-    else:
+    elif not args.neighborhood_only:
         if args.aperture: #still
             explicit_extraction = True
             print("Explicit extraction ...") #list of explicit extractions

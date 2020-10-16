@@ -78,6 +78,10 @@ class KPNO(cat_base.Catalog):#Kit Peak
     mean_FWHM = 1.0 #typically better, but this is an okay worst case
     Image_Coord_Range = kpno_meta.Image_Coord_Range
     Tile_Dict = kpno_meta.KPNO_META_DICT
+    #correct the paths
+    for k in Tile_Dict.keys():
+        Tile_Dict[k]['path'] = op.join(G.KPNO_IMAGE_PATH,op.basename(Tile_Dict[k]['path']))
+
     Filters = ['g'] #case is important ... needs to be lowercase
     Cat_Coord_Range = {'RA_min': None, 'RA_max': None, 'Dec_min': None, 'Dec_max': None}
 
@@ -129,7 +133,7 @@ class KPNO(cat_base.Catalog):#Kit Peak
                       %(self.Tile_Dict[t]['filter'],self.Tile_Dict[t]['path']))
             for f in self.Filters:
                 self.CatalogImages.append(
-                    {'path': op.dirname(self.Tile_Dict[t]['path']),
+                    {'path': op.join(G.KPNO_IMAGE_PATH, op.basename(self.Tile_Dict[t]['path'])),
                      'name': t, #filename is the tilename
                      'tile': t,
                      'filter': f,

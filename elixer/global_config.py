@@ -20,7 +20,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.10.0a4'
+__version__ = '1.10.0a5'
 
 #python version
 import sys
@@ -40,6 +40,7 @@ HDR_Version = 2.1
 HDR_DATA_BASEPATH = "/data/03946/hetdex"
 HDR_WORK_BASEPATH = "/work/03946/hetdex/"
 HDR_SCRATCH_BASEPATH = "/scratch/03946/hetdex/"
+#HDR_DATA_BASEPATH = HDR_SCRATCH_BASEPATH
 HDR_BASEPATH = HDR_WORK_BASEPATH
 
 HDF5_DETECT_FN = None
@@ -587,7 +588,7 @@ HETDEX_FLUX_BASE_CGS = 1e-17
 # 8.52e-19 ~ 24.5 mag in g-band,
 # 5.38e-19 ~ 25.0 mag in g-band
 HETDEX_CONTINUUM_MAG_LIMIT = 25.0 #generous, truth is closer to 24.few
-HETDEX_CONTINUUM_FLUX_LIMIT =  5.38e-19
+HETDEX_CONTINUUM_FLUX_LIMIT =  5.38e-19 #flux-density based on 25 mag limit (really more like 24.5)
 
 CONTINUUM_FLOOR_COUNTS = 6.5 #5 sigma * 6 counts / sqrt(40 angstroms/1.9 angs per pixel)
 

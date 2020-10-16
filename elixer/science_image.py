@@ -788,12 +788,9 @@ class science_image():
         try:
             position = SkyCoord(ra, dec, unit="deg", frame=self.frame)
             pix_window = int(np.ceil(error / self.pixel_size))
-
             hdulist = fits.open(path, memmap=False, lazy_load_hdus=True)
-
             cutout = Cutout2D(hdulist[self.wcs_idx].data, position, (pix_window, pix_window),
                                    wcs=self.wcs, copy=False)
-
             hdulist.close()
         except:
             log.info(f"Could not get mask cutout", exc_info=True)

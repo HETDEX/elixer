@@ -1679,7 +1679,68 @@ def combo_fit_wave(peak_func,values,errors,wavelengths,central,wave_slop_kms=500
     return return_dict
 
 
+def check_overlapping_psf(source_mag,neighbor_mag,psf,dist_baryctr,dist_ellipse=None,effective_radius=None,aperture=1.5):
+    """
+    Since assuming a point-source, should use the barycenter, but size may come into play for extended objects
 
+    :param source_mag: (assumed to be g, r, or equivalent)
+    :param neighbor_mag: (assumed to be g, r, or equivalent)
+    :param psf: the PSF (grid) for the shot (see get_psf) [0] is the weight, [1] and [2] are the x and y grids
+    :param dist_baryctr: in arcsec
+    :param dist_ellipse: in arcsec
+    :param effective_radius: in arcsec (rough measure of size ... assumes approximately circular)
+    :param aperture: radius in arcsec (over which to integrate the overlapped flux (density))
+    :return: fraction of source, overlap as uJy (flux density), and as flat flux
+    """
+
+    #we are keeping a single moffat psf, so think of this as being centered on each neighbot (in succession)
+    #with the hetdex position (aperture) moving relative to the PSF
+
+    #todo: if dist_baryctr is unknown or if effective radius is large enough to not be a point source ....
+
+    if dist_baryctr and dist_baryctr > 0:
+        ctrx = dist_baryctr  #consider the aperture moving to the "right"
+    elif dist_ellipse and effective_radius and dist_ellipse > 0 and effective_radius > 0:
+        ctrx = dist_ellipse + effective_radius
+    else: #not enough info to use
+        return -1, -1, -1
+
+    ctry = 0  # just shifting the aperture in x, not up or down
+
+    # build up a distance from the center of the aperture to each poistion in the grid
+    dmask = np.sqrt(((psf[1] - ctrx)) ** 2 + ((psf[2] - ctry)) ** 2)
+    # then make a mask of same size where True is inside the aperture
+    apmask = dmask <= aperture
+
+    nei_ujy = 3631.0 * 1e6 * 10**(-0.4*neighbor_mag) #flux (uJy)
+    src_ujy = 3631.0 * 1e6 * 10**(-0.4*source_mag) #flux (uJy)
+
+    # place it in the middle of the hetdex spectrum even though the mag source may well be in an r-band
+    # 2.0 * ... so it is in same flux units as HETDEX (and REMEMBER, we are treating this as a flat spectum)
+    #nei_flx = 2.0 * ujy2cgs(nei_ujy,4500.0)
+    #src_flx = 2.0 * ujy2cgs(src_ujy,4500.0)
+
+    overlap = np.sum(apmask*psf[0]*nei_ujy)
+    fraction_overlap = overlap / src_ujy
+    flat_flux = 2.0 * ujy2cgs(overlap,4500.0)
+
+    return fraction_overlap, overlap, flat_flux
+
+
+def get_psf(shot_fwhm,ap_radius,max_sep,scale=0.25):
+    """
+    Build and return a moffat profile grid
+    (unless replaced in the future, this is just a wrappered call to hetdex_api)
+
+    :param shot_fwhm: FWHM (seeing) for the shot
+    :param ap_radius: radius of the aperture in which to sum up flux (the central object's aperture)
+    :param max_sep: maximum distance (in arcsec) out to which we want to check the PSF overlap
+    :param scale: arsec per pixel (sets number of pixels to use in the grid)
+    :return: [0] is the weight, [1] and [2] are the x and y grids
+    """
+    side = 2 * (max_sep + ap_radius)
+
+    return Extract().moffat_psf(shot_fwhm,side,scale)
 
 def apply_psf(spec,err,coord,shotid,fwhm,radius=3.0,ffsky=True,hdrversion="hdr2.1"):
     """
