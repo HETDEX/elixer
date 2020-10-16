@@ -133,7 +133,7 @@ class KPNO(cat_base.Catalog):#Kit Peak
                       %(self.Tile_Dict[t]['filter'],self.Tile_Dict[t]['path']))
             for f in self.Filters:
                 self.CatalogImages.append(
-                    {'path': op.join(G.KPNO_IMAGE_PATH, op.basename(self.Tile_Dict[t]['path'])),
+                    {'path': G.KPNO_IMAGE_PATH, #op.join(G.KPNO_IMAGE_PATH, op.basename(self.Tile_Dict[t]['path'])),
                      'name': t, #filename is the tilename
                      'tile': t,
                      'filter': f,
