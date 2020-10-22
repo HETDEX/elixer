@@ -178,7 +178,7 @@ class SyntheticObservation():
                         #with an average PSF around 2", this is necessary and correct to get the light in this fiber)
                         #BUT this returns MUCH bigger values (sum) than the other two
                         apt = hda_get_spectra(fcoord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
-                                              ffsky=self.extraction_ffsky, multiprocess=False, rad=2.25*G.Fiber_Radius,
+                                              ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS, rad=2.25*G.Fiber_Radius,
                                               fiberweights=True)
                                                 #2.25 so fiber centers can be off a little and still get the necessary 7 fibers
 

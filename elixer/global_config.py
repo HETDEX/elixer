@@ -836,3 +836,5 @@ ALLOW_BROADLINE_FIT = True
 SUBTRACT_HETDEX_SKY_RESIDUAL = False #if true compute a per-shot sky residual, convolve with per-shot PSF and subtract
 # from the HETDEX spectrum (only applies to re-extractions (forced extractions) with ffsky
 # requires --aperture xx  --ffsky --sky_residual
+
+GET_SPECTRA_MULTIPROCESS = True #might need to have this configure OFF if in SLURM/dispatch mode
