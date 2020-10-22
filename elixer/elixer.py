@@ -422,7 +422,7 @@ def parse_commandline(auto_force=False):
                         required=False, default=-1.0,type=float)
 
     parser.add_argument('--hdr', help="Override the default HETDEX Data Release version. Specify an integer > 0",
-                        required=False, default= 0,type=float)
+                        required=False, default=0)
 
     parser.add_argument('--log', help="Logging level. Default (info). Choose: debug, info, error, critical", required=False)
 
@@ -3052,6 +3052,25 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             if ext_rescale < 0.5: #should only be a small change, so if very different (like in DECaLS) use the xmaax
                 ext_rescale =  master_cutout.xmax_cutout / master_cutout.xmax_original
             ext = ext * ext_rescale
+
+            #use the interior 30% to set the vmin, vmax to aid in matching to the smaller cutouts
+            #at args.error = 3.0 and args.neighors = 10.0, this would be essentially the same pixel extents that
+            #set the contstrast stretch for the main ELiXer imaging thumbnails
+            # 20201021 -DD - this works okay much of the time to preserve the contrast of the interior bit, but
+            #                it does often create washed out look and objects can get lost
+            #                (good example: 2102183346)
+            # idx0,idx1 = master_cutout.data.shape
+            # frac = 0.3  #ie. at interior 20%, the left index becomes 0.5 - (0.2/2) = 0.4 * width
+            # left0 = int(idx0 * 0.5 *(1.-frac))
+            # left1 = int(idx1 * 0.5 *(1.-frac))
+            # rght0 = int(left0 + frac * idx0)
+            # rght1 = int(left1 + frac * idx1)
+            #
+            # if (rght0-left0) * (rght1-left1) > 500: #if there are enough pixels in the interior 30%
+            #     vmin, vmax = UTIL.get_vrange(master_cutout.data[left0:rght0,left1:rght1])  # ,contrast=0.25)
+            # else: #otherwise, just use the whole image
+            #     vmin, vmax = UTIL.get_vrange(master_cutout.data)  # ,contrast=0.25)
+            #
             vmin, vmax = UTIL.get_vrange(master_cutout.data)  # ,contrast=0.25)
             x, y = sci.get_position(ra, dec, master_cutout)  # x,y of the center
         except:
@@ -3396,6 +3415,11 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     return buf, nei_buf
 
 
+def check_package_versions():
+    """
+    very basic, check the common packages are at minimum levels
+    """
+    pass
 
 def main():
 
@@ -3458,6 +3482,7 @@ def main():
     # exit()
 
 
+    log.critical(f"***** ELiXer version {G.__version__} *****")
     log.critical(f"***** HETDEX DATA RELEASE {G.HDR_Version} *****")
 
     pages = []

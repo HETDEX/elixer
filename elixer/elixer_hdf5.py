@@ -54,7 +54,7 @@ class Detections(tables.IsDescription):
     specid = tables.StringCol(itemsize=3)
     ifuslot = tables.StringCol(itemsize=3)
     ifuid = tables.StringCol(itemsize=3)
-    if G.HDR_Version == 1:
+    if G.HDR_Version_float == 1:
         seeing_gaussian = tables.Float32Col(dflt=UNSET_FLOAT)
         seeing_moffat = tables.Float32Col(dflt=UNSET_FLOAT)
     else:
@@ -589,7 +589,7 @@ def append_entry(fileh,det,overwrite=False):
         row['ifuslot'] = det.fibers[0].ifuslot
         row['ifuid'] = det.fibers[0].ifuid
 
-        if G.HDR_Version == 1:
+        if G.HDR_Version_float == 1:
             try:
                 row['seeing_gaussian'] = det.survey_fwhm_gaussian
             except:

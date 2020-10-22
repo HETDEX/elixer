@@ -20,7 +20,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.10.0a5'
+__version__ = '1.10.0a6'
 
 #python version
 import sys
@@ -35,9 +35,10 @@ LAUNCH_PDF_VIEWER = None
 
 valid_HDR_Versions = [1,2,2.1]
 
-HDR_Version = 2.1
+HDR_Version = "2.1"
+HDR_Version_float = 2.1
 
-HDR_DATA_BASEPATH = "/data/03946/hetdex"
+#HDR_DATA_BASEPATH = "/data/03946/hetdex" #defunct 2020-10-01 #TACC wrangler:/data removed
 HDR_WORK_BASEPATH = "/work/03946/hetdex/"
 HDR_SCRATCH_BASEPATH = "/scratch/03946/hetdex/"
 #HDR_DATA_BASEPATH = HDR_SCRATCH_BASEPATH
@@ -94,11 +95,12 @@ HETDEX_API_CONFIG = None
 LOCAL_DEV_HOSTNAME = "z50"
 
 if hostname == LOCAL_DEV_HOSTNAME:  # primary author test box
-    HDR_Version = 2.1
+    HDR_Version = "2.1"
+    HDR_Version_float = 2.1
     LAUNCH_PDF_VIEWER = 'qpdfview'
 else:
-    HDR_Version = 2.1  # default HDR Version if not specified
-
+    HDR_Version = "2.1"  # default HDR Version if not specified
+    HDR_Version_float = 2.1
 
 #look specifically (and only) for HDR version on call
 args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
@@ -107,14 +109,24 @@ if "--hdr" in args: #overide default if specified on command line
     try:
         i = args.index("--hdr")
         if i != -1:
-            HDR_Version = float(sys.argv[i + 1]) #this could be an integer or a float or a string?
-            if HDR_Version.is_integer():
-                HDR_Version = int(HDR_Version)
+            HDR_Version = sys.argv[i + 1] #this could be an integer or a float or a string?
+#            if HDR_Version.is_integer():
+#                HDR_Version = int(HDR_Version)
     except:
         pass
 
-    if not (HDR_Version in valid_HDR_Versions) and HDR_Version != 0:
-        print("Invalid --hdr specified (%d). Valid choices are: %s" % (HDR_Version, valid_HDR_Versions))
+    try:
+        toks = HDR_Version.split(".")
+        if len(toks) >= 2:
+            HDR_Version = ".".join(toks[0:2])
+            HDR_Version_float = float(".".join(toks[0:2]))
+        elif len(toks) == 1:
+            HDR_Version_float = int(toks[0])
+        if not (HDR_Version_float in valid_HDR_Versions) and HDR_Version != 0:
+            print(f"Invalid --hdr specified ({HDR_Version})")
+            exit(-1)
+    except:
+        print(f"Invalid --hdr specified ({HDR_Version})")
         exit(-1)
 
 
@@ -125,14 +137,26 @@ def set_hdr_basepath(version=None):
     :param version: should be an integer 1 or 2 (as of 2020/02/01) ... higher numbers after
     :return:
     """
-    global HDR_DATA_BASEPATH, HDR_SCRATCH_BASEPATH, HDR_WORK_BASEPATH, HDR_BASEPATH, HDR_Version, HETDEX_API_CONFIG
+    global HDR_SCRATCH_BASEPATH, HDR_WORK_BASEPATH, HDR_BASEPATH, HDR_Version, HDR_Version_float, HETDEX_API_CONFIG
 
 
     if version is None:
         version = HDR_Version
+        version_float = HDR_Version_float
+    else:
+        try:
+            toks = version.split(".")
+            if len(toks) >= 2:
+                version_float = float(".".join(toks[0:2]))
+            elif len(toks) == 1:
+                version_float = int(toks[0])
+        except:
+            print(f"Invalid version specified ({version})")
+            exit(-1)
+
 
     if HETDEX_API_CONFIG is None:
-        if version != 0:
+        if version_float != 0:
             strHDRVersion = f"hdr{version}"
         elif hostname == LOCAL_DEV_HOSTNAME:
             strHDRVersion = f"hdr{HDR_Version}"
@@ -147,16 +171,16 @@ def set_hdr_basepath(version=None):
 
     hdr_dir = ""
     # _DATA_, _SCRATCH_ _WORK_ all specific to ELiXer, but the BASEPATH should use HETEDEX_API defined if possible
-    if version != 0:
+    if version_float != 0:
         hdr_dir = f"hdr{version}" #hdr1, hdr2, ....
-        HDR_DATA_BASEPATH = op.join(HDR_DATA_BASEPATH,hdr_dir)
+        #HDR_DATA_BASEPATH = op.join(HDR_DATA_BASEPATH,hdr_dir)
         HDR_SCRATCH_BASEPATH = op.join(HDR_SCRATCH_BASEPATH,hdr_dir)
         HDR_WORK_BASEPATH = op.join(HDR_WORK_BASEPATH,hdr_dir)
         HDR_BASEPATH = op.join(HDR_BASEPATH,hdr_dir)
     elif hostname == LOCAL_DEV_HOSTNAME: #author test box
         hdr_dir = "hdr1"
         print(f"*** using {hdr_dir}")
-        HDR_DATA_BASEPATH = op.join(HDR_DATA_BASEPATH, hdr_dir)
+        #HDR_DATA_BASEPATH = op.join(HDR_DATA_BASEPATH, hdr_dir)
         HDR_SCRATCH_BASEPATH = op.join(HDR_SCRATCH_BASEPATH, hdr_dir)
         HDR_WORK_BASEPATH = op.join(HDR_WORK_BASEPATH, hdr_dir)
         HDR_BASEPATH = op.join(HDR_BASEPATH, hdr_dir)
@@ -174,6 +198,7 @@ def select_hdr_version(version):
     """
     #one per line to make it easy to read/find
     global HDR_Version
+    global HDR_Version_float
     global valid_HDR_Versions
 
     global HDF5_DETECT_FN
@@ -226,12 +251,24 @@ def select_hdr_version(version):
 
     global HETDEX_API_CONFIG
 
+
+    try:
+        toks = version.split(".")
+        if len(toks) >= 2:
+            version_float = float(".".join(toks[0:2]))
+        elif len(toks) == 1:
+            version_float = int(toks[0])
+    except:
+        print(f"Invalid version specified ({version})")
+        exit(-1)
+
     #make sure we have a valid version to select
-    if not (version in valid_HDR_Versions) and version != 0:
-        print("Invalid HDR version specified (%d). Valid choices are: %s" % (version, valid_HDR_Versions))
+    if not (version_float in valid_HDR_Versions) and version_float != 0:
+        print(f"Invalid HDR version specified ({version}).")
         return False
 
     HDR_Version = version
+    HDR_Version_float = version_float
     set_hdr_basepath(version)
 
     BAD_AMP_LIST = "/work/03261/polonius/maverick/catalogs/bad_amp_list.txt" #not really used anymore
@@ -312,7 +349,7 @@ def select_hdr_version(version):
             HDF5_RAW_DIR = HETDEX_API_CONFIG.raw_dir #local to this function only
             HDF5_REDUCTION_DIR = HETDEX_API_CONFIG.red_dir #local to this function only
 
-            if HDR_Version == 1:
+            if HDR_Version_float == 1:
                 PIXFLT_LOC = op.join(CONFIG_BASEDIR, "virus_config/PixelFlats")
             else:
                 PIXFLT_LOC = HETDEX_API_CONFIG.pixflat_dir
@@ -378,9 +415,9 @@ def select_hdr_version(version):
         SHELA_PHOTO_Z_MASTER_PATH = op.join(hdr_imaging_basepath, "shela/SHELA")
 
         HSC_S15A = False
-        if HDR_Version < 2:
+        if HDR_Version_float < 2:
             if op.exists(op.join(hdr_imaging_basepath,"hsc")):
-                if HDR_Version == 1:
+                if HDR_Version_float == 1:
                     if op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
                         HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
                         HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
@@ -433,7 +470,7 @@ IFUCEN_LOC = op.join(CONFIG_BASEDIR,"virus_config/IFUcen_files")
 DIST_LOC = op.join(CONFIG_BASEDIR,"virus_config/DeformerDefaults")
 
 if PIXFLT_LOC is None:
-    if HDR_Version != 1:
+    if HDR_Version_float != 1:
         print("***** temporary hard code pixel flat location *****")
         PIXFLT_LOC = "/data/00115/gebhardt/lib_calib/lib_pflat"
     else:
