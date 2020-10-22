@@ -466,6 +466,11 @@ def parse_commandline(auto_force=False):
     if args.lyc:
         G.LyC = True
 
+    if args.dispatch:
+        #if in dispatch mode (SLURM mode) we are already using all/most the cores (as balanced vs memory, etc)
+        #so the multiprocess call actually slows down the overall execution
+        G.GET_SPECTRA_MULTIPROCESS = False
+
     #reminder to self ... this is pointless with SLURM given the bash wraper (which does not know about the
     #speccific dir name and just builds elixer.run
 
