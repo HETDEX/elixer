@@ -4,6 +4,8 @@ changes to elixer by version
 1.10.0a6 [2020-10-21]
 * allow --hdr (HDR_Version) to be a string (not just a float) (but for compatibility with hetdex_api, keeps only
     Major.minor)
+* do NOT zero weights for high error continuum IF there are 2 or fewer estimates (was causing cases where the PLAE/POII
+  (aggregate) was being forced to 0).
 
 1.10.0a5 [2020-10-16]
 * fixed "/data" path from KPNO and HSC meta data (now replaced in all cases with the appropriate, dynamic basepath)

@@ -2501,11 +2501,18 @@ class DetObj:
                 try:
                     #let it be a little larger, mostly the sampling will still work and give positive values
                     if np.sqrt(variance[i]) > (1.3 *continuum[i]):
-                        weight[i] = 0
-                        log.debug(f"Error (sd) ({np.sqrt(variance[i])}): {variance[i]} too high vs continuum {continuum[i]}. Weight zeroed.")
+                        if len(continuum) > 2:
+                            weight[i] = 0
+                            log.info(f"Error (sd) ({np.sqrt(variance[i])}): {variance[i]} too high vs continuum {continuum[i]}. Weight zeroed.")
+                        else:
+                            log.info(f"Warning (sd) ({np.sqrt(variance[i])}): {variance[i]} too high vs continuum {continuum[i]}, but weight kept as too few to zero out.")
                 except:
-                    weight[i] = 0
-                    log.debug(f"Exception checking variance {variance[i]} vs continuum {continuum[i]}. Weight zeroed.")
+                    if len(continuum) > 2:
+                        weight[i] = 0
+                        log.info(f"Exception checking variance {variance[i]} vs continuum {continuum[i]}. Weight zeroed.")
+                    else:
+                        log.info(
+                            f"Exception checking variance {variance[i]} vs continuum {continuum[i]}. but weight kept as too few to zero out.")
 
             #remove any zero weights
             sel = np.where(weight==0)
