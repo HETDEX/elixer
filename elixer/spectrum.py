@@ -723,7 +723,14 @@ class EmissionLineInfo:
 
         return snr
 
-    def build(self,values_units=0,allow_broad=False):
+    def build(self,values_units=0,allow_broad=False, broadfit=1):
+        """
+
+        :param values_units:
+        :param allow_broad:  can be broad (really big sigma)
+        :param broadfit:  was fit using the broad adjustment (median filter)
+        :return:
+        """
         if self.snr > MIN_ELI_SNR and self.fit_sigma > MIN_ELI_SIGMA:
             if self.fit_sigma is not None:
                 self.fwhm = 2.355 * self.fit_sigma  # e.g. 2*sqrt(2*ln(2))* sigma
@@ -818,7 +825,10 @@ class EmissionLineInfo:
                 max_fwhm = MAX_FWHM
 
             if (self.fwhm is None) or (self.fwhm < max_fwhm):
-                if (self.fwhm > MAX_NORMAL_FWHM) and ( (self.snr < MIN_HUGE_FWHM_SNR) and (self.raw_snr() < GOOD_BROADLINE_RAW_SNR)):
+                #this MIN_HUGE_FWHM_SNR is based on the usual 2AA bins ... if this is broadfit, need to return to the
+                # usual SNR definition
+                if (self.fwhm > MAX_NORMAL_FWHM) and \
+                        ((self.snr *np.sqrt(broadfit) < MIN_HUGE_FWHM_SNR) and (self.raw_snr() < GOOD_BROADLINE_RAW_SNR)):
                     log.debug(f"Huge fwhm {self.fwhm} with relatively poor SNR {self.snr} < required SNR {MIN_HUGE_FWHM_SNR} and "
                               f"{self.raw_snr()} < {GOOD_BROADLINE_RAW_SNR}. "
                               "Probably bad fit or merged lines. Rejecting score.")
@@ -960,7 +970,29 @@ class EmissionLineInfo:
 #really should change this to use kwargs
 def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=None,values_units=0, sbr=None,
                  min_sigma=GAUSS_FIT_MIN_SIGMA,show_plot=False,plot_id=None,plot_path=None,do_mcmc=False,absorber=False,
-                 force_score=False,values_dx=G.FLUX_WAVEBIN_WIDTH,allow_broad=False):
+                 force_score=False,values_dx=G.FLUX_WAVEBIN_WIDTH,allow_broad=False,broadfit=1):
+    """
+
+    :param wavelengths:
+    :param values:
+    :param errors:
+    :param central:
+    :param central_z:
+    :param spectrum:
+    :param values_units:
+    :param sbr:
+    :param min_sigma:
+    :param show_plot:
+    :param plot_id:
+    :param plot_path:
+    :param do_mcmc:
+    :param absorber:
+    :param force_score:
+    :param values_dx:
+    :param allow_broad:
+    :param broadfit: (median filter size used to smooth for a broadfit) 1 = no filter (or a bin of 1 which is no filter)
+    :return:
+    """
 
     #values_dx is the bin width for the values if multiplied out (s|t) values are flux and not flux/dx
     #   by default, Karl's data is on a 2.0 AA bin width
@@ -1281,7 +1313,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #then we'd be looking at something like 1/N * Sum (sigma_i **2) ... BUT , there are so few pixels
         #  typically around 10 and there really should be at least 30  to approximate the gaussian shape
 
-        eli.snr = eli.fit_a/(np.sqrt(num_sn_pix)*eli.fit_rmse)
+        eli.snr = eli.fit_a/(np.sqrt(num_sn_pix)*eli.fit_rmse)/np.sqrt(broadfit)
         eli.unique = unique_peak(values,wavelengths,eli.fit_x0,eli.fit_sigma*2.355)
 
         if not eli.unique and ((eli.fit_a_err / eli.fit_a) > 0.5) and (eli.fit_sigma > GAUSS_FIT_MAX_SIGMA):
@@ -1307,7 +1339,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             eli.line_flux = 0.0
             log.debug(f"Fit rejected: fit_a_err/fit_a {eli.fit_a_err / eli.fit_a} > 0.34 and fit_h/fit_y {eli.fit_h/eli.fit_y} < 1.66")
         else:
-            eli.build(values_units=values_units,allow_broad=allow_broad)
+            eli.build(values_units=values_units,allow_broad=allow_broad,broadfit=broadfit)
             #eli.snr = max(eli.fit_vals) / (np.sqrt(num_sn_pix) * eli.fit_rmse)
             snr = eli.snr
     else:
@@ -2850,7 +2882,7 @@ class Spectrum:
 
             #thse H_x lines are never alone (OIII or OII are always present)
             EmissionLine("H$\\beta$".ljust(w), 4861, "blue",solution=True,rank=3), #4862.68 (vacuum) 4861.363 (air)
-            EmissionLine("H$\\gamma$".ljust(w), 4340, "royalblue",solution=False,rank=3),
+            EmissionLine("H$\\gamma$".ljust(w), 4340, "royalblue",solution=True,rank=3),
 
             EmissionLine("H$\\delta$".ljust(w), 4101, "royalblue", solution=False,display=False,rank=4),
             EmissionLine("H$\\epsilon$/CaII".ljust(w), 3970, "royalblue", solution=False,display=False,rank=4), #very close to CaII(3970)
@@ -3735,8 +3767,8 @@ class Spectrum:
             if self.all_found_lines is None or len(self.all_found_lines)==0:
                 return 0,0
 
-            unmatched_score_list = np.array([x.line_score for x in self.all_found_lines])
-            unmatched_wave_list = np.array([x.fit_x0 for x in self.all_found_lines])
+            unmatched_score_list = np.array([x.line_score for x in self.all_found_lines if 3550.0 < x.fit_x0 < 5500.0 ])
+            unmatched_wave_list = np.array([x.fit_x0 for x in self.all_found_lines if 3550.0 < x.fit_x0 < 5500.0])
             solution_wave_list = np.array([solution.central_rest * (1.+solution.z)] + [x.w_obs for x in solution.lines])
 
             for line in solution_wave_list:
@@ -3934,9 +3966,19 @@ class Spectrum:
                             central=a_central, central_z = central_z, values_units=values_units, spectrum=self,
                             show_plot=False, do_mcmc=False, allow_broad= (a.broad and e.broad))
                 elif eli is None and a.broad and e.broad:
-                    eli = signal_score(wavelengths=wavelengths, values=medfilt(values, 5), errors=medfilt(errors, 5),
+                    #are they in the same family? OII, OIII, OIV :  CIV, CIII, CII : H_beta, ....
+                    samefamily = False
+                    if (e.name[0] == 'O') and (a.name[0] == 'O'):
+                        samefamily = True
+                    elif (e.name[0:2] == 'CI') and (a.name[0:2] == 'CI'):
+                        samefamily = True
+                    elif (e.name[0:2] == 'H$') and (a.name[0:2] == 'H$'):
+                        samefamily = True
+
+                    if not samefamily or (samefamily and (self.central_eli and self.central_eli.fit_sigma and self.central_eli.fit_sigma > 5.0)):
+                        eli = signal_score(wavelengths=wavelengths, values=medfilt(values, 5), errors=medfilt(errors, 5),
                                        central=a_central, central_z=central_z, values_units=values_units, spectrum=self,
-                                       show_plot=False, do_mcmc=False, allow_broad=(a.broad and e.broad))
+                                       show_plot=False, do_mcmc=False, allow_broad=(a.broad and e.broad),broadfit=5)
 
                 #try as absorber
                 if G.MAX_SCORE_ABSORPTION_LINES and eli is None and self.is_near_absorber(a_central):

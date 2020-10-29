@@ -726,6 +726,9 @@ class science_image():
 
             obj = objects[selected_idx]
             #check max distance
+            #todo: incorporate the effective radius of the ellipse? s\t large ellipse gets a little larger max_dist?
+            # and a very small ellipse gets (maybe) a little shorted max_dist?
+            #effective_radius = 0.5*np.sqrt(d['a']*d['b'])
             if dist_to_curve_aa > max_dist:
                 log.info("Dist to nearest source extractor oject (%f) exceeds max allowed (%f)"
                          %(dist_to_curve_aa,max_dist))

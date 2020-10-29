@@ -1,5 +1,11 @@
 changes to elixer by version
 
+1.10.0a7 [2020-10-28]
+* tweak line scoring to divide snr by sqrt(bins) where bins is the number of wavebins over which a median filter was
+  run when allowing for a noisy, broad-line fit (to account for smoothing)
+* only include lines 3550 < wave < 5500 when checking for (solution) unmatched lines
+* use 0.8" as max distance to ellipse (if outside the ellipse) for aperture matching for shots after 2018-06-01 and
+  1.5" before
 
 1.10.0a6 [2020-10-21]
 * allow --hdr (HDR_Version) to be a string (not just a float) (but for compatibility with hetdex_api, keeps only

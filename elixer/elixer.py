@@ -3892,6 +3892,12 @@ def main():
 
                         #now build the report for each emission detection
                         for e in hd.emis_list:
+
+                            if e.survey_shotid is not None and e.survey_shotid < 20180601000:
+                                G.NUDGE_SEP_MAX_DIST = G.NUDGE_SEP_MAX_DIST_EARLY_DATA
+                            else:
+                                G.NUDGE_SEP_MAX_DIST = G.NUDGE_SEP_MAX_DIST_LATER_DATA
+
                             pdf = PDF_File(args.name, e.entry_id, e.pdf_name)
                             e.outdir = pdf.basename
                             #update pdf_name to match

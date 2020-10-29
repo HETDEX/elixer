@@ -20,7 +20,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.10.0a6'
+__version__ = '1.10.0a7'
 
 #python version
 import sys
@@ -764,8 +764,17 @@ MAX_DYNAMIC_MAG_APERTURE = 3.0 #maximum growth in dynamic mag
 NUDGE_MAG_APERTURE_MAX_DATE = 20180601 #nudge center only BEFORE this date (using as a proxy for the number of active IFUs)
 NUDGE_MAG_APERTURE_CENTER = 1.5  #allow the center of the mag aperture to drift to the 2D Gaussian centroid
                                  #up to this distance in x and y in arcsec (if 0.0 then no drift is allowed)
-NUDGE_SEP_MAX_DIST = 1.5 #allow source extractor found objects to be matched to the HETDEX target up to this distances
+
+NUDGE_SEP_MAX_DIST_EARLY_DATA = 1.5 #allow source extractor found objects to be matched to the HETDEX target up to this distances
+                          #in arcsec (for early data, 2017 and fist part of 2018 when # of IFUs was low and astrometric
+                          #solution was not great
+
+NUDGE_SEP_MAX_DIST_LATER_DATA = 0.8 #allow source extractor found objects to be matched to the HETDEX target up to this distances
                           #in arcsec
+
+NUDGE_SEP_MAX_DIST = 0.8 #allow source extractor found objects to be matched to the HETDEX target up to this distances
+                          #in arcsec
+
 MAX_SKY_SUBTRACT_MAG = 2.0 #if local sky subtraction results in a magnitude change greater than this value, do not apply it
 
 DEBUG_SHOW_GAUSS_PLOTS = False #set on command line now --gaussplots (but keep here for compatibility with other programs)
