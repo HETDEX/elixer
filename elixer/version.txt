@@ -7,6 +7,7 @@ changes to elixer by version
 * use 1.0" as max distance to ellipse (if outside the ellipse) for aperture matching for shots after 2018-06-01 and
   1.5" before
 * correction for OIII solution (4959+5007) boost (was missing prob_noise correction if raising to minium score)
+  + add enforcement of more restrictive +/- 2AA error in position between 4959 and 5007 in line fit
 * correction to weak-low-z scores (the weight drop-off in P(LyA) voting should be more pronunced)
 * correction to LAE physical extent (major axis diameter), change ranges just a bit ("normal" LAE max up to 15kpc with
   probable LAE up to 8kpc)

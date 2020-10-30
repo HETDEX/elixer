@@ -1346,10 +1346,10 @@ class DetObj:
                             lk = 0.25
                             w = 0.5
                         elif 8.0 < diam <=15.0:
-                            lk = 0.9
+                            lk = 1.0
                             w = 0.1 #does not add much info, but is consistent
                         elif 3.0 < diam <= 8.0:
-                            lk = 0.9
+                            lk = 1.0
                             w = 0.5
                         else: #very small, highly consistent with LAE (small boost)
                             lk = 1.0

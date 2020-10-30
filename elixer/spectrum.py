@@ -4282,7 +4282,7 @@ class Spectrum:
                 # the pair of lines being checked are 4959 and 5007 (or the solution contains those pair of lines)
                 try:
                     if (np.isclose(s.central_rest,4959,atol=1.0) or np.isclose(s.central_rest,5007,atol=1.0)) and \
-                        np.any([(np.isclose(x.w_rest,4959,atol=1.0) or np.isclose(x.w_rest,5007,atol=1.0)) for x in s.lines]):
+                        np.any([(np.isclose(x.w_rest,4959,atol=1.0) or np.isclose(x.w_rest,5007,atol=1.0)) and abs(x.fit_dx0) < 2.0 for x in s.lines]):
                         oiii_lines = True
                     else:
                         oiii_lines = False
