@@ -1330,7 +1330,7 @@ class DetObj:
                     diam = SU.physical_diameter(z ,self.classification_dict['diam_in_arcsec'])
                     if diam is not None and diam > 0:
                         #todo: set the likelihood (need distro of sizes)
-                        #typical half-light radius of order 1kpc (so full diamter something like 4-6 kpc and up)
+                        #typical half-light radius of order 1kpc (so full diamter something like 4-8 kpc and up)
                         #if AGN maybe up to 30-40kpc
                         if diam > 40.0:  #just too big, favor not LAE
                             lk = 0.0
