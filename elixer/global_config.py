@@ -769,10 +769,10 @@ NUDGE_SEP_MAX_DIST_EARLY_DATA = 1.5 #allow source extractor found objects to be 
                           #in arcsec (for early data, 2017 and fist part of 2018 when # of IFUs was low and astrometric
                           #solution was not great
 
-NUDGE_SEP_MAX_DIST_LATER_DATA = 0.8 #allow source extractor found objects to be matched to the HETDEX target up to this distances
+NUDGE_SEP_MAX_DIST_LATER_DATA = 1.0 #allow source extractor found objects to be matched to the HETDEX target up to this distances
                           #in arcsec
 
-NUDGE_SEP_MAX_DIST = 0.8 #allow source extractor found objects to be matched to the HETDEX target up to this distances
+NUDGE_SEP_MAX_DIST = 1.0 #allow source extractor found objects to be matched to the HETDEX target up to this distances
                           #in arcsec
 
 MAX_SKY_SUBTRACT_MAG = 2.0 #if local sky subtraction results in a magnitude change greater than this value, do not apply it
