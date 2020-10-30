@@ -1335,16 +1335,25 @@ class DetObj:
                         if diam > 40.0:  #just too big, favor not LAE
                             lk = 0.0
                             w = 1.0
-                        elif 25.0 < diam <= 40:
+                        elif 30.0 < diam <= 40:
                             #pretty big, favors OII at lower-z, but not very definitive
                             #could maybe get some QSO in here?
                             lk = 0.0
                             w = 0.5
-                        elif 15.0 < diam <= 25:
-                            #moderately big, maybe favors OII at lower-z, but not very definitive
+                        elif 25.0 < diam <= 30:
+                            #pretty big, maybe favors OII at lower-z, but not very definitive
                             #could get some QSO in here (brightness/width would help over rule this)
-                            lk = 0.25
-                            w = 0.5
+                            lk = 0.0
+                            w = 0.1
+                        elif 20.0 < diam <= 25:
+                            #pretty big, maybe favors OII at lower-z, but not very definitive
+                            #could get some QSO in here (brightness/width would help over rule this)
+                            lk = 0.0
+                            w = 0.0
+                        elif 15.0 < diam <= 20:
+                            #not very useful
+                            lk = 0.0
+                            w = 0.0
                         elif 8.0 < diam <=15.0:
                             lk = 1.0
                             w = 0.1 #does not add much info, but is consistent
@@ -1373,10 +1382,11 @@ class DetObj:
                     if diam is not None and diam > 0:
                         # todo: set the likelihood (need distro of sizes)
                         if diam < 0.1:  #just too small, favor LAE
-                            lk = 0.9 # ***(this is likelihood of LAE, so 1-likelihood not LAE)
+                            lk = 1.0 # ***(this is likelihood of LAE, so 1-likelihood not LAE)
                             #so saying here that is very UNLIKELY this is a low-z object based on small physical size
                             #so it is more LIKELY it is a high-z object
-                            w = 0.7
+                            w = 0.75
+                        #could be planetary nebula, etc (very small)
                         else: #no info, favors either
                             lk = 0.5
                             w = 0.0

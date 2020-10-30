@@ -9,8 +9,7 @@ changes to elixer by version
 * correction for OIII solution (4959+5007) boost (was missing prob_noise correction if raising to minium score)
   + add enforcement of more restrictive +/- 2AA error in position between 4959 and 5007 in line fit
 * correction to weak-low-z scores (the weight drop-off in P(LyA) voting should be more pronunced)
-* correction to LAE physical extent (major axis diameter), change ranges just a bit ("normal" LAE max up to 15kpc with
-  probable LAE up to 8kpc)
+* tuning LAE physical extent (major axis diameter) weights
 
 1.10.0a6 [2020-10-21]
 * allow --hdr (HDR_Version) to be a string (not just a float) (but for compatibility with hetdex_api, keeps only
