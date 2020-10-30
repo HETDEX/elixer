@@ -1,12 +1,15 @@
 changes to elixer by version
 
-1.10.0a7 [2020-10-29]
+1.10.0a7 [2020-10-30]
 * tweak line scoring to divide snr by sqrt(bins) where bins is the number of wavebins over which a median filter was
   run when allowing for a noisy, broad-line fit (to account for smoothing)
 * only include lines 3550 < wave < 5500 when checking for (solution) unmatched lines
 * use 1.0" as max distance to ellipse (if outside the ellipse) for aperture matching for shots after 2018-06-01 and
   1.5" before
 * correction for OIII solution (4959+5007) boost (was missing prob_noise correction if raising to minium score)
+* correction to weak-low-z scores (the weight drop-off in P(LyA) voting should be more pronunced)
+* correction to LAE physical extent (major axis diameter), change ranges just a bit ("normal" LAE max up to 15kpc with
+  probable LAE up to 8kpc)
 
 1.10.0a6 [2020-10-21]
 * allow --hdr (HDR_Version) to be a string (not just a float) (but for compatibility with hetdex_api, keeps only

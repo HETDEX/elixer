@@ -1340,15 +1340,15 @@ class DetObj:
                             #could maybe get some QSO in here?
                             lk = 0.0
                             w = 0.5
-                        elif 10.0 < diam <= 25:
+                        elif 15.0 < diam <= 25:
                             #moderately big, maybe favors OII at lower-z, but not very definitive
                             #could get some QSO in here (brightness/width would help over rule this)
                             lk = 0.25
                             w = 0.5
-                        elif 5.0 < diam <=10.0:
+                        elif 8.0 < diam <=15.0:
                             lk = 0.9
                             w = 0.1 #does not add much info, but is consistent
-                        elif 3.0 < diam <= 5.0:
+                        elif 3.0 < diam <= 8.0:
                             lk = 0.9
                             w = 0.5
                         else: #very small, highly consistent with LAE (small boost)
@@ -1483,7 +1483,7 @@ class DetObj:
                     else: #low score, but can still impact
                         #this can be a problem for items like 1000637691 which get reduced score, but is clearly a non-LAE multi-line
                         #like an HII region; in theory clustering of emission lines would catch this
-                        w = 0.5 * s.scale_score #min(s.score / G.MULTILINE_MIN_SOLUTION_SCORE, s.scale_score)
+                        w = 0.5 * (max(s.scale_score -0.5, 0)) #min(s.score / G.MULTILINE_MIN_SOLUTION_SCORE, s.scale_score)
 
                         if s.central_rest == G.LyA_rest:
                         #if s.z > 1.8:  # suggesting LAE consistent
