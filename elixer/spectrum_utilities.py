@@ -2035,9 +2035,16 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
         plt.close('all')
         old_backend = None
         if show:
-            old_backend = plt.get_backend()
-            plt.switch_backend('TkAgg')
-
+            try:
+                old_backend = plt.get_backend()
+                plt.switch_backend('TkAgg')
+            except:
+                log.error("Cannot run interactive plot ...", exc_info=True)
+                try:
+                    if old_backend:
+                        plt.switch_backend(old_backend)
+                except:
+                    pass
         ########################
         #as a contour
         ########################
