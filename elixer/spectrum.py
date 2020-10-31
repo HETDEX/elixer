@@ -3132,10 +3132,9 @@ class Spectrum:
             #slope = self.spectrum_slope
             #slope_err = self.spectrum_slope_err
 
-            if len(overlap) < 2:  # done (0 or 1) if only 1 line, can't go any farther with comparison
+            if len(overlap) < 1:
                 #todo: any fwhm that would imply low-z? more narrow?
                 return 0
-
 
             #check the match_matrix
             missing = []
@@ -3152,6 +3151,11 @@ class Spectrum:
                 log.info(f"LzG consistency failure. Initial Score = {score}. "
                          f"Missing expected lines {[z for z in zip(rest_waves[missing],obs_waves[missing])]}. ")
             # compare all pairs of lines
+
+            if len(overlap) < 2:  # done (0 or 1) if only 1 line, can't go any farther with comparison
+                #todo: any fwhm that would imply low-z? more narrow?
+                return score
+
 
             for i in range(len(overlap)):
                 for j in range(i+1,len(overlap)):
@@ -4222,7 +4226,6 @@ class Spectrum:
                     else:
                         break
 
-
                 if rescore:
                     #remove this solution?
                     old_score = s.score
@@ -4289,9 +4292,13 @@ class Spectrum:
                 except:
                     oiii_lines = False
 
-                # don't bother examining week solutions (except for 4659/5007)
+                # even if weak, go ahead and check for inconsistency (ie. if 4595 present but 5007 is not, then that
+                # solution does not make sense), but only allow a positive boost to the scoring IF the base solution
+                # is not weak or IF this is a possible OIII 4595+5007 combination (which is well constrained)
                 if s.score < G.MULTILINE_MIN_SOLUTION_SCORE and not oiii_lines:
-                    continue
+                    no_plus_boost = True
+                else:
+                    no_plus_boost = False
 
                 #todo: iterate over all types of objects
                 #if there is no consistency (that is, the lines don't match up) you get no change
@@ -4304,7 +4311,8 @@ class Spectrum:
                     log.info(f"Solution: {s.name} score {s.score} to be modified by x{boost} for consistency with AGN")
 
                     #for the labeling, need to check vs the TOTAL score (so include the primary line)
-                    if ( (s.score + central_eli.line_score) > G.MULTILINE_FULL_SOLUTION_SCORE) and (boost > 1.0):
+                    if ( (s.score + central_eli.line_score) > G.MULTILINE_FULL_SOLUTION_SCORE) and (boost > 1.0) and \
+                            (no_plus_boost is False):
                         #check BEFORE the boost
                         #however, only apply the label if at least one line is broad
                         line_fwhm = np.array([central_eli.fit_sigma*2.355] + [l.sigma * 2.355 for l in s.lines])
@@ -4326,7 +4334,7 @@ class Spectrum:
                     log.info(f"Solution: {s.name} score {s.score} to be modified by x{boost} for consistency with low-z galaxy")
 
                     if ((s.score + central_eli.line_score) > G.MULTILINE_FULL_SOLUTION_SCORE) and \
-                            (boost > 1.0):  # check BEFORE the boost
+                            (boost > 1.0) and (no_plus_boost is False):  # check BEFORE the boost
                         self.add_classification_label("lzg") #Low-z Galaxy
 
                     per_line_total_score -= s.score

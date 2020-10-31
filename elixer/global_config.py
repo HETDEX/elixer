@@ -20,7 +20,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.10.0a7'
+__version__ = '1.10.0a8'
 
 #python version
 import sys
