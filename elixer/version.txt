@@ -1,5 +1,9 @@
 changes to elixer by version
 
+
+1.10.0 [2020-11-05]
+* HDR2.1.2 curated re-run
+
 1.10.0a8 [2020-11-04]
 * still check for (in)consistency with AGN, LzG, etc even for weak solutions BUT do not allow the solutions to gain score
   (except for OIII 4959+5007)
