@@ -1,8 +1,13 @@
 changes to elixer by version
 
-1.10.0a8 [2020-10-31]
+1.10.0a8 [2020-11-04]
 * still check for (in)consistency with AGN, LzG, etc even for weak solutions BUT do not allow the solutions to gain score
   (except for OIII 4959+5007)
+* small meteor adjustments
+    +try to avoid picking up on bright objects just off the edge of the detector
+    +skip if the dither normalization is bad
+    +if only one single bright meteor common line, must also have 80% of full spec ratio to trigger
+
 
 1.10.0a7 [2020-10-30]
 * tweak line scoring to divide snr by sqrt(bins) where bins is the number of wavebins over which a median filter was

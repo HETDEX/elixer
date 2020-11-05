@@ -909,8 +909,14 @@ class DetObj:
 
         #how many exposures? usually 3, but not always
         try:
+
+            if (np.isnan(self.dither_norm) or (self.dither_norm > 2.0)):
+                log.info(f"DetObj::check_for_meteor(). Cannot check for meteor due to bad dither normalization ({self.dither_norm})")
+                return 0
+
             num_exp = len(np.unique([f.expid for f in self.fibers]))
             if num_exp < 2:
+                log.info(f"DetObj::check_for_meteor(). Cannot check for meteor due to insufficient exposures ({num_exp})")
                 return 0
 
             #indices that cover common meteor lines (MgI, Al, CaI, CaII) into CALFIB_WAVEGRID
@@ -1087,6 +1093,7 @@ class DetObj:
 
             meteor = 0
             spec_ratio_trigger = 3.0
+            full_spec_ratio_trigger = 5.0
             bright_obj_spec_ratio_trigger = 2.5
 
             if cmx_sum > cn2_sum > 0:
@@ -1098,7 +1105,9 @@ class DetObj:
                # if ((full_ratio > 2 ) or (common_ratio > 4)): #maybe need more checking
                 #minimum gate check, just to warrant addtional steps
                 pos = []
-                if ((spec_ratio > spec_ratio_trigger ) or (near_bright_obj and (spec_ratio > bright_obj_spec_ratio_trigger))): #maybe need more checking
+                log.debug(f"Meteor check. full_ratio = {full_ratio:0.2f}, spec_ratio = {spec_ratio:0.2f}, near_bright = {near_bright_obj}")
+                if ( (full_ratio > full_spec_ratio_trigger) or (spec_ratio > spec_ratio_trigger ) or \
+                        ((near_bright_obj and (spec_ratio > bright_obj_spec_ratio_trigger))) ): #maybe need more checking
                     #merge in with the existing all found lines
                     try:
                         waves = [x.fit_x0 for x in self.spec_obj.all_found_lines]
@@ -1164,22 +1173,27 @@ class DetObj:
                             elif len(waves) < 30: #getting close to shotgun
                                 meteor = 1
                                 log.debug("+++++ meteor condition 2")
-                        elif (len(bright_mg_line) > 0): #only got a bright line
-                            if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
-                                meteor = 2 #occasional trigger
-                                log.debug("+++++ meteor condition 3")
-                            elif len(waves) < 20:  # getting close to shotgun
-                                meteor = 1
-                                log.debug("+++++ meteor condition 4")
-                            elif len(waves) < 30:  # getting close to shotgun
-                                meteor = 0.5
-                                log.debug("+++++ meteor condition 4")
-                        elif len(common_lines) > 1: #no bright lines, but 2+ common lines
-                                meteor = 1
-                                log.debug("+++++ meteor condition 5")
+
+                        elif (full_ratio > (0.75 * full_spec_ratio_trigger)):
+                            if (len(bright_mg_line) > 0) : #only got a bright line
+                                #if (len(waves) < 4):
+                                #    log.debug("+++++ no enough other lines for meteor. condition 3")
+                                if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
+                                    meteor = 2 #occasional trigger
+                                    log.debug("+++++ meteor condition 3")
+                                elif len(waves) < 20:  # getting close to shotgun
+                                    meteor = 1
+                                    log.debug("+++++ meteor condition 4")
+                                elif len(waves) < 30:  # getting close to shotgun
+                                    meteor = 0.5
+                                    log.debug("+++++ meteor condition 4")
+                            elif len(common_lines) > 1: #no bright lines, but 2+ common lines
+                                    meteor = 1
+                                    log.debug("+++++ meteor condition 5")
 
                     #reduced ratio but near a bright object
-                    elif near_bright_obj and (spec_ratio > bright_obj_spec_ratio_trigger):
+                    elif near_bright_obj and (spec_ratio > bright_obj_spec_ratio_trigger) and \
+                            (full_spec_ratio_trigger > 0.75 * full_spec_ratio_trigger):
                         if (len(bright_mg_line) > 0) and (len(common_lines) > 1):
                             if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
                                 meteor = 2
@@ -1207,6 +1221,8 @@ class DetObj:
                                 log.debug("+++++ meteor condition 5b")
                             else:
                                 meteor = 0 #don't trust it
+                    else:
+                        log.debug("Failed to meet additional meteor criteria. Likely not a meteor.")
 
                     #final check
                     if (meteor == 0) and (spec_ratio > 20) and (full_ratio > 5) and (len(waves) <= 20):
@@ -1926,7 +1942,7 @@ class DetObj:
         #what criteria to set weight? maybe really low chi^2 is good weight?
         try:
             if (self.hetdex_cont_cgs is not None) and (self.hetdex_cont_cgs_unc is not None):
-                hetdex_cont_limit = 2.0e-18 #don't trust below this
+                hetdex_cont_limit =  G.HETDEX_CONTINUUM_FLUX_LIMIT #8.5e-19 #don't trust below this
                 if (self.hetdex_cont_cgs - self.hetdex_cont_cgs_unc) > hetdex_cont_limit:
                     w = 0.2 #never very high
                     p = self.p_lae_oii_ratio_range[0]
