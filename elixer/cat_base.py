@@ -325,10 +325,10 @@ class Catalog:
                     if filter_mag is not None:
                         p = self.distance_prior.get_prior(df.iloc[i]['distance']*3600.0,filter_mag)
                         df.iat[i,pidx] = p
-                        df.iat[i, midx] = filter_mag
+                        df.iat[i, midx] = 99 if np.isnan(filter_mag) else filter_mag
                         df.iat[i, fidx] = filter_str
-                        df.iat[i, fl_idx] = filter_fl
-                        df.iat[i, fle_idx] = filter_fl_err
+                        df.iat[i, fl_idx] = 0 if np.isnan(filter_fl) else filter_fl
+                        df.iat[i, fle_idx] = 0 if np.isnan(filter_fl_err) else filter_fl_err
 
 
                 self.dataframe_of_bid_targets = df.sort_values(by=['dist_prior','distance'], ascending=[False,True])
@@ -885,7 +885,7 @@ class Catalog:
 
                     #temporary
                     if mag is not None:
-                        label = "mag: %0.1f rc: %0.1f\"" % (mag,radius)
+                        label = "m:%0.1f rc:%0.1f\"  s:0.0\"" % (mag,radius)
 
                         if ew is not None:
                             label += "\n EWr: %0.0f" %(ew)
@@ -942,7 +942,7 @@ class Catalog:
                                 edgecolor=color, alpha=alpha,zorder=zorder,linestyle=ls))
 
                     if (eobj['selected']) and (mag is not None):
-                        label = "mag: %0.1f  re: %0.1f\"" % (mag,ellipse_radius)
+                        label = "m:%0.1f  re:%0.1f\"  s:%0.1f\"" % (mag,ellipse_radius,eobj['dist_baryctr'])
 
                         if ew is not None:
                             label += "\n EWr: %0.0f" %(ew)

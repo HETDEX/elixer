@@ -124,6 +124,11 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
     Image_Coord_Range = hsc_meta.Image_Coord_Range
     Tile_Dict = hsc_meta.HSC_META_DICT
+    #correct the basepaths
+    for k in Tile_Dict.keys():
+        Tile_Dict[k]['path'] = op.join(G.HSC_IMAGE_PATH,Tile_Dict[k]['tract'],op.basename(Tile_Dict[k]['path']))
+
+
     Filters = ['r'] #case is important ... needs to be lowercase
     Cat_Coord_Range = {'RA_min': None, 'RA_max': None, 'Dec_min': None, 'Dec_max': None}
 
@@ -630,9 +635,8 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         try:
             #modify name for mask
             mask_tile_name = tile.rstrip(".fits") +"_mask.fits"
-
             # Find in Tile Dict for the path
-            path = self.Tile_Dict[tile]['path']
+            path = op.join(G.HSC_IMAGE_PATH,self.Tile_Dict[tile]['tract'],op.basename(self.Tile_Dict[tile]['path']))
             path = path.replace('image_tract_patch','mask_tract_patch')
             path = path.replace(tile,mask_tile_name)
 

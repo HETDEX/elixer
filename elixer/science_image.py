@@ -47,6 +47,8 @@ import sep #source extractor python module
 
 import scipy.stats as stats
 
+import copy as cp
+
 PIXEL_APERTURE_METHOD='exact' #'exact' 'center' 'subpixel'
 
 #log = G.logging.getLogger('sciimg_logger')
@@ -511,7 +513,7 @@ class science_image():
         self.vmin = None
         self.vmax = None
 
-        cpvals = vals[:]
+        cpvals = cp.copy(vals)
 
         #use the interior ~2/3
         try:
@@ -724,6 +726,9 @@ class science_image():
 
             obj = objects[selected_idx]
             #check max distance
+            #todo: incorporate the effective radius of the ellipse? s\t large ellipse gets a little larger max_dist?
+            # and a very small ellipse gets (maybe) a little shorted max_dist?
+            #effective_radius = 0.5*np.sqrt(d['a']*d['b'])
             if dist_to_curve_aa > max_dist:
                 log.info("Dist to nearest source extractor oject (%f) exceeds max allowed (%f)"
                          %(dist_to_curve_aa,max_dist))
@@ -786,12 +791,9 @@ class science_image():
         try:
             position = SkyCoord(ra, dec, unit="deg", frame=self.frame)
             pix_window = int(np.ceil(error / self.pixel_size))
-
             hdulist = fits.open(path, memmap=False, lazy_load_hdus=True)
-
             cutout = Cutout2D(hdulist[self.wcs_idx].data, position, (pix_window, pix_window),
                                    wcs=self.wcs, copy=False)
-
             hdulist.close()
         except:
             log.info(f"Could not get mask cutout", exc_info=True)
@@ -866,9 +868,15 @@ class science_image():
         self.window = window
         #sanity check (shouold be of order few to maybe 100 arcsec, certainly no more than a few arcmin
         #so, greater than that implies a bad degree to arcsec conversion (degree assumed when arcsec passed)
-        if window > 1000:
-            msg = f"Unexpectedly high cutout size requested ({window}AA). Assume AA passed instead of degrees " \
-                        f"and will convert back to AA. Changing to ({window/3600.0})AA"
+
+        #e.g. arcsecs are expected here, but from another location degrees are expected. IF the initial paramter was
+        #passed as arcsec where degrees were expected, and then converted to arcsecs there would be an extra
+        #factor of x3600 and this number would be huge, so, divide by 3600 if that seems to be the case
+        #THAT is:  degrees wanted but arcsec passed in -> "degree"x3600 to get to arcsec (so now was arcsec x3600) ->
+        #the number is huge now, but really was arcsec to begin with, so /3600
+        if window > 1000: #so the max expected is 999 arcsec (given that the window is 3x the request, 333 arcsec is max)
+            msg = f"Unexpectedly high cutout size requested ({window} ). Assume arcsec passed instead of degrees " \
+                        f"and will convert back to degrees. Changing to ({window/3600.0}) degrees"
             log.warning(msg)
             print(msg)
             window /= 3600.0

@@ -198,7 +198,10 @@ def make_zeroth_row_header(left_text,show_version=True):
 
         plt.subplot(gs[0, 0])
         plt.gca().axis('off')
-        plt.text(0, 0.5, left_text, ha='left', va='bottom', fontproperties=font)
+        if ": -1 (" in left_text: #ie: P(LyA): -1 (negative spectrum)
+            plt.text(0, 0.5, left_text, ha='left', va='bottom', fontproperties=font,color='r')
+        else:
+            plt.text(0, 0.5, left_text, ha='left', va='bottom', fontproperties=font)
 
         if G.LyC:
             plt.subplot(gs[0, 1])
@@ -233,6 +236,7 @@ def parse_commandline(auto_force=False):
                                             , required=False)
     parser.add_argument('--dec', help='Target Dec (as decimal degrees or d:m:s.as (end with \'d\') '
                                             'Examples: --dec 52.921167    or  --dec 52:55:16.20d', required=False)
+
     #parser.add_argument('--rot',help="Rotation (as decimal degrees). NOT THE PARANGLE.",required=False,type=float)
     parser.add_argument('--par', help="The Parangle in decimal degrees.", required=False, type=float)
     parser.add_argument('--rot', help="The rotation in decimal degrees. (Superceeds use of --par)", required=False, type=float)
@@ -418,13 +422,13 @@ def parse_commandline(auto_force=False):
                         required=False, default=-1.0,type=float)
 
     parser.add_argument('--hdr', help="Override the default HETDEX Data Release version. Specify an integer > 0",
-                        required=False, default= 0,type=float)
+                        required=False, default=0)
 
     parser.add_argument('--log', help="Logging level. Default (info). Choose: debug, info, error, critical", required=False)
 
 
-    parser.add_argument('--gridsearch', help='Search a grid around the RA, Dec. 4-tuple.'
-                                             'Specify (+/- arcsec, grid size (arcsec), velocity offset (km/s), 0=plot, 1=interactive)', required=False)
+    parser.add_argument('--gridsearch', help='Search a grid around the RA, Dec. 5-tuple.'
+                                             'Specify (+/- arcsec, grid size (arcsec), velocity offset (km/s), fwhm (AA), 0=plot, 1=interactive)', required=False)
 
     parser.add_argument('--version', help='Print the version to screen.',
                         required=False, action='store_true', default=False)
@@ -435,6 +439,14 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--dependency', help="For use with SLURM only. Set optional condition and SLURM_ID of job to "
                                              "finish prior to this one starting. e.g: afterok:123456  or afterany:123456",
                         required=False)
+
+    parser.add_argument('--ylim', help='Fixed y-axis limits for full-width 1D plot as (lower,upper)', required=False,type=str)
+
+
+    parser.add_argument('--known_z', help="Produce plots using this value for redshift", required=False, type=float)
+
+    # parser.add_argument('--sky_residual', help='Toggle [ON] shot-specific sky residual subtraction for forced-extracions.',
+    #                     required=False, action='store_true', default=False)
 
     if G.LAUNCH_PDF_VIEWER is not None:
         parser.add_argument('--viewer', help='Launch the global_config.py set PDF viewer on completion', required=False,
@@ -453,6 +465,11 @@ def parse_commandline(auto_force=False):
 
     if args.lyc:
         G.LyC = True
+
+    if args.dispatch:
+        #if in dispatch mode (SLURM mode) we are already using all/most the cores (as balanced vs memory, etc)
+        #so the multiprocess call actually slows down the overall execution
+        G.GET_SPECTRA_MULTIPROCESS = False
 
     #reminder to self ... this is pointless with SLURM given the bash wraper (which does not know about the
     #speccific dir name and just builds elixer.run
@@ -511,12 +528,14 @@ def parse_commandline(auto_force=False):
         print("Attempting to run clean_for_recovery script ... ")
         try:
             from elixer import clean_for_recovery
+            print("Success\n")
         except Exception as e:
-            print("Failed to import ... try again:",e)
+            print("Failed to import ... try again:\n",e)
             try:
                 import clean_for_recovery
+                print("Success\n")
             except Exception as e:
-                print("Unable to run clean_for_recovery script")
+                print("Unable to run clean_for_recovery script\n")
                 print(e)
         print("prep_recover complete; exiting ...")
         exit(0)
@@ -538,9 +557,16 @@ def parse_commandline(auto_force=False):
                 args.shotid = int(args.shotid[0:8]+args.shotid[9:])
             else:
                 args.shotid = int(args.shotid)
+
+            args.command_line_shotid = args.shotid
         except:
             print("Invalid --shotid. Must be of form (example): 20191129v045 or 20191129045)")
             exit(-1)
+
+    try: #the shotid can be modified in the normal operation
+        args.command_line_shotid = args.shotid
+    except:
+        pass
 
     if (args.dets is not None) and (args.coords is not None):
         print("Invalid combination of parameters. Cannot specify both --dets and --coords")
@@ -649,6 +675,7 @@ def parse_commandline(auto_force=False):
         print("Illegal combination of options. Cannot specify both --continuum and --broadline")
         exit(-1)
     elif args.continuum:
+        log.info("Setting CONTINUUM_RULES (args.continuum is set)")
         args.hdf5 = G.HDF5_CONTINUUM_FN
         G.CONTINUUM_RULES = True
     elif args.broadline:
@@ -696,6 +723,40 @@ def parse_commandline(auto_force=False):
             log.error("Fatal. Failed to map annulus to tuple.", exc_info=True)
             exit(-1)
 
+    if args.ylim: #should be a tuple
+        try:
+            args.ylim = args.ylim.replace(')', '')
+            args.ylim = args.ylim.replace('(', '')
+        except:
+            pass
+
+        try:
+            args.ylim = tuple(map(float, args.ylim.split(',')))
+            if len(args.ylim) != 2:
+                print(f"Non-fatal. Invalid ylim parameters: {args.ylim}. Will ignore.")
+                log.error(f"Non-fatal. Invalid ylim parameters: {args.ylim}. Will ignore.")
+                args.ylim = None
+        except:
+            print("Non-fatal. Invalid ylim parameters. Will ignore.")
+            log.error("Non-fatal. Invalid ylim parameters. Will ignore.")
+            args.ylim = None
+
+    if args.known_z is not None:
+        if args.known_z < 0:
+            print(f"Non-fatal. Invalid known_z {args.known_z} (must be > 0). Will ignore.")
+            log.debug(f"Non-fatal. Invalid known_z {args.known_z} (must be > 0). Will ignore.")
+            args.known_z = None
+            args.known_z = None
+
+    # if args.sky_residual:
+    #     if args.ffsky:
+    #         G.SUBTRACT_HETDEX_SKY_RESIDUAL = True
+    #     else:
+    #         print("Warning! --sky_residual requested but --ffsky missing. Will not substract extra sky residual from spectra.")
+    #         G.SUBTRACT_HETDEX_SKY_RESIDUAL = False
+    # else:
+    #     G.SUBTRACT_HETDEX_SKY_RESIDUAL = False
+
     if args.gridsearch:
 
         #first get rid of parenthesis that are not supposed to be there, but are commonly typed in
@@ -707,22 +768,29 @@ def parse_commandline(auto_force=False):
 
         try:
             args.gridsearch = tuple(map(float, args.gridsearch.split(',')))
-
-            if len(args.gridsearch) == 3: #old version, does not have the velocity offset max
-                args.gridsearch = (args.gridsearch[0],args.gridsearch[1],1500.0,args.gridsearch[2])
-
-            if args.gridsearch[3] == 0:
-                args.gridsearch = (args.gridsearch[0],args.gridsearch[1],args.gridsearch[2],False)
-            else:
-                if args.dispatch is None:
-                    args.gridsearch = (args.gridsearch[0], args.gridsearch[1],args.gridsearch[2],True)
-                else:
-                    log.info("Gridsearch interaction overwritten to False due to dispatch (SLURM) mode.")
-                    print("Gridsearch interaction overwritten to False due to dispatch (SLURM) mode.")
-                    args.gridsearch = (args.gridsearch[0], args.gridsearch[1], args.gridsearch[2], False)
+            if len(args.gridsearch) != 5:
+                print(f"Fatal. Invalid gridsearch parameters: {args.gridsearch}")
+                log.error(f"Fatal. Invalid gridsearch parameters: {args.gridsearch}")
+                exit(-1)
+            #
+            # if len(args.gridsearch) == 3: #old version, does not have the velocity offset max
+            #     args.gridsearch = (args.gridsearch[0],args.gridsearch[1],500.0,15.0,args.gridsearch[2])
+            #
+            # if args.gridsearch[3] == 0:
+            #     args.gridsearch = (args.gridsearch[0],args.gridsearch[1],args.gridsearch[2],False)
+            # else:
+            #     if args.dispatch is None:
+            #         args.gridsearch = (args.gridsearch[0], args.gridsearch[1],args.gridsearch[2],True)
+            #     else:
+            #         log.info("Gridsearch interaction overwritten to False due to dispatch (SLURM) mode.")
+            #         print("Gridsearch interaction overwritten to False due to dispatch (SLURM) mode.")
+            #         args.gridsearch = (args.gridsearch[0], args.gridsearch[1], args.gridsearch[2], False)
         except:
-            log.info("Exception parsing --gridsearch. Setting to default (3.0,0.4,1500.0,False)",exc_info=True)
-            args.gridsearch = (3.0,0.2,1500.0,False)
+            # log.info("Exception parsing --gridsearch. Setting to default (3.0,0.4,500.0,15.0,False)",exc_info=True)
+            # args.gridsearch = (3.0,0.2,500.0,15.0,False)
+            print(f"Fatal. Invalid gridsearch parameters: {args.gridsearch}")
+            log.error(f"Fatal. Invalid gridsearch parameters: {args.gridsearch}")
+            exit(-1)
 
     if args.wavelength:
         try:
@@ -1633,34 +1701,40 @@ def convert_pdf(filename, resolution=150, jpeg=True, png=False):
     except Exception as e:
         if type(e) is OSError:
             log.error("Error (1) converting pdf to image type: (OSError: probably memory)" + filename, exc_info=False)
+        elif type(e) is FileNotFoundError:
+            log.error("Error (1) converting pdf to image type: (FileNotFoundError)" + filename, exc_info=False)
         else:
             log.error("Error (1) converting pdf to image type: " + filename, exc_info=True)
-        if G.ALLOW_SYSTEM_CALL_PDF_CONVERSION:
-            #try pdftoppm or convert
-            if which("pdftoppm") is not None:
-                try:
-                    log.info("Attempting blind system call to pdftoppm to convert ... ")
-                    os.system("pdftoppm %s %s -png -singlefile" % (filename, filename.rstrip(".pdf")))
-                    #alternate call for wrangler
-                    #base is really 150 dpi but have to set convert to 200 to mimic resolution
-                    os.system("convert -density 200 %s %s" % (filename, filename.rstrip(".pdf")+".png"))
-                    log.info("No immediate error reported on pdftoppm call ... ")
-                except Exception as e:
-                    if type(e) is pdf2image.exceptions.PDFInfoNotInstalledError:
-                        log.error("System call conversion failed (PDFInfoNotInstalledError).", exc_info=False)
-                    else:
-                        log.error("System call conversion failed.",exc_info=True)
-            elif which ("convert") is not None:
-                try:
-                    log.info("Attempting blind system call to convert ... ")
-                    # alternate call for wrangler
-                    # base is really 150 dpi but have to set convert to 200 to mimic resolution
-                    os.system("convert -density 200 %s %s" % (filename, filename.rstrip(".pdf") + ".png"))
-                    log.info("No immediate error reported on convert call ... ")
-                except Exception as e:
-                    log.error("System call conversion failed.", exc_info=True)
-            else:
-                log.error("No viable system call available to convert PDF to PNG")
+
+        try:
+            if G.ALLOW_SYSTEM_CALL_PDF_CONVERSION:
+                #try pdftoppm or convert
+                if which("pdftoppm") is not None:
+                    try:
+                        log.info("Attempting blind system call to pdftoppm to convert ... ")
+                        os.system("pdftoppm %s %s -png -singlefile" % (filename, filename.rstrip(".pdf")))
+                        #alternate call for wrangler
+                        #base is really 150 dpi but have to set convert to 200 to mimic resolution
+                        os.system("convert -density 200 %s %s" % (filename, filename.rstrip(".pdf")+".png"))
+                        log.info("No immediate error reported on pdftoppm call ... ")
+                    except Exception as e:
+                        if type(e) is pdf2image.exceptions.PDFInfoNotInstalledError:
+                            log.error("System call conversion failed (PDFInfoNotInstalledError).", exc_info=False)
+                        else:
+                            log.error("System call conversion failed.",exc_info=True)
+                elif which ("convert") is not None:
+                    try:
+                        log.info("Attempting blind system call to convert ... ")
+                        # alternate call for wrangler
+                        # base is really 150 dpi but have to set convert to 200 to mimic resolution
+                        os.system("convert -density 200 %s %s" % (filename, filename.rstrip(".pdf") + ".png"))
+                        log.info("No immediate error reported on convert call ... ")
+                    except Exception as e:
+                        log.error("System call conversion failed.", exc_info=True)
+                else:
+                    log.error("No viable system call available to convert PDF to PNG")
+        except:
+            log.error("System call (pdftoppm) conversion failed.", exc_info=True)
         return
 
 
@@ -1687,20 +1761,19 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
             else:
                 return detectids
 
+        log.info("Searching for records by RA, Dec + error (this may take a while) ... ")
         with tables.open_file(hdf5, mode="r") as h5:
             dtb = h5.root.Detections
-
-            ra1 = ra - error
-            ra2 = ra + error
+            dec_correction = np.cos(np.deg2rad(dec))
+            ra1 = ra - error/dec_correction
+            ra2 = ra + error/dec_correction
             dec1 = dec - error
             dec2 = dec + error
 
             rows = dtb.read_where("(ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2)")
 
-            if (rows is not None) and (rows.size > 0):
+            if (rows is not None) and (len(rows) > 0):
                 detectids = rows['detectid']
-
-                msg = "%d detection records found +/- %g\" from %f, %f (%s)" %(rows.size,error*3600.,ra,dec,hdf5)
 
                 #less important, sort by distance
                 if sort:
@@ -1710,10 +1783,17 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
                         dist = [UTIL.angular_distance(ra,dec,r,d) for r,d in zip(ras,decs)]
 
                         all = sorted(zip(dist,detectids,ras,decs))
-                        dists = [x for x,_,_,_ in all]
-                        detectids = [x for _,x,_,_ in all]
-                        ras = [x for _,_,x,_ in all]
-                        decs = [x for _,_,_,x in all]
+                        dists = np.array([x for x,_,_,_ in all])
+                        detectids = np.array([x for _,x,_,_ in all])
+                        ras = np.array([x for _,_,x,_ in all])
+                        decs = np.array([x for _,_,_,x in all])
+
+                        #trim those at corners that are actually out of range
+                        sel = np.where(dists <= (error*3600.0))
+                        dists=dists[sel]
+                        detectids=detectids[sel]
+                        ras=ras[sel]
+                        decs=decs[sel]
 
                         # detectids = [d for _,d in sorted(zip(dist, detectids))]
                         # ras = [d for _,d in sorted(zip(dist, ras))]
@@ -1721,8 +1801,7 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
                     except:
                         log.debug("Unable to sort by distance",exc_info=True)
 
-
-
+                msg = "%d detection records found +/- %g\" from %f, %f (%s)" % (len(detectids), error * 3600., ra, dec, hdf5)
                 log.info(msg)
                 print(msg)
             else:
@@ -1780,22 +1859,30 @@ def get_hdf5_detectids_to_process(args):
                     if args.aperture:  # this is an extraction
                         detlist = [] #will be a list of lists
                         with open(args.dispatch) as f:
-                            for line in f:
+                            for line in f:  #these COULD be ra dec shot wave OR just a detectid
                                 try:
                                     toks = line.split()
-                                    row = [float(toks[0]),float(toks[1])]
-                                    if len(toks) >= 3: #shotid
-                                        # shot = toks[2].lower()
-                                        # row.append(int(float(shot.replace('v',''))))
-                                        row.append(xlat_shotid(toks[2]))
-                                        if len(toks) == 4: #wavelength (in AA)
-                                            row.append(float(toks[3]))
+                                    if len(toks)==1: #this is probably just a detectid
+                                        try:
+                                            did = np.int64(toks[0])
+                                            detlist.append(did)
+                                        except:
+                                            log.error(f"Invalid --coords / --dets file line format: {line}")
 
-                                        #if shotid and wavelength are flipped, it should be caught later?
-                                    else:
-                                        row.append(None)
+                                    else: #this is a set of coords
+                                        row = [float(toks[0]),float(toks[1])]
+                                        if len(toks) >= 3: #shotid
+                                            # shot = toks[2].lower()
+                                            # row.append(int(float(shot.replace('v',''))))
+                                            row.append(xlat_shotid(toks[2]))
+                                            if len(toks) == 4: #wavelength (in AA)
+                                                row.append(float(toks[3]))
 
-                                    detlist.append(row)
+                                            #if shotid and wavelength are flipped, it should be caught later?
+                                        else:
+                                            row.append(None)
+
+                                        detlist.append(row)
                                 except:
                                     log.error(f"Invalid --coords file line format: {line}")
 
@@ -2773,7 +2860,6 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         neighbor_color = "red"
         detectids, ras, decs, dists = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=error, sort=True)
 
-
         all_ras = ras[:]
         all_decs = decs[:]
 
@@ -2792,8 +2878,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                                                                                           error=error, sort=True)
 
             if (broad_ras is not None) and (broad_decs is not None):
-                all_ras += broad_ras[:]
-                all_decs += broad_decs[:]
+                np.concatenate((all_ras,broad_ras))
+                np.concatenate((all_decs,broad_decs))
 
             if broad_detectids is not None:
                 total_detectids += len(broad_detectids)
@@ -2809,8 +2895,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             cont_detectids, cont_ras, cont_decs, cont_dists = get_hdf5_detectids_by_coord(cont_hdf5, ra=ra, dec=dec, error=error, sort=True)
 
             if (cont_ras is not None) and (cont_decs is not None):
-                all_ras += cont_ras[:]
-                all_decs += cont_decs[:]
+                np.concatenate((all_ras,cont_ras))
+                np.concatenate((all_decs,cont_decs))
 
             if cont_detectids is not None:
                 total_detectids += len(cont_detectids)
@@ -2824,7 +2910,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             #nothing to do
             log.info("No HETDEX detections found: (%f,%f) +/- %d\"" %(ra,dec,distance))
             return None, None
-        elif len(detectids) > G.MAX_NEIGHBORS_IN_MAP:
+
+        if len(detectids) > G.MAX_NEIGHBORS_IN_MAP:
             msg = "Maximum number of reportable (emission line) neighbors exceeded (%d). Will truncate to nearest %d." % (len(detectids),
                                                                                                 G.MAX_NEIGHBORS_IN_MAP)
             log.info(msg)
@@ -2838,6 +2925,28 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             ras = ras[:G.MAX_NEIGHBORS_IN_MAP]
             decs = decs[:G.MAX_NEIGHBORS_IN_MAP]
             dists = dists[:G.MAX_NEIGHBORS_IN_MAP]
+
+        if len(cont_detectids) > G.MAX_NEIGHBORS_IN_MAP:
+            msg = "Maximum number of reportable (continuum) neighbors exceeded (%d). Will truncate to nearest %d." % (len(detectids),
+                                                                                                G.MAX_NEIGHBORS_IN_MAP)
+            log.info(msg)
+            print(msg)
+
+            cont_detectids = cont_detectids[:G.MAX_NEIGHBORS_IN_MAP]
+            cont_ras = cont_ras[:G.MAX_NEIGHBORS_IN_MAP]
+            cont_decs = cont_decs[:G.MAX_NEIGHBORS_IN_MAP]
+            cont_dists = cont_dists[:G.MAX_NEIGHBORS_IN_MAP]
+
+        if len(broad_detectids) > G.MAX_NEIGHBORS_IN_MAP:
+            msg = "Maximum number of reportable (broad) neighbors exceeded (%d). Will truncate to nearest %d." % (len(detectids),
+                                                                                                G.MAX_NEIGHBORS_IN_MAP)
+            log.info(msg)
+            print(msg)
+
+            broad_detectids = broad_detectids[:G.MAX_NEIGHBORS_IN_MAP]
+            broad_ras = broad_ras[:G.MAX_NEIGHBORS_IN_MAP]
+            broad_decs = broad_decs[:G.MAX_NEIGHBORS_IN_MAP]
+            broad_dists = broad_dists[:G.MAX_NEIGHBORS_IN_MAP]
 
 
     #get the single master cutout (need to stack? or select best image (best == most pixels)?)
@@ -2950,6 +3059,25 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             if ext_rescale < 0.5: #should only be a small change, so if very different (like in DECaLS) use the xmaax
                 ext_rescale =  master_cutout.xmax_cutout / master_cutout.xmax_original
             ext = ext * ext_rescale
+
+            #use the interior 30% to set the vmin, vmax to aid in matching to the smaller cutouts
+            #at args.error = 3.0 and args.neighors = 10.0, this would be essentially the same pixel extents that
+            #set the contstrast stretch for the main ELiXer imaging thumbnails
+            # 20201021 -DD - this works okay much of the time to preserve the contrast of the interior bit, but
+            #                it does often create washed out look and objects can get lost
+            #                (good example: 2102183346)
+            # idx0,idx1 = master_cutout.data.shape
+            # frac = 0.3  #ie. at interior 20%, the left index becomes 0.5 - (0.2/2) = 0.4 * width
+            # left0 = int(idx0 * 0.5 *(1.-frac))
+            # left1 = int(idx1 * 0.5 *(1.-frac))
+            # rght0 = int(left0 + frac * idx0)
+            # rght1 = int(left1 + frac * idx1)
+            #
+            # if (rght0-left0) * (rght1-left1) > 500: #if there are enough pixels in the interior 30%
+            #     vmin, vmax = UTIL.get_vrange(master_cutout.data[left0:rght0,left1:rght1])  # ,contrast=0.25)
+            # else: #otherwise, just use the whole image
+            #     vmin, vmax = UTIL.get_vrange(master_cutout.data)  # ,contrast=0.25)
+            #
             vmin, vmax = UTIL.get_vrange(master_cutout.data)  # ,contrast=0.25)
             x, y = sci.get_position(ra, dec, master_cutout)  # x,y of the center
         except:
@@ -3003,6 +3131,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     spec = []
     wave = []
     emis = []
+    shot = []
     with tables.open_file(hdf5, mode="r") as h5_detect:
         stb = h5_detect.root.Spectra
         dtb = h5_detect.root.Detections
@@ -3016,14 +3145,17 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                 drows = dtb.read_where("detectid==d")
                 if drows.size == 1:
                     emis.append(drows['wave'][0])
+                    shot.append(drows['shotid'][0])
                 else:
                     emis.append(-1.0)
+                    shot.append(0)
 
             else:
                 #there's a problem
                 spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
                 wave.append(G.CALFIB_WAVEGRID)
                 emis.append(-1.0)
+                shot.append(0)
 
 
     #now add the continuum sources if any
@@ -3031,6 +3163,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         try:
             with tables.open_file(cont_hdf5, mode="r") as h5_detect:
                 stb = h5_detect.root.Spectra
+                dtb = h5_detect.root.Detections
                 for d in cont_detectids:
                     rows = stb.read_where("detectid==d")
                     if rows.size == 1:
@@ -3042,16 +3175,27 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                         spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
                         wave.append(G.CALFIB_WAVEGRID)
                         emis.append(-1.0)
+
+                    drows = dtb.read_where("detectid==d")
+                    if drows.size == 1:
+                        shot.append(drows['shotid'][0])
+                    else:
+                        shot.append(0)
         except:
             pass
 
 
     num_rows = len(detectids) + len(cont_detectids)
     #need to join continuum rows to emission line detectrows now
-    detectids += cont_detectids
-    ras += cont_ras
-    decs += cont_decs
-    dists += cont_dists
+    # detectids += cont_detectids
+    # ras += cont_ras
+    # decs += cont_decs
+    # dists += cont_dists
+    detectids = np.concatenate((detectids,cont_detectids))
+    ras = np.concatenate((ras,cont_ras))
+    decs = np.concatenate((decs,cont_decs))
+    dists = np.concatenate((dists,cont_dists))
+
 
 
     #now add the BROAD LINE sources if any
@@ -3059,6 +3203,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         try:
             with tables.open_file(broad_hdf5, mode="r") as h5_detect:
                 stb = h5_detect.root.Spectra
+                dtb = h5_detect.root.Detections
                 for d in broad_detectids:
                     rows = stb.read_where("detectid==d")
                     if rows.size == 1:
@@ -3070,41 +3215,53 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                         spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
                         wave.append(G.CALFIB_WAVEGRID)
                         emis.append(-1.0)
+
+                    drows = dtb.read_where("detectid==d")
+                    if drows.size == 1:
+                        shot.append(drows['shotid'][0])
+                    else:
+                        shot.append(0)
         except:
             pass
 
     num_rows = len(detectids) + len(broad_detectids)
     #need to join continuum rows to emission line detectrows now
-    detectids += broad_detectids
-    ras += broad_ras
-    decs += broad_decs
-    dists += broad_dists
-
+    # detectids += broad_detectids
+    # ras += broad_ras
+    # decs += broad_decs
+    # dists += broad_dists
+    detectids = np.concatenate((detectids,broad_detectids))
+    ras = np.concatenate((ras,broad_ras))
+    decs = np.concatenate((decs,broad_decs))
+    dists = np.concatenate((dists,broad_dists))
 
     #todo: here add THIS detection IF this is a re-extraction
     if this_detection is not None:
         #prepend THIS detection to:
         num_rows += 1
-        ras.insert(0,this_detection.ra)
-        decs.insert(0,this_detection.dec)
-        dists.insert(0,0.0)
-        wave.insert(0,G.CALFIB_WAVEGRID)
+        ras = np.insert(ras,0,this_detection.ra)
+        decs = np.insert(decs,0,this_detection.dec)
+        dists = np.insert(dists,0,0.0)
+
+
+        wave = np.insert(wave,0,G.CALFIB_WAVEGRID,axis=0)
+        shot = np.insert(shot,0,this_detection.survey_shotid)
 
         try:
             if (this_detection.sumspec_flux is not None) and \
                 len(this_detection.sumspec_flux) == len(G.CALFIB_WAVEGRID):
-                spec.insert(0, this_detection.sumspec_flux / 2.0)  # assume HETDEX 2AA and put into /1AA
-                emis.insert(0, this_detection.target_wavelength)
-                detectids.insert(0, this_detection.entry_id)
+                spec=np.insert(spec,0, this_detection.sumspec_flux / 2.0,axis=0)  # assume HETDEX 2AA and put into /1AA
+                emis=np.insert(emis,0, this_detection.target_wavelength)
+                detectids=np.insert(detectids,0, this_detection.entry_id)
             else: #probably this was a neighborhood_only call
-                spec.insert(0, np.zeros(len(G.CALFIB_WAVEGRID)))
-                emis.insert(0, 0)
-                detectids.insert(0, this_detection.entry_id)
+                spec=np.insert(spec,0, np.zeros(len(G.CALFIB_WAVEGRID)),axis=0)
+                emis=np.insert(emis,0, 0)
+                detectids=np.insert(detectids,0, this_detection.entry_id)
         except:
             log.info("No sumspec_flux to add for 'this_detection'.",exc_info=True)
-            spec.insert(0,np.zeros(len(G.CALFIB_WAVEGRID)))
-            emis.insert(0, 0)
-            detectids.insert(0, this_detection.entry_id)
+            spec=np.insert(spec,0,np.zeros(len(G.CALFIB_WAVEGRID)),axis=0)
+            emis=np.insert(emis,0, 0)
+            detectids=np.insert(detectids,0, this_detection.entry_id)
 
     row_step = 10 #allow space in between
     plt.close('all')
@@ -3222,8 +3379,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
         #the 1D spectrum
         plt.subplot(gs[i*row_step+1:(i+1)*row_step-1,3:])
-        plt.title(r'Dist: %0.1f"  RA,Dec: (%f,%f)   $\lambda$: %0.2f   DetectID: %s'
-                  %(dists[i],ras[i],decs[i],emis[i],str(detectids[i])))
+        plt.title(r'Dist: %0.1f"  RA,Dec: (%0.5f,%0.5f)   $\lambda$: %0.2f   DetectID: %s  Shot: %s'
+                  %(dists[i],ras[i],decs[i],emis[i],str(int(detectids[i])), str(shot[i])))
         plt.plot(wave[i],spec[i],zorder=9,color='b')
         if cwave is not None:
             plt.axvline(x=cwave,linestyle="--",zorder=1,color='k',linewidth=1.0,alpha=0.5)
@@ -3246,15 +3403,14 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             plt.savefig(fname,format='png', dpi=75)
             log.debug("File written: %s" %(fname))
 
-
-            if False:
-                import astropy.io.fits as fits
-
-                for i in range(len(cutouts)):
-                    co = cutouts[i]['cutout']
-                    hdu = fits.PrimaryHDU(co.data)  # essentially empty header
-                    hdu.header.update(co.wcs.to_header())  # insert the cutout's WCS
-                    hdu.writeto('/home/dustin/code/python/elixer/cutouts/test_cutout_%d.fits' % i, overwrite=True)
+            # if False:
+            #     import astropy.io.fits as fits
+            #
+            #     for i in range(len(cutouts)):
+            #         co = cutouts[i]['cutout']
+            #         hdu = fits.PrimaryHDU(co.data)  # essentially empty header
+            #         hdu.header.update(co.wcs.to_header())  # insert the cutout's WCS
+            #         hdu.writeto('/home/dustin/code/python/elixer/cutouts/test_cutout_%d.fits' % i, overwrite=True)
 
         except:
             log.info("Exception attempting to save neighborhood map png.",exc_info=True)
@@ -3266,6 +3422,11 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     return buf, nei_buf
 
 
+def check_package_versions():
+    """
+    very basic, check the common packages are at minimum levels
+    """
+    pass
 
 def main():
 
@@ -3281,6 +3442,12 @@ def main():
     except:
         log.critical("Exception in command line.",exc_info=True)
         exit(0)
+
+    try: #may be used for refrerence later
+         #several arguments can be modified during runtime and the original may need to be references
+        original_command_line_args = copy.deepcopy(args)
+    except:
+        pass
 
     if args.upgrade_hdf5:
         upgrade_hdf5(args)
@@ -3322,6 +3489,7 @@ def main():
     # exit()
 
 
+    log.critical(f"***** ELiXer version {G.__version__} *****")
     log.critical(f"***** HETDEX DATA RELEASE {G.HDR_Version} *****")
 
     pages = []
@@ -3350,7 +3518,7 @@ def main():
             log.info("Processing %d entries in FCSDIR" %(len(fcsdir_list)))
             print("Processing %d entries in FCSDIR" %(len(fcsdir_list)))
 
-    else:
+    elif not args.neighborhood_only:
         if args.aperture: #still
             explicit_extraction = True
             print("Explicit extraction ...") #list of explicit extractions
@@ -3360,7 +3528,8 @@ def main():
             log.info("Processing %d entries in HDF5" %(len(hdf5_detectid_list)))
             print("Processing %d entries in HDF5" %(len(hdf5_detectid_list)))
 
-
+    #add as a payload to args so can easily check later
+    args.explicit_extraction = explicit_extraction
 
     PDF_File(args.name, 1) #use to pre-create the output dir (just toss the returned pdf container)
 
@@ -3472,6 +3641,14 @@ def main():
                     survey = None
                     for d in hdf5_detectid_list:
                         plt.close('all')
+
+                        if isinstance(d,np.int64): #this is a detetid, not list of values RA, Dec, ...
+                            hd = hetdex.HETDEX(args, fcsdir_list=None, hdf5_detectid_list=[d], basic_only=basic_only)
+                            if hd.status == 0:
+                                hd_list.append(hd)
+                            continue
+
+                        #otherwise this a a list of RA, Dec, ...
                         #update the args with the ra dec and shot to build an appropriate hetdex object for extraction
                         try:
                             if len(d) == 2:
@@ -3715,6 +3892,12 @@ def main():
 
                         #now build the report for each emission detection
                         for e in hd.emis_list:
+
+                            if e.survey_shotid is not None and e.survey_shotid < 20180601000:
+                                G.NUDGE_SEP_MAX_DIST = G.NUDGE_SEP_MAX_DIST_EARLY_DATA
+                            else:
+                                G.NUDGE_SEP_MAX_DIST = G.NUDGE_SEP_MAX_DIST_LATER_DATA
+
                             pdf = PDF_File(args.name, e.entry_id, e.pdf_name)
                             e.outdir = pdf.basename
                             #update pdf_name to match
@@ -3887,6 +4070,12 @@ def main():
                                         else:
                                             header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(Ly$\alpha$): %0.3f" \
                                                       % (round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae)
+
+                                        try:
+                                            if len(e.spec_obj.classification_label) > 0:
+                                                header_text += "     " + e.spec_obj.classification_label.rstrip(",")
+                                        except:
+                                            pass
                                     except:
                                         pass
                                 try:
@@ -3942,7 +4131,7 @@ def main():
                     h5name = os.path.join(args.name, args.name + "_cat.h5")
                     elixer_hdf5.extend_elixer_hdf5(h5name,hd_list,overwrite=True)
                     for hd in hd_list:
-                        for e in hd:
+                        for e in hd.emis_list:
                             if e.status >=0:
                                 d_id = e.hdf5_detectid
                                 entry_ct = elixer_hdf5.detectid_in_file(h5name,d_id)
@@ -4105,7 +4294,7 @@ def main():
         # even so (and this is true of the neighborhood and mini as well, but to a lesser extent as they are faster)
         # for the last PDF to be completed, if SLURM times out, this would be missed and not re-run
         if args.gridsearch:
-            if len(args.gridsearch) != 4:
+            if len(args.gridsearch) != 5:
                 log.warning(f"Invalid gridsearch parameter ({args.gridsearch})")
             else:
                 log.debug("Preparing for gridsearch ...")
@@ -4149,12 +4338,17 @@ def main():
                                 savefn = os.path.join(e.outdir, e.pdf_name.rstrip(".pdf"))
                             else:
                                 savefn = os.path.join(e.outdir, str(e.entry_id))
-                            if args.shotid:
-                                shotlist = [args.shotid]
-                            elif e.survey_shotid:
+
+                            if e.survey_shotid: #use the shot from the DetObj
                                 shotlist = [e.survey_shotid]
+                            elif args.command_line_shotid:
+                                #this could have been modified upstream and may not be the original
+                                #(note: this is not exactly as it appears on the command line, but is immediatelu
+                                #after it has been transformed into the common, integer format
+                                shotlist = [args.command_line_shotid]
                             else:
                                 shotlist = SU.get_shotids(ra, dec)
+
                             ra_meshgrid, dec_meshgrid = SU.make_raster_grid(ra, dec, args.gridsearch[0],
                                                                             args.gridsearch[1])
 
@@ -4162,10 +4356,10 @@ def main():
                             log.info(f"{e.entry_id} gridsearch ({ra},{dec},{cw}) at {x}x{y}x{len(shotlist)}")
 
                             edict = SU.raster_search(ra_meshgrid, dec_meshgrid, shotlist, cw,
-                                                     max_velocity=args.gridsearch[2],aperture=3.0)
+                                                     max_velocity=args.gridsearch[2],max_fwhm=args.gridsearch[3],aperture=3.0)
                             #show most common (others are available via direct call to the saved py file)
                             z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,"fitflux",
-                                                          save=savefn,savepy=savefn,show=args.gridsearch[3])
+                                                          save=savefn,savepy=savefn,show=args.gridsearch[4])
                             #don't know how meaningful this really is, given that this is a single source (not a stack)
                             #and the f900 would be at the 0.01 S/N level
                             # z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,

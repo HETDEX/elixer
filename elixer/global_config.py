@@ -20,7 +20,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.9.1'
+__version__ = '1.10.0'
 
 #python version
 import sys
@@ -35,11 +35,13 @@ LAUNCH_PDF_VIEWER = None
 
 valid_HDR_Versions = [1,2,2.1]
 
-HDR_Version = 2.1
+HDR_Version = "2.1"
+HDR_Version_float = 2.1
 
-HDR_DATA_BASEPATH = "/data/03946/hetdex"
+#HDR_DATA_BASEPATH = "/data/03946/hetdex" #defunct 2020-10-01 #TACC wrangler:/data removed
 HDR_WORK_BASEPATH = "/work/03946/hetdex/"
 HDR_SCRATCH_BASEPATH = "/scratch/03946/hetdex/"
+#HDR_DATA_BASEPATH = HDR_SCRATCH_BASEPATH
 HDR_BASEPATH = HDR_WORK_BASEPATH
 
 HDF5_DETECT_FN = None
@@ -49,6 +51,7 @@ HDF5_BROAD_DETECT_FN = None
 HDF5_SURVEY_FN = None
 OBSERVATIONS_BASEDIR = None
 BAD_AMP_LIST = None
+BAD_AMP_TABLE = None
 CONFIG_BASEDIR = None
 PANACEA_RED_BASEDIR = None
 PANACEA_RED_BASEDIR_DEFAULT = None
@@ -68,6 +71,8 @@ GOODS_N_CAT_PATH = None
 STACK_COSMOS_BASE_PATH = None
 STACK_COSMOS_CAT_PATH = None
 COSMOS_EXTRA_PATH = None
+COSMOS_LAIGLE_BASE_PATH = None
+COSMOS_LAIGLE_CAT_PATH = None
 
 DECAM_IMAGE_PATH = None
 SHELA_BASE_PATH = None
@@ -90,11 +95,12 @@ HETDEX_API_CONFIG = None
 LOCAL_DEV_HOSTNAME = "z50"
 
 if hostname == LOCAL_DEV_HOSTNAME:  # primary author test box
-    HDR_Version = 2.1
+    HDR_Version = "2.1"
+    HDR_Version_float = 2.1
     LAUNCH_PDF_VIEWER = 'qpdfview'
 else:
-    HDR_Version = 2.1  # default HDR Version if not specified
-
+    HDR_Version = "2.1"  # default HDR Version if not specified
+    HDR_Version_float = 2.1
 
 #look specifically (and only) for HDR version on call
 args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
@@ -103,14 +109,24 @@ if "--hdr" in args: #overide default if specified on command line
     try:
         i = args.index("--hdr")
         if i != -1:
-            HDR_Version = float(sys.argv[i + 1]) #this could be an integer or a float or a string?
-            if HDR_Version.is_integer():
-                HDR_Version = int(HDR_Version)
+            HDR_Version = sys.argv[i + 1] #this could be an integer or a float or a string?
+#            if HDR_Version.is_integer():
+#                HDR_Version = int(HDR_Version)
     except:
         pass
 
-    if not (HDR_Version in valid_HDR_Versions) and HDR_Version != 0:
-        print("Invalid --hdr specified (%d). Valid choices are: %s" % (HDR_Version, valid_HDR_Versions))
+    try:
+        toks = HDR_Version.split(".")
+        if len(toks) >= 2:
+            HDR_Version = ".".join(toks[0:2])
+            HDR_Version_float = float(".".join(toks[0:2]))
+        elif len(toks) == 1:
+            HDR_Version_float = int(toks[0])
+        if not (HDR_Version_float in valid_HDR_Versions) and HDR_Version != 0:
+            print(f"Invalid --hdr specified ({HDR_Version})")
+            exit(-1)
+    except:
+        print(f"Invalid --hdr specified ({HDR_Version})")
         exit(-1)
 
 
@@ -121,14 +137,26 @@ def set_hdr_basepath(version=None):
     :param version: should be an integer 1 or 2 (as of 2020/02/01) ... higher numbers after
     :return:
     """
-    global HDR_DATA_BASEPATH, HDR_SCRATCH_BASEPATH, HDR_WORK_BASEPATH, HDR_BASEPATH, HDR_Version, HETDEX_API_CONFIG
+    global HDR_SCRATCH_BASEPATH, HDR_WORK_BASEPATH, HDR_BASEPATH, HDR_Version, HDR_Version_float, HETDEX_API_CONFIG
 
 
     if version is None:
         version = HDR_Version
+        version_float = HDR_Version_float
+    else:
+        try:
+            toks = version.split(".")
+            if len(toks) >= 2:
+                version_float = float(".".join(toks[0:2]))
+            elif len(toks) == 1:
+                version_float = int(toks[0])
+        except:
+            print(f"Invalid version specified ({version})")
+            exit(-1)
+
 
     if HETDEX_API_CONFIG is None:
-        if version != 0:
+        if version_float != 0:
             strHDRVersion = f"hdr{version}"
         elif hostname == LOCAL_DEV_HOSTNAME:
             strHDRVersion = f"hdr{HDR_Version}"
@@ -143,16 +171,16 @@ def set_hdr_basepath(version=None):
 
     hdr_dir = ""
     # _DATA_, _SCRATCH_ _WORK_ all specific to ELiXer, but the BASEPATH should use HETEDEX_API defined if possible
-    if version != 0:
+    if version_float != 0:
         hdr_dir = f"hdr{version}" #hdr1, hdr2, ....
-        HDR_DATA_BASEPATH = op.join(HDR_DATA_BASEPATH,hdr_dir)
+        #HDR_DATA_BASEPATH = op.join(HDR_DATA_BASEPATH,hdr_dir)
         HDR_SCRATCH_BASEPATH = op.join(HDR_SCRATCH_BASEPATH,hdr_dir)
         HDR_WORK_BASEPATH = op.join(HDR_WORK_BASEPATH,hdr_dir)
         HDR_BASEPATH = op.join(HDR_BASEPATH,hdr_dir)
     elif hostname == LOCAL_DEV_HOSTNAME: #author test box
         hdr_dir = "hdr1"
         print(f"*** using {hdr_dir}")
-        HDR_DATA_BASEPATH = op.join(HDR_DATA_BASEPATH, hdr_dir)
+        #HDR_DATA_BASEPATH = op.join(HDR_DATA_BASEPATH, hdr_dir)
         HDR_SCRATCH_BASEPATH = op.join(HDR_SCRATCH_BASEPATH, hdr_dir)
         HDR_WORK_BASEPATH = op.join(HDR_WORK_BASEPATH, hdr_dir)
         HDR_BASEPATH = op.join(HDR_BASEPATH, hdr_dir)
@@ -170,6 +198,7 @@ def select_hdr_version(version):
     """
     #one per line to make it easy to read/find
     global HDR_Version
+    global HDR_Version_float
     global valid_HDR_Versions
 
     global HDF5_DETECT_FN
@@ -178,6 +207,7 @@ def select_hdr_version(version):
     global HDF5_SURVEY_FN
     global OBSERVATIONS_BASEDIR
     global BAD_AMP_LIST
+    global BAD_AMP_TABLE
     global CONFIG_BASEDIR
     global PANACEA_RED_BASEDIR
     global PANACEA_RED_BASEDIR_DEFAULT
@@ -197,6 +227,8 @@ def select_hdr_version(version):
     global STACK_COSMOS_BASE_PATH
     global STACK_COSMOS_CAT_PATH
     global COSMOS_EXTRA_PATH
+    global COSMOS_LAIGLE_BASE_PATH
+    global COSMOS_LAIGLE_CAT_PATH
 
     global DECAM_IMAGE_PATH
     global SHELA_BASE_PATH
@@ -219,12 +251,24 @@ def select_hdr_version(version):
 
     global HETDEX_API_CONFIG
 
+
+    try:
+        toks = version.split(".")
+        if len(toks) >= 2:
+            version_float = float(".".join(toks[0:2]))
+        elif len(toks) == 1:
+            version_float = int(toks[0])
+    except:
+        print(f"Invalid version specified ({version})")
+        exit(-1)
+
     #make sure we have a valid version to select
-    if not (version in valid_HDR_Versions) and version != 0:
-        print("Invalid HDR version specified (%d). Valid choices are: %s" % (version, valid_HDR_Versions))
+    if not (version_float in valid_HDR_Versions) and version_float != 0:
+        print(f"Invalid HDR version specified ({version}).")
         return False
 
     HDR_Version = version
+    HDR_Version_float = version_float
     set_hdr_basepath(version)
 
     BAD_AMP_LIST = "/work/03261/polonius/maverick/catalogs/bad_amp_list.txt" #not really used anymore
@@ -299,12 +343,13 @@ def select_hdr_version(version):
 
             HDF5_CONTINUUM_FN = HETDEX_API_CONFIG.contsourceh5
             HDF5_SURVEY_FN = HETDEX_API_CONFIG.surveyh5
+            BAD_AMP_TABLE = HETDEX_API_CONFIG.badamp
             OBSERVATIONS_BASEDIR = HETDEX_API_CONFIG.red_dir
             CONFIG_BASEDIR = HETDEX_API_CONFIG.software_dir
             HDF5_RAW_DIR = HETDEX_API_CONFIG.raw_dir #local to this function only
             HDF5_REDUCTION_DIR = HETDEX_API_CONFIG.red_dir #local to this function only
 
-            if HDR_Version == 1:
+            if HDR_Version_float == 1:
                 PIXFLT_LOC = op.join(CONFIG_BASEDIR, "virus_config/PixelFlats")
             else:
                 PIXFLT_LOC = HETDEX_API_CONFIG.pixflat_dir
@@ -359,6 +404,10 @@ def select_hdr_version(version):
         STACK_COSMOS_CAT_PATH = op.join(hdr_imaging_basepath, "cosmos/stackCOSMOS")
         COSMOS_EXTRA_PATH = op.join(hdr_imaging_basepath, "cosmos/COSMOS/")
 
+        COSMOS_LAIGLE_BASE_PATH = op.join(hdr_imaging_basepath, "cosmos/laigle2015")
+        COSMOS_LAIGLE_CAT_PATH = op.join(hdr_imaging_basepath, "cosmos/laigle2015")
+
+
         DECAM_IMAGE_PATH = op.join(hdr_imaging_basepath, "shela/nano/")
         SHELA_BASE_PATH = op.join(hdr_imaging_basepath, "shela/nano/")
         SHELA_CAT_PATH = SHELA_BASE_PATH
@@ -366,9 +415,9 @@ def select_hdr_version(version):
         SHELA_PHOTO_Z_MASTER_PATH = op.join(hdr_imaging_basepath, "shela/SHELA")
 
         HSC_S15A = False
-        if HDR_Version < 2:
+        if HDR_Version_float < 2:
             if op.exists(op.join(hdr_imaging_basepath,"hsc")):
-                if HDR_Version == 1:
+                if HDR_Version_float == 1:
                     if op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
                         HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
                         HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
@@ -421,7 +470,7 @@ IFUCEN_LOC = op.join(CONFIG_BASEDIR,"virus_config/IFUcen_files")
 DIST_LOC = op.join(CONFIG_BASEDIR,"virus_config/DeformerDefaults")
 
 if PIXFLT_LOC is None:
-    if HDR_Version != 1:
+    if HDR_Version_float != 1:
         print("***** temporary hard code pixel flat location *****")
         PIXFLT_LOC = "/data/00115/gebhardt/lib_calib/lib_pflat"
     else:
@@ -572,11 +621,11 @@ OII_rest = 3727.
 
 #FLUX_CONVERSION = (1./60)*1e-17
 HETDEX_FLUX_BASE_CGS = 1e-17
-HETDEX_CONTINUUM_MAG_LIMIT = 25.0 #generous, truth is closer to 24.few
 # 1.35e-18 ~ 24.0 mag in g-band
 # 8.52e-19 ~ 24.5 mag in g-band,
 # 5.38e-19 ~ 25.0 mag in g-band
-HETDEX_CONTINUUM_FLUX_LIMIT =  5.38e-19
+HETDEX_CONTINUUM_MAG_LIMIT = 25.0 #generous, truth is closer to 24.few
+HETDEX_CONTINUUM_FLUX_LIMIT =  5.38e-19 #flux-density based on 25 mag limit (really more like 24.5)
 
 CONTINUUM_FLOOR_COUNTS = 6.5 #5 sigma * 6 counts / sqrt(40 angstroms/1.9 angs per pixel)
 
@@ -678,12 +727,14 @@ MIN_ADDL_EMIS_LINES_FOR_CLASSIFY = 1
 DISPLAY_ABSORPTION_LINES = False
 MAX_SCORE_ABSORPTION_LINES = 0.0 #the most an absorption line can contribute to the score (set to 0 to turn off)
 
+MULTILINE_USE_ERROR_SPECTRUM_AS_NOISE = False #if False, uses the whole amp to estimate noise, if possible
 MULTILINE_MIN_GOOD_ABOVE_NOISE = 3.0 #below this is not consider a possibly good line
 MULTILINE_SCORE_NORM_ABOVE_NOISE = 5.0 #get full 1x score at this level
 MULTILINE_SCORE_ABOVE_NOISE_MAX_BONUS = 3.0 #maximum multiplier as max of (peak/noise/NORM, BONUS)
 MULTILINE_MIN_SOLUTION_SCORE = 25.0  #remember, this does NOT include the main line's score (about p(noise) = 0.01)
 MULTILINE_FULL_SOLUTION_SCORE = 50.0 #scores at or above get full credit for the weight
 MULTILINE_MIN_WEAK_SOLUTION_CONFIDENCE = 0.5
+MULTILINE_USE_CONSISTENCY_CHECKS = True #if True, apply consistency checks (line ratios for AGN, vs low-z, etc)
 
 MULTILINE_WEIGHT_PROB_REAL = 0.4 #probabilty of real (0-.999) makes up 40% of score
 MULTILINE_WEIGHT_SOLUTION_SCORE = 0.5 #related to probability of real, makes 50% of score
@@ -696,6 +747,10 @@ MULTILINE_MAX_PROB_NOISE_TO_PLOT = 0.2 #plot dashed line on spectrum if p(noise)
 MULTILINE_ALWAYS_SHOW_BEST_GUESS = True #if true, show the best guess even if it does not meet the miniumum requirements
 ADDL_LINE_SCORE_BONUS = 5.0 #add for each line at 2+ lines (so 1st line adds nothing)
                             #this is rather "hand-wavy" but gives a nod to having more lines beyond just their score
+
+
+
+
 SHADE_1D_SPEC_PEAKS = False #if true, shade in red the 1D spec peaks above the NORM noise limit (see below)
 
 
@@ -709,8 +764,17 @@ MAX_DYNAMIC_MAG_APERTURE = 3.0 #maximum growth in dynamic mag
 NUDGE_MAG_APERTURE_MAX_DATE = 20180601 #nudge center only BEFORE this date (using as a proxy for the number of active IFUs)
 NUDGE_MAG_APERTURE_CENTER = 1.5  #allow the center of the mag aperture to drift to the 2D Gaussian centroid
                                  #up to this distance in x and y in arcsec (if 0.0 then no drift is allowed)
-NUDGE_SEP_MAX_DIST = 1.5 #allow source extractor found objects to be matched to the HETDEX target up to this distances
+
+NUDGE_SEP_MAX_DIST_EARLY_DATA = 1.5 #allow source extractor found objects to be matched to the HETDEX target up to this distances
+                          #in arcsec (for early data, 2017 and fist part of 2018 when # of IFUs was low and astrometric
+                          #solution was not great
+
+NUDGE_SEP_MAX_DIST_LATER_DATA = 1.0 #allow source extractor found objects to be matched to the HETDEX target up to this distances
                           #in arcsec
+
+NUDGE_SEP_MAX_DIST = 1.0 #allow source extractor found objects to be matched to the HETDEX target up to this distances
+                          #in arcsec
+
 MAX_SKY_SUBTRACT_MAG = 2.0 #if local sky subtraction results in a magnitude change greater than this value, do not apply it
 
 DEBUG_SHOW_GAUSS_PLOTS = False #set on command line now --gaussplots (but keep here for compatibility with other programs)
@@ -766,8 +830,20 @@ MAX_OK_UNMATCHED_LINES_SCORE = MULTILINE_MIN_SOLUTION_SCORE #25.0
 MARK_PIXEL_FLAT_DEVIATION = 3.0 #if > 3.0 sigma from mean, then mark as bad well (set to large value to not mark)
 MIN_PIXEL_FLAT_CENTER_RATIO = 0.85 #if less than this, the center is bad and may create a false emission line
 MAX_NUM_DUPLICATE_CENTRAL_PIXELS = 2 #if more than this, flag as spurious
+PIXEL_FLAT_ABSOLUTE_BAD_VALUE = 0.7 #values at or below this in the flat are "bad" and can artificially create emission
+                                    #a -1 turns it off (code will ignore this global)
 #note: 2 means there is one set of duplicates: ie. [1,2,1,3] would be 2 (1 and 1 are duplicated)
 
 MAX_MAG_FAINT = 28.0 #set as nominal "faint" mag if flux limit reached
 
 PLAE_POII_GAUSSIAN_WEIGHT_SIGMA = 5.0
+
+CHECK_FOR_METEOR = True #if true, check the exposure fiber data for meteor pattern
+
+ALLOW_BROADLINE_FIT = True
+
+SUBTRACT_HETDEX_SKY_RESIDUAL = False #if true compute a per-shot sky residual, convolve with per-shot PSF and subtract
+# from the HETDEX spectrum (only applies to re-extractions (forced extractions) with ffsky
+# requires --aperture xx  --ffsky --sky_residual
+
+GET_SPECTRA_MULTIPROCESS = True #auto sets to False if in SLURM/dispatch mode

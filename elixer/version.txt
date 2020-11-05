@@ -1,6 +1,112 @@
 changes to elixer by version
 
 
+1.10.0 [2020-11-05]
+* HDR2.1.2 curated re-run
+
+1.10.0a8 [2020-11-04]
+* still check for (in)consistency with AGN, LzG, etc even for weak solutions BUT do not allow the solutions to gain score
+  (except for OIII 4959+5007)
+* small meteor adjustments
+    +try to avoid picking up on bright objects just off the edge of the detector
+    +skip if the dither normalization is bad
+    +if only one single bright meteor common line, must also have 80% of full spec ratio to trigger
+
+
+1.10.0a7 [2020-10-30]
+* tweak line scoring to divide snr by sqrt(bins) where bins is the number of wavebins over which a median filter was
+  run when allowing for a noisy, broad-line fit (to account for smoothing)
+* only include lines 3550 < wave < 5500 when checking for (solution) unmatched lines
+* use 1.0" as max distance to ellipse (if outside the ellipse) for aperture matching for shots after 2018-06-01 and
+  1.5" before
+* correction for OIII solution (4959+5007) boost (was missing prob_noise correction if raising to minium score)
+  + add enforcement of more restrictive +/- 2AA error in position between 4959 and 5007 in line fit
+* correction to weak-low-z scores (the weight drop-off in P(LyA) voting should be more pronunced)
+* tuning LAE physical extent (major axis diameter) weights
+
+1.10.0a6 [2020-10-21]
+* allow --hdr (HDR_Version) to be a string (not just a float) (but for compatibility with hetdex_api, keeps only
+    Major.minor)
+* do NOT zero weights for high error continuum IF there are 2 or fewer estimates (was causing cases where the PLAE/POII
+  (aggregate) was being forced to 0).
+
+1.10.0a5 [2020-10-16]
+* fixed "/data" path from KPNO and HSC meta data (now replaced in all cases with the appropriate, dynamic basepath)
+
+
+1.10.0a4 [2020-10-05]
+* add distance to barycenter under photometric cutouts (as s:#.#") and changed mag: to m: to save space
+* correct matched (multiline) solution EW_r to use the wide continuum estimates if available
+* fix missing re-try for broadline if solution fails with no emission line info object
+* added two more meteor emission lines
+* [pending, residual calculation is far too expensive, need to store in a FITS or Db and just read at runtime]
+  add optional parameter --sky_residual (also requires --ffsky and --aperture) to subtract off left over sky residual for
+  the specific shot when re-extracting on an aperture (note: can be CPU time costly)
+* fix bug where scoring penality for unmatched lines was not being re-applied after a poor fit (dx0) line removal
+  score correction
+* move "meteor" label as first if multiples are applied
+* made "meteor" label lowercase to be consistent with others
+* re-tuned physical size and gmag vs fwhm to be a little more aggressive
+* added multiline solution sanity checks
+    + solution cannot consist solely of rank 4 or weaker lines
+    + stronger rank lines must be within 50% of sigma (line-width) of weaker anchor line (modified by the allowed
+      "broad" status of the line)
+* change elixer.h5 file "multiline_prob" to be the scaled solution score for the top solution (0-1) as more meaningful
+  than just the base probability that the line (and the solution) is random noise
+  (bumped h5 version to 0.2.5)
+* MgII solution can receive AGN consitency boost but not the 'agn' label (as more likely just a lower-z object with
+  strong outflows)
+
+1.10.0a3 [2020-09-22]
+* add specific check for 3:1 ratio OIII 5007/4959 (allow comparison even if potential 4959 line is very weak and boost
+  solution score to minimum if ratio is a fit)
+* adding in broadline fitting (very experimental)
+* allow specific lines to be very broad
+
+1.10.0a2 [2020-09-10]
+* fixed issue where args.shotid would be (correctly) overwritten with per DetObj shotids, but when running --gridsearch
+  at the end, only the last shotid was available in args.shotid. Now uses DetObj specific shotid first and then
+  falls back to the ORIGINAL commandline shotid if the DetObj shotid is invalid.
+* added --known_z command line parameter so caller can set a fixed z for the solutions (solutions w/in z +/- 0.05 are
+  considered)
+* remove explicit restriction against rank 4 emission lines as possible solutions (still require at least one additional
+  line)
+* adjusted the SLURM auto run-time setting to better fit with --gridsearch (based on the gridwidth and step size, but
+  does not know about multiple shots)
+* add shot seeing (FWHM), Throughput, and dither Normalization to 4th line of upper left text
+
+1.10.0a [2020-08-31]
+* explicit check for NaN in lineflux and continuum for PLAE (MCMC)
+* check for identical 2D spec cutouts in top 3 fibers
+* check for grossly negative spectrum (less than 10% of wavebins with positive flux), mark as spurious
+* add global option (PIXEL_FLAT_ABSOLUTE_BAD_VALUE) to use an aboslution pixel flat bad pixel value instead of the
+  (usually 3x, set by MARK_PIXEL_FLAT_DEVIATION) standard deviation
+  + pixelflat wells now defined as EITHER the center mean being less than 85% (MIN_PIXEL_FLAT_CENTER_RATIO) of the median of the rest
+    OR the center mean being below the PIXEL_FLAT_ABSOLUTE_BAD_VALUE
+* check for completely negative spectrum and not invert (flip min and max so orients correctly)
+* add magnitude check for LyA in hetdex::aggregate_classification (basically as g-mag brightens from 23.5, the line fwhm
+  must get increasingly large (e.g. like an AGN) to not get LyA probability squashed down
+* allow MgII (2799AA) to be an single line solution
+* allow CIV (1549AA) to be a single line solution
+* mark pixel flat pixels in red if below the threshold even if they are masked
+* allow (re)extraction of an existing HETDEX ID (pass the detectID as before with --aperture switch)
+* framework for line ratio comparisions and consistency with various objects (AGN, OII emitters, Stars, etc)
+    + when active, will probably bump minor version number
+* added some rank 3 emission lines as single line sol (for AGN) if their fwhm is large (12+AA) and they are in an observed
+    wavelength range where we might expect to see only that line (because other lines are not in ranger or are weak)
+* added detection for meteors (if exactly one exposure significantly above the others and shows the 4 or more possible lines
+    then is marked as possible meteor)
+* add classification_label to spectrum object and to elixer HDF5 file
+* restored missig call to peakdet in spectrum.set_spectra
+* changed --gridsearch to use (more robust) spectrum.peakdet instead of spectrum_utilities.simple_fit_wave and fall back
+  to simple_fit_wave if there is a failure in peakdet
+* fixed error in peakdet that would only merge in other detected lines IF peakdet also found a line (if it did not
+  it would return no lines found)
+* force re-extraction on existing HETDEX detect IDS if --aperture supplied on command call
+* add --ylim option to command line arguments so can force the 1D spectrum plot limits (for exploration)
+
+
+
 1.9.1 [2020-08-06]
 * promote to 1.9.1 (HDR2.1) - redeux
 * fix for issue with pixel flats no longer being flipped for config 0/1 issues (due to missing

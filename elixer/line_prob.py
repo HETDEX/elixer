@@ -714,7 +714,7 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
                     log.debug("Invalid lineflux or continuum or ew_obs")
                     return 0, 0, 0, {'ratio':[0,0,0],'plgd':[0],'pogd':[0]}
 
-        if (lineFlux <= 0) or (continuum <= 0):
+        if (lineFlux <= 0) or (continuum <= 0) or (np.isnan(lineFlux)) or (np.isnan(continuum)):
             log.debug("Invalid lineflux or continuum")
             return 0, 0, 0, {'ratio':[0,0,0],'plgd':[0],'pogd':[0]}
 

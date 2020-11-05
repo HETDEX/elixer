@@ -10,6 +10,7 @@ try:
     from elixer import spectrum_utilities as SU
     from elixer import weighted_biweight
     from elixer import utilities as utils
+    from elixer import shot_sky
 except:
     import global_config as G
     import line_prob
@@ -21,6 +22,7 @@ except:
     import spectrum_utilities as SU
     import weighted_biweight
     import utilities as utils
+    import shot_sky
 
 
 from hetdex_tools.get_spec import get_spectra as hda_get_spectra
@@ -502,6 +504,7 @@ class DetObj:
         #still in place for CURE calls
         self.x = None  #sky x and y?
         self.y = None
+        self.known_z = None #a fixed, "known" redshift passed in on the command line
 
         self.w = 0.0
         self.w_unc = 0.0
@@ -563,6 +566,8 @@ class DetObj:
         self.ccd_adjacent_fibers = []
         self.ccd_adjacent_single_fiber_brightest_mag = None
         self.central_single_fiber_mag = None
+
+        self.grossly_negative_spec = False
 
         self.outdir = None
         self.calfib_noise_estimate = None
@@ -630,6 +635,7 @@ class DetObj:
         self.best_gmag_selected = "" #to be filled in with sdss or hetdex later
 
         self.duplicate_fibers_removed = 0 # -1 is detected, but not removed, 0 = none found, 1 = detected and removed
+        self.duplicate_fiber_cutout_pair_weight =0 #any two of top 3 fiber 2D cutouts are identical
 
         self.image_2d_fibers_1st_col = None
         self.image_1d_emission_fit = None
@@ -641,6 +647,8 @@ class DetObj:
         self.survey_fwhm_moffat = None #HDR1
         self.survey_fwhm = None #HDR2+
         self.survey_response = None
+        self.dither_norm = 0.0 #todo: max/min for dithers?
+        self.amp_stats = 0.0 #todo:???
         self.survey_fieldname = None
 
         self.multiline_z_minimum_flag = False #False == multiline no good solution, True = 1 good solution
@@ -888,6 +896,378 @@ class DetObj:
         else:
             return self.sigma
 
+    def check_for_meteor(self):
+        """
+        examine the exposures (individually), stacking the calibrated spectra (over each fiber) in each exposure
+        and check the residual (max - (sum of the others))
+        I expect a normal detection to have nothing significant, but a meteor is bright and will appear in only one exposure
+        :return:
+        """
+
+        #biweight stack or median or mean or sum?
+        #since we really want this to stand out, I'm thinking sum
+
+        #how many exposures? usually 3, but not always
+        try:
+
+            if (np.isnan(self.dither_norm) or (self.dither_norm > 2.0)):
+                log.info(f"DetObj::check_for_meteor(). Cannot check for meteor due to bad dither normalization ({self.dither_norm})")
+                return 0
+
+            num_exp = len(np.unique([f.expid for f in self.fibers]))
+            if num_exp < 2:
+                log.info(f"DetObj::check_for_meteor(). Cannot check for meteor due to insufficient exposures ({num_exp})")
+                return 0
+
+            #indices that cover common meteor lines (MgI, Al, CaI, CaII) into CALFIB_WAVEGRID
+            #these are a bit broader ranges than the more specific waves that are list later on in this function
+            #and are used just to check the exposure vs exposure ratios
+            common_line_waves = np.concatenate( (np.arange(3570,3590,2),
+                                                 np.arange(3715,3745,2),
+                                                 np.arange(3824,3844,2),
+                                                 np.arange(3852,3864,2),
+                                                 np.arange(3926,3942,2),
+                                                 np.arange(3960,3976,2),
+                                                 np.arange(4210,4250,2),
+                                                 np.arange(4400,4450,2),
+                                                 np.arange(5160,5220,2)))
+
+            common_line_idx = np.searchsorted(G.CALFIB_WAVEGRID, common_line_waves)
+
+            #planning ahead a bit, not quite sure how to use this yet
+            #this is a an average flux density in areas not commonly covered by meteor emission lines
+            #so this can indicate a lot of continuum
+            # a REAALY bright meteor would have continuum too, but this is from the PSF weighted spectra and the other
+            # contributing exposures would normally have very little
+            exclude_common_line_idx = np.setdiff1d(np.arange(len(G.CALFIB_WAVEGRID)),common_line_idx)
+            avg_exclude_flux_density = np.sum(self.sumspec_flux[exclude_common_line_idx])/(G.FLUX_WAVEBIN_WIDTH*len(exclude_common_line_idx))
+            avg_exclude_flux_density_err = np.sum(self.sumspec_fluxerr[exclude_common_line_idx])/(G.FLUX_WAVEBIN_WIDTH*len(exclude_common_line_idx))
+            min_avg_exclude_flux_density = avg_exclude_flux_density - avg_exclude_flux_density_err
+
+            if min_avg_exclude_flux_density > 4.0: #erg/s/cm2/AA  #> 10e-17 in HETDEX CGS
+                #definite detection of continuum
+                log.info(f"DetObj::check_for_meteor(). Bright continuum ({min_avg_exclude_flux_density}) excluding common meteor lines. Not a meteor.")
+                return 0
+
+
+            exp = np.zeros((num_exp,len(G.CALFIB_WAVEGRID)))
+            exp_err = np.zeros((num_exp,len(G.CALFIB_WAVEGRID)))
+
+            for f in self.fibers:
+                idx = f.panacea_idx
+                exp[f.expid-1] += f.fits.calfib[idx]
+                exp_err[f.expid-1] += f.fits.calfibe[idx]
+
+
+            #sum over JUST the COMMON areas
+            common_sum = np.zeros(num_exp)
+            common_sume = np.zeros(num_exp)
+            for i in range(num_exp):
+                common_sum[i] = np.nansum(exp[i][common_line_idx])
+                common_sume[i] = np.sqrt(np.nansum(exp_err[i][common_line_idx]**2))
+
+            # which has the minimum (so can subtract off)
+            #forces the lowest to be zero and keeps everything non-negative
+            #but can really inflate the max/#2 ratio if #2 and #3 are really close s|t #2-#3 is a small number
+            #and #1 is just a little larger, can start down the meteor path erroneously
+            #SO .... only do this IF the min is negative
+            if min(common_sum) < 0:
+                common_sum -= min(common_sum)
+
+            # which exposure has the maximum
+            cmx_expid = np.argmax(common_sum) + 1
+            cmx_sum = common_sum[cmx_expid - 1]
+
+            # which has the minimum
+            cmn_expid = np.argmin(common_sum) + 1
+            cmn_sum = common_sum[cmn_expid - 1]
+
+            # which is second highest (normally, the only one left, but there could be more than 3 exposures
+            strip_sum = copy(common_sum)
+            strip_sum[cmx_expid - 1] = -99999.
+            cn2_expid = np.argmax(strip_sum) + 1
+            cn2_sum = common_sum[cn2_expid - 1]
+
+            near_bright_obj = False
+
+            if True:
+                #this can be tripped up by being near a bright object and exposures that move
+                #closer to it can then become the largest (overall) just from continuum
+                ###############################
+                # Now for the entire spectrum
+                ###############################
+
+                #now, just sum across each (expect 1 exposure to stand out
+                ssum = np.zeros(num_exp)
+                ssume = np.zeros(num_exp)
+                for i in range(num_exp):
+                    ssum[i] = np.nansum(exp[i])
+                    ssume[i] = np.sqrt(np.nansum(exp_err[i]**2))
+
+                #which has the minimum (so can subtract off)
+                ssum -= min(ssum)
+
+                #which exposure has the maximum
+                mx_expid = np.argmax(ssum)+1
+                mx_sum = ssum[mx_expid-1]
+
+                #which has the minimum
+                mn_expid = np.argmin(ssum)+1
+                mn_sum = ssum[mn_expid-1]
+
+                #which is second highest (normally, the only one left, but there could be more than 3 exposures
+                strip_sum = copy(ssum)
+                strip_sum[mx_expid-1] = -99999.
+                n2_expid = np.argmax(strip_sum)+1
+                n2_sum = ssum[n2_expid-1]
+
+                #median and std for later
+                # med = np.median(ssum)
+                # std = np.std(ssum)
+                # #effectively, this is the num of std the maximum is above the next hightest (which will be the
+                # #median of the three values
+                # if std != 0:
+                #     std_above = (mx_sum-med)/std
+                # else:
+                #     std_above = 0
+
+                #make sure the two methods ID the same
+                # BUT we could be near a bright object and then its scattered light could flip these around
+                # so ignore this and just use the 'common' values at the end
+                if (cmx_expid != mx_expid) or (cmn_expid != mn_expid):
+                    log.info("DetObj::check_for_meteor expids do not match. Could be near a bright object OR not a meteor.")
+                    near_bright_obj = True
+                #     return 0
+
+            if False:
+                #sum over wavebins
+                others_combined = np.zeros(len(G.CALFIB_WAVEGRID))
+                others_combined_err = np.zeros(len(G.CALFIB_WAVEGRID))
+                sel = np.where(np.arange(num_exp)!=(mx_expid-1))[0]
+                #others_combined += ssum[i]
+
+                #"maximum" case others
+                others_sum = np.nansum(ssum[sel])
+                others_sum_err = np.sqrt(np.nansum(ssume[sel]**2))
+
+                if others_sum < 0: #just slide up
+                    #the 50 is partly arbitrary and partly experimental
+                    others_sum += others_sum_err
+                    mx_sum += others_sum_err #or maybe the mx_sum's own error?
+                    if others_sum < 0: #still less than zero
+                        others_sum = others_sum_err #assume should be zero + error
+
+                #others_sum = np.nansum(others_combined)
+
+                #how does highest sum [-1] it compare to the next highest [-2]
+                #next_largest = sorted(ssum)[-2]
+
+                if others_sum > 25000.0: #sort of arbitrarily large value to exclude stars
+                    return 0
+
+                if others_sum == 0: #almost impossible unless there is a problem
+                    log.debug("DetObj::check_for_meteor zero sums")
+                    return 0
+            else:
+                #use the second highest as reference ... should be no way for it to be less than zero
+                #since we subtract off the lowest sum
+                if n2_sum > 25000.0:  # sort of arbitrarily large value to exclude stars
+                    return 0
+
+                if n2_sum == 0:  # almost impossible unless there is a problem
+                    log.debug("DetObj::check_for_meteor zero sums")
+                    return 0
+
+                if n2_sum < 0:  #impossible?
+                    log.debug("DetObj::check_for_meteor negative second sum")
+                    return 0
+
+
+            try: #if the errors are too big, just cannot trust anything
+                if (cmx_sum / common_sume[cmx_expid-1]) < 2.0:
+                    log.debug(f"DetObj:check_for_meteor sum error too high {cmx_sum} +/- {common_sume[cmx_expid-1]}")
+                    return 0
+            except:
+                log.debug(f"DetObj:check_for_meteor sum error too high {cmx_sum} +/- {common_sume[cmx_expid - 1]}")
+                return 0
+
+            meteor = 0
+            spec_ratio_trigger = 3.0
+            full_spec_ratio_trigger = 5.0
+            bright_obj_spec_ratio_trigger = 2.5
+
+            if cmx_sum > cn2_sum > 0:
+                full_ratio = mx_sum / n2_sum
+                common_ratio = cmx_sum / cn2_sum
+                #spec_ratio = max(full_ratio,common_ratio)
+                #spec_ratio = std_above
+                spec_ratio = cmx_sum / cn2_sum
+               # if ((full_ratio > 2 ) or (common_ratio > 4)): #maybe need more checking
+                #minimum gate check, just to warrant addtional steps
+                pos = []
+                log.debug(f"Meteor check. full_ratio = {full_ratio:0.2f}, spec_ratio = {spec_ratio:0.2f}, near_bright = {near_bright_obj}")
+                if ( (full_ratio > full_spec_ratio_trigger) or (spec_ratio > spec_ratio_trigger ) or \
+                        ((near_bright_obj and (spec_ratio > bright_obj_spec_ratio_trigger))) ): #maybe need more checking
+                    #merge in with the existing all found lines
+                    try:
+                        waves = [x.fit_x0 for x in self.spec_obj.all_found_lines]
+                        #if we already have 4 or more lines from the PSF weighted spectra, these
+                        #are going to be the brighter/stronger lines anyway,
+                        #there is no need to run the "no fit" lines and risk a shotgun match
+                        if len(waves) < 4:
+                            pos = elixer_spectrum.sn_peakdet_no_fit(G.CALFIB_WAVEGRID, exp[cmx_expid - 1],
+                                                                    exp_err[cmx_expid - 1],
+                                                                    dx=3, rx=2, dv=3.0, dvmx=5.0)
+                            quick_waves = G.CALFIB_WAVEGRID[pos]
+                            for q in quick_waves:
+                                if not np.any(np.isclose(q, waves, atol=6.0)):
+                                    waves.append(q)
+
+                            if not np.any(np.isclose(self.w,waves,atol=6.0)):
+                                waves.append(self.w)
+                    except:
+                        log.info("Exception in DetObj::check_for_meteor()",exc_info=True)
+                        waves = [] #this will basically fail out below
+
+                    waves = np.array(waves)
+
+                    bright_mg_line = np.where(  ((waves >= 3826) & (waves <= 3840)) |
+                                                ((waves >= 5170) & (waves <= 5186)))[0]
+                    common_lines = np.where( ((waves >= 3570) & (waves <= 3590)) |
+                                             ((waves >= 3715) & (waves <= 3740)) |
+                                             ((waves >= 3826) & (waves <= 3840)) |
+                                             ((waves >= 3852) & (waves <= 3864)) |
+                                             ((waves >= 3928) & (waves <= 3937)) |
+                                             ((waves >= 3965) & (waves <= 3971)) |
+                                             ((waves >= 4224) & (waves <= 4230)) |
+                                             ((waves >= 5170) & (waves <= 5186))  )[0]
+                    #other lines CaII at 3934
+                    #            Al    around 3968 (or Al and FeI 3962,3978)? (kinda weak)
+                    #            CaI  at 4227
+                    #            MgI  at 5173,5184
+                    #            FeI  at 5330  (weak)
+
+                    if len(waves) > 30:
+                        #too many to trust
+                        meteor = 0
+                    elif len(common_lines) > 3: #got most of the common lines
+                        if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
+                            meteor = 5 #common trigger
+                            log.debug("+++++ meteor condition 7")
+                        elif len(waves) < 20:  # getting close to shotgun
+                            meteor = 3
+                            log.debug("+++++ meteor condition 8")
+                        elif len(waves) < 30:  # getting close to shotgun
+                            meteor = 2
+                            log.debug("+++++ meteor condition 8")
+                    #full ratio in one exposure
+                    elif (spec_ratio > spec_ratio_trigger):
+                        #one or more of the Mg lines and  2 or more common lines (which can include MgI)
+                        if (len(bright_mg_line) > 0) and (len(common_lines) > 1):
+                            if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
+                                meteor = 3 #common trigger
+                                log.debug("+++++ meteor condition 1")
+                            elif len(waves) < 20: #getting close to shotgun
+                                meteor = 2
+                                log.debug("+++++ meteor condition 2")
+                            elif len(waves) < 30: #getting close to shotgun
+                                meteor = 1
+                                log.debug("+++++ meteor condition 2")
+
+                        elif (full_ratio > (0.75 * full_spec_ratio_trigger)):
+                            if (len(bright_mg_line) > 0) : #only got a bright line
+                                #if (len(waves) < 4):
+                                #    log.debug("+++++ no enough other lines for meteor. condition 3")
+                                if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
+                                    meteor = 2 #occasional trigger
+                                    log.debug("+++++ meteor condition 3")
+                                elif len(waves) < 20:  # getting close to shotgun
+                                    meteor = 1
+                                    log.debug("+++++ meteor condition 4")
+                                elif len(waves) < 30:  # getting close to shotgun
+                                    meteor = 0.5
+                                    log.debug("+++++ meteor condition 4")
+                            elif len(common_lines) > 1: #no bright lines, but 2+ common lines
+                                    meteor = 1
+                                    log.debug("+++++ meteor condition 5")
+
+                    #reduced ratio but near a bright object
+                    elif near_bright_obj and (spec_ratio > bright_obj_spec_ratio_trigger) and \
+                            (full_spec_ratio_trigger > 0.75 * full_spec_ratio_trigger):
+                        if (len(bright_mg_line) > 0) and (len(common_lines) > 1):
+                            if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
+                                meteor = 2
+                                log.debug("+++++ meteor condition 1b")
+                            elif len(waves) < 20:
+                                meteor = 1
+                                log.debug("+++++ meteor condition 2b")
+                            elif len(waves) < 30:
+                                meteor = 0.5
+                        elif (len(bright_mg_line) > 0):  # only got a bright line
+                            if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
+                                meteor = 1.5
+                                log.debug("+++++ meteor condition 3b")
+                            elif len(waves) < 20:  # getting close to shotgun
+                                meteor = 0.5
+                                log.debug("+++++ meteor condition 4b")
+                            elif len(waves) < 30:
+                                meteor = 0.25
+                        elif len(common_lines) > 1: #no bright lines, but 2+ common lines
+                            if len(waves) < 10:
+                                meteor = 0.5
+                                log.debug("+++++ meteor condition 5b")
+                            elif len(waves) < 30:
+                                meteor = 0.25
+                                log.debug("+++++ meteor condition 5b")
+                            else:
+                                meteor = 0 #don't trust it
+                    else:
+                        log.debug("Failed to meet additional meteor criteria. Likely not a meteor.")
+
+                    #final check
+                    if (meteor == 0) and (spec_ratio > 20) and (full_ratio > 5) and (len(waves) <= 20):
+                        if len(common_lines) > 0: #got at least one
+                            meteor = 1
+                            log.debug("+++++ meteor condition 1c")
+                    # CANNOT DO THIS : far too easy for AGN to fall into this
+                    #     else:
+                    #         meteor = 0.5
+                    #         log.debug("+++++ meteor condition 1d")
+
+
+                    if meteor > 0:
+                        if spec_ratio > 5.0 or full_ratio > 3.0 or meteor >= 2:
+                            self.spec_obj.add_classification_label("meteor",prepend=True)
+                        else:
+                            self.spec_obj.add_classification_label("meteor",replace=True)
+                        self.spec_obj.meteor_strength = meteor
+                        pos = np.array(pos)
+                        if len(pos) > 0:
+                            log.info(f"Meteor: Detection likely a meteor. Exp# {mx_expid} at x{spec_ratio:0.1f}, lines at {G.CALFIB_WAVEGRID[pos]}")
+                        else:
+                            log.info(f"Meteor: Detection likely a meteor. Exp# {mx_expid} at x{spec_ratio:0.1f}")
+                        return 1
+                else:
+                    log.debug(f"Did not trigger initial meteor check. Targetted spec ratio {spec_ratio}. Full ratio {full_ratio}.")
+
+            #for test
+            if False:
+                plt.plot(G.CALFIB_WAVEGRID,exp[0])
+                plt.plot(G.CALFIB_WAVEGRID, exp[1])
+                plt.plot(G.CALFIB_WAVEGRID, exp[2])
+                plt.savefig("meteor_test.png")
+
+                plt.figure(figsize=(15, 2))
+                plt.plot(G.CALFIB_WAVEGRID, exp[mx_expid - 1] - others_combined)
+                for p in pos:
+                    plt.axvline(G.CALFIB_WAVEGRID[p])
+                plt.savefig("meteor_test_sub.png")
+
+        except:
+            log.debug("Exception in hetdex::DetObj::check_for_meteor",exc_info=True)
+
+        return 0
+
 
     def aggregate_classification(self):
         """
@@ -903,7 +1283,9 @@ class DetObj:
 
 
         def plae_gaussian_weight(plae_poii):
-            #p
+            #the idea here as the the closer the PLAE/POII is to 1 (a 50/50 chance) the lower the weight (tends to 0)
+            # but extreme values (getting closer to 0.001 or 1000) the weight goes closer to a full value of 1
+            # by a value of 20 (or 1/20) essentially at 1.0
             if plae_poii < 1:
                 plae_poii = 1.0/plae_poii
 
@@ -964,33 +1346,47 @@ class DetObj:
                     diam = SU.physical_diameter(z ,self.classification_dict['diam_in_arcsec'])
                     if diam is not None and diam > 0:
                         #todo: set the likelihood (need distro of sizes)
-                        #typical half-light radius of order 1kpc (so full diamter something like 4-6 kpc and up)
+                        #typical half-light radius of order 1kpc (so full diamter something like 4-8 kpc and up)
                         #if AGN maybe up to 30-40kpc
                         if diam > 40.0:  #just too big, favor not LAE
-                            lk = 0.1
-                            w = 0.7
+                            lk = 0.0
+                            w = 1.0
                         elif 30.0 < diam <= 40:
+                            #pretty big, favors OII at lower-z, but not very definitive
+                            #could maybe get some QSO in here?
+                            lk = 0.0
+                            w = 0.5
+                        elif 25.0 < diam <= 30:
                             #pretty big, maybe favors OII at lower-z, but not very definitive
-                            lk = 0.1
+                            #could get some QSO in here (brightness/width would help over rule this)
+                            lk = 0.0
                             w = 0.1
-                        elif 10.0 < diam <= 30:
-                            #moderately big, maybe favors OII at lower-z, but not very definitive
-                            lk = 0.5
-                            w = 0.1
-                        elif 4.0 < diam < 10.0:
-                            lk = 0.9
-                            w = 0.01 #does not add much info, but is consistent
+                        elif 20.0 < diam <= 25:
+                            #pretty big, maybe favors OII at lower-z, but not very definitive
+                            #could get some QSO in here (brightness/width would help over rule this)
+                            lk = 0.0
+                            w = 0.0
+                        elif 15.0 < diam <= 20:
+                            #not very useful
+                            lk = 0.0
+                            w = 0.0
+                        elif 8.0 < diam <=15.0:
+                            lk = 1.0
+                            w = 0.1 #does not add much info, but is consistent
+                        elif 3.0 < diam <= 8.0:
+                            lk = 1.0
+                            w = 0.5
                         else: #very small, highly consistent with LAE (small boost)
-                            lk = 0.9
-                            w = 0.1
+                            lk = 1.0
+                            w = 0.75
 
                         likelihood.append(lk)
                         weight.append(w)
                         var.append(1)
                         #set a base weight (will be adjusted later)
                         diameter_lae.append({"z":z,"kpc":diam,"weight":w,"likelihood":lk})
-                        log.debug(
-                             f"{self.entry_id} Aggregate Classification, added phsyical size:"
+                        log.info(
+                             f"{self.entry_id} Aggregate Classification, added physical size:"
                              f" z({z:#.4g}) kpc({diam:#.4g}) weight({w:#.2g}) likelihood({lk:#.2g})")
 
                 for z in not_lae_z:
@@ -1002,10 +1398,11 @@ class DetObj:
                     if diam is not None and diam > 0:
                         # todo: set the likelihood (need distro of sizes)
                         if diam < 0.1:  #just too small, favor LAE
-                            lk = 0.9 # ***(this is likelihood of LAE, so 1-likelihood not LAE)
+                            lk = 1.0 # ***(this is likelihood of LAE, so 1-likelihood not LAE)
                             #so saying here that is very UNLIKELY this is a low-z object based on small physical size
                             #so it is more LIKELY it is a high-z object
-                            w = 0.7
+                            w = 0.75
+                        #could be planetary nebula, etc (very small)
                         else: #no info, favors either
                             lk = 0.5
                             w = 0.0
@@ -1015,8 +1412,8 @@ class DetObj:
                         weight.append(w)
                         var.append(1)
                         diameter_not_lae.append({"z":z,"kpc":diam,"weight":w,"likelihood":lk})
-                        log.debug(
-                            f"{self.entry_id} Aggregate Classification, added phsyical size:"
+                        log.info(
+                            f"{self.entry_id} Aggregate Classification, added physical size:"
                             f" z({z:#.4g}) kpc({diam:#.4g}) weight({w:#.2g}) likelihood({lk:#.2g})")
 
 
@@ -1052,14 +1449,14 @@ class DetObj:
                         weight.append(0.01)  # opinion ... if consistent with point-source, does not really mean anything
                         var.append(1.)  # no variance to use
                         prior.append(base_assumption)
-                        log.debug(
+                        log.info(
                             f"Aggregate Classification: PSF scale fully consistent with point source: lk({likelihood[-1]}) weight({weight[-1]})")
                     else: #scale is between 0.01 and 0.5,
                         var.append(1.)
                         likelihood.append(scale)
                         weight.append(0.5-scale)
                         prior.append(base_assumption)
-                        log.debug(
+                        log.info(
                             f"Aggregate Classification: PSF scale marginally inconsistent with point source: lk({likelihood[-1]}) weight({weight[-1]})")
                 else:
                     #really adds no information ... as likely to be OII as LAE if consistent with point-source
@@ -1084,18 +1481,20 @@ class DetObj:
                     #or a slightly lower score and more lines, then
                     # this basically wins (boost the weight way up)
                     if (s.score / G.MULTILINE_FULL_SOLUTION_SCORE > 8 and (len(s.lines) > 1)) or \
-                       (s.score / G.MULTILINE_FULL_SOLUTION_SCORE > 4 and (len(s.lines) > 2)):
+                       (s.score / G.MULTILINE_FULL_SOLUTION_SCORE > 4 and (len(s.lines) > 2)) or \
+                       (G.MULTILINE_USE_CONSISTENCY_CHECKS and (s.score / G.MULTILINE_FULL_SOLUTION_SCORE > 2) and (s.frac_score > 0.75)):# and s):
                         bonus_weight = min(s.score / G.MULTILINE_FULL_SOLUTION_SCORE,10.0)  #up to 10x bonus
 
-                    if s.score > G.MULTILINE_MIN_SOLUTION_SCORE: #only consider somewhat probable scores
+                    if s.score >= G.MULTILINE_MIN_SOLUTION_SCORE: #only consider somewhat probable scores
                         #split between z > 1.8 ==> LAE and < 1.8 ==>not LAE
-                        if s.z  > 1.8: #suggesting LAE consistent
+                        #if s.z  > 1.8: #suggesting LAE consistent
+                        if s.central_rest == G.LyA_rest:
                             likelihood.append(1.0) #s.scale_score)
                             weight.append(s.scale_score * bonus_weight)#0.8)  # opinion ... has multiple lines, so the score is reasonable
                             #must also have CIV or HeII, etc as possible matches
                             var.append(1)  #todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
-                            log.debug(
+                            log.info(
                                 f"Aggregate Classification: high-z solution: z({s.z}) lk({likelihood[-1]}) "
                                 f"weight({weight[-1]}) score({s.score}) scaled score({s.scale_score})")
 
@@ -1104,15 +1503,16 @@ class DetObj:
                             weight.append(s.scale_score * bonus_weight) #1.0)  # opinion ... has multiple lines, so the score is reasonable
                             var.append(1)  #todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
-                            log.debug(
+                            log.info(
                                 f"Aggregate Classification: low-z solution: z({s.z}) lk({likelihood[-1]}) "
                                 f"weight({weight[-1]}) score({s.score}) scaled score({s.scale_score})")
                     else: #low score, but can still impact
                         #this can be a problem for items like 1000637691 which get reduced score, but is clearly a non-LAE multi-line
                         #like an HII region; in theory clustering of emission lines would catch this
-                        w = 0.5 * s.scale_score #min(s.score / G.MULTILINE_MIN_SOLUTION_SCORE, s.scale_score)
+                        w = 0.5 * (max(s.scale_score -0.5, 0)) #min(s.score / G.MULTILINE_MIN_SOLUTION_SCORE, s.scale_score)
 
-                        if s.z > 1.8:  # suggesting LAE consistent
+                        if s.central_rest == G.LyA_rest:
+                        #if s.z > 1.8:  # suggesting LAE consistent
                            # likelihood.append(s.scale_score)
                            # weight.append(0.8 * w)  # opinion ... has multiple lines, so the score is reasonable
                             likelihood.append(0.8)  # s.scale_score)
@@ -1120,7 +1520,7 @@ class DetObj:
                             # must also have CIV or HeII, etc as possible matches
                             var.append(1)  # todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
-                            log.debug(
+                            log.info(
                                 f"Aggregate Classification: high-z weak solution: z({s.z}) lk({likelihood[-1]}) "
                                 f"weight({weight[-1]}) score({s.score}) scaled score({s.scale_score})")
                         else:  # suggesting NOT LAE consistent
@@ -1130,7 +1530,7 @@ class DetObj:
                             weight.append(w * bonus_weight)
                             var.append(1)  # todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
-                            log.debug(
+                            log.info(
                                 f"Aggregate Classification: low-z weak solution: z({s.z}) lk({likelihood[-1]}) "
                                 f"weight({weight[-1]}) score({s.score}) scaled score({s.scale_score})")
 
@@ -1140,8 +1540,8 @@ class DetObj:
                         if (idx is not None) and (len(idx) == 1):
                             idx = idx[0]
                             diameter_lae[idx]['weight'] = weight[-1]
-                            log.debug(
-                                f"{self.entry_id} Aggregate Classification, updated phsyical size: "
+                            log.info(
+                                f"{self.entry_id} Aggregate Classification, updated physical size: "
                                 f"z({diameter_lae[idx]['z']:#.4g}) "
                                 f"kpc({diameter_lae[idx]['kpc']:#.4g}) "
                                 f"weight({diameter_lae[idx]['weight']:#.2g}) "
@@ -1168,7 +1568,7 @@ class DetObj:
                     likelihood.append(0.0) #so, NOT LAE
                     weight.append(min(1.0,lya_sol.unmatched_lines_score/G.MULTILINE_FULL_SOLUTION_SCORE)) #up to 1.0
                     prior.append(base_assumption)
-                    log.debug(
+                    log.info(
                         f"Aggregate Classification: Significant unmatched lines penalize LAE: lk({likelihood[-1]})"
                         f" weight({weight[-1]})")
             except:
@@ -1184,7 +1584,7 @@ class DetObj:
                         weight.append(min(1.0,
                                           self.spec_obj.unmatched_solution_score / G.MULTILINE_FULL_SOLUTION_SCORE))  # up to 1.0
                         prior.append(base_assumption)
-                        log.debug(
+                        log.info(
                             f"Aggregate Classification: Significant unmatched lines penalize LAE: lk({likelihood[-1]})"
                             f" weight({weight[-1]})")
 
@@ -1224,13 +1624,91 @@ class DetObj:
                 var.append(1)  # todo: use the sd (scaled?) #can't use straight up here since the variances are not
                                # on the same scale
 
-                log.debug(
+                log.info(
                     f"Aggregate Classification: MC PLAE/POII from combined continuum: lk({likelihood[-1]}) weight({weight[-1]})")
 
                 #todo: handle the uncertainty on plae_hat
                 #plae_hat_sd = self.classification_dict['plae_hat_sd']
         except:
             log.debug("Exception in aggregate_classification for best PLAE/POII",exc_info=True)
+
+
+        try:
+            lower_mag = self.best_gmag + self.best_gmag_unc #want best value + the error (so on the fainter side)
+        except:
+            lower_mag  = 99
+
+
+        #basic magnitude sanity checks
+        if lower_mag < 18.0: #the VERY BRIGHTEST QSOs in the 2 < z < 4 are 17-18 mag
+            likelihood.append(0.1)  # weak solution so push likelihood "down" but not zero (maybe 0.2 or 0.25)?
+            weight.append(max(2.0,max(weight)))
+            var.append(1)  # todo: ? could do something like the spectrum noise?
+            prior.append(base_assumption)
+            log.info(f"Aggregate Classification: gmag too bright {self.best_gmag} to be LAE (AGN): lk({likelihood[-1]}) "
+                f"weight({weight[-1]})")
+        elif lower_mag < 24.0:
+            try:
+                min_fwhm = self.fwhm - (0 if ((self.fwhm_unc is None) or (np.isnan(self.fwhm_unc))) else self.fwhm_unc)
+                min_thresh = max( ((24.0 - lower_mag) + 8.0), 8.0) #just in case something weird
+
+                #the -25.0 and -0.8 are from some trial and error plotting to get the shape I want
+                #runs 0 to 1.0 and drops off very fast from 1.0 toward 0.0
+                # (by ratio of 0.8 were at y=0.5, by 0.6 y ~ 0.0)
+                sigmoid = 1.0 / (1.0 + np.exp(-25.0 * (min_fwhm/min_thresh - 0.8)))
+                if min_fwhm < min_thresh:
+                    #unless this is an AGN, this is very unlikely
+                    likelihood.append(min(0.5, sigmoid))  # weak solution so push likelihood "down" but not zero (maybe 0.2 or 0.25)?
+                    weight.append(1.0 * (1.0-sigmoid))
+                    var.append(1)  # todo: ? could do something like the spectrum noise?
+                    prior.append(base_assumption)
+                    log.info(f"Aggregate Classification: gmag too bright {self.best_gmag} for fwhm {self.fwhm}: lk({likelihood[-1]}) "
+                              f"weight({weight[-1]})")
+            except:
+                log.debug("Exception in aggregate_classification for best PLAE/POII", exc_info=True)
+
+        ########################################################
+        #check for specific incompatible classification labels
+        ########################################################
+
+        if "Meteor" in self.spec_obj.classification_label:
+            likelihood.append(0.0)
+            weight.append(self.spec_obj.meteor_strength)
+            var.append(1)  # todo: ? could do something like the spectrum noise?
+            prior.append(base_assumption)
+            log.info( f"Aggregate Classification: Meteor indicated: lk({likelihood[-1]}) weight({weight[-1]})")
+
+        ##########################
+        # single line OIII 5007
+        # * replaced by special handling in spectrum::classify_with_additional_lines
+        ##########################
+
+        # try:
+        #     #5006.83 in air
+        #     #basically, tend to be very narrow with a fair amount of flux (so moderately high eqw)
+        #     #this is a safety against possible OIII-5007 as a single line,
+        #     # (which is NOT part of the PLAE/POII comparision)
+        #     if (self.spec_obj is not None) and (len(self.spec_obj.solutions) == 0) and (self.w > 5006.5):
+        #         if self.spec_obj.fwhm + self.spec_obj.fwhm_unc < 6.0: #getting suspicious
+        #             if (self.eqw_hetdex_gmag_obs) and (not np.isnan(self.eqw_hetdex_gmag_obs)) and \
+        #                 self.eqw_hetdex_gmag_obs / (self.w/1216.) > 100.0:
+        #                 if (self.eqw_line_obs) and (not np.isnan(self.eqw_line_obs)) and \
+        #                 self.eqw_line_obs / (self.w/1216.) > 35.0:
+        #                     #todo: need other / better criteria (maybe an EW distro for OIII 5007) from HETDEX?
+        #                     #todo: masking (of low-z galaxies could also help a lot)
+        #
+        #                     likelihood.append(0.0)
+        #                     weight.append(1.0)
+        #                     var.append(1)
+        #                     prior.append(base_assumption)
+        #                     log.info(
+        #                         f"Aggregate Classification: OIII-5007 possible: lk({likelihood[-1]}) weight({weight[-1]})")
+        #
+        #
+        # except:
+        #     pass
+
+        #todo: "Star"
 
 
         #todo: chi2 vs S/N  (is it a real line)
@@ -1240,13 +1718,16 @@ class DetObj:
         #check for bad pixel flats
         bad_pixflt_weight = 0
         for fidx in range(len(self.fibers)): #are in decreasing order of weight
-            if self.fibers[fidx].pixel_flat_center_ratio < G.MIN_PIXEL_FLAT_CENTER_RATIO:
+
+            if (self.fibers[fidx].pixel_flat_center_ratio < G.MIN_PIXEL_FLAT_CENTER_RATIO) or \
+               (self.fibers[fidx].pixel_flat_center_avg < G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE):
                 bad_pixflt_weight += self.fibers[fidx].relative_weight
                 likelihood.append(0)
                 weight.append(1.0 + self.fibers[fidx].relative_weight) #more central fibers make this more likely to trigger
                 var.append(1)
                 prior.append(0)
-                log.info(f"Aggregate Classification: bad pixel flat for fiber #{fidx+1}. lk({likelihood[-1]}) weight({weight[-1]})")
+                log.info(f"Aggregate Classification: bad pixel flat for fiber #{fidx+1}. lk({likelihood[-1]}) "
+                         f"weight({weight[-1]}) relative fiber weight({self.fibers[fidx].relative_weight})")
 
         #check for duplicate pixel positions
         #NO! there are valid (good) conditions where there ARE duplicate positions but it is good and correct
@@ -1270,6 +1751,49 @@ class DetObj:
             self.classification_dict['scaled_plae'] = scaled_prob_lae
             self.classification_dict['spurious_reason'] = reason
             log.info(f"Aggregate Classification: bad pixel flat dominates. Setting PLAE to -1 (spurious)")
+        elif self.duplicate_fiber_cutout_pair_weight > 0.0:
+            reason = "(duplicate 2D fibers)"
+            scaled_prob_lae = -1
+            self.classification_dict['scaled_plae'] = scaled_prob_lae
+            self.classification_dict['spurious_reason'] = reason
+            log.info(f"Aggregate Classification: duplicate 2D fibers "
+                     f"(min weight {self.duplicate_fiber_cutout_pair_weight}). Setting PLAE to -1 (spurious)")
+        elif self.grossly_negative_spec:
+            reason = "(negative spectrum)"
+            scaled_prob_lae = -1
+            self.classification_dict['scaled_plae'] = scaled_prob_lae
+            self.classification_dict['spurious_reason'] = reason
+            log.info(f"Aggregate Classification: grossly negative spectrum. Setting PLAE to -1 (spurious)")
+        #shot conditions
+        elif (self.survey_response < 0.08) or (self.survey_fwhm > 3.0) or \
+                (np.isnan(self.dither_norm) or (self.dither_norm > 2.0)):
+            if self.survey_response < 0.05: #this alone means we're done
+                 reason = "(poor throughput)"
+                 scaled_prob_lae = -1
+                 self.classification_dict['scaled_plae'] = scaled_prob_lae
+                 self.classification_dict['spurious_reason'] = reason
+                 log.info(f"Aggregate Classification: poor throughput {self.survey_response}. Setting PLAE to -1 (spurious)")
+            elif (np.isnan(self.dither_norm) or (self.dither_norm > 2.0)):
+                reason = "(bad dither norm)"
+                scaled_prob_lae = -1
+                self.classification_dict['scaled_plae'] = scaled_prob_lae
+                self.classification_dict['spurious_reason'] = reason
+                log.info(
+                    f"Aggregate Classification: poor throughput {self.survey_response}. Setting PLAE to -1 (spurious)")
+            else:
+                bool_sum  = (self.survey_response < 0.08) + (self.survey_fwhm > 3.0) +  (np.isnan(self.dither_norm) or (self.dither_norm > 2.0))
+                if bool_sum > 1:
+                    reason = "(poor shot)"
+                    scaled_prob_lae = -1
+                    self.classification_dict['scaled_plae'] = scaled_prob_lae
+                    self.classification_dict['spurious_reason'] = reason
+                    log.info(
+                        f"Aggregate Classification: poor shot F: {self.survey_fwhm} T: {self.survey_response}  N:{self.dither_norm}. Setting PLAE to -1 (spurious)")
+                else:
+                    log.info(
+                        f"Aggregate Classification: poor shot F: {self.survey_fwhm} T: {self.survey_response}  N:{self.dither_norm}, but did not trigger spurious.")
+
+
         # check for duplicate pixel positions
         # elif self.num_duplicate_central_pixels > G.MAX_NUM_DUPLICATE_CENTRAL_PIXELS:  # out of the top (usually 4) fibers
         #     reason = "(duplicate pixels)"
@@ -1277,7 +1801,8 @@ class DetObj:
         #     self.classification_dict['scaled_plae'] = scaled_prob_lae
         #     self.classification_dict['spurious_reason'] = reason
         #     log.info(f"Aggregate Classification: bad duplicate central pixels. Setting PLAE to -1 (spurious)")
-        else:
+
+        if scaled_prob_lae != -1:
             #
             # Combine them all
             #
@@ -1417,7 +1942,7 @@ class DetObj:
         #what criteria to set weight? maybe really low chi^2 is good weight?
         try:
             if (self.hetdex_cont_cgs is not None) and (self.hetdex_cont_cgs_unc is not None):
-                hetdex_cont_limit = 2.0e-18 #don't trust below this
+                hetdex_cont_limit =  G.HETDEX_CONTINUUM_FLUX_LIMIT #8.5e-19 #don't trust below this
                 if (self.hetdex_cont_cgs - self.hetdex_cont_cgs_unc) > hetdex_cont_limit:
                     w = 0.2 #never very high
                     p = self.p_lae_oii_ratio_range[0]
@@ -1626,13 +2151,13 @@ class DetObj:
         # set to good value if gmag < 24
         cgs_24 = 1.35e-18  # 1.35e-18 cgs ~ 24.0 mag in g-band
         cgs_24p5 = 8.52e-19  # 8.52e-19 cgs ~ 24.5 mag in g-band, get full marks at 24mag and fall to zero by 24.5
-        cgs_25 = 5.38e-19
+        cgs_25 = 5.38e-19 #
         cgs_26 = 2.14e-19
         cgs_27 = 8.52e-20
         cgs_28 = 3.39e-20
         cgs_29 = 1.35e-20
         cgs_30 = 5.38e-21
-        cgs_faint_limit = cgs_29
+        cgs_faint_limit = cgs_28
 
         num_cat_match = 0 #number of catalog matched objects
         cat_idx = -1
@@ -1650,8 +2175,8 @@ class DetObj:
         #HETDEX Continuum (near emission line), not very reliable
         try:
             if (self.hetdex_cont_cgs is not None) and (self.hetdex_cont_cgs_unc is not None):
-                hetdex_cont_limit = 2.0e-18 #don't trust below this
-                if (self.hetdex_cont_cgs - self.hetdex_cont_cgs_unc) > hetdex_cont_limit:
+                #hetdex_cont_limit = 2.0e-18 #don't trust below this
+                if (self.hetdex_cont_cgs - self.hetdex_cont_cgs_unc) > G.HETDEX_CONTINUUM_FLUX_LIMIT:
                     continuum.append(self.hetdex_cont_cgs)
                     variance.append(self.hetdex_cont_cgs_unc*self.hetdex_cont_cgs_unc)
                     weight.append(0.2) #never very high
@@ -1659,11 +2184,17 @@ class DetObj:
                     log.debug(f"{self.entry_id} Combine ALL Continuum: Added HETDEX estimate ({continuum[-1]:#.4g}) "
                               f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
                 else: #set as lower limit ... too far to be meaningful
-                    continuum.append(hetdex_cont_limit)
-                    if self.hetdex_cont_cgs_unc > 0:
-                        variance.append(self.hetdex_cont_cgs_unc*self.hetdex_cont_cgs_unc)
-                    else:
-                        variance.append(hetdex_cont_limit * hetdex_cont_limit) #set to itself as a big error
+                    continuum.append(G.HETDEX_CONTINUUM_FLUX_LIMIT)
+                    # set to itself as a big error (basically, 100% error)
+                    variance.append(G.HETDEX_CONTINUUM_FLUX_LIMIT * G.HETDEX_CONTINUUM_FLUX_LIMIT)
+
+                    #does it make any sense to attempt to use the calculated error in this case? it is the
+                    #error on a value that is rejected as meaningless (below the limit or negative)
+                    # if self.hetdex_cont_cgs_unc > 0:
+                    #     variance.append(self.hetdex_cont_cgs_unc*self.hetdex_cont_cgs_unc)
+                    # else:
+                    #     variance.append(G.HETDEX_CONTINUUM_FLUX_LIMIT * G.HETDEX_CONTINUUM_FLUX_LIMIT) #set to itself as a big error
+
                     weight.append(0.0) #never very high
                     type.append('hdn')
                     log.debug(f"{self.entry_id} Combine ALL Continuum: Failed HETDEX estimate, setting to lower limit  "
@@ -1678,9 +2209,11 @@ class DetObj:
         # Best full width gmag continuum (HETDEX full width or SDSS gmag)
         try:
             cgs_limit = cgs_25
-            if (self.best_gmag_cgs_cont is not None) and (self.best_gmag_cgs_cont_unc is not None):
+            if (self.best_gmag_cgs_cont is not None) and (self.best_gmag_cgs_cont_unc is not None) and \
+               (self.best_gmag_cgs_cont > 0) and (self.best_gmag_cgs_cont_unc > 0):
                 #if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_limit:
 
+                #estimate - error is still better than the limit, so it gets full marks
                 if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_limit: #good, full marks
                     continuum.append(self.best_gmag_cgs_cont)
                     variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
@@ -1696,6 +2229,8 @@ class DetObj:
                     log.debug(
                         f"{self.entry_id} Combine ALL Continuum: Added best spectrum gmag estimate ({continuum[-1]:#.4g}) "
                         f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
+
+                #estimate is better than the limit, but with error hits the limit, so reduced marks
                 elif (self.best_gmag_cgs_cont > cgs_limit): #mean value is in range, but with error is out of range
                     frac = (self.best_gmag_cgs_cont - cgs_24) / (cgs_24 - cgs_25)
                     # at 24mag this is zero, fainter goes negative, at 24.5 it is -1.0
@@ -1992,11 +2527,18 @@ class DetObj:
                 try:
                     #let it be a little larger, mostly the sampling will still work and give positive values
                     if np.sqrt(variance[i]) > (1.3 *continuum[i]):
-                        weight[i] = 0
-                        log.debug(f"Error (sd) ({np.sqrt(variance[i])}): {variance[i]} too high vs continuum {continuum[i]}. Weight zeroed.")
+                        if len(continuum) > 2:
+                            weight[i] = 0
+                            log.info(f"Error (sd) ({np.sqrt(variance[i])}): {variance[i]} too high vs continuum {continuum[i]}. Weight zeroed.")
+                        else:
+                            log.info(f"Warning (sd) ({np.sqrt(variance[i])}): {variance[i]} too high vs continuum {continuum[i]}, but weight kept as too few to zero out.")
                 except:
-                    weight[i] = 0
-                    log.debug(f"Exception checking variance {variance[i]} vs continuum {continuum[i]}. Weight zeroed.")
+                    if len(continuum) > 2:
+                        weight[i] = 0
+                        log.info(f"Exception checking variance {variance[i]} vs continuum {continuum[i]}. Weight zeroed.")
+                    else:
+                        log.info(
+                            f"Exception checking variance {variance[i]} vs continuum {continuum[i]}. but weight kept as too few to zero out.")
 
             #remove any zero weights
             sel = np.where(weight==0)
@@ -2015,7 +2557,7 @@ class DetObj:
 
                     #then clip (pretty aggressively)
                     diff = abs(continuum - continuum_hat)/continuum_sd_hat
-                    original_continuum = continuum[:] #for logging below
+                    original_continuum = copy(continuum) #for logging below
                     sigma = 1.5
                     sel = np.where(diff < sigma)
 
@@ -2984,7 +3526,7 @@ class DetObj:
                 except:
                     log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra")
 
-            self.spec_obj.classify()  # solutions can be returned, also stored in spec_obj.solutions
+            self.spec_obj.classify(known_z=self.known_z)  # solutions can be returned, also stored in spec_obj.solutions
             self.rvb = SU.red_vs_blue(self.w, self.sumspec_wavelength,
                                       self.sumspec_flux / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS,
                                       self.sumspec_fluxerr / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS, self.fwhm)
@@ -3056,6 +3598,15 @@ class DetObj:
                 self.survey_fieldname = row['field'].decode()
             except:
                 self.survey_fieldname = row['field']
+
+            self.dither_norm = -1.0
+            try:
+                relflux_virus = row['relflux_virus']
+                self.dither_norm = np.max(relflux_virus) / np.min(relflux_virus)
+            except:
+                self.dither_norm = -1.0
+
+            #relflux_virus
 
         return
 
@@ -3384,7 +3935,7 @@ class DetObj:
         try:
             coord = SkyCoord(ra=self.ra * U.deg, dec=self.dec * U.deg)
             apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
-                                  ffsky=self.extraction_ffsky, multiprocess=False, rad=self.extraction_aperture,
+                                  ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS, rad=self.extraction_aperture,
                                   tpmin=0.0,fiberweights=True)
 
             if len(apt) == 0:
@@ -3405,6 +3956,11 @@ class DetObj:
                 fiber_weights = apt['fiber_weights'][0] #as array of ra,dec,weight
             except:
                 pass
+
+
+            #get the per shot sky residual (if configured to do so)
+            if G.SUBTRACT_HETDEX_SKY_RESIDUAL:
+                residual_spec, residual_spec_err = shot_sky.get_shot_sky_residual(self.survey_shotid)
 
             if not self.w:
                 # find the "best" wavelength to use as the central peak
@@ -3620,12 +4176,20 @@ class DetObj:
                 # use the std dev of all "mostly empty" (hence sigma=3.0) or "sky" fibers as the error
                 mean, median, std = sigma_clipped_stats(all_calfib, axis=0, sigma=3.0)
                 self.calfib_noise_estimate = std
-                self.spec_obj.noise_estimate = self.calfib_noise_estimate
-                self.spec_obj.noise_estimate_wave = G.CALFIB_WAVEGRID
+                if not G.MULTILINE_USE_ERROR_SPECTRUM_AS_NOISE:
+                    self.spec_obj.noise_estimate = self.calfib_noise_estimate
+                    self.spec_obj.noise_estimate_wave = G.CALFIB_WAVEGRID
 
             except:
                 log.info("Could not build DetObj calfib_noise_estimate", exc_info=True)
                 self.calfib_noise_estimate = np.zeros(len(G.CALFIB_WAVEGRID))
+
+                try:
+                    log.info("Setting spectrum noise estimate to error spectrum")
+                    self.spec_obj.noise_estimate = self.sumspec_fluxerr
+                    self.spec_obj.noise_estimate_wave = G.CALFIB_WAVEGRID
+                except:
+                    log.info("Could not set spectrum noise_estimate to sumpsec_fluxerr", exc_info=True)
 
             #my own fitting
             try:
@@ -3762,7 +4326,9 @@ class DetObj:
                 log.error("Exception computing SDSS g-mag", exc_info=True)
 
             # choose the best
-            if sdss_okay >= hetdex_okay:
+            #even IF okay == 0, still record the probably bogus value (when
+            #actually using the values elsewhere they are compared to a limit and the limit is used if needed
+            if sdss_okay >= hetdex_okay and not np.isnan(self.sdss_cgs_cont) and (self.sdss_cgs_cont is not None):
                 self.best_gmag_selected = 'sdss'
                 self.best_gmag = self.sdss_gmag
                 self.best_gmag_unc = self.sdss_gmag_unc
@@ -3771,7 +4337,7 @@ class DetObj:
                 self.best_eqw_gmag_obs = self.eqw_sdss_obs
                 self.best_eqw_gmag_obs_unc = self.eqw_sdss_obs_unc
                 log.debug("Using SDSS gmag over HETDEX full width gmag")
-            elif hetdex_okay > 0:
+            elif hetdex_okay > 0 and not np.isnan(self.hetdex_gmag_cgs_cont) and (self.hetdex_gmag_cgs_cont is not None):
                 self.best_gmag_selected = 'hetdex'
                 self.best_gmag = self.hetdex_gmag
                 self.best_gmag_unc = self.hetdex_gmag_unc
@@ -3780,7 +4346,7 @@ class DetObj:
                 self.best_eqw_gmag_obs = self.eqw_hetdex_gmag_obs
                 self.best_eqw_gmag_obs_unc = self.eqw_hetdex_gmag_obs_unc
                 log.debug("Using HETDEX full width gmag over SDSS gmag.")
-            else:
+            else: #something catastrophically bad
                 log.debug("No full width spectrum g-mag estimate is valid.")
                 self.best_gmag_selected = 'limit'
                 self.best_gmag = G.HETDEX_CONTINUUM_MAG_LIMIT
@@ -3814,7 +4380,7 @@ class DetObj:
             except:
                 pass
 
-            self.spec_obj.classify()  # solutions can be returned, also stored in spec_obj.solutions
+            self.spec_obj.classify(known_z=self.known_z)  # solutions can be returned, also stored in spec_obj.solutions
 
             self.rvb = SU.red_vs_blue(self.w, self.sumspec_wavelength,
                                       self.sumspec_flux / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS,
@@ -4029,6 +4595,15 @@ class DetObj:
             self.sumspec_flux = row['spec1d'] #DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
             self.sumspec_fluxerr = row['spec1d_err']
 
+
+            #sanity check:
+            try:
+                sel = np.where(np.array(self.sumspec_flux) > 0)[0]
+                if len(sel) < (0.1 * len(self.sumspec_flux )): #pretty weak check, but if it fails something is very wrong
+                    self.grossly_negative_spec = True
+            except:
+                pass
+
             #this is HETDEX data only (using line continuum estimate)(a bit below will optionally use sdss)
             if self.cont_cgs != 0:
                 self.eqw_obs = self.estflux / self.cont_cgs
@@ -4116,7 +4691,9 @@ class DetObj:
 
 
             #choose the best
-            if sdss_okay >= hetdex_okay:
+            # even IF okay == 0, still record the probably bogus value (when
+            # actually using the values elsewhere they are compared to a limit and the limit is used if needed
+            if sdss_okay >= hetdex_okay and not np.isnan(self.sdss_cgs_cont) and (self.sdss_cgs_cont is not None):
                 self.best_gmag_selected = 'sdss'
                 self.best_gmag = self.sdss_gmag
                 self.best_gmag_unc = self.sdss_gmag_unc
@@ -4125,7 +4702,7 @@ class DetObj:
                 self.best_eqw_gmag_obs = self.eqw_sdss_obs
                 self.best_eqw_gmag_obs_unc = self.eqw_sdss_obs_unc
                 log.debug("Using SDSS gmag over HETDEX full width gmag")
-            elif hetdex_okay > 0:
+            elif hetdex_okay > 0 and not np.isnan(self.hetdex_gmag_cgs_cont) and (self.hetdex_gmag_cgs_cont is not None):
                 self.best_gmag_selected = 'hetdex'
                 self.best_gmag = self.hetdex_gmag
                 self.best_gmag_unc = self.hetdex_gmag_unc
@@ -4359,6 +4936,14 @@ class DetObj:
             self.fibers.sort(key=lambda x: x.relative_weight, reverse=True)  # highest weight is index = 0
             self.fibers_sorted = True
 
+            # self.fibers.sort(key=lambda x: x.relative_weight, reverse=False)  # highest weight is index = 0
+            # for f in self.fibers:
+            #     print(f"{f.ra:0.5f} {f.dec:0.5f} \t ----- \t {f.raw_weight:0.2f} \t {f.relative_weight:0.2f}")
+            #
+            #
+
+
+
             #build a noise estimate over the top 4 fibers (amps)?
             try:
                 good_idx = np.where([x.fits for x in self.fibers])[0] #some might be None, so get those that are not
@@ -4369,12 +4954,19 @@ class DetObj:
                 #use the std dev of all "mostly empty" (hence sigma=3.0) or "sky" fibers as the error
                 mean, median, std = sigma_clipped_stats(all_calfib, axis=0, sigma=3.0)
                 self.calfib_noise_estimate = std
-                self.spec_obj.noise_estimate = self.calfib_noise_estimate
-                self.spec_obj.noise_estimate_wave = G.CALFIB_WAVEGRID
+                if not G.MULTILINE_USE_ERROR_SPECTRUM_AS_NOISE:
+                    self.spec_obj.noise_estimate = self.calfib_noise_estimate
+                    self.spec_obj.noise_estimate_wave = G.CALFIB_WAVEGRID
 
-            except:
-                log.info("Could not build DetObj calfib_noise_estimate", exc_info=True)
+            except Exception as e:
                 self.calfib_noise_estimate = np.zeros(len(G.CALFIB_WAVEGRID))
+                try:
+                    if e.args[0].find("ValueError: need at least one array to concatenate"):
+                        log.info("Could not build DetObj calfib_noise_estimate")
+                    else:
+                        log.info(f"Could not build DetObj calfib_noise_estimate: {e}" )
+                except:
+                    log.info("Could not build DetObj calfib_noise_estimate", exc_info=True)
 
 
         self.spec_obj.identifier = "eid(%s)" %str(self.entry_id)
@@ -4385,7 +4977,8 @@ class DetObj:
             self.spec_obj.set_spectra(self.sumspec_wavelength,self.sumspec_flux,self.sumspec_fluxerr, self.w,
                                       values_units=-17, estflux=self.estflux, estflux_unc=self.estflux_unc,
                                       eqw_obs=self.eqw_obs,eqw_obs_unc=self.eqw_obs_unc,
-                                      estcont=self.cont_cgs,estcont_unc=self.cont_cgs_unc)
+                                      estcont=self.cont_cgs,estcont_unc=self.cont_cgs_unc,
+                                      fwhm=self.fwhm,fwhm_unc=self.fwhm_unc)
             # print("DEBUG ... spectrum peak finder")
             # if G.DEBUG_SHOW_GAUSS_PLOTS:
             #    self.spec_obj.build_full_width_spectrum(show_skylines=True, show_peaks=True, name="testsol")
@@ -4413,7 +5006,7 @@ class DetObj:
                 except:
                     log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra")
 
-            self.spec_obj.classify() #solutions can be returned, also stored in spec_obj.solutions
+            self.spec_obj.classify(known_z=self.known_z) #solutions can be returned, also stored in spec_obj.solutions
 
         if (self.w is None or self.w == 0) and (self.spec_obj is not None):
             try:
@@ -4704,10 +5297,18 @@ class HETDEX:
         else:
             self.extraction_ffsky = False
 
-        if args.aperture and args.ra and args.dec:
-            self.explicit_extraction = True
-        else:
-            self.explicit_extraction = False
+        try:
+            self.known_z = args.known_z
+        except:
+            self.known_z = None
+
+        try:
+            self.explicit_extraction = args.explicit_extraction
+        except:
+            if args.aperture and args.ra and args.dec:
+                self.explicit_extraction = True
+            else:
+                self.explicit_extraction = False
 
         if args.ra is not None:
             self.tel_ra = args.ra
@@ -4801,7 +5402,10 @@ class HETDEX:
         else:
             self.panacea = True
 
-
+        if args.ylim is not None:
+            self.ylim = args.ylim  # for full 1D plot
+        else:
+            self.ylim = None
         self.emission_lines = elixer_spectrum.Spectrum().emission_lines
 
         # self.emission_lines = [EmissionLine("Ly$\\alpha$ ",1216,'red'),
@@ -4829,7 +5433,13 @@ class HETDEX:
 
         # read the detect line file if specified. Build a list of targets based on sigma and chi2 cuts
         build_fits_list = True
-        if (args.obsdate is None) and (self.detectline_fn is not None):  # this is optional
+        if self.explicit_extraction: #needs to come first for logic to work
+            self.hdf5_detect_fqfn = args.hdf5  #string ... the fully qualified filename
+            self.hdf5_detect = None #the actual HDF5 representation loaded
+            self.hdf5_survey_fqfn = G.HDF5_SURVEY_FN
+            self.make_extraction(args.aperture,args.ffsky,args.shotid,basic_only=basic_only)
+            build_fits_list = False
+        elif (args.obsdate is None) and (self.detectline_fn is not None):  # this is optional
             self.read_detectline(force=True)
         elif (self.fcsdir is not None) or (len(self.fcsdir_list) > 0):
             #we have either fcsdir and fcs_base or fcsdir_list
@@ -4837,14 +5447,8 @@ class HETDEX:
             #DetObj(s) will be built here (as they are built, downstream from self.read_detectline() above
             self.read_fcsdirs()
             build_fits_list = False
-        elif (self.hdf5_detectid_list is not None):
+        elif (self.hdf5_detectid_list is not None):  #Usual case option (but needs to come last for logic to work)
             self.read_hdf5_detect(basic_only=basic_only)
-            build_fits_list = False
-        elif self.explicit_extraction:
-            self.hdf5_detect_fqfn = args.hdf5  #string ... the fully qualified filename
-            self.hdf5_detect = None #the actual HDF5 representation loaded
-            self.hdf5_survey_fqfn = G.HDF5_SURVEY_FN
-            self.make_extraction(args.aperture,args.ffsky,args.shotid,basic_only=basic_only)
             build_fits_list = False
 
         if build_fits_list and not self.explicit_extraction:
@@ -5542,6 +6146,7 @@ class HETDEX:
         :return:
         """
         try:
+
             e = DetObj(None, emission=True, basic_only=basic_only)
             if e is not None:
 
@@ -5549,6 +6154,9 @@ class HETDEX:
                 e.target_wavelength = self.target_wavelength
                 e.ra = self.target_ra
                 e.dec = self.target_dec
+                if self.known_z is not None:
+                    e.known_z = self.known_z
+
                 e.survey_shotid = shotid
                 e.extraction_aperture = aperture
                 e.extraction_ffsky = ffsky
@@ -5558,11 +6166,35 @@ class HETDEX:
                 # just internal (ELiXer) numbering here
                 G.UNIQUE_DET_ID_NUM += 1
 
+                if self.hdf5_detectid_list is not None:
+                    if len(self.hdf5_detectid_list)==1:
+                        try:
+                            d = np.int64(self.hdf5_detectid_list[0])
+                            e.entry_id = d
+                            e.id = d
+                            #only get basic info to populate coords, etc
+                            e.load_hdf5_fluxcalibrated_spectra(self.hdf5_detect_fqfn, d, basic_only=True)
+                            e.ra = e.wra
+                            e.dec = e.wdec
+                            #keep the target wavelength, if provided
+                            if (self.target_wavelength is not None) and (3460 < self.target_wavelength < 5540):
+                                e.w = self.target_wavelength
+                                e.target_wavelength = self.target_wavelength
+                        except:
+                            log.error(f"Skipping invalid detectid: {d}")
+                            return None
+                    elif len(self.hdf5_detectid_list)==0: #also expected, could just be an ra, dec
+                        pass
+                    else: #unexpdected
+                        print(f"Unexpected # of detectids: {self.hdf5_detectid_list}")
+
+
                 if self.dispatch_id is not None:
                     e.id = np.int64(99e8 + self.dispatch_id * 1e4 + G.UNIQUE_DET_ID_NUM)
                     #so, like a hetdex detectid but starting with 99
-                else:
+                elif e.entry_id is None:
                     e.id = G.UNIQUE_DET_ID_NUM
+
                 e.entry_id = e.id  # don't have an official one
 
                 if e.outdir is None:
@@ -5599,6 +6231,9 @@ class HETDEX:
                     e.load_hdf5_shot_info(self.hdf5_survey_fqfn,  e.survey_shotid)
 
                 if e.status >= 0:
+                    if G.CHECK_FOR_METEOR:
+                        e.check_for_meteor()
+
                     self.emis_list.append(e)# moved higher up to always be appended
                     if self.target_wavelength is None or self.target_wavelength == 0:
                         self.target_wavelength = e.target_wavelength
@@ -5632,6 +6267,9 @@ class HETDEX:
             #build an empty Detect Object and then populate
             e = DetObj(None, emission=True,basic_only=basic_only)
             if e is not None:
+                if self.known_z is not None:
+                    e.known_z = self.known_z
+
                 e.entry_id = d #aka detect_id from HDF5
                 e.annulus = self.annulus
                 e.target_wavelength = self.target_wavelength
@@ -5654,7 +6292,11 @@ class HETDEX:
                     e.load_hdf5_shot_info(self.hdf5_survey_fqfn, e.survey_shotid)
 
                 if e.status >= 0:
+                    if G.CHECK_FOR_METEOR:
+                        e.check_for_meteor()
+
                     self.emis_list.append(e)
+
                 else:
                     log.info("Unable to continue with eid(%s). No report will be generated." % (str(e.entry_id)))
 
@@ -5673,11 +6315,15 @@ class HETDEX:
                 #build up the tokens that DetObj needs
                 toks = None
                 e = DetObj(toks, emission=True, fcsdir=d)
-                e.annulus = self.annulus
-                e.target_wavelength = self.target_wavelength
-                e.ra = self.target_ra
-                e.dec = self.target_dec
+
                 if e is not None:
+                    if self.known_z is not None:
+                        e.known_z = self.known_z
+                    e.annulus = self.annulus
+                    e.target_wavelength = self.target_wavelength
+                    e.ra = self.target_ra
+                    e.dec = self.target_dec
+
                     G.UNIQUE_DET_ID_NUM += 1
                     #for consistency with Karl's namine, the entry_id is the _xxx number at the end
                     if e.entry_id is None or e.entry_id == 0:
@@ -5688,17 +6334,24 @@ class HETDEX:
                         e.outdir = self.output_filename
                     e.load_fluxcalibrated_spectra()
                     if e.status >= 0:
+                        if G.CHECK_FOR_METEOR:
+                            e.check_for_meteor()
+
                         self.emis_list.append(e)
                     else:
                         log.info("Unable to continue with eid(%s). No report will be generated." %(str(e.entry_id)))
         elif (self.fcs_base is not None and self.fcsdir is not None): #not the usual case
             toks = None
             e = DetObj(toks, emission=True, fcs_base=self.fcs_base,fcsdir=self.fcsdir)
-            e.annulus = self.annulus
-            e.target_wavelength = self.target_wavelength
-            e.ra = self.target_ra
-            e.dec = self.target_dec
+
             if e is not None:
+                if self.known_z is not None:
+                    e.known_z = self.known_z
+                e.annulus = self.annulus
+                e.target_wavelength = self.target_wavelength
+                e.ra = self.target_ra
+                e.dec = self.target_dec
+
                 G.UNIQUE_DET_ID_NUM += 1
                 if e.entry_id is None or e.entry_id == 0:
                     e.entry_id = G.UNIQUE_DET_ID_NUM
@@ -5706,6 +6359,9 @@ class HETDEX:
                 e.id = G.UNIQUE_DET_ID_NUM
                 e.load_fluxcalibrated_spectra()
                 if e.status >= 0:
+                    if G.CHECK_FOR_METEOR:
+                        e.check_for_meteor()
+
                     self.emis_list.append(e)
 
 
@@ -5754,6 +6410,11 @@ class HETDEX:
                 for l in f:
                     toks = l.split()
                     e = DetObj(toks,emission=False,fcs_base=self.fcs_base)
+                    if e is None:
+                        continue
+
+                    if self.known_z is not None:
+                        e.known_z = self.known_z
 
                     if e.ifuslot is not None:
                         if e.ifuslot != self.ifu_slot_id:
@@ -5766,14 +6427,26 @@ class HETDEX:
                         if str(e.id) in self.emis_det_id:
                             if (self.ifu_slot_id is not None):
                                 if (str(e.ifuslot) == str(self.ifu_slot_id)):
+                                    if G.CHECK_FOR_METEOR:
+                                        e.check_for_meteor()
+
                                     self.emis_list.append(e)
                             else: #if is 'none' so they all go here ... must assume same IFU
+                                if G.CHECK_FOR_METEOR:
+                                    e.check_for_meteor()
+
                                 self.emis_list.append(e)
                     else:
                         if (self.ifu_slot_id is not None):
                             if (str(e.ifuslot) == str(self.ifu_slot_id)):
+                                if G.CHECK_FOR_METEOR:
+                                    e.check_for_meteor()
+
                                 self.emis_list.append(e)
                         else:
+                            if G.CHECK_FOR_METEOR:
+                                e.check_for_meteor()
+
                             self.emis_list.append(e)
         except:
             log.error("Cannot read continuum objects.", exc_info=True)
@@ -5791,6 +6464,12 @@ class HETDEX:
                     line_counter += 1
                     toks = l.split()
                     e = DetObj(toks,emission=True,line_number=line_counter,fcs_base=self.fcs_base)
+
+                    if e is None:
+                        continue
+
+                    if self.known_z is not None:
+                        e.known_z = self.known_z
 
                     #e.plot_dqs_fit = self.plot_dqs_fit
 
@@ -5811,15 +6490,27 @@ class HETDEX:
                         if str(e.id) in self.emis_det_id:
                             if (self.ifu_slot_id is not None):
                                 if (str(e.ifuslot) == str(self.ifu_slot_id)):
+                                    if G.CHECK_FOR_METEOR:
+                                        e.check_for_meteor()
+
                                     self.emis_list.append(e)
                             else: #if is 'none' so they all go here ... must assume same IFU
+                                if G.CHECK_FOR_METEOR:
+                                    e.check_for_meteor()
+
                                 self.emis_list.append(e)
                     else:
                         if (e.sigma >= self.sigma) and (e.chi2 <= self.chi2):
                             if (self.ifu_slot_id is not None):
                                 if (str(e.ifuslot) == str(self.ifu_slot_id)):
+                                    if G.CHECK_FOR_METEOR:
+                                        e.check_for_meteor()
+
                                     self.emis_list.append(e)
                             else:
+                                if G.CHECK_FOR_METEOR:
+                                    e.check_for_meteor()
+
                                 self.emis_list.append(e)
         except:
             log.error("Cannot read emission line objects.", exc_info=True)
@@ -6118,6 +6809,12 @@ class HETDEX:
         try:
             title += "Obs: " + e.fibers[0].dither_date + "v" + str(e.fibers[0].obsid).zfill(3) + "_" + \
             str(e.fibers[0].detect_id)
+            if e.extraction_aperture is not None: #this was a forced extraction
+                title += f" ({e.extraction_aperture:0.1f}\""
+                if e.extraction_ffsky:
+                    title += " ff)"
+                else:
+                    title += " lo)"
         except:
             log.debug("Exception building observation string.",exc_info=True)
 
@@ -6301,12 +6998,30 @@ class HETDEX:
 
         else:
             if not G.ZOO:
-                title += "\n" \
-                     "Primary IFU SpecID (%s) SlotID (%s)\n" \
-                     "RA,Dec (%f,%f) \n" \
+                title += "\nPrimary IFU SpecID (%s) SlotID (%s)\n" % (e.fibers[0].specid, e.fibers[0].ifuslot)
+
+                if e.survey_fwhm > 3.0:
+                    title += f"F=*{e.survey_fwhm:0.1f}\"*  "
+                else:
+                    title += f"F={e.survey_fwhm:0.1f}\"  "
+
+                if e.survey_response < 0.08:
+                    title +=f"T=*{e.survey_response:0.3f}!  "
+                else:
+                    title += f"T={e.survey_response:0.3f}  "
+
+                if e.dither_norm > 2.0:
+                    title += f"N=*{e.dither_norm:0.2f}!  "
+                else:
+                    title += f"N={e.dither_norm:0.2f}  "
+
+                #title += f"A={e.amp_stats:0.2f}"
+                title += "\n"
+
+                title += "RA,Dec (%f,%f) \n" \
                      "$\lambda$ = %g$\AA$  FWHM = %0.1f($\pm$%0.1f)$\AA$\n" \
                      "LineFlux = %s" \
-                     % (e.fibers[0].specid, e.fibers[0].ifuslot, ra, dec, e.w,e.fwhm,e.fwhm_unc, estflux_str)
+                     %(ra, dec, e.w,e.fwhm,e.fwhm_unc, estflux_str)
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
@@ -6346,11 +7061,30 @@ class HETDEX:
 
 
             else: #this if for zooniverse, don't show RA and DEC or probabilities
-                title += "\n" \
-                     "Primary IFU SpecID (%s) SlotID (%s)\n" \
-                     "$\lambda$ = %g$\AA$  FWHM = %0.1f($\pm$%0.1f)$\AA$\n" \
-                     "LineFlux = %s " \
-                     % ( e.fibers[0].specid, e.fibers[0].ifuslot,e.w,e.fwhm, e.fwhm_unc, estflux_str)
+
+                title += "\nPrimary IFU SpecID (%s) SlotID (%s)\n" % (e.fibers[0].specid, e.fibers[0].ifuslot)
+
+                if e.survey_fwhm > 3.0:
+                    title += f"F=*{e.survey_fwhm:0.1f}\"*  "
+                else:
+                    title += f"F={e.survey_fwhm:0.1f}\"  "
+
+                if e.survey_response < 0.08:
+                    title +=f"T=*{e.survey_response:0.3f}!  "
+                else:
+                    title += f"T={e.survey_response:0.3f}  "
+
+                if e.dither_norm > 2.0:
+                    title += f"N=*{e.dither_norm:0.2f}!  "
+                else:
+                    title += f"N={e.dither_norm:0.2f}  "
+
+                # title += f"A={e.amp_stats:0.2f}"
+                title += "\n"
+
+                title += "$\lambda$ = %g$\AA$  FWHM = %0.1f($\pm$%0.1f)$\AA$\n" \
+                         "LineFlux = %s" \
+                         % (e.w, e.fwhm, e.fwhm_unc, estflux_str)
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
@@ -6462,17 +7196,28 @@ class HETDEX:
 
         if not G.ZOO:
             good, scale_score = e.multiline_solution_score()
+
+            #pick best eqw observered to use
+            if (e.eqw_sdss_obs is not None) and (e.eqw_sdss_obs_unc is not None):
+                l_eqw_obs =  e.eqw_sdss_obs
+            elif (e.eqw_hetdex_gmag_obs is not None) and (e.eqw_hetdex_gmag_obs_unc is not None):
+                l_eqw_obs =  e.eqw_hetdex_gmag_obs
+            elif (e.eqw_line_obs is not None) and (e.eqw_line_obs_unc is not None):
+                l_eqw_obs = e.eqw_line_obs
+            else:
+                l_eqw_obs = e.eqw_obs
+
             if ( good ):
                 # strong solution
                 sol = datakeep['detobj'].spec_obj.solutions[0]
                 title += "\n*(%0.3f) %s(%d) z = %0.4f  EW_r = %0.1f$\AA$" %(scale_score, sol.name, int(sol.central_rest),sol.z,
-                                                                        e.eqw_obs/(1.0+sol.z))
+                                                                            l_eqw_obs/(1.0+sol.z))
             elif (scale_score > G.MULTILINE_MIN_WEAK_SOLUTION_CONFIDENCE):
                 #weak solution ... for display only, not acceptabale as a solution
                 #do not set the solution (sol) to be recorded
                 sol = datakeep['detobj'].spec_obj.solutions[0]
                 title += "\n(%0.3f) %s(%d) z = %0.4f  EW_r = %0.1f$\AA$" % \
-                         ( scale_score, sol.name, int(sol.central_rest), sol.z,e.eqw_obs / (1.0 + sol.z))
+                         ( scale_score, sol.name, int(sol.central_rest), sol.z,l_eqw_obs / (1.0 + sol.z))
             #else:
             #    log.info("No singular, strong emission line solution.")
 
@@ -7108,8 +7853,8 @@ class HETDEX:
                         fiber.central_emis_counts = sci.fe_data[loc, Fe_indl:(Fe_indh + 1)]
                         fiber.central_emis_wavelengths = wave[Fe_indl:(Fe_indh + 1)]
 
-                datakeep['fw_spec'].append(sci.fe_data[loc,:])
-                datakeep['fw_specwave'].append(wave[:])
+                datakeep['fw_spec'].append(sci.fe_data[loc,:]) #never modified downstream
+                datakeep['fw_specwave'].append(wave[:]) #never modified downstream
 
                 # todo: set the weights correctly
                 datakeep['fiber_weight'].append(1.0)
@@ -7773,6 +8518,31 @@ class HETDEX:
         #assume all the same shape
         summed_image = np.zeros(datakeep['im'][ind[0]].shape)
 
+
+
+        #sanity check for the top few fiber cutouts as identical
+        duplicate_weight = 0
+        try:
+            #trip on any one of the top 3 as identical, checked in weight order
+            if not np.any(datakeep['im'][-1] - datakeep['im'][-2]):
+                #blue and green fiber cutouts are the same
+                log.info("Probable spurious detection. Duplicate fiber cutouts detected (blue and green).")
+                duplicate_weight += datakeep['fiber_weight'][-1] + datakeep['fiber_weight'][-2]
+            elif not np.any(datakeep['im'][-1] - datakeep['im'][-3]):
+                #blue and yellow fiber cutouts are the same
+                log.info("Probable spurious detection. Duplicate fiber cutouts detected (blue and yellow).")
+                duplicate_weight += datakeep['fiber_weight'][-1] + datakeep['fiber_weight'][-3]
+            elif not np.any(datakeep['im'][-2] - datakeep['im'][-3]):
+                #green and yellow fiber cutouts are the same
+                log.info("Probable spurious detection. Duplicate fiber cutouts detected (green and yellow).")
+                duplicate_weight += datakeep['fiber_weight'][-2] + datakeep['fiber_weight'][-3]
+
+            if duplicate_weight != 0:
+                detobj.duplicate_fiber_cutout_pair_weight = duplicate_weight
+
+        except:
+            log.warning("Excpetion comparing fiber cutouts in hetdex.py build_2d_image()",exc_info=True)
+
         #need i to start at zero
         #building from bottom up
 
@@ -7820,24 +8590,60 @@ class HETDEX:
                         flat = pix_image.flatten()
                         nonzero = len(np.where(flat != 0)[0])
                         if nonzero > 0 and float(nonzero)/float(len(flat)) > 0.5:
-                            #bad_pix_value = np.nanmedian(pix_image) * G.MIN_PIXEL_FLAT_CENTER_RATIO
-                            mask_pix_image = np.ma.masked_where(pix_image == 0, pix_image)
-                            bad_pix_value = np.nanmedian(mask_pix_image) - G.MARK_PIXEL_FLAT_DEVIATION*np.std(mask_pix_image)
-
                             cy,cx = np.array(np.shape(pix_image))//2
-                            cntr = pix_image[cy-1:cy+2,cx-1:cx+2]
-                            #yes, I want mean for cntr and median for the whole cutout
-                            cntr_ratio = np.nanmean(cntr) / np.nanmedian(pix_image)
-                            #sorting is different, need to reverse
-                            detobj.fibers[len(detobj.fibers)-i-1].pixel_flat_center_ratio = cntr_ratio
-                            if cntr_ratio < G.MIN_PIXEL_FLAT_CENTER_RATIO:
-                                #could be bad
-                                log.info("Possible bad pixel flat at emission line position")
+                            #cntr = pix_image[cy - 1:cy + 2, cx - 2:cx + 3]  # center 3 high, 5 wide
+                            #cntr = pix_image[cy-2:cy+3,cx-2:cx+3]   #center 25
+                            #cntr = pix_image[cy - 3:cy + 4, cx - 3:cx + 4]  # center 49
+                            cntr = pix_image[cy - 1:cy + 2, cx - 1:cx + 2]  # center 9 (3x3)
+
+                            # nan_pix_image = copy(pix_image) #makes no difference to 4 or 5 decimal places
+                            # nan_pix_image[cy - 1:cy + 2, cx - 1:cx + 2] = np.nan
+
+                            #bad_pix_value = np.nanmedian(pix_image) * G.MIN_PIXEL_FLAT_CENTER_RATIO
+                            if G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE > -1: #based on a fixed value
+                                bad_pix_value = G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE
+
+                                #Either condition below will trip bad flat
+                                #if the average of the center (-the error) is below the absolute bad value
+                                #OR if the mean of the center is less than a fraction of the median of the rest
+
+                                #mean - 1std dev ... should it be -2x std dev?
+                                cntr_avg = np.nanmean(cntr) - np.nanstd(cntr)
+                                detobj.fibers[len(detobj.fibers) - i - 1].pixel_flat_center_avg = cntr_avg
+                                if cntr_avg < G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE:
+                                    #could be bad
+                                    log.info("Possible bad pixel flat at emission line position")
+
+                                # yes, I want mean for cntr and median for the whole cutout
+                                cntr_ratio = np.nanmean(cntr) / np.nanmedian(pix_image)
+                                detobj.fibers[len(detobj.fibers) - i - 1].pixel_flat_center_ratio = cntr_ratio
+                                # sorting is different, need to reverse
+                                if cntr_ratio < G.MIN_PIXEL_FLAT_CENTER_RATIO:
+                                    # could be bad
+                                    log.info("Possible bad pixel flat at emission line position")
+
+                            else: #based on standard deviation
+                                mask_pix_image = np.ma.masked_where((pix_image == 0)|(np.isnan(pix_image)), pix_image)
+                                bad_pix_value = np.ma.median(mask_pix_image) - \
+                                                G.MARK_PIXEL_FLAT_DEVIATION*np.ma.std(mask_pix_image)
+
+                                #here, just for reference
+                                cntr_avg = np.nanmean(cntr) - np.nanstd(cntr)
+                                detobj.fibers[len(detobj.fibers) - i - 1].pixel_flat_center_avg = cntr_avg
+
+                                #yes, I want mean for cntr and median for the whole cutout
+                                cntr_ratio = np.nanmean(cntr) / np.nanmedian(pix_image)
+                                #sorting is different, need to reverse
+                                detobj.fibers[len(detobj.fibers)-i-1].pixel_flat_center_ratio = cntr_ratio
+                                if cntr_ratio < G.MIN_PIXEL_FLAT_CENTER_RATIO:
+                                    #could be bad
+                                    log.info("Possible bad pixel flat at emission line position")
                     except:
                         log.debug("Exception checking for bad pixel flat",exc_info=True)
 
                     #update pix_image to a mask to use later when ploting
-                    pix_image = np.ma.masked_where((pix_image < bad_pix_value) & (pix_image != 0), pix_image)
+                    #pix_image = np.ma.masked_where((pix_image < bad_pix_value) & (pix_image != 0), pix_image)
+                    pix_image = np.ma.masked_where(pix_image < bad_pix_value, pix_image)
 
                     #check for same pixel (as a string for easy compare (all integer values)
                     #after the loop, make sure they are unique
@@ -7846,6 +8652,7 @@ class HETDEX:
                     cmap1 = cmap
                     cmap1.set_bad(color=[0.2, 1.0, 0.23])
                     image = np.ma.masked_where(datakeep['err'][ind[i]] == -1, image)
+                    #image = np.ma.masked_where(datakeep['im'][ind[i]] == 0, image) #just testing
                     img_vmin = datakeep['vmin2'][ind[i]]
                     img_vmax = datakeep['vmax2'][ind[i]]
 
@@ -7925,8 +8732,10 @@ class HETDEX:
                 smplot.axis('off')
 
                 if pix_image is not None:
-                    vmin_pix = 0.9
-                    vmax_pix = 1.1
+                    #symmetric about 1.0 (even though nominal max is just over 1 and the lower can be very low)
+                    #AND yes, these are fixed values ... we want the pixel flats to be uniform across all reports
+                    vmin_pix = 0.8
+                    vmax_pix = 1.2
                     pix_cmap = plt.get_cmap('gray')
                     pix_cmap.set_bad(color=[1.0, 0.2, 0.2])
                     pixplot.imshow(pix_image,
@@ -8894,7 +9703,6 @@ class HETDEX:
             #peak_height = near get the approximate peak height
             mn = np.min(F)
             mx = np.max(F)
-
             try:
                 if G.CONTINUUM_RULES:
                     mn = min(F)
@@ -8904,14 +9712,18 @@ class HETDEX:
 
                     idx_left = max(0,peak_idx-2)
                     idx_right = min(len(datakeep['sumspec_wave']),peak_idx+3)
-
                     peak_height = max(datakeep['sumspec_flux'][idx_left:idx_right])
 
-                    mn = max(mn,-0.2*peak_height) #at most go -20% of the peak below zero (most likely a bad sky subtraction)
+                    mn = max(mn, -0.2 * peak_height)
                     mx = min(mx, 2.0 * peak_height)  # at most go 100% above the peak
             except:
                 pass
 
+
+            if mn > mx: #handle purely negative case
+                tmp = mn
+                mn = mx
+                mx = tmp
 
             #flux nearest at the cwave position
             #this is redundant to the block immediately above
@@ -8925,6 +9737,12 @@ class HETDEX:
             #             mx = 3.0 * line_mx
             #         else:
             #             log.info("Excluding spectra maximum outside 3500 - 5500 AA")
+
+            #override the auto set limits
+            if self.ylim is not None:
+                log.debug(f"Override the auto y-axis limits {mn},{mx} to {self.ylim[0]},{self.ylim[1]}")
+                mn = self.ylim[0]
+                mx = self.ylim[1]
 
             ran = mx - mn
 
@@ -9065,17 +9883,32 @@ class HETDEX:
             legend = []
             name_waves = []
             obs_waves = []
-            for e in self.emission_lines:
-                if (not e.solution) and (e.w_rest != the_solution_rest_wave): #if not a normal solution BUT it is THE solution, label it
-                    continue
-                z = cwave / e.w_rest - 1.0
+
+            try:
+                #use THIS detection's spectrum object's modified emission_lines list IF there is one,
+                #otherwise, use the default list
+                emission_line_list = datakeep['detobj'].spec_obj.emission_lines
+            except:
+                emission_line_list = self.emission_lines
+
+            for e in emission_line_list:
+                if self.known_z is None:
+                    if (not e.solution) and (e.w_rest != the_solution_rest_wave): #if not a normal solution BUT it is THE solution, label it
+                        continue
+                    z = cwave / e.w_rest - 1.0
+                else:
+                    sol_z = cwave / e.w_rest - 1.0
+                    z = self.known_z
+                    if abs(sol_z - z) > 0.05:
+                        continue
+
                 if (z < 0):
                     if z > G.NEGATIVE_Z_ERROR:
                         z = 0.0
                     else:
                         continue
                 count = 0
-                for f in self.emission_lines:
+                for f in emission_line_list:
                     if (f == e) or not (wavemin <= f.redshift(z) <= wavemax) or (abs(f.redshift(z) - cwave) < 5.0):
                         continue
                     elif G.DISPLAY_ABSORPTION_LINES and datakeep['detobj'].spec_obj.is_near_absorber(f.w_obs):
@@ -9129,6 +9962,9 @@ class HETDEX:
         yl, yh = specplot.get_ylim()
         rec = plt.Rectangle((cwave - ww, yl), 2 * ww, yh - yl, fill=True, lw=1, color='y', zorder=1)
         specplot.add_patch(rec)
+
+        #add specific ticks
+        specplot.set_xticks(np.arange(3500,5600,100))
 
         if G.LyC and (cwave >= 4860.):
             #draw rectangle (highlight) Lyman Continuum region
