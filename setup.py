@@ -1,22 +1,23 @@
 from setuptools import setup, find_packages
 
-install_requires = ['numpy>=1.18.2', 'astropy>=4.0', 'scipy>=1.2',
-                    'tables>=3.5.2', 'speclite>=0.8', 'emcee>=3.0.2', 
+install_requires = ['numpy>=1.18.2', 'astropy>=4.0', 'scipy>=1.4',
+                    'tables>=3.6.1', 'speclite>=0.8', 'emcee>=3.0.2',
                     'photutils>=0.7.1','astroquery>=0.3.10',
-                    'pdf2image>=1.9.0', 'pyhetdex>=0.14.2', 'sep>=1.0.3',
+                    'pdf2image>=1.9.0', 'pyhetdex>=0.10', 'sep>=1.0.3',
                     'specutils>=1.0']
 
 extras = {}
 
-setuptools.setup(
+setup(
     name="elixer",
-    version="1.9.0",
+    version="1.10.0",
     author="Dustin Davis",
     author_email="dustin.davis@utexas.edu",
     description="HETDEX Emission Line eXplorer tool",
     url="https://github.com/HETDEX/elixer.git",
     packages=find_packages(),
     include_package_data=True,
+    data_files=[('elixer',['elixer/distance_list_bool.txt',]),],
     zip_safe=False,
     install_requires=install_requires,
     extras_require=extras,
