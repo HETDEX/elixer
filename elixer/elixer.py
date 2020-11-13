@@ -2706,8 +2706,8 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
         x,y = PIL_Image.open(image_1d_fit).size
         lx = 0.10 * x
         rx = 0.03 * x
-        ty = 0.15 * y #was 0.1
-        by = 0.05 * y #was 0
+        ty = 0.10 * y #was 0.1
+        by = 0.00 * y #was 0
 
         #crop is (upper left corner ....
         #( x, y, x + width , y + height )
@@ -2727,19 +2727,23 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
             x, y = PIL_Image.open(buf).size
             lx = 0.03 * x
             rx = 0.12 * x
-            ty = 0.0 * y
-            by = 0.0 * y
+            ty = 0.05 * y
+            by = 0.00 * y
 
             im = plt.imshow(PIL_Image.open(buf).crop((lx,ty,x-(lx+rx),y-(ty+by))))
 
-            #!!! NOTICE: if the resolution changes, and the pixel size changes, etc, these coords
+            #!!! NOTICE: if the resolution changes, or the pixel size changes, or the crop, etc, these coords
             #  will need to be re-done
             #fill in a bothersome region that refuses to be covered by the red box
             # (right hand side of top right cutout)
-            plt.plot([741, 741], [455, 87], color='r', lw=0.25)
+            plt.plot([741, 741], [398, 30], color='r', lw=0.5)
 
-            plt.plot([500, 377], [731, 456], color='r', lw=0.5,ls="--") #lower left (bottom) to lower left (top)
-            plt.plot([612, 740], [731, 456], color='r', lw=0.5,ls="--") #lower right (bottom) to lower right (top)
+            #and a horizontal masking line for the bottom right image
+            plt.plot([372, 740], [805,805], color='#1c1c1e', lw=1) ##1c1c1e
+
+
+            plt.plot([500, 377], [673, 397], color='r', lw=0.5,ls="--") #lower left (bottom) to lower left (top)
+            plt.plot([612, 740], [673, 397], color='r', lw=0.5,ls="--") #lower right (bottom) to lower right (top)
 
 
             # plt.plot([510,387],[622,112],color='r',lw=1) # upper left to upper left
