@@ -2715,7 +2715,6 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
         im3 = PIL_Image.open(image_1d_fit).crop((lx,ty,x-(lx+rx),y-(ty+by)))
         ax3.imshow(im3)
 
-
         if True: #make True if want to build image then crop it, otherwise leave as False and just save the plt
             buf = io.BytesIO()
             plt.savefig(buf, format='png', dpi=300, bbox_inches='tight', transparent=True,facecolor=fig.get_facecolor())
@@ -2732,6 +2731,16 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
             by = 0.0 * y
 
             im = plt.imshow(PIL_Image.open(buf).crop((lx,ty,x-(lx+rx),y-(ty+by))))
+
+            plt.plot([505, 379], [731, 456], color='r', lw=0.5,ls="--") #lower left (bottom) to lower left (top)
+            plt.plot([616, 745], [731, 456], color='r', lw=0.5,ls="--") #lower right (bottom) to lower right (top)
+
+
+            # plt.plot([510,387],[622,112],color='r',lw=1) # upper left to upper left
+            # plt.plot([615,736],[622,112],color='r',lw=1) # upper right to upper right
+
+            #plt.plot([505, 465], [622, 456], color='r', lw=0.5,ls="--") #upper left stop at top-image bottom edge
+            #plt.plot([616, 659], [622, 456], color='r', lw=0.5,ls="--") #upper right "ditto"
 
             #patch =
             #plt.tight_layout(rect=(0.1,0.1,0.8,0.8))
