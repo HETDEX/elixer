@@ -740,8 +740,8 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
             rx = (xr - xl) * box_ratio / 2.0
             ry = (yt - yb) * box_ratio / 2.0
 
-            plt.gca().add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=rx * 2, height=ry * 2,
-                                              angle=0, color='red', fill=False,linewidth=3))
+            plt.gca().add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=rx * 2 , height=ry * 2,
+                                              angle=0, color='red', fill=False,linewidth=8))
 
             buf = io.BytesIO()
             plt.savefig(buf, format='png', dpi=300,transparent=True)

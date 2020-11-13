@@ -2619,7 +2619,7 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
 
         # is hidden
         # 1st column 2d fiber cutouts
-        ax1 = fig.add_subplot(gs[2:45,0:10])
+        ax1 = fig.add_subplot(gs[3:45,0:10]) #was 2
         ax1.set_axis_off()
         # fig = plt.subplot(gs[0:-1,0:30])#,gridspec_kw = {'wspace':0, 'hspace':0})
         # plt.subplots_adjust(wspace=0, hspace=0)
@@ -2706,8 +2706,8 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
         x,y = PIL_Image.open(image_1d_fit).size
         lx = 0.10 * x
         rx = 0.03 * x
-        ty = 0.1 * y
-        by = 0.00 * y
+        ty = 0.15 * y #was 0.1
+        by = 0.05 * y #was 0
 
         #crop is (upper left corner ....
         #( x, y, x + width , y + height )
@@ -2732,8 +2732,14 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
 
             im = plt.imshow(PIL_Image.open(buf).crop((lx,ty,x-(lx+rx),y-(ty+by))))
 
-            plt.plot([505, 379], [731, 456], color='r', lw=0.5,ls="--") #lower left (bottom) to lower left (top)
-            plt.plot([616, 745], [731, 456], color='r', lw=0.5,ls="--") #lower right (bottom) to lower right (top)
+            #!!! NOTICE: if the resolution changes, and the pixel size changes, etc, these coords
+            #  will need to be re-done
+            #fill in a bothersome region that refuses to be covered by the red box
+            # (right hand side of top right cutout)
+            plt.plot([741, 741], [455, 87], color='r', lw=0.25)
+
+            plt.plot([500, 377], [731, 456], color='r', lw=0.5,ls="--") #lower left (bottom) to lower left (top)
+            plt.plot([612, 740], [731, 456], color='r', lw=0.5,ls="--") #lower right (bottom) to lower right (top)
 
 
             # plt.plot([510,387],[622,112],color='r',lw=1) # upper left to upper left

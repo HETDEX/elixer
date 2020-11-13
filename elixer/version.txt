@@ -3,7 +3,7 @@ changes to elixer by version
 
 1.10.1a [2020-11-13]
 * add dashed red lines to the mini png plots to indicate the top cutout as a zoom of the boxed section of the
-  bottom imaging cutout
+  bottom imaging cutout, better aligned top edge, widened top right border (and filled in gap)
 
 1.10.0 [2020-11-05]
 * HDR2.1.2 curated re-run
