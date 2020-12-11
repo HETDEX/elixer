@@ -110,7 +110,11 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
     INCLUDE_KPNO_G = True
 
-    MAG_LIMIT = 27.0 #generous, closer to 26.5
+    #Shiro's DR3 document now says 25.5, website says 26.1 (27 for deep, 28 for ultra deep)
+    #I have been nudging by ~ 0.5 mag (since was 5sigma, and I am using my own apertures)
+    #originally had 26.5 (but that may have been a mis-copy for wide-g band at 26.5)
+    #and this is a final floor limit
+    MAG_LIMIT = 26.5
 
     mean_FWHM = 1.0 #average 0.6 to 1.0
 

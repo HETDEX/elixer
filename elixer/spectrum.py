@@ -3089,6 +3089,9 @@ class Spectrum:
 
             #row/column (is mininum, where lines are smallest compared to LyA)
             # the inverse is still the minimum just the inverted ratio)
+
+            # (5007 to 4959  at 2.98 ~ 3.00  Storey  &  Zeippen  2000)
+
             min_ratio_matrix = \
             [ [1.00, None, None, None, None, None, None, None, None],  #OII
               [None, 1.00, None, None, None, None, None, None, None],  #H_eta
