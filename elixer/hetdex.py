@@ -910,9 +910,9 @@ class DetObj:
         #how many exposures? usually 3, but not always
         try:
 
-            if (np.isnan(self.dither_norm) or (self.dither_norm > 2.0)):
-                log.info(f"DetObj::check_for_meteor(). Cannot check for meteor due to bad dither normalization ({self.dither_norm})")
-                return 0
+            # if (np.isnan(self.dither_norm) or (self.dither_norm > 2.0)):
+            #     log.info(f"DetObj::check_for_meteor(). Cannot check for meteor due to bad dither normalization ({self.dither_norm})")
+            #     return 0
 
             num_exp = len(np.unique([f.expid for f in self.fibers]))
             if num_exp < 2:
@@ -1084,11 +1084,11 @@ class DetObj:
 
 
             try: #if the errors are too big, just cannot trust anything
-                if (cmx_sum / common_sume[cmx_expid-1]) < 2.0:
+                if (cmx_sum / common_sume[cmx_expid-1]) < 1.0: #1.25: #2.0:
                     log.debug(f"DetObj:check_for_meteor sum error too high {cmx_sum} +/- {common_sume[cmx_expid-1]}")
                     return 0
             except:
-                log.debug(f"DetObj:check_for_meteor sum error too high {cmx_sum} +/- {common_sume[cmx_expid - 1]}")
+                log.debug(f"DetObj:check_for_meteor sum (fail) error too high {cmx_sum} +/- {common_sume[cmx_expid - 1]}")
                 return 0
 
             meteor = 0
