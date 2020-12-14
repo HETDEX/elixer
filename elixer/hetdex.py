@@ -8433,7 +8433,7 @@ class HETDEX:
                     #y_2D, x_2D = np.shape(blank)
             except Exception as ex:
                 if type(ex) is ValueError:
-                    log.error(f"Exception building datakeep. Not fatal (ValueError). {e.entry_id}", exc_info=False)
+                    log.error(f"Exception building datakeep. Not fatal (ValueError). {e.entry_id}", exc_info=True)
                 else:
                     log.error("Exception building datakeep. Not fatal.",exc_info=True)
         #end for loop

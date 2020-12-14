@@ -1,6 +1,9 @@
 changes to elixer by version
 
 
+1.10.1b [2020-12-14]
+* Add extra checks in PDF to PNG conversion (filesize sanity with retry)
+
 1.10.1a [2020-11-13]
 * add dashed red lines to the mini png plots to indicate the top cutout as a zoom of the boxed section of the
   bottom imaging cutout, better aligned top edge, widened top right border (and filled in gap)

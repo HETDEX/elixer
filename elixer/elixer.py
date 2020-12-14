@@ -1618,11 +1618,22 @@ def which(file):
         log.info("Exception in which",exc_info=True)
         return None
 
-def convert_pdf(filename, resolution=150, jpeg=True, png=False):
 
-    #file might not exist, but this will just trap an execption
+
+def convert_pdf(filename, resolution=150, jpeg=False, png=True):
+    """
+    The call from outside ... now basically calls the old internals as run_convert_pdf
+    and can retry if there is a detected problem
+
+    :param filename:
+    :param resolution:
+    :param jpeg:
+    :param png:
+    :return:
+    """
+
     if filename is None:
-        return
+        return -1
 
     if filename[-1] == "!":
         filename = filename.rstrip("!")
@@ -1633,12 +1644,95 @@ def convert_pdf(filename, resolution=150, jpeg=True, png=False):
             try:
                 log.debug("Invalid filename passed to elixer::convert_pdf(%s)" % filename)
             except:
-                return
+                return -1
     except:
         try:
             log.debug("Invalid filename passed to elixer::convert_pdf(%s)" %filename)
         except:
-            return
+            return -1
+
+    try:
+        #check that the file exists (can be a timing issue on tacc)
+        if not os.path.isfile(filename):
+            log.info("Error converting (%s) to image type. File not found (may be filesystem lag. Will sleep and retry."
+                     %(filename) )
+            time.sleep(5.0) #5 sec should be plenty
+
+            if not os.path.isfile(filename):
+                log.info(
+                    "Error converting (%s) to image type. File still not found. Aborting conversion."
+                    % (filename))
+                return -1
+    except:
+        pass
+
+    try:
+        max_retries = 3
+        retry_ct = 0
+        while retry_ct < max_retries:
+            retry_ct += 1
+            if (run_convert_pdf(filename, resolution=resolution, jpeg=jpeg, png=png) < 0):
+                retry = 99
+                break
+            else: #check the result
+                #BOTH png and jpeg could be generated, but we are only going to check one (the png preferred)
+                if png:
+                    image_name = filename.rstrip(".pdf") + ".png"
+                elif jpeg:
+                    image_name = filename.rstrip(".pdf") + ".jpg"
+
+                try:
+                    size = os.path.getsize(image_name)
+                    if size > 430000:
+                        log.debug(f"Conversion filesize ({size}) good for {image_name}.")
+                        retry = 99
+                        break
+                    elif (retry_ct < max_retries):
+                        # could still be okay, but we will retry anyway .. if retries are exhausted, it will stick
+                        log.debug(f"Small filesize ({size}) for {image_name}. Will assume missing data and retry.")
+                        os.remove(image_name)
+                        time.sleep(5.0 * retry_ct)  #sleep in increasing chunks of 5 seconds to let memory clear
+                    else:
+                        log.debug(f"Small filesize ({size}) for {image_name}. Out of retries.")
+                except:
+                    log.info(f"Could not get file size for {image_name}. Aborting retries.")
+                    retry = 99
+                    break
+    except:
+        log.error(f"Exception converting PDF {filename} to image type.", exc_info=True)
+
+
+def run_convert_pdf(filename, resolution=150, jpeg=False, png=True):
+    """
+
+    :param filename:
+    :param resolution:
+    :param jpeg:
+    :param png:
+    :return: an integer: -1 is a fatal error (do not conitnue), 0 is all good, 1 is retry error
+    """
+
+    #first two checks are redundant with convert_pdf(), but kept for sanity purposes or if this is called directly
+
+    #file might not exist, but this will just trap an execption
+    if filename is None:
+        return -1
+
+    if filename[-1] == "!":
+        filename = filename.rstrip("!")
+
+    try:
+        ext = filename[-4:]
+        if ext.lower() != ".pdf":
+            try:
+                log.debug("Invalid filename passed to elixer::convert_pdf(%s)" % filename)
+            except:
+                return -1
+    except:
+        try:
+            log.debug("Invalid filename passed to elixer::convert_pdf(%s)" %filename)
+        except:
+            return -1
 
 
     try:
@@ -1652,7 +1746,7 @@ def convert_pdf(filename, resolution=150, jpeg=True, png=False):
                 log.info(
                     "Error converting (%s) to image type. File still not found. Aborting conversion."
                     % (filename))
-                return
+                return -1
 
 
         # wand.exceptions.PolicyError: not authorized  ....
@@ -1735,7 +1829,9 @@ def convert_pdf(filename, resolution=150, jpeg=True, png=False):
                     log.error("No viable system call available to convert PDF to PNG")
         except:
             log.error("System call (pdftoppm) conversion failed.", exc_info=True)
-        return
+        return 0
+
+    return 0
 
 
 
