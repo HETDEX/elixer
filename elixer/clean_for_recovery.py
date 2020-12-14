@@ -240,7 +240,7 @@ for d in alldets:
 
         if remove_png_too_small:
             try:
-                sz = os.path.getsize(rpt_path) < MINIMUM_PNG_FILESIZE
+                sz = os.path.getsize(rpt_path)
                 print(sz)
                 if sz < MINIMUM_PNG_FILESIZE:
                     # this is a problem ... the main reports should be 43k+ or so
