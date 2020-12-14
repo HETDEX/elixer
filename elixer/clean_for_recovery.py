@@ -216,20 +216,6 @@ for d in alldets:
             #the pdf is already missing, so no need to go further for this one
             continue
 
-    if remove_png_too_small:
-        try:
-            if os.path.getsize(rpt_path) < MINIMUM_PNG_FILESIZE:
-                #this is a problem ... the main reports should be 43k+ or so
-                pdf_okay = False  # technically, the PDF is fine, it is the PNG that has a problem
-                #todo:
-                # try:
-                #
-                #
-                # except: #try to regenerate the PNG?
-                #     pdf_okay = False  # technically, the PDF is fine, it is the PNG that has a problem
-        except:
-            pass
-
     try:
         mini_idx = names_mini.index(str(d)+"_mini.png")
         mini_path = all_mini[mini_idx]
@@ -251,6 +237,20 @@ for d in alldets:
     try:
         rpt_idx = names_rpt.index(str(d) + ".png")
         rpt_path = all_rpt[rpt_idx]
+
+        if remove_png_too_small:
+            try:
+                if os.path.getsize(rpt_path) < MINIMUM_PNG_FILESIZE:
+                    # this is a problem ... the main reports should be 43k+ or so
+                    pdf_okay = False  # technically, the PDF is fine, it is the PNG that has a problem
+                    # todo:
+                    # try:
+                    #
+                    #
+                    # except: #try to regenerate the PNG?
+                    #     pdf_okay = False  # technically, the PDF is fine, it is the PNG that has a problem
+            except:
+                pass
     except:
         rpt_idx = -1
         ct_no_png += 1
