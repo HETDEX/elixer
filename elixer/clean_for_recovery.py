@@ -242,6 +242,8 @@ for d in alldets:
             try:
                 if os.path.getsize(rpt_path) < MINIMUM_PNG_FILESIZE:
                     # this is a problem ... the main reports should be 43k+ or so
+                    rpt_idx = -1
+                    ct_no_png += 1
                     pdf_okay = False  # technically, the PDF is fine, it is the PNG that has a problem
                     # todo:
                     # try:
@@ -249,8 +251,8 @@ for d in alldets:
                     #
                     # except: #try to regenerate the PNG?
                     #     pdf_okay = False  # technically, the PDF is fine, it is the PNG that has a problem
-            except:
-                pass
+            except Exception as e:
+                print(e)
     except:
         rpt_idx = -1
         ct_no_png += 1
