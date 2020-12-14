@@ -1669,9 +1669,11 @@ def convert_pdf(filename, resolution=150, jpeg=False, png=True):
     try:
         max_retries = 3
         retry_ct = 0
+        systemcalls= ["pdftoppm","convert"]  #convert
         while retry_ct < max_retries:
             retry_ct += 1
-            if (run_convert_pdf(filename, resolution=resolution, jpeg=jpeg, png=png) < 0):
+            if (run_convert_pdf(filename, resolution=resolution, jpeg=jpeg, png=png,
+                                systemcall=systemcalls[(retry_ct-1)%len(systemcalls)]) < 0):
                 retry = 99
                 break
             else: #check the result
@@ -1689,11 +1691,11 @@ def convert_pdf(filename, resolution=150, jpeg=False, png=True):
                         break
                     elif (retry_ct < max_retries):
                         # could still be okay, but we will retry anyway .. if retries are exhausted, it will stick
-                        log.debug(f"Small filesize ({size}) for {image_name}. Will assume missing data and retry.")
+                        log.info(f"Small filesize ({size}) for {image_name}. Will assume missing data and retry.")
                         os.remove(image_name)
                         time.sleep(5.0 * retry_ct)  #sleep in increasing chunks of 5 seconds to let memory clear
                     else:
-                        log.debug(f"Small filesize ({size}) for {image_name}. Out of retries.")
+                        log.info(f"Small filesize ({size}) for {image_name}. Out of retries.")
                 except:
                     log.info(f"Could not get file size for {image_name}. Aborting retries.")
                     retry = 99
@@ -1702,7 +1704,7 @@ def convert_pdf(filename, resolution=150, jpeg=False, png=True):
         log.error(f"Exception converting PDF {filename} to image type.", exc_info=True)
 
 
-def run_convert_pdf(filename, resolution=150, jpeg=False, png=True):
+def run_convert_pdf(filename, resolution=150, jpeg=False, png=True,systemcall="pdftoppm"):
     """
 
     :param filename:
@@ -1803,7 +1805,7 @@ def run_convert_pdf(filename, resolution=150, jpeg=False, png=True):
         try:
             if G.ALLOW_SYSTEM_CALL_PDF_CONVERSION:
                 #try pdftoppm or convert
-                if which("pdftoppm") is not None:
+                if (systemcall == "pdftoppm") and (which("pdftoppm") is not None):
                     try:
                         log.info("Attempting blind system call to pdftoppm to convert ... ")
                         os.system("pdftoppm %s %s -png -singlefile" % (filename, filename.rstrip(".pdf")))

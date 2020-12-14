@@ -972,13 +972,14 @@ class DetObj:
             #     max_exposure_weight = max(weight_dict.values())
             # except:
             #     max_exposure_weight = 0
-
-            try:
-                max_fiber_weight = max([x.relative_weight for x in self.fibers])
-            except:
-                max_fiber_weight = 0
+            #
 
 
+            #max_fiber_weight picks up on definitely odd/wrong stuff, but not meteors
+            # try:
+            #     max_fiber_weight = max([x.relative_weight for x in self.fibers])
+            # except:
+            #     max_fiber_weight = 0
 
             #sum over JUST the COMMON areas
             common_sum = np.zeros(num_exp)
@@ -1128,8 +1129,9 @@ class DetObj:
                 pos = []
                 log.debug(f"Meteor check. full_ratio = {full_ratio:0.2f}, spec_ratio = {spec_ratio:0.2f}, near_bright = {near_bright_obj}")
                 if ( (full_ratio > full_spec_ratio_trigger) or (spec_ratio > spec_ratio_trigger ) or \
-                        ((near_bright_obj and (spec_ratio > bright_obj_spec_ratio_trigger))) or \
-                        ( (max_fiber_weight > 0.5) and (full_ratio > 1.5) ) ): #maybe need more checking
+                        ((near_bright_obj and (spec_ratio > bright_obj_spec_ratio_trigger)))):
+                    #or \
+                    #    ( (max_fiber_weight > 0.5) and (full_ratio > 1.5) ) ): #maybe need more checking
                     #merge in with the existing all found lines
                     try:
                         waves = [x.fit_x0 for x in self.spec_obj.all_found_lines]
@@ -1246,9 +1248,9 @@ class DetObj:
                                 log.debug("+++++ meteor condition 5b")
                             else:
                                 meteor = 0 #don't trust it
-                    elif max_fiber_weight > 0.5 and ( (weighted_line_count > 3) or (8 < len(waves) < 20)):
-                        log.debug("+++++ meteor condition 6a")
-                        meteor = 0.5
+                    # elif max_fiber_weight > 0.5 and ( (weighted_line_count > 3) or (8 < len(waves) < 20)):
+                    #     log.debug("+++++ meteor condition 6a")
+                    #     meteor = 0.5
                     else:
                         log.debug("Failed to meet additional meteor criteria. Likely not a meteor.")
 

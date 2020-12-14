@@ -1316,6 +1316,10 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         eli.snr = eli.fit_a/(np.sqrt(num_sn_pix)*eli.fit_rmse)/np.sqrt(broadfit)
         eli.unique = unique_peak(values,wavelengths,eli.fit_x0,eli.fit_sigma*2.355)
 
+        rough_continuum = eli.fit_y - eli.fit_y_err #best case lowest continuum estimate
+        rough_height = eli.fit_h - rough_continuum
+        rough_fwhm = eli.fit_sigma * 2.355
+
         if not eli.unique and ((eli.fit_a_err / eli.fit_a) > 0.5) and (eli.fit_sigma > GAUSS_FIT_MAX_SIGMA):
             accept_fit = False
             snr = 0.0
@@ -1330,6 +1334,14 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #     eli.line_score = 0.0
         #     eli.line_flux = 0.0
         #     log.debug(f"Fit rejected: fit_a_err/fit_a {eli.fit_a_err / eli.fit_a} > 0.5")
+        elif rough_height < rough_fwhm:
+            accept_fit = False
+            snr = 0.0
+            eli.snr = 0.0
+            eli.line_score = 0.0
+            eli.line_flux = 0.0
+            log.debug(
+                f"Fit rejected: widder than tall. Height above y = {rough_height}, FWHM = {rough_fwhm}")
         elif (eli.fit_a_err / eli.fit_a > 0.34) and ((eli.fit_y > 0) and (eli.fit_h/eli.fit_y < 1.66)):
             #error on the area is just to great to trust along with very low peak height (and these are already broad)
             accept_fit = False
@@ -3986,6 +3998,27 @@ class Spectrum:
                         eli = signal_score(wavelengths=wavelengths, values=medfilt(values, 5), errors=medfilt(errors, 5),
                                        central=a_central, central_z=central_z, values_units=values_units, spectrum=self,
                                        show_plot=False, do_mcmc=False, allow_broad=(a.broad and e.broad),broadfit=5)
+                # elif a.broad: #the supporting line could be broad
+                #     common_combo = False
+                #
+                #     #MgII and OII
+                #     if 2794 < a.w_rest < 2802: #MgII (normally set to 2977, but is a doublet)
+                #         common_combo = True
+                #
+                #     if common_combo:
+                #         eli_broad = signal_score(wavelengths=wavelengths, values=medfilt(values, 5),
+                #                            errors=medfilt(errors, 5),
+                #                            central=a_central, central_z=central_z, values_units=values_units,
+                #                            spectrum=self,
+                #                            show_plot=False, do_mcmc=False, allow_broad=True,
+                #                            broadfit=5)
+                #
+                #         #could score better as a broad line
+                #         if eli:
+                #             if eli_broad and eli_broad.line_score > eli.line_score:
+                #                 eli = eli_broad
+                #         else:
+                #             eli = eli_broad
 
                 #try as absorber
                 if G.MAX_SCORE_ABSORPTION_LINES and eli is None and self.is_near_absorber(a_central):
@@ -3995,7 +4028,15 @@ class Spectrum:
 
 
                 good = False
-                if (eli is not None) and eli.is_good(z=sol.z,allow_broad=(e.broad and a.broad)):
+
+                allow_broad_check = e.broad and a.broad
+                if not allow_broad_check and a.broad:
+                    #certain combinations are okay though
+                    #MgII (i.e. with OII, OII is narrow-ish but MgII can be broad)
+                    if 2794 < a.w_rest < 2802:
+                        allow_broad_check = True
+
+                if (eli is not None) and eli.is_good(z=sol.z,allow_broad=allow_broad_check):
                     good = True
 
                 #specifically check for 5007 and 4959 as nasty LAE contaminatant
