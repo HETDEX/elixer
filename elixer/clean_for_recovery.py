@@ -17,7 +17,7 @@ import numpy as np
 import sys
 
 MINIMUM_PDF_FILESIZE = 100000 #100k bytes
-MINIMUM_PNG_FILESIZE = 43000 #43k bytes
+MINIMUM_PNG_FILESIZE = 430000 #43k bytes
 
 alldets = None
 args = list(map(str.lower,sys.argv))
@@ -205,9 +205,11 @@ for d in alldets:
 
     #check the PDF filesize ... if too small, it was generated but missing data
     #is that ever okay?
+    pdf_sz = None
     if remove_pdf_too_small:
         try:
-            if os.path.getsize(pdf_path) < MINIMUM_PDF_FILESIZE:
+            pdf_sz = os.path.getsize(pdf_path)
+            if pdf_sz < MINIMUM_PDF_FILESIZE:
                 #this is a problem ... the main reports should be 500k-1000k or so
                 pdf_okay = False
         except:
@@ -240,9 +242,8 @@ for d in alldets:
 
         if remove_png_too_small:
             try:
-                sz = os.path.getsize(rpt_path)
-                print(sz)
-                if sz < MINIMUM_PNG_FILESIZE:
+                png_sz = os.path.getsize(rpt_path)
+                if png_sz < MINIMUM_PNG_FILESIZE and pdf_sz and pdf_sz > MINIMUM_PNG_FILESIZE * 0.8:
                     # this is a problem ... the main reports should be 43k+ or so
                     rpt_idx = -1
                     ct_no_png += 1
