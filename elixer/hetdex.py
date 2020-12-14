@@ -953,10 +953,31 @@ class DetObj:
             exp = np.zeros((num_exp,len(G.CALFIB_WAVEGRID)))
             exp_err = np.zeros((num_exp,len(G.CALFIB_WAVEGRID)))
 
+            #fibers are sorted by weight
+
+            #using the weight_dict to find the exposure with the most weight really does not do anything
+            #since it is based on the PSF model and the expected flux in each fiber from that and the weighted center
+            # and NOT the actual recorded flux in each fiber.
+
+            # exposures = np.unique([f.expid for f in self.fibers])-1 #numbered (1,2,3) not (0,1,2)
+            # weight_dict = dict(zip(exposures,np.zeros(len(exposures))))
+
             for f in self.fibers:
                 idx = f.panacea_idx
                 exp[f.expid-1] += f.fits.calfib[idx]
                 exp_err[f.expid-1] += f.fits.calfibe[idx]
+                # weight_dict[f.expid-1] += f.relative_weight
+
+            # try:
+            #     max_exposure_weight = max(weight_dict.values())
+            # except:
+            #     max_exposure_weight = 0
+
+            try:
+                max_fiber_weight = max([x.relative_weight for x in self.fibers])
+            except:
+                max_fiber_weight = 0
+
 
 
             #sum over JUST the COMMON areas
@@ -1107,7 +1128,8 @@ class DetObj:
                 pos = []
                 log.debug(f"Meteor check. full_ratio = {full_ratio:0.2f}, spec_ratio = {spec_ratio:0.2f}, near_bright = {near_bright_obj}")
                 if ( (full_ratio > full_spec_ratio_trigger) or (spec_ratio > spec_ratio_trigger ) or \
-                        ((near_bright_obj and (spec_ratio > bright_obj_spec_ratio_trigger))) ): #maybe need more checking
+                        ((near_bright_obj and (spec_ratio > bright_obj_spec_ratio_trigger))) or \
+                        ( (max_fiber_weight > 0.5) and (full_ratio > 1.5) ) ): #maybe need more checking
                     #merge in with the existing all found lines
                     try:
                         waves = [x.fit_x0 for x in self.spec_obj.all_found_lines]
@@ -1129,7 +1151,7 @@ class DetObj:
                         log.info("Exception in DetObj::check_for_meteor()",exc_info=True)
                         waves = [] #this will basically fail out below
 
-                    waves = np.array(waves)
+                    waves = np.array(sorted(waves))
 
                     bright_mg_line = np.where(  ((waves >= 3826) & (waves <= 3840)) |
                                                 ((waves >= 5170) & (waves <= 5186)))[0]
@@ -1141,6 +1163,9 @@ class DetObj:
                                              ((waves >= 3965) & (waves <= 3971)) |
                                              ((waves >= 4224) & (waves <= 4230)) |
                                              ((waves >= 5170) & (waves <= 5186))  )[0]
+
+                    weighted_line_count = len(bright_mg_line) * 2 + len(common_lines)
+
                     #other lines CaII at 3934
                     #            Al    around 3968 (or Al and FeI 3962,3978)? (kinda weak)
                     #            CaI  at 4227
@@ -1221,6 +1246,9 @@ class DetObj:
                                 log.debug("+++++ meteor condition 5b")
                             else:
                                 meteor = 0 #don't trust it
+                    elif max_fiber_weight > 0.5 and ( (weighted_line_count > 3) or (8 < len(waves) < 20)):
+                        log.debug("+++++ meteor condition 6a")
+                        meteor = 0.5
                     else:
                         log.debug("Failed to meet additional meteor criteria. Likely not a meteor.")
 
@@ -1237,9 +1265,9 @@ class DetObj:
 
                     if meteor > 0:
                         if spec_ratio > 5.0 or full_ratio > 3.0 or meteor >= 2:
-                            self.spec_obj.add_classification_label("meteor",prepend=True)
-                        else:
                             self.spec_obj.add_classification_label("meteor",replace=True)
+                        else:
+                            self.spec_obj.add_classification_label("meteor",prepend=True)
                         self.spec_obj.meteor_strength = meteor
                         pos = np.array(pos)
                         if len(pos) > 0:
