@@ -17,6 +17,7 @@ import numpy as np
 import sys
 
 MINIMUM_PDF_FILESIZE = 100000 #100k bytes
+MINIMUM_PNG_FILESIZE = 43000 #43k bytes
 
 alldets = None
 args = list(map(str.lower,sys.argv))
@@ -39,8 +40,6 @@ remove_pdf_too_small = False
 if os.path.exists("elixer_merged_cat.h5"):
     print("elixer_merged_cat.h5 exists ... will compare with PDFs")
 
-
-
 i = input("Remove if PDF too small (y/n)?")
 if len(i) > 0 and i.upper() == "Y":
     remove_pdf_too_small = True
@@ -48,6 +47,11 @@ if len(i) > 0 and i.upper() == "Y":
 i = input("Remove if no report png (y/n)?")
 if len(i) > 0 and i.upper() == "Y":
     remove_no_png = True
+
+i = input("Remove if PNG too small (y/n)?")
+if len(i) > 0 and i.upper() == "Y":
+    remove_png_too_small = True
+    remove_no_png = True #force to check if removing if too small
 
 i = input("Remove if no imaging (y/n)?")
 if len(i) > 0 and i.upper() == "Y":
@@ -211,6 +215,20 @@ for d in alldets:
             ct_no_pdf += 1
             #the pdf is already missing, so no need to go further for this one
             continue
+
+    if remove_png_too_small:
+        try:
+            if os.path.getsize(rpt_path) < MINIMUM_PNG_FILESIZE:
+                #this is a problem ... the main reports should be 43k+ or so
+                pdf_okay = False  # technically, the PDF is fine, it is the PNG that has a problem
+                #todo:
+                # try:
+                #
+                #
+                # except: #try to regenerate the PNG?
+                #     pdf_okay = False  # technically, the PDF is fine, it is the PNG that has a problem
+        except:
+            pass
 
     try:
         mini_idx = names_mini.index(str(d)+"_mini.png")
