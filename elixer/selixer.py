@@ -734,6 +734,7 @@ if not time_set: #update time
         # set a minimum time ... always AT LEAST 5 or 10 minutes requested?
         minutes = int(TIME_OVERHEAD + MAX_TIME_PER_TASK * mx * mult * base_time_multiplier)
         time = str(timedelta(minutes=max(minutes,10.0)))
+        print(f"auto-set time: TIME_OVERHEAD {TIME_OVERHEAD} + MAX_TIME_PER_TASK {MAX_TIME_PER_TASK} x mx {mx} x mult {mult} x base_time_multiplier {base_time_multiplier}")
         print("--time %s" %time)
 
     except Exception as e:
