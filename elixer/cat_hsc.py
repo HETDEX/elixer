@@ -114,7 +114,10 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
     #I have been nudging by ~ 0.5 mag (since was 5sigma, and I am using my own apertures)
     #originally had 26.5 (but that may have been a mis-copy for wide-g band at 26.5)
     #and this is a final floor limit
-    MAG_LIMIT = 26.5
+    #Updated 2020-12-17 ... was using data from HSC-SSP (10 minute exp) vs HETDEX specific
+    #survey from HSC which is 6 min. and 25.5 is correct, so set full limit to 26.0
+    # other HSC may be as deep as 27.2
+    MAG_LIMIT = 26.0
 
     mean_FWHM = 1.0 #average 0.6 to 1.0
 

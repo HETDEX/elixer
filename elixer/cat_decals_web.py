@@ -37,6 +37,7 @@ import astropy.table
 from astropy import coordinates as coords
 from astropy import units as u
 import requests
+from requests.exceptions import Timeout, ConnectionError
 
 
 #log = G.logging.getLogger('Cat_logger')
@@ -285,7 +286,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
             # appears to be 256x256 maximum and NOT specifying &pixscale=%f   where %f=0.262  seems to give the maximum resolution
 
             try:
-                response = requests.get(url, allow_redirects=True)
+                response = requests.get(url, allow_redirects=True,timeout=(10.0,120.0)) #10sec connnect timeout, 120 sec fetch
                 if response.status_code != 200: #"OK" response
                     log.debug("DECaLS http response code = %d (%s)" %(response.status_code,response.reason))
                     continue
@@ -300,8 +301,15 @@ class DECaLS(cat_base.Catalog):#DECaLS
                     continue
 
                 hdulist_array = [hdulist]
-            except:
-                log.debug("Exception in DECaLS",exc_info=True)
+
+            except Timeout:
+                log.info("Exception (Timeout) in DECaLS",exc_info=False)
+                return None
+            except ConnectionError:
+                log.info("Exception (ConnectionError) in DECaLS",exc_info=False)
+                return None
+            else:
+                log.info("Exception in DECaLS",exc_info=True)
                 continue
 
             if hdulist_array is None:
@@ -988,7 +996,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
             url = "http://legacysurvey.org/viewer/fits-cutout?ra=%f&dec=%f&layer=%s&bands=%s" %(ra,dec,"dr8",filter)
 
             try:
-                response = requests.get(url, allow_redirects=True)
+                response = requests.get(url, allow_redirects=True,timeout=(10.0,120.0))
 
                 if response.status_code != 200:  # "OK" response
                     log.debug("DECaLS http response code = %d (%s)" % (response.status_code, response.reason))
@@ -1005,7 +1013,14 @@ class DECaLS(cat_base.Catalog):#DECaLS
                     hdulist_array = None
 
                 hdulist_array = [hdulist]
-            except:
+
+            except Timeout:
+                log.info("Exception (Timeout) in DECaLS",exc_info=False)
+                hdulist_array = None
+            except ConnectionError:
+                log.info("Exception (ConnectionError) in DECaLS",exc_info=False)
+                hdulist_array = None
+            else:
                 log.debug("Exception in DECaLS",exc_info=True)
                 hdulist_array = None
 

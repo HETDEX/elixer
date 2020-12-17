@@ -250,7 +250,16 @@ def luminosity_distance(z,cosmology=None):
     return cosmology.luminosity_distance(z)
 
 def absolute_mag(mag,z,correction=0,cosmology=None):
-    return mag - 5.5 * np.log10(luminosity_distance(z,cosmology).to(u.parsec)/(10.0 * u.parsec)) + correction
+    """
+    Just the distance modulus
+    :param mag:
+    :param z:
+    :param correction: (K-correction)
+    :param cosmology:
+    :return:
+    """
+    return mag - 5. * np.log10(luminosity_distance(z).to(u.parsec)/(10.0 * u.parsec)).value - correction
+
 
 def physical_diameter(z,a,cosmology=None):
     """

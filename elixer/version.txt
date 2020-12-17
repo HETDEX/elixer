@@ -1,11 +1,16 @@
 changes to elixer by version
 
+1.10.1a3 [2020-12-17]
+* Lowered HSC (for HETDEX) survey depth to full limit to 26.0 (25.5 at 5sigma for 2")
 
-1.10.1b [2020-12-14]
+
+1.10.1a2 [2020-12-16]
 * Add extra checks in PDF to PNG conversion (filesize sanity with retry)
 * Improvements to broadline matching with MgII
+* Add 10 second connect and 120 second (get) timeouts for DECaLS
 
-1.10.1a [2020-11-13]
+
+1.10.1a1 [2020-11-13]
 * add dashed red lines to the mini png plots to indicate the top cutout as a zoom of the boxed section of the
   bottom imaging cutout, better aligned top edge, widened top right border (and filled in gap)
 

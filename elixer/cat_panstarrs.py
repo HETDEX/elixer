@@ -167,7 +167,7 @@ def getcolorim(ra, dec, size=240, output_size=None, filters="grizy", format="jpg
     if format not in ("jpg", "png"):
         raise ValueError("format must be jpg or png")
     url = geturl(ra, dec, size=size, filters=filters, output_size=output_size, format=format, color=True)
-    r = requests.get(url)
+    r = requests.get(url, allow_redirects=True,timeout=(10.0,120.0))
     im = Image.open(BytesIO(r.content))
     return im
 
@@ -189,7 +189,7 @@ def getgrayim(ra, dec, size=240, output_size=None, filter="g", format="jpg"):
     if filter not in list("grizy"):
         raise ValueError("filter must be one of grizy")
     url = geturl(ra, dec, size=size, filters=filter, output_size=output_size, format=format)
-    r = requests.get(url[0])
+    r = requests.get(url[0],allow_redirects=True,timeout=(10.0,120.0))
     im = Image.open(BytesIO(r.content))
     return im
 
