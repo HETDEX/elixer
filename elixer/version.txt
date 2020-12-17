@@ -2,6 +2,7 @@ changes to elixer by version
 
 1.10.1a3 [2020-12-17]
 * Lowered HSC (for HETDEX) survey depth to full limit to 26.0 (25.5 at 5sigma for 2")
+* Corrected default --recover behavior for selixer since --recover (True) is now the default option
 
 
 1.10.1a2 [2020-12-16]

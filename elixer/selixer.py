@@ -93,10 +93,11 @@ if "--ooops" in args:
 else:
     ooops_mode = False
 
-if "--recover" in args:
-    recover_mode = True
-else:
+#--recover is now the default unless --no_recover is set
+if "--no_recover" in args:
     recover_mode = False
+else:
+    recover_mode = True
 
 
 if "--neighborhood_only" in args:
