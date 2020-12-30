@@ -1,4 +1,4 @@
-#the noglob is IMPORTANT and it will stick after this is run IF you source
+# the noglob is IMPORTANT and it will stick after this is run IF you source
 # (if you bash instead it will not stick)
 # if running in SLURM, the environment from which you launched must have had
 # the noglob applied otherwise the SLURM launcher will expand the '*' in the call and
@@ -6,6 +6,7 @@
 set -o noglob
 
 imgdir="/data/03261/polonius/hdr2.1.run/elixer/rerun/rr1/all_pngs"
+#!!! IMPORTANT !!! db_dir needs to end with a /
 db_dir="/data/03261/polonius/hdr2.1.run/detect/image_db/"
 rpt="elixer_reports_"
 

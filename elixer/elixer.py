@@ -347,7 +347,8 @@ def parse_commandline(auto_force=False):
                         required=False)
 
     parser.add_argument('--merge_unique', help='Merge two ELiXer HDF5 files into a new file keeping the more recent '
-                                               'detection. Format: new-file,file1,file2', required=False)
+                                               'detection. Format: new-file,file1,file2.\nNote: preferred TACC use'
+                                               ' with IDEV. Do not use with selixer.', required=False)
 
     parser.add_argument('--upgrade_hdf5', help='Copy HDF5 file into new format/version. Formate old_file,new_file',
                         required=False)
@@ -2487,6 +2488,11 @@ def remove_h5_duplicate_rows(args=None):
 
 
 def merge_unique(args=None):
+    """
+    note: elixer_hdf5 will chunk the h5 files into small blocks and merge the blocks (much more efficient)
+    :param args:
+    :return:
+    """
 
     try:
         #tokenize

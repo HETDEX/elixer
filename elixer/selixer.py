@@ -309,7 +309,7 @@ elif hostname == "stampede2":
 
     tasks = 0
 
-elif hostname == "z50":
+elif hostname in ["z50","dg5"]:
     host = HOST_LOCAL
     MAX_TASKS = 100 # #dummy value just for testing
     TIME_OVERHEAD = 1.0  # MINUTES of overhead to get started (per task call ... just a safety)

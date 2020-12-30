@@ -92,9 +92,9 @@ KPNO_IMAGE_PATH = None
 
 HETDEX_API_CONFIG = None
 
-LOCAL_DEV_HOSTNAME = "z50"
+LOCAL_DEV_HOSTNAMES = ["z50","dg5"]
 
-if hostname == LOCAL_DEV_HOSTNAME:  # primary author test box
+if hostname in LOCAL_DEV_HOSTNAMES:  # primary author test box
     HDR_Version = "2.1"
     HDR_Version_float = 2.1
     LAUNCH_PDF_VIEWER = 'qpdfview'
@@ -158,7 +158,7 @@ def set_hdr_basepath(version=None):
     if HETDEX_API_CONFIG is None:
         if version_float != 0:
             strHDRVersion = f"hdr{version}"
-        elif hostname == LOCAL_DEV_HOSTNAME:
+        elif hostname in LOCAL_DEV_HOSTNAMES:
             strHDRVersion = f"hdr{HDR_Version}"
         else: #this is a problem
             print("Invalid HDRversion configuration")
@@ -177,7 +177,7 @@ def set_hdr_basepath(version=None):
         HDR_SCRATCH_BASEPATH = op.join(HDR_SCRATCH_BASEPATH,hdr_dir)
         HDR_WORK_BASEPATH = op.join(HDR_WORK_BASEPATH,hdr_dir)
         HDR_BASEPATH = op.join(HDR_BASEPATH,hdr_dir)
-    elif hostname == LOCAL_DEV_HOSTNAME: #author test box
+    elif hostname in LOCAL_DEV_HOSTNAMES: #author test box
         hdr_dir = "hdr1"
         print(f"*** using {hdr_dir}")
         #HDR_DATA_BASEPATH = op.join(HDR_DATA_BASEPATH, hdr_dir)
@@ -383,7 +383,7 @@ def select_hdr_version(version):
             hdr_imaging_basepath = "/data/03261/polonius/hdr2/"
 
         try:
-            if (hostname == LOCAL_DEV_HOSTNAME) and op.exists("/media/dustin/Seagate8TB/hetdex/hdr2/imaging/"):
+            if (hostname in LOCAL_DEV_HOSTNAMES) and op.exists("/media/dustin/Seagate8TB/hetdex/hdr2/imaging/"):
                 print("***** using /media/dustin/Seagate8TB/hetdex/hdr2/imaging/ for base imaging *****")
                 hdr_imaging_basepath = "/media/dustin/Seagate8TB/hetdex/hdr2/imaging/"
         except:
@@ -482,7 +482,7 @@ REPORT_ELIXER_MCMC_FIT = False
 RELATIVE_PATH_UNIVERSE_CONFIG = "line_classifier/universe.cfg"
 RELATIVE_PATH_FLUX_LIM_FN = "line_classifier/Line_flux_limit_5_sigma_baseline.dat"
 
-if hostname == LOCAL_DEV_HOSTNAME:  # primary author test box
+if hostname in LOCAL_DEV_HOSTNAMES:  # primary author test box
     LOG_LEVEL = logging.DEBUG
 else:
     LOG_LEVEL = logging.INFO

@@ -1463,7 +1463,7 @@ def merge_unique(newfile,file1,file2):
         num_chunks = int(len(detectids)/chunk_size)+1
         detect_chunks = np.array_split(detectids,num_chunks)
 
-        log.debug("Merging %d detections ..." %len(detectids))
+        log.info("Merging %d detections ..." %len(detectids))
 
         for chunk in detect_chunks:
             #make a new receiving h5 file
