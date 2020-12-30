@@ -59,7 +59,7 @@ def kpno_count_to_mag(count,cutout=None,headers=None):
     else:
         return 99.9  # need a better floor
 
-class KPNO(cat_base.Catalog):#Kit Peak
+class KPNO(cat_base.Catalog):#Kitt Peak
     # class variables
     KPNO_BASE_PATH = G.KPNO_BASE_PATH
     KPNO_CAT_PATH = G.KPNO_CAT_PATH
