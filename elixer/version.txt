@@ -1,5 +1,4 @@
 changes to elixer by version
-temp test
 
 1.10.1a3 [2020-12-17]
 * Lowered HSC (for HETDEX) survey depth to full limit to 26.0 (25.5 at 5sigma for 2")
