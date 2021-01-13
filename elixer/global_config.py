@@ -20,7 +20,10 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.10.1a3'
+__version__ = '1.10.1a4'
+
+#Logging
+GLOBAL_LOGGING = True
 
 #python version
 import sys
@@ -524,8 +527,13 @@ LOG_FILENAME = "elixer.log"
 
 class Global_Logger:
     FIRST_LOG = True
+    DO_LOG = True
 
     def __init__(self,id): #id is a string identifier
+        if not GLOBAL_LOGGING:
+            self.__class__.DO_LOG = False
+            return
+
         self.logger = logging.getLogger(id)
         self.logger.setLevel(LOG_LEVEL)
 
@@ -564,44 +572,50 @@ class Global_Logger:
 
     def setlevel(self,level):
         try:
-            self.logger.setLevel(level)
+            if self.__class__.DO_LOG:
+                self.logger.setLevel(level)
         except:
-            print("Exception in logger....")
+            print("Exception in logger (setlevel) ...")
 
     def debug(self,msg,exc_info=False):
         try:
-            msg = self.add_time(msg)
-            self.logger.debug(msg,exc_info=exc_info)
+            if self.__class__.DO_LOG:
+                msg = self.add_time(msg)
+                self.logger.debug(msg,exc_info=exc_info)
         except:
-            print("Exception in logger....")
+            print("Exception in logger (debug) ...")
 
     def info(self,msg,exc_info=False):
         try:
-            msg = self.add_time(msg)
-            self.logger.info(msg,exc_info=exc_info)
+            if self.__class__.DO_LOG:
+                msg = self.add_time(msg)
+                self.logger.info(msg,exc_info=exc_info)
         except:
-            print("Exception in logger....")
+            print("Exception in logger (info) ...")
 
     def warning(self,msg,exc_info=False):
         try:
-            msg = self.add_time(msg)
-            self.logger.warning(msg,exc_info=exc_info)
+            if self.__class__.DO_LOG:
+                msg = self.add_time(msg)
+                self.logger.warning(msg,exc_info=exc_info)
         except:
-            print("Exception in logger....")
+            print("Exception in logger (warning) ...")
 
     def error(self,msg,exc_info=False):
         try:
-            msg = self.add_time(msg)
-            self.logger.error(msg,exc_info=exc_info)
+            if self.__class__.DO_LOG:
+                msg = self.add_time(msg)
+                self.logger.error(msg,exc_info=exc_info)
         except:
-            print("Exception in logger....")
+            print("Exception in logger (error) ...")
 
     def critical(self, msg, exc_info=False):
         try:
-            msg = self.add_time(msg)
-            self.logger.critical(msg, exc_info=exc_info)
+            if self.__class__.DO_LOG:
+                msg = self.add_time(msg)
+                self.logger.critical(msg, exc_info=exc_info)
         except:
-            print("Exception in logger....")
+            print("Exception in logger (critical) ....")
 
 
 def python2():

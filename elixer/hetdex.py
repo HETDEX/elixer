@@ -910,7 +910,7 @@ class DetObj:
         #how many exposures? usually 3, but not always
         try:
 
-            # if (np.isnan(self.dither_norm) or (self.dither_norm > 2.0)):
+            # if (np.isnan(self.dither_norm) or (self.dither_norm > 3.0)):
             #     log.info(f"DetObj::check_for_meteor(). Cannot check for meteor due to bad dither normalization ({self.dither_norm})")
             #     return 0
 
@@ -1796,14 +1796,14 @@ class DetObj:
             log.info(f"Aggregate Classification: grossly negative spectrum. Setting PLAE to -1 (spurious)")
         #shot conditions
         elif (self.survey_response < 0.08) or (self.survey_fwhm > 3.0) or \
-                (np.isnan(self.dither_norm) or (self.dither_norm > 2.0)):
+                (np.isnan(self.dither_norm) or (self.dither_norm > 3.0)):
             if self.survey_response < 0.05: #this alone means we're done
                  reason = "(poor throughput)"
                  scaled_prob_lae = -1
                  self.classification_dict['scaled_plae'] = scaled_prob_lae
                  self.classification_dict['spurious_reason'] = reason
                  log.info(f"Aggregate Classification: poor throughput {self.survey_response}. Setting PLAE to -1 (spurious)")
-            elif (np.isnan(self.dither_norm) or (self.dither_norm > 2.0)):
+            elif (np.isnan(self.dither_norm) or (self.dither_norm > 3.0)):
                 reason = "(bad dither norm)"
                 scaled_prob_lae = -1
                 self.classification_dict['scaled_plae'] = scaled_prob_lae
@@ -1811,7 +1811,7 @@ class DetObj:
                 log.info(
                     f"Aggregate Classification: poor throughput {self.survey_response}. Setting PLAE to -1 (spurious)")
             else:
-                bool_sum  = (self.survey_response < 0.08) + (self.survey_fwhm > 3.0) +  (np.isnan(self.dither_norm) or (self.dither_norm > 2.0))
+                bool_sum  = (self.survey_response < 0.08) + (self.survey_fwhm > 3.0) +  (np.isnan(self.dither_norm) or (self.dither_norm > 3.0))
                 if bool_sum > 1:
                     reason = "(poor shot)"
                     scaled_prob_lae = -1
@@ -7040,7 +7040,7 @@ class HETDEX:
                 else:
                     title += f"T={e.survey_response:0.3f}  "
 
-                if e.dither_norm > 2.0:
+                if e.dither_norm > 3.0:
                     title += f"N=*{e.dither_norm:0.2f}!  "
                 else:
                     title += f"N={e.dither_norm:0.2f}  "
@@ -7104,7 +7104,7 @@ class HETDEX:
                 else:
                     title += f"T={e.survey_response:0.3f}  "
 
-                if e.dither_norm > 2.0:
+                if e.dither_norm > 3.0:
                     title += f"N=*{e.dither_norm:0.2f}!  "
                 else:
                     title += f"N={e.dither_norm:0.2f}  "

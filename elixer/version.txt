@@ -1,5 +1,14 @@
 changes to elixer by version
 
+1.10.1a4 [2020-01-13]
+* changed out of range dither norm from 2.0 to 3.0 per re-evaluation
+* add GLOBAL_LOGGING to global_config.py ;
+    to turn off all logging:
+    > import global_config
+    > global_config.GLOBAL_LOGGING = False
+    > import catalogs
+    ...
+
 1.10.1a3 [2020-12-17]
 * Lowered HSC (for HETDEX) survey depth to full limit to 26.0 (25.5 at 5sigma for 2")
 * Corrected default --recover behavior for selixer since --recover (True) is now the default option
