@@ -277,7 +277,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
             log.info("DECaLS query (%f,%f) at %f arcsec for band %s ..." % (ra, dec, query_radius, f))
 
             #build up the request URL
-            url = "http://legacysurvey.org/viewer/fits-cutout?ra=%f&dec=%f&layer=%s&bands=%s" %(ra,dec,"dr8",f)
+            url = "http://legacysurvey.org/viewer/fits-cutout?ra=%f&dec=%f&layer=%s&bands=%s" %(ra,dec,"ls-dr9",f)
 
             #from http://legacysurvey.org/dr8/description/
             # The maximum size for cutouts( in number of pixels) is currently 512.
@@ -288,16 +288,16 @@ class DECaLS(cat_base.Catalog):#DECaLS
             try:
                 response = requests.get(url, allow_redirects=True,timeout=(10.0,120.0)) #10sec connnect timeout, 120 sec fetch
                 if response.status_code != 200: #"OK" response
-                    log.debug("DECaLS http response code = %d (%s)" %(response.status_code,response.reason))
+                    log.info("DECaLS http response code = %d (%s)" %(response.status_code,response.reason))
                     continue
                 if len(response.content) < 5000: #should normally be 200k+
-                    log.debug("Bad (short) response (no image?) from DECaLS")
+                    log.info(f"Bad (short) response (no image?) from DECaLS. Content = {response.content}")
                     continue
 
                 hdulist = fits.open(io.BytesIO(response.content))
 
                 if hdulist[0].header['NAXIS'] != 2:
-                    log.debug("Bad response (no image?) from DECaLS. Missing NAXIS in header.")
+                    log.info("Bad response (no image?) from DECaLS. Missing NAXIS in header.")
                     continue
 
                 hdulist_array = [hdulist]
@@ -308,9 +308,12 @@ class DECaLS(cat_base.Catalog):#DECaLS
             except ConnectionError:
                 log.info("Exception (ConnectionError) in DECaLS",exc_info=False)
                 return None
-            else:
+            except Exception as e:
                 log.info("Exception in DECaLS",exc_info=True)
                 continue
+            # else:
+            #     log.info("Exception in DECaLS",exc_info=True)
+            #     continue
 
             if hdulist_array is None:
                 log.info("DECaLS query (%f,%f) at %f arcsec for band %s returned None" %(ra,dec,query_radius,f))
@@ -993,23 +996,23 @@ class DECaLS(cat_base.Catalog):#DECaLS
 
             log.info("DECaLS query (%f,%f) at %f arcsec for band %s ..." % (ra, dec, query_radius, filter))
             #build up the request URL
-            url = "http://legacysurvey.org/viewer/fits-cutout?ra=%f&dec=%f&layer=%s&bands=%s" %(ra,dec,"dr8",filter)
+            url = "http://legacysurvey.org/viewer/fits-cutout?ra=%f&dec=%f&layer=%s&bands=%s" %(ra,dec,"ls-dr9",filter)
 
             try:
                 response = requests.get(url, allow_redirects=True,timeout=(10.0,120.0))
 
                 if response.status_code != 200:  # "OK" response
-                    log.debug("DECaLS http response code = %d (%s)" % (response.status_code, response.reason))
+                    log.info("DECaLS http response code = %d (%s)" % (response.status_code, response.reason))
                     hdulist_array = None
 
                 if len(response.content) < 5000:  # should normally be 200k+
-                    log.debug("Bad response (no image?) from DECaLS")
+                    log.info(f"Bad (short) response (no image?) from DECaLS. Content = {response.content}")
                     hdulist_array = None
 
                 hdulist = fits.open(io.BytesIO(response.content))
 
                 if hdulist[0].header['NAXIS'] != 2:
-                    log.debug("Bad response (no image?) from DECaLS")
+                    log.info("Bad response (no image?) from DECaLS")
                     hdulist_array = None
 
                 hdulist_array = [hdulist]
@@ -1020,9 +1023,11 @@ class DECaLS(cat_base.Catalog):#DECaLS
             except ConnectionError:
                 log.info("Exception (ConnectionError) in DECaLS",exc_info=False)
                 hdulist_array = None
-            else:
-                log.debug("Exception in DECaLS",exc_info=True)
-                hdulist_array = None
+            except Exception as e:
+                log.info("Exception in DECaLS",exc_info=True)
+            # else:
+            #     log.debug("Exception in DECaLS",exc_info=True)
+            #     hdulist_array = None
 
             if hdulist_array is None:
                 log.info("DECaLS query (%f,%f) at %f arcsec for band %s returned None" % (ra, dec, query_radius, filter))

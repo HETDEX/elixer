@@ -1,5 +1,9 @@
 changes to elixer by version
 
+
+1.10.1a5 [2020-01-18]
+* DECaLS web request layer (name) change. Was "dr8" now "ls-dr9".
+
 1.10.1a4 [2020-01-13]
 * changed out of range dither norm from 2.0 to 3.0 per re-evaluation
 * add GLOBAL_LOGGING to global_config.py ;
