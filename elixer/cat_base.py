@@ -903,6 +903,10 @@ class Catalog:
             title += "N/A"
 
 
+        bid_ras = [x.bid_ra for x in the_entry['counterparts']]
+        bid_decs = [x.bid_dec for x in the_entry['counterparts']]
+        bid_colors = self.get_bid_colors(len(bid_ras))
+        target_box_side = error/4.0
 
         plt.subplot(gs[0, :])
         text = plt.text(0, 0.7, title, ha='left', va='bottom', fontproperties=font)
@@ -966,7 +970,6 @@ class Catalog:
                     cx = the_entry['ap_center'][0]
                     cy = the_entry['ap_center'][1]
 
-
                     if the_entry['details']:
                         cutout_ewr = the_entry['details']['aperture_eqw_rest_lya']
                         cutout_plae = the_entry['details']['aperture_plae']
@@ -986,7 +989,17 @@ class Catalog:
 
                 self.add_north_box(plt, sci, the_entry['cutout'], error, 0, 0, theta=None)
 
-        # complete the entry
+                x, y = sci.get_position(ra, dec, the_entry['cutout'])  # zero (absolute) position
+                for br, bd, bc in zip(bid_ras, bid_decs, bid_colors):
+                    fx, fy = sci.get_position(br, bd, the_entry['cutout'])
+
+                    self.add_catalog_position(plt,
+                                              x=(fx-x)-target_box_side / 2.0,
+                                              y=(fy-y)-target_box_side / 2.0,
+                                              size=target_box_side, color=bc)
+
+
+    # complete the entry
         plt.close()
 
         self.clear_pages()
