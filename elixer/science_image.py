@@ -818,7 +818,8 @@ class science_image():
                    'aperture_eqw_rest_lya':None,'aperture_eqw_rest_lya_err':None,'aperture_plae':None,
                    'elixer_apertures':None,'elixer_aper_idx':None,
                    'sep_objects':None,'sep_obj_idx':None,
-                   'fail_mag_limit':False,'raw_mag':None,'raw_mag_bright':None,'raw_mag_faint':None,'raw_mag_err':None}
+                   'fail_mag_limit':False,'raw_mag':None,'raw_mag_bright':None,'raw_mag_faint':None,'raw_mag_err':None,
+                   'exptime':None}
 
 
         self.window = None
@@ -831,6 +832,14 @@ class science_image():
         mag = 10000. #aperture converted to mag_AB
 
         if (aperture is not None) and (mag_func is not None):
+            if aperture == -1:
+                #in most cases this should be set to the calling catalog's best starting aperture
+                #but as s safety, reset here to at least 0.5"
+                if G.DYNAMIC_MAG_APERTURE:
+                    aperture = 0.5
+                else:
+                    aperture= G.FIXED_MAG_APERTURE
+
             radius = aperture
 
             # aperture-radius is not allowed to grow past the error-radius in the dynamic case
@@ -1127,6 +1136,7 @@ class science_image():
 
 
         details['pixel_scale'] = self.pixel_size
+        details['exptime'] = self.exptime
 
         #We have the cutout info, now get aperture photometry
 

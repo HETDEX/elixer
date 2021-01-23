@@ -44,8 +44,8 @@ class BidTarget:
         self.catalog_name = None
         self.spec_z = None
         self.phot_z = None
-        #self.phot_z_pdf_pz = [] #p(z) or y-axis #todo: future use? record in HDF5 catalog?
-        #self.phot_z_pdf_z = [] #z array or x-axis
+        self.phot_z_pdf_pz = [] #p(z) or y-axis #todo: future use? record in HDF5 catalog?
+        self.phot_z_pdf_z = [] #z array or x-axis
         # todo: filter exposure time??
 
         self.filters = []

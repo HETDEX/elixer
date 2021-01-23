@@ -1090,6 +1090,8 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
         log.debug("Imaging catalogs is None")
 
     num_remaining_cats = len(cats)
+    list_of_catalog_cutouts = [] #each catalog that overlaps the RA, Dec returns a list of dictionaries of info
+
     for c in cats:
         num_remaining_cats -= 1
 
@@ -1121,6 +1123,9 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
                                                base_count=base_count,target_w=target_w,fiber_locs=fiber_locs,
                                                target_flux=target_flux,detobj=detobj)
 
+                if G.BUILD_REPORT_BY_FILTER and r: #here 'r' is a list of dictionaries ("cutouts") from the catalog
+                    list_of_catalog_cutouts.append(r)
+
                 if reset_match:
                     match = None
             except:
@@ -1128,34 +1133,74 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
                 r = None
 
         count = 0
-        if r is not None and (len(r) > 1): #always adds figure for "No matching targets"
-            cat_count+= 1
+        if G.BUILD_REPORT_BY_FILTER:
+            #just iterate to the next catalog and continue to build up the list_of_catalog_cutouts
+            if len(list_of_catalog_cutouts) == 0 and num_remaining_cats < 1: # r was None ... no page was created, probably an empty region
+                if G.DECALS_WEB_ALLOW and not added_decals: #not FORCE ... that is handled differently
+                    cats.append(catalogs.CatalogLibrary().get_decals_web())
+                    added_decals = True
+                elif G.PANSTARRS_ALLOW and not added_panstarrs: #not FORCE ... that is handled differently
+                    cats.append(catalogs.CatalogLibrary().get_panstarrs())
+                    added_panstarrs = True
+                elif G.SDSS_ALLOW and not added_sdss:
+                    cats.append(catalogs.CatalogLibrary().get_sdss())
+                    added_sdss = True
+                elif not added_catch_all:
+                    cats.append(catalogs.CatalogLibrary().get_catch_all())
+                    added_catch_all = True
+        else:
+            if (r is not None) and (len(r) > 1): #always adds figure for "No matching targets"
+                cat_count+= 1
+                #todo: check that we have imaging? if there is none, go ahead to the next catalog?
 
-            #todo: check that we have imaging? if there is none, go ahead to the next catalog?
+                if (cat_count > 1) and G.SINGLE_PAGE_PER_DETECT:
+                    msg = "INFO: More than one catalog matched .... taking top catalog only. Skipping PDF for %s" % c.Name
+                    print(msg)
+                    log.info(msg)
+                else:
+                    if PyPDF is not None:
+                        build_report_part(pdfname,r)
+                    else:
+                        pages = pages + r
+                    count = max(0,len(r)-1) #1st page is the target page
+            elif num_remaining_cats < 1: # r was None ... no page was created, probably an empty region
+                if G.DECALS_WEB_ALLOW and not added_decals: #not FORCE ... that is handled differently
+                    cats.append(catalogs.CatalogLibrary().get_decals_web())
+                    added_decals = True
+                elif G.PANSTARRS_ALLOW and not added_panstarrs: #not FORCE ... that is handled differently
+                    cats.append(catalogs.CatalogLibrary().get_panstarrs())
+                    added_panstarrs = True
+                elif G.SDSS_ALLOW and not added_sdss:
+                    cats.append(catalogs.CatalogLibrary().get_sdss())
+                    added_sdss = True
+                elif not added_catch_all:
+                    cats.append(catalogs.CatalogLibrary().get_catch_all())
+                    added_catch_all = True
 
-            if (cat_count > 1) and G.SINGLE_PAGE_PER_DETECT:
-                msg = "INFO: More than one catalog matched .... taking top catalog only. Skipping PDF for %s" % c.Name
-                print(msg)
-                log.info(msg)
-            else:
+    if G.BUILD_REPORT_BY_FILTER:
+        #we've gone through all the catalogs (including the web catalogs if necessary)
+        if len(list_of_catalog_cutouts) > 0:
+            #todo: the count is the number of pdf sections to add (should just be one)
+            #todo: build up the PDF section (cat_base.py)
+            #this is in the base class, so any catalog will do
+            try:
+                #note that this is as a single section, rather than individual sections for the
+                #images and then the catalog match table at the bottom
+                r = cats[0].build_cat_summary_pdf_section(list_of_catalog_cutouts, match, ra, dec, error, target_w,
+                                          fiber_locs, target_flux,detobj)
+                #self.add_bid_entry(entry)
+
                 if PyPDF is not None:
                     build_report_part(pdfname,r)
                 else:
                     pages = pages + r
-                count = max(0,len(r)-1) #1st page is the target page
-        elif num_remaining_cats < 1: # r was None ... no page was created, probably an empty region
-            if G.DECALS_WEB_ALLOW and not added_decals: #not FORCE ... that is handled differently
-                cats.append(catalogs.CatalogLibrary().get_decals_web())
-                added_decals = True
-            elif G.PANSTARRS_ALLOW and not added_panstarrs: #not FORCE ... that is handled differently
-                cats.append(catalogs.CatalogLibrary().get_panstarrs())
-                added_panstarrs = True
-            elif G.SDSS_ALLOW and not added_sdss:
-                cats.append(catalogs.CatalogLibrary().get_sdss())
-                added_sdss = True
-            elif not added_catch_all:
-                cats.append(catalogs.CatalogLibrary().get_catch_all())
-                added_catch_all = True
+                count = len(r) # max(0,len(r)-1) #1st page is the target page
+
+            except:
+                log.error("Unexpected exception calling to cat_base.py build_cat_summary_pdf_section",exc_info=True)
+        else: #todo: need to build up a blank image (or ... I think that happens anyway later)
+            count = 0
+
 
     G.NUDGE_MAG_APERTURE_CENTER = _NUDGE_MAG_APERTURE_CENTER_SAVED
     return pages, count

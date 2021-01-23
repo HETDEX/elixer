@@ -153,7 +153,13 @@ class DECaLS(cat_base.Catalog):#DECaLS
 
         # display the exact (target) location
         if G.SINGLE_PAGE_PER_DETECT:
-            entry = self.build_cat_summary_figure(cat_match,target_ra, target_dec, error, ras, decs,
+            if G.BUILD_REPORT_BY_FILTER:
+                #here we return a list of dictionaries (the "cutouts" from this catalog)
+                return self.build_cat_summary_details(cat_match,target_ra, target_dec, error, ras, decs,
+                                              target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,
+                                              detobj=detobj)
+            else:
+                entry = self.build_cat_summary_figure(cat_match,target_ra, target_dec, error, ras, decs,
                                                   target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,
                                                   detobj=detobj)
 
@@ -966,7 +972,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
     #
     #     return stacked_cutout
 
-    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,filter=None):
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,filter=None,error=None):
 
         d = {'cutout':None,
              'hdu':None,
@@ -976,6 +982,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
              'mag':None,
              'aperture':None,
              'ap_center': None,
+             'mag_limit':None,
              'details': None}
 
         try:
@@ -1043,8 +1050,10 @@ class DECaLS(cat_base.Catalog):#DECaLS
 
                 # to here, window is in degrees so ...
                 window = 3600. * window
+                if not error:
+                    error = window
 
-                cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error=window, window=window,
+                cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error=error, window=window,
                                                                               aperture=aperture,
                                                                               mag_func=mag_func, copy=True,
                                                                               return_details=True)
@@ -1052,6 +1061,9 @@ class DECaLS(cat_base.Catalog):#DECaLS
 
                 if cutout is not None:  # construct master cutout
                     d['cutout'] = cutout
+                    details['catalog_name']=self.name
+                    details['filter_name']=catalog_image['filter']
+                    d['mag_limit']=self.get_mag_limit(None,mag_radius*2.)
                     if (mag is not None) and (mag < 999):
                         d['mag'] = mag
                         d['aperture'] = mag_radius
@@ -1062,7 +1074,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=None):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=None,error=None):
         l = list()
 
         #filters are fixed
@@ -1087,7 +1099,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
                         # if filter list provided but the image is NOT in the filter list go to next one
                         continue
 
-                    cutout = self.get_single_cutout(ra, dec, window, None, aperture,filter=f)
+                    cutout = self.get_single_cutout(ra, dec, window, None, aperture,filter=f,error=error)
                     if first:
                         if cutout['cutout'] is not None:
                                 l.append(cutout)

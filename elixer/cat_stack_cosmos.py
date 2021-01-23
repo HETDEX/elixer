@@ -512,8 +512,13 @@ class STACK_COSMOS(cat_base.Catalog):
 
         # display the exact (target) location
         if G.SINGLE_PAGE_PER_DETECT:
-
-            entry = self.build_cat_summary_figure(cat_match, target_ra, target_dec, error, ras, decs,
+            if G.BUILD_REPORT_BY_FILTER:
+                #here we return a list of dictionaries (the "cutouts" from this catalog)
+                return self.build_cat_summary_details(cat_match,target_ra, target_dec, error, ras, decs,
+                                              target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,
+                                              detobj=detobj)
+            else:
+                entry = self.build_cat_summary_figure(cat_match, target_ra, target_dec, error, ras, decs,
                                                   target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,
                                                   detobj=detobj)
         else:

@@ -1,5 +1,12 @@
 changes to elixer by version
 
+1.11.0a1 [020-01-22]
+* IN PROGRESSS *
+Major update to catalog organization to allow for inclusion of filters across multiple catalogs in report
+    toggled by global_config::BUILD_REPORT_BY_FILTER
+Adding separate CFHTLS catalog
+Adding WISE (web only) catalog
+Add (restricted use) HSC NEP catalog
 
 1.10.1a5 [2020-01-18]
 * DECaLS web request layer (name) change. Was "dr8" now "ls-dr9".

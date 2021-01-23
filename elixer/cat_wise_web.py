@@ -1,5 +1,12 @@
 from __future__ import print_function
 
+#cloned from cat_decals_web
+
+
+#
+# todo: rework for WISE
+# http://unwise.me/cutout_fits?version=neo1&ra=41&dec=10&size=100&bands=12
+#
 
 try:
     from elixer import global_config as G
@@ -19,6 +26,7 @@ except:
     import spectrum_utilities as SU
 
 from astropy.coordinates import SkyCoord
+import astropy.io.fits as fits
 import os.path as op
 import copy
 import io
@@ -32,9 +40,11 @@ import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 import matplotlib.gridspec as gridspec
 import astropy.table
-from astroquery.sdss import SDSS as SDSS_API
+#from astroquery.sdss import SDSS as SDSS_API
 from astropy import coordinates as coords
 from astropy import units as u
+import requests
+from requests.exceptions import Timeout, ConnectionError
 
 
 #log = G.logging.getLogger('Cat_logger')
@@ -46,82 +56,50 @@ pd.options.mode.chained_assignment = None  #turn off warning about setting the d
 
 
 
-def sdss_count_to_mag(count,cutout=None,headers=None):
+def decals_count_to_mag(count,cutout=None,headers=None):
+#from http://legacysurvey.org/dr8/description/
+#
+#The brightnesses of objects are all stored as linear fluxes in units of nanomaggies.
+# The conversion from linear fluxes to magnitudes is m=22.5-2.5log10(flux).
+# These linear fluxes are well-defined even at the faint end, and the errors on the linear fluxes
+# should be very close to a normal distribution. The fluxes can be negative for faint objects, and
+# indeed we expect many such cases for the faintest objects.
 
     try:
-        bunit = str(headers[0]['BUNIT'])
-        # nmgy = float(headers[0]['NMGY'])
-        # nmgyivar = float(headers[0]['NMGYIVAR'])
-
-        if bunit.lower() != "nanomaggy":
-            log.warning("Unexpected BUNIT for SDSS: %s" %(bunit))
-            return 99.9
-    except:
-        log.error("Exception in sdss_count_to_mag", exc_info=True)
-        return 99.9
-
-    if count > 0:
-
-        #I would have expected to 1e-9 nanoJy to Jy then divide by 3631, but it looks like they (SDSS) have
-        #already done that and wrapped it into the nmgy conversion, so we use the nmgy convesion and do NOT
-        #divide by 3631Jy in the log?
-        # if isinstance(count, float):
-        #     jy = nmgy * count * 3.361e-6
-        # else:
-        #     jy = nmgy * count.value * 3.361e-6
-        #return -2.5 * np.log10(jy)
-
-        #NOPE: ... SDSS is using weird units ... nanomaggy and the counts are already IN nanomaggy so
-        #you do not need to convert
-        #Per their documentation, this is the correct conversion
-        if isinstance(count, float):
-            ct_nmgy = count
+        if (count > 0):
+            mag = -2.5*np.log10(count) + 22.5
         else:
-            ct_nmgy = count.value
+            mag = 99.9
+    except:
+        mag = 99.9
 
-        return 22.5 - 2.5 * np.log10(ct_nmgy)
-    else:
-        return 99.9  # need a better floor
+    if np.isnan(mag):
+        mag = 99.9
 
-    return 99.9
+    return mag
 
-class SDSS(cat_base.Catalog):#SDSS
+
+class WISE(cat_base.Catalog):#WISE
     """
     Online, on-demand only ... There is no direct archival catalog or imaging
     """
-
-
-    #maglimits to 95% completeness for point sources
-# u
-#     3551AA
-#     22.0
-# g
-#     4686AA
-#     22.2
-# r
-#     6165AA
-#     22.2
-# i
-#     7481AA
-#     21.3
-# z
-#     8931AA
-#     20.5
-
-
-    MAG_LIMIT = 22.5
-
     # class variables
     CONT_EST_BASE = None
 
     mean_FWHM = 1.67 #at 75% quartile for g-band ... varies also by filter, but this is good middle of the road limit
     MainCatalog = None #there is no Main Catalog ... must load individual catalog tracts
-    Name = "SDSS"
-    Filters = ['u','g','r','i','z'] #case is important ... needs to be lowercase
-    WCS_Manual = True
+    Name = "WISE"
+    Filters = ['g','r','z'] #case is important ... needs to be lowercase
+    #Filters = ['g','z'] #case is important ... needs to be lowercase
+    #Filters = ['r','z'] #case is important ... needs to be lowercase
+    WCS_Manual = False
+    MAG_LIMIT = 24.5 #closer to 24 for g (23.few for r)
+
+    # Cat_Coord_Range = {'RA_min': 188.915597, 'RA_max': 192.563471, 'Dec_min': 0.091438, 'Dec_max': 2.388316}
+    # Image_Coord_Range = {'RA_min': 0.0, 'RA_max': 358.9563471, 'Dec_min': -80.0, 'Dec_max': 80.0}
 
     def __init__(self):
-        super(SDSS, self).__init__()
+        super(WISE, self).__init__()
 
         self.dataframe_of_bid_targets = None
         self.dataframe_of_bid_targets_unique = None
@@ -129,8 +107,31 @@ class SDSS(cat_base.Catalog):#SDSS
         self.num_targets = 0
         self.master_cutout = None
 
+    def get_coadd_factor(self,filter):
+        """
+        based on ratios of 5 sigma imaging depth reported by DECaLS
+        g = 24    -> 1 / limiting flux ~ 10^9.602   -> 0.550 as a fraction of total
+        r = 23.4                       ~ 10^9.357   -> 0.313
+        z = 22.5                       ~ 10^9       -> 0.137
+
+
+        :param filter: g r or z
+        :return:
+        """
+        factor = 1.0
+        if filter == 'g':
+            factor = 0.550
+        elif filter == 'r':
+            factor = 0.313
+        elif filter == 'z':
+            factor = 0.137
+        else:
+            factor = 0.0
+        return factor
+
     def get_filters(self,ra=None,dec=None):
-        return ['u','g', 'r', 'i', 'z']
+        #return ['u','g', 'r', 'i', 'z']
+        return ['g','r','z']
 
     def get_filter_flux(self, df):
         #todo:
@@ -143,7 +144,7 @@ class SDSS(cat_base.Catalog):#SDSS
         returns a pandas dataframe'''
         #todo:
         print("build_list_of_bid_targets not defined yet")
-        #todo: SDSS may not really support targets anyway
+        #todo: DECaLS may not really support targets anyway
 
         return 0, None, None
 
@@ -194,31 +195,7 @@ class SDSS(cat_base.Catalog):#SDSS
 
         return self.pages
 
-    # def get_stacked_cutout(self, ra, dec, window):
-    #
-    #     stacked_cutout = None
-    #     error = window
-    #
-    #     cutouts = self.get_cutouts(ra, dec, window)
-    #
-    #     stacked_cutout = None
-    #
-    #     for c in cutouts:
-    #         cutout = c['cutout']
-    #         try:
-    #             exptime = c['hdu']['exptime']
-    #         except:
-    #             exptime = 1.0
-    #         if cutout is not None:  # construct master cutout
-    #             if stacked_cutout is None:
-    #                 stacked_cutout = copy.deepcopy(cutout)
-    #                 ref_exptime = exptime
-    #                 total_adjusted_exptime = 1.0
-    #             else:
-    #                 stacked_cutout.data = np.add(stacked_cutout.data, cutout.data * exptime / ref_exptime)
-    #                 total_adjusted_exptime += exptime / ref_exptime
-    #
-    #     return stacked_cutout
+
 
     def build_cat_summary_figure (self, cat_match, ra, dec, error, bid_ras, bid_decs, target_w=0,
                                   fiber_locs=None, target_flux=None,detobj=None):
@@ -230,7 +207,7 @@ class SDSS(cat_base.Catalog):#SDSS
         # not the middle, so need the total length of each side to be twice translated error or 2*2*error
         # ... change to 1.5 times twice the translated error (really sqrt(2) * 2* error, but 1.5 is close enough)
         window = error * 3
-        query_radius = max(error*1.5,30.0) #need to query at least 30" else SDSS is cranky
+        query_radius = max(error*1.5,30.0) #need to query at least 30" else DECaLS is cranky
         target_box_side = error/4.0 #basically, the box is 1/32 of the window size
 
         rows = 10
@@ -259,7 +236,7 @@ class SDSS(cat_base.Catalog):#SDSS
         #     title = self.Name + " : Possible Matches = %d (within +/- %g\")" \
         #             % (len(self.dataframe_of_bid_targets_unique), error)
 
-        title = "SDSS imaging only. (mag limit g,r ~ 22.2) "
+        title = "DECaLS imaging only. (mag limit g~24.0, r~23.4, z~22.5)"
 
         cont_est = -1
         # if target_flux and self.CONT_EST_BASE:
@@ -289,6 +266,11 @@ class SDSS(cat_base.Catalog):#SDSS
 
         pos = coords.SkyCoord(ra,dec,unit="deg",frame='icrs')
 
+        best_plae_poii = None
+        best_plae_poii_filter = '-'
+        best_plae_range = None
+        bid_target = None
+
         for f in self.Filters:
             index += 1
 
@@ -299,24 +281,59 @@ class SDSS(cat_base.Catalog):#SDSS
             try:
                 wcs_manual = self.WCS_Manual
                 aperture = self.mean_FWHM*0.5 + 0.5 # since a radius, half the FWHM + 0.5" for astrometric error
-                mag_func = sdss_count_to_mag
+                mag_func = decals_count_to_mag
             except:
                 wcs_manual = self.WCS_Manual
                 aperture = 0.0
                 mag_func = None
 
-            log.info("SDSS query (%f,%f) at %f arcsec for band %s ..." % (ra, dec, query_radius, f))
-            hdulist_array = SDSS_API.get_images(coordinates=pos, radius=query_radius*u.arcsec,band=f)
+            log.info("DECaLS query (%f,%f) at %f arcsec for band %s ..." % (ra, dec, query_radius, f))
+
+            #build up the request URL
+            url = "http://legacysurvey.org/viewer/fits-cutout?ra=%f&dec=%f&layer=%s&bands=%s" %(ra,dec,"ls-dr9",f)
+
+            #from http://legacysurvey.org/dr8/description/
+            # The maximum size for cutouts( in number of pixels) is currently 512.
+            # Pixscale=0.262 will return (approximately) the native pixels used by the Tractor.
+            #
+            # appears to be 256x256 maximum and NOT specifying &pixscale=%f   where %f=0.262  seems to give the maximum resolution
+
+            try:
+                response = requests.get(url, allow_redirects=True,timeout=(10.0,120.0)) #10sec connnect timeout, 120 sec fetch
+                if response.status_code != 200: #"OK" response
+                    log.info("DECaLS http response code = %d (%s)" %(response.status_code,response.reason))
+                    continue
+                if len(response.content) < 5000: #should normally be 200k+
+                    log.info(f"Bad (short) response (no image?) from DECaLS. Content = {response.content}")
+                    continue
+
+                hdulist = fits.open(io.BytesIO(response.content))
+
+                if hdulist[0].header['NAXIS'] != 2:
+                    log.info("Bad response (no image?) from DECaLS. Missing NAXIS in header.")
+                    continue
+
+                hdulist_array = [hdulist]
+
+            except Timeout:
+                log.info("Exception (Timeout) in DECaLS",exc_info=False)
+                return None
+            except ConnectionError:
+                log.info("Exception (ConnectionError) in DECaLS",exc_info=False)
+                return None
+            except Exception as e:
+                log.info("Exception in DECaLS",exc_info=True)
+                continue
+            # else:
+            #     log.info("Exception in DECaLS",exc_info=True)
+            #     continue
 
             if hdulist_array is None:
-                log.info("SDSS query (%f,%f) at %f arcsec for band %s returned None" %(ra,dec,query_radius,f))
+                log.info("DECaLS query (%f,%f) at %f arcsec for band %s returned None" %(ra,dec,query_radius,f))
                 continue
 
             #todo: choose the best image? longest exp time or most NMGY?
             best_idx = 0
-            #for i in range(len(hdulist_array)):
-
-
 
             sci = science_image.science_image(wcs_manual=wcs_manual, wcs_idx=0,
                                         image_location=None,hdulist=hdulist_array[best_idx])
@@ -330,16 +347,8 @@ class SDSS(cat_base.Catalog):#SDSS
                 exptime_cont_est = sci.exptime
 
             # sci.load_image(wcs_manual=True)
-
-            # if we are down to SDSS, take what you can get (plus the SDSS resolution is low to the point
-            # the we can trip the empty image condition when it is not warranted
-            save_ALLOW_EMPTY_IMAGE = G.ALLOW_EMPTY_IMAGE
-            G.ALLOW_EMPTY_IMAGE = True
-
             cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error, window=window,
                                                      aperture=aperture,mag_func=mag_func,return_details=True)
-
-            G.ALLOW_EMPTY_IMAGE = save_ALLOW_EMPTY_IMAGE
 
             if (self.MAG_LIMIT < mag < 100) and (mag_radius > 0):
                 details['fail_mag_limit'] = True
@@ -358,7 +367,7 @@ class SDSS(cat_base.Catalog):#SDSS
                     try:
                         details['mag_faint'] = max(mag,G.MAX_MAG_FAINT)
                     except:
-                        details['mag_faint'] = G.MAX_MAG_FAINTs
+                        details['mag_faint'] = G.MAX_MAG_FAINT
 
             ext = sci.window / 2.  # extent is from the 0,0 center, so window/2
 
@@ -368,7 +377,7 @@ class SDSS(cat_base.Catalog):#SDSS
             cutout_plae = None
 
             try:  # update non-matched source line with PLAE()
-                if ((mag < 99) or (cont_est != -1)) and (target_flux is not None) and (f == 'r'):
+                if ((mag < 99) or (cont_est != -1)) and (target_flux is not None) and (f in 'gr'):
                     # make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
                     bid_target = match_summary.BidTarget()
                     bid_target.catalog_name = self.Name
@@ -411,7 +420,7 @@ class SDSS(cat_base.Catalog):#SDSS
                     except:
                         pass
 
-                    bid_target.add_filter("SDSS", f, bid_target.bid_flux_est_cgs, -1)
+                    bid_target.add_filter("DECaLS", f, bid_target.bid_flux_est_cgs, -1)
 
                     addl_waves = None
                     addl_flux = None
@@ -448,7 +457,6 @@ class SDSS(cat_base.Catalog):#SDSS
                     #                        addl_wavelengths=addl_waves,addl_errors=addl_ferr,sky_area=None,
                     #                        cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None,
                     #                        sigma=None,estimate_error=True)
-
                     bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii, plae_errors = \
                         line_prob.mc_prob_LAE(
                             wl_obs=target_w,
@@ -476,35 +484,43 @@ class SDSS(cat_base.Catalog):#SDSS
                     cutout_ewr = ew_obs / (1. + target_w / G.LyA_rest)
                     cutout_ewr_err = ew_obs_err / (1. + target_w / G.LyA_rest)
 
+                    if best_plae_poii is None or f == 'r':
+                        best_plae_poii = bid_target.p_lae_oii_ratio
+                        best_plae_poii_filter = f
+                        if plae_errors:
+                            try:
+                                best_plae_range = plae_errors['ratio']
+                            except:
+                                pass
+
                     # if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
                     #     text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)" % (bid_target.p_lae_oii_ratio,f))
 
-                    if (not G.ZOO) and (bid_target is not None) and (bid_target.p_lae_oii_ratio is not None):
+                    if (not G.ZOO) and (best_plae_poii is not None):
                         try:
                             text.set_text(
                                 text.get_text() + "  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$ (%s)" %
-                                (round(bid_target.p_lae_oii_ratio, 3),
-                                 round(bid_target.p_lae_oii_ratio_max, 3),
-                                 round(bid_target.p_lae_oii_ratio_min, 3),
-                                 f))
+                                (round(best_plae_poii, 3),
+                                 round(best_plae_range[2], 3),
+                                 round(best_plae_range[1], 3),
+                                 best_plae_poii_filter))
                         except:
                             log.debug("Exception adding PLAE with range", exc_info=True)
                             try:
-                                text.set_text(
-                                    text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)" % (bid_target.p_lae_oii_ratio, f))
+                                text.set_text(text.get_text() + "  P(LAE)/P(OII): %0.4g (%s)" % (
+                                    best_plae_poii, best_plae_poii_filter))
                             except:
                                 text.set_text(
-                                    text.get_text() + "  P(LAE)/P(OII): (%s) (%s)" % ("---", f))
+                                    text.get_text() + "  P(LAE)/P(OII): (%s) (%s)" % ("---", best_plae_poii_filter))
 
                     cat_match.add_bid_target(bid_target)
                     try:  # no downstream edits so they can both point to same bid_target
-                        detobj.bid_target_list.append(bid_target)
+                        if detobj is not None:
+                            detobj.bid_target_list.append(bid_target)
                     except:
                         log.warning("Unable to append bid_target to detobj.", exc_info=True)
             except:
                 log.debug('Could not build exact location photometry info.', exc_info=True)
-
-
 
             if cutout is not None:  # construct master cutout
                 # 1st cutout might not be what we want for the master (could be a summary image from elsewhere)
@@ -516,22 +532,20 @@ class SDSS(cat_base.Catalog):#SDSS
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:
-                    # if we are down to SDSS, take what you can get (plus the SDSS resolution is low to the point
-                    # the we can trip the empty image condition when it is not warranted
-                    save_ALLOW_EMPTY_IMAGE = G.ALLOW_EMPTY_IMAGE
-                    G.ALLOW_EMPTY_IMAGE = True
-
                     self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True)
-
-                    G.ALLOW_EMPTY_IMAGE = save_ALLOW_EMPTY_IMAGE
-
                     if sci.exptime:
                         ref_exptime = sci.exptime
+                    else:
+                        ref_exptime = self.get_coadd_factor(f)
                     total_adjusted_exptime = 1.0
                 else:
                     try:
-                        self.master_cutout.data = np.add(self.master_cutout.data, cutout.data * sci.exptime / ref_exptime)
-                        total_adjusted_exptime += sci.exptime / ref_exptime
+                        if sci.exptime is not None:
+                            self.master_cutout.data = np.add(self.master_cutout.data, cutout.data * sci.exptime / ref_exptime)
+                            total_adjusted_exptime += sci.exptime / ref_exptime
+                        else:
+                            self.master_cutout.data = np.add(self.master_cutout.data, cutout.data * self.get_coadd_factor(f) / ref_exptime)
+                            total_adjusted_exptime += self.get_coadd_factor(f) / ref_exptime
                     except:
                         log.warning("Unexpected exception.", exc_info=True)
 
@@ -540,7 +554,7 @@ class SDSS(cat_base.Catalog):#SDSS
                 plt.imshow(cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
                            vmin=sci.vmin, vmax=sci.vmax, extent=[-ext, ext, -ext, ext])
 
-                plt.title("SDSS " + f)
+                plt.title("DECaLS " + f)
                 plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
                 plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
                 #plt.plot(0, 0, "r+")
@@ -583,6 +597,23 @@ class SDSS(cat_base.Catalog):#SDSS
 
             if (details is not None) and (detobj is not None):
                 detobj.aperture_details_list.append(details)
+
+        # if (not G.ZOO) and (best_plae_poii is not None):
+        #     text.set_text(text.get_text() + "  P(LAE)/P(OII) = %0.4g (%s)" % (best_plae_poii, best_plae_poii_filter))
+
+        if (not G.ZOO) and (bid_target is not None) and (best_plae_poii is not None):
+            try:
+                text.set_text(
+                    text.get_text() + "  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$ (%s)" %
+                    (round(best_plae_poii, 3),
+                     round(best_plae_range[2], 3),
+                     round(best_plae_range[1], 3),
+                     best_plae_poii_filter))
+            except:
+                log.debug("Exception adding PLAE with range", exc_info=True)
+                text.set_text(
+                    text.get_text() + "  P(LAE)/P(OII): %0.4g (%s)" % (best_plae_poii, best_plae_poii_filter))
+
         #if False:
         #    if target_flux is not None:
         #        #todo: get exptime from the tile (science image has it)
@@ -647,7 +678,7 @@ class SDSS(cat_base.Catalog):#SDSS
     def build_multiple_bid_target_figures_one_line(self, cat_match, ras, decs, error, target_ra=None, target_dec=None,
                                          target_w=0, target_flux=None,detobj=None):
 
-        #todo: this is effectively NOT used for SDSS at this point as we are only grabbing imaging, not a catalog
+        #todo: this is effectively NOT used for DECaLS at this point as we are only grabbing imaging, not a catalog
         #todo: we will leave early with ras < 1 (adds the "row intentionally blank" line)
         rows = 1
         cols = 6
@@ -692,7 +723,7 @@ class SDSS(cat_base.Catalog):#SDSS
                    "Spec z\n" + \
                    "Photo z\n" + \
                    "Est LyA rest-EW\n" + \
-                   "mag\n\n"
+                   "mag\n"
         else:
             text = "Separation\n" + \
                    "Match score\n" + \
@@ -841,9 +872,6 @@ class SDSS(cat_base.Catalog):#SDSS
                             #                        cosmo=None, lae_priors=None,
                             #                        ew_case=None, W_0=None,
                             #                        z_OII=None, sigma=None, estimate_error=True)
-                            #dfx = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
-                            #                                        (self.dataframe_of_bid_targets['DEC'] == d[0])]
-
                             bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii, plae_errors = \
                                 line_prob.mc_prob_LAE(
                                     wl_obs=target_w,
@@ -859,6 +887,8 @@ class SDSS(cat_base.Catalog):#SDSS
                                     cosmo=None, lae_priors=None,
                                     ew_case=None, W_0=None,
                                     z_OII=None, sigma=None)
+                            #dfx = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
+                            #                                        (self.dataframe_of_bid_targets['DEC'] == d[0])]
 
                             try:
                                 if plae_errors:
@@ -874,8 +904,7 @@ class SDSS(cat_base.Catalog):#SDSS
 
                             cat_match.add_bid_target(bid_target)
                             try:  # no downstream edits so they can both point to same bid_target
-                                if detobj is not None:
-                                    detobj.bid_target_list.append(bid_target)
+                                detobj.bid_target_list.append(bid_target)
                             except:
                                 log.warning("Unable to append bid_target to detobj.", exc_info=True)
                         except:
@@ -900,7 +929,7 @@ class SDSS(cat_base.Catalog):#SDSS
                                                               utilities.saferound(bid_target.p_lae_oii_ratio_min, 3))
                         text += "\n"
                     except:
-                        text += "%0.4g\n" % (bid_target.p_lae_oii_ratio)
+                        text += "%0.4g\n" % (utilities.saferound(bid_target.p_lae_oii_ratio, 3))
                 else:
                     text += "\n"
             else:
@@ -923,14 +952,40 @@ class SDSS(cat_base.Catalog):#SDSS
         plt.close()
         return fig
 
-    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,filter=None,error=None):
 
+    # def get_stacked_cutout(self,ra,dec,window):
+    #
+    #     stacked_cutout = None
+    #     error = window
+    #
+    #     cutouts = self.get_cutouts(ra,dec,window)
+    #
+    #     stacked_cutout = None
+    #
+    #     for c in cutouts:
+    #         cutout = c['cutout']
+    #         try:
+    #             exptime = c['hdu']['exptime']
+    #         except:
+    #             exptime = 1.0
+    #         if cutout is not None:  # construct master cutout
+    #             if stacked_cutout is None:
+    #                 stacked_cutout = copy.deepcopy(cutout)
+    #                 ref_exptime = exptime
+    #                 total_adjusted_exptime = 1.0
+    #             else:
+    #                 stacked_cutout.data = np.add(stacked_cutout.data, cutout.data * exptime / ref_exptime)
+    #                 total_adjusted_exptime += exptime / ref_exptime
+    #
+    #     return stacked_cutout
+
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,filter=None,error=None):
 
         d = {'cutout':None,
              'hdu':None,
              'path':None,
              'filter':filter,
-             'instrument':'SDSS',
+             'instrument':'DECaLS',
              'mag':None,
              'aperture':None,
              'ap_center': None,
@@ -941,7 +996,7 @@ class SDSS(cat_base.Catalog):#SDSS
             wcs_manual = self.WCS_Manual
             if aperture is None:
                 aperture = self.mean_FWHM * 0.5 + 0.5 # since a radius, half the FWHM + 0.5" for astrometric error
-            mag_func = sdss_count_to_mag
+            mag_func = decals_count_to_mag
         except:
             wcs_manual = self.WCS_Manual
             aperture = 0.0
@@ -953,19 +1008,51 @@ class SDSS(cat_base.Catalog):#SDSS
 
         try:
 
-            log.info("SDSS query (%f,%f) at %f arcsec for band %s ..." % (ra, dec, query_radius, filter))
-            hdulist_array = SDSS_API.get_images(coordinates=pos, radius=query_radius * u.arcsec, band=filter)
+            log.info("DECaLS query (%f,%f) at %f arcsec for band %s ..." % (ra, dec, query_radius, filter))
+            #build up the request URL
+            url = "http://legacysurvey.org/viewer/fits-cutout?ra=%f&dec=%f&layer=%s&bands=%s" %(ra,dec,"ls-dr9",filter)
+
+            try:
+                response = requests.get(url, allow_redirects=True,timeout=(10.0,120.0))
+
+                if response.status_code != 200:  # "OK" response
+                    log.info("DECaLS http response code = %d (%s)" % (response.status_code, response.reason))
+                    hdulist_array = None
+
+                if len(response.content) < 5000:  # should normally be 200k+
+                    log.info(f"Bad (short) response (no image?) from DECaLS. Content = {response.content}")
+                    hdulist_array = None
+
+                hdulist = fits.open(io.BytesIO(response.content))
+
+                if hdulist[0].header['NAXIS'] != 2:
+                    log.info("Bad response (no image?) from DECaLS")
+                    hdulist_array = None
+
+                hdulist_array = [hdulist]
+
+            except Timeout:
+                log.info("Exception (Timeout) in DECaLS",exc_info=False)
+                hdulist_array = None
+            except ConnectionError:
+                log.info("Exception (ConnectionError) in DECaLS",exc_info=False)
+                hdulist_array = None
+            except Exception as e:
+                log.info("Exception in DECaLS",exc_info=True)
+            # else:
+            #     log.debug("Exception in DECaLS",exc_info=True)
+            #     hdulist_array = None
 
             if hdulist_array is None:
-                log.info("SDSS query (%f,%f) at %f arcsec for band %s returned None" % (ra, dec, query_radius, filter))
+                log.info("DECaLS query (%f,%f) at %f arcsec for band %s returned None" % (ra, dec, query_radius, filter))
             else:
                 # todo: choose the best image?
                 sci = science_image.science_image(wcs_manual=wcs_manual, wcs_idx=0,
                                                   image_location=None, hdulist=hdulist_array[0])
-                sci.catalog_name = "SDSS"
+                sci.catalog_name = "DECaLS"
                 sci.filter_name = filter
 
-                d['path'] = "SDSS Online"
+                d['path'] = "DECaLS Online"
                 d['hdu'] = sci.headers
 
                 # to here, window is in degrees so ...
@@ -973,17 +1060,10 @@ class SDSS(cat_base.Catalog):#SDSS
                 if not error:
                     error = window
 
-                #if we are down to SDSS, take what you can get (plus the SDSS resolution is low to the point
-                #the we can trip the empty image condition when it is not warranted
-                save_ALLOW_EMPTY_IMAGE = G.ALLOW_EMPTY_IMAGE
-                G.ALLOW_EMPTY_IMAGE = True
-
                 cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error=error, window=window,
                                                                               aperture=aperture,
                                                                               mag_func=mag_func, copy=True,
                                                                               return_details=True)
-
-                G.ALLOW_EMPTY_IMAGE = save_ALLOW_EMPTY_IMAGE
                 # don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
 
                 if cutout is not None:  # construct master cutout

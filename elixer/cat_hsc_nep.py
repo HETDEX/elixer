@@ -2,22 +2,148 @@ from __future__ import print_function
 
 
 """
-2019-09-19
-This HSC imaging data set is consist of HSC r-band data in the HETDEX spring field
-taken in the semesters of S15A+S17A+S18A (= a total of 2 nights).
-This amounts to 150 deg2 (= 2 times wider than the S15A HSC data available in HDR1).
+This is for a special, restricted use of HSC data in the NEP
+################################################################
+IMAGES: 
+################################################################
+01/2021
+
+Hawaii Two-0 NEP subset of imaging 
+
+image file names: 'H20_NEP_18211_B15_e.fits'
+      	   	: 'H20_NEP_18211_B16_e.fits'
+
+Included here are two sets of images, where each image is 3800*3800 pixels, with a pixel scale of 0.168"/pix. In the framework of the Farmer (Weaver, Zalesky et al. in prep) 
+photometry pipeline, each image is called a brick. A brick is a subset of a larger mosaic created to enable efficient multiprocessing. Each brick overlaps with its neighbors by 
+N pixels, where in this case N=100. This overlap region is called the brick-buffer. Sources which extend into the brick-buffer shared by bricks A & B, but have centroids 
+within brick A are considered to belong to brick A -- thus sources are not double counted nor are they improperly segmented. The total effective area across which sources can 
+be detected, not accounting for masking (e.g., bright star masks), is then 3600*3600 pixels = 10.08*10.08 arcminutes. 
+
+contact: Lukas Zalesky - zalesky@hawaii.edu
+
+########################################################
+IMAGE INFORMATION
+########################################################
+
+Images are included for the following bands: ['hsc_g', 'hsc_r', 'hsc_i', 'hsc_z', 'hsc_y']
+Each band has the following information contained in this multi-extension .fits file:
+
+        '###_IMAGE'                  # reduced science image. unit = 'uJy'
+        '###_WEIGHT                  # weight image obtained during reduction. unit = '1/variance'
+        '###_MASK'                   # bright star masks, obtained in a manner similar to that of the HSC-SSP survey. Masks do not cover 100% of all bright stars. Same for all bands. 
 
 
-The sky distribution of the reduced data is shown as green filled circles in 
-/data/04094/mshiro/HSC/dr2/check_tract.png (/work/03649/hetdex/hdr2/imaging/hsc/check_tract.png)
 
-The seeing size is =0.6-1.0 arcsec in FWHM.
-The depth is 5 sigma limiting magnitude of r = 25.5 mag for 2''.0 aperture.
+#########################################################
+#CATALOGS
+#########################################################
 
-***note: ELiXer calculate corners are slightly different than HSC reported corners (ELiXer are
-slightly wider ... assume HSC does not include the very edge/perimeter that is in the image). This
-does not matter as ELiXer only uses this to find the correct tile and that is the tile(s) for which
-the provided target RA, Dec are maximally inside the tile).
+\1;95;0c01/2021
+
+Hawaii Two-0 NEP subset catalog
+
+catalog file name: 'H20_NEP_subset_catalog.fits'
+
+This catalog contains photometry and output from the EAZY-py SED fitting code for 18164 detected sources. These sources were detected 
+in the two sets of images attached along with these files. Each image is square with approximately 10 arcminutes on one side. A brief description of 
+the source extraction and photometry method follows.
+
+Source extraction and photometry is performed using the new software called "The Farmer" (Weaver, Zalesky et al. in prep). This software utilizes the profile-fitting
+tools provided by Tractor (Lang et al. 2014, 2016). Sources are detected with pythonic source extractor (SEP) from an r+i+z CHIMEAN stack created with SWARP. Each 
+source is then modeled as either a point source or an extended source, with nearby sources modeled simultaneously. 
+Appropriate models are determined from the r, i, and z, bands collectively. Flux is measured by forcing the final model on to each source, convolving the model with 
+the appropriate PSF, and optimizing the flux which is left as a free parameter. 
+
+*** DISCLAIMER: all detected sources are reported, but not all detected sources have valid photometry. Some sources which are detected cannot be modeled, as they are near 
+    bright stars which were not masked out, artifacts, or they may be artifacts themselves, such as those created by scattered light. To identify sources with valid photometry,
+    use the flag below called 'VALID_SOURCE_MODELING'. Sources with 'VALID_SOURCE_MODELING' == False will not have FLUX, FLUXERR, MAG, MAGERR, nor photometric redshifts. 
+    However, it may be useful to determine whether or not a source was detected at all. For this reason, the detection parameters (e.g., position at source detection)
+    have been included even for sources that could not be modeled. 
+
+contact: Lukas Zalesky - zalesky@hawaii.edu
+
+########################################################
+History
+########################################################
+
+01/2021 -- catalog created and shared with Steve Finkelstein
+
+
+########################################################
+DETECTION 
+########################################################
+
+Except for the identifier ('id') which was added at the end of catalog creation, each parameter value provided here is measured directly with SEP. 
+Please keep the 'id' flag in tact, as it uniquely identifies the source in context of the entire region of the NEP completed to full-depth by H20.
+Note that these parameters are measured on the CHIMEAN detection image and thus do not correspond to physical units. 
+Nonetheless, the ratio of peak flux / convolved peak flux recorded here is still useful for separating stars from galaxies.
+
+        'id'                                  # identifier, arbitrary 
+        'cpeak'                               # convolved peak flux; unit = 'signal/noise' i.e., no unit, since this is measured from the CHIMEAN image
+        'peak'                                # peak flux; unit = 'signal/noise', i.e., no unit, since this is measured from the CHIMEAN image
+        'RA_DETECTION'                        # right ascension (J2000) of detected source; unit = 'deg' 
+        'DEC_DETECTION'                       # declination (J2000) of detected source; unit = 'deg'
+
+########################################################
+SOURCE MODELING
+########################################################
+
+        'N_BLOB'                              # number of sources modeled simultaneously with this source 
+        'VALID_SOURCE_MODELING'               # flag, True if model optimization succeeded, False if model optimization failed
+        'SOLMODEL_MODELING'                   # flag, indicates final model type for successful models (PointSource, SimpleGalaxy, ExpGalaxy, DevGalaxy, FixedCompositeGalaxy)
+        'CHISQ_MODELING_hsc_r'                # chi-squared statistic during modeling as measured in the hsc-r band 
+        'CHISQ_MODELING_hsc_i'                # chi-squared statistic during modeling as measured in the hsc-i band 
+        'CHISQ_MODELING_hsc_z'                # chi-squared statistic during modeling as measured in the hsc-z band 
+        'RA_MODELING'                         # right ascension (J2000) of source determined during model optimization; unit = 'deg' 
+        'DEC_MODELING'                        # declination (J2000) of source determined during model optimization; unit = 'deg' 
+
+########################################################
+PHOTOMETRY 
+########################################################
+
+Photometry is included for the following bands: ['hsc_g', 'hsc_r', 'hsc_i', 'hsc_z', 'hsc_y', 'irac_ch1', 'irac_ch2']
+Total model magnitudes and fluxes are reported -- no aperture corrections are needed!
+
+Catalog entries follow the convention below for each available band:
+
+        'MAG_###'                             # AB magnitude; unit = 'mag'
+        'MAGERR_###'                          # AB magnitude error; unit = 'mag'
+        'FLUX_###'                            # flux; unit = 'uJy'
+        'FLUXERR_###'                         # flux error; unit = 'uJy'
+        'CHISQ_###'                           # chi-squared statistic in given band during forced photometry
+
+########################################################
+SED FITTING 
+########################################################
+
+Photometric redshifts are calculated using EAZY-py, a pythonic implementation of EAZY (Brammer et al. 2008). 
+Github page: https://github.com/gbrammer/eazy-py
+
+The templates used are the same as those used in the new COSMOS2020 catalog. These templates are not available online, but may be available upon request (contact Gabe Brammer). 
+
+        'nusefilt'                            # number of filters used for photo-z
+        'lc_min'                              # minimum effective wavelength of valid filters, Angstrom    
+        'lc_max'                              # maximum effective wavelength of valid filters, Angstrom   
+        'z_raw_chi2'                          # redshift where chi2 is minimized
+        'z_phot_chi2'                         # min chi2 
+        'z025'                                # 2.5 percentile of pdf(z) (2-sigma)
+        'z160'                                # 16 percentile of pdf(z) (1-sigma) 
+        'z500'                                # 50 percentile of pdf(z)  
+        'z840'                                # 84 percentile of pdf(z) (1-sigma) 
+        'z975'                                # 97.5 percentile of pdf(z) (2-sigma) 
+
+        'PSTAR_chi2'                          # chi-squared of best stellar template, using the PHOENIX stellar library   
+        'LSTAR_chi2'                          # chi-squared of best stellar template, using the LePhare stellar library
+
+To compare the chi-squared of the fit with galaxy templates with that of stellar templates, one should use chi2/(nusefilt-1), if the goal is to compare the reduced chi-squared. 
+Also, note that z500 is typically more reliable than z_raw_chi2. 
+
+########################################################
+MISCELLANEOUS EXTRA COLUMNS
+########################################################
+
+        'EBV'                                 # E(B-V) values from Schlegel, Finkbeiner & Davis (1998) dust map, with 2011 recalibration; unit = 'mag'
+        'tract_id'                            # The tract id corresponds to a region of the sky pre-defined by the HSC-SSP team. 
 
 """
 
@@ -27,20 +153,16 @@ try:
     from elixer import cat_base
     from elixer import match_summary
     from elixer import line_prob
-    from elixer import hsc_meta
     from elixer import utilities
     from elixer import spectrum_utilities as SU
-    from elixer import cat_kpno
 except:
     import global_config as G
     import science_image
     import cat_base
     import match_summary
     import line_prob
-    import hsc_meta
     import utilities
     import spectrum_utilities as SU
-    import cat_kpno
 
 import os.path as op
 import copy
@@ -66,7 +188,15 @@ pd.options.mode.chained_assignment = None  #turn off warning about setting the d
 
 
 def hsc_count_to_mag(count,cutout=None,headers=None):
-   # return 999.9
+    """
+    NEP is using the same zero point as the HETDEX HSC, so this is still valid
+
+    :param count:
+    :param cutout:
+    :param headers:
+    :return:
+    """
+
 
     #We can convert the counts into flux
     # with a keyword in the header of the imaging data;
@@ -102,21 +232,39 @@ def hsc_count_to_mag(count,cutout=None,headers=None):
         else:
             return 99.9  # need a better floor
 
-class HSC(cat_base.Catalog):#Hyper Suprime Cam
+class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
     # class variables
-    HSC_BASE_PATH = G.HSC_BASE_PATH
-    HSC_CAT_PATH = G.HSC_CAT_PATH
-    HSC_IMAGE_PATH = G.HSC_IMAGE_PATH
+    # HSC_BASE_PATH = G.HSC_BASE_PATH
+    # HSC_CAT_PATH = G.HSC_CAT_PATH
+    # HSC_IMAGE_PATH = G.HSC_IMAGE_PATH
 
-    INCLUDE_KPNO_G = True
+    #todo: Oscar ... change to your path(here)
+    HSC_BASE_PATH = "/media/dustin/Seagate8TB/nep/H20_VIRUS_EXCHANGE"
+    HSC_CAT_PATH = "/media/dustin/Seagate8TB/nep/H20_VIRUS_EXCHANGE"
+    HSC_IMAGE_PATH = "/media/dustin/Seagate8TB/nep/H20_VIRUS_EXCHANGE"
 
-    #Shiro's DR3 document now says 25.5, website says 26.1 (27 for deep, 28 for ultra deep)
-    #I have been nudging by ~ 0.5 mag (since was 5sigma, and I am using my own apertures)
-    #originally had 26.5 (but that may have been a mis-copy for wide-g band at 26.5)
-    #and this is a final floor limit
-    #Updated 2020-12-17 ... was using data from HSC-SSP (10 minute exp) vs HETDEX specific
-    #survey from HSC which is 6 min. and 25.5 is correct, so set full limit to 26.0
-    # other HSC may be as deep as 27.2
+    INCLUDE_KPNO_G = False
+
+
+    # Brick 15:
+    # g - 27.7 (27.1)
+    # r - 27.3 (26.7)
+    # i - 26.9 (26.4)
+    # z - 26.6 (26.0)
+    # y - 25.5 (24.9)
+    # ch1 - 25.6 (25.0)
+    # ch2 - 25.6 (25.0)
+    #
+    # Brick 16:
+    # g - 27.7 (27.2)
+    # r - 27.3 (26.7)
+    # i - 26.9 (26.4)
+    # z - 26.5 (26.0)
+    # y - 25.4 (24.9)
+    # ch1 - 24.9 (24.3)
+    # ch2 - 25.1 (24.6)
+    #
+
     MAG_LIMIT = 26.0
 
     mean_FWHM = 1.0 #average 0.6 to 1.0
@@ -127,8 +275,11 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
     loaded_tracts = []
 
     MainCatalog = None #there is no Main Catalog ... must load individual catalog tracts
-    Name = "HyperSuprimeCam"
+    Name = "HyperSuprimeCam_NEP"
 
+
+
+    #todo: HERE ... just define the coordrange, etc rather than load a meta file
     Image_Coord_Range = hsc_meta.Image_Coord_Range
     Tile_Dict = hsc_meta.HSC_META_DICT
     #correct the basepaths
@@ -1045,7 +1196,6 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
     def build_bid_target_reports(self, cat_match, target_ra, target_dec, error, num_hits=0, section_title="",
                                  base_count=0,
                                  target_w=0, fiber_locs=None, target_flux=None,detobj=None):
-        #called from elixer.py
 
         self.clear_pages()
         num_targets, _, _ = self.build_list_of_bid_targets(target_ra, target_dec, error)
@@ -1063,10 +1213,9 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             if G.BUILD_REPORT_BY_FILTER:
                 #here we return a list of dictionaries (the "cutouts" from this catalog)
                 return self.build_cat_summary_details(cat_match,target_ra, target_dec, error, ras, decs,
-                                                 target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,
-                                                 detobj=detobj)
+                                              target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,
+                                              detobj=detobj)
             else:
-                #here entry is a matplotlib image to be added to the PDF report
                 entry = self.build_cat_summary_figure(cat_match,target_ra, target_dec, error, ras, decs,
                                                   target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,
                                                   detobj=detobj)
@@ -1079,7 +1228,6 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             self.add_bid_entry(entry)
 
             if G.SINGLE_PAGE_PER_DETECT: # and (len(ras) <= G.MAX_COMBINE_BID_TARGETS):
-                #here entry is a matplotlib image to be added to the PDF report
                 entry = self.build_multiple_bid_target_figures_one_line(cat_match, ras, decs, error,
                                                                         target_ra=target_ra, target_dec=target_dec,
                                                                     target_w=target_w, target_flux=target_flux,
@@ -1089,6 +1237,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         else:
             return None
 
+#        else:  # each bid taget gets its own line
         if (not G.FORCE_SINGLE_PAGE) and (len(ras) > G.MAX_COMBINE_BID_TARGETS):  # each bid taget gets its own line
             log.error("ERROR!!! Unexpected state of G.FORCE_SINGLE_PAGE")
 
@@ -1154,625 +1303,11 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
         return stacked_cutout
 
-
-
-
-    def build_cat_summary_details(self,cat_match, ra, dec, error, bid_ras, bid_decs, target_w=0,
-                                          fiber_locs=None, target_flux=None,detobj=None):
-        """
-        similar to build_cat_summary_figure, but rather than build up an image section to be displayed in the
-        elixer report, this builds up a dictionary of information to be aggregated later over multiple catalogs
-
-        ***note: here we call the base class implementation to get the cutouts and then update those cutouts with
-        any catalog specific changes
-
-        :param cat_match: a match summary object (contains info about the PDF location, etc)
-        :param ra:  the RA of the HETDEX detection
-        :param dec:  the Dec of the HETDEX detection
-        :param error: radius (or half-side of a box) in which to search for matches (the cutout is 3x this on a side)
-        :param bid_ras: RAs of potential catalog counterparts
-        :param bid_decs: Decs of potential catalog counterparts
-        :param target_w: observed wavelength (from HETDEX)
-        :param fiber_locs: array (or list) of 6-tuples that describe fiber locations (which fiber, position, color, etc)
-        :param target_flux: HETDEX integrated line flux in CGS flux units (erg/s/cm2)
-        :param detobj: the DetObj instance
-        :return: cutouts list of dictionaries with bid-target objects as well
-        """
-
-        cutouts = super().build_cat_summary_details(cat_match, ra, dec, error, bid_ras, bid_decs, target_w,
-                                          fiber_locs, target_flux,detobj)
-
-        if not cutouts:
-            return cutouts
-
-        for c in cutouts:
-            try:
-                details = c['details']
-            except:
-                pass
-
-            #####################################################
-            # Unique to HSC: check for mask flags on the tile
-            #####################################################
-            if (details is not None) and (detobj is not None):
-                #check for flags
-                tile, tracts, positions = self.find_target_tile(ra, dec)
-                #get the mask cutout
-                mask_cutout = self.get_mask_cutout(tile,ra,dec,error)
-                sci = science_image.science_image() #empty sci for work
-                if mask_cutout is not None:
-                    #iterate over the Elixer Apertures and the SEP apertures
-                    if details['elixer_apertures']:
-                        for a in details['elixer_apertures']:
-                            # get the masks under the aperture
-                            # do this for each step (increase in size)
-                            pixels = sci.get_pixels_under_aperture(mask_cutout,a['ra'],a['dec'],
-                                                                   a['radius'],a['radius'],
-                                                                   angle= 0., north_angle=np.pi/2.)
-
-                            mask_frac = self.update_mask_counts(pixels,None) / len(pixels)
-
-                            #check the mask for any counts > 10% of total pixels
-                            trip_mask = np.where(mask_frac > 0.10)[0]
-                            # not all flags are 'bad' (i.e. 32 = detection)
-                            a['image_flags'] = np.sum([2**x for x in trip_mask])
-
-                    if details['sep_objects']:
-                        for a in details['sep_objects']:
-                            mask_frac = None
-                            pixels = sci.get_pixels_under_aperture(mask_cutout, a['ra'], a['dec'],
-                                                                   a['a'], a['b'],
-                                                                   angle=a['theta'], north_angle=np.pi / 2.)
-
-                            mask_frac = self.update_mask_counts(pixels, None)
-                            # check the mask for any counts > 10% of total pixels
-                            trip_mask = np.where(mask_frac > 0.10)[0]
-                            #not all flags are 'bad' (i.e. 32 = detection)
-                            a['image_flags'] = np.sum([2 ** x for x in trip_mask])
-
-
-        #####################################################
-        # BidTarget format is Unique to each child catalog
-        #####################################################
-        #now the bid targets
-        #2. catalog entries as a new key under cutouts (like 'details') ... 'counterparts'
-        #    this should be similar to the build_multiple_bid_target_figures_one_line()
-
-        if len(bid_ras) > 0:
-            #if there are no cutouts (but we do have a catalog), create a cutouts list of dictionries to hold the
-            #counterparts
-            if not cutouts or len(cutouts) == 0:
-                cutouts = [{}]
-
-            cutouts[0]['counterparts'] = []
-            #create an empty list of counterparts under the 1st cutout
-            #counterparts are not filter specific, so we will just keep one list under the 1st cutout
-
-        target_count = 0
-        # targets are in order of increasing distance
-        for r, d in zip(bid_ras, bid_decs):
-            target_count += 1
-            if target_count > G.MAX_COMBINE_BID_TARGETS:
-                break
-
-            try: #DO NOT WANT _unique as that has wiped out the filters
-                df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
-                                                       (self.dataframe_of_bid_targets['DEC'] == d[0]) &
-                                                       (self.dataframe_of_bid_targets['FILTER'] == 'r')]
-                if (df is None) or (len(df) == 0):
-                    df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
-                                                           (self.dataframe_of_bid_targets['DEC'] == d[0]) &
-                                                           (self.dataframe_of_bid_targets['FILTER'] == 'g')]
-                if (df is None) or (len(df) == 0):
-                    df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
-                                                           (self.dataframe_of_bid_targets['DEC'] == d[0])]
-
-            except:
-                log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
-                continue  # this must be here, so skip to next ra,dec
-
-            if df is not None:
-                #add flux (cont est)
-                try:
-                    filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = self.get_filter_flux(df)
-                except:
-                    filter_fl = 0.0
-                    filter_fl_err = 0.0
-                    filter_mag = 0.0
-                    filter_mag_bright = 0.0
-                    filter_mag_faint = 0.0
-                    filter_str = "NA"
-
-                bid_target = None
-
-                if (target_flux is not None) and (filter_fl != 0.0):
-                    if (filter_fl is not None):# and (filter_fl > 0):
-                        filter_fl_cgs = self.nano_jansky_to_cgs(filter_fl,SU.filter_iso(filter_str,target_w)) #filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
-                        filter_fl_cgs_unc = self.nano_jansky_to_cgs(filter_fl_err, SU.filter_iso(filter_str,target_w))
-                        # assumes no error in wavelength or c
-
-                        try:
-                            bid_target = match_summary.BidTarget()
-                            bid_target.catalog_name = self.Name
-                            bid_target.bid_ra = df['RA'].values[0]
-                            bid_target.bid_dec = df['DEC'].values[0]
-                            bid_target.distance = df['distance'].values[0] * 3600
-                            bid_target.prob_match = df['dist_prior'].values[0]
-                            bid_target.bid_flux_est_cgs = filter_fl_cgs
-                            bid_target.bid_filter = filter_str
-                            bid_target.bid_mag = filter_mag
-                            bid_target.bid_mag_err_bright = filter_mag_bright
-                            bid_target.bid_mag_err_faint = filter_mag_faint
-                            bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
-
-                            try:
-                                ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
-                                ew_u = abs(ew * np.sqrt(
-                                    (detobj.estflux_unc / target_flux) ** 2 +
-                                    (filter_fl_err / filter_fl) ** 2))
-
-                                bid_target.bid_ew_lya_rest = ew
-                                bid_target.bid_ew_lya_rest_err = ew_u
-
-                            except:
-                                log.debug("Exception computing catalog EW: ", exc_info=True)
-
-                            addl_waves = None
-                            addl_flux = None
-                            addl_ferr = None
-                            try:
-                                addl_waves = cat_match.detobj.spec_obj.addl_wavelengths
-                                addl_flux = cat_match.detobj.spec_obj.addl_fluxes
-                                addl_ferr = cat_match.detobj.spec_obj.addl_fluxerrs
-                            except:
-                                pass
-
-                            lineFlux_err = 0.
-                            if detobj is not None:
-                                try:
-                                    lineFlux_err = detobj.estflux_unc
-                                except:
-                                    lineFlux_err = 0.
-
-                            # build EW error from lineFlux_err and aperture estimate error
-                            ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
-                            try:
-                                ew_obs_err = abs(ew_obs * np.sqrt(
-                                    (lineFlux_err / target_flux) ** 2 +
-                                    (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
-                            except:
-                                ew_obs_err = 0.
-
-                            bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii,plae_errors = \
-                                line_prob.mc_prob_LAE(
-                                    wl_obs=target_w,
-                                    lineFlux=target_flux,
-                                    lineFlux_err=lineFlux_err,
-                                    continuum=bid_target.bid_flux_est_cgs,
-                                    continuum_err=bid_target.bid_flux_est_cgs_unc,
-                                    c_obs=None, which_color=None,
-                                    addl_wavelengths=addl_waves,
-                                    addl_fluxes=addl_flux,
-                                    addl_errors=addl_ferr,
-                                    sky_area=None,
-                                    cosmo=None, lae_priors=None,
-                                    ew_case=None, W_0=None,
-                                    z_OII=None, sigma=None)
-
-                            try:
-                                if plae_errors:
-                                    bid_target.p_lae_oii_ratio_min = plae_errors['ratio'][1]
-                                    bid_target.p_lae_oii_ratio_max = plae_errors['ratio'][2]
-                            except:
-                                pass
-
-                            try:
-                                bid_target.add_filter('HSC','R',filter_fl_cgs,filter_fl_err)
-                            except:
-                                log.debug('Unable to build filter entry for bid_target.',exc_info=True)
-
-                            cat_match.add_bid_target(bid_target)
-                            try:  # no downstream edits so they can both point to same bid_target
-                                detobj.bid_target_list.append(bid_target)
-                            except:
-                                log.warning("Unable to append bid_target to detobj.", exc_info=True)
-
-                            try:
-                                cutouts[0]['counterparts'].append(bid_target)
-                            except:
-                                log.warning("Unable to append bid_target to cutouts.", exc_info=True)
-                        except:
-                            log.debug('Unable to build bid_target.',exc_info=True)
-
-
-
-        return cutouts
-
-    # def defunct_hsc_build_cat_summary_details(self,cat_match, ra, dec, error, bid_ras, bid_decs, target_w=0,
-    #                               fiber_locs=None, target_flux=None,detobj=None):
-    #     """
-    #     similar to build_cat_summary_figure, but rather than build up an image section to be displayed in the
-    #     elixer report, this builds up a dictionary of information to be aggregated later over multiple catalogs
-    #
-    #     :param cat_match: a match summary object (contains info about the PDF location, etc)
-    #     :param ra:  the RA of the HETDEX detection
-    #     :param dec:  the Dec of the HETDEX detection
-    #     :param error: radius (or half-side of a box) in which to search for matches (the cutout is 3x this on a side)
-    #     :param bid_ras: RAs of potential catalog counterparts
-    #     :param bid_decs: Decs of potential catalog counterparts
-    #     :param target_w: observed wavelength (from HETDEX)
-    #     :param fiber_locs: array (or list) of 6-tuples that describe fiber locations (which fiber, position, color, etc)
-    #     :param target_flux: HETDEX integrated line flux in CGS flux units (erg/s/cm2)
-    #     :param detobj: the DetObj instance
-    #     :return: cutouts list of dictionaries with bid-target objects as well
-    #     """
-    #
-    #
-    #     window = error * 3
-    #     cutouts = self.get_cutouts(ra,dec,window/3600.,aperture=-1,filter=None,first=False,error=error)
-    #
-    #     #do other stuff
-    #     #1 get PLAE/POII for "best" aperture in each cutout image with details
-    #     for c in cutouts:
-    #         if c['details'] is None:
-    #             continue
-    #
-    #         if (not target_flux) or (c['details']['filter_name'].lower() not in ['r','g','f606w']):
-    #             continue
-    #
-    #         mag = c['details']['mag']
-    #         filter = c['details']['filter_name'].lower()
-    #         details = c['details']
-    #
-    #         #set the continuum estimate from the broadband filter
-    #         #if no aperture magnitude was calculated, set it to the mag-limit
-    #         if not (c['details']['mag'] < 99): #no mag could be calculated
-    #             non_detect = min(self.get_mag_limit(),33.0) #33 is just there for some not 99 limit
-    #             cont_est = self.obs_mag_to_cgs_flux(non_detect,SU.filter_iso(filter,target_w))
-    #         else:
-    #             cont_est = self.obs_mag_to_cgs_flux(mag,SU.filter_iso(filter,target_w))
-    #
-    #         bid_target = match_summary.BidTarget()
-    #         bid_target.catalog_name = self.Name
-    #         bid_target.bid_ra = 666  # nonsense RA
-    #         bid_target.bid_dec = 666  # nonsense Dec
-    #         bid_target.distance = 0.0
-    #         bid_target.bid_filter = filter
-    #         bid_target.bid_mag = mag
-    #         bid_target.bid_mag_err_bright = 0.0 #todo: right now don't have error on aperture mag
-    #         bid_target.bid_mag_err_faint = 0.0
-    #         bid_target.bid_flux_est_cgs_unc = 0.0
-    #
-    #         bid_target.bid_flux_est_cgs = cont_est
-    #         try:
-    #             flux_faint = None
-    #             flux_bright = None
-    #
-    #             if details['mag_faint'] < 99:
-    #                 flux_faint = self.obs_mag_to_cgs_flux(details['mag_faint'], SU.filter_iso(filter,target_w))
-    #
-    #             if details['mag_bright'] < 99:
-    #                 flux_bright = self.obs_mag_to_cgs_flux(details['mag_bright'], SU.filter_iso(filter,target_w))
-    #
-    #             if flux_bright and flux_faint:
-    #                 bid_target.bid_flux_est_cgs_unc = max((bid_target.bid_flux_est_cgs - flux_faint),
-    #                                                       (flux_bright -bid_target.bid_flux_est_cgs))
-    #             elif flux_bright:
-    #                 bid_target.bid_flux_est_cgs_unc = flux_bright - bid_target.bid_flux_est_cgs
-    #             else: #neither faint nor bright, so at the limit
-    #                 pass #anything we can reasonably do here? fully below flux limit?
-    #
-    #         except:
-    #             pass
-    #
-    #         try:
-    #             bid_target.bid_mag_err_bright = mag - details['mag_bright']
-    #             bid_target.bid_mag_err_faint =  details['mag_faint'] - mag
-    #         except:
-    #             pass
-    #
-    #         bid_target.add_filter(c['instrument'], filter, bid_target.bid_flux_est_cgs, -1)
-    #
-    #         addl_waves = None
-    #         addl_flux = None
-    #         addl_ferr = None
-    #         try:
-    #             addl_waves = cat_match.detobj.spec_obj.addl_wavelengths
-    #             addl_flux = cat_match.detobj.spec_obj.addl_fluxes
-    #             addl_ferr = cat_match.detobj.spec_obj.addl_fluxerrs
-    #         except:
-    #             pass
-    #
-    #         lineFlux_err = 0.
-    #         if detobj is not None:
-    #             try:
-    #                 lineFlux_err = detobj.estflux_unc
-    #             except:
-    #                 lineFlux_err = 0.
-    #
-    #         # build EW error from lineFlux_err and aperture estimate error
-    #         ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
-    #         try:
-    #             ew_obs_err = abs(ew_obs * np.sqrt(
-    #                 (lineFlux_err / target_flux) ** 2 +
-    #                 (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
-    #         except:
-    #             ew_obs_err = 0.
-    #
-    #         bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii, plae_errors = \
-    #             line_prob.mc_prob_LAE(
-    #                 wl_obs=target_w,
-    #                 lineFlux=target_flux,
-    #                 lineFlux_err=lineFlux_err,
-    #                 continuum=bid_target.bid_flux_est_cgs,
-    #                 continuum_err=bid_target.bid_flux_est_cgs_unc,
-    #                 c_obs=None, which_color=None,
-    #                 addl_wavelengths=addl_waves,
-    #                 addl_fluxes=addl_flux,
-    #                 addl_errors=addl_ferr,
-    #                 sky_area=None,
-    #                 cosmo=None, lae_priors=None,
-    #                 ew_case=None, W_0=None,
-    #                 z_OII=None, sigma=None)
-    #
-    #         try:
-    #             if plae_errors:
-    #                 bid_target.p_lae_oii_ratio_min = plae_errors['ratio'][1]
-    #                 bid_target.p_lae_oii_ratio_max = plae_errors['ratio'][2]
-    #                 c['aperture_plae_min'] = plae_errors['ratio'][1] #new key
-    #                 c['aperture_plae_max'] = plae_errors['ratio'][2] #new key
-    #         except:
-    #             pass
-    #
-    #         c['aperture_plae'] = bid_target.p_lae_oii_ratio
-    #         c['aperture_eqw_rest_lya'] = ew_obs / (1. + target_w / G.LyA_rest)
-    #         c['aperture_eqw_rest_lya_err'] = ew_obs_err / (1. + target_w / G.LyA_rest)
-    #
-    #         #also goes into the details
-    #         if c['details']:
-    #             c['details']['aperture_plae'] = bid_target.p_lae_oii_ratio
-    #             c['details']['aperture_eqw_rest_lya'] = ew_obs / (1. + target_w / G.LyA_rest)
-    #             c['details']['aperture_eqw_rest_lya_err'] = ew_obs_err / (1. + target_w / G.LyA_rest)
-    #             try:
-    #                 if plae_errors:
-    #                     c['details']['aperture_plae_min'] = plae_errors['ratio'][1] #new key
-    #                     c['details']['aperture_plae_max'] = plae_errors['ratio'][2] #new key
-    #             except:
-    #                 pass
-    #
-    #         cat_match.add_bid_target(bid_target)
-    #         try:  # no downstream edits so they can both point to same bid_target
-    #             if detobj is not None:
-    #                 detobj.bid_target_list.append(bid_target)
-    #         except:
-    #             log.warning("Unable to append bid_target to detobj.", exc_info=True)
-    #
-    #
-    #
-    #         #####################################################
-    #         # Unique to HSC: check for mask flags on the tile
-    #         #####################################################
-    #         if (details is not None) and (detobj is not None):
-    #             #check for flags
-    #             tile, tracts, positions = self.find_target_tile(ra, dec)
-    #             #get the mask cutout
-    #             mask_cutout = self.get_mask_cutout(tile,ra,dec,error)
-    #             sci = science_image.science_image() #empty sci for work
-    #             if mask_cutout is not None:
-    #                 #iterate over the Elixer Apertures and the SEP apertures
-    #                 if details['elixer_apertures']:
-    #                     for a in details['elixer_apertures']:
-    #                         # get the masks under the aperture
-    #                         # do this for each step (increase in size)
-    #                         pixels = sci.get_pixels_under_aperture(mask_cutout,a['ra'],a['dec'],
-    #                                                                a['radius'],a['radius'],
-    #                                                                angle= 0., north_angle=np.pi/2.)
-    #
-    #                         mask_frac = self.update_mask_counts(pixels,None) / len(pixels)
-    #
-    #                         #check the mask for any counts > 10% of total pixels
-    #                         trip_mask = np.where(mask_frac > 0.10)[0]
-    #                         # not all flags are 'bad' (i.e. 32 = detection)
-    #                         a['image_flags'] = np.sum([2**x for x in trip_mask])
-    #
-    #                 if details['sep_objects']:
-    #                     for a in details['sep_objects']:
-    #                         mask_frac = None
-    #                         pixels = sci.get_pixels_under_aperture(mask_cutout, a['ra'], a['dec'],
-    #                                                                a['a'], a['b'],
-    #                                                                angle=a['theta'], north_angle=np.pi / 2.)
-    #
-    #                         mask_frac = self.update_mask_counts(pixels, None)
-    #                         # check the mask for any counts > 10% of total pixels
-    #                         trip_mask = np.where(mask_frac > 0.10)[0]
-    #                         #not all flags are 'bad' (i.e. 32 = detection)
-    #                         a['image_flags'] = np.sum([2 ** x for x in trip_mask])
-    #
-    #
-    #         #####################################################
-    #         #Common to all catalogs; add the aperture details
-    #         #####################################################
-    #
-    #         if (details is not None) and (detobj is not None):
-    #             detobj.aperture_details_list.append(details)
-    #
-    #     #2. catalog entries as a new key under cutouts (like 'details') ... 'counterparts'
-    #     #    this should be similar to the build_multiple_bid_target_figures_one_line()
-    #
-    #     if len(bid_ras) > 0:
-    #         #if there are no cutouts (but we do have a catalog), create a cutouts list of dictionries to hold the
-    #         #counterparts
-    #         if not cutouts or len(cutouts) == 0:
-    #             cutouts = [{}]
-    #
-    #         cutouts[0]['counterparts'] = []
-    #         #create an empty list of counterparts under the 1st cutout
-    #         #counterparts are not filter specific, so we will just keep one list under the 1st cutout
-    #
-    #     target_count = 0
-    #     # targets are in order of increasing distance
-    #     for r, d in zip(bid_ras, bid_decs):
-    #         target_count += 1
-    #         if target_count > G.MAX_COMBINE_BID_TARGETS:
-    #             break
-    #
-    #         try: #DO NOT WANT _unique as that has wiped out the filters
-    #             df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
-    #                                                    (self.dataframe_of_bid_targets['DEC'] == d[0]) &
-    #                                                    (self.dataframe_of_bid_targets['FILTER'] == 'r')]
-    #             if (df is None) or (len(df) == 0):
-    #                 df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
-    #                                                        (self.dataframe_of_bid_targets['DEC'] == d[0]) &
-    #                                                        (self.dataframe_of_bid_targets['FILTER'] == 'g')]
-    #             if (df is None) or (len(df) == 0):
-    #                 df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
-    #                                                        (self.dataframe_of_bid_targets['DEC'] == d[0])]
-    #
-    #         except:
-    #             log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
-    #             continue  # this must be here, so skip to next ra,dec
-    #
-    #         if df is not None:
-    #             #add flux (cont est)
-    #             try:
-    #                 filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = self.get_filter_flux(df)
-    #             except:
-    #                 filter_fl = 0.0
-    #                 filter_fl_err = 0.0
-    #                 filter_mag = 0.0
-    #                 filter_mag_bright = 0.0
-    #                 filter_mag_faint = 0.0
-    #                 filter_str = "NA"
-    #
-    #             bid_target = None
-    #
-    #             if (target_flux is not None) and (filter_fl != 0.0):
-    #                 if (filter_fl is not None):# and (filter_fl > 0):
-    #                     filter_fl_cgs = self.nano_jansky_to_cgs(filter_fl,SU.filter_iso(filter_str,target_w)) #filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
-    #                     filter_fl_cgs_unc = self.nano_jansky_to_cgs(filter_fl_err, SU.filter_iso(filter_str,target_w))
-    #                     # assumes no error in wavelength or c
-    #
-    #                     try:
-    #                         bid_target = match_summary.BidTarget()
-    #                         bid_target.catalog_name = self.Name
-    #                         bid_target.bid_ra = df['RA'].values[0]
-    #                         bid_target.bid_dec = df['DEC'].values[0]
-    #                         bid_target.distance = df['distance'].values[0] * 3600
-    #                         bid_target.prob_match = df['dist_prior'].values[0]
-    #                         bid_target.bid_flux_est_cgs = filter_fl_cgs
-    #                         bid_target.bid_filter = filter_str
-    #                         bid_target.bid_mag = filter_mag
-    #                         bid_target.bid_mag_err_bright = filter_mag_bright
-    #                         bid_target.bid_mag_err_faint = filter_mag_faint
-    #                         bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
-    #
-    #                         try:
-    #                             ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
-    #                             ew_u = abs(ew * np.sqrt(
-    #                                 (detobj.estflux_unc / target_flux) ** 2 +
-    #                                 (filter_fl_err / filter_fl) ** 2))
-    #
-    #                             bid_target.bid_ew_lya_rest = ew
-    #                             bid_target.bid_ew_lya_rest_err = ew_u
-    #
-    #                         except:
-    #                             log.debug("Exception computing catalog EW: ", exc_info=True)
-    #
-    #                         addl_waves = None
-    #                         addl_flux = None
-    #                         addl_ferr = None
-    #                         try:
-    #                             addl_waves = cat_match.detobj.spec_obj.addl_wavelengths
-    #                             addl_flux = cat_match.detobj.spec_obj.addl_fluxes
-    #                             addl_ferr = cat_match.detobj.spec_obj.addl_fluxerrs
-    #                         except:
-    #                             pass
-    #
-    #                         lineFlux_err = 0.
-    #                         if detobj is not None:
-    #                             try:
-    #                                 lineFlux_err = detobj.estflux_unc
-    #                             except:
-    #                                 lineFlux_err = 0.
-    #
-    #                         # build EW error from lineFlux_err and aperture estimate error
-    #                         ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
-    #                         try:
-    #                             ew_obs_err = abs(ew_obs * np.sqrt(
-    #                                 (lineFlux_err / target_flux) ** 2 +
-    #                                 (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
-    #                         except:
-    #                             ew_obs_err = 0.
-    #
-    #                         bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii,plae_errors = \
-    #                             line_prob.mc_prob_LAE(
-    #                                 wl_obs=target_w,
-    #                                 lineFlux=target_flux,
-    #                                 lineFlux_err=lineFlux_err,
-    #                                 continuum=bid_target.bid_flux_est_cgs,
-    #                                 continuum_err=bid_target.bid_flux_est_cgs_unc,
-    #                                 c_obs=None, which_color=None,
-    #                                 addl_wavelengths=addl_waves,
-    #                                 addl_fluxes=addl_flux,
-    #                                 addl_errors=addl_ferr,
-    #                                 sky_area=None,
-    #                                 cosmo=None, lae_priors=None,
-    #                                 ew_case=None, W_0=None,
-    #                                 z_OII=None, sigma=None)
-    #
-    #                         try:
-    #                             if plae_errors:
-    #                                 bid_target.p_lae_oii_ratio_min = plae_errors['ratio'][1]
-    #                                 bid_target.p_lae_oii_ratio_max = plae_errors['ratio'][2]
-    #                         except:
-    #                             pass
-    #
-    #                         try:
-    #                             bid_target.add_filter('HSC','R',filter_fl_cgs,filter_fl_err)
-    #                         except:
-    #                             log.debug('Unable to build filter entry for bid_target.',exc_info=True)
-    #
-    #                         cat_match.add_bid_target(bid_target)
-    #                         try:  # no downstream edits so they can both point to same bid_target
-    #                             detobj.bid_target_list.append(bid_target)
-    #                         except:
-    #                             log.warning("Unable to append bid_target to detobj.", exc_info=True)
-    #
-    #                         try:
-    #                             cutouts[0]['counterparts'].append(bid_target)
-    #                         except:
-    #                             log.warning("Unable to append bid_target to cutouts.", exc_info=True)
-    #                     except:
-    #                         log.debug('Unable to build bid_target.',exc_info=True)
-    #
-    #
-    #     #once all done, pass cutouts to a new function to create the summary figure ... SHOULD be only in the base class
-    #     #as all should be identical and based only on the cutouts object data
-    #     # this include
-    #     #1. stack cutouts to make a master cutout ...
-    #     #2. add fibers, North box to master cutout ...
-    #
-    #     return cutouts
-
-
-    def build_cat_summary_figure (self, cat_match, ra, dec, error, bid_ras, bid_decs, target_w=0,
+    def build_cat_summary_figure (self, cat_match, ra, dec, error,bid_ras, bid_decs, target_w=0,
                                   fiber_locs=None, target_flux=None,detobj=None):
-        """
-            Builds the figure (page) the exact target location. Contains just the filter images ...
-            Returns the matplotlib figure. Due to limitations of matplotlib pdf generation, each figure = 1 page
+        '''Builds the figure (page) the exact target location. Contains just the filter images ...
 
-        :param cat_match: a match summary object (contains info about the PDF location, etc)
-        :param ra:  the RA of the HETDEX detection
-        :param dec:  the Dec of the HETDEX detection
-        :param error: radius (or half-side of a box) in which to search for matches (the cutout is 3x this on a side)
-        :param bid_ras: RAs of potential catalog counterparts
-        :param bid_decs: Decs of potential catalog counterparts
-        :param target_w: observed wavelength (from HETDEX)
-        :param fiber_locs: array (or list) of 6-tuples that describe fiber locations (which fiber, position, color, etc)
-        :param target_flux: HETDEX integrated line flux in CGS flux units (erg/s/cm2)
-        :param detobj: the DetObj instance
-        :return:
-        """
+        Returns the matplotlib figure. Due to limitations of matplotlib pdf generation, each figure = 1 page'''
 
         # note: error is essentially a radius, but this is done as a box, with the 0,0 position in lower-left
         # not the middle, so need the total length of each side to be twice translated error or 2*2*error
@@ -2713,7 +2248,6 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
             # to here, window is in degrees so ...
             window = 3600. * window
-
             if not error:
                 error = window
 
@@ -2750,9 +2284,6 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         #     cat_filters = list(dict((x['filter'], {}) for x in self.CatalogImages).keys())
         # except:
         #     cat_filters = None
-
-        if aperture == -1:
-            aperture = self.mean_FWHM * 0.5 + 0.5
 
         if filter:
             outer = filter

@@ -1440,7 +1440,7 @@ class SHELA(cat_base.Catalog):
 
 
 
-    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None):
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,error=None):
 
         d = {'cutout':None,
              'hdu':None,
@@ -1450,6 +1450,7 @@ class SHELA(cat_base.Catalog):
              'mag':None,
              'aperture':None,
              'ap_center':None,
+             'mag_limit':None,
              'details': None}
 
         try:
@@ -1477,9 +1478,10 @@ class SHELA(cat_base.Catalog):
 
             # to here, window is in degrees so ...
             window = 3600. * window
+            if not error:
+                error = window
 
-
-            cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error=window, window=window,
+            cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error=error, window=window,
                                                                           aperture=aperture,
                                                                           mag_func=mag_func, copy=True,
                                                                           return_details=True)
@@ -1487,6 +1489,9 @@ class SHELA(cat_base.Catalog):
 
             if cutout is not None:  # construct master cutout
                 d['cutout'] = cutout
+                details['catalog_name']=self.name
+                details['filter_name']=catalog_image['filter']
+                d['mag_limit']=self.get_mag_limit(catalog_image['name'],mag_radius*2.)
                 if (mag is not None) and (mag < 999):
                     d['mag'] = mag
                     d['aperture'] = mag_radius
@@ -1497,7 +1502,7 @@ class SHELA(cat_base.Catalog):
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None):
         l = list()
 
         tile = self.find_target_tile(ra, dec,verify=False)
@@ -1536,7 +1541,7 @@ class SHELA(cat_base.Catalog):
                 if i is None:
                     continue
 
-                cutout = self.get_single_cutout(ra, dec, window, i, aperture)
+                cutout = self.get_single_cutout(ra, dec, window, i, aperture,error)
 
                 if first:
                     if cutout['cutout'] is not None:

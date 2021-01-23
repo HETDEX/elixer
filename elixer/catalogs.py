@@ -232,8 +232,9 @@ class CatalogLibrary:
                           note: will be forced to radius if radius is smaller than aperture
                           note: a value of 99.9 means the magnitude could not be calculated (usually an
                             error with the pixel counts or photutils)
-        :param dynamic: optional - if True, the aperture provided will grow in 0.1 arcsec steps until the
-                        magnitude stabalizes (similar to, but not curve of growth)
+        :param dynamic: optional - if True and the aperture parameter is non-zero, the aperture will grow in 0.1 arcsec
+                        steps, starting from the specified aperture until the magnitude stabalizes (similar to, but not
+                        curve of growth)
         :param nudge: optional - if not None, specifies the amount of drift (in x and y in arcsecs) allowed
                       for the center of the aperture to align it with the local 2D Gaussian centroid of the
                       pixel counts. If None or 0.0, the center is not allowed to move and stays on the

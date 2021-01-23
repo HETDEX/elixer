@@ -296,7 +296,13 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
 
         # display the exact (target) location
         if G.SINGLE_PAGE_PER_DETECT:
-            entry = self.build_cat_summary_figure(cat_match,target_ra, target_dec, error, ras, decs,
+            if G.BUILD_REPORT_BY_FILTER:
+                #here we return a list of dictionaries (the "cutouts" from this catalog)
+                return self.build_cat_summary_details(cat_match,target_ra, target_dec, error, ras, decs,
+                                              target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,
+                                              detobj=detobj)
+            else:
+                entry = self.build_cat_summary_figure(cat_match,target_ra, target_dec, error, ras, decs,
                                                   target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,
                                                   detobj=detobj)
 
@@ -1029,7 +1035,7 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
         plt.close()
         return fig
 
-    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,filter=None):
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,filter=None,error=None):
 
 
         d = {'cutout':None,
@@ -1040,6 +1046,7 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
              'mag':None,
              'aperture':None,
              'ap_center': None,
+             'mag_limit':None,
              'details': None}
 
         try:
@@ -1076,8 +1083,9 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
 
                 # to here, window is in degrees so ...
                 window = 3600. * window
-
-                cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error=window, window=window,
+                if not error:
+                    error = window
+                cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error=error, window=window,
                                                                               aperture=aperture,
                                                                               mag_func=mag_func, copy=True,
                                                                               return_details=True)
@@ -1085,6 +1093,9 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
 
                 if cutout is not None:  # construct master cutout
                     d['cutout'] = cutout
+                    details['catalog_name']=self.name
+                    details['filter_name']=catalog_image['filter']
+                    d['mag_limit']=self.get_mag_limit(None,mag_radius*2.)
                     if (mag is not None) and (mag < 999):
                         d['mag'] = mag
                         d['aperture'] = mag_radius
@@ -1095,7 +1106,7 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=None):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=None,error=None):
         l = list()
 
         #filters are fixed
@@ -1120,7 +1131,7 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                         # if filter list provided but the image is NOT in the filter list go to next one
                         continue
 
-                    cutout = self.get_single_cutout(ra, dec, window, None, aperture,filter=f)
+                    cutout = self.get_single_cutout(ra, dec, window, None, aperture,filter=f,error=error)
                     if first:
                         if cutout['cutout'] is not None:
                                 l.append(cutout)

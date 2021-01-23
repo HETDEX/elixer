@@ -8,13 +8,19 @@ try:
     from elixer import science_image
     from elixer import cat_bayesian
     from elixer import observation as elixer_observation
-    #from elixer import utilities
+    from elixer import utilities
+    from elixer import spectrum_utilities as SU
+    from elixer import match_summary
+    from elixer import line_prob
 except:
     import global_config as G
     import science_image
     import cat_bayesian
     import observation as elixer_observation
-    #import utilities
+    import utilities
+    import spectrum_utilities as SU
+    import match_summary
+    import line_prob
 
 import os.path as op
 import copy
@@ -107,6 +113,7 @@ class Catalog:
     df_photoz = None
     status = -1
     mean_FWHM = 1.5 #sort of generic seeing ... each implemented catalog should overwrite this
+    MAG_LIMIT = 99.9
 
     def __init__(self):
         self.pages = None #list of bid entries (rows in the pdf)
@@ -116,8 +123,6 @@ class Catalog:
 
         #blue, red, green, white
         self.colormap = [[0, 0, 1,1], [1, 0, 0,1], [0, .85, 0,1], [1, 1, 1,0.7]]
-        MAG_LIMIT = 33.0 #just to set a value
-
 
     @property
     def ok(self):
@@ -258,6 +263,20 @@ class Catalog:
     #             pass
     #     except:
     #         log.warning("Exception in cat_base::Catalog::sort_bid_targets_by_aperture()", exc_info=True)
+
+    def get_mag_limit(self,image_identification=None,aperture_diameter=None):
+        """
+        to be overwritten by subclasses to return their particular format of maglimit
+
+        :param image_identification: some way (sub-class specific) to identify which image
+        :param aperture_diameter: in arcsec
+        :return:
+        """
+
+        try:
+            return self.MAG_LIMIT
+        except:
+            return 99.9
 
     def sort_bid_targets_by_likelihood(self,ra,dec):
         #right now, just by euclidean distance (ra,dec are of target) (don't forget to adjust RA coord difference
@@ -704,7 +723,799 @@ class Catalog:
     def build_bid_target_reports(self, cat_match, target_ra, target_dec, error, num_hits=0, section_title="", base_count=0,
                                  target_w=0, fiber_locs=None,target_flux=None,detobj=None):
         #implement in child class
+        #called from elixer.py to get the list of bid targets for each catalog as part of a pre-report search
         pass
+
+
+    def stack_image_cutouts(self,cutouts):
+        """
+        given a set of cutouts (list of dictionaries)
+        stack the filters and return a single FITS cutout image
+
+        :param cutouts:
+        :return:
+        """
+
+        stacked_cutout = None
+        if cutouts:
+            total_adjusted_exptime = 1.0
+            ref_exptime = 0.0
+            for c in cutouts:
+                if not stacked_cutout:
+                    stacked_cutout = copy.deepcopy(c['cutout'])
+                    try:
+                        ref_exptime = c['details']['exptime']
+                        if not ref_exptime:
+                            ref_exptime = 1.0
+                    except:
+                        ref_exptime = 1.0
+                    total_adjusted_exptime = 1.0
+                else:
+                    try:
+                        stacked_cutout.data = np.add(stacked_cutout.data, c['cutout'].data * c['details']['exptime'] / ref_exptime)
+                        total_adjusted_exptime += c['details']['exptime'] / ref_exptime
+                    except:
+                        pass
+
+            stacked_cutout.data /= total_adjusted_exptime
+        return stacked_cutout
+
+
+
+
+    def build_cat_summary_pdf_section(self,list_of_cutouts, cat_match, ra, dec, error, target_w=0,
+                                  fiber_locs=None, target_flux=None,detobj=None):
+        """
+        Scans cutouts to build the optimal catalog summar section, prioritizing the "best" (deepest) survey for
+        g and r equivalent filters and filling in other filters with the deepest equivalent
+
+        :param cutouts:
+        :param cat_match:
+        :param ra:
+        :param dec:
+        :param error:
+        :param target_w:
+        :param fiber_locs:
+        :param target_flux:
+        :param detobj:
+        :return: matplotlib image section(s)
+        """
+
+        #begin by picking the "best" deepest g or r band as the primary catalog
+        #this will be the master images for the fiber positions
+
+        if len(list_of_cutouts) == 0:
+            return None
+
+
+        #allow master (fiber locations) and up to 5 (or 6) filters?
+        the_best_cat_idx = 0
+        the_best_cutout_idx = 0
+
+        best_dict = {}
+        best_dict['u'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['u',]}
+        best_dict['g'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['g','v','f435w']}
+        best_dict['r'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['r','f606w']}
+        best_dict['i'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['i','f775w','f814w']}
+        best_dict['z'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['z',]}
+        best_dict['y'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['y','f105w']}
+        best_dict['j'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['j','f125w']}
+        best_dict['jh'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['f140w',]}
+        best_dict['h'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['h','f160w']}
+
+        #other WFC3 filters, f140w, between j and h
+        #u ~ 3543 AA
+        #g ~ 4770 AA
+        #r ~ 6231 AA
+        #i ~ 7625 AA
+        #z ~ 9134 AA
+        #y ~ 10,200 AA
+        #J 12,200 AA
+        #H 16,300 AA
+        #K 21,900 AA
+        #L 34,500 AA
+        #M 47,500AA
+        #N 105,000AA
+        #Q 210,000AA
+
+        all_filter_names = []
+        #find best g or r (preferred) depths
+        for cat_idx, cutouts in enumerate(list_of_cutouts):
+            for cutout_idx, c in enumerate(cutouts):
+                try:
+                    filter = c['filter'].lower()
+                    all_filter_names.append(filter)
+
+                    for k in best_dict.keys(): #in order
+                        if filter in best_dict[k]['filters']:
+                            if best_dict[k]['depth'] < c['mag_limit'] < 99.9:
+                                best_dict[k]['depth'] = c['mag_limit']
+                                best_dict[k]['cat_idx']  = cat_idx
+                                best_dict[k]['cutout_idx'] = cutout_idx
+                            break
+
+                    #else: not one of the filters we care about or beyond what we normally access
+                except:
+                    pass
+
+        #the top (fiber locations) will be 'r' (preferred) or 'g'
+        if best_dict['r']['depth']:
+            the_best_cat_idx = best_dict['r']['cat_idx']
+            the_best_cutout_idx =  best_dict['r']['cutout_idx']
+        elif best_dict['g']['depth']:
+            the_best_cat_idx = best_dict['g']['cat_idx']
+            the_best_cutout_idx =  best_dict['g']['cutout_idx']
+        else: #just use the 0th idex
+            the_best_cat_idx = 0
+
+        #for later to fill out the set of filters if there is any room left
+        all_filter_names = np.unique(all_filter_names)
+
+        stacked_cutout = self.stack_image_cutouts(list_of_cutouts[the_best_cat_idx])
+
+        #now turn this into a plot object and start adding North Box and Fibers
+        rows = 10
+        #note: setting size to 7 from 6 so they will be the right size (the 7th position will not be populated)
+        cols = 7 # 1 for the fiber position and up to 5 filters for any one tile (u,g,r,i,z)
+        fig_sz_x = 18 #cols * 3
+        fig_sz_y = 3 #ows * 3
+
+        fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
+        plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
+
+        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.0)
+        # reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based
+
+        font = FontProperties()
+        font.set_family('monospace')
+        font.set_size(12)
+
+        #this is the single line between the 1D spectrum above and the cutouts below
+        the_entry = list_of_cutouts[the_best_cat_idx][the_best_cutout_idx]
+
+        if the_entry['details'] and the_entry['details']['catalog_name']:
+            name = the_entry['details']['catalog_name']
+        elif the_entry['instrument']:
+            name = the_entry['instrument']
+        else:
+            name = "---"
+
+        if the_entry['details'] and the_entry['details']['filter_name']:
+            filter = the_entry['details']['filter_name']
+        elif the_entry['filter']:
+            filter = the_entry['filter']
+        else:
+            filter = "-"
+
+        try:
+            possible_matches = len(the_entry['counterparts'])
+        except:
+            possible_matches = '--'
+
+        title = f"{name} : Possible Matches = {possible_matches} (within +/- {error:g}\")  P(LAE)/P(OII): "
+        try:
+            title +=  r'$%.4g\ ^{%.4g}_{%.4g}$' % (round(the_entry['aperture_plae'], 3),
+                                               round(the_entry['aperture_plae_max'], 3),
+                                               round(the_entry['aperture_plae_min'], 3))
+
+            title += f" ({filter})"
+        except:
+            title += "N/A"
+
+
+
+        plt.subplot(gs[0, :])
+        text = plt.text(0, 0.7, title, ha='left', va='bottom', fontproperties=font)
+        plt.gca().set_frame_on(False)
+        plt.gca().axis('off')
+
+        sci = science_image.science_image() #empty science image to use for functions
+
+
+        #
+        # Add the left-most (stacked) image with the fiber positions
+        #
+        index = 0 #images go in positions 1+ (0 is for the fiber positions stacked cutout)
+
+        _ = plt.subplot(gs[1:, index])
+        pix_size = sci.calc_pixel_size(stacked_cutout.wcs)
+        ext = stacked_cutout.shape[0] * pix_size / 2.
+        #add_fiber_positions also takes care of the north box and the center
+        self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, stacked_cutout)
+
+
+        #
+        #Now add the other images (in filter order) until we run out of spaces
+        #
+        for k in best_dict.keys():
+            if best_dict[k]['depth']: # a best depth is set
+                index += 1
+                _ = plt.subplot(gs[1:, index])
+                the_entry = list_of_cutouts[best_dict[k]['cat_idx']][best_dict[k]['cutout_idx']]
+
+                vmin, vmax = sci.get_vrange(the_entry['cutout'].data)
+                pix_size = sci.calc_pixel_size(the_entry['cutout'].wcs)
+                ext = the_entry['cutout'].shape[0] * pix_size / 2.
+
+                plt.imshow(the_entry['cutout'].data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
+                       vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+
+                if the_entry['instrument']:
+                    name = the_entry['instrument']
+                elif the_entry['details'] and the_entry['details']['catalog_name']:
+                    name = the_entry['details']['catalog_name'][0:4]
+                else:
+                    name = "---"
+
+                if the_entry['filter']:
+                    filter = the_entry['filter']
+                elif the_entry['details'] and the_entry['details']['filter_name']:
+                    filter = the_entry['details']['filter_name']
+                else:
+                    filter = "-"
+
+                plt.title(f"{name} {filter}")
+                plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+                plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+
+                self.add_zero_position(plt)
+
+                #build up the needed parameters
+                #if there is an aperture (from source extractor ellipse or elixer circular aperture(s)), draw them
+                if the_entry['ap_center']:
+                    cx = the_entry['ap_center'][0]
+                    cy = the_entry['ap_center'][1]
+
+
+                    if the_entry['details']:
+                        cutout_ewr = the_entry['details']['aperture_eqw_rest_lya']
+                        cutout_plae = the_entry['details']['aperture_plae']
+
+                        if (the_entry['details']['sep_objects'] is not None):  # and (details['sep_obj_idx'] is not None):
+                            self.add_elliptical_aperture_positions(plt, the_entry['details']['sep_objects'],
+                                                                   the_entry['details']['sep_obj_idx'],
+                                                                   the_entry['details']['radius'],
+                                                                   the_entry['details']['mag'],
+                                                                   cx, cy, cutout_ewr, cutout_plae)
+                        else:
+                            self.add_aperture_position(plt, the_entry['details']['radius'],
+                                                       the_entry['details']['mag'],
+                                                       cx, cy, cutout_ewr, cutout_plae)
+                    else:
+                        log.warning("No cutout details ...")
+
+                self.add_north_box(plt, sci, the_entry['cutout'], error, 0, 0, theta=None)
+
+        # complete the entry
+        plt.close()
+
+        self.clear_pages()
+        self.add_bid_entry(fig)
+
+
+        #################################################
+        #now build up the couterparts from the catalog
+        #################################################
+
+        #want to use the catalog associated with the_best_cat_idx, if there is one.
+        #If there is not a catalog, then use the r or g band catalog with the most hits?
+
+        counterpart_cat_idx = the_best_cat_idx
+        list_of_counterparts = None #these are all BidTarget objects
+        #counterparts are always just on the [0]th entry for the catalog
+        if list_of_cutouts[counterpart_cat_idx][0]['counterparts']:
+            list_of_counterparts = list_of_cutouts[counterpart_cat_idx][0]['counterparts']
+        else:
+            counterpart_cat_idx = 0
+            best_len = 0
+            for idx,cat in enumerate(list_of_cutouts):
+                if cat[0]['counterparts']:
+                    if len(cat[0]['counterparts']) > best_len:
+                        counterpart_cat_idx = idx
+                        best_len = len(cat[0]['counterparts'])
+
+
+
+        rows = 1
+        cols = 6
+
+        fig_sz_x = cols * 3
+        fig_sz_y = rows * 3
+
+        fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
+        plt.subplots_adjust(left=0.05, right=0.95, top=0.9, bottom=0.2)
+
+        #col(0) = "labels", 1..3 = bid targets, 4..5= Zplot
+        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.5)
+
+        # entry text
+        font = FontProperties()
+        font.set_family('monospace')
+        font.set_size(12)
+
+        #row labels
+        plt.subplot(gs[0, 0])
+        plt.gca().set_frame_on(False)
+        plt.gca().axis('off')
+
+        if len(list_of_counterparts) < 1:
+            # per Karl insert a blank row
+            text = "No matching targets in catalog.\nRow intentionally blank."
+            plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
+            plt.close()
+            self.add_bid_entry(fig)
+            return self.pages
+        elif (not G.FORCE_SINGLE_PAGE) and (len(list_of_counterparts) > G.MAX_COMBINE_BID_TARGETS):
+            text = "Too many matching targets in catalog.\nIndividual target reports on followin pages."
+            plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
+            self.add_bid_entry(fig)
+            return self.pages
+
+
+        bid_colors = self.get_bid_colors(len(list_of_counterparts))
+
+        if G.ZOO:
+            text = "Separation\n" + \
+                   "Match score\n" + \
+                   "Spec z\n" + \
+                   "Photo z\n" + \
+                   "Est LyA rest-EW\n" + \
+                   "mag\n\n"
+        else:
+            text = "Separation\n" + \
+                   "Match score\n" + \
+                   "RA, Dec\n" + \
+                   "Spec z\n" + \
+                   "Photo z\n" + \
+                   "Est LyA rest-EW\n" + \
+                   "mag\n" + \
+                   "P(LAE)/P(OII)\n"
+
+
+        plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font)
+
+        col_idx = 0
+        target_count = 0
+        phot_z_plotted = False
+        # targets are in order of increasing likelihood
+
+        #iterate over the bid targets (list_of_counterparts) and build up the text
+        for counterpart in list_of_counterparts:
+            col_idx += 1
+            target_count += 1
+            text = ""
+
+            if G.ZOO:
+                text = text + "%g\"\n%0.3f\n" \
+                       % (counterpart.distance,counterpart.prob_match)
+            else:
+                text = text + "%g\"\n%0.3f\n%f, %f\n" \
+                       % ( counterpart.distance,counterpart.prob_match,
+                           counterpart.bid_ra, counterpart.bid_dec)
+
+            #spec_z and phot_z
+            if counterpart.spec_z is not None:
+                text += "%g\n" % counterpart.spec_z
+            else:
+                text += "N/A\n"
+
+            if counterpart.phot_z is not None:
+                text += "%g\n" % counterpart.phot_z
+            else:
+                text += "N/A\n"
+
+            #EW
+            if counterpart.bid_ew_lya_rest is not None:
+                if counterpart.bid_ew_lya_rest_err is not None:
+                    text = text + utilities.unc_str((counterpart.bid_ew_lya_rest, counterpart.bid_ew_lya_rest_err)) + "$\AA$\n"
+                else:
+                    text = text + utilities.unc_str((counterpart.bid_ew_lya_rest, 0.0)) + "$\AA$\n"
+
+            #mag
+            if counterpart.bid_mag is not None:
+                text += "%0.2f" % counterpart.bid_mag
+            if counterpart.bid_mag_err_bright is not None:
+                text += "(%0.2f," % counterpart.bid_mag_err_bright
+            else:
+                text += "(--.--,"
+            if counterpart.bid_mag_err_faint is not None:
+                text += "%0.2f)\n" % counterpart.bid_mag_err_faint
+            else:
+                text += "--.--)\n"
+
+            #plae/poii
+            if (not G.ZOO) and (counterpart.p_lae_oii_ratio is not None):
+                try:
+                    text += r"$%0.4g\ ^{%.4g}_{%.4g}$" % (utilities.saferound(counterpart.p_lae_oii_ratio, 3),
+                                                          utilities.saferound(counterpart.p_lae_oii_ratio_max, 3),
+                                                          utilities.saferound(counterpart.p_lae_oii_ratio_min, 3))
+                    text += "\n"
+                except:
+                    text += "%0.4g\n" % ( utilities.saferound(counterpart.p_lae_oii_ratio,3))
+
+            else:
+                text += "\n"
+
+            plt.subplot(gs[0, col_idx])
+            plt.gca().set_frame_on(False)
+            plt.gca().axis('off')
+            plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font,color=bid_colors[col_idx-1])
+
+            if (counterpart.phot_z_pdf_pz is not None) and (counterpart.phot_z_pdf_z is not None) and \
+                    (len(counterpart.phot_z_pdf_pz) == len(counterpart.phot_z_pdf_z ) != 0):
+                x = counterpart.phot_z_pdf_z
+                y = counterpart.phot_z_pdf_pz
+                plt.subplot(gs[0, 4:])
+                plt.plot(x, y, color=bid_colors[col_idx-1])
+                plt.xlim([0, 3.6])
+
+                if counterpart.spec_z is not None and counterpart.spec_z >= 0.0:
+                    plt.scatter([spec_z,],[plt.gca().get_ylim()[1]*0.9,],zorder=9,
+                                marker="o",s=80,facecolors='none',edgecolors=bid_colors[col_idx-1])
+                phot_z_plotted = True
+                if col_idx == 1:
+                    legend = []
+                    if target_w > 0:
+                        la_z = target_w / G.LyA_rest - 1.0
+                        oii_z = target_w / G.OII_rest - 1.0
+                        if (oii_z > 0):
+                            h = plt.axvline(x=oii_z, color='g', linestyle='--', zorder=9,
+                                            label="OII z(virus) = % g" % oii_z)
+                            legend.append(h)
+                        h = plt.axvline(x=la_z, color='r', linestyle='--', zorder=9,
+                                        label="LyA z (VIRUS) = %g" % la_z)
+                        legend.append(h)
+                        plt.gca().legend(handles=legend, loc='lower center', ncol=len(legend), frameon=False,
+                                         fontsize='small', borderaxespad=0, bbox_to_anchor=(0.5, -0.25))
+
+                plt.title("Photo z PDF")
+                plt.gca().yaxis.set_visible(False)
+
+
+        if not phot_z_plotted:
+            plt.subplot(gs[0, 4:])
+            plt.gca().set_frame_on(False)
+            plt.gca().axis('off')
+            text = "Photo z plot not available."
+            plt.text(0, 0.5, text, ha='left', va='bottom', fontproperties=font)
+
+        self.add_bid_entry(fig)
+
+        #end build_cat_summary_pdf_section()
+        return self.pages
+
+    def build_cat_summary_details(self,cat_match, ra, dec, error, bid_ras, bid_decs, target_w=0,
+                                  fiber_locs=None, target_flux=None,detobj=None):
+        """
+        similar to build_cat_summary_figure, but rather than build up an image section to be displayed in the
+        elixer report, this builds up a dictionary of information to be aggregated later over multiple catalogs
+
+        :param cat_match: a match summary object (contains info about the PDF location, etc)
+        :param ra:  the RA of the HETDEX detection
+        :param dec:  the Dec of the HETDEX detection
+        :param error: radius (or half-side of a box) in which to search for matches (the cutout is 3x this on a side)
+        :param bid_ras: RAs of potential catalog counterparts
+        :param bid_decs: Decs of potential catalog counterparts
+        :param target_w: observed wavelength (from HETDEX)
+        :param fiber_locs: array (or list) of 6-tuples that describe fiber locations (which fiber, position, color, etc)
+        :param target_flux: HETDEX integrated line flux in CGS flux units (erg/s/cm2)
+        :param detobj: the DetObj instance
+        :return: cutouts list of dictionaries with bid-target objects as well
+        """
+
+
+        window = error * 3
+        cutouts = self.get_cutouts(ra,dec,window/3600.,aperture=-1,filter=None,first=False,error=error)
+
+        #do other stuff
+        #1 get PLAE/POII for "best" aperture in each cutout image with details
+        for c in cutouts:
+            if c['details'] is None:
+                continue
+
+            if (not target_flux) or (c['details']['filter_name'].lower() not in ['r','g','f606w']):
+                continue
+
+            mag = c['details']['mag']
+            filter = c['details']['filter_name'].lower()
+            details = c['details']
+
+            #set the continuum estimate from the broadband filter
+            #if no aperture magnitude was calculated, set it to the mag-limit
+            if not (c['details']['mag'] < 99): #no mag could be calculated
+                non_detect = min(self.get_mag_limit(),33.0) #33 is just there for some not 99 limit
+                cont_est = self.obs_mag_to_cgs_flux(non_detect,SU.filter_iso(filter,target_w))
+            else:
+                cont_est = self.obs_mag_to_cgs_flux(mag,SU.filter_iso(filter,target_w))
+
+            bid_target = match_summary.BidTarget()
+            bid_target.catalog_name = self.Name
+            bid_target.bid_ra = 666  # nonsense RA
+            bid_target.bid_dec = 666  # nonsense Dec
+            bid_target.distance = 0.0
+            bid_target.bid_filter = filter
+            bid_target.bid_mag = mag
+            bid_target.bid_mag_err_bright = 0.0 #todo: right now don't have error on aperture mag
+            bid_target.bid_mag_err_faint = 0.0
+            bid_target.bid_flux_est_cgs_unc = 0.0
+
+            bid_target.bid_flux_est_cgs = cont_est
+            try:
+                flux_faint = None
+                flux_bright = None
+
+                if details['mag_faint'] < 99:
+                    flux_faint = self.obs_mag_to_cgs_flux(details['mag_faint'], SU.filter_iso(filter,target_w))
+
+                if details['mag_bright'] < 99:
+                    flux_bright = self.obs_mag_to_cgs_flux(details['mag_bright'], SU.filter_iso(filter,target_w))
+
+                if flux_bright and flux_faint:
+                    bid_target.bid_flux_est_cgs_unc = max((bid_target.bid_flux_est_cgs - flux_faint),
+                                                          (flux_bright -bid_target.bid_flux_est_cgs))
+                elif flux_bright:
+                    bid_target.bid_flux_est_cgs_unc = flux_bright - bid_target.bid_flux_est_cgs
+                else: #neither faint nor bright, so at the limit
+                    pass #anything we can reasonably do here? fully below flux limit?
+
+            except:
+                pass
+
+            try:
+                bid_target.bid_mag_err_bright = mag - details['mag_bright']
+                bid_target.bid_mag_err_faint =  details['mag_faint'] - mag
+            except:
+                pass
+
+            bid_target.add_filter(c['instrument'], filter, bid_target.bid_flux_est_cgs, -1)
+
+            addl_waves = None
+            addl_flux = None
+            addl_ferr = None
+            try:
+                addl_waves = cat_match.detobj.spec_obj.addl_wavelengths
+                addl_flux = cat_match.detobj.spec_obj.addl_fluxes
+                addl_ferr = cat_match.detobj.spec_obj.addl_fluxerrs
+            except:
+                pass
+
+            lineFlux_err = 0.
+            if detobj is not None:
+                try:
+                    lineFlux_err = detobj.estflux_unc
+                except:
+                    lineFlux_err = 0.
+
+            # build EW error from lineFlux_err and aperture estimate error
+            ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+            try:
+                ew_obs_err = abs(ew_obs * np.sqrt(
+                    (lineFlux_err / target_flux) ** 2 +
+                    (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+            except:
+                ew_obs_err = 0.
+
+            bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii, plae_errors = \
+                line_prob.mc_prob_LAE(
+                    wl_obs=target_w,
+                    lineFlux=target_flux,
+                    lineFlux_err=lineFlux_err,
+                    continuum=bid_target.bid_flux_est_cgs,
+                    continuum_err=bid_target.bid_flux_est_cgs_unc,
+                    c_obs=None, which_color=None,
+                    addl_wavelengths=addl_waves,
+                    addl_fluxes=addl_flux,
+                    addl_errors=addl_ferr,
+                    sky_area=None,
+                    cosmo=None, lae_priors=None,
+                    ew_case=None, W_0=None,
+                    z_OII=None, sigma=None)
+
+            try:
+                if plae_errors:
+                    bid_target.p_lae_oii_ratio_min = plae_errors['ratio'][1]
+                    bid_target.p_lae_oii_ratio_max = plae_errors['ratio'][2]
+                    c['aperture_plae_min'] = plae_errors['ratio'][1] #new key
+                    c['aperture_plae_max'] = plae_errors['ratio'][2] #new key
+            except:
+                pass
+
+            c['aperture_plae'] = bid_target.p_lae_oii_ratio
+            c['aperture_eqw_rest_lya'] = ew_obs / (1. + target_w / G.LyA_rest)
+            c['aperture_eqw_rest_lya_err'] = ew_obs_err / (1. + target_w / G.LyA_rest)
+
+            #also goes into the details
+            if c['details']:
+                c['details']['aperture_plae'] = bid_target.p_lae_oii_ratio
+                c['details']['aperture_eqw_rest_lya'] = ew_obs / (1. + target_w / G.LyA_rest)
+                c['details']['aperture_eqw_rest_lya_err'] = ew_obs_err / (1. + target_w / G.LyA_rest)
+                try:
+                    if plae_errors:
+                        c['details']['aperture_plae_min'] = plae_errors['ratio'][1] #new key
+                        c['details']['aperture_plae_max'] = plae_errors['ratio'][2] #new key
+                except:
+                    pass
+
+            cat_match.add_bid_target(bid_target)
+            try:  # no downstream edits so they can both point to same bid_target
+                if detobj is not None:
+                    detobj.bid_target_list.append(bid_target)
+            except:
+                log.warning("Unable to append bid_target to detobj.", exc_info=True)
+
+
+
+            #####################################################
+            #Common to all catalogs; add the aperture details
+            #####################################################
+
+            if (details is not None) and (detobj is not None):
+                detobj.aperture_details_list.append(details)
+
+
+            #the bid targets (conterparts) are added back in the child class
+
+        return cutouts
+
+        # #2. catalog entries as a new key under cutouts (like 'details') ... 'counterparts'
+        # #    this should be similar to the build_multiple_bid_target_figures_one_line()
+        #
+        # if len(bid_ras) > 0:
+        #     #if there are no cutouts (but we do have a catalog), create a cutouts list of dictionries to hold the
+        #     #counterparts
+        #     if not cutouts or len(cutouts) == 0:
+        #         cutouts = [{}]
+        #
+        #     cutouts[0]['counterparts'] = []
+        #     #create an empty list of counterparts under the 1st cutout
+        #     #counterparts are not filter specific, so we will just keep one list under the 1st cutout
+        #
+        # target_count = 0
+        # # targets are in order of increasing distance
+        # for r, d in zip(bid_ras, bid_decs):
+        #     target_count += 1
+        #     if target_count > G.MAX_COMBINE_BID_TARGETS:
+        #         break
+        #
+        #     try: #DO NOT WANT _unique as that has wiped out the filters
+        #         df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
+        #                                                (self.dataframe_of_bid_targets['DEC'] == d[0]) &
+        #                                                (self.dataframe_of_bid_targets['FILTER'] == 'r')]
+        #         if (df is None) or (len(df) == 0):
+        #             df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
+        #                                                    (self.dataframe_of_bid_targets['DEC'] == d[0]) &
+        #                                                    (self.dataframe_of_bid_targets['FILTER'] == 'g')]
+        #         if (df is None) or (len(df) == 0):
+        #             df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
+        #                                                    (self.dataframe_of_bid_targets['DEC'] == d[0])]
+        #
+        #     except:
+        #         log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
+        #         continue  # this must be here, so skip to next ra,dec
+        #
+        #     if df is not None:
+        #         #add flux (cont est)
+        #         try:
+        #             filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = self.get_filter_flux(df)
+        #         except:
+        #             filter_fl = 0.0
+        #             filter_fl_err = 0.0
+        #             filter_mag = 0.0
+        #             filter_mag_bright = 0.0
+        #             filter_mag_faint = 0.0
+        #             filter_str = "NA"
+        #
+        #         bid_target = None
+        #
+        #         if (target_flux is not None) and (filter_fl != 0.0):
+        #             if (filter_fl is not None):# and (filter_fl > 0):
+        #                 filter_fl_cgs = self.nano_jansky_to_cgs(filter_fl,SU.filter_iso(filter_str,target_w)) #filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
+        #                 filter_fl_cgs_unc = self.nano_jansky_to_cgs(filter_fl_err, SU.filter_iso(filter_str,target_w))
+        #                 # assumes no error in wavelength or c
+        #
+        #                 try:
+        #                     bid_target = match_summary.BidTarget()
+        #                     bid_target.catalog_name = self.Name
+        #                     bid_target.bid_ra = df['RA'].values[0]
+        #                     bid_target.bid_dec = df['DEC'].values[0]
+        #                     bid_target.distance = df['distance'].values[0] * 3600
+        #                     bid_target.prob_match = df['dist_prior'].values[0]
+        #                     bid_target.bid_flux_est_cgs = filter_fl_cgs
+        #                     bid_target.bid_filter = filter_str
+        #                     bid_target.bid_mag = filter_mag
+        #                     bid_target.bid_mag_err_bright = filter_mag_bright
+        #                     bid_target.bid_mag_err_faint = filter_mag_faint
+        #                     bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
+        #
+        #                     try:
+        #                         ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+        #                         ew_u = abs(ew * np.sqrt(
+        #                             (detobj.estflux_unc / target_flux) ** 2 +
+        #                             (filter_fl_err / filter_fl) ** 2))
+        #
+        #                         bid_target.bid_ew_lya_rest = ew
+        #                         bid_target.bid_ew_lya_rest_err = ew_u
+        #
+        #                     except:
+        #                         log.debug("Exception computing catalog EW: ", exc_info=True)
+        #
+        #                     addl_waves = None
+        #                     addl_flux = None
+        #                     addl_ferr = None
+        #                     try:
+        #                         addl_waves = cat_match.detobj.spec_obj.addl_wavelengths
+        #                         addl_flux = cat_match.detobj.spec_obj.addl_fluxes
+        #                         addl_ferr = cat_match.detobj.spec_obj.addl_fluxerrs
+        #                     except:
+        #                         pass
+        #
+        #                     lineFlux_err = 0.
+        #                     if detobj is not None:
+        #                         try:
+        #                             lineFlux_err = detobj.estflux_unc
+        #                         except:
+        #                             lineFlux_err = 0.
+        #
+        #                     # build EW error from lineFlux_err and aperture estimate error
+        #                     ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+        #                     try:
+        #                         ew_obs_err = abs(ew_obs * np.sqrt(
+        #                             (lineFlux_err / target_flux) ** 2 +
+        #                             (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+        #                     except:
+        #                         ew_obs_err = 0.
+        #
+        #                     bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii,plae_errors = \
+        #                         line_prob.mc_prob_LAE(
+        #                             wl_obs=target_w,
+        #                             lineFlux=target_flux,
+        #                             lineFlux_err=lineFlux_err,
+        #                             continuum=bid_target.bid_flux_est_cgs,
+        #                             continuum_err=bid_target.bid_flux_est_cgs_unc,
+        #                             c_obs=None, which_color=None,
+        #                             addl_wavelengths=addl_waves,
+        #                             addl_fluxes=addl_flux,
+        #                             addl_errors=addl_ferr,
+        #                             sky_area=None,
+        #                             cosmo=None, lae_priors=None,
+        #                             ew_case=None, W_0=None,
+        #                             z_OII=None, sigma=None)
+        #
+        #                     try:
+        #                         if plae_errors:
+        #                             bid_target.p_lae_oii_ratio_min = plae_errors['ratio'][1]
+        #                             bid_target.p_lae_oii_ratio_max = plae_errors['ratio'][2]
+        #                     except:
+        #                         pass
+        #
+        #                     try:
+        #                         bid_target.add_filter('HSC','R',filter_fl_cgs,filter_fl_err)
+        #                     except:
+        #                         log.debug('Unable to build filter entry for bid_target.',exc_info=True)
+        #
+        #                     cat_match.add_bid_target(bid_target)
+        #                     try:  # no downstream edits so they can both point to same bid_target
+        #                         detobj.bid_target_list.append(bid_target)
+        #                     except:
+        #                         log.warning("Unable to append bid_target to detobj.", exc_info=True)
+        #
+        #                     try:
+        #                         cutouts[0]['counterparts'].append(bid_target)
+        #                     except:
+        #                         log.warning("Unable to append bid_target to cutouts.", exc_info=True)
+        #                 except:
+        #                     log.debug('Unable to build bid_target.',exc_info=True)
+        #
+
+        #once all done, pass cutouts to a new function to create the summary figure ... SHOULD be only in the base class
+        #as all should be identical and based only on the cutouts object data
+        # this include
+        #1. stack cutouts to make a master cutout ...
+        #2. add fibers, North box to master cutout ...
+
+        #return cutouts
+
+
 
 
     def build_cat_summary_figure (self,ra,dec,error,bid_ras,bid_decs, target_w=0, fiber_locs=None, target_flux=None,detobj=None):
@@ -796,10 +1607,11 @@ class Catalog:
 
 
                 # need a new cutout since we rescaled the ext (and window) size
-                cutout,_,_,_ = empty_sci.get_cutout(ra, dec, error, window=ext * 2, image=self.master_cutout)
-                if cutout is None:
-                    log.warning("Cannot obtain new cutout from master_cutout in cat_base::add_fiber_positions")#,exc_info=True)
-                    cutout = self.master_cutout
+                if self.master_cutout:
+                    cutout,_,_,_ = empty_sci.get_cutout(ra, dec, error, window=ext * 2, image=self.master_cutout)
+                    if cutout is None:
+                        log.warning("Cannot obtain new cutout from master_cutout in cat_base::add_fiber_positions")#,exc_info=True)
+                        cutout = self.master_cutout
 
                 vmin, vmax = empty_sci.get_vrange(cutout.data)
 
@@ -1117,8 +1929,9 @@ class Catalog:
             return None
 
 
-    def get_single_cutout(self,ra,dec,window,catalog_image,aperture=None):
+    def get_single_cutout(self,ra,dec,window,catalog_image,aperture=None,error=None):
         #window is in DEGREES
+        #error in arcsec and is for internal ELiXer use
 
         d = {'cutout':None,
              'hdu':None,
@@ -1128,6 +1941,7 @@ class Catalog:
              'mag':None,
              'aperture':None,
              'ap_center':None,
+             'mag_limit':None,
              'details': None}
 
         try:
@@ -1156,18 +1970,31 @@ class Catalog:
 
             #to here, window is in degrees so ...
             window = 3600.*window
+            if not error:
+                error = window
 
-            cutout,pix_counts, mag, mag_radius,details = sci.get_cutout(ra, dec, error=window, window=window, aperture=aperture,
+            if aperture == -1:
+                try:
+                    aperture = catalog_image['aperture']
+                except:
+                    pass
+
+            cutout,pix_counts, mag, mag_radius,details = sci.get_cutout(ra, dec, error=error, window=window, aperture=aperture,
                                              mag_func=mag_func,copy=True,return_details=True)
             #don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
 
             if cutout is not None:  # construct master cutout
                d['cutout'] = cutout
+               details['catalog_name']=self.name
+               details['filter_name']=catalog_image['filter']
+               d['mag_limit']=self.get_mag_limit(catalog_image['name'],mag_radius*2.)
+               if details:
+                   d['details'] = details
+
                if (mag is not None) and (mag < 999):
                    d['mag'] = mag
                    d['aperture'] = mag_radius
                    d['ap_center'] = (sci.last_x0_center, sci.last_y0_center)
-                   d['details'] = details
         except:
             log.error("Error in get_single_cutout.",exc_info=True)
 
@@ -1235,7 +2062,7 @@ class Catalog:
         return list(set(cat_filters))
 
     #generic, can be used by most catalogs (like CANDELS), only override if necessary
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None):
         l = list()
 
         #not every catalog has a list of filters, and some contain multiples
@@ -1269,7 +2096,7 @@ class Catalog:
                             next(i for (i, d) in enumerate(self.CatalogImages)
                              if ((d['filter'] == f)))]
 
-                    cutout = self.get_single_cutout(ra, dec, window, i, aperture)
+                    cutout = self.get_single_cutout(ra, dec, window, i, aperture,error)
 
                     if first:
                         if cutout['cutout'] is not None:
