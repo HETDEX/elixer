@@ -427,8 +427,17 @@ class science_image():
             self.wcs.wcs.crval = [hdulist[self.wcs_idx].header['CRVAL1'], hdulist[self.wcs_idx].header['CRVAL2']]
             self.wcs.wcs.ctype = [hdulist[self.wcs_idx].header['CTYPE1'], hdulist[self.wcs_idx].header['CTYPE2']]
             # self.wcs.wcs.cdelt = [None,None]#[hdu1[0].header['CDELT1O'],hdu1[0].header['CDELT2O']]
-            self.wcs.wcs.cd = [[hdulist[self.wcs_idx].header['CD1_1'], hdulist[self.wcs_idx].header['CD1_2']],
-                               [hdulist[self.wcs_idx].header['CD2_1'], hdulist[self.wcs_idx].header['CD2_2']]]
+            try:
+                self.wcs.wcs.cd = [[hdulist[self.wcs_idx].header['CD1_1'], hdulist[self.wcs_idx].header['CD1_2']],
+                                   [hdulist[self.wcs_idx].header['CD2_1'], hdulist[self.wcs_idx].header['CD2_2']]]
+            except:
+                log.info("Missing common CDx_x keys. Assume just CD1_1 and CD2_2")
+                try:
+                    self.wcs.wcs.cd = [[hdulist[self.wcs_idx].header['CD1_1'], 0],
+                                       [0, hdulist[self.wcs_idx].header['CD2_2']]]
+                except:
+                    log.error("Failed to build WCS manually.", exc_info=True)
+                    self.wcs = None
             # self.wcs._naxis1 = hdulist[self.wcs_idx].header['NAXIS1']
             # self.wcs._naxis2 = hdulist[self.wcs_idx].header['NAXIS2']
 

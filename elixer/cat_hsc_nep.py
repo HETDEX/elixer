@@ -246,7 +246,7 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
     INCLUDE_KPNO_G = False
 
 
-    # Brick 15:
+    # Brick 15:  2" at 3 sigma (5 sigma) [will use 5-sigma]
     # g - 27.7 (27.1)
     # r - 27.3 (26.7)
     # i - 26.9 (26.4)
@@ -265,7 +265,10 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
     # ch2 - 25.1 (24.6)
     #
 
-    MAG_LIMIT = 26.0
+    MAG_LIMIT = 27.3 #mostly care about r (this give a little slop for error and for smaller aperture before the limit kicks in)
+
+    MAG_LIMIT_DICT = {'H20_NEP_18211_B15_e.fits':{'g':27.1,'r':26.7,'i':26.9,'z':26.0,'y':24.9},
+                      'H20_NEP_18211_B16_e.fits':{'g':27.2,'r':26.7,'i':26.4,'z':26.0,'y':24.9}}
 
     mean_FWHM = 1.0 #average 0.6 to 1.0
 
@@ -278,22 +281,44 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
     Name = "HyperSuprimeCam_NEP"
 
 
+#I hope all is well with you!! I found a little problema with the photometric catalog that the H20 team sent us.
+# I do not know if you need this for Elixer but just thought I should let you know about it. The photometric catalog
+# the H20 team sent us has two RA and DEC columns one for RA_DETECTIONS, DEC_DETECTION and the other RA_MODEL, DEC_MODEL
+# it turns out that something went wrong on their end for DETECTION RA and DEC and we should use the RA_MODEL, DEC_MODEL
+# instead for getting the proper RA and DEC.
 
     #todo: HERE ... just define the coordrange, etc rather than load a meta file
-    Image_Coord_Range = hsc_meta.Image_Coord_Range
-    Tile_Dict = hsc_meta.HSC_META_DICT
+    #using the HETDEX HSC dictionary format, but filter, tract, and pos are not relevant
+    #the path is updated just below
+    HSC_META_DICT = {
+        'H20_NEP_18211_B15_e.fits': {'RA_min':270.3579555,'RA_max':270.8344764,'Dec_min':67.5036877,'Dec_max':67.6853212,
+                                     'instrument':'HSC NEP','filter':'xx','tract':'18211','pos':(0,0),
+                                     'path':'H20_NEP_18211_B15_e.fits'},
+        'H20_NEP_18211_B16_e.fits': {'RA_min':270.3672660,'RA_max':270.84872930,'Dec_min':67.6716059,'Dec_max':67.8488075,
+                                     'instrument':'HSC NEP','filter':'xx','tract':'18211','pos':(0,0),
+                                     'path':'H20_NEP_18211_B16_e.fits'},
+     }
+    Image_Coord_Range = {'RA_min':270.3579555, 'RA_max':270.84872930, 'Dec_min':67.5036877, 'Dec_max':67.8488075}
+
+    #Image_Coord_Range = hsc_meta.Image_Coord_Range
+    Tile_Dict = HSC_META_DICT #hsc_meta.HSC_META_DICT
     #correct the basepaths
     for k in Tile_Dict.keys():
-        Tile_Dict[k]['path'] = op.join(G.HSC_IMAGE_PATH,Tile_Dict[k]['tract'],op.basename(Tile_Dict[k]['path']))
+        Tile_Dict[k]['path'] = op.join(HSC_IMAGE_PATH,op.basename(Tile_Dict[k]['path']))
 
 
-    Filters = ['r'] #case is important ... needs to be lowercase
+    Filters = ['g','r','i','z','y'] #case is important ... needs to be lowercase
+    Filter_HDU_Image_Idx = {'g':1,'r':4,'i':7,'z':10,'y':13}
+    Filter_HDU_Weight_Idx = {'g':2,'r':5,'i':8,'z':11,'y':14}
+    Filter_HDU_Mask_Idx = {'g':3,'r':6,'i':9,'z':12,'y':15}
+
     Cat_Coord_Range = {'RA_min': None, 'RA_max': None, 'Dec_min': None, 'Dec_max': None}
 
-    WCS_Manual = False
+    WCS_Manual = True
 
     AstroTable = None
 
+    #HETDEX HSC values
     #Masks (bitmapped) (from *_mask.fits headers)
     MP_BAD = 0  #2**0
     MP_SAT = 2  #2**1
@@ -444,158 +469,88 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
 
     BidCols = [
-        'sourceID',
-        'X', # on fits
-        'Y', # on fits
-        'RA',
-        'Dec', #reanamed 'DEC'
+        'id',
+        'cpeak',
+        'peak',
+        'RA_DETECTION', #DON'T USE, ... use RA_MODELING instead
+        'Dec_DETECTION', #DON'T USE, ... use DEC_MODELING instead
 
-        'flux3.0',
-        'flux3.0_err',
-        'flux3.0_flags',#("False" means no problems)
-        'mag3.0',
-        'mag3.0_err',
+        'N_BLOB',                              # number of sources modeled simultaneously with this source
+        'VALID_SOURCE_MODELING' ,              # flag, True if model optimization succeeded, False if model optimization failed
+        'SOLMODEL_MODELING' ,                  # flag, indicates final model type for successful models (PointSource, SimpleGalaxy, ExpGalaxy, DevGalaxy, FixedCompositeGalaxy)
+        'CHISQ_MODELING_hsc_r'  ,              # chi-squared statistic during modeling as measured in the hsc-r band
+        'CHISQ_MODELING_hsc_i'  ,              # chi-squared statistic during modeling as measured in the hsc-i band
+        'CHISQ_MODELING_hsc_z'  ,              # chi-squared statistic during modeling as measured in the hsc-z band
 
-        'flux4.5',
-        'flux4.5_err',
-        'flux4.5_flags',  # ("False" means no problems)
-        'mag4.5',
-        'mag4.5_err',
 
-        'flux6.0',
-        'flux6.0_err',
-        'flux6.0_flags',  # ("False" means no problems)
-        'mag6.0',
-        'mag6.0_err',
+        'RA_MODELING'      ,                   # right ascension (J2000) of source determined during model optimization; unit = 'deg'
+        'DEC_MODELING'  ,                      # declination (J2000) of source determined during model optimization; unit = 'de
 
-        'flux9.0',
-        'flux9.0_err',
-        'flux9.0_flags',  # ("False" means no problems)
-        'mag9.0',
-        'mag9.0_err',
+        'MAG_hsc_g'    ,                         # AB magnitude; unit = 'mag'
+        'MAGERR_hsc_g'  ,                        # AB magnitude error; unit = 'mag'
+        'FLUX_hsc_g'   ,                         # flux; unit = 'uJy'
+        'FLUXERR_hsc_g'  ,                       # flux error; unit = 'uJy'
+        'CHISQ_hsc_g',
 
-        'flux12.0',
-        'flux12.0_err',
-        'flux12.0_flags',  # ("False" means no problems)
-        'mag12.0',
-        'mag12.0_err',
+        'MAG_hsc_r'    ,                         # AB magnitude; unit = 'mag'
+        'MAGERR_hsc_r'  ,                        # AB magnitude error; unit = 'mag'
+        'FLUX_hsc_r'   ,                         # flux; unit = 'uJy'
+        'FLUXERR_hsc_r'  ,                       # flux error; unit = 'uJy'
+        'CHISQ_hsc_r',
 
-        'flux17.0',
-        'flux17.0_err',
-        'flux17.0_flags',  # ("False" means no problems)
-        'mag17.0',
-        'mag17.0_err',
+        'MAG_hsc_i'    ,                         # AB magnitude; unit = 'mag'
+        'MAGERR_hsc_i'  ,                        # AB magnitude error; unit = 'mag'
+        'FLUX_hsc_i'   ,                         # flux; unit = 'uJy'
+        'FLUXERR_hsc_i'  ,                       # flux error; unit = 'uJy'
+        'CHISQ_hsc_i',
 
-        'flux25.0',
-        'flux25.0_err',
-        'flux25.0_flags',  # ("False" means no problems)
-        'mag25.0',
-        'mag25.0_err',
+        'MAG_hsc_z'    ,                         # AB magnitude; unit = 'mag'
+        'MAGERR_hsc_z'  ,                        # AB magnitude error; unit = 'mag'
+        'FLUX_hsc_z'   ,                         # flux; unit = 'uJy'
+        'FLUXERR_hsc_z'  ,                       # flux error; unit = 'uJy'
+        'CHISQ_hsc_z',
 
-        'flux35.0',
-        'flux35.0_err',
-        'flux35.0_flags',  # ("False" means no problems)
-        'mag35.0',
-        'mag35.0_err',
+        'MAG_hsc_y'    ,                         # AB magnitude; unit = 'mag'
+        'MAGERR_hsc_y'  ,                        # AB magnitude error; unit = 'mag'
+        'FLUX_hsc_y'   ,                         # flux; unit = 'uJy'
+        'FLUXERR_hsc_y'  ,                       # flux error; unit = 'uJy'
+        'CHISQ_hsc_y',
 
-        'flux50.0',
-        'flux50.0_err',
-        'flux50.0_flags',  # ("False" means no problems)
-        'mag50.0',
-        'mag50.0_err',
+        'MAG_irac_ch1'    ,                         # AB magnitude; unit = 'mag'
+        'MAGERR_irac_ch1'  ,                        # AB magnitude error; unit = 'mag'
+        'FLUX_irac_ch1'   ,                         # flux; unit = 'uJy'
+        'FLUXERR_irac_ch1'  ,                       # flux error; unit = 'uJy'
+        'CHISQ_irac_ch1',
 
-        'flux70.0',
-        'flux70.0_err',
-        'flux70.0_flags',  # ("False" means no problems)
-        'mag70.0',
-        'mag70.0_err',
 
-        'fluxlsq',
-        'fluxlsq_err',
-        'fluxlsq_flags',  # ("False" means no problems)
-        'maglsq',
-        'maglsq_err',
+        'MAG_irac_ch2'    ,                         # AB magnitude; unit = 'mag'
+        'MAGERR_irac_ch2'  ,                        # AB magnitude error; unit = 'mag'
+        'FLUX_irac_ch2'   ,                         # flux; unit = 'uJy'
+        'FLUXERR_irac_ch2'  ,                       # flux error; unit = 'uJy'
+        'CHISQ_irac_ch2',
 
-        'flux.kron3.5',
-        'flux.kron3.5_err',
-        'flux.kron3.5_flags',# ("False" means no problems)
-        'mag.kron3.5',
-        'mag.kron3.5_err',
+        'nusefilt' ,                           # number of filters used for photo-z
+        'lc_min'    ,                          # minimum effective wavelength of valid filters, Angstrom
+        'lc_max'     ,                         # maximum effective wavelength of valid filters, Angstrom
+        'z_raw_chi2'  ,                        # redshift where chi2 is minimized
+        'z_phot_chi2'  ,                       # min chi2
+        'z025',                                # 2.5 percentile of pdf(z) (2-sigma)
+        'z160',                                # 16 percentile of pdf(z) (1-sigma)
+        'z500',                                # 50 percentile of pdf(z)
+        'z840',                                # 84 percentile of pdf(z) (1-sigma)
+        'z975',                                # 97.5 percentile of pdf(z) (2-sigma)
 
-        'flux.kron5.0',
-        'flux.kron5.0_err',
-        'flux.kron5.0_flags',  # ("False" means no problems)
-        'mag.kron5.0',
-        'mag.kron5.0_err',
-
-        'flux.kron6.5',
-        'flux.kron6.5_err',
-        'flux.kron6.5_flags',  # ("False" means no problems)
-        'mag.kron6.5',
-        'mag.kron6.5_err',
-
-        'flux.kron8.0',
-        'flux.kron8.0_err',
-        'flux.kron8.0_flags',  # ("False" means no problems)
-        'mag.kron8.0',
-        'mag.kron8.0_err',
-
-        'flux.cmodel',
-        'flux.cmodel_err',
-        'flux.cmodel_flags',# ("False" means no problems)
-        'mag.cmodel',
-        'mag.cmodel_err',
-
-        'children', #86
-        'outside', #87
-        'interpix_center', #88
-        'saturatedpix_center', #89
-        'cosmic_center', #90
-
-        'bad_pix', #91
-        'near_bright_obj', #92
-        'footprint_bright_obj', #93
-        'general_flag', #94
-
-        'inner_coadd_tract', #95
-        'inner_coadd_patch', #96
-        'num_images', #97
-        'orig_seeing' #Gaussian Sigma
+        'PSTAR_chi2',                          # chi-squared of best stellar template, using the PHOENIX stellar library
+        'LSTAR_chi2' ,                         # chi-squared of best stellar template, using the LePhare stellar librar
+        'EBV'  ,                               # E(B-V) values from Schlegel, Finkbeiner & Davis (1998) dust map, with 2011 recalibration; unit = 'mag'
+        'tract_id',                            # The tract id corresponds to a region of the sky pre-defined by the HSC-SSP team.
         ]
-
-
-    try: #old columns
-        if G.HSC_S15A:
-            BidCols = [
-                'sourceID',
-                'X', # on fits
-                'Y', # on fits
-                'RA',
-                'Dec', #reanamed 'DEC'
-                'flux.psf',
-                'flux.psf.err',
-                'flux.psf.flags',#("False" means no problems)
-                'mag.psf',
-                'magerr.psf',
-                'flux.kron',
-                'flux.kron.err',
-                'flux.kron.flags',# ("False" means no problems)
-                'mag.kron',
-                'magerr.kron',
-                'cmodel.flux',
-                'cmodel.flux.err',
-                'cmodel.flux.flags',# ("False" means no problems)
-                'cmodel.mag',
-                'cmodel.magerr'
-                ]
-    except:
-        pass
 
 
     CatalogImages = [] #built in constructor
 
     def __init__(self):
-        super(HSC, self).__init__()
+        super(HSC_NEP, self).__init__()
 
         self.dataframe_of_bid_targets = None
         self.dataframe_of_bid_targets_unique = None
@@ -618,27 +573,17 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         if name is None:
             name = cls.Name
 
-        s15a = False
-        try:
-            if G.HSC_S15A:
-                s15a = True
-        except:
-            pass
+        fqtract = [op.join(cls.HSC_CAT_PATH,"H20_NEP_subset_catalog.fits"),]
 
-        fqtract =[] #fully qualified track (as a partial path)
-
-        if (tract is not None) and (len(tract) > 0) and (position is not None) and (len(position) == len(tract)): #should be a list of positions and the same length as tract
-            if s15a:
-                for i in range(len(tract)):
-                  #cat_name = 'R_' + t + ".dat"
-                  fqtract.append(op.join("R_%s.dat" % (tract[i])))
-            else:
-                for i in range(len(tract)):
-                    fqtract.append(op.join(tract[i],"R_P%d_%d.cat" %(position[i][0],position[i][1])))
-        else:
-            log.warning("Unexpected tract and positions in cat_hsc::read_catalogs: %s, %s" %(str(tract),str(position)))
-            return None
-
+        # fqtract =[] #fully qualified track (as a partial path)
+        # if (tract is not None) and (len(tract) > 0) and (position is not None) and (len(position) == len(tract)): #should be a list of positions and the same length as tract
+        #
+        #     for i in range(len(tract)):
+        #         fqtract.append(op.join(tract[i],"R_P%d_%d.cat" %(position[i][0],position[i][1])))
+        # else:
+        #     log.warning("Unexpected tract and positions in cat_hsc::read_catalogs: %s, %s" %(str(tract),str(position)))
+        #     return None
+        #
 
         if set(fqtract).issubset(cls.loaded_tracts):
             log.info("Catalog tract (%s) already loaded." %fqtract)
@@ -661,14 +606,25 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             log.debug("Building " + cls.Name + " " + cat_name + " dataframe...")
 
             try:
-                df = pd.read_csv(cat_loc, names=header,
-                                 delim_whitespace=True, header=None, index_col=None, skiprows=0)
+                table = astropy.table.Table.read(cat_loc)#,format='fits')
+            except Exception as e:
+                if type(e) is astropy.io.registry.IORegistryError:
+                    log.error(name + " Exception attempting to open catalog file: (IORegistryError, bad format)" + cat_loc, exc_info=False)
+                else:
+                    log.error(name + " Exception attempting to open catalog file: " + cat_loc, exc_info=True)
+                continue #try the next one  #exc_info = sys.exc_info()
 
-                old_names = ['Dec']
-                new_names = ['DEC']
+
+            try:
+                df = table.to_pandas()
+                #df = pd.read_csv(cat_loc, names=header,
+                #                 delim_whitespace=True, header=None, index_col=None, skiprows=0)
+
+                old_names = ['RA_MODELING','DEC_MODELING']
+                new_names = ['RA','DEC']
                 df.rename(columns=dict(zip(old_names, new_names)), inplace=True)
 
-                df['FILTER'] = 'r' #add the FILTER to the dataframe !!! case is important. must be lowercase
+               # df['FILTER'] = 'r' #add the FILTER to the dataframe !!! case is important. must be lowercase
 
                 if cls.df is not None:
                     cls.df = pd.concat([cls.df, df])
@@ -682,25 +638,35 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
         return cls.df
 
+
+    def get_mag_limit(self,image_identification=None,aperture_diameter=None):
+        """
+            to be overwritten by subclasses to return their particular format of maglimit
+
+            :param image_identification: some way (sub-class specific) to identify which image
+                    HERE we want a tuple ... [0] = tile name and [1] = filter name
+            :param aperture_diameter: in arcsec
+            :return:
+        """
+
+        try:
+            #0.2 ~= 2.5 * log(1.2) ... or a 20% error
+            return self.MAG_LIMIT_DICT[image_identification[0]][image_identification[1]] + 0.2
+
+        except:
+            log.warning("cat_hsc_nep.py get_mag_limit fail.",exc_info=True)
+            try:
+                return self.MAG_LIMIT
+            except:
+                return 99.9
+
     def build_catalog_of_images(self):
 
         for t in self.Tile_Dict.keys(): #tile is the key (the filename)
             for f in self.Filters:
-                try:
-                    if G.HSC_S15A:
-                        path = self.HSC_IMAGE_PATH
-                        wcs_manual = True
-                        toks = t.split('-')
-                        t1,t2 = toks[4][0],toks[4][1]
-                        name = toks[0] + "-" + toks[1] + "-" + toks[2] + "-" + toks[3] + "-" + t1 + "," + t2 +".fits"
-                    else:
-                        path = op.join(self.HSC_IMAGE_PATH,self.Tile_Dict[t]['tract'])
-                        name = t
-                        wcs_manual = False
-                except:
-                    path = op.join(self.HSC_IMAGE_PATH,self.Tile_Dict[t]['tract'])
-                    name = t
-                    wcs_manual = False
+                path = self.HSC_IMAGE_PATH #op.join(self.HSC_IMAGE_PATH,self.Tile_Dict[t]['tract'])
+                name = t
+                wcs_manual = True
 
                 self.CatalogImages.append(
                     {'path': path,
@@ -708,7 +674,7 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                      'tile': t,
                      'pos': self.Tile_Dict[t]['pos'], #the position tuple i.e. (0,3) or (2,8) ... in the name as 03 or 28
                      'filter': f,
-                     'instrument': "HSC",
+                     'instrument': "HSC NEP",
                      'cols': [],
                      'labels': [],
                      'image': None,
@@ -809,282 +775,50 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         return mask_cutout
 
 
-    def get_filter_flux_s15a(self, df):
-
-        filter_fl = None
-        filter_fl_err = None
-        filter_flag = None
-        mag = None
-        mag_bright = None
-        mag_faint = None
-        filter_str = 'R'
-
-        method  = None
-
-        try:
-            if df['flux.psf.flags'].values[0]:  # there is a problem
-                if df['flux.kron.flags'].values[0]:  # there is a problem
-                    if df['cmodel.flux.flags'].values[0]:  # there is a problem
-                        log.info("Flux/Mag unreliable due to errors.")
-                        return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
-                    else:
-                        method = 'cmodel'
-                else:
-                    method = 'kron'
-            else:
-                method = 'psf'
-        except:
-            log.error("Exception in cat_hsc.get_filter_flux", exc_info=True)
-            return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
-
-        try:
-
-            if method == 'psf' or method == 'kron':
-                filter_fl = df["flux." + method].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
-                filter_fl_err = df["flux." + method + ".err"].values[0]
-                mag = df["mag." + method].values[0]
-                # mag_bright = mag - df["magerr."+method].values[0]
-                mag_faint = df["magerr." + method].values[0]
-                mag_bright = -1 * mag_faint
-            else:  # cmodel
-                filter_fl = df[method + ".flux"].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
-                filter_fl_err = df[method + ".flux.err"].values[0]
-                mag = df[method + ".mag"].values[0]
-                # mag_bright = mag - df["magerr."+method].values[0]
-                mag_faint = df[method + ".magerr"].values[0]
-                mag_bright = -1 * mag_faint
-
-            # mag, mag_plus, mag_minus = self.micro_jansky_to_mag(filter_fl, filter_fl_err)
-        except:  # not the EGS df, try the CFHTLS
-            log.error("Exception in cat_hsc.get_filter_flux", exc_info=True)
-
-            # it is unclear what unit flux is in (but it is not nJy or uJy), so lets back convert from the magnitude
-            # this is used as a continuum estimate
-
-        filter_fl = self.obs_mag_to_nano_Jy(mag)
-        filter_fl_err = 0.0  # set to 0 so not to be trusted
-
-        return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
-
-
-    # def old_get_filter_flux(self, df):
-    #
-    #     try:
-    #         if G.HSC_S15A:
-    #             return self.get_filter_flux_s15a(df)
-    #     except:
-    #         pass
-    #
-    #     filter_fl = None
-    #     filter_fl_err = None
-    #     filter_flag = None
-    #     mag = None
-    #     mag_bright = None
-    #     mag_faint = None
-    #     filter_str = 'R'
-    #
-    #     #filter_fl now reported in counts_R, so ...
-    #     #per HSC documentation, counts / 10**(30.24) = flux in ergs/s/cm2/Hz then *10**23 to get to Jy and *10**9 to nJy
-    #     #so ...( cts / 10**(30.24) ) * 10**23 * 10**9 = cts * 10**(32-30.24) == cts * 10**(1.76)
-    #     cts2njy = 57.54399373 #10**1.76
-    #
-    #
-    #     method  = None
-    #
-    #
-    #     # NOTICE: HSC apertures defined by num of pixels at 0.168 "/pix scale
-    #     # so flux3.0 is not 3" but 3 pixels or ~ 0.5"
-    #     # so for 3", want 17.8" or flux17 (that is about a 3" DIAMETER aperture)
-    #     try:
-    #         if df['fluxlsq_flags'].values[0]:  # there is a problem
-    #             try:
-    #                 log.debug("HSC fluxlsq flagged. mag = %f" %df["maglsq"].values[0])
-    #             except:
-    #                 pass
-    #             if df['flux17.0_flags'].values[0]:
-    #                 try:
-    #                     log.debug("HSC flux17.0 flagged. mag = %f" % df["mag17.0"].values[0])
-    #                 except:
-    #                     pass
-    #                 if df['flux.cmodel_flags'].values[0]:  # there is a problem
-    #                 #if df['flux.cmodel_flags'].values[0]:  # there is a problem
-    #                     try:
-    #                         log.debug("HSC cmodel flagged. mag = %f" % df["mag.cmodel"].values[0])
-    #                     except:
-    #                         pass
-    #                     log.info("Flux/Mag unreliable due to errors.")
-    #                     return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
-    #                 else:
-    #                     method = 'cmodel'
-    #             else:
-    #                 method = '17.0'  #17 pixels, ~ 3"
-    #         else:
-    #             method = 'lsq'
-    #     except:
-    #         log.error("Exception in cat_hsc.get_filter_flux", exc_info=True)
-    #         return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
-    #
-    #     try:
-    #
-    #         if method == 'lsq':# or method == 'kron':
-    #             filter_fl = df['fluxlsq'].values[0]  * cts2njy
-    #             filter_fl_err = df["fluxlsq_err"].values[0] * cts2njy
-    #             mag = df["maglsq"].values[0]
-    #             # mag_bright = mag - df["magerr."+method].values[0]
-    #             mag_faint = df['maglsq_err'].values[0]
-    #             mag_bright = -1 * mag_faint
-    #         elif method == '17.0': #17 pixels ~ 3"
-    #             filter_fl = df['flux17.0'].values[0]  * cts2njy
-    #             filter_fl_err = df["flux17.0_err"].values[0] * cts2njy
-    #             mag = df["mag17.0"].values[0]
-    #             # mag_bright = mag - df["magerr."+method].values[0]
-    #             mag_faint = df['mag17.0_err'].values[0]
-    #             mag_bright = -1 * mag_faint
-    #         else:  # cmodel
-    #             filter_fl = df['flux.cmodel'].values[0] * cts2njy
-    #             filter_fl_err = df['flux.cmodel_err'].values[0] * cts2njy
-    #             mag = df['mag.cmodel'].values[0]
-    #             # mag_bright = mag - df["magerr."+method].values[0]
-    #             mag_faint = df['mag.cmodel_err'].values[0]
-    #             mag_bright = -1 * mag_faint
-    #
-    #         # mag, mag_plus, mag_minus = self.micro_jansky_to_mag(filter_fl, filter_fl_err)
-    #     except:  # not the EGS df, try the CFHTLS
-    #         log.error("Exception in cat_hsc.get_filter_flux", exc_info=True)
-    #
-    #         # it is unclear what unit flux is in (but it is not nJy or uJy), so lets back convert from the magnitude
-    #         # this is used as a continuum estimate
-    #
-    #     #with updated HSC data release 2 (Sept.2019) this is not needed
-    #     #filter_fl = self.obs_mag_to_nano_Jy(mag)
-    #     #filter_fl_err = 0.0  # set to 0 so not to be trusted
-    #
-    #     try:
-    #         log.debug("HSC selected method = %s , mag = %f" %(method,mag))
-    #     except:
-    #         pass
-    #
-    #     return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
-    #
-    #
-
     #reworked as average of 3" (17pix), lsq and model mags
     def get_filter_flux(self, df):
+        """
 
-        try:
-            if G.HSC_S15A:
-                return self.get_filter_flux_s15a(df)
-        except:
-            pass
+        :param df:
+        :return:  flux in uJy
+        """
 
         filter_fl = None
         filter_fl_err = None
-        filter_flag = None
+
         mag = None
         mag_bright = None
         mag_faint = None
-        filter_str = 'R'
-
-        #filter_fl now reported in counts_R, so ...
-        #per HSC documentation, counts / 10**(30.24) = flux in ergs/s/cm2/Hz then *10**23 to get to Jy and *10**9 to nJy
-        #so ...( cts / 10**(30.24) ) * 10**23 * 10**9 = cts * 10**(32-30.24) == cts * 10**(1.76)
-        cts2njy = 57.54399373 #10**1.76
-
-
-        method  = None
+        filter_str = 'r' # has grizy, but we will use r (preferred) then g
 
         flux_list = []
         flux_err_list = []
-        # mag_list = []
-        # mag_err_list = []
-        methods = []
+        mag_list = []
+        mag_err_list = []
 
-        # NOTICE: HSC apertures defined by num of pixels at 0.168 "/pix scale
-        # so flux3.0 is not 3" but 3 pixels or ~ 0.5"
-        # so for 3", want 17.8" or flux17 (that is about a 3" DIAMETER aperture)
-        # flux35.0 would be roughtly 3" RADIUS aperture
-        #
+        filter_str=None
 
         try:
-            if df['fluxlsq_flags'].values[0] == 0: #no flags, is good:
-                flux_list.append(df['fluxlsq'].values[0] * cts2njy)
-                flux_err_list.append(df["fluxlsq_err"].values[0] * cts2njy)
-                #mag_list.append(df["maglsq"].values[0])
-                #mag_err_list.append(df['maglsq_err'].values[0])
-                methods.append('lsq')
-
-            #about 3" DIAMETER (1.5" RADIUS ... pretty common for the ELiXer Aperture)
-            if df['flux17.0_flags'].values[0] == 0: #no flags, is good:
-                flux_list.append(df['flux17.0'].values[0] * cts2njy)
-                flux_err_list.append(df["flux17.0_err"].values[0] * cts2njy)
-                # mag_list.append(df["mag17.0"].values[0])
-                # mag_err_list.append(df['mag17.0_err'].values[0])
-                methods.append('flux17.0')
-
-            #todo: do I actually want to go out this wide?
-            # this would cover around 15 HETDEX fibers (3" radius, 6" diameter)
-            # or most of the default search box
-            # if df['flux35.0_flags'].values[0] == 0: #no flags, is good:
-            #     flux_list.append(df['flux35.0'].values[0] * cts2njy)
-            #     flux_err_list.append(df["flux35.0_err"].values[0] * cts2njy)
-            #     # mag_list.append(df["mag35.0"].values[0])
-            #     # mag_err_list.append(df['mag35.0_err'].values[0])
-            #     methods.append('flux35.0')
-
-            if df['flux.cmodel_flags'].values[0] == 0: #no flags, is good:
-                flux_list.append(df['flux.cmodel'].values[0] * cts2njy)
-                flux_err_list.append(df['flux.cmodel_err'].values[0] * cts2njy)
-                # mag_list.append(df['mag.cmodel'].values[0])
-                # mag_err_list.append(df['mag.cmodel_err'].values[0])
-                methods.append('cmodel')
-
-            if df['flux.kron3.5_flags'].values[0] == 0: #no flags, is good:
-                flux_list.append(df['flux.kron3.5'].values[0] * cts2njy)
-                flux_err_list.append(df['flux.kron3.5_err'].values[0] * cts2njy)
-                # mag_list.append(df['mag.cmodel'].values[0])
-                # mag_err_list.append(df['mag.cmodel_err'].values[0])
-                methods.append('kron3.5')
-
-            flux_list = np.array(flux_list)
-            flux_err_list = np.array(flux_err_list)
-            avg_method = "none"
-
-            if len(flux_list) == 0:
-                log.info("Unable to get non-flagged catalog flux for HSC object.")
+            if df['FLUX_hsc_r'].values[0]:
+                filter_str = 'r'
+            elif df['FLUX_hsc_gr'].values[0]:
+                filter_str = 'g'
             else:
-                if len(flux_list) < 3:
-                    filter_fl = np.mean(flux_list)
-                    filter_fl_err = np.sqrt(np.sum(flux_err_list*flux_err_list))
-                    avg_method = "mean"
-                else:
-                    try: #weighted biweight
-                        filter_fl = SU.weighted_biweight.biweight_location_errors(flux_list, errors=flux_err_list)
-                        filter_fl_err = SU.weighted_biweight.biweight_scale(flux_list) / np.sqrt(len(flux_err_list))
-                        avg_method = "weighted biweight"
-                    except:
-                        try: #standard biweigth
-                            filter_fl = SU.weighted_biweight.biweight_location(flux_list, errors=flux_err_list)
-                            filter_fl_err = SU.weighted_biweight.biweight_scale(flux_list) / np.sqrt(len(flux_err_list))
-                            avg_method = "biweight"
-                        except:
-                            # lets average (inverse variance)
-                            variance_list = flux_err_list ** 2  # std dev
-                            filter_fl = np.sum(flux_list / variance_list) / np.sum(1 / variance_list)
-                            filter_fl_err = np.sqrt(
-                                np.sum(flux_err_list * flux_err_list) / (len(flux_list) * len(flux_list)))
-                            avg_method = "inverse variance"
+                log.info("Unable to use r or g filter flux.")
 
-
-                mag = -2.5*np.log10(filter_fl*1e-9/3631.)
-                mag_bright = -2.5*np.log10((filter_fl+filter_fl_err)*1e-9/3631.)
-                mag_faint = -2.5 * np.log10((filter_fl - filter_fl_err) * 1e-9 / 3631.)
+            if filter_str:
+                filter_fl = df['FLUX_hsc_'+filter_str].values[0]
+                filter_fl_err = df['FLUXERR_hsc_'+filter_str].values[0]
+                mag = df['MAG_hsc_'+filter_str].values[0]
+                mag_bright = mag - df['MAGERR_hsc_'+filter_str].values[0]
+                mag_faint = mag + df['MAGERR_hsc_'+filter_str].values[0]
 
         except:
-            log.error("Exception in cat_hsc.get_filter_flux", exc_info=True)
+            log.error("Exception in cat_hsc_nep.get_filter_flux", exc_info=True)
             return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
 
         try:
-            log.debug("HSC averaged (%s) mag = %f. Methods used = %s" %(avg_method,mag,str(methods)))
+            log.debug(f"HSC NEP {filter_str} mag {mag},{mag_bright},{mag_faint}")
         except:
             pass
 
@@ -1132,36 +866,11 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         log.info(self.Name + " searching for bid targets in range: RA [%f +/- %f], Dec [%f +/- %f] ..."
                  % (ra, error_in_deg, dec, error_in_deg))
 
-        s15a = False
         try:
-            if G.HSC_S15A:
-                s15a = True
-        except:
-            pass
-
-        try:
-
-            if s15a:
-                self.dataframe_of_bid_targets = \
-                    self.df[(self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max) &
-                        (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)].copy()
-            else:
-                self.dataframe_of_bid_targets = \
-                    self.df[  (self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max)
-                        & (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)
-                        & (self.df['children'] == 0)
-                        & (self.df['outside'] == False)
-                        & (self.df['interpix_center'] == False)
-                        & (self.df['saturatedpix_center'] == False)
-                        & (self.df['cosmic_center'] == False)
-                        & (self.df['bad_pix'] == False)
-                        & (self.df['near_bright_obj'] == False)
-                        & (self.df['footprint_bright_obj'] == False)
-                        & (self.df['general_flag'] == False)
-                        & (self.df['inner_coadd_tract'] == True)
-                        & (self.df['inner_coadd_patch'] == True)
-                        & (self.df['num_images'] > 2)
-                        ].copy()
+            self.dataframe_of_bid_targets = \
+                self.df[  (self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max)
+                    & (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)
+                    ].copy()
             #may contain duplicates (across tiles)
             #remove duplicates (assuming same RA,DEC between tiles has same data)
             #so, different tiles that have the same ra,dec and filter get dropped (keep only 1)
@@ -1170,7 +879,7 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             #this could be done at construction time, but given the smaller subset I think
             #this is faster here
             self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.drop_duplicates(
-                subset=['RA','DEC','FILTER'])
+                subset=['RA','DEC'])
 
 
             #relying on auto garbage collection here ...
@@ -1302,6 +1011,193 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                 log.error("Error in get_stacked_cutout.",exc_info=True)
 
         return stacked_cutout
+
+
+    def build_cat_summary_details(self,cat_match, ra, dec, error, bid_ras, bid_decs, target_w=0,
+                                  fiber_locs=None, target_flux=None,detobj=None):
+        """
+        similar to build_cat_summary_figure, but rather than build up an image section to be displayed in the
+        elixer report, this builds up a dictionary of information to be aggregated later over multiple catalogs
+
+        ***note: here we call the base class implementation to get the cutouts and then update those cutouts with
+        any catalog specific changes
+
+        :param cat_match: a match summary object (contains info about the PDF location, etc)
+        :param ra:  the RA of the HETDEX detection
+        :param dec:  the Dec of the HETDEX detection
+        :param error: radius (or half-side of a box) in which to search for matches (the cutout is 3x this on a side)
+        :param bid_ras: RAs of potential catalog counterparts
+        :param bid_decs: Decs of potential catalog counterparts
+        :param target_w: observed wavelength (from HETDEX)
+        :param fiber_locs: array (or list) of 6-tuples that describe fiber locations (which fiber, position, color, etc)
+        :param target_flux: HETDEX integrated line flux in CGS flux units (erg/s/cm2)
+        :param detobj: the DetObj instance
+        :return: cutouts list of dictionaries with bid-target objects as well
+        """
+
+        cutouts = super().build_cat_summary_details(cat_match, ra, dec, error, bid_ras, bid_decs, target_w,
+                                                    fiber_locs, target_flux,detobj)
+
+        if not cutouts:
+            return cutouts
+
+        for c in cutouts:
+            try:
+                details = c['details']
+            except:
+                pass
+
+
+        #####################################################
+        # BidTarget format is Unique to each child catalog
+        #####################################################
+        #now the bid targets
+        #2. catalog entries as a new key under cutouts (like 'details') ... 'counterparts'
+        #    this should be similar to the build_multiple_bid_target_figures_one_line()
+
+        if len(bid_ras) > 0:
+            #if there are no cutouts (but we do have a catalog), create a cutouts list of dictionries to hold the
+            #counterparts
+            if not cutouts or len(cutouts) == 0:
+                cutouts = [{}]
+
+            cutouts[0]['counterparts'] = []
+            #create an empty list of counterparts under the 1st cutout
+            #counterparts are not filter specific, so we will just keep one list under the 1st cutout
+
+        target_count = 0
+        # targets are in order of increasing distance
+        for r, d in zip(bid_ras, bid_decs):
+            target_count += 1
+            if target_count > G.MAX_COMBINE_BID_TARGETS:
+                break
+
+            try: #DO NOT WANT _unique as that has wiped out the filters
+                df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
+                                                           (self.dataframe_of_bid_targets['DEC'] == d[0])]
+                #multiple filters
+
+            except:
+                log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
+                continue  # this must be here, so skip to next ra,dec
+
+            if df is not None:
+                #add flux (cont est)
+                try:
+                    filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = self.get_filter_flux(df)
+                except:
+                    filter_fl = 0.0
+                    filter_fl_err = 0.0
+                    filter_mag = 0.0
+                    filter_mag_bright = 0.0
+                    filter_mag_faint = 0.0
+                    filter_str = "NA"
+
+                bid_target = None
+
+                if (target_flux is not None) and (filter_fl != 0.0):
+                    if (filter_fl is not None):# and (filter_fl > 0):
+                        filter_fl_cgs = self.nano_jansky_to_cgs(filter_fl,SU.filter_iso(filter_str,target_w)) #filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
+                        filter_fl_cgs_unc = self.nano_jansky_to_cgs(filter_fl_err, SU.filter_iso(filter_str,target_w))
+                        # assumes no error in wavelength or c
+
+                        try:
+                            bid_target = match_summary.BidTarget()
+                            bid_target.catalog_name = self.Name
+                            bid_target.bid_ra = df['RA'].values[0]
+                            bid_target.bid_dec = df['DEC'].values[0]
+                            bid_target.distance = df['distance'].values[0] * 3600
+                            bid_target.prob_match = df['dist_prior'].values[0]
+                            bid_target.bid_flux_est_cgs = filter_fl_cgs
+                            bid_target.bid_filter = filter_str
+                            bid_target.bid_mag = filter_mag
+                            bid_target.bid_mag_err_bright = filter_mag_bright
+                            bid_target.bid_mag_err_faint = filter_mag_faint
+                            bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
+
+                            try:
+                                ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                                ew_u = abs(ew * np.sqrt(
+                                    (detobj.estflux_unc / target_flux) ** 2 +
+                                    (filter_fl_err / filter_fl) ** 2))
+
+                                bid_target.bid_ew_lya_rest = ew
+                                bid_target.bid_ew_lya_rest_err = ew_u
+
+                            except:
+                                log.debug("Exception computing catalog EW: ", exc_info=True)
+
+                            addl_waves = None
+                            addl_flux = None
+                            addl_ferr = None
+                            try:
+                                addl_waves = cat_match.detobj.spec_obj.addl_wavelengths
+                                addl_flux = cat_match.detobj.spec_obj.addl_fluxes
+                                addl_ferr = cat_match.detobj.spec_obj.addl_fluxerrs
+                            except:
+                                pass
+
+                            lineFlux_err = 0.
+                            if detobj is not None:
+                                try:
+                                    lineFlux_err = detobj.estflux_unc
+                                except:
+                                    lineFlux_err = 0.
+
+                            # build EW error from lineFlux_err and aperture estimate error
+                            ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+                            try:
+                                ew_obs_err = abs(ew_obs * np.sqrt(
+                                    (lineFlux_err / target_flux) ** 2 +
+                                    (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+                            except:
+                                ew_obs_err = 0.
+
+                            bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii,plae_errors = \
+                                line_prob.mc_prob_LAE(
+                                    wl_obs=target_w,
+                                    lineFlux=target_flux,
+                                    lineFlux_err=lineFlux_err,
+                                    continuum=bid_target.bid_flux_est_cgs,
+                                    continuum_err=bid_target.bid_flux_est_cgs_unc,
+                                    c_obs=None, which_color=None,
+                                    addl_wavelengths=addl_waves,
+                                    addl_fluxes=addl_flux,
+                                    addl_errors=addl_ferr,
+                                    sky_area=None,
+                                    cosmo=None, lae_priors=None,
+                                    ew_case=None, W_0=None,
+                                    z_OII=None, sigma=None)
+
+                            try:
+                                if plae_errors:
+                                    bid_target.p_lae_oii_ratio_min = plae_errors['ratio'][1]
+                                    bid_target.p_lae_oii_ratio_max = plae_errors['ratio'][2]
+                            except:
+                                pass
+
+                            try:
+                                bid_target.add_filter('HSC','R',filter_fl_cgs,filter_fl_err)
+                            except:
+                                log.debug('Unable to build filter entry for bid_target.',exc_info=True)
+
+                            cat_match.add_bid_target(bid_target)
+                            try:  # no downstream edits so they can both point to same bid_target
+                                detobj.bid_target_list.append(bid_target)
+                            except:
+                                log.warning("Unable to append bid_target to detobj.", exc_info=True)
+
+                            try:
+                                cutouts[0]['counterparts'].append(bid_target)
+                            except:
+                                log.warning("Unable to append bid_target to cutouts.", exc_info=True)
+                        except:
+                            log.debug('Unable to build bid_target.',exc_info=True)
+
+
+
+        return cutouts
+
 
     def build_cat_summary_figure (self, cat_match, ra, dec, error,bid_ras, bid_decs, target_w=0,
                                   fiber_locs=None, target_flux=None,detobj=None):
@@ -2223,10 +2119,7 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             mag_func = None
 
         try:
-            if G.HSC_S15A:
-                wcs_idx = 1
-            else:
-                wcs_idx = 0
+            wcs_idx = self.Filter_HDU_Image_Idx[catalog_image['filter']]
         except:
             wcs_idx = 0
 
@@ -2258,7 +2151,7 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                 d['cutout'] = cutout
                 details['catalog_name']=self.name
                 details['filter_name']=catalog_image['filter']
-                d['mag_limit']=self.get_mag_limit(catalog_image['name'],mag_radius*2.)
+                d['mag_limit']=self.get_mag_limit([catalog_image['name'],catalog_image['filter']],mag_radius*2.)
                 if (mag is not None) and (mag < 999):
                     d['mag'] = mag
                     d['aperture'] = mag_radius

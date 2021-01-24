@@ -3962,12 +3962,17 @@ class DetObj:
         :param basic_only:
         :return:
         """
+        apt = []
+
         try:
             coord = SkyCoord(ra=self.ra * U.deg, dec=self.dec * U.deg)
             apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
                                   ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS, rad=self.extraction_aperture,
                                   tpmin=0.0,fiberweights=True)
+        except:
+            log.info("hetdex.py forced_extraction(). Exception calling HETDEX_API get_spectra",exc_info=True)
 
+        try:
             if len(apt) == 0:
                 #print(f"No spectra for ra ({self.ra}) dec ({self.dec})")
                 log.info(f"No spectra for ra ({self.ra}) dec ({self.dec})")

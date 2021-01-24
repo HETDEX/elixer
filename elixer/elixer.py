@@ -47,6 +47,7 @@ import time
 import numpy as np
 #import re
 from PIL import Image as PIL_Image
+from PIL import ImageFile as PIL_ImageFile
 
 use_wand = False
 if use_wand:
@@ -1736,10 +1737,19 @@ def convert_pdf(filename, resolution=150, jpeg=False, png=True):
                         retry = 99
                         break
                     elif (retry_ct < max_retries):
-                        # could still be okay, but we will retry anyway .. if retries are exhausted, it will stick
-                        log.info(f"Small filesize ({size}) for {image_name}. Will assume missing data and retry.")
-                        os.remove(image_name)
-                        time.sleep(5.0 * retry_ct)  #sleep in increasing chunks of 5 seconds to let memory clear
+                        img_dim = check_imagefile_dimensions(image_name)
+                        #check for none or height
+                        if img_dim is None or img_dim[1] > 1600 :
+                            #just the cutouts is a bit over 900
+                            #the normal full size is ~ 1838 pix
+                            # could still be okay, but we will retry anyway .. if retries are exhausted, it will stick
+                            log.info(f"Small filesize ({size}) for {image_name}. Will assume missing data and retry.")
+                            os.remove(image_name)
+                            time.sleep(5.0 * retry_ct)  #sleep in increasing chunks of 5 seconds to let memory clear
+                        else:
+                            log.debug(f"Conversion filesize ({size}) good for {image_name}. Incomplete report, reduced size {img_dim}).")
+                            retry = 99
+                            break
                     else:
                         log.info(f"Small filesize ({size}) for {image_name}. Out of retries.")
                 except:
@@ -1749,6 +1759,29 @@ def convert_pdf(filename, resolution=150, jpeg=False, png=True):
     except:
         log.error(f"Exception converting PDF {filename} to image type.", exc_info=True)
 
+
+def check_imagefile_dimensions(fn):
+    """
+    Try to get the image dimensions for a given image file
+    :param fn:
+    :return:
+    """
+    img_dim = None
+    try:
+        with open(fn, "rb") as f:
+            ImPar=PIL_ImageFile.Parser()
+            chunk = f.read(2048)
+            count=2048
+            while chunk != "":
+                ImPar.feed(chunk)
+                if ImPar.image:
+                    break
+                chunk = f.read(2048)
+                count+=2048
+            img_dim = ImPar.image.size
+    except:
+        log.debug("Unable to check image size from file.")
+    return img_dim
 
 def run_convert_pdf(filename, resolution=150, jpeg=False, png=True,systemcall="pdftoppm"):
     """

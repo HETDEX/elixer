@@ -903,9 +903,16 @@ class Catalog:
             title += "N/A"
 
 
-        bid_ras = [x.bid_ra for x in the_entry['counterparts']]
-        bid_decs = [x.bid_dec for x in the_entry['counterparts']]
-        bid_colors = self.get_bid_colors(len(bid_ras))
+        if 'counterparts' in the_entry.keys():
+            bid_ras = [x.bid_ra for x in the_entry['counterparts']]
+            bid_decs = [x.bid_dec for x in the_entry['counterparts']]
+            bid_colors = self.get_bid_colors(len(bid_ras))
+        else:
+            bid_ras = []
+            bid_decs = []
+            bid_colors = []
+
+
         target_box_side = error/4.0
 
         plt.subplot(gs[0, :])
@@ -998,8 +1005,7 @@ class Catalog:
                                               y=(fy-y)-target_box_side / 2.0,
                                               size=target_box_side, color=bc)
 
-
-    # complete the entry
+        # complete the entry
         plt.close()
 
         self.clear_pages()
@@ -1014,7 +1020,7 @@ class Catalog:
         #If there is not a catalog, then use the r or g band catalog with the most hits?
 
         counterpart_cat_idx = the_best_cat_idx
-        list_of_counterparts = None #these are all BidTarget objects
+        list_of_counterparts = [] #these are all BidTarget objects
         #counterparts are always just on the [0]th entry for the catalog
         if list_of_cutouts[counterpart_cat_idx][0]['counterparts']:
             list_of_counterparts = list_of_cutouts[counterpart_cat_idx][0]['counterparts']
