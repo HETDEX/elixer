@@ -1084,6 +1084,7 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             if df is not None:
                 #add flux (cont est)
                 try:
+                    #fluxes for HSC NEP are in micro-Jansky
                     filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = self.get_filter_flux(df)
                 except:
                     filter_fl = 0.0
@@ -1095,10 +1096,11 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
                 bid_target = None
 
-                if (target_flux is not None) and (filter_fl != 0.0):
+                if (target_flux is not None) and (filter_fl):
                     if (filter_fl is not None):# and (filter_fl > 0):
-                        filter_fl_cgs = self.nano_jansky_to_cgs(filter_fl,SU.filter_iso(filter_str,target_w)) #filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
-                        filter_fl_cgs_unc = self.nano_jansky_to_cgs(filter_fl_err, SU.filter_iso(filter_str,target_w))
+                        #fluxes for HSC NEP are in micro-Jansky
+                        filter_fl_cgs = self.micro_jansky_to_cgs(filter_fl,SU.filter_iso(filter_str,target_w)) #filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
+                        filter_fl_cgs_unc = self.micro_jansky_to_cgs(filter_fl_err, SU.filter_iso(filter_str,target_w))
                         # assumes no error in wavelength or c
 
                         try:
@@ -1115,66 +1117,68 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                             bid_target.bid_mag_err_faint = filter_mag_faint
                             bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
 
-                            try:
-                                ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
-                                ew_u = abs(ew * np.sqrt(
-                                    (detobj.estflux_unc / target_flux) ** 2 +
-                                    (filter_fl_err / filter_fl) ** 2))
-
-                                bid_target.bid_ew_lya_rest = ew
-                                bid_target.bid_ew_lya_rest_err = ew_u
-
-                            except:
-                                log.debug("Exception computing catalog EW: ", exc_info=True)
-
-                            addl_waves = None
-                            addl_flux = None
-                            addl_ferr = None
-                            try:
-                                addl_waves = cat_match.detobj.spec_obj.addl_wavelengths
-                                addl_flux = cat_match.detobj.spec_obj.addl_fluxes
-                                addl_ferr = cat_match.detobj.spec_obj.addl_fluxerrs
-                            except:
-                                pass
-
-                            lineFlux_err = 0.
-                            if detobj is not None:
+                            if target_w:
                                 try:
-                                    lineFlux_err = detobj.estflux_unc
+
+                                    ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                                    ew_u = abs(ew * np.sqrt(
+                                        (detobj.estflux_unc / target_flux) ** 2 +
+                                        (filter_fl_err / filter_fl) ** 2))
+
+                                    bid_target.bid_ew_lya_rest = ew
+                                    bid_target.bid_ew_lya_rest_err = ew_u
+
                                 except:
-                                    lineFlux_err = 0.
+                                    log.debug("Exception computing catalog EW: ", exc_info=True)
 
-                            # build EW error from lineFlux_err and aperture estimate error
-                            ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
-                            try:
-                                ew_obs_err = abs(ew_obs * np.sqrt(
-                                    (lineFlux_err / target_flux) ** 2 +
-                                    (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
-                            except:
-                                ew_obs_err = 0.
+                                addl_waves = None
+                                addl_flux = None
+                                addl_ferr = None
+                                try:
+                                    addl_waves = cat_match.detobj.spec_obj.addl_wavelengths
+                                    addl_flux = cat_match.detobj.spec_obj.addl_fluxes
+                                    addl_ferr = cat_match.detobj.spec_obj.addl_fluxerrs
+                                except:
+                                    pass
 
-                            bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii,plae_errors = \
-                                line_prob.mc_prob_LAE(
-                                    wl_obs=target_w,
-                                    lineFlux=target_flux,
-                                    lineFlux_err=lineFlux_err,
-                                    continuum=bid_target.bid_flux_est_cgs,
-                                    continuum_err=bid_target.bid_flux_est_cgs_unc,
-                                    c_obs=None, which_color=None,
-                                    addl_wavelengths=addl_waves,
-                                    addl_fluxes=addl_flux,
-                                    addl_errors=addl_ferr,
-                                    sky_area=None,
-                                    cosmo=None, lae_priors=None,
-                                    ew_case=None, W_0=None,
-                                    z_OII=None, sigma=None)
+                                lineFlux_err = 0.
+                                if detobj is not None:
+                                    try:
+                                        lineFlux_err = detobj.estflux_unc
+                                    except:
+                                        lineFlux_err = 0.
 
-                            try:
-                                if plae_errors:
-                                    bid_target.p_lae_oii_ratio_min = plae_errors['ratio'][1]
-                                    bid_target.p_lae_oii_ratio_max = plae_errors['ratio'][2]
-                            except:
-                                pass
+                                # build EW error from lineFlux_err and aperture estimate error
+                                ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+                                try:
+                                    ew_obs_err = abs(ew_obs * np.sqrt(
+                                        (lineFlux_err / target_flux) ** 2 +
+                                        (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+                                except:
+                                    ew_obs_err = 0.
+
+                                bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii,plae_errors = \
+                                    line_prob.mc_prob_LAE(
+                                        wl_obs=target_w,
+                                        lineFlux=target_flux,
+                                        lineFlux_err=lineFlux_err,
+                                        continuum=bid_target.bid_flux_est_cgs,
+                                        continuum_err=bid_target.bid_flux_est_cgs_unc,
+                                        c_obs=None, which_color=None,
+                                        addl_wavelengths=addl_waves,
+                                        addl_fluxes=addl_flux,
+                                        addl_errors=addl_ferr,
+                                        sky_area=None,
+                                        cosmo=None, lae_priors=None,
+                                        ew_case=None, W_0=None,
+                                        z_OII=None, sigma=None)
+
+                                try:
+                                    if plae_errors:
+                                        bid_target.p_lae_oii_ratio_min = plae_errors['ratio'][1]
+                                        bid_target.p_lae_oii_ratio_max = plae_errors['ratio'][2]
+                                except:
+                                    pass
 
                             try:
                                 bid_target.add_filter('HSC','R',filter_fl_cgs,filter_fl_err)

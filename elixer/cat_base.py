@@ -791,6 +791,7 @@ class Catalog:
         #allow master (fiber locations) and up to 5 (or 6) filters?
         the_best_cat_idx = 0
         the_best_cutout_idx = 0
+        list_of_counterparts = [] #these are all BidTarget objects
 
         best_dict = {}
         best_dict['u'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['u',]}
@@ -887,8 +888,36 @@ class Catalog:
         else:
             filter = "-"
 
+        #couterparts, though, are only listed in the zeroth position
+        # list_of_counterparts  = []
+        # try:
+        #     if 'counterparts' in the_entry.keys():
+        #         list_of_counterparts = the_entry['counterparts']
+        #     elif 'counterparts' in list_of_cutouts[the_best_cat_idx][0]:
+        #         list_of_counterparts = list_of_cutouts[the_best_cat_idx][0]['counterparts']
+        # except:
+        #     pass
+        #
+
+        counterpart_cat_idx = the_best_cat_idx
+        #counterparts are always just on the [0]th entry for the catalog
         try:
-            possible_matches = len(the_entry['counterparts'])
+            if list_of_cutouts[counterpart_cat_idx][0]['counterparts']:
+                list_of_counterparts = list_of_cutouts[counterpart_cat_idx][0]['counterparts']
+            else:
+                counterpart_cat_idx = 0
+                best_len = 0
+                for idx,cat in enumerate(list_of_cutouts):
+                    if cat[0]['counterparts']:
+                        if len(cat[0]['counterparts']) > best_len:
+                            counterpart_cat_idx = idx
+                            best_len = len(cat[0]['counterparts'])
+                list_of_counterparts = list_of_cutouts[counterpart_cat_idx][0]['counterparts']
+        except:
+            pass
+
+        try:
+            possible_matches = len(list_of_counterparts)
         except:
             possible_matches = '--'
 
@@ -903,15 +932,9 @@ class Catalog:
             title += "N/A"
 
 
-        if 'counterparts' in the_entry.keys():
-            bid_ras = [x.bid_ra for x in the_entry['counterparts']]
-            bid_decs = [x.bid_dec for x in the_entry['counterparts']]
-            bid_colors = self.get_bid_colors(len(bid_ras))
-        else:
-            bid_ras = []
-            bid_decs = []
-            bid_colors = []
-
+        bid_ras = [x.bid_ra for x in list_of_counterparts]
+        bid_decs = [x.bid_dec for x in list_of_counterparts]
+        bid_colors = self.get_bid_colors(len(bid_ras))
 
         target_box_side = error/4.0
 
@@ -1019,21 +1042,25 @@ class Catalog:
         #want to use the catalog associated with the_best_cat_idx, if there is one.
         #If there is not a catalog, then use the r or g band catalog with the most hits?
 
-        counterpart_cat_idx = the_best_cat_idx
-        list_of_counterparts = [] #these are all BidTarget objects
-        #counterparts are always just on the [0]th entry for the catalog
-        if list_of_cutouts[counterpart_cat_idx][0]['counterparts']:
-            list_of_counterparts = list_of_cutouts[counterpart_cat_idx][0]['counterparts']
-        else:
-            counterpart_cat_idx = 0
-            best_len = 0
-            for idx,cat in enumerate(list_of_cutouts):
-                if cat[0]['counterparts']:
-                    if len(cat[0]['counterparts']) > best_len:
-                        counterpart_cat_idx = idx
-                        best_len = len(cat[0]['counterparts'])
+        if not list_of_counterparts:
+            counterpart_cat_idx = the_best_cat_idx
+            list_of_counterparts = [] #these are all BidTarget objects
+            #counterparts are always just on the [0]th entry for the catalog
+            try:
+                if list_of_cutouts[counterpart_cat_idx][0]['counterparts']:
+                    list_of_counterparts = list_of_cutouts[counterpart_cat_idx][0]['counterparts']
+                else:
+                    counterpart_cat_idx = 0
+                    best_len = 0
+                    for idx,cat in enumerate(list_of_cutouts):
+                        if cat[0]['counterparts']:
+                            if len(cat[0]['counterparts']) > best_len:
+                                counterpart_cat_idx = idx
+                                best_len = len(cat[0]['counterparts'])
 
-
+                    list_of_counterparts = list_of_cutouts[counterpart_cat_idx][0]['counterparts']
+            except:
+                pass
 
         rows = 1
         cols = 6
@@ -1129,6 +1156,8 @@ class Catalog:
                     text = text + utilities.unc_str((counterpart.bid_ew_lya_rest, counterpart.bid_ew_lya_rest_err)) + "$\AA$\n"
                 else:
                     text = text + utilities.unc_str((counterpart.bid_ew_lya_rest, 0.0)) + "$\AA$\n"
+            else:
+                text += "---\n"
 
             #mag
             if counterpart.bid_mag is not None:
@@ -1153,7 +1182,7 @@ class Catalog:
                     text += "%0.4g\n" % ( utilities.saferound(counterpart.p_lae_oii_ratio,3))
 
             else:
-                text += "\n"
+                text += "---\n"
 
             plt.subplot(gs[0, col_idx])
             plt.gca().set_frame_on(False)
