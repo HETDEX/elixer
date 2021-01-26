@@ -1347,6 +1347,7 @@ class science_image():
         self.last_y0_center = (y_center - cutout.center_cutout[1]) * self.pixel_size
         source_aperture_area = 0.0
 
+
         elixer_aperture_list = []
         elixer_aper_idx = None #the selected index
 
@@ -1377,6 +1378,14 @@ class science_image():
             sky_coord_center = wcs_utils.pixel_to_skycoord(x_center, y_center, cutout.wcs, origin=0)
         except:
             log.warning("Exception! getting aperture RA,Dec.", exc_info=True)
+
+        try:
+            distance_to_center = utilities.angular_distance(ra,dec,sky_coord_center.ra.value,sky_coord_center.dec.value)
+        except:
+            try:
+                distance_to_center = np.sqrt(self.last_x0_center*self.last_x0_center + self.last_y0_center*self.last_y0_center)
+            except:
+                distance_to_center = 0
 
         if G.DYNAMIC_MAG_APERTURE:
             if aperture and (aperture > 0.0):
@@ -1485,6 +1494,7 @@ class science_image():
                     elixer_aperture['mag'] = mag
                     elixer_aperture['aperture_counts'] = counts
                     elixer_aperture['area_pix'] = source_aperture_area
+                    elixer_aperture['dist_to_center'] = distance_to_center
                     elixer_aperture_list.append(elixer_aperture)
                     #don't set the elixer_aper_idx yet, this one might not be accepted
 

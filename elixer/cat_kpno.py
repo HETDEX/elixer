@@ -368,26 +368,27 @@ class KPNO(cat_base.Catalog):#Kitt Peak
         :return: cutouts list of dictionaries with bid-target objects as well
         """
 
-        cutouts = super().build_cat_summary_details(cat_match, ra, dec, error, bid_ras, bid_decs, target_w,
+        return super().build_cat_summary_details(cat_match, ra, dec, error, bid_ras, bid_decs, target_w,
                                                     fiber_locs, target_flux,detobj)
 
-        if not cutouts:
-            return cutouts
 
-        for c in cutouts:
-            try:
-                details = c['details']
-            except:
-                pass
-
-
-        #####################################################
-        # BidTarget format is Unique to each child catalog
-        #####################################################
-
-        #KPNO does not have an associated catalog, so no bid-targets or counterparts
-
-        return cutouts
+        # if not cutouts:
+        #     return cutouts
+        #
+        # for c in cutouts:
+        #     try:
+        #         details = c['details']
+        #     except:
+        #         pass
+        #
+        #
+        # #####################################################
+        # # BidTarget format is Unique to each child catalog
+        # #####################################################
+        #
+        # #KPNO does not have an associated catalog, so no bid-targets or counterparts
+        #
+        # return cutouts
 
 
 

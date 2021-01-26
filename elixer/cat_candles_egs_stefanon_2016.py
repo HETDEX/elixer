@@ -751,7 +751,6 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                     spec_z = z_best
 
                 try:
-
                     filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = self.get_filter_flux(df)
                 except:
                     filter_fl = 0.0

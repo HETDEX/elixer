@@ -980,7 +980,7 @@ class Catalog:
                 if the_entry['instrument']:
                     name = the_entry['instrument']
                 elif the_entry['details'] and the_entry['details']['catalog_name']:
-                    name = the_entry['details']['catalog_name'][0:4]
+                    name = the_entry['details']['catalog_name'][0:10]
                 else:
                     name = "---"
 
@@ -1015,9 +1015,15 @@ class Catalog:
                                                                    the_entry['details']['mag'],
                                                                    cx, cy, cutout_ewr, cutout_plae)
                         else:
+
+                            try:
+                                distance_to_center = the_entry['details']['elixer_apertures'][the_entry['details']['elixer_aper_idx']]['dist_to_center']
+                            except:
+                                distance_to_center = None
+
                             self.add_aperture_position(plt, the_entry['details']['radius'],
                                                        the_entry['details']['mag'],
-                                                       cx, cy, cutout_ewr, cutout_plae)
+                                                       cx, cy, cutout_ewr, cutout_plae,distance_to_center)
                     else:
                         log.warning("No cutout details ...")
 
@@ -1279,8 +1285,9 @@ class Catalog:
 
             #set the continuum estimate from the broadband filter
             #if no aperture magnitude was calculated, set it to the mag-limit
+            cont_est = -999
             try:
-                if not (details['mag'] < 99): #no mag could be calculated
+                if (not details['mag']) or not (details['mag'] < 99): #no mag could be calculated
                     non_detect = min(self.get_mag_limit(details['filter_name'],details['radius']),33.0) #33 is just there for some not 99 limit
                     cont_est = self.obs_mag_to_cgs_flux(non_detect,SU.filter_iso(filter,target_w))
                 else:
@@ -1763,7 +1770,7 @@ class Catalog:
 
 
 
-    def add_aperture_position(self,plt,radius,mag=None,cx=0,cy=0,ew=None,plae=None):
+    def add_aperture_position(self,plt,radius,mag=None,cx=0,cy=0,ew=None,plae=None,distance_to_center=None):
             # over plot a circle of radius on the center of the image (assumed to be the photo-aperture)
             if radius > 0:
                 log.debug("Plotting imaging aperture position...")
@@ -1772,13 +1779,16 @@ class Catalog:
                     cx = 0
                     cy = 0
 
+                if distance_to_center is None:
+                    distance_to_center = np.sqrt(cx*cx+cy*cy)
+
                 try:
                     plt.gca().add_patch(plt.Circle((cx,cy), radius=radius, color='gold', fill=False,
                                                    linestyle='solid'))
 
                     #temporary
                     if mag is not None:
-                        label = "m:%0.1f rc:%0.1f\"  s:0.0\"" % (mag,radius)
+                        label = "m:%0.1f rc:%0.1f\"  s:%0.1f\"" % (mag,radius,distance_to_center)
 
                         if ew is not None:
                             label += "\n EWr: %0.0f" %(ew)
