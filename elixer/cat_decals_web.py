@@ -1012,6 +1012,11 @@ class DECaLS(cat_base.Catalog):#DECaLS
                 if response.status_code != 200:  # "OK" response
                     log.info("DECaLS http response code = %d (%s)" % (response.status_code, response.reason))
                     hdulist_array = None
+                    d['error'] = response.status_code
+                    if response.status_code == 504: #timeout
+                        d['retry'] = False
+                    else:
+                        d['retry'] = True
 
                 if len(response.content) < 5000:  # should normally be 200k+
                     log.info(f"Bad (short) response (no image?) from DECaLS. Content = {response.content}")
@@ -1028,11 +1033,14 @@ class DECaLS(cat_base.Catalog):#DECaLS
             except Timeout:
                 log.info("Exception (Timeout) in DECaLS",exc_info=False)
                 hdulist_array = None
+                d['retry'] = False
             except ConnectionError:
                 log.info("Exception (ConnectionError) in DECaLS",exc_info=False)
                 hdulist_array = None
+                d['retry'] = True
             except Exception as e:
                 log.info("Exception in DECaLS",exc_info=True)
+                d['retry'] = True
             # else:
             #     log.debug("Exception in DECaLS",exc_info=True)
             #     hdulist_array = None
@@ -1063,7 +1071,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
                 if cutout is not None:  # construct master cutout
                     d['cutout'] = cutout
                     details['catalog_name']=self.name
-                    details['filter_name']=catalog_image['filter']
+                    details['filter_name']=filter
                     d['mag_limit']=self.get_mag_limit(None,mag_radius*2.)
                     if (mag is not None) and (mag < 999):
                         d['mag'] = mag
@@ -1107,6 +1115,13 @@ class DECaLS(cat_base.Catalog):#DECaLS
                         continue
 
                     cutout = self.get_single_cutout(ra, dec, window, None, aperture,filter=f,error=error)
+                    try:
+                        if 'retry' in cutout.keys():
+                            if cutout['retry'] == False:
+                                log.info(f"Fatal error in web request. Aborting web calls for {self.name}")
+                                break
+                    except:
+                        pass
                     if first:
                         if cutout['cutout'] is not None:
                                 l.append(cutout)

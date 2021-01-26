@@ -8,6 +8,10 @@ Major update to catalog organization to allow for inclusion of filters across mu
 Adding separate CFHTLS catalog
 Adding WISE (web only) catalog
 Add (restricted use) HSC NEP catalog
+* Fix mis-reported (0") distance to circular aperture center from HETDEX position when aperture allowed to drift
+* Apply meteor flux ratio multiplier if dither norm is overly large
+* Do not check for meteor if object position is off the IFU (the individual exposure triggers are unreliable)
+
 
 1.10.1a5 [2020-01-18]
 * DECaLS web request layer (name) change. Was "dr8" now "ls-dr9".

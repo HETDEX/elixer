@@ -990,7 +990,7 @@ class SDSS(cat_base.Catalog):#SDSS
                 if cutout is not None:  # construct master cutout
                     d['cutout'] = cutout
                     details['catalog_name']=self.name
-                    details['filter_name']=catalog_image['filter']
+                    details['filter_name']=filter
                     d['mag_limit']=self.get_mag_limit(None,mag_radius*2.)
                     if (mag is not None) and (mag < 999):
                         d['mag'] = mag

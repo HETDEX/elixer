@@ -504,6 +504,8 @@ class DetObj:
         #still in place for CURE calls
         self.x = None  #sky x and y?
         self.y = None
+        self.ifu_x = None
+        self.ifu_y = None
         self.known_z = None #a fixed, "known" redshift passed in on the command line
 
         self.w = 0.0
@@ -910,9 +912,32 @@ class DetObj:
         #how many exposures? usually 3, but not always
         try:
 
-            # if (np.isnan(self.dither_norm) or (self.dither_norm > 3.0)):
-            #     log.info(f"DetObj::check_for_meteor(). Cannot check for meteor due to bad dither normalization ({self.dither_norm})")
-            #     return 0
+            #todo: check to see if HETDEX position is actually inside the IFU ... if it is off the IFU (or even at the
+            # very edge, the dither ratio can be a false trigger (since two of the dithers may have no fibers on
+            # the position and even the nearest fiber may not cover the position)
+            off_edge = False
+            try:
+                if (self.ifu_x is not None) and (self.ifu_y is not None) and \
+                    (-24.15 <= self.ifu_x <= 24.15) or (-24.24 <= self.ifu_y <= 24.24):
+                    log.info(f"DetObj::check_for_meteor(). Position is off IFU edge ({self.ifu_x}, {self.ifu_y})")
+                    off_edge = True
+                    return 0 #todo: maybe still check with a modified trigger or dis-allow certain conditions?
+            except:
+                pass
+
+
+            dither_norm_x = 1.0
+            if (np.isnan(self.dither_norm) or (self.dither_norm > 2.0)):
+                # log.info(f"DetObj::check_for_meteor(). Cannot check for meteor due to bad dither normalization ({self.dither_norm})")
+                # return 0
+                if np.isnan(self.dither_norm):
+                    dither_norm_x = 3.0 #multiplier on the ratio triggers
+                else:
+                    dither_norm_x = self.dither_norm
+                log.info(f"DetObj::check_for_meteor(). Dither norm limitations in place due to bad dither normalization ({self.dither_norm})")
+
+
+
 
             num_exp = len(np.unique([f.expid for f in self.fibers]))
             if num_exp < 2:
@@ -1114,9 +1139,9 @@ class DetObj:
                 return 0
 
             meteor = 0
-            spec_ratio_trigger = 3.0
-            full_spec_ratio_trigger = 5.0
-            bright_obj_spec_ratio_trigger = 2.5
+            spec_ratio_trigger = 3.0 * dither_norm_x
+            full_spec_ratio_trigger = 5.0 * dither_norm_x
+            bright_obj_spec_ratio_trigger = 2.5 * dither_norm_x
 
             if cmx_sum > cn2_sum > 0:
                 full_ratio = mx_sum / n2_sum
@@ -3632,9 +3657,11 @@ class DetObj:
                 self.survey_fieldname = row['field']
 
             self.dither_norm = -1.0
+            #self.dither_norm_high_expid = -1
             try:
                 relflux_virus = row['relflux_virus']
                 self.dither_norm = np.max(relflux_virus) / np.min(relflux_virus)
+               # self.dither_norm_high_expid = np.argmax(relflux_virus)
             except:
                 self.dither_norm = -1.0
 
@@ -4539,6 +4566,9 @@ class DetObj:
             self.wra = row['ra']
             self.wdec = row['dec']
             self.survey_shotid = row['shotid']
+
+            self.ifu_x = row['x_ifu']
+            self.ifu_y = row['y_ifu']
 
             if basic_only: #we're done, this is all we need
                 return
