@@ -810,7 +810,7 @@ class science_image():
         return cutout
 
     def get_cutout(self,ra,dec,error,window=None,image=None,copy=False,aperture=0,mag_func=None,
-                   do_sky_subtract=True,return_details=False):
+                   do_sky_subtract=True,return_details=False,reset_center=True):
         '''ra,dec in decimal degrees. error and window in arcsecs'''
         #error is central box (+/- from ra,dec)
         #window is the size of the entire coutout
@@ -832,10 +832,12 @@ class science_image():
 
 
         self.window = None
-        self.last_x_center = None
-        self.last_y_center = None
-        self.last_x0_center = None
-        self.last_y0_center = None
+        if reset_center:
+            self.last_x_center = None
+            self.last_y_center = None
+            self.last_x0_center = None
+            self.last_y0_center = None
+
         cutout = None
         counts = None #raw data counts in aperture
         mag = 10000. #aperture converted to mag_AB

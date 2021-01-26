@@ -521,7 +521,8 @@ class SDSS(cat_base.Catalog):#SDSS
                     save_ALLOW_EMPTY_IMAGE = G.ALLOW_EMPTY_IMAGE
                     G.ALLOW_EMPTY_IMAGE = True
 
-                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True)
+                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True,reset_center=False)
+#                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True)
 
                     G.ALLOW_EMPTY_IMAGE = save_ALLOW_EMPTY_IMAGE
 
@@ -1012,6 +1013,14 @@ class SDSS(cat_base.Catalog):#SDSS
         else:
             outer = self.Filters
             inner = None
+
+
+        if aperture == -1:
+            try:
+                aperture = self.mean_FWHM * 0.5 + 0.5
+            except:
+                pass
+
 
         wild_filters = iter(self.Filters)
 

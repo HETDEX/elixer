@@ -1007,7 +1007,8 @@ class Catalog:
                         cutout_ewr = the_entry['details']['aperture_eqw_rest_lya']
                         cutout_plae = the_entry['details']['aperture_plae']
 
-                        if (the_entry['details']['sep_objects'] is not None):  # and (details['sep_obj_idx'] is not None):
+                        if ((the_entry['details']['sep_objects'] is not None) and \
+                                (the_entry['details']['sep_obj_idx'] is not None)):  # and (details['sep_obj_idx'] is not None):
                             self.add_elliptical_aperture_positions(plt, the_entry['details']['sep_objects'],
                                                                    the_entry['details']['sep_obj_idx'],
                                                                    the_entry['details']['radius'],

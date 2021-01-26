@@ -682,7 +682,7 @@ class KPNO(cat_base.Catalog):#Kitt Peak
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:
-                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True)
+                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True,reset_center=False)
                     if sci.exptime:
                         ref_exptime = sci.exptime
                     total_adjusted_exptime = 1.0
@@ -718,7 +718,7 @@ class KPNO(cat_base.Catalog):#Kitt Peak
                         details['aperture_plae_min'] = None
                         details['aperture_plae_max'] = None
 
-                    cx = sci.last_x0_center
+                    cx = sci.last_x0_center #this can get stepped on by the second call to sci (for the master cutout)
                     cy = sci.last_y0_center
                     if (details['sep_objects'] is not None): # and (details['sep_obj_idx'] is not None):
                         self.add_elliptical_aperture_positions(plt,details['sep_objects'],details['sep_obj_idx'],
@@ -1135,6 +1135,13 @@ class KPNO(cat_base.Catalog):#Kitt Peak
             # problem
             log.error("No appropriate tile found in KPNO for RA,DEC = [%f,%f]" % (ra, dec))
             return None
+
+        if aperture == -1:
+            try:
+                aperture = self.mean_FWHM * 0.5 + 0.5
+            except:
+                pass
+
 
         # try:
         #     cat_filters = list(dict((x['filter'], {}) for x in self.CatalogImages).keys())
