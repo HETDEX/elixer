@@ -1440,7 +1440,7 @@ class SHELA(cat_base.Catalog):
 
 
 
-    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,error=None):
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,error=None,do_sky_subtract=True):
 
         d = {'cutout':None,
              'hdu':None,
@@ -1502,7 +1502,7 @@ class SHELA(cat_base.Catalog):
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None,do_sky_subtract=True):
         l = list()
 
         tile = self.find_target_tile(ra, dec,verify=False)

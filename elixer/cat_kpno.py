@@ -346,6 +346,50 @@ class KPNO(cat_base.Catalog):#Kitt Peak
 
         return self.pages
 
+    def build_cat_summary_details(self,cat_match, ra, dec, error, bid_ras, bid_decs, target_w=0,
+                                  fiber_locs=None, target_flux=None,detobj=None):
+        """
+        similar to build_cat_summary_figure, but rather than build up an image section to be displayed in the
+        elixer report, this builds up a dictionary of information to be aggregated later over multiple catalogs
+
+        ***note: here we call the base class implementation to get the cutouts and then update those cutouts with
+        any catalog specific changes
+
+        :param cat_match: a match summary object (contains info about the PDF location, etc)
+        :param ra:  the RA of the HETDEX detection
+        :param dec:  the Dec of the HETDEX detection
+        :param error: radius (or half-side of a box) in which to search for matches (the cutout is 3x this on a side)
+        :param bid_ras: RAs of potential catalog counterparts
+        :param bid_decs: Decs of potential catalog counterparts
+        :param target_w: observed wavelength (from HETDEX)
+        :param fiber_locs: array (or list) of 6-tuples that describe fiber locations (which fiber, position, color, etc)
+        :param target_flux: HETDEX integrated line flux in CGS flux units (erg/s/cm2)
+        :param detobj: the DetObj instance
+        :return: cutouts list of dictionaries with bid-target objects as well
+        """
+
+        cutouts = super().build_cat_summary_details(cat_match, ra, dec, error, bid_ras, bid_decs, target_w,
+                                                    fiber_locs, target_flux,detobj)
+
+        if not cutouts:
+            return cutouts
+
+        for c in cutouts:
+            try:
+                details = c['details']
+            except:
+                pass
+
+
+        #####################################################
+        # BidTarget format is Unique to each child catalog
+        #####################################################
+
+        #KPNO does not have an associated catalog, so no bid-targets or counterparts
+
+        return cutouts
+
+
 
     def build_cat_summary_figure (self, cat_match, ra, dec, error,bid_ras, bid_decs, target_w=0,
                                   fiber_locs=None, target_flux=None,detobj=None):
@@ -1021,7 +1065,7 @@ class KPNO(cat_base.Catalog):#Kitt Peak
         plt.close()
         return fig
 
-    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,error=None):
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,error=None,do_sky_subtract=True):
 
 
         d = {'cutout':None,
@@ -1082,7 +1126,7 @@ class KPNO(cat_base.Catalog):#Kitt Peak
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None,do_sky_subtract=True):
         l = list()
 
         tile = self.find_target_tile(ra, dec)

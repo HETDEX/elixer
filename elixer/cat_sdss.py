@@ -923,7 +923,7 @@ class SDSS(cat_base.Catalog):#SDSS
         plt.close()
         return fig
 
-    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,filter=None,error=None):
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,filter=None,error=None,do_sky_subtract=True):
 
 
         d = {'cutout':None,
@@ -1001,7 +1001,7 @@ class SDSS(cat_base.Catalog):#SDSS
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=None,error=None):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=None,error=None,do_sky_subtract=True):
         l = list()
 
         #filters are fixed

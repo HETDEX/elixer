@@ -17,6 +17,9 @@ try:
     from elixer import cat_panstarrs
     from elixer import cat_catch_all
     from elixer import cat_decals_web
+    #from elixer import cat_cfhtls
+    #from elixer import cat_wise_web
+    from elixer import cat_hsc_nep
     # from elixer import cat_ast376_shela
 except:
     import global_config as G
@@ -32,6 +35,9 @@ except:
     import cat_sdss
     import cat_panstarrs
     import cat_decals_web
+    #import cat_cfhtls
+    #import cat_wise_web
+    import cat_hsc_nep
     # from elixer import cat_ast376_shela
 
 # log = G.logging.getLogger('Cat_logger')
@@ -92,6 +98,7 @@ class CatalogLibrary:
         self.cats.append(cat_shela.SHELA())
         self.cats.append(cat_hsc.HSC())
         self.cats.append(cat_kpno.KPNO())
+        self.cats.append(cat_hsc_nep.HSC_NEP())
         # if comment out KPNO turn off KPNO inclusion in HSC
         # self.cats[-1].INCLUDE_KPNO_G = False
         # self.cats.append(cat_ast376_shela.AST376_SHELA())

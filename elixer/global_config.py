@@ -97,7 +97,7 @@ HETDEX_API_CONFIG = None
 
 LOCAL_DEV_HOSTNAMES = ["z50","dg5"]
 
-BUILD_REPORT_BY_FILTER = False #if True, multiple catalogs are used to build the report, with the deepest survey by filter
+BUILD_REPORT_BY_FILTER = True #if True, multiple catalogs are used to build the report, with the deepest survey by filter
                            #if False, then the single deepest catalog that overlaps is used with what ever filters it has
 
 if hostname in LOCAL_DEV_HOSTNAMES:  # primary author test box

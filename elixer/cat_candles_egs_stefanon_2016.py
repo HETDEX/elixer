@@ -58,7 +58,14 @@ log.setlevel(G.LOG_LEVEL)
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
 
-
+# # filter transforms: (see https://ui.adsabs.harvard.edu/abs/2018AJ....156..296H/abstract)
+# Filter	Identifier	t(s)	ZP (mag)	lambda_p (nm)	Deltalambda (nm)
+# F438W	ibcd40011	1600	24.886	432.5	61.8
+# F475W	ibcd40khq	465	25.697	477.3	134.4
+# F475X	ibcd40kbq	275	26.107	493.9	205.6
+# F555W	ibcd40021	1160	25.728	530.8	156.2
+# F606W	ibcd40031	900	25.902	588.7	218.2
+# F814W	ibcd40061	1300	24.586	805.4	153.6
 
 def cfhtls_count_to_mag(count,cutout=None,sci_image=None):
     if count is not None:
@@ -122,10 +129,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
     mean_FWHM = 0.15 #typical use for photometric aperture, but is too good here ... objects that are point
                     #sources may be resolved with HST
 
-    MAG_LIMIT = 29.0 #not quite
+    MAG_LIMIT = 30.0 #associated catalog goes well into 32+, but this is an overall limit
     WCS_Manual = False#True
     EXPTIME_F606W = 289618.0
-    CONT_EST_BASE = 3.3e-21
+    CONT_EST_BASE = 3.3e-21 #about 30 mag
     BidCols = ["ID", "IAU_designation", "RA", "DEC",
                "CFHT_U_FLUX", "CFHT_U_FLUXERR",
                "IRAC_CH1_FLUX", "IRAC_CH1_FLUXERR", "IRAC_CH2_FLUX", "IRAC_CH2_FLUXERR",
@@ -459,13 +466,22 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         mag = None
         mag_plus = None
         mag_minus = None
-        filter_str = 'ACS_F606W_FLUX'
+        filter_str = 'ACS_F606W_FLUX' #used to lookup
+        filter_name= 'f606w'
         try:
             filter_fl = df[filter_str].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
             filter_fl_err = df['ACS_F606W_FLUXERR'].values[0]
             mag, mag_plus, mag_minus = self.micro_jansky_to_mag(filter_fl,filter_fl_err)
         except: #not the EGS df, try the CFHTLS
-            pass
+            try: # try f435 (~ g-band)
+                filter_str = 'ACS_F435W_FLUX' #used to lookup
+                filter_name= 'f435w'
+                filter_fl = df[filter_str].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                filter_fl_err = df['ACS_F435W_FLUXERR'].values[0]
+                mag, mag_plus, mag_minus = self.micro_jansky_to_mag(filter_fl,filter_fl_err)
+            except:
+                filter_str = None
+                filter_name = None
 
         if filter_fl is None:
             try:
@@ -475,7 +491,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             except:
                 pass
 
-        return filter_fl, filter_fl_err, mag, mag_plus, mag_minus, filter_str
+        return filter_fl, filter_fl_err, mag, mag_plus, mag_minus, filter_name
 
 
     def build_list_of_bid_targets(self, ra, dec, error):
@@ -661,7 +677,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         """
 
         cutouts = super().build_cat_summary_details(cat_match, ra, dec, error, bid_ras, bid_decs, target_w,
-                                                    fiber_locs, target_flux,detobj)
+                                                    fiber_locs, target_flux,detobj,do_sky_subtract=False)
 
         if not cutouts:
             return cutouts

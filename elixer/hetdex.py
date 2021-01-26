@@ -2354,9 +2354,6 @@ class DetObj:
                                              f" no useful information.")
                                     #just skip it
                                 else:
-                                    log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit fainter than 24,"
-                                             f" scaled weight applied.")
-
                                     cont = SU.mag2cgs(a['mag'], lam)
                                     if a['mag_err'] is not None:
                                         cont_hi = SU.mag2cgs(a['mag'] - a['mag_err'],
@@ -2375,6 +2372,11 @@ class DetObj:
                                     w = min((cont - cgs_25) / (cgs_24-cgs_25),1.0)
                                     if w < 0:
                                         w = 1.0
+                                        log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit much fainter than 24,"
+                                                 f" full weight {w} applied.")
+                                    else:
+                                        log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit fainter than 24,"
+                                                 f" scaled weight {w} applied.")
 
                                     variance.append(cont_var)
                                     continuum.append(cont)

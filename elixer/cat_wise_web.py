@@ -979,7 +979,7 @@ class WISE(cat_base.Catalog):#WISE
     #
     #     return stacked_cutout
 
-    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,filter=None,error=None):
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,filter=None,error=None,do_sky_subtract=True):
 
         d = {'cutout':None,
              'hdu':None,
@@ -1081,7 +1081,7 @@ class WISE(cat_base.Catalog):#WISE
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=None,error=None):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=None,error=None,do_sky_subtract=True):
         l = list()
 
         #filters are fixed

@@ -797,6 +797,7 @@ class Catalog:
         best_dict['u'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['u',]}
         best_dict['g'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['g','v','f435w']}
         best_dict['r'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['r','f606w']}
+        #for HST may have both f775w and f814w, but only show the "best"
         best_dict['i'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['i','f775w','f814w']}
         best_dict['z'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['z',]}
         best_dict['y'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['y','f105w']}
@@ -852,12 +853,14 @@ class Catalog:
         #for later to fill out the set of filters if there is any room left
         all_filter_names = np.unique(all_filter_names)
 
+        log.info(f"All reported filters (up to 6 shown in report): {all_filter_names}")
+
         stacked_cutout = self.stack_image_cutouts(list_of_cutouts[the_best_cat_idx])
 
         #now turn this into a plot object and start adding North Box and Fibers
         rows = 10
         #note: setting size to 7 from 6 so they will be the right size (the 7th position will not be populated)
-        cols = 7 # 1 for the fiber position and up to 5 filters for any one tile (u,g,r,i,z)
+        cols = 7 # 1 for the fiber position and up to 6 filters for any one tile (u,g,r,i,z,y)
         fig_sz_x = 18 #cols * 3
         fig_sz_y = 3 #ows * 3
 
@@ -1167,9 +1170,13 @@ class Catalog:
             else:
                 text += "(--.--,"
             if counterpart.bid_mag_err_faint is not None:
-                text += "%0.2f)\n" % counterpart.bid_mag_err_faint
+                text += "%0.2f)" % counterpart.bid_mag_err_faint
             else:
-                text += "--.--)\n"
+                text += "--.--)"
+
+            if counterpart.bid_filter is not None:
+                text += counterpart.bid_filter
+            text += "\n"
 
             #plae/poii
             if (not G.ZOO) and (counterpart.p_lae_oii_ratio is not None):
@@ -1198,7 +1205,7 @@ class Catalog:
                 plt.xlim([0, 3.6])
 
                 if counterpart.spec_z is not None and counterpart.spec_z >= 0.0:
-                    plt.scatter([spec_z,],[plt.gca().get_ylim()[1]*0.9,],zorder=9,
+                    plt.scatter([counterpart.spec_z,],[plt.gca().get_ylim()[1]*0.9,],zorder=9,
                                 marker="o",s=80,facecolors='none',edgecolors=bid_colors[col_idx-1])
                 phot_z_plotted = True
                 if col_idx == 1:
@@ -1233,7 +1240,7 @@ class Catalog:
         return self.pages
 
     def build_cat_summary_details(self,cat_match, ra, dec, error, bid_ras, bid_decs, target_w=0,
-                                  fiber_locs=None, target_flux=None,detobj=None):
+                                  fiber_locs=None, target_flux=None,detobj=None,do_sky_subtract=True):
         """
         similar to build_cat_summary_figure, but rather than build up an image section to be displayed in the
         elixer report, this builds up a dictionary of information to be aggregated later over multiple catalogs
@@ -1248,12 +1255,13 @@ class Catalog:
         :param fiber_locs: array (or list) of 6-tuples that describe fiber locations (which fiber, position, color, etc)
         :param target_flux: HETDEX integrated line flux in CGS flux units (erg/s/cm2)
         :param detobj: the DetObj instance
+        :param do_sky_subtract: normally True (but HST might not want to perform additional sky subtraction)
         :return: cutouts list of dictionaries with bid-target objects as well
         """
 
 
         window = error * 3
-        cutouts = self.get_cutouts(ra,dec,window/3600.,aperture=-1,filter=None,first=False,error=error)
+        cutouts = self.get_cutouts(ra,dec,window/3600.,aperture=-1,filter=None,first=False,error=error,do_sky_subtract=do_sky_subtract)
 
         #do other stuff
         #1 get PLAE/POII for "best" aperture in each cutout image with details
@@ -1270,11 +1278,33 @@ class Catalog:
 
             #set the continuum estimate from the broadband filter
             #if no aperture magnitude was calculated, set it to the mag-limit
-            if not (c['details']['mag'] < 99): #no mag could be calculated
-                non_detect = min(self.get_mag_limit(),33.0) #33 is just there for some not 99 limit
-                cont_est = self.obs_mag_to_cgs_flux(non_detect,SU.filter_iso(filter,target_w))
-            else:
-                cont_est = self.obs_mag_to_cgs_flux(mag,SU.filter_iso(filter,target_w))
+            try:
+                if not (details['mag'] < 99): #no mag could be calculated
+                    non_detect = min(self.get_mag_limit(details['filter_name'],details['radius']),33.0) #33 is just there for some not 99 limit
+                    cont_est = self.obs_mag_to_cgs_flux(non_detect,SU.filter_iso(filter,target_w))
+                else:
+                    #+0.2 for about a 20% error on the mag_limit (allowing for measurement error and often
+                    #smaller aperture size than what was used to measure the limit)
+                    if c['mag_limit'] and c['mag_limit'] < 99.0 and c['mag'] > (c['mag_limit'] + 0.2):
+                        details['fail_mag_limit']=True
+                        details['raw_mag'] = mag
+                        details['raw_mag_bright'] = details['mag_bright']
+                        details['raw_mag_faint'] = details['mag_faint']
+
+                        mag = c['mag_limit']
+                        c['mag'] = mag
+                        details['mag'] = mag
+                        details['mag_bright'] = mag
+                        details['mag_faint'] = 99.9
+
+                        log.info(f"Mag {details['raw_mag']} below limit {c['mag_limit']}. Setting to limit. {details['catalog_name']} {details['filter_name']}")
+
+                    cont_est = self.obs_mag_to_cgs_flux(mag,SU.filter_iso(filter,target_w))
+            except:
+                try:
+                    log.info(f"Warning. Unable to get continuum estimate from bandpass. {details['catalog_name']} {details['filter_name']}")
+                except:
+                    log.info("Warning. Unable to get continuum estimate from bandpass.")
 
             bid_target = match_summary.BidTarget()
             bid_target.catalog_name = self.Name
@@ -1977,7 +2007,7 @@ class Catalog:
             return None
 
 
-    def get_single_cutout(self,ra,dec,window,catalog_image,aperture=None,error=None):
+    def get_single_cutout(self,ra,dec,window,catalog_image,aperture=None,error=None,do_sky_subtract=True):
         #window is in DEGREES
         #error in arcsec and is for internal ELiXer use
 
@@ -2028,7 +2058,7 @@ class Catalog:
                     pass
 
             cutout,pix_counts, mag, mag_radius,details = sci.get_cutout(ra, dec, error=error, window=window, aperture=aperture,
-                                             mag_func=mag_func,copy=True,return_details=True)
+                                             mag_func=mag_func,copy=True,return_details=True,do_sky_subtract=do_sky_subtract)
             #don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
 
             if cutout is not None:  # construct master cutout
@@ -2110,7 +2140,7 @@ class Catalog:
         return list(set(cat_filters))
 
     #generic, can be used by most catalogs (like CANDELS), only override if necessary
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None,do_sky_subtract=True):
         l = list()
 
         #not every catalog has a list of filters, and some contain multiples
@@ -2144,7 +2174,7 @@ class Catalog:
                             next(i for (i, d) in enumerate(self.CatalogImages)
                              if ((d['filter'] == f)))]
 
-                    cutout = self.get_single_cutout(ra, dec, window, i, aperture,error)
+                    cutout = self.get_single_cutout(ra, dec, window, i, aperture,error,do_sky_subtract)
 
                     if first:
                         if cutout['cutout'] is not None:

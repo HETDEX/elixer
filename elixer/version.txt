@@ -4,6 +4,7 @@ changes to elixer by version
 * IN PROGRESSS *
 Major update to catalog organization to allow for inclusion of filters across multiple catalogs in report
     toggled by global_config::BUILD_REPORT_BY_FILTER
+    All filters reported in elixer hdf5 file and up to 6 filters shown on the report (favoring bluer and deeper bands)
 Adding separate CFHTLS catalog
 Adding WISE (web only) catalog
 Add (restricted use) HSC NEP catalog

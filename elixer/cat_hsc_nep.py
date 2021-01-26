@@ -252,8 +252,8 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
     # i - 26.9 (26.4)
     # z - 26.6 (26.0)
     # y - 25.5 (24.9)
-    # ch1 - 25.6 (25.0)
-    # ch2 - 25.6 (25.0)
+    # ch1 - 25.6 (25.0)  #not in the FITS (IRAC channel1 3.6 micron)
+    # ch2 - 25.6 (25.0)  #not in the FITS (IRAC channel2 4.8 micron)
     #
     # Brick 16:
     # g - 27.7 (27.2)
@@ -261,8 +261,8 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
     # i - 26.9 (26.4)
     # z - 26.5 (26.0)
     # y - 25.4 (24.9)
-    # ch1 - 24.9 (24.3)
-    # ch2 - 25.1 (24.6)
+    # ch1 - 24.9 (24.3)  #not in the FITS (IRAC channel1 3.6 micron)
+    # ch2 - 25.1 (24.6)  #not in the FITS (IRAC channel2 4.8 micron)
     #
 
     MAG_LIMIT = 27.3 #mostly care about r (this give a little slop for error and for smaller aperture before the limit kicks in)
@@ -1181,7 +1181,7 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                                     pass
 
                             try:
-                                bid_target.add_filter('HSC','R',filter_fl_cgs,filter_fl_err)
+                                bid_target.add_filter('HSC NEP',filter_str,filter_fl_cgs,filter_fl_err)
                             except:
                                 log.debug('Unable to build filter entry for bid_target.',exc_info=True)
 
@@ -2094,7 +2094,7 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         plt.close()
         return fig
 
-    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,error=None):
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,error=None,do_sky_subtract=True):
         """
 
         :param ra:
@@ -2166,7 +2166,7 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None,do_sky_subtract=True):
         l = list()
 
         tile, tracts, positions = self.find_target_tile(ra, dec)

@@ -1035,7 +1035,7 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
         plt.close()
         return fig
 
-    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,filter=None,error=None):
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,filter=None,error=None,do_sky_subtract=True):
 
 
         d = {'cutout':None,
@@ -1106,7 +1106,7 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=None,error=None):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=None,error=None,do_sky_subtract=True):
         l = list()
 
         #filters are fixed

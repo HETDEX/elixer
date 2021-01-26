@@ -1085,7 +1085,7 @@ class DECALS(cat_base.Catalog):
         plt.close()
         return fig
 
-    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,error=None):
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,error=None,do_sky_subtract=True):
 
 
         d = {'cutout':None,
@@ -1146,7 +1146,7 @@ class DECALS(cat_base.Catalog):
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None,do_sky_subtract=True):
         l = list()
 
         tile, tract = self.find_target_tile(ra, dec)

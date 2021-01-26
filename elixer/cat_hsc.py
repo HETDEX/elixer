@@ -2659,7 +2659,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         plt.close()
         return fig
 
-    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,error=None):
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,error=None,do_sky_subtract=True):
         """
 
         :param ra:
@@ -2735,7 +2735,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None,do_sky_subtract=True):
         l = list()
 
         tile, tracts, positions = self.find_target_tile(ra, dec)
