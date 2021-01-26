@@ -1270,8 +1270,8 @@ class Catalog:
             if c['details'] is None:
                 continue
 
-            if (not target_flux) or (c['details']['filter_name'].lower() not in ['r','g','f606w']):
-                continue
+            #if (not target_flux) or (c['details']['filter_name'].lower() not in ['r','g','f606w']):
+            #    continue
 
             mag = c['details']['mag']
             filter = c['details']['filter_name'].lower()
@@ -1365,55 +1365,57 @@ class Catalog:
                 except:
                     lineFlux_err = 0.
 
-            # build EW error from lineFlux_err and aperture estimate error
-            ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
-            try:
-                ew_obs_err = abs(ew_obs * np.sqrt(
-                    (lineFlux_err / target_flux) ** 2 +
-                    (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
-            except:
-                ew_obs_err = 0.
+            #only run PLAE/POII for g or r bands and if we have a line flux
+            if target_flux and (c['details']['filter_name'].lower() in ['r','g','f606w']):
+                # build EW error from lineFlux_err and aperture estimate error
+                ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+                try:
+                    ew_obs_err = abs(ew_obs * np.sqrt(
+                        (lineFlux_err / target_flux) ** 2 +
+                        (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+                except:
+                    ew_obs_err = 0.
 
-            bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii, plae_errors = \
-                line_prob.mc_prob_LAE(
-                    wl_obs=target_w,
-                    lineFlux=target_flux,
-                    lineFlux_err=lineFlux_err,
-                    continuum=bid_target.bid_flux_est_cgs,
-                    continuum_err=bid_target.bid_flux_est_cgs_unc,
-                    c_obs=None, which_color=None,
-                    addl_wavelengths=addl_waves,
-                    addl_fluxes=addl_flux,
-                    addl_errors=addl_ferr,
-                    sky_area=None,
-                    cosmo=None, lae_priors=None,
-                    ew_case=None, W_0=None,
-                    z_OII=None, sigma=None)
+                bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii, plae_errors = \
+                    line_prob.mc_prob_LAE(
+                        wl_obs=target_w,
+                        lineFlux=target_flux,
+                        lineFlux_err=lineFlux_err,
+                        continuum=bid_target.bid_flux_est_cgs,
+                        continuum_err=bid_target.bid_flux_est_cgs_unc,
+                        c_obs=None, which_color=None,
+                        addl_wavelengths=addl_waves,
+                        addl_fluxes=addl_flux,
+                        addl_errors=addl_ferr,
+                        sky_area=None,
+                        cosmo=None, lae_priors=None,
+                        ew_case=None, W_0=None,
+                        z_OII=None, sigma=None)
 
-            try:
-                if plae_errors:
-                    bid_target.p_lae_oii_ratio_min = plae_errors['ratio'][1]
-                    bid_target.p_lae_oii_ratio_max = plae_errors['ratio'][2]
-                    c['aperture_plae_min'] = plae_errors['ratio'][1] #new key
-                    c['aperture_plae_max'] = plae_errors['ratio'][2] #new key
-            except:
-                pass
-
-            c['aperture_plae'] = bid_target.p_lae_oii_ratio
-            c['aperture_eqw_rest_lya'] = ew_obs / (1. + target_w / G.LyA_rest)
-            c['aperture_eqw_rest_lya_err'] = ew_obs_err / (1. + target_w / G.LyA_rest)
-
-            #also goes into the details
-            if c['details']:
-                c['details']['aperture_plae'] = bid_target.p_lae_oii_ratio
-                c['details']['aperture_eqw_rest_lya'] = ew_obs / (1. + target_w / G.LyA_rest)
-                c['details']['aperture_eqw_rest_lya_err'] = ew_obs_err / (1. + target_w / G.LyA_rest)
                 try:
                     if plae_errors:
-                        c['details']['aperture_plae_min'] = plae_errors['ratio'][1] #new key
-                        c['details']['aperture_plae_max'] = plae_errors['ratio'][2] #new key
+                        bid_target.p_lae_oii_ratio_min = plae_errors['ratio'][1]
+                        bid_target.p_lae_oii_ratio_max = plae_errors['ratio'][2]
+                        c['aperture_plae_min'] = plae_errors['ratio'][1] #new key
+                        c['aperture_plae_max'] = plae_errors['ratio'][2] #new key
                 except:
                     pass
+
+                c['aperture_plae'] = bid_target.p_lae_oii_ratio
+                c['aperture_eqw_rest_lya'] = ew_obs / (1. + target_w / G.LyA_rest)
+                c['aperture_eqw_rest_lya_err'] = ew_obs_err / (1. + target_w / G.LyA_rest)
+
+                #also goes into the details
+                if c['details']:
+                    c['details']['aperture_plae'] = bid_target.p_lae_oii_ratio
+                    c['details']['aperture_eqw_rest_lya'] = ew_obs / (1. + target_w / G.LyA_rest)
+                    c['details']['aperture_eqw_rest_lya_err'] = ew_obs_err / (1. + target_w / G.LyA_rest)
+                    try:
+                        if plae_errors:
+                            c['details']['aperture_plae_min'] = plae_errors['ratio'][1] #new key
+                            c['details']['aperture_plae_max'] = plae_errors['ratio'][2] #new key
+                    except:
+                        pass
 
             cat_match.add_bid_target(bid_target)
             try:  # no downstream edits so they can both point to same bid_target

@@ -25,6 +25,7 @@ import time
 UNSET_FLOAT = -999.999
 UNSET_INT = -99999
 UNSET_STR = ""
+UNSET_NAN = np.nan
 
 log = G.Global_Logger('hdf5_logger')
 log.setlevel(G.LOG_LEVEL)
@@ -174,7 +175,7 @@ class Aperture(tables.IsDescription):
     dec = tables.Float32Col(pos=2,dflt=UNSET_FLOAT) #was aperture_dec
     catalog_name = tables.StringCol(itemsize=16)
     filter_name = tables.StringCol(itemsize=16)
-    image_depth_mag = tables.Float32Col(dflt=UNSET_FLOAT)
+    image_depth_mag = tables.Float32Col(dflt=UNSET_NAN)
     pixel_scale = tables.Float32Col(dflt=UNSET_FLOAT)
     radius = tables.Float32Col(dflt=UNSET_FLOAT) #in arcsec , #was aperture_radius
     mag = tables.Float32Col(dflt=UNSET_FLOAT) #was aperture_mag
@@ -183,9 +184,9 @@ class Aperture(tables.IsDescription):
     sky_area_pix = tables.Float32Col(dflt=UNSET_FLOAT) #pixels
     eqw_rest_lya = tables.Float32Col(dflt=UNSET_FLOAT) #was  aperture_eqw_rest_lya
     eqw_rest_lya_err = tables.Float32Col(dflt=UNSET_FLOAT) #was  aperture_eqw_rest_lya_err
-    plae = tables.Float32Col(dflt=UNSET_FLOAT) #was  aperture_plae
-    plae_max = tables.Float32Col(dflt=UNSET_FLOAT) #was  aperture_plae_max
-    plae_min = tables.Float32Col(dflt=UNSET_FLOAT) #was  aperture_plae_min
+    plae = tables.Float32Col(dflt=UNSET_NAN) #was  aperture_plae
+    plae_max = tables.Float32Col(dflt=UNSET_NAN) #was  aperture_plae_max
+    plae_min = tables.Float32Col(dflt=UNSET_NAN) #was  aperture_plae_min
     aperture_cts = tables.Float32Col(dflt=UNSET_FLOAT) #was aperture_counts
     sky_cts = tables.Float32Col(dflt=UNSET_FLOAT)
     sky_average = tables.Float32Col(dflt=UNSET_FLOAT)

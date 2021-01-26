@@ -649,7 +649,13 @@ class SHELA(cat_base.Catalog):
 
         # display the exact (target) location
         if G.SINGLE_PAGE_PER_DETECT:
-            entry = self.build_cat_summary_figure(cat_match,target_ra, target_dec, error, ras, decs,
+            if G.BUILD_REPORT_BY_FILTER:
+                #here we return a list of dictionaries (the "cutouts" from this catalog)
+                return self.build_cat_summary_details(cat_match,target_ra, target_dec, error, ras, decs,
+                                              target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,
+                                              detobj=detobj)
+            else:
+                entry = self.build_cat_summary_figure(cat_match,target_ra, target_dec, error, ras, decs,
                                                   target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,
                                                   detobj=detobj)
         else:
@@ -726,6 +732,207 @@ class SHELA(cat_base.Catalog):
 
         return stacked_cutout
 
+
+
+    def build_cat_summary_details(self,cat_match, ra, dec, error, bid_ras, bid_decs, target_w=0,
+                                  fiber_locs=None, target_flux=None,detobj=None):
+        """
+        similar to build_cat_summary_figure, but rather than build up an image section to be displayed in the
+        elixer report, this builds up a dictionary of information to be aggregated later over multiple catalogs
+
+        ***note: here we call the base class implementation to get the cutouts and then update those cutouts with
+        any catalog specific changes
+
+        :param cat_match: a match summary object (contains info about the PDF location, etc)
+        :param ra:  the RA of the HETDEX detection
+        :param dec:  the Dec of the HETDEX detection
+        :param error: radius (or half-side of a box) in which to search for matches (the cutout is 3x this on a side)
+        :param bid_ras: RAs of potential catalog counterparts
+        :param bid_decs: Decs of potential catalog counterparts
+        :param target_w: observed wavelength (from HETDEX)
+        :param fiber_locs: array (or list) of 6-tuples that describe fiber locations (which fiber, position, color, etc)
+        :param target_flux: HETDEX integrated line flux in CGS flux units (erg/s/cm2)
+        :param detobj: the DetObj instance
+        :return: cutouts list of dictionaries with bid-target objects as well
+        """
+
+        cutouts = super().build_cat_summary_details(cat_match, ra, dec, error, bid_ras, bid_decs, target_w,
+                                                    fiber_locs, target_flux,detobj,do_sky_subtract=True)
+
+        if not cutouts:
+            return cutouts
+
+        #####################################################
+        # Nothing unique for the imaging needed here for candels
+        #####################################################
+
+        # for c in cutouts:
+        #     try:
+        #         details = c['details']
+        #     except:
+        #         pass
+
+
+        #####################################################
+        # BidTarget format is Unique to each child catalog
+        #####################################################
+        #now the bid targets
+        #2. catalog entries as a new key under cutouts (like 'details') ... 'counterparts'
+        #    this should be similar to the build_multiple_bid_target_figures_one_line()
+
+        if not cutouts or len(cutouts) == 0:
+            cutouts = [{}]
+
+        cutouts[0]['counterparts'] = []
+
+        target_count = 0
+        # targets are in order of increasing distance
+        for r, d in zip(bid_ras, bid_decs):
+            target_count += 1
+            if target_count > G.MAX_COMBINE_BID_TARGETS:
+                break
+
+            try: #DO NOT WANT _unique (since that has wiped out the filters)
+                df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
+                                                       (self.dataframe_of_bid_targets['DEC'] == d[0]) &
+                                                       (self.dataframe_of_bid_targets['FILTER'] == 'r')]
+                if (df is None) or (len(df) == 0):
+                    df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
+                                                           (self.dataframe_of_bid_targets['DEC'] == d[0]) &
+                                                           (self.dataframe_of_bid_targets['FILTER'] == 'g')]
+                if (df is None) or (len(df) == 0):
+                    df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
+                                                           (self.dataframe_of_bid_targets['DEC'] == d[0])]
+
+            except:
+                log.error("Exception attempting to find object in dataframe_of_bid_targets_unique", exc_info=True)
+                continue  # this must be here, so skip to next ra,dec
+
+            if df is not None:
+                best_fit_photo_z = 0.0 #SHELA has no photoz right now
+
+                try:
+                    filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = self.get_filter_flux(df)
+                except:
+                    filter_fl = 0.0
+                    filter_fl_err = 0.0
+                    filter_mag = 0.0
+                    filter_mag_bright = 0.0
+                    filter_mag_faint = 0.0
+                    filter_str = "NA"
+
+                bid_target = None
+
+                if (target_flux is not None) and (filter_fl != 0.0):
+                    if (filter_fl is not None):# and (filter_fl > 0):
+                        filter_fl_cgs = self.nano_jansky_to_cgs(filter_fl,SU.filter_iso(filter_str,target_w)) #filter_fl * 1e-32 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
+                        #text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                        filter_fl_cgs_unc = self.nano_jansky_to_cgs(filter_fl_err, SU.filter_iso(filter_str,target_w))
+                        # assumes no error in wavelength or c
+
+                        try:
+                            bid_target = match_summary.BidTarget()
+                            bid_target.catalog_name = self.Name
+                            bid_target.bid_ra = df['RA'].values[0]
+                            bid_target.bid_dec = df['DEC'].values[0]
+                            bid_target.distance = df['distance'].values[0] * 3600
+                            bid_target.prob_match = df['dist_prior'].values[0]
+                            bid_target.bid_flux_est_cgs = filter_fl_cgs
+                            bid_target.bid_filter = filter_str
+                            bid_target.bid_mag = filter_mag
+                            bid_target.bid_mag_err_bright = filter_mag_bright
+                            bid_target.bid_mag_err_faint = filter_mag_faint
+                            bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
+
+                            try:
+                                ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                                ew_u = abs(ew * np.sqrt(
+                                    (detobj.estflux_unc / target_flux) ** 2 +
+                                    (filter_fl_err / filter_fl) ** 2))
+
+                                bid_target.bid_ew_lya_rest = ew
+                                bid_target.bid_ew_lya_rest_err = ew_u
+
+                            except:
+                                log.debug("Exception computing catalog EW: ", exc_info=True)
+
+                            addl_waves = None
+                            addl_flux = None
+                            addl_ferr = None
+                            try:
+                                addl_waves = cat_match.detobj.spec_obj.addl_wavelengths
+                                addl_flux = cat_match.detobj.spec_obj.addl_fluxes
+                                addl_ferr = cat_match.detobj.spec_obj.addl_fluxerrs
+                            except:
+                                pass
+
+                            lineFlux_err = 0.
+                            if detobj is not None:
+                                try:
+                                    lineFlux_err = detobj.estflux_unc
+                                except:
+                                    lineFlux_err = 0.
+
+                            # build EW error from lineFlux_err and aperture estimate error
+                            ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+                            try:
+                                ew_obs_err = abs(ew_obs * np.sqrt(
+                                    (lineFlux_err / target_flux) ** 2 +
+                                    (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+                            except:
+                                ew_obs_err = 0.
+
+                            bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii, plae_errors = \
+                                line_prob.mc_prob_LAE(
+                                    wl_obs=target_w,
+                                    lineFlux=target_flux,
+                                    lineFlux_err=lineFlux_err,
+                                    continuum=bid_target.bid_flux_est_cgs,
+                                    continuum_err=bid_target.bid_flux_est_cgs_unc,
+                                    c_obs=None, which_color=None,
+                                    addl_wavelengths=addl_waves,
+                                    addl_fluxes=addl_flux,
+                                    addl_errors=addl_ferr,
+                                    sky_area=None,
+                                    cosmo=None, lae_priors=None,
+                                    ew_case=None, W_0=None,
+                                    z_OII=None, sigma=None)
+
+                            try:
+                                if plae_errors:
+                                    bid_target.p_lae_oii_ratio_min = plae_errors['ratio'][1]
+                                    bid_target.p_lae_oii_ratio_max = plae_errors['ratio'][2]
+                            except:
+                                pass
+
+                            dfx = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
+                                                                    (self.dataframe_of_bid_targets['DEC'] == d[0])]
+
+                            for flt,flux,err in zip(dfx['FILTER'].values,
+                                                    dfx['FLUX_AUTO'].values,
+                                                    dfx['FLUXERR_AUTO'].values):
+                                try:
+                                    bid_target.add_filter('NA',flt,
+                                                          self.nano_jansky_to_cgs(flux,SU.filter_iso(filter_str,target_w)),
+                                                          self.nano_jansky_to_cgs(err,SU.filter_iso(filter_str,target_w)))
+                                except:
+                                    log.debug('Unable to build filter entry for bid_target.',exc_info=True)
+
+                        except:
+                            log.debug('Unable to build bid_target.',exc_info=True)
+
+                if bid_target:
+                    cat_match.add_bid_target(bid_target)
+                    try: # no downstream edits so they can both point to same bid_target
+                        detobj.bid_target_list.append(bid_target)
+                    except:
+                        log.warning("Unable to append bid_target to detobj.",exc_info=True)
+                    try:
+                        cutouts[0]['counterparts'].append(bid_target)
+                    except:
+                        log.warning("Unable to append bid_target to cutouts.", exc_info=True)
+
+        return cutouts
 
     def build_cat_summary_figure (self, cat_match, ra, dec, error,bid_ras, bid_decs, target_w=0,
                                   fiber_locs=None, target_flux=None,detobj=None):
@@ -1222,7 +1429,7 @@ class SHELA(cat_base.Catalog):
             try: #DO NOT WANT _unique (since that has wiped out the filters)
                 df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                        (self.dataframe_of_bid_targets['DEC'] == d[0]) &
-                                                       (self.dataframe_of_bid_targets['FILTER'] == 'g')]
+                                                       (self.dataframe_of_bid_targets['FILTER'] == 'r')]
                 if (df is None) or (len(df) == 0):
                     df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                        (self.dataframe_of_bid_targets['DEC'] == d[0]) &
