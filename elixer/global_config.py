@@ -93,6 +93,8 @@ KPNO_BASE_PATH = None
 KPNO_CAT_PATH = None
 KPNO_IMAGE_PATH = None
 
+CFHTLS_BASE_PATH = None
+
 HETDEX_API_CONFIG = None
 
 LOCAL_DEV_HOSTNAMES = ["z50","dg5"]
@@ -252,6 +254,8 @@ def select_hdr_version(version):
     global KPNO_BASE_PATH
     global KPNO_CAT_PATH
     global KPNO_IMAGE_PATH
+
+    global CFHTLS_BASE_PATH
 
     global LAUNCH_PDF_VIEWER #for debug machine only
 
@@ -460,6 +464,13 @@ def select_hdr_version(version):
             KPNO_BASE_PATH = "/work/03233/jf5007/maverick/KMImaging/"
         KPNO_CAT_PATH = KPNO_BASE_PATH
         KPNO_IMAGE_PATH = KPNO_BASE_PATH
+
+        #always on TACC (not stored locally), imaging and catalog tiles are together in same directory
+        CFHTLS_BASE_PATH = op.join(HETDEX_API_CONFIG.imaging_dir,"cfhtls")
+        if op.exists(op.join(HETDEX_API_CONFIG.imaging_dir,"cfhtls/photozCFHTLS-W3_270912.out")):
+            CFHTLS_PHOTOZ_CAT = op.join(HETDEX_API_CONFIG.imaging_dir,"cfhtls/photozCFHTLS-W3_270912.out")
+        else:
+            CFHTLS_PHOTOZ_CAT = op.join(hdr_imaging_basepath, "candles_egs/CFHTLS/photozCFHTLS-W3_270912.out")
 
     return True  # end select_hdr_version
 

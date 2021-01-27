@@ -17,7 +17,7 @@ try:
     from elixer import cat_panstarrs
     from elixer import cat_catch_all
     from elixer import cat_decals_web
-    #from elixer import cat_cfhtls
+    from elixer import cat_cfhtls
     #from elixer import cat_wise_web
     from elixer import cat_hsc_nep
     # from elixer import cat_ast376_shela
@@ -35,7 +35,7 @@ except:
     import cat_sdss
     import cat_panstarrs
     import cat_decals_web
-    #import cat_cfhtls
+    import cat_cfhtls
     #import cat_wise_web
     import cat_hsc_nep
     # from elixer import cat_ast376_shela
@@ -90,6 +90,7 @@ class CatalogLibrary:
             del self.cats[:]
 
         self.cats = list()
+        # self.cats.append(cat_ast376_shela.AST376_SHELA())
         self.cats.append(cat_candles_egs_stefanon_2016.CANDELS_EGS_Stefanon_2016())
         self.cats.append(cat_goods_n.GOODS_N())
         # self.cats.append(cat_goods_n_finkelstein.GOODS_N_FINKELSTEIN())
@@ -98,11 +99,10 @@ class CatalogLibrary:
         self.cats.append(cat_shela.SHELA())
         self.cats.append(cat_hsc.HSC())
         self.cats.append(cat_kpno.KPNO())
-        self.cats.append(cat_hsc_nep.HSC_NEP())
-        # if comment out KPNO turn off KPNO inclusion in HSC
+        # notice: if comment out KPNO turn off KPNO inclusion in HSC, also need to un-comment the next line to remove from HSC
         # self.cats[-1].INCLUDE_KPNO_G = False
-        # self.cats.append(cat_ast376_shela.AST376_SHELA())
-
+        self.cats.append(cat_cfhtls.CFHTLS())
+        self.cats.append(cat_hsc_nep.HSC_NEP())
 
     def get_full_catalog_list(self):
         if self.cats is None:
