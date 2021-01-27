@@ -3,9 +3,7 @@ from __future__ import print_function
 """
 originally a duplicate of cat_candles_egs_stefanon_2016 which includes a section of CFHTLS
 
-This now has the D3 (deep) single tile (center roughly RA 210, Dec 52) and the W3 (wide) tiles in the same region. Only
-g-band.
- 
+This now has the D3 (deep) single tile (center roughly RA 210, Dec 52) and the W3 (wide) tiles in the same region. 
 This covers a section of the HETDEX spring field. 
 """
 
@@ -18,6 +16,7 @@ try:
     from elixer import utilities
     from elixer import sqlite_utils as sql
     from elixer import spectrum_utilities as SU
+    from elixer import cfhtls_meta
 except:
     import global_config as G
     import science_image
@@ -27,6 +26,7 @@ except:
     import utilities
     import sqlite_utils as sql
     import spectrum_utilities as SU
+    import cfhtls_meta
 
 import os.path as op
 import copy
@@ -94,6 +94,9 @@ class CFHTLS(cat_base.Catalog):
 #    Cat_Coord_Range = {'RA_min': 214.576759, 'RA_max': 215.305229, 'Dec_min': 52.677569, 'Dec_max': 53.105756}
     #updated with CFHTLS extended coverage
     Cat_Coord_Range = {'RA_min': 208.559, 'RA_max': 220.391, 'Dec_min': 51.2113, 'Dec_max': 57.8033}
+
+    Image_Coord_Range = cfhtls_meta.Image_Coord_Range
+    Tile_Dict = cfhtls_meta.HSC_META_DICT
 
     mean_FWHM = 0#0.15 #typical use for photometric aperture, but is too good here ... objects that are point
                     #sources may be resolved with HST
