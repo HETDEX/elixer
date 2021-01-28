@@ -993,6 +993,25 @@ class SDSS(cat_base.Catalog):#SDSS
                     details['filter_name']=filter
                     d['mag_limit']=self.get_mag_limit(None,mag_radius*2.)
                     if (mag is not None) and (mag < 999):
+                        if d['mag_limit'] and (d['mag_limit'] < mag < 100):
+                            log.warning(f"Cutout mag {mag} greater than limit {d['mag_limit']}. Setting to limit.")
+                            details['fail_mag_limit'] = True
+                            details['raw_mag'] = mag
+                            details['raw_mag_bright'] = details['mag_bright']
+                            details['raw_mag_faint'] = details['mag_faint']
+                            details['raw_mag_err'] = details['mag_err']
+                            mag = d['mag_limit']
+                            details['mag'] = mag
+
+                            try:
+                                details['mag_bright'] = min(mag,details['mag_bright'])
+                            except:
+                                details['mag_bright'] = mag
+                            try:
+                                details['mag_faint'] = max(mag,G.MAX_MAG_FAINT)
+                            except:
+                                details['mag_faint'] = G.MAX_MAG_FAINT
+
                         d['mag'] = mag
                         d['aperture'] = mag_radius
                         d['ap_center'] = (sci.last_x0_center, sci.last_y0_center)

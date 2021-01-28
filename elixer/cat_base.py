@@ -967,6 +967,10 @@ class Catalog:
         for k in best_dict.keys():
             if best_dict[k]['depth']: # a best depth is set
                 index += 1
+                if index >= cols:
+                    log.info("Reached maximum number of filters to display. Skipping remainder.")
+                    break
+
                 _ = plt.subplot(gs[1:, index])
                 the_entry = list_of_cutouts[best_dict[k]['cat_idx']][best_dict[k]['cutout_idx']]
 
@@ -978,11 +982,14 @@ class Catalog:
                        vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
 
                 if the_entry['instrument']:
-                    name = the_entry['instrument']
+                    name = the_entry['instrument'][0:10]
                 elif the_entry['details'] and the_entry['details']['catalog_name']:
                     name = the_entry['details']['catalog_name'][0:10]
                 else:
                     name = "---"
+
+                if the_entry['mag_limit'] and the_entry['mag_limit'] < 99.9:
+                    name += f"({the_entry['mag_limit']:0.1f})"
 
                 if the_entry['filter']:
                     filter = the_entry['filter']
@@ -1293,7 +1300,7 @@ class Catalog:
                 else:
                     #+0.2 for about a 20% error on the mag_limit (allowing for measurement error and often
                     #smaller aperture size than what was used to measure the limit)
-                    if c['mag_limit'] and c['mag_limit'] < 99.0 and c['mag'] > (c['mag_limit'] + 0.2):
+                    if c['mag_limit'] and (c['mag_limit'] < 99.0) and c['mag'] and (c['mag'] > (c['mag_limit'] + 0.2)):
                         details['fail_mag_limit']=True
                         details['raw_mag'] = mag
                         details['raw_mag_bright'] = details['mag_bright']
@@ -1772,36 +1779,39 @@ class Catalog:
 
     def add_aperture_position(self,plt,radius,mag=None,cx=0,cy=0,ew=None,plae=None,distance_to_center=None):
             # over plot a circle of radius on the center of the image (assumed to be the photo-aperture)
-            if radius > 0:
-                log.debug("Plotting imaging aperture position...")
+            try:
+                if radius:
+                    log.debug("Plotting imaging aperture position...")
 
-                if (cx is None) or (cy is None):
-                    cx = 0
-                    cy = 0
+                    if (cx is None) or (cy is None):
+                        cx = 0
+                        cy = 0
 
-                if distance_to_center is None:
-                    distance_to_center = np.sqrt(cx*cx+cy*cy)
+                    if distance_to_center is None:
+                        distance_to_center = np.sqrt(cx*cx+cy*cy)
 
-                try:
-                    plt.gca().add_patch(plt.Circle((cx,cy), radius=radius, color='gold', fill=False,
-                                                   linestyle='solid'))
+                    try:
+                        plt.gca().add_patch(plt.Circle((cx,cy), radius=radius, color='gold', fill=False,
+                                                       linestyle='solid'))
 
-                    #temporary
-                    if mag is not None:
-                        label = "m:%0.1f rc:%0.1f\"  s:%0.1f\"" % (mag,radius,distance_to_center)
+                        #temporary
+                        if mag is not None:
+                            label = "m:%0.1f rc:%0.1f\"  s:%0.1f\"" % (mag,radius,distance_to_center)
 
-                        if ew is not None:
-                            label += "\n EWr: %0.0f" %(ew)
-                            if plae is not None:
-                                label += ", PLAE: %0.4g" %(round(plae, 3))
+                            if ew is not None:
+                                label += "\n EWr: %0.0f" %(ew)
+                                if plae is not None:
+                                    label += ", PLAE: %0.4g" %(round(plae, 3))
 
-                        plt.xlabel(label)
-                        plt.gca().xaxis.labelpad = 0
-                        plt.subplots_adjust(bottom=0.1)
-                        #plt.tight_layout()
+                            plt.xlabel(label)
+                            plt.gca().xaxis.labelpad = 0
+                            plt.subplots_adjust(bottom=0.1)
+                            #plt.tight_layout()
 
-                except:
-                    log.error("Unable to overplot aperture position.",exc_info=True)
+                    except:
+                        log.error("Unable to overplot aperture position.",exc_info=True)
+            except:
+                log.error("Unable to overplot aperture position.",exc_info=True)
 
 
     def add_elliptical_aperture_positions(self,plt,ellipse_objs,selected_idx=None,radius=None,mag=None,cx=0,cy=0,ew=None,plae=None):
@@ -2082,10 +2092,29 @@ class Catalog:
                if details:
                    d['details'] = details
 
-               if (mag is not None) and (mag < 999):
+                   if d['mag_limit'] and (d['mag_limit'] < mag < 100):
+                       log.warning(f"Cutout mag {mag} greater than limit {d['mag_limit']}. Setting to limit.")
+                       details['fail_mag_limit'] = True
+                       details['raw_mag'] = mag
+                       details['raw_mag_bright'] = details['mag_bright']
+                       details['raw_mag_faint'] = details['mag_faint']
+                       details['raw_mag_err'] = details['mag_err']
+                       mag = d['mag_limit']
+                       details['mag'] = mag
+
+                       try:
+                           details['mag_bright'] = min(mag,details['mag_bright'])
+                       except:
+                           details['mag_bright'] = mag
+                       try:
+                           details['mag_faint'] = max(mag,G.MAX_MAG_FAINT)
+                       except:
+                           details['mag_faint'] = G.MAX_MAG_FAINT
+
                    d['mag'] = mag
                    d['aperture'] = mag_radius
                    d['ap_center'] = (sci.last_x0_center, sci.last_y0_center)
+                   d['details'] = details
         except:
             log.error("Error in get_single_cutout.",exc_info=True)
 

@@ -118,7 +118,7 @@ class DECALS(cat_base.Catalog):
 
             try:
                 df = pd.read_csv(cat_loc, names=header,
-                                 delim_whitespace=True, header=None, index_col=None, skiprows=0)
+                                 delim_whitespace=True, header=None, index_col=False, skiprows=0)
 
                 old_names = ['Dec']
                 new_names = ['DEC']
@@ -1138,6 +1138,25 @@ class DECALS(cat_base.Catalog):
                 details['filter_name']=catalog_image['filter']
                 d['mag_limit']=self.get_mag_limit(catalog_image['name'],mag_radius*2.)
                 if (mag is not None) and (mag < 999):
+                    if d['mag_limit'] and (d['mag_limit'] < mag < 100):
+                        log.warning(f"Cutout mag {mag} greater than limit {d['mag_limit']}. Setting to limit.")
+                        details['fail_mag_limit'] = True
+                        details['raw_mag'] = mag
+                        details['raw_mag_bright'] = details['mag_bright']
+                        details['raw_mag_faint'] = details['mag_faint']
+                        details['raw_mag_err'] = details['mag_err']
+                        mag = d['mag_limit']
+                        details['mag'] = mag
+
+                        try:
+                            details['mag_bright'] = min(mag,details['mag_bright'])
+                        except:
+                            details['mag_bright'] = mag
+                        try:
+                            details['mag_faint'] = max(mag,G.MAX_MAG_FAINT)
+                        except:
+                            details['mag_faint'] = G.MAX_MAG_FAINT
+
                     d['mag'] = mag
                     d['aperture'] = mag_radius
                     d['ap_center'] = (sci.last_x0_center, sci.last_y0_center)

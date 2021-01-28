@@ -395,10 +395,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         try:
             if keep_f:
                 df = pd.read_csv(f, names=header,
-                             delim_whitespace=True, header=None, index_col=None, skiprows=0)
+                             delim_whitespace=True, header=None, index_col=False, skiprows=0)
             else:
                 df = pd.read_csv(catalog_loc, names=header,
-                             delim_whitespace=True, header=None, index_col=None, skiprows=skip)
+                             delim_whitespace=True, header=None, index_col=False, skiprows=skip)
         except:
             log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
             if keep_f:
@@ -452,7 +452,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         try: #for now, just use the few columns needed (ID,RA,DEC,z_best,G,eG)
             df = pd.read_csv(catalog_loc, names=header,dtype=dtypes,usecols = [0,1,2,6,26,32],
                              na_values= ['*********'],
-                             delim_whitespace=True, header=None, index_col=None, skiprows=0)
+                             delim_whitespace=True, header=None, index_col=False, skiprows=0)
         except:
             log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
             return None

@@ -311,10 +311,10 @@ class GOODS_N(cat_base.Catalog):
         try:
             if keep_f:
                 df = pd.read_csv(f, names=header,
-                                 delim_whitespace=True, header=None, index_col=None, skiprows=0)
+                                 delim_whitespace=True, header=None, index_col=False, skiprows=0)
             else:
                 df = pd.read_csv(catalog_loc, names=header,
-                                 delim_whitespace=True, header=None, index_col=None, skiprows=skip)
+                                 delim_whitespace=True, header=None, index_col=False, skiprows=skip)
 
             old_names = ['ID (H-band SExtractor ID)', 'IAU_Name','RA (J2000, H-band)', 'DEC (J2000, H-band)']
             new_names = ['ID', 'IAU_designation','RA', 'DEC']

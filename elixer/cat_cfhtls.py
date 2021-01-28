@@ -100,7 +100,9 @@ class CFHTLS(cat_base.Catalog):
         Tile_Dict[k]['filter'] = Tile_Dict[k]['filter'][0] #all of form r.MP9601
 
     mean_FWHM = 0.6 #just a rough value (seems to be 0.6 - 1.0)
-    MAG_LIMIT = 26.0 #rough estimate, needs to be done per tile
+    #checking just the W_r with 1" and 2" 2000x at 5sigma, consistently about 26.2 (25.3)
+    MAG_LIMIT = 26.0 #for the _W_?_ images; rough estimate, needs to be done per tile (about the same as HSC)
+    MAG_LIMIT_DEEP = 27.3 # for the D3.xx.xx images
 
     WCS_Manual = False
     CONT_EST_BASE = None
@@ -110,6 +112,7 @@ class CFHTLS(cat_base.Catalog):
     loaded_tiles = []
     photz_df = None
 
+    #for the CFHTLS_W_* catalogs
     BidCols = [
         'NUMBER',
         'X_IMAGE',
@@ -263,6 +266,54 @@ class CFHTLS(cat_base.Catalog):
     # 180 FLAGS                  Extraction flags
     # 181 CLASS_STAR             S/G classifier output
 
+    #for the D3.x catalogs
+    BidCols_Deep = [
+        'NUMBER',
+        'X_IMAGE',
+        'Y_IMAGE',
+        'ALPHA_J2000',
+        'DELTA_J2000',
+        'MAG_AUTO',
+        'MAGERR_AUTO',
+        'MAG_BEST',
+        'MAGERR_BEST',
+        'MAG_APER',
+        'A_WORLD',
+        'ERRA_WORLD',
+        'B_WORLD',
+        'ERRB_WORLD',
+        'THETA_J2000',
+        'ERRTHETA_J2000',
+        'ISOAREA_IMAGE',
+        'MU_MAX',
+        'FLUX_RADIUS',
+        'FLAGS',
+    ]
+
+    #deep imaging
+    #   1 NUMBER          Running object number
+    #   2 X_IMAGE         Object position along x                         [pixel]
+    #   3 Y_IMAGE         Object position along y                         [pixel]
+    #   4 ALPHA_J2000     Right ascension of barycenter (J2000)           [deg]
+    #   5 DELTA_J2000     Declination of barycenter (J2000)               [deg]
+    #   6 MAG_AUTO        Kron-like elliptical aperture magnitude         [mag]
+    #   7 MAGERR_AUTO     RMS error for AUTO magnitude                    [mag]
+    #   8 MAG_BEST        Best of MAG_AUTO and MAG_ISOCOR                 [mag]
+    #   9 MAGERR_BEST     RMS error for MAG_BEST                          [mag]
+    #  10 MAG_APER        Fixed aperture magnitude vector                 [mag]
+    #  11 MAGERR_APER     RMS error vector for fixed aperture mag.        [mag]
+    #  12 A_WORLD         Profile RMS along major axis (world units)      [deg]
+    #  13 ERRA_WORLD      World RMS position error along major axis       [pixel]
+    #  14 B_WORLD         Profile RMS along minor axis (world units)      [deg]
+    #  15 ERRB_WORLD      World RMS position error along minor axis       [pixel]
+    #  16 THETA_J2000     Position angle (east of north) (J2000)          [deg]
+    #  17 ERRTHETA_J2000  J2000 error ellipse pos. angle (east of north)  [deg]
+    #  18 ISOAREA_IMAGE   Isophotal area above Analysis threshold         [pixel**2]
+    #  19 MU_MAX          Peak surface brightness above background        [mag * arcsec**(-2)]
+    #  20 FLUX_RADIUS     Fraction-of-light radii                         [pixel]
+    #  21 FLAGS           Extraction flags
+
+
 
     def __init__(self):
         super(CFHTLS, self).__init__()
@@ -327,13 +378,16 @@ class CFHTLS(cat_base.Catalog):
             return cls.df
 
         #todo: future more than just the R filter if any are ever added
-        header = cls.BidCols
+        if tile[0:2]=="D3":
+            header=cls.BidCols_Deep
+        else:
+            header = cls.BidCols
 
         log.debug("Building " + cls.Name + " " + tile + " dataframe...")
 
         try:
-            df = pd.read_csv(fqtile, names=header,
-                             delim_whitespace=True, header=None, index_col=None, skiprows=0)
+            df = pd.read_csv(fqtile, names=header,comment='#',
+                             delim_whitespace=True, header=None, index_col=False, skiprows=0)
 
             old_names = ['ALPHA_J2000','DELTA_J2000']
             new_names = ['RA','DEC']
@@ -395,7 +449,7 @@ class CFHTLS(cat_base.Catalog):
         try: #for now, just use the few columns needed (ID,RA,DEC,z_best,G,eG)
             df = pd.read_csv(catalog_loc, names=header,dtype=dtypes,usecols = [0,1,2,6,26,32],
                              na_values= ['*********'],
-                             delim_whitespace=True, header=None, index_col=None, skiprows=0)
+                             delim_whitespace=True, header=None, index_col=False, skiprows=0)
         except:
             log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
             return None
@@ -435,6 +489,27 @@ class CFHTLS(cat_base.Catalog):
             except:
                 log.error("Exception building CatalogImages in cat_cfhtls.",exc_info=True)
 
+    def get_mag_limit(self,image_identification=None,aperture_diameter=None):
+        """
+            to be overwritten by subclasses to return their particular format of maglimit
+
+            :param image_identification: some way (sub-class specific) to identify which image
+                    HERE we want a tuple ... [0] = tile name and [1] = filter name
+            :param aperture_diameter: in arcsec
+            :return:
+        """
+
+        try:
+            if image_identification and image_identification[0:2] == "D3":
+                return self.MAG_LIMIT_DEEP
+            else:
+                return self.MAG_LIMIT
+        except:
+            log.warning("cat_cfhtls.py get_mag_limit fail.",exc_info=True)
+            try:
+                return self.MAG_LIMIT
+            except:
+                return 99.9
 
     def get_filter_flux(self,df):
         """
@@ -462,14 +537,23 @@ class CFHTLS(cat_base.Catalog):
 
             #turn the counts into uJy? don't have a conversion from counts, but that is wrapped in the mags, so
             #just use them
+            try:
+                mag = df['MAG_ISO'].values[0]
+                mag_bright = mag - df['MAGERR_ISO'].values[0]
+                mag_faint = mag + df['MAGERR_ISO'].values[0]
 
-            mag = df['MAG_ISO'].values[0]
-            mag_bright = mag - df['MAGERR_ISO'].values[0]
-            mag_faint = mag + df['MAGERR_ISO'].values[0]
+                filter_fl = 10**(-0.4*mag) * 3631.0e6 #uJy
+                filter_fl_err = df['FLUXERR_ISO'].values[0]/df['FLUX_ISO'].values[0] * filter_fl
+            except:
+                try:
+                    mag = df['MAG_BEST'].values[0]
+                    mag_bright = mag - df['MAGERR_BEST'].values[0]
+                    mag_faint = mag + df['MAGERR_BEST'].values[0]
 
-            filter_fl = 10**(-0.4*mag) * 3631.0e6 #uJy
-            filter_fl_err = df['FLUXERR_ISO'].values[0]/df['FLUX_ISO'].values[0] * filter_fl
-
+                    filter_fl = 10**(-0.4*mag) * 3631.0e6 #uJy
+                    filter_fl_err = 0.5 * (10**(-0.4*mag_bright) - 10**(-0.4*mag_faint)) * 3631.0e6
+                except:
+                    pass
         except:
             pass
 
@@ -491,10 +575,11 @@ class CFHTLS(cat_base.Catalog):
                     continue
                 else:
                     #adjust out the filter
-                    #two unique names: D3.I.1_20558_1_21553.fits and CFHTLS_D-25_g_141927+524056_T0007_SIGWEI.fits
+                    # removed# two unique names: D3.I.1_20558_1_21553.fits and CFHTLS_D-25_g_141927+524056_T0007_SIGWEI.fits
+                    #D3.?.fits
                     #otherwise all are like: 'CFHTLS_W_u_141123+562231_T0007_MEDIAN.fits'
                     if k[0:2] == "D3":
-                        cur_tile = k
+                        cur_tile = "D3.?.fits"
                     else:
                         toks = k.split("_")
                         if toks[1] == "D-25":
@@ -519,12 +604,19 @@ class CFHTLS(cat_base.Catalog):
             min = 9e9
             #we don't have the actual corners anymore, so just assume a rectangle
             #so there are 2 of each min, max coords. Only need the smallest distance so just sum one
-            for k in keys:
-                sqdist = (ra-self.Tile_Dict[k]['RA_min'])**2 + (dec-self.Tile_Dict[k]['Dec_min'])**2 + \
-                         (ra-self.Tile_Dict[k]['RA_max'])**2 + (dec-self.Tile_Dict[k]['Dec_max'])**2
-                if sqdist < min:
-                    min = sqdist
-                    tile = k
+            #these still have the '?' for the filter
+
+            #use the deep imaging if that is available, otherwise, choose the more central tile
+            if "D3.?.fits" in keys:
+                tile = "D3.?.fits"
+            else:
+                for k in keys:
+                    adjusted_key = k.replace('?','r')
+                    sqdist = (ra-self.Tile_Dict[adjusted_key]['RA_min'])**2 + (dec-self.Tile_Dict[adjusted_key]['Dec_min'])**2 + \
+                             (ra-self.Tile_Dict[adjusted_key]['RA_max'])**2 + (dec-self.Tile_Dict[adjusted_key]['Dec_max'])**2
+                    if sqdist < min:
+                        min = sqdist
+                        tile = k
 
         else: #really?? len(keys) < 0 : this is just a sanity catch
             log.error("ERROR! len(keys) < 0 in cat_cfhtls::find_target_tile.")
@@ -753,6 +845,25 @@ class CFHTLS(cat_base.Catalog):
                 details['filter_name']=catalog_image['filter']
                 d['mag_limit']=self.get_mag_limit(catalog_image['name'],mag_radius*2.)
                 if (mag is not None) and (mag < 999):
+                    if d['mag_limit'] and (d['mag_limit'] < mag < 100):
+                        log.warning(f"Cutout mag {mag} greater than limit {d['mag_limit']}. Setting to limit.")
+                        details['fail_mag_limit'] = True
+                        details['raw_mag'] = mag
+                        details['raw_mag_bright'] = details['mag_bright']
+                        details['raw_mag_faint'] = details['mag_faint']
+                        details['raw_mag_err'] = details['mag_err']
+                        mag = d['mag_limit']
+                        details['mag'] = mag
+
+                        try:
+                            details['mag_bright'] = min(mag,details['mag_bright'])
+                        except:
+                            details['mag_bright'] = mag
+                        try:
+                            details['mag_faint'] = max(mag,G.MAX_MAG_FAINT)
+                        except:
+                            details['mag_faint'] = G.MAX_MAG_FAINT
+
                     d['mag'] = mag
                     d['aperture'] = mag_radius
                     d['ap_center'] = (sci.last_x0_center, sci.last_y0_center)

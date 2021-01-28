@@ -1,6 +1,10 @@
+#note: renamed the D3.X. files with lower-case filter leter
 CFHTLS_META_DICT = {
-'D3.I.1_20558_1_21553.fits': {'RA_min':213.970334,'RA_max':215.744140,'Dec_min':52.120564,'Dec_max':53.233563,'instrument':'MegaPrime','filter':'i.MP9701','path':'/scratch/03261/polonius/hdr2.1.2/imaging/cfhtls/D3.I.1_20558_1_21553.fits'},
-'CFHTLS_D-25_g_141927+524056_T0007_SIGWEI.fits': {'RA_min':214.028325,'RA_max':215.696675,'Dec_min':52.179473,'Dec_max':53.179249,'instrument':'MegaPrime','filter':'g.MP9401','path':'/scratch/03261/polonius/hdr2.1.2/imaging/cfhtls/CFHTLS_D-25_g_141927+524056_T0007_SIGWEI.fits'},
+'D3.u.fits': {'RA_min':213.970334,'RA_max':215.744140,'Dec_min':52.120564,'Dec_max':53.233563,'instrument':'MegaPrime','filter':'u.MP9301','path':'/scratch/03261/polonius/hdr2.1.2/imaging/cfhtls/D3.U.fits'},
+'D3.i.fits': {'RA_min':213.970334,'RA_max':215.744140,'Dec_min':52.120564,'Dec_max':53.233563,'instrument':'MegaPrime','filter':'i.MP9701','path':'/scratch/03261/polonius/hdr2.1.2/imaging/cfhtls/D3.I.fits'},
+'D3.r.fits': {'RA_min':213.970334,'RA_max':215.744140,'Dec_min':52.120564,'Dec_max':53.233563,'instrument':'MegaPrime','filter':'r.MP9601','path':'/scratch/03261/polonius/hdr2.1.2/imaging/cfhtls/D3.R.fits'},
+'D3.z.fits': {'RA_min':213.970334,'RA_max':215.744140,'Dec_min':52.120564,'Dec_max':53.233563,'instrument':'MegaPrime','filter':'z.MP9801','path':'/scratch/03261/polonius/hdr2.1.2/imaging/cfhtls/D3.Z.fits'},
+'D3.g.fits': {'RA_min':213.970334,'RA_max':215.744140,'Dec_min':52.120564,'Dec_max':53.233563,'instrument':'MegaPrime','filter':'g.MP9401','path':'/scratch/03261/polonius/hdr2.1.2/imaging/cfhtls/D3.G.fits'},
 'CFHTLS_W_u_141147+533431_T0007_MEDIAN.fits': {'RA_min':212.094402,'RA_max':213.798432,'Dec_min':53.072436,'Dec_max':54.072208,'instrument':'MegaPrime','filter':'u.MP9301','path':'/scratch/03261/polonius/hdr2.1.2/imaging/cfhtls/CFHTLS_W_u_141147+533431_T0007_MEDIAN.fits'},
 'CFHTLS_W_u_142417+552631_T0007_MEDIAN.fits': {'RA_min':215.177346,'RA_max':216.962571,'Dec_min':54.938897,'Dec_max':55.938658,'instrument':'MegaPrime','filter':'u.MP9301','path':'/scratch/03261/polonius/hdr2.1.2/imaging/cfhtls/CFHTLS_W_u_142417+552631_T0007_MEDIAN.fits'},
 'CFHTLS_W_u_142953+523831_T0007_MEDIAN.fits': {'RA_min':216.637649,'RA_max':218.304434,'Dec_min':52.139199,'Dec_max':53.138975,'instrument':'MegaPrime','filter':'u.MP9301','path':'/scratch/03261/polonius/hdr2.1.2/imaging/cfhtls/CFHTLS_W_u_142953+523831_T0007_MEDIAN.fits'},

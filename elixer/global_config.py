@@ -467,6 +467,8 @@ def select_hdr_version(version):
 
         #always on TACC (not stored locally), imaging and catalog tiles are together in same directory
         CFHTLS_BASE_PATH = op.join(HETDEX_API_CONFIG.imaging_dir,"cfhtls")
+        # print("!!!!! Temporary CFHTLS BASE PATH !!!!!!!")
+        # CFHTLS_BASE_PATH = "/scratch/03261/polonius/hdr2.1.2/imaging/cfhtls"
         if op.exists(op.join(HETDEX_API_CONFIG.imaging_dir,"cfhtls/photozCFHTLS-W3_270912.out")):
             CFHTLS_PHOTOZ_CAT = op.join(HETDEX_API_CONFIG.imaging_dir,"cfhtls/photozCFHTLS-W3_270912.out")
         else:

@@ -36,8 +36,8 @@ def main():
 
     #can be one or more directories between the image files
     #files = os.listdir(img_path)
-    files = glob2.glob(img_path + "D3*.fits")
-    files += glob2.glob(img_path + "CFHTLS_D*.fits")
+    files = glob2.glob(img_path + "D3.?.fits")
+    #files += glob2.glob(img_path + "CFHTLS_D*.fits")
     files += glob2.glob(img_path + "CFHTLS_W*.fits")
 
 
