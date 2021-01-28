@@ -414,7 +414,7 @@ class CFHTLS(cat_base.Catalog):
         else:
             try:
                 print("Reading photoz catalog for ", cls.Name)
-                cls.df_photoz = cls.read_chftls_catalog(cls.CFHTLS_PhotoZCatalog, cls.Name)
+                cls.df_photoz = cls.read_chftls_photz_catalog(cls.CFHTLS_PhotoZCatalog, cls.Name)
             except:
                 print("Failed")
 
@@ -450,6 +450,11 @@ class CFHTLS(cat_base.Catalog):
             df = pd.read_csv(catalog_loc, names=header,dtype=dtypes,usecols = [0,1,2,6,26,32],
                              na_values= ['*********'],
                              delim_whitespace=True, header=None, index_col=False, skiprows=0)
+
+            #for cloned compatibility with CANDELS phot-z catalog
+            df['file'] = None
+            df['z_best_type'] = 'p'
+            df['mFDa4_z_weight'] = None
         except:
             log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
             return None
@@ -994,17 +999,46 @@ class CFHTLS(cat_base.Catalog):
             #create an empty list of counterparts under the 1st cutout
             #counterparts are not filter specific, so we will just keep one list under the 1st cutout
 
+            #go ahead and get the photz catalog now if within rough range
+
+            if self.df_photoz is None and (208.559 < ra < 220.391) and (51.211 < dec < 57.804):
+                self.read_photoz_catalog()
+
+            #and try to match up bid_ras and bid_decs
+
+
+
         target_count = 0
         # targets are in order of increasing distance
         for r, d in zip(bid_ras, bid_decs):
             target_count += 1
             if target_count > G.MAX_COMBINE_BID_TARGETS:
                 break
-
+            df = None
+            df_photz=None
+            phot_z = None
             try: #DO NOT WANT _unique as that has wiped out the filters
                 df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                        (self.dataframe_of_bid_targets['DEC'] == d[0])]
                 #multiple filters
+                #try to match up with photz
+                if df is not None:
+                    coord_error = 0.5/3600. #arcsec
+                    #todo: allow for RA adjustment based on dec (but at 0.5" is pretty small error even at higher dec)
+                    ra_min = r[0] - coord_error
+                    ra_max = r[0] + coord_error
+                    dec_min = d[0] - coord_error
+                    dec_max = d[0] + coord_error
+                    try:
+                        df_photz= self.df_photoz[(self.df_photoz['RA'] >= ra_min) & (self.df_photoz['RA'] <= ra_max) &
+                                                 (self.df_photoz['DEC'] >= dec_min) & (self.df_photoz['DEC'] <= dec_max)].copy()
+
+                        #todo: check for number of hits and select best if more than one?
+                        if (df_photz is not None) and len(df_photz) == 1: #singular match ... if more than one, can I actually narrow it down?
+                            phot_z = df_photz['z_best'].values[0]
+
+                    except:
+                        log.info(self.Name + " Exception in build_list_of_bid_targets", exc_info=True)
 
             except:
                 log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
@@ -1045,6 +1079,8 @@ class CFHTLS(cat_base.Catalog):
                             bid_target.bid_mag_err_bright = filter_mag_bright
                             bid_target.bid_mag_err_faint = filter_mag_faint
                             bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
+                            if phot_z is not None:
+                                bid_target.phot_z = phot_z
 
                             if target_w:
                                 try:
