@@ -84,7 +84,7 @@ class CFHTLS(cat_base.Catalog):
 
     # class variables
     MainCatalog = None
-    Name = "CFHTLS"
+    Name = "MegaPrime/CFHTLS"
 
     #Image_Coord_Range = {'RA_min':208.529266, 'RA_max':220.420734, 'Dec_min':51.205958, 'Dec_max':57.805087}
     Image_Coord_Range = cfhtls_meta.Image_Coord_Range

@@ -6,6 +6,7 @@ from __future__ import print_function
 #
 # todo: rework for WISE
 # http://unwise.me/cutout_fits?version=neo1&ra=41&dec=10&size=100&bands=12
+# https://www.legacysurvey.org/viewer/fits-cutout?ra=202.46911&dec=47.1911&layer=unwise-neo6&bands=1  or  = 2
 #
 
 try:
@@ -56,17 +57,13 @@ pd.options.mode.chained_assignment = None  #turn off warning about setting the d
 
 
 
-def decals_count_to_mag(count,cutout=None,headers=None):
-#from http://legacysurvey.org/dr8/description/
-#
-#The brightnesses of objects are all stored as linear fluxes in units of nanomaggies.
-# The conversion from linear fluxes to magnitudes is m=22.5-2.5log10(flux).
-# These linear fluxes are well-defined even at the faint end, and the errors on the linear fluxes
-# should be very close to a normal distribution. The fluxes can be negative for faint objects, and
-# indeed we expect many such cases for the faintest objects.
+def wise_count_to_mag(count,cutout=None,headers=None):
+    """
+    """
 
     try:
         if (count > 0):
+            print("wise_count_to_mag!!!! need to fix zero point")
             mag = -2.5*np.log10(count) + 22.5
         else:
             mag = 99.9
@@ -86,17 +83,13 @@ class WISE(cat_base.Catalog):#WISE
     # class variables
     CONT_EST_BASE = None
 
-    mean_FWHM = 1.67 #at 75% quartile for g-band ... varies also by filter, but this is good middle of the road limit
+    mean_FWHM = 6.0 #
     MainCatalog = None #there is no Main Catalog ... must load individual catalog tracts
     Name = "WISE"
-    Filters = ['g','r','z'] #case is important ... needs to be lowercase
-    #Filters = ['g','z'] #case is important ... needs to be lowercase
-    #Filters = ['r','z'] #case is important ... needs to be lowercase
-    WCS_Manual = False
-    MAG_LIMIT = 24.5 #closer to 24 for g (23.few for r)
+    Filters = ['l','m'] #band 1 = L = 3.6 micron , band 2 = M = 4.8 micron
 
-    # Cat_Coord_Range = {'RA_min': 188.915597, 'RA_max': 192.563471, 'Dec_min': 0.091438, 'Dec_max': 2.388316}
-    # Image_Coord_Range = {'RA_min': 0.0, 'RA_max': 358.9563471, 'Dec_min': -80.0, 'Dec_max': 80.0}
+    WCS_Manual = False
+    MAG_LIMIT = 24.0 #Don't know yet
 
     def __init__(self):
         super(WISE, self).__init__()
@@ -115,7 +108,7 @@ class WISE(cat_base.Catalog):#WISE
         z = 22.5                       ~ 10^9       -> 0.137
 
 
-        :param filter: g r or z
+        :param filter:
         :return:
         """
         factor = 1.0
@@ -236,7 +229,7 @@ class WISE(cat_base.Catalog):#WISE
         #     title = self.Name + " : Possible Matches = %d (within +/- %g\")" \
         #             % (len(self.dataframe_of_bid_targets_unique), error)
 
-        title = "DECaLS imaging only. (mag limit g~24.0, r~23.4, z~22.5)"
+        title = "WISE imaging only. "
 
         cont_est = -1
         # if target_flux and self.CONT_EST_BASE:
@@ -287,10 +280,12 @@ class WISE(cat_base.Catalog):#WISE
                 aperture = 0.0
                 mag_func = None
 
-            log.info("DECaLS query (%f,%f) at %f arcsec for band %s ..." % (ra, dec, query_radius, f))
+            #bands 1 and 2  (3.6micron and 4.8 micron, respectively)
+
+            log.info("legacy survey query (%f,%f) at %f arcsec for band %s ..." % (ra, dec, query_radius, f))
 
             #build up the request URL
-            url = "http://legacysurvey.org/viewer/fits-cutout?ra=%f&dec=%f&layer=%s&bands=%s" %(ra,dec,"ls-dr9",f)
+            url = "http://legacysurvey.org/viewer/fits-cutout?ra=%f&dec=%f&layer=%s&bands=%s" %(ra,dec,"unwise-neo2",f)
 
             #from http://legacysurvey.org/dr8/description/
             # The maximum size for cutouts( in number of pixels) is currently 512.
