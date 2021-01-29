@@ -1,13 +1,11 @@
 changes to elixer by version
 
-1.11.0a1 [020-01-22]
-* IN PROGRESSS *
-Major update to catalog organization to allow for inclusion of filters across multiple catalogs in report
+1.11.0a1 [020-01-29]
+* Major update to catalog organization to allow for inclusion of filters across multiple catalogs in report
     toggled by global_config::BUILD_REPORT_BY_FILTER
     All filters reported in elixer hdf5 file and up to 6 filters shown on the report (favoring bluer and deeper bands)
-Adding separate CFHTLS catalog
-Adding WISE (web only) catalog
-Add (restricted use) HSC NEP catalog
+* Add separate CFHTLS catalog
+* Add (restricted use) HSC NEP catalog
 * Fix mis-reported (0") distance to circular aperture center from HETDEX position when aperture allowed to drift
 * Apply meteor flux ratio multiplier if dither norm is overly large
 * Do not check for meteor if object position is off the IFU (the individual exposure triggers are unreliable)
