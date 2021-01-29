@@ -67,7 +67,7 @@ class KPNO(cat_base.Catalog):#Kitt Peak
 
     CONT_EST_BASE = None
 
-    MAG_LIMIT = 24.5 #-ish maybe up to 25 in some
+    MAG_LIMIT = 24.7 #-ish in 1" at 5-sigma maybe up to 25 in some (23.4 at 2")
 
     df = None
     loaded_tracts = []
