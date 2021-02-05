@@ -19,7 +19,7 @@ try:
     from elixer import cat_decals_web
     from elixer import cat_cfhtls
     #from elixer import cat_wise_web
-    from elixer import cat_hsc_nep
+    #from elixer import cat_hsc_nep
     # from elixer import cat_ast376_shela
 except:
     import global_config as G
@@ -37,7 +37,7 @@ except:
     import cat_decals_web
     import cat_cfhtls
     #import cat_wise_web
-    import cat_hsc_nep
+    #import cat_hsc_nep
     # from elixer import cat_ast376_shela
 
 # log = G.logging.getLogger('Cat_logger')

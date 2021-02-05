@@ -2875,6 +2875,7 @@ class Spectrum:
             EmissionLine("OIII".ljust(w), 5007, "lime",rank=1), #5008.240 (vacuum) 5006.843 (air)
             #EmissionLine("OIV".ljust(w), 1400, "lime", solution=False, display=True, rank=4),  # or 1393-1403 also OIV]
             # (alone after LyA falls off red end, no max wave)
+            #OVI doublet 1032 and 1037
             EmissionLine("OVI".ljust(w), 1035, "lime",solution=False,display=True,rank=3,
                          min_fwhm=12.0,min_obs_wave=4861.0-20.,max_obs_wave=5540.0+20.),
 
