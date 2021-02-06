@@ -402,7 +402,7 @@ class CFHTLS(cat_base.Catalog):
             cls.loaded_tiles.append(tile)
 
         except:
-            log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
+            log.error(name + ":" + fqtile + " Exception attempting to build pandas dataframe in read_tile_catalog()", exc_info=True)
             return None
 
         return cls.df
@@ -456,7 +456,7 @@ class CFHTLS(cat_base.Catalog):
             df['z_best_type'] = 'p'
             df['mFDa4_z_weight'] = None
         except:
-            log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
+            log.error(name + ":" + catalog_loc + " Exception attempting to build pandas dataframe in read_cfhtls_photz_catalog()", exc_info=True)
             return None
 
         return df

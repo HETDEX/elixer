@@ -1,6 +1,11 @@
 changes to elixer by version
 
-1.11.0a1 [020-01-29]
+1.11.0a2 [2020-02-05]
+* tweak P(Lya) physical size for high-z 25 to 40 kpc to vote from 0.5 to 0.1 (linearly ) and weight 0.1 to 1.0 (linearly)
+* updated pandas required version to >= 1.1.0 in setup.py
+
+
+1.11.0a1 [2020-01-29]
 * Major update to catalog organization to allow for inclusion of filters across multiple catalogs in report
     toggled by global_config::BUILD_REPORT_BY_FILTER
     All filters reported in elixer hdf5 file and up to 6 filters shown on the report (favoring bluer and deeper bands)

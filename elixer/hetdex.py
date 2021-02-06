@@ -1406,26 +1406,30 @@ class DetObj:
                         if diam > 40.0:  #just too big, favor not LAE
                             lk = 0.0
                             w = 1.0
-                        elif 30.0 < diam <= 40:
-                            #pretty big, favors OII at lower-z, but not very definitive
-                            #could maybe get some QSO in here?
-                            lk = 0.0
-                            w = 0.5
-                        elif 25.0 < diam <= 30:
-                            #pretty big, maybe favors OII at lower-z, but not very definitive
-                            #could get some QSO in here (brightness/width would help over rule this)
-                            lk = 0.0
-                            w = 0.1
+                        # elif 30.0 < diam <= 40:
+                        #     #pretty big, favors OII at lower-z, but not very definitive
+                        #     #could maybe get some QSO in here?
+                        #     lk = 0.0
+                        #     w = 0.5
+                        # elif 25.0 < diam <= 30:
+                        #     #pretty big, maybe favors OII at lower-z, but not very definitive
+                        #     #could get some QSO in here (brightness/width would help over rule this)
+                        #     lk = 0.0
+                        #     w = 0.1
+                        elif 25 < diam <= 40:
+                            lk = -2./75 * diam + 7./6. #from 0.5 to .1 linearly
+                            #w = 2./75. * diam - 17./30. #scaled from 0.1 to 0.5 linearly from diam 25 to 40
+                            w = 3./50. * diam - 7./5. #scaled from 0.1 to 1.0 linearly from diam 25 to 40
                         elif 20.0 < diam <= 25:
                             #pretty big, maybe favors OII at lower-z, but not very definitive
                             #could get some QSO in here (brightness/width would help over rule this)
-                            lk = 0.0
+                            lk = 0.5
                             w = 0.0
                         elif 15.0 < diam <= 20:
                             #not very useful
-                            lk = 0.0
+                            lk = 1.0
                             w = 0.0
-                        elif 8.0 < diam <=15.0:
+                        elif 8.0 < diam <=15.0: #in the range of typical seeing FWHM from the ground
                             lk = 1.0
                             w = 0.1 #does not add much info, but is consistent
                         elif 3.0 < diam <= 8.0:
@@ -1866,6 +1870,13 @@ class DetObj:
             weight = np.array(weight)
             var = np.array(var) #right now, this is just weight based, all variances are set to 1
             prior = np.array(prior) #not using Bayes yet, so this is ignored
+
+            logstring = f"P(Lya) weighted voting. {len(weight)} votes as (vote x weight)\n"
+            for i in range(len(weight)):
+                logstring += f"({likelihood[i]:0.4f}x{weight[i]})  "
+            # for l_vote,l_weight,l_var,l_prior in zip(likelihood,weight,var,prior):
+            #     logstring += f"({l_vote:0.4f}x{l_weight})  "
+            log.debug(logstring)
 
             try:
                 if len(likelihood) > 0:
