@@ -663,8 +663,10 @@ def parse_commandline(auto_force=False):
             G.DECALS_WEB_FORCE = False
 
     #if there is no fall back imaging, we should allow empty imaging
-    if (G.DECALS_WEB_ALLOW == False) and (G.PANSTARRS_ALLOW == False) and (G.SDSS_ALLOW == False):
-        G.ALLOW_EMPTY_IMAGE = True
+    #2020-02-06 This can create unwanted behavior, even though it is well intentioned; so keep the ALLOW_EMPTY_IMAGE
+    #as configured regardless of the settings to allow web calls
+    #if (G.DECALS_WEB_ALLOW == False) and (G.PANSTARRS_ALLOW == False) and (G.SDSS_ALLOW == False):
+    #    G.ALLOW_EMPTY_IMAGE = True
 
 
     if args.nophoto:
