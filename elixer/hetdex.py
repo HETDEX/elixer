@@ -1280,7 +1280,9 @@ class DetObj:
                         log.debug("Failed to meet additional meteor criteria. Likely not a meteor.")
 
                     #final check
-                    if (meteor == 0) and (spec_ratio > 20) and (full_ratio > 5) and (len(waves) <= 20):
+                    if (meteor == 0)  \
+                            and (((spec_ratio > 20) and (full_ratio > 5)) or ((spec_ratio > 40) and (full_ratio > 2.5))) \
+                            and (len(waves) <= 20):
                         if len(common_lines) > 0: #got at least one
                             meteor = 1
                             log.debug("+++++ meteor condition 1c")
