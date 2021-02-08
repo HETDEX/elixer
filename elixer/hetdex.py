@@ -918,7 +918,7 @@ class DetObj:
             off_edge = False
             try:
                 if (self.ifu_x is not None) and (self.ifu_y is not None) and \
-                    (-24.15 <= self.ifu_x <= 24.15) or (-24.24 <= self.ifu_y <= 24.24):
+                        not ((-24.15 <= self.ifu_x <= 24.15) or (-24.24 <= self.ifu_y <= 24.24)):
                     log.info(f"DetObj::check_for_meteor(). Position is off IFU edge ({self.ifu_x}, {self.ifu_y})")
                     off_edge = True
                     return 0 #todo: maybe still check with a modified trigger or dis-allow certain conditions?
