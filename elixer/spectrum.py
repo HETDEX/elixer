@@ -3780,6 +3780,16 @@ class Spectrum:
         :return:
         """
 
+        def rescale(wave):
+            #full scale at 3700 down to 1/2 scale at 3550 and below (noisiest section and on nasty sky-line), linear
+            try:
+                if wave < 3700:
+                    return  max(0.5,1./300. * wave - 34./3.)
+                else:
+                    return 1.0
+            except:
+                return 1.0
+
         try:
             if (self.all_found_lines is None):
                 self.all_found_lines = peakdet(self.wavelengths, self.values, self.errors,values_units=self.values_units)
@@ -3787,9 +3797,12 @@ class Spectrum:
             if self.all_found_lines is None or len(self.all_found_lines)==0:
                 return 0,0
 
-            unmatched_score_list = np.array([x.line_score for x in self.all_found_lines if 3550.0 < x.fit_x0 < 5500.0 ])
+            #tweak down the score for lines < 3700 (near, but blue of OII and well into the noisiest part)
+            unmatched_score_list = np.array([x.line_score * rescale(x.fit_x0)
+                                             for x in self.all_found_lines if 3550.0 < x.fit_x0 < 5500.0 ])
             unmatched_wave_list = np.array([x.fit_x0 for x in self.all_found_lines if 3550.0 < x.fit_x0 < 5500.0])
             solution_wave_list = np.array([solution.central_rest * (1.+solution.z)] + [x.w_obs for x in solution.lines])
+
 
             for line in solution_wave_list:
                 idx = np.where(abs(unmatched_wave_list-line) <= aa)[0]

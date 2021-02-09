@@ -1868,6 +1868,17 @@ class DetObj:
             # Combine them all
             #
 
+            try:
+                if len(weight) > 0 and np.sum(weight) < 1.0:
+                    tot_weight = np.sum(weight)
+                    log.info(f"Low voting weight ({tot_weight}). Adding in 0.5 vote at {1.0-tot_weight} weight.")
+                    likelihood.append(0.5)
+                    weight.append(1.0 - np.sum(weight))
+                    var.append(1.0)
+                    prior.append(0.5)
+            except:
+                pass
+
             likelihood = np.array(likelihood)
             weight = np.array(weight)
             var = np.array(var) #right now, this is just weight based, all variances are set to 1
