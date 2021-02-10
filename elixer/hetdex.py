@@ -1681,6 +1681,13 @@ class DetObj:
                 #scale the weight by the difference between the scaled PLAE and one SD below (or above)
                 # the closer they are to each other, the closer to the full weight you'd get)
                 #weight.append(0.7 * (1.0 - scale_plae_sd))  # opinion, not quite as strong as multiple lines
+
+                # the plae_gaussian_weight scales the weighting to zero at plae_hat == 1 (50/50 ... so no info)
+                # and increases the weight as you move toward 0.001 or 1000 over a gaussian (though max weight
+                # of 1.0 is hit around 0.05 or 20.0
+                # At the end, the insertion of a 0.5 vote with (1-sum(weights)) should not matter
+                # as, if this is sitting near a zero weight and is the only vote, that means we are sitting
+                # near PLAE/POII ~ 1 which is 0.5 P(LyA)
                 weight.append(plae_gaussian_weight(self.classification_dict['plae_hat']) * (1.0 - scale_plae_sd))
                 var.append(1)  # todo: use the sd (scaled?) #can't use straight up here since the variances are not
                                # on the same scale
@@ -2051,7 +2058,7 @@ class DetObj:
                 # set to good value if gmag < 24
                 cgs_24 = 1.35e-18  #1.35e-18 cgs ~ 24.0 mag in g-band
                 cgs_24p5 = 8.52e-19 #8.52e-19 cgs ~ 24.5 mag in g-band, get full marks at 24mag and fall to zero by 24.5
-                cgs_25 = 5.38e-19
+                cgs_25 = 5.38e-19 #g-mag
                 #if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_24p5:
                 #    frac = (self.sdss_cgs_cont - cgs_24)/(cgs_24 - cgs_24p5)
                 if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_25:
@@ -2228,15 +2235,25 @@ class DetObj:
         # set weight to zero if gmag > 25
         # set to low value if gmag > 24
         # set to good value if gmag < 24
-        cgs_24 = 1.35e-18  # 1.35e-18 cgs ~ 24.0 mag in g-band
-        cgs_24p5 = 8.52e-19  # 8.52e-19 cgs ~ 24.5 mag in g-band, get full marks at 24mag and fall to zero by 24.5
-        cgs_25 = 5.38e-19 #
-        cgs_26 = 2.14e-19
-        cgs_27 = 8.52e-20
-        cgs_28 = 3.39e-20
-        cgs_29 = 1.35e-20
-        cgs_30 = 5.38e-21
-        cgs_faint_limit = cgs_28
+        # cgs_24g = 1.35e-18  # 1.35e-18 cgs ~ 24.0 mag in g-band
+        # cgs_24p5g = 8.52e-19  # 8.52e-19 cgs ~ 24.5 mag in g-band, get full marks at 24mag and fall to zero by 24.5
+        # cgs_25g = 5.38e-19 #
+        # cgs_26g = 2.14e-19
+        # cgs_27g = 8.52e-20
+        # cgs_28g = 3.39e-20
+        # cgs_29g = 1.35e-20
+        # cgs_30g = 5.38e-21
+        #
+        # cgs_24r = 6.47e-19 #  24.0 mag in r-band
+        # cgs_24p5r = 4.08-19  # 8.52e-19 cgs ~ 24.5 mag in r-band, get full marks at 24mag and fall to zero by 24.5
+        # cgs_25r = 2.58e-19 #
+        # cgs_26r = 1.03-19
+        # cgs_27r = 4.08e-20
+        # cgs_28r = 1.63e-20
+        # cgs_29r = 6.47e-21
+        # cgs_30r = 2.58e-21
+
+        cgs_faint_limit = 1e-20 #HSC much fainter, but this is just a nominal value to use for error
 
         num_cat_match = 0 #number of catalog matched objects
         cat_idx = -1
@@ -2287,7 +2304,9 @@ class DetObj:
 
         # Best full width gmag continuum (HETDEX full width or SDSS gmag)
         try:
-            cgs_limit = cgs_25
+            cgs_25 = 5.38e-19
+            cgs_24 = 1.35e-18
+            cgs_limit = 5.38e-19#cgs_25g
             if (self.best_gmag_cgs_cont is not None) and (self.best_gmag_cgs_cont_unc is not None) and \
                (self.best_gmag_cgs_cont > 0) and (self.best_gmag_cgs_cont_unc > 0):
                 #if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_limit:
@@ -2394,6 +2413,9 @@ class DetObj:
                             #and this is especially off when using 'r' band, but this is how the PLAE/POII is used
                             #(with the continuum based at the observed wavelength)
                             lam = self.w #to be consistent with the use in PLAE/POII
+
+                            cgs_24 = SU.mag2cgs(24,lam)
+                            cgs_25 = SU.mag2cgs(25,lam)
 
                             if a['fail_mag_limit']:
                                 #mag is set to the (safety) mag limit
