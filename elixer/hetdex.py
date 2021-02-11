@@ -2372,14 +2372,20 @@ class DetObj:
                         #todo: ELiXer force aperture (no PLAE/POII right now, just counts and mag
                         # this would be forced_aperture = a['elixer_apertures'][a['elixer_aper_idx']]
 
+                        this_psf = None
                         try:
                             #use the first radius for the aperture (x2 for diameter)
                             #is based on the reported average PSF, so this is marginally okay
                             if a['elixer_apertures'] is not None:
-                                base_psf.append(a['elixer_apertures'][0]['radius']*2.0) #not quite the PSF, but similar
-                                log.debug(f"{self.entry_id} Combine ALL Continuum: Added base psf: "
-                                          f"{a['elixer_apertures'][0]['radius']*2.0} arcsec,"
-                                          f" filter ({a['filter_name']})")
+                                #base_psf.append(a['elixer_apertures'][0]['radius']*2.0) #not quite the PSF, but similar
+                                #the zeroth aperture (start) is defined to be FWHM/2 - 0.5
+                                this_psf = 2.0*(a['elixer_apertures'][0]['radius']-0.5)
+                                #only add if there is a matching source extractor radius
+                                # base_psf.append(this_psf)
+                                #
+                                # log.debug(f"{self.entry_id} Combine ALL Continuum: Added base psf: "
+                                #           f"{a['elixer_apertures'][0]['radius']*2.0} arcsec,"
+                                #           f" filter ({a['filter_name']})")
                         except:
                             log.debug("Exception handling base_psf in DetObj:combin_all_continuum", exc_info=True)
 
@@ -2391,6 +2397,10 @@ class DetObj:
                         try:
                             if (a['sep_objects'] is not None) and (a['sep_obj_idx'] is not None):
                                 best_guess_extent.append(a['sep_objects'][a['sep_obj_idx']]['a'])
+                                base_psf.append(this_psf)
+
+                                log.debug(f"{self.entry_id} Combine ALL Continuum: Added base psf: "
+                                      f"{this_psf} arcsec, filter ({a['filter_name']})")
                                 log.debug(f"{self.entry_id} Combine ALL Continuum: Added best guess extent added: "
                                       f"{a['sep_objects'][a['sep_obj_idx']]['a']:#.2g} arcsec,"
                                       f" filter ({a['filter_name']})")
@@ -2612,7 +2622,7 @@ class DetObj:
             best_guess_extent = np.array(best_guess_extent)
             base_psf = np.array(base_psf)
 
-            if len(best_guess_extent) == len(base_psf) > 0:
+            if (len(best_guess_extent) == len(base_psf)) and (len(base_psf) > 0):
                 size_in_psf = np.mean(best_guess_extent/base_psf) #usually only 1 or 2, so std makes no sense
                 best_guess_extent = np.mean(best_guess_extent)
         except:

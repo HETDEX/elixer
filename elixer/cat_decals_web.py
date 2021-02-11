@@ -79,14 +79,16 @@ class DECaLS(cat_base.Catalog):#DECaLS
     # class variables
     CONT_EST_BASE = None
 
-    mean_FWHM = 1.67 #at 75% quartile for g-band ... varies also by filter, but this is good middle of the road limit
+    #from https://arxiv.org/pdf/1804.08657.pdf, FWHM in g = 1.29, r = 1.18" so will call it 1.3
+
+    mean_FWHM = 1.3  #1.67 #at 75% quartile for g-band ... varies also by filter, but this is good middle of the road limit
     MainCatalog = None #there is no Main Catalog ... must load individual catalog tracts
     Name = "DECaLS"
     Filters = ['g','r','z'] #case is important ... needs to be lowercase
     #Filters = ['g','z'] #case is important ... needs to be lowercase
     #Filters = ['r','z'] #case is important ... needs to be lowercase
     WCS_Manual = False
-    MAG_LIMIT = 24.5 #closer to 24 for g (23.few for r)
+    MAG_LIMIT = 24.0 #closer to 24 for g (23.5 for r)
 
     # Cat_Coord_Range = {'RA_min': 188.915597, 'RA_max': 192.563471, 'Dec_min': 0.091438, 'Dec_max': 2.388316}
     # Image_Coord_Range = {'RA_min': 0.0, 'RA_max': 358.9563471, 'Dec_min': -80.0, 'Dec_max': 80.0}
