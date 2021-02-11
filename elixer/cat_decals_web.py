@@ -81,7 +81,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
 
     #from https://arxiv.org/pdf/1804.08657.pdf, FWHM in g = 1.29, r = 1.18" so will call it 1.3
 
-    mean_FWHM = 1.3  #1.67 #at 75% quartile for g-band ... varies also by filter, but this is good middle of the road limit
+    mean_FWHM = 1.67 #at 75% quartile for g-band ... varies also by filter, but this is good middle of the road limit
     MainCatalog = None #there is no Main Catalog ... must load individual catalog tracts
     Name = "DECaLS"
     Filters = ['g','r','z'] #case is important ... needs to be lowercase

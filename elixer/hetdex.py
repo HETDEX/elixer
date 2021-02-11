@@ -2009,189 +2009,191 @@ class DetObj:
 
             return p_lae_oii_ratio, plae_sd, size_in_psf, diam_in_arcsec
 
-
+        else:
+            log.error("ERROR. Unexpected call to combine_all_plae using old method not combining continua.")
+            return None,None,None,None
         #
         # older method comparing PLAE/POII instead of using composit spectrum as continuum estimate
         #
-
-        plae = [] #plae/poii ratio
-        variance = [] #variance or variance proxy
-        weight = [] #rules based weights
-
-        best_guess_extent = [] #from source extractor (f606w, g, r only)
-        base_psf = []
-        size_in_psf = None #estimate of extent in terms of PSF (sort-of)
-
-        #todo: evaluate each PLAE/POII ratio available and set the variance (proxy) and weight before summing up
-
-        #HETDEX PLAE
-        #what criteria to set weight? maybe really low chi^2 is good weight?
-        try:
-            if (self.hetdex_cont_cgs is not None) and (self.hetdex_cont_cgs_unc is not None):
-                hetdex_cont_limit =  G.HETDEX_CONTINUUM_FLUX_LIMIT #8.5e-19 #don't trust below this
-                if (self.hetdex_cont_cgs - self.hetdex_cont_cgs_unc) > hetdex_cont_limit:
-                    w = 0.2 #never very high
-                    p = self.p_lae_oii_ratio_range[0]
-                    if len(self.p_lae_oii_ratio_range > 3):
-                        v = self.p_lae_oii_ratio_range[3] * self.p_lae_oii_ratio_range[3]
-                    else:
-                        v = avg_var(self.p_lae_oii_ratio_range[0], self.p_lae_oii_ratio_range[1], self.p_lae_oii_ratio_range[2])
-
-                    # only add if p and v both successful
-                    plae.append(p)
-                    variance.append(v)
-                    weight.append(w)
-                    log.debug(f"{self.entry_id} Combine ALL PLAE: Added HETDEX: plae({p:#.4g}) var({v:#.4g}) weight({w:#.2f})")
-                else:
-                    log.debug(f"{self.entry_id} Combine ALL PLAE: Failed HETDEX estimate")
-                #else:
-                #    w = 0.0 #don't trust it
-        except:
-            log.debug("Exception handling HETDEX PLAE/POII in DetObj:combine_all_plae",exc_info=True)
-
-
-        #SDSS gmag PLAE
-        try:
-            if (self.sdss_cgs_cont is not None) and (self.sdss_cgs_cont_unc is not None):
-                # set weight to zero if gmag > 25
-                # set to low value if gmag > 24
-                # set to good value if gmag < 24
-                cgs_24 = 1.35e-18  #1.35e-18 cgs ~ 24.0 mag in g-band
-                cgs_24p5 = 8.52e-19 #8.52e-19 cgs ~ 24.5 mag in g-band, get full marks at 24mag and fall to zero by 24.5
-                cgs_25 = 5.38e-19 #g-mag
-                #if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_24p5:
-                #    frac = (self.sdss_cgs_cont - cgs_24)/(cgs_24 - cgs_24p5)
-                if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_25:
-                    frac = (self.sdss_cgs_cont - cgs_24) / (cgs_24 - cgs_25)
-                    # at 24mag this is zero, fainter goes negative, at 24.5 it is -1.0
-                    if frac > 0: #full weight
-                        w = 1.0
-                    else:
-                        w = 1.0 + frac #linear drop to zero at 8.52e-19
-                else:
-                    w = 0.0
-
-                if w > 0.0:
-                    p = self.sdss_gmag_p_lae_oii_ratio_range[0]
-
-                    if len(self.sdss_gmag_p_lae_oii_ratio_range > 3):
-                        v = self.sdss_gmag_p_lae_oii_ratio_range[3] * self.sdss_gmag_p_lae_oii_ratio_range[3]
-                    else:
-                        v = avg_var(self.sdss_gmag_p_lae_oii_ratio_range[0],
-                                self.sdss_gmag_p_lae_oii_ratio_range[1], self.sdss_gmag_p_lae_oii_ratio_range[2])
-
-                    # only add if p and v both successful
-                    plae.append(p)
-                    variance.append(v)
-                    weight.append(w)
-                    log.debug(f"{self.entry_id} Combine ALL PLAE: Added SDSS gmag: plae({p:#.4g}) var({v:#.4g}) weight({w:#.2f})")
-                else:
-                    log.debug(f"{self.entry_id} Combine ALL PLAE: Failed SDSS gmag estimate")
-
-        except:
-            log.debug("Exception handling SDSS gmag PLAE/POII in DetObj:combine_all_plae", exc_info=True)
-
-        #Best forced aperture PLAE
-        #how to set?? maybe always the same?
-        #iterate over all, g,r,606w all count with equal weight
-        try:
-            filters = ['f606w','g','r']
-            for a in self.aperture_details_list: #has both forced aperture and sextractor
-                try:
-                    if (a['filter_name'] is not None) and (a['filter_name'] in filters):
-                        #todo: ELiXer force aperture (no PLAE/POII right now, just counts and mag
-                        # this would be forced_aperture = a['elixer_apertures'][a['elixer_aper_idx']]
-
-                        try:
-                            #use the first radius for the aperture (x2 for diameter)
-                            #is based on the reported average PSF, so this is marginally okay
-                            if a['elixer_apertures'] is not None:
-                                base_psf.append(a['elixer_apertures'][0]['radius']*2.0) #not quite the PSF, but similar
-                                log.debug(f"{self.entry_id} Combine ALL PLAE: Added base psf: "
-                                          f"{a['elixer_apertures'][0]['radius']*2.0} arcsec,"
-                                          f" filter ({a['filter_name']})")
-                        except:
-                            log.debug("Exception handling base_psf in DetObj:combin_all_plae", exc_info=True)
-
-                        #todo: source extractor objects (no PLAE/POII right now, just counts and mag
-                        # this would be sextractor = a['sep_objects'][a['sep_obj_idx']]
-                        # adjust weight based on distance to barycenter if inside ellipse or to edge of ellipse if not
-
-                        #todo: this should be re-done in terms of the imaging catalog PSF
-                        try:
-                            if (a['sep_objects'] is not None) and (a['sep_obj_idx'] is not None):
-                                best_guess_extent.append(a['sep_objects'][a['sep_obj_idx']]['a'])
-                                log.debug(f"{self.entry_id} Combine ALL PLAE: Added best guess extent added: "
-                                      f"{a['sep_objects'][a['sep_obj_idx']]['a']:#.2g} arcsec,"
-                                      f" filter ({a['filter_name']})")
-                        except:
-                            log.debug("Exception handling best_guess_extent in DetObj:combin_all_plae",exc_info=True)
-
-                        #for now, just using the "best" selected by ELiXer
-                        if  a['aperture_plae'] is not None:
-                            p = a['aperture_plae']
-                            v = avg_var(a['aperture_plae'],a['aperture_plae_min'],a['aperture_plae_max'])
-                            w = 1.0
-
-                            #only add if p and v both successful
-                            plae.append(p)
-                            variance.append(v)
-                            weight.append(w)
-                            log.debug(f"{self.entry_id} Combine ALL PLAE: Added best guess filter: plae({p:#.4g}) "
-                                      f"var({v:#.4g}) weight({w:#.2f}) filter({a['filter_name']})")
-                except:
-                    log.debug("Exception handling individual forced aperture photometry PLAE/POII in DetObj:combine_all_plae",
-                              exc_info=True)
-        except:
-            log.debug("Exception handling forced aperture photometry PLAE/POII in DetObj:combine_all_plae", exc_info=True)
-
-        #?? Best catalog match PLAE ?? #do I even want to try to use this one?
-
-        try:
-            best_guess_extent = np.array(best_guess_extent)
-            base_psf = np.array(base_psf)
-
-            if len(best_guess_extent) == len(base_psf) > 0:
-                size_in_psf = np.mean(best_guess_extent/base_psf) #usually only 1 or 2, so std makes no sense
-                best_guess_extent = np.mean(best_guess_extent)
-
-        except:
-            pass
-
-        #sum up
-        try:
-            plae = np.array(plae)
-            variance = np.array(variance)
-            weight = np.array(weight)
-            #v2 = variance*variance
-
-            plae_hat = np.sum(plae * weight / variance) / np.sum(weight / variance)
-            plae_hat_sd = np.sqrt(np.sum(weight*variance)/np.sum(weight))
-
-            #todo: what about plae_hat uncertainty?
-            #todo: should I (instead of inverse variance) sample all like 250-1000 times from random distro
-            #todo: and sum only on weights, then take the mean and std, of the resulting histogram as the plae_hat and sd?
-
-
-            #todo: what about extra info now for Bayesian analysis? update our "beliefs" based on
-            #todo: obect extent? (consistent or inconsistent with PSF and thus with a point-source?)
-            #todo: slope of whole spectra or spectral features that would preclude LAE?
-            #todo: ELiXer line finder strongly suggesting mutlitple lines and NOT LAE?
-
-            log.debug(f"{self.entry_id} Combine ALL PLAE: Final estimate: plae_hat({plae_hat}) plae_hat_sd({plae_hat_sd}) "
-                      f"size in psf ({size_in_psf})")
-
-            self.classification_dict['plae_hat'] = plae_hat
-            self.classification_dict['plae_hat_sd'] = plae_hat_sd
-            self.classification_dict['size_in_psf'] = size_in_psf
-            self.classification_dict['diam_in_arcsec'] = best_guess_extent
-
-            return plae_hat, plae_hat_sd, size_in_psf, best_guess_extent
-        except:
-
-            log.debug("Exception handling estimation in DetObj:combine_all_plae", exc_info=True)
-
-        return None, None, None, None
+        #
+        # plae = [] #plae/poii ratio
+        # variance = [] #variance or variance proxy
+        # weight = [] #rules based weights
+        #
+        # best_guess_extent = [] #from source extractor (f606w, g, r only)
+        # base_psf = []
+        # size_in_psf = None #estimate of extent in terms of PSF (sort-of)
+        #
+        # #todo: evaluate each PLAE/POII ratio available and set the variance (proxy) and weight before summing up
+        #
+        # #HETDEX PLAE
+        # #what criteria to set weight? maybe really low chi^2 is good weight?
+        # try:
+        #     if (self.hetdex_cont_cgs is not None) and (self.hetdex_cont_cgs_unc is not None):
+        #         hetdex_cont_limit =  G.HETDEX_CONTINUUM_FLUX_LIMIT #8.5e-19 #don't trust below this
+        #         if (self.hetdex_cont_cgs - self.hetdex_cont_cgs_unc) > hetdex_cont_limit:
+        #             w = 0.2 #never very high
+        #             p = self.p_lae_oii_ratio_range[0]
+        #             if len(self.p_lae_oii_ratio_range > 3):
+        #                 v = self.p_lae_oii_ratio_range[3] * self.p_lae_oii_ratio_range[3]
+        #             else:
+        #                 v = avg_var(self.p_lae_oii_ratio_range[0], self.p_lae_oii_ratio_range[1], self.p_lae_oii_ratio_range[2])
+        #
+        #             # only add if p and v both successful
+        #             plae.append(p)
+        #             variance.append(v)
+        #             weight.append(w)
+        #             log.debug(f"{self.entry_id} Combine ALL PLAE: Added HETDEX: plae({p:#.4g}) var({v:#.4g}) weight({w:#.2f})")
+        #         else:
+        #             log.debug(f"{self.entry_id} Combine ALL PLAE: Failed HETDEX estimate")
+        #         #else:
+        #         #    w = 0.0 #don't trust it
+        # except:
+        #     log.debug("Exception handling HETDEX PLAE/POII in DetObj:combine_all_plae",exc_info=True)
+        #
+        #
+        # #SDSS gmag PLAE
+        # try:
+        #     if (self.sdss_cgs_cont is not None) and (self.sdss_cgs_cont_unc is not None):
+        #         # set weight to zero if gmag > 25
+        #         # set to low value if gmag > 24
+        #         # set to good value if gmag < 24
+        #         cgs_24 = 1.35e-18  #1.35e-18 cgs ~ 24.0 mag in g-band
+        #         cgs_24p5 = 8.52e-19 #8.52e-19 cgs ~ 24.5 mag in g-band, get full marks at 24mag and fall to zero by 24.5
+        #         cgs_25 = 5.38e-19 #g-mag
+        #         #if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_24p5:
+        #         #    frac = (self.sdss_cgs_cont - cgs_24)/(cgs_24 - cgs_24p5)
+        #         if (self.sdss_cgs_cont - self.sdss_cgs_cont_unc) > cgs_25:
+        #             frac = (self.sdss_cgs_cont - cgs_24) / (cgs_24 - cgs_25)
+        #             # at 24mag this is zero, fainter goes negative, at 24.5 it is -1.0
+        #             if frac > 0: #full weight
+        #                 w = 1.0
+        #             else:
+        #                 w = 1.0 + frac #linear drop to zero at 8.52e-19
+        #         else:
+        #             w = 0.0
+        #
+        #         if w > 0.0:
+        #             p = self.sdss_gmag_p_lae_oii_ratio_range[0]
+        #
+        #             if len(self.sdss_gmag_p_lae_oii_ratio_range > 3):
+        #                 v = self.sdss_gmag_p_lae_oii_ratio_range[3] * self.sdss_gmag_p_lae_oii_ratio_range[3]
+        #             else:
+        #                 v = avg_var(self.sdss_gmag_p_lae_oii_ratio_range[0],
+        #                         self.sdss_gmag_p_lae_oii_ratio_range[1], self.sdss_gmag_p_lae_oii_ratio_range[2])
+        #
+        #             # only add if p and v both successful
+        #             plae.append(p)
+        #             variance.append(v)
+        #             weight.append(w)
+        #             log.debug(f"{self.entry_id} Combine ALL PLAE: Added SDSS gmag: plae({p:#.4g}) var({v:#.4g}) weight({w:#.2f})")
+        #         else:
+        #             log.debug(f"{self.entry_id} Combine ALL PLAE: Failed SDSS gmag estimate")
+        #
+        # except:
+        #     log.debug("Exception handling SDSS gmag PLAE/POII in DetObj:combine_all_plae", exc_info=True)
+        #
+        # #Best forced aperture PLAE
+        # #how to set?? maybe always the same?
+        # #iterate over all, g,r,606w all count with equal weight
+        # try:
+        #     filters = ['f606w','g','r']
+        #     for a in self.aperture_details_list: #has both forced aperture and sextractor
+        #         try:
+        #             if (a['filter_name'] is not None) and (a['filter_name'] in filters):
+        #                 #todo: ELiXer force aperture (no PLAE/POII right now, just counts and mag
+        #                 # this would be forced_aperture = a['elixer_apertures'][a['elixer_aper_idx']]
+        #
+        #                 try:
+        #                     #use the first radius for the aperture (x2 for diameter)
+        #                     #is based on the reported average PSF, so this is marginally okay
+        #                     if a['elixer_apertures'] is not None:
+        #                         base_psf.append(a['elixer_apertures'][0]['radius']*2.0) #not quite the PSF, but similar
+        #                         log.debug(f"{self.entry_id} Combine ALL PLAE: Added base psf: "
+        #                                   f"{a['elixer_apertures'][0]['radius']*2.0} arcsec,"
+        #                                   f" filter ({a['filter_name']})")
+        #                 except:
+        #                     log.debug("Exception handling base_psf in DetObj:combin_all_plae", exc_info=True)
+        #
+        #                 #todo: source extractor objects (no PLAE/POII right now, just counts and mag
+        #                 # this would be sextractor = a['sep_objects'][a['sep_obj_idx']]
+        #                 # adjust weight based on distance to barycenter if inside ellipse or to edge of ellipse if not
+        #
+        #                 #todo: this should be re-done in terms of the imaging catalog PSF
+        #                 try:
+        #                     if (a['sep_objects'] is not None) and (a['sep_obj_idx'] is not None):
+        #                         best_guess_extent.append(a['sep_objects'][a['sep_obj_idx']]['a'])
+        #                         log.debug(f"{self.entry_id} Combine ALL PLAE: Added best guess extent added: "
+        #                               f"{a['sep_objects'][a['sep_obj_idx']]['a']:#.2g} arcsec,"
+        #                               f" filter ({a['filter_name']})")
+        #                 except:
+        #                     log.debug("Exception handling best_guess_extent in DetObj:combin_all_plae",exc_info=True)
+        #
+        #                 #for now, just using the "best" selected by ELiXer
+        #                 if  a['aperture_plae'] is not None:
+        #                     p = a['aperture_plae']
+        #                     v = avg_var(a['aperture_plae'],a['aperture_plae_min'],a['aperture_plae_max'])
+        #                     w = 1.0
+        #
+        #                     #only add if p and v both successful
+        #                     plae.append(p)
+        #                     variance.append(v)
+        #                     weight.append(w)
+        #                     log.debug(f"{self.entry_id} Combine ALL PLAE: Added best guess filter: plae({p:#.4g}) "
+        #                               f"var({v:#.4g}) weight({w:#.2f}) filter({a['filter_name']})")
+        #         except:
+        #             log.debug("Exception handling individual forced aperture photometry PLAE/POII in DetObj:combine_all_plae",
+        #                       exc_info=True)
+        # except:
+        #     log.debug("Exception handling forced aperture photometry PLAE/POII in DetObj:combine_all_plae", exc_info=True)
+        #
+        # #?? Best catalog match PLAE ?? #do I even want to try to use this one?
+        #
+        # try:
+        #     best_guess_extent = np.array(best_guess_extent)
+        #     base_psf = np.array(base_psf)
+        #
+        #     if len(best_guess_extent) == len(base_psf) > 0:
+        #         size_in_psf = np.mean(best_guess_extent/base_psf) #usually only 1 or 2, so std makes no sense
+        #         best_guess_extent = np.mean(best_guess_extent)
+        #
+        # except:
+        #     pass
+        #
+        # #sum up
+        # try:
+        #     plae = np.array(plae)
+        #     variance = np.array(variance)
+        #     weight = np.array(weight)
+        #     #v2 = variance*variance
+        #
+        #     plae_hat = np.sum(plae * weight / variance) / np.sum(weight / variance)
+        #     plae_hat_sd = np.sqrt(np.sum(weight*variance)/np.sum(weight))
+        #
+        #     #todo: what about plae_hat uncertainty?
+        #     #todo: should I (instead of inverse variance) sample all like 250-1000 times from random distro
+        #     #todo: and sum only on weights, then take the mean and std, of the resulting histogram as the plae_hat and sd?
+        #
+        #
+        #     #todo: what about extra info now for Bayesian analysis? update our "beliefs" based on
+        #     #todo: obect extent? (consistent or inconsistent with PSF and thus with a point-source?)
+        #     #todo: slope of whole spectra or spectral features that would preclude LAE?
+        #     #todo: ELiXer line finder strongly suggesting mutlitple lines and NOT LAE?
+        #
+        #     log.debug(f"{self.entry_id} Combine ALL PLAE: Final estimate: plae_hat({plae_hat}) plae_hat_sd({plae_hat_sd}) "
+        #               f"size in psf ({size_in_psf})")
+        #
+        #     self.classification_dict['plae_hat'] = plae_hat
+        #     self.classification_dict['plae_hat_sd'] = plae_hat_sd
+        #     self.classification_dict['size_in_psf'] = size_in_psf
+        #     self.classification_dict['diam_in_arcsec'] = best_guess_extent
+        #
+        #     return plae_hat, plae_hat_sd, size_in_psf, best_guess_extent
+        # except:
+        #
+        #     log.debug("Exception handling estimation in DetObj:combine_all_plae", exc_info=True)
+        #
+        # return None, None, None, None
 
 
 
@@ -2401,9 +2403,9 @@ class DetObj:
 
                                 log.debug(f"{self.entry_id} Combine ALL Continuum: Added base psf: "
                                       f"{this_psf} arcsec, filter ({a['filter_name']})")
-                                log.debug(f"{self.entry_id} Combine ALL Continuum: Added best guess extent added: "
+                                log.debug(f"{self.entry_id} Combine ALL Continuum: Added best guess extent: "
                                       f"{a['sep_objects'][a['sep_obj_idx']]['a']:#.2g} arcsec,"
-                                      f" filter ({a['filter_name']})")
+                                      f" {a['catalog_name']} filter ({a['filter_name']})")
                         except:
                             log.debug("Exception handling best_guess_extent in DetObj:combin_all_plae",exc_info=True)
 
