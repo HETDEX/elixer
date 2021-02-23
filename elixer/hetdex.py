@@ -11,6 +11,7 @@ try:
     from elixer import weighted_biweight
     from elixer import utilities as utils
     from elixer import shot_sky
+    from elixer import galaxy_mask
 except:
     import global_config as G
     import line_prob
@@ -23,6 +24,7 @@ except:
     import weighted_biweight
     import utilities as utils
     import shot_sky
+    import galaxy_mask
 
 
 from hetdex_tools.get_spec import get_spectra as hda_get_spectra
@@ -507,6 +509,7 @@ class DetObj:
         self.ifu_x = None
         self.ifu_y = None
         self.known_z = None #a fixed, "known" redshift passed in on the command line
+        self.galaxy_mask_z = None #array of redshifts for galaxies with which the detection might be associated
 
         self.w = 0.0
         self.w_unc = 0.0
@@ -897,6 +900,20 @@ class DetObj:
             return self.snr
         else:
             return self.sigma
+
+    @property
+    def my_ra(self):
+        if self.wra is not None:
+            return self.wra
+        else:
+            return self.ra
+
+    @property
+    def my_dec(self):
+        if self.wdec is not None:
+            return self.wdec
+        else:
+            return self.dec
 
     def check_for_meteor(self):
         """
@@ -5540,19 +5557,7 @@ class HETDEX:
             self.ylim = None
         self.emission_lines = elixer_spectrum.Spectrum().emission_lines
 
-        # self.emission_lines = [EmissionLine("Ly$\\alpha$ ",1216,'red'),
-        #                        EmissionLine("OII ",3727,'green'),
-        #                        EmissionLine("OIII",4959,"lime"), EmissionLine("OIII",5007,"lime"), #5007 is the primary
-        #                        EmissionLine("CIII", 1909, "purple"),
-        #                        EmissionLine("CIV ",1549,"black"),
-        #                        EmissionLine("H$\\beta$ ",4861,"blue"),
-        #                        EmissionLine("HeII", 1640, "orange"),
-        #                        EmissionLine("MgII", 2798, "magenta",solution=False),
-        #                        EmissionLine("H$\\gamma$ ", 4341, "royalblue",solution=False),
-        #                        EmissionLine("NV ",1240,"teal",solution=False),
-        #                        EmissionLine("SiII",1260,"gray",solution=False)]
-
-        #self.panacea_fits_list = [] #list of all panacea multi_*fits files (all dithers) (should be 4amps x 3dithers)
+        self.galaxy_mask = galaxy_mask.GalaxyMask()
 
         #parse the dither file
         #use to build fits list
@@ -6363,6 +6368,7 @@ class HETDEX:
                     e.load_hdf5_shot_info(self.hdf5_survey_fqfn,  e.survey_shotid)
 
                 if e.status >= 0:
+                    e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
                     if G.CHECK_FOR_METEOR:
                         e.check_for_meteor()
 
@@ -6424,6 +6430,7 @@ class HETDEX:
                     e.load_hdf5_shot_info(self.hdf5_survey_fqfn, e.survey_shotid)
 
                 if e.status >= 0:
+                    e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
                     if G.CHECK_FOR_METEOR:
                         e.check_for_meteor()
 
@@ -6466,6 +6473,7 @@ class HETDEX:
                         e.outdir = self.output_filename
                     e.load_fluxcalibrated_spectra()
                     if e.status >= 0:
+                        e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
                         if G.CHECK_FOR_METEOR:
                             e.check_for_meteor()
 
@@ -6491,6 +6499,7 @@ class HETDEX:
                 e.id = G.UNIQUE_DET_ID_NUM
                 e.load_fluxcalibrated_spectra()
                 if e.status >= 0:
+                    e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
                     if G.CHECK_FOR_METEOR:
                         e.check_for_meteor()
 
@@ -6559,23 +6568,27 @@ class HETDEX:
                         if str(e.id) in self.emis_det_id:
                             if (self.ifu_slot_id is not None):
                                 if (str(e.ifuslot) == str(self.ifu_slot_id)):
+                                    e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
                                     if G.CHECK_FOR_METEOR:
                                         e.check_for_meteor()
 
                                     self.emis_list.append(e)
                             else: #if is 'none' so they all go here ... must assume same IFU
+                                e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
                                 if G.CHECK_FOR_METEOR:
                                     e.check_for_meteor()
 
                                 self.emis_list.append(e)
                     else:
                         if (self.ifu_slot_id is not None):
+                            e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
                             if (str(e.ifuslot) == str(self.ifu_slot_id)):
                                 if G.CHECK_FOR_METEOR:
                                     e.check_for_meteor()
 
                                 self.emis_list.append(e)
                         else:
+                            e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
                             if G.CHECK_FOR_METEOR:
                                 e.check_for_meteor()
 
@@ -6622,11 +6635,13 @@ class HETDEX:
                         if str(e.id) in self.emis_det_id:
                             if (self.ifu_slot_id is not None):
                                 if (str(e.ifuslot) == str(self.ifu_slot_id)):
+                                    e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
                                     if G.CHECK_FOR_METEOR:
                                         e.check_for_meteor()
 
                                     self.emis_list.append(e)
                             else: #if is 'none' so they all go here ... must assume same IFU
+                                e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
                                 if G.CHECK_FOR_METEOR:
                                     e.check_for_meteor()
 
@@ -6635,11 +6650,13 @@ class HETDEX:
                         if (e.sigma >= self.sigma) and (e.chi2 <= self.chi2):
                             if (self.ifu_slot_id is not None):
                                 if (str(e.ifuslot) == str(self.ifu_slot_id)):
+                                    e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
                                     if G.CHECK_FOR_METEOR:
                                         e.check_for_meteor()
 
                                     self.emis_list.append(e)
                             else:
+                                e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
                                 if G.CHECK_FOR_METEOR:
                                     e.check_for_meteor()
 
