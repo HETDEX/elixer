@@ -23,10 +23,13 @@ import astropy.stats.biweight as biweight
 
 from scipy.optimize import curve_fit
 
-from hetdex_tools.get_spec import get_spectra as hda_get_spectra
-from hetdex_api import survey as hda_survey
-from hetdex_api.extract import Extract
-#from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
+try:
+    from hetdex_tools.get_spec import get_spectra as hda_get_spectra
+    from hetdex_api import survey as hda_survey
+    from hetdex_api.extract import Extract
+    #from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
+except Exception as e:
+    print("WARNING!!!! CANNOT IMPORT hetdex_api tools: ",e)
 
 import copy
 from mpl_toolkits.mplot3d import Axes3D

@@ -18,8 +18,11 @@ import os.path as op
 from astropy.coordinates import SkyCoord
 from astropy import units as U
 from astropy.stats import sigma_clipped_stats
-from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
-from hetdex_tools.get_spec import get_spectra as hda_get_spectra
+try:
+    from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
+    from hetdex_tools.get_spec import get_spectra as hda_get_spectra
+except Exception as e:
+    print("WARNING!!!! CANNOT IMPORT hetdex_api tools: ",e)
 #import copy
 
 log = G.Global_Logger('obs_logger')

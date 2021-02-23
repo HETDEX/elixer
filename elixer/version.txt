@@ -1,12 +1,16 @@
 changes to elixer by version
 
-1.11.0a2 [2020-02-09]
+1.11.0a3 [2020-02-21]
+* Add galaxy_mask
+
+1.11.0a2 [2020-02-11]
 * Tweak P(Lya) physical size for high-z 25 to 40 kpc to vote from 0.5 to 0.1 (linearly ) and weight 0.1 to 1.0 (linearly)
 * Updated pandas required version to >= 1.1.0 in setup.py
 * Removed auto change of ALLOW_EMPTY_IMAGE to True if all web service options are turned off
 * Tweak unmatched line scores to down-weight lines blueward of 3700 (lowers penality for unmatched lines blue of 3700AA)
 * Added low P(LyA) voting weight check. Insert 0.5 valued votes at 1.0-sum of weights to bring weight to 1.0 (encourages
   move toward P(LyA) == 0.5 for exceeding low voting weights).
+* [check point] given to O.Chavez for NEP testing
 
 1.11.0a1 [2020-01-29]
 * Major update to catalog organization to allow for inclusion of filters across multiple catalogs in report

@@ -4714,7 +4714,7 @@ class Spectrum:
         if show_skylines:
             try:
                 yl, yh = specplot.get_ylim()
-
+                # see https://www.eso.org/observing/dfo/quality/UVES/txt/sky/gident_346.dat
                 central_w = 3545
                 half_width = 10
                 rec = plt.Rectangle((central_w - half_width, yl), 2 * half_width, yh - yl, fill=True, lw=1,

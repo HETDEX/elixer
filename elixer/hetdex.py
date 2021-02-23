@@ -1901,6 +1901,13 @@ class DetObj:
             try:
                 if len(likelihood) > 0:
                     scaled_prob_lae = np.sum(likelihood*weight/var)/np.sum(weight/var) #/ len(likelihood)
+
+                    #while can be arbitrarily close to 0 or 1, will crop to 0.001 to 0.999
+                    if 0.0 <= scaled_prob_lae < 0.001:
+                        scaled_prob_lae = 0.001
+                    elif 0.999 < scaled_prob_lae <= 1.0:
+                        scaled_prob_lae = 0.999
+
                     self.classification_dict['scaled_plae'] = scaled_prob_lae
                     log.info(f"{self.entry_id} Scaled Prob(LAE) {scaled_prob_lae:0.4f}")
                     #print(f"{self.entry_id} Scaled Prob(LAE) {scaled_prob_lae:0.4f}")
