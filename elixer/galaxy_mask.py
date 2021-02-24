@@ -20,7 +20,7 @@ from astropy import wcs
 import astropy.table
 from regions import EllipseSkyRegion, EllipsePixelRegion
 import numpy as np
-
+#from math import ceil
 
 
 def create_dummy_wcs(coords, pixscale=0.5*u.arcsec, imsize=60.*u.arcmin):
@@ -111,30 +111,56 @@ class GalaxyMask():
         :param dec: in decimal degrees
         :param d25scale:  The scaling of ellipses.  1.0 means use the ellipse for D25.
                                 Experimentation showed a value of 1.75 might be more appropriate
-        :return:
+        :return: list of redshifts and the correspoding list of minimum D25 (integer) values
         """
 
-        target_coord = SkyCoord(ra,dec,unit='deg')
-        target_wcs = create_dummy_wcs(target_coord)
+        try:
 
-        #no tight fixed distance as these are not point sources and can be big (e.g. M31 is about 5 degrees across)
-        seps = target_coord.separation(self.galaxy_table['SkyCoords']).deg
-        bids = np.argsort(seps)
+            target_coord = SkyCoord(ra,dec,unit='deg')
+            target_wcs = create_dummy_wcs(target_coord)
 
-        z = []
+            #no tight fixed distance as these are not point sources and can be big (e.g. M31 is about 5 degrees across)
+            seps = target_coord.separation(self.galaxy_table['SkyCoords']).deg
+            bids = np.argsort(seps)
 
-        for i in bids:
-            if seps[i] > 5.0:
-                #we're done ... the rest are too far away for this to make any sense
-                break
+            z = []
+            min_scales = []
+            scales = np.arange(1.0,int(d25scale)+1.0,1.0)
 
-            ellipse = create_ellreg(self.galaxy_table, i, d25scale=d25scale)
-            if ellipse.contains(target_coord, target_wcs):
-                z.append(self.galaxy_table["NEDRedshift"][i])
+            for i in bids:
+                if seps[i] > 5.0:
+                    #we're done ... the rest are too far away for this to make any sense
+                    break
 
-        if len(z) > 0:
-            return np.unique(z)
-        else:
-            return None
+                #using the HETDEX_API scaling ... could re-write and use a distance, but this is simple and fast
+                #enough for now
+                ellipse = create_ellreg(self.galaxy_table, i, d25scale=d25scale)
+                if ellipse.contains(target_coord, target_wcs):
+                    z.append(self.galaxy_table["NEDRedshift"][i])
+                    min_scale = d25scale
+                    #now, what is lowest integer of D25 scale that still hits
+                    for scale in scales:
+                        ellipse = create_ellreg(self.galaxy_table, i, d25scale=scale)
+                        if ellipse.contains(target_coord, target_wcs):
+                            min_scale = scale
+                            break
+                    min_scales.append(min_scale)
 
+            if len(z) > 0:
+                z = np.array(z)
+                min_scales = np.array(min_scales)
+                _, idx = np.unique(z, return_index=True)
+                scales = []
+
+                #return the smallest scale for each of the unique redshifts
+                for i in idx:
+                    scales.append(min(min_scales[z==z[i]]))
+
+                return z[idx],scales
+
+            else:
+                return None, None
+        except:
+            log.warning("Exception in galaxy_mask::redshift()",exc_info=True)
+            return None, None
 

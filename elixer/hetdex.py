@@ -511,6 +511,8 @@ class DetObj:
         self.known_z = None #a fixed, "known" redshift passed in on the command line
         self.galaxy_mask = None #GalaxyMask object to be populated by the owner of this DetObj (usually a hetdex obj)
         self.galaxy_mask_z = None #array of redshifts for galaxies with which the detection might be associated
+        self.galaxy_mask_d25 = None #array (corresponding to galaxy_mask_z) of minimum integer D25 defined ellipse scale
+                                    #that still holds the coordinates
         self.galaxy_mask_flag = False #set to True if found in galaxy mask
 
         self.w = 0.0
@@ -932,17 +934,24 @@ class DetObj:
                 log.debug("Checking position against galaxy mask ...")
                 possible_lines = []
                 #get list of possible redshifts
-                self.galaxy_mask_z = self.galaxy_mask.redshift(self.my_ra,self.my_dec)
+                self.galaxy_mask_z, self.galaxy_mask_d25 = self.galaxy_mask.redshift(self.my_ra,self.my_dec)
                 #get list of possible lines from list of emission lines
                 #spec = elixer_spectrum.Spectrum()
                 if self.galaxy_mask_z and self.spec_obj: #is not None or Empty
-                    for z in self.galaxy_mask_z:
+                    for z,d25 in zip(self.galaxy_mask_z,self.galaxy_mask_d25):
                         line = self.spec_obj.match_line(self.w,z)
                         if line:
-                            log.info(f"Galaxy mask possible line match: {line.name} {line.w_rest} z={z} rank={line.rank}")
+                            log.info(f"Galaxy mask possible line match: {line.name} {line.w_rest} z={z} rank={line.rank} D25={d25}")
                             possible_lines.append(line)
 
-                            boost = G.GALAXY_MASK_SCORE_BOOST * self.spec_obj.max_rank / line.rank
+                            #note: if d25 is > 2.0, this actually starts reducing the boost as we get farther from the
+                            # body of the galaxy mask
+                            #note: if rank > 3, also starts reducing the boost (as the weaker lines are less reliable
+                            # to match against ... with increased possibility of noise
+                            # lines like OII, OIII, H_beta, LyA, CIV are all low rank lines and get high boosts
+                            # where H_eta, CaII, NaI are higher rank (weaker lines) and get lower boosts (and are not
+                            # likely to be the HETDEX detection line anyway)
+                            boost = G.GALAXY_MASK_SCORE_BOOST * 3.0/line.rank * 2.0/d25
 
                             #check the existing solutions ... if there is a corresponding z solution, boost its score
                             new_solution = True
@@ -951,6 +960,7 @@ class DetObj:
                                     new_solution = False
                                     log.info(f"Boosting existing solution: + {boost}")
                                     s.score += boost
+                                    s.galaxy_mask_d25 = d25
 
                             if new_solution:
                                 log.info(f"Adding new solution: score = {boost}")
@@ -965,6 +975,7 @@ class DetObj:
                                 sol.prob_noise = 0
                                 sol.lines.append(line)
                                 sol.score = boost
+                                sol.galaxy_mask_d25 = d25
 
                                 self.spec_obj.solutions.append(sol)
 
@@ -1629,6 +1640,13 @@ class DetObj:
                        (s.score / G.MULTILINE_FULL_SOLUTION_SCORE > 4 and (len(s.lines) > 2)) or \
                        (G.MULTILINE_USE_CONSISTENCY_CHECKS and (s.score / G.MULTILINE_FULL_SOLUTION_SCORE > 2) and (s.frac_score > 0.75)):# and s):
                         bonus_weight = min(s.score / G.MULTILINE_FULL_SOLUTION_SCORE,10.0)  #up to 10x bonus
+
+                    #and an additional bonus IF in a galaxy mask
+                    #smallest non-zero value is 1.0 (unless an oddly small D25 scale is set in global_config)
+                    #the smaller the number, the larger the bonus
+                    #DD: 2021-02-24 ... moved to the check_transients_and_flags logic and boost to the score there
+                    # if s.galaxy_mask_d25 and (s.galaxy_mask_d25 > 0):
+                    #     bonus_weight += 2.0/s.galaxy_mask_d25
 
                     if s.score >= G.MULTILINE_MIN_SOLUTION_SCORE: #only consider somewhat probable scores
                         #split between z > 1.8 ==> LAE and < 1.8 ==>not LAE

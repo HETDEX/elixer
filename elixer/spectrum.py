@@ -2780,6 +2780,9 @@ class Classifier_Solution:
         self.unmatched_lines_score = 0
         self.unmatched_lines_count = 0
 
+        #
+        self.galaxy_mask_d25 = None #mark if in galaxy mask
+
     @property
     def prob_real(self):
         #return min(1-self.prob_noise,0.999) * min(1.0, max(0.67,self.score/G.MULTILINE_MIN_SOLUTION_SCORE))
