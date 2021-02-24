@@ -929,13 +929,13 @@ class DetObj:
 
         try:
             if G.CHECK_GALAXY_MASK and self.galaxy_mask:
+                log.debug("Checking position against galaxy mask ...")
                 possible_lines = []
                 #get list of possible redshifts
                 self.galaxy_mask_z = self.galaxy_mask.redshift(self.my_ra,self.my_dec)
                 #get list of possible lines from list of emission lines
                 #spec = elixer_spectrum.Spectrum()
                 if self.galaxy_mask_z and self.spec_obj: #is not None or Empty
-
                     for z in self.galaxy_mask_z:
                         line = self.spec_obj.match_line(self.w,z)
                         if line:
