@@ -2855,6 +2855,7 @@ class Spectrum:
         #reminder ... colors don't really matter (are not used) if solution is not True)
         #try to keep the name in 4 characters
         w = 4
+        self.max_rank = 5 #largest rank in line ranking below
 
         self.emission_lines = [
             #extras for HW
@@ -2974,7 +2975,66 @@ class Spectrum:
 
         #from HDF5
 
+    def rescore(self,sum_score=None):
+        """
+        Rescore solutons based on changes to individual solution scores
+        :param sum_score:
+        :return:
+        """
+        try:
+            if not sum_score:
+                sum_score = np.sum(s.score for s in self.solutions)
+
+            for s in self.solutions:
+                s.frac_score = s.score/sum_score
+                s.scale_score = s.prob_real * G.MULTILINE_WEIGHT_PROB_REAL + \
+                                min(1.0, s.score / G.MULTILINE_FULL_SOLUTION_SCORE) *  G.MULTILINE_WEIGHT_SOLUTION_SCORE + \
+                                s.frac_score * G.MULTILINE_WEIGHT_FRAC_SCORE
+
+            #sort by score
+            self.solutions.sort(key=lambda x: x.scale_score, reverse=True)
+
+            for s in self.solutions:
+                ll =""
+                for l in s.lines:
+                    ll += " %s(%0.1f at %0.1f)," %(l.name,l.w_rest,l.w_obs)
+                msg = "Rescored Possible Solution %s (%0.3f): %s (%0.1f at %0.1f), Frac = %0.2f, Score = %0.1f (%0.3f), z = %0.5f, +lines=%d %s" \
+                      % (self.identifier, s.prob_real,s.emission_line.name,s.central_rest,s.central_rest*(1.0+s.z), s.frac_score,
+                         s.score,s.scale_score,s.z, len(s.lines),ll )
+                log.info(msg)
+
+        except:
+            log.warning("Exception rescoring solutions.",exc_info=True)
+
+    def match_line(self,obs_w,z,aa_error=3.0):
+        """
+        Given an input obsevered wavelength and a target redshift, return the matching emission line (if found with the
+            +/- aa_error in angstroms)
+        :param obs_w:
+        :param z:
+        :param aa_error: in angstroms
+        :return:
+        """
+
+        #lines are far enough apart that we don't need to worry about multiple matches
+        for e in self.emission_lines:
+            if abs(e.w_rest * (1.0 + z) - obs_w) < aa_error:
+                #could match to a faint line by happenstance and not really be that line
+                #but this is position only
+                return e
+        return None
+
+
+
+
     def add_classification_label(self,label="",prepend=False,replace=False):
+        """
+
+        :param label: text label
+        :param prepend: place the label at the front of the list of labels
+        :param replace: replace the list of labels with this single label
+        :return:
+        """
         try:
             if replace or self.classification_label is None:
                 self.classification_label = label

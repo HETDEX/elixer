@@ -1,6 +1,6 @@
 """
 Check the galaxy mask to see if the target is part of a large galaxy
-Based on work from John Feldmeier and Erin Cooper
+Based on work from John Feldmeier and Erin Cooper in HETDEX_API
 
 """
 
@@ -25,6 +25,7 @@ import numpy as np
 
 def create_dummy_wcs(coords, pixscale=0.5*u.arcsec, imsize=60.*u.arcmin):
     """
+    From HETDEX_API:
     Create a simple fake WCS in order to use the regions subroutine.
     Adapted from John Feldmeiers galmask.py
 
@@ -59,6 +60,7 @@ def create_dummy_wcs(coords, pixscale=0.5*u.arcsec, imsize=60.*u.arcmin):
 
 def create_ellreg(t, index, d25scale=1.0):
     """
+    From HETDEX_API:
     Creates an elliptical sky region from astropy.regions, with info from RC3 catalog
 
     t - a table of galaxy regions, similar to that found in read_rc3_tables
@@ -96,8 +98,10 @@ class GalaxyMask():
             log.error("Unable to open galaxy mask table file. Galaxy mask unavailable.",exc_info=True)
             self.galaxy_table = None
 
-    def redshift(self,ra,dec,d25scale=3.0):
+    def redshift(self,ra,dec,d25scale=G.GALAXY_MASK_D25_SCALE):
         """
+        From HETDEX_API:
+
         Find the nearest galaxy in the table in which the coordinates are inside the galaxy ellipse and return the
         redshift of that galaxy.
         If the ra,dec do not lie within any galaxy, return None

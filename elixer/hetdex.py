@@ -509,7 +509,9 @@ class DetObj:
         self.ifu_x = None
         self.ifu_y = None
         self.known_z = None #a fixed, "known" redshift passed in on the command line
+        self.galaxy_mask = None #GalaxyMask object to be populated by the owner of this DetObj (usually a hetdex obj)
         self.galaxy_mask_z = None #array of redshifts for galaxies with which the detection might be associated
+        self.galaxy_mask_flag = False #set to True if found in galaxy mask
 
         self.w = 0.0
         self.w_unc = 0.0
@@ -914,6 +916,71 @@ class DetObj:
             return self.wdec
         else:
             return self.dec
+
+    def check_transients_and_flags(self): #,meteors=True,galaxy_mask=True):
+        """
+        Check for meteors
+        Check if in galaxy mask
+        :return:
+        """
+
+        if G.CHECK_FOR_METEOR:
+            self.check_for_meteor()
+
+        try:
+            if G.CHECK_GALAXY_MASK and self.galaxy_mask:
+                possible_lines = []
+                #get list of possible redshifts
+                self.galaxy_mask_z = self.galaxy_mask.redshift(self.my_ra,self.my_dec)
+                #get list of possible lines from list of emission lines
+                #spec = elixer_spectrum.Spectrum()
+                if self.galaxy_mask_z and self.spec_obj: #is not None or Empty
+
+                    for z in self.galaxy_mask_z:
+                        line = self.spec_obj.match_line(self.w,z)
+                        if line:
+                            log.info(f"Galaxy mask possible line match: {line.name} {line.w_rest} z={z} rank={line.rank}")
+                            possible_lines.append(line)
+
+                            boost = G.GALAXY_MASK_SCORE_BOOST * self.spec_obj.max_rank / line.rank
+
+                            #check the existing solutions ... if there is a corresponding z solution, boost its score
+                            new_solution = True
+                            for s in self.spec_obj.solutions:
+                                if s.emission_line.w_rest == line.w_rest:
+                                    new_solution = False
+                                    log.info(f"Boosting existing solution: + {boost}")
+                                    s.score += boost
+
+                            if new_solution:
+                                log.info(f"Adding new solution: score = {boost}")
+                                sol = elixer_spectrum.Classifier_Solution()
+                                sol.z = z
+                                sol.central_rest = line.w_rest
+                                sol.name = line.name
+                                sol.color = line.color
+                                sol.emission_line = deepcopy(line)
+                                sol.emission_line.w_obs = self.w
+                                sol.emission_line.solution = True
+                                sol.prob_noise = 0
+                                sol.lines.append(line)
+                                sol.score = boost
+
+                                self.spec_obj.solutions.append(sol)
+
+
+                if possible_lines: #one or more possible matches
+                    #todo: future, instead of adding a label, set a flag to appear in the HDF5 file
+                    self.galaxy_mask_flag = True
+                    self.spec_obj.add_classification_label("gal",prepend=True)
+                    # rescore the solutions from above boosts
+                    self.spec_obj.rescore()
+
+        except:
+            log.warning("Failed to check galaxy mask",exc_info=True)
+
+
+
 
     def check_for_meteor(self):
         """
@@ -6286,7 +6353,7 @@ class HETDEX:
 
             e = DetObj(None, emission=True, basic_only=basic_only)
             if e is not None:
-
+                e.galaxy_mask = self.galaxy_mask
                 e.annulus = self.annulus
                 e.target_wavelength = self.target_wavelength
                 e.ra = self.target_ra
@@ -6368,9 +6435,7 @@ class HETDEX:
                     e.load_hdf5_shot_info(self.hdf5_survey_fqfn,  e.survey_shotid)
 
                 if e.status >= 0:
-                    e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
-                    if G.CHECK_FOR_METEOR:
-                        e.check_for_meteor()
+                    e.check_transients_and_flags()
 
                     self.emis_list.append(e)# moved higher up to always be appended
                     if self.target_wavelength is None or self.target_wavelength == 0:
@@ -6405,6 +6470,7 @@ class HETDEX:
             #build an empty Detect Object and then populate
             e = DetObj(None, emission=True,basic_only=basic_only)
             if e is not None:
+                e.galaxy_mask = self.galaxy_mask
                 if self.known_z is not None:
                     e.known_z = self.known_z
 
@@ -6430,12 +6496,8 @@ class HETDEX:
                     e.load_hdf5_shot_info(self.hdf5_survey_fqfn, e.survey_shotid)
 
                 if e.status >= 0:
-                    e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
-                    if G.CHECK_FOR_METEOR:
-                        e.check_for_meteor()
-
+                    e.check_transients_and_flags()
                     self.emis_list.append(e)
-
                 else:
                     log.info("Unable to continue with eid(%s). No report will be generated." % (str(e.entry_id)))
 
@@ -6456,6 +6518,7 @@ class HETDEX:
                 e = DetObj(toks, emission=True, fcsdir=d)
 
                 if e is not None:
+                    e.galaxy_mask = self.galaxy_mask
                     if self.known_z is not None:
                         e.known_z = self.known_z
                     e.annulus = self.annulus
@@ -6473,10 +6536,7 @@ class HETDEX:
                         e.outdir = self.output_filename
                     e.load_fluxcalibrated_spectra()
                     if e.status >= 0:
-                        e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
-                        if G.CHECK_FOR_METEOR:
-                            e.check_for_meteor()
-
+                        e.check_transients_and_flags()
                         self.emis_list.append(e)
                     else:
                         log.info("Unable to continue with eid(%s). No report will be generated." %(str(e.entry_id)))
@@ -6485,6 +6545,7 @@ class HETDEX:
             e = DetObj(toks, emission=True, fcs_base=self.fcs_base,fcsdir=self.fcsdir)
 
             if e is not None:
+                e.galaxy_mask = self.galaxy_mask
                 if self.known_z is not None:
                     e.known_z = self.known_z
                 e.annulus = self.annulus
@@ -6499,13 +6560,8 @@ class HETDEX:
                 e.id = G.UNIQUE_DET_ID_NUM
                 e.load_fluxcalibrated_spectra()
                 if e.status >= 0:
-                    e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
-                    if G.CHECK_FOR_METEOR:
-                        e.check_for_meteor()
-
+                    e.check_transients_and_flags()
                     self.emis_list.append(e)
-
-
 
         #and if everything is None, nothing will work anyway
 
@@ -6554,6 +6610,7 @@ class HETDEX:
                     if e is None:
                         continue
 
+                    e.galaxy_mask = self.galaxy_mask
                     if self.known_z is not None:
                         e.known_z = self.known_z
 
@@ -6568,30 +6625,19 @@ class HETDEX:
                         if str(e.id) in self.emis_det_id:
                             if (self.ifu_slot_id is not None):
                                 if (str(e.ifuslot) == str(self.ifu_slot_id)):
-                                    e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
-                                    if G.CHECK_FOR_METEOR:
-                                        e.check_for_meteor()
+                                    e.check_transients_and_flags()
 
                                     self.emis_list.append(e)
                             else: #if is 'none' so they all go here ... must assume same IFU
-                                e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
-                                if G.CHECK_FOR_METEOR:
-                                    e.check_for_meteor()
-
+                                e.check_transients_and_flags()
                                 self.emis_list.append(e)
                     else:
                         if (self.ifu_slot_id is not None):
-                            e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
                             if (str(e.ifuslot) == str(self.ifu_slot_id)):
-                                if G.CHECK_FOR_METEOR:
-                                    e.check_for_meteor()
-
+                                e.check_transients_and_flags()
                                 self.emis_list.append(e)
                         else:
-                            e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
-                            if G.CHECK_FOR_METEOR:
-                                e.check_for_meteor()
-
+                            e.check_transients_and_flags()
                             self.emis_list.append(e)
         except:
             log.error("Cannot read continuum objects.", exc_info=True)
@@ -6613,6 +6659,7 @@ class HETDEX:
                     if e is None:
                         continue
 
+                    e.galaxy_mask = self.galaxy_mask
                     if self.known_z is not None:
                         e.known_z = self.known_z
 
@@ -6635,31 +6682,19 @@ class HETDEX:
                         if str(e.id) in self.emis_det_id:
                             if (self.ifu_slot_id is not None):
                                 if (str(e.ifuslot) == str(self.ifu_slot_id)):
-                                    e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
-                                    if G.CHECK_FOR_METEOR:
-                                        e.check_for_meteor()
-
+                                    e.check_transients_and_flags()
                                     self.emis_list.append(e)
                             else: #if is 'none' so they all go here ... must assume same IFU
-                                e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
-                                if G.CHECK_FOR_METEOR:
-                                    e.check_for_meteor()
-
+                                e.check_transients_and_flags()
                                 self.emis_list.append(e)
                     else:
                         if (e.sigma >= self.sigma) and (e.chi2 <= self.chi2):
                             if (self.ifu_slot_id is not None):
                                 if (str(e.ifuslot) == str(self.ifu_slot_id)):
-                                    e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
-                                    if G.CHECK_FOR_METEOR:
-                                        e.check_for_meteor()
-
+                                    e.check_transients_and_flags()
                                     self.emis_list.append(e)
                             else:
-                                e.galaxy_mask_z = self.galaxy_mask.redshift(e.my_ra,e.my_dec)
-                                if G.CHECK_FOR_METEOR:
-                                    e.check_for_meteor()
-
+                                e.check_transients_and_flags()
                                 self.emis_list.append(e)
         except:
             log.error("Cannot read emission line objects.", exc_info=True)

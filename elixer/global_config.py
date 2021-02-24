@@ -869,6 +869,10 @@ MAX_MAG_FAINT = 28.0 #set as nominal "faint" mag if flux limit reached
 PLAE_POII_GAUSSIAN_WEIGHT_SIGMA = 5.0
 
 CHECK_FOR_METEOR = True #if true, check the exposure fiber data for meteor pattern
+CHECK_GALAXY_MASK = True #if true, check for detection inclusion in galaxy mask
+GALAXY_MASK_D25_SCALE = 2.0 #check withing this x D25 curve to be inside galaxy ellipse
+GALAXY_MASK_SCORE_BOOST = 100.0 # boost to the solution score if line found to match in a galaxy, mutliplied by
+                                # line max(rank)/line rank (i.e. max ranl == 5; OII is rank 2 so * 5/2)
 
 ALLOW_BROADLINE_FIT = True
 
