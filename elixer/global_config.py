@@ -864,15 +864,17 @@ PIXEL_FLAT_ABSOLUTE_BAD_VALUE = 0.7 #values at or below this in the flat are "ba
                                     #a -1 turns it off (code will ignore this global)
 #note: 2 means there is one set of duplicates: ie. [1,2,1,3] would be 2 (1 and 1 are duplicated)
 
-MAX_MAG_FAINT = 28.0 #set as nominal "faint" mag if flux limit reached
+MAX_MAG_FAINT = 28.0 #set as nominal "faint" mag if flux limit reached (if not set by specific catalog ... which, unless
+                     # this is an HST catalog, this is pretty good
 
 PLAE_POII_GAUSSIAN_WEIGHT_SIGMA = 5.0
 
 CHECK_FOR_METEOR = True #if true, check the exposure fiber data for meteor pattern
 CHECK_GALAXY_MASK = True #if true, check for detection inclusion in galaxy mask
-GALAXY_MASK_D25_SCALE = 2.0 #check withing this x D25 curve to be inside galaxy ellipse
+GALAXY_MASK_D25_SCALE = 3.0 #check withing this x D25 curve to be inside galaxy ellipse
+GALAXY_MASK_D25_SCORE_NORM = 2.0 #scoring scale normalization (xxx_D25_scale/score_norm) see hetdex.py DetObj::check_transients_and_flags
 GALAXY_MASK_SCORE_BOOST = 100.0 # boost to the solution score if line found to match in a galaxy, mutliplied by
-                                # line max(rank)/line rank (i.e. max ranl == 5; OII is rank 2 so * 5/2)
+                                # scaled emission line rank and D25 distance, see hetdex.py DetObj::check_transients_and_flags
 
 ALLOW_BROADLINE_FIT = True
 

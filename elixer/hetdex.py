@@ -944,14 +944,20 @@ class DetObj:
                             log.info(f"Galaxy mask possible line match: {line.name} {line.w_rest} z={z} rank={line.rank} D25={d25}")
                             possible_lines.append(line)
 
-                            #note: if d25 is > 2.0, this actually starts reducing the boost as we get farther from the
-                            # body of the galaxy mask
-                            #note: if rank > 3, also starts reducing the boost (as the weaker lines are less reliable
-                            # to match against ... with increased possibility of noise
-                            # lines like OII, OIII, H_beta, LyA, CIV are all low rank lines and get high boosts
-                            # where H_eta, CaII, NaI are higher rank (weaker lines) and get lower boosts (and are not
-                            # likely to be the HETDEX detection line anyway)
-                            boost = G.GALAXY_MASK_SCORE_BOOST * 3.0/line.rank * 2.0/d25
+                            #note: if d25 is > GALAXY_MASK_D25_SCORE_NORM, this actually starts reducing the boost as we
+                            # get farther from the body of the galaxy mask
+                            #lines like OII, OIII, H_beta, LyA, CIV are all low rank lines and get high boosts
+                            #where H_eta, CaII, NaI are higher rank (weaker lines) and get lower boosts (and are not
+                            #likely to be the HETDEX detection line anyway)
+
+                            if line.rank > 4: #rank 5 or worse
+                                rank_scale = 0.5
+                            elif line.rank > 3: #rank 4
+                                rank_scale = 1.0
+                            else: #ranks 1,2,3
+                                rank_scale = 2.0
+
+                            boost = G.GALAXY_MASK_SCORE_BOOST * rank_scale * G.GALAXY_MASK_D25_SCORE_NORM/d25
 
                             #check the existing solutions ... if there is a corresponding z solution, boost its score
                             new_solution = True
