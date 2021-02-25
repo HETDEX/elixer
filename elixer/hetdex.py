@@ -1444,8 +1444,11 @@ class DetObj:
             #the idea here as the the closer the PLAE/POII is to 1 (a 50/50 chance) the lower the weight (tends to 0)
             # but extreme values (getting closer to 0.001 or 1000) the weight goes closer to a full value of 1
             # by a value of 20 (or 1/20) essentially at 1.0
-            if plae_poii < 1:
-                plae_poii = 1.0/plae_poii
+            try:
+                if plae_poii < 1:
+                    plae_poii = 1.0/plae_poii
+            except: #could be exactly zero through either a fluke or a data issue
+                return 0
 
             #just for clarity
             mu = 1.0
@@ -2393,7 +2396,7 @@ class DetObj:
                     continuum.append(self.hetdex_cont_cgs)
                     variance.append(self.hetdex_cont_cgs_unc*self.hetdex_cont_cgs_unc)
                     weight.append(0.2) #never very high
-                    type.append('hdn') #HETDE-narrow
+                    type.append('hdn') #HETDEX-narrow
                     log.debug(f"{self.entry_id} Combine ALL Continuum: Added HETDEX estimate ({continuum[-1]:#.4g}) "
                               f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
                 else: #set as lower limit ... too far to be meaningful
@@ -2424,6 +2427,13 @@ class DetObj:
             cgs_25 = 5.38e-19
             cgs_24 = 1.35e-18
             cgs_limit = 5.38e-19#cgs_25g
+
+            if not self.best_gmag_cgs_cont_unc: #None or 0.0
+                log.debug(f"{self.entry_id} Combine ALL Continuum: HETDEX wide estimate has no uncertainty. "
+                          f"Setting to limit {cgs_limit}")
+                self.best_gmag_cgs_cont_unc = cgs_limit #set to the mag limit (so, we're saying the
+                #mag is whatever we measured +/- the limit (so still a very large error and will get down weighted)
+
             if (self.best_gmag_cgs_cont is not None) and (self.best_gmag_cgs_cont_unc is not None) and \
                (self.best_gmag_cgs_cont > 0) and (self.best_gmag_cgs_cont_unc > 0):
                 #if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_limit:
@@ -2573,6 +2583,7 @@ class DetObj:
                                         log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit much fainter than 24,"
                                                  f" full weight {w} applied.")
                                     else:
+                                        w = max(0.1,w)
                                         log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit fainter than 24,"
                                                  f" scaled weight {w} applied.")
 

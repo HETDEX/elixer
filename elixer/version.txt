@@ -3,6 +3,8 @@ changes to elixer by version
 1.11.0a3 [2020-02-21]
 * Add galaxy_mask. Detections found within galaxy mask are flagged and if a redshift matched emission line is found, are
   re-scored to boost solution.
+* fixed bug when inverting PLAE/POII (if set to zero) for weighting
+* Allow conintuum estimtates at or below flux limit to still go into aggregation as the flux limit with 100% error
 
 1.11.0a2 [2020-02-11]
 * Tweak P(Lya) physical size for high-z 25 to 40 kpc to vote from 0.5 to 0.1 (linearly ) and weight 0.1 to 1.0 (linearly)
