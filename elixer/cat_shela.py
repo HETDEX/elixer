@@ -76,7 +76,14 @@ class SHELA(cat_base.Catalog):
     SHELA_BASE_PATH = G.SHELA_BASE_PATH
     SHELA_CAT_PATH = G.SHELA_CAT_PATH
     SHELA_IMAGE_PATH = G.DECAM_IMAGE_PATH#G.SHELA_BASE_PATH
-    MAG_LIMIT = 25.0 #closer to 24.7
+    MAG_LIMIT = 25.0 #closer to 24.7 (at least in g / r) ... ~26 at 1" 25 at 2"
+    #using the 2" versions from 5-sigma random apertures
+    #the pixel scale (0.27 "/pix) is not as good as say HSC (0.17 "/pix)
+    MAG_LIMIT_u = 25.7 #26.7 @1" +/- 0.1
+    MAG_LIMIT_g = 24.7
+    MAG_LIMIT_r = 24.7 #25.6 @1" +/- 0.1
+    MAG_LIMIT_i = 24.0 #24.7 @1" +/- 0.3
+    MAG_LIMIT_z = 23.9 #24.8 @1" lots of error on this one +/- 2.9
 
     #not all tiles have all filters
     Filters = ['u','g','r','i','z']
@@ -85,7 +92,8 @@ class SHELA(cat_base.Catalog):
     Tiles = ['A1','A2','A3','A4','A5','A6','A7','A8','A9','A10',
              'B1','B2','B3','B4','B5','B6','B7','B8','B9','B10',
              'C1','C2','C3','C4','C5','C6','C7','C8','C9','C10']
-    Img_ext = ['psfsci.fits','sci.fits'] #was psfsci.fits for just SHELA
+    #Img_ext = ['psfsci.fits','sci.fits'] #was psfsci.fits for just SHELA
+    Img_ext = ['sci.fits'] #was psfsci.fits for just SHELA
     Cat_ext = ['dualcat.fits','cat.fits'] #was 'dualgcat.fits'
     loaded_cat_tiles = [] #tile lables, like "A1","C9", etc for which the catalog has already been loaded
 
@@ -439,6 +447,37 @@ class SHELA(cat_base.Catalog):
 
 
         return cls.df_photoz
+
+    def get_mag_limit(self,image_identification=None,aperture_diameter=None):
+        """
+                to be overwritten by subclasses to return their particular format of maglimit
+
+                :param image_identification: some way (sub-class specific) to identify which image
+                        HERE we want a tuple ... [0] = tile name and [1] = filter name
+                :param aperture_diameter: in arcsec
+                :return:
+        """
+
+        try:
+            if image_identification:
+                if "_u_" in image_identification:
+                    return self.MAG_LIMIT_u
+                elif "_g_" in image_identification:
+                    return self.MAG_LIMIT_g
+                elif "_r_" in image_identification:
+                    return self.MAG_LIMIT_r
+                elif "_i_" in image_identification:
+                    return self.MAG_LIMIT_i
+                elif "_z_" in image_identification:
+                    return self.MAG_LIMIT_z
+                else:
+                    return self.MAG_LIMIT
+        except:
+            log.warning("cat_shela.py get_mag_limit fail.",exc_info=True)
+            try:
+                return self.MAG_LIMIT
+            except:
+                return 99.9
 
     def build_catalog_of_images(self):
         for t in self.Tiles:

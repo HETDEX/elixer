@@ -738,26 +738,31 @@ class Catalog:
 
         stacked_cutout = None
         if cutouts:
-            total_adjusted_exptime = 1.0
-            ref_exptime = 0.0
-            for c in cutouts:
-                if not stacked_cutout:
-                    stacked_cutout = copy.deepcopy(c['cutout'])
-                    try:
-                        ref_exptime = c['details']['exptime']
-                        if not ref_exptime:
-                            ref_exptime = 1.0
-                    except:
-                        ref_exptime = 1.0
-                    total_adjusted_exptime = 1.0
-                else:
-                    try:
-                        stacked_cutout.data = np.add(stacked_cutout.data, c['cutout'].data * c['details']['exptime'] / ref_exptime)
-                        total_adjusted_exptime += c['details']['exptime'] / ref_exptime
-                    except:
-                        pass
+            try:
+                total_adjusted_exptime = 1.0
+                ref_exptime = 0.0
+                for c in cutouts:
+                    if c and c['cutout']:
+                        if not stacked_cutout:
+                            stacked_cutout = copy.deepcopy(c['cutout'])
+                            try:
+                                ref_exptime = c['details']['exptime']
+                                if not ref_exptime:
+                                    ref_exptime = 1.0
+                            except:
+                                ref_exptime = 1.0
+                            total_adjusted_exptime = 1.0
+                        else:
+                            try:
+                                stacked_cutout.data = np.add(stacked_cutout.data, c['cutout'].data * c['details']['exptime'] / ref_exptime)
+                                total_adjusted_exptime += c['details']['exptime'] / ref_exptime
+                            except:
+                                pass
 
-            stacked_cutout.data /= total_adjusted_exptime
+                if stacked_cutout and total_adjusted_exptime:
+                    stacked_cutout.data /= total_adjusted_exptime
+            except:
+                log.warning("Exception in cat_base.py stack_image_cutouts",exc_info=True)
         return stacked_cutout
 
 
@@ -766,7 +771,7 @@ class Catalog:
     def build_cat_summary_pdf_section(self,list_of_cutouts, cat_match, ra, dec, error, target_w=0,
                                   fiber_locs=None, target_flux=None,detobj=None):
         """
-        Scans cutouts to build the optimal catalog summar section, prioritizing the "best" (deepest) survey for
+        Scans cutouts to build the optimal catalog summary section, prioritizing the "best" (deepest) survey for
         g and r equivalent filters and filling in other filters with the deepest equivalent
 
         :param cutouts:
@@ -857,196 +862,199 @@ class Catalog:
 
         stacked_cutout = self.stack_image_cutouts(list_of_cutouts[the_best_cat_idx])
 
-        #now turn this into a plot object and start adding North Box and Fibers
-        rows = 10
-        #note: setting size to 7 from 6 so they will be the right size (the 7th position will not be populated)
-        cols = 7 # 1 for the fiber position and up to 6 filters for any one tile (u,g,r,i,z,y)
-        fig_sz_x = 18 #cols * 3
-        fig_sz_y = 3 #ows * 3
-
-        fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
-        plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
-
-        gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.0)
-        # reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based
-
-        font = FontProperties()
-        font.set_family('monospace')
-        font.set_size(12)
-
-        #this is the single line between the 1D spectrum above and the cutouts below
-        the_entry = list_of_cutouts[the_best_cat_idx][the_best_cutout_idx]
-
-        if the_entry['details'] and the_entry['details']['catalog_name']:
-            name = the_entry['details']['catalog_name']
-        elif the_entry['instrument']:
-            name = the_entry['instrument']
+        if stacked_cutout is None:
+            fig = self.build_empty_cat_summary_figure(ra,dec,error,None,None,target_w,fiber_locs)
         else:
-            name = "---"
+            #now turn this into a plot object and start adding North Box and Fibers
+            rows = 10
+            #note: setting size to 7 from 6 so they will be the right size (the 7th position will not be populated)
+            cols = 7 # 1 for the fiber position and up to 6 filters for any one tile (u,g,r,i,z,y)
+            fig_sz_x = 18 #cols * 3
+            fig_sz_y = 3 #ows * 3
 
-        if the_entry['details'] and the_entry['details']['filter_name']:
-            filter = the_entry['details']['filter_name']
-        elif the_entry['filter']:
-            filter = the_entry['filter']
-        else:
-            filter = "-"
+            fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
+            plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
 
-        #couterparts, though, are only listed in the zeroth position
-        # list_of_counterparts  = []
-        # try:
-        #     if 'counterparts' in the_entry.keys():
-        #         list_of_counterparts = the_entry['counterparts']
-        #     elif 'counterparts' in list_of_cutouts[the_best_cat_idx][0]:
-        #         list_of_counterparts = list_of_cutouts[the_best_cat_idx][0]['counterparts']
-        # except:
-        #     pass
-        #
+            gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.0)
+            # reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based
 
-        counterpart_cat_idx = the_best_cat_idx
-        #counterparts are always just on the [0]th entry for the catalog
-        try:
-            if list_of_cutouts[counterpart_cat_idx][0]['counterparts']:
-                list_of_counterparts = list_of_cutouts[counterpart_cat_idx][0]['counterparts']
+            font = FontProperties()
+            font.set_family('monospace')
+            font.set_size(12)
+
+            #this is the single line between the 1D spectrum above and the cutouts below
+            the_entry = list_of_cutouts[the_best_cat_idx][the_best_cutout_idx]
+
+            if the_entry['details'] and the_entry['details']['catalog_name']:
+                name = the_entry['details']['catalog_name']
+            elif the_entry['instrument']:
+                name = the_entry['instrument']
             else:
-                counterpart_cat_idx = 0
-                best_len = 0
-                for idx,cat in enumerate(list_of_cutouts):
-                    if cat[0]['counterparts']:
-                        if len(cat[0]['counterparts']) > best_len:
-                            counterpart_cat_idx = idx
-                            best_len = len(cat[0]['counterparts'])
-                list_of_counterparts = list_of_cutouts[counterpart_cat_idx][0]['counterparts']
-        except:
-            pass
+                name = "---"
 
-        try:
-            possible_matches = len(list_of_counterparts)
-        except:
-            possible_matches = '--'
+            if the_entry['details'] and the_entry['details']['filter_name']:
+                filter = the_entry['details']['filter_name']
+            elif the_entry['filter']:
+                filter = the_entry['filter']
+            else:
+                filter = "-"
 
-        title = f"{name} : Possible Matches = {possible_matches} (within +/- {error:g}\")  P(LAE)/P(OII): "
-        try:
-            title +=  r'$%.4g\ ^{%.4g}_{%.4g}$' % (round(the_entry['aperture_plae'], 3),
-                                               round(the_entry['aperture_plae_max'], 3),
-                                               round(the_entry['aperture_plae_min'], 3))
+            #couterparts, though, are only listed in the zeroth position
+            # list_of_counterparts  = []
+            # try:
+            #     if 'counterparts' in the_entry.keys():
+            #         list_of_counterparts = the_entry['counterparts']
+            #     elif 'counterparts' in list_of_cutouts[the_best_cat_idx][0]:
+            #         list_of_counterparts = list_of_cutouts[the_best_cat_idx][0]['counterparts']
+            # except:
+            #     pass
+            #
 
-            title += f" ({filter})"
-        except:
-            title += "N/A"
-
-
-        bid_ras = [x.bid_ra for x in list_of_counterparts]
-        bid_decs = [x.bid_dec for x in list_of_counterparts]
-        bid_colors = self.get_bid_colors(len(bid_ras))
-
-        target_box_side = error/4.0
-
-        plt.subplot(gs[0, :])
-        text = plt.text(0, 0.7, title, ha='left', va='bottom', fontproperties=font)
-        plt.gca().set_frame_on(False)
-        plt.gca().axis('off')
-
-        sci = science_image.science_image() #empty science image to use for functions
-
-
-        #
-        # Add the left-most (stacked) image with the fiber positions
-        #
-        index = 0 #images go in positions 1+ (0 is for the fiber positions stacked cutout)
-
-        _ = plt.subplot(gs[1:, index])
-        pix_size = sci.calc_pixel_size(stacked_cutout.wcs)
-        ext = stacked_cutout.shape[0] * pix_size / 2.
-        #add_fiber_positions also takes care of the north box and the center
-        self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, stacked_cutout)
-
-
-        #
-        #Now add the other images (in filter order) until we run out of spaces
-        #
-        for k in best_dict.keys():
-            if best_dict[k]['depth']: # a best depth is set
-                index += 1
-                if index >= cols:
-                    log.info("Reached maximum number of filters to display. Skipping remainder.")
-                    break
-
-                _ = plt.subplot(gs[1:, index])
-                the_entry = list_of_cutouts[best_dict[k]['cat_idx']][best_dict[k]['cutout_idx']]
-
-                vmin, vmax = sci.get_vrange(the_entry['cutout'].data)
-                pix_size = sci.calc_pixel_size(the_entry['cutout'].wcs)
-                ext = the_entry['cutout'].shape[0] * pix_size / 2.
-
-                plt.imshow(the_entry['cutout'].data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
-                       vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
-
-                if the_entry['instrument']:
-                    name = the_entry['instrument'][0:10]
-                elif the_entry['details'] and the_entry['details']['catalog_name']:
-                    name = the_entry['details']['catalog_name'][0:10]
+            counterpart_cat_idx = the_best_cat_idx
+            #counterparts are always just on the [0]th entry for the catalog
+            try:
+                if list_of_cutouts[counterpart_cat_idx][0]['counterparts']:
+                    list_of_counterparts = list_of_cutouts[counterpart_cat_idx][0]['counterparts']
                 else:
-                    name = "---"
+                    counterpart_cat_idx = 0
+                    best_len = 0
+                    for idx,cat in enumerate(list_of_cutouts):
+                        if cat[0]['counterparts']:
+                            if len(cat[0]['counterparts']) > best_len:
+                                counterpart_cat_idx = idx
+                                best_len = len(cat[0]['counterparts'])
+                    list_of_counterparts = list_of_cutouts[counterpart_cat_idx][0]['counterparts']
+            except:
+                pass
 
-                if the_entry['mag_limit'] and the_entry['mag_limit'] < 99.9:
-                    name += f"({the_entry['mag_limit']:0.1f})"
+            try:
+                possible_matches = len(list_of_counterparts)
+            except:
+                possible_matches = '--'
 
-                if the_entry['filter']:
-                    filter = the_entry['filter']
-                elif the_entry['details'] and the_entry['details']['filter_name']:
-                    filter = the_entry['details']['filter_name']
-                else:
-                    filter = "-"
+            title = f"{name} : Possible Matches = {possible_matches} (within +/- {error:g}\")  P(LAE)/P(OII): "
+            try:
+                title +=  r'$%.4g\ ^{%.4g}_{%.4g}$' % (round(the_entry['aperture_plae'], 3),
+                                                   round(the_entry['aperture_plae_max'], 3),
+                                                   round(the_entry['aperture_plae_min'], 3))
 
-                plt.title(f"{name} {filter}")
-                plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-                plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+                title += f" ({filter})"
+            except:
+                title += "N/A"
 
-                self.add_zero_position(plt)
 
-                #build up the needed parameters
-                #if there is an aperture (from source extractor ellipse or elixer circular aperture(s)), draw them
-                if the_entry['ap_center']:
-                    cx = the_entry['ap_center'][0]
-                    cy = the_entry['ap_center'][1]
+            bid_ras = [x.bid_ra for x in list_of_counterparts]
+            bid_decs = [x.bid_dec for x in list_of_counterparts]
+            bid_colors = self.get_bid_colors(len(bid_ras))
 
-                    if the_entry['details']:
-                        cutout_ewr = the_entry['details']['aperture_eqw_rest_lya']
-                        cutout_plae = the_entry['details']['aperture_plae']
+            target_box_side = error/4.0
 
-                        if ((the_entry['details']['sep_objects'] is not None) and \
-                                (the_entry['details']['sep_obj_idx'] is not None)):  # and (details['sep_obj_idx'] is not None):
-                            self.add_elliptical_aperture_positions(plt, the_entry['details']['sep_objects'],
-                                                                   the_entry['details']['sep_obj_idx'],
-                                                                   the_entry['details']['radius'],
-                                                                   the_entry['details']['mag'],
-                                                                   cx, cy, cutout_ewr, cutout_plae)
-                        else:
+            plt.subplot(gs[0, :])
+            text = plt.text(0, 0.7, title, ha='left', va='bottom', fontproperties=font)
+            plt.gca().set_frame_on(False)
+            plt.gca().axis('off')
 
-                            try:
-                                distance_to_center = the_entry['details']['elixer_apertures'][the_entry['details']['elixer_aper_idx']]['dist_to_center']
-                            except:
-                                distance_to_center = None
+            sci = science_image.science_image() #empty science image to use for functions
 
-                            self.add_aperture_position(plt, the_entry['details']['radius'],
-                                                       the_entry['details']['mag'],
-                                                       cx, cy, cutout_ewr, cutout_plae,distance_to_center)
+
+            #
+            # Add the left-most (stacked) image with the fiber positions
+            #
+            index = 0 #images go in positions 1+ (0 is for the fiber positions stacked cutout)
+
+            _ = plt.subplot(gs[1:, index])
+            pix_size = sci.calc_pixel_size(stacked_cutout.wcs)
+            ext = stacked_cutout.shape[0] * pix_size / 2.
+            #add_fiber_positions also takes care of the north box and the center
+            self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, stacked_cutout)
+
+
+            #
+            #Now add the other images (in filter order) until we run out of spaces
+            #
+            for k in best_dict.keys():
+                if best_dict[k]['depth']: # a best depth is set
+                    index += 1
+                    if index >= cols:
+                        log.info("Reached maximum number of filters to display. Skipping remainder.")
+                        break
+
+                    _ = plt.subplot(gs[1:, index])
+                    the_entry = list_of_cutouts[best_dict[k]['cat_idx']][best_dict[k]['cutout_idx']]
+
+                    vmin, vmax = sci.get_vrange(the_entry['cutout'].data)
+                    pix_size = sci.calc_pixel_size(the_entry['cutout'].wcs)
+                    ext = the_entry['cutout'].shape[0] * pix_size / 2.
+
+                    plt.imshow(the_entry['cutout'].data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
+                           vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+
+                    if the_entry['instrument']:
+                        name = the_entry['instrument'][0:10]
+                    elif the_entry['details'] and the_entry['details']['catalog_name']:
+                        name = the_entry['details']['catalog_name'][0:10]
                     else:
-                        log.warning("No cutout details ...")
+                        name = "---"
 
-                self.add_north_box(plt, sci, the_entry['cutout'], error, 0, 0, theta=None)
+                    if the_entry['mag_limit'] and the_entry['mag_limit'] < 99.9:
+                        name += f"({the_entry['mag_limit']:0.1f})"
 
-                x, y = sci.get_position(ra, dec, the_entry['cutout'])  # zero (absolute) position
-                for br, bd, bc in zip(bid_ras, bid_decs, bid_colors):
-                    fx, fy = sci.get_position(br, bd, the_entry['cutout'])
+                    if the_entry['filter']:
+                        filter = the_entry['filter']
+                    elif the_entry['details'] and the_entry['details']['filter_name']:
+                        filter = the_entry['details']['filter_name']
+                    else:
+                        filter = "-"
 
-                    self.add_catalog_position(plt,
-                                              x=(fx-x)-target_box_side / 2.0,
-                                              y=(fy-y)-target_box_side / 2.0,
-                                              size=target_box_side, color=bc)
+                    plt.title(f"{name} {filter}")
+                    plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+                    plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
 
-        # complete the entry
-        plt.close()
+                    self.add_zero_position(plt)
+
+                    #build up the needed parameters
+                    #if there is an aperture (from source extractor ellipse or elixer circular aperture(s)), draw them
+                    if the_entry['ap_center']:
+                        cx = the_entry['ap_center'][0]
+                        cy = the_entry['ap_center'][1]
+
+                        if the_entry['details']:
+                            cutout_ewr = the_entry['details']['aperture_eqw_rest_lya']
+                            cutout_plae = the_entry['details']['aperture_plae']
+
+                            if ((the_entry['details']['sep_objects'] is not None) and \
+                                    (the_entry['details']['sep_obj_idx'] is not None)):  # and (details['sep_obj_idx'] is not None):
+                                self.add_elliptical_aperture_positions(plt, the_entry['details']['sep_objects'],
+                                                                       the_entry['details']['sep_obj_idx'],
+                                                                       the_entry['details']['radius'],
+                                                                       the_entry['details']['mag'],
+                                                                       cx, cy, cutout_ewr, cutout_plae)
+                            else:
+
+                                try:
+                                    distance_to_center = the_entry['details']['elixer_apertures'][the_entry['details']['elixer_aper_idx']]['dist_to_center']
+                                except:
+                                    distance_to_center = None
+
+                                self.add_aperture_position(plt, the_entry['details']['radius'],
+                                                           the_entry['details']['mag'],
+                                                           cx, cy, cutout_ewr, cutout_plae,distance_to_center)
+                        else:
+                            log.warning("No cutout details ...")
+
+                    self.add_north_box(plt, sci, the_entry['cutout'], error, 0, 0, theta=None)
+
+                    x, y = sci.get_position(ra, dec, the_entry['cutout'])  # zero (absolute) position
+                    for br, bd, bc in zip(bid_ras, bid_decs, bid_colors):
+                        fx, fy = sci.get_position(br, bd, the_entry['cutout'])
+
+                        self.add_catalog_position(plt,
+                                                  x=(fx-x)-target_box_side / 2.0,
+                                                  y=(fy-y)-target_box_side / 2.0,
+                                                  size=target_box_side, color=bc)
+
+            # complete the entry
+            plt.close()
 
         self.clear_pages()
         self.add_bid_entry(fig)
