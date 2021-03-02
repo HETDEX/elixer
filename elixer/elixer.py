@@ -3730,7 +3730,8 @@ def main():
         if hdf5_detectid_list is not None:
             log.info("Processing %d entries in HDF5" %(len(hdf5_detectid_list)))
             print("Processing %d entries in HDF5" %(len(hdf5_detectid_list)))
-
+    else: #still even if neighborhood_only, may want neighborhood around detection
+        hdf5_detectid_list = get_hdf5_detectids_to_process(args)
     #add as a payload to args so can easily check later
     args.explicit_extraction = explicit_extraction
 
