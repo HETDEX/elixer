@@ -2742,7 +2742,16 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
     """
 
     if (fname is None) or (image_2d_fiber is None) or (image_1d_fit is None) or (image_cutout_fiber_pos is None):
-        log.error("Missing required data in elixer::build_3panel_zoo_image")
+        msg = "Missing required data in elixer::build_3panel_zoo_image() "
+        if fname is None:
+            msg += "fname "
+        if image_2d_fiber is None:
+            msg += " image_2d_fiber "
+        if image_1d_fit is None:
+            msg += " image_1d_fit "
+        if image_cutout_fiber_pos is None:
+            msg += " image_cutout_fiber_pos "
+        log.error(msg)
         return
     try:
         #note: 0,0 (for grid spec) is upper left

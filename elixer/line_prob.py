@@ -739,7 +739,7 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
             num_mc = 1
 
         _max_sample_retry = 10 #number of attemps to get a valid lineflux and continuum (both must be positive)
-        log.debug("Sampling (%d) PLAE/POII ... " %(num_mc))
+        log.debug(f"Sampling {num_mc} PLAE/POII. Lf {lineFlux} +/- {lineFlux_err}, Cont {continuum} +/- {continuum_err}")
         # lineflux_array = np.random.normal(lineFlux,lineFlux_err,num_mc)
         # continuum_array = np.random.normal(continuum,continuum_err,num_mc)
         # ew_obs_array = lineflux_array / continuum_array
@@ -856,8 +856,10 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
                 break
 
             try:
+                #z_LyA = 2.2
                 #ct += 1
                 #log.debug("%d"%ct)
+
                 posterior_odds, prob_lae_given_data,setup  = LineClassifierPro.source_prob(UNIVERSE_CONFIG,
                                                                                     np.array([ra]), np.array([dec]),
                                                                                     np.array([z_LyA]),
@@ -873,7 +875,7 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
                                                                                     flim_file=FLUX_LIMIT_FN,
                                                                                     extended_output=False,
                                                                                     setup=setup)
-
+                #log.debug(f"LF {lf}, Cont {cn}, z {z_LyA:0.4f}, EW {ew:0.2f}, EWr {ew/(z_LyA+1):0.2f} PLAE/POII {float(posterior_odds):0.2f}")
 
                 if isinstance(posterior_odds,list) or isinstance(posterior_odds,np.ndarray):
                     if len(posterior_odds) == 1:

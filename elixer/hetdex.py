@@ -1803,8 +1803,41 @@ class DetObj:
                 var.append(1)  # todo: use the sd (scaled?) #can't use straight up here since the variances are not
                                # on the same scale
 
-                log.info(
-                    f"Aggregate Classification: MC PLAE/POII from combined continuum: lk({likelihood[-1]}) weight({weight[-1]})")
+                log.info( f"Aggregate Classification: MC PLAE/POII from combined continuum: "
+                          f"lk({likelihood[-1]}) weight({weight[-1]})")
+
+
+                #sanity check vs 20AA cut
+                #appears only to favor LAE for low EW and low z, never appears to favor OII at higher EW
+                try:
+                    if self.w > (G.OII_rest-1.0):
+                        if self.spec_obj:
+                            ew_combined_continuum = self.spec_obj.estflux
+                        else:
+                            ew_combined_continuum = self.estflux
+
+                        zp1 = self.w/G.LyA_rest #z + 1
+                        ew_combined_continuum /= self.classification_dict['continuum_hat']
+                        ew_combined_continuum /= zp1
+
+                        #very rough, not following any actual distribution right now
+                        #this is meant as a flag or warning if the PLAE/POII seems to have failed expectations
+                        #lae_z < 2.4  is oii_z < 0.1
+                        if ew_combined_continuum and ( 0 < ew_combined_continuum < 20) and (zp1 < 3.4) and \
+                                (self.classification_dict['plae_hat'] > 3.0):
+                            #this is unexpected
+                            log.info(f"Unexpected PLAE/POII {self.classification_dict['plae_hat']} for low-z OII {G.LyA_rest*zp1/G.OII_rest - 1.0} and small EW {ew_combined_continuum}. Applying 20AA sanity check.")
+                            #here we are only tweaking the weight for the NOT LyA binary condition vote of 0.0
+                            #where the weight is 0 at EW == 20 and falls to 1.0 by EW == 10
+
+                            likelihood.append(0.0)
+                            prior.append(base_assumption)
+                            weight.append(min(2.0,20.0/ew_combined_continuum - 1.0))
+                            var.append(1)
+                            log.info(f"Aggregate Classification: 20AA sanity PLAE/POII from combined continuum: "
+                                     f"lk({likelihood[-1]}) weight({weight[-1]})")
+                except:
+                    log.warning("Exception appling 20AA sanity check",exc_info=True)
 
                 #todo: handle the uncertainty on plae_hat
                 #plae_hat_sd = self.classification_dict['plae_hat_sd']
@@ -1826,10 +1859,10 @@ class DetObj:
             prior.append(base_assumption)
             log.info(f"Aggregate Classification: gmag too bright {self.best_gmag} to be LAE (AGN): lk({likelihood[-1]}) "
                 f"weight({weight[-1]})")
-        elif lower_mag < 24.0:
+        elif lower_mag < 23.5:
             try:
                 min_fwhm = self.fwhm - (0 if ((self.fwhm_unc is None) or (np.isnan(self.fwhm_unc))) else self.fwhm_unc)
-                min_thresh = max( ((24.0 - lower_mag) + 8.0), 8.0) #just in case something weird
+                min_thresh = max( ((23.5 - lower_mag) + 8.0), 8.0) #just in case something weird
 
                 #the -25.0 and -0.8 are from some trial and error plotting to get the shape I want
                 #runs 0 to 1.0 and drops off very fast from 1.0 toward 0.0
@@ -2386,43 +2419,8 @@ class DetObj:
         #
         #
 
-        #todo: evaluate each PLAE/POII ratio available and set the variance (proxy) and weight before summing up
-
-        #HETDEX Continuum (near emission line), not very reliable
-        try:
-            if (self.hetdex_cont_cgs is not None) and (self.hetdex_cont_cgs_unc is not None):
-                #hetdex_cont_limit = 2.0e-18 #don't trust below this
-                if (self.hetdex_cont_cgs - self.hetdex_cont_cgs_unc) > G.HETDEX_CONTINUUM_FLUX_LIMIT:
-                    continuum.append(self.hetdex_cont_cgs)
-                    variance.append(self.hetdex_cont_cgs_unc*self.hetdex_cont_cgs_unc)
-                    weight.append(0.2) #never very high
-                    type.append('hdn') #HETDEX-narrow
-                    log.debug(f"{self.entry_id} Combine ALL Continuum: Added HETDEX estimate ({continuum[-1]:#.4g}) "
-                              f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
-                else: #set as lower limit ... too far to be meaningful
-                    continuum.append(G.HETDEX_CONTINUUM_FLUX_LIMIT)
-                    # set to itself as a big error (basically, 100% error)
-                    variance.append(G.HETDEX_CONTINUUM_FLUX_LIMIT * G.HETDEX_CONTINUUM_FLUX_LIMIT)
-
-                    #does it make any sense to attempt to use the calculated error in this case? it is the
-                    #error on a value that is rejected as meaningless (below the limit or negative)
-                    # if self.hetdex_cont_cgs_unc > 0:
-                    #     variance.append(self.hetdex_cont_cgs_unc*self.hetdex_cont_cgs_unc)
-                    # else:
-                    #     variance.append(G.HETDEX_CONTINUUM_FLUX_LIMIT * G.HETDEX_CONTINUUM_FLUX_LIMIT) #set to itself as a big error
-
-                    weight.append(0.0) #never very high
-                    type.append('hdn')
-                    log.debug(f"{self.entry_id} Combine ALL Continuum: Failed HETDEX estimate, setting to lower limit  "
-                              f"({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
-
-        except:
-            log.debug("Exception handling HETDEX continuum in DetObj:combine_all_continuum",exc_info=True)
-
-        #for use with SDSS gmag and HETDEX full width gmag
-
-
         # Best full width gmag continuum (HETDEX full width or SDSS gmag)
+        got_hd_gmag = True
         try:
             cgs_25 = 5.38e-19
             cgs_24 = 1.35e-18
@@ -2483,9 +2481,46 @@ class DetObj:
                         f"{self.entry_id} Combine ALL Continuum: Failed best spectrum gmag estimate, setting to lower limit "
                         f"({continuum[-1]:#.4g}) "
                         f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
+            else:
+                got_hd_gmag = False
         except:
+            got_hd_gmag = False
             log.debug("Exception handling best spectrum gmag continuum in DetObj:combine_all_continuum",
                       exc_info=True)
+
+
+        #HETDEX Continuum (near emission line), not very reliable only use if we did not get a HETDEX gmag
+        if not got_hd_gmag:
+            try:
+                if (self.hetdex_cont_cgs is not None) and (self.hetdex_cont_cgs_unc is not None):
+                    #hetdex_cont_limit = 2.0e-18 #don't trust below this
+                    if (self.hetdex_cont_cgs - self.hetdex_cont_cgs_unc) > G.HETDEX_CONTINUUM_FLUX_LIMIT:
+                        continuum.append(self.hetdex_cont_cgs)
+                        variance.append(self.hetdex_cont_cgs_unc*self.hetdex_cont_cgs_unc)
+                        weight.append(0.2) #never very high
+                        type.append('hdn') #HETDEX-narrow
+                        log.debug(f"{self.entry_id} Combine ALL Continuum: Added HETDEX estimate ({continuum[-1]:#.4g}) "
+                                  f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
+                    else: #set as lower limit ... too far to be meaningful
+                        continuum.append(G.HETDEX_CONTINUUM_FLUX_LIMIT)
+                        # set to itself as a big error (basically, 100% error)
+                        variance.append(G.HETDEX_CONTINUUM_FLUX_LIMIT * G.HETDEX_CONTINUUM_FLUX_LIMIT)
+
+                        #does it make any sense to attempt to use the calculated error in this case? it is the
+                        #error on a value that is rejected as meaningless (below the limit or negative)
+                        # if self.hetdex_cont_cgs_unc > 0:
+                        #     variance.append(self.hetdex_cont_cgs_unc*self.hetdex_cont_cgs_unc)
+                        # else:
+                        #     variance.append(G.HETDEX_CONTINUUM_FLUX_LIMIT * G.HETDEX_CONTINUUM_FLUX_LIMIT) #set to itself as a big error
+
+                        weight.append(0.0) #never very high
+                        type.append('hdn')
+                        log.debug(f"{self.entry_id} Combine ALL Continuum: Failed HETDEX estimate, setting to lower limit  "
+                                  f"({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
+
+            except:
+                log.debug("Exception handling HETDEX continuum in DetObj:combine_all_continuum",exc_info=True)
+
 
         #Best forced aperture PLAE
         #how to set?? maybe always the same?
@@ -4179,7 +4214,7 @@ class DetObj:
 
         try:
             coord = SkyCoord(ra=self.ra * U.deg, dec=self.dec * U.deg)
-            apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
+            apt = hda_get_spectra([coord], survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
                                   ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS, rad=self.extraction_aperture,
                                   tpmin=0.0,fiberweights=True)
         except:

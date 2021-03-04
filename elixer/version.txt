@@ -1,5 +1,17 @@
 changes to elixer by version
 
+1.11.0a4 [2020-03-04]
+* Added 20AA EWr cut sanity check for low-z OII ( <~ 0.1) (or LyA <~ 2.4) where PLAE/POII seems to give odd results.
+ There might be an issue with the spatial volume at low-z (the LAE volume / OII volume rises very fast below
+ z(OII) < 0.1 and explodes by z(OII) < 0.04).
+* Still perform local sky subtraction on an image cutout aperture if the counts are negative (the local sky may be
+  oversubtracted and negative too).
+* Add 20AA sanity check when aggregating for P(LyA) for OII low-z < 0.1 where PLAE/POII has issues with the luminosity
+  functions and vast and rapidly growing volume differentials between low-z (OII) and high-z (LAE)
+* Fix bug that was not generating the fiber positions cutout for the mini (zooniverse) png following the re-organization
+  of the catalogs in version 1.11.0a1
+
+
 1.11.0a3 [2020-02-21]
 * Add galaxy_mask. Detections found within galaxy mask are flagged and if a redshift matched emission line is found, are
   re-scored to boost solution.

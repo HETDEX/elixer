@@ -1059,6 +1059,33 @@ class Catalog:
         self.clear_pages()
         self.add_bid_entry(fig)
 
+        # get zoo style cutout as png
+        if G.ZOO_MINI and (detobj is not None):
+            plt.figure()
+            pix_size = sci.calc_pixel_size(stacked_cutout.wcs)
+            ext = stacked_cutout.shape[0] * pix_size / 2.
+            #add_fiber_positions also takes care of the north box and the center
+            self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, stacked_cutout, unlabeled=True)
+
+            plt.gca().set_axis_off()
+
+            box_ratio = 1.0#0.99
+            # add window outline
+            xl, xr = plt.gca().get_xlim()
+            yb, yt = plt.gca().get_ylim()
+            zero_x = (xl + xr) / 2.
+            zero_y = (yb + yt) / 2.
+            rx = (xr - xl) * box_ratio / 2.0
+            ry = (yt - yb) * box_ratio / 2.0
+
+            plt.gca().add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=rx * 2 , height=ry * 2,
+                                              angle=0, color='red', fill=False,linewidth=8))
+
+            buf = io.BytesIO()
+            plt.savefig(buf, format='png', dpi=300,transparent=True)
+            detobj.image_cutout_fiber_pos = buf
+            plt.close()
+
 
         #################################################
         #now build up the couterparts from the catalog

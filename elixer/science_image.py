@@ -1506,6 +1506,8 @@ class science_image():
                         elif (mag > max_bright) or (abs(mag - max_bright) < 0.01):  # < 0.0005):
                             break
 
+                    # elif (counts <= 0) and (radius < G.MAX_DYNAMIC_MAG_APERTURE):
+                    #     pass #ignore this and keep going
                     elif (radius >= aperture) or (abs(radius - aperture) < 1e-5) or (
                             radius > G.MAX_DYNAMIC_MAG_APERTURE):
                         # weirdness in floats, difference when "==" is non-zero ~ 1e-16
@@ -1628,7 +1630,8 @@ class science_image():
 
         #if we have a magnitude and it is fainter than a minimum, subtract the sky from a surrounding annulus
         #s|t we have ~ 3x pixels in the sky annulus as in the source aperture, so 2x the radius
-        if do_sky_subtract and (mag < 99) and (mag > G.SKY_ANNULUS_MIN_MAG):
+        if do_sky_subtract and (mag > G.SKY_ANNULUS_MIN_MAG): #and (mag < 99)
+            #do it anyway, even if mag = 99.9 as the counts might be negative, but the local sky might be negative too
             try:
 
                 #todo: note in photutils, pixel x,y is the CENTER of the pixel and [0,0] is the center of the
@@ -1719,13 +1722,14 @@ class science_image():
                     #the photometry should have pretty good sky subtration ... but what if we are on a faint object
                     #that is near large object ... could be we don't get enough sky pixels or the average is skewed high
                     #so if we make much of a change, at least log a warning
-                    if abs(sky_mag - base_mag) > G.MAX_SKY_SUBTRACT_MAG:
+                    if (base_mag < 99.9) and (abs(sky_mag - base_mag) > G.MAX_SKY_SUBTRACT_MAG):
                        # print("Warning! Unexepectedly large sky subtraction impact to magnitude: %0.2f to %0.2f at (%f,%f)"
                        #             %(base_mag,sky_mag,ra,dec))
                         log.warning("Warning! Unexepectedly large sky subtraction impact to magnitude: %0.2f to %0.2f at (%f,%f)"
                                     %(base_mag,sky_mag,ra,dec))
-                    else: #todo: !!!! temporary ... just to see what happens if we keep the original base mag
+                    elif sky_mag < 99.9: #todo: !!!! temporary ... just to see what happens if we keep the original base mag
                         mag = sky_mag
+                    #else the mag remains unchanged
 
                     log.info("Sky subtracted imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Sky = (%f/pix %f tot). Counts = %s Mag_AB = %g"
                              % (elixer_aperture['radius'],ra,dec,sky_avg, sky_cts,str(counts),mag))
