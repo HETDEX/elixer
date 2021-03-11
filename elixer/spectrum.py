@@ -4164,7 +4164,10 @@ class Spectrum:
                             fwhm_comp = adjust * 2.0 * (eli.fit_sigma - self.central_eli.fit_sigma)  / \
                                         (eli.fit_sigma + self.central_eli.fit_sigma)
 
-                            if -0.5 < fwhm_comp  < 0.5:
+                            #if -0.5 < fwhm_comp  < 0.5: #too strict ... specifically need to worry about
+                            #combo's of lines where one of the combo (like MgII or even CIV is a doublet) and the
+                            #other is not
+                            if -1.0 < fwhm_comp  < 1.0:
                                     # delta sigma is okay, the higher rank is larger sigma (negative result) or within 50%
                                 pass
                             else:

@@ -12,6 +12,7 @@ try:
     from elixer import utilities as utils
     from elixer import shot_sky
     from elixer import galaxy_mask
+    from elixer import cat_sdss #for the z-catalog
 except:
     import global_config as G
     import line_prob
@@ -25,6 +26,7 @@ except:
     import utilities as utils
     import shot_sky
     import galaxy_mask
+    import cat_sdss #for the z-catalog
 
 
 from hetdex_tools.get_spec import get_spectra as hda_get_spectra
@@ -930,6 +932,7 @@ class DetObj:
             self.check_for_meteor()
 
         try:
+            flag_galaxy_mask = False
             if G.CHECK_GALAXY_MASK and self.galaxy_mask:
                 log.debug("Checking position against galaxy mask ...")
                 possible_lines = []
@@ -996,6 +999,75 @@ class DetObj:
         except:
             log.warning("Failed to check galaxy mask",exc_info=True)
 
+        if not flag_galaxy_mask and G.CHECK_SDSS_Z_CATALOG:     #don't bother with SDSS catalog if already flagged in galaxy mask
+            try:
+                #catalog is bound to the class, so don't need an object
+                log.debug("Checking against SDSS z-catalog...")
+                z_sdss, sep_sdss, label_sdss = cat_sdss.SDSS.redshift(self.my_ra,self.my_dec)
+
+                #duplicated code above, should refactor
+                #
+                #could hit more than one object ... if at the same z, then the same solution will get
+                #multiple boosts (that is okay I think)
+                #if at different z then different solutions could get a boost and would win based on the
+                #  scoring
+                if z_sdss and self.spec_obj: #is not None or Empty
+                    for z,sep,label in zip(z_sdss,sep_sdss,label_sdss):
+                        line = self.spec_obj.match_line(self.w,z)
+                        if line:
+                            log.info(f"SDSS z-catalog possible line match: {line.name} {line.w_rest} z={z} rank={line.rank} sep={sep}")
+                            possible_lines.append(line)
+
+                            #note: if d25 is > GALAXY_MASK_D25_SCORE_NORM, this actually starts reducing the boost as we
+                            # get farther from the body of the galaxy mask
+                            #lines like OII, OIII, H_beta, LyA, CIV are all low rank lines and get high boosts
+                            #where H_eta, CaII, NaI are higher rank (weaker lines) and get lower boosts (and are not
+                            #likely to be the HETDEX detection line anyway)
+
+                            if line.rank > 4: #rank 5 or worse
+                                rank_scale = 0.5
+                            elif line.rank > 3: #rank 4
+                                rank_scale = 1.0
+                            else: #ranks 1,2,3
+                                rank_scale = 2.0
+
+                            boost = G.SDSS_SCORE_BOOST * rank_scale
+
+                            #check the existing solutions ... if there is a corresponding z solution, boost its score
+                            new_solution = True
+                            for s in self.spec_obj.solutions:
+                                if s.emission_line.w_rest == line.w_rest:
+                                    new_solution = False
+                                    log.info(f"Boosting existing solution: + {boost}")
+                                    s.score += boost
+
+
+                            if new_solution:
+                                log.info(f"Adding new solution: score = {boost}")
+                                sol = elixer_spectrum.Classifier_Solution()
+                                sol.z = z
+                                sol.central_rest = line.w_rest
+                                sol.name = line.name
+                                sol.color = line.color
+                                sol.emission_line = deepcopy(line)
+                                sol.emission_line.w_obs = self.w
+                                sol.emission_line.solution = True
+                                sol.prob_noise = 0
+                                sol.lines.append(line)
+                                sol.score = boost
+
+                                self.spec_obj.solutions.append(sol)
+
+
+                if possible_lines: #one or more possible matches
+                    #todo: future, instead of adding a label, set a flag to appear in the HDF5 file
+                    self.spec_obj.add_classification_label(label,prepend=True)
+                    # rescore the solutions from above boosts
+                    self.spec_obj.rescore()
+
+
+            except:
+                log.warning("Failed to check SDSS z-catalog",exc_info=True)
 
 
 
@@ -4214,7 +4286,7 @@ class DetObj:
 
         try:
             coord = SkyCoord(ra=self.ra * U.deg, dec=self.dec * U.deg)
-            apt = hda_get_spectra([coord], survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
+            apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
                                   ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS, rad=self.extraction_aperture,
                                   tpmin=0.0,fiberweights=True)
         except:
@@ -7519,7 +7591,7 @@ class HETDEX:
                 try:
                     e.fiber_locs = list(
                         zip(datakeep['ra'], datakeep['dec'], datakeep['color'], datakeep['index'], datakeep['d'],
-                            datakeep['fib']))
+                            datakeep['fib'],datakeep['ifux'],datakeep['ifuy']))
                 except:
                     log.error("Error building fiber_locs", exc_info=True)
 
@@ -7735,6 +7807,8 @@ class HETDEX:
             dd['yl'] = []
             dd['xh'] = []
             dd['yh'] = []
+            dd['ifux'] = []
+            dd['ifuy'] = []
             dd['ds9_x'] = []
             dd['ds9_y'] = []
             dd['ds9_x_lyc'] = []
@@ -7879,6 +7953,8 @@ class HETDEX:
             yfiber = self.ifu_ctr.yifu[side][loc] + self.dither.dy[dither]
             xfiber += self.ifuy #yes this is correct xfiber gets ifuy
             yfiber += self.ifux
+            datakeep['ifux'].append(self.ifu_ctr.xifu[side][loc])
+            datakeep['ifuy'].append(self.ifu_ctr.yifu[side][loc])
             ra, dec = self.tangentplane.xy2raDec(xfiber, yfiber)
             datakeep['ra'].append(ra)
             datakeep['dec'].append(dec)
@@ -8303,6 +8379,9 @@ class HETDEX:
                 else: #only true in some panacea cases (if provided in detect line file)
                     datakeep['ra'].append(fiber.ra)
                     datakeep['dec'].append(fiber.dec)
+
+                datakeep['ifux'].append(fiber.center_x)
+                datakeep['ifuy'].append(fiber.center_y)
 
                 d = self.emis_to_fiber_distance(e,fiber)
                 if d is not None:

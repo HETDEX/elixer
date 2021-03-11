@@ -1665,14 +1665,29 @@ class Catalog:
         pass
 
 
-    def is_edge_fiber(self,absolute_fiber_num):
+    def is_edge_fiber(self,absolute_fiber_num,ifux=None,ifuy=None):
         """
         fiber_num is the ABSOLUTE fiber number 1-448
         NOT the per amp number (1-112)
+
+        or use fiber center IFUx and IFUy as the fiber may be in a non-standard location
+        but the IFUx and IFUy should be correct
+
+        # -22.88 < x < 22.88 ,  -24.24 < y < 24.24
+
         :param fiber_num:
         :return:
         """
-        return absolute_fiber_num in G.CCD_EDGE_FIBERS_ALL
+
+        if ifux is None or ifuy is None:
+            return absolute_fiber_num in G.CCD_EDGE_FIBERS_ALL
+        else:
+            #back off just a bit for some slop
+            if (-22.5 < ifux < 22.5) and (-24.0 < ifuy < 24.0):
+                return False
+            else:
+                return True
+
 
 
 
@@ -1710,7 +1725,7 @@ class Catalog:
 
                 x, y = empty_sci.get_position(ra, dec, cutout)  # zero (absolute) position
 
-                for r, d, c, i, dist,fn in fiber_locs:
+                for r, d, c, i, dist,fn,ifux,ifuy in fiber_locs:
                     # fiber absolute position ... need relative position to plot (so fiber - zero pos)
                     fx, fy = empty_sci.get_position(r, d, cutout)
 
@@ -1724,7 +1739,7 @@ class Catalog:
                    #stop displaying the 1-5 fiber number
                    # plt.text((fx - x), (fy - y), str(i), ha='center', va='center', fontsize='x-small', color=c)
 
-                    if self.is_edge_fiber(fn):
+                    if self.is_edge_fiber(fn,ifux,ifuy):
                         plt.gca().add_patch(
                             plt.Circle(((fx - x), (fy - y)), radius=G.Fiber_Radius+0.1, color=c, fill=False,
                                        linestyle='dashed'))

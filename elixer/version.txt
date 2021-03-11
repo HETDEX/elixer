@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.11.0a5 [2020-03-10]
+* Added SDSS z-catalog () as redshift check for any/all imaging surveys. Not explicit to SDSS.
+* Changed cat_base::is_edge_fiber() to use the IFUx and IFUy position instead of nominal grid of fiber IDs
+
 1.11.0a4 [2020-03-04]
 * Added 20AA EWr cut sanity check for low-z OII ( <~ 0.1) (or LyA <~ 2.4) where PLAE/POII seems to give odd results.
  There might be an issue with the spatial volume at low-z (the LAE volume / OII volume rises very fast below

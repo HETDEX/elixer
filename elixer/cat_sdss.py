@@ -115,10 +115,13 @@ class SDSS(cat_base.Catalog):#SDSS
     CONT_EST_BASE = None
 
     mean_FWHM = 1.67 #at 75% quartile for g-band ... varies also by filter, but this is good middle of the road limit
-    MainCatalog = None #there is no Main Catalog ... must load individual catalog tracts
+    MainCatalog = "SDSS" #there is no Main Catalog ... must load individual catalog tracts
     Name = "SDSS"
     Filters = ['u','g','r','i','z'] #case is important ... needs to be lowercase
     WCS_Manual = True
+
+    SDSS_CAT_PATH = G.SDSS_CAT_PATH #while the imaging is online, this is a local copy of a FITS catalog
+    apt_zcat = None #astropy table z-catalog
 
     def __init__(self):
         super(SDSS, self).__init__()
@@ -129,6 +132,8 @@ class SDSS(cat_base.Catalog):#SDSS
         self.num_targets = 0
         self.master_cutout = None
 
+        self.read_main_catalog() #catalog is loaded to the class, not the object
+
     def get_filters(self,ra=None,dec=None):
         return ['u','g', 'r', 'i', 'z']
 
@@ -136,6 +141,77 @@ class SDSS(cat_base.Catalog):#SDSS
         #todo:
         print("get_filter_flux not defined yet")
         return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
+
+    @classmethod
+    def read_main_catalog(cls): #override base_cat.py
+        """
+
+        :return:
+        """
+        if cls.apt_zcat is not None:
+            log.debug("Already built SDSS z-catalog")
+            return
+
+        try:
+            cls.apt_zcat = astropy.table.Table.read(cls.SDSS_CAT_PATH)
+            #todo: only keep certain columns?
+            keep_cols = ["PLUG_RA","PLUG_DEC","Z","Z_ERR","CLASS"]
+            drop_cols = [c not in keep_cols for c in cls.apt_zcat.colnames]
+            cls.apt_zcat.remove_columns(np.array(cls.apt_zcat.colnames)[drop_cols])
+            cls.apt_zcat.rename_column("PLUG_RA","RA")
+            cls.apt_zcat.rename_column("PLUG_DEC","DEC")
+            #(np.array(t.colnames)[drop_cols]
+        except:
+            log.error(f"Exception loading SDSS z-catalog {cls.SDSS_CAT_PATH}")
+
+    @classmethod #so you don't have to instantiate an object
+    def redshift(cls,ra,dec,error=5.0):
+        """
+        Return redshifts (if present) within error arcsec of the target RA, DEC
+
+        :param ra:  in decimal degrees
+        :param dec: in decimal degrees
+        :param error: in arcsecs
+        :return: list of redshifts within error and the separation and the classification label
+        """
+
+        try:
+
+            if cls.apt_zcat is None:
+                cls.read_main_catalog()
+
+            if cls.apt_zcat is None: #still None
+                log.error("Cannot load SDSS z-catalog")
+                return [],[],[]
+
+            deg_err = error/3600.
+            sel = (cls.apt_zcat["RA"] > (ra-deg_err)) * (cls.apt_zcat["RA"] < (ra+deg_err)) * \
+                  (cls.apt_zcat["DEC"] > (dec-deg_err)) * (cls.apt_zcat["DEC"] < (dec+deg_err))
+
+            t = cls.apt_zcat[sel] #subselected
+
+            z = [] #redshift
+            s = [] #separation in arcsec
+            c = [] #class
+
+            xlat_label = {"GALAXY":"gal","QSO":"agn","STAR":"star"}
+
+            #should only be a few, may want to iterate over in case there are errors
+            for r in t:
+                try:
+                    if -0.2 < r["Z"] < 10.0:
+                        z.append(r["Z"])
+                        s.append(utilities.angular_distance(ra,dec,r["RA"],r["DEC"]))
+                        c.append(xlat_label[r["CLASS"]])
+                except:
+                    pass
+
+            ss = np.argsort(s) #sort by separation and return the arrays in that sort order
+            return np.array(z)[ss],np.array(s)[ss],np.array(c)[ss]
+
+        except:
+            log.warning("Exception in galaxy_mask::redshift()",exc_info=True)
+            return [],[],[]
 
 
     def build_list_of_bid_targets(self, ra, dec, error):

@@ -20,7 +20,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.11.0a4'
+__version__ = '1.11.0a5'
 
 #Logging
 GLOBAL_LOGGING = True
@@ -662,12 +662,12 @@ CONTINUUM_FLOOR_COUNTS = 6.5 #5 sigma * 6 counts / sqrt(40 angstroms/1.9 angs pe
 Fiber_Radius = 0.75 #arcsec
 IFU_Width = 47.26 #arcsec ... includes 2x fiber radius ... more narrow part fiber 1 - 19, else is 49.8
 IFU_Height = 49.98 #arcsec
-Fiber_1_X = -22.88
-Fiber_1_Y = -24.24
-Fiber_19_X = 22.88
-Fiber_19_Y = -24.24
-Fiber_430_X = -22.88
-Fiber_430_Y = 24.24
+# Fiber_1_X = -22.88
+# Fiber_1_Y = -24.24
+# Fiber_19_X = 22.88
+# Fiber_19_Y = -24.24
+# Fiber_430_X = -22.88
+# Fiber_430_Y = 24.24
 PreferCosmicCleaned = True #use cosmic cleaned FITS data if available (note: assumes filename is 'c' + filename)
 
 Figure_DPI = 300
@@ -838,6 +838,10 @@ PANSTARRS_FORCE = False  #ignore local catalogs and Force the use of only Pan-ST
 
 SDSS_ALLOW = True #if no other catalogs match, try SDSS as online query (default if not dispatch mode)
 SDSS_FORCE = False  #ignore local catalogs and Force the use of only SDSS
+SDSS_CAT_PATH = "/home/dustin/Downloads/specObj-dr16.fits"
+SDSS_SCORE_BOOST = 100.0
+CHECK_SDSS_Z_CATALOG  = True #set to True to check the SDSS z-catalog
+# (similar in function to galaxy mask in that if a known z is close and it matches an emission line, associated that z)
 
 USE_PHOTO_CATS = True  #default normal is True .... use photometry catalogs (if False only generate the top (HETDEX) part)
 
