@@ -95,6 +95,8 @@ KPNO_IMAGE_PATH = None
 
 CFHTLS_BASE_PATH = None
 
+SDSS_CAT_PATH = None
+
 HETDEX_API_CONFIG = None
 
 LOCAL_DEV_HOSTNAMES = ["z50","dg5"]
@@ -245,6 +247,7 @@ def select_hdr_version(version):
     global SHELA_PHOTO_Z_COMBINED_PATH
     global SHELA_PHOTO_Z_MASTER_PATH
 
+
     global HSC_BASE_PATH
     global HSC_CAT_PATH
     global HSC_IMAGE_PATH
@@ -256,6 +259,8 @@ def select_hdr_version(version):
     global KPNO_IMAGE_PATH
 
     global CFHTLS_BASE_PATH
+
+    global SDSS_CAT_PATH
 
     global LAUNCH_PDF_VIEWER #for debug machine only
 
@@ -473,6 +478,9 @@ def select_hdr_version(version):
             CFHTLS_PHOTOZ_CAT = op.join(HETDEX_API_CONFIG.imaging_dir,"cfhtls/photozCFHTLS-W3_270912.out")
         else:
             CFHTLS_PHOTOZ_CAT = op.join(hdr_imaging_basepath, "candles_egs/CFHTLS/photozCFHTLS-W3_270912.out")
+
+
+        SDSS_CAT_PATH = op.join(hdr_imaging_basepath,"sdss/specObj-dr16-trim.fits")
 
     return True  # end select_hdr_version
 
@@ -838,7 +846,6 @@ PANSTARRS_FORCE = False  #ignore local catalogs and Force the use of only Pan-ST
 
 SDSS_ALLOW = True #if no other catalogs match, try SDSS as online query (default if not dispatch mode)
 SDSS_FORCE = False  #ignore local catalogs and Force the use of only SDSS
-SDSS_CAT_PATH = "/home/dustin/Downloads/specObj-dr16.fits"
 SDSS_SCORE_BOOST = 100.0
 CHECK_SDSS_Z_CATALOG  = True #set to True to check the SDSS z-catalog
 # (similar in function to galaxy mask in that if a known z is close and it matches an emission line, associated that z)

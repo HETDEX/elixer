@@ -72,6 +72,8 @@ GAUSS_SNR_NUM_AA = 5.0 #check at least this num of AA to either side (2x +1 tota
                        # (larger of this or GAUSS_SNR_SIGMA
 
 
+SKY_LINES_DICT = {3545:10.0,5462:5.0} #dictionary key = skyline peak, value = half-width, so 3545 +/- 10.0 AA
+
 #copied from manual run of 100,000 noise spectra (see exp_prob.py)
 #if change the noise model or SNR or line_flux algorithm or "EmissionLineInfo::is_good", need to recompute these
 #as MDF
@@ -838,6 +840,18 @@ class EmissionLineInfo:
                               min(self.fit_sigma/self.pix_size,1.0) * \
                               min((self.pix_size * self.sn_pix)/21.0,1.0) / \
                               (10.0 * (1. + abs(adjusted_dx0_error / self.pix_size)) )
+
+                    #check for line in the nasty sky-lines 3545
+                    for k in SKY_LINES_DICT.keys():
+                        dp = abs(self.fit_x0 - k)
+                        if dp < SKY_LINES_DICT[k] and (self.fit_sigma * 1.1775 < (SKY_LINES_DICT[k]-dp)):
+                            #the emission line is inside the Sky Line window and its fit half-width (1/2 FWHM) is
+                            #less than the distance from the peak to the windows edge
+                            #then we don't trust that this is not the sky line and cut the score by half?
+                            log.info(f"Line score. Emission line in sky line window. "
+                                     f"Rescoring: {self.line_score} to {self.line_score/2.0}")
+                            self.line_score /= 2.0
+
             else:
                 log.debug(f"Huge fwhm {self.fwhm}, Probably bad fit or merged lines. Rejecting score.")
                 self.line_score = 0
