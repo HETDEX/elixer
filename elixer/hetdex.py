@@ -6535,7 +6535,7 @@ class HETDEX:
                         print(f"Unexpected # of detectids: {self.hdf5_detectid_list}")
 
 
-                if e.id is None:
+                if e.id is None or e.survey_shotid is None:
                     if self.dispatch_id is not None:
                         e.id = np.int64(99e8 + self.dispatch_id * 1e4 + G.UNIQUE_DET_ID_NUM)
                         #so, like a hetdex detectid but starting with 99

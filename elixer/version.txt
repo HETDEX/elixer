@@ -6,6 +6,7 @@ changes to elixer by version
 * If emission line (or additional lines) are in a sky line window and have a width (sigma * 1.1775) that does not clear
   the edge of the sky line, cut the emission line scoring in half as it *could* just be the sky line. Stong lines would
   escape the edge or still have a high score, weak lines could fall out.
+* fix assignment of HETDEX detectID for re-extraction if HETDEX detectID is supplied (dispatch case)
 
 1.11.0a4 [2020-03-04]
 * Added 20AA EWr cut sanity check for low-z OII ( <~ 0.1) (or LyA <~ 2.4) where PLAE/POII seems to give odd results.
