@@ -2,11 +2,13 @@ try:
     from elixer import global_config as G
     from elixer import line_prob
     from elixer import mcmc_gauss
+    from elixer import mcmc_double_gauss
     from elixer import spectrum_utilities as SU
 except:
     import global_config as G
     import line_prob
     import mcmc_gauss
+    import mcmc_double_gauss
     import spectrum_utilities as SU
 
 import matplotlib
@@ -1495,8 +1497,18 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         log.debug("Unable to fit gaussian. ")
         score = 0.0
 
+
+
+
     mcmc = None
     if do_mcmc:
+
+        #
+        # print("*****TESTING DOUBLE GAUSS******")
+        # print("***** NV *****")
+        # eli2 = run_mcmc2(eli,wavelengths,values,errors,central,values_units)#,rest_dw=4.0,rest_w=1240)
+
+
         mcmc = mcmc_gauss.MCMC_Gauss()
         mcmc.initial_mu = eli.fit_x0
 
@@ -1792,6 +1804,202 @@ def run_mcmc(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLUX
         return eli
 
     # 3-tuple [0] = fit, [1] = fit +16%,  [2] = fit - 16%
+    eli.mcmc_x0 = mcmc.mcmc_mu
+    eli.mcmc_sigma = mcmc.mcmc_sigma
+    eli.mcmc_snr = mcmc.mcmc_snr
+
+    if mcmc.mcmc_A is not None:
+        eli.mcmc_a = np.array(mcmc.mcmc_A)
+        if (values_dx is not None) and (values_dx > 0):
+            eli.mcmc_dx = values_dx
+            eli.mcmc_line_flux = eli.mcmc_a[0] / eli.mcmc_dx
+            eli.mcmc_line_flux_tuple =  np.array(mcmc.mcmc_A)/values_dx
+    else:
+        eli.mcmc_a = np.array((0., 0., 0.))
+        eli.mcmc_line_flux = eli.mcmc_a[0]
+
+    if mcmc.mcmc_y is not None:
+        eli.mcmc_y = np.array(mcmc.mcmc_y)
+        if (values_dx is not None) and (values_dx > 0):
+            eli.mcmc_dx = values_dx
+            eli.mcmc_continuum = eli.mcmc_y[0]
+            eli.mcmc_continumm_tuple =  np.array(mcmc.mcmc_y)
+    else:
+        eli.mcmc_y = np.array((0., 0., 0.))
+        eli.mcmc_continuum = eli.mcmc_y[0]
+
+    if values_units < 0:
+        eli.mcmc_a *= 10 ** values_units
+        eli.mcmc_y *= 10 ** values_units
+        eli.mcmc_continuum *= 10 ** values_units
+        eli.mcmc_line_flux *= 10 ** values_units
+        try:
+            eli.mcmc_line_flux_tuple *= 10 ** values_units
+            eli.mcmc_continuum_tuple *= 10 ** values_units
+        except:
+            log.error("*** Exception!",exc_info=True)
+
+    # calc EW and error with approximate symmetric error on area and continuum
+    if eli.mcmc_y[0] != 0 and eli.mcmc_a[0] != 0:
+        ew = eli.mcmc_a[0] / eli.mcmc_y[0]
+        ew_err = ew * np.sqrt((mcmc.approx_symmetric_error(eli.mcmc_a) / eli.mcmc_a[0]) ** 2 +
+                              (mcmc.approx_symmetric_error(eli.mcmc_y) / eli.mcmc_y[0]) ** 2)
+    else:
+        ew = eli.mcmc_a[0]
+        ew_err = mcmc.approx_symmetric_error(eli.mcmc_a)
+
+    eli.mcmc_ew_obs = [ew, ew_err, ew_err]
+    log.debug("MCMC Peak height = %f" % (max(narrow_wave_counts)))
+    log.debug("MCMC calculated EW_obs for main line = %0.3g +/- %0.3g" % (ew, ew_err))
+
+    return eli
+
+
+def run_mcmc2(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLUX_WAVEBIN_WIDTH,rest_dw=8.0,rest_w=1240):
+    """
+    like run_mcmc but allow a double Gaussian
+
+    Needs to start with a wide separation of the two mu's (rather than right on top of each other), but will move
+    in to the best position. A true single Gaussian can still return 2 mu's but they are symmetric about the true
+    mu and the two Gaussians are the same size, etc
+
+    So, to evaluate:
+    1) the separation must be larger than 5.5AA observed (HETDEX best limit)
+    2) the separation must be close to what is expected by the rest spearation * (1+z)
+    3) the two areas should not be equal?
+    4) the two sigmas should not be equal?
+
+    :param eli:
+    :param wavelengths:
+    :param values:
+    :param errors:
+    :param central:
+    :param values_units:
+    :param values_dx:
+    :param rest_dw = wavelength separation in the peaks in the rest frame (i.e if NV, 1238.8 and 1242.8 --> == 4.0)
+    :param rest_w = rest wavelength (as if a single line), for NV == 1240.
+    :return:
+    """
+
+    #values_dx is the bin width for the values if multiplied out (s|t) values are flux and not flux/dx
+    #   by default, Karl's data is on a 2.0 AA bin width
+
+    err_units = values_units  # assumed to be in the same units
+    values, values_units = norm_values(values, values_units)
+    if errors is not None and (len(errors) == len(values)):
+        errors, err_units = norm_values(errors, err_units)
+
+    pix_size = abs(wavelengths[1] - wavelengths[0])  # aa per pix
+    wave_side = int(round(GAUSS_FIT_AA_RANGE / pix_size))  # pixels
+    fit_range_AA = max(GAUSS_FIT_PIX_ERROR * pix_size, GAUSS_FIT_AA_ERROR)
+
+    len_array = len(wavelengths)
+    idx = getnearpos(wavelengths, central)
+    min_idx = max(0, idx - wave_side)
+    max_idx = min(len_array, idx + wave_side)
+    wave_x = wavelengths[min_idx:max_idx + 1]
+    wave_counts = values[min_idx:max_idx + 1]
+    if (errors is not None) and (len(errors) == len(wavelengths)):
+        wave_errors = errors[min_idx:max_idx + 1]
+        # replace any 0 with 1
+        wave_errors[np.where(wave_errors == 0)] = 1
+    else:
+        wave_errors = None
+
+    narrow_wave_x = wave_x
+    narrow_wave_counts = wave_counts
+    narrow_wave_errors = wave_errors
+
+    fit_range_AA = max(GAUSS_FIT_PIX_ERROR * pix_size, GAUSS_FIT_AA_ERROR)
+    peak_pos = getnearpos(wavelengths, central)
+
+    if rest_w:
+        zp1 = central/rest_w
+    else:
+        zp1 = 1 #nothing to go on, so just use rest
+
+    if not rest_dw:
+        rest_dw = 5.5
+
+    dw = rest_dw * zp1
+
+    #
+    # todo: should we require that they capture the peak? like with the single Gaussian?
+    #
+
+    # try:
+    #     # find the highest point in the raw data inside the range we are allowing for the line center fit
+    #     left = int(max(0,peak_pos-dw))
+    #     right = int(min(len(values),peak_pos+dw))
+    #
+    #     if right-left > 0:
+    #         raw_peak1 = max(values[left:peak_pos])
+    #         if raw_peak1 <= 0:
+    #             log.warning("Spectrum::run_mcmc2 invalid raw peak %f" % raw_peak1)
+    #             return eli
+    #
+    #         raw_peak2 = max(values[peak_pos:right])
+    #         if raw_peak2 <= 0:
+    #             log.warning("Spectrum::run_mcmc2 invalid raw peak %f" % raw_peak2)
+    #             return eli
+    #     else:
+    #
+    # except:
+    #     # this can fail if on very edge, but if so, we would not use it anyway
+    #     log.warning("Exception in run_mcmc2",exc_info=True)
+    #     return eli
+
+
+
+    mcmc = mcmc_double_gauss.MCMC_Double_Gauss()
+    mcmc.initial_A = eli.fit_a/2.0
+    mcmc.initial_y = eli.fit_y
+    mcmc.initial_sigma = eli.fit_sigma/2.0
+    mcmc.initial_mu = eli.fit_x0-dw/2.0
+    #mcmc.initial_peak = raw_peak1
+    mcmc.initial_A_2 = eli.fit_a/2.0
+    mcmc.initial_mu_2 = eli.fit_x0+dw/2.0
+    mcmc.initial_sigma_2 = eli.fit_sigma/2.0
+    #mcmc.initial_peak_2 = raw_peak2
+    mcmc.data_x = narrow_wave_x
+    mcmc.data_y = narrow_wave_counts
+    mcmc.err_y = narrow_wave_errors#np.zeros(len(mcmc.data_y)) #narrow_wave_errors
+    mcmc.err_x = np.zeros(len(mcmc.err_y))
+
+    # if using the scipy::curve_fit, 50-100 burn-in and ~1000 main run is plenty
+    # if other input (like Karl's) ... the method is different and we are farther off ... takes longer to converge
+    #   but still converges close to the scipy::curve_fit
+    mcmc.burn_in = 500
+    mcmc.main_run = 2000
+
+    try:
+        mcmc.run_mcmc()
+    except:
+        log.warning("Exception in spectrum.py run_mcmc2() calling mcmc.run_mcmc()", exc_info=True)
+        return eli
+
+    try:
+        #HETDEX spectral res is really about 5.5AA, but will say 4.0AA here to allow for some error
+        #say 40.0AA for now for an upper limit ... too far to be called a doublet
+        #assuming about 8AA rest for the doublet, shifted to z = 3.5 -> 36AA
+
+        mcmc.show_fit(filename="double_gauss_fit.png")
+      #  mcmc.visualize(filename="double_gauss_vis.png")
+
+        #these are all triples (mean value, + error, -error)
+        if 4.0 < abs(mcmc.mcmc_mu[0] - mcmc.mcmc_mu_2[0]) < 40:
+            #todo: check the relative peak heights and areas
+            log.info(f"Todo: possible double Gaussian mu {mcmc.mcmc_mu },{mcmc.mcmc_mu_2}")
+            return eli
+        else:
+            log.info(f"Failed to fit a proper double Gaussian. mu {mcmc.mcmc_mu },{mcmc.mcmc_mu_2}")
+            return eli
+    except:
+        log.warning("Exception in spectrum.py run_mcmc2()", exc_info=True)
+        return eli
+
+    # 3-tuple [0] = fit, [1] = fit +16%,  [2] = fit - 16%
+    #todo: eli needs second set of values for second peak
     eli.mcmc_x0 = mcmc.mcmc_mu
     eli.mcmc_sigma = mcmc.mcmc_sigma
     eli.mcmc_snr = mcmc.mcmc_snr
@@ -2921,7 +3129,7 @@ class Spectrum:
             EmissionLine("H$\\eta$".ljust(w), 3835, "royalblue", solution=False,display=False,rank=5),
 
             # big in AGN, but never alone in our range
-            EmissionLine("NV".ljust(w), 1241, "teal", solution=False,display=True,rank=3),
+            EmissionLine("NV".ljust(w), 1241, "teal", solution=False,display=True,rank=3,broad=True),
 
             EmissionLine("SiII".ljust(w), 1260, "gray", solution=False,display=True,rank=4),
             EmissionLine("SiIV".ljust(w), 1400, "gray", solution=False, display=True, rank=4), #or 1393-1403 also OIV]

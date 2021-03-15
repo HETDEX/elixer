@@ -42,20 +42,21 @@ class MCMC_Double_Gauss:
         self.initial_sigma = None
         self.initial_A = None
         self.initial_y = None
-        self.initial_peak = None
+        #self.initial_peak = None
 
 
         self.initial_mu_2 = None
         self.initial_sigma_2 = None
         self.initial_A_2 = None
         #NOTICE: we are keeping the y value the same
-        self.initial_peak_2 = None
+        #self.initial_peak_2 = None
 
         self.max_sigma = 30.0
         self.range_mu = 5.0
         self.max_A_mult = 2.0
         self.max_y_mult = 2.0
-        self.min_y = -10.0 #-100.0 #should this be zero? or some above zero but low limit
+        #self.min_y = #-10.0 #-100.0 #should this be zero? or some above zero but low limit
+        self.delta_y = 0#for the double Gaussian, we assume the y-value is pretty good, so don't let it vary much
 
         self.data_x = None
         self.data_y = None
@@ -175,7 +176,7 @@ class MCMC_Double_Gauss:
             (abs(mu2 - self.initial_mu_2) < self.range_mu) and \
                 (0.0 < sigma2 < self.max_sigma) and \
                 (0.0 < A2 < self.max_A_mult * self.initial_A_2) and \
-            (self.min_y < y < self.max_y_mult * self.initial_peak):
+            ((y-self.delta_y) < y < (y+self.delta_y)):
             return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
         return -np.inf  # -999999999 #-np.inf #roughly ln(0) == -inf
 
@@ -216,8 +217,8 @@ class MCMC_Double_Gauss:
                 if self.initial_sigma < 0.0: #self.initial_A < 0.0  ... actually, leave A alone .. might allow absorportion later
                     return False
 
-                if self.initial_y > self.initial_peak:
-                    return False
+                # if self.initial_y > self.initial_peak:
+                #     return False
             else:
                 return False
             return True
@@ -233,6 +234,12 @@ class MCMC_Double_Gauss:
 
         result = True
 
+        #set the allowed y-variation
+        self.delta_y = abs(self.initial_y)*0.2#,max(self.initial_peak,self.initial_peak_2)*0.1)
+
+        self.max_sigma = self.initial_sigma + self.initial_sigma_2
+        self.range_mu = abs(self.initial_mu - self.initial_mu_2)/2.#should be allowed to line up
+
         #here for initial positions of the walkers, sample from narrow gaussian (hence the randn or randNormal)
         #centered on each of the maximum likelihood selected parameter values
         #mu, sigma, A, y, ln_f = theta #note f or ln(f) is another uncertainty ...an underestimation of the variance
@@ -241,7 +248,7 @@ class MCMC_Double_Gauss:
                        self.initial_mu_2,self.initial_sigma_2,self.initial_A_2,0.0]
         #reminder, there is no y2 so that position is absent from the second line
         ndim = len(initial_pos)
-        scale = np.array([1.,1.,1.,1.,   1.,1.,1.,  -100.5]) #don't nudge ln_f ...note ln_f = -4.5 --> f ~ 0.01
+        scale = np.array([1.,1.,1.,0.2,   1.,1.,1.,  -100.5]) #don't nudge ln_f ...note ln_f = -4.5 --> f ~ 0.01
         #nudge the initial positions around a bit
 
         try:
@@ -269,6 +276,8 @@ class MCMC_Double_Gauss:
                 map(lambda v: (v[1], v[2] - v[1], v[1] - v[0]),zip(*np.percentile(self.samples, self.UncertaintyRange,axis=0)))
 
             try:
+                print("Todo: fix the mcmc 2 SNR ...")
+                #todo: either total area (so sum of A and A_2 minus the overlap) or an RMSE type SNR??
                 self.mcmc_snr = self.mcmc_A[0] / (0.5 * (abs(self.mcmc_A[1]) + abs(self.mcmc_A[2])))
             except:
                 self.mcmc_snr = -1
@@ -276,13 +285,26 @@ class MCMC_Double_Gauss:
 
             log.info("MCMC mu: initial[%0.5g] mcmc(%0.5g, +%0.5g, -%0.5g)" %
                      (self.initial_mu, self.mcmc_mu[0],self.mcmc_mu[1],self.mcmc_mu[2]))
+            log.info("MCMC mu2: initial[%0.5g] mcmc(%0.5g, +%0.5g, -%0.5g)" %
+                     (self.initial_mu_2, self.mcmc_mu_2[0],self.mcmc_mu_2[1],self.mcmc_mu_2[2]))
+
             log.info("MCMC sigma: initial[%0.5g] mcmc(%0.5g, +%0.5g, -%0.5g)" %
                      (self.initial_sigma, self.mcmc_sigma[0],self.mcmc_sigma[1],self.mcmc_sigma[2]))
+
+            log.info("MCMC sigma2: initial[%0.5g] mcmc(%0.5g, +%0.5g, -%0.5g)" %
+                     (self.initial_sigma_2, self.mcmc_sigma_2[0],self.mcmc_sigma_2[1],self.mcmc_sigma_2[2]))
+
             log.info("MCMC A: initial[%0.5g] mcmc(%0.5g, +%0.5g, -%0.5g) *usually over 2AA bins" %
                      (self.initial_A, self.mcmc_A[0],self.mcmc_A[1],self.mcmc_A[2] ))
+
+            log.info("MCMC A2: initial[%0.5g] mcmc(%0.5g, +%0.5g, -%0.5g) *usually over 2AA bins" %
+                     (self.initial_A_2, self.mcmc_A_2[0],self.mcmc_A_2[1],self.mcmc_A_2[2] ))
+
             log.info("MCMC y: initial[%0.5g] mcmc(%0.5g, +%0.5g, -%0.5g)"%
                      (self.initial_y, self.mcmc_y[0],self.mcmc_y[1],self.mcmc_y[2]))
+
             log.info("MCMC SNR: %0.5g" % self.mcmc_snr)
+
             log.info("MCMC f: initial[%0.5g] mcmc(%0.5g, +%0.5g, -%0.5g)" %
                      (0.0, mcmc_f[0], mcmc_f[1], mcmc_f[2]))
         except:
@@ -317,4 +339,34 @@ class MCMC_Double_Gauss:
                 return buf
         except:
             log.warning("Exception in mcmc_gauss::visualize",exc_info=True)
+            return None
+
+    def show_fit(self,filename=None):
+        def dbl_gaussian(x,u1,s1,A1,u2,s2,A2,y):
+            return A1 * (np.exp(-np.power((x - u1) / s1, 2.) / 2.) / np.sqrt(2 * np.pi * s1 ** 2)) + \
+                   A2 * (np.exp(-np.power((x - u2) / s2, 2.) / 2.) / np.sqrt(2 * np.pi * s2 ** 2)) + y
+
+        def gaussian(x,u1,s1,A1=1.0,y=0.0):
+            return A1 * (np.exp(-np.power((x - u1) / s1, 2.) / 2.) / np.sqrt(2 * np.pi * s1 ** 2)) + y
+
+        try:
+           plt.figure()
+
+           plt.errorbar(self.data_x,self.data_y,yerr=self.err_y,xerr=self.err_x,fmt=".")
+           x = np.linspace(self.data_x[0],self.data_x[-1],100)
+           y = dbl_gaussian(x,self.mcmc_mu[0],self.mcmc_sigma[0],self.mcmc_A[0],
+                            self.mcmc_mu_2[0],self.mcmc_sigma_2[0],self.mcmc_A_2[0],self.mcmc_y[0])
+           plt.plot(x,y,color='g')
+
+           y = gaussian(x,self.mcmc_mu[0],self.mcmc_sigma[0],self.mcmc_A[0],self.mcmc_y[0])
+           plt.plot(x,y,color='b')
+
+           y = gaussian(x,self.mcmc_mu_2[0],self.mcmc_sigma_2[0],self.mcmc_A_2[0],self.mcmc_y[0])
+           plt.plot(x,y,color='r')
+
+           if filename:
+               plt.savefig(filename)
+
+        except:
+            log.warning("Exception in mcmc_gauss::show_fit",exc_info=True)
             return None

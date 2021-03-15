@@ -6535,13 +6535,14 @@ class HETDEX:
                         print(f"Unexpected # of detectids: {self.hdf5_detectid_list}")
 
 
-                if self.dispatch_id is not None:
-                    e.id = np.int64(99e8 + self.dispatch_id * 1e4 + G.UNIQUE_DET_ID_NUM)
-                    #so, like a hetdex detectid but starting with 99
-                elif e.entry_id is None:
-                    e.id = G.UNIQUE_DET_ID_NUM
+                if e.id is None:
+                    if self.dispatch_id is not None:
+                        e.id = np.int64(99e8 + self.dispatch_id * 1e4 + G.UNIQUE_DET_ID_NUM)
+                        #so, like a hetdex detectid but starting with 99
+                    elif e.entry_id is None:
+                        e.id = G.UNIQUE_DET_ID_NUM
 
-                e.entry_id = e.id  # don't have an official one
+                    e.entry_id = e.id  # don't have an official one
 
                 if e.outdir is None:
                     e.outdir = self.output_filename
