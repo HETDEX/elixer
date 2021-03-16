@@ -1507,7 +1507,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         # print("*****TESTING DOUBLE GAUSS******")
         # print("***** NV *****")
         # eli2 = run_mcmc2(eli,wavelengths,values,errors,central,values_units)#,rest_dw=4.0,rest_w=1240)
-
+        #
 
         mcmc = mcmc_gauss.MCMC_Gauss()
         mcmc.initial_mu = eli.fit_x0
@@ -1922,6 +1922,8 @@ def run_mcmc2(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLU
         rest_dw = 5.5
 
     dw = rest_dw * zp1
+
+    dw = 15.0
 
     #
     # todo: should we require that they capture the peak? like with the single Gaussian?

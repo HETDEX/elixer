@@ -1058,13 +1058,11 @@ class DetObj:
 
                                 self.spec_obj.solutions.append(sol)
 
-
-                if possible_lines: #one or more possible matches
-                    #todo: future, instead of adding a label, set a flag to appear in the HDF5 file
-                    self.spec_obj.add_classification_label(label,prepend=True)
-                    # rescore the solutions from above boosts
-                    self.spec_obj.rescore()
-
+                    if possible_lines: #one or more possible matches
+                        #todo: future, instead of adding a label, set a flag to appear in the HDF5 file
+                        self.spec_obj.add_classification_label(label,prepend=True)
+                        # rescore the solutions from above boosts
+                        self.spec_obj.rescore()
 
             except:
                 log.warning("Failed to check SDSS z-catalog",exc_info=True)

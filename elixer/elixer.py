@@ -1881,7 +1881,7 @@ def run_convert_pdf(filename, resolution=150, jpeg=False, png=True,systemcall="p
         elif type(e) is FileNotFoundError:
             log.error("Error (1) converting pdf to image type: (FileNotFoundError)" + filename, exc_info=False)
         else:
-            log.error("Error (1) converting pdf to image type: " + filename, exc_info=True)
+            log.error("Error (1) converting pdf to image type: " + filename + "Exception type: " + type(e), exc_info=True)
 
         try:
             if G.ALLOW_SYSTEM_CALL_PDF_CONVERSION:

@@ -790,61 +790,67 @@ def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
     """
     #sanity check
     min_pix = 5  # want at least 5 pix (bins) to left and right
+    try:
+        if cw_pix is None or hw_pix is None:
+            cw_pix = len(data)//2
+            hw_pix = cw_pix-1
 
-    if (data is None):
-        log.warning("Invalid data (None) supplied for rms.")
-        return -999
-    elif (fit is None):
-        log.warning("Invalid data (fit=None) supplied for rms.")
-        return -999
-    elif (len(data) != len(fit)):
-        log.warning("Invalid data supplied for rms, length of fit <> data.")
-        return -999
-    elif any(np.isnan(data)):
-        log.warning("Invalid data supplied for rms, NaNs in data.")
-        return -999
-    elif any(np.isnan(fit)):
-        log.warning("Invalid data supplied for rms, NaNs in fit.")
-        return -999
-    elif not (min_pix < cw_pix < (len(data) - min_pix)):
-        # could be highly skewed (esp think of large asym in LyA, with big velocity disp. (booming AGN)
-        log.warning("Invalid data supplied for rms. Minimum distance from array edge not met.")
-        return -999
-
-    if norm:
-        mx = max(data)
-        if mx < 0:
-            log.warning("Invalid data supplied for rms. max data < 0")
+        if (data is None):
+            log.warning("Invalid data (None) supplied for rms.")
             return -999
-    else:
-        mx = 1.0
-
-    d = np.array(data)/mx
-    f = np.array(fit)/mx
-
-    if ((cw_pix is not None) and (hw_pix is not None)):
-        left = max(cw_pix - hw_pix,0)
-        right = min(cw_pix + hw_pix,len(data))
-
-        #due to rounding of pixels (bins) from the caller (the central index +/- 2 and the half-width to either side +/- 2)
-        # either left or right can be off by a max total of 4 pix
-        # rounding_error = 4
-        # if -1*rounding_error <= left < 0:
-        #     left = 0
-        #
-        # if len(data) < right <= (len(data) +rounding_error):
-        #     right = len(data)
-
-
-        if (left < 0) or (right > len(data)):
-            log.warning("Invalid range supplied for rms. Data len = %d. Central Idx = %d , Half-width= %d"
-                      % (len(data),cw_pix,hw_pix))
+        elif (fit is None):
+            log.warning("Invalid data (fit=None) supplied for rms.")
+            return -999
+        elif (len(data) != len(fit)):
+            log.warning("Invalid data supplied for rms, length of fit <> data.")
+            return -999
+        elif any(np.isnan(data)):
+            log.warning("Invalid data supplied for rms, NaNs in data.")
+            return -999
+        elif any(np.isnan(fit)):
+            log.warning("Invalid data supplied for rms, NaNs in fit.")
+            return -999
+        elif not (min_pix < cw_pix < (len(data) - min_pix)):
+            # could be highly skewed (esp think of large asym in LyA, with big velocity disp. (booming AGN)
+            log.warning("Invalid data supplied for rms. Minimum distance from array edge not met.")
             return -999
 
-        d = d[left:right+1]
-        f = f[left:right+1]
+        if norm:
+            mx = max(data)
+            if mx < 0:
+                log.warning("Invalid data supplied for rms. max data < 0")
+                return -999
+        else:
+            mx = 1.0
 
-    return np.sqrt(((f - d) ** 2).mean())
+        d = np.array(data)/mx
+        f = np.array(fit)/mx
+
+        if ((cw_pix is not None) and (hw_pix is not None)):
+            left = max(cw_pix - hw_pix,0)
+            right = min(cw_pix + hw_pix,len(data))
+
+            #due to rounding of pixels (bins) from the caller (the central index +/- 2 and the half-width to either side +/- 2)
+            # either left or right can be off by a max total of 4 pix
+            # rounding_error = 4
+            # if -1*rounding_error <= left < 0:
+            #     left = 0
+            #
+            # if len(data) < right <= (len(data) +rounding_error):
+            #     right = len(data)
+
+
+            if (left < 0) or (right > len(data)):
+                log.warning("Invalid range supplied for rms. Data len = %d. Central Idx = %d , Half-width= %d"
+                            % (len(data),cw_pix,hw_pix))
+                return -999
+
+            d = d[left:right+1]
+            f = f[left:right+1]
+
+        return np.sqrt(((f - d) ** 2).mean())
+    except:
+        return -1 #non-sense value for snr
 
 def gaussian(x, x0, sigma, a=1.0, y=0.0):
     if (x is None) or (x0 is None) or (sigma is None):

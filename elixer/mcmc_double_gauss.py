@@ -31,6 +31,81 @@ log = G.Global_Logger('mcmc_logger')
 log.setlevel(G.LOG_LEVEL)
 
 
+def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
+    """
+
+    :param data: (raw) data
+    :param fit:  fitted data (on the same scale)
+    :param cw_pix: (nearest) pixel (index) of the central peak (could be +/- 1 pix (bin)
+    :param hw_pix: half-width (in pixels from the cw_pix) overwhich to calculate rmse (i.e. cw_pix +/- hw_pix)
+    :param norm: T/F whether or not to divide by the peak of the raw data
+    :return:
+    """
+    #sanity check
+    min_pix = 5  # want at least 5 pix (bins) to left and right
+
+    try:
+        if cw_pix is None or hw_pix is None:
+            cw_pix = len(data)//2
+            hw_pix = cw_pix-1
+
+        if (data is None):
+            log.warning("Invalid data (None) supplied for rms.")
+            return -999
+        elif (fit is None):
+            log.warning("Invalid data (fit=None) supplied for rms.")
+            return -999
+        elif (len(data) != len(fit)):
+            log.warning("Invalid data supplied for rms, length of fit <> data.")
+            return -999
+        elif any(np.isnan(data)):
+            log.warning("Invalid data supplied for rms, NaNs in data.")
+            return -999
+        elif any(np.isnan(fit)):
+            log.warning("Invalid data supplied for rms, NaNs in fit.")
+            return -999
+        elif not (min_pix < cw_pix < (len(data) - min_pix)):
+            # could be highly skewed (esp think of large asym in LyA, with big velocity disp. (booming AGN)
+            log.warning("Invalid data supplied for rms. Minimum distance from array edge not met.")
+            return -999
+
+        if norm:
+            mx = max(data)
+            if mx < 0:
+                log.warning("Invalid data supplied for rms. max data < 0")
+                return -999
+        else:
+            mx = 1.0
+
+        d = np.array(data)/mx
+        f = np.array(fit)/mx
+
+        if ((cw_pix is not None) and (hw_pix is not None)):
+            left = max(cw_pix - hw_pix,0)
+            right = min(cw_pix + hw_pix,len(data))
+
+            #due to rounding of pixels (bins) from the caller (the central index +/- 2 and the half-width to either side +/- 2)
+            # either left or right can be off by a max total of 4 pix
+            # rounding_error = 4
+            # if -1*rounding_error <= left < 0:
+            #     left = 0
+            #
+            # if len(data) < right <= (len(data) +rounding_error):
+            #     right = len(data)
+
+
+            if (left < 0) or (right > len(data)):
+                log.warning("Invalid range supplied for rms. Data len = %d. Central Idx = %d , Half-width= %d"
+                            % (len(data),cw_pix,hw_pix))
+                return -999
+
+            d = d[left:right+1]
+            f = f[left:right+1]
+
+        return np.sqrt(((f - d) ** 2).mean())
+    except:
+        return -1 #non-sense value for snr
+
 class MCMC_Double_Gauss:
 
     UncertaintyRange = [16,50,84]
@@ -123,6 +198,14 @@ class MCMC_Double_Gauss:
         #or can this also be solved (fitted)?
         return 0.0
 
+
+    def compute_model(self,x,mu,sigma,A,y,mu2,sigma2,A2):
+        try:
+            return A * (np.exp(-np.power((x - mu) / sigma, 2.) / 2.) / np.sqrt(2 * np.pi * sigma ** 2)) + \
+                A2 * (np.exp(-np.power((x - mu2) / sigma2, 2.) / 2.) / np.sqrt(2 * np.pi * sigma2 ** 2)) + y
+        except:
+            return np.nan
+
     def model(self,x,theta):
         """
 
@@ -134,9 +217,10 @@ class MCMC_Double_Gauss:
         if (x is None) or (mu is None) or (sigma is None) or (mu2 is None) or (sigma2 is None):
             return None
         try:
+            value = self.compute_model(x,mu,sigma,A,y,mu2,sigma2,A2)
             # note: noise is separate and included in the lnlike() function
-            value = A * (np.exp(-np.power((x - mu) / sigma, 2.) / 2.) / np.sqrt(2 * np.pi * sigma ** 2)) + \
-                    A2 * (np.exp(-np.power((x - mu2) / sigma2, 2.) / 2.) / np.sqrt(2 * np.pi * sigma2 ** 2)) + y
+            # value = A * (np.exp(-np.power((x - mu) / sigma, 2.) / 2.) / np.sqrt(2 * np.pi * sigma ** 2)) + \
+            #         A2 * (np.exp(-np.power((x - mu2) / sigma2, 2.) / 2.) / np.sqrt(2 * np.pi * sigma2 ** 2)) + y
         except:
             value = np.nan
         return value
@@ -170,12 +254,13 @@ class MCMC_Double_Gauss:
     def lnprior(self, theta):  # theta is a n-tuple (_,_,_ ... )
         mu, sigma, A, y, mu2, sigma2, A2, ln_f = theta
         # note: could take some other dynamic maximum for y (like compute the peak ... y can't be greater than that
+        #let  A_2 be able to be zero so this becomes a single gaussian
         if ( abs(mu - self.initial_mu) < self.range_mu) and \
-                (0.0 < sigma < self.max_sigma) and \
+                (0.1 < sigma < self.max_sigma) and \
                 (0.0 < A < self.max_A_mult * self.initial_A) and \
             (abs(mu2 - self.initial_mu_2) < self.range_mu) and \
-                (0.0 < sigma2 < self.max_sigma) and \
-                (0.0 < A2 < self.max_A_mult * self.initial_A_2) and \
+                (0.1 <= sigma2 < self.max_sigma) and \
+                (0.0 <= A2 < self.max_A_mult * self.initial_A_2) and \
             ((y-self.delta_y) < y < (y+self.delta_y)):
             return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
         return -np.inf  # -999999999 #-np.inf #roughly ln(0) == -inf
@@ -238,7 +323,8 @@ class MCMC_Double_Gauss:
         self.delta_y = abs(self.initial_y)*0.2#,max(self.initial_peak,self.initial_peak_2)*0.1)
 
         self.max_sigma = self.initial_sigma + self.initial_sigma_2
-        self.range_mu = abs(self.initial_mu - self.initial_mu_2)/2.#should be allowed to line up
+        self.range_mu = max(5.0,abs(self.initial_mu - self.initial_mu_2))  #should be allowed to line up (which would be right at /2.0
+        #so using 1.5 for some slop
 
         #here for initial positions of the walkers, sample from narrow gaussian (hence the randn or randNormal)
         #centered on each of the maximum likelihood selected parameter values
@@ -276,9 +362,15 @@ class MCMC_Double_Gauss:
                 map(lambda v: (v[1], v[2] - v[1], v[1] - v[0]),zip(*np.percentile(self.samples, self.UncertaintyRange,axis=0)))
 
             try:
-                print("Todo: fix the mcmc 2 SNR ...")
-                #todo: either total area (so sum of A and A_2 minus the overlap) or an RMSE type SNR??
-                self.mcmc_snr = self.mcmc_A[0] / (0.5 * (abs(self.mcmc_A[1]) + abs(self.mcmc_A[2])))
+                #self.mcmc_snr = self.mcmc_A[0] / (0.5 * (abs(self.mcmc_A[1]) + abs(self.mcmc_A[2])))
+                rms_model = self.compute_model(self.data_x,self.mcmc_mu[0],self.mcmc_sigma[0],self.mcmc_A[0],self.mcmc_y[0],
+                                               self.mcmc_mu_2[0],self.mcmc_sigma_2[0],self.mcmc_A_2[0])
+                err = rms(self.data_y,rms_model,None,None,False)
+                self.mcmc_snr = np.sum(rms_model)/(np.sqrt(len(self.data_x))*err)
+                #these are fluxes, so just sum over the model to get approximate total flux (aread under the curve) = signal
+                #and divide by the sqrt of N (number of pixels) * the rmse as the error
+                #self.mcmc_snr = rms(self.data_y,rms_model,None,None,False)
+
             except:
                 self.mcmc_snr = -1
                 log.warning("Exception calculating MCMC SNR: ", exc_info=True)
