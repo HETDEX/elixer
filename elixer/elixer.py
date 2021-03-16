@@ -1880,8 +1880,10 @@ def run_convert_pdf(filename, resolution=150, jpeg=False, png=True,systemcall="p
             log.error("Error (1) converting pdf to image type: (OSError: probably memory)" + filename, exc_info=False)
         elif type(e) is FileNotFoundError:
             log.error("Error (1) converting pdf to image type: (FileNotFoundError)" + filename, exc_info=False)
-        elif type(e) is PDFInfoNotInstalledError:
-            log.error("Error (1) converting pdf to image type: (PDFInfoNotInstalledError)" + filename, exc_info=False)
+        # elif type(e) is PDFInfoNotInstalledError:
+        #     log.error("Error (1) converting pdf to image type: (PDFInfoNotInstalledError)" + filename, exc_info=False)
+        elif 'pdfinfo' in str(e):
+            log.error("Error (1) converting pdf to image type: (cannot find pdfinfo or popler)" + filename, exc_info=False)
         else:
             log.error("Error (1) converting pdf to image type: " + filename + "Exception type: " + str(type(e)), exc_info=True)
 
