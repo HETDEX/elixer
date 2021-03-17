@@ -641,6 +641,8 @@ class EmissionLineInfo:
         self.noise_estimate = None
         self.noise_estimate_wave = None
         self.unique = None #is this peak unique, alone in its immediate vacinity
+        self.suggested_doublet = None # if non-zero, is the rest-frame wavelength matching to an EmissionLine object
+                                      # that may have been matched as a doublet (like MgII, NV, CIV, OVI)
 
 
     def unc_str(self,tuple):
@@ -1503,10 +1505,10 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     mcmc = None
     if do_mcmc:
 
-        #
+
         # print("*****TESTING DOUBLE GAUSS******")
         # print("***** NV *****")
-        # eli2 = run_mcmc2(eli,wavelengths,values,errors,central,values_units)#,rest_dw=4.0,rest_w=1240)
+        # eli2 = check_for_doublet(eli,wavelengths,values,errors,central,values_units)
         #
 
         mcmc = mcmc_gauss.MCMC_Gauss()
@@ -1855,7 +1857,7 @@ def run_mcmc(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLUX
     return eli
 
 
-def run_mcmc2(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLUX_WAVEBIN_WIDTH,rest_dw=8.0,rest_w=1240):
+def check_for_doublet(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLUX_WAVEBIN_WIDTH):
     """
     like run_mcmc but allow a double Gaussian
 
@@ -1876,8 +1878,8 @@ def run_mcmc2(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLU
     :param central:
     :param values_units:
     :param values_dx:
-    :param rest_dw = wavelength separation in the peaks in the rest frame (i.e if NV, 1238.8 and 1242.8 --> == 4.0)
-    :param rest_w = rest wavelength (as if a single line), for NV == 1240.
+    # :param rest_dw = wavelength separation in the peaks in the rest frame (i.e if NV, 1238.8 and 1242.8 --> == 4.0)
+    # :param rest_w = rest wavelength (as if a single line), for NV == 1240.
     :return:
     """
 
@@ -1912,46 +1914,7 @@ def run_mcmc2(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLU
 
     fit_range_AA = max(GAUSS_FIT_PIX_ERROR * pix_size, GAUSS_FIT_AA_ERROR)
     peak_pos = getnearpos(wavelengths, central)
-
-    if rest_w:
-        zp1 = central/rest_w
-    else:
-        zp1 = 1 #nothing to go on, so just use rest
-
-    if not rest_dw:
-        rest_dw = 5.5
-
-    dw = rest_dw * zp1
-
-    dw = 15.0
-
-    #
-    # todo: should we require that they capture the peak? like with the single Gaussian?
-    #
-
-    # try:
-    #     # find the highest point in the raw data inside the range we are allowing for the line center fit
-    #     left = int(max(0,peak_pos-dw))
-    #     right = int(min(len(values),peak_pos+dw))
-    #
-    #     if right-left > 0:
-    #         raw_peak1 = max(values[left:peak_pos])
-    #         if raw_peak1 <= 0:
-    #             log.warning("Spectrum::run_mcmc2 invalid raw peak %f" % raw_peak1)
-    #             return eli
-    #
-    #         raw_peak2 = max(values[peak_pos:right])
-    #         if raw_peak2 <= 0:
-    #             log.warning("Spectrum::run_mcmc2 invalid raw peak %f" % raw_peak2)
-    #             return eli
-    #     else:
-    #
-    # except:
-    #     # this can fail if on very edge, but if so, we would not use it anyway
-    #     log.warning("Exception in run_mcmc2",exc_info=True)
-    #     return eli
-
-
+    dw = 15.0 #separation between the two peaks (observed) as a starting point
 
     mcmc = mcmc_double_gauss.MCMC_Double_Gauss()
     mcmc.initial_A = eli.fit_a/2.0
@@ -1977,7 +1940,7 @@ def run_mcmc2(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLU
     try:
         mcmc.run_mcmc()
     except:
-        log.warning("Exception in spectrum.py run_mcmc2() calling mcmc.run_mcmc()", exc_info=True)
+        log.warning("Exception in spectrum.py check_for_doublet() calling mcmc.run_mcmc()", exc_info=True)
         return eli
 
     try:
@@ -1985,72 +1948,120 @@ def run_mcmc2(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLU
         #say 40.0AA for now for an upper limit ... too far to be called a doublet
         #assuming about 8AA rest for the doublet, shifted to z = 3.5 -> 36AA
 
+        print("*****turn off double_guass_fit.png *****")
         mcmc.show_fit(filename="double_gauss_fit.png")
       #  mcmc.visualize(filename="double_gauss_vis.png")
 
         #these are all triples (mean value, + error, -error)
-        if 4.0 < abs(mcmc.mcmc_mu[0] - mcmc.mcmc_mu_2[0]) < 40:
+        #could this be a fit?
+        #notes: mcmc_A_2 is allowed to go to zero in the fit (mcmc_A is not), so if A_2 is zero this is a single Gaussian fit
+        #just for sanity, check both A and A_2
+        if (mcmc.mcmc_snr > 4.0) and (4.0 < abs(mcmc.mcmc_mu[0] - mcmc.mcmc_mu_2[0]) < 40) and \
+           (mcmc.mcmc_A_2[0] > 0) and (mcmc.mcmc_A[0] > 0):
+            #todo: look at the errors on mu ... should be small-ish (like 1-2 AA??)
+
+            log.info(f"Possible emission line doublet observed: {mcmc.mcmc_mu },{mcmc.mcmc_mu_2}")
+
+            #and (0.8 < (mcmc.mcmc_A/mcmc.mcmc_A_2) < 1.25): not checking to see if similar ... they might not be
+            #think about possibly using for LyA and the blue peak
             #todo: check the relative peak heights and areas
-            log.info(f"Todo: possible double Gaussian mu {mcmc.mcmc_mu },{mcmc.mcmc_mu_2}")
+            #is this consistent with a known doublet?
+            list_doublets = [] #list of rest waves to match the list of emission lines as single gaussians in
+                               # Spectrum class emission_lines
+
+            if mcmc.mcmc_mu[0] < mcmc.mcmc_mu_2[0]:
+                blue_mu = mcmc.mcmc_mu[0]
+                blue_sigma = mcmc.mcmc_sigma[0]
+                blue_A = mcmc.mcmc_A[0]
+                red_mu = mcmc.mcmc_mu_2[0]
+                red_sigma = mcmc.mcmc_sigma_2[0]
+                red_A = mcmc.mcmc_A_2[0]
+            else:
+                red_mu = mcmc.mcmc_mu[0]
+                red_sigma = mcmc.mcmc_sigma[0]
+                red_A = mcmc.mcmc_A[0]
+                blue_mu = mcmc.mcmc_mu_2[0]
+                blue_sigma = mcmc.mcmc_sigma_2[0]
+                blue_A = mcmc.mcmc_A_2[0]
+
+            ratio_A = blue_A/red_A
+            obs_miss = 4.0 #allowd to miss by 4.0 AA observed
+
+            #NV (dont'really expect to ever see this one by itself)
+            zp1 = central/1241.
+            miss = obs_miss/zp1
+            p1 = 1238.8
+            p2 = 1242.8
+            rest_dw = (red_mu - blue_mu)/zp1
+
+            if  (abs(blue_mu/zp1 - p1) < miss) and \
+                (abs(red_mu/zp1 - p2) < miss) and \
+                (abs((red_mu-blue_mu)/zp1 - (p2-p1)) < miss):
+                    #todo: any other conditions like blue area > red area etc
+                    list_doublets.append(1241.0)
+                    log.info("Possible fit to NV as doublet.")
+
+
+            #MgII (can be by itself)
+            zp1 = central/2799.0
+            miss = obs_miss/zp1
+            p1 = 2795.5
+            p2 = 2802.7
+            rest_dw = (red_mu - blue_mu)/zp1
+
+            if  (abs(blue_mu/zp1 - p1) < miss) and \
+                (abs(red_mu/zp1 - p2) < miss) and \
+                (abs((red_mu-blue_mu)/zp1 - (p2-p1)) < miss) and\
+                (ratio_A > 1.0):
+                #MgII blue peak supposedly larger than red
+                list_doublets.append(2799.0)
+                log.info("Possible fit to MgII as doublet.")
+
+            #CIV
+            zp1 = central/1549.0
+            miss = obs_miss/zp1
+            p1 = 1548.2
+            p2 = 1550.8
+            rest_dw = (red_mu - blue_mu)/zp1
+
+            if  (abs(blue_mu/zp1 - p1) < miss) and \
+                (abs(red_mu/zp1 - p2) < miss) and \
+                (abs((red_mu-blue_mu)/zp1 - (p2-p1)) < miss) and \
+                (ratio_A > 1.0):
+                #MgII blue peak supposedly larger than red
+                list_doublets.append(1549.0)
+                log.info("Possible fit to CIV as doublet.")
+
+            #OVI
+            zp1 = central/1035.0
+            miss = obs_miss/zp1
+            p1 = 1031.9
+            p2 = 1037.6
+            rest_dw = (red_mu - blue_mu)/zp1
+
+            if  (abs(blue_mu/zp1 - p1) < miss) and \
+                (abs(red_mu/zp1 - p2) < miss) and \
+                (abs((red_mu-blue_mu)/zp1 - (p2-p1)) < miss):
+
+                list_doublets.append(1035.0)
+                log.info("Possible fit to OVI as doublet.")
+
+
+            if len(list_doublets) == 0: #no matches
+                log.info("No specific rest-frame emission line doublet match found.")
+            elif len(list_doublets) == 1: #exatly one match
+                log.info(f"Exactly one rest-frame emission line doublet found: {list_doublets[0]}")
+                eli.suggested_doublet = list_doublets[0]
+            else:
+                log.info("Too many possible rest-frame emission line doublets")
+
             return eli
         else:
-            log.info(f"Failed to fit a proper double Gaussian. mu {mcmc.mcmc_mu },{mcmc.mcmc_mu_2}")
+            log.info(f"No indication of doublet. Double Gaussian fit is poor: mu {mcmc.mcmc_mu },{mcmc.mcmc_mu_2}")
             return eli
     except:
-        log.warning("Exception in spectrum.py run_mcmc2()", exc_info=True)
+        log.warning("Exception in spectrum.py check_for_doublet()", exc_info=True)
         return eli
-
-    # 3-tuple [0] = fit, [1] = fit +16%,  [2] = fit - 16%
-    #todo: eli needs second set of values for second peak
-    eli.mcmc_x0 = mcmc.mcmc_mu
-    eli.mcmc_sigma = mcmc.mcmc_sigma
-    eli.mcmc_snr = mcmc.mcmc_snr
-
-    if mcmc.mcmc_A is not None:
-        eli.mcmc_a = np.array(mcmc.mcmc_A)
-        if (values_dx is not None) and (values_dx > 0):
-            eli.mcmc_dx = values_dx
-            eli.mcmc_line_flux = eli.mcmc_a[0] / eli.mcmc_dx
-            eli.mcmc_line_flux_tuple =  np.array(mcmc.mcmc_A)/values_dx
-    else:
-        eli.mcmc_a = np.array((0., 0., 0.))
-        eli.mcmc_line_flux = eli.mcmc_a[0]
-
-    if mcmc.mcmc_y is not None:
-        eli.mcmc_y = np.array(mcmc.mcmc_y)
-        if (values_dx is not None) and (values_dx > 0):
-            eli.mcmc_dx = values_dx
-            eli.mcmc_continuum = eli.mcmc_y[0]
-            eli.mcmc_continumm_tuple =  np.array(mcmc.mcmc_y)
-    else:
-        eli.mcmc_y = np.array((0., 0., 0.))
-        eli.mcmc_continuum = eli.mcmc_y[0]
-
-    if values_units < 0:
-        eli.mcmc_a *= 10 ** values_units
-        eli.mcmc_y *= 10 ** values_units
-        eli.mcmc_continuum *= 10 ** values_units
-        eli.mcmc_line_flux *= 10 ** values_units
-        try:
-            eli.mcmc_line_flux_tuple *= 10 ** values_units
-            eli.mcmc_continuum_tuple *= 10 ** values_units
-        except:
-            log.error("*** Exception!",exc_info=True)
-
-    # calc EW and error with approximate symmetric error on area and continuum
-    if eli.mcmc_y[0] != 0 and eli.mcmc_a[0] != 0:
-        ew = eli.mcmc_a[0] / eli.mcmc_y[0]
-        ew_err = ew * np.sqrt((mcmc.approx_symmetric_error(eli.mcmc_a) / eli.mcmc_a[0]) ** 2 +
-                              (mcmc.approx_symmetric_error(eli.mcmc_y) / eli.mcmc_y[0]) ** 2)
-    else:
-        ew = eli.mcmc_a[0]
-        ew_err = mcmc.approx_symmetric_error(eli.mcmc_a)
-
-    eli.mcmc_ew_obs = [ew, ew_err, ew_err]
-    log.debug("MCMC Peak height = %f" % (max(narrow_wave_counts)))
-    log.debug("MCMC calculated EW_obs for main line = %0.3g +/- %0.3g" % (ew, ew_err))
-
-
 
     return eli
 

@@ -1011,7 +1011,7 @@ class DetObj:
                 #multiple boosts (that is okay I think)
                 #if at different z then different solutions could get a boost and would win based on the
                 #  scoring
-                if z_sdss and self.spec_obj: #is not None or Empty
+                if (z_sdss is not None) and (self.spec_obj is not None) and (len(z_sdss) > 0): #is not None or Empty
                     for z,sep,label in zip(z_sdss,sep_sdss,label_sdss):
                         line = self.spec_obj.match_line(self.w,z)
                         if line:
@@ -10151,11 +10151,17 @@ class HETDEX:
 
                     for f in sol.lines:
                         matched_line_list.append(f.w_rest)
-                        hw = 3.0 * f.sigma #highlight half-width
-                        # use 'y' rather than sols[0].color ... becomes confusing with black
-                        rec = plt.Rectangle((f.w_obs - hw, yl), 2 * hw, yh - yl, fill=True, lw=1,
-                                            color=sol.color, alpha=0.5,zorder=1)
-                        specplot.add_patch(rec)
+                        try:
+                            if f.sigma is not None:
+                                hw = 3.0 * f.sigma #highlight half-width
+                            else:
+                                hw = 6.0 #fixed value
+                            # use 'y' rather than sols[0].color ... becomes confusing with black
+                            rec = plt.Rectangle((f.w_obs - hw, yl), 2 * hw, yh - yl, fill=True, lw=1,
+                                                color=sol.color, alpha=0.5,zorder=1)
+                            specplot.add_patch(rec)
+                        except:
+                            pass
 
                     #don't color, but still mark rejected lines
                     for f in sol.rejected_lines:

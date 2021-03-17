@@ -506,6 +506,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
             if not op.exists(cat_loc):
                 log.error("Cannot load catalog tract for HSC. File does not exist: %s" %cat_loc)
+                continue
 
             log.debug("Building " + cls.Name + " " + cat_name + " dataframe...")
 
@@ -603,7 +604,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 positions.append(self.Tile_Dict[k]['pos'])
                 sqdist = (ra-self.Tile_Dict[k]['RA_min'])**2 + (dec-self.Tile_Dict[k]['Dec_min'])**2 + \
                          (ra-self.Tile_Dict[k]['RA_max'])**2 + (dec-self.Tile_Dict[k]['Dec_max'])**2
-                if sqdist < min:
+                if sqdist < min and op.exists(self.Tile_Dict[k]['path']):
                     min = sqdist
                     tile = k
 
