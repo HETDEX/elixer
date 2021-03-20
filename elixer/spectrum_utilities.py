@@ -108,7 +108,7 @@ def filter_iso(filtername, lam):
     """
     global filter_iso_dict
     try:
-        if filtername.lower() in filter_iso_dict.keys():
+        if (filtername is not None) and filtername.lower() in filter_iso_dict.keys():
             return filter_iso_dict[filtername.lower()]
         else:
             log.info(f"Unable to match filter {filtername} to iso wavelength")

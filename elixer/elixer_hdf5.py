@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.2.5' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.3.0' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -68,6 +68,11 @@ class Detections(tables.IsDescription):
     dec = tables.Float32Col(dflt=UNSET_FLOAT,pos=5)
     wavelength_obs = tables.Float32Col(dflt=UNSET_FLOAT,pos=6)
     wavelength_obs_err = tables.Float32Col(dflt=UNSET_FLOAT,pos=7)
+
+    best_z = tables.Float32Col(dflt=-1.0,pos=8)
+    best_pz = tables.Float32Col(dflt=0.0,pos=9)
+
+
     flux_line = tables.Float32Col(dflt=UNSET_FLOAT) #actual flux not flux density
     flux_line_err = tables.Float32Col(dflt=UNSET_FLOAT)
     fwhm_line_aa = tables.Float32Col(dflt=UNSET_FLOAT)
@@ -799,6 +804,14 @@ def append_entry(fileh,det,overwrite=False):
 
         try: #added in version 0.2.4
             row['classification_labels'] = det.spec_obj.classification_label.rstrip(",")
+        except:
+            pass
+
+        try:
+            if det.best_z is not None:
+                row['best_z'] = det.best_z
+            if det.best_p_of_z:
+                row['best_pz'] = det.best_p_of_z
         except:
             pass
 
@@ -2208,6 +2221,85 @@ def upgrade_0p1px_to_0p2p0(oldfile_handle,newfile_handle):
             new_row.append()
             dtb_new.flush()
 
+
+        #no change to CalibratedSpectra
+        stb_new.append(stb_old.read())
+        stb_new.flush()
+
+        #no change to SpectraLines
+        ltb_new.append(ltb_old.read())
+        ltb_new.flush()
+
+        #no change to Aperture
+        atb_new.append(atb_old.read())
+        atb_new.flush()
+
+        #no change to CatalogMatch
+        ctb_new.append(ctb_old.read())
+        ctb_new.flush()
+
+        #no change to ElixerApertures
+        xtb_new.append(xtb_old.read())
+        xtb_new.flush()
+
+        flush_all(newfile_handle)
+        # close the merge input file
+        newfile_handle.close()
+        oldfile_handle.close()
+
+        return True
+    except:
+        log.error("Upgrade failed %s to %s:" %(from_version,to_version),exc_info=True)
+        return False
+
+
+
+
+def upgrade_0p2px_to_0p3p0(oldfile_handle,newfile_handle):
+    """
+    new column in Detections (spurious_reason)
+    new column in ExtractedObjects (dist_curve)
+    new column in ExtractedObjects (dist_barycntr)
+    :param oldfile_handle:
+    :param newfile_handle:
+    :return:
+    """
+    from_version = "0.2.x"
+    to_version = "0.3.0"
+
+    try:
+        log.info("Upgrading %s to %s ..." %(from_version,to_version))
+
+        dtb_new = newfile_handle.root.Detections
+        stb_new = newfile_handle.root.CalibratedSpectra
+        ltb_new = newfile_handle.root.SpectraLines
+        atb_new = newfile_handle.root.Aperture
+        ctb_new = newfile_handle.root.CatalogMatch
+        etb_new = newfile_handle.root.ExtractedObjects
+        xtb_new = newfile_handle.root.ElixerApertures
+
+        dtb_old = oldfile_handle.root.Detections
+        stb_old = oldfile_handle.root.CalibratedSpectra
+        ltb_old = oldfile_handle.root.SpectraLines
+        atb_old = oldfile_handle.root.Aperture
+        ctb_old = oldfile_handle.root.CatalogMatch
+        etb_old = oldfile_handle.root.ExtractedObjects
+        xtb_old = oldfile_handle.root.ElixerApertures
+
+        #new columns in Detections
+        for old_row in dtb_old.read():
+            new_row = dtb_new.row
+            for n in dtb_new.colnames:
+                try: #can be missing name (new columns)
+                    new_row[n] = old_row[n]
+                except:
+                    log.debug("Detections column failed (%s). Default set."%n)
+            new_row.append()
+            dtb_new.flush()
+
+        #no change to ExtractedObjects
+        etb_new.append(etb_old.read())
+        etb_new.flush()
 
         #no change to CalibratedSpectra
         stb_new.append(stb_old.read())

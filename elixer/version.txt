@@ -1,5 +1,12 @@
 changes to elixer by version
 
+
+1.11.0a6 [2020-03-19]
+* Incorporate catalog phot-z and spec-z into solutions
+* Build a primitive P(z), z based on the multi-line solution best z and consistency with P(LyA)
+* Add new columns to Detections table: best_z, best_pz and bumped version to 0.3.0
+* Allow all rank 3 lines to be solution anchors
+
 1.11.0a5 [2020-03-11]
 * Added SDSS z-catalog () as redshift check for any/all imaging surveys. Not explicit to SDSS.
 * Changed cat_base::is_edge_fiber() to use the IFUx and IFUy position instead of nominal grid of fiber IDs

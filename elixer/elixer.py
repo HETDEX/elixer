@@ -1180,6 +1180,10 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
                     cats.append(catalogs.CatalogLibrary().get_catch_all())
                     added_catch_all = True
 
+    #done going through catalogs
+    if detobj:
+        detobj.check_spec_solutions_vs_catalog_counterparts()
+
     if G.BUILD_REPORT_BY_FILTER:
         #we've gone through all the catalogs (including the web catalogs if necessary)
         if len(list_of_catalog_cutouts) > 0:
@@ -4285,8 +4289,15 @@ def main():
                                                           % (round(plae, 3), round(plae_high, 3), round(plae_low, 3),
                                                              int(scale_plae), reason)
                                         else:
-                                            header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(Ly$\alpha$): %0.3f" \
-                                                      % (round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae)
+                                            best_z, p_of_z = e.best_redshift()
+
+                                            if p_of_z > 0:
+                                                header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
+                                                              r"P(Ly$\alpha$): %0.3f  P(z): %0.2f  z: %0.4f" \
+                                                          % (round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae,p_of_z,best_z)
+                                            else:
+                                                header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(Ly$\alpha$): %0.3f" \
+                                                  % (round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae)
 
                                         try:
                                             if len(e.spec_obj.classification_label) > 0:

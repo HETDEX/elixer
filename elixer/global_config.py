@@ -20,7 +20,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.11.0a5'
+__version__ = '1.11.0a6'
 
 #Logging
 GLOBAL_LOGGING = True
@@ -849,6 +849,10 @@ SDSS_FORCE = False  #ignore local catalogs and Force the use of only SDSS
 SDSS_SCORE_BOOST = 100.0
 CHECK_SDSS_Z_CATALOG  = True #set to True to check the SDSS z-catalog
 # (similar in function to galaxy mask in that if a known z is close and it matches an emission line, associated that z)
+
+CHECK_ALL_CATALOG_BID_Z = True
+ALL_CATATLOG_SPEC_Z_BOOST = 100.0
+ALL_CATATLOG_PHOT_Z_BOOST = 50.0
 
 USE_PHOTO_CATS = True  #default normal is True .... use photometry catalogs (if False only generate the top (HETDEX) part)
 

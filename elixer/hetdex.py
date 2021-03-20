@@ -679,6 +679,9 @@ class DetObj:
         self.extraction_aperture=None
         self.extraction_ffsky=False
 
+        self.best_z = None
+        self.best_p_of_z = None
+
         if emission:
             self.type = 'emis'
             # actual line number from the input file
@@ -921,6 +924,262 @@ class DetObj:
         else:
             return self.dec
 
+
+    def best_redshift(self):
+        """
+        Sort of a P(z), but primitive
+
+        :return: z and P(z) for that z
+        """
+
+        try:
+            #aka P(LyA)
+            scaled_plae_classification = self.classification_dict['scaled_plae']
+            p = abs(0.5 - scaled_plae_classification)/0.5 #so, peaks near 0 and 1 and is zero at 0.5
+            rest = 0
+            #is the multiline solution (which has been updated with catalog phot-z and spec-z)
+            #consistent with lowz or high-z?
+
+            #the problem is that the spec_obj solution might be weak or even if not, out voted
+            #by the P(LyA) classifictionm but just using that with P(LyA) as the confidence
+            #then could be incongruous (in that they don't belong together)
+
+            if self.spec_obj and self.spec_obj.solutions and len(self.spec_obj.solutions) > 0:
+                #todo: maybe also check that the [0] position score is >= G.MULTILINE_MIN_SOLUTION_SCORE ??
+                #these are in rank order, highest score 1st
+                agree = False
+                unsure = False
+                num_solutions = len(self.spec_obj.solutions)
+
+
+                primary_solution = False
+
+                if (num_solutions > 1) and (self.spec_obj.solutions[1].frac_score > 0):
+                    if (self.spec_obj.solutions[0].frac_score / self.spec_obj.solutions[1].frac_score) > 1.9:
+                        primary_solution = True
+                else:
+                    primary_solution = True
+
+                #keep the first that agrees
+                for idx,sol in enumerate(self.spec_obj.solutions):
+                    z = sol.z
+                    rest = sol.central_rest
+                    score = sol.score
+                    scale_score = sol.scale_score
+
+                    #voting vs line solution mis-match
+                    #so 0.4 to 0.6 is no-man's land, but the prob or confidence will be very low anyway
+                    #keep the z, but reduce the p(z)
+
+                    #there is some directionality too
+                    #large P(LyA) points to Lya and a spectific z
+                    #but near 0 P(LyA) just points to not LyA
+
+                    if 0.4 < scaled_plae_classification < 0.6: #never going to get an answer from P(LyA)
+                        agree = True
+                        unsure = True
+                        break
+                    elif ((scaled_plae_classification < 0.4) and (rest == G.LyA_rest)) or \
+                         ((scaled_plae_classification > 0.6) and (rest != G.LyA_rest)):
+                        #voting vs line solution mis-match
+
+                        #if the next solution is much weaker just stop, otherwise keep going
+                        if (idx+1) < num_solutions:
+                            if  (self.spec_obj.solutions[idx+1].frac_score < 0.2) or \
+                                (self.spec_obj.solutions[idx+1].score < G.MULTILINE_MIN_SOLUTION_SCORE * 0.6 ):
+                                #allow some room below the minium since we are also matching to P(LyA), say 60% of minimum?
+                                break #we've reached a point where there are no good scores
+                            else:
+                                continue
+                        else:
+                            continue #keep looking for a match
+                    else:
+                        agree = True
+                        break
+
+                if agree:
+                    if unsure:
+                        #all the confidence now comes from the multiline score
+                        if (num_solutions > 1) and (self.spec_obj.solutions[1].frac_score > 0):
+                            if (self.spec_obj.solutions[0].frac_score / self.spec_obj.solutions[1].frac_score) > 1.9:
+                                #notice: 1.9 is used instead of 2.0 due to rounding
+                                #i.e. if only two solutions at 0.66 and 0.34 ==> 0.66/0.34 = 1.94
+                                p = sol.scale_score
+                            else:
+                                p = sol.scale_score * sol.frac_score
+                        else:
+                            p = sol.scale_score
+
+                        log.info(f"P(z): Multiline solution[{idx}], score {scale_score}, frac {sol.frac_score}. "
+                                 f"P(LyA) uncertain {scaled_plae_classification}. Set to z: {z} with P(z): {p}")
+                    else:
+                        p = 0.5 * (p + scale_score) #half from the P(LyA) and half from the scale_score
+                        log.info(f"P(z): Multiline solution[{idx}] {self.spec_obj.solutions[idx].name} score {scale_score} "
+                                 f"and P(LyA) {scaled_plae_classification} agree. Set to z: {z} with P(z): {p}")
+                else: #use the 1st (highes score) that disagrees
+                    sol = self.spec_obj.solutions[0]
+                    z = sol.z
+                    rest = sol.central_rest
+                    score = sol.score
+                    pscore = sol.scale_score
+
+                    #P(LyA) and the multi-line score disagree
+                    #the P(LyA) and scale_score are roughly on the same 0-1 scaling so we will choose the LyA favoring
+                    # solution as THE solution and subtract away the dissent
+                    if (scaled_plae_classification < 0.4) and (rest == G.LyA_rest):
+                        #Not LyA vs LyA
+                        #if the LyA Solution is strong, subtract off the p/2 weight
+
+                        #test for weak LyA multi-line vs strong P(LyA) near 0.0
+                        for_lya = scale_score - p
+                        for_oii = p
+
+                        if scale_score > p: #multi-line solution "stronger" than P(LyA)
+                            p = max(0.05,scale_score - p)
+                            z = self.w / G.LyA_rest - 1.0
+
+                            log.info(f"P(z): Multiline solution favors LyA {scale_score}. "
+                                     f"P(LyA) does not {scaled_plae_classification}. Set to LyA z:{z} with P(z): {p}")
+                        else:
+                            p = max(0.05,p-scale_score)
+                            z = self.w / G.OII_rest - 1.0
+
+                            log.info(f"P(z): Multiline solution favors LyA {scale_score}. "
+                                 f"P(LyA) does not {scaled_plae_classification}. Set to OII z:{z} with P(z): {p}")
+
+                    elif (scaled_plae_classification > 0.6) and (rest != G.LyA_rest):
+                        #LyA vs Not
+                        #voting vs line solution mis-match
+                        #so 0.4 to 0.6 is no-man's land, but the prob or confidence will be very low anyway
+                        #keep the z, but reduce the p(z)
+                        if scale_score > p:
+                            p = max(0.05,scale_score - p)
+                            log.info(f"P(z): Multiline solution favors z = {sol.z}; {scale_score}. "
+                                     f"P(LyA) favors LyA {scaled_plae_classification}. Set to z:{z} with P(z): {p}")
+                        else:
+                            p = max(0.05,p - scale_score)
+                            z = self.w / G.LyA_rest - 1.0
+                            log.info(f"P(z): Multiline solution favors z = {sol.z}; {scale_score}. "
+                                     f"P(LyA) favors LyA {scaled_plae_classification}. Set to LyA z:{z} with P(z): {p}")
+                    else: #odd place ... this should not happen
+                        p = 0.0
+                        z = -1.0
+                        log.info(f"P(z): unexpected outcome. Multiline solutions present, but cannot match. No P(z) set.")
+
+
+            elif scaled_plae_classification < 0.3: #not LyA ... could still be high-z
+                z = self.w / G.OII_rest - 1.0
+                rest = G.OII_rest
+                p = p/2. #remember, this is just NOT LyA .. so while OII is the most common, it is hardly the only solution
+                         #so the highest possible would tbe 50%: P(LyA) = 0.0 ==> abs(0.5-0.0)/0.5/2. = 0.5
+                log.info(f"P(z): no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with P(z): {p}")
+            elif scaled_plae_classification > 0.7:
+                z= self.w / G.LyA_rest - 1.0
+                rest = G.LyA_rest
+                log.info(f"P(z): no multiline solutions. P(LyA) favors LyA. Set to LyA z:{z} with P(z): {p}")
+                #keep p as is
+            else:
+                #we are in no-man's land
+                z = -1.
+                p = 0.
+                log.info(f"P(z): no multiline solutions, no strong P(LyA). No P(z) set.")
+
+            self.best_z = z
+            self.best_p_of_z = min(p,0.95) #don't go over .95
+
+            return z,p
+        except:
+            log.warning("Exception! in hetdex.py DetObj::best_redshift()",exc_info=True)
+            return 0,0
+
+    def check_spec_solutions_vs_catalog_counterparts(self):
+        """
+        Needs to have already performed all the catalog matches
+        Uses self.bid_target_list to match up any spec-z and phot-z vs rest-frame line solutions
+        (similar to checking vs SDSS redshift)
+
+        Don't need to check the RA, Dec as that is already done in the catalog matching
+
+        """
+
+        try:
+            if (self.bid_target_list is None) or not G.CHECK_ALL_CATALOG_BID_Z:
+                return
+
+            #allow each catalog, each match to be scored independently
+            #s|t multiple hits to the same spec_z and/or phot_z each boost that solution
+            #(usually a form of confirmation)
+            list_z = []
+            possible_lines = []
+
+            for b in self.bid_target_list:
+                #check spec-z (higher boost)
+                if b.spec_z is not None and b.spec_z > -0.02:
+                    list_z.append({'z':b.spec_z,'boost':G.ALL_CATATLOG_SPEC_Z_BOOST,'name':b.catalog_name})
+
+                #then check phot-z (lower boost)
+                if b.phot_z is not None and b.phot_z > -0.02:
+                    list_z.append({'z':b.phot_z,'boost':G.ALL_CATATLOG_PHOT_Z_BOOST})
+
+            for bid in list_z:
+                boost = bid['boost']
+                z = bid['z']
+
+                line = self.spec_obj.match_line(self.w,z)
+                if line:
+                    log.info(f"{bid['name']} possible z match: {line.name} {line.w_rest} z={z} rank={line.rank}")
+                    possible_lines.append(line)
+
+                    #note: if d25 is > GALAXY_MASK_D25_SCORE_NORM, this actually starts reducing the boost as we
+                    # get farther from the body of the galaxy mask
+                    #lines like OII, OIII, H_beta, LyA, CIV are all low rank lines and get high boosts
+                    #where H_eta, CaII, NaI are higher rank (weaker lines) and get lower boosts (and are not
+                    #likely to be the HETDEX detection line anyway)
+
+                    if line.rank > 4: #rank 5 or worse
+                        rank_scale = 0.5
+                    elif line.rank > 3: #rank 4
+                        rank_scale = 1.0
+                    else: #ranks 1,2,3
+                        rank_scale = 2.0
+
+                    boost = boost * rank_scale
+
+                    #check the existing solutions ... if there is a corresponding z solution, boost its score
+                    new_solution = True
+                    for s in self.spec_obj.solutions:
+                        if s.emission_line.w_rest == line.w_rest:
+                            new_solution = False
+                            log.info(f"Boosting existing solution: + {boost}")
+                            s.score += boost
+
+
+                    if new_solution:
+                        log.info(f"Adding new solution: score = {boost}")
+                        sol = elixer_spectrum.Classifier_Solution()
+                        sol.z = z
+                        sol.central_rest = line.w_rest
+                        sol.name = line.name
+                        sol.color = line.color
+                        sol.emission_line = deepcopy(line)
+                        sol.emission_line.w_obs = self.w
+                        sol.emission_line.solution = True
+                        sol.prob_noise = 0
+                        sol.lines.append(line)
+                        sol.score = boost
+
+                        self.spec_obj.solutions.append(sol)
+
+            if possible_lines: #one or more possible matches
+                #todo: future, instead of adding a label, set a flag to appear in the HDF5 file
+                #self.spec_obj.add_classification_label(label,prepend=True)
+                # rescore the solutions from above boosts
+                self.spec_obj.rescore()
+
+
+        except:
+            log.warning("Exception! in hetdex.py DetObj::check_spec_solutions_vs_catalog_counterparts()",exc_info=True)
+
     def check_transients_and_flags(self): #,meteors=True,galaxy_mask=True):
         """
         Check for meteors
@@ -932,10 +1191,10 @@ class DetObj:
             self.check_for_meteor()
 
         try:
+            possible_lines = []
             flag_galaxy_mask = False
             if G.CHECK_GALAXY_MASK and self.galaxy_mask:
                 log.debug("Checking position against galaxy mask ...")
-                possible_lines = []
                 #get list of possible redshifts
                 self.galaxy_mask_z, self.galaxy_mask_d25 = self.galaxy_mask.redshift(self.my_ra,self.my_dec)
                 #get list of possible lines from list of emission lines
@@ -1579,7 +1838,7 @@ class DetObj:
                         #todo: set the likelihood (need distro of sizes)
                         #typical half-light radius of order 1kpc (so full diamter something like 4-8 kpc and up)
                         #if AGN maybe up to 30-40kpc
-                        if diam > 40.0:  #just too big, favor not LAE
+                        if diam > 40.0:  #just too big, favor not LAE (unless QSO/AGN)
                             lk = 0.0
                             w = 1.0
                         # elif 30.0 < diam <= 40:
@@ -2112,9 +2371,14 @@ class DetObj:
             #     logstring += f"({l_vote:0.4f}x{l_weight})  "
             log.debug(logstring)
 
+            #sanity check ... no negative weights allowed
+            sel = [weight > 0] #skip any negative weights and no need to bother with zero weights
+            if np.any([weight < 0]):
+                log.warning("Warning! One or more negative weights ignored.")
+
             try:
                 if len(likelihood) > 0:
-                    scaled_prob_lae = np.sum(likelihood*weight/var)/np.sum(weight/var) #/ len(likelihood)
+                    scaled_prob_lae = np.sum(likelihood[sel]*weight[sel]/var[sel])/np.sum(weight[sel]/var[sel]) #/ len(likelihood)
 
                     #while can be arbitrarily close to 0 or 1, will crop to 0.001 to 0.999
                     if 0.0 <= scaled_prob_lae < 0.001:

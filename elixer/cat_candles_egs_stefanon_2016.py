@@ -735,6 +735,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
                 df_photoz = None
 
+            z_photoz_weighted = -1
             if df_photoz is not None:
                 try:
                     photoz_file = df_photoz['file'].values[0]
@@ -744,6 +745,9 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 except:
                     z_photoz_weighted = -1
                     log.error("Exception!", exc_info=True)
+
+            if z_photoz_weighted is None:
+                z_photoz_weighted = -1
 
             if df is not None:
 

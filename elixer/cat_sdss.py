@@ -176,7 +176,6 @@ class SDSS(cat_base.Catalog):#SDSS
         """
 
         try:
-
             if cls.apt_zcat is None:
                 cls.read_main_catalog()
 
@@ -196,21 +195,31 @@ class SDSS(cat_base.Catalog):#SDSS
 
             xlat_label = {"GALAXY":"gal","QSO":"agn","STAR":"star"}
 
+            #notice: all 'Z' are capital
             #should only be a few, may want to iterate over in case there are errors
             for r in t:
                 try:
                     if -0.2 < r["Z"] < 10.0:
-                        z.append(r["Z"])
-                        s.append(utilities.angular_distance(ra,dec,r["RA"],r["DEC"]))
-                        c.append(xlat_label[r["CLASS"]])
+                        add = True
+                        #check that it is unique (not really close in z-space to another already
+                        for z1 in z:
+                            if abs(z1-r["Z"])/(.5 * (z1 + r["Z"])) < 0.05:
+                                #these are similar
+                                add = False
+                                break
+
+                        if add:
+                            z.append(r["Z"])
+                            s.append(utilities.angular_distance(ra,dec,r["RA"],r["DEC"]))
+                            c.append(xlat_label[r["CLASS"]])
                 except:
-                    pass
+                    log.info("Exception! Exception in cat_sdss::redshift()",exc_info=True)
 
             ss = np.argsort(s) #sort by separation and return the arrays in that sort order
             return np.array(z)[ss],np.array(s)[ss],np.array(c)[ss]
 
         except:
-            log.warning("Exception in galaxy_mask::redshift()",exc_info=True)
+            log.warning("Exception in cat_sdss::redshift()",exc_info=True)
             return [],[],[]
 
 

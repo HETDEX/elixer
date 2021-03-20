@@ -766,8 +766,6 @@ class Catalog:
         return stacked_cutout
 
 
-
-
     def build_cat_summary_pdf_section(self,list_of_cutouts, cat_match, ra, dec, error, target_w=0,
                                   fiber_locs=None, target_flux=None,detobj=None):
         """

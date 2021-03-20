@@ -3142,13 +3142,13 @@ class Spectrum:
             EmissionLine("H$\\eta$".ljust(w), 3835, "royalblue", solution=False,display=False,rank=5),
 
             # big in AGN, but never alone in our range
-            EmissionLine("NV".ljust(w), 1241, "teal", solution=False,display=True,rank=3,broad=True),
+            EmissionLine("NV".ljust(w), 1241, "teal", solution=True,display=True,rank=3,broad=True),
 
             EmissionLine("SiII".ljust(w), 1260, "gray", solution=False,display=True,rank=4),
             EmissionLine("SiIV".ljust(w), 1400, "gray", solution=False, display=True, rank=4), #or 1393-1403 also OIV]
 
             #big in AGN, but never alone in our range
-            EmissionLine("HeII".ljust(w), 1640, "orange", solution=False,display=True,rank=3),
+            EmissionLine("HeII".ljust(w), 1640, "orange", solution=True,display=True,rank=3),
 
             EmissionLine("NeIII".ljust(w), 3869, "deeppink", solution=False,display=False,rank=4),
             EmissionLine("NeIII".ljust(w), 3967, "deeppink", solution=False,display=False,rank=4),  #very close to CaII(3970)
@@ -3385,13 +3385,13 @@ class Spectrum:
             min_ratios = [1,     0.01,      0.05,  0.05,  0.1, 0.15,   0.4,    0.1, 0.3]
             max_ratios = [1,     0.06,      0.20,  1.20,  0.5, 1.50,   3.3,    6.5, 20.0]
 
-            #required match matrix ... if line (x) is found and line(y) is in range, it MUST be found too
+            #required match matrix ... if line at row (x) is found and line at column (y) is in range, it MUST be found too
             #this is in order of the lines in rest_waves
             match_matrix =[[1,0,0,0,0,0,0,0,0],  #0 [OII]
-                           [0,1,1,1,1,1,1,0,0],  #1 H_eta
-                           [0,0,1,1,1,1,1,0,0],  #2 H_zeta
-                           [0,0,0,1,1,1,1,0,0],  #3 H_epsilon
-                           [0,0,0,0,1,1,1,0,0],  #4 H_delta
+                           [1,1,1,1,1,1,1,0,0],  #1 H_eta
+                           [1,0,1,1,1,1,1,0,0],  #2 H_zeta
+                           [1,0,0,1,1,1,1,0,0],  #3 H_epsilon
+                           [1,0,0,0,1,1,1,0,0],  #4 H_delta
                            [0,0,0,0,0,1,1,0,0],  #5 H_gamma
                            [0,0,0,0,0,0,1,0,0],  #6 H_beta
                            [0,0,0,0,0,0,0,1,1],  #7 OIII 4959
@@ -3589,7 +3589,7 @@ class Spectrum:
             #            *** OII entries just to pass logic below (only appears on our range for some MgII)
 
 
-            #required match matrix ... if line (x) is found and line(y) is in range, it MUST be found too
+            #required match matrix ... if line at row (x) is found and line at column (y) is in range, it MUST be found too
             #this is in order of the lines in rest_waves
             #in ALL cases, LyA better be found IF it is in range (so making it a 2 ... need 2 other matched lines to overcome missing LyA)
             match_matrix =[[1,0,0,0,0,0,0,0,0,0,0],  #0 LyA
@@ -3598,8 +3598,8 @@ class Spectrum:
                            [1,0,0,1,0,0,0,0,0,0,0],  #3 CII
                            [1,0,0,0,1,0,0,0,0,0,0],  #4 MgII
                            [1,0,0,0,0,1,0,0,0,0,0],  #5 NV
-                           [1,0,0,0,0,0,1,0,0,0,0],  #6 SiII
-                           [1,0,0,0,0,0,0,1,0,0,0],  #7 SiIV
+                           [1,0,0,0,0,1,1,0,0,0,0],  #6 SiII
+                           [1,0,0,0,0,0,1,1,0,0,0],  #7 SiIV
                            [1,0,0,0,0,0,0,0,1,0,0],  #8 HeII
                            [1,0,0,0,0,0,0,0,0,1,0],  #9 OVI
                            [0,0,0,0,1,0,0,0,0,0,1] ] #10 OII (just with MgII)
@@ -4630,7 +4630,6 @@ class Spectrum:
                 central_eli = self.central_eli
 
             for s in solutions:
-
                 if (central_eli.line_score == 0):
                     if (s is not None) and (s.lines is not None) and (len(s.lines) > 1):
                         pass #still okay there are 2+ other lines
