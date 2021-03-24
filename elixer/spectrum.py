@@ -954,8 +954,11 @@ class EmissionLineInfo:
                 return False
 
         if not (allow_broad or self.broadfit) and (self.fit_sigma >= LIMIT_BROAD_SIGMA):
+            log.debug(f"Line sigma {self.fit_sigma} in broad range {LIMIT_BROAD_SIGMA} and broad line not allowed.")
             return False
         elif (self.fit_sigma > GOOD_BROADLINE_SIGMA) and (self.line_score < GOOD_BROADLINE_MIN_LINE_SCORE):
+            log.debug(f"Line sigma {self.fit_sigma} in broad range {GOOD_BROADLINE_SIGMA} but "
+                      f"line_score {self.line_score} below minumum {GOOD_BROADLINE_MIN_LINE_SCORE}.")
             result = False
         # minimum to be possibly good
         elif (self.line_score >= GOOD_MIN_LINE_SCORE) and (self.fit_sigma >= GOOD_MIN_SIGMA):
@@ -2947,7 +2950,7 @@ def combine_lines(eli_list,sep=4.0):
 
 class EmissionLine():
     def __init__(self,name,w_rest,plot_color,solution=True,display=True,z=0,score=0.0,rank=0,
-                 min_fwhm=999.0,min_obs_wave=9999.0,max_obs_wave=9999.0,broad=False):
+                 min_fwhm=999.0,min_obs_wave=9999.0,max_obs_wave=9999.0,broad=False,score_multiplier=1.0):
         self.name = name
         self.w_rest = w_rest
         self.w_obs = w_rest * (1.0 + z)
@@ -2963,7 +2966,9 @@ class EmissionLine():
                           #as a single line solution (ie. CIII, CIV, MgII ... really broad in AGN and could be alone)
         self.min_obs_wave = min_obs_wave    #if solution is FALSE, but observed wave between these values, can still be a solution
         self.max_obs_wave = max_obs_wave
-
+        self.score_multiplier = score_multiplier #used to tune value based on the line identification
+            #for example, LyA+NV commonly similar to OII+something at 3800AA, so the fit to line of NV may
+            #score well, but should down-scale it because of the confusion
 
 
         #can be filled in later if a specific instance is created and a model fit to it
@@ -3142,7 +3147,10 @@ class Spectrum:
             EmissionLine("H$\\eta$".ljust(w), 3835, "royalblue", solution=False,display=False,rank=5),
 
             # big in AGN, but never alone in our range
-            EmissionLine("NV".ljust(w), 1241, "teal", solution=True,display=True,rank=3,broad=True),
+            EmissionLine("NV".ljust(w), 1241, "teal", solution=False,display=True,rank=3,broad=True,score_multiplier=0.25),
+
+            #XX is a similar odd complex in OII galaxies we commonly see (don't know what lines)
+            #EmissionLine("XX".ljust(w), 3800, "green", solution=False,display=True,rank=3,broad=True),
 
             EmissionLine("SiII".ljust(w), 1260, "gray", solution=False,display=True,rank=4),
             EmissionLine("SiIV".ljust(w), 1400, "gray", solution=False, display=True, rank=4), #or 1393-1403 also OIV]
@@ -3298,7 +3306,9 @@ class Spectrum:
         #todo: set a true upper limit (2-3x or so)
 
         upper_limit = 3.0
-        if consistency_score < 0:
+        if consistency_score < -3:
+            consistency_score = 0.0
+        elif consistency_score < 0:
             #already negative so, a -1 --> 1/2, -2 --> 1/3 and so on
             consistency_score = -1./(consistency_score-1.)
         else:
@@ -4338,6 +4348,16 @@ class Spectrum:
                                        central_z=central_z, values_units=values_units, spectrum=self,
                                        show_plot=False, do_mcmc=False,absorber=True)
 
+
+                #apply any score modifications based on the line identification (made in the definitions of the EmissionLine objects)
+                #i.e. for LyA+NV vs OII+complex at 3800AA
+                if eli and (a.score_multiplier != 1.0):
+                    try:
+                        old_score = eli.line_score
+                        eli.line_score *= a.score_multiplier
+                        log.debug(f"Down-scoring {a.name},{a.w_rest} per definition. Old score {old_score}, new score {eli.line_score}")
+                    except:
+                        log.warning("Exception. Unexpected execption down-scoring NV in Spectrum::classify_with_additional_lines()")
 
                 good = False
 
