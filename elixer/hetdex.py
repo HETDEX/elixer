@@ -947,10 +947,9 @@ class DetObj:
             if self.spec_obj and self.spec_obj.solutions and len(self.spec_obj.solutions) > 0:
                 #todo: maybe also check that the [0] position score is >= G.MULTILINE_MIN_SOLUTION_SCORE ??
                 #these are in rank order, highest score 1st
-                agree = False
-                unsure = False
+                agree = False #P(LyA) and multiline agree
+                unsure = False #P(LyA) is near 0.500
                 num_solutions = len(self.spec_obj.solutions)
-
 
                 primary_solution = False
 
@@ -997,6 +996,7 @@ class DetObj:
                         agree = True
                         break
 
+                #sol is at the last solution from at the break
                 if agree:
                     if unsure:
                         #all the confidence now comes from the multiline score
@@ -1010,12 +1010,12 @@ class DetObj:
                         else:
                             p = sol.scale_score
 
-                        log.info(f"P(z): Multiline solution[{idx}], score {scale_score}, frac {sol.frac_score}. "
-                                 f"P(LyA) uncertain {scaled_plae_classification}. Set to z: {z} with P(z): {p}")
+                        log.info(f"Q(z): Multiline solution[{idx}], score {scale_score}, frac {sol.frac_score}. "
+                                 f"P(LyA) uncertain {scaled_plae_classification}. Set to z: {z} with Q(z): {p}")
                     else:
                         p = 0.5 * (p + scale_score) #half from the P(LyA) and half from the scale_score
                         log.info(f"P(z): Multiline solution[{idx}] {self.spec_obj.solutions[idx].name} score {scale_score} "
-                                 f"and P(LyA) {scaled_plae_classification} agree. Set to z: {z} with P(z): {p}")
+                                 f"and P(LyA) {scaled_plae_classification} agree. Set to z: {z} with Q(z): {p}")
                 else: #use the 1st (highes score) that disagrees
                     sol = self.spec_obj.solutions[0]
                     z = sol.z
@@ -1038,14 +1038,14 @@ class DetObj:
                             p = max(0.05,scale_score - p)
                             z = self.w / G.LyA_rest - 1.0
 
-                            log.info(f"P(z): Multiline solution favors LyA {scale_score}. "
-                                     f"P(LyA) does not {scaled_plae_classification}. Set to LyA z:{z} with P(z): {p}")
+                            log.info(f"Q(z): Multiline solution favors LyA {scale_score}. "
+                                     f"P(LyA) does not {scaled_plae_classification}. Set to LyA z:{z} with Q(z): {p}")
                         else:
                             p = max(0.05,p-scale_score)
                             z = self.w / G.OII_rest - 1.0
 
-                            log.info(f"P(z): Multiline solution favors LyA {scale_score}. "
-                                 f"P(LyA) does not {scaled_plae_classification}. Set to OII z:{z} with P(z): {p}")
+                            log.info(f"Q(z): Multiline solution favors LyA {scale_score}. "
+                                 f"P(LyA) does not {scaled_plae_classification}. Set to OII z:{z} with Q(z): {p}")
 
                     elif (scaled_plae_classification > 0.6) and (rest != G.LyA_rest):
                         #LyA vs Not
@@ -1054,35 +1054,54 @@ class DetObj:
                         #keep the z, but reduce the p(z)
                         if scale_score > p:
                             p = max(0.05,scale_score - p)
-                            log.info(f"P(z): Multiline solution favors z = {sol.z}; {scale_score}. "
-                                     f"P(LyA) favors LyA {scaled_plae_classification}. Set to z:{z} with P(z): {p}")
+                            log.info(f"Q(z): Multiline solution favors z = {sol.z}; {scale_score}. "
+                                     f"P(LyA) favors LyA {scaled_plae_classification}. Set to z:{z} with Q(z): {p}")
                         else:
                             p = max(0.05,p - scale_score)
                             z = self.w / G.LyA_rest - 1.0
-                            log.info(f"P(z): Multiline solution favors z = {sol.z}; {scale_score}. "
-                                     f"P(LyA) favors LyA {scaled_plae_classification}. Set to LyA z:{z} with P(z): {p}")
+                            log.info(f"Q(z): Multiline solution favors z = {sol.z}; {scale_score}. "
+                                     f"P(LyA) favors LyA {scaled_plae_classification}. Set to LyA z:{z} with Q(z): {p}")
                     else: #odd place ... this should not happen
-                        p = 0.0
-                        z = -1.0
-                        log.info(f"P(z): unexpected outcome. Multiline solutions present, but cannot match. No P(z) set.")
+                        #we will use the P(Lya)
+                        if scaled_plae_classification < 0.5:
+                            z = self.w / G.OII_rest - 1.0
+                        else:
+                            z= self.w / G.LyA_rest - 1.0
+
+                        log.warning(f"Q(z): unexpected outcome. Multiline solutions present, but cannot match. No Q(z) set.")
 
 
+            #else there are no multi-line classification solutions
             elif scaled_plae_classification < 0.3: #not LyA ... could still be high-z
-                z = self.w / G.OII_rest - 1.0
-                rest = G.OII_rest
-                p = p/2. #remember, this is just NOT LyA .. so while OII is the most common, it is hardly the only solution
+
+                #usually OII execpt if REALLY broad, then more likely MgII or CIV. but have to mark as OII, just lower the Q(z)
+                if self.fwhm > 20.0:
+                    z = self.w / G.OII_rest - 1.0
+                    rest = G.OII_rest
+                    p = min(p/2.,0.1) #remember, this is just NOT LyA .. so while OII is the most common, it is hardly the only solution
+
+                    #so the highest possible would tbe 50%: P(LyA) = 0.0 ==> abs(0.5-0.0)/0.5/2. = 0.5
+                    log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII. "
+                             f"P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
+
+                else:
+                    z = self.w / G.OII_rest - 1.0
+                    rest = G.OII_rest
+                    p = p/2. #remember, this is just NOT LyA .. so while OII is the most common, it is hardly the only solution
                          #so the highest possible would tbe 50%: P(LyA) = 0.0 ==> abs(0.5-0.0)/0.5/2. = 0.5
-                log.info(f"P(z): no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with P(z): {p}")
+                    log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
             elif scaled_plae_classification > 0.7:
                 z= self.w / G.LyA_rest - 1.0
                 rest = G.LyA_rest
-                log.info(f"P(z): no multiline solutions. P(LyA) favors LyA. Set to LyA z:{z} with P(z): {p}")
+                log.info(f"Q(z): no multiline solutions. P(LyA) favors LyA. Set to LyA z:{z} with Q(z): {p}")
                 #keep p as is
-            else:
-                #we are in no-man's land
-                z = -1.
-                p = 0.
-                log.info(f"P(z): no multiline solutions, no strong P(LyA). No P(z) set.")
+            else: #we are in no-man's land
+                if scaled_plae_classification < 0.5:
+                    z = self.w / G.OII_rest - 1.0
+                else:
+                    z= self.w / G.LyA_rest - 1.0
+
+                log.info(f"Q(z): no multiline solutions, no strong P(LyA). z:{z} with Q(z): {p}")
 
             self.best_z = z
             self.best_p_of_z = min(p,0.95) #don't go over .95

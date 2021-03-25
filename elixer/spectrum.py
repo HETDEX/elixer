@@ -153,6 +153,27 @@ FLUX_CONVERSION_f_grid = np.interp(FLUX_CONVERSION_w_grid, FLUX_CONVERSION_measu
 FLUX_CONVERSION_DICT = dict(zip(FLUX_CONVERSION_w_grid,FLUX_CONVERSION_f_grid))
 
 
+def in_same_family(a,e):#are the emission lines different species of the same element
+    """
+
+    :param a: an emission line object
+    :param e: an emission line object
+    :return:
+    """
+    same = False
+    try:
+        if (e.name[0] == 'O') and (a.name[0] == 'O'):
+            same = True
+        elif (e.name[0:2] == 'CI') and (a.name[0:2] == 'CI'):
+            same = True
+        elif (e.name[0:2] == 'H$') and (a.name[0:2] == 'H$'):
+            same = True
+    except:
+        pass
+
+    return same
+
+
 def conf_interval(num_samples,sd,conf=0.95):
     """
     mean +/- error  ... this is the +/- error part as 95% (or other) confidence interval (assuming normal distro)
@@ -1507,12 +1528,10 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
     mcmc = None
     if do_mcmc:
-
-
         # print("*****TESTING DOUBLE GAUSS******")
-        # print("***** NV *****")
+        # print("***** check_for_doublet *****")
         # eli2 = check_for_doublet(eli,wavelengths,values,errors,central,values_units)
-        #
+
 
         mcmc = mcmc_gauss.MCMC_Gauss()
         mcmc.initial_mu = eli.fit_x0
@@ -1860,6 +1879,11 @@ def run_mcmc(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLUX
     return eli
 
 
+
+
+# This seems to be de-volving to pretty much "is the shape broad enough and flat enough at the peak" to be
+# a HETDEX resolvable doublet (so ~ 6AA in observed frame)? MCMC fits seem moderatly accurate, but there is
+# usually so much error on the peak positions to make this useless
 def check_for_doublet(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLUX_WAVEBIN_WIDTH):
     """
     like run_mcmc but allow a double Gaussian
@@ -1963,7 +1987,7 @@ def check_for_doublet(eli,wavelengths,values,errors,central,values_units,values_
            (mcmc.mcmc_A_2[0] > 0) and (mcmc.mcmc_A[0] > 0):
             #todo: look at the errors on mu ... should be small-ish (like 1-2 AA??)
 
-            log.info(f"Possible emission line doublet observed: {mcmc.mcmc_mu },{mcmc.mcmc_mu_2}")
+            log.info(f"Possible emission line doublet observed (x,+,-): {mcmc.mcmc_mu },{mcmc.mcmc_mu_2}")
 
             #and (0.8 < (mcmc.mcmc_A/mcmc.mcmc_A_2) < 1.25): not checking to see if similar ... they might not be
             #think about possibly using for LyA and the blue peak
@@ -3603,10 +3627,10 @@ class Spectrum:
             #this is in order of the lines in rest_waves
             #in ALL cases, LyA better be found IF it is in range (so making it a 2 ... need 2 other matched lines to overcome missing LyA)
             match_matrix =[[1,0,0,0,0,0,0,0,0,0,0],  #0 LyA
-                           [1,1,0,0,0,0,0,0,0,0,0],  #1 CIV
+                           [1,1,1,1,0,0,0,0,0,0,0],  #1 CIV
                            [1,0,1,0,0,0,0,0,0,0,0],  #2 CIII
                            [1,0,0,1,0,0,0,0,0,0,0],  #3 CII
-                           [1,0,0,0,1,0,0,0,0,0,0],  #4 MgII
+                           [1,0,0,0,1,0,0,0,0,0,1],  #4 MgII
                            [1,0,0,0,0,1,0,0,0,0,0],  #5 NV
                            [1,0,0,0,0,1,1,0,0,0,0],  #6 SiII
                            [1,0,0,0,0,0,1,1,0,0,0],  #7 SiIV
@@ -4308,13 +4332,7 @@ class Spectrum:
                             show_plot=False, do_mcmc=False, allow_broad= (a.broad and e.broad))
                 elif eli is None and a.broad and e.broad:
                     #are they in the same family? OII, OIII, OIV :  CIV, CIII, CII : H_beta, ....
-                    samefamily = False
-                    if (e.name[0] == 'O') and (a.name[0] == 'O'):
-                        samefamily = True
-                    elif (e.name[0:2] == 'CI') and (a.name[0:2] == 'CI'):
-                        samefamily = True
-                    elif (e.name[0:2] == 'H$') and (a.name[0:2] == 'H$'):
-                        samefamily = True
+                    samefamily = in_same_family(a,e)
 
                     if not samefamily or (samefamily and (self.central_eli and self.central_eli.fit_sigma and self.central_eli.fit_sigma > 5.0)):
                         eli = signal_score(wavelengths=wavelengths, values=medfilt(values, 5), errors=medfilt(errors, 5),
@@ -4399,8 +4417,7 @@ class Spectrum:
                     # BASIC FWHM check (by rank)
                     # higher ranks are stronger lines and must have similar or greater fwhm (or sigma)
                     #rank 1 is highest, 4 lowest; a is the line being tested, e is the solution anchor line
-                    if a.rank < e.rank:
-
+                    if (a.rank < e.rank) or ((a.rank == e.rank) and in_same_family(a,e)):
                         try: #todo: something similar in the specific consistency checks? (not sure here anyway since fwhm is related to lineflux)
                             #maybe fit_h is a better, more independent factor?
                             #but needs to be height above continuum, so now we are looking at EqW
