@@ -1097,6 +1097,14 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                     details['catalog_name']=self.name
                     details['filter_name']=filter
                     d['mag_limit']=self.get_mag_limit(None,mag_radius*2.)
+                    try:
+                        if d['mag_limit']:
+                            details['mag_limit']=d['mag_limit']
+                        else:
+                            details['mag_limit'] = None
+                    except:
+                        details['mag_limit'] = None
+
                     if (mag is not None) and (mag < 999):
                         if d['mag_limit'] and (d['mag_limit'] < mag < 100):
                             log.warning(f"Cutout mag {mag} greater than limit {d['mag_limit']}. Setting to limit.")

@@ -2140,6 +2140,14 @@ class Catalog:
                if details:
                    d['details'] = details
 
+               try:
+                   if d['mag_limit']:
+                       details['mag_limit']=d['mag_limit']
+                   else:
+                       details['mag_limit'] = None
+               except:
+                   details['mag_limit'] = None
+
                    if d['mag_limit'] and (d['mag_limit'] < mag < 100):
                        log.warning(f"Cutout mag {mag} greater than limit {d['mag_limit']}. Setting to limit.")
                        details['fail_mag_limit'] = True

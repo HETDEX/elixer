@@ -180,7 +180,7 @@ class Aperture(tables.IsDescription):
     dec = tables.Float32Col(pos=2,dflt=UNSET_FLOAT) #was aperture_dec
     catalog_name = tables.StringCol(itemsize=16)
     filter_name = tables.StringCol(itemsize=16)
-    image_depth_mag = tables.Float32Col(dflt=UNSET_NAN)
+    image_depth_mag = tables.Float32Col(dflt=99.9)
     pixel_scale = tables.Float32Col(dflt=UNSET_FLOAT)
     radius = tables.Float32Col(dflt=UNSET_FLOAT) #in arcsec , #was aperture_radius
     mag = tables.Float32Col(dflt=UNSET_FLOAT) #was aperture_mag
@@ -203,6 +203,7 @@ class ElixerApertures(tables.IsDescription):
     dec = tables.Float32Col(pos=2,dflt=UNSET_FLOAT)
     catalog_name = tables.StringCol(itemsize=16)
     filter_name = tables.StringCol(itemsize=16)
+    image_depth_mag = tables.Float32Col(dflt=99.9)
     pixel_scale = tables.Float32Col(dflt=UNSET_FLOAT) #arcsec/pixel
     selected = tables.BoolCol(dflt=False) #if True this is the object used for the aperture PLAE/OII, etc (see above table)
     radius = tables.Float32Col(dflt=UNSET_FLOAT) #major axis (diameter) 'a' in arcsec
@@ -232,6 +233,7 @@ class ExtractedObjects(tables.IsDescription):
     dec = tables.Float32Col(pos=2,dflt=UNSET_FLOAT)
     catalog_name = tables.StringCol(itemsize=16)
     filter_name = tables.StringCol(itemsize=16)
+    image_depth_mag = tables.Float32Col(dflt=99.9)
     pixel_scale = tables.Float32Col(dflt=UNSET_FLOAT) #arcsec/pixel
     selected = tables.BoolCol(dflt=False) #if True this is the object used for the aperture PLAE/OII, etc (see above table)
     major = tables.Float32Col(dflt=UNSET_FLOAT) #major axis (diameter) 'a' in arcsec
@@ -936,6 +938,12 @@ def append_entry(fileh,det,overwrite=False):
                 except:
                     pass
 
+                try:
+                    if d['mag_limit'] is not None:
+                        row['image_depth_mag'] = d['mag_limit']
+                except:
+                    pass
+
 
 
                 row.append()
@@ -977,6 +985,12 @@ def append_entry(fileh,det,overwrite=False):
                     row['image_flags'] = s['image_flags']
                 except:
                     row['image_flags'] = 0
+
+                try:
+                    if d['mag_limit'] is not None:
+                        row['image_depth_mag'] = d['mag_limit']
+                except:
+                    pass
 
                 row.append()
                 xtb.flush()
@@ -1025,6 +1039,12 @@ def append_entry(fileh,det,overwrite=False):
                     row['image_flags'] = s['image_flags']
                 except:
                     row['image_flags'] = 0
+
+                try:
+                    if d['mag_limit'] is not None:
+                        row['image_depth_mag'] = d['mag_limit']
+                except:
+                    pass
 
                 row.append()
                 etb.flush()
@@ -2297,9 +2317,16 @@ def upgrade_0p2px_to_0p3p0(oldfile_handle,newfile_handle):
             new_row.append()
             dtb_new.flush()
 
-        #no change to ExtractedObjects
-        etb_new.append(etb_old.read())
-        etb_new.flush()
+        #new column added (image_depth_mag)
+        for old_row in etb_old.read():
+            new_row = etb_new.row
+            for n in etb_new.colnames:
+                try: #can be missing name (new columns)
+                    new_row[n] = old_row[n]
+                except:
+                    log.debug("Extracted Object column failed (%s). Default set."%n)
+            new_row.append()
+            etb_new.flush()
 
         #no change to CalibratedSpectra
         stb_new.append(stb_old.read())
@@ -2309,9 +2336,16 @@ def upgrade_0p2px_to_0p3p0(oldfile_handle,newfile_handle):
         ltb_new.append(ltb_old.read())
         ltb_new.flush()
 
-        #no change to Aperture
-        atb_new.append(atb_old.read())
-        atb_new.flush()
+        #new column added (image_depth_mag)
+        for old_row in atb_old.read():
+            new_row = atb_new.row
+            for n in atb_new.colnames:
+                try: #can be missing name (new columns)
+                    new_row[n] = old_row[n]
+                except:
+                    log.debug("Extracted Object column failed (%s). Default set."%n)
+            new_row.append()
+            atb_new.flush()
 
         #no change to CatalogMatch
         ctb_new.append(ctb_old.read())

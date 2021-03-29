@@ -1137,6 +1137,14 @@ class DECALS(cat_base.Catalog):
                 details['catalog_name']=self.name
                 details['filter_name']=catalog_image['filter']
                 d['mag_limit']=self.get_mag_limit(catalog_image['name'],mag_radius*2.)
+                try:
+                    if d['mag_limit']:
+                        details['mag_limit']=d['mag_limit']
+                    else:
+                        details['mag_limit'] = None
+                except:
+                    details['mag_limit'] = None
+
                 if (mag is not None) and (mag < 999):
                     if d['mag_limit'] and (d['mag_limit'] < mag < 100):
                         log.warning(f"Cutout mag {mag} greater than limit {d['mag_limit']}. Setting to limit.")

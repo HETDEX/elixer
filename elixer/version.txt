@@ -1,6 +1,9 @@
 changes to elixer by version
 
 
+1.11.0a7 [2020-03-29]
+* Populating "image_depth_mag" in elixer h5 "Aperture" table
+
 1.11.0a6 [2020-03-22]
 * Incorporate catalog phot-z and spec-z into solutions
 * Build a primitive P(z), z based on the multi-line solution best z and consistency with P(LyA)
