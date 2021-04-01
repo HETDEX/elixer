@@ -38,7 +38,7 @@ from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter,MaxNLocator
 
 #SU = Simple Universe (concordance)
-SU_H0 = 70.
+SU_H0 = 70. * U.km / U.s / U.Mpc
 SU_Omega_m0 = 0.3
 SU_T_CMB = 2.73
 
@@ -260,16 +260,51 @@ def luminosity_distance(z,cosmology=None):
 
     return cosmology.luminosity_distance(z)
 
-def absolute_mag(mag,z,correction=0,cosmology=None):
+
+def absolute_mag(mag,z,correction=1,cosmology=None):
     """
-    Just the distance modulus
-    :param mag:
+    Just the distance modulus with K-correction
+
+    by definition:   m = M + DM + K     ==>     M = m - K - DM
+        where
+        m is the apparent band-pass magnitude
+        M is the Absolute Magnitude (could be in a different bandpass)
+        DM is the distance modulus = 5 * log10(DL/10pc)  where DL = luminosity distance
+        K is the K correction = -2.5*log10((1+z)*L_ve/L_v)
+            where
+                L_ve is the Luminosity emitted (so at frequency (v) * (1+z))
+                L_v is the Luminosity obsererd (at the observed frequency)
+                this handles the change in band-pass and would be a reference or figured from photometry
+
+
+    :param mag: band-pass mag (NOT bolometric ... if bolometric then the correction should be zero)
     :param z:
-    :param correction: (K-correction)
+    :param correction: (K-correction) (integral form: see https://ned.ipac.caltech.edu/level5/Sept02/Hogg/Hogg2.html)
+    see https://ned.ipac.caltech.edu/level5/Hogg/Hogg7.html ... the ratio of the Luminosity emitted / observed
+    note: for z in 3 - 3.5, the r-band probes the rest-frame UV, so there is no K correction, BUT here that means that
+    the correction = 1   (the ratio of the obs_r * emitted_uv / (standard referecne obs_r * standard ref emitted_uv)
+    is one
+
+    Another way to look at
+
     :param cosmology:
     :return:
     """
-    return mag - 5. * np.log10(luminosity_distance(z).to(u.parsec)/(10.0 * u.parsec)).value - correction
+
+    #K = 2.5 * np.log10((1+z)*Le/L) where Le is the Luminosity in the emitted frame (over the emitted bandpass) and L is
+    #the Luminosity in the observed frame in the observed band pass each as functions of frequency (like in Jy)
+    #it flips to 1/(1+z) if functions of wavelength ... again see https://ned.ipac.caltech.edu/level5/Hogg/Hogg7.html
+
+    if correction > 0:
+        k_corr = -2.5 * np.log10((1+z)*correction)
+    else:
+        k_corr = 0
+
+    return mag - k_corr - 5. * np.log10(luminosity_distance(z,cosmology).to(U.parsec)/(10.0 * U.parsec)).value
+
+
+
+# return mag - 5. * np.log10(luminosity_distance(z,cosmology).to(U.parsec).value) + 5.0  - correction
 
 
 def physical_diameter(z,a,cosmology=None):
