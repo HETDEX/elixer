@@ -4599,8 +4599,10 @@ class DetObj:
                 residual_spec, residual_spec_err = shot_sky.get_shot_sky_residual(self.survey_shotid)
 
             if not self.w:
+
                 # find the "best" wavelength to use as the central peak
                 spectrum = elixer_spectrum.Spectrum()
+                #self.all_found_lines = elixer_spectrum.peakdet(self.sumspec_wavelength,self.sumspec_flux,self.sumspec_fluxerr,values_units=-17)
                 w = spectrum.find_central_wavelength(self.sumspec_wavelength,self.sumspec_flux,self.sumspec_fluxerr,-17)
                 if w is not None and (3400.0 < w < 5600.0):
                     self.w = w

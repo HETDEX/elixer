@@ -276,6 +276,7 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--dets', help="List of detections (of form '20170314v011_005') or subdirs under fscdir "
                         "(wildcards okay) or file containing a list of detections (one per line)", required=False)
 
+    ##ra dec wave shotid detectid
     parser.add_argument('--coords', help="File containing a list (in order) of RA and Decs (one pair per line)"
                                          " and optionally a shotid and wavelength (use 0 as a placeholder for"
                                          " unspecified shotid or wavelength). Used optionally "

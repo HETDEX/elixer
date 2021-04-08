@@ -3181,6 +3181,7 @@ class Spectrum:
 
             #big in AGN, but never alone in our range
             EmissionLine("HeII".ljust(w), 1640, "orange", solution=True,display=True,rank=3),
+            ## maybe add HeII 2733 as well??? don't know how strong it is
 
             EmissionLine("NeIII".ljust(w), 3869, "deeppink", solution=False,display=False,rank=4),
             EmissionLine("NeIII".ljust(w), 3967, "deeppink", solution=False,display=False,rank=4),  #very close to CaII(3970)
@@ -3977,6 +3978,15 @@ class Spectrum:
 
 
     def find_central_wavelength(self,wavelengths = None,values = None, errors=None,values_units=0):
+        """
+
+        :param wavelengths:
+        :param values:
+        :param errors:
+        :param values_units:
+        :return:
+        """
+
         central = 0.0
         update_self = False
         if (wavelengths is None) or (values is None):
@@ -3984,6 +3994,20 @@ class Spectrum:
             values = self.values
             values_units = self.values_units
             update_self = True
+
+        try:
+            found_lines = peakdet(wavelengths,values,errors,values_units=values_units)
+        except:
+            found_lines = None
+
+        if found_lines and len(found_lines) > 0:
+            #choose the highest score
+            i = np.argmax([x.line_score for x in found_lines])
+            if update_self:
+                self.central = found_lines[i].fit_x0
+            return found_lines[i].fit_x0
+
+        #otherwise use this simpler method to find something
 
         #find the peaks and use the largest
         #for now, largest means highest value
