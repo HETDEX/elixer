@@ -3977,7 +3977,7 @@ class Spectrum:
         #    self.snr = 0
 
 
-    def find_central_wavelength(self,wavelengths = None,values = None, errors=None,values_units=0):
+    def find_central_wavelength(self,wavelengths = None,values = None, errors=None,values_units=0, return_list=False):
         """
 
         :param wavelengths:
@@ -4005,7 +4005,11 @@ class Spectrum:
             i = np.argmax([x.line_score for x in found_lines])
             if update_self:
                 self.central = found_lines[i].fit_x0
-            return found_lines[i].fit_x0
+
+            if return_list:
+                return found_lines[i].fit_x0, found_lines
+            else:
+                return found_lines[i].fit_x0
 
         #otherwise use this simpler method to find something
 
@@ -4024,7 +4028,10 @@ class Spectrum:
         max_score = -np.inf
         if peaks is None:
             log.info("No viable emission lines found.")
-            return 0.0
+            if return_list:
+                return 0.,[]
+            else:
+                return 0.0
 
         #find the largest flux
         for p in peaks:
@@ -4042,7 +4049,10 @@ class Spectrum:
 
         log.info("Central wavelength = %f" %central)
 
-        return central
+        if return_list:
+            return central,[]
+        else:
+            return central
 
     def classify(self,wavelengths = None,values = None, errors=None, central = None, values_units=0,known_z=None):
         #for now, just with additional lines

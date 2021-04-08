@@ -4603,7 +4603,8 @@ class DetObj:
                 # find the "best" wavelength to use as the central peak
                 spectrum = elixer_spectrum.Spectrum()
                 #self.all_found_lines = elixer_spectrum.peakdet(self.sumspec_wavelength,self.sumspec_flux,self.sumspec_fluxerr,values_units=-17)
-                w = spectrum.find_central_wavelength(self.sumspec_wavelength,self.sumspec_flux,self.sumspec_fluxerr,-17)
+                w,self.all_found_lines = spectrum.find_central_wavelength(self.sumspec_wavelength,self.sumspec_flux,
+                                                                          self.sumspec_fluxerr,-17,return_list=True)
                 if w is not None and (3400.0 < w < 5600.0):
                     self.w = w
                     self.target_wavelength = w
