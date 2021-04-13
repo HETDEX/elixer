@@ -1,13 +1,18 @@
 changes to elixer by version
 
-1.11.0a8 [2020-04-08]
+1.11.0a9 [2021-04-13]
+* Changed science_image annulus sky subtraction limit and allow any change to aperture magnitude; changes > 2 mags are
+  logged with a warning but allowed to continue. May result in aperture mags being set to mag-limit.
+
+
+1.11.0a8 [2021-04-08]
 * Attempt full line scan to find central wavelength if not provided and the simplified scan only if the full scan fails
 
-1.11.0a7 [2020-03-29]
+1.11.0a7 [2021-03-29]
 * Populating "image_depth_mag" in elixer h5 "Aperture" table
 * Added "image_depth_mag" in elixer h5 "ExtractedObjects" and "ElixerApertures" tables
 
-1.11.0a6 [2020-03-22]
+1.11.0a6 [2021-03-22]
 * Incorporate catalog phot-z and spec-z into solutions
 * Build a primitive P(z), z based on the multi-line solution best z and consistency with P(LyA)
 * Add new columns to Detections table: best_z, best_pz and bumped version to 0.3.0
@@ -16,7 +21,7 @@ changes to elixer by version
   LyA+NV and OII+complex at 3800AA)
 
 
-1.11.0a5 [2020-03-11]
+1.11.0a5 [2021-03-11]
 * Added SDSS z-catalog () as redshift check for any/all imaging surveys. Not explicit to SDSS.
 * Changed cat_base::is_edge_fiber() to use the IFUx and IFUy position instead of nominal grid of fiber IDs
 * If emission line (or additional lines) are in a sky line window and have a width (sigma * 1.1775) that does not clear
@@ -24,7 +29,7 @@ changes to elixer by version
   escape the edge or still have a high score, weak lines could fall out.
 * fix assignment of HETDEX detectID for re-extraction if HETDEX detectID is supplied (dispatch case)
 
-1.11.0a4 [2020-03-04]
+1.11.0a4 [2021-03-04]
 * Added 20AA EWr cut sanity check for low-z OII ( <~ 0.1) (or LyA <~ 2.4) where PLAE/POII seems to give odd results.
  There might be an issue with the spatial volume at low-z (the LAE volume / OII volume rises very fast below
  z(OII) < 0.1 and explodes by z(OII) < 0.04).
@@ -36,13 +41,13 @@ changes to elixer by version
   of the catalogs in version 1.11.0a1
 
 
-1.11.0a3 [2020-02-21]
+1.11.0a3 [2021-02-21]
 * Add galaxy_mask. Detections found within galaxy mask are flagged and if a redshift matched emission line is found, are
   re-scored to boost solution.
 * fixed bug when inverting PLAE/POII (if set to zero) for weighting
 * Allow conintuum estimtates at or below flux limit to still go into aggregation as the flux limit with 100% error
 
-1.11.0a2 [2020-02-11]
+1.11.0a2 [2021-02-11]
 * Tweak P(Lya) physical size for high-z 25 to 40 kpc to vote from 0.5 to 0.1 (linearly ) and weight 0.1 to 1.0 (linearly)
 * Updated pandas required version to >= 1.1.0 in setup.py
 * Removed auto change of ALLOW_EMPTY_IMAGE to True if all web service options are turned off
@@ -51,7 +56,7 @@ changes to elixer by version
   move toward P(LyA) == 0.5 for exceeding low voting weights).
 * [check point] given to O.Chavez for NEP testing
 
-1.11.0a1 [2020-01-29]
+1.11.0a1 [2021-01-29]
 * Major update to catalog organization to allow for inclusion of filters across multiple catalogs in report
     toggled by global_config::BUILD_REPORT_BY_FILTER
     All filters reported in elixer hdf5 file and up to 6 filters shown on the report (favoring bluer and deeper bands)
@@ -62,10 +67,10 @@ changes to elixer by version
 * Do not check for meteor if object position is off the IFU (the individual exposure triggers are unreliable)
 
 
-1.10.1a5 [2020-01-18]
+1.10.1a5 [2021-01-18]
 * DECaLS web request layer (name) change. Was "dr8" now "ls-dr9".
 
-1.10.1a4 [2020-01-13]
+1.10.1a4 [2021-01-13]
 * changed out of range dither norm from 2.0 to 3.0 per re-evaluation
 * add GLOBAL_LOGGING to global_config.py ;
     to turn off all logging:

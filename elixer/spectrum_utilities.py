@@ -180,6 +180,9 @@ def getnearpos(array,value):
     :return: nearest index, nearest index less than the value, nearest index greater than the value
             None if there is no less than or greater than
     """
+    if type(array) == list:
+        array = np.array(array)
+
     idx = (np.abs(array-value)).argmin()
 
     if array[idx] == value:

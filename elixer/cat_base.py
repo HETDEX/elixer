@@ -2281,8 +2281,13 @@ class Catalog:
                     else:
                         # if we are not escaping on the first hit, append ALL cutouts (even if no image was collected)
                         l.append(cutout)
-                except:
-                    log.error("Exception! collecting image cutouts.",exc_info=True)
+
+                except Exception as e:
+                    if type(e) is StopIteration:
+                        #just did not find any more catalog images to use that match the criteria
+                        pass
+                    else:
+                        log.error("Exception! collecting image cutouts.", exc_info=True)
         else:
             for i in self.CatalogImages:  # i is a dictionary
                 # note: this works, but can be grossly inefficient and

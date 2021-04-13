@@ -498,7 +498,7 @@ class science_image():
         if rc and verify:
             try:
                 cutout = Cutout2D(hdulist[self.wcs_idx].data, SkyCoord(ra, dec, unit="deg", frame=self.frame), (1, 1),
-                                  wcs=self.wcs, copy=False)#,mode='partial')
+                                  wcs=self.wcs, copy=False,mode="partial",fill_value=0)#,mode='partial')
             except:
                 log.debug("position (%f, %f) is not in image." % (ra,dec), exc_info=False)
                 rc = False
@@ -802,7 +802,7 @@ class science_image():
             pix_window = int(np.ceil(error / self.pixel_size))
             hdulist = fits.open(path, memmap=False, lazy_load_hdus=True)
             cutout = Cutout2D(hdulist[self.wcs_idx].data, position, (pix_window, pix_window),
-                                   wcs=self.wcs, copy=False)
+                                   wcs=self.wcs, copy=False,mode="partial",fill_value=0)
             hdulist.close()
         except:
             log.info(f"Could not get mask cutout", exc_info=True)
@@ -952,7 +952,7 @@ class science_image():
                     while retries < max_retries:
                         try:
                             cutout = Cutout2D(hdulist[self.wcs_idx].data, position, (pix_window, pix_window),
-                                              wcs=self.wcs, copy=copy)
+                                              wcs=self.wcs, copy=copy,mode="partial",fill_value=0)
 
                             image = cutout  # now that we have a cutout, the rest of this func works on it
 
@@ -968,7 +968,7 @@ class science_image():
                                     #else, just use the original cutout (e.g. if the window is large, but the aperture is small
                                     try:
                                         sky_image = Cutout2D(hdulist[self.wcs_idx].data, position, (sky_pix_window, sky_pix_window),
-                                                      wcs=self.wcs, copy=False) #don't need a copy, will not persist beyond
+                                                      wcs=self.wcs, copy=False,mode="partial",fill_value=0) #don't need a copy, will not persist beyond
                                                                                 #this call
                                     except:
                                         log.warning("Exception attempting to get larger sky_image. science_image::get_cutout",
@@ -1127,7 +1127,7 @@ class science_image():
                 position = SkyCoord(ra, dec, unit="deg")#, frame='fk5')
                 #self.pixel_size = self.calc_pixel_size(image.wcs)
                 pix_window = float(window) / self.calc_pixel_size(image.wcs)  # now in pixels
-                cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=image.wcs, copy=copy)
+                cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=image.wcs, copy=copy,mode="partial",fill_value=0)
                 self.get_vrange(cutout.data)
             except NoOverlapError:
                 log.info("Warning (NoOverlapError) in science_image::get_cutout(). "
@@ -1714,21 +1714,32 @@ class science_image():
                         mag_err = max((sky_mag_faint-sky_mag),(sky_mag-sky_mag_bright))
                     elif sky_mag < 99:
                         mag_err = sky_mag-sky_mag_bright
+                    elif sky_mag_bright < 99:
+                        mag_err = abs(base_mag-sky_mag_bright)
                     else: #can't get mag on the sky only ... below limit
                         #todo: this should be related to the mag limit of the imaging
                         mag_err = 0.0 #something kind of reasonable, 100x in flux?
+
+                    if not (sky_mag < 99):
+                        if sky_mag_bright < 99:
+                            sky_mag = sky_mag_bright
+                        elif sky_mag_faint < 99: #odd case if sky_avg is negative (and sky_err is positive)
+                            sky_mag = sky_mag_faint
 
                     #mag should now be fainter (usually ... could have slightly negative sky?)
                     #the photometry should have pretty good sky subtration ... but what if we are on a faint object
                     #that is near large object ... could be we don't get enough sky pixels or the average is skewed high
                     #so if we make much of a change, at least log a warning
+
+                    mag = sky_mag #1.11.0a9 2021-04-13 ... do it anyway, even if we go negative or below limit
+                                  # it can mean there is something wrong
                     if (base_mag < 99.9) and (abs(sky_mag - base_mag) > G.MAX_SKY_SUBTRACT_MAG):
                        # print("Warning! Unexepectedly large sky subtraction impact to magnitude: %0.2f to %0.2f at (%f,%f)"
                        #             %(base_mag,sky_mag,ra,dec))
                         log.warning("Warning! Unexepectedly large sky subtraction impact to magnitude: %0.2f to %0.2f at (%f,%f)"
                                     %(base_mag,sky_mag,ra,dec))
-                    elif sky_mag < 99.9: #todo: !!!! temporary ... just to see what happens if we keep the original base mag
-                        mag = sky_mag
+                    # elif sky_mag < 99.9:
+                    #     mag = sky_mag
                     #else the mag remains unchanged
 
                     log.info("Sky subtracted imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Sky = (%f/pix %f tot). Counts = %s Mag_AB = %g"
