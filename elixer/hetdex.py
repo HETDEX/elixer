@@ -1107,6 +1107,15 @@ class DetObj:
             self.best_z = z
             self.best_p_of_z = min(p,0.95) #don't go over .95
 
+
+            #sanity check --- override negative z
+            if z < 0: #unless this is a star, kick it out
+                z = z = self.w / G.LyA_rest - 1.0
+                if scaled_plae_classification > 0.5:
+                    p = scaled_plae_classification
+                else:
+                    p = max(0.01,0.5 - scaled_plae_classification) #todo: need to figure a better value (not much else it can be than LyA)
+
             return z,p
         except:
             log.warning("Exception! in hetdex.py DetObj::best_redshift()",exc_info=True)
