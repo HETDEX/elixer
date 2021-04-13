@@ -3,6 +3,8 @@ changes to elixer by version
 1.11.0a9 [2021-04-13]
 * Changed science_image annulus sky subtraction limit and allow any change to aperture magnitude; changes > 2 mags are
   logged with a warning but allowed to continue. May result in aperture mags being set to mag-limit.
+* Fix bug for empty cutout position where fiber_locs was not handling extra ifux, ifuy
+* Missing weight for OII (with MgII) in spectrum::solution_consistent_with_agn()
 
 
 1.11.0a8 [2021-04-08]

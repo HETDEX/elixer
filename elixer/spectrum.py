@@ -3642,7 +3642,7 @@ class Spectrum:
 
             match_matrix = np.array(match_matrix)
 
-            match_matrix_weights = np.array([3,1,1,0.5,1,1,0.5,0.5,1,1])
+            match_matrix_weights = np.array([3,1,1,0.5,1,1,0.5,0.5,1,1,2])
 
             #todo: 2 matrices (min and max ratios) so can put each line vs other line
             # like the match_matrix in the low-z galaxy check (but with floats) as row/column

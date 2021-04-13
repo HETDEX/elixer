@@ -1723,7 +1723,7 @@ class Catalog:
 
                 x, y = empty_sci.get_position(ra, dec, cutout)  # zero (absolute) position
 
-                for r, d, c, i, dist,fn,ifux,ifuy in fiber_locs:
+                for r, d, c, i, dist,fn, ifux,ifuy in fiber_locs:
                     # fiber absolute position ... need relative position to plot (so fiber - zero pos)
                     fx, fy = empty_sci.get_position(r, d, cutout)
 
@@ -1935,7 +1935,7 @@ class Catalog:
             ymin = float('inf')
             ymax = float('-inf')
 
-            for r, d, c, i, dist, fn in fiber_locs:
+            for r, d, c, i, dist, fn, ifux,ifuy in fiber_locs:
                 # fiber absolute position ... need relative position to plot (so fiber - zero pos)
                 fx = (r - ra) * np.cos(np.deg2rad(dec)) * 3600.
                 fy = (d - dec) * 3600.

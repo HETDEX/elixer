@@ -154,7 +154,10 @@ class GalaxyMask():
 
                 #return the smallest scale for each of the unique redshifts
                 for i in idx:
-                    scales.append(min(min_scales[z==z[i]]))
+                    try:
+                        scales.append(min(min_scales[z==z[i]]))
+                    except:
+                        pass #might not be any
 
                 return z[idx],scales
 
