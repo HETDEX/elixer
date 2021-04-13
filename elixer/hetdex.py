@@ -944,7 +944,8 @@ class DetObj:
             #by the P(LyA) classifictionm but just using that with P(LyA) as the confidence
             #then could be incongruous (in that they don't belong together)
 
-            if self.spec_obj and self.spec_obj.solutions and len(self.spec_obj.solutions) > 0:
+            if self.spec_obj and self.spec_obj.solutions and len(self.spec_obj.solutions) > 0 \
+                    and (self.spec_obj.solutions[0].scale_score > 0.7):
                 #todo: maybe also check that the [0] position score is >= G.MULTILINE_MIN_SOLUTION_SCORE ??
                 #these are in rank order, highest score 1st
                 agree = False #P(LyA) and multiline agree

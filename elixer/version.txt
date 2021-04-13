@@ -5,6 +5,7 @@ changes to elixer by version
   logged with a warning but allowed to continue. May result in aperture mags being set to mag-limit.
 * Fix bug for empty cutout position where fiber_locs was not handling extra ifux, ifuy
 * Missing weight for OII (with MgII) in spectrum::solution_consistent_with_agn()
+* Limit multi-line solution consideration to scale-scores > 0.7
 
 
 1.11.0a8 [2021-04-08]
