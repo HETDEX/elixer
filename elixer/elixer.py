@@ -2059,12 +2059,16 @@ def get_hdf5_detectids_to_process(args):
 
                                     else: #this is a set of coords
                                         row = [float(toks[0]),float(toks[1])]
-                                        if len(toks) >= 3: #shotid
+                                        if len(toks) >= 3: #shotid or wave and might have string in it
                                             # shot = toks[2].lower()
                                             # row.append(int(float(shot.replace('v',''))))
                                             row.append(xlat_shotid(toks[2]))
-                                            if len(toks) == 4: #wavelength (in AA)
-                                                row.append(float(toks[3]))
+                                            if len(toks) >= 4: #wavelength (in AA) or shotid
+                                                #row.append(float(toks[3]))
+                                                row.append(xlat_shotid(toks[3]))
+
+                                            if len(toks) >= 5: #name/detectid (as integer)
+                                                row.append(int(toks[4]))
 
                                             #if shotid and wavelength are flipped, it should be caught later?
                                         else:
