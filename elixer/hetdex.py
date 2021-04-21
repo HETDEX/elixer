@@ -5939,6 +5939,12 @@ class HETDEX:
         else:
             self.recover = False
 
+        #if a manual name or detectID is set from a --coords file:
+        try:
+            self.manual_name = args.manual_name #args.manual_name might not exist, if so, no manual_name is set
+        except:
+            self.manual_name = None
+
         self.multiple_observations = False #set if multiple observations are used (rather than a single obsdate,obsid)
         self.ymd = None
         self.target_ra = args.ra
@@ -6829,6 +6835,17 @@ class HETDEX:
                         print(f"Unexpected # of detectids: {self.hdf5_detectid_list}")
 
 
+                #a name was set on the --coords file AND the shotid was specified (so there will be 0 or 1 corresponding detection)
+                #(if shotid is 0 or None, then we have to search all shots for RA, Dec and the name/ID may not be unique
+                #so we default back to the UNIQUE_DET_ID_NUM
+                if self.manual_name is not None:
+                    if (e.survey_shotid is not None) and (e.survey_shotid != 0):
+                        e.id = self.manual_name
+                        e.entry_id = e.id
+                    else:
+                        log.warning(f"Manual ID/name {self.manual_name} specified for detection, but shotid/datevshot "
+                                    f"not provided. Will default back to dispatch_id naming.")
+
                 if e.id is None or e.survey_shotid is None:
                     if self.dispatch_id is not None:
                         e.id = np.int64(99e8 + self.dispatch_id * 1e4 + G.UNIQUE_DET_ID_NUM)
@@ -7619,7 +7636,7 @@ class HETDEX:
 
         else:
             if not G.ZOO:
-                title += "\nPrimary IFU SpecID (%s) SlotID (%s)\n" % (e.fibers[0].specid, e.fibers[0].ifuslot)
+                title += "\nPrimary Spec_Slot_IFU: %s_%s_%s\n" % (e.fibers[0].specid, e.fibers[0].ifuslot, e.fibers[0].ifuid)
 
                 if e.survey_fwhm > 3.0:
                     title += f"F=*{e.survey_fwhm:0.1f}\"*  "
@@ -7683,7 +7700,8 @@ class HETDEX:
 
             else: #this if for zooniverse, don't show RA and DEC or probabilities
 
-                title += "\nPrimary IFU SpecID (%s) SlotID (%s)\n" % (e.fibers[0].specid, e.fibers[0].ifuslot)
+                #title += "\nPrimary IFU SpecID (%s) SlotID (%s)\n" % (e.fibers[0].specid, e.fibers[0].ifuslot)
+                title += "\nPrimary Spec_Slot_IFU: %s_%s_%s\n" % (e.fibers[0].specid, e.fibers[0].ifuslot, e.fibers[0].ifuid)
 
                 if e.survey_fwhm > 3.0:
                     title += f"F=*{e.survey_fwhm:0.1f}\"*  "

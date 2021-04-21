@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.11.0a10 [2021-04-21]
+* changed labelling of Primary IFU (3rd line in the top left text block) to report SpecID_SlotID_IFUID
+
 1.11.0a9 [2021-04-13]
 * Changed science_image annulus sky subtraction limit and allow any change to aperture magnitude; changes > 2 mags are
   logged with a warning but allowed to continue. May result in aperture mags being set to mag-limit.
@@ -10,6 +13,7 @@ changes to elixer by version
 
 1.11.0a8 [2021-04-08]
 * Attempt full line scan to find central wavelength if not provided and the simplified scan only if the full scan fails
+* Add optional 5th column to --coords file to specify a numeric (integer) ID to name the detection on a forced extraction
 
 1.11.0a7 [2021-03-29]
 * Populating "image_depth_mag" in elixer h5 "Aperture" table

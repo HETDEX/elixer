@@ -1609,6 +1609,17 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         log.debug("MCMC Peak height = %f" % (max(narrow_wave_counts)))
         log.debug("MCMC calculated EW_obs for main line = %0.3g +/- %0.3g" % (ew, ew_err))
 
+        #testing alternate SNR calculation
+        # log.debug(f"Line flux {eli.mcmc_line_flux} ")
+        # mcmc_snr = SU.snr(eli.mcmc_line_flux,narrow_wave_errors*10**values_units,flux_err=mcmc.approx_symmetric_error(eli.mcmc_line_flux_tuple),
+        #                   wave=narrow_wave_x,center=mcmc.mcmc_mu[0],delta=mcmc.mcmc_sigma[0]*2.0)
+        # data_snr = SU.snr(narrow_wave_counts,narrow_wave_errors,flux_err=None,wave=narrow_wave_x,center=eli.fit_x0,delta=eli.fit_sigma*2.)
+        # log.debug(f"MCMC area SNR: {mcmc_snr}")
+        # model_flux = SU.gaussian(narrow_wave_x,mcmc.mcmc_mu[0],mcmc.mcmc_sigma[0],a=mcmc.mcmc_A[0],y=mcmc.mcmc_y[0])
+        # mcmc_snr = SU.snr(model_flux,narrow_wave_errors,wave=narrow_wave_x,center=mcmc.mcmc_mu[0],delta=mcmc.mcmc_sigma[0]*2.0)
+        # log.debug(f"MCMC model SNR: {mcmc_snr}")
+        # log.debug(f"MCMC data SNR: {data_snr}")
+
 
     if show_plot or G.DEBUG_SHOW_GAUSS_PLOTS:# or eli.snr > 40.0:
         if error is None:

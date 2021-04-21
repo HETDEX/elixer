@@ -2317,9 +2317,9 @@ def read_coords_file(filename,args=None,as_rows=False):
         if as_rows:
             return []
         else:
-            return [], [], [], []
+            return [], [], [], [], []
 
-    ras, decs, shots, waves, rows = [],[],[],[],[]
+    ras, decs, shots, waves, rows, names = [],[],[],[],[],[]
     try:
         if (args is not None) and (args.aperture is None):
             if as_rows:
@@ -2328,11 +2328,12 @@ def read_coords_file(filename,args=None,as_rows=False):
                 ras, decs = np.loadtxt(filename, unpack=True,usecols=(0,1)) #ignore shotids
                 shots = np.zeros(len(ras))
                 waves = np.zeros(len(ras))
+                names = np.zeros(len(ras))
         else:
 
             #     #rows = open(filename, "r").read().splitlines()
             if as_rows:
-                rows = np.loadtxt(filename, unpack=False)
+                rows = np.loadtxt(filename, unpack=False,dtype=str)
             #     try:
             #         if np.shape(rows)[1] > 2:
             #             rows[:,2] = xlat_shotid(rows[:,2])
@@ -2340,18 +2341,23 @@ def read_coords_file(filename,args=None,as_rows=False):
             #         pass
             #
             else:
-                try: #4 values
-                    ras, decs, shots, waves = np.loadtxt(filename, unpack=True)
+
+                try: #5 values
+                    ras, decs, shots, waves,names = np.loadtxt(filename, unpack=True)
                     shots = xlat_shotid(shots)
                 except:
-                    try: #3 values
-                        ras, decs, shots = np.loadtxt(filename, unpack=True)
+                    try: #4 values
+                        ras, decs, shots, waves = np.loadtxt(filename, unpack=True)
                         shots = xlat_shotid(shots)
-                        waves = np.zeros(len(ras))
-                    except: #2 values
-                        ras, decs = np.loadtxt(filename, unpack=True)
-                        shots = np.zeros(len(ras))
-                        waves = np.zeros(len(ras))
+                    except:
+                        try: #3 values
+                            ras, decs, shots = np.loadtxt(filename, unpack=True)
+                            shots = xlat_shotid(shots)
+                            waves = np.zeros(len(ras))
+                        except: #2 values
+                            ras, decs = np.loadtxt(filename, unpack=True)
+                            shots = np.zeros(len(ras))
+                            waves = np.zeros(len(ras))
             # if as_rows: #this doest NOT work the way I want ... produces a string that has [,,,,]
             #     #yes this is a weird way to do this
             #     #but numpy forces its arrays to all be of the same type and we prefer the shots to be integers
@@ -2361,12 +2367,12 @@ def read_coords_file(filename,args=None,as_rows=False):
         if as_rows:
             return []
         else:
-            return [],[],[],[]
+            return [],[],[],[],[]
 
     if as_rows:
         return rows
     else:
-        return ras, decs, shots, waves
+        return ras, decs, shots, waves, names
 
 
 
@@ -3874,19 +3880,19 @@ def main():
                         #update the args with the ra dec and shot to build an appropriate hetdex object for extraction
                         try:
                             if len(d) == 2:
-                                args.ra = d[0]
-                                args.dec = d[1]
+                                args.ra = float(d[0])
+                                args.dec = float(d[1])
                                 args.shotid = None
                             elif len(d) == 3:
-                                args.ra = d[0]
-                                args.dec = d[1]
+                                args.ra = float(d[0])
+                                args.dec = float(d[1])
                                 args.shotid = xlat_shotid(d[2])
                                 if (args.shotid is not None) and (3400. < args.shotid < 5700.): #assume this is really a wavelength
                                     args.wavelength = args.shotid
                                     args.shotid = None
                             elif len(d) == 4:
-                                args.ra = d[0]
-                                args.dec = d[1]
+                                args.ra = float(d[0])
+                                args.dec = float(d[1])
                                 args.shotid = xlat_shotid(d[2])
                                 if (args.shotid is not None) and (3400. < args.shotid < 5700.):  # assume this is really a wavelength and shotid is flipped with wavelength
                                     args.wavelength = args.shotid
@@ -3895,6 +3901,18 @@ def main():
                                     args.wavelength = float(d[3])
                                 if args.wavelength == 0:
                                     args.wavelength = None
+                            elif len(d) == 5:
+                                args.ra = float(d[0])
+                                args.dec = float(d[1])
+                                args.shotid = xlat_shotid(d[2])
+                                if (args.shotid is not None) and (3400. < args.shotid < 5700.):  # assume this is really a wavelength and shotid is flipped with wavelength
+                                    args.wavelength = args.shotid
+                                    args.shotid = xlat_shotid(d[3])
+                                else:
+                                    args.wavelength = float(d[3])
+                                if args.wavelength == 0:
+                                    args.wavelength = None
+                                args.manual_name = int(d[4]) #needs to be an int
                             else:
                                 #something wrong
                                 log.error(f"Unable to build hetdex object for entry d: ({d})")

@@ -205,6 +205,84 @@ def getnearpos(array,value):
     return idx, lt, gt
 
 
+
+
+def snr(flux,noise,flux_err=None,wave=None,center=None,delta=None):
+    """
+    Calculate the signal to noise as the sum of the flux over a region divided by the quadrature sum of the error over
+    the same region.
+
+    If wave, center, and sigma are provided, will compute over the region centered on "center" +/- "delta" where
+    "delta" would be something like 2x or 3x sigma (for an emission line).
+
+    :param flux: data flux (must be in FLUX units, not flux density) so can be summed
+                the flux could also come from the model values so long as it has the same shape and aligns 1:1 with noise
+    :param noise: noise or uncertainty on each flux measure (same units)
+    :param flux_err: error on the flux value (specifically when flux is from a model). If flux is just the original data
+                     then "noise" is the error on that flux
+    :param wave:  1:1 wavelength bins corresponding to flux and noise
+    :param center: center position in wave unit (AA)
+    :param delta:  distance (in wave units, AA) from the center to move in either direction
+    :return: snr, snr_error
+    """
+
+    try:
+        if (flux is None) or (noise is None):
+            log.warning("Invalid parameters passed to spectrum_utilities::snr(): 1")
+            return None, None
+
+        if hasattr(flux,'__len__'):#this is a list or array
+            if (len(noise)!=len(flux)):
+                log.warning("Invalid parameters passed to spectrum_utilities::snr(): 2")
+                return None, None
+            if (flux_err is not None) and (len(flux)!= len(flux_err)):
+                log.warning("Invalid parameters passed to spectrum_utilities::snr(): 3")
+                return None, None
+
+            flux_is_number = False
+        else:
+            flux_is_number = True
+
+
+        if (wave is not None) and (center is not None) and (delta is not None):
+            #center_idx,_,_ = getnearpos(wave,center)
+            left_idx,_,_ = getnearpos(wave,center-delta)
+            right_idx,_,_ = getnearpos(wave,center+delta)
+
+            if not ((right_idx - left_idx) > 0):
+                log.warning("Invalid parameters passed to spectrum_utilities::snr(). Unable to create valid bounds.")
+                return None, None
+        else:
+            left_idx = 0
+            right_idx = len(flux)
+
+        signal_error = 0
+        if flux_is_number:
+            signal = flux
+            if flux_err is not None:
+                signal_error = flux_err
+        else:
+            signal = np.sum(flux[left_idx:right_idx+1])
+            if (flux_err is not None) and (len(flux_err)==len(flux)):
+                signal_error = np.sqrt(np.sum(flux_err[left_idx:right_idx+1]*flux_err[left_idx:right_idx+1]))
+
+        noise = np.sqrt(np.sum(noise[left_idx:right_idx+1]*noise[left_idx:right_idx+1]))
+
+        if noise > 0:
+            #notice: there is no error on the noise, so using error propogation on division is pointless
+            #and you end up with exactly signal_error/noise
+            # snr_error = signal/noise * np.sqrt((signal_error/signal)**2 + (0/noise)**2)
+
+            return signal/noise, signal_error/noise #ONLY SUCCESS PATH
+        else:
+            log.warning("Invalid parameters passed to spectrum_utitlities::snr(). Invalid noise.")
+            return None, None
+    except:
+        log.error("Exception in spectrum_utilites::snr()",exc_info=True)
+
+    return None, None
+
+
 def chi_sqr(obs, exp, error=None, c=None,dof=None):
     """
 
