@@ -908,20 +908,120 @@ class Catalog:
             #     pass
             #
 
+
+            #todo: rethink this .... the "the_best_cat_idx" is the deepest imaging, but maybe not the best for the
+            # catalog ... catalog may be poorly aligned with selection criteria (example: 2100059570) where CANDLES detections
+            #  are just the faint ones and not the big galaxy right in the center that we have selected
+            # MAYBE!!! merge ALL the counter_parts, toss out duplicates (RA,Dec separation < 0.1" ?
+            # NOT all [0] have ['counterparts']
+
+            all_counterparts = np.concatenate([x[0]['counterparts'] for x in list_of_cutouts if 'counterparts' in x[0].keys()])
+
+            for cp in all_counterparts:
+                add = True
+                for i,uc in enumerate(list_of_counterparts):
+                    if abs(cp.distance - uc.distance) < 0.1: #less than 0.1" from the center of image
+                        if utilities.angular_distance(cp.bid_ra,cp.bid_dec,uc.bid_ra,uc.bid_dec) < 0.1: #duplicate
+                            choice = None
+                            if (cp.spec_z is None) and (uc.spec_z is None):
+                                if (cp.phot_z is None) and (uc.phot_z is None):
+                                    pass #leave as None selected
+                                else:
+                                    if cp.phot_z is None:
+                                        choice = uc
+                                    elif uc.phot_z is None:
+                                        choice = cp
+                                    else: #both have spec_z
+                                        pass #leave the choice at none
+                            else: # at least one as spec_z
+                                if cp.spec_z is None:
+                                    choice = uc
+                                elif uc.spec_z is None:
+                                    choice = cp
+                                else: #both have spec_z
+                                    pass #leave the choice at none
+
+                            if choice is None: #neither has spec_z or phot_z
+                                if cp.bid_flux_est_cgs_unc < uc.bid_flux_est_cgs_unc:
+                                    choice = cp
+                                else:
+                                    choice = uc
+
+                            if choice is cp: #otherwise, keep what is there
+                                #need to swap
+                                list_of_counterparts[i] = cp
+                                add = False
+
+                if add:
+                    list_of_counterparts.append(cp)
+
+            #now resort by likelihood of match (new method)
+            list_of_counterparts.sort(key=lambda x: x.distance, reverse=False)
+            selected_idx = 0
+            try:
+                for idx, cp in enumerate(list_of_counterparts):
+                    #walk in order of distance and check
+                    #if inside the ellipse for the selected SEP (if there is one)
+                    #is counterpart mag consistent with HETDEX SDSS-g (similar or fainter if HETDEX g > 24)
+                    cp_filter = cp.bid_filter.lower()
+                    selected_sep = None
+                    #find the selected SEP
+                    for d in detobj.aperture_details_list:
+                        if (d['filter_name'].lower() != cp_filter) or (d['sep_objects'] is None):
+                            continue
+                        try:
+                            selected_sep = d['sep_objects'][np.where([x['selected'] for x in d['sep_objects']])[0][0]]
+                        except:
+                            pass
+
+                    if selected_sep:
+                        #are the magnitudes similar and is it inside the ellipse?
+                        if utilities.is_in_ellipse(cp.bid_ra,cp.bid_dec,selected_sep['ra'],selected_sep['dec'],
+                                                selected_sep['a'],selected_sep['b'],selected_sep['theta']):
+                            #are the mags similar (or SEP is fainter than limit?)
+                            if (abs(selected_sep['mag'] - cp.bid_mag) < 0.5) or \
+                                ( (selected_sep['mag'] < 22) and (cp.bid_mag < 22) ) or \
+                                ( (cp.bid_mag > selected_sep['mag']) and (d['fail_mag_limit'])):
+                                    selected_idx = idx
+                                    break #this is the one
+                    else:
+                        selected_idx = idx
+                        break
+                        #there is no selecte_sep ... are we compatible with the elixer aperture?
+                        #what about when we are in the outskirts of a galaxy? neither the elixer aperture nor the DEX-g
+                        #would be compatible
+                        #Really ... if no selected SEP, then these must all be faint and we just want the closest one
+
+                    #so if none every really fit the bill, then we are left with selected_idx = 0 ... the nearest by position
+            except:
+                log.warning("Exception attempting to identify best counterpart match in cat_base::build_cat_summary_pdf_section()",
+                            exc_info=True)
+
+            if selected_idx != 0:
+                list_of_counterparts.insert(0,list_of_counterparts.pop(selected_idx))
+                selected_idx = 0 #since we moved it to the front of the list
+
+            list_of_counterparts[selected_idx].selected = True #make the top of the list THE selected catalog match
+
             counterpart_cat_idx = the_best_cat_idx
+
+            #old method of just selecting the list of counterparts from the single deepest catalog
+            #but this is problematic a as that deepest catalog may not be selected in a compatibile way and
+            #our galaxy might not be in it
             #counterparts are always just on the [0]th entry for the catalog
             try:
-                if list_of_cutouts[counterpart_cat_idx][0]['counterparts']:
-                    list_of_counterparts = list_of_cutouts[counterpart_cat_idx][0]['counterparts']
-                else:
-                    counterpart_cat_idx = 0
-                    best_len = 0
-                    for idx,cat in enumerate(list_of_cutouts):
-                        if cat[0]['counterparts']:
-                            if len(cat[0]['counterparts']) > best_len:
-                                counterpart_cat_idx = idx
-                                best_len = len(cat[0]['counterparts'])
-                    list_of_counterparts = list_of_cutouts[counterpart_cat_idx][0]['counterparts']
+                if len(list_of_counterparts) == 0: #something went wrong
+                    if list_of_cutouts[counterpart_cat_idx][0]['counterparts']:
+                        list_of_counterparts = list_of_cutouts[counterpart_cat_idx][0]['counterparts']
+                    else:
+                        counterpart_cat_idx = 0
+                        best_len = 0
+                        for idx,cat in enumerate(list_of_cutouts):
+                            if cat[0]['counterparts']:
+                                if len(cat[0]['counterparts']) > best_len:
+                                    counterpart_cat_idx = idx
+                                    best_len = len(cat[0]['counterparts'])
+                        list_of_counterparts = list_of_cutouts[counterpart_cat_idx][0]['counterparts']
             except:
                 pass
 
@@ -940,6 +1040,16 @@ class Catalog:
             except:
                 title += "N/A"
 
+
+            #todo: HERE - resort list_of_counterparts to find the most likely match(es)
+            # based on nearerst to select SEP barycenter with similar mag
+            # or nearest to DEX center (again, with similar mag to aperture)
+            #todo: ALSO the place to choose different list_of_counterparts?
+            #  catalog may be poorly aligned with selection criteria (example: 2100059570) where CANDLES detections
+            #  are just the faint ones and not the big galaxy right in the center that we have selected
+
+            # list_of_counterparts are the catalog matches
+            # detobj.aperture_details_list has imaging info
 
             bid_ras = [x.bid_ra for x in list_of_counterparts]
             bid_decs = [x.bid_dec for x in list_of_counterparts]

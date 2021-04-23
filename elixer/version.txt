@@ -1,7 +1,12 @@
 changes to elixer by version
 
-1.11.0a10 [2021-04-21]
+1.11.0a10 [2021-04-22]
 * changed labelling of Primary IFU (3rd line in the top left text block) to report SpecID_SlotID_IFUID
+* Add flagging system (printed top center on report and new "flag" column in Detections table)
+* Changed catalog counterpart listing to combine across all catalogs and sorted (initially) by distance
+  (Previoulsy displayed only the top 3 by the single deepest catalog). Duplicates (by position) -- keeping the one with
+  spec_z (if available), phot_z (if available), and smallest magnitude uncertainty
+* Add "selected" column to CatalogMatch (ELiXer choosed best match based on alignment with SEP ellipse and magnitude)
 
 1.11.0a9 [2021-04-13]
 * Changed science_image annulus sky subtraction limit and allow any change to aperture magnitude; changes > 2 mags are

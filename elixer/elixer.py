@@ -4329,6 +4329,16 @@ def main():
                                             pass
                                     except:
                                         pass
+
+
+                                try:
+                                    if not e.full_flag_check_performed:
+                                        e.flag_check()
+                                    if e.flags != 0:
+                                        header_text += f"    Flags:0x{e.flags:08x}"
+                                except:
+                                    pass
+
                                 try:
                                     build_report_part(os.path.join(e.outdir, e.pdf_name),[make_zeroth_row_header(header_text)],0)
                                 except:
@@ -4377,8 +4387,17 @@ def main():
                     delete_report_parts(args.name)
 
 
+
+
             if G.BUILD_HDF5_CATALOG: #change to HDF5 catalog
                 try:
+
+                    #check flags ... only get recorded in HDF5, so only do that here
+                    for hd in hd_list:
+                        for e in hd.emis_list:
+                            if not e.full_flag_check_performed:
+                                e.flag_check()
+
                     h5name = os.path.join(args.name, args.name + "_cat.h5")
                     elixer_hdf5.extend_elixer_hdf5(h5name,hd_list,overwrite=True)
                     for hd in hd_list:

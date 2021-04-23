@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.3.0' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.3.1' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -72,6 +72,8 @@ class Detections(tables.IsDescription):
     best_z = tables.Float32Col(dflt=-1.0,pos=8)
     best_pz = tables.Float32Col(dflt=0.0,pos=9)
 
+    flags = tables.Int32Col(dflt=0,pos=10)
+    review = tables.Int8Col(dflt=0,pos=11)
 
     flux_line = tables.Float32Col(dflt=UNSET_FLOAT) #actual flux not flux density
     flux_line_err = tables.Float32Col(dflt=UNSET_FLOAT)
@@ -265,6 +267,7 @@ class CatalogMatch(tables.IsDescription):
     detectid = tables.Int64Col(pos=0)
     ra = tables.Float32Col(pos=1,dflt=UNSET_FLOAT) #was cat_ra
     dec = tables.Float32Col(pos=2,dflt=UNSET_FLOAT) #was cat_dec
+    selected = tables.BoolCol(pos=3,dflt=False)
     catalog_name = tables.StringCol(itemsize=16)
     filter_name = tables.StringCol(itemsize=16)
     match_num = tables.Int32Col(dflt=-1)
@@ -817,6 +820,29 @@ def append_entry(fileh,det,overwrite=False):
         except:
             pass
 
+        try:
+            if det.flags is not None:
+                row['flags'] = det.flags
+            else:
+                row['flags'] = 0
+        except:
+            try:
+                row['flags'] = 0
+            except:
+                pass
+
+        try:
+            if det.needs_review is not None and (-128 <= det.needs_review <= 127) :
+                row['review'] = np.int8(det.needs_review)
+            else:
+                row['review'] = 0
+        except:
+            try:
+                row['review'] = 0
+            except:
+                pass
+
+
         row.append()
         dtb.flush()
 
@@ -900,7 +926,7 @@ def append_entry(fileh,det,overwrite=False):
                 row = atb.row
                 row['detectid'] = det.hdf5_detectid
                 row['catalog_name'] = d['catalog_name']
-                row['filter_name'] = d['filter_name']
+                row['filter_name'] = d['filter_name'].lower()
                 #row['image_depth_mag'] = ??
                 row['ra'] = d['ra']
                 row['dec'] = d['dec']
@@ -959,7 +985,7 @@ def append_entry(fileh,det,overwrite=False):
                 row = xtb.row
                 row['detectid'] = det.hdf5_detectid
                 row['catalog_name'] = d['catalog_name']
-                row['filter_name'] = d['filter_name']
+                row['filter_name'] = d['filter_name'].lower()
                 row['pixel_scale'] = d['pixel_scale']
                 row['selected'] = s['selected']
                 row['ra'] = s['ra']
@@ -1005,7 +1031,7 @@ def append_entry(fileh,det,overwrite=False):
                 row = etb.row
                 row['detectid'] = det.hdf5_detectid
                 row['catalog_name'] = d['catalog_name']
-                row['filter_name'] = d['filter_name']
+                row['filter_name'] = d['filter_name'].lower()
                 row['pixel_scale'] = d['pixel_scale']
                 row['selected'] = s['selected']
                 row['ra'] = s['ra']
@@ -1062,7 +1088,7 @@ def append_entry(fileh,det,overwrite=False):
                 row['detectid'] = det.hdf5_detectid
                 row['match_num'] = match_num
                 row['catalog_name'] = d.catalog_name
-                row['filter_name'] = d.bid_filter
+                row['filter_name'] = d.bid_filter.lower()
                 row['separation'] = d.distance
                 row['prob_match'] = d.prob_match
                 row['ra'] = d.bid_ra
@@ -1071,7 +1097,6 @@ def append_entry(fileh,det,overwrite=False):
                     row['specz'] = d.spec_z
                 if (d.phot_z is not None) and (d.phot_z >= 0.0):
                     row['photz'] = d.phot_z
-                row['filter_name'] = d.bid_filter
                 row['flux'] = d.bid_flux_est_cgs
                 row['flux_err'] = d.bid_flux_est_cgs_unc
                 row['mag'] = d.bid_mag
@@ -1088,6 +1113,11 @@ def append_entry(fileh,det,overwrite=False):
                     row['eqw_rest_lya'] = d.bid_ew_lya_rest
                     if d.bid_ew_lya_rest_err is not None:
                         row['eqw_rest_lya_err'] = d.bid_ew_lya_rest_err
+
+                try:
+                    row['selected'] = d.selected
+                except:
+                    pass
 
                 row.append()
                 ctb.flush()
@@ -2364,6 +2394,95 @@ def upgrade_0p2px_to_0p3p0(oldfile_handle,newfile_handle):
     except:
         log.error("Upgrade failed %s to %s:" %(from_version,to_version),exc_info=True)
         return False
+
+
+def upgrade_0p3p0_to_0p3p1(oldfile_handle,newfile_handle):
+    """
+    #add flags column to Detections
+    #add review column to Detections
+    #add selected column to CatalogMatch
+
+    :param oldfile_handle:
+    :param newfile_handle:
+    :return:
+    """
+
+    from_version = "0.3.0"
+    to_version = "0.3.1"
+
+    try:
+        log.info("Upgrading %s to %s ..." %(from_version,to_version))
+
+        dtb_new = newfile_handle.root.Detections
+        stb_new = newfile_handle.root.CalibratedSpectra
+        ltb_new = newfile_handle.root.SpectraLines
+        atb_new = newfile_handle.root.Aperture
+        ctb_new = newfile_handle.root.CatalogMatch
+        etb_new = newfile_handle.root.ExtractedObjects
+        xtb_new = newfile_handle.root.ElixerApertures
+
+        dtb_old = oldfile_handle.root.Detections
+        stb_old = oldfile_handle.root.CalibratedSpectra
+        ltb_old = oldfile_handle.root.SpectraLines
+        atb_old = oldfile_handle.root.Aperture
+        ctb_old = oldfile_handle.root.CatalogMatch
+        etb_old = oldfile_handle.root.ExtractedObjects
+        xtb_old = oldfile_handle.root.ElixerApertures
+
+        #new columns in Detections
+        for old_row in dtb_old.read():
+            new_row = dtb_new.row
+            for n in dtb_new.colnames:
+                try: #can be missing name (new columns)
+                    new_row[n] = old_row[n]
+                except:
+                    log.debug("Detections column failed (%s). Default set."%n)
+            new_row.append()
+            dtb_new.flush()
+
+        #no change to CalibratedSpectra
+        stb_new.append(stb_old.read())
+        stb_new.flush()
+
+        #no change to SpectraLines
+        ltb_new.append(ltb_old.read())
+        ltb_new.flush()
+
+        #no change to Aperture
+        atb_new.append(atb_old.read())
+        atb_new.flush()
+
+        #no change to CatalogMatch
+        for old_row in ctb_old.read():
+            new_row = ctb_new.row
+            for n in ctb_new.colnames:
+                try: #can be missing name (new columns)
+                    new_row[n] = old_row[n]
+                except:
+                    log.debug("CatalogMatch column failed (%s). Default set."%n)
+            new_row.append()
+            ctb_new.flush()
+
+
+        #no change to ExtractedObjects
+        etb_new.append(etb_old.read())
+        etb_new.flush()
+
+        #no change to ElixerApertures
+        xtb_new.append(xtb_old.read())
+        xtb_new.flush()
+
+        flush_all(newfile_handle)
+
+        # close the merge input file
+        newfile_handle.close()
+        oldfile_handle.close()
+
+        return True
+    except:
+        log.error("Upgrade failed %s to %s:" %(from_version,to_version),exc_info=True)
+        return False
+
 
 
 def upgrade_hdf5(oldfile,newfile):

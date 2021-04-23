@@ -897,3 +897,44 @@ SUBTRACT_HETDEX_SKY_RESIDUAL = False #if true compute a per-shot sky residual, c
 # requires --aperture xx  --ffsky --sky_residual
 
 GET_SPECTRA_MULTIPROCESS = True #auto sets to False if in SLURM/dispatch mode
+
+
+##################################
+#Detection Flags (DF) (32 bit)
+##################################
+DETFLAG_FOLLOWUP_NEEDED             = 0x00000001  #unspecified reason, catch-all, but human visual inspection recommended
+DETFLAG_IMAGING_MAG_INCONSISTENT    = 0x00000002  #large differences in bandpass mags of overlapping imaging (of adequate depth)
+DETFLAG_DEX_GMAG_INCONSISTENT       = 0x00000004  #the g-mag from the DEX spectrum is very different from g or r band aperture mag
+                                            #where the DEX g-mag is 24.5 or brighter and the imaging is at least as deep
+#todo:
+DETFLAG_UNCERTAIN_CLASSIFICATION    = 0x00000008  #contradictory information in classification
+                                                   #usually echoed in P(LyA) near 0.5 or Q(z) < 0.5
+#todo:
+DETFLAG_BLENDED_SPECTRA             = 0x00000010
+                                        #due to extra emission lines, there maybe two or more different objects in the spectrum
+DETFLAG_COUNTERPART_NOT_FOUND       = 0x00000020
+                                        #there is continuum or bright emission in the HETDEX spectrum, but nothing shows
+                                        # in imaging; this is partly redundant with DETFLAG_DEX_GMAG_INCONSISTENT
+DETFLAG_DISTANT_COUNTERPART         = 0x00000040
+                                        #there are SEP ellipses in imaging BUT the nearest SEP ellipse is far away (+0.5")
+                                        #may need inspection to see if associated with large object OR is a faint
+                                        #detection or even lensed
+
+
+
+
+DETFLAG_COUNTERPART_MAG_MISMATCH    = 0x00000080 #r,g magnitude of catalog counterpart varies significantly from the
+                                        #aperture magnitude AND is fainter than 22
+
+DETFLAG_NO_IMAGING                  = 0x00000100 #no overlapping imaging at all
+DETFLAG_POOR_IMAGING                = 0x00000200 #poor depth (in g,r) ... like just SDSS or PanSTARRS (worse than 24.5)
+DETFLAG_LARGE_SKY_SUB               = 0x00000400 #possibly excessive sky subtraction in g or r band
+                                        #can impact the magnitude calculation (so partly redundant with others)
+
+
+#todo: possible flags?
+# out of bounds: Seeing FWHM, throughput, or other shot issue?
+# out of bounds fiber profile/chi2,etc?
+# non-image or empty image or detected corrupt image?
+# unusually high sky correction in image
+#
