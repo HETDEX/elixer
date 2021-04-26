@@ -732,6 +732,9 @@ class Catalog:
         given a set of cutouts (list of dictionaries)
         stack the filters and return a single FITS cutout image
 
+        Notice: in an excpetion case, there is no imaging and "cutouts" is actually a matplotlib figure
+        for the empty data
+
         :param cutouts:
         :return:
         """
@@ -742,7 +745,7 @@ class Catalog:
                 total_adjusted_exptime = 1.0
                 ref_exptime = 0.0
                 for c in cutouts:
-                    if c and c['cutout']:
+                    if c and isinstance(c,dict) and c['cutout']:
                         if not stacked_cutout:
                             stacked_cutout = copy.deepcopy(c['cutout'])
                             try:
@@ -915,7 +918,10 @@ class Catalog:
             # MAYBE!!! merge ALL the counter_parts, toss out duplicates (RA,Dec separation < 0.1" ?
             # NOT all [0] have ['counterparts']
 
-            all_counterparts = np.concatenate([x[0]['counterparts'] for x in list_of_cutouts if 'counterparts' in x[0].keys()])
+            try:
+                all_counterparts = np.concatenate([x[0]['counterparts'] for x in list_of_cutouts if 'counterparts' in x[0].keys()])
+            except:
+                all_counterparts = []
 
             for cp in all_counterparts:
                 add = True
@@ -957,7 +963,7 @@ class Catalog:
 
             #now resort by likelihood of match (new method)
             list_of_counterparts.sort(key=lambda x: x.distance, reverse=False)
-            selected_idx = 0
+            selected_idx = None
             try:
                 for idx, cp in enumerate(list_of_counterparts):
                     #walk in order of distance and check
@@ -997,11 +1003,12 @@ class Catalog:
                 log.warning("Exception attempting to identify best counterpart match in cat_base::build_cat_summary_pdf_section()",
                             exc_info=True)
 
-            if selected_idx != 0:
-                list_of_counterparts.insert(0,list_of_counterparts.pop(selected_idx))
-                selected_idx = 0 #since we moved it to the front of the list
+            if selected_idx is not None:
+                if selected_idx != 0:
+                    list_of_counterparts.insert(0,list_of_counterparts.pop(selected_idx))
+                    selected_idx = 0 #since we moved it to the front of the list
 
-            list_of_counterparts[selected_idx].selected = True #make the top of the list THE selected catalog match
+                list_of_counterparts[selected_idx].selected = True #make the top of the list THE selected catalog match
 
             counterpart_cat_idx = the_best_cat_idx
 

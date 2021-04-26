@@ -912,6 +912,7 @@ DETFLAG_UNCERTAIN_CLASSIFICATION    = 0x00000008  #contradictory information in 
 #todo:
 DETFLAG_BLENDED_SPECTRA             = 0x00000010
                                         #due to extra emission lines, there maybe two or more different objects in the spectrum
+
 DETFLAG_COUNTERPART_NOT_FOUND       = 0x00000020
                                         #there is continuum or bright emission in the HETDEX spectrum, but nothing shows
                                         # in imaging; this is partly redundant with DETFLAG_DEX_GMAG_INCONSISTENT
@@ -921,15 +922,16 @@ DETFLAG_DISTANT_COUNTERPART         = 0x00000040
                                         #detection or even lensed
 
 
-
-
 DETFLAG_COUNTERPART_MAG_MISMATCH    = 0x00000080 #r,g magnitude of catalog counterpart varies significantly from the
                                         #aperture magnitude AND is fainter than 22
 
 DETFLAG_NO_IMAGING                  = 0x00000100 #no overlapping imaging at all
 DETFLAG_POOR_IMAGING                = 0x00000200 #poor depth (in g,r) ... like just SDSS or PanSTARRS (worse than 24.5)
+
+#todo:
 DETFLAG_LARGE_SKY_SUB               = 0x00000400 #possibly excessive sky subtraction in g or r band
                                         #can impact the magnitude calculation (so partly redundant with others)
+
 
 
 #todo: possible flags?

@@ -940,140 +940,278 @@ class DetObj:
         :return:
         """
 
-        ##################################
-        #check DEX g-mag
-        #DETFLAG_DEX_GMAG_INCONSISTENT
-        ##################################
+        def mags_compatibile(band1,mag1,mag1_bright, mag1_faint, band2, mag2, mag2_bright, mag2_faint):
+            """
+            see if the mags overlap and are reasonable given the bands (can be r and/or g)
+            :param mag1:
+            :param mag1_bright:
+            :param mag1_faint:
+            :param mag2:
+            :param mag2_bright:
+            :param mag2_faint:
+            :param band:
+            :return:
+            """
 
-        #out of whack if imaging is bright and DEX-g is faint (or at limit)
-        # or DEX-g is better than limit but imaging is faint or not found
-        # (Keep in mind that the DEX-g is from, usually, a 3" aperture and the imaging aperture is often variable
-        # and may be elliptical, so there are certainly obvious sources of discrepencies)
-        if self.best_gmag is not None:
+            pass
 
-            dex_g_depth = 24.5
-            bright_skip = 22.5 #if both are brighter than this, skip the logic ... it cannot make any difference
-                               #and we can miss more flux at brighter mags since the aperture does not grow enough
-                               #and there are no real aperture corrections applied to the imaging aperture
 
-            if self.best_gmag < dex_g_depth:
-                dex_g_limit = False
+        def want_band(filter):
+            if filter.lower() in ['g','r','f606w']:
+                return True
             else:
-                dex_g_limit = True
+                return False
 
-            #check to see if consistent with other g-mags and maybe r-mag
-            #we will be fairly generous and allow 0.5 mag variation?
+
+
+        ##################################
+        # check for no imaging
+        # can skip many other checks if there is no imaging
+        ##################################
+        no_imaging = False
+        if (self.aperture_details_list is None) or len(self.aperture_details_list)==0:
+            #either there is no imaging or the imaging is so bad that we could not even
+            #get any apertures, so it is just as good as having no imaging
+
+            self.flags += G.DETFLAG_NO_IMAGING
+            no_imaging = True
+            log.info(f"Detection Flag set for {self.entry_id} : DETFLAG_NO_IMAGING")
+
+
+
+        #get the catalog match; useful in various places later
+        #cat_sel == catalog bid target selected
+        cat_name = None
+        cat_filter = None
+        cat_sel = None
+
+        try:
+            cat_sel = np.where([d.selected for d in self.bid_target_list])[0]
+            if len(cat_sel) == 1:
+                cat_sel = cat_sel[0]
+                cat_name = self.bid_target_list[cat_sel].catalog_name
+                cat_filter = self.bid_target_list[cat_sel].bid_filter.lower()
+        except:
+            pass
+
+
+        if not no_imaging:
+
+            ##################################
+            #check DEX g-mag
+            #DETFLAG_DEX_GMAG_INCONSISTENT
+            ##################################
+
+            #out of whack if imaging is bright and DEX-g is faint (or at limit)
+            # or DEX-g is better than limit but imaging is faint or not found
+            # (Keep in mind that the DEX-g is from, usually, a 3" aperture and the imaging aperture is often variable
+            # and may be elliptical, so there are certainly obvious sources of discrepencies)
+            if self.best_gmag is not None:
+
+                dex_g_depth = 24.5
+                bright_skip = 22.5 #if both are brighter than this, skip the logic ... it cannot make any difference
+                                   #and we can miss more flux at brighter mags since the aperture does not grow enough
+                                   #and there are no real aperture corrections applied to the imaging aperture
+
+                if self.best_gmag < dex_g_depth:
+                    dex_g_limit = False
+                else:
+                    dex_g_limit = True
+
+                #check to see if consistent with other g-mags and maybe r-mag
+                #we will be fairly generous and allow 0.5 mag variation?
+                new_flag = 0
+                for d in self.aperture_details_list:
+                    if d['mag'] is not None:
+                        if (d['mag'] < bright_skip) and (self.best_gmag < bright_skip):
+                            continue
+
+                        img_limit = False
+                        if d['mag_limit'] is not None and (20 < d['mag_limit'] < 35):
+                            if d['mag'] > d['mag_limit']:
+                                img_limit = True
+
+                        if d['filter_name'].lower() in ['g']: #allow 0.5 variation?
+                            allowed_diff = 0.5
+                        elif d['filter_name'].lower() in ['r','f606w']: #different filer so, maybe allow 1.0?
+                            allowed_diff = 1.0
+                        else:
+                            continue #only checking g or r
+
+                        if dex_g_limit and img_limit:
+                            pass #we're done, both are at their limit
+                        elif dex_g_limit and (d['mag'] > self.best_gmag):
+                            pass #also okay ... hit DEX limit and the imaging mag is fainter still
+                        elif img_limit and (self.best_gmag > d['mag']):
+                            pass #also okay ... hit the imaging limit (probably SDSS or maybe PanSTARRS) and DEX is fainter
+                        elif dex_g_limit and ( (d['mag']+allowed_diff) < dex_g_depth):
+                            #bad ... hit the Dex limit but imaging mag is much brighter
+                            new_flag = G.DETFLAG_DEX_GMAG_INCONSISTENT
+                        elif img_limit and ((self.best_gmag+allowed_diff) < d['mag']):
+                            #bad ... hit the imging limit but DEX mag is much brighter
+                            new_flag = G.DETFLAG_DEX_GMAG_INCONSISTENT
+                        elif abs(d['mag']-self.best_gmag) > allowed_diff:
+                            #neither at limit, but they disagree
+                            new_flag = G.DETFLAG_DEX_GMAG_INCONSISTENT
+                        #else: nothing
+
+                        if new_flag:
+                            self.flags += new_flag
+                            log.info(f"Detection Flag set for {self.entry_id} : DETFLAG_DEX_GMAG_INCONSISTENT")
+                            break #already been flagged ... no need to flag the same thing again
+
+
+            ######################################################
+            # check large Line Flux, but nothing in imaging
+            ######################################################
+
+            if (self.estflux > 5.0e-17) or (self.cont_cgs > 1.0e-18) or (self.best_gmag < 24.0):
+                #from the HETDEX data, we expect to see something in the imaging
+                new_flag = G.DETFLAG_COUNTERPART_NOT_FOUND
+                for d in self.aperture_details_list:
+                    if d['filter_name'].lower() in ['g','r','f606w']:
+                        if d['mag_limit'] is not None and (24 < d['mag_limit']):
+                            #imaging qualifies, there should be something
+                            if d['sep_objects'] is not None:
+                                new_flag = 0 #we did find something, so break
+                                break
+                                #todo: make better with a counterpart match (including catalog)
+                                #todo: so we would not count this if there is something faint, but several arcsecs away
+                if new_flag: #non-match still possible ... check the catalogs
+                    try:
+                        for d in self.bid_target_list[1:]: #skip #0 as that is the Elixer entry
+                            if d.bid_filter.lower() in ['g','r','f606w']:
+                                new_flag = 0 #we did find something, so break
+                                break
+                    except:
+                        pass
+
+                if new_flag:
+                    self.flags += new_flag
+                    log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_COUNTERPART_NOT_FOUND")
+
+
+            ######################################################
+            # check for no SEP ellipse wthin 0.5"
+            # NOTE: specfically this only applies to SEP ellipses ... if there are NO ellipses this flag is skipped
+            # and is covered by the NO_COUNTERPART flag
+            ######################################################
             new_flag = 0
             for d in self.aperture_details_list:
-                if d['mag'] is not None:
-                    if (d['mag'] < bright_skip) and (self.best_gmag < bright_skip):
-                        continue
+                if not want_band(d['filter_name']):
+                    continue
+                if d['sep_obj_idx'] is None:
+                    continue
 
-                    img_limit = False
-                    if d['mag_limit'] is not None and (20 < d['mag_limit'] < 35):
-                        if d['mag'] > d['mag_limit']:
-                            img_limit = True
+                #have to have at least one set of SEP objects, otherwise this flag makes no sense
+                new_flag = G.DETFLAG_DISTANT_COUNTERPART
+                for s in d['sep_objects']:
+                    if s['dist_curve'] < 0.5:
+                        # done, we are inside at least one ellipse (negative distance) OR within 0.5"
+                        new_flag = 0
+                        break
 
-                    if d['filter_name'].lower() in ['g']: #allow 0.5 variation?
-                        allowed_diff = 0.5
-                    elif d['filter_name'].lower() in ['r','f606w']: #different filer so, maybe allow 1.0?
-                        allowed_diff = 1.0
-                    else:
-                        continue #only checking g or r
-
-                    if dex_g_limit and img_limit:
-                        pass #we're done, both are at their limit
-                    elif dex_g_limit and (d['mag'] > self.best_gmag):
-                        pass #also okay ... hit DEX limit and the imaging mag is fainter still
-                    elif img_limit and (self.best_gmag > d['mag']):
-                        pass #also okay ... hit the imaging limit (probably SDSS or maybe PanSTARRS) and DEX is fainter
-                    elif dex_g_limit and ( (d['mag']+allowed_diff) < dex_g_depth):
-                        #bad ... hit the Dex limit but imaging mag is much brighter
-                        new_flag = G.DETFLAG_DEX_GMAG_INCONSISTENT
-                    elif img_limit and ((self.best_gmag+allowed_diff) < d['mag']):
-                        #bad ... hit the imging limit but DEX mag is much brighter
-                        new_flag = G.DETFLAG_DEX_GMAG_INCONSISTENT
-                    elif abs(d['mag']-self.best_gmag) > allowed_diff:
-                        #neither at limit, but they disagree
-                        new_flag = G.DETFLAG_DEX_GMAG_INCONSISTENT
-                    #else: nothing
-
-                    if new_flag:
-                        self.flags += new_flag
-                        log.info(f"Detection Flag set for {self.entry_id} : DETFLAG_DEX_GMAG_INCONSISTENT")
-                        break #already been flagged ... no need to flag the same thing again
-
-
-        ######################################################
-        # check large Line Flux, but nothing in imaging
-        ######################################################
-
-        if (self.estflux > 5.0e-17) or (self.cont_cgs > 1.0e-18) or (self.best_gmag < 24.0):
-            #from the HETDEX data, we expect to see something in the imaging
-            new_flag = G.DETFLAG_COUNTERPART_NOT_FOUND
-            for d in self.aperture_details_list:
-                if d['filter_name'].lower() in ['g','r','f606w']:
-                    if d['mag_limit'] is not None and (24 < d['mag_limit']):
-                        #imaging qualifies, there should be something
-                        if d['sep_objects'] is not None:
-                            new_flag = 0 #we did find something, so break
-                            break
-                            #todo: make better with a counterpart match (including catalog)
-                            #todo: so we would not count this if there is something faint, but several arcsecs away
-            if new_flag: #non-match still possible ... check the catalogs
-                try:
-                    for d in self.bid_target_list[1:]: #skip #0 as that is the Elixer entry
-                        if d.bid_filter.lower() in ['g','r','f606w']:
-                            new_flag = 0 #we did find something, so break
-                            break
-                except:
-                    pass
+                if new_flag == 0:
+                    break
 
             if new_flag:
                 self.flags += new_flag
-                log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_COUNTERPART_NOT_FOUND")
+                log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_DISTANT_COUNTERPART")
 
 
-        ######################################################
-        # check for no SEP ellipse wthin 0.5"
-        # NOTE: specfically this only applies to SEP ellipses ... if there are NO ellipses this flag is skipped
-        # and is covered by the NO_COUNTERPART flag
-        ######################################################
-        new_flag = G.DETFLAG_DISTANT_COUNTERPART
-        for d in self.aperture_details_list:
-            if d['sep_objects'] is None:
-                continue
 
-            for s in d['sep_objects']:
-                if s['dist_curve'] < 0.5:
+            ###############################################################
+            #Check the selected catalog counterpart for mag compatibility
+            # if there is a catalog counterpart, check the aperture mags
+            #   for each filter matching the catalog filter
+            ###############################################################
+
+            if cat_sel is not None:
+                #we don't always use the catalog and the same imaging
+                ap_sel = None
+                if cat_sel:
+                    try:
+                        filter_list = []
+                        band = None
+                        if cat_filter in ['g']:
+                            filter_list = ['g']
+                            band = 'g'
+                        elif cat_filter in ['r','f606w']:
+                            filter_list = ['r','f606w']
+                            band = 'r'
+
+                        #choose the aperture details that match up with the catalog
+                        #ap_sel = np.where([x['catalog_name'] for x in self.aperture_details_list]==cat_name) * \
+                        #         np.where([x['filter_name'] for x in self.aperture_details_list]==cat_filter)
+                        ap_sel =  [x['filter_name'].lower() in filter_list for x in self.aperture_details_list] #may be several
+
+                        for ad in np.array(self.aperture_details_list)[ap_sel]:
+                            #check sep object
+                            if ad['sep_obj_idx'] >= 0:
+                                ap_mag = ad['sep_objects'][ad['sep_obj_idx']]['mag']
+                                ap_mag_faint = ad['sep_objects'][ad['sep_obj_idx']]['mag_faint']
+                                ap_mag_bright = ad['sep_objects'][ad['sep_obj_idx']]['mag_bright']
+
+                            elif ad['elixer_aper_idx'] >= 0:
+                                ap_mag = ad['elixer_apertures'][ad['elixer_aper_idx']]['mag']
+                                ap_mag_faint = ad['elixer_apertures'][ad['elixer_aper_idx']]['mag_faint']
+                                ap_mag_bright = ad['elixer_apertures'][ad['elixer_aper_idx']]['mag_bright']
+                            else:
+                                ap_mag = None
+                                ap_mag_faint = None
+                                ap_mag_bright = None
+
+                            if ap_mag is not None:
+                                pass
+                                #if (ap_mag_bright) and ()
+
+                    except:
+                        pass
+
+                if self.aperture_details_list:
+                        pass
+
+
+
+
+            ######################################################
+            # check mag depth ... must be at least 25.0
+            ######################################################
+            new_flag = G.DETFLAG_POOR_IMAGING
+            for d in self.aperture_details_list:
+                if not want_band(d['filter_name']):
+                    continue
+
+                if d['mag_limit'] >= 25.0:
                     # done, we are inside at least one ellipse (negative distance) OR within 0.5"
                     new_flag = 0
                     break
 
-            if new_flag == 0:
-                break
+            if new_flag:
+                self.flags += new_flag
+                log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_POOR_IMAGING")
 
-        if new_flag:
-            self.flags += new_flag
-            log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_DISTANT_COUNTERPART")
-
-        #todo: DEX-g is 24.5 or brighter (maybe 24 or brighter) and imaging depth is 24.5 or fainter
-        #todo: but no extracted objects are found? and/or the aperture mag is at limit?
+            #todo: DEX-g is 24.5 or brighter (maybe 24 or brighter) and imaging depth is 24.5 or fainter
+            #todo: but no extracted objects are found? and/or the aperture mag is at limit?
 
 
-        #todo: check top solution (if there is one) and if unaccounted for line score is high, add "blended flag"
-        #todo: or if no top solution but there are two or more strong lines, add "blended flag"
+            #todo: check top solution (if there is one) and if unaccounted for line score is high, add "blended flag"
+            #todo: or if no top solution but there are two or more strong lines, add "blended flag"
 
 
-        #todo: Not sure if this one is needed
-        #todo: if the various DEX-g magnitudes (wide-fit, full-spec, SDSS-g spect) are very different, add
-        #todo:   "inconsistent dex flag" ??? (or some other name since already used for mismatch to imaging
+            #todo: Not sure if this one is needed
+            #todo: if the various DEX-g magnitudes (wide-fit, full-spec, SDSS-g spect) are very different, add
+            #todo:   "inconsistent dex flag" ??? (or some other name since already used for mismatch to imaging
 
 
-        #todo: if multiple "strong" solutions, even if one is picked, set a "confused multi-line solution flag"
+            #todo: if multiple "strong" solutions, even if one is picked, set a "confused multi-line solution flag"
 
-        #todo: if  0.3 < P(LyA) < 0.7 AND Q(z) < 0.7 set "uncertain z flag" .... IS THIS NECESSARY? Q(z) already
-        #todo: says it is uncertain.
+            #todo: if  0.3 < P(LyA) < 0.7 AND Q(z) < 0.7 set "uncertain z flag" .... IS THIS NECESSARY? Q(z) already
+            #todo: says it is uncertain.
+
+        #end if not no_imaging
+
+
         self.full_flag_check_performed = True
 
         if self.flags != 0: #todo: may add more logic and only trigger on certain flags?
