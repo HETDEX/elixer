@@ -1532,13 +1532,16 @@ class Catalog:
             #only run PLAE/POII for g or r bands and if we have a line flux
             if target_flux and (c['details']['filter_name'].lower() in ['r','g','f606w']):
                 # build EW error from lineFlux_err and aperture estimate error
-                ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
-                try:
-                    ew_obs_err = abs(ew_obs * np.sqrt(
-                        (lineFlux_err / target_flux) ** 2 +
-                        (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
-                except:
-                    ew_obs_err = 0.
+                # ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+                # try:
+                #     ew_obs_err = abs(ew_obs * np.sqrt(
+                #         (lineFlux_err / target_flux) ** 2 +
+                #         (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+                # except:
+                #     ew_obs_err = 0.
+
+                ew_obs, ew_obs_err = SU.ew_obs(target_flux,lineFlux_err,target_w,
+                                                   filter, bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
 
                 bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii, plae_errors = \
                     line_prob.mc_prob_LAE(

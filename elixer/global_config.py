@@ -20,7 +20,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.11.0a10'
+__version__ = '1.11.0a11'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -653,8 +653,8 @@ def getnearpos(array,value):
 
 
 FOV_RADIUS_DEGREE = 0.16 #HETDEX FOV (radius) in degrees (approximately)
-LyA_rest = 1216. #A 1215.668 and 1215.674
-OII_rest = 3727.
+LyA_rest = 1215.67 #1216. #A 1215.668 and 1215.674
+OII_rest = 3727.0
 
 #FLUX_CONVERSION = (1./60)*1e-17
 HETDEX_FLUX_BASE_CGS = 1e-17
@@ -898,6 +898,8 @@ SUBTRACT_HETDEX_SKY_RESIDUAL = False #if true compute a per-shot sky residual, c
 
 GET_SPECTRA_MULTIPROCESS = True #auto sets to False if in SLURM/dispatch mode
 
+R_BAND_UV_BETA_SLOPE = -2.4 #UV slope (beta) for star forming galaxies used to adjust r-band to g-band near the
+                            #supposed LyA line;  to turn off the correction, set to flat -2.0
 
 ##################################
 #Detection Flags (DF) (32 bit)
@@ -906,7 +908,7 @@ DETFLAG_FOLLOWUP_NEEDED             = 0x00000001  #unspecified reason, catch-all
 DETFLAG_IMAGING_MAG_INCONSISTENT    = 0x00000002  #large differences in bandpass mags of overlapping imaging (of adequate depth)
 DETFLAG_DEX_GMAG_INCONSISTENT       = 0x00000004  #the g-mag from the DEX spectrum is very different from g or r band aperture mag
                                             #where the DEX g-mag is 24.5 or brighter and the imaging is at least as deep
-#todo:
+#todo: ***probably will not use this one; seems redundant with other info****
 DETFLAG_UNCERTAIN_CLASSIFICATION    = 0x00000008  #contradictory information in classification
                                                    #usually echoed in P(LyA) near 0.5 or Q(z) < 0.5
 #todo:
@@ -933,6 +935,10 @@ DETFLAG_LARGE_SKY_SUB               = 0x00000400 #possibly excessive sky subtrac
                                         #can impact the magnitude calculation (so partly redundant with others)
 
 
+#todo: low SNR, weighted position is between fibers (i.e. distances from blue fiber center > 0.74 or 0.75 and SNR < 5.2 or so)
+
+
+#todo:
 
 #todo: possible flags?
 # out of bounds: Seeing FWHM, throughput, or other shot issue?

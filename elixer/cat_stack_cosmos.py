@@ -764,13 +764,16 @@ class STACK_COSMOS(cat_base.Catalog):
                                     lineFlux_err = 0.
 
                             # build EW error from lineFlux_err and aperture estimate error
-                            ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
-                            try:
-                                ew_obs_err = abs(ew_obs * np.sqrt(
-                                    (lineFlux_err / target_flux) ** 2 +
-                                    (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
-                            except:
-                                ew_obs_err = 0.
+                            # ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+                            # try:
+                            #     ew_obs_err = abs(ew_obs * np.sqrt(
+                            #         (lineFlux_err / target_flux) ** 2 +
+                            #         (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+                            # except:
+                            #     ew_obs_err = 0.
+
+                            ew_obs, ew_obs_err = SU.ew_obs(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                                                           bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
 
                             bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii, plae_errors = \
                                 line_prob.mc_prob_LAE(
@@ -1030,13 +1033,16 @@ class STACK_COSMOS(cat_base.Catalog):
                             lineFlux_err = 0.
 
                     #build EW error from lineFlux_err and aperture estimate error
-                    ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
-                    try:
-                        ew_obs_err =  abs(ew_obs * np.sqrt(
-                                        (lineFlux_err / target_flux) ** 2 +
-                                        (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
-                    except:
-                        ew_obs_err = 0.
+                    # ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+                    # try:
+                    #     ew_obs_err =  abs(ew_obs * np.sqrt(
+                    #                     (lineFlux_err / target_flux) ** 2 +
+                    #                     (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+                    # except:
+                    #     ew_obs_err = 0.
+
+                    ew_obs, ew_obs_err = SU.ew_obs(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                                                   bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
 
                     # bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii,plae_errors = \
                     #     line_prob.prob_LAE(wl_obs=target_w, lineFlux=target_flux,
@@ -1449,13 +1455,16 @@ class STACK_COSMOS(cat_base.Catalog):
                                     lineFlux_err = 0.
 
                             # build EW error from lineFlux_err and aperture estimate error
-                            ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
-                            try:
-                                ew_obs_err = abs(ew_obs * np.sqrt(
-                                    (lineFlux_err / target_flux) ** 2 +
-                                    (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
-                            except:
-                                ew_obs_err = 0.
+                            # ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+                            # try:
+                            #     ew_obs_err = abs(ew_obs * np.sqrt(
+                            #         (lineFlux_err / target_flux) ** 2 +
+                            #         (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+                            # except:
+                            #     ew_obs_err = 0.
+
+                            ew_obs, ew_obs_err = SU.ew_obs(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                                                           bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
 
                             # bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii, plae_errors = \
                             #     line_prob.prob_LAE(wl_obs=target_w,

@@ -170,6 +170,68 @@ def cgs2mag(cgs,lam):
         return 0
 
 
+
+def ew_obs(lineflux,lineflux_err, obs_wave, band, filter_flux, filter_flux_err):
+    """
+    Compute EW observed from a photometric bandpass (g or r only supported)
+    Handles a small correction to r-band when using it for continuum per Leung+2017 (0.3 mag brighter as 'g' from 'r')
+
+    :param lineflux: erg/s/cm2
+    :param mag:  AB mag
+    :param band: 'g','r','f606w'
+    :param obs_wave: in AA
+    :return: rest EW
+    """
+
+    ew_obs = None
+    ew_obs_err = 0.0
+    beta = G.R_BAND_UV_BETA_SLOPE
+    flux_adjust = 1.0
+
+    #mag to continuum is more like f_nu than f_lambda)
+    try:
+        if band.lower() in ['r','f606w']:
+            #mag -= 0.3 #0.3 approximate adjust from Leung 2017 but really should vary a bit by wavelength
+            flux_adjust = (obs_wave/filter_iso(band,obs_wave))**(beta+2)
+            #probably too much of an adjustment: roughly 3.5x at 3500AA, 2x at 4500 and 1.4x at 5500 for beta = -2
+            #probably too much of an adjustment: roughly 2.8x at 3500AA, 1.9x at 4500 and 1.3x at 5500 for beta = -1.7
+        elif band.lower() in ['g']:
+            pass
+        else:
+            log.warning (f"Invalid photometric bandpass {band} in spectrum_utilities::lya_ewr()")
+
+        #continuum = mag2cgs(mag,filter_iso(band,obs_wave))*flux_adjust
+        log.debug(f"Continuum estimate adjustment for {band}: x{flux_adjust:0.2f}")
+        continuum = filter_flux*flux_adjust
+        ew_obs = lineflux/continuum
+
+        try:
+            ew_obs_err = abs(ew_obs * np.sqrt(  (lineflux_err / lineflux) ** 2 + (filter_flux_err / continuum) ** 2))
+        except:
+            ew_obs_err = 0.0
+
+    except:
+        log.error(f"Exception in spectrum_utilities::lya_ewr",exc_info=True)
+
+    return ew_obs, ew_obs_err
+
+def lya_ewr(lineflux,lineflux_err, obs_wave, band, filter_flux, filter_flux_err):
+    """
+    Compute the LyA rest EW from a photometric bandpass (g or r only supported)
+    Handles a small correction to r-band when using it for continuum per Leung+2017 (0.3 mag brighter as 'g' from 'r')
+
+    :param lineflux: erg/s/cm2
+    :param mag:  AB mag
+    :param band: 'g','r','f606w'
+    :param obs_wave: in AA
+    :return: rest EW and error
+    """
+    try:
+        return np.array(ew_obs(lineflux,lineflux_err, obs_wave, band, filter_flux, filter_flux_err))/(obs_wave/G.LyA_rest)
+    except:
+        log.error(f"Exception in spectrum_utilities::lya_ewr",exc_info=True)
+        return None,None
+
 def getnearpos(array,value):
     """
     Nearest, but works best (with less than and greater than) if monotonically increasing. Otherwise,

@@ -997,6 +997,9 @@ class DetObj:
 
         if not no_imaging:
 
+            shot_psf = SU.get_psf(self.survey_fwhm,3.0,0.0) #assume a 3" radius aperture centered at 0.0
+            #this is used later
+
             ##################################
             #check DEX g-mag
             #DETFLAG_DEX_GMAG_INCONSISTENT
@@ -1009,7 +1012,7 @@ class DetObj:
             if self.best_gmag is not None:
 
                 dex_g_depth = 24.5
-                bright_skip = 22.5 #if both are brighter than this, skip the logic ... it cannot make any difference
+                bright_skip = 22.0 #if both are brighter than this, skip the logic ... it cannot make any difference
                                    #and we can miss more flux at brighter mags since the aperture does not grow enough
                                    #and there are no real aperture corrections applied to the imaging aperture
 
@@ -1033,32 +1036,66 @@ class DetObj:
 
                         if d['filter_name'].lower() in ['g']: #allow 0.5 variation?
                             allowed_diff = 0.5
-                        elif d['filter_name'].lower() in ['r','f606w']: #different filer so, maybe allow 1.0?
-                            allowed_diff = 1.0
+                        elif d['filter_name'].lower() in ['r','f606w']: #different filter so, maybe allow 1.5?
+                            allowed_diff = 1.5 #noting
                         else:
                             continue #only checking g or r
 
+
+                        #and modify by distance to barycenter (think of case where we are on the edge ... the
+                        #DEX PSF weighted aperture won't weight the flux the same as being cetntered
+
+                        try:
+                            if d['sep_obj_idx'] is not None:
+                                dist = d['sep_objects'][d['sep_obj_idx']]['dist_baryctr']
+                                radius = 0.5 * np.sqrt( d['sep_objects'][d['sep_obj_idx']]['a'] *
+                                                        d['sep_objects'][d['sep_obj_idx']]['b'] )
+
+                                frac,ujy,flux = SU.check_overlapping_psf(self.best_gmag,d['mag'],shot_psf,dist,effective_radius=radius)
+                                adjusted_mag  = SU.ujy2mag(ujy) #the mag we would expect to measure if the object
+                                                                #were a pointsource at the distance from the DEX center
+
+                                #DEX radius is usally 3", and PSF weighted and to be very accurate we should
+                                #use the PSF for this shot and figure how much of the object (based in its barycenter
+                                #and radius) is captured in the DEX fiber set (with fiber weights)
+                                #this is not perfect, and assumes the object is a point source, but is a bit
+                                #of a correction for this flag
+                        except:
+                            adjusted_mag = d['mag']
+
+                        #limit the flagging be allowing the adjusted mag to be which ever is closer to the g-mag
+                        if abs(adjusted_mag-self.best_gmag) > abs(d['mag']-self.best_gmag):
+                            adjusted_mag = d['mag']
+
                         if dex_g_limit and img_limit:
                             pass #we're done, both are at their limit
-                        elif dex_g_limit and (d['mag'] > self.best_gmag):
+                        elif dex_g_limit and (adjusted_mag > self.best_gmag):
                             pass #also okay ... hit DEX limit and the imaging mag is fainter still
-                        elif img_limit and (self.best_gmag > d['mag']):
+                        elif img_limit and (self.best_gmag > adjusted_mag):
                             pass #also okay ... hit the imaging limit (probably SDSS or maybe PanSTARRS) and DEX is fainter
-                        elif dex_g_limit and ( (d['mag']+allowed_diff) < dex_g_depth):
+                        elif dex_g_limit and ( (adjusted_mag+allowed_diff) < dex_g_depth):
                             #bad ... hit the Dex limit but imaging mag is much brighter
                             new_flag = G.DETFLAG_DEX_GMAG_INCONSISTENT
-                        elif img_limit and ((self.best_gmag+allowed_diff) < d['mag']):
+                        elif img_limit and ((self.best_gmag+allowed_diff) < adjusted_mag):
                             #bad ... hit the imging limit but DEX mag is much brighter
                             new_flag = G.DETFLAG_DEX_GMAG_INCONSISTENT
-                        elif abs(d['mag']-self.best_gmag) > allowed_diff:
+                        elif abs(adjusted_mag-self.best_gmag) > allowed_diff:
                             #neither at limit, but they disagree
                             new_flag = G.DETFLAG_DEX_GMAG_INCONSISTENT
-                        #else: nothing
+                        # elif d['filter_name'].lower() in ['g']:
+                        #     #we're done ... we matched g to g ... no need to check 'r'
+                        #     break
 
                         if new_flag:
                             self.flags += new_flag
                             log.info(f"Detection Flag set for {self.entry_id} : DETFLAG_DEX_GMAG_INCONSISTENT")
-                            break #already been flagged ... no need to flag the same thing again
+                            #break #already been flagged ... no need to flag the same thing again
+                            #don't break ... can be undone if 'g' matches 'g'
+                        elif d['filter_name'].lower() in ['g']:
+                            if self.flags & G.DETFLAG_DEX_GMAG_INCONSISTENT:
+                                self.flags += G.DETFLAG_DEX_GMAG_INCONSISTENT
+                                log.info(f"Detection Flag un-set for {self.entry_id}: g bands match")
+                            break #now we DO want to break
 
 
             ######################################################
