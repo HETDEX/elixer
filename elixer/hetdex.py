@@ -1215,16 +1215,20 @@ class DetObj:
             # check mag depth ... must be at least 25.0
             ######################################################
             new_flag = G.DETFLAG_POOR_IMAGING
+            max_band_mag = 99.9
             for d in self.aperture_details_list:
                 if not want_band(d['filter_name']):
                     continue
 
-                if d['mag_limit'] >= 25.0:
+                if not d['fail_mag_limit']:
+                    max_band_mag = min(d['mag'],max_band_mag)
+
+                if d['mag_limit'] >= 24.5:
                     # done, we are inside at least one ellipse (negative distance) OR within 0.5"
                     new_flag = 0
                     break
 
-            if new_flag:
+            if new_flag and (self.best_gmag > 23.0) and (max_band_mag > 23.0): #no need to set if the object is already very bright
                 self.flags += new_flag
                 log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_POOR_IMAGING")
 
@@ -1247,6 +1251,21 @@ class DetObj:
             #todo: says it is uncertain.
 
         #end if not no_imaging
+
+        ###########################################
+        #check for unmatched lines
+        #DETFLAG_BLENDED_SPECTRA
+        ###########################################
+
+        #even if this solution is not shown due to not being unique, it is still the top scoring
+        #solution
+        if self.spec_obj.solutions is not None and len(self.spec_obj.solutions)> 0:
+            #want to be really clear condition here, so both have to be > MULTILINE_FULL_SOLUTION_SCORE
+            #not just > MAX_OK_UNMATCHED_LINES_SCORE
+            if (self.spec_obj.solutions[0].unmatched_lines_score > G.MULTILINE_FULL_SOLUTION_SCORE) and \
+               (self.spec_obj.solutions[0].score > G.MULTILINE_FULL_SOLUTION_SCORE):
+                self.flags += G.DETFLAG_BLENDED_SPECTRA
+                log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_BLENDED_SPECTRA")
 
 
         self.full_flag_check_performed = True
@@ -3117,9 +3136,12 @@ class DetObj:
         # Best full width gmag continuum (HETDEX full width or SDSS gmag)
         got_hd_gmag = True
         try:
+            #all at 4500AA
             cgs_25 = 5.38e-19
+            cgs_24p5 = 8.52e-19
             cgs_24 = 1.35e-18
-            cgs_limit = 5.38e-19#cgs_25g
+            cgs_23p5 = 2.14e-18
+            cgs_limit = cgs_24p5
 
             if not self.best_gmag_cgs_cont_unc: #None or 0.0
                 log.debug(f"{self.entry_id} Combine ALL Continuum: HETDEX wide estimate has no uncertainty. "
@@ -3135,7 +3157,7 @@ class DetObj:
                 if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_limit: #good, full marks
                     continuum.append(self.best_gmag_cgs_cont)
                     variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
-                    if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_24:
+                    if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_23p5:
                         weight.append(4.0) #best measure of flux (right on top of our target) so boost
                         #typically 4 other estiamtes: narrow, wide (this one), 1+ forced photometery, 1+ catalog
                         #so make this one 4x to dominated (aside from big error)

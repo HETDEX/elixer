@@ -898,8 +898,10 @@ SUBTRACT_HETDEX_SKY_RESIDUAL = False #if true compute a per-shot sky residual, c
 
 GET_SPECTRA_MULTIPROCESS = True #auto sets to False if in SLURM/dispatch mode
 
-R_BAND_UV_BETA_SLOPE = -2.4 #UV slope (beta) for star forming galaxies used to adjust r-band to g-band near the
+R_BAND_UV_BETA_SLOPE = -2.5 #UV slope (beta) for star forming galaxies used to adjust r-band to g-band near the
                             #supposed LyA line;  to turn off the correction, set to flat -2.0
+                            #really varies with galaxy SFR, history, z, dust, etc
+                            #but seems to run -2.4 to -2.7 or so for star forming galaxies around cosmic noon
 
 ##################################
 #Detection Flags (DF) (32 bit)
@@ -911,7 +913,6 @@ DETFLAG_DEX_GMAG_INCONSISTENT       = 0x00000004  #the g-mag from the DEX spectr
 #todo: ***probably will not use this one; seems redundant with other info****
 DETFLAG_UNCERTAIN_CLASSIFICATION    = 0x00000008  #contradictory information in classification
                                                    #usually echoed in P(LyA) near 0.5 or Q(z) < 0.5
-#todo:
 DETFLAG_BLENDED_SPECTRA             = 0x00000010
                                         #due to extra emission lines, there maybe two or more different objects in the spectrum
 
@@ -929,6 +930,7 @@ DETFLAG_COUNTERPART_MAG_MISMATCH    = 0x00000080 #r,g magnitude of catalog count
 
 DETFLAG_NO_IMAGING                  = 0x00000100 #no overlapping imaging at all
 DETFLAG_POOR_IMAGING                = 0x00000200 #poor depth (in g,r) ... like just SDSS or PanSTARRS (worse than 24.5)
+                                                 #AND the object is not bright (fainter than 23)
 
 #todo:
 DETFLAG_LARGE_SKY_SUB               = 0x00000400 #possibly excessive sky subtraction in g or r band

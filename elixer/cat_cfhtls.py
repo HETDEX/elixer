@@ -1094,16 +1094,27 @@ class CFHTLS(cat_base.Catalog):
                             if phot_z is not None:
                                 bid_target.phot_z = phot_z
 
+                            lineFlux_err = 0.
+                            if detobj is not None:
+                                try:
+                                    lineFlux_err = detobj.estflux_unc
+                                except:
+                                    lineFlux_err = 0.
+
                             if target_w:
                                 try:
 
-                                    ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
-                                    ew_u = abs(ew * np.sqrt(
-                                        (detobj.estflux_unc / target_flux) ** 2 +
-                                        (filter_fl_err / filter_fl) ** 2))
+                                    # ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                                    # ew_u = abs(ew * np.sqrt(
+                                    #     (detobj.estflux_unc / target_flux) ** 2 +
+                                    #     (filter_fl_err / filter_fl) ** 2))
+                                    #
+                                    # bid_target.bid_ew_lya_rest = ew
+                                    # bid_target.bid_ew_lya_rest_err = ew_u
 
-                                    bid_target.bid_ew_lya_rest = ew
-                                    bid_target.bid_ew_lya_rest_err = ew_u
+                                    bid_target.bid_ew_lya_rest, bid_target.bid_ew_lya_rest_err = \
+                                        SU.lya_ewr(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                                                   bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
 
                                 except:
                                     log.debug("Exception computing catalog EW: ", exc_info=True)
@@ -1118,12 +1129,7 @@ class CFHTLS(cat_base.Catalog):
                                 except:
                                     pass
 
-                                lineFlux_err = 0.
-                                if detobj is not None:
-                                    try:
-                                        lineFlux_err = detobj.estflux_unc
-                                    except:
-                                        lineFlux_err = 0.
+
 
                                 # build EW error from lineFlux_err and aperture estimate error
                                 # ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
@@ -1142,8 +1148,8 @@ class CFHTLS(cat_base.Catalog):
                                         wl_obs=target_w,
                                         lineFlux=target_flux,
                                         lineFlux_err=lineFlux_err,
-                                        continuum=bid_target.bid_flux_est_cgs,
-                                        continuum_err=bid_target.bid_flux_est_cgs_unc,
+                                        continuum=bid_target.bid_flux_est_cgs * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
+                                        continuum_err=bid_target.bid_flux_est_cgs_unc * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
                                         c_obs=None, which_color=None,
                                         addl_wavelengths=addl_waves,
                                         addl_fluxes=addl_flux,

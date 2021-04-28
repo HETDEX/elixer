@@ -171,6 +171,23 @@ def cgs2mag(cgs,lam):
 
 
 
+
+def continuum_band_adjustment(obs_wave,band):
+    """
+    Adjustment, assuming UV Beta slope for star forming galaxies, for the given band pass to the obs_wave (assuming
+    it is LyA)
+    :param obs_wave:
+    :param band:
+    :return:
+    """
+    try:
+        #if want a fixed +0.3 mag like in Leung+2017, then return x 1.318 ~= 10**(0.12)
+        #which is 10**(-.4*0.3)
+        return 1.318
+        #return (obs_wave/filter_iso(band,obs_wave))**(G.R_BAND_UV_BETA_SLOPE+2)
+    except:
+        return 1.0
+
 def ew_obs(lineflux,lineflux_err, obs_wave, band, filter_flux, filter_flux_err):
     """
     Compute EW observed from a photometric bandpass (g or r only supported)
@@ -185,14 +202,14 @@ def ew_obs(lineflux,lineflux_err, obs_wave, band, filter_flux, filter_flux_err):
 
     ew_obs = None
     ew_obs_err = 0.0
-    beta = G.R_BAND_UV_BETA_SLOPE
+    #beta = G.R_BAND_UV_BETA_SLOPE
     flux_adjust = 1.0
 
     #mag to continuum is more like f_nu than f_lambda)
     try:
         if band.lower() in ['r','f606w']:
             #mag -= 0.3 #0.3 approximate adjust from Leung 2017 but really should vary a bit by wavelength
-            flux_adjust = (obs_wave/filter_iso(band,obs_wave))**(beta+2)
+            flux_adjust = continuum_band_adjustment(obs_wave, band)
             #probably too much of an adjustment: roughly 3.5x at 3500AA, 2x at 4500 and 1.4x at 5500 for beta = -2
             #probably too much of an adjustment: roughly 2.8x at 3500AA, 1.9x at 4500 and 1.3x at 5500 for beta = -1.7
         elif band.lower() in ['g']:
@@ -230,7 +247,7 @@ def lya_ewr(lineflux,lineflux_err, obs_wave, band, filter_flux, filter_flux_err)
         return np.array(ew_obs(lineflux,lineflux_err, obs_wave, band, filter_flux, filter_flux_err))/(obs_wave/G.LyA_rest)
     except:
         log.error(f"Exception in spectrum_utilities::lya_ewr",exc_info=True)
-        return None,None
+        return np.nan,np.nan
 
 def getnearpos(array,value):
     """

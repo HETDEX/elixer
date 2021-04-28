@@ -1293,6 +1293,14 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                         # assumes no error in wavelength or c
 
                         try:
+
+                            lineFlux_err = 0.
+                            if detobj is not None:
+                                try:
+                                    lineFlux_err = detobj.estflux_unc
+                                except:
+                                    lineFlux_err = 0.
+
                             bid_target = match_summary.BidTarget()
                             bid_target.catalog_name = self.Name
                             bid_target.bid_ra = df['RA'].values[0]
@@ -1307,17 +1315,21 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                             bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
 
                             try:
-                                if target_w:
-                                    ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
-                                    ew_u = abs(ew * np.sqrt(
-                                        (detobj.estflux_unc / target_flux) ** 2 +
-                                        (filter_fl_err / filter_fl) ** 2))
-                                else:
-                                    ew = np.nan
-                                    ew_u = np.nan
+                                # if target_w:
+                                #     ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                                #     ew_u = abs(ew * np.sqrt(
+                                #         (detobj.estflux_unc / target_flux) ** 2 +
+                                #         (filter_fl_err / filter_fl) ** 2))
+                                # else:
+                                #     ew = np.nan
+                                #     ew_u = np.nan
+                                #
+                                # bid_target.bid_ew_lya_rest = ew
+                                # bid_target.bid_ew_lya_rest_err = ew_u
 
-                                bid_target.bid_ew_lya_rest = ew
-                                bid_target.bid_ew_lya_rest_err = ew_u
+                                bid_target.bid_ew_lya_rest, bid_target.bid_ew_lya_rest_err = \
+                                    SU.lya_ewr(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                                               bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
 
                             except:
                                 log.debug("Exception computing catalog EW: ", exc_info=True)
@@ -1332,12 +1344,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                             except:
                                 pass
 
-                            lineFlux_err = 0.
-                            if detobj is not None:
-                                try:
-                                    lineFlux_err = detobj.estflux_unc
-                                except:
-                                    lineFlux_err = 0.
+
 
                             # build EW error from lineFlux_err and aperture estimate error
                             # ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
@@ -1356,8 +1363,8 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                                     wl_obs=target_w,
                                     lineFlux=target_flux,
                                     lineFlux_err=lineFlux_err,
-                                    continuum=bid_target.bid_flux_est_cgs,
-                                    continuum_err=bid_target.bid_flux_est_cgs_unc,
+                                    continuum=bid_target.bid_flux_est_cgs * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
+                                    continuum_err=bid_target.bid_flux_est_cgs_unc * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
                                     c_obs=None, which_color=None,
                                     addl_wavelengths=addl_waves,
                                     addl_fluxes=addl_flux,
@@ -2158,8 +2165,8 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                             wl_obs=target_w,
                             lineFlux=target_flux,
                             lineFlux_err=lineFlux_err,
-                            continuum=bid_target.bid_flux_est_cgs,
-                            continuum_err=bid_target.bid_flux_est_cgs_unc,
+                            continuum=bid_target.bid_flux_est_cgs * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
+                            continuum_err=bid_target.bid_flux_est_cgs_unc * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
                             c_obs=None, which_color=None,
                             addl_wavelengths=addl_waves,
                             addl_fluxes=addl_flux,
@@ -2540,15 +2547,20 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                             bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
 
                             try:
-                                ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
-                                ew_u = abs(ew * np.sqrt(
-                                    (detobj.estflux_unc / target_flux) ** 2 +
-                                    (filter_fl_err / filter_fl) ** 2))
+                                # ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                                # ew_u = abs(ew * np.sqrt(
+                                #     (detobj.estflux_unc / target_flux) ** 2 +
+                                #     (filter_fl_err / filter_fl) ** 2))
+                                #
+                                # bid_target.bid_ew_lya_rest = ew
+                                # bid_target.bid_ew_lya_rest_err = ew_u
 
-                                bid_target.bid_ew_lya_rest = ew
-                                bid_target.bid_ew_lya_rest_err = ew_u
 
-                                text = text + utilities.unc_str((ew, ew_u)) + "$\AA$\n"
+                                bid_target.bid_ew_lya_rest, bid_target.bid_ew_lya_rest_err = \
+                                    SU.lya_ewr(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                                                          bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
+
+                                text = text + utilities.unc_str((bid_target.bid_ew_lya_rest, bid_target.bid_ew_lya_rest_err)) + "$\AA$\n"
                             except:
                                 log.debug("Exception computing catalog EW: ", exc_info=True)
                                 text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
@@ -2599,8 +2611,8 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                                                                 wl_obs=target_w,
                                                                 lineFlux=target_flux,
                                                                 lineFlux_err=lineFlux_err,
-                                                                continuum=bid_target.bid_flux_est_cgs,
-                                                                continuum_err=bid_target.bid_flux_est_cgs_unc,
+                                                                continuum=bid_target.bid_flux_est_cgs * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
+                                                                continuum_err=bid_target.bid_flux_est_cgs_unc * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
                                                                 c_obs=None, which_color=None,
                                                                 addl_wavelengths=addl_waves,
                                                                 addl_fluxes=addl_flux,

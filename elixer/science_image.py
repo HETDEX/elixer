@@ -1738,6 +1738,7 @@ class science_image():
                        #             %(base_mag,sky_mag,ra,dec))
                         log.warning("Warning! Unexepectedly large sky subtraction impact to magnitude: %0.2f to %0.2f at (%f,%f)"
                                     %(base_mag,sky_mag,ra,dec))
+                        elixer_aperture['warn_sky'] = 1
                     # elif sky_mag < 99.9:
                     #     mag = sky_mag
                     #else the mag remains unchanged

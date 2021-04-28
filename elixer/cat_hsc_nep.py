@@ -1118,16 +1118,26 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                             bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
 
                             if target_w:
+
+                                lineFlux_err = 0.
+                                if detobj is not None:
+                                    try:
+                                        lineFlux_err = detobj.estflux_unc
+                                    except:
+                                        lineFlux_err = 0.
                                 try:
 
-                                    ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
-                                    ew_u = abs(ew * np.sqrt(
-                                        (detobj.estflux_unc / target_flux) ** 2 +
-                                        (filter_fl_err / filter_fl) ** 2))
-
-                                    bid_target.bid_ew_lya_rest = ew
-                                    bid_target.bid_ew_lya_rest_err = ew_u
-
+                                    # ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                                    # ew_u = abs(ew * np.sqrt(
+                                    #     (detobj.estflux_unc / target_flux) ** 2 +
+                                    #     (filter_fl_err / filter_fl) ** 2))
+                                    #
+                                    # bid_target.bid_ew_lya_rest = ew
+                                    # bid_target.bid_ew_lya_rest_err = ew_u
+                                    #
+                                    bid_target.bid_ew_lya_rest, bid_target.bid_ew_lya_rest_err = \
+                                        SU.lya_ewr(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                                                   bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
                                 except:
                                     log.debug("Exception computing catalog EW: ", exc_info=True)
 
@@ -1141,12 +1151,6 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                                 except:
                                     pass
 
-                                lineFlux_err = 0.
-                                if detobj is not None:
-                                    try:
-                                        lineFlux_err = detobj.estflux_unc
-                                    except:
-                                        lineFlux_err = 0.
 
                                 # # build EW error from lineFlux_err and aperture estimate error
                                 # ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
@@ -1165,8 +1169,8 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                                         wl_obs=target_w,
                                         lineFlux=target_flux,
                                         lineFlux_err=lineFlux_err,
-                                        continuum=bid_target.bid_flux_est_cgs,
-                                        continuum_err=bid_target.bid_flux_est_cgs_unc,
+                                        continuum=bid_target.bid_flux_est_cgs * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
+                                        continuum_err=bid_target.bid_flux_est_cgs_unc * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
                                         c_obs=None, which_color=None,
                                         addl_wavelengths=addl_waves,
                                         addl_fluxes=addl_flux,
@@ -1588,8 +1592,8 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                             wl_obs=target_w,
                             lineFlux=target_flux,
                             lineFlux_err=lineFlux_err,
-                            continuum=bid_target.bid_flux_est_cgs,
-                            continuum_err=bid_target.bid_flux_est_cgs_unc,
+                            continuum=bid_target.bid_flux_est_cgs * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
+                            continuum_err=bid_target.bid_flux_est_cgs_unc * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
                             c_obs=None, which_color=None,
                             addl_wavelengths=addl_waves,
                             addl_fluxes=addl_flux,
@@ -1969,16 +1973,27 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                             bid_target.bid_mag_err_faint = filter_mag_faint
                             bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
 
+                            lineFlux_err = 0.
+                            if detobj is not None:
+                                try:
+                                    lineFlux_err = detobj.estflux_unc
+                                except:
+                                    lineFlux_err = 0.
+
                             try:
-                                ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
-                                ew_u = abs(ew * np.sqrt(
-                                    (detobj.estflux_unc / target_flux) ** 2 +
-                                    (filter_fl_err / filter_fl) ** 2))
+                                # ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                                # ew_u = abs(ew * np.sqrt(
+                                #     (detobj.estflux_unc / target_flux) ** 2 +
+                                #     (filter_fl_err / filter_fl) ** 2))
+                                #
+                                # bid_target.bid_ew_lya_rest = ew
+                                # bid_target.bid_ew_lya_rest_err = ew_u
 
-                                bid_target.bid_ew_lya_rest = ew
-                                bid_target.bid_ew_lya_rest_err = ew_u
+                                bid_target.bid_ew_lya_rest, bid_target.bid_ew_lya_rest_err = \
+                                    SU.lya_ewr(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                                               bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
 
-                                text = text + utilities.unc_str((ew, ew_u)) + "$\AA$\n"
+                                text = text + utilities.unc_str((bid_target.bid_ew_lya_rest, bid_target.bid_ew_lya_rest_err)) + "$\AA$\n"
                             except:
                                 log.debug("Exception computing catalog EW: ", exc_info=True)
                                 text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
@@ -1993,12 +2008,7 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                             except:
                                 pass
 
-                            lineFlux_err = 0.
-                            if detobj is not None:
-                                try:
-                                    lineFlux_err = detobj.estflux_unc
-                                except:
-                                    lineFlux_err = 0.
+
 
                             # build EW error from lineFlux_err and aperture estimate error
                             # ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
@@ -2029,8 +2039,8 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                                                                 wl_obs=target_w,
                                                                 lineFlux=target_flux,
                                                                 lineFlux_err=lineFlux_err,
-                                                                continuum=bid_target.bid_flux_est_cgs,
-                                                                continuum_err=bid_target.bid_flux_est_cgs_unc,
+                                                                continuum=bid_target.bid_flux_est_cgs * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
+                                                                continuum_err=bid_target.bid_flux_est_cgs_unc * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
                                                                 c_obs=None, which_color=None,
                                                                 addl_wavelengths=addl_waves,
                                                                 addl_fluxes=addl_flux,
