@@ -705,6 +705,7 @@ class DetObj:
                                          #between u and g bands
         self.color_ur = [None,None,None]
 
+        self.best_counterpart = None #selected in cat_base::build_cat_summary_pdf_section
 
         if emission:
             self.type = 'emis'
@@ -2687,6 +2688,30 @@ class DetObj:
         ###################################
         #magnitude votes
         ##################################
+
+        #counterpart magnitude (if a counterpart was automatically identified)
+        #see cat_base::build_cat_summary_pdf_section
+        if self.best_counterpart is not None:
+            if self.best_counterpart.bid_filter.lower() in ['r','f606w']:
+                mag_zero = G.LAE_R_MAG_ZERO
+            else:
+                mag_zero = G.LAE_G_MAG_ZERO
+
+            w = 0.5 * mag_gaussian_weight(mag_zero,self.best_counterpart.bid_mag,
+                                          self.best_counterpart.bid_mag_err_bright,self.best_counterpart.bid_mag_err_faint)
+
+            if self.best_counterpart.bid_mag < mag_zero:
+                likelihood.append(0.0)
+            else:
+                likelihood.append(1.0)
+
+            weight.append(w)
+            var.append(1)
+            prior.append(base_assumption)
+            log.info(f"Aggregate Classification: {self.best_counterpart.bid_filter.lower()}-mag vote "
+                     f"{self.best_counterpart.bid_mag:0.2f} : lk({likelihood[-1]}) "
+                     f"weight({weight[-1]})")
+
         #partly included in PLAE/POII (as continuum estiamtes)
         #using just g and r and each gets 1/2 vote
         #todo: not often, but if we have u-band, would expect it to be faint
@@ -2704,18 +2729,42 @@ class DetObj:
             prior.append(base_assumption)
             log.info(f"Aggregate Classification: g-mag vote {self.best_img_g_mag[0]:0.2f} : lk({likelihood[-1]}) "
                      f"weight({weight[-1]})")
+        elif self.best_gmag is not None:
+            g = min(self.best_gmag,G.HETDEX_CONTINUUM_MAG_LIMIT)
+            g_bright = None
+            g_faint = None
+            try:
+                if g == G.HETDEX_CONTINUUM_MAG_LIMIT:
+                    g_bright = g
+                else:
+                    g_bright = g - self.best_gmag_unc
+                g_faint = g + self.best_gmag_unc
+            except:
+                pass
+            w = 0.5 * mag_gaussian_weight(G.LAE_G_MAG_ZERO,g,g_bright,g_faint)
 
-        if self.best_img_r_mag is not None:
-            w = 0.5 * mag_gaussian_weight(G.LAE_R_MAG_ZERO,self.best_img_r_mag[0],
-                                    self.best_img_R_mag[1],self.best_img_r_mag[2])
-            if self.best_img_R_mag[0] < G.LAE_R_MAG_ZERO:
+            if g < G.LAE_G_MAG_ZERO:
                 likelihood.append(0.0)
             else:
                 likelihood.append(1.0)
             weight.append(w)
             var.append(1)
             prior.append(base_assumption)
-            log.info(f"Aggregate Classification: r-mag vote {self.best_img_g_mag[0]:0.2f} : lk({likelihood[-1]}) "
+            log.info(f"Aggregate Classification: g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                     f"weight({weight[-1]})")
+
+
+        if self.best_img_r_mag is not None:
+            w = 0.5 * mag_gaussian_weight(G.LAE_R_MAG_ZERO,self.best_img_r_mag[0],
+                                    self.best_img_r_mag[1],self.best_img_r_mag[2])
+            if self.best_img_r_mag[0] < G.LAE_R_MAG_ZERO:
+                likelihood.append(0.0)
+            else:
+                likelihood.append(1.0)
+            weight.append(w)
+            var.append(1)
+            prior.append(base_assumption)
+            log.info(f"Aggregate Classification: r-mag vote {self.best_img_r_mag[0]:0.2f} : lk({likelihood[-1]}) "
                      f"weight({weight[-1]})")
 
         #basic magnitude sanity checks
@@ -3559,6 +3608,19 @@ class DetObj:
         # ignore all of them and just use the aperture (which may be best anyway since, if we do choose the best one
         # it effectively brings that magnitude estimate in twice (once for the aperture and once for the catalog object
         # that ostensibly used that (or similar) aperture
+
+        if self.best_counterpart is not None:
+            if self.best_counterpart.bid_filter.lower() in ['g','r','f606w']:
+                weight.append(1)
+                continuum.append(self.best_counterpart.bid_flux_est_cgs)
+                variance.append(max( self.best_counterpart.bid_flux_est_cgs*self.best_counterpart.bid_flux_est_cgs*0.04,
+                                     self.best_counterpart.bid_flux_est_cgs_unc*self.best_counterpart.bid_flux_est_cgs_unc))
+
+                type.append("c" + self.best_counterpart.bid_filter.lower())
+                log.debug(
+                    f"{self.entry_id} Combine ALL Continuum: Added catalog bid target estimate"
+                    f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
+                    f"weight({weight[-1]:#.2f}) filter({self.best_counterpart.bid_filter.lower()}) dist({self.best_counterpart.distance})")
 
         if False: #choosing the last argument as this is a mix of probabilites and even in the "best" case is an over counting
             try:

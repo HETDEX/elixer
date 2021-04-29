@@ -903,8 +903,8 @@ R_BAND_UV_BETA_SLOPE = -2.5 #UV slope (beta) for star forming galaxies used to a
                             #really varies with galaxy SFR, history, z, dust, etc
                             #but seems to run -2.4 to -2.7 or so for star forming galaxies around cosmic noon
 
-LAE_G_MAG_ZERO = 24.5
-LAE_R_MAG_ZERO = 24.5
+LAE_G_MAG_ZERO = 24.5 #somewhat empirical
+LAE_R_MAG_ZERO = 24.2 #somewhat empirical ... also using -0.3 mag from g-band per Leung+2017
 LAE_MAG_SIGMA = 0.5 #building a Gaussian as probablilty that mag > LAE_X_MAG_ZERO is an LAE
 
 ##################################
@@ -928,7 +928,7 @@ DETFLAG_DISTANT_COUNTERPART         = 0x00000040
                                         #may need inspection to see if associated with large object OR is a faint
                                         #detection or even lensed
 
-
+#todo:
 DETFLAG_COUNTERPART_MAG_MISMATCH    = 0x00000080 #r,g magnitude of catalog counterpart varies significantly from the
                                         #aperture magnitude AND is fainter than 22
 

@@ -964,6 +964,7 @@ class Catalog:
             #now resort by likelihood of match (new method)
             list_of_counterparts.sort(key=lambda x: x.distance, reverse=False)
             selected_idx = None
+            alternate_idx = None
             try:
                 for idx, cp in enumerate(list_of_counterparts):
                     #walk in order of distance and check
@@ -990,6 +991,11 @@ class Catalog:
                                 ( (cp.bid_mag > selected_sep['mag']) and (d['fail_mag_limit'])):
                                     selected_idx = idx
                                     break #this is the one
+                            else:
+                                if alternate_idx is None:
+                                    alternate_idx = idx
+                                elif list_of_counterparts[alternate_idx].distance > list_of_counterparts[idx].distance:
+                                    alternate_idx = idx
                     else:
                         selected_idx = idx
                         break
@@ -1008,9 +1014,20 @@ class Catalog:
                     list_of_counterparts.insert(0,list_of_counterparts.pop(selected_idx))
                     selected_idx = 0 #since we moved it to the front of the list
 
-                list_of_counterparts[selected_idx].selected = True #make the top of the list THE selected catalog match
+                if detobj is not None:
+                    detobj.best_counterpart = list_of_counterparts[0]
 
-            counterpart_cat_idx = the_best_cat_idx
+                list_of_counterparts[0].selected = True #make the top of the list THE selected catalog match
+            elif alternate_idx is not None:
+                if alternate_idx != 0:
+                    list_of_counterparts.insert(0,list_of_counterparts.pop(alternate_idx))
+                    alternate_idx = 0 #since we moved it to the front of the list
+
+                if detobj is not None:
+                    detobj.best_counterpart = list_of_counterparts[0]
+
+                list_of_counterparts[0].selected = True #make the top of the list THE selected catalog match
+
 
             #old method of just selecting the list of counterparts from the single deepest catalog
             #but this is problematic a as that deepest catalog may not be selected in a compatibile way and
@@ -1018,6 +1035,7 @@ class Catalog:
             #counterparts are always just on the [0]th entry for the catalog
             try:
                 if len(list_of_counterparts) == 0: #something went wrong
+                    counterpart_cat_idx = the_best_cat_idx
                     if list_of_cutouts[counterpart_cat_idx][0]['counterparts']:
                         list_of_counterparts = list_of_cutouts[counterpart_cat_idx][0]['counterparts']
                     else:
