@@ -1084,7 +1084,7 @@ class DetObj:
             #either there is no imaging or the imaging is so bad that we could not even
             #get any apertures, so it is just as good as having no imaging
 
-            self.flags += G.DETFLAG_NO_IMAGING
+            self.flags |= G.DETFLAG_NO_IMAGING
             no_imaging = True
             log.info(f"Detection Flag set for {self.entry_id} : DETFLAG_NO_IMAGING")
 
@@ -1198,13 +1198,13 @@ class DetObj:
                         #     break
 
                         if new_flag:
-                            self.flags += new_flag
+                            self.flags |= new_flag
                             log.info(f"Detection Flag set for {self.entry_id} : DETFLAG_DEX_GMAG_INCONSISTENT")
                             #break #already been flagged ... no need to flag the same thing again
                             #don't break ... can be undone if 'g' matches 'g'
                         elif d['filter_name'].lower() in ['g']:
                             if self.flags & G.DETFLAG_DEX_GMAG_INCONSISTENT:
-                                self.flags += G.DETFLAG_DEX_GMAG_INCONSISTENT
+                                self.flags |= G.DETFLAG_DEX_GMAG_INCONSISTENT
                                 log.info(f"Detection Flag un-set for {self.entry_id}: g bands match")
                             break #now we DO want to break
 
@@ -1235,7 +1235,7 @@ class DetObj:
                         pass
 
                 if new_flag:
-                    self.flags += new_flag
+                    self.flags |= new_flag
                     log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_COUNTERPART_NOT_FOUND")
 
 
@@ -1263,7 +1263,7 @@ class DetObj:
                     break
 
             if new_flag:
-                self.flags += new_flag
+                self.flags |= new_flag
                 log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_DISTANT_COUNTERPART")
 
 
@@ -1340,7 +1340,7 @@ class DetObj:
                     break
 
             if new_flag and (self.best_gmag > 23.0) and (max_band_mag > 23.0): #no need to set if the object is already very bright
-                self.flags += new_flag
+                self.flags |= new_flag
                 log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_POOR_IMAGING")
 
             #todo: DEX-g is 24.5 or brighter (maybe 24 or brighter) and imaging depth is 24.5 or fainter
@@ -1375,7 +1375,7 @@ class DetObj:
             #not just > MAX_OK_UNMATCHED_LINES_SCORE
             if (self.spec_obj.solutions[0].unmatched_lines_score > G.MULTILINE_FULL_SOLUTION_SCORE) and \
                (self.spec_obj.solutions[0].score > G.MULTILINE_FULL_SOLUTION_SCORE):
-                self.flags += G.DETFLAG_BLENDED_SPECTRA
+                self.flags |= G.DETFLAG_BLENDED_SPECTRA
                 log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_BLENDED_SPECTRA")
 
 
@@ -2275,11 +2275,19 @@ class DetObj:
             sigma = G.PLAE_POII_GAUSSIAN_WEIGHT_SIGMA #5.0 #s|t by 0.1 or 10 you get 80% weight but near 1 you gain nothing
             return 1-np.exp(-((plae_poii - mu)/(np.sqrt(2)*sigma))**2.)
 
+
+        def mag_gaussian_weight(mag_zero, mag, mag_bright, mag_faint):
+            #todo: make use of error (bright, faint)
+            #the idea here as the the closer the mag is to the zero point, the closer to 50/50
+            #just for clarity
+            try:
+                mu = mag_zero
+                sigma = G.LAE_MAG_SIGMA
+                return 1-np.exp(-((mag - mu)/(np.sqrt(2)*sigma))**2.)
+            except:
+                return 0
+
         self.get_filter_colors()
-        print("***** TODO: REMOVE ME *****")
-        print(f"U-G {self.color_ug}")
-        print(f"U-R {self.color_ur}")
-        print(f"G-R {self.color_gr}")
 
         reason = ""
         base_assumption = 0.5 #not used yet
@@ -2676,6 +2684,39 @@ class DetObj:
         except:
             lower_mag  = 99
 
+        ###################################
+        #magnitude votes
+        ##################################
+        #partly included in PLAE/POII (as continuum estiamtes)
+        #using just g and r and each gets 1/2 vote
+        #todo: not often, but if we have u-band, would expect it to be faint
+        #for g:  24.5+ increasingly favors LAE
+        #
+        if self.best_img_g_mag is not None:
+            w = 0.5 * mag_gaussian_weight(G.LAE_G_MAG_ZERO,self.best_img_g_mag[0],
+                                    self.best_img_g_mag[1],self.best_img_g_mag[2])
+            if self.best_img_g_mag[0] < G.LAE_G_MAG_ZERO:
+                likelihood.append(0.0)
+            else:
+                likelihood.append(1.0)
+            weight.append(w)
+            var.append(1)
+            prior.append(base_assumption)
+            log.info(f"Aggregate Classification: g-mag vote {self.best_img_g_mag[0]:0.2f} : lk({likelihood[-1]}) "
+                     f"weight({weight[-1]})")
+
+        if self.best_img_r_mag is not None:
+            w = 0.5 * mag_gaussian_weight(G.LAE_R_MAG_ZERO,self.best_img_r_mag[0],
+                                    self.best_img_R_mag[1],self.best_img_r_mag[2])
+            if self.best_img_R_mag[0] < G.LAE_R_MAG_ZERO:
+                likelihood.append(0.0)
+            else:
+                likelihood.append(1.0)
+            weight.append(w)
+            var.append(1)
+            prior.append(base_assumption)
+            log.info(f"Aggregate Classification: r-mag vote {self.best_img_g_mag[0]:0.2f} : lk({likelihood[-1]}) "
+                     f"weight({weight[-1]})")
 
         #basic magnitude sanity checks
         if lower_mag < 18.0: #the VERY BRIGHTEST QSOs in the 2 < z < 4 are 17-18 mag

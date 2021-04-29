@@ -158,9 +158,9 @@ class Detections(tables.IsDescription):
     classification_labels = tables.StringCol(itemsize=32,dflt="")
 
     #add filter colors
-    color_ug = tables.Float32Col(shape=(3,) ) #as color, blue max, red_max
-    color_ur = tables.Float32Col(shape=(3,) ) #as color, blue max, red_max
-    color_gr = tables.Float32Col(shape=(3,) ) #as color, blue max, red_max
+    color_ug = tables.Float32Col(shape=(3,),dflt=[np.nan,np.nan,np.nan] ) #as color, blue max, red_max
+    color_ur = tables.Float32Col(shape=(3,),dflt=[np.nan,np.nan,np.nan] ) #as color, blue max, red_max
+    color_gr = tables.Float32Col(shape=(3,),dflt=[np.nan,np.nan,np.nan] ) #as color, blue max, red_max
 
 class SpectraLines(tables.IsDescription):
     detectid = tables.Int64Col(pos=0)  # unique HETDEX detection ID 1e9+

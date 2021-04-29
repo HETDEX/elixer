@@ -881,7 +881,7 @@ PIXEL_FLAT_ABSOLUTE_BAD_VALUE = 0.7 #values at or below this in the flat are "ba
 MAX_MAG_FAINT = 28.0 #set as nominal "faint" mag if flux limit reached (if not set by specific catalog ... which, unless
                      # this is an HST catalog, this is pretty good
 
-PLAE_POII_GAUSSIAN_WEIGHT_SIGMA = 5.0
+PLAE_POII_GAUSSIAN_WEIGHT_SIGMA = 10.0
 
 CHECK_FOR_METEOR = True #if true, check the exposure fiber data for meteor pattern
 CHECK_GALAXY_MASK = True #if true, check for detection inclusion in galaxy mask
@@ -902,6 +902,10 @@ R_BAND_UV_BETA_SLOPE = -2.5 #UV slope (beta) for star forming galaxies used to a
                             #supposed LyA line;  to turn off the correction, set to flat -2.0
                             #really varies with galaxy SFR, history, z, dust, etc
                             #but seems to run -2.4 to -2.7 or so for star forming galaxies around cosmic noon
+
+LAE_G_MAG_ZERO = 24.5
+LAE_R_MAG_ZERO = 24.5
+LAE_MAG_SIGMA = 0.5 #building a Gaussian as probablilty that mag > LAE_X_MAG_ZERO is an LAE
 
 ##################################
 #Detection Flags (DF) (32 bit)
