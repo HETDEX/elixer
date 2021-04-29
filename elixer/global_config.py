@@ -906,7 +906,8 @@ R_BAND_UV_BETA_SLOPE = -2.5 #UV slope (beta) for star forming galaxies used to a
 LAE_G_MAG_ZERO = 24.5 #somewhat empirical
 LAE_R_MAG_ZERO = 24.3 #somewhat empirical ... also using -0.3 mag from g-band per Leung+2017
 LAE_MAG_SIGMA = 0.5 #building a Gaussian as probablilty that mag > LAE_X_MAG_ZERO is an LAE
-LAE_EW_MAG_TRIGGER = 25.0 #if the associated EW_rest(LyA) is less than this value, then look at the magnitudes
+LAE_EW_MAG_TRIGGER_MAX = 25.0 #if the associated EW_rest(LyA) is less than this value, then look at the magnitudes
+LAE_EW_MAG_TRIGGER_MIN = 15.0 #if the associated EW_rest(LyA) is greater than this value, then look at the magnitudes
 
 ##################################
 #Detection Flags (DF) (32 bit)

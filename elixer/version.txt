@@ -6,7 +6,7 @@ changes to elixer by version
   to estimate continuum for LyA equivalent width
 * Add photometric filter colors to Detections table (color_ur, color_ug, color_gr)
 * Add P(LyA) votes for g and r magnitudes; zero (or 50/50) point set in global_config: LAE_?_MAG_ZERO
-  if the EW_rest(LyA) is less than LAE
+  if the EW_rest(LyA) is between the LAE_EW_TRIGGERS (15 < ew < 25) by default
 
 1.11.0a10 [2021-04-22]
 * changed labelling of Primary IFU (3rd line in the top left text block) to report SpecID_SlotID_IFUID

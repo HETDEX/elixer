@@ -2704,12 +2704,13 @@ class DetObj:
                 counterpart_filter = 'g'
 
             ew = 999
+            unc = 0
             if self.best_counterpart.bid_ew_lya_rest is not None:
                 ew = self.best_counterpart.bid_ew_lya_rest
                 if self.best_counterpart.bid_ew_lya_rest_err is not None:
-                    ew -=  self.best_counterpart.bid_ew_lya_rest_err
+                    unc =  self.best_counterpart.bid_ew_lya_rest_err
 
-            if ew < G.LAE_EW_MAG_TRIGGER:
+            if (ew-unc) < G.LAE_EW_MAG_TRIGGER_MAX and (ew+unc) > G.LAE_EW_MAG_TRIGGER_MIN:
                 w = 0.5 * mag_gaussian_weight(mag_zero,self.best_counterpart.bid_mag,
                                               self.best_counterpart.bid_mag_err_bright,self.best_counterpart.bid_mag_err_faint)
 
@@ -2739,12 +2740,15 @@ class DetObj:
                 w = 0.5
 
             ew = 999
-            cont = SU.mag2cgs(self.best_img_g_mag[0],4500.0)
-            if cont is not None:
-                ew = self.estflux / cont / (self.w /G.LyA_rest)
+            unc = 0
+
+            if self.best_eqw_gmag_obs is not None:
+                ew = self.best_eqw_gmag_obs / (self.w /G.LyA_rest)
+                if self.best_eqw_gmag_obs_unc is not None:
+                    unc = self.best_eqw_gmag_obs_unc  / (self.w /G.LyA_rest)
 
 
-            if ew < G.LAE_EW_MAG_TRIGGER:
+            if (ew-unc) < G.LAE_EW_MAG_TRIGGER_MAX and (ew+unc) > G.LAE_EW_MAG_TRIGGER_MIN:
                 w = w * mag_gaussian_weight(G.LAE_G_MAG_ZERO,self.best_img_g_mag[0],
                                         self.best_img_g_mag[1],self.best_img_g_mag[2])
                 if self.best_img_g_mag[0] < G.LAE_G_MAG_ZERO:
@@ -2770,13 +2774,13 @@ class DetObj:
                 pass
 
             ew = 999
+            unc = 0
             if self.best_eqw_gmag_obs is not None:
-                ew = self.best_eqw_gmag_obs
+                ew = self.best_eqw_gmag_obs / (self.w / G.LyA_rest)
                 if self.best_eqw_gmag_obs_unc is not None:
-                    ew -= self.best_eqw_gmag_obs_unc
-                ew /= (self.w / G.LyA_rest)
+                    unc = self.best_eqw_gmag_obs_unc / (self.w / G.LyA_rest)
 
-            if ew < G.LAE_EW_MAG_TRIGGER:
+            if (ew-unc) < G.LAE_EW_MAG_TRIGGER_MAX and (ew+unc) > G.LAE_EW_MAG_TRIGGER_MIN:
                 w = 0.25 * mag_gaussian_weight(G.LAE_G_MAG_ZERO,g,g_bright,g_faint)
 
                 if g < G.LAE_G_MAG_ZERO:
@@ -2799,15 +2803,18 @@ class DetObj:
             w = 0.5
 
             ew = 999
+            unc = 0
             cont = SU.mag2cgs(self.best_img_r_mag[0],6500.0)
             cont_unc = None
             if self.best_img_r_mag[1] is not None:
                 cont_unc = abs(cont - SU.mag2cgs(self.best_img_r_mag[1],6500.0))
-            ew,ew_err = SU.lya_ewr(self.estflux,self.estflux_unc,self.w,'r',cont,cont_unc)
-            if not np.isnan(ew_err):
-                ew -= ew_err
+            ew,unc = SU.lya_ewr(self.estflux,self.estflux_unc,self.w,'r',cont,cont_unc)
+            if np.isnan(ew):
+                ew = 999
+            if np.isnan(unc):
+                unc = 0
 
-            if not np.isnan(ew) and ew < G.LAE_EW_MAG_TRIGGER:
+            if (ew-unc) < G.LAE_EW_MAG_TRIGGER_MAX and (ew+unc)> G.LAE_EW_MAG_TRIGGER_MIN:
                 w = w * mag_gaussian_weight(G.LAE_R_MAG_ZERO,self.best_img_r_mag[0],
                                         self.best_img_r_mag[1],self.best_img_r_mag[2])
                 if self.best_img_r_mag[0] < G.LAE_R_MAG_ZERO:
