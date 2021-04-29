@@ -691,6 +691,21 @@ class DetObj:
         self.best_z = None
         self.best_p_of_z = None
 
+        #colors in AB mag (from the photometric imaging and HETDEX-g, if no g imaging available)
+        #ideally should be from the same survey (but will use different surveys to populate if a single survey does not
+        #cover the requisite bands)
+        self.best_img_u_mag  = None #"best" value for u as determined in cat_base::build_cat_summary_pdf_section()
+        self.best_img_g_mag  = None
+        self.best_img_v_mag  = None
+        self.best_img_r_mag  = None
+
+        self.color_gr = [None,None,None] #g-r color as color, blue max, red_max:
+                                         #blue = -99 (means lower limit on blue), red = 99  means lower limit on red
+        self.color_ug = [None,None,None] #might also serve as a drop out indicator; would be super red if drop out
+                                         #between u and g bands
+        self.color_ur = [None,None,None]
+
+
         if emission:
             self.type = 'emis'
             # actual line number from the input file
@@ -932,6 +947,102 @@ class DetObj:
             return self.wdec
         else:
             return self.dec
+
+
+    def set_best_filter_mag(self,band,mag,mag_bright,mag_faint):
+        """
+
+        :param mag:
+        :param mag_bright:
+        :param mag_faint:
+        :return:
+        """
+
+        color = [mag,mag_bright,mag_faint]
+        try:
+            if band.lower() in ['u']:
+                self.best_img_u_mag = color
+            elif band.lower() in ['g','f435w']:
+                self.best_img_g_mag = color
+            elif band.lower() in ['v']:
+                self.best_img_v_mag = color
+            elif band.lower() in ['r','f606w']:
+                self.best_img_r_mag = color
+        except:
+           log.warning(f"Exception in DetObj::get_filter_ccolors().",exc_info=True)
+
+
+
+
+    def get_filter_colors(self):
+        """
+        Populate the filter colors from the available bands
+
+        Has to be run AFTER imaging section is complete
+        :return: None
+        """
+
+        def compute_color(blue,red):
+            """
+            each as 3-tuple [mag, mag_bright, mag_faint]
+
+            :param blue:
+            :param red:
+            :return:
+            """
+            color = [None,None,None]
+            try:
+                if blue is None or red is None:
+                    return color
+
+                color[0] = blue[0] - red[0]
+
+                #bright ends of mags, does not make sense that they would not be populated
+                #most blue ... so max blue and min red
+                if blue[1] is None or red[2] is None:
+                    color[1] = None
+                else:
+                    color[1] = blue[1] - red[2]
+
+                #most red ... so min blue and max red
+                if blue[2] is None or red[1] is None:
+                    color[2] = None
+                else:
+                    color[2] = blue[2] - red[1]
+
+            except:
+                log.warning("Exception in DetObj::get_filter_colors::compute_color()",exc_info=True)
+
+            if color[1] < -10:
+                color[1] = -99
+
+            if color[2] > 10:
+                color[2] = 99
+
+            return color
+
+        try:
+
+            self.color_ur = compute_color(self.best_img_u_mag,self.best_img_r_mag)
+
+            if self.best_img_g_mag is not None:
+                self.color_ug = compute_color(self.best_img_u_mag,self.best_img_g_mag)
+                self.color_gr = compute_color(self.best_img_g_mag,self.best_img_r_mag)
+            else: #we will use the DEX-g (not ideal, but better than nothing
+
+                if self.best_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT:
+                    g_substitue = [self.best_gmag, self.best_gmag-self.best_gmag_unc, self.best_gmag+self.best_gmag_unc]
+                else:
+                    g_substitue = [G.HETDEX_CONTINUUM_MAG_LIMIT,
+                                   min(G.HETDEX_CONTINUUM_MAG_LIMIT,self.best_gmag-self.best_gmag_unc),
+                                   99]
+
+                self.color_ug = compute_color(self.best_img_u_mag,g_substitue)
+                self.color_gr = compute_color(g_substitue,self.best_img_r_mag)
+
+            #for now at least, not bothering with 'v' band or other bands
+        except:
+            log.warning(f"Exception in DetObj::get_filter_ccolors().",exc_info=True)
 
 
     def flag_check(self):
@@ -2163,6 +2274,12 @@ class DetObj:
             mu = 1.0
             sigma = G.PLAE_POII_GAUSSIAN_WEIGHT_SIGMA #5.0 #s|t by 0.1 or 10 you get 80% weight but near 1 you gain nothing
             return 1-np.exp(-((plae_poii - mu)/(np.sqrt(2)*sigma))**2.)
+
+        self.get_filter_colors()
+        print("***** TODO: REMOVE ME *****")
+        print(f"U-G {self.color_ug}")
+        print(f"U-R {self.color_ur}")
+        print(f"G-R {self.color_gr}")
 
         reason = ""
         base_assumption = 0.5 #not used yet

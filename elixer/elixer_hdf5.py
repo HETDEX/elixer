@@ -157,6 +157,11 @@ class Detections(tables.IsDescription):
     #added version 0.2.4
     classification_labels = tables.StringCol(itemsize=32,dflt="")
 
+    #add filter colors
+    color_ug = tables.Float32Col(shape=(3,) ) #as color, blue max, red_max
+    color_ur = tables.Float32Col(shape=(3,) ) #as color, blue max, red_max
+    color_gr = tables.Float32Col(shape=(3,) ) #as color, blue max, red_max
+
 class SpectraLines(tables.IsDescription):
     detectid = tables.Int64Col(pos=0)  # unique HETDEX detection ID 1e9+
     wavelength = tables.Float32Col(dflt=UNSET_FLOAT)
@@ -842,6 +847,24 @@ def append_entry(fileh,det,overwrite=False):
             except:
                 pass
 
+
+        try:
+            if det.color_ur is not None and det.color_ur[0] is not None:
+                row['color_ur'] = det.color_ur[:]
+        except:
+            row['color_ur'] = [np.nan,np.nan,np.nan]
+
+        try:
+            if det.color_ug is not None and det.color_ug[0] is not None:
+                row['color_ug'] = det.color_ug[:]
+        except:
+            row['color_ug'] = [np.nan,np.nan,np.nan]
+
+        try:
+            if det.color_gr is not None and det.color_gr[0] is not None:
+                row['color_gr'] = det.color_gr[:]
+        except:
+            row['color_gr'] = [np.nan,np.nan,np.nan]
 
         row.append()
         dtb.flush()

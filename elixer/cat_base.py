@@ -1144,6 +1144,10 @@ class Catalog:
                                                                        the_entry['details']['radius'],
                                                                        the_entry['details']['mag'],
                                                                        cx, cy, cutout_ewr, cutout_plae)
+
+                                if detobj is not None:
+                                    detobj.set_best_filter_mag(filter,the_entry['details']['mag'],
+                                                               the_entry['details']['mag_bright'],the_entry['details']['mag_faint'])
                             else:
 
                                 try:
@@ -1154,6 +1158,9 @@ class Catalog:
                                 self.add_aperture_position(plt, the_entry['details']['radius'],
                                                            the_entry['details']['mag'],
                                                            cx, cy, cutout_ewr, cutout_plae,distance_to_center)
+                                if detobj is not None:
+                                    detobj.set_best_filter_mag(filter,the_entry['details']['mag'],
+                                                       the_entry['details']['mag_bright'],the_entry['details']['mag_faint'])
                         else:
                             log.warning("No cutout details ...")
 

@@ -1,9 +1,10 @@
 changes to elixer by version
 
 1.11.0a11 [2021-04-28]
-* Changed global LyA rest from 1216AA to 1215.67AA
+* Changed global LyA rest from 1216AA to 1215.67AA, OII from 3727.0 to 3727.8
 * Add a correction for r-mag to g-mag based on an assumed UV Beta slope (G.R_BAND_UV_BETA_SLOPE, -2.4) for using r-band
   to estimate continuum for LyA equivalent width
+* Add photometric filter colors to Detections table (color_ur, color_ug, color_gr)
 
 1.11.0a10 [2021-04-22]
 * changed labelling of Primary IFU (3rd line in the top left text block) to report SpecID_SlotID_IFUID

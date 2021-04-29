@@ -183,8 +183,8 @@ def continuum_band_adjustment(obs_wave,band):
     try:
         #if want a fixed +0.3 mag like in Leung+2017, then return x 1.318 ~= 10**(0.12)
         #which is 10**(-.4*0.3)
-        return 1.318
-        #return (obs_wave/filter_iso(band,obs_wave))**(G.R_BAND_UV_BETA_SLOPE+2)
+        #return 1.318
+        return (obs_wave/filter_iso(band,obs_wave))**(G.R_BAND_UV_BETA_SLOPE+2)
     except:
         return 1.0
 
