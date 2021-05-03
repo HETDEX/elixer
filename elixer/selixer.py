@@ -14,6 +14,7 @@ import numpy as np
 from math import ceil
 from datetime import timedelta
 import socket
+from os import getenv
 
 #python version
 PYTHON_MAJOR_VERSION = sys.version_info[0]
@@ -27,6 +28,14 @@ except:
     python_cmd = "python "
 
 pre_python_cmd = ""
+
+workbasedir = "/work"
+try:
+    workbasedir = getenv("WORK_BASEPATH")
+    if workbasedir is None or len(workbasedir) == 0:
+        workbasedir = "/work"
+except:
+    pass
 
 hostname = socket.gethostname()
 #print("+++++++++++++ put this BACK !!!!! ")
@@ -806,9 +815,9 @@ elif host == HOST_WRANGLER:
         # slurm += "set_io_param 1 45.00, 35.00, 20.00, 50.00 \n"
 
         # updated 02-12-2020 to match stamped2
-        slurm += "module use /work/01255/siliu/stampede2/ooops/modulefiles/ \n"
+        slurm += "module use " + workbasedir + "/01255/siliu/stampede2/ooops/modulefiles/ \n"
         slurm += "module load ooops \n" #"/1.0 \n"
-        slurm += "export IO_LIMIT_CONFIG=/work/01255/siliu/stampede2/ooops/1.0/conf/config_low \n"
+        slurm += "export IO_LIMIT_CONFIG=" + workbasedir + "/01255/siliu/stampede2/ooops/1.0/conf/config_low \n"
         slurm += "set_io_param 0 low\n"
 
     #slurm += "module unload xalt \n"
@@ -855,9 +864,9 @@ elif host == HOST_STAMPEDE2:
         # slurm += "set_io_param 1\n"
 
         #updated 01-23-2020
-        slurm += "module use /work/01255/siliu/stampede2/ooops/modulefiles/ \n"
+        slurm += "module use " + workbasedir + "/01255/siliu/stampede2/ooops/modulefiles/ \n"
         slurm += "module load ooops \n" #"/1.0 \n"
-        slurm += "export IO_LIMIT_CONFIG=/work/01255/siliu/stampede2/ooops/1.0/conf/config_low \n"
+        slurm += "export IO_LIMIT_CONFIG=" + workbasedir + "/01255/siliu/stampede2/ooops/1.0/conf/config_low \n"
         slurm += "set_io_param 0 low\n"
         #slurm += "/work/01255/siliu/stampede2/ooops/1.0/bin/set_io_param 0 low \n"
 
@@ -885,7 +894,7 @@ elif host == HOST_LOCAL:
     launch_str = "nothing to launch"
 
 #added per https://portal.tacc.utexas.edu/tutorials/managingio#ooops
-slurm += "export LD_PRELOAD=/work/00410/huang/share/patch/myopen.so \n"
+slurm += "export LD_PRELOAD=" + workbasedir +"/00410/huang/share/patch/myopen.so \n"
 
 #add the common logging/basic error checking to the end
 slurm += "\

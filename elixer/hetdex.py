@@ -1172,6 +1172,8 @@ class DetObj:
                                 #and radius) is captured in the DEX fiber set (with fiber weights)
                                 #this is not perfect, and assumes the object is a point source, but is a bit
                                 #of a correction for this flag
+                            else:
+                                adjusted_mag = d['mag']
                         except:
                             adjusted_mag = d['mag']
 
@@ -1214,7 +1216,7 @@ class DetObj:
             # check large Line Flux, but nothing in imaging
             ######################################################
 
-            if (self.estflux > 5.0e-17) or (self.cont_cgs > 1.0e-18) or (self.best_gmag < 24.0):
+            if (self.estflux > 1.5e-16) or (self.cont_cgs > 1.0e-18) or (self.best_gmag < 24.0):
                 #from the HETDEX data, we expect to see something in the imaging
                 new_flag = G.DETFLAG_COUNTERPART_NOT_FOUND
                 for d in self.aperture_details_list:

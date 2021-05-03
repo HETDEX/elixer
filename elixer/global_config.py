@@ -1,6 +1,7 @@
 from __future__ import print_function
 import logging
 import os.path as op
+from os import getenv
 from datetime import datetime
 import numpy as np
 
@@ -40,8 +41,16 @@ valid_HDR_Versions = [1,2,2.1]
 HDR_Version = "2.1"
 HDR_Version_float = 2.1
 
+WORK_BASEPATH = "/work"
+try:
+    WORK_BASEPATH = getenv("WORK_BASEPATH")
+    if WORK_BASEPATH is None or len(WORK_BASEPATH) == 0:
+        WORK_BASEPATH = "/work"
+except:
+    pass
+
 #HDR_DATA_BASEPATH = "/data/03946/hetdex" #defunct 2020-10-01 #TACC wrangler:/data removed
-HDR_WORK_BASEPATH = "/work/03946/hetdex/"
+HDR_WORK_BASEPATH = op.join(WORK_BASEPATH,"03946/hetdex/")
 HDR_SCRATCH_BASEPATH = "/scratch/03946/hetdex/"
 #HDR_DATA_BASEPATH = HDR_SCRATCH_BASEPATH
 HDR_BASEPATH = HDR_WORK_BASEPATH
@@ -285,7 +294,7 @@ def select_hdr_version(version):
     HDR_Version_float = version_float
     set_hdr_basepath(version)
 
-    BAD_AMP_LIST = "/work/03261/polonius/maverick/catalogs/bad_amp_list.txt" #not really used anymore
+    BAD_AMP_LIST = op.join(WORK_BASEPATH,"03261/polonius/maverick/catalogs/bad_amp_list.txt") #not really used anymore
 
     normal_build = True
     # if (hostname == LOCAL_DEV_HOSTNAME) and (version == 0):  #author test box:
@@ -432,8 +441,8 @@ def select_hdr_version(version):
         if HDR_Version_float < 2:
             if op.exists(op.join(hdr_imaging_basepath,"hsc")):
                 if HDR_Version_float == 1:
-                    if op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
-                        HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
+                    if op.exists(op.join(WORK_BASEPATH,"03946/hetdex/hdr2/imaging/hsc")):
+                        HSC_BASE_PATH = op.join(WORK_BASEPATH,"03946/hetdex/hdr2/imaging/hsc")
                         HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
                         HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
                     else: #us the actual HSC data available at HDR1 time
@@ -446,15 +455,15 @@ def select_hdr_version(version):
                     HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
                     HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
                 #HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
-            elif op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
-                HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
+            elif op.exists(op.join(WORK_BASEPATH,"03946/hetdex/hdr2/imaging/hsc")):
+                HSC_BASE_PATH = op.join(WORK_BASEPATH,"03946/hetdex/hdr2/imaging/hsc")
                 HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
                 HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
                 #HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
             else:
-                HSC_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced"
-                HSC_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts"
-                HSC_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
+                HSC_BASE_PATH = op.join(WORK_BASEPATH,"03946/hetdex/hdr1/imaging/hsc/S15A/reduced")
+                HSC_CAT_PATH = op.join(WORK_BASEPATH,"03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts")
+                HSC_IMAGE_PATH = op.join(WORK_BASEPATH,"03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images")
                 #HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
         else:
             HSC_BASE_PATH = op.join(hdr_imaging_basepath,"hsc")
@@ -465,7 +474,7 @@ def select_hdr_version(version):
         if op.exists(op.join(hdr_imaging_basepath, "KMImaging")):
             KPNO_BASE_PATH = op.join(hdr_imaging_basepath, "KMImaging")
         else:
-            KPNO_BASE_PATH = "/work/03233/jf5007/maverick/KMImaging/"
+            KPNO_BASE_PATH = op.join(WORK_BASEPATH,"03233/jf5007/maverick/KMImaging/")
         KPNO_CAT_PATH = KPNO_BASE_PATH
         KPNO_IMAGE_PATH = KPNO_BASE_PATH
 
