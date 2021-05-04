@@ -124,7 +124,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
     #correct the basepaths
     for k in Tile_Dict.keys():
-        Tile_Dict[k]['path'] = op.join(HSC_IMAGE_PATH,op.basename(Tile_Dict[k]['path']))
+        Tile_Dict[k]['path'] = op.join(HSC_IMAGE_PATH,Tile_Dict[k]['path'].split("hsc_ssp/")[1])
 
 
     Filters = ['g','r','i','z','y'] #case is important ... needs to be lowercase
@@ -365,7 +365,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         ]
 
 
-    CatalogImages = [] #built in constructor
+    CatalogImages = [] #built in constructor (like the Tile_Dict, but is populated with actual cutouts as they are made
 
     def __init__(self):
         super(HSC_SSP, self).__init__()
@@ -395,6 +395,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         print("!!!!!!!!!!!!!!!!!!!!!!TODO: catalog for HSC SSP !!!!!!!!!!!!!!!!!!!!!!")
         print("!!!!!!!!!!!!!!!!!!!!!!TODO: catalog for HSC SSP !!!!!!!!!!!!!!!!!!!!!!")
         print("!!!!!!!!!!!!!!!!!!!!!!TODO: catalog for HSC SSP !!!!!!!!!!!!!!!!!!!!!!")
+        return None
 
         fqtract = [op.join(cls.HSC_CAT_PATH,"H20_NEP_subset_catalog.fits"),]
 
@@ -474,7 +475,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
         try:
             #0.2 ~= 2.5 * log(1.2) ... or a 20% error
-            return self.MAG_LIMIT_DICT[image_identification[0]][image_identification[1]] + 0.2
+            return self.Tile_Dict[image_identification[0]]['depth'] + 0.2
 
         except:
             log.warning("cat_hsc_nep.py get_mag_limit fail.",exc_info=True)
@@ -486,26 +487,29 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
     def build_catalog_of_images(self):
 
         for t in self.Tile_Dict.keys(): #tile is the key (the filename)
-            for f in self.Filters:
-                path = self.HSC_IMAGE_PATH #op.join(self.HSC_IMAGE_PATH,self.Tile_Dict[t]['tract'])
-                name = t
-                wcs_manual = True
+            #for f in self.Filters:
+            f = self.Tile_Dict[t]['filter'].lower()
+            #path = self.HSC_IMAGE_PATH #op.join(self.HSC_IMAGE_PATH,self.Tile_Dict[t]['tract'])
+            #path is already corrected in the constructor
+            name = t
+            wcs_manual = False
 
-                self.CatalogImages.append(
-                    {'path': path,
-                     'name': name, #filename is the tilename
-                     'tile': t,
-                     'pos': self.Tile_Dict[t]['pos'], #the position tuple i.e. (0,3) or (2,8) ... in the name as 03 or 28
-                     'filter': f,
-                     'instrument': "HSC SSP",
-                     'cols': [],
-                     'labels': [],
-                     'image': None,
-                     'expanded': False,
-                     'wcs_manual': wcs_manual,
-                     'aperture': self.mean_FWHM * 0.5 + 0.5, #since a radius, half the FWHM + 0.5" for astrometric error
-                     'mag_func': hsc_count_to_mag
-                     })
+            self.CatalogImages.append(
+                {'path': op.dirname(self.Tile_Dict[t]['path']),
+                 'name': name, #filename is the tilename
+                 'tile': t,
+                 'pos': self.Tile_Dict[t]['pos'], #the position tuple i.e. (0,3) or (2,8) ... in the name as 03 or 28
+                 'filter': f,
+                 'instrument': "HSC SSP",
+                 'cols': [],
+                 'labels': [],
+                 'image': None,
+                 'expanded': False,
+                 'wcs_manual': wcs_manual,
+                 'aperture': self.mean_FWHM * 0.5 + 0.5, #since a radius, half the FWHM + 0.5" for astrometric error
+                 'mag_func': hsc_count_to_mag,
+                 'mag_depth': self.Tile_Dict[t]['depth'],
+                 })
 
     def find_target_tile(self,ra,dec):
         #assumed to have already confirmed this target is at least in coordinate range of this catalog
@@ -516,9 +520,15 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         tracts = []
         positions = []
         keys = []
+        #note: there will usually be "duplicates" as each tile may have multiple filters
+        #however, they all have 'r'
         for k in self.Tile_Dict.keys():
             # don't bother to load if ra, dec not in range
             try:
+                #only check the 'r' fitler
+                if self.Tile_Dict[k]['filter'].lower() != 'r':
+                    continue
+
                 if not ((ra >= self.Tile_Dict[k]['RA_min']) and (ra <= self.Tile_Dict[k]['RA_max']) and
                         (dec >= self.Tile_Dict[k]['Dec_min']) and (dec <= self.Tile_Dict[k]['Dec_max'])) :
                     continue
@@ -551,6 +561,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             log.error("ERROR! len(keys) < 0 in cat_hsc::find_target_tile.")
             return None, None, None
 
+        tile = tile.replace("-R-","-?-")
         log.info("Selected tile: %s" % tile)
         #now we have the tile key (filename)
         #do we want to find the matching catalog and see if there is an entry in it?
@@ -656,7 +667,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         tile, tracts, positions = self.find_target_tile(ra,dec)
 
         if tile is None:
-            log.info("Could not locate tile for HSC. Discontinuing search of this catalog.")
+            log.info("Could not locate tile for HSC_SSP. Discontinuing search of this catalog.")
             return -1,None,None
 
         #could be none or could be not loaded yet
@@ -689,30 +700,31 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         log.info(self.Name + " searching for bid targets in range: RA [%f +/- %f], Dec [%f +/- %f] ..."
                  % (ra, error_in_deg, dec, error_in_deg))
 
-        try:
-            self.dataframe_of_bid_targets = \
-                self.df[  (self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max)
-                    & (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)
-                    ].copy()
-            #may contain duplicates (across tiles)
-            #remove duplicates (assuming same RA,DEC between tiles has same data)
-            #so, different tiles that have the same ra,dec and filter get dropped (keep only 1)
-            #but if the filter is different, it is kept
+        if self.df is not None:
+            try:
+                self.dataframe_of_bid_targets = \
+                    self.df[  (self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max)
+                        & (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)
+                        ].copy()
+                #may contain duplicates (across tiles)
+                #remove duplicates (assuming same RA,DEC between tiles has same data)
+                #so, different tiles that have the same ra,dec and filter get dropped (keep only 1)
+                #but if the filter is different, it is kept
 
-            #this could be done at construction time, but given the smaller subset I think
-            #this is faster here
-            self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.drop_duplicates(
-                subset=['RA','DEC'])
+                #this could be done at construction time, but given the smaller subset I think
+                #this is faster here
+                self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.drop_duplicates(
+                    subset=['RA','DEC'])
 
 
-            #relying on auto garbage collection here ...
-            self.dataframe_of_bid_targets_unique = self.dataframe_of_bid_targets.copy()
-            self.dataframe_of_bid_targets_unique = \
-                self.dataframe_of_bid_targets_unique.drop_duplicates(subset=['RA','DEC'])#,'FILTER'])
-            self.num_targets = self.dataframe_of_bid_targets_unique.iloc[:,0].count()
+                #relying on auto garbage collection here ...
+                self.dataframe_of_bid_targets_unique = self.dataframe_of_bid_targets.copy()
+                self.dataframe_of_bid_targets_unique = \
+                    self.dataframe_of_bid_targets_unique.drop_duplicates(subset=['RA','DEC'])#,'FILTER'])
+                self.num_targets = self.dataframe_of_bid_targets_unique.iloc[:,0].count()
 
-        except:
-            log.error(self.Name + " Exception in build_list_of_bid_targets", exc_info=True)
+            except:
+                log.error(self.Name + " Exception in build_list_of_bid_targets", exc_info=True)
 
         if self.dataframe_of_bid_targets_unique is not None:
             #self.num_targets = self.dataframe_of_bid_targets.iloc[:, 0].count()
@@ -735,10 +747,11 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
         #if (num_targets == 0) or
         if (self.dataframe_of_bid_targets_unique is None):
-            return None
-
-        ras = self.dataframe_of_bid_targets_unique.loc[:, ['RA']].values
-        decs = self.dataframe_of_bid_targets_unique.loc[:, ['DEC']].values
+            ras = []
+            decs = []
+        else:
+            ras = self.dataframe_of_bid_targets_unique.loc[:, ['RA']].values
+            decs = self.dataframe_of_bid_targets_unique.loc[:, ['DEC']].values
 
         # display the exact (target) location
         if G.SINGLE_PAGE_PER_DETECT:
@@ -1953,10 +1966,12 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             wcs_manual = self.WCS_Manual
             mag_func = None
 
-        try:
-            wcs_idx = self.Filter_HDU_Image_Idx[catalog_image['filter']]
-        except:
-            wcs_idx = 0
+        # try:
+        #     wcs_idx = self.Filter_HDU_Image_Idx[catalog_image['filter']]
+        # except:
+        #     wcs_idx = 0
+
+        wcs_idx = 1
 
         try:
             if catalog_image['image'] is None:
@@ -2029,6 +2044,9 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
         tile, tracts, positions = self.find_target_tile(ra, dec)
 
+        #tile returns with just the R band label: i.e. calexp-HSC-R-572-7,0.fits
+        #so have to swap out 'R' for each of the other bands
+
         if tile is None:
             # problem
             log.error("No appropriate tile found in HSC for RA,DEC = [%f,%f]" % (ra, dec))
@@ -2068,9 +2086,11 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                         # if filter list provided but the image is NOT in the filter list go to next one
                         continue
 
+                    #swap out the base tile name for the other filters (f)
+
                     i = self.CatalogImages[
                         next(i for (i, d) in enumerate(self.CatalogImages)
-                             if ((d['filter'] == f) and (d['tile'] == tile)))]
+                             if ((d['filter'] == f) and (d['tile'] == tile.replace("?",f.upper()))))]
                     if i is not None:
                         cutout = self.get_single_cutout(ra, dec, window, i, aperture,error)
 

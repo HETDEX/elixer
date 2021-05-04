@@ -20,6 +20,7 @@ try:
     from elixer import cat_cfhtls
     #from elixer import cat_wise_web
     from elixer import cat_hsc_nep
+    from elixer import cat_hsc_ssp
     # from elixer import cat_ast376_shela
 except:
     import global_config as G
@@ -38,6 +39,7 @@ except:
     import cat_cfhtls
     #import cat_wise_web
     import cat_hsc_nep
+    import cat_hsc_ssp
     # from elixer import cat_ast376_shela
 
 # log = G.logging.getLogger('Cat_logger')
@@ -98,6 +100,7 @@ class CatalogLibrary:
         self.cats.append(cat_stack_cosmos.STACK_COSMOS())
         self.cats.append(cat_shela.SHELA())
         self.cats.append(cat_hsc.HSC())
+        self.cats.append(cat_hsc_ssp.HSC_SSP())
         self.cats.append(cat_kpno.KPNO())
         # notice: if comment out KPNO turn off KPNO inclusion in HSC, also need to un-comment the next line to remove from HSC
         # self.cats[-1].INCLUDE_KPNO_G = False

@@ -34,6 +34,7 @@ if sys.byteorder == 'big':
 else:
     BIG_ENDIAN = False
 
+
 LAUNCH_PDF_VIEWER = None
 
 valid_HDR_Versions = [1,2,2.1]
@@ -111,7 +112,9 @@ SDSS_CAT_PATH = None
 
 HETDEX_API_CONFIG = None
 
+
 LOCAL_DEV_HOSTNAMES = ["z50","dg5"]
+
 
 BUILD_REPORT_BY_FILTER = True #if True, multiple catalogs are used to build the report, with the deepest survey by filter
                            #if False, then the single deepest catalog that overlaps is used with what ever filters it has
@@ -413,6 +416,8 @@ def select_hdr_version(version):
             print("***** using /data/03261/polonius/hdr2 for imaging *****")
             hdr_imaging_basepath = "/data/03261/polonius/hdr2/"
 
+        remote_imaging_basepath = hdr_imaging_basepath
+
         try:
             if (hostname in LOCAL_DEV_HOSTNAMES) and op.exists("/media/dustin/Seagate8TB/hetdex/hdr2/imaging/"):
                 print("***** using /media/dustin/Seagate8TB/hetdex/hdr2/imaging/ for base imaging *****")
@@ -478,7 +483,8 @@ def select_hdr_version(version):
             HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
             HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
 
-            HSC_SSP_BASE_PATH = op.join(hdr_imaging_basepath,"hsc_ssp")
+            #these are always remote, regardless of the workstation
+            HSC_SSP_BASE_PATH = op.join(remote_imaging_basepath,"hsc_ssp")
             HSC_SSP_CAT_PATH = HSC_SSP_BASE_PATH
             HSC_SSP_IMAGE_PATH = HSC_SSP_BASE_PATH #cosmos/g, cosmos/r, w01/g , w01/r, etc ....)
 

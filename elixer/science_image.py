@@ -329,8 +329,13 @@ class science_image():
             self.build_wcs_manually()
         else:
             try:
-                #self.wcs = WCS(header=self.hdulist[self.wcs_idx].header,fobj=self.image_location)
-                self.wcs = WCS(self.image_location,relax = astropy.wcs.WCSHDR_CD00i00j | astropy.wcs.WCSHDR_PC00i00j)
+                if (self.wcs_idx is not None) and (self.wcs_idx > 0):
+                    f = fits.open(self.image_location)
+                    self.wcs = WCS(f[self.wcs_idx].header,relax = astropy.wcs.WCSHDR_CD00i00j | astropy.wcs.WCSHDR_PC00i00j)
+                    f.close()
+                else:
+                    #self.wcs = WCS(header=self.hdulist[self.wcs_idx].header,fobj=self.image_location)
+                    self.wcs = WCS(self.image_location,relax = astropy.wcs.WCSHDR_CD00i00j | astropy.wcs.WCSHDR_PC00i00j)
             except:
                 log.error("Unable to use WCS constructor. Will attempt to build manually.", exc_info=True)
                 self.build_wcs_manually()
@@ -645,7 +650,27 @@ class science_image():
 
             if not G.BIG_ENDIAN:
                 data = cutout.data.byteswap().newbyteorder()
-            bkg = sep.Background(data)
+            else:
+                data = cutout.data
+            try:
+                bkg = sep.Background(data)
+            except Exception as e:
+                if type(e) == ValueError:
+                    log.debug("sep.Background() value error. May be ENDIAN issue. Swapping...")
+                    try:
+                        if not G.BIG_ENDIAN:
+                            #the inverse of the above assignment (for zipped data the decompression may already handle the
+                            #flip so doing it again would have put it in the wrong ENDIAN order
+                            data =  cutout.data
+                        else:
+                            data = cutout.data.byteswap().newbyteorder()
+
+                        bkg = sep.Background(data)
+
+                    except:
+                        log.warning("Exception in science_image::find_sep_objects",exc_info=True)
+                        return img_objects, None
+
             data_sub = data - bkg
             data_err = bkg.globalrms #use the background RMS as the error (assume sky dominated)
             objects = sep.extract(data_sub, 1.5, err=bkg.globalrms)

@@ -451,14 +451,18 @@ def parse_commandline(auto_force=False):
     # parser.add_argument('--sky_residual', help='Toggle [ON] shot-specific sky residual subtraction for forced-extracions.',
     #                     required=False, action='store_true', default=False)
 
-    if G.LAUNCH_PDF_VIEWER is not None:
-        parser.add_argument('--viewer', help='Launch the global_config.py set PDF viewer on completion', required=False,
+
+    parser.add_argument('--viewer', help='Launch the global_config.py set PDF viewer on completion', required=False,
                             action='store_true', default=False)
 
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
 
     args = parser.parse_args()
+
+
+    if G.LAUNCH_PDF_VIEWER is None:
+        args.viewer = False
 
     if args.version:
         print(f"ELiXer version {G.__version__}")

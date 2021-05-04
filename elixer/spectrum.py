@@ -4782,7 +4782,8 @@ class Spectrum:
                     if s.score < G.MULTILINE_MIN_SOLUTION_SCORE and oiii_lines:
                         log.info(f"Solution: {s.name} score {s.score} raised to minimum {G.MULTILINE_MIN_SOLUTION_SCORE} for 4959+5007")
                         s.score = G.MULTILINE_MIN_SOLUTION_SCORE
-                        s.prob_noise = min(s.prob_noise,0.5/boost)
+                        if boost > 0:
+                            s.prob_noise = min(s.prob_noise,0.5/boost)
 
                     per_line_total_score += s.score
         else: #still check for invalid solutions (no valid central emission line)
