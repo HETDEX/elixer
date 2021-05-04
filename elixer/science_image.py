@@ -1289,7 +1289,7 @@ class science_image():
                     #         return cutout, counts, return_mag, return_radius
 
 
-            #TODO: !!!!!
+
             cutout, counts, mag, radius, details = self.get_circular_aperture_photometry(cutout,ra,dec,error,mag_func,
                                                     position,image,do_sky_subtract,sky_image,
                                                     sky_inner_radius,sky_outer_radius,aperture,

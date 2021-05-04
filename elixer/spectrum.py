@@ -3342,15 +3342,18 @@ class Spectrum:
         #todo: set a true upper limit (2-3x or so)
 
         upper_limit = 3.0
-        if consistency_score < -3:
-            consistency_score = 0.0
+        lower_limit = 0.2
+        if consistency_score < -4:
+            #consistency_score = 0.0
+            log.info(f"Consistency score penalty limited to {lower_limit} with score {consistency_score}")
+            consistency_score = lower_limit #limit to 0.2
         elif consistency_score < 0:
             #already negative so, a -1 --> 1/2, -2 --> 1/3 and so on
             consistency_score = -1./(consistency_score-1.)
         else:
             consistency_score += 1.0
 
-        return min(max(consistency_score, 0.0), upper_limit)
+        return min(max(consistency_score, lower_limit), upper_limit) #don't let it be zero
 
     # # actually impemented in hetdex.py DetObj.check_for_meteor() as it is more convenient to do so there
     # # were the individual exposures and fibers are readily available
@@ -4779,7 +4782,7 @@ class Spectrum:
 
                     per_line_total_score -= s.score
                     s.score =  boost * s.score
-                    if s.score < G.MULTILINE_MIN_SOLUTION_SCORE and oiii_lines:
+                    if s.score < G.MULTILINE_MIN_SOLUTION_SCORE and oiii_lines and boost > 0.2:
                         log.info(f"Solution: {s.name} score {s.score} raised to minimum {G.MULTILINE_MIN_SOLUTION_SCORE} for 4959+5007")
                         s.score = G.MULTILINE_MIN_SOLUTION_SCORE
                         if boost > 0:
