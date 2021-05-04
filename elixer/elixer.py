@@ -4391,11 +4391,8 @@ def main():
                     delete_report_parts(args.name)
 
 
-
-
             if G.BUILD_HDF5_CATALOG: #change to HDF5 catalog
                 try:
-
                     #check flags ... only get recorded in HDF5, so only do that here
                     for hd in hd_list:
                         for e in hd.emis_list:

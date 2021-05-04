@@ -1200,8 +1200,15 @@ class Catalog:
         self.add_bid_entry(fig)
 
         # get zoo style cutout as png
-        if G.ZOO_MINI and (detobj is not None):
+        if G.ZOO_MINI and (detobj is not None) and (stacked_cutout is not None):
             plt.figure()
+
+            try:
+                if sci is None:
+                    sci = science_image.science_image()
+            except:
+                sci = science_image.science_image()
+
             pix_size = sci.calc_pixel_size(stacked_cutout.wcs)
             ext = stacked_cutout.shape[0] * pix_size / 2.
             #add_fiber_positions also takes care of the north box and the center

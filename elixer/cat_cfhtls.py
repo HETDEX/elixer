@@ -605,23 +605,51 @@ class CFHTLS(cat_base.Catalog):
         elif len(keys) == 1: #found exactly one
             tile = keys[0] #remember tile is a string ... there can be only one
         elif len(keys) > 1: #find the best one
-            log.info("Multiple overlapping tiles %s. Sub-selecting tile with maximum angular coverage around target." %keys)
-            min = 9e9
+            max_dist = 0
             #we don't have the actual corners anymore, so just assume a rectangle
             #so there are 2 of each min, max coords. Only need the smallest distance so just sum one
-            #these still have the '?' for the filter
-
-            #use the deep imaging if that is available, otherwise, choose the more central tile
             if "D3.?.fits" in keys:
                 tile = "D3.?.fits"
             else:
                 for k in keys:
                     adjusted_key = k.replace('?','r')
-                    sqdist = (ra-self.Tile_Dict[adjusted_key]['RA_min'])**2 + (dec-self.Tile_Dict[adjusted_key]['Dec_min'])**2 + \
-                             (ra-self.Tile_Dict[adjusted_key]['RA_max'])**2 + (dec-self.Tile_Dict[adjusted_key]['Dec_max'])**2
-                    if sqdist < min:
-                        min = sqdist
+
+                    #should not be negative, but could be?
+                    #in any case, the min is the smallest distance to an edge in RA and Dec
+                    inside_ra = min((ra-self.Tile_Dict[adjusted_key]['RA_min']),(self.Tile_Dict[adjusted_key]['RA_max']-ra))
+                    inside_dec = min((dec-self.Tile_Dict[adjusted_key]['Dec_min']),(self.Tile_Dict[adjusted_key]['Dec_max']-dec))
+
+                    edge_dist = min(inside_dec,inside_ra)
+                    #we want the tile with the largest minium edge distance
+
+                    if edge_dist > max_dist and op.exists(self.Tile_Dict[adjusted_key]['path']):
+                        max_dist = edge_dist
                         tile = k
+
+            # log.info("Multiple overlapping tiles %s. Sub-selecting tile with maximum angular coverage around target." %keys)
+            # min = 9e9
+            # #we don't have the actual corners anymore, so just assume a rectangle
+            # #so there are 2 of each min, max coords. Only need the smallest distance so just sum one
+            # #these still have the '?' for the filter
+            #
+            # #use the deep imaging if that is available, otherwise, choose the more central tile
+            # if "D3.?.fits" in keys:
+            #     tile = "D3.?.fits"
+            # else:
+            #     for k in keys:
+            #         adjusted_key = k.replace('?','r')
+            #
+            #
+            #
+            #
+            #
+            #
+            #
+            #         sqdist = (ra-self.Tile_Dict[adjusted_key]['RA_min'])**2 + (dec-self.Tile_Dict[adjusted_key]['Dec_min'])**2 + \
+            #                  (ra-self.Tile_Dict[adjusted_key]['RA_max'])**2 + (dec-self.Tile_Dict[adjusted_key]['Dec_max'])**2
+            #         if sqdist < min:
+            #             min = sqdist
+            #             tile = k
 
         else: #really?? len(keys) < 0 : this is just a sanity catch
             log.error("ERROR! len(keys) < 0 in cat_cfhtls::find_target_tile.")

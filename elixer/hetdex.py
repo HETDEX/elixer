@@ -1030,6 +1030,8 @@ class DetObj:
                 self.color_ug = compute_color(self.best_img_u_mag,self.best_img_g_mag)
                 self.color_gr = compute_color(self.best_img_g_mag,self.best_img_r_mag)
             else: #we will use the DEX-g (not ideal, but better than nothing
+                if self.best_gmag_unc is None:
+                    self.best_gmag_unc = 0
 
                 if self.best_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT:
                     g_substitue = [self.best_gmag, self.best_gmag-self.best_gmag_unc, self.best_gmag+self.best_gmag_unc]

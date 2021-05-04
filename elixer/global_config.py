@@ -855,13 +855,13 @@ INCLUDE_ALL_AMPS = True #ie. if true, ignore the bad amp list
 RECOVERY_RUN = False
 
 ALLOW_EMPTY_IMAGE = False #do not return cutout if it is empty or a simple gradient (essentially, if it has no data)
-FRAC_UNIQUE_PIXELS_MINIMUM = 0.70 #bare minumum unique pixels (no other condition included)
-FRAC_UNIQUE_PIXELS_NOT_EMPTY = 0.75 #less than --> empty (or bad) (combined with FRAC_DUPLICATE_PIXELS)
+FRAC_UNIQUE_PIXELS_MINIMUM = 0.70 #0.7 bare minumum unique pixels (no other condition included)
+FRAC_UNIQUE_PIXELS_NOT_EMPTY = 0.75 #.75 less than --> empty (or bad) (combined with FRAC_DUPLICATE_PIXELS)
 FRAC_DUPLICATE_PIXELS = 0.20 #if 0.25 of pixels are all the same (or in the same few) this may be bad
 #this only counts up to the top 3 values, so if there are a lot of duplicate pixel values (but only in sets of a few)
 #this does not trigger
 FRAC_UNIQUE_PIXELS_AUTOCORRELATE = 0.75 #less than --> empty (with an autocorrelation)
-FRAC_NONZERO_PIXELS = 0.66 #less than --> empty
+FRAC_NONZERO_PIXELS = 0.66 #0.66 #less than --> empty
 
 #note: Pan-STARRS is prioritized over SDSS (since Pan-STARRS is deeper 23.3 vs 22.0)
 DECALS_WEB_ALLOW = True #if no other catalogs match, try DECaLS as online query (default if not dispatch mode)
