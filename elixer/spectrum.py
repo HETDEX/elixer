@@ -4726,9 +4726,12 @@ class Spectrum:
                         continue
 
                 # the pair of lines being checked are 4959 and 5007 (or the solution contains those pair of lines)
+                # or with OII or H_beta
                 try:
                     if (np.isclose(s.central_rest,4959,atol=1.0) or np.isclose(s.central_rest,5007,atol=1.0)) and \
-                        np.any([(np.isclose(x.w_rest,4959,atol=1.0) or np.isclose(x.w_rest,5007,atol=1.0)) and abs(x.fit_dx0) < 2.0 for x in s.lines]):
+                        ( np.any([(np.isclose(x.w_rest,4959,atol=1.0) or np.isclose(x.w_rest,5007,atol=1.0)) and abs(x.fit_dx0) < 2.0 for x in s.lines]) or \
+                          np.any([(np.isclose(x.w_rest,G.OII_rest,atol=1.0) or np.isclose(x.w_rest,G.OII_rest,atol=1.0)) and abs(x.fit_dx0) < 2.0 for x in s.lines]) or \
+                          np.any([(np.isclose(x.w_rest,4861,atol=1.0) or np.isclose(x.w_rest,4861,atol=1.0)) and abs(x.fit_dx0) < 2.0 for x in s.lines])):
                         oiii_lines = True
                     else:
                         oiii_lines = False
@@ -4782,13 +4785,24 @@ class Spectrum:
 
                     per_line_total_score -= s.score
                     s.score =  boost * s.score
-                    if s.score < G.MULTILINE_MIN_SOLUTION_SCORE and oiii_lines and boost > 0.2:
+                    #!!! do not impose a boost minium limit on the check for oiii_lines ... you CAN get OIII 5007 and
+                    #not a significant OII line, or HBeta, so the boost criteria may be << 1 and that is okay
+                    if s.score < G.MULTILINE_MIN_SOLUTION_SCORE and oiii_lines:# and boost > 0.2:
                         log.info(f"Solution: {s.name} score {s.score} raised to minimum {G.MULTILINE_MIN_SOLUTION_SCORE} for 4959+5007")
                         s.score = G.MULTILINE_MIN_SOLUTION_SCORE
                         if boost > 0:
                             s.prob_noise = min(s.prob_noise,0.5/boost)
 
                     per_line_total_score += s.score
+                elif ((s.central_rest == 5007) or (s.central_rest == 4959)) and oiii_lines:
+                    if s.score < G.MULTILINE_MIN_SOLUTION_SCORE:# and boost > 0.2:
+                        log.info(f"Solution: {s.name} score {s.score} raised to minimum {G.MULTILINE_MIN_SOLUTION_SCORE} for including possible OIII")
+                        s.score = G.MULTILINE_MIN_SOLUTION_SCORE
+                        if boost > 0:
+                            s.prob_noise = min(s.prob_noise,0.5)
+
+                    per_line_total_score += s.score
+
         else: #still check for invalid solutions (no valid central emission line)
             if self.central_eli is None:
                 for s in solutions:
