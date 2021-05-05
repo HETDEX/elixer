@@ -2737,99 +2737,104 @@ class DetObj:
         #todo: not often, but if we have u-band, would expect it to be faint
         #for g:  24.5+ increasingly favors LAE
         #
-        if self.best_img_g_mag is not None:
-            if counterpart_filter == 'g':
-                w = 0.25
-            else:
-                w = 0.5
-
-            ew = 999
-            unc = 0
-
-            if self.best_eqw_gmag_obs is not None:
-                ew = self.best_eqw_gmag_obs / (self.w /G.LyA_rest)
-                if self.best_eqw_gmag_obs_unc is not None:
-                    unc = self.best_eqw_gmag_obs_unc  / (self.w /G.LyA_rest)
-
-
-            if (ew-unc) < G.LAE_EW_MAG_TRIGGER_MAX and (ew+unc) > G.LAE_EW_MAG_TRIGGER_MIN:
-                w = w * mag_gaussian_weight(G.LAE_G_MAG_ZERO,self.best_img_g_mag[0],
-                                        self.best_img_g_mag[1],self.best_img_g_mag[2])
-                if self.best_img_g_mag[0] < G.LAE_G_MAG_ZERO:
-                    likelihood.append(0.0)
+        try:
+            if self.best_img_g_mag is not None and self.best_img_g_mag[0] is not None:
+                if counterpart_filter == 'g':
+                    w = 0.25
                 else:
-                    likelihood.append(1.0)
-                weight.append(w)
-                var.append(1)
-                prior.append(base_assumption)
-                log.info(f"Aggregate Classification: aperture g-mag vote {self.best_img_g_mag[0]:0.2f} : lk({likelihood[-1]}) "
-                         f"weight({weight[-1]})")
-        elif self.best_gmag is not None:
-            g = min(self.best_gmag,G.HETDEX_CONTINUUM_MAG_LIMIT)
-            g_bright = None
-            g_faint = None
-            try:
-                if g == G.HETDEX_CONTINUUM_MAG_LIMIT:
-                    g_bright = g
-                else:
-                    g_bright = g - self.best_gmag_unc
-                g_faint = g + self.best_gmag_unc
-            except:
-                pass
+                    w = 0.5
 
-            ew = 999
-            unc = 0
-            if self.best_eqw_gmag_obs is not None:
-                ew = self.best_eqw_gmag_obs / (self.w / G.LyA_rest)
-                if self.best_eqw_gmag_obs_unc is not None:
-                    unc = self.best_eqw_gmag_obs_unc / (self.w / G.LyA_rest)
-
-            if (ew-unc) < G.LAE_EW_MAG_TRIGGER_MAX and (ew+unc) > G.LAE_EW_MAG_TRIGGER_MIN:
-                w = 0.25 * mag_gaussian_weight(G.LAE_G_MAG_ZERO,g,g_bright,g_faint)
-
-                if g < G.LAE_G_MAG_ZERO:
-                    likelihood.append(0.0)
-                else:
-                    likelihood.append(1.0)
-                weight.append(w)
-                var.append(1)
-                prior.append(base_assumption)
-                log.info(f"Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                         f"weight({weight[-1]})")
-
-
-        if self.best_img_r_mag is not None:
-            # if counterpart_filter == 'r':
-            #    w = 0.25
-            # else:
-            #    w = 0.5
-
-            w = 0.5
-
-            ew = 999
-            unc = 0
-            cont = SU.mag2cgs(self.best_img_r_mag[0],6500.0)
-            cont_unc = None
-            if self.best_img_r_mag[1] is not None:
-                cont_unc = abs(cont - SU.mag2cgs(self.best_img_r_mag[1],6500.0))
-            ew,unc = SU.lya_ewr(self.estflux,self.estflux_unc,self.w,'r',cont,cont_unc)
-            if np.isnan(ew):
                 ew = 999
-            if np.isnan(unc):
                 unc = 0
 
-            if (ew-unc) < G.LAE_EW_MAG_TRIGGER_MAX and (ew+unc)> G.LAE_EW_MAG_TRIGGER_MIN:
-                w = w * mag_gaussian_weight(G.LAE_R_MAG_ZERO,self.best_img_r_mag[0],
-                                        self.best_img_r_mag[1],self.best_img_r_mag[2])
-                if self.best_img_r_mag[0] < G.LAE_R_MAG_ZERO:
-                    likelihood.append(0.0)
-                else:
-                    likelihood.append(1.0)
-                weight.append(w)
-                var.append(1)
-                prior.append(base_assumption)
-                log.info(f"Aggregate Classification: aperture r-mag vote {self.best_img_r_mag[0]:0.2f} : lk({likelihood[-1]}) "
-                         f"weight({weight[-1]})")
+                if self.best_eqw_gmag_obs is not None:
+                    ew = self.best_eqw_gmag_obs / (self.w /G.LyA_rest)
+                    if self.best_eqw_gmag_obs_unc is not None:
+                        unc = self.best_eqw_gmag_obs_unc  / (self.w /G.LyA_rest)
+
+
+                if (ew-unc) < G.LAE_EW_MAG_TRIGGER_MAX and (ew+unc) > G.LAE_EW_MAG_TRIGGER_MIN:
+                    w = w * mag_gaussian_weight(G.LAE_G_MAG_ZERO,self.best_img_g_mag[0],
+                                            self.best_img_g_mag[1],self.best_img_g_mag[2])
+                    if self.best_img_g_mag[0] < G.LAE_G_MAG_ZERO:
+                        likelihood.append(0.0)
+                    else:
+                        likelihood.append(1.0)
+                    weight.append(w)
+                    var.append(1)
+                    prior.append(base_assumption)
+                    log.info(f"Aggregate Classification: aperture g-mag vote {self.best_img_g_mag[0]:0.2f} : lk({likelihood[-1]}) "
+                             f"weight({weight[-1]})")
+            elif self.best_gmag is not None:
+                g = min(self.best_gmag,G.HETDEX_CONTINUUM_MAG_LIMIT)
+                g_bright = None
+                g_faint = None
+                try:
+                    if g == G.HETDEX_CONTINUUM_MAG_LIMIT:
+                        g_bright = g
+                    else:
+                        g_bright = g - self.best_gmag_unc
+                    g_faint = g + self.best_gmag_unc
+                except:
+                    pass
+
+                ew = 999
+                unc = 0
+                if self.best_eqw_gmag_obs is not None:
+                    ew = self.best_eqw_gmag_obs / (self.w / G.LyA_rest)
+                    if self.best_eqw_gmag_obs_unc is not None:
+                        unc = self.best_eqw_gmag_obs_unc / (self.w / G.LyA_rest)
+
+                if (ew-unc) < G.LAE_EW_MAG_TRIGGER_MAX and (ew+unc) > G.LAE_EW_MAG_TRIGGER_MIN:
+                    w = 0.25 * mag_gaussian_weight(G.LAE_G_MAG_ZERO,g,g_bright,g_faint)
+
+                    if g < G.LAE_G_MAG_ZERO:
+                        likelihood.append(0.0)
+                    else:
+                        likelihood.append(1.0)
+                    weight.append(w)
+                    var.append(1)
+                    prior.append(base_assumption)
+                    log.info(f"Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                             f"weight({weight[-1]})")
+        except:
+            pass
+
+        try:
+            if self.best_img_r_mag is not None and self.best_img_r_mag[0] is not None:
+                # if counterpart_filter == 'r':
+                #    w = 0.25
+                # else:
+                #    w = 0.5
+
+                w = 0.5
+
+                ew = 999
+                unc = 0
+                cont = SU.mag2cgs(self.best_img_r_mag[0],6500.0)
+                cont_unc = None
+                if self.best_img_r_mag[1] is not None:
+                    cont_unc = abs(cont - SU.mag2cgs(self.best_img_r_mag[1],6500.0))
+                ew,unc = SU.lya_ewr(self.estflux,self.estflux_unc,self.w,'r',cont,cont_unc)
+                if np.isnan(ew):
+                    ew = 999
+                if np.isnan(unc):
+                    unc = 0
+
+                if (ew-unc) < G.LAE_EW_MAG_TRIGGER_MAX and (ew+unc)> G.LAE_EW_MAG_TRIGGER_MIN:
+                    w = w * mag_gaussian_weight(G.LAE_R_MAG_ZERO,self.best_img_r_mag[0],
+                                            self.best_img_r_mag[1],self.best_img_r_mag[2])
+                    if self.best_img_r_mag[0] < G.LAE_R_MAG_ZERO:
+                        likelihood.append(0.0)
+                    else:
+                        likelihood.append(1.0)
+                    weight.append(w)
+                    var.append(1)
+                    prior.append(base_assumption)
+                    log.info(f"Aggregate Classification: aperture r-mag vote {self.best_img_r_mag[0]:0.2f} : lk({likelihood[-1]}) "
+                             f"weight({weight[-1]})")
+        except:
+            pass
 
         #basic magnitude sanity checks
         if lower_mag < 18.0: #the VERY BRIGHTEST QSOs in the 2 < z < 4 are 17-18 mag
