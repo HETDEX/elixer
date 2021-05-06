@@ -5189,7 +5189,7 @@ class DetObj:
                     central_fiber = self.fibers[np.argmax([x.raw_weight for x in self.fibers])]
                 except:
                     log.debug("Could not locate central fiber")
-                    return mag
+                    return gmag
 
             try:
                 if ffsky:
