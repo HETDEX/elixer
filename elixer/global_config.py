@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.11.0a11'
+__version__ = '1.11.0a12'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -935,6 +935,8 @@ LAE_R_MAG_ZERO = 24.3 #somewhat empirical ... also using -0.3 mag from g-band pe
 LAE_MAG_SIGMA = 0.5 #building a Gaussian as probablilty that mag > LAE_X_MAG_ZERO is an LAE
 LAE_EW_MAG_TRIGGER_MAX = 25.0 #if the associated EW_rest(LyA) is less than this value, then look at the magnitudes
 LAE_EW_MAG_TRIGGER_MIN = 15.0 #if the associated EW_rest(LyA) is greater than this value, then look at the magnitudes
+
+SEP_FIXED_APERTURE_RADIUS = 1.5 #RADIUS in arcsec ... used at the barycenter position of SEP objects
 
 ##################################
 #Detection Flags (DF) (32 bit)

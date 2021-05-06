@@ -256,6 +256,14 @@ class ExtractedObjects(tables.IsDescription):
     dist_curve = tables.Float32Col(dflt=UNSET_FLOAT)
     dist_baryctr = tables.Float32Col(dflt=UNSET_FLOAT)
     image_flags = tables.Int64Col(dflt=0) #separate from the aperture flags, these are ties to the image reduction pipeline
+
+    fixed_aper_radius = tables.Float32Col(dflt=UNSET_FLOAT)
+    fixed_aper_mag = tables.Float32Col(dflt=UNSET_FLOAT)
+    fixed_aper_mag_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    fixed_aper_flux_cts = tables.Float32Col(dflt=UNSET_FLOAT)
+    fixed_aper_flux_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    fixed_aper_flags = tables.Int32Col(dflt=0)
+
     # flag ... bit mask
     # 01 sep.OBJ_MERGED	      object is result of deblending
     # 02 sep.OBJ_TRUNC	      object is truncated at image boundary
@@ -1092,6 +1100,17 @@ def append_entry(fileh,det,overwrite=False):
                 try:
                     if d['mag_limit'] is not None:
                         row['image_depth_mag'] = d['mag_limit']
+                except:
+                    pass
+
+                try:
+                    if 'fixed_aper_flux_cts' in s.keys():
+                        row['fixed_aper_radius'] = s['fixed_aper_radius']
+                        row['fixed_aper_flux_cts'] = s['fixed_aper_flux_cts']
+                        row['fixed_aper_flux_err'] = s['fixed_aper_flux_cts_err']
+                        row['fixed_aper_mag']=s['fixed_aper_mag']
+                        row['fixed_aper_mag_err'] = s['fixed_aper_mag_err']
+                        row['fixed_aper_flags'] = s['fixed_aper_flags']
                 except:
                     pass
 
@@ -2424,6 +2443,7 @@ def upgrade_0p3p0_to_0p3p1(oldfile_handle,newfile_handle):
     #add flags column to Detections
     #add review column to Detections
     #add selected column to CatalogMatch
+    #add several columns to ExtracteObjects (fixed_aper_xxx)
 
     :param oldfile_handle:
     :param newfile_handle:
@@ -2489,6 +2509,16 @@ def upgrade_0p3p0_to_0p3p1(oldfile_handle,newfile_handle):
 
         #no change to ExtractedObjects
         etb_new.append(etb_old.read())
+
+        for old_row in etb_old.read():
+            new_row = etb_new.row
+            for n in etb_new.colnames:
+                try: #can be missing name (new columns)
+                    new_row[n] = old_row[n]
+                except:
+                    log.debug("ExtractedObjects column failed (%s). Default set."%n)
+            new_row.append()
+
         etb_new.flush()
 
         #no change to ElixerApertures

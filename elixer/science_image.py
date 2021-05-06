@@ -735,6 +735,33 @@ class science_image():
                 d['flags'] = flag
                 d['selected'] = False
 
+                #And now get the flux for a fixed 2" diameter aperture
+                try:
+                    # SEP_FIXED_APERTURE_RADIUS is in arcsec and we need pixels, so divide by pixel_size in arcsec/pixel
+                    radius = G.SEP_FIXED_APERTURE_RADIUS / self.pixel_size
+                    # now, get the flux
+                    flux, fluxerr, flag = sep.sum_circle(data_sub, obj['x'], obj['y'],
+                                                         radius, subpix=1,err=data_err)
+                except:
+                    log.warning("Exception with source extractor",exc_info=True)
+                    continue
+
+                try:  # flux, fluxerr, flag may be ndarrays but of size zero (a bit weird)
+                    flux = float(flux)
+                    fluxerr = float(fluxerr)
+                    flag = int(flag)
+                except:
+                    log.debug("Exception casting results from sep.sum", exc_info=True)
+
+                d['fixed_aper_radius'] = G.SEP_FIXED_APERTURE_RADIUS
+                d['fixed_aper_flux_cts'] = flux
+                d['fixed_aper_flux_cts_err'] = fluxerr
+                d['fixed_aper_flags'] = flag
+                d['fixed_aper_mag'] = None
+                d['fixed_aper_mag_bright'] = None
+                d['fixed_aper_mag_faint'] = None
+                d['fixed_aper_mag_err'] = None
+
                 img_objects.append(d)
 
                 if success:  # this is outside
@@ -1213,7 +1240,33 @@ class science_image():
 
                     #get the mag for all
                     for sobj in source_objects:
-                    #selected_obj_idx = sep_info[0]
+
+                        #start with the the fixed aperture (since we re-use the varaiables: counts, etc later
+                        #from the elliptical apertures
+                        if 'fixed_aper_flux_cts' in sobj.keys():
+                            counts = sobj['fixed_aper_flux_cts'] #sep_info[1]
+                            count_err = sobj['fixed_aper_flux_cts_err'] #sep_info[2]
+
+                            mag, mag_faint, mag_bright,mag_err = None, None, None, None
+                            try:
+                                mag = mag_func(counts, cutout, self.headers)
+                                mag_faint = mag_func(counts-count_err, cutout, self.headers)
+                                mag_bright = mag_func(counts+count_err, cutout, self.headers)
+                                if mag_faint < 99:
+                                    mag_err = max(mag_faint - mag, mag - mag_bright)
+                                else:
+                                    mag_err = mag - mag_bright
+                            except:
+                                log.error("Exception calling mag_func.",exc_info=True)
+
+                            sobj['fixed_aper_mag'] = mag
+                            sobj['fixed_aper_mag_faint'] = mag_faint
+                            sobj['fixed_aper_mag_bright'] = mag_bright
+                            sobj['fixed_aper_mag_err'] = mag_err
+
+
+                        #and now the elliptical, fitted aperture
+                        #selected_obj_idx = sep_info[0]
                         counts = sobj['flux_cts'] #sep_info[1]
                         count_err = sobj['flux_cts_err'] #sep_info[2]
 
@@ -1233,6 +1286,10 @@ class science_image():
                         sobj['mag_faint'] = mag_faint
                         sobj['mag_bright'] = mag_bright
                         sobj['mag_err'] = mag_err
+
+
+
+
 
                         try:
                             #this assumes lower-left is 0,0 but the object x,y uses center as 0,0

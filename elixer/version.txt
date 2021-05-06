@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.11.0a12 [2021-05-05]
+* Added fixed aperture photometry on all SEP objects (radius set in global_config.py SEP_FIXED_APERTURE_RADIUS)
+  + includes new columns ("fixed_aper_xxx") in the ExtractedObjects table
+
+
 1.11.0a11 [2021-04-28]
 * Changed global LyA rest from 1216AA to 1215.67AA, OII from 3727.0 to 3727.8
 * Add a correction for r-mag to g-mag based on an assumed UV Beta slope (G.R_BAND_UV_BETA_SLOPE, -2.4) for using r-band
