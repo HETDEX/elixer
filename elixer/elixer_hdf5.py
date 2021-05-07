@@ -640,9 +640,15 @@ def append_entry(fileh,det,overwrite=False):
         row['wavelength_obs'] = det.w
         row['wavelength_obs_err'] = det.w_unc
 
-        if det.estflux_h5 is not None:
-            row['flux_line'] = det.estflux_h5 * G.HETDEX_FLUX_BASE_CGS
-            row['flux_line_err'] = det.estflux_h5_unc * G.HETDEX_FLUX_BASE_CGS
+        if (det.estflux_h5 is not None) and (det.estflux_h5 != det.estflux):
+            #usually does not have the 10^-17 scale
+            #sanity check
+            if det.estflux_h5 > 1e-10:
+                row['flux_line'] = det.estflux_h5 * G.HETDEX_FLUX_BASE_CGS
+                row['flux_line_err'] = det.estflux_h5_unc * G.HETDEX_FLUX_BASE_CGS
+            else:
+                row['flux_line'] = det.estflux_h5
+                row['flux_line_err'] = det.estflux_h5_unc
         else:
             row['flux_line'] = det.estflux
             row['flux_line_err'] = det.estflux_unc

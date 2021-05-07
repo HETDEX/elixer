@@ -5518,7 +5518,7 @@ class DetObj:
                     self.snr_unc = 0.0 #row['sn_err']
 
                     self.sigma = self.spec_obj.central_eli.fit_sigma #row['linewidth']  # AA
-                    self.sigma_unc = 0.0 #row['linewidth_err']
+                    self.sigma_unc = self.spec_obj.central_eli.fit_sigma_err #0.0 #row['linewidth_err']
                     if (self.sigma_unc is None) or (self.sigma_unc < 0.0):
                         self.sigma_unc = 0.0
                     self.fwhm = 2.35 * self.sigma
