@@ -5236,8 +5236,8 @@ class DetObj:
                 return
 
             # returned from get_spectra as flux density (per AA), so multiply by wavebin width to match the HDF5 reads
-            self.sumspec_flux = np.nan_to_num(apt['spec'][0], nan=0.000) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
-            self.sumspec_fluxerr = np.nan_to_num(apt['spec_err'][0], nan=0.000) * G.FLUX_WAVEBIN_WIDTH
+            self.sumspec_flux = np.nan_to_num(apt['spec'][0]) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
+            self.sumspec_fluxerr = np.nan_to_num(apt['spec_err'][0]) * G.FLUX_WAVEBIN_WIDTH
             self.sumspec_wavelength = np.array(apt['wavelength'][0])
 
 
@@ -5251,7 +5251,7 @@ class DetObj:
 
             #get the per shot sky residual (if configured to do so)
             if G.SUBTRACT_HETDEX_SKY_RESIDUAL:
-                residual_spec, residual_spec_err = shot_sky.get_shot_sky_residual(self.survey_shotid)
+                residual_spec, residual_spec_err = shot_sky.get_shot_sky_residual(self.survey_shotid) #this is as a single averaged fiber
 
             if not self.w:
 

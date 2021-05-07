@@ -187,9 +187,8 @@ class SyntheticObservation():
 
                         if len(apt) == 1: #should be a single fiber
                             # print(f"No spectra for ra ({self.ra}) dec ({self.dec})")
-                            fiber.d_fiber_sumspec_flux = np.nan_to_num(apt['spec'][0],
-                                                              nan=0.000) * G.FLUX_WAVEBIN_WIDTH  # in 1e-17 units (like HDF5 read)
-                            fiber.d_fiber_sumspec_fluxerr = np.nan_to_num(apt['spec_err'][0], nan=0.000) * G.FLUX_WAVEBIN_WIDTH
+                            fiber.d_fiber_sumspec_flux = np.nan_to_num(apt['spec'][0]) * G.FLUX_WAVEBIN_WIDTH  # in 1e-17 units (like HDF5 read)
+                            fiber.d_fiber_sumspec_fluxerr = np.nan_to_num(apt['spec_err'][0]) * G.FLUX_WAVEBIN_WIDTH
 
                            # self.sumspec_wavelength = np.array(apt['wavelength'][0])
                         else:
