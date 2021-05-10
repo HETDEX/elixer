@@ -1,9 +1,10 @@
 changes to elixer by version
 
-1.11.0a12 [2021-05-05]
+1.11.0a12 [2021-05-10]
 * Added fixed aperture photometry on all SEP objects (radius set in global_config.py SEP_FIXED_APERTURE_RADIUS)
   + includes new columns ("fixed_aper_xxx") in the ExtractedObjects table
-
+* Add science_image check for "empty" or "bad" for stacking neighborhood cutouts. Only stack images of the same, "best"
+ (largest) pixel counts (e.g. from the same instrument).
 
 1.11.0a11 [2021-04-28]
 * Changed global LyA rest from 1216AA to 1215.67AA, OII from 3727.0 to 3727.8
