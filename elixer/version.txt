@@ -1,5 +1,9 @@
 changes to elixer by version
 
+
+1.11.0 [2021-05-11]
+* promoted to release for HDR2.1.3
+
 1.11.0a12 [2021-05-11]
 * Added fixed aperture photometry on all SEP objects (radius set in global_config.py SEP_FIXED_APERTURE_RADIUS)
   + includes new columns ("fixed_aper_xxx") in the ExtractedObjects table
