@@ -1164,8 +1164,26 @@ class Catalog:
                                                                        cx, cy, cutout_ewr, cutout_plae)
 
                                 if detobj is not None:
-                                    detobj.set_best_filter_mag(filter,the_entry['details']['mag'],
-                                                               the_entry['details']['mag_bright'],the_entry['details']['mag_faint'])
+                                    try:
+                                        #using the fixed aperture (usually either 2" diam or 3" diam)
+                                        #on the seleccted sep obj
+                                        sep_idx = the_entry['details']['sep_obj_idx']
+                                        sep_obj = the_entry['details']['sep_objects'][sep_idx]
+
+                                        detobj.set_best_filter_mag(band = filter,
+                                                                   mag = sep_obj['fixed_aper_mag'],
+                                                                   mag_bright = sep_obj['fixed_aper_mag_bright'],
+                                                                   mag_faint = sep_obj['fixed_aper_mag_faint'],
+                                                                   ra= sep_obj['ra'],
+                                                                   dec = sep_obj['dec'],
+                                                                   catalog=the_entry['details']['catalog_name']
+                                                                   )
+                                    except:
+                                        log.info(f"Unable to set best filter mag for fixed filter")
+
+
+                                    # detobj.set_best_filter_mag(filter,the_entry['details']['mag'],
+                                    #                            the_entry['details']['mag_bright'],the_entry['details']['mag_faint'])
                             else:
 
                                 try:
@@ -1176,9 +1194,11 @@ class Catalog:
                                 self.add_aperture_position(plt, the_entry['details']['radius'],
                                                            the_entry['details']['mag'],
                                                            cx, cy, cutout_ewr, cutout_plae,distance_to_center)
-                                if detobj is not None:
-                                    detobj.set_best_filter_mag(filter,the_entry['details']['mag'],
-                                                       the_entry['details']['mag_bright'],the_entry['details']['mag_faint'])
+
+                                #no sep detection so no reliable color
+                                # if detobj is not None:
+                                #     detobj.set_best_filter_mag(filter,the_entry['details']['mag'],
+                                #                        the_entry['details']['mag_bright'],the_entry['details']['mag_faint'])
                         else:
                             log.warning("No cutout details ...")
 

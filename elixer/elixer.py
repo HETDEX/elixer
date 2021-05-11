@@ -3227,7 +3227,15 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                     time = np.full(len(pix2),np.nan) #np.zeros(len(pix2))
                     for i in sel:
                         try:
-                            if science_image.is_cutout_empty(_cutouts[i]['cutout']):
+                            try:
+                                if _cutouts[i]['filter'].lower() in ['g','r','f606w']:
+                                    check_unique_fraction = False
+                                else:
+                                    check_unique_fraction = True
+                            except:
+                                check_unique_fraction = False
+
+                            if science_image.is_cutout_empty(_cutouts[i]['cutout'],check_unique_fraction=check_unique_fraction):
                                 time[i] = np.nan
                                 continue #skip it and move on to the next
                             time[i] = _cutouts[i]['hdu'][0]['EXPTIME']

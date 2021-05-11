@@ -695,9 +695,21 @@ class DetObj:
         #ideally should be from the same survey (but will use different surveys to populate if a single survey does not
         #cover the requisite bands)
         self.best_img_u_mag  = None #"best" value for u as determined in cat_base::build_cat_summary_pdf_section()
+        self.best_img_u_ra = None #ra, dec used to decide for colors that the objects are the same
+        self.best_img_u_dec = None
+
         self.best_img_g_mag  = None
+        self.best_img_g_ra = None
+        self.best_img_g_dec = None
+
+
         self.best_img_v_mag  = None
+        self.best_img_v_ra = None
+        self.best_img_v_dec = None
+
         self.best_img_r_mag  = None
+        self.best_img_r_ra = None
+        self.best_img_r_dec = None
 
         self.color_gr = [None,None,None] #g-r color as color, blue max, red_max:
                                          #blue = -99 (means lower limit on blue), red = 99  means lower limit on red
@@ -950,25 +962,39 @@ class DetObj:
             return self.dec
 
 
-    def set_best_filter_mag(self,band,mag,mag_bright,mag_faint):
+    def set_best_filter_mag(self,band,mag,mag_bright,mag_faint,ra=None,dec=None,catalog=None):
         """
 
         :param mag:
         :param mag_bright:
         :param mag_faint:
+        :param ra: decimal degrees (used to check that when calculating colors, it is the same object)
+        :param dec:
         :return:
         """
 
-        color = [mag,mag_bright,mag_faint]
+        mag_list = [mag,mag_bright,mag_faint]
         try:
             if band.lower() in ['u']:
-                self.best_img_u_mag = color
+                self.best_img_u_mag = mag_list
+                self.best_img_u_ra = ra
+                self.best_img_u_dec = dec
+                self.best_img_u_cat = catalog
             elif band.lower() in ['g','f435w']:
-                self.best_img_g_mag = color
+                self.best_img_g_mag = mag_list
+                self.best_img_g_ra = ra
+                self.best_img_g_dec = dec
+                self.best_img_g_cat = catalog
             elif band.lower() in ['v']:
-                self.best_img_v_mag = color
+                self.best_img_v_mag = mag_list
+                self.best_img_v_ra = ra
+                self.best_img_v_dec = dec
+                self.best_img_v_cat = catalog
             elif band.lower() in ['r','f606w']:
-                self.best_img_r_mag = color
+                self.best_img_r_mag = mag_list
+                self.best_img_r_ra = ra
+                self.best_img_r_dec = dec
+                self.best_img_r_cat = catalog
         except:
            log.warning(f"Exception in DetObj::get_filter_ccolors().",exc_info=True)
 
@@ -1023,25 +1049,37 @@ class DetObj:
             return color
 
         try:
+            #if object barycenters are withing 0.1" will assume same object (a value of -1 is returned if the distance
+            # could not be computed, i.e. if either coordinate is None)
 
-            self.color_ur = compute_color(self.best_img_u_mag,self.best_img_r_mag)
+            if  (self.best_img_u_cat == self.best_img_r_cat) and \
+                (-1 < utils.angular_distance(self.best_img_u_ra,self.best_img_u_dec,self.best_img_r_ra,self.best_img_r_dec) < 0.1):
+                self.color_ur = compute_color(self.best_img_u_mag,self.best_img_r_mag)
 
-            if self.best_img_g_mag is not None:
+            if  (self.best_img_u_cat == self.best_img_g_cat) and \
+                (-1 < utils.angular_distance(self.best_img_u_ra,self.best_img_u_dec,self.best_img_g_ra,self.best_img_g_dec) < 0.1):
                 self.color_ug = compute_color(self.best_img_u_mag,self.best_img_g_mag)
+
+            if  (self.best_img_g_cat == self.best_img_r_cat) and \
+                (-1 < utils.angular_distance(self.best_img_g_ra,self.best_img_g_dec,self.best_img_r_ra,self.best_img_r_dec) < 0.1):
                 self.color_gr = compute_color(self.best_img_g_mag,self.best_img_r_mag)
-            else: #we will use the DEX-g (not ideal, but better than nothing
-                if self.best_gmag_unc is None:
-                    self.best_gmag_unc = 0
 
-                if self.best_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT:
-                    g_substitue = [self.best_gmag, self.best_gmag-self.best_gmag_unc, self.best_gmag+self.best_gmag_unc]
-                else:
-                    g_substitue = [G.HETDEX_CONTINUUM_MAG_LIMIT,
-                                   min(G.HETDEX_CONTINUUM_MAG_LIMIT,self.best_gmag-self.best_gmag_unc),
-                                   99]
-
-                self.color_ug = compute_color(self.best_img_u_mag,g_substitue)
-                self.color_gr = compute_color(g_substitue,self.best_img_r_mag)
+            #if self.best_img_g_mag is not None:
+            #  >>> note: was the above few lines for self.color_xx
+            # DO NOT USE anything other than same fixed sized apertures on same objects
+            # else: #we will use the DEX-g (not ideal, but better than nothing
+            #     if self.best_gmag_unc is None:
+            #         self.best_gmag_unc = 0
+            #
+            #     if self.best_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT:
+            #         g_substitue = [self.best_gmag, self.best_gmag-self.best_gmag_unc, self.best_gmag+self.best_gmag_unc]
+            #     else:
+            #         g_substitue = [G.HETDEX_CONTINUUM_MAG_LIMIT,
+            #                        min(G.HETDEX_CONTINUUM_MAG_LIMIT,self.best_gmag-self.best_gmag_unc),
+            #                        99]
+            #
+            #     self.color_ug = compute_color(self.best_img_u_mag,g_substitue)
+            #     self.color_gr = compute_color(g_substitue,self.best_img_r_mag)
 
             #for now at least, not bothering with 'v' band or other bands
         except:

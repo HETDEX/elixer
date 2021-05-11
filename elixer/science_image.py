@@ -57,7 +57,7 @@ log = G.Global_Logger('sciimg_logger')
 log.setlevel(G.LOG_LEVEL)
 
 
-def is_cutout_empty(cutout):
+def is_cutout_empty(cutout,check_unique_fraction=False):
     """
     Either all values the same or a simple horizontal or vertical gradient
     (currently, any other gradient would be missed ... assumes perpendicular to gradient is constant, min==max)
@@ -205,6 +205,8 @@ def is_cutout_empty(cutout):
                 #     rc = True
                 elif frac_uniq < 0.9:
                     log.info(f"Low fraction of unique pixels ({frac_uniq}). Image may be bad.")
+                    if check_unique_fraction:
+                        rc = True
                     #print(f"Low fraction of unique pixels ({frac_uniq}). Image may be bad.")
             except:
                 log.debug("*** Exception! Exception in science_image::is_cutout_empty()", exc_info=True)
