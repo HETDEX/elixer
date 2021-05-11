@@ -176,9 +176,12 @@ class SpectraLines(tables.IsDescription):
 
 class CalibratedSpectra(tables.IsDescription):
     detectid = tables.Int64Col(pos=0)  # unique HETDEX detection ID 1e9+
-    wavelength = tables.Float32Col(shape=(1036,) )
-    flux = tables.Float32Col(shape=(1036,) )
-    flux_err = tables.Float32Col(shape=(1036,) )
+    wavelength = tables.Float32Col(shape=(1036,),pos=1)
+    flux = tables.Float32Col(shape=(1036,),pos=2 )
+    flux_err = tables.Float32Col(shape=(1036,),pos=3)
+    aperture_radius = tables.Float32Col(dflt=UNSET_FLOAT,pos=4)
+    sky_background = tables.Int32Col(dflt=UNSET_INT,pos=5)
+    num_fibers = tables.Int32Col(dflt=UNSET_INT,pos=6)
 
 class Aperture(tables.IsDescription):
     #one entry per aperture photometry collected
@@ -893,6 +896,21 @@ def append_entry(fileh,det,overwrite=False):
         row['wavelength'] = det.sumspec_wavelength[:]
         row['flux'] = det.sumspec_flux[:]
         row['flux_err'] = det.sumspec_fluxerr[:]
+
+        try:
+            if det.extraction_aperture is not None:
+                row['aperture_radius'] = det.extraction_aperture
+
+                #yes, only trust if extraction_aperture is also set
+                if det.extraction_ffsky is not None:
+                    row['sky_background'] = 1 if det.extraction_ffsky else 0
+
+            if det.fibers is not None:
+                row['num_fibers'] = len(det.fibers)
+        except:
+            pass
+
+
         row.append()
         stb.flush()
 
@@ -2489,9 +2507,16 @@ def upgrade_0p3p0_to_0p3p1(oldfile_handle,newfile_handle):
             new_row.append()
             dtb_new.flush()
 
-        #no change to CalibratedSpectra
-        stb_new.append(stb_old.read())
-        stb_new.flush()
+        #CalibratedSpectra
+        for old_row in stb_old.read():
+            new_row = stb_new.row
+            for n in stb_new.colnames:
+                try: #can be missing name (new columns)
+                    new_row[n] = old_row[n]
+                except:
+                    log.debug("CalibratedSpectra column failed (%s). Default set."%n)
+            new_row.append()
+            stb_new.flush()
 
         #no change to SpectraLines
         ltb_new.append(ltb_old.read())
@@ -2501,7 +2526,7 @@ def upgrade_0p3p0_to_0p3p1(oldfile_handle,newfile_handle):
         atb_new.append(atb_old.read())
         atb_new.flush()
 
-        #no change to CatalogMatch
+        #CatalogMatch
         for old_row in ctb_old.read():
             new_row = ctb_new.row
             for n in ctb_new.colnames:
