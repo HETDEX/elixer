@@ -630,34 +630,35 @@ class SHELA(cat_base.Catalog):
                  % (ra, error_in_deg, dec, error_in_deg))
 
         try:
-            self.dataframe_of_bid_targets = \
-                self.df[(self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max) &
-                        (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)].copy()
-            #may contain duplicates (across tiles)
-            #remove duplicates (assuming same RA,DEC between tiles has same data)
-            #so, different tiles that have the same ra,dec and filter get dropped (keep only 1)
-            #but if the filter is different, it is kept
+            if self.df is not None:
+                self.dataframe_of_bid_targets = \
+                    self.df[(self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max) &
+                            (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)].copy()
+                #may contain duplicates (across tiles)
+                #remove duplicates (assuming same RA,DEC between tiles has same data)
+                #so, different tiles that have the same ra,dec and filter get dropped (keep only 1)
+                #but if the filter is different, it is kept
 
-            #this could be done at construction time, but given the smaller subset I think
-            #this is faster here
-            self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.drop_duplicates(
-                subset=['RA','DEC','FILTER']) #keeps one of each filter
+                #this could be done at construction time, but given the smaller subset I think
+                #this is faster here
+                self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.drop_duplicates(
+                    subset=['RA','DEC','FILTER']) #keeps one of each filter
 
 
-            #relying on auto garbage collection here ...
-            #want to keep FILTER='g' or FILTER='r' if possible (r is better)
-            self.dataframe_of_bid_targets_unique = \
-                self.dataframe_of_bid_targets[self.dataframe_of_bid_targets['FILTER']=='r']
-
-            if len(self.dataframe_of_bid_targets_unique) == 0:
+                #relying on auto garbage collection here ...
+                #want to keep FILTER='g' or FILTER='r' if possible (r is better)
                 self.dataframe_of_bid_targets_unique = \
-                    self.dataframe_of_bid_targets[self.dataframe_of_bid_targets['FILTER'] == 'g']
+                    self.dataframe_of_bid_targets[self.dataframe_of_bid_targets['FILTER']=='r']
 
-            if len(self.dataframe_of_bid_targets_unique) == 0:
-                self.dataframe_of_bid_targets_unique = \
-                    self.dataframe_of_bid_targets_unique.drop_duplicates(subset=['RA','DEC'])#,'FILTER'])
+                if len(self.dataframe_of_bid_targets_unique) == 0:
+                    self.dataframe_of_bid_targets_unique = \
+                        self.dataframe_of_bid_targets[self.dataframe_of_bid_targets['FILTER'] == 'g']
 
-            self.num_targets = self.dataframe_of_bid_targets_unique.iloc[:,0].count()
+                if len(self.dataframe_of_bid_targets_unique) == 0:
+                    self.dataframe_of_bid_targets_unique = \
+                        self.dataframe_of_bid_targets_unique.drop_duplicates(subset=['RA','DEC'])#,'FILTER'])
+
+                self.num_targets = self.dataframe_of_bid_targets_unique.iloc[:,0].count()
 
         except:
             log.error(self.Name + " Exception in build_list_of_bid_targets", exc_info=True)

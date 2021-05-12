@@ -787,7 +787,8 @@ class science_image():
                 log.info("No (source extractor) objects found")
                 return img_objects, None
 
-            obj = objects[selected_idx]
+            if selected_idx >= 0:
+                obj = objects[selected_idx]
             #check max distance
             #todo: incorporate the effective radius of the ellipse? s\t large ellipse gets a little larger max_dist?
             # and a very small ellipse gets (maybe) a little shorted max_dist?
@@ -798,8 +799,11 @@ class science_image():
                 return img_objects, None
 
             #mark selected item
-            img_objects[selected_idx]['selected'] = True
-            return img_objects, selected_idx
+            if selected_idx >= 0:
+                img_objects[selected_idx]['selected'] = True
+                return img_objects, selected_idx
+            else:
+                return img_objects, None
 
             # # for obj in objects:
             # # now, get the flux

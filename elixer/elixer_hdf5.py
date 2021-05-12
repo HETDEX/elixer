@@ -1146,49 +1146,51 @@ def append_entry(fileh,det,overwrite=False):
         ################################
         match_num = 0
         for d in det.bid_target_list:
-            if -90.0 < d.bid_dec < 90.0: #666 or 181 is the aperture info
-                match_num += 1
-                #todo: multiple filters
-                #for f in d.filters: #just using selected "best" filter
-                row = ctb.row
-                row['detectid'] = det.hdf5_detectid
-                row['match_num'] = match_num
-                row['catalog_name'] = d.catalog_name
-                row['filter_name'] = d.bid_filter.lower()
-                row['separation'] = d.distance
-                row['prob_match'] = d.prob_match
-                row['ra'] = d.bid_ra
-                row['dec'] = d.bid_dec
-                if (d.spec_z is not None) and (d.spec_z >= 0.0):
-                    row['specz'] = d.spec_z
-                if (d.phot_z is not None) and (d.phot_z >= 0.0):
-                    row['photz'] = d.phot_z
-                row['flux'] = d.bid_flux_est_cgs
-                row['flux_err'] = d.bid_flux_est_cgs_unc
-                row['mag'] = d.bid_mag
-                row['mag_err'] = 0.5 * (abs(d.bid_mag_err_bright) + abs(d.bid_mag_err_faint))
-                row['plae'] = d.p_lae_oii_ratio
+            try:
+                if -90.0 < d.bid_dec < 90.0: #666 or 181 is the aperture info
+                    match_num += 1
+                    #todo: multiple filters
+                    #for f in d.filters: #just using selected "best" filter
+                    row = ctb.row
+                    row['detectid'] = det.hdf5_detectid
+                    row['match_num'] = match_num
+                    row['catalog_name'] = d.catalog_name
+                    if d.bid_filter is not None:
+                        row['filter_name'] = d.bid_filter.lower()
+                    row['separation'] = d.distance
+                    row['prob_match'] = d.prob_match
+                    row['ra'] = d.bid_ra
+                    row['dec'] = d.bid_dec
+                    if (d.spec_z is not None) and (d.spec_z >= 0.0):
+                        row['specz'] = d.spec_z
+                    if (d.phot_z is not None) and (d.phot_z >= 0.0):
+                        row['photz'] = d.phot_z
+                    row['flux'] = d.bid_flux_est_cgs
+                    row['flux_err'] = d.bid_flux_est_cgs_unc
+                    row['mag'] = d.bid_mag
+                    row['mag_err'] = 0.5 * (abs(d.bid_mag_err_bright) + abs(d.bid_mag_err_faint))
+                    row['plae'] = d.p_lae_oii_ratio
 
-                try: #var might not exist
-                    row['plae_max'] = d.p_lae_oii_ratio_max
-                    row['plae_min'] = d.p_lae_oii_ratio_min
-                except:
-                    pass
+                    try: #var might not exist
+                        row['plae_max'] = d.p_lae_oii_ratio_max
+                        row['plae_min'] = d.p_lae_oii_ratio_min
+                    except:
+                        pass
 
-                if d.bid_ew_lya_rest is not None:
-                    row['eqw_rest_lya'] = d.bid_ew_lya_rest
-                    if d.bid_ew_lya_rest_err is not None:
-                        row['eqw_rest_lya_err'] = d.bid_ew_lya_rest_err
+                    if d.bid_ew_lya_rest is not None:
+                        row['eqw_rest_lya'] = d.bid_ew_lya_rest
+                        if d.bid_ew_lya_rest_err is not None:
+                            row['eqw_rest_lya_err'] = d.bid_ew_lya_rest_err
 
-                try:
-                    row['selected'] = d.selected
-                except:
-                    pass
+                    try:
+                        row['selected'] = d.selected
+                    except:
+                        pass
 
-                row.append()
-                ctb.flush()
-
-
+                    row.append()
+                    ctb.flush()
+            except:
+                log.error("Exception! in elixer_hdf5::append_entry",exc_info=True)
     except:
         log.error("Exception! in elixer_hdf5::append_entry",exc_info=True)
 

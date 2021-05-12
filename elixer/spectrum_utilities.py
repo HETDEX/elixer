@@ -211,6 +211,9 @@ def ew_obs(lineflux,lineflux_err, obs_wave, band, filter_flux, filter_flux_err):
     if lineflux_err is None:
         lineflux_err = 0
 
+    if band is None:
+        band = 'x'
+
     #mag to continuum is more like f_nu than f_lambda)
     try:
         if band.lower() in ['r','f606w']:

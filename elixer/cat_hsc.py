@@ -1012,22 +1012,25 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                     self.df[(self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max) &
                         (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)].copy()
             else:
-                self.dataframe_of_bid_targets = \
-                    self.df[  (self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max)
-                        & (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)
-                        & (self.df['children'] == 0)
-                        & (self.df['outside'] == False)
-                        & (self.df['interpix_center'] == False)
-                        & (self.df['saturatedpix_center'] == False)
-                        & (self.df['cosmic_center'] == False)
-                        & (self.df['bad_pix'] == False)
-                        & (self.df['near_bright_obj'] == False)
-                        & (self.df['footprint_bright_obj'] == False)
-                        & (self.df['general_flag'] == False)
-                        & (self.df['inner_coadd_tract'] == True)
-                        & (self.df['inner_coadd_patch'] == True)
-                        & (self.df['num_images'] > 2)
-                        ].copy()
+                try:
+                    self.dataframe_of_bid_targets = \
+                        self.df[  (self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max)
+                            & (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)
+                            & (self.df['children'] == 0)
+                            & (self.df['outside'] == False)
+                            & (self.df['interpix_center'] == False)
+                            & (self.df['saturatedpix_center'] == False)
+                            & (self.df['cosmic_center'] == False)
+                            & (self.df['bad_pix'] == False)
+                            & (self.df['near_bright_obj'] == False)
+                            & (self.df['footprint_bright_obj'] == False)
+                            & (self.df['general_flag'] == False)
+                            & (self.df['inner_coadd_tract'] == True)
+                            & (self.df['inner_coadd_patch'] == True)
+                            & (self.df['num_images'] > 2)
+                            ].copy()
+                except:
+                    self.dataframe_of_bid_targets = []
             #may contain duplicates (across tiles)
             #remove duplicates (assuming same RA,DEC between tiles has same data)
             #so, different tiles that have the same ra,dec and filter get dropped (keep only 1)

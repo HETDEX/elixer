@@ -1655,7 +1655,7 @@ class DetObj:
 
                 #then check phot-z (lower boost)
                 if b.phot_z is not None and b.phot_z > -0.02:
-                    list_z.append({'z':b.phot_z,'boost':G.ALL_CATATLOG_PHOT_Z_BOOST})
+                    list_z.append({'z':b.phot_z,'boost':G.ALL_CATATLOG_PHOT_Z_BOOST,'name':b.catalog_name})
 
             for bid in list_z:
                 boost = bid['boost']
@@ -1735,7 +1735,7 @@ class DetObj:
                 self.galaxy_mask_z, self.galaxy_mask_d25 = self.galaxy_mask.redshift(self.my_ra,self.my_dec)
                 #get list of possible lines from list of emission lines
                 #spec = elixer_spectrum.Spectrum()
-                if self.galaxy_mask_z and self.spec_obj: #is not None or Empty
+                if ( (self.galaxy_mask_z is not None) and (len(self.galaxy_mask_z) > 0)) and (self.spec_obj is not None): #is not None or Empty
                     for z,d25 in zip(self.galaxy_mask_z,self.galaxy_mask_d25):
                         line = self.spec_obj.match_line(self.w,z)
                         if line:
@@ -9413,8 +9413,15 @@ class HETDEX:
                     datakeep['x_2d_lyc'].append(x_LyC_2D)
                     datakeep['y_2d_lyc'].append(y_LyC_2D)
 
-                fiber.emis_x = int(x_2D)
-                fiber.emis_y = int(y_2D)
+                if not np.isnan(x_2D):
+                    fiber.emis_x = int(x_2D)
+                else:
+                    fiber.emis_x = -1
+
+                if not np.isnan(y_2D):
+                    fiber.emis_y = int(y_2D)
+                else:
+                    fiber.emis_y = -1
 
                 try:
                     log.info("Detect # %d, Fiber %s, Cam(%s), ExpID(%d) CCD X,Y = (%d,%d)" %

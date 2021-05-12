@@ -692,6 +692,8 @@ class STACK_COSMOS(cat_base.Catalog):
                 except:
                     df_photoz = None
                     z_photoz_weighted = None
+                    z_best = -1
+                    z_best_type = None
 
 
                 if z_best_type is not None and (z_best_type.lower() == 's'):

@@ -1062,7 +1062,7 @@ class CFHTLS(cat_base.Catalog):
                                                        (self.dataframe_of_bid_targets['DEC'] == d[0])]
                 #multiple filters
                 #try to match up with photz
-                if df is not None:
+                if (df is not None) and (self.df_photoz is not None):
                     coord_error = 0.5/3600. #arcsec
                     #todo: allow for RA adjustment based on dec (but at 0.5" is pretty small error even at higher dec)
                     ra_min = r[0] - coord_error

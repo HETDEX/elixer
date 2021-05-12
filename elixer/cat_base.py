@@ -970,7 +970,10 @@ class Catalog:
                     #walk in order of distance and check
                     #if inside the ellipse for the selected SEP (if there is one)
                     #is counterpart mag consistent with HETDEX SDSS-g (similar or fainter if HETDEX g > 24)
-                    cp_filter = cp.bid_filter.lower()
+                    if cp.bid_filter is not None:
+                        cp_filter = cp.bid_filter.lower()
+                    else:
+                        cp_filter = 'x'
                     selected_sep = None
                     #find the selected SEP
                     for d in detobj.aperture_details_list:
@@ -1347,6 +1350,9 @@ class Catalog:
         #iterate over the bid targets (list_of_counterparts) and build up the text
         for counterpart in list_of_counterparts:
             col_idx += 1
+            if col_idx >= cols:
+                log.info("cat_base::build_cat_summary_pdf_section. Number of bid targets exceeds number of columns.")
+                break
             target_count += 1
             text = ""
 
