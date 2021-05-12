@@ -4136,21 +4136,28 @@ class Spectrum:
         return solutions
 
 
-    def is_near_a_peak(self,w,aa=4.0): #is the provided wavelength near one of the found peaks (+/- few AA or pixels)
+    def is_near_a_peak(self,w,aa=4.0,return_score=False): #is the provided wavelength near one of the found peaks (+/- few AA or pixels)
 
         wavelength = 0.0
+        score = None
         if (self.all_found_lines is None):
             self.all_found_lines = peakdet(self.wavelengths, self.values, self.errors,values_units=self.values_units)
 
         if self.all_found_lines is None:
-            return 0.0
+            if return_score:
+                return 0.0, None
+            else:
+                return 0.0
 
         for f in self.all_found_lines:
             if abs(f.fit_x0 - w) < aa:
                 wavelength = f.fit_x0
+                score = f.line_score
                 break
-
-        return wavelength
+        if return_score:
+            return wavelength,score
+        else:
+            return wavelength
 
     def unmatched_lines_score(self,solution,aa=4.0):
         """
@@ -4696,6 +4703,11 @@ class Spectrum:
                     log.info("Solution:  %s (%s at %0.1f) rescored due to extremes in fit_dx0. Old score (%f) New Score (%f)"
                              %(self.identifier,s.emission_line.name,s.central_rest,old_score,s.score))
 
+                #check for solution lines that agree with elixer found lines
+                for l in s.lines:
+                    elixer_wave, elixer_score = self.is_near_a_peak(l.w_obs,aa=2.0,return_score=True)
+                    if elixer_wave > 0:
+                        s.score += GOOD_MIN_LINE_SCORE #min(elixer_score,10.0) #the score is at least +3.0 (GOOD_MIN_LINE_SCORE)
 
         #todo: check line ratios, AGN consistency, etc here?
         #at least 3 func calls
