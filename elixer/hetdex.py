@@ -697,19 +697,22 @@ class DetObj:
         self.best_img_u_mag  = None #"best" value for u as determined in cat_base::build_cat_summary_pdf_section()
         self.best_img_u_ra = None #ra, dec used to decide for colors that the objects are the same
         self.best_img_u_dec = None
+        self.best_img_u_cat = None
 
         self.best_img_g_mag  = None
         self.best_img_g_ra = None
         self.best_img_g_dec = None
-
+        self.best_img_g_cat = None
 
         self.best_img_v_mag  = None
         self.best_img_v_ra = None
         self.best_img_v_dec = None
+        self.best_img_v_cat = None
 
         self.best_img_r_mag  = None
         self.best_img_r_ra = None
         self.best_img_r_dec = None
+        self.best_img_r_cat = None
 
         self.color_gr = [None,None,None] #g-r color as color, blue max, red_max:
                                          #blue = -99 (means lower limit on blue), red = 99  means lower limit on red
