@@ -109,6 +109,7 @@ def biweight_location_errors(data, errors, c=6.0, M=None, axis=None):
             log.warning("Exception in weighted_biweight:biweight_location_errors", exc_info=True)
             raise
 
+    errors = np.nan_to_num(errors) #any nan will become zero and then those and anyother zero errors become infinite
     errors[errors==0] = np.inf #that way, the weight becomes zero ...
     #we might think of zero error as what should be maximumly weighted, but here we assume that
     #a zero error means no error recorded and it should get no weighting

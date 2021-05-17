@@ -1425,6 +1425,31 @@ class DetObj:
                     log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_BLENDED_SPECTRA")
 
 
+
+
+
+            ###########################################
+            #check for unmatched lines
+            #DETFLAG_UNCERTAIN_CLASSIFICATION
+            ###########################################
+
+            #even if this solution is not shown due to not being unique, it is still the top scoring
+            #solution
+            if self.spec_obj.solutions is not None and len(self.spec_obj.solutions)> 0:
+                #want to be really clear condition here, so both have to be > MULTILINE_FULL_SOLUTION_SCORE
+                #not just > MAX_OK_UNMATCHED_LINES_SCORE
+                questionable_solutions = [1549.0,1909.0,2799.0,G.OII_rest,5007.0]
+                if (0.5 < self.spec_obj.solutions[0].scale_score < 0.9) and \
+                   (self.spec_obj.solutions[0].z != self.best_z) and (self.spec_obj.solutions[0].central_rest in questionable_solutions):
+
+                    self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
+                    log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_UNCERTAIN_CLASSIFICATION")
+
+
+
+            #########################################
+            #set so we don't re-check
+            ########################################
             self.full_flag_check_performed = True
 
             if self.flags != 0: #todo: may add more logic and only trigger on certain flags?
@@ -1742,6 +1767,15 @@ class DetObj:
                     for z,d25 in zip(self.galaxy_mask_z,self.galaxy_mask_d25):
                         line = self.spec_obj.match_line(self.w,z)
                         if line:
+
+                            #specific check for OIII 4959 or 5007
+                            if line.w_rest == 4959: #this is more dodgy ... 5007 might be strong but fail to match
+                                if SU.check_oiii(z,self.sumspec_flux,self.sumspec_fluxerr,self.sumspec_wavelength,
+                                              cont=self.cont_cgs,cont_err=self.cont_cgs_unc) == 0:
+                                    #explicit NO
+                                    log.info(f"[rejected] Galaxy mask possible line match (failed flux ratio test): {line.name} {line.w_rest} z={z} rank={line.rank} D25={d25}")
+                                    continue
+
                             log.info(f"Galaxy mask possible line match: {line.name} {line.w_rest} z={z} rank={line.rank} D25={d25}")
                             possible_lines.append(line)
 

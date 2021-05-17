@@ -873,19 +873,22 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
         try:
             if df['fluxlsq_flags'].values[0] == 0: #no flags, is good:
-                flux_list.append(df['fluxlsq'].values[0] * cts2njy)
-                flux_err_list.append(df["fluxlsq_err"].values[0] * cts2njy)
-                #mag_list.append(df["maglsq"].values[0])
-                #mag_err_list.append(df['maglsq_err'].values[0])
-                methods.append('lsq')
+                #still check for nan
+                if not (np.isnan(df['fluxlsq'].values[0]) or df['fluxlsq'].values[0] < 0) :
+                    flux_list.append(df['fluxlsq'].values[0] * cts2njy)
+                    flux_err_list.append(df["fluxlsq_err"].values[0] * cts2njy)
+                    #mag_list.append(df["maglsq"].values[0])
+                    #mag_err_list.append(df['maglsq_err'].values[0])
+                    methods.append('lsq')
 
             #about 3" DIAMETER (1.5" RADIUS ... pretty common for the ELiXer Aperture)
             if df['flux17.0_flags'].values[0] == 0: #no flags, is good:
-                flux_list.append(df['flux17.0'].values[0] * cts2njy)
-                flux_err_list.append(df["flux17.0_err"].values[0] * cts2njy)
-                # mag_list.append(df["mag17.0"].values[0])
-                # mag_err_list.append(df['mag17.0_err'].values[0])
-                methods.append('flux17.0')
+                if not (np.isnan(df['flux17.0'].values[0]) or df['flux17.0'].values[0] < 0) :
+                    flux_list.append(df['flux17.0'].values[0] * cts2njy)
+                    flux_err_list.append(df["flux17.0_err"].values[0] * cts2njy)
+                    # mag_list.append(df["mag17.0"].values[0])
+                    # mag_err_list.append(df['mag17.0_err'].values[0])
+                    methods.append('flux17.0')
 
             #todo: do I actually want to go out this wide?
             # this would cover around 15 HETDEX fibers (3" radius, 6" diameter)
@@ -898,20 +901,24 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             #     methods.append('flux35.0')
 
             if df['flux.cmodel_flags'].values[0] == 0: #no flags, is good:
-                flux_list.append(df['flux.cmodel'].values[0] * cts2njy)
-                flux_err_list.append(df['flux.cmodel_err'].values[0] * cts2njy)
-                # mag_list.append(df['mag.cmodel'].values[0])
-                # mag_err_list.append(df['mag.cmodel_err'].values[0])
-                methods.append('cmodel')
+                if not (np.isnan(df['flux.cmodel'].values[0]) or df['flux.cmodel'].values[0] < 0) :
+                    flux_list.append(df['flux.cmodel'].values[0] * cts2njy)
+                    flux_err_list.append(df['flux.cmodel_err'].values[0] * cts2njy)
+                    # mag_list.append(df['mag.cmodel'].values[0])
+                    # mag_err_list.append(df['mag.cmodel_err'].values[0])
+                    methods.append('cmodel')
 
             if df['flux.kron3.5_flags'].values[0] == 0: #no flags, is good:
-                flux_list.append(df['flux.kron3.5'].values[0] * cts2njy)
-                flux_err_list.append(df['flux.kron3.5_err'].values[0] * cts2njy)
-                # mag_list.append(df['mag.cmodel'].values[0])
-                # mag_err_list.append(df['mag.cmodel_err'].values[0])
-                methods.append('kron3.5')
+                if not (np.isnan(df['flux.kron3.5'].values[0]) or df['flux.kron3.5'].values[0] < 0) :
+                    flux_list.append(df['flux.kron3.5'].values[0] * cts2njy)
+                    flux_err_list.append(df['flux.kron3.5_err'].values[0] * cts2njy)
+                    # mag_list.append(df['mag.cmodel'].values[0])
+                    # mag_err_list.append(df['mag.cmodel_err'].values[0])
+                    methods.append('kron3.5')
 
-            flux_list = np.array(flux_list)
+            #flux_list = np.array(flux_list)
+            #should not be any nan but, just in case
+            flux_list = np.ma.masked_where(np.isnan(flux_list), flux_list, copy=False)
             flux_err_list = np.array(flux_err_list)
             avg_method = "none"
 
@@ -929,7 +936,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                         avg_method = "weighted biweight"
                     except:
                         try: #standard biweigth
-                            filter_fl = SU.weighted_biweight.biweight_location(flux_list, errors=flux_err_list)
+                            filter_fl = SU.weighted_biweight.biweight_location(flux_list)
                             filter_fl_err = SU.weighted_biweight.biweight_scale(flux_list) / np.sqrt(len(flux_err_list))
                             avg_method = "biweight"
                         except:

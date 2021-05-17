@@ -412,6 +412,80 @@ def chi_sqr(obs, exp, error=None, c=None,dof=None):
 
     return chisqr,c
 
+
+
+
+def check_oiii(z,flux,flux_err,wave,delta=0,cont=0,cont_err=0):
+    """
+    Explicitly check if there flux at 5007 rest is 3x the flux at 4959 rest
+    allowing for some error
+
+    NOTICE!!! These are recorded fluxes. The continuum HAS NOT BEEN subtracted, so technically this is wrong, but,
+    these are faint cases where we have no continuum detection so it is essentially measured at zero (not really at
+    zero, but it is 10x (or more) smaller than the peak) and makes almost no difference for these cases.
+
+    There is a minimum adjustment to subtract off continuum if it is passed in (same scale as flux, but as flux density)
+
+    :param z:
+    :param flux: flux units of some kind (not flux density)
+    :param flux_err: ditto
+    :param wave:  AA
+    :param delta:  integer for +/- wavelength bins from the centerline to add up flux
+    :param cont:  flux density but same scale as flux (i.e e-17)
+    :param cont_err:
+    :return: -1 error, 0 no, 1 yes
+    """
+
+    try:
+        if not(-0.01 < z < 0.106): #out of range
+            return 0
+
+        if (delta is None) or (delta < 0):
+            delta = 1
+        else:
+            delta = int(delta) #has to be an integer
+
+        if (cont is not None) and (cont > 0): #assume in similar units but as flux density so will x2 for HETDEX bin width
+            cont = 2.* cont
+            if cont_err is not None:
+                cont_err = 2.*cont_err
+            else:
+                cont_err = 0
+        else:
+            cont = 0 #to subtract
+            cont_err = 0
+
+        i4959,*_ = getnearpos(wave,(1+z)*4959)
+        f4959 = np.sum(flux[i4959-delta:i4959+delta+1]) - cont*(1+2*delta)
+        e4959 = np.sqrt(np.sum(flux_err[i4959-delta:i4959+delta+1]**2) + (cont_err*(1+2*delta))**2 )
+
+        i5007,*_ = getnearpos(wave,(1+z)*5007)
+        f5007 = np.sum(flux[i5007-delta:i5007+delta+1]) - cont*(1+2*delta)
+        e5007 = np.sqrt(np.sum(flux_err[i5007-delta:i5007+delta+1]**2  + (cont_err*(1+2*delta))**2))
+
+        ratio = f5007/f4959
+        err = ratio * np.sqrt((e4959/f4959)**2 + (e5007/f5007)**2)
+
+        imax4959 = i4959 - delta + np.argmax(flux[i4959-delta:i4959+delta+1])#getting an index of 0,1 or 2 need to add to the base index
+        fmax4959 = flux[imax4959] - cont
+        emax4959 = flux_err[imax4959] + cont_err
+
+        imax5007 = i5007 - delta + np.argmax(flux[i5007-delta:i5007+delta+1]) #getting an index of 0,1 or 2 need to add to the base index
+        fmax5007 = flux[imax5007] - cont
+        emax5007 = flux_err[imax5007] + cont_err
+
+        max_ratio = fmax5007/fmax4959
+        err_max_ratio = max_ratio * np.sqrt((emax4959/fmax4959)**2 + (emax5007/fmax5007)**2)
+
+        log.info(f"OIII flux 5007/4959 ratio check. sum = {ratio:0.2f} +/- {err:0.3f}, max = {max_ratio:0.2f} +/- {err_max_ratio:0.2f} ")
+
+        if ((3.0 - err) < ratio < (3.0 + err) or (3.0 - err_max_ratio) < max_ratio < (3.0 + err_max_ratio)):
+            return 1
+        else:
+            return 0
+    except:
+        return -1
+
 def build_cosmology(H0 = SU_H0, Omega_m0 = SU_Omega_m0, T_CMB = SU_T_CMB):
     cosmo = Cosmo.FlatLambdaCDM(H0=H0,Om0=Omega_m0,Tcmb0=T_CMB)
     return cosmo

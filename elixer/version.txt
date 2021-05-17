@@ -1,5 +1,14 @@
 changes to elixer by version
 
+1.12.0a1 [2021-05-17]
+* add explicit flux 5007/4959 check to the special OIII case (to allow a nudge to OIII 4959+5007 when the weaker line (4959)
+  is not successfully fit). This does not always work with known OIII emitters (the flux ratio check sometimes fails) but
+  the classification usually still succeeds with the usual multiline fit checks).
+* add explicit flux check (as above) to galaxy mask check. Will not accept 4959 as solution IF it does not pass the OIII
+    3:1 flux check. (example: 2102421773 at RA, Dec 210.540436 +54.042873, near-ish to M101 but IS NOT OIII-4959)
+* activate DETFLAG_UNCERTAIN_CLASSIFICATION check (for weak to moderate multi-line solution that does not match best_z
+  and suggest CIV,CII,MgII,OII, or OIII-5007) ... the top LyA contaminants
+* add explicit check in cat_hsc for catalog nan flux values (where the HSC object catalog flags are not set)
 
 1.11.0 [2021-05-11]
 * promoted to release for HDR2.1.3

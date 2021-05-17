@@ -30,6 +30,9 @@ def angular_distance(ra1,dec1,ra2,dec2):
     """
     dist = -1
     try:
+        if (ra1 is None) or (dec1 is None) or (ra2 is None) or (dec2 is None):
+            return -1
+
         c1 = SkyCoord(ra=ra1 * units.deg, dec=dec1* units.deg)
         c2 = SkyCoord(ra=ra2 * units.deg, dec=dec2* units.deg)
         dist = c1.separation(c2).value * 3600.

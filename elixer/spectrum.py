@@ -1012,7 +1012,7 @@ class EmissionLineInfo:
 #really should change this to use kwargs
 def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=None,values_units=0, sbr=None,
                  min_sigma=GAUSS_FIT_MIN_SIGMA,show_plot=False,plot_id=None,plot_path=None,do_mcmc=False,absorber=False,
-                 force_score=False,values_dx=G.FLUX_WAVEBIN_WIDTH,allow_broad=False,broadfit=1):
+                 force_score=False,values_dx=G.FLUX_WAVEBIN_WIDTH,allow_broad=False,broadfit=1,relax_fit=False):
     """
 
     :param wavelengths:
@@ -1270,7 +1270,11 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
         fit_peak = max(eli.fit_vals)
 
-        if ( abs(fit_peak - raw_peak) > (raw_peak * 0.25) ):
+        peak_fit_mult = 0.25
+        if relax_fit:
+            peak_fit_mult = 0.5
+
+        if ( abs(fit_peak - raw_peak) > (raw_peak * peak_fit_mult) ):
         #if (abs(raw_peak - fit_peak) / raw_peak > 0.2):  # didn't capture the peak ... bad, don't calculate anything else
             #log.warning("Failed to capture peak")
             log.debug("Failed to capture peak: raw = %f , fit = %f, frac = %0.2f" % (raw_peak, fit_peak,
@@ -3150,7 +3154,7 @@ class Spectrum:
             EmissionLine("Ly$\\alpha$".ljust(w), G.LyA_rest, 'red',rank=1,broad=True),
 
             EmissionLine("OII".ljust(w), G.OII_rest, 'green',rank=2),
-            EmissionLine("OIII".ljust(w), 4959, "lime",rank=2),#4960.295 (vacuum) 4958.911 (air)
+            EmissionLine("OIII".ljust(w), 4959, "lime",rank=3),#4960.295 (vacuum) 4958.911 (air)
             EmissionLine("OIII".ljust(w), 5007, "lime",rank=1), #5008.240 (vacuum) 5006.843 (air)
             #EmissionLine("OIV".ljust(w), 1400, "lime", solution=False, display=True, rank=4),  # or 1393-1403 also OIV]
             # (alone after LyA falls off red end, no max wave)
@@ -4377,7 +4381,8 @@ class Spectrum:
                 eli = signal_score(wavelengths=wavelengths, values=values, errors=errors, central=a_central,
                                    central_z = central_z, values_units=values_units, spectrum=self,
                                    show_plot=False, do_mcmc=False,
-                                   allow_broad= (a.broad and e.broad))
+                                   allow_broad= (a.broad and e.broad),
+                                   relax_fit=(e.w_rest==5007)and(a.w_rest==4959))
 
                 if eli and a.broad and e.broad and (eli.fit_sigma < eli.fit_sigma_err) and \
                     ((eli.fit_sigma + eli.fit_sigma_err) > GOOD_BROADLINE_SIGMA):
@@ -4741,18 +4746,26 @@ class Spectrum:
                 # or with OII or H_beta
                 try:
                     if (np.isclose(s.central_rest,4959,atol=1.0) or np.isclose(s.central_rest,5007,atol=1.0)) and \
-                        ( np.any([(np.isclose(x.w_rest,4959,atol=1.0) or np.isclose(x.w_rest,5007,atol=1.0)) and abs(x.fit_dx0) < 2.0 for x in s.lines]) or \
-                          np.any([(np.isclose(x.w_rest,G.OII_rest,atol=1.0) or np.isclose(x.w_rest,G.OII_rest,atol=1.0)) and abs(x.fit_dx0) < 2.0 for x in s.lines]) or \
-                          np.any([(np.isclose(x.w_rest,4861,atol=1.0) or np.isclose(x.w_rest,4861,atol=1.0)) and abs(x.fit_dx0) < 2.0 for x in s.lines])):
-                        oiii_lines = True
+                        ( np.any( [(np.isclose(x.w_rest,4959,atol=1.0) or np.isclose(x.w_rest,5007,atol=1.0)  or
+                                  np.isclose(x.w_rest,G.OII_rest,atol=1.0) or np.isclose(x.w_rest,4861,atol=1.0))
+                                  and abs(x.fit_dx0) < 2.0 for x in s.lines])  ):
+                        #we've got 5007 or 4959 with the other mate OR H_beta or OII
+                        #but still enforce flux 5007/4959 of 3
+                        if SU.check_oiii(s.z,values,errors,wavelengths,delta=1,cont=self.estcont,cont_err=self.estcont_unc) == 1:
+                            oiii_lines = True
+                        else:
+                            #note: IF the line positions still line up, this can still get classified as OIII
+                            #by the rest of the multiline solution (including any score augmentation by
+                            #consistency check with lzg)
+                            oiii_lines = False
                     else:
                         oiii_lines = False
                 except:
                     oiii_lines = False
 
-                # even if weak, go ahead and check for inconsistency (ie. if 4595 present but 5007 is not, then that
+                # even if weak, go ahead and check for inconsistency (ie. if 4959 present but 5007 is not, then that
                 # solution does not make sense), but only allow a positive boost to the scoring IF the base solution
-                # is not weak or IF this is a possible OIII 4595+5007 combination (which is well constrained)
+                # is not weak or IF this is a possible OIII 4958+5007 combination (which is well constrained)
                 if s.score < G.MULTILINE_MIN_SOLUTION_SCORE and not oiii_lines:
                     no_plus_boost = True
                 else:

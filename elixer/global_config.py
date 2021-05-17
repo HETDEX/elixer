@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.11.0'
+__version__ = '1.12.0a1'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -945,9 +945,12 @@ DETFLAG_FOLLOWUP_NEEDED             = 0x00000001  #unspecified reason, catch-all
 DETFLAG_IMAGING_MAG_INCONSISTENT    = 0x00000002  #large differences in bandpass mags of overlapping imaging (of adequate depth)
 DETFLAG_DEX_GMAG_INCONSISTENT       = 0x00000004  #the g-mag from the DEX spectrum is very different from g or r band aperture mag
                                             #where the DEX g-mag is 24.5 or brighter and the imaging is at least as deep
-#todo: ***probably will not use this one; seems redundant with other info****
+
 DETFLAG_UNCERTAIN_CLASSIFICATION    = 0x00000008  #contradictory information in classification
-                                                   #usually echoed in P(LyA) near 0.5 or Q(z) < 0.5
+                                                  #usually echoed in P(LyA) near 0.5 or Q(z) < 0.5, OR
+                                                  #there is a weak to moderate line solution that needs visual inspetion
+                                                  #typically this is an OIII-5007 or MgII solution that can be confused
+                                                  #with LyA
 DETFLAG_BLENDED_SPECTRA             = 0x00000010
                                         #due to extra emission lines, there maybe two or more different objects in the spectrum
 
@@ -970,6 +973,7 @@ DETFLAG_POOR_IMAGING                = 0x00000200 #poor depth (in g,r) ... like j
 #todo:
 DETFLAG_LARGE_SKY_SUB               = 0x00000400 #possibly excessive sky subtraction in g or r band
                                         #can impact the magnitude calculation (so partly redundant with others)
+
 
 
 #todo: low SNR, weighted position is between fibers (i.e. distances from blue fiber center > 0.74 or 0.75 and SNR < 5.2 or so)
