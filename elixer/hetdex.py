@@ -2776,7 +2776,7 @@ class DetObj:
         #we want to consider these when the equivalent width is near 20AA
 
         counterpart_filter = None
-        if self.best_counterpart is not None:
+        if self.best_counterpart is not None and self.best_counterpart.bid_filter is not None:
             if self.best_counterpart.bid_filter.lower() in ['r','f606w']:
                 mag_zero = G.LAE_R_MAG_ZERO
                 counterpart_filter = 'r'
