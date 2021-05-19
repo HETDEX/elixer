@@ -3755,7 +3755,7 @@ class DetObj:
         # it effectively brings that magnitude estimate in twice (once for the aperture and once for the catalog object
         # that ostensibly used that (or similar) aperture
 
-        if self.best_counterpart is not None:
+        if self.best_counterpart is not None and self.best_counterpart.bid_filter is not None:
             if self.best_counterpart.bid_filter.lower() in ['g','r','f606w']:
                 weight.append(1)
                 continuum.append(self.best_counterpart.bid_flux_est_cgs)
