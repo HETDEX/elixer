@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.12.0a1 [2021-05-17]
+1.12.0a1 [2021-05-20]
 * add explicit flux 5007/4959 check to the special OIII case (to allow a nudge to OIII 4959+5007 when the weaker line (4959)
   is not successfully fit). This does not always work with known OIII emitters (the flux ratio check sometimes fails) but
   the classification usually still succeeds with the usual multiline fit checks).
