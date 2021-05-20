@@ -9436,6 +9436,9 @@ class HETDEX:
                 x_2D = np.interp(e.w,fits.wave_data[loc,:],range(len(fits.wave_data[loc,:])))
                 y_2D = np.interp(x_2D,range(len(fits.trace_data[loc,:])),fits.trace_data[loc,:])
 
+                if np.isnan(x_2D) or np.isnan(y_2D):
+                    log.error(f"Invalid coordinates in hetdex.py build_panacea_hetdex_data_dict: x_2D,y_2D = {x_2D},{y_2D}")
+
                 if G.LyC:
                     try:
                         x_LyC_2D = np.interp(895.0 * e.w/G.LyA_rest, fits.wave_data[loc, :], range(len(fits.wave_data[loc, :])))
@@ -9466,13 +9469,20 @@ class HETDEX:
                 except:
                     pass
 
+                try:
+                    xl = int(np.round(x_2D - xw))
+                    xh = int(np.round(x_2D + xw))
+                    datakeep['ds9_x'].append(1. + (xl + xh) / 2.)
+                except:
+                    datakeep['ds9_x'].append(-1)
 
-                xl = int(np.round(x_2D - xw))
-                xh = int(np.round(x_2D + xw))
-                yl = int(np.round(y_2D - yw))
-                yh = int(np.round(y_2D + yw))
-                datakeep['ds9_x'].append(1. + (xl + xh) / 2.)
-                datakeep['ds9_y'].append(1. + (yl + yh) / 2.)
+                try:
+                    yl = int(np.round(y_2D - yw))
+                    yh = int(np.round(y_2D + yw))
+                    datakeep['ds9_y'].append(1. + (yl + yh) / 2.)
+                except:
+                    datakeep['ds9_y'].append(-1)
+
 
                 #################################################
                 #load pixel flat ... needed to modify data image
@@ -9892,8 +9902,6 @@ class HETDEX:
 
         #assume all the same shape
         summed_image = np.zeros(datakeep['im'][ind[0]].shape)
-
-
 
         #sanity check for the top few fiber cutouts as identical
         duplicate_weight = 0

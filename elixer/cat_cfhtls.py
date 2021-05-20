@@ -716,9 +716,10 @@ class CFHTLS(cat_base.Catalog):
                  % (ra, error_in_deg, dec, error_in_deg))
 
         try:
-            self.dataframe_of_bid_targets = \
-                self.df[(self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max) &
-                        (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)].copy()
+            if self.df is not None:
+                self.dataframe_of_bid_targets = \
+                    self.df[(self.df['RA'] >= ra_min) & (self.df['RA'] <= ra_max) &
+                            (self.df['DEC'] >= dec_min) & (self.df['DEC'] <= dec_max)].copy()
 
             if self.dataframe_of_bid_targets is not None:
                 self.num_targets = self.dataframe_of_bid_targets.iloc[:, 0].count()

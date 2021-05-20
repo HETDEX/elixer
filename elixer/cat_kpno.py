@@ -290,15 +290,21 @@ class KPNO(cat_base.Catalog):#Kitt Peak
 
             #this could be done at construction time, but given the smaller subset I think
             #this is faster here
-            self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.drop_duplicates(
-                subset=['RA','DEC','FILTER'])
+            try:
+                self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.drop_duplicates(
+                    subset=['RA','DEC','FILTER'])
+            except:
+                pass
 
 
             #relying on auto garbage collection here ...
-            self.dataframe_of_bid_targets_unique = self.dataframe_of_bid_targets.copy()
-            self.dataframe_of_bid_targets_unique = \
-                self.dataframe_of_bid_targets_unique.drop_duplicates(subset=['RA','DEC'])#,'FILTER'])
-            self.num_targets = self.dataframe_of_bid_targets_unique.iloc[:,0].count()
+            try:
+                self.dataframe_of_bid_targets_unique = self.dataframe_of_bid_targets.copy()
+                self.dataframe_of_bid_targets_unique = \
+                    self.dataframe_of_bid_targets_unique.drop_duplicates(subset=['RA','DEC'])#,'FILTER'])
+                self.num_targets = self.dataframe_of_bid_targets_unique.iloc[:,0].count()
+            except:
+                self.num_targets = 0
 
         except:
             log.error(self.Name + " Exception in build_list_of_bid_targets", exc_info=True)

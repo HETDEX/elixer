@@ -681,6 +681,7 @@ class science_image():
             inside_objs = []  # (index, dist_to_barycenter)
             outside_objs = []  # (index, dist_to_barycenter, dist_to_curve)
 
+            map_idx = np.full(len(objects),-1) #holds the index of img_objects for each objects entry (if no image object, the value is -1)
             idx = -1
             for obj in objects:
                 idx += 1
@@ -765,6 +766,7 @@ class science_image():
                 d['fixed_aper_mag_err'] = None
 
                 img_objects.append(d)
+                map_idx[idx]=len(img_objects) -1
 
                 if success:  # this is outside
                     outside_objs.append((idx, dist2bary, dist2curve))
@@ -798,10 +800,16 @@ class science_image():
                          %(dist_to_curve_aa,max_dist))
                 return img_objects, None
 
+
+
+            #selected_idx applies to the objects list
+            #IT IS NOT NECESSARILY THE SAME SIZE as img_objects
+
             #mark selected item
             if selected_idx >= 0:
-                img_objects[selected_idx]['selected'] = True
-                return img_objects, selected_idx
+                img_object_idx = map_idx[selected_idx] #xlat to img_objects index
+                img_objects[img_object_idx]['selected'] = True
+                return img_objects, img_object_idx
             else:
                 return img_objects, None
 
