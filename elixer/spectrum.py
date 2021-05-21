@@ -1330,7 +1330,24 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                 # since we got here from a that fit, this chi2 would have to be small (otherwise
                 # the fit would have failed .. and this is the "best" of those fits)
                 #dof = 3 for the 3 parameters we are fitting (mu, sigma, y)
-                eli.fit_chi2, _ = SU.chi_sqr(wave_counts,rms_wave,error=wave_errors,c=1.0,dof=3)
+                try:
+                    chi2_half_width = eli.fit_sigma * 2.5 #in AA
+                    _, left, _ = SU.getnearpos(wavelengths,eli.fit_x0 - chi2_half_width)
+                    _, _, right = SU.getnearpos(wavelengths,eli.fit_x0 + chi2_half_width)
+                    if right < len(wavelengths):
+                        right += 1
+                    data_waves = wavelengths[left:right]
+                    data_flux = values[left:right]
+                    if errors is not None and len(errors)==len(wavelengths):
+                        data_err = errors[left:right]
+                    else:
+                        data_err = np.zeros(len(data_flux))
+
+                    eli.fit_chi2, _ = SU.chi_sqr(data_flux,
+                                                 gaussian(data_waves, eli.fit_x0, eli.fit_sigma, eli.fit_a, eli.fit_y),
+                                                 error=data_err,c=1.0,dof=3)
+                except:
+                    pass
                 #scipy_chi2,scipy_pval = chisquare(wave_counts,rms_wave)
 
     except Exception as ex:
@@ -1613,8 +1630,27 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #todo: could add an uncertainty on this since we have MCMC uncertainties on the parameters (mu, sigma, y)
 
         #def gaussian(x,x0,sigma,a=1.0,y=0.0):
-        mcmc_flux = gaussian(wave_x, mcmc.mcmc_mu[0], mcmc.mcmc_sigma[0], mcmc.mcmc_A[0], mcmc.mcmc_y[0])
-        eli.mcmc_chi2, _ = SU.chi_sqr(wave_counts,mcmc_flux,error=wave_errors,c=1.0,dof=3)
+        #could do this by say +/- 3 sigma (Karl uses +/- 2.5 sigma)
+        try:
+            chi2_half_width = mcmc.mcmc_sigma[0] * 2.5  #in AA
+            _, left, _ = SU.getnearpos(wavelengths,mcmc.mcmc_mu[0] - chi2_half_width)
+            _, _, right = SU.getnearpos(wavelengths,mcmc.mcmc_mu[0] + chi2_half_width)
+            if right < len(wavelengths):
+                right += 1
+            data_waves = wavelengths[left:right]
+            data_flux = values[left:right]
+            if errors is not None and len(errors)==len(wavelengths):
+                data_err = errors[left:right]
+            else:
+                data_err = np.zeros(len(data_flux))
+            mcmc_flux = gaussian(data_waves, mcmc.mcmc_mu[0], mcmc.mcmc_sigma[0], mcmc.mcmc_A[0], mcmc.mcmc_y[0])
+            eli.mcmc_chi2, _ = SU.chi_sqr(data_flux,mcmc_flux,error=data_err,c=1.0,dof=3)
+
+            #wave_x is ~ 40AA around the center[total of 41 bins in length, usually]
+            # mcmc_flux = gaussian(wave_x, mcmc.mcmc_mu[0], mcmc.mcmc_sigma[0], mcmc.mcmc_A[0], mcmc.mcmc_y[0])
+            # eli.mcmc_chi2, _ = SU.chi_sqr(wave_counts,mcmc_flux,error=wave_errors,c=1.0,dof=3)
+        except:
+            pass
 
         eli.mcmc_ew_obs = [ew, ew_err, ew_err]
         log.debug("MCMC Peak height = %f" % (max(narrow_wave_counts)))
