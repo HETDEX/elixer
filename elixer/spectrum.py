@@ -1321,17 +1321,18 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                 eli.fit_rmse = SU.rms(wave_counts, rms_wave, cw_pix=cw_idx, hw_pix=num_sn_pix,
                              norm=False)
 
+                #*2 +1 because the rmse is figures as +/- the "num_sn_pix" from the center pixel (so total width is *2 + 1)
+                num_sn_pix = num_sn_pix * 2 + 1 #need full width later (still an integer)
+                eli.sn_pix = num_sn_pix
+
                 #test (though, essentially the curve_fit is a least-squarest fit (which is
                 # really just a chi2 fit, (technically IF the model data is Gaussian)), so
                 # since we got here from a that fit, this chi2 would have to be small (otherwise
                 # the fit would have failed .. and this is the "best" of those fits)
-                #chi2, _ = SU.chi_sqr(wave_counts,rms_wave,error=wave_errors,c=1.0,dof=3)
+                #dof = 3 for the 3 parameters we are fitting (mu, sigma, y)
+                eli.fit_chi2, _ = SU.chi_sqr(wave_counts,rms_wave,error=wave_errors,c=1.0,dof=3)
                 #scipy_chi2,scipy_pval = chisquare(wave_counts,rms_wave)
 
-                #*2 +1 because the rmse is figures as +/- the "num_sn_pix" from the center pixel (so total width is *2 + 1)
-                num_sn_pix = num_sn_pix * 2 + 1 #need full width later (still an integer)
-
-                eli.sn_pix = num_sn_pix
     except Exception as ex:
         try: #bug? in Python3 ... after 3.4 message attribute is lost?
             if ex.message.find("Optimal parameters not found") > -1:
@@ -1608,6 +1609,12 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             ew = eli.mcmc_a[0]
             ew_err = mcmc.approx_symmetric_error(eli.mcmc_a)
 
+
+        #todo: could add an uncertainty on this since we have MCMC uncertainties on the parameters (mu, sigma, y)
+
+        #def gaussian(x,x0,sigma,a=1.0,y=0.0):
+        mcmc_flux = gaussian(wave_x, mcmc.mcmc_mu[0], mcmc.mcmc_sigma[0], mcmc.mcmc_A[0], mcmc.mcmc_y[0])
+        eli.mcmc_chi2, _ = SU.chi_sqr(wave_counts,mcmc_flux,error=wave_errors,c=1.0,dof=3)
 
         eli.mcmc_ew_obs = [ew, ew_err, ew_err]
         log.debug("MCMC Peak height = %f" % (max(narrow_wave_counts)))

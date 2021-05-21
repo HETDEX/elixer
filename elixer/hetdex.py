@@ -5586,8 +5586,16 @@ class DetObj:
                     self.spec_obj.estflux = self.estflux
                     self.spec_obj.eqw_obs = self.eqw_obs
 
-                    self.chi2 = self.spec_obj.central_eli.fit_chi2
-                    self.chi2_unc = 0.0
+                    try:
+                        if self.spec_obj.central_eli.mcmc_chi2 is not None and \
+                           not np.isnan(self.spec_obj.central_eli.mcmc_chi2) and \
+                           self.spec_obj.central_eli.mcmc_chi2 > 0:
+                            self.chi2 = self.spec_obj.central_eli.mcmc_chi2
+                        else:
+                            self.chi2 = self.spec_obj.central_eli.fit_chi2
+                        self.chi2_unc = 0.0
+                    except:
+                        pass
 
                     self.snr = self.spec_obj.central_eli.snr #row['sn']
                     self.snr_unc = 0.0 #row['sn_err']
