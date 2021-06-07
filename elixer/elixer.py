@@ -4299,7 +4299,7 @@ def main():
                 exit(-1)
 
             #need to combine PLAE/POII and other classification data before joining report parts
-            if G.COMBINE_PLAE and not G.CONTINUUM_RULES:
+            if G.COMBINE_PLAE: # and not G.CONTINUUM_RULES:
                 for h in hd_list:
                     for e in h.emis_list:
                         if e.status >= 0:

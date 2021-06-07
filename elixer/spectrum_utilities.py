@@ -122,12 +122,27 @@ def mag2cgs(mag,lam):
     """
     :param mag:   AB mag
     :param lam: central wavelength or (better) f_lam_iso
-    :return:
+    :return: flam (erg/s/cm2/AA)
     """
 
     try:
         c = (astropy.constants.c * (1e10 * U.AA / U.m)).value
         return 3631. * 1e-23 * 10**(-0.4 * mag) * c / (lam * lam)
+    except:
+        return 0
+
+def mag2flam(mag,lam):
+    return mag2cgs(mag,flam)
+
+def mag2fnu(mag):
+    """
+    :param mag:   AB mag
+    :return: fnu (erg/s/cm2/Hz)
+    """
+
+    try:
+        c = (astropy.constants.c * (1e10 * U.AA / U.m)).value
+        return 3631. * 1e-23 * 10**(-0.4 * mag)
     except:
         return 0
 

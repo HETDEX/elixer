@@ -129,7 +129,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
     mean_FWHM = 0.15 #typical use for photometric aperture, but is too good here ... objects that are point
                     #sources may be resolved with HST
 
-    MAG_LIMIT = 30.0 #associated catalog goes well into 32+, but this is an overall limit
+    MAG_LIMIT = 30.0 #associated catalog goes well into 32+, but this is an overall limit 29-30 mag
     WCS_Manual = False#True
     EXPTIME_F606W = 289618.0
     CONT_EST_BASE = 3.3e-21 #about 30 mag

@@ -1665,7 +1665,6 @@ class DetObj:
         Don't need to check the RA, Dec as that is already done in the catalog matching
 
         """
-
         try:
             if (self.bid_target_list is None) or not G.CHECK_ALL_CATALOG_BID_Z:
                 return
@@ -5886,6 +5885,9 @@ class DetObj:
             if basic_only: #we're done, this is all we need
                 return
 
+
+
+
             #todo: need the Sky X,Y ?
             #self.x = #Sky X (IFU-X)
             #self.y =
@@ -6133,6 +6135,30 @@ class DetObj:
                     (self.estflux_unc / self.estflux) ** 2 +
                     (self.cont_cgs_unc / self.cont_cgs) ** 2))
 
+
+            if G.CONTINUUM_RULES and (self.w is None) or (self.w == 0.0):
+
+                # find the "best" wavelength to use as the central peak
+                spectrum = elixer_spectrum.Spectrum()
+                #self.all_found_lines = elixer_spectrum.peakdet(self.sumspec_wavelength,self.sumspec_flux,self.sumspec_fluxerr,values_units=-17)
+                w,self.all_found_lines = spectrum.find_central_wavelength(self.sumspec_wavelength,self.sumspec_flux,
+                                                                          self.sumspec_fluxerr,-17,return_list=True)
+                if w is not None and (3400.0 < w < 5600.0):
+                    self.w = w
+                    self.target_wavelength = w
+                else:
+
+                    try:
+                        self.w = np.nanmax(self.sumspec_flux)
+                        self.target_wavelength = self.w
+                        log.info(f"Cannot identify a suitable target wavelength. Setting to maximum flux value ({self.w}).")
+                    except:
+                        #print("Cannot identify a suitable target wavelength. Arbitrarly setting to 4500.0 for report.")
+                        log.info("Cannot identify a suitable target wavelength. Arbitrarly setting to 4500.0 for report.")
+                        self.w = 4500.0
+                        self.target_wavelength = 4500.0
+
+
             if self.w is not None and self.w != 0:
                 idx = elixer_spectrum.getnearpos(self.sumspec_wavelength, self.w)
             else:
@@ -6367,7 +6393,7 @@ class DetObj:
 
 
             #update with MY FIT results?
-            if G.REPORT_ELIXER_MCMC_FIT or self.eqw_obs == 0:
+            if G.REPORT_ELIXER_MCMC_FIT or self.eqw_obs == 0 or G.CONTINUUM_RULES:
                 log.info("Using ELiXer MCMC Fit for line flux, continuum, EW, and SNR")
                 try:
                     self.estflux = self.spec_obj.central_eli.mcmc_line_flux
@@ -6383,8 +6409,36 @@ class DetObj:
                     #self.cont = self.spec_obj.central_eli.cont
                     #self.eqw_obs = self.estflux / self.cont
                     #self.snr = self.spec_obj.central_eli.snr
+
+                    #if no mcmc try the fit?
+                    self.w = self.spec_obj.central_eli.mcmc_x0[0]
+                    self.w_unc = 0.5 * (self.spec_obj.central_eli.mcmc_x0[1] + self.spec_obj.central_eli.mcmc_x0[2])
+                    self.sigma = self.spec_obj.central_eli.mcmc_sigma[0]
+                    self.sigma_unc = 0.5 * (self.spec_obj.central_eli.mcmc_sigma[1]+self.spec_obj.central_eli.mcmc_sigma[2])
+                    self.chi2 = self.spec_obj.central_eli.mcmc_chi2
+                    self.estflux = self.spec_obj.central_eli.mcmc_line_flux
+                    self.estflux_unc = 0.5 * (self.spec_obj.central_eli.mcmc_line_flux_tuple[1] + self.spec_obj.central_eli.mcmc_line_flux_tuple[2])
+
+
+                    self.cont_cgs = self.spec_obj.central_eli.mcmc_continuum
+                    self.cont_cgs_unc = 0.5 * (self.spec_obj.central_eli.mcmc_continuum_tuple[1]+self.spec_obj.central_eli.mcmc_continuum_tuple[2])
+                    self.cont_cgs_narrow = self.spec_obj.central_eli.mcmc_continuum
+                    self.cont_cgs_unc_narrow = self.cont_cgs_unc
+
+                    self.snr = self.spec_obj.central_eli.mcmc_snr
+
+                    self.eqw_obs = self.spec_obj.central_eli.mcmc_ew_obs[0]
+                    self.eqw_obs_unc = 0.5 * (self.spec_obj.central_eli.mcmc_ew_obs[1]+self.spec_obj.central_eli.mcmc_ew_obs[2])
+
+                    #fluxes are in e-17
+                    self.line_gaussfit_parms = (self.w,self.sigma,self.estflux*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
+                                                self.cont_cgs/G.HETDEX_FLUX_BASE_CGS,G.FLUX_WAVEBIN_WIDTH)
+                    self.line_gaussfit_unc = (self.w_unc,self.sigma_unc,self.estflux_unc*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
+                                              self.cont_cgs_unc/G.HETDEX_FLUX_BASE_CGS,0.0)
+
+
                 except:
-                    log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra")
+                    log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra",exc_info=True)
 
             self.spec_obj.classify(known_z=self.known_z) #solutions can be returned, also stored in spec_obj.solutions
 
@@ -11095,7 +11149,7 @@ class HETDEX:
             mn = np.min(F)
             mx = np.max(F)
             try:
-                if G.CONTINUUM_RULES:
+                if cwave is None or cwave == 0: # G.CONTINUUM_RULES:
                     mn = min(F)
                     mx = max(F)
                 else:

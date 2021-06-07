@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.12.0a1'
+__version__ = '1.13.0a1'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -906,7 +906,7 @@ PIXEL_FLAT_ABSOLUTE_BAD_VALUE = 0.7 #values at or below this in the flat are "ba
 #note: 2 means there is one set of duplicates: ie. [1,2,1,3] would be 2 (1 and 1 are duplicated)
 
 MAX_MAG_FAINT = 28.0 #set as nominal "faint" mag if flux limit reached (if not set by specific catalog ... which, unless
-                     # this is an HST catalog, this is pretty good
+                     # this is an HST catalog, this is pretty good (HST is 29-30)
 
 PLAE_POII_GAUSSIAN_WEIGHT_SIGMA = 10.0
 
@@ -937,6 +937,7 @@ LAE_EW_MAG_TRIGGER_MAX = 25.0 #if the associated EW_rest(LyA) is less than this 
 LAE_EW_MAG_TRIGGER_MIN = 15.0 #if the associated EW_rest(LyA) is greater than this value, then look at the magnitudes
 
 SEP_FIXED_APERTURE_RADIUS = 1.5 #RADIUS in arcsec ... used at the barycenter position of SEP objects
+
 
 ##################################
 #Detection Flags (DF) (32 bit)

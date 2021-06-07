@@ -4343,8 +4343,8 @@ class Spectrum:
 
         solutions = []
 
-        if G.CONTINUUM_RULES:
-            return solutions
+        #if G.CONTINUUM_RULES:
+        #    return solutions
 
         per_line_total_score = 0.0 #sum of all scores (use to represent each solution as fraction of total score)
 

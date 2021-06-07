@@ -90,7 +90,7 @@ class GOODS_N(cat_base.Catalog):
     # class variables
     MainCatalog = GOODS_N_CAT
     Name = "GOODS-N"
-    MAG_LIMIT = 30.0 # associated catalog goes deeper, but this is a general limit
+    MAG_LIMIT = 30.0 # associated catalog goes deeper, but this is a general limit 29-30 mag
     mean_FWHM = 0.15 #typical use for photometric aperture, but is too good here ... objects that are point
                     #sources may be resolved with HST
 
@@ -629,6 +629,13 @@ class GOODS_N(cat_base.Catalog):
                         if z_photoz_weighted >= 0.0:
                             bid_target.phot_z = z_photoz_weighted
 
+                        lineFlux_err = 0.
+                        if detobj is not None:
+                            try:
+                                lineFlux_err = detobj.estflux_unc
+                            except:
+                                lineFlux_err = 0.
+
                         try:
                             # ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
                             # ew_u = abs(ew * np.sqrt(
@@ -655,12 +662,12 @@ class GOODS_N(cat_base.Catalog):
                         except:
                             pass
 
-                        lineFlux_err = 0.
-                        if detobj is not None:
-                            try:
-                                lineFlux_err = detobj.estflux_unc
-                            except:
-                                lineFlux_err = 0.
+                        # lineFlux_err = 0.
+                        # if detobj is not None:
+                        #     try:
+                        #         lineFlux_err = detobj.estflux_unc
+                        #     except:
+                        #         lineFlux_err = 0.
 
                         # build EW error from lineFlux_err and aperture estimate error
                         # ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
