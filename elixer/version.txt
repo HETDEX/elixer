@@ -3,6 +3,10 @@ changes to elixer by version
 1.13.0a1 [2021-05-28]
 * [in progress]
 * working on adapting classification to continuum catalog sources
+* allow MCMC Gaussian to fit aborption lines (negative A); restrict initial walker positions to valid ranges for each
+  parameter to be fit (i.e. sigma cannot be negative, mu cannot be negative, for emission A must be positive (for absorption
+  A must be negative)), etc
+
 
 1.12.0a1 [2021-05-20]
 * add explicit flux 5007/4959 check to the special OIII case (to allow a nudge to OIII 4959+5007 when the weaker line (4959)

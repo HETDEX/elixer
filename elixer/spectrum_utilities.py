@@ -1153,15 +1153,17 @@ def gaussian(x, x0, sigma, a=1.0, y=0.0):
 
 
 
-def simple_fit_slope (wavelengths, values, errors=None,trim=True):
+def simple_fit_slope (wavelengths, values, errors=None,trim=True,lines=None):
     """
     Just a least squares fit, no MCMC
     Trim off the blue and red-most regions that are a bit dodgy
 
     :param wavelengths: unitless floats (but generally in AA)
     :param values: unitless floats (but generally in erg/s/cm2 over 2AA e-17) (HETDEX standard)
+                   the caller must set to flux or fnu as needed
     :param errors: unitless floats (same as values)
     :param trim: Trim off the blue and red-most regions that are a bit dodgy
+    :param lines: list of emission lines (and/or absorption) to mask out
     :return: slope, slope_error
     """
 
@@ -1173,41 +1175,53 @@ def simple_fit_slope (wavelengths, values, errors=None,trim=True):
         return slope, slope_error
 
     try:
-        if trim  and (len(wavelengths) == 1036): #assumes HETDEX standard rectified 2AA wide bins 3470-5540
-            idx_lt = 65  #3600AA
-            idx_rt = 966 #5400AA (technically 965+1 so it is included in the slice)
-        else:
-            idx_lt = 0
-            idx_rt = -1
 
-        #check the slope
-        if errors is not None and len(errors)==len(values):
-            weights = 1./np.array(errors[idx_lt:idx_rt])
-            #clear any nans or infs
-            weights[np.isnan(weights)] = 0.0
-            weights[np.isinf(weights)] = 0.0
-        else:
-            weights = None
+        #mask first
+        mask = np.full(len(wavelengths),True) #we will keep the True values
+        if lines is not None:
+            for l in lines:
+                idx,*_ = getnearpos(wavelengths,l.fit_x0)
+                width = int(l.fit_sigma * 3.0)
+                left = max(0,idx-width)
+                right = min(len(wavelengths),idx+width+1)
+                mask[left:right]=False
+
+        if trim  and (len(wavelengths) == 1036): #assumes HETDEX standard rectified 2AA wide bins 3470-5540
+            mask[0:66] = False
+            mask[966:] = False
 
         #local copy to protect values
-        _values = values[idx_lt:idx_rt]
-        #get rid of the NaNs and the +/- inf
-        weights[np.isnan(_values)] = 0.0 #zero out their weights
-        weights[np.isinf(_values)] = 0.0 #zero out their weights
+        _values = copy.copy(np.array(values))
+
+        #check the errors
+        try:
+            if errors is not None and len(errors)==len(values):
+                weights = 1./np.array(errors)
+
+                #any weights or weights that correspond to values that are nan or zero get a 0 weight
+                weights[np.isnan(_values)] = 0.0 #zero out their weights
+                weights[np.isinf(_values)] = 0.0 #zero out their weights
+                weights[np.isnan(weights)] = 0.0
+                weights[np.isinf(weights)] = 0.0
+                weights = weights[mask]
+            else:
+                weights = None
+        except:
+            weights = None
 
         #set to innocuous values
         _values[np.isnan(_values)] = 0.0
         _values[np.isneginf(_values)] = np.min(_values[np.invert(np.isinf(_values))])
         _values[np.isposinf(_values)] = np.max(_values[np.invert(np.isinf(_values))])
 
-        coeff, cov  = np.polyfit(wavelengths[idx_lt:idx_rt], _values,
+        coeff, cov  = np.polyfit(np.array(wavelengths)[mask], _values[mask],
                                  w=weights,cov=True,deg=1)
+
         if coeff is not None:
             slope = coeff[0]
 
         if cov is not None:
             slope_error = np.sqrt(np.diag(cov))[0]
-
 
         log.debug(f"Fit slope: {slope:0.3g} +/- {slope_error:0.3g}")
     except:

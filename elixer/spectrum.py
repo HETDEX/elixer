@@ -4010,11 +4010,11 @@ class Spectrum:
             # coeff = fit_line(wavelengths, values, errors)  # flipped order ... coeff[0] = 0th, coeff[1]=1st
             # self.spectrum_linear_coeff = coeff
 
-            # also get the overall slope
-            self.spectrum_slope, self.spectrum_slope_err = SU.simple_fit_slope(wavelengths, values, errors)
-
-            log.info("%s Spectrum basic slope: %g +/- %g"
-                     %(self.identifier,self.spectrum_slope,self.spectrum_slope_err))
+            # # also get the overall slope
+            # self.spectrum_slope, self.spectrum_slope_err = SU.simple_fit_slope(wavelengths, values, errors)
+            #
+            # log.info("%s Spectrum basic slope: %g +/- %g"
+            #          %(self.identifier,self.spectrum_slope,self.spectrum_slope_err))
             #todo: maybe also a basic parabola? (if we capture an overall peak? like for a star black body peak?
         else:
             log.warning("Warning! Did not successfully compute signal_score on main emission line.")
@@ -4033,7 +4033,13 @@ class Spectrum:
 
 
         #also get the overall slope
-        self.spectrum_slope, self.spectrum_slope_err = SU.simple_fit_slope(wavelengths, values, errors)
+        lines_to_mask = self.all_found_lines[:] if self.all_found_lines != None else []
+        lines_to_mask += self.all_found_absorbs[:] if self.all_found_absorbs != None else []
+        try:
+            self.spectrum_slope, self.spectrum_slope_err = SU.simple_fit_slope(wavelengths, values, errors,lines=lines_to_mask)
+            log.info("%s Spectrum basic slope: %g +/- %g" %(self.identifier,self.spectrum_slope,self.spectrum_slope_err))
+        except:
+            pass
         #if self.snr is None:
         #    self.snr = 0
 

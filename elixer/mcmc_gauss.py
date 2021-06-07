@@ -101,7 +101,7 @@ class MCMC_Gauss:
         #and are expected to come from, say, some "best" fit
         self.initial_mu = None
         self.initial_sigma = None
-        self.initial_A = None
+        self.initial_A = None #set to a negative value if this is an absorption line
         self.initial_y = None
         self.initial_peak = None
 
@@ -216,11 +216,19 @@ class MCMC_Gauss:
     def lnprior(self, theta):  # theta is a n-tuple (_,_,_ ... )
         mu, sigma, A, y, ln_f = theta
         # note: could take some other dynamic maximum for y (like compute the peak ... y can't be greater than that
-        if (-self.range_mu < mu - self.initial_mu < self.range_mu) and \
+
+        if self.initial_A < 0 : #same as emission, but "A" is negative (flip sign) and y is between a max and zero
+            if (-self.range_mu < mu - self.initial_mu < self.range_mu) and \
+                    (0.0 < sigma < self.max_sigma) and \
+                    (self.max_A_mult * self.initial_A < A < 0.0) and \
+                    (self.min_y < y < self.max_y_mult * self.initial_peak):
+                return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
+        else:
+            if (-self.range_mu < mu - self.initial_mu < self.range_mu) and \
                 (0.0 < sigma < self.max_sigma) and \
                 (0.0 < A < self.max_A_mult * self.initial_A) and \
                 (self.min_y < y < self.max_y_mult * self.initial_peak):
-            return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
+                return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
         return -np.inf  # -999999999 #-np.inf #roughly ln(0) == -inf
 
     def lnprob(self, theta, x, y, yerr):
@@ -283,12 +291,31 @@ class MCMC_Gauss:
         #mu, sigma, A, y, ln_f = theta #note f or ln(f) is another uncertainty ...an underestimation of the variance
         #                               by some factor (f) .... e.g. variance = variance + f * model
         initial_pos = [self.initial_mu,self.initial_sigma,self.initial_A,self.initial_y,0.0]
+
+        #even with the random nudging the pos values must be greater than (or less than for absorption) these values
+
+        #mostly for the A (area)
+        if self.initial_A < 0: #absorber
+            max_pos = [np.inf, np.inf,     0.0, max(self.data_y),  np.inf]
+            min_pos = [   0.0,   0.01, -np.inf,          -np.inf, -np.inf]
+        else:
+            #here, because of the max check, none mu, sigma, or A will be negative
+            max_pos = [np.inf, np.inf,np.inf,max(self.data_y), np.inf] #must be less than this
+            min_pos = [   0.0,  0.01,   0.01,         -np.inf,-np.inf] #must be greater than this
+
         ndim = len(initial_pos)
         scale = np.array([1.,1.,1.,1.,-100.5]) #don't nudge ln_f ...note ln_f = -4.5 --> f ~ 0.01
+
         #nudge the initial positions around a bit
 
         try:
-            pos = [initial_pos +  scale * np.random.randn(ndim) for i in range(self.walkers)]
+            # if self.initial_A < 0: #absorber
+            #     pos = [np.minimum(initial_pos + scale * np.random.randn(ndim),limit_pos) for i in range(self.walkers)]
+            # else:
+
+            pos = [np.minimum(np.maximum(initial_pos + scale * np.random.randn(ndim),min_pos),max_pos) for i in range(self.walkers)]
+
+            #pos = [initial_pos + scale * np.random.randn(ndim) for i in range(self.walkers)]
 
             #build the sampler
             #todo: incorporate self.err_x ? (realistically, do we have significant uncertainty in x?)

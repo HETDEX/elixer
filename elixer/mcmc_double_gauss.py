@@ -263,6 +263,34 @@ class MCMC_Double_Gauss:
                 (0.0 <= A2 < self.max_A_mult * self.initial_A_2) and \
             ((y-self.delta_y) < y < (y+self.delta_y)):
             return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
+
+
+
+
+        if self.initial_A < 0 : #same as emission, but "A" is negative (flip sign) and y is between a max and zero
+
+            if ( abs(mu - self.initial_mu) < self.range_mu) and \
+                    (0.1 < sigma < self.max_sigma) and \
+                    (self.max_A_mult * self.initial_A <= A < 0.0) and \
+                    (abs(mu2 - self.initial_mu_2) < self.range_mu) and \
+                    (0.1 <= sigma2 < self.max_sigma) and \
+                    (self.max_A_mult * self.initial_A_2 <= A2 < 0.0) and \
+                    ((y-self.delta_y) < y < (y+self.delta_y)):
+                return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
+        else:
+            if ( abs(mu - self.initial_mu) < self.range_mu) and \
+                    (0.1 < sigma < self.max_sigma) and \
+                    (0.0 < A < self.max_A_mult * self.initial_A) and \
+                    (abs(mu2 - self.initial_mu_2) < self.range_mu) and \
+                    (0.1 <= sigma2 < self.max_sigma) and \
+                    (0.0 <= A2 < self.max_A_mult * self.initial_A_2) and \
+                    ((y-self.delta_y) < y < (y+self.delta_y)):
+                return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
+        return -np.inf  # -999999999 #-np.inf #roughly ln(0) == -inf
+
+
+
+
         return -np.inf  # -999999999 #-np.inf #roughly ln(0) == -inf
 
     def lnprob(self, theta, x, y, yerr):
@@ -332,15 +360,28 @@ class MCMC_Double_Gauss:
         #                               by some factor (f) .... e.g. variance = variance + f * model
         initial_pos = [self.initial_mu, self.initial_sigma,  self.initial_A,self.initial_y,
                        self.initial_mu_2,self.initial_sigma_2,self.initial_A_2,0.0]
+
+        #mostly for the A (area)
+        if self.initial_A < 0: #absorber
+            max_pos = [np.inf, np.inf,     0.0, max(self.data_y),  np.inf, np.inf,     0.0,   np.inf]
+            min_pos = [   0.0,   0.01, -np.inf,          -np.inf,     0.0,   0.01, -np.inf,  -np.inf]
+        else:
+            #here, because of the max check, none mu, sigma, or A will be negative
+            max_pos = [np.inf, np.inf,np.inf,max(self.data_y), np.inf, np.inf, np.inf,   np.inf] #must be less than this
+            min_pos = [   0.0,  0.01,   0.01,         -np.inf,    0.0,   0.01,   0.01,  -np.inf] #must be greater than this
+
+
         #reminder, there is no y2 so that position is absent from the second line
         ndim = len(initial_pos)
         scale = np.array([1.,1.,1.,0.2,   1.,1.,1.,  -100.5]) #don't nudge ln_f ...note ln_f = -4.5 --> f ~ 0.01
         #nudge the initial positions around a bit
 
         try:
-            pos = [initial_pos +  scale * np.random.randn(ndim) for i in range(self.walkers)]
+#            pos = [initial_pos +  scale * np.random.randn(ndim) for i in range(self.walkers)]
+            pos = [np.minimum(np.maximum(initial_pos + scale * np.random.randn(ndim),min_pos),max_pos) for i in range(self.walkers)]
 
-            #build the sampler
+
+        #build the sampler
             #todo: incorporate self.err_x ? (realistically, do we have significant uncertainty in x?)
             self.sampler = emcee.EnsembleSampler(self.walkers, ndim, self.lnprob,
                                             args=(self.data_x,self.data_y, self.err_y))
