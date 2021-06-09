@@ -1345,7 +1345,10 @@ class Catalog:
         col_idx = 0
         target_count = 0
         phot_z_plotted = False
+        phot_z_reference_lines_plotted = False
+        make_phot_z_plot = False
         # targets are in order of increasing likelihood
+
 
         #iterate over the bid targets (list_of_counterparts) and build up the text
         for counterpart in list_of_counterparts:
@@ -1400,6 +1403,13 @@ class Catalog:
                 text += counterpart.bid_filter
             text += "\n"
 
+            if not make_phot_z_plot:
+                if (counterpart.phot_z_pdf_pz is not None) and (counterpart.phot_z_pdf_z is not None) and \
+                        (len(counterpart.phot_z_pdf_pz) == len(counterpart.phot_z_pdf_z ) != 0):
+                    make_phot_z_plot = True
+                elif counterpart.spec_z is not None and counterpart.spec_z >= 0.0:
+                    make_phot_z_plot = True
+
             #plae/poii
             if (not G.ZOO) and (counterpart.p_lae_oii_ratio is not None):
                 try:
@@ -1418,42 +1428,49 @@ class Catalog:
             plt.gca().axis('off')
             plt.text(0, 0, text, ha='left', va='bottom', fontproperties=font,color=bid_colors[col_idx-1])
 
-            if (counterpart.phot_z_pdf_pz is not None) and (counterpart.phot_z_pdf_z is not None) and \
-                    (len(counterpart.phot_z_pdf_pz) == len(counterpart.phot_z_pdf_z ) != 0):
-                x = counterpart.phot_z_pdf_z
-                y = counterpart.phot_z_pdf_pz
-                plt.subplot(gs[0, 4:])
-                plt.plot(x, y, color=bid_colors[col_idx-1])
-                plt.xlim([0, 3.6])
+        #now the phot z plot (if there are any to plot)
+
+
+        if make_phot_z_plot:
+            col_idx = 0 #reset the col_idx for colors
+            plt.subplot(gs[0, 4:])
+            plt.xlim([0, 3.6])
+
+            legend = []
+            if target_w > 0:
+                la_z = target_w / G.LyA_rest - 1.0
+                oii_z = target_w / G.OII_rest - 1.0
+                if (oii_z > 0):
+                    h = plt.axvline(x=oii_z, color='g', linestyle='--', zorder=9,
+                                    label="OII z(virus) = % g" % oii_z)
+                    legend.append(h)
+                h = plt.axvline(x=la_z, color='r', linestyle='--', zorder=9,
+                                label="LyA z (VIRUS) = %g" % la_z)
+                legend.append(h)
+                plt.gca().legend(handles=legend, loc='lower center', ncol=len(legend), frameon=False,
+                                 fontsize='small', borderaxespad=0, bbox_to_anchor=(0.5, -0.25))
+                phot_z_reference_lines_plotted = True
+
+            plt.title("Phot z PDF")
+            plt.gca().yaxis.set_visible(False)
+
+            for counterpart in list_of_counterparts:
+                col_idx += 1
+                if (counterpart.phot_z_pdf_pz is not None) and (counterpart.phot_z_pdf_z is not None) and \
+                        (len(counterpart.phot_z_pdf_pz) == len(counterpart.phot_z_pdf_z ) != 0):
+                    x = counterpart.phot_z_pdf_z
+                    y = counterpart.phot_z_pdf_pz
+                    plt.plot(x, y, color=bid_colors[col_idx-1])
 
                 if counterpart.spec_z is not None and counterpart.spec_z >= 0.0:
                     plt.scatter([counterpart.spec_z,],[plt.gca().get_ylim()[1]*0.9,],zorder=9,
-                                marker="o",s=80,facecolors='none',edgecolors=bid_colors[col_idx-1])
-                phot_z_plotted = True
-                if col_idx == 1:
-                    legend = []
-                    if target_w > 0:
-                        la_z = target_w / G.LyA_rest - 1.0
-                        oii_z = target_w / G.OII_rest - 1.0
-                        if (oii_z > 0):
-                            h = plt.axvline(x=oii_z, color='g', linestyle='--', zorder=9,
-                                            label="OII z(virus) = % g" % oii_z)
-                            legend.append(h)
-                        h = plt.axvline(x=la_z, color='r', linestyle='--', zorder=9,
-                                        label="LyA z (VIRUS) = %g" % la_z)
-                        legend.append(h)
-                        plt.gca().legend(handles=legend, loc='lower center', ncol=len(legend), frameon=False,
-                                         fontsize='small', borderaxespad=0, bbox_to_anchor=(0.5, -0.25))
+                                    marker="o",s=80,facecolors='none',edgecolors=bid_colors[col_idx-1])
 
-                plt.title("Photo z PDF")
-                plt.gca().yaxis.set_visible(False)
-
-
-        if not phot_z_plotted:
+        if not make_phot_z_plot:
             plt.subplot(gs[0, 4:])
             plt.gca().set_frame_on(False)
             plt.gca().axis('off')
-            text = "Photo z plot not available."
+            text = "Phot z plot not available."
             plt.text(0, 0.5, text, ha='left', va='bottom', fontproperties=font)
 
         self.add_bid_entry(fig)

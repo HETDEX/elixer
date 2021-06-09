@@ -1490,7 +1490,7 @@ class GOODS_N(cat_base.Catalog):
                             plt.gca().legend(handles=legend, loc='lower center', ncol=len(legend), frameon=False,
                                                  fontsize='small', borderaxespad=0, bbox_to_anchor=(0.5, -0.25))
 
-                    plt.title("Photo z PDF")
+                    plt.title("Phot z PDF")
                     plt.gca().yaxis.set_visible(False)
                     #plt.xlabel("z")
 

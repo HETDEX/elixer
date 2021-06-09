@@ -3,9 +3,11 @@ from __future__ import print_function
 try:
     from elixer import global_config as G
     from elixer import corner
+    from elixer import utilities
 except:
     import global_config as G
     import corner
+    import utilities
 
 import numpy as np
 import io
@@ -31,10 +33,6 @@ def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
     #sanity check
     min_pix = 5  # want at least 5 pix (bins) to left and right
     try:
-        if cw_pix is None or hw_pix is None:
-            cw_pix = len(data)//2
-            hw_pix = cw_pix-1
-
         if (data is None):
             log.warning("Invalid data (None) supplied for rms.")
             return -999
@@ -50,10 +48,18 @@ def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
         elif any(np.isnan(fit)):
             log.warning("Invalid data supplied for rms, NaNs in fit.")
             return -999
-        elif not (min_pix < cw_pix < (len(data) - min_pix)):
-            # could be highly skewed (esp think of large asym in LyA, with big velocity disp. (booming AGN)
-            log.warning("Invalid data supplied for rms. Minimum distance from array edge not met.")
-            return -999
+
+        if cw_pix is None and hw_pix is None:
+            pass
+        else:
+            if cw_pix is None or hw_pix is None:
+                cw_pix = len(data)//2
+                hw_pix = cw_pix-1
+
+            if not (min_pix < cw_pix < (len(data) - min_pix)):
+                # could be highly skewed (esp think of large asym in LyA, with big velocity disp. (booming AGN)
+                log.warning("Invalid data supplied for rms. Minimum distance from array edge not met.")
+                return -999
 
         if norm:
             mx = max(data)
@@ -88,6 +94,7 @@ def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
             d = d[left:right+1]
             f = f[left:right+1]
 
+        # np.sqrt(np.sum((f-d)*(f-d))/len(f)) #same thing
         return np.sqrt(((f - d) ** 2).mean())
     except:
         return -1 #non-sense value for snr
@@ -334,23 +341,141 @@ class MCMC_Gauss:
 
             log.debug("MCMC mean acceptance fraction: %0.3f" %(np.mean(self.sampler.acceptance_fraction)))
 
+            #for each, in order
+            #v[0] is the 16 percentile (~ - 1sigma)
+            #v[1] is the 50 percentile (so the "average")
+            #v[2] is the 84 percentile (~ +1sigma)
+            #the tuple reports then as ["average", "84th - average", "average - 16th"]
+            #should always be positive (assuming a positive value) BUT when printed to the log, the 3rd value is made
+            #to be negative showing that you would subtract it from the average to get to the 16th percentile
+
+            sigma_width = 4
+
+            #using 68% interval
             self.mcmc_mu, self.mcmc_sigma, self.mcmc_A, self.mcmc_y, mcmc_f = \
                 map(lambda v: (v[1], v[2] - v[1], v[1] - v[0]),zip(*np.percentile(self.samples, self.UncertaintyRange,axis=0)))
+
+            # mcmc_mu_95, mcmc_sigma_95, mcmc_A_95, mcmc_y_95, mcmc_f = \
+            #     map(lambda v: (v[1], v[2] - v[1], v[1] - v[0]),zip(*np.percentile(self.samples, [5,50,95],axis=0)))
+
+            try: #basic info used by multiple SNR calculations
+                bin_width = self.data_x[1] - self.data_x[0]
+                model_fit = self.compute_model(self.data_x,self.mcmc_mu[0],self.mcmc_sigma[0],self.mcmc_A[0],self.mcmc_y[0])
+                left,*_ = utilities.getnearpos(self.data_x,self.mcmc_mu[0]-self.mcmc_sigma[0]*sigma_width)
+                right,*_ = utilities.getnearpos(self.data_x,self.mcmc_mu[0]+self.mcmc_sigma[0]*sigma_width)
+                if left > 0:
+                    left -= 1
+                if (right+1) < len(self.data_x):
+                    right += 1
+                rms_err = rms(self.data_y[left:right],model_fit[left:right],None,None,False)
+
+                #signal is the sum of the data between +/- 2.5 sigma (minus the y-offset)
+                # noise is the sqrt of the nummber of pixels (wavebins)*the RMSerror)
+            except:
+                log.warning("Exception calculating MCMC SNR: ", exc_info=True)
+
+
+            #
+            # try:
+            #     ###############################
+            #     # Different SNR measures
+            #     ###############################
+            #
+            #     #
+            #     # 1. sum over the model (subtracting off the y-offset) and divide by sqrt(pixels)*rmse
+            #     #
+            #     self.mcmc_snr = (np.sum(model_fit[left:right])-(right-left+1)*self.mcmc_y[0])/(np.sqrt(right-left+1)*rms_err)
+            #     log.info(f"MCMC SNR model w/RMS: {self.mcmc_snr}")
+            # except:
+            #     log.warning("Exception calculating MCMC SNR: ", exc_info=True)
+            #
+            # try:
+            #     #
+            #     # 2. sum over the model (subtracting off the y-offset) and divide by sum of the sqrt of data errors
+            #     #
+            #     if self.err_y is not None and len(self.err_y) == len(self.data_y):
+            #         self.mcmc_snr = (np.sum(model_fit[left:right])-(right-left+1)*self.mcmc_y[0])/(np.sum(np.sqrt(self.err_y[left:right])))
+            #         log.info(f"MCMC SNR model w/data error: {self.mcmc_snr}")
+            #
+            #     #
+            #     # 3. sum over the data values (subtracting off the y-offset) and divide by the sum of the sqrt of the data errors
+            #     #
+            #         self.mcmc_snr = (np.sum(self.data_y[left:right])-(right-left+1)*self.mcmc_y[0])/(np.sum(np.sqrt(self.err_y[left:right])))
+            #         log.info(f"MCMC SNR data w/data error: {self.mcmc_snr}")
+            # except:
+            #     log.warning("Exception calculating MCMC SNR: ", exc_info=True)
+            #
+            #
+            # try:
+            #     #
+            #     # 4. sum of the model fit (subtractig the y-offset) divide by the sum of the sqrt of the propagated uncertainties in the fit
+            #     #
+            #
+            #     unc_array = utilities.gaussian_uncertainty(None,self.data_x,
+            #                                                self.mcmc_mu[0],0.5*(self.mcmc_mu[1]+self.mcmc_mu[2]),
+            #                                                self.mcmc_sigma[0],0.5*(self.mcmc_sigma[1]+self.mcmc_sigma[2]),
+            #                                                self.mcmc_A[0],0.5*(self.mcmc_A[1]+self.mcmc_A[2]),
+            #                                                self.mcmc_y[0],0.5*(self.mcmc_y[1]+self.mcmc_y[2]))
+            #
+            #     self.mcmc_snr = (np.sum(model_fit[left:right]) - (right-left+1)*self.mcmc_y[0])/np.sum(np.sqrt(unc_array[left:right]))
+            #     log.info(f"MCMC SNR model w/error prop: {self.mcmc_snr}")
+            #
+            # except:
+            #     log.warning("Exception calculating MCMC SNR: ", exc_info=True)
+            #
+            # try:
+            #     #
+            #     # 5. Area under the model curve divided by the # pixels * the rmse
+            #     #
+            #
+            #     #todo: need to adjust the AREA down by the fraction that is covered by the sigma_width set at the top
+            #     self.mcmc_snr = self.mcmc_A[0]/((right-left+1)*rms_err)
+            #     log.info(f"MCMC SNR Area model w/RMS: {self.mcmc_snr} RMSE={rms_err} Pix={right-left+1}")
+            #
+            # except:
+            #     log.warning("Exception calculating MCMC SNR: ", exc_info=True)
+            #
+            # try:
+            #     #
+            #     # 6. Area under the model fit divided by the mean of the 68% wings from the MCMC samples
+            #     #
+            #
+            #     self.mcmc_snr = self.mcmc_A[0]/(0.5*(self.mcmc_A[1]+self.mcmc_A[2]))
+            #     log.info(f"MCMC SNR model Area with uncertainty: {self.mcmc_snr}")
+            #
+            #     #self.mcmc_snr = np.sum(model_fit)/(np.sqrt(len(self.data_x))*rms_err)
+            #     #these are fluxes, so just sum over the model to get approximate total flux (aread under the curve) = signal
+            #     #and divide by the sqrt of N (number of pixels) * the rmse as the error
+            #
+            # except:
+            #     log.warning("Exception calculating MCMC SNR: ", exc_info=True)
+
             try:
-                #self.mcmc_snr = self.mcmc_A[0] / (0.5 * (abs(self.mcmc_A[1]) + abs(self.mcmc_A[2])))
+                #
+                # 7. Area under the model fit divided by the mean of the 68% wings from the MCMC samples
+                # As of 2021-06-08 this is what Karl is using
+                # but need to check the left and right and the err_y is what I expect (no 2AA correction)
 
-                rms_model = self.compute_model(self.data_x,self.mcmc_mu[0],self.mcmc_sigma[0],self.mcmc_A[0],self.mcmc_y[0])
+                #self.mcmc_snr = self.mcmc_A[0]/ (np.sum(np.sqrt(self.err_y[left:right])))
+                #note: sqrt(bin_width) is for the 2AA binning (the area does not know about binning)
+                self.mcmc_snr = self.mcmc_A[0] / np.sqrt(np.sum(self.err_y[left:right]*self.err_y[left:right])) / np.sqrt(bin_width)
+                log.info(f"MCMC SNR model Area with data error: {self.mcmc_snr}")
 
-                #half_pix = int(self.mcmc_sigma[0]*3)
-                err = rms(self.data_y,rms_model,None,None,False)
-                self.mcmc_snr = np.sum(rms_model)/(np.sqrt(len(self.data_x))*err)
+                #self.mcmc_snr = np.sum(model_fit)/(np.sqrt(len(self.data_x))*rms_err)
                 #these are fluxes, so just sum over the model to get approximate total flux (aread under the curve) = signal
                 #and divide by the sqrt of N (number of pixels) * the rmse as the error
 
             except:
-                self.mcmc_snr = -1
                 log.warning("Exception calculating MCMC SNR: ", exc_info=True)
 
+
+
+
+
+            if self.mcmc_snr is None:
+                self.mcmc_snr = -1
+
+            #note: these are logged as ["avg", +err, -err] so the last value becomes the negative
             log.info("MCMC mu: initial[%0.5g] mcmc(%0.5g, +%0.5g, -%0.5g)" %
                      (self.initial_mu, self.mcmc_mu[0],self.mcmc_mu[1],self.mcmc_mu[2]))
             log.info("MCMC sigma: initial[%0.5g] mcmc(%0.5g, +%0.5g, -%0.5g)" %

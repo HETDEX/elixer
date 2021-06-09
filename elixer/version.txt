@@ -6,6 +6,9 @@ changes to elixer by version
 * allow MCMC Gaussian to fit aborption lines (negative A); restrict initial walker positions to valid ranges for each
   parameter to be fit (i.e. sigma cannot be negative, mu cannot be negative, for emission A must be positive (for absorption
   A must be negative)), etc
+* align elixer SNR definition to base HETDEX definition. There will still be some variation (+/- 1 or 2 pixels in the noise
+arrray and small differences in MCMC line flux fit) but they will be close.
+    SNR = fit lineflux/sqrt(sum(err**2)) over line center +/- 4 sigma
 
 
 1.12.0a1 [2021-05-20]

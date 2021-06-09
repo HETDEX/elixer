@@ -43,12 +43,7 @@ def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
     """
     #sanity check
     min_pix = 5  # want at least 5 pix (bins) to left and right
-
     try:
-        if cw_pix is None or hw_pix is None:
-            cw_pix = len(data)//2
-            hw_pix = cw_pix-1
-
         if (data is None):
             log.warning("Invalid data (None) supplied for rms.")
             return -999
@@ -64,10 +59,18 @@ def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
         elif any(np.isnan(fit)):
             log.warning("Invalid data supplied for rms, NaNs in fit.")
             return -999
-        elif not (min_pix < cw_pix < (len(data) - min_pix)):
-            # could be highly skewed (esp think of large asym in LyA, with big velocity disp. (booming AGN)
-            log.warning("Invalid data supplied for rms. Minimum distance from array edge not met.")
-            return -999
+
+        if cw_pix is None and hw_pix is None:
+            pass
+        else:
+            if cw_pix is None or hw_pix is None:
+                cw_pix = len(data)//2
+                hw_pix = cw_pix-1
+
+            if not (min_pix < cw_pix < (len(data) - min_pix)):
+                # could be highly skewed (esp think of large asym in LyA, with big velocity disp. (booming AGN)
+                log.warning("Invalid data supplied for rms. Minimum distance from array edge not met.")
+                return -999
 
         if norm:
             mx = max(data)
@@ -105,6 +108,7 @@ def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
         return np.sqrt(((f - d) ** 2).mean())
     except:
         return -1 #non-sense value for snr
+
 
 class MCMC_Double_Gauss:
 
@@ -407,7 +411,7 @@ class MCMC_Double_Gauss:
                 rms_model = self.compute_model(self.data_x,self.mcmc_mu[0],self.mcmc_sigma[0],self.mcmc_A[0],self.mcmc_y[0],
                                                self.mcmc_mu_2[0],self.mcmc_sigma_2[0],self.mcmc_A_2[0])
                 err = rms(self.data_y,rms_model,None,None,False)
-                self.mcmc_snr = np.sum(rms_model)/(np.sqrt(len(self.data_x))*err)
+                self.mcmc_snr = (np.sum(rms_model)-len(rms_model)*self.mcmc_y[0])/(np.sqrt(len(self.data_x))*err)
                 #these are fluxes, so just sum over the model to get approximate total flux (aread under the curve) = signal
                 #and divide by the sqrt of N (number of pixels) * the rmse as the error
                 #self.mcmc_snr = rms(self.data_y,rms_model,None,None,False)
@@ -415,6 +419,8 @@ class MCMC_Double_Gauss:
             except:
                 self.mcmc_snr = -1
                 log.warning("Exception calculating MCMC SNR: ", exc_info=True)
+
+
 
             log.info("MCMC mu: initial[%0.5g] mcmc(%0.5g, +%0.5g, -%0.5g)" %
                      (self.initial_mu, self.mcmc_mu[0],self.mcmc_mu[1],self.mcmc_mu[2]))
