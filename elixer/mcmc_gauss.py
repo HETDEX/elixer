@@ -140,7 +140,10 @@ class MCMC_Gauss:
         self.mcmc_sigma = None
         self.mcmc_A = None
         self.mcmc_y = None
-        self.mcmc_snr = None #snr as flux_area/1-sigma uncertainty
+
+        #not tuple, just single floats
+        self.mcmc_snr = None
+        self.mcmc_snr_err = 0
         # just for reference ... MCMC itself does not need to know about this
         # the caller DOES though and needs to adjust the line_flux accordingly
         #self.mcmc_line_flux = None #the actual line flux (erg s^-1 cm^-2);
@@ -459,7 +462,8 @@ class MCMC_Gauss:
                 #self.mcmc_snr = self.mcmc_A[0]/ (np.sum(np.sqrt(self.err_y[left:right])))
                 #note: sqrt(bin_width) is for the 2AA binning (the area does not know about binning)
                 self.mcmc_snr = self.mcmc_A[0] / np.sqrt(np.sum(self.err_y[left:right]*self.err_y[left:right])) / np.sqrt(bin_width)
-                log.info(f"MCMC SNR model Area with data error: {self.mcmc_snr}")
+                self.mcmc_snr_err = 0.5*(self.mcmc_A[1]+self.mcmc_A[2])/self.mcmc_A[0] * self.mcmc_snr
+                log.info(f"MCMC SNR model Area with data error: {self.mcmc_snr} +/- {self.mcmc_snr_err}")
 
                 #self.mcmc_snr = np.sum(model_fit)/(np.sqrt(len(self.data_x))*rms_err)
                 #these are fluxes, so just sum over the model to get approximate total flux (aread under the curve) = signal

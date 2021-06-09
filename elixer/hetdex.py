@@ -4873,6 +4873,7 @@ class DetObj:
                     self.cont_cgs = self.spec_obj.central_eli.mcmc_continuum
                     # self.snr = self.spec_obj.central_eli.mcmc_snr
                     self.snr = self.spec_obj.central_eli.snr
+                    self.snr_unc = self.spec_obj.central_eli.snr_err
 
                     self.spec_obj.estflux = self.estflux
                     self.spec_obj.eqw_obs = self.eqw_obs
@@ -5581,6 +5582,7 @@ class DetObj:
                                              self.spec_obj.central_eli.mcmc_continuum_tuple[2])
                     # self.snr = self.spec_obj.central_eli.mcmc_snr
                     self.snr = self.spec_obj.central_eli.mcmc_snr
+                    self.snr_unc = self.spec_obj.central_eli.mcmc_snr_err
 
                     self.spec_obj.estflux = self.estflux
                     self.spec_obj.eqw_obs = self.eqw_obs
@@ -5597,7 +5599,8 @@ class DetObj:
                         pass
 
                     self.snr = self.spec_obj.central_eli.snr #row['sn']
-                    self.snr_unc = 0.0 #row['sn_err']
+                    self.snr_unc = self.spec_obj.central_eli.snr_err #row['sn']
+                    #self.snr_unc = 0.0 #row['sn_err']
 
                     self.sigma = self.spec_obj.central_eli.fit_sigma #row['linewidth']  # AA
                     self.sigma_unc = self.spec_obj.central_eli.fit_sigma_err #0.0 #row['linewidth_err']
@@ -6401,6 +6404,7 @@ class DetObj:
                     self.cont_cgs = self.spec_obj.central_eli.mcmc_continuum
                     #self.snr = self.spec_obj.central_eli.mcmc_snr
                     self.snr = self.spec_obj.central_eli.snr
+                    self.snr_unc = self.spec_obj.central_eli.snr_err
 
                     self.spec_obj.estflux = self.estflux
                     self.spec_obj.eqw_obs = self.eqw_obs
@@ -6426,6 +6430,7 @@ class DetObj:
                     self.cont_cgs_unc_narrow = self.cont_cgs_unc
 
                     self.snr = self.spec_obj.central_eli.mcmc_snr
+                    self.snr_unc = self.spec_obj.central_eli.mcmc_snr_err
 
                     self.eqw_obs = self.spec_obj.central_eli.mcmc_ew_obs[0]
                     self.eqw_obs_unc = 0.5 * (self.spec_obj.central_eli.mcmc_ew_obs[1]+self.spec_obj.central_eli.mcmc_ew_obs[2])

@@ -628,6 +628,7 @@ class EmissionLineInfo:
         self.cont_err = 0.
 
         self.snr = 0.0
+        self.snr_err = 0.0
         self.sbr = 0.0
         self.eqw_obs = -999
         self.fwhm = -999
@@ -645,6 +646,7 @@ class EmissionLineInfo:
         self.mcmc_y = None
         self.mcmc_ew_obs = None #calcuated value (using error propogation from mcmc_a and mcmc_y)
         self.mcmc_snr = -1
+        self.mcmc_snr_err = 0.0
         self.mcmc_dx = 1.0 #default to 1.0 so mult or div have no effect
         self.mcmc_line_flux = None #actual line_flux not amplitude (not the same if y data is flux instead of flux/dx)
         self.mcmc_continuum = None #ditto for continuum
@@ -1594,8 +1596,10 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         eli.mcmc_x0 = mcmc.mcmc_mu
         eli.mcmc_sigma = mcmc.mcmc_sigma
         eli.mcmc_snr = mcmc.mcmc_snr
+        eli.mcmc_snr_err = mcmc.mcmc_snr_err
 
         eli.snr =   eli.mcmc_snr
+        eli.snr_err = eli.mcmc_snr_err
 
         if mcmc.mcmc_A is not None:
             eli.mcmc_a = np.array(mcmc.mcmc_A)
