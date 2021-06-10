@@ -788,8 +788,8 @@ SPEC_MAX_OFFSET_SPREAD = 2.75 #AA #maximum spread in (velocity) offset (but in A
 MIN_MCMC_SNR = 0.0 #minium SNR from an MCMC fit to accept as a real line (if 0.0, do not MCMC additional lines)
 MIN_ADDL_EMIS_LINES_FOR_CLASSIFY = 1
 
-DISPLAY_ABSORPTION_LINES = True
-MAX_SCORE_ABSORPTION_LINES = 5.0 #the most an absorption line can contribute to the score (set to 0 to turn off)
+DISPLAY_ABSORPTION_LINES = False
+MAX_SCORE_ABSORPTION_LINES = 0.0 #the most an absorption line can contribute to the score (set to 0 to turn off)
 
 MULTILINE_USE_ERROR_SPECTRUM_AS_NOISE = False #if False, uses the whole amp to estimate noise, if possible
 MULTILINE_MIN_GOOD_ABOVE_NOISE = 3.0 #below this is not consider a possibly good line
@@ -797,7 +797,7 @@ MULTILINE_SCORE_NORM_ABOVE_NOISE = 5.0 #get full 1x score at this level
 MULTILINE_SCORE_ABOVE_NOISE_MAX_BONUS = 3.0 #maximum multiplier as max of (peak/noise/NORM, BONUS)
 MULTILINE_MIN_SOLUTION_SCORE = 25.0  #remember, this does NOT include the main line's score (about p(noise) = 0.01)
 MULTILINE_FULL_SOLUTION_SCORE = 50.0 #scores at or above get full credit for the weight
-MULTILINE_MIN_WEAK_SOLUTION_CONFIDENCE = 0.5
+MULTILINE_MIN_WEAK_SOLUTION_CONFIDENCE = 0.6
 MULTILINE_USE_CONSISTENCY_CHECKS = True #if True, apply consistency checks (line ratios for AGN, vs low-z, etc)
 
 MULTILINE_WEIGHT_PROB_REAL = 0.4 #probabilty of real (0-.999) makes up 40% of score
@@ -805,6 +805,7 @@ MULTILINE_WEIGHT_SOLUTION_SCORE = 0.5 #related to probability of real, makes 50%
 MULTILINE_WEIGHT_FRAC_SCORE = 0.1 #fraction of total score for all solutions makes up 10%
 
 MULTILINE_MIN_SOLUTION_CONFIDENCE = 0.95 * MULTILINE_WEIGHT_PROB_REAL + MULTILINE_WEIGHT_SOLUTION_SCORE + 0.5 * MULTILINE_WEIGHT_FRAC_SCORE
+                                  #about 0.93
 MULTILINE_MIN_NEIGHBOR_SCORE_RATIO = 1.5 #if two top scores are possible, the best solution must be this multiplier higher in score
 
 MULTILINE_MAX_PROB_NOISE_TO_PLOT = 0.2 #plot dashed line on spectrum if p(noise) < 0.1

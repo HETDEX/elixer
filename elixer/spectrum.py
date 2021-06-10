@@ -825,16 +825,19 @@ class EmissionLineInfo:
 
             #the 10.0 is just to rescale ... could make 1e17 -> 1e16, but I prefer to read it this way
 
-            above_noise = self.peak_sigma_above_noise()
-            #this can fail to behave as expected for large galaxies (where much/all of IFU is covered)
-            #since all the lines are represented in many fibers, that appears to be "noise"
-            if above_noise is None:
+            if self.absorber:
                 above_noise = 1.0
             else:
-                above_noise = min(above_noise / G.MULTILINE_SCORE_NORM_ABOVE_NOISE, G.MULTILINE_SCORE_ABOVE_NOISE_MAX_BONUS)
-                # cap at 3x (so above 9x noise, we no longer graduate)
-                # that way, some hot pixel that spikes at 100x noise does not automatically get "real"
-                # but will still be throttled down due to failures with other criteria
+                above_noise = self.peak_sigma_above_noise()
+                #this can fail to behave as expected for large galaxies (where much/all of IFU is covered)
+                #since all the lines are represented in many fibers, that appears to be "noise"
+                if above_noise is None:
+                    above_noise = 1.0
+                else:
+                    above_noise = min(above_noise / G.MULTILINE_SCORE_NORM_ABOVE_NOISE, G.MULTILINE_SCORE_ABOVE_NOISE_MAX_BONUS)
+                    # cap at 3x (so above 9x noise, we no longer graduate)
+                    # that way, some hot pixel that spikes at 100x noise does not automatically get "real"
+                    # but will still be throttled down due to failures with other criteria
 
             unique_mul = 1.0 #normal
             if (self.unique == False) and (self.fwhm < 6.5):
@@ -890,9 +893,10 @@ class EmissionLineInfo:
                     # as hand-wavy correction, reduce the score as an absorber
                     # to do this correctly, need to NOT invert the values and treat as a proper absorption line
                     #   and calucate a true flux and width down from continuum
-                    new_score = min(G.MAX_SCORE_ABSORPTION_LINES, self.line_score * ABSORPTION_LINE_SCORE_SCALE_FACTOR)
-                    log.info("Rescalling line_score for absorption line: %f to %f" %(self.line_score,new_score))
-                    self.line_score = new_score
+                    if ((self.cont - self.cont_err) < 2e-17) or (self.snr < 5.0): #if this has significant continuum, keep the score as is
+                        new_score = min(G.MAX_SCORE_ABSORPTION_LINES, self.line_score * ABSORPTION_LINE_SCORE_SCALE_FACTOR)
+                        log.info("Rescalling line_score for absorption line: %f to %f" %(self.line_score,new_score))
+                        self.line_score = new_score
                 else:
                     log.info("Zeroing line_score for absorption line.")
                     self.line_score = 0.0
@@ -1292,18 +1296,32 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             eli.raw_h = max(eli.raw_vals[raw_idx - 3:raw_idx + 4])
         eli.raw_x0 = eli.raw_wave[getnearpos(eli.raw_vals, eli.raw_h)]
 
-        fit_peak = max(eli.fit_vals)
+        if absorber:
+            fit_peak = min(eli.fit_vals)
+        else:
+            fit_peak = max(eli.fit_vals)
 
-        peak_fit_mult = 0.25
+        if absorber:
+            peak_fit_mult = 0.33
+        else:
+            peak_fit_mult = 0.25
         if relax_fit:
             peak_fit_mult = 0.5
 
+        captured_peak = True
+        # if absorber:
+        #     if( abs(fit_peak - raw_peak) < (raw_peak * peak_fit_mult) ):
+        #         captured_peak = False
+        #         log.debug("Failed to capture peak: raw = %f , fit = %f, frac = %0.2f" % (raw_peak, fit_peak,
+        #                                                                                  abs(raw_peak - fit_peak) / raw_peak))
+        # else:
         if ( abs(fit_peak - raw_peak) > (raw_peak * peak_fit_mult) ):
-        #if (abs(raw_peak - fit_peak) / raw_peak > 0.2):  # didn't capture the peak ... bad, don't calculate anything else
-            #log.warning("Failed to capture peak")
+            captured_peak = False
+            #if (abs(raw_peak - fit_peak) / raw_peak > 0.2):  # didn't capture the peak ... bad, don't calculate anything else
+                #log.warning("Failed to capture peak")
             log.debug("Failed to capture peak: raw = %f , fit = %f, frac = %0.2f" % (raw_peak, fit_peak,
                                                                                  abs(raw_peak - fit_peak) / raw_peak))
-        else:
+        if captured_peak:
             #check the dx0
 
             p_err = pix_error(central_z,eli.fit_x0,pix_size=pix_size)
@@ -1397,7 +1415,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         max_sigma = GAUSS_FIT_MAX_SIGMA
 
     if (eli.fit_rmse > 0) and (eli.fit_sigma >= min_sigma) and ( 0 < (eli.fit_sigma-eli.fit_sigma_err) <= max_sigma) and \
-        (eli.fit_a_err < eli.fit_a ):
+        (eli.fit_a_err < abs(eli.fit_a) ):
 
         #this snr makes sense IF we assume the noise is distributed as a gaussian (which is reasonable)
         #then we'd be looking at something like 1/N * Sum (sigma_i **2) ... BUT , there are so few pixels
@@ -1405,7 +1423,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
         try: #data_err is the data errors for the pixels selected in the RMSE fit range
             #eli.snr = eli.fit_a/(np.sum(np.sqrt(data_err)))
-            eli.snr = eli.fit_a/np.sqrt(np.sum(data_err*data_err))/np.sqrt(2)
+            eli.snr = abs(eli.fit_a)/np.sqrt(np.sum(data_err*data_err))/np.sqrt(2)
             log.debug(f"curve_fit SNR: {eli.snr}; Area={eli.fit_a} RMSE={eli.fit_rmse} Pix={num_sn_pix}")
         except:
             log.info("signal_score() SNR fail. Falling back to RMSE based.")
@@ -1415,10 +1433,10 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         eli.unique = unique_peak(values,wavelengths,eli.fit_x0,eli.fit_sigma*2.355,absorber=absorber)
 
         rough_continuum = eli.fit_y - eli.fit_y_err #best case lowest continuum estimate
-        rough_height = eli.fit_h - rough_continuum
+        rough_height = abs(eli.fit_h - rough_continuum)
         rough_fwhm = eli.fit_sigma * 2.355
 
-        if not eli.unique and ((eli.fit_a_err / eli.fit_a) > 0.5) and (eli.fit_sigma > GAUSS_FIT_MAX_SIGMA):
+        if not eli.unique and ((eli.fit_a_err / abs(eli.fit_a)) > 0.5) and (eli.fit_sigma > GAUSS_FIT_MAX_SIGMA):
             accept_fit = False
             snr = 0.0
             eli.snr = 0.0
@@ -1440,14 +1458,14 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             eli.line_flux = 0.0
             log.debug(
                 f"Fit rejected: widder than tall. Height above y = {rough_height}, FWHM = {rough_fwhm}")
-        elif (eli.fit_a_err / eli.fit_a > 0.34) and ((eli.fit_y > 0) and (eli.fit_h/eli.fit_y < 1.66)):
+        elif (eli.fit_a_err / abs(eli.fit_a) > 0.34) and ((eli.fit_y > 0) and (eli.fit_h/eli.fit_y < 1.66)):
             #error on the area is just to great to trust along with very low peak height (and these are already broad)
             accept_fit = False
             snr = 0.0
             eli.snr = 0.0
             eli.line_score = 0.0
             eli.line_flux = 0.0
-            log.debug(f"Fit rejected: fit_a_err/fit_a {eli.fit_a_err / eli.fit_a} > 0.34 and fit_h/fit_y {eli.fit_h/eli.fit_y} < 1.66")
+            log.debug(f"Fit rejected: fit_a_err/fit_a {eli.fit_a_err / abs(eli.fit_a)} > 0.34 and fit_h/fit_y {eli.fit_h/eli.fit_y} < 1.66")
         else:
             eli.build(values_units=values_units,allow_broad=allow_broad,broadfit=broadfit)
             #eli.snr = max(eli.fit_vals) / (np.sqrt(num_sn_pix) * eli.fit_rmse)
@@ -2437,7 +2455,7 @@ def unique_peak(spec,wave,cwave,fwhm,width=10.0,frac=0.9,absorber=False):
         if absorber:
             v = invert_spectrum(wave,spec)
 
-        peak_val = max(spec[list(SU.getnearpos(wave,cwave))]) #could be +/-1 to either side (depending on binning), so use all returns
+        peak_val = max(v[list(SU.getnearpos(wave,cwave))]) #could be +/-1 to either side (depending on binning), so use all returns
         blue_stop, *_ = SU.getnearpos(wave,cwave-fwhm)
         red_start, *_ = SU.getnearpos(wave,cwave+fwhm)
 

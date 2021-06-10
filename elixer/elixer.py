@@ -687,6 +687,8 @@ def parse_commandline(auto_force=False):
         log.info("Setting CONTINUUM_RULES (args.continuum is set)")
         args.hdf5 = G.HDF5_CONTINUUM_FN
         G.CONTINUUM_RULES = True
+        G.MAX_SCORE_ABSORPTION_LINES = 9999.9
+        G.DISPLAY_ABSORPTION_LINES = True
     elif args.broadline:
         args.hdf5 = G.HDF5_BROAD_DETECT_FN
 

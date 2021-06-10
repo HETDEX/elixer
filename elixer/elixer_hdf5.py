@@ -963,7 +963,7 @@ def append_entry(fileh,det,overwrite=False):
 
                     row['wavelength'] = line.w_obs
                     row['flux_line'] = line.flux
-                    row['flux_line_err'] = 0 #should find the "found" line version to get this
+                    row['flux_line_err'] = line.flux_err #should find the "found" line version to get this
 
                     row['score'] = line.line_score
                     row['sn'] = line.snr

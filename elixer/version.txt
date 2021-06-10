@@ -10,6 +10,7 @@ changes to elixer by version
 arrray and small differences in MCMC line flux fit) but they will be close.
     SNR = fit lineflux/sqrt(sum(err**2)) over line center +/- 4 sigma
 * sped up neighborhood search (was missing the shot downselection)
+* if --continuum specified, auto set DISPLAY_ABSORPTION_LINES and MAX_SCORE_ABSORPTION_LINES
 
 
 1.12.0a1 [2021-05-20]
