@@ -1954,15 +1954,34 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
                 return detectids
 
         log.info("Searching for records by RA, Dec + error (this may take a while) ... ")
+        dec_correction = np.cos(np.deg2rad(dec))
+
+        #get the shots first
+        #shot FOV diameter 18' (telecope is 22') ... just to be safe use the larger
+        with tables.open_file(G.HDF5_SURVEY_FN, mode="r") as h5: #survey
+            stb = h5.root.Survey
+            fov = 0.1834 #22arcmin diameter to 11' radius x 60 arcsec / 3600 to get degree
+            ra1 = ra - fov/dec_correction
+            ra2 = ra + fov/dec_correction
+            dec1 = dec - fov
+            dec2 = dec + fov
+            shotlist = stb.read_where("(ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2)",field="shotid")
+
+
         with tables.open_file(hdf5, mode="r") as h5:
             dtb = h5.root.Detections
-            dec_correction = np.cos(np.deg2rad(dec))
             ra1 = ra - error/dec_correction
             ra2 = ra + error/dec_correction
             dec1 = dec - error
             dec2 = dec + error
 
-            rows = dtb.read_where("(ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2)")
+            rows = None
+            for q_shot in shotlist:
+                q_rows = dtb.read_where("(shotid == q_shot) & (ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2)")
+                if rows is None:
+                    rows = q_rows
+                else:
+                    rows = np.concatenate((rows,q_rows))
 
             if (rows is not None) and (len(rows) > 0):
                 detectids = rows['detectid']

@@ -472,10 +472,6 @@ class MCMC_Gauss:
             except:
                 log.warning("Exception calculating MCMC SNR: ", exc_info=True)
 
-
-
-
-
             if self.mcmc_snr is None:
                 self.mcmc_snr = -1
 

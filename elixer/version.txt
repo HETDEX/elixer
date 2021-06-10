@@ -9,6 +9,7 @@ changes to elixer by version
 * align elixer SNR definition to base HETDEX definition. There will still be some variation (+/- 1 or 2 pixels in the noise
 arrray and small differences in MCMC line flux fit) but they will be close.
     SNR = fit lineflux/sqrt(sum(err**2)) over line center +/- 4 sigma
+* sped up neighborhood search (was missing the shot downselection)
 
 
 1.12.0a1 [2021-05-20]

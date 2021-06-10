@@ -405,22 +405,22 @@ def invert_spectrum(wavelengths,values):
     mx = np.max(values)
     inverted = mx - values
 
-    if False: #for debugging
-        if not 'coeff' in locals():
-            coeff = [mx, 0]
-
-        fig = plt.figure(figsize=(8, 2), frameon=False)
-        line_plot = plt.axes()
-        line_plot.plot(wavelengths, values, c='g',alpha=0.5)
-        x_vals = np.array(line_plot.get_xlim())
-        y_vals = coeff[0] + coeff[1] * x_vals
-        line_plot.plot(x_vals, y_vals, '--', c='b')
-
-        line_plot.plot(wavelengths, inverted, c='r' ,lw=0.5)
-        fig.tight_layout()
-        fig.savefig("inverted.png")
-        fig.clear()
-        plt.close()
+    # if False: #for debugging
+    #     if not 'coeff' in locals():
+    #         coeff = [mx, 0]
+    #
+    #     fig = plt.figure(figsize=(8, 2), frameon=False)
+    #     line_plot = plt.axes()
+    #     line_plot.plot(wavelengths, values, c='g',alpha=0.5)
+    #     x_vals = np.array(line_plot.get_xlim())
+    #     y_vals = coeff[0] + coeff[1] * x_vals
+    #     line_plot.plot(x_vals, y_vals, '--', c='b')
+    #
+    #     line_plot.plot(wavelengths, inverted, c='r' ,lw=0.5)
+    #     fig.tight_layout()
+    #     fig.savefig("inverted.png")
+    #     fig.clear()
+    #     plt.close()
 
 
     return inverted
@@ -867,6 +867,8 @@ class EmissionLineInfo:
                               min(self.fit_sigma/self.pix_size,1.0) * \
                               min((self.pix_size * self.sn_pix)/21.0,1.0) / \
                               (10.0 * (1. + abs(adjusted_dx0_error / self.pix_size)) )
+                    if self.absorber:
+                        self.line_score *= -1
 
                     #check for line in the nasty sky-lines 3545
                     for k in SKY_LINES_DICT.keys():
@@ -1148,10 +1150,14 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     try:
         # find the highest point in the raw data inside the range we are allowing for the line center fit
         dpix = int(round(fit_range_AA / pix_size))
-        raw_peak = max(values[peak_pos-dpix:peak_pos+dpix+1])
-        if raw_peak <= 0:
-            log.warning("Spectrum::signal_score invalid raw peak %f" %raw_peak)
-            return None
+        if absorber:
+            raw_peak = min(values[peak_pos-dpix:peak_pos+dpix+1])
+            #can be negative (should not be, except if saturated and with error pushes negative)
+        else:
+            raw_peak = max(values[peak_pos-dpix:peak_pos+dpix+1])
+            if raw_peak <= 0:
+                log.warning("Spectrum::signal_score invalid raw peak %f" %raw_peak)
+                return None
     except:
         #this can fail if on very edge, but if so, we would not use it anyway
         log.debug("Raw Peak value failure for wavelength (%f) at index (%d). Cannot fit to gaussian. " %(central,peak_pos))
@@ -1186,7 +1192,18 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #   log.warning("**** NO UNCERTAINTIES ****")
 
 
-        parm, pcov = curve_fit(gaussian, np.float64(narrow_wave_x), np.float64(narrow_wave_counts),
+        if absorber: #area is to be negative
+            parm, pcov = curve_fit(gaussian, np.float64(narrow_wave_x), np.float64(narrow_wave_counts),
+                                   p0=(central,1.5,-1.0,0.0),
+                                   bounds=((central-fit_range_AA, 1.0, -1e5, -100.0),
+                                           (central+fit_range_AA, max_fit_sigma, 0.0, 1e4)),
+                                   #sigma=1./(narrow_wave_errors*narrow_wave_errors)
+                                   sigma=narrow_wave_err_sigma#, #handles the 1./(err*err)
+                                   #note: if sigma == None, then curve_fit uses array of all 1.0
+                                   #method='trf'
+                                   )
+        else:
+            parm, pcov = curve_fit(gaussian, np.float64(narrow_wave_x), np.float64(narrow_wave_counts),
                                 p0=(central,1.5,1.0,0.0),
                                 bounds=((central-fit_range_AA, 1.0, 0.0, -100.0),
                                         (central+fit_range_AA, max_fit_sigma, 1e5, 1e4)),
@@ -1237,7 +1254,10 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         eli.fit_x0 = parm[0]
         eli.fit_x0_err = perr[0]
         eli.fit_dx0 = central - eli.fit_x0
-        scaled_fit_h = max(eli.fit_vals)
+        if absorber:
+            scaled_fit_h = min(eli.fit_vals)
+        else:
+            scaled_fit_h = max(eli.fit_vals)
         eli.fit_h = scaled_fit_h
         eli.fit_rh = eli.fit_h / raw_peak
         eli.fit_sigma = parm[1] #units of AA not pixels
@@ -1259,7 +1279,6 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             eli.fit_continuum = eli.fit_y
             eli.fit_continuum_err = eli.fit_y_err
 
-
         raw_idx = getnearpos(eli.raw_wave, eli.fit_x0)
         if raw_idx < 3:
             raw_idx = 3
@@ -1267,7 +1286,10 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         if raw_idx > len(eli.raw_vals)-4:
             raw_idx = len(eli.raw_vals)-4
         #if still out of range, will throw a trapped exception ... we can't use this data anyway
-        eli.raw_h = max(eli.raw_vals[raw_idx - 3:raw_idx + 4])
+        if absorber:
+            eli.raw_h = min(eli.raw_vals[raw_idx - 3:raw_idx + 4])
+        else:
+            eli.raw_h = max(eli.raw_vals[raw_idx - 3:raw_idx + 4])
         eli.raw_x0 = eli.raw_wave[getnearpos(eli.raw_vals, eli.raw_h)]
 
         fit_peak = max(eli.fit_vals)
@@ -1390,7 +1412,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             eli.snr = eli.fit_a/(np.sqrt(num_sn_pix)*eli.fit_rmse)/np.sqrt(broadfit)
             log.debug(f"curve_fit SNR: {eli.snr}; Area={eli.fit_a} RMSE={eli.fit_rmse} Pix={num_sn_pix}")
 
-        eli.unique = unique_peak(values,wavelengths,eli.fit_x0,eli.fit_sigma*2.355)
+        eli.unique = unique_peak(values,wavelengths,eli.fit_x0,eli.fit_sigma*2.355,absorber=absorber)
 
         rough_continuum = eli.fit_y - eli.fit_y_err #best case lowest continuum estimate
         rough_height = eli.fit_h - rough_continuum
@@ -1445,7 +1467,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     #todo: re-calibrate to use SNR instead of SBR ??
     sbr = snr
     if sbr is None:
-        sbr = est_peak_strength(wavelengths,values,central,values_units)
+        sbr = est_peak_strength(wavelengths,values,central,values_units,absorber=absorber)
         if sbr is None:
             #done, no reason to continue
             log.warning("Could not determine SBR at wavelength = %f. Will use SNR." %central)
@@ -1458,7 +1480,10 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     si = -999
     dx0 = -999 #in AA
     rh = -999
-    mx_norm = max(wave_counts)/100.0
+    if absorber:
+        mx_norm = min(wave_counts)/100.0
+    else:
+        mx_norm = max(wave_counts)/100.0
 
     fit_wave = eli.fit_vals
     error = eli.fit_norm_rmse
@@ -2395,7 +2420,7 @@ def est_noise():
     pass
 
 
-def unique_peak(spec,wave,cwave,fwhm,width=10.0,frac=0.9):
+def unique_peak(spec,wave,cwave,fwhm,width=10.0,frac=0.9,absorber=False):
     """
     Is the peak at cwave relatively unique (is it the highest within some range
     :param spec:
@@ -2408,6 +2433,10 @@ def unique_peak(spec,wave,cwave,fwhm,width=10.0,frac=0.9):
     """
 
     try:
+        v = copy.copy(spec)
+        if absorber:
+            v = invert_spectrum(wave,spec)
+
         peak_val = max(spec[list(SU.getnearpos(wave,cwave))]) #could be +/-1 to either side (depending on binning), so use all returns
         blue_stop, *_ = SU.getnearpos(wave,cwave-fwhm)
         red_start, *_ = SU.getnearpos(wave,cwave+fwhm)
@@ -2415,7 +2444,7 @@ def unique_peak(spec,wave,cwave,fwhm,width=10.0,frac=0.9):
         blue_start,*_ = SU.getnearpos(wave,cwave-fwhm - width)
         red_stop, *_ = SU.getnearpos(wave,cwave+fwhm + width)
 
-        region = np.concatenate((spec[blue_start:blue_stop+1],spec[red_start:red_stop+1]))
+        region = np.concatenate((v[blue_start:blue_stop+1],v[red_start:red_stop+1]))
         hits = np.where(region > (frac * peak_val))[0]
 
         if len(hits) < 3: #1 or 2 hits could be a barely resolved doublet (or at least adjacent lines)
@@ -2424,14 +2453,13 @@ def unique_peak(spec,wave,cwave,fwhm,width=10.0,frac=0.9):
             log.debug(f"Peak {cwave} appears to be in noise.")
             return False
 
-
     except:
         log.debug("Exception in spectrum::unique_peak.",exc_info=True)
         return False
 
 
 
-def est_peak_strength(wavelengths,values,central,values_units=0,dw=DEFAULT_BACKGROUND_WIDTH,peaks=None,valleys=None):
+def est_peak_strength(wavelengths,vals,central,values_units=0,dw=DEFAULT_BACKGROUND_WIDTH,peaks=None,valleys=None,absorber=False):
     """
 
     :param wavelengths:
@@ -2443,7 +2471,13 @@ def est_peak_strength(wavelengths,values,central,values_units=0,dw=DEFAULT_BACKG
     :param pv:
     :return:
     """
+
+    values = copy.copy(vals)
+
     values, values_units = norm_values(values, values_units)
+
+    if absorber:
+        values = invert_spectrum(wavelengths,values)
 
     sbr = None #Signal to Background Ratio  (similar to SNR)
     xw = est_fwhm(wavelengths,values,central,values_units)
@@ -2474,7 +2508,7 @@ def est_peak_strength(wavelengths,values,central,values_units=0,dw=DEFAULT_BACKG
 
 #todo: update to deal with flux instead of counts
 #def simple_peaks(x,v,h=MIN_HEIGHT,delta_v=2.0,values_units=0):
-def simple_peaks(x, v, h=None, delta_v=None, values_units=0):
+def simple_peaks(x, vals, h=None, delta_v=None, values_units=0,absorber=False):
     """
 
     :param x:
@@ -2495,9 +2529,12 @@ def simple_peaks(x, v, h=None, delta_v=None, values_units=0):
     if x is None:
         x = np.arange(len(v))
 
+    v = copy.copy(vals)
     v, values_units = norm_values(v, values_units)
 
     v = np.asarray(v)
+    if absorber:
+        v = invert_spectrum(x,v)
     num_pix = len(v)
 
     if num_pix != len(x):
@@ -2539,7 +2576,7 @@ def simple_peaks(x, v, h=None, delta_v=None, values_units=0):
 
 
 
-def sn_peakdet_no_fit(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0):
+def sn_peakdet_no_fit(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,absorber=False):
     """
 
     :param wave: x-values (wavelength)
@@ -2558,7 +2595,9 @@ def sn_peakdet_no_fit(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0):
             return []
 
         x = np.array(wave)
-        v = np.array(spec)
+        v = np.array(copy.copy(spec))
+        if absorber:
+            v = invert_spectrum(x,v)
         e = np.array(spec_err)
         sn = v/e
         hvi = np.where(sn > dv)[0] #hvi high v indicies (where > dv)
@@ -2642,7 +2681,9 @@ def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
             return []
 
         x = np.array(wave)
-        v = np.array(spec)
+        v = np.array(copy.copy(spec))
+        if absorber:
+            v = invert_spectrum(x,v)
         e = np.array(spec_err)
         sn = v/e
         hvi = np.where(sn > dv)[0] #hvi high v indicies (where > dv)
@@ -2714,13 +2755,13 @@ def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
 
     return combine_lines(eli_list)
 
-def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,values_units=0,
+def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,values_units=0,
             enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False):
 
     """
 
-    :param x:
-    :param v:
+    :param x: wavelengths
+    :param vals: values
     :param dw:
     :param h:
     :param dh:
@@ -2764,9 +2805,10 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
 
     """
 
-    if (v is None) or (len(v) < 3):
+    if (vals is None) or (len(vals) < 3):
         return [] #cannot execute
 
+    v = copy.copy(vals)
 
     maxtab = []
     mintab = []
@@ -2807,6 +2849,7 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
     v = np.asarray(v)
     num_pix = len(v)
 
+
     if num_pix != len(x):
         log.warning('peakdet: Input vectors v and x must have same length')
         return []
@@ -2823,6 +2866,9 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
     v_0 = copy.copy(v)# v[:] #slicing copies if list, but not if array
     x_0 = copy.copy(x)#x[:]
     values_units_0 = values_units
+
+    if absorber:
+        v = invert_spectrum(x,v)
 
     #if values_are_flux:
     #    v = v * 10.0
@@ -2884,27 +2930,27 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
     #DEBUG
     ################
 
-    if False:
-        so = Spectrum()
-        eli = []
-        for p in maxtab:
-            e = EmissionLineInfo()
-            e.raw_x0 = p[1] #xposition p[0] is the index
-            e.raw_h = v_0[p[0]+2] #v_0[getnearpos(x_0,p[1])]
-            eli.append(e)
-
-        so.build_full_width_spectrum(wavelengths=x_0, counts=v_0, errors=None, central_wavelength=0,
-                                      show_skylines=False, show_peaks=True, name="peaks",
-                                      dw=MIN_FWHM, h=MIN_HEIGHT, dh=MIN_DELTA_HEIGHT, zero=0.0,peaks=eli,annotate=False)
-
-
-
-    #now, throw out anything waaaaay above the mean (toss out the outliers and recompute mean)
-    if False:
-        sub = peaks[np.where(abs(peaks - gm) < (3.0*std))[0]]
-        if len(sub) < 3:
-            sub = peaks
-        gm = np.mean(sub)
+    # if False:
+    #     so = Spectrum()
+    #     eli = []
+    #     for p in maxtab:
+    #         e = EmissionLineInfo()
+    #         e.raw_x0 = p[1] #xposition p[0] is the index
+    #         e.raw_h = v_0[p[0]+2] #v_0[getnearpos(x_0,p[1])]
+    #         eli.append(e)
+    #
+    #     so.build_full_width_spectrum(wavelengths=x_0, counts=v_0, errors=None, central_wavelength=0,
+    #                                   show_skylines=False, show_peaks=True, name="peaks",
+    #                                   dw=MIN_FWHM, h=MIN_HEIGHT, dh=MIN_DELTA_HEIGHT, zero=0.0,peaks=eli,annotate=False)
+    #
+    #
+    #
+    # #now, throw out anything waaaaay above the mean (toss out the outliers and recompute mean)
+    # if False:
+    #     sub = peaks[np.where(abs(peaks - gm) < (3.0*std))[0]]
+    #     if len(sub) < 3:
+    #         sub = peaks
+    #     gm = np.mean(sub)
 
     for pi,px,pv in maxtab:
         #check fwhm (assume 0 is the continuum level)
@@ -2978,6 +3024,8 @@ def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,v
                 pass #skip and move on
             else:
                 eli = signal_score(x_0, v_0, err, px,values_units=values_units_0,min_sigma=min_sigma,absorber=absorber)
+                #since these are comming in inverted (if absorber)
+                #eli = signal_score(x_0, v_0, err, px,values_units=values_units_0,min_sigma=min_sigma,absorber=False)
 
                 #if (eli is not None) and (eli.score > 0) and (eli.snr > 7.0) and (eli.fit_sigma > 1.6) and (eli.eqw_obs > 5.0):
                 if (eli is not None) and ((not enforce_good) or eli.is_good()):
@@ -4296,7 +4344,7 @@ class Spectrum:
 
         wavelength = 0.0
         if (self.all_found_absorbs is None):
-            self.all_found_absorbs = peakdet(self.wavelengths, invert_spectrum(self.wavelengths,self.values),
+            self.all_found_absorbs = peakdet(self.wavelengths, self.values,
                                              self.errors, values_units=self.values_units,absorber=True)
             self.clean_absorbers()
 
@@ -4362,7 +4410,7 @@ class Spectrum:
         if (self.all_found_lines is None):
             self.all_found_lines = peakdet(wavelengths,values,errors, values_units=values_units)
             if G.DISPLAY_ABSORPTION_LINES or G.MAX_SCORE_ABSORPTION_LINES:
-                self.all_found_absorbs = peakdet(wavelengths, invert_spectrum(wavelengths,values),errors,
+                self.all_found_absorbs = peakdet(wavelengths, values,errors,
                                                  values_units=values_units,absorber=True)
                 self.clean_absorbers()
 
@@ -4491,7 +4539,11 @@ class Spectrum:
 
                 #try as absorber
                 if G.MAX_SCORE_ABSORPTION_LINES and eli is None and self.is_near_absorber(a_central):
-                    eli = signal_score(wavelengths=wavelengths, values=invert_spectrum(wavelengths,values), errors=errors, central=a_central,
+                    # eli = signal_score(wavelengths=wavelengths, values=invert_spectrum(wavelengths,values), errors=errors, central=a_central,
+                    #                    central_z=central_z, values_units=values_units, spectrum=self,
+                    #                    show_plot=False, do_mcmc=False,absorber=True)
+                    #we no longer want to invert (we will fit to absorption)
+                    eli = signal_score(wavelengths=wavelengths, values=values, errors=errors, central=a_central,
                                        central_z=central_z, values_units=values_units, spectrum=self,
                                        show_plot=False, do_mcmc=False,absorber=True)
 
@@ -5077,7 +5129,7 @@ class Spectrum:
                         peaks = peakdet(wavelengths,counts,errors, dw,h,dh,zero,values_units=values_units) #as of 2018-06-11 these are EmissionLineInfo objects
                         self.all_found_lines = peaks
                         if G.DISPLAY_ABSORPTION_LINES or G.MAX_SCORE_ABSORPTION_LINES:
-                            self.all_found_absorbs = peakdet(wavelengths, invert_spectrum(wavelengths,counts), errors,
+                            self.all_found_absorbs = peakdet(wavelengths, counts, errors,
                                                              values_units=values_units,absorber=True)
                             self.clean_absorbers()
 
