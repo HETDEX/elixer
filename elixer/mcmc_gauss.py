@@ -279,7 +279,10 @@ class MCMC_Gauss:
                 if self.initial_sigma < 0.0: #self.initial_A < 0.0  ... actually, leave A alone .. might allow absorportion later
                     return False
 
-                if self.initial_y > self.initial_peak:
+                if ((self.initial_A > 0) and (self.initial_y > self.initial_peak) or \
+                    (self.initial_A < 0) and (self.initial_y < self.initial_peak) ):
+                    #i.e. if an emission (A > 0) then y must be less than the peak
+                    # else if an absorption line (A < 0) then y must be greater than the peak
                     return False
             else:
                 return False
@@ -461,8 +464,8 @@ class MCMC_Gauss:
 
                 #self.mcmc_snr = self.mcmc_A[0]/ (np.sum(np.sqrt(self.err_y[left:right])))
                 #note: sqrt(bin_width) is for the 2AA binning (the area does not know about binning)
-                self.mcmc_snr = self.mcmc_A[0] / np.sqrt(np.sum(self.err_y[left:right]*self.err_y[left:right])) / np.sqrt(bin_width)
-                self.mcmc_snr_err = 0.5*(self.mcmc_A[1]+self.mcmc_A[2])/self.mcmc_A[0] * self.mcmc_snr
+                self.mcmc_snr = abs(self.mcmc_A[0]) / np.sqrt(np.sum(self.err_y[left:right]*self.err_y[left:right])) / np.sqrt(bin_width)
+                self.mcmc_snr_err = abs(0.5*(self.mcmc_A[1]+self.mcmc_A[2])/self.mcmc_A[0] * self.mcmc_snr)
                 log.info(f"MCMC SNR model Area with data error: {self.mcmc_snr} +/- {self.mcmc_snr_err}")
 
                 #self.mcmc_snr = np.sum(model_fit)/(np.sqrt(len(self.data_x))*rms_err)

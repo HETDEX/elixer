@@ -1688,7 +1688,7 @@ class DetObj:
                 boost = bid['boost']
                 z = bid['z']
 
-                line = self.spec_obj.match_line(self.w,z)
+                line = self.spec_obj.match_line(self.w,z,allow_absorption=True)
                 if line:
                     log.info(f"{bid['name']} possible z match: {line.name} {line.w_rest} z={z} rank={line.rank}")
                     possible_lines.append(line)
@@ -1764,9 +1764,8 @@ class DetObj:
                 #spec = elixer_spectrum.Spectrum()
                 if ( (self.galaxy_mask_z is not None) and (len(self.galaxy_mask_z) > 0)) and (self.spec_obj is not None): #is not None or Empty
                     for z,d25 in zip(self.galaxy_mask_z,self.galaxy_mask_d25):
-                        line = self.spec_obj.match_line(self.w,z)
+                        line = self.spec_obj.match_line(self.w,z) #emission only
                         if line:
-
                             #specific check for OIII 4959 or 5007
                             if line.w_rest == 4959: #this is more dodgy ... 5007 might be strong but fail to match
                                 if SU.check_oiii(z,self.sumspec_flux,self.sumspec_fluxerr,self.sumspec_wavelength,
@@ -1784,6 +1783,7 @@ class DetObj:
                             #where H_eta, CaII, NaI are higher rank (weaker lines) and get lower boosts (and are not
                             #likely to be the HETDEX detection line anyway)
 
+                            #emission only
                             if line.rank > 4: #rank 5 or worse
                                 rank_scale = 0.5
                             elif line.rank > 3: #rank 4
@@ -1844,7 +1844,7 @@ class DetObj:
                 #  scoring
                 if (z_sdss is not None) and (self.spec_obj is not None) and (len(z_sdss) > 0): #is not None or Empty
                     for z,sep,label in zip(z_sdss,sep_sdss,label_sdss):
-                        line = self.spec_obj.match_line(self.w,z)
+                        line = self.spec_obj.match_line(self.w,z) #emission only
                         if line:
                             log.info(f"SDSS z-catalog possible line match: {line.name} {line.w_rest} z={z} rank={line.rank} sep={sep}")
                             possible_lines.append(line)
@@ -1855,6 +1855,7 @@ class DetObj:
                             #where H_eta, CaII, NaI are higher rank (weaker lines) and get lower boosts (and are not
                             #likely to be the HETDEX detection line anyway)
 
+                            #emission only
                             if line.rank > 4: #rank 5 or worse
                                 rank_scale = 0.5
                             elif line.rank > 3: #rank 4
@@ -5331,10 +5332,12 @@ class DetObj:
             if not self.w:
 
                 # find the "best" wavelength to use as the central peak
-                spectrum = elixer_spectrum.Spectrum()
+                #spectrum = elixer_spectrum.Spectrum()
+                if self.spec_obj is None:
+                    self.spec_obj = elixer_spectrum.Spectrum()
                 #self.all_found_lines = elixer_spectrum.peakdet(self.sumspec_wavelength,self.sumspec_flux,self.sumspec_fluxerr,values_units=-17)
-                w,self.all_found_lines = spectrum.find_central_wavelength(self.sumspec_wavelength,self.sumspec_flux,
-                                                                          self.sumspec_fluxerr,-17,return_list=True)
+                w = self.spec_obj.find_central_wavelength(self.sumspec_wavelength,self.sumspec_flux,
+                                                                          self.sumspec_fluxerr,-17,return_list=False)
                 if w is not None and (3400.0 < w < 5600.0):
                     self.w = w
                     self.target_wavelength = w
@@ -6142,10 +6145,13 @@ class DetObj:
             if G.CONTINUUM_RULES and (self.w is None) or (self.w == 0.0):
 
                 # find the "best" wavelength to use as the central peak
-                spectrum = elixer_spectrum.Spectrum()
+                #spectrum = elixer_spectrum.Spectrum()
+                if self.spec_obj is None:
+                    self.spec_obj = elixer_spectrum.Spectrum()
+
                 #self.all_found_lines = elixer_spectrum.peakdet(self.sumspec_wavelength,self.sumspec_flux,self.sumspec_fluxerr,values_units=-17)
-                w,self.all_found_lines = spectrum.find_central_wavelength(self.sumspec_wavelength,self.sumspec_flux,
-                                                                          self.sumspec_fluxerr,-17,return_list=True)
+                w = self.spec_obj.find_central_wavelength(self.sumspec_wavelength,self.sumspec_flux,
+                                                                          self.sumspec_fluxerr,-17,return_list=False)
                 if w is not None and (3400.0 < w < 5600.0):
                     self.w = w
                     self.target_wavelength = w
@@ -11153,8 +11159,14 @@ class HETDEX:
             #peak_height = near get the approximate peak height
             mn = np.min(F)
             mx = np.max(F)
+            absorber = False
             try:
-                if cwave is None or cwave == 0: # G.CONTINUUM_RULES:
+                absorber = datakeep['detobj'].spec_obj.absorber
+            except:
+                pass
+            try:
+
+                if absorber or (cwave is None or cwave == 0): # G.CONTINUUM_RULES:
                     mn = min(F)
                     mx = max(F)
                 else:
@@ -11247,10 +11259,11 @@ class HETDEX:
                 if (scale_score > G.MULTILINE_MIN_WEAK_SOLUTION_CONFIDENCE):
                     #a solution
                     sol = datakeep['detobj'].spec_obj.solutions[0]
+                    absorber = datakeep['detobj'].spec_obj.solutions[0].emission_line.absorber
                     the_solution_rest_wave = sol.central_rest
                     y_pos = textplot.axis()[2]
 
-                    if good:
+                    if good and not absorber:
                         textplot.text(cwave, y_pos, sol.name + " {", rotation=-90, ha='center', va='bottom',
                                       fontsize=24, color=sol.color)  # use the e color for this family
                     else: #weak solution, use standard font size
@@ -11312,7 +11325,7 @@ class HETDEX:
 
                 # put dashed line through all possible ABSORPTION lines (note: possible, not necessarily probable)
                 if (datakeep['detobj'].spec_obj.all_found_absorbs is not None):
-                    for f in datakeep['detobj'].spec_obj.all_found_absorbs:  # this is an EmisssionLineInfo object
+                    for f in datakeep['detobj'].spec_obj.all_found_absorbs:
                         log.info(
                             "eid(%s) absorption line at %01.f snr = %0.1f  line_flux = %0.1g  sigma = %0.1f  "
                             "line_score = %0.1f  p(noise) = %g  threshold = %g"
@@ -11347,6 +11360,12 @@ class HETDEX:
             except:
                 emission_line_list = self.emission_lines
 
+
+            #found absorbers ... don't print weak emission lines if there is an absorber found there
+            absorber_waves = []
+            if datakeep['detobj'].spec_obj.all_found_absorbs is not None:
+                absorber_waves = [x.fit_x0 for x in datakeep['detobj'].spec_obj.all_found_absorbs]
+
             for e in emission_line_list:
                 if self.known_z is None:
                     if (not e.solution) and (e.w_rest != the_solution_rest_wave): #if not a normal solution BUT it is THE solution, label it
@@ -11367,12 +11386,20 @@ class HETDEX:
                 for f in emission_line_list:
                     if (f == e) or not (wavemin <= f.redshift(z) <= wavemax) or (abs(f.redshift(z) - cwave) < 5.0):
                         continue
+                    # elif f.see_in_absorption: # we are not showing absorbers unless they are found
+                    #     continue
                     elif G.DISPLAY_ABSORPTION_LINES and datakeep['detobj'].spec_obj.is_near_absorber(f.w_obs):
                         pass #print this one
                     elif datakeep['detobj'].spec_obj.is_near_a_peak(f.w_obs):
                         pass #print this one
                     elif ((f.display == False) and (not (f.w_rest in matched_line_list))):
                         continue
+
+                    #don't display absorbers unless they are found in the blind line finder scan
+                    if f.see_in_absorption and np.any([abs(f.w_obs-x) < 10 for x in absorber_waves]):
+                        pass #this is an absorber that matches to a found absorber (print)
+                    elif (f.rank > 3) and np.any([abs(f.w_obs-x) < 10 for x in absorber_waves]):
+                        continue #this is a weak emitter that is near a found absorber (do not print)
 
                     count += 1
                     y_pos = textplot.axis()[2]

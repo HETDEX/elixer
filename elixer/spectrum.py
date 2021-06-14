@@ -982,6 +982,11 @@ class EmissionLineInfo:
             else:
                 return False
 
+        if G.CONTINUUM_RULES:
+            line_score_multiplier = 2.0
+        else:
+            line_score_multiplier = 1.0
+
         if not (allow_broad or self.broadfit) and (self.fit_sigma >= LIMIT_BROAD_SIGMA):
             log.debug(f"Line sigma {self.fit_sigma} in broad range {LIMIT_BROAD_SIGMA} and broad line not allowed.")
             return False
@@ -990,7 +995,7 @@ class EmissionLineInfo:
                       f"line_score {self.line_score} below minumum {GOOD_BROADLINE_MIN_LINE_SCORE}.")
             result = False
         # minimum to be possibly good
-        elif (self.line_score >= GOOD_MIN_LINE_SCORE) and (self.fit_sigma >= GOOD_MIN_SIGMA):
+        elif (self.line_score >= line_score_multiplier * GOOD_MIN_LINE_SCORE) and (self.fit_sigma >= GOOD_MIN_SIGMA):
         #if(self.snr >= GOOD_MIN_LINE_SNR) and (self.fit_sigma >= GOOD_MIN_SIGMA):
             if not ratty(self.snr,self.fit_sigma):
                 s = self.peak_sigma_above_noise()
@@ -1432,11 +1437,16 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
         eli.unique = unique_peak(values,wavelengths,eli.fit_x0,eli.fit_sigma*2.355,absorber=absorber)
 
-        rough_continuum = eli.fit_y - eli.fit_y_err #best case lowest continuum estimate
+        if absorber:
+            rough_continuum = eli.fit_y + eli.fit_y_err #best case lowest continuum estimate
+        else:
+            rough_continuum = eli.fit_y - eli.fit_y_err #best case lowest continuum estimate
         rough_height = abs(eli.fit_h - rough_continuum)
         rough_fwhm = eli.fit_sigma * 2.355
+        max_allowed_peak_err_fraction = 0.34
+        min_height_to_fwhm = 1.66
 
-        if not eli.unique and ((eli.fit_a_err / abs(eli.fit_a)) > 0.5) and (eli.fit_sigma > GAUSS_FIT_MAX_SIGMA):
+        if not eli.unique and ((eli.fit_a_err / abs(eli.fit_a)) > max_allowed_peak_err_fraction) and (eli.fit_sigma > GAUSS_FIT_MAX_SIGMA):
             accept_fit = False
             snr = 0.0
             eli.snr = 0.0
@@ -1458,14 +1468,15 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             eli.line_flux = 0.0
             log.debug(
                 f"Fit rejected: widder than tall. Height above y = {rough_height}, FWHM = {rough_fwhm}")
-        elif (eli.fit_a_err / abs(eli.fit_a) > 0.34) and ((eli.fit_y > 0) and (eli.fit_h/eli.fit_y < 1.66)):
+        elif (eli.fit_a_err / abs(eli.fit_a) > max_allowed_peak_err_fraction) and (rough_height/rough_fwhm < min_height_to_fwhm):
             #error on the area is just to great to trust along with very low peak height (and these are already broad)
             accept_fit = False
             snr = 0.0
             eli.snr = 0.0
             eli.line_score = 0.0
             eli.line_flux = 0.0
-            log.debug(f"Fit rejected: fit_a_err/fit_a {eli.fit_a_err / abs(eli.fit_a)} > 0.34 and fit_h/fit_y {eli.fit_h/eli.fit_y} < 1.66")
+            log.debug(f"Fit rejected: fit_a_err/fit_a {eli.fit_a_err / abs(eli.fit_a)} > {max_allowed_peak_err_fraction}"
+                      f" and rough_height/rough_continuum {rough_height/rough_fwhm} < f{min_height_to_fwhm}")
         else:
             eli.build(values_units=values_units,allow_broad=allow_broad,broadfit=broadfit)
             #eli.snr = max(eli.fit_vals) / (np.sqrt(num_sn_pix) * eli.fit_rmse)
@@ -3116,9 +3127,15 @@ def combine_lines(eli_list,sep=4.0):
 
 
 
-class EmissionLine():
+class EmissionLine:
     def __init__(self,name,w_rest,plot_color,solution=True,display=True,z=0,score=0.0,rank=0,
-                 min_fwhm=999.0,min_obs_wave=9999.0,max_obs_wave=9999.0,broad=False,score_multiplier=1.0):
+                 min_fwhm=999.0,min_obs_wave=9999.0,max_obs_wave=9999.0,broad=False,score_multiplier=1.0,
+                 absorber=False):
+
+        ###################################################################
+        # for the "base" definition of lines
+        ###################################################################
+
         self.name = name
         self.w_rest = w_rest
         self.w_obs = w_rest * (1.0 + z)
@@ -3130,6 +3147,7 @@ class EmissionLine():
                        #roughly corresponds to expected line strength (1= high, 4= low)
                        #the base idea is that if the emission line center is a "low" rank, but there are high ranks
                        #in the wavelength range that are not found, the line may not be real
+
         self.min_fwhm = min_fwhm #FWHM in AA, if solution is FALSE but measured FWHM is above this value, can still be considered
                           #as a single line solution (ie. CIII, CIV, MgII ... really broad in AGN and could be alone)
         self.min_obs_wave = min_obs_wave    #if solution is FALSE, but observed wave between these values, can still be a solution
@@ -3138,6 +3156,13 @@ class EmissionLine():
             #for example, LyA+NV commonly similar to OII+something at 3800AA, so the fit to line of NV may
             #score well, but should down-scale it because of the confusion
 
+        #both part of the definition and in individual instances
+        self.absorber = absorber #true if an abosrption line
+
+        ####################################################################
+        #  for specific instances of emission (or absorption) lines
+        #  i.e. in an observed object
+        ####################################################################
 
         #can be filled in later if a specific instance is created and a model fit to it
         self.score = score
@@ -3155,7 +3180,7 @@ class EmissionLine():
         self.prob_noise = 1.0
         self.fit_dx0 = None #from EmissionLineInfo, but we want this for a later comparison of all other lines in the solution
 
-        self.absorber = False #true if an abosrption line
+
         if G.ALLOW_BROADLINE_FIT:
             self.broad = broad #this can be a potentially very broad line (i.e. may be with an AGN)
         else:
@@ -3166,6 +3191,13 @@ class EmissionLine():
         self.w_obs = self.w_rest * (1.0 + z)
         return self.w_obs
 
+    @property
+    def see_in_emission(self):
+        return not self.absorber
+
+    @property
+    def see_in_absorption(self):
+        return self.absorber
 
 
 
@@ -3268,6 +3300,9 @@ class Spectrum:
         w = 4
         self.max_rank = 5 #largest rank in line ranking below
 
+        #2021-06-14 ... now emission AND absorption lines
+        # *** for a line that can be either, needs two entries ...
+
         self.emission_lines = [
             #extras for HW
             # EmissionLine("H$\\alpha$".ljust(w), 6562.8, "blue"),
@@ -3279,6 +3314,10 @@ class Spectrum:
             #solution == can be a single line solution .... if False, only counts as a possible solution if
             # there is at least one corroborating line
             # see (among others) https://ned.ipac.caltech.edu/level5/Netzer/Netzer2_1.html
+
+            ###################
+            # EMITTERS
+            ##################
 
             EmissionLine("Ly$\\alpha$".ljust(w), G.LyA_rest, 'red',rank=1,broad=True),
 
@@ -3310,7 +3349,7 @@ class Spectrum:
             EmissionLine("H$\\gamma$".ljust(w), 4340, "royalblue",solution=True,rank=3),
 
             EmissionLine("H$\\delta$".ljust(w), 4101, "royalblue", solution=False,display=False,rank=4),
-            EmissionLine("H$\\epsilon$/CaII".ljust(w), 3970, "royalblue", solution=False,display=False,rank=4), #very close to CaII(3970)
+            EmissionLine("H$\\epsilon$".ljust(w), 3970, "royalblue", solution=False,display=False,rank=4), #very close to CaII(3968)
             EmissionLine("H$\\zeta$".ljust(w), 3889, "royalblue", solution=False,display=False,rank=5),
             EmissionLine("H$\\eta$".ljust(w), 3835, "royalblue", solution=False,display=False,rank=5),
 
@@ -3335,8 +3374,17 @@ class Spectrum:
             EmissionLine("NaI".ljust(w),4980,"lightcoral",solution=False, display=False,rank=4),  #4978.5 + 4982.8
             EmissionLine("NaI".ljust(w),5153,"lightcoral",solution=False, display=False,rank=4),  #5148.8 + 5153.4
 
-            #stars
-            EmissionLine("CaII".ljust(w), 3935, "skyblue", solution=False, display=False,rank=4)
+            #########################
+            #ABSORBERS
+            ########################
+            #stars, red galaxies
+            EmissionLine("(K)CaII".ljust(w), 3934, "skyblue", solution=True, display=False,rank=1,absorber=True),
+            EmissionLine("(H)CaII".ljust(w), 3968, "skyblue", solution=True, display=False,rank=1,absorber=True),
+
+            #add as absorber
+            # EmissionLine("SiII".ljust(w), 1260, "gray", solution=False,display=True,rank=4,absorber=True),
+            # EmissionLine("SiIV".ljust(w), 1400, "gray", solution=False, display=True, rank=4,absorber=True), #or 1393-1403 also OIV]
+
 
             #merged CaII(3970) with H\$epsilon$(3970)
             #EmissionLine("CaII".ljust(w), 3970, "skyblue", solution=False, display=False)  #very close to NeIII(3967)
@@ -3357,6 +3405,7 @@ class Spectrum:
         self.spectrum_slope_err = None
 
         self.central = None
+        self.absorber = False #set to True if the central wavelength corresponds to an absorption line
         self.estflux = None
         self.estflux_unc = None
         self.estcont = None
@@ -3421,7 +3470,7 @@ class Spectrum:
         except:
             log.warning("Exception rescoring solutions.",exc_info=True)
 
-    def match_line(self,obs_w,z,aa_error=3.0):
+    def match_line(self,obs_w,z,aa_error=3.0,allow_emission=True,allow_absorption=False):
         """
         Given an input obsevered wavelength and a target redshift, return the matching emission line (if found with the
             +/- aa_error in angstroms)
@@ -3433,10 +3482,11 @@ class Spectrum:
 
         #lines are far enough apart that we don't need to worry about multiple matches
         for e in self.emission_lines:
-            if abs(e.w_rest * (1.0 + z) - obs_w) < aa_error:
-                #could match to a faint line by happenstance and not really be that line
-                #but this is position only
-                return e
+            if (e.see_in_emission and allow_emission) or (e.see_in_absorption and allow_absorption):
+                if abs(e.w_rest * (1.0 + z) - obs_w) < aa_error:
+                    #could match to a faint line by happenstance and not really be that line
+                    #but this is position only
+                    return e
         return None
 
 
@@ -3533,6 +3583,55 @@ class Spectrum:
 
         return 0
 
+    def solution_consistent_with_H_and_K(self,solution):
+        """
+        For continuum sources at low-z, we often find the H & K lines (CaII 3968 [H] and 3934 [K])
+        To be consistent we need positive continuum and both lines (but not necessarirly a red slope ... could be a G
+        or hotter star and still see H&K and would be blue ove our range)
+
+        :param soultion:
+        :return:
+        """
+
+        score = 0
+        try:
+            #here we want absorption lines
+            sel = np.where(np.array([l.absorber for l in solution.lines]) == True)[0]
+            sol_lines = np.array(solution.lines)[sel]
+            line_waves = np.array([solution.central_rest] + [l.w_rest for l in sol_lines])
+            #line_ew = [self.eqw_obs / (1 + solution.z)] + [l.eqw_rest for l in sol_lines]
+            #line_flux is maybe more reliable ... the continuum estimates for line_ew can go wrong and give horrible results
+            line_flux = [self.estflux] + [l.flux for l in sol_lines]
+            line_flux_err = [self.estflux_unc] + [l.flux_err for l in sol_lines]
+            line_fwhm = [self.fwhm] + [l.sigma * 2.355 for l in sol_lines]
+            line_fwhm_err = [self.fwhm_unc] + [l.sigma_err * 2.355 for l in sol_lines]
+
+
+            try:
+                k = np.where(line_waves==3934.0)[0][0]
+                h = np.where(line_waves==3968.0)[0][0]
+            except:
+                #did not find them
+                return score
+
+            #should have similar flux and fwhm and depth
+            # NOTE: there might be some useful stellar population physics encoded in the ratio but for now, will
+            # settle for similar (say/ withint 30%?)
+
+            #sanity
+            if np.sign(line_flux[k]) != np.sign(line_flux[h]):
+                return 0
+
+            #don't bother with the uncertainty since we are letting this be pretty lax
+            if abs((line_flux[h]-line_flux[k])/(0.5*(line_flux[h]+line_flux[k]))) < 0.5:
+                if abs((line_fwhm[h]-line_fwhm[k])/(0.5*(line_fwhm[h]+line_fwhm[k]))) < 0.5:
+                    return 1.0
+
+        except:
+            log.info("Exception in Spectrum::solution_consistent_with_H_and_K", exc_info=True)
+            return 0
+
+        return score
 
 
     def solution_consistent_with_low_z(self,solution):
@@ -4057,7 +4156,7 @@ class Spectrum:
             eli = signal_score(wavelengths=wavelengths, values=values, errors=errors,central=central,spectrum=self,
                                values_units=values_units, sbr=None, min_sigma=fit_min_sigma,
                                show_plot=show_plot,plot_id=self.identifier,
-                               plot_path=self.plot_dir,do_mcmc=True,allow_broad=allow_broad)
+                               plot_path=self.plot_dir,do_mcmc=True,allow_broad=allow_broad,absorber=self.absorber)
         except:
             log.error("Exception in spectrum::set_spectra calling signal_score().",exc_info=True)
             eli = None
@@ -4083,9 +4182,20 @@ class Spectrum:
                     eqw_obs = eli.eqw_obs
                     eqw_obs_unc = 0.0
 
-            if (fwhm is None):
-                self.fwhm = eli.fwhm
-                self.fwhm_unc = 0. #right now, not actually calc the uncertainty
+            if (self.fwhm is None) or (self.fwhm  <= 0):
+                if eli.mcmc_sigma:
+                    try:
+                        self.fwhm = eli.mcmc_sigma[0]*2.355
+                        self.fwhm_unc = 0.5*(eli.mcmc_sigma[1]+eli.mcmc_sigma[2])*2.355
+                    except:
+                        pass
+
+            if (self.fwhm is None) or (self.fwhm  <= 0):
+                try:
+                    self.fwhm = eli.fit_sigma*2.355
+                    self.fwhm_unc = eli.fit_sigma_err*2.355 #right now, not actually calc the uncertainty
+                except:
+                    pass
 
             #if (self.snr is None) or (self.snr == 0):
             #    self.snr = eli.snr
@@ -4130,7 +4240,7 @@ class Spectrum:
         #    self.snr = 0
 
 
-    def find_central_wavelength(self,wavelengths = None,values = None, errors=None,values_units=0, return_list=False):
+    def find_central_wavelength(self,wavelengths = None,values = None, errors=None, values_units=0, return_list=False):
         """
 
         :param wavelengths:
@@ -4142,27 +4252,68 @@ class Spectrum:
 
         central = 0.0
         update_self = False
+        absorber = False
         if (wavelengths is None) or (values is None):
             wavelengths = self.wavelengths
             values = self.values
             values_units = self.values_units
             update_self = True
 
-        try:
-            found_lines = peakdet(wavelengths,values,errors,values_units=values_units)
-        except:
-            found_lines = None
+        if self.central is None:
+            update_self = True
 
-        if found_lines and len(found_lines) > 0:
+        found_absorbers = []
+        found_lines = []
+
+        if self.all_found_lines is None or len(self.all_found_lines == 0):
+            try:
+                found_lines = peakdet(wavelengths,values,errors,values_units=values_units)
+            except:
+                found_lines = []
+
+            self.all_found_lines = found_lines
+
+        if G.CONTINUUM_RULES and (self.all_found_absorbs is None or len(self.all_found_absorbs == 0)):
+            try:
+                found_absorbers = peakdet(wavelengths,values,errors,values_units=values_units,absorber=True)
+            except:
+                found_absorbers = []
+
+            self.all_found_absorbs = found_absorbers
+
+        if (found_lines and len(found_lines) > 0) or (found_absorbers and len(found_absorbers)>0):
             #choose the highest score
-            i = np.argmax([x.line_score for x in found_lines])
+            i = -1
+            j = -1
+            if found_lines:
+                i = np.argmax([x.line_score for x in found_lines])
+
+            if found_absorbers:
+                j = np.argmax([x.line_score for x in found_absorbers])
+
+            if (i > -1) and (j > -1):
+
+                # if found_lines[i].line_score > G.MULTILINE_GOOD_LINE_SCORE:
+                #     central = found_lines[i].fit_x0
+                if found_absorbers[j].line_score > (2.0*found_lines[i].line_score):
+                    central = found_absorbers[j].fit_x0
+                    absorber = True
+                else:
+                    central = found_lines[i].fit_x0
+            elif (i > -1):
+                central = found_lines[i].fit_x0
+            else:
+                central = found_absorbers[j].fit_x0
+                absorber = True
+
             if update_self:
-                self.central = found_lines[i].fit_x0
+                self.central = central#found_lines[i].fit_x0 #max scored line
+                self.absorber = absorber
 
             if return_list:
-                return found_lines[i].fit_x0, found_lines
+                return central, found_lines, found_absorbers
             else:
-                return found_lines[i].fit_x0
+                return central
 
         #otherwise use this simpler method to find something
 
@@ -4182,7 +4333,7 @@ class Spectrum:
         if peaks is None:
             log.info("No viable emission lines found.")
             if return_list:
-                return 0.,[]
+                return 0.,[],[]
             else:
                 return 0.0
 
@@ -4203,7 +4354,7 @@ class Spectrum:
         log.info("Central wavelength = %f" %central)
 
         if return_list:
-            return central,[]
+            return central,[],[]
         else:
             return central
 
@@ -4317,16 +4468,28 @@ class Spectrum:
                 return 1.0
 
         try:
+
+            try:
+                if solution.emission_line and solution.emission_line.absorber:
+                    aa = max(aa,20.0)
+            except:
+                pass
+
             if (self.all_found_lines is None):
                 self.all_found_lines = peakdet(self.wavelengths, self.values, self.errors,values_units=self.values_units)
 
             if self.all_found_lines is None or len(self.all_found_lines)==0:
                 return 0,0
 
+            if G.CONTINUUM_RULES:
+                line_score_threshold = 2.0 * GOOD_MIN_LINE_SCORE
+            else:
+                line_score_threshold = GOOD_MIN_LINE_SCORE
+
             #tweak down the score for lines < 3700 (near, but blue of OII and well into the noisiest part)
             unmatched_score_list = np.array([x.line_score * rescale(x.fit_x0)
-                                             for x in self.all_found_lines if 3550.0 < x.fit_x0 < 5500.0 ])
-            unmatched_wave_list = np.array([x.fit_x0 for x in self.all_found_lines if 3550.0 < x.fit_x0 < 5500.0])
+                                             for x in self.all_found_lines if (3550.0 < x.fit_x0 < 5500.0) and (x.line_score > line_score_threshold) ])
+            unmatched_wave_list = np.array([x.fit_x0 for x in self.all_found_lines if (3550.0 < x.fit_x0 < 5500.0) and (x.line_score > line_score_threshold)])
             solution_wave_list = np.array([solution.central_rest * (1.+solution.z)] + [x.w_obs for x in solution.lines])
 
 
@@ -4349,7 +4512,12 @@ class Spectrum:
 
             #what is left over
             if len(unmatched_score_list) > 0:
-                log.debug("Unmatched lines: (wave,score): " + str([(w,s) for w,s in zip(unmatched_wave_list,unmatched_score_list)]))
+                if G.CONTINUUM_RULES:
+                    unmatched_score_list /= 2.0 #for continuum sources, there are many spurious lines; to help counter that, reduce the score
+                    reduced = "*continuum reduced*"
+                else:
+                    reduced = ""
+                log.debug("Unmatched lines: (wave,score): " + reduced + str([(w,s) for w,s in zip(unmatched_wave_list,unmatched_score_list)]))
             return len(unmatched_score_list), np.nansum(unmatched_score_list)
         except:
             log.debug("Exception in spectrum::unmatched_lines_score",exc_info=True)
@@ -4358,7 +4526,7 @@ class Spectrum:
     def is_near_absorber(self,w,aa=4.0):#pix_size=1.9): #is the provided wavelength near one of the found peaks (+/- few AA or pixels)
 
         if not (G.DISPLAY_ABSORPTION_LINES or G.MAX_SCORE_ABSORPTION_LINES):
-            return 0
+            return 0.0
 
         wavelength = 0.0
         if (self.all_found_absorbs is None):
@@ -4427,10 +4595,11 @@ class Spectrum:
 
         if (self.all_found_lines is None):
             self.all_found_lines = peakdet(wavelengths,values,errors, values_units=values_units)
-            if G.DISPLAY_ABSORPTION_LINES or G.MAX_SCORE_ABSORPTION_LINES:
-                self.all_found_absorbs = peakdet(wavelengths, values,errors,
-                                                 values_units=values_units,absorber=True)
-                self.clean_absorbers()
+
+        if (G.CONTINUUM_RULES or G.DISPLAY_ABSORPTION_LINES or G.MAX_SCORE_ABSORPTION_LINES) and (self.all_found_absorbs is None):
+            self.all_found_absorbs = peakdet(wavelengths, values,errors,
+                                            values_units=values_units,absorber=True)
+            self.clean_absorbers()
 
 
         solutions = []
@@ -4450,10 +4619,15 @@ class Spectrum:
         max_w = max(wavelengths)
         min_w = min(wavelengths)
 
-        for e in self.emission_lines:
+        #if the central line is in absorption, only test the lines that are absorbers
+        for e in [ee for ee in self.emission_lines if ee.absorber == self.absorber]:
             #!!! consider e.solution to mean it cannot be a lone solution (that is, the line without other lines)
             #if not e.solution: #changed!!! this line cannot be the ONLY line, but can be the main line if there are others
             #    continue
+
+            if not G.CONTINUUM_RULES and e.see_in_absorption:
+                continue #we are looking for emision only and this line is not avaible to match in emission
+            #else: central can be either emission or absorption
 
             central_z = central/e.w_rest - 1.0
             if (central_z) < 0.0:
@@ -4502,9 +4676,12 @@ class Spectrum:
             sol.emission_line.solution = True
             sol.prob_noise = 1.0
 
-            for a in self.emission_lines:
+            for a in self.emission_lines: #2021-06-14 ... now emission and absorption
                 if e == a:
                     continue
+
+                if not G.CONTINUUM_RULES and a.see_in_absorption:
+                    continue #this is an absorption line, but we are not checking for absorption
 
                 a_central = a.w_rest*(sol.z+1.0)
                 if (a_central > max_w) or (a_central < min_w) or (abs(a_central-central) < 5.0):
@@ -4517,14 +4694,14 @@ class Spectrum:
                                    central_z = central_z, values_units=values_units, spectrum=self,
                                    show_plot=False, do_mcmc=False,
                                    allow_broad= (a.broad and e.broad),
-                                   relax_fit=(e.w_rest==5007)and(a.w_rest==4959))
+                                   relax_fit=(e.w_rest==5007)and(a.w_rest==4959),absorber=a.see_in_absorption)
 
                 if eli and a.broad and e.broad and (eli.fit_sigma < eli.fit_sigma_err) and \
                     ((eli.fit_sigma + eli.fit_sigma_err) > GOOD_BROADLINE_SIGMA):
                         #try again with medfilter fit
                         eli = signal_score(wavelengths=wavelengths, values=medfilt(values, 5), errors=medfilt(errors, 5),
                             central=a_central, central_z = central_z, values_units=values_units, spectrum=self,
-                            show_plot=False, do_mcmc=False, allow_broad= (a.broad and e.broad))
+                            show_plot=False, do_mcmc=False, allow_broad= (a.broad and e.broad), absorber=a.see_in_absorption)
                 elif eli is None and a.broad and e.broad:
                     #are they in the same family? OII, OIII, OIV :  CIV, CIII, CII : H_beta, ....
                     samefamily = in_same_family(a,e)
@@ -4532,7 +4709,8 @@ class Spectrum:
                     if not samefamily or (samefamily and (self.central_eli and self.central_eli.fit_sigma and self.central_eli.fit_sigma > 5.0)):
                         eli = signal_score(wavelengths=wavelengths, values=medfilt(values, 5), errors=medfilt(errors, 5),
                                        central=a_central, central_z=central_z, values_units=values_units, spectrum=self,
-                                       show_plot=False, do_mcmc=False, allow_broad=(a.broad and e.broad),broadfit=5)
+                                       show_plot=False, do_mcmc=False, allow_broad=(a.broad and e.broad),broadfit=5,
+                                           absorber=a.see_in_absorption)
                 # elif a.broad: #the supporting line could be broad
                 #     common_combo = False
                 #
@@ -4556,15 +4734,18 @@ class Spectrum:
                 #             eli = eli_broad
 
                 #try as absorber
-                if G.MAX_SCORE_ABSORPTION_LINES and eli is None and self.is_near_absorber(a_central):
-                    # eli = signal_score(wavelengths=wavelengths, values=invert_spectrum(wavelengths,values), errors=errors, central=a_central,
-                    #                    central_z=central_z, values_units=values_units, spectrum=self,
-                    #                    show_plot=False, do_mcmc=False,absorber=True)
-                    #we no longer want to invert (we will fit to absorption)
-                    eli = signal_score(wavelengths=wavelengths, values=values, errors=errors, central=a_central,
-                                       central_z=central_z, values_units=values_units, spectrum=self,
-                                       show_plot=False, do_mcmc=False,absorber=True)
 
+
+                # #now handled above
+                # if G.MAX_SCORE_ABSORPTION_LINES and eli is None and self.is_near_absorber(a_central):
+                #     # eli = signal_score(wavelengths=wavelengths, values=invert_spectrum(wavelengths,values), errors=errors, central=a_central,
+                #     #                    central_z=central_z, values_units=values_units, spectrum=self,
+                #     #                    show_plot=False, do_mcmc=False,absorber=True)
+                #     #we no longer want to invert (we will fit to absorption)
+                #     eli = signal_score(wavelengths=wavelengths, values=values, errors=errors, central=a_central,
+                #                        central_z=central_z, values_units=values_units, spectrum=self,
+                #                        show_plot=False, do_mcmc=False,absorber=True)
+                #
 
                 #apply any score modifications based on the line identification (made in the definitions of the EmissionLine objects)
                 #i.e. for LyA+NV vs OII+complex at 3800AA
@@ -4966,6 +5147,22 @@ class Spectrum:
                             s.prob_noise = min(s.prob_noise,0.5)
 
                     per_line_total_score += s.score
+
+
+            #H&K a low-z galaxy or star
+            if G.CONTINUUM_RULES:
+                boost = self.scale_consistency_score_to_solution_score_factor(self.solution_consistent_with_H_and_K(s))
+                if boost != 1.0:
+                    log.info(f"Solution: {s.name} score {s.score} to be modified by x{boost} for consistency with H & K lines")
+
+                    # if ((s.score + central_eli.line_score) > G.MULTILINE_FULL_SOLUTION_SCORE) and \
+                    #         (boost > 1.0) and (no_plus_boost is False):  # check BEFORE the boost
+                    #     self.add_classification_label("lzg") #Low-z Galaxy
+
+                    per_line_total_score -= s.score
+                    s.score =  boost * s.score
+                    per_line_total_score += s.score
+
 
         else: #still check for invalid solutions (no valid central emission line)
             if self.central_eli is None:
