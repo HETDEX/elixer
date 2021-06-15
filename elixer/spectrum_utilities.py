@@ -99,6 +99,28 @@ filter_iso_dict = {'u': 3650.0,
                    'f160w': 15370.
                    }
 
+
+MULTILINE_CONFIDENCE = [0.00, 0.01, 0.02, 0.03, 0.04, 0.05, 0.10, 0.25, 0.45, 0.70, 0.85, 0.90, 0.98]
+MULTILINE_SCORE      = [0.00, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.85, 0.90, 0.93, 1.00]
+INTERP_MULTILINE_SCORE = np.linspace(0.0,1.0,100)
+INTERP_MULTILINE_CONFIDENCE = np.interp(INTERP_MULTILINE_SCORE,MULTILINE_SCORE,MULTILINE_CONFIDENCE)
+
+def map_multiline_score_to_confidence(score):
+    """
+    Right now, this is opinion driven
+    interpolate between bins
+    todo: establish via comparing multiline scale score vs "confirmed" redshift
+
+    :param score: the multiline scaled score (0-1)
+    :return:
+    """
+    try:
+        i,*_ = getnearpos(INTERP_MULTILINE_SCORE,score)
+        return INTERP_MULTILINE_CONFIDENCE[i]
+    except:
+        return 0
+
+
 def filter_iso(filtername, lam):
     """
     Approximate iso wavelength lookup by filter. If not found, just returns the wavelength passed in.

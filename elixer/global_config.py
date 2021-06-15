@@ -693,6 +693,8 @@ HETDEX_CONTINUUM_FLUX_LIMIT =  5.38e-19 #flux-density based on 25 mag limit (rea
 
 CONTINUUM_FLOOR_COUNTS = 6.5 #5 sigma * 6 counts / sqrt(40 angstroms/1.9 angs per pixel)
 
+CONTINUUM_THRESHOLD_FOR_ABSORPTION_CHECK = 2.0e-17 # erg/s/cm2/AA (near gmag 21)
+
 Fiber_Radius = 0.75 #arcsec
 IFU_Width = 47.26 #arcsec ... includes 2x fiber radius ... more narrow part fiber 1 - 19, else is 49.8
 IFU_Height = 49.98 #arcsec

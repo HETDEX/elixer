@@ -98,6 +98,7 @@ PROB_NOISE_MIN_SCORE = 2.0 #min score that makes it to the bin list
 #beyond an okay fit (see GAUSS_FIT_xxx above) is this a "good" signal
 GOOD_BROADLINE_SIGMA = 6.0 #getting broad
 LIMIT_BROAD_SIGMA = 7.0 #above this the emission line must specifically allow "broad"
+
 GOOD_BROADLINE_SNR = 11.0 # upshot ... protect against neighboring "noise" that fits a broad line ...
                           # if big sigma, better have big SNR
 GOOD_BROADLINE_RAW_SNR = 4.0 # litteraly signal/noise (flux values / error values +/- 3 sigma from peak)
@@ -743,8 +744,8 @@ class EmissionLineInfo:
             left = max(0,idx-width)
             right = max(len(self.raw_wave)-1,idx+width)
 
-            signal = np.nansum(self.raw_vals[left::right+1])
-            error = np.nansum(self.raw_errs[left::right+1])
+            signal = np.nansum(self.raw_vals[left:right+1])
+            error = np.sqrt(np.nansum(self.raw_errs[left:right+1]*self.raw_errs[left:right+1]))
 
             snr = signal/error
         except:
@@ -860,7 +861,8 @@ class EmissionLineInfo:
                 #this MIN_HUGE_FWHM_SNR is based on the usual 2AA bins ... if this is broadfit, need to return to the
                 # usual SNR definition
                 if (self.fwhm > MAX_NORMAL_FWHM) and \
-                        ((self.snr *np.sqrt(broadfit) < MIN_HUGE_FWHM_SNR) and (self.raw_snr() < GOOD_BROADLINE_RAW_SNR)):
+                        ((self.snr *np.sqrt(broadfit) < MIN_HUGE_FWHM_SNR) and (self.raw_snr() < GOOD_BROADLINE_RAW_SNR)) \
+                        and (self.fit_chi2 > 1.5):
                     log.debug(f"Huge fwhm {self.fwhm} with relatively poor SNR {self.snr} < required SNR {MIN_HUGE_FWHM_SNR} and "
                               f"{self.raw_snr()} < {GOOD_BROADLINE_RAW_SNR}. "
                               "Probably bad fit or merged lines. Rejecting score.")
@@ -1083,7 +1085,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         log.warning("Zero length (or None) spectrum passed to spectrum::signal_score().")
         return None
 
-
+    recommend_mcmc = False #internal trigger ... may want MCMC even if do_mcmc is false
     accept_fit = False
     #if values_are_flux:
     #    # assumed then to be in cgs units of x10^-17 as per typical HETDEX values
@@ -1310,6 +1312,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             peak_fit_mult = 0.33
         else:
             peak_fit_mult = 0.25
+
         if relax_fit:
             peak_fit_mult = 0.5
 
@@ -1320,12 +1323,20 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #         log.debug("Failed to capture peak: raw = %f , fit = %f, frac = %0.2f" % (raw_peak, fit_peak,
         #                                                                                  abs(raw_peak - fit_peak) / raw_peak))
         # else:
-        if ( abs(fit_peak - raw_peak) > (raw_peak * peak_fit_mult) ):
-            captured_peak = False
-            #if (abs(raw_peak - fit_peak) / raw_peak > 0.2):  # didn't capture the peak ... bad, don't calculate anything else
-                #log.warning("Failed to capture peak")
-            log.debug("Failed to capture peak: raw = %f , fit = %f, frac = %0.2f" % (raw_peak, fit_peak,
-                                                                                 abs(raw_peak - fit_peak) / raw_peak))
+
+        peak_fit = abs(fit_peak - raw_peak)
+        if ( peak_fit > (raw_peak * peak_fit_mult) ):
+            if peak_fit > (raw_peak * 0.5):
+                captured_peak = False
+                #if (abs(raw_peak - fit_peak) / raw_peak > 0.2):  # didn't capture the peak ... bad, don't calculate anything else
+                    #log.warning("Failed to capture peak")
+                log.debug("Failed to capture peak: raw = %f , fit = %f, frac = %0.2f" % (raw_peak, fit_peak,
+                                                                                         peak_fit / raw_peak))
+            else: #missed the tighter constratint, but passed relax. Need to run MCMC
+                log.debug("Poor capture peak. MCMC recommended: raw = %f , fit = %f, frac = %0.2f" % (raw_peak, fit_peak,
+                                                                                    peak_fit / raw_peak))
+                recommend_mcmc = True
+
         if captured_peak:
             #check the dx0
 
@@ -1446,7 +1457,23 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         max_allowed_peak_err_fraction = 0.34
         min_height_to_fwhm = 1.66
 
-        if not eli.unique and ((eli.fit_a_err / abs(eli.fit_a)) > max_allowed_peak_err_fraction) and (eli.fit_sigma > GAUSS_FIT_MAX_SIGMA):
+        bail = False
+        if recommend_mcmc: #if choose not to conintue, this would have been a rejected line, so zero out and bail
+            if (eli.snr > 5.0) and (eli.fit_chi2 < 2.0) and (eli.unique):
+                do_mcmc = True
+            else:
+                log.debug("Failed to meet minimum condition to continue with MCMC. Enforcing prior rejection.")
+                recommend_mcmc = False
+                captured_peak = False
+                bail = True
+
+        if bail:
+            accept_fit = False
+            snr = 0.0
+            eli.snr = 0.0
+            eli.line_score = 0.0
+            eli.line_flux = 0.0
+        elif not eli.unique and ((eli.fit_a_err / abs(eli.fit_a)) > max_allowed_peak_err_fraction) and (eli.fit_sigma > GAUSS_FIT_MAX_SIGMA):
             accept_fit = False
             snr = 0.0
             eli.snr = 0.0
@@ -1460,7 +1487,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #     eli.line_score = 0.0
         #     eli.line_flux = 0.0
         #     log.debug(f"Fit rejected: fit_a_err/fit_a {eli.fit_a_err / eli.fit_a} > 0.5")
-        elif rough_height < rough_fwhm:
+        elif rough_height < rough_fwhm and not recommend_mcmc: #widder than tall; skip if recommend mcmc triggered
             accept_fit = False
             snr = 0.0
             eli.snr = 0.0
@@ -1612,6 +1639,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         score = 0.0
 
     mcmc = None
+
     if do_mcmc:
         # print("*****TESTING DOUBLE GAUSS******")
         # print("***** check_for_doublet *****")
@@ -1636,8 +1664,12 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         # if using the scipy::curve_fit, 50-100 burn-in and ~1000 main run is plenty
         # if other input (like Karl's) ... the method is different and we are farther off ... takes longer to converge
         #   but still converges close to the scipy::curve_fit
-        mcmc.burn_in = 250
-        mcmc.main_run = 1000
+        if recommend_mcmc: #this is a low-stakes follow on to LSQ, so a lesser run is okay
+            mcmc.burn_in = 250
+            mcmc.main_run = 500
+        else:
+            mcmc.burn_in = 250
+            mcmc.main_run = 1000
         mcmc.run_mcmc()
 
         # if True:
@@ -1725,10 +1757,42 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         except:
             pass
 
+        #if recommend_mcmc: #this was a marginal LSQ fit, so replace key the "fit_xxx" with the mcmc values
+        if True:
+            fit_scale = 1/(10 ** values_units)
+
+            eli.fit_x0 = eli.mcmc_x0[0]
+            eli.fit_x0_err = 0.5*(eli.mcmc_x0[1]+eli.mcmc_x0[2])
+
+            eli.fit_sigma = eli.mcmc_sigma[0]
+            eli.fit_sigma_err = 0.5*(eli.mcmc_sigma[1]+eli.mcmc_sigma[2])
+
+            eli.fit_a = eli.mcmc_a[0] * fit_scale
+            eli.fit_a_err = 0.5*(eli.mcmc_a[1]+eli.mcmc_a[2]) * fit_scale
+
+            eli.fit_y = eli.mcmc_y[0] * fit_scale
+            eli.fit_y_err = 0.5*(eli.mcmc_y[1]+eli.mcmc_y[2])* fit_scale
+
+
+        #MCMC is preferred to update key values
+        eli.line_flux = eli.mcmc_line_flux
+        eli.line_flux_err = 0.5*(eli.mcmc_line_flux_tuple[1]+eli.mcmc_line_flux_tuple[2])
+
+        if eli.mcmc_snr is not None and eli.mcmc_snr > 0:
+            eli.snr = eli.mcmc_snr
+            eli.snr_err = eli.mcmc_snr_err
+        eli.fwhm = eli.mcmc_sigma[0]*2.355
+
         eli.mcmc_ew_obs = [ew, ew_err, ew_err]
         log.debug("MCMC Peak height = %f" % (max(narrow_wave_counts)))
         log.debug("MCMC calculated EW_obs for main line = %0.3g +/- %0.3g" % (ew, ew_err))
         log.debug(f"MCMC line flux = {eli.mcmc_line_flux}")
+
+
+        #and rescore from MCMC
+        old_score = eli.line_score
+        eli.build(values_units=values_units,allow_broad=allow_broad,broadfit=broadfit)
+        log.info(f"Rescore from MCMC: old {old_score}, new {eli.line_score}")
 
         #testing alternate SNR calculation
         # log.debug(f"Line flux {eli.mcmc_line_flux} ")
@@ -3321,7 +3385,7 @@ class Spectrum:
 
             EmissionLine("Ly$\\alpha$".ljust(w), G.LyA_rest, 'red',rank=1,broad=True),
 
-            EmissionLine("OII".ljust(w), G.OII_rest, 'green',rank=2),
+            EmissionLine("OII".ljust(w), G.OII_rest, 'green',rank=2,broad=True), #not as broad, but can be > 20AA
             EmissionLine("OIII".ljust(w), 4959, "lime",rank=3),#4960.295 (vacuum) 4958.911 (air)
             EmissionLine("OIII".ljust(w), 5007, "lime",rank=1), #5008.240 (vacuum) 5006.843 (air)
             #EmissionLine("OIV".ljust(w), 1400, "lime", solution=False, display=True, rank=4),  # or 1393-1403 also OIV]
@@ -4105,7 +4169,7 @@ class Spectrum:
 
     def set_spectra(self,wavelengths, values, errors, central, values_units = 0, estflux=None, estflux_unc=None,
                     eqw_obs=None, eqw_obs_unc=None, fit_min_sigma=GAUSS_FIT_MIN_SIGMA,estcont=None,estcont_unc=None,
-                    fwhm=None,fwhm_unc=None):
+                    fwhm=None,fwhm_unc=None,continuum_g=None,continuum_g_unc=None):
         self.wavelengths = []
         self.values = []
         self.errors = []
@@ -4137,6 +4201,13 @@ class Spectrum:
         #scan for lines
         try:
             self.all_found_lines = peakdet(wavelengths, values, errors, values_units=values_units, enforce_good=True)
+        except:
+            log.warning("Exception in spectum::set_spectra()",exc_info=True)
+
+        try:
+            if continuum_g is not None and continuum_g > G.CONTINUUM_THRESHOLD_FOR_ABSORPTION_CHECK:
+                self.all_found_absorbs = peakdet(wavelengths, values, errors, values_units=values_units,
+                                                 enforce_good=True,absorber=True)
         except:
             log.warning("Exception in spectum::set_spectra()",exc_info=True)
 
@@ -4763,7 +4834,13 @@ class Spectrum:
                 if not allow_broad_check and a.broad:
                     #certain combinations are okay though
                     #MgII (i.e. with OII, OII is narrow-ish but MgII can be broad)
-                    if 2794 < a.w_rest < 2802:
+                    if 2794 < a.w_rest < 2802: #MgII
+                        allow_broad_check = True
+                    elif 1548 < a.w_rest < 1551: #CIV usually 1549
+                        allow_broad_check = True
+                    elif a.w_rest == G.LyA_rest:
+                        allow_broad_check = True
+                    elif a.w_rest == G.OII_rest: #OII is sometimes broad
                         allow_broad_check = True
 
                 if (eli is not None) and eli.is_good(z=sol.z,allow_broad=allow_broad_check):

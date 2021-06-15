@@ -1471,6 +1471,8 @@ class DetObj:
             #aka P(LyA)
             scaled_plae_classification = self.classification_dict['scaled_plae']
             p = abs(0.5 - scaled_plae_classification)/0.5 #so, peaks near 0 and 1 and is zero at 0.5
+            plya_for_oii = 0.7 #with no other evidence other than P(LyA) that favors OII, since it can be other lines
+                               #not just OII, rescale by this factor when assuming OII
             rest = 0
             #is the multiline solution (which has been updated with catalog phot-z and spec-z)
             #consistent with lowz or high-z?
@@ -1540,16 +1542,21 @@ class DetObj:
                             if (self.spec_obj.solutions[0].frac_score / self.spec_obj.solutions[1].frac_score) > 1.9:
                                 #notice: 1.9 is used instead of 2.0 due to rounding
                                 #i.e. if only two solutions at 0.66 and 0.34 ==> 0.66/0.34 = 1.94
-                                p = sol.scale_score
+                                p = SU.map_multiline_score_to_confidence(sol.scale_score)
                             else:
-                                p = sol.scale_score * sol.frac_score
+                                p = SU.map_multiline_score_to_confidence(sol.scale_score) * sol.frac_score
                         else:
-                            p = sol.scale_score
+                            p = SU.map_multiline_score_to_confidence(sol.scale_score)
 
                         log.info(f"Q(z): Multiline solution[{idx}], score {scale_score}, frac {sol.frac_score}. "
                                  f"P(LyA) uncertain {scaled_plae_classification}. Set to z: {z} with Q(z): {p}")
                     else:
-                        p = 0.5 * (p + scale_score) #half from the P(LyA) and half from the scale_score
+                        #basic agreement P(LyA) favors NOT LyA and multiline is not a LyA solution (less supportive)
+                        #or P(LyA) favors LyA and so does multiline (more supportitve)
+                        p = SU.map_multiline_score_to_confidence(scale_score)
+                        if scaled_plae_classification > 0.5: #more supportive case
+                            p = 0.5 * (p + scaled_plae_classification) #half from the P(LyA) and half from the scale_score
+
                         log.info(f"P(z): Multiline solution[{idx}] {self.spec_obj.solutions[idx].name} score {scale_score} "
                                  f"and P(LyA) {scaled_plae_classification} agree. Set to z: {z} with Q(z): {p}")
                 else: #use the 1st (highes score) that disagrees
@@ -1557,7 +1564,7 @@ class DetObj:
                     z = sol.z
                     rest = sol.central_rest
                     score = sol.score
-                    pscore = sol.scale_score
+                    pscore = SU.map_multiline_score_to_confidence(sol.scale_score)
 
                     #P(LyA) and the multi-line score disagree
                     #the P(LyA) and scale_score are roughly on the same 0-1 scaling so we will choose the LyA favoring
@@ -1567,20 +1574,20 @@ class DetObj:
                         #if the LyA Solution is strong, subtract off the p/2 weight
 
                         #test for weak LyA multi-line vs strong P(LyA) near 0.0
-                        for_lya = scale_score - p
+                        for_lya = pscore - p
                         for_oii = p
 
-                        if scale_score > p: #multi-line solution "stronger" than P(LyA)
-                            p = max(0.05,scale_score - p)
+                        if pscore > p: #multi-line solution "stronger" than P(LyA)
+                            p = max(0.05,pscore - p)
                             z = self.w / G.LyA_rest - 1.0
 
-                            log.info(f"Q(z): Multiline solution favors LyA {scale_score}. "
+                            log.info(f"Q(z): Multiline solution favors LyA {pscore}. "
                                      f"P(LyA) does not {scaled_plae_classification}. Set to LyA z:{z} with Q(z): {p}")
                         else:
-                            p = max(0.05,p-scale_score)
+                            p = max(0.05,p-pscore)
                             z = self.w / G.OII_rest - 1.0
 
-                            log.info(f"Q(z): Multiline solution favors LyA {scale_score}. "
+                            log.info(f"Q(z): Multiline solution favors LyA {pscore}. "
                                  f"P(LyA) does not {scaled_plae_classification}. Set to OII z:{z} with Q(z): {p}")
 
                     elif (scaled_plae_classification > 0.6) and (rest != G.LyA_rest):
@@ -1588,14 +1595,14 @@ class DetObj:
                         #voting vs line solution mis-match
                         #so 0.4 to 0.6 is no-man's land, but the prob or confidence will be very low anyway
                         #keep the z, but reduce the p(z)
-                        if scale_score > p:
-                            p = max(0.05,scale_score - p)
-                            log.info(f"Q(z): Multiline solution favors z = {sol.z}; {scale_score}. "
+                        if pscore > p:
+                            p = max(0.05,pscore - p)
+                            log.info(f"Q(z): Multiline solution favors z = {sol.z}; {pscore}. "
                                      f"P(LyA) favors LyA {scaled_plae_classification}. Set to z:{z} with Q(z): {p}")
                         else:
-                            p = max(0.05,p - scale_score)
+                            p = max(0.05,p - pscore)
                             z = self.w / G.LyA_rest - 1.0
-                            log.info(f"Q(z): Multiline solution favors z = {sol.z}; {scale_score}. "
+                            log.info(f"Q(z): Multiline solution favors z = {sol.z}; {pscore}. "
                                      f"P(LyA) favors LyA {scaled_plae_classification}. Set to LyA z:{z} with Q(z): {p}")
                     else: #odd place ... this should not happen
                         #we will use the P(Lya)
@@ -1623,7 +1630,7 @@ class DetObj:
                 else:
                     z = self.w / G.OII_rest - 1.0
                     rest = G.OII_rest
-                    p = p/2. #remember, this is just NOT LyA .. so while OII is the most common, it is hardly the only solution
+                    p = plya_for_oii*p/2. #remember, this is just NOT LyA .. so while OII is the most common, it is hardly the only solution
                          #so the highest possible would tbe 50%: P(LyA) = 0.0 ==> abs(0.5-0.0)/0.5/2. = 0.5
                     log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
             elif scaled_plae_classification > 0.7:
@@ -4005,20 +4012,20 @@ class DetObj:
                       (self.spec_obj.solutions[0].score / self.spec_obj.solutions[1].score > G.MULTILINE_MIN_NEIGHBOR_SCORE_RATIO)):
 
                     self.multiline_z_minimum_flag = True
-                    return True, self.spec_obj.solutions[0].scale_score
+                    return True, self.spec_obj.solutions[0].scale_score, SU.map_multiline_score_to_confidence(self.spec_obj.solutions[0].scale_score)
                 #not a clear winner, but the top is a display (or primary) line and the second is not, so use the first
                 elif (self.spec_obj.solutions[0].emission_line.display is True) and \
                         (self.spec_obj.solutions[0].emission_line.display is False):
 
                     log.debug("multiline_solution_score, using display line over non-display line")
                     self.multiline_z_minimum_flag = True
-                    return True, self.spec_obj.solutions[0].scale_score
+                    return True, self.spec_obj.solutions[0].scale_score,SU.map_multiline_score_to_confidence(self.spec_obj.solutions[0].scale_score)
 
             if G.MULTILINE_ALWAYS_SHOW_BEST_GUESS:
                 self.multiline_z_minimum_flag = False
-                return False, self.spec_obj.solutions[0].scale_score
+                return False, self.spec_obj.solutions[0].scale_score,SU.map_multiline_score_to_confidence(self.spec_obj.solutions[0].scale_score)
 
-        return False, 0.0
+        return False, 0.0, 0.0
 
 
 
@@ -4859,7 +4866,8 @@ class DetObj:
         if self.annulus is None:
             self.spec_obj.set_spectra(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr, self.w,
                                       values_units=-17, estflux=self.estflux, estflux_unc=self.estflux_unc,
-                                      eqw_obs=self.eqw_obs, eqw_obs_unc=self.eqw_obs_unc)
+                                      eqw_obs=self.eqw_obs, eqw_obs_unc=self.eqw_obs_unc,
+                                      continuum_g=self.best_gmag_cgs_cont,continuum_g_unc=self.best_gmag_cgs_cont_unc)
             # print("DEBUG ... spectrum peak finder")
             # if G.DEBUG_SHOW_GAUSS_PLOTS:
             #    self.spec_obj.build_full_width_spectrum(show_skylines=True, show_peaks=True, name="testsol")
@@ -5569,7 +5577,8 @@ class DetObj:
                 self.spec_obj.set_spectra(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr, self.w,
                                           values_units=-17, estflux=self.estflux, estflux_unc=self.estflux_unc,
                                           eqw_obs=self.eqw_obs, eqw_obs_unc=self.eqw_obs_unc,
-                                          estcont=self.cont_cgs, estcont_unc=self.cont_cgs_unc)
+                                          estcont=self.cont_cgs, estcont_unc=self.cont_cgs_unc,
+                                          continuum_g=self.best_gmag_cgs_cont,continuum_g_unc=self.best_gmag_cgs_cont_unc)
 
                 if self.spec_obj.central_eli is not None:
                     self.estflux = self.spec_obj.central_eli.mcmc_line_flux
@@ -6393,7 +6402,8 @@ class DetObj:
                                       values_units=-17, estflux=self.estflux, estflux_unc=self.estflux_unc,
                                       eqw_obs=self.eqw_obs,eqw_obs_unc=self.eqw_obs_unc,
                                       estcont=self.cont_cgs,estcont_unc=self.cont_cgs_unc,
-                                      fwhm=self.fwhm,fwhm_unc=self.fwhm_unc)
+                                      fwhm=self.fwhm,fwhm_unc=self.fwhm_unc,
+                                      continuum_g=self.best_gmag_cgs_cont,continuum_g_unc=self.best_gmag_cgs_cont_unc)
             # print("DEBUG ... spectrum peak finder")
             # if G.DEBUG_SHOW_GAUSS_PLOTS:
             #    self.spec_obj.build_full_width_spectrum(show_skylines=True, show_peaks=True, name="testsol")
@@ -8629,7 +8639,7 @@ class HETDEX:
                 title = title + "  OII z = N/A"
 
         if not G.ZOO:
-            good, scale_score = e.multiline_solution_score()
+            good, scale_score, p_score = e.multiline_solution_score()
 
             #pick best eqw observered to use
             if (e.eqw_sdss_obs is not None) and (e.eqw_sdss_obs_unc is not None):
@@ -8644,14 +8654,14 @@ class HETDEX:
             if ( good ):
                 # strong solution
                 sol = datakeep['detobj'].spec_obj.solutions[0]
-                title += "\n*(%0.3f) %s(%d) z = %0.4f  EW_r = %0.1f$\AA$" %(scale_score, sol.name, int(sol.central_rest),sol.z,
+                title += "\n*Q(%0.2f) %s(%d) z = %0.4f  EW_r = %0.1f$\AA$" %(p_score, sol.name, int(sol.central_rest),sol.z,
                                                                             l_eqw_obs/(1.0+sol.z))
             elif (scale_score > G.MULTILINE_MIN_WEAK_SOLUTION_CONFIDENCE):
                 #weak solution ... for display only, not acceptabale as a solution
                 #do not set the solution (sol) to be recorded
                 sol = datakeep['detobj'].spec_obj.solutions[0]
-                title += "\n(%0.3f) %s(%d) z = %0.4f  EW_r = %0.1f$\AA$" % \
-                         ( scale_score, sol.name, int(sol.central_rest), sol.z,l_eqw_obs / (1.0 + sol.z))
+                title += "\nQ(%0.2f) %s(%d) z = %0.4f  EW_r = %0.1f$\AA$" % \
+                         ( p_score, sol.name, int(sol.central_rest), sol.z,l_eqw_obs / (1.0 + sol.z))
             #else:
             #    log.info("No singular, strong emission line solution.")
 
@@ -11255,7 +11265,7 @@ class HETDEX:
 
             the_solution_rest_wave = -1.0
             if not G.ZOO:
-                good, scale_score = datakeep['detobj'].multiline_solution_score()
+                good, scale_score,p_score = datakeep['detobj'].multiline_solution_score()
                 if (scale_score > G.MULTILINE_MIN_WEAK_SOLUTION_CONFIDENCE):
                     #a solution
                     sol = datakeep['detobj'].spec_obj.solutions[0]
@@ -11263,7 +11273,7 @@ class HETDEX:
                     the_solution_rest_wave = sol.central_rest
                     y_pos = textplot.axis()[2]
 
-                    if good and not absorber:
+                    if good and not absorber and (p_score > 0.7):
                         textplot.text(cwave, y_pos, sol.name + " {", rotation=-90, ha='center', va='bottom',
                                       fontsize=24, color=sol.color)  # use the e color for this family
                     else: #weak solution, use standard font size

@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.13.0a1 [2021-06-14]
+1.13.0a1 [2021-06-15]
 * [in progress]
 * working on adapting classification to continuum catalog sources
 * allow MCMC Gaussian to fit aborption lines (negative A); restrict initial walker positions to valid ranges for each
@@ -12,7 +12,11 @@ arrray and small differences in MCMC line flux fit) but they will be close.
 * sped up neighborhood search (was missing the shot downselection)
 * if --continuum specified, auto set DISPLAY_ABSORPTION_LINES and MAX_SCORE_ABSORPTION_LINES
 * allow central (anchor) line to be an absorption line
-
+* updates to Q(z)
+* multiline solution scaled score now translated to a confidence (as probability) ... currently manually mapped (will
+  change to map based on scaled_score to confirmed z test)
+  + elixer h5 file "multiline_prob" is now this map and not the scaled_score
+* fix very old bug in spectrum::raw_snr() that selected first wavebin only and not the whole range
 
 1.12.0a1 [2021-05-20]
 * add explicit flux 5007/4959 check to the special OIII case (to allow a nudge to OIII 4959+5007 when the weaker line (4959)
