@@ -364,16 +364,21 @@ class MCMC_Gauss:
             # mcmc_mu_95, mcmc_sigma_95, mcmc_A_95, mcmc_y_95, mcmc_f = \
             #     map(lambda v: (v[1], v[2] - v[1], v[1] - v[0]),zip(*np.percentile(self.samples, [5,50,95],axis=0)))
 
+
             try: #basic info used by multiple SNR calculations
                 bin_width = self.data_x[1] - self.data_x[0]
-                model_fit = self.compute_model(self.data_x,self.mcmc_mu[0],self.mcmc_sigma[0],self.mcmc_A[0],self.mcmc_y[0])
                 left,*_ = utilities.getnearpos(self.data_x,self.mcmc_mu[0]-self.mcmc_sigma[0]*sigma_width)
                 right,*_ = utilities.getnearpos(self.data_x,self.mcmc_mu[0]+self.mcmc_sigma[0]*sigma_width)
-                if left > 0:
-                    left -= 1
-                if (right+1) < len(self.data_x):
-                    right += 1
-                rms_err = rms(self.data_y[left:right],model_fit[left:right],None,None,False)
+                #we want the next wavebin to either side
+                # left = max(0,left-1)
+                # right = min(right+2,len(self.data_x)) #+2 insted of +1 since the slice does not include the end
+                #at 4 sigma the mcmc_A[0] is almost identical to the model_fit (as you would expect)
+                #note: if choose to sum over model fit, remember that this is usually over 2AA wide bins, so to
+                #compare to the error data, need to multiply the model_sum by the bin width (2AA)
+                #(or noting that the Area == integrated flux x binwidth)
+                model_fit = self.compute_model(self.data_x[left:right],self.mcmc_mu[0],self.mcmc_sigma[0],self.mcmc_A[0],self.mcmc_y[0])
+                data_err = self.err_y[left:right]
+                #rms_err = rms(self.data_y[left:right],model_fit[left:right],None,None,False)
 
                 #signal is the sum of the data between +/- 2.5 sigma (minus the y-offset)
                 # noise is the sqrt of the nummber of pixels (wavebins)*the RMSerror)
@@ -423,12 +428,14 @@ class MCMC_Gauss:
             #                                                self.mcmc_A[0],0.5*(self.mcmc_A[1]+self.mcmc_A[2]),
             #                                                self.mcmc_y[0],0.5*(self.mcmc_y[1]+self.mcmc_y[2]))
             #
-            #     self.mcmc_snr = (np.sum(model_fit[left:right]) - (right-left+1)*self.mcmc_y[0])/np.sum(np.sqrt(unc_array[left:right]))
+            #     #self.mcmc_snr = abs(np.sum(model_fit - self.mcmc_y[0]))/np.sum(np.sqrt(unc_array[left:right]))
+            #     self.mcmc_snr = abs(np.sum(model_fit - self.mcmc_y[0]))/np.sqrt(np.sum(unc_array[left:right]**2))
             #     log.info(f"MCMC SNR model w/error prop: {self.mcmc_snr}")
+            #     print(f"***** TEST MCMC SNR: {self.mcmc_snr}")
             #
             # except:
             #     log.warning("Exception calculating MCMC SNR: ", exc_info=True)
-            #
+
             # try:
             #     #
             #     # 5. Area under the model curve divided by the # pixels * the rmse
@@ -462,11 +469,22 @@ class MCMC_Gauss:
                 # As of 2021-06-08 this is what Karl is using
                 # but need to check the left and right and the err_y is what I expect (no 2AA correction)
 
-                #self.mcmc_snr = self.mcmc_A[0]/ (np.sum(np.sqrt(self.err_y[left:right])))
-                #note: sqrt(bin_width) is for the 2AA binning (the area does not know about binning)
-                self.mcmc_snr = abs(self.mcmc_A[0]) / np.sqrt(np.sum(self.err_y[left:right]*self.err_y[left:right])) / np.sqrt(bin_width)
+                #since using +/- 4 sigma, mcmc_A essentially same as np.sum(model_fit)*2  ... the *2 is for the 2AA bin width
+
+                #signal = area under the curve or sum(model_fit)*bin_width .... line_flux = area / bin_width * units * scale
+                #noise = error on data (i.e. err_y) ... summed in quadrature over center +/- 4 sigma
+
+                # self.mcmc_snr = abs(self.mcmc_A[0]) / np.sqrt(np.sum(self.err_y[left:right]*self.err_y[left:right])) #/ np.sqrt(bin_width)
+                # self.mcmc_snr_err = abs(0.5*(self.mcmc_A[1]+self.mcmc_A[2])/self.mcmc_A[0] * self.mcmc_snr)
+                # log.info(f"MCMC SNR model Area with data error: {self.mcmc_snr} +/- {self.mcmc_snr_err}")
+
+                self.mcmc_snr = abs(self.mcmc_A[0]) / np.sqrt(np.sum(data_err**2)) / np.sqrt(2)
                 self.mcmc_snr_err = abs(0.5*(self.mcmc_A[1]+self.mcmc_A[2])/self.mcmc_A[0] * self.mcmc_snr)
                 log.info(f"MCMC SNR model Area with data error: {self.mcmc_snr} +/- {self.mcmc_snr_err}")
+               # print(f"***** TEST MCMC SNR: {self.mcmc_snr}")
+                #self.mcmc_snr = abs(np.sum(model_fit)) / np.sqrt(np.sum(self.err_y[left:right]*self.err_y[left:right])) #/ np
+
+                #log.info(f"*** { abs(self.mcmc_A[0]/1.0) / np.sqrt(np.sum(self.err_y[left:right]/1.0))}")
 
                 #self.mcmc_snr = np.sum(model_fit)/(np.sqrt(len(self.data_x))*rms_err)
                 #these are fluxes, so just sum over the model to get approximate total flux (aread under the curve) = signal

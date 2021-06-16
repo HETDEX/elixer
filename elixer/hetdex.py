@@ -6396,6 +6396,35 @@ class DetObj:
         self.spec_obj.identifier = "eid(%s)" %str(self.entry_id)
         self.spec_obj.plot_dir = self.outdir
 
+        if False:
+            print("***** REMOVE ME ******")
+            bin_width = 2.0
+            left,*_ = SU.getnearpos(self.sumspec_wavelength,self.w-self.sigma*4.0)
+            right,*_ = SU.getnearpos(self.sumspec_wavelength,self.w+self.sigma*4.0)
+            if left > 0:
+                left -= 1
+            right = min(right+2,len(self.sumspec_wavelength)) #+2
+            #at 4 sigma the mcmc_A[0] is almost identical to the model_fit (as you would expect)
+            #note: if choose to sum over model fit, remember that this is usually over 2AA wide bins, so to
+            #compare to the error data, need to multiply the model_sum by the bin width (2AA)
+            #(or noting that the Area == integrated flux x binwidth)
+            data_err = self.sumspec_fluxerr[left:right]
+
+            print(f"***** SN Test: target {self.snr} at {self.w} for sigma = {self.sigma} and flux = {self.estflux}")
+            print(f"***** SN Test: {np.sum(self.sumspec_flux[left:right]-self.cont_cgs*1e17)/np.sqrt(np.sum(data_err**2))}")
+            print()
+
+            print(f"***** SN Test: {self.estflux*1e17/np.sqrt(np.sum(data_err**2))*np.sqrt(2)}") #doing best
+            print(f"***** SN Test: {self.estflux*1e17/np.sqrt(np.sum(data_err**2))}")
+            print(f"***** SN Test: {self.estflux*1e17/(np.sum(data_err))}")
+            print(f"***** SN Test: {2*self.estflux*1e17/np.sqrt(np.sum(data_err))}") #*2 since in 2AA bins?
+            print()
+
+            print(f"***** SN Test: {(self.estflux*1e17-self.cont_cgs*1e17)/(np.sum(data_err))}")
+            print(f"***** SN Test: {(self.estflux*1e17-self.cont_cgs*1e17)/np.sqrt(np.sum(data_err**2))*np.sqrt(2)}")
+            print(f"***** SN Test: {(self.estflux*1e17-self.cont_cgs*1e17)/np.sqrt(np.sum(data_err**2))}")
+
+
         if True: #go ahead and do this anyway, may want to plot central object info/spectra
         #if self.annulus is None:
             self.spec_obj.set_spectra(self.sumspec_wavelength,self.sumspec_flux,self.sumspec_fluxerr, self.w,

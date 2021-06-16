@@ -451,7 +451,6 @@ def chi_sqr(obs, exp, error=None, c=None,dof=None):
 
 
 
-
 def check_oiii(z,flux,flux_err,wave,delta=0,cont=0,cont_err=0):
     """
     Explicitly check if there flux at 5007 rest is 3x the flux at 4959 rest

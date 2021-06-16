@@ -60,7 +60,7 @@ GAUSS_FIT_MAX_SIGMA = 17.0 #maximum width (pixels) for fit gaussian to signal (g
 GAUSS_FIT_MIN_SIGMA = 1.0 #roughly 1/2 pixel where pixel = 1.9AA (#note: "GOOD_MIN_SIGMA" below provides post
                           # check and is more strict) ... allowed to fit a more narrow sigma, but will be rejected later
                           # as not a good signal .... should these actually be the same??
-GAUSS_FIT_AA_RANGE = 40.0 #AA to either side of the line center to include in the gaussian fit attempt
+GAUSS_FIT_AA_RANGE = 50.0 #AA to either side of the line center to include in the gaussian fit attempt
                           #a bit of an art here; too wide and the general noise and continuum kills the fit (too wide)
                           #too narrow and fit hard to find if the line center is off by more than about 2 AA
                           #40 seems (based on testing) to be about right (50 leaves too many clear, but weak signals behind)
@@ -740,12 +740,12 @@ class EmissionLineInfo:
         snr = 0.0
         try:
             idx = getnearpos(self.raw_wave,self.fit_x0) #single value version of getnearpos
-            width = int(self.fit_sigma * 3.0)
+            width = int(self.fit_sigma * 4.0)
             left = max(0,idx-width)
-            right = max(len(self.raw_wave)-1,idx+width)
+            right = min(len(self.raw_wave),idx+width+1)
 
-            signal = np.nansum(self.raw_vals[left:right+1])
-            error = np.sqrt(np.nansum(self.raw_errs[left:right+1]*self.raw_errs[left:right+1]))
+            signal = np.nansum(self.raw_vals[left:right])
+            error = np.sqrt(np.nansum(self.raw_errs[left:right]*self.raw_errs[left:right]))
 
             snr = signal/error
         except:
@@ -1335,6 +1335,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             else: #missed the tighter constratint, but passed relax. Need to run MCMC
                 log.debug("Poor capture peak. MCMC recommended: raw = %f , fit = %f, frac = %0.2f" % (raw_peak, fit_peak,
                                                                                     peak_fit / raw_peak))
+
+                #print("***** TURNED OFF recommend_mcmc ******")
                 recommend_mcmc = True
 
         if captured_peak:
@@ -1389,13 +1391,11 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                 # the fit would have failed .. and this is the "best" of those fits)
                 #dof = 3 for the 3 parameters we are fitting (mu, sigma, y)
                 try:
-                    chi2_half_width = eli.fit_sigma * GAUSS_SNR_SIGMA #in AA
+                    chi2_half_width = 50.0 #eli.fit_sigma * GAUSS_SNR_SIGMA #in AA
                     left,*_ = SU.getnearpos(wavelengths,eli.fit_x0 - chi2_half_width)
                     right,*_ = SU.getnearpos(wavelengths,eli.fit_x0 + chi2_half_width)
-                    if left > 0 :
-                        left -= 1
-                    if right < len(wavelengths):
-                        right += 1
+                    right = min(right+1,len(wavelengths))
+
                     data_waves = wavelengths[left:right]
                     data_flux = values[left:right]
                     if errors is not None and len(errors)==len(wavelengths):
@@ -1439,7 +1439,14 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
         try: #data_err is the data errors for the pixels selected in the RMSE fit range
             #eli.snr = eli.fit_a/(np.sum(np.sqrt(data_err)))
-            eli.snr = abs(eli.fit_a)/np.sqrt(np.sum(data_err*data_err))/np.sqrt(2)
+            left,*_ = SU.getnearpos(wavelengths,eli.fit_x0 - eli.fit_sigma*4.0)
+            right,*_ = SU.getnearpos(wavelengths,eli.fit_x0 + eli.fit_sigma*4.0)
+            # if left > 0 :
+            #     left -= 1
+            # right = min(right+2,len(wavelengths))
+
+            #the fit_a is in 2AA bins so is a factor of 2 high
+            eli.snr = abs(eli.fit_a)/np.sqrt(np.sum(errors[left:right]**2))  / np.sqrt(2)
             log.debug(f"curve_fit SNR: {eli.snr}; Area={eli.fit_a} RMSE={eli.fit_rmse} Pix={num_sn_pix}")
         except:
             log.info("signal_score() SNR fail. Falling back to RMSE based.")
@@ -1666,11 +1673,14 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #   but still converges close to the scipy::curve_fit
         if recommend_mcmc: #this is a low-stakes follow on to LSQ, so a lesser run is okay
             mcmc.burn_in = 250
-            mcmc.main_run = 500
+            mcmc.main_run = 750
         else:
             mcmc.burn_in = 250
-            mcmc.main_run = 1000
+            mcmc.main_run = 1200
         mcmc.run_mcmc()
+
+        #TEST
+
 
         # if True:
         #     png = "mcmc" + plot_id + str(central) + "_" + ".png"
@@ -1684,8 +1694,9 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         eli.mcmc_snr = mcmc.mcmc_snr
         eli.mcmc_snr_err = mcmc.mcmc_snr_err
 
-        eli.snr =   eli.mcmc_snr
-        eli.snr_err = eli.mcmc_snr_err
+        #updated a bit later
+        # eli.snr =   eli.mcmc_snr
+        # eli.snr_err = eli.mcmc_snr_err
 
         if mcmc.mcmc_A is not None:
             eli.mcmc_a = np.array(mcmc.mcmc_A)
@@ -1735,13 +1746,13 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #todo: could add an uncertainty on this since we have MCMC uncertainties on the parameters (mu, sigma, y)
 
         #def gaussian(x,x0,sigma,a=1.0,y=0.0):
-        #could do this by say +/- 3 sigma (Karl uses +/- 2.5 sigma)
+        #could do this by say +/- 3 sigma (Karl uses +/- 50 AA)
         try:
-            chi2_half_width = mcmc.mcmc_sigma[0] * 2.5  #in AA
+            chi2_half_width = 50.0 #mcmc.mcmc_sigma[0] * 2.5  #in AA
             left, *_ = SU.getnearpos(wavelengths,mcmc.mcmc_mu[0] - chi2_half_width)
             right,*_ = SU.getnearpos(wavelengths,mcmc.mcmc_mu[0] + chi2_half_width)
-            if right < len(wavelengths):
-                right += 1
+            right = min(right+1,len(wavelengths))
+
             data_waves = wavelengths[left:right]
             data_flux = values[left:right]
             if errors is not None and len(errors)==len(wavelengths):
@@ -1778,7 +1789,14 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         eli.line_flux = eli.mcmc_line_flux
         eli.line_flux_err = 0.5*(eli.mcmc_line_flux_tuple[1]+eli.mcmc_line_flux_tuple[2])
 
+        #explicit SNR
+        # left,*_ = SU.getnearpos(wavelengths,eli.fit_x0-eli.fit_sigma*4)
+        # right,*_ = SU.getnearpos(wavelengths,eli.fit_x0+eli.fit_sigma*4)
+        # noise = np.sum(errors[left:right]*(10 ** values_units))
+
+
         if eli.mcmc_snr is not None and eli.mcmc_snr > 0:
+            log.debug(f"MCMC SNR update: old {eli.snr}+/-{eli.snr_err}, new {eli.mcmc_snr}+/-{eli.mcmc_snr_err}")
             eli.snr = eli.mcmc_snr
             eli.snr_err = eli.mcmc_snr_err
         eli.fwhm = eli.mcmc_sigma[0]*2.355
@@ -1789,10 +1807,15 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         log.debug(f"MCMC line flux = {eli.mcmc_line_flux}")
 
 
+        log.debug(f"Calc SNR line_flux/data err: {eli.line_flux/np.sqrt(np.sum(narrow_wave_errors))}")
+
         #and rescore from MCMC
         old_score = eli.line_score
         eli.build(values_units=values_units,allow_broad=allow_broad,broadfit=broadfit)
         log.info(f"Rescore from MCMC: old {old_score}, new {eli.line_score}")
+
+
+
 
         #testing alternate SNR calculation
         # log.debug(f"Line flux {eli.mcmc_line_flux} ")
