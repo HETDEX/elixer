@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.13.0a2 [2021-06-16]
+* bumping alpha number as a checkpoint
+
 1.13.0a1 [2021-06-15]
 * [in progress]
 * working on adapting classification to continuum catalog sources

@@ -1658,7 +1658,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
         if bad_curve_fit:
             mcmc.initial_sigma = 1.0
-            mcmc.initial_A = raw_peak * 2.35 * mcmc.initial_sigma  # / adjust
+            mcmc.initial_A = raw_peak * 2.355 * mcmc.initial_sigma  # / adjust
         else:
             mcmc.initial_sigma = eli.fit_sigma
             mcmc.initial_A = eli.fit_a  # / adjust
