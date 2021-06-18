@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.13,0a3 [2021-06-17]
+* trigger blended spectra flag if 2 or more source extractor objects within central 1.5"
+* trigger uncertain classification flag if single line 15 < EW < 25 and mag ~ 24
+* fixed tab alignement that was skipping red_vs_blue (pesudo color calculation)
+
 1.13.0a2 [2021-06-16]
 * bumping alpha number as a checkpoint
 

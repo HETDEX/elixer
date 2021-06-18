@@ -1313,6 +1313,31 @@ class DetObj:
                     log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_DISTANT_COUNTERPART")
 
 
+                ######################################################
+                # check for multiple SEP ellipse wthin 1.5"
+                # NOTE: specfically this only applies to SEP ellipses ... if there are NO ellipses this flag is skipped
+                ######################################################
+                new_flag = 0
+
+                for d in self.aperture_details_list:
+                    if not want_band(d['filter_name']):
+                        continue
+                    if d['sep_obj_idx'] is None:
+                        continue
+
+                    count = 0
+                    for s in d['sep_objects']:
+                        if s['dist_curve'] < 1.5:
+                            # done, we are inside at least one ellipse (negative distance) OR within 0.5"
+                            count += 1
+
+                    if count > 1:
+                        new_flag = G.DETFLAG_BLENDED_SPECTRA
+                        break
+
+                if new_flag:
+                    self.flags |= new_flag
+                    log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_BLENDED_SPECTRA")
 
                 ###############################################################
                 #Check the selected catalog counterpart for mag compatibility
@@ -1646,9 +1671,6 @@ class DetObj:
 
                 log.info(f"Q(z): no multiline solutions, no strong P(LyA). z:{z} with Q(z): {p}")
 
-            self.best_z = z
-            self.best_p_of_z = min(p,0.95) #don't go over .95
-
 
             #sanity check --- override negative z
             if z < 0: #unless this is a star, kick it out
@@ -1657,6 +1679,27 @@ class DetObj:
                     p = scaled_plae_classification
                 else:
                     p = max(0.01,0.5 - scaled_plae_classification) #todo: need to figure a better value (not much else it can be than LyA)
+
+            #check that if the z > 1.9 (probably means LAE) but the g or r mag is in the questionabale range
+            #and the eqivalent widht is also questionable (with error between 15-25)
+            #we are already in the case where there are no mulit-line solutions, so this is a single emission line
+            try:
+                ew_low = (self.best_eqw_gmag_obs - self.best_eqw_gmag_obs_unc) / (1+z)
+                ew_hi = (self.best_eqw_gmag_obs + self.best_eqw_gmag_obs_unc) / (1+z)
+                if z > 1.9 and \
+                        ( (self.best_gmag is not None and 20 < self.best_gmag < G.LAE_G_MAG_ZERO) or \
+                          (self.best_img_r_mag is not None and 20 < self.best_img_r_mag < G.LAE_R_MAG_ZERO) ) and \
+                        ( (G.LAE_EW_MAG_TRIGGER_MIN < ew_hi) and (ew_low < G.LAE_EW_MAG_TRIGGER_MAX)):
+
+                    #set a flag and lower Q(z)
+                    p = min(p,0.4) #very rough ...figure 50/50 LAE vs OII with a few other possibilities?
+                    self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
+                    log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_UNCERTAIN_CLASSIFICATION (in best_redshift)")
+            except:
+                log.debug("Exception sanity checking best_z in hetdex::DetObj::best_redshift()",exc_info=True)
+
+            self.best_z = z
+            self.best_p_of_z = p
 
             return z,p
         except:
@@ -2737,7 +2780,7 @@ class DetObj:
                         if self.spec_obj:
                             ew_combined_continuum = self.spec_obj.estflux
                         else:
-                            ew_combined_continuum = self.estflux
+                            ew_combined_continuum = self.estflux #the lineflux
 
                         zp1 = self.w/G.LyA_rest #z + 1
                         ew_combined_continuum /= self.classification_dict['continuum_hat']
@@ -6414,6 +6457,8 @@ class DetObj:
             print(f"***** SN Test: {np.sum(self.sumspec_flux[left:right]-self.cont_cgs*1e17)/np.sqrt(np.sum(data_err**2))}")
             print()
 
+            #reminder to myself ...in my MCMC the AREA is 2x, so where I divide by 2 there, I multiply by 2 here
+            #since the flux is already corrected (or sqrt(2) as is the case since it logically belongs on the sum)
             print(f"***** SN Test: {self.estflux*1e17/np.sqrt(np.sum(data_err**2))*np.sqrt(2)}") #doing best
             print(f"***** SN Test: {self.estflux*1e17/np.sqrt(np.sum(data_err**2))}")
             print(f"***** SN Test: {self.estflux*1e17/(np.sum(data_err))}")
@@ -6499,7 +6544,7 @@ class DetObj:
                 pass
 
 
-            self.rvb = SU.red_vs_blue(self.w,self.sumspec_wavelength,
+        self.rvb = SU.red_vs_blue(self.w,self.sumspec_wavelength,
                                       self.sumspec_flux/G.FLUX_WAVEBIN_WIDTH*G.HETDEX_FLUX_BASE_CGS,
                                       self.sumspec_fluxerr/G.FLUX_WAVEBIN_WIDTH*G.HETDEX_FLUX_BASE_CGS,self.fwhm)
 

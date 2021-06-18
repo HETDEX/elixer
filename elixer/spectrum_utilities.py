@@ -981,7 +981,9 @@ def red_vs_blue(cwave,wave,flux,flux_err,fwhm=None):
         #i.e. blue = 0 +/- 0.1  red = 10 +/-1  use red/blue as 10/0.1 as 1 sigma limit
         #todo: color 2.5 log (r/b)   (or -2.5 log(b/r)
 
-        rvb['color'] = 2.5 *np.log10(ratio)
+        rvb['color'] = 2.5 *np.log10(ratio)  #did this as red/blue or red - blue (instead of the usual
+                                            #blue filter - red filter, so using 2.5* instead of -2.5* so the  sign
+                                            #is correct .... negative = more blue
         #error is +/- ... so add 1st index (gets more red, i.e the reported color is a lower limit)
         #                    add 2nd index (gets more blue, i.e. the reported color is an upper limit)
 

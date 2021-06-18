@@ -958,6 +958,7 @@ DETFLAG_UNCERTAIN_CLASSIFICATION    = 0x00000008  #contradictory information in 
                                                   #with LyA
 DETFLAG_BLENDED_SPECTRA             = 0x00000010
                                         #due to extra emission lines, there maybe two or more different objects in the spectrum
+                                        #or two or more objects in the central 1.5"radius  region
 
 DETFLAG_COUNTERPART_NOT_FOUND       = 0x00000020
                                         #there is continuum or bright emission in the HETDEX spectrum, but nothing shows

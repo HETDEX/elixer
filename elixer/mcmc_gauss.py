@@ -478,7 +478,7 @@ class MCMC_Gauss:
                 # self.mcmc_snr_err = abs(0.5*(self.mcmc_A[1]+self.mcmc_A[2])/self.mcmc_A[0] * self.mcmc_snr)
                 # log.info(f"MCMC SNR model Area with data error: {self.mcmc_snr} +/- {self.mcmc_snr_err}")
 
-                self.mcmc_snr = abs(self.mcmc_A[0]) / np.sqrt(np.sum(data_err**2)) / np.sqrt(2)
+                self.mcmc_snr = abs(self.mcmc_A[0]) / np.sqrt(2 * np.sum(data_err**2))
                 self.mcmc_snr_err = abs(0.5*(self.mcmc_A[1]+self.mcmc_A[2])/self.mcmc_A[0] * self.mcmc_snr)
                 log.info(f"MCMC SNR model Area with data error: {self.mcmc_snr} +/- {self.mcmc_snr_err}")
                # print(f"***** TEST MCMC SNR: {self.mcmc_snr}")
