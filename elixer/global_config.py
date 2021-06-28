@@ -877,10 +877,10 @@ PANSTARRS_FORCE = False  #ignore local catalogs and Force the use of only Pan-ST
 SDSS_ALLOW = True #if no other catalogs match, try SDSS as online query (default if not dispatch mode)
 SDSS_FORCE = False  #ignore local catalogs and Force the use of only SDSS
 SDSS_SCORE_BOOST = 100.0
-CHECK_SDSS_Z_CATALOG  = False #set to True to check the SDSS z-catalog
+CHECK_SDSS_Z_CATALOG  = True #set to True to check the SDSS z-catalog
 # (similar in function to galaxy mask in that if a known z is close and it matches an emission line, associated that z)
 
-CHECK_ALL_CATALOG_BID_Z = False
+CHECK_ALL_CATALOG_BID_Z = True
 ALL_CATATLOG_SPEC_Z_BOOST = 100.0
 ALL_CATATLOG_PHOT_Z_BOOST = 50.0
 
