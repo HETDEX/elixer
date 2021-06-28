@@ -610,11 +610,15 @@ class DetObj:
         self.sumspec_flux = []
         self.sumspec_flux_unit_scale = G.HETDEX_FLUX_BASE_CGS #cgs
         self.sumspec_fluxerr = []
+
+        self.sumspec_apcor = []
+
         self.sumspec_wavelength_zoom = []
         self.sumspec_counts_zoom = []
         self.sumspec_flux_zoom = []
         self.sumspec_fluxerr_zoom = []
         self.sumspec_2d_zoom = []
+
         self.rvb = None #spectrum_utilities pseudo color dictionary (see red_vs_blue(...))
         self.spec_obj = elixer_spectrum.Spectrum() #use for classification, etc
 
@@ -1728,17 +1732,19 @@ class DetObj:
             for b in self.bid_target_list:
                 #check spec-z (higher boost)
                 if b.spec_z is not None and b.spec_z > -0.02:
-                    list_z.append({'z':b.spec_z,'boost':G.ALL_CATATLOG_SPEC_Z_BOOST,'name':b.catalog_name})
+                    list_z.append({'z':b.spec_z,'z_err':0.05,'boost':G.ALL_CATATLOG_SPEC_Z_BOOST,'name':b.catalog_name})
 
                 #then check phot-z (lower boost)
+                #allowed to have the smaller of 0.5 or 20% error in z
                 if b.phot_z is not None and b.phot_z > -0.02:
-                    list_z.append({'z':b.phot_z,'boost':G.ALL_CATATLOG_PHOT_Z_BOOST,'name':b.catalog_name})
+                    list_z.append({'z':b.phot_z,'z_err':min(0.5, b.phot_z * 0.2),'boost':G.ALL_CATATLOG_PHOT_Z_BOOST,'name':b.catalog_name})
 
             for bid in list_z:
                 boost = bid['boost']
                 z = bid['z']
 
-                line = self.spec_obj.match_line(self.w,z,allow_absorption=True)
+                #line = self.spec_obj.match_line(self.w,z,allow_absorption=True)
+                line = self.spec_obj.match_line(self.w,z,z_error=bid['z_err'],aa_error=None,allow_absorption=True)
                 if line:
                     log.info(f"{bid['name']} possible z match: {line.name} {line.w_rest} z={z} rank={line.rank}")
                     possible_lines.append(line)
@@ -1814,7 +1820,7 @@ class DetObj:
                 #spec = elixer_spectrum.Spectrum()
                 if ( (self.galaxy_mask_z is not None) and (len(self.galaxy_mask_z) > 0)) and (self.spec_obj is not None): #is not None or Empty
                     for z,d25 in zip(self.galaxy_mask_z,self.galaxy_mask_d25):
-                        line = self.spec_obj.match_line(self.w,z) #emission only
+                        line = self.spec_obj.match_line(self.w,z,aa_error=5.0) #emission only
                         if line:
                             #specific check for OIII 4959 or 5007
                             if line.w_rest == 4959: #this is more dodgy ... 5007 might be strong but fail to match
@@ -1884,7 +1890,7 @@ class DetObj:
             try:
                 #catalog is bound to the class, so don't need an object
                 log.debug("Checking against SDSS z-catalog...")
-                z_sdss, sep_sdss, label_sdss = cat_sdss.SDSS.redshift(self.my_ra,self.my_dec)
+                z_sdss, z_err_sdss,sep_sdss, label_sdss = cat_sdss.SDSS.redshift(self.my_ra,self.my_dec)
 
                 #duplicated code above, should refactor
                 #
@@ -1893,8 +1899,13 @@ class DetObj:
                 #if at different z then different solutions could get a boost and would win based on the
                 #  scoring
                 if (z_sdss is not None) and (self.spec_obj is not None) and (len(z_sdss) > 0): #is not None or Empty
-                    for z,sep,label in zip(z_sdss,sep_sdss,label_sdss):
-                        line = self.spec_obj.match_line(self.w,z) #emission only
+                    log.debug(f"{len(z_sdss)} matching SDSS records found.")
+                    for z,z_err,sep,label in zip(z_sdss,z_err_sdss,sep_sdss,label_sdss):
+                        if z_err > 0.5 or ((z!= 0) and (z_err > 0.01) and (z_err/z > 0.2)):
+                            continue #error too high
+
+                        #mix of photz and specz (and can't tell?)
+                        line = self.spec_obj.match_line(self.w,z,z_error=max(0.005,z_err)) #emission only
                         if line:
                             log.info(f"SDSS z-catalog possible line match: {line.name} {line.w_rest} z={z} rank={line.rank} sep={sep}")
                             possible_lines.append(line)
@@ -1945,6 +1956,10 @@ class DetObj:
                         self.spec_obj.add_classification_label(label,prepend=True)
                         # rescore the solutions from above boosts
                         self.spec_obj.rescore()
+
+
+                else:
+                    log.debug("No matching SDSS records found.")
 
             except:
                 log.warning("Failed to check SDSS z-catalog",exc_info=True)
@@ -6034,6 +6049,7 @@ class DetObj:
 
             self.sumspec_flux = row['spec1d'] #DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
             self.sumspec_fluxerr = row['spec1d_err']
+            self.sumspec_apcor = row['apcor'] #aperture correction
 
 
             #sanity check:
@@ -6444,30 +6460,40 @@ class DetObj:
             bin_width = 2.0
             left,*_ = SU.getnearpos(self.sumspec_wavelength,self.w-self.sigma*4.0)
             right,*_ = SU.getnearpos(self.sumspec_wavelength,self.w+self.sigma*4.0)
-            if left > 0:
-                left -= 1
-            right = min(right+2,len(self.sumspec_wavelength)) #+2
+            # if left > 0:
+            #     left -= 1
+            # right = min(right+2,len(self.sumspec_wavelength)) #+2
             #at 4 sigma the mcmc_A[0] is almost identical to the model_fit (as you would expect)
             #note: if choose to sum over model fit, remember that this is usually over 2AA wide bins, so to
             #compare to the error data, need to multiply the model_sum by the bin width (2AA)
             #(or noting that the Area == integrated flux x binwidth)
-            data_err = self.sumspec_fluxerr[left:right]
+            data_err = copy(self.sumspec_fluxerr[left:right])
+            data_err[data_err<=0] = np.nan #Karl has 0 value meaning it is flagged and should be skipped
+            apcor = self.sumspec_apcor[left:right]
 
             print(f"***** SN Test: target {self.snr} at {self.w} for sigma = {self.sigma} and flux = {self.estflux}")
             print(f"***** SN Test: {np.sum(self.sumspec_flux[left:right]-self.cont_cgs*1e17)/np.sqrt(np.sum(data_err**2))}")
+            print(f"***** SN Test: {(self.estflux*1e17)/np.sqrt(np.sum((self.sumspec_fluxerr[left:right]/self.sumspec_flux[left:right])**2))}")
+                #also pretty close ... error propogation for division ... data flux / data error as S/N per 2AA pixel
             print()
 
             #reminder to myself ...in my MCMC the AREA is 2x, so where I divide by 2 there, I multiply by 2 here
             #since the flux is already corrected (or sqrt(2) as is the case since it logically belongs on the sum)
-            print(f"***** SN Test: {self.estflux*1e17/np.sqrt(np.sum(data_err**2))*np.sqrt(2)}") #doing best
-            print(f"***** SN Test: {self.estflux*1e17/np.sqrt(np.sum(data_err**2))}")
-            print(f"***** SN Test: {self.estflux*1e17/(np.sum(data_err))}")
-            print(f"***** SN Test: {2*self.estflux*1e17/np.sqrt(np.sum(data_err))}") #*2 since in 2AA bins?
+            print(f"***** SN Test: {self.estflux*1e17/np.sqrt(np.nansum(data_err**2))*np.sqrt(2)}") #doing best
+
+            print("++++++++++++++")
+            print(f"***** SN Test: {self.estflux*1e17/np.sqrt(np.nansum(data_err**2))} ... straight")
+            print(f"***** SN Test: {self.estflux*1e17/np.sqrt(np.nansum((apcor*data_err)**2))/(np.nanmean(apcor))} ... apcor")
+            print("++++++++++++++")
+
+            print(f"***** SN Test: {self.estflux*1e17/(np.nansum(data_err))}")
+            print(f"***** SN Test: {2*self.estflux*1e17/np.sqrt(np.nansum(data_err))}") #*2 since in 2AA bins?
             print()
 
-            print(f"***** SN Test: {(self.estflux*1e17-self.cont_cgs*1e17)/(np.sum(data_err))}")
-            print(f"***** SN Test: {(self.estflux*1e17-self.cont_cgs*1e17)/np.sqrt(np.sum(data_err**2))*np.sqrt(2)}")
-            print(f"***** SN Test: {(self.estflux*1e17-self.cont_cgs*1e17)/np.sqrt(np.sum(data_err**2))}")
+            #this is just wrong (the integrated flux already handle the removal of the y-offset
+            # print(f"***** SN Test: {(self.estflux*1e17-self.cont_cgs*1e17)/(np.sum(data_err))}")
+            # print(f"***** SN Test: {(self.estflux*1e17-self.cont_cgs*1e17)/np.sqrt(np.sum(data_err**2))*np.sqrt(2)}")
+            # print(f"***** SN Test: {(self.estflux*1e17-self.cont_cgs*1e17)/np.sqrt(np.sum(data_err**2))}")
 
 
         if True: #go ahead and do this anyway, may want to plot central object info/spectra

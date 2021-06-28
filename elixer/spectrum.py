@@ -1679,6 +1679,12 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             mcmc.main_run = 1200
         mcmc.run_mcmc()
 
+        #correct SNR for PSF? (seeing FWHM / aperture)**2
+        #psf_correction = ### does not currently have that info here
+        #mcmc.mcmc_snr *= psf_correction
+        #mcmc.mcms_snr_err /= psf_correction
+        #divide one and multiply the other?? or does the snr_err even need a correction?
+
         #TEST
 
 
@@ -3557,25 +3563,54 @@ class Spectrum:
         except:
             log.warning("Exception rescoring solutions.",exc_info=True)
 
-    def match_line(self,obs_w,z,aa_error=3.0,allow_emission=True,allow_absorption=False):
+    def match_line(self,obs_w,z,z_error=0.05,aa_error=None,allow_emission=True,allow_absorption=False):
         """
         Given an input obsevered wavelength and a target redshift, return the matching emission line (if found with the
             +/- aa_error in angstroms)
         :param obs_w:
         :param z:
+        :param z_error: translate this to an AA error to allow for the match
+                        for spec_z should be 0.05 in z (or smaller). For phot_z, maybe up to 0.5?
         :param aa_error: in angstroms
         :return:
         """
 
-        #lines are far enough apart that we don't need to worry about multiple matches
-        for e in self.emission_lines:
-            if (e.see_in_emission and allow_emission) or (e.see_in_absorption and allow_absorption):
-                if abs(e.w_rest * (1.0 + z) - obs_w) < aa_error:
-                    #could match to a faint line by happenstance and not really be that line
-                    #but this is position only
-                    return e
-        return None
+        try:
+            all_match = []
 
+            if z_error is not None:
+                #lines are far enough apart that we don't need to worry about multiple matches
+                for e in self.emission_lines:
+                    if (e.see_in_emission and allow_emission) or (e.see_in_absorption and allow_absorption):
+                        if  (e.w_rest * (1.0 + max(z-z_error,0))) <=  obs_w  <= (e.w_rest * (1.0 + z+z_error)):
+                            #could match to a faint line by happenstance and not really be that line
+                            #but this is position only
+                            all_match.append(e)
+            elif aa_error is not None:
+                #lines are far enough apart that we don't need to worry about multiple matches
+                for e in self.emission_lines:
+                    if (e.see_in_emission and allow_emission) or (e.see_in_absorption and allow_absorption):
+                        if abs(e.w_rest * (1.0 + z) - obs_w) < aa_error:
+                            #could match to a faint line by happenstance and not really be that line
+                            #but this is position only
+                            all_match.append(e)
+            else:
+                log.debug("Invalid parameters passed to Spectrum::match_line()")
+
+            if len(all_match) == 0:
+                return None
+            elif len(all_match) == 1:
+                return all_match[0]
+            else:
+                #all similar wavelength (similar z) given the match is on z, so get lowest rank
+                #choose "best" ... lowest rank
+                idx = np.argmin([e.rank for e in all_match])
+                return all_match[idx]
+
+        except:
+            log.warning("Exception in Spectrum::match_line()",exc_info=True)
+
+        return None
 
 
 

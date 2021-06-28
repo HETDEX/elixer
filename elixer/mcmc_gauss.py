@@ -13,6 +13,7 @@ import numpy as np
 import io
 import matplotlib.pyplot as plt
 import emcee
+import copy
 
 import warnings
 
@@ -276,8 +277,18 @@ class MCMC_Gauss:
                     if len(self.data_x) != len(self.err_x):
                         return False
 
+
+                if (self.initial_sigma is None) or (self.initial_mu is None) or (self.initial_A is None) or (self.initial_y is None):
+                    return False
+
                 if self.initial_sigma < 0.0: #self.initial_A < 0.0  ... actually, leave A alone .. might allow absorportion later
                     return False
+
+                if self.initial_peak is None:
+                    left,*_ = utilities.getnearpos(self.data_x,self.initial_mu-self.initial_sigma*4)
+                    right,*_ = utilities.getnearpos(self.data_x,self.initial_mu+self.initial_sigma*4)
+
+                    self.initial_peak = max(self.data_y[left:right])
 
                 if ((self.initial_A > 0) and (self.initial_y > self.initial_peak) or \
                     (self.initial_A < 0) and (self.initial_y < self.initial_peak) ):
@@ -377,7 +388,8 @@ class MCMC_Gauss:
                 #compare to the error data, need to multiply the model_sum by the bin width (2AA)
                 #(or noting that the Area == integrated flux x binwidth)
                 model_fit = self.compute_model(self.data_x[left:right],self.mcmc_mu[0],self.mcmc_sigma[0],self.mcmc_A[0],self.mcmc_y[0])
-                data_err = self.err_y[left:right]
+                data_err = copy.copy(self.err_y[left:right])
+                data_err[data_err<=0] = np.nan #Karl has 0 value meaning it is flagged and should be skipped
                 #rms_err = rms(self.data_y[left:right],model_fit[left:right],None,None,False)
 
                 #signal is the sum of the data between +/- 2.5 sigma (minus the y-offset)
@@ -478,7 +490,7 @@ class MCMC_Gauss:
                 # self.mcmc_snr_err = abs(0.5*(self.mcmc_A[1]+self.mcmc_A[2])/self.mcmc_A[0] * self.mcmc_snr)
                 # log.info(f"MCMC SNR model Area with data error: {self.mcmc_snr} +/- {self.mcmc_snr_err}")
 
-                self.mcmc_snr = abs(self.mcmc_A[0]) / np.sqrt(2 * np.sum(data_err**2))
+                self.mcmc_snr = abs(self.mcmc_A[0/2.0]) / np.sqrt(np.nansum(data_err**2))
                 self.mcmc_snr_err = abs(0.5*(self.mcmc_A[1]+self.mcmc_A[2])/self.mcmc_A[0] * self.mcmc_snr)
                 log.info(f"MCMC SNR model Area with data error: {self.mcmc_snr} +/- {self.mcmc_snr_err}")
                # print(f"***** TEST MCMC SNR: {self.mcmc_snr}")

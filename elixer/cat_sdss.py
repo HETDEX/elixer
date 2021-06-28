@@ -181,7 +181,7 @@ class SDSS(cat_base.Catalog):#SDSS
 
             if cls.apt_zcat is None: #still None
                 log.error("Cannot load SDSS z-catalog")
-                return [],[],[]
+                return [],[],[],[]
 
             deg_err = error/3600.
             sel = (cls.apt_zcat["RA"] > (ra-deg_err)) * (cls.apt_zcat["RA"] < (ra+deg_err)) * \
@@ -190,6 +190,7 @@ class SDSS(cat_base.Catalog):#SDSS
             t = cls.apt_zcat[sel] #subselected
 
             z = [] #redshift
+            e = []
             s = [] #separation in arcsec
             c = [] #class
 
@@ -202,25 +203,34 @@ class SDSS(cat_base.Catalog):#SDSS
                     if -0.2 < r["Z"] < 10.0:
                         add = True
                         #check that it is unique (not really close in z-space to another already
-                        for z1 in z:
-                            if abs(z1-r["Z"])/(.5 * (z1 + r["Z"])) < 0.05:
+                        for i in range(len(z)):#,e1 in zip(z,e):
+                            if abs(z[i]-r["Z"])/(.5 * (z[i] + r["Z"])) < 0.05:
                                 #these are similar
-                                add = False
+
+                                #keep the better error
+                                if e[i] > r["Z_ERR"]:
+                                    del z[i]
+                                    del s[i]
+                                    del c[i]
+                                    del e[i]
+                                else:
+                                    add = False
                                 break
 
                         if add:
                             z.append(r["Z"])
                             s.append(utilities.angular_distance(ra,dec,r["RA"],r["DEC"]))
                             c.append(xlat_label[r["CLASS"]])
+                            e.append(r["Z_ERR"])
                 except:
                     log.info("Exception! Exception in cat_sdss::redshift()",exc_info=True)
 
             ss = np.argsort(s) #sort by separation and return the arrays in that sort order
-            return np.array(z)[ss],np.array(s)[ss],np.array(c)[ss]
+            return np.array(z)[ss],np.array(e)[ss],np.array(s)[ss],np.array(c)[ss]
 
         except:
             log.warning("Exception in cat_sdss::redshift()",exc_info=True)
-            return [],[],[]
+            return [],[],[],[]
 
 
     def build_list_of_bid_targets(self, ra, dec, error):
