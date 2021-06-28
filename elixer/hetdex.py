@@ -6458,8 +6458,9 @@ class DetObj:
         if False:
             print("***** REMOVE ME ******")
             bin_width = 2.0
-            left,*_ = SU.getnearpos(self.sumspec_wavelength,self.w-self.sigma*4.0)
-            right,*_ = SU.getnearpos(self.sumspec_wavelength,self.w+self.sigma*4.0)
+            left,*_ = SU.getnearpos(self.sumspec_wavelength,self.w-self.sigma*2.0)
+            right,*_ = SU.getnearpos(self.sumspec_wavelength,self.w+self.sigma*2.0)
+            lineflux_adjust = 0.954 #ie. as sigma goes down... 1-sigma = 0.682, 2-sigma = 0.954, 3-sigma = 0.996
             # if left > 0:
             #     left -= 1
             # right = min(right+2,len(self.sumspec_wavelength)) #+2
@@ -6473,7 +6474,7 @@ class DetObj:
 
             print(f"***** SN Test: target {self.snr} at {self.w} for sigma = {self.sigma} and flux = {self.estflux}")
             print(f"***** SN Test: {np.sum(self.sumspec_flux[left:right]-self.cont_cgs*1e17)/np.sqrt(np.sum(data_err**2))}")
-            print(f"***** SN Test: {(self.estflux*1e17)/np.sqrt(np.sum((self.sumspec_fluxerr[left:right]/self.sumspec_flux[left:right])**2))}")
+            print(f"***** SN Test: {(lineflux_adjust*self.estflux*1e17)/np.sqrt(np.sum((self.sumspec_fluxerr[left:right]/self.sumspec_flux[left:right])**2))}")
                 #also pretty close ... error propogation for division ... data flux / data error as S/N per 2AA pixel
             print()
 
@@ -6482,12 +6483,12 @@ class DetObj:
             print(f"***** SN Test: {self.estflux*1e17/np.sqrt(np.nansum(data_err**2))*np.sqrt(2)}") #doing best
 
             print("++++++++++++++")
-            print(f"***** SN Test: {self.estflux*1e17/np.sqrt(np.nansum(data_err**2))} ... straight")
-            print(f"***** SN Test: {self.estflux*1e17/np.sqrt(np.nansum((apcor*data_err)**2))/(np.nanmean(apcor))} ... apcor")
+            print(f"***** SN Test: {lineflux_adjust*self.estflux*1e17/np.sqrt(np.nansum(data_err**2))} ... straight")
+            print(f"***** SN Test: {lineflux_adjust*self.estflux*1e17/np.sqrt(np.nansum((apcor*data_err)**2))/(np.nanmean(apcor))} ... apcor")
             print("++++++++++++++")
 
-            print(f"***** SN Test: {self.estflux*1e17/(np.nansum(data_err))}")
-            print(f"***** SN Test: {2*self.estflux*1e17/np.sqrt(np.nansum(data_err))}") #*2 since in 2AA bins?
+            print(f"***** SN Test: {lineflux_adjust*self.estflux*1e17/(np.nansum(data_err))}")
+            print(f"***** SN Test: {lineflux_adjust*2*self.estflux*1e17/np.sqrt(np.nansum(data_err))}") #*2 since in 2AA bins?
             print()
 
             #this is just wrong (the integrated flux already handle the removal of the y-offset

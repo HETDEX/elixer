@@ -366,7 +366,8 @@ class MCMC_Gauss:
             #should always be positive (assuming a positive value) BUT when printed to the log, the 3rd value is made
             #to be negative showing that you would subtract it from the average to get to the 16th percentile
 
-            sigma_width = 4
+            sigma_width = 2
+            flux_frac = 0.954 # i.e. depends on sigma: 1 = 0.682, 2 = 0.954,  3 = 0.996, 4+ just use 1.0
 
             #using 68% interval
             self.mcmc_mu, self.mcmc_sigma, self.mcmc_A, self.mcmc_y, mcmc_f = \
@@ -382,7 +383,7 @@ class MCMC_Gauss:
                 right,*_ = utilities.getnearpos(self.data_x,self.mcmc_mu[0]+self.mcmc_sigma[0]*sigma_width)
                 #we want the next wavebin to either side
                 # left = max(0,left-1)
-                # right = min(right+2,len(self.data_x)) #+2 insted of +1 since the slice does not include the end
+                right = min(right+1,len(self.data_x)) #+2 insted of +1 since the slice does not include the end
                 #at 4 sigma the mcmc_A[0] is almost identical to the model_fit (as you would expect)
                 #note: if choose to sum over model fit, remember that this is usually over 2AA wide bins, so to
                 #compare to the error data, need to multiply the model_sum by the bin width (2AA)
@@ -490,7 +491,8 @@ class MCMC_Gauss:
                 # self.mcmc_snr_err = abs(0.5*(self.mcmc_A[1]+self.mcmc_A[2])/self.mcmc_A[0] * self.mcmc_snr)
                 # log.info(f"MCMC SNR model Area with data error: {self.mcmc_snr} +/- {self.mcmc_snr_err}")
 
-                self.mcmc_snr = abs(self.mcmc_A[0/2.0]) / np.sqrt(np.nansum(data_err**2))
+                self.mcmc_snr = flux_frac*abs(self.mcmc_A[0]/2.0) / np.sqrt(np.nansum(data_err**2))
+                #self.mcmc_snr = abs(np.sum(model_fit)) / np.sqrt(np.nansum(data_err**2))
                 self.mcmc_snr_err = abs(0.5*(self.mcmc_A[1]+self.mcmc_A[2])/self.mcmc_A[0] * self.mcmc_snr)
                 log.info(f"MCMC SNR model Area with data error: {self.mcmc_snr} +/- {self.mcmc_snr_err}")
                # print(f"***** TEST MCMC SNR: {self.mcmc_snr}")
