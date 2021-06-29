@@ -3739,20 +3739,15 @@ def main():
     if args.neighborhood_only:
         args.neighborhood = args.neighborhood_only
 
-    if G.USE_PHOTO_CATS:
-        cat_library = catalogs.CatalogLibrary()
-        cats = cat_library.get_full_catalog_list()
-        catch_all_cat = cat_library.get_catch_all()
-        cat_sdss = cat_library.get_sdss()
-        cat_panstarrs = cat_library.get_panstarrs()
-        cat_decals_web = cat_library.get_decals_web()
-    else:
-        cat_library = []
-        cats = []
-        catch_all_cat = []
-        cat_sdss = []
-        cat_panstarrs = []
-        cat_decals_web = []
+    #always build these ... the library handles the USE_PHOTO_CATS (--nophoto) global
+    cat_library = catalogs.CatalogLibrary()
+    cats = cat_library.get_full_catalog_list()
+    catch_all_cat = cat_library.get_catch_all()
+
+    #these web catalogs are handled individually with --sdss, --panstars, --decals
+    cat_sdss = cat_library.get_sdss()
+    cat_panstarrs = cat_library.get_panstarrs()
+    cat_decals_web = cat_library.get_decals_web()
 
     #
     # build_neighborhood_map(args.hdf5, 1000525650,None, None, args.neighborhood,cwave=None,fname='lycon/test_nei.png')

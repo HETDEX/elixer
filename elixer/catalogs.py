@@ -92,7 +92,7 @@ class CatalogLibrary:
             del self.cats[:]
 
         self.cats = list()
-        if False:
+        if G.USE_PHOTO_CATS:
             # self.cats.append(cat_ast376_shela.AST376_SHELA())
             self.cats.append(cat_candles_egs_stefanon_2016.CANDELS_EGS_Stefanon_2016())
             self.cats.append(cat_goods_n.GOODS_N())

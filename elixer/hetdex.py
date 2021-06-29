@@ -1924,7 +1924,8 @@ class DetObj:
                             else: #ranks 1,2,3
                                 rank_scale = 2.0
 
-                            boost = G.SDSS_SCORE_BOOST * rank_scale
+                            #for low error z, bump up a little more
+                            boost = G.SDSS_SCORE_BOOST * rank_scale * (1.0 if z_err > 0.1 else 2.0)
 
                             #check the existing solutions ... if there is a corresponding z solution, boost its score
                             new_solution = True
