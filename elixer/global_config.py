@@ -688,7 +688,7 @@ HETDEX_FLUX_BASE_CGS = 1e-17
 # 1.35e-18 ~ 24.0 mag in g-band
 # 8.52e-19 ~ 24.5 mag in g-band,
 # 5.38e-19 ~ 25.0 mag in g-band
-HETDEX_CONTINUUM_MAG_LIMIT = 24.5 #generous, truth is closer to 24.few
+HETDEX_CONTINUUM_MAG_LIMIT = 25.0 #24.5 #generous, truth is closer to 24.few
 HETDEX_CONTINUUM_FLUX_LIMIT =  5.38e-19 #flux-density based on 25 mag limit (really more like 24.5)
 
 CONTINUUM_FLOOR_COUNTS = 6.5 #5 sigma * 6 counts / sqrt(40 angstroms/1.9 angs per pixel)

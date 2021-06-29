@@ -1170,7 +1170,7 @@ class DetObj:
                 # and may be elliptical, so there are certainly obvious sources of discrepencies)
                 if self.best_gmag is not None:
 
-                    dex_g_depth = 24.5
+                    dex_g_depth = G.HETDEX_CONTINUUM_MAG_LIMIT #24.5
                     bright_skip = 22.0 #if both are brighter than this, skip the logic ... it cannot make any difference
                                        #and we can miss more flux at brighter mags since the aperture does not grow enough
                                        #and there are no real aperture corrections applied to the imaging aperture
@@ -3555,11 +3555,13 @@ class DetObj:
         got_hd_gmag = True
         try:
             #all at 4500AA
-            cgs_25 = 5.38e-19
-            cgs_24p5 = 8.52e-19
-            cgs_24 = 1.35e-18
-            cgs_23p5 = 2.14e-18
-            cgs_limit = cgs_24p5
+            # cgs_25 = 5.38e-19
+            # cgs_24p5 = 8.52e-19
+            # cgs_24 = 1.35e-18
+            # cgs_23p5 = 2.14e-18
+
+            cgs_limit = G.HETDEX_CONTINUUM_FLUX_LIMIT # cgs_24p5
+            cgs_fc =  G.HETDEX_CONTINUUM_FLUX_LIMIT * 1.5 #start downweighting at 50% brighter than hard limit
 
             if not self.best_gmag_cgs_cont_unc: #None or 0.0
                 log.debug(f"{self.entry_id} Combine ALL Continuum: HETDEX wide estimate has no uncertainty. "
@@ -3575,7 +3577,7 @@ class DetObj:
                 if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_limit: #good, full marks
                     continuum.append(self.best_gmag_cgs_cont)
                     variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
-                    if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_23p5:
+                    if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_fc:
                         weight.append(4.0) #best measure of flux (right on top of our target) so boost
                         #typically 4 other estiamtes: narrow, wide (this one), 1+ forced photometery, 1+ catalog
                         #so make this one 4x to dominated (aside from big error)
@@ -3590,7 +3592,7 @@ class DetObj:
 
                 #estimate is better than the limit, but with error hits the limit, so reduced marks
                 elif (self.best_gmag_cgs_cont > cgs_limit): #mean value is in range, but with error is out of range
-                    frac = (self.best_gmag_cgs_cont - cgs_24) / (cgs_24 - cgs_25)
+                    frac = (self.best_gmag_cgs_cont - cgs_fc) / (cgs_fc - cgs_limit)
                     # at 24mag this is zero, fainter goes negative, at 24.5 it is -1.0
                     if frac > 0:  # full weight
                         w = 1.0
@@ -3721,7 +3723,7 @@ class DetObj:
                             #(with the continuum based at the observed wavelength)
                             lam = self.w #to be consistent with the use in PLAE/POII
 
-                            cgs_24 = SU.mag2cgs(24,lam)
+                            cgs_24 = SU.mag2cgs(24,lam) #24 - 25 chosen as the questionable zone for LAE vs OII
                             cgs_25 = SU.mag2cgs(25,lam)
 
                             if a['fail_mag_limit']:
@@ -6457,17 +6459,36 @@ class DetObj:
 
         if False:
             print("***** REMOVE ME ******")
+
+            def compute_model(x,mu, sigma, A, y):
+                try:
+                    return A * (np.exp(-np.power((x - mu) / sigma, 2.) / 2.) / np.sqrt(2 * np.pi * sigma ** 2)) + y
+                except:
+                    return np.nan
+
             bin_width = 2.0
-            left,*_ = SU.getnearpos(self.sumspec_wavelength,self.w-self.sigma*2.0)
-            right,*_ = SU.getnearpos(self.sumspec_wavelength,self.w+self.sigma*2.0)
+
+            sigma_width = 2.0
             lineflux_adjust = 0.954 #ie. as sigma goes down... 1-sigma = 0.682, 2-sigma = 0.954, 3-sigma = 0.996
+            left,*_ = SU.getnearpos(self.sumspec_wavelength,self.w-self.sigma*sigma_width)
+            right,*_ = SU.getnearpos(self.sumspec_wavelength,self.w+self.sigma*sigma_width)
+
             # if left > 0:
             #     left -= 1
-            # right = min(right+2,len(self.sumspec_wavelength)) #+2
+            #right = min(right+1,len(self.sumspec_wavelength)) #+2
             #at 4 sigma the mcmc_A[0] is almost identical to the model_fit (as you would expect)
             #note: if choose to sum over model fit, remember that this is usually over 2AA wide bins, so to
             #compare to the error data, need to multiply the model_sum by the bin width (2AA)
             #(or noting that the Area == integrated flux x binwidth)
+
+
+            model_fit = compute_model(self.sumspec_wavelength[left:right],
+                                      self.line_gaussfit_parms[0],
+                                      self.line_gaussfit_parms[1],
+                                      self.line_gaussfit_parms[2],
+                                      self.line_gaussfit_parms[3])
+
+
             data_err = copy(self.sumspec_fluxerr[left:right])
             data_err[data_err<=0] = np.nan #Karl has 0 value meaning it is flagged and should be skipped
             apcor = self.sumspec_apcor[left:right]
@@ -6484,6 +6505,7 @@ class DetObj:
 
             print("++++++++++++++")
             print(f"***** SN Test: {lineflux_adjust*self.estflux*1e17/np.sqrt(np.nansum(data_err**2))} ... straight")
+            print(f"***** SN Test: {np.sum(model_fit)/np.sqrt(np.nansum(data_err**2))} ... straight model")
             print(f"***** SN Test: {lineflux_adjust*self.estflux*1e17/np.sqrt(np.nansum((apcor*data_err)**2))/(np.nanmean(apcor))} ... apcor")
             print("++++++++++++++")
 

@@ -367,7 +367,7 @@ class MCMC_Gauss:
             #to be negative showing that you would subtract it from the average to get to the 16th percentile
 
             sigma_width = 2
-            flux_frac = 0.954 # i.e. depends on sigma: 1 = 0.682, 2 = 0.954,  3 = 0.996, 4+ just use 1.0
+            flux_frac = 1.0 # 0.954 # i.e. depends on sigma: 1 = 0.682, 2 = 0.954,  3 = 0.996, 4+ just use 1.0
 
             #using 68% interval
             self.mcmc_mu, self.mcmc_sigma, self.mcmc_A, self.mcmc_y, mcmc_f = \
@@ -383,7 +383,7 @@ class MCMC_Gauss:
                 right,*_ = utilities.getnearpos(self.data_x,self.mcmc_mu[0]+self.mcmc_sigma[0]*sigma_width)
                 #we want the next wavebin to either side
                 # left = max(0,left-1)
-                right = min(right+1,len(self.data_x)) #+2 insted of +1 since the slice does not include the end
+                #right = min(right+1,len(self.data_x)) #+2 insted of +1 since the slice does not include the end
                 #at 4 sigma the mcmc_A[0] is almost identical to the model_fit (as you would expect)
                 #note: if choose to sum over model fit, remember that this is usually over 2AA wide bins, so to
                 #compare to the error data, need to multiply the model_sum by the bin width (2AA)

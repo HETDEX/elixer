@@ -92,20 +92,21 @@ class CatalogLibrary:
             del self.cats[:]
 
         self.cats = list()
-        # self.cats.append(cat_ast376_shela.AST376_SHELA())
-        self.cats.append(cat_candles_egs_stefanon_2016.CANDELS_EGS_Stefanon_2016())
-        self.cats.append(cat_goods_n.GOODS_N())
-        # self.cats.append(cat_goods_n_finkelstein.GOODS_N_FINKELSTEIN())
-        # self.cats.append(EGS_GROTH()) #this is of no value right now
-        self.cats.append(cat_stack_cosmos.STACK_COSMOS())
-        self.cats.append(cat_shela.SHELA())
-        self.cats.append(cat_hsc.HSC())
-        self.cats.append(cat_hsc_ssp.HSC_SSP())
-        self.cats.append(cat_kpno.KPNO())
-        # notice: if comment out KPNO turn off KPNO inclusion in HSC, also need to un-comment the next line to remove from HSC
-        # self.cats[-1].INCLUDE_KPNO_G = False
-        self.cats.append(cat_cfhtls.CFHTLS())
-        #self.cats.append(cat_hsc_nep.HSC_NEP())
+        if False:
+            # self.cats.append(cat_ast376_shela.AST376_SHELA())
+            self.cats.append(cat_candles_egs_stefanon_2016.CANDELS_EGS_Stefanon_2016())
+            self.cats.append(cat_goods_n.GOODS_N())
+            # self.cats.append(cat_goods_n_finkelstein.GOODS_N_FINKELSTEIN())
+            # self.cats.append(EGS_GROTH()) #this is of no value right now
+            self.cats.append(cat_stack_cosmos.STACK_COSMOS())
+            self.cats.append(cat_shela.SHELA())
+            self.cats.append(cat_hsc.HSC())
+            self.cats.append(cat_hsc_ssp.HSC_SSP())
+            self.cats.append(cat_kpno.KPNO())
+            # notice: if comment out KPNO turn off KPNO inclusion in HSC, also need to un-comment the next line to remove from HSC
+            # self.cats[-1].INCLUDE_KPNO_G = False
+            self.cats.append(cat_cfhtls.CFHTLS())
+            #self.cats.append(cat_hsc_nep.HSC_NEP())
 
     def get_full_catalog_list(self):
         if self.cats is None:
