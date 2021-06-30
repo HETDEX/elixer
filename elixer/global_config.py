@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.13.0a2'
+__version__ = '1.13.0a3'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -983,7 +983,8 @@ DETFLAG_POOR_IMAGING                = 0x00000200 #poor depth (in g,r) ... like j
 DETFLAG_LARGE_SKY_SUB               = 0x00000400 #possibly excessive sky subtraction in g or r band
                                         #can impact the magnitude calculation (so partly redundant with others)
 
-
+DETFLAG_EXT_CAT_QUESTIONABLE_Z      = 0x00000800 #best redshift reported is from an external catalog and might be questionable
+                                                 #the redshift my by uncertain or it is unclear that it belongs to our object
 
 #todo: low SNR, weighted position is between fibers (i.e. distances from blue fiber center > 0.74 or 0.75 and SNR < 5.2 or so)
 

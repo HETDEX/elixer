@@ -703,17 +703,17 @@ class DetObj:
         self.best_img_u_dec = None
         self.best_img_u_cat = None
 
-        self.best_img_g_mag  = None
+        self.best_img_g_mag  = None #value, bright error, faint error
         self.best_img_g_ra = None
         self.best_img_g_dec = None
         self.best_img_g_cat = None
 
-        self.best_img_v_mag  = None
+        self.best_img_v_mag  = None #value, bright error, faint error
         self.best_img_v_ra = None
         self.best_img_v_dec = None
         self.best_img_v_cat = None
 
-        self.best_img_r_mag  = None
+        self.best_img_r_mag  = None #value, bright error, faint error
         self.best_img_r_ra = None
         self.best_img_r_dec = None
         self.best_img_r_cat = None
@@ -1370,12 +1370,12 @@ class DetObj:
 
                             for ad in np.array(self.aperture_details_list)[ap_sel]:
                                 #check sep object
-                                if ad['sep_obj_idx'] >= 0:
+                                if (ad['sep_obj_idx'] is not None) and (ad['sep_obj_idx'] >= 0):
                                     ap_mag = ad['sep_objects'][ad['sep_obj_idx']]['mag']
                                     ap_mag_faint = ad['sep_objects'][ad['sep_obj_idx']]['mag_faint']
                                     ap_mag_bright = ad['sep_objects'][ad['sep_obj_idx']]['mag_bright']
 
-                                elif ad['elixer_aper_idx'] >= 0:
+                                elif (ad['elixer_aper_idx'] is not None) and (ad['elixer_aper_idx'] >= 0):
                                     ap_mag = ad['elixer_apertures'][ad['elixer_aper_idx']]['mag']
                                     ap_mag_faint = ad['elixer_apertures'][ad['elixer_aper_idx']]['mag_faint']
                                     ap_mag_bright = ad['elixer_apertures'][ad['elixer_aper_idx']]['mag_bright']
@@ -1389,7 +1389,7 @@ class DetObj:
                                     #if (ap_mag_bright) and ()
 
                         except:
-                            pass
+                            log.info("Error in DetObj.flag_check()",exc_info=True)
 
                     if self.aperture_details_list:
                             pass
@@ -1643,6 +1643,13 @@ class DetObj:
                         log.warning(f"Q(z): unexpected outcome. Multiline solutions present, but cannot match. No Q(z) set.")
 
 
+                try:
+                    if sol.separation > 2.0: #this came from an external catalog
+                        self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
+                        self.flags |= G.DETFLAG_EXT_CAT_QUESTIONABLE_Z
+                except:
+                    pass
+
             #else there are no multi-line classification solutions
             elif scaled_plae_classification < 0.3: #not LyA ... could still be high-z
 
@@ -1678,7 +1685,7 @@ class DetObj:
 
             #sanity check --- override negative z
             if z < 0: #unless this is a star, kick it out
-                z = z = self.w / G.LyA_rest - 1.0
+                z = self.w / G.LyA_rest - 1.0
                 if scaled_plae_classification > 0.5:
                     p = scaled_plae_classification
                 else:
@@ -1692,7 +1699,7 @@ class DetObj:
                 ew_hi = (self.best_eqw_gmag_obs + self.best_eqw_gmag_obs_unc) / (1+z)
                 if z > 1.9 and \
                         ( (self.best_gmag is not None and 20 < self.best_gmag < G.LAE_G_MAG_ZERO) or \
-                          (self.best_img_r_mag is not None and 20 < self.best_img_r_mag < G.LAE_R_MAG_ZERO) ) and \
+                          (self.best_img_r_mag is not None and 20 < self.best_img_r_mag[0] < G.LAE_R_MAG_ZERO) ) and \
                         ( (G.LAE_EW_MAG_TRIGGER_MIN < ew_hi) and (ew_low < G.LAE_EW_MAG_TRIGGER_MAX)):
 
                     #set a flag and lower Q(z)
@@ -1744,8 +1751,16 @@ class DetObj:
                 z = bid['z']
 
                 #line = self.spec_obj.match_line(self.w,z,allow_absorption=True)
-                line = self.spec_obj.match_line(self.w,z,z_error=bid['z_err'],aa_error=None,allow_absorption=True)
-                if line:
+                lines = self.spec_obj.match_lines(self.w,z,z_error=bid['z_err'],aa_error=None,allow_absorption=True)
+
+                try:
+                    central_eli = self.spec_obj.central_eli
+                    line_score = max(0,self.spec_obj.central_eli.line_score)
+                except:
+                    central_eli = None
+                    line_score = 0.
+
+                for line in lines:
                     log.info(f"{bid['name']} possible z match: {line.name} {line.w_rest} z={z} rank={line.rank}")
                     possible_lines.append(line)
 
@@ -1755,36 +1770,39 @@ class DetObj:
                     #where H_eta, CaII, NaI are higher rank (weaker lines) and get lower boosts (and are not
                     #likely to be the HETDEX detection line anyway)
 
-                    if line.rank > 4: #rank 5 or worse
-                        rank_scale = 0.5
-                    elif line.rank > 3: #rank 4
-                        rank_scale = 1.0
-                    else: #ranks 1,2,3
-                        rank_scale = 2.0
+                    rank_scale = 1.0 if line.rank < 4 else 1.0/(line.rank-2.0)
 
-                    boost = boost * rank_scale
+                    boost = boost * rank_scale * (1.0 if bid['z_err'] > 0.1 else 2.0) + line_score
 
                     #check the existing solutions ... if there is a corresponding z solution, boost its score
                     new_solution = True
                     for s in self.spec_obj.solutions:
-                        if s.emission_line.w_rest == line.w_rest:
+                        if s.central_rest == line.w_rest:
                             new_solution = False
-                            log.info(f"Boosting existing solution: + {boost}")
+                            log.info(f"Boosting existing solution:  {line.name}({line.w_rest}) + {boost}")
                             s.score += boost
 
 
-                    if new_solution:
-                        log.info(f"Adding new solution: score = {boost}")
+                    if new_solution and (line.solution):
+                        log.info(f"Adding new solution {line.name}({line.w_rest}): score = {boost}")
                         sol = elixer_spectrum.Classifier_Solution()
-                        sol.z = z
+                        sol.z = self.w/line.w_rest - 1.0
                         sol.central_rest = line.w_rest
                         sol.name = line.name
                         sol.color = line.color
                         sol.emission_line = deepcopy(line)
+                        #add the central line info for flux, etc to line (basic info)
+                        if central_eli is not None:
+                            sol.emission_line.line_score =central_eli.line_score
+                            sol.emission_line.flux = central_eli.line_flux
+                            sol.emission_line.flux_err = central_eli.line_flux_err
+                            sol.emission_line.snr = central_eli.snr
+
                         sol.emission_line.w_obs = self.w
                         sol.emission_line.solution = True
                         sol.prob_noise = 0
-                        sol.lines.append(line)
+                        sol.lines.append(sol.emission_line) #have to add as if it is an extra line
+                        #otherwise the scaled score gets knocked way down
                         sol.score = boost
 
                         self.spec_obj.solutions.append(sol)
@@ -1819,9 +1837,17 @@ class DetObj:
                 #get list of possible lines from list of emission lines
                 #spec = elixer_spectrum.Spectrum()
                 if ( (self.galaxy_mask_z is not None) and (len(self.galaxy_mask_z) > 0)) and (self.spec_obj is not None): #is not None or Empty
+
+                    try:
+                        central_eli = self.spec_obj.central_eli
+                        line_score = max(0,self.spec_obj.central_eli.line_score)
+                    except:
+                        central_eli = None
+                        line_score = 0.
+
                     for z,d25 in zip(self.galaxy_mask_z,self.galaxy_mask_d25):
-                        line = self.spec_obj.match_line(self.w,z,aa_error=5.0) #emission only
-                        if line:
+                        lines = self.spec_obj.match_lines(self.w,z,aa_error=5.0) #emission only
+                        for line in lines:
                             #specific check for OIII 4959 or 5007
                             if line.w_rest == 4959: #this is more dodgy ... 5007 might be strong but fail to match
                                 if SU.check_oiii(z,self.sumspec_flux,self.sumspec_fluxerr,self.sumspec_wavelength,
@@ -1839,37 +1865,38 @@ class DetObj:
                             #where H_eta, CaII, NaI are higher rank (weaker lines) and get lower boosts (and are not
                             #likely to be the HETDEX detection line anyway)
 
-                            #emission only
-                            if line.rank > 4: #rank 5 or worse
-                                rank_scale = 0.5
-                            elif line.rank > 3: #rank 4
-                                rank_scale = 1.0
-                            else: #ranks 1,2,3
-                                rank_scale = 2.0
+                            rank_scale = 1.0 if line.rank < 4 else 1.0/(line.rank-2.0)
 
-                            boost = G.GALAXY_MASK_SCORE_BOOST * rank_scale * G.GALAXY_MASK_D25_SCORE_NORM/d25
+                            boost = G.GALAXY_MASK_SCORE_BOOST * rank_scale * G.GALAXY_MASK_D25_SCORE_NORM/d25 + line_score
 
                             #check the existing solutions ... if there is a corresponding z solution, boost its score
                             new_solution = True
                             for s in self.spec_obj.solutions:
-                                if s.emission_line.w_rest == line.w_rest:
+                                if s.central_rest == line.w_rest:
                                     new_solution = False
-                                    log.info(f"Boosting existing solution: + {boost}")
+                                    log.info(f"Boosting existing solution:  {line.name}({line.w_rest}) + {boost}")
                                     s.score += boost
                                     s.galaxy_mask_d25 = d25
 
-                            if new_solution:
-                                log.info(f"Adding new solution: score = {boost}")
+                            if new_solution and (line.solution):
+                                log.info(f"Adding new solution {line.name}({line.w_rest}): score = {boost}")
                                 sol = elixer_spectrum.Classifier_Solution()
-                                sol.z = z
+                                sol.z = self.w/line.w_rest - 1.0
                                 sol.central_rest = line.w_rest
                                 sol.name = line.name
                                 sol.color = line.color
                                 sol.emission_line = deepcopy(line)
+                                #add the central line info for flux, etc to line (basic info)
+                                if central_eli is not None:
+                                    sol.emission_line.line_score =central_eli.line_score
+                                    sol.emission_line.flux = central_eli.line_flux
+                                    sol.emission_line.flux_err = central_eli.line_flux_err
+                                    sol.emission_line.snr = central_eli.snr
                                 sol.emission_line.w_obs = self.w
                                 sol.emission_line.solution = True
                                 sol.prob_noise = 0
-                                sol.lines.append(line)
+                                sol.lines.append(sol.emission_line) #have to add as if it is an extra line
+                                #otherwise the scaled score gets knocked way down
                                 sol.score = boost
                                 sol.galaxy_mask_d25 = d25
 
@@ -1900,6 +1927,13 @@ class DetObj:
                 #  scoring
                 if (z_sdss is not None) and (self.spec_obj is not None) and (len(z_sdss) > 0): #is not None or Empty
                     log.debug(f"{len(z_sdss)} matching SDSS records found.")
+                    try:
+                        central_eli = self.spec_obj.central_eli
+                        line_score = max(0,self.spec_obj.central_eli.line_score)
+                    except:
+                        central_eli = None
+                        line_score = 0.
+
                     for z,z_err,sep,label in zip(z_sdss,z_err_sdss,sep_sdss,label_sdss):
                         if z_err > 0.5 or ((z!= 0) and (z_err > 0.01) and (z_err/z > 0.2)):
                             continue #error too high
@@ -1917,44 +1951,55 @@ class DetObj:
                             #likely to be the HETDEX detection line anyway)
 
                             #emission only
-                            if line.rank > 4: #rank 5 or worse
-                                rank_scale = 0.5
-                            elif line.rank > 3: #rank 4
-                                rank_scale = 1.0
-                            else: #ranks 1,2,3
-                                rank_scale = 2.0
-
+                            rank_scale = 1.0 if line.rank < 4 else 1.0/(line.rank-2.0)
+                            z_scale = 1.0 if z_err > 0.1 else 2.0
+                            #todo: at this point we do not have the imaging and we do not know the size
+                            #of our candidates, so we will just assume point sources here and with a typical seeing/size
+                            #ideally we would base this on whether the SDSS coords are inside our candidate ellipse or
+                            #how far outside
+                            sep_scale = 1.0 if sep_sdss < 2.0 else 1/(sep_sdss - 1.0)
                             #for low error z, bump up a little more
-                            boost = G.SDSS_SCORE_BOOST * rank_scale * (1.0 if z_err > 0.1 else 2.0)
+                            boost = G.SDSS_SCORE_BOOST * rank_scale * z_scale * sep_scale + line_score
 
                             #check the existing solutions ... if there is a corresponding z solution, boost its score
                             new_solution = True
                             for s in self.spec_obj.solutions:
-                                if s.emission_line.w_rest == line.w_rest:
+                                if s.central_rest == line.w_rest:
                                     new_solution = False
-                                    log.info(f"Boosting existing solution: + {boost}")
+                                    log.info(f"Boosting existing solution:  {line.name}({line.w_rest}) + {boost}")
                                     s.score += boost
+                                    self.spec_obj.add_classification_label(label,prepend=True)
 
 
-                            if new_solution:
-                                log.info(f"Adding new solution: score = {boost}")
+                            if new_solution and (line.solution):
+                                log.info(f"Adding new solution {line.name}({line.w_rest}): score = {boost}")
                                 sol = elixer_spectrum.Classifier_Solution()
-                                sol.z = z
+                                sol.z = self.w/line.w_rest - 1.0
                                 sol.central_rest = line.w_rest
                                 sol.name = line.name
                                 sol.color = line.color
                                 sol.emission_line = deepcopy(line)
+                                #add the central line info for flux, etc to line (basic info)
+                                if central_eli is not None:
+                                    sol.emission_line.line_score =central_eli.line_score
+                                    sol.emission_line.flux = central_eli.line_flux
+                                    sol.emission_line.flux_err = central_eli.line_flux_err
+                                    sol.emission_line.snr = central_eli.snr
                                 sol.emission_line.w_obs = self.w
                                 sol.emission_line.solution = True
                                 sol.prob_noise = 0
-                                sol.lines.append(line)
+                                sol.lines.append(sol.emission_line) #have to add as if it is an extra line
+                                                                    #otherwise the scaled score gets knocked way down
                                 sol.score = boost
+                                sol.separation = sep_sdss
 
                                 self.spec_obj.solutions.append(sol)
+                                if sep_scale == 1.0:
+                                    self.spec_obj.add_classification_label(label,prepend=True)
 
                     if possible_lines: #one or more possible matches
                         #todo: future, instead of adding a label, set a flag to appear in the HDF5 file
-                        self.spec_obj.add_classification_label(label,prepend=True)
+                        #todo: also this only makes sense IF we end up selecting this as the solution
                         # rescore the solutions from above boosts
                         self.spec_obj.rescore()
 

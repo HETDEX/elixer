@@ -1,9 +1,12 @@
 changes to elixer by version
 
-1.13,0a3 [2021-06-17]
+1.13.0a3 [2021-06-30]
 * trigger blended spectra flag if 2 or more source extractor objects within central 1.5"
 * trigger uncertain classification flag if single line 15 < EW < 25 and mag ~ 24
-* fixed tab alignement that was skipping red_vs_blue (pesudo color calculation)
+* fixed tab alignment that was skipping red_vs_blue (pesudo color calculation)
+* refined catalog phot-z vs spec-z matching. Restrict to lines that can be single line solutions IF there is no matching
+  multiline solution already. Tweaked boost scale and factor for error on the z. Add in the line_score of the (central)
+  matched line.
 
 1.13.0a2 [2021-06-16]
 * bumping alpha number as a checkpoint

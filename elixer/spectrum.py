@@ -1324,20 +1324,21 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #                                                                                  abs(raw_peak - fit_peak) / raw_peak))
         # else:
 
-        peak_fit = abs(fit_peak - raw_peak)
-        if ( peak_fit > (raw_peak * peak_fit_mult) ):
-            if peak_fit > (raw_peak * 0.5):
-                captured_peak = False
-                #if (abs(raw_peak - fit_peak) / raw_peak > 0.2):  # didn't capture the peak ... bad, don't calculate anything else
-                    #log.warning("Failed to capture peak")
-                log.debug("Failed to capture peak: raw = %f , fit = %f, frac = %0.2f" % (raw_peak, fit_peak,
-                                                                                         peak_fit / raw_peak))
-            else: #missed the tighter constratint, but passed relax. Need to run MCMC
-                log.debug("Poor capture peak. MCMC recommended: raw = %f , fit = %f, frac = %0.2f" % (raw_peak, fit_peak,
-                                                                                    peak_fit / raw_peak))
+        if not do_mcmc: #only bother to check peak caputre if we are not explicitly directed to run mcmc
+            peak_fit = abs(fit_peak - raw_peak)
+            if ( peak_fit > (raw_peak * peak_fit_mult) ):
+                if peak_fit > (raw_peak * 0.5):
+                    captured_peak = False
+                    #if (abs(raw_peak - fit_peak) / raw_peak > 0.2):  # didn't capture the peak ... bad, don't calculate anything else
+                        #log.warning("Failed to capture peak")
+                    log.debug("Failed to capture peak: raw = %f , fit = %f, frac = %0.2f" % (raw_peak, fit_peak,
+                                                                                             peak_fit / raw_peak))
+                else: #missed the tighter constratint, but passed relax. Need to run MCMC
+                    log.debug("Poor capture peak. MCMC recommended: raw = %f , fit = %f, frac = %0.2f" % (raw_peak, fit_peak,
+                                                                                        peak_fit / raw_peak))
 
-                #print("***** TURNED OFF recommend_mcmc ******")
-                recommend_mcmc = True
+                    #print("***** TURNED OFF recommend_mcmc ******")
+                    recommend_mcmc = True
 
         if captured_peak:
             #check the dx0
@@ -1677,6 +1678,9 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         else:
             mcmc.burn_in = 250
             mcmc.main_run = 1200
+
+        # mcmc.burn_in = 250
+        # mcmc.main_run = 1200
         mcmc.run_mcmc()
 
         #correct SNR for PSF? (seeing FWHM / aperture)**2
@@ -3315,6 +3319,7 @@ class Classifier_Solution:
 
         #
         self.galaxy_mask_d25 = None #mark if in galaxy mask
+        self.separation = 0 #set to angular separation if this solution comes from an external catalog (like SDSS)
 
     @property
     def prob_real(self):
@@ -3565,8 +3570,9 @@ class Spectrum:
 
     def match_line(self,obs_w,z,z_error=0.05,aa_error=None,allow_emission=True,allow_absorption=False):
         """
-        Given an input obsevered wavelength and a target redshift, return the matching emission line (if found with the
-            +/- aa_error in angstroms)
+        Given an input obsevered wavelength and a target redshift, return the matching emission line if found with the
+            +/- aa_error in angstroms of the main (central) emission line
+
         :param obs_w:
         :param z:
         :param z_error: translate this to an AA error to allow for the match
@@ -3574,7 +3580,41 @@ class Spectrum:
         :param aa_error: in angstroms
         :return:
         """
+        try:
+            all_match = self.match_lines(obs_w,z,z_error,aa_error,allow_emission,allow_absorption)
 
+            if (all_match is None) or (len(all_match) == 0):
+                return None
+            elif len(all_match) == 1:
+                return all_match[0]
+            else:
+                #all similar wavelength (similar z) given the match is on z, so get lowest rank
+                #choose "best" ... lowest rank
+                #todo: this can be an issue ... can get, say LyA and NV and CIII to all
+                # be possible if the z_error is even moderalely big (~ 0.3 or so)
+                idx = np.argmin([e.rank for e in all_match])
+                return all_match[idx]
+        except:
+            log.warning("Exception in Spectrum::match_line()",exc_info=True)
+
+        return None
+
+
+    def match_lines(self,obs_w,z,z_error=0.05,aa_error=None,allow_emission=True,allow_absorption=False):
+        """
+
+        Like match_line, but plural. Can return multiple lines
+
+        Given an input obsevered wavelength and a target redshift, return the matching emission line if found with the
+            +/- aa_error in angstroms of the main (central) emission line
+
+        :param obs_w:
+        :param z:
+        :param z_error: translate this to an AA error to allow for the match
+                        for spec_z should be 0.05 in z (or smaller). For phot_z, maybe up to 0.5?
+        :param aa_error: in angstroms
+        :return:
+        """
         try:
             all_match = []
 
@@ -3595,23 +3635,15 @@ class Spectrum:
                             #but this is position only
                             all_match.append(e)
             else:
-                log.debug("Invalid parameters passed to Spectrum::match_line()")
+                log.debug("Invalid parameters passed to Spectrum::match_lines()")
 
-            if len(all_match) == 0:
-                return None
-            elif len(all_match) == 1:
-                return all_match[0]
-            else:
-                #all similar wavelength (similar z) given the match is on z, so get lowest rank
-                #choose "best" ... lowest rank
-                idx = np.argmin([e.rank for e in all_match])
-                return all_match[idx]
+
+            return all_match
 
         except:
-            log.warning("Exception in Spectrum::match_line()",exc_info=True)
+            log.warning("Exception in Spectrum::match_lines()",exc_info=True)
 
         return None
-
 
 
     def add_classification_label(self,label="",prepend=False,replace=False):
@@ -3632,6 +3664,7 @@ class Spectrum:
                         self.classification_label = label + "," + self.classification_label
                     else:
                         self.classification_label += label + ","
+            log.debug(f"Added classification label: {label}")
         except:
             log.warning("Unexpected exception",exc_info=True)
 
