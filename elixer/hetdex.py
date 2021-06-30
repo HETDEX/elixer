@@ -1957,7 +1957,7 @@ class DetObj:
                             #of our candidates, so we will just assume point sources here and with a typical seeing/size
                             #ideally we would base this on whether the SDSS coords are inside our candidate ellipse or
                             #how far outside
-                            sep_scale = 1.0 if sep_sdss < 2.0 else 1/(sep_sdss - 1.0)
+                            sep_scale = 1.0 if sep < 2.0 else 1/(sep - 1.0)
                             #for low error z, bump up a little more
                             boost = G.SDSS_SCORE_BOOST * rank_scale * z_scale * sep_scale + line_score
 
