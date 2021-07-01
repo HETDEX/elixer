@@ -6503,66 +6503,66 @@ class DetObj:
         self.spec_obj.identifier = "eid(%s)" %str(self.entry_id)
         self.spec_obj.plot_dir = self.outdir
 
-        if False:
-            print("***** REMOVE ME ******")
-
-            def compute_model(x,mu, sigma, A, y):
-                try:
-                    return A * (np.exp(-np.power((x - mu) / sigma, 2.) / 2.) / np.sqrt(2 * np.pi * sigma ** 2)) + y
-                except:
-                    return np.nan
-
-            bin_width = 2.0
-
-            sigma_width = 2.0
-            lineflux_adjust = 0.954 #ie. as sigma goes down... 1-sigma = 0.682, 2-sigma = 0.954, 3-sigma = 0.996
-            left,*_ = SU.getnearpos(self.sumspec_wavelength,self.w-self.sigma*sigma_width)
-            right,*_ = SU.getnearpos(self.sumspec_wavelength,self.w+self.sigma*sigma_width)
-
-            # if left > 0:
-            #     left -= 1
-            #right = min(right+1,len(self.sumspec_wavelength)) #+2
-            #at 4 sigma the mcmc_A[0] is almost identical to the model_fit (as you would expect)
-            #note: if choose to sum over model fit, remember that this is usually over 2AA wide bins, so to
-            #compare to the error data, need to multiply the model_sum by the bin width (2AA)
-            #(or noting that the Area == integrated flux x binwidth)
-
-
-            model_fit = compute_model(self.sumspec_wavelength[left:right],
-                                      self.line_gaussfit_parms[0],
-                                      self.line_gaussfit_parms[1],
-                                      self.line_gaussfit_parms[2],
-                                      self.line_gaussfit_parms[3])
-
-
-            data_err = copy(self.sumspec_fluxerr[left:right])
-            data_err[data_err<=0] = np.nan #Karl has 0 value meaning it is flagged and should be skipped
-            apcor = self.sumspec_apcor[left:right]
-
-            print(f"***** SN Test: target {self.snr} at {self.w} for sigma = {self.sigma} and flux = {self.estflux}")
-            print(f"***** SN Test: {np.sum(self.sumspec_flux[left:right]-self.cont_cgs*1e17)/np.sqrt(np.sum(data_err**2))}")
-            print(f"***** SN Test: {(lineflux_adjust*self.estflux*1e17)/np.sqrt(np.sum((self.sumspec_fluxerr[left:right]/self.sumspec_flux[left:right])**2))}")
-                #also pretty close ... error propogation for division ... data flux / data error as S/N per 2AA pixel
-            print()
-
-            #reminder to myself ...in my MCMC the AREA is 2x, so where I divide by 2 there, I multiply by 2 here
-            #since the flux is already corrected (or sqrt(2) as is the case since it logically belongs on the sum)
-            print(f"***** SN Test: {self.estflux*1e17/np.sqrt(np.nansum(data_err**2))*np.sqrt(2)}") #doing best
-
-            print("++++++++++++++")
-            print(f"***** SN Test: {lineflux_adjust*self.estflux*1e17/np.sqrt(np.nansum(data_err**2))} ... straight")
-            print(f"***** SN Test: {np.sum(model_fit)/np.sqrt(np.nansum(data_err**2))} ... straight model")
-            print(f"***** SN Test: {lineflux_adjust*self.estflux*1e17/np.sqrt(np.nansum((apcor*data_err)**2))/(np.nanmean(apcor))} ... apcor")
-            print("++++++++++++++")
-
-            print(f"***** SN Test: {lineflux_adjust*self.estflux*1e17/(np.nansum(data_err))}")
-            print(f"***** SN Test: {lineflux_adjust*2*self.estflux*1e17/np.sqrt(np.nansum(data_err))}") #*2 since in 2AA bins?
-            print()
-
-            #this is just wrong (the integrated flux already handle the removal of the y-offset
-            # print(f"***** SN Test: {(self.estflux*1e17-self.cont_cgs*1e17)/(np.sum(data_err))}")
-            # print(f"***** SN Test: {(self.estflux*1e17-self.cont_cgs*1e17)/np.sqrt(np.sum(data_err**2))*np.sqrt(2)}")
-            # print(f"***** SN Test: {(self.estflux*1e17-self.cont_cgs*1e17)/np.sqrt(np.sum(data_err**2))}")
+        # if False:
+        #     print("***** REMOVE ME ******")
+        #
+        #     def compute_model(x,mu, sigma, A, y):
+        #         try:
+        #             return A * (np.exp(-np.power((x - mu) / sigma, 2.) / 2.) / np.sqrt(2 * np.pi * sigma ** 2)) + y
+        #         except:
+        #             return np.nan
+        #
+        #     bin_width = 2.0
+        #
+        #     sigma_width = 2.0
+        #     lineflux_adjust = 0.955 #ie. as sigma goes down... 1-sigma = 0.682, 2-sigma = 0.954, 3-sigma = 0.996
+        #     left,*_ = SU.getnearpos(self.sumspec_wavelength,self.w-self.sigma*sigma_width)
+        #     right,*_ = SU.getnearpos(self.sumspec_wavelength,self.w+self.sigma*sigma_width)
+        #
+        #     # if left > 0:
+        #     #     left -= 1
+        #     #right = min(right+1,len(self.sumspec_wavelength)) #+2
+        #     #at 4 sigma the mcmc_A[0] is almost identical to the model_fit (as you would expect)
+        #     #note: if choose to sum over model fit, remember that this is usually over 2AA wide bins, so to
+        #     #compare to the error data, need to multiply the model_sum by the bin width (2AA)
+        #     #(or noting that the Area == integrated flux x binwidth)
+        #
+        #
+        #     model_fit = compute_model(self.sumspec_wavelength[left:right],
+        #                               self.line_gaussfit_parms[0],
+        #                               self.line_gaussfit_parms[1],
+        #                               self.line_gaussfit_parms[2],
+        #                               self.line_gaussfit_parms[3])
+        #
+        #
+        #     data_err = copy(self.sumspec_fluxerr[left:right])
+        #     data_err[data_err<=0] = np.nan #Karl has 0 value meaning it is flagged and should be skipped
+        #     apcor = self.sumspec_apcor[left:right]
+        #
+        #     print(f"***** SN Test: target {self.snr} at {self.w} for sigma = {self.sigma} and flux = {self.estflux}")
+        #     print(f"***** SN Test: {np.sum(self.sumspec_flux[left:right]-self.cont_cgs*1e17)/np.sqrt(np.sum(data_err**2))}")
+        #     print(f"***** SN Test: {(lineflux_adjust*self.estflux*1e17)/np.sqrt(np.sum((self.sumspec_fluxerr[left:right]/self.sumspec_flux[left:right])**2))}")
+        #         #also pretty close ... error propogation for division ... data flux / data error as S/N per 2AA pixel
+        #     print()
+        #
+        #     #reminder to myself ...in my MCMC the AREA is 2x, so where I divide by 2 there, I multiply by 2 here
+        #     #since the flux is already corrected (or sqrt(2) as is the case since it logically belongs on the sum)
+        #     print(f"***** SN Test: {self.estflux*1e17/np.sqrt(np.nansum(data_err**2))*np.sqrt(2)}") #doing best
+        #
+        #     print("++++++++++++++")
+        #     print(f"***** SN Test: {lineflux_adjust*self.estflux*1e17/np.sqrt(np.nansum(data_err**2))} ... straight")
+        #     print(f"***** SN Test: {np.sum(model_fit)/np.sqrt(np.nansum(data_err**2))} ... straight model")
+        #     print(f"***** SN Test: {lineflux_adjust*self.estflux*1e17/np.sqrt(np.nansum((apcor*data_err)**2))/(np.nanmean(apcor))} ... apcor")
+        #     print("++++++++++++++")
+        #
+        #     print(f"***** SN Test: {lineflux_adjust*self.estflux*1e17/(np.nansum(data_err))}")
+        #     print(f"***** SN Test: {lineflux_adjust*2*self.estflux*1e17/np.sqrt(np.nansum(data_err))}") #*2 since in 2AA bins?
+        #     print()
+        #
+        #     #this is just wrong (the integrated flux already handle the removal of the y-offset
+        #     # print(f"***** SN Test: {(self.estflux*1e17-self.cont_cgs*1e17)/(np.sum(data_err))}")
+        #     # print(f"***** SN Test: {(self.estflux*1e17-self.cont_cgs*1e17)/np.sqrt(np.sum(data_err**2))*np.sqrt(2)}")
+        #     # print(f"***** SN Test: {(self.estflux*1e17-self.cont_cgs*1e17)/np.sqrt(np.sum(data_err**2))}")
 
 
         if True: #go ahead and do this anyway, may want to plot central object info/spectra

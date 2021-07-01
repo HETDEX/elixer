@@ -1440,16 +1440,17 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
         try: #data_err is the data errors for the pixels selected in the RMSE fit range
             #eli.snr = eli.fit_a/(np.sum(np.sqrt(data_err)))
-            left,*_ = SU.getnearpos(wavelengths,eli.fit_x0 - eli.fit_sigma*4.0)
-            right,*_ = SU.getnearpos(wavelengths,eli.fit_x0 + eli.fit_sigma*4.0)
+            left,*_ = SU.getnearpos(wavelengths,eli.fit_x0 - eli.fit_sigma*2.0)
+            right,*_ = SU.getnearpos(wavelengths,eli.fit_x0 + eli.fit_sigma*2.0)
             # if left > 0 :
             #     left -= 1
             # right = min(right+2,len(wavelengths))
 
             #the fit_a is in 2AA bins so is a factor of 2 high
-            eli.snr = abs(eli.fit_a)/np.sqrt(np.sum(errors[left:right]**2))  / np.sqrt(2)
+            #0.955 is since this is +/- 2 sigma (3 sigma would be 0.996, 1 sigma would be 0.682)
+            eli.snr = 0.955*abs(eli.fit_a)/np.sqrt(np.sum(errors[left:right]**2))
             log.debug(f"curve_fit SNR: {eli.snr}; Area={eli.fit_a} RMSE={eli.fit_rmse} Pix={num_sn_pix}")
-        except:
+        except: #try alternate SNR
             log.info("signal_score() SNR fail. Falling back to RMSE based.")
             eli.snr = eli.fit_a/(np.sqrt(num_sn_pix)*eli.fit_rmse)/np.sqrt(broadfit)
             log.debug(f"curve_fit SNR: {eli.snr}; Area={eli.fit_a} RMSE={eli.fit_rmse} Pix={num_sn_pix}")

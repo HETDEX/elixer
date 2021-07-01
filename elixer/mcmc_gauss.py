@@ -304,6 +304,21 @@ class MCMC_Gauss:
 
     def run_mcmc(self):
 
+
+        #cannot have nans
+        #note: assumes data_x (the spectral axis) and err_x have none since they are on a known grid
+        data_nans = np.isnan(self.data_y)
+        err_nans = np.isnan(self.err_y)
+
+        if (np.sum(data_nans) > 0) or (np.sum(err_nans) > 0):
+            self.data_y = copy.copy(self.data_y)[~data_nans]
+            self.err_y = copy.copy(self.err_y)[~data_nans]
+            self.data_x = copy.copy(self.data_x)[~data_nans]
+            self.err_x = copy.copy(self.err_x)[~data_nans]
+            #and clean up any other nan's in the error array for y
+            err_nans = np.isnan(self.err_y)
+            self.err_y[err_nans] = np.nanmax(self.err_y*10)
+
         if not self.sanity_check_init():
             log.info("Sanity check failed. Cannot conduct MCMC.")
             return False
@@ -328,31 +343,44 @@ class MCMC_Gauss:
             min_pos = [   0.0,  0.01,   0.01,         -np.inf,-np.inf] #must be greater than this
 
         ndim = len(initial_pos)
-        scale = np.array([1.,1.,1.,1.,-100.5]) #don't nudge ln_f ...note ln_f = -4.5 --> f ~ 0.01
-
-        #nudge the initial positions around a bit
+        scale = np.array([10.,5.,2.0*self.initial_A,5.0*self.initial_y,0.01]) #don't nudge ln_f ...note ln_f = -4.5 --> f ~ 0.01
 
         try:
-            # if self.initial_A < 0: #absorber
-            #     pos = [np.minimum(initial_pos + scale * np.random.randn(ndim),limit_pos) for i in range(self.walkers)]
-            # else:
+            ##############################################################################
+            # This is an alternate way to control the jitter in the initial positions,
+            # can uncomment this block if the jitter is not sufficient
+            ##############################################################################
+            # ip_mu = initial_pos[0] + np.random.uniform(-1.0*(self.data_x[1]-self.data_x[0]),1.0*(self.data_x[1]-self.data_x[0]),self.walkers)
+            # #sigma cannot go zero or below
+            # ip_sigma = initial_pos[1] + np.random.uniform(-0.5*self.initial_sigma,0.5*self.initial_sigma,self.walkers)
+            # #area cannot flip signs
+            # ip_A = initial_pos[2] +  np.random.uniform(0,1.0*self.initial_A,self.walkers)
+            # #y should not exceed min/max data value, but won't cause and error if it does
+            # # ... should technically never be negative regardless of absorption or emission
+            # ip_y = np.random.uniform(0,max(self.data_y),self.walkers)
+            # ip_lnf = np.zeros(self.walkers) #np.random.uniform(0.005,0.015,self.walkers) #np.zeros(self.walkers)
+            #
+            # #for p in pos: #just a debug check
+            # #  print(f"{p[0]:0.4g},{p[1]:0.4g},{p[2]:0.4g},{p[3]:0.4g},{p[4]:0.4g}")
 
-            pos = [np.minimum(np.maximum(initial_pos + scale * np.random.randn(ndim),min_pos),max_pos) for i in range(self.walkers)]
+            ##############################################################################
+            # OTHERWISE, keep the line below
+            #
+            ##############################################################################
 
-            #pos = [initial_pos + scale * np.random.randn(ndim) for i in range(self.walkers)]
+            pos = [np.minimum(np.maximum(initial_pos + scale * np.random.uniform(-1,1,ndim),min_pos),max_pos) for i in range(self.walkers)]
 
             #build the sampler
-            #todo: incorporate self.err_x ? (realistically, do we have significant uncertainty in x?)
             self.sampler = emcee.EnsembleSampler(self.walkers, ndim, self.lnprob,
-                                            args=(self.data_x,self.data_y, self.err_y))
+                                                 args=(self.data_x,self.data_y, self.err_y))
             #args are the positional args AFTER theta for self.lnprob function
 
             with warnings.catch_warnings(): #ignore the occassional warnings from the walkers (NaNs, etc that reject step)
                 warnings.simplefilter("ignore")
                 log.debug("MCMC burn in (%d) ...." %self.burn_in)
-                pos, prob, state = self.sampler.run_mcmc(pos, self.burn_in)  # burn in
+                pos, prob, state = self.sampler.run_mcmc(pos, self.burn_in,)#skip_initial_state_check=False)  # burn in
                 log.debug("MCMC main run (%d) ..." %self.main_run)
-                pos, prob, state = self.sampler.run_mcmc(pos, self.main_run, rstate0=state)  # start from end position of burn-in
+                pos, prob, state = self.sampler.run_mcmc(pos, self.main_run, rstate0=state)#,skip_initial_state_check=False)  # start from end position of burn-in
 
             self.samples = self.sampler.flatchain  # collapse the walkers and interations (aka steps or epochs)
 
@@ -367,7 +395,7 @@ class MCMC_Gauss:
             #to be negative showing that you would subtract it from the average to get to the 16th percentile
 
             sigma_width = 2
-            flux_frac = 1.0 # 0.954 # i.e. depends on sigma: 1 = 0.682, 2 = 0.954,  3 = 0.996, 4+ just use 1.0
+            flux_frac = 0.955 # 0.955 # i.e. depends on sigma: 1 = 0.682, 2 = 0.955,  3 = 0.996, 4+ just use 1.0
 
             #using 68% interval
             self.mcmc_mu, self.mcmc_sigma, self.mcmc_A, self.mcmc_y, mcmc_f = \
@@ -399,90 +427,11 @@ class MCMC_Gauss:
                 log.warning("Exception calculating MCMC SNR: ", exc_info=True)
 
 
-            #
-            # try:
-            #     ###############################
-            #     # Different SNR measures
-            #     ###############################
-            #
-            #     #
-            #     # 1. sum over the model (subtracting off the y-offset) and divide by sqrt(pixels)*rmse
-            #     #
-            #     self.mcmc_snr = (np.sum(model_fit[left:right])-(right-left+1)*self.mcmc_y[0])/(np.sqrt(right-left+1)*rms_err)
-            #     log.info(f"MCMC SNR model w/RMS: {self.mcmc_snr}")
-            # except:
-            #     log.warning("Exception calculating MCMC SNR: ", exc_info=True)
-            #
-            # try:
-            #     #
-            #     # 2. sum over the model (subtracting off the y-offset) and divide by sum of the sqrt of data errors
-            #     #
-            #     if self.err_y is not None and len(self.err_y) == len(self.data_y):
-            #         self.mcmc_snr = (np.sum(model_fit[left:right])-(right-left+1)*self.mcmc_y[0])/(np.sum(np.sqrt(self.err_y[left:right])))
-            #         log.info(f"MCMC SNR model w/data error: {self.mcmc_snr}")
-            #
-            #     #
-            #     # 3. sum over the data values (subtracting off the y-offset) and divide by the sum of the sqrt of the data errors
-            #     #
-            #         self.mcmc_snr = (np.sum(self.data_y[left:right])-(right-left+1)*self.mcmc_y[0])/(np.sum(np.sqrt(self.err_y[left:right])))
-            #         log.info(f"MCMC SNR data w/data error: {self.mcmc_snr}")
-            # except:
-            #     log.warning("Exception calculating MCMC SNR: ", exc_info=True)
-            #
-            #
-            # try:
-            #     #
-            #     # 4. sum of the model fit (subtractig the y-offset) divide by the sum of the sqrt of the propagated uncertainties in the fit
-            #     #
-            #
-            #     unc_array = utilities.gaussian_uncertainty(None,self.data_x,
-            #                                                self.mcmc_mu[0],0.5*(self.mcmc_mu[1]+self.mcmc_mu[2]),
-            #                                                self.mcmc_sigma[0],0.5*(self.mcmc_sigma[1]+self.mcmc_sigma[2]),
-            #                                                self.mcmc_A[0],0.5*(self.mcmc_A[1]+self.mcmc_A[2]),
-            #                                                self.mcmc_y[0],0.5*(self.mcmc_y[1]+self.mcmc_y[2]))
-            #
-            #     #self.mcmc_snr = abs(np.sum(model_fit - self.mcmc_y[0]))/np.sum(np.sqrt(unc_array[left:right]))
-            #     self.mcmc_snr = abs(np.sum(model_fit - self.mcmc_y[0]))/np.sqrt(np.sum(unc_array[left:right]**2))
-            #     log.info(f"MCMC SNR model w/error prop: {self.mcmc_snr}")
-            #     print(f"***** TEST MCMC SNR: {self.mcmc_snr}")
-            #
-            # except:
-            #     log.warning("Exception calculating MCMC SNR: ", exc_info=True)
-
-            # try:
-            #     #
-            #     # 5. Area under the model curve divided by the # pixels * the rmse
-            #     #
-            #
-            #     #todo: need to adjust the AREA down by the fraction that is covered by the sigma_width set at the top
-            #     self.mcmc_snr = self.mcmc_A[0]/((right-left+1)*rms_err)
-            #     log.info(f"MCMC SNR Area model w/RMS: {self.mcmc_snr} RMSE={rms_err} Pix={right-left+1}")
-            #
-            # except:
-            #     log.warning("Exception calculating MCMC SNR: ", exc_info=True)
-            #
-            # try:
-            #     #
-            #     # 6. Area under the model fit divided by the mean of the 68% wings from the MCMC samples
-            #     #
-            #
-            #     self.mcmc_snr = self.mcmc_A[0]/(0.5*(self.mcmc_A[1]+self.mcmc_A[2]))
-            #     log.info(f"MCMC SNR model Area with uncertainty: {self.mcmc_snr}")
-            #
-            #     #self.mcmc_snr = np.sum(model_fit)/(np.sqrt(len(self.data_x))*rms_err)
-            #     #these are fluxes, so just sum over the model to get approximate total flux (aread under the curve) = signal
-            #     #and divide by the sqrt of N (number of pixels) * the rmse as the error
-            #
-            # except:
-            #     log.warning("Exception calculating MCMC SNR: ", exc_info=True)
-
             try:
                 #
-                # 7. Area under the model fit divided by the mean of the 68% wings from the MCMC samples
+                # Area under the model fit divided by the mean of the 68% wings from the MCMC samples
                 # As of 2021-06-08 this is what Karl is using
                 # but need to check the left and right and the err_y is what I expect (no 2AA correction)
-
-                #since using +/- 4 sigma, mcmc_A essentially same as np.sum(model_fit)*2  ... the *2 is for the 2AA bin width
 
                 #signal = area under the curve or sum(model_fit)*bin_width .... line_flux = area / bin_width * units * scale
                 #noise = error on data (i.e. err_y) ... summed in quadrature over center +/- 4 sigma

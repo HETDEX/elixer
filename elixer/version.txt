@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.13.0a4 [2021-07-01]
+* SNR on line fit set to use +/- 2 sigma
+
 1.13.0a3 [2021-06-30]
 * trigger blended spectra flag if 2 or more source extractor objects within central 1.5"
 * trigger uncertain classification flag if single line 15 < EW < 25 and mag ~ 24
