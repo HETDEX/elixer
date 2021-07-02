@@ -1,17 +1,34 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from __future__ import (division, print_function, absolute_import,
-                        unicode_literals)
-
-__all__ = ["sample_ball", "MH_proposal_axisaligned", "MPIPool"]
-
+import warnings
+from functools import wraps
 
 import numpy as np
 
-from .mpi_pool import MPIPool
+__all__ = ["sample_ball", "deprecated", "deprecation_warning"]
 
 
+def deprecation_warning(msg):
+    warnings.warn(msg, category=DeprecationWarning, stacklevel=2)
+
+
+def deprecated(alternate):
+    def wrapper(func, alternate=alternate):
+        msg = "'{0}' is deprecated.".format(func.__name__)
+        if alternate is not None:
+            msg += " Use '{0}' instead.".format(alternate)
+
+        @wraps(func)
+        def f(*args, **kwargs):
+            deprecation_warning(msg)
+            return func(*args, **kwargs)
+
+        return f
+
+    return wrapper
+
+
+@deprecated(None)
 def sample_ball(p0, std, size=1):
     """
     Produce a ball of walkers around an initial parameter value.
@@ -21,11 +38,13 @@ def sample_ball(p0, std, size=1):
     :param size: The number of samples to produce.
 
     """
-    assert(len(p0) == len(std))
-    return np.vstack([p0 + std * np.random.normal(size=len(p0))
-                      for i in range(size)])
+    assert len(p0) == len(std)
+    return np.vstack(
+        [p0 + std * np.random.normal(size=len(p0)) for i in range(size)]
+    )
 
 
+@deprecated(None)
 def sample_ellipsoid(p0, covmat, size=1):
     """
     Produce an ellipsoid of walkers around an initial parameter value,
@@ -38,22 +57,6 @@ def sample_ellipsoid(p0, covmat, size=1):
     :param size: The number of samples to produce.
 
     """
-    return np.random.multivariate_normal(np.atleast_1d(p0),
-                                         np.atleast_2d(covmat),
-                                         size=size)
-
-
-class MH_proposal_axisaligned(object):
-    """
-    A Metropolis-Hastings proposal, with axis-aligned Gaussian steps,
-    for convenient use as the ``mh_proposal`` option to
-    :func:`EnsembleSampler.sample` .
-
-    """
-    def __init__(self, stdev):
-        self.stdev = stdev
-
-    def __call__(self, X):
-        (nw, npar) = X.shape
-        assert(len(self.stdev) == npar)
-        return X + self.stdev * np.random.normal(size=X.shape)
+    return np.random.multivariate_normal(
+        np.atleast_1d(p0), np.atleast_2d(covmat), size=size
+    )
