@@ -4,17 +4,17 @@ try:
     from elixer import global_config as G
     from elixer import corner
     from elixer import utilities
+    from elixer import emcee
 except:
     import global_config as G
     import corner
     import utilities
+    import emcee
 
 import numpy as np
 import io
 import matplotlib.pyplot as plt
-import emcee
 import copy
-
 import warnings
 
 log = G.Global_Logger('mcmc_logger')
