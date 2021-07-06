@@ -1440,15 +1440,25 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
         try: #data_err is the data errors for the pixels selected in the RMSE fit range
             #eli.snr = eli.fit_a/(np.sum(np.sqrt(data_err)))
-            left,*_ = SU.getnearpos(wavelengths,eli.fit_x0 - eli.fit_sigma*2.0)
-            right,*_ = SU.getnearpos(wavelengths,eli.fit_x0 + eli.fit_sigma*2.0)
-            # if left > 0 :
-            #     left -= 1
-            # right = min(right+2,len(wavelengths))
+            delta_wave = max( eli.fit_sigma*2.0,2.1195)  #must be at least +/- 2.1195AA
+            left,*_ = SU.getnearpos(wavelengths,eli.fit_x0 - delta_wave)
+            right,*_ = SU.getnearpos(wavelengths,eli.fit_x0 + delta_wave)
+
+            if wavelengths[left] - (eli.fit_x0-delta_wave) < 0:
+                left += 1 #less than 50% overlap in the left bin, so move one bin to the red
+            if wavelengths[right] - (eli.fit_x0+delta_wave) > 0:
+                right -=1 #less than 50% overlap in the right bin, so move one bin to the blue
+
+            #lastly ... could combine, but this is easier to read
+            right += 1 #since the right index is not included in slice
+
+            model_fit = gaussian(wavelengths[left:right], eli.fit_x0, eli.fit_sigma, eli.fit_a, eli.fit_y)
+            #apcor = np.ones(len(model_fit))#need the actual aperture correction (may already be applied in the future)
 
             #the fit_a is in 2AA bins so is a factor of 2 high
             #0.955 is since this is +/- 2 sigma (3 sigma would be 0.996, 1 sigma would be 0.682)
-            eli.snr = 0.955*abs(eli.fit_a)/np.sqrt(np.sum(errors[left:right]**2))
+            #eli.snr = 0.955*abs(eli.fit_a)/np.sqrt(np.sum(errors[left:right]**2))
+            eli.snr = abs(np.sum(model_fit-eli.fit_y))/np.sqrt(np.sum(errors[left:right]**2))
             log.debug(f"curve_fit SNR: {eli.snr}; Area={eli.fit_a} RMSE={eli.fit_rmse} Pix={num_sn_pix}")
         except: #try alternate SNR
             log.info("signal_score() SNR fail. Falling back to RMSE based.")

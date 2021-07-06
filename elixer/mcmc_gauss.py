@@ -284,6 +284,7 @@ class MCMC_Gauss:
                 if self.initial_sigma < 0.0: #self.initial_A < 0.0  ... actually, leave A alone .. might allow absorportion later
                     return False
 
+
                 if self.initial_peak is None:
                     left,*_ = utilities.getnearpos(self.data_x,self.initial_mu-self.initial_sigma*4)
                     right,*_ = utilities.getnearpos(self.data_x,self.initial_mu+self.initial_sigma*4)
@@ -407,9 +408,30 @@ class MCMC_Gauss:
 
 
             try: #basic info used by multiple SNR calculations
-                bin_width = self.data_x[1] - self.data_x[0]
-                left,*_ = utilities.getnearpos(self.data_x,self.mcmc_mu[0]-self.mcmc_sigma[0]*sigma_width)
-                right,*_ = utilities.getnearpos(self.data_x,self.mcmc_mu[0]+self.mcmc_sigma[0]*sigma_width)
+
+                #2021-07-06
+                #updated rules; to match with Karl only want to include the wavelength bin if 50+% of the bin
+                #is within the limit (e.g. if the mu-2*sigma is 3999.001, then the 3998 bin IS NOT included, but the
+                # 4000AA bin IS includede. .... if the mu-2*sigma is 3998.999 then the 3998 bin IS included
+                #ALSO, sum over the same model wavelength bins rather than use the integrated flux * gaussian adjustment
+                #ALSO, require a minium of 3 bins (with an exception if 1 of the
+
+                #bin_width = self.data_x[1] - self.data_x[0]
+                #2.1195 = 1.8AA * 2.355 / 2.0  ... the instrumental DEX (1.8AA)
+                delta_wave = max(self.mcmc_sigma[0]*sigma_width,2.1195)  #must be at least +/- 2.1195AA
+                #!!! Notice: if we ever change this to +/- 1sigma, need to switch out to sum over the data
+                #instead of the model !!!
+                left,*_ = utilities.getnearpos(self.data_x,self.mcmc_mu[0]-delta_wave)
+                right,*_ = utilities.getnearpos(self.data_x,self.mcmc_mu[0]+delta_wave)
+
+                if self.data_x[left] - (self.mcmc_mu[0]-delta_wave) < 0:
+                    left += 1 #less than 50% overlap in the left bin, so move one bin to the red
+                if self.data_x[right] - (self.mcmc_mu[0]+delta_wave) > 0:
+                    right -=1 #less than 50% overlap in the right bin, so move one bin to the blue
+
+                #lastly ... could combine, but this is easier to read
+                right += 1 #since the right index is not included in slice
+
                 #we want the next wavebin to either side
                 # left = max(0,left-1)
                 #right = min(right+1,len(self.data_x)) #+2 insted of +1 since the slice does not include the end
@@ -418,6 +440,8 @@ class MCMC_Gauss:
                 #compare to the error data, need to multiply the model_sum by the bin width (2AA)
                 #(or noting that the Area == integrated flux x binwidth)
                 model_fit = self.compute_model(self.data_x[left:right],self.mcmc_mu[0],self.mcmc_sigma[0],self.mcmc_A[0],self.mcmc_y[0])
+                #apcor = np.ones(len(model_fit))
+                #subtract off the y continuum since we want flux in the model
                 data_err = copy.copy(self.err_y[left:right])
                 data_err[data_err<=0] = np.nan #Karl has 0 value meaning it is flagged and should be skipped
                 #rms_err = rms(self.data_y[left:right],model_fit[left:right],None,None,False)
@@ -441,8 +465,8 @@ class MCMC_Gauss:
                 # self.mcmc_snr_err = abs(0.5*(self.mcmc_A[1]+self.mcmc_A[2])/self.mcmc_A[0] * self.mcmc_snr)
                 # log.info(f"MCMC SNR model Area with data error: {self.mcmc_snr} +/- {self.mcmc_snr_err}")
 
-                self.mcmc_snr = flux_frac*abs(self.mcmc_A[0]/2.0) / np.sqrt(np.nansum(data_err**2))
-                #self.mcmc_snr = abs(np.sum(model_fit)) / np.sqrt(np.nansum(data_err**2))
+                #self.mcmc_snr = flux_frac*abs(self.mcmc_A[0]/2.0) / np.sqrt(np.nansum(data_err**2))
+                self.mcmc_snr = abs(np.sum(model_fit-self.mcmc_y[0])) / np.sqrt(np.nansum(data_err**2))
                 self.mcmc_snr_err = abs(0.5*(self.mcmc_A[1]+self.mcmc_A[2])/self.mcmc_A[0] * self.mcmc_snr)
                 log.info(f"MCMC SNR model Area with data error: {self.mcmc_snr} +/- {self.mcmc_snr_err}")
                # print(f"***** TEST MCMC SNR: {self.mcmc_snr}")
