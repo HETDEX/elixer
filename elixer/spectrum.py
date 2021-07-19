@@ -787,6 +787,7 @@ class EmissionLineInfo:
                     self.line_flux = self.fit_a / self.fit_bin_dx * unit
                     self.line_flux_err = self.fit_a_err / self.fit_bin_dx * unit
                     self.fit_line_flux = self.line_flux
+                    self.fit_line_flux_err = self.line_flux_err
                     self.cont = self.fit_y * unit
                     self.cont_err = self.fit_y_err * unit
                     self.fit_continuum = self.cont

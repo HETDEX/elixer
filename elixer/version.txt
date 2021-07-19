@@ -1,5 +1,10 @@
 changes to elixer by version
 
+
+1.3.0a6 [2021-07-19]
+* fixed bug where fitted line flux error for extra lines did not get the scale (1e-17, usually) and 2AA applied
+  so as reported in SpectraLines table, the error could be (by units) in the 10s or 100s instead of e-19 - e-17 or so.
+
 1.3.0a5 [2021-07-06]
 * update SNR bin definitions
 

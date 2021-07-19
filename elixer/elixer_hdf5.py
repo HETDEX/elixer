@@ -936,7 +936,7 @@ def append_entry(fileh,det,overwrite=False):
 
             else:
                 row['flux_line'] = line.fit_line_flux
-                row['flux_line_err'] = line.fit_rmse
+                row['flux_line_err'] = line.line_flux_err #line.fit_line_flux_err   #line.fit_rmse
 
             row['score'] = line.line_score
             if line.mcmc_snr > 0:
