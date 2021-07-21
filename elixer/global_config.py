@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.13.0a6'
+__version__ = '1.13.0a7'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -59,6 +59,7 @@ HDR_BASEPATH = HDR_WORK_BASEPATH
 HDF5_DETECT_FN = None
 HDF5_CONTINUUM_FN = None
 CONTINUUM_RULES = False #use continuum rules instead of emission line rules
+CONTNIUUM_RULES_THRESH = 5e-17 #about 20 mag
 HDF5_BROAD_DETECT_FN = None
 HDF5_SURVEY_FN = None
 OBSERVATIONS_BASEDIR = None
@@ -86,6 +87,7 @@ COSMOS_EXTRA_PATH = None
 COSMOS_LAIGLE_BASE_PATH = None
 COSMOS_LAIGLE_CAT_PATH = None
 
+GAIA_DEX_BASE_PATH = None
 DECAM_IMAGE_PATH = None
 SHELA_BASE_PATH = None
 
@@ -254,6 +256,7 @@ def select_hdr_version(version):
     global COSMOS_EXTRA_PATH
     global COSMOS_LAIGLE_BASE_PATH
     global COSMOS_LAIGLE_CAT_PATH
+    global GAIA_DEX_BASE_PATH
 
     global DECAM_IMAGE_PATH
     global SHELA_BASE_PATH
@@ -443,6 +446,16 @@ def select_hdr_version(version):
         COSMOS_LAIGLE_BASE_PATH = op.join(hdr_imaging_basepath, "cosmos/laigle2015")
         COSMOS_LAIGLE_CAT_PATH = op.join(hdr_imaging_basepath, "cosmos/laigle2015")
 
+        try:
+            if HETDEX_API_CONFIG:
+                GAIA_DEX_BASE_PATH = HETDEX_API_CONFIG.gaiacat
+            else:
+                if op.exists("/work/03946/hetdex/gaia_hetdex_value_added_catalog/HDR2.1_Gaia_final_table.fits"):
+                    GAIA_DEX_BASE_PATH  = "/work/03946/hetdex/gaia_hetdex_value_added_catalog/HDR2.1_Gaia_final_table.fits"
+                else:
+                    print("WARNING! Cannot find GAIA HETDEX value added catalog.")
+        except:
+            print("WARNING! Cannot find GAIA HETDEX value added catalog.")
 
         DECAM_IMAGE_PATH = op.join(hdr_imaging_basepath, "shela/nano/")
         SHELA_BASE_PATH = op.join(hdr_imaging_basepath, "shela/nano/")
@@ -879,7 +892,7 @@ SDSS_FORCE = False  #ignore local catalogs and Force the use of only SDSS
 SDSS_SCORE_BOOST = MULTILINE_MIN_SOLUTION_SCORE #specficically for the SDSS z Catalog (other local catalogs are below)
 CHECK_SDSS_Z_CATALOG  = True #set to True to check the SDSS z-catalog
 # (similar in function to galaxy mask in that if a known z is close and it matches an emission line, associated that z)
-
+CHECK_GAIA_DEX_CATALOG = False
 
 #these are for the non-web catalogs we have, so it excludes SDSS (which is controlled separately just above)
 CHECK_ALL_CATALOG_BID_Z = True

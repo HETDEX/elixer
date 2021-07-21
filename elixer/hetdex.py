@@ -13,6 +13,7 @@ try:
     from elixer import shot_sky
     from elixer import galaxy_mask
     from elixer import cat_sdss #for the z-catalog
+    from elixer import cat_gaia_dex
 except:
     import global_config as G
     import line_prob
@@ -27,6 +28,7 @@ except:
     import shot_sky
     import galaxy_mask
     import cat_sdss #for the z-catalog
+    import cat_gaia_dex
 
 
 from hetdex_tools.get_spec import get_spectra as hda_get_spectra
@@ -1913,6 +1915,7 @@ class DetObj:
         except:
             log.warning("Failed to check galaxy mask",exc_info=True)
 
+        sdss_hit = False
         if not flag_galaxy_mask and G.CHECK_SDSS_Z_CATALOG:     #don't bother with SDSS catalog if already flagged in galaxy mask
             try:
                 #catalog is bound to the class, so don't need an object
@@ -1998,6 +2001,7 @@ class DetObj:
                                     self.spec_obj.add_classification_label(label,prepend=True)
 
                     if possible_lines: #one or more possible matches
+                        sdss_hit = True
                         #todo: future, instead of adding a label, set a flag to appear in the HDF5 file
                         #todo: also this only makes sense IF we end up selecting this as the solution
                         # rescore the solutions from above boosts
@@ -2011,6 +2015,17 @@ class DetObj:
                 log.warning("Failed to check SDSS z-catalog",exc_info=True)
 
 
+        #if not flag_galaxy_mask and not sdss_hit and G.CHECK_GAIA_DEX_CATALOG:
+        if False:
+            try:
+                log.debug("Checking against GAiA_DEX catalog...")
+                rows = cat_gaia_dex.GAIA_DEX.query_catalog(self.my_ra,self.my_dec,error=5.0)
+
+                #todo: check rows for a match with gmag and distance
+                #todo and see if there is measured proper motion (then is likely a star)
+
+            except:
+                log.warning("Failed to check GAIA_DEX catalog",exc_info=True)
 
     def check_for_meteor(self):
         """
@@ -6257,8 +6272,9 @@ class DetObj:
                     (self.estflux_unc / self.estflux) ** 2 +
                     (self.cont_cgs_unc / self.cont_cgs) ** 2))
 
+                self.spec_obj.est_g_cont = self.cont_cgs
 
-            if G.CONTINUUM_RULES and (self.w is None) or (self.w == 0.0):
+            if (G.CONTINUUM_RULES or self.cont_cgs > G.CONTNIUUM_RULES_THRESH) and (self.w is None) or (self.w == 0.0):
 
                 # find the "best" wavelength to use as the central peak
                 #spectrum = elixer_spectrum.Spectrum()
@@ -6271,6 +6287,23 @@ class DetObj:
                 if w is not None and (3400.0 < w < 5600.0):
                     self.w = w
                     self.target_wavelength = w
+                    if (self.spec_obj.central_eli is not None):
+                        self.sigma = self.spec_obj.central_eli.fit_sigma
+                        self.estflux = self.spec_obj.central_eli.line_flux
+                        self.cont_cgs = self.spec_obj.central_eli.cont
+                        self.cont_cgs_unc = self.spec_obj.central_eli.cont_err
+
+                        if self.spec_obj.central_eli.mcmc_x0:
+                            self.w_unc = (self.spec_obj.central_eli.mcmc_x0[1] + self.spec_obj.central_eli.mcmc_x0[2])/2.0
+                        if self.spec_obj.central_eli.mcmc_sigma:
+                            self.sigma_unc = (self.spec_obj.central_eli.mcmc_sigma[1] + self.spec_obj.central_eli.mcmc_sigma[2])/2.0
+                        self.estflux_unc = self.spec_obj.central_eli.line_flux_err
+
+                        self.line_gaussfit_parms = (self.w,self.sigma,self.estflux*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
+                                                    self.cont_cgs/G.HETDEX_FLUX_BASE_CGS,G.FLUX_WAVEBIN_WIDTH) #*2.0 for Karl's bin width
+                        self.line_gaussfit_unc = (self.w_unc,self.sigma_unc,self.estflux_unc*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
+                                                  self.cont_cgs_unc/G.HETDEX_FLUX_BASE_CGS, 0.0)
+
                 else:
 
                     try:
@@ -6587,8 +6620,10 @@ class DetObj:
 
 
             #update with MY FIT results?
+            central_wave_volatile = False
             if G.REPORT_ELIXER_MCMC_FIT or self.eqw_obs == 0 or G.CONTINUUM_RULES:
                 log.info("Using ELiXer MCMC Fit for line flux, continuum, EW, and SNR")
+                central_wave_volatile = True #CAN change te central wave after classifing
                 try:
                     self.estflux = self.spec_obj.central_eli.mcmc_line_flux
                     self.eqw_obs = self.spec_obj.central_eli.mcmc_ew_obs[0]
@@ -6637,6 +6672,55 @@ class DetObj:
                     log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra",exc_info=True)
 
             self.spec_obj.classify(known_z=self.known_z) #solutions can be returned, also stored in spec_obj.solutions
+
+            # if central_wave_volatile and (self.spec_obj.central_eli.w_obs != self.w):
+            #     try:
+            #         self.estflux = self.spec_obj.central_eli.mcmc_line_flux
+            #         self.eqw_obs = self.spec_obj.central_eli.mcmc_ew_obs[0]
+            #         self.cont_cgs = self.spec_obj.central_eli.mcmc_continuum
+            #         #self.snr = self.spec_obj.central_eli.mcmc_snr
+            #         self.snr = self.spec_obj.central_eli.snr
+            #         self.snr_unc = self.spec_obj.central_eli.snr_err
+            #
+            #         self.spec_obj.estflux = self.estflux
+            #         self.spec_obj.eqw_obs = self.eqw_obs
+            #
+            #         #self.estflux = self.spec_obj.central_eli.line_flux
+            #         #self.cont = self.spec_obj.central_eli.cont
+            #         #self.eqw_obs = self.estflux / self.cont
+            #         #self.snr = self.spec_obj.central_eli.snr
+            #
+            #         #if no mcmc try the fit?
+            #         self.w = self.spec_obj.central_eli.mcmc_x0[0]
+            #         self.w_unc = 0.5 * (self.spec_obj.central_eli.mcmc_x0[1] + self.spec_obj.central_eli.mcmc_x0[2])
+            #         self.sigma = self.spec_obj.central_eli.mcmc_sigma[0]
+            #         self.sigma_unc = 0.5 * (self.spec_obj.central_eli.mcmc_sigma[1]+self.spec_obj.central_eli.mcmc_sigma[2])
+            #         self.chi2 = self.spec_obj.central_eli.mcmc_chi2
+            #         self.estflux = self.spec_obj.central_eli.mcmc_line_flux
+            #         self.estflux_unc = 0.5 * (self.spec_obj.central_eli.mcmc_line_flux_tuple[1] + self.spec_obj.central_eli.mcmc_line_flux_tuple[2])
+            #
+            #
+            #         self.cont_cgs = self.spec_obj.central_eli.mcmc_continuum
+            #         self.cont_cgs_unc = 0.5 * (self.spec_obj.central_eli.mcmc_continuum_tuple[1]+self.spec_obj.central_eli.mcmc_continuum_tuple[2])
+            #         self.cont_cgs_narrow = self.spec_obj.central_eli.mcmc_continuum
+            #         self.cont_cgs_unc_narrow = self.cont_cgs_unc
+            #
+            #         self.snr = self.spec_obj.central_eli.mcmc_snr
+            #         self.snr_unc = self.spec_obj.central_eli.mcmc_snr_err
+            #
+            #         self.eqw_obs = self.spec_obj.central_eli.mcmc_ew_obs[0]
+            #         self.eqw_obs_unc = 0.5 * (self.spec_obj.central_eli.mcmc_ew_obs[1]+self.spec_obj.central_eli.mcmc_ew_obs[2])
+            #
+            #         #fluxes are in e-17
+            #         self.line_gaussfit_parms = (self.w,self.sigma,self.estflux*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
+            #                                     self.cont_cgs/G.HETDEX_FLUX_BASE_CGS,G.FLUX_WAVEBIN_WIDTH)
+            #         self.line_gaussfit_unc = (self.w_unc,self.sigma_unc,self.estflux_unc*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
+            #                                   self.cont_cgs_unc/G.HETDEX_FLUX_BASE_CGS,0.0)
+            #
+            #
+            #     except:
+            #         log.warning("Exception! Unable to update central line following classification.",exc_info=True)
+            #
 
         if (self.w is None or self.w == 0) and (self.spec_obj is not None):
             try:

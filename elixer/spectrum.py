@@ -60,7 +60,7 @@ GAUSS_FIT_MAX_SIGMA = 17.0 #maximum width (pixels) for fit gaussian to signal (g
 GAUSS_FIT_MIN_SIGMA = 1.0 #roughly 1/2 pixel where pixel = 1.9AA (#note: "GOOD_MIN_SIGMA" below provides post
                           # check and is more strict) ... allowed to fit a more narrow sigma, but will be rejected later
                           # as not a good signal .... should these actually be the same??
-GAUSS_FIT_AA_RANGE = 50.0 #AA to either side of the line center to include in the gaussian fit attempt
+GAUSS_FIT_AA_RANGE = 20.0 #AA to either side of the line center to include in the gaussian fit attempt
                           #a bit of an art here; too wide and the general noise and continuum kills the fit (too wide)
                           #too narrow and fit hard to find if the line center is off by more than about 2 AA
                           #40 seems (based on testing) to be about right (50 leaves too many clear, but weak signals behind)
@@ -94,6 +94,8 @@ PROB_NOISE_GIVEN_SCORE =  \
 PROB_NOISE_TRUNCATED = 0.0002 #all bins after the end of the list get this value
 PROB_NOISE_MIN_SCORE = 2.0 #min score that makes it to the bin list
 
+MAX_LINESCORE_SNR = 20.0 #limit the contribution to the line score of the computed line SNR
+                         #all SNR values are capped at this value in the line score calculation
 
 #beyond an okay fit (see GAUSS_FIT_xxx above) is this a "good" signal
 GOOD_BROADLINE_SIGMA = 6.0 #getting broad
@@ -691,7 +693,7 @@ class EmissionLineInfo:
 
             s = '%0.2f($\pm$%0.2f)e%d' % (fcoef, ucoef * 10 ** (uexp - fexp), fexp)
         except:
-            log.warning("Exception in EmissionLineInfo::flux_unc()", exc_info=True)
+            log.warning("Exception in EmissionLineInfo::unc_str()", exc_info=False)
 
         return s
 
@@ -861,6 +863,9 @@ class EmissionLineInfo:
             if (self.fwhm is None) or (self.fwhm < max_fwhm):
                 #this MIN_HUGE_FWHM_SNR is based on the usual 2AA bins ... if this is broadfit, need to return to the
                 # usual SNR definition
+
+                snr_limit_score = min(self.snr,MAX_LINESCORE_SNR)
+
                 if (self.fwhm > MAX_NORMAL_FWHM) and \
                         ((self.snr *np.sqrt(broadfit) < MIN_HUGE_FWHM_SNR) and (self.raw_snr() < GOOD_BROADLINE_RAW_SNR)) \
                         and (self.fit_chi2 > 1.5):
@@ -869,7 +874,7 @@ class EmissionLineInfo:
                               "Probably bad fit or merged lines. Rejecting score.")
                     self.line_score = 0
                 else:
-                    self.line_score = self.snr * above_noise * unique_mul * self.line_flux * 1e17 * \
+                    self.line_score = snr_limit_score * above_noise * unique_mul * self.line_flux * 1e17 * \
                               min(self.fit_sigma/self.pix_size,1.0) * \
                               min((self.pix_size * self.sn_pix)/21.0,1.0) / \
                               (10.0 * (1. + abs(adjusted_dx0_error / self.pix_size)) )
@@ -1328,7 +1333,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         if not do_mcmc: #only bother to check peak caputre if we are not explicitly directed to run mcmc
             peak_fit = abs(fit_peak - raw_peak)
             if ( peak_fit > (raw_peak * peak_fit_mult) ):
-                if peak_fit > (raw_peak * 0.5):
+                if peak_fit > (raw_peak * 0.5) and not \
+                        (absorber and ((3930 < central < 3940) or (3962 < central < 3972))): #possible H&K low-z (star)
                     captured_peak = False
                     #if (abs(raw_peak - fit_peak) / raw_peak > 0.2):  # didn't capture the peak ... bad, don't calculate anything else
                         #log.warning("Failed to capture peak")
@@ -1340,6 +1346,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
                     #print("***** TURNED OFF recommend_mcmc ******")
                     recommend_mcmc = True
+                    bad_curve_fit  = True
 
         if captured_peak:
             #check the dx0
@@ -1479,7 +1486,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
         bail = False
         if recommend_mcmc: #if choose not to conintue, this would have been a rejected line, so zero out and bail
-            if (eli.snr > 5.0) and (eli.fit_chi2 < 2.0) and (eli.unique):
+            if ((eli.snr > 15.0) or ((5.0 < eli.snr < 15.0) and (eli.fit_chi2 < 2.0))) and (eli.unique):
                 do_mcmc = True
             else:
                 log.debug("Failed to meet minimum condition to continue with MCMC. Enforcing prior rejection.")
@@ -1535,7 +1542,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         eli.line_score = 0.0
         eli.line_flux = 0.0
 
-    log.debug("SNR (fit rmse)  at %0.2f (fiducial = %0.2f) = %0.2f"%(eli.fit_x0,central,snr))
+    log.debug("SNR at %0.2f (fiducial = %0.2f) = %0.2f"%(eli.fit_x0,central,snr))
     #log.debug("SNR (vs fibers) at %0.2f (fiducial = %0.2f) = %0.2f"%(eli.fit_x0,central,eli.peak_sigma_above_noise()))
 
     title = ""
@@ -1665,14 +1672,16 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         # print("***** check_for_doublet *****")
         # eli2 = check_for_doublet(eli,wavelengths,values,errors,central,values_units)
 
-
         mcmc = mcmc_gauss.MCMC_Gauss()
-        mcmc.initial_mu = eli.fit_x0
 
         if bad_curve_fit:
+            mcmc.initial_mu = central
             mcmc.initial_sigma = 1.0
             mcmc.initial_A = raw_peak * 2.355 * mcmc.initial_sigma  # / adjust
+            if absorber:
+                mcmc.initial_A *= -1
         else:
+            mcmc.initial_mu = eli.fit_x0
             mcmc.initial_sigma = eli.fit_sigma
             mcmc.initial_A = eli.fit_a  # / adjust
         mcmc.initial_y = eli.fit_y  # / adjust
@@ -2332,6 +2341,122 @@ def check_for_doublet(eli,wavelengths,values,errors,central,values_units,values_
         return eli
 
     return eli
+
+
+def fit_for_h_and_k(k_eli,h_eli,wavelengths,values,errors,values_units,values_dx=G.FLUX_WAVEBIN_WIDTH):
+    """
+    like run_mcmc but allow a double Gaussian
+
+    Needs to start with a wide separation of the two mu's (rather than right on top of each other), but will move
+    in to the best position. A true single Gaussian can still return 2 mu's but they are symmetric about the true
+    mu and the two Gaussians are the same size, etc
+
+    So, to evaluate:
+    1) the separation must be larger than 5.5AA observed (HETDEX best limit)
+    2) the separation must be close to what is expected by the rest spearation * (1+z)
+    3) the two areas should not be equal?
+    4) the two sigmas should not be equal?
+
+
+    :param wavelengths:
+    :param values:
+    :param errors:
+    :param central:
+    :param values_units:
+    :param values_dx:
+    # :param rest_dw = wavelength separation in the peaks in the rest frame (i.e if NV, 1238.8 and 1242.8 --> == 4.0)
+    # :param rest_w = rest wavelength (as if a single line), for NV == 1240.
+    :return:
+    """
+
+    #values_dx is the bin width for the values if multiplied out (s|t) values are flux and not flux/dx
+    #   by default, Karl's data is on a 2.0 AA bin width
+
+    err_units = values_units  # assumed to be in the same units
+    values, values_units = norm_values(values, values_units)
+    if errors is not None and (len(errors) == len(values)):
+        errors, err_units = norm_values(errors, err_units)
+
+    pix_size = abs(wavelengths[1] - wavelengths[0])  # aa per pix
+    #may need to be wider to accomodate enough spectrum for both lines
+    wave_side = int(round(max(GAUSS_FIT_AA_RANGE,50) / pix_size))  # pixels
+    fit_range_AA = max(GAUSS_FIT_PIX_ERROR * pix_size, GAUSS_FIT_AA_ERROR)
+
+    len_array = len(wavelengths)
+    central = 0.5 * (h_eli.fit_x0 + k_eli.fit_x0)
+    idx = getnearpos(wavelengths, central)
+    min_idx = max(0, idx - wave_side)
+    max_idx = min(len_array, idx + wave_side)
+    wave_x = wavelengths[min_idx:max_idx + 1]
+    wave_counts = values[min_idx:max_idx + 1]
+    if (errors is not None) and (len(errors) == len(wavelengths)):
+        wave_errors = errors[min_idx:max_idx + 1]
+        # replace any 0 with 1
+        wave_errors[np.where(wave_errors == 0)] = 1
+    else:
+        wave_errors = None
+
+    narrow_wave_x = wave_x
+    narrow_wave_counts = wave_counts
+    narrow_wave_errors = wave_errors
+
+    fit_range_AA = max(GAUSS_FIT_PIX_ERROR * pix_size, GAUSS_FIT_AA_ERROR)
+    peak_pos = getnearpos(wavelengths, central)
+
+    mcmc = mcmc_double_gauss.MCMC_Double_Gauss()
+    mcmc.values_units = values_units
+    mcmc.range_mu = 5.0
+    mcmc.initial_A = min(k_eli.fit_a,h_eli.fit_a)/2.0 #these are negative so, min
+    mcmc.initial_y = np.max(narrow_wave_counts)
+    mcmc.initial_sigma = max(k_eli.fit_sigma,2.0)/2.0
+    mcmc.initial_mu = k_eli.fit_x0
+    #mcmc.initial_peak = raw_peak1
+
+    mcmc.initial_A_2 = min(k_eli.fit_a,h_eli.fit_a)/2.0 #these are negative so, min
+    mcmc.initial_mu_2 = h_eli.fit_x0
+    mcmc.initial_sigma_2 = max(h_eli.fit_sigma,2.0)/2.0
+    #mcmc.initial_peak_2 = raw_peak2
+
+    mcmc.data_x = narrow_wave_x
+    mcmc.data_y = narrow_wave_counts
+    mcmc.err_y = narrow_wave_errors#np.zeros(len(mcmc.data_y)) #narrow_wave_errors
+    mcmc.err_x = np.zeros(len(mcmc.err_y))
+
+    # if using the scipy::curve_fit, 50-100 burn-in and ~1000 main run is plenty
+    # if other input (like Karl's) ... the method is different and we are farther off ... takes longer to converge
+    #   but still converges close to the scipy::curve_fit
+    mcmc.burn_in = 250
+    mcmc.main_run = 1200
+
+    try:
+        mcmc.run_mcmc()
+    except:
+        log.warning("Exception in spectrum.py fit_for_h_and_k() calling mcmc.run_mcmc()", exc_info=True)
+        return None, mcmc
+
+    try:
+        #HETDEX spectral res is really about 5.5AA, but will say 4.0AA here to allow for some error
+        #say 40.0AA for now for an upper limit ... too far to be called a doublet
+        #assuming about 8AA rest for the doublet, shifted to z = 3.5 -> 36AA
+
+        print("*****turn off double_guass_fit.png *****")
+        mcmc.show_fit(filename="fit_for_h_and_k.png")
+        #  mcmc.visualize(filename="double_gauss_vis.png")
+        if (mcmc.mcmc_snr > 5.0) and (abs(mcmc.mcmc_mu[0]/k_eli.fit_x0 - mcmc.mcmc_mu_2[0]/h_eli.fit_x0) < 0.005) and \
+                (abs( (mcmc.mcmc_A_2[0] - mcmc.mcmc_A[0]) / (0.5* (mcmc.mcmc_A_2[0] + mcmc.mcmc_A[0]))) < 0.5):
+
+            log.info(f"Possible H & K observed (x,+,-): {mcmc.mcmc_mu_2 },{mcmc.mcmc_mu}")
+
+            return True,mcmc
+        else:
+            log.info(f"No indication of H&K. Fit failed or basic checks failed. mu {mcmc.mcmc_mu },{mcmc.mcmc_mu_2}")
+            return False,mcmc
+    except:
+        log.warning("Exception in spectrum.py check_for_doublet()", exc_info=True)
+        return None,mcmc
+
+    return None,mcmc
+
 
 
 def signal_calc_scaled_score(raw):
@@ -3500,6 +3625,9 @@ class Spectrum:
             #EmissionLine("CaII".ljust(w), 3970, "skyblue", solution=False, display=False)  #very close to NeIII(3967)
            ]
 
+        self.h_and_k_waves = [3934,3968]
+        self.h_and_k_mcmc = None
+
         self.wavelengths = []
         self.values = [] #could be fluxes or counts or something else ... right now needs to be counts
         self.errors = []
@@ -3520,6 +3648,7 @@ class Spectrum:
         self.estflux_unc = None
         self.estcont = None
         self.estcont_unc = None
+        self.est_g_cont = None #from the HETDEX spectrum
         self.eqw_obs = None
         self.eqw_obs_unc = None
         self.fwhm = None
@@ -4280,7 +4409,7 @@ class Spectrum:
         self.all_found_lines = None
         self.all_found_absorbs = None
         self.solutions = None
-        self.central_eli = None
+        #self.central_eli = None
 
         if self.noise_estimate is None or len(self.noise_estimate) == 0:
             self.noise_estimate = errors[:]
@@ -4327,10 +4456,15 @@ class Spectrum:
             except:
                 allow_broad = False
 
-            eli = signal_score(wavelengths=wavelengths, values=values, errors=errors,central=central,spectrum=self,
-                               values_units=values_units, sbr=None, min_sigma=fit_min_sigma,
-                               show_plot=show_plot,plot_id=self.identifier,
-                               plot_path=self.plot_dir,do_mcmc=True,allow_broad=allow_broad,absorber=self.absorber)
+            if self.central_eli is None: #could already be set (e.g. if H&K line fit for continuum detection)
+                eli = signal_score(wavelengths=wavelengths, values=values, errors=errors,central=central,spectrum=self,
+                                   values_units=values_units, sbr=None, min_sigma=fit_min_sigma,
+                                   show_plot=show_plot,plot_id=self.identifier,
+                                   plot_path=self.plot_dir,do_mcmc=True,allow_broad=allow_broad,absorber=self.absorber)
+            else:
+                log.info("Skipping central line signal_score() as already computed.")
+                eli = self.central_eli
+
         except:
             log.error("Exception in spectrum::set_spectra calling signal_score().",exc_info=True)
             eli = None
@@ -4374,7 +4508,8 @@ class Spectrum:
             #if (self.snr is None) or (self.snr == 0):
             #    self.snr = eli.snr
 
-            self.central_eli = copy.deepcopy(eli)
+            if self.central_eli != eli:
+                self.central_eli = copy.deepcopy(eli)
 
             # get very basic info (line fit)
             # coeff = fit_line(wavelengths, values, errors)  # flipped order ... coeff[0] = 0th, coeff[1]=1st
@@ -4447,7 +4582,7 @@ class Spectrum:
 
             self.all_found_lines = found_lines
 
-        if G.CONTINUUM_RULES and (self.all_found_absorbs is None or len(self.all_found_absorbs == 0)):
+        if (G.CONTINUUM_RULES or self.est_g_cont > G.CONTNIUUM_RULES_THRESH) and (self.all_found_absorbs is None or len(self.all_found_absorbs == 0)):
             try:
                 found_absorbers = peakdet(wavelengths,values,errors,values_units=values_units,absorber=True)
             except:
@@ -4456,6 +4591,120 @@ class Spectrum:
             self.all_found_absorbs = found_absorbers
 
         if (found_lines and len(found_lines) > 0) or (found_absorbers and len(found_absorbers)>0):
+
+            #check for H&K
+            x0 = np.array([k.fit_x0 for k in found_absorbers])
+            x0e = np.array([k.fit_x0_err for k in found_absorbers])
+
+            #check pairs of lines ... must be the right separation and similar area, depth, sigma, snr
+            #start from 3933 (some slop from 3934) at z=0 and work out
+
+            k_reference = self.emission_lines[np.where([k.name == "(K)CaII" for k in self.emission_lines])[0][0]]
+            h_reference = self.emission_lines[np.where([k.name == "(H)CaII" for k in self.emission_lines])[0][0]]
+
+            for k in found_absorbers:
+                if (k.fit_x0 + k.fit_x0_err)  > self.h_and_k_waves[0]: #could be k
+                    zp1 = k.fit_x0/self.h_and_k_waves[0]
+                    zp1e = k.fit_x0_err/self.h_and_k_waves[0]
+
+                    hwave = zp1*self.h_and_k_waves[1]
+                    hwave_err = zp1e*self.h_and_k_waves[1]
+
+                    sel1 = (x0-x0e) > (hwave-hwave_err)
+                    sel2 = (x0+x0e) < (hwave+hwave_err)
+                    sel = sel1 & sel2
+
+                    #there is one pair that fits h & k positions
+                    # could be one or more? should only expect one match though
+                    for h in np.array(found_absorbers)[sel]:
+                        good,hk_mcmc = fit_for_h_and_k(k,h,wavelengths,values,errors,values_units,values_dx=G.FLUX_WAVEBIN_WIDTH)
+
+                        if (good is not None) and good:
+                            # !!! WARNING ... must use the hk_mcmc.values_units NOT this functions values_units
+                            # as they can be different
+
+                            #update the EmissionLineInfo in h
+                            h.pix_size = 2.0
+                            h.fit_bin_dx = 2.0
+                            h.sn_pix = hk_mcmc.mcmc_snr_pix
+                            h.absorber = True
+                            h.fit_sigma = hk_mcmc.mcmc_sigma_2[0]
+                            h.fit_sigma_err = (hk_mcmc.mcmc_sigma_2[1] + hk_mcmc.mcmc_sigma_2[1])/2.0
+                            h.fwhm = h.fit_sigma*2.355
+                            h.fit_a = hk_mcmc.mcmc_A_2[0]
+                            h.fit_a_err = 0.5 * (hk_mcmc.mcmc_A_2[1]+hk_mcmc.mcmc_A_2[2])
+                            h.fit_y = hk_mcmc.mcmc_y[0]
+                            h.fit_y_err = 0.5 * (hk_mcmc.mcmc_y[1]+hk_mcmc.mcmc_y[2])
+
+                            #eli.line_flux = hk_mcmc.mcmc_A_2[0]/2.0 * 10**hk_mcmc.values_units
+                            #eli.line_flux_err = 0.25*(hk_mcmc.mcmc_A_2[1]+hk_mcmc.mcmc_A_2[2])* 10**hk_mcmc.values_units
+                            #NOTE 0.25* since 0.5 * for the average and /2.0 for the 2AA
+                            h.fit_x0 = hk_mcmc.mcmc_mu_2[0]
+                            h.fit_dx0 = self.h_and_k_waves[1] - hk_mcmc.mcmc_mu_2[0]/(hk_mcmc.mcmc_mu[0]/self.h_and_k_waves[0])
+                            h.w_obs = hk_mcmc.mcmc_mu_2[0]
+                            h.snr = hk_mcmc.mcmc_snr #technically the SNR for the combined lines, but since
+                            #these are fit as two, keep this value and maybe boost the score
+
+
+                            h.mcmc_x0 = hk_mcmc.mcmc_mu_2
+                            h.mcmc_sigma = hk_mcmc.mcmc_sigma_2
+                            h.mcmc_snr = hk_mcmc.mcmc_snr
+                            h.mcmc_snr_err = hk_mcmc.mcmc_snr_err
+                            h.mcmc_a = np.array(hk_mcmc.mcmc_A_2) #yes, a 3-tuple
+                            h.mcmc_y = np.array(hk_mcmc.mcmc_y)
+                            h.mcmc_dx = h.fit_dx0
+                            h.mcmc_line_flux = h.fit_a/h.fit_bin_dx*(10**hk_mcmc.values_units)
+                            lineflux_err = 0.5*(h.mcmc_a[1]+h.mcmc_a[2])/h.fit_bin_dx*10**hk_mcmc.values_units
+
+                            h.fit_line_flux = h.mcmc_line_flux
+                            h.fit_line_flux_err = lineflux_err
+                            h.line_flux = h.mcmc_line_flux
+                            h.line_flux_err = lineflux_err
+
+                            h.mcmc_line_flux_tuple = [h.mcmc_line_flux,h.mcmc_line_flux+lineflux_err,h.mcmc_line_flux-lineflux_err]
+                            h.mcmc_continuum = hk_mcmc.mcmc_y[0]*10**hk_mcmc.values_units
+                            h.mcmc_continuum_tuple = np.array(hk_mcmc.mcmc_y)*10**hk_mcmc.values_units
+                            h.fit_continuum = h.mcmc_continuum
+                            h.fit_continuum_err = 0.5*(hk_mcmc.mcmc_y[1]+hk_mcmc.mcmc_y[2])/h.fit_bin_dx*10**hk_mcmc.values_units
+
+                #             if (eli.mcmc_a is not None) and (eli.mcmc_y is not None):
+                # a_unc = 0.5 * (abs(eli.mcmc_a[1]) + abs(eli.mcmc_a[2])) / eli.mcmc_dx
+                # y_unc = 0.5 * (abs(eli.mcmc_y[1]) + abs(eli.mcmc_y[2])) / eli.mcmc_dx
+                #
+                # estflux = eli.mcmc_line_flux
+                # estflux_unc = a_unc
+                #
+                # estcont = eli.mcmc_continuum
+                # estcont_unc = y_unc
+                #
+                # eqw_obs = abs(estflux / eli.mcmc_continuum)
+                # eqw_obs_unc = abs(eqw_obs) * np.sqrt((a_unc / estflux) ** 2 + (y_unc / eli.mcmc_continuum) ** 2)
+                #
+                #
+                #
+
+
+
+                            #todo: need to update other fields mcmc_ew_obs, etc
+                            if hk_mcmc.mcmc_y[0] != 0 and hk_mcmc.mcmc_A_2[0] != 0:
+                                ew = hk_mcmc.mcmc_A_2[0] / hk_mcmc.mcmc_y[0]
+                                ew_err = ew * np.sqrt((hk_mcmc.approx_symmetric_error(hk_mcmc.mcmc_A_2) / hk_mcmc.mcmc_A_2[0]) ** 2 +
+                                                      (hk_mcmc.approx_symmetric_error(hk_mcmc.mcmc_y) / hk_mcmc.mcmc_y[0]) ** 2)
+                            else:
+                                ew = hk_mcmc.mcmc_A_2[0]
+                                ew_err = hk_mcmc.approx_symmetric_error(hk_mcmc.mcmc_A_2)
+
+                            h.mcmc_ew_obs = [ew, ew_err, ew_err]
+
+                            h.build(values_units=values_units,allow_broad=False,broadfit=False)
+                            h.raw_score = h.line_score
+                            h.score = signal_calc_scaled_score(h.line_score)
+
+                            self.central_eli = h
+                            self.h_and_k_mcmc = hk_mcmc
+
+                            #todo: go ahead and add as a solution???
+
             #choose the highest score
             i = -1
             j = -1
@@ -4575,6 +4824,184 @@ class Spectrum:
             log.debug(f"Unmatched solution line count {self.unmatched_solution_count} and score {self.unmatched_solution_score}")
         except:
             log.debug("Exception computing unmatched solution count and score",exc_info=True)
+
+
+
+        #if this has strong continuum AND there is no H&K solution already,
+        # explicitly check for an H&K solution (which is not subject to
+        #unmatched lines if z ~ 0 ... often a star and there are lots of unmatches lines
+
+
+        def h_and_k_to_solution(hk_mcmc,h_reference):
+            #build out a solution
+            sol = Classifier_Solution()
+            sol.z = max(0,hk_mcmc.mcmc_mu_2[0]/self.h_and_k_waves[1] - 1.0) #could be slightly negative just due to fitting and rounding
+            sol.central_rest = h_reference.w_rest
+            sol.name = h_reference.name
+            sol.color = h_reference.color
+            sol.emission_line = copy.deepcopy(h_reference)
+            sol.emission_line.w_obs = hk_mcmc.mcmc_mu_2[1]
+
+            sol.emission_line.w_obs = sol.emission_line.w_rest*(1.0 + sol.z)
+            sol.emission_line.solution = True
+            sol.prob_noise = 1.0
+
+            hline = copy.deepcopy(h_reference)
+            eli = EmissionLineInfo()
+            eli.pix_size = 2.0
+            eli.fit_bin_dx = 2.0
+            eli.sn_pix = hk_mcmc.mcmc_snr_pix
+            eli.absorber = True
+            eli.fit_sigma = hk_mcmc.mcmc_sigma_2[0]
+            eli.fit_sigma_err = (hk_mcmc.mcmc_sigma_2[1] + hk_mcmc.mcmc_sigma_2[1])/2.0
+            eli.fit_a = hk_mcmc.mcmc_A_2[0]
+            eli.fit_a_err = 0.5 * (hk_mcmc.mcmc_A_2[1]+hk_mcmc.mcmc_A_2[2])
+            eli.fit_y = hk_mcmc.mcmc_y[0]
+            eli.fit_y_err = 0.5 * (hk_mcmc.mcmc_y[1]+hk_mcmc.mcmc_y[2])
+
+            #eli.line_flux = hk_mcmc.mcmc_A_2[0]/2.0 * 10**hk_mcmc.values_units
+            #eli.line_flux_err = 0.25*(hk_mcmc.mcmc_A_2[1]+hk_mcmc.mcmc_A_2[2])* 10**values_units
+            #NOTE 0.25* since 0.5 * for the average and /2.0 for the 2AA
+            eli.fit_x0 = hk_mcmc.mcmc_mu_2[0]
+            eli.fit_dx0 = self.h_and_k_waves[1] - hk_mcmc.mcmc_mu_2[0]/(sol.z+1)
+            eli.w_obs = hk_mcmc.mcmc_mu_2[0]
+            eli.snr = hk_mcmc.mcmc_snr #technically the SNR for the combined lines, but since
+            #these are fit as two, keep this value and maybe boost the score
+            eli.build(values_units=hk_mcmc.values_units,allow_broad=False,broadfit=False)
+            eli.raw_score = eli.line_score
+            eli.score = signal_calc_scaled_score(eli.line_score)
+
+            #hit just the necessary fields
+
+            hline = copy.deepcopy(h_reference)
+            hline.absorber = True
+            hline.fit_sigma = hk_mcmc.mcmc_sigma_2[0]
+            hline.fit_sigma_err = (hk_mcmc.mcmc_sigma_2[1] + hk_mcmc.mcmc_sigma_2[1])/2.0
+            hline.line_flux = hk_mcmc.mcmc_A_2[0]/2.0 * 10**hk_mcmc.values_units
+            hline.line_flux_err = 0.25*(hk_mcmc.mcmc_A_2[1]+hk_mcmc.mcmc_A_2[2])* 10**hk_mcmc.values_units
+            #NOTE 0.25* since 0.5 * for the average and /2.0 for the 2AA
+            hline.fit_x0 = hk_mcmc.mcmc_mu_2[0]
+            hline.fit_dx0 = self.h_and_k_waves[1] - hk_mcmc.mcmc_mu_2[0]/(sol.z+1)
+            hline.w_obs = hk_mcmc.mcmc_mu_2[0]
+            hline.snr = hk_mcmc.mcmc_snr #technically the SNR for the combined lines, but since
+            #these are fit as two, keep this value and maybe boost the score
+            hline.flux = hline.line_flux
+            hline.flux_err = hline.line_flux_err
+
+            hline.fit_line_flux = hline.line_flux
+            hline.fit_line_flux_err = hline.line_flux_err
+
+            hline.mcmc_line_flux_tuple = [hline.line_flux,hline.line_flux+hline.line_flux_err,hline.line_flux-hline.line_flux_err]
+            hline.mcmc_continuum = hk_mcmc.mcmc_y[0]*10**hk_mcmc.values_units
+            hline.mcmc_continuum_tuple = np.array(hk_mcmc.mcmc_y)*10**hk_mcmc.values_units
+            hline.fit_continuum = hline.mcmc_continuum
+            hline.fit_continuum_err = 0.5*(hk_mcmc.mcmc_y[1]+hk_mcmc.mcmc_y[2])/eli.fit_bin_dx*10**hk_mcmc.values_units
+
+         #   hline.mcmc_line_flux = hline.fit_a_err[0]/hline.fit_bin_dx*10**hk_mcmc.values_units
+         #   lineflux_err = hline.mcmc_a[0]/hline.fit_bin_dx*10**hk_mcmc.values_units
+         #   hline.mcmc_line_flux_tuple = [hline.mcmc_line_flux,hline.mcmc_line_flux+lineflux_err,hline.mcmc_line_flux-lineflux_err]
+
+            sol.score = eli.line_score
+            sol.prob_noise *= eli.prob_noise
+            sol.lines.append(hline)
+
+            return sol
+
+
+        h_and_k_found = self.h_and_k_mcmc is not None
+        if h_and_k_found:
+            hk_mcmc = self.h_and_k_mcmc
+            h_reference = self.emission_lines[np.where([k.name == "(H)CaII" for k in self.emission_lines])[0][0]]
+            sol =  h_and_k_to_solution(self.h_and_k_mcmc,h_reference)
+            if sol is not None:
+                self.solutions.append(sol)
+        else:  #moved to where we find the central wavelength
+            hk_mcmc = None
+            if (G.CONTINUUM_RULES or (self.estcont > G.CONTNIUUM_RULES_THRESH)) and (self.all_found_absorbs and len(self.all_found_absorbs) > 0) and \
+                    not np.any([s.emission_line.w_rest in [self.h_and_k_waves] for s in solutions]):
+
+                x0 = np.array([k.fit_x0 for k in self.all_found_absorbs])
+                x0e = np.array([k.fit_x0_err for k in self.all_found_absorbs])
+                # sel = x0+x0e > self.h_and_k_waves[0]
+                #
+                # x0 = x0[sel]
+                # x0e = x0e[sel]
+
+
+                #future: cannot just check for already found absorption lines with the correct separations
+                #since the fits can fail for a variety of reasons ... should scan again as double aborption Gaussian?
+                #BUT, usually they should be found (mostly the problem is with stars and extra lines, and there
+                #is a work around implemented earlier for that
+
+                #check pairs of lines ... must be the right separation and similar area, depth, sigma, snr
+                #start from 3933 (some slop from 3934) at z=0 and work out
+
+                k_reference = self.emission_lines[np.where([k.name == "(K)CaII" for k in self.emission_lines])[0][0]]
+                h_reference = self.emission_lines[np.where([k.name == "(H)CaII" for k in self.emission_lines])[0][0]]
+
+                for k in self.all_found_absorbs:
+                    if (k.fit_x0 + k.fit_x0_err)  > self.h_and_k_waves[0]: #could be k
+                        zp1 = k.fit_x0/self.h_and_k_waves[0]
+                        zp1e = k.fit_x0_err/self.h_and_k_waves[0]
+
+                        hwave = zp1*self.h_and_k_waves[1]
+                        hwave_err = zp1e*self.h_and_k_waves[1]
+
+                        sel1 = (x0-x0e) > (hwave-hwave_err)
+                        sel2 = (x0+x0e) < (hwave+hwave_err)
+                        sel = sel1 & sel2
+
+                        #there is one pair that fits h & k positions
+                        # could be one or more? should only expect one match though
+                        for h in np.array(self.all_found_absorbs)[sel]:
+
+                            good,hk_mcmc = fit_for_h_and_k(k,h,wavelengths,values,errors,values_units,values_dx=G.FLUX_WAVEBIN_WIDTH)
+
+                            if (good is not None) and good:
+                               sol =  h_and_k_to_solution(hk_mcmc,h_reference)
+                               self.h_and_k_mcmc = hk_mcmc
+                               if sol is not None:
+                                   self.solutions.append(sol)
+                                   h_and_k_found = True
+
+
+        if h_and_k_found:
+            try:
+                self.rescore()
+                #todo: if the h or k line is now the top score, set the central wavelength to that solution??
+                if self.solutions[0].central_rest in self.h_and_k_waves: #can't that is in hetdex object?
+                    self.central = hk_mcmc.mcmc_mu_2[0]
+
+                    eli = EmissionLineInfo() #this will become the new central_eli so needs to be fully populated
+                    eli.pix_size = 2.0
+                    eli.fit_bin_dx = 2.0
+                    eli.sn_pix = hk_mcmc.mcmc_snr_pix
+                    eli.absorber = True
+                    eli.fit_sigma = hk_mcmc.mcmc_sigma_2[0]
+                    eli.fit_sigma_err = (hk_mcmc.mcmc_sigma_2[1] + hk_mcmc.mcmc_sigma_2[1])/2.0
+                    eli.fit_a = hk_mcmc.mcmc_A_2[0]
+                    eli.fit_a_err = 0.5 * (hk_mcmc.mcmc_A_2[1] + hk_mcmc.mcmc_A_2[2])
+                    eli.fit_y = hk_mcmc.mcmc_y[0]
+                    eli.fit_y_err = 0.5 * (hk_mcmc.mcmc_y[1]+hk_mcmc.mcmc_y[2])
+
+                    #eli.line_flux = hk_mcmc.mcmc_A_2[0]/2.0 * 10**values_units
+                    #eli.line_flux_err = 0.25*(hk_mcmc.mcmc_A_2[1]+hk_mcmc.mcmc_A_2[2])* 10**values_units
+                    #NOTE 0.25* since 0.5 * for the average and /2.0 for the 2AA
+                    eli.fit_x0 = hk_mcmc.mcmc_mu_2[0]
+                    eli.fit_dx0 = self.h_and_k_waves[1] - hk_mcmc.mcmc_mu_2[0]/(hk_mcmc.mcmc_mu_2[0]/self.h_and_k_waves[1])
+                    eli.w_obs = hk_mcmc.mcmc_mu_2[0]
+                    eli.snr = hk_mcmc.mcmc_snr #technically the SNR for the combined lines, but since
+                    #these are fit as two, keep this value and maybe boost the score
+
+
+
+                    eli.build(values_units=values_units,allow_broad=False,broadfit=False)
+                    eli.raw_score = eli.line_score
+                    eli.score = signal_calc_scaled_score(eli.line_score)
+
+                    self.central_eli = eli
+            except:
+                log.warning("Exception! in Spectrum.classify() switching to H&K Solution.",exc_info=True)
 
         #get the LAE and OII solutions and send to Bayesian to check p_LAE/p_OII
         self.addl_fluxes = []
@@ -5329,19 +5756,19 @@ class Spectrum:
                     per_line_total_score += s.score
 
 
-            #H&K a low-z galaxy or star
-            if G.CONTINUUM_RULES:
-                boost = self.scale_consistency_score_to_solution_score_factor(self.solution_consistent_with_H_and_K(s))
-                if boost != 1.0:
-                    log.info(f"Solution: {s.name} score {s.score} to be modified by x{boost} for consistency with H & K lines")
+                #H&K a low-z galaxy or star
+                if G.CONTINUUM_RULES:
+                    boost = self.scale_consistency_score_to_solution_score_factor(self.solution_consistent_with_H_and_K(s))
+                    if boost != 1.0:
+                        log.info(f"Solution: {s.name} score {s.score} to be modified by x{boost} for consistency with H & K lines")
 
-                    # if ((s.score + central_eli.line_score) > G.MULTILINE_FULL_SOLUTION_SCORE) and \
-                    #         (boost > 1.0) and (no_plus_boost is False):  # check BEFORE the boost
-                    #     self.add_classification_label("lzg") #Low-z Galaxy
+                        # if ((s.score + central_eli.line_score) > G.MULTILINE_FULL_SOLUTION_SCORE) and \
+                        #         (boost > 1.0) and (no_plus_boost is False):  # check BEFORE the boost
+                        #     self.add_classification_label("lzg") #Low-z Galaxy
 
-                    per_line_total_score -= s.score
-                    s.score =  boost * s.score
-                    per_line_total_score += s.score
+                        per_line_total_score -= s.score
+                        s.score =  boost * s.score
+                        per_line_total_score += s.score
 
 
         else: #still check for invalid solutions (no valid central emission line)

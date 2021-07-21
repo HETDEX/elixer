@@ -145,6 +145,7 @@ class MCMC_Gauss:
         #not tuple, just single floats
         self.mcmc_snr = None
         self.mcmc_snr_err = 0
+        self.mcmc_snr_pix = 0
         # just for reference ... MCMC itself does not need to know about this
         # the caller DOES though and needs to adjust the line_flux accordingly
         #self.mcmc_line_flux = None #the actual line flux (erg s^-1 cm^-2);
@@ -382,6 +383,7 @@ class MCMC_Gauss:
                 log.debug("MCMC burn in (%d) ...." %self.burn_in)
                 pos, prob, state = self.sampler.run_mcmc(pos, self.burn_in,skip_initial_state_check=True)  # burn in
                 log.debug("MCMC main run (%d) ..." %self.main_run)
+                log.debug("MCMC (w:%0.2f) main run (%d) ..." %(self.initial_mu,self.main_run))
                 pos, prob, state = self.sampler.run_mcmc(pos, self.main_run, rstate0=state,skip_initial_state_check=True)  # start from end position of burn-in
 
             self.samples = self.sampler.flatchain  # collapse the walkers and interations (aka steps or epochs)
@@ -468,6 +470,7 @@ class MCMC_Gauss:
                 #self.mcmc_snr = flux_frac*abs(self.mcmc_A[0]/2.0) / np.sqrt(np.nansum(data_err**2))
                 self.mcmc_snr = abs(np.sum(model_fit-self.mcmc_y[0])) / np.sqrt(np.nansum(data_err**2))
                 self.mcmc_snr_err = abs(0.5*(self.mcmc_A[1]+self.mcmc_A[2])/self.mcmc_A[0] * self.mcmc_snr)
+                self.mcmc_snr_pix = len(model_fit)
                 log.info(f"MCMC SNR model Area with data error: {self.mcmc_snr} +/- {self.mcmc_snr_err}")
                # print(f"***** TEST MCMC SNR: {self.mcmc_snr}")
                 #self.mcmc_snr = abs(np.sum(model_fit)) / np.sqrt(np.sum(self.err_y[left:right]*self.err_y[left:right])) #/ np

@@ -17,14 +17,17 @@ try:
     from elixer import global_config as G
     from elixer import corner
     from elixer import emcee
+    from elixer import utilities
 except:
     import global_config as G
     import corner
     import emcee
+    import utilities
 
 import numpy as np
 import io
 import matplotlib.pyplot as plt
+import copy
 
 import warnings
 
@@ -132,7 +135,7 @@ class MCMC_Double_Gauss:
         #self.initial_peak_2 = None
 
         self.max_sigma = 30.0
-        self.range_mu = 5.0
+        self.range_mu = None
         self.max_A_mult = 2.0
         self.max_y_mult = 2.0
         #self.min_y = #-10.0 #-100.0 #should this be zero? or some above zero but low limit
@@ -166,6 +169,8 @@ class MCMC_Double_Gauss:
         self.mcmc_sigma_2 = None
         self.mcmc_A_2 = None
 
+        self.mcmc_snr_pix = 0
+        self.values_units = None
         # just for reference ... MCMC itself does not need to know about this
         # the caller DOES though and needs to adjust the line_flux accordingly
         #self.mcmc_line_flux = None #the actual line flux (erg s^-1 cm^-2);
@@ -356,7 +361,9 @@ class MCMC_Double_Gauss:
         self.delta_y = abs(self.initial_y)*0.2#,max(self.initial_peak,self.initial_peak_2)*0.1)
 
         self.max_sigma = self.initial_sigma + self.initial_sigma_2
-        self.range_mu = max(5.0,abs(self.initial_mu - self.initial_mu_2))  #should be allowed to line up (which would be right at /2.0
+        if self.range_mu is None:
+            self.range_mu = max(5.0,abs(self.initial_mu - self.initial_mu_2))  #should be allowed to line up (which would be right at /2.0
+
         #so using 1.5 for some slop
 
         #here for initial positions of the walkers, sample from narrow gaussian (hence the randn or randNormal)
@@ -396,7 +403,7 @@ class MCMC_Double_Gauss:
                 warnings.simplefilter("ignore")
                 log.debug("MCMC burn in (%d) ...." %self.burn_in)
                 pos, prob, state = self.sampler.run_mcmc(pos, self.burn_in)  # burn in
-                log.debug("MCMC main run (%d) ..." %self.main_run)
+                log.debug("MCMC (w:%0.2f,%0.2f) main run (%d) ..." %(self.initial_mu,self.initial_mu_2,self.main_run))
                 pos, prob, state = self.sampler.run_mcmc(pos, self.main_run, rstate0=state)  # start from end position of burn-in
 
             self.samples = self.sampler.flatchain  # collapse the walkers and interations (aka steps or epochs)
@@ -408,11 +415,59 @@ class MCMC_Double_Gauss:
                 map(lambda v: (v[1], v[2] - v[1], v[1] - v[0]),zip(*np.percentile(self.samples, self.UncertaintyRange,axis=0)))
 
             try:
+                sigma_width = 2.0
                 #self.mcmc_snr = self.mcmc_A[0] / (0.5 * (abs(self.mcmc_A[1]) + abs(self.mcmc_A[2])))
-                rms_model = self.compute_model(self.data_x,self.mcmc_mu[0],self.mcmc_sigma[0],self.mcmc_A[0],self.mcmc_y[0],
+                # rms_model = self.compute_model(self.data_x,self.mcmc_mu[0],self.mcmc_sigma[0],self.mcmc_A[0],self.mcmc_y[0],
+                #                                self.mcmc_mu_2[0],self.mcmc_sigma_2[0],self.mcmc_A_2[0])
+                # err = rms(self.data_y,rms_model,None,None,False)
+
+
+
+                delta_left_wave = max(self.mcmc_sigma[0]*sigma_width,2.1195)
+                delta_right_wave = max(self.mcmc_sigma_2[0]*sigma_width,2.1195)
+                center_wave = 0.5* (self.mcmc_mu[0] + self.mcmc_mu_2[0])
+
+
+                #must be at least +/- 2.1195AA
+                #!!! Notice: if we ever change this to +/- 1sigma, need to switch out to sum over the data
+                #instead of the model !!!
+                left,*_ = utilities.getnearpos(self.data_x,center_wave-delta_left_wave)
+                right,*_ = utilities.getnearpos(self.data_x,center_wave+delta_right_wave)
+
+                if self.data_x[left] - (center_wave-delta_left_wave) < 0:
+                    left += 1 #less than 50% overlap in the left bin, so move one bin to the red
+                if self.data_x[right] - (center_wave+delta_right_wave) > 0:
+                    right -=1 #less than 50% overlap in the right bin, so move one bin to the blue
+
+                #lastly ... could combine, but this is easier to read
+                right += 1 #since the right index is not included in slice
+
+                #we want the next wavebin to either side
+                # left = max(0,left-1)
+                #right = min(right+1,len(self.data_x)) #+2 insted of +1 since the slice does not include the end
+                #at 4 sigma the mcmc_A[0] is almost identical to the model_fit (as you would expect)
+                #note: if choose to sum over model fit, remember that this is usually over 2AA wide bins, so to
+                #compare to the error data, need to multiply the model_sum by the bin width (2AA)
+                #(or noting that the Area == integrated flux x binwidth)
+                model_fit = self.compute_model(self.data_x,self.mcmc_mu[0],self.mcmc_sigma[0],self.mcmc_A[0],self.mcmc_y[0],
                                                self.mcmc_mu_2[0],self.mcmc_sigma_2[0],self.mcmc_A_2[0])
-                err = rms(self.data_y,rms_model,None,None,False)
-                self.mcmc_snr = (np.sum(rms_model)-len(rms_model)*self.mcmc_y[0])/(np.sqrt(len(self.data_x))*err)
+                #apcor = np.ones(len(model_fit))
+                #subtract off the y continuum since we want flux in the model
+                data_err = copy.copy(self.err_y[left:right])
+                data_err[data_err<=0] = np.nan #Karl has 0 value meaning it is flagged and should be skipped
+
+                #self.mcmc_snr = (np.sum(rms_model)-len(rms_model)*self.mcmc_y[0])/(np.sqrt(len(self.data_x))*err)
+
+
+
+                self.mcmc_snr = abs(np.sum(model_fit-self.mcmc_y[0])) / np.sqrt(np.nansum(data_err**2))
+                self.mcmc_snr_err = abs(  ((0.5*(self.mcmc_A[1]+self.mcmc_A[2])/self.mcmc_A[0]) +
+                                           (0.5*(self.mcmc_A_2[1]+self.mcmc_A_2[2])/self.mcmc_A_2[0])) *
+                                           self.mcmc_snr)
+
+                self.mcmc_snr_pix = len(model_fit)
+
+
                 #these are fluxes, so just sum over the model to get approximate total flux (aread under the curve) = signal
                 #and divide by the sqrt of N (number of pixels) * the rmse as the error
                 #self.mcmc_snr = rms(self.data_y,rms_model,None,None,False)

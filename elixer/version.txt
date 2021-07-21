@@ -1,6 +1,12 @@
 changes to elixer by version
 
 
+1.3.0a7 [2021-07-21]
+* reduced the standard spectra range to fit to the central peak +/- 20AA (was at 50AA and was failing to find some noisy
+  lines).
+* added explicit check for H&K lines as a separated double Gaussian for continuum objects (HETDEX definition) or emission
+  line objects where g-band magnitued is brigher than approx 20 AB (5e-17 cgs at 4500AA f_iso)
+
 1.3.0a6 [2021-07-19]
 * fixed bug where fitted line flux error for extra lines did not get the scale (1e-17, usually) and 2AA applied
   so as reported in SpectraLines table, the error could be (by units) in the 10s or 100s instead of e-19 - e-17 or so.
