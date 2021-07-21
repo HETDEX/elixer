@@ -2439,8 +2439,8 @@ def fit_for_h_and_k(k_eli,h_eli,wavelengths,values,errors,values_units,values_dx
         #say 40.0AA for now for an upper limit ... too far to be called a doublet
         #assuming about 8AA rest for the doublet, shifted to z = 3.5 -> 36AA
 
-        print("*****turn off double_guass_fit.png *****")
-        mcmc.show_fit(filename="fit_for_h_and_k.png")
+        # print("*****turn off double_guass_fit.png *****")
+        # mcmc.show_fit(filename="fit_for_h_and_k.png")
         #  mcmc.visualize(filename="double_gauss_vis.png")
         if (mcmc.mcmc_snr > 5.0) and (abs(mcmc.mcmc_mu[0]/k_eli.fit_x0 - mcmc.mcmc_mu_2[0]/h_eli.fit_x0) < 0.005) and \
                 (abs( (mcmc.mcmc_A_2[0] - mcmc.mcmc_A[0]) / (0.5* (mcmc.mcmc_A_2[0] + mcmc.mcmc_A[0]))) < 0.5):
