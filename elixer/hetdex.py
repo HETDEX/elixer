@@ -1450,7 +1450,7 @@ class DetObj:
             if self.spec_obj.solutions is not None and len(self.spec_obj.solutions)> 0:
                 #want to be really clear condition here, so both have to be > MULTILINE_FULL_SOLUTION_SCORE
                 #not just > MAX_OK_UNMATCHED_LINES_SCORE
-                if (self.spec_obj.solutions[0].unmatched_lines_score > G.MULTILINE_FULL_SOLUTION_SCORE) and \
+                if (self.spec_obj.solutions[0].unmatched_lines_score > (G.MULTILINE_MIN_SOLUTION_SCORE-1)) and \
                    (self.spec_obj.solutions[0].score > G.MULTILINE_FULL_SOLUTION_SCORE):
                     self.flags |= G.DETFLAG_BLENDED_SPECTRA
                     log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_BLENDED_SPECTRA")
