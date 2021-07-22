@@ -4582,7 +4582,7 @@ class Spectrum:
 
             self.all_found_lines = found_lines
 
-        if (G.CONTINUUM_RULES or self.est_g_cont > G.CONTNIUUM_RULES_THRESH) and (self.all_found_absorbs is None or len(self.all_found_absorbs == 0)):
+        if (G.CONTINUUM_RULES or self.est_g_cont > G.CONTNIUUM_RULES_THRESH) and (self.all_found_absorbs is None or len(self.all_found_absorbs) == 0):
             try:
                 found_absorbers = peakdet(wavelengths,values,errors,values_units=values_units,absorber=True)
             except:
