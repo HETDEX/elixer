@@ -1749,7 +1749,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         else:
             eli.mcmc_y = np.array((0.,0.,0.))
             eli.mcmc_continuum = eli.mcmc_y[0]
-            eli.mcmc_continuum_tuple = np.array(mcmc.mcmc_y)
+            eli.mcmc_continuum_tuple = np.array(eli.mcmc_y)
 
         if values_units < 0:
             eli.mcmc_a *= 10**values_units
