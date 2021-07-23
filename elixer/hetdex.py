@@ -6621,7 +6621,8 @@ class DetObj:
 
             #update with MY FIT results?
             central_wave_volatile = False
-            if G.REPORT_ELIXER_MCMC_FIT or self.eqw_obs == 0 or G.CONTINUUM_RULES:
+            if (self.spec_obj is not None and self.spec_obj.central_eli is not None) and \
+                (G.REPORT_ELIXER_MCMC_FIT or (self.eqw_obs == 0) or G.CONTINUUM_RULES):
                 log.info("Using ELiXer MCMC Fit for line flux, continuum, EW, and SNR")
                 central_wave_volatile = True #CAN change te central wave after classifing
                 try:

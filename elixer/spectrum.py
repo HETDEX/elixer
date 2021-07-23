@@ -1738,6 +1738,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         else:
             eli.mcmc_a = np.array((0.,0.,0.))
             eli.mcmc_line_flux = eli.mcmc_a[0]
+            eli.mcmc_line_flux_tuple = np.array((0.,0.,0.))
 
         if mcmc.mcmc_y is not None:
             eli.mcmc_y = np.array(mcmc.mcmc_y)
@@ -1748,6 +1749,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         else:
             eli.mcmc_y = np.array((0.,0.,0.))
             eli.mcmc_continuum = eli.mcmc_y[0]
+            eli.mcmc_continuum_tuple = np.array(mcmc.mcmc_y)
 
         if values_units < 0:
             eli.mcmc_a *= 10**values_units
@@ -1800,7 +1802,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             pass
 
         #if recommend_mcmc: #this was a marginal LSQ fit, so replace key the "fit_xxx" with the mcmc values
-        if True:
+        if eli.mcmc_x0 is not None:
             fit_scale = 1/(10 ** values_units)
 
             eli.fit_x0 = eli.mcmc_x0[0]
@@ -1816,34 +1818,35 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             eli.fit_y_err = 0.5*(eli.mcmc_y[1]+eli.mcmc_y[2])* fit_scale
 
 
-        #MCMC is preferred to update key values
-        eli.line_flux = eli.mcmc_line_flux
-        eli.line_flux_err = 0.5*(eli.mcmc_line_flux_tuple[1]+eli.mcmc_line_flux_tuple[2])
+            #MCMC is preferred to update key values
+            eli.line_flux = eli.mcmc_line_flux
+            eli.line_flux_err = 0.5*(eli.mcmc_line_flux_tuple[1]+eli.mcmc_line_flux_tuple[2])
 
-        #explicit SNR
-        # left,*_ = SU.getnearpos(wavelengths,eli.fit_x0-eli.fit_sigma*4)
-        # right,*_ = SU.getnearpos(wavelengths,eli.fit_x0+eli.fit_sigma*4)
-        # noise = np.sum(errors[left:right]*(10 ** values_units))
-
-
-        if eli.mcmc_snr is not None and eli.mcmc_snr > 0:
-            log.debug(f"MCMC SNR update: old {eli.snr}+/-{eli.snr_err}, new {eli.mcmc_snr}+/-{eli.mcmc_snr_err}")
-            eli.snr = eli.mcmc_snr
-            eli.snr_err = eli.mcmc_snr_err
-        eli.fwhm = eli.mcmc_sigma[0]*2.355
-
-        eli.mcmc_ew_obs = [ew, ew_err, ew_err]
-        log.debug("MCMC Peak height = %f" % (max(narrow_wave_counts)))
-        log.debug("MCMC calculated EW_obs for main line = %0.3g +/- %0.3g" % (ew, ew_err))
-        log.debug(f"MCMC line flux = {eli.mcmc_line_flux}")
+            #explicit SNR
+            # left,*_ = SU.getnearpos(wavelengths,eli.fit_x0-eli.fit_sigma*4)
+            # right,*_ = SU.getnearpos(wavelengths,eli.fit_x0+eli.fit_sigma*4)
+            # noise = np.sum(errors[left:right]*(10 ** values_units))
 
 
-        log.debug(f"Calc SNR line_flux/data err: {eli.line_flux/np.sqrt(np.sum(narrow_wave_errors))}")
+            if eli.mcmc_snr is not None and eli.mcmc_snr > 0:
+                log.debug(f"MCMC SNR update: old {eli.snr}+/-{eli.snr_err}, new {eli.mcmc_snr}+/-{eli.mcmc_snr_err}")
+                eli.snr = eli.mcmc_snr
+                eli.snr_err = eli.mcmc_snr_err
 
-        #and rescore from MCMC
-        old_score = eli.line_score
-        eli.build(values_units=values_units,allow_broad=allow_broad,broadfit=broadfit)
-        log.info(f"Rescore from MCMC: old {old_score}, new {eli.line_score}")
+            eli.fwhm = eli.mcmc_sigma[0]*2.355
+
+            eli.mcmc_ew_obs = [ew, ew_err, ew_err]
+            log.debug("MCMC Peak height = %f" % (max(narrow_wave_counts)))
+            log.debug("MCMC calculated EW_obs for main line = %0.3g +/- %0.3g" % (ew, ew_err))
+            log.debug(f"MCMC line flux = {eli.mcmc_line_flux}")
+
+
+            log.debug(f"Calc SNR line_flux/data err: {eli.line_flux/np.sqrt(np.sum(narrow_wave_errors))}")
+
+            #and rescore from MCMC
+            old_score = eli.line_score
+            eli.build(values_units=values_units,allow_broad=allow_broad,broadfit=broadfit)
+            log.info(f"Rescore from MCMC: old {old_score}, new {eli.line_score}")
 
 
 
