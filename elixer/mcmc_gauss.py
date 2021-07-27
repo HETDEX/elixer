@@ -5,11 +5,13 @@ try:
     from elixer import corner
     from elixer import utilities
     from elixer import emcee
+    from elixer import spectrum_utilities as SU
 except:
     import global_config as G
     import corner
     import utilities
     import emcee
+    import spectrum_utilities as SU
 
 import numpy as np
 import io
@@ -146,6 +148,7 @@ class MCMC_Gauss:
         self.mcmc_snr = None
         self.mcmc_snr_err = 0
         self.mcmc_snr_pix = 0
+        self.mcmc_chi2 = 0
         # just for reference ... MCMC itself does not need to know about this
         # the caller DOES though and needs to adjust the line_flux accordingly
         #self.mcmc_line_flux = None #the actual line flux (erg s^-1 cm^-2);
@@ -230,13 +233,13 @@ class MCMC_Gauss:
         # note: could take some other dynamic maximum for y (like compute the peak ... y can't be greater than that
 
         if self.initial_A < 0 : #same as emission, but "A" is negative (flip sign) and y is between a max and zero
-            if (-self.range_mu < mu - self.initial_mu < self.range_mu) and \
+            if (-self.range_mu < (mu - self.initial_mu) < self.range_mu) and \
                     (0.0 < sigma < self.max_sigma) and \
                     (self.max_A_mult * self.initial_A < A < 0.0) and \
                     (self.min_y < y < self.max_y_mult * self.initial_peak):
                 return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
         else:
-            if (-self.range_mu < mu - self.initial_mu < self.range_mu) and \
+            if (-self.range_mu < (mu - self.initial_mu) < self.range_mu) and \
                 (0.0 < sigma < self.max_sigma) and \
                 (0.0 < A < self.max_A_mult * self.initial_A) and \
                 (self.min_y < y < self.max_y_mult * self.initial_peak):
@@ -446,6 +449,8 @@ class MCMC_Gauss:
                 #subtract off the y continuum since we want flux in the model
                 data_err = copy.copy(self.err_y[left:right])
                 data_err[data_err<=0] = np.nan #Karl has 0 value meaning it is flagged and should be skipped
+
+                data_flux = self.data_y[left:right]
                 #rms_err = rms(self.data_y[left:right],model_fit[left:right],None,None,False)
 
                 #signal is the sum of the data between +/- 2.5 sigma (minus the y-offset)
@@ -472,6 +477,10 @@ class MCMC_Gauss:
                 self.mcmc_snr_err = abs(0.5*(self.mcmc_A[1]+self.mcmc_A[2])/self.mcmc_A[0] * self.mcmc_snr)
                 self.mcmc_snr_pix = len(model_fit)
                 log.info(f"MCMC SNR model Area with data error: {self.mcmc_snr} +/- {self.mcmc_snr_err}")
+
+                self.mcmc_chi2, _ = SU.chi_sqr(data_flux,model_fit,error=data_err,c=1.0)#,dof=3)
+                log.info(f"MCMC chi2: {self.mcmc_chi2}")
+
                # print(f"***** TEST MCMC SNR: {self.mcmc_snr}")
                 #self.mcmc_snr = abs(np.sum(model_fit)) / np.sqrt(np.sum(self.err_y[left:right]*self.err_y[left:right])) #/ np
 

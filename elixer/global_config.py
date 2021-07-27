@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.13.0a7'
+__version__ = '1.13.0a8'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -70,6 +70,8 @@ PANACEA_RED_BASEDIR = None
 PANACEA_RED_BASEDIR_DEFAULT = None
 PANACEA_HDF5_BASEDIR = None
 PIXFLT_LOC = None
+FORCE_MCMC = False
+FORCE_MCMC_MIN_SNR = 4.0
 
 CANDELS_EGS_Stefanon_2016_BASE_PATH = None
 EGS_CFHTLS_PATH = None

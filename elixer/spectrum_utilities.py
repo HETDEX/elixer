@@ -425,7 +425,7 @@ def chi_sqr(obs, exp, error=None, c=None,dof=None):
     x = len(obs)
 
     if error is not None:
-        error = np.array(error)
+        error = np.array(copy.copy(error)) #copy, since we are going to possible modify it
 
     if (error is not None) and (c is None):
         c = np.sum((obs*exp)/(error*error)) / np.sum((exp*exp)/(error*error))
@@ -437,10 +437,20 @@ def chi_sqr(obs, exp, error=None, c=None,dof=None):
         error=np.zeros(np.shape(obs))
         error += 1.0
 
+    error[error==0] = 1.0
+
+    #test
+    dof = None
     if dof is not None:
-        chisqr =  1./(len(obs)-dof) * np.sum(((obs - c * exp) / error) ** 2)
-    else:
-        chisqr = np.sum( ((obs - c*exp)/error)**2 )
+        dof -= 1
+
+    try:
+        if dof is not None and (len(obs)-dof) > 0:
+            chisqr =  1./(len(obs)-dof) * np.sum(((obs - c * exp) / error) ** 2)
+        else:
+            chisqr = np.sum( ((obs - c*exp)/error)**2 )
+    except:
+        log.warning("Exception! Exception computing chi2.",exc_info=True)
     #chisqr = np.sum( ((obs - c*exp)**2)/(error**2))
 
     # for i in range(x):

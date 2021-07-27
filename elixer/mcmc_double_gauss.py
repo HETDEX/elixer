@@ -18,11 +18,13 @@ try:
     from elixer import corner
     from elixer import emcee
     from elixer import utilities
+    from elixer import spectrum_utilities as SU
 except:
     import global_config as G
     import corner
     import emcee
     import utilities
+    import spectrum_utilities as SU
 
 import numpy as np
 import io
@@ -164,6 +166,7 @@ class MCMC_Double_Gauss:
         self.mcmc_A = None
         self.mcmc_y = None
         self.mcmc_snr = None #snr as flux_area/1-sigma uncertainty
+        self.mcmc_chi2 = 0
 
         self.mcmc_mu_2 = None  #3-tuples [0] = fit, [1] = fit +16%,  [2] = fit - 16%
         self.mcmc_sigma_2 = None
@@ -425,18 +428,18 @@ class MCMC_Double_Gauss:
 
                 delta_left_wave = max(self.mcmc_sigma[0]*sigma_width,2.1195)
                 delta_right_wave = max(self.mcmc_sigma_2[0]*sigma_width,2.1195)
-                center_wave = 0.5* (self.mcmc_mu[0] + self.mcmc_mu_2[0])
+                #center_wave = 0.5* (self.mcmc_mu[0] + self.mcmc_mu_2[0])
 
 
                 #must be at least +/- 2.1195AA
                 #!!! Notice: if we ever change this to +/- 1sigma, need to switch out to sum over the data
                 #instead of the model !!!
-                left,*_ = utilities.getnearpos(self.data_x,center_wave-delta_left_wave)
-                right,*_ = utilities.getnearpos(self.data_x,center_wave+delta_right_wave)
+                left,*_ = utilities.getnearpos(self.data_x,self.mcmc_mu[0]-delta_left_wave)
+                right,*_ = utilities.getnearpos(self.data_x,self.mcmc_mu_2[0]+delta_right_wave)
 
-                if self.data_x[left] - (center_wave-delta_left_wave) < 0:
+                if self.data_x[left] - (self.mcmc_mu[0] -delta_left_wave) < 0:
                     left += 1 #less than 50% overlap in the left bin, so move one bin to the red
-                if self.data_x[right] - (center_wave+delta_right_wave) > 0:
+                if self.data_x[right] - (self.mcmc_mu_2[0]+delta_right_wave) > 0:
                     right -=1 #less than 50% overlap in the right bin, so move one bin to the blue
 
                 #lastly ... could combine, but this is easier to read
@@ -449,15 +452,14 @@ class MCMC_Double_Gauss:
                 #note: if choose to sum over model fit, remember that this is usually over 2AA wide bins, so to
                 #compare to the error data, need to multiply the model_sum by the bin width (2AA)
                 #(or noting that the Area == integrated flux x binwidth)
-                model_fit = self.compute_model(self.data_x,self.mcmc_mu[0],self.mcmc_sigma[0],self.mcmc_A[0],self.mcmc_y[0],
+                model_fit = self.compute_model(self.data_x[left:right],self.mcmc_mu[0],self.mcmc_sigma[0],self.mcmc_A[0],self.mcmc_y[0],
                                                self.mcmc_mu_2[0],self.mcmc_sigma_2[0],self.mcmc_A_2[0])
                 #apcor = np.ones(len(model_fit))
                 #subtract off the y continuum since we want flux in the model
                 data_err = copy.copy(self.err_y[left:right])
                 data_err[data_err<=0] = np.nan #Karl has 0 value meaning it is flagged and should be skipped
-
+                data_flux = self.data_y[left:right]
                 #self.mcmc_snr = (np.sum(rms_model)-len(rms_model)*self.mcmc_y[0])/(np.sqrt(len(self.data_x))*err)
-
 
 
                 self.mcmc_snr = abs(np.sum(model_fit-self.mcmc_y[0])) / np.sqrt(np.nansum(data_err**2))
@@ -466,6 +468,10 @@ class MCMC_Double_Gauss:
                                            self.mcmc_snr)
 
                 self.mcmc_snr_pix = len(model_fit)
+                log.info(f"MCMC SNR model Area with data error: {self.mcmc_snr} +/- {self.mcmc_snr_err}")
+
+                self.mcmc_chi2, _ = SU.chi_sqr(data_flux,model_fit,error=data_err,c=1.0)#,dof=3)
+                log.info(f"MCMC chi2: {self.mcmc_chi2}")
 
 
                 #these are fluxes, so just sum over the model to get approximate total flux (aread under the curve) = signal

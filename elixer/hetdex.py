@@ -5702,34 +5702,60 @@ class DetObj:
                                           continuum_g=self.best_gmag_cgs_cont,continuum_g_unc=self.best_gmag_cgs_cont_unc)
 
                 if self.spec_obj.central_eli is not None:
-                    self.estflux = self.spec_obj.central_eli.mcmc_line_flux
-                    self.estflux_unc = 0.5 * (self.spec_obj.central_eli.mcmc_line_flux_tuple[1] +
-                                              self.spec_obj.central_eli.mcmc_line_flux_tuple[2])
 
-                    self.eqw_obs = self.spec_obj.central_eli.mcmc_ew_obs[0]
-                    self.eqw_obs_unc = 0.5 * (self.spec_obj.central_eli.mcmc_ew_obs[1] +
-                                              self.spec_obj.central_eli.mcmc_ew_obs[2])
+                    #update the central wavelength
+                    log.info(f"Central Wavelength updated from {self.w} to {self.spec_obj.central_eli.fit_x0}")
+                    self.w = self.spec_obj.central_eli.fit_x0
 
-                    self.cont_cgs = self.spec_obj.central_eli.mcmc_continuum
-                    self.cont_cgs_unc = 0.5*(self.spec_obj.central_eli.mcmc_continuum_tuple[1] +
-                                             self.spec_obj.central_eli.mcmc_continuum_tuple[2])
-                    # self.snr = self.spec_obj.central_eli.mcmc_snr
-                    self.snr = self.spec_obj.central_eli.mcmc_snr
-                    self.snr_unc = self.spec_obj.central_eli.mcmc_snr_err
+                    if self.spec_obj.central_eli.mcmc_line_flux is None:
+
+                        self.estflux = self.spec_obj.central_eli.fit_line_flux
+                        self.estflux_unc = self.spec_obj.central_eli.fit_line_flux_err
+
+                        self.cont_cgs = self.spec_obj.central_eli.fit_continuum
+                        self.cont_cgs_unc = 0 # not computed correctly right now self.spec_obj.central_eli.fit_continuum_err
+
+                        self.eqw_obs = self.spec_obj.central_eli.eqw_obs
+                        self.eqw_obs_unc = 0 #self.eqw_obs * np.sqrt( (self.estflux_unc/self.estflux)**2 + (self.cont_cgs_unc/self.cont_cgs)**2)
+
+                        # self.snr = self.spec_obj.central_eli.mcmc_snr
+                        self.snr = self.spec_obj.central_eli.snr
+                        self.snr_unc = 0
+
+                        self.chi2 = self.spec_obj.central_eli.fit_chi2
+                        self.chi2_unc = 0.0
+
+                    else: #we have mcmc data
+
+                        self.estflux = self.spec_obj.central_eli.mcmc_line_flux
+                        self.estflux_unc = 0.5 * (self.spec_obj.central_eli.mcmc_line_flux_tuple[1] +
+                                                  self.spec_obj.central_eli.mcmc_line_flux_tuple[2])
+
+                        self.eqw_obs = self.spec_obj.central_eli.mcmc_ew_obs[0]
+                        self.eqw_obs_unc = 0.5 * (self.spec_obj.central_eli.mcmc_ew_obs[1] +
+                                                  self.spec_obj.central_eli.mcmc_ew_obs[2])
+
+                        self.cont_cgs = self.spec_obj.central_eli.mcmc_continuum
+                        self.cont_cgs_unc = 0.5*(self.spec_obj.central_eli.mcmc_continuum_tuple[1] +
+                                                 self.spec_obj.central_eli.mcmc_continuum_tuple[2])
+                        # self.snr = self.spec_obj.central_eli.mcmc_snr
+                        self.snr = self.spec_obj.central_eli.mcmc_snr
+                        self.snr_unc = self.spec_obj.central_eli.mcmc_snr_err
+
+                        try:
+                            if self.spec_obj.central_eli.mcmc_chi2 is not None and \
+                               not np.isnan(self.spec_obj.central_eli.mcmc_chi2) and \
+                               self.spec_obj.central_eli.mcmc_chi2 > 0:
+                                self.chi2 = self.spec_obj.central_eli.mcmc_chi2
+                            else:
+                                self.chi2 = self.spec_obj.central_eli.fit_chi2
+                            self.chi2_unc = 0.0
+                        except:
+                            pass
+
 
                     self.spec_obj.estflux = self.estflux
                     self.spec_obj.eqw_obs = self.eqw_obs
-
-                    try:
-                        if self.spec_obj.central_eli.mcmc_chi2 is not None and \
-                           not np.isnan(self.spec_obj.central_eli.mcmc_chi2) and \
-                           self.spec_obj.central_eli.mcmc_chi2 > 0:
-                            self.chi2 = self.spec_obj.central_eli.mcmc_chi2
-                        else:
-                            self.chi2 = self.spec_obj.central_eli.fit_chi2
-                        self.chi2_unc = 0.0
-                    except:
-                        pass
 
                     self.snr = self.spec_obj.central_eli.snr #row['sn']
                     self.snr_unc = self.spec_obj.central_eli.snr_err #row['sn']
@@ -5744,6 +5770,7 @@ class DetObj:
 
                     self.estflux_h5 = self.estflux
                     self.estflux_h5_unc = self.estflux_unc
+
                 else:
                     log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra(). spec_obj.central_eli is None.")
 
@@ -7951,6 +7978,10 @@ class HETDEX:
                 e.forced_extraction()
 
                 if e.survey_shotid and (e.status >= 0):
+
+                    if e.w != self.target_wavelength:
+                        log.info(f"Updating Central Wavelength (Target Wavelength) from {self.target_wavelength} to {e.w}")
+                        self.target_wavelength = e.w
                     e.load_hdf5_shot_info(self.hdf5_survey_fqfn,  e.survey_shotid)
 
                 if e.status >= 0:

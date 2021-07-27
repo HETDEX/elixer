@@ -144,6 +144,8 @@ if i != -1:
 else:
     pass
 
+
+
 base_time_multiplier = 1.0
 gridsearch_task_boost = 0.0
 if "--gridsearch" in args:
@@ -166,6 +168,13 @@ if "--gridsearch" in args:
         base_time_multiplier = 3.0 #just to put something in
         gridsearch_task_boost = None
     #just an average guess; the actual time depends on the grid width, cell size and number of shots
+
+if "--mcmc" in args: #impacts the base_time_multiplier
+    base_time_multiplier *= 4.0
+    print("Warning! Force mcmc increases overall time by roughtly 4x")
+#else:
+#    force_mcmc = False
+
 
 if MERGE:
     base_time_multiplier = 0.05

@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.3.1' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.3.2' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -164,12 +164,13 @@ class Detections(tables.IsDescription):
 
 class SpectraLines(tables.IsDescription):
     detectid = tables.Int64Col(pos=0)  # unique HETDEX detection ID 1e9+
-    wavelength = tables.Float32Col(dflt=UNSET_FLOAT)
-    type = tables.Int32Col(dflt=UNSET_INT) # 1 = emission, 0 = unknown, -1 = absorbtion
+    wavelength = tables.Float32Col(dflt=UNSET_FLOAT,pos=1)
+    type = tables.Int32Col(dflt=UNSET_INT,pos=2) # 1 = emission, 0 = unknown, -1 = absorbtion
     flux_line = tables.Float32Col(dflt=UNSET_FLOAT)
     flux_line_err = tables.Float32Col(dflt=UNSET_FLOAT)
-    score = tables.Float32Col(dflt=UNSET_FLOAT)
-    sn = tables.Float32Col(dflt=UNSET_FLOAT)
+    score = tables.Float32Col(dflt=UNSET_FLOAT,pos=3)
+    sn = tables.Float32Col(dflt=UNSET_FLOAT,pos=4)
+    chi2 = tables.Float32Col(dflt=UNSET_FLOAT,pos=5)
     used = tables.BoolCol(dflt=False) #True if used in the reported multiline solution
     sol_num = tables.Int32Col(dflt=-1) #-1 is unset, 0 is simple scan, no solution, 1+ = solution number in
                                        #decreasing score order
@@ -930,19 +931,26 @@ def append_entry(fileh,det,overwrite=False):
                 row['type'] = 1
 
             row['wavelength'] = line.fit_x0
-            if line.mcmc_line_flux_tuple is not None:
-                row['flux_line'] = line.mcmc_line_flux
-                row['flux_line_err']  = 0.5 * (abs(line.mcmc_line_flux_tuple[1]) + abs(line.mcmc_line_flux_tuple[2]))
-
-            else:
-                row['flux_line'] = line.fit_line_flux
-                row['flux_line_err'] = line.line_flux_err #line.fit_line_flux_err   #line.fit_rmse
+            # if line.mcmc_line_flux_tuple is not None:
+            #     row['flux_line'] = line.mcmc_line_flux
+            #     row['flux_line_err']  = 0.5 * (abs(line.mcmc_line_flux_tuple[1]) + abs(line.mcmc_line_flux_tuple[2]))
+            #
+            # else:
+            row['flux_line'] = line.fit_line_flux
+            row['flux_line_err'] = line.line_flux_err #line.fit_line_flux_err   #line.fit_rmse
 
             row['score'] = line.line_score
-            if line.mcmc_snr > 0:
+            if line.mcmc_snr is not None and line.mcmc_snr > 0:
                 row['sn'] = line.mcmc_snr
             else:
                 row['sn'] = line.snr
+
+            if line.mcmc_chi2:
+                row['chi2'] = line.mcmc_chi2
+            elif line.fit_chi2:
+                row['chi2'] = line.fit_chi2
+
+
             row['used'] = False #these are all found lines, may or may not be in solution
 
             row.append()
@@ -953,6 +961,7 @@ def append_entry(fileh,det,overwrite=False):
             for sol in det.spec_obj.solutions:
                 sol_num += 1
                 for line in sol.lines:
+                    #THIS is an EmissinLine object NOT a fitted EmissionLineInfo object
                     row = ltb.row
                     row['detectid'] = det.hdf5_detectid
                     row['sol_num'] = sol_num
@@ -967,6 +976,8 @@ def append_entry(fileh,det,overwrite=False):
 
                     row['score'] = line.line_score
                     row['sn'] = line.snr
+                    row['chi2'] = line.chi2
+
                     row['used'] = True  # these are all found lines, may or may not be in solution
 
                     row.append()
@@ -2541,7 +2552,6 @@ def upgrade_0p3p0_to_0p3p1(oldfile_handle,newfile_handle):
 
 
         #no change to ExtractedObjects
-        etb_new.append(etb_old.read())
 
         for old_row in etb_old.read():
             new_row = etb_new.row
@@ -2568,6 +2578,90 @@ def upgrade_0p3p0_to_0p3p1(oldfile_handle,newfile_handle):
     except:
         log.error("Upgrade failed %s to %s:" %(from_version,to_version),exc_info=True)
         return False
+
+
+def upgrade_0p3p1_to_0p3p2(oldfile_handle,newfile_handle):
+    """
+    #add flags column to Detections
+    #add review column to Detections
+    #add selected column to CatalogMatch
+    #add several columns to ExtracteObjects (fixed_aper_xxx)
+
+    :param oldfile_handle:
+    :param newfile_handle:
+    :return:
+    """
+
+    from_version = "0.3.1"
+    to_version = "0.3.2"
+
+    try:
+        log.info("Upgrading %s to %s ..." %(from_version,to_version))
+
+        dtb_new = newfile_handle.root.Detections
+        stb_new = newfile_handle.root.CalibratedSpectra
+        ltb_new = newfile_handle.root.SpectraLines
+        atb_new = newfile_handle.root.Aperture
+        ctb_new = newfile_handle.root.CatalogMatch
+        etb_new = newfile_handle.root.ExtractedObjects
+        xtb_new = newfile_handle.root.ElixerApertures
+
+        dtb_old = oldfile_handle.root.Detections
+        stb_old = oldfile_handle.root.CalibratedSpectra
+        ltb_old = oldfile_handle.root.SpectraLines
+        atb_old = oldfile_handle.root.Aperture
+        ctb_old = oldfile_handle.root.CatalogMatch
+        etb_old = oldfile_handle.root.ExtractedObjects
+        xtb_old = oldfile_handle.root.ElixerApertures
+
+        #no change in Detections
+        dtb_new.append(dtb_old.read())
+        dtb_new.flush()
+
+        #no change to Calibrated Spectra
+        stb_new.append(stb_old.read())
+        stb_new.flush()
+
+
+        #SpectraLines
+        for old_row in ltb_old.read():
+            new_row = ltb_new.row
+            for n in ltb_new.colnames:
+                try: #can be missing name (new columns)
+                    new_row[n] = old_row[n]
+                except:
+                    log.debug("SpectraLines column failed (%s). Default set."%n)
+            new_row.append()
+            ltb_new.flush()
+
+
+        #no change to Aperture
+        atb_new.append(atb_old.read())
+        atb_new.flush()
+
+        #CatalogMatch
+        ctb_new.append(ctb_old.read())
+        ctb_new.flush()
+
+        #no change to ExtractedObjects
+        etb_new.append(etb_old.read())
+        etb_new.flush()
+
+        #no change to ElixerApertures
+        xtb_new.append(xtb_old.read())
+        xtb_new.flush()
+
+        flush_all(newfile_handle)
+
+        # close the merge input file
+        newfile_handle.close()
+        oldfile_handle.close()
+
+        return True
+    except:
+        log.error("Upgrade failed %s to %s:" %(from_version,to_version),exc_info=True)
+        return False
+
 
 
 

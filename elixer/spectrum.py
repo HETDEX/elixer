@@ -697,6 +697,114 @@ class EmissionLineInfo:
 
         return s
 
+    def mcmc_to_fit(self,mcmc,values_units,values_dx):
+        """
+        translate mcmc found parms to fit_xxx parms
+        :param mcmc = the MCMC object from the mcmc run
+        :param values_units = 0, None, 1,  -17, -18 ... per usual
+        :param values_dx = wavebin size (usuall 2AA per bin)
+        :return:
+        """
+        try:
+            if mcmc is None or mcmc.mcmc_mu is None:
+                log.info("Invalid (None) mcmc passed to EmissionLineInfo::mcmc_to_fit")
+                return
+
+            # 3-tuple [0] = fit, [1] = fit +16%,  [2] = fit - 16%
+            self.mcmc_x0 = mcmc.mcmc_mu
+            self.mcmc_sigma = mcmc.mcmc_sigma
+            self.mcmc_snr = mcmc.mcmc_snr
+            self.mcmc_snr_err = mcmc.mcmc_snr_err
+
+            if mcmc.mcmc_A is not None:
+                self.mcmc_a = np.array(mcmc.mcmc_A)
+                if (values_dx is not None) and (values_dx > 0):
+                    self.mcmc_dx = values_dx
+                    self.mcmc_line_flux = self.mcmc_a[0]/values_dx
+                    self.mcmc_line_flux_tuple =  np.array(mcmc.mcmc_A)/values_dx
+            else:
+                self.mcmc_a = np.array((0.,0.,0.))
+                self.mcmc_line_flux = self.mcmc_a[0]
+                self.mcmc_line_flux_tuple = np.array((0.,0.,0.))
+
+            if mcmc.mcmc_y is not None:
+                self.mcmc_y = np.array(mcmc.mcmc_y)
+                if (values_dx is not None) and (values_dx > 0):
+                    self.mcmc_dx = values_dx
+                    self.mcmc_continuum = self.mcmc_y[0]
+                    self.mcmc_continuum_tuple = np.array(mcmc.mcmc_y)
+            else:
+                self.mcmc_y = np.array((0.,0.,0.))
+                self.mcmc_continuum = self.mcmc_y[0]
+                self.mcmc_continuum_tuple = np.array(self.mcmc_y)
+
+            if values_units < 0:
+                self.mcmc_a *= 10**values_units
+                self.mcmc_y *= 10**values_units
+                self.mcmc_continuum  *= 10**values_units
+                self.mcmc_line_flux *= 10**values_units
+                try:
+                    self.mcmc_line_flux_tuple *= 10 ** values_units
+                    self.mcmc_continuum_tuple *= 10 ** values_units
+                except:
+                    log.error("*** Exception!", exc_info=True)
+
+            # calc EW and error with approximate symmetric error on area and continuum
+            if self.mcmc_y[0] != 0 and self.mcmc_a[0] != 0:
+                ew = self.mcmc_a[0] / self.mcmc_y[0]
+                ew_err = ew * np.sqrt((mcmc.approx_symmetric_error(self.mcmc_a) / self.mcmc_a[0]) ** 2 +
+                                      (mcmc.approx_symmetric_error(self.mcmc_y) / self.mcmc_y[0]) ** 2)
+            else:
+                ew = self.mcmc_a[0]
+                ew_err = mcmc.approx_symmetric_error(self.mcmc_a)
+
+
+            #todo: could add an uncertainty on this since we have MCMC uncertainties on the parameters (mu, sigma, y)
+
+            #def gaussian(x,x0,sigma,a=1.0,y=0.0):
+            #could do this by say +/- 3 sigma (Karl uses +/- 50 AA)
+            self.fit_chi2 = mcmc.mcmc_chi2
+
+            #if recommend_mcmc: #this was a marginal LSQ fit, so replace key the "fit_xxx" with the mcmc values
+            if self.mcmc_x0 is not None:
+                fit_scale = 1/(10 ** values_units)
+
+                self.fit_x0 = self.mcmc_x0[0]
+                self.fit_x0_err = 0.5*(self.mcmc_x0[1]+self.mcmc_x0[2])
+
+                self.fit_sigma = self.mcmc_sigma[0]
+                self.fit_sigma_err = 0.5*(self.mcmc_sigma[1]+self.mcmc_sigma[2])
+
+                self.fit_a = self.mcmc_a[0] * fit_scale
+                self.fit_a_err = 0.5*(self.mcmc_a[1]+self.mcmc_a[2]) * fit_scale
+
+                self.fit_y = self.mcmc_y[0] * fit_scale
+                self.fit_y_err = 0.5*(self.mcmc_y[1]+self.mcmc_y[2])* fit_scale
+
+
+                #MCMC is preferred to update key values
+                self.line_flux = self.mcmc_line_flux
+                self.line_flux_err = 0.5*(self.mcmc_line_flux_tuple[1]+self.mcmc_line_flux_tuple[2])
+
+
+                if self.mcmc_snr is not None and self.mcmc_snr > 0:
+                    log.debug(f"MCMC SNR update: old {self.snr}+/-{self.snr_err}, new {self.mcmc_snr}+/-{self.mcmc_snr_err}")
+                    self.snr = self.mcmc_snr
+                    self.snr_err = self.mcmc_snr_err
+
+                self.fwhm = self.mcmc_sigma[0]*2.355
+
+                self.mcmc_ew_obs = [ew, ew_err, ew_err]
+                #log.debug("MCMC Peak height = %f" % ())
+                log.debug("MCMC calculated EW_obs for main line = %0.3g +/- %0.3g" % (ew, ew_err))
+                log.debug(f"MCMC line flux = {self.mcmc_line_flux}")
+                log.debug(f"MCMC line SNR = {self.mcmc_snr}")
+
+                #log.debug(f"Calc SNR line_flux/data err: {self.line_flux/np.sqrt(np.sum(narrow_wave_errors))}")
+        except:
+            log.error("Exception! Exception mapping MCMC fit parms to fit_xxx parms.",exc_info=True)
+
+
     @property
     def flux_unc(self):
         #return a string with flux uncertainties in place
@@ -1414,7 +1522,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
                     eli.fit_chi2, _ = SU.chi_sqr(data_flux,
                                                  gaussian(data_waves, eli.fit_x0, eli.fit_sigma, eli.fit_a, eli.fit_y),
-                                                 error=data_err,c=1.0,dof=3)
+                                                 error=data_err,c=1.0)#, dof=3)
                 except:
                     pass
                 #scipy_chi2,scipy_pval = chisquare(wave_counts,rms_wave)
@@ -1467,7 +1575,11 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             #0.955 is since this is +/- 2 sigma (3 sigma would be 0.996, 1 sigma would be 0.682)
             #eli.snr = 0.955*abs(eli.fit_a)/np.sqrt(np.sum(errors[left:right]**2))
             eli.snr = abs(np.sum(model_fit-eli.fit_y))/np.sqrt(np.sum(errors[left:right]**2))
-            log.debug(f"curve_fit SNR: {eli.snr}; Area={eli.fit_a} RMSE={eli.fit_rmse} Pix={num_sn_pix}")
+            if errors is not None:
+                eli.fit_chi2, _ = SU.chi_sqr(values[left:right],model_fit, error=errors[left:right],c=1.0)#,dof=3)
+            else:
+                eli.fit_chi2, _ = SU.chi_sqr(values[left:right],model_fit, error=None,c=1.0)#,dof=3)
+            log.debug(f"curve_fit SNR: {eli.snr}; chi2: {eli.fit_chi2}; Area={eli.fit_a} RMSE={eli.fit_rmse} Pix={num_sn_pix}")
         except: #try alternate SNR
             log.info("signal_score() SNR fail. Falling back to RMSE based.")
             eli.snr = eli.fit_a/(np.sqrt(num_sn_pix)*eli.fit_rmse)/np.sqrt(broadfit)
@@ -1667,7 +1779,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
     mcmc = None
 
-    if do_mcmc:
+    #print(" ******************** UNDO !!!! turned off MCMC ********************")
+    if do_mcmc or (G.FORCE_MCMC and accept_fit and (eli is not None) and (eli.snr > G.FORCE_MCMC_MIN_SNR)):
         # print("*****TESTING DOUBLE GAUSS******")
         # print("***** check_for_doublet *****")
         # eli2 = check_for_doublet(eli,wavelengths,values,errors,central,values_units)
@@ -1704,149 +1817,159 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         # mcmc.main_run = 1200
         mcmc.run_mcmc()
 
-        #correct SNR for PSF? (seeing FWHM / aperture)**2
-        #psf_correction = ### does not currently have that info here
-        #mcmc.mcmc_snr *= psf_correction
-        #mcmc.mcms_snr_err /= psf_correction
-        #divide one and multiply the other?? or does the snr_err even need a correction?
 
-        #TEST
-
-
-        # if True:
-        #     png = "mcmc" + plot_id + str(central) + "_" + ".png"
-        #     if plot_path is not None:
-        #         png = op.join(plot_path, png)
-        #     mcmc.visualize(png)
-
-        # 3-tuple [0] = fit, [1] = fit +16%,  [2] = fit - 16%
-        eli.mcmc_x0 = mcmc.mcmc_mu
-        eli.mcmc_sigma = mcmc.mcmc_sigma
-        eli.mcmc_snr = mcmc.mcmc_snr
-        eli.mcmc_snr_err = mcmc.mcmc_snr_err
-
-        #updated a bit later
-        # eli.snr =   eli.mcmc_snr
-        # eli.snr_err = eli.mcmc_snr_err
-
-        if mcmc.mcmc_A is not None:
-            eli.mcmc_a = np.array(mcmc.mcmc_A)
-            if (values_dx is not None) and (values_dx > 0):
-                eli.mcmc_dx = values_dx
-                eli.mcmc_line_flux = eli.mcmc_a[0]/values_dx
-                eli.mcmc_line_flux_tuple =  np.array(mcmc.mcmc_A)/values_dx
-        else:
-            eli.mcmc_a = np.array((0.,0.,0.))
-            eli.mcmc_line_flux = eli.mcmc_a[0]
-            eli.mcmc_line_flux_tuple = np.array((0.,0.,0.))
-
-        if mcmc.mcmc_y is not None:
-            eli.mcmc_y = np.array(mcmc.mcmc_y)
-            if (values_dx is not None) and (values_dx > 0):
-                eli.mcmc_dx = values_dx
-                eli.mcmc_continuum = eli.mcmc_y[0]
-                eli.mcmc_continuum_tuple = np.array(mcmc.mcmc_y)
-        else:
-            eli.mcmc_y = np.array((0.,0.,0.))
-            eli.mcmc_continuum = eli.mcmc_y[0]
-            eli.mcmc_continuum_tuple = np.array(eli.mcmc_y)
-
-        if values_units < 0:
-            eli.mcmc_a *= 10**values_units
-            eli.mcmc_y *= 10**values_units
-            eli.mcmc_continuum  *= 10**values_units
-            eli.mcmc_line_flux *= 10**values_units
-            try:
-                eli.mcmc_line_flux_tuple *= 10 ** values_units
-                eli.mcmc_continuum_tuple *= 10 ** values_units
-            except:
-                log.error("*** Exception!", exc_info=True)
-
-            #no ... this is wrong ... its all good now
-        # if values_units == -18:  # converted from e-17, but this is an area so there are 2 factors
-        #     eli.mcmc_a = tuple(np.array(eli.mcmc_a ) / [10., 1., 1.])
-
-        # calc EW and error with approximate symmetric error on area and continuum
-        if eli.mcmc_y[0] != 0 and eli.mcmc_a[0] != 0:
-            ew = eli.mcmc_a[0] / eli.mcmc_y[0]
-            ew_err = ew * np.sqrt((mcmc.approx_symmetric_error(eli.mcmc_a) / eli.mcmc_a[0]) ** 2 +
-                                  (mcmc.approx_symmetric_error(eli.mcmc_y) / eli.mcmc_y[0]) ** 2)
-        else:
-            ew = eli.mcmc_a[0]
-            ew_err = mcmc.approx_symmetric_error(eli.mcmc_a)
-
-
-        #todo: could add an uncertainty on this since we have MCMC uncertainties on the parameters (mu, sigma, y)
-
-        #def gaussian(x,x0,sigma,a=1.0,y=0.0):
-        #could do this by say +/- 3 sigma (Karl uses +/- 50 AA)
-        try:
-            chi2_half_width = 50.0 #mcmc.mcmc_sigma[0] * 2.5  #in AA
-            left, *_ = SU.getnearpos(wavelengths,mcmc.mcmc_mu[0] - chi2_half_width)
-            right,*_ = SU.getnearpos(wavelengths,mcmc.mcmc_mu[0] + chi2_half_width)
-            right = min(right+1,len(wavelengths))
-
-            data_waves = wavelengths[left:right]
-            data_flux = values[left:right]
-            if errors is not None and len(errors)==len(wavelengths):
-                data_err = errors[left:right]
-            else:
-                data_err = np.zeros(len(data_flux))
-            mcmc_flux = gaussian(data_waves, mcmc.mcmc_mu[0], mcmc.mcmc_sigma[0], mcmc.mcmc_A[0], mcmc.mcmc_y[0])
-            eli.mcmc_chi2, _ = SU.chi_sqr(data_flux,mcmc_flux,error=data_err,c=1.0,dof=3)
-
-            #wave_x is ~ 40AA around the center[total of 41 bins in length, usually]
-            # mcmc_flux = gaussian(wave_x, mcmc.mcmc_mu[0], mcmc.mcmc_sigma[0], mcmc.mcmc_A[0], mcmc.mcmc_y[0])
-            # eli.mcmc_chi2, _ = SU.chi_sqr(wave_counts,mcmc_flux,error=wave_errors,c=1.0,dof=3)
-        except:
-            pass
-
-        #if recommend_mcmc: #this was a marginal LSQ fit, so replace key the "fit_xxx" with the mcmc values
-        if eli.mcmc_x0 is not None:
-            fit_scale = 1/(10 ** values_units)
-
-            eli.fit_x0 = eli.mcmc_x0[0]
-            eli.fit_x0_err = 0.5*(eli.mcmc_x0[1]+eli.mcmc_x0[2])
-
-            eli.fit_sigma = eli.mcmc_sigma[0]
-            eli.fit_sigma_err = 0.5*(eli.mcmc_sigma[1]+eli.mcmc_sigma[2])
-
-            eli.fit_a = eli.mcmc_a[0] * fit_scale
-            eli.fit_a_err = 0.5*(eli.mcmc_a[1]+eli.mcmc_a[2]) * fit_scale
-
-            eli.fit_y = eli.mcmc_y[0] * fit_scale
-            eli.fit_y_err = 0.5*(eli.mcmc_y[1]+eli.mcmc_y[2])* fit_scale
-
-
-            #MCMC is preferred to update key values
-            eli.line_flux = eli.mcmc_line_flux
-            eli.line_flux_err = 0.5*(eli.mcmc_line_flux_tuple[1]+eli.mcmc_line_flux_tuple[2])
-
-            #explicit SNR
-            # left,*_ = SU.getnearpos(wavelengths,eli.fit_x0-eli.fit_sigma*4)
-            # right,*_ = SU.getnearpos(wavelengths,eli.fit_x0+eli.fit_sigma*4)
-            # noise = np.sum(errors[left:right]*(10 ** values_units))
-
-
-            if eli.mcmc_snr is not None and eli.mcmc_snr > 0:
-                log.debug(f"MCMC SNR update: old {eli.snr}+/-{eli.snr_err}, new {eli.mcmc_snr}+/-{eli.mcmc_snr_err}")
-                eli.snr = eli.mcmc_snr
-                eli.snr_err = eli.mcmc_snr_err
-
-            eli.fwhm = eli.mcmc_sigma[0]*2.355
-
-            eli.mcmc_ew_obs = [ew, ew_err, ew_err]
-            log.debug("MCMC Peak height = %f" % (max(narrow_wave_counts)))
-            log.debug("MCMC calculated EW_obs for main line = %0.3g +/- %0.3g" % (ew, ew_err))
-            log.debug(f"MCMC line flux = {eli.mcmc_line_flux}")
-
-
-            log.debug(f"Calc SNR line_flux/data err: {eli.line_flux/np.sqrt(np.sum(narrow_wave_errors))}")
-
+        if True:
+            eli.mcmc_to_fit(mcmc,values_units,values_dx)
             #and rescore from MCMC
             old_score = eli.line_score
             eli.build(values_units=values_units,allow_broad=allow_broad,broadfit=broadfit)
             log.info(f"Rescore from MCMC: old {old_score}, new {eli.line_score}")
+
+        else:
+
+            #correct SNR for PSF? (seeing FWHM / aperture)**2
+            #psf_correction = ### does not currently have that info here
+            #mcmc.mcmc_snr *= psf_correction
+            #mcmc.mcms_snr_err /= psf_correction
+            #divide one and multiply the other?? or does the snr_err even need a correction?
+
+            #TEST
+
+
+            # if True:
+            #     png = "mcmc" + plot_id + str(central) + "_" + ".png"
+            #     if plot_path is not None:
+            #         png = op.join(plot_path, png)
+            #     mcmc.visualize(png)
+
+            # 3-tuple [0] = fit, [1] = fit +16%,  [2] = fit - 16%
+            eli.mcmc_x0 = mcmc.mcmc_mu
+            eli.mcmc_sigma = mcmc.mcmc_sigma
+            eli.mcmc_snr = mcmc.mcmc_snr
+            eli.mcmc_snr_err = mcmc.mcmc_snr_err
+
+            #updated a bit later
+            # eli.snr =   eli.mcmc_snr
+            # eli.snr_err = eli.mcmc_snr_err
+
+            if mcmc.mcmc_A is not None:
+                eli.mcmc_a = np.array(mcmc.mcmc_A)
+                if (values_dx is not None) and (values_dx > 0):
+                    eli.mcmc_dx = values_dx
+                    eli.mcmc_line_flux = eli.mcmc_a[0]/values_dx
+                    eli.mcmc_line_flux_tuple =  np.array(mcmc.mcmc_A)/values_dx
+            else:
+                eli.mcmc_a = np.array((0.,0.,0.))
+                eli.mcmc_line_flux = eli.mcmc_a[0]
+                eli.mcmc_line_flux_tuple = np.array((0.,0.,0.))
+
+            if mcmc.mcmc_y is not None:
+                eli.mcmc_y = np.array(mcmc.mcmc_y)
+                if (values_dx is not None) and (values_dx > 0):
+                    eli.mcmc_dx = values_dx
+                    eli.mcmc_continuum = eli.mcmc_y[0]
+                    eli.mcmc_continuum_tuple = np.array(mcmc.mcmc_y)
+            else:
+                eli.mcmc_y = np.array((0.,0.,0.))
+                eli.mcmc_continuum = eli.mcmc_y[0]
+                eli.mcmc_continuum_tuple = np.array(eli.mcmc_y)
+
+            if values_units < 0:
+                eli.mcmc_a *= 10**values_units
+                eli.mcmc_y *= 10**values_units
+                eli.mcmc_continuum  *= 10**values_units
+                eli.mcmc_line_flux *= 10**values_units
+                try:
+                    eli.mcmc_line_flux_tuple *= 10 ** values_units
+                    eli.mcmc_continuum_tuple *= 10 ** values_units
+                except:
+                    log.error("*** Exception!", exc_info=True)
+
+                #no ... this is wrong ... its all good now
+            # if values_units == -18:  # converted from e-17, but this is an area so there are 2 factors
+            #     eli.mcmc_a = tuple(np.array(eli.mcmc_a ) / [10., 1., 1.])
+
+            # calc EW and error with approximate symmetric error on area and continuum
+            if eli.mcmc_y[0] != 0 and eli.mcmc_a[0] != 0:
+                ew = eli.mcmc_a[0] / eli.mcmc_y[0]
+                ew_err = ew * np.sqrt((mcmc.approx_symmetric_error(eli.mcmc_a) / eli.mcmc_a[0]) ** 2 +
+                                      (mcmc.approx_symmetric_error(eli.mcmc_y) / eli.mcmc_y[0]) ** 2)
+            else:
+                ew = eli.mcmc_a[0]
+                ew_err = mcmc.approx_symmetric_error(eli.mcmc_a)
+
+
+            #todo: could add an uncertainty on this since we have MCMC uncertainties on the parameters (mu, sigma, y)
+
+            #def gaussian(x,x0,sigma,a=1.0,y=0.0):
+            #could do this by say +/- 3 sigma (Karl uses +/- 50 AA)
+            try:
+                chi2_half_width = 50.0 #mcmc.mcmc_sigma[0] * 2.5  #in AA
+                left, *_ = SU.getnearpos(wavelengths,mcmc.mcmc_mu[0] - chi2_half_width)
+                right,*_ = SU.getnearpos(wavelengths,mcmc.mcmc_mu[0] + chi2_half_width)
+                right = min(right+1,len(wavelengths))
+
+                data_waves = wavelengths[left:right]
+                data_flux = values[left:right]
+                if errors is not None and len(errors)==len(wavelengths):
+                    data_err = errors[left:right]
+                else:
+                    data_err = np.zeros(len(data_flux))
+                mcmc_flux = gaussian(data_waves, mcmc.mcmc_mu[0], mcmc.mcmc_sigma[0], mcmc.mcmc_A[0], mcmc.mcmc_y[0])
+                eli.mcmc_chi2, _ = SU.chi_sqr(data_flux,mcmc_flux,error=data_err,c=1.0)#,dof=3)
+
+                #wave_x is ~ 40AA around the center[total of 41 bins in length, usually]
+                # mcmc_flux = gaussian(wave_x, mcmc.mcmc_mu[0], mcmc.mcmc_sigma[0], mcmc.mcmc_A[0], mcmc.mcmc_y[0])
+                # eli.mcmc_chi2, _ = SU.chi_sqr(wave_counts,mcmc_flux,error=wave_errors,c=1.0,dof=3)
+            except:
+                pass
+
+            #if recommend_mcmc: #this was a marginal LSQ fit, so replace key the "fit_xxx" with the mcmc values
+            if eli.mcmc_x0 is not None:
+                fit_scale = 1/(10 ** values_units)
+
+                eli.fit_x0 = eli.mcmc_x0[0]
+                eli.fit_x0_err = 0.5*(eli.mcmc_x0[1]+eli.mcmc_x0[2])
+
+                eli.fit_sigma = eli.mcmc_sigma[0]
+                eli.fit_sigma_err = 0.5*(eli.mcmc_sigma[1]+eli.mcmc_sigma[2])
+
+                eli.fit_a = eli.mcmc_a[0] * fit_scale
+                eli.fit_a_err = 0.5*(eli.mcmc_a[1]+eli.mcmc_a[2]) * fit_scale
+
+                eli.fit_y = eli.mcmc_y[0] * fit_scale
+                eli.fit_y_err = 0.5*(eli.mcmc_y[1]+eli.mcmc_y[2])* fit_scale
+
+
+                #MCMC is preferred to update key values
+                eli.line_flux = eli.mcmc_line_flux
+                eli.line_flux_err = 0.5*(eli.mcmc_line_flux_tuple[1]+eli.mcmc_line_flux_tuple[2])
+
+                #explicit SNR
+                # left,*_ = SU.getnearpos(wavelengths,eli.fit_x0-eli.fit_sigma*4)
+                # right,*_ = SU.getnearpos(wavelengths,eli.fit_x0+eli.fit_sigma*4)
+                # noise = np.sum(errors[left:right]*(10 ** values_units))
+
+
+                if eli.mcmc_snr is not None and eli.mcmc_snr > 0:
+                    log.debug(f"MCMC SNR update: old {eli.snr}+/-{eli.snr_err}, new {eli.mcmc_snr}+/-{eli.mcmc_snr_err}")
+                    eli.snr = eli.mcmc_snr
+                    eli.snr_err = eli.mcmc_snr_err
+
+                eli.fwhm = eli.mcmc_sigma[0]*2.355
+
+                eli.mcmc_ew_obs = [ew, ew_err, ew_err]
+                log.debug("MCMC Peak height = %f" % (max(narrow_wave_counts)))
+                log.debug("MCMC calculated EW_obs for main line = %0.3g +/- %0.3g" % (ew, ew_err))
+                log.debug(f"MCMC line flux = {eli.mcmc_line_flux}")
+
+
+                log.debug(f"Calc SNR line_flux/data err: {eli.line_flux/np.sqrt(np.sum(narrow_wave_errors))}")
+
+                #and rescore from MCMC
+                old_score = eli.line_score
+                eli.build(values_units=values_units,allow_broad=allow_broad,broadfit=broadfit)
+                log.info(f"Rescore from MCMC: old {old_score}, new {eli.line_score}")
 
 
 
@@ -3405,6 +3528,7 @@ class EmissionLine:
         self.score = score
         self.snr = None
         self.sbr = None
+        self.chi2 = 0.0
         self.flux = None
         self.flux_err = 0.0
         self.eqw_obs = None
@@ -4632,6 +4756,8 @@ class Spectrum:
                             # !!! WARNING ... must use the hk_mcmc.values_units NOT this functions values_units
                             # as they can be different
 
+                            h.mcmc_to_fit(hk_mcmc,hk_mcmc.values_units,2.0)
+
                             #update the EmissionLineInfo in h
                             h.pix_size = 2.0
                             h.fit_bin_dx = 2.0
@@ -4861,6 +4987,10 @@ class Spectrum:
             eli.fit_bin_dx = 2.0
             eli.sn_pix = hk_mcmc.mcmc_snr_pix
             eli.absorber = True
+
+
+            eli.mcmc_to_fit(hk_mcmc,hk_mcmc.values_units,2.0)
+
             eli.fit_sigma = hk_mcmc.mcmc_sigma_2[0]
             eli.fit_sigma_err = (hk_mcmc.mcmc_sigma_2[1] + hk_mcmc.mcmc_sigma_2[1])/2.0
             eli.fit_a = hk_mcmc.mcmc_A_2[0]
@@ -4893,6 +5023,7 @@ class Spectrum:
             hline.fit_dx0 = self.h_and_k_waves[1] - hk_mcmc.mcmc_mu_2[0]/(sol.z+1)
             hline.w_obs = hk_mcmc.mcmc_mu_2[0]
             hline.snr = hk_mcmc.mcmc_snr #technically the SNR for the combined lines, but since
+            hline.chi2 = hk_mcmc.mcmc_chi2
             #these are fit as two, keep this value and maybe boost the score
             hline.flux = hline.line_flux
             hline.flux_err = hline.line_flux_err
@@ -5518,6 +5649,7 @@ class Spectrum:
                         l.score = eli.score
                         l.snr = eli.snr
                         l.sbr = eli.sbr
+                        l.chi2 = eli.fit_chi2
                         l.eqw_obs = eli.eqw_obs
                         l.eqw_rest = l.eqw_obs / (1.0 + l.z)
                         l.flux = eli.line_flux

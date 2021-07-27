@@ -448,6 +448,9 @@ def parse_commandline(auto_force=False):
 
     parser.add_argument('--known_z', help="Produce plots using this value for redshift", required=False, type=float)
 
+    parser.add_argument('--mcmc', help='Always perform MCMC fit on LSQ pre-fit possible lines.', required=False,
+                        action='store_true', default=False)
+
     # parser.add_argument('--sky_residual', help='Toggle [ON] shot-specific sky residual subtraction for forced-extracions.',
     #                     required=False, action='store_true', default=False)
 
@@ -460,7 +463,6 @@ def parse_commandline(auto_force=False):
 
     args = parser.parse_args()
 
-
     if G.LAUNCH_PDF_VIEWER is None:
         args.viewer = False
 
@@ -472,6 +474,9 @@ def parse_commandline(auto_force=False):
 
     if args.lyc:
         G.LyC = True
+
+    if args.mcmc:
+        G.FORCE_MCMC = True
 
     if args.dispatch:
         #if in dispatch mode (SLURM mode) we are already using all/most the cores (as balanced vs memory, etc)
