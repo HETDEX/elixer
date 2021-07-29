@@ -1947,6 +1947,11 @@ def merge_elixer_hdf5_files(fname,flist=[]):
             continue #just skip and move on
 
         fh = get_hdf5_filehandle(f,append=False,allow_overwrite=False,must_exist=True)
+        try:
+            _ = fh.root.NeighborSpectra
+            G.LyC = True
+        except:
+            pass
 
         if fh is None:
             continue
