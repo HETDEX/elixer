@@ -5,6 +5,8 @@ changes to elixer by version
 1.13.1a1 [2021-07-29]
 * adding in extra table in h5 (NeighborSpectra) for use with --lyc. Contains the spectra (if available) and other information
   on HETDEX detection neighbors for use with Lyman Contiuum project (specfically, in deblending)
+* fixed bug in ExtractedObjects where the RA, Dec was reported incorrectly (the pixel offset into the WCS was being sent
+  in as a offset in arcsec)
 
 1.13.0a8 [2021-07-27]
 * update specified central wavelength with MCMC fit wavelength for elixer re-extractions (does not apply to HETDEX detections)

@@ -693,7 +693,7 @@ class science_image():
                 d = initialize_dict()
                 d['idx'] = idx
                 # convert to image center as 0,0 (needed later in plotting) and to arcsecs
-                d['x'] = (obj['x'] - cx) * self.pixel_size
+                d['x'] = (obj['x'] - cx) * self.pixel_size  #want as distance in arcsec so pixels * arcsec/pixel
                 d['y'] = (obj['y'] - cy) * self.pixel_size
                 # the 6.* factor is from source extractor using 6 isophotal diameters
                 d['a'] = 6. * obj['a'] * self.pixel_size
@@ -1307,8 +1307,9 @@ class science_image():
 
                         try:
                             #this assumes lower-left is 0,0 but the object x,y uses center as 0,0
-                            sc = wcs_utils.pixel_to_skycoord(sobj['x'] + cutout.center_cutout[0],
-                                                             sobj['y'] + cutout.center_cutout[1],
+                            #sobj['x'] and y ARE IN ARCSEC ... need to be in pixels for this cal
+                            sc = wcs_utils.pixel_to_skycoord(sobj['x']/self.pixel_size + cutout.center_cutout[0],
+                                                             sobj['y']/self.pixel_size + cutout.center_cutout[1],
                                                              cutout.wcs, origin=0)
                             sobj['ra'] = sc.ra.value
                             sobj['dec'] = sc.dec.value
@@ -1317,11 +1318,11 @@ class science_image():
 
                         if sobj['selected']:
                             # the shift in AA from center
-                            self.last_x0_center = sobj['x'] * self.pixel_size
-                            self.last_y0_center = sobj['y'] * self.pixel_size
+                            self.last_x0_center = sobj['x'] #* self.pixel_size
+                            self.last_y0_center = sobj['y'] #* self.pixel_size
                             # the shift in AA from lower left
-                            self.last_x_center = (sobj['x'] + cutout.center_cutout[0]) * self.pixel_size
-                            self.last_y_center = (sobj['y'] + cutout.center_cutout[1]) * self.pixel_size
+                            self.last_x_center = (sobj['x']/self.pixel_size  + cutout.center_cutout[0]) * self.pixel_size
+                            self.last_y_center = (sobj['y']/self.pixel_size  + cutout.center_cutout[1]) * self.pixel_size
 
                             #details['radius'] = radius
                             try:
