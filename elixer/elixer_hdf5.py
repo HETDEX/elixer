@@ -166,14 +166,58 @@ class SpectraLines(tables.IsDescription):
     detectid = tables.Int64Col(pos=0)  # unique HETDEX detection ID 1e9+
     wavelength = tables.Float32Col(dflt=UNSET_FLOAT,pos=1)
     type = tables.Int32Col(dflt=UNSET_INT,pos=2) # 1 = emission, 0 = unknown, -1 = absorbtion
-    flux_line = tables.Float32Col(dflt=UNSET_FLOAT)
-    flux_line_err = tables.Float32Col(dflt=UNSET_FLOAT)
     score = tables.Float32Col(dflt=UNSET_FLOAT,pos=3)
     sn = tables.Float32Col(dflt=UNSET_FLOAT,pos=4)
     chi2 = tables.Float32Col(dflt=UNSET_FLOAT,pos=5)
+    flux_line = tables.Float32Col(dflt=UNSET_FLOAT)
+    flux_line_err = tables.Float32Col(dflt=UNSET_FLOAT)
     used = tables.BoolCol(dflt=False) #True if used in the reported multiline solution
     sol_num = tables.Int32Col(dflt=-1) #-1 is unset, 0 is simple scan, no solution, 1+ = solution number in
                                        #decreasing score order
+
+
+#Only used when G.LyC is True ... special table for Lyman Continuum project
+#there is some duplicated data, but this is meant to be self contained
+class NeighborSpectra(tables.IsDescription):
+
+    detectid = tables.Int64Col(pos=0)
+    candidate_ra = tables.Float32Col(pos=1,dflt=UNSET_FLOAT) #was aperture_ra
+    candidate_dec = tables.Float32Col(pos=2,dflt=UNSET_FLOAT) #was aperture_dec
+
+    shotid = tables.Int64Col(pos=3)
+    seeing_fwhm = tables.Float32Col(pos=4,dflt=UNSET_FLOAT)
+    neighbor_ra = tables.Float32Col(pos=5,dflt=UNSET_FLOAT) #was aperture_ra
+    neighbor_dec = tables.Float32Col(pos=6,dflt=UNSET_FLOAT) #was aperture_dec
+
+    dist_curve = tables.Float32Col(pos=7,dflt=UNSET_FLOAT)
+    dist_baryctr = tables.Float32Col(pos=8,dflt=UNSET_FLOAT)
+    major = tables.Float32Col(pos=9,dflt=UNSET_FLOAT) #major axis (diameter) 'a' in arcsec
+    minor = tables.Float32Col(pos=10,dflt=UNSET_FLOAT) #'b'
+    theta = tables.Float32Col(pos=11,dflt=0.0) #radians counter-clockwise from x-axis
+
+    seeing_size = tables.Float32Col(pos=12,dflt=0.0) #major / seeing fwhm ... unresolved is < 1 (makes for easier query)
+    seeing_dist = tables.Float32Col(pos=13,dflt=0.0) #dist_curve / seeing fwhm   ... only meaningful if resovled (again for easy query)
+
+    sky_type = tables.Int32Col(pos=14,dflt=UNSET_INT) # local vs fullfield, but leave room for other type
+    aperture_radius = tables.Float32Col(pos=15,dflt=UNSET_FLOAT)
+
+    filter = tables.StringCol(pos=16,itemsize=16)
+    mag = tables.Float32Col(pos=17,dflt=UNSET_FLOAT)
+    mag_err = tables.Float32Col(pos=18,dflt=UNSET_FLOAT)
+    mag_limit = tables.Float32Col(pos=19,dflt=UNSET_FLOAT)
+
+    dex_g_mag = tables.Float32Col(pos=20,dflt=UNSET_FLOAT)
+    dex_g_mag_err = tables.Float32Col(pos=21,dflt=UNSET_FLOAT)
+
+    # wavelength = tables.Float32Col(pos=22,shape=(1036,)) #fixed wavelength, so just use the one from another table
+    spec_type = tables.Int32Col(pos=22,dflt=UNSET_INT) # 0 = not populated, 1 = Flux density (cgs), 2 = Flux (cgs)
+    spec_scale = tables.Int32Col(pos=23,dflt=UNSET_INT) # i.e. -17 = 1e-17 ., 0 == in zeroed units , so values like few x 10^-17
+    spec_val = tables.Float32Col(pos=24,shape=(1036,)) #
+    spec_err = tables.Float32Col(pos=25,shape=(1036,))
+
+    # flat_flux = tables.Float32Col(pos=25,shape=(1036,)) #lets just calculate this on the fly and not waste the space
+    # flat_flux_err = tables.Float32Col(pos=26,shape=(1036,))
+
 
 class CalibratedSpectra(tables.IsDescription):
     detectid = tables.Int64Col(pos=0)  # unique HETDEX detection ID 1e9+
@@ -364,7 +408,6 @@ def flush_all(fileh,reindex=True):
         atb = fileh.root.Aperture
         ctb = fileh.root.CatalogMatch
 
-
         vtb.flush()
         dtb.flush()
         ltb.flush()
@@ -372,6 +415,24 @@ def flush_all(fileh,reindex=True):
         atb.flush()
         ctb.flush()
 
+        try:
+            etb = fileh.root.ExtractedObjects
+            etb.flush()
+        except:
+            pass
+
+        try:
+            xtb = fileh.root.ElixerApertures
+            xtb.flush()
+        except:
+            pass
+
+        if G.LyC:
+            try:
+                ntb = fileh.root.NeighborSpectra
+                ntb.flush()
+            except:
+                pass
 
         if not reindex:
             return #we're done
@@ -383,6 +444,7 @@ def flush_all(fileh,reindex=True):
         stb.cols.detectid.remove_index()
         atb.cols.detectid.remove_index()
         ctb.cols.detectid.remove_index()
+
 
         dtb.flush()
         ltb.flush()
@@ -424,10 +486,7 @@ def flush_all(fileh,reindex=True):
         atb.flush()
         ctb.flush()
 
-
         try:
-            etb = fileh.root.ExtractedObjects
-            etb.flush()
             etb.cols.detectid.remove_index()
             etb.cols.detectid.create_csindex()
             etb.flush()
@@ -435,13 +494,19 @@ def flush_all(fileh,reindex=True):
             pass
 
         try:
-            xtb = fileh.root.ElixerApertures
-            xtb.flush()
             xtb.cols.detectid.remove_index()
             xtb.cols.detectid.create_csindex()
             xtb.flush()
         except:
             pass
+
+        if G.LyC:
+            try:
+                ntb.cols.detectid.remove_index()
+                ntb.cols.detectid.create_csindex()
+                ntb.flush()
+            except:
+                pass
 
     return
 
@@ -522,7 +587,7 @@ def get_hdf5_filehandle(fname,append=False,allow_overwrite=True,must_exist=False
 
             fileh.create_table(fileh.root, 'SpectraLines', SpectraLines,
                                'ELiXer Identified SpectraLines Table',
-                               expectedrows=estimated_dets)
+                               expectedrows=estimated_dets*2)
 
             fileh.create_table(fileh.root, 'CalibratedSpectra', CalibratedSpectra,
                                'HETDEX Flux Calibrated, PSF Weighted Summed Spectra Table',
@@ -544,7 +609,12 @@ def get_hdf5_filehandle(fname,append=False,allow_overwrite=True,must_exist=False
                                'ELiXer Image Circular Apertures Table',
                                expectedrows=estimated_dets*3) #mostly a g and r aperture, sometimes more
 
-            #todo: any actual images tables? (imaging cutouts, 2D fibers, etc)??
+            if G.LyC: #special Lyman Continuum project handling
+                fileh.create_table(fileh.root, 'NeighborSpectra', NeighborSpectra,
+                                   'NeighborSpectra Table',
+                                   expectedrows=estimated_dets*3) #mostly a g and r aperture, sometimes more
+
+
 
     except:
         log.error("Exception! in elixer_hdf5::get_hdf5_filehandle().",exc_info=True)
@@ -581,6 +651,13 @@ def append_entry(fileh,det,overwrite=False):
             xtb = fileh.root.ElixerApertures
 
         list_tables = [dtb,stb,ltb,atb,ctb,etb,xtb]
+
+        if G.LyC:
+            try:
+                ntb = fileh.root.NeighborSpectra
+                list_tables.append(ntb)
+            except:
+                pass
 
         q_detectid = det.hdf5_detectid
         rows = dtb.read_where("detectid==q_detectid")
@@ -1160,7 +1237,7 @@ def append_entry(fileh,det,overwrite=False):
             try:
                 if -90.0 < d.bid_dec < 90.0: #666 or 181 is the aperture info
                     match_num += 1
-                    #todo: multiple filters
+
                     #for f in d.filters: #just using selected "best" filter
                     row = ctb.row
                     row['detectid'] = det.hdf5_detectid
@@ -1202,6 +1279,74 @@ def append_entry(fileh,det,overwrite=False):
                     ctb.flush()
             except:
                 log.error("Exception! in elixer_hdf5::append_entry",exc_info=True)
+
+
+        #################################
+        #NeighborSpectra table
+        ################################
+        #todo: fill in table
+        if G.LyC and (det.neighbors_sep is not None) and (det.neighbors_sep['sep_objects'] is not None):
+            for n in det.neighbors_sep['sep_objects']:
+                try:
+                    if 'flux' in n.keys() and len(n['flux']>0) and np.any(n['flux']):
+                        row = ntb.row
+                        row['detectid'] = det.hdf5_detectid
+                        if det.wra is not None: #reminder, the displayed representation may not be full precision
+                            row['candidate_ra'] = det.wra
+                            row['candidate_dec'] = det.wdec
+                        elif det.ra is not None:
+                            row['candidate_ra'] = det.ra
+                            row['candidate_dec'] = det.dec
+
+                        row['shotid'] = det.survey_shotid
+                        try:
+                            row['seeing_fwhm'] = det.survey_fwhm
+                        except:
+                            row['seeing_fwhm'] = UNSET_FLOAT
+
+                        row['neighbor_ra'] = n['ra']
+                        row['neighbor_dec'] = n['dec']
+
+                        row['dist_curve'] = n['dist_curve']
+                        row['dist_baryctr'] = n['dist_baryctr']
+                        row['major'] = n['a']
+                        row['minor'] = n['b']
+                        row['theta'] = n['theta']
+
+                        row['seeing_size'] = row['major']/row['seeing_fwhm']
+                        row['seeing_dist'] = row['dist_curve']/row['seeing_fwhm']
+
+                        row['sky_type'] = 1 if det.extraction_ffsky else 0 #1 = ff, 0 = lo
+                        row['aperture_radius'] = det.extraction_aperture if det.extraction_aperture else 3.0
+                        #row['spec_type'] = 0 if n['spec_type'] == 'dex' else 1 #0=DEX spectrum, 1= flat in fnu
+
+                        #row['wavelength'] = n['wave'][:]
+
+                        row['spec_val'] = n['flux'][:]
+                        row['spec_err'] = n['flux_err'][:]
+                        row['spec_type'] = 2 if np.any(row['spec_val']) else 0  #0 = not set, 1 = flux density (not used in elixer)
+                                                                                #2 = flux
+                        row['spec_scale'] = -17
+
+                        # row['flat_flux'] = n['flat_flux'][:]
+                        # row['flat_flux_err'] = n['flat_flux_err'][:]
+
+                        row['filter'] = det.neighbors_sep['filter_name'].lower()
+
+                        row['mag']=n['mag']
+                        row['mag_err'] = n['mag_err']
+                        row['mag_limit'] = det.neighbors_sep['mag_limit']
+
+                        row['dex_g_mag'] = n['dex_g_mag']
+                        row['dex_g_mag_err'] = n['dex_g_mag_err']
+
+                        row.append()
+                        ntb.flush()
+
+                except:
+                    log.error("Exception! in elixer_hdf5::append_entry",exc_info=True)
+
+
     except:
         log.error("Exception! in elixer_hdf5::append_entry",exc_info=True)
 
@@ -1316,6 +1461,9 @@ def remove_duplicates(file):
         etb = h5.root.ExtractedObjects #new MUST have this table
         xtb = h5.root.ElixerApertures
 
+        if G.LyC:
+            ntb = h5.root.NeighborSpectra
+
         detectids = dtb.read(field='detectid')
 
         #identify the duplicates
@@ -1398,6 +1546,15 @@ def remove_duplicates(file):
                         start = int(start)
                         xtb.remove_rows(rows[start], rows[-1] + 1)
                         #xtb.flush()
+
+                if G.LyC:
+                    rows = ntb.get_where_list("detectid==d")
+                    if rows.size > 1:
+                        start = rows.size / c
+                        if start.is_integer():
+                            start = int(start)
+                            ntb.remove_rows(rows[start], rows[-1] + 1)
+
             except:
                 log.error(f"Exception removing rows for {d}",exc_info=True)
 
@@ -1628,6 +1785,9 @@ def merge_unique(newfile,file1,file2):
             etb_new = newfile_handle.root.ExtractedObjects  # new MUST have this table
             xtb_new = newfile_handle.root.ElixerApertures
 
+            if G.LyC:
+                ntb_new = newfile_handle.root.NeighborSpectra
+
             for d in chunk:
                 try:
                     log.debug(f"Merging {d}")
@@ -1730,6 +1890,13 @@ def merge_unique(newfile,file1,file2):
                         print(f"ElixerApertures merge failed {d}")
                         print(e)
 
+                    if G.LyC:
+                        try:
+                            ntb_src = source_h.root.NeighborSpectra
+                            ntb_new.append(ntb_src.read_where("(detectid==d)"))
+                        except Exception as e:
+                            print(f"NeighborSpectra merge failed {d}")
+                            print(e)
 
                     #flush_all(newfile_handle) #don't think we need to flush every time
 
@@ -1798,6 +1965,9 @@ def merge_elixer_hdf5_files(fname,flist=[]):
     etb = fileh.root.ExtractedObjects
     xtb = fileh.root.ElixerApertures
 
+    if G.LyC:
+        ntb = fileh.root.NeighborSpectra
+
     log.info(f"Merging approximately {max_dets} in {len(flist)} files ...")
 
     for f in flist:
@@ -1835,6 +2005,13 @@ def merge_elixer_hdf5_files(fname,flist=[]):
             xtb.append(m_xtb.read())
         except:
             pass
+
+        if G.LyC:
+            try: #might not have ElixerApertures table
+                m_ntb = merge_fh.root.NeighborSpectra
+                ntb.append(m_ntb.read())
+            except:
+             pass
 
         flush_all(fileh,reindex=True) #for now, just to be safe, reindex anyway
         #close the merge input file

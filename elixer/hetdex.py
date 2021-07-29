@@ -680,6 +680,8 @@ class DetObj:
         self.multiline_z_minimum_flag = False #False == multiline no good solution, True = 1 good solution
 
         self.aperture_details_list = []
+        self.neighbors_sep = None #one (or none) entry from aperture_details_list for a single catalog + filter for SEP objects
+                                  #the list is neighbors_sep.sep_objects
         self.bid_target_list = []
 
         self.classification_dict = {'scaled_plae':None,
@@ -942,6 +944,60 @@ class DetObj:
         # dont do this here ... only call after we know we are going to keep this DetObj
         # as this next step takes a while
         #self.load_fluxcalibrated_spectra()
+
+
+    def unique_sep_neighbors(self):
+        """
+            #need to refine the aperture details list
+            #there can be multiple filters and multiple catalog/instruments
+            #we only want ONE instance of each neighbor
+
+            So. We iterate over the aperture_details_list.
+            First find the deepest imaging with g and then r band. Deep wins over band then g over r.
+
+        :return: list of unique sep_objects (to be used to add spectra and save to h5 file)
+        """
+
+        #list of dicts of RA, Dec, catalog, filter, size ,etc
+        # keep preferentially, deeper imaging, g then r band (g because of HETDEX in g as most representative of size in similar band)
+
+        best_idx = -1
+        best_limit = 0
+        best_filter = 'x'
+
+        try:
+            for i,cat in enumerate(self.aperture_details_list):
+                if cat['filter_name'].lower() in ['g','r','f606w'] and cat['mag_limit'] < 99 and cat['mag_limit'] >= best_limit:
+                    if best_filter == 'g':
+                        pass # g prefered over r
+                    else:
+                        best_idx = i
+                        best_limit = cat['mag_limit']
+                        best_filter = cat['filter_name']
+
+            #now we should have the best catalog to check
+            if best_idx < 0: #none were found
+                return []
+            else:
+                #we are going to add to this dictionary and it will no longer be the same as the others
+                #so make a copy to work on
+                self.neighbors_sep = deepcopy(self.aperture_details_list[best_idx])
+                #this is a single object with the list as a property: .sep_objects
+
+                self.neighbors_sep
+                return self.neighbors_sep
+
+            # #these should already be unique, but there can be overlapping ellipses
+            # #for our purposes, point sources with overlapping ellipse must be very close on sky and single RA, Dec extraction
+            # #would be fine but the deblending code should handle this okay anyway, so we will just treat them as
+            # #unique/discrete sources
+            # for s in self.aperture_details_list[best_idx]['sep_objects']:
+            #     #since these are in the same imaging, the x, y is okay to identify or could use ra, dec
+
+        except:
+            log.error("Exception! Exception in DetObj::unique_neighbor_coords().",exc_info=True)
+
+        return []
 
     @property
     def hdf5_detectid(self):
@@ -5416,6 +5472,70 @@ class DetObj:
             log.warning("Failed to get single central fiber magnitude", exc_info=True)
 
         return gmag
+
+    def neighbor_forced_extraction(self,sep_obj,filter='x',allow_flat_spectrum=True):
+        """
+        Forced extraction, (like DetObj forced extraction) but just update the neighbor dictionary
+        :param sep_obj:
+        :return:
+        """
+        apt = []
+
+
+        try:
+            log.info(f"Fetching spectrum for neighbor: RA,Dec ({sep_obj['ra']:0.5f},{sep_obj['dec']:0.5f})")
+            aper = self.extraction_aperture if self.extraction_aperture is not None else 3.0
+
+            coord = SkyCoord(ra=sep_obj['ra'] * U.deg, dec=sep_obj['dec'] * U.deg)
+            apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
+                                  ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS, rad=aper,
+                                  tpmin=0.0,fiberweights=False) #don't need the fiber weights
+        except:
+            log.info("hetdex.py forced_extraction(). Exception calling HETDEX_API get_spectra",exc_info=True)
+
+        try:
+            #always make the flat flux
+            #Don't bother ... have moved to just computing as needed
+            # sep_obj['flat_flux']= 1/G.HETDEX_FLUX_BASE_CGS * G.FLUX_WAVEBIN_WIDTH * SU.make_fnu_flat_spectrum(sep_obj['mag'],filter.lower(),G.CALFIB_WAVEGRID)
+            #
+            # sep_obj['flat_flux_err'] = 1/G.HETDEX_FLUX_BASE_CGS *  G.FLUX_WAVEBIN_WIDTH * \
+            #                            (SU.make_fnu_flat_spectrum(sep_obj['mag_bright'],filter.lower(),G.CALFIB_WAVEGRID) - \
+            #                             SU.make_fnu_flat_spectrum(sep_obj['mag_faint'],filter.lower(),G.CALFIB_WAVEGRID))
+            #
+            # sep_obj['wave'] = G.CALFIB_WAVEGRID
+
+            if len(apt) == 0:
+
+                sep_obj['flux'] = np.zeros(len(G.CALFIB_WAVEGRID))  #in 1e-17 units (like HDF5 read)
+                sep_obj['flux_err'] = np.zeros(len(G.CALFIB_WAVEGRID))
+
+                sep_obj['dex_g_mag'] = 99.9
+                sep_obj['dex_g_mag_err'] = 99.9
+
+
+            else:
+                # returned from get_spectra as flux density (per AA), so multiply by wavebin width to match the HDF5 reads
+                sep_obj['flux'] = np.nan_to_num(apt['spec'][0]) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
+                sep_obj['flux_err'] = np.nan_to_num(apt['spec_err'][0]) * G.FLUX_WAVEBIN_WIDTH
+
+                sep_obj['dex_g_mag'], _, sep_obj['dex_g_mag_err'], _ = \
+                    elixer_spectrum.get_sdss_gmag(sep_obj['flux'] / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS,
+                                                  G.CALFIB_WAVEGRID,
+                                                  sep_obj['flux_err'] / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS)
+
+                if sep_obj['dex_g_mag'] is None:
+                        sep_obj['dex_g_mag'], _, sep_obj['dex_g_mag_err'], _ = \
+                        elixer_spectrum.get_hetdex_gmag(sep_obj['flux'] / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS,
+                                                        G.CALFIB_WAVEGRID,
+                                                        sep_obj['flux_err'] / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS)
+
+                if sep_obj['dex_g_mag'] is None:
+                    sep_obj['dex_g_mag'] = 99.9
+                    sep_obj['dex_g_mag_err'] = 99.9
+
+        except:
+            log.error("Exception! Exception fetching neighbor spectra.",exc_info=True)
+
 
     def forced_extraction(self):
         """

@@ -204,10 +204,10 @@ def make_zeroth_row_header(left_text,show_version=True):
         else:
             plt.text(0, 0.5, left_text, ha='left', va='bottom', fontproperties=font)
 
-        if G.LyC:
-            plt.subplot(gs[0, 1])
-            plt.gca().axis('off')
-            plt.text(0.5, 0.5, "Lyman Continuum Focus", ha='center', va='bottom', fontproperties=font)
+        # if G.LyC:
+        #     plt.subplot(gs[0, 1])
+        #     plt.gca().axis('off')
+        #     plt.text(0.5, 0.5, "Lyman Continuum Focus", ha='center', va='bottom', fontproperties=font)
 
         if show_version:
             plt.subplot(gs[0, 2])
@@ -4378,6 +4378,11 @@ def main():
                                 except:
                                     pass
 
+
+                                if G.LyC:
+                                    header_text += f" (Lyman Continuum Focus)"
+
+
                                 try:
                                     build_report_part(os.path.join(e.outdir, e.pdf_name),[make_zeroth_row_header(header_text)],0)
                                 except:
@@ -4424,6 +4429,27 @@ def main():
                 else:
                     join_report_parts(args.name)
                     delete_report_parts(args.name)
+
+
+
+            if G.LyC:
+                #top level call to fetch the neighbor spectra for each of the detection objects
+                try:
+                    for hd in hd_list:
+                        for e in hd.emis_list:
+                            if e.status >=0:
+                                #todo: need to refine the aperture details list
+                                #there can be multiple filters and multiple catalog/instruments
+                                #we only want ONE instance of each neighbor
+                                neighbors = e.unique_sep_neighbors() #returnd list of sep objects (list of dictionaries)
+                                #this is also a property of the DetObj (e.neighbors_sep_list)
+                                #so can work on that list
+                                #so go ahead and fetch the spectra for each entry
+                                for n in e.neighbors_sep['sep_objects']:
+                                    e.neighbor_forced_extraction(n,filter=e.neighbors_sep['filter_name']) #populates the spectrum
+
+                except:
+                    log.error("Exception! Exception building LyC project Neighbor spectra. Top level.",exc_info=True)
 
 
             if G.BUILD_HDF5_CATALOG: #change to HDF5 catalog

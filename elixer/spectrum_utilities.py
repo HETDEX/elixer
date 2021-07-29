@@ -330,7 +330,98 @@ def getnearpos(array,value):
     return idx, lt, gt
 
 
+def g2r(gmag):
+    """
+    Per Leung+2017 0.3 mag difference between g and r (r is brighter)
+    :param gmag:
+    :return:
+    """
 
+    try:
+        return gmag - 0.3
+    except:
+        log.error("Exception in g2r",exc_info=True)
+
+
+def r2g(rmag):
+    """
+    Per Leung+2017 0.3 mag difference between g and r (r is brighter)
+    :param gmag:
+    :return:
+    """
+
+    try:
+        return rmag + 0.3
+    except:
+        log.error("Exception in r2g",exc_info=True)
+
+
+def make_fnu_flat_spectrum(mag,filter='g',waves=None):
+    """
+    flat in fnu but returns flam
+
+    :param mag:
+    :param filter: should be 'g' or 'r'
+    :param waves: if None assumes HETDEX (needs to be in AA if supplied with unit attached)
+    :return:  f_lam (flux density in each wavelength bin)
+    """
+
+    if filter.lower() not in  ['g','r','f606w']:
+        log.info(f"Invalid filter {filter} passed to make_fnu_flat_spectrum")
+        return None
+
+    if filter.lower() != 'g': #then
+        mag = r2g(mag)
+
+    if waves is None or len(waves)==0:
+        waves = G.CALFIB_WAVEGRID#np.arange(3470.,5542.,2.0) #*U.angstrom  #3470 - 5540
+
+    #iso = filter_iso(filter,-1) #return get the f iso wavelegnth, otherwise assume
+    # try:
+    #     if waves.unit:
+    #         pass
+    # except:
+    #     waves = waves * u.angstrom
+    #iso = iso * u.angstrom
+
+    fnu = mag2fnu(mag) #* U.erg / U.s / (U.cm * U.cm) * U.s #use * u.s instead of / u.Hz so the seconds cancel in the
+    #final product (else says s^2 * Hz
+    c = (astropy.constants.c * (1e10 * U.AA / U.m)).value
+
+    flam = fnu*c/(waves*waves)
+
+    return flam
+
+
+def make_flux_flat_spectrum(mag,filter='g',waves=None):
+    """
+
+    :param mag:
+    :param filter: should be 'g' or 'r'
+    :param waves: if None assumes HETDEX (needs to be in AA if supplied with unit attached)
+    :return:  f_lam
+    """
+
+    if filter not in  ['g','r']:
+        log.info(f"Invalid filter {filter} passed to make_flux_flat_spectrum")
+        return None
+
+    if waves is None or len(waves)==0:
+        waves = G.CALFIB_WAVEGRID #np.arange(3470.,5542.,2.0)#*U.angstrom  #3470 - 5540
+
+    iso = filter_iso(filter,-1) #return get the f iso wavelegnth, otherwise assume
+
+    # try:
+    #     if waves.unit:
+    #         pass
+    # except:
+    #     waves = waves * u.angstrom
+    #iso = iso * u.angstrom
+
+    flam_iso = mag2cgs(mag,iso) #* U.erg / U.s / (U.cm * U.cm) / U.AA #use * u.s instead of / u.Hz so the seconds cancel in the
+    flux = np.full(len(waves),flam_iso*(waves[1]-waves[0])) #*u.erg / u.s / (u.cm * u.cm)
+
+    return flux
 
 def snr(flux,noise,flux_err=None,wave=None,center=None,delta=None):
     """
