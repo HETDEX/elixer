@@ -427,12 +427,11 @@ def flush_all(fileh,reindex=True):
         except:
             pass
 
-        if G.LyC:
-            try:
-                ntb = fileh.root.NeighborSpectra
-                ntb.flush()
-            except:
-                pass
+        try:
+            ntb = fileh.root.NeighborSpectra
+            ntb.flush()
+        except:
+            pass
 
         if not reindex:
             return #we're done
@@ -500,13 +499,12 @@ def flush_all(fileh,reindex=True):
         except:
             pass
 
-        if G.LyC:
-            try:
-                ntb.cols.detectid.remove_index()
-                ntb.cols.detectid.create_csindex()
-                ntb.flush()
-            except:
-                pass
+        try:
+            ntb.cols.detectid.remove_index()
+            ntb.cols.detectid.create_csindex()
+            ntb.flush()
+        except:
+            pass
 
     return
 
@@ -609,7 +607,7 @@ def get_hdf5_filehandle(fname,append=False,allow_overwrite=True,must_exist=False
                                'ELiXer Image Circular Apertures Table',
                                expectedrows=estimated_dets*3) #mostly a g and r aperture, sometimes more
 
-            if G.LyC: #special Lyman Continuum project handling
+            if G.LyC: #special Lyman Continuum project handling (this IS called from elixer so G.LyC is set)
                 fileh.create_table(fileh.root, 'NeighborSpectra', NeighborSpectra,
                                    'NeighborSpectra Table',
                                    expectedrows=estimated_dets*3) #mostly a g and r aperture, sometimes more
@@ -652,12 +650,13 @@ def append_entry(fileh,det,overwrite=False):
 
         list_tables = [dtb,stb,ltb,atb,ctb,etb,xtb]
 
-        if G.LyC:
-            try:
-                ntb = fileh.root.NeighborSpectra
-                list_tables.append(ntb)
-            except:
-                pass
+
+        try:
+            ntb = fileh.root.NeighborSpectra
+            list_tables.append(ntb)
+            LyC = True
+        except:
+            LyC = False
 
         q_detectid = det.hdf5_detectid
         rows = dtb.read_where("detectid==q_detectid")
@@ -1285,7 +1284,7 @@ def append_entry(fileh,det,overwrite=False):
         #NeighborSpectra table
         ################################
         #todo: fill in table
-        if G.LyC and (det.neighbors_sep is not None) and (det.neighbors_sep['sep_objects'] is not None):
+        if LyC and (det.neighbors_sep is not None) and (det.neighbors_sep['sep_objects'] is not None):
             for n in det.neighbors_sep['sep_objects']:
                 try:
                     if 'flux' in n.keys() and len(n['flux']>0) and np.any(n['flux']):
@@ -1461,8 +1460,11 @@ def remove_duplicates(file):
         etb = h5.root.ExtractedObjects #new MUST have this table
         xtb = h5.root.ElixerApertures
 
-        if G.LyC:
+        try:
             ntb = h5.root.NeighborSpectra
+            LyC = True
+        except:
+            LyC = False
 
         detectids = dtb.read(field='detectid')
 
@@ -1547,7 +1549,7 @@ def remove_duplicates(file):
                         xtb.remove_rows(rows[start], rows[-1] + 1)
                         #xtb.flush()
 
-                if G.LyC:
+                if LyC:
                     rows = ntb.get_where_list("detectid==d")
                     if rows.size > 1:
                         start = rows.size / c
@@ -1785,8 +1787,11 @@ def merge_unique(newfile,file1,file2):
             etb_new = newfile_handle.root.ExtractedObjects  # new MUST have this table
             xtb_new = newfile_handle.root.ElixerApertures
 
-            if G.LyC:
+            try:
                 ntb_new = newfile_handle.root.NeighborSpectra
+                LyC = True
+            except:
+                LyC = False
 
             for d in chunk:
                 try:
@@ -1890,7 +1895,7 @@ def merge_unique(newfile,file1,file2):
                         print(f"ElixerApertures merge failed {d}")
                         print(e)
 
-                    if G.LyC:
+                    if LyC:
                         try:
                             ntb_src = source_h.root.NeighborSpectra
                             ntb_new.append(ntb_src.read_where("(detectid==d)"))
@@ -1965,8 +1970,11 @@ def merge_elixer_hdf5_files(fname,flist=[]):
     etb = fileh.root.ExtractedObjects
     xtb = fileh.root.ElixerApertures
 
-    if G.LyC:
+    try: #only exist if elixer was run with --lyc
         ntb = fileh.root.NeighborSpectra
+        LyC = True
+    except:
+        LyC = False
 
     log.info(f"Merging approximately {max_dets} in {len(flist)} files ...")
 
@@ -2006,12 +2014,12 @@ def merge_elixer_hdf5_files(fname,flist=[]):
         except:
             pass
 
-        if G.LyC:
+        if LyC:
             try: #might not have ElixerApertures table
                 m_ntb = merge_fh.root.NeighborSpectra
                 ntb.append(m_ntb.read())
             except:
-             pass
+                pass
 
         flush_all(fileh,reindex=True) #for now, just to be safe, reindex anyway
         #close the merge input file
