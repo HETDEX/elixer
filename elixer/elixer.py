@@ -3213,7 +3213,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     #get the single master cutout (need to stack? or select best image (best == most pixels)?)
     cat_library = catalogs.CatalogLibrary()
     ext = distance * 1.5  # extent is from the 0,0 position AND we want to grab a bit more than the radius (so can see around it)
-    cutouts = cat_library.get_cutouts(position=SkyCoord(ra, dec, unit='deg'),radius=ext,allow_web=True)
+    cutouts = cat_library.get_cutouts(position=SkyCoord(ra, dec, unit='deg'),allow_bad_image=False,radius=ext,allow_web=True)
 
     if cutouts is not None:
         log.debug("Neighborhood cutouts = %d" %(len(cutouts)))
@@ -3657,6 +3657,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         plt.title(r'Dist: %0.1f"  RA,Dec: (%0.5f,%0.5f)   $\lambda$: %0.2f   DetectID: %s  Shot: %s'
                   %(dists[i],ras[i],decs[i],emis[i],str(int(detectids[i])), str(shot[i])))
         plt.plot(wave[i],spec[i],zorder=9,color='b')
+        plt.axhline(0,color='k',lw=1,zorder=0)
         if cwave is not None:
             plt.axvline(x=cwave,linestyle="--",zorder=1,color='k',linewidth=1.0,alpha=0.5)
         if emis[i] != -1.0:
