@@ -8852,7 +8852,8 @@ class HETDEX:
 
         else:
             if not G.ZOO:
-                title += "\nPrimary Spec_Slot_IFU: %s_%s_%s\n" % (e.fibers[0].specid, e.fibers[0].ifuslot, e.fibers[0].ifuid)
+                title += "\nPrimary Spec_Slot_IFU_AMP: %s_%s_%s_%s\n" % (e.fibers[0].specid, e.fibers[0].ifuslot,
+                                                                     e.fibers[0].ifuid,e.fibers[0].amp)
 
                 if e.survey_fwhm > 3.0:
                     title += f"F=*{e.survey_fwhm:0.1f}\"*  "
@@ -8917,7 +8918,8 @@ class HETDEX:
             else: #this if for zooniverse, don't show RA and DEC or probabilities
 
                 #title += "\nPrimary IFU SpecID (%s) SlotID (%s)\n" % (e.fibers[0].specid, e.fibers[0].ifuslot)
-                title += "\nPrimary Spec_Slot_IFU: %s_%s_%s\n" % (e.fibers[0].specid, e.fibers[0].ifuslot, e.fibers[0].ifuid)
+                title += "\nPrimary Spec_Slot_IFU_AMP: %s_%s_%s_%s\n" % (e.fibers[0].specid, e.fibers[0].ifuslot,
+                                                                         e.fibers[0].ifuid,e.fibers[0].amp)
 
                 if e.survey_fwhm > 3.0:
                     title += f"F=*{e.survey_fwhm:0.1f}\"*  "

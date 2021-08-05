@@ -1,6 +1,7 @@
 changes to elixer by version
 
-
+1.13.1a2 [2021-08-05]
+* add two letter AMP code to the Primary
 
 1.13.1a1 [2021-07-29]
 * adding in extra table in h5 (NeighborSpectra) for use with --lyc. Contains the spectra (if available) and other information
