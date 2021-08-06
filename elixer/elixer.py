@@ -467,15 +467,18 @@ def parse_commandline(auto_force=False):
 
     args = parser.parse_args()
 
-    if args.special: #if not None or 0
-        print(f"***** RUNNING SPECIALIZED CODE X{args.special} *****")
-        log.critical(f"***** RUNNING SPECIALIZED CODE X{args.special} *****")
-        G.__version__ += f"X{args.special}"
-        if args.special == 1:
-            G.CHECK_SDSS_Z_CATALOG = False
-            G.CHECK_GAIA_DEX_CATALOG = False
-            G.CHECK_ALL_CATALOG_BID_Z = False
-            G.CHECK_GALAXY_MASK = False
+    try:
+        if args.special: #if not None or 0
+            print(f"***** RUNNING SPECIALIZED CODE X{args.special} *****")
+            log.critical(f"***** RUNNING SPECIALIZED CODE X{args.special} *****")
+            G.__version__ += f"X{args.special}"
+            if args.special == 1:
+                G.CHECK_SDSS_Z_CATALOG = False
+                G.CHECK_GAIA_DEX_CATALOG = False
+                G.CHECK_ALL_CATALOG_BID_Z = False
+                G.CHECK_GALAXY_MASK = False
+    except:
+        pass
 
 
     if G.LAUNCH_PDF_VIEWER is None:
