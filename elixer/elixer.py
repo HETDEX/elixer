@@ -458,9 +458,8 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--viewer', help='Launch the global_config.py set PDF viewer on completion', required=False,
                             action='store_true', default=False)
 
-    parser.add_argument('--special', help="Special purpose modification. The value sets the behavior. Tied to specific code."
-                                          "Do NOT use unless you specifically know what you are doing.", required=False,
-                        type=int,default=0)
+    parser.add_argument('--special', help="Special purpose modification. The value sets the behavior. Tied to specific code. Do NOT use unless you specifically know what you are doing.",
+                        required=False, type=int,default=0)
 
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
