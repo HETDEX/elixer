@@ -50,6 +50,8 @@ try:
 except:
     pass
 
+
+ELIXER_SPECIAL = 0 #integer, triggers special behavior in code
 #HDR_DATA_BASEPATH = "/data/03946/hetdex" #defunct 2020-10-01 #TACC wrangler:/data removed
 HDR_WORK_BASEPATH = op.join(WORK_BASEPATH,"03946/hetdex/")
 HDR_SCRATCH_BASEPATH = "/scratch/03946/hetdex/"
