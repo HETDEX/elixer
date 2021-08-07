@@ -5593,7 +5593,7 @@ class DetObj:
                 else:
 
                     try:
-                        self.w = np.nanmax(self.sumspec_flux)
+                        self.w = self.sumspec_wavelength[np.nanargmax(self.sumspec_flux)]
                         self.target_wavelength = self.w
                         log.info(f"Cannot identify a suitable target wavelength. Setting to maximum flux value ({self.w}).")
                     except:
@@ -6454,7 +6454,7 @@ class DetObj:
                 else:
 
                     try:
-                        self.w = np.nanmax(self.sumspec_flux)
+                        self.w = self.sumspec_wavelength[np.nanargmax(self.sumspec_flux)]
                         self.target_wavelength = self.w
                         log.info(f"Cannot identify a suitable target wavelength. Setting to maximum flux value ({self.w}).")
                     except:

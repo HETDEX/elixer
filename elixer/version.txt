@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.13.1a2 [2021-08-06]
+* fix bug that was assigning max flux as the wavelength if no suitable emission line could be fit (should have been the
+  wavelength with the max flux, not the max flux).
+
+
 1.13.1a2 [2021-08-05]
 * add two letter AMP code to the Primary
 * add --special to activate in-code special behavior (currently just (1) turn of all catalog z checks). Intended only
