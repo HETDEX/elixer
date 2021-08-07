@@ -143,6 +143,7 @@ class MCMC_Gauss:
         self.mcmc_sigma = None
         self.mcmc_A = None
         self.mcmc_y = None
+        self.mcmc_h = None #maximum height (or minium for absorber)
 
         #not tuple, just single floats
         self.mcmc_snr = None
@@ -447,6 +448,10 @@ class MCMC_Gauss:
                 model_fit = self.compute_model(self.data_x[left:right],self.mcmc_mu[0],self.mcmc_sigma[0],self.mcmc_A[0],self.mcmc_y[0])
                 #apcor = np.ones(len(model_fit))
                 #subtract off the y continuum since we want flux in the model
+                if self.initial_A < 0:
+                    self.mcmc_h = np.nanmin(model_fit)
+                else:
+                    self.mcmc_h = np.nanmax(model_fit)
                 data_err = copy.copy(self.err_y[left:right])
                 data_err[data_err<=0] = np.nan #Karl has 0 value meaning it is flagged and should be skipped
 

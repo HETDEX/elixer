@@ -1138,6 +1138,39 @@ class EmissionLineInfo:
 
 
 
+def local_continuum(wavelengths, values, errors, central, amplitude, sigma, cont_width=50,start=6.0 ):
+    """
+    return the "average" continuum near the emission/absorption line
+    :param wavelengths: full width of all wavelenghts
+    :param values: same scale ase used to fit the amplitdued and sigma
+    :param errors: ditto
+    :param central: central (mu) of the line
+    :param amplitude: amplitude or max height at the peak (same units as values)
+    :param sigma: fit sigma
+    :param cont_width:  width in AA to sample spectrum for continuum
+    :param start:  number of sigma away from the central to start the cont_width
+    :return:
+    """
+
+    avg = None #average
+    std = None #sigma
+    try:
+        #just assume 2.0AA pixel scale
+        numpix = int(cont_width/2.0)
+        idx1 = getnearpos(wavelengths,central-start*sigma) #right end of the blueward section
+        idx2 = getnearpos(wavelengths,central+start*sigma) #left start of the redward section
+
+        idx0 = max(0,idx1-numpix) #right start of the blueward section
+        idx3 = min(len(wavelengths)-1,idx2+numpix) #left end of the redward section
+
+        #not worry about the errors for now
+        avg = np.nanmean(np.concatenate( (values[idx0:idx1+1], values[idx2:idx3+1])))
+        std = np.nanstd(np.concatenate( (values[idx0:idx1+1], values[idx2:idx3+1])))
+    except:
+        log.warning(f"Exception! Exception in local_continuum().",exc_info=True)
+
+    return avg,std
+
 #really should change this to use kwargs
 def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=None,values_units=0, sbr=None,
                  min_sigma=GAUSS_FIT_MIN_SIGMA,show_plot=False,plot_id=None,plot_path=None,do_mcmc=False,absorber=False,
@@ -1934,6 +1967,9 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                 eli.fit_sigma = eli.mcmc_sigma[0]
                 eli.fit_sigma_err = 0.5*(eli.mcmc_sigma[1]+eli.mcmc_sigma[2])
 
+                if eli.mcmc_h is not None:
+                    eli.fit_h = eli.mcmc_h
+
                 eli.fit_a = eli.mcmc_a[0] * fit_scale
                 eli.fit_a_err = 0.5*(eli.mcmc_a[1]+eli.mcmc_a[2]) * fit_scale
 
@@ -2122,6 +2158,21 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         # end plotting
 
     if accept_fit:
+        #last check
+        if G.CONTINUUM_RULES and not absorber:
+            #def local_continuum(wavelengths, values, errors, central, amplitude, sigma, cont_width=50,start=6.0 ):
+            cont_avg, cont_std = local_continuum(wavelengths,values,errors,eli.fit_x0,eli.fit_h,eli.fit_sigma)
+            if cont_avg is not None and cont_std is not None:
+                if eli.fit_h < (cont_avg + cont_std):
+                    #not a real emssion line, probably a return to continuum between two aborbers
+                    log.info(f"Fit rejected. Emission probably continuum between two absorbers. Peak = {eli.fit_h}, cont = {cont_avg} +/- {cont_std}")
+                    eli.raw_score = 0
+                    eli.score = 0
+                    eli.snr = 0.0
+                    eli.line_score = 0.0
+                    eli.line_flux = 0.0
+                    return eli
+
         eli.raw_score = score
         eli.score = signal_calc_scaled_score(score)
         log.debug(f"Fit not rejected. eli score: {eli.score} line score: {eli.line_score}")

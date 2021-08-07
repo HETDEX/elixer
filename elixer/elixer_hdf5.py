@@ -1021,10 +1021,13 @@ def append_entry(fileh,det,overwrite=False):
             else:
                 row['sn'] = line.snr
 
-            if line.mcmc_chi2:
-                row['chi2'] = line.mcmc_chi2
-            elif line.fit_chi2:
-                row['chi2'] = line.fit_chi2
+            try:
+                if line.mcmc_chi2:
+                    row['chi2'] = line.mcmc_chi2
+                elif line.fit_chi2:
+                    row['chi2'] = line.fit_chi2
+            except:
+                pass
 
 
             row['used'] = False #these are all found lines, may or may not be in solution
