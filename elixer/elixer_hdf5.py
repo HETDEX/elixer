@@ -1055,7 +1055,10 @@ def append_entry(fileh,det,overwrite=False):
 
                     row['score'] = line.line_score
                     row['sn'] = line.snr
-                    row['chi2'] = line.chi2
+                    try:
+                        row['chi2'] = line.chi2
+                    except:
+                        pass
 
                     row['used'] = True  # these are all found lines, may or may not be in solution
 
