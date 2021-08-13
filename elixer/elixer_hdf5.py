@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.3.2' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.4.0' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -2776,7 +2776,7 @@ def upgrade_0p3p0_to_0p3p1(oldfile_handle,newfile_handle):
         return False
 
 
-def upgrade_0p3p1_to_0p3p2(oldfile_handle,newfile_handle):
+def upgrade_0p3px_to_0p4p0(oldfile_handle,newfile_handle):
     """
     #add flags column to Detections
     #add review column to Detections
@@ -2789,7 +2789,7 @@ def upgrade_0p3p1_to_0p3p2(oldfile_handle,newfile_handle):
     """
 
     from_version = "0.3.1"
-    to_version = "0.3.2"
+    to_version = "0.4.0"
 
     try:
         log.info("Upgrading %s to %s ..." %(from_version,to_version))
@@ -2906,6 +2906,9 @@ def upgrade_hdf5(oldfile,newfile):
             elif (max_version == '0.1.0') or (max_version == '0.1.1') or (max_version == '0.1.2'):
                 func_list.append(upgrade_0p1px_to_0p2p0)
                 max_version = "0.2.0"
+            elif (max_version == '0.3.1') or (max_version == '0.3.2'):
+                func_list.append(upgrade_0p3px_to_0p4p0)
+                max_version = "0.4.0"
             else:
                 done = True
 

@@ -352,7 +352,7 @@ def parse_commandline(auto_force=False):
                                                'detection. Format: new-file,file1,file2.\nNote: preferred TACC use'
                                                ' with IDEV. Do not use with selixer.', required=False)
 
-    parser.add_argument('--upgrade_hdf5', help='Copy HDF5 file into new format/version. Formate old_file,new_file',
+    parser.add_argument('--upgrade_hdf5', help='Copy HDF5 file into new format/version. Format old_file,new_file',
                         required=False)
 
     parser.add_argument('--annulus', help="Inner and outer radii in arcsec (e.g. 10.0,35.2 )", required=False)

@@ -1,9 +1,10 @@
 changes to elixer by version
 
-1.13.1a3 [2021-08-06]
+1.13.1a3 [2021-08-12]
 * fix bug that was assigning max flux as the wavelength if no suitable emission line could be fit (should have been the
   wavelength with the max flux, not the max flux).
 * for continuum source, check continuum around the emission line and if the line is not 1sigma or more above, then
+* spectrum_utilities code for Lyman Continuum project
 
 1.13.1a2 [2021-08-05]
 * add two letter AMP code to the Primary

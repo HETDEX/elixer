@@ -391,10 +391,8 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         if name is None:
             name = cls.Name
 
-        print("!!!!!!!!!!!!!!!!!!!!!!TODO: catalog for HSC SSP !!!!!!!!!!!!!!!!!!!!!!")
-        print("!!!!!!!!!!!!!!!!!!!!!!TODO: catalog for HSC SSP !!!!!!!!!!!!!!!!!!!!!!")
-        print("!!!!!!!!!!!!!!!!!!!!!!TODO: catalog for HSC SSP !!!!!!!!!!!!!!!!!!!!!!")
-        print("!!!!!!!!!!!!!!!!!!!!!!TODO: catalog for HSC SSP !!!!!!!!!!!!!!!!!!!!!!")
+        log.debug("!!!!!!!!!!!!!!!!!!!!!!TODO: catalog for HSC SSP !!!!!!!!!!!!!!!!!!!!!!")
+
         return None
 
         fqtract = [op.join(cls.HSC_CAT_PATH,"H20_NEP_subset_catalog.fits"),]

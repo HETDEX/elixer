@@ -8,9 +8,11 @@ from __future__ import print_function
 try:
     from elixer import global_config as G
     from elixer import weighted_biweight as weighted_biweight
+    from elixer import utilities as utils
 except:
     import global_config as G
     import weighted_biweight as weighted_biweight
+    import utilities as utils
 
 import numpy as np
 import pickle
@@ -20,6 +22,8 @@ import astropy.units as U
 from astropy.coordinates import SkyCoord
 import astropy.cosmology as Cosmo
 import astropy.stats.biweight as biweight
+from photutils import CircularAperture #pixel coords
+from photutils import aperture_photometry
 
 from scipy.optimize import curve_fit
 
@@ -366,32 +370,41 @@ def make_fnu_flat_spectrum(mag,filter='g',waves=None):
     :return:  f_lam (flux density in each wavelength bin)
     """
 
-    if filter.lower() not in  ['g','r','f606w']:
-        log.info(f"Invalid filter {filter} passed to make_fnu_flat_spectrum")
-        return None
+    try:
+        if type(filter) == bytes:
+            _filter = filter.decode()
+        else:
+            _filter = filter
 
-    if filter.lower() != 'g': #then
-        mag = r2g(mag)
+        if _filter.lower() not in  ['g','r','f606w']:
+            log.info(f"Invalid filter {filter} passed to make_fnu_flat_spectrum")
+            return None
 
-    if waves is None or len(waves)==0:
-        waves = G.CALFIB_WAVEGRID#np.arange(3470.,5542.,2.0) #*U.angstrom  #3470 - 5540
+        if _filter.lower() != 'g': #then
+            mag = r2g(mag)
 
-    #iso = filter_iso(filter,-1) #return get the f iso wavelegnth, otherwise assume
-    # try:
-    #     if waves.unit:
-    #         pass
-    # except:
-    #     waves = waves * u.angstrom
-    #iso = iso * u.angstrom
+        if waves is None or len(waves)==0:
+            waves = G.CALFIB_WAVEGRID#np.arange(3470.,5542.,2.0) #*U.angstrom  #3470 - 5540
 
-    fnu = mag2fnu(mag) #* U.erg / U.s / (U.cm * U.cm) * U.s #use * u.s instead of / u.Hz so the seconds cancel in the
-    #final product (else says s^2 * Hz
-    c = (astropy.constants.c * (1e10 * U.AA / U.m)).value
+        #iso = filter_iso(filter,-1) #return get the f iso wavelegnth, otherwise assume
+        # try:
+        #     if waves.unit:
+        #         pass
+        # except:
+        #     waves = waves * u.angstrom
+        #iso = iso * u.angstrom
 
-    flam = fnu*c/(waves*waves)
+        fnu = mag2fnu(mag) #* U.erg / U.s / (U.cm * U.cm) * U.s #use * u.s instead of / u.Hz so the seconds cancel in the
+        #final product (else says s^2 * Hz
+        c = (astropy.constants.c * (1e10 * U.AA / U.m)).value
 
-    return flam
+        flam = fnu*c/(waves*waves)
 
+        return flam
+    except:
+        log.error("Exception! Exception in spectrum_utilites.make_fnu_flat_spectrum()",exc_info=True)
+
+    return None
 
 def make_flux_flat_spectrum(mag,filter='g',waves=None):
     """
@@ -401,27 +414,35 @@ def make_flux_flat_spectrum(mag,filter='g',waves=None):
     :param waves: if None assumes HETDEX (needs to be in AA if supplied with unit attached)
     :return:  f_lam
     """
+    try:
+        if type(filter) == bytes:
+            _filter = filter.decode()
+        else:
+            _filter = filter
+        if _filter not in  ['g','r']:
+            log.info(f"Invalid filter {filter} passed to make_flux_flat_spectrum")
+            return None
 
-    if filter not in  ['g','r']:
-        log.info(f"Invalid filter {filter} passed to make_flux_flat_spectrum")
-        return None
+        if waves is None or len(waves)==0:
+            waves = G.CALFIB_WAVEGRID #np.arange(3470.,5542.,2.0)#*U.angstrom  #3470 - 5540
 
-    if waves is None or len(waves)==0:
-        waves = G.CALFIB_WAVEGRID #np.arange(3470.,5542.,2.0)#*U.angstrom  #3470 - 5540
+        iso = filter_iso(_filter,-1) #return get the f iso wavelegnth, otherwise assume
 
-    iso = filter_iso(filter,-1) #return get the f iso wavelegnth, otherwise assume
+        # try:
+        #     if waves.unit:
+        #         pass
+        # except:
+        #     waves = waves * u.angstrom
+        #iso = iso * u.angstrom
 
-    # try:
-    #     if waves.unit:
-    #         pass
-    # except:
-    #     waves = waves * u.angstrom
-    #iso = iso * u.angstrom
+        flam_iso = mag2cgs(mag,iso) #* U.erg / U.s / (U.cm * U.cm) / U.AA #use * u.s instead of / u.Hz so the seconds cancel in the
+        flux = np.full(len(waves),flam_iso*(waves[1]-waves[0])) #*u.erg / u.s / (u.cm * u.cm)
 
-    flam_iso = mag2cgs(mag,iso) #* U.erg / U.s / (U.cm * U.cm) / U.AA #use * u.s instead of / u.Hz so the seconds cancel in the
-    flux = np.full(len(waves),flam_iso*(waves[1]-waves[0])) #*u.erg / u.s / (u.cm * u.cm)
+        return flux
+    except:
+        log.error("Exception! Exception in spectrum_utilites.make_flux_flat_spectrum()",exc_info=True)
 
-    return flux
+    return None
 
 def snr(flux,noise,flux_err=None,wave=None,center=None,delta=None):
     """
@@ -2178,3 +2199,253 @@ def get_shotids(ra,dec,hdr_version=G.HDR_Version):
 # z = SU.make_raster_plots(edict,ra_meshgrid,dec_meshgrid,cw,"fitflux",show=True)
 # notice:  in the above call, to save static images, specify a filename base in the "save" parameter
 #          or for interactive images, in the "savepy" parameter
+
+
+
+def patch_holes_in_hetdex_spectrum(wavelengths,flux,flux_err,mag,mag_err=0,filter='g'):
+    """
+
+    :param wavelengths:
+    :param flux:
+    :param flux_err:
+    :param mag:
+    :param mag_err:
+    :param filter:
+    :return:
+    """
+
+
+    try:
+        #(mag,filter='g',waves=None)
+        if type(filter) == bytes:
+            _filter = filter.decode()
+        else:
+            _filter = filter
+        patched_flux = copy.copy(flux)
+        patched_flux_err = copy.copy(flux_err)
+
+        #want positions where flux is NaN or None OR flux_err is NaN or None or zero
+        patched_flux[patched_flux==None] = np.nan
+        patched_flux_err[patched_flux_err==None] = np.nan
+        patched_flux_err[patched_flux_err==0] = np.nan
+
+        sel1 = np.isnan(patched_flux_err)
+        sel2 = np.isnan(patched_flux)
+        sel = sel1 | sel2
+
+        if np.sum(sel)==0:
+            return patched_flux,patched_flux_err
+
+        #otherwise need to substitute
+        flat_flux = make_fnu_flat_spectrum(mag,_filter,wavelengths) * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
+        if mag_err is not None and mag_err != 0:
+            flat_flux_hi = make_fnu_flat_spectrum(mag-mag_err,_filter,wavelengths) * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
+            flat_flux_lo = make_fnu_flat_spectrum(mag+mag_err,_filter,wavelengths) * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
+            flat_flux_err = 0.5*(flat_flux_hi-flat_flux_lo)
+        else:
+            flat_flux_err = np.zeros(len(wavelengths)).astype(float)
+
+        patched_flux[sel] = flat_flux[sel]
+        patched_flux_err[sel] = flat_flux_err[sel]
+
+        return patched_flux,patched_flux_err
+    except:
+        log.error("Exception! Exception in patch_holes_in_hetdex_spectrum.",exc_info=True)
+
+
+def norm_overlapping_psf(psf,dist_baryctr,dist_ellipse=None,effective_radius=None):
+    """
+
+    Return the fraction of PSF weight "volume" overlapping between to sources separated by dist_baryctr with the
+    same PSF (same shot).
+
+    THIS IS NOT the actual contribution of FLUX from a contaminant. THIS IS JUST the weight volume in the region
+    of intersection between two identical, spatially shifted PSF models.
+
+    Since assuming a point-source, should use the barycenter, but size may come into play for extended objects
+
+    :param psf: the PSF (grid) for the shot (see get_psf) [0] is the weight, [1] and [2] are the x and y grids
+    :param dist_baryctr: in arcsec
+    :param dist_ellipse: in arcsec
+    :param effective_radius: in arcsec (rough measure of size ... assumes approximately circular)
+    :return: weight volume (or fraction) in overlap region
+    """
+
+    #we are keeping a single moffat psf, so think of this as being centered on each neighbot (in succession)
+    #with the hetdex position (aperture) moving relative to the PSF
+
+    #??: if dist_baryctr is unknown or if effective radius is large enough to not be a point source ....
+
+    if dist_baryctr and dist_baryctr > 0:
+        ctrx = dist_baryctr  #consider the aperture moving to the "right"
+    elif dist_ellipse and effective_radius and dist_ellipse > 0 and effective_radius > 0:
+        ctrx = dist_ellipse + effective_radius
+    elif dist_baryctr is None or dist_baryctr == 0:
+        ctrx = 0
+    else: #not enough info to use
+        return -1.0
+
+    #think of this as two identical PSF grids, with one shifted to the right by ctrx
+    #where the vacated grid cells from the right shfited ctrx get a zero weight
+
+    #this is the distance between PSF centers (ie. between the two object centers) in grid units
+    #again, since the PSF are symmetric about their center, it does not matter on which axis(es) the
+    #distance is applied, so to keep it simple, just visualize as a shift along the x-direction to +x
+    x_shift = int(ctrx/(psf[1][1][1]-psf[1][1][0]))
+
+    psf2 = copy.copy(psf[0])
+    psf2 = np.roll(psf2,x_shift,1)
+    psf2[:,0:x_shift+1] = 0 #zero out the cells on the right that rolled around
+
+    overlap = np.sum(np.minimum(psf2,psf[0]))
+
+    return overlap
+
+
+def build_separation_matrix(ra,dec):
+    """
+    Takes a list of RA and Dec (in the same order as the spectra matrix, etc) with the LAE candidate at index 0
+    :param ra:
+    :param dec:
+    :return: square separation matrix
+    """
+    try:
+        row = len(ra)
+        col = row
+        if (row<2):
+            log.error(f"Error in build_separation_matrix. Too few objects ({row},{col})")
+            return None
+
+            #not ideal since looping, but norm_overlapping_psf is not written with matrices
+        sep_matrix = np.zeros((row,col))
+        #just need the lower triangle
+        for c in np.arange(0,col):
+            for r in np.arange(c+1,row):
+                s = utils.angular_distance(ra[r],dec[r],ra[c],dec[c])
+                sep_matrix[r,c] = s
+                sep_matrix[c,r] = s #redundant, but just in case
+
+        return sep_matrix
+    except:
+        log.error("Exception! Exception in spectrum_utilities.build_separation_matrix().",exc_info=True)
+
+    return None
+
+def psf_overlap(psf,separation_matrix):
+    """
+
+    :param psf: the PSF model for this shot i.e. from get_psf()
+    :param separation_matrix: pair wise separations between sources in arcsec
+    :return:  pair-wise fractional overalp of PSF
+    """
+
+    try:
+        row,col = np.shape(separation_matrix) #has to be square
+        if row != col or (row<2):
+            log.error(f"Error in psf_overlap. separation_matrix not square ({row},{col})")
+            return None
+
+        #not ideal since looping, but norm_overlapping_psf is not written with matrices
+        overlap_matrix = np.ones((row,col))
+        #just need the lower triangle
+        for c in np.arange(0,col):
+            for r in np.arange(c+1,row):
+                f = norm_overlapping_psf(psf,separation_matrix[r,c])
+                overlap_matrix[r,c] = f
+                overlap_matrix[c,r] = f #redundant, but just in case
+
+        return overlap_matrix
+    except:
+        log.error("Exception! Exception in spectrum_utilities.psf_overlap().",exc_info=True)
+
+    return None
+
+def integrate_fiber_over_psf(fwhm,fiber_flux,fiber_flux_err):
+    """
+    Take the spectrum from a single fiber as representative of a uniform background and integrate that background over
+    the shot seeing PSF
+
+    No extra DAR, etc applied as this represents as uniform background.
+
+    This uses the same fiber weighting as a normal 3-dither extraction, though there is a very small variation since
+    we are not using the exact same fiber positions as whatever produced the fiber_flux and fiber_flux_err. If the
+    centroid is in the exact center of the "blue" fiber which is at the exact center of the moffat PSF model, (and the
+    same psf_width and step are used) then that small variation should vanish.
+
+    :param fwhm: shot seeing fwhm
+    :param fiber_flux:
+    :param fiber_flux_err:
+    :return: "PSF" weighted background spectrum (flux and flux error)
+    """
+
+    try:
+        aperture_method='exact' #'exact' 'center' 'subpixel'
+        fiber_radius = 0.75 #in arcsecs
+        psf_width = 10.5 #in arcsec ... only compute out to here. Never truly goes to zero, but rapidly asymptotes
+        step = 0.25 #in arcsec to generate moffat PSF
+
+        E = Extract()
+        moffat = E.moffat_psf(fwhm, psf_width, step)
+        w,x,y = np.shape(moffat)
+        x -= 1 #size to max index
+        y -= 1
+        # (0,0) is in lower left corner (or upper left ... does not matter) x/2, y/2 is the center
+        pix_aperture = CircularAperture((x/2.0, y/2.0), r=fiber_radius/step) #in pixel space
+        phot_table = aperture_photometry(moffat[0], pix_aperture, method=aperture_method)
+        counts = phot_table['aperture_sum'][0]
+
+        #treat the weights of the moffat like a height, so the volume is the area of the fiber x "height"
+        #since the moffat is normalized to a "volume" of 1, this is vol is the fractional volume covered by the
+        #fiber footprint
+        vol = counts*np.pi*fiber_radius**2
+
+        #weights assuming fibers starting at the center of the moffat
+        weights = E.build_weights(0, 0, [0], [0], moffat)[0]
+        scale = np.max(weights) #i.e. the peak of the moffat (or norm s|t the moffat would integrate to 1)
+
+        #since we need to virtually "fill" the moffat with fibers we need a correction for the missing area between 3 dithers
+        #(ie. area between 3 fiber circles: the equalateral triange area - 3*sigle sector area)
+        #or 1/2 b*h - 3* 1/6 * pi* r**2  where the 60deg angle of the sector is 1/6 of the 360 deg circle
+        # or 1/2 (2r * root(3)*r) - 1/2 pi r**2) == (r**2) * (root(3)-pi/2)
+        missing = (fiber_radius**2)*(np.sqrt(3.0)-np.pi/2.0)
+
+        #now "integrate" over the moffat by fitting the weight volume occupied by the fiber footprint at the center
+        #taking out the correction for the missing area footprints between the fibers in a perfect dither sampling
+        int_flux = fiber_flux/scale/vol*(1.0-missing)
+        int_flux_err = fiber_flux_err/scale/vol*(1.0-missing)
+
+        return int_flux, int_flux_err
+    except:
+        log.error("Exception! Exception in spectrum_utilities.psf_overlap().",exc_info=True)
+
+    return None, None
+
+def spectra_deblend(measured_flux_matrix, overlap_matrix):
+    """
+    Single iteration call. Expected that the caller will resample measured_flux_matrix from the uncertainties and call
+    this function repeatedly.
+
+    :param measured_flux_matrix: each row is a mesured spectrum (or from flat in fnu) (columns are the wavebins)
+    :param overlap_matrix: pair-wise PSF overlaps; row or column corresponses to the row index in measured_flux_matrix
+    :return: true (deblended) flux matrix (same shape as measured_flux_matrix)
+    """
+
+    try:
+        row,col = np.shape(measured_flux_matrix) #rows are the sources, columns are the measured fluxes
+        true_flux_matrix = np.full((row,col),np.nan) #not strictly "True" flux, just estimated deblend, but keeps the paper naming convention
+
+        for c in range(col):
+            true_flux_matrix[:,c] = np.linalg.solve(overlap_matrix,measured_flux_matrix[:,c])
+
+            #debug
+            # flux_vector =  measured_flux_matrix[:,c] #a slice down the flux matrix, all rows, column = c
+            # solve = np.linalg.solve(overlap_matrix,flux_vector)
+            #
+            # #print(solve)
+            # true_flux_matrix[:,c] = solve
+
+        return true_flux_matrix
+    except:
+        log.error("Exception! Exception in spectrum_utilities.spectra_deblend().",exc_info=True)
+
+    return None
