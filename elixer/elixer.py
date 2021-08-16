@@ -4463,7 +4463,7 @@ def main():
                                 #this is also a property of the DetObj (e.neighbors_sep_list)
                                 #so can work on that list
                                 #so go ahead and fetch the spectra for each entry
-                                if e.neighbors_sep is not None:
+                                if (e.neighbors_sep is not None) and (e.neighbors_sep['sep_objects'] is not None):
                                     for n in e.neighbors_sep['sep_objects']:
                                         e.neighbor_forced_extraction(n,filter=e.neighbors_sep['filter_name']) #populates the spectrum
 
