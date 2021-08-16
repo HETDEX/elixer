@@ -53,7 +53,6 @@ changes to elixer by version
 * bumping alpha number as a checkpoint
 
 1.13.0a1 [2021-06-15]
-* [in progress]
 * working on adapting classification to continuum catalog sources
 * allow MCMC Gaussian to fit aborption lines (negative A); restrict initial walker positions to valid ranges for each
   parameter to be fit (i.e. sigma cannot be negative, mu cannot be negative, for emission A must be positive (for absorption
