@@ -5473,7 +5473,7 @@ class DetObj:
 
         return gmag
 
-    def neighbor_forced_extraction(self,sep_obj,filter='x',allow_flat_spectrum=True):
+    def neighbor_forced_extraction(self,sep_obj,filter='x',catalog_name=None,allow_flat_spectrum=True):
         """
         Forced extraction, (like DetObj forced extraction) but just update the neighbor dictionary
         :param sep_obj:
@@ -5481,12 +5481,39 @@ class DetObj:
         """
         apt = []
 
+        ra_fix = 0
+        dec_fix = 0
+
+        #assume a correction for the ra and dec based on the HETDEX object and its position relative to the imaging
+        #This assumes the best_counterpart IS the correct counterpart and the offset between it and the HETDEX coord
+        #is due to the astrometric and/or WCS error and differences between the two catalogs and not an emission line offset
+        try:
+            if catalog_name is not None and filter is not None and filter != 'x':
+                if (self.best_counterpart is not None) and (self.best_counterpart.catalog_name == catalog_name) \
+                        and (self.best_counterpart.bid_filter.lower() == filter.lower()):
+                    if self.best_counterpart.distance < 1.5:
+                        if self.wra is not None:
+                            ra = self.wra
+                            dec = self.wdec
+                        else:
+                            ra = self.ra
+                            dec = self.dec
+                        ra_fix =  ra - self.best_counterpart.bid_ra  #this order s|t HETDEX_ra = bid_ra + ra_fix
+                        dec_fix = dec - self.best_counterpart.bid_dec
+                    else:
+                        log.info("Best counterpart distance exceeds limit and will not apply RA, Dec adjustment in neighbor_forced_extraction.")
+
+        except:
+            log.warning("Unable to make catalog coordinate correction in neighbor_forced_extraction.",exc_info=True)
 
         try:
-            log.info(f"Fetching spectrum for neighbor: RA,Dec ({sep_obj['ra']:0.5f},{sep_obj['dec']:0.5f})")
+            if ra_fix or dec_fix:
+                log.info(f"Applying RA, Dec correction to move from {catalog_name} to HETDEX coord. ({ra_fix},{dec_fix})")
+
+            log.info(f"Fetching spectrum for neighbor: RA,Dec ({sep_obj['ra']+ra_fix:0.5f},{sep_obj['dec']+dec_fix:0.5f})")
             aper = self.extraction_aperture if self.extraction_aperture is not None else 3.0
 
-            coord = SkyCoord(ra=sep_obj['ra'] * U.deg, dec=sep_obj['dec'] * U.deg)
+            coord = SkyCoord(ra=(sep_obj['ra'] + ra_fix) * U.deg, dec=(sep_obj['dec'] + dec_fix) * U.deg)
             apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
                                   ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS, rad=aper,
                                   tpmin=0.0,fiberweights=False) #don't need the fiber weights
@@ -5515,21 +5542,26 @@ class DetObj:
 
             else:
                 # returned from get_spectra as flux density (per AA), so multiply by wavebin width to match the HDF5 reads
+                sel_nan = np.isnan(apt['spec'][0]) #where the flux is NaN
+                #have to put in zeros, SDSS gmag does not handle NaNs
+                #and the MC calls generate bad data if error is set to a huge value, so leave NaNs to 0 flux, 0 error
+                #and just understand that if there are many of them, the magnitude can be off
                 sep_obj['flux'] = np.nan_to_num(apt['spec'][0]) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
                 sep_obj['flux_err'] = np.nan_to_num(apt['spec_err'][0]) * G.FLUX_WAVEBIN_WIDTH
+                sep_obj['flux_err'][sel_nan] = 0 #flux error gets a zero where it was NaN or where flux was NaN
 
                 sep_obj['dex_g_mag'], _, sep_obj['dex_g_mag_err'], _ = \
                     elixer_spectrum.get_sdss_gmag(sep_obj['flux'] / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS,
                                                   G.CALFIB_WAVEGRID,
                                                   sep_obj['flux_err'] / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS)
 
-                if sep_obj['dex_g_mag'] is None:
+                if sep_obj['dex_g_mag'] is None  or np.isnan(sep_obj['dex_g_mag']):
                         sep_obj['dex_g_mag'], _, sep_obj['dex_g_mag_err'], _ = \
-                        elixer_spectrum.get_hetdex_gmag(sep_obj['flux'] / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS,
+                        elixer_spectrum.get_hetdex_gmag(sep_obj['flux'] / G.FLUX_WAVEBIN_WIDTH  * G.HETDEX_FLUX_BASE_CGS,
                                                         G.CALFIB_WAVEGRID,
-                                                        sep_obj['flux_err'] / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS)
+                                                        sep_obj['flux_err'] / G.FLUX_WAVEBIN_WIDTH  * G.HETDEX_FLUX_BASE_CGS)
 
-                if sep_obj['dex_g_mag'] is None:
+                if sep_obj['dex_g_mag'] is None or np.isnan(sep_obj['dex_g_mag']):
                     sep_obj['dex_g_mag'] = 99.9
                     sep_obj['dex_g_mag_err'] = 99.9
 

@@ -2202,8 +2202,10 @@ def get_shotids(ra,dec,hdr_version=G.HDR_Version):
 
 
 
-def patch_holes_in_hetdex_spectrum(wavelengths,flux,flux_err,mag,mag_err=0,filter='g'):
+def patch_holes_in_hetdex_spectrum(wavelengths,flux,flux_err,mag,mag_err=0,filter='g',nan_okay=200):
     """
+
+    note: for stacking, we want to keep NaNs so they are skipped
 
     :param wavelengths:
     :param flux:
@@ -2211,6 +2213,7 @@ def patch_holes_in_hetdex_spectrum(wavelengths,flux,flux_err,mag,mag_err=0,filte
     :param mag:
     :param mag_err:
     :param filter:
+    :param nan_okay: if up to this number of NaN's are okay, then return with them, otherwise fill in with an interpolation
     :return:
     """
 
@@ -2225,15 +2228,15 @@ def patch_holes_in_hetdex_spectrum(wavelengths,flux,flux_err,mag,mag_err=0,filte
         patched_flux_err = copy.copy(flux_err)
 
         #want positions where flux is NaN or None OR flux_err is NaN or None or zero
-        patched_flux[patched_flux==None] = np.nan
-        patched_flux_err[patched_flux_err==None] = np.nan
+        patched_flux[patched_flux==None] = np.nan #so patched flux can have NaNs but no None
+        patched_flux_err[patched_flux_err==None] = 0#np.nan
         patched_flux_err[patched_flux_err==0] = np.nan
 
         sel1 = np.isnan(patched_flux_err)
         sel2 = np.isnan(patched_flux)
         sel = sel1 | sel2
 
-        if np.sum(sel)==0:
+        if np.sum(sel)<= nan_okay:
             return patched_flux,patched_flux_err
 
         #otherwise need to substitute
@@ -2243,7 +2246,9 @@ def patch_holes_in_hetdex_spectrum(wavelengths,flux,flux_err,mag,mag_err=0,filte
             flat_flux_lo = make_fnu_flat_spectrum(mag+mag_err,_filter,wavelengths) * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
             flat_flux_err = 0.5*(flat_flux_hi-flat_flux_lo)
         else:
-            flat_flux_err = np.zeros(len(wavelengths)).astype(float)
+            #flat_flux_err = np.zeros(len(wavelengths)).astype(float)
+            #assume 25%
+            flat_flux_err = flat_flux*0.25
 
         patched_flux[sel] = flat_flux[sel]
         patched_flux_err[sel] = flat_flux_err[sel]

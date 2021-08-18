@@ -4465,7 +4465,7 @@ def main():
                                 #so go ahead and fetch the spectra for each entry
                                 if (e.neighbors_sep is not None) and (e.neighbors_sep['sep_objects'] is not None):
                                     for n in e.neighbors_sep['sep_objects']:
-                                        e.neighbor_forced_extraction(n,filter=e.neighbors_sep['filter_name']) #populates the spectrum
+                                        e.neighbor_forced_extraction(n,filter=e.neighbors_sep['filter_name'],catalog_name=neighbors['catalog_name']) #populates the spectrum
 
                 except:
                     log.error("Exception! Exception building LyC project Neighbor spectra. Top level.",exc_info=True)
@@ -4487,13 +4487,13 @@ def main():
                                 d_id = e.hdf5_detectid
                                 entry_ct = elixer_hdf5.detectid_in_file(h5name,d_id)
                                 if entry_ct != 1:
-                                    log.warning(f"Unexpected number of entries in h5 file for detectid {d_id}, file {h5name}")
+                                    log.warning(f"Unexpected number of entries ({entry_ct}) in h5 file for detectid {d_id}, file {h5name}")
                                     if entry_ct == 0:
                                         log.warning(f"Retry insertion into h5 file. detectid = {d_id}")
-                                        elixer_hdf5.extend_elixer_hdf5(h5name, [d_id], overwrite=True)
+                                        elixer_hdf5.extend_elixer_hdf5(h5name, [hd], overwrite=True)
                                         entry_ct = elixer_hdf5.detectid_in_file(h5name, d_id)
                                         if entry_ct != 1:
-                                            log.warning(f"No retry: Unexpected number of entries in h5 file for detectid {d_id}, file {h5name}")
+                                            log.warning(f"No retry: Unexpected number of entries ({entry_ct}) in h5 file for detectid {d_id}, file {h5name}")
                 except:
                     log.error("Exception building HDF5 catalog",exc_info=True)
 
