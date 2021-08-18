@@ -986,8 +986,16 @@ class EmissionLineInfo:
                               min(self.fit_sigma/self.pix_size,1.0) * \
                               min((self.pix_size * self.sn_pix)/21.0,1.0) / \
                               (10.0 * (1. + abs(adjusted_dx0_error / self.pix_size)) )
+
+                    if (self.snr < 8.0 and self.fit_chi2 > 3.0) or \
+                       ((self.snr > 8.0) and (self.fit_chi2 > 3.0) and (self.snr/self.fit_chi2 < 3)):
+                        #penalize the line score
+                        self.line_score /= (self.fit_chi2 - 1.0)
+
                     if self.absorber:
                         self.line_score *= -1
+
+
 
                     #check for line in the nasty sky-lines 3545
                     for k in SKY_LINES_DICT.keys():
@@ -4736,6 +4744,27 @@ class Spectrum:
         :param values_units:
         :return:
         """
+        #
+        # def best_index(lines):
+        #     """
+        #     return the index of the best lines by SNR, Chi2, line_score
+        #     :param lines:
+        #     :return:
+        #     """
+        #     idx = -1
+        #     try:
+        #         if lines is None or len(lines) == 0:
+        #             return -1
+        #         elif len(lines)==1:
+        #             return 0
+        #
+        #         sel = np.full(len(lines),True)
+        #         #first, SNR ....
+        #
+        #     except:
+        #         pass
+        #
+        #     return idx
 
         central = 0.0
         update_self = False
@@ -4891,7 +4920,7 @@ class Spectrum:
 
                             #todo: go ahead and add as a solution???
 
-            #choose the highest score
+            #choose the highest line_score
             i = -1
             j = -1
             if found_lines:
@@ -4904,6 +4933,7 @@ class Spectrum:
 
                 # if found_lines[i].line_score > G.MULTILINE_GOOD_LINE_SCORE:
                 #     central = found_lines[i].fit_x0
+                #now use the line_score if both absorber and emitter found
                 if found_absorbers[j].line_score > (2.0*found_lines[i].line_score):
                     central = found_absorbers[j].fit_x0
                     absorber = True

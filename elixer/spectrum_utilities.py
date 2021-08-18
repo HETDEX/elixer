@@ -2297,7 +2297,16 @@ def norm_overlapping_psf(psf,dist_baryctr,dist_ellipse=None,effective_radius=Non
     psf2 = np.roll(psf2,x_shift,1)
     psf2[:,0:x_shift+1] = 0 #zero out the cells on the right that rolled around
 
-    overlap = np.sum(np.minimum(psf2,psf[0]))
+    overlap = np.sum(np.minimum(psf2,psf[0])) #this would be the overlap region
+
+    #overlap = np.sum(psf2*psf[0]) #this would be the sum of the fractions of the psf weights from one object
+                                  #included in the other by its own weights
+                                  #i.e. if in the 0.02 weight section of the target we have the 0.03 weight section
+                                  # of the neighbor, then that overlap section contrinbutes 0.02 * 0.03 = 0.0006 weight
+                                  # to the target from the neighbor (that space or fiber has 2% of the target's flux
+                                  # and 3% of the neighbors flux, so we subtract 0.06% of the True neighhor flux for that
+                                  # section). Sum up all the sections (here, pixels of the moffat) to get the total
+                                  # contribution of the neighbor to the target).
 
     return overlap
 
@@ -2351,8 +2360,10 @@ def psf_overlap(psf,separation_matrix):
         for c in np.arange(0,col):
             for r in np.arange(c+1,row):
                 f = norm_overlapping_psf(psf,separation_matrix[r,c])
-                overlap_matrix[r,c] = f
-                overlap_matrix[c,r] = f #redundant, but just in case
+                #need f**2 since the overlap is symmetric and weighted by each others PSF overlap
+                #(note at full overlap f==1 --> 1**2 == 1)
+                overlap_matrix[r,c] = f #*f
+                overlap_matrix[c,r] = overlap_matrix[r,c] #redundant, but just in case
 
         return overlap_matrix
     except:
