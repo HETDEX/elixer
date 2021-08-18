@@ -246,13 +246,24 @@ def get_sdss_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZ
         #if flux_err is specified, assume it is Gaussian and sample, repeatedly building up spectra
         if flux_err is not None:
             try:
+                flux_err = np.array(flux_err)
+                flux_density = np.array(flux_density)
                 mag_list = []
                 cont_list = []
+                sel = ~np.isnan(flux_err) & np.array(flux_err!=0)
+
+                if not np.any(sel):
+                    log.info("Invalid spectrum or error in get_sdds_gma.")
+                    if flux_err is not None: #even if this failed, the caller expects the extra two returns
+                        return mag, cont, mag_err, cont_err
+                    else:
+                        return mag, cont
+
                 for i in range(num_mc):
-                    flux_sample = np.random.normal(flux_density, flux_err)
+                    flux_sample = np.random.normal(flux_density[sel], flux_err[sel])
 
                     flux, wlen = sdss_filter.pad_spectrum(
-                        flux_sample * (units.erg / units.s / units.cm ** 2 / units.Angstrom), wave * units.Angstrom)
+                        flux_sample * (units.erg / units.s / units.cm ** 2 / units.Angstrom), wave[sel] * units.Angstrom)
                     mag = sdss_filter.get_ab_magnitudes(flux, wlen)[0][0]
                     #cont = 3631.0 * 10 ** (-0.4 * mag) * 1e-23 * iso_f / (wlen[-1] - wlen[0]).value  # (5549.26 - 3782.54) #that is the approximate bandpass
 
@@ -340,14 +351,25 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None):
 
         fluxbins = np.array(flux_density[idx_3600:idx_5400+1]) * G.FLUX_WAVEBIN_WIDTH
         fluxerrs = np.array(flux_density_err[idx_3600:idx_5400+1]) * G.FLUX_WAVEBIN_WIDTH
-        integrated_flux = np.sum(fluxbins)
-        integrated_errs = np.sqrt(np.sum(fluxerrs*fluxerrs))
+
+        sel = ~np.isnan(fluxerrs) & np.array(fluxerrs!=0)
+
+        if not np.any(sel):
+            log.info("Invalid spectrum or error in get_hetdex_gmag.")
+            if flux_density_err is not None: #even if this failed, the caller expects the extra two returns
+                return mag, cont, mag_err, cont_err
+            else:
+                return mag, cont
+
+
+        integrated_flux = np.sum(fluxbins[sel])
+        integrated_errs = np.sqrt(np.sum(fluxerrs[sel]*fluxerrs[sel]))
 
         #This already been thoughput adjusted? (Yes? I think)
         #so there is no need to adjust for transmission
         # remeber to add one more bin (bin 2 - bin 1 != 1 bin it is 2 bins, not 1 as both bins are included)
-        band_flux_density = integrated_flux/(wave[idx_5400]-wave[idx_3600]+G.FLUX_WAVEBIN_WIDTH)
-        band_flux_density_err = integrated_errs/(wave[idx_5400]-wave[idx_3600]+G.FLUX_WAVEBIN_WIDTH)
+        band_flux_density = integrated_flux/(np.sum(sel)+G.FLUX_WAVEBIN_WIDTH)
+        band_flux_density_err = integrated_errs/(np.sum(sel)+G.FLUX_WAVEBIN_WIDTH)
 
 
         if band_flux_density > 0:
