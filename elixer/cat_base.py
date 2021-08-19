@@ -750,7 +750,7 @@ class Catalog:
                 for c in cutouts:
                     log.debug("+++++ here 0.1.3")
                     if c and isinstance(c,dict) and c['cutout']:
-                        if not stacked_cutout:
+                        if stacked_cutout is None:
                             log.debug("+++++ here 0.1.4")
                             stacked_cutout = copy.deepcopy(c['cutout'])
                             try:
@@ -764,8 +764,10 @@ class Catalog:
                             total_adjusted_exptime = 1.0
                         else:
                             try:
-                                log.debug("+++++ here 0.1.7")
+                                log.debug("+++++ here 0.1.7.0")
+                                log.debug(f"{np.shape(stacked_cutout.data)}, {np.shape(c['cutout'].data)}, {c['details']['exptime']}, {ref_exptime}")
                                 stacked_cutout.data = np.add(stacked_cutout.data, c['cutout'].data * c['details']['exptime'] / ref_exptime)
+                                log.debug("+++++ here 0.1.7.1")
                                 total_adjusted_exptime += c['details']['exptime'] / ref_exptime
                                 log.debug("+++++ here 0.1.8")
                             except:
