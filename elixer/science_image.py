@@ -722,8 +722,12 @@ class science_image():
                         flux, fluxerr, flag = sep.sum_ellipse(data_sub, obj['x'], obj['y'],
                                                               obj['a'], obj['b'], obj['theta'],
                                                               2.5 * kronrad, subpix=1,err=data_err)
-                except:
-                    log.warning("Exception with source extractor",exc_info=True)
+                except Exception as e:
+                    try:
+                        if e.args[0] == "invalid aperture parameters":
+                            pass #do nothing ... not important
+                    except:
+                        log.warning(f"Exception with source extractor. {e}")
                     continue
 
                 try:  # flux, fluxerr, flag may be ndarrays but of size zero (a bit weird)
