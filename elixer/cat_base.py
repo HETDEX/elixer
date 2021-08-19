@@ -861,7 +861,11 @@ class Catalog:
 
         log.info(f"All reported filters (up to 6 shown in report): {all_filter_names}")
 
-        stacked_cutout = self.stack_image_cutouts(list_of_cutouts[the_best_cat_idx])
+        try:
+            stacked_cutout = self.stack_image_cutouts(list_of_cutouts[the_best_cat_idx])
+        except:
+            log.debug("Minor exception", exc_info=True)
+            stacked_cutout = None
 
         if stacked_cutout is None:
             fig = self.build_empty_cat_summary_figure(ra,dec,error,None,None,target_w,fiber_locs)
@@ -1051,7 +1055,7 @@ class Catalog:
                                     best_len = len(cat[0]['counterparts'])
                         list_of_counterparts = list_of_cutouts[counterpart_cat_idx][0]['counterparts']
             except:
-                pass
+                log.debug("Minor exception",exc_info=True)
 
             try:
                 possible_matches = len(list_of_counterparts)
