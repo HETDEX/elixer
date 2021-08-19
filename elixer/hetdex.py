@@ -12095,7 +12095,11 @@ class HETDEX:
                     gauss_vmax = datakeep['vmax1'][ind[i]]
 
 
-                    pix_image = datakeep['fw_pix'][ind[i]][:,xl:xr+1]
+                    try:
+                        pix_image = datakeep['fw_pix'][ind[i]][:,xl:xr+1]
+                    except:
+                        log.info("Unable to get pixel flat 2D cutout")
+                        pix_image = np.full((yr-yl+1,xr-xl+1),255)
                     image = datakeep['fw_im'][ind[i]][:,xl:xr+1]  # im can be the cosmic removed version, depends on G.PreferCosmicCleaned
 
                     cmap1 = cmap
