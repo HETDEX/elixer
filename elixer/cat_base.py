@@ -740,50 +740,33 @@ class Catalog:
         """
 
         stacked_cutout = None
-        log.debug("+++++ here 0.1.0")
         if cutouts is not None and len(cutouts) > 0:
-            log.debug("+++++ here 0.1.1")
             try:
                 total_adjusted_exptime = 1.0
                 ref_exptime = 0.0
-                log.debug("+++++ here 0.1.2")
                 for c in cutouts:
-                    log.debug("+++++ here 0.1.3")
                     if c and isinstance(c,dict) and c['cutout']:
                         if stacked_cutout is None:
-                            log.debug("+++++ here 0.1.4")
                             stacked_cutout = copy.deepcopy(c['cutout'])
                             try:
-                                log.debug("+++++ here 0.1.5")
                                 ref_exptime = c['details']['exptime']
                                 if not ref_exptime:
                                     ref_exptime = 1.0
                             except:
                                 ref_exptime = 1.0
-                                log.debug("+++++ here 0.1.6")
                             total_adjusted_exptime = 1.0
                         else:
                             try:
-                                log.debug("+++++ here 0.1.7.0")
-                                log.debug(f"{np.shape(stacked_cutout.data)}, {np.shape(c['cutout'].data)}, {c['details']['exptime']}, {ref_exptime}")
-
+                                #log.debug(f"{np.shape(stacked_cutout.data)}, {np.shape(c['cutout'].data)}, {c['details']['exptime']}, {ref_exptime}")
                                 this_exptime = 1.0 if c['details']['exptime'] is None else c['details']['exptime']
-
                                 stacked_cutout.data = np.add(stacked_cutout.data, c['cutout'].data * this_exptime / ref_exptime)
-                                log.debug("+++++ here 0.1.7.1")
                                 total_adjusted_exptime += c['details']['exptime'] / ref_exptime
-                                log.debug("+++++ here 0.1.8")
                             except:
                                 pass
-                                log.debug("+++++ here 0.1.9")
-
-                log.debug("+++++ here 0.1.10")
                 if stacked_cutout and total_adjusted_exptime:
                     stacked_cutout.data /= total_adjusted_exptime
-                    log.debug("+++++ here 0.1.11")
             except:
                 log.warning("Exception in cat_base.py stack_image_cutouts",exc_info=True)
-        log.debug("+++++ here 0.1.12")
         return stacked_cutout
 
 
@@ -879,23 +862,15 @@ class Catalog:
 
         log.info(f"All reported filters (up to 6 shown in report): {all_filter_names}")
 
-
-        log.debug("+++++ here 0.0")
-
         try:
             stacked_cutout = self.stack_image_cutouts(list_of_cutouts[the_best_cat_idx])
-            log.debug("+++++ here 0.1")
         except:
             log.debug("Minor exception", exc_info=True)
             stacked_cutout = None
 
-        log.debug("+++++ here 0.2")
-
         if stacked_cutout is None:
-            log.debug("+++++ here 0.3a")
             fig = self.build_empty_cat_summary_figure(ra,dec,error,None,None,target_w,fiber_locs)
         else:
-            log.debug("+++++ here 0.3b")
             #now turn this into a plot object and start adding North Box and Fibers
             rows = 10
             #note: setting size to 7 from 6 so they will be the right size (the 7th position will not be populated)
@@ -904,21 +879,17 @@ class Catalog:
             fig_sz_y = 3 #ows * 3
 
             fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
-            log.debug("+++++ here 0.4")
             plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
 
             gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.0)
             # reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based
 
-            log.debug("+++++ here 0.5")
             font = FontProperties()
             font.set_family('monospace')
             font.set_size(12)
 
             #this is the single line between the 1D spectrum above and the cutouts below
             the_entry = list_of_cutouts[the_best_cat_idx][the_best_cutout_idx]
-
-            log.debug("+++++ here 0.6")
 
             if the_entry['details'] and the_entry['details']['catalog_name']:
                 name = the_entry['details']['catalog_name']
@@ -927,7 +898,6 @@ class Catalog:
             else:
                 name = "---"
 
-            log.debug("+++++ here 0.7")
             if the_entry['details'] and the_entry['details']['filter_name']:
                 filter = the_entry['details']['filter_name']
             elif the_entry['filter']:
@@ -953,14 +923,11 @@ class Catalog:
             # MAYBE!!! merge ALL the counter_parts, toss out duplicates (RA,Dec separation < 0.1" ?
             # NOT all [0] have ['counterparts']
 
-            log.debug("+++++ here 1")
-
             try:
                 all_counterparts = np.concatenate([x[0]['counterparts'] for x in list_of_cutouts if 'counterparts' in x[0].keys()])
             except:
                 all_counterparts = []
 
-            log.debug("+++++ here 2")
             for cp in all_counterparts:
                 add = True
                 for i,uc in enumerate(list_of_counterparts):
@@ -998,9 +965,6 @@ class Catalog:
 
                 if add:
                     list_of_counterparts.append(cp)
-
-
-            log.debug("+++++ here 3")
 
             #now resort by likelihood of match (new method)
             list_of_counterparts.sort(key=lambda x: x.distance, reverse=False)
@@ -1053,8 +1017,6 @@ class Catalog:
                 log.warning("Exception attempting to identify best counterpart match in cat_base::build_cat_summary_pdf_section()",
                             exc_info=True)
 
-            log.debug("+++++ here 4")
-
             if selected_idx is not None:
                 if selected_idx != 0:
                     list_of_counterparts.insert(0,list_of_counterparts.pop(selected_idx))
@@ -1082,21 +1044,23 @@ class Catalog:
             try:
                 if len(list_of_counterparts) == 0: #something went wrong
                     counterpart_cat_idx = the_best_cat_idx
-                    if list_of_cutouts[counterpart_cat_idx][0]['counterparts']:
+                    if 'counterparts' in list_of_cutouts[counterpart_cat_idx][0].keys():# and list_of_cutouts[counterpart_cat_idx][0]['counterparts']:
                         list_of_counterparts = list_of_cutouts[counterpart_cat_idx][0]['counterparts']
                     else:
                         counterpart_cat_idx = 0
                         best_len = 0
                         for idx,cat in enumerate(list_of_cutouts):
-                            if cat[0]['counterparts']:
+                            if 'counterparts' in cat[0].keys():
                                 if len(cat[0]['counterparts']) > best_len:
                                     counterpart_cat_idx = idx
                                     best_len = len(cat[0]['counterparts'])
-                        list_of_counterparts = list_of_cutouts[counterpart_cat_idx][0]['counterparts']
+
+                        if 'counterparts' in list_of_cutouts[counterpart_cat_idx][0].keys():
+                            list_of_counterparts = list_of_cutouts[counterpart_cat_idx][0]['counterparts']
+                        else:
+                            list_of_counterparts = []
             except:
                 log.debug("Minor exception",exc_info=True)
-
-            log.debug("+++++ here 5")
 
             try:
                 possible_matches = len(list_of_counterparts)
@@ -1124,8 +1088,6 @@ class Catalog:
             # list_of_counterparts are the catalog matches
             # detobj.aperture_details_list has imaging info
 
-            log.debug("+++++ here 6")
-
             bid_ras = [x.bid_ra for x in list_of_counterparts]
             bid_decs = [x.bid_dec for x in list_of_counterparts]
             bid_colors = self.get_bid_colors(len(bid_ras))
@@ -1152,7 +1114,6 @@ class Catalog:
             self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, stacked_cutout)
 
 
-            log.debug("+++++ here 7")
             #
             #Now add the other images (in filter order) until we run out of spaces
             #
@@ -1267,12 +1228,8 @@ class Catalog:
             # complete the entry
             plt.close()
 
-        log.debug("+++++ here 8")
-
         self.clear_pages()
         self.add_bid_entry(fig)
-
-        log.debug("+++++ here 9")
 
         # get zoo style cutout as png
         if G.ZOO_MINI and (detobj is not None) and (stacked_cutout is not None):
@@ -1315,8 +1272,6 @@ class Catalog:
 
         #want to use the catalog associated with the_best_cat_idx, if there is one.
         #If there is not a catalog, then use the r or g band catalog with the most hits?
-
-        log.debug("+++++ here 10")
 
         if not list_of_counterparts:
             counterpart_cat_idx = the_best_cat_idx

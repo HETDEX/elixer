@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.13.1a4 [2021-08-19]
+* Fixed bug where a numpy.add opertation included a multiplication by None. Was in try/catch but still segfaulted.
+  In cat_base.stack_image_cutouts().
+
+
 1.13.1a3 [2021-08-12]
 * fix bug that was assigning max flux as the wavelength if no suitable emission line could be fit (should have been the
   wavelength with the max flux, not the max flux).
