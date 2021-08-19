@@ -740,32 +740,45 @@ class Catalog:
         """
 
         stacked_cutout = None
-        if cutouts:
+        log.debug("+++++ here 0.1.0")
+        if cutouts is not None and len(cutouts) > 0:
+            log.debug("+++++ here 0.1.1")
             try:
                 total_adjusted_exptime = 1.0
                 ref_exptime = 0.0
+                log.debug("+++++ here 0.1.2")
                 for c in cutouts:
+                    log.debug("+++++ here 0.1.3")
                     if c and isinstance(c,dict) and c['cutout']:
                         if not stacked_cutout:
+                            log.debug("+++++ here 0.1.4")
                             stacked_cutout = copy.deepcopy(c['cutout'])
                             try:
+                                log.debug("+++++ here 0.1.5")
                                 ref_exptime = c['details']['exptime']
                                 if not ref_exptime:
                                     ref_exptime = 1.0
                             except:
                                 ref_exptime = 1.0
+                                log.debug("+++++ here 0.1.6")
                             total_adjusted_exptime = 1.0
                         else:
                             try:
+                                log.debug("+++++ here 0.1.7")
                                 stacked_cutout.data = np.add(stacked_cutout.data, c['cutout'].data * c['details']['exptime'] / ref_exptime)
                                 total_adjusted_exptime += c['details']['exptime'] / ref_exptime
+                                log.debug("+++++ here 0.1.8")
                             except:
                                 pass
+                                log.debug("+++++ here 0.1.9")
 
+                log.debug("+++++ here 0.1.10")
                 if stacked_cutout and total_adjusted_exptime:
                     stacked_cutout.data /= total_adjusted_exptime
+                    log.debug("+++++ here 0.1.11")
             except:
                 log.warning("Exception in cat_base.py stack_image_cutouts",exc_info=True)
+        log.debug("+++++ here 0.1.12")
         return stacked_cutout
 
 
