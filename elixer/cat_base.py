@@ -861,15 +861,23 @@ class Catalog:
 
         log.info(f"All reported filters (up to 6 shown in report): {all_filter_names}")
 
+
+        log.debug("+++++ here 0.0")
+
         try:
             stacked_cutout = self.stack_image_cutouts(list_of_cutouts[the_best_cat_idx])
+            log.debug("+++++ here 0.1")
         except:
             log.debug("Minor exception", exc_info=True)
             stacked_cutout = None
 
+        log.debug("+++++ here 0.2")
+
         if stacked_cutout is None:
+            log.debug("+++++ here 0.3a")
             fig = self.build_empty_cat_summary_figure(ra,dec,error,None,None,target_w,fiber_locs)
         else:
+            log.debug("+++++ here 0.3b")
             #now turn this into a plot object and start adding North Box and Fibers
             rows = 10
             #note: setting size to 7 from 6 so they will be the right size (the 7th position will not be populated)
@@ -878,17 +886,21 @@ class Catalog:
             fig_sz_y = 3 #ows * 3
 
             fig = plt.figure(figsize=(fig_sz_x, fig_sz_y))
+            log.debug("+++++ here 0.4")
             plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
 
             gs = gridspec.GridSpec(rows, cols, wspace=0.25, hspace=0.0)
             # reminder gridspec indexing is 0 based; matplotlib.subplot is 1-based
 
+            log.debug("+++++ here 0.5")
             font = FontProperties()
             font.set_family('monospace')
             font.set_size(12)
 
             #this is the single line between the 1D spectrum above and the cutouts below
             the_entry = list_of_cutouts[the_best_cat_idx][the_best_cutout_idx]
+
+            log.debug("+++++ here 0.6")
 
             if the_entry['details'] and the_entry['details']['catalog_name']:
                 name = the_entry['details']['catalog_name']
@@ -897,6 +909,7 @@ class Catalog:
             else:
                 name = "---"
 
+            log.debug("+++++ here 0.7")
             if the_entry['details'] and the_entry['details']['filter_name']:
                 filter = the_entry['details']['filter_name']
             elif the_entry['filter']:
