@@ -175,6 +175,9 @@ if "--mcmc" in args: #impacts the base_time_multiplier
 #else:
 #    force_mcmc = False
 
+if "--lyc" in args: #some extra processing
+    base_time_multiplier *= 1.2 #20% bump in time
+
 
 if MERGE:
     base_time_multiplier = 0.05
