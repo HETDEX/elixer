@@ -922,11 +922,14 @@ class Catalog:
             # MAYBE!!! merge ALL the counter_parts, toss out duplicates (RA,Dec separation < 0.1" ?
             # NOT all [0] have ['counterparts']
 
+            log.debug("+++++ here 1")
+
             try:
                 all_counterparts = np.concatenate([x[0]['counterparts'] for x in list_of_cutouts if 'counterparts' in x[0].keys()])
             except:
                 all_counterparts = []
 
+            log.debug("+++++ here 2")
             for cp in all_counterparts:
                 add = True
                 for i,uc in enumerate(list_of_counterparts):
@@ -964,6 +967,9 @@ class Catalog:
 
                 if add:
                     list_of_counterparts.append(cp)
+
+
+            log.debug("+++++ here 3")
 
             #now resort by likelihood of match (new method)
             list_of_counterparts.sort(key=lambda x: x.distance, reverse=False)
@@ -1016,6 +1022,8 @@ class Catalog:
                 log.warning("Exception attempting to identify best counterpart match in cat_base::build_cat_summary_pdf_section()",
                             exc_info=True)
 
+            log.debug("+++++ here 4")
+
             if selected_idx is not None:
                 if selected_idx != 0:
                     list_of_counterparts.insert(0,list_of_counterparts.pop(selected_idx))
@@ -1057,6 +1065,8 @@ class Catalog:
             except:
                 log.debug("Minor exception",exc_info=True)
 
+            log.debug("+++++ here 5")
+
             try:
                 possible_matches = len(list_of_counterparts)
             except:
@@ -1082,6 +1092,8 @@ class Catalog:
 
             # list_of_counterparts are the catalog matches
             # detobj.aperture_details_list has imaging info
+
+            log.debug("+++++ here 6")
 
             bid_ras = [x.bid_ra for x in list_of_counterparts]
             bid_decs = [x.bid_dec for x in list_of_counterparts]
@@ -1109,6 +1121,7 @@ class Catalog:
             self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, stacked_cutout)
 
 
+            log.debug("+++++ here 7")
             #
             #Now add the other images (in filter order) until we run out of spaces
             #
@@ -1223,8 +1236,12 @@ class Catalog:
             # complete the entry
             plt.close()
 
+        log.debug("+++++ here 8")
+
         self.clear_pages()
         self.add_bid_entry(fig)
+
+        log.debug("+++++ here 9")
 
         # get zoo style cutout as png
         if G.ZOO_MINI and (detobj is not None) and (stacked_cutout is not None):
@@ -1267,6 +1284,8 @@ class Catalog:
 
         #want to use the catalog associated with the_best_cat_idx, if there is one.
         #If there is not a catalog, then use the r or g band catalog with the most hits?
+
+        log.debug("+++++ here 10")
 
         if not list_of_counterparts:
             counterpart_cat_idx = the_best_cat_idx
