@@ -1,8 +1,16 @@
 changes to elixer by version
 
+1.13.1a5 [2021-08-26]
+* Tweak to continuum estimates from imaging where we are at the mag-limit. Now assumes a 1-mag uncertainty and scales
+  the weighting linearly from 0-1 over 24 to 25 mag. This is an attempt to better utilize non-detects when then imaging
+  depth is deeper than 24 (and esp. deeper than 25) rather than just having a very large uncertainty.
+
 1.13.1a4 [2021-08-19]
 * Fixed bug where a numpy.add opertation included a multiplication by None. Was in try/catch but still segfaulted.
   In cat_base.stack_image_cutouts().
+* Minor revision to elixer.prune_detection_list() for recovery to also auto-check the --neighborbood --png and --mini
+  switches and check that those pngs are also present. If the switch requests a png that is not found, the detection
+  will be re-run.
 
 
 1.13.1a3 [2021-08-12]

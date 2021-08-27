@@ -2751,6 +2751,9 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
     #find the pdf reports that should correspond to each detction
     #if found that detection is already done, so remove it from the list
 
+    #!! note: the h5 is written before the report files, so if we got far enough
+    # to write out a report file, then the h5 is complete and no need to re-check it.
+
     #implement as build a new list ... just easier that way
     if ((fcsdir_list is None) or (len(fcsdir_list) == 0)) and \
             ((hdf5_detectid_list is None) or (len(hdf5_detectid_list) == 0)):
@@ -2767,27 +2770,74 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
     if (hdf5_detectid_list is not None) and (len(hdf5_detectid_list) > 0):
 
         for d in hdf5_detectid_list:
-            #does the file exist
-            #todo: this should be made common code, so naming is consistent
-            filename = str(d)
+            try:
+                #does the file exist
+                #todo: this should be made common code, so naming is consistent
+                filename = str(d)
 
-            if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + extension)) or \
-                os.path.isfile(os.path.join(args.name, filename + extension)):
-                log.info("Already processed %s. Will skip recovery." %(filename))
-            else:
-                log.info("Not found (%s). Will process ..." %(filename))
+                okay_to_skip = False
+                if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + extension)) or \
+                    os.path.isfile(os.path.join(args.name, filename + extension)):
+
+                    okay_to_skip = True
+                    if not args.neighborhood_only:
+                        #do we need the png or the neighborhood?
+                        if args.png:
+                            if not os.path.isfile(os.path.join(args.name, filename + ".png")):
+                                okay_to_skip = False
+
+                        if okay_to_skip and args.neighborhood:
+                            if not os.path.isfile(os.path.join(args.name, filename + "_nei.png")):
+                                okay_to_skip = False
+
+                        if okay_to_skip and args.mini:
+                            if not os.path.isfile(os.path.join(args.name, filename + "_mini.png")):
+                                okay_to_skip = False
+
+                    if okay_to_skip:
+                        log.info("Already processed %s. Will skip recovery." %(filename))
+                    else:
+                        log.info("Not all components found (%s). Will process ..." %(filename))
+                        newlist.append(d)
+                else:
+                    log.info("Not found (%s). Will process ..." %(filename))
+                    newlist.append(d)
+            except:
+                log.warning(f"Exception in prune_detection_list. Will re-run {d}",exc_info=True)
                 newlist.append(d)
 
-
     else: #this is the fcsdir list
-
         for d in fcsdir_list:
-            filename = os.path.basename(str(d))
-            if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + extension)) or \
-                os.path.isfile(os.path.join(args.name, filename + extension)):
-                log.info("Already processed %s. Will skip recovery." %(filename))
-            else:
-                log.info("Not found (%s). Will process ..." %(filename))
+            try:
+                filename = os.path.basename(str(d))
+                if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + extension)) or \
+                    os.path.isfile(os.path.join(args.name, filename + extension)):
+
+                    okay_to_skip = True
+                    if not args.neighborhood_only:
+                        #do we need the png or the neighborhood?
+                        if args.png:
+                            if not os.path.isfile(os.path.join(args.name, filename + ".png")):
+                                okay_to_skip = False
+
+                        if okay_to_skip and args.neighborhood:
+                            if not os.path.isfile(os.path.join(args.name, filename + "_nei.png")):
+                                okay_to_skip = False
+
+                        if okay_to_skip and args.mini:
+                            if not os.path.isfile(os.path.join(args.name, filename + "_mini.png")):
+                                okay_to_skip = False
+
+                    if okay_to_skip:
+                        log.info("Already processed %s. Will skip recovery." %(filename))
+                    else:
+                        log.info("Not all components found (%s). Will process ..." %(filename))
+                        newlist.append(d)
+                else:
+                    log.info("Not found (%s). Will process ..." %(filename))
+                    newlist.append(d)
+            except:
+                log.warning(f"Exception in prune_detection_list. Will re-run {d}",exc_info=True)
                 newlist.append(d)
 
     return newlist

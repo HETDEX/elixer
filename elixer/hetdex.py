@@ -3852,29 +3852,44 @@ class DetObj:
                                     #just skip it
                                 else:
                                     cont = SU.mag2cgs(a['mag'], lam)
-                                    if a['mag_err'] is not None:
-                                        cont_hi = SU.mag2cgs(a['mag'] - a['mag_err'],
+                                    #if a['mag_err'] is not None:
+                                    try:
+                                        #set hi to the bright limit
+                                        cont_hi = SU.mag2cgs(a['mag'],
                                                              lam)  # SU.mag2cgs(a['mag_bright'],lam)
-                                        cont_lo = SU.mag2cgs(a['mag'] + a['mag_err'],
+                                        #set low to 1 mag fainter?
+                                        cont_lo = SU.mag2cgs(a['mag'] + 1.0,
                                                              lam)  # SU.mag2cgs(a['mag_faint'],lam)
                                         cont_var = avg_var(cont, cont_lo, cont_hi)
-                                    else:
+                                    except:
                                         #assume could be at limit or out to mag 30? mag 29?
-                                        count_lo = cgs_faint_limit
-                                        cont_hi = SU.mag2cgs(a['mag']-1.0,lam)
+                                        cont_hi = SU.mag2cgs(cgs_faint_limit,lam)
+                                        count_lo =  SU.mag2cgs(cgs_faint_limit+1,lam)
                                         cont_var = avg_var(cont, count_lo, cont_hi)  # treat as a bogus zero error
 
-                                    #scaled to 0-1.0 from mag24 (==0) to mag25(==1.0)
-                                    #if negative then mag is fainter than 25 and get full weight
-                                    w = min((cont - cgs_25) / (cgs_24-cgs_25),1.0)
+                                    #scaled to 0-1.0 from mag24 (==0) to mag25(==1.0), linearly (prob should be more sigmoid-like)
+                                    m = 1.0 / (cgs_25-cgs_24)
+                                    b = -1 * m * cgs_24
+                                    w = m * cont - b
+
                                     if w < 0:
-                                        w = 1.0
-                                        log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit much fainter than 24,"
-                                                 f" full weight {w} applied.")
+                                        w = 0.0
+                                        log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit brigher than 24,"
+                                                 f" zero weight applied.")
                                     else:
-                                        w = max(0.1,w)
+                                        w = max(1.0,w)
                                         log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit fainter than 24,"
                                                  f" scaled weight {w} applied.")
+
+                                    # w = min((cont - cgs_25) / (cgs_24-cgs_25),1.0)
+                                    # if w < 0:
+                                    #     w = 1.0
+                                    #     log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit much fainter than 24,"
+                                    #              f" full weight {w} applied.")
+                                    # else:
+                                    #     w = max(0.1,w)
+                                    #     log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit fainter than 24,"
+                                    #              f" scaled weight {w} applied.")
 
                                     variance.append(cont_var)
                                     continuum.append(cont)
