@@ -391,10 +391,10 @@ def make_fnu_flat_spectrum(mag,filter='g',waves=None):
         #     if waves.unit:
         #         pass
         # except:
-        #     waves = waves * u.angstrom
-        #iso = iso * u.angstrom
+        #     waves = waves * U.angstrom
+        #iso = iso * U.angstrom
 
-        fnu = mag2fnu(mag) #* U.erg / U.s / (U.cm * U.cm) * U.s #use * u.s instead of / u.Hz so the seconds cancel in the
+        fnu = mag2fnu(mag) #* U.erg / U.s / (U.cm * U.cm) * U.s #use * U.s instead of / U.Hz so the seconds cancel in the
         #final product (else says s^2 * Hz
         c = (astropy.constants.c * (1e10 * U.AA / U.m)).value
 
@@ -432,8 +432,8 @@ def make_flux_flat_spectrum(mag,filter='g',waves=None):
         #     if waves.unit:
         #         pass
         # except:
-        #     waves = waves * u.angstrom
-        #iso = iso * u.angstrom
+        #     waves = waves * U.angstrom
+        #iso = iso * U.angstrom
 
         flam_iso = mag2cgs(mag,iso) #* U.erg / U.s / (U.cm * U.cm) / U.AA #use * u.s instead of / u.Hz so the seconds cancel in the
         flux = np.full(len(waves),flam_iso*(waves[1]-waves[0])) #*u.erg / u.s / (u.cm * u.cm)
@@ -2465,3 +2465,395 @@ def spectra_deblend(measured_flux_matrix, overlap_matrix):
         log.error("Exception! Exception in spectrum_utilities.spectra_deblend().",exc_info=True)
 
     return None
+
+
+##################################
+# Cloned from LyCon project
+##################################
+
+
+def shift_to_rest_luminosity(z,flux_density,wave,eflux=None):
+    """
+
+    Assume z, wavelengths, and luminosity distances are without error
+
+    :param z:
+    :param flux_density:
+    :param wave:
+    :param eflux:
+    :return:
+    """
+
+    if z < 0.0:
+        log.error(f"What? invalid z: {z}")
+        return None, None, None
+
+    if ( (flux_density is None) or (wave is None)) or (len(flux_density) != len(wave)) or (len(flux_density) == 0):
+        log.error("Invalid flux_density and wavelengths")
+        return None, None, None
+
+    try:
+        wave = wave / (1.0 + z)
+        ld = luminosity_distance(z).to(U.cm) #this is in Mpc
+        conv = 4.0 * np.pi * ld * ld * (1.0 + z)
+        lum = flux_density * conv
+        if (eflux is not None) and (len(eflux) == len(wave)):
+            lum_err = eflux * conv
+        else:
+            lum_err =None
+
+        return lum, wave , lum_err
+
+    except Exception as e:
+        print(e)
+
+    return None, None, None
+
+
+
+def rest_line_luminosity(z,line_flux,line_flux_err=None):
+    """
+
+    Assume z, wavelengths, and luminosity distances are without error
+
+    :param z:
+    :param line_flux: in erg/s/cm2
+    :param line_flux_err: in erg/s/cm2
+    :return:
+    """
+
+    # if z < 0.0:
+    #     print("What? invalid z: ", z)
+    #     return None, None
+    #
+    # if (line_flux is None) :
+    #     print("Invalid line_flux")
+    #     return None, None
+
+    lum = np.nan
+    lum_err = np.nan
+    try:
+        ld = luminosity_distance(z)
+        factor = (4.0 * np.pi * ld * ld ).to(U.cm**2) #no DO NOT have (1+z) in there ... this is line flux, not a density
+        #and the 1+z factors are handled in the Luminosity Distance
+
+        units = None
+        try:
+            units = lum.unit
+            if units != (U.erg / (U.s * U.cm**2)):
+                if units != U.dimensionless_unscaled:
+                    log.error(f"Invalid line flux units {units}")
+                else:
+                    units = None
+        except:
+            pass
+
+        if units is None:
+            lum = line_flux * factor.value
+        else:
+            lum = line_flux * factor
+        if line_flux_err is not None:
+            lum_err = line_flux_err * factor
+
+    except:
+        pass
+
+    return lum, lum_err
+
+
+
+def shift_to_rest_flam(z, flux_density, wave, eflux=None, block_skylines=True):
+    ### WARNING !!! REMINDER !!! np.arrays are mutable so what are passed in here get modified (flux_density, etc)
+
+    """
+    Really, the "observed" flux density in the reference frame of the rest-frame
+
+    We are assuming no (or insignificant) error in wavelength and z ...
+
+    All three numpy arrays must be of the same length and same indexing
+    :param z:
+    :param flux_density: numpy array of flux densities ...  erg s^-1 cm^-2 AA^-1
+    :param wave: numpy array of wavelenths ... units don't matter
+    :param eflux:  numpy array of flux densities errors ... again, units don't matter, but same as the flux
+                   (note: the is NOT the wavelengths of the flux error)
+    :return:
+    """
+
+    #todo: how are the wavelength bins defined? edges? center of bin?
+    #that is; 4500.0 AA bin ... is that 4490.0 - 4451.0  or 4500.00 - 4502.0 .....
+
+    if z < 0.0:
+        log.error(f"What? invalid z: {z}")
+        flux_density *= 0.0 #zero out the flux, something seriously wrong
+        return flux_density, wave, eflux
+
+    # if block_skylines:
+    #     flux_density[np.where((3535 < wave)&(wave < 3555))] = float("nan")
+
+    try:
+        #rescale the wavelengths
+        wave /= (1.+z) #shift to lower z and squeeze bins
+
+        flux_density *= ((1.+z) * (1.+z)) #shift up flux (shorter wavelength = higher energy)
+        #sanity check .... "density" goes up by (1+z) because of smaller wavebin, energy goes up by (1+z) because of shorter wavelength
+    except:
+        pass
+
+    # if block_skylines:
+    #     flux_density[np.where((3535 < wave)&(wave < 3555))] = float("nan")
+
+
+    #todo: deal with wavelength bin compression (change in counting error?)
+
+    #todo: deal with the various errors (that might not have been passed in)
+    # if eflux is None or len(eflux) == 0:
+    #     eflux = np.zeros(np.shape(flux))
+    #
+    # if ewave is None or len(ewave) == 0:
+    #     ewave = np.zeros(np.shape(flux))
+
+    #todo: deal with luminosity distance (undo dimming?) and turn into luminosity??
+    #
+    #lum = flux*4.*np.pi*(luminosity_distance(z))**2
+    #
+    # or just boost the flux to zero distance point source (don't include the 4*pi)
+    #
+    #flux = flux * (luminosity_distance(z))**2
+
+    return flux_density, wave, eflux
+
+
+def make_grid(all_waves):
+    """
+    Takes in all the wavelength arrays to figure the best grid so that
+    the interpolation only happens on a single grid
+
+    The grid is on the step size of the spectrum with the smallest steps and the range is
+    between the shortest and longest wavelengths that are in all spectra.
+
+    :param all_waves: 2d array of all wavelengths
+    :return: grid (1d array) of wavelengths
+
+    """
+
+    all_waves = np.array(all_waves)
+    #set the range to the maximum(minimum) to the minimum(maximum)
+    mn = np.max(np.amin(all_waves,axis=1)) #maximum of the minimums of each row
+    mx = np.min(np.amax(all_waves,axis=1)) #minimum of the maximums of each row
+
+    # the step is the smallest of the step sizes
+    # assume (within each wavelength array) the stepsize is uniform
+    step = np.min(all_waves[:,1] - all_waves[:,0])
+
+    #return the grid
+    return np.arange(mn, mx + step, step)
+
+
+def make_grid_max_length(all_waves):
+    """
+    Takes in all the wavelength arrays to figure the best grid so that
+    the interpolation only happens on a single grid
+
+    The grid is on the step size of the spectrum with the smallest steps and the range is
+    the maximum of ALL spectral ranges (NOT THE MAX OVERLAP, but the absolute max)
+
+    :param all_waves: 2d array of all wavelengths
+    :return: grid (1d array) of wavelengths
+
+    """
+
+    #all_waves = np.array(all_waves)
+    # matrix_waves = np.vstack(all_waves) #can only vstack if lengths are the same
+    # #set the range to the maximum(minimum) to the minimum(maximum)
+    # mn = np.min(np.amin(matrix_waves,axis=1)) #minimum of the minimums of each row
+    # mx = np.max(np.amax(matrix_waves,axis=1)) #maximums of the maximums of each row
+    # # the step is the smallest of the step sizes
+    # # assume (within each wavelength array) the stepsize is uniform
+    # step = np.min(matrix_waves[:,1] - matrix_waves[:,0])
+
+    mn = min(x[0] for x in all_waves)
+    mx = max(x[-1] for x in all_waves)
+    step = min(x[1]-x[0] for x in all_waves)
+
+    #return the grid
+    return np.arange(mn, mx + step, step)
+
+def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight",straight_error=False):
+    """
+        Assumes all spectra are in the same frame (ie. all in restframe) and ignores the flux type, but
+        assumes all in the same units and scale (for flux, flux err and wave).
+
+    flux, flux_err, and wave are 2D matrices (array of arrays)
+
+    :param fluxes: should be unitless values
+    :param flux_errs:  should be unitless values
+    :param waves:  should be unitless values
+    :param avg_type:
+    :param straight_error:
+    :return:
+    """
+
+    data_shape = np.shape(fluxes)
+
+    if (np.shape(flux_errs) != np.shape(waves)) or (np.shape(flux_errs) != data_shape):
+        log.error("Inconsistent data shape for fluxes, flux_errs, and waves")
+        return None,None,None
+
+    if grid is None or len(grid) == 0:
+        grid = make_grid_max_length(waves) #full width grid of absolute maximum spread in wavelengths
+
+    resampled_fluxes = []
+    resampled_flux_errs = []
+    contrib_count = np.zeros(len(grid)) #number of spectra contributing to this wavelength bin
+
+
+
+
+    stack_flux = np.full(len(grid),np.nan)
+    stack_flux_err = np.full(len(grid),np.nan)
+    #stack_wave # this is just the grid
+
+    #resample all input fluxes onto the same grid
+    for i in range(data_shape[0]):
+        res_flux, res_err, res_wave = interpolate(fluxes[i],waves[i],grid,eflux=flux_errs[i])
+
+        min_wave = waves[i][0]
+        max_wave = waves[i][-1]
+
+        res_flux[np.where(grid < min_wave)] = np.nan
+        res_flux[np.where(grid > max_wave)] = np.nan
+
+
+        resampled_fluxes.append(res_flux) #aka interp_flux_density_matrix
+        resampled_flux_errs.append(res_err) #aka  interp_flux_density_err_matrix
+        #all on the same wave grid, so don't need that back
+
+    #########################################################################
+    # average down each wavebin THEN across the (single) averaged spectrum
+    #########################################################################
+
+    #save the units
+
+    for i in range(len(grid)):
+        #build error first since wslice is modified and re-assigned
+        #build the error on the flux (wslice) so they stay lined up
+
+        #have to remove the quantity here, just use the float values
+        wslice_err = np.array([m[i] for m in resampled_flux_errs])  # interp_flux_matrix[:, i]  # all rows, ith index
+        wslice = np.array([m[i] for m in resampled_fluxes]) #interp_flux_matrix[:, i]  # all rows, ith index
+
+        #since using np.nan and np.nan != np.nan, so where wslice == itself it is not nan
+        wslice_err = wslice_err[np.where(wslice==wslice)]  # so same as wslice, since these need to line up
+        wslice = wslice[np.where(wslice==wslice)]  # git rid of the out of range interp values
+
+        # git rid of any nans
+        wslice_err = wslice_err[~np.isnan(wslice)] #err first so the wslice is not modified
+        wslice = wslice[~np.isnan(wslice)]
+
+        contrib_count[i] = len(wslice)
+
+        if len(wslice) == 0:
+            stack_flux[i] = np.nan
+            stack_flux_err[i] = np.nan
+        elif len(wslice) == 1:
+            try:
+                stack_flux[i] = wslice[0]
+                stack_flux_err[i] = 0
+            except Exception as e:
+                print(e)
+                stack_flux[i] = 0
+                stack_flux_err[i] = 0
+        elif len(wslice) == 2:
+            try:
+                stack_flux[i] = np.nanmean(wslice)
+                stack_flux_err[i] = np.nanstd(wslice)
+            except Exception as e:
+                print(e)
+                stack_flux[i] = 0
+                stack_flux_err[i] = 0
+        else: #3 or more
+            if straight_error or (avg_type == 'mean_95'):
+                try:
+                    mean_cntr, var_cntr, std_cntr = bayes_mvs(wslice, alpha=0.95)
+                    if np.isnan(mean_cntr[0]):
+                        raise( Exception('mean_ctr is nan'))
+                    stack_flux[i] = mean_cntr[0]
+                    #an average error
+                    stack_flux_err[i] = 0.5 * (abs(mean_cntr[0]-mean_cntr[1][0]) + abs(mean_cntr[0]-mean_cntr[1][1]))
+                except Exception as e:
+                    log.error("Straight Error failed (iter=%d,wave=%f). Switching to biweight at 2 sigma  ..." %(i,grid[i]),e)
+                    try:
+                        stack_flux[i] = biweight.biweight_location(wslice)
+                        stack_flux_err[i] = biweight.biweight_scale(wslice) #* 2. #2 sigma ~ 95%
+                    except Exception as e:
+                        log.error(e)
+            elif straight_error or (avg_type == 'mean_68'):
+                try:
+                    mean_cntr, var_cntr, std_cntr = bayes_mvs(wslice, alpha=0.68)
+                    if np.isnan(mean_cntr[0]):
+                        raise (Exception('mean_ctr is nan'))
+                    stack_flux[i] = mean_cntr[0]
+                    # an average error
+                    stack_flux_err[i] = 0.5 * (
+                            abs(mean_cntr[0] - mean_cntr[1][0]) + abs(mean_cntr[0] - mean_cntr[1][1]))
+                except Exception as e:
+                    log.error("Straight Error failed (iter=%d,wave=%f). Switching to biweight at 2 sigma  ..." % (
+                        i, grid[i]), e)
+
+                    try:
+                        stack_flux[i] = biweight.biweight_location(wslice)
+                        stack_flux_err[i] = biweight.biweight_scale(wslice)   # * 2. #2 sigma ~ 95%
+                    except Exception as e:
+                        log.error(e)
+            elif (avg_type == 'mean_std'):
+                try:
+                    stack_flux[i] = np.nanmean(wslice)
+                    # an average error
+                    stack_flux_err[i] = np.nanstd(wslice) / np.sqrt(len(wslice))
+                except Exception as e:
+                    log.error("Straight Error failed (iter=%d,wave=%f). Switching to biweight at 2 sigma  ..." %(i,grid[i]),e)
+                    try:
+                        stack_flux[i] = biweight.biweight_location(wslice)
+                        stack_flux_err[i] = biweight.biweight_scale(wslice) #* 2. #2 sigma ~ 95%
+                    except Exception as e:
+                        log.error(e)
+
+            elif (avg_type == 'median'):
+                try:
+                    stack_flux[i] = np.nanmedian(wslice)
+                    #an average error
+                    stack_flux_err[i] =np.nanstd(wslice)/np.sqrt(len(wslice))
+                except Exception as e:
+                    log.error("Straight Error failed (iter=%d,wave=%f). Switching to biweight at 2 sigma  ..." %(i,grid[i]),e)
+
+                    try:
+                        stack_flux[i] = biweight.biweight_location(wslice)
+                        stack_flux_err[i] = biweight.biweight_scale(wslice)#* 2. #2 sigma ~ 95%
+                    except Exception as e:
+                        log.error(e)
+
+            elif (avg_type == 'biweight'):
+                try:
+                    stack_flux[i] = biweight.biweight_location(wslice)
+                    stack_flux_err[i] = biweight.biweight_scale(wslice) / np.sqrt(len(wslice))
+                except Exception as e:
+                    log.error("Straight Error failed (iter=%d,wave=%f). Switching to biweight at 2 sigma  ..." %(i,grid[i]),e)
+                    try:
+                        stack_flux[i] = biweight.biweight_location(wslice)
+                        stack_flux_err[i] = biweight/biweight_scale(wslice) #* 2. #2 sigma ~ 95%
+                    except Exception as e:
+                        log.error(e)
+            else: #weighted_biweight
+                #definitely keep the scale defaults (c=6,c=9) per Karl, etc .. these best wieght for Gaussian limits
+
+                try:
+                    stack_flux[i] = weighted_biweight.biweight_location_errors(wslice, errors=wslice_err)
+                    stack_flux_err[i] = weighted_biweight.biweight_scale(wslice) / np.sqrt(len(wslice))
+                except Exception as e:
+                    log.error(e)
+                    stack_flux[i] = biweight.biweight_location(wslice)
+                    stack_flux_err[i] = biweight.biweight_scale(wslice) / np.sqrt(len(wslice))
+
+        #end loop
+
+    return stack_flux,stack_flux_err,grid

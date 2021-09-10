@@ -1,5 +1,9 @@
 changes to elixer by version
 
+
+1.13.2a1 [2021-09-09]
+* added LyCon project code from its spectrum_utilities to ELiXer spectrum_utilities for stacking and redshifting
+
 1.13.1a5 [2021-08-26]
 * Tweak to continuum estimates from imaging where we are at the mag-limit. Now assumes a 1-mag uncertainty and scales
   the weighting linearly from 0-1 over 24 to 25 mag. This is an attempt to better utilize non-detects when then imaging
