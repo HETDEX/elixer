@@ -2552,8 +2552,12 @@ def rest_line_luminosity(z,line_flux,line_flux_err=None):
             lum = line_flux * factor.value
         else:
             lum = line_flux * factor
+
         if line_flux_err is not None:
-            lum_err = line_flux_err * factor
+            if units is None:
+                lum_err = line_flux_err * factor.value
+            else:
+                lum_err = line_flux_err * factor
 
     except:
         pass
@@ -2697,7 +2701,7 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight
 
     if (np.shape(flux_errs) != np.shape(waves)) or (np.shape(flux_errs) != data_shape):
         log.error("Inconsistent data shape for fluxes, flux_errs, and waves")
-        return None,None,None
+        return None,None,None,None
 
     if grid is None or len(grid) == 0:
         grid = make_grid_max_length(waves) #full width grid of absolute maximum spread in wavelengths
@@ -2856,4 +2860,4 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight
 
         #end loop
 
-    return stack_flux,stack_flux_err,grid
+    return stack_flux,stack_flux_err,grid,contrib_count

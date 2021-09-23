@@ -1,6 +1,10 @@
 changes to elixer by version
 
 
+1.13.3a1 [2021-09-22]
+* renamed elixer h5 Detections table "plae_classification" column to "plya_classification"
+* replaced elixer h5 Detections table "combined_plae_err" column with "combined_plae_hi" and "combined_plae_lo"
+
 1.13.2a1 [2021-09-09]
 * added LyCon project code from its spectrum_utilities to ELiXer spectrum_utilities for stacking and redshifting
 

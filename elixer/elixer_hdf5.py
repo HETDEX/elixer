@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.4.0' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.5.0' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -141,8 +141,12 @@ class Detections(tables.IsDescription):
 
     #ELiXer combined (rules, inv variance, weights and Bayes) classification info
     combined_plae = tables.Float32Col(dflt=UNSET_FLOAT)   #combination of all PLAE/POII
-    combined_plae_err = tables.Float32Col(dflt=UNSET_FLOAT)
-    plae_classification = tables.Float32Col(dflt=UNSET_FLOAT) #final, combine P(LAE) (0.0 - 1.0)
+    #combined_plae_err = tables.Float32Col(dflt=UNSET_FLOAT)
+
+    combined_plae_lo = tables.Float32Col(dflt=UNSET_FLOAT)
+    combined_plae_hi = tables.Float32Col(dflt=UNSET_FLOAT)
+    plya_classification = tables.Float32Col(dflt=UNSET_FLOAT) #final, combine P(LAE) (0.0 - 1.0) #fomerly plae_classification
+
     spurious_reason = tables.StringCol(itemsize=32,dflt=UNSET_STR)
     combined_continuum = tables.Float32Col(dflt=UNSET_FLOAT)   #combination of all continuum estimates
     combined_continuum_err = tables.Float32Col(dflt=UNSET_FLOAT)
@@ -861,11 +865,21 @@ def append_entry(fileh,det,overwrite=False):
         if (det.classification_dict is not None):
             try:
                 row['combined_plae'] = det.classification_dict['plae_hat']
+                # try:
+                #     row['combined_plae_err'] = det.classification_dict['plae_hat_err']
+                # except:
+                #     row['combined_plae_err'] = det.classification_dict['plae_hat_sd']
                 try:
-                    row['combined_plae_err'] = det.classification_dict['plae_hat_err']
+                    row['combined_plae_lo'] = max(0.001,det.classification_dict['plae_hat_lo'])
                 except:
-                    row['combined_plae_err'] = det.classification_dict['plae_hat_sd']
-                row['plae_classification'] = det.classification_dict['scaled_plae']
+                    row['combined_plae_lo'] = -1
+
+                try:
+                    row['combined_plae_hi'] = min(1000.0,det.classification_dict['plae_hat_hi'])
+                except:
+                    row['combined_plae_hi'] = -1
+
+                row['plya_classification'] = det.classification_dict['scaled_plae']
                 #last two are new
                 row['combined_continuum'] = det.classification_dict['continuum_hat']
                 row['combined_continuum_err'] = det.classification_dict['continuum_hat_err']
