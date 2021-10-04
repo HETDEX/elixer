@@ -392,8 +392,12 @@ def select_hdr_version(version):
 
             if HDR_Version_float == 1:
                 PIXFLT_LOC = op.join(CONFIG_BASEDIR, "virus_config/PixelFlats")
-            else:
+            elif HDR_Version_float < 3:
                 PIXFLT_LOC = HETDEX_API_CONFIG.pixflat_dir
+            else:
+                common = op.commonpath([HDF5_CONTINUUM_FN,HDF5_SURVEY_FN,HDF5_REDUCTION_DIR])
+                PIXFLT_LOC = op.join(common,"/lib_calib/lib_pflat")
+
 
         else: #defunct
             HDF5_DETECT_FN = op.join(HDR_BASEPATH, "detect/detect_hdr1.h5")
