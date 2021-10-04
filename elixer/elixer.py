@@ -458,6 +458,12 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--viewer', help='Launch the global_config.py set PDF viewer on completion', required=False,
                             action='store_true', default=False)
 
+
+    parser.add_argument('--check_z', help="Toggle use of catalog counterpart redshift comparisions. "
+                                          "Bitmask: 1 = Galaxy Mask, 2 = DEX-GAIA, 4=SDSS, 8=Local Catalogs. "
+                                          "Do NOT use unless you specifically know what you are doing. ",
+                        required=False, type=int)#default=15) leave the default = None
+
     parser.add_argument('--special', help="Special purpose modification. The value sets the behavior. Tied to specific code. Do NOT use unless you specifically know what you are doing.",
                         required=False, type=int,default=0)
 
@@ -478,6 +484,34 @@ def parse_commandline(auto_force=False):
                 G.CHECK_GALAXY_MASK = False
     except:
         pass
+
+    try:
+        if args.check_z:
+            log.info(f"Altering check_z: bitmask={bin(args.check_z)}")
+            if args.check_z & 1:
+                G.CHECK_GALAXY_MASK = True
+            else:
+                G.CHECK_GALAXY_MASK = False
+
+            if args.check_z & 2:
+                G.CHECK_GAIA_DEX_CATALOG = True
+            else:
+                G.CHECK_GAIA_DEX_CATALOG = False
+
+            if args.check_z & 4:
+                G.CHECK_SDSS_Z_CATALOG = True
+            else:
+                G.CHECK_SDSS_Z_CATALOG = False
+
+            if args.check_z & 8:
+                G.CHECK_ALL_CATALOG_BID_Z = True
+            else:
+                G.CHECK_ALL_CATALOG_BID_Z = False
+
+
+    except Exception as e:
+        print("Invalid --check_z provided.",e)
+        exit(0)
 
 
     if G.LAUNCH_PDF_VIEWER is None:

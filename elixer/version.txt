@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.13.3a2 [2021-10-04]
+* [HDR3 continuum test]
+* added --check_z commandline option: Bitmask: 1 = Galaxy Mask, 2 = DEX-GAIA, 4=SDSS, 8=Local Catalogs.
+  by default all are turned ON
+
 
 1.13.3a1 [2021-09-22]
 * renamed elixer h5 Detections table "plae_classification" column to "plya_classification"
