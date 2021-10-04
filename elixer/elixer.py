@@ -3508,30 +3508,35 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     wave = []
     emis = []
     shot = []
-    with tables.open_file(hdf5, mode="r") as h5_detect:
-        stb = h5_detect.root.Spectra
-        dtb = h5_detect.root.Detections
-        for d in detectids:
-            rows = stb.read_where("detectid==d")
+    try:
+        with tables.open_file(hdf5, mode="r") as h5_detect:
+            stb = h5_detect.root.Spectra
+            dtb = h5_detect.root.Detections
+            for d in detectids:
+                rows = stb.read_where("detectid==d")
 
-            if rows.size == 1:
-                spec.append(rows['spec1d'][0])
-                wave.append(rows['wave1d'][0])
+                if rows.size == 1:
+                    spec.append(rows['spec1d'][0])
+                    wave.append(rows['wave1d'][0])
 
-                drows = dtb.read_where("detectid==d")
-                if drows.size == 1:
-                    emis.append(drows['wave'][0])
-                    shot.append(drows['shotid'][0])
+                    drows = dtb.read_where("detectid==d")
+                    if drows.size == 1:
+                        emis.append(drows['wave'][0])
+                        shot.append(drows['shotid'][0])
+                    else:
+                        emis.append(-1.0)
+                        shot.append(0)
+
                 else:
+                    #there's a problem
+                    spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
+                    wave.append(G.CALFIB_WAVEGRID)
                     emis.append(-1.0)
                     shot.append(0)
+    except Exception as e: #file might not exist
+        if 'does not exist' in str(e):
+            log.debug(f"Detection h5 does not exist: {hdf5} ")
 
-            else:
-                #there's a problem
-                spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
-                wave.append(G.CALFIB_WAVEGRID)
-                emis.append(-1.0)
-                shot.append(0)
 
 
     #now add the continuum sources if any
