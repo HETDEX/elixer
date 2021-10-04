@@ -2,6 +2,7 @@ changes to elixer by version
 
 1.13.3a2 [2021-10-04]
 * [HDR3 continuum test]
+* add allowed versions for HDR3 (NOTE: Default still at HDR2.1 for now), so must specify --hdr 3 on command line
 * added --check_z commandline option: Bitmask: 1 = Galaxy Mask, 2 = DEX-GAIA, 4=SDSS, 8=Local Catalogs.
   by default all are turned ON
 

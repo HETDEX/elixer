@@ -37,7 +37,7 @@ else:
 
 LAUNCH_PDF_VIEWER = None
 
-valid_HDR_Versions = [1,2,2.1]
+valid_HDR_Versions = [1,2,2.1,3,3.0]
 
 HDR_Version = "2.1"
 HDR_Version_float = 2.1
@@ -126,8 +126,8 @@ BUILD_REPORT_BY_FILTER = True #if True, multiple catalogs are used to build the 
                            #if False, then the single deepest catalog that overlaps is used with what ever filters it has
 
 if hostname in LOCAL_DEV_HOSTNAMES:  # primary author test box
-    HDR_Version = "2.1"
-    HDR_Version_float = 2.1
+    HDR_Version = "3" #"2.1"
+    HDR_Version_float = 3.0 #2.1
     LAUNCH_PDF_VIEWER = 'qpdfview'
 else:
     HDR_Version = "2.1"  # default HDR Version if not specified
