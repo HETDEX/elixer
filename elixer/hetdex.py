@@ -5132,7 +5132,12 @@ class DetObj:
                 rows = None
 
             if (rows is None) or (rows.size != 1):
-                log.error("Problem loading detectid ...")
+                log.error(f"Problem loading info for shot {shotid} from {hdf5_fn}. Setting out of range values for shot.")
+                self.survey_fwhm = 999
+                self.survey_fwhm_moffat = 999
+                self.survey_response = 0
+                self.survey_fieldname = "---"
+
                 return
 
             row = rows[0] #should only be the one row
