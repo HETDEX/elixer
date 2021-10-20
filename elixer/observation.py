@@ -166,7 +166,10 @@ class SyntheticObservation():
 
                     fiber.d_aperture_local_calfib = row['calfib']
                     fiber.d_aperture_calfibe =  row['calfibe']
-                    fiber.d_aperture_ffsky_calfib =  row['spec_fullsky_sub']
+                    try: #name change in HDR3
+                        fiber.d_aperture_ffsky_calfib =  row['calfib_ffsky']
+                    except:
+                        fiber.d_aperture_ffsky_calfib =  row['spec_fullsky_sub']
 
 
 

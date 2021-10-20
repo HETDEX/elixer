@@ -473,10 +473,14 @@ class HetdexFits:
 
                     self.calfib[idx] = row['calfib']
                     self.calfibe[idx] = row['calfibe']
-                    try:
-                        self.ffsky_calfib[idx] = row['spec_fullsky_sub']
+
+                    try: #in HDR3 the name is new
+                        self.ffsky_calfib[idx] = row['calfib_ffsky']
                     except:
-                        pass #older versions may not have this column
+                        try: #HDR2
+                            self.ffsky_calfib[idx] = row['spec_fullsky_sub']
+                        except:
+                            pass #older versions may not have this column
                     try:
                         self.fiber_chi2[idx] = row['chi2']
                         self.fiber_rms[idx] = row['rms']

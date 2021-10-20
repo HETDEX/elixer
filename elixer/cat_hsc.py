@@ -932,6 +932,8 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 else:
                     try: #weighted biweight
                         filter_fl = SU.weighted_biweight.biweight_location_errors(flux_list, errors=flux_err_list)
+                        if np.isnan(filter_fl):
+                            raise Exception('nan filer_fl')
                         filter_fl_err = SU.weighted_biweight.biweight_scale(flux_list) / np.sqrt(len(flux_err_list))
                         avg_method = "weighted biweight"
                     except:

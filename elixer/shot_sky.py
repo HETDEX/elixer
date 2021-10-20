@@ -272,7 +272,10 @@ def get_all_fibers(shotid,mf_list):
             for count_row, row in enumerate(rows):
                 #lo = row['calfib']
                 er = row['calfibe']
-                ff = row['spec_fullsky_sub']
+                try: #name change in HDR3
+                    ff = row['calfib_ffsky']
+                except:
+                    ff = row['spec_fullsky_sub']
                 c2 = row['chi2']
                 tp = row['Throughput']
 

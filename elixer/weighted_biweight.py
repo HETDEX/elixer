@@ -136,7 +136,7 @@ def biweight_location_weights(data, weights, c=6.0, M=None, axis=None):
     data[weights==0] = np.nan 
     weights[~np.isfinite(data)] = np.nan
     data[np.isnan(weights)] = np.nan
-    data[np.isfinite(weights)] = np.nan
+    data[~np.isfinite(weights)] = np.nan
     data[weights==0] = np.nan
 
 

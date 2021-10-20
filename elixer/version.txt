@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.13.3a4 [2021-10-20]
+* update ff-sky column name to "calfib_ffsky" from "spec_fullsky_sub"
+* fixed bug in weighted_biweigh introduced in 1.13.1.a3 (made data = NaN where error was finite ... should be where infinite)
+* added "A=xxx" aperture correction at 4500 to upper left text panel
+
 
 1.13.3a3 [2021-10-07]
 * [HDR3 continuum test]

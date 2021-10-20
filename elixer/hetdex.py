@@ -5616,6 +5616,7 @@ class DetObj:
             self.sumspec_flux = np.nan_to_num(apt['spec'][0]) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
             self.sumspec_fluxerr = np.nan_to_num(apt['spec_err'][0]) * G.FLUX_WAVEBIN_WIDTH
             self.sumspec_wavelength = np.array(apt['wavelength'][0])
+            self.sumspec_apcor =  np.array(apt['weights'][0]) #this is the apcor ... the fiber_weights are the PSF weights
 
 
             #get fiber weights if available
@@ -8922,6 +8923,12 @@ class HETDEX:
                 else:
                     title += f"N={e.dither_norm:0.2f}  "
 
+                if (e.sumspec_apcor is not None) and (len(e.sumspec_apcor) == 1036):
+                    title += f"A={e.sumspec_apcor[515]:0.2f}  "
+                else:
+                    title += f"A=---  "
+
+
                 #title += f"A={e.amp_stats:0.2f}"
                 title += "\n"
 
@@ -8987,6 +8994,11 @@ class HETDEX:
                     title += f"N=*{e.dither_norm:0.2f}!  "
                 else:
                     title += f"N={e.dither_norm:0.2f}  "
+
+                if (e.sumspec_apcor is not None) and (len(e.sumspec_apcor) == 1036):
+                    title += f"A={e.sumspec_apcor[515]:0.2f}  " #idx 515 is 4500AA
+                else:
+                    title += f"A=---  "
 
                 # title += f"A={e.amp_stats:0.2f}"
                 title += "\n"

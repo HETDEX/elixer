@@ -2023,7 +2023,12 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
             ra2 = ra + fov/dec_correction
             dec1 = dec - fov
             dec2 = dec + fov
+            log.debug("Reading for shotids ...")
             shotlist = stb.read_where("(ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2)",field="shotid")
+            if shotlist is not None:
+                log.debug(f"Shots found: {len(shotlist)}")
+            else:
+                log.debug(f"Shots found: 0")
 
 
         with tables.open_file(hdf5, mode="r") as h5:
