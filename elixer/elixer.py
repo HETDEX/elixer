@@ -2,8 +2,10 @@ from __future__ import print_function
 
 import matplotlib
 matplotlib.use('agg')
+
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+plt.style.use('default')
 
 try:
     from elixer import hetdex
@@ -26,6 +28,7 @@ except:
 
 from hetdex_api import survey as hda_survey
 
+plt.style.use('default') #restore to classic if hetdex api changes style
 import argparse
 import copy
 
@@ -56,8 +59,6 @@ else:
     from pdf2image import convert_from_path
 
 import tables
-
-
 
 #try:
 #    import PyPDF2 as PyPDF
@@ -2039,7 +2040,7 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
             dec2 = dec + error
 
             rows = None
-            for q_shot in shotlist:
+            for q_shot in shotlist: #probably not indexed by shot
                 q_rows = dtb.read_where("(shotid == q_shot) & (ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2)")
                 if rows is None:
                     rows = q_rows

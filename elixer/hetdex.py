@@ -5616,7 +5616,10 @@ class DetObj:
             self.sumspec_flux = np.nan_to_num(apt['spec'][0]) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
             self.sumspec_fluxerr = np.nan_to_num(apt['spec_err'][0]) * G.FLUX_WAVEBIN_WIDTH
             self.sumspec_wavelength = np.array(apt['wavelength'][0])
-            self.sumspec_apcor =  np.array(apt['weights'][0]) #this is the apcor ... the fiber_weights are the PSF weights
+            try: #name change in HDR3
+                self.sumspec_apcor =  np.array(apt['apcor'][0]) #this is the apcor ... the fiber_weights are the PSF weights
+            except:
+                self.sumspec_apcor =  np.array(apt['weights'][0]) #this is the apcor ... the fiber_weights are the PSF weights
 
 
             #get fiber weights if available

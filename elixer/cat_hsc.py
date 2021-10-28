@@ -127,7 +127,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
     loaded_tracts = []
 
     MainCatalog = None #there is no Main Catalog ... must load individual catalog tracts
-    Name = "HyperSuprimeCam"
+    Name = "HSC-DEX" #"HyperSuprimeCam"
 
     Image_Coord_Range = hsc_meta.Image_Coord_Range
     Tile_Dict = hsc_meta.HSC_META_DICT

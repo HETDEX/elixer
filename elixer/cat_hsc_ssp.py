@@ -112,7 +112,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
     loaded_tracts = []
 
     MainCatalog = None #there is no Main Catalog ... must load individual catalog tracts
-    Name = "HyperSuprimeCam_SSP"
+    Name = "HSC-SSP" #"HyperSuprimeCam_SSP"
 
     #todo: HERE ... just define the coordrange, etc rather than load a meta file
     #using the HETDEX HSC dictionary format, but filter, tract, and pos are not relevant

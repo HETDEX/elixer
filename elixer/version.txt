@@ -1,9 +1,12 @@
 changes to elixer by version
 
-1.13.3a4 [2021-10-20]
+1.13.3a4 [2021-10-28]
 * update ff-sky column name to "calfib_ffsky" from "spec_fullsky_sub"
 * fixed bug in weighted_biweigh introduced in 1.13.1.a3 (made data = NaN where error was finite ... should be where infinite)
 * added "A=xxx" aperture correction at 4500 to upper left text panel
+* rename catalogs: HyperSuprimeCam to HSC-DEX and HyperSuprimeCam_SSP to HSC-SSP nd HyperSuprieCam_NEP to HSC-NEP
+* update for hetdex_api name change for extract() : "weights" to "apcor"
+* start including hetdex_api phot_tools (for line images)
 
 
 1.13.3a3 [2021-10-07]

@@ -183,7 +183,7 @@ class STACK_COSMOS(cat_base.Catalog):
     STACK_COSMOS_CAT = op.join(G.STACK_COSMOS_CAT_PATH, "cat_g.fits")
     STACK_COSMOS_IMAGE_PATH = G.STACK_COSMOS_BASE_PATH
     #STACK_COSMOS_IMAGE = op.join(STACK_COSMOS_IMAGE_PATH, "COSMOS_g_sci.fits")
-    MAG_LIMIT = 26.0 #very generous
+    MAG_LIMIT = 25.7 #very generous (recall I am adding 0.5 for slop ... so 25.5-ish)
 
     MainCatalog = STACK_COSMOS_CAT
     Name = "DECAM/COSMOS"

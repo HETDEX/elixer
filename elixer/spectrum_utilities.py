@@ -1208,6 +1208,7 @@ def extract_at_position(ra,dec,aperture,shotid,ffsky=False):
         return_dict['flux'] = np.nan_to_num(apt['spec'][0]) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
         return_dict['fluxerr'] = np.nan_to_num(apt['spec_err'][0]) * G.FLUX_WAVEBIN_WIDTH
         return_dict['wave'] = np.array(apt['wavelength'][0])
+        return_dict['apcor'] =  np.array(apt['apcor'][0])
         return_dict['ra'] = ra
         return_dict['dec'] = dec
     except Exception as E:

@@ -20,6 +20,8 @@ except:
     import global_config as G
     import utilities
 
+from hetdex_tools import phot_tools
+
 import gc
 from time import sleep
 import mmap
@@ -56,6 +58,38 @@ PIXEL_APERTURE_METHOD='exact' #'exact' 'center' 'subpixel'
 log = G.Global_Logger('sciimg_logger')
 log.setlevel(G.LOG_LEVEL)
 
+
+
+def get_line_image(friendid=None, detectid=None, coords=None, shotid=None, subcont=True, convolve_image=False,
+                   pixscale=0.25, imsize=9.0, wave_range=None, return_coords=False):
+    """
+    Wrapper for hetdex_api.hetdex_tools.phot_tools get_line_image()
+    A synthetic image from fibers using region around the emission line
+
+
+    :return: a cutout like the science cutouts (mostly an astropy HDU)
+    """
+    cutout = None
+    try:
+
+        hdu = phot_tools.get_line_image(friendid=friendid,
+                                        detectid=detectid,
+                                        coords=coords,
+                                        shotid=shotid,
+                                        subcont=subcont,
+                                        convolve_image=convolve_image,
+                                        pixscale=pixscale,
+                                        imsize=imsize,
+                                        wave_range=wave_range,
+                                        return_coords=return_coords)
+
+        #there are 4 extensions in the HDU .. the 0th is the image we want
+        cutout = cp.deepcopy(hdu[0])
+
+    except:
+        log.error("Exception calling hetdex_api's get_line_image(): ", exc_info=True)
+
+    return cutout
 
 def is_cutout_empty(cutout,check_unique_fraction=False):
     """
@@ -214,6 +248,7 @@ def is_cutout_empty(cutout,check_unique_fraction=False):
         log.debug("*** Exception! Exception in science_image::is_cutout_empty()", exc_info=True)
 
     return rc
+
 
 
 class science_image():

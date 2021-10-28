@@ -278,7 +278,7 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
     loaded_tracts = []
 
     MainCatalog = None #there is no Main Catalog ... must load individual catalog tracts
-    Name = "HyperSuprimeCam_NEP"
+    Name = "HSC-NEP"#"HyperSuprimeCam_NEP"
 
 
 #I hope all is well with you!! I found a little problema with the photometric catalog that the H20 team sent us.
