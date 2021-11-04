@@ -1,7 +1,11 @@
 changes to elixer by version
 
+1.14.0a1 [2021-11-04]
+* add in hetdex_api line images to cutout panel
+  [still todo: incorporate line image statistics to help in fake vs real]
+
 1.13.3a5 [2021-11-04]
-* working on revising non-detects in imaging contribution to P(LyA)
+* revised non-detects in imaging contribution to P(LyA) to use only single deepest non-detect as continuum upper limit
 * make LAE_G_MAG_ZERO, LAE_R_MAG_ZERO on scale, centered at z = 2.5 for  1.9 < z < 3.5 and tuning by 1+z such that the
 magnitude is 0.20 brigher at z = 1.9 to 0.27 fainter by z = 3.5. Used to nudge ambiguous P(LyA) toward OII or LAE if the
 object magnitude is brigher or fainter. Base values are 24.5 (g) and 24.3 (r)

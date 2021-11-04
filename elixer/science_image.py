@@ -58,7 +58,7 @@ log.setlevel(G.LOG_LEVEL)
 
 HETDEX_TOOLS = False
 
-def get_line_image(friendid=None, detectid=None, coords=None, shotid=None, subcont=True, convolve_image=False,
+def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, subcont=True, convolve_image=False,
                    pixscale=0.25, imsize=9.0, wave_range=None, return_coords=False):
     """
     Wrapper for hetdex_api.hetdex_tools.phot_tools get_line_image()
@@ -67,36 +67,78 @@ def get_line_image(friendid=None, detectid=None, coords=None, shotid=None, subco
 
     :return: a cutout like the science cutouts (mostly an astropy HDU)
     """
+    global HETDEX_TOOLS
 
     if not HETDEX_TOOLS:
         try:
             from hetdex_tools import phot_tools
+            plt.style.use('default') #restore plot style
             HETDEX_TOOLS = True
         except:
             log.error("Cannot import hetdex_tools phot_tools.", exc_info=True)
             HETDEX_TOOLS = False
+            plt.style.use('default') #restore plot style
             return None
 
     cutout = None
     try:
 
-        hdu = phot_tools.get_line_image(friendid=friendid,
-                                        detectid=detectid,
-                                        coords=coords,
-                                        shotid=shotid,
-                                        subcont=subcont,
-                                        convolve_image=convolve_image,
-                                        pixscale=pixscale,
-                                        imsize=imsize,
-                                        wave_range=wave_range,
-                                        return_coords=return_coords)
 
-        #there are 4 extensions in the HDU .. the 0th is the image we want
-        cutout = cp.deepcopy(hdu[0])
+
+        dw = (wave_range[1]-wave_range[0])/2.0
+        w = wave_range[0]+dw
+
+        if imsize >= 20:
+            #currently hetdex_api forces the get_flux_for_source to go to 20"
+            #if want smaller, have to make separate calls
+
+            flux, flux_err, bkg_stddev, apcor, hdu  = phot_tools.get_flux_for_source(detectid=None,
+                                                                                     coords=coords,
+                                                                                     shotid=shotid,
+                                                                                     radius=3.0*ap_units.arcsec,
+                                                                                     wave=w,
+                                                                                     linewidth=dw,
+                                                                                     annulus=[4.5, 7.0] * ap_units.arcsec,
+                                                                                     convolve_image=convolve_image,return_hdu=True)
+
+            cutout = cp.deepcopy(hdu[0])
+            cutout.wcs = WCS(hdu[0].header)
+            cutout.flux = flux
+            cutout.flux_err = flux_err
+            cutout.bkg_stddev = bkg_stddev
+            cutout.apcor = apcor
+        else:
+
+            hdu = phot_tools.get_line_image(friendid=friendid,
+                                            detectid=detectid,
+                                            coords=coords,
+                                            shotid=shotid,
+                                            subcont=subcont,
+                                            convolve_image=convolve_image,
+                                            pixscale=pixscale,
+                                            imsize=imsize,
+                                            wave_range=wave_range,
+                                            return_coords=return_coords)
+
+            #there are 4 extensions in the HDU .. the 0th is the image we want
+            cutout = cp.deepcopy(hdu[0])
+            cutout.wcs = WCS(hdu[0].header)
+            cutout.flux, cutout.flux_err, cutout.bkg_stddev, cutout.apcor = None, None, None, None
+
+            cutout.flux, cutout.flux_err, cutout.bkg_stddev, cutout.apcor  = phot_tools.get_flux_for_source(detectid=None,
+                                                                                coords=coords,
+                                                                                shotid=shotid,
+                                                                                radius=3.0*ap_units.arcsec,
+                                                                                wave=w,
+                                                                                linewidth=dw,
+                                                                                annulus=[4.5, 7.0] * ap_units.arcsec,
+                                                                                convolve_image=convolve_image,return_hdu=False)
+
 
     except:
         log.error("Exception calling hetdex_api's get_line_image(): ", exc_info=True)
 
+    plt.style.use('default') #restore plot style
     return cutout
 
 def is_cutout_empty(cutout,check_unique_fraction=False):
