@@ -142,6 +142,23 @@ FLUX_CONVERSION_DICT = dict(zip(FLUX_CONVERSION_w_grid,FLUX_CONVERSION_f_grid))
 
 
 
+def adjusted_mag_zero(mag_zero, z):
+    """
+    tweak the defined mag zero (where the LAE vs OII vote is zero weighted) by redshift
+    Sets the zero at z = 2.5 and makes it a little brighter toward z = 2.0 [16% brighter] and fainter toward z = 3.5 [22% fainter]
+    Uses factor of 1+z
+    :param mag_zero:
+    :param z:
+    :return:
+    """
+
+    try:
+        adjust = 2.5 * np.log10((1+z) / 3.5) # 3.5 = 1 + 2.5
+        return mag_zero + adjust
+    except:
+        log.debug("Exception in hetdex.py adjust_mag_zero().", exc_info=True)
+        return mag_zero
+
 def flux_conversion(w): #electrons to ergs at wavelength w
     if w is None:
         return 0.0
@@ -1756,8 +1773,8 @@ class DetObj:
                 ew_low = (self.best_eqw_gmag_obs - self.best_eqw_gmag_obs_unc) / (1+z)
                 ew_hi = (self.best_eqw_gmag_obs + self.best_eqw_gmag_obs_unc) / (1+z)
                 if z > 1.9 and \
-                        ( (self.best_gmag is not None and 20 < self.best_gmag < G.LAE_G_MAG_ZERO) or \
-                          (self.best_img_r_mag is not None and 20 < self.best_img_r_mag[0] < G.LAE_R_MAG_ZERO) ) and \
+                        ( (self.best_gmag is not None and 20 < self.best_gmag < adjusted_mag_zero(G.LAE_G_MAG_ZERO,z)) or \
+                          (self.best_img_r_mag is not None and 20 < self.best_img_r_mag[0] < adjusted_mag_zero(G.LAE_R_MAG_ZERO,z)) ) and \
                         ( (G.LAE_EW_MAG_TRIGGER_MIN < ew_hi) and (ew_low < G.LAE_EW_MAG_TRIGGER_MAX)):
 
                     #set a flag and lower Q(z)
@@ -2952,6 +2969,7 @@ class DetObj:
         #magnitude votes
         ##################################
 
+        mg_z = self.w/G.LyA_rest -1 #redshift used to adjust the mag zeros
         #counterpart magnitude (if a counterpart was automatically identified)
         #see cat_base::build_cat_summary_pdf_section
 
@@ -2965,6 +2983,8 @@ class DetObj:
             else:
                 mag_zero = G.LAE_G_MAG_ZERO
                 counterpart_filter = 'g'
+
+            mag_zero = adjusted_mag_zero(mag_zero, mg_z)
 
             ew = 999
             unc = 0
@@ -3013,9 +3033,9 @@ class DetObj:
 
 
                 if (ew-unc) < G.LAE_EW_MAG_TRIGGER_MAX and (ew+unc) > G.LAE_EW_MAG_TRIGGER_MIN:
-                    w = w * mag_gaussian_weight(G.LAE_G_MAG_ZERO,self.best_img_g_mag[0],
+                    w = w * mag_gaussian_weight(adjusted_mag_zero(G.LAE_G_MAG_ZERO,mg_z),self.best_img_g_mag[0],
                                             self.best_img_g_mag[1],self.best_img_g_mag[2])
-                    if self.best_img_g_mag[0] < G.LAE_G_MAG_ZERO:
+                    if self.best_img_g_mag[0] < adjusted_mag_zero(G.LAE_G_MAG_ZERO,mg_z):
                         likelihood.append(0.0)
                     else:
                         likelihood.append(1.0)
@@ -3045,9 +3065,9 @@ class DetObj:
                         unc = self.best_eqw_gmag_obs_unc / (self.w / G.LyA_rest)
 
                 if (ew-unc) < G.LAE_EW_MAG_TRIGGER_MAX and (ew+unc) > G.LAE_EW_MAG_TRIGGER_MIN:
-                    w = 0.25 * mag_gaussian_weight(G.LAE_G_MAG_ZERO,g,g_bright,g_faint)
+                    w = 0.25 * mag_gaussian_weight(adjusted_mag_zero(G.LAE_G_MAG_ZERO,mg_z),g,g_bright,g_faint)
 
-                    if g < G.LAE_G_MAG_ZERO:
+                    if g < adjusted_mag_zero(G.LAE_G_MAG_ZERO,mg_z):
                         likelihood.append(0.0)
                     else:
                         likelihood.append(1.0)
@@ -3081,9 +3101,9 @@ class DetObj:
                     unc = 0
 
                 if (ew-unc) < G.LAE_EW_MAG_TRIGGER_MAX and (ew+unc)> G.LAE_EW_MAG_TRIGGER_MIN:
-                    w = w * mag_gaussian_weight(G.LAE_R_MAG_ZERO,self.best_img_r_mag[0],
+                    w = w * mag_gaussian_weight(adjusted_mag_zero(G.LAE_R_MAG_ZERO,mg_z),self.best_img_r_mag[0],
                                             self.best_img_r_mag[1],self.best_img_r_mag[2])
-                    if self.best_img_r_mag[0] < G.LAE_R_MAG_ZERO:
+                    if self.best_img_r_mag[0] < adjusted_mag_zero(G.LAE_R_MAG_ZERO,mg_z):
                         likelihood.append(0.0)
                     else:
                         likelihood.append(1.0)
@@ -3626,7 +3646,8 @@ class DetObj:
         continuum = []
         variance = [] #variance or variance proxy
         weight = [] #rules based weights
-        type = [] #what was the input
+        cont_type = [] #what was the input
+        nondetect = []
 
         best_guess_extent = [] #from source extractor (f606w, g, r only)
         base_psf = []
@@ -3701,7 +3722,8 @@ class DetObj:
                     else:
                         weight.append(1.0)
 
-                    type.append('hdw') #HETDEX wide
+                    cont_type.append('hdw') #HETDEX wide
+                    nondetect.append(0)
 
                     log.debug(
                         f"{self.entry_id} Combine ALL Continuum: Added best spectrum gmag estimate ({continuum[-1]:#.4g}) "
@@ -3719,7 +3741,8 @@ class DetObj:
                     continuum.append(self.best_gmag_cgs_cont)
                     variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
                     weight.append(w)
-                    type.append('hdw')  # HETDEX wide
+                    cont_type.append('hdw')  # HETDEX wide
+                    nondetect.append(0)
 
                     log.debug(
                         f"{self.entry_id} Combine ALL Continuum: Added best spectrum gmag estimate ({continuum[-1]:#.4g}) "
@@ -3729,7 +3752,8 @@ class DetObj:
                     continuum.append(cgs_limit)
                     variance.append((cgs_limit-cgs_faint_limit)**2)  # ie. sd of ~ 1/3 * cgs_limit
                     weight.append(0.5)  # never very high (a little better than HETDEX narrow continuum weight)
-                    type.append('hdw')  # HETDEX wide
+                    cont_type.append('hdw')  # HETDEX wide
+                    nondetect.append(1)
 
                     log.debug(
                         f"{self.entry_id} Combine ALL Continuum: Failed best spectrum gmag estimate, setting to lower limit "
@@ -3752,7 +3776,8 @@ class DetObj:
                         continuum.append(self.hetdex_cont_cgs)
                         variance.append(self.hetdex_cont_cgs_unc*self.hetdex_cont_cgs_unc)
                         weight.append(0.2) #never very high
-                        type.append('hdn') #HETDEX-narrow
+                        cont_type.append('hdn') #HETDEX-narrow
+                        nondetect.append(0)
                         log.debug(f"{self.entry_id} Combine ALL Continuum: Added HETDEX estimate ({continuum[-1]:#.4g}) "
                                   f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
                     else: #set as lower limit ... too far to be meaningful
@@ -3768,7 +3793,8 @@ class DetObj:
                         #     variance.append(G.HETDEX_CONTINUUM_FLUX_LIMIT * G.HETDEX_CONTINUUM_FLUX_LIMIT) #set to itself as a big error
 
                         weight.append(0.0) #never very high
-                        type.append('hdn')
+                        cont_type.append('hdn')
+                        nondetect.append(1)
                         log.debug(f"{self.entry_id} Combine ALL Continuum: Failed HETDEX estimate, setting to lower limit  "
                                   f"({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
 
@@ -3842,43 +3868,46 @@ class DetObj:
 
                             cgs_24 = SU.mag2cgs(24,lam) #24 - 25 chosen as the questionable zone for LAE vs OII
                             cgs_25 = SU.mag2cgs(25,lam)
+                            cgs_26 = SU.mag2cgs(26,lam)
+
+                            #todo: find max (fainted) mag limit and norm to that??
 
                             if a['fail_mag_limit']:
                                 #mag is set to the (safety) mag limit
                                 if a['mag'] < 24.0:
                                     #no useful information
-                                    log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit brighter than 24,"
+                                    log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit ({a['mag_limit']}) brighter than 24,"
                                              f" no useful information.")
                                     #just skip it
                                 else:
-                                    cont = SU.mag2cgs(a['mag'], lam)
+                                    cont = SU.mag2cgs(a['mag_limit'], lam)
                                     #if a['mag_err'] is not None:
                                     try:
                                         #set hi to the bright limit
-                                        cont_hi = SU.mag2cgs(a['mag'],
+                                        cont_hi = SU.mag2cgs(a['mag_limit'],
                                                              lam)  # SU.mag2cgs(a['mag_bright'],lam)
                                         #set low to 1 mag fainter?
-                                        cont_lo = SU.mag2cgs(a['mag'] + 1.0,
+                                        cont_lo = SU.mag2cgs(a['mag_limit'] + 2.5*np.log10(1.2),  #20% error
                                                              lam)  # SU.mag2cgs(a['mag_faint'],lam)
                                         cont_var = avg_var(cont, cont_lo, cont_hi)
                                     except:
                                         #assume could be at limit or out to mag 30? mag 29?
                                         cont_hi = SU.mag2cgs(cgs_faint_limit,lam)
-                                        count_lo =  SU.mag2cgs(cgs_faint_limit+1,lam)
+                                        count_lo =  SU.mag2cgs(cgs_faint_limit + 2.5*np.log10(1.2),lam) #20% error
                                         cont_var = avg_var(cont, count_lo, cont_hi)  # treat as a bogus zero error
 
                                     #scaled to 0-1.0 from mag24 (==0) to mag25(==1.0), linearly (prob should be more sigmoid-like)
-                                    m = 1.0 / (cgs_25-cgs_24)
-                                    b = -1 * m * cgs_24
-                                    w = m * cont - b
+                                    m = 1.0 / (cgs_26-cgs_24) #slope: y =  0 at cgs24 and 1 at cgs26
+                                    b = 1 - m * cgs_26
+                                    w = m * cont + b
 
                                     if w < 0:
                                         w = 0.0
-                                        log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit brigher than 24,"
+                                        log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit ({a['mag_limit']}) brigher than 24,"
                                                  f" zero weight applied.")
                                     else:
-                                        w = max(1.0,w)
-                                        log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit fainter than 24,"
+                                        w = min(1.0,w)
+                                        log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit ({a['mag_limit']}) fainter than 24,"
                                                  f" scaled weight {w} applied.")
 
                                     # w = min((cont - cgs_25) / (cgs_24-cgs_25),1.0)
@@ -3894,8 +3923,9 @@ class DetObj:
                                     variance.append(cont_var)
                                     continuum.append(cont)
                                     weight.append(w)
-                                    type.append("a"+a['filter_name'])
+                                    cont_type.append("a"+a['filter_name'])
                                     aperture_radius = a['radius']
+                                    nondetect.append(1)
 
                             else:
                                 cont = SU.mag2cgs(a['mag'],lam)
@@ -3926,7 +3956,8 @@ class DetObj:
                                 weight.append(w)
                                 variance.append(cont_var)
                                 continuum.append(cont)
-                                type.append("a" + a['filter_name'])
+                                cont_type.append("a" + a['filter_name'])
+                                nondetect.append(0)
                                 aperture_radius = a['radius']
 
                             log.debug(
@@ -3961,7 +3992,8 @@ class DetObj:
                 variance.append(max( self.best_counterpart.bid_flux_est_cgs*self.best_counterpart.bid_flux_est_cgs*0.04,
                                      self.best_counterpart.bid_flux_est_cgs_unc*self.best_counterpart.bid_flux_est_cgs_unc))
 
-                type.append("c" + self.best_counterpart.bid_filter.lower())
+                cont_type.append("c" + self.best_counterpart.bid_filter.lower())
+                nondetect.append(0)
                 log.debug(
                     f"{self.entry_id} Combine ALL Continuum: Added catalog bid target estimate"
                     f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
@@ -4016,7 +4048,8 @@ class DetObj:
                                 variance.append(max( b.bid_flux_est_cgs*b.bid_flux_est_cgs*0.04,
                                                         b.bid_flux_est_cgs_unc*b.bid_flux_est_cgs_unc))
                                 continuum.append(b.bid_flux_est_cgs)
-                                type.append("c" + a['filter_name'])
+                                cont_type.append("c" + a['filter_name'])
+                                nondetect.append(0)
                                 log.debug(
                                     f"{self.entry_id} Combine ALL Continuum: Added catalog bid target estimate"
                                     f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
@@ -4072,6 +4105,29 @@ class DetObj:
                 best_guess_extent = np.mean(best_guess_extent)
         except:
             pass
+
+
+        #remove the non-detects except for the deepest
+        try:
+            nondetect=np.array(nondetect)
+            sel = nondetect == 1
+            if np.sum(sel) > 1:
+
+                log.info("Removing all non-detects except deepest...")
+                continuum = np.array(continuum)
+                deepest = np.min(continuum[sel])
+                #now reselect to all detects and the deepest non-detect
+                sel = (nondetect == 0) | (continuum==deepest)
+
+                log.info(f"Removed {np.array(cont_type)[np.invert(sel)]}")
+
+                continuum = np.array(continuum)[sel]
+                variance = np.array(variance)[sel]
+                weight = np.array(weight)[sel]
+                cont_type  = np.array(cont_type)[sel]
+                nondetect = np.array(nondetect)[sel]
+        except:
+            log.info("Exception trimming nondetects from combine_all_continuum",exc_info=True)
 
 
         #sum up
@@ -4166,7 +4222,9 @@ class DetObj:
                       f"size in psf ({size_in_psf})")
 
             log.debug(f"{self.entry_id} Combine ALL Continuum: Final estimate (mag @ 5500AA):"
-                      f" {-2.5*np.log10(SU.cgs2ujy(continuum_hat,5500.0)/(3631.0*1e6))} ")
+                      f" {-2.5*np.log10(SU.cgs2ujy(continuum_hat,5500.0)/(3631.0*1e6)):0.2f} "
+                      f"({-2.5*np.log10(SU.cgs2ujy(continuum_hat+continuum_sd_hat,5500.0)/(3631.0*1e6)):0.2f},"
+                      f"{-2.5*np.log10(SU.cgs2ujy(continuum_hat-continuum_sd_hat,5500.0)/(3631.0*1e6)):0.2f})")
 
 
             self.classification_dict['continuum_hat'] = continuum_hat

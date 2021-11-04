@@ -5,6 +5,22 @@ originally a duplicate of cat_candles_egs_stefanon_2016 which includes a section
 
 This now has the D3 (deep) single tile (center roughly RA 210, Dec 52) and the W3 (wide) tiles in the same region. 
 This covers a section of the HETDEX spring field. 
+
+
+
+*** Acknowledgment text for publications ***
+
+Please consider the following acknowledgement should be part of any publication significantly based on CFHTLS data. 
+This can usually be done by using an asterisk by the author's name to refer to a footnote (or a text at the end of the
+ article in the acknowledgements) stating:
+ 
+Based on observations obtained with MegaPrime/MegaCam, a joint project of CFHT and CEA/IRFU, at the Canada-France-Hawaii
+ Telescope (CFHT) which is operated by the National Research Council (NRC) of Canada, the Institut National des Science
+  de l'Univers of the Centre National de la Recherche Scientifique (CNRS) of France, and the University of Hawaii. 
+  This work is based in part on data products produced at Terapix available at the Canadian Astronomy Data Centre 
+  as part of the Canada-France-Hawaii Telescope Legacy Survey, a collaborative project of NRC and CNRS.
+
+
 """
 
 try:

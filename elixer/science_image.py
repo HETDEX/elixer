@@ -73,6 +73,7 @@ def get_line_image(friendid=None, detectid=None, coords=None, shotid=None, subco
             from hetdex_tools import phot_tools
             HETDEX_TOOLS = True
         except:
+            log.error("Cannot import hetdex_tools phot_tools.", exc_info=True)
             HETDEX_TOOLS = False
             return None
 

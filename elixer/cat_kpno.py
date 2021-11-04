@@ -4,6 +4,13 @@ from __future__ import print_function
 """
 KPNO 4m
 
+KPNO - The HETDEX-IMG survey can be found at:
+http://archive1.dm.noao.edu/search/query/ (search for 2011A-0186, 2012A-0282, and
+2015A-0075 in the Program Number Field).
+Documentation of the KPNO Mosaic, 1.1, as well as known features of the data, can be found 
+at: http://ast.noao.edu/sites/default/files/NOAO_DHB_v2.2.pdf.
+
+
 """
 
 try:

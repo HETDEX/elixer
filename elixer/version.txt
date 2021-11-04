@@ -1,5 +1,11 @@
 changes to elixer by version
 
+1.13.3a5 [2021-11-04]
+* working on revising non-detects in imaging contribution to P(LyA)
+* make LAE_G_MAG_ZERO, LAE_R_MAG_ZERO on scale, centered at z = 2.5 for  1.9 < z < 3.5 and tuning by 1+z such that the
+magnitude is 0.20 brigher at z = 1.9 to 0.27 fainter by z = 3.5. Used to nudge ambiguous P(LyA) toward OII or LAE if the
+object magnitude is brigher or fainter. Base values are 24.5 (g) and 24.3 (r)
+
 1.13.3a4 [2021-10-28]
 * update ff-sky column name to "calfib_ffsky" from "spec_fullsky_sub"
 * fixed bug in weighted_biweigh introduced in 1.13.1.a3 (made data = NaN where error was finite ... should be where infinite)
