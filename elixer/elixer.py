@@ -3682,7 +3682,11 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
     row_step = 10 #allow space in between
     plt.close('all')
-    fig = plt.figure(figsize=(G.FIGURE_SZ_X, G.GRID_SZ_Y * num_rows))
+
+    if line_image is not None:
+        fig = plt.figure(figsize=(G.FIGURE_SZ_X, G.GRID_SZ_Y * (num_rows+1)))
+    else:
+        fig = plt.figure(figsize=(G.FIGURE_SZ_X, G.GRID_SZ_Y * num_rows))
     plt.subplots_adjust(left=0.00, right=0.95, top=0.95, bottom=0.0)
     if num_rows > G.MAX_NEIGHBORS_IN_MAP:
         plt.suptitle(f"{total_detectids} HETDEX detections found nearby. Showing nearest {len(detectids)}.", fontsize=32)
