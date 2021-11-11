@@ -66,6 +66,9 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
     A synthetic image from fibers using region around the emission line
 
 
+    NOTICE!!! this cutout has some extra attributes that the typical science cutout does not have
+    (like preset vmin, vmax, wave, d_wave)
+
     :return: a cutout like the science cutouts (mostly an astropy HDU)
     """
     global HETDEX_TOOLS
@@ -107,6 +110,8 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
             cutout.flux_err = flux_err
             cutout.bkg_stddev = bkg_stddev
             cutout.apcor = apcor
+            cutout.wave = w
+            cutout.d_wave = dw
 
             #cutout.vmax = np.max(hdu[0].data)
             #cutout.vmin = np.min(hdu[0].data)
@@ -137,6 +142,8 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
             std = np.std(hdu[0].data)
             cutout.vmax = avg + 5 * std
             cutout.vmin = max( np.min(hdu[0].data), avg -5 * std) #None
+            cutout.wave = w
+            cutout.d_wave = dw
 
             cutout.flux, cutout.flux_err, cutout.bkg_stddev, cutout.apcor  = phot_tools.get_flux_for_source(detectid=None,
                                                                                                             coords=coords,
@@ -633,7 +640,7 @@ class science_image():
         if hasattr(wcs.wcs,'cd'):
             return np.sqrt(wcs.wcs.cd[0, 0] ** 2 + wcs.wcs.cd[0, 1] ** 2) * 3600.0
         elif hasattr(wcs.wcs,'cdelt'): #like Pan-STARRS (assume both directions are the same)
-            return wcs.wcs.cdelt[0] * 3600.0
+            return abs(wcs.wcs.cdelt[0]) * 3600.0
         else: #we have a problem
             log.warning("Warning! Unable to determine pixel scale in science_image::calc_pixel_size. WCS does not have cd or cdelt keywords.")
             return None

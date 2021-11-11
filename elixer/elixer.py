@@ -15,6 +15,7 @@ try:
     from elixer import utilities as UTIL
     from elixer import science_image
     from elixer import elixer_hdf5
+    from elixer import cat_base
     from elixer import spectrum_utilities as SU
 except:
     import hetdex
@@ -24,6 +25,7 @@ except:
     import utilities as UTIL
     import science_image
     import elixer_hdf5
+    import cat_base
     import spectrum_utilities as SU
 
 from hetdex_api import survey as hda_survey
@@ -3441,6 +3443,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             if ext_rescale < 0.5: #should only be a small change, so if very different (like in DECaLS) use the xmaax
                 ext_rescale =  master_cutout.xmax_cutout / master_cutout.xmax_original
             ext = ext * ext_rescale
+            log.debug(f"Neighborhood map master_cuout extent rescale: {ext_rescale}")
 
             #use the interior 30% to set the vmin, vmax to aid in matching to the smaller cutouts
             #at args.error = 3.0 and args.neighors = 10.0, this would be essentially the same pixel extents that
@@ -3657,53 +3660,24 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     line_image = None
     try:
         if primary_shotid is not None and wave_range is not None:
+
+            pixscale = 0.25 #make the line image on the same scale as the master_cutout for easier mapping
+            try:
+                if master_cutout is not None:
+                    pixscale = sci.calc_pixel_size(master_cutout.wcs)
+            except:
+                pass
+
             line_image = science_image.get_line_image(plt,friendid=None,detectid=None,
                                                       coords=SkyCoord(ra=ra,dec=dec,frame='icrs',unit='deg'),
                                                       shotid=primary_shotid, subcont=True, convolve_image=False,
-                                                      pixscale=0.25, imsize=3*distance,
+                                                      pixscale=pixscale, imsize=3*distance,
                                                       wave_range=wave_range,
                                                       return_coords=False)
-
-
-        # index += 1
-        #
-        # _ = plt.subplot(gs[1:, index])
-        # pix_size =0.25 #make sure to match vs pixscale in above call
-        # ext = line_image.shape[0] * pix_size / 2.
-        # #without fibers
-        #
-        # im = plt.imshow(line_image.data, origin='lower', interpolation='none', extent=[-ext, ext, -ext, ext],
-        #                 vmin=line_image.vmin,vmax=line_image.vmax)
-        #cmap=plt.get_cmap('gray_r'))
-
-        #trying to get the color bar to occupy the axis label space does not seem to work
-        #and the bar and labels just don't seem important here anyway
-        #_ = plt.colorbar(im, orientation="horizontal",fraction=0.07)#,anchor=(0.3,0.0))
-        # self.add_north_box(plt, sci, line_image, error, 0, 0, theta=None)
-
-        #self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, line_image,use_gray_cmap=False)
-        #add_fiber_positions also takes care of the north box and the center
-        # plt.title(f"Lineflux Map")
-        # plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-        # plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-        # self.add_zero_position(plt)
-        #
-        # try:
-        #     plt.xlabel(f"s/b: {line_image.flux/line_image.bkg_stddev:0.2f} +/- {line_image.flux_err/line_image.bkg_stddev:0.3f}")
-        #     #f"\n{line_image.bkg_stddev:0.2f}, {line_image.apcor:0.2f}")
-        # except: #these might be None
-        #     plt.xlabel(f"sn: undef")
-        #
-        #
-        # plt.gca().xaxis.labelpad = 0
-        # plt.subplots_adjust(bottom=0.1)
-        #
 
     except:
         log.warning("Exception building line image",exc_info=True)
         line_image = None
-
-
 
 
     row_step = 10 #allow space in between
@@ -3768,6 +3742,12 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                     plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
                                                       width=target_box_side, height=target_box_side,
                                                       angle=0.0, color=neighbor_color, fill=False, linewidth=1.0, zorder=2))
+
+
+                    #generic catalog for the utilities
+                    cat = cat_base.Catalog()
+                    cat.add_north_box(plt, sci, master_cutout, distance, 0, 0, theta=None)
+
                 except:
                     log.warning("Exception.", exc_info=True)
 
@@ -3832,16 +3812,67 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                 gs_idx += 1
                 plt.subplot(gs[gs_idx*row_step+1:(gs_idx+1)*row_step-1,0:3])
 
+                i_ext = ext #distance * 1.5 #ext for the line image can be on a different scale than master_cutout
+
+                try:
+                    diff_pix = sci.calc_pixel_size(line_image.wcs) / sci.calc_pixel_size(master_cutout.wcs)
+                except:
+                    diff_pix = 1.0
+
+                log.info(f"Neighborhood map line_image pixelscale/master_cutout {diff_pix}")
+
                 plt.imshow(line_image.data, origin='lower', interpolation='none',
-                           vmin=line_image.vmin, vmax=line_image.vmax, extent=[-ext, ext, -ext, ext])
+                           vmin=line_image.vmin, vmax=line_image.vmax, extent=[-i_ext, i_ext, -i_ext, i_ext])
 
-                plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-                plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+                #plt.colorbar()#,fraction=0.07)#,anchor=(0.3,0.0))
 
-                fx, fy = sci.get_position(ras[i], decs[i], line_image)
-                plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
+                plt.xticks([int(i_ext), int(i_ext / 2.), 0, int(-i_ext / 2.), int(-i_ext)])
+                plt.yticks([int(i_ext), int(i_ext / 2.), 0, int(-i_ext / 2.), int(-i_ext)])
+
+                #zero position box (the detection)
+                plt.gca().add_patch(plt.Rectangle(( 0 - target_box_side / 2.0,  0 - target_box_side / 2.0),
                                               width=target_box_side, height=target_box_side,
                                               angle=0.0, color=neighbor_color, fill=False, linewidth=1.0, zorder=2))
+
+                #generic catalog for the utilities
+                cat = cat_base.Catalog()
+                cat.add_north_box(plt, sci, line_image, distance, 0, 0, theta=None)
+
+                #the 1D spectrum for the line image
+                plt.subplot(gs[gs_idx*row_step+1:(gs_idx+1)*row_step-1,3:])
+                plt.title(r'Line Image: $\lambda$: %0.2f +/- %0.2f'  %(emis[i],line_image.d_wave))
+                plt.plot(wave[i],spec[i],zorder=9,color='b')
+                plt.axhline(0,color='k',lw=1,zorder=0)
+
+                if line_image.wave is not None:
+                    yl, yh = plt.gca().get_ylim()
+
+                    plt.fill_between([line_image.wave-line_image.d_wave,line_image.wave+line_image.d_wave],
+                                     yl,yh,facecolor='gold',alpha=0.5,zorder=5)
+
+
+
+                # if cwave is not None:
+                #     plt.axvline(x=cwave,linestyle="--",zorder=1,color='k',linewidth=1.0,alpha=0.5)
+                # if emis[i] != -1.0:
+                #     plt.axvline(x= emis[i],linestyle="--",zorder=1,color=neighbor_color,linewidth=1.0,alpha=0.5)
+                plt.xlim((G.CALFIB_WAVEGRID[0],G.CALFIB_WAVEGRID[-1]))
+
+                # if (cwave is not None) and (3550.0 < cwave < 5450) and (3550.0 < emis[i] < 5450):
+                #     ymx = np.max(spec[i][40:991])
+                #     ymn = np.min(spec[i][40:991])
+                #     rn = ymx - ymn
+                #     plt.ylim(ymx-rn*1.1, ymn+rn*1.1)
+
+                #add other detections ... not quite right ... pixscales can be different in x, y so need to work on
+                #this a bit more, though this is close. Still if many can hide the image, so may be best to not do this anyway
+                # cx, cy = sci.get_position(ra, dec, line_image)
+                #
+                # for _ra, _dec in zip(all_ras,all_decs):
+                #     fx, fy = sci.get_position(_ra, _dec, line_image)
+                #     plt.gca().add_patch(plt.Rectangle(((fx - cx) * diff_pix - target_box_side / 2.0, (fy - cy) * diff_pix - target_box_side / 2.0),
+                #                                       width=target_box_side, height=target_box_side,
+                #                                       angle=0.0, color='white', alpha=0.75,fill=False, linewidth=1.0, zorder=2))
 
     if fname is not None:
         try:
