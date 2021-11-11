@@ -1265,7 +1265,7 @@ class DetObj:
 
                             img_limit = False
                             if d['mag_limit'] is not None and (20 < d['mag_limit'] < 35):
-                                if d['mag'] > d['mag_limit']:
+                                if (d['mag'] >= d['mag_limit']) or ('fail_mag_limit' in d.keys() and d['fail_mag_limit']):
                                     img_limit = True
 
                             if d['filter_name'].lower() in ['g']: #allow 0.5 variation?
@@ -1277,7 +1277,7 @@ class DetObj:
 
 
                             #and modify by distance to barycenter (think of case where we are on the edge ... the
-                            #DEX PSF weighted aperture won't weight the flux the same as being cetntered
+                            #DEX PSF weighted aperture won't weight the flux the same as being centered
 
                             try:
                                 if d['sep_obj_idx'] is not None:

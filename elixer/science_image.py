@@ -12,6 +12,7 @@
 # load file
 # get status
 # get cutout (takes ra,dec,error) returns cutout_image (the cutout is just another science image)
+import sys
 
 try:
     from elixer import global_config as G
@@ -69,7 +70,8 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
     """
     global HETDEX_TOOLS
 
-    if not HETDEX_TOOLS:
+    if "phot_tools" not in sys.modules:
+    #if not HETDEX_TOOLS:
         try:
             from hetdex_tools import phot_tools
             plt.style.use('default') #restore plot style
@@ -81,10 +83,8 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
             return None
 
     cutout = None
+
     try:
-
-
-
         dw = (wave_range[1]-wave_range[0])/2.0
         w = wave_range[0]+dw
 
@@ -95,10 +95,10 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
             flux, flux_err, bkg_stddev, apcor, hdu  = phot_tools.get_flux_for_source(detectid=None,
                                                                                      coords=coords,
                                                                                      shotid=shotid,
-                                                                                     radius=3.0*ap_units.arcsec,
+                                                                                     radius=1.0*ap_units.arcsec, #aperture to get flux (not the size)
                                                                                      wave=w,
                                                                                      linewidth=dw,
-                                                                                     annulus=[4.5, 7.0] * ap_units.arcsec,
+                                                                                     annulus=[5.0, 7.0] * ap_units.arcsec, #for "sky"
                                                                                      convolve_image=convolve_image,return_hdu=True)
 
             cutout = cp.deepcopy(hdu[0])
@@ -107,6 +107,14 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
             cutout.flux_err = flux_err
             cutout.bkg_stddev = bkg_stddev
             cutout.apcor = apcor
+
+            #cutout.vmax = np.max(hdu[0].data)
+            #cutout.vmin = np.min(hdu[0].data)
+
+            avg = np.median(hdu[0].data)
+            std = np.std(hdu[0].data)
+            cutout.vmax = avg + 5 * std
+            cutout.vmin = max( np.min(hdu[0].data), avg -5 * std) #None
         else:
 
             hdu = phot_tools.get_line_image(friendid=friendid,
@@ -125,14 +133,34 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
             cutout.wcs = WCS(hdu[0].header)
             cutout.flux, cutout.flux_err, cutout.bkg_stddev, cutout.apcor = None, None, None, None
 
+            avg = np.median(hdu[0].data)
+            std = np.std(hdu[0].data)
+            cutout.vmax = avg + 5 * std
+            cutout.vmin = max( np.min(hdu[0].data), avg -5 * std) #None
+
             cutout.flux, cutout.flux_err, cutout.bkg_stddev, cutout.apcor  = phot_tools.get_flux_for_source(detectid=None,
-                                                                                coords=coords,
-                                                                                shotid=shotid,
-                                                                                radius=3.0*ap_units.arcsec,
-                                                                                wave=w,
-                                                                                linewidth=dw,
-                                                                                annulus=[4.5, 7.0] * ap_units.arcsec,
-                                                                                convolve_image=convolve_image,return_hdu=False)
+                                                                                                            coords=coords,
+                                                                                                            shotid=shotid,
+                                                                                                            radius=1.0*ap_units.arcsec, #aperture to get flux (not the size)
+                                                                                                            wave=w,
+                                                                                                            linewidth=dw,
+                                                                                                            annulus=[5.0, 7.0] * ap_units.arcsec, #for "sky"
+                                                                                                            convolve_image=convolve_image,
+                                                                                                            return_hdu=False)
+
+
+        # cutout.flux, cutout.flux_err, cutout.bkg_stddev, cutout.apcor, hdu_big  = phot_tools.get_flux_for_source(detectid=None,
+            #                                                                     coords=coords,
+            #                                                                     shotid=shotid,
+            #                                                                     radius=1.0*ap_units.arcsec, #aperture to get flux (not the size)
+            #                                                                     wave=w,
+            #                                                                     linewidth=dw,
+            #                                                                     annulus=[5.0, 7.0] * ap_units.arcsec, #for "sky"
+            #                                                                     convolve_image=convolve_image,return_hdu=True)
+
+            #no ... this can totally wipe out what could be signal in appearance if there is something really bright a bit farther out
+            #cutout.vmax = np.max(hdu_big[0].data)
+            #cutout.vmin = np.min(hdu_big[0].data)
 
 
     except:

@@ -3130,7 +3130,7 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
 
 
 def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=None, distance=None, cwave=None,
-                           fname=None,original_distance=None,this_detection=None,broad_hdf5=None):
+                           fname=None,original_distance=None,this_detection=None,broad_hdf5=None,primary_shotid=None,wave_range=None):
     """
 
     :param hdf5:
@@ -3509,6 +3509,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     if just_mini_cutout: #stop here
         return None, nei_buf
 
+
     #get the PSF weighted full 1D spectrum for each detectid
     spec = []
     wave = []
@@ -3650,14 +3651,67 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             emis=np.insert(emis,0, 0)
             detectids=np.insert(detectids,0, this_detection.entry_id)
 
+
+
+    #make the line cutout
+    line_image = None
+    try:
+        if primary_shotid is not None and wave_range is not None:
+            line_image = science_image.get_line_image(plt,friendid=None,detectid=None,
+                                                      coords=SkyCoord(ra=ra,dec=dec,frame='icrs',unit='deg'),
+                                                      shotid=primary_shotid, subcont=True, convolve_image=False,
+                                                      pixscale=0.25, imsize=3*distance,
+                                                      wave_range=wave_range,
+                                                      return_coords=False)
+
+
+        # index += 1
+        #
+        # _ = plt.subplot(gs[1:, index])
+        # pix_size =0.25 #make sure to match vs pixscale in above call
+        # ext = line_image.shape[0] * pix_size / 2.
+        # #without fibers
+        #
+        # im = plt.imshow(line_image.data, origin='lower', interpolation='none', extent=[-ext, ext, -ext, ext],
+        #                 vmin=line_image.vmin,vmax=line_image.vmax)
+        #cmap=plt.get_cmap('gray_r'))
+
+        #trying to get the color bar to occupy the axis label space does not seem to work
+        #and the bar and labels just don't seem important here anyway
+        #_ = plt.colorbar(im, orientation="horizontal",fraction=0.07)#,anchor=(0.3,0.0))
+        # self.add_north_box(plt, sci, line_image, error, 0, 0, theta=None)
+
+        #self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, line_image,use_gray_cmap=False)
+        #add_fiber_positions also takes care of the north box and the center
+        # plt.title(f"Lineflux Map")
+        # plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+        # plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+        # self.add_zero_position(plt)
+        #
+        # try:
+        #     plt.xlabel(f"s/b: {line_image.flux/line_image.bkg_stddev:0.2f} +/- {line_image.flux_err/line_image.bkg_stddev:0.3f}")
+        #     #f"\n{line_image.bkg_stddev:0.2f}, {line_image.apcor:0.2f}")
+        # except: #these might be None
+        #     plt.xlabel(f"sn: undef")
+        #
+        #
+        # plt.gca().xaxis.labelpad = 0
+        # plt.subplots_adjust(bottom=0.1)
+        #
+
+    except:
+        log.warning("Exception building line image",exc_info=True)
+        line_image = None
+
+
+
+
     row_step = 10 #allow space in between
     plt.close('all')
     fig = plt.figure(figsize=(G.FIGURE_SZ_X, G.GRID_SZ_Y * num_rows))
     plt.subplots_adjust(left=0.00, right=0.95, top=0.95, bottom=0.0)
     if num_rows > G.MAX_NEIGHBORS_IN_MAP:
         plt.suptitle(f"{total_detectids} HETDEX detections found nearby. Showing nearest {len(detectids)}.", fontsize=32)
-
-    gs = gridspec.GridSpec(row_step*num_rows,10) #rows, columns
 
     font = FontProperties()
     font.set_family('monospace')
@@ -3674,117 +3728,120 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     #     vmin = None
     #     vmax = None
 
+    if line_image is not None:
+        gs = gridspec.GridSpec(row_step*(num_rows+1),10) #rows, columns #one extra row for the line_image
+        # but DON'T CHANGE the num_rows as it is indexed to the ra, dec, wave, shot arrays
+    else:
+        gs = gridspec.GridSpec(row_step*num_rows,10) #rows, columns
 
-
+    gs_idx = -1 #so will start at zero
     for i in range(num_rows):
         #first the cutout
-        plt.subplot(gs[i*row_step+1:(i+1)*row_step-1,0:3])
+        gs_idx += 1
+        plt.subplot(gs[gs_idx*row_step+1:(gs_idx+1)*row_step-1,0:3])
 
-        #*** remember the positioning in pixel space is based on the RA, Dec, the pixel scale and the extent scaling
-        # (everything needs to be matched up for this to work correctly)
-        if master_cutout is not None:
-            try:
-                plt.imshow(master_cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
-                           vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+        if True:
+
+            #*** remember the positioning in pixel space is based on the RA, Dec, the pixel scale and the extent scaling
+            # (everything needs to be matched up for this to work correctly)
+            if master_cutout is not None:
+                try:
+                    plt.imshow(master_cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
+                               vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+
+                    plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+                    plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+
+                    plt.plot(0, 0, "r+")
+
+
+                    # add all locations
+                    if i == 0: #only for the first box
+                       for _ra, _dec in zip(all_ras,all_decs):
+                            fx, fy = sci.get_position(_ra, _dec, master_cutout)
+                            plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
+                                                          width=target_box_side, height=target_box_side,
+                                                          angle=0.0, color='white', alpha=0.75,fill=False, linewidth=1.0, zorder=2))
+
+                    # add THE neighbor box for this row on top
+                    fx, fy = sci.get_position(ras[i], decs[i], master_cutout)
+                    plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
+                                                      width=target_box_side, height=target_box_side,
+                                                      angle=0.0, color=neighbor_color, fill=False, linewidth=1.0, zorder=2))
+                except:
+                    log.warning("Exception.", exc_info=True)
+
+            else:
+
+                try:
+                    fx = (ra - ras[i]) * np.cos(np.deg2rad(dec)) * 3600. #need to flip since negative RA is to the right
+                    fy = (decs[i] - dec) * 3600.
+
+                    plt.imshow(np.zeros((int(ext),int(ext))), interpolation='none', cmap=plt.get_cmap('gray_r'),
+                               vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+
+
+                    # add all locations
+                    if i == 0:
+                        for _ra, _dec in zip(all_ras,all_decs):
+                            _fx, _fy = sci.get_position(_ra, _dec, master_cutout)
+
+                            if (_fx is not None) and (_fy is not None):
+                                plt.gca().add_patch(plt.Rectangle(((_fx - x) - target_box_side / 2.0, (_fy - y) - target_box_side / 2.0),
+                                                          width=target_box_side, height=target_box_side,
+                                                          angle=0.0, color='white', alpha=0.75,fill=False, linewidth=1.0, zorder=2))
+
+                    #add (overwrite) the highlighted location
+                    plt.gca().add_patch(plt.Rectangle((fx - target_box_side / 2.0, fy - target_box_side / 2.0),
+                                                      width=target_box_side, height=target_box_side,
+                                                      angle=0.0, color=neighbor_color, fill=False, linewidth=1.0, zorder=2))
+
+                    # plt.gca().add_patch(
+                    #     plt.Circle((fx, fy), radius=target_box_side, color='b', fill=False,zorder=9))
+
+                    plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+                    plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+
+                    plt.plot(0, 0, "r+")
+                except:
+                    log.warning("Exception.",exc_info=True)
+
+            #the 1D spectrum
+            plt.subplot(gs[gs_idx*row_step+1:(gs_idx+1)*row_step-1,3:])
+            plt.title(r'Dist: %0.1f"  RA,Dec: (%0.5f,%0.5f)   $\lambda$: %0.2f   DetectID: %s  Shot: %s'
+                      %(dists[i],ras[i],decs[i],emis[i],str(int(detectids[i])), str(shot[i])))
+            plt.plot(wave[i],spec[i],zorder=9,color='b')
+            plt.axhline(0,color='k',lw=1,zorder=0)
+            if cwave is not None:
+                plt.axvline(x=cwave,linestyle="--",zorder=1,color='k',linewidth=1.0,alpha=0.5)
+            if emis[i] != -1.0:
+                plt.axvline(x= emis[i],linestyle="--",zorder=1,color=neighbor_color,linewidth=1.0,alpha=0.5)
+            plt.xlim((G.CALFIB_WAVEGRID[0],G.CALFIB_WAVEGRID[-1]))
+
+            if (cwave is not None) and (3550.0 < cwave < 5450) and (3550.0 < emis[i] < 5450):
+                ymx = np.max(spec[i][40:991])
+                ymn = np.min(spec[i][40:991])
+                rn = ymx - ymn
+                plt.ylim(ymx-rn*1.1, ymn+rn*1.1)
+
+            #todo: check the specta lines (each detection's main line ... if 3600 to 5400, do not include
+            #todo: ends in the y-limit calculation (to avoid run-away range values)
+
+            #special case for line image
+            if i == 0 and line_image is not None: #second position
+                gs_idx += 1
+                plt.subplot(gs[gs_idx*row_step+1:(gs_idx+1)*row_step-1,0:3])
+
+                plt.imshow(line_image.data, origin='lower', interpolation='none',
+                           vmin=line_image.vmin, vmax=line_image.vmax, extent=[-ext, ext, -ext, ext])
 
                 plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
                 plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
 
-                plt.plot(0, 0, "r+")
-
-
-                # add all locations
-                if i == 0: #only for the first box
-                   for _ra, _dec in zip(all_ras,all_decs):
-                        fx, fy = sci.get_position(_ra, _dec, master_cutout)
-                        plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
-                                                      width=target_box_side, height=target_box_side,
-                                                      angle=0.0, color='white', alpha=0.75,fill=False, linewidth=1.0, zorder=2))
-
-                # add THE neighbor box for this row on top
-                fx, fy = sci.get_position(ras[i], decs[i], master_cutout)
+                fx, fy = sci.get_position(ras[i], decs[i], line_image)
                 plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
-                                                  width=target_box_side, height=target_box_side,
-                                                  angle=0.0, color=neighbor_color, fill=False, linewidth=1.0, zorder=2))
-            except:
-                log.warning("Exception.", exc_info=True)
-
-
-            # karl_coords = [(228.785690,51.266525), (228.784790,51.266094),
-            #                (228.787079,51.266685), (228.783798,51.267006),
-            #                (228.787872,51.266041), (228.784744, 51.267876),
-            #                (228.787430,51.268143), (228.787140,51.269211)]
-            # for kc in karl_coords:
-            #     karl_x, karl_y = sci.get_position(kc[0],kc[1],master_cutout)
-            #     plt.gca().add_patch(plt.Rectangle(((karl_x - x) - target_box_side / 2.0, (karl_y - y) - target_box_side / 2.0),
-            #                                       width=target_box_side, height=target_box_side,
-            #                                       angle=0.0, color='r', fill=False, linewidth=1.0, zorder=2))
-            #
-            #
-            # # add neighbor box
-            # fx, fy = sci.get_position(ras[i], decs[i], master_cutout)
-            # plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
-            #                                   width=target_box_side, height=target_box_side,
-            #                                   angle=0.0, color='b', fill=False, linewidth=1.0, zorder=2))
-            #
-
-
-        else:
-
-            try:
-                fx = (ra - ras[i]) * np.cos(np.deg2rad(dec)) * 3600. #need to flip since negative RA is to the right
-                fy = (decs[i] - dec) * 3600.
-
-                plt.imshow(np.zeros((int(ext),int(ext))), interpolation='none', cmap=plt.get_cmap('gray_r'),
-                           vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
-
-
-                # add all locations
-                if i == 0:
-                    for _ra, _dec in zip(all_ras,all_decs):
-                        _fx, _fy = sci.get_position(_ra, _dec, master_cutout)
-
-                        if (_fx is not None) and (_fy is not None):
-                            plt.gca().add_patch(plt.Rectangle(((_fx - x) - target_box_side / 2.0, (_fy - y) - target_box_side / 2.0),
-                                                      width=target_box_side, height=target_box_side,
-                                                      angle=0.0, color='white', alpha=0.75,fill=False, linewidth=1.0, zorder=2))
-
-                #add (overwrite) the highlighted location
-                plt.gca().add_patch(plt.Rectangle((fx - target_box_side / 2.0, fy - target_box_side / 2.0),
-                                                  width=target_box_side, height=target_box_side,
-                                                  angle=0.0, color=neighbor_color, fill=False, linewidth=1.0, zorder=2))
-
-                # plt.gca().add_patch(
-                #     plt.Circle((fx, fy), radius=target_box_side, color='b', fill=False,zorder=9))
-
-                plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-                plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-
-                plt.plot(0, 0, "r+")
-            except:
-                log.warning("Exception.",exc_info=True)
-
-        #the 1D spectrum
-        plt.subplot(gs[i*row_step+1:(i+1)*row_step-1,3:])
-        plt.title(r'Dist: %0.1f"  RA,Dec: (%0.5f,%0.5f)   $\lambda$: %0.2f   DetectID: %s  Shot: %s'
-                  %(dists[i],ras[i],decs[i],emis[i],str(int(detectids[i])), str(shot[i])))
-        plt.plot(wave[i],spec[i],zorder=9,color='b')
-        plt.axhline(0,color='k',lw=1,zorder=0)
-        if cwave is not None:
-            plt.axvline(x=cwave,linestyle="--",zorder=1,color='k',linewidth=1.0,alpha=0.5)
-        if emis[i] != -1.0:
-            plt.axvline(x= emis[i],linestyle="--",zorder=1,color=neighbor_color,linewidth=1.0,alpha=0.5)
-        plt.xlim((G.CALFIB_WAVEGRID[0],G.CALFIB_WAVEGRID[-1]))
-
-        if (cwave is not None) and (3550.0 < cwave < 5450) and (3550.0 < emis[i] < 5450):
-            ymx = np.max(spec[i][40:991])
-            ymn = np.min(spec[i][40:991])
-            rn = ymx - ymn
-            plt.ylim(ymx-rn*1.1, ymn+rn*1.1)
-
-        #todo: check the specta lines (each detection's main line ... if 3600 to 5400, do not include
-        #todo: ends in the y-limit calculation (to avoid run-away range values)
-
+                                              width=target_box_side, height=target_box_side,
+                                              angle=0.0, color=neighbor_color, fill=False, linewidth=1.0, zorder=2))
 
     if fname is not None:
         try:
@@ -4696,7 +4753,8 @@ def main():
                                            detectid=None, ra=ra, dec=dec, distance=args.neighborhood, cwave=e.w,
                                            fname=nei_name, original_distance=args.error,
                                            this_detection=e if explicit_extraction else None,
-                                           broad_hdf5=G.HDF5_BROAD_DETECT_FN)
+                                           broad_hdf5=G.HDF5_BROAD_DETECT_FN,
+                                           primary_shotid=e.survey_shotid,wave_range=[e.w-e.fwhm*3/2.355,e.w+e.fwhm*3/2.355])
                     except:
                         log.warning("Exception calling build_neighborhood_map.",exc_info=True)
 
