@@ -269,7 +269,8 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
     MAG_LIMIT = 27.3 #mostly care about r (this give a little slop for error and for smaller aperture before the limit kicks in)
 
-    MAG_LIMIT_DICT = {'H20_NEP_18211_B15_e.fits':{'g':27.1,'r':26.7,'i':26.9,'z':26.0,'y':24.9},
+    MAG_LIMIT_DICT = {'default':{'g':27.2,'r':26.7,'i':26.4,'z':26.0,'y':24.9},
+                      'H20_NEP_18211_B15_e.fits':{'g':27.1,'r':26.7,'i':26.9,'z':26.0,'y':24.9},
                       'H20_NEP_18211_B16_e.fits':{'g':27.2,'r':26.7,'i':26.4,'z':26.0,'y':24.9}}
 
     mean_FWHM = 1.0 #average 0.6 to 1.0
@@ -656,7 +657,10 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
         try:
             #0.2 ~= 2.5 * log(1.2) ... or a 20% error
-            return self.MAG_LIMIT_DICT[image_identification[0]][image_identification[1]] + 0.2
+            if image_identification[0] in self.MAG_LIMIT_DICT.keys():
+                return self.MAG_LIMIT_DICT[image_identification[0]][image_identification[1]] + 0.2
+            else:
+                return self.MAG_LIMIT_DICT['default'][image_identification[1]] + 0.2
 
         except:
             log.warning("cat_hsc_nep.py get_mag_limit fail.",exc_info=True)
