@@ -302,12 +302,12 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
     #                                  'path':'H20_NEP_18211_B16_e.fits'},
     #  }
 
-    Tile_Dict = hsc_meta.HSC_META_DICT
-    Image_Coord_Range = {'RA_min':270.3579555, 'RA_max':270.84872930, 'Dec_min':67.5036877, 'Dec_max':67.8488075}
+    Tile_Dict = hsc_nep_meta.HSC_META_DICT
+    Image_Coord_Range = hsc_nep_meta.Image_Coord_Range
+    #Image_Coord_Range = {'RA_min':270.3579555, 'RA_max':270.84872930, 'Dec_min':67.5036877, 'Dec_max':67.8488075}
 
     #Image_Coord_Range = hsc_meta.Image_Coord_Range
     #Tile_Dict = HSC_META_DICT #hsc_meta.HSC_META_DICT
-    Tile_Dict = hsc_meta.HSC_META_DICT
     #correct the basepaths
     for k in Tile_Dict.keys():
         Tile_Dict[k]['path'] = op.join(HSC_IMAGE_PATH,op.basename(Tile_Dict[k]['path']))
