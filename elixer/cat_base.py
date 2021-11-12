@@ -1144,7 +1144,7 @@ class Catalog:
                 #trying to get the color bar to occupy the axis label space does not seem to work
                 #and the bar and labels just don't seem important here anyway
                 #_ = plt.colorbar(im, orientation="horizontal",fraction=0.07)#,anchor=(0.3,0.0))
-                self.add_north_box(plt, sci, line_image, error, 0, 0, theta=None)
+                self.add_north_box(plt, sci, line_image, error, 0, 0, theta=None)#np.pi/2.0)
 
                 #self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, line_image,use_gray_cmap=False)
                 #add_fiber_positions also takes care of the north box and the center

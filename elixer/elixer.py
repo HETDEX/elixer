@@ -3818,12 +3818,12 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
                 i_ext = ext #distance * 1.5 #ext for the line image can be on a different scale than master_cutout
 
-                try:
-                    diff_pix = sci.calc_pixel_size(line_image.wcs) / sci.calc_pixel_size(master_cutout.wcs)
-                except:
-                    diff_pix = 1.0
-
-                log.info(f"Neighborhood map line_image pixelscale/master_cutout {diff_pix}")
+                # try:
+                #     diff_pix = sci.calc_pixel_size(line_image.wcs) / sci.calc_pixel_size(master_cutout.wcs)
+                # except:
+                #     diff_pix = 1.0
+                #
+                # log.info(f"Neighborhood map line_image pixelscale/master_cutout {diff_pix}")
 
                 plt.imshow(line_image.data, origin='lower', interpolation='none',
                            vmin=line_image.vmin, vmax=line_image.vmax, extent=[-i_ext, i_ext, -i_ext, i_ext])
@@ -3840,7 +3840,16 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
                 #generic catalog for the utilities
                 cat = cat_base.Catalog()
-                cat.add_north_box(plt, sci, line_image, distance, 0, 0, theta=None)
+                cat.add_north_box(plt, sci, line_image, distance, 0, 0, theta=None)#np.pi/2.0)
+
+                #add other detections
+                # cx, cy = sci.get_position(ra, dec, line_image)
+                #
+                # for _ra, _dec in zip(all_ras,all_decs):
+                #     fx, fy = sci.get_position(_ra, _dec, line_image)
+                #     plt.gca().add_patch(plt.Rectangle(((fx - cx)  - target_box_side / 2.0, (fy - cy)  - target_box_side / 2.0),
+                #                                       width=target_box_side, height=target_box_side,
+                #                                       angle=0.0, color='white', alpha=0.75,fill=False, linewidth=1.0, zorder=2))
 
                 #the 1D spectrum for the line image
                 plt.subplot(gs[gs_idx*row_step+1:(gs_idx+1)*row_step-1,3:])
@@ -3868,15 +3877,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                 #     rn = ymx - ymn
                 #     plt.ylim(ymx-rn*1.1, ymn+rn*1.1)
 
-                #add other detections ... not quite right ... pixscales can be different in x, y so need to work on
-                #this a bit more, though this is close. Still if many can hide the image, so may be best to not do this anyway
-                # cx, cy = sci.get_position(ra, dec, line_image)
-                #
-                # for _ra, _dec in zip(all_ras,all_decs):
-                #     fx, fy = sci.get_position(_ra, _dec, line_image)
-                #     plt.gca().add_patch(plt.Rectangle(((fx - cx) * diff_pix - target_box_side / 2.0, (fy - cy) * diff_pix - target_box_side / 2.0),
-                #                                       width=target_box_side, height=target_box_side,
-                #                                       angle=0.0, color='white', alpha=0.75,fill=False, linewidth=1.0, zorder=2))
+
 
     if fname is not None:
         try:

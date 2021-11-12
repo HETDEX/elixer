@@ -14,6 +14,8 @@
 # get cutout (takes ra,dec,error) returns cutout_image (the cutout is just another science image)
 import sys
 
+import scipy.ndimage
+
 try:
     from elixer import global_config as G
     from elixer import utilities
@@ -91,7 +93,8 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
         dw = (wave_range[1]-wave_range[0])/2.0
         w = wave_range[0]+dw
 
-        if imsize >= 20:
+        if False: #
+        #if imsize >= 20:
             #currently hetdex_api forces the get_flux_for_source to go to 20"
             #if want smaller, have to make separate calls
 
@@ -105,7 +108,7 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
                                                                                      convolve_image=convolve_image,return_hdu=True)
 
             cutout = cp.deepcopy(hdu[0])
-            cutout.wcs = WCS(hdu[0].header)
+            cutout.wcs = WCS(cutout.header)
             cutout.flux = flux
             cutout.flux_err = flux_err
             cutout.bkg_stddev = bkg_stddev
@@ -135,7 +138,22 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
 
             #there are 4 extensions in the HDU .. the 0th is the image we want
             cutout = cp.deepcopy(hdu[0])
-            cutout.wcs = WCS(hdu[0].header)
+
+            #if north is down, flip everything
+            #this is the rotation between up in the plot and North ...
+            #NOTE: if CDx_x instead of PCx_x use -np.pi/2 (for CD) instead of + np.pi/2 (for PC)
+            theta = np.arctan2(cutout.header['PC1_2'], cutout.header['PC1_1']) + np.pi/2.
+            if 0 < theta < np.pi:
+                pass #do nothing
+            else:
+                #rotate the image and negate rotation matrix
+                cutout.data = scipy.ndimage.rotate(cutout.data,180.0,reshape=False)
+                cutout.header['PC1_1'] = cutout.header['PC1_1'] * -1
+                cutout.header['PC1_2'] = cutout.header['PC1_2'] * -1
+                cutout.header['PC2_1'] = cutout.header['PC2_1'] * -1
+                cutout.header['PC2_2'] = cutout.header['PC2_2'] * -1
+
+            cutout.wcs = WCS(cutout.header)
             cutout.flux, cutout.flux_err, cutout.bkg_stddev, cutout.apcor = None, None, None, None
 
             avg = np.median(hdu[0].data)
@@ -2122,7 +2140,7 @@ class science_image():
             if hasattr(cutout.wcs.wcs, 'cd'):
                 theta = np.arctan2(cutout.wcs.wcs.cd[0, 1], cutout.wcs.wcs.cd[0, 0]) - np.pi/2.
             elif hasattr(cutout.wcs.wcs,'pc'):
-                theta = np.arctan2(cutout.wcs.wcs.pc[0, 1], cutout.wcs.wcs.pc[0, 0]) - np.pi/2.
+                theta = np.arctan2(cutout.wcs.wcs.pc[0, 1], cutout.wcs.wcs.pc[0, 0]) + np.pi/2.
 
             #theta = np.pi/2. - np.arctan2(cutout.wcs.wcs.cd[0, 1], cutout.wcs.wcs.cd[0, 0])
 
