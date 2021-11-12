@@ -155,6 +155,7 @@ try:
     from elixer import line_prob
     from elixer import utilities
     from elixer import spectrum_utilities as SU
+    from elixer import hsc_nep_meta
 except:
     import global_config as G
     import science_image
@@ -163,6 +164,7 @@ except:
     import line_prob
     import utilities
     import spectrum_utilities as SU
+    import hsc_nep_meta
 
 import os.path as op
 import copy
@@ -290,18 +292,21 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
     #todo: HERE ... just define the coordrange, etc rather than load a meta file
     #using the HETDEX HSC dictionary format, but filter, tract, and pos are not relevant
     #the path is updated just below
-    HSC_META_DICT = {
-        'H20_NEP_18211_B15_e.fits': {'RA_min':270.3579555,'RA_max':270.8344764,'Dec_min':67.5036877,'Dec_max':67.6853212,
-                                     'instrument':'HSC NEP','filter':'xx','tract':'18211','pos':(0,0),
-                                     'path':'H20_NEP_18211_B15_e.fits'},
-        'H20_NEP_18211_B16_e.fits': {'RA_min':270.3672660,'RA_max':270.84872930,'Dec_min':67.6716059,'Dec_max':67.8488075,
-                                     'instrument':'HSC NEP','filter':'xx','tract':'18211','pos':(0,0),
-                                     'path':'H20_NEP_18211_B16_e.fits'},
-     }
+    # HSC_META_DICT = {
+    #     'H20_NEP_18211_B15_e.fits': {'RA_min':270.3579555,'RA_max':270.8344764,'Dec_min':67.5036877,'Dec_max':67.6853212,
+    #                                  'instrument':'HSC NEP','filter':'xx','tract':'18211','pos':(0,0),
+    #                                  'path':'H20_NEP_18211_B15_e.fits'},
+    #     'H20_NEP_18211_B16_e.fits': {'RA_min':270.3672660,'RA_max':270.84872930,'Dec_min':67.6716059,'Dec_max':67.8488075,
+    #                                  'instrument':'HSC NEP','filter':'xx','tract':'18211','pos':(0,0),
+    #                                  'path':'H20_NEP_18211_B16_e.fits'},
+    #  }
+
+    Tile_Dict = hsc_meta.HSC_META_DICT
     Image_Coord_Range = {'RA_min':270.3579555, 'RA_max':270.84872930, 'Dec_min':67.5036877, 'Dec_max':67.8488075}
 
     #Image_Coord_Range = hsc_meta.Image_Coord_Range
-    Tile_Dict = HSC_META_DICT #hsc_meta.HSC_META_DICT
+    #Tile_Dict = HSC_META_DICT #hsc_meta.HSC_META_DICT
+    Tile_Dict = hsc_meta.HSC_META_DICT
     #correct the basepaths
     for k in Tile_Dict.keys():
         Tile_Dict[k]['path'] = op.join(HSC_IMAGE_PATH,op.basename(Tile_Dict[k]['path']))
