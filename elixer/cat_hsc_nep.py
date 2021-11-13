@@ -38,7 +38,7 @@ Each band has the following information contained in this multi-extension .fits 
 #CATALOGS
 #########################################################
 
-\1;95;0c01/2021
+#\1;95;0c01/2021
 
 Hawaii Two-0 NEP subset catalog
 
@@ -241,9 +241,9 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
     # HSC_IMAGE_PATH = G.HSC_IMAGE_PATH
 
     #todo: Oscar ... change to your path(here)
-    HSC_BASE_PATH = "/media/dustin/Seagate8TB/nep/H20_VIRUS_EXCHANGE"
-    HSC_CAT_PATH = "/media/dustin/Seagate8TB/nep/H20_VIRUS_EXCHANGE"
-    HSC_IMAGE_PATH = "/media/dustin/Seagate8TB/nep/H20_VIRUS_EXCHANGE"
+    HSC_BASE_PATH = "/scratch/03261/polonius/nep" #"/media/dustin/Seagate8TB/nep/H20_VIRUS_EXCHANGE"
+    HSC_CAT_PATH = "/scratch/03261/polonius/nep"#"/media/dustin/Seagate8TB/nep/H20_VIRUS_EXCHANGE"
+    HSC_IMAGE_PATH = "/scratch/03261/polonius/nep"#"/media/dustin/Seagate8TB/nep/H20_VIRUS_EXCHANGE"
 
     INCLUDE_KPNO_G = False
 
@@ -925,6 +925,8 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
         except:
             log.error(self.Name + " Exception in build_list_of_bid_targets", exc_info=True)
+            self.num_targets = 0
+
 
         if self.dataframe_of_bid_targets_unique is not None:
             #self.num_targets = self.dataframe_of_bid_targets.iloc[:, 0].count()
@@ -947,10 +949,11 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
         #if (num_targets == 0) or
         if (self.dataframe_of_bid_targets_unique is None):
-            return None
-
-        ras = self.dataframe_of_bid_targets_unique.loc[:, ['RA']].values
-        decs = self.dataframe_of_bid_targets_unique.loc[:, ['DEC']].values
+            ras = []
+            decs = []
+        else:
+            ras = self.dataframe_of_bid_targets_unique.loc[:, ['RA']].values
+            decs = self.dataframe_of_bid_targets_unique.loc[:, ['DEC']].values
 
         # display the exact (target) location
         if G.SINGLE_PAGE_PER_DETECT:
