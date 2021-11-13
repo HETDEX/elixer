@@ -244,6 +244,7 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
     HSC_BASE_PATH = "/scratch/03261/polonius/nep" #"/media/dustin/Seagate8TB/nep/H20_VIRUS_EXCHANGE"
     HSC_CAT_PATH = "/scratch/03261/polonius/nep"#"/media/dustin/Seagate8TB/nep/H20_VIRUS_EXCHANGE"
     HSC_IMAGE_PATH = "/scratch/03261/polonius/nep"#"/media/dustin/Seagate8TB/nep/H20_VIRUS_EXCHANGE"
+    HSC_CATALOG_FILE = "H20_NEP_subset_catalog.fits"
 
     INCLUDE_KPNO_G = False
 
@@ -579,7 +580,7 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         if name is None:
             name = cls.Name
 
-        fqtract = [op.join(cls.HSC_CAT_PATH,"H20_NEP_subset_catalog.fits"),]
+        fqtract = [op.join(cls.HSC_CAT_PATH,cls.HSC_CATALOG_FILE),]
 
         # fqtract =[] #fully qualified track (as a partial path)
         # if (tract is not None) and (len(tract) > 0) and (position is not None) and (len(position) == len(tract)): #should be a list of positions and the same length as tract
