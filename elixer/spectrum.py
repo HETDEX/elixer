@@ -3765,6 +3765,7 @@ class Spectrum:
             EmissionLine("Ly$\\alpha$".ljust(w), G.LyA_rest, 'red',rank=1,broad=True),
 
             EmissionLine("OII".ljust(w), G.OII_rest, 'green',rank=2,broad=True), #not as broad, but can be > 20AA
+            #EmissionLine("OIII".ljust(w), 3132, "lime",rank=3),
             EmissionLine("OIII".ljust(w), 4959, "lime",rank=3),#4960.295 (vacuum) 4958.911 (air)
             EmissionLine("OIII".ljust(w), 5007, "lime",rank=1), #5008.240 (vacuum) 5006.843 (air)
             #EmissionLine("OIV".ljust(w), 1400, "lime", solution=False, display=True, rank=4),  # or 1393-1403 also OIV]

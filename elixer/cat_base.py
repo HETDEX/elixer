@@ -1130,38 +1130,41 @@ class Catalog:
                                                       wave_range=[detobj.w - 3.0/2.355*detobj.fwhm, detobj.w + 3.0/2.355*detobj.fwhm],
                                                       return_coords=False)
 
-                index += 1
+                if line_image is not None:
+                    index += 1
 
-                _ = plt.subplot(gs[1:, index])
-                pix_size =0.25 #make sure to match vs pixscale in above call
-                ext = line_image.shape[0] * pix_size / 2.
-                #without fibers
+                    _ = plt.subplot(gs[1:, index])
+                    pix_size =0.25 #make sure to match vs pixscale in above call
+                    ext = line_image.shape[0] * pix_size / 2.
+                    #without fibers
 
-                im = plt.imshow(line_image.data, origin='lower', interpolation='none', extent=[-ext, ext, -ext, ext],
-                                vmin=line_image.vmin,vmax=line_image.vmax)
-                                #cmap=plt.get_cmap('gray_r'))
+                    im = plt.imshow(line_image.data, origin='lower', interpolation='none', extent=[-ext, ext, -ext, ext],
+                                    vmin=line_image.vmin,vmax=line_image.vmax)
+                                    #cmap=plt.get_cmap('gray_r'))
 
-                #trying to get the color bar to occupy the axis label space does not seem to work
-                #and the bar and labels just don't seem important here anyway
-                #_ = plt.colorbar(im, orientation="horizontal",fraction=0.07)#,anchor=(0.3,0.0))
-                self.add_north_box(plt, sci, line_image, error, 0, 0, theta=None)#np.pi/2.0)
+                    #trying to get the color bar to occupy the axis label space does not seem to work
+                    #and the bar and labels just don't seem important here anyway
+                    #_ = plt.colorbar(im, orientation="horizontal",fraction=0.07)#,anchor=(0.3,0.0))
+                    self.add_north_box(plt, sci, line_image, error, 0, 0, theta=None)#np.pi/2.0)
 
-                #self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, line_image,use_gray_cmap=False)
-                #add_fiber_positions also takes care of the north box and the center
-                plt.title(f"Lineflux Map")
-                plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-                plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-                self.add_zero_position(plt)
+                    #self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, line_image,use_gray_cmap=False)
+                    #add_fiber_positions also takes care of the north box and the center
+                    plt.title(f"Lineflux Map")
+                    plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+                    plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+                    self.add_zero_position(plt)
 
-                try:
-                    plt.xlabel(f"s/b: {line_image.flux/line_image.bkg_stddev:0.2f} +/- {line_image.flux_err/line_image.bkg_stddev:0.3f}")
-                           #f"\n{line_image.bkg_stddev:0.2f}, {line_image.apcor:0.2f}")
-                except: #these might be None
-                    plt.xlabel(f"sn: undef")
+                    try:
+                        plt.xlabel(f"s/b: {line_image.flux/line_image.bkg_stddev:0.2f} +/- {line_image.flux_err/line_image.bkg_stddev:0.3f}")
+                               #f"\n{line_image.bkg_stddev:0.2f}, {line_image.apcor:0.2f}")
+                    except: #these might be None
+                        plt.xlabel(f"sn: undef")
 
 
-                plt.gca().xaxis.labelpad = 0
-                plt.subplots_adjust(bottom=0.1)
+                    plt.gca().xaxis.labelpad = 0
+                    plt.subplots_adjust(bottom=0.1)
+                else:
+                    log.info("Unable to build emission line image postage stamp.")
 
 
             except:

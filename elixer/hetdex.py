@@ -5699,12 +5699,15 @@ class DetObj:
                 #spectrum = elixer_spectrum.Spectrum()
                 if self.spec_obj is None:
                     self.spec_obj = elixer_spectrum.Spectrum()
+
+                log.info("Scanning for anchor line ...")
                 #self.all_found_lines = elixer_spectrum.peakdet(self.sumspec_wavelength,self.sumspec_flux,self.sumspec_fluxerr,values_units=-17)
                 w = self.spec_obj.find_central_wavelength(self.sumspec_wavelength,self.sumspec_flux,
                                                                           self.sumspec_fluxerr,-17,return_list=False)
                 if w is not None and (3400.0 < w < 5600.0):
                     self.w = w
                     self.target_wavelength = w
+                    log.info(f"Anchor line set: {self.w:0.2f}")
                 else:
 
                     try:
@@ -5716,6 +5719,8 @@ class DetObj:
                         log.info("Cannot identify a suitable target wavelength. Arbitrarly setting to 4500.0 for report.")
                         self.w = 4500.0
                         self.target_wavelength = 4500.0
+            else:
+                log.info(f"Using predefined anchor line {self.w:0.2f}")
 
             if self.w is not None and self.w != 0:
                 idx = elixer_spectrum.getnearpos(self.sumspec_wavelength, self.w)
