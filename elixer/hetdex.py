@@ -1259,7 +1259,22 @@ class DetObj:
                     #check to see if consistent with other g-mags and maybe r-mag
                     #we will be fairly generous and allow 0.5 mag variation?
                     new_flag = 0
-                    for d in self.aperture_details_list:
+
+                    self.aperture_details_list = np.array(self.aperture_details_list)
+                    #get deepest g and deepest r
+                    sel_g = np.array([d['filter_name'].lower() in ['g'] for d in self.aperture_details_list])
+                    deep_g = np.max([d['mag_limit'] for d in self.aperture_details_list[sel_g]])
+
+                    sel_r = np.array([d['filter_name'].lower() in ['r','f606w'] for d in self.aperture_details_list])
+                    deep_r = np.max([d['mag_limit'] for d in self.aperture_details_list[sel_r]])
+
+                    #sel_depths = [d['mag_limit'] for d in self.aperture_details_list]
+
+                    #array of False, True where in sel_g AND d['mag_limit'] == deep_r
+                    sel_g = np.array([d['filter_name'].lower() in ['g'] and d['mag_limit'] == deep_g for d in self.aperture_details_list])
+                    sel_r = np.array([d['filter_name'].lower() in ['r','f606w'] and d['mag_limit'] == deep_r for d in self.aperture_details_list])
+
+                    for d in self.aperture_details_list[sel_g | sel_r]:
                         if d['mag'] is not None:
                             if (d['mag'] < bright_skip) and (self.best_gmag < bright_skip):
                                 continue
@@ -1270,9 +1285,9 @@ class DetObj:
                                     img_limit = True
 
                             if d['filter_name'].lower() in ['g']: #allow 0.5 variation?
-                                allowed_diff = 0.5
+                                allowed_diff = 0.8
                             elif d['filter_name'].lower() in ['r','f606w']: #different filter so, maybe allow 1.5?
-                                allowed_diff = 1.5 #noting
+                                allowed_diff = 1.3 #noting
                             else:
                                 continue #only checking g or r
 

@@ -224,6 +224,7 @@ def get_sdss_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZ
         if flux_err is None:
             no_error = True
 
+
         # num_mc = G.MC_PLAE_SAMPLE_SIZE #good enough for this (just use the same as the MC for the PLAE/POII
         # confidence = G.MC_PLAE_CONF_INTVL
 
