@@ -73,6 +73,9 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
 
     :return: a cutout like the science cutouts (mostly an astropy HDU)
     """
+
+    return None
+
     global HETDEX_TOOLS
 
     if "phot_tools" not in sys.modules:
