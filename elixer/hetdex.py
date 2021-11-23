@@ -6479,7 +6479,7 @@ class DetObj:
             #choose the best
             # even IF okay == 0, still record the probably bogus value (when
             # actually using the values elsewhere they are compared to a limit and the limit is used if needed
-            if sdss_okay >= hetdex_okay and not np.isnan(self.sdss_cgs_cont) and (self.sdss_cgs_cont is not None):
+            if sdss_okay >= hetdex_okay and (self.sdss_cgs_cont is not None) and not np.isnan(self.sdss_cgs_cont):
                 self.best_gmag_selected = 'sdss'
                 self.best_gmag = self.sdss_gmag
                 self.best_gmag_unc = self.sdss_gmag_unc
@@ -6488,7 +6488,7 @@ class DetObj:
                 self.best_eqw_gmag_obs = self.eqw_sdss_obs
                 self.best_eqw_gmag_obs_unc = self.eqw_sdss_obs_unc
                 log.debug("Using SDSS gmag over HETDEX full width gmag")
-            elif hetdex_okay > 0 and not np.isnan(self.hetdex_gmag_cgs_cont) and (self.hetdex_gmag_cgs_cont is not None):
+            elif hetdex_okay > 0 and (self.hetdex_gmag_cgs_cont is not None) and not np.isnan(self.hetdex_gmag_cgs_cont):
                 self.best_gmag_selected = 'hetdex'
                 self.best_gmag = self.hetdex_gmag
                 self.best_gmag_unc = self.hetdex_gmag_unc
