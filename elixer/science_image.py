@@ -59,6 +59,11 @@ PIXEL_APERTURE_METHOD='exact' #'exact' 'center' 'subpixel'
 log = G.Global_Logger('sciimg_logger')
 log.setlevel(G.LOG_LEVEL)
 
+try:
+    from hetdex_tools import phot_tools
+except:
+    log.error("Exception importing hetdex_tools phot_tools",exc_info=True)
+
 HETDEX_TOOLS = False
 
 def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, subcont=True, convolve_image=False,
@@ -73,8 +78,6 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
 
     :return: a cutout like the science cutouts (mostly an astropy HDU)
     """
-
-    return None
 
     global HETDEX_TOOLS
 
