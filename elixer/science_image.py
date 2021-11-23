@@ -59,12 +59,14 @@ PIXEL_APERTURE_METHOD='exact' #'exact' 'center' 'subpixel'
 log = G.Global_Logger('sciimg_logger')
 log.setlevel(G.LOG_LEVEL)
 
-try:
-    from hetdex_tools import phot_tools
-except:
-    log.error("Exception importing hetdex_tools phot_tools",exc_info=True)
+#can't import here ... becomes a circular reference since phot_tools is accessing elixer's catalogs
+# try:
+#     from hetdex_tools import phot_tools
+#     plt.style.use('default') #restore plot style
+# except:
+#     log.error("Exception importing hetdex_tools phot_tools",exc_info=True)
 
-HETDEX_TOOLS = False
+phot_tools = None
 
 def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, subcont=True, convolve_image=False,
                    pixscale=0.25, imsize=9.0, wave_range=None, return_coords=False):
@@ -79,17 +81,15 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
     :return: a cutout like the science cutouts (mostly an astropy HDU)
     """
 
-    global HETDEX_TOOLS
+    global phot_tools
 
-    if "phot_tools" not in sys.modules:
-    #if not HETDEX_TOOLS:
+    #if "phot_tools" not in sys.modules:
+    if phot_tools is None:
         try:
             from hetdex_tools import phot_tools
             plt.style.use('default') #restore plot style
-            HETDEX_TOOLS = True
         except:
             log.error("Cannot import hetdex_tools phot_tools.", exc_info=True)
-            HETDEX_TOOLS = False
             plt.style.use('default') #restore plot style
             return None
 
