@@ -345,10 +345,11 @@ class Catalog:
                     if filter_mag is not None:
                         p = self.distance_prior.get_prior(df.iloc[i]['distance']*3600.0,filter_mag)
                         df.iat[i,pidx] = p
-                        df.iat[i, midx] = 99 if np.isnan(filter_mag) else filter_mag
+                        df.iat[i, midx] = float(99 if np.isnan(filter_mag) else filter_mag)
                         df.iat[i, fidx] = filter_str
-                        df.iat[i, fl_idx] = 0 if np.isnan(filter_fl) else filter_fl
-                        df.iat[i, fle_idx] = 0 if np.isnan(filter_fl_err) else filter_fl_err
+                        df.iat[i, fl_idx] = float(0 if np.isnan(filter_fl) else filter_fl)
+                        df.iat[i, fle_idx] =float(0 if np.isnan(filter_fl_err) else filter_fl_err) #pandas bug on insert
+                        #have to explicitly cast away from np.float32 to just a float
 
 
                 self.dataframe_of_bid_targets = df.sort_values(by=['dist_prior','distance'], ascending=[False,True])

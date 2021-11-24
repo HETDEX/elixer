@@ -1,5 +1,11 @@
 changes to elixer by version
 
+
+1.14.0a3 [2021-11-23]
+* working on consistency checks on external catalog redshifts. If inconsistent with HETDEX data, the external catalog
+  redshift solution is downweighted.
+* work around on pandas numpy float32 vs float bug
+
 1.14.0a2 [2021-11-12]
 * expand HSC NEP (by manual request only)
 

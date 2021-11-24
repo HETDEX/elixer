@@ -6077,6 +6077,87 @@ class Spectrum:
         return solutions
 
 
+    def consistency_checks(self,solution):
+        """
+        Exectute the consistency checks, but do not alter the score.
+        Essentially this is a boolean conditionas to whether the proposed solution (generally from an outside catalog)
+         FAILS our own internal checks. If it does not FAIL, then it can be accepted.
+
+        This is largely intended to be a redshift consistentcy check (so will check vs low-z galaxy, for example,
+        where line ratios, etc come into play)
+        :param solution:
+        :return:
+        """
+
+        try:
+            if not G.MULTILINE_USE_CONSISTENCY_CHECKS:
+                return True
+
+            s = solution #just for consistency
+            z = s.z
+            consistent = True
+            lowz_boost = 1.0
+            hk_boost  = 1.0
+            oiii_boost = 1.0
+
+            boost_list = []
+
+
+
+            #not check vs AGN ... this is meant to be a redshift consistency check
+            #AGN
+            # boost = self.scale_consistency_score_to_solution_score_factor(self.solution_consistent_with_agn(s))
+            #
+            # #using the boost to decide if it is consistent (boost > 1) or inconsistent (boost < 1)
+            # # if boost == 1, no decision was made and nothing changes
+            # if boost < 1.0:
+            #     consistent = False
+            # elif boost > 1.0:
+            #     consistent = True
+            #
+            # low-z galaxy
+            if z < 1.0:
+
+                try:
+                    if (np.isclose(s.central_rest,4959,atol=1.0) or np.isclose(s.central_rest,5007,atol=1.0)) and \
+                            ( np.any( [(np.isclose(x.fit_x0/(1+z),4959,atol=1.0) or np.isclose(x.fit_x0/(1+z),5007,atol=1.0)  or
+                                        np.isclose(x.fit_x0/(1+z),G.OII_rest,atol=1.0) or np.isclose(x.fit_x0/(1+z),4861,atol=1.0))
+                                       and abs(x.fit_dx0) < 2.0 for x in self.all_found_lines])  ):
+                        #we've got 5007 or 4959 with the other mate OR H_beta or OII
+                        #but still enforce flux 5007/4959 of 3
+                        if SU.check_oiii(s.z,self.values,self.errors,self.wavelengths,delta=1,cont=self.estcont,cont_err=self.estcont_unc) == 1:
+                            oiii_boost = 2.0 #i.e. possibly consistent with oiii
+                            boost_list.append(oiii_boost)
+                except:
+                    oiii_lines = 1.0
+
+                lowz_boost = self.scale_consistency_score_to_solution_score_factor(self.solution_consistent_with_low_z(s))
+                boost_list.append(lowz_boost)
+
+                #H&K a low-z galaxy or star
+                if G.CONTINUUM_RULES:
+                    hk_boost = self.scale_consistency_score_to_solution_score_factor(self.solution_consistent_with_H_and_K(s))
+                    boost_list.append(hk_boost)
+
+
+                #combine the "boost" values
+                #basically, if any are less than 1.0, we reject UNLESS at least one is > 1.0
+                if np.any([b > 1.0 for b in boost_list]):
+                    return True
+                elif np.any([b < 1.0 for b in boost_list]):
+                    return False
+                else:
+                    return True
+
+            #else nothing to check really
+
+        except:
+            log.warning("Exception! Spectrum::consistenty_checks() fail.",exc_info=True)
+            return True # since no determination can be made, given the intent of this function, return a True
+                        #so the solution can be accepted
+
+
+
     def get_bayes_probabilities(self,addl_wavelengths=None,addl_fluxes=None,addl_errors=None):
         # todo: feed in addl_fluxes from the additonal line solutions (or build specifically)?
         # todo: make use of errors

@@ -1482,8 +1482,8 @@ class DetObj:
                         except:
                             log.info("Error in DetObj.flag_check()",exc_info=True)
 
-                    if self.aperture_details_list:
-                            pass
+                    #if self.aperture_details_list is not None:
+                    #        pass
 
 
 
@@ -1875,7 +1875,6 @@ class DetObj:
 
 
                     if new_solution and (line.solution):
-                        log.info(f"Adding new solution {line.name}({line.w_rest}): score = {boost}")
                         sol = elixer_spectrum.Classifier_Solution()
                         sol.z = self.w/line.w_rest - 1.0
                         sol.central_rest = line.w_rest
@@ -1892,10 +1891,17 @@ class DetObj:
                         sol.emission_line.w_obs = self.w
                         sol.emission_line.solution = True
                         sol.prob_noise = 0
+                        #sol.score = boost
+
+                        if self.spec_obj.consistency_checks(sol):
+                            sol.score = boost
+                            log.info(f"Adding new solution {line.name}({line.w_rest}): score = {boost}")
+                        else: # reduce the weight ... but allow to conitnue??
+                            sol.score = G.MULTILINE_MIN_SOLUTION_SCORE / 2.0
+                            log.info(f"Rejected catalog new solution {line.name}({line.w_rest}). Failed consistency check. Solution score set to {sol.score}")
+
                         sol.lines.append(sol.emission_line) #have to add as if it is an extra line
                         #otherwise the scaled score gets knocked way down
-                        sol.score = boost
-
                         self.spec_obj.solutions.append(sol)
 
             if possible_lines: #one or more possible matches
