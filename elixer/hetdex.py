@@ -1895,13 +1895,14 @@ class DetObj:
 
                         if self.spec_obj.consistency_checks(sol):
                             sol.score = boost
+                            sol.lines.append(sol.emission_line) #have to add as if it is an extra line
+                            #otherwise the scaled score gets knocked way down
                             log.info(f"Adding new solution {line.name}({line.w_rest}): score = {boost}")
                         else: # reduce the weight ... but allow to conitnue??
-                            sol.score = G.MULTILINE_MIN_SOLUTION_SCORE / 2.0
+                            sol.score = G.MULTILINE_MIN_SOLUTION_SCORE
                             log.info(f"Rejected catalog new solution {line.name}({line.w_rest}). Failed consistency check. Solution score set to {sol.score}")
 
-                        sol.lines.append(sol.emission_line) #have to add as if it is an extra line
-                        #otherwise the scaled score gets knocked way down
+
                         self.spec_obj.solutions.append(sol)
 
             if possible_lines: #one or more possible matches
