@@ -1,6 +1,9 @@
 changes to elixer by version
 
 
+1.14.0a4 [2021-11-29]
+* turn mag zero adjustment down to a single (1+z). The (1+z)**3 is way too strong.
+
 1.14.0a3 [2021-11-23]
 * working on consistency checks on external catalog redshifts. If inconsistent with HETDEX data, the external catalog
   redshift solution is downweighted.

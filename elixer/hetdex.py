@@ -152,9 +152,11 @@ def adjusted_mag_zero(mag_zero, z):
     :return:
     """
 
+    #return mag_zero
     try:
         #this is very close to the more correct version of -2.5 log (f0/
-        adjust = 7.5 * np.log10((1+z) / 3.5) # 3.5 = 1 + 2.5 # 7.5x in stead of 2.5x since want to use (1+z)**3
+        #at 7.5 (or 1+z)**3 cubed this is far too strong
+        adjust = 2.5 * np.log10((1+z) / 3.5) # 3.5 = 1 + 2.5 # 7.5x in stead of 2.5x since want to use (1+z)**3
         return mag_zero + adjust
     except:
         log.debug("Exception in hetdex.py adjust_mag_zero().", exc_info=True)
