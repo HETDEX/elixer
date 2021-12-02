@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.14.0a4'
+__version__ = '1.14.0a5'
 #Logging
 GLOBAL_LOGGING = True
 

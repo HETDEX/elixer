@@ -657,6 +657,7 @@ class EmissionLineInfo:
         self.snr_err = 0.0
         self.sbr = 0.0
         self.eqw_obs = -999
+        self.eqw_obs_err = 0
         self.fwhm = -999
         self.score = None
         self.raw_score = None
@@ -671,6 +672,7 @@ class EmissionLineInfo:
         self.mcmc_a = None #area
         self.mcmc_y = None
         self.mcmc_ew_obs = None #calcuated value (using error propogation from mcmc_a and mcmc_y)
+        self.mcmc_ew_obs_err = 0
         self.mcmc_snr = -1
         self.mcmc_snr_err = 0.0
         self.mcmc_dx = 1.0 #default to 1.0 so mult or div have no effect
@@ -947,6 +949,10 @@ class EmissionLineInfo:
 
             if self.line_flux and self.cont:
                 self.eqw_obs = self.line_flux / self.cont
+                try:
+                    self.eqw_obs_err = self.eqw_obs * np.sqrt( (self.line_flux_err/self.line_flux)**2 + (self.cont_err/self.cont)**2)
+                except:
+                    self.eqw_obs_err = 0
 
             #line_flux is now in erg/s/... the 1e17 scales up to reasonable numbers (easier to deal with)
             #we are technically penalizing a for large variance, but really this is only to weed out
@@ -3629,6 +3635,8 @@ class EmissionLine:
         else:
             self.broad = False
 
+        self.eli = None #optional may obtain EmissionLineInfo object
+
     def redshift(self,z):
         self.z = z
         self.w_obs = self.w_rest * (1.0 + z)
@@ -4565,6 +4573,216 @@ class Spectrum:
             log.info("Exception in Spectrum::solution_consistent_with_agn",exc_info=True)
             return 0
 
+
+    def solution_consistent_with_lae(self,solution,central_eli=None,continuum=None,continuum_err=None):
+        """
+       Similar to consisten with AGN, but really only focus on a solution that includes LyA as a line, even if it is
+       not the main line. In that case, in addition to the line compatibility, the EW of the LyA line must be > 20AA
+
+       As such you MUST have the continuum estimate to use (should ideally be the aggregate at the end)
+
+        if there is (positive) consistency (lines match and ratios match) you get a boost
+        if there is no consistency (that is, the lines don't match up) you get no change
+        if there is anti-consistency (the lines match up but are inconsistent by ratio, you can get a score decrease)
+
+
+        :param solution:
+        :return: +1 point for each pair of lines that are consistent (or -1 for ones that are anti-consistent)
+        """
+
+        #
+        # note: MgII alone (as broad line) not necessarily AGN ... can be from outflows?
+        #
+
+        #check the lines, are they consistent with AGN?
+        try: #todo: for MgII, OII can also be present
+            rest_waves = np.array([G.LyA_rest,1549.,1909.,2326.,2799.,1241.,1260.,1400.,1640.,1035., G.OII_rest])
+            #aka                     LyA,      CIV, CIII, CII,   MgII,  NV,  SiII, SiIV, HeII, OVI,  OII
+            obs_waves = rest_waves * (1. + solution.z)
+
+            # compared to LyA EW: so line ew/ LyA EW; a value of 0 means no info
+            #todo: need info/citation on this
+            #todo: might have to make a matrix if can't reliably compare to LyA
+            #todo:   e.g. if can only say like NV < MgII or CIV > CIII, etc
+
+            # using as a very rough guide: https://ned.ipac.caltech.edu/level5/Netzer/Netzer2_1.html
+            # and manual HETDEX spectra
+            #            #LyA, CIV,  CIII, CII,  MgII,  NV,     SiII, SiIV,  HeII,  OVI   OII
+            min_ratios = [1.0, 0.07, 0.02, 0.01,  0.05, 0.05,  0.00, 0.03,   0.01,  0.03, 0.01]
+            max_ratios = [1.0, 0.70, 0.30, 0.10,  0.40, 0.40,  0.00, 0.20,   0.20,  0.40, 9.99]
+            #            *** apparently NV can be huge .. bigger than CIV even see 2101164104
+            #            *** OII entries just to pass logic below (only appears on our range for some MgII)
+
+
+            #required match matrix ... if line at row (x) is found and line at column (y) is in range, it MUST be found too
+            #this is in order of the lines in rest_waves
+            #in ALL cases, LyA better be found IF it is in range (so making it a 2 ... need 2 other matched lines to overcome missing LyA)
+            match_matrix =[[1,0,0,0,0,0,0,0,0,0,0],  #0 LyA
+                           [1,1,1,1,0,0,0,0,0,0,0],  #1 CIV
+                           [1,0,1,0,0,0,0,0,0,0,0],  #2 CIII
+                           [1,0,0,1,0,0,0,0,0,0,0],  #3 CII
+                           [1,0,0,0,1,0,0,0,0,0,1],  #4 MgII
+                           [1,0,0,0,0,1,0,0,0,0,0],  #5 NV
+                           [1,0,0,0,0,1,1,0,0,0,0],  #6 SiII
+                           [1,0,0,0,0,0,1,1,0,0,0],  #7 SiIV
+                           [1,0,0,0,0,0,0,0,1,0,0],  #8 HeII
+                           [1,0,0,0,0,0,0,0,0,1,0],  #9 OVI
+                           [0,0,0,0,1,0,0,0,0,0,1] ] #10 OII (just with MgII)
+            #  0 1 2 3 4 5 6 7 8 9 10
+
+            match_matrix = np.array(match_matrix)
+
+            match_matrix_weights = np.array([3,1,1,0.5,1,1,0.5,0.5,1,1,2])
+
+            #todo: 2 matrices (min and max ratios) so can put each line vs other line
+            # like the match_matrix in the low-z galaxy check (but with floats) as row/column
+            # INCOMPLETE ... not in USE YET
+
+            #row/column (is mininum, where lines are smallest compared to LyA)
+            # the inverse is still the minimum just the inverted ratio)
+            min_ratio_matrix = \
+                [ [1.00, None, None, None, None, None, None, None, None, None, None],  #LyA
+                  [None, 1.00, None, None, None, None, 4.00, None, 6.66, None, None],  #CIV
+                  [None, None, 1.00, None, None, None, None, None, None, None, None],  #CIII
+                  [None, None, None, 1.00, None, None, None, None, None, None, None],  #CII
+                  [None, None, None, None, 1.00, None, None, None, None, None, 20.0],  #MgII
+                  [None, None, None, None, None, 1.00, None, None, None, None, None],  #NV
+                  [None, 0.25, None, None, None, None, 1.00, None, None, None, None],  #SiII
+                  [None, None, None, None, None, None, None, 1.00, None, None, None],  #SiIV
+                  [None, 0.15, None, None, None, None, None, None, 1.00, None, None],  #HeII
+                  [None, None, None, None, None, None, None, None, None, 1.00, None],  #OVI
+                  [None, None, None, None, 0.05, None, None, None, None, None, 1.00 ]] #OII
+            # LyA   CIV   CIII  CII   MgII   NV   SiII  SiVI  HeII   OVI  OII
+
+            #row/column (is maximum ... where lines are the largest compared to LyA)
+            max_ratio_matrix = \
+                [ [1.00, None, None, None, None, None, None, None, None, None, None],  #LyA
+                  [None, 1.00, None, None, None, None, 0.10, None, 1.43, None, None],  #CIV
+                  [None, None, 1.00, None, None, None, None, None, None, None, None],  #CIII
+                  [None, None, None, 1.00, None, None, None, None, None, None, None],  #CII
+                  [None, None, None, None, 1.00, None, None, None, None, None, 2.00],  #MgII
+                  [None, None, None, None, None, 1.00, None, None, None, None, None],  #NV
+                  [None, 10.0, None, None, None, None, 1.00, None, None, None, None],  #SiII
+                  [None, None, None, None, None, None, None, 1.00, None, None, None],  #SiIV
+                  [None, 0.70, None, None, None, None, None, None, 1.00, None, None],  #HeII
+                  [None, None, None, None, None, None, None, None, None, 1.00, None],  #OVI
+                  [None, None, None, None, 0.50, None, None, None, None, None, 1.00] ] #OII
+            # LyA    CIV  CIII   CII  MgII   NV   SiII  SiVI  HeII   OVI  OII
+
+            sel = np.where(np.array([l.absorber for l in solution.lines])==False)[0]
+            sol_lines = np.array(solution.lines)[sel]
+            line_waves = [solution.central_rest] + [l.w_rest for l in sol_lines]
+            line_eli = [None] + [l.eli for l in sol_lines]
+            #line_ew = [self.eqw_obs/(1+solution.z)] + [l.eqw_rest for l in sol_lines]
+            # line_flux is maybe more reliable ... the continuum estimates for line_ew can go wrong and give horrible results
+            line_flux = [self.estflux] + [l.flux for l in sol_lines]
+            line_flux_err = [self.estflux_unc] + [l.flux_err for l in sol_lines]
+            line_fwhm = [self.fwhm] + [l.sigma * 2.355 for l in sol_lines]
+            line_fwhm_err = [self.fwhm_unc] + [l.sigma_err * 2.355 for l in sol_lines]
+            line_broad = [solution.emission_line.broad] + [l.broad for l in sol_lines] #can they be broad
+
+            overlap, rest_idx, line_idx = np.intersect1d(rest_waves,line_waves,return_indices=True)
+
+            central_fwhm =  self.fwhm
+            central_fwhm_err = self.fwhm_unc
+            #todo: get samples and see if there is a correlation with slope
+            #slope = self.spectrum_slope
+            #slope_err = self.spectrum_slope_err
+
+            score = 0
+
+            #is LyA in the list of lines?? if so, check its EW
+            sel_lya = [np.isclose(line_waves, G.LyA_rest,atol=2.0)]
+            if np.sum(sel_lya) == 1: #LyA is in the list
+                #get the lya_idx specifically
+                lya_idx = list(sel_lya[0]).index(True)
+
+                #and scale by SNR
+                if hasattr(line_eli[lya_idx],"snr") and line_eli[lya_idx].snr > 0:
+                    snr = line_eli[lya_idx].snr
+                else:
+                    log.info("In solution_consistent_with_lae(). No SNR info. Cannot continue.")
+                    return 0
+
+                #if the snr of LyA is less than SNR of main line, then really don't trust if
+                if central_eli is None:
+                    score = max(0.0,score)
+                else: #basically, this LyA non-central line has to be SNR > 6.0 or at least 90% of the other line
+                    if snr < 6.0 and ((snr / central_eli.snr) < 0.9 ):
+                        score = -1.0
+                        log.info(f"In solution_consistent_with_lae(), SNR of non-central LyA too low: {line_eli[lya_idx].snr}")
+                        return score
+
+                #check the continuum
+                if continuum is None or continuum <= 0:
+                    try:
+                        if hasattr(line_eli[lya_idx],"cont") and line_eli[lya_idx].cont is not None and line_eli[lya_idx].cont > 0:
+                                continuum = line_eli[lya_idx].cont
+                                continuum_err = line_eli[lya_idx].cont_err
+                        else:
+                            log.info(f"In solution_consistent_with_lae(): Invalid continuum. Cannot continue")
+                            return 0
+                    except:
+                        log.info(f"In solution_consistent_with_lae(): Invalid continuum. Cannot continue")
+                        return 0
+
+                ew = line_flux[lya_idx] / continuum
+                ew_err = 0
+                try:
+                    if continuum_err is not None and continuum_err > 0:
+                        ew_err = ew * np.sqrt( (line_flux_err[lya_idx]/line_flux[lya_idx])**2 + (continuum_err/continuum)**2)
+                except:
+                    ew_err = 0
+
+                log.info(f"In solution_consitent_with_lae(): EW = {ew:0.2f} +/- {ew_err:0.3f}, SNR = {snr}")
+                if (ew > 20.0) or (((ew+ew_err) > 20.0) and ((ew-ew_err) > 15.0)):
+                    if (ew-ew_err) > 40:
+                        score = 1.0 * snr/8.0
+                    elif (ew-ew_err) > 25.0:
+                        score = 0.5 * snr/8.0
+                    else:
+                        score = 0.25 * snr/8.0
+                else:
+                    score = -1.0
+
+                if snr < 5.5:
+                    score = min(score,0.0) #don't trust it, but I want to log record what we have
+
+
+                # p_lae_oii_ratio, p_lae, p_oii, plae_errors = line_prob.mc_prob_LAE(wl_obs=G.LyA_rest*(1+solution.z),
+                #                                                                   lineFlux=line_flux[lya_idx],
+                #                                                                   lineFlux_err=line_flux_err[lya_idx],
+                #                                                                   continuum=continuum,
+                #                                                                   continuum_err=continuum_err,
+                #                                                                   c_obs=None, which_color=None,
+                #                                                                   addl_wavelengths=[],
+                #                                                                   addl_fluxes=[],
+                #                                                                   addl_errors=[],
+                #                                                                   sky_area=None,
+                #                                                                   cosmo=None, lae_priors=None,
+                #                                                                   ew_case=None, W_0=None,
+                #                                                                   z_OII=None, sigma=None)
+                #
+                # try:
+                #     if plae_errors:
+                #         p_lae_oii_ratio_range = plae_errors['ratio']
+                # except:
+                #     pass
+
+                #last sanity check
+                if score < 1.0 and (SU.cgs2mag(continuum,G.LyA_rest*(1+solution.z)) < (G.LAE_G_MAG_ZERO-0.5)):
+                    score = min(-1.0,score) #very inconsistent with LyA, so at least -1.0 or lower
+
+                return score
+            else:
+                #no LAE
+                return 0
+
+        except:
+            log.info("Exception in Spectrum::solution_consistent_with_lae",exc_info=True)
+            return 0
+        #end consistent with LAE
+
     def top_hat_filter(self,w_rest,w_obs, wx, hat_width=None, negative=False):
         #optimal seems to be around 1 to < 2 resolutions (e.g. HETDEX ~ 6AA) ... 6 is good, 12 is a bit
         #unstable ... or as rougly 3x pixel pix_size
@@ -5021,7 +5239,8 @@ class Spectrum:
         else:
             return central
 
-    def classify(self,wavelengths = None,values = None, errors=None, central = None, values_units=0,known_z=None):
+    def classify(self,wavelengths = None,values = None, errors=None, central = None, values_units=0,known_z=None,
+                 continuum_limit=None,continuum_limit_err=None):
         #for now, just with additional lines
         #todo: later add in continuum
         #todo: later add in bayseian stuff
@@ -5054,7 +5273,8 @@ class Spectrum:
             log.warning("Cannot classify. No central wavelength specified or found.")
             return []
 
-        solutions = self.classify_with_additional_lines(wavelengths,values,errors,central,values_units,known_z=known_z)
+        solutions = self.classify_with_additional_lines(wavelengths,values,errors,central,values_units,known_z=known_z,
+                                                        continuum_limit=continuum_limit,continuum_limit_err=continuum_limit_err)
         self.solutions = solutions
 
         #set the unmatched solution (i.e. the solution score IF all the extra lines were unmatched, not
@@ -5404,7 +5624,7 @@ class Spectrum:
 
 
     def classify_with_additional_lines(self,wavelengths = None,values = None,errors=None,central = None,
-                                       values_units=0,known_z=None):
+                                       values_units=0,known_z=None,continuum_limit=None, continuum_limit_err=None):
         """
         using the main line
         for each possible classification of the main line
@@ -5765,6 +5985,7 @@ class Spectrum:
                         l.prob_noise = eli.prob_noise
                         l.absorber = eli.absorber
                         l.fit_dx0 = eli.fit_dx0
+                        l.eli = copy.deepcopy(eli) #get all the emission line info fit data (only a few places use it)
 
                         per_line_total_score += eli.line_score  # cumulative score for ALL solutions
                         sol.score += eli.line_score  # score for this solution
@@ -5948,8 +6169,30 @@ class Spectrum:
                 #if there is no consistency (that is, the lines don't match up) you get no change
                 #if there is anti-consistency (the lines match up but are inconsistent by ratio, you can get a score decrease)
 
+
+                #LAE (general) when the main line is NOT LyA
+                lae_boost = 1.0 #want to keep it for below and AGN
+                if 1.88 < s.z < 3.53 and s.emission_line.w_rest != G.LyA_rest:
+                    lae_boost = self.scale_consistency_score_to_solution_score_factor(
+                                    self.solution_consistent_with_lae(s,central_eli,continuum_limit,continuum_limit_err))
+
+                    if lae_boost != 1.0:
+                        log.info(f"Solution: {s.name} score {s.score} to be modified by x{lae_boost} for consistency with LAE")
+
+                        per_line_total_score -= s.score
+                        s.score = lae_boost * s.score
+                        per_line_total_score += s.score
+
+
+                #to be consistent with AGN, if  1.9 < z < 3.5 it MUST be also consistent with LAE
                 #AGN
-                boost = self.scale_consistency_score_to_solution_score_factor(self.solution_consistent_with_agn(s))
+                if (1.88 < s.z < 3.53 and s.emission_line.w_rest != G.LyA_rest):
+                    if (lae_boost > 1.0):
+                        boost = self.scale_consistency_score_to_solution_score_factor(self.solution_consistent_with_agn(s))
+                    else:
+                        boost = 1.0 #don't bother checking for AGN since not positively consistent with LAE and in our z range
+                else: #not in s range or is already LyA, so do normal check
+                    boost = self.scale_consistency_score_to_solution_score_factor(self.solution_consistent_with_agn(s))
 
                 if boost != 1.0:
                     log.info(f"Solution: {s.name} score {s.score} to be modified by x{boost} for consistency with AGN")
@@ -6099,6 +6342,7 @@ class Spectrum:
             lowz_boost = 1.0
             hk_boost  = 1.0
             oiii_boost = 1.0
+            lae_boost = 1.0
 
             boost_list = []
 
@@ -6117,7 +6361,6 @@ class Spectrum:
             #
             # low-z galaxy
             if z < 1.0:
-
                 try:
                     if (np.isclose(s.central_rest,4959,atol=1.0) or np.isclose(s.central_rest,5007,atol=1.0)) and \
                             ( np.any( [(np.isclose(x.fit_x0/(1+z),4959,atol=1.0) or np.isclose(x.fit_x0/(1+z),5007,atol=1.0)  or
@@ -6135,21 +6378,27 @@ class Spectrum:
                 boost_list.append(lowz_boost)
 
                 #H&K a low-z galaxy or star
-                if G.CONTINUUM_RULES:
+                if G.CONTINUUM_RULES or solution.emission_line.absorber:
                     hk_boost = self.scale_consistency_score_to_solution_score_factor(self.solution_consistent_with_H_and_K(s))
-                    boost_list.append(hk_boost)
+                    if (solution.emission_line.w_rest in [3934,3968]) and (hk_boost <= 1.0) : #explicitly H or K
+                        #the line would have to be H or K, but we cannot fit H&k to it
+                        boost_list.append(0)
+                    else:
+                        boost_list.append(hk_boost)
 
+            elif 1.89 < z < 3.52: #check for LAE
+                lae_boost = self.scale_consistency_score_to_solution_score_factor(solution_consistent_with_lae(s))
+                boost_list.append(lae_boost)
 
-                #combine the "boost" values
-                #basically, if any are less than 1.0, we reject UNLESS at least one is > 1.0
-                if np.any([b > 1.0 for b in boost_list]):
-                    return True
-                elif np.any([b < 1.0 for b in boost_list]):
-                    return False
-                else:
-                    return True
+            #combine the "boost" values
+            #basically, if any are less than 1.0, we reject UNLESS at least one is > 1.0
+            if np.any([b > 1.0 for b in boost_list]):
+                return True
+            elif np.any([b < 1.0 for b in boost_list]):
+                return False
+            else:
+                return True
 
-            #else nothing to check really
 
         except:
             log.warning("Exception! Spectrum::consistenty_checks() fail.",exc_info=True)

@@ -1592,7 +1592,7 @@ class DetObj:
         try:
             #aka P(LyA)
             scaled_plae_classification = self.classification_dict['scaled_plae']
-            p = abs(0.5 - scaled_plae_classification)/0.5 #so, peaks near 0 and 1 and is zero at 0.5
+            p = abs(0.5 - scaled_plae_classification)/0.5 #so, peaks near 0 and 1 and is zero at 0.5 (this is a confidence in classification)
             plya_for_oii = 0.7 #with no other evidence other than P(LyA) that favors OII, since it can be other lines
                                #not just OII, rescale by this factor when assuming OII
             rest = 0
@@ -1653,7 +1653,7 @@ class DetObj:
                         else:
                             continue #keep looking for a match
                     else:
-                        agree = True
+                        agree = True #or rather, they don't disagree
                         break
 
                 #sol is at the last solution from at the break
@@ -1830,14 +1830,21 @@ class DetObj:
             possible_lines = []
 
             for b in self.bid_target_list:
+                #sanity check ... is there a g or r mag that is at least roughly consistent with the DEX g mag?
+                if self.best_gmag is not None and self.best_gmag > 0 and b.bid_mag is not None and b.bid_mag > 0:
+                    if not (abs(b.bid_mag-self.best_gmag) < 1.5 or b.bid_mag > 24.5 and self.best_gmag > 24.5):
+                        continue
+
                 #check spec-z (higher boost)
                 if b.spec_z is not None and b.spec_z > -0.02:
-                    list_z.append({'z':b.spec_z,'z_err':0.05,'boost':G.ALL_CATATLOG_SPEC_Z_BOOST,'name':b.catalog_name})
+                    list_z.append({'z':b.spec_z,'z_err':0.05,'boost':G.ALL_CATATLOG_SPEC_Z_BOOST,'name':b.catalog_name,
+                                   'mag':b.bid_mag,'filter':b.bid_filter,'distance':b.distance})
 
                 #then check phot-z (lower boost)
                 #allowed to have the smaller of 0.5 or 20% error in z
                 if b.phot_z is not None and b.phot_z > -0.02:
-                    list_z.append({'z':b.phot_z,'z_err':min(0.5, b.phot_z * 0.2),'boost':G.ALL_CATATLOG_PHOT_Z_BOOST,'name':b.catalog_name})
+                    list_z.append({'z':b.phot_z,'z_err':min(0.5, b.phot_z * 0.2),'boost':G.ALL_CATATLOG_PHOT_Z_BOOST,'name':b.catalog_name,
+                                   'mag':b.bid_mag,'filter':b.bid_filter,'distance':b.distance})
 
             for bid in list_z:
                 boost = bid['boost']
@@ -6963,7 +6970,8 @@ class DetObj:
                 except:
                     log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra",exc_info=True)
 
-            self.spec_obj.classify(known_z=self.known_z) #solutions can be returned, also stored in spec_obj.solutions
+            self.spec_obj.classify(known_z=self.known_z,continuum_limit=max(self.best_gmag_cgs_cont, G.HETDEX_CONTINUUM_FLUX_LIMIT),
+                                   continuum_limit_err=self.best_gmag_cgs_cont_unc) #solutions can be returned, also stored in spec_obj.solutions
 
             # if central_wave_volatile and (self.spec_obj.central_eli.w_obs != self.w):
             #     try:
