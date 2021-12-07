@@ -1660,12 +1660,16 @@ class DetObj:
                             continue #keep looking for a match
                     else:
                         if SU.map_multiline_score_to_confidence(scale_score) < 0.4: #low confidence
-                            if z > 1.0 and self.best_gmag is not None and self.best_gmag < 23.5: #"high-z"
+                            if z > 1.8 and self.best_gmag is not None and self.best_gmag < 23.5: #"high-z"
                                 agree = False
                         elif SU.map_multiline_score_to_confidence(scale_score) < 0.6: #iffy confidence
-                            if z > 1.0 and self.best_gmag is not None and self.best_gmag < 23.5: #"high-z"
-                                agree = True
-                                unsure = True
+                            if z > 1.8 and self.best_gmag is not None and self.best_gmag < 23.5: #"high-z"
+                                if self.best_gmag < 23.0:
+                                    agree = False
+                                else:
+                                    agree = True
+                                    unsure = True
+                                    self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
                         else:
                             agree = True #or rather, they don't disagree
                         break
@@ -1741,7 +1745,7 @@ class DetObj:
                             log.info(f"Q(z): Multiline solution favors z = {sol.z}; {pscore}. "
                                      f"P(LyA) favors LyA {scaled_plae_classification}. Set to LyA z:{z} with Q(z): {p}")
 
-                    elif pscore < 0.4: #we are ignoring the Q(z) of the multiline solution as too inconsistent
+                    elif pscore < 0.6: #we are ignoring the Q(z) of the multiline solution as too inconsistent
                         #we will use the P(Lya)
                         self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
                         p = max(0.05,p - pscore)
