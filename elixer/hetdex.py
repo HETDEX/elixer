@@ -1265,10 +1265,16 @@ class DetObj:
                     self.aperture_details_list = np.array(self.aperture_details_list)
                     #get deepest g and deepest r
                     sel_g = np.array([d['filter_name'].lower() in ['g'] for d in self.aperture_details_list])
-                    deep_g = np.max([d['mag_limit'] for d in self.aperture_details_list[sel_g]])
+                    if np.sum(sel_g) > 0:
+                        deep_g = np.max([d['mag_limit'] for d in self.aperture_details_list[sel_g]])
+                    else:
+                        deep_g = -1
 
                     sel_r = np.array([d['filter_name'].lower() in ['r','f606w'] for d in self.aperture_details_list])
-                    deep_r = np.max([d['mag_limit'] for d in self.aperture_details_list[sel_r]])
+                    if np.sum(sel_r) > 0:
+                        deep_r = np.max([d['mag_limit'] for d in self.aperture_details_list[sel_r]])
+                    else:
+                        deep_r = -1
 
                     #sel_depths = [d['mag_limit'] for d in self.aperture_details_list]
 
@@ -1653,7 +1659,15 @@ class DetObj:
                         else:
                             continue #keep looking for a match
                     else:
-                        agree = True #or rather, they don't disagree
+                        if SU.map_multiline_score_to_confidence(scale_score) < 0.4: #low confidence
+                            if z > 1.0 and self.best_gmag is not None and self.best_gmag < 23.5: #"high-z"
+                                agree = False
+                        elif SU.map_multiline_score_to_confidence(scale_score) < 0.6: #iffy confidence
+                            if z > 1.0 and self.best_gmag is not None and self.best_gmag < 23.5: #"high-z"
+                                agree = True
+                                unsure = True
+                        else:
+                            agree = True #or rather, they don't disagree
                         break
 
                 #sol is at the last solution from at the break
@@ -1696,8 +1710,8 @@ class DetObj:
                         #if the LyA Solution is strong, subtract off the p/2 weight
 
                         #test for weak LyA multi-line vs strong P(LyA) near 0.0
-                        for_lya = pscore - p
-                        for_oii = p
+                        # for_lya = pscore - p
+                        # for_oii = p
 
                         if pscore > p: #multi-line solution "stronger" than P(LyA)
                             p = max(0.05,pscore - p)
@@ -1726,8 +1740,26 @@ class DetObj:
                             z = self.w / G.LyA_rest - 1.0
                             log.info(f"Q(z): Multiline solution favors z = {sol.z}; {pscore}. "
                                      f"P(LyA) favors LyA {scaled_plae_classification}. Set to LyA z:{z} with Q(z): {p}")
+
+                    elif pscore < 0.4: #we are ignoring the Q(z) of the multiline solution as too inconsistent
+                        #we will use the P(Lya)
+                        self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
+                        p = max(0.05,p - pscore)
+                        if scaled_plae_classification < 0.5:
+                            z = self.w / G.OII_rest - 1.0
+
+                            log.info(f"Q(z): Multiline solution rejected as weak and inconsistent."
+                                     f"P(LyA) favors OII {scaled_plae_classification}. Set to OII z:{z} with Q(z): {p}")
+                        else:
+                            z= self.w / G.LyA_rest - 1.0
+
+                            log.info(f"Q(z): Multiline solution rejected as weak and inconsistent."
+                                     f"P(LyA) favors LyA {scaled_plae_classification}. Set to LyA z:{z} with Q(z): {p}")
+
+
                     else: #odd place ... this should not happen
                         #we will use the P(Lya)
+                        self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
                         if scaled_plae_classification < 0.5:
                             z = self.w / G.OII_rest - 1.0
                         else:
@@ -2983,6 +3015,28 @@ class DetObj:
                             var.append(1)
                             log.info(f"Aggregate Classification: 20AA sanity PLAE/POII from combined continuum: "
                                      f"lk({likelihood[-1]}) weight({weight[-1]})")
+
+
+
+                        #if this object is moderately bright and the EW is well above or below 20AA, give that hard EW
+                        #cut its own vote .... using ONLY the best_g mag
+                        if self.best_gmag is not None and self.best_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT:
+                            if ew_combined_continuum < 15.0:
+                                likelihood.append(0.0)
+                                prior.append(base_assumption)
+                                weight.append(0.5) #todo make weight depend on magnitude and EW ...
+                                var.append(0.5)
+                                log.info(f"Aggregate Classification: 20AA hard cut vote from best g-mag and combined EW: "
+                                         f"lk({likelihood[-1]}) weight({weight[-1]})")
+                            elif ew_combined_continuum > 25.0:
+                                likelihood.append(0.0)
+                                prior.append(base_assumption)
+                                weight.append(0.5)
+                                var.append(1)
+                                log.info(f"Aggregate Classification: 20AA hard cut vote from best g-mag and combined EW: "
+                                             f"lk({likelihood[-1]}) weight({weight[-1]})")
+
+
                 except:
                     log.warning("Exception appling 20AA sanity check",exc_info=True)
 
@@ -2996,6 +3050,13 @@ class DetObj:
             lower_mag = self.best_gmag + self.best_gmag_unc #want best value + the error (so on the fainter side)
         except:
             lower_mag  = 99
+
+
+        ###################################
+        # HARD EqWidth vote
+        ###################################
+
+
 
         ###################################
         #magnitude votes

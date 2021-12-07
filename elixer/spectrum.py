@@ -4700,6 +4700,8 @@ class Spectrum:
                 #and scale by SNR
                 if hasattr(line_eli[lya_idx],"snr") and line_eli[lya_idx].snr > 0:
                     snr = line_eli[lya_idx].snr
+                elif lya_idx == 0 and central_eli is not None:# it is the main line
+                    snr = central_eli.snr
                 else:
                     log.info("In solution_consistent_with_lae(). No SNR info. Cannot continue.")
                     return 0
@@ -4707,11 +4709,23 @@ class Spectrum:
                 #if the snr of LyA is less than SNR of main line, then really don't trust if
                 if central_eli is None:
                     score = max(0.0,score)
-                else: #basically, this LyA non-central line has to be SNR > 6.0 or at least 90% of the other line
+                elif lya_idx > 0: #basically, this LyA non-central line has to be SNR > 6.0 or at least 90% of the other line
                     if snr < 6.0 and ((snr / central_eli.snr) < 0.9 ):
+                        # if snr < 5.0:
+                        #     score = -2.0
+                        # elif snr < 5.5:
+                        #     score = -1.5
+                        # else:
+                        #     score = -1.0
                         score = -1.0
                         log.info(f"In solution_consistent_with_lae(), SNR of non-central LyA too low: {line_eli[lya_idx].snr}")
                         return score
+                else: #main line is LyA ... continue on
+                    pass
+
+
+                #todo: IF the LyA line has continuum above the DEX limit, then use that continuum even if
+                #todo: an aggregate continuum was passed in?
 
                 #check the continuum
                 if continuum is None or continuum <= 0:
@@ -4719,6 +4733,9 @@ class Spectrum:
                         if hasattr(line_eli[lya_idx],"cont") and line_eli[lya_idx].cont is not None and line_eli[lya_idx].cont > 0:
                                 continuum = line_eli[lya_idx].cont
                                 continuum_err = line_eli[lya_idx].cont_err
+                        elif lya_idx == 0:
+                            continuum = central_eli.cont
+                            continuum_err = central_eli.cont_err
                         else:
                             log.info(f"In solution_consistent_with_lae(): Invalid continuum. Cannot continue")
                             return 0
@@ -6170,9 +6187,9 @@ class Spectrum:
                 #if there is anti-consistency (the lines match up but are inconsistent by ratio, you can get a score decrease)
 
 
-                #LAE (general) when the main line is NOT LyA
+                #LAE (general)
                 lae_boost = 1.0 #want to keep it for below and AGN
-                if 1.88 < s.z < 3.53 and s.emission_line.w_rest != G.LyA_rest:
+                if 1.88 < s.z < 3.53: # and s.emission_line.w_rest != G.LyA_rest:
                     lae_boost = self.scale_consistency_score_to_solution_score_factor(
                                     self.solution_consistent_with_lae(s,central_eli,continuum_limit,continuum_limit_err))
 
@@ -6186,7 +6203,7 @@ class Spectrum:
 
                 #to be consistent with AGN, if  1.9 < z < 3.5 it MUST be also consistent with LAE
                 #AGN
-                if (1.88 < s.z < 3.53 and s.emission_line.w_rest != G.LyA_rest):
+                if 1.88 < s.z < 3.53: # and s.emission_line.w_rest != G.LyA_rest:
                     if (lae_boost > 1.0):
                         boost = self.scale_consistency_score_to_solution_score_factor(self.solution_consistent_with_agn(s))
                     else:
