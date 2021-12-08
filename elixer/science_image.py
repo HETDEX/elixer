@@ -521,8 +521,9 @@ class science_image():
             if (self.footprint is not None) and (self.pixel_size is not None):
                 ra_range = (max(self.footprint[:,0])-min(self.footprint[:,0])) * 3600.0
                 dec_range = (max(self.footprint[:,1])-min(self.footprint[:,1])) * 3600.0
+                mean_dec = 0.5 * (max(self.footprint[:,1]) + min(self.footprint[:,1]))
                 #ignore keystoning from dec for now
-                footprint_area = ra_range * dec_range / (self.pixel_size**2)
+                footprint_area = ra_range * dec_range / (self.pixel_size**2) * np.cos(mean_dec * np.pi / 180)
                 pixel_area = self.wcs.pixel_shape[0] * self.wcs.pixel_shape[1]
 
                 #should be close in size:

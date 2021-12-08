@@ -321,7 +321,7 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
     Cat_Coord_Range = {'RA_min': None, 'RA_max': None, 'Dec_min': None, 'Dec_max': None}
 
-    WCS_Manual = True
+    WCS_Manual = False
 
     AstroTable = None
 
@@ -676,7 +676,7 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             for f in self.Filters:
                 path = self.HSC_IMAGE_PATH #op.join(self.HSC_IMAGE_PATH,self.Tile_Dict[t]['tract'])
                 name = t
-                wcs_manual = True
+                wcs_manual = False
 
                 self.CatalogImages.append(
                     {'path': path,

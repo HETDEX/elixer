@@ -1,9 +1,11 @@
 changes to elixer by version
 
-1.14.0a6 [2021-12-06]
+1.14.0a6 [2021-12-08]
 * update solution_consitent_with_lae() to also run if main line is LyA. Basically includes an additional assertion that
   the EW is consistent with LyA in the 20AA cut (with error and > 15AA).
 * add extra 20AA hard cut vote (currently at 0.5 weight) for brighter than DEX limit g-mag and EW < 15 or > 25.
+* (HSC-NEP) turn off tile B6 as identified with a WCS problem
+* fix missing Dec correction in FITS footprint sanity check in science_image.py
 
 1.14.0a5 [2021-12-01]
 * adding explicit check for solution_consitent_with_lae() for when LyA is NOT the central line, but is one of the elixer
