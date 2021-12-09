@@ -14,9 +14,11 @@ import os.path as op
 try:
     from elixer import global_config as G
     from elixer import utilities
+    from elixer import spectrum
 except:
     import global_config as G
     import utilities
+    import spectrum
 
 log = G.Global_Logger('clustering')
 log.setlevel(G.LOG_LEVEL)
@@ -112,6 +114,8 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=15.0,delta_lambda=2
         #check lines
         neighbor_ids = rows['detectid']
         line_scores = np.zeros(len(neighbor_ids))
+        line_w_obs = np.zeros(len(neighbor_ids))
+        used_in_solution = np.full(len(neighbor_ids),False)
 
         w1 = target_wave - target_wave_err - delta_lambda
         w2 = target_wave + target_wave_err + delta_lambda
@@ -123,6 +127,9 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=15.0,delta_lambda=2
                 sel[i] = False
                 continue
             line_scores[i] = np.max(lrows['score'])
+            line_w_obs[i] = lrows[np.argmax(lrows['score'])]['wavelength']
+            used_in_solution[i] = lrows[np.argmax(lrows['score'])]['used'] #NOTE: this might not be a multiline solution
+                                                                           #in which case, used can be False
 
         if np.sum(sel) == 0:
             log.info(f"No neighbors meet minimum emission line requirements for {detectid}")
@@ -143,10 +150,26 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=15.0,delta_lambda=2
                 best_idx = best_line
 
 
-        #last check ... if the z is the same, then don't bother
+        #check if the z is the same, then don't bother
         if abs(rows[best_idx]['best_z'] - target_z) < 0.1:
             log.info(f"Neighbors at same z {target_z} for {detectid}")
             return cluster_dict
+
+        #check that the emission line IS USED in the solution
+        #or if not used, that it is CONSISTENT with the solution
+        if not used_in_solution[best_idx]:
+            sp = spectrum.Spectrum()
+            lines = sp.match_lines(line_w_obs[best_idx],
+                                   rows[best_idx]['best_z'],
+                                   z_error=0.001,
+                                   aa_error=None,
+                                   allow_absorption=False)
+            if lines is None or len(lines) == 0:
+                log.info(f"Best neighbor {neighbor_ids[best_idx]} line {line_w_obs[best_idx]:0.2f} inconsistent with redshift {rows[best_idx]['best_z']:0.4f}."
+                         f"No common lines near rest {line_w_obs[best_idx]/(1 + rows[best_idx]['best_z']):0.2f}")
+                return cluster_dict
+
+
 
         #now populate the dictionary
         try:
