@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import astropy.extern.ply.yacc
 import matplotlib
 matplotlib.use('agg')
 
@@ -17,6 +18,7 @@ try:
     from elixer import elixer_hdf5
     from elixer import cat_base
     from elixer import spectrum_utilities as SU
+    from elixer import clustering
 except:
     import hetdex
     import match_summary
@@ -27,6 +29,7 @@ except:
     import elixer_hdf5
     import cat_base
     import spectrum_utilities as SU
+    import clustering
 
 from hetdex_api import survey as hda_survey
 
@@ -469,6 +472,9 @@ def parse_commandline(auto_force=False):
 
     parser.add_argument('--special', help="Special purpose modification. The value sets the behavior. Tied to specific code. Do NOT use unless you specifically know what you are doing.",
                         required=False, type=int,default=0)
+
+    parser.add_argument('--cluster', help="Scan all detectids for bright neighbors at high confidence redshift. Specify the elixer h5 file.", required=False,
+                        default="elixer_merged_cat.h5")
 
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
@@ -4009,6 +4015,39 @@ def main():
     args.explicit_extraction = explicit_extraction
 
     PDF_File(args.name, 1) #use to pre-create the output dir (just toss the returned pdf container)
+
+    #todo: here insert clustering ID check
+    if args.cluster:
+        try:
+            #open h5 file (make sure it is okay)
+            #the full path might not have been provided, so if this fails assume we are in a dispatch_xxxx location
+            #and try again higher up
+            if os.path.exists(args.cluster):
+                cluster_h5 = tables.open_file(args.cluster)
+            elif op.exists(os.path.join("../../",args.cluster)):
+                cluster_h5 = tables.open_file(os.path.join("../../",args.cluster))
+            else:
+                print(f"Fatal. Unable to locate/open clustering input h5 file {args.cluster}")
+                exit(-1)
+
+            # then run clustering on multiple IDs
+            cluster_list = clustering.cluster_multiple_detectids(hdf5_detectid_list,cluster_h5)
+
+            # then replace the hdf5_detectid_list with just those returned
+            if cluster_list is not None and len(cluster_list) > 0:
+                old_len = len(hdf5_detectid_list)
+                hdf5_detectid_list = [c['detectid'] for c in cluster_list]
+                log.critical(f"Reduced initial detectionIDs to re-run for clustering. New count = {len(hdf5_detectid_list)}, old count = {old_len}.")
+            else:
+                print("No clustering identified. Exiting.")
+                cluster_h5.close()
+                exit(0)
+
+            #close the h5 file
+            cluster_h5.close()
+        except Exception as e:
+            print("Fatal exception.",e)
+
 
 
 

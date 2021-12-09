@@ -235,3 +235,35 @@ def cluster_multiple_detectids(detectid_list,elixerh5,outfile=True,delta_arcsec=
         log.error("Exception! Exception in clustering::cluster_multiple_detectids().",exc_info=True)
 
     return cluster_list
+
+
+def cluster_all_detectids(elixerh5,outfile=True,delta_arcsec=15.0,delta_lambda=2.0,gmag_thresh=23.0):
+    """
+    Wraper for find_cluster that takes a list of detectids instead
+
+    :param detectid_list:
+    :param elixerh5:
+    :param outfile:
+    :param delta_arcsec:
+    :param delta_lambda:
+    :param gmag_thresh:
+    :return:
+    """
+
+    cluster_list = []
+
+    try:
+
+        detectid_list = elixerh5.root.Detections.read(field="detectid")
+
+        for d in detectid_list:
+            try:
+                cluster_dict = find_cluster(d,elixerh5,outfile,delta_arcsec,delta_lambda,gmag_thresh)
+                if cluster_dict is not None:
+                    cluster_list.append(cluster_dict)
+            except:
+                log.error("Exception! Exception iterating in clustering::cluster_multiple_detectids().",exc_info=True)
+    except:
+        log.error("Exception! Exception in clustering::cluster_multiple_detectids().",exc_info=True)
+
+    return cluster_list
