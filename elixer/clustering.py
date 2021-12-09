@@ -52,9 +52,10 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=15.0,delta_lambda=2
     #      }
 
     try:
+        log.info(f"Clustering on {detectid} ...")
+
         dtb = elixerh5.root.Detections
         ltb = elixerh5.root.SpectraLines
-
 
         #first get the detectid related info
         q_detectid = detectid
@@ -65,19 +66,22 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=15.0,delta_lambda=2
 
         #flags = rows[0][''] #could explicitly check for a magnitude mismatch
 
-        if rows[0]['review'] == 0: #if we are NOT set to review, check the gmag
-            target_gmag = rows[0]['mag_sdss_g'] #this could fail
-            target_gmag_err = rows[0]['mag_sdss_g_err'] #this could fail
-            try:
-                if (target_gmag+target_gmag_err) < gmag_thresh: #too bright
-                    log.info(f"Invalid detectid {detectid}. Too bright. gmag = {target_gmag} +/- {target_gmag_err}")
-                    return cluster_dict
-            except: #the sdss might not be there or may be invalid
-                target_gmag = rows[0]['mag_full_spec'] #this could fail
-                target_gmag_err = rows[0]['mag_full_spec_err'] #this could fail
-                if (target_gmag+target_gmag_err) < gmag_thresh: #too bright
-                    log.info(f"Invalid detectid {detectid}. Too bright. gmag = {target_gmag} +/- {target_gmag_err}")
-                    return cluster_dict
+        try:
+            if rows[0]['review'] == 0: #if we are NOT set to review, check the gmag
+                target_gmag = rows[0]['mag_sdss_g'] #this could fail
+                target_gmag_err = rows[0]['mag_sdss_g_err'] #this could fail
+                try:
+                    if (target_gmag+target_gmag_err) < gmag_thresh: #too bright
+                        log.info(f"Invalid detectid {detectid}. Too bright. gmag = {target_gmag} +/- {target_gmag_err}")
+                        return cluster_dict
+                except: #the sdss might not be there or may be invalid
+                    target_gmag = rows[0]['mag_full_spec'] #this could fail
+                    target_gmag_err = rows[0]['mag_full_spec_err'] #this could fail
+                    if (target_gmag+target_gmag_err) < gmag_thresh: #too bright
+                        log.info(f"Invalid detectid {detectid}. Too bright. gmag = {target_gmag} +/- {target_gmag_err}")
+                        return cluster_dict
+        except:
+            pass #older ones may not have a 'review' field
 
         target_ra = rows[0]['ra']
         target_dec = rows[0]['dec']
@@ -99,14 +103,14 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=15.0,delta_lambda=2
         rows = dtb.read_where("(ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2)")
 
         if len(rows) == 0: #there are none
-            log.info(f"No neighbors found for {detectid}")
+            log.info(f"Clustering on {detectid}. No neighbors found.")
             return cluster_dict
 
         #otherwise, check for other conditions
         #gmag limit
         sel = np.array(rows['mag_sdss_g'] < gmag_thresh) | np.array(rows['mag_full_spec'] < gmag_thresh)
         if np.sum(sel) == 0:
-            log.info(f"No neighbors meet minimum requirements for {detectid}")
+            log.info(f"Clustering on {detectid}. No neighbors meet minimum requirements.")
             return cluster_dict
 
         rows = rows[sel]
@@ -132,7 +136,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=15.0,delta_lambda=2
                                                                            #in which case, used can be False
 
         if np.sum(sel) == 0:
-            log.info(f"No neighbors meet minimum emission line requirements for {detectid}")
+            log.info(f"Clustering on {detectid}. No neighbors meet minimum emission line requirements.")
             return cluster_dict
 
         #now choose the "best" one from those that remain
@@ -152,7 +156,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=15.0,delta_lambda=2
 
         #check if the z is the same, then don't bother
         if abs(rows[best_idx]['best_z'] - target_z) < 0.1:
-            log.info(f"Neighbors at same z {target_z} for {detectid}")
+            log.info(f"Clustering on {detectid}. Neighbors at same z = {target_z:0.5f}")
             return cluster_dict
 
         #check that the emission line IS USED in the solution
@@ -165,7 +169,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=15.0,delta_lambda=2
                                    aa_error=None,
                                    allow_absorption=False)
             if lines is None or len(lines) == 0:
-                log.info(f"Best neighbor {neighbor_ids[best_idx]} line {line_w_obs[best_idx]:0.2f} inconsistent with redshift {rows[best_idx]['best_z']:0.4f}."
+                log.info(f"Clustering on {detectid}. Best neighbor {neighbor_ids[best_idx]} line {line_w_obs[best_idx]:0.2f} inconsistent with redshift {rows[best_idx]['best_z']:0.4f}."
                          f"No common lines near rest {line_w_obs[best_idx]/(1 + rows[best_idx]['best_z']):0.2f}")
                 return cluster_dict
 
@@ -188,8 +192,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=15.0,delta_lambda=2
                             "neighbor_plya": plya
                             }
 
-        log.info(f"Found bright neighbor ({rows[best_idx]['detectid']}) at {rows[best_idx]['best_z']} for {detectid}")
-
+        log.info(f"Clustering on {detectid}. Found bright neighbor ({rows[best_idx]['detectid']}) at z = {rows[best_idx]['best_z']:0.5f}")
         if outfile:
             with open(f"{detectid}.cluster","w+") as f:
                 f.write("# detectid  n_z      n_qz  n_detectid  n_ra       n_dec     n_dist  n_gmag  n_p(lya)\n")
@@ -205,3 +208,30 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=15.0,delta_lambda=2
     return cluster_dict
 
 
+def cluster_multiple_detectids(detectid_list,elixerh5,outfile=True,delta_arcsec=15.0,delta_lambda=2.0,gmag_thresh=23.0):
+    """
+    Wraper for find_cluster that takes a list of detectids instead
+
+    :param detectid_list:
+    :param elixerh5:
+    :param outfile:
+    :param delta_arcsec:
+    :param delta_lambda:
+    :param gmag_thresh:
+    :return:
+    """
+
+    cluster_list = []
+
+    try:
+        for d in detectid_list:
+            try:
+                cluster_dict = find_cluster(d,elixerh5,outfile,delta_arcsec,delta_lambda,gmag_thresh)
+                if cluster_dict is not None:
+                    cluster_list.append(cluster_dict)
+            except:
+                log.error("Exception! Exception iterating in clustering::cluster_multiple_detectids().",exc_info=True)
+    except:
+        log.error("Exception! Exception in clustering::cluster_multiple_detectids().",exc_info=True)
+
+    return cluster_list
