@@ -4047,8 +4047,7 @@ def main():
             cluster_h5.close()
         except Exception as e:
             print("Fatal exception.",e)
-
-
+            exit(-1)
 
 
     #if this is a re-run (recovery run) remove any detections that have already been processed
