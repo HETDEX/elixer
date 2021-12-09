@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.14.0a7 [2021-12-09]
+* added ra, dec index on elixer h5 detections table for faster coordinate searches
+* working on clustering ....
+
+
 1.14.0a6 [2021-12-08]
 * update solution_consitent_with_lae() to also run if main line is LyA. Basically includes an additional assertion that
   the EW is consistent with LyA in the 20AA cut (with error and > 15AA).

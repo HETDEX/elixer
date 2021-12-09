@@ -431,22 +431,35 @@ def flush_all(fileh,reindex=True):
         except:
             pass
 
-        try:
+        try: #this table is not always create, so may not exist
             ntb = fileh.root.NeighborSpectra
             ntb.flush()
         except:
-            pass
+            ntb = None
 
         if not reindex:
             return #we're done
 
         #remove (old) index if exists
         #vtb does not have or need an index
-        dtb.cols.detectid.remove_index()
-        ltb.cols.detectid.remove_index()
-        stb.cols.detectid.remove_index()
-        atb.cols.detectid.remove_index()
-        ctb.cols.detectid.remove_index()
+        try:
+            dtb.cols.detectid.remove_index()
+        except:
+            log.debug("Failed to remove detectid index on detections table")
+
+        try:
+            dtb.cols.ra.remove_index()
+            dtb.cols.dec.remove_index()
+        except:
+            log.debug("Failed to remove ra, dec index on detections table")
+
+        try:
+            ltb.cols.detectid.remove_index()
+            stb.cols.detectid.remove_index()
+            atb.cols.detectid.remove_index()
+            ctb.cols.detectid.remove_index()
+        except:
+            log.debug("Failed to remove detectid index on multiple tables")
 
 
         dtb.flush()
@@ -459,27 +472,30 @@ def flush_all(fileh,reindex=True):
         # vtb does not have or need an index
         try:
             dtb.cols.detectid.create_csindex()
+            dtb.cols.ra.create_csindex()
+            dtb.cols.dec.create_csindex()
         except:
-            pass
+            log.debug("Index fail on detections table")
+
         try:
             ltb.cols.detectid.create_csindex()
         except:
-            pass
+            log.debug("Index fail on lines table")
 
         try:
             stb.cols.detectid.create_csindex()
         except:
-            pass
+            log.debug("Index fail on spectra table")
 
         try:
             atb.cols.detectid.create_csindex()
         except:
-            pass
+            log.debug("Index fail on apertures table")
 
         try:
             ctb.cols.detectid.create_csindex()
         except:
-            pass
+            log.debug("Index fail on catalog match table")
 
 
         #vtb.flush() # no need to re-flush vtb
@@ -494,21 +510,23 @@ def flush_all(fileh,reindex=True):
             etb.cols.detectid.create_csindex()
             etb.flush()
         except:
-            pass
+            log.debug("Index fail on extracted objects table")
 
         try:
             xtb.cols.detectid.remove_index()
             xtb.cols.detectid.create_csindex()
             xtb.flush()
         except:
-            pass
+            log.debug("Index fail on elixer apertures table")
+
 
         try:
-            ntb.cols.detectid.remove_index()
-            ntb.cols.detectid.create_csindex()
-            ntb.flush()
+            if ntb is not None:
+                ntb.cols.detectid.remove_index()
+                ntb.cols.detectid.create_csindex()
+                ntb.flush()
         except:
-            pass
+            log.debug("Index fail on neighbor spectra table")
 
     return
 
