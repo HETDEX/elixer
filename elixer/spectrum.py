@@ -4199,25 +4199,25 @@ class Spectrum:
             # (5007 to 4959  at 2.98 ~ 3.00  Storey  &  Zeippen  2000)
 
             min_ratio_matrix = \
-            [ [1.00, None, None, None, None, None, None, None, None],  #OII
+            [ [1.00, None, None, None, None, None, 50.0, None, None],  #OII
               [None, 1.00, None, None, None, None, None, None, None],  #H_eta
               [None, None, 1.00, None, None, None, None, None, None],  #H_zeta
               [None, None, None, 1.00, None, None, None, None, None],  #H_eps
               [None, None, None, None, 1.00, None, None, None, None],  #H_del
               [None, None, None, None, None, 1.00, None, None, None],  #H_gamma
-              [None, None, None, None, None, None, 1.00, None, None],  #H_beta
+              [0.02, None, None, None, None, None, 1.00, None, None],  #H_beta
               [None, None, None, None, None, None, None, 1.00, 0.33],  #OIII 4959
               [None, None, None, None, None, None, None, 3.00, 1.00]]  #OIII 5007
              # OII   H_eta H_zet H_eps H_del H_gam H_bet  OIII OIII
 
             max_ratio_matrix = \
-            [ [1.00, None, None, None, None, None, None, None, None],  #OII
+            [ [1.00, None, None, None, None, None, 2.00, None, None],  #OII
               [None, 1.00, None, None, None, None, None, None, None],  #H_eta
               [None, None, 1.00, None, None, None, None, None, None],  #H_zeta
               [None, None, None, 1.00, None, None, None, None, None],  #H_eps
               [None, None, None, None, 1.00, None, None, None, None],  #H_del
               [None, None, None, None, None, 1.00, None, None, None],  #H_gamma
-              [None, None, None, None, None, None, 1.00, None, None],  #H_beta
+              [0.50, None, None, None, None, None, 1.00, None, None],  #H_beta
               [None, None, None, None, None, None, None, 1.00, 0.33],  #OIII 4959
               [None, None, None, None, None, None, None, 3.00, 1.00]]  #OIII 5007
              # OII   H_eta H_zet H_eps H_del H_gam H_bet  OIII OIII

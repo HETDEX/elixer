@@ -66,6 +66,8 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
             return cluster_dict
 
         #flags = rows[0][''] #could explicitly check for a magnitude mismatch
+        target_gmag = 0
+        target_gmag_err = 0
 
         try:
             if rows[0]['review'] == 0: #if we are NOT set to review, check the gmag
@@ -160,6 +162,17 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
             log.info(f"Clustering on {detectid}. Neighbors at same z = {target_z:0.5f}")
             return cluster_dict
 
+        #check that the neighbor is brighter than the target
+        if (rows[best_idx]['mag_sdss_g'] - target_gmag) > -0.2:
+            log.info(f"Clustering on {detectid}. Neighbor not brighter than target.")
+            return cluster_dict
+
+        #don't enforce too close ... it could be the same object, just in a slightly better position
+        #or it could be the same object from a better shot
+        # if utilities.angular_distance(target_ra,target_dec,rows[best_idx]['ra'],rows[best_idx]['dec']) < 0.5:
+        #     log.info(f"Clustering on {detectid}. Neighbor too close.")
+        #     return cluster_dict
+
         #check that the emission line IS USED in the solution
         #or if not used, that it is CONSISTENT with the solution
         if not used_in_solution[best_idx]:
@@ -175,6 +188,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
                 return cluster_dict
 
 
+        #cannot go from a higher rank line to a lower one??
 
         #now populate the dictionary
         try:

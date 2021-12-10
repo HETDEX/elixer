@@ -1,8 +1,10 @@
 changes to elixer by version
 
-1.14.0a7 [2021-12-09]
+1.14.0a7 [2021-12-10]
 * added ra, dec index on elixer h5 detections table for faster coordinate searches
-* working on clustering ....
+* added clustering search for bright neighbors with different classification. Intended to find and correct high-z classifications
+  of outskirts of bright objets
+* tweak OII/H_beta ratio ... OII must be 2x to 50x stronger than H_beta. Not sure about this change though.
 
 
 1.14.0a6 [2021-12-08]
