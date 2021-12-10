@@ -945,6 +945,11 @@ GALAXY_MASK_D25_SCORE_NORM = 2.0 #scoring scale normalization (xxx_D25_scale/sco
 GALAXY_MASK_SCORE_BOOST = 100.0 # boost to the solution score if line found to match in a galaxy, mutliplied by
                                 # scaled emission line rank and D25 distance, see hetdex.py DetObj::check_transients_and_flags
 
+CLUSTER_POS_SEARCH = 15.0 #not really radius but +/- arcsecs from center position
+CLUSTER_WAVE_SEARCH = 2.0 #in AA from line center
+CLUSTER_MAG_THRESH = 23.0 #must be brighter than this to be a cluster parent
+CLUSTER_SCORE_BOOST = 100.0
+
 ALLOW_BROADLINE_FIT = True
 
 SUBTRACT_HETDEX_SKY_RESIDUAL = False #if true compute a per-shot sky residual, convolve with per-shot PSF and subtract

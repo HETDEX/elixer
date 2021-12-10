@@ -179,6 +179,9 @@ if "--lyc" in args: #some extra processing
     base_time_multiplier *= 1.2 #20% bump in time
 
 
+if "--cluster" in args: #runs a clustering search per detectid but only re-runs a handful after that
+    base_time_multiplier *= 0.5
+
 if MERGE:
     base_time_multiplier = 0.05
 
@@ -491,6 +494,7 @@ if i != -1:
         print("Redfinining MAX_NODES to ", max_nodes)
 else:
     print(f"--nodes not specified. Auto set maximum nodes {hostname}:{MAX_NODES} ...")
+
 
 if not MERGE:
     if not os.path.isdir(basename):

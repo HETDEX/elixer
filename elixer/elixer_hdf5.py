@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.5.0' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.5.1' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -74,6 +74,7 @@ class Detections(tables.IsDescription):
 
     flags = tables.Int32Col(dflt=0,pos=10)
     review = tables.Int8Col(dflt=0,pos=11)
+    cluster_parent = tables.Int64Col(dflt=0,pos=12)
 
     flux_line = tables.Float32Col(dflt=UNSET_FLOAT) #actual flux not flux density
     flux_line_err = tables.Float32Col(dflt=UNSET_FLOAT)
@@ -973,6 +974,14 @@ def append_entry(fileh,det,overwrite=False):
             except:
                 pass
 
+
+        try:
+            if det.cluster_parent != 0:
+                row['cluster_parent'] = det.cluster_parent
+            else:
+                row['cluster_parent'] = 0
+        except:
+            pass
 
         try:
             if det.color_ur is not None and det.color_ur[0] is not None:

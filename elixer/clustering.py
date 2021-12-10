@@ -25,7 +25,8 @@ log.setlevel(G.LOG_LEVEL)
 
 
 
-def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=15.0,delta_lambda=2.0,gmag_thresh=23.0):
+def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARCH,delta_lambda=G.CLUSTER_WAVE_SEARCH,
+                 gmag_thresh=G.CLUSTER_MAG_THRESH):
     """
 
     Note: caller is responisble for any pre-checks on the target detectid and for opening and closing the h5 file
@@ -208,7 +209,8 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=15.0,delta_lambda=2
     return cluster_dict
 
 
-def cluster_multiple_detectids(detectid_list,elixerh5,outfile=True,delta_arcsec=15.0,delta_lambda=2.0,gmag_thresh=23.0):
+def cluster_multiple_detectids(detectid_list,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARCH,
+                               delta_lambda=G.CLUSTER_WAVE_SEARCH, gmag_thresh=G.CLUSTER_MAG_THRESH):
     """
     Wraper for find_cluster that takes a list of detectids instead
 
@@ -237,7 +239,8 @@ def cluster_multiple_detectids(detectid_list,elixerh5,outfile=True,delta_arcsec=
     return cluster_list
 
 
-def cluster_all_detectids(elixerh5,outfile=True,delta_arcsec=15.0,delta_lambda=2.0,gmag_thresh=23.0):
+def cluster_all_detectids(elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARCH,delta_lambda=G.CLUSTER_WAVE_SEARCH,
+                          gmag_thresh=G.CLUSTER_MAG_THRESH):
     """
     Wraper for find_cluster that takes a list of detectids instead
 

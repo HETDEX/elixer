@@ -473,8 +473,8 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--special', help="Special purpose modification. The value sets the behavior. Tied to specific code. Do NOT use unless you specifically know what you are doing.",
                         required=False, type=int,default=0)
 
-    parser.add_argument('--cluster', help="Scan all detectids for bright neighbors at high confidence redshift. Specify the elixer h5 file.", required=False,
-                        default="elixer_merged_cat.h5")
+    parser.add_argument('--cluster', help="Scan all detectids for bright neighbors at high confidence redshift. Specify the elixer h5 file.",
+                        required=False)#,default=None)#"elixer_merged_cat.h5")
 
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
@@ -495,7 +495,12 @@ def parse_commandline(auto_force=False):
         pass
 
     try:
-        if args.check_z:
+        if args.cluster: #turn off all z-checks (only clustering is used)
+            G.CHECK_GALAXY_MASK = False
+            G.CHECK_GAIA_DEX_CATALOG = False
+            G.CHECK_SDSS_Z_CATALOG = False
+            G.CHECK_ALL_CATALOG_BID_Z = False
+        elif args.check_z:
             log.info(f"Altering check_z: bitmask={bin(args.check_z)}")
             if args.check_z & 1:
                 G.CHECK_GALAXY_MASK = True
@@ -1255,6 +1260,7 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
     #done going through catalogs
     if detobj:
         detobj.check_spec_solutions_vs_catalog_counterparts()
+        detobj.check_clustering_redshift()
 
     if G.BUILD_REPORT_BY_FILTER:
         #we've gone through all the catalogs (including the web catalogs if necessary)
@@ -4016,7 +4022,8 @@ def main():
 
     PDF_File(args.name, 1) #use to pre-create the output dir (just toss the returned pdf container)
 
-    #todo: here insert clustering ID check
+    #clustering ID check
+    cluster_list = None
     if args.cluster:
         try:
             #open h5 file (make sure it is okay)
@@ -4024,20 +4031,21 @@ def main():
             #and try again higher up
             if os.path.exists(args.cluster):
                 cluster_h5 = tables.open_file(args.cluster)
-            elif op.exists(os.path.join("../../",args.cluster)):
+            elif os.path.exists(os.path.join("../../",args.cluster)):
                 cluster_h5 = tables.open_file(os.path.join("../../",args.cluster))
             else:
                 print(f"Fatal. Unable to locate/open clustering input h5 file {args.cluster}")
                 exit(-1)
 
             # then run clustering on multiple IDs
-            cluster_list = clustering.cluster_multiple_detectids(hdf5_detectid_list,cluster_h5)
+            cluster_list = clustering.cluster_multiple_detectids(hdf5_detectid_list,cluster_h5,outfile=False)
 
             # then replace the hdf5_detectid_list with just those returned
             if cluster_list is not None and len(cluster_list) > 0:
                 old_len = len(hdf5_detectid_list)
                 hdf5_detectid_list = [c['detectid'] for c in cluster_list]
-                log.critical(f"Reduced initial detectionIDs to re-run for clustering. New count = {len(hdf5_detectid_list)}, old count = {old_len}.")
+                log.info(f"Reduced initial detectionIDs to re-run for clustering. New count = {len(hdf5_detectid_list)}, old count = {old_len}.")
+                print(f"Reduced initial detectionIDs to re-run for clustering. New count = {len(hdf5_detectid_list)}, old count = {old_len}.")
             else:
                 print("No clustering identified. Exiting.")
                 cluster_h5.close()
@@ -4045,6 +4053,12 @@ def main():
 
             #close the h5 file
             cluster_h5.close()
+
+            #turn off neighborhood request
+            if args.neighborhood is not None and args.neighborhood != 0:
+                args.neighborhood = 0
+                args.neighborhood_only = 0
+                log.info("CLUSTERING ... turn off neighborhood map.")
         except Exception as e:
             print("Fatal exception.",e)
             exit(-1)
@@ -4128,7 +4142,7 @@ def main():
 
                 for ifu in ifu_list:
                     args.ifuslot = int(ifu)
-                    hd = hetdex.HETDEX(args,basic_only=basic_only)
+                    hd = hetdex.HETDEX(args,basic_only=basic_only,cluster_list=cluster_list)
                     if (hd is not None) and (hd.status != -1):
                         hd_list.append(hd)
             elif len(fcsdir_list) > 0: #rsp style
@@ -4145,7 +4159,7 @@ def main():
 
                 for key in obs_dict.keys():
                     plt.close('all')
-                    hd = hetdex.HETDEX(args,fcsdir_list=obs_dict[key],basic_only=basic_only) #builds out the hd object (with fibers, DetObj, etc)
+                    hd = hetdex.HETDEX(args,fcsdir_list=obs_dict[key],basic_only=basic_only,cluster_list=cluster_list) #builds out the hd object (with fibers, DetObj, etc)
                     #todo: maybe join all hd objects that have the same observation
                     # could save in loading catalogs (assuming all from the same observation)?
                     # each with then multiple detections (DetObjs)
@@ -4158,7 +4172,7 @@ def main():
                         plt.close('all')
 
                         if isinstance(d,np.int64): #this is a detetid, not list of values RA, Dec, ...
-                            hd = hetdex.HETDEX(args, fcsdir_list=None, hdf5_detectid_list=[d], basic_only=basic_only)
+                            hd = hetdex.HETDEX(args, fcsdir_list=None, hdf5_detectid_list=[d], basic_only=basic_only,cluster_list=cluster_list)
                             if hd.status == 0:
                                 hd_list.append(hd)
                             continue
@@ -4221,11 +4235,11 @@ def main():
                                                                radius=G.FOV_RADIUS_DEGREE*U.deg)
                                 for s in shotlist:
                                     args.shotid = s
-                                    hd = hetdex.HETDEX(args, basic_only=basic_only)
+                                    hd = hetdex.HETDEX(args, basic_only=basic_only,cluster_list=cluster_list)
                                     if hd.status == 0:
                                         hd_list.append(hd)
                             else:
-                                hd = hetdex.HETDEX(args,basic_only=basic_only)
+                                hd = hetdex.HETDEX(args,basic_only=basic_only,cluster_list=cluster_list)
                                 if hd.status == 0:
                                     hd_list.append(hd)
                         except:
@@ -4238,7 +4252,7 @@ def main():
                     #only one detection per hetdex object
                     for d in hdf5_detectid_list:
                         plt.close('all')
-                        hd = hetdex.HETDEX(args,fcsdir_list=None,hdf5_detectid_list=[d],basic_only=basic_only)
+                        hd = hetdex.HETDEX(args,fcsdir_list=None,hdf5_detectid_list=[d],basic_only=basic_only,cluster_list=cluster_list)
 
                         if hd.status == 0:
                             hd_list.append(hd)
@@ -4246,13 +4260,13 @@ def main():
             elif explicit_extraction:
 
                 if args.shotid:
-                    hd = hetdex.HETDEX(args,basic_only=basic_only) #builds out the hd object (with fibers, DetObj, etc)
+                    hd = hetdex.HETDEX(args,basic_only=basic_only,cluster_list=cluster_list) #builds out the hd object (with fibers, DetObj, etc)
                     if hd is not None:
                         if hd.status == 0:
                             hd_list.append(hd)
                 elif args.neighborhood_only:
                     args.shotid = "00000000000"
-                    hd = hetdex.HETDEX(args, basic_only=basic_only)
+                    hd = hetdex.HETDEX(args, basic_only=basic_only,cluster_list=cluster_list)
                     if hd.status == 0:
                         hd_list.append(hd)
                 else:
@@ -4269,7 +4283,7 @@ def main():
                                                    radius=G.FOV_RADIUS_DEGREE * U.deg)
                     for s in shotlist:
                         args.shotid = s
-                        hd = hetdex.HETDEX(args, basic_only=basic_only)
+                        hd = hetdex.HETDEX(args, basic_only=basic_only,cluster_list=cluster_list)
                         if hd.status == 0:
                             hd_list.append(hd)
 
@@ -4295,7 +4309,7 @@ def main():
 
 
             else: #this should not happen
-                hd = hetdex.HETDEX(args) #builds out the hd object (with fibers, DetObj, etc)
+                hd = hetdex.HETDEX(args,cluster_list=cluster_list) #builds out the hd object (with fibers, DetObj, etc)
                 if hd is not None:
                     if hd.status == 0:
                         hd_list.append(hd)
@@ -4598,7 +4612,12 @@ def main():
                                             best_z, p_of_z = e.best_redshift()
 
                                             if p_of_z > 0:
-                                                header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
+                                                if e.cluster_z == best_z:
+                                                    header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
+                                                                  r"P(Ly$\alpha$): %0.3f  Q(z): %0.2f  z: %0.4f*" \
+                                                                  % (round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae,p_of_z,best_z)
+                                                else:
+                                                    header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
                                                               r"P(Ly$\alpha$): %0.3f  Q(z): %0.2f  z: %0.4f" \
                                                           % (round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae,p_of_z,best_z)
                                             else:

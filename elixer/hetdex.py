@@ -515,6 +515,10 @@ class DetObj:
         self.elixer_version = G.__version__
         self.elixer_datetime = time.strftime("%Y-%m-%d %H:%M:%S")
 
+        self.cluster_parent = 0 #detectid of anohter HETDEX source that is the cluster (specifically, redshift) for this object
+        self.cluster_z = -1
+        self.cluster_qz = -1
+        self.cluster_list = None
         self.flags = 0 #bit mapped flags (32bit) to warn consumer about problems with the detection or its classification
                        #flags are defined in global_config.py
         self.needs_review = np.int8(0) #set to 1 if a manual review is needed
@@ -1838,6 +1842,10 @@ class DetObj:
             except:
                 log.debug("Exception sanity checking best_z in hetdex::DetObj::best_redshift()",exc_info=True)
 
+            if self.cluster_parent != 0 and z == self.cluster_z and self.cluster_qz > 0:
+                log.info(f"Clustering. Setting Q(z) to cluster parent Q(z): {self.cluster_qz:0.2f} ")
+                p = self.cluster_qz
+
             self.best_z = z
             self.best_p_of_z = p
 
@@ -1845,6 +1853,94 @@ class DetObj:
         except:
             log.warning("Exception! in hetdex.py DetObj::best_redshift()",exc_info=True)
             return 0,0
+
+    def check_clustering_redshift(self):
+        """
+        Similar to check_spec_solutions_vs_catalog_counterparts(), but uses only other HETDEX/ELiXer detections
+        as described in the cluster_list
+        :param cluster_list:
+        :return:
+        """
+
+        try:
+            if self.cluster_list is None or len(self.cluster_list) == 0:
+                log.info("No clustering list to check.")
+                return
+
+            #check the cluster_list for THIS detectid
+            sel = [c['detectid']==self.hdf5_detectid for c in self.cluster_list]
+            if np.sum(sel) == 0:
+                log.info(f"No matching entry for ({self.hdf5_detectid}) in clustering list.")
+                return
+            elif np.sum(sel) > 1:
+                log.error(f"Unexpected multiple hits ({np.sum(sel)}) for ({self.hdf5_detectid}) in clustering list.")
+                return
+
+            #else we have exacly one hit
+            #get as index
+            i = np.argmax(sel)
+            z = self.cluster_list[i]['neighbor_z']
+            self.cluster_z = z
+            self.cluster_qz = self.cluster_list[i]['neighbor_qz']
+
+            #get the matching line (should be exactly one)
+            lines = self.spec_obj.match_lines(self.w,z,z_error=0.001,aa_error=None,allow_absorption=False)
+            if lines is None or len(lines) == 0: #unexpected
+                log.error("No lines returned to match clustering redshift.")
+                return
+
+            #should only be one, but just to be safe, enforce as the highest ranking (lowest rank value) line
+            line = lines[np.argmin([l.rank for l in lines])]
+            boost = G.CLUSTER_SCORE_BOOST
+            central_eli = self.spec_obj.central_eli
+
+            #check the existing solutions ... if there is a corresponding z solution, boost its score
+            new_solution = True
+            for s in self.spec_obj.solutions:
+                if s.central_rest == line.w_rest:
+                    new_solution = False
+                    log.info(f"Boosting existing solution:  {line.name}({line.w_rest}) + {boost}")
+                    s.score += boost
+
+
+            if new_solution:
+                sol = elixer_spectrum.Classifier_Solution()
+                sol.z = z
+                sol.best_pz = self.cluster_list[i]['neighbor_qz'] #assign parent's Q(z) [only here if there was no other solution already]
+                sol.central_rest = line.w_rest
+                sol.name = line.name
+                sol.color = line.color
+                sol.emission_line = deepcopy(line)
+                #add the central line info for flux, etc to line (basic info)
+                if central_eli is not None:
+                    sol.emission_line.line_score = central_eli.line_score
+                    sol.emission_line.flux = central_eli.line_flux
+                    sol.emission_line.flux_err = central_eli.line_flux_err
+                    sol.emission_line.snr = central_eli.snr
+
+                sol.emission_line.w_obs = self.w
+                sol.emission_line.solution = True
+                sol.prob_noise = 0
+                #sol.score = boost
+
+                if self.spec_obj.consistency_checks(sol):
+                    sol.score = boost
+                    sol.lines.append(sol.emission_line) #have to add as if it is an extra line
+                    #otherwise the scaled score gets knocked way down
+                    log.info(f"Adding new solution {line.name}({line.w_rest}): score = {boost}")
+                else: # reduce the weight ... but allow to conitnue??
+                    sol.score = G.MULTILINE_MIN_SOLUTION_SCORE
+                    log.info(f"Rejected catalog new solution {line.name}({line.w_rest}). Failed consistency check. Solution score set to {sol.score}")
+
+
+                self.spec_obj.solutions.append(sol)
+
+
+            self.cluster_parent = self.cluster_list[i]['neighborid']
+            self.spec_obj.rescore()
+        except:
+            log.warning("Exception! in hetdex.py DetObj::check_clustering_redshift()",exc_info=True)
+
 
     def check_spec_solutions_vs_catalog_counterparts(self):
         """
@@ -7332,7 +7428,7 @@ class FitsSorter:
 
 class HETDEX:
 
-    def __init__(self,args,fcsdir_list=None,hdf5_detectid_list=[],basic_only=False):
+    def __init__(self,args,fcsdir_list=None,hdf5_detectid_list=[],basic_only=False,cluster_list=None):
         #fcsdir may be a single dir or a list
         if args is None:
             log.error("Cannot construct HETDEX object. No arguments provided.")
@@ -7374,6 +7470,7 @@ class HETDEX:
         except:
             self.manual_name = None
 
+        self.cluster_list = cluster_list
         self.multiple_observations = False #set if multiple observations are used (rather than a single obsdate,obsid)
         self.ymd = None
         self.target_ra = args.ra
@@ -8224,6 +8321,7 @@ class HETDEX:
 
             e = DetObj(None, emission=True, basic_only=basic_only)
             if e is not None:
+                e.cluster_list = self.cluster_list
                 e.galaxy_mask = self.galaxy_mask
                 e.annulus = self.annulus
                 e.target_wavelength = self.target_wavelength
@@ -8357,6 +8455,7 @@ class HETDEX:
             #build an empty Detect Object and then populate
             e = DetObj(None, emission=True,basic_only=basic_only)
             if e is not None:
+                e.cluster_list = self.cluster_list
                 e.galaxy_mask = self.galaxy_mask
                 if self.known_z is not None:
                     e.known_z = self.known_z
@@ -8405,6 +8504,7 @@ class HETDEX:
                 e = DetObj(toks, emission=True, fcsdir=d)
 
                 if e is not None:
+                    e.cluster_list = self.cluster_list
                     e.galaxy_mask = self.galaxy_mask
                     if self.known_z is not None:
                         e.known_z = self.known_z
@@ -8432,6 +8532,7 @@ class HETDEX:
             e = DetObj(toks, emission=True, fcs_base=self.fcs_base,fcsdir=self.fcsdir)
 
             if e is not None:
+                e.cluster_list = self.cluster_list
                 e.galaxy_mask = self.galaxy_mask
                 if self.known_z is not None:
                     e.known_z = self.known_z
@@ -8497,6 +8598,7 @@ class HETDEX:
                     if e is None:
                         continue
 
+                    e.cluster_list = self.cluster_list
                     e.galaxy_mask = self.galaxy_mask
                     if self.known_z is not None:
                         e.known_z = self.known_z
@@ -8546,6 +8648,7 @@ class HETDEX:
                     if e is None:
                         continue
 
+                    e.cluster_list = self.cluster_list
                     e.galaxy_mask = self.galaxy_mask
                     if self.known_z is not None:
                         e.known_z = self.known_z
