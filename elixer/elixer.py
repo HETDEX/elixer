@@ -4613,6 +4613,7 @@ def main():
 
                                             if p_of_z > 0:
                                                 if e.cluster_z == best_z:
+                                                    e.flags |= G.DETFLAG_Z_FROM_NEIGHBOR
                                                     header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
                                                                   r"P(Ly$\alpha$): %0.3f  Q(z): %0.2f  z: %0.4f*" \
                                                                   % (round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae,p_of_z,best_z)

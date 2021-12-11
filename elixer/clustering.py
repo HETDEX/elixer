@@ -70,19 +70,19 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
         target_gmag_err = 0
 
         try:
-            if rows[0]['review'] == 0: #if we are NOT set to review, check the gmag
-                target_gmag = rows[0]['mag_sdss_g'] #this could fail
-                target_gmag_err = rows[0]['mag_sdss_g_err'] #this could fail
-                try:
-                    if (target_gmag+target_gmag_err) < gmag_thresh: #too bright
-                        log.info(f"Invalid detectid {detectid}. Too bright. gmag = {target_gmag} +/- {target_gmag_err}")
-                        return cluster_dict
-                except: #the sdss might not be there or may be invalid
-                    target_gmag = rows[0]['mag_full_spec'] #this could fail
-                    target_gmag_err = rows[0]['mag_full_spec_err'] #this could fail
-                    if (target_gmag+target_gmag_err) < gmag_thresh: #too bright
-                        log.info(f"Invalid detectid {detectid}. Too bright. gmag = {target_gmag} +/- {target_gmag_err}")
-                        return cluster_dict
+            #if rows[0]['review'] == 0: #if we are NOT set to review, check the gmag
+            target_gmag = rows[0]['mag_sdss_g'] #this could fail
+            target_gmag_err = rows[0]['mag_sdss_g_err'] #this could fail
+            try:
+                if (target_gmag+target_gmag_err) < gmag_thresh: #too bright
+                    log.info(f"Detectid {detectid}. Too bright. gmag = {target_gmag} +/- {target_gmag_err}")
+                    return cluster_dict
+            except: #the sdss might not be there or may be invalid
+                target_gmag = rows[0]['mag_full_spec'] #this could fail
+                target_gmag_err = rows[0]['mag_full_spec_err'] #this could fail
+                if (target_gmag+target_gmag_err) < gmag_thresh: #too bright
+                    log.info(f"Detectid {detectid}. Too bright. gmag = {target_gmag} +/- {target_gmag_err}")
+                    return cluster_dict
         except:
             pass #older ones may not have a 'review' field
 
@@ -163,7 +163,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
             return cluster_dict
 
         #check that the neighbor is brighter than the target
-        if (rows[best_idx]['mag_sdss_g'] - target_gmag) > -0.2:
+        if target_gmag >0 and (rows[best_idx]['mag_sdss_g'] - target_gmag) > -0.2:
             log.info(f"Clustering on {detectid}. Neighbor not brighter than target.")
             return cluster_dict
 

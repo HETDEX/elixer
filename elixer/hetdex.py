@@ -9406,7 +9406,8 @@ class HETDEX:
                 sol = datakeep['detobj'].spec_obj.solutions[0]
                 title += "\nQ(%0.2f) %s(%d) z = %0.4f  EW_r = %0.1f$\AA$" % \
                          ( p_score, sol.name, int(sol.central_rest), sol.z,l_eqw_obs / (1.0 + sol.z))
-            #else:
+            else:
+                title += "\n" #just to keep the spacing
             #    log.info("No singular, strong emission line solution.")
 
 

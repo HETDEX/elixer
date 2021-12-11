@@ -1012,6 +1012,8 @@ DETFLAG_LARGE_SKY_SUB               = 0x00000400 #possibly excessive sky subtrac
 DETFLAG_EXT_CAT_QUESTIONABLE_Z      = 0x00000800 #best redshift reported is from an external catalog and might be questionable
                                                  #the redshift my by uncertain or it is unclear that it belongs to our object
 
+DETFLAG_Z_FROM_NEIGHBOR             = 0x00001000 #the original redshift was replaced by that of a neighbor
+                                                 #as a better redshift
 #todo: low SNR, weighted position is between fibers (i.e. distances from blue fiber center > 0.74 or 0.75 and SNR < 5.2 or so)
 
 
