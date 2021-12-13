@@ -180,7 +180,7 @@ if "--lyc" in args: #some extra processing
 
 
 if "--cluster" in args: #runs a clustering search per detectid but only re-runs a handful after that
-    base_time_multiplier *= 0.5
+    base_time_multiplier *= 0.2
 
 if MERGE:
     base_time_multiplier = 0.05
