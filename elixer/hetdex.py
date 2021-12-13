@@ -4306,7 +4306,7 @@ class DetObj:
             sel = nondetect == 1
             if np.sum(sel) > 1:
 
-                log.info("Removing all non-detects except deepest...")
+                log.info("Removing all non-detects other than deepest...")
                 continuum = np.array(continuum)
                 deepest = np.min(continuum[sel])
                 #now reselect to all detects and the deepest non-detect

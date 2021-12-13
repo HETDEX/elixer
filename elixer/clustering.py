@@ -65,7 +65,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
             log.info(f"Invalid detectid {detectid}")
             return cluster_dict
 
-        #flags = rows[0][''] #could explicitly check for a magnitude mismatch
+        flags = rows[0]['flags'] #could explicitly check for a magnitude mismatch
         target_gmag = 0
         target_gmag_err = 0
 
@@ -73,16 +73,29 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
             #if rows[0]['review'] == 0: #if we are NOT set to review, check the gmag
             target_gmag = rows[0]['mag_sdss_g'] #this could fail
             target_gmag_err = rows[0]['mag_sdss_g_err'] #this could fail
-            try:
-                if (target_gmag+target_gmag_err) < gmag_thresh: #too bright
-                    log.info(f"Detectid {detectid}. Too bright. gmag = {target_gmag} +/- {target_gmag_err}")
-                    return cluster_dict
-            except: #the sdss might not be there or may be invalid
+
+            try: #could be bad gmag
+                if 0 < target_gmag < 99:
+                    pass #all good
+                else:
+                    target_gmag = rows[0]['mag_full_spec'] #this could fail
+                    target_gmag_err = rows[0]['mag_full_spec_err'] #this could fail
+            except:
                 target_gmag = rows[0]['mag_full_spec'] #this could fail
                 target_gmag_err = rows[0]['mag_full_spec_err'] #this could fail
-                if (target_gmag+target_gmag_err) < gmag_thresh: #too bright
-                    log.info(f"Detectid {detectid}. Too bright. gmag = {target_gmag} +/- {target_gmag_err}")
-                    return cluster_dict
+
+            # if (flags & G.DETFLAG_DISTANT_COUNTERPART) or (flags & G.DETFLAG_COUNTERPART_MAG_MISMATCH) or
+            #     (flags &)
+
+            if flags == 0: #if there are flags, skip this check as we are going to check this object regardless
+                try:
+                    if (target_gmag+target_gmag_err) < gmag_thresh: #too bright
+                        log.info(f"Detectid {detectid}. Too bright. gmag = {target_gmag} +/- {target_gmag_err}")
+                        return cluster_dict
+                except: #the sdss might not be there or may be invalid
+                    target_gmag = 25.0
+                    target_gmag_err = 0.0
+                    log.info(f"Detectid {detectid}. Invalid gmag. Set to dummy value.")
         except:
             pass #older ones may not have a 'review' field
 
@@ -94,9 +107,9 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
 
         deg_err = delta_arcsec / 3600.0
 
-        #box defined by COORDINATEs not by real delta_arcsec .... ie.. no Dec correction to RA
-        ra1 = target_ra - deg_err
-        ra2 = target_ra + deg_err
+        #box defined by COORDINATEs not by real delta_arcsec
+        ra1 = target_ra - deg_err #* np.cos(target_dec*np.pi/180.)
+        ra2 = target_ra + deg_err # * np.cos(target_dec*np.pi/180.)
         dec1 = target_dec - deg_err
         dec2 = target_dec + deg_err
 
@@ -128,11 +141,23 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
         w2 = target_wave + target_wave_err + delta_lambda
         sel = np.full(len(neighbor_ids),True)
 
+        sp = spectrum.Spectrum() #dummy spectrum for utilities
+
         for i,id in enumerate(neighbor_ids):
             lrows = ltb.read_where("(detectid==id) & (sn > 4.5) & (score > 5.0) & (wavelength > w1) & (wavelength < w2)")
             if len(lrows) == 0:
                 sel[i] = False
                 continue
+
+            lines = sp.match_lines( lrows['wavelength'],
+                                    rows[i]['best_z'],
+                                    z_error=0.001,
+                                    aa_error=None,
+                                    allow_absorption=False)
+
+            if lines is None or len(lines) == 0:
+                continue #this one is inconsistent (probably it is not the strongest line as the HETDEX line)
+
             line_scores[i] = np.max(lrows['score'])
             line_w_obs[i] = lrows[np.argmax(lrows['score'])]['wavelength']
             used_in_solution[i] = lrows[np.argmax(lrows['score'])]['used'] #NOTE: this might not be a multiline solution
@@ -163,7 +188,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
             return cluster_dict
 
         #check that the neighbor is brighter than the target
-        if target_gmag >0 and (rows[best_idx]['mag_sdss_g'] - target_gmag) > -0.2:
+        if target_gmag > 0 and (rows[best_idx]['mag_sdss_g'] - target_gmag) > -0.2:
             log.info(f"Clustering on {detectid}. Neighbor not brighter than target.")
             return cluster_dict
 

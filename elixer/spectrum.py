@@ -6404,7 +6404,7 @@ class Spectrum:
                         boost_list.append(hk_boost)
 
             elif 1.89 < z < 3.52: #check for LAE
-                lae_boost = self.scale_consistency_score_to_solution_score_factor(solution_consistent_with_lae(s))
+                lae_boost = self.scale_consistency_score_to_solution_score_factor(self.solution_consistent_with_lae(s))
                 boost_list.append(lae_boost)
 
             #combine the "boost" values
