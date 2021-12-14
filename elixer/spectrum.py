@@ -1853,7 +1853,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     if do_mcmc or (G.FORCE_MCMC and accept_fit and (eli is not None) and (eli.snr > G.FORCE_MCMC_MIN_SNR)):
         # print("*****TESTING DOUBLE GAUSS******")
         # print("***** check_for_doublet *****")
-        # eli2 = check_for_doublet(eli,wavelengths,values,errors,central,values_units)
+        #eli2 = check_for_doublet(eli,wavelengths,values,errors,central,values_units)
 
         mcmc = mcmc_gauss.MCMC_Gauss()
 
@@ -3959,7 +3959,7 @@ class Spectrum:
         return None
 
 
-    def match_lines(self,obs_w,z,z_error=0.05,aa_error=None,allow_emission=True,allow_absorption=False):
+    def match_lines(self,obs_w,z,z_error=0.05,aa_error=None,allow_emission=True,allow_absorption=False,max_rank=5):
         """
 
         Like match_line, but plural. Can return multiple lines
@@ -3972,6 +3972,7 @@ class Spectrum:
         :param z_error: translate this to an AA error to allow for the match
                         for spec_z should be 0.05 in z (or smaller). For phot_z, maybe up to 0.5?
         :param aa_error: in angstroms
+        :param max_rank: maximum allowed rank to match; if matched line is greater than rank, do not accept match
         :return:
         """
         try:
@@ -3980,7 +3981,7 @@ class Spectrum:
             if z_error is not None:
                 #lines are far enough apart that we don't need to worry about multiple matches
                 for e in self.emission_lines:
-                    if (e.see_in_emission and allow_emission) or (e.see_in_absorption and allow_absorption):
+                    if (e.rank <= max_rank) and ((e.see_in_emission and allow_emission) or (e.see_in_absorption and allow_absorption)):
                         if  (e.w_rest * (1.0 + max(z-z_error,0))) <=  obs_w  <= (e.w_rest * (1.0 + z+z_error)):
                             #could match to a faint line by happenstance and not really be that line
                             #but this is position only
@@ -3988,7 +3989,7 @@ class Spectrum:
             elif aa_error is not None:
                 #lines are far enough apart that we don't need to worry about multiple matches
                 for e in self.emission_lines:
-                    if (e.see_in_emission and allow_emission) or (e.see_in_absorption and allow_absorption):
+                    if (e.rank <= max_rank) and ((e.see_in_emission and allow_emission) or (e.see_in_absorption and allow_absorption)):
                         if abs(e.w_rest * (1.0 + z) - obs_w) < aa_error:
                             #could match to a faint line by happenstance and not really be that line
                             #but this is position only
@@ -4346,6 +4347,57 @@ class Spectrum:
             return 0
 
         return 0
+
+
+    def single_broad_line_redshift(self,w,fwhm): #,solution=None):
+        """ Single broad line, possibly LyA, CIII, MgII in certain ranges
+            Others would expect to see another line
+
+
+            Assume only MgII or CIII if nothing else
+            MgII: 3470-3760, 4421-5120
+            CIII or MgII: 3760-4314
+            CIV or MgII : 4421-4520 (LyA just visible at extreme blue if CIV, but due to noise myabe allow this?)
+            should be no single lines > 5120 (expect LyA to have OVI as well, but maybe not)
+            LyA: > 5120
+
+            #check for shape? double peak MgII ... if no, then assume CIII (low confidence)??
+        """
+        try:
+
+            v = 3e5 * w/fwhm
+
+            if   3470 <= w < 3760:
+                return w/2799. - 1.0 , "MgII" #MgII
+            elif 3760 <= w < 4314:
+                #MgII or CIII?
+                #semi arbitrary
+                if v > 1200:
+                    return w/1909. -1, "CIII" #CIII
+                else:
+                    return w/2799. - 1.0, "MgII" #MgII
+            elif 4314 <= w < 4421:
+                #MgII or LyA??
+                if v > 1200:
+                    return w/G.LyA_rest -1, "LyA" #LyA
+                else:
+                    return w/2799. - 1.0, "MgII" #MgII
+            # elif 4421 <= w < 4520:
+            #     #Lya or MgII
+                 #after CIV falls off
+            elif 4421 < w < 5120:
+                #  LyA or MgII (for MgII at 5120, CIII shows up)
+                if v > 1200:
+                    return w/G.LyA_rest - 1.0, "LyA"
+                else:
+                    return w/2799. - 1.0, "MgII" #MgII
+            elif w >= 5120:
+                return w/G.LyA_rest - 1.0, "LyA"
+
+            return None, None
+
+        except:
+            return None, None
 
     def solution_consistent_with_agn(self,solution):
         """

@@ -153,7 +153,8 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
                                     rows[i]['best_z'],
                                     z_error=0.001,
                                     aa_error=None,
-                                    allow_absorption=False)
+                                    allow_absorption=False,
+                                    max_rank=3)
 
             if lines is None or len(lines) == 0:
                 continue #this one is inconsistent (probably it is not the strongest line as the HETDEX line)

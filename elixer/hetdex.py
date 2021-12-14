@@ -152,7 +152,10 @@ def adjusted_mag_zero(mag_zero, z):
     :return:
     """
 
-    #return mag_zero
+    #todo: for now (2021-12-14) just leave as is. Do not make a correction until we better understand this empirically
+    return mag_zero
+
+
     try:
         #this is very close to the more correct version of -2.5 log (f0/
         #at 7.5 (or 1+z)**3 cubed this is far too strong
@@ -1787,14 +1790,27 @@ class DetObj:
             elif scaled_plae_classification < 0.3: #not LyA ... could still be high-z
 
                 #usually OII execpt if REALLY broad, then more likely MgII or CIV. but have to mark as OII, just lower the Q(z)
-                if self.fwhm > 20.0:
+                try:
+                    broad = self.fwhm/self.w * 3e5 > 1000
+                except:
+                    broad = self.fhwm > 16.0
+
+                if broad:
                     z = self.w / G.OII_rest - 1.0
                     rest = G.OII_rest
                     p = min(p/2.,0.1) #remember, this is just NOT LyA .. so while OII is the most common, it is hardly the only solution
 
-                    #so the highest possible would tbe 50%: P(LyA) = 0.0 ==> abs(0.5-0.0)/0.5/2. = 0.5
-                    log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII. "
-                             f"P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
+                    sbl_z,sbl_name = self.spec_obj.single_broad_line_redshift(self.w,self.fwhm)
+                    if sbl_z is not None:
+                        log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII. "
+                                 f"P(LyA) favors NOT LyA. Set to single broadline ({sbl_name}) z:{z:04f} with Q(z): {p}.")
+                        z = sbl_z
+                    else:
+                        log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII, but not other good solution. "
+                                 f"P(LyA) favors NOT LyA. Set to OII z:{z:04f} with Q(z): {p}. Could still be AGN with LyA or CIV, CIII or MgII alone.")
+
+
+                    self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
 
                 else:
                     z = self.w / G.OII_rest - 1.0
@@ -6527,6 +6543,9 @@ class DetObj:
             self.line_gaussfit_unc = (self.w_unc,self.sigma_unc,self.estflux_unc*G.FLUX_WAVEBIN_WIDTH,self.cont_cgs_unc,
                                       0.0)
 
+            log.debug(f"DEX Gaussian parms: x0 = {self.w:0.2f}AA, sigma = {self.sigma:0.3f}, A = {self.estflux*G.FLUX_WAVEBIN_WIDTH:0.2f}e-17, "
+                      f"y = {self.cont_cgs:0.2f}e-17")
+
             #fix bin-width scaling issue for area parameter
             # if False:
             #     #todo: deal with this at a later point ...??
@@ -6572,6 +6591,11 @@ class DetObj:
             self.sumspec_flux = row['spec1d'] #DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
             self.sumspec_fluxerr = row['spec1d_err']
             self.sumspec_apcor = row['apcor'] #aperture correction
+
+            # # #test:
+            # print("!!!!!!!!!!!!!!!!!!!!!!! TEST: REMOVE ME !!!!!!!!!!!!!!!!!!!!!")
+            # self.sumspec_flux = self.sumspec_flux * 2.0  / self.sumspec_apcor /  self.sumspec_apcor
+            # # self.sumspec_flux = row['spec1d_nc']
 
 
             #sanity check:
