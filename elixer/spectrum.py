@@ -4805,6 +4805,7 @@ class Spectrum:
 
                 #have to convert to LyA rest EW
                 ew = ew / (obs_waves[lya_idx] / line_waves[lya_idx])
+                ew_err = ew_err / (obs_waves[lya_idx] / line_waves[lya_idx])
                 log.info(f"In solution_consitent_with_lae(): EW = {ew:0.2f} +/- {ew_err:0.3f}, SNR = {snr}")
                 if (ew > 20.0) or (((ew+ew_err) > 20.0) and ((ew-ew_err) > 15.0)):
                     if (ew-ew_err) > 40:
