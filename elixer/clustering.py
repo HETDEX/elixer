@@ -149,7 +149,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
                 sel[i] = False
                 continue
 
-            lines = sp.match_lines( lrows['wavelength'],
+            lines = sp.match_lines( lrows['wavelength'][0],
                                     rows[i]['best_z'],
                                     z_error=0.001,
                                     aa_error=None,
@@ -170,6 +170,10 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
 
         #now choose the "best" one from those that remain
         rows = rows[sel]
+        line_scores = line_scores[sel]
+        line_w_obs = line_w_obs[sel]
+        used_in_solution =  used_in_solution[sel]
+        neighbor_id = neighbor_ids[sel]
 
         #best could be brightest? or highest score on the matching line?
         brightest = np.argmin(rows['mag_sdss_g'])

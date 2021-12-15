@@ -3293,13 +3293,11 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             log.info("No HETDEX detections found: (%f,%f) +/- %d\"" %(ra,dec,distance))
             return None, None
 
-
-
-        try:
-            print("!!!!!!!!!!!!!!!!!!!!!!! REMOVE ME !!!!!!!!!!!!!!!!!!!")
-            np.savetxt(f"{detectids[0]}.clu",detectids,fmt="%d")
-        except:
-            pass
+        # try:
+        #     print("!!!!!!!!!!!!!!!!!!!!!!! REMOVE ME !!!!!!!!!!!!!!!!!!!")
+        #     np.savetxt(f"{detectids[0]}.clu",detectids,fmt="%d")
+        # except:
+        #     pass
 
         if len(detectids) > G.MAX_NEIGHBORS_IN_MAP:
             msg = "Maximum number of reportable (emission line) neighbors exceeded (%d). Will truncate to nearest %d." % (len(detectids),
