@@ -1,5 +1,12 @@
 changes to elixer by version
 
+
+1.14.0a8 [2021-12-15]
+* fixed bug in solution_consistent_with_lae() [was using observed EW instead of rest EW]
+* tweak physical size votes
+* retstrict neighbors for clustering to have no critical flags
+
+
 1.14.0a7 [2021-12-11]
 * added ra, dec index on elixer h5 detections table for faster coordinate searches
 * added clustering search for bright neighbors with different classification. Intended to find and correct high-z

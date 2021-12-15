@@ -145,11 +145,17 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
 
         for i,id in enumerate(neighbor_ids):
             lrows = ltb.read_where("(detectid==id) & (sn > 4.5) & (score > 5.0) & (wavelength > w1) & (wavelength < w2)")
-            if len(lrows) == 0:
+            if len(lrows) != 1:
                 sel[i] = False
                 continue
 
-            lines = sp.match_lines( lrows['wavelength'][0],
+            if rows[i]['flags'] & (G.DETFLAG_FOLLOWUP_NEEDED | G.DETFLAG_EXT_CAT_QUESTIONABLE_Z |
+                                 G.DETFLAG_IMAGING_MAG_INCONSISTENT | G.DETFLAG_DEX_GMAG_INCONSISTENT |
+                                 G.DETFLAG_UNCERTAIN_CLASSIFICATION):
+                sel[i] = False
+                continue
+
+            lines = sp.match_lines( lrows[0]['wavelength'],
                                     rows[i]['best_z'],
                                     z_error=0.001,
                                     aa_error=None,

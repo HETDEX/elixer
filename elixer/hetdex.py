@@ -1697,6 +1697,8 @@ class DetObj:
 
                         log.info(f"Q(z): Multiline solution[{idx}], score {scale_score}, frac {sol.frac_score}. "
                                  f"P(LyA) uncertain {scaled_plae_classification}. Set to z: {z} with Q(z): {p}")
+
+                        self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
                     else:
                         #basic agreement P(LyA) favors NOT LyA and multiline is not a LyA solution (less supportive)
                         #or P(LyA) favors LyA and so does multiline (more supportitve)
@@ -2830,15 +2832,15 @@ class DetObj:
                             #not very useful
                             lk = 1.0
                             w = 0.0
-                        elif 8.0 < diam <=15.0: #in the range of typical seeing FWHM from the ground
+                        elif 7.0 < diam <=15.0: #in the range of typical seeing FWHM from the ground
                             lk = 1.0
                             w = 0.1 #does not add much info, but is consistent
-                        elif 3.0 < diam <= 8.0:
+                        elif 3.0 < diam <= 7.0:
                             lk = 1.0
-                            w = 0.5
+                            w = 0.25
                         else: #very small, highly consistent with LAE (small boost)
                             lk = 1.0
-                            w = 0.75
+                            w = 0.5
 
                         likelihood.append(lk)
                         weight.append(w)
@@ -2863,6 +2865,15 @@ class DetObj:
                             #so it is more LIKELY it is a high-z object
                             w = 0.75
                         #could be planetary nebula, etc (very small)
+                        elif diam > 10.0:
+                            lk = 0
+                            w = 0.5
+                        elif diam > 2.0:
+                            lk = 0.0
+                            w = 0.25
+                        elif diam > 1.0:
+                            lk = 0.0
+                            w = 0.1
                         else: #no info, favors either
                             lk = 0.5
                             w = 0.0
