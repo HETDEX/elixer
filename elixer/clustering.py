@@ -153,6 +153,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
                                  #G.DETFLAG_IMAGING_MAG_INCONSISTENT | G.DETFLAG_DEX_GMAG_INCONSISTENT |
 
                 sel[i] = False
+                log.debug(f"Clustering for {detectid}. Rejected {rows[i]['detectid']} due to flags: {rows[i]['flags']:08x}")
                 continue
 
             lines = sp.match_lines( lrows[0]['wavelength'],
@@ -163,6 +164,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
                                     max_rank=3)
 
             if lines is None or len(lines) == 0:
+                log.debug(f"Clustering for {detectid}. Rejected {rows[i]['detectid']} due to no matching lines.")
                 continue #this one is inconsistent (probably it is not the strongest line as the HETDEX line)
 
             line_scores[i] = np.max(lrows['score'])
