@@ -89,7 +89,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
 
             if flags == 0: #if there are flags, skip this check as we are going to check this object regardless
                 try:
-                    if (target_gmag+target_gmag_err) < gmag_thresh: #too bright
+                    if (target_gmag+target_gmag_err) < G.CLUSTER_SELF_MAG_THRESH: #too bright
                         log.info(f"Detectid {detectid}. Too bright. gmag = {target_gmag} +/- {target_gmag_err}")
                         return cluster_dict
                 except: #the sdss might not be there or may be invalid
