@@ -84,13 +84,18 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
                 target_gmag = rows[0]['mag_full_spec'] #this could fail
                 target_gmag_err = rows[0]['mag_full_spec_err'] #this could fail
 
+            if abs(target_gmag_err) > 2.0:
+                old = target_gmag_err
+                target_gmag_err = 2.0
+                log.debug(f"Clustering: Detectid {detectid} capped gmag error to {target_gmag_err} from {old}")
+
             # if (flags & G.DETFLAG_DISTANT_COUNTERPART) or (flags & G.DETFLAG_COUNTERPART_MAG_MISMATCH) or
             #     (flags &)
 
             if flags == 0: #if there are flags, skip this check as we are going to check this object regardless
                 try:
                     if (target_gmag+target_gmag_err) < G.CLUSTER_SELF_MAG_THRESH: #too bright
-                        log.info(f"Detectid {detectid}. Too bright. gmag = {target_gmag} +/- {target_gmag_err}")
+                        log.info(f"Clustering: Detectid {detectid}. Too bright. gmag = {target_gmag} +/- {target_gmag_err}")
                         return cluster_dict
                 except: #the sdss might not be there or may be invalid
                     target_gmag = 25.0
