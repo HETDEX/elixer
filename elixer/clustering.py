@@ -149,12 +149,12 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
                 sel[i] = False
                 continue
 
-            if rows[i]['flags'] & (G.DETFLAG_FOLLOWUP_NEEDED | G.DETFLAG_EXT_CAT_QUESTIONABLE_Z | G.DETFLAG_UNCERTAIN_CLASSIFICATION):
-                                 #G.DETFLAG_IMAGING_MAG_INCONSISTENT | G.DETFLAG_DEX_GMAG_INCONSISTENT |
-
-                sel[i] = False
-                log.debug(f"Clustering for {detectid}. Rejected {rows[i]['detectid']} due to flags: {rows[i]['flags']:08x}")
-                continue
+            # if rows[i]['flags'] & (G.DETFLAG_FOLLOWUP_NEEDED | G.DETFLAG_EXT_CAT_QUESTIONABLE_Z | G.DETFLAG_UNCERTAIN_CLASSIFICATION):
+            #                      #G.DETFLAG_IMAGING_MAG_INCONSISTENT | G.DETFLAG_DEX_GMAG_INCONSISTENT |
+            #
+            #     sel[i] = False
+            #     log.debug(f"Clustering for {detectid}. Rejected {rows[i]['detectid']} due to flags: {rows[i]['flags']:08x}")
+            #     continue
 
             lines = sp.match_lines( lrows[0]['wavelength'],
                                     rows[i]['best_z'],
