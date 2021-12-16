@@ -170,6 +170,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
 
             if lines is None or len(lines) == 0:
                 log.debug(f"Clustering for {detectid}. Rejected {rows[i]['detectid']} due to no matching lines.")
+                sel[i] = False
                 continue #this one is inconsistent (probably it is not the strongest line as the HETDEX line)
 
             line_scores[i] = np.max(lrows['score'])
