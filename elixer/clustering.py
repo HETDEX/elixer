@@ -149,9 +149,9 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
                 sel[i] = False
                 continue
 
-            if rows[i]['flags'] & (G.DETFLAG_FOLLOWUP_NEEDED | G.DETFLAG_EXT_CAT_QUESTIONABLE_Z |
-                                 G.DETFLAG_IMAGING_MAG_INCONSISTENT | G.DETFLAG_DEX_GMAG_INCONSISTENT |
-                                 G.DETFLAG_UNCERTAIN_CLASSIFICATION):
+            if rows[i]['flags'] & (G.DETFLAG_FOLLOWUP_NEEDED | G.DETFLAG_EXT_CAT_QUESTIONABLE_Z | G.DETFLAG_UNCERTAIN_CLASSIFICATION):
+                                 #G.DETFLAG_IMAGING_MAG_INCONSISTENT | G.DETFLAG_DEX_GMAG_INCONSISTENT |
+
                 sel[i] = False
                 continue
 
