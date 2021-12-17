@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.14.0a8'
+__version__ = '1.14.0a9'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -862,7 +862,8 @@ NUDGE_SEP_MAX_DIST_LATER_DATA = 0.5 #1.0 #allow source extractor found objects t
                           #in arcsec
 
 NUDGE_SEP_MAX_DIST = 0.5 # 1.0 allow source extractor found objects to be matched to the HETDEX target up to this distances
-                          #in arcsec
+                          #in arcsec. NOTICE. this takes one of the above values (set in elixer.py) based on the observation
+                          #date
 
 MAX_SKY_SUBTRACT_MAG = 2.0 #if local sky subtraction results in a magnitude change greater than this value, do not apply it
 

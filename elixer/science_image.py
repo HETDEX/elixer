@@ -1450,10 +1450,6 @@ class science_image():
                         sobj['mag_bright'] = mag_bright
                         sobj['mag_err'] = mag_err
 
-
-
-
-
                         try:
                             #this assumes lower-left is 0,0 but the object x,y uses center as 0,0
                             #sobj['x'] and y ARE IN ARCSEC ... need to be in pixels for this cal

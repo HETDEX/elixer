@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.14.0a9 [2021-12-17]
+* Always plot SEP apertures even if elixer circular apeture is used (e.g. if SEP too far from allowed distance)
+* Only use estimated physical size IF there are qualified SEP detections (i.e. if the deepest g or r images have
+  detections within the allowed maximum separation)
 
 1.14.0a8 [2021-12-15]
 * fixed bug in solution_consistent_with_lae() [was using observed EW instead of rest EW]

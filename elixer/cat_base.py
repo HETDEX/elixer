@@ -1268,6 +1268,14 @@ class Catalog:
                                                            the_entry['details']['mag'],
                                                            cx, cy, cutout_ewr, cutout_plae,distance_to_center)
 
+                                if the_entry['details']['sep_objects'] is not None:
+                                    #still add SEP apertures even though none were selected
+                                    self.add_elliptical_aperture_positions(plt, the_entry['details']['sep_objects'],
+                                                                           -1,
+                                                                           -1,
+                                                                           -1,
+                                                                           cx, cy, cutout_ewr, cutout_plae)
+
                                 #no sep detection so no reliable color
                                 # if detobj is not None:
                                 #     detobj.set_best_filter_mag(filter,the_entry['details']['mag'],

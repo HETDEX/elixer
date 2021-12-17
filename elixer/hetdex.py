@@ -3868,6 +3868,8 @@ class DetObj:
         weight = [] #rules based weights
         cont_type = [] #what was the input
         nondetect = []
+        deep_non_detect = 0 #deepest g or r band imaging without a detection
+        deep_detect = 0 #deepest g or r band imaging with a detection  (source extractor only)
 
         best_guess_extent = [] #from source extractor (f606w, g, r only)
         base_psf = []
@@ -4057,15 +4059,38 @@ class DetObj:
 
                         #todo: this should be re-done in terms of the imaging catalog PSF
                         try:
-                            if (a['sep_objects'] is not None) and (a['sep_obj_idx'] is not None):
-                                best_guess_extent.append(a['sep_objects'][a['sep_obj_idx']]['a'])
-                                base_psf.append(this_psf)
+                            if (a['sep_objects'] is not None):
+                                if (a['sep_obj_idx'] is not None):
+                                    best_guess_extent.append(a['sep_objects'][a['sep_obj_idx']]['a'])
+                                    base_psf.append(this_psf)
 
-                                log.debug(f"{self.entry_id} Combine ALL Continuum: Added base psf: "
-                                      f"{this_psf} arcsec, filter ({a['filter_name']})")
-                                log.debug(f"{self.entry_id} Combine ALL Continuum: Added best guess extent: "
-                                      f"{a['sep_objects'][a['sep_obj_idx']]['a']:#.2g} arcsec,"
-                                      f" {a['catalog_name']} filter ({a['filter_name']})")
+                                    log.debug(f"{self.entry_id} Combine ALL Continuum: Added base psf: "
+                                          f"{this_psf} arcsec, filter ({a['filter_name']})")
+                                    log.debug(f"{self.entry_id} Combine ALL Continuum: Added best guess extent: "
+                                          f"{a['sep_objects'][a['sep_obj_idx']]['a']:#.2g} arcsec,"
+                                          f" {a['catalog_name']} filter ({a['filter_name']})")
+
+                                    if a['mag_limit'] is not None and a['mag_limit'] > deep_detect:
+                                        deep_detect = a['mag_limit']
+
+                                else: #there are SEP object(s), but they are too far away, so the apeture under/near
+                                      #the reticle is probably empty .... this actually favors LAE (essentially would
+                                      #be a non-detect)
+
+                                    if a['mag_limit'] is not None and a['mag_limit'] > deep_non_detect:
+                                        deep_non_detect = a['mag_limit']
+
+                                    best_guess_extent.append(this_psf)
+                                    base_psf.append(this_psf)
+
+                                    log.debug(f"{self.entry_id} Combine ALL Continuum: Added base psf: "
+                                              f"{this_psf} arcsec, filter ({a['filter_name']})")
+
+                                    log.debug(f"{self.entry_id} Combine ALL Continuum: Added default (non-detect) best guess extent: "
+                                              f"{this_psf} arcsec,"
+                                              f" {a['catalog_name']} filter ({a['filter_name']})")
+
+
                         except:
                             log.debug("Exception handling best_guess_extent in DetObj:combin_all_plae",exc_info=True)
 
@@ -4320,9 +4345,13 @@ class DetObj:
             best_guess_extent = np.array(best_guess_extent)
             base_psf = np.array(base_psf)
 
-            if (len(best_guess_extent) == len(base_psf)) and (len(base_psf) > 0):
-                size_in_psf = np.mean(best_guess_extent/base_psf) #usually only 1 or 2, so std makes no sense
-                best_guess_extent = np.mean(best_guess_extent)
+            #todo: this is really only meaningful IF it is the SEP aperture ... the elixer aperture can grow in-between
+            # faint sources and yield a meaningless answer
+            if deep_detect >= deep_non_detect:
+                if (len(best_guess_extent) == len(base_psf)) and (len(base_psf) > 0):
+                    size_in_psf = np.mean(best_guess_extent/base_psf) #usually only 1 or 2, so std makes no sense
+                    best_guess_extent = np.mean(best_guess_extent)
+
         except:
             pass
 
