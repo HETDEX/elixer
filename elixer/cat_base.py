@@ -348,7 +348,10 @@ class Catalog:
                         df.iat[i, midx] = float(99 if np.isnan(filter_mag) else filter_mag)
                         df.iat[i, fidx] = filter_str
                         df.iat[i, fl_idx] = float(0 if np.isnan(filter_fl) else filter_fl)
-                        df.iat[i, fle_idx] =float(0 if np.isnan(filter_fl_err) else filter_fl_err) #pandas bug on insert
+                        try:
+                            df.iat[i, fle_idx] =float(0 if np.isnan(filter_fl_err) else filter_fl_err) #pandas bug on insert
+                        except:
+                            df.iat[i, fle_idx] = 0.0
                         #have to explicitly cast away from np.float32 to just a float
 
 

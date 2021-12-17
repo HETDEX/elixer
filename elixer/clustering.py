@@ -121,7 +121,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
 
         #now search for RA, Dec neighbors
         #there is an index on ra and dec
-        rows = dtb.read_where("(ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2)")
+        rows = dtb.read_where("(ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2) & (detectid != q_detectid)")
 
         if len(rows) == 0: #there are none
             log.info(f"Clustering on {detectid}. No neighbors found.")
