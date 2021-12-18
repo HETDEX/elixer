@@ -1945,7 +1945,7 @@ class DetObj:
                     sol.score = boost
                     sol.lines.append(sol.emission_line) #have to add as if it is an extra line
                     #otherwise the scaled score gets knocked way down
-                    log.info(f"Adding new solution {line.name}({line.w_rest}): score = {boost}")
+                    log.info(f"Clustering: Adding new solution {line.name}({line.w_rest}): score = {boost}")
                 else: # reduce the weight ... but allow to conitnue??
                     sol.score = G.MULTILINE_MIN_SOLUTION_SCORE
                     log.info(f"Rejected catalog new solution {line.name}({line.w_rest}). Failed consistency check. Solution score set to {sol.score}")
@@ -2001,7 +2001,15 @@ class DetObj:
                 z = bid['z']
 
                 #line = self.spec_obj.match_line(self.w,z,allow_absorption=True)
-                lines = self.spec_obj.match_lines(self.w,z,z_error=bid['z_err'],aa_error=None,allow_absorption=True)
+                if bid['z_err'] > 0.1: #phot_z
+                    max_rank = 2
+                    allow_absorption = False
+                else: #spec_z
+                    max_rank = 4
+                    allow_absorption = True
+
+                lines = self.spec_obj.match_lines(self.w,z,z_error=bid['z_err'],aa_error=None,
+                                                  allow_absorption=allow_absorption,max_rank=max_rank)
 
                 try:
                     central_eli = self.spec_obj.central_eli
@@ -2056,7 +2064,7 @@ class DetObj:
                             sol.score = boost
                             sol.lines.append(sol.emission_line) #have to add as if it is an extra line
                             #otherwise the scaled score gets knocked way down
-                            log.info(f"Adding new solution {line.name}({line.w_rest}): score = {boost}")
+                            log.info(f"Catalog z: Adding new solution {line.name}({line.w_rest}): score = {boost}")
                         else: # reduce the weight ... but allow to conitnue??
                             sol.score = G.MULTILINE_MIN_SOLUTION_SCORE
                             log.info(f"Rejected catalog new solution {line.name}({line.w_rest}). Failed consistency check. Solution score set to {sol.score}")
@@ -2136,7 +2144,7 @@ class DetObj:
                                     s.galaxy_mask_d25 = d25
 
                             if new_solution and (line.solution):
-                                log.info(f"Adding new solution {line.name}({line.w_rest}): score = {boost}")
+                                log.info(f"Galaxy mask: Adding new solution {line.name}({line.w_rest}): score = {boost}")
                                 sol = elixer_spectrum.Classifier_Solution()
                                 sol.z = self.w/line.w_rest - 1.0
                                 sol.central_rest = line.w_rest
@@ -2196,8 +2204,16 @@ class DetObj:
                         if z_err > 0.5 or ((z!= 0) and (z_err > 0.01) and (z_err/z > 0.2)):
                             continue #error too high
 
+                        if bid['z_err'] > 0.1: #phot_z
+                            max_rank = 2
+                            allow_absorption = False
+                        else: #spec_z
+                            max_rank = 4
+                            allow_absorption = True
+
                         #mix of photz and specz (and can't tell?)
-                        line = self.spec_obj.match_line(self.w,z,z_error=max(0.005,z_err)) #emission only
+                        line = self.spec_obj.match_lines(self.w,z,z_error=max(0.005,z_err),
+                                                        allow_absorption=allow_absorption,max_rank=max_rank) #emission only
                         if line:
                             log.info(f"SDSS z-catalog possible line match: {line.name} {line.w_rest} z={z} rank={line.rank} sep={sep}")
                             possible_lines.append(line)
@@ -2230,7 +2246,7 @@ class DetObj:
 
 
                             if new_solution and (line.solution):
-                                log.info(f"Adding new solution {line.name}({line.w_rest}): score = {boost}")
+                                log.info(f"SDSS z: Adding new solution {line.name}({line.w_rest}): score = {boost}")
                                 sol = elixer_spectrum.Classifier_Solution()
                                 sol.z = self.w/line.w_rest - 1.0
                                 sol.central_rest = line.w_rest
@@ -3872,6 +3888,7 @@ class DetObj:
         deep_detect = 0 #deepest g or r band imaging with a detection  (source extractor only)
 
         best_guess_extent = [] #from source extractor (f606w, g, r only)
+        best_guess_maglimit = []
         base_psf = []
         size_in_psf = None #estimate of extent in terms of PSF (sort-of)
 
@@ -4062,6 +4079,7 @@ class DetObj:
                             if (a['sep_objects'] is not None):
                                 if (a['sep_obj_idx'] is not None):
                                     best_guess_extent.append(a['sep_objects'][a['sep_obj_idx']]['a'])
+                                    best_guess_maglimit.append(a['mag_limit'])
                                     base_psf.append(this_psf)
 
                                     log.debug(f"{self.entry_id} Combine ALL Continuum: Added base psf: "
@@ -4079,17 +4097,6 @@ class DetObj:
 
                                     if a['mag_limit'] is not None and a['mag_limit'] > deep_non_detect:
                                         deep_non_detect = a['mag_limit']
-
-                                    best_guess_extent.append(this_psf)
-                                    base_psf.append(this_psf)
-
-                                    log.debug(f"{self.entry_id} Combine ALL Continuum: Added base psf: "
-                                              f"{this_psf} arcsec, filter ({a['filter_name']})")
-
-                                    log.debug(f"{self.entry_id} Combine ALL Continuum: Added default (non-detect) best guess extent: "
-                                              f"{this_psf} arcsec,"
-                                              f" {a['catalog_name']} filter ({a['filter_name']})")
-
 
                         except:
                             log.debug("Exception handling best_guess_extent in DetObj:combin_all_plae",exc_info=True)
@@ -4338,19 +4345,24 @@ class DetObj:
 
             except:
                 log.debug("Exception handling catalog bid-target continuum in DetObj:combine_all_continuum", exc_info=True)
-
-
-
+                
         try:
             best_guess_extent = np.array(best_guess_extent)
             base_psf = np.array(base_psf)
 
-            #todo: this is really only meaningful IF it is the SEP aperture ... the elixer aperture can grow in-between
+            # this is really only meaningful IF it is the SEP aperture ... the elixer aperture can grow in-between
             # faint sources and yield a meaningless answer
             if deep_detect >= deep_non_detect:
                 if (len(best_guess_extent) == len(base_psf)) and (len(base_psf) > 0):
-                    size_in_psf = np.mean(best_guess_extent/base_psf) #usually only 1 or 2, so std makes no sense
-                    best_guess_extent = np.mean(best_guess_extent)
+                    if np.std(best_guess_extent) > np.min(best_guess_extent):
+                        #the extents are very different ... likely due to imaging differences (ground may blend objects
+                        # so SEP may give a much larger aperture) so, just use the deepest in this case
+                        base_psf = base_psf[np.argmax(best_guess_maglimit)]
+                        best_guess_extent = best_guess_extent[np.argmax(best_guess_maglimit)]
+                        size_in_psf = best_guess_extent/base_psf
+                    else:
+                        size_in_psf = np.mean(best_guess_extent/base_psf) #usually only 1 or 2, so std makes no sense
+                        best_guess_extent = np.mean(best_guess_extent)
 
         except:
             pass

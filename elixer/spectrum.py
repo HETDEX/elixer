@@ -1696,7 +1696,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #     eli.line_score = 0.0
         #     eli.line_flux = 0.0
         #     log.debug(f"Fit rejected: fit_a_err/fit_a {eli.fit_a_err / eli.fit_a} > 0.5")
-        elif rough_height < rough_fwhm and not recommend_mcmc: #widder than tall; skip if recommend mcmc triggered
+        elif ((not allow_broad and rough_height < rough_fwhm) or (allow_broad and (rough_height * 2) < rough_fwhm)) \
+                and not recommend_mcmc: #widder than tall; skip if recommend mcmc triggered
             accept_fit = False
             snr = 0.0
             eli.snr = 0.0
@@ -1705,7 +1706,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             log.debug(
                 f"Fit rejected: widder than tall. Height above y = {rough_height}, FWHM = {rough_fwhm}")
         elif (eli.fit_a_err / abs(eli.fit_a) > max_allowed_peak_err_fraction) and (rough_height/rough_fwhm < min_height_to_fwhm):
-            #error on the area is just to great to trust along with very low peak height (and these are already broad)
+            #error on the area is just too great to trust along with very low peak height (and these are already broad)
             accept_fit = False
             snr = 0.0
             eli.snr = 0.0
@@ -3133,7 +3134,7 @@ def sn_peakdet_no_fit(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,absorber=Fals
 
 
 def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
-            enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False,do_mcmc=False):
+            enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False,do_mcmc=False,allow_broad=False):
     """
 
     :param wave: x-values (wavelength)
@@ -3216,7 +3217,7 @@ def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
         for p in pos:
             try:
                 eli = signal_score(wave, spec, spec_err, wave[p], values_units=values_units, min_sigma=min_sigma,
-                               absorber=absorber,do_mcmc=do_mcmc)
+                               absorber=absorber,do_mcmc=do_mcmc,allow_broad=allow_broad)
 
                 # if (eli is not None) and (eli.score > 0) and (eli.snr > 7.0) and (eli.fit_sigma > 1.6) and (eli.eqw_obs > 5.0):
                 if (eli is not None) and ((not enforce_good) or eli.is_good()):
@@ -3301,7 +3302,8 @@ def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.
         try:
             #repeat with median filter and kick up the minimum sigma for a broadfit
             medfilter_eli_list = sn_peakdet(x,medfilt(v,5),medfilt(err,5),values_units=values_units,
-                                            enforce_good=enforce_good,min_sigma=GOOD_BROADLINE_SIGMA,absorber=absorber)
+                                            enforce_good=enforce_good,min_sigma=GOOD_BROADLINE_SIGMA,absorber=absorber,
+                                            allow_broad=True)
 
             for m in medfilter_eli_list:
                 m.broadfit = True
@@ -3773,7 +3775,7 @@ class Spectrum:
 
             EmissionLine("Ly$\\alpha$".ljust(w), G.LyA_rest, 'red',rank=1,broad=True),
 
-            EmissionLine("OII".ljust(w), G.OII_rest, 'green',rank=2,broad=True), #not as broad, but can be > 20AA
+            EmissionLine("OII".ljust(w), G.OII_rest, 'green',rank=1,broad=True), #not as broad, but can be > 20AA
             #EmissionLine("OIII".ljust(w), 3132, "lime",rank=3),
             EmissionLine("OIII".ljust(w), 4959, "lime",rank=3),#4960.295 (vacuum) 4958.911 (air)
             EmissionLine("OIII".ljust(w), 5007, "lime",rank=1), #5008.240 (vacuum) 5006.843 (air)
@@ -3794,7 +3796,7 @@ class Spectrum:
             #big in AGN (alone before CIII enters from the blue )  this MgII is a doublet, 2795, 2802 ... can sometimes
             #  see the doublet in the HETDEX spectrum
             # What about when combined with OII 3277 (MgII maybe broad, but OII is not?)
-            EmissionLine("MgII".ljust(w), 2799, "magenta",solution=True,display=True,rank=3,broad=True,
+            EmissionLine("MgII".ljust(w), 2799, "magenta",solution=True,display=True,rank=2,broad=True,
                          min_fwhm=12.0,min_obs_wave=3500.0-20.0, max_obs_wave=5131.0+20.0),
 
             #thse H_x lines are never alone (OIII or OII are always present)
@@ -3927,7 +3929,7 @@ class Spectrum:
         except:
             log.warning("Exception rescoring solutions.",exc_info=True)
 
-    def match_line(self,obs_w,z,z_error=0.05,aa_error=None,allow_emission=True,allow_absorption=False):
+    def match_line(self,obs_w,z,z_error=0.05,aa_error=None,allow_emission=True,allow_absorption=False,max_rank=5):
         """
         Given an input obsevered wavelength and a target redshift, return the matching emission line if found with the
             +/- aa_error in angstroms of the main (central) emission line
@@ -3940,7 +3942,7 @@ class Spectrum:
         :return:
         """
         try:
-            all_match = self.match_lines(obs_w,z,z_error,aa_error,allow_emission,allow_absorption)
+            all_match = self.match_lines(obs_w,z,z_error,aa_error,allow_emission,allow_absorption,max_rank)
 
             if (all_match is None) or (len(all_match) == 0):
                 return None
