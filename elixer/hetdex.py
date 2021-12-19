@@ -2002,7 +2002,7 @@ class DetObj:
 
                 #line = self.spec_obj.match_line(self.w,z,allow_absorption=True)
                 if bid['z_err'] > 0.1: #phot_z
-                    max_rank = 2
+                    max_rank = 3
                     allow_absorption = False
                 else: #spec_z
                     max_rank = 4
@@ -2042,35 +2042,97 @@ class DetObj:
 
 
                     if new_solution and (line.solution):
-                        sol = elixer_spectrum.Classifier_Solution()
-                        sol.z = self.w/line.w_rest - 1.0
-                        sol.central_rest = line.w_rest
-                        sol.name = line.name
-                        sol.color = line.color
-                        sol.emission_line = deepcopy(line)
-                        #add the central line info for flux, etc to line (basic info)
-                        if central_eli is not None:
-                            sol.emission_line.line_score =central_eli.line_score
-                            sol.emission_line.flux = central_eli.line_flux
-                            sol.emission_line.flux_err = central_eli.line_flux_err
-                            sol.emission_line.snr = central_eli.snr
 
-                        sol.emission_line.w_obs = self.w
-                        sol.emission_line.solution = True
-                        sol.prob_noise = 0
-                        #sol.score = boost
+                        #see if we can confirm a multi-line solution at this redshift
+                        #chances are we would have already found it earlier if it existed, but may as well check
 
-                        if self.spec_obj.consistency_checks(sol):
-                            sol.score = boost
-                            sol.lines.append(sol.emission_line) #have to add as if it is an extra line
-                            #otherwise the scaled score gets knocked way down
-                            log.info(f"Catalog z: Adding new solution {line.name}({line.w_rest}): score = {boost}")
-                        else: # reduce the weight ... but allow to conitnue??
-                            sol.score = G.MULTILINE_MIN_SOLUTION_SCORE
-                            log.info(f"Rejected catalog new solution {line.name}({line.w_rest}). Failed consistency check. Solution score set to {sol.score}")
+                        #if there were a multi-line solution consistent with this redshift, we MUST have already found
+                        #it, so don't bother checking again (note: that is the else case)
+                        #instead just see if a single line solution is allowable.
+
+                        if True:
+                            if self.spec_obj.single_emission_line_redshift(line,self.w):
+
+                                sol = elixer_spectrum.Classifier_Solution()
+                                sol.z = self.w/line.w_rest - 1.0
+                                sol.central_rest = line.w_rest
+                                sol.name = line.name
+                                sol.color = line.color
+                                sol.emission_line = deepcopy(line)
+                                #add the central line info for flux, etc to line (basic info)
+                                if central_eli is not None:
+                                    sol.emission_line.line_score =central_eli.line_score
+                                    sol.emission_line.flux = central_eli.line_flux
+                                    sol.emission_line.flux_err = central_eli.line_flux_err
+                                    sol.emission_line.snr = central_eli.snr
+
+                                sol.emission_line.w_obs = self.w
+                                sol.emission_line.solution = True
+                                sol.prob_noise = 0
+                                #sol.score = boost
+
+                                if self.spec_obj.consistency_checks(sol):
+                                    sol.score = boost
+                                    sol.lines.append(sol.emission_line) #have to add as if it is an extra line
+                                    #otherwise the scaled score gets knocked way down
+                                    log.info(f"Catalog z: Adding new solution {line.name}({line.w_rest}): score = {boost}")
+                                else: # reduce the weight ... but allow to conitnue??
+                                    sol.score = G.MULTILINE_MIN_SOLUTION_SCORE
+                                    log.info(f"Rejected catalog new solution {line.name}({line.w_rest}). Failed consistency check. Solution score set to {sol.score}")
 
 
-                        self.spec_obj.solutions.append(sol)
+                                self.spec_obj.solutions.append(sol)
+                        else:
+                            #this is the case to re-check for multiline solution ... should be a waste of time
+                            #as these were all already evaluated
+                            #NOTE: IN THE FUTURE, could modify to add in the known_z and allow a weaker solution score
+                            # to pass
+                            solutions = self.spec_obj.classify_with_additional_lines(wavelengths=self.sumspec_wavelength,
+                                                                                       values=self.sumspec_flux,
+                                                                                       errors=self.sumspec_fluxerr,
+                                                                                       central=self.w,
+                                                                                       values_units=-17,
+                                                                                       known_z=self.w/line.w_rest -1.0,
+                                                                                       continuum_limit=max(self.best_gmag_cgs_cont, G.HETDEX_CONTINUUM_FLUX_LIMIT),
+                                                                                       continuum_limit_err=self.best_gmag_cgs_cont_unc)
+
+                            if solutions is None or len(solutions) == 0:
+                                #no multiline solution was found with this line @ z as the anchor
+                                #this could still be a single line solution
+                                if self.spec_obj.single_emission_line_redshift(line,self.w):
+
+                                    sol = elixer_spectrum.Classifier_Solution()
+                                    sol.z = self.w/line.w_rest - 1.0
+                                    sol.central_rest = line.w_rest
+                                    sol.name = line.name
+                                    sol.color = line.color
+                                    sol.emission_line = deepcopy(line)
+                                    #add the central line info for flux, etc to line (basic info)
+                                    if central_eli is not None:
+                                        sol.emission_line.line_score =central_eli.line_score
+                                        sol.emission_line.flux = central_eli.line_flux
+                                        sol.emission_line.flux_err = central_eli.line_flux_err
+                                        sol.emission_line.snr = central_eli.snr
+
+                                    sol.emission_line.w_obs = self.w
+                                    sol.emission_line.solution = True
+                                    sol.prob_noise = 0
+                                    #sol.score = boost
+
+                                    if self.spec_obj.consistency_checks(sol):
+                                        sol.score = boost
+                                        sol.lines.append(sol.emission_line) #have to add as if it is an extra line
+                                        #otherwise the scaled score gets knocked way down
+                                        log.info(f"Catalog z: Adding new solution {line.name}({line.w_rest}): score = {boost}")
+                                    else: # reduce the weight ... but allow to conitnue??
+                                        sol.score = G.MULTILINE_MIN_SOLUTION_SCORE
+                                        log.info(f"Rejected catalog new solution {line.name}({line.w_rest}). Failed consistency check. Solution score set to {sol.score}")
+
+
+                                    self.spec_obj.solutions.append(sol)
+                            else:
+                                for sol in solutions:
+                                    self.spec_obj.solutions.append(sol)
 
             if possible_lines: #one or more possible matches
                 #todo: future, instead of adding a label, set a flag to appear in the HDF5 file
@@ -2205,7 +2267,7 @@ class DetObj:
                             continue #error too high
 
                         if bid['z_err'] > 0.1: #phot_z
-                            max_rank = 2
+                            max_rank = 3
                             allow_absorption = False
                         else: #spec_z
                             max_rank = 4
@@ -2245,7 +2307,7 @@ class DetObj:
                                     self.spec_obj.add_classification_label(label,prepend=True)
 
 
-                            if new_solution and (line.solution):
+                            if new_solution and (line.solution) and self.spec_obj.single_emission_line_redshift(line,self.w):
                                 log.info(f"SDSS z: Adding new solution {line.name}({line.w_rest}): score = {boost}")
                                 sol = elixer_spectrum.Classifier_Solution()
                                 sol.z = self.w/line.w_rest - 1.0

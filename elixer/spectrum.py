@@ -3640,6 +3640,11 @@ class EmissionLine:
         self.eli = None #optional may obtain EmissionLineInfo object
 
     def redshift(self,z):
+        """
+        Notice! This sets the redshift and the observed wavelength
+        :param z:
+        :return:
+        """
         self.z = z
         self.w_obs = self.w_rest * (1.0 + z)
         return self.w_obs
@@ -4400,6 +4405,36 @@ class Spectrum:
 
         except:
             return None, None
+
+
+    def single_emission_line_redshift(self,line,w):
+        """
+            Can this single emission line at abserved wavelength w be allowed?
+            :param line = an emission line object
+        """
+        try:
+
+            if line.w_rest == G.LyA_rest or line.w_rest == G.OII_rest or np.isclose(line.w_rest,5007,atol=2):
+                #always allowed to be a single line (even OIII-5007 ... extreme O32 objects)
+                return True
+            elif np.isclose(line.w_rest,2799,atol=2):
+                #MgII
+                if (3470 <= w < 5120):
+                    return True
+            elif np.isclose(line.w_rest,1909,atol=2):
+                #CIII
+                if 3760 <= w < 4314:
+                    return True
+            elif np.isclose(line.w_rest,1549,atol=2):
+                #CIV (technially never alone but in this narrow range, CIII can be at extreme red or LyA at extreme blue
+                # and we don't do a good job of picking it up
+                if  4460 <= w < 4492:
+                    return True
+
+            return False
+        except:
+            return False
+
 
     def solution_consistent_with_agn(self,solution):
         """
@@ -5814,6 +5849,7 @@ class Spectrum:
             sol.emission_line = copy.deepcopy(e)
             sol.emission_line.w_obs = sol.emission_line.w_rest*(1.0 + sol.z)
             sol.emission_line.solution = True
+            sol.emission_line.z = central_z
             sol.prob_noise = 1.0
 
             for a in self.emission_lines: #2021-06-14 ... now emission and absorption
