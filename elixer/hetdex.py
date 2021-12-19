@@ -1987,13 +1987,13 @@ class DetObj:
 
                 #check spec-z (higher boost)
                 if b.spec_z is not None and b.spec_z > -0.02:
-                    list_z.append({'z':b.spec_z,'z_err':0.05,'boost':G.ALL_CATATLOG_SPEC_Z_BOOST,'name':b.catalog_name,
+                    list_z.append({'z':b.spec_z,'z_err':0.01,'boost':G.ALL_CATATLOG_SPEC_Z_BOOST,'name':b.catalog_name,
                                    'mag':b.bid_mag,'filter':b.bid_filter,'distance':b.distance})
 
                 #then check phot-z (lower boost)
                 #allowed to have the smaller of 0.5 or 20% error in z
                 if b.phot_z is not None and b.phot_z > -0.02:
-                    list_z.append({'z':b.phot_z,'z_err':min(0.5, b.phot_z * 0.2),'boost':G.ALL_CATATLOG_PHOT_Z_BOOST,'name':b.catalog_name,
+                    list_z.append({'z':b.phot_z,'z_err':min(0.25, b.phot_z * 0.2),'boost':G.ALL_CATATLOG_PHOT_Z_BOOST,'name':b.catalog_name,
                                    'mag':b.bid_mag,'filter':b.bid_filter,'distance':b.distance})
 
             for bid in list_z:
@@ -2274,7 +2274,7 @@ class DetObj:
                             allow_absorption = True
 
                         #mix of photz and specz (and can't tell?)
-                        line = self.spec_obj.match_lines(self.w,z,z_error=max(0.005,z_err),
+                        line = self.spec_obj.match_lines(self.w,z,z_error=max(0.01,z_err),
                                                         allow_absorption=allow_absorption,max_rank=max_rank) #emission only
                         if line:
                             log.info(f"SDSS z-catalog possible line match: {line.name} {line.w_rest} z={z} rank={line.rank} sep={sep}")
