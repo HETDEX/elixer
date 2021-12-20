@@ -152,14 +152,13 @@ def adjusted_mag_zero(mag_zero, z):
     :return:
     """
 
-    #todo: for now (2021-12-14) just leave as is. Do not make a correction until we better understand this empirically
-    return mag_zero
-
+    ##todo: for now (2021-12-14) just leave as is. Do not make a correction until we better understand this empirically
+    #return mag_zero
 
     try:
         #this is very close to the more correct version of -2.5 log (f0/
         #at 7.5 (or 1+z)**3 cubed this is far too strong
-        adjust = 2.5 * np.log10((1+z) / 3.5) # 3.5 = 1 + 2.5 # 7.5x in stead of 2.5x since want to use (1+z)**3
+        adjust = 2.5 * np.log10((1+z) / 3.5) # 3.5 = 1 + 2.5 # 7.5x instead of 2.5x since want to use (1+z)**3
         return mag_zero + adjust
     except:
         log.debug("Exception in hetdex.py adjust_mag_zero().", exc_info=True)
@@ -1887,6 +1886,11 @@ class DetObj:
             self.best_z = z
             self.best_p_of_z = p
 
+            #last check
+            if self.best_p_of_z <= 0.1 and not (self.flags & G.DETFLAG_UNCERTAIN_CLASSIFICATION):
+                self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
+                log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_UNCERTAIN_CLASSIFICATION (in best_redshift)")
+
             return z,p
         except:
             log.warning("Exception! in hetdex.py DetObj::best_redshift()",exc_info=True)
@@ -2016,7 +2020,7 @@ class DetObj:
                 #then check phot-z (lower boost)
                 #allowed to have the smaller of 0.5 or 20% error in z
                 if b.phot_z is not None and b.phot_z > -0.02:
-                    list_z.append({'z':b.phot_z,'z_err':min(0.25, b.phot_z * 0.2),'boost':G.ALL_CATATLOG_PHOT_Z_BOOST,'name':b.catalog_name,
+                    list_z.append({'z':b.phot_z,'z_err':0.25,'boost':G.ALL_CATATLOG_PHOT_Z_BOOST,'name':b.catalog_name,
                                    'mag':b.bid_mag,'filter':b.bid_filter,'distance':b.distance})
 
             for bid in list_z:
@@ -2053,7 +2057,7 @@ class DetObj:
                     #where H_eta, CaII, NaI are higher rank (weaker lines) and get lower boosts (and are not
                     #likely to be the HETDEX detection line anyway)
 
-                    rank_scale = 1.0 if line.rank < 4 else 1.0/(line.rank-2.0)
+                    rank_scale = 1.0 if line.rank <= 2 else 1.0/(line.rank-1.0)
 
                     boost = boost * rank_scale * (1.0 if bid['z_err'] > 0.1 else 2.0) + line_score
 
@@ -2077,7 +2081,7 @@ class DetObj:
 
                         if not phot_z_only:
                             if self.spec_obj.single_emission_line_redshift(line,self.w):
-
+                                boost /= 2.0 #cut in half for a new solution (as opposed to boosting an existing solution)
                                 sol = elixer_spectrum.Classifier_Solution()
                                 sol.z = self.w/line.w_rest - 1.0
                                 sol.central_rest = line.w_rest
@@ -2107,7 +2111,7 @@ class DetObj:
                                     log.info(f"Catalog z: Adding new solution {line.name}({line.w_rest}): score = {sol.score}")
                                 else: # reduce the weight ... but allow to conitnue??
                                     sol.score = G.MULTILINE_MIN_SOLUTION_SCORE
-                                    log.info(f"Rejected catalog new solution {line.name}({line.w_rest}). Failed consistency check. Solution score set to {sol.score}")
+                                    log.info(f"Minimum catalog new solution {line.name}({line.w_rest}). Failed consistency check. Solution score set to {sol.score}")
 
 
                                 self.spec_obj.solutions.append(sol)
@@ -2174,7 +2178,7 @@ class DetObj:
                             #where H_eta, CaII, NaI are higher rank (weaker lines) and get lower boosts (and are not
                             #likely to be the HETDEX detection line anyway)
 
-                            rank_scale = 1.0 if line.rank < 4 else 1.0/(line.rank-2.0)
+                            rank_scale = 1.0 if line.rank <= 2 else 1.0/(line.rank-1.0)
 
                             boost = G.GALAXY_MASK_SCORE_BOOST * rank_scale * G.GALAXY_MASK_D25_SCORE_NORM/d25 + line_score
 
@@ -2269,7 +2273,8 @@ class DetObj:
                             #likely to be the HETDEX detection line anyway)
 
                             #emission only
-                            rank_scale = 1.0 if line.rank < 4 else 1.0/(line.rank-2.0)
+                            rank_scale = 1.0 if line.rank <= 2 else 1.0/(line.rank-1.0)
+
                             z_scale = 1.0 if z_err > 0.1 else 2.0
                             #todo: at this point we do not have the imaging and we do not know the size
                             #of our candidates, so we will just assume point sources here and with a typical seeing/size
@@ -2288,8 +2293,8 @@ class DetObj:
                                     s.score += boost
                                     self.spec_obj.add_classification_label(label,prepend=True)
 
-
                             if new_solution and (line.solution) and self.spec_obj.single_emission_line_redshift(line,self.w):
+                                boost /= 2.0 #cut in half for a new solution (as opposed to boosting an existing solution)
                                 log.info(f"SDSS z: Adding new solution {line.name}({line.w_rest}): score = {boost}")
                                 sol = elixer_spectrum.Classifier_Solution()
                                 sol.z = self.w/line.w_rest - 1.0
@@ -3621,8 +3626,8 @@ class DetObj:
                         scaled_prob_lae = 0.999
 
                     self.classification_dict['scaled_plae'] = scaled_prob_lae
-                    log.info(f"{self.entry_id} Scaled Prob(LAE) {scaled_prob_lae:0.4f}")
-                    #print(f"{self.entry_id} Scaled Prob(LAE) {scaled_prob_lae:0.4f}")
+                    log.info(f"{self.entry_id} Scaled P(LyA) {scaled_prob_lae:0.4f}")
+                    #print(f"{self.entry_id} Scaled Prob(LyA) {scaled_prob_lae:0.4f}")
             except:
                 log.debug("Exception in aggregate_classification final combination",exc_info=True)
 

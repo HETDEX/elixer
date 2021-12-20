@@ -3806,10 +3806,10 @@ class Spectrum:
 
             #thse H_x lines are never alone (OIII or OII are always present)
             EmissionLine("H$\\beta$".ljust(w), 4861, "blue",solution=True,rank=3), #4862.68 (vacuum) 4861.363 (air)
-            EmissionLine("H$\\gamma$".ljust(w), 4340, "royalblue",solution=True,rank=3),
+            EmissionLine("H$\\gamma$".ljust(w), 4340, "royalblue",solution=True,rank=4),
 
             EmissionLine("H$\\delta$".ljust(w), 4101, "royalblue", solution=False,display=False,rank=4),
-            EmissionLine("H$\\epsilon$".ljust(w), 3970, "royalblue", solution=False,display=False,rank=4), #very close to CaII(3968)
+            EmissionLine("H$\\epsilon$".ljust(w), 3970, "royalblue", solution=False,display=False,rank=5), #very close to CaII(3968)
             EmissionLine("H$\\zeta$".ljust(w), 3889, "royalblue", solution=False,display=False,rank=5),
             EmissionLine("H$\\eta$".ljust(w), 3835, "royalblue", solution=False,display=False,rank=5),
 

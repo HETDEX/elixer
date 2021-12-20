@@ -14,6 +14,8 @@ changes to elixer by version
 * Update scoring and selection for catalog spec-z and phot-z match. Must come from "selected" counterpart OR within 1"
 * If phot_z does not match an existing solution, it can only contribute to low-z vs high-z vote
 * Fix error in 20AA hard cut (sanity) vote. Had both LAE and OII at vote = 0
+* Resumed at single 1+z, mag zero shifting for OII vs LyA. Recalibrated mag zeros to 24.0 (g) and 23.8 (r) at z = 2.5 (LyA)
+* For unspecified phot_z error, set z_err to +/- 0.25
 
 
 1.14.0a8 [2021-12-15]

@@ -906,8 +906,7 @@ CHECK_GAIA_DEX_CATALOG = False
 #these are for the non-web catalogs we have, so it excludes SDSS (which is controlled separately just above)
 CHECK_ALL_CATALOG_BID_Z = True
 ALL_CATATLOG_SPEC_Z_BOOST = MULTILINE_FULL_SOLUTION_SCORE * 2.0 #i.e. +100.0 #addititive to the base solution score
-ALL_CATATLOG_PHOT_Z_BOOST = MULTILINE_MIN_SOLUTION_SCORE        #ie. +25; some are more reliable than others but
-                                                                # this is a broad brush
+ALL_CATATLOG_PHOT_Z_BOOST = 5.0        #ie. +5; some are more reliable than others but this is a broad brush
 
 USE_PHOTO_CATS = True  #default normal is True .... use photometry catalogs (if False only generate the top (HETDEX) part)
 
@@ -965,8 +964,8 @@ R_BAND_UV_BETA_SLOPE = -2.5 #UV slope (beta) for star forming galaxies used to a
                             #really varies with galaxy SFR, history, z, dust, etc
                             #but seems to run -2.4 to -2.7 or so for star forming galaxies around cosmic noon
 
-LAE_G_MAG_ZERO = 24.2 #somewhat empirical:   ( -0.20 to + 0.27) for z 1.9 to 3.5
-LAE_R_MAG_ZERO = 24.0 #somewhat empirical: . .. also using -0.2 or -0.3 mag from g-band per Leung+2017
+LAE_G_MAG_ZERO = 24.0 #somewhat empirical:   ( -0.20 to + 0.27) for z 1.9 to 3.5
+LAE_R_MAG_ZERO = 23.8 #somewhat empirical: . .. also using -0.2 or -0.3 mag from g-band per Leung+2017
 LAE_MAG_SIGMA = 0.5 #building a Gaussian as probablilty that mag > LAE_X_MAG_ZERO is an LAE
 LAE_EW_MAG_TRIGGER_MAX = 25.0 #if the associated EW_rest(LyA) is less than this value, then look at the magnitudes
 LAE_EW_MAG_TRIGGER_MIN = 15.0 #if the associated EW_rest(LyA) is greater than this value, then look at the magnitudes
