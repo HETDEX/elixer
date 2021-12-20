@@ -1980,6 +1980,9 @@ class DetObj:
             possible_lines = []
 
             for b in self.bid_target_list:
+                if not (b.selected or b.distance < 1.0): #has to be the selected counterpart
+                    continue
+
                 #sanity check ... is there a g or r mag that is at least roughly consistent with the DEX g mag?
                 if self.best_gmag is not None and self.best_gmag > 0 and b.bid_mag is not None and b.bid_mag > 0:
                     if not (abs(b.bid_mag-self.best_gmag) < 1.5 or b.bid_mag > 24.5 and self.best_gmag > 24.5):
@@ -2073,9 +2076,13 @@ class DetObj:
 
                                 if self.spec_obj.consistency_checks(sol):
                                     sol.score = boost
+                                    #if one of the primaries ... z:[1.88,3.53] = LyA or z:[0,0.49], then this needs an
+                                    #extra boost since it is only a single line
+                                    if (0 < sol.z < 0.49) or (1.88 < sol.z < 3.53):
+                                        sol.score += sol.emission_line.line_score
                                     sol.lines.append(sol.emission_line) #have to add as if it is an extra line
                                     #otherwise the scaled score gets knocked way down
-                                    log.info(f"Catalog z: Adding new solution {line.name}({line.w_rest}): score = {boost}")
+                                    log.info(f"Catalog z: Adding new solution {line.name}({line.w_rest}): score = {sol.score}")
                                 else: # reduce the weight ... but allow to conitnue??
                                     sol.score = G.MULTILINE_MIN_SOLUTION_SCORE
                                     log.info(f"Rejected catalog new solution {line.name}({line.w_rest}). Failed consistency check. Solution score set to {sol.score}")

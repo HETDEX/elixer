@@ -1257,10 +1257,12 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
                     cats.append(catalogs.CatalogLibrary().get_catch_all())
                     added_catch_all = True
 
-    #done going through catalogs
-    if detobj:
-        detobj.check_spec_solutions_vs_catalog_counterparts()
-        detobj.check_clustering_redshift()
+    #move to AFTER summary section built as we need updates from it (specifically, the catalog matches and ellipses that
+    # are "selected"
+    # #done going through catalogs
+    # if detobj:
+    #     detobj.check_spec_solutions_vs_catalog_counterparts()
+    #     detobj.check_clustering_redshift()
 
     if G.BUILD_REPORT_BY_FILTER:
         #we've gone through all the catalogs (including the web catalogs if necessary)
@@ -1286,6 +1288,10 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
         else: #todo: need to build up a blank image (or ... I think that happens anyway later)
             count = 0
 
+    #done going through catalogs
+    if detobj:
+        detobj.check_spec_solutions_vs_catalog_counterparts()
+        detobj.check_clustering_redshift()
 
     G.NUDGE_MAG_APERTURE_CENTER = _NUDGE_MAG_APERTURE_CENTER_SAVED
     return pages, count

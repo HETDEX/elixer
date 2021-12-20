@@ -183,6 +183,12 @@ class SDSS(cat_base.Catalog):#SDSS
                 log.error("Cannot load SDSS z-catalog")
                 return [],[],[],[]
 
+            if error is None or error == 0:
+                error = 10.0
+                variable_error = True
+            else:
+                variable_error = False
+
             deg_err = error/3600.
             sel = (cls.apt_zcat["RA"] > (ra-deg_err)) * (cls.apt_zcat["RA"] < (ra+deg_err)) * \
                   (cls.apt_zcat["DEC"] > (dec-deg_err)) * (cls.apt_zcat["DEC"] < (dec+deg_err))
@@ -201,6 +207,10 @@ class SDSS(cat_base.Catalog):#SDSS
             for r in t:
                 try:
                     if -0.2 < r["Z"] < 10.0:
+                        #todo: get the magnitude in g for the SDSS object (should be brigher than 22.5 or so)
+                        # and allow the "error" to float, become larger with brigher g-mag ... see SPEC1_G, SPEC2_G in
+                        # SDSS table original data
+                        #and (not variable_error or (variable_error and utilities.angular_distance(ra,dec,r["RA"],r["DEC"])):
                         add = True
                         #check that it is unique (not really close in z-space to another already
                         for i in range(len(z)):#,e1 in zip(z,e):
