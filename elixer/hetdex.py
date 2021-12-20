@@ -3177,13 +3177,16 @@ class DetObj:
                 #appears only to favor LAE for low EW and low z, never appears to favor OII at higher EW
                 try:
                     if self.w > (G.OII_rest-1.0):
+                        #start with the line flux
                         if self.spec_obj:
                             ew_combined_continuum = self.spec_obj.estflux
                         else:
                             ew_combined_continuum = self.estflux #the lineflux
 
                         zp1 = self.w/G.LyA_rest #z + 1
+                        #then divide by the averaged continuum
                         ew_combined_continuum /= self.classification_dict['continuum_hat']
+                        #then to the LyA restframe
                         ew_combined_continuum /= zp1
 
                         #very rough, not following any actual distribution right now
@@ -3213,14 +3216,14 @@ class DetObj:
                                 prior.append(base_assumption)
                                 weight.append(0.5) #todo make weight depend on magnitude and EW ...
                                 var.append(0.5)
-                                log.info(f"Aggregate Classification: 20AA hard cut vote from best g-mag and combined EW: "
+                                log.info(f"Aggregate Classification: 20AA hard cut vote from best g-mag and combined EW ({ew_combined_continuum:0.1f}): "
                                          f"lk({likelihood[-1]}) weight({weight[-1]})")
                             elif ew_combined_continuum > 25.0:
-                                likelihood.append(0.0)
+                                likelihood.append(1.0)
                                 prior.append(base_assumption)
                                 weight.append(0.5)
                                 var.append(1)
-                                log.info(f"Aggregate Classification: 20AA hard cut vote from best g-mag and combined EW: "
+                                log.info(f"Aggregate Classification: 20AA hard cut vote from best g-mag and combined EW ({ew_combined_continuum:0.1f}): "
                                              f"lk({likelihood[-1]}) weight({weight[-1]})")
 
 
