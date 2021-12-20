@@ -5991,10 +5991,11 @@ class Spectrum:
                             if (a.broad == e.broad):
                                 adjust = 1.0 #they should be similar (both broad or narrow)
                             elif (a.broad):
-                                adjust = 3.0 #the central line can be more narrow
+                                adjust = 0.33 #3.0 #the central line can be more narrow
                             elif (e.broad):
-                                adjust = 0.33 #the central line can be more broad
+                                adjust = 3.0 #0.33 #the central line can be more broad
 
+                            #2.0 x (s1 - s2)/(s1+s2) is the difference divided by the mean
                             fwhm_comp = adjust * 2.0 * (eli.fit_sigma - self.central_eli.fit_sigma)  / \
                                         (eli.fit_sigma + self.central_eli.fit_sigma)
 

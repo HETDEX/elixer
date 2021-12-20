@@ -12,6 +12,7 @@ changes to elixer by version
   CIII, CIV at specific wavelengths where they can be found "alone"
 * Make OII rank 1 (was 2), MgII rank 2 (was 3)
 * Update scoring and selection for catalog spec-z and phot-z match. Must come from "selected" counterpart OR within 1"
+* If phot_z does not match an existing solution, it can only contribute to low-z vs high-z vote
 
 
 1.14.0a8 [2021-12-15]

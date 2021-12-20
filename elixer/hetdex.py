@@ -518,6 +518,7 @@ class DetObj:
         self.elixer_version = G.__version__
         self.elixer_datetime = time.strftime("%Y-%m-%d %H:%M:%S")
 
+        self.phot_z_votes = []
         self.cluster_parent = 0 #detectid of anohter HETDEX source that is the cluster (specifically, redshift) for this object
         self.cluster_z = -1
         self.cluster_qz = -1
@@ -972,6 +973,25 @@ class DetObj:
         # as this next step takes a while
         #self.load_fluxcalibrated_spectra()
 
+    def get_phot_z_vote(self):
+        try:
+            if len(self.phot_z_votes) > 0:
+                z = np.mean(self.phot_z_votes) #all weighted equally
+                #todo: later see if can get the acutal PDFs or uncertainties to weigh the average
+                if -0.1 < z < 0.7: #low Z ... favors OII
+                    if abs((self.w/G.OII_rest -1.0)-z) < 0.5:
+                        #consistent
+                        return self.w/G.OII_rest -1.0
+                elif 1.7 < z < 3.7: #high z .... favors LAE
+                    if abs((self.w/G.LyA_rest -1.0)-z) < 0.5:
+                        #consistent
+                        return self.w/G.LyA_rest -1.0
+                else: #no vote; don't trust in mid-z range, or z > 4
+                    return -1
+        except:
+            return -1
+
+        return -1
 
     def unique_sep_neighbors(self):
         """
@@ -2007,9 +2027,11 @@ class DetObj:
                 if bid['z_err'] > 0.1: #phot_z
                     max_rank = 3
                     allow_absorption = False
+                    phot_z_only = True
                 else: #spec_z
                     max_rank = 4
                     allow_absorption = True
+                    phot_z_only = False
 
                 lines = self.spec_obj.match_lines(self.w,z,z_error=bid['z_err'],aa_error=None,
                                                   allow_absorption=allow_absorption,max_rank=max_rank)
@@ -2053,7 +2075,7 @@ class DetObj:
                         #it, so don't bother checking again (note: that is the else case)
                         #instead just see if a single line solution is allowable.
 
-                        if True:
+                        if not phot_z_only:
                             if self.spec_obj.single_emission_line_redshift(line,self.w):
 
                                 sol = elixer_spectrum.Classifier_Solution()
@@ -2090,56 +2112,9 @@ class DetObj:
 
                                 self.spec_obj.solutions.append(sol)
                         else:
-                            #this is the case to re-check for multiline solution ... should be a waste of time
-                            #as these were all already evaluated
-                            #NOTE: IN THE FUTURE, could modify to add in the known_z and allow a weaker solution score
-                            # to pass
-                            solutions = self.spec_obj.classify_with_additional_lines(wavelengths=self.sumspec_wavelength,
-                                                                                       values=self.sumspec_flux,
-                                                                                       errors=self.sumspec_fluxerr,
-                                                                                       central=self.w,
-                                                                                       values_units=-17,
-                                                                                       known_z=self.w/line.w_rest -1.0,
-                                                                                       continuum_limit=max(self.best_gmag_cgs_cont, G.HETDEX_CONTINUUM_FLUX_LIMIT),
-                                                                                       continuum_limit_err=self.best_gmag_cgs_cont_unc)
-
-                            if solutions is None or len(solutions) == 0:
-                                #no multiline solution was found with this line @ z as the anchor
-                                #this could still be a single line solution
-                                if self.spec_obj.single_emission_line_redshift(line,self.w):
-
-                                    sol = elixer_spectrum.Classifier_Solution()
-                                    sol.z = self.w/line.w_rest - 1.0
-                                    sol.central_rest = line.w_rest
-                                    sol.name = line.name
-                                    sol.color = line.color
-                                    sol.emission_line = deepcopy(line)
-                                    #add the central line info for flux, etc to line (basic info)
-                                    if central_eli is not None:
-                                        sol.emission_line.line_score =central_eli.line_score
-                                        sol.emission_line.flux = central_eli.line_flux
-                                        sol.emission_line.flux_err = central_eli.line_flux_err
-                                        sol.emission_line.snr = central_eli.snr
-
-                                    sol.emission_line.w_obs = self.w
-                                    sol.emission_line.solution = True
-                                    sol.prob_noise = 0
-                                    #sol.score = boost
-
-                                    if self.spec_obj.consistency_checks(sol):
-                                        sol.score = boost
-                                        sol.lines.append(sol.emission_line) #have to add as if it is an extra line
-                                        #otherwise the scaled score gets knocked way down
-                                        log.info(f"Catalog z: Adding new solution {line.name}({line.w_rest}): score = {boost}")
-                                    else: # reduce the weight ... but allow to conitnue??
-                                        sol.score = G.MULTILINE_MIN_SOLUTION_SCORE
-                                        log.info(f"Rejected catalog new solution {line.name}({line.w_rest}). Failed consistency check. Solution score set to {sol.score}")
+                            self.phot_z_votes.append(z)
 
 
-                                    self.spec_obj.solutions.append(sol)
-                            else:
-                                for sol in solutions:
-                                    self.spec_obj.solutions.append(sol)
 
             if possible_lines: #one or more possible matches
                 #todo: future, instead of adding a label, set a flag to appear in the HDF5 file
@@ -3269,6 +3244,22 @@ class DetObj:
         ###################################
 
 
+        ###################################
+        # Phot-z vote
+        ###################################
+        phot_z = self.get_phot_z_vote()
+        if -0.1 < phot_z < 0.7:
+            likelihood.append(0.0)
+            weight.append(0.5)
+            var.append(1)
+            prior.append(base_assumption)
+            log.info(f"Aggregate Classification: phot_z vote (low-z): lk({likelihood[-1]}) weight({weight[-1]})")
+        elif 1.7 < phot_z < 3.7:
+            likelihood.append(1.0)
+            weight.append(0.5)
+            var.append(1)
+            prior.append(base_assumption)
+            log.info(f"Aggregate Classification: phot_z vote (high-z): lk({likelihood[-1]}) weight({weight[-1]})")
 
         ###################################
         #magnitude votes
