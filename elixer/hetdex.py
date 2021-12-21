@@ -1780,12 +1780,12 @@ class DetObj:
                         if scaled_plae_classification < 0.5:
                             z = self.w / G.OII_rest - 1.0
 
-                            log.info(f"Q(z): Multiline solution rejected as weak and inconsistent."
+                            log.info(f"Q(z): Multiline solution rejected as weak and inconsistent. "
                                      f"P(LyA) favors OII {scaled_plae_classification}. Set to OII z:{z} with Q(z): {p}")
                         else:
                             z= self.w / G.LyA_rest - 1.0
 
-                            log.info(f"Q(z): Multiline solution rejected as weak and inconsistent."
+                            log.info(f"Q(z): Multiline solution rejected as weak and inconsistent. "
                                      f"P(LyA) favors LyA {scaled_plae_classification}. Set to LyA z:{z} with Q(z): {p}")
 
 
@@ -2015,20 +2015,20 @@ class DetObj:
                 #check spec-z (higher boost)
                 if b.spec_z is not None and b.spec_z > -0.02:
                     list_z.append({'z':b.spec_z,'z_err':0.01,'boost':G.ALL_CATATLOG_SPEC_Z_BOOST,'name':b.catalog_name,
-                                   'mag':b.bid_mag,'filter':b.bid_filter,'distance':b.distance})
+                                   'mag':b.bid_mag,'filter':b.bid_filter,'distance':b.distance,'type':'s'})
 
                 #then check phot-z (lower boost)
                 #allowed to have the smaller of 0.5 or 20% error in z
                 if b.phot_z is not None and b.phot_z > -0.02:
-                    list_z.append({'z':b.phot_z,'z_err':0.25,'boost':G.ALL_CATATLOG_PHOT_Z_BOOST,'name':b.catalog_name,
-                                   'mag':b.bid_mag,'filter':b.bid_filter,'distance':b.distance})
+                    list_z.append({'z':b.phot_z,'z_err':min(0.25, b.phot_z * 0.2),'boost':G.ALL_CATATLOG_PHOT_Z_BOOST,'name':b.catalog_name,
+                                   'mag':b.bid_mag,'filter':b.bid_filter,'distance':b.distance,'type':"p"})
 
             for bid in list_z:
                 boost = bid['boost']
                 z = bid['z']
 
                 #line = self.spec_obj.match_line(self.w,z,allow_absorption=True)
-                if bid['z_err'] > 0.1: #phot_z
+                if bid['z_err'] > 0.1 or bid['type']=='p': #phot_z
                     max_rank = 3
                     allow_absorption = False
                     phot_z_only = True
