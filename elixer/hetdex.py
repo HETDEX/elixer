@@ -1777,6 +1777,7 @@ class DetObj:
                         #we will use the P(Lya)
                         self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
                         p = max(0.05,p - pscore)
+
                         if scaled_plae_classification < 0.5:
                             z = self.w / G.OII_rest - 1.0
 
@@ -1838,17 +1839,24 @@ class DetObj:
                     rest = G.OII_rest
                     p = plya_for_oii*p/2. #remember, this is just NOT LyA .. so while OII is the most common, it is hardly the only solution
                          #so the highest possible would tbe 50%: P(LyA) = 0.0 ==> abs(0.5-0.0)/0.5/2. = 0.5
+                    #limit p to a maximum
+                    p = min(p,0.8)
                     log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
             elif scaled_plae_classification > 0.7:
                 z= self.w / G.LyA_rest - 1.0
                 rest = G.LyA_rest
+                #limit p to a maximum
+                p = min(p,0.8)
+
                 log.info(f"Q(z): no multiline solutions. P(LyA) favors LyA. Set to LyA z:{z} with Q(z): {p}")
-                #keep p as is
             else: #we are in no-man's land
                 if scaled_plae_classification < 0.5:
                     z = self.w / G.OII_rest - 1.0
                 else:
                     z= self.w / G.LyA_rest - 1.0
+
+                #limit p to a maximum
+                p = min(p,0.25)
 
                 log.info(f"Q(z): no multiline solutions, no strong P(LyA). z:{z} with Q(z): {p}")
 
@@ -2066,7 +2074,7 @@ class DetObj:
                     for s in self.spec_obj.solutions:
                         if s.central_rest == line.w_rest:
                             new_solution = False
-                            log.info(f"Boosting existing solution:  {line.name}({line.w_rest}) + {boost}")
+                            log.info(f"Boosting ({'phot-z' if phot_z_only else 'spec-z'}) existing solution:  {line.name}({line.w_rest}) + {boost}")
                             s.score += boost
 
 

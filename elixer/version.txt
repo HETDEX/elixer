@@ -1,5 +1,10 @@
 changes to elixer by version
 
+
+1.15.0a1 [2021-12-21]
+* bump minor version number due to large number of changes over 1.14.x series (see 1.14.0a9)
+* minor logging changes
+
 1.14.0a9 [2021-12-20]
 * Always plot SEP apertures even if elixer circular apeture is used (e.g. if SEP too far from allowed distance)
 * Only use estimated physical size IF there are qualified SEP detections (i.e. if the deepest g or r images have
