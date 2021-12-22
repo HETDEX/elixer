@@ -4621,6 +4621,14 @@ def main():
                                                           % (round(plae, 3), round(plae_high, 3), round(plae_low, 3),
                                                              int(scale_plae), reason)
                                         else:
+                                            try: #will want to check some flags in best_redshift() to impact p_of_z
+                                                if not e.full_flag_check_performed:
+                                                    e.flag_check()
+                                                if e.flags != 0:
+                                                    header_text += f"    Flags:0x{e.flags:08x}"
+                                            except:
+                                                pass
+
                                             best_z, p_of_z = e.best_redshift()
 
                                             if p_of_z > 0:

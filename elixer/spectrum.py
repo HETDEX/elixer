@@ -3966,7 +3966,7 @@ class Spectrum:
         return None
 
 
-    def match_lines(self,obs_w,z,z_error=0.05,aa_error=None,allow_emission=True,allow_absorption=False,max_rank=5):
+    def match_lines(self,obs_w,z,z_error=None,aa_error=None,allow_emission=True,allow_absorption=False,max_rank=5):
         """
 
         Like match_line, but plural. Can return multiple lines
@@ -4717,11 +4717,11 @@ class Spectrum:
                            [1,0,0,0,0,0,0,0,1,0,0],  #8 HeII
                            [1,0,0,0,0,0,0,0,0,1,0],  #9 OVI
                            [0,0,0,0,1,0,0,0,0,0,1] ] #10 OII (just with MgII)
-            #  0 1 2 3 4 5 6 7 8 9 10
+                         #  0 1 2 3 4 5 6 7 8 9 10
 
             match_matrix = np.array(match_matrix)
-
-            match_matrix_weights = np.array([3,1,1,0.5,1,1,0.5,0.5,1,1,2])
+                                          #   0   1  2   3   4   5   6    7  8   9   10
+            match_matrix_weights = np.array([2.0,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5])
 
             #todo: 2 matrices (min and max ratios) so can put each line vs other line
             # like the match_matrix in the low-z galaxy check (but with floats) as row/column
@@ -4883,10 +4883,26 @@ class Spectrum:
                     score = min(-1.0,score) #very inconsistent with LyA, so at least -1.0 or lower
 
                 return score
-            else:
-                #no LAE
-                return 0
+            else: #LyA is NOT found in the list of lines, but this is supposedly in the 1.88 < z < 3.52 range
+                #now, this *could* be an LBG or somehow LyA is very weak, but that is very unlikely for HETDEX
+                #and HETDEX wants LAEs, so mark this as unlikely
 
+                missing = []
+                in_range = np.where((obs_waves > 3500.) & (obs_waves < 5500.))[0]
+                for i in range(len(overlap)):
+                    if np.sum(match_matrix[rest_idx[i]]) > 1:
+                        # at least one other line must be found (IF the obs_wave is in the HETDEX range)
+                        sel = np.intersect1d(in_range, np.where(match_matrix[rest_idx[i]])[0])
+                        missing = np.union1d(missing, np.setdiff1d(sel, rest_idx)).astype(int)
+
+                # score = -1 * len(missing)
+                score = -1 * np.sum(match_matrix_weights[missing])
+
+                log.info(f"In solution_consitent_with_lae():  Missing {len(missing)} required lines. Score = {score}")
+
+                #todo: right now only checking the presence of the line, not the ratios
+
+                return score
         except:
             log.info("Exception in Spectrum::solution_consistent_with_lae",exc_info=True)
             return 0

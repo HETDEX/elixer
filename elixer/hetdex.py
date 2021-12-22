@@ -1839,14 +1839,22 @@ class DetObj:
                     rest = G.OII_rest
                     p = plya_for_oii*p/2. #remember, this is just NOT LyA .. so while OII is the most common, it is hardly the only solution
                          #so the highest possible would tbe 50%: P(LyA) = 0.0 ==> abs(0.5-0.0)/0.5/2. = 0.5
+
                     #limit p to a maximum
-                    p = min(p,0.8)
+                    if self.flags & G.DETFLAG_DEX_GMAG_INCONSISTENT:
+                        p = min(p,0.1)
+                    else:
+                        p = min(p,0.8)
                     log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
             elif scaled_plae_classification > 0.7:
                 z= self.w / G.LyA_rest - 1.0
                 rest = G.LyA_rest
+
                 #limit p to a maximum
-                p = min(p,0.8)
+                if self.flags & G.DETFLAG_DEX_GMAG_INCONSISTENT:
+                    p = min(p,0.1)
+                else:
+                    p = min(p,0.8)
 
                 log.info(f"Q(z): no multiline solutions. P(LyA) favors LyA. Set to LyA z:{z} with Q(z): {p}")
             else: #we are in no-man's land
@@ -1856,7 +1864,10 @@ class DetObj:
                     z= self.w / G.LyA_rest - 1.0
 
                 #limit p to a maximum
-                p = min(p,0.25)
+                if self.flags & G.DETFLAG_DEX_GMAG_INCONSISTENT:
+                    p = min(p,0.1)
+                else:
+                    p = min(p,0.25)
 
                 log.info(f"Q(z): no multiline solutions, no strong P(LyA). z:{z} with Q(z): {p}")
 

@@ -4,6 +4,8 @@ changes to elixer by version
 1.15.0a1 [2021-12-21]
 * bump minor version number due to large number of changes over 1.14.x series (see 1.14.0a9)
 * minor logging changes
+* Update consistency check for 1.88 < z < 3.52 to check not only LyA, but presence of other required lines given the
+  proposed solution lines.
 
 1.14.0a9 [2021-12-20]
 * Always plot SEP apertures even if elixer circular apeture is used (e.g. if SEP too far from allowed distance)
