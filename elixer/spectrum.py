@@ -1019,7 +1019,16 @@ class EmissionLineInfo:
                     if (self.snr < 8.0 and self.fit_chi2 > 3.0) or \
                        ((self.snr > 8.0) and (self.fit_chi2 > 3.0) and (self.snr/self.fit_chi2 < 3)):
                         #penalize the line score
+                        # if self.snr > self.fit_chi2: #moderate a little
+                        #     self.line_score = self.line_score / (self.fit_chi2 - 1.0) / 0.75
+                        # else:
+                        #     self.line_score /= (self.fit_chi2 - 1.0)
                         self.line_score /= (self.fit_chi2 - 1.0)
+                    if self.snr < 6.0 and self.fwhm > MAX_NORMAL_FWHM: #really broad and low SNR
+                        rescale = self.snr / 6.0 * (MAX_NORMAL_FWHM / self.fwhm )
+                        self.line_score *= rescale
+                        log.info(f"Rescoring line. Very broad fwhm ({self.fwhm:0.2f}/{MAX_NORMAL_FWHM}) "
+                                 f"and low SNR ({self.snr:0.2f}/6.0). Factor {rescale:0.2f}. New score = {self.line_score}")
 
                     if self.absorber:
                         self.line_score *= -1
@@ -1140,7 +1149,8 @@ class EmissionLineInfo:
         else:
             line_score_multiplier = 1.0
 
-        if not (allow_broad or self.broadfit) and (self.fit_sigma >= LIMIT_BROAD_SIGMA):
+        if not (allow_broad or self.broadfit) and (self.fit_sigma >= LIMIT_BROAD_SIGMA) and \
+                not ((self.fwhm < MAX_FWHM) and (self.snr > MIN_HUGE_FWHM_SNR)):
             log.debug(f"Line sigma {self.fit_sigma} in broad range {LIMIT_BROAD_SIGMA} and broad line not allowed.")
             return False
         elif (self.fit_sigma > GOOD_BROADLINE_SIGMA) and (self.line_score < GOOD_BROADLINE_MIN_LINE_SCORE):

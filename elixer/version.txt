@@ -8,6 +8,8 @@ changes to elixer by version
   proposed solution lines.
 * Update clustering to allow use of mean redshift even if no neighbor is sufficienly brigher than target if the stddev
   is tight.
+* Tweak line scoring to penalize low SNR high sigma lines.
+* Moderate the penalty for
 
 1.14.0a9 [2021-12-20]
 * Always plot SEP apertures even if elixer circular apeture is used (e.g. if SEP too far from allowed distance)
