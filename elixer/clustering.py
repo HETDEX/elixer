@@ -138,6 +138,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
 
         #check lines
         neighbor_ids = rows['detectid']
+        neighbor_z = rows['best_z']
         line_scores = np.zeros(len(neighbor_ids))
         line_w_obs = np.zeros(len(neighbor_ids))
         used_in_solution = np.full(len(neighbor_ids),False)
@@ -182,6 +183,22 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
             log.info(f"Clustering on {detectid}. No neighbors meet minimum emission line requirements.")
             return cluster_dict
 
+        #is there a mix of z that would trigger a flag?
+        std = np.std(neighbor_z[sel])
+        avg = np.mean(neighbor_z[sel])
+
+        dict_flag = 0
+        use_avg = False
+        if std > (0.1 * avg):
+            dict_flag |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
+        elif np.sum(sel) > 4:
+            if abs(avg - target_z) < 0.1:
+                log.info(f"Clustering on {detectid}. Neighbors at same average z = {target_z:0.5f}")
+                return cluster_dict
+            else:
+                use_avg = True
+
+
         #now choose the "best" one from those that remain
         rows = rows[sel]
         line_scores = line_scores[sel]
@@ -201,13 +218,21 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
                 best_idx = best_line
 
 
+        if use_avg and abs(rows[best_idx]['best_z'] - avg) > 0.1:
+            #this is a problem ... this should normally match that average
+            #we are going to keep going, but set the flag
+            dict_flag |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
+            #the assumption is that the many in the average are "wrong" and this best is right
+            #could be the many are around the periphery of a bright object
+
+
         #check if the z is the same, then don't bother
         if abs(rows[best_idx]['best_z'] - target_z) < 0.1:
             log.info(f"Clustering on {detectid}. Neighbors at same z = {target_z:0.5f}")
             return cluster_dict
 
         #check that the neighbor is brighter than the target
-        if target_gmag > 0 and (rows[best_idx]['mag_sdss_g'] - target_gmag) > -0.2:
+        if not use_avg and (target_gmag > 0 and (rows[best_idx]['mag_sdss_g'] - target_gmag) > -0.2):
             log.info(f"Clustering on {detectid}. Neighbor not brighter than target.")
             return cluster_dict
 
@@ -248,7 +273,8 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
                             "neighhor_gmag": rows[best_idx]['mag_sdss_g'],
                             "neighbor_z": rows[best_idx]['best_z'],
                             "neighbor_qz": rows[best_idx]['best_pz'],
-                            "neighbor_plya": plya
+                            "neighbor_plya": plya,
+                            "flag": dict_flag
                             }
 
         log.info(f"Clustering on {detectid}. Found bright neighbor ({rows[best_idx]['detectid']}) at z = {rows[best_idx]['best_z']:0.5f}")

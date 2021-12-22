@@ -2099,6 +2099,7 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
                 msg = "%d detection records found +/- %g\" from %f, %f (%s)" % (len(detectids), error * 3600., ra, dec, hdf5)
                 log.info(msg)
                 print(msg)
+                log.debug(f"DetectIDs: {detectids}")
             else:
                 msg = "0 detection records found +/- %g\" from %f, %f (%s)" % (error * 3600., ra, dec,hdf5)
                 log.info(msg)

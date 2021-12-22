@@ -1943,6 +1943,7 @@ class DetObj:
             z = self.cluster_list[i]['neighbor_z']
             self.cluster_z = z
             self.cluster_qz = self.cluster_list[i]['neighbor_qz']
+            cluster_flag = self.cluster_list[i]['flag']
 
             #get the matching line (should be exactly one)
             lines = self.spec_obj.match_lines(self.w,z,z_error=0.001,aa_error=None,allow_absorption=False)
@@ -1995,7 +1996,7 @@ class DetObj:
 
 
                 self.spec_obj.solutions.append(sol)
-
+                self.flags != cluster_flag #e.g. if neighbors with matching lines have different z, then mark as uncertain
 
             self.cluster_parent = self.cluster_list[i]['neighborid']
             self.spec_obj.rescore()
