@@ -4603,8 +4603,8 @@ class DetObj:
             # score is the sum of the observed eq widths
             if  (self.spec_obj.solutions[0].score >= G.MULTILINE_MIN_SOLUTION_SCORE) and \
                 (self.spec_obj.solutions[0].scale_score >= G.MULTILINE_MIN_SOLUTION_CONFIDENCE) and \
-                (self.spec_obj.solutions[0].frac_score > 0.5) and \
-                (len(self.spec_obj.solutions[0].lines) >= G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY):
+                (self.spec_obj.solutions[0].frac_score > 0.5):# and \
+                #(len(self.spec_obj.solutions[0].lines) >= G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY):
 
                 if (len(self.spec_obj.solutions) == 1) or \
                     ((len(self.spec_obj.solutions) > 1) and \
