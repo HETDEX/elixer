@@ -125,10 +125,13 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
             #cutout.vmax = np.max(hdu[0].data)
             #cutout.vmin = np.min(hdu[0].data)
 
-            avg = np.median(hdu[0].data)
+            #subtract off the avg
+            hdu[0].data -= np.median(hdu[0].data)
+
+
             std = np.std(hdu[0].data)
-            cutout.vmax = avg + 5 * std
-            cutout.vmin = max( np.min(hdu[0].data), avg -5 * std) #None
+            cutout.vmax = 4 * std
+            cutout.vmin = max( np.min(hdu[0].data),  -1 * std) #None
         else:
 
             hdu = phot_tools.get_line_image(friendid=friendid,
@@ -162,10 +165,12 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
             cutout.wcs = WCS(cutout.header)
             cutout.flux, cutout.flux_err, cutout.bkg_stddev, cutout.apcor = None, None, None, None
 
-            avg = np.median(hdu[0].data)
+            #subtract off the avg
+            hdu[0].data -= np.median(hdu[0].data)
+
             std = np.std(hdu[0].data)
-            cutout.vmax = avg + 5 * std
-            cutout.vmin = max( np.min(hdu[0].data), avg -5 * std) #None
+            cutout.vmax = 4 * std
+            cutout.vmin = max( np.min(hdu[0].data), -1 * std) #None
             cutout.wave = w
             cutout.d_wave = dw
 

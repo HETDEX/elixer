@@ -184,6 +184,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
             return cluster_dict
 
         #is there a mix of z that would trigger a flag?
+        #or are they all (or almost all) at the same redshift?
         std = np.std(neighbor_z[sel])
         avg = np.mean(neighbor_z[sel])
 
@@ -191,11 +192,11 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
         use_avg = False
         if std > (0.1 * avg):
             dict_flag |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
-        elif np.sum(sel) > 4:
+        elif np.sum(sel) > 2: #3 or more
             if abs(avg - target_z) < 0.1:
                 log.info(f"Clustering on {detectid}. Neighbors at same average z = {target_z:0.5f}")
                 return cluster_dict
-            else:
+            else: #we can use the average even if the brightest neighbor does not provide a good redshift
                 use_avg = True
 
 

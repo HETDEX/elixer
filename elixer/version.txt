@@ -1,15 +1,17 @@
 changes to elixer by version
 
+1.15.0a2 [2022-01-06]
+* tweak the contrast stretch on the line image to better match with hetdex_api
 
 1.15.0a1 [2021-12-22]
 * bump minor version number due to large number of changes over 1.14.x series (see 1.14.0a9)
 * minor logging changes
 * Update consistency check for 1.88 < z < 3.52 to check not only LyA, but presence of other required lines given the
   proposed solution lines.
-* Update clustering to allow use of mean redshift even if no neighbor is sufficienly brigher than target if the stddev
+* Update clustering to allow use of mean redshift even if no neighbor is sufficienly brighter than target if the stddev
   is tight.
 * Tweak line scoring to penalize low SNR high sigma lines.
-* Moderate the penalty for
+
 
 1.14.0a9 [2021-12-20]
 * Always plot SEP apertures even if elixer circular apeture is used (e.g. if SEP too far from allowed distance)
