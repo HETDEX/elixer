@@ -1414,6 +1414,25 @@ class DetObj:
                         log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_COUNTERPART_NOT_FOUND")
 
 
+
+
+                ######################################################
+                # check for large neighbor in SEP objects
+                # G.DETFLAG_LARGE_NEIGHBOR
+                ######################################################
+                new_flag = 0
+                for d in self.aperture_details_list:
+                    if not want_band(d['filter_name']):
+                        continue
+
+                    for s in d['sep_objects']:
+                        if (s['selected'] is False) and (s['mag'] < 23) and (s['mag'] < self.best_gmag) and \
+                            (s['a'] > 4.0) and (s['dist_curve'] < s['a']):
+                            log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_LARGE_NEIGHBOR")
+                            self.flags |= G.DETFLAG_LARGE_NEIGHBOR
+                            #only need one for this to trip
+                            break
+
                 ######################################################
                 # check for no SEP ellipse wthin 0.5"
                 # NOTE: specfically this only applies to SEP ellipses ... if there are NO ellipses this flag is skipped
@@ -1845,6 +1864,12 @@ class DetObj:
                         p = min(p,0.1)
                     else:
                         p = min(p,0.8)
+
+                    #p might already be lower because of above check, but if there is a large neighbor and no other limit
+                    #reduce p
+                    if self.flags & G.DETFLAG_LARGE_NEIGHBOR:
+                        p = min(p,0.4)
+
                     log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
             elif scaled_plae_classification > 0.7:
                 z= self.w / G.LyA_rest - 1.0
@@ -1855,6 +1880,11 @@ class DetObj:
                     p = min(p,0.1)
                 else:
                     p = min(p,0.8)
+
+                #p might already be lower because of above check, but if there is a large neighbor and no other limit
+                #reduce p
+                if self.flags & G.DETFLAG_LARGE_NEIGHBOR:
+                    p = min(p,0.4)
 
                 log.info(f"Q(z): no multiline solutions. P(LyA) favors LyA. Set to LyA z:{z} with Q(z): {p}")
             else: #we are in no-man's land
@@ -1868,6 +1898,11 @@ class DetObj:
                     p = min(p,0.1)
                 else:
                     p = min(p,0.25)
+
+                #p might already be lower because of above check, but if there is a large neighbor and no other limit
+                #reduce p
+                if self.flags & G.DETFLAG_LARGE_NEIGHBOR:
+                    p = min(p,0.4)
 
                 log.info(f"Q(z): no multiline solutions, no strong P(LyA). z:{z} with Q(z): {p}")
 
@@ -4083,7 +4118,7 @@ class DetObj:
                     nondetect.append(1)
 
                     log.debug(
-                        f"{self.entry_id} Combine ALL Continuum: Failed best spectrum gmag estimate, setting to lower limit "
+                        f"{self.entry_id} Combine ALL Continuum: best spectrum gmag estimate fainter than limit. Setting to lower limit "
                         f"({continuum[-1]:#.4g}) "
                         f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
             else:
@@ -6455,16 +6490,8 @@ class DetObj:
             # choose the best
             #even IF okay == 0, still record the probably bogus value (when
             #actually using the values elsewhere they are compared to a limit and the limit is used if needed
-            if sdss_okay >= hetdex_okay and not np.isnan(self.sdss_cgs_cont) and (self.sdss_cgs_cont is not None):
-                self.best_gmag_selected = 'sdss'
-                self.best_gmag = self.sdss_gmag
-                self.best_gmag_unc = self.sdss_gmag_unc
-                self.best_gmag_cgs_cont = self.sdss_cgs_cont
-                self.best_gmag_cgs_cont_unc = self.sdss_cgs_cont_unc
-                self.best_eqw_gmag_obs = self.eqw_sdss_obs
-                self.best_eqw_gmag_obs_unc = self.eqw_sdss_obs_unc
-                log.debug("Using SDSS gmag over HETDEX full width gmag")
-            elif hetdex_okay > 0 and not np.isnan(self.hetdex_gmag_cgs_cont) and (self.hetdex_gmag_cgs_cont is not None):
+
+            if hetdex_okay >= sdss_okay and not np.isnan(self.hetdex_gmag_cgs_cont) and (self.hetdex_gmag_cgs_cont is not None):
                 self.best_gmag_selected = 'hetdex'
                 self.best_gmag = self.hetdex_gmag
                 self.best_gmag_unc = self.hetdex_gmag_unc
@@ -6473,6 +6500,15 @@ class DetObj:
                 self.best_eqw_gmag_obs = self.eqw_hetdex_gmag_obs
                 self.best_eqw_gmag_obs_unc = self.eqw_hetdex_gmag_obs_unc
                 log.debug("Using HETDEX full width gmag over SDSS gmag.")
+            elif sdss_okay > 0 and not np.isnan(self.sdss_cgs_cont) and (self.sdss_cgs_cont is not None):
+                self.best_gmag_selected = 'sdss'
+                self.best_gmag = self.sdss_gmag
+                self.best_gmag_unc = self.sdss_gmag_unc
+                self.best_gmag_cgs_cont = self.sdss_cgs_cont
+                self.best_gmag_cgs_cont_unc = self.sdss_cgs_cont_unc
+                self.best_eqw_gmag_obs = self.eqw_sdss_obs
+                self.best_eqw_gmag_obs_unc = self.eqw_sdss_obs_unc
+                log.debug("Using SDSS gmag over HETDEX full width gmag")
             else: #something catastrophically bad
                 log.debug("No full width spectrum g-mag estimate is valid.")
                 self.best_gmag_selected = 'limit'
@@ -6482,6 +6518,16 @@ class DetObj:
                 self.best_gmag_cgs_cont_unc = 0
                 self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
                 self.best_eqw_gmag_obs_unc = 0
+
+            try:
+                if (hetdex_okay == sdss_okay) and \
+                        ((self.hetdex_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT) or (self.sdss_gmag <  HETDEX_CONTINUUM_MAG_LIMIT)) and \
+                        (abs(self.hetdex_gmag - self.sdss_gmag) >= (self.hetdex_gmag_unc + self.sdss_gmag_unc)):
+                    self.flags |= G.DETFLAG_DEXSPEC_GMAG_INCONSISTENT
+                    log.info(f"DEX spectrum gmag disagree. Dex g {self.hetdex_gmag:0.2f} +/- {self.hetdex_gmag_unc:0.3f} "
+                             f"vs SDSS g {self.sdss_gmag:0.2f} +/- {self.sdss_gmag_unc:0.3f}")
+            except:
+                pass
 
             try:
                 self.hetdex_cont_cgs = self.cont_cgs
@@ -6835,16 +6881,7 @@ class DetObj:
             #choose the best
             # even IF okay == 0, still record the probably bogus value (when
             # actually using the values elsewhere they are compared to a limit and the limit is used if needed
-            if sdss_okay >= hetdex_okay and (self.sdss_cgs_cont is not None) and not np.isnan(self.sdss_cgs_cont):
-                self.best_gmag_selected = 'sdss'
-                self.best_gmag = self.sdss_gmag
-                self.best_gmag_unc = self.sdss_gmag_unc
-                self.best_gmag_cgs_cont = self.sdss_cgs_cont
-                self.best_gmag_cgs_cont_unc = self.sdss_cgs_cont_unc
-                self.best_eqw_gmag_obs = self.eqw_sdss_obs
-                self.best_eqw_gmag_obs_unc = self.eqw_sdss_obs_unc
-                log.debug("Using SDSS gmag over HETDEX full width gmag")
-            elif hetdex_okay > 0 and (self.hetdex_gmag_cgs_cont is not None) and not np.isnan(self.hetdex_gmag_cgs_cont):
+            if hetdex_okay >= sdss_okay and not np.isnan(self.hetdex_gmag_cgs_cont) and (self.hetdex_gmag_cgs_cont is not None):
                 self.best_gmag_selected = 'hetdex'
                 self.best_gmag = self.hetdex_gmag
                 self.best_gmag_unc = self.hetdex_gmag_unc
@@ -6853,6 +6890,15 @@ class DetObj:
                 self.best_eqw_gmag_obs = self.eqw_hetdex_gmag_obs
                 self.best_eqw_gmag_obs_unc = self.eqw_hetdex_gmag_obs_unc
                 log.debug("Using HETDEX full width gmag over SDSS gmag.")
+            elif sdss_okay > 0 and not np.isnan(self.sdss_cgs_cont) and (self.sdss_cgs_cont is not None):
+                self.best_gmag_selected = 'sdss'
+                self.best_gmag = self.sdss_gmag
+                self.best_gmag_unc = self.sdss_gmag_unc
+                self.best_gmag_cgs_cont = self.sdss_cgs_cont
+                self.best_gmag_cgs_cont_unc = self.sdss_cgs_cont_unc
+                self.best_eqw_gmag_obs = self.eqw_sdss_obs
+                self.best_eqw_gmag_obs_unc = self.eqw_sdss_obs_unc
+                log.debug("Using SDSS gmag over HETDEX full width gmag")
             else:
                 log.debug("No full width spectrum g-mag estimate is valid.")
                 self.best_gmag_selected = 'limit'
@@ -6862,6 +6908,16 @@ class DetObj:
                 self.best_gmag_cgs_cont_unc = 0
                 self.best_eqw_gmag_obs =  self.estflux / self.best_gmag_cgs_cont
                 self.best_eqw_gmag_obs_unc = 0
+
+            try:
+                if (hetdex_okay == sdss_okay) and \
+                    ((self.hetdex_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT) or (self.sdss_gmag <  HETDEX_CONTINUUM_MAG_LIMIT)) and \
+                    (abs(self.hetdex_gmag - self.sdss_gmag) >= (self.hetdex_gmag_unc + self.sdss_gmag_unc)):
+                    self.flags |= G.DETFLAG_DEXSPEC_GMAG_INCONSISTENT
+                    log.info(f"DEX spectrum gmag disagree. Dex g {self.hetdex_gmag:0.2f} +/- {self.hetdex_gmag_unc:0.3f} "
+                             f"vs SDSS g {self.sdss_gmag:0.2f} +/- {self.sdss_gmag_unc:0.3f}")
+            except:
+                pass
 
             try:
                 self.hetdex_cont_cgs = self.cont_cgs

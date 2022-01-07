@@ -1,7 +1,10 @@
 changes to elixer by version
 
-1.15.0a2 [2022-01-06]
+1.15.0a2 [2022-01-07]
 * tweak the contrast stretch on the line image to better match with hetdex_api
+* flipped preference to use HETDEX spectrum gmag over speclite SDSS gmag
+* add source extractor object large neighbor flag. If no multi-line solution, lowers the Q(z) to max of 0.4
+
 
 1.15.0a1 [2021-12-22]
 * bump minor version number due to large number of changes over 1.14.x series (see 1.14.0a9)

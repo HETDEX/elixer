@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 install_requires = ['numpy>=1.18.2', 'astropy>=4.0', 'scipy>=1.4',
                     'tables>=3.6.1', 'speclite>=0.8', 'emcee>=3.0.2',
                     'photutils>=0.7.1','astroquery>=0.3.10','pandas>=1.1.0',
-                    'pdf2image>=1.9.0', 'pyhetdex>=0.10', 'sep>=1.0.3',
+                    'pdf2image>=1.16.0', 'pyhetdex>=0.10', 'sep>=1.0.3',
                     'specutils>=1.0']
 
 extras = {}

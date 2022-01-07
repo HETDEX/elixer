@@ -998,7 +998,6 @@ DETFLAG_DISTANT_COUNTERPART         = 0x00000040
                                         #may need inspection to see if associated with large object OR is a faint
                                         #detection or even lensed
 
-#todo:
 DETFLAG_COUNTERPART_MAG_MISMATCH    = 0x00000080 #r,g magnitude of catalog counterpart varies significantly from the
                                         #aperture magnitude AND is fainter than 22
 
@@ -1006,7 +1005,6 @@ DETFLAG_NO_IMAGING                  = 0x00000100 #no overlapping imaging at all
 DETFLAG_POOR_IMAGING                = 0x00000200 #poor depth (in g,r) ... like just SDSS or PanSTARRS (worse than 24.5)
                                                  #AND the object is not bright (fainter than 23)
 
-#todo:
 DETFLAG_LARGE_SKY_SUB               = 0x00000400 #possibly excessive sky subtraction in g or r band
                                         #can impact the magnitude calculation (so partly redundant with others)
 
@@ -1015,6 +1013,11 @@ DETFLAG_EXT_CAT_QUESTIONABLE_Z      = 0x00000800 #best redshift reported is from
 
 DETFLAG_Z_FROM_NEIGHBOR             = 0x00001000 #the original redshift was replaced by that of a neighbor
                                                  #as a better redshift
+
+DETFLAG_DEXSPEC_GMAG_INCONSISTENT   = 0x00002000 #the straight gmag from the DEX spectrum and from SDSS filter do not agree
+
+DETFLAG_LARGE_NEIGHBOR              = 0x00004000 #imaging and SEP show/suggest a large, bright neighbor that could be
+                                                 #messing up the classification and continuum measure
 #todo: low SNR, weighted position is between fibers (i.e. distances from blue fiber center > 0.74 or 0.75 and SNR < 5.2 or so)
 
 
