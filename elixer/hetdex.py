@@ -1422,7 +1422,7 @@ class DetObj:
                 ######################################################
                 new_flag = 0
                 for d in self.aperture_details_list:
-                    if not want_band(d['filter_name']):
+                    if not want_band(d['filter_name']) or (d['sep_objects'] is None):
                         continue
 
                     for s in d['sep_objects']:
@@ -1647,6 +1647,7 @@ class DetObj:
             plya_for_oii = 0.7 #with no other evidence other than P(LyA) that favors OII, since it can be other lines
                                #not just OII, rescale by this factor when assuming OII
             rest = 0
+            multiline_sol_diag = 0 #some diagnostic info on a potential multiline soluition
             #is the multiline solution (which has been updated with catalog phot-z and spec-z)
             #consistent with lowz or high-z?
 
@@ -1744,6 +1745,7 @@ class DetObj:
                         if scaled_plae_classification > 0.5: #more supportive case
                             p = 0.5 * (p + scaled_plae_classification) #half from the P(LyA) and half from the scale_score
 
+                        multiline_sol_diag = 1 #good and agree
                         log.info(f"P(z): Multiline solution[{idx}] {self.spec_obj.solutions[idx].name} score {scale_score} "
                                  f"and P(LyA) {scaled_plae_classification} agree. Set to z: {z} with Q(z): {p}")
                 else: #use the 1st (highes score) that disagrees
@@ -1932,6 +1934,16 @@ class DetObj:
                     log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_UNCERTAIN_CLASSIFICATION (in best_redshift)")
             except:
                 log.debug("Exception sanity checking best_z in hetdex::DetObj::best_redshift()",exc_info=True)
+
+            #check aperture correction at spectrum midpoint ... can be excessive
+            #yes ... the clustering could undo this and that is okay
+            try:
+                apcor = self.sumspec_apcor[515]
+                if apcor < 0.9 and multiline_sol_diag < 1 and self.best_gmag > 23.0:
+                    log.info(f"Modifying Q(z) by x{apcor*apcor:0.2f} due to high aperture correction {apcor:0.2f}")
+                    p *= apcor * apcor
+            except:
+                pass
 
             if self.cluster_parent != 0 and z == self.cluster_z and self.cluster_qz > 0:
                 log.info(f"Clustering. Setting Q(z) to cluster parent Q(z): {self.cluster_qz:0.2f} ")
@@ -6522,7 +6534,7 @@ class DetObj:
             try:
                 if (hetdex_okay == sdss_okay) and \
                         ((self.hetdex_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT) or (self.sdss_gmag <  HETDEX_CONTINUUM_MAG_LIMIT)) and \
-                        (abs(self.hetdex_gmag - self.sdss_gmag) >= (self.hetdex_gmag_unc + self.sdss_gmag_unc)):
+                        (abs(self.hetdex_gmag - self.sdss_gmag) > (self.hetdex_gmag_unc + self.sdss_gmag_unc)):
                     self.flags |= G.DETFLAG_DEXSPEC_GMAG_INCONSISTENT
                     log.info(f"DEX spectrum gmag disagree. Dex g {self.hetdex_gmag:0.2f} +/- {self.hetdex_gmag_unc:0.3f} "
                              f"vs SDSS g {self.sdss_gmag:0.2f} +/- {self.sdss_gmag_unc:0.3f}")
@@ -6912,7 +6924,7 @@ class DetObj:
             try:
                 if (hetdex_okay == sdss_okay) and \
                     ((self.hetdex_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT) or (self.sdss_gmag <  HETDEX_CONTINUUM_MAG_LIMIT)) and \
-                    (abs(self.hetdex_gmag - self.sdss_gmag) >= (self.hetdex_gmag_unc + self.sdss_gmag_unc)):
+                    (abs(self.hetdex_gmag - self.sdss_gmag) > (self.hetdex_gmag_unc + self.sdss_gmag_unc)):
                     self.flags |= G.DETFLAG_DEXSPEC_GMAG_INCONSISTENT
                     log.info(f"DEX spectrum gmag disagree. Dex g {self.hetdex_gmag:0.2f} +/- {self.hetdex_gmag_unc:0.3f} "
                              f"vs SDSS g {self.sdss_gmag:0.2f} +/- {self.sdss_gmag_unc:0.3f}")
