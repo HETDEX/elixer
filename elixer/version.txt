@@ -1,9 +1,11 @@
 changes to elixer by version
 
-1.15.0a2 [2022-01-07]
+1.15.0a2 [2022-01-11]
 * tweak the contrast stretch on the line image to better match with hetdex_api
-* flipped preference to use HETDEX spectrum gmag over speclite SDSS gmag
+* flipped preference to use HETDEX spectrum gmag over speclite SDSS gmag. Set flag if difference > 0.5 and > uncertainty
+  in the two measures. HETDEX spectrum tends to be brighter than speclite and seems to "fix" marginal PLAE/POII.
 * add source extractor object large neighbor flag. If no multi-line solution, lowers the Q(z) to max of 0.4
+* adjust down Q(z) if apcor is large
 
 
 1.15.0a1 [2021-12-22]

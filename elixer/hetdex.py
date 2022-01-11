@@ -6532,11 +6532,14 @@ class DetObj:
                 self.best_eqw_gmag_obs_unc = 0
 
             try:
+                diff = abs(self.hetdex_gmag - self.sdss_gmag)
+                unc = self.hetdex_gmag_unc + self.sdss_gmag_unc
                 if (hetdex_okay == sdss_okay) and \
                         ((self.hetdex_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT) or (self.sdss_gmag <  HETDEX_CONTINUUM_MAG_LIMIT)) and \
-                        (abs(self.hetdex_gmag - self.sdss_gmag) > (self.hetdex_gmag_unc + self.sdss_gmag_unc)):
+                        ((diff > unc) and (diff > 0.5)):
                     self.flags |= G.DETFLAG_DEXSPEC_GMAG_INCONSISTENT
-                    log.info(f"DEX spectrum gmag disagree. Dex g {self.hetdex_gmag:0.2f} +/- {self.hetdex_gmag_unc:0.3f} "
+                    log.info(f"DEX spectrum gmag disagree by {diff/unc:0.1f}x uncertainty. "
+                             f"Dex g {self.hetdex_gmag:0.2f} +/- {self.hetdex_gmag_unc:0.3f} "
                              f"vs SDSS g {self.sdss_gmag:0.2f} +/- {self.sdss_gmag_unc:0.3f}")
             except:
                 pass
@@ -6922,11 +6925,14 @@ class DetObj:
                 self.best_eqw_gmag_obs_unc = 0
 
             try:
+                diff = abs(self.hetdex_gmag - self.sdss_gmag)
+                unc = self.hetdex_gmag_unc + self.sdss_gmag_unc
                 if (hetdex_okay == sdss_okay) and \
                     ((self.hetdex_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT) or (self.sdss_gmag <  HETDEX_CONTINUUM_MAG_LIMIT)) and \
-                    (abs(self.hetdex_gmag - self.sdss_gmag) > (self.hetdex_gmag_unc + self.sdss_gmag_unc)):
+                    ((diff > unc) and (diff > 0.5)):
                     self.flags |= G.DETFLAG_DEXSPEC_GMAG_INCONSISTENT
-                    log.info(f"DEX spectrum gmag disagree. Dex g {self.hetdex_gmag:0.2f} +/- {self.hetdex_gmag_unc:0.3f} "
+                    log.info(f"DEX spectrum gmag disagree by {diff/unc:0.1f}x uncertainty. "
+                             f"Dex g {self.hetdex_gmag:0.2f} +/- {self.hetdex_gmag_unc:0.3f} "
                              f"vs SDSS g {self.sdss_gmag:0.2f} +/- {self.sdss_gmag_unc:0.3f}")
             except:
                 pass
