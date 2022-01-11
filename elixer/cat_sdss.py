@@ -109,6 +109,14 @@ class SDSS(cat_base.Catalog):#SDSS
 #     20.5
 
 
+ #update from https://www.sdss.org/dr16/imaging/other_info/
+#u = 22.15
+# g = 23.13
+# r = 22.70
+# i = 22.20
+# z = 20.71
+#median seeing in 'r' 1.32"
+
     MAG_LIMIT = 22.5
 
     # class variables
