@@ -1,5 +1,18 @@
 changes to elixer by version
 
+1.15.0a3 [2022-01-14]
+* fixed bug in checking SDSS redshift consistency with emission lines
+* added Q(z) sanity check for possible AGN (as defined by a FWHM velocity > 1500 km/s)
+* switch to use the mean of the SDSS gmag and the direct summed gmag from the DEX spectrum
+  + the DEX only PLAE/POII also updated to use this to sample for the continuum estimate
+* fix typo (long standing bug) in spectrum.get_hetdex_gmag in flux to flux_density that was ADDING in a 2.0AA
+  rather than multiply by 2.0AA. Since sdss_g mag was being used until 1.15.0a2, this was not exposed.
+* add correction to DEX-g (the average from SDSS-g and direct HETDEX spectrum) as the net sum of observed EW of
+  emission (- absoption) as fraction of full width of spectrum. This is to help correct for the emission and
+  absorption lines in the continuum estimate (the band pass mag is NOT modified). The effect is usually small (few %),
+  and only larger for AGN or spectra with really broad lines.
+* limit g and r OII/LAE mag zero point correction to wavelengths > ~4250 (LyA z > 2.5) per Leung+2017 (section 4.3)
+
 1.15.0a2 [2022-01-11]
 * tweak the contrast stretch on the line image to better match with hetdex_api
 * flipped preference to use HETDEX spectrum gmag over speclite SDSS gmag. Set flag if difference > 0.5 and > uncertainty

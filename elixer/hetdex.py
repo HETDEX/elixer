@@ -147,6 +147,11 @@ def adjusted_mag_zero(mag_zero, z):
     tweak the defined mag zero (where the LAE vs OII vote is zero weighted) by redshift
     Sets the zero at z = 2.5 and makes it a little brighter toward z = 2.0 [16% brighter] and fainter toward z = 3.5 [22% fainter]
     Uses factor of 1+z
+
+    Per Andrew's paper (Leung+2017), sec 4.3, 4.3, at LyA z 2.5- 3.5, the equivalent of OII, the OII colors get
+    a bit more red with weaker continuum and results in larger OII equivalent widths ... so the "danger" mag
+    gets a little fainter
+
     :param mag_zero:
     :param z:
     :return:
@@ -158,7 +163,11 @@ def adjusted_mag_zero(mag_zero, z):
     try:
         #this is very close to the more correct version of -2.5 log (f0/
         #at 7.5 (or 1+z)**3 cubed this is far too strong
-        adjust = 2.5 * np.log10((1+z) / 3.5) # 3.5 = 1 + 2.5 # 7.5x instead of 2.5x since want to use (1+z)**3
+        if z > 2.5:
+            adjust = 2.5 * np.log10((1+z) / 3.5) # 3.5 = 1 + 2.5 # 7.5x instead of 2.5x since want to use (1+z)**3
+        else:
+            adjust = 0
+        #per above, this effect really only starts z > 2.5 (or OII z > 0.14)
         return mag_zero + adjust
     except:
         log.debug("Exception in hetdex.py adjust_mag_zero().", exc_info=True)
@@ -1755,6 +1764,16 @@ class DetObj:
                     score = sol.score
                     pscore = SU.map_multiline_score_to_confidence(sol.scale_score)
 
+                    #if this is bright and broad, this may be an AGN ...
+                    possible_agn = False
+                    line_velocity = 0
+                    try:
+                        line_velocity = max(self.spec_obj.central_eli.fit_sigma *2.355,self.fwhm)/self.w * 3e5
+                        if line_velocity > G.FWHM_TYPE1_AGN_VELOCITY_THRESHOLD: #AGN?
+                            possible_agn = True
+                    except:
+                        pass
+
                     #P(LyA) and the multi-line score disagree
                     #the P(LyA) and scale_score are roughly on the same 0-1 scaling so we will choose the LyA favoring
                     # solution as THE solution and subtract away the dissent
@@ -1766,7 +1785,13 @@ class DetObj:
                         # for_lya = pscore - p
                         # for_oii = p
 
-                        if pscore > p: #multi-line solution "stronger" than P(LyA)
+                        if possible_agn:
+                            p = pscore
+                            z = self.w / G.LyA_rest - 1.0
+                            log.info(f"Q(z): Multiline solution favors LyA {pscore}. "
+                                     f"P(LyA) does not {scaled_plae_classification}. Large velocity, possible AGN. Set to LyA z:{z} with Q(z): {p}")
+
+                        elif pscore > p: #multi-line solution "stronger" than P(LyA)
                             p = max(0.05,pscore - p)
                             z = self.w / G.LyA_rest - 1.0
 
@@ -1802,8 +1827,14 @@ class DetObj:
                         if scaled_plae_classification < 0.5:
                             z = self.w / G.OII_rest - 1.0
 
-                            log.info(f"Q(z): Multiline solution rejected as weak and inconsistent. "
-                                     f"P(LyA) favors OII {scaled_plae_classification}. Set to OII z:{z} with Q(z): {p}")
+                            if possible_agn: #not likely OII given the velocity width, though could still be broadend
+                                p = min(0.2,p/2.0)
+                                log.info(f"Q(z): Multiline solution rejected as weak and inconsistent. "
+                                         f"P(LyA) favors OII {scaled_plae_classification}, but large velocity. Set to OII z:{z} with Q(z): {p}")
+                            else:
+
+                                log.info(f"Q(z): Multiline solution rejected as weak and inconsistent. "
+                                         f"P(LyA) favors OII {scaled_plae_classification}. Set to OII z:{z} with Q(z): {p}")
                         else:
                             z= self.w / G.LyA_rest - 1.0
 
@@ -2319,7 +2350,7 @@ class DetObj:
                         if z_err > 0.5 or ((z!= 0) and (z_err > 0.01) and (z_err/z > 0.2)):
                             continue #error too high
 
-                        if bid['z_err'] > 0.1: #phot_z
+                        if z_err > 0.1: #phot_z
                             max_rank = 3
                             allow_absorption = False
                         else: #spec_z
@@ -2327,65 +2358,67 @@ class DetObj:
                             allow_absorption = True
 
                         #mix of photz and specz (and can't tell?)
-                        line = self.spec_obj.match_lines(self.w,z,z_error=max(0.01,z_err),
+                        lines = self.spec_obj.match_lines(self.w,z,z_error=max(0.01,z_err),
                                                         allow_absorption=allow_absorption,max_rank=max_rank) #emission only
-                        if line:
-                            log.info(f"SDSS z-catalog possible line match: {line.name} {line.w_rest} z={z} rank={line.rank} sep={sep}")
-                            possible_lines.append(line)
+                        #in this case there should be exactly one, since only a single z
+                        if lines and len(lines)>0:
+                            for line in lines:
+                                log.info(f"SDSS z-catalog possible line match: {line.name} {line.w_rest} z={z} rank={line.rank} sep={sep}")
+                                possible_lines.append(line)
 
-                            #note: if d25 is > GALAXY_MASK_D25_SCORE_NORM, this actually starts reducing the boost as we
-                            # get farther from the body of the galaxy mask
-                            #lines like OII, OIII, H_beta, LyA, CIV are all low rank lines and get high boosts
-                            #where H_eta, CaII, NaI are higher rank (weaker lines) and get lower boosts (and are not
-                            #likely to be the HETDEX detection line anyway)
+                                #note: if d25 is > GALAXY_MASK_D25_SCORE_NORM, this actually starts reducing the boost as we
+                                # get farther from the body of the galaxy mask
+                                #lines like OII, OIII, H_beta, LyA, CIV are all low rank lines and get high boosts
+                                #where H_eta, CaII, NaI are higher rank (weaker lines) and get lower boosts (and are not
+                                #likely to be the HETDEX detection line anyway)
 
-                            #emission only
-                            rank_scale = 1.0 if line.rank <= 2 else 1.0/(line.rank-1.0)
+                                #emission only
+                                rank_scale = 1.0 if line.rank <= 2 else 1.0/(line.rank-1.0)
 
-                            z_scale = 1.0 if z_err > 0.1 else 2.0
-                            #todo: at this point we do not have the imaging and we do not know the size
-                            #of our candidates, so we will just assume point sources here and with a typical seeing/size
-                            #ideally we would base this on whether the SDSS coords are inside our candidate ellipse or
-                            #how far outside
-                            sep_scale = 1.0 if sep < 2.0 else 1/(sep - 1.0)
-                            #for low error z, bump up a little more
-                            boost = G.SDSS_SCORE_BOOST * rank_scale * z_scale * sep_scale + line_score
+                                z_scale = 1.0 if z_err > 0.1 else 2.0
+                                #todo: at this point we do not have the imaging and we do not know the size
+                                #of our candidates, so we will just assume point sources here and with a typical seeing/size
+                                #ideally we would base this on whether the SDSS coords are inside our candidate ellipse or
+                                #how far outside
+                                sep_scale = 1.0 if sep < 2.0 else 1/(sep - 1.0)
+                                #for low error z, bump up a little more
+                                boost = G.SDSS_SCORE_BOOST * rank_scale * z_scale * sep_scale + line_score
 
-                            #check the existing solutions ... if there is a corresponding z solution, boost its score
-                            new_solution = True
-                            for s in self.spec_obj.solutions:
-                                if s.central_rest == line.w_rest:
-                                    new_solution = False
-                                    log.info(f"Boosting existing solution:  {line.name}({line.w_rest}) + {boost}")
-                                    s.score += boost
-                                    self.spec_obj.add_classification_label(label,prepend=True)
+                                #check the existing solutions ... if there is a corresponding z solution, boost its score
+                                new_solution = True
+                                for s in self.spec_obj.solutions:
+                                    if s.central_rest == line.w_rest:
+                                        new_solution = False
+                                        log.info(f"Boosting existing solution:  {line.name}({line.w_rest}) + {boost}")
+                                        s.score += boost
+                                        self.spec_obj.add_classification_label(label,prepend=True)
 
-                            if new_solution and (line.solution) and self.spec_obj.single_emission_line_redshift(line,self.w):
-                                boost /= 2.0 #cut in half for a new solution (as opposed to boosting an existing solution)
-                                log.info(f"SDSS z: Adding new solution {line.name}({line.w_rest}): score = {boost}")
-                                sol = elixer_spectrum.Classifier_Solution()
-                                sol.z = self.w/line.w_rest - 1.0
-                                sol.central_rest = line.w_rest
-                                sol.name = line.name
-                                sol.color = line.color
-                                sol.emission_line = deepcopy(line)
-                                #add the central line info for flux, etc to line (basic info)
-                                if central_eli is not None:
-                                    sol.emission_line.line_score =central_eli.line_score
-                                    sol.emission_line.flux = central_eli.line_flux
-                                    sol.emission_line.flux_err = central_eli.line_flux_err
-                                    sol.emission_line.snr = central_eli.snr
-                                sol.emission_line.w_obs = self.w
-                                sol.emission_line.solution = True
-                                sol.prob_noise = 0
-                                sol.lines.append(sol.emission_line) #have to add as if it is an extra line
-                                                                    #otherwise the scaled score gets knocked way down
-                                sol.score = boost
-                                sol.separation = sep_sdss
+                                if new_solution and (line.solution) and self.spec_obj.single_emission_line_redshift(line,self.w):
+                                    boost /= 2.0 #cut in half for a new solution (as opposed to boosting an existing solution)
+                                    log.info(f"SDSS z: Adding new solution {line.name}({line.w_rest}): score = {boost}")
+                                    sol = elixer_spectrum.Classifier_Solution()
+                                    sol.z = self.w/line.w_rest - 1.0
+                                    sol.central_rest = line.w_rest
+                                    sol.name = line.name
+                                    sol.color = line.color
+                                    sol.emission_line = deepcopy(line)
+                                    #add the central line info for flux, etc to line (basic info)
+                                    if central_eli is not None:
+                                        sol.emission_line.line_score =central_eli.line_score
+                                        sol.emission_line.flux = central_eli.line_flux
+                                        sol.emission_line.flux_err = central_eli.line_flux_err
+                                        sol.emission_line.snr = central_eli.snr
+                                    sol.emission_line.w_obs = self.w
+                                    sol.emission_line.solution = True
+                                    sol.prob_noise = 0
+                                    sol.lines.append(sol.emission_line) #have to add as if it is an extra line
+                                                                        #otherwise the scaled score gets knocked way down
+                                    sol.score = boost
+                                    sol.separation = sep_sdss
 
-                                self.spec_obj.solutions.append(sol)
-                                if sep_scale == 1.0:
-                                    self.spec_obj.add_classification_label(label,prepend=True)
+                                    self.spec_obj.solutions.append(sol)
+                                    if sep_scale == 1.0:
+                                        self.spec_obj.add_classification_label(label,prepend=True)
 
                     if possible_lines: #one or more possible matches
                         sdss_hit = True
@@ -5519,6 +5552,20 @@ class DetObj:
             #    self.spec_obj.build_full_width_spectrum(show_skylines=True, show_peaks=True, name="testsol")
             # print("DEBUG ... spectrum peak finder DONE")
 
+            #update DEX-g based continuum and EW
+            try:
+                self.best_gmag_cgs_cont *= self.spec_obj.gband_continuum_correction()
+                self.best_gmag_cgs_cont_unc *= self.spec_obj.gband_continuum_correction()
+
+                self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
+                self.best_eqw_gmag_obs_unc = abs(self.best_eqw_gmag_obs * np.sqrt(
+                    (self.estflux_unc / self.estflux) ** 2 +
+                    (self.best_gmag_cgs_cont_unc / self.best_gmag_cgs_cont) ** 2))
+
+                log.info(f"Update best DEX-g continuum x{self.spec_obj.gband_continuum_correction():0.2f} and EW; cont {self.best_gmag_cgs_cont} +/- {self.best_gmag_cgs_cont_unc}" )
+            except:
+                log.error("Exception! Excpetion updating DEX-g continuum.",exc_info=True)
+
             # update with MY FIT results?
             if G.REPORT_ELIXER_MCMC_FIT or self.eqw_obs == 0:
                 log.info("Using ELiXer MCMC Fit for line flux, continuum, EW, and SNR")
@@ -6336,6 +6383,20 @@ class DetObj:
                                           estcont=self.cont_cgs, estcont_unc=self.cont_cgs_unc,
                                           continuum_g=self.best_gmag_cgs_cont,continuum_g_unc=self.best_gmag_cgs_cont_unc)
 
+                #update DEX-g based continuum and EW
+                try:
+                    self.best_gmag_cgs_cont *= self.spec_obj.gband_continuum_correction()
+                    self.best_gmag_cgs_cont_unc *= self.spec_obj.gband_continuum_correction()
+
+                    self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
+                    self.best_eqw_gmag_obs_unc = abs(self.best_eqw_gmag_obs * np.sqrt(
+                        (self.estflux_unc / self.estflux) ** 2 +
+                        (self.best_gmag_cgs_cont_unc / self.best_gmag_cgs_cont) ** 2))
+
+                    log.info(f"Update best DEX-g continuum x{self.spec_obj.gband_continuum_correction():0.2f} and EW; cont {self.best_gmag_cgs_cont} +/- {self.best_gmag_cgs_cont_unc}" )
+                except:
+                    log.error("Exception! Excpetion updating DEX-g continuum.",exc_info=True)
+
                 if self.spec_obj.central_eli is not None:
 
                     #update the central wavelength
@@ -6503,7 +6564,32 @@ class DetObj:
             #even IF okay == 0, still record the probably bogus value (when
             #actually using the values elsewhere they are compared to a limit and the limit is used if needed
 
-            if hetdex_okay >= sdss_okay and not np.isnan(self.hetdex_gmag_cgs_cont) and (self.hetdex_gmag_cgs_cont is not None):
+
+            if hetdex_okay == sdss_okay and abs(self.hetdex_gmag - self.sdss_gmag) < 1.0: #use both as an average? what if they are very different?
+                #make the average
+                avg_cont = 0.5 * (self.hetdex_gmag_cgs_cont + self.sdss_cgs_cont)
+                avg_cont_unc =  np.sqrt(self.hetdex_gmag_cgs_cont_unc**2 + self.sdss_cgs_cont_unc**2) #error on the mean
+
+
+                self.best_gmag_selected = 'mean'
+                self.best_gmag = -2.5*np.log10(SU.cgs2ujy(avg_cont,4500.00) / 1e6 / 3631.)
+                mag_faint = -2.5*np.log10(SU.cgs2ujy(avg_cont-avg_cont_unc,4500.00) / 1e6 / 3631.)
+                mag_bright = -2.5*np.log10(SU.cgs2ujy(avg_cont+avg_cont_unc,4500.00) / 1e6 / 3631.)
+                self.best_gmag_unc = 0.5 * (mag_faint-mag_bright)
+
+                self.best_gmag_cgs_cont = avg_cont
+                self.best_gmag_cgs_cont_unc = avg_cont_unc
+
+                self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
+                self.best_eqw_gmag_obs_unc = abs(self.best_eqw_gmag_obs * np.sqrt(
+                    (self.estflux_unc / self.estflux) ** 2 +
+                    (self.best_gmag_cgs_cont_unc / self.best_gmag_cgs_cont) ** 2))
+
+                log.debug("Using mean of HETDEX full width gmag and SDSS gmag.")
+                log.info(f"Mean spectrum gmag {self.best_gmag:0.2f} +/- {self.best_gmag_unc:0.3f}; cont {self.best_gmag_cgs_cont} +/- {self.best_gmag_cgs_cont_unc}" )
+
+
+            elif hetdex_okay >= sdss_okay and not np.isnan(self.hetdex_gmag_cgs_cont) and (self.hetdex_gmag_cgs_cont is not None):
                 self.best_gmag_selected = 'hetdex'
                 self.best_gmag = self.hetdex_gmag
                 self.best_gmag_unc = self.hetdex_gmag_unc
@@ -6896,7 +6982,29 @@ class DetObj:
             #choose the best
             # even IF okay == 0, still record the probably bogus value (when
             # actually using the values elsewhere they are compared to a limit and the limit is used if needed
-            if hetdex_okay >= sdss_okay and not np.isnan(self.hetdex_gmag_cgs_cont) and (self.hetdex_gmag_cgs_cont is not None):
+            if hetdex_okay == sdss_okay and abs(self.hetdex_gmag - self.sdss_gmag) < 1.0: #use both as an average? what if they are very different?
+                #make the average
+                avg_cont = 0.5 * (self.hetdex_gmag_cgs_cont + self.sdss_cgs_cont)
+                avg_cont_unc =  np.sqrt(self.hetdex_gmag_cgs_cont_unc**2 + self.sdss_cgs_cont_unc**2) #error on the mean
+
+                self.best_gmag_selected = 'mean'
+                self.best_gmag = -2.5*np.log10(SU.cgs2ujy(avg_cont,4500.00) / 1e6 / 3631.)
+                mag_faint = -2.5*np.log10(SU.cgs2ujy(avg_cont-avg_cont_unc,4500.00) / 1e6 / 3631.)
+                mag_bright = -2.5*np.log10(SU.cgs2ujy(avg_cont+avg_cont_unc,4500.00) / 1e6 / 3631.)
+                self.best_gmag_unc = 0.5 * (mag_faint-mag_bright)
+
+                self.best_gmag_cgs_cont = avg_cont
+                self.best_gmag_cgs_cont_unc = avg_cont_unc
+
+                self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
+                self.best_eqw_gmag_obs_unc = abs(self.best_eqw_gmag_obs * np.sqrt(
+                    (self.estflux_unc / self.estflux) ** 2 +
+                    (self.best_gmag_cgs_cont_unc / self.best_gmag_cgs_cont) ** 2))
+
+                log.debug("Using mean of HETDEX full width gmag and SDSS gmag.")
+                log.info(f"Mean spectrum gmag {self.best_gmag:0.2f} +/- {self.best_gmag_unc:0.3f}; cont {self.best_gmag_cgs_cont} +/- {self.best_gmag_cgs_cont_unc}" )
+
+            elif hetdex_okay >= sdss_okay and not np.isnan(self.hetdex_gmag_cgs_cont) and (self.hetdex_gmag_cgs_cont is not None):
                 self.best_gmag_selected = 'hetdex'
                 self.best_gmag = self.hetdex_gmag
                 self.best_gmag_unc = self.hetdex_gmag_unc
@@ -7314,9 +7422,21 @@ class DetObj:
             #    self.spec_obj.build_full_width_spectrum(show_skylines=True, show_peaks=True, name="testsol")
             # print("DEBUG ... spectrum peak finder DONE")
 
+            #update DEX-g based continuum and EW
+            try:
+                self.best_gmag_cgs_cont *= self.spec_obj.gband_continuum_correction()
+                self.best_gmag_cgs_cont_unc *= self.spec_obj.gband_continuum_correction()
 
+                self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
+                self.best_eqw_gmag_obs_unc = abs(self.best_eqw_gmag_obs * np.sqrt(
+                    (self.estflux_unc / self.estflux) ** 2 +
+                    (self.best_gmag_cgs_cont_unc / self.best_gmag_cgs_cont) ** 2))
 
-            #update with MY FIT results?
+                log.info(f"Update best DEX-g continuum x{self.spec_obj.gband_continuum_correction():0.2f} and EW; cont {self.best_gmag_cgs_cont} +/- {self.best_gmag_cgs_cont_unc}" )
+            except:
+                log.error("Exception! Excpetion updating DEX-g continuum.",exc_info=True)
+
+    #update with MY FIT results?
             central_wave_volatile = False
             if (self.spec_obj is not None and self.spec_obj.central_eli is not None) and \
                 (G.REPORT_ELIXER_MCMC_FIT or (self.eqw_obs == 0) or G.CONTINUUM_RULES):
@@ -7506,43 +7626,8 @@ class DetObj:
                 pass
 
 
-        #check the sdss_gmag version
-        if self.sdss_gmag_p_lae_oii_ratio is None:
-            try:
-                if self.spec_obj:
-                    addl_wavelengths = self.spec_obj.addl_wavelengths
-                    addl_fluxes = self.spec_obj.addl_fluxes
-                    addl_errors = self.spec_obj.addl_fluxerrs
-                else:
-                    addl_wavelengths = []
-                    addl_fluxes = []
-                    addl_errors = []
-
-                sdss_ratio, sdss_p_lae, sdss_p_oii, plae_errors = line_prob.mc_prob_LAE(wl_obs=self.w,
-                                                                                   lineFlux=self.estflux,
-                                                                                   lineFlux_err=self.estflux_unc,
-                                                                                   continuum=self.sdss_cgs_cont,
-                                                                                   continuum_err=self.sdss_cgs_cont_unc,
-                                                                                   c_obs=None, which_color=None,
-                                                                                   addl_fluxes=[], addl_wavelengths=[],
-                                                                                   sky_area=None,
-                                                                                   cosmo=None, lae_priors=None,
-                                                                                   ew_case=None, W_0=None,
-                                                                                   z_OII=None, sigma=None)
-
-                self.sdss_gmag_p_lae_oii_ratio = sdss_ratio
-                try:
-                    if plae_errors and (len(plae_errors['ratio']) > 2):
-                        self.sdss_gmag_p_lae_oii_ratio_range = plae_errors['ratio']
-                except:
-                    pass
-
-
-            except:
-                log.info("Exception in hetdex.py DetObj::get_probabilities() for sdss_gmag PLAE/POII: ", exc_info=True)
-
-        # check the sdss_gmag version
-        if self.hetdex_gmag_p_lae_oii_ratio is None:
+        # check the BEST gmag version
+        if self.best_gmag_p_lae_oii_ratio is None:
             try:
 
                 if self.spec_obj:
@@ -7554,43 +7639,123 @@ class DetObj:
                     addl_fluxes = []
                     addl_errors = []
 
-                hetdex_ratio, hetdex_p_lae, hetdex_p_oii, plae_errors = line_prob.mc_prob_LAE(wl_obs=self.w,
-                                                                                        lineFlux=self.estflux,
-                                                                                        lineFlux_err=self.estflux_unc,
-                                                                                        continuum=self.hetdex_gmag_cgs_cont,
-                                                                                        continuum_err=self.hetdex_gmag_cgs_cont_unc,
-                                                                                        # todo: get error est for sdss gmag
-                                                                                        c_obs=None,
-                                                                                        which_color=None,
-                                                                                        addl_fluxes=[],
-                                                                                        addl_wavelengths=[],
-                                                                                        sky_area=None,
-                                                                                        cosmo=None,
-                                                                                        lae_priors=None,
-                                                                                        ew_case=None, W_0=None,
-                                                                                        z_OII=None, sigma=None)
+                best_ratio, best_p_lae, best_p_oii, plae_errors = line_prob.mc_prob_LAE(wl_obs=self.w,
+                                                                                              lineFlux=self.estflux,
+                                                                                              lineFlux_err=self.estflux_unc,
+                                                                                              continuum=self.best_gmag_cgs_cont,
+                                                                                              continuum_err=self.best_gmag_cgs_cont_unc,
+                                                                                              # todo: get error est for sdss gmag
+                                                                                              c_obs=None,
+                                                                                              which_color=None,
+                                                                                              addl_fluxes=[],
+                                                                                              addl_wavelengths=[],
+                                                                                              sky_area=None,
+                                                                                              cosmo=None,
+                                                                                              lae_priors=None,
+                                                                                              ew_case=None, W_0=None,
+                                                                                              z_OII=None, sigma=None)
 
-                self.hetdex_gmag_p_lae_oii_ratio = hetdex_ratio
+                self.best_gmag_p_lae_oii_ratio = best_ratio
                 try:
-                    if plae_errors and (len(plae_errors['ratio']) == 3):
-                        self.hetdex_gmag_p_lae_oii_ratio_range = plae_errors['ratio']
+                    if plae_errors:
+                        if (len(plae_errors['ratio']) >= 3):
+                            #[0] = biweight location, [1] is low (or minus the scale), [2] is high,
+                            #[3] is adjusted std dev or 1/2 * (16% to 84% range)
+                            self.best_gmag_p_lae_oii_ratio_range = plae_errors['ratio']
                 except:
                     pass
 
 
             except:
-                log.info("Exception in hetdex.py DetObj::get_probabilities() for hetdex full width PLAE/POII: ",
+                log.info("Exception in hetdex.py DetObj::get_probabilities() for best gmag PLAE/POII: ",
                          exc_info=True)
 
-        #assign the "best"
-        if self.best_gmag_selected == "sdss":
-            self.best_gmag_p_lae_oii_ratio = self.sdss_gmag_p_lae_oii_ratio
-            self.best_gmag_p_lae_oii_ratio_range =  self.sdss_gmag_p_lae_oii_ratio_range
-        else:
-            self.best_gmag_p_lae_oii_ratio = self.hetdex_gmag_p_lae_oii_ratio
-            self.best_gmag_p_lae_oii_ratio_range =  self.hetdex_gmag_p_lae_oii_ratio_range
 
-
+        # #check the sdss_gmag version
+        # if self.sdss_gmag_p_lae_oii_ratio is None:
+        #     try:
+        #         if self.spec_obj:
+        #             addl_wavelengths = self.spec_obj.addl_wavelengths
+        #             addl_fluxes = self.spec_obj.addl_fluxes
+        #             addl_errors = self.spec_obj.addl_fluxerrs
+        #         else:
+        #             addl_wavelengths = []
+        #             addl_fluxes = []
+        #             addl_errors = []
+        #
+        #         sdss_ratio, sdss_p_lae, sdss_p_oii, plae_errors = line_prob.mc_prob_LAE(wl_obs=self.w,
+        #                                                                            lineFlux=self.estflux,
+        #                                                                            lineFlux_err=self.estflux_unc,
+        #                                                                            continuum=self.sdss_cgs_cont,
+        #                                                                            continuum_err=self.sdss_cgs_cont_unc,
+        #                                                                            c_obs=None, which_color=None,
+        #                                                                            addl_fluxes=[], addl_wavelengths=[],
+        #                                                                            sky_area=None,
+        #                                                                            cosmo=None, lae_priors=None,
+        #                                                                            ew_case=None, W_0=None,
+        #                                                                            z_OII=None, sigma=None)
+        #
+        #         self.sdss_gmag_p_lae_oii_ratio = sdss_ratio
+        #         try:
+        #             if plae_errors and (len(plae_errors['ratio']) > 2):
+        #                 self.sdss_gmag_p_lae_oii_ratio_range = plae_errors['ratio']
+        #         except:
+        #             pass
+        #
+        #
+        #     except:
+        #         log.info("Exception in hetdex.py DetObj::get_probabilities() for sdss_gmag PLAE/POII: ", exc_info=True)
+        #
+        # # check the hetdex version
+        # if self.hetdex_gmag_p_lae_oii_ratio is None:
+        #     try:
+        #
+        #         if self.spec_obj:
+        #             addl_wavelengths = self.spec_obj.addl_wavelengths
+        #             addl_fluxes = self.spec_obj.addl_fluxes
+        #             addl_errors = self.spec_obj.addl_fluxerrs
+        #         else:
+        #             addl_wavelengths = []
+        #             addl_fluxes = []
+        #             addl_errors = []
+        #
+        #         hetdex_ratio, hetdex_p_lae, hetdex_p_oii, plae_errors = line_prob.mc_prob_LAE(wl_obs=self.w,
+        #                                                                                 lineFlux=self.estflux,
+        #                                                                                 lineFlux_err=self.estflux_unc,
+        #                                                                                 continuum=self.hetdex_gmag_cgs_cont,
+        #                                                                                 continuum_err=self.hetdex_gmag_cgs_cont_unc,
+        #                                                                                 # todo: get error est for sdss gmag
+        #                                                                                 c_obs=None,
+        #                                                                                 which_color=None,
+        #                                                                                 addl_fluxes=[],
+        #                                                                                 addl_wavelengths=[],
+        #                                                                                 sky_area=None,
+        #                                                                                 cosmo=None,
+        #                                                                                 lae_priors=None,
+        #                                                                                 ew_case=None, W_0=None,
+        #                                                                                 z_OII=None, sigma=None)
+        #
+        #         self.hetdex_gmag_p_lae_oii_ratio = hetdex_ratio
+        #         try:
+        #             if plae_errors and (len(plae_errors['ratio']) == 3):
+        #                 self.hetdex_gmag_p_lae_oii_ratio_range = plae_errors['ratio']
+        #         except:
+        #             pass
+        #
+        #
+        #     except:
+        #         log.info("Exception in hetdex.py DetObj::get_probabilities() for hetdex full width PLAE/POII: ",
+        #                  exc_info=True)
+        #
+        # #assign the "best"
+        # if self.best_gmag_selected == "sdss":
+        #     self.best_gmag_p_lae_oii_ratio = self.sdss_gmag_p_lae_oii_ratio
+        #     self.best_gmag_p_lae_oii_ratio_range =  self.sdss_gmag_p_lae_oii_ratio_range
+        # else:
+        #     self.best_gmag_p_lae_oii_ratio = self.hetdex_gmag_p_lae_oii_ratio
+        #     self.best_gmag_p_lae_oii_ratio_range =  self.hetdex_gmag_p_lae_oii_ratio_range
+        #
+        #
 
 
     def parse_fiber(self,fiber):

@@ -1299,26 +1299,24 @@ def gaussian(x, x0, sigma, a=1.0, y=0.0):
 
 
 
-def simple_fit_slope (wavelengths, values, errors=None,trim=True,lines=None):
+def simple_fit_line (wavelengths, values, errors=None,trim=True,lines=None):
     """
     Just a least squares fit, no MCMC
     Trim off the blue and red-most regions that are a bit dodgy
 
     :param wavelengths: unitless floats (but generally in AA)
     :param values: unitless floats (but generally in erg/s/cm2 over 2AA e-17) (HETDEX standard)
-                   the caller must set to flux or fnu as needed
+                   the caller must set to flux, flam, or fnu as needed
     :param errors: unitless floats (same as values)
     :param trim: Trim off the blue and red-most regions that are a bit dodgy
     :param lines: list of emission lines (and/or absorption) to mask out
-    :return: slope, slope_error
+    :return: [intercept, slope] , [error on intercept, error on slope]
     """
 
-    slope = None
-    slope_error = None
     if (wavelengths is None) or (values is None) or (len(wavelengths)==0) or (len(values)==0) \
             or (len(wavelengths) != len(values)):
-        log.warning("Zero length (or None) spectrum passed to simple_fit_slope().")
-        return slope, slope_error
+        log.warning("Zero length (or None) spectrum passed to simple_fit_line().")
+        return None, None
 
     try:
 
@@ -1363,18 +1361,75 @@ def simple_fit_slope (wavelengths, values, errors=None,trim=True,lines=None):
         coeff, cov  = np.polyfit(np.array(wavelengths)[mask], _values[mask],
                                  w=weights,cov=True,deg=1)
 
-        if coeff is not None:
-            slope = coeff[0]
 
-        if cov is not None:
-            slope_error = np.sqrt(np.diag(cov))[0]
-
-        log.debug(f"Fit slope: {slope:0.3g} +/- {slope_error:0.3g}")
+        #flip the array so [0] = 0th, [1] = 1st ...
+        errors = np.flip(np.sqrt(np.diag(cov)),0)
+        coeff = np.flip(coeff,0)
     except:
-        log.debug("Exception in simple_fit_slope() ", exc_info=True)
+        log.debug("Exception in simple_fit_line() ", exc_info=True)
+        coeff = None
+        errors = None
+
+    return coeff, errors
 
 
-    return slope, slope_error
+
+def eval_line_at_point(w,bm,er=None):
+
+    """
+    Basically evaluate a point on a line given the line parameters and (optionally) their variances
+    The units depend on the units of the parameters and is up to the caller to know them.
+    For HETDEX/elixer they are usually flux over 2AA in erg/s/cm2 x10^-17
+
+    :param w: the wavelength at which to evaluate
+    :param bm:  as in y = mx + b  ... a two value array as [b,m] or [x^0, x^1]
+    :param er:  the error on b and m as a two value array  (as sigma or sqrt(variance))
+    :return: continuum and error
+    """
+    try:
+        y = bm[1] * w + bm[0]
+        ye = abs(y) * np.sqrt((er[1]/bm[1])**2 + er[0]**2)
+    except:
+        y = None
+        ye = None
+
+    return y, ye
+
+def est_linear_continuum(w,bm,er=None):
+    return eval_line_at_point(w,bm,er)
+
+def est_linear_B_minus_V(bm,er=None):
+    """
+
+    :param bm:  as in y = mx + b  ... a two value array as [b,m] or [x^0, x^1]
+    :param er:  the error on b and m as a two value array  (as sigma or sqrt(variance))
+    :return: B-V and error
+    """
+    try:
+
+        yb, ybe = est_linear_continuum(4361.,bm,er) #standard f_iso,lam for B
+        yv, yve = est_linear_continuum(5448.,bm,er) #standard f_iso,lam for V
+
+        #need to convert from flux over 2AA to a f_nu like units
+        #since B-V is a ratio, the /2.0AA and x1e-17 factors don't matter
+
+        yb = cgs2ujy(yb,4361.)
+        ybe = cgs2ujy(ybe,4361.)
+
+        yv = cgs2ujy(yv,5448.)
+        yve = cgs2ujy(yve,5448.)
+
+        fac = 2.5/np.log(10.) #this is the common factor in the partial derivative of the 2.5 log10 (v/b)
+
+        b_v = 2.5 * np.log(yv/yb)
+        b_ve = abs(b_v)*np.sqrt((ybe*fac/yv)**2 + (yve*fac/yb)**2)
+
+    except:
+        b_v = None
+        b_ve = None
+
+    return b_v, b_ve
+
 
 def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=500.0,max_fwhm=15.0):
     """

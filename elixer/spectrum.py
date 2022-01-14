@@ -249,9 +249,13 @@ def get_sdss_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZ
             try:
                 flux_err = np.array(flux_err)
                 flux_density = np.array(flux_density)
+
                 mag_list = []
                 cont_list = []
                 sel = ~np.isnan(flux_err) & np.array(flux_err!=0)
+
+                #trim off the ends (only use 3600-5400)
+                sel = sel & np.array(wave > G.HETDEX_BLUE_SAFE_WAVE) & np.array(wave < G.HETDEX_RED_SAFE_WAVE)
 
                 if not np.any(sel):
                     log.info("Invalid spectrum or error in get_sdds_gma.")
@@ -298,7 +302,8 @@ def get_sdss_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZ
                 no_error = True
 
         if no_error: #if we cannot compute the error, the just call once (no MC sampling)
-            flux, wlen = sdss_filter.pad_spectrum(flux_density* (units.erg / units.s /units.cm**2/units.Angstrom),wave* units.Angstrom)
+            sel = np.array(wave > G.HETDEX_BLUE_SAFE_WAVE) & np.array(wave < G.HETDEX_RED_SAFE_WAVE)
+            flux, wlen = sdss_filter.pad_spectrum(flux_density[sel]* (units.erg / units.s /units.cm**2/units.Angstrom),wave[sel]* units.Angstrom)
             mag = sdss_filter.get_ab_magnitudes(flux , wlen )[0][0]
             #cont = 3631.0 * 10**(-0.4*mag) * 1e-23 * iso_f / (wlen[-1] - wlen[0]).value
             cont = 3631.0 * 10 ** (-0.4 * mag) * 1e-23 * 3e18 / (iso_lam * iso_lam)#(5549.26 - 3782.54) #that is the approximate bandpass
@@ -328,8 +333,13 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None):
     """
 
     try:
+        #use the SDSS-g wavelength if can as would be used by the get_sdss_gmag() above
+        f_lam_iso = speclite_filters.load_filters(filter_name).effective_wavelengths[0].value
+    except:
+        f_lam_iso = 4726.1 #should be about this value anyway
 
-        f_lam_iso = 4500.0  # middle of the range #not really the "true" f_lam_iso, but prob. intrudces small error compared to others
+    try:
+        #f_lam_iso = 4500.0  # middle of the range #not really the "true" f_lam_iso, but prob. intrudces small error compared to others
         mag = None
         cont = None
         mag_err = None
@@ -347,11 +357,15 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None):
 
 
         #trim off the ends (only use 3600-5400)
-        idx_3600,*_ = SU.getnearpos(wave,3600.)
-        idx_5400,*_ = SU.getnearpos(wave,5400.)
+        #idx_3600,*_ = SU.getnearpos(wave,3600.)
+        #idx_5400,*_ = SU.getnearpos(wave,5400.)
 
-        fluxbins = np.array(flux_density[idx_3600:idx_5400+1]) * G.FLUX_WAVEBIN_WIDTH
-        fluxerrs = np.array(flux_density_err[idx_3600:idx_5400+1]) * G.FLUX_WAVEBIN_WIDTH
+        # fluxbins = np.array(flux_density[idx_3600:idx_5400+1]) * G.FLUX_WAVEBIN_WIDTH
+        # fluxerrs = np.array(flux_density_err[idx_3600:idx_5400+1]) * G.FLUX_WAVEBIN_WIDTH
+
+        sel = np.array(wave > G.HETDEX_BLUE_SAFE_WAVE) & np.array(wave < G.HETDEX_RED_SAFE_WAVE)
+        fluxbins = np.array(flux_density)[sel] * G.FLUX_WAVEBIN_WIDTH
+        fluxerrs = np.array(flux_density_err)[sel] * G.FLUX_WAVEBIN_WIDTH
 
         sel = ~np.isnan(fluxerrs) & np.array(fluxerrs!=0)
 
@@ -369,8 +383,8 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None):
         #This already been thoughput adjusted? (Yes? I think)
         #so there is no need to adjust for transmission
         # remeber to add one more bin (bin 2 - bin 1 != 1 bin it is 2 bins, not 1 as both bins are included)
-        band_flux_density = integrated_flux/(np.sum(sel)+G.FLUX_WAVEBIN_WIDTH)
-        band_flux_density_err = integrated_errs/(np.sum(sel)+G.FLUX_WAVEBIN_WIDTH)
+        band_flux_density = integrated_flux/(np.sum(sel) *G.FLUX_WAVEBIN_WIDTH)
+        band_flux_density_err = integrated_errs/(np.sum(sel) *G.FLUX_WAVEBIN_WIDTH)
 
 
         if band_flux_density > 0:
@@ -395,31 +409,133 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None):
         log.warning("Exception! in spectrum::get_hetdex_gmag.",exc_info=True)
         return None, None, None, None
 
-
-def fit_line(wavelengths,values,errors=None):
-#super simple line fit ... very basic
-#rescale x so that we start at x = 0
-    coeff = np.polyfit(wavelengths,values,deg=1)
-
-    #flip the array so [0] = 0th, [1] = 1st ...
-    coeff = np.flip(coeff,0)
-
-    if False: #just for debug
-        fig = plt.figure(figsize=(8, 2), frameon=False)
-        line_plot = plt.axes()
-        line_plot.plot(wavelengths, values, c='b')
-
-        x_vals = np.array(line_plot.get_xlim())
-        y_vals = coeff[0] + coeff[1] * x_vals
-        line_plot.plot(x_vals, y_vals, '--',c='r')
-
-        fig.tight_layout()
-        fig.savefig("line.png")
-        fig.clear()
-        plt.close()
-        # end plotting
-    return coeff
-
+#moved to spectrum utilities
+# def fit_line(wavelengths,values,errors=None,trim = False, emission_lines=None, absorption_lines=None):
+#     """
+#     #super simple line fit ... very basic
+#     #rescale x so that we start at x = 0
+#
+#     :param wavelengths:
+#     :param values:
+#     :param errors:
+#     :param trim: if true, trim off blue of 3600 and red of 5400
+#     :param emission_lines: avoid as +/- 3 sigma found emission and absorption lines
+#     :param absorption_lines:
+#     :return: [intercept, slope] , [error on intercept, error on slope]
+#     """
+#
+#     try:
+#         sel = np.full(len(wavelengths),True)
+#
+#         if trim:
+#             blue = G.HETDEX_BLUE_SAFE_WAVE
+#             red = G.HETDEX_RED_SAFE_WAVE
+#             sel = sel & np.array(wavelengths > blue) & np.array(wavelengths < red)
+#
+#         if emission_lines is not None:
+#             for l in emission_lines:
+#                 #mask out lines ... build up a sel to use
+#                 try:
+#                     blue = l.fit_x0 - 3*l.fit_sigma
+#                     red = l.fit_x0 + 3*l.fit_sigma
+#                     sel = sel & ~(np.array(wavelengths > blue) & np.array(wavelengths < red))
+#                 except:
+#                     pass
+#
+#         if absorption_lines is not None:
+#             for l in absorption_lines:
+#                 #mask out lines ... build up a sel to use
+#                 try:
+#                     blue = l.fit_x0 - 3*l.fit_sigma
+#                     red = l.fit_x0 + 3*l.fit_sigma
+#                     sel = sel & ~(np.array(wavelengths > blue) & np.array(wavelengths < red))
+#                 except:
+#                     pass
+#
+#         #optionally, trim off the bluest and reddest values ... if not overlapping with emission/absorption
+#
+#         coeff,cov = np.polyfit(wavelengths[sel],values[sel],deg=1,cov=True)
+#
+#         #abs() should be entirely redundane ... the diagnals should always be positive
+#         errors = np.flip(np.sqrt(np.diag(cov)),0)
+#         #errors = [np.sqrt(abs(cov[1,1])),np.sqrt(abs(cov[0,0]))]
+#         #flip the array so [0] = 0th, [1] = 1st ...
+#         coeff = np.flip(coeff,0)
+#
+#     except:
+#         coeff = [None,None]
+#
+#     if False: #just for debug
+#         fig = plt.figure(figsize=(8, 2), frameon=False)
+#         line_plot = plt.axes()
+#         line_plot.plot(wavelengths, values, c='b')
+#
+#         x_vals = np.array(line_plot.get_xlim())
+#         y_vals = coeff[0] + coeff[1] * x_vals
+#         line_plot.plot(x_vals, y_vals, '--',c='r')
+#
+#         fig.tight_layout()
+#         fig.savefig("line.png")
+#         fig.clear()
+#         plt.close()
+#         # end plotting
+#
+#     return coeff, errors
+#
+# def est_linear_continuum(w,bm,er=None):
+#     """
+#     Basically evaluate a point on a line given the line parameters and (optionally) their variances
+#     The units depend on the units of the parameters and is up to the caller to know them.
+#     For HETDEX/elixer they are usually flux over 2AA in erg/s/cm2 x10^-17
+#
+#     :param w: the wavelength at which to evaluate
+#     :param bm:  as in y = mx + b  ... a two value array as [b,m] or [x^0, x^1]
+#     :param er:  the error on b and m as a two value array  (as sigma or sqrt(variance))
+#     :return: continuum and error
+#     """
+#     try:
+#         y = bm[1] * w + bm[0]
+#         ye = abs(y) * np.sqrt((er[1]/bm[1])**2 + er[0]**2)
+#     except:
+#         y = None
+#         ye = None
+#
+#     return y, ye
+#
+#
+#
+# def est_linear_B_minus_V(bm,er=None):
+#     """
+#
+#     :param bm:  as in y = mx + b  ... a two value array as [b,m] or [x^0, x^1]
+#     :param er:  the error on b and m as a two value array  (as sigma or sqrt(variance))
+#     :return: B-V and error
+#     """
+#     try:
+#
+#         yb, ybe = est_linear_continuum(4361.,bm,er) #standard f_iso,lam for B
+#         yv, yve = est_linear_continuum(5448.,bm,er) #standard f_iso,lam for V
+#
+#         #need to convert from flux over 2AA to a f_nu like units
+#         #since B-V is a ratio, the /2.0AA and x1e-17 factors don't matter
+#
+#         yb = SU.cgs2ujy(yb,4361.)
+#         ybe = SU.cgs2ujy(ybe,4361.)
+#
+#         yv = SU.cgs2ujy(yv,5448.)
+#         yve = SU.cgs2ujy(yve,5448.)
+#
+#         fac = 2.5/np.log(10.) #this is the common factor in the partial derivative of the 2.5 log10 (v/b)
+#
+#         b_v = 2.5 * np.log(yv/yb)
+#         b_ve = abs(b_v)*np.sqrt((ybe*fac/yv)**2 + (yve*fac/yb)**2)
+#
+#     except:
+#         b_v = None
+#         b_ve = None
+#
+#     return b_v, b_ve
+#
 
 def invert_spectrum(wavelengths,values):
     # subtracting from the maximum value inverts the slope also, and keeps the overall shape intact
@@ -3868,12 +3984,18 @@ class Spectrum:
         self.errors = []
         self.values_units = 0
 
+        self.gband_continuum_correction_factor = -1
+
         self.noise_estimate = None
         self.noise_estimate_wave = None
 
         # very basic info, fit line to entire spectrum to see if there is a general slope
         #useful in identifying stars (kind of like a color U-V (ish))
+        #these are all as f_lam (erg/s/cm2/AA) not flux x2AA
         self.spectrum_linear_coeff = None #index = power so [0] = onstant, [1] = 1st .... e.g. mx+b where m=[1], b=[0]
+        self.spectrum_linear_coeff_err = None
+        self.spectrum_linear_continuum = None #estimate from a line fit to the spectrum at the central emission
+        self.spectrum_linear_continuum_err = None #error on that estimtate
         self.spectrum_slope = None
         self.spectrum_slope_err = None
 
@@ -3912,6 +4034,43 @@ class Spectrum:
         self.plot_dir = None
 
         #from HDF5
+
+
+    def gband_continuum_correction(self, recompute=False):
+        """
+        Sum over observed EW for all emission and (subtract) all absorption
+        and use as a correction for any gband continuum estimate by dividing net observed EW / simple
+        gband continuum estimate
+        :return:  correction to multiply into gband
+        """
+
+        try:
+
+            if not recompute and (0.0 <= self.gband_continuum_correction_factor <= 1.0):
+                return self.gband_continuum_correction_factor
+
+            #yes, ignoring uncertainties on the observed EW
+            if self.all_found_lines:
+                emis = np.sum([l.eqw_obs if (l.snr > GOOD_MIN_LINE_SNR and l.line_score > GOOD_MIN_LINE_SCORE)
+                               else 0 for l in self.all_found_lines ])
+            else:
+                emis = 0
+
+            if self.all_found_absorbs:
+                absorb = np.sum([abs(l.eqw_obs) if (l.snr > GOOD_MIN_LINE_SNR and l.line_score > GOOD_MIN_LINE_SCORE)
+                                 else 0 for l in self.all_found_absorbs ])
+            else:
+                absorb = 0
+
+            self.gband_continuum_correction_factor = 1.0 - (emis-absorb)/((len(G.CALFIB_WAVEGRID)+1)*G.FLUX_WAVEBIN_WIDTH)
+
+            if not (0.0 <= self.gband_continuum_correction_factor <= 1.0):
+                log.warning(f"Non-sense gband continuum correction factor {self.gband_continuum_correction_factor}. Resetting.")
+                self.gband_continuum_correction_factor = 1.0
+            return self.gband_continuum_correction_factor
+
+        except:
+            return 1.0
 
     def rescore(self,sum_score=None):
         """
@@ -5006,6 +5165,7 @@ class Spectrum:
         except:
             log.warning("Exception in spectum::set_spectra()",exc_info=True)
 
+
         #run MCMC on this one ... the main line
         try:
 
@@ -5074,9 +5234,72 @@ class Spectrum:
             if self.central_eli != eli:
                 self.central_eli = copy.deepcopy(eli)
 
+        else:
+            log.warning("Warning! Did not successfully compute signal_score on main emission line.")
+
+        try:
             # get very basic info (line fit)
-            # coeff = fit_line(wavelengths, values, errors)  # flipped order ... coeff[0] = 0th, coeff[1]=1st
-            # self.spectrum_linear_coeff = coeff
+            self.gband_continuum_correction()
+
+            #also get the overall slope
+            lines_to_mask = self.all_found_lines[:] if self.all_found_lines != None else []
+            lines_to_mask += self.all_found_absorbs[:] if self.all_found_absorbs != None else []
+
+            #in flam not flux
+            self.spectrum_linear_coeff, self.spectrum_linear_coeff_err = SU.simple_fit_line(wavelengths,
+                                                                                            values/G.FLUX_WAVEBIN_WIDTH,
+                                                                                             errors, trim=True,
+                                                                                             lines=lines_to_mask)
+
+            #e.g. flam from the line fit to the spectrum at the emission line center
+            self.spectrum_linear_continuum,self.spectrum_linear_continuum_err = SU.eval_line_at_point(central,
+                                                                                                     self.spectrum_linear_coeff,
+                                                                                                     self.spectrum_linear_coeff_err)
+
+
+            self.spectrum_linear_continuum *= np.power(10.,values_units)
+            self.spectrum_linear_continuum_err *= np.power(10.,values_units)
+
+            #would we want these would be in f_nu units ?
+            # fnu_values = SU.cgs2ujy(values/G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS, wavelengths) #* 1e-29
+            # fnu_errors = SU.cgs2ujy(errors/G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS, wavelengths) #* 1e-29
+            # fnu_linear_coeff, fnu_linear_coeff_err = fit_line(wavelengths,fnu_values,fnu_errors,
+            #                                                                       True,self.all_found_lines,
+            #                                                                       self.all_found_absorbs)
+            # self.spectrum_slope = fnu_linear_coeff[1] #* np.power(10.,values_units)
+            # self.spectrum_slope_err = fnu_linear_coeff_err[1]# * np.power(10.,values_units)
+
+            #or just leave in erg/s/cm2 x2AA
+            self.spectrum_slope = self.spectrum_linear_coeff[1] * np.power(10.,values_units)
+            self.spectrum_slope_err = self.spectrum_linear_coeff_err[1] * np.power(10.,values_units)
+
+            #this one does take as a line in integrated flux (f_lam) units, but computes B-V in f_nu
+            self.est_obs_b_minus_v, self.est_obs_b_minus_v_err = SU.est_linear_B_minus_V(self.spectrum_linear_coeff,
+                                                                                      self.spectrum_linear_coeff_err)
+
+            log.info(f"{self.identifier}: Spectrum basic info: slope = {self.spectrum_linear_coeff[1]:0.3g} +/- "
+                     f"{self.spectrum_linear_coeff_err[1]:0.4g} erg/s/cm2/AA e-17")
+
+            log.info(f"{self.identifier}: Spectrum basic info: intercept = {self.spectrum_linear_coeff[0]:0.3g} +/- "
+                     f"{self.spectrum_linear_coeff_err[0]:0.4g} erg/s/cm2/AA e-17")
+
+            log.info(f"{self.identifier}: Spectrum basic info: linear continuum @ {central:0.2f} = {self.spectrum_linear_continuum:0.3g} +/- "
+                     f"{self.spectrum_linear_continuum_err:0.3g} erg/s/cm2/AA")
+
+            log.info(f"{self.identifier}: Spectrum basic info: linear B-V (observed) = {self.est_obs_b_minus_v:0.3g} +/- "
+                     f"{self.est_obs_b_minus_v_err:0.3g}")
+
+
+            # #also get the overall slope
+            # lines_to_mask = self.all_found_lines[:] if self.all_found_lines != None else []
+            # lines_to_mask += self.all_found_absorbs[:] if self.all_found_absorbs != None else []
+            # try:
+            #     self.spectrum_slope, self.spectrum_slope_err = SU.simple_fit_slope(wavelengths, values, errors,lines=lines_to_mask)
+            #     log.info("%s Spectrum basic slope: %g +/- %g" %(self.identifier,self.spectrum_slope,self.spectrum_slope_err))
+            # except:
+            #     pass
+            #if self.snr is None:
+            #    self.snr = 0
 
             # # also get the overall slope
             # self.spectrum_slope, self.spectrum_slope_err = SU.simple_fit_slope(wavelengths, values, errors)
@@ -5084,8 +5307,9 @@ class Spectrum:
             # log.info("%s Spectrum basic slope: %g +/- %g"
             #          %(self.identifier,self.spectrum_slope,self.spectrum_slope_err))
             #todo: maybe also a basic parabola? (if we capture an overall peak? like for a star black body peak?
-        else:
-            log.warning("Warning! Did not successfully compute signal_score on main emission line.")
+        except:
+            pass
+
 
         self.wavelengths = wavelengths
         self.values = values
@@ -5100,16 +5324,7 @@ class Spectrum:
         self.estcont_unc = estcont_unc
 
 
-        #also get the overall slope
-        lines_to_mask = self.all_found_lines[:] if self.all_found_lines != None else []
-        lines_to_mask += self.all_found_absorbs[:] if self.all_found_absorbs != None else []
-        try:
-            self.spectrum_slope, self.spectrum_slope_err = SU.simple_fit_slope(wavelengths, values, errors,lines=lines_to_mask)
-            log.info("%s Spectrum basic slope: %g +/- %g" %(self.identifier,self.spectrum_slope,self.spectrum_slope_err))
-        except:
-            pass
-        #if self.snr is None:
-        #    self.snr = 0
+
 
 
     def find_central_wavelength(self,wavelengths = None,values = None, errors=None, values_units=0, return_list=False):

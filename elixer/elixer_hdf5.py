@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.5.1' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.6.0' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -85,38 +85,47 @@ class Detections(tables.IsDescription):
     chi2 = tables.Float32Col(dflt=UNSET_FLOAT)
     chi2_err = tables.Float32Col(dflt=UNSET_FLOAT)
 
-    continuum_line = tables.Float32Col(dflt=UNSET_FLOAT) #continuum from near the line
+    continuum_line = tables.Float32Col(dflt=UNSET_FLOAT) #continuum (y-offset) from Gaussian fit to the line
     continuum_line_err = tables.Float32Col(dflt=UNSET_FLOAT)
-
-    continuum_sdss_g = tables.Float32Col(dflt=UNSET_FLOAT)
-    continuum_sdss_g_err = tables.Float32Col(dflt=UNSET_FLOAT)
-    mag_sdss_g = tables.Float32Col(dflt=UNSET_FLOAT)
-    mag_sdss_g_err = tables.Float32Col(dflt=UNSET_FLOAT)
-
-
     eqw_rest_lya_line = tables.Float32Col(dflt=UNSET_FLOAT)
     eqw_rest_lya_line_err = tables.Float32Col(dflt=UNSET_FLOAT)
     plae_line = tables.Float32Col(dflt=UNSET_FLOAT)
     plae_line_max = tables.Float32Col(dflt=UNSET_FLOAT)
     plae_line_min = tables.Float32Col(dflt=UNSET_FLOAT)
 
-    eqw_rest_lya_sdss_g = tables.Float32Col(dflt=UNSET_FLOAT)
-    eqw_rest_lya_sdss_g_err = tables.Float32Col(dflt=UNSET_FLOAT)
-    plae_sdss_g = tables.Float32Col(dflt=UNSET_FLOAT)
-    plae_sdss_g_max = tables.Float32Col(dflt=UNSET_FLOAT)
-    plae_sdss_g_min = tables.Float32Col(dflt=UNSET_FLOAT)
+    #new
+    continuum_wide = tables.Float32Col(dflt=UNSET_FLOAT) #continuum from (mostly) the full spectrum width, from pseudo g-band magnitude
+    continuum_wide_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    mag_g_wide = tables.Float32Col(dflt=UNSET_FLOAT) #the pseudo g-band magnitude from the spectrum
+    mag_g_wide_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    eqw_rest_lya_wide = tables.Float32Col(dflt=UNSET_FLOAT)
+    eqw_rest_lya_wide_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    plae_wide = tables.Float32Col(dflt=UNSET_FLOAT)
+    plae_wide_max = tables.Float32Col(dflt=UNSET_FLOAT)
+    plae_wide_min = tables.Float32Col(dflt=UNSET_FLOAT)
 
 
-    # from the full width spectrum (but not passed through SDSS filter)
-    continuum_full_spec = tables.Float32Col(dflt=UNSET_FLOAT)
-    continuum_full_spec_err = tables.Float32Col(dflt=UNSET_FLOAT)
-    mag_full_spec = tables.Float32Col(dflt=UNSET_FLOAT)
-    mag_full_spec_err = tables.Float32Col(dflt=UNSET_FLOAT)
-    eqw_rest_lya_full_spec = tables.Float32Col(dflt=UNSET_FLOAT)
-    eqw_rest_lya_full_spec_err = tables.Float32Col(dflt=UNSET_FLOAT)
-    plae_full_spec = tables.Float32Col(dflt=UNSET_FLOAT)
-    plae_full_spec_max = tables.Float32Col(dflt=UNSET_FLOAT)
-    plae_full_spec_min = tables.Float32Col(dflt=UNSET_FLOAT)
+    # continuum_sdss_g = tables.Float32Col(dflt=UNSET_FLOAT) #todo: remove (replace with a "best")
+    # continuum_sdss_g_err = tables.Float32Col(dflt=UNSET_FLOAT) #todo: remove (replace with a "best")
+    # mag_sdss_g = tables.Float32Col(dflt=UNSET_FLOAT) #todo: remove (replace with a "best")
+    # mag_sdss_g_err = tables.Float32Col(dflt=UNSET_FLOAT) #todo: remove (replace with a "best")
+    # eqw_rest_lya_sdss_g = tables.Float32Col(dflt=UNSET_FLOAT) #todo: remove (replace with a "best")
+    # eqw_rest_lya_sdss_g_err = tables.Float32Col(dflt=UNSET_FLOAT) #todo: remove (replace with a "best")
+    # plae_sdss_g = tables.Float32Col(dflt=UNSET_FLOAT) #todo: remove (replace with a "best")
+    # plae_sdss_g_max = tables.Float32Col(dflt=UNSET_FLOAT) #todo: remove (replace with a "best")
+    # plae_sdss_g_min = tables.Float32Col(dflt=UNSET_FLOAT) #todo: remove (replace with a "best")
+    #
+    #
+    # # from the full width spectrum (but not passed through SDSS filter)
+    # continuum_full_spec = tables.Float32Col(dflt=UNSET_FLOAT) #todo: remove (replace with a "best")
+    # continuum_full_spec_err = tables.Float32Col(dflt=UNSET_FLOAT) #todo: remove (replace with a "best")
+    # mag_full_spec = tables.Float32Col(dflt=UNSET_FLOAT) #todo: remove (replace with a "best")
+    # mag_full_spec_err = tables.Float32Col(dflt=UNSET_FLOAT) #todo: remove (replace with a "best")
+    # eqw_rest_lya_full_spec = tables.Float32Col(dflt=UNSET_FLOAT) #todo: remove (replace with a "best")
+    # eqw_rest_lya_full_spec_err = tables.Float32Col(dflt=UNSET_FLOAT) #todo: remove (replace with a "best")
+    # plae_full_spec = tables.Float32Col(dflt=UNSET_FLOAT) #todo: remove (replace with a "best")
+    # plae_full_spec_max = tables.Float32Col(dflt=UNSET_FLOAT) #todo: remove (replace with a "best")
+    # plae_full_spec_min = tables.Float32Col(dflt=UNSET_FLOAT) #todo: remove (replace with a "best")
 
 
     #ELiXer solution based on extra lines
@@ -773,13 +782,6 @@ def append_entry(fileh,det,overwrite=False):
             row['continuum_line'] = det.cont_cgs
             row['continuum_line_err'] = det.cont_cgs_unc
 
-
-        row['continuum_sdss_g'] = det.sdss_cgs_cont
-        row['continuum_sdss_g_err'] = det.sdss_cgs_cont_unc
-        row['mag_sdss_g'] = det.sdss_gmag
-        if det.sdss_gmag_unc is not None:
-            row['mag_sdss_g_err'] = det.sdss_gmag_unc
-
         _lya_1pz = det.w / G.LyA_rest #no sense is doing -1.0 then +1.0
 
         try:
@@ -792,19 +794,7 @@ def append_entry(fileh,det,overwrite=False):
         except:
             pass
 
-        #hetdex line flux / sdss continuum flux
-        try: #it is odd, but possible to have eqw_sdss_obs but NOT the _unc
-            if det.eqw_sdss_obs is not None:
-                row['eqw_rest_lya_sdss_g'] = det.eqw_sdss_obs / _lya_1pz
-
-            if det.eqw_sdss_obs_unc / _lya_1pz is not None:
-                row['eqw_rest_lya_sdss_g_err'] = det.eqw_sdss_obs_unc / _lya_1pz
-        except:
-            pass
-
         row['plae_line'] = det.p_lae_oii_ratio
-        row['plae_sdss_g'] = det.sdss_gmag_p_lae_oii_ratio
-
         try:
             if det.p_lae_oii_ratio_range:
                 row['plae_line_min'] = det.p_lae_oii_ratio_range[1]
@@ -812,44 +802,65 @@ def append_entry(fileh,det,overwrite=False):
         except:
             pass
 
-        try:
-            if det.sdss_gmag_p_lae_oii_ratio_range:
-                row['plae_sdss_g_min'] = det.sdss_gmag_p_lae_oii_ratio_range[1]
-                row['plae_sdss_g_max'] = det.sdss_gmag_p_lae_oii_ratio_range[2]
+
+
+
+
+        row['continuum_wide'] = det.best_gmag_cgs_cont
+        row['continuum_wide_err'] = det.best_gmag_cgs_cont_unc
+        row['mag_g_wide'] = det.best_gmag
+        if det.best_gmag_unc is not None:
+            row['mag_g_wide_err'] = det.best_gmag_unc
+
+
+        #hetdex line flux / sdss continuum flux
+        try: #it is odd, but possible to have eqw_sdss_obs but NOT the _unc
+            if det.best_eqw_gmag_obs is not None:
+                row['eqw_rest_lya_wide'] = det.best_eqw_gmag_obs / _lya_1pz
+
+            if det.best_eqw_gmag_obs_unc is not None:
+                row['eqw_rest_lya_wide_err'] = det.best_eqw_gmag_obs_unc / _lya_1pz
         except:
             pass
 
-
-        #full width (hetdex) specturm mag and related
+        row['plae_wide'] = det.best_gmag_p_lae_oii_ratio
         try:
-            row['continuum_full_spec'] = det.hetdex_gmag_cgs_cont
-            row['continuum_full_spec_err'] = det.hetdex_gmag_cgs_cont_unc
-            row['mag_full_spec'] = det.hetdex_gmag
-
-            row['plae_full_spec'] = det.hetdex_gmag_p_lae_oii_ratio
-            if det.hetdex_gmag_unc is not None:
-                row['mag_full_spec_err'] = det.hetdex_gmag_unc
-
-            # hetdex line flux / sdss continuum flux
-            try:  # it is odd, but possible to have eqw_sdss_obs but NOT the _unc
-                if det.eqw_hetdex_gmag_obs is not None:
-                    row['eqw_rest_lya_full_spec'] = det.eqw_hetdex_gmag_obs / _lya_1pz
-
-                if det.eqw_hetdex_gmag_obs_unc / _lya_1pz is not None:
-                    row['eqw_rest_lya_full_spec_err'] = det.eqw_hetdex_gmag_obs_unc / _lya_1pz
-            except:
-                pass
-
-            try:
-                if det.hetdex_gmag_p_lae_oii_ratio:
-                    row['plae_full_spec_min'] = det.hetdex_gmag_p_lae_oii_ratio_range[1]
-                    row['plae_full_spec_max'] = det.hetdex_gmag_p_lae_oii_ratio_range[2]
-            except:
-                pass
-
-
+            if det.best_gmag_p_lae_oii_ratio_range:
+                row['plae_wide_min'] = det.best_gmag_p_lae_oii_ratio_range[1]
+                row['plae_wide_max'] = det.best_gmag_p_lae_oii_ratio_range[2]
         except:
             pass
+
+        #
+        # #full width (hetdex) specturm mag and related
+        # try:
+        #     row['continuum_full_spec'] = det.hetdex_gmag_cgs_cont
+        #     row['continuum_full_spec_err'] = det.hetdex_gmag_cgs_cont_unc
+        #     row['mag_full_spec'] = det.hetdex_gmag
+        #
+        #     row['plae_full_spec'] = det.hetdex_gmag_p_lae_oii_ratio
+        #     if det.hetdex_gmag_unc is not None:
+        #         row['mag_full_spec_err'] = det.hetdex_gmag_unc
+        #
+        #     # hetdex line flux / sdss continuum flux
+        #     try:  # it is odd, but possible to have eqw_sdss_obs but NOT the _unc
+        #         if det.eqw_hetdex_gmag_obs is not None:
+        #             row['eqw_rest_lya_full_spec'] = det.eqw_hetdex_gmag_obs / _lya_1pz
+        #
+        #         if det.eqw_hetdex_gmag_obs_unc / _lya_1pz is not None:
+        #             row['eqw_rest_lya_full_spec_err'] = det.eqw_hetdex_gmag_obs_unc / _lya_1pz
+        #     except:
+        #         pass
+        #
+        #     try:
+        #         if det.hetdex_gmag_p_lae_oii_ratio:
+        #             row['plae_full_spec_min'] = det.hetdex_gmag_p_lae_oii_ratio_range[1]
+        #             row['plae_full_spec_max'] = det.hetdex_gmag_p_lae_oii_ratio_range[2]
+        #     except:
+        #         pass
+        #
+        # except:
+        #     pass
 
         #
         if (det.spec_obj is not None) and (det.spec_obj.solutions is not None) and (len(det.spec_obj.solutions) > 0):
