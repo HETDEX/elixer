@@ -6564,8 +6564,8 @@ class DetObj:
             #even IF okay == 0, still record the probably bogus value (when
             #actually using the values elsewhere they are compared to a limit and the limit is used if needed
 
-
-            if hetdex_okay == sdss_okay and abs(self.hetdex_gmag - self.sdss_gmag) < 1.0: #use both as an average? what if they are very different?
+            if (hetdex_okay == sdss_okay) and (self.hetdex_gmag is not None) and (self.sdss_gmag is not None) and \
+                        abs(self.hetdex_gmag - self.sdss_gmag) < 1.0: #use both as an average? what if they are very different?
                 #make the average
                 avg_cont = 0.5 * (self.hetdex_gmag_cgs_cont + self.sdss_cgs_cont)
                 avg_cont_unc =  np.sqrt(self.hetdex_gmag_cgs_cont_unc**2 + self.sdss_cgs_cont_unc**2) #error on the mean
@@ -6982,7 +6982,8 @@ class DetObj:
             #choose the best
             # even IF okay == 0, still record the probably bogus value (when
             # actually using the values elsewhere they are compared to a limit and the limit is used if needed
-            if hetdex_okay == sdss_okay and abs(self.hetdex_gmag - self.sdss_gmag) < 1.0: #use both as an average? what if they are very different?
+            if (hetdex_okay == sdss_okay) and (self.hetdex_gmag is not None) and (self.sdss_gmag is not None) and \
+                abs(self.hetdex_gmag - self.sdss_gmag) < 1.0: #use both as an average? what if they are very different?
                 #make the average
                 avg_cont = 0.5 * (self.hetdex_gmag_cgs_cont + self.sdss_cgs_cont)
                 avg_cont_unc =  np.sqrt(self.hetdex_gmag_cgs_cont_unc**2 + self.sdss_cgs_cont_unc**2) #error on the mean
