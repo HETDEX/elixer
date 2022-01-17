@@ -1,5 +1,9 @@
 changes to elixer by version
 
+
+1.15.0a4-x [2022-01-xx]
+* experimental series ... small changes tracked in spreadsheet. Not intended for any release candidate.
+
 1.15.0a3 [2022-01-14]
 * fixed bug in checking SDSS redshift consistency with emission lines
 * added Q(z) sanity check for possible AGN (as defined by a FWHM velocity > 1500 km/s)

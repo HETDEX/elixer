@@ -158,7 +158,7 @@ def adjusted_mag_zero(mag_zero, z):
     """
 
     ##todo: for now (2021-12-14) just leave as is. Do not make a correction until we better understand this empirically
-    #return mag_zero
+    return mag_zero
 
     try:
         #this is very close to the more correct version of -2.5 log (f0/
@@ -4650,10 +4650,10 @@ class DetObj:
             log.debug(f"{self.entry_id} Combine ALL Continuum: Final estimate: continuum_hat({continuum_hat}) continuum_sd_hat({continuum_sd_hat}) "
                       f"size in psf ({size_in_psf})")
 
-            log.debug(f"{self.entry_id} Combine ALL Continuum: Final estimate (mag @ 5500AA):"
-                      f" {-2.5*np.log10(SU.cgs2ujy(continuum_hat,5500.0)/(3631.0*1e6)):0.2f} "
-                      f"({-2.5*np.log10(SU.cgs2ujy(continuum_hat+continuum_sd_hat,5500.0)/(3631.0*1e6)):0.2f},"
-                      f"{-2.5*np.log10(SU.cgs2ujy(continuum_hat-continuum_sd_hat,5500.0)/(3631.0*1e6)):0.2f})")
+            log.debug(f"{self.entry_id} Combine ALL Continuum: Final estimate (mag @ 4500AA):"
+                      f" {-2.5*np.log10(SU.cgs2ujy(continuum_hat,4500.0)/(3631.0*1e6)):0.2f} "
+                      f"({-2.5*np.log10(SU.cgs2ujy(continuum_hat+continuum_sd_hat,4500.0)/(3631.0*1e6)):0.2f},"
+                      f"{-2.5*np.log10(SU.cgs2ujy(continuum_hat-continuum_sd_hat,4500.0)/(3631.0*1e6)):0.2f})")
 
 
             self.classification_dict['continuum_hat'] = continuum_hat
