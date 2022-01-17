@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.15.0a4-5'
+__version__ = '1.15.0a4-6'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -967,8 +967,8 @@ R_BAND_UV_BETA_SLOPE = -2.5 #UV slope (beta) for star forming galaxies used to a
                             #really varies with galaxy SFR, history, z, dust, etc
                             #but seems to run -2.4 to -2.7 or so for star forming galaxies around cosmic noon
 
-LAE_G_MAG_ZERO = 24.5#24.0 #somewhat empirical:   ( -0.20 to + 0.27) for z 1.9 to 3.5
-LAE_R_MAG_ZERO = 24.3#23.8 #somewhat empirical: . .. also using -0.2 or -0.3 mag from g-band per Leung+2017
+LAE_G_MAG_ZERO = 24.8#24.0 #somewhat empirical:   ( -0.20 to + 0.27) for z 1.9 to 3.5
+LAE_R_MAG_ZERO = 24.5#23.8 #somewhat empirical: . .. also using -0.2 or -0.3 mag from g-band per Leung+2017
 LAE_MAG_SIGMA = 0.5 #building a Gaussian as probablilty that mag > LAE_X_MAG_ZERO is an LAE
 LAE_EW_MAG_TRIGGER_MAX = 25.0 #if the associated EW_rest(LyA) is less than this value, then look at the magnitudes
 LAE_EW_MAG_TRIGGER_MIN = 15.0 #if the associated EW_rest(LyA) is greater than this value, then look at the magnitudes
