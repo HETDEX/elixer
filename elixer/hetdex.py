@@ -1396,33 +1396,35 @@ class DetObj:
                 ######################################################
                 # check large Line Flux, but nothing in imaging
                 ######################################################
+                try:
+                    if (self.estflux > 1.5e-16) or (self.cont_cgs > 1.0e-18) or (self.best_gmag < 24.0):
+                        #from the HETDEX data, we expect to see something in the imaging
+                        new_flag = G.DETFLAG_COUNTERPART_NOT_FOUND
+                        for d in self.aperture_details_list:
+                            if d['filter_name'].lower() in ['g','r','f606w']:
+                                if d['mag_limit'] is not None and (24 < d['mag_limit']):
+                                    #imaging qualifies, there should be something
+                                    if d['sep_objects'] is not None:
+                                        new_flag = 0 #we did find something, so break
+                                        break
+                                        #todo: make better with a counterpart match (including catalog)
+                                        #todo: so we would not count this if there is something faint, but several arcsecs away
+                        if new_flag: #non-match still possible ... check the catalogs
+                            try:
+                                for d in self.bid_target_list[1:]: #skip #0 as that is the Elixer entry
+                                    if d.bid_filter.lower() in ['g','r','f606w']:
+                                        new_flag = 0 #we did find something, so break
+                                        break
+                            except:
+                                pass
 
-                if (self.estflux > 1.5e-16) or (self.cont_cgs > 1.0e-18) or (self.best_gmag < 24.0):
-                    #from the HETDEX data, we expect to see something in the imaging
-                    new_flag = G.DETFLAG_COUNTERPART_NOT_FOUND
-                    for d in self.aperture_details_list:
-                        if d['filter_name'].lower() in ['g','r','f606w']:
-                            if d['mag_limit'] is not None and (24 < d['mag_limit']):
-                                #imaging qualifies, there should be something
-                                if d['sep_objects'] is not None:
-                                    new_flag = 0 #we did find something, so break
-                                    break
-                                    #todo: make better with a counterpart match (including catalog)
-                                    #todo: so we would not count this if there is something faint, but several arcsecs away
-                    if new_flag: #non-match still possible ... check the catalogs
-                        try:
-                            for d in self.bid_target_list[1:]: #skip #0 as that is the Elixer entry
-                                if d.bid_filter.lower() in ['g','r','f606w']:
-                                    new_flag = 0 #we did find something, so break
-                                    break
-                        except:
-                            pass
+                        if new_flag:
+                            self.flags |= new_flag
+                            log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_COUNTERPART_NOT_FOUND")
 
-                    if new_flag:
-                        self.flags |= new_flag
-                        log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_COUNTERPART_NOT_FOUND")
-
-
+                except:
+                    log.warning(f"Exception in flag_check. DETFLAG_COUNTERPART_NOT_FOUND. estflux = {self.extflux}"
+                                f", cont_cgs = {self.cont_cgs}, best_gmag = {self.best_gmag}")
 
 
                 ######################################################
