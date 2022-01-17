@@ -158,12 +158,12 @@ def adjusted_mag_zero(mag_zero, z):
     """
 
     ##todo: for now (2021-12-14) just leave as is. Do not make a correction until we better understand this empirically
-    return mag_zero
+    #return mag_zero
 
     try:
         #this is very close to the more correct version of -2.5 log (f0/
         #at 7.5 (or 1+z)**3 cubed this is far too strong
-        if z > 2.5:
+        if z >0:
             adjust = 2.5 * np.log10((1+z) / 3.5) # 3.5 = 1 + 2.5 # 7.5x instead of 2.5x since want to use (1+z)**3
         else:
             adjust = 0
