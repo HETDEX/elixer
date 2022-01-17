@@ -158,7 +158,7 @@ def adjusted_mag_zero(mag_zero, z):
     """
 
     ##todo: for now (2021-12-14) just leave as is. Do not make a correction until we better understand this empirically
-    #return mag_zero
+    return mag_zero
 
     try:
         #this is very close to the more correct version of -2.5 log (f0/
