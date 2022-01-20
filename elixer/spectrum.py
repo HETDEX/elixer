@@ -6199,12 +6199,15 @@ class Spectrum:
                 log.debug("Testing line solution. Anchor line (%s, %0.1f) at %0.1f, target line (%s, %0.1f) at %0.1f."
                           %(e.name,e.w_rest,e.w_rest*(1.+central_z),a.name,a.w_rest,a_central))
 
-                if a.rank < 4:
-                    if a.rank <= e.rank:
-                        min_sigma = max(self.central_eli.fit_sigma/2.0,2.0)
+                try:
+                    if a.rank < 4:
+                        if a.rank <= e.rank and self.central_eli is not None:
+                            min_sigma = max(self.central_eli.fit_sigma/2.0,2.0)
+                        else:
+                            min_sigma = 2.0
                     else:
-                        min_sigma = 2.0
-                else:
+                        min_sigma = GAUSS_FIT_MIN_SIGMA
+                except:
                     min_sigma = GAUSS_FIT_MIN_SIGMA
 
                 eli = signal_score(wavelengths=wavelengths, values=values, errors=errors, central=a_central,
