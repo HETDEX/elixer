@@ -69,7 +69,7 @@ log.setlevel(G.LOG_LEVEL)
 phot_tools = None
 
 def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, subcont=True, convolve_image=False,
-                   pixscale=0.25, imsize=9.0, wave_range=None, return_coords=False):
+                   pixscale=0.25, imsize=9.0, wave_range=None, sigma=None,return_coords=False):
     """
     Wrapper for hetdex_api.hetdex_tools.phot_tools get_line_image()
     A synthetic image from fibers using region around the emission line
@@ -96,8 +96,15 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
     cutout = None
 
     try:
-        dw = (wave_range[1]-wave_range[0])/2.0
+
+        dw = (wave_range[1]-wave_range[0])/2.0 #this is +/-3 sigma and so this (dw) is now half that range to get the midpoint
         w = wave_range[0]+dw
+
+        #now change to the dw that the phot_tools API wants
+        if sigma is not None:
+            dw = sigma #the call to phot_tools.xxx turns this into +/- 2*sigma
+        else:
+            dw /= 3.0 #assumes wave_range is -3*sigma to +3*sigma and dw made half that range just above
 
         if False: #
         #if imsize >= 20:

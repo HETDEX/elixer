@@ -3727,6 +3727,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                                                       shotid=primary_shotid, subcont=True, convolve_image=False,
                                                       pixscale=pixscale, imsize=3*distance,
                                                       wave_range=wave_range,
+                                                      sigma=None,
                                                       return_coords=False)
 
     except:

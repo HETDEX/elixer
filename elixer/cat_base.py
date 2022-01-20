@@ -1132,6 +1132,7 @@ class Catalog:
                                                       shotid=detobj.survey_shotid, subcont=True, convolve_image=False,
                                                       pixscale=0.25, imsize=3*error,
                                                       wave_range=[detobj.w - 3.0/2.355*detobj.fwhm, detobj.w + 3.0/2.355*detobj.fwhm],
+                                                      sigma=detobj.fwhm/2.355,
                                                       return_coords=False)
 
                 if line_image is not None:
