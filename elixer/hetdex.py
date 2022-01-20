@@ -3349,6 +3349,17 @@ class DetObj:
             lower_mag  = 99
 
 
+        #################################################
+        # line FWHM vote (really broad is not likely OII)
+        #################################################
+        if self.spec_obj.central_eli.fit_sigma > 8.0: #unlikely OII
+            likelihood.append(1.0) #vote FOR LyA (though could be CIV, MgII, other)
+            weight.append(0.5 *  self.spec_obj.central_eli.fit_sigma / 8.0)
+            var.append(1)
+            prior.append(base_assumption)
+            log.info(f"Aggregate Classification: line FWHM vote (not OII): lk({likelihood[-1]}) weight({weight[-1]})")
+
+
         ###################################
         # HARD EqWidth vote
         ###################################

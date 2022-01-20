@@ -26,6 +26,7 @@ import io
 from scipy.stats import skew, kurtosis,chisquare
 from scipy.optimize import curve_fit
 from scipy.signal import medfilt
+from scipy.ndimage import gaussian_filter1d
 import astropy.stats.biweight as biweight
 import copy
 
@@ -1337,7 +1338,8 @@ def local_continuum(wavelengths, values, errors, central, amplitude, sigma, cont
 #really should change this to use kwargs
 def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=None,values_units=0, sbr=None,
                  min_sigma=GAUSS_FIT_MIN_SIGMA,show_plot=False,plot_id=None,plot_path=None,do_mcmc=False,absorber=False,
-                 force_score=False,values_dx=G.FLUX_WAVEBIN_WIDTH,allow_broad=False,broadfit=1,relax_fit=False):
+                 force_score=False,values_dx=G.FLUX_WAVEBIN_WIDTH,allow_broad=False,broadfit=1,relax_fit=False,
+                 min_fit_sigma=1.0,test_solution=None):
     """
 
     :param wavelengths:
@@ -1348,7 +1350,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     :param spectrum:
     :param values_units:
     :param sbr:
-    :param min_sigma:
+    :param min_sigma: #minimum allowed to be "real"
+    :param min_fit_sigma: "minimum end past to fitting ... could be larger or smaller than just min_sigma
     :param show_plot:
     :param plot_id:
     :param plot_path:
@@ -1515,8 +1518,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
         if absorber: #area is to be negative
             parm, pcov = curve_fit(gaussian, np.float64(narrow_wave_x), np.float64(narrow_wave_counts),
-                                   p0=(central,1.5,-1.0,0.0),
-                                   bounds=((central-fit_range_AA, 1.0, -1e5, -100.0),
+                                   p0=(central,max(min_fit_sigma,1.5),-1.0,0.0),
+                                   bounds=((central-fit_range_AA, min_fit_sigma, -1e5, -100.0),
                                            (central+fit_range_AA, max_fit_sigma, 0.0, 1e4)),
                                    #sigma=1./(narrow_wave_errors*narrow_wave_errors)
                                    sigma=narrow_wave_err_sigma#, #handles the 1./(err*err)
@@ -1525,8 +1528,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                                    )
         else:
             parm, pcov = curve_fit(gaussian, np.float64(narrow_wave_x), np.float64(narrow_wave_counts),
-                                p0=(central,1.5,1.0,0.0),
-                                bounds=((central-fit_range_AA, 1.0, 0.0, -100.0),
+                                p0=(central,max(min_fit_sigma,1.5),1.0,0.0),
+                                bounds=((central-fit_range_AA, min_fit_sigma, 0.0, -100.0),
                                         (central+fit_range_AA, max_fit_sigma, 1e5, 1e4)),
                                 #sigma=1./(narrow_wave_errors*narrow_wave_errors)
                                 sigma=narrow_wave_err_sigma#, #handles the 1./(err*err)
@@ -3428,8 +3431,12 @@ def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.
         try:
             #repeat with median filter and kick up the minimum sigma for a broadfit
             medfilter_eli_list = sn_peakdet(x,medfilt(v,5),medfilt(err,5),values_units=values_units,
-                                            enforce_good=enforce_good,min_sigma=GOOD_BROADLINE_SIGMA,absorber=absorber,
-                                            allow_broad=True)
+                                           enforce_good=enforce_good,min_sigma=GOOD_BROADLINE_SIGMA,absorber=absorber,
+                                           allow_broad=True)
+
+            # medfilter_eli_list = sn_peakdet(x,gaussian_filter1d(v,5),gaussian_filter1d(err,5),values_units=values_units,
+            #                                 enforce_good=enforce_good,min_sigma=GOOD_BROADLINE_SIGMA,absorber=absorber,
+            #                                 allow_broad=True)
 
             for m in medfilter_eli_list:
                 m.broadfit = True
@@ -4670,11 +4677,11 @@ class Spectrum:
             # the inverse is still the minimum just the inverted ratio)
             min_ratio_matrix = \
             [ [1.00, None, None, None, None, None, None, None, None, None, None],  #LyA
-              [None, 1.00, None, None, None, None, 4.00, None, 6.66, None, None],  #CIV
+              [None, 1.00, None, None, None, 9.99, 4.00, None, 6.66, None, None],  #CIV
               [None, None, 1.00, None, None, None, None, None, None, None, None],  #CIII
               [None, None, None, 1.00, None, None, None, None, None, None, None],  #CII
               [None, None, None, None, 1.00, None, None, None, None, None, 20.0],  #MgII
-              [None, None, None, None, None, 1.00, None, None, None, None, None],  #NV
+              [None, 0.10, None, None, None, 1.00, None, None, None, None, None],  #NV
               [None, 0.25, None, None, None, None, 1.00, None, None, None, None],  #SiII
               [None, None, None, None, None, None, None, 1.00, None, None, None],  #SiIV
               [None, 0.15, None, None, None, None, None, None, 1.00, None, None],  #HeII
@@ -4685,11 +4692,11 @@ class Spectrum:
             #row/column (is maximum ... where lines are the largest compared to LyA)
             max_ratio_matrix = \
             [ [1.00, None, None, None, None, None, None, None, None, None, None],  #LyA
-              [None, 1.00, None, None, None, None, 0.10, None, 1.43, None, None],  #CIV
+              [None, 1.00, None, None, None, 0.33, 0.10, None, 1.43, None, None],  #CIV
               [None, None, 1.00, None, None, None, None, None, None, None, None],  #CIII
               [None, None, None, 1.00, None, None, None, None, None, None, None],  #CII
               [None, None, None, None, 1.00, None, None, None, None, None, 2.00],  #MgII
-              [None, None, None, None, None, 1.00, None, None, None, None, None],  #NV
+              [None, 3.00, None, None, None, 1.00, None, None, None, None, None],  #NV
               [None, 10.0, None, None, None, None, 1.00, None, None, None, None],  #SiII
               [None, None, None, None, None, None, None, 1.00, None, None, None],  #SiIV
               [None, 0.70, None, None, None, None, None, None, 1.00, None, None],  #HeII
@@ -4726,6 +4733,48 @@ class Spectrum:
                     # at least one other line must be found (IF the obs_wave is in the HETDEX range)
                     sel = np.intersect1d(in_range, np.where(match_matrix[rest_idx[i]])[0])
                     missing = np.union1d(missing, np.setdiff1d(sel, rest_idx)).astype(int)
+
+
+
+
+            #LyA COULD be there even if not found
+            if 0 in missing:
+                #LyA is NOT found in the list of lines, but this is supposedly in the 1.88 < z < 3.52 range
+                #now, this *could* be an LBG or somehow LyA is very weak, but that is very unlikely for HETDEX
+                #and HETDEX wants LAEs, so mark this as unlikely
+
+                lya_missing = True
+                #at the blue end in particular, the LyA line can be very hard to find, esp if broad, so
+                #we need to make some allowances here
+                #if our anchor line FWHM is large and the LyA should be blue of 3700, check to see if there is
+                #big flux where lya should be, +/- anchor line's 2*sigma (just 2 sigma since can be ragged)
+                #e.g. if it is similar to anchor line flux, then assume we just failed to fit it
+                try:
+                    if central_fwhm > 14.0 and solution.z < 2.05: #z < 2.05 is about wave < 3700AA
+                        center,*_ = SU.getnearpos(self.wavelengths,G.LyA_rest*(1+solution.z))
+                        left = max(0,center-int(central_fwhm/2.355*2.0))
+                        right = center+int(central_fwhm/2.355*2.0) #due to early checks, cannot be out of range
+                        lya_int_flux = np.sum(self.values[left:right])
+                        lya_int_flux_err = np.sqrt(np.sum(self.errors[left:right]**2))
+
+
+                        center,*_ = SU.getnearpos(self.wavelengths,self.central)
+                        left = max(0,center-int(central_fwhm/2.355*2.0))
+                        right = center+int(central_fwhm/2.355*2.0) #due to early checks, cannot be out of range
+                        anchor_int_flux = np.sum(self.values[left:right])
+                        anchor_int_flux_err = np.sqrt(np.sum(self.errors[left:right]**2))
+                        #compare to anchor fit_a
+
+                        #LyA (best case) has to be larger than the non-LyA line
+                        if ((lya_int_flux + lya_int_flux_err) > (anchor_int_flux-anchor_int_flux_err)) and \
+                                ((lya_int_flux_err/lya_int_flux) < 0.5) and ((anchor_int_flux_err/anchor_int_flux) < 0.5):
+                            lya_missing = False #no boost, but no penalty either in this case
+                            missing = missing[missing != 0]
+
+                except:
+                    log.warning("Exception in solution_consistent_wtih_lae attemping to check non fitted flux @ LyA.",exc_info=True)
+
+
 
             # score = -1 * len(missing)
             score = -1 * np.sum(match_matrix_weights[missing])
@@ -5056,6 +5105,37 @@ class Spectrum:
                 #now, this *could* be an LBG or somehow LyA is very weak, but that is very unlikely for HETDEX
                 #and HETDEX wants LAEs, so mark this as unlikely
 
+                lya_missing = True
+                #at the blue end in particular, the LyA line can be very hard to find, esp if broad, so
+                #we need to make some allowances here
+                #if our anchor line FWHM is large and the LyA should be blue of 3700, check to see if there is
+                #big flux where lya should be, +/- anchor line's 2*sigma (just 2 sigma since can be ragged)
+                #e.g. if it is similar to anchor line flux, then assume we just failed to fit it
+                try:
+                    if central_fwhm > 14.0 and solution.z < 2.05: #z < 2.05 is about wave < 3700AA
+                        center,*_ = SU.getnearpos(self.wavelengths,G.LyA_rest*(1+solution.z))
+                        left = max(0,center-int(central_fwhm/2.355*2.0))
+                        right = center+int(central_fwhm/2.355*2.0) #due to early checks, cannot be out of range
+                        lya_int_flux = np.sum(self.values[left:right])
+                        lya_int_flux_err = np.sqrt(np.sum(self.errors[left:right]**2))
+
+
+                        center,*_ = SU.getnearpos(self.wavelengths,self.central)
+                        left = max(0,center-int(central_fwhm/2.355*2.0))
+                        right = center+int(central_fwhm/2.355*2.0) #due to early checks, cannot be out of range
+                        anchor_int_flux = np.sum(self.values[left:right])
+                        anchor_int_flux_err = np.sqrt(np.sum(self.errors[left:right]**2))
+                        #compare to anchor fit_a
+
+                        #LyA (best case) has to be larger than the non-LyA line
+                        if ((lya_int_flux + lya_int_flux_err) > (anchor_int_flux-anchor_int_flux_err)) and \
+                            ((lya_int_flux_err/lya_int_flux) < 0.5) and ((anchor_int_flux_err/anchor_int_flux) < 0.5):
+                            lya_missing = False #no boost, but no penalty either in this case
+
+                except:
+                    log.warning("Exception in solution_consistent_wtih_lae attemping to check non fitted flux @ LyA.",exc_info=True)
+
+
                 missing = []
                 in_range = np.where((obs_waves > 3500.) & (obs_waves < 5500.))[0]
                 for i in range(len(overlap)):
@@ -5064,10 +5144,22 @@ class Spectrum:
                         sel = np.intersect1d(in_range, np.where(match_matrix[rest_idx[i]])[0])
                         missing = np.union1d(missing, np.setdiff1d(sel, rest_idx)).astype(int)
 
+                if 0 in missing and lya_missing is False: #LyA is idx 0
+                    missing = missing[missing != 0]
                 # score = -1 * len(missing)
                 score = -1 * np.sum(match_matrix_weights[missing])
 
-                log.info(f"In solution_consitent_with_lae():  Missing {len(missing)} required lines. Score = {score}")
+                if score == 0 and not lya_missing:
+                    #we want a small boost since nothing else was missing and we want to force
+                    #a check against AGN
+                    score = 0.1
+
+                if score > 0:
+                    log.info(f"In solution_consitent_with_lae():  Possible LyA. Score = {score}")
+                elif score < 0:
+                    log.info(f"In solution_consitent_with_lae():  Missing {len(missing)} required lines. Score = {score}")
+
+                #if score == 0, don't bother logging
 
                 #todo: right now only checking the presence of the line, not the ratios
 
@@ -6107,11 +6199,20 @@ class Spectrum:
                 log.debug("Testing line solution. Anchor line (%s, %0.1f) at %0.1f, target line (%s, %0.1f) at %0.1f."
                           %(e.name,e.w_rest,e.w_rest*(1.+central_z),a.name,a.w_rest,a_central))
 
+                if a.rank < 4:
+                    if a.rank <= e.rank:
+                        min_sigma = max(self.central_eli.fit_sigma/2.0,2.0)
+                    else:
+                        min_sigma = 2.0
+                else:
+                    min_sigma = GAUSS_FIT_MIN_SIGMA
+
                 eli = signal_score(wavelengths=wavelengths, values=values, errors=errors, central=a_central,
                                    central_z = central_z, values_units=values_units, spectrum=self,
-                                   show_plot=False, do_mcmc=False,
+                                   show_plot=False, do_mcmc=False,min_fit_sigma=min_sigma,
                                    allow_broad= (a.broad and e.broad),
-                                   relax_fit=(e.w_rest==5007)and(a.w_rest==4959),absorber=a.see_in_absorption)
+                                   relax_fit=(e.w_rest==5007)and(a.w_rest==4959),absorber=a.see_in_absorption,
+                                   test_solution=sol)
 
                 if eli and a.broad and e.broad and (eli.fit_sigma < eli.fit_sigma_err) and \
                     ((eli.fit_sigma + eli.fit_sigma_err) > GOOD_BROADLINE_SIGMA):
@@ -6164,16 +6265,6 @@ class Spectrum:
                 #                        show_plot=False, do_mcmc=False,absorber=True)
                 #
 
-                #apply any score modifications based on the line identification (made in the definitions of the EmissionLine objects)
-                #i.e. for LyA+NV vs OII+complex at 3800AA
-                if eli and (a.score_multiplier != 1.0):
-                    try:
-                        old_score = eli.line_score
-                        eli.line_score *= a.score_multiplier
-                        log.debug(f"Down-scoring {a.name},{a.w_rest} per definition. Old score {old_score}, new score {eli.line_score}")
-                    except:
-                        log.warning("Exception. Unexpected execption down-scoring NV in Spectrum::classify_with_additional_lines()")
-
                 good = False
 
                 allow_broad_check = e.broad and a.broad
@@ -6191,6 +6282,18 @@ class Spectrum:
 
                 if (eli is not None) and eli.is_good(z=sol.z,allow_broad=allow_broad_check):
                     good = True
+
+                #This has to happen AFTER is good check
+                #apply any score modifications based on the line identification (made in the definitions of the EmissionLine objects)
+                #i.e. for LyA+NV vs OII+complex at 3800AA-rest
+                if eli and (a.score_multiplier != 1.0):
+                    try:
+                        old_score = eli.line_score
+                        eli.line_score *= a.score_multiplier
+                        log.debug(f"Down-scoring {a.name},{a.w_rest} per definition. Old score {old_score}, new score {eli.line_score}")
+                    except:
+                        log.warning("Exception. Unexpected execption down-scoring NV in Spectrum::classify_with_additional_lines()")
+
 
                 #specifically check for 5007 and 4959 as nasty LAE contaminatant
                 if eli and not good:

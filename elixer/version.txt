@@ -1,5 +1,11 @@
 changes to elixer by version
 
+1.15.0a4 [2022-01-xx]
+* Adjust consitency check vs LyA to allow for un-fitted LyA at blue end (< 3700AA) when the anchor line is broad. If not
+  found in line search, check the integrated flux at the expected LyA position +/- 2*sigma (of the sigma of the anchor line)
+  vs the corresponding integrated flux of the anchor line. If similar and LyA is larger and the error is small, assume
+  LyA is there, so no penalty, but only a very small score bump so can trigger AGN compatibility check.
+* Adjust NV/CIV line ratio check to allow for NV > CIV (as sometimes happens).
 
 1.15.0a4-x [2022-01-xx]
 * experimental series ... small changes tracked in spreadsheet. Not intended for any release candidate.
