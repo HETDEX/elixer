@@ -6,6 +6,7 @@ changes to elixer by version
   vs the corresponding integrated flux of the anchor line. If similar and LyA is larger and the error is small, assume
   LyA is there, so no penalty, but only a very small score bump so can trigger AGN compatibility check.
 * Adjust NV/CIV line ratio check to allow for NV > CIV (as sometimes happens).
+* Allow the minimum sigma to fit in LSQ to float up from 1.0 in the targetted search
 
 1.15.0a4-x [2022-01-xx]
 * experimental series ... small changes tracked in spreadsheet. Not intended for any release candidate.
