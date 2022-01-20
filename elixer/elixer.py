@@ -58,6 +58,7 @@ from PIL import Image as PIL_Image
 from PIL import ImageFile as PIL_ImageFile
 
 use_wand = False
+OS_PNG_ONLY = True
 if use_wand:
     from wand.image import Image
 else:
@@ -1943,6 +1944,34 @@ def run_convert_pdf(filename, resolution=150, jpeg=False, png=True,systemcall="p
                         image_name = filename.rstrip(".pdf") + ".png"
                         img.save(filename=image_name)
                         print("File written: " + image_name)
+
+        elif OS_PNG_ONLY:
+            try:
+                if G.ALLOW_SYSTEM_CALL_PDF_CONVERSION:
+                    #try pdftoppm or convert
+                    if (systemcall == "pdftoppm") and (which("pdftoppm") is not None):
+                        try:
+                            log.info("Attempting blind system call to pdftoppm to convert ... ")
+                            os.system("pdftoppm %s %s -png -singlefile" % (filename, filename.rstrip(".pdf")))
+                            log.info("No immediate error reported on pdftoppm call ... ")
+                        except Exception as e:
+                            if type(e) is pdf2image.exceptions.PDFInfoNotInstalledError:
+                                log.error("System call conversion failed (PDFInfoNotInstalledError).", exc_info=False)
+                            else:
+                                log.error("System call conversion failed.",exc_info=True)
+                    elif which ("convert") is not None:
+                        try:
+                            log.info("Attempting blind system call to convert ... ")
+                            # alternate call for wrangler
+                            # base is really 150 dpi but have to set convert to 200 to mimic resolution
+                            os.system("convert -density 200 %s %s" % (filename, filename.rstrip(".pdf") + ".png"))
+                            log.info("No immediate error reported on convert call ... ")
+                        except Exception as e:
+                            log.error("System call conversion failed.", exc_info=True)
+                    else:
+                        log.error("No viable system call available to convert PDF to PNG")
+            except:
+                log.error("System call (pdftoppm) conversion failed.", exc_info=True)
         else:
             pages = convert_from_path(filename,resolution)
             if png:

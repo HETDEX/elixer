@@ -3354,8 +3354,8 @@ class DetObj:
         #################################################
         try: #sometimes there is no central_eli (if we just cann't get a fit)
             if self.spec_obj.central_eli.fit_sigma > 8.0: #unlikely OII
-                likelihood.append(1.0) #vote FOR LyA (though could be CIV, MgII, other)
-                weight.append(0.5 *  self.spec_obj.central_eli.fit_sigma / 8.0)
+                likelihood.append(1) #vote kind of FOR LyA (though could be CIV, MgII, other)
+                weight.append(min(0.5 *  self.spec_obj.central_eli.fit_sigma / 8.0, 1.0)) #limit to 1.0 max
                 var.append(1)
                 prior.append(base_assumption)
                 log.info(f"Aggregate Classification: line FWHM vote (not OII): lk({likelihood[-1]}) weight({weight[-1]})")

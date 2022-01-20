@@ -7,6 +7,8 @@ changes to elixer by version
   LyA is there, so no penalty, but only a very small score bump so can trigger AGN compatibility check.
 * Adjust NV/CIV line ratio check to allow for NV > CIV (as sometimes happens).
 * Allow the minimum sigma to fit in LSQ to float up from 1.0 in the targetted search
+* Added a vote for LyA (really, a vote against OII) if the fit sigma is really broad (> 8.0 or FWHM > 18.5) with weights
+  between 0.5 and 1.0
 
 1.15.0a4-x [2022-01-xx]
 * experimental series ... small changes tracked in spreadsheet. Not intended for any release candidate.
