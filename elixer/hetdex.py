@@ -1879,7 +1879,7 @@ class DetObj:
                     sbl_z,sbl_name = self.spec_obj.single_broad_line_redshift(self.w,self.fwhm)
                     if sbl_z is not None:
                         log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII. "
-                                 f"P(LyA) favors NOT LyA. Set to single broadline ({sbl_name}) z:{z:04f} with Q(z): {p}.")
+                                 f"P(LyA) favors NOT LyA. Set to single broadline ({sbl_name}) z:{sbl_z:04f} with Q(z): {p}.")
                         z = sbl_z
                     else:
                         log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII, but not other good solution. "
@@ -3782,8 +3782,12 @@ class DetObj:
         if use_continuum:
             continuum_hat, continuum_sd_hat, size_in_psf, diam_in_arcsec = self.combine_all_continuum()
 
+            self.classification_dict['combined_eqw_rest_lya'] = self.estflux / continuum_hat / (self.w/G.LyA_rest)
+            self.classification_dict['combined_eqw_rest_lya_err'] =  self.classification_dict['combined_eqw_rest_lya'] *\
+                                                                     np.sqrt((self.estflux_unc/self.estflux)**2 + (continuum_sd_hat/continuum_hat)**2)
 
-            #feed into MC PLAE
+
+#feed into MC PLAE
             p_lae_oii_ratio, p_lae, p_oii, plae_errors =  line_prob.mc_prob_LAE(
                                                             wl_obs=self.w,
                                                             lineFlux=self.estflux,lineFlux_err=self.estflux_unc,

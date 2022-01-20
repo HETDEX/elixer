@@ -9,6 +9,9 @@ changes to elixer by version
 * Allow the minimum sigma to fit in LSQ to float up from 1.0 in the targetted search
 * Added a vote for LyA (really, a vote against OII) if the fit sigma is really broad (> 8.0 or FWHM > 18.5) with weights
   between 0.5 and 1.0
+* set PDF to PNG conversion to use system call only. Experiment since pdf2image partial failures are more frequent on
+  stampede2
+* added combined_eqw_rest_lya and _err to elixer h5 Detections table
 
 1.15.0a4-x [2022-01-xx]
 * experimental series ... small changes tracked in spreadsheet. Not intended for any release candidate.

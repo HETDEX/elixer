@@ -4750,25 +4750,32 @@ class Spectrum:
                 #big flux where lya should be, +/- anchor line's 2*sigma (just 2 sigma since can be ragged)
                 #e.g. if it is similar to anchor line flux, then assume we just failed to fit it
                 try:
-                    if central_fwhm > 14.0 and solution.z < 2.05: #z < 2.05 is about wave < 3700AA
+                    if central_fwhm > 14.0:# and solution.z < 2.05: #z < 2.05 is about wave < 3700AA
                         center,*_ = SU.getnearpos(self.wavelengths,G.LyA_rest*(1+solution.z))
                         left = max(0,center-int(central_fwhm/2.355*2.0))
                         right = center+int(central_fwhm/2.355*2.0) #due to early checks, cannot be out of range
                         lya_int_flux = np.sum(self.values[left:right])
                         lya_int_flux_err = np.sqrt(np.sum(self.errors[left:right]**2))
 
+                        #the outer 2sigma wings (or excluding the interior +/- 1 sigma)
+                        l_left = max(0,center-int(central_fwhm/2.355*2.0))
+                        l_right = max(0,center-int(central_fwhm/2.355*1.0))
+                        r_left = center+int(central_fwhm/2.355*1.0) #due to early checks, cannot be out of range
+                        r_right = center+int(central_fwhm/2.355*2.0) #due to early checks, cannot be out of range
+                        lya_wing_flux =np.sum(self.values[l_left:l_right]) + np.sum(self.values[r_left:r_right])
 
+                        #compare to anchor flux
                         center,*_ = SU.getnearpos(self.wavelengths,self.central)
                         left = max(0,center-int(central_fwhm/2.355*2.0))
                         right = center+int(central_fwhm/2.355*2.0) #due to early checks, cannot be out of range
                         anchor_int_flux = np.sum(self.values[left:right])
                         anchor_int_flux_err = np.sqrt(np.sum(self.errors[left:right]**2))
-                        #compare to anchor fit_a
 
                         #LyA (best case) has to be larger than the non-LyA line
                         if ((lya_int_flux + lya_int_flux_err) > (anchor_int_flux-anchor_int_flux_err)) and \
-                                ((lya_int_flux_err/lya_int_flux) < 0.5) and ((anchor_int_flux_err/anchor_int_flux) < 0.5):
-                            lya_missing = False #no boost, but no penalty either in this case
+                                ((lya_int_flux_err/lya_int_flux) < 0.5) and ((anchor_int_flux_err/anchor_int_flux) < 0.5) and \
+                                (lya_wing_flux/lya_int_flux < 0.33): #should be < 0.28, but leaving slop for error
+                            lya_missing = False
                             missing = missing[missing != 0]
 
                 except:
@@ -5112,24 +5119,31 @@ class Spectrum:
                 #big flux where lya should be, +/- anchor line's 2*sigma (just 2 sigma since can be ragged)
                 #e.g. if it is similar to anchor line flux, then assume we just failed to fit it
                 try:
-                    if central_fwhm > 14.0 and solution.z < 2.05: #z < 2.05 is about wave < 3700AA
+                    if central_fwhm > 14.0:# and solution.z < 2.05: #z < 2.05 is about wave < 3700AA
                         center,*_ = SU.getnearpos(self.wavelengths,G.LyA_rest*(1+solution.z))
                         left = max(0,center-int(central_fwhm/2.355*2.0))
                         right = center+int(central_fwhm/2.355*2.0) #due to early checks, cannot be out of range
                         lya_int_flux = np.sum(self.values[left:right])
                         lya_int_flux_err = np.sqrt(np.sum(self.errors[left:right]**2))
 
+                        #the outer 2sigma wings (or excluding the interior +/- 1 sigma)
+                        l_left = max(0,center-int(central_fwhm/2.355*2.0))
+                        l_right = max(0,center-int(central_fwhm/2.355*1.0))
+                        r_left = center+int(central_fwhm/2.355*1.0) #due to early checks, cannot be out of range
+                        r_right = center+int(central_fwhm/2.355*2.0) #due to early checks, cannot be out of range
+                        lya_wing_flux =np.sum(self.values[l_left:l_right]) + np.sum(self.values[r_left:r_right])
 
+                        #compare to anchor flux
                         center,*_ = SU.getnearpos(self.wavelengths,self.central)
                         left = max(0,center-int(central_fwhm/2.355*2.0))
                         right = center+int(central_fwhm/2.355*2.0) #due to early checks, cannot be out of range
                         anchor_int_flux = np.sum(self.values[left:right])
                         anchor_int_flux_err = np.sqrt(np.sum(self.errors[left:right]**2))
-                        #compare to anchor fit_a
 
                         #LyA (best case) has to be larger than the non-LyA line
                         if ((lya_int_flux + lya_int_flux_err) > (anchor_int_flux-anchor_int_flux_err)) and \
-                            ((lya_int_flux_err/lya_int_flux) < 0.5) and ((anchor_int_flux_err/anchor_int_flux) < 0.5):
+                            ((lya_int_flux_err/lya_int_flux) < 0.5) and ((anchor_int_flux_err/anchor_int_flux) < 0.5) and \
+                                (lya_wing_flux/lya_int_flux < 0.33): #should be < 0.28, but leaving slop for error
                             lya_missing = False #no boost, but no penalty either in this case
 
                 except:
@@ -6460,6 +6474,42 @@ class Spectrum:
                                   l.sigma, l.line_score,l.prob_noise))
                 else: #is not good
                     log.debug("Line rejected (failed is_good).")
+
+                    #however ... the median filter fit might have something, esp. true for broad LyA with strong blue
+                    #is there a line found where expected??
+                    try:
+                        if self.all_found_lines is not None:
+                            for fl in self.all_found_lines:
+                                if abs(fl.fit_x0-a_central) < NOMINAL_MAX_OFFSET_AA:
+
+                                    lineinfo = self.match_line(fl.fit_x0,sol.z,max_rank=3)
+                                    if lineinfo is not None:
+                                        l = copy.deepcopy(fl)
+                                        l.w_rest = lineinfo.w_rest
+                                        l.z = sol.z
+                                        l.eqw_rest = fl.eqw_obs / (1.0 + sol.z)
+                                        l.name = lineinfo.name
+                                        l.sigma = l.fit_sigma
+                                        l.sigma_err = l.fit_sigma_err
+                                        l.w_obs = l.fit_x0
+                                        l.flux = l.fit_line_flux
+                                        l.flux_err = l.line_flux_err
+                                        l.eli = l #self referencing ... has same fields
+                                        l.broad = l.broadfit
+                                        l.tentative = True #extra property
+
+                                        sol.score += l.line_score
+                                        sol.lines.append(l)
+
+                                        log.info("Tentative (found line) %s line (%s): %s(%0.1f at %01.f) snr = %0.1f  MCMC_snr = %0.1f  "
+                                                 "line_flux = %0.1g  sigma = %0.1f  line_score = %0.1f  p(noise) = %g"
+                                                 %("emission", self.identifier,sol.lines[-1].name,sol.lines[-1].w_rest,
+                                                   sol.lines[-1].w_obs,sol.lines[-1].snr, -1, sol.lines[-1].flux,
+                                                   sol.lines[-1].sigma, sol.lines[-1].line_score,sol.lines[-1].prob_noise))
+
+
+                    except:
+                        pass
 
             #now apply penalty for unmatched lines?
             try:

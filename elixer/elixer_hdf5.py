@@ -161,6 +161,9 @@ class Detections(tables.IsDescription):
     combined_continuum = tables.Float32Col(dflt=UNSET_FLOAT)   #combination of all continuum estimates
     combined_continuum_err = tables.Float32Col(dflt=UNSET_FLOAT)
 
+    combined_eqw_rest_lya = tables.Float32Col(dflt=UNSET_FLOAT)
+    combined_eqw_rest_lya_err = tables.Float32Col(dflt=UNSET_FLOAT)
+
     spectral_slope = tables.Float32Col(dflt=UNSET_FLOAT)
     spectral_slope_err = tables.Float32Col(dflt=0.0)
 
@@ -913,6 +916,9 @@ def append_entry(fileh,det,overwrite=False):
                 #last two are new
                 row['combined_continuum'] = det.classification_dict['continuum_hat']
                 row['combined_continuum_err'] = det.classification_dict['continuum_hat_err']
+
+                row['combined_eqw_rest_lya'] = det.classification_dict['combined_eqw_rest_lya']
+                row['combined_eqw_rest_lya_err'] = det.classification_dict['combined_eqw_rest_lya_err']
 
             except:
                 pass
