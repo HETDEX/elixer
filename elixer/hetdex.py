@@ -164,7 +164,7 @@ def adjusted_mag_zero(mag_zero, z):
         #this is very close to the more correct version of -2.5 log (f0/
         #at 7.5 (or 1+z)**3 cubed this is far too strong
         if z > 0:
-            adjust = 5.0 * np.log10((1+z) / 3.5) # 3.5 = 1 + 2.5 # 7.5x instead of 2.5x since want to use (1+z)**3
+            adjust = 7.5 * np.log10((1+z) / 3.5) # 3.5 = 1 + 2.5 # 7.5x instead of 2.5x since want to use (1+z)**3
         else:
             adjust = 0
         #per above, this effect really only starts z > 2.5 (or OII z > 0.14)
