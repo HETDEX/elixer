@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.15.0a4-9'
+__version__ = '1.15.0a4'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -816,6 +816,8 @@ MIN_ADDL_EMIS_LINES_FOR_CLASSIFY = 1
 
 DISPLAY_ABSORPTION_LINES = False
 MAX_SCORE_ABSORPTION_LINES = 0.0 #the most an absorption line can contribute to the score (set to 0 to turn off)
+
+MAXIMUM_LINE_SCORE_CAP = 100.0 #emission and absorption lines are capped to this maximum
 
 MULTILINE_GOOD_LINE_SCORE = 8.0
 MULTILINE_USE_ERROR_SPECTRUM_AS_NOISE = False #if False, uses the whole amp to estimate noise, if possible

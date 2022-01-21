@@ -164,7 +164,7 @@ def adjusted_mag_zero(mag_zero, z):
         #this is very close to the more correct version of -2.5 log (f0/
         #at 7.5 (or 1+z)**3 cubed this is far too strong
         if z > 0:
-            adjust = 7.5 * np.log10((1+z) / 3.5) # 3.5 = 1 + 2.5 # 7.5x instead of 2.5x since want to use (1+z)**3
+            adjust = 2.5 * np.log10((1+z) / 3.5) # 3.5 = 1 + 2.5 # 7.5x instead of 2.5x since want to use (1+z)**3
         else:
             adjust = 0
         #per above, this effect really only starts z > 2.5 (or OII z > 0.14)
@@ -1982,13 +1982,33 @@ class DetObj:
                 log.info(f"Clustering. Setting Q(z) to cluster parent Q(z): {self.cluster_qz:0.2f} ")
                 p = self.cluster_qz
 
-            self.best_z = z
-            self.best_p_of_z = p
+            #last checks
+            try:
+                #if there is no imaging and the DEX spectrum continuum is highly uncertain ...
+                if (self.flags & G.DETFLAG_NO_IMAGING) and ((self.best_gmag_cgs_cont_unc is None) or \
+                    (self.best_gmag_cgs_cont_unc / self.best_gmag_cgs_cont) > 0.9) and multiline_sol_diag < 1:
+                    #if there is no multiline solution ...
+                    #really faint, severely limit the quality
+                    if self.best_gmag  > G.HETDEX_CONTINUUM_MAG_LIMIT:
+                        p = min(p,0.1)
+                    else:
+                        p = min(p,0.2)
+            except:
+                pass
 
-            #last check
-            if self.best_p_of_z <= 0.1 and not (self.flags & G.DETFLAG_UNCERTAIN_CLASSIFICATION):
+            try:
+                if self.snr is not None and 0 < self.snr < 5.5:
+                    p *= np.exp(self.snr-5.5)
+
+            except:
+                pass
+
+            if p <= 0.1 and not (self.flags & G.DETFLAG_UNCERTAIN_CLASSIFICATION):
                 self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
                 log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_UNCERTAIN_CLASSIFICATION (in best_redshift)")
+
+            self.best_z = z
+            self.best_p_of_z = p
 
             return z,p
         except:
@@ -6641,7 +6661,7 @@ class DetObj:
                 diff = abs(self.hetdex_gmag - self.sdss_gmag)
                 unc = self.hetdex_gmag_unc + self.sdss_gmag_unc
                 if (hetdex_okay == sdss_okay) and \
-                        ((self.hetdex_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT) or (self.sdss_gmag <  HETDEX_CONTINUUM_MAG_LIMIT)) and \
+                        ((self.hetdex_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT) or (self.sdss_gmag <  G.HETDEX_CONTINUUM_MAG_LIMIT)) and \
                         ((diff > unc) and (diff > 0.5)):
                     self.flags |= G.DETFLAG_DEXSPEC_GMAG_INCONSISTENT
                     log.info(f"DEX spectrum gmag disagree by {diff/unc:0.1f}x uncertainty. "
@@ -7057,7 +7077,7 @@ class DetObj:
                 diff = abs(self.hetdex_gmag - self.sdss_gmag)
                 unc = self.hetdex_gmag_unc + self.sdss_gmag_unc
                 if (hetdex_okay == sdss_okay) and \
-                    ((self.hetdex_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT) or (self.sdss_gmag <  HETDEX_CONTINUUM_MAG_LIMIT)) and \
+                    ((self.hetdex_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT) or (self.sdss_gmag <  G.HETDEX_CONTINUUM_MAG_LIMIT)) and \
                     ((diff > unc) and (diff > 0.5)):
                     self.flags |= G.DETFLAG_DEXSPEC_GMAG_INCONSISTENT
                     log.info(f"DEX spectrum gmag disagree by {diff/unc:0.1f}x uncertainty. "

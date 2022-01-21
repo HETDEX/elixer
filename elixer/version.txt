@@ -12,6 +12,9 @@ changes to elixer by version
 * set PDF to PNG conversion to use system call only. Experiment since pdf2image partial failures are more frequent on
   stampede2
 * added combined_eqw_rest_lya and _err to elixer h5 Detections table
+* set a maximum line score cap (to 100.0 for now). This prevents a solution that has been deliberately down scored by
+  a multiplier penalty to still have an enormously large "good" score just becuase the emission line(s) in it are high
+  SNR and bright
 
 1.15.0a4-x [2022-01-xx]
 * experimental series ... small changes tracked in spreadsheet. Not intended for any release candidate.

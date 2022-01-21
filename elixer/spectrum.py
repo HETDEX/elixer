@@ -1133,6 +1133,8 @@ class EmissionLineInfo:
                               min((self.pix_size * self.sn_pix)/21.0,1.0) / \
                               (10.0 * (1. + abs(adjusted_dx0_error / self.pix_size)) )
 
+                    self.line_score = min(G.MAXIMUM_LINE_SCORE_CAP,self.line_score)
+
                     if (self.snr < 8.0 and self.fit_chi2 > 3.0) or \
                        ((self.snr > 8.0) and (self.fit_chi2 > 3.0) and (self.snr/self.fit_chi2 < 3)):
                         #penalize the line score
@@ -1176,6 +1178,7 @@ class EmissionLineInfo:
                         new_score = min(G.MAX_SCORE_ABSORPTION_LINES, self.line_score * ABSORPTION_LINE_SCORE_SCALE_FACTOR)
                         log.info("Rescalling line_score for absorption line: %f to %f" %(self.line_score,new_score))
                         self.line_score = new_score
+                        self.line_score = min(G.MAXIMUM_LINE_SCORE_CAP,self.line_score)
                 else:
                     log.info("Zeroing line_score for absorption line.")
                     self.line_score = 0.0
