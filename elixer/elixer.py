@@ -4903,12 +4903,19 @@ def main():
                             nei_name = os.path.join(pdf.basename, str(e.entry_id) + "_nei.png")
                         else:
                             nei_name = os.path.join(pdf.basename, e.pdf_name.rstrip(".pdf") + "_nei.png")
+
+                        if e.fwhm < 0:
+                            wave_range = [e.w-12.5,e.w+12.5]
+                        else:
+                            wave_range = [e.w-e.fwhm*3/2.355,e.w+e.fwhm*3/2.355]
+
                         _, nei_mini_buf = build_neighborhood_map(hdf5=args.hdf5, cont_hdf5=G.HDF5_CONTINUUM_FN,
                                            detectid=None, ra=ra, dec=dec, distance=args.neighborhood, cwave=e.w,
                                            fname=nei_name, original_distance=args.error,
                                            this_detection=e if explicit_extraction else None,
                                            broad_hdf5=G.HDF5_BROAD_DETECT_FN,
-                                           primary_shotid=e.survey_shotid,wave_range=[e.w-e.fwhm*3/2.355,e.w+e.fwhm*3/2.355])
+                                           primary_shotid=e.survey_shotid,
+                                           wave_range=wave_range)
                     except:
                         log.warning("Exception calling build_neighborhood_map.",exc_info=True)
 

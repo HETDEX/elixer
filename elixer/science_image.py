@@ -114,6 +114,7 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
             flux, flux_err, bkg_stddev, apcor, hdu  = phot_tools.get_flux_for_source(detectid=None,
                                                                                      coords=coords,
                                                                                      shotid=shotid,
+                                                                                     survey=f"hdr{G.HDR_Version}",
                                                                                      radius=1.0*ap_units.arcsec, #aperture to get flux (not the size)
                                                                                      wave=w,
                                                                                      linewidth=dw,
@@ -141,8 +142,9 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
             cutout.vmin = max( np.min(hdu[0].data),  -1 * std) #None
         else:
 
-            hdu = phot_tools.get_line_image(friendid=friendid,
+            hdu = phot_tools.get_line_image(#friendid=friendid,
                                             detectid=detectid,
+                                            survey=f"hdr{G.HDR_Version}",
                                             coords=coords,
                                             shotid=shotid,
                                             subcont=subcont,
@@ -184,6 +186,7 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
             cutout.flux, cutout.flux_err, cutout.bkg_stddev, cutout.apcor  = phot_tools.get_flux_for_source(detectid=None,
                                                                                                             coords=coords,
                                                                                                             shotid=shotid,
+                                                                                                            survey=f"hdr{G.HDR_Version}",
                                                                                                             radius=1.0*ap_units.arcsec, #aperture to get flux (not the size)
                                                                                                             wave=w,
                                                                                                             linewidth=dw,
