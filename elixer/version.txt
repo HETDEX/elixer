@@ -7,8 +7,8 @@ changes to elixer by version
   LyA is there, so no penalty, but only a very small score bump so can trigger AGN compatibility check.
 * Adjust NV/CIV line ratio check to allow for NV > CIV (as sometimes happens).
 * Allow the minimum sigma to fit in LSQ to float up from 1.0 in the targetted search
-* Added a vote for LyA (really, a vote against OII) if the fit sigma is really broad (> 8.0 or FWHM > 18.5) with weights
-  between 0.5 and 1.0
+* Added a vote for LyA (really, a vote against OII) if the fit sigma is really broad (> 5.1 or FWHM > 12) with weights
+  between 0.0 and 0.5 (have seen OII, rarely, up to sigma 7-8)
 * set PDF to PNG conversion to use system call only. Experiment since pdf2image partial failures are more frequent on
   stampede2
 * added combined_eqw_rest_lya and _err to elixer h5 Detections table
@@ -19,6 +19,10 @@ changes to elixer by version
   until we have a large trusted data set of Truth to test against, we always set to 1.0. This is temporary and will
   update as a linear or maybe sigmoid xlat based on experimentation. This adjusts the P(LyA) vote and the voting
   weight.
+* deactivate hard EW vote ... too redundant with PLAE/POII and dilutes the PLAE/POII weight
+* add in a 1-sigma (but minium of 3 wavebins) vote for flux asymmetry (red/blue flux) as 1sigma to either side of the
+  line center (excluding the wavebin that includes the line center). If strongly red, votes for LyA. If blue, for OII
+  (or really, just not LyA).
 
 1.15.0a4-x [2022-01-xx]
 * experimental series ... small changes tracked in spreadsheet. Not intended for any release candidate.

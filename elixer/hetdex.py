@@ -3086,15 +3086,20 @@ class DetObj:
                             #so it is more LIKELY it is a high-z object
                             w = 0.75
                         #could be planetary nebula, etc (very small)
-                        elif diam > 10.0:
-                            lk = 0
-                            w = 0.5
-                        elif diam > 2.0:
+                        # elif diam > 10.0:
+                        #     lk = 0
+                        #     w = 0.5
+                        # elif diam > 2.0:
+                        #     lk = 0.0
+                        #     w = 0.25
+                        # elif diam > 1.0:
+                        #     lk = 0.0
+                        #     w = 0.1
+                        elif diam > 2.0: #start walking up as a likely vote for nearby, starting at 2kpc up to 30kpc
+                              #vote is for OII, so  0.0
+                              #weight creeps up
                             lk = 0.0
-                            w = 0.25
-                        elif diam > 1.0:
-                            lk = 0.0
-                            w = 0.1
+                            w = min(0.5,diam/30.0)
                         else: #no info, favors either
                             lk = 0.5
                             w = 0.0
@@ -3369,24 +3374,24 @@ class DetObj:
                                      f"lk({likelihood[-1]}) weight({weight[-1]})")
 
 
-
-                        #if this object is moderately bright and the EW is well above or below 20AA, give that hard EW
-                        #cut its own vote .... using ONLY the best_g mag
-                        if self.best_gmag is not None and self.best_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT:
-                            if ew_combined_continuum < 15.0:
-                                likelihood.append(0.0)
-                                prior.append(base_assumption)
-                                weight.append(0.5) #todo make weight depend on magnitude and EW ...
-                                var.append(0.5)
-                                log.info(f"Aggregate Classification: 20AA hard cut vote from best g-mag and combined EW ({ew_combined_continuum:0.1f}): "
-                                         f"lk({likelihood[-1]}) weight({weight[-1]})")
-                            elif ew_combined_continuum > 25.0:
-                                likelihood.append(1.0)
-                                prior.append(base_assumption)
-                                weight.append(0.5)
-                                var.append(1)
-                                log.info(f"Aggregate Classification: 20AA hard cut vote from best g-mag and combined EW ({ew_combined_continuum:0.1f}): "
+                        if False:
+                            #if this object is moderately bright and the EW is well above or below 20AA, give that hard EW
+                            #cut its own vote .... using ONLY the best_g mag
+                            if self.best_gmag is not None and self.best_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT:
+                                if ew_combined_continuum < 15.0:
+                                    likelihood.append(0.0)
+                                    prior.append(base_assumption)
+                                    weight.append(0.5) #todo make weight depend on magnitude and EW ...
+                                    var.append(0.5)
+                                    log.info(f"Aggregate Classification: 20AA hard cut vote from best g-mag and combined EW ({ew_combined_continuum:0.1f}): "
                                              f"lk({likelihood[-1]}) weight({weight[-1]})")
+                                elif ew_combined_continuum > 25.0:
+                                    likelihood.append(1.0)
+                                    prior.append(base_assumption)
+                                    weight.append(0.5)
+                                    var.append(1)
+                                    log.info(f"Aggregate Classification: 20AA hard cut vote from best g-mag and combined EW ({ew_combined_continuum:0.1f}): "
+                                                 f"lk({likelihood[-1]}) weight({weight[-1]})")
 
 
                 except:
@@ -3405,12 +3410,61 @@ class DetObj:
 
 
         #################################################
-        # line FWHM vote (really broad is not likely OII)
+        # Asymmetric Flux vote
+        # compare blue side to red side of line center
+        # (maybe marginally effective? ... resolution not high enough)
         #################################################
-        try: #sometimes there is no central_eli (if we just cann't get a fit)
-            if self.spec_obj.central_eli.fit_sigma > 8.0: #unlikely OII
+        try:
+            #can fail if too close to the edge, in which case, this should not vote anyway
+            #assuming no errors or similar errors on red side and blue side
+            #this fails if LyA blue is really strong (high escape fraction)
+            #really want to check just right near the line and want at least 3 wavebins
+            line_width = max(3,int(self.fwhm /2.355/G.FLUX_WAVEBIN_WIDTH))
+            line_center_idx,*_ = SU.getnearpos(self.sumspec_wavelength,self.w)
+            lineflux_red = np.sum(self.sumspec_flux[line_center_idx+1:line_center_idx+2+line_width])
+            lineflux_blue = np.sum(self.sumspec_flux[line_center_idx-1-line_width:line_center_idx])
+
+            # print(f"**** blue = {self.sumspec_wavelength[line_center_idx-1-line_width:line_center_idx]}")
+            # print(f"**** red  = {self.sumspec_wavelength[line_center_idx+1:line_center_idx+2+line_width]}")
+            # print(f"***  rat  = {lineflux_red/lineflux_blue}")
+
+            rat = lineflux_red/lineflux_blue
+            if rat > 1.33:
+                likelihood.append(1.0)
+                weight.append(0.25)
+                prior.append(base_assumption)
+                var.append(1)
+                log.info(f"Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f} vote: "
+                         f"lk({likelihood[-1]}) weight({weight[-1]})")
+            elif rat < 0.75:
+                likelihood.append(0.0)
+                weight.append(0.25)
+                prior.append(base_assumption)
+                var.append(1)
+                log.info(f"Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f} vote: "
+                         f"lk({likelihood[-1]}) weight({weight[-1]})")
+            else:
+                log.info(f"Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f} no vote.")
+        except:
+            pass
+
+
+        #################################################
+        # line FWHM vote (really broad is not likely OII)
+        # max 0.5 weight
+        #################################################
+        try: #sometimes there is no central_eli (if we just can't get a fit)
+
+            if self.fwhm is not None:
+                vote_line_sigma = self.fwhm / 2.355
+                vote_line_sigma_unc = self.fwhm_unc / 2.355
+            else:
+                vote_line_sigma = self.spec_obj.central_eli.fit_sigma
+                vote_line_sigma_unc = self.spec_obj.central_eli.fit_sigma_err
+
+            if (vote_line_sigma - vote_line_sigma_unc) > G.LINEWIDTH_SIGMA_TRANSITION: #unlikely OII (FHWM 16.5)
                 likelihood.append(1) #vote kind of FOR LyA (though could be CIV, MgII, other)
-                weight.append(min(0.5 *  self.spec_obj.central_eli.fit_sigma / 8.0, 1.0)) #limit to 1.0 max
+                weight.append(min(vote_line_sigma / G.LINEWIDTH_SIGMA_TRANSITION - 1.0, 0.5)) #limit to 0.5 max
                 var.append(1)
                 prior.append(base_assumption)
                 log.info(f"Aggregate Classification: line FWHM vote (not OII): lk({likelihood[-1]}) weight({weight[-1]})")
@@ -3419,12 +3473,13 @@ class DetObj:
 
 
         ###################################
-        # HARD EqWidth vote
+        # HARD EqWidth vote ?? seems pointless, fully covered by PLAE/POII
         ###################################
 
 
         ###################################
         # Phot-z vote
+        # max 0.5 vote
         ###################################
         phot_z = self.get_phot_z_vote()
         if -0.1 < phot_z < 0.7:
@@ -3442,6 +3497,7 @@ class DetObj:
 
         ###################################
         #magnitude votes
+        # can see really bright (22 mag "normal" LAE, and faint 26+ "normal" OII, but are rare)
         ##################################
 
         mg_z = self.w/G.LyA_rest -1 #redshift used to adjust the mag zeros

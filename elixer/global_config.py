@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.15.0a4-10'
+__version__ = '1.15.0a4-11'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -975,6 +975,8 @@ LAE_MAG_SLOPE = 1.2 # per 1000AA in wave, centered at 4500AA
 LAE_MAG_SIGMA = 0.5 #building a Gaussian as probablilty that mag > LAE_X_MAG_ZERO is an LAE
 LAE_EW_MAG_TRIGGER_MAX = 25.0 #if the associated EW_rest(LyA) is less than this value, then look at the magnitudes
 LAE_EW_MAG_TRIGGER_MIN = 15.0 #if the associated EW_rest(LyA) is greater than this value, then look at the magnitudes
+
+LINEWIDTH_SIGMA_TRANSITION = 4.5  #larger than this, is increasingly more likely to be LyA, below .. could be either
 
 SEP_FIXED_APERTURE_RADIUS = 1.5 #RADIUS in arcsec ... used at the barycenter position of SEP objects
 
