@@ -152,6 +152,9 @@ def adjusted_mag_zero(mag_zero, z):
     a bit more red with weaker continuum and results in larger OII equivalent widths ... so the "danger" mag
     gets a little fainter
 
+    with a sample of LAE and OII, get a linear fit like:   mag_zero = 0.0015 * wavelength + 17.2
+    (trying to maximize accuracy (as (not Lya + missed Lya) / elixer LyA ) and minimize LyA contamination (as not LyA / elixer LyA)
+
     :param mag_zero:
     :param z:
     :return:
@@ -164,7 +167,9 @@ def adjusted_mag_zero(mag_zero, z):
         #this is very close to the more correct version of -2.5 log (f0/
         #at 7.5 (or 1+z)**3 cubed this is far too strong
         if z > 0:
-            adjust = 2.5 * np.log10((1+z) / 3.5) # 3.5 = 1 + 2.5 # 7.5x instead of 2.5x since want to use (1+z)**3
+           # adjust = 2.5 * np.log10((1+z) / 3.5) # 3.5 = 1 + 2.5 # 7.5x instead of 2.5x since want to use (1+z)**3
+            #from DESI comparison; roughly 23.2 @ 3727 to 24.2 @4500 to 25.4 @ 5500
+            adjust = ((G.LyA_rest * (1+z)) - 4500.0) * G.LAE_MAG_SLOPE
         else:
             adjust = 0
         #per above, this effect really only starts z > 2.5 (or OII z > 0.14)
@@ -2909,21 +2914,50 @@ class DetObj:
         #using some Bayesian language, but not really Bayesian, yet
         #assume roughly half of all detections are LAEs (is that reasonable?)
 
+        def plae_poii_midpoint(obs_wave):
+            """
+            changes the 50/50 mid point of PLAE/POII based on the observed wavelength (or equivalently, on the
+            redshift assuming LyA)
+            Leung+2015 suggests improved performance in their simulations (see Table 3) by using
+            PLAE/POII = 1.38 for z < 2.5 and 10.3 for z > 2.5
+            :param obs_wave:
+            :return:
+            """
 
-        def plae_gaussian_weight(plae_poii):
+            #until we have good experimental data, just return 1.0 as the 50/50 midpoint
+            return 1.0
+
+            try:
+                #start with Andrew's binary condition
+                if obs_wave is not None and 3400.0 < obs_wave < 5600.0:
+                    if obs_wave < 4254: # z(LyA) = 2.5
+                        return 1.38
+                    else:
+                        return 10.3
+                else:
+                    return 1.0
+            except:
+                log.warning("Exception! Exception in plae_poii_midpoint. Set midpoint as 1.0", exc_info=True)
+
+
+        def plae_gaussian_weight(plae_poii,obs_wave=None):
             #the idea here as the the closer the PLAE/POII is to 1 (a 50/50 chance) the lower the weight (tends to 0)
             # but extreme values (getting closer to 0.001 or 1000) the weight goes closer to a full value of 1
             # by a value of 20 (or 1/20) essentially at 1.0
             try:
                 if plae_poii < 1:
                     plae_poii = 1.0/plae_poii
-            except: #could be exactly zero through either a fluke or a data issue
-                return 0
 
-            #just for clarity
-            mu = 1.0
-            sigma = G.PLAE_POII_GAUSSIAN_WEIGHT_SIGMA #5.0 #s|t by 0.1 or 10 you get 80% weight but near 1 you gain nothing
-            return 1-np.exp(-((plae_poii - mu)/(np.sqrt(2)*sigma))**2.)
+                #adjust the Gaussian center based on the observed wavelength
+                if obs_wave is None:
+                    mu = 1.0
+                else:
+                    mu = plae_poii_midpoint(obs_wave)
+                sigma = G.PLAE_POII_GAUSSIAN_WEIGHT_SIGMA #5.0 #s|t by 0.1 or 10 you get 80% weight but near 1 you gain nothing
+                return 1 - np.exp(-((plae_poii - mu)/(np.sqrt(2)*sigma))**2.)
+            except: #could be exactly zero through either a fluke or a data issue
+                log.warning("Exception! Exception in plae_gaussian_weight. Set weight to 0.0", exc_info=True)
+                return 0
 
 
         def mag_gaussian_weight(mag_zero, mag, mag_bright, mag_faint):
@@ -3268,7 +3302,8 @@ class DetObj:
                 #scale ranges from 0.999 (LAE) to 0.001 (not LAE)
                 #logic is simple based on PLAE/POII interpreations to mean #LAE/(#LAE + #OII) where #LAE is a fraction and #OII == 1
                 #so PLAE/POII = 1000 --> 1000/(1000+1) = 0.999, PLAE/POII == 1.0 --> (1/(1+1)) = 0.5, PLAE/POII = 0.001 --> 0.001/(0.001 +1) = 0.001
-                scale_plae_hat = self.classification_dict['plae_hat'] / (self.classification_dict['plae_hat'] + 1.0)
+                mid = self.classification_dict['plae_hat'] / plae_poii_midpoint(self.w)
+                plae_vote = mid / (mid + 1.0)
                 # lower_plae = max(0.001, self.classification_dict['plae_hat_lo'])#self.classification_dict['plae_hat']-self.classification_dict['plae_hat_sd'])
                 # scale_plae_lo =  scale_plae_hat - lower_plae / (lower_plae + 1.0)
                 #
@@ -3280,7 +3315,7 @@ class DetObj:
                 scale_plae_hi = self.classification_dict['plae_hat_hi'] / (self.classification_dict['plae_hat_hi'] + 1.0)
                 scale_plae_sd = 0.5 * (scale_plae_hi - scale_plae_lo)
 
-                likelihood.append(scale_plae_hat)
+                likelihood.append(plae_vote)
                 prior.append(base_assumption)
                 #scale the weight by the difference between the scaled PLAE and one SD below (or above)
                 # the closer they are to each other, the closer to the full weight you'd get)
@@ -3292,7 +3327,7 @@ class DetObj:
                 # At the end, the insertion of a 0.5 vote with (1-sum(weights)) should not matter
                 # as, if this is sitting near a zero weight and is the only vote, that means we are sitting
                 # near PLAE/POII ~ 1 which is 0.5 P(LyA)
-                weight.append(plae_gaussian_weight(self.classification_dict['plae_hat']) * (1.0 - scale_plae_sd))
+                weight.append(plae_gaussian_weight(self.classification_dict['plae_hat'],obs_wave=self.w) * (1.0 - scale_plae_sd))
                 var.append(1)  # todo: use the sd (scaled?) #can't use straight up here since the variances are not
                                # on the same scale
 
@@ -3563,10 +3598,10 @@ class DetObj:
             prior.append(base_assumption)
             log.info(f"Aggregate Classification: gmag too bright {self.best_gmag} to be LAE (AGN): lk({likelihood[-1]}) "
                 f"weight({weight[-1]})")
-        elif lower_mag < 23.5:
+        elif lower_mag < 23.0:
             try:
                 min_fwhm = self.fwhm - (0 if ((self.fwhm_unc is None) or (np.isnan(self.fwhm_unc))) else self.fwhm_unc)
-                min_thresh = max( ((23.5 - lower_mag) + 8.0), 8.0) #just in case something weird
+                min_thresh = max( ((23.0 - lower_mag) + 8.0), 8.0) #just in case something weird
 
                 #the -25.0 and -0.8 are from some trial and error plotting to get the shape I want
                 #runs 0 to 1.0 and drops off very fast from 1.0 toward 0.0

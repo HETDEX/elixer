@@ -15,6 +15,10 @@ changes to elixer by version
 * set a maximum line score cap (to 100.0 for now). This prevents a solution that has been deliberately down scored by
   a multiplier penalty to still have an enormously large "good" score just becuase the emission line(s) in it are high
   SNR and bright
+* added sliding PLAE/POII 50/50 value. Per Leung+2015, for z(LyA) < 2.5, use 1.38 and z > 2.5 use 10.3. For this version
+  until we have a large trusted data set of Truth to test against, we always set to 1.0. This is temporary and will
+  update as a linear or maybe sigmoid xlat based on experimentation. This adjusts the P(LyA) vote and the voting
+  weight.
 
 1.15.0a4-x [2022-01-xx]
 * experimental series ... small changes tracked in spreadsheet. Not intended for any release candidate.
