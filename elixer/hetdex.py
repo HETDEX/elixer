@@ -3640,64 +3640,162 @@ class DetObj:
         # low weight
         #########################################
 
-
-        try:
-            if self.best_gmag is not None and self.w > G.OII_rest:
-                g = min(self.best_gmag,G.HETDEX_CONTINUUM_MAG_LIMIT)
-
-                if self.best_gmag_unc is not None:
-                    g_unc = self.best_gmag_unc
+        if True:
+            try:
+                if ('combined_eqw_rest_lya' in self.classification_dict) and \
+                        self.classification_dict['combined_eqw_rest_lya'] is not None:
+                    ew = self.classification_dict['combined_eqw_rest_lya']
                 else:
-                    g_unc = 0
+                    ew = None
 
-                g_bright = None
-                g_faint = None
+                if ('combined_eqw_rest_lya_err' in self.classification_dict) and \
+                            self.classification_dict['combined_eqw_rest_lya_err'] is not None:
+                    ew_err = self.classification_dict['combined_eqw_rest_lya_err']
+                else:
+                    ew_err = 0
 
-                gmag_bright_thresh, gmag_faint_thresh = gmag_vote_thresholds(self.w)
-                try:
-                    if g == G.HETDEX_CONTINUUM_MAG_LIMIT:
-                        g_bright = g
+                if self.best_gmag is not None and self.w > G.OII_rest:
+                    g = min(self.best_gmag,G.HETDEX_CONTINUUM_MAG_LIMIT)
+
+                    if self.best_gmag_unc is not None:
+                        g_unc = self.best_gmag_unc
                     else:
-                        g_bright = g - g_unc
-                    g_faint = g + g_unc
-                except:
-                    pass
+                        g_unc = 0
 
-                if g_bright > gmag_faint_thresh: #vote for LyA
-                    likelihood.append(1.0)
-                    weight.append(0.5) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
-                    var.append(1)
-                    prior.append(base_assumption)
-                    log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                             f"weight({weight[-1]})")
-                elif g_faint < gmag_bright_thresh: #vote for OII
-                    likelihood.append(0.0)
-                    weight.append(0.5) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
-                    var.append(1)
-                    prior.append(base_assumption)
-                    log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                             f"weight({weight[-1]})")
-                elif g > gmag_faint_thresh and g_faint > gmag_bright_thresh: #small vote for LyA
-                    #error straddles no-man's land and fainter limit
-                    likelihood.append(1.0)
-                    weight.append(0.1) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
-                    var.append(1)
-                    prior.append(base_assumption)
-                    log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                             f"weight({weight[-1]})")
-                elif g < gmag_bright_thresh and g_bright < gmag_faint_thresh: #small vote for OII
-                    #error straddles no-man's land and brighter limit
-                    likelihood.append(0.0)
-                    weight.append(0.1) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
-                    var.append(1)
-                    prior.append(base_assumption)
-                    log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                             f"weight({weight[-1]})")
-                else: #g is in between OR error straddles both ... either way, no vote
-                    log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag no vote. Mag in unclear region.")
+                    g_bright = None
+                    g_faint = None
 
-        except:
-            pass
+                    gmag_bright_thresh, gmag_faint_thresh = gmag_vote_thresholds(self.w)
+                    try:
+                        if g == G.HETDEX_CONTINUUM_MAG_LIMIT:
+                            g_bright = g
+                        else:
+                            g_bright = g - g_unc
+                        g_faint = g + g_unc
+                    except:
+                        pass
+
+                    if g_bright > gmag_faint_thresh: #vote for LyA
+                        likelihood.append(1.0)
+                        weight.append(0.5) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                        var.append(1)
+                        prior.append(base_assumption)
+                        log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                 f"weight({weight[-1]})")
+                    elif g_faint < gmag_bright_thresh: #vote for OII
+                        #Still up to 25-30% could be LyA ... so weigt very little
+                        #check on the EW if solidly LyA then vote LyA, etc
+                        if (ew is not None):
+                            if (ew-ew_err) > 80:
+                                #could be LyA
+                                likelihood.append(1.0)
+                                weight.append(0.25) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                var.append(1)
+                                prior.append(base_assumption)
+                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                         f"weight({weight[-1]})")
+                            elif (ew-ew_err) > 30:
+                                #could be LyA
+                                likelihood.append(1.0)
+                                weight.append(0.1) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                var.append(1)
+                                prior.append(base_assumption)
+                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                         f"weight({weight[-1]})")
+                            elif (ew+ew_err) < 15:
+                                #could be LyA
+                                likelihood.append(0.0)
+                                weight.append(0.5) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                var.append(1)
+                                prior.append(base_assumption)
+                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                         f"weight({weight[-1]})")
+                            else: #no vote
+                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag no vote. Mag in unclear region.")
+                        else: #no EW info ... assume OII as more likely, but limited weight
+                            likelihood.append(0.0)
+                            weight.append(0.1)
+                            var.append(1)
+                            prior.append(base_assumption)
+                            log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                     f"weight({weight[-1]})")
+                    elif g > gmag_faint_thresh and g_faint > gmag_bright_thresh: #small vote for LyA
+                        #error straddles no-man's land and fainter limit
+                        if (ew is not None):
+                            if (ew-ew_err) > 80:
+                                #could be LyA
+                                likelihood.append(1.0)
+                                weight.append(0.5) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                var.append(1)
+                                prior.append(base_assumption)
+                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                         f"weight({weight[-1]})")
+                            elif (ew-ew_err) > 30:
+                                #could be LyA
+                                likelihood.append(1.0)
+                                weight.append(0.3) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                var.append(1)
+                                prior.append(base_assumption)
+                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                         f"weight({weight[-1]})")
+                            elif (ew+ew_err) < 15:
+                                #could be LyA
+                                likelihood.append(0.0)
+                                weight.append(0.25) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                var.append(1)
+                                prior.append(base_assumption)
+                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                         f"weight({weight[-1]})")
+                            else: #no vote
+                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag no vote. Mag in unclear region.")
+                        else: #no EW info ... assume OII as more likely, but limited weight
+                            likelihood.append(1.0)
+                            weight.append(0.1)
+                            var.append(1)
+                            prior.append(base_assumption)
+                            log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                     f"weight({weight[-1]})")
+                    elif g < gmag_bright_thresh and g_bright < gmag_faint_thresh: #small vote for OII
+                        #error straddles no-man's land and brighter limit
+                        if (ew is not None):
+                            if (ew-ew_err) > 80:
+                                #could be LyA
+                                likelihood.append(1.0)
+                                weight.append(0.30) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                var.append(1)
+                                prior.append(base_assumption)
+                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                         f"weight({weight[-1]})")
+                            elif (ew-ew_err) > 30:
+                                #could be LyA
+                                likelihood.append(1.0)
+                                weight.append(0.15) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                var.append(1)
+                                prior.append(base_assumption)
+                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                         f"weight({weight[-1]})")
+                            elif (ew+ew_err) < 15:
+                                #could be LyA
+                                likelihood.append(0.0)
+                                weight.append(0.4) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                var.append(1)
+                                prior.append(base_assumption)
+                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                         f"weight({weight[-1]})")
+                            else: #no vote
+                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag no vote. Mag in unclear region.")
+                        else: #no EW info ... assume OII as more likely, but limited weight
+                            likelihood.append(0.0)
+                            weight.append(0.05)
+                            var.append(1)
+                            prior.append(base_assumption)
+                            log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                     f"weight({weight[-1]})")
+                    else: #g is in between OR error straddles both ... either way, no vote
+                        log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag no vote. Mag in unclear region.")
+
+            except:
+                pass
 
 
 
@@ -3707,181 +3805,181 @@ class DetObj:
         # requires an EW outside of a range
         # can see really bright (22 mag "normal" LAE, and faint 26+ "normal" OII, but are rare)
         ##################################
+        if False:
+            if self.w > G.OII_rest:
+                mg_z = self.w/G.LyA_rest -1 #redshift used to adjust the mag zeros
+                #counterpart magnitude (if a counterpart was automatically identified)
+                #see cat_base::build_cat_summary_pdf_section
 
-        if self.w > G.OII_rest:
-            mg_z = self.w/G.LyA_rest -1 #redshift used to adjust the mag zeros
-            #counterpart magnitude (if a counterpart was automatically identified)
-            #see cat_base::build_cat_summary_pdf_section
+                #we want to consider these when the equivalent width is near 20AA
 
-            #we want to consider these when the equivalent width is near 20AA
-
-            counterpart_filter = None
-            if self.best_counterpart is not None and self.best_counterpart.bid_filter is not None:
-                if self.best_counterpart.bid_filter.lower() in ['r','f606w']:
-                    mag_zero = G.LAE_R_MAG_ZERO
-                    counterpart_filter = 'r'
-                else:
-                    mag_zero = G.LAE_G_MAG_ZERO
-                    counterpart_filter = 'g'
-
-                mag_zero = adjusted_mag_zero(mag_zero, mg_z)
-
-                ew = 999
-                unc = 0
-                if self.best_counterpart.bid_ew_lya_rest is not None:
-                    ew = self.best_counterpart.bid_ew_lya_rest
-                    if self.best_counterpart.bid_ew_lya_rest_err is not None:
-                        unc =  self.best_counterpart.bid_ew_lya_rest_err
-
-                if (ew-unc) < G.LAE_EW_MAG_TRIGGER_MAX and (ew+unc) > G.LAE_EW_MAG_TRIGGER_MIN:
-                    w = 0.5 * mag_gaussian_weight(mag_zero,self.best_counterpart.bid_mag,
-                                                  self.best_counterpart.bid_mag_err_bright,self.best_counterpart.bid_mag_err_faint)
-
-                    if self.best_counterpart.bid_mag < mag_zero:
-                        likelihood.append(0.0)
+                counterpart_filter = None
+                if self.best_counterpart is not None and self.best_counterpart.bid_filter is not None:
+                    if self.best_counterpart.bid_filter.lower() in ['r','f606w']:
+                        mag_zero = G.LAE_R_MAG_ZERO
+                        counterpart_filter = 'r'
                     else:
-                        likelihood.append(1.0)
+                        mag_zero = G.LAE_G_MAG_ZERO
+                        counterpart_filter = 'g'
 
-                    weight.append(w)
-                    var.append(1)
-                    prior.append(base_assumption)
-                    log.info(f"{self.entry_id} Aggregate Classification: counterpart {self.best_counterpart.bid_filter.lower()}-mag vote "
-                             f"{self.best_counterpart.bid_mag:0.2f} : lk({likelihood[-1]}) "
-                             f"weight({weight[-1]})")
-                else:
-                    counterpart_filter = None #undo the filter vote status
-
-            #partly included in PLAE/POII (as continuum estiamtes)
-            #using just g and r and each gets 1/2 vote
-            #todo: not often, but if we have u-band, would expect it to be faint
-            #for g:  24.5+ increasingly favors LAE
-            #
-            try:
-                if self.best_img_g_mag is not None and self.best_img_g_mag[0] is not None:
-                    if counterpart_filter == 'g':
-                        w = 0.25
-                    else:
-                        w = 0.5
+                    mag_zero = adjusted_mag_zero(mag_zero, mg_z)
 
                     ew = 999
                     unc = 0
-
-                    if self.best_eqw_gmag_obs is not None:
-                        ew = self.best_eqw_gmag_obs / (self.w /G.LyA_rest)
-                        if self.best_eqw_gmag_obs_unc is not None:
-                            unc = self.best_eqw_gmag_obs_unc  / (self.w /G.LyA_rest)
-
+                    if self.best_counterpart.bid_ew_lya_rest is not None:
+                        ew = self.best_counterpart.bid_ew_lya_rest
+                        if self.best_counterpart.bid_ew_lya_rest_err is not None:
+                            unc =  self.best_counterpart.bid_ew_lya_rest_err
 
                     if (ew-unc) < G.LAE_EW_MAG_TRIGGER_MAX and (ew+unc) > G.LAE_EW_MAG_TRIGGER_MIN:
-                        w = w * mag_gaussian_weight(adjusted_mag_zero(G.LAE_G_MAG_ZERO,mg_z),self.best_img_g_mag[0],
-                                                self.best_img_g_mag[1],self.best_img_g_mag[2])
-                        if self.best_img_g_mag[0] < adjusted_mag_zero(G.LAE_G_MAG_ZERO,mg_z):
+                        w = 0.5 * mag_gaussian_weight(mag_zero,self.best_counterpart.bid_mag,
+                                                      self.best_counterpart.bid_mag_err_bright,self.best_counterpart.bid_mag_err_faint)
+
+                        if self.best_counterpart.bid_mag < mag_zero:
                             likelihood.append(0.0)
                         else:
                             likelihood.append(1.0)
+
                         weight.append(w)
                         var.append(1)
                         prior.append(base_assumption)
-                        log.info(f"{self.entry_id} Aggregate Classification: aperture g-mag vote {self.best_img_g_mag[0]:0.2f} : lk({likelihood[-1]}) "
+                        log.info(f"{self.entry_id} Aggregate Classification: counterpart {self.best_counterpart.bid_filter.lower()}-mag vote "
+                                 f"{self.best_counterpart.bid_mag:0.2f} : lk({likelihood[-1]}) "
                                  f"weight({weight[-1]})")
-                elif self.best_gmag is not None:
-                    g = min(self.best_gmag,G.HETDEX_CONTINUUM_MAG_LIMIT)
-                    g_bright = None
-                    g_faint = None
-                    try:
-                        if g == G.HETDEX_CONTINUUM_MAG_LIMIT:
-                            g_bright = g
+                    else:
+                        counterpart_filter = None #undo the filter vote status
+
+                #partly included in PLAE/POII (as continuum estiamtes)
+                #using just g and r and each gets 1/2 vote
+                #todo: not often, but if we have u-band, would expect it to be faint
+                #for g:  24.5+ increasingly favors LAE
+                #
+                try:
+                    if self.best_img_g_mag is not None and self.best_img_g_mag[0] is not None:
+                        if counterpart_filter == 'g':
+                            w = 0.25
                         else:
-                            g_bright = g - self.best_gmag_unc
-                        g_faint = g + self.best_gmag_unc
-                    except:
-                        pass
+                            w = 0.5
 
-                    ew = 999
-                    unc = 0
-                    if self.best_eqw_gmag_obs is not None:
-                        ew = self.best_eqw_gmag_obs / (self.w / G.LyA_rest)
-                        if self.best_eqw_gmag_obs_unc is not None:
-                            unc = self.best_eqw_gmag_obs_unc / (self.w / G.LyA_rest)
-
-                    if (ew-unc) < G.LAE_EW_MAG_TRIGGER_MAX and (ew+unc) > G.LAE_EW_MAG_TRIGGER_MIN:
-                        w = 0.25 * mag_gaussian_weight(adjusted_mag_zero(G.LAE_G_MAG_ZERO,mg_z),g,g_bright,g_faint)
-
-                        if g < adjusted_mag_zero(G.LAE_G_MAG_ZERO,mg_z):
-                            likelihood.append(0.0)
-                        else:
-                            likelihood.append(1.0)
-                        weight.append(w)
-                        var.append(1)
-                        prior.append(base_assumption)
-                        log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                 f"weight({weight[-1]})")
-            except:
-                pass
-
-            try:
-                if self.best_img_r_mag is not None and self.best_img_r_mag[0] is not None:
-                    # if counterpart_filter == 'r':
-                    #    w = 0.25
-                    # else:
-                    #    w = 0.5
-
-                    w = 0.5
-
-                    ew = 999
-                    unc = 0
-                    cont = SU.mag2cgs(self.best_img_r_mag[0],6500.0)
-                    cont_unc = None
-                    if self.best_img_r_mag[1] is not None:
-                        cont_unc = abs(cont - SU.mag2cgs(self.best_img_r_mag[1],6500.0))
-                    ew,unc = SU.lya_ewr(self.estflux,self.estflux_unc,self.w,'r',cont,cont_unc)
-                    if np.isnan(ew):
                         ew = 999
-                    if np.isnan(unc):
                         unc = 0
 
-                    if (ew-unc) < G.LAE_EW_MAG_TRIGGER_MAX and (ew+unc)> G.LAE_EW_MAG_TRIGGER_MIN:
-                        w = w * mag_gaussian_weight(adjusted_mag_zero(G.LAE_R_MAG_ZERO,mg_z),self.best_img_r_mag[0],
-                                                self.best_img_r_mag[1],self.best_img_r_mag[2])
-                        if self.best_img_r_mag[0] < adjusted_mag_zero(G.LAE_R_MAG_ZERO,mg_z):
-                            likelihood.append(0.0)
-                        else:
-                            likelihood.append(1.0)
-                        weight.append(w)
-                        var.append(1)
-                        prior.append(base_assumption)
-                        log.info(f"{self.entry_id} Aggregate Classification: aperture r-mag vote {self.best_img_r_mag[0]:0.2f} : lk({likelihood[-1]}) "
-                                 f"weight({weight[-1]})")
-            except:
-                pass
+                        if self.best_eqw_gmag_obs is not None:
+                            ew = self.best_eqw_gmag_obs / (self.w /G.LyA_rest)
+                            if self.best_eqw_gmag_obs_unc is not None:
+                                unc = self.best_eqw_gmag_obs_unc  / (self.w /G.LyA_rest)
 
-            #basic magnitude sanity checks
-            if lower_mag < 18.0: #the VERY BRIGHTEST QSOs in the 2 < z < 4 are 17-18 mag
-                likelihood.append(0.1)  # weak solution so push likelihood "down" but not zero (maybe 0.2 or 0.25)?
-                weight.append(max(2.0,max(weight)))
-                var.append(1)  # todo: ? could do something like the spectrum noise?
-                prior.append(base_assumption)
-                log.info(f"{self.entry_id} Aggregate Classification: gmag too bright {self.best_gmag} to be LAE (AGN): lk({likelihood[-1]}) "
-                    f"weight({weight[-1]})")
-            elif lower_mag < 23.0:
-                try:
-                    min_fwhm = self.fwhm - (0 if ((self.fwhm_unc is None) or (np.isnan(self.fwhm_unc))) else self.fwhm_unc)
-                    min_thresh = max( ((23.0 - lower_mag) + 8.0), 8.0) #just in case something weird
 
-                    #the -25.0 and -0.8 are from some trial and error plotting to get the shape I want
-                    #runs 0 to 1.0 and drops off very fast from 1.0 toward 0.0
-                    # (by ratio of 0.8 were at y=0.5, by 0.6 y ~ 0.0)
-                    sigmoid = 1.0 / (1.0 + np.exp(-25.0 * (min_fwhm/min_thresh - 0.8)))
-                    if min_fwhm < min_thresh:
-                        #unless this is an AGN, this is very unlikely
-                        likelihood.append(min(0.5, sigmoid))  # weak solution so push likelihood "down" but not zero (maybe 0.2 or 0.25)?
-                        weight.append(1.0 * (1.0-sigmoid))
-                        var.append(1)  # todo: ? could do something like the spectrum noise?
-                        prior.append(base_assumption)
-                        log.info(f"{self.entry_id} Aggregate Classification: gmag too bright {self.best_gmag} for fwhm {self.fwhm}: lk({likelihood[-1]}) "
-                                  f"weight({weight[-1]})")
+                        if (ew-unc) < G.LAE_EW_MAG_TRIGGER_MAX and (ew+unc) > G.LAE_EW_MAG_TRIGGER_MIN:
+                            w = w * mag_gaussian_weight(adjusted_mag_zero(G.LAE_G_MAG_ZERO,mg_z),self.best_img_g_mag[0],
+                                                    self.best_img_g_mag[1],self.best_img_g_mag[2])
+                            if self.best_img_g_mag[0] < adjusted_mag_zero(G.LAE_G_MAG_ZERO,mg_z):
+                                likelihood.append(0.0)
+                            else:
+                                likelihood.append(1.0)
+                            weight.append(w)
+                            var.append(1)
+                            prior.append(base_assumption)
+                            log.info(f"{self.entry_id} Aggregate Classification: aperture g-mag vote {self.best_img_g_mag[0]:0.2f} : lk({likelihood[-1]}) "
+                                     f"weight({weight[-1]})")
+                    elif self.best_gmag is not None:
+                        g = min(self.best_gmag,G.HETDEX_CONTINUUM_MAG_LIMIT)
+                        g_bright = None
+                        g_faint = None
+                        try:
+                            if g == G.HETDEX_CONTINUUM_MAG_LIMIT:
+                                g_bright = g
+                            else:
+                                g_bright = g - self.best_gmag_unc
+                            g_faint = g + self.best_gmag_unc
+                        except:
+                            pass
+
+                        ew = 999
+                        unc = 0
+                        if self.best_eqw_gmag_obs is not None:
+                            ew = self.best_eqw_gmag_obs / (self.w / G.LyA_rest)
+                            if self.best_eqw_gmag_obs_unc is not None:
+                                unc = self.best_eqw_gmag_obs_unc / (self.w / G.LyA_rest)
+
+                        if (ew-unc) < G.LAE_EW_MAG_TRIGGER_MAX and (ew+unc) > G.LAE_EW_MAG_TRIGGER_MIN:
+                            w = 0.25 * mag_gaussian_weight(adjusted_mag_zero(G.LAE_G_MAG_ZERO,mg_z),g,g_bright,g_faint)
+
+                            if g < adjusted_mag_zero(G.LAE_G_MAG_ZERO,mg_z):
+                                likelihood.append(0.0)
+                            else:
+                                likelihood.append(1.0)
+                            weight.append(w)
+                            var.append(1)
+                            prior.append(base_assumption)
+                            log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                     f"weight({weight[-1]})")
                 except:
-                    log.debug("Exception in aggregate_classification for best PLAE/POII", exc_info=True)
+                    pass
+
+                try:
+                    if self.best_img_r_mag is not None and self.best_img_r_mag[0] is not None:
+                        # if counterpart_filter == 'r':
+                        #    w = 0.25
+                        # else:
+                        #    w = 0.5
+
+                        w = 0.5
+
+                        ew = 999
+                        unc = 0
+                        cont = SU.mag2cgs(self.best_img_r_mag[0],6500.0)
+                        cont_unc = None
+                        if self.best_img_r_mag[1] is not None:
+                            cont_unc = abs(cont - SU.mag2cgs(self.best_img_r_mag[1],6500.0))
+                        ew,unc = SU.lya_ewr(self.estflux,self.estflux_unc,self.w,'r',cont,cont_unc)
+                        if np.isnan(ew):
+                            ew = 999
+                        if np.isnan(unc):
+                            unc = 0
+
+                        if (ew-unc) < G.LAE_EW_MAG_TRIGGER_MAX and (ew+unc)> G.LAE_EW_MAG_TRIGGER_MIN:
+                            w = w * mag_gaussian_weight(adjusted_mag_zero(G.LAE_R_MAG_ZERO,mg_z),self.best_img_r_mag[0],
+                                                    self.best_img_r_mag[1],self.best_img_r_mag[2])
+                            if self.best_img_r_mag[0] < adjusted_mag_zero(G.LAE_R_MAG_ZERO,mg_z):
+                                likelihood.append(0.0)
+                            else:
+                                likelihood.append(1.0)
+                            weight.append(w)
+                            var.append(1)
+                            prior.append(base_assumption)
+                            log.info(f"{self.entry_id} Aggregate Classification: aperture r-mag vote {self.best_img_r_mag[0]:0.2f} : lk({likelihood[-1]}) "
+                                     f"weight({weight[-1]})")
+                except:
+                    pass
+
+                #basic magnitude sanity checks
+                if lower_mag < 18.0: #the VERY BRIGHTEST QSOs in the 2 < z < 4 are 17-18 mag
+                    likelihood.append(0.1)  # weak solution so push likelihood "down" but not zero (maybe 0.2 or 0.25)?
+                    weight.append(max(2.0,max(weight)))
+                    var.append(1)  # todo: ? could do something like the spectrum noise?
+                    prior.append(base_assumption)
+                    log.info(f"{self.entry_id} Aggregate Classification: gmag too bright {self.best_gmag} to be LAE (AGN): lk({likelihood[-1]}) "
+                        f"weight({weight[-1]})")
+                elif lower_mag < 23.0:
+                    try:
+                        min_fwhm = self.fwhm - (0 if ((self.fwhm_unc is None) or (np.isnan(self.fwhm_unc))) else self.fwhm_unc)
+                        min_thresh = max( ((23.0 - lower_mag) + 8.0), 8.0) #just in case something weird
+
+                        #the -25.0 and -0.8 are from some trial and error plotting to get the shape I want
+                        #runs 0 to 1.0 and drops off very fast from 1.0 toward 0.0
+                        # (by ratio of 0.8 were at y=0.5, by 0.6 y ~ 0.0)
+                        sigmoid = 1.0 / (1.0 + np.exp(-25.0 * (min_fwhm/min_thresh - 0.8)))
+                        if min_fwhm < min_thresh:
+                            #unless this is an AGN, this is very unlikely
+                            likelihood.append(min(0.5, sigmoid))  # weak solution so push likelihood "down" but not zero (maybe 0.2 or 0.25)?
+                            weight.append(1.0 * (1.0-sigmoid))
+                            var.append(1)  # todo: ? could do something like the spectrum noise?
+                            prior.append(base_assumption)
+                            log.info(f"{self.entry_id} Aggregate Classification: gmag too bright {self.best_gmag} for fwhm {self.fwhm}: lk({likelihood[-1]}) "
+                                      f"weight({weight[-1]})")
+                    except:
+                        log.debug("Exception in aggregate_classification for best PLAE/POII", exc_info=True)
 
 
         ########################################################
