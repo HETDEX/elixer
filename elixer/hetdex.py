@@ -3572,32 +3572,36 @@ class DetObj:
             #assuming no errors or similar errors on red side and blue side
             #this fails if LyA blue is really strong (high escape fraction)
             #really want to check just right near the line and want at least 3 wavebins
-            line_width = max(3,int(self.fwhm /2.355/G.FLUX_WAVEBIN_WIDTH))
-            line_center_idx,*_ = SU.getnearpos(self.sumspec_wavelength,self.w)
-            lineflux_red = np.sum(self.sumspec_flux[line_center_idx+1:line_center_idx+2+line_width])
-            lineflux_blue = np.sum(self.sumspec_flux[line_center_idx-1-line_width:line_center_idx])
+            if self.snr is not None and self.snr > 7.0:
 
-            # print(f"**** blue = {self.sumspec_wavelength[line_center_idx-1-line_width:line_center_idx]}")
-            # print(f"**** red  = {self.sumspec_wavelength[line_center_idx+1:line_center_idx+2+line_width]}")
-            # print(f"***  rat  = {lineflux_red/lineflux_blue}")
+                line_width = max(3,int(self.fwhm /2.355/G.FLUX_WAVEBIN_WIDTH))
+                line_center_idx,*_ = SU.getnearpos(self.sumspec_wavelength,self.w)
+                lineflux_red = np.sum(self.sumspec_flux[line_center_idx+1:line_center_idx+2+line_width])
+                lineflux_blue = np.sum(self.sumspec_flux[line_center_idx-1-line_width:line_center_idx])
 
-            rat = lineflux_red/lineflux_blue
-            if rat > 1.2:
-                likelihood.append(1.0)
-                weight.append(0.25)
-                prior.append(base_assumption)
-                var.append(1)
-                log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f} vote: "
-                         f"lk({likelihood[-1]}) weight({weight[-1]})")
-            elif rat < 0.80:
-                likelihood.append(0.0)
-                weight.append(0.25)
-                prior.append(base_assumption)
-                var.append(1)
-                log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f} vote: "
-                         f"lk({likelihood[-1]}) weight({weight[-1]})")
+                # print(f"**** blue = {self.sumspec_wavelength[line_center_idx-1-line_width:line_center_idx]}")
+                # print(f"**** red  = {self.sumspec_wavelength[line_center_idx+1:line_center_idx+2+line_width]}")
+                # print(f"***  rat  = {lineflux_red/lineflux_blue}")
+
+                rat = lineflux_red/lineflux_blue
+                if rat > 1.2:
+                    likelihood.append(1.0)
+                    weight.append(0.25)
+                    prior.append(base_assumption)
+                    var.append(1)
+                    log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f} vote: "
+                             f"lk({likelihood[-1]}) weight({weight[-1]})")
+                elif rat < 0.80:
+                    likelihood.append(0.0)
+                    weight.append(0.25)
+                    prior.append(base_assumption)
+                    var.append(1)
+                    log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f} vote: "
+                             f"lk({likelihood[-1]}) weight({weight[-1]})")
+                else:
+                    log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f} no vote.")
             else:
-                log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f} no vote.")
+                log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux low snr {self.snr:0.2f} no vote.")
         except:
             pass
 

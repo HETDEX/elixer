@@ -22,7 +22,7 @@ changes to elixer by version
 * deactivate hard EW vote ... too redundant with PLAE/POII and dilutes the PLAE/POII weight
 * add in a 1-sigma (but minium of 3 wavebins) vote for flux asymmetry (red/blue flux) as 1sigma to either side of the
   line center (excluding the wavebin that includes the line center). If strongly red, votes for LyA. If blue, for OII
-  (or really, just not LyA).
+  (or really, just not LyA). Limited to SNR > 7.0.
 * simplified physical size more angular size. Uses line FWHM if angular size is big to allow for possible AGN.
 * added photometric magnitude rejection in combine_all_cotinuum when using maxed out elixer aperture and there is a
   bright, nearby SEP object and the aperture measure is 5x or more brigher than the DEX-gmag. Helps classify LAEs near

@@ -480,7 +480,12 @@ def parse_commandline(auto_force=False):
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
 
-    args = parser.parse_args()
+    try:
+        args = parser.parse_args()
+    except:
+        log.critical("Exception! Excpetion parsing command line.",exc_info=True)
+        args = None
+        return
 
     try:
         if args.special: #if not None or 0
@@ -3975,6 +3980,9 @@ def main():
     #G.gc.set_debug(G.gc.DEBUG_LEAK)
     try:
         args = parse_commandline()
+        if args is None:
+            print("Unable to parse command line. Exiting...")
+            exit(0)
     except:
         log.critical("Exception in command line.",exc_info=True)
         exit(0)
