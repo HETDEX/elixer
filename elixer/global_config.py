@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.15.0a4-15'
+__version__ = '1.15.0a4-16'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -941,7 +941,7 @@ PIXEL_FLAT_ABSOLUTE_BAD_VALUE = 0.7 #values at or below this in the flat are "ba
 MAX_MAG_FAINT = 28.0 #set as nominal "faint" mag if flux limit reached (if not set by specific catalog ... which, unless
                      # this is an HST catalog, this is pretty good (HST is 29-30)
 
-PLAE_POII_GAUSSIAN_WEIGHT_SIGMA = 5.0 #10.0 s|t by sigma or 1/sigma you get to 80% weight
+PLAE_POII_GAUSSIAN_WEIGHT_SIGMA = 3.0 #10.0 s|t by sigma or 1/sigma you get to 80% weight
 
 CHECK_FOR_METEOR = True #if true, check the exposure fiber data for meteor pattern
 CHECK_GALAXY_MASK = True #if true, check for detection inclusion in galaxy mask

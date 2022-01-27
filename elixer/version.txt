@@ -27,6 +27,9 @@ changes to elixer by version
 * added photometric magnitude rejection in combine_all_cotinuum when using maxed out elixer aperture and there is a
   bright, nearby SEP object and the aperture measure is 5x or more brigher than the DEX-gmag. Helps classify LAEs near
   bright foreground objects.
+* change aggregate PLAE/POII vote to be strictly binary based on the midpoint; place all uncertainty in the weight assigned
+  (since fore those near the midpoint, the weight goes to zero anyway, as a no-vote) [note: midpoint still at 1.0]
+* change PLAE/POII weight sigma to 3x from 5x
 
 
 1.15.0a4-x [2022-01-xx]

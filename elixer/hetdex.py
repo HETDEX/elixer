@@ -3460,8 +3460,17 @@ class DetObj:
                 #scale ranges from 0.999 (LAE) to 0.001 (not LAE)
                 #logic is simple based on PLAE/POII interpreations to mean #LAE/(#LAE + #OII) where #LAE is a fraction and #OII == 1
                 #so PLAE/POII = 1000 --> 1000/(1000+1) = 0.999, PLAE/POII == 1.0 --> (1/(1+1)) = 0.5, PLAE/POII = 0.001 --> 0.001/(0.001 +1) = 0.001
-                mid = self.classification_dict['plae_hat'] / plae_poii_midpoint(self.w)
-                plae_vote = mid / (mid + 1.0)
+                #2022-01-27 ... DD let the weight handle all the uncertainty. Any vote that is near the midpoint will
+                #get close to a zero weight anyway, so just make the vote purely binary
+                # mid = self.classification_dict['plae_hat'] / plae_poii_midpoint(self.w)
+                # plae_vote = mid / (mid + 1.0)
+                #
+                if self.classification_dict['plae_hat'] > plae_poii_midpoint(self.w):
+                    plae_vote = 1.0
+                else:
+                    plae_vote = 0.0
+
+
                 # lower_plae = max(0.001, self.classification_dict['plae_hat_lo'])#self.classification_dict['plae_hat']-self.classification_dict['plae_hat_sd'])
                 # scale_plae_lo =  scale_plae_hat - lower_plae / (lower_plae + 1.0)
                 #
