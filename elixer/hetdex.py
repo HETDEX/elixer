@@ -142,6 +142,38 @@ FLUX_CONVERSION_DICT = dict(zip(FLUX_CONVERSION_w_grid,FLUX_CONVERSION_f_grid))
 
 
 
+def gmag_vote_thresholds(wave):
+    """
+        Max idx = 30145, slope = 0.0007507, intercept: 20.450
+        LyA Accuracy: 0.8827, Contamination: 0.0858
+        OII Accuracy: 0.0000, Contamination: 0.2716
+
+        Max idx = 48398, slope = 0.001211, intercept: 18.980
+        LyA Accuracy: 0.7941, Contamination: 0.0311
+        OII Accuracy: 0.4109, Contamination: 0.5000
+
+        LyA above: 559, OII above: 18
+        LyA between: 79, OII between: 42
+        LyA below: 23, OII below: 59
+
+    :param wave: wavelength of the emission line (as OII or LyA)
+    :return: gband minimum mag for LyA vote, gband maxomum mag for OII vote
+    """
+
+    try:
+        #DESI set about 660 LAE and 120 OII ... no correction
+        # bright_gmag = 0.0007507 * wave + 20.450
+        # faint_gmag = 0.001211 * wave + 18.980
+
+        #DESI set about 660 LAE and 120 OII ... OII x5 to balance numbers
+        bright_gmag = 0.0007507 * wave + 20.450
+        faint_gmag = 0.0007507 * wave + 21.460
+
+        return bright_gmag, faint_gmag
+    except:
+        log.warning("Exception in hetdex.py gmag_vote_thresholds().", exc_info=True)
+        return 99.9,-99.9
+
 def adjusted_mag_zero(mag_zero, z):
     """
     tweak the defined mag zero (where the LAE vs OII vote is zero weighted) by redshift
@@ -167,9 +199,15 @@ def adjusted_mag_zero(mag_zero, z):
         #this is very close to the more correct version of -2.5 log (f0/
         #at 7.5 (or 1+z)**3 cubed this is far too strong
         if z > 0:
-           # adjust = 2.5 * np.log10((1+z) / 3.5) # 3.5 = 1 + 2.5 # 7.5x instead of 2.5x since want to use (1+z)**3
+            # adjust = 2.5 * np.log10((1+z) / 3.5) # 3.5 = 1 + 2.5 # 7.5x instead of 2.5x since want to use (1+z)**3
             #from DESI comparison; roughly 23.2 @ 3727 to 24.2 @4500 to 25.4 @ 5500
-            adjust = ((G.LyA_rest * (1+z)) - 4500.0) * G.LAE_MAG_SLOPE
+            #adjust = ((G.LyA_rest * (1+z)) - 4500.0) * G.LAE_MAG_SLOPE
+
+            #use the faint slope from gmag_vote_thresholds
+            bright, faint = gmag_vote_thresholds(G.LyA_rest * (1+z))
+            return faint
+            #adjust = faint - mag_zero
+
         else:
             adjust = 0
         #per above, this effect really only starts z > 2.5 (or OII z > 0.14)
@@ -177,33 +215,6 @@ def adjusted_mag_zero(mag_zero, z):
     except:
         log.debug("Exception in hetdex.py adjust_mag_zero().", exc_info=True)
         return mag_zero
-
-def gmag_vote_thresholds(wave):
-    """
-        Max idx = 30145, slope = 0.0007507, intercept: 20.450
-        LyA Accuracy: 0.8827, Contamination: 0.0858
-        OII Accuracy: 0.0000, Contamination: 0.2716
-
-        Max idx = 48398, slope = 0.001211, intercept: 18.980
-        LyA Accuracy: 0.7941, Contamination: 0.0311
-        OII Accuracy: 0.4109, Contamination: 0.5000
-
-        LyA above: 559, OII above: 18
-        LyA between: 79, OII between: 42
-        LyA below: 23, OII below: 59
-
-    :param wave: wavelength of the emission line (as OII or LyA)
-    :return: gband minimum mag for LyA vote, gband maxomum mag for OII vote
-    """
-
-    try:
-        bright_gmag = 0.0007507 * wave + 20.450
-        faint_gmag = 0.001211 * wave + 18.980
-
-        return bright_gmag, faint_gmag
-    except:
-        log.warning("Exception in hetdex.py gmag_vote_thresholds().", exc_info=True)
-        return 99.9,-99.9
 
 def flux_conversion(w): #electrons to ergs at wavelength w
     if w is None:

@@ -342,7 +342,8 @@ def g2r(gmag):
     """
 
     try:
-        return gmag - 0.3
+        return gmag
+        #return gmag - 0.3
     except:
         log.error("Exception in g2r",exc_info=True)
 
@@ -355,7 +356,8 @@ def r2g(rmag):
     """
 
     try:
-        return rmag + 0.3
+        return rmag
+        #return rmag + 0.3
     except:
         log.error("Exception in r2g",exc_info=True)
 
