@@ -1961,15 +1961,17 @@ class DetObj:
 
                 #p might already be lower because of above check, but if there is a large neighbor and no other limit
                 #reduce p
-                if self.flags & G.DETFLAG_LARGE_NEIGHBOR:
-                    p = min(p,0.4)
+                #Not here ... the large neighbor only drives us toward NOT LyA; so if says LyA, then no need to lower
+                #the p value
+                # if self.flags & G.DETFLAG_LARGE_NEIGHBOR:
+                #     p = min(p,0.4)
 
                 log.info(f"Q(z): no multiline solutions. P(LyA) favors LyA. Set to LyA z:{z} with Q(z): {p}")
             else: #we are in no-man's land
                 if scaled_plae_classification < 0.5:
                     z = self.w / G.OII_rest - 1.0
                 else:
-                    z= self.w / G.LyA_rest - 1.0
+                    z = self.w / G.LyA_rest - 1.0
 
                 #limit p to a maximum
                 if self.flags & G.DETFLAG_DEX_GMAG_INCONSISTENT:
@@ -1979,7 +1981,9 @@ class DetObj:
 
                 #p might already be lower because of above check, but if there is a large neighbor and no other limit
                 #reduce p
-                if self.flags & G.DETFLAG_LARGE_NEIGHBOR:
+                #... the large neighbor only drives us toward NOT LyA; so if says LyA, then no need to lower
+                #the p value
+                if  (z < 0.6) and (self.flags & G.DETFLAG_LARGE_NEIGHBOR):
                     p = min(p,0.4)
 
                 log.info(f"Q(z): no multiline solutions, no strong P(LyA). z:{z} with Q(z): {p}")
@@ -3038,7 +3042,8 @@ class DetObj:
 
         try:
             #assume the dictionary is populated ... if not, just except and move on
-            if self.classification_dict['size_in_psf'] > 1.2: #we will call this resolved
+            if self.classification_dict['size_in_psf'] is not None and \
+                    self.classification_dict['size_in_psf'] > 1.2: #we will call this resolved
 
                 if self.classification_dict['diam_in_arcsec'] < 2.5: #usually we fall here
                     #small to medium
@@ -3106,7 +3111,7 @@ class DetObj:
                         #no vote
                         log.info(f"{self.entry_id} Aggregate Classification angular size no vote. Large size, intermediate line FWHM.")
             else:
-                    log.info(f"{self.entry_id} Aggregate Classification angular size no vote (unresolved).")
+                    log.info(f"{self.entry_id} Aggregate Classification angular size no vote (unresolved) or no size info.")
         except:
             log.warning(f"{self.entry_id} Aggregate Classification angular size exception.",exc_info=True)
 
@@ -4672,6 +4677,9 @@ class DetObj:
                         # this would be forced_aperture = a['elixer_apertures'][a['elixer_aper_idx']]
 
                         this_psf = None
+                        matched_sep = False
+                        any_sep = False
+                        elix_aper_radius = -1
                         try:
                             #use the first radius for the aperture (x2 for diameter)
                             #is based on the reported average PSF, so this is marginally okay
@@ -4685,6 +4693,10 @@ class DetObj:
                                 # log.debug(f"{self.entry_id} Combine ALL Continuum: Added base psf: "
                                 #           f"{a['elixer_apertures'][0]['radius']*2.0} arcsec,"
                                 #           f" filter ({a['filter_name']})")
+
+
+                                if a['elixer_aper_idx'] is not None:
+                                    elix_aper_radius = a['elixer_apertures'][a['elixer_aper_idx']]['radius']
                         except:
                             log.debug("Exception handling base_psf in DetObj:combin_all_continuum", exc_info=True)
 
@@ -4695,7 +4707,9 @@ class DetObj:
                         #todo: this should be re-done in terms of the imaging catalog PSF
                         try:
                             if (a['sep_objects'] is not None):
+                                any_sep = len(a['sep_objects']) > 0
                                 if (a['sep_obj_idx'] is not None):
+                                    matched_sep = True
                                     best_guess_extent.append(a['sep_objects'][a['sep_obj_idx']]['a'])
                                     best_guess_maglimit.append(a['mag_limit'])
                                     base_psf.append(this_psf)
@@ -4823,16 +4837,34 @@ class DetObj:
                                                 #it is just not growing
                                                 #most likely this is just sky or nearby neighbor, down weight as unreliable
                                                 w = 0.0
-                                weight.append(w)
-                                variance.append(cont_var)
-                                continuum.append(cont)
-                                cont_type.append("a" + a['filter_name'])
-                                nondetect.append(0)
-                                aperture_radius = a['radius']
 
-                            log.debug(
-                                f"{self.entry_id} Combine ALL Continuum: Added imaging estimate ({continuum[-1]:#.4g}) "
-                                f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f}) filter({a['filter_name']})")
+
+                                #do we want to use this?
+                                #if there are SEP apertures, but we are not using them
+                                #and the elixer apeture is maxed out and much brighter than the DEX-g
+                                #then we are likely looking at a bright object on which we are NOT centered
+                                #and it is throwing off the aperture magnitude
+                                if self.best_gmag_cgs_cont is not None:
+                                    cont_check = max(G.HETDEX_CONTINUUM_FLUX_LIMIT,self.best_gmag_cgs_cont)
+                                else:
+                                    cont_check = None
+                                if any_sep and (not matched_sep) and (elix_aper_radius > 2.5) and \
+                                        (cont_check is not None) and (cont/cont_check > 5.0 ):
+                                    #don't use this one and set the flag
+                                    self.flags &= G.DETFLAG_LARGE_NEIGHBOR
+                                    log.info(f"{self.entry_id} Combine ALL Continuum: {a['catalog_name']}-{a['filter_name']} Grossly inconsistent photometric aperture"
+                                             f" magnitude with suggestion of bright, offset object. Excluding from consideration.")
+                                else:
+                                    weight.append(w)
+                                    variance.append(cont_var)
+                                    continuum.append(cont)
+                                    cont_type.append("a" + a['filter_name'])
+                                    nondetect.append(0)
+                                    aperture_radius = a['radius']
+
+                                log.debug(
+                                    f"{self.entry_id} Combine ALL Continuum: Added imaging estimate ({continuum[-1]:#.4g}) "
+                                    f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f}) filter({a['filter_name']})")
                 except:
                     log.debug("Exception handling individual forced aperture photometry continuum in DetObj:combine_all_continuum",
                               exc_info=True)

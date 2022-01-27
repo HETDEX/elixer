@@ -24,6 +24,10 @@ changes to elixer by version
   line center (excluding the wavebin that includes the line center). If strongly red, votes for LyA. If blue, for OII
   (or really, just not LyA).
 * simplified physical size more angular size. Uses line FWHM if angular size is big to allow for possible AGN.
+* added photometric magnitude rejection in combine_all_cotinuum when using maxed out elixer aperture and there is a
+  bright, nearby SEP object and the aperture measure is 5x or more brigher than the DEX-gmag. Helps classify LAEs near
+  bright foreground objects.
+
 
 1.15.0a4-x [2022-01-xx]
 * experimental series ... small changes tracked in spreadsheet. Not intended for any release candidate.
