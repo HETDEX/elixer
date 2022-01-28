@@ -2988,14 +2988,21 @@ class DetObj:
                 #     return 1.0
 
 
-                #modification on Leung+2015, rather than binary case, linearly evolve with wavelength
-                #s|t at z = 2.5 (wave ~ 4250) use PLAE/POII 1.5 as the divider and by z = 3.5 (wave ~ 5400) use 10.0
-                if obs_wave < 4000:
-                    return 1.0
-                elif obs_wave > 5000:
-                    return 10.0
-                else: # slope = (10-1.0)/(5000-4000) ~ 0.009
-                    return 0.009 * obs_wave - 35.0
+                #modification on Leung+2015, rather than a hard binary case, linearly evolve with wavelength
+
+                low_wave = 4000
+                low_thresh = 1.0
+                high_wave = 4500
+                high_thresh = 10.0
+
+                if obs_wave < low_wave:
+                    return low_thresh
+                elif obs_wave > high_wave:
+                    return high_thresh
+                else:
+                    slope = (high_thresh-low_thresh)/(high_wave-low_wave)
+                    inter = low_thresh - slope*low_wave
+                    return slope * obs_wave + inter
             except:
                 log.warning("Exception! Exception in plae_poii_midpoint. Set midpoint as 1.0", exc_info=True)
 
@@ -3063,7 +3070,7 @@ class DetObj:
             if self.classification_dict['size_in_psf'] is not None and \
                     self.classification_dict['size_in_psf'] > 1.2: #we will call this resolved
 
-                if self.classification_dict['diam_in_arcsec'] < 2.5: #usually we fall here
+                if self.classification_dict['diam_in_arcsec'] < 2.0: #usually we fall here
                     #small to medium
                     #probably LyA ... have to have really great seeing ... check the redshift
                     z_oii = self.w/G.OII_rest - 1
@@ -3094,7 +3101,7 @@ class DetObj:
                         weight.append(0.25)
                         var.append(1)
                         prior.append(base_assumption)
-                        log.info(f"{self.entry_id} Aggregate Classification: angular size + consitent with AGN:"
+                        log.info(f"{self.entry_id} Aggregate Classification: angular size + consistent with AGN:"
                                  f" lk({likelihood[-1]}) weight({weight[-1]})")
                     elif self.fwhm+self.fwhm_unc < 10 : #not likely an AGN and otheriwse too big to be LyA
                         #vote for OII (or not LyA)
@@ -3102,7 +3109,7 @@ class DetObj:
                         weight.append(0.25)
                         var.append(1)
                         prior.append(base_assumption)
-                        log.info(f"{self.entry_id} Aggregate Classification: angular size + consitent with AGN:"
+                        log.info(f"{self.entry_id} Aggregate Classification: angular size"
                                  f" lk({likelihood[-1]}) weight({weight[-1]})")
                     else:
                         log.info(f"{self.entry_id} Aggregate Classification angular size no vote. Intermediate size. Not AGN, but large-ish FWHM.")
@@ -3115,7 +3122,7 @@ class DetObj:
                         weight.append(0.25)
                         var.append(1)
                         prior.append(base_assumption)
-                        log.info(f"{self.entry_id} Aggregate Classification: angular size + consitent with AGN:"
+                        log.info(f"{self.entry_id} Aggregate Classification: angular size + consistent with AGN:"
                                  f" lk({likelihood[-1]}) weight({weight[-1]})")
                     elif self.fwhm+self.fwhm_unc < 12 :
                         #vote for OII
@@ -3123,7 +3130,7 @@ class DetObj:
                         weight.append(0.25)
                         var.append(1)
                         prior.append(base_assumption)
-                        log.info(f"{self.entry_id} Aggregate Classification: angular size + consitent with AGN:"
+                        log.info(f"{self.entry_id} Aggregate Classification: angular size:"
                                  f" lk({likelihood[-1]}) weight({weight[-1]})")
                     else:
                         #no vote
@@ -3473,10 +3480,11 @@ class DetObj:
         except:
             log.debug("Exception in aggregate_classification",exc_info=True)
 
-        #
+        ############################################
         # best PLAE/POII
         #
         # Mostly a distribution value
+        ###########################################
         try:
             if (self.classification_dict['plae_hat'] is not None) and (self.classification_dict['plae_hat'] != -1) \
             and (self.classification_dict['plae_hat_sd'] is not None):
@@ -3697,8 +3705,39 @@ class DetObj:
 
 
         ###################################
-        # HARD EqWidth vote ?? seems pointless, fully covered by PLAE/POII
+        # Straight EqWidth vote
+        # does NOT consider OII or LyA distros
         ###################################
+        try:
+
+            delta_thresh = 0
+
+            if self.classification_dict['combined_eqw_rest_lya'] > 20.:
+                #will be an LAE vote
+                likelihood.append(1)
+                try:
+                    delta_thresh = abs(self.classification_dict['combined_eqw_rest_lya'] - self.classification_dict['combined_eqw_rest_lya_err'] - 20.0)
+                except:
+                    pass
+                weight.append(max(0.1,min(0.5,delta_thresh*0.1)))
+            else:
+                #will be an OII vote
+                likelihood.append(0)
+                try:
+                    delta_thresh = abs(self.classification_dict['combined_eqw_rest_lya'] + self.classification_dict['combined_eqw_rest_lya_err'] - 20.0)
+                except:
+                    pass
+                #since compress toward EW = 0, this has slightly higher scoring
+                #plus OII can have large EW, but LyA below 20 is REALLY rare
+                weight.append(max(0.1,min(0.5,delta_thresh*0.25)))
+
+            var.append(1)
+            prior.append(base_assumption)
+            log.info(f"{self.entry_id} Aggregate Classification: straight combined line EW "
+                     f"{self.classification_dict['combined_eqw_rest_lya']} +/- {self.classification_dict['combined_eqw_rest_lya_err']} vote: "
+                     f"lk({likelihood[-1]}) weight({weight[-1]})")
+        except:
+            pass
 
 
         ###################################
@@ -5120,8 +5159,6 @@ class DetObj:
 
         #remove the non-detects except for the deepest or if fainter than the faintest positive detection
         try:
-
-
             nondetect=np.array(nondetect)
             sel = nondetect == 1
             if np.sum(sel) >= 1:
@@ -5130,13 +5167,16 @@ class DetObj:
                 continuum = np.array(continuum)
                 deepest = np.min(continuum[sel])
 
-                faint_detect = np.min(continuum[nondetect==0])
+                try:
+                    faint_detect = np.min(continuum[nondetect==0])
+                except:
+                    faint_detect = -9e99
 
                 #now reselect to all detects and the deepest non-detect
                 if deepest > faint_detect:
                     sel = (nondetect == 0) | (continuum==deepest)
                 else:
-                    log.info(f"Removing deepest non-detect {deepest} since fainter than faintest positive detection {faint_detect} ...")
+                    log.info(f"Removing deepest non-detect {deepest:0.4g} since fainter than faintest positive detection {faint_detect:0.4g} ...")
                     sel = (nondetect == 0)
 
                 log.info(f"Removed {np.array(cont_type)[np.invert(sel)]}")
@@ -5146,7 +5186,6 @@ class DetObj:
                 weight = np.array(weight)[sel]
                 cont_type  = np.array(cont_type)[sel]
                 nondetect = np.array(nondetect)[sel]
-
         except:
             log.info("Exception trimming nondetects from combine_all_continuum",exc_info=True)
 

@@ -34,6 +34,9 @@ changes to elixer by version
   0.1x past mag limit)
 * changed combine_all_contiuum() to also drop deepest non-detect if that non-detect is fainter than the faintest positive
   detection (e.g. there is probably something wrong with the non-detect imaging).
+* change PLAE/POII midpoint to vary linearly with wavelength, based on the hard binary condition in Leung+2015. Runs from 1.0
+  at 4000AA to 10.0 at 4500AA and holds constant on either end.
+* added back straight 20AA vote with low weight. Linear weight varies as distance from 20AA up to a max of 0.5 (min 0.1)
 
 
 1.15.0a4-x [2022-01-xx]

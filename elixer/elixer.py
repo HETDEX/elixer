@@ -4673,8 +4673,10 @@ def main():
                                             if e.flags & G.DETFLAG_UNCERTAIN_CLASSIFICATION:
                                                 e.flags |= G.DETFLAG_FOLLOWUP_NEEDED
 
-                                            if e.flags & G.DETFLAG_FOLLOWUP_NEEDED:
+                                            if (e.flags & G.DETFLAG_FOLLOWUP_NEEDED) or \
+                                               (e.flags & G.DETFLAG_LARGE_NEIGHBOR and e.flags & G.DETFLAG_COUNTERPART_NOT_FOUND):
                                                 e.needs_review = 1
+
 
                                             if p_of_z > 0:
                                                 if e.cluster_z == best_z:
