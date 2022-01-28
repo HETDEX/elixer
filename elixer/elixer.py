@@ -4670,6 +4670,12 @@ def main():
 
                                             best_z, p_of_z = e.best_redshift()
 
+                                            if e.flags & G.DETFLAG_UNCERTAIN_CLASSIFICATION:
+                                                e.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+
+                                            if e.flags & G.DETFLAG_FOLLOWUP_NEEDED:
+                                                e.needs_review = 1
+
                                             if p_of_z > 0:
                                                 if e.cluster_z == best_z:
                                                     e.flags |= G.DETFLAG_Z_FROM_NEIGHBOR

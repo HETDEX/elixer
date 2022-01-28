@@ -1443,25 +1443,32 @@ class DetObj:
                     if (self.estflux > 1.5e-16) or (self.cont_cgs > 1.0e-18) or (self.best_gmag < 24.0):
                         #from the HETDEX data, we expect to see something in the imaging
                         new_flag = G.DETFLAG_COUNTERPART_NOT_FOUND
+                        expect_to_find_any = False
                         for d in self.aperture_details_list:
                             if d['filter_name'].lower() in ['g','r','f606w']:
                                 if d['mag_limit'] is not None and (24 < d['mag_limit']):
+                                    if self.best_gmag is not None and self.best_gmag < d['mag_limit']:
+                                        expect_to_find_any = True
                                     #imaging qualifies, there should be something
                                     if d['sep_objects'] is not None:
-                                        new_flag = 0 #we did find something, so break
-                                        break
+                                        #check distances (dist_curve < 1.0 or -1 (we are inside the curve))
+                                        if np.any(np.array([x['dist_curve'] for x in d['sep_objects']]) < 1.0):
+                                            new_flag = 0 #we did find something, so break
+                                            break
                                         #todo: make better with a counterpart match (including catalog)
                                         #todo: so we would not count this if there is something faint, but several arcsecs away
-                        if new_flag: #non-match still possible ... check the catalogs
+
+                        if new_flag and expect_to_find_any: #non-match still possible ... check the catalogs
                             try:
                                 for d in self.bid_target_list[1:]: #skip #0 as that is the Elixer entry
                                     if d.bid_filter.lower() in ['g','r','f606w']:
-                                        new_flag = 0 #we did find something, so break
-                                        break
+                                        if d.distance < 1.5:
+                                            new_flag = 0 #we did find something, so break
+                                            break
                             except:
-                                pass
+                                log.debug("Exception in flag_check()",exec_info=True)
 
-                        if new_flag:
+                        if new_flag and expect_to_find_any:
                             self.flags |= new_flag
                             log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_COUNTERPART_NOT_FOUND")
 
@@ -2011,7 +2018,8 @@ class DetObj:
                     #set a flag and lower Q(z)
                     p = min(p,0.4) #very rough ...figure 50/50 LAE vs OII with a few other possibilities?
                     self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
-                    log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_UNCERTAIN_CLASSIFICATION (in best_redshift)")
+                    log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_UNCERTAIN_CLASSIFICATION (in best_redshift). "
+                             f"EW uncertain: {ew_low:0.2f} - {ew_hi:0.2f}")
             except:
                 log.debug("Exception sanity checking best_z in hetdex::DetObj::best_redshift()",exc_info=True)
 
@@ -3366,13 +3374,18 @@ class DetObj:
                     else: #low score, but can still impact
                         #this can be a problem for items like 1000637691 which get reduced score, but is clearly a non-LAE multi-line
                         #like an HII region; in theory clustering of emission lines would catch this
-                        w = 0.5 * (max(s.scale_score -0.5, 0)) #min(s.score / G.MULTILINE_MIN_SOLUTION_SCORE, s.scale_score)
+
+                        #w = s.score / G.MULTILINE_MIN_SOLUTION_SCORE * s.scale_score
+                        #sigmoid x scale_score
+                        w = 1.0 / (1.0 + np.exp(-25.0 * (s.score/25.0 - .75))) * s.scale_score
+
+                        #w = 0.5 * (max(s.scale_score -0.5, 0)) #min(s.score / G.MULTILINE_MIN_SOLUTION_SCORE, s.scale_score)
 
                         if s.central_rest == G.LyA_rest:
                         #if s.z > 1.8:  # suggesting LAE consistent
                            # likelihood.append(s.scale_score)
                            # weight.append(0.8 * w)  # opinion ... has multiple lines, so the score is reasonable
-                            likelihood.append(0.8)  # s.scale_score)
+                            likelihood.append(1.0)  # s.scale_score)
                             weight.append(w * bonus_weight)
                             # must also have CIV or HeII, etc as possible matches
                             var.append(1)  # todo: ? could do something like the spectrum noise?
@@ -3383,7 +3396,7 @@ class DetObj:
                         else:  # suggesting NOT LAE consistent
                             #likelihood.append(1. - s.scale_score)
                             #weight.append(1.0 * w)  # opinion ... has multiple lines, so the score is reasonable
-                            likelihood.append(0.2)  # weak solution so push likelihood "down" but not zero (maybe 0.2 or 0.25)?
+                            likelihood.append(0.0)  # weak solution so push likelihood "down" but not zero (maybe 0.2 or 0.25)?
                             weight.append(w * bonus_weight)
                             var.append(1)  # todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
@@ -3465,7 +3478,9 @@ class DetObj:
                 # mid = self.classification_dict['plae_hat'] / plae_poii_midpoint(self.w)
                 # plae_vote = mid / (mid + 1.0)
                 #
-                if self.classification_dict['plae_hat'] > plae_poii_midpoint(self.w):
+
+                midpoint = plae_poii_midpoint(self.w)
+                if self.classification_dict['plae_hat'] > midpoint:
                     plae_vote = 1.0
                 else:
                     plae_vote = 0.0
@@ -3494,7 +3509,23 @@ class DetObj:
                 # At the end, the insertion of a 0.5 vote with (1-sum(weights)) should not matter
                 # as, if this is sitting near a zero weight and is the only vote, that means we are sitting
                 # near PLAE/POII ~ 1 which is 0.5 P(LyA)
-                weight.append(plae_gaussian_weight(self.classification_dict['plae_hat'],obs_wave=self.w) * (1.0 - scale_plae_sd))
+                w = plae_gaussian_weight(self.classification_dict['plae_hat'],obs_wave=self.w) * (1.0 - scale_plae_sd)
+
+
+                try:
+                    #if this is on the +1 side (not the 0.001 side), and if the stdev is high, larger than the actual
+                    #estimated value, then beyond just the 68% conf interval, this is highly uncertain and we should
+                    #reduce the voting weight
+                    if plae_vote > 0.5 and self.classification_dict['plae_hat'] /  self.classification_dict['plae_hat_sd'] < 1.0:
+                        w *= (self.classification_dict['plae_hat'] /  self.classification_dict['plae_hat_sd'])**2
+                # if if plae_vote > 0.5: #for LyA
+                #     if self.classification_dict['plae_hat'] - self.classification_dict['plae_hat_sd'] < midpoint:
+                #         #high uncertainty; not just 68% confidence
+                #         #reduce the weight
+                #         w *=
+                except:
+                    pass
+                weight.append(w)
                 var.append(1)  # todo: use the sd (scaled?) #can't use straight up here since the variances are not
                                # on the same scale
 
@@ -3627,7 +3658,7 @@ class DetObj:
                 else:
                     log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f} no vote.")
             else:
-                log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux low snr {self.snr:0.2f} no vote.")
+                log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux low snr {self.snr:0.2f} or fwhm {self.fwhm:0.2f} no vote.")
         except:
             pass
 
@@ -4271,21 +4302,12 @@ class DetObj:
 
             try:
                 plae_sd = plae_errors['ratio'][3]
-
-                try:
-                    log.debug(f"{self.entry_id} Combine ALL PLAE: MC plae({p_lae_oii_ratio:#.4g}) sd({plae_sd:#.4g})")
-                except:
-                    log.debug(f"{self.entry_id} Combine ALL PLAE: MC plae({p_lae_oii_ratio}) sd({plae_sd})")
-
+                log.debug(f"{self.entry_id} Combine ALL PLAE: MC plae({p_lae_oii_ratio}) sd({plae_sd})")
             except:
                 try:
                     plae_sd = np.sqrt(avg_var(plae_errors['ratio'][0],plae_errors['ratio'][1],plae_errors['ratio'][2]))
                 except:
                     plae_sd = None
-
-                try:
-                    log.debug(f"{self.entry_id} Combine ALL PLAE: MC plae({p_lae_oii_ratio:#.4g}) sd({plae_sd:#.4g})")
-                except:
                     log.debug(f"{self.entry_id} Combine ALL PLAE: MC plae({p_lae_oii_ratio}) sd({plae_sd})")
 
             try:
@@ -4303,6 +4325,14 @@ class DetObj:
                 self.classification_dict['plae_hat_lo'] = -1
                 self.classification_dict['plae_hat_sd'] = -1
                 self.classification_dict['plae_hat_err'] = -1
+
+            try:
+                log.info(f"{self.entry_id} Combine ALL PLAE: MC plae {self.classification_dict['plae_hat']} : "
+                         f"high ({self.classification_dict['plae_hat_hi']}) "
+                         f"low ({self.classification_dict['plae_hat_lo']})")
+            except:
+                pass
+
             try:
                 self.classification_dict['size_in_psf'] = size_in_psf
                 self.classification_dict['diam_in_arcsec'] = diam_in_arcsec
@@ -4595,7 +4625,7 @@ class DetObj:
             # cgs_23p5 = 2.14e-18
 
             cgs_limit = G.HETDEX_CONTINUUM_FLUX_LIMIT # cgs_24p5
-            cgs_fc =  G.HETDEX_CONTINUUM_FLUX_LIMIT * 1.5 #start downweighting at 50% brighter than hard limit
+            cgs_fc =  G.HETDEX_CONTINUUM_FLUX_LIMIT * 1.2 #start downweighting at 20% brighter than hard limit
 
             if not self.best_gmag_cgs_cont_unc: #None or 0.0
                 log.debug(f"{self.entry_id} Combine ALL Continuum: HETDEX wide estimate has no uncertainty. "
@@ -4605,56 +4635,81 @@ class DetObj:
 
             if (self.best_gmag_cgs_cont is not None) and (self.best_gmag_cgs_cont_unc is not None) and \
                (self.best_gmag_cgs_cont > 0) and (self.best_gmag_cgs_cont_unc > 0):
-                #if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_limit:
 
-                #estimate - error is still better than the limit, so it gets full marks
-                if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_limit: #good, full marks
-                    continuum.append(self.best_gmag_cgs_cont)
-                    variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
-                    if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_fc:
-                        weight.append(4.0) #best measure of flux (right on top of our target) so boost
-                        #typically 4 other estiamtes: narrow, wide (this one), 1+ forced photometery, 1+ catalog
-                        #so make this one 4x to dominated (aside from big error)
-                    else:
-                        weight.append(1.0)
+                #use a sigmoid s|t when the flux-error is at the flux limit you get at vote of 1
+                #when brighter than the flux limit, the vote moves up to a max of 4 by 1.2x the limit
+                #as we go fainter than the limit we rapidly fall to zero by 10% past the flux limit
 
-                    cont_type.append('hdw') #HETDEX wide
+                rat = (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) / G.HETDEX_CONTINUUM_FLUX_LIMIT
+                w = 1.0 / (1.0 + np.exp(-40 * (rat -0.015) + 40.5)) * 4.0
+                continuum.append(self.best_gmag_cgs_cont)
+                weight.append(w)
+
+                cont_type.append('hdw') #HETDEX wide
+
+                if w > 0.9:
                     nondetect.append(0)
-
-                    log.debug(
-                        f"{self.entry_id} Combine ALL Continuum: Added best spectrum gmag estimate ({continuum[-1]:#.4g}) "
-                        f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
-
-                #estimate is better than the limit, but with error hits the limit, so reduced marks
-                elif (self.best_gmag_cgs_cont > cgs_limit): #mean value is in range, but with error is out of range
-                    frac = (self.best_gmag_cgs_cont - cgs_fc) / (cgs_fc - cgs_limit)
-                    # at 24mag this is zero, fainter goes negative, at 24.5 it is -1.0
-                    if frac > 0:  # full weight
-                        w = 1.0
-                    else: #going to get at least 0.3
-                        w = max(0.5, 1.0 + frac)  # linear drop to zero at cgs_limit
-
-                    continuum.append(self.best_gmag_cgs_cont)
                     variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
-                    weight.append(w)
-                    cont_type.append('hdw')  # HETDEX wide
-                    nondetect.append(0)
-
-                    log.debug(
-                        f"{self.entry_id} Combine ALL Continuum: Added best spectrum gmag estimate ({continuum[-1]:#.4g}) "
-                        f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
-                else:  # going to use the lower limit, totally out of range
-                    gmag_at_limit = True
-                    continuum.append(cgs_limit)
-                    variance.append((cgs_limit-cgs_faint_limit)**2)  # ie. sd of ~ 1/3 * cgs_limit
-                    weight.append(0.5)  # never very high (a little better than HETDEX narrow continuum weight)
-                    cont_type.append('hdw')  # HETDEX wide
+                    gmag_at_limit = False
+                else:
+                    variance.append((cgs_limit-cgs_faint_limit)**2)
                     nondetect.append(1)
+                    gmag_at_limit = True
 
-                    log.debug(
-                        f"{self.entry_id} Combine ALL Continuum: best spectrum gmag estimate fainter than limit. Setting to lower limit "
-                        f"({continuum[-1]:#.4g}) "
-                        f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
+                log.info(
+                        f"{self.entry_id} Combine ALL Continuum: Added best spectrum gmag estimate ({continuum[-1]}) "
+                        f"sd({np.sqrt(variance[-1])}) weight({weight[-1]})")
+
+                if False: #old way
+                    #estimate - error is still better than the limit, so it gets full marks
+                    if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_limit: #good, full marks
+                        continuum.append(self.best_gmag_cgs_cont)
+                        variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
+
+                        if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_fc:
+                            weight.append(4.0) #best measure of flux (right on top of our target) so boost
+                            #typically 4 other estiamtes: narrow, wide (this one), 1+ forced photometery, 1+ catalog
+                            #so make this one 4x to dominated (aside from big error)
+                        else:
+                            weight.append(1.0)
+
+                        cont_type.append('hdw') #HETDEX wide
+                        nondetect.append(0)
+
+                        log.debug(
+                            f"{self.entry_id} Combine ALL Continuum: Added best spectrum gmag estimate ({continuum[-1]:#.4g}) "
+                            f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
+
+                    #estimate is better than the limit, but with error hits the limit, so reduced marks
+                    elif (self.best_gmag_cgs_cont > cgs_limit): #mean value is in range, but with error is out of range
+                        frac = (self.best_gmag_cgs_cont - cgs_fc) / (cgs_fc - cgs_limit)
+                        # at 24mag this is zero, fainter goes negative, at 24.5 it is -1.0
+                        if frac > 0:  # full weight
+                            w = 1.0
+                        else: #going to get at least 0.3
+                            w = max(0.5, 1.0 + frac)  # linear drop to zero at cgs_limit
+
+                        continuum.append(self.best_gmag_cgs_cont)
+                        variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
+                        weight.append(w)
+                        cont_type.append('hdw')  # HETDEX wide
+                        nondetect.append(0)
+
+                        log.debug(
+                            f"{self.entry_id} Combine ALL Continuum: Added best spectrum gmag estimate ({continuum[-1]:#.4g}) "
+                            f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
+                    else:  # going to use the lower limit, totally out of range
+                        gmag_at_limit = True
+                        continuum.append(cgs_limit)
+                        variance.append((cgs_limit-cgs_faint_limit)**2)  # ie. sd of ~ 1/3 * cgs_limit
+                        weight.append(0.5)  # never very high (a little better than HETDEX narrow continuum weight)
+                        cont_type.append('hdw')  # HETDEX wide
+                        nondetect.append(1)
+
+                        log.debug(
+                            f"{self.entry_id} Combine ALL Continuum: best spectrum gmag estimate fainter than limit. Setting to lower limit "
+                            f"({continuum[-1]:#.4g}) "
+                            f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
             else:
                 got_hd_gmag = False
         except:
@@ -5053,17 +5108,26 @@ class DetObj:
             pass
 
 
-        #remove the non-detects except for the deepest
+        #remove the non-detects except for the deepest or if fainter than the faintest positive detection
         try:
+
+
             nondetect=np.array(nondetect)
             sel = nondetect == 1
-            if np.sum(sel) > 1:
+            if np.sum(sel) >= 1:
 
                 log.info("Removing all non-detects other than deepest...")
                 continuum = np.array(continuum)
                 deepest = np.min(continuum[sel])
+
+                faint_detect = np.min(continuum[nondetect==0])
+
                 #now reselect to all detects and the deepest non-detect
-                sel = (nondetect == 0) | (continuum==deepest)
+                if deepest > faint_detect:
+                    sel = (nondetect == 0) | (continuum==deepest)
+                else:
+                    log.info(f"Removing deepest non-detect {deepest} since fainter than faintest positive detection {faint_detect} ...")
+                    sel = (nondetect == 0)
 
                 log.info(f"Removed {np.array(cont_type)[np.invert(sel)]}")
 
@@ -5072,9 +5136,9 @@ class DetObj:
                 weight = np.array(weight)[sel]
                 cont_type  = np.array(cont_type)[sel]
                 nondetect = np.array(nondetect)[sel]
+
         except:
             log.info("Exception trimming nondetects from combine_all_continuum",exc_info=True)
-
 
         #sum up
         try:

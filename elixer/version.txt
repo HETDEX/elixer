@@ -30,6 +30,10 @@ changes to elixer by version
 * change aggregate PLAE/POII vote to be strictly binary based on the midpoint; place all uncertainty in the weight assigned
   (since fore those near the midpoint, the weight goes to zero anyway, as a no-vote) [note: midpoint still at 1.0]
 * change PLAE/POII weight sigma to 3x from 5x
+* changed DEX-g voting from binary weight to sigmoid weight (up to 4x when brigher than mag limit and falls to (near) zero by
+  0.1x past mag limit)
+* changed combine_all_contiuum() to also drop deepest non-detect if that non-detect is fainter than the faintest positive
+  detection (e.g. there is probably something wrong with the non-detect imaging).
 
 
 1.15.0a4-x [2022-01-xx]
