@@ -2975,17 +2975,27 @@ class DetObj:
             """
 
             #until we have good experimental data, just return 1.0 as the 50/50 midpoint
-            return 1.0
+            #return 1.0
 
             try:
                 #start with Andrew's binary condition
-                if obs_wave is not None and 3400.0 < obs_wave < 5600.0:
-                    if obs_wave < 4254: # z(LyA) = 2.5
-                        return 1.38
-                    else:
-                        return 10.3
-                else:
+                # if obs_wave is not None and 3400.0 < obs_wave < 5600.0:
+                #     if obs_wave < 4254: # z(LyA) = 2.5
+                #         return 1.38
+                #     else:
+                #         return 10.3
+                # else:
+                #     return 1.0
+
+
+                #modification on Leung+2015, rather than binary case, linearly evolve with wavelength
+                #s|t at z = 2.5 (wave ~ 4250) use PLAE/POII 1.5 as the divider and by z = 3.5 (wave ~ 5400) use 10.0
+                if obs_wave < 4000:
                     return 1.0
+                elif obs_wave > 5000:
+                    return 10.0
+                else: # slope = (10-1.0)/(5000-4000) ~ 0.009
+                    return 0.009 * obs_wave - 35.0
             except:
                 log.warning("Exception! Exception in plae_poii_midpoint. Set midpoint as 1.0", exc_info=True)
 
