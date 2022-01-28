@@ -3581,30 +3581,47 @@ class DetObj:
             #assuming no errors or similar errors on red side and blue side
             #this fails if LyA blue is really strong (high escape fraction)
             #really want to check just right near the line and want at least 3 wavebins
-            if self.snr is not None and self.snr > 7.0:
+            if self.snr is not None and self.snr > 6.0 and self.fwhm > 7.0:
 
-                line_width = max(3,int(self.fwhm /2.355/G.FLUX_WAVEBIN_WIDTH))
-                line_center_idx,*_ = SU.getnearpos(self.sumspec_wavelength,self.w)
-                lineflux_red = np.sum(self.sumspec_flux[line_center_idx+1:line_center_idx+2+line_width])
-                lineflux_blue = np.sum(self.sumspec_flux[line_center_idx-1-line_width:line_center_idx])
+                line_width = max(3,round(self.fwhm /2.355/G.FLUX_WAVEBIN_WIDTH))
+                _,line_center_idx,_ = SU.getnearpos(self.sumspec_wavelength,self.w) #want the left edge
+                centerflux = self.sumspec_flux[line_center_idx]
+                center_blue_frac = (self.w-self.sumspec_wavelength[line_center_idx])/G.FLUX_WAVEBIN_WIDTH
+
+                lineflux_red = np.sum(self.sumspec_flux[line_center_idx+1:line_center_idx+2+line_width]) + centerflux * (1-center_blue_frac)
+                lineflux_blue = np.sum(self.sumspec_flux[line_center_idx-1-line_width:line_center_idx]) + centerflux * center_blue_frac
 
                 # print(f"**** blue = {self.sumspec_wavelength[line_center_idx-1-line_width:line_center_idx]}")
                 # print(f"**** red  = {self.sumspec_wavelength[line_center_idx+1:line_center_idx+2+line_width]}")
                 # print(f"***  rat  = {lineflux_red/lineflux_blue}")
 
                 rat = lineflux_red/lineflux_blue
-                if rat > 1.2:
+                did_vote = True
+                if rat > 1.33:
                     likelihood.append(1.0)
                     weight.append(0.25)
                     prior.append(base_assumption)
                     var.append(1)
-                    log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f} vote: "
-                             f"lk({likelihood[-1]}) weight({weight[-1]})")
-                elif rat < 0.80:
+                elif rat > 1.2:
+                    likelihood.append(1.0)
+                    weight.append(0.1)
+                    prior.append(base_assumption)
+                    var.append(1)
+                elif rat < 0.70:
                     likelihood.append(0.0)
                     weight.append(0.25)
                     prior.append(base_assumption)
                     var.append(1)
+                elif rat < 0.80:
+                    likelihood.append(0.0)
+                    weight.append(0.1)
+                    prior.append(base_assumption)
+                    var.append(1)
+
+                else:
+                    did_vote = False
+
+                if did_vote:
                     log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f} vote: "
                              f"lk({likelihood[-1]}) weight({weight[-1]})")
                 else:
@@ -4159,6 +4176,10 @@ class DetObj:
                     weight.append(1.0 - np.sum(weight))
                     var.append(1.0)
                     prior.append(0.5)
+
+                    if weight[-1] >= 0.5:
+                        self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
+                        self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
             except:
                 pass
 
@@ -4864,7 +4885,7 @@ class DetObj:
                                 if any_sep and (not matched_sep) and (elix_aper_radius > 2.5) and \
                                         (cont_check is not None) and (cont/cont_check > 5.0 ):
                                     #don't use this one and set the flag
-                                    self.flags &= G.DETFLAG_LARGE_NEIGHBOR
+                                    self.flags |= G.DETFLAG_LARGE_NEIGHBOR
                                     log.info(f"{self.entry_id} Combine ALL Continuum: {a['catalog_name']}-{a['filter_name']} Grossly inconsistent photometric aperture"
                                              f" magnitude with suggestion of bright, offset object. Excluding from consideration.")
                                 else:
