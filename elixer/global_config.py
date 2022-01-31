@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.15.0a4-20'
+__version__ = '1.15.0a4-21'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -982,9 +982,11 @@ SEP_FIXED_APERTURE_RADIUS = 1.5 #RADIUS in arcsec ... used at the barycenter pos
 
 FWHM_TYPE1_AGN_VELOCITY_THRESHOLD = 1500.0 #km/s #FWHM velocity in emission line above this value might be a type 1 AGN
 
+
 ##################################
 #Detection Flags (DF) (32 bit)
 ##################################
+
 DETFLAG_FOLLOWUP_NEEDED             = 0x00000001  #unspecified reason, catch-all, but human visual inspection recommended
 DETFLAG_IMAGING_MAG_INCONSISTENT    = 0x00000002  #large differences in bandpass mags of overlapping imaging (of adequate depth)
 DETFLAG_DEX_GMAG_INCONSISTENT       = 0x00000004  #the g-mag from the DEX spectrum is very different from g or r band aperture mag

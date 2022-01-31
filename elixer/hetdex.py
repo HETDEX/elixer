@@ -3086,10 +3086,10 @@ class DetObj:
                         #set a base weight (will be adjusted later)
                         #diameter_lae.append({"z":z,"kpc":diam,"weight":w,"likelihood":lk})
                         log.info(
-                            f"{self.entry_id} Aggregate Classification, added physical size. Unlikely OII:"
+                            f"{self.entry_id} Aggregate Classification, angular size ({self.classification_dict['diam_in_arcsec']:0.2})\", added physical size. Unlikely OII:"
                             f" z(OII)({z_oii:#.4g}) kpc({diam:#.4g}) weight({w:#.5g}) likelihood({lk:#.5g})")
                     else:
-                        log.info(f"{self.entry_id} Aggregate Classification angular size no vote. Intermediate size.")
+                        log.info(f"{self.entry_id} Aggregate Classification angular size ({self.classification_dict['diam_in_arcsec']:0.2})\" no vote. Intermediate size.")
 
                 elif self.classification_dict['diam_in_arcsec'] < 5.0:
                     #Meidum Big
@@ -3101,18 +3101,20 @@ class DetObj:
                         weight.append(0.25)
                         var.append(1)
                         prior.append(base_assumption)
-                        log.info(f"{self.entry_id} Aggregate Classification: angular size + consistent with AGN:"
+                        log.info(f"{self.entry_id} Aggregate Classification: angular size ({self.classification_dict['diam_in_arcsec']:0.2})\" + consistent with AGN:"
                                  f" lk({likelihood[-1]}) weight({weight[-1]})")
                     elif self.fwhm+self.fwhm_unc < 10 : #not likely an AGN and otheriwse too big to be LyA
                         #vote for OII (or not LyA)
                         likelihood.append(0.0)
-                        weight.append(0.25)
+
+                        weight.append(0.33)
+                        #weight.append(0.25)
                         var.append(1)
                         prior.append(base_assumption)
-                        log.info(f"{self.entry_id} Aggregate Classification: angular size"
+                        log.info(f"{self.entry_id} Aggregate Classification: angular size ({self.classification_dict['diam_in_arcsec']:0.2})\""
                                  f" lk({likelihood[-1]}) weight({weight[-1]})")
                     else:
-                        log.info(f"{self.entry_id} Aggregate Classification angular size no vote. Intermediate size. Not AGN, but large-ish FWHM.")
+                        log.info(f"{self.entry_id} Aggregate Classification angular size ({self.classification_dict['diam_in_arcsec']:0.2})\" no vote. Intermediate size. Not AGN, but large-ish FWHM.")
 
                 else: # self.classification_dict['diam_in_arcsec'] > 5.0: #unless an AGN this is probably OII
                     #REALLY big
@@ -3122,7 +3124,7 @@ class DetObj:
                         weight.append(0.25)
                         var.append(1)
                         prior.append(base_assumption)
-                        log.info(f"{self.entry_id} Aggregate Classification: angular size + consistent with AGN:"
+                        log.info(f"{self.entry_id} Aggregate Classification: angular size ({self.classification_dict['diam_in_arcsec']:0.2})\" + consistent with AGN:"
                                  f" lk({likelihood[-1]}) weight({weight[-1]})")
                     elif self.fwhm+self.fwhm_unc < 12 :
                         #vote for OII
@@ -3130,11 +3132,11 @@ class DetObj:
                         weight.append(0.25)
                         var.append(1)
                         prior.append(base_assumption)
-                        log.info(f"{self.entry_id} Aggregate Classification: angular size:"
+                        log.info(f"{self.entry_id} Aggregate Classification: angular size ({self.classification_dict['diam_in_arcsec']:0.2})\":"
                                  f" lk({likelihood[-1]}) weight({weight[-1]})")
                     else:
                         #no vote
-                        log.info(f"{self.entry_id} Aggregate Classification angular size no vote. Large size, intermediate line FWHM.")
+                        log.info(f"{self.entry_id} Aggregate Classification angular size ({self.classification_dict['diam_in_arcsec']:0.2})\" no vote. Large size, intermediate line FWHM.")
             else:
                     log.info(f"{self.entry_id} Aggregate Classification angular size no vote (unresolved) or no size info.")
         except:
@@ -3630,13 +3632,14 @@ class DetObj:
             #assuming no errors or similar errors on red side and blue side
             #this fails if LyA blue is really strong (high escape fraction)
             #really want to check just right near the line and want at least 3 wavebins
-            if self.snr is not None and self.snr > 6.0 and self.fwhm > 7.0:
+            if self.snr is not None and self.snr > 6.0 and self.fwhm > 8.0:
 
                 line_width = max(3,round(self.fwhm /2.355/G.FLUX_WAVEBIN_WIDTH))
-                _,line_center_idx,_ = SU.getnearpos(self.sumspec_wavelength,self.w) #want the left edge
-                centerflux = self.sumspec_flux[line_center_idx]
-                center_blue_frac = (self.w-self.sumspec_wavelength[line_center_idx])/G.FLUX_WAVEBIN_WIDTH
 
+                line_center_idx,*_ = SU.getnearpos(self.sumspec_wavelength,self.w) #get closest wavebin "center"
+                left_edge = self.sumspec_wavelength[line_center_idx] - 1.0
+                center_blue_frac = (self.w-left_edge)/G.FLUX_WAVEBIN_WIDTH
+                centerflux = self.sumspec_flux[line_center_idx]
                 lineflux_red = np.sum(self.sumspec_flux[line_center_idx+1:line_center_idx+2+line_width]) + centerflux * (1-center_blue_frac)
                 lineflux_blue = np.sum(self.sumspec_flux[line_center_idx-1-line_width:line_center_idx]) + centerflux * center_blue_frac
 
@@ -3711,25 +3714,44 @@ class DetObj:
         try:
 
             delta_thresh = 0
+            rat_thresh = 0
 
             if self.classification_dict['combined_eqw_rest_lya'] > 20.:
                 #will be an LAE vote
                 likelihood.append(1)
                 try:
-                    delta_thresh = abs(self.classification_dict['combined_eqw_rest_lya'] - self.classification_dict['combined_eqw_rest_lya_err'] - 20.0)
+                    #delta_thresh = abs(self.classification_dict['combined_eqw_rest_lya'] - self.classification_dict['combined_eqw_rest_lya_err'] - 20.0)
+                    rat_thresh = (self.classification_dict['combined_eqw_rest_lya'] - self.classification_dict['combined_eqw_rest_lya_err'])/20.0
                 except:
                     pass
-                weight.append(max(0.1,min(0.5,delta_thresh*0.1)))
+                #weight.append(max(0.1,min(0.5,delta_thresh*0.1))) #delta thresh
+                #rat_thresh can be negative or less than one
+                if rat_thresh < 1.0: #this is no-vote or minimum vote case
+                    if rat_thresh < 0:
+                        weight.append(0) #error is larger than the Ew
+                    else:
+                        #error pushes below 20AA, so minimum vote
+                        weight.append(0.1)
+                else:
+                    weight.append(max(0.1,min(0.5,(rat_thresh-1.0)))) #rat thresh
             else:
                 #will be an OII vote
                 likelihood.append(0)
                 try:
-                    delta_thresh = abs(self.classification_dict['combined_eqw_rest_lya'] + self.classification_dict['combined_eqw_rest_lya_err'] - 20.0)
+                    #delta_thresh = abs(self.classification_dict['combined_eqw_rest_lya'] + self.classification_dict['combined_eqw_rest_lya_err'] - 20.0)
+                    rat_thresh = 20/(self.classification_dict['combined_eqw_rest_lya'] + self.classification_dict['combined_eqw_rest_lya_err'])
                 except:
                     pass
                 #since compress toward EW = 0, this has slightly higher scoring
                 #plus OII can have large EW, but LyA below 20 is REALLY rare
-                weight.append(max(0.1,min(0.5,delta_thresh*0.25)))
+                #weight.append(max(0.1,min(0.5,delta_thresh*0.25))) #delta thresh version
+                #rat_thresh cannot be negative, but can be less than one
+                if rat_thresh < 1.0: #this is no-vote or minimum vote case
+                    #error pushes below 20AA, so minimum vote
+                    weight.append(0.1)
+                else:
+                    weight.append(max(0.1,min(0.5,(rat_thresh-1.0)*0.5))) #rat thresh
+
 
             var.append(1)
             prior.append(base_assumption)
@@ -3801,13 +3823,16 @@ class DetObj:
                     except:
                         pass
 
+                    g_str = f"{g:0.2f} ({g_faint:0.2f},{g_bright:0.2f})"
+                    g_thresh_str = f"{gmag_faint_thresh:0.2f}-{gmag_bright_thresh:0.2f}"
+
                     if g_bright > gmag_faint_thresh: #vote for LyA
                         likelihood.append(1.0)
                         weight.append(0.5) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                         var.append(1)
                         prior.append(base_assumption)
-                        log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                 f"weight({weight[-1]})")
+                        log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                 f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                     elif g_faint < gmag_bright_thresh: #vote for OII
                         #Still up to 25-30% could be LyA ... so weigt very little
                         #check on the EW if solidly LyA then vote LyA, etc
@@ -3818,34 +3843,35 @@ class DetObj:
                                 weight.append(0.25) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                                 var.append(1)
                                 prior.append(base_assumption)
-                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                         f"weight({weight[-1]})")
+                                log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                         f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             elif (ew-ew_err) > 30:
                                 #could be LyA
                                 likelihood.append(1.0)
                                 weight.append(0.1) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                                 var.append(1)
                                 prior.append(base_assumption)
-                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                         f"weight({weight[-1]})")
+                                log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                         f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             elif (ew+ew_err) < 15:
                                 #could be LyA
                                 likelihood.append(0.0)
                                 weight.append(0.5) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                                 var.append(1)
                                 prior.append(base_assumption)
-                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                         f"weight({weight[-1]})")
+                                log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                         f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             else: #no vote
-                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag no vote. Mag in unclear region.")
+                                log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag no vote. Mag in unclear region. mag ({g_str}), thresh ({g_thresh_str})")
                         else: #no EW info ... assume OII as more likely, but limited weight
                             likelihood.append(0.0)
                             weight.append(0.1)
                             var.append(1)
                             prior.append(base_assumption)
-                            log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                     f"weight({weight[-1]})")
-                    elif g > gmag_faint_thresh and g_faint > gmag_bright_thresh: #small vote for LyA
+                            log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                     f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
+                    elif (g > gmag_faint_thresh and g_faint > gmag_bright_thresh) or \
+                            ((gmag_bright_thresh < g < gmag_faint_thresh) and (g_bright < gmag_bright_thresh and g_faint < gmag_faint_thresh)): #small vote for LyA
                         #error straddles no-man's land and fainter limit
                         if (ew is not None):
                             if (ew-ew_err) > 80:
@@ -3854,35 +3880,38 @@ class DetObj:
                                 weight.append(0.5) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                                 var.append(1)
                                 prior.append(base_assumption)
-                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                         f"weight({weight[-1]})")
+                                log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                         f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             elif (ew-ew_err) > 30:
                                 #could be LyA
                                 likelihood.append(1.0)
                                 weight.append(0.3) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                                 var.append(1)
                                 prior.append(base_assumption)
-                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                         f"weight({weight[-1]})")
+                                log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                         f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             elif (ew+ew_err) < 15:
                                 #could be LyA
                                 likelihood.append(0.0)
                                 weight.append(0.25) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                                 var.append(1)
                                 prior.append(base_assumption)
-                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                         f"weight({weight[-1]})")
+                                log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                         f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             else: #no vote
-                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag no vote. Mag in unclear region.")
+                                log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag no vote. Mag in unclear region. mag ({g_str}), thresh ({g_thresh_str})"
+                                         f" with unclear EW: {ew:0.1f} +/- {ew_err:0.1f}")
                         else: #no EW info ... assume OII as more likely, but limited weight
                             likelihood.append(1.0)
                             weight.append(0.1)
                             var.append(1)
                             prior.append(base_assumption)
-                            log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                     f"weight({weight[-1]})")
-                    elif g < gmag_bright_thresh and g_bright < gmag_faint_thresh: #small vote for OII
-                        #error straddles no-man's land and brighter limit
+                            log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                     f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
+                    elif (g < gmag_bright_thresh and g_bright < gmag_faint_thresh) or \
+                        ((gmag_bright_thresh < g < gmag_faint_thresh) and (g_bright < gmag_bright_thresh and g_faint < gmag_faint_thresh)):
+                        #small vote for OII
+                        #error straddles no-man's land and brighter limit where the fiducial g is on the bright end or in between
                         if (ew is not None):
                             if (ew-ew_err) > 80:
                                 #could be LyA
@@ -3890,35 +3919,37 @@ class DetObj:
                                 weight.append(0.30) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                                 var.append(1)
                                 prior.append(base_assumption)
-                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                         f"weight({weight[-1]})")
+                                log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                         f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             elif (ew-ew_err) > 30:
                                 #could be LyA
                                 likelihood.append(1.0)
                                 weight.append(0.15) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                                 var.append(1)
                                 prior.append(base_assumption)
-                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                         f"weight({weight[-1]})")
+                                log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                         f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             elif (ew+ew_err) < 15:
                                 #could be LyA
                                 likelihood.append(0.0)
                                 weight.append(0.4) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                                 var.append(1)
                                 prior.append(base_assumption)
-                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                         f"weight({weight[-1]})")
+                                log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                         f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             else: #no vote
-                                log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag no vote. Mag in unclear region.")
+                                log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag no vote. Mag in unclear region. mag ({g_str}), thresh ({g_thresh_str})"
+                                         f" with unclear EW: {ew:0.1f} +/- {ew_err:0.1f}")
                         else: #no EW info ... assume OII as more likely, but limited weight
                             likelihood.append(0.0)
                             weight.append(0.05)
                             var.append(1)
                             prior.append(base_assumption)
-                            log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                     f"weight({weight[-1]})")
+                            log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                     f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
+
                     else: #g is in between OR error straddles both ... either way, no vote
-                        log.info(f"{self.entry_id} Aggregate Classification: Straight DEX g-mag no vote. Mag in unclear region.")
+                        log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag no vote. Mag in unclear region. mag ({g_str}), thresh ({g_thresh_str})")
 
             except:
                 pass
