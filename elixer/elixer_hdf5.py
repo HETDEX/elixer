@@ -193,6 +193,54 @@ class SpectraLines(tables.IsDescription):
                                        #decreasing score order
 
 
+class ClassificationExtraFeatures(tables.IsDescription):
+    """
+    One per detectid
+    Debugging table with specific P(LyA) votes, (though not all votes)
+    """
+    detectid = tables.Int64Col(pos=0)
+    #already have PLAE/POII aggregrate high and low
+    plae_poii_combined = tables.Float32Col(dflt=UNSET_FLOAT)
+    plae_poii_combined_hi = tables.Float32Col(dflt=UNSET_FLOAT)
+    plae_poii_combined_lo = tables.Float32Col(dflt=UNSET_FLOAT)
+    plae_poii_combined_midpoint = tables.Float32Col(dflt=UNSET_FLOAT)
+    plae_poii_combined_vote = tables.Float32Col(dflt=UNSET_FLOAT)
+    plae_poii_combined_weight = tables.Float32Col(dflt=UNSET_FLOAT)
+
+    ew_rest_lya_combined = tables.Float32Col(dflt=UNSET_FLOAT)
+    ew_rest_lya_combined_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    ew_rest_lya_combined_vote = tables.Float32Col(dflt=UNSET_FLOAT)
+    ew_rest_lya_combined_weight = tables.Float32Col(dflt=UNSET_FLOAT)
+
+    dex_gmag = tables.Float32Col(dflt=UNSET_FLOAT)
+    dex_gmag_bright = tables.Float32Col(dflt=UNSET_FLOAT)
+    dex_gmag_faint = tables.Float32Col(dflt=UNSET_FLOAT)
+    gmag_thresh_bright = tables.Float32Col(dflt=UNSET_FLOAT)
+    gmag_thresh_faint = tables.Float32Col(dflt=UNSET_FLOAT)
+    dex_gmag_vote = tables.Float32Col(dflt=UNSET_FLOAT)
+    dex_gmag_weight = tables.Float32Col(dflt=UNSET_FLOAT)
+
+    size_in_psf = tables.Float32Col(dflt=UNSET_FLOAT)
+    diam_in_arcsec = tables.Float32Col(dflt=UNSET_FLOAT)
+    oii_size_in_kpc = tables.Float32Col(dflt=UNSET_FLOAT)
+    lya_size_in_kpc = tables.Float32Col(dflt=UNSET_FLOAT)
+    size_in_psf_vote = tables.Float32Col(dflt=UNSET_FLOAT)
+    size_in_psf_weight = tables.Float32Col(dflt=UNSET_FLOAT)
+
+    rb_flux_asym = tables.Float32Col(dflt=UNSET_FLOAT)
+    rb_flux_asym_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    rb_flux_asym_vote = tables.Float32Col(dflt=UNSET_FLOAT)
+    rb_flux_asym_weight = tables.Float32Col(dflt=UNSET_FLOAT)
+
+    line_sigma = tables.Float32Col(dflt=UNSET_FLOAT)
+    line_sigma_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    line_sigma_vote = tables.Float32Col(dflt=UNSET_FLOAT)
+    line_sigma_weight = tables.Float32Col(dflt=UNSET_FLOAT)
+
+
+
+
+
 #Only used when G.LyC is True ... special table for Lyman Continuum project
 #there is some duplicated data, but this is meant to be self contained
 class NeighborSpectra(tables.IsDescription):
@@ -450,6 +498,12 @@ def flush_all(fileh,reindex=True):
         except:
             ntb = None
 
+        try:
+            vote_tb = fileh.root.ClassificationExtraFeatures
+            vote_tb.flush()
+        except:
+            pass
+
         if not reindex:
             return #we're done
 
@@ -540,6 +594,14 @@ def flush_all(fileh,reindex=True):
                 ntb.flush()
         except:
             log.debug("Index fail on neighbor spectra table")
+
+        try:
+            if vote_tb is not None:
+                vote_tb.cols.detectid.remove_index()
+                vote_tb.cols.detectid.create_csindex()
+                vote_tb.flush()
+        except:
+          log.debug("Index fail on neighbor spectra table")
 
     return
 
@@ -647,6 +709,9 @@ def get_hdf5_filehandle(fname,append=False,allow_overwrite=True,must_exist=False
                                    'NeighborSpectra Table',
                                    expectedrows=estimated_dets*3) #mostly a g and r aperture, sometimes more
 
+            if G.VoteFeaturesTable:
+                fileh.create_table(fileh.root,'ClassificationExtraFeatures',ClassificationExtraFeatures,'ClassificationExtraFeatures Table',
+                                   expectedrows=estimated_dets)
 
 
     except:
@@ -692,6 +757,13 @@ def append_entry(fileh,det,overwrite=False):
             LyC = True
         except:
             LyC = False
+
+        try:
+            vote_tb = fileh.root.ClassificationExtraFeatures
+            list_tables.append(vote_tb)
+            Vote_Table = True
+        except:
+            Vote_Table = False
 
         q_detectid = det.hdf5_detectid
         rows = dtb.read_where("detectid==q_detectid")
@@ -1410,6 +1482,102 @@ def append_entry(fileh,det,overwrite=False):
                     log.error("Exception! in elixer_hdf5::append_entry",exc_info=True)
 
 
+        ###################################
+        # ClassificationExtraFeatures
+        ###################################
+        if Vote_Table:
+            try:
+                row = vote_tb.row
+                row['detectid'] = det.hdf5_detectid
+
+                #not always vote with info
+
+                try:
+                    row['plae_poii_combined_vote'] = det.vote_info['plae_poii_combined_vote']
+                    row['plae_poii_combined_weight'] = det.vote_info['plae_poii_combined_weight']
+                    row['plae_poii_combined_midpoint'] = det.vote_info['plae_poii_combined_midpoint']
+
+                    row['plae_poii_combined'] = det.vote_info['plae_poii_combined']
+                    row['plae_poii_combined_hi'] = det.vote_info['plae_poii_combined_hi']
+                    row['plae_poii_combined_lo'] = det.vote_info['plae_poii_combined_lo']
+                except:
+                    pass
+
+
+                try:
+                    row['ew_rest_lya_combined'] = det.vote_info['ew_rest_lya_combined']
+                    row['ew_rest_lya_combined_err'] = det.vote_info['ew_rest_lya_combined_err']
+                except:
+                    pass
+
+                try:
+                    row['ew_rest_lya_combined_vote'] = det.vote_info['ew_rest_lya_combined_vote']
+                    row['ew_rest_lya_combined_weight'] = det.vote_info['ew_rest_lya_combined_weight']
+                except:
+                    pass
+
+
+                try:
+                    row['dex_gmag'] = det.vote_info['dex_gmag']
+                    row['dex_gmag_bright'] = det.vote_info['dex_gmag_bright']
+                    row['dex_gmag_faint'] = det.vote_info['dex_gmag_faint']
+                    row['gmag_thresh_bright'] = det.vote_info['gmag_thresh_bright']
+                    row['gmag_thresh_faint'] = det.vote_info['gmag_thresh_faint']
+                except:
+                    pass
+
+                try:
+                    row['dex_gmag_vote'] = det.vote_info['dex_gmag_vote']
+                    row['dex_gmag_weight'] = det.vote_info['dex_gmag_weight']
+                except:
+                    pass
+
+                try:
+                    row['size_in_psf'] = det.vote_info['size_in_psf']
+                    row['diam_in_arcsec'] = det.vote_info['diam_in_arcsec']
+                    row['oii_size_in_kpc'] = det.vote_info['oii_size_in_kpc']
+                    # row['lya_size_in_kpc'] = det.vote_info['lya_size_in_kpc']# is not one
+                except:
+                    pass
+
+                try:
+                    row['size_in_psf_vote'] = det.vote_info['size_in_psf_vote']
+                    row['size_in_psf_weight'] = det.vote_info['size_in_psf_weight']
+                except:
+                    pass
+
+                try:
+                    row['rb_flux_asym'] = det.vote_info['rb_flux_asym']
+                    row['rb_flux_asym_err'] = det.vote_info['rb_flux_asym_err']
+                except:
+                    pass
+
+                try:
+                    row['rb_flux_asym_vote'] = det.vote_info['rb_flux_asym_vote']
+                    row['rb_flux_asym_weight']= det.vote_info['rb_flux_asym_weight']
+                except:
+                    pass
+
+                try:
+                    row['line_sigma'] = det.vote_info['line_sigma']
+                    row['line_sigma_err']  = det.vote_info['line_sigma_err']
+                except:
+                    pass
+
+                try:
+                    row['line_sigma_vote'] = det.vote_info['line_sigma_vote']
+                    row['line_sigma_weight'] = det.vote_info['line_sigma_weight']
+                except:
+                    pass
+
+
+
+                row.append()
+                vote_tb.flush()
+
+            except:
+                pass
+
     except:
         log.error("Exception! in elixer_hdf5::append_entry",exc_info=True)
 
@@ -1530,6 +1698,12 @@ def remove_duplicates(file):
         except:
             LyC = False
 
+        try:
+            vote_tb = h5.root.ClassificationExtraFeatures
+            Vote_Table = True
+        except:
+            Vote_Table = False
+
         detectids = dtb.read(field='detectid')
 
         #identify the duplicates
@@ -1620,6 +1794,15 @@ def remove_duplicates(file):
                         if start.is_integer():
                             start = int(start)
                             ntb.remove_rows(rows[start], rows[-1] + 1)
+
+
+                if Vote_Table:
+                    rows = vote_tb.get_where_list("detectid==d")
+                    if rows.size > 1:
+                        start = rows.size / c
+                        if start.is_integer():
+                            start = int(start)
+                            vote_tb.remove_rows(rows[start], rows[-1] + 1)
 
             except:
                 log.error(f"Exception removing rows for {d}",exc_info=True)
@@ -1857,6 +2040,12 @@ def merge_unique(newfile,file1,file2):
             except:
                 LyC = False
 
+            try:
+                vote_tb_new = newfile_handle.root.ClassificationExtraFeatures
+                Vote_Table = True
+            except:
+                Vote_Table = False
+
             for d in chunk:
                 try:
                     log.debug(f"Merging {d}")
@@ -1967,6 +2156,14 @@ def merge_unique(newfile,file1,file2):
                             print(f"NeighborSpectra merge failed {d}")
                             print(e)
 
+                    if Vote_Table:
+                        try:
+                            vote_tb_src = source_h.root.ClassificationExtraFeatures
+                            vote_tb_new.append(vote_tb_src.read_where("(detectid==d)"))
+                        except Exception as e:
+                            print(f"ClassificationExtraFeatures merge failed {d}")
+                            print(e)
+
                     #flush_all(newfile_handle) #don't think we need to flush every time
 
                 except Exception as e:
@@ -2017,6 +2214,12 @@ def merge_elixer_hdf5_files(fname,flist=[]):
         except:
             pass
 
+        try:
+            _ = fh.root.ClassificationExtraFeatures
+            G.VoteFeaturesTable = True
+        except:
+            pass
+
         if fh is None:
             continue
         else:
@@ -2044,6 +2247,13 @@ def merge_elixer_hdf5_files(fname,flist=[]):
         LyC = True
     except:
         LyC = False
+
+    try: #only exist if elixer was run with --lyc
+        vote_tb = fileh.root.ClassificationExtraFeatures
+        Vote_Table = True
+    except:
+        Vote_Table = False
+
 
     log.info(f"Merging approximately {max_dets} in {len(flist)} files ...")
 
@@ -2087,6 +2297,13 @@ def merge_elixer_hdf5_files(fname,flist=[]):
             try: #might not have ElixerApertures table
                 m_ntb = merge_fh.root.NeighborSpectra
                 ntb.append(m_ntb.read())
+            except:
+                pass
+
+        if Vote_Table:
+            try: #might not have ElixerApertures table
+                m_vote_tb = merge_fh.root.ClassificationExtraFeatures
+                vote_tb.append(m_vote_tb.read())
             except:
                 pass
 

@@ -737,6 +737,7 @@ GRID_SZ_X = 3 # equivalent figure_sz_x for a grid width (e.g. one column)
 GRID_SZ_Y = 3 # equivalent figure_sz_y for a grid height (e.g. one row)
 
 LyC = False #switch for Lyman Continuum specialized code
+VoteFeaturesTable = True #if true, include the P(LyA) extra voting features table
 PLOT_FULLWIDTH_2D_SPEC = False #if true, show the combined full-width 2D spectra just under the 1D plot
 
 FIT_FULL_SPEC_IN_WINDOW = False #if true, allow y-axis range to fit entire spectrum, not just the emission line
