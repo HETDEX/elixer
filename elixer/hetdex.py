@@ -3068,10 +3068,19 @@ class DetObj:
         ######################################
 
         try:
+
+            def arcsec_thresh(wave_obs):
+                #2.0 for less than 4500 then linear from 4500 to 5000 then 1.0
+                if wave_obs < 4500:
+                    return 2.0
+                elif wave_obs > 5000:
+                    return 1.0
+                else:
+                    return (-1/500.0)*wave_obs + 11.0
+
             #assume the dictionary is populated ... if not, just except and move on
             if self.classification_dict['size_in_psf'] is not None and \
                     self.classification_dict['size_in_psf'] > 1.2: #we will call this resolved
-
 
                 vote_info['size_in_psf'] = self.classification_dict['size_in_psf']
                 vote_info['diam_in_arcsec'] = self.classification_dict['diam_in_arcsec']
@@ -3080,10 +3089,10 @@ class DetObj:
                 diam = SU.physical_diameter(z_oii,self.classification_dict['diam_in_arcsec'])
                 vote_info['oii_size_in_kpc'] = diam
 
-                if diam < 6.0:# or self.classification_dict['diam_in_arcsec'] < 2.0: #usually we fall here
+                if self.classification_dict['diam_in_arcsec'] < arcsec_thresh(self.w): #usually we fall here
                     #small to medium
                     #probably LyA ... have to have really great seeing ... check the redshift
-                    if  diam < 3.0: #0.5 kpc pretty clean
+                    if  diam < 1.5: #0.5 kpc pretty clean
                         #vote FOR LyA
                         w = 0.25
                         likelihood.append(1.0)
@@ -3099,9 +3108,9 @@ class DetObj:
 
                         vote_info['size_in_psf_vote'] = likelihood[-1]
                         vote_info['size_in_psf_weight'] = weight[-1]
-                    elif diam < 6.0: # and self.w < 4500:
+                    elif diam < 3.5: # and self.w < 4500:
                         #vote FOR LyA, but weaker, around 5:1 LyA
-                        w = 0.05
+                        w = 0.1
                         likelihood.append(1.0)
                         weight.append(w)
                         var.append(1)
@@ -3119,7 +3128,7 @@ class DetObj:
                     else:
                         log.info(f"{self.entry_id} Aggregate Classification angular size ({self.classification_dict['diam_in_arcsec']:0.2})\" no vote. Intermediate size.")
 
-                elif self.classification_dict['diam_in_arcsec'] < 5.0:
+                elif self.classification_dict['diam_in_arcsec'] < 2.5:
                     #Meidum Big
                     #on the larger side ... generally more likely to be OII, but could be an AGN
                     #check on the FHWM for Type 1 AGN
@@ -3133,18 +3142,18 @@ class DetObj:
                                  f" lk({likelihood[-1]}) weight({weight[-1]})")
                         vote_info['size_in_psf_vote'] = likelihood[-1]
                         vote_info['size_in_psf_weight'] = weight[-1]
-                    elif self.fwhm+self.fwhm_unc < 10 : #not likely an AGN and otheriwse too big to be LyA
-                        #vote for OII (or not LyA)
-                        likelihood.append(0.0)
-
-                        weight.append(0.33)
-                        #weight.append(0.25)
-                        var.append(1)
-                        prior.append(base_assumption)
-                        log.info(f"{self.entry_id} Aggregate Classification: angular size ({self.classification_dict['diam_in_arcsec']:0.2})\""
-                                 f" lk({likelihood[-1]}) weight({weight[-1]})")
-                        vote_info['size_in_psf_vote'] = likelihood[-1]
-                        vote_info['size_in_psf_weight'] = weight[-1]
+                    # elif self.fwhm+self.fwhm_unc < 10 : #not likely an AGN and otheriwse too big to be LyA
+                    #     #vote for OII (or not LyA)
+                    #     likelihood.append(0.0)
+                    #
+                    #     weight.append(0.33)
+                    #     #weight.append(0.25)
+                    #     var.append(1)
+                    #     prior.append(base_assumption)
+                    #     log.info(f"{self.entry_id} Aggregate Classification: angular size ({self.classification_dict['diam_in_arcsec']:0.2})\""
+                    #              f" lk({likelihood[-1]}) weight({weight[-1]})")
+                    #     vote_info['size_in_psf_vote'] = likelihood[-1]
+                    #     vote_info['size_in_psf_weight'] = weight[-1]
                     else:
                         log.info(f"{self.entry_id} Aggregate Classification angular size ({self.classification_dict['diam_in_arcsec']:0.2})\" no vote. Intermediate size. Not AGN, but large-ish FWHM.")
 
@@ -3672,83 +3681,83 @@ class DetObj:
         # compare blue side to red side of line center
         # (maybe marginally effective? ... resolution not high enough)
         #################################################
-        try:
-            #can fail if too close to the edge, in which case, this should not vote anyway
-            #assuming no errors or similar errors on red side and blue side
-            #this fails if LyA blue is really strong (high escape fraction)
-            #really want to check just right near the line and want at least 3 wavebins
-            #if self.snr is not None and self.snr > 6.0 and self.fwhm > 8.0:
-            if True: #for now always do this as I want the info, but only vote if the condition is met
-
-                line_width = max(3,round(self.fwhm /2.355/G.FLUX_WAVEBIN_WIDTH))
-
-                line_center_idx,*_ = SU.getnearpos(self.sumspec_wavelength,self.w) #get closest wavebin "center"
-                left_edge = self.sumspec_wavelength[line_center_idx] - 1.0
-                center_blue_frac = (self.w-left_edge)/G.FLUX_WAVEBIN_WIDTH
-                centerflux = self.sumspec_flux[line_center_idx]
-                centerflux_err = self.sumspec_fluxerr[line_center_idx]
-
-                lineflux_red = np.sum(self.sumspec_flux[line_center_idx+1:line_center_idx+2+line_width]) + centerflux * (1-center_blue_frac)
-                lineflux_blue = np.sum(self.sumspec_flux[line_center_idx-1-line_width:line_center_idx]) + centerflux * center_blue_frac
-
-                #note: SUPER unlikely, but we could get a zero flux, and a divide by zero, but that will trap in
-                #try/except and is not worth worrying about
-
-                #what about uncertainty??
-                lineflux_red_err = np.sqrt(np.sum(self.sumspec_fluxerr[line_center_idx+1:line_center_idx+2+line_width]**2) +
-                                   (centerflux_err * (1-center_blue_frac))**2)
-                lineflux_blue_err = np.sqrt(np.sum(self.sumspec_fluxerr[line_center_idx-1-line_width:line_center_idx]**2) +
-                                    (centerflux_err * center_blue_frac)**2)
-
-
-                rat = lineflux_red/lineflux_blue
-                rat_err = rat * np.sqrt((lineflux_red_err/lineflux_red)**2 + (lineflux_blue_err/lineflux_blue)**2)
-                did_vote = True
-
-                vote_info['rb_flux_asym'] = rat
-                vote_info['rb_flux_asym_err'] = rat_err
-
-                if self.snr is not None and self.snr > 6.0 and self.fwhm > 8.0:
-                    if rat_err/rat > 0.5 and ((rat-rat_err) < 1.0 and (rat+rat_err) > 1.0):
-                        log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f}  +/- {rat_err:0.3f} no vote.")
-                    # elif rat > 1.33:
-                    #     likelihood.append(1.0)
-                    #     weight.append(0.25)
-                    #     prior.append(base_assumption)
-                    #     var.append(1)
-                    elif rat > 1.2: #seems to be pretty good separation above 1.2
-                        likelihood.append(1.0)
-                        weight.append(0.25)
-                        prior.append(base_assumption)
-                        var.append(1)
-                    #from data, looks like we more blue than red is possible even for LyA
-                    # elif rat < 0.70:
-                    #     likelihood.append(0.0)
-                    #     weight.append(0.25)
-                    #     prior.append(base_assumption)
-                    #     var.append(1)
-                    # elif rat < 0.80:
-                    #     likelihood.append(0.0)
-                    #     weight.append(0.1)
-                    #     prior.append(base_assumption)
-                    #     var.append(1)
-
-                    else:
-                        did_vote = False
-                else:
-                    did_vote = False
-
-                if did_vote:
-                    vote_info['rb_flux_asym_vote'] = likelihood[-1]
-                    vote_info['rb_flux_asym_weight'] = weight[-1]
-                    log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f} +/- {rat_err:0.3f} vote: "
-                             f"lk({likelihood[-1]}) weight({weight[-1]})")
-                else:
-                    log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f}  +/- {rat_err:0.3f} no vote.")
-            else:
-                log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux low snr {self.snr:0.2f} or fwhm {self.fwhm:0.2f} no vote.")
-        except:
-            log.debug("Exception in r/b line asymmetry vote.",exc_info=True)
+        # try:
+        #     #can fail if too close to the edge, in which case, this should not vote anyway
+        #     #assuming no errors or similar errors on red side and blue side
+        #     #this fails if LyA blue is really strong (high escape fraction)
+        #     #really want to check just right near the line and want at least 3 wavebins
+        #     #if self.snr is not None and self.snr > 6.0 and self.fwhm > 8.0:
+        #     if True: #for now always do this as I want the info, but only vote if the condition is met
+        #
+        #         line_width = max(3,round(self.fwhm /2.355/G.FLUX_WAVEBIN_WIDTH))
+        #
+        #         line_center_idx,*_ = SU.getnearpos(self.sumspec_wavelength,self.w) #get closest wavebin "center"
+        #         left_edge = self.sumspec_wavelength[line_center_idx] - 1.0
+        #         center_blue_frac = (self.w-left_edge)/G.FLUX_WAVEBIN_WIDTH
+        #         centerflux = self.sumspec_flux[line_center_idx]
+        #         centerflux_err = self.sumspec_fluxerr[line_center_idx]
+        #
+        #         lineflux_red = np.sum(self.sumspec_flux[line_center_idx+1:line_center_idx+2+line_width]) + centerflux * (1-center_blue_frac)
+        #         lineflux_blue = np.sum(self.sumspec_flux[line_center_idx-1-line_width:line_center_idx]) + centerflux * center_blue_frac
+        #
+        #         #note: SUPER unlikely, but we could get a zero flux, and a divide by zero, but that will trap in
+        #         #try/except and is not worth worrying about
+        #
+        #         #what about uncertainty??
+        #         lineflux_red_err = np.sqrt(np.sum(self.sumspec_fluxerr[line_center_idx+1:line_center_idx+2+line_width]**2) +
+        #                            (centerflux_err * (1-center_blue_frac))**2)
+        #         lineflux_blue_err = np.sqrt(np.sum(self.sumspec_fluxerr[line_center_idx-1-line_width:line_center_idx]**2) +
+        #                             (centerflux_err * center_blue_frac)**2)
+        #
+        #
+        #         rat = lineflux_red/lineflux_blue
+        #         rat_err = rat * np.sqrt((lineflux_red_err/lineflux_red)**2 + (lineflux_blue_err/lineflux_blue)**2)
+        #         did_vote = True
+        #
+        #         vote_info['rb_flux_asym'] = rat
+        #         vote_info['rb_flux_asym_err'] = rat_err
+        #
+        #         if self.snr is not None and self.snr > 6.0 and self.fwhm > 8.0:
+        #             if rat_err/rat > 0.5 and ((rat-rat_err) < 1.0 and (rat+rat_err) > 1.0):
+        #                 log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f}  +/- {rat_err:0.3f} no vote.")
+        #             # elif rat > 1.33:
+        #             #     likelihood.append(1.0)
+        #             #     weight.append(0.25)
+        #             #     prior.append(base_assumption)
+        #             #     var.append(1)
+        #             elif rat > 1.2: #seems to be pretty good separation above 1.2
+        #                 likelihood.append(1.0)
+        #                 weight.append(0.25)
+        #                 prior.append(base_assumption)
+        #                 var.append(1)
+        #             #from data, looks like we more blue than red is possible even for LyA
+        #             # elif rat < 0.70:
+        #             #     likelihood.append(0.0)
+        #             #     weight.append(0.25)
+        #             #     prior.append(base_assumption)
+        #             #     var.append(1)
+        #             # elif rat < 0.80:
+        #             #     likelihood.append(0.0)
+        #             #     weight.append(0.1)
+        #             #     prior.append(base_assumption)
+        #             #     var.append(1)
+        #
+        #             else:
+        #                 did_vote = False
+        #         else:
+        #             did_vote = False
+        #
+        #         if did_vote:
+        #             vote_info['rb_flux_asym_vote'] = likelihood[-1]
+        #             vote_info['rb_flux_asym_weight'] = weight[-1]
+        #             log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f} +/- {rat_err:0.3f} vote: "
+        #                      f"lk({likelihood[-1]}) weight({weight[-1]})")
+        #         else:
+        #             log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f}  +/- {rat_err:0.3f} no vote.")
+        #     else:
+        #         log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux low snr {self.snr:0.2f} or fwhm {self.fwhm:0.2f} no vote.")
+        # except:
+        #     log.debug("Exception in r/b line asymmetry vote.",exc_info=True)
 
 
         #################################################
