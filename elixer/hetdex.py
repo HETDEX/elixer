@@ -3071,12 +3071,19 @@ class DetObj:
 
             def arcsec_thresh(wave_obs):
                 #2.0 for less than 4500 then linear from 4500 to 5000 then 1.0
-                if wave_obs < 4500:
-                    return 2.0
-                elif wave_obs > 5000:
-                    return 1.0
+                w1 = 4000.0
+                w2 = 5000.0
+                s1 = 2.8
+                s2 = 1.0
+
+                if wave_obs < w1:
+                    return s1
+                elif wave_obs > w2:
+                    return s2
                 else:
-                    return (-1/500.0)*wave_obs + 11.0
+                    slope = (s2-s1)/(w2-w1)
+                    inter = s1 - slope*w1
+                    return slope*wave_obs + inter
 
             #assume the dictionary is populated ... if not, just except and move on
             if self.classification_dict['size_in_psf'] is not None and \
@@ -3086,13 +3093,13 @@ class DetObj:
                 vote_info['diam_in_arcsec'] = self.classification_dict['diam_in_arcsec']
 
                 z_oii = self.w/G.OII_rest - 1
-                diam = SU.physical_diameter(z_oii,self.classification_dict['diam_in_arcsec'])
-                vote_info['oii_size_in_kpc'] = diam
+                diam_kpc = SU.physical_diameter(z_oii,self.classification_dict['diam_in_arcsec'])
+                vote_info['oii_size_in_kpc'] = diam_kpc
 
-                if (diam < 3.0) or (self.classification_dict['diam_in_arcsec'] < arcsec_thresh(self.w)): #usually we fall here
+                if (diam_kpc < 3.0) or (self.classification_dict['diam_in_arcsec'] < arcsec_thresh(self.w)): #usually we fall here
                     #small to medium
                     #probably LyA ... have to have really great seeing ... check the redshift
-                    if  diam < 3.0: #0.5 kpc pretty clean
+                    if  diam_kpc < 3.0: #0.5 kpc pretty clean
                         #vote FOR LyA
                         w = 0.25
                         likelihood.append(1.0)
@@ -3101,14 +3108,14 @@ class DetObj:
                         prior.append(base_assumption)
 
                         #set a base weight (will be adjusted later)
-                        #diameter_lae.append({"z":z,"kpc":diam,"weight":w,"likelihood":lk})
+                        #diameter_lae.append({"z":z,"kpc":diam_kpc,"weight":w,"likelihood":lk})
                         log.info(
                             f"{self.entry_id} Aggregate Classification, angular size ({self.classification_dict['diam_in_arcsec']:0.2})\", added physical size. Unlikely OII:"
-                            f" z(OII)({z_oii:#.4g}) kpc({diam:#.4g}) weight({w:#.5g}) likelihood({lk:#.5g})")
+                            f" z(OII)({z_oii:#.4g}) kpc({diam_kpc:#.4g}) weight({w:#.5g}) likelihood({lk:#.5g})")
 
                         vote_info['size_in_psf_vote'] = likelihood[-1]
                         vote_info['size_in_psf_weight'] = weight[-1]
-                    elif diam < 4.5: # and self.w < 4500:
+                    elif diam_kpc < 4.5: # and self.w < 4500:
                         #vote FOR LyA, but weaker, around 5:1 LyA
                         w = 0.1
                         likelihood.append(1.0)
@@ -3117,10 +3124,10 @@ class DetObj:
                         prior.append(base_assumption)
 
                         #set a base weight (will be adjusted later)
-                        #diameter_lae.append({"z":z,"kpc":diam,"weight":w,"likelihood":lk})
+                        #diameter_lae.append({"z":z,"kpc":diam_kpc,"weight":w,"likelihood":lk})
                         log.info(
                             f"{self.entry_id} Aggregate Classification, angular size ({self.classification_dict['diam_in_arcsec']:0.2})\", added physical size. Unlikely OII:"
-                            f" z(OII)({z_oii:#.4g}) kpc({diam:#.4g}) weight({w:#.5g}) likelihood({lk:#.5g})")
+                            f" z(OII)({z_oii:#.4g}) kpc({diam_kpc:#.4g}) weight({w:#.5g}) likelihood({lk:#.5g})")
 
                         vote_info['size_in_psf_vote'] = likelihood[-1]
                         vote_info['size_in_psf_weight'] = weight[-1]
@@ -3610,7 +3617,8 @@ class DetObj:
                 #sanity check vs 20AA cut
                 #appears only to favor LAE for low EW and low z, never appears to favor OII at higher EW
                 try:
-                    if self.w > (G.OII_rest-1.0):
+                    if False: #2022-02-01 with hard EW voting, don't need sanity check here ... redundant
+    #                    if self.w > (G.OII_rest-1.0):
                         #start with the line flux
                         if self.spec_obj:
                             ew_combined_continuum = self.spec_obj.estflux
