@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.15.0a4-21'
+__version__ = '1.15.0a4-22'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -390,14 +390,18 @@ def select_hdr_version(version):
             HDF5_RAW_DIR = HETDEX_API_CONFIG.raw_dir #local to this function only
             HDF5_REDUCTION_DIR = HETDEX_API_CONFIG.red_dir #local to this function only
 
-            if HDR_Version_float == 1:
-                PIXFLT_LOC = op.join(CONFIG_BASEDIR, "virus_config/PixelFlats")
-            elif HDR_Version_float < 3:
-                PIXFLT_LOC = HETDEX_API_CONFIG.pixflat_dir
-            else:
+            try:
+                if HDR_Version_float == 1:
+                    PIXFLT_LOC = op.join(CONFIG_BASEDIR, "virus_config/PixelFlats")
+                #elif HDR_Version_float < 3:
+                elif op.exists(HETDEX_API_CONFIG.pixflat_dir):
+                    PIXFLT_LOC = HETDEX_API_CONFIG.pixflat_dir
+                else:
+                    common = op.commonpath([HDF5_CONTINUUM_FN,HDF5_SURVEY_FN,HDF5_REDUCTION_DIR])
+                    PIXFLT_LOC = op.join(common,"/lib_calib/lib_pflat")
+            except:
                 common = op.commonpath([HDF5_CONTINUUM_FN,HDF5_SURVEY_FN,HDF5_REDUCTION_DIR])
                 PIXFLT_LOC = op.join(common,"/lib_calib/lib_pflat")
-
 
         else: #defunct
             HDF5_DETECT_FN = op.join(HDR_BASEPATH, "detect/detect_hdr1.h5")

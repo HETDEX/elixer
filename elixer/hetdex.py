@@ -3076,13 +3076,14 @@ class DetObj:
                 vote_info['size_in_psf'] = self.classification_dict['size_in_psf']
                 vote_info['diam_in_arcsec'] = self.classification_dict['diam_in_arcsec']
 
-                if self.classification_dict['diam_in_arcsec'] < 2.0: #usually we fall here
+                z_oii = self.w/G.OII_rest - 1
+                diam = SU.physical_diameter(z_oii,self.classification_dict['diam_in_arcsec'])
+                vote_info['oii_size_in_kpc'] = diam
+
+                if diam < 6.0:# or self.classification_dict['diam_in_arcsec'] < 2.0: #usually we fall here
                     #small to medium
                     #probably LyA ... have to have really great seeing ... check the redshift
-                    z_oii = self.w/G.OII_rest - 1
-                    diam = SU.physical_diameter(z_oii,self.classification_dict['diam_in_arcsec'])
-                    vote_info['oii_size_in_kpc'] = diam
-                    if  diam < 0.5: #0.5 kpc
+                    if  diam < 3.0: #0.5 kpc pretty clean
                         #vote FOR LyA
                         w = 0.25
                         likelihood.append(1.0)
@@ -3098,6 +3099,23 @@ class DetObj:
 
                         vote_info['size_in_psf_vote'] = likelihood[-1]
                         vote_info['size_in_psf_weight'] = weight[-1]
+                    elif diam < 6.0: # and self.w < 4500:
+                        #vote FOR LyA, but weaker, around 5:1 LyA
+                        w = 0.05
+                        likelihood.append(1.0)
+                        weight.append(w)
+                        var.append(1)
+                        prior.append(base_assumption)
+
+                        #set a base weight (will be adjusted later)
+                        #diameter_lae.append({"z":z,"kpc":diam,"weight":w,"likelihood":lk})
+                        log.info(
+                            f"{self.entry_id} Aggregate Classification, angular size ({self.classification_dict['diam_in_arcsec']:0.2})\", added physical size. Unlikely OII:"
+                            f" z(OII)({z_oii:#.4g}) kpc({diam:#.4g}) weight({w:#.5g}) likelihood({lk:#.5g})")
+
+                        vote_info['size_in_psf_vote'] = likelihood[-1]
+                        vote_info['size_in_psf_weight'] = weight[-1]
+
                     else:
                         log.info(f"{self.entry_id} Aggregate Classification angular size ({self.classification_dict['diam_in_arcsec']:0.2})\" no vote. Intermediate size.")
 
@@ -3659,7 +3677,8 @@ class DetObj:
             #assuming no errors or similar errors on red side and blue side
             #this fails if LyA blue is really strong (high escape fraction)
             #really want to check just right near the line and want at least 3 wavebins
-            if self.snr is not None and self.snr > 6.0 and self.fwhm > 8.0:
+            #if self.snr is not None and self.snr > 6.0 and self.fwhm > 8.0:
+            if True: #for now always do this as I want the info, but only vote if the condition is met
 
                 line_width = max(3,round(self.fwhm /2.355/G.FLUX_WAVEBIN_WIDTH))
 
@@ -3689,29 +3708,33 @@ class DetObj:
                 vote_info['rb_flux_asym'] = rat
                 vote_info['rb_flux_asym_err'] = rat_err
 
-                if rat_err/rat > 0.5 and ((rat-rat_err) < 1.0 and (rat+rat_err) > 1.0):
-                    log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f}  +/- {rat_err:0.3f} no vote.")
-                elif rat > 1.33:
-                    likelihood.append(1.0)
-                    weight.append(0.25)
-                    prior.append(base_assumption)
-                    var.append(1)
-                elif rat > 1.2:
-                    likelihood.append(1.0)
-                    weight.append(0.1)
-                    prior.append(base_assumption)
-                    var.append(1)
-                elif rat < 0.70:
-                    likelihood.append(0.0)
-                    weight.append(0.25)
-                    prior.append(base_assumption)
-                    var.append(1)
-                elif rat < 0.80:
-                    likelihood.append(0.0)
-                    weight.append(0.1)
-                    prior.append(base_assumption)
-                    var.append(1)
+                if self.snr is not None and self.snr > 6.0 and self.fwhm > 8.0:
+                    if rat_err/rat > 0.5 and ((rat-rat_err) < 1.0 and (rat+rat_err) > 1.0):
+                        log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f}  +/- {rat_err:0.3f} no vote.")
+                    # elif rat > 1.33:
+                    #     likelihood.append(1.0)
+                    #     weight.append(0.25)
+                    #     prior.append(base_assumption)
+                    #     var.append(1)
+                    elif rat > 1.2: #seems to be pretty good separation above 1.2
+                        likelihood.append(1.0)
+                        weight.append(0.25)
+                        prior.append(base_assumption)
+                        var.append(1)
+                    #from data, looks like we more blue than red is possible even for LyA
+                    # elif rat < 0.70:
+                    #     likelihood.append(0.0)
+                    #     weight.append(0.25)
+                    #     prior.append(base_assumption)
+                    #     var.append(1)
+                    # elif rat < 0.80:
+                    #     likelihood.append(0.0)
+                    #     weight.append(0.1)
+                    #     prior.append(base_assumption)
+                    #     var.append(1)
 
+                    else:
+                        did_vote = False
                 else:
                     did_vote = False
 
