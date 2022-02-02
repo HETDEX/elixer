@@ -3086,8 +3086,8 @@ class DetObj:
                     return slope*wave_obs + inter
 
             #assume the dictionary is populated ... if not, just except and move on
-            if self.classification_dict['size_in_psf'] is not None and \
-                    self.classification_dict['size_in_psf'] > 1.1: #we will call this resolved
+            if self.classification_dict['size_in_psf'] is not None and self.classification_dict['size_in_psf'] > 1.1 and \
+                    self.classification_dict['diam_in_arcsec'] is not None: #we will call this resolved
 
                 vote_info['size_in_psf'] = self.classification_dict['size_in_psf']
                 vote_info['diam_in_arcsec'] = self.classification_dict['diam_in_arcsec']
@@ -3096,7 +3096,9 @@ class DetObj:
                 diam_kpc = SU.physical_diameter(z_oii,self.classification_dict['diam_in_arcsec'])
                 vote_info['oii_size_in_kpc'] = diam_kpc
 
-                if (diam_kpc < 3.0) or (self.classification_dict['diam_in_arcsec'] < arcsec_thresh(self.w)): #usually we fall here
+                if diam_kpc is None:
+                    log.info(f"{self.entry_id} Aggregate Classification angular size no vote (unresolved) or no size info.")
+                elif (diam_kpc < 3.0) or (self.classification_dict['diam_in_arcsec'] < arcsec_thresh(self.w)): #usually we fall here
                     #small to medium
                     #probably LyA ... have to have really great seeing ... check the redshift
                     if  diam_kpc < 3.0: #0.5 kpc pretty clean
@@ -3190,7 +3192,7 @@ class DetObj:
                         #no vote
                         log.info(f"{self.entry_id} Aggregate Classification angular size ({self.classification_dict['diam_in_arcsec']:0.2})\" no vote. Large size, intermediate line FWHM.")
             else:
-                    log.info(f"{self.entry_id} Aggregate Classification angular size no vote (unresolved) or no size info.")
+                log.info(f"{self.entry_id} Aggregate Classification angular size no vote (unresolved) or no size info.")
         except:
             log.warning(f"{self.entry_id} Aggregate Classification angular size exception.",exc_info=True)
 

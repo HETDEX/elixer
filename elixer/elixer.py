@@ -4692,13 +4692,11 @@ def main():
                                                                   % (combined_ew,combined_ew_err,
                                                                       round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae,p_of_z,best_z)
                                                 else:
-
                                                     #what line is best_z?
                                                     try:
                                                         line_label = e.spec_obj.match_line(e.w,best_z,z_error=0.001).name
                                                     except:
                                                         line_label = ""
-
 
                                                     header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
                                                               r"P(Ly$\alpha$): %0.3f  Q(z): %0.2f  z: %0.4f %s" \

@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.15.0a4 [2022-01-xx]
+1.16.0a1 [2022-02-02]
 * Adjust consitency check vs LyA to allow for un-fitted LyA at blue end (< 3700AA) when the anchor line is broad. If not
   found in line search, check the integrated flux at the expected LyA position +/- 2*sigma (of the sigma of the anchor line)
   vs the corresponding integrated flux of the anchor line. If similar and LyA is larger and the error is small, assume
@@ -40,6 +40,7 @@ changes to elixer by version
 * use HETDEX_API config pixflat_dir for pixel flat in all HDR versions 2+
 * fix to bright nearby fiber check to handle None
 * fix to UNCERTAIN_CLASSIFICATION check when best_z has not yet been set
+* add EW (combined) to top report line
 
 1.15.0a4-x [2022-01-xx]
 * experimental series ... small changes tracked in spreadsheet. Not intended for any release candidate.
