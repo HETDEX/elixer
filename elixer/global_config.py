@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.15.0a4-25'
+__version__ = '1.15.0a4-26'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -754,6 +754,7 @@ MAX_COMBINE_BID_TARGETS = 3 #if SINGLE_PAGE_PER_DETECT is true, this is the max 
 SINGLE_PAGE_PER_DETECT = True #if true, a single pdf page per emission line detection is made
 FORCE_SINGLE_PAGE = True
 SHOW_SKYLINES = True
+PENALIZE_FOR_EMISSION_IN_SKYLINE = False #since HDR 2.1.x the skyline removal has been quite good and this is no longer needed
 
 #1 fiber (the edge-most) fiber
 CCD_EDGE_FIBERS_BOTTOM = range(1,20)

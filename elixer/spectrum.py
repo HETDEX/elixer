@@ -1155,15 +1155,16 @@ class EmissionLineInfo:
 
 
                     #check for line in the nasty sky-lines 3545
-                    for k in SKY_LINES_DICT.keys():
-                        dp = abs(self.fit_x0 - k)
-                        if dp < SKY_LINES_DICT[k] and (self.fit_sigma * 1.1775 < (SKY_LINES_DICT[k]-dp)):
-                            #the emission line is inside the Sky Line window and its fit half-width (1/2 FWHM) is
-                            #less than the distance from the peak to the windows edge
-                            #then we don't trust that this is not the sky line and cut the score by half?
-                            log.info(f"Line score. Emission line in sky line window. "
-                                     f"Rescoring: {self.line_score} to {self.line_score/2.0}")
-                            self.line_score /= 2.0
+                    if G.PENALIZE_FOR_EMISSION_IN_SKYLINE:
+                        for k in SKY_LINES_DICT.keys():
+                            dp = abs(self.fit_x0 - k)
+                            if dp < SKY_LINES_DICT[k] and (self.fit_sigma * 1.1775 < (SKY_LINES_DICT[k]-dp)):
+                                #the emission line is inside the Sky Line window and its fit half-width (1/2 FWHM) is
+                                #less than the distance from the peak to the windows edge
+                                #then we don't trust that this is not the sky line and cut the score by half?
+                                log.info(f"Line score. Emission line in sky line window. "
+                                         f"Rescoring: {self.line_score} to {self.line_score/2.0}")
+                                self.line_score /= 2.0
 
             else:
                 log.debug(f"Huge fwhm {self.fwhm}, Probably bad fit or merged lines. Rejecting score.")
@@ -4380,31 +4381,31 @@ class Spectrum:
                            [0,0,0,0,0,0,0,0,1]]  #8 OIII 5007
             match_matrix = np.array(match_matrix)
 
-            #row/column (is mininum, where lines are smallest compared to LyA)
+            #row/column (is mininum, where lines are smallest compared to OII)
             # the inverse is still the minimum just the inverted ratio)
 
             # (5007 to 4959  at 2.98 ~ 3.00  Storey  &  Zeippen  2000)
 
             min_ratio_matrix = \
-            [ [1.00, None, None, None, None, None, 50.0, None, None],  #OII
+            [ [1.00, None, None, None, None, None, 10.0, None, None],  #OII
               [None, 1.00, None, None, None, None, None, None, None],  #H_eta
               [None, None, 1.00, None, None, None, None, None, None],  #H_zeta
               [None, None, None, 1.00, None, None, None, None, None],  #H_eps
               [None, None, None, None, 1.00, None, None, None, None],  #H_del
               [None, None, None, None, None, 1.00, None, None, None],  #H_gamma
-              [0.02, None, None, None, None, None, 1.00, None, None],  #H_beta
+              [0.10, None, None, None, None, None, 1.00, None, None],  #H_beta
               [None, None, None, None, None, None, None, 1.00, 0.33],  #OIII 4959
               [None, None, None, None, None, None, None, 3.00, 1.00]]  #OIII 5007
              # OII   H_eta H_zet H_eps H_del H_gam H_bet  OIII OIII
 
             max_ratio_matrix = \
-            [ [1.00, None, None, None, None, None, 2.00, None, None],  #OII
+            [ [1.00, None, None, None, None, None, 1.25, None, None],  #OII
               [None, 1.00, None, None, None, None, None, None, None],  #H_eta
               [None, None, 1.00, None, None, None, None, None, None],  #H_zeta
               [None, None, None, 1.00, None, None, None, None, None],  #H_eps
               [None, None, None, None, 1.00, None, None, None, None],  #H_del
               [None, None, None, None, None, 1.00, None, None, None],  #H_gamma
-              [0.50, None, None, None, None, None, 1.00, None, None],  #H_beta
+              [0.80, None, None, None, None, None, 1.00, None, None],  #H_beta
               [None, None, None, None, None, None, None, 1.00, 0.33],  #OIII 4959
               [None, None, None, None, None, None, None, 3.00, 1.00]]  #OIII 5007
              # OII   H_eta H_zet H_eps H_del H_gam H_bet  OIII OIII

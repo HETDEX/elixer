@@ -1668,12 +1668,12 @@ class DetObj:
             ###########################################
 
             #even if this solution is not shown due to not being unique, it is still the top scoring
-            #solution
+            #solution !!! warning ... in normal run, this is called BEFORE best_z is set, so this will never be TRUE
             if self.spec_obj.solutions is not None and len(self.spec_obj.solutions)> 0:
                 #want to be really clear condition here, so both have to be > MULTILINE_FULL_SOLUTION_SCORE
                 #not just > MAX_OK_UNMATCHED_LINES_SCORE
                 questionable_solutions = [1549.0,1909.0,2799.0,G.OII_rest,5007.0]
-                if (0.5 < self.spec_obj.solutions[0].scale_score < 0.9) and \
+                if (0.5 < self.spec_obj.solutions[0].scale_score < 0.9) and (self.best_z != None) and \
                    (self.spec_obj.solutions[0].z != self.best_z) and (self.spec_obj.solutions[0].central_rest in questionable_solutions):
 
                     self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
@@ -3111,7 +3111,7 @@ class DetObj:
                         #diameter_lae.append({"z":z,"kpc":diam_kpc,"weight":w,"likelihood":lk})
                         log.info(
                             f"{self.entry_id} Aggregate Classification, angular size ({self.classification_dict['diam_in_arcsec']:0.2})\", added physical size. Unlikely OII:"
-                            f" z(OII)({z_oii:#.4g}) kpc({diam_kpc:#.4g}) weight({w:#.5g}) likelihood({lk:#.5g})")
+                            f" z(OII)({z_oii:#.4g}) kpc({diam_kpc:#.4g}) weight({weight[-1]:#.5g}) likelihood({likelihood[-1]:#.5g})")
 
                         vote_info['size_in_psf_vote'] = likelihood[-1]
                         vote_info['size_in_psf_weight'] = weight[-1]
@@ -3127,7 +3127,7 @@ class DetObj:
                         #diameter_lae.append({"z":z,"kpc":diam_kpc,"weight":w,"likelihood":lk})
                         log.info(
                             f"{self.entry_id} Aggregate Classification, angular size ({self.classification_dict['diam_in_arcsec']:0.2})\", added physical size. Unlikely OII:"
-                            f" z(OII)({z_oii:#.4g}) kpc({diam_kpc:#.4g}) weight({w:#.5g}) likelihood({lk:#.5g})")
+                            f" z(OII)({z_oii:#.4g}) kpc({diam_kpc:#.4g}) weight({weight[-1]:#.5g}) likelihood({likelihood[-1]:#.5g})")
 
                         vote_info['size_in_psf_vote'] = likelihood[-1]
                         vote_info['size_in_psf_weight'] = weight[-1]
@@ -3733,7 +3733,7 @@ class DetObj:
                     #     weight.append(0.25)
                     #     prior.append(base_assumption)
                     #     var.append(1)
-                    elif rat > 1.2: #seems to be pretty good separation above 1.2
+                    elif rat > 1.2 or (self.fwhm > 11 and rat > 1.0): #seems to be pretty good separation above 1.2
                         likelihood.append(1.0)
                         weight.append(0.25)
                         prior.append(base_assumption)
@@ -3791,7 +3791,11 @@ class DetObj:
                 prior.append(base_assumption)
                 vote_info['line_sigma_vote'] = likelihood[-1]
                 vote_info['line_sigma_weight'] = weight[-1]
-                log.info(f"{self.entry_id} Aggregate Classification: line FWHM vote (not OII): lk({likelihood[-1]}) weight({weight[-1]})")
+                log.info(f"{self.entry_id} Aggregate Classification: line sigma vote ({vote_line_sigma:0.1f} +/- {vote_line_sigma_unc:0.2f})"
+                         f": lk({likelihood[-1]}) weight({weight[-1]})")
+            else:
+                log.info(f"{self.entry_id} Aggregate Classification: line sigma ({vote_line_sigma:0.1f} +/- {vote_line_sigma_unc:0.2f}). "
+                         f"no vote")
         except:
             pass
 
@@ -3813,7 +3817,7 @@ class DetObj:
                 likelihood.append(1)
                 try:
                     #delta_thresh = abs(self.classification_dict['combined_eqw_rest_lya'] - self.classification_dict['combined_eqw_rest_lya_err'] - 20.0)
-                    rat_thresh = (self.classification_dict['combined_eqw_rest_lya'] - self.classification_dict['combined_eqw_rest_lya_err'])/30.0
+                    rat_thresh = (self.classification_dict['combined_eqw_rest_lya'] - self.classification_dict['combined_eqw_rest_lya_err'])/25.0
                 except:
                     pass
                 #weight.append(max(0.1,min(0.5,delta_thresh*0.1))) #delta thresh
@@ -3824,7 +3828,7 @@ class DetObj:
                     else:
                         #error pushes below 30AA, so minimum vote
                         weight.append(0.1)
-                else:
+                else: #above 30, LyA outnumbers LAE ~ 30:1
                     weight.append(max(0.1,min(0.5,(rat_thresh-1.0)))) #rat thresh
 
                 var.append(1)
@@ -3850,7 +3854,20 @@ class DetObj:
                     #error pushes below 20AA, so minimum vote
                     weight.append(0.1)
                 else:
-                    weight.append(max(0.1,min(0.5,(rat_thresh-1.0)*0.5))) #rat thresh
+                    #scale at 1.5 s|t rat_thresh = 15 will yeild a weight of 0.5
+                    #below 20, OII outnumbers LyA by ~ 20:1
+                    #linear
+
+                    ew1 = 10
+                    ew2 = 20
+                    w1 = 0.5
+                    w2 = 0.1
+                    slope = (w2-w1)/(ew2-ew1)
+                    inter = w2 - slope * ew2
+
+                    w = slope * (self.classification_dict['combined_eqw_rest_lya'] + self.classification_dict['combined_eqw_rest_lya_err']) + inter
+                    weight.append(min(0.5,max(0.1,w)))
+                    #weight.append(max(0.25,min(0.5,(rat_thresh-1.0)*1.5))) #rat thresh
 
                 var.append(1)
                 prior.append(base_assumption)
@@ -3986,7 +4003,8 @@ class DetObj:
                                 log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
                                          f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             else: #no vote
-                                log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag no vote. Mag in unclear region. mag ({g_str}), thresh ({g_thresh_str})")
+                                log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag no vote. Mag in unclear region or EW unclear. "
+                                         f"mag ({g_str}), thresh ({g_thresh_str}); EW {ew} +/- {ew_err}")
                         else: #no EW info ... assume OII as more likely, but limited weight
                             likelihood.append(0.0)
                             weight.append(0.1)
@@ -6740,7 +6758,7 @@ class DetObj:
         #and find the brightest
         try:
             #cgs is always populated, but gmag might not be
-            all_cgs = [f["cgs_cont"] for f in fiber_dict_array]
+            all_cgs = [f["cgs_cont"] if f["cgs_cont"] is not None else 0 for f in fiber_dict_array]
             bright_mag = -2.5 * np.log10(SU.cgs2ujy(max(all_cgs),4500)/(3631*1e6))
 
             # for f in fiber_dict_array:
