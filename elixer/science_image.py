@@ -210,7 +210,10 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
 
 
     except:
-        log.error("Exception calling hetdex_api's get_line_image(): ", exc_info=True)
+        if log.logger.level > 10: #i.e. if INFO or greater, don't log the exception details
+            log.error("Exception calling hetdex_api's get_line_image().  Exception report masked due to logging level. ", exc_info=False)
+        else:
+            log.error("Exception calling hetdex_api's get_line_image(): ", exc_info=True)
 
     plt.style.use('default') #restore plot style
     return cutout
