@@ -71,18 +71,18 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
 
         try:
             #if rows[0]['review'] == 0: #if we are NOT set to review, check the gmag
-            target_gmag = rows[0]['mag_sdss_g'] #this could fail
-            target_gmag_err = rows[0]['mag_sdss_g_err'] #this could fail
+            target_gmag = rows[0]['mag_g_wide'] #this could fail
+            target_gmag_err = rows[0]['mag_g_wide_err'] #this could fail
 
-            try: #could be bad gmag
-                if 0 < target_gmag < 99:
-                    pass #all good
-                else:
-                    target_gmag = rows[0]['mag_full_spec'] #this could fail
-                    target_gmag_err = rows[0]['mag_full_spec_err'] #this could fail
-            except:
-                target_gmag = rows[0]['mag_full_spec'] #this could fail
-                target_gmag_err = rows[0]['mag_full_spec_err'] #this could fail
+            # try: #could be bad gmag
+            #     if 0 < target_gmag < 99:
+            #         pass #all good
+            #     else:
+            #         target_gmag = rows[0]['mag_g_wide'] #this could fail
+            #         target_gmag_err = rows[0]['mag_g_wide_err'] #this could fail
+            # except:
+            #     target_gmag = rows[0]['mag_g_wide'] #this could fail
+            #     target_gmag_err = rows[0]['mag_g_wide_err'] #this could fail
 
             if abs(target_gmag_err) > 2.0:
                 old = target_gmag_err
@@ -129,7 +129,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
 
         #otherwise, check for other conditions
         #gmag limit
-        sel = np.array(rows['mag_sdss_g'] < gmag_thresh) | np.array(rows['mag_full_spec'] < gmag_thresh)
+        sel = np.array(rows['mag_g_wide'] < gmag_thresh) #| np.array(rows['mag_full_spec'] < gmag_thresh)
         if np.sum(sel) == 0:
             log.info(f"Clustering on {detectid}. No neighbors meet minimum requirements.")
             return cluster_dict
