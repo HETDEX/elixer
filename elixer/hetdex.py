@@ -3014,6 +3014,9 @@ class DetObj:
             # but extreme values (getting closer to 0.001 or 1000) the weight goes closer to a full value of 1
             # by a value of 20 (or 1/20) essentially at 1.0
             try:
+                if plae_poii is None or plae_poii == 0:
+                    return 0
+
                 if plae_poii < 1:
                     plae_poii = 1.0/plae_poii
 

@@ -1112,10 +1112,7 @@ class science_image():
             else:
                 return cutout, counts, mag, radius
 
-        if window is None or window < error:
-            window = float(max(2.0*error,5.0)) #should be at least 5 arcsecs
 
-        self.window = window
         #sanity check (shouold be of order few to maybe 100 arcsec, certainly no more than a few arcmin
         #so, greater than that implies a bad degree to arcsec conversion (degree assumed when arcsec passed)
 
@@ -1126,11 +1123,16 @@ class science_image():
         #the number is huge now, but really was arcsec to begin with, so /3600
         if window > 1000: #so the max expected is 999 arcsec (given that the window is 3x the request, 333 arcsec is max)
             msg = f"Unexpectedly high cutout size requested ({window} ). Assume arcsec passed instead of degrees " \
-                        f"and will convert back to degrees. Changing to ({window/3600.0}) degrees"
+                  f"and will convert back to degrees. Changing to ({window/3600.0}) degrees"
             log.warning(msg)
             print(msg)
             window /= 3600.0
-            self.window = window
+
+
+        if window is None or window < error:
+            window = float(max(2.0*error,5.0)) #should be at least 5 arcsecs
+
+        self.window = window
 
         #data = None
         #pix_size = None
@@ -1201,7 +1203,8 @@ class science_image():
                                                       wcs=self.wcs, copy=False,mode="partial",fill_value=0) #don't need a copy, will not persist beyond
                                                                                 #this call
                                     except:
-                                        log.warning("Exception attempting to get larger sky_image. science_image::get_cutout",
+                                        log.warning(f"Exception attempting to get larger sky_image. science_image::get_cutout "
+                                                    f"({sky_pix_window} pix sq.) or ({self.pixel_size * sky_pix_window} arcsec sq.)",
                                                     exc_info=True)
                                         sky_image = image
                                 else:
