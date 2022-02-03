@@ -1135,19 +1135,26 @@ class EmissionLineInfo:
 
                     self.line_score = min(G.MAXIMUM_LINE_SCORE_CAP,self.line_score)
 
-                    if (self.snr < 8.0 and self.fit_chi2 > 3.0) or \
-                       ((self.snr > 8.0) and (self.fit_chi2 > 3.0) and (self.snr/self.fit_chi2 < 3)):
-                        #penalize the line score
-                        # if self.snr > self.fit_chi2: #moderate a little
-                        #     self.line_score = self.line_score / (self.fit_chi2 - 1.0) / 0.75
-                        # else:
-                        #     self.line_score /= (self.fit_chi2 - 1.0)
-                        self.line_score /= (self.fit_chi2 - 1.0)
-                    if self.snr < 6.0 and self.fwhm > MAX_NORMAL_FWHM: #really broad and low SNR
-                        rescale = self.snr / 6.0 * (MAX_NORMAL_FWHM / self.fwhm )
-                        self.line_score *= rescale
-                        log.info(f"Rescoring line. Very broad fwhm ({self.fwhm:0.2f}/{MAX_NORMAL_FWHM}) "
-                                 f"and low SNR ({self.snr:0.2f}/6.0). Factor {rescale:0.2f}. New score = {self.line_score}")
+                    try:
+                        if (self.snr < 8.0 and self.fit_chi2 > 3.0) or \
+                           ((self.snr > 8.0) and (self.fit_chi2 > 3.0) and (self.snr/self.fit_chi2 < 3)):
+                            #penalize the line score
+                            # if self.snr > self.fit_chi2: #moderate a little
+                            #     self.line_score = self.line_score / (self.fit_chi2 - 1.0) / 0.75
+                            # else:
+                            #     self.line_score /= (self.fit_chi2 - 1.0)
+                            self.line_score /= (self.fit_chi2 - 1.0)
+                    except:
+                        self.line_score = 0
+
+                    try:
+                        if self.snr < 6.0 and self.fwhm > MAX_NORMAL_FWHM: #really broad and low SNR
+                            rescale = self.snr / 6.0 * (MAX_NORMAL_FWHM / self.fwhm )
+                            self.line_score *= rescale
+                            log.info(f"Rescoring line. Very broad fwhm ({self.fwhm:0.2f}/{MAX_NORMAL_FWHM}) "
+                                     f"and low SNR ({self.snr:0.2f}/6.0). Factor {rescale:0.2f}. New score = {self.line_score}")
+                    except:
+                        self.line_score = 0
 
                     if self.absorber:
                         self.line_score *= -1
@@ -4461,8 +4468,12 @@ class Spectrum:
                            (max_ratios[rest_idx[i]] != 0) and (max_ratios[rest_idx[j]] != 0):
 
                             ratio = line_flux[line_idx[j]] / line_flux[line_idx[i]]
-                            ratio_err = abs(ratio) * np.sqrt((line_flux_err[line_idx[j]] /line_flux[line_idx[j]]) ** 2 +
-                                                             (line_flux_err[line_idx[i]] / line_flux[line_idx[i]]) ** 2)
+                            try:
+                                ratio_err = abs(ratio) * np.sqrt((line_flux_err[line_idx[j]] /line_flux[line_idx[j]]) ** 2 +
+                                                                 (line_flux_err[line_idx[i]] / line_flux[line_idx[i]]) ** 2)
+                            except:
+                                ratio_err = 0 #line_flux for j might be zero, this will fail then
+
                             # try the matrices first (if they are zero, they are not populated yet
                             # so fall back to the list)
                             min_ratio = min_ratio_matrix[rest_idx[j]][rest_idx[i]]
@@ -4825,8 +4836,11 @@ class Spectrum:
                            (max_ratios[rest_idx[i]] != 0) and (max_ratios[rest_idx[j]] != 0):
 
                             ratio = line_flux[line_idx[j]] / line_flux[line_idx[i]]
-                            ratio_err = abs(ratio) * np.sqrt((line_flux_err[line_idx[j]] /line_flux[line_idx[j]]) ** 2 +
+                            try:
+                                ratio_err = abs(ratio) * np.sqrt((line_flux_err[line_idx[j]] /line_flux[line_idx[j]]) ** 2 +
                                                              (line_flux_err[line_idx[i]] / line_flux[line_idx[i]]) ** 2)
+                            except:
+                                ratio_err = 0 #line_flux for j could be zero, so this will fail
 
                             #try the matrices first (if they are zero, they are not populated yet
                             # so fall back to the list)
