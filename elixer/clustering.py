@@ -208,7 +208,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
         neighbor_id = neighbor_ids[sel]
 
         #best could be brightest? or highest score on the matching line?
-        brightest = np.argmin(rows['mag_sdss_g'])
+        brightest = np.argmin(rows['mag_g_wide'])
         best_line = np.argmax(line_scores)
         #best_pz = np.argmax(rows['best_pz'])
 
@@ -233,7 +233,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
             return cluster_dict
 
         #check that the neighbor is brighter than the target
-        if not use_avg and (target_gmag > 0 and (rows[best_idx]['mag_sdss_g'] - target_gmag) > -0.2):
+        if not use_avg and (target_gmag > 0 and (rows[best_idx]['mag_g_wide'] - target_gmag) > -0.2):
             log.info(f"Clustering on {detectid}. Neighbor not brighter than target.")
             return cluster_dict
 
@@ -271,7 +271,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
                             "neighbor_dist": utilities.angular_distance(target_ra,target_dec,rows[best_idx]['ra'],rows[best_idx]['dec']), #distance to HETDEX ra, dec of neighbor
                             "neighbor_ra": rows[best_idx]['ra'],
                             "neighbor_dec": rows[best_idx]['dec'],
-                            "neighhor_gmag": rows[best_idx]['mag_sdss_g'],
+                            "neighhor_gmag": rows[best_idx]['mag_g_wide'],
                             "neighbor_z": rows[best_idx]['best_z'],
                             "neighbor_qz": rows[best_idx]['best_pz'],
                             "neighbor_plya": plya,
