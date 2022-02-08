@@ -1,7 +1,7 @@
 changes to elixer by version
 
 1.16.0a2 [2022-02-08]
-* test of alternate scoring with observed equivalent width replaceing integrated line flux
+* test of alternate scoring with observed equivalent width replaceing integrated line flux (use when have good continuum measure)
 * overly broad line fitting requirements should not apply to absorption lines
 * fix missing Line FWHM, EWr (w), etc on report for continuum objects
 

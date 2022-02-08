@@ -1128,15 +1128,22 @@ class EmissionLineInfo:
                               "Probably bad fit or merged lines. Rejecting score.")
                     self.line_score = 0
                 else:
-                    # self.line_score = snr_limit_score * above_noise * unique_mul * self.line_flux * 1e17 * \
-                    #           min(self.fit_sigma/self.pix_size,1.0) * \
-                    #           min((self.pix_size * self.sn_pix)/21.0,1.0) / \
-                    #           (10.0 * (1. + abs(adjusted_dx0_error / self.pix_size)) )
+                    #if we have a good continuum measureuse the EW
+                    if ((self.cont is not None) and (self.cont > 0)) and \
+                        ((self.cont_err is not None) and (self.cont_err > 0)) and \
+                            (self.cont_err/self.cont < 0.5):
+                        log.debug("Using EW scoring ...")
+                        self.line_score = snr_limit_score * above_noise * unique_mul * self.eqw_obs * \
+                                          min(self.fit_sigma/self.pix_size,1.0) * \
+                                          min((self.pix_size * self.sn_pix)/21.0,1.0) / \
+                                          (1. + abs(adjusted_dx0_error / self.pix_size) )
+                    else:
+                        log.debug("Using line flux scoring ...")
+                        self.line_score = snr_limit_score * above_noise * unique_mul * self.line_flux * 1e17 * \
+                              min(self.fit_sigma/self.pix_size,1.0) * \
+                              min((self.pix_size * self.sn_pix)/21.0,1.0) / \
+                              (10.0 * (1. + abs(adjusted_dx0_error / self.pix_size)) )
 
-                    self.line_score = snr_limit_score * above_noise * unique_mul * self.eqw_obs * \
-                                      min(self.fit_sigma/self.pix_size,1.0) * \
-                                      min((self.pix_size * self.sn_pix)/21.0,1.0) / \
-                                      (1. + abs(adjusted_dx0_error / self.pix_size) )
 
                     self.line_score = min(G.MAXIMUM_LINE_SCORE_CAP,self.line_score)
 
