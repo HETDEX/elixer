@@ -3063,7 +3063,8 @@ class DetObj:
 
 
         ######################################
-        # Angular Size (simplified)
+        # Angular Size + Physical Size (simplified)
+        #
         # basically if large and not super bright, probably OII
         # if large and bright could be OII or an AGN
         # if small could be either (no vote)
@@ -4469,7 +4470,7 @@ class DetObj:
                 logstring += f"({likelihood[i]:0.4f}x{weight[i]})  "
             # for l_vote,l_weight,l_var,l_prior in zip(likelihood,weight,var,prior):
             #     logstring += f"({l_vote:0.4f}x{l_weight})  "
-            log.debug(logstring)
+            log.info(logstring)
 
             #sanity check ... no negative weights allowed
             sel = [weight > 0] #skip any negative weights and no need to bother with zero weights
@@ -7890,8 +7891,8 @@ class DetObj:
                 elif self.cont_cgs <= 0.0:
                     log.warning("Warning! HETDEX continuum <= 0.0. Using best gmag for estimate (%g +/- %g)."
                                 %(self.best_gmag_cgs_cont,self.best_gmag_cgs_cont_unc))
-                    self.cont_cgs_narrow = self.cont_cgs
-                    self.cont_cgs_narrow_unc = self.cont_cgs_unc
+                    #self.cont_cgs_narrow = self.cont_cgs
+                    #self.cont_cgs_narrow_unc = self.cont_cgs_unc
                     self.cont_cgs = self.best_gmag_cgs_cont
                     self.cont_cgs_unc = self.best_gmag_cgs_cont_unc
                     self.using_best_gmag_ew = True
@@ -7921,11 +7922,13 @@ class DetObj:
                 if w is not None and (3400.0 < w < 5600.0):
                     self.w = w
                     self.target_wavelength = w
-                    if (self.spec_obj.central_eli is not None):
+                    if (self.spec_obj.central_eli is not None): #***notice: find_central_wavelength() does NOT populate central_eli
                         self.sigma = self.spec_obj.central_eli.fit_sigma
                         self.estflux = self.spec_obj.central_eli.line_flux
                         self.cont_cgs = self.spec_obj.central_eli.cont
                         self.cont_cgs_unc = self.spec_obj.central_eli.cont_err
+                        self.fwhm = self.spec_obj.central_eli.fit_sigma * 2.355
+                        self.fwhm_unc = self.spec_obj.central_eli.fit_sigma_err * 2.355
 
                         if self.spec_obj.central_eli.mcmc_x0:
                             self.w_unc = (self.spec_obj.central_eli.mcmc_x0[1] + self.spec_obj.central_eli.mcmc_x0[2])/2.0
@@ -8253,6 +8256,27 @@ class DetObj:
 
             #update DEX-g based continuum and EW
             try:
+
+                if (self.spec_obj.central_eli is not None) and ((self.estflux is None) or (self.estflux <= 0)):
+                    #basic info not loaded, could be continuum object and none provided from HETDEX
+                    self.sigma = self.spec_obj.central_eli.fit_sigma
+                    self.estflux = self.spec_obj.central_eli.line_flux
+                    self.cont_cgs = self.spec_obj.central_eli.cont
+                    self.cont_cgs_unc = self.spec_obj.central_eli.cont_err
+                    self.fwhm = self.spec_obj.central_eli.fit_sigma * 2.355
+                    self.fwhm_unc = self.spec_obj.central_eli.fit_sigma_err * 2.355
+
+                    if self.spec_obj.central_eli.mcmc_x0:
+                        self.w_unc = (self.spec_obj.central_eli.mcmc_x0[1] + self.spec_obj.central_eli.mcmc_x0[2])/2.0
+                    if self.spec_obj.central_eli.mcmc_sigma:
+                        self.sigma_unc = (self.spec_obj.central_eli.mcmc_sigma[1] + self.spec_obj.central_eli.mcmc_sigma[2])/2.0
+                    self.estflux_unc = self.spec_obj.central_eli.line_flux_err
+
+                    self.line_gaussfit_parms = (self.w,self.sigma,self.estflux*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
+                                                self.cont_cgs/G.HETDEX_FLUX_BASE_CGS,G.FLUX_WAVEBIN_WIDTH) #*2.0 for Karl's bin width
+                    self.line_gaussfit_unc = (self.w_unc,self.sigma_unc,self.estflux_unc*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
+                                              self.cont_cgs_unc/G.HETDEX_FLUX_BASE_CGS, 0.0)
+
                 self.best_gmag_cgs_cont *= self.spec_obj.gband_continuum_correction()
                 self.best_gmag_cgs_cont_unc *= self.spec_obj.gband_continuum_correction()
 
@@ -8265,7 +8289,7 @@ class DetObj:
             except:
                 log.error("Exception! Excpetion updating DEX-g continuum.",exc_info=True)
 
-    #update with MY FIT results?
+        #update with MY FIT results?
             central_wave_volatile = False
             if (self.spec_obj is not None and self.spec_obj.central_eli is not None) and \
                 (G.REPORT_ELIXER_MCMC_FIT or (self.eqw_obs == 0) or G.CONTINUUM_RULES):

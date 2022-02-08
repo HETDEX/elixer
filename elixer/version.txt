@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.16.0a2 [2022-02-08]
+* test of alternate scoring with observed equivalent width replaceing integrated line flux
+* overly broad line fitting requirements should not apply to absorption lines
+* fix missing Line FWHM, EWr (w), etc on report for continuum objects
+
 1.16.0a1 [2022-02-02]
 * Adjust consitency check vs LyA to allow for un-fitted LyA at blue end (< 3700AA) when the anchor line is broad. If not
   found in line search, check the integrated flux at the expected LyA position +/- 2*sigma (of the sigma of the anchor line)

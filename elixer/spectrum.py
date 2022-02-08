@@ -1128,10 +1128,15 @@ class EmissionLineInfo:
                               "Probably bad fit or merged lines. Rejecting score.")
                     self.line_score = 0
                 else:
-                    self.line_score = snr_limit_score * above_noise * unique_mul * self.line_flux * 1e17 * \
-                              min(self.fit_sigma/self.pix_size,1.0) * \
-                              min((self.pix_size * self.sn_pix)/21.0,1.0) / \
-                              (10.0 * (1. + abs(adjusted_dx0_error / self.pix_size)) )
+                    # self.line_score = snr_limit_score * above_noise * unique_mul * self.line_flux * 1e17 * \
+                    #           min(self.fit_sigma/self.pix_size,1.0) * \
+                    #           min((self.pix_size * self.sn_pix)/21.0,1.0) / \
+                    #           (10.0 * (1. + abs(adjusted_dx0_error / self.pix_size)) )
+
+                    self.line_score = snr_limit_score * above_noise * unique_mul * self.eqw_obs * \
+                                      min(self.fit_sigma/self.pix_size,1.0) * \
+                                      min((self.pix_size * self.sn_pix)/21.0,1.0) / \
+                                      (1. + abs(adjusted_dx0_error / self.pix_size) )
 
                     self.line_score = min(G.MAXIMUM_LINE_SCORE_CAP,self.line_score)
 
@@ -1277,11 +1282,11 @@ class EmissionLineInfo:
         else:
             line_score_multiplier = 1.0
 
-        if not (allow_broad or self.broadfit) and (self.fit_sigma >= LIMIT_BROAD_SIGMA) and \
+        if not self.absorber and not (allow_broad or self.broadfit) and (self.fit_sigma >= LIMIT_BROAD_SIGMA) and \
                 not ((self.fwhm < MAX_FWHM) and (self.snr > MIN_HUGE_FWHM_SNR)):
             log.debug(f"Line sigma {self.fit_sigma} in broad range {LIMIT_BROAD_SIGMA} and broad line not allowed.")
             return False
-        elif (self.fit_sigma > GOOD_BROADLINE_SIGMA) and (self.line_score < GOOD_BROADLINE_MIN_LINE_SCORE):
+        elif not self.absorber and not G.CONTINUUM_RULES and (self.fit_sigma > GOOD_BROADLINE_SIGMA) and (self.line_score < GOOD_BROADLINE_MIN_LINE_SCORE):
             log.debug(f"Line sigma {self.fit_sigma} in broad range {GOOD_BROADLINE_SIGMA} but "
                       f"line_score {self.line_score} below minumum {GOOD_BROADLINE_MIN_LINE_SCORE}.")
             result = False
@@ -2343,7 +2348,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             if cont_avg is not None and cont_std is not None:
                 if eli.fit_h < (cont_avg + cont_std):
                     #not a real emssion line, probably a return to continuum between two aborbers
-                    log.info(f"Fit rejected. Emission probably continuum between two absorbers. Peak = {eli.fit_h}, cont = {cont_avg} +/- {cont_std}")
+                    log.info(f"Fit rejected. Emission probably continuum between two absorbers. @ {eli.fit_x0:0.2f}, peak = {eli.fit_h:0.2f}, cont = {cont_avg:0.2f} +/- {cont_std:0.2f}")
                     eli.raw_score = 0
                     eli.score = 0
                     eli.snr = 0.0
@@ -2727,88 +2732,93 @@ def fit_for_h_and_k(k_eli,h_eli,wavelengths,values,errors,values_units,values_dx
     #values_dx is the bin width for the values if multiplied out (s|t) values are flux and not flux/dx
     #   by default, Karl's data is on a 2.0 AA bin width
 
-    err_units = values_units  # assumed to be in the same units
-    values, values_units = norm_values(values, values_units)
-    if errors is not None and (len(errors) == len(values)):
-        errors, err_units = norm_values(errors, err_units)
-
-    pix_size = abs(wavelengths[1] - wavelengths[0])  # aa per pix
-    #may need to be wider to accomodate enough spectrum for both lines
-    wave_side = int(round(max(GAUSS_FIT_AA_RANGE,50) / pix_size))  # pixels
-    fit_range_AA = max(GAUSS_FIT_PIX_ERROR * pix_size, GAUSS_FIT_AA_ERROR)
-
-    len_array = len(wavelengths)
-    central = 0.5 * (h_eli.fit_x0 + k_eli.fit_x0)
-    idx = getnearpos(wavelengths, central)
-    min_idx = max(0, idx - wave_side)
-    max_idx = min(len_array, idx + wave_side)
-    wave_x = wavelengths[min_idx:max_idx + 1]
-    wave_counts = values[min_idx:max_idx + 1]
-    if (errors is not None) and (len(errors) == len(wavelengths)):
-        wave_errors = errors[min_idx:max_idx + 1]
-        # replace any 0 with 1
-        wave_errors[np.where(wave_errors == 0)] = 1
-    else:
-        wave_errors = None
-
-    narrow_wave_x = wave_x
-    narrow_wave_counts = wave_counts
-    narrow_wave_errors = wave_errors
-
-    fit_range_AA = max(GAUSS_FIT_PIX_ERROR * pix_size, GAUSS_FIT_AA_ERROR)
-    peak_pos = getnearpos(wavelengths, central)
-
-    mcmc = mcmc_double_gauss.MCMC_Double_Gauss()
-    mcmc.values_units = values_units
-    mcmc.range_mu = 5.0
-    mcmc.initial_A = min(k_eli.fit_a,h_eli.fit_a)/2.0 #these are negative so, min
-    mcmc.initial_y = np.max(narrow_wave_counts)
-    mcmc.initial_sigma = max(k_eli.fit_sigma,2.0)/2.0
-    mcmc.initial_mu = k_eli.fit_x0
-    #mcmc.initial_peak = raw_peak1
-
-    mcmc.initial_A_2 = min(k_eli.fit_a,h_eli.fit_a)/2.0 #these are negative so, min
-    mcmc.initial_mu_2 = h_eli.fit_x0
-    mcmc.initial_sigma_2 = max(h_eli.fit_sigma,2.0)/2.0
-    #mcmc.initial_peak_2 = raw_peak2
-
-    mcmc.data_x = narrow_wave_x
-    mcmc.data_y = narrow_wave_counts
-    mcmc.err_y = narrow_wave_errors#np.zeros(len(mcmc.data_y)) #narrow_wave_errors
-    mcmc.err_x = np.zeros(len(mcmc.err_y))
-
-    # if using the scipy::curve_fit, 50-100 burn-in and ~1000 main run is plenty
-    # if other input (like Karl's) ... the method is different and we are farther off ... takes longer to converge
-    #   but still converges close to the scipy::curve_fit
-    mcmc.burn_in = 250
-    mcmc.main_run = 1200
-
     try:
-        mcmc.run_mcmc()
-    except:
-        log.warning("Exception in spectrum.py fit_for_h_and_k() calling mcmc.run_mcmc()", exc_info=True)
-        return None, mcmc
+        log.debug(f"Fitting for H&K near {h_eli.fit_x0:0.2f} & {k_eli.fit_x0:0.2f}")
 
-    try:
-        #HETDEX spectral res is really about 5.5AA, but will say 4.0AA here to allow for some error
-        #say 40.0AA for now for an upper limit ... too far to be called a doublet
-        #assuming about 8AA rest for the doublet, shifted to z = 3.5 -> 36AA
+        err_units = values_units  # assumed to be in the same units
+        values, values_units = norm_values(values, values_units)
+        if errors is not None and (len(errors) == len(values)):
+            errors, err_units = norm_values(errors, err_units)
 
-        # print("*****turn off double_guass_fit.png *****")
-        # mcmc.show_fit(filename="fit_for_h_and_k.png")
-        #  mcmc.visualize(filename="double_gauss_vis.png")
-        if (mcmc.mcmc_snr > 5.0) and (abs(mcmc.mcmc_mu[0]/k_eli.fit_x0 - mcmc.mcmc_mu_2[0]/h_eli.fit_x0) < 0.005) and \
-                (abs( (mcmc.mcmc_A_2[0] - mcmc.mcmc_A[0]) / (0.5* (mcmc.mcmc_A_2[0] + mcmc.mcmc_A[0]))) < 0.5):
+        pix_size = abs(wavelengths[1] - wavelengths[0])  # aa per pix
+        #may need to be wider to accomodate enough spectrum for both lines
+        wave_side = int(round(max(GAUSS_FIT_AA_RANGE,50) / pix_size))  # pixels
+        fit_range_AA = max(GAUSS_FIT_PIX_ERROR * pix_size, GAUSS_FIT_AA_ERROR)
 
-            log.info(f"Possible H & K observed (x,+,-): {mcmc.mcmc_mu_2 },{mcmc.mcmc_mu}")
-
-            return True,mcmc
+        len_array = len(wavelengths)
+        central = 0.5 * (h_eli.fit_x0 + k_eli.fit_x0)
+        idx = getnearpos(wavelengths, central)
+        min_idx = max(0, idx - wave_side)
+        max_idx = min(len_array, idx + wave_side)
+        wave_x = wavelengths[min_idx:max_idx + 1]
+        wave_counts = values[min_idx:max_idx + 1]
+        if (errors is not None) and (len(errors) == len(wavelengths)):
+            wave_errors = errors[min_idx:max_idx + 1]
+            # replace any 0 with 1
+            wave_errors[np.where(wave_errors == 0)] = 1
         else:
-            log.info(f"No indication of H&K. Fit failed or basic checks failed. mu {mcmc.mcmc_mu },{mcmc.mcmc_mu_2}")
-            return False,mcmc
+            wave_errors = None
+
+        narrow_wave_x = wave_x
+        narrow_wave_counts = wave_counts
+        narrow_wave_errors = wave_errors
+
+        fit_range_AA = max(GAUSS_FIT_PIX_ERROR * pix_size, GAUSS_FIT_AA_ERROR)
+        peak_pos = getnearpos(wavelengths, central)
+
+        mcmc = mcmc_double_gauss.MCMC_Double_Gauss()
+        mcmc.values_units = values_units
+        mcmc.range_mu = 5.0
+        mcmc.initial_A = min(k_eli.fit_a,h_eli.fit_a)/2.0 #these are negative so, min
+        mcmc.initial_y = np.max(narrow_wave_counts)
+        mcmc.initial_sigma = max(k_eli.fit_sigma,2.0)/2.0
+        mcmc.initial_mu = k_eli.fit_x0
+        #mcmc.initial_peak = raw_peak1
+
+        mcmc.initial_A_2 = min(k_eli.fit_a,h_eli.fit_a)/2.0 #these are negative so, min
+        mcmc.initial_mu_2 = h_eli.fit_x0
+        mcmc.initial_sigma_2 = max(h_eli.fit_sigma,2.0)/2.0
+        #mcmc.initial_peak_2 = raw_peak2
+
+        mcmc.data_x = narrow_wave_x
+        mcmc.data_y = narrow_wave_counts
+        mcmc.err_y = narrow_wave_errors#np.zeros(len(mcmc.data_y)) #narrow_wave_errors
+        mcmc.err_x = np.zeros(len(mcmc.err_y))
+
+        # if using the scipy::curve_fit, 50-100 burn-in and ~1000 main run is plenty
+        # if other input (like Karl's) ... the method is different and we are farther off ... takes longer to converge
+        #   but still converges close to the scipy::curve_fit
+        mcmc.burn_in = 250
+        mcmc.main_run = 1200
+
+        try:
+            mcmc.run_mcmc()
+        except:
+            log.warning("Exception in spectrum.py fit_for_h_and_k() calling mcmc.run_mcmc()", exc_info=True)
+            return None, mcmc
+
+        try:
+            #HETDEX spectral res is really about 5.5AA, but will say 4.0AA here to allow for some error
+            #say 40.0AA for now for an upper limit ... too far to be called a doublet
+            #assuming about 8AA rest for the doublet, shifted to z = 3.5 -> 36AA
+
+            # print("*****turn off double_guass_fit.png *****")
+            # mcmc.show_fit(filename="fit_for_h_and_k.png")
+            #  mcmc.visualize(filename="double_gauss_vis.png")
+            if (mcmc.mcmc_snr > 5.0) and (abs(mcmc.mcmc_mu[0]/k_eli.fit_x0 - mcmc.mcmc_mu_2[0]/h_eli.fit_x0) < 0.005) and \
+                    (abs( (mcmc.mcmc_A_2[0] - mcmc.mcmc_A[0]) / (0.5* (mcmc.mcmc_A_2[0] + mcmc.mcmc_A[0]))) < 0.5):
+
+                log.info(f"Possible H & K observed (x,+,-): {mcmc.mcmc_mu_2 },{mcmc.mcmc_mu}")
+
+                return True,mcmc
+            else:
+                log.info(f"No indication of H&K. Fit failed or basic checks failed. mu {mcmc.mcmc_mu },{mcmc.mcmc_mu_2}")
+                return False,mcmc
+        except:
+            log.warning("Exception in spectrum.py check_for_doublet()", exc_info=True)
+            return None,mcmc
     except:
-        log.warning("Exception in spectrum.py check_for_doublet()", exc_info=True)
-        return None,mcmc
+        return None, None
 
     return None,mcmc
 
