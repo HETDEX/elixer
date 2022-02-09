@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.16.0a2'
+__version__ = '1.16.0a3'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -126,6 +126,7 @@ BUILD_REPORT_BY_FILTER = True #if True, multiple catalogs are used to build the 
                            #if False, then the single deepest catalog that overlaps is used with what ever filters it has
 
 if hostname in LOCAL_DEV_HOSTNAMES:  # primary author test box
+#if False:
     HDR_Version = "2.1"
     HDR_Version_float = 2.1
     LAUNCH_PDF_VIEWER = 'qpdfview'

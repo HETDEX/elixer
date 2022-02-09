@@ -154,10 +154,9 @@ def main():
     for sub in subdirs:
         img_path = os.path.join(basepath, sub)
 
-
         #can be one or more directories between the image files
         #files = os.listdir(img_path)
-        files = glob2.glob(img_path + "/**/*.fits")
+        files = glob2.glob(img_path + "/**/cal*.fits") #calexp
 
         #any tiles that are bad and should not be loaded go in this list
         bad_list = []

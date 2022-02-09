@@ -1144,8 +1144,7 @@ class Catalog:
                     #without fibers
 
                     im = plt.imshow(line_image.data, origin='lower', interpolation='none', extent=[-ext, ext, -ext, ext],
-                                    vmin=line_image.vmin,vmax=line_image.vmax)
-                                    #cmap=plt.get_cmap('gray_r'))
+                                    vmin=line_image.vmin,vmax=line_image.vmax)#,cmap=plt.get_cmap('gray_r'))
 
                     #trying to get the color bar to occupy the axis label space does not seem to work
                     #and the bar and labels just don't seem important here anyway

@@ -1043,7 +1043,7 @@ class EmissionLineInfo:
                     self.cont = self.fit_y * unit
                     self.cont_err = self.fit_y_err * unit
                     self.fit_continuum = self.cont
-
+                    self.fit_continuum_err = self.cont_err
                     #fix fit_h
                     # if (self.fit_h > 1.0) and (values_units < 0):
                     #     self.fit_h *= unit
@@ -1129,21 +1129,30 @@ class EmissionLineInfo:
                     self.line_score = 0
                 else:
                     #if we have a good continuum measureuse the EW
-                    if ((self.cont is not None) and (self.cont > 0)) and \
-                        ((self.cont_err is not None) and (self.cont_err > 0)) and \
-                            (self.cont_err/self.cont < 0.5):
-                        log.debug("Using EW scoring ...")
-                        self.line_score = snr_limit_score * above_noise * unique_mul * self.eqw_obs * \
-                                          min(self.fit_sigma/self.pix_size,1.0) * \
-                                          min((self.pix_size * self.sn_pix)/21.0,1.0) / \
-                                          (1. + abs(adjusted_dx0_error / self.pix_size) )
-                    else:
-                        log.debug("Using line flux scoring ...")
-                        self.line_score = snr_limit_score * above_noise * unique_mul * self.line_flux * 1e17 * \
-                              min(self.fit_sigma/self.pix_size,1.0) * \
-                              min((self.pix_size * self.sn_pix)/21.0,1.0) / \
-                              (10.0 * (1. + abs(adjusted_dx0_error / self.pix_size)) )
+                    # if ((self.cont is not None) and (self.cont > 0)) and \
+                    #     ((self.cont_err is not None) and (self.cont_err > 0)) and \
+                    #         (self.cont_err/self.cont < 0.5):
 
+                    #Why not use this? Getting a continuum fit near the emission line is hard and not as reliable as
+                    # just the line flux. Causes larger swings in the line score.
+                    # todo: maybe can use the wide-fit continuum estimate? or maybe only when G.CONTINUUM_RULES?
+                    # if False:
+                    #     log.debug("Using EW scoring ...")
+                    #     self.line_score = snr_limit_score * above_noise * unique_mul * self.eqw_obs * \
+                    #                       min(self.fit_sigma/self.pix_size,1.0) * \
+                    #                       min((self.pix_size * self.sn_pix)/21.0,1.0) / \
+                    #                       (1. + abs(adjusted_dx0_error / self.pix_size) )
+                    # else:
+                    #     log.debug("Using line flux scoring ...")
+                    #     self.line_score = snr_limit_score * above_noise * unique_mul * self.line_flux * 1e16 * \
+                    #           min(self.fit_sigma/self.pix_size,1.0) * \
+                    #           min((self.pix_size * self.sn_pix)/21.0,1.0) / \
+                    #            (1. + abs(adjusted_dx0_error / self.pix_size))
+
+                    self.line_score = snr_limit_score * above_noise * unique_mul * self.line_flux * 1e16 * \
+                                      min(self.fit_sigma/self.pix_size,1.0) * \
+                                      min((self.pix_size * self.sn_pix)/21.0,1.0) / \
+                                      (1. + abs(adjusted_dx0_error / self.pix_size))
 
                     self.line_score = min(G.MAXIMUM_LINE_SCORE_CAP,self.line_score)
 

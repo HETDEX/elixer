@@ -58,7 +58,7 @@ from PIL import Image as PIL_Image
 from PIL import ImageFile as PIL_ImageFile
 
 use_wand = False
-OS_PNG_ONLY = True
+OS_PNG_ONLY = True #can be overriden later in main()
 if use_wand:
     from wand.image import Image
 else:
@@ -2941,7 +2941,9 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
 
 def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fiber_pos,
                            image_cutout_neighborhood,
-                           image_cutout_fiber_pos_size=None, image_cutout_neighborhood_size=None):
+                           image_cutout_fiber_pos_size=None,
+                           image_cutout_neighborhood_size=None,
+                           line_image_cutout=None):
     """
     Note: needs matplotlib > 3.1.x to work properly
 
@@ -2962,6 +2964,8 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
             msg += " image_1d_fit "
         if image_cutout_fiber_pos is None:
             msg += " image_cutout_fiber_pos "
+        if line_image_cutout is None:
+            msg += " line_image_cutout "
         log.error(msg)
         return
     try:
@@ -3095,9 +3099,19 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
         else:
             log.info("Warning! Unable to fully populate mini report. Neighborhood cutout is None.")
 
+        # #new line image
+        if line_image_cutout is not None:
+            ax5 = fig.add_subplot(gs[48:,0:])#,gridspec_kw = {'wspace':0, 'hspace':0})
+            ax5.set_axis_off()
+            line_image_cutout.seek(0)
+            im5 = PIL_Image.open(line_image_cutout)
+            ax5.imshow(im5)
+
+
 
         #1d Gaussian fit
-        ax3 = fig.add_subplot(gs[46:,1:15])#,gridspec_kw = {'wspace':0, 'hspace':0})
+        #ax3 = fig.add_subplot(gs[46:,1:15])#,gridspec_kw = {'wspace':0, 'hspace':0})
+        ax3 = fig.add_subplot(gs[46:,1:9])#,gridspec_kw = {'wspace':0, 'hspace':0})
         ax3.set_axis_off()
         #plt.subplots_adjust(wspace=0, hspace=0)
 
@@ -3108,16 +3122,25 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
         image_1d_fit.seek(0)
 
         x,y = PIL_Image.open(image_1d_fit).size
-        lx = 0.10 * x
-        rx = 0.03 * x
+        # lx = 0.10 * x
+        # rx = 0.03 * x
+        # ty = 0.10 * y #was 0.1
+        # by = 0.00 * y #was 0
+        lx = 0.175 * x
+        rx = 0.175 * x
         ty = 0.10 * y #was 0.1
         by = 0.00 * y #was 0
+
 
         #crop is (upper left corner ....
         #( x, y, x + width , y + height )
 
-        im3 = PIL_Image.open(image_1d_fit).crop((lx,ty,x-(lx+rx),y-(ty+by)))
+        im3 = PIL_Image.open(image_1d_fit).crop((lx,ty,x-rx,y-(ty+by)))
         ax3.imshow(im3)
+
+
+
+
 
         if True: #make True if want to build image then crop it, otherwise leave as False and just save the plt
             buf = io.BytesIO()
@@ -3200,11 +3223,12 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
     just_mini_cutout = False
     nei_buf = None
+    line_buf = None
 
     if G.ZOO_MINI:
         if ((detectid is None) and ((ra is None) or (dec is None))):
             log.info("Invalid data passed to build_neighborhood_map")
-            return None, None
+            return None, None, None
 
         if (distance is None) or (distance <= 0.0):
             distance = 10.0
@@ -3212,7 +3236,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     else:
         if (distance is None) or (distance < 0.0) or ((detectid is None) and ((ra is None) or (dec is None))):
             log.info("Invalid data passed to build_neighborhood_map")
-            return None, None
+            return None, None, None
 
     #get all the detectids
     error = distance/3600.0
@@ -3268,7 +3292,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                 rows = detection_table.read_where("detectid==id")
                 if (rows is None) or (rows.size != 1):
                     log.info("Invalid data passed to build_neighborhood_map")
-                    return None
+                    return None, None, None
                 ra = rows['ra'][0]
                 dec = rows['dec'][0]
 
@@ -3276,7 +3300,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                     cwave = rows['wave'][0]
         except:
             log.info("Exception. Unable to lookup detectid coordinates.",exc_info=True)
-            return None, None
+            return None, None, None
 
     total_detectids = 0
     if not just_mini_cutout:
@@ -3569,7 +3593,44 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
 
     if just_mini_cutout: #stop here
-        return None, nei_buf
+        #need to still get the line image
+
+        line_image = None
+        try:
+            if primary_shotid is not None and wave_range is not None:
+                pixscale = 0.25 #make the line image on the same scale as the master_cutout for easier mapping
+                line_image = science_image.get_line_image(plt,friendid=None,detectid=None,
+                                                          coords=SkyCoord(ra=ra,dec=dec,frame='icrs',unit='deg'),
+                                                          shotid=primary_shotid, subcont=True, convolve_image=False,
+                                                          pixscale=pixscale, imsize=3*distance,
+                                                          wave_range=wave_range,
+                                                          sigma=None,
+                                                          return_coords=False)
+        except:
+            log.warning("Exception building line image",exc_info=True)
+            line_image = None
+
+        plt.close('all')
+
+        try:
+            line_buf = io.BytesIO()
+            im_ext = line_image.shape[0] * pixscale / 2.
+            if master_cutout is not None:
+                im_ax = plt.add_subplot(111,projection=master_cutout.wcs)
+
+                _ = plt.imshow(line_image.data, origin='lower', interpolation='none', extent=[-im_ext, im_ext, -im_ext, im_ext],
+                           vmin=line_image.vmin,vmax=line_image.vmax,transform=im_ax.get_transform(line_image.wcs))
+                               #,cmap=plt.get_cmap('gray_r'))
+
+                plt.savefig(line_buf, format='png', dpi=300, transparent=True)
+            else:
+                _ = plt.imshow(line_image.data, origin='lower', interpolation='none', extent=[-im_ext, im_ext, -im_ext, im_ext],
+                               vmin=line_image.vmin,vmax=line_image.vmax)#,cmap=plt.get_cmap('gray_r'))
+                plt.savefig(line_buf, format='png', dpi=300, transparent=True)
+        except:
+            log.debug("Exception! Exception saving line_buf.")
+
+        return None, nei_buf, line_buf
 
 
     #get the PSF weighted full 1D spectrum for each detectid
@@ -3747,6 +3808,27 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         fig = plt.figure(figsize=(G.FIGURE_SZ_X, G.GRID_SZ_Y * (num_rows+1)))
     else:
         fig = plt.figure(figsize=(G.FIGURE_SZ_X, G.GRID_SZ_Y * num_rows))
+
+    try:
+        line_buf = io.BytesIO()
+        im_ext = line_image.shape[0] * pixscale / 2.
+
+        if master_cutout is not None:
+            im_ax = fig.add_subplot(111,projection=master_cutout.wcs) #plt.subplot(111,projection=master_cutout.wcs)
+
+            _ = plt.imshow(line_image.data, origin='lower', interpolation='none', extent=[-im_ext, im_ext, -im_ext, im_ext],
+                           vmin=line_image.vmin,vmax=line_image.vmax,transform=im_ax.get_transform(line_image.wcs))
+            #,cmap=plt.get_cmap('gray_r'))
+            fig.savefig(line_buf, format='png', dpi=300, transparent=True)
+        else:
+            _ = plt.imshow(line_image.data, origin='lower', interpolation='none', extent=[-im_ext, im_ext, -im_ext, im_ext],
+                           vmin=line_image.vmin,vmax=line_image.vmax)#,cmap=plt.get_cmap('gray_r'))
+            plt.savefig(line_buf, format='png', dpi=300, transparent=True)
+
+
+    except:
+        log.debug("Exception! Exception saving line_buf.",exc_info=True)
+
     plt.subplots_adjust(left=0.00, right=0.95, top=0.95, bottom=0.0)
     if num_rows > G.MAX_NEIGHBORS_IN_MAP:
         plt.suptitle(f"{total_detectids} HETDEX detections found nearby. Showing nearest {len(detectids)}.", fontsize=32)
@@ -3885,7 +3967,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                 #
                 # log.info(f"Neighborhood map line_image pixelscale/master_cutout {diff_pix}")
 
-                plt.imshow(line_image.data, origin='lower', interpolation='none',
+                plt.imshow(line_image.data, origin='lower', interpolation='none',#cmap=plt.get_cmap('gray_r'),
                            vmin=line_image.vmin, vmax=line_image.vmax, extent=[-i_ext, i_ext, -i_ext, i_ext])
 
                 #plt.colorbar()#,fraction=0.07)#,anchor=(0.3,0.0))
@@ -3960,7 +4042,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     #plt.tight_layout()
     plt.savefig(buf, format='png', dpi=150)#,bbox_inches = 'tight', pad_inches = 0)
 
-    return buf, nei_buf
+    return buf, nei_buf, line_buf
 
 
 def check_package_versions():
@@ -3971,7 +4053,7 @@ def check_package_versions():
 
 def main():
 
-    global G_PDF_FILE_NUM
+    global G_PDF_FILE_NUM, OS_PNG_ONLY
     
     already_launched_viewer = False #skip the PDF viewer laun
 
@@ -4012,6 +4094,14 @@ def main():
     #later, below most of the processing will be skipped and only the neighborhood map is generated
     if args.neighborhood_only:
         args.neighborhood = args.neighborhood_only
+
+    try:
+        if (args.dispatch is None) or ('jupyter' in G.hostname.lower()):
+            OS_PNG_ONLY = False
+        else: #if in dispatch mode, likely this is on stampede2 or other HPC and we should use the system call
+            OS_PNG_ONLY = True
+    except:
+        OS_PNG_ONLY = False
 
     #always build these ... the library handles the USE_PHOTO_CATS (--nophoto) global
     cat_library = catalogs.CatalogLibrary()
@@ -4930,7 +5020,7 @@ def main():
                         else:
                             wave_range = [e.w-e.fwhm*3/2.355,e.w+e.fwhm*3/2.355]
 
-                        _, nei_mini_buf = build_neighborhood_map(hdf5=args.hdf5, cont_hdf5=G.HDF5_CONTINUUM_FN,
+                        _, nei_mini_buf, line_mini_buf = build_neighborhood_map(hdf5=args.hdf5, cont_hdf5=G.HDF5_CONTINUUM_FN,
                                            detectid=None, ra=ra, dec=dec, distance=args.neighborhood, cwave=e.w,
                                            fname=nei_name, original_distance=args.error,
                                            this_detection=e if explicit_extraction else None,
@@ -4943,7 +5033,7 @@ def main():
             if len(hd_list) == 0: #there were not any hetdex detections to anchor, just use RA, Dec?
                 if (args.ra is not None) and (args.dec is not None):
                     try:
-                        _, nei_mini_buf = build_neighborhood_map(hdf5=args.hdf5, cont_hdf5=G.HDF5_CONTINUUM_FN,
+                        _, nei_mini_buf, line_mini_buf = build_neighborhood_map(hdf5=args.hdf5, cont_hdf5=G.HDF5_CONTINUUM_FN,
                                            detectid=None, ra=args.ra, dec=args.dec, distance=args.neighborhood,
                                            cwave=None,
                                            fname=os.path.join(args.name, args.name + "_nei.png"),
@@ -4971,7 +5061,8 @@ def main():
                                            image_cutout_fiber_pos=e.image_cutout_fiber_pos,
                                            image_cutout_neighborhood=nei_mini_buf,
                                            image_cutout_fiber_pos_size=args.error,
-                                           image_cutout_neighborhood_size=args.neighborhood)
+                                           image_cutout_neighborhood_size=args.neighborhood,
+                                           line_image_cutout=line_mini_buf)
 
 
         # really has to be here (hd_list is reset on each loop and the "recover" will not work otherwise)
