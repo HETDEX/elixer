@@ -140,9 +140,10 @@ def main():
     #append to dictionary like Tile_Coord_Range where the key is the filename
     #   e.g. calexp-HSC-R-16666-4,3.fits
     #   parse out the filter (R) and the tile position (4,3) and catalog_tract (16666)
-
+    outfile = open("hsc_ssp_meta.out","w")
 
     print("HSC_META_DICT = {")
+    outfile.write("HSC_META_DICT = {\n")
 
     min_ra = 361.0
     max_ra = 0.0
@@ -150,6 +151,8 @@ def main():
     max_dec = -90.0
 
     #img_path = os.path.join(basepath,"images")
+
+
 
     for sub in subdirs:
         img_path = os.path.join(basepath, sub)
@@ -191,11 +194,17 @@ def main():
             print("'%s': {'RA_min':%f,'RA_max':%f,'Dec_min':%f,'Dec_max':%f,'instrument':'%s','filter':'%s','depth':%f,'tract':'%s','pos':(%d,%d),'path':'%s'},"
                   %(fname,ra_lo,ra_hi,dec_lo,dec_hi,instrument,filter.lower(),mag_depth[filter.lower()],cat_tract,tile_pos[0],tile_pos[1],f))
 
+            outfile.write("'%s': {'RA_min':%f,'RA_max':%f,'Dec_min':%f,'Dec_max':%f,'instrument':'%s','filter':'%s','depth':%f,'tract':'%s','pos':(%d,%d),'path':'%s'},\n"
+                          %(fname,ra_lo,ra_hi,dec_lo,dec_hi,instrument,filter.lower(),mag_depth[filter.lower()],cat_tract,tile_pos[0],tile_pos[1],f))
+            outfile.flush()
 
             #img.close()
     print("}")
+    outfile.write("}\n")
 
     print("Image_Coord_Range = {'RA_min':%f, 'RA_max':%f, 'Dec_min':%f, 'Dec_max':%f}" %(min_ra,max_ra,min_dec,max_dec))
+    outfile.write("Image_Coord_Range = {'RA_min':%f, 'RA_max':%f, 'Dec_min':%f, 'Dec_max':%f}\n" %(min_ra,max_ra,min_dec,max_dec))
+    outfile.close()
 
 
 if __name__ == '__main__':

@@ -3021,13 +3021,13 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
         #gs1 = fig.add_gridspec(ncols=1,nrows=1,figure=fig,left=0.02, right=0.30, top=0.90, bottom=0.30, wspace=0.01)
         #plt.subplots_adjust(left=0.00, right=0.95, top=0.95, bottom=0.0)
 
-        gs = gridspec.GridSpec(nrows=60,ncols=20,figure=fig,wspace=0.0,hspace=0.0)  # rows, columns or y,x
+        gs = gridspec.GridSpec(nrows=61,ncols=21,figure=fig,wspace=0.0,hspace=0.0)  # rows, columns or y,x
 
 
 
         # is hidden
         # 1st column 2d fiber cutouts
-        ax1 = fig.add_subplot(gs[3:45,0:10]) #was 2
+        ax1 = fig.add_subplot(gs[2:45,0:10]) #was 2
         ax1.set_axis_off()
         # fig = plt.subplot(gs[0:-1,0:30])#,gridspec_kw = {'wspace':0, 'hspace':0})
         # plt.subplots_adjust(wspace=0, hspace=0)
@@ -3043,7 +3043,8 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
         #gs2 = fig.add_gridspec(ncols=1, nrows=2, figure=fig, left=0.35, right=0.98,top=0.90, bottom=0.30, wspace=0.01)
 
         #2d fiber position / master cutout
-        ax2 = fig.add_subplot(gs[0:26,0:])
+        #ax2 = fig.add_subplot(gs[0:26,0:])
+        ax2 = fig.add_subplot(gs[0:23,0:])
         ax2.set_axis_off()
         #fig = plt.subplot(gs[0:50,30:-1])#,gridspec_kw = {'wspace':0, 'hspace':0})
         #plt.subplots_adjust(wspace=0, hspace=0)
@@ -3068,7 +3069,7 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
         # 2D wide (neighborhood) master cutout
         if image_cutout_neighborhood is not None:
 
-            ax4 = fig.add_subplot(gs[22:48,0:])
+            ax4 = fig.add_subplot(gs[19:42,0:]) #was 22:48
             ax4.set_axis_off()
             # fig = plt.subplot(gs[0:50,30:-1])#,gridspec_kw = {'wspace':0, 'hspace':0})
             # plt.subplots_adjust(wspace=0, hspace=0)
@@ -3101,7 +3102,7 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
 
         # #new line image
         if line_image_cutout is not None:
-            ax5 = fig.add_subplot(gs[48:,0:])#,gridspec_kw = {'wspace':0, 'hspace':0})
+            ax5 = fig.add_subplot(gs[38:,0:])#,gridspec_kw = {'wspace':0, 'hspace':0})
             ax5.set_axis_off()
             line_image_cutout.seek(0)
             im5 = PIL_Image.open(line_image_cutout)
@@ -3111,7 +3112,7 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
 
         #1d Gaussian fit
         #ax3 = fig.add_subplot(gs[46:,1:15])#,gridspec_kw = {'wspace':0, 'hspace':0})
-        ax3 = fig.add_subplot(gs[46:,1:9])#,gridspec_kw = {'wspace':0, 'hspace':0})
+        ax3 = fig.add_subplot(gs[46:60,1:9])#,gridspec_kw = {'wspace':0, 'hspace':0})
         ax3.set_axis_off()
         #plt.subplots_adjust(wspace=0, hspace=0)
 
@@ -3126,8 +3127,8 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
         # rx = 0.03 * x
         # ty = 0.10 * y #was 0.1
         # by = 0.00 * y #was 0
-        lx = 0.175 * x
-        rx = 0.175 * x
+        lx = 0.18 * x
+        rx = 0.16 * x
         ty = 0.10 * y #was 0.1
         by = 0.00 * y #was 0
 
@@ -3137,9 +3138,6 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
 
         im3 = PIL_Image.open(image_1d_fit).crop((lx,ty,x-rx,y-(ty+by)))
         ax3.imshow(im3)
-
-
-
 
 
         if True: #make True if want to build image then crop it, otherwise leave as False and just save the plt
@@ -3163,14 +3161,20 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
             #  will need to be re-done
             #fill in a bothersome region that refuses to be covered by the red box
             # (right hand side of top right cutout)
-            plt.plot([741, 741], [398, 30], color='r', lw=0.5)
+            #plt.plot([741, 741], [398, 30], color='r', lw=0.5)
+            plt.plot([738, 738], [341, 20], color='r', lw=0.5)
 
             #and a horizontal masking line for the bottom right image
-            plt.plot([372, 740], [805,805], color='#1c1c1e', lw=1) ##1c1c1e
+            #plt.plot([372, 740], [805,805], color='#1c1c1e', lw=1) ##1c1c1e
 
+            #and a horizontal masking line for the bottom left image
+           # plt.plot([0, 410], [1050,1050], color='r', lw=5) ##1c1c1e
+            plt.plot([0, 400], [1050,1050], color='#1c1c1e', lw=5) ##1c1c1e
 
-            plt.plot([500, 377], [673, 397], color='r', lw=0.5,ls="--") #lower left (bottom) to lower left (top)
-            plt.plot([612, 740], [673, 397], color='r', lw=0.5,ls="--") #lower right (bottom) to lower right (top)
+            #plt.scatter(0,0,s=20,color='r')
+            #don't forget there is an extra border (about 25pix) around it, 0,0 is top left
+            plt.plot([528, 415], [576, 340], color='r', lw=0.5,ls="--") #lower left (bottom) to lower left (top) [x,x],[y,y]
+            plt.plot([625, 735], [576, 340], color='r', lw=0.5,ls="--") #lower right (bottom) to lower right (top)
 
 
             # plt.plot([510,387],[622,112],color='r',lw=1) # upper left to upper left
@@ -3613,19 +3617,49 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         plt.close('all')
 
         try:
+            plt.close('all')
+            fig = plt.figure()
             line_buf = io.BytesIO()
-            im_ext = line_image.shape[0] * pixscale / 2.
-            if master_cutout is not None:
-                im_ax = plt.add_subplot(111,projection=master_cutout.wcs)
 
-                _ = plt.imshow(line_image.data, origin='lower', interpolation='none', extent=[-im_ext, im_ext, -im_ext, im_ext],
-                           vmin=line_image.vmin,vmax=line_image.vmax,transform=im_ax.get_transform(line_image.wcs))
-                               #,cmap=plt.get_cmap('gray_r'))
+            if master_cutout is not None:
+                if ext is None or ext == 0: #use the existing extent first
+                    ext = line_image.shape[0] * pixscale / 2.
+
+                im_ax = fig.add_subplot(111,projection=master_cutout.wcs) #plt.subplot(111,projection=master_cutout.wcs)
+
+                plt.imshow(line_image.data, origin='lower', interpolation='none', #extent=[-ext, ext, -ext, ext],
+                           vmin=line_image.vmin,vmax=line_image.vmax,#cmap=plt.get_cmap('gray_r'),
+                           transform=im_ax.get_transform(line_image.wcs))
+                #,cmap=plt.get_cmap('gray_r'))
+                im_ax.set_axis_off()
+
+
+                if original_distance is not None and original_distance > 0:
+                    #add zoom window
+                    try:
+
+                        box_ratio = original_distance / distance
+
+                        xl,xr = plt.gca().get_xlim()
+                        yb,yt = plt.gca().get_ylim()
+
+                        zero_x = (xl+xr) / 2.
+                        zero_y = (yb+yt) / 2.
+
+                        rx = ((xr-xl) * box_ratio) / 2.0
+                        ry = ((yt-yb) * box_ratio) / 2.0
+
+                        plt.gca().add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=rx * 2, height=ry * 2,
+                                                          angle=0, color='red', fill=False))
+                    except:
+                        log.debug("Exception! adding zoom box to mini-cutout.",exc_info=True)
 
                 plt.savefig(line_buf, format='png', dpi=300, transparent=True)
             else:
-                _ = plt.imshow(line_image.data, origin='lower', interpolation='none', extent=[-im_ext, im_ext, -im_ext, im_ext],
-                               vmin=line_image.vmin,vmax=line_image.vmax)#,cmap=plt.get_cmap('gray_r'))
+                im_ext = line_image.shape[0] * pixscale / 2.
+                plt.imshow(line_image.data, origin='lower', interpolation='none', #extent=[-im_ext, im_ext, -im_ext, im_ext],
+                           vmin=line_image.vmin,vmax=line_image.vmax)#,cmap=plt.get_cmap('gray_r'))
+                plt.gca().set_axis_off()
                 plt.savefig(line_buf, format='png', dpi=300, transparent=True)
         except:
             log.debug("Exception! Exception saving line_buf.")
@@ -3800,6 +3834,57 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         log.warning("Exception building line image",exc_info=True)
         line_image = None
 
+    try:
+        plt.close('all')
+        fig = plt.figure()
+        line_buf = io.BytesIO()
+
+        if master_cutout is not None:
+            if ext is None or ext == 0: #use the existing extent first
+                ext = line_image.shape[0] * pixscale / 2.
+
+            im_ax = fig.add_subplot(111,projection=master_cutout.wcs) #plt.subplot(111,projection=master_cutout.wcs)
+
+            plt.imshow(line_image.data, origin='lower', interpolation='none', #xtent=[-ext, ext, -ext, ext],
+                       vmin=line_image.vmin,vmax=line_image.vmax,#cmap=plt.get_cmap('gray_r'),
+                       transform=im_ax.get_transform(line_image.wcs))
+            #,cmap=plt.get_cmap('gray_r'))
+            im_ax.set_axis_off()
+
+            if original_distance is not None and original_distance > 0:
+                #add zoom window
+                try:
+
+                    box_ratio = original_distance / distance
+
+                    xl,xr = plt.gca().get_xlim()
+                    yb,yt = plt.gca().get_ylim()
+
+                    zero_x = (xl+xr) / 2.
+                    zero_y = (yb+yt) / 2.
+
+                    rx = ((xr-xl) * box_ratio) / 2.0
+                    ry = ((yt-yb) * box_ratio) / 2.0
+
+                    plt.gca().add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=rx * 2, height=ry * 2,
+                                                      angle=0, color='red', fill=False))
+                except:
+                    log.debug("Exception! adding zoom box to mini-cutout.",exc_info=True)
+
+
+        # cat = cat_base.Catalog()
+            # cat.add_north_box(plt, sci, line_image, distance, line_image.shape[0]/2.0/pixscale, line_image.shape[0]/2.0/pixscale, theta=np.pi/2.0)
+
+            plt.savefig(line_buf, format='png', dpi=300, transparent=True)
+        else:
+            im_ext = line_image.shape[0] * pixscale / 2.
+            plt.imshow(line_image.data, origin='lower', interpolation='none',#extent=[-im_ext, im_ext, -im_ext, im_ext],
+                           vmin=line_image.vmin,vmax=line_image.vmax)#,cmap=plt.get_cmap('gray_r'))
+            plt.gca().set_axis_off()
+            plt.savefig(line_buf, format='png', dpi=300, transparent=True)
+
+    except:
+        log.debug("Exception! Exception saving line_buf.",exc_info=True)
 
     row_step = 10 #allow space in between
     plt.close('all')
@@ -3808,26 +3893,6 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         fig = plt.figure(figsize=(G.FIGURE_SZ_X, G.GRID_SZ_Y * (num_rows+1)))
     else:
         fig = plt.figure(figsize=(G.FIGURE_SZ_X, G.GRID_SZ_Y * num_rows))
-
-    try:
-        line_buf = io.BytesIO()
-        im_ext = line_image.shape[0] * pixscale / 2.
-
-        if master_cutout is not None:
-            im_ax = fig.add_subplot(111,projection=master_cutout.wcs) #plt.subplot(111,projection=master_cutout.wcs)
-
-            _ = plt.imshow(line_image.data, origin='lower', interpolation='none', extent=[-im_ext, im_ext, -im_ext, im_ext],
-                           vmin=line_image.vmin,vmax=line_image.vmax,transform=im_ax.get_transform(line_image.wcs))
-            #,cmap=plt.get_cmap('gray_r'))
-            fig.savefig(line_buf, format='png', dpi=300, transparent=True)
-        else:
-            _ = plt.imshow(line_image.data, origin='lower', interpolation='none', extent=[-im_ext, im_ext, -im_ext, im_ext],
-                           vmin=line_image.vmin,vmax=line_image.vmax)#,cmap=plt.get_cmap('gray_r'))
-            plt.savefig(line_buf, format='png', dpi=300, transparent=True)
-
-
-    except:
-        log.debug("Exception! Exception saving line_buf.",exc_info=True)
 
     plt.subplots_adjust(left=0.00, right=0.95, top=0.95, bottom=0.0)
     if num_rows > G.MAX_NEIGHBORS_IN_MAP:

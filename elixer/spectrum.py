@@ -1149,6 +1149,8 @@ class EmissionLineInfo:
                     #           min((self.pix_size * self.sn_pix)/21.0,1.0) / \
                     #            (1. + abs(adjusted_dx0_error / self.pix_size))
 
+                    #NOTE to self: used to be * 1e17 and with a /10.0 at the bottom, which is redundant
+                    # so just change to 1e16
                     self.line_score = snr_limit_score * above_noise * unique_mul * self.line_flux * 1e16 * \
                                       min(self.fit_sigma/self.pix_size,1.0) * \
                                       min((self.pix_size * self.sn_pix)/21.0,1.0) / \

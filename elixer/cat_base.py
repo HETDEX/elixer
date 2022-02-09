@@ -1138,13 +1138,14 @@ class Catalog:
                 if line_image is not None:
                     index += 1
 
-                    _ = plt.subplot(gs[1:, index])
+                    im_ax = plt.subplot(gs[1:, index])#,projection=stacked_cutout.wcs)
                     pix_size =0.25 #make sure to match vs pixscale in above call
                     ext = line_image.shape[0] * pix_size / 2.
                     #without fibers
 
                     im = plt.imshow(line_image.data, origin='lower', interpolation='none', extent=[-ext, ext, -ext, ext],
-                                    vmin=line_image.vmin,vmax=line_image.vmax)#,cmap=plt.get_cmap('gray_r'))
+                                    vmin=line_image.vmin,vmax=line_image.vmax)#,
+                                    #transform=im_ax.get_transform(line_image.wcs))#,cmap=plt.get_cmap('gray_r'))
 
                     #trying to get the color bar to occupy the axis label space does not seem to work
                     #and the bar and labels just don't seem important here anyway

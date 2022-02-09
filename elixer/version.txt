@@ -3,7 +3,8 @@ changes to elixer by version
 1.16.0a3 [2022-02-09]
 * update mini to add line image cutout
 * use sytem call to convert PDF to PNG only if in dispatch mode and not on the jupyter-hub
-* restore original scoring. Using EW_obs is unreliable at this time.
+* restore original scoring. Using EW_obs is unreliable at this time
+
 
 
 1.16.0a2 [2022-02-08]
