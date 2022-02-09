@@ -4,7 +4,7 @@ changes to elixer by version
 * update mini to add line image cutout
 * use sytem call to convert PDF to PNG only if in dispatch mode and not on the jupyter-hub
 * restore original scoring. Using EW_obs is unreliable at this time
-
+* updated HSC SSP with DR3 (imaging only; catalogs not yet added)
 
 
 1.16.0a2 [2022-02-08]

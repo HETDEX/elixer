@@ -1005,6 +1005,40 @@ class EmissionLineInfo:
 
         return snr
 
+    #
+    # def peak_vs_continuum(self,flux,flux_err,waves,center,sigma):
+    #     """
+    #
+    #     :param flux:
+    #     :param flux_err:
+    #     :param waves:
+    #     :param center:
+    #     :param sigma:
+    #     :return:
+    #     """
+    #
+    #     rat = 1
+    #     try:
+    #         i = getnearpos(waves,center)
+    #
+    #         left = flux[0:i-int(2*sigma)]
+    #         mid = flux[i-int(2*sigma):i+int(2*sigma)]
+    #         right = flux[i+int(2*sigma):]
+    #
+    #         cont = (np.sum(left) + np.sum(right)) / (len(left)+len(right)) #whether 2AA or 1AA does not matter since will be a ratio
+    #         emis = np.sum(mid) / len(mid)
+    #
+    #         #for now, we won't worry about uncertainties
+    #
+    #         delta = abs(emis-cont)
+    #         rat = delta/emis
+    #
+    #     except:
+    #         log.debug("Exception",exc_info=True)
+    #
+    #     return rat
+
+
     def build(self,values_units=0,allow_broad=False, broadfit=1):
         """
 
@@ -1098,10 +1132,13 @@ class EmissionLineInfo:
                     # but will still be throttled down due to failures with other criteria
 
             unique_mul = 1.0 #normal
-            if (self.unique == False) and (self.fwhm < 6.5):
-                #resolution is around 5.5, so if this is less than about 7AA, it could be noise?
-                unique_mul = 0.5 #knock it down (it is mixed in with others)
-                #else it is broad enough that we don't care about possible nearby lines as noise
+            if (self.unique == False):# and (self.fwhm < 6.5):
+                if G.CONTINUUM_RULES:
+                    unique_mul = 0.25
+                else:
+                    #resolution is around 5.5, so if this is less than about 7AA, it could be noise?
+                    unique_mul = 0.5 #knock it down (it is mixed in with others)
+                    #else it is broad enough that we don't care about possible nearby lines as noise
 
             #def unique_peak(spec, wave, cwave, fwhm, width=10.0, frac=0.9):
             if GOOD_MAX_DX0_MULT[0] < self.fit_dx0 < GOOD_MAX_DX0_MULT[1]:
@@ -1114,6 +1151,14 @@ class EmissionLineInfo:
             else:
                 max_fwhm = MAX_FWHM
 
+            #pvc = self.peak_vs_continuum(self.raw_vals,self.raw_errs,self.raw_wave,self.fit_x0,self.fit_sigma)
+            # if pvc < 0.5:
+            #     #this is no good
+            #     log.info(f"Poor distinction from local summed continuum: {pvc:0.2f}. Scoring to zero.")
+            #     self.line_score = 0
+            # if self.eqw_obs + self.eqw_obs_err < 1.0:
+            #     log.info(f"Poor EW_obs from fit: {self.eqw_obs:0.2f} +/- {self.eqw_obs_err}. Scoring to zero.")
+            #     self.line_score = 0
             if (self.fwhm is None) or (self.fwhm < max_fwhm):
                 #this MIN_HUGE_FWHM_SNR is based on the usual 2AA bins ... if this is broadfit, need to return to the
                 # usual SNR definition
