@@ -3605,7 +3605,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                 pixscale = 0.25 #make the line image on the same scale as the master_cutout for easier mapping
                 line_image = science_image.get_line_image(plt,friendid=None,detectid=None,
                                                           coords=SkyCoord(ra=ra,dec=dec,frame='icrs',unit='deg'),
-                                                          shotid=primary_shotid, subcont=True, convolve_image=False,
+                                                          shotid=primary_shotid, subcont=True, convolve_image=True,
                                                           pixscale=pixscale, imsize=3*distance,
                                                           wave_range=wave_range,
                                                           sigma=None,
@@ -3824,7 +3824,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
             line_image = science_image.get_line_image(plt,friendid=None,detectid=None,
                                                       coords=SkyCoord(ra=ra,dec=dec,frame='icrs',unit='deg'),
-                                                      shotid=primary_shotid, subcont=True, convolve_image=False,
+                                                      shotid=primary_shotid, subcont=True, convolve_image=True,
                                                       pixscale=pixscale, imsize=3*distance,
                                                       wave_range=wave_range,
                                                       sigma=None,
