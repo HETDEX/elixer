@@ -490,7 +490,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             #path = self.HSC_IMAGE_PATH #op.join(self.HSC_IMAGE_PATH,self.Tile_Dict[t]['tract'])
             #path is already corrected in the constructor
             name = t
-            wcs_manual = False
+            #wcs_manual = self.WCS_Manual
 
             self.CatalogImages.append(
                 {'path': op.dirname(self.Tile_Dict[t]['path']),
@@ -503,7 +503,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                  'labels': [],
                  'image': None,
                  'expanded': False,
-                 'wcs_manual': wcs_manual,
+                 'wcs_manual': self.WCS_Manual,
                  'aperture': self.mean_FWHM * 0.5 + 0.5, #since a radius, half the FWHM + 0.5" for astrometric error
                  'mag_func': hsc_count_to_mag,
                  'mag_depth': self.Tile_Dict[t]['depth'],
@@ -527,11 +527,21 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                 if self.Tile_Dict[k]['filter'].lower() != 'r':
                     continue
 
-                if not ((ra >= self.Tile_Dict[k]['RA_min']) and (ra <= self.Tile_Dict[k]['RA_max']) and
-                        (dec >= self.Tile_Dict[k]['Dec_min']) and (dec <= self.Tile_Dict[k]['Dec_max'])) :
-                    continue
-                else:
-                    keys.append(k)
+                if self.Tile_Dict[k]['RA_max'] - self.Tile_Dict[k]['RA_min'] < 30: #30 deg as a big value
+                                                                                   #ie. we are NOT crossing the 0 or 360 deg line
+                    if not ((ra >= self.Tile_Dict[k]['RA_min']) and (ra <= self.Tile_Dict[k]['RA_max']) and
+                            (dec >= self.Tile_Dict[k]['Dec_min']) and (dec <= self.Tile_Dict[k]['Dec_max'])) :
+                        continue
+                    else:
+                        keys.append(k)
+                else: # we are crossing the 0/360 boundary, so we need to be greater than the max (ie. between max and 360)
+                      # OR less than the min (between 0 and the minimum)
+                    if not ((ra <= self.Tile_Dict[k]['RA_min']) or (ra >= self.Tile_Dict[k]['RA_max']) and
+                            (dec >= self.Tile_Dict[k]['Dec_min']) and (dec <= self.Tile_Dict[k]['Dec_max'])) :
+                        continue
+                    else:
+                        keys.append(k)
+
             except:
                 pass
 

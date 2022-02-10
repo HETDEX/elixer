@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.16.0a4 [2022-02-10]
+* fix bad tile selection where tile RA crosses the 0/360 degree boundary
+
 1.16.0a3 [2022-02-09]
 * update mini to add line image cutout
 * use sytem call to convert PDF to PNG only if in dispatch mode and not on the jupyter-hub

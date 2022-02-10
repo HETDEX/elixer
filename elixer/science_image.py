@@ -537,8 +537,18 @@ class science_image():
         #check the footprint
         try:
             if (self.footprint is not None) and (self.pixel_size is not None):
-                ra_range = (max(self.footprint[:,0])-min(self.footprint[:,0])) * 3600.0
+                #could wrap around
+                ra_mx = max(self.footprint[:,0])
+                ra_mn = min(self.footprint[:,0])
+
+                if ra_mx - ra_mn > 30.0: #just pick 30 deg as a huge value
+                    old_mn = ra_mn
+                    ra_mn = ra_mx - 360.
+                    ra_mx = old_mn
+                # ra_range = (max(self.footprint[:,0])-min(self.footprint[:,0])) * 3600.0
+                ra_range = (ra_mx-ra_mn) * 3600.0
                 dec_range = (max(self.footprint[:,1])-min(self.footprint[:,1])) * 3600.0
+
                 mean_dec = 0.5 * (max(self.footprint[:,1]) + min(self.footprint[:,1]))
                 #ignore keystoning from dec for now
                 footprint_area = ra_range * dec_range / (self.pixel_size**2) * np.cos(mean_dec * np.pi / 180)
@@ -1257,6 +1267,9 @@ class science_image():
 
                         except NoOverlapError:
                             log.info("Unable to load cutout (NoOverlapError).", exc_info=False)
+                            retries = max_retries
+                        except ValueError:
+                            log.error("Exception. Unable to load cutout. Value error.",exc_info=True)
                             retries = max_retries
                         except Exception as ex:
                             if "Arrays do not overlap" in str(ex):
