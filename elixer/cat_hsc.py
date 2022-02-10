@@ -951,6 +951,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
 
                 mag = -2.5*np.log10(filter_fl*1e-9/3631.)
+                #actual mags with the error included, not just the +/- of the error
                 mag_bright = -2.5*np.log10((filter_fl+filter_fl_err)*1e-9/3631.)
                 mag_faint = -2.5 * np.log10((filter_fl - filter_fl_err) * 1e-9 / 3631.)
 

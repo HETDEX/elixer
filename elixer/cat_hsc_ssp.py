@@ -193,22 +193,19 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         if name is None:
             name = cls.Name
 
-        log.debug("!!!!!!!!!!!!!!!!!!!!!!TODO: catalog for HSC SSP !!!!!!!!!!!!!!!!!!!!!!")
-
-        #return None
         try:
             filter_str = 'x'
             if tile is not None and '?' in tile:
-                tileX = tile.replace("-?-","-G-") #get the 'R' filter catalog
+                tileX = tile.replace("-?-","-R-") #get the 'R' filter catalog
                 if tileX not in cls.Tile_Dict.keys():
-                    tileX = tile.replace("-?-","-R-")
+                    tileX = tile.replace("-?-","-G-")
                     if tileX not in cls.Tile_Dict.keys():
-                        log.info("Unable to locate sutable photometric counterpart catalog.")
+                        log.info("Unable to locate suitable photometric counterpart catalog.")
                         return None
                     else:
-                        filter_str = 'r'
+                        filter_str = 'g'
                 else:
-                    filter_str = 'g'
+                    filter_str = 'r'
             else:
                 return None
 
@@ -492,6 +489,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
             #have to turn into mag ... need to know the filter
             mag = hsc_count_to_mag(filter_fl)
+            #actual mag with the error, not just the error as a +/-
             mag_bright = hsc_count_to_mag(filter_fl+filter_fl_err)
             mag_faint = hsc_count_to_mag(filter_fl-filter_fl_err)
 

@@ -1391,7 +1391,14 @@ def append_entry(fileh,det,overwrite=False):
                     row['flux'] = d.bid_flux_est_cgs
                     row['flux_err'] = d.bid_flux_est_cgs_unc
                     row['mag'] = d.bid_mag
-                    row['mag_err'] = 0.5 * (abs(d.bid_mag_err_bright) + abs(d.bid_mag_err_faint))
+
+                    #some report as a +/- error and some report as the mag-error, mag+error
+                    if d.bid_mag_err_bright / d.bid_mag > 0.5: #just a hard value
+                        #this "error" is the mag with the error, not the error along
+                        row['mag_err'] = 0.5 * (abs(d.bid_mag - d.bid_mag_err_bright) + abs(d.bid_mag - d.bid_mag_err_faint))
+                    else:
+                        #yes, this dilutes the error a bit, smaller to the bright, larger to the faint
+                        row['mag_err'] = 0.5 * (abs(d.bid_mag_err_bright) + abs(d.bid_mag_err_faint))
                     row['plae'] = d.p_lae_oii_ratio
 
                     try: #var might not exist
