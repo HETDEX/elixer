@@ -162,207 +162,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
     # so 17.0 is 17 pixel diameter aperture (~ 2.86" diamter or 1.4" radius (about 2 touching HETDEX fibers))
     #
 
-    ##----------------------------
-    ## Catalog Format
-    ##----------------------------
-
-    # 1   unique IDs
-    # 2   position in X [pixel]
-    # 3   position in Y [pixel]
-    # 4   position in RA [degree]
-    # 5   position in Dec [degree]
-
-    # 6   flux within 3.000000-pixel aperture
-    # 7   1-sigma flux uncertainty
-    # 8   General Failure Flag
-    # 9   magnitude within 3.000000-pixel aperture
-    # 10  1-sigma magnitude uncertainty
-
-    # 11  flux within 4.500000-pixel aperture
-    # 12  1-sigma flux uncertainty
-    # 13  General Failure Flag
-    # 14  magnitude within 4.500000-pixel aperture
-    # 15  1-sigma magnitude uncertainty
-
-    # 16  flux within 6.000000-pixel aperture
-    # 17  1-sigma flux uncertainty
-    # 18  General Failure Flag
-    # 19  magnitude within 6.000000-pixel aperture
-    # 20  1-sigma magnitude uncertainty
-
-    # 21  flux within 9.000000-pixel aperture
-    # 22  1-sigma flux uncertainty
-    # 23  General Failure Flag
-    # 24  magnitude within 9.000000-pixel aperture
-    # 25  1-sigma magnitude uncertainty
-
-    # 26  flux within 12.000000-pixel aperture
-    # 27  1-sigma flux uncertainty
-    # 28  General Failure Flag
-    # 29  magnitude within 12.000000-pixel aperture
-    # 30  1-sigma magnitude uncertainty
-
-    # 31  flux within 17.000000-pixel aperture
-    # 32  1-sigma flux uncertainty
-    # 33  General Failure Flag
-    # 34  magnitude within 17.000000-pixel aperture
-    # 35  1-sigma magnitude uncertainty
-
-    # 36  flux within 25.000000-pixel aperture
-    # 37  1-sigma flux uncertainty
-    # 38  General Failure Flag
-    # 39  magnitude within 25.000000-pixel aperture
-    # 40  1-sigma magnitude uncertainty
-
-    # 41  flux within 35.000000-pixel aperture
-    # 42  1-sigma flux uncertainty
-    # 43  General Failure Flag
-    # 44  magnitude within 35.000000-pixel aperture
-    # 45  1-sigma magnitude uncertainty
-
-    # 46  flux within 50.000000-pixel aperture'
-    # 47  1-sigma flux uncertainty
-    # 48  General Failure Flag
-    # 49  magnitude within 50.000000-pixel aperture
-    # 50  1-sigma magnitude uncertainty
-
-    # 51  flux within 70.000000-pixel aperture
-    # 52  1-sigma flux uncertainty
-    # 53  General Failure Flag
-    # 54  magnitude within 70.000000-pixel aperture
-    # 55  1-sigma magnitude uncertainty
-
-    # 56  flux derived from linear least-squares fit of PSF model
-    # 57  1-sigma flux uncertainty
-    # 58  General Failure Flag
-    # 59  magnitude derived from linear least-squares fit of PSF model
-    # 60  1-sigma magnitude uncertainty
-
-    # 61  convolved Kron flux: seeing 3.500000
-    # 62  1-sigma flux uncertainty
-    # 63  convolved Kron flux failed: seeing 3.500000
-    # 64  convolved magnitude: seeing 3.500000
-    # 65  1-sigma magnitude uncertainty
-
-    # 66  convolved Kron flux: seeing 5.000000
-    # 67  1-sigma flux uncertainty
-    # 68  convolved Kron flux failed: seeing 5.000000
-    # 69  convolved magnitude: seeing 5.00000
-    # 70  1-sigma magnitude uncertainty
-
-    # 71  convolved Kron flux: seeing 6.500000
-    # 72  1-sigma flux uncertainty
-    # 73  convolved Kron flux failed: seeing 6.500000
-    # 74  convolved magnitude: seeing 6.500000
-    # 75  1-sigma magnitude uncertainty
-
-    # 76  convolved Kron flux: seeing 8.000000
-    # 77  1-sigma flux uncertainty
-    # 78  convolved Kron flux failed: seeing 8.000000
-    # 79  convolved magnitude: seeing 8.000000
-    # 80  1-sigma magnitude uncertainty
-
-    # 81  flux from the final cmodel fit
-    # 82  flux uncertainty from the final cmodel fit
-    # 83  flag set if the final cmodel fit (or any previous fit) failed
-    # 84  magnitude from the final cmodel fit
-    # 85  magnitude uncertainty from the final cmodel fit
-
-    # 86  Number of children this object has (defaults to 0)
-    # 87  Source is outside usable exposure region (masked EDGE or NO_DATA)
-    # 88  Interpolated pixel in the Source center
-    # 89  Saturated pixel in the Source center
-    # 90  Cosmic ray in the Source center
-
-    # 91  Bad pixel in the Source footprint
-    # 92  Source center is close to BRIGHT_OBJECT pixels
-    # 93  Source footprint includes BRIGHT_OBJECT pixels
-    # 94  General Failure Flag
-
-    # 95  true if source is in the inner region of a coadd tract
-    # 96  true if source is in the inner region of a coadd patch
-    # 97  Number of images contributing at center, not including anyclipping
-    # 98  original seeing (Gaussian sigma) at position [pixel]
-
-
-
-    BidCols = [
-        'id',
-        'cpeak',
-        'peak',
-        'RA_DETECTION', #DON'T USE, ... use RA_MODELING instead
-        'Dec_DETECTION', #DON'T USE, ... use DEC_MODELING instead
-
-        'N_BLOB',                              # number of sources modeled simultaneously with this source
-        'VALID_SOURCE_MODELING' ,              # flag, True if model optimization succeeded, False if model optimization failed
-        'SOLMODEL_MODELING' ,                  # flag, indicates final model type for successful models (PointSource, SimpleGalaxy, ExpGalaxy, DevGalaxy, FixedCompositeGalaxy)
-        'CHISQ_MODELING_hsc_r'  ,              # chi-squared statistic during modeling as measured in the hsc-r band
-        'CHISQ_MODELING_hsc_i'  ,              # chi-squared statistic during modeling as measured in the hsc-i band
-        'CHISQ_MODELING_hsc_z'  ,              # chi-squared statistic during modeling as measured in the hsc-z band
-
-
-        'RA_MODELING'      ,                   # right ascension (J2000) of source determined during model optimization; unit = 'deg'
-        'DEC_MODELING'  ,                      # declination (J2000) of source determined during model optimization; unit = 'de
-
-        'MAG_hsc_g'    ,                         # AB magnitude; unit = 'mag'
-        'MAGERR_hsc_g'  ,                        # AB magnitude error; unit = 'mag'
-        'FLUX_hsc_g'   ,                         # flux; unit = 'uJy'
-        'FLUXERR_hsc_g'  ,                       # flux error; unit = 'uJy'
-        'CHISQ_hsc_g',
-
-        'MAG_hsc_r'    ,                         # AB magnitude; unit = 'mag'
-        'MAGERR_hsc_r'  ,                        # AB magnitude error; unit = 'mag'
-        'FLUX_hsc_r'   ,                         # flux; unit = 'uJy'
-        'FLUXERR_hsc_r'  ,                       # flux error; unit = 'uJy'
-        'CHISQ_hsc_r',
-
-        'MAG_hsc_i'    ,                         # AB magnitude; unit = 'mag'
-        'MAGERR_hsc_i'  ,                        # AB magnitude error; unit = 'mag'
-        'FLUX_hsc_i'   ,                         # flux; unit = 'uJy'
-        'FLUXERR_hsc_i'  ,                       # flux error; unit = 'uJy'
-        'CHISQ_hsc_i',
-
-        'MAG_hsc_z'    ,                         # AB magnitude; unit = 'mag'
-        'MAGERR_hsc_z'  ,                        # AB magnitude error; unit = 'mag'
-        'FLUX_hsc_z'   ,                         # flux; unit = 'uJy'
-        'FLUXERR_hsc_z'  ,                       # flux error; unit = 'uJy'
-        'CHISQ_hsc_z',
-
-        'MAG_hsc_y'    ,                         # AB magnitude; unit = 'mag'
-        'MAGERR_hsc_y'  ,                        # AB magnitude error; unit = 'mag'
-        'FLUX_hsc_y'   ,                         # flux; unit = 'uJy'
-        'FLUXERR_hsc_y'  ,                       # flux error; unit = 'uJy'
-        'CHISQ_hsc_y',
-
-        'MAG_irac_ch1'    ,                         # AB magnitude; unit = 'mag'
-        'MAGERR_irac_ch1'  ,                        # AB magnitude error; unit = 'mag'
-        'FLUX_irac_ch1'   ,                         # flux; unit = 'uJy'
-        'FLUXERR_irac_ch1'  ,                       # flux error; unit = 'uJy'
-        'CHISQ_irac_ch1',
-
-
-        'MAG_irac_ch2'    ,                         # AB magnitude; unit = 'mag'
-        'MAGERR_irac_ch2'  ,                        # AB magnitude error; unit = 'mag'
-        'FLUX_irac_ch2'   ,                         # flux; unit = 'uJy'
-        'FLUXERR_irac_ch2'  ,                       # flux error; unit = 'uJy'
-        'CHISQ_irac_ch2',
-
-        'nusefilt' ,                           # number of filters used for photo-z
-        'lc_min'    ,                          # minimum effective wavelength of valid filters, Angstrom
-        'lc_max'     ,                         # maximum effective wavelength of valid filters, Angstrom
-        'z_raw_chi2'  ,                        # redshift where chi2 is minimized
-        'z_phot_chi2'  ,                       # min chi2
-        'z025',                                # 2.5 percentile of pdf(z) (2-sigma)
-        'z160',                                # 16 percentile of pdf(z) (1-sigma)
-        'z500',                                # 50 percentile of pdf(z)
-        'z840',                                # 84 percentile of pdf(z) (1-sigma)
-        'z975',                                # 97.5 percentile of pdf(z) (2-sigma)
-
-        'PSTAR_chi2',                          # chi-squared of best stellar template, using the PHOENIX stellar library
-        'LSTAR_chi2' ,                         # chi-squared of best stellar template, using the LePhare stellar librar
-        'EBV'  ,                               # E(B-V) values from Schlegel, Finkbeiner & Davis (1998) dust map, with 2011 recalibration; unit = 'mag'
-        'tract_id',                            # The tract id corresponds to a region of the sky pre-defined by the HSC-SSP team.
-        ]
+    BidCols = []
 
 
     CatalogImages = [] #built in constructor (like the Tile_Dict, but is populated with actual cutouts as they are made
@@ -378,8 +178,10 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         self.build_catalog_of_images()
 
     @classmethod
-    def read_catalog(cls, catalog_loc=None, name=None,tract=None,position=None):
+    def read_catalog(cls, catalog_loc=None, name=None,tract=None,position=None, tile=None):
         """
+
+        There is not a singluar catalog for HSC-SSP ... each tile has its own.
 
         :param catalog_loc:
         :param name:
@@ -393,72 +195,96 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
         log.debug("!!!!!!!!!!!!!!!!!!!!!!TODO: catalog for HSC SSP !!!!!!!!!!!!!!!!!!!!!!")
 
-        return None
+        #return None
+        try:
+            filter_str = 'x'
+            if tile is not None and '?' in tile:
+                tileX = tile.replace("-?-","-G-") #get the 'R' filter catalog
+                if tileX not in cls.Tile_Dict.keys():
+                    tileX = tile.replace("-?-","-R-")
+                    if tileX not in cls.Tile_Dict.keys():
+                        log.info("Unable to locate sutable photometric counterpart catalog.")
+                        return None
+                    else:
+                        filter_str = 'r'
+                else:
+                    filter_str = 'g'
+            else:
+                return None
 
-        fqtract = [op.join(cls.HSC_CAT_PATH,"H20_NEP_subset_catalog.fits"),]
 
-        # fqtract =[] #fully qualified track (as a partial path)
-        # if (tract is not None) and (len(tract) > 0) and (position is not None) and (len(position) == len(tract)): #should be a list of positions and the same length as tract
-        #
-        #     for i in range(len(tract)):
-        #         fqtract.append(op.join(tract[i],"R_P%d_%d.cat" %(position[i][0],position[i][1])))
-        # else:
-        #     log.warning("Unexpected tract and positions in cat_hsc::read_catalogs: %s, %s" %(str(tract),str(position)))
-        #     return None
-        #
+            #turn tileX into the catalog name
+            #ie.g srcMatchFull-HSC-G-10056-0,0.fits
+            cat_name = tileX.replace("calexp","srcMatchFull")
 
-        if set(fqtract).issubset(cls.loaded_tracts):
-            log.info("Catalog tract (%s) already loaded." %fqtract)
+            #get the path
+            fqtract = [op.join(op.dirname(cls.Tile_Dict[tileX]['path']),cat_name),]
+
+            if set(fqtract).issubset(cls.loaded_tracts):
+                log.info("Catalog tract (%s) already loaded." %fqtract)
+                return cls.df
+
+            #todo: future more than just the R filter if any are ever added
+            for t in fqtract:
+                if t in cls.loaded_tracts: #skip if already loaded
+                    continue
+
+                cat_name = op.basename(t)
+                cat_loc = t
+                #header = cls.BidCols
+
+                if not op.exists(cat_loc):
+                    log.error("Cannot load catalog tract for HSC. File does not exist: %s" %cat_loc)
+
+                log.debug("Building " + cls.Name + " " + cat_name + " dataframe...")
+
+                try:
+                    table = astropy.table.Table.read(cat_loc,hdu=1)#,format='fits'# )
+                    table.keep_columns(['src_id','src_coord_ra','src_coord_dec','distance',
+                                        'src_base_CircularApertureFlux_3_0_instFlux','src_base_CircularApertureFlux_3_0_instFluxErr',
+                                        'src_ext_photometryKron_KronFlux_instFlux','src_ext_photometryKron_KronFlux_instFluxErr',
+                                        'src_ext_photometryKron_KronFlux_radius','src_ext_photometryKron_KronFlux_psf_radius'])
+
+                    #the RA and Dec are in RADIANS
+                    table['src_coord_ra'] *= 180.0/np.pi
+                    table['src_coord_dec'] *= 180.0/np.pi
+
+                    #add the filter so we can identify it later
+                    table['filter_str'] = filter_str
+
+                except Exception as e:
+                    if type(e) is astropy.io.registry.IORegistryError:
+                        log.error(name + " Exception attempting to open catalog file: (IORegistryError, bad format)" + cat_loc, exc_info=False)
+                    else:
+                        log.error(name + " Exception attempting to open catalog file: " + cat_loc, exc_info=True)
+                    continue #try the next one  #exc_info = sys.exc_info()
+
+
+                try:
+                    df = table.to_pandas()
+                    #df = pd.read_csv(cat_loc, names=header,
+                    #                 delim_whitespace=True, header=None, index_col=None, skiprows=0)
+
+                    old_names = ['src_coord_ra','src_coord_dec']
+                    new_names = ['RA','DEC']
+                    df.rename(columns=dict(zip(old_names, new_names)), inplace=True)
+
+                   # df['FILTER'] = 'r' #add the FILTER to the dataframe !!! case is important. must be lowercase
+
+                    if cls.df is not None:
+                        cls.df = pd.concat([cls.df, df])
+                    else:
+                        cls.df = df
+                    cls.loaded_tracts.append(t)
+
+                except:
+                    log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
+                    continue
+
             return cls.df
-
-
-
-        #todo: future more than just the R filter if any are ever added
-        for t in fqtract:
-            if t in cls.loaded_tracts: #skip if already loaded
-                continue
-
-            cat_name = t
-            cat_loc = op.join(cls.HSC_CAT_PATH, cat_name)
-            header = cls.BidCols
-
-            if not op.exists(cat_loc):
-                log.error("Cannot load catalog tract for HSC. File does not exist: %s" %cat_loc)
-
-            log.debug("Building " + cls.Name + " " + cat_name + " dataframe...")
-
-            try:
-                table = astropy.table.Table.read(cat_loc)#,format='fits')
-            except Exception as e:
-                if type(e) is astropy.io.registry.IORegistryError:
-                    log.error(name + " Exception attempting to open catalog file: (IORegistryError, bad format)" + cat_loc, exc_info=False)
-                else:
-                    log.error(name + " Exception attempting to open catalog file: " + cat_loc, exc_info=True)
-                continue #try the next one  #exc_info = sys.exc_info()
-
-
-            try:
-                df = table.to_pandas()
-                #df = pd.read_csv(cat_loc, names=header,
-                #                 delim_whitespace=True, header=None, index_col=None, skiprows=0)
-
-                old_names = ['RA_MODELING','DEC_MODELING']
-                new_names = ['RA','DEC']
-                df.rename(columns=dict(zip(old_names, new_names)), inplace=True)
-
-               # df['FILTER'] = 'r' #add the FILTER to the dataframe !!! case is important. must be lowercase
-
-                if cls.df is not None:
-                    cls.df = pd.concat([cls.df, df])
-                else:
-                    cls.df = df
-                cls.loaded_tracts.append(t)
-
-            except:
-                log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
-                continue
-
-        return cls.df
+        except:
+            log.error("Exception!",exc_info=True)
+            return None
 
 
     def get_mag_limit(self,image_identification=None,aperture_diameter=None):
@@ -659,19 +485,15 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         filter_str=None
 
         try:
-            if df['FLUX_hsc_r'].values[0]:
-                filter_str = 'r'
-            elif df['FLUX_hsc_gr'].values[0]:
-                filter_str = 'g'
-            else:
-                log.info("Unable to use r or g filter flux.")
+            filter_str = df['filter_str'].values[0]
+            #the values here are in counts and I need to know how to convert ....
+            filter_fl = df['src_ext_photometryKron_KronFlux_instFlux'].values[0]
+            filter_fl_err = df['src_ext_photometryKron_KronFlux_instFluxErr'].values[0]
 
-            if filter_str:
-                filter_fl = df['FLUX_hsc_'+filter_str].values[0]
-                filter_fl_err = df['FLUXERR_hsc_'+filter_str].values[0]
-                mag = df['MAG_hsc_'+filter_str].values[0]
-                mag_bright = mag - df['MAGERR_hsc_'+filter_str].values[0]
-                mag_faint = mag + df['MAGERR_hsc_'+filter_str].values[0]
+            #have to turn into mag ... need to know the filter
+            mag = hsc_count_to_mag(filter_fl)
+            mag_bright = hsc_count_to_mag(filter_fl+filter_fl_err)
+            mag_faint = hsc_count_to_mag(filter_fl-filter_fl_err)
 
         except:
             log.error("Exception in cat_hsc_nep.get_filter_flux", exc_info=True)
@@ -701,7 +523,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         if self.df is None or not (set(tracts).issubset(self.loaded_tracts)):
             #self.read_main_catalog()
             #self.read_catalog(tract=self.Tile_Dict[tile]['tract'])
-            self.read_catalog(tract=tracts,position=positions)
+            self.read_catalog(tile=tile,tract=tracts,position=positions)
 
         error_in_deg = np.float64(error) / 3600.0
 

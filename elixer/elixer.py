@@ -3871,10 +3871,6 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                 except:
                     log.debug("Exception! adding zoom box to mini-cutout.",exc_info=True)
 
-
-        # cat = cat_base.Catalog()
-            # cat.add_north_box(plt, sci, line_image, distance, line_image.shape[0]/2.0/pixscale, line_image.shape[0]/2.0/pixscale, theta=np.pi/2.0)
-
             plt.savefig(line_buf, format='png', dpi=300, transparent=True)
         else:
             im_ext = line_image.shape[0] * pixscale / 2.
@@ -3912,6 +3908,9 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     #     y = ext/2.0
     #     vmin = None
     #     vmax = None
+
+    #generic catalog for the utilities (use in a few place below)
+    cat = cat_base.Catalog()
 
     if line_image is not None:
         gs = gridspec.GridSpec(row_step*(num_rows+1),10) #rows, columns #one extra row for the line_image
@@ -3955,8 +3954,6 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                                                       angle=0.0, color=neighbor_color, fill=False, linewidth=1.0, zorder=2))
 
 
-                    #generic catalog for the utilities
-                    cat = cat_base.Catalog()
                     cat.add_north_box(plt, sci, master_cutout, distance, 0, 0, theta=None)
 
                 except:
@@ -4021,7 +4018,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             #special case for line image
             if i == 0 and line_image is not None: #second position
                 gs_idx += 1
-                plt.subplot(gs[gs_idx*row_step+1:(gs_idx+1)*row_step-1,0:3])
+                plt.subplot(gs[gs_idx*row_step+1:(gs_idx+1)*row_step-1,0:3]) #,projection=master_cutout.wcs)
 
                 i_ext = ext #distance * 1.5 #ext for the line image can be on a different scale than master_cutout
 
@@ -4032,22 +4029,30 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                 #
                 # log.info(f"Neighborhood map line_image pixelscale/master_cutout {diff_pix}")
 
-                plt.imshow(line_image.data, origin='lower', interpolation='none',#cmap=plt.get_cmap('gray_r'),
-                           vmin=line_image.vmin, vmax=line_image.vmax, extent=[-i_ext, i_ext, -i_ext, i_ext])
+                #if line_buf is not None:
+                if False:
+                   line_buf.seek(0)
+                   rot_line_image = PIL_Image.open(line_buf)
+                   plt.imshow(rot_line_image,# origin='lower', interpolation='none',#cmap=plt.get_cmap('gray_r'),
+                              vmin=line_image.vmin, vmax=line_image.vmax)#, extent=[-i_ext, i_ext, -i_ext, i_ext])
+                else:
 
-                #plt.colorbar()#,fraction=0.07)#,anchor=(0.3,0.0))
+                    plt.imshow(line_image.data, origin='lower', interpolation='none',#cmap=plt.get_cmap('gray_r'),
+                              vmin=line_image.vmin, vmax=line_image.vmax,extent=[-i_ext, i_ext, -i_ext, i_ext])
 
-                plt.xticks([int(i_ext), int(i_ext / 2.), 0, int(-i_ext / 2.), int(-i_ext)])
-                plt.yticks([int(i_ext), int(i_ext / 2.), 0, int(-i_ext / 2.), int(-i_ext)])
 
-                #zero position box (the detection)
-                plt.gca().add_patch(plt.Rectangle(( 0 - target_box_side / 2.0,  0 - target_box_side / 2.0),
-                                              width=target_box_side, height=target_box_side,
-                                              angle=0.0, color=neighbor_color, fill=False, linewidth=1.0, zorder=2))
+                    #plt.colorbar()#,fraction=0.07)#,anchor=(0.3,0.0))
 
-                #generic catalog for the utilities
-                cat = cat_base.Catalog()
-                cat.add_north_box(plt, sci, line_image, distance, 0, 0, theta=None)#np.pi/2.0)
+                    plt.xticks([int(i_ext), int(i_ext / 2.), 0, int(-i_ext / 2.), int(-i_ext)])
+                    plt.yticks([int(i_ext), int(i_ext / 2.), 0, int(-i_ext / 2.), int(-i_ext)])
+
+                    #zero position box (the detection)
+                    plt.gca().add_patch(plt.Rectangle(( 0 - target_box_side / 2.0,  0 - target_box_side / 2.0),
+                                                  width=target_box_side, height=target_box_side,
+                                                  angle=0.0, color=neighbor_color, fill=False, linewidth=1.0, zorder=2))
+
+
+                    cat.add_north_box(plt, sci, line_image, distance, 0, 0, theta=None)#np.pi/2.0)
 
                 #add other detections
                 # cx, cy = sci.get_position(ra, dec, line_image)
