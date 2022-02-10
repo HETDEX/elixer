@@ -569,6 +569,9 @@ class DetObj:
         self.elixer_version = G.__version__
         self.elixer_datetime = time.strftime("%Y-%m-%d %H:%M:%S")
 
+        self.nei_mini_buf = None #image holder for neighborhood
+        self.line_mini_buf = None
+
         self.phot_z_votes = []
         self.cluster_parent = 0 #detectid of anohter HETDEX source that is the cluster (specifically, redshift) for this object
         self.cluster_z = -1

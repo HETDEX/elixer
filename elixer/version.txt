@@ -2,6 +2,8 @@ changes to elixer by version
 
 1.16.0a4 [2022-02-10]
 * fix bad tile selection where tile RA crosses the 0/360 degree boundary
+* fix issue with mini's where in chain mode (not dispatch) the neighborhood map and line image are overwritten by the
+  last run before the mini's are produced (so all get the same map and line image).
 
 1.16.0a3 [2022-02-09]
 * update mini to add line image cutout

@@ -3605,7 +3605,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                 pixscale = 0.25 #make the line image on the same scale as the master_cutout for easier mapping
                 line_image = science_image.get_line_image(plt,friendid=None,detectid=None,
                                                           coords=SkyCoord(ra=ra,dec=dec,frame='icrs',unit='deg'),
-                                                          shotid=primary_shotid, subcont=True, convolve_image=True,
+                                                          shotid=primary_shotid, subcont=True, convolve_image=False,
                                                           pixscale=pixscale, imsize=3*distance,
                                                           wave_range=wave_range,
                                                           sigma=None,
@@ -3824,7 +3824,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
             line_image = science_image.get_line_image(plt,friendid=None,detectid=None,
                                                       coords=SkyCoord(ra=ra,dec=dec,frame='icrs',unit='deg'),
-                                                      shotid=primary_shotid, subcont=True, convolve_image=True,
+                                                      shotid=primary_shotid, subcont=True, convolve_image=False,
                                                       pixscale=pixscale, imsize=3*distance,
                                                       wave_range=wave_range,
                                                       sigma=None,
@@ -5092,6 +5092,9 @@ def main():
                                            broad_hdf5=G.HDF5_BROAD_DETECT_FN,
                                            primary_shotid=e.survey_shotid,
                                            wave_range=wave_range)
+
+                        e.nei_mini_buf = nei_mini_buf
+                        e.line_mini_buf = line_mini_buf
                     except:
                         log.warning("Exception calling build_neighborhood_map.",exc_info=True)
 
@@ -5120,14 +5123,15 @@ def main():
                         mini_name = os.path.join(pdf.basename, str(e.entry_id) + "_mini.png")
                     else:
                         mini_name = os.path.join(pdf.basename, e.pdf_name.rstrip(".pdf") + "_mini.png")
+
                     build_3panel_zoo_image(fname=mini_name,
                                            image_2d_fiber=e.image_2d_fibers_1st_col,
                                            image_1d_fit=e.image_1d_emission_fit,
                                            image_cutout_fiber_pos=e.image_cutout_fiber_pos,
-                                           image_cutout_neighborhood=nei_mini_buf,
+                                           image_cutout_neighborhood=e.nei_mini_buf,
                                            image_cutout_fiber_pos_size=args.error,
                                            image_cutout_neighborhood_size=args.neighborhood,
-                                           line_image_cutout=line_mini_buf)
+                                           line_image_cutout=e.line_mini_buf)
 
 
         # really has to be here (hd_list is reset on each loop and the "recover" will not work otherwise)
