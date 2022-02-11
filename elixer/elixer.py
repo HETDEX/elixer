@@ -3100,13 +3100,16 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
         else:
             log.info("Warning! Unable to fully populate mini report. Neighborhood cutout is None.")
 
-        # #new line image
-        if line_image_cutout is not None:
-            ax5 = fig.add_subplot(gs[38:,0:])#,gridspec_kw = {'wspace':0, 'hspace':0})
-            ax5.set_axis_off()
-            line_image_cutout.seek(0)
-            im5 = PIL_Image.open(line_image_cutout)
-            ax5.imshow(im5)
+        #new line image
+        try:
+            if line_image_cutout is not None:
+                ax5 = fig.add_subplot(gs[38:,0:])#,gridspec_kw = {'wspace':0, 'hspace':0})
+                ax5.set_axis_off()
+                line_image_cutout.seek(0)
+                im5 = PIL_Image.open(line_image_cutout)
+                ax5.imshow(im5)
+        except:
+            pass #sometimes the line_image call fails and there is nothing in it
 
 
 

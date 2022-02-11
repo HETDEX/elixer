@@ -98,9 +98,9 @@ class CatalogLibrary:
             self.cats.append(cat_goods_n.GOODS_N())
             # self.cats.append(cat_goods_n_finkelstein.GOODS_N_FINKELSTEIN())
             # self.cats.append(EGS_GROTH()) #this is of no value right now
-            #print("!!!!! TURNED OFF SHELA and COSMOS !!!!!!!!!!")
-            self.cats.append(cat_stack_cosmos.STACK_COSMOS())
-            self.cats.append(cat_shela.SHELA())
+            print("!!!!! TURNED OFF SHELA and COSMOS !!!!!!!!!!")
+            #self.cats.append(cat_stack_cosmos.STACK_COSMOS())
+            #self.cats.append(cat_shela.SHELA())
             self.cats.append(cat_hsc.HSC())
             self.cats.append(cat_hsc_ssp.HSC_SSP())
             self.cats.append(cat_kpno.KPNO())
