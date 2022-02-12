@@ -6,6 +6,7 @@ changes to elixer by version
 * fix issue with mini's where in chain mode (not dispatch) the neighborhood map and line image are overwritten by the
   last run before the mini's are produced (so all get the same map and line image).
 * add explicit high continuum, no strong emission lines vote for not LyA
+* updated cosmology for PLAE/POII to use HETDEX consistent Planck18 values
 
 
 1.16.0a3 [2022-02-09]

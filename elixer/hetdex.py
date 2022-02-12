@@ -1916,7 +1916,7 @@ class DetObj:
                     pass
 
             #else there are no multi-line classification solutions
-            elif scaled_plae_classification < 0.3: #not LyA ... could still be high-z
+            elif scaled_plae_classification < 0.4: #not LyA ... could still be high-z
 
                 #usually OII execpt if REALLY broad, then more likely MgII or CIV. but have to mark as OII, just lower the Q(z)
                 try:
@@ -1959,7 +1959,7 @@ class DetObj:
                         p = min(p,0.4)
 
                     log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
-            elif scaled_plae_classification > 0.7:
+            elif scaled_plae_classification > 0.6:
                 z= self.w / G.LyA_rest - 1.0
                 rest = G.LyA_rest
 
