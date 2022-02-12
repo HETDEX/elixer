@@ -3429,7 +3429,7 @@ class DetObj:
                         max_score_idx = np.argmax([x.line_score for x in self.spec_obj.all_found_lines])
 
                         if self.spec_obj.all_found_lines[max_score_idx].line_score < 5.0 or \
-                          (self.spec_obj.all_found_lines[max_score_idx].eqw_obs < 10 and \
+                          (self.spec_obj.all_found_lines[max_score_idx].eqw_obs / (self.w / G.LyA_rest) < 10 and \
                            self.spec_obj.all_found_lines[max_score_idx].fwhm < 10): #no strong lines
 
                             var.append(1)
