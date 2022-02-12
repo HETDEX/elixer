@@ -3406,6 +3406,50 @@ class DetObj:
             except:
                 log.debug("Exception in aggregate_classification for size_in_psf",exc_info=True)
 
+
+        ################################
+        # continuum + many lines LZG votes
+        #
+        #################################
+        try:
+        #basically, if bright and many lines and no line with large EW, this is probably a low-z galaxy
+            if (self.best_gmag is not None and self.best_gmag < 21 and self.spec_obj is not None):
+                all_emis = 0
+                all_absb = 0
+
+                if self.spec_obj.all_found_lines is not None:
+                    all_emis = len(self.spec_obj.all_found_lines)
+
+                if self.spec_obj.all_found_absorbs is not None:
+                    all_absb = len(self.spec_obj.all_found_absorbs)
+
+                if (all_emis + all_absb) > 5:
+                    try:
+                        #max fwhm can be a bad fit and not much of a line, but can be quite large
+                        max_score_idx = np.argmax([x.line_score for x in self.spec_obj.all_found_lines])
+
+                        if self.spec_obj.all_found_lines[max_score_idx].line_score < 5.0 or \
+                          (self.spec_obj.all_found_lines[max_score_idx].eqw_obs < 10 and \
+                           self.spec_obj.all_found_lines[max_score_idx].fwhm < 10): #no strong lines
+
+                            var.append(1)
+                            likelihood.append(0)
+                            weight.append(1)
+                            prior.append(base_assumption)
+                            log.info(
+                                f"{self.entry_id} Aggregate Classification: LzG likely: lk({likelihood[-1]}) weight({weight[-1]})")
+                    except:
+                        pass
+
+        except:
+            log.debug("Exception in aggregate_classification for LZG check",exc_info=True)
+
+
+
+        #################################
+        # Multiline Solution votes
+        #################################
+
         #
         # Elixer solution finder
         # not just a best solution, but look at all (could be, say, both OIII (5007) and HBeta are really high, so
@@ -3440,7 +3484,7 @@ class DetObj:
                             var.append(1)  #todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
                             log.info(
-                                f"{self.entry_id} Aggregate Classification: high-z solution: z({s.z}) lk({likelihood[-1]}) "
+                                f"{self.entry_id} Aggregate Classification: LyA solution: z({s.z}) lk({likelihood[-1]}) "
                                 f"weight({weight[-1]}) score({s.score}) scaled score({s.scale_score})")
 
                         else: #suggesting NOT LAE consistent
@@ -3449,7 +3493,7 @@ class DetObj:
                             var.append(1)  #todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
                             log.info(
-                                f"{self.entry_id} Aggregate Classification: low-z solution: z({s.z}) lk({likelihood[-1]}) "
+                                f"{self.entry_id} Aggregate Classification: non-LyA solution: z({s.z}) lk({likelihood[-1]}) "
                                 f"weight({weight[-1]}) score({s.score}) scaled score({s.scale_score})")
                     else: #low score, but can still impact
                         #this can be a problem for items like 1000637691 which get reduced score, but is clearly a non-LAE multi-line
@@ -3471,7 +3515,7 @@ class DetObj:
                             var.append(1)  # todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
                             log.info(
-                                f"{self.entry_id} Aggregate Classification: high-z weak solution: z({s.z}) lk({likelihood[-1]}) "
+                                f"{self.entry_id} Aggregate Classification: LyA weak solution: z({s.z}) lk({likelihood[-1]}) "
                                 f"weight({weight[-1]}) score({s.score}) scaled score({s.scale_score})")
                         else:  # suggesting NOT LAE consistent
                             #likelihood.append(1. - s.scale_score)
@@ -3481,7 +3525,7 @@ class DetObj:
                             var.append(1)  # todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
                             log.info(
-                                f"{self.entry_id} Aggregate Classification: low-z weak solution: z({s.z}) lk({likelihood[-1]}) "
+                                f"{self.entry_id} Aggregate Classification: non-LyA weak solution: z({s.z}) lk({likelihood[-1]}) "
                                 f"weight({weight[-1]}) score({s.score}) scaled score({s.scale_score})")
 
                     # does this match with a physical size from above?

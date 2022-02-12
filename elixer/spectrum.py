@@ -6588,6 +6588,7 @@ class Spectrum:
                                         l.eli = l #self referencing ... has same fields
                                         l.broad = l.broadfit
                                         l.tentative = True #extra property
+                                        l.rank = lineinfo.rank
 
                                         sol.score += l.line_score
                                         sol.lines.append(l)
