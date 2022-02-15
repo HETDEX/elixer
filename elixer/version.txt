@@ -2,6 +2,8 @@ changes to elixer by version
 
 1.16.0a5 [2022-02-15]
 * turn off DECam (SHELA and stackCOSMOS catalogs)
+* for *_mini.png, collect a sqrt(2) larger line image to handle any rotation issues. For main report and neighbors, still
+  use smaller size with North box rather than rotate to the master_cutout WCS.
 
 1.16.0a4 [2022-02-12]
 * fix bad tile selection where tile RA crosses the 0/360 degree boundary

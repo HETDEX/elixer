@@ -3187,10 +3187,13 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
            # plt.plot([0, 410], [1050,1050], color='r', lw=5) ##1c1c1e
             plt.plot([0, 400], [1050,1050], color='#1c1c1e', lw=5) ##1c1c1e
 
-            #plt.scatter(0,0,s=20,color='r')
-            #don't forget there is an extra border (about 25pix) around it, 0,0 is top left
-            plt.plot([528, 415], [576, 340], color='r', lw=0.5,ls="--") #lower left (bottom) to lower left (top) [x,x],[y,y]
-            plt.plot([625, 735], [576, 340], color='r', lw=0.5,ls="--") #lower right (bottom) to lower right (top)
+
+            #zoom lines ... but they depend on the distance
+            if image_cutout_neighborhood_size == 10:
+                #plt.scatter(0,0,s=20,color='r')
+                #don't forget there is an extra border (about 25pix) around it, 0,0 is top left
+                plt.plot([528, 415], [576, 340], color='r', lw=0.5,ls="--") #lower left (bottom) to lower left (top) [x,x],[y,y]
+                plt.plot([625, 735], [576, 340], color='r', lw=0.5,ls="--") #lower right (bottom) to lower right (top)
 
 
             # plt.plot([510,387],[622,112],color='r',lw=1) # upper left to upper left
@@ -3615,20 +3618,32 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     if just_mini_cutout: #stop here
         #need to still get the line image
 
-        line_image = None
+        mini_line_image = None
         try:
             if primary_shotid is not None and wave_range is not None:
+
+                try:
+                    if master_cutout is not None:
+                        pixscale = sci.calc_pixel_size(master_cutout.wcs)
+                        max_rotation_resize = np.sqrt(2.)
+                    else:
+                        pixscale = 0.25 #make the line image on the same scale as the master_cutout for easier mapping
+                        max_rotation_resize = 1.0
+                except:
+                    pixscale = 0.25 #make the line image on the same scale as the master_cutout for easier mapping
+                    max_rotation_resize = 1.0
+
                 pixscale = 0.25 #make the line image on the same scale as the master_cutout for easier mapping
-                line_image = science_image.get_line_image(plt,friendid=None,detectid=None,
+                mini_line_image = science_image.get_line_image(plt,friendid=None,detectid=None,
                                                           coords=SkyCoord(ra=ra,dec=dec,frame='icrs',unit='deg'),
                                                           shotid=primary_shotid, subcont=True, convolve_image=False,
-                                                          pixscale=pixscale, imsize=3*distance,
+                                                          pixscale=pixscale, imsize=3*distance*max_rotation_resize,
                                                           wave_range=wave_range,
                                                           sigma=None,
                                                           return_coords=False)
         except:
             log.warning("Exception building line image",exc_info=True)
-            line_image = None
+            mini_line_image = None
 
         plt.close('all')
 
@@ -3639,21 +3654,23 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
             if master_cutout is not None:
                 if ext is None or ext == 0: #use the existing extent first
-                    ext = line_image.shape[0] * pixscale / 2.
+                    ext = mini_line_image.shape[0] * pixscale / 2.
 
                 im_ax = fig.add_subplot(111,projection=master_cutout.wcs) #plt.subplot(111,projection=master_cutout.wcs)
 
-                plt.imshow(line_image.data, origin='lower', interpolation='None', #extent=[-ext, ext, -ext, ext],
-                           vmin=line_image.vmin,vmax=line_image.vmax,#cmap=plt.get_cmap('gray_r'),
-                           transform=im_ax.get_transform(line_image.wcs))
-                #,cmap=plt.get_cmap('gray_r'))
+                plt.imshow(mini_line_image.data, origin='lower', interpolation='None', #extent=[-ext, ext, -ext, ext],
+                           vmin=mini_line_image.vmin,vmax=mini_line_image.vmax,#cmap=plt.get_cmap('gray_r'),
+                           transform=im_ax.get_transform(mini_line_image.wcs))
                 im_ax.set_axis_off()
 
+                #on the same pixel scale by design (uses the master_cutout pixel scale) ... off by, at most 1/2 pixel and are square
+                #so use the master_cutout shape to "trim" off the excess collected to deal with potential rotations to align WCS
+                im_ax.set_xlim(-0.5, master_cutout.data.shape[1] - 0.5)
+                im_ax.set_ylim(-0.5, master_cutout.data.shape[0] - 0.5)
 
                 if original_distance is not None and original_distance > 0:
                     #add zoom window
                     try:
-
                         box_ratio = original_distance / distance
 
                         xl,xr = plt.gca().get_xlim()
@@ -3672,9 +3689,9 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
                 plt.savefig(line_buf, format='png', dpi=300, transparent=True)
             else:
-                im_ext = line_image.shape[0] * pixscale / 2.
-                plt.imshow(line_image.data, origin='lower', interpolation='none', #extent=[-im_ext, im_ext, -im_ext, im_ext],
-                           vmin=line_image.vmin,vmax=line_image.vmax)#,cmap=plt.get_cmap('gray_r'))
+                im_ext = mini_line_image.shape[0] * pixscale / 2.
+                plt.imshow(mini_line_image.data, origin='lower', interpolation='none', #extent=[-im_ext, im_ext, -im_ext, im_ext],
+                           vmin=mini_line_image.vmin,vmax=mini_line_image.vmax)#,cmap=plt.get_cmap('gray_r'))
                 plt.gca().set_axis_off()
                 plt.savefig(line_buf, format='png', dpi=300, transparent=True)
         except:
@@ -3827,28 +3844,43 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
 
     #make the line cutout
+    mini_line_image = None #"mini" in that it is for the *_mini.png, but it is acutally a larger cutout size
     line_image = None
     try:
         if primary_shotid is not None and wave_range is not None:
 
-            pixscale = 0.25 #make the line image on the same scale as the master_cutout for easier mapping
             try:
                 if master_cutout is not None:
                     pixscale = sci.calc_pixel_size(master_cutout.wcs)
+                    max_rotation_resize = np.sqrt(2.)
+                else:
+                    pixscale = 0.25 #make the line image on the same scale as the master_cutout for easier mapping
+                    max_rotation_resize = 1.0
             except:
-                pass
+                pixscale = 0.25 #make the line image on the same scale as the master_cutout for easier mapping
+                max_rotation_resize = 1.0
 
-            #max_rotation_resize = np.sqrt(2.) #failed attempt to multiply by root(2) to get a larger cutout for the worst
-            #case rotation to be able to cover the edges ... does not play well with the WCS transform
-            line_image = science_image.get_line_image(plt,friendid=None,detectid=None,
+            mini_line_image = science_image.get_line_image(plt,friendid=None,detectid=None,
                                                       coords=SkyCoord(ra=ra,dec=dec,frame='icrs',unit='deg'),
                                                       shotid=primary_shotid, subcont=True, convolve_image=False,
-                                                      pixscale=pixscale, imsize=3*distance,
+                                                      pixscale=pixscale, imsize=3*distance*max_rotation_resize,
                                                       wave_range=wave_range,
                                                       sigma=None,
                                                       return_coords=False)
+
+            #for convenience at this point, make a smaller version that will not be rotated and is part of the neighborhood
+            if master_cutout is not None:
+                line_image = copy.deepcopy(mini_line_image)
+                m0,m1 = master_cutout.data.shape
+                l0,l1 = line_image.data.shape
+                c0 = int(0.5*(l0-m0))
+                c1 = int(0.5*(l1-m1)) #these should be square, so c0 should == c1
+                line_image.data = line_image.data[c0:l0-c0,c1:l1-c1]
+            else:
+                line_image = mini_line_image
     except:
         log.warning("Exception building line image",exc_info=True)
+        mini_line_image = None
         line_image = None
 
     try:
@@ -3857,20 +3889,27 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         line_buf = io.BytesIO()
 
         if master_cutout is not None:
+
+            my,mx = np.shape(master_cutout.data)
+
             if ext is None or ext == 0: #use the existing extent first
-                ext = line_image.shape[0] * pixscale / 2.
+                ext = mini_line_image.shape[0] * pixscale / 2.
 
             im_ax = fig.add_subplot(111,projection=master_cutout.wcs) #plt.subplot(111,projection=master_cutout.wcs)
 
-            plt.imshow(line_image.data, origin='lower', interpolation='None', #extent=[-ext, ext, -ext, ext],
-                       vmin=line_image.vmin,vmax=line_image.vmax,#cmap=plt.get_cmap('gray_r'),
-                       transform=im_ax.get_transform(line_image.wcs))
+            plt.imshow(mini_line_image.data, origin='lower', interpolation='None', #extent=[-ext, ext, -ext, ext],
+                       vmin=mini_line_image.vmin,vmax=mini_line_image.vmax,#cmap=plt.get_cmap('gray_r'),
+                       transform=im_ax.get_transform(mini_line_image.wcs))
             im_ax.set_axis_off()
+
+            #on the same pixel scale by design (uses the master_cutout pixel scale) ... off by, at most 1/2 pixel and are square
+            #so use the master_cutout shape to "trim" off the excess collected to deal with potential rotations to align WCS
+            im_ax.set_xlim(-0.5, master_cutout.data.shape[1] - 0.5)
+            im_ax.set_ylim(-0.5, master_cutout.data.shape[0] - 0.5)
 
             if original_distance is not None and original_distance > 0:
                 #add zoom window
                 try:
-
                     box_ratio = original_distance / distance
 
                     xl,xr = plt.gca().get_xlim()
@@ -3889,9 +3928,9 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
             plt.savefig(line_buf, format='png', dpi=300, transparent=True)
         else:
-            im_ext = line_image.shape[0] * pixscale / 2.
-            plt.imshow(line_image.data, origin='lower', interpolation='none',#extent=[-im_ext, im_ext, -im_ext, im_ext],
-                           vmin=line_image.vmin,vmax=line_image.vmax)#,cmap=plt.get_cmap('gray_r'))
+            im_ext = mini_line_image.shape[0] * pixscale / 2.
+            plt.imshow(mini_line_image.data, origin='lower', interpolation='none',#extent=[-im_ext, im_ext, -im_ext, im_ext],
+                           vmin=mini_line_image.vmin,vmax=mini_line_image.vmax)#,cmap=plt.get_cmap('gray_r'))
             plt.gca().set_axis_off()
             plt.savefig(line_buf, format='png', dpi=300, transparent=True)
 
