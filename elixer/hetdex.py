@@ -3547,7 +3547,10 @@ class DetObj:
             log.debug("Exception in aggregate_classification for ELiXer Combine ALL Continuumsolution finder",exc_info=True)
 
 
+        #######################################
         #unmatched solutions scoring (basically any lines other than LyA)
+        #######################################
+
         try:
             #should only (and always) be exactly one
             try:

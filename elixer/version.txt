@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.16.0a5 [2022-02-15]
+* turn off DECam (SHELA and stackCOSMOS catalogs)
+
 1.16.0a4 [2022-02-12]
 * fix bad tile selection where tile RA crosses the 0/360 degree boundary
 * added HSC SSP PDF3 object catalogs

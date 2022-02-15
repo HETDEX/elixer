@@ -3106,6 +3106,19 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
                 ax5 = fig.add_subplot(gs[38:,0:])#,gridspec_kw = {'wspace':0, 'hspace':0})
                 ax5.set_axis_off()
                 line_image_cutout.seek(0)
+
+                #leaving here just for a reference ...
+                #failed attempt to grab a larger image (by root(2)), apply the WCS transform, then here
+                #trim off 1/2 of each of the extra from each side and plot
+                # (this does not work) ... scaling gets very messed up
+                # x,y = PIL_Image.open(line_image_cutout).size
+                # trim = (1.0 - 0.5 * np.sqrt(2.))/2.0
+                # lx = trim * x
+                # rx = trim * x
+                # ty = trim * y #was 0.1
+                # by = trim * y #was 0
+                # im5 = PIL_Image.open(line_image_cutout).crop((lx,ty,x-rx,y-(ty+by)))
+
                 im5 = PIL_Image.open(line_image_cutout)
                 ax5.imshow(im5)
         except:
@@ -3630,7 +3643,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
                 im_ax = fig.add_subplot(111,projection=master_cutout.wcs) #plt.subplot(111,projection=master_cutout.wcs)
 
-                plt.imshow(line_image.data, origin='lower', interpolation='none', #extent=[-ext, ext, -ext, ext],
+                plt.imshow(line_image.data, origin='lower', interpolation='None', #extent=[-ext, ext, -ext, ext],
                            vmin=line_image.vmin,vmax=line_image.vmax,#cmap=plt.get_cmap('gray_r'),
                            transform=im_ax.get_transform(line_image.wcs))
                 #,cmap=plt.get_cmap('gray_r'))
@@ -3825,6 +3838,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             except:
                 pass
 
+            #max_rotation_resize = np.sqrt(2.) #failed attempt to multiply by root(2) to get a larger cutout for the worst
+            #case rotation to be able to cover the edges ... does not play well with the WCS transform
             line_image = science_image.get_line_image(plt,friendid=None,detectid=None,
                                                       coords=SkyCoord(ra=ra,dec=dec,frame='icrs',unit='deg'),
                                                       shotid=primary_shotid, subcont=True, convolve_image=False,
@@ -3832,7 +3847,6 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                                                       wave_range=wave_range,
                                                       sigma=None,
                                                       return_coords=False)
-
     except:
         log.warning("Exception building line image",exc_info=True)
         line_image = None
@@ -3848,10 +3862,9 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
             im_ax = fig.add_subplot(111,projection=master_cutout.wcs) #plt.subplot(111,projection=master_cutout.wcs)
 
-            plt.imshow(line_image.data, origin='lower', interpolation='none', #xtent=[-ext, ext, -ext, ext],
+            plt.imshow(line_image.data, origin='lower', interpolation='None', #extent=[-ext, ext, -ext, ext],
                        vmin=line_image.vmin,vmax=line_image.vmax,#cmap=plt.get_cmap('gray_r'),
                        transform=im_ax.get_transform(line_image.wcs))
-            #,cmap=plt.get_cmap('gray_r'))
             im_ax.set_axis_off()
 
             if original_distance is not None and original_distance > 0:
