@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.16.0 [2022-02-16]
+* set version for HDR3 runs
+
 1.16.0a5 [2022-02-15]
 * turn off DECam (SHELA and stackCOSMOS catalogs)
 * for *_mini.png, collect a sqrt(2) larger line image to handle any rotation issues. For main report and neighbors, still
