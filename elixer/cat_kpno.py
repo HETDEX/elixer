@@ -337,8 +337,12 @@ class KPNO(cat_base.Catalog):#Kitt Peak
 
         #if (num_targets == 0) or
         if (self.dataframe_of_bid_targets_unique is not None):
-            ras = self.dataframe_of_bid_targets_unique.loc[:, ['RA']].values
-            decs = self.dataframe_of_bid_targets_unique.loc[:, ['DEC']].values
+            try:
+                ras = self.dataframe_of_bid_targets_unique.loc[:, ['RA']].values
+                decs = self.dataframe_of_bid_targets_unique.loc[:, ['DEC']].values
+            except:
+                ras = []
+                dec = []
         else:
             ras = []
             decs = []

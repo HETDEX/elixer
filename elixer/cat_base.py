@@ -356,8 +356,25 @@ class Catalog:
 
 
                 self.dataframe_of_bid_targets = df.sort_values(by=['dist_prior','distance'], ascending=[False,True])
-        except:
-            log.warning("Exception in cat_base::Catalog::sort_bid_targets_by_likelihood()",exc_info=True)
+        except: #could be it exists but is an empty list
+            _log = False
+            try:
+                if hasattr(self,'dataframe_of_bid_targets_unique') and \
+                        (self.dataframe_of_bid_targets_unique is not None) and \
+                        (len(self.dataframe_of_bid_targets_unique)==0):
+                    self.dataframe_of_bid_targets_unique = None
+            except:
+                _log = True
+
+            try:
+                if hasattr(self,'dataframe_of_bid_targets') and \
+                        (self.dataframe_of_bid_targets is not None) and \
+                        (len(self.dataframe_of_bid_targets)==0):
+                    self.dataframe_of_bid_targets = None
+            except:
+                _log = True
+            if _log:
+                log.warning("Exception in cat_base::Catalog::sort_bid_targets_by_likelihood()",exc_info=True)
 
 
     def clear_pages(self):

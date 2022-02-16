@@ -422,7 +422,7 @@ class GOODS_N(cat_base.Catalog):
         self.clear_pages()
         num_targets, _, _ = self.build_list_of_bid_targets(target_ra, target_dec, error)
 
-        if (self.dataframe_of_bid_targets is None):
+        if (self.dataframe_of_bid_targets is None) or (len(self.dataframe_of_bid_targets)==0):
             return None
 
         ras = self.dataframe_of_bid_targets.loc[:, ['RA']].values

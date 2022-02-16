@@ -1092,8 +1092,12 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             ras = []
             decs = []
         else:
-            ras = self.dataframe_of_bid_targets_unique.loc[:, ['RA']].values
-            decs = self.dataframe_of_bid_targets_unique.loc[:, ['DEC']].values
+            try:
+                ras = self.dataframe_of_bid_targets_unique.loc[:, ['RA']].values
+                decs = self.dataframe_of_bid_targets_unique.loc[:, ['DEC']].values
+            except:
+                ras = []
+                dec = []
 
         # display the exact (target) location
         if G.SINGLE_PAGE_PER_DETECT:
