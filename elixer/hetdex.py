@@ -11609,6 +11609,8 @@ class HETDEX:
                     datakeep['ds9_x'].append(1. + (xl + xh) / 2.)
                 except:
                     datakeep['ds9_x'].append(-1)
+                    xl = 0
+                    xh = 0
 
                 try:
                     yl = int(np.round(y_2D - yw))
@@ -11616,6 +11618,8 @@ class HETDEX:
                     datakeep['ds9_y'].append(1. + (yl + yh) / 2.)
                 except:
                     datakeep['ds9_y'].append(-1)
+                    yl = 0
+                    yh = 0
 
 
                 #################################################

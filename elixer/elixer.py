@@ -3869,7 +3869,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                                                       return_coords=False)
 
             #for convenience at this point, make a smaller version that will not be rotated and is part of the neighborhood
-            if master_cutout is not None:
+            if master_cutout is not None and mini_line_image is not None:
                 line_image = copy.deepcopy(mini_line_image)
                 m0,m1 = master_cutout.data.shape
                 l0,l1 = line_image.data.shape
