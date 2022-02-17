@@ -1772,6 +1772,9 @@ class DetObj:
                         if SU.map_multiline_score_to_confidence(scale_score) < 0.4: #low confidence
                             if z > 1.8 and self.best_gmag is not None and self.best_gmag < 23.5: #"high-z"
                                 agree = False
+                            else:
+                                agree = True
+                                unsure = True
                         elif SU.map_multiline_score_to_confidence(scale_score) < 0.6: #iffy confidence
                             if z > 1.8 and self.best_gmag is not None and self.best_gmag < 23.5: #"high-z"
                                 if self.best_gmag < 23.0:
