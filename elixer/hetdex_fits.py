@@ -469,7 +469,8 @@ class HetdexFits:
                         infs = np.sum(np.isinf(data))
 
                         if zeros > size/10:
-                            log.info(f"Warning! {logname_info} : Large number of 0's in {field_name}. {zeros} / {size}")
+                            #not as important ... can just be masked data
+                            log.debug(f"Warning! {logname_info} : Large number of 0's in {field_name}. {zeros} / {size}")
 
                         if nans > size/10:
                             log.info(f"Warning! {logname_info} : Large number of NaNs in {field_name}. {nans} / {size}")
@@ -503,30 +504,30 @@ class HetdexFits:
                     # self.calfib[idx] = row['calfib']
                     # self.calfibe[idx] = row['calfibe']
 
-                    self.fe_data[idx] = get_field(row,'sky_subtracted',np.shape(self.fe_data[idx]),logname_info)
-                    self.wave_data[idx] = get_field(row,'wavelength',np.shape(self.wave_data[idx]),logname_info)
-                    self.trace_data[idx] = get_field(row,'trace',np.shape(self.trace_data[idx]),logname_info)
-                    self.fiber_to_fiber[idx] = get_field(row,'fiber_to_fiber',np.shape(self.fiber_to_fiber[idx]),logname_info)
+                    self.fe_data[idx] = get_field(row,'sky_subtracted',np.shape(self.fe_data[idx]),f"{logname_info}_{idx}")
+                    self.wave_data[idx] = get_field(row,'wavelength',np.shape(self.wave_data[idx]),f"{logname_info}_{idx}")
+                    self.trace_data[idx] = get_field(row,'trace',np.shape(self.trace_data[idx]),f"{logname_info}_{idx}")
+                    self.fiber_to_fiber[idx] = get_field(row,'fiber_to_fiber',np.shape(self.fiber_to_fiber[idx]),f"{logname_info}_{idx}")
 
-                    self.calfib[idx] = get_field(row,'calfib',np.shape(self.calfib[idx]),logname_info)
-                    self.calfibe[idx] = get_field(row,'calfibe',np.shape(self.calfibe[idx]),logname_info)
+                    self.calfib[idx] = get_field(row,'calfib',np.shape(self.calfib[idx]),f"{logname_info}_{idx}")
+                    self.calfibe[idx] = get_field(row,'calfibe',np.shape(self.calfibe[idx]),f"{logname_info}_{idx}")
 
 
 
                     try: #in HDR3 the name is new
                         #self.ffsky_calfib[idx] = row['calfib_ffsky']
-                        self.ffsky_calfib[idx] = get_field(row,'calfib_ffsky',np.shape(self.ffsky_calfib[idx]),logname_info)
+                        self.ffsky_calfib[idx] = get_field(row,'calfib_ffsky',np.shape(self.ffsky_calfib[idx]),f"{logname_info}_{idx}")
                     except:
                         try: #HDR2
                             #self.ffsky_calfib[idx] = row['spec_fullsky_sub']
-                            self.ffsky_calfib[idx] = get_field(row,'spec_fullsky_sub',np.shape(self.ffsky_calfib[idx]),logname_info)
+                            self.ffsky_calfib[idx] = get_field(row,'spec_fullsky_sub',np.shape(self.ffsky_calfib[idx]),f"{logname_info}_{idx}")
                         except:
                             pass #older versions may not have this column
                     try:
                         # self.fiber_chi2[idx] = row['chi2']
                         # self.fiber_rms[idx] = row['rms']
-                        self.fiber_chi2[idx] = get_field(row,'chi2',np.shape(self.fiber_chi2[idx]),logname_info)
-                        self.fiber_rms[idx] = get_field(row,'rms',np.shape(self.fiber_rms[idx]),logname_info)
+                        self.fiber_chi2[idx] = get_field(row,'chi2',np.shape(self.fiber_chi2[idx]),f"{logname_info}_{idx}")
+                        self.fiber_rms[idx] = get_field(row,'rms',np.shape(self.fiber_rms[idx]),f"{logname_info}_{idx}")
                     except:
                         pass #older versions may not have these columns
 

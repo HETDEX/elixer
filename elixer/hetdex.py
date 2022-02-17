@@ -8083,7 +8083,8 @@ class DetObj:
 
 
 
-                idstring = date + "v" + time_ex + "_" + specid + "_" + ifuslot + "_" + ifuid + "_" + amp + "_" #leave off the fiber for the moment
+                #idstring = date + "v" + time_ex + "_" + specid + "_" + ifuslot + "_" + ifuid + "_" + amp + "_" #leave off the fiber for the moment
+                idstring = str(self.survey_shotid)[:-3] + "v" + str(self.survey_shotid)[-3:] + "_" + specid + "_" + ifuslot + "_" + ifuid + "_" + amp + "_" #leave off the fiber for the moment
                 log.debug("Building fiber %d of %d (%s e%d) ..." % (count, num_fibers,idstring + str(fiber_index+1),int(row['expnum'])))
                 idstring += str(fiber_index) #add the fiber index (zero based)
 
