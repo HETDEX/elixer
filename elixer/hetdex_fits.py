@@ -464,13 +464,15 @@ class HetdexFits:
                         data = row[field_name]
                         size = len(data)
                         s = np.shape(data)
-                        zeros = np.sum(data==0)
+
                         nans = np.sum(np.isnan(data))
                         infs = np.sum(np.isinf(data))
 
-                        if zeros > size/10:
-                            #not as important ... can just be masked data
-                            log.debug(f"Warning! {logname_info} : Large number of 0's in {field_name}. {zeros} / {size}")
+                        if log.logger.level <= 10: #ie. only bother with this if debug
+                            zeros = np.sum(data==0)
+                            if zeros > size/10:
+                                #not as important ... can just be masked data
+                                log.debug(f"Warning! {logname_info} : Large number of 0's in {field_name}. {zeros} / {size}")
 
                         if nans > size/10:
                             log.info(f"Warning! {logname_info} : Large number of NaNs in {field_name}. {nans} / {size}")
