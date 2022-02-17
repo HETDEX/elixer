@@ -1930,7 +1930,7 @@ class DetObj:
                     p = min(p/2.,0.1) #remember, this is just NOT LyA .. so while OII is the most common, it is hardly the only solution
 
                     sbl_z,sbl_name = self.spec_obj.single_broad_line_redshift(self.w,self.fwhm)
-                    if sbl_z is not None:
+                    if sbl_z is not None and sbl_z != (self.w/G.LyA_rest - 1.0):
                         log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII. "
                                  f"P(LyA) favors NOT LyA. Set to single broadline ({sbl_name}) z:{sbl_z:04f} with Q(z): {p}.")
                         z = sbl_z
@@ -2030,9 +2030,11 @@ class DetObj:
             #yes ... the clustering could undo this and that is okay
             try:
                 apcor = self.sumspec_apcor[515]
-                if apcor < 0.9 and multiline_sol_diag < 1 and self.best_gmag > 23.0:
+
+                if (apcor < 0.6) or (apcor < 0.9 and multiline_sol_diag < 1 and self.best_gmag > 23.0):
                     log.info(f"Modifying Q(z) by x{apcor*apcor:0.2f} due to high aperture correction {apcor:0.2f}")
                     p *= apcor * apcor
+
             except:
                 pass
 
@@ -11665,14 +11667,19 @@ class HETDEX:
                                 log.info("AMPNAME missing from pixel flat header. Do not know if config 0/1 issue...")
                                 ampname = None
 
-                            pixel_flat_buf = flip_amp(fits.amp, ampname,pixflat_hdu[0].data)
-                            pixflat_hdu.close()
+                            try:
+                                pixel_flat_buf = flip_amp(fits.amp, ampname,pixflat_hdu[0].data)
+                                pixflat_hdu.close()
+                            except:
+                                log.info(f"Error getting pixel flat buffer: {pix_fn}",exc_info=True)
+                                pixel_flat_buf = None
+                                load_blank = True
                         else:
                             pixel_flat_buf = None
                             load_blank = True
 
                     except:
-                        log.info("AMPNAME missing from pixel flat header. Do not know if config 0/1 issue...")
+                        log.info(f"Error reading pixel flat: {pix_fn}",exc_info=True)
                         pixel_flat_buf = None
                         load_blank = True
 
