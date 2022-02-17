@@ -1252,11 +1252,11 @@ class EmissionLineInfo:
                     #   and calucate a true flux and width down from continuum
                     if ((self.cont - self.cont_err) < 2e-17) or (self.snr < 5.0): #if this has significant continuum, keep the score as is
                         new_score = min(G.MAX_SCORE_ABSORPTION_LINES, self.line_score * ABSORPTION_LINE_SCORE_SCALE_FACTOR)
-                        log.info("Rescalling line_score for absorption line: %f to %f" %(self.line_score,new_score))
+                        log.info(f"Rescalling line_score for absorption line: {self.line_score} to {new_score} @ {self.fit_x0:0.2}AA")
                         self.line_score = new_score
                         self.line_score = min(G.MAXIMUM_LINE_SCORE_CAP,self.line_score)
                 else:
-                    log.info("Zeroing line_score for absorption line.")
+                    log.info(f"Zeroing line_score for absorption line. {self.fit_x0:0.2}AA")
                     self.line_score = 0.0
             #
             # !!! if you change this calculation, you need to re-calibrate the prob(Noise) (re-run exp_prob.py)

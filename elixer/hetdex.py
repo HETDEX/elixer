@@ -1935,7 +1935,8 @@ class DetObj:
                                  f"P(LyA) favors NOT LyA. Set to single broadline ({sbl_name}) z:{sbl_z:04f} with Q(z): {p}.")
                         z = sbl_z
                     else:
-                        log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII, but not other good solution. "
+                        p = min(p,0.01)
+                        log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII, but no other good solution. "
                                  f"P(LyA) favors NOT LyA. Set to OII z:{z:04f} with Q(z): {p}. Could still be AGN with LyA or CIV, CIII or MgII alone.")
 
 
@@ -10947,7 +10948,7 @@ class HETDEX:
             vmin,vmax = zscale.get_limits(values=vals)
             vmin = vmin/scale
             vmax = vmax/scale
-            log.info("HETDEX (zscale) vrange = (%f, %f) raw range = (%f, %f)" %(vmin,vmax,np.min(vals),np.max(vals)))
+            log.debug("HETDEX (zscale) vrange = (%f, %f) raw range = (%f, %f)" %(vmin,vmax,np.min(vals),np.max(vals)))
         except:
             log.info("Exception in hetdex::get_vrange:",exc_info =True)
 
