@@ -274,7 +274,7 @@ elif hostname == "stampede2":
             if neighborhood_only:
                 MAX_TIME_PER_TASK = 0.25
             else:
-                MAX_TIME_PER_TASK = 1.0  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
+                MAX_TIME_PER_TASK = 1.05  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
         else:
             if neighborhood_only:
                 MAX_TIME_PER_TASK = 0.5
