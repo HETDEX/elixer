@@ -131,8 +131,8 @@ if "--dets" in args:
                 #else all is okay
 
                 if prompt is not None:
-                    r = get_input(prompt)
-                    if len(r) > 0 and r.upper() !=  "N":
+                    r = input(prompt) #assumes Python3 or greater
+                    if len(r) > 0 and r.upper() !=  "Y":
                         print ("Cancelled.")
                         log.critical("Main exit. User cancel.")
                         exit(0)
