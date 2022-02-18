@@ -97,6 +97,51 @@ if "--merge" in args:
     #     exit(0)
 
 
+#Continuum sanity check
+#for a sanity check later:
+
+if "--dets" in args:
+    i = args.index("--dets")
+    if i != -1:
+        try:
+            det_file_name = sys.argv[i + 1]
+            if os.path.isfile(det_file_name):
+                has_continuum_id = False
+
+                #check the top and bottom for possible continuum objects
+                #for simplicity, just read the whole column and read as int for size
+                dets = np.loadtxt(det_file_name,dtype=int,usecols=0)#,max_rows=1)
+
+                #look for 3rd character as 9
+                if str(dets[0])[2] == '9' or str(dets[-1])[2] == '9':
+                    has_continuum_id = True
+
+                del dets
+
+                if "--continuum" in args:
+                    continuum_mode = True
+                else:
+                    continuum_mode = False
+
+                prompt = None
+                if has_continuum_id and not continuum_mode:
+                    prompt = "Apparent continuum detectIDs in --dets file, but --continuum not specified. Continue anyway? (y/n)"
+                elif not has_continuum_id and continuum_mode:
+                    prompt = "No apparent continuum detectIDs in --dets file, but --continuum IS specified. Continue anyway? (y/n)"
+                #else all is okay
+
+                if prompt is not None:
+                    r = get_input(prompt)
+                    if len(r) > 0 and r.upper() !=  "N":
+                        print ("Cancelled.")
+                        log.critical("Main exit. User cancel.")
+                        exit(0)
+                    else:
+                        print("Continuing ... \n")
+        except:
+            pass
+
+
 if "--ooops" in args:
     ooops_mode = True
 else:
@@ -353,12 +398,6 @@ else:
     email = "##SBATCH --mail-user\n##SBATCH --mail-type all"
     queue = "gpu"
     tasks = 1
-
-
-
-
-
-
 
 
 #check for name agument (mandatory)
@@ -640,8 +679,6 @@ else: # multiple tasks
                         nodes = min(target_nodes,MAX_NODES)
                         ntasks_per_node = min(target_tasks,MAX_TASKS_PER_NODE)
                         tasks = min(target_tasks,MAX_TASKS)
-
-
 
             else:
                 ntasks_per_node = tasks
