@@ -132,14 +132,14 @@ if "--dets" in args:
 
                 if prompt is not None:
                     r = input(prompt) #assumes Python3 or greater
+                    print()
                     if len(r) > 0 and r.upper() !=  "Y":
                         print ("Cancelled.\n")
-                        print()
                         exit(0)
                     else:
                         print("Continuing ... \n")
         except Exception as e:
-            print(e)
+            pass
 
 
 if "--ooops" in args:
