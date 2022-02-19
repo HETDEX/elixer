@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.16.1 [2022-02-16]
+* fix report and neighborhood if DECaLS fails to move on to PanSTARRS and SDSS (if allowed)
+
 1.16.0 [2022-02-16]
 * set version for HDR3 runs
 

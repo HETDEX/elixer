@@ -1051,6 +1051,14 @@ class DECaLS(cat_base.Catalog):#DECaLS
                 log.info("Exception (ConnectionError) in DECaLS",exc_info=False)
                 hdulist_array = None
                 d['retry'] = True
+            except OSError as e:
+                try:
+                    extra = e.args[0]
+                except:
+                    extra = ""
+                log.info(f"Exception (OSError) in DECaLS: {extra}",exc_info=False)
+                hdulist_array = None
+                d['retry'] = False
             except Exception as e:
                 log.info("Exception in DECaLS",exc_info=True)
                 d['retry'] = True

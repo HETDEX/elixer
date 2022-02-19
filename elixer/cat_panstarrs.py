@@ -1094,7 +1094,8 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                 d['hdu'] = sci.headers
 
                 # to here, window is in degrees so ...
-                window = 3600. * window
+                if window < 1.0: #assume degrees and turn into arcsec (else assume already in arcsec) ... unique to PanSTARRs
+                    window = 3600. * window
                 if not error:
                     error = window
                 cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error=error, window=window,

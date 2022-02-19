@@ -1172,6 +1172,16 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
 
     if cats is not None:
         log.debug("Checking imaging catalogs (%s)" %(str(cats)))
+
+        if catalogs.cat_decals_web.DECaLS in [type(x) for x in cats]:
+            added_decals = True
+
+        if catalogs.cat_panstarrs.PANSTARRS in [type(x) for x in cats]:
+            added_panstarrs = True
+
+        if catalogs.cat_sdss.SDSS in [type(x) for x in cats]:
+            added_sdss = True
+
     else:
         log.debug("Imaging catalogs is None")
 
@@ -1210,7 +1220,27 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
                                                target_flux=target_flux,detobj=detobj)
 
                 if G.BUILD_REPORT_BY_FILTER and r: #here 'r' is a list of dictionaries ("cutouts") from the catalog
-                    list_of_catalog_cutouts.append(r)
+                    try:
+                        if np.all([x['cutout'] is None for x in r]): #if all the cutous are None, don't add to the list
+                            if num_remaining_cats == 0: #if we are out of the original list, see if we can use web calls
+                                if isinstance(c,catalogs.cat_decals_web.DECaLS): #this was DECaLS, so fall back ...
+                                    if G.PANSTARRS_ALLOW:
+                                        cats.append(cat_panstarrs)
+                                        num_remaining_cats += 1
+                                    elif G.SDSS_ALLOW:
+                                        cats.append(cat_sdss)
+                                        num_remaining_cats += 1
+                                elif isinstance(c,catalogs.cat_panstarrs.PANSTARRS): #this was PanSTARRS so fall back ...
+                                    if G.SDSS_ALLOW:
+                                        cats.append(cat_sdss)
+                                        num_remaining_cats += 1
+
+                                if num_remaining_cats == 0: #out of catalogs to fall back on, keep this r for whatever it is worth
+                                    list_of_catalog_cutouts.append(r)
+                        else:
+                            list_of_catalog_cutouts.append(r)
+                    except:
+                        list_of_catalog_cutouts.append(r)
 
                 if reset_match:
                     match = None
@@ -3508,6 +3538,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         log.info("build_neighborhood_map master_cutout is empty. Will try web calls for DECaLS, PanSTARRS, and/or SDSS.")
 
         #todo: maybe limit to G or R band request?
+        #next code bit is sloppy but I am in a hurry and copy-paste is easy
         if G.DECALS_WEB_ALLOW:
             log.info("Calling DECaLS (web) ...")
             ps_cutouts = catalogs.cat_decals_web.DECaLS().get_cutouts(ra,dec,distance,aperture=None,filter=['g','r'],first=True)
@@ -3515,6 +3546,28 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             mc = make_master(ps_cutouts)
             if mc is not None:
                 master_cutout = mc
+            elif G.PANSTARRS_ALLOW:
+                log.info("Calling PanSTARRs ...")
+                ps_cutouts = catalogs.cat_panstarrs.PANSTARRS().get_cutouts(ra,dec,distance,aperture=None)
+                #note, different than cutouts above?
+                mc = make_master(ps_cutouts)
+                if mc is not None:
+                    master_cutout = mc
+                elif G.SDSS_ALLOW:
+                    log.info("Calling SDSS ...")
+                    sdss_cutouts = catalogs.cat_sdss.SDSS().get_cutouts(ra,dec,distance,aperture=None)
+                    #note, different than cutouts above?
+                    mc = make_master(sdss_cutouts)
+                    if mc is not None:
+                        master_cutout = mc
+            elif G.SDSS_ALLOW:
+                log.info("Calling SDSS ...")
+                sdss_cutouts = catalogs.cat_sdss.SDSS().get_cutouts(ra,dec,distance,aperture=None)
+                #note, different than cutouts above?
+                mc = make_master(sdss_cutouts)
+                if mc is not None:
+                    master_cutout = mc
+
         elif G.PANSTARRS_ALLOW:
             log.info("Calling PanSTARRs ...")
             ps_cutouts = catalogs.cat_panstarrs.PANSTARRS().get_cutouts(ra,dec,distance,aperture=None)
@@ -3522,6 +3575,14 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             mc = make_master(ps_cutouts)
             if mc is not None:
                 master_cutout = mc
+            elif G.SDSS_ALLOW:
+                log.info("Calling SDSS ...")
+                sdss_cutouts = catalogs.cat_sdss.SDSS().get_cutouts(ra,dec,distance,aperture=None)
+                #note, different than cutouts above?
+                mc = make_master(sdss_cutouts)
+                if mc is not None:
+                    master_cutout = mc
+
         elif G.SDSS_ALLOW:
             log.info("Calling SDSS ...")
             sdss_cutouts = catalogs.cat_sdss.SDSS().get_cutouts(ra,dec,distance,aperture=None)
