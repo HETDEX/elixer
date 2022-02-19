@@ -6874,6 +6874,8 @@ class DetObj:
                 log.debug(f"Central single fiber brightest mag {gmag}")
             except:
                 log.warning("Failed to get single central fiber magnitude",exc_info=True)
+        except IndexError:
+            log.info("Failed to get single central fiber magnitude")#, exc_info=True)
         except:
             log.warning("Failed to get single central fiber magnitude", exc_info=True)
 

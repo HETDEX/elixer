@@ -715,8 +715,10 @@ class science_image():
             zscale = ZScaleInterval(contrast=contrast,krej=2.5) #nsamples=len(vals)
             self.vmin, self.vmax = zscale.get_limits(values=cpvals)
             log.info("Vrange = %f, %f" %(self.vmin,self.vmax))
+        except IndexError:
+            log.info("Failed science_image::get_vrange(). IndexError")#, exc_info=True)
         except:
-            log.info("Exception in science_image::get_vrange:",exc_info =True)
+            log.warning("Exception in science_image::get_vrange:",exc_info =True)
 
         return self.vmin,self.vmax
 
