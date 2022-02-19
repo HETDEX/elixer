@@ -390,13 +390,14 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             #
             #         min_dist = 9e9
             max_dist = 0
+            tile = keys[0] #start with the first one
             for k in keys:
                 tracts.append(self.Tile_Dict[k]['tract'])
                 positions.append(self.Tile_Dict[k]['pos'])
 
                 #should not be negative, but could be?
                 #in any case, the min is the smallest distance to an edge in RA and Dec
-                inside_ra = min((ra-self.Tile_Dict[k]['RA_min']),(self.Tile_Dict[k]['RA_max']-ra))
+                inside_ra = abs(min((ra-self.Tile_Dict[k]['RA_min']),(self.Tile_Dict[k]['RA_max']-ra)))
                 inside_dec = min((dec-self.Tile_Dict[k]['Dec_min']),(self.Tile_Dict[k]['Dec_max']-dec))
 
                 edge_dist = min(inside_dec,inside_ra)

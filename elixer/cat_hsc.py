@@ -598,6 +598,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             log.info("Multiple overlapping tiles %s. Sub-selecting tile with maximum angular coverage around target." %keys)
             min_dist = 9e9
             max_dist = 0
+            tile = keys[0]
             #we don't have the actual corners anymore, so just assume a rectangle
             #so there are 2 of each min, max coords. Only need the smallest distance so just sum one
             for k in keys:
@@ -613,7 +614,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
 
                 #should not be negative, but could be?
                 #in any case, the min is the smallest distance to an edge in RA and Dec
-                inside_ra = min((ra-self.Tile_Dict[k]['RA_min']),(self.Tile_Dict[k]['RA_max']-ra))
+                inside_ra = abs(min((ra-self.Tile_Dict[k]['RA_min']),(self.Tile_Dict[k]['RA_max']-ra)))
                 inside_dec = min((dec-self.Tile_Dict[k]['Dec_min']),(self.Tile_Dict[k]['Dec_max']-dec))
 
                 edge_dist = min(inside_dec,inside_ra)
