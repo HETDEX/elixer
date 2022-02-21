@@ -3409,7 +3409,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         if (len(detectids) == 0) and (len(broad_detectids)== 0) and (len(cont_detectids)== 0) and (this_detection is None):
             #nothing to do
             log.info("No HETDEX detections found: (%f,%f) +/- %d\"" %(ra,dec,distance))
-            return None, None
+            return None, None, None
 
         # try:
         #     print("!!!!!!!!!!!!!!!!!!!!!!! REMOVE ME !!!!!!!!!!!!!!!!!!!")
