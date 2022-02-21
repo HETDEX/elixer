@@ -5,9 +5,9 @@
 # not pass them as parameters
 set -o noglob
 
-imgdir="/data/03261/polonius/hdr3/d##/all_pngs"
+imgdir="/scratch/03261/polonius/hdr3/d##/all_pngs"
 #!!! IMPORTANT !!! db_dir needs to end with a /
-db_dir="/data/03261/polonius/hdr3/detect/image_db/"
+db_dir="/scratch/03261/polonius/hdr3/detect/image_db/"
 rpt="elixer_reports_"
 
 
