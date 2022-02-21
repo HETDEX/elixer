@@ -1468,15 +1468,17 @@ class DetObj:
                                         if d.distance < 1.5:
                                             new_flag = 0 #we did find something, so break
                                             break
+                            except AttributeError:
+                                log.debug("Exception in flag_check()")
                             except:
-                                log.debug("Exception in flag_check()",exec_info=True)
+                                log.debug("Exception in flag_check()",exc_info=True)
 
                         if new_flag and expect_to_find_any:
                             self.flags |= new_flag
                             log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_COUNTERPART_NOT_FOUND")
 
                 except:
-                    log.warning(f"Exception in flag_check. DETFLAG_COUNTERPART_NOT_FOUND. estflux = {self.extflux}"
+                    log.warning(f"Exception in flag_check. DETFLAG_COUNTERPART_NOT_FOUND. estflux = {self.estflux}"
                                 f", cont_cgs = {self.cont_cgs}, best_gmag = {self.best_gmag}")
 
 
