@@ -13238,8 +13238,23 @@ class HETDEX:
 
 
             #peak_height = near get the approximate peak height
-            mn = np.min(F)
-            mx = np.max(F)
+            try:
+                mn = np.min(F)
+                mx = np.max(F)
+            except:
+                #if we can't find the min and max there is a serious problem and the spectrum is junk
+                #this is probably a zero sized array ValueError
+                try:
+                    log.error("Unable to build full width spec plot.")
+                    buf = io.BytesIO()
+                    plt.savefig(buf, format='png', dpi=300)
+                    plt.close(fig)
+                    return buf
+                except:
+                    log.error("Unable to build full width spec plot or blank plot.")
+                    return None
+
+
             absorber = False
             try:
                 absorber = datakeep['detobj'].spec_obj.absorber

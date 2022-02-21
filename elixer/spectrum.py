@@ -613,7 +613,10 @@ def pix_to_aa(pix):
     return float(pix)
 
 def getnearpos(array,value):
-    idx = (np.abs(array-value)).argmin()
+    try:
+        idx = (np.abs(array-value)).argmin()
+    except:
+        return None
     return idx
 
 
@@ -992,6 +995,9 @@ class EmissionLineInfo:
         snr = 0.0
         try:
             idx = getnearpos(self.raw_wave,self.fit_x0) #single value version of getnearpos
+            if idx is None:
+                return 0.0
+
             width = int(self.fit_sigma * 4.0)
             left = max(0,idx-width)
             right = min(len(self.raw_wave),idx+width+1)
@@ -1159,90 +1165,94 @@ class EmissionLineInfo:
             # if self.eqw_obs + self.eqw_obs_err < 1.0:
             #     log.info(f"Poor EW_obs from fit: {self.eqw_obs:0.2f} +/- {self.eqw_obs_err}. Scoring to zero.")
             #     self.line_score = 0
-            if (self.fwhm is None) or (self.fwhm < max_fwhm):
-                #this MIN_HUGE_FWHM_SNR is based on the usual 2AA bins ... if this is broadfit, need to return to the
-                # usual SNR definition
+            try:
+                if (self.fwhm is None) or (self.fwhm < max_fwhm):
+                    #this MIN_HUGE_FWHM_SNR is based on the usual 2AA bins ... if this is broadfit, need to return to the
+                    # usual SNR definition
 
-                snr_limit_score = min(self.snr,MAX_LINESCORE_SNR)
+                    snr_limit_score = min(self.snr,MAX_LINESCORE_SNR)
 
-                if (self.fwhm > MAX_NORMAL_FWHM) and \
-                        ((self.snr *np.sqrt(broadfit) < MIN_HUGE_FWHM_SNR) and (self.raw_snr() < GOOD_BROADLINE_RAW_SNR)) \
-                        and (self.fit_chi2 > 1.5):
-                    log.debug(f"Huge fwhm {self.fwhm} with relatively poor SNR {self.snr} < required SNR {MIN_HUGE_FWHM_SNR} and "
-                              f"{self.raw_snr()} < {GOOD_BROADLINE_RAW_SNR}. "
-                              "Probably bad fit or merged lines. Rejecting score.")
-                    self.line_score = 0
+                    if (self.fwhm > MAX_NORMAL_FWHM) and \
+                            ((self.snr *np.sqrt(broadfit) < MIN_HUGE_FWHM_SNR) and (self.raw_snr() < GOOD_BROADLINE_RAW_SNR)) \
+                            and (self.fit_chi2 > 1.5):
+                        log.debug(f"Huge fwhm {self.fwhm} with relatively poor SNR {self.snr} < required SNR {MIN_HUGE_FWHM_SNR} and "
+                                  f"{self.raw_snr()} < {GOOD_BROADLINE_RAW_SNR}. "
+                                  "Probably bad fit or merged lines. Rejecting score.")
+                        self.line_score = 0
+                    else:
+                        #if we have a good continuum measureuse the EW
+                        # if ((self.cont is not None) and (self.cont > 0)) and \
+                        #     ((self.cont_err is not None) and (self.cont_err > 0)) and \
+                        #         (self.cont_err/self.cont < 0.5):
+
+                        #Why not use this? Getting a continuum fit near the emission line is hard and not as reliable as
+                        # just the line flux. Causes larger swings in the line score.
+                        # todo: maybe can use the wide-fit continuum estimate? or maybe only when G.CONTINUUM_RULES?
+                        # if False:
+                        #     log.debug("Using EW scoring ...")
+                        #     self.line_score = snr_limit_score * above_noise * unique_mul * self.eqw_obs * \
+                        #                       min(self.fit_sigma/self.pix_size,1.0) * \
+                        #                       min((self.pix_size * self.sn_pix)/21.0,1.0) / \
+                        #                       (1. + abs(adjusted_dx0_error / self.pix_size) )
+                        # else:
+                        #     log.debug("Using line flux scoring ...")
+                        #     self.line_score = snr_limit_score * above_noise * unique_mul * self.line_flux * 1e16 * \
+                        #           min(self.fit_sigma/self.pix_size,1.0) * \
+                        #           min((self.pix_size * self.sn_pix)/21.0,1.0) / \
+                        #            (1. + abs(adjusted_dx0_error / self.pix_size))
+
+                        #NOTE to self: used to be * 1e17 and with a /10.0 at the bottom, which is redundant
+                        # so just change to 1e16
+                        self.line_score = snr_limit_score * above_noise * unique_mul * self.line_flux * 1e16 * \
+                                          min(self.fit_sigma/self.pix_size,1.0) * \
+                                          min((self.pix_size * self.sn_pix)/21.0,1.0) / \
+                                          (1. + abs(adjusted_dx0_error / self.pix_size))
+
+                        self.line_score = min(G.MAXIMUM_LINE_SCORE_CAP,self.line_score)
+
+                        try:
+                            if (self.snr < 8.0 and self.fit_chi2 > 3.0) or \
+                               ((self.snr > 8.0) and (self.fit_chi2 > 3.0) and (self.snr/self.fit_chi2 < 3)):
+                                #penalize the line score
+                                # if self.snr > self.fit_chi2: #moderate a little
+                                #     self.line_score = self.line_score / (self.fit_chi2 - 1.0) / 0.75
+                                # else:
+                                #     self.line_score /= (self.fit_chi2 - 1.0)
+                                self.line_score /= (self.fit_chi2 - 1.0)
+                        except:
+                            self.line_score = 0
+
+                        try:
+                            if self.snr < 6.0 and self.fwhm > MAX_NORMAL_FWHM: #really broad and low SNR
+                                rescale = self.snr / 6.0 * (MAX_NORMAL_FWHM / self.fwhm )
+                                self.line_score *= rescale
+                                log.info(f"Rescoring line. Very broad fwhm ({self.fwhm:0.2f}/{MAX_NORMAL_FWHM}) "
+                                         f"and low SNR ({self.snr:0.2f}/6.0). Factor {rescale:0.2f}. New score = {self.line_score}")
+                        except:
+                            self.line_score = 0
+
+                        if self.absorber:
+                            self.line_score *= -1
+
+
+
+                        #check for line in the nasty sky-lines 3545
+                        if G.PENALIZE_FOR_EMISSION_IN_SKYLINE:
+                            for k in SKY_LINES_DICT.keys():
+                                dp = abs(self.fit_x0 - k)
+                                if dp < SKY_LINES_DICT[k] and (self.fit_sigma * 1.1775 < (SKY_LINES_DICT[k]-dp)):
+                                    #the emission line is inside the Sky Line window and its fit half-width (1/2 FWHM) is
+                                    #less than the distance from the peak to the windows edge
+                                    #then we don't trust that this is not the sky line and cut the score by half?
+                                    log.info(f"Line score. Emission line in sky line window. "
+                                             f"Rescoring: {self.line_score} to {self.line_score/2.0}")
+                                    self.line_score /= 2.0
+
                 else:
-                    #if we have a good continuum measureuse the EW
-                    # if ((self.cont is not None) and (self.cont > 0)) and \
-                    #     ((self.cont_err is not None) and (self.cont_err > 0)) and \
-                    #         (self.cont_err/self.cont < 0.5):
-
-                    #Why not use this? Getting a continuum fit near the emission line is hard and not as reliable as
-                    # just the line flux. Causes larger swings in the line score.
-                    # todo: maybe can use the wide-fit continuum estimate? or maybe only when G.CONTINUUM_RULES?
-                    # if False:
-                    #     log.debug("Using EW scoring ...")
-                    #     self.line_score = snr_limit_score * above_noise * unique_mul * self.eqw_obs * \
-                    #                       min(self.fit_sigma/self.pix_size,1.0) * \
-                    #                       min((self.pix_size * self.sn_pix)/21.0,1.0) / \
-                    #                       (1. + abs(adjusted_dx0_error / self.pix_size) )
-                    # else:
-                    #     log.debug("Using line flux scoring ...")
-                    #     self.line_score = snr_limit_score * above_noise * unique_mul * self.line_flux * 1e16 * \
-                    #           min(self.fit_sigma/self.pix_size,1.0) * \
-                    #           min((self.pix_size * self.sn_pix)/21.0,1.0) / \
-                    #            (1. + abs(adjusted_dx0_error / self.pix_size))
-
-                    #NOTE to self: used to be * 1e17 and with a /10.0 at the bottom, which is redundant
-                    # so just change to 1e16
-                    self.line_score = snr_limit_score * above_noise * unique_mul * self.line_flux * 1e16 * \
-                                      min(self.fit_sigma/self.pix_size,1.0) * \
-                                      min((self.pix_size * self.sn_pix)/21.0,1.0) / \
-                                      (1. + abs(adjusted_dx0_error / self.pix_size))
-
-                    self.line_score = min(G.MAXIMUM_LINE_SCORE_CAP,self.line_score)
-
-                    try:
-                        if (self.snr < 8.0 and self.fit_chi2 > 3.0) or \
-                           ((self.snr > 8.0) and (self.fit_chi2 > 3.0) and (self.snr/self.fit_chi2 < 3)):
-                            #penalize the line score
-                            # if self.snr > self.fit_chi2: #moderate a little
-                            #     self.line_score = self.line_score / (self.fit_chi2 - 1.0) / 0.75
-                            # else:
-                            #     self.line_score /= (self.fit_chi2 - 1.0)
-                            self.line_score /= (self.fit_chi2 - 1.0)
-                    except:
-                        self.line_score = 0
-
-                    try:
-                        if self.snr < 6.0 and self.fwhm > MAX_NORMAL_FWHM: #really broad and low SNR
-                            rescale = self.snr / 6.0 * (MAX_NORMAL_FWHM / self.fwhm )
-                            self.line_score *= rescale
-                            log.info(f"Rescoring line. Very broad fwhm ({self.fwhm:0.2f}/{MAX_NORMAL_FWHM}) "
-                                     f"and low SNR ({self.snr:0.2f}/6.0). Factor {rescale:0.2f}. New score = {self.line_score}")
-                    except:
-                        self.line_score = 0
-
-                    if self.absorber:
-                        self.line_score *= -1
-
-
-
-                    #check for line in the nasty sky-lines 3545
-                    if G.PENALIZE_FOR_EMISSION_IN_SKYLINE:
-                        for k in SKY_LINES_DICT.keys():
-                            dp = abs(self.fit_x0 - k)
-                            if dp < SKY_LINES_DICT[k] and (self.fit_sigma * 1.1775 < (SKY_LINES_DICT[k]-dp)):
-                                #the emission line is inside the Sky Line window and its fit half-width (1/2 FWHM) is
-                                #less than the distance from the peak to the windows edge
-                                #then we don't trust that this is not the sky line and cut the score by half?
-                                log.info(f"Line score. Emission line in sky line window. "
-                                         f"Rescoring: {self.line_score} to {self.line_score/2.0}")
-                                self.line_score /= 2.0
-
-            else:
-                log.debug(f"Huge fwhm {self.fwhm}, Probably bad fit or merged lines. Rejecting score.")
+                    log.debug(f"Huge fwhm {self.fwhm}, Probably bad fit or merged lines. Rejecting score.")
+                    self.line_score = 0
+            except:
+                log.debug(f"Exception computing score. Rejecting score.")
                 self.line_score = 0
 
             if self.absorber:
@@ -4174,10 +4184,14 @@ class Spectrum:
                 sum_score = np.sum(s.score for s in self.solutions)
 
             for s in self.solutions:
-                s.frac_score = s.score/sum_score
-                s.scale_score = s.prob_real * G.MULTILINE_WEIGHT_PROB_REAL + \
-                                min(1.0, s.score / G.MULTILINE_FULL_SOLUTION_SCORE) *  G.MULTILINE_WEIGHT_SOLUTION_SCORE + \
-                                s.frac_score * G.MULTILINE_WEIGHT_FRAC_SCORE
+                if sum_score != 0:
+                    s.frac_score = s.score/sum_score
+                    s.scale_score = s.prob_real * G.MULTILINE_WEIGHT_PROB_REAL + \
+                                    min(1.0, s.score / G.MULTILINE_FULL_SOLUTION_SCORE) *  G.MULTILINE_WEIGHT_SOLUTION_SCORE + \
+                                    s.frac_score * G.MULTILINE_WEIGHT_FRAC_SCORE
+                else:
+                    s.frac_score = 0
+                    s.scale_score = 0
 
             #sort by score
             self.solutions.sort(key=lambda x: x.scale_score, reverse=True)
