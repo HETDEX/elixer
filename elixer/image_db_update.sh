@@ -5,9 +5,9 @@
 # not pass them as parameters
 set -o noglob
 
-imgdir="/data/03261/polonius/hdr2.1.run/elixer/rerun/rr1/all_pngs"
+imgdir="/data/03261/polonius/hdr3/d##/all_pngs"
 #!!! IMPORTANT !!! db_dir needs to end with a /
-db_dir="/data/03261/polonius/hdr2.1.run/detect/image_db/"
+db_dir="/data/03261/polonius/hdr3/detect/image_db/"
 rpt="elixer_reports_"
 
 
@@ -22,12 +22,13 @@ rpt="elixer_reports_"
 #
 #read -p "Press enter to continue"
 #
-#for i in {21000..21005}
-#for i in {21006..21010}
-#for i in {21011..21015}
-#for i in {21016..21020}
-for i in {21000..21025}
-#for i in {21900..21900}
+#at 48 cores (SKX), and 3 db (rpt, nei, mini) per 100,000 detectID numbering, run 16 per node
+#at 68 cores (KNL), and 3 db (rpt, nei, mini) per 100,000 detectID numbering, run 22 per node
+#takes about 20 hours (or it did) for 100,000 ACTUAL inserts per file ...
+#this should not take as long as there are usually only order few to 10,000 actual detections n a 100,000 numbering range
+#  the rest do not meet the threshold for a report
+for i in {30000..30015}
+#for i in {30900..30900}
 do
 
   python3 make_report_db.py --db_name "${db_dir}${rpt}${i}.db" --img_dir $imgdir --img_name "${i}*[0-9].png" &
@@ -39,7 +40,7 @@ do
 
   #note: YES underscore in image names -- of form 2000123456_mini.png
   #note: YES underscore in db names
-  python3 make_report_db.py --db_name "${db_dir}${rpt}${i}_mini.db" --img_dir  $imgdir  --img_name "$i*[0-9]_mini.png" &
+  python3 make_report_db.py --db_name "${db_dir}${rpt}${i}_mini.db" --img_dir  $imgdir  --img_name "$i*_mini.png" &
 
 done
 
@@ -52,7 +53,8 @@ done
 # elixer_reports.slurm file
 ####################################
 
-for i in {21000..21025}
+for i in {30000..30015}
+#for i in {30900..30900}
 do
 
   echo python3 make_report_db.py --db_name "${db_dir}${rpt}${i}.db" --img_dir $imgdir --img_name "${i}*[0-9].png"
@@ -64,6 +66,6 @@ do
 
   #note: YES underscore in image names -- of form 2000123456_mini.png
   #note: YES underscore in db names
-  echo python3 make_report_db.py --db_name "${db_dir}${rpt}${i}_mini.db" --img_dir  $imgdir  --img_name "$i*[0-9]_mini.png"
+  echo python3 make_report_db.py --db_name "${db_dir}${rpt}${i}_mini.db" --img_dir  $imgdir  --img_name "$i*_mini.png"
 
 done
