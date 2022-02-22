@@ -2111,9 +2111,9 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
             log.debug("Reading for shotids ...")
             shotlist = stb.read_where("(ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2)",field="shotid")
             if shotlist is not None:
-                log.debug(f"Shots found: {len(shotlist)}")
+                log.info(f"Shots found ({len(shotlist)}): {shotlist}")
             else:
-                log.debug(f"Shots found: 0")
+                log.info(f"Shots found: 0")
 
 
         with tables.open_file(hdf5, mode="r") as h5:
@@ -2126,10 +2126,12 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
             rows = None
             for q_shot in shotlist: #probably not indexed by shot
                 q_rows = dtb.read_where("(shotid == q_shot) & (ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2)")
-                if rows is None:
-                    rows = q_rows
-                else:
-                    rows = np.concatenate((rows,q_rows))
+                if q_rows is not None and len(q_rows) > 0:
+                    if rows is None:
+                        rows = q_rows
+                    else:
+                        rows = np.concatenate((rows,q_rows))
+
 
             if (rows is not None) and (len(rows) > 0):
                 detectids = rows['detectid']
@@ -2163,7 +2165,7 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
                 msg = "%d detection records found +/- %g\" from %f, %f (%s)" % (len(detectids), error * 3600., ra, dec, hdf5)
                 log.info(msg)
                 print(msg)
-                log.debug(f"DetectIDs: {detectids}")
+                log.info(f"DetectIDs: {detectids}")
             else:
                 msg = "0 detection records found +/- %g\" from %f, %f (%s)" % (error * 3600., ra, dec,hdf5)
                 log.info(msg)
