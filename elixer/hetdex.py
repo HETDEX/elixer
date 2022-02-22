@@ -4468,14 +4468,14 @@ class DetObj:
                  scaled_prob_lae = -1
                  self.classification_dict['scaled_plae'] = scaled_prob_lae
                  self.classification_dict['spurious_reason'] = reason
-                 log.info(f"{self.entry_id} Aggregate Classification: poor throughput {self.survey_response}. Setting PLAE to -1 (spurious)")
+                 log.info(f"{self.entry_id} Aggregate Classification: poor throughput {self.survey_response:0.4f}. Setting PLAE to -1 (spurious)")
             elif (np.isnan(self.dither_norm) or (self.dither_norm > 3.0)):
                 reason = "(bad dither norm)"
                 scaled_prob_lae = -1
                 self.classification_dict['scaled_plae'] = scaled_prob_lae
                 self.classification_dict['spurious_reason'] = reason
                 log.info(
-                    f"{self.entry_id} Aggregate Classification: poor throughput {self.survey_response}. Setting PLAE to -1 (spurious)")
+                    f"{self.entry_id} Aggregate Classification: bad dither norm {self.dither_norm}. Setting PLAE to -1 (spurious)")
             else:
                 bool_sum  = (self.survey_response < 0.08) + (self.survey_fwhm > 3.0) +  (np.isnan(self.dither_norm) or (self.dither_norm > 3.0))
                 if bool_sum > 1:
