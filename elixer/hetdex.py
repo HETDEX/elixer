@@ -1717,6 +1717,24 @@ class DetObj:
             #is the multiline solution (which has been updated with catalog phot-z and spec-z)
             #consistent with lowz or high-z?
 
+            try:
+                if self.spec_obj and self.spec_obj.solutions and len(self.spec_obj.solutions) > 0:
+                    multiline_top_z = self.spec_obj.solutions[0].z
+                    multiline_top_score = self.spec_obj.solutions[0].score
+                    multiline_top_scale_score = self.spec_obj.solutions[0].scale_score
+                    multiline_top_rest = self.spec_obj.solutions[0].central_rest
+                else:
+                    multiline_top_z = -1
+                    multiline_top_score = -1
+                    multiline_top_scale_score = -1
+                    multiline_top_rest = -1
+            except:
+                multiline_top_z = -1
+                multiline_top_score = -1
+                multiline_top_scale_score = -1
+                multiline_top_rest = -1
+
+
             #the problem is that the spec_obj solution might be weak or even if not, out voted
             #by the P(LyA) classifictionm but just using that with P(LyA) as the confidence
             #then could be incongruous (in that they don't belong together)
@@ -1884,7 +1902,14 @@ class DetObj:
                         self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
                         p = max(0.05,p - pscore)
 
-                        if scaled_plae_classification < 0.5:
+                        troublesome_lines = [1549,1909, 2799] #CIV, CIII, MgII
+
+                        if multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE and multiline_top_rest in troublesome_lines:
+                            z = multiline_top_z
+                            log.info(f"Q(z): Multiline solution is weak and inconsistent, but nothing better."
+                                     f"P(LyA) favors OII {scaled_plae_classification}. Set to multiline z:{z} with Q(z): {p}")
+
+                        elif scaled_plae_classification < 0.5:
                             z = self.w / G.OII_rest - 1.0
 
                             if possible_agn: #not likely OII given the velocity width, though could still be broadend
@@ -6442,7 +6467,7 @@ class DetObj:
             #update DEX-g based continuum and EW
             try:
                 self.best_gmag_cgs_cont *= self.spec_obj.gband_continuum_correction()
-                self.best_gmag_cgs_cont_unc *= self.spec_obj.gband_continuum_correction()
+                #self.best_gmag_cgs_cont_unc *= self.spec_obj.gband_continuum_correction()
 
                 self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
                 self.best_eqw_gmag_obs_unc = abs(self.best_eqw_gmag_obs * np.sqrt(
@@ -7275,7 +7300,7 @@ class DetObj:
                 #update DEX-g based continuum and EW
                 try:
                     self.best_gmag_cgs_cont *= self.spec_obj.gband_continuum_correction()
-                    self.best_gmag_cgs_cont_unc *= self.spec_obj.gband_continuum_correction()
+                    #self.best_gmag_cgs_cont_unc *= self.spec_obj.gband_continuum_correction()
 
                     self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
                     self.best_eqw_gmag_obs_unc = abs(self.best_eqw_gmag_obs * np.sqrt(
@@ -8314,10 +8339,8 @@ class DetObj:
             # if G.DEBUG_SHOW_GAUSS_PLOTS:
             #    self.spec_obj.build_full_width_spectrum(show_skylines=True, show_peaks=True, name="testsol")
             # print("DEBUG ... spectrum peak finder DONE")
-
             #update DEX-g based continuum and EW
             try:
-
                 if (self.spec_obj.central_eli is not None) and ((self.estflux is None) or (self.estflux <= 0)):
                     #basic info not loaded, could be continuum object and none provided from HETDEX
                     self.sigma = self.spec_obj.central_eli.fit_sigma
@@ -8339,7 +8362,7 @@ class DetObj:
                                               self.cont_cgs_unc/G.HETDEX_FLUX_BASE_CGS, 0.0)
 
                 self.best_gmag_cgs_cont *= self.spec_obj.gband_continuum_correction()
-                self.best_gmag_cgs_cont_unc *= self.spec_obj.gband_continuum_correction()
+                #self.best_gmag_cgs_cont_unc *= self.spec_obj.gband_continuum_correction()
 
                 self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
                 self.best_eqw_gmag_obs_unc = abs(self.best_eqw_gmag_obs * np.sqrt(

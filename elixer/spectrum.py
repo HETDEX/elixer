@@ -3912,6 +3912,12 @@ class Classifier_Solution:
     @property
     def prob_real(self):
         #return min(1-self.prob_noise,0.999) * min(1.0, max(0.67,self.score/G.MULTILINE_MIN_SOLUTION_SCORE))
+        try:
+            if self.prob_noise == 1.0 and self.score > 10: #this can't be right
+                self.prob_noise = np.prod([x.prob_noise for x in self.lines])
+        except:
+            log.error("Error computing prob_real for solution.")
+
         return min(1 - self.prob_noise, 0.999) * min(1.0, float(len(self.lines))/(G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY))# + 1.0))
 
 
@@ -4146,32 +4152,91 @@ class Spectrum:
         """
 
         try:
-
             if not recompute and (0.0 <= self.gband_continuum_correction_factor <= 1.0):
                 return self.gband_continuum_correction_factor
 
-            #yes, ignoring uncertainties on the observed EW
-            if self.all_found_lines:
-                emis = np.sum([l.eqw_obs if (l.snr > GOOD_MIN_LINE_SNR and l.line_score > GOOD_MIN_LINE_SCORE)
-                               else 0 for l in self.all_found_lines ])
+            _errors = copy.copy(self.errors)
+            if self.central is not None and self.central > 0 and self.fwhm is not None and self.fwhm > 0:
+                all_line_centers = np.array([self.central])
+                all_line_sigmas = np.array([round(2*self.fwhm/2.355)]) #integer rounded number of wavelength bins for a 2*sigma w
             else:
-                emis = 0
+                all_line_centers = np.array([])
+                all_line_sigmas = np.array([]) #integer rounded number of wavelength bins for a 2*sigma width
 
-            if self.all_found_absorbs:
-                absorb = np.sum([abs(l.eqw_obs) if (l.snr > GOOD_MIN_LINE_SNR and l.line_score > GOOD_MIN_LINE_SCORE)
-                                 else 0 for l in self.all_found_absorbs ])
+            if self.all_found_lines is not None and len(self.all_found_lines) > 0:
+                all_line_centers = np.concatenate((all_line_centers,np.array([x.fit_x0 for x in self.all_found_lines])))
+                all_line_sigmas = np.concatenate((all_line_sigmas,np.array([round(x.fit_sigma*2/G.FLUX_WAVEBIN_WIDTH)
+                                                                           for x in self.all_found_lines])))
+
+            if self.all_found_absorbs is not None and len(self.all_found_absorbs) > 0:
+                all_line_centers = np.concatenate((all_line_centers,np.array([x.fit_x0 for x in self.all_found_absorbs])))
+                all_line_sigmas = np.concatenate((all_line_sigmas,np.array([round(x.fit_sigma*2/G.FLUX_WAVEBIN_WIDTH)
+                                                                           for x in self.all_found_absorbs])))
+
+            if len(all_line_centers) > 0:
+                max_idx = len(self.wavelengths)
+                for c,s in zip(all_line_centers,all_line_sigmas):
+                    idx = getnearpos(self.wavelengths,c)
+                    left = max(0,idx-int(s)+1)
+                    right = min(max_idx,idx+int(s)+1)
+                    _errors[left:right] = 0 #setting to zero will filter it out of the get_hetdex_gmag logic
+
+
+                #w/o the wavelengths masked
+                gmag1, gmag_cgs_cont1, gmag_unc1, gmag_cgs_cont_unc1 = get_hetdex_gmag(
+                                                                   self.values / 2.0 * G.HETDEX_FLUX_BASE_CGS,
+                                                                   self.wavelengths,
+                                                                   self.errors / 2.0 * G.HETDEX_FLUX_BASE_CGS)
+
+                if gmag_cgs_cont1 >= G.HETDEX_CONTINUUM_FLUX_LIMIT: #if the unmasked continuum estimate is already below our limit,
+                                                                    # don't bother with the correction as it is meaningless
+                    #with the wavelengths masked
+                    gmag2, gmag_cgs_cont2, gmag_unc2, gmag_cgs_cont_unc2 = get_hetdex_gmag(
+                                                                           self.values / 2.0 * G.HETDEX_FLUX_BASE_CGS,
+                                                                           self.wavelengths,
+                                                                           _errors / 2.0 * G.HETDEX_FLUX_BASE_CGS)
+
+                    gmag_cgs_cont2 = max(G.HETDEX_CONTINUUM_FLUX_LIMIT,gmag_cgs_cont2)
+
+                    if gmag_cgs_cont1 > 0 and gmag_cgs_cont2 > 0:
+                        self.gband_continuum_correction_factor = gmag_cgs_cont2/gmag_cgs_cont1
+                        log.info(f"g-band correction factor = {self.gband_continuum_correction_factor}")
+                    else:
+                        self.gband_continuum_correction_factor = 1.0
+                else:
+                    self.gband_continuum_correction_factor = 1.0
             else:
-                absorb = 0
-
-            self.gband_continuum_correction_factor = 1.0 - (emis-absorb)/((len(G.CALFIB_WAVEGRID)+1)*G.FLUX_WAVEBIN_WIDTH)
-
-            if not (0.0 <= self.gband_continuum_correction_factor <= 1.0):
-                log.warning(f"Non-sense gband continuum correction factor {self.gband_continuum_correction_factor}. Resetting.")
                 self.gband_continuum_correction_factor = 1.0
-            return self.gband_continuum_correction_factor
-
         except:
-            return 1.0
+            log.info("Exception in gband_continuum_correction.",exc_info=True)
+
+        # try:
+        #     if use_ew: #use the EW logic
+        #         #yes, ignoring uncertainties on the observed EW
+        #         if self.all_found_lines:
+        #             emis = np.sum([l.eqw_obs if (l.snr > GOOD_MIN_LINE_SNR and l.line_score > GOOD_MIN_LINE_SCORE)
+        #                            else 0 for l in self.all_found_lines ])
+        #         else:
+        #             emis = 0
+        #
+        #         if self.all_found_absorbs:
+        #             absorb = np.sum([abs(l.eqw_obs) if (l.snr > GOOD_MIN_LINE_SNR and l.line_score > GOOD_MIN_LINE_SCORE)
+        #                              else 0 for l in self.all_found_absorbs ])
+        #         else:
+        #             absorb = 0
+        #
+        #         self.gband_continuum_correction_factor = 1.0 - (emis-absorb)/(G.HETDEX_RED_SAFE_WAVE-G.HETDEX_BLUE_SAFE_WAVE+1)
+        #         log.info(f"g-band correction factor = {self.gband_continuum_correction_factor}")
+        #
+        # except:
+        #     log.info("Exception in gband_continuum_correction.",exc_info=True)
+        #     return 1.0
+
+        if not (0.0 <= self.gband_continuum_correction_factor <= 1.0):
+            log.warning(f"Nonsense gband continuum correction factor {self.gband_continuum_correction_factor}. Resetting.")
+            self.gband_continuum_correction_factor = 1.0
+
+        return self.gband_continuum_correction_factor
 
     def rescore(self,sum_score=None):
         """
@@ -4585,8 +4650,11 @@ class Spectrum:
                                               f"FWHM {fwhm_j:0.2f}, {fwhm_i:0.2f} exceed max allowed {2.355 *LIMIT_BROAD_SIGMA} ")
                                     continue
 
+                                fwhm_err_i = line_fwhm_err[line_idx[i]]
+                                fwhm_err_j = line_fwhm_err[line_idx[j]]
                                 avg_fwhm = 0.5* (fwhm_i + fwhm_j)
-                                diff_fwhm = abs(fwhm_i - fwhm_j)
+                                diff_fwhm = max(0,abs(fwhm_i - fwhm_j) - (fwhm_err_i+fwhm_err_j))
+
                                 if avg_fwhm > 0 and diff_fwhm/avg_fwhm < 0.5:
                                     score += 1
                                     log.debug(f"Ratio match (+1) for solution = {solution.central_rest}: "
@@ -4948,8 +5016,10 @@ class Spectrum:
                                 # maybe if both are greater than 12 or 14AA, just call them equivalent
                                 fwhm_i = line_fwhm[line_idx[i]]
                                 fwhm_j = line_fwhm[line_idx[j]]
+                                fwhm_err_i = line_fwhm_err[line_idx[i]]
+                                fwhm_err_j = line_fwhm_err[line_idx[j]]
                                 avg_fwhm = 0.5* (fwhm_i + fwhm_j)
-                                diff_fwhm = abs(fwhm_i - fwhm_j)
+                                diff_fwhm = max(0,abs(fwhm_i - fwhm_j) - (fwhm_err_i+fwhm_err_j))
 
                                 if (line_broad[line_idx[i]] == line_broad[line_idx[j]]):
                                     adjust = 1.0  # they should be similar (both broad or narrow)
@@ -5448,6 +5518,13 @@ class Spectrum:
         else:
             log.warning("Warning! Did not successfully compute signal_score on main emission line.")
 
+        self.wavelengths = wavelengths
+        self.values = values
+        self.errors = errors
+        self.values_units = values_units
+        self.central = central
+        #the rest are below
+
         try:
             # get very basic info (line fit)
             self.gband_continuum_correction()
@@ -5522,11 +5599,11 @@ class Spectrum:
             pass
 
 
-        self.wavelengths = wavelengths
-        self.values = values
-        self.errors = errors
-        self.values_units = values_units
-        self.central = central
+        # self.wavelengths = wavelengths
+        # self.values = values
+        # self.errors = errors
+        # self.values_units = values_units
+        # self.central = central
         self.estflux = estflux
         self.estflux_unc = estflux_unc
         self.eqw_obs = eqw_obs

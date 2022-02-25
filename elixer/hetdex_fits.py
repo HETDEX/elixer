@@ -485,6 +485,11 @@ class HetdexFits:
 
                         data = np.nan_to_num(data)
                         return data
+                    except ValueError as ve:
+                        if "no field" in str(ve): #these are generally expected
+                            log.debug(f"Exception retrieving field: {logname_info} : {field_name}")
+                            raise ve
+                            return np.full(shape,0)
                     except:
                         log.error(f"Exception retrieving field: {logname_info} : {field_name}",exc_info=True)
                         return np.full(shape,0)
@@ -513,8 +518,6 @@ class HetdexFits:
 
                     self.calfib[idx] = get_field(row,'calfib',np.shape(self.calfib[idx]),f"{logname_info}_{idx}")
                     self.calfibe[idx] = get_field(row,'calfibe',np.shape(self.calfibe[idx]),f"{logname_info}_{idx}")
-
-
 
                     try: #in HDR3 the name is new
                         #self.ffsky_calfib[idx] = row['calfib_ffsky']

@@ -1,5 +1,14 @@
 changes to elixer by version
 
+
+1.16.2 [2022-02-25]
+* small update to the gmag continuum adjustment to re-measue with emission and absorption lines masked, then fall back
+  on EW if that fails. For the EW, use the denominator as the "safe" red wavelength - blue wavelength instead of the
+  full width.
+* fixed but that was leaving the prob_noise = 1 for single line "multi-line" solutions where other lines are present
+  but not fitted (and we use the summed flux method).
+* small correction in comparing FHWM of lines when testing for compatibility with AGN or low-z galaxies
+
 1.16.1 [2022-02-16]
 * fix report and neighborhood if DECaLS fails to move on to PanSTARRS and SDSS (if allowed)
 
