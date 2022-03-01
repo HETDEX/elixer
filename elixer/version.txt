@@ -1,5 +1,12 @@
 changes to elixer by version
 
+1.16.3 [2022-03-01]
+* add continuum_masked as the continuum estimate from the DEX spectra with emission and absorption lines masked
+  and restored the original continuum_wide as the estimate from the DEX spectrum as g-mag (band pass)
+* fix issue where unselected SEP objects and unselected catalog matches (or too distant catalog matches) were adding in
+  continuum estimates and where there should only be imaging non-detects
+* change former P(LyA) disqualifiers to allow the classification to continue and just add a corresponding flag instead
+* turn off bad pixel flat as a weighted vote. Will only add as a flag.
 
 1.16.2 [2022-02-25]
 * small update to the gmag continuum adjustment to re-measue with emission and absorption lines masked, then fall back

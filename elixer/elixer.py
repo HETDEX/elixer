@@ -192,7 +192,7 @@ class PDF_File():
 
 
 
-def make_zeroth_row_header(left_text,show_version=True):
+def make_zeroth_row_header(left_text,show_version=True,redtext=False):
     try:
         # make a .pdf file
         plt.close('all')
@@ -206,7 +206,7 @@ def make_zeroth_row_header(left_text,show_version=True):
 
         plt.subplot(gs[0, 0])
         plt.gca().axis('off')
-        if ": -1 (" in left_text: #ie: P(LyA): -1 (negative spectrum)
+        if redtext or ": -1 (" in left_text: #ie: P(LyA): -1 (negative spectrum)
             plt.text(0, 0.5, left_text, ha='left', va='bottom', fontproperties=font,color='r')
         else:
             plt.text(0, 0.5, left_text, ha='left', va='bottom', fontproperties=font)
@@ -4965,9 +4965,9 @@ def main():
                                             if p_of_z > 0:
                                                 if e.cluster_z == best_z:
                                                     e.flags |= G.DETFLAG_Z_FROM_NEIGHBOR
-                                                    header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
+                                                    header_text = r"EW: %0.4g$\pm$%0.4g$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
                                                                   r"P(Ly$\alpha$): %0.3f  Q(z): %0.2f  z: %0.4f*" \
-                                                                  % (combined_ew,combined_ew_err,
+                                                                  % (min(combined_ew,9999),min(combined_ew_err,9999),
                                                                       round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae,p_of_z,best_z)
                                                 else:
                                                     #what line is best_z?
@@ -4976,13 +4976,13 @@ def main():
                                                     except:
                                                         line_label = ""
 
-                                                    header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
+                                                    header_text = r"EW: %0.4g$\pm$%0.4g$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
                                                               r"P(Ly$\alpha$): %0.3f  Q(z): %0.2f  z: %0.4f %s" \
-                                                          % (combined_ew,combined_ew_err,round(plae, 3),round(plae_high, 3),round(plae_low, 3),
+                                                          % (min(combined_ew,9999),min(combined_ew_err,9999),round(plae, 3),round(plae_high, 3),round(plae_low, 3),
                                                              scale_plae,p_of_z,best_z,line_label)
                                             else:
-                                                header_text = r"EW: %0.1f$\pm$%0.1$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(Ly$\alpha$): %0.3f" \
-                                                  % (combined_ew,combined_ew_err,round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae)
+                                                header_text = r"EW: %0.4g$\pm$%0.4g$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(Ly$\alpha$): %0.3f" \
+                                                  % (min(combined_ew,9999),min(combined_ew_err,9999),round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae)
 
                                         try:
                                             if len(e.spec_obj.classification_label) > 0:
@@ -4997,7 +4997,9 @@ def main():
                                     if not e.full_flag_check_performed:
                                         e.flag_check()
                                     if e.flags != 0:
-                                        header_text += f"    Flags:0x{e.flags:08x}"
+                                        header_text += f"  Flags:0x{e.flags:08x}"
+                                    if reason is not None and len(reason) > 3 and scale_plae >= 0:
+                                        header_text += f"  {reason}"
                                 except:
                                     pass
 
@@ -5007,7 +5009,7 @@ def main():
 
 
                                 try:
-                                    build_report_part(os.path.join(e.outdir, e.pdf_name),[make_zeroth_row_header(header_text)],0)
+                                    build_report_part(os.path.join(e.outdir, e.pdf_name),[make_zeroth_row_header(header_text,redtext=e.red_header)],0)
                                 except:
                                     log.debug("Exception calling build_report_part",exc_info=True)
                         # else: #try both
@@ -5031,7 +5033,7 @@ def main():
             elif G.CONTINUUM_RULES:
                 header_text = "Continuum Source"
                 try:
-                    build_report_part(os.path.join(e.outdir, e.pdf_name), [make_zeroth_row_header(header_text)], 0)
+                    build_report_part(os.path.join(e.outdir, e.pdf_name), [make_zeroth_row_header(header_text,redtext=e.red_header)], 0)
                 except:
                     log.debug("Exception calling build_report_part", exc_info=True)
 

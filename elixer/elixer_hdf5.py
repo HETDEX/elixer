@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.6.0' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.6.1' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -103,6 +103,10 @@ class Detections(tables.IsDescription):
     plae_wide = tables.Float32Col(dflt=UNSET_FLOAT)
     plae_wide_max = tables.Float32Col(dflt=UNSET_FLOAT)
     plae_wide_min = tables.Float32Col(dflt=UNSET_FLOAT)
+
+    #more new
+    continuum_masked = tables.Float32Col(dflt=UNSET_FLOAT) #continuum from (mostly) the full spectrum width, from pseudo g-band magnitude
+    continuum_masked_err = tables.Float32Col(dflt=UNSET_FLOAT)
 
 
     # continuum_sdss_g = tables.Float32Col(dflt=UNSET_FLOAT) #todo: remove (replace with a "best")
@@ -887,6 +891,11 @@ def append_entry(fileh,det,overwrite=False):
         if det.best_gmag_unc is not None:
             row['mag_g_wide_err'] = det.best_gmag_unc
 
+        try:
+            row['continuum_masked'] = det.best_masked_cgs_cont
+            row['continuum_masked_err'] = det.best_masked_cgs_cont_unc
+        except:
+            pass
 
         #hetdex line flux / sdss continuum flux
         try: #it is odd, but possible to have eqw_sdss_obs but NOT the _unc

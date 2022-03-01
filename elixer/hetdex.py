@@ -584,6 +584,7 @@ class DetObj:
                                        # 0 = none needed, 1 = review needed, 2= review done
                                        #with possible expansion to severity? or other
         self.full_flag_check_performed = False
+        self.red_header = False #flag the top line in the report in red
 
         self.matched_cats = [] #list of catalogs in which this object appears (managed outside this class, in elixer.py)
         self.status = 0
@@ -735,6 +736,10 @@ class DetObj:
         self.best_gmag_unc = None
         self.best_gmag_cgs_cont = None
         self.best_gmag_cgs_cont_unc = None
+
+        self.best_masked_cgs_cont = None #from DEX fullwidth spectrum, with emission and absorption lines masked
+        self.best_masked_cgs_cont_unc = None
+
         self.best_eqw_gmag_obs = None
         self.best_eqw_gmag_obs_unc = None
         self.best_gmag_p_lae_oii_ratio = None
@@ -4443,12 +4448,15 @@ class DetObj:
             if (self.fibers[fidx].pixel_flat_center_ratio < G.MIN_PIXEL_FLAT_CENTER_RATIO) or \
                (self.fibers[fidx].pixel_flat_center_avg < G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE):
                 bad_pixflt_weight += self.fibers[fidx].relative_weight
-                likelihood.append(0)
-                weight.append(1.0 + self.fibers[fidx].relative_weight) #more central fibers make this more likely to trigger
-                var.append(1)
-                prior.append(0)
-                log.info(f"{self.entry_id} Aggregate Classification: bad pixel flat for fiber #{fidx+1}. lk({likelihood[-1]}) "
-                         f"weight({weight[-1]}) relative fiber weight({self.fibers[fidx].relative_weight})")
+                self.flags |= G.DETFLAG_BAD_PIXEL_FLAT #might not rise to the level of needed a review though
+
+                #2022-03-01 changed to just set a flag and not treat as a vote against
+                # likelihood.append(0)
+                # weight.append(1.0 + self.fibers[fidx].relative_weight) #more central fibers make this more likely to trigger
+                # var.append(1)
+                # prior.append(0)
+                # log.info(f"{self.entry_id} Aggregate Classification: bad pixel flat for fiber #{fidx+1}. lk({likelihood[-1]}) "
+                #          f"weight({weight[-1]}) relative fiber weight({self.fibers[fidx].relative_weight})")
 
         #check for duplicate pixel positions
         #NO! there are valid (good) conditions where there ARE duplicate positions but it is good and correct
@@ -4468,48 +4476,73 @@ class DetObj:
             # var.append(1)
             # prior.append(0)
             reason = "(bad pixel flat)"
-            scaled_prob_lae = -1
+            #scaled_prob_lae = -1
+            self.red_header = True
+            self.flags |= G.DETFLAG_BAD_PIXEL_FLAT
+            self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+            self.needs_review = True
             self.classification_dict['scaled_plae'] = scaled_prob_lae
             self.classification_dict['spurious_reason'] = reason
-            log.info(f"{self.entry_id} Aggregate Classification: bad pixel flat dominates. Setting PLAE to -1 (spurious)")
+            log.info(f"{self.entry_id} Aggregate Classification: bad pixel flat dominates. Setting spurious reason.")
         elif self.duplicate_fiber_cutout_pair_weight > 0.0:
             reason = "(duplicate 2D fibers)"
-            scaled_prob_lae = -1
+            #scaled_prob_lae = -1
+            self.red_header = True
+            self.flags |= G.DETFLAG_DUPLICATE_FIBERS
+            self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+            self.needs_review = True
             self.classification_dict['scaled_plae'] = scaled_prob_lae
             self.classification_dict['spurious_reason'] = reason
             log.info(f"{self.entry_id} Aggregate Classification: duplicate 2D fibers "
-                     f"(min weight {self.duplicate_fiber_cutout_pair_weight}). Setting PLAE to -1 (spurious)")
+                     f"(min weight {self.duplicate_fiber_cutout_pair_weight}). Setting spurious reason.")
         elif self.grossly_negative_spec:
             reason = "(negative spectrum)"
-            scaled_prob_lae = -1
+            #scaled_prob_lae = -1
+            self.red_header = True
+            self.flags |= G.DETFLAG_NEGATIVE_SPECTRUM
+            self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+            self.needs_review = True
             self.classification_dict['scaled_plae'] = scaled_prob_lae
             self.classification_dict['spurious_reason'] = reason
-            log.info(f"{self.entry_id} Aggregate Classification: grossly negative spectrum. Setting PLAE to -1 (spurious)")
+            log.info(f"{self.entry_id} Aggregate Classification: grossly negative spectrum. Setting purious reason.")
         #shot conditions
         elif (self.survey_response < 0.08) or (self.survey_fwhm > 3.0) or \
                 (np.isnan(self.dither_norm) or (self.dither_norm > 3.0)):
             if self.survey_response < 0.05: #this alone means we're done
-                 reason = "(poor throughput)"
-                 scaled_prob_lae = -1
-                 self.classification_dict['scaled_plae'] = scaled_prob_lae
-                 self.classification_dict['spurious_reason'] = reason
-                 log.info(f"{self.entry_id} Aggregate Classification: poor throughput {self.survey_response:0.4f}. Setting PLAE to -1 (spurious)")
+                reason = "(poor throughput)"
+                #scaled_prob_lae = -1
+                self.red_header = True
+                self.flags |= G.DETFLAG_POOR_THROUGHPUT
+                self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+                self.needs_review = True
+                self.classification_dict['scaled_plae'] = scaled_prob_lae
+                self.classification_dict['spurious_reason'] = reason
+                log.info(f"{self.entry_id} Aggregate Classification: poor throughput {self.survey_response:0.4f}. Setting spurious reason.")
             elif (np.isnan(self.dither_norm) or (self.dither_norm > 3.0)):
                 reason = "(bad dither norm)"
-                scaled_prob_lae = -1
+                #scaled_prob_lae = -1
+                self.red_header = True
+                self.flags |= G.DETFLAG_BAD_DITHER_NORM
+                self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+                self.needs_review = True
                 self.classification_dict['scaled_plae'] = scaled_prob_lae
                 self.classification_dict['spurious_reason'] = reason
                 log.info(
-                    f"{self.entry_id} Aggregate Classification: bad dither norm {self.dither_norm}. Setting PLAE to -1 (spurious)")
+                    f"{self.entry_id} Aggregate Classification: bad dither norm {self.dither_norm}. Setting spurious reason.")
             else:
                 bool_sum  = (self.survey_response < 0.08) + (self.survey_fwhm > 3.0) +  (np.isnan(self.dither_norm) or (self.dither_norm > 3.0))
                 if bool_sum > 1:
                     reason = "(poor shot)"
-                    scaled_prob_lae = -1
+                    #scaled_prob_lae = -1
+                    self.red_header = True
+                    self.flags |= G.DETFLAG_POOR_SHOT
+                    self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+                    self.needs_review = True
                     self.classification_dict['scaled_plae'] = scaled_prob_lae
                     self.classification_dict['spurious_reason'] = reason
                     log.info(
-                        f"{self.entry_id} Aggregate Classification: poor shot F: {self.survey_fwhm} T: {self.survey_response}  N:{self.dither_norm}. Setting PLAE to -1 (spurious)")
+                        f"{self.entry_id} Aggregate Classification: poor shot F: {self.survey_fwhm} T: {self.survey_response}  "
+                        f"N:{self.dither_norm}. Setting spurious reason.")
                 else:
                     log.info(
                         f"{self.entry_id} Aggregate Classification: poor shot F: {self.survey_fwhm} T: {self.survey_response}  N:{self.dither_norm}, but did not trigger spurious.")
@@ -5268,22 +5301,45 @@ class DetObj:
                                 else:
                                     cont_check = None
                                 if any_sep and (not matched_sep) and (elix_aper_radius > 2.5) and \
-                                        (cont_check is not None) and (cont/cont_check > 5.0 ):
+                                        (cont_check is not None) and (cont/cont_check > 2.5 ): #a whole mag brighter
                                     #don't use this one and set the flag
                                     self.flags |= G.DETFLAG_LARGE_NEIGHBOR
                                     log.info(f"{self.entry_id} Combine ALL Continuum: {a['catalog_name']}-{a['filter_name']} Grossly inconsistent photometric aperture"
                                              f" magnitude with suggestion of bright, offset object. Excluding from consideration.")
-                                else:
-                                    weight.append(w)
-                                    variance.append(cont_var)
-                                    continuum.append(cont)
-                                    cont_type.append("a" + a['filter_name'])
-                                    nondetect.append(0)
-                                    aperture_radius = a['radius']
+                                elif a['sep_obj_idx'] is None and a['elixer_aper_idx'] is not None: #this is an elixer aperture selection
+                                    try:
+                                        if len(a['sep_objects']) > 0 and a['radius'] > min([x['dist_baryctr'] for x in a['sep_objects']]):
+                                            #the elixer aperture has grown to encompass SEP objects, but none are selected as being
+                                            #close enough ... we can't use the elixer aperture in this case ... it is clearly too large
+                                            #and is contaiminated
+                                            self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+                                            log.info(f"{self.entry_id} Combine ALL Continuum: {a['catalog_name']}-{a['filter_name']}"
+                                             f"EliXer aperture encompasses one or more objects. Excluding from consideration.")
+                                        else: #using the elixer aperture values
+                                            weight.append(w)
+                                            variance.append(cont_var)
+                                            continuum.append(cont)
+                                            cont_type.append("a" + a['filter_name'])
+                                            nondetect.append(0)
+                                            aperture_radius = a['radius']
 
-                                log.debug(
-                                    f"{self.entry_id} Combine ALL Continuum: Added imaging estimate ({continuum[-1]:#.4g}) "
-                                    f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f}) filter({a['filter_name']})")
+                                            log.debug(
+                                                f"{self.entry_id} Combine ALL Continuum: Added imaging estimate ({continuum[-1]:#.4g}) "
+                                                f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f}) filter({a['filter_name']})")
+
+                                    except:
+                                        pass
+                                # elif:
+                                #     weight.append(w)
+                                #     variance.append(cont_var)
+                                #     continuum.append(cont)
+                                #     cont_type.append("a" + a['filter_name'])
+                                #     nondetect.append(0)
+                                #     aperture_radius = a['radius']
+                                #
+                                # log.debug(
+                                #     f"{self.entry_id} Combine ALL Continuum: Added imaging estimate ({continuum[-1]:#.4g}) "
+                                #     f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f}) filter({a['filter_name']})")
                 except:
                     log.debug("Exception handling individual forced aperture photometry continuum in DetObj:combine_all_continuum",
                               exc_info=True)
@@ -5308,17 +5364,19 @@ class DetObj:
 
         if self.best_counterpart is not None and self.best_counterpart.bid_filter is not None:
             if self.best_counterpart.bid_filter.lower() in ['g','r','f606w']:
-                weight.append(1)
-                continuum.append(self.best_counterpart.bid_flux_est_cgs)
-                variance.append(max( self.best_counterpart.bid_flux_est_cgs*self.best_counterpart.bid_flux_est_cgs*0.04,
-                                     self.best_counterpart.bid_flux_est_cgs_unc*self.best_counterpart.bid_flux_est_cgs_unc))
+                if  not np.all(nondetect) or (np.all(nondetect) and self.best_counterpart.distance < 0.5):
+                    #only willing to use this if there are other non-detects OR if this is right on top of our position
+                    weight.append(1)
+                    continuum.append(self.best_counterpart.bid_flux_est_cgs)
+                    variance.append(max( self.best_counterpart.bid_flux_est_cgs*self.best_counterpart.bid_flux_est_cgs*0.04,
+                                         self.best_counterpart.bid_flux_est_cgs_unc*self.best_counterpart.bid_flux_est_cgs_unc))
 
-                cont_type.append("c" + self.best_counterpart.bid_filter.lower())
-                nondetect.append(0)
-                log.debug(
-                    f"{self.entry_id} Combine ALL Continuum: Added catalog bid target estimate"
-                    f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
-                    f"weight({weight[-1]:#.2f}) filter({self.best_counterpart.bid_filter.lower()}) dist({self.best_counterpart.distance})")
+                    cont_type.append("c" + self.best_counterpart.bid_filter.lower())
+                    nondetect.append(0)
+                    log.debug(
+                        f"{self.entry_id} Combine ALL Continuum: Added catalog bid target estimate"
+                        f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
+                        f"weight({weight[-1]:#.2f}) filter({self.best_counterpart.bid_filter.lower()}) dist({self.best_counterpart.distance})")
 
         if False: #choosing the last argument as this is a mix of probabilites and even in the "best" case is an over counting
             try:
@@ -6466,15 +6524,29 @@ class DetObj:
 
             #update DEX-g based continuum and EW
             try:
-                self.best_gmag_cgs_cont *= self.spec_obj.gband_continuum_correction()
-                #self.best_gmag_cgs_cont_unc *= self.spec_obj.gband_continuum_correction()
+                self.best_masked_cgs_cont, self.best_masked_cgs_cont_unc, _ = self.spec_obj.gband_masked_continuum()
+                #self.best_gmag_cgs_cont_unc *= self.spec_obj.gband_masked_correction()
 
-                self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
-                self.best_eqw_gmag_obs_unc = abs(self.best_eqw_gmag_obs * np.sqrt(
-                    (self.estflux_unc / self.estflux) ** 2 +
-                    (self.best_gmag_cgs_cont_unc / self.best_gmag_cgs_cont) ** 2))
+                #only need to redo these IF we are using best_masked_cgs
+                if G.USE_MASKED_CONTINUUM_FOR_BEST_EW:
+                    if self.best_masked_cgs_cont is None:
+                        self.best_masked_cgs_cont = self.best_gmag_cgs_cont
 
-                log.info(f"Update best DEX-g continuum x{self.spec_obj.gband_continuum_correction():0.2f} and EW; cont {self.best_gmag_cgs_cont} +/- {self.best_gmag_cgs_cont_unc}" )
+                    if self.best_masked_cgs_cont_unc is None:
+                        self.best_masked_cgs_cont_unc = self.best_gmag_cgs_cont_unc
+
+                    self.best_eqw_gmag_obs = self.estflux / self.best_masked_cgs_cont
+                    self.best_eqw_gmag_obs_unc = abs(self.best_eqw_gmag_obs * np.sqrt(
+                        (self.estflux_unc / self.estflux) ** 2 +
+                        (self.best_masked_cgs_cont_unc / self.best_masked_cgs_cont) ** 2))
+
+                    log.info(f"Update best DEX-g continuum x{self.spec_obj.gband_masked_correction():0.2f} and EW; "
+                             f"cont {self.best_gmag_cgs_cont} +/- {self.best_gmag_cgs_cont_unc}" )
+                else:
+                    self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
+                    self.best_eqw_gmag_obs_unc = abs(self.best_eqw_gmag_obs * np.sqrt(
+                        (self.estflux_unc / self.estflux) ** 2 +
+                        (self.best_gmag_cgs_cont_unc / self.best_gmag_cgs_cont) ** 2))
             except:
                 log.error("Exception! Excpetion updating DEX-g continuum.",exc_info=True)
 
@@ -7299,15 +7371,28 @@ class DetObj:
 
                 #update DEX-g based continuum and EW
                 try:
-                    self.best_gmag_cgs_cont *= self.spec_obj.gband_continuum_correction()
-                    #self.best_gmag_cgs_cont_unc *= self.spec_obj.gband_continuum_correction()
+                    self.best_masked_cgs_cont, self.best_masked_cgs_cont_unc, _ = self.spec_obj.gband_masked_continuum()
+                    #self.best_gmag_cgs_cont_unc *= self.spec_obj.gband_masked_correction()
 
-                    self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
-                    self.best_eqw_gmag_obs_unc = abs(self.best_eqw_gmag_obs * np.sqrt(
-                        (self.estflux_unc / self.estflux) ** 2 +
-                        (self.best_gmag_cgs_cont_unc / self.best_gmag_cgs_cont) ** 2))
+                    if G.USE_MASKED_CONTINUUM_FOR_BEST_EW:
+                        if self.best_masked_cgs_cont is None:
+                            self.best_masked_cgs_cont = self.best_gmag_cgs_cont
 
-                    log.info(f"Update best DEX-g continuum x{self.spec_obj.gband_continuum_correction():0.2f} and EW; cont {self.best_gmag_cgs_cont} +/- {self.best_gmag_cgs_cont_unc}" )
+                        if self.best_masked_cgs_cont_unc is None:
+                            self.best_masked_cgs_cont_unc = self.best_gmag_cgs_cont_unc
+
+                        self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
+                        self.best_eqw_gmag_obs_unc = abs(self.best_eqw_gmag_obs * np.sqrt(
+                            (self.estflux_unc / self.estflux) ** 2 +
+                            (self.best_masked_cgs_cont_unc / self.best_masked_cgs_cont) ** 2))
+
+                        log.info(f"Update best DEX-g continuum x{self.spec_obj.gband_masked_correction():0.2f} and EW; "
+                                 f"cont {self.best_gmag_cgs_cont} +/- {self.best_gmag_cgs_cont_unc}" )
+                    else:
+                        self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
+                        self.best_eqw_gmag_obs_unc = abs(self.best_eqw_gmag_obs * np.sqrt(
+                            (self.estflux_unc / self.estflux) ** 2 +
+                            (self.best_gmag_cgs_cont_unc / self.best_gmag_cgs_cont) ** 2))
                 except:
                     log.error("Exception! Excpetion updating DEX-g continuum.",exc_info=True)
 
@@ -8361,15 +8446,29 @@ class DetObj:
                     self.line_gaussfit_unc = (self.w_unc,self.sigma_unc,self.estflux_unc*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
                                               self.cont_cgs_unc/G.HETDEX_FLUX_BASE_CGS, 0.0)
 
-                self.best_gmag_cgs_cont *= self.spec_obj.gband_continuum_correction()
-                #self.best_gmag_cgs_cont_unc *= self.spec_obj.gband_continuum_correction()
+                self.best_masked_cgs_cont, self.best_masked_cgs_cont_unc, _ = self.spec_obj.gband_masked_continuum()
+                #self.best_gmag_cgs_cont_unc *= self.spec_obj.gband_masked_correction()
 
-                self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
-                self.best_eqw_gmag_obs_unc = abs(self.best_eqw_gmag_obs * np.sqrt(
+                if G.USE_MASKED_CONTINUUM_FOR_BEST_EW:
+                    if self.best_masked_cgs_cont is None:
+                        self.best_masked_cgs_cont = self.best_gmag_cgs_cont
+
+                    if self.best_masked_cgs_cont_unc is None:
+                        self.best_masked_cgs_cont_unc = self.best_gmag_cgs_cont_unc
+
+                    self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
+                    self.best_eqw_gmag_obs_unc = abs(self.best_eqw_gmag_obs * np.sqrt(
+                        (self.estflux_unc / self.estflux) ** 2 +
+                        (self.best_gmag_cgs_cont_unc / self.best_gmag_cgs_cont) ** 2))
+
+                    log.info(f"Update best DEX-g continuum x{self.spec_obj.gband_masked_correction():0.2f} and EW; "
+                             f"cont {self.best_gmag_cgs_cont} +/- {self.best_gmag_cgs_cont_unc}" )
+                else:
+                    self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
+                    self.best_eqw_gmag_obs_unc = abs(self.best_eqw_gmag_obs * np.sqrt(
                     (self.estflux_unc / self.estflux) ** 2 +
                     (self.best_gmag_cgs_cont_unc / self.best_gmag_cgs_cont) ** 2))
 
-                log.info(f"Update best DEX-g continuum x{self.spec_obj.gband_continuum_correction():0.2f} and EW; cont {self.best_gmag_cgs_cont} +/- {self.best_gmag_cgs_cont_unc}" )
             except:
                 log.error("Exception! Excpetion updating DEX-g continuum.",exc_info=True)
 

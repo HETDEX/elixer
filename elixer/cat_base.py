@@ -1009,7 +1009,7 @@ class Catalog:
                         try:
                             selected_sep = d['sep_objects'][np.where([x['selected'] for x in d['sep_objects']])[0][0]]
                         except:
-                            pass
+                            pass #usually just means that no SEP object is a selected object
 
                     if selected_sep:
                         #are the magnitudes similar and is it inside the ellipse?
@@ -1027,14 +1027,24 @@ class Catalog:
                                 elif list_of_counterparts[alternate_idx].distance > list_of_counterparts[idx].distance:
                                     alternate_idx = idx
                     else:
-                        selected_idx = idx
-                        break
-                        #there is no selecte_sep ... are we compatible with the elixer aperture?
-                        #what about when we are in the outskirts of a galaxy? neither the elixer aperture nor the DEX-g
-                        #would be compatible
                         #Really ... if no selected SEP, then these must all be faint and we just want the closest one
-
-                    #so if none every really fit the bill, then we are left with selected_idx = 0 ... the nearest by position
+                        #IF its mag is roughly compatible with DEX-g (or fainter if at the limit) and not far away
+                        #note that alternate_idx does NOT come into play here
+                        try:
+                            if detobj.best_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT:
+                                if (abs(detobj.best_gmag - cp.bid_mag) < 0.5) or \
+                                    ( (detobj.best_gmag < 22) and (cp.bid_mag < 22) ) or \
+                                    ( (cp.bid_mag > detobj.best_gmag) and (cp.distance < 0.75)): #allow a little slop for Ra, Dec differences
+                                       selected_idx = idx
+                            else: #really faint
+                                if (cp.distance < 1.0):
+                                    if (abs(detobj.best_gmag - cp.bid_mag) < 0.5) or (cp.bid_mag > detobj.best_gmag) :
+                                        selected_idx = idx
+                                else:
+                                    selected_idx = None
+                        except:
+                            selected_idx = None
+                        break
             except:
                 log.warning("Exception attempting to identify best counterpart match in cat_base::build_cat_summary_pdf_section()",
                             exc_info=True)
@@ -1060,7 +1070,7 @@ class Catalog:
 
 
             #old method of just selecting the list of counterparts from the single deepest catalog
-            #but this is problematic a as that deepest catalog may not be selected in a compatibile way and
+            #but this is problematic as that deepest catalog may not be selected in a compatibile way and
             #our galaxy might not be in it
             #counterparts are always just on the [0]th entry for the catalog
             try:

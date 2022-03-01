@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.16.2'
+__version__ = '1.16.3'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -292,6 +292,8 @@ def select_hdr_version(version):
     global LAUNCH_PDF_VIEWER #for debug machine only
 
     global HETDEX_API_CONFIG
+
+    global USE_MASKED_CONTINUUM_FOR_BEST_EW
 
 
     try:
@@ -724,6 +726,8 @@ CONTINUUM_FLOOR_COUNTS = 6.5 #5 sigma * 6 counts / sqrt(40 angstroms/1.9 angs pe
 
 CONTINUUM_THRESHOLD_FOR_ABSORPTION_CHECK = 2.0e-17 # erg/s/cm2/AA (near gmag 21)
 
+USE_MASKED_CONTINUUM_FOR_BEST_EW = False #if true use the emission/aborption masked spectrum, else use as a band-pass
+
 Fiber_Radius = 0.75 #arcsec
 IFU_Width = 47.26 #arcsec ... includes 2x fiber radius ... more narrow part fiber 1 - 19, else is 49.8
 IFU_Height = 49.98 #arcsec
@@ -1036,6 +1040,13 @@ DETFLAG_DEXSPEC_GMAG_INCONSISTENT   = 0x00002000 #the straight gmag from the DEX
 
 DETFLAG_LARGE_NEIGHBOR              = 0x00004000 #imaging and SEP show/suggest a large, bright neighbor that could be
                                                  #messing up the classification and continuum measure
+
+DETFLAG_BAD_PIXEL_FLAT              = 0x00010000
+DETFLAG_DUPLICATE_FIBERS            = 0x00020000
+DETFLAG_NEGATIVE_SPECTRUM           = 0x00040000
+DETFLAG_POOR_THROUGHPUT             = 0x00080000
+DETFLAG_BAD_DITHER_NORM             = 0x00100000
+DETFLAG_POOR_SHOT                   = 0x00200000
 #todo: low SNR, weighted position is between fibers (i.e. distances from blue fiber center > 0.74 or 0.75 and SNR < 5.2 or so)
 
 

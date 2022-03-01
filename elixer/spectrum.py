@@ -4091,7 +4091,7 @@ class Spectrum:
         self.errors = []
         self.values_units = 0
 
-        self.gband_continuum_correction_factor = -1
+        self.gband_masked_correction_factor = -1
 
         self.noise_estimate = None
         self.noise_estimate_wave = None
@@ -4143,18 +4143,16 @@ class Spectrum:
         #from HDF5
 
 
-    def gband_continuum_correction(self, recompute=False):
+    def gband_masked_continuum(self, recompute=False):
         """
         Sum over observed EW for all emission and (subtract) all absorption
-        and use as a correction for any gband continuum estimate by dividing net observed EW / simple
-        gband continuum estimate
-        :return:  correction to multiply into gband
+        and use as a correction for any gband continuum estimate
+        :return:  continuum from masked spectra, error on continuum, correction to multiply into gband
         """
 
+        gmag_cgs_cont2 = None
+        gmag_cgs_cont_unc2 = None
         try:
-            if not recompute and (0.0 <= self.gband_continuum_correction_factor <= 1.0):
-                return self.gband_continuum_correction_factor
-
             _errors = copy.copy(self.errors)
             if self.central is not None and self.central > 0 and self.fwhm is not None and self.fwhm > 0:
                 all_line_centers = np.array([self.central])
@@ -4199,16 +4197,16 @@ class Spectrum:
                     gmag_cgs_cont2 = max(G.HETDEX_CONTINUUM_FLUX_LIMIT,gmag_cgs_cont2)
 
                     if gmag_cgs_cont1 > 0 and gmag_cgs_cont2 > 0:
-                        self.gband_continuum_correction_factor = gmag_cgs_cont2/gmag_cgs_cont1
-                        log.info(f"g-band correction factor = {self.gband_continuum_correction_factor}")
+                        self.gband_masked_correction_factor = gmag_cgs_cont2/gmag_cgs_cont1
+                        log.info(f"g-band correction factor = {self.gband_masked_correction_factor}")
                     else:
-                        self.gband_continuum_correction_factor = 1.0
+                        self.gband_masked_correction_factor = 1.0
                 else:
-                    self.gband_continuum_correction_factor = 1.0
+                    self.gband_masked_correction_factor = 1.0
             else:
-                self.gband_continuum_correction_factor = 1.0
+                self.gband_masked_correction_factor = 1.0
         except:
-            log.info("Exception in gband_continuum_correction.",exc_info=True)
+            log.info("Exception in gband_masked_correction.",exc_info=True)
 
         # try:
         #     if use_ew: #use the EW logic
@@ -4225,18 +4223,44 @@ class Spectrum:
         #         else:
         #             absorb = 0
         #
-        #         self.gband_continuum_correction_factor = 1.0 - (emis-absorb)/(G.HETDEX_RED_SAFE_WAVE-G.HETDEX_BLUE_SAFE_WAVE+1)
-        #         log.info(f"g-band correction factor = {self.gband_continuum_correction_factor}")
+        #         self.gband_masked_correction_factor = 1.0 - (emis-absorb)/(G.HETDEX_RED_SAFE_WAVE-G.HETDEX_BLUE_SAFE_WAVE+1)
+        #         log.info(f"g-band correction factor = {self.gband_masked_correction_factor}")
         #
         # except:
-        #     log.info("Exception in gband_continuum_correction.",exc_info=True)
+        #     log.info("Exception in gband_masked_correction.",exc_info=True)
         #     return 1.0
 
-        if not (0.0 <= self.gband_continuum_correction_factor <= 1.0):
-            log.warning(f"Nonsense gband continuum correction factor {self.gband_continuum_correction_factor}. Resetting.")
-            self.gband_continuum_correction_factor = 1.0
+        if not (0.0 <= self.gband_masked_correction_factor <= 1.0):
+            log.warning(f"Nonsense gband continuum correction factor {self.gband_masked_correction_factor}. Resetting.")
+            self.gband_masked_correction_factor = 1.0
 
-        return self.gband_continuum_correction_factor
+        return gmag_cgs_cont2, gmag_cgs_cont_unc2, self.gband_masked_correction_factor
+
+
+    def gband_masked_correction(self, recompute=False):
+        """
+
+        :param recompute:
+        :return:   correction to multiply into gband
+        """
+
+        try:
+            if not recompute and (0.0 <= self.gband_masked_correction_factor <= 1.0):
+                return self.gband_masked_correction_factor
+
+            #don't care about the actual continuum returns, just set the gband_masked_correction_factor
+            self.gband_masked_continuum()
+
+        except:
+            log.info("Exception in gband_masked_correction.",exc_info=True)
+
+        if not (0.0 <= self.gband_masked_correction_factor <= 1.0):
+            log.warning(f"Nonsense gband continuum correction factor {self.gband_masked_correction_factor}. Resetting.")
+            self.gband_masked_correction_factor = 1.0
+
+        return self.gband_masked_correction_factor
+
+
 
     def rescore(self,sum_score=None):
         """
@@ -5527,7 +5551,7 @@ class Spectrum:
 
         try:
             # get very basic info (line fit)
-            self.gband_continuum_correction()
+            self.gband_masked_correction()
 
             #also get the overall slope
             lines_to_mask = self.all_found_lines[:] if self.all_found_lines != None else []
