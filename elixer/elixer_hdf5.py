@@ -506,7 +506,7 @@ def flush_all(fileh,reindex=True):
             vote_tb = fileh.root.ClassificationExtraFeatures
             vote_tb.flush()
         except:
-            pass
+            vote_tb = None
 
         if not reindex:
             return #we're done
@@ -605,7 +605,7 @@ def flush_all(fileh,reindex=True):
                 vote_tb.cols.detectid.create_csindex()
                 vote_tb.flush()
         except:
-          log.debug("Index fail on neighbor spectra table")
+            log.debug("Index fail on vote table")
 
     return
 
