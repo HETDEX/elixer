@@ -1135,44 +1135,57 @@ def append_entry(fileh,det,overwrite=False):
         #ELiXer Found Spectral Lines Table
         #############################
 
-
-        for line in det.spec_obj.all_found_lines:
-            row = ltb.row
-            row['detectid'] = det.hdf5_detectid
-            row['sol_num'] = 0
-            if line.absorber:
-                row['type'] = -1
+        try:
+            if det.spec_obj.all_found_lines is None:
+                l1 = []
             else:
-                row['type'] = 1
+                l1 = det.spec_obj.all_found_lines
 
-            row['wavelength'] = line.fit_x0
-            # if line.mcmc_line_flux_tuple is not None:
-            #     row['flux_line'] = line.mcmc_line_flux
-            #     row['flux_line_err']  = 0.5 * (abs(line.mcmc_line_flux_tuple[1]) + abs(line.mcmc_line_flux_tuple[2]))
-            #
-            # else:
-            row['flux_line'] = line.fit_line_flux
-            row['flux_line_err'] = line.line_flux_err #line.fit_line_flux_err   #line.fit_rmse
-
-            row['score'] = line.line_score
-            if line.mcmc_snr is not None and line.mcmc_snr > 0:
-                row['sn'] = line.mcmc_snr
+            if det.spec_obj.all_found_absorbs is None:
+                l2 = []
             else:
-                row['sn'] = line.snr
+                l2 = det.spec_obj.all_found_absorbs
 
-            try:
-                if line.mcmc_chi2:
-                    row['chi2'] = line.mcmc_chi2
-                elif line.fit_chi2:
-                    row['chi2'] = line.fit_chi2
-            except:
-                pass
+            for line in np.concatenate((l1,l2)):
+                row = ltb.row
+                row['detectid'] = det.hdf5_detectid
+                row['sol_num'] = 0
+                if line.absorber:
+                    row['type'] = -1
+                else:
+                    row['type'] = 1
+
+                row['wavelength'] = line.fit_x0
+                # if line.mcmc_line_flux_tuple is not None:
+                #     row['flux_line'] = line.mcmc_line_flux
+                #     row['flux_line_err']  = 0.5 * (abs(line.mcmc_line_flux_tuple[1]) + abs(line.mcmc_line_flux_tuple[2]))
+                #
+                # else:
+                row['flux_line'] = line.fit_line_flux
+                row['flux_line_err'] = line.line_flux_err #line.fit_line_flux_err   #line.fit_rmse
+
+                row['score'] = line.line_score
+                if line.mcmc_snr is not None and line.mcmc_snr > 0:
+                    row['sn'] = line.mcmc_snr
+                else:
+                    row['sn'] = line.snr
+
+                try:
+                    if line.mcmc_chi2:
+                        row['chi2'] = line.mcmc_chi2
+                    elif line.fit_chi2:
+                        row['chi2'] = line.fit_chi2
+                except:
+                    pass
 
 
-            row['used'] = False #these are all found lines, may or may not be in solution
+                row['used'] = False #these are all found lines, may or may not be in solution
 
-            row.append()
-            ltb.flush()
+                row.append()
+                ltb.flush()
+        except:
+            log.debug(f"Exception.",exc_info=True)
+
 
         sol_num = 0
         if (det.spec_obj is not None) and (det.spec_obj.solutions is not None):
