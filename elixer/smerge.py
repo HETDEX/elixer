@@ -105,8 +105,10 @@ def main():
                 time.sleep(10.0) #sleep 10 secs
             else:
                 #get the final list
+                time.sleep(10.0) #sleep 10 secs ... just to make sure the name change from .working to .h5 completes
                 merge_list = get_base_merge_files(".", "dispatch_*/*intermediate_merge.h5")
                 still_waiting = False
+                print(f"Final Merge List: {merge_list}")
 
         if len(merge_list) > 0:
             needs_unique = False
