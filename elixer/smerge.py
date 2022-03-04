@@ -99,16 +99,25 @@ def main():
         #this is the top level final merge
         #find all previous generation merges files AND includ the elixer_merge.cat, if present
         still_waiting = True
+
+        #how many do we expect?
+        try:
+            merge_count = len(get_base_merge_files(".","dispatch_*/merge_*"))
+        except:
+            merge_count = -1
+
         while still_waiting: #could sleep until the entire job times out if there is a problem
             merge_list = get_base_merge_files(".","dispatch_*/*intermediate_merge.working")
             if len(merge_list) > 0:
                 time.sleep(10.0) #sleep 10 secs
             else:
                 #get the final list
-                time.sleep(10.0) #sleep 10 secs ... just to make sure the name change from .working to .h5 completes
                 merge_list = get_base_merge_files(".", "dispatch_*/*intermediate_merge.h5")
-                still_waiting = False
-                print(f"Final Merge List: {merge_list}")
+                if len(merge_list) < merge_count: #the final job could get kicked off before all the prior jobs are complete or even started
+                    time.sleep(10.0)             #so all the .working files might not even have been created yet
+                else:
+                    still_waiting = False
+                    print(f"Final Merge List {len(merge_list)}: {merge_list}")
 
         if len(merge_list) > 0:
             needs_unique = False
