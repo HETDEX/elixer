@@ -1858,7 +1858,11 @@ def convert_pdf(filename, resolution=150, jpeg=False, png=True):
 
                 try:
                     size = os.path.getsize(image_name)
-                    if size > 430000:
+                    if OS_PNG_ONLY:
+                        log.debug(f"Conversion assumed good at ({size}) for {image_name}. Only OS conversions allowed.")
+                        retry = 99
+                        break
+                    elif size > 430000: #some are legit conversions though
                         log.debug(f"Conversion filesize ({size}) good for {image_name}.")
                         retry = 99
                         break
