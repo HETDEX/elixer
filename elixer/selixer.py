@@ -99,7 +99,7 @@ if "--merge" in args:
 
 #Continuum sanity check
 #for a sanity check later:
-
+continuum_mode = False
 if "--dets" in args:
     i = args.index("--dets")
     if i != -1:
@@ -226,6 +226,9 @@ if "--lyc" in args: #some extra processing
 
 if "--cluster" in args: #runs a clustering search per detectid but only re-runs a handful after that
     base_time_multiplier *= 0.2
+    CLUSTER = True
+else:
+    CLUSTER = False
 
 if MERGE:
     base_time_multiplier = 0.05
@@ -701,7 +704,7 @@ else: # multiple tasks
             exit(0)
         dirs_per_file = len(subdirs) // tasks  # int(floor(float(len(subdirs)) / float(tasks)))
 
-        if not MERGE and (dirs_per_file > MAX_DETECTS_PER_CPU):
+        if not (MERGE or CLUSTER) and (dirs_per_file > MAX_DETECTS_PER_CPU):
             print("Maximum allowed CPU loading exceeded. Each CPU set to process %d detections." % dirs_per_file)
             print("The maximum configured limit is %d" % MAX_DETECTS_PER_CPU)
             print("Reduce the number of detections input and try again.")
@@ -796,6 +799,8 @@ if not time_set: #update time
 
         # set a minimum time ... always AT LEAST 5 or 10 minutes requested?
         minutes = int(TIME_OVERHEAD + MAX_TIME_PER_TASK * mx * mult * base_time_multiplier)
+        if continuum_mode:
+            minutes = int(minutes * 1.05) #small boost since continuum objects have extra processing
         time = str(timedelta(minutes=max(minutes,10.0)))
         print(f"auto-set time: TIME_OVERHEAD {TIME_OVERHEAD} + MAX_TIME_PER_TASK {MAX_TIME_PER_TASK} x mx {mx} x mult {mult} x base_time_multiplier {base_time_multiplier}")
         print("--time %s" %time)
