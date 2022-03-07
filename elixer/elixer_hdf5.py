@@ -2222,6 +2222,25 @@ def merge_unique(newfile,file1,file2):
     return True
 
 
+def merge_chunks(newfile):
+    """
+    merge newfile + ".chunk*" into new file
+
+    :param newfile:
+    :return:
+    """
+
+    try:
+        #now glob all the chunks and regular merge (already know they are unique)
+        log.info("Merging chunks. Calling merge_elixer_hdf5_files ...")
+        chunk_files = glob.glob(newfile + ".chunk*")
+        merge_elixer_hdf5_files(newfile,chunk_files)
+        return True
+    except:
+        log.error("Exception! conducting merge in elixer_hdf5::merge_chunks", exc_info=True)
+        return False
+
+
 def merge_elixer_hdf5_files(fname,flist=[]):
     """
 
