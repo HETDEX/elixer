@@ -964,7 +964,7 @@ GALAXY_MASK_SCORE_BOOST = 100.0 # boost to the solution score if line found to m
 CLUSTER_POS_SEARCH = 15.0 #not really radius but +/- arcsecs from center position
 CLUSTER_WAVE_SEARCH = 2.0 #in AA from line center
 CLUSTER_MAG_THRESH = 23.0 #must be brighter than this to be a cluster parent
-CLUSTER_SELF_MAG_THRESH = 21.0 #if brighter than this don't bother (unless there are flags)
+CLUSTER_SELF_MAG_THRESH = 22.0 #if brighter than this don't bother (unless there are flags)
 CLUSTER_SCORE_BOOST = 100.0
 
 ALLOW_BROADLINE_FIT = True
